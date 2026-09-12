@@ -161,10 +161,10 @@ emits, or by refusing the model.
 | Compiles clean at the highest warning level | Emission and gate. `-std=c99 -pedantic -Wall -Wextra -Wconversion -Wshadow -Werror` on the host compiler in CI; the project's flight compiler is the user's. |
 
 **The prelude.** One file, versioned with the generator, containing the checked `int64_t`
-arithmetic, the enumeration and multiplicity checks, the fixed-size queue operations and the
-trace record writer, and nothing else — a few hundred lines that are verified once, to the
-project's Class A standard, like any other flight library. Every compiled model links the same
-prelude version, recorded in its resource report. Adding to the prelude is a change to a
+arithmetic, the enumeration and multiplicity checks, the fixed-size queue operations (the event,
+outgoing-event and trace queues share them) and the trace record writer, and nothing else — a few
+hundred lines that are verified once, to the project's Class A standard, like any other flight
+library. Every compiled model links the same prelude version, recorded in its resource report. Adding to the prelude is a change to a
 verified library and is treated as such.
 
 **The host backend is unchanged.** `sysml -compile` keeps its GNU-C prelude and its speed; the
@@ -182,24 +182,34 @@ lets a policy resolve them. A flight artifact cannot carry an open choice. The e
 therefore holds three rules:
 
 1. **A model with an admissible choice is refused, statically.** The compiler applies the
-   oracle's criteria to the IR: a fork whose branches write one feature, a decision whose guards
-   are not provably exclusive (the last guard being `else`, or the guards being a partition the
-   compiler can read, such as comparisons of one enumeration against distinct literals), a state
-   with two transitions enabled by one trigger without exclusive guards, sibling regions reacting
-   to one event with an observable ordering between them, and two executors sharing a due
-   instant. The refusal names the elements and the oracle case that makes the choice admissible.
-   The modeller resolves it in the model — sequencing the branches, making the guards a
-   partition — and the fact that they did is visible in the model, where a reviewer reads it.
+   oracle's criteria to the IR, one per choice kind. *Token order*: the runtime records the
+   choice whenever several tokens can step in one step, not only when they collide, so a fork,
+   and any other node that leaves several tokens live, is admitted only when the compiler proves
+   the concurrent branches commute — each branch's write set disjoint from every other branch's
+   read and write sets, and at most one of them sending, posting an outgoing event or accepting —
+   and refused otherwise. *Decision branch*: the guards must be provably exclusive (the last guard
+   `else`, or the guards a partition the compiler can read, such as comparisons of one enumeration
+   against distinct literals). *Write order*: two writes to one feature in one step refuse
+   (subsumed by the commutation rule for forks, stated separately for regions). *Transition*: a
+   state with two transitions enabled by one trigger without exclusive guards refuses. *Region
+   order*: sibling regions reacting to one event are admitted under the same commutation rule as
+   fork branches. *Due order*: two executors sharing a due instant refuse. The refusal names the
+   elements and the oracle case that makes the choice admissible. The modeller resolves it in the
+   model — sequencing the branches, making the guards a partition — and the fact that they did is
+   visible in the model, where a reviewer reads it. The diagnostic trace records the order the
+   profile ran commuting branches in; that order is fixed by rule 2 and is not an observable of
+   the model.
 2. **What remains is declaration order**, the policy the interpreter calls `declared`, stated in
    the semantics document as the profile's rule, so a model that passes rule 1 has exactly one
    execution and the interpreter under `declared` computes it.
 3. **Every resource is bounded from the model.** Event queue depth, deferred-event depth, token
-   counts and sequence lengths come from multiplicities and from the `EmbeddedTarget` metadata,
-   and each has a defined behavior at its limit: a full event queue refuses the posted event and
-   returns a status the host sees, counts the refusal, and never overwrites — silent loss is the
-   one behavior that is never chosen. The refusals the roadmap names — unbounded multiplicity,
-   `all T`, dynamic `new`, recursion — stand, with the loop bounds and the profile's own from the
-   table above.
+   counts, the outgoing-event queue depth and sequence lengths come from multiplicities and from
+   the `EmbeddedTarget` metadata, and each has a defined behavior at its limit: a full event queue
+   refuses the posted event and returns a status the host sees, counts the refusal, and never
+   overwrites; a full outgoing queue fails the `send` with a status the model's step returns to
+   the host — silent loss is the one behavior that is never chosen. The refusals the roadmap
+   names — unbounded multiplicity, `all T`, dynamic `new`, recursion — stand, with the loop
+   bounds and the profile's own from the table above.
 
 Time is a fixed step. `tick(dt)` advances the model's clock by the step the metadata declares, in
 integer microseconds; `accept after d` compiles to a down-counter in steps and refuses a `d` that
@@ -218,18 +228,27 @@ configuration item:
 | `<model>.c`, `<model>.h` | the generated translation unit and its host header |
 | `sysml_embedded.c`, `sysml_embedded.h` | the prelude, at its version |
 | `<model>.trace.json` | the trace map: for every generated function and table, the IR index, the model element's qualified name, its identity (the `IdentityMetadata` annotation when the model carries one, see [element identity annotations](../../project/element-identity-annotations.md)), and its source span; and for every C line, the IR node it implements |
-| `<model>.resources.json` | the resource report: bytes of `static const` tables, bytes of `static` state (state vector, queues, token counts), the maximum call depth and stack bound per entry point computed from the acyclic call graph and each function's frame estimate, the number of generated functions and decisions, the prelude version, and the generator version and toolchain that produced it |
+| `<model>.resources.json` | the resource report, computed by the generator from the IR and the emitted C alone: bytes of `static const` tables, bytes of `static` state (state vector, queues, token counts), the maximum call depth and a stack bound per entry point computed from the acyclic call graph and a per-function frame estimate, the number of generated functions and decisions, the prelude version, and the generator version |
 | `<model>.refusals.json` | empty on success; otherwise every construct refused, by element and rule, so a build log is not the only record |
 
-A **budget file** (`embedded-budget.json`, checked in beside the model) states the limits the
-report must fit — RAM, stack per entry point, code size as the project's compiler reports it —
-and exceeding one is a compile error, not a warning.
+Everything in that directory is a function of the model text and the generator version only. The
+figures that depend on a C compiler — code size, the measured stack frames, the toolchain
+identity — are not the generator's to state; they come out of the project's own build, with the
+project's flight compiler, into a separate `<model>.build.json` that the build step writes beside
+the directory. The generator's frame estimate is an input to that measurement, not a substitute.
 
-**Reproducibility.** Two compilations of one model text by one generator version produce
-byte-identical artifacts, on any host; the CI gate compiles each fixture twice and diffs. The
-generator binaries gain `-trimpath` in the release build (they are built without it today), the
-release job records the Go and C toolchain versions, and the release's checksum manifest is
-already signed
+A **budget file** (`embedded-budget.json`, checked in beside the model) states the limits both
+reports must fit — RAM and the estimated stack per entry point, checked by the generator; code
+size and measured stack, checked by the build step against `<model>.build.json` — and exceeding
+one is a build error, not a warning.
+
+**Reproducibility.** Two compilations of one model text by one generator version produce a
+byte-identical directory, on any host: the claim covers the generator-owned artifacts above and
+nothing a C compiler touched. The CI gate compiles each fixture twice on one runner and once on
+each other operating system the workflows already run on (Linux and Windows today), and diffs
+all of them. The generator binaries gain `-trimpath` in the release build (they
+are built without it today), the release job records the Go and C toolchain versions, and the
+release's checksum manifest is already signed
 ([releasing](../../project/releasing.md#the-signed-checksum-manifest)), which is what lets a
 project pin the generator it qualified.
 
@@ -290,12 +309,15 @@ sysml_status M_post(M_event_id id, const M_event *payload); /* enqueue; SYSML_QU
 sysml_status M_read(M_feature_id id, M_value *out);         /* copy one feature's current value */
 sysml_status M_write(M_feature_id id, const M_value *in);   /* set one `in` feature; refused for others */
 sysml_status M_state(M_region_id id, M_state_id *out);      /* the active state of one region */
-sysml_status M_trace(M_trace_record *out);                  /* next trace record, SYSML_TRACE_EMPTY when none */
+sysml_status M_outgoing(M_outgoing_event *out);             /* next event sent out of the model; SYSML_QUEUE_EMPTY when none */
+sysml_status M_trace(M_trace_record *out);                  /* next diagnostic record; SYSML_TRACE_EMPTY when none */
 ```
 
 No callback into the host exists except the assertion macro; a model that `send`s outside
-itself has the send recorded as an outgoing event the host drains through `M_trace` and routes,
-which is where an F´ port or a Zephyr message queue attaches. Every function is re-entrant with
+itself has the send queued as an outgoing event the host drains through `M_outgoing` after each
+`M_tick` and routes, which is where an F´ port or a Zephyr message queue attaches. That queue is
+part of every build; the diagnostic trace is a separate queue behind `M_trace`, and a build
+without the trace writer loses nothing the model does. Every function is re-entrant with
 respect to nothing — the host calls them from one task, or serializes; the header says so.
 This is the restriction of the C ABI the roadmap plans for host tools and the C client
 ([a C client, and the C ABI](../../project/roadmap.md#i4--a-c-client-and-the-c-abi)) —
@@ -306,7 +328,8 @@ Two proofs, in order. **Zephyr on QEMU**, as the roadmap states: one state machi
 from the conformance corpus, linked into a Zephyr application, run under `qemu_cortex_m3` in a
 CI container with the Zephyr SDK, the trace read back over the serial console and compared with
 the interpreter's golden. **An F´ component** wrapping the same header — `M_post` behind an input
-port, `M_tick` behind the rate group, `M_trace` drained to output ports and events — run in F´'s
+port, `M_tick` behind the rate group, `M_outgoing` drained to output ports and `M_trace` to F´
+events — run in F´'s
 Linux reference deployment first and on a maintainer's board second, because F´ is the framework a
 JPL flight project is likeliest to host this in. The first is the CI gate; the second is the
 demonstration.
@@ -322,8 +345,8 @@ external costs are named at the end.
 | **0 — this record** | the design, reviewed | merged | 1 |
 | **1 — the closed IR** | `internal/core/bir` (name to be settled): the tables, the canonical serialization, the lowering from `ActionGraph`/`StateGraph`/`CalcBody`, the interpreter entry that runs from it, and `behavior-ir-semantics.md` with the rule → case trace table | every state and action conformance case and golden trace passes through the IR entry; the serialization is byte-stable; the trace table has no rule without a case | 2 |
 | **2 — the prelude and the embedded emitter** | `sysml_embedded.{c,h}`; the emitter over static tables in the profile above; the refusals; the host-side differential and the `gcov` and analyzer gates | the differential passes over every admitted case on the host; every refusal has a fixture; the C compiles clean under the profile's flags | 3 |
-| **3 — resources and budget** | the resource report, the budget file, the trace map, reproducibility gate | two compilations diff empty; a fixture over budget fails the build; the trace map covers every generated line | 1 |
-| **4 — the host interface** | the header above, designed with the C ABI item; `M_write`, `M_trace`; the outgoing-event record | the differential drives fixtures through the header alone | 1 |
+| **3 — resources and budget** | the resource report, the budget file, the trace map, reproducibility gate | the same-host and cross-host compilations diff empty; a fixture over budget fails the build; the trace map covers every generated line | 1 |
+| **4 — the host interface** | the header above, designed with the C ABI item; `M_write`, `M_outgoing`, `M_trace` | the differential drives fixtures through the header alone | 1 |
 | **5 — the proofs** | the Zephyr application and CI job under QEMU; the F´ component and its Linux run | the QEMU trace equals the golden for both fixtures in CI; the F´ deployment runs the same fixtures on Linux | 2 |
 | **6 — the embedded library** | `EmbeddedTarget` metadata (MCU, step, queue depths, FPU, budget reference) and a library package of fixed-width numeric types and bounded collections the compiler recognizes | the passes validate the metadata; `Real` compiles only under a declared FPU; a narrower declared type is emitted as such | 1 |
 
@@ -367,6 +390,6 @@ Decisions this note cannot make and the stages need answered before stage 2:
 3. **Queue-full behavior.** The profile refuses the event and reports it; an alternative is to
    treat a full queue as a fault that halts the model. Both are deterministic; the plan decides.
 4. **Who verifies the prelude**, and to which standard, since it is linked into every model.
-5. **Whether the trace is required in flight builds** or only in the differential and the
-   QEMU proof; a flight build without the trace writer is smaller and the resource report should
-   state both figures.
+5. **Whether the diagnostic trace is required in flight builds** or only in the differential
+   and the QEMU proof; a flight build without the trace writer is smaller, keeps `M_outgoing`,
+   and the resource report should state both figures.
