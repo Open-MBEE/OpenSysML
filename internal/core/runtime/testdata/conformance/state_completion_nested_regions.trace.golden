@@ -14,3 +14,13 @@ stmt action body
     eval operator + -> "l;r;"
 enter: done
 transition: rstart -> done (event: accept Second)
+exit: done
+exit: done
+exit: busy (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "l;r;"
+      eval literal "busy;" -> "busy;"
+    eval operator + -> "l;r;busy;"
+enter: done
+transition: busy -> done

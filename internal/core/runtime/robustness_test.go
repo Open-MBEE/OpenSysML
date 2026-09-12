@@ -71,9 +71,9 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_accept_goes_on_across_a_substate_transition", testStateDoBodyAcceptGoesOnAcrossASubstateTransition)
 	t.Run("state_do_body_accept_yields_to_a_substate_transition_leaving_it", testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt)
 	t.Run("state_do_body_accept_follows_the_transition_chosen", testStateDoBodyAcceptFollowsTheTransitionChosen)
-	t.Run("state_do_body_accept_follows_the_choice_branch_taken", testStateDoBodyAcceptFollowsTheChoiceBranchTaken)
+	t.Run("state_do_body_accept_yields_to_an_open_choice", testStateDoBodyAcceptYieldsToAnOpenChoice)
 	t.Run("state_do_body_accept_yields_to_a_transition_into_its_region", testStateDoBodyAcceptYieldsToATransitionIntoItsRegion)
-	t.Run("state_do_body_accept_keeps_the_route_chosen", testStateDoBodyAcceptKeepsTheRouteChosen)
+	t.Run("state_do_body_accept_runs_before_the_choice_reads", testStateDoBodyAcceptRunsBeforeTheChoiceReads)
 	t.Run("state_choice_route_reads_the_accepted_payload", testStateChoiceRouteReadsTheAcceptedPayload)
 	t.Run("state_do_body_accept_shares_the_dispatch_with_a_region", testStateDoBodyAcceptSharesTheDispatchWithARegion)
 	t.Run("state_do_body_nested_accept_cancelled_on_exit", testStateDoBodyNestedAcceptCancelledOnExit)
@@ -126,6 +126,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_transition_endpoint_never_resolved", testStateTransitionEndpointNeverResolved)
 	t.Run("state_transition_endpoint_naming_a_first_marker", testStateTransitionEndpointNamingAFirstMarker)
 	t.Run("state_junction_without_an_outgoing_transition", testStateJunctionWithoutAnOutgoingTransition)
+	t.Run("state_choice_without_an_enabled_branch", testStateChoiceWithoutAnEnabledBranch)
 	t.Run("state_event_after_completion", testStateEventAfterCompletion)
 	t.Run("state_completion_rests_in_done", testStateCompletionRestsInDone)
 	t.Run("state_nested_region_completion_keeps_siblings_running", testStateNestedRegionCompletionKeepsSiblingsRunning)
@@ -153,6 +154,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("own_entry_transitions_replace_inherited_ones", testOwnEntryTransitionsReplaceInheritedOnes)
 	t.Run("region_entry_transitions_into_done_complete_at_initialize", testRegionEntryTransitionsIntoDoneCompleteAtInitialize)
 	t.Run("nested_regions_into_done_complete_at_initialize", testNestedRegionsIntoDoneCompleteAtInitialize)
+	t.Run("nested_regions_into_done_without_completion_transition_stay_active", testNestedRegionsIntoDoneWithoutCompletionTransitionStayActive)
 	t.Run("transition_into_nested_regions_in_done_completes", testTransitionIntoNestedRegionsInDoneCompletes)
 	t.Run("region_start_descends_through_entry_transitions", testRegionStartDescendsThroughEntryTransitions)
 	t.Run("region_entry_guards_read_the_region_state_attributes", testRegionEntryGuardsReadTheRegionStateAttributes)
@@ -320,7 +322,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("accept_deadlock_reports_every_waiting_accept", testAcceptDeadlockReportsEveryWaitingAccept)
 	t.Run("accept_statement_deadlock_in_a_loop", testAcceptStatementDeadlockInALoop)
 	t.Run("history_outside_composite_state", testHistoryOutsideCompositeState)
-	t.Run("history_without_record_or_default", testHistoryWithoutRecordOrDefault)
+	t.Run("history_without_record_default_or_entry", testHistoryWithoutRecordDefaultOrEntry)
 	t.Run("defer_of_non_deferrable_trigger", testDeferOfNonDeferrableTrigger)
 	t.Run("non_terminating_do_behavior", testNonTerminatingDoBehavior)
 	t.Run("empty_anonymous_action_body", testEmptyAnonymousActionBody)
@@ -3640,6 +3642,44 @@ func testStateJunctionWithoutAnOutgoingTransition(t *testing.T) {
 	}
 }
 
+// testStateChoiceWithoutAnEnabledBranch: a choice's guards are read once the
+// transition into it has run its effect; when none holds and no unguarded branch
+// remains, the run fails at that instant with a typed error naming the choice.
+func testStateChoiceWithoutAnEnabledBranch(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		state Machine {
+			attribute x : Integer = 0;
+			entry; then init;
+			state init;
+			state busy;
+			choice pick;
+			state seen;
+			succession first init then busy;
+			transition first busy do assign x := 2 then pick;
+			transition first pick if x == 1 then seen;
+		}
+	}`)
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- exec.RunToCompletion() }()
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrChoiceWithoutBranch) {
+			t.Fatalf("expected ErrChoiceWithoutBranch: the incoming effect wrote x := 2 and the only branch wants 1; got %v", err)
+		}
+		if !strings.Contains(err.Error(), "pick") {
+			t.Errorf("expected the error to name the choice, got %v", err)
+		}
+		if x := exec.StateData()["x"]; !valueEqual(x, integerValue(2)) {
+			t.Errorf("x = %v, want 2: the incoming effect had run when the choice was read", x)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("RunToCompletion hung on a choice no branch leaves")
+	}
+}
+
 // testStateTransitionWithoutATarget: a transition with no target names no edge,
 // so lowering reports it rather than dereferencing the absent target.
 func testStateTransitionWithoutATarget(t *testing.T) {
@@ -4159,10 +4199,11 @@ func testHistoryOutsideCompositeState(t *testing.T) {
 	}
 }
 
-// testHistoryWithoutRecordOrDefault: before its composite state has ever been
-// exited a history has nothing to restore, and with no outgoing transition there
-// is no default target either — that is reported, not silently ignored.
-func testHistoryWithoutRecordOrDefault(t *testing.T) {
+// testHistoryWithoutRecordDefaultOrEntry: before its composite state has ever
+// been exited a history has nothing to restore; with no default transition it
+// falls back on the owner's entry transition, and when the owner declares none
+// either the run fails with a typed error at the transition, not silently.
+func testHistoryWithoutRecordDefaultOrEntry(t *testing.T) {
 	history := &ast.PseudostateNode{Kind: ast.PseudostateShallowHistory, Name: "H"}
 	outer := &ast.StateNode{
 		Name:      "outer",
@@ -4186,11 +4227,16 @@ func testHistoryWithoutRecordOrDefault(t *testing.T) {
 	fire(t, exec, "init", "away")
 
 	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"))
-	if err == nil {
-		t.Fatal("expected an error: nothing recorded and no default history transition")
+	if !errors.Is(err, ErrHistoryWithoutEntry) {
+		t.Fatalf("expected ErrHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
 	}
-	if !strings.Contains(err.Error(), "no recorded configuration") {
-		t.Errorf("expected a missing-default error, got: %v", err)
+	for _, name := range []string{"H", "outer"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("error should name %s, got: %v", name, err)
+		}
+	}
+	if current := exec.getCurrentState(); current == nil || current.Name != "away" {
+		t.Errorf("a failed history transition leaves the machine where it was, got %v", current)
 	}
 }
 
@@ -6992,7 +7038,8 @@ func testRegionEntryTransitionsIntoDoneCompleteAtInitialize(t *testing.T) {
 }
 
 // testNestedRegionsIntoDoneCompleteAtInitialize: a machine starting in a
-// parallel state whose every region starts in `done` completes as it starts.
+// parallel state whose every region starts in `done` completes that state as
+// it starts; its completion transition then completes the machine.
 func testNestedRegionsIntoDoneCompleteAtInitialize(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {
 		private import ScalarValues::*;
@@ -7008,18 +7055,69 @@ func testNestedRegionsIntoDoneCompleteAtInitialize(t *testing.T) {
 					entry; then done;
 				}
 			}
+			transition first outer then done;
 		}
 	}`)
+	if exec.State() != StateRunning {
+		t.Fatalf("expected the completion of outer pending right after initialize, got %s", exec.State())
+	}
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("completion of outer: %v", err)
+	}
 	if exec.State() != StateCompleted {
-		t.Fatalf("expected StateCompleted right after initialize, got %s", exec.State())
+		t.Fatalf("expected StateCompleted once outer's completion transition fired, got %s", exec.State())
 	}
 	if got := exec.StateData()["exits"]; got.Kind != ValConst || got.Const.Int != 1 {
 		t.Errorf("the machine's exit action ran %v times, want once", got)
 	}
 }
 
+// testNestedRegionsIntoDoneWithoutCompletionTransitionStayActive: a parallel
+// state whose every region starts in `done` and which has no completion
+// transition stays active and completed; the machine keeps running.
+func testNestedRegionsIntoDoneWithoutCompletionTransitionStayActive(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute exits : Integer = 0;
+			exit action { assign exits := exits + 1; }
+			entry; then outer;
+			state outer parallel {
+				state left {
+					entry; then done;
+				}
+				state right {
+					entry; then done;
+				}
+			}
+			transition first outer accept again then outer;
+		}
+	}`)
+	if exec.State() != StateRunning {
+		t.Fatalf("expected the machine running with outer completed, got %s", exec.State())
+	}
+	if exec.EventQueue().Len() != 0 {
+		t.Fatalf("%d events pending, want none: outer has no completion transition", exec.EventQueue().Len())
+	}
+	if got := exec.StateData()["exits"]; got.Kind != ValConst || got.Const.Int != 0 {
+		t.Errorf("the machine's exit action ran %v times, want never", got)
+	}
+	exec.SendSignal("again", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("again: %v", err)
+	}
+	dispatch, _ := exec.LastDispatch()
+	if !dispatch.Fired {
+		t.Error("the completed outer state no longer reacts to an event")
+	}
+	if exec.State() != StateRunning {
+		t.Errorf("expected the machine still running after re-entering outer, got %s", exec.State())
+	}
+}
+
 // testTransitionIntoNestedRegionsInDoneCompletes: a transition into a parallel
-// state whose every region starts in `done` completes the machine.
+// state whose every region starts in `done` completes that state, and its
+// completion transition the machine.
 func testTransitionIntoNestedRegionsInDoneCompletes(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {
 		private import ScalarValues::*;
@@ -7037,6 +7135,7 @@ func testTransitionIntoNestedRegionsInDoneCompletes(t *testing.T) {
 					entry; then done;
 				}
 			}
+			transition first outer then done;
 		}
 	}`)
 	assertCurrentState(t, exec, "idle")
@@ -7044,8 +7143,14 @@ func testTransitionIntoNestedRegionsInDoneCompletes(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("go: %v", err)
 	}
+	if exec.State() != StateRunning {
+		t.Fatalf("expected the completion of outer pending after entering it, got %s", exec.State())
+	}
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("completion of outer: %v", err)
+	}
 	if exec.State() != StateCompleted {
-		t.Fatalf("expected StateCompleted after entering outer, got %s", exec.State())
+		t.Fatalf("expected StateCompleted once outer's completion transition fired, got %s", exec.State())
 	}
 	if got := exec.StateData()["exits"]; got.Kind != ValConst || got.Const.Int != 1 {
 		t.Errorf("the machine's exit action ran %v times, want once", got)
@@ -13641,12 +13746,12 @@ func testStateDoBodyAcceptFollowsTheTransitionChosen(t *testing.T) {
 	}
 }
 
-// testStateDoBodyAcceptFollowsTheChoiceBranchTaken: the transition chosen targets a
-// choice with a guarded branch to another substate and a default branch out of the
-// enclosing state. The branch the guard selects, as it stands when the signal is
-// dispatched, decides whether the enclosing do behavior goes on: inside, it does,
-// the leaving branch notwithstanding; outside, the transition takes the signal alone.
-func testStateDoBodyAcceptFollowsTheChoiceBranchTaken(t *testing.T) {
+// testStateDoBodyAcceptYieldsToAnOpenChoice: the transition chosen targets a choice
+// with a guarded branch to another substate and a default branch out of the
+// enclosing state. The choice is read only once the transition is under way, so
+// whichever branch it then takes, the enclosing do behavior — parked in a state a
+// branch may leave — does not take the signal: the transition takes it alone.
+func testStateDoBodyAcceptYieldsToAnOpenChoice(t *testing.T) {
 	model := func(stay string) string {
 		return `
 		private import ScalarValues::*;
@@ -13681,7 +13786,7 @@ func testStateDoBodyAcceptFollowsTheChoiceBranchTaken(t *testing.T) {
 		leaf  string
 		total int64
 	}{
-		{"true", Decision{Fires: []string{"transition route"}, Resumes: []string{"do behavior of state active"}}, "right", 11},
+		{"true", Decision{Fires: []string{"transition route"}}, "right", 1},
 		{"false", Decision{Fires: []string{"transition route"}}, "stopped", 100},
 	}
 	for _, tc := range cases {
@@ -13691,7 +13796,7 @@ func testStateDoBodyAcceptFollowsTheChoiceBranchTaken(t *testing.T) {
 			t.Fatalf("stay = %s: Decide(Go): %v", tc.stay, err)
 		}
 		if !reflect.DeepEqual(decision, tc.want) {
-			t.Errorf("stay = %s: Decide(Go) = %+v, want %+v: the branch the choice takes decides whether the do behavior goes on", tc.stay, decision, tc.want)
+			t.Errorf("stay = %s: Decide(Go) = %+v, want %+v: a branch of the open choice may leave the do behavior's state", tc.stay, decision, tc.want)
 		}
 		ctx.PostMessage(goMsg)
 		if err := exec.ProcessNextEvent(); err != nil {
@@ -13766,11 +13871,11 @@ func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
 	}
 }
 
-// testStateDoBodyAcceptKeepsTheRouteChosen: the branch a choice routes the chosen
-// transition along is settled before the do behaviors go on with the signal, so a
-// do behavior that rewrites the guard on its way cannot send the transition down
-// another branch than the one it was let go on for.
-func testStateDoBodyAcceptKeepsTheRouteChosen(t *testing.T) {
+// testStateDoBodyAcceptRunsBeforeTheChoiceReads: the do behaviors go on with the
+// signal before the chosen transition fires, and a choice on its route reads its
+// guards only then, so a do behavior that rewrites the guard on its way sends the
+// transition down the branch the rewritten data selects.
+func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 	src := `
 	private import ScalarValues::*;
 	attribute def Go;
@@ -13791,10 +13896,10 @@ func testStateDoBodyAcceptKeepsTheRouteChosen(t *testing.T) {
 			choice pick;
 			transition route first left accept Go then pick;
 			transition first pick if stay then right;
-			transition first pick then stopped;
+			transition first pick then other;
 			state right { entry assign total := total + 1; }
+			state other { entry assign total := total + 100; }
 		}
-		state stopped { entry assign total := total + 100; }
 	}
 	part def Box { exhibit state w : Waiter; }
 	`
@@ -13815,11 +13920,11 @@ func testStateDoBodyAcceptKeepsTheRouteChosen(t *testing.T) {
 	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", dispatch, ok)
 	}
-	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
-		t.Errorf("state %s with %d messages in flight, want right with the one message consumed: the route was settled while stay held", activeLeaf(exec), len(ctx.PendingMessages()))
+	if activeLeaf(exec) != "other" || len(ctx.PendingMessages()) != 0 {
+		t.Errorf("state %s with %d messages in flight, want other with the one message consumed: the choice read stay after the do behavior cleared it", activeLeaf(exec), len(ctx.PendingMessages()))
 	}
-	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
-		t.Errorf("total = %v, want 11: the do behavior's count, then the entry of right", total)
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(110)) {
+		t.Errorf("total = %v, want 110: the do behavior's count, then the entry of other", total)
 	}
 }
 
