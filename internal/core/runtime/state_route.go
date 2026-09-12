@@ -187,7 +187,6 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	pick := 0
 	if point, ok := e.choiceBranchPoint(choice, outgoing, enabled); ok {
 		pick = e.ctx.scheduling().choose(point, nil)
-		// A refused replay move takes no branch; travel undoes the move made so far.
 		if err := e.ctx.scheduling().refusal(); err != nil {
 			return route{}, err
 		}
@@ -225,8 +224,7 @@ func (e *StateExecutor) probeBranch(choice *ast.PseudostateNode, outgoing []*low
 }
 
 // choiceBranchPoint is the branches of a choice enabled on arrival, at their
-// declared positions, as the choice point still to be taken; there is none
-// under two.
+// declared positions, as a choice point not yet taken; there is none under two.
 func (e *StateExecutor) choiceBranchPoint(choice *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
