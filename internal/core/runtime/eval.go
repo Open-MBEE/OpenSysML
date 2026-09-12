@@ -130,14 +130,10 @@ func (ec *EvalContext) valuedFeatureValue(name string) (val Value, ok bool, err 
 	return val, true, err
 }
 
-// conformBodyDeclared holds val as the value of a declaration a body carries: a parameter's
-// count answers to its effective multiplicity, a local's to a stated one only, an omitted one keeping the initializer's.
+// conformBodyDeclared holds val as the value of a declaration a body carries: its count
+// answers to a stated multiplicity only, a local omitting one keeping the initializer's.
 func (ec *EvalContext) conformBodyDeclared(sym *symbols.Symbol, val Value) (Value, error) {
-	mult, stated := ec.ctx.statedMultiplicity(sym)
-	if !stated && semantics.IsParameter(sym) {
-		mult, stated = semantics.AssumedRange(), true
-	}
-	if stated {
+	if mult, stated := ec.ctx.statedMultiplicity(sym); stated {
 		if msg := mult.HeldViolation(heldCountOf(&val)); msg != "" {
 			return Value{}, fmt.Errorf("feature value %s: %w: %s", ec.ctx.qualifiedSymbolName(sym), ErrMultiplicityViolation, msg)
 		}

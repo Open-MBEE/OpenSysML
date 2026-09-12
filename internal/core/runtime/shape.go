@@ -221,16 +221,20 @@ func (ctx *Context) featureMultiplicity(sym, owner *symbols.Symbol) semantics.Ra
 }
 
 // statedMultiplicity is the multiplicity a feature states, itself or as inherited from the
-// declarations it redefines or, abstract, subsets; stated is false when none on that walk states one.
+// declarations it redefines or, abstract, subsets; a parameter stating none holds the assumed
+// one value (KerML 1.0 §7.4.5), and stated is false only for a non-parameter none on that walk bounds.
 func (ctx *Context) statedMultiplicity(sym *symbols.Symbol) (semantics.Range, bool) {
 	if mult, stated := ctx.extractMultiplicity(sym); stated {
 		return mult, true
 	}
-	owner := ctx.findOwnerType(sym)
-	if owner == nil {
-		return semantics.Range{}, false
+	var mult semantics.Range
+	stated := false
+	if owner := ctx.findOwnerType(sym); owner != nil {
+		mult, _, stated = ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true})
 	}
-	mult, _, stated := ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true})
+	if !stated && semantics.IsParameter(sym) {
+		return semantics.AssumedRange(), true
+	}
 	return mult, stated
 }
 

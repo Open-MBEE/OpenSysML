@@ -516,6 +516,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"SetParam", "type Collections::Set is not Integer, Real or Boolean"},
 		{"SetElements", "type Collections::Set is not Integer, Real or Boolean"},
 		{"SetLocal", "type Collections::Set is not Integer, Real or Boolean"},
+		{"SubsetLocal", "attribute ys redefines or subsets a feature, inheriting a shape it does not state"},
 		{"TensorParam", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
 		{"TensorBuilt", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
 		{"MetaCast", "a `meta` cast, whose metaobject reflects a model element and has no native representation"},

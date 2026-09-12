@@ -355,6 +355,17 @@ func (fc *funcCompiler) uniqueOf(scope *symbols.Scope, u *ast.Usage, name string
 	return false, fc.unsupported(fmt.Sprintf("%s: the declaration does not resolve in its scope", name))
 }
 
+// inheritsShape reports a usage redefining or subsetting another feature, whose type,
+// multiplicity and uniqueness it may take from that feature rather than state.
+func inheritsShape(u *ast.Usage) bool {
+	for _, r := range u.Relationships {
+		if r != nil && (r.Kind == ast.RelRedefines || r.Kind == ast.RelSubsets) {
+			return true
+		}
+	}
+	return false
+}
+
 func hasTyping(u *ast.Usage) bool {
 	for _, r := range u.Relationships {
 		if r != nil && r.Kind == ast.RelTyping {
@@ -555,6 +566,9 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 	u, _ := s.Node.(*ast.Usage)
 	var declared binding
+	if u != nil && inheritsShape(u) {
+		return nil, fc.unsupported(fmt.Sprintf("attribute %s redefines or subsets a feature, inheriting a shape it does not state", s.Name))
+	}
 	// An omitted multiplicity keeps the initializer's count; a stated one is checked.
 	multStated := false
 	if u != nil {
