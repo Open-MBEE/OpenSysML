@@ -1223,7 +1223,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	if !ok {
 		return Value{}, fmt.Errorf("instance ID %d not found for member %s", id, from)
 	}
-	name := parts[0].Text
+	name, rest := parts[0].Text, parts[1:]
 	// A frame, scale or transformation object answers its members from the value it is.
 	if ref, isRef, err := ec.ctx.referenceValueOfObject(inst); isRef {
 		if err != nil {
@@ -1242,7 +1242,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 			if err != nil {
 				return Value{}, err
 			}
-			return ec.chainMemberValue(answer, parts[1:], name)
+			return ec.chainMemberValue(answer, rest, name)
 		}
 	}
 	fvDecl, ok := inst.FeatureValues[name]
@@ -1250,14 +1250,14 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		// A calc usage is an evaluation rather than a feature value, so its outputs are
 		// read from a run of it against this object.
 		if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
-			return ec.calcUsageMemberValue(sym, inst, parts[1:])
+			return ec.calcUsageMemberValue(sym, inst, rest)
 		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 	}
 	// A variant named through the variation feature it belongs to is the choice
 	// itself, not a member of the variation's value.
-	if variant, rest, ok := ec.variantSegment(fvDecl.Feature, parts[1:]); ok {
-		if len(rest) == 0 {
+	if variant, after, ok := ec.variantSegment(fvDecl.Feature, rest); ok {
+		if len(after) == 0 {
 			return variantReference(variant), nil
 		}
 		// Members are read from the object the variant stands for.
@@ -1265,7 +1265,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if err != nil {
 			return Value{}, err
 		}
-		return ec.chainMemberValue(val, rest, variant.Name)
+		return ec.chainMemberValue(val, after, variant.Name)
 	}
 	// Read through GetFeatureValue so a derived or composite member is materialized
 	// on demand rather than read as an empty feature value.
@@ -1276,13 +1276,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	// An object read through the model holds, for a feature whose count the model
 	// leaves open, no fixed sequence of values.
 	if val, ok := ec.openFeatureRead(inst, fv, from, name); ok {
-		return ec.chainMemberValue(val, parts[1:], name)
+		return ec.chainMemberValue(val, rest, name)
 	}
 	member, err := ec.ctx.readFeatureValue(fv, name)
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.chainMemberValue(member, parts[1:], name)
+	return ec.chainMemberValue(member, rest, name)
 }
 
 // chainOverElements reads the rest of a chain from every element of a
