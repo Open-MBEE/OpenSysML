@@ -143,9 +143,9 @@ func TestAbstractFeatureInheritsMultiplicityFromWhatItSubsets(t *testing.T) {
 	}
 }
 
-// A valueless optional declaration evaluates to the empty sequence whether it is
-// named bare or qualified; a required one keeps its no-value error both ways.
-func TestValuelessOptionalDeclarationEvaluatesEmptyHoweverSpelled(t *testing.T) {
+// A valueless declaration read at model level, bare or qualified, is undetermined
+// of its declared multiplicity.
+func TestValuelessDeclarationIsUndeterminedHoweverSpelled(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
 		private import ScalarValues::*;
 		part def P { attribute tags : String[0..*]; attribute mass : Real; }
@@ -158,20 +158,17 @@ func TestValuelessOptionalDeclarationEvaluatesEmptyHoweverSpelled(t *testing.T) 
 	}
 	for _, src := range []string{"names", "test::names", "P::tags", "test::P::tags"} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
-		if err != nil || elementCount(&val) != 0 {
-			t.Errorf("%s = %s, %v; want the empty sequence", src, FormatValue(val), err)
-		}
+		wantUndetermined(t, src, val, err, "[0..*]")
 	}
 	for _, src := range []string{"weight", "test::weight", "P::mass", "test::P::mass"} {
-		if val, err := evalIn(t, ctx, pkg.Scope, src); err == nil {
-			t.Errorf("%s = %s, want a no-value error", src, FormatValue(val))
-		}
+		val, err := evalIn(t, ctx, pkg.Scope, src)
+		wantUndetermined(t, src, val, err, "[1]")
 	}
 }
 
-// A declaration bound to an optional multiplicity by what it redefines or, if
-// abstract, subsets evaluates as it does on an object: empty, bare or qualified.
-func TestInheritedOptionalDeclarationEvaluatesEmpty(t *testing.T) {
+// A declaration bound to a multiplicity by what it redefines or subsets is undetermined
+// of that multiplicity at model level, and reading it materializes no object.
+func TestInheritedDeclarationIsUndeterminedOfInheritedMultiplicity(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
 		part def Wheel;
 		part def Car {
@@ -193,19 +190,16 @@ func TestInheritedOptionalDeclarationEvaluatesEmpty(t *testing.T) {
 	before := len(ctx.instances)
 	for _, src := range []string{"spares", "test::spares", "Car::spares", "test::Car::spares", "Van::wheels"} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
-		if err != nil || elementCount(&val) != 0 {
-			t.Errorf("%s = %s, %v; want the empty sequence", src, FormatValue(val), err)
-		}
+		wantUndetermined(t, src, val, err, "[0..*]")
 	}
 	if val, err := evalIn(t, ctx, pkg.Scope, "spares istype Wheel"); err != nil || val.Kind != ValConst || !val.Const.Bool {
-		t.Errorf("spares istype Wheel = %s, %v; want true of nothing", FormatValue(val), err)
+		t.Errorf("spares istype Wheel = %s, %v; want true of whatever it holds", FormatValue(val), err)
 	}
 	if made := len(ctx.instances) - before; made != 0 {
 		t.Errorf("reading the inherited optional declarations made %d object(s), want none", made)
 	}
-	if val, err := evalIn(t, ctx, pkg.Scope, "Car::needed"); err == nil {
-		t.Errorf("Car::needed = %s, want an error through fitted's [1..*]", FormatValue(val))
-	}
+	val, err := evalIn(t, ctx, pkg.Scope, "Car::needed")
+	wantUndetermined(t, "Car::needed", val, err, "[1..*]")
 }
 
 // Branches of inheritance converging on one ancestor each carry its multiplicity:
@@ -397,10 +391,9 @@ func symbolNames(ctx *Context, syms []*symbols.Symbol) []string {
 	return names
 }
 
-// An unbound optional subject evaluated by name, bare or qualified, reads as
-// empty like any valueless declaration with lower bound zero; a required or a
-// bound subject keeps its behaviour.
-func TestOptionalSubjectDeclarationEvaluatesEmpty(t *testing.T) {
+// An unbound subject evaluated by name is undetermined of its multiplicity like any
+// valueless declaration; a bound subject is what it is bound to.
+func TestUnboundSubjectDeclarationIsUndetermined(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
 		item def Item;
 		item a : Item;
@@ -415,13 +408,10 @@ func TestOptionalSubjectDeclarationEvaluatesEmpty(t *testing.T) {
 			scope = oneSymbol(t, idx, "test::Unbound").Scope
 		}
 		val, err := evalIn(t, ctx, scope, src)
-		if err != nil || elementCount(&val) != 0 {
-			t.Errorf("eval %s = %s, %v; want the empty sequence", src, FormatValue(val), err)
-		}
+		wantUndetermined(t, src, val, err, "[0..*]")
 	}
-	if val, err := evalIn(t, ctx, pkg, "Required::it"); err == nil {
-		t.Errorf("eval Required::it = %s, want an error for an unbound required subject", FormatValue(val))
-	}
+	val, err := evalIn(t, ctx, pkg, "Required::it")
+	wantUndetermined(t, "Required::it", val, err, "[1]")
 	if val, err := evalIn(t, ctx, pkg, "Bound::it"); err != nil || val.Kind != ValInstance {
 		t.Errorf("eval Bound::it = %s, %v; want the bound item", FormatValue(val), err)
 	}
@@ -466,8 +456,9 @@ func TestRequiredUnsetFeatureReadsAsUninitialized(t *testing.T) {
 }
 
 // An optional part or item declaration names no object of its own: read directly,
-// bare or qualified, it is the empty sequence — as through an instantiated owner.
-func TestOptionalOccurrenceDeclarationEvaluatesEmpty(t *testing.T) {
+// bare or qualified, it is undetermined and materializes nothing; through an
+// instantiated owner it is the empty sequence.
+func TestOptionalOccurrenceDeclarationIsUndeterminedUntilInstantiated(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
 		private import ScalarValues::*;
 		part def Wheel { attribute radius : Real = 0.3; }
@@ -488,12 +479,10 @@ func TestOptionalOccurrenceDeclarationEvaluatesEmpty(t *testing.T) {
 	before := len(ctx.instances)
 	for _, src := range []string{"spare", "test::spare", "label", "test::label", "Car::spare", "test::Car::label", "spare.radius"} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
-		if err != nil || elementCount(&val) != 0 {
-			t.Errorf("%s = %s, %v; want the empty sequence", src, FormatValue(val), err)
-		}
+		wantUndetermined(t, src, val, err, "[0..1]")
 	}
 	if val, err := evalIn(t, ctx, pkg.Scope, "spare istype Wheel"); err != nil || val.Kind != ValConst || !val.Const.Bool {
-		t.Errorf("spare istype Wheel = %s, %v; want true of nothing", FormatValue(val), err)
+		t.Errorf("spare istype Wheel = %s, %v; want true of whatever it holds", FormatValue(val), err)
 	}
 	if made := len(ctx.instances) - before; made != 0 {
 		t.Errorf("reading the optional declarations made %d object(s), want none", made)

@@ -1,7 +1,8 @@
 // A branch of a choice reached from inside an orthogonal region that leaves the
 // region set exits every region, in declaration order, and the machine ends with
 // a single active state. The regions sit inside `working`, since the choice and
-// the state it branches to lie outside the region set.
+// the state it branches to lie outside the region set. The choice's guard is read
+// once the regions are left, so it sees both exit behaviors' writes.
 package Test {
 	state def RegionExitPseudostate {
 		attribute exits : Integer = 0;
@@ -30,6 +31,6 @@ package Test {
 		choice leave;
 		state stopped;
 
-		transition first leave if exits == 0 then stopped;
+		transition first leave if exits == 11 then stopped;
 	}
 }

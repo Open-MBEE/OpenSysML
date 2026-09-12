@@ -136,8 +136,19 @@ export interface TensorQuantityValue {
 }
 
 /**
+ * A model-level result the model leaves open (an unbound feature, an unfixed count):
+ * `reason` says why, `countLower`/`countUpper` bound its count as `MultiplicityInfo` spells them.
+ */
+export interface UndeterminedValue {
+  reason: string;
+  countLower: string;
+  countUpper: string;
+}
+
+/**
  * A value the service computed. `absent` is the case a service sent no value at
- * all for, which is distinct from `unset` — a feature that exists and has none.
+ * all for, which is distinct from `unset` — a feature that exists and has none —
+ * and from `undetermined`, a model-level answer the model leaves open.
  * A `vector` is one value of numeric components, never a sequence of numbers,
  * and a `vectorQuantity` carries one quantity per component, each with its own unit.
  * A `set` is a unique, unordered collection — a `Collections::Set`'s elements —
@@ -165,6 +176,7 @@ export type SysMLValue =
   | ({ kind: "metaobject" } & MetaobjectValue)
   | { kind: "null"; reason: string }
   | { kind: "unset" }
+  | ({ kind: "undetermined" } & UndeterminedValue)
   | { kind: "infinity" }
   | { kind: "absent" };
 
@@ -274,6 +286,13 @@ export function decodeValue(value: Value | undefined): SysMLValue {
       return { kind: "null", reason: kind.value };
     case "unset":
       return { kind: "unset" };
+    case "undetermined":
+      return {
+        kind: "undetermined",
+        reason: kind.value.reason,
+        countLower: kind.value.count?.lower ?? "",
+        countUpper: kind.value.count?.upper ?? "",
+      };
     case "infinity":
       // Only an asserted arm carries the unbounded value.
       if (!kind.value) {
@@ -381,6 +400,8 @@ export function encodeValue(value: SysMLValue): Value {
       return create(ValueSchema, { kind: { case: "null", value: value.reason } });
     case "unset":
       return create(ValueSchema, { kind: { case: "unset", value: true } });
+    case "undetermined":
+      throw new MalformedValueError("an undetermined result is something to read, not to send");
     case "infinity":
       return create(ValueSchema, { kind: { case: "infinity", value: true } });
     case "absent":
@@ -482,6 +503,8 @@ export function formatValue(value: SysMLValue): string {
       return value.reason === "" ? "null" : `null (${value.reason})`;
     case "unset":
       return "unset";
+    case "undetermined":
+      return "<undetermined>";
     case "infinity":
       return "*";
     case "absent":
@@ -731,6 +754,13 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
     case "metaobject":
       // The element is the identity, whatever type each side was cast to.
       return b.kind === "metaobject" && a.elementId === b.elementId;
+    case "undetermined":
+      return (
+        b.kind === "undetermined" &&
+        a.reason === b.reason &&
+        a.countLower === b.countLower &&
+        a.countUpper === b.countUpper
+      );
     case "infinity":
     case "null":
     case "unset":

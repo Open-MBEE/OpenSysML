@@ -72,6 +72,32 @@ public sealed interface Value {
   record UnsetValue() implements Value {}
 
   /**
+   * A model-level result the model leaves open: an unbound feature, or a count its multiplicity
+   * does not fix. A successful answer, not an error, and distinct from {@link UnsetValue}.
+   *
+   * <p>Only a service advertising the {@code undetermined_value} capability reports one as itself
+   * rather than as an unsupported {@link NullValue}.
+   *
+   * @param reason why the model fixes no answer
+   * @param countLower lower bound of the result's count, as the service spells a multiplicity bound
+   * @param countUpper upper bound of the result's count, {@code *} when unbounded
+   */
+  record UndeterminedValue(String reason, String countLower, String countUpper) implements Value {
+    /**
+     * Creates an undetermined result.
+     *
+     * @param reason why the model fixes no answer, never {@code null}
+     * @param countLower lower bound of the count, never {@code null}
+     * @param countUpper upper bound of the count, never {@code null}
+     */
+    public UndeterminedValue {
+      Objects.requireNonNull(reason, "reason");
+      Objects.requireNonNull(countLower, "countLower");
+      Objects.requireNonNull(countUpper, "countUpper");
+    }
+  }
+
+  /**
    * The unbounded value {@code *}: no number, ordered above every finite magnitude.
    *
    * <p>Only a service advertising the {@code infinity_value} capability reports it as itself rather
