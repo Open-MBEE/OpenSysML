@@ -2302,6 +2302,11 @@ func (e *ActionExecutor) ActionSymbol() *symbols.Symbol {
 	return e.action
 }
 
+// Graph is the lowered flow the run performs, the one every step of it consumes.
+func (e *ActionExecutor) Graph() *lower.ActionGraph {
+	return e.graph
+}
+
 // Performer returns the object performing the action, nil for an action
 // performed outside any object.
 func (e *ActionExecutor) Performer() *Instance {

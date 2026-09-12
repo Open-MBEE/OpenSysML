@@ -159,7 +159,7 @@ func TestAnalyzeRefusesNoInitial(t *testing.T) {
 }
 
 // TestSortsNameEveryNodeEdgeAndSlot: the finite sorts carry one constructor per
-// node plus Absent and Done, per succession plus none, per slot plus stutter.
+// node plus Absent, per succession plus none, per slot plus stutter.
 func TestSortsNameEveryNodeEdgeAndSlot(t *testing.T) {
 	graph := conformanceAction(t, "action_fork_branches_write_one_feature.sysml", "test::clash")
 	f, err := Analyze(graph, 10)
@@ -167,7 +167,7 @@ func TestSortsNameEveryNodeEdgeAndSlot(t *testing.T) {
 		t.Fatalf("Analyze: %v", err)
 	}
 	sorts := newSorts("clash", f)
-	if got, want := len(sorts.Node.Values), len(f.Nodes)+2; got != want {
+	if got, want := len(sorts.Node.Values), len(f.Nodes)+1; got != want {
 		t.Errorf("node sort: %d constructors, want %d", got, want)
 	}
 	if got, want := len(sorts.Edge.Values), len(f.Edges)+1; got != want {

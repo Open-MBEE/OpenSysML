@@ -9,10 +9,9 @@ import (
 
 // The constructors the finite sorts carry beside the flow's own nodes and edges.
 const (
-	// Absent is the node value of a slot no token occupies.
+	// Absent is the node value of a slot no token occupies: one never filled,
+	// or one whose token retired or was consumed.
 	Absent = "Absent"
-	// Done is the node value of a slot whose token retired; it stays retired.
-	Done = "Done"
 	// NoEdge is the edge value of a token that arrived over no succession: the
 	// initial token, and a token a synchronization made.
 	NoEdge = "none"
@@ -23,7 +22,7 @@ const (
 
 // Sorts are the finite datatype sorts one encoding declares.
 type Sorts struct {
-	// Node ranges over the flow's nodes, Absent and Done.
+	// Node ranges over the flow's nodes and Absent.
 	Node solve.Sort
 	// Edge ranges over the flow's successions and NoEdge.
 	Edge solve.Sort
@@ -34,9 +33,9 @@ type Sorts struct {
 // newSorts declares the sorts of a flow with the given token slots. Names are
 // prefixed by the action so two encodings in one query stay distinct.
 func newSorts(prefix string, f *Flow) Sorts {
-	nodes := make([]string, 0, len(f.Labels)+2)
+	nodes := make([]string, 0, len(f.Labels)+1)
 	nodes = append(nodes, f.Labels...)
-	nodes = append(nodes, Absent, Done)
+	nodes = append(nodes, Absent)
 	edges := make([]string, 0, len(f.Edges)+1)
 	for i := range f.Edges {
 		edges = append(edges, edgeLabel(f, i))

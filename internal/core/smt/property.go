@@ -2,6 +2,7 @@ package smt
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
@@ -151,15 +152,19 @@ func (e *Encoding) sound(i int) *solve.Term {
 	return solve.And(terms...)
 }
 
+// MarkVar is the integer variable a violation or failure query adds: the state
+// its model points at, so a witness knows how far to replay.
+const MarkVar = "mark"
+
 // Violation is the query satisfiable exactly when some run of at most k moves
-// reaches, without an error, a state violating p. Its Vars are the relation's,
-// so a model decodes as a witness.
+// reaches, without an error, a state violating p. Its Vars are the relation's
+// and MarkVar, so a model decodes as a witness.
 func (e *Encoding) Violation(p *Property) *solve.Query {
 	cases := make([]*solve.Term, 0, e.Moves+1)
 	for i := 0; i <= e.Moves; i++ {
 		cases = append(cases, solve.And(e.sound(i), p.Violated[i]))
 	}
-	return e.query(solve.Or(cases...), "violation of "+p.Name)
+	return e.marked(cases, "violation of "+p.Name)
 }
 
 // Failure is the query satisfiable exactly when some run of at most k moves
@@ -168,12 +173,26 @@ func (e *Encoding) Violation(p *Property) *solve.Query {
 func (e *Encoding) Failure(p *Property) *solve.Query {
 	cases := make([]*solve.Term, 0, e.Moves+1)
 	for i := 0; i <= e.Moves; i++ {
-		cases = append(cases, solve.Not(e.sound(i)))
+		failed := solve.Not(e.sound(i))
 		if p != nil {
-			cases = append(cases, solve.And(e.sound(i), p.Undefined[i]))
+			failed = solve.Or(failed, p.Undefined[i])
 		}
+		cases = append(cases, failed)
 	}
-	return e.query(solve.Or(cases...), "failure")
+	return e.marked(cases, "failure")
+}
+
+// marked is the query satisfiable when some state i meets cases[i], with
+// MarkVar naming one such state in every model.
+func (e *Encoding) marked(cases []*solve.Term, role string) *solve.Query {
+	mark := intVar(MarkVar)
+	terms := make([]*solve.Term, len(cases))
+	for i, c := range cases {
+		terms[i] = solve.And(eq(solve.VarTerm(mark), solve.IntTerm(int64(i))), c)
+	}
+	q := e.query(solve.Or(terms...), role)
+	q.Vars = append(slices.Clone(e.Query.Vars), mark)
+	return q
 }
 
 // Uncertainty is the query satisfiable exactly when some run of k moves is

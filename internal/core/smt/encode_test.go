@@ -68,8 +68,8 @@ func loweredDocument(t *testing.T, path, src, fqn string) (*runtime.Context, *sy
 	return ctx, matches[0], graph
 }
 
-// model renders a satisfying assignment, one variable per line, sorted.
-func model(result *solve.Result) string {
+// modelText renders a satisfying assignment, one variable per line, sorted.
+func modelText(result *solve.Result) string {
 	lines := make([]string, 0, len(result.Model))
 	for _, a := range result.Model {
 		lines = append(lines, a.Var.Name+" = "+a.Value)
@@ -86,7 +86,7 @@ func assigned(t *testing.T, result *solve.Result, name string) string {
 			return a.Value
 		}
 	}
-	t.Fatalf("no assignment to %s in:\n%s", name, model(result))
+	t.Fatalf("no assignment to %s in:\n%s", name, modelText(result))
 	return ""
 }
 
@@ -130,7 +130,7 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 			if result.Status != solve.StatusSat {
 				t.Fatalf("status %v, want sat\n%s", result.Status, solve.Script(&q))
 			}
-			t.Logf("model:\n%s", model(result))
+			t.Logf("model:\n%s", modelText(result))
 			last := enc.States[k]
 			for _, base := range enc.Features {
 				v := last.value(base)
@@ -152,7 +152,7 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 		t.Fatalf("solve: %v", err)
 	}
 	if result.Status != solve.StatusUnsat {
-		t.Fatalf("completes within 5 moves: %v\n%s", result.Status, model(result))
+		t.Fatalf("completes within 5 moves: %v\n%s", result.Status, modelText(result))
 	}
 }
 
