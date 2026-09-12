@@ -8,6 +8,7 @@ import type {
   EnumLiteral,
   Function as FunctionMessage,
   MeasurementRef,
+  Metaobject as MetaobjectMessage,
   Quantity,
   TensorQuantity,
   UnitTerm,
@@ -24,6 +25,7 @@ import {
   FailureReason,
   FunctionSchema,
   MeasurementRefSchema,
+  MetaobjectSchema,
   QuantitySchema,
   TensorQuantitySchema,
   UnitFactorSchema,
@@ -96,6 +98,22 @@ export interface FunctionValue {
 }
 
 /**
+ * An element of the model held as an instance of its reflective metaclass: what
+ * `x meta KerML::Feature`, or the last element of `x.metadata`, evaluates to.
+ * `elementId` is the FQN of the element reflected on, which is its identity;
+ * `metaclassId` is the FQN of the element's own metaclass
+ * (`SysML::Systems::PartUsage`), not the type it was cast to. The service always
+ * sends it; one sent to the service may leave it empty to have the model's used,
+ * but one naming a metaclass that is not the element's is refused. The
+ * metaobject's features (`declaredName`, `ownedFeature`, ...) are read in the
+ * model, not carried.
+ */
+export interface MetaobjectValue {
+  elementId: string;
+  metaclassId: string;
+}
+
+/**
  * A multidimensional array: `dimensions` gives the extent of each dimension and
  * `elements` the elements flattened row-major, the last dimension varying
  * fastest. A rank-0 array holds one element; an element may itself be an array.
@@ -142,6 +160,7 @@ export type SysMLValue =
   | { kind: "vectorQuantity"; components: QuantityValue[] }
   | { kind: "set"; elements: SysMLValue[] }
   | ({ kind: "tensorQuantity" } & TensorQuantityValue)
+  | ({ kind: "metaobject" } & MetaobjectValue)
   | { kind: "null"; reason: string }
   | { kind: "unset" }
   | { kind: "infinity" }
@@ -205,8 +224,9 @@ export type SysMLVerdict =
  *   whose elements do not fill its dimensions, a vector with a component that
  *   is not a number, a vector quantity with no components, a set listing a
  *   member twice, a tensor quantity whose components do not fill its
- *   dimensions, a quantity (alone or as a component) with no magnitude, or a
- *   measurement reference naming no unit or a unit without its reduction.
+ *   dimensions, a quantity (alone or as a component) with no magnitude, a
+ *   measurement reference naming no unit or a unit without its reduction, or a
+ *   metaobject naming no element.
  */
 export function decodeValue(value: Value | undefined): SysMLValue {
   if (value === undefined) {
@@ -246,6 +266,8 @@ export function decodeValue(value: Value | undefined): SysMLValue {
       return { kind: "set", elements: decodeSet(kind.value) };
     case "tensorQuantity":
       return { kind: "tensorQuantity", ...decodeTensorQuantity(kind.value) };
+    case "metaobject":
+      return { kind: "metaobject", ...decodeMetaobject(kind.value) };
     case "null":
       return { kind: "null", reason: kind.value };
     case "unset":
@@ -351,6 +373,8 @@ export function encodeValue(value: SysMLValue): Value {
           }),
         },
       });
+    case "metaobject":
+      return create(ValueSchema, { kind: { case: "metaobject", value: encodeMetaobject(value) } });
     case "null":
       return create(ValueSchema, { kind: { case: "null", value: value.reason } });
     case "unset":
@@ -450,6 +474,8 @@ export function formatValue(value: SysMLValue): string {
       return `{${value.elements.map(formatValue).join(", ")}}`;
     case "tensorQuantity":
       return formatTensorQuantity(value);
+    case "metaobject":
+      return `meta(${value.elementId} : ${value.metaclassId})`;
     case "null":
       return value.reason === "" ? "null" : `null (${value.reason})`;
     case "unset":
@@ -554,6 +580,20 @@ function encodeFunction(fn: FunctionValue): FunctionMessage {
     throw new MalformedValueError("a function names no calc");
   }
   return create(FunctionSchema, { calcId: fn.calcId, selfId: fn.selfId ?? 0n });
+}
+
+function decodeMetaobject(meta: MetaobjectMessage): MetaobjectValue {
+  if (meta.elementId === "") {
+    throw new MalformedValueError("a metaobject names no element");
+  }
+  return { elementId: meta.elementId, metaclassId: meta.metaclassId };
+}
+
+function encodeMetaobject(meta: MetaobjectValue): MetaobjectMessage {
+  if (meta.elementId === "") {
+    throw new MalformedValueError("a metaobject names no element");
+  }
+  return create(MetaobjectSchema, { elementId: meta.elementId, metaclassId: meta.metaclassId });
 }
 
 function encodeUnitTerm(term: UnitFactorization): UnitTerm {
@@ -686,6 +726,9 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
         dimensionsEqual(a.dimensions, b.dimensions) &&
         componentsEqual(a.components, b.components)
       );
+    case "metaobject":
+      // The element is the identity, whatever type each side was cast to.
+      return b.kind === "metaobject" && a.elementId === b.elementId;
     case "infinity":
     case "null":
     case "unset":

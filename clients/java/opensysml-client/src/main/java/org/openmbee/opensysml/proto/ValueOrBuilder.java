@@ -425,5 +425,32 @@ public interface ValueOrBuilder extends
    */
   org.openmbee.opensysml.proto.TensorQuantityOrBuilder getTensorQuantityOrBuilder();
 
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   * @return Whether the metaobject field is set.
+   */
+  boolean hasMetaobject();
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   * @return The metaobject.
+   */
+  org.openmbee.opensysml.proto.Metaobject getMetaobject();
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   */
+  org.openmbee.opensysml.proto.MetaobjectOrBuilder getMetaobjectOrBuilder();
+
   org.openmbee.opensysml.proto.Value.KindCase getKindCase();
 }

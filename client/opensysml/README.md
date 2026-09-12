@@ -272,13 +272,15 @@ answering implementation supports, and `ServerInfo.Has` checks one. A request
 that asks for an unavailable capability is refused with `CodeUnimplemented`;
 capabilities that describe response population instead omit the fields they
 name. Check the list first for an operation-specific error (the `Capability*`
-constants name the known ones). Six capabilities are checked for you: a `Complex`
+constants name the known ones). Seven capabilities are checked for you: a `Complex`
 among `ExecuteAction` inputs or `EvaluateCalc`/`RunAnalysis` arguments needs
 `complex_values`, an `Array`, `Vector` or `VectorQuantity` needs
 `structured_values`, a `MeasurementRef` needs `measurement_refs`, a `Function`
 (a calc held as a value, sent back to bind a calc-typed parameter) needs
-`function_values`, a `Set` needs `set_values` and a `TensorQuantity` needs
-`tensor_values` — each at the top level or nested in a sequence, set or array; a
+`function_values`, a `Set` needs `set_values`, a `TensorQuantity` needs
+`tensor_values` and a `Metaobject` (an element reflected on as an instance of
+its metaclass, what `x meta T` evaluates to) needs `metaobject_values` — each at
+the top level or nested in a sequence, set or array; a
 service without them would read the value as null, so the client refuses with
 `CodeUnimplemented` before sending anything. A scheduling policy is checked the
 same way: `WithSchedule`/`Schedule` need `schedule`, and the `Explore*` calls
@@ -302,7 +304,12 @@ whole ratio), and one without a `Term` in its unit as written. A
 `TensorQuantity` carries its dimensions and one `Quantity` per
 component in row-major order, at any rank; one whose dimensions are not all
 positive, or whose components do not fill them, is refused with
-`CodeInvalidArgument` before it is sent.
+`CodeInvalidArgument` before it is sent. A `Metaobject` carries the FQN of the
+element it reflects on, which is its identity, and of that element's own
+reflective metaclass (`SysML::Systems::PartUsage`, never the type it was cast
+to); its features are read in the model rather than carried, and one you send
+may leave the metaclass empty to have the model's used, but one naming a
+metaclass that is not the element's is refused by the service.
 
 ## Stability
 

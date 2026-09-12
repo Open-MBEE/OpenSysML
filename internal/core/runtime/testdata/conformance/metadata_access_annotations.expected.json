@@ -3,11 +3,11 @@
   "instantiate": "test::Report",
   "libraries": true,
   "slots": {
-    "annotations": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "annotations": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Metaobject", "value": "meta(test::seatBelt : SysML::Systems::PartUsage)"}]},
     "mandatory": {"type": "Boolean", "value": true},
     "level": {"type": "Integer", "value": 4},
     "superseded": {"type": "String", "value": "none"},
     "defaulted": {"type": "Integer", "value": 2},
-    "none": {"type": "Sequence", "elements": []}
+    "none": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::chassis : SysML::Systems::PartUsage)"}]}
   }
 }

@@ -87,7 +87,7 @@ func (ctx *Context) classifyNarrower(
 			return semantics.ClassifiesNone, err
 		}
 		return classifiesIf(keep), nil
-	case ValEnumLiteral, ValVariant, ValInstance:
+	case ValEnumLiteral, ValVariant, ValInstance, ValMetaobject:
 		return semantics.ClassifiesNone, nil
 	}
 	return semantics.ClassifiesSome, nil
