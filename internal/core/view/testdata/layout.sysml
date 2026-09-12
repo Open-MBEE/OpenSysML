@@ -15,12 +15,10 @@ package Plant {
 		// The inline position, which a view positions over.
 		part pump : Pump { @Layout { x = 10; y = 20; width = 100; height = 50; } }
 		part tank : Tank;
-		connection supply : Connection connect pump.outlet to tank.inlet {
+		connection supply connect pump.outlet to tank.inlet {
 			@Route { points = (60, 45, 200, 45); }
 		}
 	}
-
-	connection def Connection;
 
 	state def Machine {
 		entry; then off;
