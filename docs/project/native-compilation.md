@@ -421,6 +421,10 @@ A stable C API (`sysml_new`, `sysml_set`, `sysml_send`, `sysml_step`, `sysml_get
 `sysml_free`) and `-compile -lib` producing a static library and header; a Go package wrapping
 it so the REPL and gRPC service can run a compiled model in place of the interpreter when a
 model is compilable. Exit: the Python and Node clients run the same scenario against both.
+The embedded restriction of this API — no allocation, no callbacks, a fixed step — and the
+freestanding C profile a flight target needs, which this backend's GNU-C prelude does not meet,
+are designed in [embedded-target.md](../internals/design/embedded-target.md) as a second emitter
+over the same IR.
 
 ### Cross-cutting work, folded into the phase that first needs it
 
