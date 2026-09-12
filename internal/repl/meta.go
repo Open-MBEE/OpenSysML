@@ -153,6 +153,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%check-diverge", args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares the action's own attributes"},
 	{name: "%check-property", args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
 	{name: "%check-witness", args: "[<dir>|off]", desc: "show or set the directory the check engine writes a witness to for each violation and divergent value"},
+	{name: "%check-bounds", args: "[depth=<n>] [states=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check engine searches within: the moves of one schedule, the distinct states, and the clock; off restores its defaults"},
 	{name: "%replay", args: "<witness>", desc: "install the schedule a witness file fixes, so the next %action or %state steps the run it records"},
 	{name: "%quit", desc: "exit the REPL"},
 	{name: "%exit", desc: "exit the REPL", alias: true},
@@ -341,6 +342,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doCheckProperty(fields[1:]), false, nil), true
 	case "%check-witness":
 		return metaOut(s.doCheckWitness(fields[1:]), false, nil), true
+	case "%check-bounds":
+		return metaOut(s.doCheckBounds(fields[1:]), false, nil), true
 	case "%replay":
 		return metaOut(s.doReplay(fields[1:]), false, nil), true
 	case "%search":

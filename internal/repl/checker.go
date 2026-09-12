@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,8 +14,7 @@ import (
 )
 
 // checkSettings is what the check engine is asked beside the action: the features
-// whose final values may not diverge, the properties every stable state must
-// satisfy, and where the witnesses are written.
+// that may not diverge, the properties every state must satisfy, where witnesses go.
 type checkSettings struct {
 	diverge    []string
 	properties []string
@@ -110,6 +110,67 @@ func (s *Session) doCheckWitness(args []string) []string {
 	return []string{"check-witness: " + s.checker.witnessDir}
 }
 
+// doCheckBounds shows or sets the bounds a check searches within, each as
+// `depth=<n>`, `states=<n>` or `timeout=<d>`; `off` restores the engine's defaults.
+func (s *Session) doCheckBounds(args []string) []string {
+	if len(args) == 1 && args[0] == "off" {
+		s.checker.depth, s.checker.states, s.checker.timeout = 0, 0, 0
+		args = nil
+	}
+	depth, states, timeout := s.checker.depth, s.checker.states, s.checker.timeout
+	for _, arg := range args {
+		name, value, found := strings.Cut(arg, "=")
+		if !found {
+			return []string{"usage: %check-bounds [depth=<n>] [states=<n>] [timeout=<duration>] | off"}
+		}
+		var err error
+		switch name {
+		case "depth":
+			depth, err = parseBound(name, value)
+		case "states":
+			states, err = parseBound(name, value)
+		case "timeout":
+			timeout, err = time.ParseDuration(value)
+			if err == nil && timeout <= 0 {
+				err = fmt.Errorf("timeout takes a duration above zero, not %q", value)
+			}
+		default:
+			err = fmt.Errorf("%q is not a bound; the bounds are depth, states and timeout", name)
+		}
+		if err != nil {
+			return []string{errPrefix + err.Error()}
+		}
+	}
+	s.checker.depth, s.checker.states, s.checker.timeout = depth, states, timeout
+	return []string{"check-bounds: " + boundText("depth", depth, analysis.DefaultCheckDepth) +
+		", " + boundText("states", states, analysis.DefaultCheckStates) + ", " + timeoutText(timeout)}
+}
+
+// parseBound reads a search bound, a count of at least one.
+func parseBound(name, value string) (int, error) {
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("%s takes a bound of at least one, not %q", name, value)
+	}
+	return n, nil
+}
+
+// boundText spells a bound, marking the engine's default where none was set.
+func boundText(name string, value, fallback int) string {
+	if value <= 0 {
+		return fmt.Sprintf("%s=%d (default)", name, fallback)
+	}
+	return fmt.Sprintf("%s=%d", name, value)
+}
+
+// timeoutText spells the check's clock, off where none was set.
+func timeoutText(timeout time.Duration) string {
+	if timeout <= 0 {
+		return "timeout=off"
+	}
+	return "timeout=" + timeout.String()
+}
+
 // settingList reads a list setting's arguments: `off` is the empty list.
 func settingList(args []string) []string {
 	if len(args) == 1 && args[0] == "off" {
@@ -142,9 +203,8 @@ func (s *Session) doReplay(args []string) []string {
 	return []string{fmt.Sprintf("schedule: %s", s.schedule), "Use %action or %state to start the run the witness records, then %step or %continue"}
 }
 
-// checkAction puts the action's schedules to the check engine: a search of every
-// schedule for a violation of the session's properties, a deadlock, a failure and
-// a divergence of the features selected, its witnesses replayed and written.
+// checkAction searches every schedule of the action for a violation, a deadlock,
+// a failure or a divergence of the selected features, witnesses replayed and written.
 func (s *Session) checkAction(name string, performer []string) Verdict {
 	properties, err := s.checkProperties()
 	if err != nil {
@@ -174,9 +234,8 @@ func (s *Session) checkAction(name string, performer []string) Verdict {
 	return s.checkVerdict(name, policy, kind, ask, run, budget)
 }
 
-// checkAsk is the action's schedules as a question the check engine searches and an
-// exploration runs beside it: how one run starts the action on its performer, and
-// what the session has a check compare and write.
+// checkAsk is the action's schedules as a question: how one run starts the action
+// on its performer, and what the session has a check compare and write.
 func (s *Session) checkAsk(name string, performer []string) (*analysis.CheckAsk, analysis.Linearization, error) {
 	sym, err := s.exploredAction(name)
 	if err != nil {
@@ -219,8 +278,7 @@ func (s *Session) checkBudget(policy runtime.SchedulePolicy, kind analysis.Kind)
 }
 
 // checkVerdict puts the question to the engines under the session's selection and
-// budget, the session's state released for the plan's run, and reports what stood:
-// an exploration's table or the check's search.
+// budget, the session's state released for the run, and reports what stood.
 func (s *Session) checkVerdict(name string, policy runtime.SchedulePolicy, kind analysis.Kind, ask *analysis.CheckAsk, run analysis.Linearization, budget analysis.Budget) Verdict {
 	model := s.freshModel()
 	selection := s.engine
