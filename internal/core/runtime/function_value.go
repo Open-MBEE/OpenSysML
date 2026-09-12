@@ -204,14 +204,15 @@ func (ec *EvalContext) declaredFunction(callee *symbols.Symbol) (Value, bool, er
 }
 
 // qualifiedBoundFunction reads what the innermost run of the qualifying calc
-// (`Apply::f(2.0)`), or of one specializing it, bound the calc-typed callee to.
+// (`Apply::f(2.0)`), or of one specializing it, bound the calc-typed callee to,
+// else the calc the callee's own value names.
 func (ec *EvalContext) qualifiedBoundFunction(callee *symbols.Symbol, qn *ast.QualifiedName) (Value, bool, error) {
-	qualifier, ok := ec.ctx.readQualified(ec.scope, qn).Part(len(qn.Parts) - 2)
-	if !ok {
-		return Value{}, false, nil
+	if qualifier, ok := ec.ctx.readQualified(ec.scope, qn).Part(len(qn.Parts) - 2); ok {
+		if val, ok := ec.frameFeatureValue(qualifier, callee); ok {
+			return val, true, nil
+		}
 	}
-	val, ok := ec.frameFeatureValue(qualifier, callee)
-	return val, ok, nil
+	return ec.declaredFunction(callee)
 }
 
 // checkFunction refuses a value bound to a calc usage parameter that is no

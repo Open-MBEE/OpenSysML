@@ -766,6 +766,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 			}
 			if _, exact := mult.Exactly(); open != nil && !exact && mult.AdmitsMore(int64(len(contributed))) {
 				open.Stopped, open.Contributed = true, contributed
+				release()
 				return fv, nil
 			}
 

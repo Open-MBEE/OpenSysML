@@ -25,4 +25,9 @@
   features subsetting the collection contribute are what it certainly holds (`includes(gear,
   fixed)` is `true` for `part fixed :> gear`), and `forAll`, `exists`, `allTrue` and `anyTrue`
   decide from those certain elements (`(1, u)->exists{in x; x == 1}` is `true`,
-  `(1, u)->forAll{in x; x > 2}` is `false`) before answering `<undetermined>`.
+  `(1, u)->forAll{in x; x > 2}` is `false`) before answering `<undetermined>`. Such a read holds
+  nothing, so it is not charged to the element budget.
+- **A calc-typed parameter whose value names a calc (`in calc f = twice;`) applies that calc when
+  called by its qualified name.** `Apply::f(3.0)` outside a run of `Apply` failed with `calc
+  Apply::f has no return expression`; it now applies `twice` as the bare `f(3.0)` does, and a run
+  that bound `f` still applies the binding.
