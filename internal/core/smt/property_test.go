@@ -66,7 +66,7 @@ const conditionsSrc = `package test {
 func TestConditionPropertiesFollowTheRun(t *testing.T) {
 	solver := requireSolver(t)
 	ctx, idx, action, graph := loweredWithIndex(t, "conditions.sysml", conditionsSrc, "test::A")
-	enc, err := Encode(ctx, action, graph, 4, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, runtime.Held{}, 4, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestConditionPropertiesFollowTheRun(t *testing.T) {
 	if got := solveStatus(t, solver, enc.Uncertainty()); got != solve.StatusUnsat {
 		t.Errorf("uncertainty at k=4: %v, want unsat (every run ends in 4 moves)", got)
 	}
-	short, err := Encode(ctx, action, graph, 2, DefaultUnroll)
+	short, err := Encode(ctx, action, graph, runtime.Held{}, 2, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestConditionReadingNoValueIsUndefined(t *testing.T) {
 	}
 }`
 	ctx, idx, action, graph := loweredWithIndex(t, "undefined.sysml", src, "test::A")
-	enc, err := Encode(ctx, action, graph, 3, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, runtime.Held{}, 3, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestConditionOverAnObjectIsRefused(t *testing.T) {
 	}
 }`
 	ctx, idx, action, graph := loweredWithIndex(t, "object.sysml", src, "test::A")
-	enc, err := Encode(ctx, action, graph, 2, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, runtime.Held{}, 2, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestDeadlockProperty(t *testing.T) {
 	}
 }`
 	ctx, action, graph := loweredAction(t, stuck, "test::stuck")
-	enc, err := Encode(ctx, action, graph, 4, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, runtime.Held{}, 4, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestDeadlockProperty(t *testing.T) {
 	}
 }`
 	ctx, action, graph = loweredAction(t, free, "test::free")
-	enc, err = Encode(ctx, action, graph, 6, DefaultUnroll)
+	enc, err = Encode(ctx, action, graph, runtime.Held{}, 6, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestDeadlockProperty(t *testing.T) {
 	if got := solveStatus(t, solver, enc.Uncertainty()); got != solve.StatusUnsat {
 		t.Errorf("uncertainty at k=6: %v, want unsat", got)
 	}
-	short, err := Encode(ctx, action, graph, 5, DefaultUnroll)
+	short, err := Encode(ctx, action, graph, runtime.Held{}, 5, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}

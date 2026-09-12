@@ -538,11 +538,16 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    `unsat` is *proved* only when the cut, unroll and slot-overflow flags are all unsatisfiable
    at `k` too — every schedule finishes within the bounds — and *bounded* otherwise; `unknown`,
    a timeout, a refusal, a witness that does not replay and a replay that disagrees are *not
-   covered*. The engine is **not registered in `analysis.Default()`** yet: `auto` picks the
-   strongest covering engine, so registering it would route today's `-schedule explore
-   -requirement …` through the solver and change output before the framework's surface stage
-   allows it. It is reached through `analysis.NewRegistry()` in its tests and in the referee
-   harness (`referee_test.go`), whose comparison against `explore` is checks 1–3; a small
+   covered*, and so is an `unsat` over arithmetic the evaluator rounds (`Query.Rounded`): the
+   framework's strength table downgrades it as `%check` does, rather than qualifying a proof
+   *over exact arithmetic*, because a violation that exists only after `float64` rounding has
+   no witness to replay. State zero is the values the started performance holds — the inputs
+   the question's `Start` supplies ahead of the defaults the action declares. The engine is
+   **not registered in `analysis.Default()`** yet: `auto` picks the strongest covering engine,
+   so registering it would route today's `-schedule explore -requirement …` through the solver
+   and change output before the framework's surface stage allows it. It is reached through
+   `analysis.NewRegistry()` in its tests and in the referee harness (`referee_test.go`), whose
+   comparison against `explore` is checks 1–3; a small
    follow-up adds it to `Default()` and makes it `-engine smt`. Checks 1–3 run over every
    corpus action case with `outcomes` whose body encodes and record the rest as *refused*; no
    corpus action case names a requirement, so check 3's requirement side is over pinned referee

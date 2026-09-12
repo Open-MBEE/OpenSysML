@@ -47,7 +47,11 @@ type Encoding struct {
 	// holds the delivery an object flow left at a pin, keyed by the pin.
 	pins    map[ast.Node][]pin
 	pending map[string]*solve.Var
-	fresh   int
+	// results are the features an inline expression node writes its value to.
+	results map[ast.Node]*solve.Var
+	// held are the values the performance holds at its start, ahead of its defaults.
+	held  runtime.Held
+	fresh int
 }
 
 // pin is one feature a node's performance holds, and its declared default.
@@ -58,8 +62,9 @@ type pin struct {
 
 // Encode builds the transition relation of action's flow graph for k moves,
 // unrolling each body loop unroll times. The action's features resolve as the
-// interpreter resolves them, through ctx.
-func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGraph, k, unroll int) (*Encoding, error) {
+// interpreter resolves them, through ctx; held are the values the performance
+// holds at its start, ahead of the defaults the graph declares.
+func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGraph, held runtime.Held, k, unroll int) (*Encoding, error) {
 	f, err := Analyze(graph, k)
 	if err != nil {
 		return nil, err
@@ -89,6 +94,8 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 		exprs:      make(map[ast.Node]*solve.Expression),
 		pins:       make(map[ast.Node][]pin),
 		pending:    make(map[string]*solve.Var),
+		results:    make(map[ast.Node]*solve.Var),
+		held:       held,
 		Query:      &solve.Query{Kind: "action", Element: name},
 	}
 	if err := e.collectFeatures(); err != nil {
@@ -197,6 +204,12 @@ func (e *Encoding) collectFeatures() error {
 			if _, err := e.expression(action.Expression, graph.Scope, "expression of "+label, label); err != nil {
 				return err
 			}
+			result := resultPin(graph, node)
+			v, err := e.variable(result, graph.Scope, "result "+result+" of "+label, label)
+			if err != nil {
+				return err
+			}
+			e.results[node] = v
 		}
 		for _, i := range e.Flow.Outgoing[node] {
 			edge := e.Flow.Edges[i]
@@ -234,6 +247,15 @@ func (e *Encoding) collectFeatures() error {
 	}
 	sort.Slice(e.Features, func(i, j int) bool { return e.Features[i].Name < e.Features[j].Name })
 	return nil
+}
+
+// resultPin names the feature an inline expression node writes its value to: the
+// source pin of its first object flow, else `result`, as the interpreter picks it.
+func resultPin(graph *lower.ActionGraph, node ast.Node) string {
+	if flows := graph.DataFlows[node]; len(flows) > 0 && flows[0].SourcePin != "" {
+		return flows[0].SourcePin
+	}
+	return "result"
 }
 
 // collectPins registers the features a node's performance holds, each starting
@@ -528,8 +550,9 @@ func (e *Encoding) noEdge(via *solve.Var) *solve.Term {
 	return eq(solve.VarTerm(via), solve.ValueTerm(e.Sorts.Edge, NoEdge))
 }
 
-// initial constrains state 0: one token at the initial node, the attributes at
-// their defaults, evaluated in declaration order as the interpreter evaluates them.
+// initial constrains state 0: one token at the initial node, the attributes at the
+// values held for them, else their defaults, in declaration order as the interpreter
+// initializes them.
 func (e *Encoding) initial() error {
 	s := e.States[0]
 	f := e.Flow
@@ -563,12 +586,23 @@ func (e *Encoding) initial() error {
 			scope = f.Graph.Scope
 		}
 		v := e.features[e.translatedName(attr.Name, scope)]
-		if attr.Value == nil || v == nil {
+		if v == nil {
 			continue
 		}
-		expr := e.exprs[attr.Value]
-		value, defined := env.evaluate(expr)
-		failed = append(failed, solve.Not(defined))
+		var value *solve.Term
+		if held, ok := e.held.Value(attr.Name); ok {
+			term, err := e.translator.Literal(v, held)
+			if err != nil {
+				return refusal(f.label(f.Graph.Initial), "value held by "+attr.Name, err)
+			}
+			value = term
+		} else if attr.Value != nil {
+			var defined *solve.Term
+			value, defined = env.evaluate(e.exprs[attr.Value])
+			failed = append(failed, solve.Not(defined))
+		} else {
+			continue
+		}
 		env.write(v.Name, value)
 		if domain := e.domain(v.Name, value); domain != nil {
 			failed = append(failed, solve.Not(domain))
@@ -1002,8 +1036,9 @@ func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, e
 		return nil, err
 	}
 	if action, ok := node.(*ast.ActionExecutionNode); ok && action.Expression != nil {
-		_, defined := effect.env.evaluate(e.exprs[action.Expression])
+		value, defined := effect.env.evaluate(e.exprs[action.Expression])
 		effect.fail(solve.BoolTerm(true), defined)
+		e.write(effect, solve.BoolTerm(true), e.results[node], value, where)
 	}
 	effect.guards = effect.env.clone()
 	if err := e.flows(effect, node, where); err != nil {

@@ -2302,6 +2302,24 @@ func (e *ActionExecutor) Data() map[string]Value {
 	return e.root.data
 }
 
+// Held is a copy of the values a performance holds at one moment, looked up
+// under the names the performance keys them by.
+type Held struct {
+	data    map[string]Value
+	aliases map[string]string
+}
+
+// Held copies what the action's own performance holds now.
+func (e *ActionExecutor) Held() Held {
+	return Held{data: maps.Clone(e.root.data), aliases: maps.Clone(e.root.aliases)}
+}
+
+// Value is the value held under name: its redefinition's when name is redefined.
+func (h Held) Value(name string) (Value, bool) {
+	v, ok := h.data[canonical(h.aliases, name)]
+	return v, ok
+}
+
 // SetBreakpoint adds a breakpoint at the given node name.
 func (e *ActionExecutor) SetBreakpoint(nodeName string) {
 	e.breakpoints[nodeName] = true

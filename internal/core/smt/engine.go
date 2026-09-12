@@ -170,7 +170,7 @@ func (r *run) encode() (refusal error, err error) {
 		return nil, err
 	}
 	defer exec.Release()
-	encoding, err := Encode(ctx, r.q.Holds.Behavior, exec.Graph(), r.moves, r.engine.unroll)
+	encoding, err := Encode(ctx, r.q.Holds.Behavior, exec.Graph(), exec.Held(), r.moves, r.engine.unroll)
 	if err != nil {
 		return refusalOf(err)
 	}
@@ -229,7 +229,9 @@ func (o outcome) String() string {
 }
 
 // decide asks the queries in order, stopping at the first `sat` whose witness
-// replays or at the first answer that decides nothing.
+// replays or at the first answer that decides nothing. An `unsat` over arithmetic
+// the interpreter rounds refutes nothing, so once every query is `unsat` it
+// leaves the question not covered rather than held.
 func (r *run) decide(ctx context.Context) (analysis.Result, error) {
 	type ask struct {
 		query   *solve.Query
@@ -241,6 +243,7 @@ func (r *run) decide(ctx context.Context) (analysis.Result, error) {
 	} else {
 		asks = append(asks, ask{r.encoding.Violation(r.deadlock), outcomeDeadlock})
 	}
+	var rounded *analysis.Result
 	for _, a := range asks {
 		result, err := r.solver.Solve(ctx, a.query)
 		if err != nil {
@@ -248,19 +251,29 @@ func (r *run) decide(ctx context.Context) (analysis.Result, error) {
 		}
 		switch result.Status {
 		case solve.StatusUnsat:
-			continue
+			if rounded == nil && a.query.Rounded() {
+				out := r.rounded(result, "whether a schedule reaches "+a.outcome.String())
+				rounded = &out
+			}
 		case solve.StatusSat:
 			return r.witnessed(result, a.outcome)
 		default:
 			return r.undecided(result, "whether a schedule reaches "+a.outcome.String()), nil
 		}
 	}
-	result, err := r.solver.Solve(ctx, r.encoding.Uncertainty())
+	if rounded != nil {
+		return *rounded, nil
+	}
+	uncertainty := r.encoding.Uncertainty()
+	result, err := r.solver.Solve(ctx, uncertainty)
 	if err != nil {
 		return analysis.Result{}, err
 	}
 	switch result.Status {
 	case solve.StatusUnsat:
+		if uncertainty.Rounded() {
+			return r.rounded(result, "whether every schedule ends within the bounds"), nil
+		}
 		return r.holds(analysis.Proved, Cut{}), nil
 	case solve.StatusSat:
 		cut, err := r.encoding.Cuts(result)
@@ -307,6 +320,15 @@ func (r *run) uncovered(reason string) analysis.Result {
 	result := r.result()
 	result.Claim, result.Strength, result.Reason = analysis.ClaimNone, analysis.NotCovered, reason
 	return result
+}
+
+// rounded is the answer to an `unsat` asking what over exact reals where the
+// interpreter rounds: a run may reach what no exact schedule does, with no
+// witness to replay, so the `unsat` decides nothing about the run.
+func (r *run) rounded(result *solve.Result, what string) analysis.Result {
+	out := r.uncovered(what + " rounds in floating point when evaluated, which an exact-real unsat does not decide")
+	out.Values = []analysis.Evaluation{{Name: what, Solved: result}}
+	return out
 }
 
 // undecided is the answer to a query, asking what, that the solver did not decide.

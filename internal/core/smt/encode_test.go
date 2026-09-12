@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
@@ -117,7 +119,7 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 	for _, k := range []int{6, 7} {
 		t.Run(fmt.Sprintf("k=%d", k), func(t *testing.T) {
 			ctx, action, graph := loweredAction(t, src, "test::clash")
-			enc, err := Encode(ctx, action, graph, k, DefaultUnroll)
+			enc, err := Encode(ctx, action, graph, runtime.Held{}, k, DefaultUnroll)
 			if err != nil {
 				t.Fatalf("encode: %v", err)
 			}
@@ -141,7 +143,7 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 		})
 	}
 	ctx, action, graph := loweredAction(t, src, "test::clash")
-	enc, err := Encode(ctx, action, graph, 5, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, runtime.Held{}, 5, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -189,7 +191,7 @@ func TestEncodePinsAndObjectFlows(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.file, func(t *testing.T) {
 			ctx, action, graph := loweredConformanceAction(t, c.file, c.fqn)
-			enc, err := Encode(ctx, action, graph, k, DefaultUnroll)
+			enc, err := Encode(ctx, action, graph, runtime.Held{}, k, DefaultUnroll)
 			if err != nil {
 				t.Fatalf("encode: %v", err)
 			}
@@ -226,4 +228,82 @@ func names(vars []*solve.Var) []string {
 		out[i] = v.Name
 	}
 	return out
+}
+
+// TestEncodeInlineExpressionFeedsFlow: an inline expression node holds its
+// value in the feature it writes before the object flow out of it delivers, as
+// the interpreter orders them, so the pin the flow feeds reads the value. The
+// notation declares no such node, so the graph is lowered from one built as the
+// interpreter's own tests build it, over the scope of a parsed action.
+func TestEncodeInlineExpressionFeedsFlow(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 8
+	ctx, idx := fixture(t, "inline_test.sysml", `package test {
+	private import ScalarValues::*;
+	action outer {
+		attribute result : Integer;
+		first start;
+		action take { in v : Integer; }
+		done;
+		succession first start then compute;
+		succession first compute then take;
+		succession first take then done;
+		flow from compute.result to take.v;
+	}
+}`)
+	matches := idx.LookupQualified("test::outer")
+	if len(matches) != 1 {
+		t.Fatalf("test::outer matched %d symbols, want 1", len(matches))
+	}
+	parsed, ok := matches[0].Decl.(*ast.Usage)
+	if !ok {
+		t.Fatalf("test::outer declared by %T, want a usage", matches[0].Decl)
+	}
+	compute := &ast.ActionExecutionNode{
+		Name: "compute",
+		Expression: &ast.OperatorExpr{
+			Operator: ast.OpAdd,
+			Operands: []ast.Node{&ast.LiteralInteger{Value: "3"}, &ast.LiteralInteger{Value: "4"}},
+		},
+	}
+	decl := *parsed
+	decl.Members = append(slices.Clone(parsed.Members), compute)
+	action := &symbols.Symbol{Name: parsed.Ident.Name, Kind: symbols.SymbolActionUsage, Decl: &decl, Scope: matches[0].Scope}
+
+	results, err := ctx.ExecuteAction(action)
+	if err != nil {
+		t.Fatalf("interpret: %v", err)
+	}
+	if got := results["result"]; got.Kind != runtime.ValConst || got.Const.Int != 7 {
+		t.Fatalf("interpreted result = %v, want 7", got)
+	}
+
+	graph, err := lower.ToActionGraph(&decl, matches[0].Scope)
+	if err != nil {
+		t.Fatalf("lower: %v", err)
+	}
+	lower.StartFlow(graph)
+	enc, err := Encode(ctx, action, graph, runtime.Held{}, k, DefaultUnroll)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	last := enc.States[k]
+	failed := solve.VarTerm(last.Failed)
+	if got := status(t, solver, enc, k, solve.Not(failed)); got != solve.StatusSat {
+		t.Fatalf("completes unfailed: %v, want sat", got)
+	}
+	for name, want := range map[string]int64{"test::outer::result": 7, "test::outer::take::v": 7} {
+		v := last.Values[name]
+		if v == nil {
+			t.Errorf("no feature %s among %v", name, names(enc.Features))
+			continue
+		}
+		is := eq(solve.VarTerm(v), solve.IntTerm(want))
+		if got := status(t, solver, enc, k, solve.And(solve.Not(failed), is)); got != solve.StatusSat {
+			t.Errorf("%s = %d on completion: %v, want sat", name, want, got)
+		}
+		if got := status(t, solver, enc, k, solve.And(solve.Not(failed), solve.Not(is))); got != solve.StatusUnsat {
+			t.Errorf("%s != %d on completion: %v, want unsat", name, want, got)
+		}
+	}
 }

@@ -88,8 +88,8 @@ func TestParseChoicesStopsAtBlankLine(t *testing.T) {
 }
 
 // `replay:<file>` reads the file when the policy is parsed: a missing file, an
-// unreadable line or no file at all is a typed policy error; the policy spells
-// its file back and hands out its witness.
+// unreadable line, a file naming no move or no file at all is a typed policy
+// error; the policy spells its file back and hands out its witness.
 func TestParseReplayPolicy(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "witness.txt")
@@ -117,7 +117,17 @@ func TestParseReplayPolicy(t *testing.T) {
 	if err := os.WriteFile(bad, []byte("step 3: 3@c first of 1@a, 2@b, 3@c\nnonsense\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for _, spelling := range []string{"replay", "replay:", "replay:" + filepath.Join(dir, "missing.txt"), "replay:" + bad} {
+	empty := filepath.Join(dir, "empty.txt")
+	if err := os.WriteFile(empty, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	moveless := filepath.Join(dir, "moveless.txt")
+	if err := os.WriteFile(moveless, []byte("no choice points\n\n[trace] step 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spellings := []string{"replay", "replay:", "replay:" + filepath.Join(dir, "missing.txt"), "replay:" + bad,
+		"replay:" + empty, "replay:" + moveless}
+	for _, spelling := range spellings {
 		_, err := ParseSchedulePolicy(spelling)
 		var typed *SchedulePolicyError
 		if !errors.As(err, &typed) || !errors.Is(err, ErrInvalidSchedulePolicy) || typed.Spelling != spelling {
@@ -126,6 +136,14 @@ func TestParseReplayPolicy(t *testing.T) {
 	}
 	if _, err := ParseSchedulePolicy("replay:" + bad); err == nil || !strings.Contains(err.Error(), "line 2") {
 		t.Errorf("an unreadable witness line is not named: %v", err)
+	}
+	for _, file := range []string{empty, moveless} {
+		if _, err := ParseSchedulePolicy("replay:" + file); err == nil || !strings.Contains(err.Error(), "names no move to follow") {
+			t.Errorf("%s: a witness naming no move is not refused as such: %v", file, err)
+		}
+	}
+	if choices, err := ParseChoices("no choice points\n"); err != nil || len(choices) != 0 {
+		t.Errorf("ParseChoices(no choice points) = %v, %v; want no choices and no error", choices, err)
 	}
 	if got := SchedulePolicyNames[len(SchedulePolicyNames)-1]; got != "replay:<file>" {
 		t.Errorf("SchedulePolicyNames ends with %q", got)

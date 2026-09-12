@@ -327,3 +327,79 @@ while IFS= read -r line; do case "$line" in *"(check-sat)"*) echo unsat;; esac; 
 		t.Errorf("queries asked %q, %v; want the three property queries and the uncertainty query", asked, err)
 	}
 }
+
+// TestEngineStartsFromTheValuesHeld: the run begins from the values the
+// performance holds when started, ahead of the defaults the action declares —
+// an input the start supplies decides the answer, and the witness replays with it.
+func TestEngineStartsFromTheValuesHeld(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "held.sysml", `package test {
+	private import ScalarValues::*;
+	action def A {
+		in x : Integer = 1;
+		constraint small { x < 10 }
+		first start;
+		action raise { assign x := x + 5; }
+		done;
+		succession first start then raise;
+		succession first raise then done;
+	}
+}`)
+	byDefault := answer(t, e, d, d.holds(t, "test::A", "test::A::small"), analysis.Budget{Depth: 4})
+	expect(t, byDefault, analysis.ClaimHolds, analysis.Proved)
+
+	behavior := lookup(t, d.idx, "test::A")
+	twenty := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 20}}
+	supplied := analysis.Question{Kind: analysis.Holds, Subject: "test::A", Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{
+		Behavior:  behavior,
+		Condition: lookup(t, d.idx, "test::A::small"),
+		Start: func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
+			return ctx.CreateActionExecutorWithInputs(behavior, nil, map[string]runtime.Value{"x": twenty})
+		},
+	}}
+	violated := answer(t, e, d, supplied, analysis.Budget{Depth: 4})
+	expect(t, violated, analysis.ClaimViolated, analysis.Witnessed)
+	if violated.Witness == nil {
+		t.Fatal("no witness")
+	}
+	var violation *runtime.ViolationError
+	if len(violated.Values) != 1 || !errors.As(violated.Values[0].Err, &violation) {
+		t.Fatalf("the interpreter's violation is not reported: %+v", violated.Values)
+	}
+}
+
+// TestEngineDoesNotProveOverRoundedArithmetic: a condition over real arithmetic
+// the interpreter rounds in float64 is not proved by an exact-real unsat; the
+// answer is not covered, naming the rounding. A violation the same arithmetic
+// reaches is still witnessed, once the replay confirms it in float64.
+func TestEngineDoesNotProveOverRoundedArithmetic(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "rounded.sysml", `package test {
+	private import ScalarValues::*;
+	action def R {
+		attribute x : Real = 0.5;
+		constraint small { x < 10.0 }
+		constraint tiny { x < 0.75 }
+		first start;
+		action raise { assign x := x + 0.25; }
+		done;
+		succession first start then raise;
+		succession first raise then done;
+	}
+}`)
+	result := answer(t, e, d, d.holds(t, "test::R", "test::R::small"), analysis.Budget{Depth: 4})
+	expect(t, result, analysis.ClaimNone, analysis.NotCovered)
+	if !strings.Contains(result.Reason, "rounds in floating point") {
+		t.Errorf("reason %q", result.Reason)
+	}
+	if len(result.Values) != 1 || result.Values[0].Solved == nil || result.Values[0].Solved.Status != solve.StatusUnsat {
+		t.Errorf("the undeciding unsat is not reported: %+v", result.Values)
+	}
+
+	violated := answer(t, e, d, d.holds(t, "test::R", "test::R::tiny"), analysis.Budget{Depth: 4})
+	expect(t, violated, analysis.ClaimViolated, analysis.Witnessed)
+	var violation *runtime.ViolationError
+	if len(violated.Values) != 1 || !errors.As(violated.Values[0].Err, &violation) {
+		t.Fatalf("the interpreter's violation is not reported: %+v", violated.Values)
+	}
+}

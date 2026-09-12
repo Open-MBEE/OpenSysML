@@ -209,7 +209,7 @@ func encodeDocument(t *testing.T, d *document, action *symbols.Symbol, budget an
 		t.Fatalf("start: %v", err)
 	}
 	defer exec.Release()
-	encoding, err := Encode(ctx, action, exec.Graph(), budget.Depth, DefaultUnroll)
+	encoding, err := Encode(ctx, action, exec.Graph(), exec.Held(), budget.Depth, DefaultUnroll)
 	if err != nil {
 		refusal, fault := refusalOf(err)
 		if fault != nil {

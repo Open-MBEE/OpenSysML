@@ -132,6 +132,9 @@ func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 		if err != nil {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: err.Error()}
 		}
+		if len(choices) == 0 {
+			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: file + " names no move to follow"}
+		}
 		return SchedulePolicy{kind: scheduleReplay, replay: &replayScript{file: file, choices: choices}}, nil
 	default:
 		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling,

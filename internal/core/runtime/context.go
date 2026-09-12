@@ -1460,9 +1460,19 @@ func (ctx *Context) CreateActionExecutor(action *symbols.Symbol) (*ActionExecuto
 // self, without starting execution. An action a ToolExecution annotates has no flow to
 // step: its tool is invoked once and the executor returned completed with its outputs.
 func (ctx *Context) CreateActionExecutorFor(action *symbols.Symbol, self *Instance) (*ActionExecutor, error) {
+	return ctx.CreateActionExecutorWithInputs(action, self, nil)
+}
+
+// CreateActionExecutorWithInputs creates an action executor for an action
+// performed by self with its inputs bound ahead of its defaults, without
+// starting execution.
+func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
 	exec, err := newActionExecutor(ctx, action, self)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
+	}
+	if len(inputs) > 0 {
+		exec.SetInputs(inputs)
 	}
 
 	if err := ctx.startAction(exec, (*ActionExecutor).initialize); err != nil {
