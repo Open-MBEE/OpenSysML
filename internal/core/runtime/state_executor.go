@@ -1804,11 +1804,27 @@ func (e *StateExecutor) recordHistory(state *ast.StateNode) *historyRecord {
 	return record
 }
 
-// recordRegionHistory remembers the state a region was left in, so a history
-// pseudostate of the state owning the region restores it.
+// recordChildHistory remembers the substate parent was left in for its history;
+// a body left at `done` completed, and a completed configuration leaves none.
+func (e *StateExecutor) recordChildHistory(parent, state *ast.StateNode) {
+	if e.graph.Completes(state) {
+		if record := e.history[parent]; record != nil {
+			record.child = nil
+		}
+		return
+	}
+	e.recordHistory(parent).child = state
+}
+
+// recordRegionHistory remembers the state a region was left in for the owning
+// state's history; a region left at `done` completed and is forgotten.
 func (e *StateExecutor) recordRegionHistory(region *ast.StateRegion, state *ast.StateNode) {
 	owner := e.graph.RegionOwner[region]
 	if owner == nil {
+		return
+	}
+	if e.graph.Completes(state) {
+		e.forgetRegionHistory(region)
 		return
 	}
 	record := e.recordHistory(owner)
@@ -1862,7 +1878,7 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.State
 		return nil, nil, fmt.Errorf("history %s must be declared inside the composite state it restores", hist.Name)
 	}
 	record := e.history[owner]
-	if record == nil {
+	if record == nil || (record.child == nil && len(record.regions) == 0) {
 		if route != nil {
 			return route, nil, nil
 		}
@@ -1893,9 +1909,6 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.State
 	}
 
 	target := record.child
-	if target == nil {
-		return nil, nil, fmt.Errorf("history %s: no substate of %s was recorded", hist.Name, owner.Name)
-	}
 	if deep {
 		target = e.deepestRecorded(target, branches)
 	}
@@ -3409,7 +3422,7 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 		e.recordRegionHistory(region, regionState)
 	}
 	if parent := e.graph.ParentState[state]; parent != nil {
-		e.recordHistory(parent).child = state
+		e.recordChildHistory(parent, state)
 	}
 
 	// Exit the active state of each of this state's regions, in declaration order.
