@@ -413,6 +413,27 @@ has dedicated state diagram and sequence diagram grammars. A table is written as
 since Mermaid has no grammar for tables, so `-render-form mermaid` on a table produces Markdown
 rather than a diagram of rows.
 
+A rendering is laid out by whatever draws it, unless the model says where things go. The
+`DiagramLayout` library (bundled, imported like any other) states that in notation: a
+`metadata Layout about <element> { x = …; y = …; width = …; height = …; collapsed = true; }` in a
+view's body positions the element in that view, an `@Layout { … }` inside an element's own body is
+the position every view that does not place it falls back to, a `Route about <connection> {
+points = (x0, y0, x1, y1, …); }` gives an edge its waypoints, and an `@Canvas { unit = "px"; width
+= …; height = …; }` in the view body sizes its drawing surface. Coordinates are pixels from the
+top-left corner, y downward. Mermaid cannot place a node, so the machine-readable form keeps the
+geometry as comments after the header (`%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120
+y=80 w=200 h=90`, `%% route: n1->n2 320,125 400,125`) and the text form appends `at (120, 80)`,
+`size 200×90` and `via (320, 125) (400, 125)` to the nodes and edges concerned. A model with no
+layout annotations renders exactly as before. `-validate` reports a `Layout` or `Route` on an
+element the rendering does not draw as a node or an edge, a `Route` with an odd number of values, a
+`Canvas` outside a view, and two positions for one element in one view (the first applies). See
+[Diagram layout annotations](../project/diagram-layout-annotations.md).
+
+```bash
+sysml model.sysml -render Views::vehicleView -render-form text
+# part engine (Engine) at (120, 80) size 200×90
+```
+
 `-render-documents <dir>` renders every document definition the loaded model declares into the
 directory, one Markdown file per document, in fully-qualified-name order. Each file name is the
 document's fully qualified name with `::` replaced by `-`, any byte outside ASCII letters,

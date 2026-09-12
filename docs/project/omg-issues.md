@@ -1643,3 +1643,75 @@ interoperability report.
 Submitted 2026-09-01 via the
 [OMG issue reporting form](https://issues.omg.org/issues/create-new-issue); the
 key above updates once a task force takes the issue.
+
+## Proposed specification issue: diagram layout in the textual notation
+
+**Drafted, not filed.** Against the **SysML 2.0** specification (the textual-notation
+clauses, formal/26-03-02, and the graphical-notation clause 7.27 that treats a diagram
+as a projection with no persisted geometry). The design this draft distills is
+[diagram-layout-annotations.md](diagram-layout-annotations.md); the working prototype
+is OpenSysML's `DiagramLayout` library, the geometry it carries through the view
+engine, and its validation pass. The body below is the draft submission text.
+
+````markdown
+**Title:** Textual notation cannot carry diagram layout, so a diagram does not
+survive a round trip through text
+
+**Nature:** request for enhancement (interchange gap). **Severity:** significant.
+
+The graphical notation is defined as a projection of the model, and neither the
+textual notation nor the Systems Modeling API and Services specification has a
+place for where a diagram draws an element. A model kept in text therefore has no
+diagrams of its own: every rendering is laid out afresh, a diagram arranged in one
+tool loses its arrangement when the model is exchanged as text, and a
+reorganized diagram is invisible in a review of the change. Implementations keep
+positions in tool-specific sidecars (per-tool diagram files, IRI conventions,
+comment conventions), none of which another conforming tool reads.
+
+**Proposal:** standardize a per-view layout vocabulary as a normative metadata
+library — implementable today, since user-defined metadata is already conforming
+notation — or as dedicated surface syntax if the taskforce prefers. A minimal
+library form:
+
+```sysml
+standard library package DiagramLayout {
+    metadata def Layout {
+        attribute x : ScalarValues::Real;
+        attribute y : ScalarValues::Real;
+        attribute width : ScalarValues::Real[0..1];
+        attribute height : ScalarValues::Real[0..1];
+        attribute collapsed : ScalarValues::Boolean[0..1];
+    }
+    metadata def Route {
+        attribute points : ScalarValues::Real[0..*] ordered nonunique;
+    }
+    metadata def Canvas {
+        attribute unit : ScalarValues::String[0..1];
+        attribute width : ScalarValues::Real[0..1];
+        attribute height : ScalarValues::Real[0..1];
+    }
+}
+```
+
+Applied per view and opt-in: `metadata Layout about engine { x = 120; y = 80; }`
+in a view's body places the element in that view; `@Layout { … }` in an element's
+own body is the position every view that does not place it falls back to;
+`Route` gives the edge a connection, transition, succession or flow is drawn as
+its waypoints; `Canvas` in a view body sizes the drawing surface. Coordinates are
+pixels from the top-left corner, y downward. Elements without an annotation are
+laid out by the tool as today, so unannotated models are unaffected.
+
+**Implementation experience:** OpenSysML (github.com/Open-MBEE/OpenSysML)
+implements this shape: the metadata library, resolution of the effective
+position per (view, element) pair from the view's body before the element's own
+annotation, the geometry carried through its view engine to every rendering it
+produces (as structured fields over its language-server render method, and kept
+visible as comments and suffixes in Mermaid and text output), and a validation
+pass (an annotation on an element the view's rendering does not draw, an odd
+waypoint list, a canvas outside a view, two positions for one element in one
+view) — all without any specification change, demonstrating that only the
+*standardization* of the spelling is missing.
+````
+
+Not yet submitted; the text above is the draft a maintainer would file through the
+[OMG issue reporting form](https://issues.omg.org/issues/create-new-issue).
