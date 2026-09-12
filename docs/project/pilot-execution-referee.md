@@ -216,19 +216,19 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 358 committed cases, the original 32, the 62 the
+prints the current ones. State of the 367 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
-`extent_expressions.cases`, the 90 of `undetermined_operands.cases`, the 4 of
+`extent_expressions.cases`, the 99 of `undetermined_operands.cases`, the 4 of
 `unknown_bounds.cases` and the 2 of `vast_bounds.cases`:
 
 ```
-agree: 196 · kind-only: 1 · order-only: 0 · disagree: 22
-pilot-unevaluated: 82 · pilot-silent: 16 · pilot-error: 9 · ours-error: 2 · ours-undetermined: 19
+agree: 198 · kind-only: 1 · order-only: 0 · disagree: 22
+pilot-unevaluated: 86 · pilot-silent: 18 · pilot-error: 9 · ours-error: 2 · ours-undetermined: 20
 both-error: 11 · nondeterministic: 0
 ```
 
@@ -309,7 +309,7 @@ not derive to the owner the library says they subset. The case reads `.represent
 rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
 viable alternative at input 'language'`), which would fail the whole model.
 
-The 90 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+The 99 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
 (`attribute u;`, no type, no value; beside it `s : String` and `xs : Real[2..4]`, typed and
 valueless) and over usages whose multiplicity leaves the count open
 (`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear` and
@@ -408,6 +408,22 @@ the one unevaluated usage element, so `subsequence(xs, 1, 2)` throws too (`pilot
 `Substring(s, 1, 2)` and `includingAt(xs, 1.0, 1)` (`pilot-unevaluated`) and
 `excludingAt(xs, 1)` (`pilot-silent`), positions every value of the operand admits.
 `Substring(s, 3, 2)` selects nothing whatever `s` holds and is `""` (`pilot-unevaluated`).
+
+The next four probe the domain a scalar numeric function's parameter puts on a determined
+argument before the open one is read, all four `pilot-unevaluated` (the `InvocationExpression`
+itself): `IntegerFunctions::max(1.5, u)` is the type mismatch a Real is against an Integer
+parameter, `RationalFunctions::rat(u, 0)` the `division by zero` a zero denominator is
+whatever the numerator, `RationalFunctions::gcd(1.5, u)` the domain error a fraction is; and
+`IntegerFunctions::max(1, u)`, whose determined argument conforms, is `<undetermined>`.
+
+The next five probe a filter whose test does not depend on the element over a collection
+the model leaves open: the test decides as a whole for the values the collection may hold beyond
+those it certainly does. `notEmpty(rack.gear->select{in x; true})` is `true` and
+`isEmpty(rack.gear->reject{in x; true})` is `true`, and both agree (the pilot filtering the one
+unevaluated `PartUsage`); `xs->reject{in x; true}` is the empty sequence here and
+`pilot-silent`; `size(xs->select{in x; true})` is `ours-undetermined` of `[2..4]`, the count of
+`xs` itself; and `xs->select{in x; 1 / 0 > 0}` is the `division by zero` error here, the test
+failing on any element, and `pilot-silent`.
 
 The 4 `unknown_bounds.cases` probe usages whose bounds name a feature the model gives no
 value: `a : Real[n]` and `an : Real[1..n]` over a valueless `n : Natural`. The pilot rejects

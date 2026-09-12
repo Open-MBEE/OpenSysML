@@ -63,10 +63,10 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (358 cases, all eighteen default
+Reference values at the current implementation (367 cases, all eighteen default
 fixtures):
-`agree 196 · kind-only 1 · order-only 0 · disagree 22 · pilot-unevaluated 82 ·
-pilot-silent 16 · pilot-error 9 · ours-error 2 · ours-undetermined 19 · both-error 11 ·
+`agree 198 · kind-only 1 · order-only 0 · disagree 22 · pilot-unevaluated 86 ·
+pilot-silent 18 · pilot-error 9 · ours-error 2 · ours-undetermined 20 · both-error 11 ·
 nondeterministic 0`.
 Four of the nine `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
 model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural
@@ -82,10 +82,11 @@ from the pilot, which counts the one unevaluated feature-reference operand;
 `size-vacant` and `isempty-vacant`, where a `part vacant[0]` is empty here (`0`, `true`) and
 the pilot again counts the unevaluated usage (`1`, `false`); and `size-if-pairs`, where
 `size(if u > 0 ? (1, 2) else (3, 4))` is `2` here, both branches fixing it, and `1` from the
-pilot, counting the unevaluated `if`. No such pilot answer is a semantic one. The nineteen
+pilot, counting the unevaluated `if`. No such pilot answer is a semantic one. The twenty
 `ours-undetermined` are the model-level reads of an unbound `attribute u;` and of usages
-whose multiplicity leaves the count open (`gear[1..*]`, `loose[0..2]`, `many[10001..*]`),
-where we answer `<undetermined>` and the pilot leaves the expression unevaluated.
+whose multiplicity leaves the count open (`gear[1..*]`, `loose[0..2]`, `many[10001..*]`,
+`xs : Real[2..4]`), where we answer `<undetermined>` and the pilot leaves the expression
+unevaluated.
 Eight of the other seventeen `disagree` are the `enumeration_classification.cases`
 adjudicated ours: the pilot never consults an enumeration's enumerated values
 (`3 istype Level` false) and folds a scalar-valued literal to its Integer

@@ -1066,24 +1066,38 @@ func builtinControlReject(ec *EvalContext, args []Value) (Value, error) {
 	return ec.filter("ControlFunctions::reject", args, false)
 }
 
-// filter is select (keep=true) and reject (keep=false). Over a collection the
-// model leaves open, it tests the elements certainly held; the rest stay open.
+// filter is select (keep=true) and reject (keep=false); over an open collection
+// one element stands for those it may hold beyond the known, decided as a whole.
 func (ec *EvalContext) filter(op string, args []Value, keep bool) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
 	source := args[0]
 	elements := knownElementsOf(source)
-	body, applied, err := ec.bodyOver(op, args[1], 1, elements)
+	over := elements
+	if mayHoldUnknown(source) {
+		over = append(slices.Clone(elements), unknownElementOf(source))
+	}
+	body, applied, err := ec.bodyOver(op, args[1], 1, over)
 	if err != nil {
 		return Value{}, err
 	}
 	// A filter keeps the elements' type (KerML checkSelectExpressionResultSpecialization).
 	if !applied {
-		if source.Kind == ValUndetermined {
-			return undeterminedFiltered(source, nil, nil), nil
-		}
 		return ec.sequenceFrom(nil, source)
+	}
+	fromUnknown := semantics.CountRange(0)
+	if len(over) > len(elements) {
+		holds, err := ec.applyTest(op, body, over[len(elements)])
+		if err != nil {
+			return Value{}, err
+		}
+		switch {
+		case holds.Kind == ValUndetermined:
+			fromUnknown = semantics.Range{Lower: semantics.Bound{Known: true}, Upper: unknownCountOf(source).Upper}
+		case holds.Const.Bool == keep:
+			fromUnknown = unknownCountOf(source)
+		}
 	}
 	var kept, open []Value
 	for _, elem := range elements {
@@ -1098,8 +1112,8 @@ func (ec *EvalContext) filter(op string, args []Value, keep bool) (Value, error)
 			kept = append(kept, elem)
 		}
 	}
-	if len(open) > 0 || source.Kind == ValUndetermined {
-		return undeterminedFiltered(source, kept, open), nil
+	if len(open) > 0 || fromUnknown.MayAdmitMore(0) {
+		return undeterminedFiltered(source, kept, open, fromUnknown), nil
 	}
 	return ec.sequenceFrom(kept, source)
 }

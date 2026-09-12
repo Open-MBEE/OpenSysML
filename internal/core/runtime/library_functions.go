@@ -96,11 +96,11 @@ func init() {
 
 	// IntegerFunctions and NaturalFunctions declare Integer parameters, so a
 	// Real argument does not conform and is rejected rather than truncated.
-	registerLibraryFunction("IntegerFunctions::abs", []string{"x"}, integerAbs)
-	registerLibraryFunction("IntegerFunctions::max", []string{"x", "y"}, integerExtremum(true))
-	registerLibraryFunction("IntegerFunctions::min", []string{"x", "y"}, integerExtremum(false))
-	registerLibraryFunction("NaturalFunctions::max", []string{"x", "y"}, naturalExtremum(true))
-	registerLibraryFunction("NaturalFunctions::min", []string{"x", "y"}, naturalExtremum(false))
+	registerLibraryFunction("IntegerFunctions::abs", []string{"x"}, integerAbs, integerDomain)
+	registerLibraryFunction("IntegerFunctions::max", []string{"x", "y"}, integerExtremum(true), integerDomain, integerDomain)
+	registerLibraryFunction("IntegerFunctions::min", []string{"x", "y"}, integerExtremum(false), integerDomain, integerDomain)
+	registerLibraryFunction("NaturalFunctions::max", []string{"x", "y"}, integerExtremum(true), naturalDomain, naturalDomain)
+	registerLibraryFunction("NaturalFunctions::min", []string{"x", "y"}, integerExtremum(false), naturalDomain, naturalDomain)
 
 	// TrigFunctions. The library names the angle `theta` and the inverse
 	// functions `arcsin`/`arccos`/`arctan` over a `x` parameter; `tan` and `cot`
@@ -132,8 +132,8 @@ func init() {
 	// which declares the exponential, logarithmic and two-argument arctangent
 	// functions the OMG Kernel Function Library omits.
 	registerLibraryFunction("OpenSysMLMathFunctions::exp", []string{"x"}, realUnary(math.Exp))
-	registerLibraryFunction("OpenSysMLMathFunctions::ln", []string{"x"}, naturalLog)
-	registerLibraryFunction("OpenSysMLMathFunctions::log", []string{"x", "base"}, logToBase)
+	registerLibraryFunction("OpenSysMLMathFunctions::ln", []string{"x"}, naturalLog, positiveReal)
+	registerLibraryFunction("OpenSysMLMathFunctions::log", []string{"x", "base"}, logToBase, positiveReal, logarithmBase)
 	registerLibraryFunction("OpenSysMLMathFunctions::atan2", []string{"y", "x"}, atan2Real)
 }
 
@@ -221,10 +221,12 @@ func registerStringFunctions() {
 }
 
 // registerLibraryFunction adds one implementation over scalar numeric
-// arguments, which is what most of the numeric library declares.
-func registerLibraryFunction(name string, params []string, apply func([]semantics.Value) (semantics.Value, error)) {
-	registerValueFunction(name, params, len(params), numericScalars(params, apply))
+// arguments, which is what most of the numeric library declares, under the
+// domain each parameter puts on its argument by itself.
+func registerLibraryFunction(name string, params []string, apply func([]semantics.Value) (semantics.Value, error), domains ...scalarDomain) {
+	registerValueFunction(name, params, len(params), numericScalars(params, apply, domains))
 	libraryFunctions[name].scalar = true
+	undeterminedAware[name] = true
 }
 
 // registerScalarResultFunction adds an implementation whose result is always a scalar
@@ -262,13 +264,24 @@ func registerUnevaluable(name string, params []declaredParam, reason string) {
 	libraryFunctions[name].unevaluable = true
 }
 
+// scalarDomain is the condition one scalar numeric parameter puts on its argument
+// by itself, which every determined argument meets before the function applies.
+type scalarDomain func(x semantics.Value) error
+
 // numericScalars adapts an implementation over scalar numeric values: every
 // parameter of such a declaration is one number, so a collection of several, a
-// string, an instance or a quantity does not conform to it.
-func numericScalars(params []string, apply func([]semantics.Value) (semantics.Value, error)) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+// string, an instance or a quantity does not conform to it. An argument the
+// model leaves open leaves the result open once the determined ones conform.
+func numericScalars(params []string, apply func([]semantics.Value) (semantics.Value, error), domains []scalarDomain) libraryApply {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		values := make([]semantics.Value, len(args))
 		for i, arg := range args {
+			if u := arg.Undetermined(); u != nil {
+				if err := openScalar(name, parameterLabel(params, i), u); err != nil {
+					return Value{}, err
+				}
+				continue
+			}
 			arg = soleElement(arg)
 			if arg.Kind != ValConst || !arg.Const.IsNumeric() {
 				return Value{}, fmt.Errorf(
@@ -276,7 +289,15 @@ func numericScalars(params []string, apply func([]semantics.Value) (semantics.Va
 					ErrTypeMismatch, name, parameterLabel(params, i), describeValue(arg),
 				)
 			}
+			if i < len(domains) && domains[i] != nil {
+				if err := domains[i](arg.Const); err != nil {
+					return Value{}, fmt.Errorf("function %s: %w", name, err)
+				}
+			}
 			values[i] = arg.Const
+		}
+		if val, open := ctx.openInvocation(name, args...); open {
+			return val, nil
 		}
 		result, err := apply(values)
 		if err != nil {
@@ -571,30 +592,37 @@ func tanReal(theta float64) float64 { return math.Sin(theta) / math.Cos(theta) }
 // cotReal is cos/sin, the ratio TrigFunctions::cot declares as its body.
 func cotReal(theta float64) float64 { return math.Cos(theta) / math.Sin(theta) }
 
-// naturalLog is OpenSysMLMathFunctions::ln. The logarithm is defined for a
-// positive argument only: zero and a negative have no Real logarithm, so both
-// are reported rather than returned as an infinity or a NaN.
+// naturalLog is OpenSysMLMathFunctions::ln over the positive argument positiveReal admits.
 func naturalLog(args []semantics.Value) (semantics.Value, error) {
-	x := asReal(args[0])
-	if x <= 0 {
-		return semantics.Value{}, fmt.Errorf("%w: the logarithm of %v is not a Real (requires x > 0.0)", semantics.ErrArithmeticDomain, x)
+	return semantics.RealResult(math.Log(asReal(args[0])))
+}
+
+// positiveReal is the domain of a logarithm's argument: zero and a negative have
+// no Real logarithm, so both are reported rather than returned as an infinity or a NaN.
+func positiveReal(v semantics.Value) error {
+	if x := asReal(v); x <= 0 {
+		return fmt.Errorf("%w: the logarithm of %v is not a Real (requires x > 0.0)", semantics.ErrArithmeticDomain, x)
 	}
-	return semantics.RealResult(math.Log(x))
+	return nil
+}
+
+// logarithmBase is the domain of a logarithm's base: positive, and not 1.0,
+// every power of which is 1.0.
+func logarithmBase(v semantics.Value) error {
+	switch base := asReal(v); {
+	case base <= 0:
+		return fmt.Errorf("%w: base %v has no logarithm (requires base > 0.0)", semantics.ErrArithmeticDomain, base)
+	case base == 1:
+		return fmt.Errorf("%w: base 1.0 has no logarithm", semantics.ErrArithmeticDomain)
+	}
+	return nil
 }
 
 // logToBase is OpenSysMLMathFunctions::log, the logarithm of x to the given
-// base, computed as ln(x)/ln(base). Base 1.0 has no logarithm — every power of
-// it is 1.0 — and neither the argument nor the base may be zero or negative.
+// base, computed as ln(x)/ln(base) over the arguments positiveReal and
+// logarithmBase admit.
 func logToBase(args []semantics.Value) (semantics.Value, error) {
 	x, base := asReal(args[0]), asReal(args[1])
-	switch {
-	case x <= 0:
-		return semantics.Value{}, fmt.Errorf("%w: the logarithm of %v is not a Real (requires x > 0.0)", semantics.ErrArithmeticDomain, x)
-	case base <= 0:
-		return semantics.Value{}, fmt.Errorf("%w: base %v has no logarithm (requires base > 0.0)", semantics.ErrArithmeticDomain, base)
-	case base == 1:
-		return semantics.Value{}, fmt.Errorf("%w: base 1.0 has no logarithm", semantics.ErrArithmeticDomain)
-	}
 	// Base 10 and base 2 have their own library functions, which are exact where
 	// the ratio of logarithms is not: log10(1000.0) is 3.0, ln(1000.0)/ln(10.0)
 	// is 2.9999999999999996.
@@ -638,14 +666,11 @@ func numericAbs(args []semantics.Value) (semantics.Value, error) {
 	return semantics.RealResult(math.Abs(args[0].Real))
 }
 
-// integerAbs is the absolute value over Integer, which IntegerFunctions
-// declares as returning Natural. The most negative int64 has no positive
-// counterpart, so it overflows rather than wrapping to itself.
+// integerAbs is the absolute value over the Integer integerDomain admits, which
+// IntegerFunctions declares as returning Natural. The most negative int64 has no
+// positive counterpart, so it overflows rather than wrapping to itself.
 func integerAbs(args []semantics.Value) (semantics.Value, error) {
-	x, err := asInteger(args[0])
-	if err != nil {
-		return semantics.Value{}, err
-	}
+	x := args[0].Int
 	if x == math.MinInt64 {
 		return semantics.Value{}, fmt.Errorf("%w: abs(%d) exceeds the Integer range", semantics.ErrArithmeticOverflow, x)
 	}
@@ -667,17 +692,11 @@ func numericExtremum(larger bool) func([]semantics.Value) (semantics.Value, erro
 	}
 }
 
-// integerExtremum is max/min over Integer parameters.
+// integerExtremum is max/min over the Integer (or Natural) arguments the
+// parameters' domains admit.
 func integerExtremum(larger bool) func([]semantics.Value) (semantics.Value, error) {
 	return func(args []semantics.Value) (semantics.Value, error) {
-		x, err := asInteger(args[0])
-		if err != nil {
-			return semantics.Value{}, err
-		}
-		y, err := asInteger(args[1])
-		if err != nil {
-			return semantics.Value{}, err
-		}
+		x, y := args[0].Int, args[1].Int
 		res := y
 		if (larger && x > y) || (!larger && x < y) {
 			res = x
@@ -686,22 +705,22 @@ func integerExtremum(larger bool) func([]semantics.Value) (semantics.Value, erro
 	}
 }
 
-// naturalExtremum is max/min over the Natural parameters NaturalFunctions
-// declares, so a negative argument does not conform.
-func naturalExtremum(larger bool) func([]semantics.Value) (semantics.Value, error) {
-	extremum := integerExtremum(larger)
-	return func(args []semantics.Value) (semantics.Value, error) {
-		for _, arg := range args {
-			x, err := asInteger(arg)
-			if err != nil {
-				return semantics.Value{}, err
-			}
-			if x < 0 {
-				return semantics.Value{}, fmt.Errorf("%w: requires Natural arguments, got %d", ErrTypeMismatch, x)
-			}
-		}
-		return extremum(args)
+// integerDomain is the domain of an Integer parameter: a Real does not conform.
+func integerDomain(v semantics.Value) error {
+	_, err := asInteger(v)
+	return err
+}
+
+// naturalDomain is the domain of a Natural parameter: an Integer that is not negative.
+func naturalDomain(v semantics.Value) error {
+	x, err := asInteger(v)
+	if err != nil {
+		return err
 	}
+	if x < 0 {
+		return fmt.Errorf("%w: requires Natural arguments, got %d", ErrTypeMismatch, x)
+	}
+	return nil
 }
 
 // isZero and isUnit are the NumericalFunctions predicates the library's sum0

@@ -131,6 +131,21 @@ excludingat-unbound-zero :: U :: SequenceFunctions::excludingAt(xs, 0)
 excludingat-unbound-past :: U :: SequenceFunctions::excludingAt(xs, 5)
 excludingat-unbound-valid :: U :: SequenceFunctions::excludingAt(xs, 1)
 
+# A determined argument outside its parameter's domain fails a numeric library
+# function whatever the open argument holds; one within it leaves the result open.
+max-integer-real-unbound :: U :: IntegerFunctions::max(1.5, u)
+max-integer-unbound :: U :: IntegerFunctions::max(1, u)
+rat-unbound-zero-denum :: U :: RationalFunctions::rat(u, 0)
+gcd-fraction-unbound :: U :: RationalFunctions::gcd(1.5, u)
+
+# A filter test that does not depend on the element decides over the elements an
+# open collection may hold beyond the known: it keeps or drops them as a whole.
+select-constant-gear-nonempty :: T :: SequenceFunctions::notEmpty(rack.gear->ControlFunctions::select{in x; true})
+reject-constant-gear-empty :: T :: SequenceFunctions::isEmpty(rack.gear->ControlFunctions::reject{in x; true})
+select-constant-unbound-count :: U :: SequenceFunctions::size(xs->ControlFunctions::select{in x; true})
+reject-constant-unbound-empty :: U :: xs->ControlFunctions::reject{in x; true}
+select-failing-unbound :: U :: xs->ControlFunctions::select{in x; 1 / 0 > 0}
+
 # A sequence whose elements each hold a fixed number of values fixes every position:
 # the determined ones answer, the open one stays open, one past the count fails.
 index-fixed-first :: U :: (10, u, 30)#(1)

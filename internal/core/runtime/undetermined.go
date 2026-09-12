@@ -258,12 +258,13 @@ func (ec *EvalContext) sequenceOfPositions(entries []Value, sources ...Value) (V
 }
 
 // undeterminedFiltered is a filter's result over source when the test is open for
-// some elements or source holds unknown ones: certainly kept, possibly each of those.
-func undeterminedFiltered(source Value, kept, open []Value) Value {
+// some elements or source may hold unknown ones it keeps: certainly kept, possibly
+// each of the open, and fromUnknown of the unknown.
+func undeterminedFiltered(source Value, kept, open []Value, fromUnknown semantics.Range) Value {
 	first, _ := undeterminedIn(append([]Value{source}, open...)...)
 	count := semantics.CountRange(int64(len(kept))).
 		Plus(semantics.Range{Lower: semantics.Bound{Known: true}, Upper: semantics.Bound{Value: int64(len(open)), Known: true}}).
-		Plus(semantics.Range{Lower: semantics.Bound{Known: true}, Upper: unknownCountOf(source).Upper})
+		Plus(fromUnknown)
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
 		reason: first.Undetermined().Reason(), count: count, known: kept,
 	}}
@@ -313,7 +314,8 @@ func lessBound(b semantics.Bound, n int64) semantics.Bound {
 }
 
 // undeterminedAware lists the built-ins that decide over an undetermined argument
-// themselves, from the count the model gives or another argument.
+// themselves, from the count the model gives or another argument; the operator
+// forms and the scalar numeric functions register themselves here.
 var undeterminedAware = map[string]bool{
 	"ControlFunctions::if":        true,
 	"ControlFunctions::??":        true,

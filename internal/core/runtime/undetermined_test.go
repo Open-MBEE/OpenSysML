@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -452,6 +453,49 @@ func TestCollectionTransformsKeepKnownElements(t *testing.T) {
 	}
 }
 
+// A filter over an open collection tests one element standing for each the
+// collection may hold beyond those known: a test that decides for it keeps or drops
+// them all, so the count the model fixes survives a constant test and a test that
+// fails whatever the element still fails; only an open test leaves them open.
+func TestFiltersDecideOverUnknownElements(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, want := range map[string]string{
+		"rack.gear->ControlFunctions::reject{in x; true}":                    "[]",
+		"xs->ControlFunctions::select{in x; false}":                          "[]",
+		"(1, u)->ControlFunctions::reject{in x; true}":                       "[]",
+		"isEmpty(rack.gear->ControlFunctions::reject{in x; true})":           "true",
+		"notEmpty(rack.gear->ControlFunctions::select{in x; true})":          "true",
+		"size(xs->ControlFunctions::reject{in x; false}) == size(xs)":        "<undetermined>",
+		"size((1, u)->ControlFunctions::select{in x; true})":                 "2",
+		"size((1, u)->ControlFunctions::reject{in x; x == 1})":               "<undetermined>",
+		"rack.loose->ControlFunctions::select{in x; x.tag == \"d\"} == ()":   "<undetermined>",
+		"ControlFunctions::selectOne(rack.gear, {in x; true}) == rack.fixed": "<undetermined>",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	for src, count := range map[string]string{
+		"rack.gear->ControlFunctions::select{in x; true}":    "[1..*]",
+		"xs->ControlFunctions::select{in x; true}":           "[2..4]",
+		"xs->ControlFunctions::reject{in x; false}":          "[2..4]",
+		"rack.loose->ControlFunctions::reject{in x; false}":  "[0..2]",
+		"xs->ControlFunctions::select{in x; x > 1.0}":        "[0..4]",
+		"(1, u)->ControlFunctions::select{in x; x == 1}":     "[1..2]",
+		"rack.gear->ControlFunctions::selectOne{in x; true}": "[1]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for _, src := range []string{
+		"xs->ControlFunctions::select{in x; 1 / 0 > 0}",
+		"rack.gear->ControlFunctions::reject{in x; 1 % 0 == 0}",
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrDivisionByZero) {
+			t.Errorf("%s: %v, want a division by zero", src, err)
+		}
+	}
+}
+
 // A mapping over an open collection counts what the mapper yields per element the
 // collection may hold beyond those known, so a mapper of fixed count keeps the count
 // exact and only an open mapper or an open collection leaves it open.
@@ -676,6 +720,53 @@ func TestDefiniteLibraryErrorsSurviveOpenOperands(t *testing.T) {
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)
+	}
+}
+
+// A scalar numeric library function checks every argument the model determines
+// against its parameter's domain before an open one leaves the result open.
+func TestScalarFunctionsCheckDeterminedArguments(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, want := range map[string]error{
+		"OpenSysMLMathFunctions::log(u, -1.0)":                            semantics.ErrArithmeticDomain,
+		"OpenSysMLMathFunctions::log(u, 1.0)":                             semantics.ErrArithmeticDomain,
+		"OpenSysMLMathFunctions::log(-1.0, u)":                            semantics.ErrArithmeticDomain,
+		"OpenSysMLMathFunctions::log(0.0, u)":                             semantics.ErrArithmeticDomain,
+		"OpenSysMLMathFunctions::ln(u) + OpenSysMLMathFunctions::ln(0.0)": semantics.ErrArithmeticDomain,
+		"RationalFunctions::gcd(1.5, u)":                                  semantics.ErrArithmeticDomain,
+		"IntegerFunctions::max(1.5, u)":                                   ErrTypeMismatch,
+		"IntegerFunctions::min(u, 2.5)":                                   ErrTypeMismatch,
+		"NaturalFunctions::min(-1, u)":                                    ErrTypeMismatch,
+		"NaturalFunctions::max(u, -1)":                                    ErrTypeMismatch,
+		"RationalFunctions::rat(1.5, u)":                                  ErrTypeMismatch,
+		"RealFunctions::max(\"a\", u)":                                    ErrTypeMismatch,
+		"RealFunctions::max(u, true)":                                     ErrTypeMismatch,
+		"RealFunctions::max(xs, 1.0)":                                     ErrMultiplicityViolation,
+		"RealFunctions::max(u, (1.0, 2.0))":                               ErrTypeMismatch,
+		"OpenSysMLMathFunctions::log(-1.0, 0.0)":                          semantics.ErrArithmeticDomain,
+		"NaturalFunctions::max(-1, 1.5)":                                  ErrTypeMismatch,
+		"RationalFunctions::rat(u, 0)":                                    ErrDivisionByZero,
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, want) {
+			t.Errorf("%s: err = %v, want %v", src, err, want)
+		}
+	}
+	for _, src := range []string{
+		"OpenSysMLMathFunctions::log(u, 10.0)", "OpenSysMLMathFunctions::log(100.0, u)",
+		"OpenSysMLMathFunctions::log(u, r)", "OpenSysMLMathFunctions::ln(u)",
+		"OpenSysMLMathFunctions::atan2(0.0, u)", "IntegerFunctions::max(1, u)",
+		"IntegerFunctions::abs(u)", "NaturalFunctions::min(u, 0)", "RationalFunctions::gcd(6, u)",
+		"RationalFunctions::rat(u, 2)", "RealFunctions::max(r, 1.0)", "RealFunctions::max(known, u)",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, "[1]")
+	}
+	for src, want := range map[string]string{
+		"OpenSysMLMathFunctions::log(100.0, 10.0)": "2.0", "IntegerFunctions::max(1, 2)": "2",
+		"RationalFunctions::gcd(6, 4)": "2", "NaturalFunctions::min(3, 4)": "3",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
 	}
 }
 

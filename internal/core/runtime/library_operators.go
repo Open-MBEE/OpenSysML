@@ -97,9 +97,8 @@ func checkOperands(ctx *Context, name string, domain operandDomain, args []Value
 	bound := make([]Value, len(args))
 	for i, param := range []string{"x", "y"}[:len(args)] {
 		if u := args[i].Undetermined(); u != nil {
-			if lower := u.Count().Lower; lower.Known && !lower.Infinite && lower.Value > 1 {
-				return nil, fmt.Errorf("%w: function %s parameter %q holds at least %d values, exactly 1 required",
-					ErrMultiplicityViolation, name, param, lower.Value)
+			if err := openScalar(name, fmt.Sprintf("%q", param), u); err != nil {
+				return nil, err
 			}
 			bound[i] = args[i]
 			continue
@@ -115,6 +114,16 @@ func checkOperands(ctx *Context, name string, domain operandDomain, args []Value
 		bound[i] = val
 	}
 	return bound, nil
+}
+
+// openScalar admits an open argument to the parameter labelled label, declared
+// `[1]`, unless the count the model gives it certainly exceeds one.
+func openScalar(name, label string, u *Undetermined) error {
+	if lower := u.Count().Lower; lower.Known && !lower.Infinite && lower.Value > 1 {
+		return fmt.Errorf("%w: function %s parameter %s holds at least %d values, exactly 1 required",
+			ErrMultiplicityViolation, name, label, lower.Value)
+	}
+	return nil
 }
 
 // soleValue is the one value an operand declared `[1]` holds: a sole element
@@ -287,7 +296,7 @@ func registerGenericExtrema() {
 // `max`/`min` do, and strings and quantities answer with the operand chosen.
 // A kind the library declares no ordering for is refused.
 func genericExtremum(larger bool) libraryApply {
-	extremum := numericScalars([]string{"x", "y"}, numericExtremum(larger))
+	extremum := numericScalars([]string{"x", "y"}, numericExtremum(larger), nil)
 	return func(name string, ctx *Context, args []Value) (Value, error) {
 		args, err := checkOperands(ctx, name, anyOperand, args)
 		if err != nil {
