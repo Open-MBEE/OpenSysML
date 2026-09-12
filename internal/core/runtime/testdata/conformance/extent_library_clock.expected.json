@@ -1,10 +1,9 @@
 {
   "type": "calc",
-  "evaluate": "fleet::depot::bay::extents",
+  "evaluate": "test::extents",
   "libraries": true,
   "inputs": [],
   "result": {"type": "Sequence", "elements": [
-    {"type": "Boolean", "value": true},
     {"type": "Boolean", "value": true},
     {"type": "Boolean", "value": true},
     {"type": "Boolean", "value": true},

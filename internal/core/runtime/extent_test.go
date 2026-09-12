@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -156,8 +157,9 @@ func TestNamespaceBindingFailureLeavesNoBinding(t *testing.T) {
 }
 
 // TestNamespaceBindingFailureLeavesNoObject requires a refused binding to leave behind none of
-// the objects its value constructed nor the behaviors they started, however often it is read,
-// so an extent reached from elsewhere never counts them.
+// the objects its value constructed nor the behaviors they started, however often it is read;
+// an extent taken elsewhere in the model reaches the usage, fails on the same refusal naming it,
+// and leaves nothing behind either — it never counts what the value constructed.
 func TestNamespaceBindingFailureLeavesNoObject(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
 		package test {
@@ -196,12 +198,19 @@ func TestNamespaceBindingFailureLeavesNoObject(t *testing.T) {
 			t.Errorf("read %d: behaviors attached = %d, want none", i, n)
 		}
 	}
-	val, err := evalIn(t, ctx, other.Scope, "size(all Boat)")
+	_, err := evalIn(t, ctx, other.Scope, "size(all Boat)")
+	if !errors.Is(err, ErrTypeMismatch) || !strings.Contains(err.Error(), "usage car") {
+		t.Fatalf("size(all Boat) after failed bindings: error = %v, want ErrTypeMismatch naming the usage", err)
+	}
+	if n := len(ctx.instances) + len(ctx.created) + len(ctx.objectBehaviors); n != 0 {
+		t.Errorf("objects and behaviors left behind by the extent = %d, want none", n)
+	}
+	val, err := evalIn(t, ctx, other.Scope, "size(all Buoy)")
 	if err != nil {
-		t.Fatalf("size(all Boat): %v", err)
+		t.Fatalf("size(all Buoy): %v", err)
 	}
 	if val.Kind != ValConst || val.Const.Int != 0 {
-		t.Errorf("size(all Boat) after failed bindings = %v, want 0", val)
+		t.Errorf("size(all Buoy) after failed bindings = %v, want 0", val)
 	}
 }
 

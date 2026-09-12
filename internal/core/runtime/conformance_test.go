@@ -96,6 +96,10 @@ type ExpectedOutcome struct {
 	// whose model names library elements the runtime resolves — the measurement
 	// unit of a quantity expression is one.
 	Libraries bool `json:"libraries,omitempty"`
+	// Documents are further source files of this directory indexed with the
+	// case's own, before it, for a case whose model spans documents — an extent
+	// reaching a usage another file declares. Each must parse clean.
+	Documents []string `json:"documents,omitempty"`
 
 	// Outcomes are the complete results the case admits, in place of the single
 	// outputs/finalState/stateVisits, for a model whose library semantics leave
@@ -389,17 +393,10 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	file := p.ParseFile()
 	checkDiagnostics(t, p.Diagnostics, expected.Diagnostics)
 
-	idx := symbols.NewIndex()
-	if expected.Libraries {
-		idx = libs.NewModelIndex()
-	}
-	idx.AddDocument(sysmlPath, file)
-	if expected.Libraries {
-		idx.ExpandWildcardImports()
-	}
+	idx, sources := indexCaseDocuments(t, conformanceDir, src, file, expected)
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	model.SetSourceText(source.TextOf(map[string]*source.SourceFile{sysmlPath: src}, nil))
+	model.SetSourceText(source.TextOf(sources, nil))
 	fresh := func() *Context { return NewContext(NewModel(model, resolver), 10000) }
 	ctx := fresh()
 	if err := ctx.SetSchedule(casePolicy(t, expected, policy)); err != nil {
@@ -435,6 +432,35 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	if policy == DefaultSchedulePolicy {
 		exploreConformanceCase(t, fresh, idx, sysmlPath, expected)
 	}
+}
+
+// indexCaseDocuments indexes a case's model — the standard library when it asks for one, the
+// further documents it lists, then its own file — and returns the sources indexed by path.
+func indexCaseDocuments(t *testing.T, conformanceDir string, src *source.SourceFile, file *ast.RootNamespace, expected ExpectedOutcome) (*symbols.Index, map[string]*source.SourceFile) {
+	t.Helper()
+	idx := symbols.NewIndex()
+	if expected.Libraries {
+		idx = libs.NewModelIndex()
+	}
+	sources := map[string]*source.SourceFile{src.Name(): src}
+	for _, name := range expected.Documents {
+		path := filepath.Join(conformanceDir, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("failed to read document %s: %v", path, err)
+		}
+		doc := source.New(path, data)
+		p := parser.New(doc)
+		parsed := p.ParseFile()
+		checkDiagnostics(t, p.Diagnostics, nil)
+		idx.AddDocument(path, parsed)
+		sources[path] = doc
+	}
+	idx.AddDocument(src.Name(), file)
+	if expected.Libraries {
+		idx.ExpandWildcardImports()
+	}
+	return idx, sources
 }
 
 // casePolicy is the policy a case runs under: the one it pins, else the one the

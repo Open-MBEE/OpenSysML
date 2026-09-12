@@ -6,7 +6,8 @@ model: cmd/pilot-exec-diff/testdata/models/extent_expressions.sysml
 # pilot-unevaluated whatever T is, and `size(all T)` counts that one node as 1 on the pilot's
 # side, whatever the extent's true size (0 for Boat, which nothing instantiates). Ours
 # enumerates the run's extent: an enumeration's literals, a variation's variants, and the
-# objects of an ordinary definition the context reaches, nested ones included.
+# objects of an ordinary definition the run holds or any document's namespace-level usages
+# denote, nested ones included.
 extent-enum-literals ::  :: Extent::sizes
 extent-nested-objects ::  :: Extent::wheels
 extent-root-objects ::  :: Extent::cars

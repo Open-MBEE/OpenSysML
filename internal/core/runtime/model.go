@@ -77,6 +77,9 @@ type Model struct {
 	integerLiterals map[*ast.LiteralInteger]int64
 	realLiterals    map[*ast.LiteralReal]float64
 
+	// census memoizes the object usages the model's namespaces declare; see modelUsages.
+	census *usageCensus
+
 	// behaving memoizes runsBehaviors per type; the model is fixed for the Model's life.
 	behaving map[*symbols.Symbol]bool
 	// behavingFeatures memoizes behavingParts and redefGroups redefinitionGroups, per type.

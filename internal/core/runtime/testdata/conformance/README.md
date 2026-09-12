@@ -376,6 +376,17 @@ library elements the runtime resolves — the measurement unit of a quantity
 expression (`1.5 [m/s]`) is one. Omit it otherwise: a case that needs no library
 is indexed from its own source alone.
 
+## Further Documents
+
+```json
+{"documents": ["extent_across_documents.depot.sysml"]}
+```
+
+Indexes the listed `.sysml` files of this directory beside the case's own, each
+as a document of its own name, for a case whose contract spans documents — an
+extent reaching a usage another file declares. A listed file belongs to the case
+that lists it and is no case itself; name it `<case>.<part>.sysml`.
+
 ## Value Format
 
 All values use this format:
