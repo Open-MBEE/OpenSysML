@@ -9,7 +9,7 @@ Sibling of `testing-pilot-differential` and `testing-pilot-xpect` (same pin
 `scripts/pilot-pin.sh`, same committed-baseline shape), but pointed the other way: the
 differential measures what the reference accepts and we reject; this oracle measures what the
 reference **rejects and we accept** — permissiveness gaps. Its corpus is committed under
-`cmd/pilot-reject/testdata/negative/` (300 hand-written invalid models, one violated rule + citation
+`cmd/pilot-reject/testdata/negative/` (301 hand-written invalid models, one violated rule + citation
 in each file's mandatory `// Invalid: ...` first line), so no corpus download exists. Method and
 findings: `docs/project/pilot-rejection.md`.
 
@@ -36,7 +36,7 @@ succession rules, the feature-value overriding rule, the enumeration-variation r
 the metadata typing, annotated-element and body rules, the trigger-argument typing rules, the owning-body member rules, the cross-subsetting rules, the variant port rule, the association arity, binary-link end
 count and multiplicity-bound typing rules, the result-expression ownership rules, and the annotation-ownership, binding-arity, feature-chain conformance,
 conjugated typing and end-feature rules, the end-multiplicity, return-owner and single-conjugator rules, the keyword-first relationship end kinds, and the prefix and body-context cases), with a fresh library cache:
-`300 case(s): 291 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept`,
+`301 case(s): 292 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept`,
 byte-identical to the committed baseline. Any `both accept` case is a bug in the corpus (the case
 is not actually invalid under the loaded standard library) — fix the case, never ignore it. A
 candidate the pilot accepts because it does not enforce the named constraint is not a case either:

@@ -21,6 +21,10 @@ func TestNegativePrefixAlternatives(t *testing.T) {
 			"'portion' cannot follow 'composite': a prefix says 'composite' or 'portion', not both"},
 		{"portion_composite", "a.kerml", "package P { class A { portion composite feature j; } }", "composite",
 			"'composite' cannot follow 'portion': a prefix says 'composite' or 'portion', not both"},
+		{"composite_composite", "a.kerml", "package P { class A { composite composite feature j; } }", "composite",
+			"'composite' cannot follow 'composite': a prefix says 'composite' or 'portion', not both"},
+		{"portion_portion", "a.kerml", "package P { class A { portion portion feature j; } }", "portion",
+			"'portion' cannot follow 'portion': a prefix says 'composite' or 'portion', not both"},
 		// abstract and variation are alternatives (SysML.xtext:490 BasicDefinitionPrefix).
 		{"abstract_variation_definition", "a.sysml", "package P { abstract variation part def V; }", "variation",
 			"'variation' cannot follow 'abstract': a prefix says 'abstract' or 'variation', not both"},
@@ -63,6 +67,8 @@ func TestNegativePrefixAlternatives(t *testing.T) {
 			"'out' cannot follow 'in': a prefix says one direction ('in', 'out' or 'inout'), not both"},
 		{"cross_feature_composite_portion", "a.kerml", "package P { assoc A { end composite portion x : T feature e; } }", "portion",
 			"'portion' cannot follow 'composite': a prefix says 'composite' or 'portion', not both"},
+		{"cross_feature_composite_composite", "a.kerml", "package P { assoc A { end composite composite x : T feature e; } }", "composite",
+			"'composite' cannot follow 'composite': a prefix says 'composite' or 'portion', not both"},
 		{"cross_feature_abstract_variation", "a.sysml", "package P { assoc A { end abstract variation x : T feature e; } }", "variation",
 			"'variation' cannot follow 'abstract': a prefix says 'abstract' or 'variation', not both"},
 		// A bad escape is reported once the token is consumed, so the crossing-feature

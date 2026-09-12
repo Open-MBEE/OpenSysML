@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "cmd/pilot-reject/testdata/negative",
         "origin": "ours",
-        "files": 300,
-        "digest": "sha256:be4baab7b6f534dbf262c761d48abc367fe8b3d440390a232af1f0f66dde1df1"
+        "files": 301,
+        "digest": "sha256:02c8a010a25709e38052ea96ccc52ea63ee9fa3667758cc693056b2f676ea7b1"
       }
     ],
-    "recorded": "2026-09-11"
+    "recorded": "2026-09-12"
   },
   "totals": {
-    "cases": 300,
-    "bothReject": 291,
+    "cases": 301,
+    "bothReject": 292,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -57,8 +57,8 @@
     },
     {
       "source": "grammar",
-      "cases": 105,
-      "bothReject": 105,
+      "cases": 106,
+      "bothReject": 106,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -1120,6 +1120,15 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 1
+    },
+    {
+      "path": "grammar/k27-repeated-composite.kerml",
+      "source": "grammar",
+      "rule": "the 'composite' | 'portion' alternative of a feature prefix is optional but written at most once (KerML.xtext:514 BasicFeaturePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 11
     },
     {
       "path": "semantic/cn01-fork-two-incoming.sysml",
@@ -2855,8 +2864,8 @@
       }
     ],
     "totals": {
-      "cases": 300,
-      "bothReject": 291,
+      "cases": 301,
+      "bothReject": 292,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

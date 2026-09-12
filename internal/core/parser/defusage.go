@@ -301,6 +301,14 @@ func abstractOrVariationWord(isVariation bool) string {
 	return "abstract"
 }
 
+// compositeOrPortionWord names the prefix keyword of the pair already read; a portion is composite too.
+func compositeOrPortionWord(isPortion bool) string {
+	if isPortion {
+		return "portion"
+	}
+	return "composite"
+}
+
 // directionOf maps a FeatureDirection keyword to its kind.
 func directionOf(kw string) ast.FeatureDirection {
 	switch kw {
@@ -408,13 +416,13 @@ func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
 			}
 			cross.IsVariation = true
 		case "composite":
-			if cross.IsPortion {
-				p.prefixConflict(t, "portion", "'composite' or 'portion'")
+			if cross.IsComposite || cross.IsPortion {
+				p.prefixConflict(t, compositeOrPortionWord(cross.IsPortion), "'composite' or 'portion'")
 			}
 			cross.IsComposite = true
 		case "portion":
-			if cross.IsComposite {
-				p.prefixConflict(t, "composite", "'composite' or 'portion'")
+			if cross.IsComposite || cross.IsPortion {
+				p.prefixConflict(t, compositeOrPortionWord(cross.IsPortion), "'composite' or 'portion'")
 			}
 			cross.IsComposite = true
 			cross.IsPortion = true
@@ -1128,14 +1136,14 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			m.direction = directionOf(t.KeywordID)
 			m.noteUsageOnly(t)
 		case "composite":
-			if m.isPortion {
-				p.prefixConflict(t, "portion", "'composite' or 'portion'")
+			if m.isComposite || m.isPortion {
+				p.prefixConflict(t, compositeOrPortionWord(m.isPortion), "'composite' or 'portion'")
 			}
 			m.isComposite = true
 			m.noteUsageOnly(t)
 		case "portion":
-			if m.isComposite {
-				p.prefixConflict(t, "composite", "'composite' or 'portion'")
+			if m.isComposite || m.isPortion {
+				p.prefixConflict(t, compositeOrPortionWord(m.isPortion), "'composite' or 'portion'")
 			}
 			// A portion is composite in addition to being a portion.
 			m.isComposite = true
