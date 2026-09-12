@@ -35,12 +35,13 @@ type toolEngine struct {
 	entry   ToolEntry
 	look    func(ToolEntry) (string, error)
 	timeout func() time.Duration
+	limit   func() int
 }
 
 // NewTool returns the `tool:<name>` engine of a manifest entry. It registers whether or not
 // the executable is found and refuses through Covers while it is not.
 func NewTool(entry ToolEntry) External {
-	return toolEngine{entry: entry, look: lookExecutable, timeout: toolTimeoutFromEnv}
+	return toolEngine{entry: entry, look: lookExecutable, timeout: toolTimeoutFromEnv, limit: outputLimitFromEnv}
 }
 
 // Name is `tool:` and the tool's name.
@@ -54,6 +55,11 @@ func (e toolEngine) Describe() Description {
 		Bounds:    []string{"tool"},
 		Authority: Observed,
 	}
+}
+
+// Origin is the tool's manifest entry.
+func (e toolEngine) Origin() Origin {
+	return Origin{Kind: KindTool, Version: e.entry.Version, File: e.entry.File, Command: e.entry.Executable}
 }
 
 // Process names the executable found, with the tool's version, or reports its absence.
@@ -129,7 +135,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 	}
 	timeout := e.timeout()
 	started := time.Now()
-	reply, err := e.invoke(ctx, path, request, timeout)
+	reply, err := e.invoke(ctx, path, request, timeout, e.outputLimit())
 	if err != nil {
 		return Result{}, err
 	}
@@ -174,27 +180,35 @@ func renderReply(reply map[string]runtime.ToolValue) string {
 	return strings.Join(parts, " ")
 }
 
+// outputLimit is the bound on one reply, OutputLimitEnv's unless the engine was built without it.
+func (e toolEngine) outputLimit() int {
+	if e.limit == nil {
+		return outputLimitFromEnv()
+	}
+	return e.limit()
+}
+
 // invoke runs the executable once under the timeout and reads its reply.
-func (e toolEngine) invoke(ctx context.Context, path string, request []byte, timeout time.Duration) (map[string]runtime.ToolValue, error) {
+func (e toolEngine) invoke(ctx context.Context, path string, request []byte, timeout time.Duration, limit int) (map[string]runtime.ToolValue, error) {
 	tool := e.entry.ToolName
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(tctx, path)
 	cmd.Stdin = bytes.NewReader(request)
-	stdout, stderr := &boundedBuffer{stop: cancel}, &boundedBuffer{stop: cancel}
+	stdout, stderr := newBoundedBuffer(limit, cancel), newBoundedBuffer(limit, cancel)
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cmd.WaitDelay = time.Second
 	err := cmd.Run()
 	switch {
 	case ctx.Err() != nil:
 		return nil, ctx.Err()
-	case stdout.over || stderr.over:
+	case stdout.Over() || stderr.Over():
 		stream := "output"
-		if stderr.over {
+		if stderr.Over() {
 			stream = "error"
 		}
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
-			Detail: fmt.Sprintf("%s wrote more than %d bytes to standard %s", path, ToolOutputLimit, stream)}
+			Detail: fmt.Sprintf("%s wrote more than %d bytes to standard %s (%s)", path, limit, stream, OutputLimitEnv)}
 	case errors.Is(tctx.Err(), context.DeadlineExceeded):
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolTimeout,
 			Detail: fmt.Sprintf("%s did not answer within %s (%s)", path, timeout, ToolTimeoutEnv)}
@@ -203,31 +217,6 @@ func (e toolEngine) invoke(ctx context.Context, path string, request []byte, tim
 	}
 	return ToolReplyOf(tool, stdout.Bytes())
 }
-
-// ToolOutputLimit bounds what one invocation may write to standard output or standard
-// error; a tool writing more is stopped and its reply is malformed.
-const ToolOutputLimit = 16 << 20
-
-// boundedBuffer keeps the first ToolOutputLimit bytes written to it and stops the process
-// at the first byte beyond. It is a plain Writer so every byte passes through Write.
-type boundedBuffer struct {
-	kept bytes.Buffer
-	over bool
-	stop context.CancelFunc
-}
-
-func (b *boundedBuffer) Write(p []byte) (int, error) {
-	if room := ToolOutputLimit - b.kept.Len(); len(p) > room {
-		b.kept.Write(p[:room])
-		b.over = true
-		b.stop()
-		return len(p), nil
-	}
-	return b.kept.Write(p)
-}
-
-// Bytes is what was kept.
-func (b *boundedBuffer) Bytes() []byte { return b.kept.Bytes() }
 
 // processDetail spells a failed process: how it exited and what it wrote to standard error.
 func processDetail(path string, err error, stderr []byte) string {

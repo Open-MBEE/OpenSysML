@@ -55,12 +55,13 @@ func (f *EffectiveFeature) DeclScope() *symbols.Scope {
 	return f.Symbol.OwnerScope
 }
 
-// declScope returns the scope a declaration's body was written in: the scope the
+// DeclScope returns the scope a declaration's body was written in: the scope the
 // declaration owns, in which its own members are visible to each other, falling
 // back to the scope it was declared in when it owns none. It is the scope an
 // expression written among its members resolves its names against — an
-// attribute default, a guard, an assignment in a nested action body.
-func declScope(sym *symbols.Symbol) *symbols.Scope {
+// attribute default, a guard, an assignment in a nested action body — and the
+// scope the runtime lowers the declaration in.
+func DeclScope(sym *symbols.Symbol) *symbols.Scope {
 	if sym == nil {
 		return nil
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"sort"
 )
 
 // Model is the model-derived part of execution: the semantic model and resolver a
@@ -169,6 +170,22 @@ func (m *Model) RegisterSource(sf *source.SourceFile) {
 		return
 	}
 	m.sources[sf.Name()] = sf
+}
+
+// Text answers a span in a document from the registered files, falling back to
+// the notation lookup the semantic model reads documentation from.
+func (m *Model) Text() source.Lookup {
+	return source.TextOf(m.sources, m.semantics.SourceText())
+}
+
+// Sources returns the registered files of the model, in name order.
+func (m *Model) Sources() []*source.SourceFile {
+	files := make([]*source.SourceFile, 0, len(m.sources))
+	for _, sf := range m.sources {
+		files = append(files, sf)
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].Name() < files[j].Name() })
+	return files
 }
 
 // RegisterScope gives the Model a scope tree the caller resolves references in,

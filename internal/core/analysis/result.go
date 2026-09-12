@@ -256,6 +256,12 @@ type Result struct {
 	Bounds Bounds
 	// Witness is a schedule the interpreter replays, when the claim has one.
 	Witness *Witness
+	// Contrast is the second schedule of a sensitivity: replayed beside Witness, it gives the
+	// named feature another value. Nil for every other claim.
+	Contrast *Witness
+	// Executions are the concrete executions a universal claim was observed on when an
+	// engine chose them and the interpreter replayed each; nil when none were.
+	Executions []Witness
 	// Reason says why, when nothing is claimed: the construct, the unknown,
 	// the budget, the disagreement.
 	Reason string

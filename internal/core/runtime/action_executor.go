@@ -179,13 +179,13 @@ func newActionExecutorOn(
 // in: its token flow, or under a tool only its own interface, the body never running.
 func lowerPerformance(action *symbols.Symbol, tool *toolExecution) (*lower.ActionGraph, error) {
 	if tool != nil {
-		graph, err := lower.ToActionInterface(action.Decl, declScope(action))
+		graph, err := lower.ToActionInterface(action.Decl, DeclScope(action))
 		if err != nil {
 			return nil, fmt.Errorf("lower action interface: %w", err)
 		}
 		return graph, nil
 	}
-	graph, err := lower.ToActionGraph(action.Decl, declScope(action))
+	graph, err := lower.ToActionGraph(action.Decl, DeclScope(action))
 	if err != nil {
 		return nil, fmt.Errorf("lower action graph: %w", err)
 	}

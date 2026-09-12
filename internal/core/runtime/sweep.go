@@ -593,7 +593,7 @@ func (t SweepType) admitMagnitude(ctx *Context, param, what string, value Value)
 		return refusal
 	}
 	for _, typ := range ctx.model.semantics.FeatureTypes(t.num) {
-		verdict, err := ctx.classifyValue(declScope(t.decl.Owner), magnitude, typ, nil, byAnyType)
+		verdict, err := ctx.classifyValue(DeclScope(t.decl.Owner), magnitude, typ, nil, byAnyType)
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrSweepRange, err)
 		}

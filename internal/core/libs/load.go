@@ -2,6 +2,7 @@ package libs
 
 import (
 	"log/slog"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -24,3 +25,14 @@ func loadInto(idx *symbols.Index, src Source) {
 		slog.Warn("failed to load stdlib files", "error", err)
 	}
 }
+
+// Version identifies the standard library the host loads: `sha256:` and the set
+// digest of every file of DefaultSource, so two hosts embedding the same files
+// report the same version and an edited or overridden library reports another.
+func Version() string {
+	return libraryVersion()
+}
+
+var libraryVersion = sync.OnceValue(func() string {
+	return "sha256:" + NewLoader(DefaultSource(), nil).setDigest()
+})

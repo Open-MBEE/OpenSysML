@@ -28,6 +28,9 @@ type Model struct {
 	// tools is the plan's tool runner and where it is attached, shared by the plan's fleets;
 	// nil for none.
 	tools *toolPlan
+	// sessions are the plan's processes of its external engines, shared by the plan's
+	// fleets and closed with the plan; nil on a surface's model.
+	sessions *sessionPlan
 }
 
 // Engine is one registered way of answering questions about a model.

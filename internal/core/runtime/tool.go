@@ -618,19 +618,29 @@ type toolUnitKey struct {
 // SI package so a tool's `m/s**2` reads whatever the model imports; the reading is
 // memoized per scope since resolution memoizes per parsed name.
 func (e *ActionExecutor) toolUnit(text string) (semantics.Unit, error) {
-	key := toolUnitKey{scope: e.root.scope, text: text}
-	if unit, ok := e.ctx.model.toolUnits[key]; ok {
+	return e.ctx.UnitOf(e.root.scope, text)
+}
+
+// UnitOf reads a unit spelled as expression text in scope, else in the library's SI
+// package, which a nil scope reads alone; the reading is memoized per scope.
+func (ctx *Context) UnitOf(scope *symbols.Scope, text string) (semantics.Unit, error) {
+	key := toolUnitKey{scope: scope, text: text}
+	if unit, ok := ctx.model.toolUnits[key]; ok {
 		return unit, nil
 	}
 	expr, ok := parseToolUnit(text)
 	if !ok {
 		return semantics.Unit{}, fmt.Errorf("%q is not a unit expression", text)
 	}
-	unit, err := e.ctx.model.semantics.UnitOfExpr(e.root.scope, expr)
+	var unit semantics.Unit
+	err := fmt.Errorf("%w: no scope reads %s", semantics.ErrNotAUnit, text)
+	if scope != nil {
+		unit, err = ctx.model.semantics.UnitOfExpr(scope, expr)
+	}
 	if errors.Is(err, semantics.ErrNotAUnit) {
-		if si := e.ctx.librarySymbol(fqnSIPackage); si != nil && si.Scope != nil {
+		if si := ctx.librarySymbol(fqnSIPackage); si != nil && si.Scope != nil {
 			expr, _ = parseToolUnit(text)
-			if inSI, siErr := e.ctx.model.semantics.UnitOfExpr(si.Scope, expr); siErr == nil {
+			if inSI, siErr := ctx.model.semantics.UnitOfExpr(si.Scope, expr); siErr == nil {
 				unit, err = inSI, nil
 			}
 		}
@@ -638,7 +648,7 @@ func (e *ActionExecutor) toolUnit(text string) (semantics.Unit, error) {
 	if err != nil {
 		return semantics.Unit{}, fmt.Errorf("%q is not a unit: %w", text, err)
 	}
-	e.ctx.model.toolUnits[key] = unit
+	ctx.model.toolUnits[key] = unit
 	return unit, nil
 }
 

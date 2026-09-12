@@ -41,7 +41,7 @@ func (ctx *Context) subjectParameter(
 	params []calcParameter, index map[string]int, aliases *map[string]string,
 	link *symbols.Symbol, member ast.Node, subject subjectDecl,
 ) []calcParameter {
-	sym := memberSymbol(declScope(link), member)
+	sym := memberSymbol(DeclScope(link), member)
 	param := calcParameter{
 		Name: subject.Name, Default: subject.Value, Owner: link, IsSubject: true,
 		Decl: ctx.calcMemberDeclOf(link, sym, subject.Name),
@@ -507,7 +507,7 @@ func (ctx *Context) objectiveBindings(run *calcRun, obj *symbols.Symbol, name st
 	if err != nil {
 		return frame{}, err
 	}
-	if err := ctx.holdAs(declScope(obj), what, decl, value, subject); err != nil {
+	if err := ctx.holdAs(DeclScope(obj), what, decl, value, subject); err != nil {
 		return frame{}, err
 	}
 	for unboundName := range unbound {

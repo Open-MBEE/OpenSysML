@@ -139,7 +139,7 @@ func (ctx *Context) bindOneVariant(feat *EffectiveFeature, elements []Value, own
 // the owner that selected it, materialized once for that owner.
 func (ctx *Context) variantValue(variation, variant *symbols.Symbol, owner int64) (Value, error) {
 	if value := semantics.VariantValue(variant); value != nil {
-		ec := NewEvalContext(ctx, declScope(variant))
+		ec := NewEvalContext(ctx, DeclScope(variant))
 		val, err := ec.Eval(value)
 		if err != nil {
 			return Value{}, fmt.Errorf("variant %s: %w", variant.Name, err)

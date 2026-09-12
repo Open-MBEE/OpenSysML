@@ -63,7 +63,7 @@ func (d *calcMemberDecl) check(ctx *Context, value *Value, what func() string) e
 	if d.Target.mult.AtMostOne() {
 		*value = soleElement(*value)
 	}
-	if refusal, refused := ctx.writeTypeRefusal(declScope(d.Owner), d.Target.typ, value, admitWritten); refused {
+	if refusal, refused := ctx.writeTypeRefusal(DeclScope(d.Owner), d.Target.typ, value, admitWritten); refused {
 		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)
 	}
 	if err := ctx.holdForDeclared(value, d.Target.typ); err != nil {
@@ -276,7 +276,7 @@ func calcBindings(chain []*symbols.Symbol) []lower.Binding {
 	var out []lower.Binding
 	for _, link := range chain {
 		if link != nil {
-			out = append(out, lower.ToBindings(link.Decl, declScope(link))...)
+			out = append(out, lower.ToBindings(link.Decl, DeclScope(link))...)
 		}
 	}
 	return out
@@ -335,7 +335,7 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 			if usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut {
 				continue
 			}
-			sym := memberSymbol(declScope(link), usage)
+			sym := memberSymbol(DeclScope(link), usage)
 			param := calcParameter{
 				Name: name, Default: usage.Value, Owner: link,
 				Decl: ctx.calcMemberDeclOf(link, sym, name), IsCalc: isCalcUsageSymbol(sym),
@@ -1086,7 +1086,7 @@ func (ctx *Context) ownedInputSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 		if !ok || (usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut) {
 			continue
 		}
-		if found := memberSymbol(declScope(sym), usage); found != nil {
+		if found := memberSymbol(DeclScope(sym), usage); found != nil {
 			inputs = append(inputs, found)
 		}
 	}

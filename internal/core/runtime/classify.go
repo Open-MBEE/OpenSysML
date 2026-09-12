@@ -190,9 +190,9 @@ func declaredBy[T any](ctx *Context, types []*symbols.Symbol, of func(*symbols.S
 				out = append(out, rel)
 			}
 		}
-		covered[declScope(typ)] = true
+		covered[DeclScope(typ)] = true
 		for _, sup := range ctx.model.semantics.AllSupertypes(typ) {
-			covered[declScope(sup)] = true
+			covered[DeclScope(sup)] = true
 		}
 	}
 	return out

@@ -159,10 +159,15 @@ var budgets = runtime.DefaultBudgets()
 // `tool:<name>` per entry of the manifest OPENSYSML_TOOLS names, read once at startup.
 var engines = analysis.Default()
 
-// resolveEngines reads the tool manifest into engines; a manifest that cannot be read is
-// reported at startup like a bad run bound.
+// resolveEngines reads the tool manifest into engines; a manifest that cannot be read, or
+// that lies under the working directory the models are read from, is reported at startup
+// like a bad run bound.
 func resolveEngines() error {
-	registry, err := analysis.DefaultFromEnv()
+	var workspaces []string
+	if cwd, err := os.Getwd(); err == nil {
+		workspaces = append(workspaces, cwd)
+	}
+	registry, err := analysis.DefaultFromEnv(workspaces...)
 	if err != nil {
 		return err
 	}
