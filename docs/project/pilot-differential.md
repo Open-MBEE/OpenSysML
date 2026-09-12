@@ -218,9 +218,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 40 | 27 | 9 | 1095 | 0 | 2 | 7 | 1093 |
+| `examples` | 40 | 28 | 13 | 1095 | 4 | 2 | 7 | 1089 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **375** | **344** | **75** | **1150** | **34** | **3** | **38** | **1113** |
+| **Total** | **375** | **345** | **79** | **1150** | **38** | **3** | **38** | **1109** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -249,6 +249,51 @@ reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Argument-binding conformance round
+
+Every argument of an operator or invocation expression is bound to the parameter it fills
+(KerML 1.1 §8.3.4.8.3), and the reference judges that implied binding with the same rule as a
+written `bind` — its `checkImplicitBindingConnectors` runs `validateBindingConnectorTypeConformance`
+over the connectors it synthesizes from argument to parameter, and its separate
+`validateBindingConnectorArgumentTypeConformance` is commented out. The type checker now judges the
+same bindings (`internal/core/passes/w9c_argument_bindings.go`): the argument's static result types
+against the selected function's corresponding input parameter, under the reference's symmetric
+conformance test, silent whenever either side is unknown — an unresolved or ambiguous callee, an
+untyped argument, a collection-valued argument, a parameter typed by a `Collection` or by
+`Element` — and silent where a precise type error of ours already covers the argument. The warning
+sits where the reference puts it: on the argument of an invocation, on the whole expression of an
+operator (`rearWheel+1`).
+
+Four rows move from only-pilot to agreed, all in the `examples` root and all of one shape: a
+`MassValue` argument, a `ScalarQuantityValue` that specializes no `Real`, bound to a `Real`-typed
+parameter. Two are on `disposal-team-demo/team.sysml:29`, where the `RealFunctions::sum` the demo
+imports takes `collection : Real[0..*]` and `robots.mass` and `cradles.mass` fill it, so both
+implementations warn on each argument at the same column (`29:45`, `29:64`). The other two are the
+`totalMass` rollups of `runtime-showcase/mass-rollup.sysml` (lines 11 and 33) that the
+[runtime showcase round](#runtime-showcase-round) recorded as pilot-only: `mass +
+sum(subcomponents.totalMass)` and `mass + propellantMass` bind their `MassValue`-typed operands
+to the `Real`-typed parameters of `DataFunctions::+`, and the file becomes fully agreeing. No new only-ours row appears in any root,
+the training corpus stays clean, and no per-file ratchet count moves. `team.sysml` does not become
+fully agreeing, because its line-117 pair stays where [the team demo](#the-team-demo) records it:
+same rule, different referent.
+
+The harness's own categorizer moved with it. Our `Bound features should have conforming types`
+reached `multiplicity` through the `bound` clause while the reference's identical text reached
+`kind-mismatch` through `conforming`, so the pair could never have agreed; `categorizeOpenSysML`
+now maps it by its code, `bound-feature-types`, to `kind-mismatch`. That is the last one-sided
+mapping the [sweep below](#one-sided-categorizations-swept) predicted. No other row changes
+category.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 344 | **345** |
+| agreed diagnostics | 34 | **38** |
+| our diagnostics | 75 | **79** |
+| only ours | 38 | **38** |
+| only pilot | 1113 | **1109** |
+| `examples`: only pilot | 1093 | **1089** |
+| `examples`: agreed | 0 | **4** |
 
 ### Runtime showcase round
 
@@ -541,8 +586,8 @@ the library's `eval` calculation):
 
 | Row | The reference's reading | Verdict |
 |---|---|---|
-| `:29` (2 `warning: Bound features should have conforming types`) | `attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);` — the value is an operator expression, and the reference compares the argument types of the implicit binding | Same family as `BindingConnector_Invalid2.sysml.xt:42`: our `W9CBoundFeatureTypesPass` checks feature endpoints, and no numbered constraint was found for argument-level conformance on an expression |
-| `:117` (`error: Referent must be time varying.` + the same warning) | `assign accepted := accepted + 1;` in a state's entry action, where `accepted` is an attribute of the enclosing `part def` | Reference-side asymmetry: the identical assignment written in an `action` of the same part def, nested or not, is clean on both sides, so the referent's `mayTimeVary` is not what the two implementations read differently — the state's entry action is |
+| `:29` (2 `warning: Bound features should have conforming types`) | `attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);` — each `MassValue`-typed argument is bound to the `Real`-typed `collection` parameter of the imported `RealFunctions::sum`, and the reference judges that implied binding | **Agreed** since the [argument-binding conformance round](#argument-binding-conformance-round): we warn on the same two arguments at the same columns |
+| `:117` (`error: Referent must be time varying.` + the same warning) | `assign accepted := accepted + 1;` in a state's entry action, where the enclosing `part def` declares `attribute accepted : Integer` | A name-resolution difference, not a rule difference. The reference resolves `accepted` inside the state to the `accepted : Transfer[0..1]` that `StatePerformances::StatePerformance` contributes to every state, ahead of the part definition's own attribute; a `Transfer` is neither time-varying nor a `Real`, hence both rows. We resolve it to the declared attribute, an `Integer`, and the same two rules are then rightly silent. The identical assignment in an `action` of the same part def is clean on both sides, which is what isolates the state's inherited scope as the difference |
 
 ### Package-keyword round
 
@@ -577,7 +622,7 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1113** |
+| only pilot | 82 | **1109** |
 | pilot diagnostics | 123 | **1150** |
 | severity-only | 9 | **3** |
 
@@ -711,7 +756,7 @@ Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 531 `kind-mismatch`, 533 `unresolved-reference` — of which
+`examples` 10 syntax, 19 `unmapped`, 527 `kind-mismatch`, 533 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -801,14 +846,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **344 / 38 / 75** |
-| only pilot | **1113** |
+| overall: fully agreeing / only ours / our diagnostics | **345 / 38 / 79** |
+| only pilot | **1109** |
 | pilot diagnostics | **1150** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **1093** |
+| examples: only pilot | **1089** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
 only-pilot, with 49 of 58 files fully
@@ -3031,7 +3076,12 @@ findings and no others:
 
 The remaining known one-sided clause is `should be`, which the pilot side maps and ours reaches only
 through `conform`. No diagnostic of ours is worded that way, so there is nothing to categorize; if
-one is ever added, this is the clause to revisit.
+one is ever added, this is the clause to revisit. The one diagnostic of ours that *is* worded as the
+reference words it and reached a different category — `Bound features should have conforming
+types`, `multiplicity` on our side through `bound` and `kind-mismatch` on the pilot's through
+`conforming` — is mapped by its code since the
+[argument-binding conformance round](#argument-binding-conformance-round), and
+`TestCategorizeOpenSysML` pins it.
 
 ## The declared errata overlay
 

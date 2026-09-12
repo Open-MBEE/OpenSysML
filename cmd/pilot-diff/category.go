@@ -34,6 +34,9 @@ func categorizeOpenSysML(code, pass, message string) Category {
 		return CategoryMultiplicity
 	case strings.Contains(code, "unit"), strings.Contains(code, "quantity"):
 		return CategoryUnits
+	// Worded as the reference words it, whose copy `conforming` maps below.
+	case code == "bound-feature-types":
+		return CategoryKindMismatch
 	}
 
 	lower := strings.ToLower(message)

@@ -50,7 +50,7 @@ func (SendActionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []
 		occurrence: w8cLibraryType(ctx, "Occurrences::Occurrence"),
 	}
 	c.walk(rootScope, root.Members)
-	return append(append(c.diags, bodies.diags...), expr.diags...)
+	return append(append(c.diags, bodies.diags...), expr.diagnostics()...)
 }
 
 type sendActionChecker struct {

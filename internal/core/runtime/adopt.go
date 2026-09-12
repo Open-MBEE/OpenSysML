@@ -1092,12 +1092,10 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 			}
 			rewritten.decls[depFound] = digest
 		}
-		for doc, digest := range reads.docs {
-			if digest != a.ctx.documentDigest(doc) {
-				return false
-			}
-			rewritten.docs[doc] = digest
+		if reads.census != "" && reads.census != a.ctx.modelUsages().digest {
+			return false
 		}
+		rewritten.census = reads.census
 		for typ, digest := range reads.types {
 			typFound, err := a.rebind(typ, "a type it judged")
 			if err != nil || digest != a.ctx.typeDigest(typFound) {
@@ -1175,15 +1173,6 @@ func (ctx *Context) declarationDigest(sym *symbols.Symbol) string {
 		return ""
 	}
 	return ctx.textIn(sym.DocName, sym.DeclSpan) + "\n" + ctx.typeDigest(sym)
-}
-
-// documentDigest is the whole text of a document, as this context was given it.
-func (ctx *Context) documentDigest(doc string) string {
-	sf, ok := ctx.model.sources[doc]
-	if !ok {
-		return ""
-	}
-	return ctx.textIn(doc, source.Span{Len: sf.Len()})
 }
 
 // planMetaobject rebinds the element a metaobject denotes and the metaclass it
