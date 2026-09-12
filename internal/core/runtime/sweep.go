@@ -953,14 +953,14 @@ func sweepNumbersOf(prim semantics.PrimType) SweepNumbers {
 // positiveScalar reports a type that is, or specializes, ScalarValues::Positive.
 func (ctx *Context) positiveScalar(typ *symbols.Symbol) bool {
 	positive := ctx.librarySymbol("ScalarValues::Positive")
-	return positive != nil && ctx.model.semantics.Conforms(typ, positive)
+	return positive != nil && ctx.modelConforms(typ, positive)
 }
 
 // quantityNumber is the feature holding a scalar quantity type's magnitude, the
 // `num` a quantity value's number is bound to; false for any other type.
 func (ctx *Context) quantityNumber(typ *symbols.Symbol) (*symbols.Symbol, bool) {
 	scalar := ctx.librarySymbol(scalarQuantityTypeFQN)
-	if scalar == nil || !ctx.model.semantics.Conforms(typ, scalar) {
+	if scalar == nil || !ctx.modelConforms(typ, scalar) {
 		return nil, false
 	}
 	num, ok := ctx.model.semantics.LookupMember(typ, vectorQuantityNumFeature)

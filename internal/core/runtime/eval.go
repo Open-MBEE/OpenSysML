@@ -206,7 +206,7 @@ func (ec *EvalContext) lookupSubaction(name string) (perf *actionFrame, declared
 	}
 	var decl ast.Node
 	if ec.ctx.model.resolver != nil {
-		if sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name); ok && sym != nil {
+		if sym, ok := ec.ctx.lookupName(ec.scope, name); ok && sym != nil {
 			if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind != ast.UsageAction && !lower.IsCaseNode(usage) {
 				return nil, false, nil
 			}
@@ -614,7 +614,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		// evaluated in the scope it was declared in, so the imports in force there
 		// — rather than the ones in force here — answer the names it uses.
 		if ec.scope != nil && !ec.resolving[name] {
-			if sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name); ok && sym != nil {
+			if sym, ok := ec.ctx.lookupName(ec.scope, name); ok && sym != nil {
 				// An inherited expression reads the feature as the running behavior
 				// inherits it: through the redefinition, when it states one.
 				sym = ec.ctx.inheritedFeature(ec.runningBehavior(), sym)
@@ -703,7 +703,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 	// visibility, aliases and inherited members included — so the two agree. It
 	// is read in this evaluation's scope, since one expression may be evaluated
 	// in several.
-	reading := ec.ctx.model.resolver.ReadQualified(ec.scope, qn)
+	reading := ec.ctx.readQualified(ec.scope, qn)
 
 	// A path starting at a node of an action performance on the stack reads
 	// through that node's performance: `p.v`, `leg.inner.v`.
@@ -947,54 +947,6 @@ func (ctx *Context) unbindNamespace(sym *symbols.Symbol) {
 	delete(ctx.bindingReads, sym)
 }
 
-// bindingReads is what one binding's value read of the model: each declaration's text as it
-// read then, and each document root whose members were walked, by its whole text.
-type bindingReads struct {
-	decls map[*symbols.Symbol]string
-	docs  map[string]string
-}
-
-// noteDeclarationRead records that the binding being made read sym's declaration.
-func (ctx *Context) noteDeclarationRead(sym *symbols.Symbol) {
-	reads, top := ctx.readsUnderWay()
-	if reads == nil || sym == nil || sym == top {
-		return
-	}
-	if _, seen := reads.decls[sym]; !seen {
-		reads.decls[sym] = ctx.declarationDigest(sym)
-	}
-}
-
-// noteNamespaceRead records that the binding being made walked the members of a namespace: a
-// named one reads as its declaration, a document root as the whole document.
-func (ctx *Context) noteNamespaceRead(scope *symbols.Scope) {
-	if owner := scope.Owner(); owner != nil {
-		ctx.noteDeclarationRead(owner)
-		return
-	}
-	reads, _ := ctx.readsUnderWay()
-	if reads == nil || scope.DocName() == "" {
-		return
-	}
-	if _, seen := reads.docs[scope.DocName()]; !seen {
-		reads.docs[scope.DocName()] = ctx.documentDigest(scope.DocName())
-	}
-}
-
-// readsUnderWay is the record of the innermost binding being made, nil outside one.
-func (ctx *Context) readsUnderWay() (*bindingReads, *symbols.Symbol) {
-	if len(ctx.bindingStack) == 0 {
-		return nil, nil
-	}
-	top := ctx.bindingStack[len(ctx.bindingStack)-1]
-	reads := ctx.bindingReads[top]
-	if reads == nil {
-		reads = &bindingReads{decls: make(map[*symbols.Symbol]string), docs: make(map[string]string)}
-		ctx.bindingReads[top] = reads
-	}
-	return reads, top
-}
-
 // evaluateDeclared evaluates a declaration's value anew, answering to its declared type.
 func (ec *EvalContext) evaluateDeclared(sym *symbols.Symbol, value ast.Node) (Value, error) {
 	val, err := ec.evalIn(sym.OwnerScope).Eval(value)
@@ -1045,7 +997,7 @@ func (ec *EvalContext) namesSelf(name string) bool {
 	if ec.scope == nil {
 		return false
 	}
-	sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name)
+	sym, ok := ec.ctx.lookupName(ec.scope, name)
 	return ok && ec.ctx.model.semantics.IsSelf(sym)
 }
 
@@ -1055,7 +1007,7 @@ func (ec *EvalContext) namesOccurrenceThis(name string) bool {
 	if ec.scope == nil {
 		return false
 	}
-	sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name)
+	sym, ok := ec.ctx.lookupName(ec.scope, name)
 	return ok && ec.ctx.model.resolver.IsOccurrenceThis(sym)
 }
 
@@ -1181,7 +1133,7 @@ func (ec *EvalContext) chainMembersDeclared(base ast.Node, parts []ast.NameSegme
 	if !ok || ref.Name == nil || ec.ctx.model.resolver == nil {
 		return nil
 	}
-	cur, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, ref.Name)
+	cur, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
 	if !ok || cur == nil {
 		return nil
 	}
@@ -1509,11 +1461,11 @@ func (ec *EvalContext) classifiesValue(n *ast.OperatorExpr) bool {
 // resolveClassificationType resolves the type a classification names, seeing
 // through an alias to the type it stands for.
 func (ec *EvalContext) resolveClassificationType(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
-	target, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, qn)
+	target, ok := ec.ctx.resolveQualified(ec.scope, qn)
 	if !ok || target == nil {
 		return nil, false
 	}
-	if canonical, ok := ec.ctx.model.resolver.ResolveAliasTarget(target); ok {
+	if canonical, ok := ec.ctx.resolveAliasTarget(target); ok {
 		target = canonical
 	}
 	ec.ctx.noteDeclarationRead(target)
@@ -1736,7 +1688,7 @@ func (ec *EvalContext) classifiedElement(n *ast.OperatorExpr) (*symbols.Symbol, 
 	// A name is the element it names: what `p @ Safety` classifies is the
 	// declaration p, the same element a filter condition would be judged for.
 	if qn := subjectName(subject); qn != nil {
-		if sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, qn); ok && sym != nil {
+		if sym, ok := ec.ctx.resolveQualified(ec.scope, qn); ok && sym != nil {
 			return sym, nil
 		}
 	}
@@ -2484,7 +2436,7 @@ func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget
 		return target
 	}
 	target := &invocationTarget{qualName: qualifiedNameToString(n.Type)}
-	sel := passes.SelectInvocation(ec.ctx.model.resolver, ec.ctx.model.semantics, ec.scope, n, semantics.PerformsBehavior)
+	sel := ec.ctx.selectInvocation(ec.scope, n, semantics.PerformsBehavior)
 	switch {
 	case sel.Ambiguous && sel.Undetermined:
 		target.undetermined = sel.Tied
@@ -2592,7 +2544,7 @@ func (ec *EvalContext) unresolvedInvocation(qn *ast.QualifiedName, written strin
 	if len(qn.Parts) == 1 && !qn.Global {
 		return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedName(ec.scope, written, qn))
 	}
-	reading := ec.ctx.model.resolver.ReadQualified(ec.scope, qn)
+	reading := ec.ctx.readQualified(ec.scope, qn)
 	for i := len(qn.Parts) - 2; i >= 0; i-- {
 		if owner, ok := reading.Part(i); ok {
 			return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedMember(ec.scope, qn, owner, i+1))
@@ -2944,16 +2896,15 @@ func spelledPrim(elements []Value) semantics.PrimType {
 // sharedTypes narrows the types the elements so far share to those an element of types
 // also is: a type it conforms to stays, one it generalizes widens to the element's, else drops.
 func (ec *EvalContext) sharedTypes(common, types []*symbols.Symbol) []*symbols.Symbol {
-	model := ec.ctx.model.semantics
 	var shared []*symbols.Symbol
 	for _, c := range common {
 		kept := c
 		found := false
 		for _, t := range types {
 			switch {
-			case model.Conforms(t, c):
+			case ec.ctx.modelConforms(t, c):
 				kept, found = c, true
-			case model.Conforms(c, t):
+			case ec.ctx.modelConforms(c, t):
 				kept, found = t, true
 			}
 			if found {

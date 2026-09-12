@@ -71,8 +71,8 @@ func (ec *EvalContext) castEntries(
 // its values where their own content does not state their type (KerML 1.0 §7.3.4.1).
 func (ec *EvalContext) declaredOperandTypes(operand ast.Node) []*symbols.Symbol {
 	// An enumeration literal is of its enumeration however its value is written.
-	if sym, ok := ec.ctx.model.resolver.ResolveTarget(ec.scope, operand); ok && sym != nil {
-		if canonical, aliased := ec.ctx.model.resolver.ResolveAliasTarget(sym); aliased {
+	if sym, ok := ec.ctx.resolveTarget(ec.scope, operand); ok && sym != nil {
+		if canonical, aliased := ec.ctx.resolveAliasTarget(sym); aliased {
 			sym = canonical
 		}
 		if enum := semantics.EnumerationOwning(sym); enum != nil {

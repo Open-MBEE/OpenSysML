@@ -411,7 +411,7 @@ func (ctx *Context) Semantics() *semantics.Model {
 // document each build a symbol of their own for one declaration, so a symbol
 // conforms to another declared by the same node as it or one of its supertypes.
 func (ctx *Context) conforms(a, b *symbols.Symbol) bool {
-	if ctx.model.semantics.Conforms(a, b) {
+	if ctx.modelConforms(a, b) {
 		return true
 	}
 	if a == nil || b == nil || b.Decl == nil {

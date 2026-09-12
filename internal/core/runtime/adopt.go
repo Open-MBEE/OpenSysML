@@ -1051,8 +1051,8 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 	}
 }
 
-// carryBinding carries a usage's binding only while it and every declaration its value read
-// still read as they did, the bound ones carried first; an edit to any is read again instead.
+// carryBinding carries a usage's binding only while everything its value read still reads as
+// it did — declarations, names, type hierarchies — bound dependencies first; else it is read again.
 func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, carried map[*symbols.Symbol]bool) bool {
 	if done, ok := carried[sym]; ok {
 		return done
@@ -1068,8 +1068,11 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 		return false
 	}
 	reads := a.prev.bindingReads[sym]
-	rewritten := &bindingReads{decls: make(map[*symbols.Symbol]string), docs: make(map[string]string)}
+	rewritten := newBindingReads()
 	if reads != nil {
+		if reads.opaque {
+			return false
+		}
 		for dep, digest := range reads.decls {
 			depFound, err := a.rebind(dep, "a declaration it read")
 			if err != nil || digest != a.ctx.declarationDigest(depFound) {
@@ -1091,6 +1094,23 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 			}
 			rewritten.docs[doc] = digest
 		}
+		for typ, digest := range reads.types {
+			typFound, err := a.rebind(typ, "a type it judged")
+			if err != nil || digest != a.ctx.typeDigest(typFound) {
+				return false
+			}
+			rewritten.types[typFound] = digest
+		}
+		for read, denoted := range reads.names {
+			read, ok := a.rebindNameRead(read)
+			if !ok {
+				return false
+			}
+			if now, ok := a.ctx.replay(read); !ok || now != denoted {
+				return false
+			}
+			rewritten.names[read] = denoted
+		}
 	}
 	a.ctx.namespaceBindings[found] = a.rewrite(val)
 	a.ctx.bindingReads[found] = rewritten
@@ -1109,12 +1129,32 @@ func allAdopted(val Value, adopted map[int64]bool) bool {
 	return true
 }
 
-// declarationDigest is the text of a symbol's declaration, as its document states it.
+// rebindNameRead names a lookup's scope and hidden declaration in this context.
+func (a *adoption) rebindNameRead(read nameRead) (nameRead, bool) {
+	if read.scope.owner != nil {
+		owner, err := a.rebind(read.scope.owner, "a namespace it looked a name up in")
+		if err != nil {
+			return read, false
+		}
+		read.scope.owner = owner
+	}
+	if read.excluding != nil {
+		excluding, err := a.rebind(read.excluding, "a declaration it looked a name up around")
+		if err != nil {
+			return read, false
+		}
+		read.excluding = excluding
+	}
+	return read, true
+}
+
+// declarationDigest is the text of a symbol's declaration, as its document states it, and
+// what this context resolves it to.
 func (ctx *Context) declarationDigest(sym *symbols.Symbol) string {
 	if sym == nil || sym.DocName == "" {
 		return ""
 	}
-	return ctx.textIn(sym.DocName, sym.DeclSpan)
+	return ctx.textIn(sym.DocName, sym.DeclSpan) + "\n" + ctx.typeDigest(sym)
 }
 
 // documentDigest is the whole text of a document, as this context was given it.

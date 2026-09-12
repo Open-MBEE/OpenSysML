@@ -278,6 +278,7 @@ func (ctx *Context) givenValue(sym *symbols.Symbol) (ast.Node, bool) {
 // createdTypes is the declarations the objects an unread feature comes to hold would be of: the
 // composite it materializes, or the types its value results in (its declared type, where unknown).
 func (ctx *Context) createdTypes(feature *EffectiveFeature) []*symbols.Symbol {
+	ctx.noteTypeRead(feature.Symbol)
 	if composite := ctx.CompositeTypeOf(feature); composite != nil {
 		return []*symbols.Symbol{composite}
 	}
@@ -301,12 +302,12 @@ func (ctx *Context) mayHold(typ, target *symbols.Symbol, visited map[*symbols.Sy
 		return false
 	}
 	visited[typ] = true
-	if ctx.model.semantics.Conforms(typ, target) {
+	if ctx.modelConforms(typ, target) {
 		return true
 	}
 	if value, valued := ctx.givenValue(typ); valued {
 		declared := ctx.extractType(typ)
-		if declared != nil && ctx.model.semantics.Conforms(target, declared) {
+		if declared != nil && ctx.modelConforms(target, declared) {
 			return true
 		}
 		types := ctx.model.semantics.ExprResultTypes(typ.OwnerScope, value)
@@ -314,7 +315,7 @@ func (ctx *Context) mayHold(typ, target *symbols.Symbol, visited map[*symbols.Sy
 			return true
 		}
 		for _, valueType := range types {
-			if ctx.model.semantics.Conforms(target, valueType) || ctx.mayHold(valueType, target, visited) {
+			if ctx.modelConforms(target, valueType) || ctx.mayHold(valueType, target, visited) {
 				return true
 			}
 		}
@@ -333,7 +334,7 @@ func (ctx *Context) mayHold(typ, target *symbols.Symbol, visited map[*symbols.Sy
 // isOf reports whether a type inst is of, or was classified by, conforms to target.
 func (ctx *Context) isOf(inst *Instance, target *symbols.Symbol) bool {
 	for _, typ := range inst.types() {
-		if ctx.model.semantics.Conforms(typ, target) {
+		if ctx.modelConforms(typ, target) {
 			return true
 		}
 	}

@@ -383,11 +383,11 @@ func (ctx *Context) referencedRequirement(scope *symbols.Scope, decl ast.Node, r
 	if ctx.model.resolver == nil {
 		return nil
 	}
-	sym, ok := ctx.model.resolver.ResolveReferenceTarget(scope, decl, ref)
+	sym, ok := ctx.resolveReferenceTarget(scope, decl, ref)
 	if !ok || sym == nil {
 		return nil
 	}
-	if canonical, ok := ctx.model.resolver.ResolveAliasTarget(sym); ok {
+	if canonical, ok := ctx.resolveAliasTarget(sym); ok {
 		sym = canonical
 	}
 	if RequireRequirement(sym) != nil && RequireConstraint(sym) != nil {
@@ -492,7 +492,7 @@ func (ctx *Context) conditionSubject(sym *symbols.Symbol, self *Instance) (carri
 	roots := []*Instance{self}
 	if self == nil {
 		roots = ctx.rootInstances()
-	} else if ctx.model.semantics.Conforms(self.Type, owner) {
+	} else if ctx.modelConforms(self.Type, owner) {
 		return carrier{instance: self, root: self}, nil
 	}
 	carriers := ctx.carriersUnder(roots, owner)
@@ -616,7 +616,7 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 		}
 		seen[inst.ID] = true
 		occurrence := carrierOccurrence{through: through, decl: inst.Type}
-		if ctx.model.semantics.Conforms(inst.Type, owner) && !declared[occurrence] {
+		if ctx.modelConforms(inst.Type, owner) && !declared[occurrence] {
 			declared[occurrence] = true
 			out = append(out, carrier{instance: inst, root: root, features: features})
 		}

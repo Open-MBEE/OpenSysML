@@ -455,7 +455,7 @@ func (c *calcCompiler) compileName(qn *ast.QualifiedName, scope *symbols.Scope, 
 	if name == thatName || name == thisName {
 		return nil, ineligible(fmt.Sprintf("name %q reads the bound object", name))
 	}
-	sym, ok := c.ctx.model.resolver.LookupName(scope, name)
+	sym, ok := c.ctx.lookupName(scope, name)
 	if !ok || sym == nil {
 		return nil, ineligible(fmt.Sprintf("name %q is not bound in the frame", name))
 	}
@@ -475,7 +475,7 @@ func (c *calcCompiler) compileName(qn *ast.QualifiedName, scope *symbols.Scope, 
 func (c *calcCompiler) compileQualifiedName(qn *ast.QualifiedName, scope *symbols.Scope) (*cnode, error) {
 	firstQN := &ast.QualifiedName{Global: qn.Global, Parts: []ast.NameSegment{qn.Parts[0]}}
 	firstQN.NodeBase = qn.NodeBase
-	sym, ok := c.ctx.model.resolver.ResolveQualified(scope, firstQN)
+	sym, ok := c.ctx.resolveQualified(scope, firstQN)
 	if !ok || sym == nil {
 		return nil, ineligible(fmt.Sprintf("qualified name %s does not resolve", qualifiedNameToString(qn)))
 	}

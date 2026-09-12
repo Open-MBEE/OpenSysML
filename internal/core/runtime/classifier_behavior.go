@@ -909,7 +909,7 @@ func (ctx *Context) namedBehavior(sym *symbols.Symbol) *symbols.Symbol {
 		return typ
 	}
 	if sym.Name != "" && sym.OwnerScope != nil {
-		if named, ok := ctx.model.resolver.LookupNameExcluding(sym.OwnerScope, sym.Name, sym.Decl); ok {
+		if named, ok := ctx.lookupNameExcluding(sym.OwnerScope, sym.Name, sym); ok {
 			return named
 		}
 	}
@@ -1015,7 +1015,7 @@ func namesPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, n
 	if ctx == nil || ctx.model.resolver == nil || self == nil || scope == nil {
 		return false
 	}
-	sym, ok := ctx.model.resolver.LookupName(scope, name)
+	sym, ok := ctx.lookupName(scope, name)
 	if !ok || sym == nil {
 		return false
 	}
