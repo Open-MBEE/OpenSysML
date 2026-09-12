@@ -106,8 +106,17 @@ func (ec *EvalContext) invokeBuiltin(name string, fn builtinFunc, exprs []ast.No
 	defer func() { ec.entered = outer }()
 	return tracedBuiltin(ec.trace, name,
 		func() ([]Value, error) { return ec.bindBuiltinArgs(name, exprs, named, names, unbound) },
-		func(args []Value) (Value, error) { return fn(ec, args) },
+		func(args []Value) (Value, error) { return applyBuiltinArgs(ec, name, fn, args) },
 	)
+}
+
+// applyBuiltinArgs applies a built-in to its bound arguments. One the model leaves
+// open leaves the result open, unless the built-in decides such arguments itself.
+func applyBuiltinArgs(ec *EvalContext, name string, fn builtinFunc, args []Value) (Value, error) {
+	if val, open := ec.ctx.undeterminedInvocation(name, args); open {
+		return val, nil
+	}
+	return fn(ec, args)
 }
 
 // tracedBuiltin binds and applies a built-in within the calc enter/bind/exit

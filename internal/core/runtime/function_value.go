@@ -182,7 +182,25 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 			return val, true, nil
 		}
 	}
-	return Value{}, false, nil
+	return ec.declaredFunction(callee)
+}
+
+// declaredFunction is the calc a calc usage's own value names (`in calc f = rate;`),
+// which a call of the usage applies where nothing in the environment rebinds it.
+func (ec *EvalContext) declaredFunction(callee *symbols.Symbol) (Value, bool, error) {
+	ref, ok := ec.ctx.extractDefaultValue(callee).(*ast.FeatureReference)
+	if !ok || ref.Name == nil || ec.ctx.model.resolver == nil {
+		return Value{}, false, nil
+	}
+	named, ok := ec.ctx.model.resolver.ResolveQualified(callee.OwnerScope, ref.Name)
+	if !ok || named == nil || !isCalcDecl(named.Decl) {
+		return Value{}, false, nil
+	}
+	val, err := ec.declaredValue(callee, ref)
+	if err != nil {
+		return Value{}, true, err
+	}
+	return val, val.Kind == ValFunction, nil
 }
 
 // qualifiedBoundFunction reads what the innermost run of the qualifying calc

@@ -221,6 +221,11 @@ func (r Range) HeldViolation(held Range) string {
 	return ""
 }
 
+// AdmitsMore reports whether the range admits more than count values.
+func (r Range) AdmitsMore(count int64) bool {
+	return r.Upper.Known && (r.Upper.Infinite || count < r.Upper.Value)
+}
+
 // Exactly is the one count the range admits, ok where both bounds are that finite count.
 func (r Range) Exactly() (int64, bool) {
 	if !r.Lower.Known || !r.Upper.Known || r.Lower.Infinite || r.Upper.Infinite || r.Lower.Value != r.Upper.Value {

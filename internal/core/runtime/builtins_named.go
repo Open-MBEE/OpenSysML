@@ -64,6 +64,9 @@ func builtinControlIf(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity(op, args, 3); err != nil {
 		return Value{}, err
 	}
+	if args[0].Kind == ValUndetermined {
+		return undeterminedOf(openRange(), args[0]), nil
+	}
 	held, err := boolOperand("test of "+op, args[0])
 	if err != nil {
 		return Value{}, err
@@ -95,26 +98,24 @@ func builtinControlLogical(op ast.OperatorKind) builtinFunc {
 		if err := checkArity(name, args, 2); err != nil {
 			return Value{}, err
 		}
-		l, err := boolOperand("firstValue of "+name, args[0])
-		if err != nil {
-			return Value{}, err
-		}
-		if decided, result := shortCircuit(op, l); decided {
-			return boolValue(result), nil
+		if args[0].Kind != ValUndetermined {
+			l, err := boolOperand("firstValue of "+name, args[0])
+			if err != nil {
+				return Value{}, err
+			}
+			if decided, result := shortCircuit(op, l); decided {
+				return boolValue(result), nil
+			}
 		}
 		if args[1].Kind == ValNull {
-			return Value{}, fmt.Errorf("%w: %s(%t) is decided by secondValue, which was not given; the result is Boolean[1]",
-				ErrMultiplicityViolation, name, l)
+			return Value{}, fmt.Errorf("%w: %s(%s) is decided by secondValue, which was not given; the result is Boolean[1]",
+				ErrMultiplicityViolation, name, FormatValue(args[0]))
 		}
 		second, err := ec.evalDeferred(name, args[1])
 		if err != nil {
 			return Value{}, err
 		}
-		r, err := boolOperand("secondValue of "+name, second)
-		if err != nil {
-			return Value{}, err
-		}
-		return combineBooleans(op, l, r)
+		return combineBooleanValues(op, args[0], second)
 	}
 }
 

@@ -152,6 +152,8 @@ func (c *carrying) value(v Value) (Value, error) {
 		return NewCoordinateTransformationValue(t), nil
 	case ValFunction:
 		return c.function(v)
+	case ValUndetermined:
+		return Value{}, &NotPortableError{Kind: v.Kind, Reason: "the model does not determine it"}
 	}
 	return Value{}, &NotPortableError{Kind: v.Kind, Reason: unknownKindReason}
 }

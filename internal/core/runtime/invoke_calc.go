@@ -580,7 +580,7 @@ func (ctx *Context) invokeBuiltinValues(sym *symbols.Symbol, fn builtinFunc, arg
 		func(bound []Value) (Value, error) {
 			ec := NewEvalContextIn(ctx, ctx.calcScope(sym, nil, callerScope), self)
 			ec.entered = entered
-			return fn(ec, bound)
+			return applyBuiltinArgs(ec, name, fn, bound)
 		},
 	)
 }

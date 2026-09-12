@@ -1,0 +1,60 @@
+model: cmd/pilot-exec-diff/testdata/models/undetermined_operands.sysml
+
+# Model-level evaluation over an unbound feature (`attribute u;`, no type, no value)
+# and over usages whose multiplicity leaves the cardinality open. The pilot leaves
+# such expressions unevaluated (the operator expression itself comes back); ours
+# answers <undetermined> and folds only what a constant operand fixes.
+
+# Boolean folding on the first operand: the conditional second operand is never read.
+and-first-false :: U :: false and (u > 3)
+or-first-true :: U :: true or (u == 1)
+implies-first-false :: U :: false implies (u == 1)
+
+# Boolean folding on the second operand: the unknown first operand cannot change the answer.
+and-second-false :: U :: (u > 3) and false
+or-second-true :: U :: (u == 1) or true
+implies-second-true :: U :: (u == 1) implies true
+
+# Boolean forms the unknown decides.
+and-second-true :: U :: (u > 3) and true
+or-second-false :: U :: (u == 1) or false
+implies-second-false :: U :: (u == 1) implies false
+not-unbound :: U :: not (u == 5)
+
+# Arithmetic, comparison, unary, conditional, indexing over the unknown.
+unbound-ref :: U :: u
+add-unbound :: U :: u + 5
+nested-unbound :: U :: (u + 5) * 2
+gt-unbound :: U :: u > 3
+eq-unbound :: U :: u == 5
+neg-unbound :: U :: -u
+if-unbound :: U :: if u > 0 ? 1 else 2
+index-by-unbound :: U :: (10, 20, 30)#(u)
+
+# Collection membership with an unknown element or an unknown probe. The library
+# functions are qualified: the pilot's prompt does not see a package's private imports.
+includes-unknown-element :: U :: SequenceFunctions::includes((1, u + 1), 1)
+excludes-unknown-element :: U :: SequenceFunctions::excludes((1, u + 1), 1)
+includes-unknown-probe :: U :: SequenceFunctions::includes((1, 2), u + 1)
+excludes-unknown-probe :: U :: SequenceFunctions::excludes((1, 2), u + 1)
+
+# The count of an unbound feature is fixed by its multiplicity, `[1]`, even though its value is not.
+size-unbound :: U :: SequenceFunctions::size(u)
+size-mixed :: U :: SequenceFunctions::size((1, u))
+notempty-unbound :: U :: SequenceFunctions::notEmpty(u)
+
+# Cardinalities the model fixes stay definite.
+size-slots :: T :: SequenceFunctions::size(rack.slots)
+size-lone :: T :: SequenceFunctions::size(rack.lone)
+size-enum-literal :: T :: SequenceFunctions::size(Mode::ON)
+index-slots :: T :: rack.slots#(2)
+
+# Cardinalities the model leaves open.
+size-gear :: T :: SequenceFunctions::size(rack.gear)
+notempty-gear :: T :: SequenceFunctions::notEmpty(rack.gear)
+isempty-gear :: T :: SequenceFunctions::isEmpty(rack.gear)
+isempty-loose :: T :: SequenceFunctions::isEmpty(rack.loose)
+notempty-loose :: T :: SequenceFunctions::notEmpty(rack.loose)
+size-loose :: T :: SequenceFunctions::size(rack.loose)
+size-gear-loose :: T :: SequenceFunctions::size((rack.gear, rack.loose))
+index-gear :: T :: rack.gear#(7)

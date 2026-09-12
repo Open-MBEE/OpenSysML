@@ -123,6 +123,12 @@ func valueFromProto(value *pb.Value) Value {
 		}
 	case *pb.Value_Unset:
 		return Unset{}
+	case *pb.Value_Undetermined:
+		return Undetermined{
+			Reason:     kind.Undetermined.GetReason(),
+			CountLower: kind.Undetermined.GetCount().GetLower(),
+			CountUpper: kind.Undetermined.GetCount().GetUpper(),
+		}
 	case *pb.Value_Array:
 		if err := sysmlgrpc.CheckArrayShape(kind.Array.GetDimensions(), len(kind.Array.GetElements())); err != nil {
 			return Null("unsupported: " + err.Error())
@@ -327,6 +333,11 @@ func valueToProto(value Value) (*pb.Value, error) {
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
 			Message: "unset is not a value a caller can supply",
+		}
+	case Undetermined:
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "undetermined is not a value a caller can supply",
 		}
 	default:
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "unknown value kind"}

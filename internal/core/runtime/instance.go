@@ -82,6 +82,9 @@ type FeatureValue struct {
 	Materialized   bool  // lazy flag: has this feature value been instantiated?
 	Written        bool  // a run assigned this value, so no default derives it again
 	BindingDerived bool  // value came from binding propagation rather than a write
+	// Assumed marks a value fixed by nothing but the feature's multiplicity: its
+	// minimum materialized, or contributions short of its maximum.
+	Assumed bool
 	// dependents are the derived values that read this one, to unmaterialize when
 	// it changes; nil until one does (see dependents.go).
 	dependents []*FeatureValue
@@ -465,7 +468,7 @@ func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, 
 // checkAdmits reports a value the feature does not admit, by count, by type
 // or by uniqueness, naming the value as what.
 func (ctx *Context) checkAdmits(feat *EffectiveFeature, what string, val *Value, how admission) error {
-	if msg := feat.Multiplicity.CountViolation(elementCount(val)); msg != "" {
+	if msg := feat.Multiplicity.HeldViolation(heldCountOf(val)); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
 	}
 	if err := ctx.checkWriteType(feat.DeclScope(), what, feat.Type, val, how); err != nil {
@@ -560,7 +563,7 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 		fv.Value = Value{}
 	}
 	fv.Materialized, fv.Written = true, true
-	fv.BindingDerived = false
+	fv.BindingDerived, fv.Assumed = false, false
 	ctx.afterWrite(fv, before)
 	return nil
 }
@@ -783,6 +786,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 			}
 			fv.Values = ctx.collectionOf(fv.Feature, seq.Elements())
 			fv.Materialized = true
+			fv.Assumed = mult.AdmitsMore(int64(seq.Size()))
 			if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
 				return fail(err)
 			}
@@ -833,6 +837,7 @@ func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name strin
 		fv.Values = val
 	}
 	fv.Materialized = true
+	fv.Assumed = !symbols.IsAbstract(fv.Feature.Symbol) && fv.Feature.Multiplicity.AdmitsMore(int64(len(contributed)))
 	return fv, nil
 }
 

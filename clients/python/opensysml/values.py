@@ -998,6 +998,32 @@ class UnsetType:
 UNSET = UnsetType()
 
 
+@dataclass(frozen=True)
+class Undetermined:
+    """A model-level result the model leaves open (an unbound feature, an unfixed count).
+
+    Distinct from :data:`UNSET` and ``None``; spelled ``<undetermined>``, and ``bool()`` raises.
+    ``count_lower``/``count_upper`` bound its count as ``MultiplicityInfo`` spells them.
+    """
+
+    reason: str = ""
+    count_lower: str = ""
+    count_upper: str = ""
+
+    @classmethod
+    def from_pb(cls, pb_undetermined) -> "Undetermined":
+        """Build from an ``Undetermined`` protobuf message."""
+        count = pb_undetermined.count
+        return cls(reason=pb_undetermined.reason, count_lower=count.lower, count_upper=count.upper)
+
+    def __bool__(self) -> bool:
+        raise TypeError(
+            f"an undetermined result is neither true nor false: {self.reason or 'the model fixes no answer'}")
+
+    def __str__(self) -> str:
+        return "<undetermined>"
+
+
 class _Infinity:
     """The unbounded value ``*``: no number, ordered above every finite one.
 
@@ -1033,7 +1059,7 @@ def value_to_python(pb_value, resolve_instance=None):
 
     Returns:
         int, float, complex, bool, str, list, None, :data:`UNSET`,
-        :data:`INFINITY`, a
+        :data:`INFINITY`, an :class:`Undetermined`, a
         :class:`Quantity`, a :class:`MeasurementRef`, a :class:`Function`, an
         :class:`Array`, a :class:`Vector`, a :class:`VectorQuantity`, a :class:`SetValue`, a
         :class:`TensorQuantity`, an :class:`~opensysml.enumeration.EnumLiteral`,
@@ -1083,6 +1109,8 @@ def value_to_python(pb_value, resolve_instance=None):
         return EnumLiteral(lit.literal_id, lit.enumeration_id, lit.name)
     if kind == 'unset':
         return UNSET
+    if kind == 'undetermined':
+        return Undetermined.from_pb(pb_value.undetermined)
     if kind == 'infinity':
         # Only an asserted arm carries the unbounded value.
         if not pb_value.infinity:

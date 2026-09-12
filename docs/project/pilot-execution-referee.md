@@ -199,6 +199,11 @@ No compliance row's status flag is changed on the strength of this work.
   (`1 / 0` produces no lines and no diagnostic), so it cannot distinguish "no value" from
   "declined to evaluate". Those cases bucket `pilot-silent` rather than being read as agreement
   with our empty sequence or as our error.
+- **An undetermined answer is its own bucket.** A model-level read the model leaves open — a
+  feature with no value, a `[1..*]` count — is `<undetermined>` on our side, a value and not an
+  error; the pilot has no such answer, so those cases bucket `ours-undetermined` whatever the
+  pilot printed, and the pilot's line is recorded for adjudication rather than read as a
+  disagreement.
 - **Collection order** is compared as order; a same-multiset/different-order result is its own
   bucket, so a real ordering difference is never hidden by sorting.
 - **Scalar vs one-element sequence is unobservable.** We print `[2]` where the pilot prints a
@@ -211,18 +216,87 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 209 committed cases, the original 32, the 62 the
+prints the current ones. State of the 246 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
-the 27 of `scalar_classification.cases` and the 24 of `literal_types.cases`:
+the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases` and the 37 of
+`undetermined_operands.cases`:
 
 ```
-agree: 125 · kind-only: 1 · order-only: 0 · disagree: 5
-pilot-unevaluated: 59 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
-nondeterministic: 0
+agree: 140 · kind-only: 1 · order-only: 0 · disagree: 6
+pilot-unevaluated: 65 · pilot-silent: 10 · pilot-error: 2 · ours-error: 2 · ours-undetermined: 12
+both-error: 8 · nondeterministic: 0
 ```
+
+The 37 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+(`attribute u;`, no type, no value) and over usages whose multiplicity leaves the count open
+(`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`), added with the undetermined result they
+referee. Fifteen agree: the Boolean forms a constant operand fixes answer on both sides whichever
+operand is the constant — `false and (u > 3)`, `true or (u == 1)` and `false implies (u == 1)`
+never read the second operand, and `(u > 3) and false`, `(u == 1) or true` and `(u == 1) implies
+true` answer `false`, `true`, `true` on both sides (see *Boolean folding on the second operand*
+below) — as do `includes((1, u + 1), 1)` `true` and `excludes((1, u + 1), 1)` `false`, decided by
+the known element; `size(u)` `1`, `size((1, u))` `2` and `notEmpty(u)` `true`, decided by the
+assumed `[1]` of an unbound feature (KerML 1.1 §7.3.4.1); `size(rack.lone)` `1`; `size(Mode::ON)`
+`1`; and `notEmpty(rack.gear)` `true` and `isEmpty(rack.gear)` `false`, decided by the lower bound
+`1`. Six are `pilot-unevaluated`: `u`, `u + 5`, `(u + 5) * 2`, `u > 3`, `if u > 0 ? 1 else 2` and
+`(10, 20, 30)#(u)` come back as `AttributeUsage u`, `OperatorExpression +`/`*`/`>`/`if` and
+`IndexExpression #` — the pilot does not evaluate a reference to a feature with no value, and
+leaves every expression over it unevaluated — where we answer `<undetermined>`. Three are
+`pilot-silent`: `-u`, `rack.slots#(2)` and `rack.gear#(7)` draw no line at all; we answer
+`<undetermined>`, the instance `slots` holds at position 2, and `<undetermined>`. The one
+`disagree` is `size(rack.slots)`: `3` here, since `[3]` fixes the count, `1` from the pilot,
+which counts the one unevaluated `PartUsage slots` — a count of the operand expression, not of
+the feature's values.
+
+Twelve are `ours-undetermined`, and the pilot's lines for them are not answers but artifacts
+of the same non-evaluation: wherever the unevaluated `AttributeUsage u` reaches an operator that
+does evaluate, the pilot compares the usage *element* — `u == 5` is `false`, `not (u == 5)`
+`true`, `(u > 3) and true` `false` (the unevaluated `u > 3` is not the literal `true`), `(u == 1)
+or false` `false`, `(u == 1) implies false` `true`, `includes((1, 2), u + 1)` `false` and
+`excludes((1, 2), u + 1)` `true`; and where a `[1..*]` or `[0..2]` usage is counted it counts the
+one unevaluated `PartUsage` — `size(rack.gear)` `1`, `size(rack.loose)` `1`, `size((rack.gear,
+rack.loose))` `2`, `isEmpty(rack.loose)` `false`, `notEmpty(rack.loose)` `true`. The pilot
+materializes nothing, so these are evidence that no definite answer exists, not a source for the
+numbers: `gear[1..*]` has at least one value and `loose[0..2]` may be empty, and the model fixes
+nothing further, so each is `<undetermined>` here (adjudicated in
+[spec-compliance.md](spec-compliance.md), *Expression evaluation*, and
+[docs/reference/repl-commands.md](../reference/repl-commands.md)).
+
+**Boolean folding on the second operand.** The conditional `and`, `or` and `implies` live in
+`ControlFunctions.kerml` of the Kernel Function Library (`BaseFunctions` declares none of them;
+`BooleanFunctions` holds the eager `&`, `|` and `xor`), each as `in firstValue : Boolean[1]; in
+expr secondValue[0..1] { return : Boolean[1]; }` — the second operand is an expression the
+function evaluates only when the first does not settle the answer (the package's own doc: "one
+or more operands are expressions whose evaluation is determined by another operand"), which is
+the short-circuit the first three cases pin. The library text says nothing about a first operand
+that is not a Boolean value, which is the case here, so the question is what the function's
+*value* is when `firstValue` is unknown. `x and false` is `false` whether `x` is `true` (the
+second operand is evaluated and is `false`) or `false` (the first settles it); `x or true` is
+`true` either way; `x implies true` is `true` either way. A result every assignment of the
+unknown yields is determined, so we answer it, and the pilot answers the same three values. The
+alternative reading — that the library's laziness makes a determined first operand a
+precondition, so every form over an unknown first operand is `<undetermined>` — is defensible
+from the declaration alone and would move `and-second-false`, `or-second-true` and
+`implies-second-true` from `agree` to `ours-undetermined`; it is not taken. The forms the unknown
+decides — `and true`, `or false`, `implies false` — stay `<undetermined>`.
+
+**Open cardinality at model level.** A `FeatureReferenceExpression` evaluates to the values of
+the feature on a target (KerML 1.1 §7.4.9), and a multiplicity bounds how many values a feature
+has on each instance of its featuring type (§7.3.4.1, §7.4.12); at model level there is no
+target, so a valueless `gear[1..*]` or `loose[0..2]` states bounds and no count. Three other
+readings have each been the behaviour at some point and are not taken: (1) the read is an
+error (`ErrNoValue`) — that is the instance-level contract for a *required* value that is
+missing, and a model that declares `loose[0..2]` is missing nothing; (2) the minimum is
+materialized, so `size(rack.gear)` is `1` and `rack.gear#(7)` is out of range — that is what
+`%instantiate` does to build an object, a definite population the model does not assert; (3) a
+valueless `[0..n]` usage reads as the empty sequence — the same minimum-population rule spelled
+for the lower bound `0`, which makes `isEmpty(rack.loose)` `true` where the model allows two
+values. Reading (2) and (3) remain the documented object-level contract; only the model-level
+read changed. The pilot supports the adjudication by declining to answer any of these rather
+than by supplying the numbers.
 
 The twelve `tensor_quantities.cases` probe `TensorCalculations` over a 2×2 stress tensor built
 by `TensorCalculations::'['` on a model-declared `TensorMeasurementReference`, added with the
@@ -266,8 +340,11 @@ Integer` `true`, and `()` answers `@ Integer` `false` (and `istype Integer` `tru
 value and its `AtFunction` any, and both sides agree on all of them.
 A feature declared `Integer[0..1]` with no value is not probed: the pilot evaluates the bare
 feature reference to the feature itself, one element whose type is `Integer`, and answers `none @
-Integer` `true` and `none @ String` `false`, where the runtime holds the empty collection and
-answers `@` `false` — pinned by `conformance/value_classification_shared_rule.sysml`. `x @
+Integer` `true` and `none @ String` `false`, where the runtime at model level answers `none istype
+Integer` `true` (every value the feature could hold is an `Integer`) and `none @ Integer`
+`<undetermined>` (the model fixes no count, so whether any value is present is open), and on an
+instantiated object holds the empty collection and answers `@` `false` — pinned by
+`conformance/value_classification_shared_rule.sysml`. `x @
 Safety` with a metadata type keeps the metadata reading, which the pilot does not share (its `@`
 classifies the value alone, so it answers `false`); no committed case probes it, since the corpus
 was written model-level and the annotation forms are pinned by the runtime conformance fixtures

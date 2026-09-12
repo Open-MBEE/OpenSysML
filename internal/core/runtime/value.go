@@ -36,6 +36,7 @@ const (
 	ValCoordinateFrame          // a VectorMeasurementReference: a frame's axes, or a measurement scale's one
 	ValCoordinateTransformation // a CoordinateTransformation: a placement of one frame in another
 	ValFunction                 // a calc as a value: its lowered shape closed over the environment it was read in
+	ValUndetermined             // a model-level result the model does not determine; see Undetermined
 
 	// valueKindCount bounds the kinds; TestEveryValueKindIsDispatched walks them.
 	valueKindCount
@@ -106,6 +107,8 @@ func FormatValue(v Value) string {
 		return "<expression>"
 	case ValFunction:
 		return v.FunctionName()
+	case ValUndetermined:
+		return UndeterminedText
 	default:
 		return unknownText
 	}
@@ -171,6 +174,8 @@ func (k ValueKind) String() string {
 		return "coordinate transformation"
 	case ValFunction:
 		return "function"
+	case ValUndetermined:
+		return "undetermined"
 	default:
 		return "invalid"
 	}
@@ -186,8 +191,8 @@ type Value struct {
 	// ref holds the kind-specific payload of the remaining kinds: a string
 	// (ValString), *Sequence, *Set, *exprValue (ValExpr), *Quantity, a complex128
 	// (ValComplex), *Array, *Vector, *VectorQuantity, *MeasurementRef, *TensorQuantity,
-	// *functionValue (ValFunction), or the *symbols.Symbol of a variant (ValVariant) or
-	// enumeration literal (ValEnumLiteral).
+	// *functionValue (ValFunction), *Undetermined, or the *symbols.Symbol of a variant
+	// (ValVariant) or enumeration literal (ValEnumLiteral).
 	ref any
 }
 

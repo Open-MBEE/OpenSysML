@@ -72,6 +72,7 @@ private static final long serialVersionUID = 0L;
     FUNCTION(17),
     SET(18),
     TENSOR_QUANTITY(19),
+    UNDETERMINED(20),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -108,6 +109,7 @@ private static final long serialVersionUID = 0L;
         case 17: return FUNCTION;
         case 18: return SET;
         case 19: return TENSOR_QUANTITY;
+        case 20: return UNDETERMINED;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -844,6 +846,52 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance();
   }
 
+  public static final int UNDETERMINED_FIELD_NUMBER = 20;
+  /**
+   * <pre>
+   * A result the model leaves open: not an error, but no definite answer.
+   * A value the server sends, never one it accepts.
+   * </pre>
+   *
+   * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+   * @return Whether the undetermined field is set.
+   */
+  @java.lang.Override
+  public boolean hasUndetermined() {
+    return kindCase_ == 20;
+  }
+  /**
+   * <pre>
+   * A result the model leaves open: not an error, but no definite answer.
+   * A value the server sends, never one it accepts.
+   * </pre>
+   *
+   * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+   * @return The undetermined.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Undetermined getUndetermined() {
+    if (kindCase_ == 20) {
+       return (org.openmbee.opensysml.proto.Undetermined) kind_;
+    }
+    return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * A result the model leaves open: not an error, but no definite answer.
+   * A value the server sends, never one it accepts.
+   * </pre>
+   *
+   * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.UndeterminedOrBuilder getUndeterminedOrBuilder() {
+    if (kindCase_ == 20) {
+       return (org.openmbee.opensysml.proto.Undetermined) kind_;
+    }
+    return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -920,6 +968,9 @@ private static final long serialVersionUID = 0L;
     }
     if (kindCase_ == 19) {
       output.writeMessage(19, (org.openmbee.opensysml.proto.TensorQuantity) kind_);
+    }
+    if (kindCase_ == 20) {
+      output.writeMessage(20, (org.openmbee.opensysml.proto.Undetermined) kind_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1009,6 +1060,10 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 19) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(19, (org.openmbee.opensysml.proto.TensorQuantity) kind_);
+    }
+    if (kindCase_ == 20) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(20, (org.openmbee.opensysml.proto.Undetermined) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -1103,6 +1158,10 @@ private static final long serialVersionUID = 0L;
       case 19:
         if (!getTensorQuantity()
             .equals(other.getTensorQuantity())) return false;
+        break;
+      case 20:
+        if (!getUndetermined()
+            .equals(other.getUndetermined())) return false;
         break;
       case 0:
       default:
@@ -1200,6 +1259,10 @@ private static final long serialVersionUID = 0L;
       case 19:
         hash = (37 * hash) + TENSOR_QUANTITY_FIELD_NUMBER;
         hash = (53 * hash) + getTensorQuantity().hashCode();
+        break;
+      case 20:
+        hash = (37 * hash) + UNDETERMINED_FIELD_NUMBER;
+        hash = (53 * hash) + getUndetermined().hashCode();
         break;
       case 0:
       default:
@@ -1372,6 +1435,9 @@ private static final long serialVersionUID = 0L;
       if (tensorQuantityBuilder_ != null) {
         tensorQuantityBuilder_.clear();
       }
+      if (undeterminedBuilder_ != null) {
+        undeterminedBuilder_.clear();
+      }
       kindCase_ = 0;
       kind_ = null;
       return this;
@@ -1456,6 +1522,10 @@ private static final long serialVersionUID = 0L;
       if (kindCase_ == 19 &&
           tensorQuantityBuilder_ != null) {
         result.kind_ = tensorQuantityBuilder_.build();
+      }
+      if (kindCase_ == 20 &&
+          undeterminedBuilder_ != null) {
+        result.kind_ = undeterminedBuilder_.build();
       }
     }
 
@@ -1550,6 +1620,10 @@ private static final long serialVersionUID = 0L;
         }
         case TENSOR_QUANTITY: {
           mergeTensorQuantity(other.getTensorQuantity());
+          break;
+        }
+        case UNDETERMINED: {
+          mergeUndetermined(other.getUndetermined());
           break;
         }
         case KIND_NOT_SET: {
@@ -1701,6 +1775,13 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 19;
               break;
             } // case 154
+            case 162: {
+              input.readMessage(
+                  internalGetUndeterminedFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 20;
+              break;
+            } // case 162
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -4139,6 +4220,193 @@ private static final long serialVersionUID = 0L;
       kindCase_ = 19;
       onChanged();
       return tensorQuantityBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Undetermined, org.openmbee.opensysml.proto.Undetermined.Builder, org.openmbee.opensysml.proto.UndeterminedOrBuilder> undeterminedBuilder_;
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+     * @return Whether the undetermined field is set.
+     */
+    @java.lang.Override
+    public boolean hasUndetermined() {
+      return kindCase_ == 20;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+     * @return The undetermined.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.Undetermined getUndetermined() {
+      if (undeterminedBuilder_ == null) {
+        if (kindCase_ == 20) {
+          return (org.openmbee.opensysml.proto.Undetermined) kind_;
+        }
+        return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+      } else {
+        if (kindCase_ == 20) {
+          return undeterminedBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+     */
+    public Builder setUndetermined(org.openmbee.opensysml.proto.Undetermined value) {
+      if (undeterminedBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        undeterminedBuilder_.setMessage(value);
+      }
+      kindCase_ = 20;
+      return this;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+     */
+    public Builder setUndetermined(
+        org.openmbee.opensysml.proto.Undetermined.Builder builderForValue) {
+      if (undeterminedBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        undeterminedBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 20;
+      return this;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+     */
+    public Builder mergeUndetermined(org.openmbee.opensysml.proto.Undetermined value) {
+      if (undeterminedBuilder_ == null) {
+        if (kindCase_ == 20 &&
+            kind_ != org.openmbee.opensysml.proto.Undetermined.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.Undetermined.newBuilder((org.openmbee.opensysml.proto.Undetermined) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 20) {
+          undeterminedBuilder_.mergeFrom(value);
+        } else {
+          undeterminedBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 20;
+      return this;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+     */
+    public Builder clearUndetermined() {
+      if (undeterminedBuilder_ == null) {
+        if (kindCase_ == 20) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 20) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        undeterminedBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+     */
+    public org.openmbee.opensysml.proto.Undetermined.Builder getUndeterminedBuilder() {
+      return internalGetUndeterminedFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.UndeterminedOrBuilder getUndeterminedOrBuilder() {
+      if ((kindCase_ == 20) && (undeterminedBuilder_ != null)) {
+        return undeterminedBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 20) {
+          return (org.openmbee.opensysml.proto.Undetermined) kind_;
+        }
+        return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 20 [json_name = "undetermined"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Undetermined, org.openmbee.opensysml.proto.Undetermined.Builder, org.openmbee.opensysml.proto.UndeterminedOrBuilder> 
+        internalGetUndeterminedFieldBuilder() {
+      if (undeterminedBuilder_ == null) {
+        if (!(kindCase_ == 20)) {
+          kind_ = org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+        }
+        undeterminedBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.Undetermined, org.openmbee.opensysml.proto.Undetermined.Builder, org.openmbee.opensysml.proto.UndeterminedOrBuilder>(
+                (org.openmbee.opensysml.proto.Undetermined) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 20;
+      onChanged();
+      return undeterminedBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Value)

@@ -446,6 +446,9 @@ func (fn *libraryFunction) bindAndApply(ctx *Context, args calcArgs) (Value, err
 			ctx.trace.RecordCalcBind(label, arg, "argument")
 		}
 	}
+	if val, open := ctx.undeterminedInvocation(fn.name, values); open {
+		return val, nil
+	}
 	return fn.apply(fn.written(), ctx, values)
 }
 

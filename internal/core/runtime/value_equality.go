@@ -89,6 +89,8 @@ func (ctx *Context) valueKey(v Value) valueKey {
 		if self := v.FunctionSelf(); self != nil {
 			key.instID = self.ID
 		}
+	case ValUndetermined:
+		key.strVal = v.Undetermined().Reason()
 	}
 	return key
 }

@@ -854,8 +854,8 @@ func TestEvalResolvesImportedUnitsUnqualified(t *testing.T) {
 
 // An attribute shaped as a Collections::Array by its own dimensions and elements
 // binds no value expression, yet names one Array value; its derived features
-// read out of that value, and a valueless attribute of another type still
-// reports that it holds none.
+// read out of that value, and a valueless attribute of another type reads
+// undetermined, as any model-level feature nothing values does.
 func TestEvalArrayShapedByItsFeatures(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(`package Grid {
@@ -871,7 +871,7 @@ func TestEvalArrayShapedByItsFeatures(t *testing.T) {
 	wants(t, run(t, s, "%eval Grid::cells.rank"), "= 2")
 	wants(t, run(t, s, "%eval Grid::cells.flattenedSize"), "= 6")
 	wants(t, run(t, s, "%eval CollectionFunctions::'array#'(Grid::cells, (2, 1))"), "= 4")
-	wants(t, run(t, s, "%eval Grid::bare"), "has no value to evaluate")
+	wants(t, run(t, s, "%eval Grid::bare"), "= "+runtime.UndeterminedText)
 }
 
 // A require/assume constraint binding a value reads that value, as a constraint

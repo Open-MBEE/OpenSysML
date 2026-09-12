@@ -152,6 +152,10 @@ const CapabilityScheduleExplore = "schedule_explore"
 // when it ended. Without it the field is 0 whatever the run waited on.
 const CapabilityFinalTime = "final_time"
 
+// CapabilityUndeterminedValue names the capability of carrying a result the model
+// leaves open as Value.undetermined rather than as an unsupported null.
+const CapabilityUndeterminedValue = "undetermined_value"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -165,6 +169,7 @@ var capabilities = []string{
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
 	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
 	CapabilityScheduleExplore, CapabilityFinalTime, CapabilityEngines,
+	CapabilityUndeterminedValue,
 }
 
 type capabilityAvailability struct {

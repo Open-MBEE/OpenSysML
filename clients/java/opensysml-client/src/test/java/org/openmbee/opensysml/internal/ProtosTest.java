@@ -662,6 +662,32 @@ class ProtosTest {
   }
 
   @Test
+  void anUndeterminedResultKeepsItsReasonAndCountAndIsNotUnset() {
+    org.openmbee.opensysml.proto.Value open =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setUndetermined(
+                org.openmbee.opensysml.proto.Undetermined.newBuilder()
+                    .setReason("u has no value in the model")
+                    .setCount(
+                        org.openmbee.opensysml.proto.MultiplicityInfo.newBuilder()
+                            .setLower("1")
+                            .setUpper("*")))
+            .build();
+    Value want = new Value.UndeterminedValue("u has no value in the model", "1", "*");
+    assertEquals(Optional.of(want), Protos.value(open));
+    assertFalse(want.sameValue(new Value.UnsetValue()));
+    assertFalse(want.sameValue(new Value.NullValue()));
+
+    org.openmbee.opensysml.proto.Value uncounted =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setUndetermined(
+                org.openmbee.opensysml.proto.Undetermined.newBuilder().setReason("x"))
+            .build();
+    assertEquals(
+        Optional.of(new Value.UndeterminedValue("x", "", "")), Protos.value(uncounted));
+  }
+
+  @Test
   void onlyAnAssertedInfinityArmIsTheUnboundedValue() {
     org.openmbee.opensysml.proto.Value asserted =
         org.openmbee.opensysml.proto.Value.newBuilder().setInfinity(true).build();

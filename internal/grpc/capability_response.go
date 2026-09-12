@@ -125,6 +125,10 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		if !s.capabilities.has(CapabilityTensorValues) {
 			value.Kind = unsupportedShown(displayValue(value))
 		}
+	case *pb.Value_Undetermined:
+		if !s.capabilities.has(CapabilityUndeterminedValue) {
+			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.UndeterminedText + ": " + kind.Undetermined.GetReason()}
+		}
 	}
 }
 

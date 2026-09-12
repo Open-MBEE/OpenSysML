@@ -342,11 +342,23 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: tensor quantity with a non-numeric component"}}
 		}
 		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: ptq}}
+	case runtime.ValUndetermined:
+		return &pb.Value{Kind: &pb.Value_Undetermined{Undetermined: undeterminedToProto(val.Undetermined())}}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
 		// No wire arm carries a frame's axes or a transformation's placement.
 		return &pb.Value{Kind: unsupportedShown(val)}
 	default:
 		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported"}}
+	}
+}
+
+// undeterminedToProto carries why a model-level result is open and how many
+// values it would hold, the count's bounds as MultiplicityInfo spells them.
+func undeterminedToProto(u *runtime.Undetermined) *pb.Undetermined {
+	count := u.Count()
+	return &pb.Undetermined{
+		Reason: u.Reason(),
+		Count:  &pb.MultiplicityInfo{Lower: boundText(count.Lower), Upper: boundText(count.Upper)},
 	}
 }
 
@@ -558,6 +570,9 @@ var (
 	// ErrUnsetNotAccepted reports the unset arm arriving as an input. It reports
 	// that a feature value holds no value, which is something to read, not to supply.
 	ErrUnsetNotAccepted = errors.New("unset is not a value a caller can supply")
+	// ErrUndeterminedNotAccepted reports the undetermined arm arriving as an input.
+	// It reports that the model fixes no answer, which is something to read, not to supply.
+	ErrUndeterminedNotAccepted = errors.New("undetermined is not a value a caller can supply")
 
 	// ErrInfinityNotAsserted reports the infinity arm arriving as false. The arm
 	// is the unbounded value itself, so false states no value at all.
@@ -733,6 +748,8 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 	switch k := pv.GetKind().(type) {
 	case *pb.Value_Unset:
 		return runtime.Value{}, ErrUnsetNotAccepted
+	case *pb.Value_Undetermined:
+		return runtime.Value{}, ErrUndeterminedNotAccepted
 	case *pb.Value_Quantity:
 		return ProtoToQuantity(k.Quantity, idx, sem)
 	case *pb.Value_EnumLiteral:

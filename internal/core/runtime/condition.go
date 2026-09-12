@@ -834,6 +834,9 @@ func (ctx *Context) conditionHolds(activation int64, cond Condition, features ma
 		if err != nil {
 			return false, err
 		}
+		if u := result.Undetermined(); u != nil {
+			return false, fmt.Errorf("%w: condition is undetermined: %s", ErrNoValue, u.Reason())
+		}
 		if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
 			return false, fmt.Errorf("condition must evaluate to boolean, got %v", result.Kind)
 		}

@@ -44,13 +44,17 @@ func kindSamples() map[ValueKind][2]Value {
 		}}
 	}
 	return map[ValueKind][2]Value{
-		ValConst:       {integerValue(1), integerValue(2)},
-		ValNull:        {{Kind: ValNull}, {Kind: ValNull}},
-		ValString:      {NewStringValue("a"), NewStringValue("b")},
-		ValInstance:    {{Kind: ValInstance, Instance: 1}, {Kind: ValInstance, Instance: 2}},
-		ValSequence:    {seqOf(1, 2), seqOf(2, 1)},
-		ValSet:         {setOf(1, 2), setOf(1, 3)},
-		ValExpr:        {NewExprValue(&ast.LiteralInteger{Value: "1"}, nil), NewExprValue(&ast.LiteralInteger{Value: "2"}, nil)},
+		ValConst:    {integerValue(1), integerValue(2)},
+		ValNull:     {{Kind: ValNull}, {Kind: ValNull}},
+		ValString:   {NewStringValue("a"), NewStringValue("b")},
+		ValInstance: {{Kind: ValInstance, Instance: 1}, {Kind: ValInstance, Instance: 2}},
+		ValSequence: {seqOf(1, 2), seqOf(2, 1)},
+		ValSet:      {setOf(1, 2), setOf(1, 3)},
+		ValExpr:     {NewExprValue(&ast.LiteralInteger{Value: "1"}, nil), NewExprValue(&ast.LiteralInteger{Value: "2"}, nil)},
+		ValUndetermined: {
+			NewUndeterminedValue("a has no value in the model", semantics.CountRange(1)),
+			NewUndeterminedValue("b has no value in the model", semantics.Range{Lower: semantics.Bound{Known: true}, Upper: semantics.Bound{Known: true, Infinite: true}}),
+		},
 		ValQuantity:    {NewQuantityValue(&Quantity{Num: integerValue(1).Const, Unit: metre}), NewQuantityValue(&Quantity{Num: integerValue(2).Const, Unit: metre})},
 		ValVariant:     {NewVariantValue(symA, 0), NewVariantValue(symB, 0)},
 		ValEnumLiteral: {NewEnumLiteral(symA), NewEnumLiteral(symB)},

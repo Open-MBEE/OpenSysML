@@ -95,6 +95,8 @@ func (ec *EvalContext) castValue(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
 ) (Value, error) {
 	switch value.Kind {
+	case ValUndetermined:
+		return castUndetermined(value, ec.undeterminedClassification(declared, target)), nil
 	case ValNull, ValInvalid:
 		return sequenceOf(nil), nil
 	case ValSequence, ValSet:
@@ -147,6 +149,49 @@ func (ec *EvalContext) castKeeps(
 		return false, nil
 	}
 	return false, ec.undecidedCast(value, target)
+}
+
+// castUndetermined is `as` over values the model leaves open: all of them when
+// their declared types conform to target, none when those exclude it, else some.
+func castUndetermined(value Value, verdict semantics.TypeClassification) Value {
+	switch verdict {
+	case semantics.ClassifiesAll:
+		return value
+	case semantics.ClassifiesNone:
+		return sequenceOf(nil)
+	}
+	count := countOf(value)
+	count.Lower = semantics.Bound{Known: true}
+	return undeterminedOf(count, value)
+}
+
+// undeterminedClassification is how target classifies values the model leaves
+// open: by the types their operand declares, undecided where it declares none.
+func (ec *EvalContext) undeterminedClassification(
+	declared []*symbols.Symbol, target *symbols.Symbol,
+) semantics.TypeClassification {
+	if len(declared) == 0 {
+		return semantics.ClassifiesSome
+	}
+	return ec.ctx.model.semantics.ClassifiesTypes(declared, target)
+}
+
+// classifyUndetermined answers `istype`, `hastype` and `@` over values the model
+// leaves open by what their declared types and count settle; the rest stays open.
+func classifyUndetermined(op ast.OperatorKind, value Value, verdict semantics.TypeClassification) Value {
+	lower := countOf(value).Lower
+	nonEmpty := lower.Known && lower.Value > 0
+	switch verdict {
+	case semantics.ClassifiesNone:
+		if op == ast.OpAt || nonEmpty {
+			return boolValue(false)
+		}
+	case semantics.ClassifiesAll:
+		if op == ast.OpIsType || (op == ast.OpAt && nonEmpty) {
+			return boolValue(true)
+		}
+	}
+	return undeterminedOf(semantics.CountRange(1), value)
 }
 
 // undecidedCast reports a cast whose verdict the value does not settle, so the

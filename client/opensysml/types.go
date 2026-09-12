@@ -41,6 +41,7 @@ const (
 	CapabilityCaseEvaluations      = sysmlgrpc.CapabilityCaseEvaluations
 	CapabilityFinalTime            = sysmlgrpc.CapabilityFinalTime
 	CapabilityEngines              = sysmlgrpc.CapabilityEngines
+	CapabilityUndeterminedValue    = sysmlgrpc.CapabilityUndeterminedValue
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

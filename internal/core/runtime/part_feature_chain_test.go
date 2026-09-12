@@ -118,7 +118,8 @@ func TestPartChainReadsTheObjectInHand(t *testing.T) {
 }
 
 // TestPartChainRejectsSeveralOccurrences requires a chain through a usage of
-// several occurrences to be reported rather than answered from one of them.
+// several occurrences to be left undetermined, of their count, rather than
+// answered from one of them.
 func TestPartChainRejectsSeveralOccurrences(t *testing.T) {
 	src := `
 		package test {
@@ -128,8 +129,15 @@ func TestPartChainRejectsSeveralOccurrences(t *testing.T) {
 			attribute probe : Real = wheels.radius;
 		}
 	`
-	if _, err := evalNamedAttribute(t, src, "probe"); err == nil {
-		t.Error("want a diagnostic for a chain through four occurrences, got a value")
+	got, err := evalNamedAttribute(t, src, "probe")
+	if err != nil {
+		t.Fatalf("wheels.radius: %v", err)
+	}
+	if got.Kind != ValUndetermined {
+		t.Fatalf("wheels.radius = %s, want a chain through four occurrences left undetermined", FormatValue(got))
+	}
+	if n, ok := got.Undetermined().Count().Exactly(); !ok || n != 4 {
+		t.Errorf("wheels.radius counts %s values, want exactly 4", got.Undetermined().Count().Text())
 	}
 }
 

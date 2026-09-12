@@ -41,6 +41,9 @@ public final class Capabilities {
   /** A valueless feature of a value type is reported as unset. */
   public static final String UNSET_VALUE = "unset_value";
 
+  /** A model-level result the model leaves open travels as itself rather than as an unsupported null. */
+  public static final String UNDETERMINED_VALUE = "undetermined_value";
+
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
 

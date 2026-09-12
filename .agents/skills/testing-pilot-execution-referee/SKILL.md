@@ -63,12 +63,16 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (209 cases, all twelve default
+Reference values at the current implementation (246 cases, all thirteen default
 fixtures):
-`agree 125 · kind-only 1 · order-only 0 · disagree 5 · pilot-unevaluated 59 ·
-pilot-silent 7 · pilot-error 2 · ours-error 2 · both-error 8 ·
+`agree 140 · kind-only 1 · order-only 0 · disagree 6 · pilot-unevaluated 65 ·
+pilot-silent 10 · pilot-error 2 · ours-error 2 · ours-undetermined 12 · both-error 8 ·
 nondeterministic 0`.
-Four of the five `disagree` are unrefereeable rather than verdicts against us:
+The sixth `disagree` is `undetermined_operands:size-slots`: `size(rack.slots)` for a
+`part slots[3]` is `3` here, since `[3]` fixes the count, and `1` from the pilot,
+which counts the one unevaluated feature-reference operand; the pilot's number is
+not a semantic answer. Four of the other five `disagree` are unrefereeable rather
+than verdicts against us:
 `w6d:complex-is-zero-qualified`, where the pilot answers `false` for
 `isZero(rect(0.0, 0.0))` *and* for `isZero(rect(3.0, 4.0))`, because its
 `re`/`im` have no evaluable body; and the three `w6d:subsetting-*-count`
@@ -146,7 +150,10 @@ contains the same glyphs.
 `pilot-silent` means it emitted no output, and `pilot-error` means it emitted
 `ERROR:` or `EXCEPTION:`. Together these are the four pilot-side states:
 value, error, unevaluated, and silence. `ours-error` and `both-error` record
-failures from either side.
+failures from either side. `ours-undetermined` records our `<undetermined>` —
+the model-level value of an expression over a feature the model leaves open —
+whatever the pilot said; the pilot has no such answer, so these are adjudicated in
+the referee page rather than counted as agreement or disagreement.
 `nondeterministic` takes precedence whenever either side differs from itself
 between the two runs.
 

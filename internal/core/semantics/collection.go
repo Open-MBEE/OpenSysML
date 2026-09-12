@@ -360,6 +360,11 @@ func addRanges(a, b Range) Range {
 	return Range{Lower: addBounds(a.Lower, b.Lower), Upper: addBounds(a.Upper, b.Upper)}
 }
 
+// Times is the values held through each value of r, each holding o: the product of their bounds.
+func (r Range) Times(o Range) Range {
+	return mulRanges(r, o)
+}
+
 // mulRanges is the values held through each value of a, each holding b; a bound multiplying
 // past int64 exceeds every multiplicity bound, so it is unbounded.
 func mulRanges(a, b Range) Range {

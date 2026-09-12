@@ -170,6 +170,10 @@ CAPABILITY_FINAL_TIME = "final_time"
 #: refuses to send a selection.
 CAPABILITY_ENGINES = "engines"
 
+#: A model-level result the model leaves open as ``Value.undetermined``, read as an
+#: :class:`opensysml.Undetermined`; without it such a result crosses as an unsupported null.
+CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

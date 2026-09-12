@@ -159,6 +159,8 @@ func (ctx *Context) compareContents(a, b Value) int {
 			cmp.Compare(instanceID(a.FunctionSelf()), instanceID(b.FunctionSelf())),
 			cmp.Compare(a.functionRun(), b.functionRun()),
 		)
+	case ValUndetermined:
+		return strings.Compare(a.Undetermined().Reason(), b.Undetermined().Reason())
 	}
 	return 0
 }

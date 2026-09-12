@@ -570,8 +570,22 @@ pub enum Value {
     Null,
     /// A materialized feature with no value.
     Unset,
+    /// A model-level result the model leaves open: a successful answer, not an error.
+    Undetermined(Undetermined),
     /// The unbounded value `*`, ordered above every finite magnitude.
     Infinity,
+}
+
+/// A model-level result the model leaves open (an unbound feature, an unfixed count),
+/// distinct from [`Value::Unset`]. Sent by a service advertising `undetermined_value`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Undetermined {
+    /// Why the model fixes no answer: `"u has no value in the model"`.
+    pub reason: String,
+    /// Lower bound of the result's count as `MultiplicityInfo` spells it; empty when unknown.
+    pub count_lower: String,
+    /// Upper bound likewise: `"1"` for a scalar, `"*"` when unbounded.
+    pub count_upper: String,
 }
 
 impl Value {
@@ -853,6 +867,15 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
             name: v.name,
         })),
         wire::value::Kind::Unset(_) => Ok(Value::Unset),
+        wire::value::Kind::Undetermined(v) => {
+            let (count_lower, count_upper) =
+                v.count.map(|c| (c.lower, c.upper)).unwrap_or_default();
+            Ok(Value::Undetermined(Undetermined {
+                reason: v.reason,
+                count_lower,
+                count_upper,
+            }))
+        }
         // Only an asserted arm carries the unbounded value.
         wire::value::Kind::Infinity(asserted) => {
             if !asserted {
@@ -878,6 +901,7 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
         wire::value::Kind::Quantity(_) => "quantity",
         wire::value::Kind::EnumLiteral(_) => "enum_literal",
         wire::value::Kind::Unset(_) => "unset",
+        wire::value::Kind::Undetermined(_) => "undetermined",
         wire::value::Kind::Infinity(_) => "infinity",
         wire::value::Kind::Complex(_) => "complex",
         wire::value::Kind::Array(_) => "array",
@@ -2441,5 +2465,40 @@ mod tests {
             kind: Some(wire::value::Kind::Unset(true)),
         });
         assert_eq!(result.ok(), Some(Value::Unset));
+    }
+
+    #[test]
+    fn an_undetermined_result_keeps_its_reason_and_count_and_is_not_unset() {
+        let result = value_from_wire(wire::Value {
+            kind: Some(wire::value::Kind::Undetermined(wire::Undetermined {
+                reason: "u has no value in the model".to_owned(),
+                count: Some(wire::MultiplicityInfo {
+                    lower: "1".to_owned(),
+                    upper: "*".to_owned(),
+                }),
+            })),
+        })
+        .expect("an undetermined result decodes");
+        let want = Value::Undetermined(Undetermined {
+            reason: "u has no value in the model".to_owned(),
+            count_lower: "1".to_owned(),
+            count_upper: "*".to_owned(),
+        });
+        assert_eq!(result, want);
+        assert!(result.same_value(&want));
+        assert!(!result.same_value(&Value::Unset));
+        assert!(!result.same_value(&Value::Null));
+
+        let unbounded = value_from_wire(wire::Value {
+            kind: Some(wire::value::Kind::Undetermined(wire::Undetermined {
+                reason: "x".to_owned(),
+                count: None,
+            })),
+        })
+        .expect("an undetermined result with no count decodes");
+        let Value::Undetermined(u) = unbounded else {
+            panic!("decoded {unbounded:?}, want an undetermined result");
+        };
+        assert_eq!((u.count_lower.as_str(), u.count_upper.as_str()), ("", ""));
     }
 }
