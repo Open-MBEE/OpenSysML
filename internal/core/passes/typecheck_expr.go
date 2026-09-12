@@ -33,9 +33,8 @@ type exprChecker struct {
 	// performed are the calls that are the values of action usages, which run
 	// an action rather than evaluate a behavior (see performs).
 	performed map[*ast.InvocationExpr]bool
-	// bindings are the arguments judged bound to a parameter of a non-conforming
-	// type (w9c_argument_bindings.go), reported by diagnostics(); warned keeps an
-	// argument inferred twice from being judged twice.
+	// bindings are the arguments bound to a non-conforming parameter, reported by
+	// diagnostics() (w9c_argument_bindings.go); warned keeps one from being judged twice.
 	bindings []argumentBinding
 	warned   map[ast.Node]bool
 }
