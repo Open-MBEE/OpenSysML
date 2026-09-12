@@ -1047,9 +1047,9 @@ func (ec *EvalContext) namesValue(name string) bool {
 	return valued
 }
 
-// occurrenceOperand reports whether the operand of a feature chain names one
-// occurrence — a part or item — that no local binding or valued feature, and no
-// feature value of the object being evaluated, already answers with.
+// occurrenceOperand reports whether the operand of a feature chain names occurrences of
+// its own — a part or item, or a namespace's collection of them — that no local binding
+// or valued feature, and no feature value of the object being evaluated, already answers with.
 func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, bool) {
 	ref, ok := operand.(*ast.FeatureReference)
 	if !ok || ref.Name == nil || len(ref.Name.Parts) == 0 || ec.ctx.model.resolver == nil {
@@ -1067,7 +1067,7 @@ func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, boo
 		}
 	}
 	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
-	if !ok || !ec.ctx.namesOneObject(sym) {
+	if !ok || !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
 		return nil, false
 	}
 	return sym, true

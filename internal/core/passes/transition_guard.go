@@ -29,7 +29,7 @@ func (TransitionGuardPass) Run(ctx *Context, name string, root *ast.RootNamespac
 		expr: &exprChecker{resolver: ctx.Resolver(), model: ctx.Model(), lang: ctx.Kind},
 	}
 	c.walk(rootScope, root.Members)
-	return c.expr.diags
+	return c.expr.diagnostics()
 }
 
 type transitionGuardChecker struct {

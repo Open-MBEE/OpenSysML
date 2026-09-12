@@ -60,9 +60,9 @@ type Context struct {
 	// usage evaluations, action performances — which functions closing over one carry.
 	runs int64
 
-	// occurrences holds the object each usage carrying no value of its own
-	// denotes, so a feature chain through a part reads one occurrence of it.
-	occurrences map[*symbols.Symbol]int64
+	// occurrences holds the objects each usage carrying no value of its own denotes, in
+	// declaration order: one for a usage of one occurrence, its lower bound for a collection.
+	occurrences map[*symbols.Symbol][]int64
 	// namespaceBindings holds the value each namespace-level object usage given a value
 	// denotes, so every read of it reads the one binding rather than evaluating it anew.
 	namespaceBindings map[*symbols.Symbol]Value
@@ -271,7 +271,10 @@ func NewContext(model *Model, maxSteps int64) *Context {
 
 		compileCalcs: CalcCompileFromEnv(),
 
-		run:              &runState{calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun)},
+		run: &runState{
+			calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
+			extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
+		},
 		calcUsageRunning: make(map[calcUsageKey]*calcShape),
 
 		maxActionSteps: DefaultMaxActionSteps,
@@ -281,7 +284,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxCalcDepth:   DefaultMaxCalcDepth,
 		maxSweepRuns:   DefaultMaxSweepRuns,
 
-		occurrences:       make(map[*symbols.Symbol]int64),
+		occurrences:       make(map[*symbols.Symbol][]int64),
 		namespaceBindings: make(map[*symbols.Symbol]Value),
 		bindingReads:      make(map[*symbols.Symbol]*bindingReads),
 		metadataObjects:   make(map[metadataAnnotation]int64),
@@ -553,13 +556,17 @@ type runState struct {
 	// calcUsageRuns holds, per activation under way, the evaluation of each calc
 	// usage read in it, so its outputs answer from one run of the body (calc_usage.go).
 	calcUsageRuns map[int64]map[calcUsageKey]*calcRun
+	// extentCandidates holds, per type an extent was taken of, the namespace usages
+	// that may hold one (extent.go).
+	extentCandidates map[*symbols.Symbol]*extentCandidates
 }
 
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
 	return &runState{
-		scheduler:     ctx.newScheduler(),
-		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
+		scheduler:        ctx.newScheduler(),
+		calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
+		extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
 	}
 }
 

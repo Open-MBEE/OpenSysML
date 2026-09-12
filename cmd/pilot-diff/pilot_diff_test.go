@@ -51,6 +51,7 @@ func TestCategorizeOpenSysML(t *testing.T) {
 		{"specialization-cycle", "type", "A participates in a specialization cycle", CategoryUnmapped},
 		{"specialization-cycle", "type", "C3 participates in a specialization cycle", CategoryUnmapped},
 		{"invocation-not-behavior", "type", "Must invoke a behavior or a behavioral feature", CategoryKindMismatch},
+		{"bound-feature-types", "type", "Bound features should have conforming types", CategoryKindMismatch},
 	}
 	for _, c := range cases {
 		if got := categorizeOpenSysML(c.code, c.pass, c.message); got != c.want {

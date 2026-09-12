@@ -328,7 +328,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 		if err != nil {
 			return fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(perf.node), err)
 		}
-		if err := e.ctx.checkNamedWrite(feature.Scope, perf.describe(), feature.Name, &value); err != nil {
+		if err := e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, &value); err != nil {
 			return err
 		}
 		perf.data[perf.key(feature.Name)] = value

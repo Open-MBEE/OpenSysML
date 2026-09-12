@@ -86,6 +86,7 @@ type scopedExpr struct {
 	expr  ast.Node
 	scope *symbols.Scope
 	decl  *symbols.Symbol // feature the expression was written on
+	held  *symbols.Symbol // effective declaration holding the value, decl or one redefining it
 
 	// env is the environment the expression's names resolve in when it is a
 	// named constraint's parameter value; nil for a feature read in place.
@@ -553,23 +554,25 @@ func nestedFeature(sym *symbols.Symbol) bool {
 // readThrough reports whether inst is the object a value expression materialized
 // to read a declaration through, which is an occurrence of nothing.
 func (ctx *Context) readThrough(inst *Instance) bool {
-	if inst.explicit {
-		return false
-	}
-	id, ok := ctx.occurrences[inst.Type]
-	return ok && id == inst.ID
+	return !inst.explicit && ctx.denotesOccurrence(inst)
 }
 
 // rootInstances returns the objects this runtime holds that stand on their own,
 // in identity order: an object a feature value holds is reached through its holder, and one
 // materialized to read a nested declaration through is an occurrence of nothing,
 // while an object a caller asked for is a root whatever it materializes. One
-// declaration materialized twice is one object here, the latest.
+// declaration stands as the objects it denotes, every one of them where it denotes
+// several, and otherwise as one object, the latest materialized of it.
 func (ctx *Context) rootInstances() []*Instance {
 	held := ctx.heldObjectIDs()
+	denoted := make(map[*symbols.Symbol][]*Instance)
 	latest := make(map[*symbols.Symbol]*Instance, len(ctx.instances))
 	for _, inst := range ctx.instances {
 		if inst == nil || held[inst.ID] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
+			continue
+		}
+		if ctx.denotesOccurrence(inst) {
+			denoted[inst.Type] = append(denoted[inst.Type], inst)
 			continue
 		}
 		if kept, ok := latest[inst.Type]; ok && kept.ID > inst.ID {
@@ -577,9 +580,14 @@ func (ctx *Context) rootInstances() []*Instance {
 		}
 		latest[inst.Type] = inst
 	}
-	out := make([]*Instance, 0, len(latest))
-	for _, inst := range latest {
-		out = append(out, inst)
+	var out []*Instance
+	for sym, inst := range latest {
+		if _, ok := denoted[sym]; !ok {
+			out = append(out, inst)
+		}
+	}
+	for _, insts := range denoted {
+		out = append(out, insts...)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
@@ -637,10 +645,19 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 		}
 	}
 	for _, root := range roots {
-		descend(root, root, strconv.FormatInt(root.ID, 10), nil)
+		descend(root, root, ctx.rootPath(root), nil)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].instance.ID < out[j].instance.ID })
 	return out
+}
+
+// rootPath is the path a subject search starts a root at: the objects one usage denotes share
+// its name, as objects a multiplicity repeated do, while any other root is its own.
+func (ctx *Context) rootPath(root *Instance) string {
+	if ctx.denotesOccurrence(root) {
+		return strconv.Quote(ctx.qualifiedSymbolName(root.Type))
+	}
+	return strconv.FormatInt(root.ID, 10)
 }
 
 // carrier is an object a search reached: the object the search started from and
@@ -923,7 +940,7 @@ func (ctx *Context) conditionFeatures(sym *symbols.Symbol) map[string]scopedExpr
 			// uninitialized rather than the value materializing replaces.
 			expr = nil
 		}
-		out[feat.Name] = scopedExpr{expr: expr, scope: feat.DefaultScope(), decl: feat.DefaultDecl}
+		out[feat.Name] = scopedExpr{expr: expr, scope: feat.DefaultScope(), decl: feat.DefaultDecl, held: feat.Symbol}
 	}
 	for i := range features {
 		add(&features[i])

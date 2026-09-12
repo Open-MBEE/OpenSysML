@@ -18,6 +18,8 @@ type writeTarget struct {
 	mult     semantics.Range
 	unique   bool // holds no two equal values (KerML isUnique, the default)
 	holdsSet bool // values form a set, which drops repeats itself
+	// multStated: mult is declared rather than the assumed 1..1.
+	multStated bool
 }
 
 // admission is how an object written to a feature answers to the feature's type: a declared value
@@ -49,8 +51,12 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 	}
 	var target *writeTarget
 	if sym, ok := ctx.lookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
-		mult, _ := ctx.extractMultiplicity(sym)
+		mult, stated := ctx.statedMultiplicity(sym)
+		if !stated {
+			mult = semantics.AssumedRange()
+		}
 		target = ctx.newWriteTarget(sym, name, mult)
+		target.multStated = stated
 	}
 	if ctx.model.writeTargets == nil {
 		ctx.model.writeTargets = make(map[writeTargetKey]*writeTarget)
@@ -80,10 +86,18 @@ func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeT
 	if target == nil {
 		return nil
 	}
-	if msg := ctx.writeCountRefusal(target, value); msg != "" {
-		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+	return ctx.checkTarget(scope, what, target, value, admitWritten, true)
+}
+
+// checkTarget reports a value the target does not admit: by count when countJudged,
+// then by type under the given admission, then by uniqueness.
+func (ctx *Context) checkTarget(scope *symbols.Scope, what string, target *writeTarget, value *Value, how admission, countJudged bool) error {
+	if countJudged {
+		if msg := ctx.writeCountRefusal(target, value); msg != "" {
+			return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+		}
 	}
-	if err := ctx.checkWriteType(scope, what, target.typ, value, admitWritten); err != nil {
+	if err := ctx.checkWriteType(scope, what, target.typ, value, how); err != nil {
 		return err
 	}
 	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
@@ -120,6 +134,23 @@ func (ctx *Context) checkBoundName(scope *symbols.Scope, what, name string, valu
 		return nil
 	}
 	return ctx.checkWrite(scope, what, target, value)
+}
+
+// checkBodyDeclaration checks the initial value a body-local declaration binds against
+// the declared multiplicity, type and uniqueness, as a namespace-level declaration is
+// checked (KerML 1.0 §7.3.4: the values of a feature are instances of its types).
+// A name declaring no feature holds anything; a declaration stating no multiplicity
+// holds the count its initializer has and, as a namespace-level one, is judged for
+// uniqueness only where it declares more than one value.
+func (ctx *Context) checkBodyDeclaration(scope *symbols.Scope, where, name string, value *Value) error {
+	target, ok := ctx.writeTargetIn(scope, name)
+	if !ok {
+		return nil
+	}
+	declared := *target
+	declared.unique = target.unique && multiValued(target.mult)
+	what := fmt.Sprintf("%s: declaration of %s", where, name)
+	return ctx.checkTarget(scope, what, &declared, value, admitDeclared, target.multStated)
 }
 
 // storeBodyValue writes a value into the behavior's own data once it conforms

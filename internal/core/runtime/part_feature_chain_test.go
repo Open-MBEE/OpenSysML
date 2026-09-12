@@ -117,10 +117,10 @@ func TestPartChainReadsTheObjectInHand(t *testing.T) {
 	}
 }
 
-// TestPartChainRejectsSeveralOccurrences requires a chain through a usage of
-// several occurrences to be left undetermined, of their count, rather than
-// answered from one of them.
-func TestPartChainRejectsSeveralOccurrences(t *testing.T) {
+// TestPartChainThroughSeveralOccurrences requires a chain through a namespace usage of
+// several occurrences to read every object it denotes, once each: the four wheels a
+// package declares are the run's, so their radii are four values, not one.
+func TestPartChainThroughSeveralOccurrences(t *testing.T) {
 	src := `
 		package test {
 			private import ScalarValues::*;
@@ -130,6 +130,40 @@ func TestPartChainRejectsSeveralOccurrences(t *testing.T) {
 		}
 	`
 	got, err := evalNamedAttribute(t, src, "probe")
+	if err != nil {
+		t.Fatalf("wheels.radius: %v", err)
+	}
+	if got.Kind != ValSequence || got.Sequence().Size() != 4 {
+		t.Fatalf("wheels.radius = %s, want the radius of each of the four wheels", FormatValue(got))
+	}
+	for i, radius := range got.Sequence().Elements() {
+		if radius.Kind != ValConst || radius.Const.Real != 1.0 {
+			t.Errorf("wheels.radius #%d = %s, want 1.0", i+1, FormatValue(radius))
+		}
+	}
+}
+
+// TestPartChainRejectsSeveralNestedOccurrences requires a chain through a usage of
+// several occurrences nested in a definition, of which no object stands, to be left
+// undetermined, of their count, rather than answered from one of them.
+func TestPartChainRejectsSeveralNestedOccurrences(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			part def Wheel { attribute radius : Real = 1.0; }
+			part def Car {
+				part wheels : Wheel[4];
+				attribute probe : Real = wheels.radius;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	cars := idx.LookupQualified("test::Car")
+	if len(cars) != 1 {
+		t.Fatalf("test::Car: %d matching symbols, want 1", len(cars))
+	}
+	probe := resolveSymbol(t, cars[0].Scope, "probe")
+	got, err := ctx.EvalWithScope(probe.Decl.(*ast.Usage).Value, probe.OwnerScope)
 	if err != nil {
 		t.Fatalf("wheels.radius: %v", err)
 	}

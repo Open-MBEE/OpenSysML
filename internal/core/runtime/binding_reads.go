@@ -11,20 +11,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// bindingReads is what one binding's value read of the model: declarations, document roots,
-// what each name denoted and each type's hierarchy; opaque when a read cannot be replayed.
+// bindingReads is what one binding's value read of the model: declarations, what each name
+// denoted, each type's hierarchy and the usage census; opaque when a read cannot be replayed.
 type bindingReads struct {
 	decls  map[*symbols.Symbol]string
-	docs   map[string]string
 	names  map[nameRead]string
 	types  map[*symbols.Symbol]string
+	census string
 	opaque bool
 }
 
 func newBindingReads() *bindingReads {
 	return &bindingReads{
 		decls: make(map[*symbols.Symbol]string),
-		docs:  make(map[string]string),
 		names: make(map[nameRead]string),
 		types: make(map[*symbols.Symbol]string),
 	}
@@ -154,19 +153,10 @@ func (ctx *Context) noteDeclarationRead(sym *symbols.Symbol) {
 	}
 }
 
-// noteNamespaceRead records that the binding being made walked the members of a namespace: a
-// named one reads as its declaration, a document root as the whole document.
-func (ctx *Context) noteNamespaceRead(scope *symbols.Scope) {
-	if owner := scope.Owner(); owner != nil {
-		ctx.noteDeclarationRead(owner)
-		return
-	}
-	reads, _ := ctx.readsUnderWay()
-	if reads == nil || scope.DocName() == "" {
-		return
-	}
-	if _, seen := reads.docs[scope.DocName()]; !seen {
-		reads.docs[scope.DocName()] = ctx.documentDigest(scope.DocName())
+// noteCensusRead records that the binding being made walked the model's usage census.
+func (ctx *Context) noteCensusRead(census *usageCensus) {
+	if reads, _ := ctx.readsUnderWay(); reads != nil && reads.census == "" {
+		reads.census = census.digest
 	}
 }
 

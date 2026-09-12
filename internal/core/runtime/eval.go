@@ -119,7 +119,26 @@ func (ec *EvalContext) valuedFeatureValue(name string) (val Value, ok bool, err 
 	ec.resolving[name] = true
 	val, err = ec.evalIn(bound.scope).inEnv(bound.env).Eval(bound.expr)
 	delete(ec.resolving, name)
+	if err != nil || bound.decl == nil {
+		return val, true, err
+	}
+	held := bound.held
+	if held == nil {
+		held = bound.decl
+	}
+	val, err = ec.conformBodyDeclared(held, val)
 	return val, true, err
+}
+
+// conformBodyDeclared holds val as the value of a declaration a body carries: its count
+// answers to a stated multiplicity only, a local omitting one keeping the initializer's.
+func (ec *EvalContext) conformBodyDeclared(sym *symbols.Symbol, val Value) (Value, error) {
+	if mult, stated := ec.ctx.statedMultiplicity(sym); stated {
+		if msg := mult.HeldViolation(heldCountOf(&val)); msg != "" {
+			return Value{}, fmt.Errorf("feature value %s: %w: %s", ec.ctx.qualifiedSymbolName(sym), ErrMultiplicityViolation, msg)
+		}
+	}
+	return ec.conformHeld(sym, val, false)
 }
 
 // inEnv returns a context reading env instead of this one's features and
@@ -371,6 +390,10 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 		// A calc usage returning one unnamed result is read as that result.
 		if isCalcUsageSymbol(sym) && ctx.returnsResult(sym) {
 			return NewEvalContext(ctx, sym.OwnerScope).evalCalcUsageMembers(sym, resultSegments)
+		}
+		// A namespace-level object usage reads as the objects it denotes for the run.
+		if ctx.namesOneObject(sym) || ctx.namesObjects(sym) {
+			return ctx.denotedValue(sym)
 		}
 		// Read as a name of it is read: a feature nothing values is undetermined.
 		return NewEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.qualifiedSymbolName(sym), nil)
@@ -1001,6 +1024,18 @@ func (ec *EvalContext) evaluateDeclared(sym *symbols.Symbol, value ast.Node) (Va
 	if err != nil {
 		return Value{}, err
 	}
+	return ec.conformDeclared(sym, val)
+}
+
+// conformDeclared holds val as the value of the feature sym declares, once it answers to
+// the declared type, uniqueness and multiplicity (KerML 1.0 §7.3.4).
+func (ec *EvalContext) conformDeclared(sym *symbols.Symbol, val Value) (Value, error) {
+	return ec.conformHeld(sym, val, true)
+}
+
+// conformHeld is conformDeclared, judging an undetermined count against the effective
+// multiplicity only when countJudged.
+func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged bool) (Value, error) {
 	what := fmt.Sprintf("feature value %s", ec.ctx.qualifiedSymbolName(sym))
 	if err := ec.ctx.checkWriteType(sym.OwnerScope, what, ec.ctx.extractType(sym), &val, admitDeclared); err != nil {
 		return Value{}, err
@@ -1008,8 +1043,10 @@ func (ec *EvalContext) evaluateDeclared(sym *symbols.Symbol, value ast.Node) (Va
 	if msg := ec.ctx.declaredUniquenessRefusal(sym, &val); msg != "" {
 		return Value{}, fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
 	}
-	if msg := ec.ctx.declaredCountRefusal(sym, &val); msg != "" {
-		return Value{}, fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+	if countJudged {
+		if msg := ec.ctx.declaredCountRefusal(sym, &val); msg != "" {
+			return Value{}, fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+		}
 	}
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
 		return Value{}, fmt.Errorf("%s: %w", what, err)
@@ -1017,19 +1054,15 @@ func (ec *EvalContext) evaluateDeclared(sym *symbols.Symbol, value ast.Node) (Va
 	return ec.bindVariationOf(sym, ec.ctx.classifiedFrame(sym, ec.ctx.declaredCollection(sym, val)))
 }
 
-// occurrenceReference evaluates a name denoting one object — an occurrence or a
-// structured value — as that object, materialized once. Reports whether the
-// symbol denotes such an object.
+// occurrenceReference evaluates a name denoting objects of its own — an occurrence, a
+// structured value, or a namespace's collection of occurrences — as those objects,
+// materialized once. Reports whether the symbol denotes such objects.
 func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, error) {
-	if !ec.ctx.namesOneObject(sym) {
+	if !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
 		return Value{}, false, nil
 	}
 	ec.ctx.noteDeclarationRead(sym)
-	inst, err := ec.ctx.occurrenceOf(sym)
-	if err != nil {
-		return Value{}, true, fmt.Errorf("usage %s: %w", symbolText(sym), err)
-	}
-	val, err := ec.ctx.objectValue(inst)
+	val, err := ec.ctx.denotedValue(sym)
 	return val, true, err
 }
 
@@ -1145,12 +1178,8 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 			}
 			return ec.chainMemberValue(val, parts, sym.Name)
 		}
-		inst, err := ec.ctx.occurrenceOf(sym)
-		if err != nil {
-			return Value{}, fmt.Errorf("usage %s: %w", sym.Name, err)
-		}
-		// The object reads as its value, whose own members it answers before the object's.
-		val, err := ec.ctx.objectValue(inst)
+		// The objects read as their values, whose own members they answer before the objects'.
+		val, err := ec.ctx.denotedValue(sym)
 		if err != nil {
 			return Value{}, err
 		}

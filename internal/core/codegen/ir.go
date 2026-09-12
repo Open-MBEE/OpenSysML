@@ -330,13 +330,13 @@ func (s Sampled) Type() Type  { return s.In.Type() }
 type Stmt interface{ stmt() }
 
 // Declare introduces a body-local variable with its initial value, null (a
-// collection) when Init is nil. The interpreter judges an initializer's
-// uniqueness but not its range or multiplicity, so neither does generated
-// code; later assignments are checked in full.
+// collection) when Init is nil. A scalar Init is checked against Range, a
+// collection by the Checked or ToOne that Init is, as an Assign is.
 type Declare struct {
-	Name string
-	T    Type
-	Init Expr
+	Name  string
+	T     Type
+	Range Range
+	Init  Expr
 }
 
 // Assign writes a body-local variable or parameter; a scalar is checked

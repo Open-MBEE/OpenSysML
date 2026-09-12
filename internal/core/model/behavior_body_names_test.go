@@ -93,14 +93,14 @@ func TestStandaloneActionExchangesValuesThroughParameters(t *testing.T) {
 	src := `package P {
 		private import ScalarValues::*;
 		action def Mark {
-			in start : Integer;
+			in seed : Integer;
 			out counted : Integer;
-			action step { assign counted := start + 1; }
+			action step { assign counted := seed + 1; }
 			first step;
 		}
 		part def Host {
 			attribute seen : Integer = 4;
-			perform action marking : Mark { in start = seen; }
+			perform action marking : Mark { in seed = seen; }
 			attribute total : Integer = marking.counted;
 		}
 	}`

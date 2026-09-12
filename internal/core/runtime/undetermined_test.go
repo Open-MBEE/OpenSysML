@@ -898,6 +898,42 @@ func TestInstanceLevelMissingValueStaysErrNoValue(t *testing.T) {
 	}
 }
 
+// A body's local omitting its multiplicity keeps an open initializer's count, where
+// a stated one judges it; the effective `[1]` of an omitted multiplicity is not applied.
+func TestBodyLocalKeepsOpenInitializerCount(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		attribute xs : Integer[2..*];
+		constraint def Open {
+			attribute kept = xs;
+			attribute one[1] = xs;
+			attribute two[2..*] = xs;
+			SequenceFunctions::size(kept) >= 2
+		}
+	}`))
+	open := oneSymbol(t, idx, "test::Open")
+	ec := NewEvalContext(ctx, open.Scope)
+	initializer := func() Value {
+		return NewUndeterminedValue(noValueReason("xs"), semantics.Range{
+			Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Infinite: true},
+		})
+	}
+	local := func(name string) *symbols.Symbol {
+		sym, ok := open.Scope.LookupLocal(name)
+		if !ok {
+			t.Fatalf("test::Open::%s not declared", name)
+		}
+		return sym
+	}
+	val, err := ec.conformBodyDeclared(local("kept"), initializer())
+	wantUndetermined(t, "kept", val, err, "[2..*]")
+	val, err = ec.conformBodyDeclared(local("two"), initializer())
+	wantUndetermined(t, "two", val, err, "[2..*]")
+	if _, err := ec.conformBodyDeclared(local("one"), initializer()); !errors.Is(err, ErrMultiplicityViolation) {
+		t.Errorf("one[1] = xs: err = %v; want ErrMultiplicityViolation", err)
+	}
+}
+
 // An undetermined value is a value kind every dispatch handles: it formats,
 // traces, compares unequal to unset and to null, and is never a NoValueError.
 func TestUndeterminedIsAValueKind(t *testing.T) {
@@ -1085,6 +1121,78 @@ func TestOpenSubsettersAreNotMaterializedAtModelLevel(t *testing.T) {
 		val, _ := evalIn(t, ctx, scope, src)
 		if u := val.Undetermined(); u != nil && len(u.Known()) != known {
 			t.Errorf("%s certainly holds %d objects, want %d", src, len(u.Known()), known)
+		}
+	}
+}
+
+// A local restating no multiplicity over several redefined declarations answers to the
+// intersection of the multiplicities they state, not to whichever is reached first.
+func TestBodyLocalIntersectsRedefinedMultiplicities(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		constraint def Wide { attribute a : Integer[0..4]; }
+		constraint def Deep { attribute b : Integer[2..*]; }
+		constraint def Both :> Wide, Deep {
+			attribute ab : Integer redefines a, b = (1, 2, 3);
+			SequenceFunctions::size(ab) > 0
+		}
+	}`))
+	both := oneSymbol(t, idx, "test::Both")
+	ab, ok := both.Scope.LookupLocal("ab")
+	if !ok {
+		t.Fatal("test::Both::ab not declared")
+	}
+	mult, stated := ctx.statedMultiplicity(ab)
+	if want := (semantics.Range{Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Value: 4}}); !stated || mult != want {
+		t.Fatalf("statedMultiplicity(ab) = %v, %v; want [2..4], true", mult, stated)
+	}
+	ec := NewEvalContext(ctx, both.Scope)
+	integers := func(n int64) Value {
+		seq := NewSequence()
+		for i := int64(1); i <= n; i++ {
+			seq.Append(Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: i}})
+		}
+		return NewSequenceValue(seq)
+	}
+	for _, n := range []int64{1, 5} {
+		if _, err := ec.conformBodyDeclared(ab, integers(n)); !errors.Is(err, ErrMultiplicityViolation) {
+			t.Errorf("ab holding %d values: err = %v; want ErrMultiplicityViolation", n, err)
+		}
+	}
+	if _, err := ec.conformBodyDeclared(ab, integers(3)); err != nil {
+		t.Errorf("ab holding 3 values: %v", err)
+	}
+}
+
+// A parameter restating no multiplicity inherits the bound of the parameter it redefines
+// by position, a redefinition no clause names.
+func TestBodyLocalInheritsImplicitParameterMultiplicity(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		calc def Wide { in xs : Integer[2]; return : Integer = 0; }
+		calc def Narrow :> Wide { in ys : Integer; return : Integer = 1; }
+	}`))
+	narrow := oneSymbol(t, idx, "test::Narrow")
+	ys, ok := narrow.Scope.LookupLocal("ys")
+	if !ok {
+		t.Fatal("test::Narrow::ys not declared")
+	}
+	want := semantics.Range{Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Value: 2}}
+	if mult, stated := ctx.statedMultiplicity(ys); !stated || mult != want {
+		t.Fatalf("statedMultiplicity(ys) = %v, %v; want [2], true", mult, stated)
+	}
+}
+
+// A multiplicity whose upper bound is not known admits more than one value, so a unique
+// declaration stating one is still judged for repeats.
+func TestMultiValuedWithUnknownUpperBound(t *testing.T) {
+	open := semantics.Range{Lower: semantics.Bound{Known: true, Value: 2}}
+	if !multiValued(open) {
+		t.Fatal("[2..n] with n unknown judged single-valued")
+	}
+	for _, r := range []semantics.Range{semantics.AssumedRange(), {Lower: semantics.Bound{Known: true}, Upper: semantics.Bound{Known: true, Value: 1}}} {
+		if multiValued(r) {
+			t.Fatalf("%v judged multi-valued", r)
 		}
 	}
 }

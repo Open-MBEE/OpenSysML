@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -1002,16 +1003,16 @@ func (a *adoption) abandon() {
 // declaration no longer has is dropped, so it is derived again rather than kept
 // wrong.
 func (a *adoption) carryDerived(adopted map[int64]bool) {
-	for sym, id := range a.prev.occurrences {
-		if !adopted[id] {
+	for sym, ids := range a.prev.occurrences {
+		if slices.ContainsFunc(ids, func(id int64) bool { return !adopted[id] }) {
 			continue
 		}
 		if found, ok := a.rebound[sym]; ok {
-			a.ctx.occurrences[found] = id
+			a.ctx.occurrences[found] = ids
 			continue
 		}
 		if found, err := a.rebind(sym, "a usage of it"); err == nil {
-			a.ctx.occurrences[found] = id
+			a.ctx.occurrences[found] = ids
 		}
 	}
 	for key, id := range a.prev.metadataObjects {
@@ -1087,17 +1088,15 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 					return false
 				}
 			}
-			if id, occurs := a.prev.occurrences[dep]; occurs && a.ctx.occurrences[depFound] != id {
+			if ids, occurs := a.prev.occurrences[dep]; occurs && !slices.Equal(a.ctx.occurrences[depFound], ids) {
 				return false
 			}
 			rewritten.decls[depFound] = digest
 		}
-		for doc, digest := range reads.docs {
-			if digest != a.ctx.documentDigest(doc) {
-				return false
-			}
-			rewritten.docs[doc] = digest
+		if reads.census != "" && reads.census != a.ctx.modelUsages().digest {
+			return false
 		}
+		rewritten.census = reads.census
 		for typ, digest := range reads.types {
 			typFound, err := a.rebind(typ, "a type it judged")
 			if err != nil || digest != a.ctx.typeDigest(typFound) {
@@ -1175,15 +1174,6 @@ func (ctx *Context) declarationDigest(sym *symbols.Symbol) string {
 		return ""
 	}
 	return ctx.textIn(sym.DocName, sym.DeclSpan) + "\n" + ctx.typeDigest(sym)
-}
-
-// documentDigest is the whole text of a document, as this context was given it.
-func (ctx *Context) documentDigest(doc string) string {
-	sf, ok := ctx.model.sources[doc]
-	if !ok {
-		return ""
-	}
-	return ctx.textIn(doc, source.Span{Len: sf.Len()})
 }
 
 // planMetaobject rebinds the element a metaobject denotes and the metaclass it

@@ -216,23 +216,24 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 434 committed cases, the original 32, the 62 the
+prints the current ones. State of the 446 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
-`enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
-`extent_expressions.cases`, the 166 of `undetermined_operands.cases`, the 4 of
-`unknown_bounds.cases` and the 2 of `vast_bounds.cases`:
+`enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 13 of
+`extent_expressions.cases`, the 1 of `extent_count_mismatch.cases`, the 166 of
+`undetermined_operands.cases`, the 4 of `unknown_bounds.cases`, the 2 of `vast_bounds.cases` and
+the 4 of `body_local_conformance.cases`:
 
 ```
-agree: 207 · kind-only: 1 · order-only: 0 · disagree: 26
-pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 9 · ours-error: 6 · ours-undetermined: 28
+agree: 211 · kind-only: 1 · order-only: 0 · disagree: 30
+pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 9 · ours-error: 10 · ours-undetermined: 28
 both-error: 12 · nondeterministic: 0
 ```
 
-The six `extent_expressions.cases` probe `all T` (KerML 1.0 §7.4.9.2, §8.2.5.8.1
+The first six `extent_expressions.cases` probe `all T` (KerML 1.0 §7.4.9.2, §8.2.5.8.1
 `ExtentExpression`, `BaseFunctions::'all'`), added with the evaluation they were meant to referee
 and could not: the pilot does not evaluate the operator, as Table 5 of §8.2.5.8.1 foretells by
 marking `all` not model-level evaluable. The four extents — `all Size`
@@ -244,8 +245,37 @@ two wheels `car` holds, `car`, and the empty sequence. The two counts are the `d
 with two variants and `size(all Boat)` over a definition with no instance both answer `1` from the
 pilot, against our `2` and `0`. The `1` is the size of the one unevaluated node `size` was handed,
 not a count of instances — no reading of the extent gives a type with no instances the same size
-as one with two — so neither is a verdict against us. The extent semantics are self-assessed in
-the extent row of [spec-compliance.md](spec-compliance.md).
+as one with two — so neither is a verdict against us. The extent is taken over the whole loaded
+model — every document's namespace-level object usages, the standard library's included — and
+not over the namespaces enclosing the expression, which leaves these six where they were: the
+referee's model is one package in one document, the library declares no `Wheel`, `Car` or `Boat`,
+and the pilot returns the same unevaluated node whatever the extent's reach. The extent semantics
+are self-assessed in the extent row of [spec-compliance.md](spec-compliance.md).
+
+The other seven `extent_expressions.cases` and the one `extent_count_mismatch.cases` referee what
+a namespace-level object usage of several occurrences denotes (KerML 1.0 §7.3.4.3 Multiplicities —
+a feature of multiplicity `[2]` has exactly two values): `part rims : Rim[2];` in a package, read
+through `size(all Rim)`, `size(rims)`, `rims#(1).radius` and `rims.radius`, beside `part hubs :
+Hub[1..*];`, `part spares : Spare[0..*];`, a valued `part rods : Rod[2] = (new Rod(), new Rod());`
+and, in a model of its own, a `part uneven : Rod[2]` whose value yields three — of its own because
+the extent is taken over the whole loaded model, so a usage whose value the runtime refuses to bind
+ends every `all T` that may reach it, `size(all Rim)` included, with that typed error. We answer `2`, `2`, `2.0`, `[2.0, 2.0]`, `1`, `0`, `2` and the typed
+`ErrMultiplicityViolation`, the usage's lower bound of objects materialized once for the run, in
+declaration order. The pilot materializes no object, so every one of its answers is a fold over
+the unevaluated usage element rather than a count of instances, and no bucket here is a verdict:
+`extent-namespace-collection-count`, `-collection-read` and `-lower-bound-zero` are `disagree`
+because `size` over the one unevaluated node is `1` whether the usage is `[2]` or `[0..*]` — the
+same fold as `extent-uninstantiated-count` and `size-slots` — and `extent-namespace-lower-bound-one`
+agrees only because a `[1..*]` usage's lower bound happens to be that `1`; `-collection-index`
+agrees because the pilot folds `rims#(1).radius` to `Rim::radius`'s default `2.0` as it folds any
+chain through a usage, and `-collection-chain` is `disagree` because it folds `rims.radius` to the
+same one `2.0` where two rims give two; `-valued-collection` agrees because a constructor
+expression per value is countable without an object (`size` of the two `new Rod()` is `2` on both
+sides); and `-valued-count-mismatch` is `ours-error`, the pilot answering `3` for a `[2]` feature
+given three values where the runtime refuses the binding as the multiplicity violation it is
+(§7.3.4.3). Read the eight with the six before them: the pilot evaluates neither `all` nor a
+namespace usage's objects, so the semantics stay self-assessed in the extent row of
+[spec-compliance.md](spec-compliance.md).
 
 The run is deterministic: two runs into separate output directories differ only in the pilot's
 element UUIDs, and agree line for line once those are stripped.
@@ -771,10 +801,11 @@ require a numeric value — the unqualified name now selects the `ComplexFunctio
 argument fits (the `ComplexFunctions` row of [spec-compliance.md](spec-compliance.md)). The pilot
 answers the unevaluated `InvocationExpression` for both, so it referees neither.
 
-The two remaining `ours-error` cases are adjudicated divergences:
+The five remaining `ours-error` cases are adjudicated divergences:
 
 | Case | Ours | Read |
 |---|---|---|
+| `body-local-level-refused`, `body-local-count-refused`, `body-local-repeat-refused` | `declaration of l: type mismatch: cannot write 2 (an Integer) to a feature typed by Level`, `declaration of xs: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2`, `declaration of xs: uniqueness violation: 1 (an Integer) is written at positions 1 and 3 of a unique feature` | **Deliberately ours.** `attribute l : Level = n;`, `attribute xs : Integer[2] = (n, n + 1, n + 2);` and `attribute xs : Integer[*] = (n, n + 1, n);` are declarations local to a calc body, and the values of a feature are instances of its types (KerML 1.0 §7.3.4), within its multiplicity (§7.4.12) and, unless `nonunique`, without repeats (§7.3.4.2) — the rule a parameter, a `return` and a namespace-level declaration answer to, now applied to the body-local declaration when its initial value is bound (the feature-write and uniqueness rows of [spec-compliance.md](spec-compliance.md)). The pilot checks nothing when it binds a body-local value: it answers `2`, `3` and `3`, the unchecked initializers carried through `l + 0` and `size(xs)`, so it neither confirms nor refutes the refusal and only the accepted `body-local-level-accepted` (`BodyOnly(3)` = `3`) can `agree`, as it does. |
 | `w6d:held-undeclared-multi` | `multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1` | **Deliberately ours.** `attribute xs = (1.0, 2.0)` declares no multiplicity, so the assumed `1..1` makes the default a violation (KerML 1.0 §7.4.5, and the multiplicity row of [spec-compliance.md](spec-compliance.md)); the pilot returns both values. An adjudicated divergence, not a defect |
 | `intdiv` | `integer_quotient.sysml:6:42: error: cannot bind Rational value to a feature typed by Integer` | **Deliberately ours.** `calc def IntDiv { return : Integer = 7 / 2; }` binds a `Rational` — what `IntegerFunctions::'/'` returns, KerML 1.0 §9.4.11.1 — to an `Integer` result parameter, and a feature's values must be instances of its types (§8.3.3.3.4, §7.4.9; the feature-write conformance row of [spec-compliance.md](spec-compliance.md)). The pilot answers `3.5`, checking nothing against the parameter's type. Stricter than the reference, not a defect in either |
 
