@@ -6,19 +6,52 @@ import (
 )
 
 // Listing is one engine as -engines, %engines and ListEngines report it: its
-// capability declaration beside the state of its process.
+// capability declaration beside the state of its process and where it comes from.
 type Listing struct {
 	Status
 	Description
+	Origin
 }
 
-// Listings lists every engine in name order with its description and status.
+// Origin is where an engine comes from: the build for one built in, otherwise the manifest
+// entry that registered it and what it runs.
+type Origin struct {
+	// Kind is the manifest entry's kind; empty for a built-in engine.
+	Kind EntryKind
+	// Version is the entry's.
+	Version string
+	// File is the manifest entry; Command the executable it resolved to.
+	File    string
+	Command string
+	// Transport and Protocol are an engine entry's; empty and zero for a tool.
+	Transport string
+	Protocol  int
+}
+
+// Manifested is an engine registered from a manifest entry, which reports its origin.
+type Manifested interface {
+	External
+	Origin() Origin
+}
+
+// KindText names the origin's kind as a listing prints it: `built-in` for the build's own.
+func (o Origin) KindText() string {
+	if o.Kind == "" {
+		return "built-in"
+	}
+	return string(o.Kind)
+}
+
+// Listings lists every engine in name order with its description, status and origin.
 func (r *Registry) Listings() []Listing {
 	engines := r.Engines()
 	statuses := r.Statuses()
 	listings := make([]Listing, len(engines))
 	for i, e := range engines {
 		listings[i] = Listing{Status: statuses[i], Description: e.Describe()}
+		if m, ok := e.(Manifested); ok {
+			listings[i].Origin = m.Origin()
+		}
 	}
 	return listings
 }
@@ -47,11 +80,11 @@ func (l Listing) Kinds() string {
 	return strings.Join(kinds, ", ")
 }
 
-// Lines tables listings as a report prints them: name, authority, kinds, status.
+// Lines tables listings as a report prints them: name, kind, authority, kinds, status.
 func Lines(listings []Listing) []string {
-	rows := [][]string{{"engine", "authority", "answers", "status"}}
+	rows := [][]string{{"engine", "kind", "authority", "answers", "status"}}
 	for _, l := range listings {
-		rows = append(rows, []string{l.Engine, l.Authority.String(), l.Kinds(), l.StatusText()})
+		rows = append(rows, []string{l.Engine, l.KindText(), l.Authority.String(), l.Kinds(), l.StatusText()})
 	}
 	widths := make([]int, len(rows[0]))
 	for _, row := range rows {
