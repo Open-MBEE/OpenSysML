@@ -2,8 +2,8 @@
 
 ## Overview
 
-**Reference:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation), release `2026-07` (`jupyter-sysml-kernel` 0.61.0) — the same release the training corpus is pinned to
-**Bridges:** two pinned plain-Java programs over the pilot's own validators — `scripts/pilot-sysml-validator/ValidateSysML.java` and `scripts/pilot-kerml-validator/ValidateKerML.java` — built against the shaded jar the [DeciSym/sysmlv2-validator](https://github.com/DeciSym/sysmlv2-validator) build (commit `0d706e5ba1e9c56730cb8600ee43602906e12058`) provisions
+**Reference:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation), release `2026-08` (`jupyter-sysml-kernel` 0.62.0) — the same release the training corpus is pinned to
+**Bridges:** two pinned plain-Java programs over the pilot's own validators — `scripts/pilot-sysml-validator/ValidateSysML.java` and `scripts/pilot-kerml-validator/ValidateKerML.java` — built against the shaded jar the [DeciSym/sysmlv2-validator](https://github.com/DeciSym/sysmlv2-validator) build (commit `63abbd9fbc7851dc437d01b2dc07836b919770b8`) provisions
 **Provision:** `./scripts/download-pilot-sysml-validator.sh` and `./scripts/download-pilot-kerml-validator.sh` (each needs Java 21+, and calls `download-pilot-validator.sh` for the pinned jar when it is absent; they write `build/pilot-sysml-validator/` and `build/pilot-kerml-validator/`)
 **Run:** `go run ./cmd/pilot-diff` (writes `build/pilot-diff/pilot-diff.txt` and `build/pilot-diff/pilot-diff.json`, plus two CI-consumable renderings of the same run: `pilot-diff.xml`, JUnit XML with one suite per corpus root and one case per file that drew a diagnostic, and `pilot-diff.sarif`, SARIF 2.1.0 with one result per disagreeing diagnostic group located on the compared model file)
 **Baseline:** the last committed run is [pilot-differential-baseline.json](pilot-differential-baseline.json), so a later run can be diffed against it
@@ -35,7 +35,7 @@ interpretation of the reference rather than the reference.
 
 | Candidate | Outcome |
 |---|---|
-| [DeciSym/sysmlv2-validator](https://github.com/DeciSym/sysmlv2-validator) | **Chosen for provisioning.** Builds from a pinned commit with Maven 3.6.3 and Java 21 here (`mvn -Psetup-dependency initialize && mvn package`), and its `setup-dependency` profile downloads the pilot release itself, so the pilot version is pinned in the same place as the wrapper. Emits GNU-format `file:line:col: severity: message`. |
+| [DeciSym/sysmlv2-validator](https://github.com/DeciSym/sysmlv2-validator) | **Chosen for provisioning.** Builds from a pinned commit with Maven 3.6.3 and Java 21 here (`mvn -Psetup-dependency initialize && mvn package`), and its `setup-dependency` profile downloads the pilot release itself; the release it downloads is passed in from `scripts/pilot-pin.sh` (`-Dsysml.release.tag`, `-Dsysml.artifact.version`), so the corpora and the reference cannot come from different releases whatever the wrapper's own `pom.xml` defaults to. Emits GNU-format `file:line:col: severity: message`. |
 | [Fabi303/sysmlv2tool](https://github.com/Fabi303/sysmlv2tool) | **Not used — could not be built here.** Its directory mode is the better fit (one batch, one resource set), but it builds the pilot from a submodule through Tycho, and the build fails under the Maven available in this environment: `No implementation for org.eclipse.tycho.core.resolver.MavenTargetLocationFactory was bound`. Re-tried with Maven 3.9.9 without success. Left as a follow-up rather than faked. |
 
 ### The limitation this used to force, and how the bridge removed it
@@ -72,8 +72,9 @@ now single-batch, which is what makes a per-file comparison meaningful.
 The DeciSym CLI is `.sysml`-only, so the KerML root is validated by a sibling program,
 [`scripts/pilot-kerml-validator/ValidateKerML.java`](../../scripts/pilot-kerml-validator/ValidateKerML.java),
 built against the *same* pinned pilot jar by `./scripts/download-pilot-kerml-validator.sh`
-(which sources `scripts/pilot-pin.sh`, provisions the SysML wrapper first if its jar is
-missing, and writes only under `build/pilot-kerml-validator/`). It is ~150 lines of glue and
+(which sources `scripts/pilot-pin.sh`, runs `download-pilot-validator.sh` first so the wrapper
+is provisioned or rebuilt at the current pin, and writes only under
+`build/pilot-kerml-validator/`). It is ~150 lines of glue and
 contains no rule of its own: it registers `KerMLStandaloneSetup`
 (`createInjectorAndDoEMFRegistration`), extends the pilot's own `SysMLUtil` to load
 `sysml.library` and the corpus into one `ResourceSet`, then asks the injected Xtext
@@ -110,8 +111,8 @@ own `.kerml` fixtures out of the comparison (see the known limitation below).
 The OMG corpora are not vendored, for the same licensing reason as the training corpus, and the
 pilot release they are fetched at is pinned once in `scripts/pilot-pin.sh` — the same pin the
 validator build reads, so corpus and reference can never come from different releases. The pin
-is a release tag *and* the commit it names (`PILOT_TAG=2026-07`,
-`PILOT_COMMIT=c7fc737d56da9e2d78f9d7df6d38efbec2e7e965`): the tag is the human-readable release
+is a release tag *and* the commit it names (`PILOT_TAG=2026-08`,
+`PILOT_COMMIT=692170b71867353b8f90341e61556f49a5beb0e5`): the tag is the human-readable release
 and what the clone asks for, the commit is what makes the pin immutable, and every fetch fails
 if the tag no longer resolves to that commit. A tag alone is a mutable name, so the baselines
 below record `pilotCommit` alongside `pilotTag`: a baseline then identifies the bytes it
@@ -208,18 +209,18 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-07`, 371 files)
+## Results (pilot `2026-08`, 371 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 49 | 10 | 6 | 0 | 0 | 10 | 6 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
 | `examples` | 36 | 26 | 8 | 1087 | 0 | 2 | 6 | 1085 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **371** | **337** | **74** | **1148** | **34** | **3** | **37** | **1111** |
+| **Total** | **371** | **343** | **74** | **1142** | **34** | **3** | **37** | **1105** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -246,6 +247,32 @@ reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Release `2026-08` round
+
+The pin moved from `2026-07` (`0.61.0`) to `2026-08` (`0.62.0`). The reference corpora are the
+same 313 files; `Simple Tests/PartTest.sysml` gains two lines (`timeslice port x1;`, `timeslice
+part B1;`), which both implementations accept, so its four specialization-cycle rows move from
+lines 49–53 to 51–55 unchanged. Our diagnostics do not move at all: 74 in total, 37 only ours, 34
+agreed, 3 severity-only, every row where it was.
+
+The one movement is the reference's. The pilot fixed `Type_ownedDisjoining_SettingDelegate.basicGet`
+([Systems-Modeling/SysML-v2-Pilot-Implementation#791](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/pull/791),
+closing [#790](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/790), the
+report drafted in [omg-issues.md](omg-issues.md)), so the six `The opposite features 'owningType' …
+and 'ownedDisjoining' … do not refer to each other` rows — one per `disjoint from` clause written in a
+type declaration, adjudicated below as a defect of the reference — are gone: `kerml-examples`
+fully agreeing 49 → **55**, only pilot 6 → **0**, and the root's pilot column is empty. Overall
+fully agreeing 337 → **343**, only pilot 1111 → **1105**, pilot diagnostics 1148 → **1142**. Nothing
+on our side changed, exactly as the adjudication predicted, and no other pilot-side row moved.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 337 | **343** |
+| only pilot | 1111 | **1105** |
+| pilot diagnostics | 1148 | **1142** |
+| `kerml-examples`: fully agreeing | 49 | **55** |
+| `kerml-examples`: only pilot | 6 | **0** |
 
 ### MOSA library round
 
@@ -397,7 +424,7 @@ so the expression has no value. It is **ours, one-sided by design**: the operand
 unchanged, and the round only lets it see a parameter it could not type before. Recorded in the
 pilot-corpora ratchet (`Expressions.kerml` 0 → 2) and here; the Xpect harness moves one row, the
 file's `noErrors` (1268 agree / 57 disagree → 1267 / 58), recorded in
-[pilot-xpect.md](pilot-xpect.md#noerrors--268-of-276-agree).
+[pilot-xpect.md](pilot-xpect.md#noerrors--265-of-276-agree).
 
 | Count | Before | Now |
 |---|---:|---:|
@@ -516,8 +543,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1111** |
-| pilot diagnostics | 123 | **1148** |
+| only pilot | 82 | **1105** |
+| pilot diagnostics | 123 | **1142** |
 | severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -654,8 +681,8 @@ Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
 is retired rather than agreed — all of them
-`.sysml`, none `.kerml`, which is the F96 fixture round below;
-`kerml-examples` 6 `unmapped` (K6).
+`.sysml`, none `.kerml`, which is the F96 fixture round below. `kerml-examples` contributes no
+only-pilot row since the current release (the release round above).
 
 The architecture self-model under `examples/self-model` adds two of the shapes this root already
 carries, the syntax rows where `views.sysml` frames a concern, which the reference rejects on
@@ -739,9 +766,9 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **337 / 37 / 74** |
-| only pilot | **1111** |
-| pilot diagnostics | **1148** |
+| overall: fully agreeing / only ours / our diagnostics | **343 / 37 / 74** |
+| only pilot | **1105** |
+| pilot diagnostics | **1142** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **10** |
@@ -1825,11 +1852,11 @@ and K7's `Expressions.kerml`/`VehicleUsages.kerml` are 47 — so the sequencing 
 largest-file-first, and nothing downstream of an unparsed first member is measurable until it
 parses.
 
-### KerML — only the pilot (6)
+### KerML — only the pilot (6, retired at `2026-08`)
 
 | # | Class | Count | Verdict |
 |---|---|---:|---|
-| K6 | `The opposite features 'owningType' of '…DisjoiningImpl{…}' and 'ownedDisjoining' of '…{…}' do not refer to each other` | 6 | **A defect in the reference implementation**, and it stays `unmapped`. All six are one cause, established rather than assumed — see [K6, diagnostic by diagnostic (F33)](#k6-diagnostic-by-diagnostic-f33). None is a model defect and none is ours: the pilot's own derived `Type::ownedDisjoining` does not contain the `Disjoining` whose `owningType` is that `Type`, so its Ecore `eOpposite` pair is internally inconsistent for every `disjoint from` written in a type declaration. |
+| ~~K6~~ | `The opposite features 'owningType' of '…DisjoiningImpl{…}' and 'ownedDisjoining' of '…{…}' do not refer to each other` | ~~6~~ 0 | **A defect in the reference implementation**, fixed upstream in `2026-08` ([#791](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/pull/791)), so the class is gone from the run; while it stood it stayed `unmapped`. All six are one cause, established rather than assumed — see [K6, diagnostic by diagnostic (F33)](#k6-diagnostic-by-diagnostic-f33). None is a model defect and none is ours: the pilot's own derived `Type::ownedDisjoining` does not contain the `Disjoining` whose `owningType` is that `Type`, so its Ecore `eOpposite` pair is internally inconsistent for every `disjoint from` written in a type declaration. |
 
 #### K6, diagnostic by diagnostic (F33)
 
@@ -1979,7 +2006,7 @@ question.
 | P4 | `Duplicate of other owned member name` (warning) | 25 (re-measured: 15) | **Re-derived from clean inputs (F110), and the earlier verdict was too broad.** The rule itself we implement and agree on: on inputs both implementations parse identically the warning matches line, column and multiplicity for repeated part, attribute, action, `enum` and calculation-parameter names (`calc c { in a : Real; return a; }` draws it twice from each side; `testdata/passes/corpus_notation.sysml:33-34` is the corpus instance, an agreement row). What the class actually held was two things: **measurement artifacts** — all 15 remaining pilot-side diagnostics sit in files whose pilot parse failed on the same or an earlier line, so they say nothing about the rule (see W12) — and **one real under-report of ours**, found only by clean reproducers: a simple state member of a state body (`state red;`) and a named transition (`transition t first a then b;`) contribute their names to their container's namespace, and our distinguishability check skipped both because those declarations carried no name span. Fixed at the root (both now record one), so their duplicate warnings match the reference's exactly. The rule is booked as implemented and agreeing; nothing here is our silence any more. |
 | P5 | `Bound features should have conforming types`, `Must have a Boolean result`, `Must have at least two related elements`, `An attribute must be typed by attribute definitions.` | 23 | **Mostly downstream of P1/P2/P3**: with the imports or the enclosing body broken, the pilot type-checks a partially-recovered model. Not adjudicated individually; the honest reading is that these become meaningful only once P1–P3 are resolved and the files re-run. |
 | P6 | `Must be an accessible feature (use dot notation for nesting)`, `Cannot identify flow end (use dot notation)`, `Must be model-level evaluable`, `Must invoke a behavior or a behavioral feature` | 9 | **Adjudicated per diagnostic below** (F5, done). 5 are downstream of P2, 2 are a real gap in our constraint tier, 2 are downstream of unresolved references both implementations report. The four *rules* behind them are all real, and three of them we do not implement: follow-ups F20–F23. |
-| P7 | K6, the KerML `eOpposite` complaint | 6 | **A defect in the reference implementation**, `unmapped`, and the only pilot-only class on the KerML root. Adjudicated diagnostic by diagnostic under [K6 (F33)](#k6-diagnostic-by-diagnostic-f33): one cause, the reference's own `Disjoining`/`Type` `eOpposite` pair, with a three-line reproducer. Upstream report is F80. |
+| ~~P7~~ | K6, the KerML `eOpposite` complaint | ~~6~~ 0 | **A defect in the reference implementation**, `unmapped`, and the only pilot-only class on the KerML root until the pilot fixed it in `2026-08`. Adjudicated diagnostic by diagnostic under [K6 (F33)](#k6-diagnostic-by-diagnostic-f33): one cause, the reference's own `Disjoining`/`Type` `eOpposite` pair, with a three-line reproducer. Upstream report is F80. |
 
 #### P6, diagnostic by diagnostic (F5)
 
@@ -2067,7 +2094,7 @@ which retired those rows rather than reclassifying them. The paragraph under W2 
 | W13 | a kind rule over an unresolved or absent type | 19 | `testdata/lex/basic.sysml:4`, `examples/phase-c-behavioral-bodies.sysml:64,65,71,72,73,83,84` | **adjudicated divergence** |
 | W14 | implicit binding connectors and filter rules over unresolved operands | 24 | `testdata/parse/expressions.sysml:3,4,5,6`, `examples/solver-demo.sysml:120,124` | **adjudicated divergence** |
 | W15 | `Must be an accessible feature` downstream of `namespace` | 5 | `examples/semantic-layer/demo.sysml:44,45,46,50,51` | **adjudicated divergence** — F5, F20 |
-| W16 | the `Type::ownedDisjoining` EMF pair | 6 | all six `kerml-examples` rows | **defect of the pilot** — F80 |
+| ~~W16~~ | the `Type::ownedDisjoining` EMF pair | ~~6~~ 0 | all six `kerml-examples` rows, retired at `2026-08` | **defect of the pilot** — F80, fixed upstream |
 
 #### W1 — `return <expression>;` (5, our defect, fixed)
 
@@ -2269,9 +2296,10 @@ kept: at `testdata/parse/expressions.sysml:3` (`filter a.b.c;`) the pilot report
 unresolved in addition to `a`, where we stop at the first unresolved segment of the chain. Reporting
 each segment of a chain whose head is already unresolved adds no information about the model.
 
-#### W16 — the six `kerml-examples` rows, checked one by one (6, defect of the pilot)
+#### W16 — the six `kerml-examples` rows, checked one by one (6, defect of the pilot, fixed at `2026-08`)
 
-The question asked was whether all six really fall to F80 if upstream fixes it. They do, and each was
+The question asked was whether all six really fall to F80 if upstream fixes it. They do — the
+`2026-08` release fixed the delegate and all six rows are gone, nothing else moved — and each was
 checked on its own rather than by family: every one of the six files contributes **exactly one**
 pilot-only row, each row is EMF's unpaired-bidirectional-reference diagnostic over the
 `Disjoining::owningType` / `Type::ownedDisjoining` pair, and each line is a `disjoint from` clause
@@ -2306,7 +2334,7 @@ Recorded so the categorisation's debt is visible rather than hidden:
 | pilot | `Must be an accessible feature (use dot notation for nesting)` | 5 |
 | pilot | `Cannot identify flow end (use dot notation)` | 2 |
 | pilot | `Must be model-level evaluable` | 1 |
-| pilot | `The opposite features 'owningType' … do not refer to each other` (K6, one row per file) | 6 |
+| ~~pilot~~ | ~~`The opposite features 'owningType' … do not refer to each other` (K6, one row per file)~~ | ~~6~~ |
 | opensysml | `<name> participates in a specialization cycle` | 11 |
 | ~~opensysml~~ | ~~`interface Mounting connects ports AxleMountIF and WheelHubIF, whose directed features are not conjugate; one end usually names the conjugate port (~AxleMountIF)`~~ | ~~1~~ |
 | opensysml | `name conflict: text is already the name of the inherited feature ModelingMetadata::Issue::text` | 1 |
@@ -2314,8 +2342,9 @@ Recorded so the categorisation's debt is visible rather than hidden:
 | ~~opensysml~~ | ~~`packet data field redefines packet data field, but packet data field is not an inherited member of Thermal Data Packet`~~ | ~~1~~ |
 
 The struck rows are gone from the run: F32 retired the K4 class, F31 the `Packets.sysml`
-redefinition, and the conjugation row is retired by the interface-flow pairing described in
-[the remaining only-ours rows](#the-remaining-only-ours-rows) below. Our side of the bucket is 12,
+redefinition, the conjugation row is retired by the interface-flow pairing described in
+[the remaining only-ours rows](#the-remaining-only-ours-rows) below, and the K6 row by the pilot's
+own fix at `2026-08`. Our side of the bucket is 12,
 the pilot's 39.
 
 The cycle rows stay `unmapped` **by adjudication, not by omission** (F4): the finding is
@@ -2430,7 +2459,7 @@ one.
 | ~~F72~~ | **Done** (#391). The rule is the first of the two candidates: the body of a redefining feature sees the features nested under what it redefines, including an association end's implicit redefinition. `Association Examples/ProductSelection_N_ary.kerml` 3 → 0. `member feature Product_Account1 subsets Product_Account …` inside `assoc SingleProductSelection3` (`Association Examples/ProductSelection_N_ary.kerml:93,101,109`, 3 diagnostics): the target is a member of a *nested* member of the end feature this end redefines, and the pilot resolves it. Which rule makes it visible — inherited nested members through a redefined end, or a featuring path — is not established, so no fix was guessed at. |
 | ~~F32~~ | **Done.** Adjudicated per row. The first two rows are SysML-only rules: KerML has no definition/usage distinction — a Specialization relates two Types and a FeatureTyping's type is any Type, a Feature among them (KerML 1.0 §8.3.3, §8.3.4.4) — so on a `.kerml` document `passes/typecheck.go` `compatMessage` checks only that the target *is* a type, reading the language from `source.KindOf` (the F3+F8 file-kind mechanism, no second notion). The metaclass row was our own bug in either language: `defSymbolKind` had no `ast.DefMetaclass` case, so a metaclass was incomparable with its own kind; `metaclass … specializes Metaobject` is a Class specializing a Class (§8.4.4). The `rollsOn` row is not a language gate but missing semantics: unioning was resolved nowhere, so `semantics/model.go` now resolves `unions` in its own cache (`UnioningTypes`) and `Conforms` accepts a union whose every unioning type conforms — a union is constrained by its members, not a generalization of them, so it stays out of `DirectSupertypes`. Nothing here was skipped wholesale: the KerML rows keep a non-type target an error, and `.sysml` counterpart tests lock in that each check still fires. |
 | ~~F33~~ | **Done.** The six are one cause and it is the reference's: the derived `Type::ownedDisjoining` is empty for a `Disjoining` whose `owningType` is that `Type`, so the `eOpposite` pair EMF checks is inconsistent in the pilot's own graph. Reproduced in three lines, surviving validation of a single file in a fresh resource set, so neither batching nor the bridge is implicated; the notation is `KerML.xtext:344` `DisjoiningPart` as the reference's own examples write it. Category stays `unmapped`. See [K6, diagnostic by diagnostic (F33)](#k6-diagnostic-by-diagnostic-f33). Spawned F80–F83. |
-| F80 | **Written, not filed.** The upstream report for K6 against the pilot at `2026-05` — `Type::ownedDisjoining`'s setting delegate does not see a `Disjoining` that `owningType` reports it owns, so every `disjoint from` in a type declaration draws EMF's unpaired-bidirectional-reference error — is in [omg-issues.md](omg-issues.md#typeowneddisjoining-does-not-contain-a-disjoining-whose-owningtype-is-that-type-pilot-2026-05), ready to paste into `Systems-Modeling/SysML-v2-Pilot-Implementation`. The reproducer and the probe output are in the K6 section; nothing on our side changes when it is fixed except the root's only-pilot count falling 6 → 0. |
+| ~~F80~~ | **Done — filed as [#790](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/790), fixed upstream by [#791](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/pull/791) and shipped in `2026-08`; the root's only-pilot column fell 6 → 0 and nothing else moved.** The upstream report for K6 against the pilot at `2026-05` — `Type::ownedDisjoining`'s setting delegate does not see a `Disjoining` that `owningType` reports it owns, so every `disjoint from` in a type declaration draws EMF's unpaired-bidirectional-reference error — is in [omg-issues.md](omg-issues.md#typeowneddisjoining-does-not-contain-a-disjoining-whose-owningtype-is-that-type-pilot-2026-05), ready to paste into `Systems-Modeling/SysML-v2-Pilot-Implementation`. The reproducer and the probe output are in the K6 section; nothing on our side changes when it is fixed except the root's only-pilot count falling 6 → 0. |
 | ~~F81~~ | **Done** (#374), as `ast.RelDifferences` with an RDF/export mapping. `differences A, B` in a type declaration is not parsed: `classifier D differences A, B;` gives `expected '{' or ';' after declaration` and `expected a namespace member`, where the pilot is silent (`KerML.xtext:359` `DifferencingPart`). `intersects` and `unions` at the same position parse, so it is that one keyword. 4 of the root's 140 syntax diagnostics (`Simple Tests/Classifiers.kerml:13`, `FeatureChains.kerml:31`). |
 | ~~F82~~ | **Done** (#374), through the parser path namespace and body members share. A standalone disjoining as a namespace or body member is not parsed: `disjoint B from A;` gives `expected a namespace member` where the pilot is silent. `Disjoining` is a `NonFeatureElement` alternative (`KerML.xtext:257`, production at `:426`), so the keyword may open a member. 1 diagnostic (`Simple Tests/FeatureChains.kerml:28`). |
 | ~~F83~~ | **Done** (#374), preserved on `ast.Definition.Multiplicity` and gated on the KerML declaration syntax — a SysML definition declaration has no such multiplicity slot. A multiplicity in a classifier declaration is not parsed: `classifier B [1] specializes A;` gives `expected '{' or ';' after declaration` and `expected a namespace member` where the pilot is silent. `ClassifierDeclaration` takes `( ownedRelationship += OwnedMultiplicity )?` before the superclassing part (`KerML.xtext:468-470`). 2 diagnostics (`KerML Spec Annex A Examples/A-2-ModelingInstances.kerml:9`). |
@@ -2482,9 +2511,9 @@ about parsing and static checking on these corpora, not about behavioral conform
 ## Re-running and diffing
 
 ```sh
-./scripts/download-training-examples.sh   # the OMG training corpus (pinned 2026-07)
+./scripts/download-training-examples.sh   # the OMG training corpus (pinned 2026-08)
 ./scripts/download-pilot-corpora.sh       # the other OMG corpora, same pin
-./scripts/download-pilot-validator.sh     # the pilot validator (pinned wrapper + release)
+./scripts/download-pilot-validator.sh     # the pilot validator (pinned wrapper, built at the same pin)
 ./scripts/download-pilot-kerml-validator.sh  # the KerML oracle, same pin
 go run ./cmd/pilot-diff                   # writes build/pilot-diff/{pilot-diff.txt,pilot-diff.json}
 diff <(jq -S . docs/project/pilot-differential-baseline.json) \
@@ -2759,7 +2788,7 @@ row in it is adjudicated. Three quarters of them are not candidate false positiv
 own non-standard-notation warnings on our own demo models (`solver-demo.sysml`, 6 `require` outside a
 requirement body, and `pseudostates-demo.sysml`, 1 `junction`), 3 are our own fixtures under
 `testdata/passes/`, and 6+4+3 are the one-sided specialization-cycle family — the committed probes,
-`Simple Tests/PartTest.sysml:49,50,51,53` and `Simple Tests/Circular.kerml:9,10,11` — whose
+`Simple Tests/PartTest.sysml:51,52,53,55` and `Simple Tests/Circular.kerml:9,10,11` — whose
 adjudication is [above](#specialization-cycles-f4). That leaves the reference's own corpora carrying
 four rows, all four of them defects in the **published model text** rather than in either
 implementation, and each is an entry of the declared errata overlay:
@@ -2912,7 +2941,7 @@ true positive: the identical construct at line 10 is now an agreement.
 
 | Rows | Where | Verdict |
 |---|---|---|
-| 6 `The opposite features 'owningType' of '…DisjoiningImpl{…}'` / `'ownedDisjoining' of '…'` | `kerml-examples`: `Types.kerml`:31, `Features.kerml`:20, `Inverses.kerml`:3, `FeatureChains.kerml`:31, `Classifiers.kerml`:13, `A-2-ModelingInstances.kerml`:9 | **Not spec-derivable.** The messages name EMF implementation classes and resource fragments and assert an opposite-reference invariant of the reference's own metamodel; KerML 1.1 states no rule a modeller could act on, and the files are valid. Left, documented. |
+| ~~6~~ `The opposite features 'owningType' of '…DisjoiningImpl{…}'` / `'ownedDisjoining' of '…'` | `kerml-examples`: `Types.kerml`:31, `Features.kerml`:20, `Inverses.kerml`:3, `FeatureChains.kerml`:31, `Classifiers.kerml`:13, `A-2-ModelingInstances.kerml`:9 — retired at `2026-08`, where the pilot fixed the delegate | **Not spec-derivable.** The messages name EMF implementation classes and resource fragments and assert an opposite-reference invariant of the reference's own metamodel; KerML 1.1 states no rule a modeller could act on, and the files are valid. Left, documented. |
 | 4 `Duplicate of inherited member name 'done' from Action` | `action-executor-demo.sysml`:16,35,55, `views-demo.sysml`:96 | **Ours is right, re-verified.** These are `done;` on its own, which we read as the anonymous final node of an action body; the pinned `SysML.xtext` contains neither `done` nor a final-node production, so the reference reads it as a reference usage declaring a member named `done`, which then duplicates `Actions::Action::done`. The rule's *scope* is not the gap it looks like: matched runs of `validate-sysml-batch` and `bin/sysml -validate` are byte-identical on `action def Sub :> MyAct { action done; }` (both `9:35 warning: Duplicate of inherited member name 'done' from Action`), on the same collision two user supertypes below a library base (`part def Leaf :> Mid { part portions; }`, both `6:30`), and on the redefinition escape hatch (`part :>> portions;`, both silent) — so a member inherited from a library type already conflicts exactly as one inherited from a user type does. What differs is only the spelling: `then done;`, the form the OMG corpora use, is silent on both sides, and a bare `done;` appears in no OMG-authored model. Left as a notation difference, recorded in the grammar conformance audit. |
 | 9 `Bound features should have conforming types`, 1 `An attribute must be typed by attribute definitions.`, 1 `An occurrence, item or part must be typed by occurrence definitions.` | `parse/expressions.sysml`:3-6, `passes/errors.sysml`:3, `resolve/errors.sysml`:3, `solver-demo.sysml`:120,124, `lex/basic.sysml`:4, `passes/import_no_visibility.sysml`:9 | **Not a rule gap: a tier boundary.** All of them sit downstream of a name-resolution or syntax error in the same file, and the rule each one would need is already implemented and fires on a valid reduced model — `bind n = w;` between an `Integer` and a `Wheel`-typed attribute draws `Bound features should have conforming types` from both implementations. Reporting them too would mean running the type tier over subjects whose types are unknown, which the tier contract forbids. The typing-kind pair is now pinned by reproducer rather than by argument: `lex/basic.sysml` unchanged draws the reference's `Couldn't resolve reference to Type 'Real'` **and** its typing-kind error while we report the unresolved reference alone, and with `private import ScalarValues::*;` added both implementations fall silent. On a model whose types resolve the whole family agrees message-for-message and column-for-column — `attribute`, `part`, `item`, `port`, `action`, `state`, `connection` and `interface` usages each typed by `attribute def A` draw the eight reference wordings at identical spans from both. The second row sits in `passes/import_no_visibility.sysml`, one of the files the reference cannot parse, not in `resolve/errors.sysml`, which in isolation draws no typing-kind row from either implementation. |
 | 1 `Must be model-level evaluable` | `parse/expressions.sysml`:4 | **Not a rule gap: the reference reports two type-tier errors on that line and we report one.** We report `Must be model-level evaluable` there too, at the same column and in the same words, and the rule agrees in all three directions a reduced model can test: an unresolved invocation (`filter coll->select(x);`) draws it from both, a resolvable but inevaluable one over a user `calc` draws it from both, and `filter 1 + 2 > 0;` is silent in both. Until this round the row was also **miscategorized**: `categorizePilot` left the message `unmapped` while `categorizeOpenSysML` mapped our identical text to `kind-mismatch`, so the two copies could not pair at all. The pilot side now applies the same `must be` clause ours does; our diagnostic pairs with one of the reference's two errors on the line and the surplus one stays, so the count does not move — what changes is that the surplus is now read as a second copy of a rule we agree on rather than as an unmapped divergence. |
@@ -2930,7 +2959,7 @@ notation the reference cannot parse.
 | Occurrences | Message | Verdict |
 |---:|---|---|
 | 12 | `Bound features should have conforming types` | implicit binding connectors the reference synthesizes, in files that already carry agreed errors |
-| 6 | `The opposite features … do not refer to each other` | the reference's own EMF metamodel invariant |
+| ~~6~~ | `The opposite features … do not refer to each other` | the reference's own EMF metamodel invariant; fixed upstream and gone at `2026-08` |
 | 5 | `Must be an accessible feature (use dot notation for nesting)` | recovery collateral of `namespace` in a `.sysml` file |
 | 5 | `Duplicate of other owned member name` | recovery collateral of imports without a visibility keyword |
 | 4 | `Duplicate of inherited member name 'done' from Action` | a bare `done;`, which the pinned grammar cannot express |

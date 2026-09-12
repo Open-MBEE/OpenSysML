@@ -10,10 +10,10 @@ The answer is narrow, and deliberately stated as such. The pinned artifact evalu
 machines, and has no notion of a step, a token or a trace. Three of the four behavior areas
 are therefore **out of its reach**, and no amount of harness work changes that.
 
-Pin: tag `2026-07`, artifact `jupyter-sysml-kernel 0.61.0` (`scripts/pilot-pin.sh`). Every
+Pin: tag `2026-08`, artifact `jupyter-sysml-kernel 0.62.0` (`scripts/pilot-pin.sh`). Every
 command below was run against the shaded jar that `scripts/download-pilot-validator.sh`
 unpacks, at
-`build/pilot-validator/target/sysml-download/sysml/jupyter-sysml-kernel-0.61.0-all.jar`.
+`build/pilot-validator/target/sysml-download/sysml/jupyter-sysml-kernel-0.62.0-all.jar`.
 
 ## Capability map
 
@@ -32,7 +32,7 @@ unpacks, at
 The magics in the pinned jar:
 
 ```
-$ unzip -Z1 build/pilot-validator/.../jupyter-sysml-kernel-0.61.0-all.jar \
+$ unzip -Z1 build/pilot-validator/.../jupyter-sysml-kernel-0.62.0-all.jar \
     | grep -i 'jupyter/kernel/magic/[A-Za-z]*\.class'
 org/omg/sysml/jupyter/kernel/magic/Load.class
 org/omg/sysml/jupyter/kernel/magic/Projects.class

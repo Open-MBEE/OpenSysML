@@ -21,10 +21,12 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - The pin `cmd/pilot-diff` reports comes from `build/pilot-sysml-validator/pilot-pin.txt`
   (written by the new script), not from the DeciSym `pom.xml`.
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
-- Measured after the MOSA library and bare feature-reference typing rounds, with a fresh library cache: `371 file(s), 337 fully agreeing; 34 agreed,
-  37 only ours, 1111 only the pilot's`, JSON totals `openSysMLDiagnostics 74 / pilotDiagnostics
-  1148 / severityMismatch 3`; ~2 min wall, byte-identical across runs *and* after a from-scratch
-  rebuild of `build/pilot-validator`. `kerml-examples` carries no `syntax` diagnostic on either
+- Measured at the `2026-08` re-pin, with a fresh library cache: `371 file(s), 343 fully agreeing; 34 agreed,
+  37 only ours, 1105 only the pilot's`, JSON totals `openSysMLDiagnostics 74 / pilotDiagnostics
+  1142 / severityMismatch 3`; ~2 min wall, byte-identical across runs *and* after a from-scratch
+  rebuild of `build/pilot-validator`. The six `kerml-examples` pilot-only rows the `2026-07` run
+  carried (`The opposite features 'owningType' … do not refer to each other`) are gone: the pilot
+  fixed its `ownedDisjoining` delegate, and nothing on our side moved. `kerml-examples` carries no `syntax` diagnostic on either
   side. Refresh this paragraph with every rebaseline, and treat a stale one as a finding.
 - **`cmd/pilot-diff` has no `-jobs` flag.** Its full flag set is
   `-repo -validator -kerml-validator -syside -out -timeout`; passing `-jobs` exits **2** with
@@ -134,8 +136,8 @@ The harness compares OpenSysML diagnostics against the OMG SysML v2 Pilot Implem
 (via two pinned plain-Java bridges over the pilot's own validators) over four corpus roots and writes
 `build/pilot-diff/pilot-diff.{txt,json}`. `docs/project/pilot-differential-baseline.json` is the
 committed result of the *last refreshed* run, so **the harness is testable by reproduction** —
-but only while the baseline is current. Check that first. As of the rebaseline that came with the MOSA library and bare feature-reference typing rounds it **is**
-current: a live run gives `371 file(s), 337 fully agreeing; 34 agreed, 37 only ours, 1111 only the
+but only while the baseline is current. Check that first. As of the `2026-08` re-pin it **is**
+current: a live run gives `371 file(s), 343 fully agreeing; 34 agreed, 37 only ours, 1105 only the
 pilot's`, byte-identical to the committed baseline, and `docs/project/pilot-differential.md`'s
 "Results" table matches. The rebaseline before it, at the architecture self-model's landing, covered two rounds, because the succession-shorthand
 removal before it landed without refreshing the baseline; a control run of its merge commit gives
@@ -163,20 +165,24 @@ regression — see "Isolating one change's effect" below.
 - Provisioning checks for `download-pilot-sysml-validator.sh` that distinguish working from
   broken (all observed at `86514a44`):
   - no args → `SysML validator already compiled at .../classes/ValidateSysML.class` + `Built ...
-    (pilot 2026-07, 0.61.0)`, `.class` mtime unchanged; `--force` → `Compiling ...`, mtime
+    (pilot 2026-08, 0.62.0)`, `.class` mtime unchanged; `--force` → `Compiling ...`, mtime
     advances; `--bogus` → exit 1 `error: unknown option: --bogus (only --force is supported)`.
   - `rm -rf build/pilot-sysml-validator` and re-run → recreated in seconds, and the launcher is
-    **byte-identical** (`sha256 2d6ec96f8469…`) with `pilot-pin.txt` = `sysml.release.tag=2026-07`
-    / `sysml.artifact.version=0.61.0` and no `__PILOT_ARTIFACT_VERSION__` placeholder left.
+    **byte-identical** with `pilot-pin.txt` = `sysml.release.tag=2026-08`
+    / `sysml.artifact.version=0.62.0` and no `__PILOT_ARTIFACT_VERSION__` placeholder left.
+  - the script always runs `download-pilot-validator.sh` first (no args → its `already built`
+    fast path, ~1 s), so a re-pin that keeps the artifact version but changes the tag, commit,
+    repository or wrapper commit still rebuilds the jar before anything compiles against it.
   - bad pin: move `build/pilot-validator` aside, then
-    `PILOT_TAG=9999-99 ./scripts/download-pilot-sysml-validator.sh` → prints `Pilot validator
-    dependencies are missing; provisioning them first ...`, clones, then exits 1 with
-    `error: <commit> builds against sysml.release.tag=2026-07, this repository pins 9999-99`
-    *before* Maven; `build/pilot-sysml-validator/pilot-pin.txt` is left untouched.
+    `PILOT_TAG=9999-99 PILOT_ARTIFACT_VERSION=9.9.9 ./scripts/download-pilot-sysml-validator.sh`
+    → clones, prints `Downloading the pilot 9999-99 (9.9.9) release ...` (the pin is handed to Maven, so
+    the wrapper's own `pom.xml` default never decides the release) and exits 1 when Maven's
+    release download 404s; `build/pilot-sysml-validator/pilot-pin.txt` is left untouched.
   - missing tools need `--force` (the already-compiled early return is after the tool guards but
     before the compile): a stripped PATH without `javac` → `error: javac 21+ is required to build
-    the SysML validator`; without `java` too → `error: Java 21+ is required ...`. The pinned jar
-    must be present for these, otherwise the script tries to auto-provision first and you get
+    the SysML validator`; without `java` too → `error: Java 21+ is required ...`. The pinned
+    build must be current for these (stamp and versioned jar present), otherwise the delegated
+    `download-pilot-validator.sh` reaches its own tool guards first and you get
     `error: git is required to build the pilot validator` instead.
   - **Pitfall:** `mv build/pilot-validator /tmp/pv-aside` twice nests the backup
     (`/tmp/pv-aside/pilot-validator`), and restoring onto an existing directory nests it again as
@@ -354,7 +360,7 @@ Provisioning script checks that actually distinguish working from broken:
   the launcher's.
 - `--force` → prints `Compiling ...` and the `.class` mtime advances.
 - `grep jupyter-sysml-kernel build/pilot-kerml-validator/validate-kerml` must show the pinned
-  `PILOT_ARTIFACT_VERSION` from `scripts/pilot-pin.sh` (`0.61.0`) and no leftover
+  `PILOT_ARTIFACT_VERSION` from `scripts/pilot-pin.sh` (`0.62.0`) and no leftover
   `__PILOT_ARTIFACT_VERSION__` placeholder.
 - `PILOT_ARTIFACT_VERSION=9.9.9-bogus ./scripts/download-pilot-kerml-validator.sh` → exit 1 with
   `error: pilot shaded jar not found at .../jupyter-sysml-kernel-9.9.9-bogus-all.jar`, and the
@@ -551,23 +557,46 @@ reports the exit of the last stage and a failure looks like a pass.
 
 Provisioning script (`scripts/download-pilot-validator.sh`):
 
-- Already built → prints `Pilot validator already built at ...` and exits 0. Prove it did not
-  rebuild by comparing `ls -l --time-style=full-iso build/pilot-validator/validate-sysml` before
-  and after, not just by reading the message.
-- Pin check → `mv build/pilot-validator /tmp/pv-backup` then
-  `PILOT_TAG=9999-99 ./scripts/download-pilot-validator.sh`: it clones (fast) and then aborts with
-  `error: <commit> builds against sysml.release.tag=2026-07, this repository pins 9999-99`
-  *before* Maven runs (`build/pilot-validator/target` stays absent). Exit 1.
+- Already built → prints `Pilot validator already built at ... (pilot <tag>, <version>)` and exits
+  0. Prove it did not rebuild by comparing
+  `ls -l --time-style=full-iso build/pilot-validator/validate-sysml` before and after, not just by
+  reading the message.
+- Stale build → the early return is taken only when `build/pilot-validator/.pilot-pin` holds the
+  current pin (tag, commit, repository, artifact version, wrapper commit) *and* the build is
+  complete: `validate-sysml`, the wrapper jar, the versioned shaded jar
+  `target/sysml-download/sysml/jupyter-sysml-kernel-<version>-all.jar` and `sysml.library` all
+  present. Overwrite the stamp (`printf x > build/pilot-validator/.pilot-pin`) and the script
+  prints `Stale build at ...: built from x, pin is now ...; rebuilding.`; delete it and it prints
+  `Unstamped build at ...; rebuilding ...`; `rm -rf` only `sysml.library` and it prints
+  `Incomplete build at ...; rebuilding ...`. All three rebuild for real (~20 s with a warm `~/.m2`,
+  minutes cold), so `timeout 5` the run if the message is all you need — the build happens in a
+  sibling `build/pilot-validator.build.XXXXXX` directory that is swapped in only once complete, so
+  an interrupted or failed rebuild leaves the installed validator untouched (`timeout -s TERM 12`
+  during the Maven phase, then verify the `validate-sysml` mtime and that
+  `ls build | grep pilot-validator` shows no leftover stage). The swap itself keeps the old copy
+  as `build/pilot-validator.old` until the new one is renamed into place; a run that dies between
+  those two renames leaves only the `.old`, which the next run (or `pilot_recover_dir` in
+  `scripts/pilot-pin.sh`) moves back before deciding whether to rebuild.
+- Pin propagation → with a good build in place,
+  `PILOT_TAG=9999-99 PILOT_ARTIFACT_VERSION=9.9.9 ./scripts/download-pilot-validator.sh`: it
+  prints `Stale build at ...`, clones (fast), prints `Downloading the pilot 9999-99 (9.9.9)
+  release ...` and Maven's `download-maven-plugin` fails with `Download failed with code 404`.
+  Exit 1, and the `2026-08` validator is still there (`.pilot-pin` unchanged). The tag and version
+  reach Maven as `-Dsysml.release.tag` / `-Dsysml.artifact.version`, overriding the wrapper's
+  `pom.xml` defaults, so a wrapper commit pinned to an older release still builds against ours.
+  The script aborts *before* Maven only if the wrapper's `pom.xml` stopped declaring those two
+  properties (`error: <commit> no longer selects the pilot release through the sysml.release.tag
+  property`).
 - Missing tools → `env PATH=/tmp/nomvn ./scripts/download-pilot-validator.sh` where `/tmp/nomvn`
   holds symlinks to `git`, `java`, `sed`, `bash`, `dirname`, `ls` but **not** `mvn` gives
   `error: mvn is required to build the pilot validator`. If you forget `dirname`, the script
   first emits `line 16: dirname: command not found` — an artifact of the stripped PATH, not a bug.
 
-**Never `rm -rf build/pilot-validator` while testing** — `mv` it aside and move it back, since a
-rebuild costs minutes. Watch out for the classic `mv /tmp/pv-backup build/pilot-validator` when
-the target directory already exists again: that nests the backup at
-`build/pilot-validator/pv-backup` instead of restoring it. `rm -rf` the *new* directory first (or
-restore to a fresh path) and verify with `ls build/pilot-validator | tr '\n' ' '`.
+**Avoid `rm -rf build/pilot-validator` while testing** — `mv` it aside and move it back if the
+Maven cache is cold, since a from-scratch rebuild costs minutes. Watch out for the classic
+`mv /tmp/pv-backup build/pilot-validator` when the target directory already exists again: that
+nests the backup at `build/pilot-validator/pv-backup` instead of restoring it. `rm -rf` the *new*
+directory first (or restore to a fresh path) and verify with `ls build/pilot-validator | tr '\n' ' '`.
 
 ## The optional SysIDE third column (F7)
 

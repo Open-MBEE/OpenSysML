@@ -1812,7 +1812,7 @@ leaving each scope's declarations, inherited members and imports intact, so a
 
 ### Validation Rules Declared by the Reference's Own Xpect Suites — KerML half
 
-Rule families the pinned reference (pilot `2026-07`) declares in its Xpect suites and
+Rule families the pinned reference (pilot `2026-08`) declares in its Xpect suites and
 `SysMLValidator.xtend` / `KerMLValidator.xtend`, established from those sources plus a matched
 run of `build/pilot-sysml-validator/validate-sysml-batch` against `bin/sysml -validate` on a
 minimal model. The severity in each row is the reference's own severity; where the two
@@ -1841,7 +1841,7 @@ apart from the path.
 ### KerML Validation Rules the Reference Declares and We Did Not Report
 
 The KerML half of the silent declared-error families in the pinned reference's Xpect suites
-(pilot `2026-07`), clustered from `build/pilot-xpect/pilot-xpect.txt`. Each row's scope comes
+(pilot `2026-08`), clustered from `build/pilot-xpect/pilot-xpect.txt`. Each row's scope comes
 from the pilot's own `KerMLValidator.xtend` constraint, not from its message string. Xpect
 `errors` agreement moved 563 → 590 and the silent declared-error rows 266 → 229; the rejection
 oracle moved 20 → 24 both-reject. The pilot differential is unchanged at 306 fully agreeing with
@@ -1881,7 +1881,7 @@ reference disagrees about, which is the false-positive result that work wanted.
 
 ### Validation Rules Declared by the Reference's Own Xpect Suites — SysML half
 
-The SysML families the pinned reference (pilot `2026-07`) declares in
+The SysML families the pinned reference (pilot `2026-08`) declares in
 `build/pilot-xpect-corpus/sysml/…/tests/validation/invalid/` and we reported nowhere. Each row
 was established from the reference's own validator source (`SysMLValidator` /
 `KerMLValidator`, constraint name quoted) before implementing, and its scope and exemptions —
@@ -2027,7 +2027,7 @@ derivations, the before/after measurements and the rows still open are in
 
 ### Four Constraint Rules of the Reference, Adjudicated Against It
 
-Four constraint-tier rules from the pinned reference implementation (pilot `2026-07`)
+Four constraint-tier rules from the pinned reference implementation (pilot `2026-08`)
 are covered here. They were adjudicated diagnostic by diagnostic in
 [pilot-differential.md](pilot-differential.md) against minimal reproducers run
 through that reference. The subsetting-featuring and flow-end rules are
@@ -2078,7 +2078,7 @@ still gate the constraint-tier accessibility diagnostic.
 ### Control-Node Successions (SysML v2 §7.17.3 Control Nodes, §8.3.17 `ControlNode`, `DecisionNode`, `ForkNode`, `JoinNode`, `MergeNode`)
 
 The nine validation constraints on the successions of a control node, refereed against the
-specification text: the pinned pilot (`2026-07`) implements only `validateControlNodeOwningType`,
+specification text: the pinned pilot (`2026-08`) implements only `validateControlNodeOwningType`,
 and is silent on the other eight (adjudicated as pilot gaps in
 [pilot-differential.md](pilot-differential.md), drafted for upstream in
 [omg-issues.md](omg-issues.md)). A succession is any `Succession` the action declares or
@@ -2113,7 +2113,7 @@ unchanged (both flow spellings still execute alike; see the roadmap's streaming-
 ### SysML Notation the Reference Accepts and We Reject — the ten classes
 
 The ten classes the 373 only-ours diagnostics on the two OMG SysML corpora fall into, adjudicated
-construct by construct against the pinned reference (pilot `2026-07`) in
+construct by construct against the pinned reference (pilot `2026-08`) in
 [pilot-differential.md](pilot-differential.md) (§"SysML corpora — only ours", follow-ups
 one per class). Nothing here is fixed yet, so "Implementation" names the site that rejects the
 notation, and "Test Case" names the corpus files that are currently the only coverage — each
@@ -2140,7 +2140,7 @@ The grammar production each row cites is in `build/pilot-grammars/SysML.xtext`.
 A third implementation ([SysIDE](https://github.com/sensmetry/sysml-2ls), TypeScript, pinned at
 `0.9.1` with the `2024-12` standard library) gives an optional third verdict per file in
 `cmd/pilot-diff`, provisioned by `scripts/download-syside.sh`. **It corroborates; it never
-adjudicates:** the pinned OMG pilot (`2026-07`) stays the reference every conclusion in
+adjudicates:** the pinned OMG pilot (`2026-08`) stays the reference every conclusion in
 [pilot-differential.md](pilot-differential.md) rests on, and the third column is additive — with
 SysIDE absent the report is byte-identical to the committed baseline.
 
@@ -2149,7 +2149,7 @@ resolution, static expression typing, and the KerML/SysML validation rules. **Sy
 nothing**, so it is not evidence for or against any behavioral row of this document (Action, State
 Machine, Classifier Behaviors, expression-body scope): those are execution semantics and no
 `syside` verdict speaks to them. Its standard library is also one release behind the pilot's, so a
-parse or resolution difference may be a `2024-12`/`2026-07` difference rather than a finding.
+parse or resolution difference may be a `2024-12`/`2026-08` difference rather than a finding.
 
 | Semantic Rule | Implementation | Test Case | Status |
 |--------------|----------------|-----------|--------|
