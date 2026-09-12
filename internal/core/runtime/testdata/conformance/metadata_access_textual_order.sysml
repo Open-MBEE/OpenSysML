@@ -1,6 +1,7 @@
 // `.metadata` answers an element's annotations in textual order whichever
 // form states them: a `metadata … about` usage written before the element
-// comes before its inline `@` annotations, and one written after comes last.
+// comes before its inline `@` annotations, and one written after comes last;
+// the element's reflective metaobject follows every annotation (KerML 8.3.4.8.15).
 package early {
     metadata test::Review about test::seatBelt {
         reviewer = "ops";

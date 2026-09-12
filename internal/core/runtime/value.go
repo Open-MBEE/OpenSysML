@@ -36,6 +36,7 @@ const (
 	ValCoordinateFrame          // a VectorMeasurementReference: a frame's axes, or a measurement scale's one
 	ValCoordinateTransformation // a CoordinateTransformation: a placement of one frame in another
 	ValFunction                 // a calc as a value: its lowered shape closed over the environment it was read in
+	ValMetaobject               // an element of the model as an instance of its reflective metaclass (`x meta T`)
 
 	// valueKindCount bounds the kinds; TestEveryValueKindIsDispatched walks them.
 	valueKindCount
@@ -43,6 +44,9 @@ const (
 
 // unknownText stands for a value or reference that is absent where a name is rendered.
 const unknownText = "<unknown>"
+
+// unnamedText stands for an element that declares no name where a name is rendered.
+const unnamedText = "<unnamed>"
 
 // FormatValue renders a value with the notation used by user-facing runtime
 // results and diagnostics.
@@ -106,6 +110,8 @@ func FormatValue(v Value) string {
 		return "<expression>"
 	case ValFunction:
 		return v.FunctionName()
+	case ValMetaobject:
+		return v.MetaobjectText()
 	default:
 		return unknownText
 	}
@@ -171,6 +177,8 @@ func (k ValueKind) String() string {
 		return "coordinate transformation"
 	case ValFunction:
 		return "function"
+	case ValMetaobject:
+		return "metaobject"
 	default:
 		return "invalid"
 	}
@@ -186,9 +194,69 @@ type Value struct {
 	// ref holds the kind-specific payload of the remaining kinds: a string
 	// (ValString), *Sequence, *Set, *exprValue (ValExpr), *Quantity, a complex128
 	// (ValComplex), *Array, *Vector, *VectorQuantity, *MeasurementRef, *TensorQuantity,
-	// *functionValue (ValFunction), or the *symbols.Symbol of a variant (ValVariant) or
-	// enumeration literal (ValEnumLiteral).
+	// *functionValue (ValFunction), *metaobjectValue (ValMetaobject), or the
+	// *symbols.Symbol of a variant (ValVariant) or enumeration literal (ValEnumLiteral).
 	ref any
+}
+
+// metaobjectValue is an element viewed as an instance of its reflective
+// metaclass. Its identity is the element's: the metaclass only says what it is.
+type metaobjectValue struct {
+	element   *symbols.Symbol
+	metaclass *symbols.Symbol
+}
+
+// NewMetaobject is the value `x meta T` yields for the element x names: that
+// element as an instance of metaclass, the reflective metaclass of its declaration.
+func NewMetaobject(element, metaclass *symbols.Symbol) Value {
+	return Value{Kind: ValMetaobject, ref: &metaobjectValue{element: element, metaclass: metaclass}}
+}
+
+// MetaobjectElement is the element a ValMetaobject denotes; nil for every other kind.
+func (v Value) MetaobjectElement() *symbols.Symbol {
+	if m, ok := v.ref.(*metaobjectValue); ok && v.Kind == ValMetaobject {
+		return m.element
+	}
+	return nil
+}
+
+// MetaobjectClass is the reflective metaclass a ValMetaobject is an instance of;
+// nil for every other kind.
+func (v Value) MetaobjectClass() *symbols.Symbol {
+	if m, ok := v.ref.(*metaobjectValue); ok && v.Kind == ValMetaobject {
+		return m.metaclass
+	}
+	return nil
+}
+
+// MetaobjectText renders a metaobject as the element it denotes and the
+// metaclass it is an instance of: `meta(Pkg::x : KerML::Feature)`.
+func (v Value) MetaobjectText() string {
+	element, metaclass := v.MetaobjectElement(), v.MetaobjectClass()
+	if element == nil {
+		return "<unknown metaobject>"
+	}
+	return fmt.Sprintf("meta(%s : %s)", symbolQualifiedText(element), symbolQualifiedText(metaclass))
+}
+
+// symbolQualifiedText is a symbol's qualified name in its scope tree, else its own
+// name, else unknownText. An unnamed symbol is `<unnamed>` under its owner's name.
+func symbolQualifiedText(sym *symbols.Symbol) string {
+	if sym == nil {
+		return unknownText
+	}
+	if sym.Name == "" {
+		if sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil {
+			if owner := symbols.FQNOf(sym.OwnerScope.Owner()); owner != "" {
+				return owner + "::" + unnamedText
+			}
+		}
+		return unnamedText
+	}
+	if fqn := symbols.FQNOf(sym); fqn != "" {
+		return fqn
+	}
+	return sym.Name
 }
 
 // NewComplex is the value of one complex number. One with a zero imaginary part

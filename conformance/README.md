@@ -152,6 +152,7 @@ What a request asks for is fixed per capability:
 | `structured_values` | Encode arrays, vectors and vector quantities as unsupported nulls; refuse a request carrying one, at any depth. |
 | `measurement_refs` | Encode bare measurement references as unsupported nulls; refuse a request carrying one, at any depth. |
 | `function_values` | Encode functions (a calc read as a value) as unsupported nulls; refuse a request carrying one, at any depth. |
+| `metaobject_values` | Encode metaobjects (an element reflected on by `meta` or `.metadata`) as unsupported nulls; refuse a request carrying one, at any depth. |
 
 The default service reports and supports every capability above. `make conformance` also starts a
 second service with `strict_conformance` and `oslc_query` withheld, verifies that its advertisement

@@ -15,6 +15,7 @@ import {
   CAPABILITY_ENGINES,
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_MEASUREMENT_REFS,
+  CAPABILITY_METAOBJECT_VALUES,
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
@@ -501,6 +502,38 @@ test("a set arrives once per element in canonical order, and a tensor with its r
     );
     assert.ok(cube.components.every((c) => c.unit === "Pa"));
     assert.equal(formatValue(cube), "Tensor(2, 2, 2)[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0][Pa]");
+  }
+});
+
+const METAOBJECT_MODEL = `package Demo {
+    private import ScalarValues::*;
+    metadata def Safety { attribute level : Integer = 2; }
+    part def Vehicle { attribute mass : Real; }
+    part seatBelt : Vehicle { @Safety { level = 4; } }
+    attribute asFeature [*] = seatBelt meta KerML::Feature;
+    attribute everything [*] = seatBelt.metadata;
+    attribute notADefinition [*] = seatBelt meta SysML::PartDefinition;
+    attribute belt : String = (seatBelt meta KerML::Feature)#(1).declaredName;
+}`;
+
+test("a meta cast arrives as the element under its own metaclass, after its annotations in .metadata", async () => {
+  const seatBelt = { kind: "metaobject", elementId: "Demo::seatBelt", metaclassId: "SysML::Systems::PartUsage" };
+  for (const options of [{ protocol: "grpc" as const }, {}, { encoding: "json" as const }]) {
+    await using connection = await connect(options);
+    assert.ok((await connection.serverInfo()).has(CAPABILITY_METAOBJECT_VALUES));
+    await using model = await connection.loads(METAOBJECT_MODEL);
+
+    const asFeature = await model.eval("Demo::asFeature");
+    assert.deepEqual(asFeature, { kind: "sequence", elements: [seatBelt] });
+    assert.equal(formatValue(asFeature), "(meta(Demo::seatBelt : SysML::Systems::PartUsage))");
+    assert.deepEqual(await model.eval("Demo::notADefinition"), { kind: "sequence", elements: [] });
+
+    const everything = await model.eval("Demo::everything");
+    assert.ok(everything.kind === "sequence");
+    assert.equal(everything.elements.length, 2);
+    assert.equal(everything.elements[0]?.kind, "instance");
+    assert.deepEqual(everything.elements[1], seatBelt);
+    assert.deepEqual(await model.eval("Demo::belt"), { kind: "string", value: "seatBelt" });
   }
 });
 

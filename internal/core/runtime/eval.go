@@ -1146,16 +1146,12 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if inst, ok := ec.ctx.structuredObject(value); ok && isStructuredValue(&value) {
 			return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 		}
-		member, ok, err := ec.ctx.structuredFeature(value, parts[0].Text)
-		if err != nil {
-			return Value{}, err
-		}
-		if !ok {
-			return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(value), parts[0].Text)
-		}
-		return ec.chainMemberValue(member, parts[1:], from)
+		return ec.chainOwnFeature(value, parts, from)
 	case ValInstance, ValVariant:
 		// handled below
+	case ValMetaobject:
+		// A metaobject answers its metaclass's features for the element it denotes.
+		return ec.chainOwnFeature(value, parts, from)
 	case ValEnumLiteral:
 		// A literal is an occurrence of its enumeration, so its own features are
 		// read from the object that literal stands for.
@@ -1240,6 +1236,33 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	return ec.chainMemberValue(member, parts[1:], name)
 }
 
+// chainOwnFeature continues a chain through a feature the value answers from
+// itself rather than from an object it names.
+func (ec *EvalContext) chainOwnFeature(value Value, parts []ast.NameSegment, from string) (Value, error) {
+	member, err := ec.ownFeature(value, parts[0].Text)
+	if err != nil {
+		return Value{}, err
+	}
+	return ec.chainMemberValue(member, parts[1:], from)
+}
+
+// ownFeature reads a feature a value answers from itself: a metaobject's
+// reflective feature, or a library feature of an array, vector, quantity,
+// measurement reference or frame.
+func (ec *EvalContext) ownFeature(value Value, name string) (Value, error) {
+	if value.Kind == ValMetaobject {
+		return ec.metaobjectFeature(value, name)
+	}
+	member, ok, err := ec.ctx.structuredFeature(value, name)
+	if err != nil {
+		return Value{}, err
+	}
+	if !ok {
+		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(value), name)
+	}
+	return member, nil
+}
+
 // chainOverElements reads the rest of a chain from every element of a
 // multi-valued member, concatenating the values each contributes.
 func (ec *EvalContext) chainOverElements(value Value, parts []ast.NameSegment, from string) (Value, error) {
@@ -1320,7 +1343,6 @@ func (ctx *Context) enumerationSummary(enum *symbols.Symbol) string {
 // says what each would need, so reaching one reports why rather than "unsupported".
 var unimplementedOperators = map[ast.OperatorKind]string{
 	ast.OpBitNot: "bitwise complement is declared by no function library the runtime applies",
-	ast.OpMeta:   "metadata access is evaluated from a MetadataAccessExpression, not this operator",
 	ast.OpAll:    "'all' needs the extent of a type, which the runtime does not enumerate",
 	ast.OpIndex:  "indexing is evaluated from an IndexExpression, not this operator",
 }
@@ -1365,6 +1387,8 @@ func (ec *EvalContext) evalOperator(n *ast.OperatorExpr) (Value, error) {
 		return ec.evalTypeClassification(n)
 	case ast.OpAs:
 		return ec.evalCast(n)
+	case ast.OpMeta:
+		return ec.evalMetaCast(n)
 	default:
 		if why, ok := unimplementedOperators[n.Operator]; ok {
 			return Value{}, fmt.Errorf("%w: '%s': %s", ErrUnsupportedOperator, n.Operator, why)
@@ -1533,6 +1557,12 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 			return nil, fmt.Errorf("%w: function", ErrUndeterminedValueType)
 		}
 		return value.Function(), nil
+	case ValMetaobject:
+		// A metaobject is an instance of the reflective metaclass of its element.
+		if value.MetaobjectClass() == nil {
+			return nil, fmt.Errorf("%w: metaobject", ErrUndeterminedValueType)
+		}
+		return value.MetaobjectClass(), nil
 	case ValQuantity:
 		if value.Quantity() == nil {
 			return nil, fmt.Errorf("%w: quantity", ErrUndeterminedValueType)
@@ -1637,6 +1667,8 @@ func (ec *EvalContext) elementDenotedBy(val Value) (*symbols.Symbol, bool) {
 		return val.Variant(), val.Variant() != nil
 	case ValEnumLiteral:
 		return val.Literal(), val.Literal() != nil
+	case ValMetaobject:
+		return val.MetaobjectElement(), val.MetaobjectElement() != nil
 	default:
 		return nil, false
 	}
@@ -3017,6 +3049,9 @@ func (ctx *Context) valueEqual(a, b Value) bool {
 		// one closing over a body's bindings, within the same run of that body.
 		return a.Function() == b.Function() && a.FunctionSelf() == b.FunctionSelf() &&
 			a.functionRun() == b.functionRun()
+	case ValMetaobject:
+		// A metaobject is the element it denotes, whichever metaclass it was cast to.
+		return symbols.SameElement(a.MetaobjectElement(), b.MetaobjectElement())
 	default:
 		return false
 	}

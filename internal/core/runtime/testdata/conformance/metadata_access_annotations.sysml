@@ -1,6 +1,7 @@
-// `.metadata` (KerML 8.3.3.1 MetadataAccessExpression) reads the metadata
+// `.metadata` (KerML 8.3.4.8.15 MetadataAccessExpression) reads the metadata
 // annotating an element: one object per annotation, in the order stated,
-// carrying the values its body binds over the defaults its type declares.
+// carrying the values its body binds over the defaults its type declares,
+// followed by the element's own reflective metaobject.
 package test {
     private import ScalarValues::*;
 
