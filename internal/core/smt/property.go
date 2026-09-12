@@ -192,12 +192,17 @@ func (e *Encoding) Failure(p *Property) *solve.Query {
 }
 
 // marked is the query satisfiable when some state i meets cases[i], with
-// MarkVar naming one such state in every model.
+// MarkVar naming the first such state of the run in every model.
 func (e *Encoding) marked(cases []*solve.Term, role string) *solve.Query {
 	mark := intVar(MarkVar)
 	terms := make([]*solve.Term, len(cases))
 	for i, c := range cases {
-		terms[i] = solve.And(eq(solve.VarTerm(mark), solve.IntTerm(int64(i))), c)
+		first := make([]*solve.Term, 0, i+2)
+		first = append(first, eq(solve.VarTerm(mark), solve.IntTerm(int64(i))), c)
+		for _, earlier := range cases[:i] {
+			first = append(first, solve.Not(earlier))
+		}
+		terms[i] = solve.And(first...)
 	}
 	q := e.query(solve.Or(terms...), role)
 	q.Vars = append(slices.Clone(e.Query.Vars), mark)

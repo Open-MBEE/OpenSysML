@@ -1,0 +1,297 @@
+package smt
+
+import (
+	"context"
+	"errors"
+	"os/exec"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+)
+
+// document is one indexed document the engine is asked about: its index and the
+// building model a surface would hand the analysis.
+type document struct {
+	idx   *symbols.Index
+	model *analysis.Model
+}
+
+// indexed indexes src over the standard library, as the surfaces do.
+func indexed(t *testing.T, path, src string) *document {
+	t.Helper()
+	idx := libs.NewModelIndex()
+	sf := source.New(path, []byte(src))
+	idx.AddDocument(path, parser.New(sf).ParseFile())
+	idx.ExpandWildcardImports()
+	model := &analysis.Model{
+		Semantics: func() (*runtime.Model, error) {
+			resolver := resolve.New(idx)
+			m := runtime.NewModel(semantics.NewModel(resolver), resolver)
+			m.RegisterSource(sf)
+			return m, nil
+		},
+		Fresh: func(w *analysis.Worker) (*runtime.Context, error) {
+			return runtime.NewContext(w.Model, 10000), nil
+		},
+	}
+	return &document{idx: idx, model: model}
+}
+
+// holds is the Holds question about the behavior fqn names and the condition
+// (none for deadlock freedom alone), the schedule free.
+func (d *document) holds(t *testing.T, fqn, condition string) analysis.Question {
+	t.Helper()
+	behavior := lookup(t, d.idx, fqn)
+	ask := &analysis.HoldsAsk{
+		Behavior: behavior,
+		Start: func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
+			return ctx.CreateActionExecutor(behavior)
+		},
+	}
+	if condition != "" {
+		ask.Condition = lookup(t, d.idx, condition)
+	}
+	return analysis.Question{Kind: analysis.Holds, Subject: fqn, Free: analysis.FreeSchedule, Holds: ask}
+}
+
+// engine is the smt engine over the discovered solver, skipping without one.
+func engine(t *testing.T) *Engine {
+	t.Helper()
+	requireSolver(t)
+	return New(nil)
+}
+
+// answer asks the engine one question under the budget.
+func answer(t *testing.T, e *Engine, d *document, q analysis.Question, budget analysis.Budget) analysis.Result {
+	t.Helper()
+	result, err := e.Run(context.Background(), d.model, q, budget)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	return result
+}
+
+// expect checks the claim and strength of an answer.
+func expect(t *testing.T, result analysis.Result, claim analysis.Claim, strength analysis.Strength) {
+	t.Helper()
+	if result.Claim != claim || result.Strength != strength {
+		t.Fatalf("answer %v/%v (%s), want %v/%v", result.Claim, result.Strength, result.Reason, claim, strength)
+	}
+}
+
+// bound is the named bound of a result.
+func bound(t *testing.T, result analysis.Result, name string) analysis.Bound {
+	t.Helper()
+	for _, b := range result.Bounds {
+		if b.Name == name {
+			return b
+		}
+	}
+	t.Fatalf("no bound %q in %v", name, result.Bounds)
+	return analysis.Bound{}
+}
+
+// TestEngineDescribesItself: the engine is `smt`, answers Holds with the schedule
+// free over concrete inputs, replays, and reaches proof.
+func TestEngineDescribesItself(t *testing.T) {
+	e := New(nil)
+	if e.Name() != EngineName {
+		t.Fatalf("name %q", e.Name())
+	}
+	d := e.Describe()
+	if len(d.Questions) != 1 || d.Questions[0] != analysis.Holds || !d.Replays || d.Authority != analysis.Proved {
+		t.Fatalf("description %+v", d)
+	}
+	var _ analysis.External = e
+}
+
+// TestEngineRefusesWhatItDoesNotAnswer: another kind, free inputs, a fixed schedule
+// and a Holds question without its ask are each refused with the typed reason, and a
+// solver's absence is the typed absence, from Process and from Covers alike.
+func TestEngineRefusesWhatItDoesNotAnswer(t *testing.T) {
+	d := indexed(t, "refuse.sysml", conditionsSrc)
+	e := New(func() (*solve.Solver, error) { return &solve.Solver{Name: "z3", Path: "/bin/z3"}, nil })
+	ok := d.holds(t, "test::A", "")
+	cases := []struct {
+		name string
+		q    analysis.Question
+		want error
+	}{
+		{"kind", analysis.Question{Kind: analysis.Outcomes, Free: analysis.FreeSchedule}, analysis.ErrNotAsked},
+		{"inputs", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule | analysis.FreeInputs, Holds: ok.Holds}, analysis.ErrFreedom},
+		{"schedule", analysis.Question{Kind: analysis.Holds, Holds: ok.Holds}, ErrScheduleFixed},
+		{"ask", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule}, analysis.ErrMalformedQuestion},
+		{"behavior", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{Start: ok.Holds.Start}}, analysis.ErrMalformedQuestion},
+		{"start", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{Behavior: ok.Holds.Behavior}}, analysis.ErrMalformedQuestion},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			coverage := e.Covers(d.model, c.q)
+			if coverage.Covered || !errors.Is(coverage.Refusal, c.want) {
+				t.Fatalf("coverage %+v, want %v", coverage, c.want)
+			}
+			if _, err := e.Run(context.Background(), d.model, c.q, analysis.Budget{}); !errors.Is(err, c.want) {
+				t.Fatalf("run: %v, want %v", err, c.want)
+			}
+		})
+	}
+	if coverage := e.Covers(d.model, ok); !coverage.Covered {
+		t.Fatalf("a Holds question with the schedule free is refused: %v", coverage.Refusal)
+	}
+	if name, err := e.Process(); err != nil || name != "z3 at /bin/z3" {
+		t.Fatalf("process %q, %v", name, err)
+	}
+	absent := New(func() (*solve.Solver, error) { return nil, solve.ErrNoSolver })
+	var missing *analysis.ProcessAbsentError
+	if _, err := absent.Process(); !errors.As(err, &missing) || missing.Engine != EngineName {
+		t.Fatalf("process without a solver: %v", err)
+	}
+	if coverage := absent.Covers(d.model, ok); coverage.Covered || !errors.Is(coverage.Refusal, analysis.ErrProcessAbsent) {
+		t.Fatalf("coverage without a solver: %+v", coverage)
+	}
+}
+
+// TestEngineDecidesConditions: a requirement the run violates is witnessed, and the
+// witness replays through the interpreter to the violating state; a constraint no
+// run violates is proved when every run ends within the bound, and bounded when
+// the bound cuts the run short.
+func TestEngineDecidesConditions(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "conditions.sysml", conditionsSrc)
+
+	violated := answer(t, e, d, d.holds(t, "test::A", "test::A::positive"), analysis.Budget{Depth: 4})
+	expect(t, violated, analysis.ClaimViolated, analysis.Witnessed)
+	if violated.Witness == nil {
+		t.Fatal("no witness")
+	}
+	if _, ok := violated.Witness.Schedule.Replay(); !ok {
+		t.Fatalf("witness schedule %s is not a replay", violated.Witness.Schedule)
+	}
+	if len(violated.Witness.Choices) != 0 {
+		t.Fatalf("a straight-line run has no choice points, got %v", violated.Witness.Choices)
+	}
+	if len(violated.Values) != 1 || violated.Values[0].Err == nil {
+		t.Fatalf("the interpreter's violation is not reported: %+v", violated.Values)
+	}
+	var violation *runtime.ViolationError
+	if !errors.As(violated.Values[0].Err, &violation) {
+		t.Fatalf("the interpreter's report %v is not a violation", violated.Values[0].Err)
+	}
+
+	proved := answer(t, e, d, d.holds(t, "test::A", "test::A::bounded"), analysis.Budget{Depth: 4})
+	expect(t, proved, analysis.ClaimHolds, analysis.Proved)
+	for _, b := range proved.Bounds {
+		if b.Reached {
+			t.Errorf("a proof reached bound %s", b.Name)
+		}
+	}
+	if moves := bound(t, proved, "moves"); moves.Limit != 4 {
+		t.Errorf("moves bound %+v, want the budget's depth", moves)
+	}
+	if unroll := bound(t, proved, "unroll"); unroll.Limit != DefaultUnroll {
+		t.Errorf("unroll bound %+v, want %d", unroll, DefaultUnroll)
+	}
+
+	bounded := answer(t, e, d, d.holds(t, "test::A", "test::A::bounded"), analysis.Budget{Depth: 2})
+	expect(t, bounded, analysis.ClaimHolds, analysis.Bounded)
+	if moves := bound(t, bounded, "moves"); !moves.Reached {
+		t.Errorf("moves bound %+v, want reached", moves)
+	}
+}
+
+// TestEngineDecidesDeadlock: a join one branch never reaches deadlocks on every
+// schedule, witnessed and replayed to the interpreter's own deadlock; a flow that
+// completes is deadlock-free, proved.
+func TestEngineDecidesDeadlock(t *testing.T) {
+	e := engine(t)
+	src := `package test {
+	action def Stuck {
+		first start;
+		action stranded;
+		join j;
+		done;
+		succession first start then j;
+		succession first stranded then j;
+		succession first j then done;
+	}
+	action def Flows {
+		first start;
+		fork f;
+		action a;
+		action b;
+		join j;
+		done;
+		succession first start then f;
+		succession first f then a;
+		succession first f then b;
+		succession first a then j;
+		succession first b then j;
+		succession first j then done;
+	}
+}`
+	d := indexed(t, "deadlock.sysml", src)
+	stuck := answer(t, e, d, d.holds(t, "test::Stuck", ""), analysis.Budget{Depth: 6})
+	expect(t, stuck, analysis.ClaimViolated, analysis.Witnessed)
+	if len(stuck.Values) != 1 || !errors.Is(stuck.Values[0].Err, runtime.ErrActionDeadlock) {
+		t.Fatalf("the interpreter's deadlock is not reported: %+v", stuck.Values)
+	}
+	flows := answer(t, e, d, d.holds(t, "test::Flows", ""), analysis.Budget{Depth: 8})
+	expect(t, flows, analysis.ClaimHolds, analysis.Proved)
+}
+
+// TestEngineRefusesWhatItDoesNotEncode: a body using a construct outside the
+// encoding is not covered, naming the node, before any query is asked.
+func TestEngineRefusesWhatItDoesNotEncode(t *testing.T) {
+	src := `package test {
+	action def Waits {
+		first start;
+		action wait accept s : Signal;
+		done;
+		succession first start then wait;
+		succession first wait then done;
+	}
+	item def Signal;
+}`
+	d := indexed(t, "accept.sysml", src)
+	// A solver that cannot run: any query asked would be the run's error.
+	e := New(func() (*solve.Solver, error) { return &solve.Solver{Name: "none", Path: "/nonexistent"}, nil })
+	result := answer(t, e, d, d.holds(t, "test::Waits", ""), analysis.Budget{Depth: 4})
+	expect(t, result, analysis.ClaimNone, analysis.NotCovered)
+	if !strings.Contains(result.Reason, ErrNotEncoded.Error()) || !strings.Contains(result.Reason, "wait") {
+		t.Fatalf("reason %q does not name the construct and its node", result.Reason)
+	}
+}
+
+// TestEngineReportsUnknownAsNotCovered: a solver that runs out of the budget's
+// time on the first query leaves the question not covered, never proved, with the
+// solver bound reached and the undecided query reported.
+func TestEngineReportsUnknownAsNotCovered(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skipf("no sh to stand in for a hanging solver: %v", err)
+	}
+	hanging := &solve.Solver{Name: "hanging", Path: "sh", Args: []string{"-c", "exec sleep 30"},
+		Declared: solve.DeclaredCapabilities("hanging", solve.AllCapabilities...)}
+	e := New(func() (*solve.Solver, error) { return hanging, nil })
+	d := indexed(t, "hang.sysml", conditionsSrc)
+	result := answer(t, e, d, d.holds(t, "test::A", "test::A::bounded"), analysis.Budget{Depth: 3, Solver: 100 * time.Millisecond})
+	expect(t, result, analysis.ClaimNone, analysis.NotCovered)
+	if !strings.Contains(result.Reason, "did not decide") {
+		t.Errorf("reason %q", result.Reason)
+	}
+	if solverBound := bound(t, result, "solver"); !solverBound.Reached || solverBound.Limit != 100 {
+		t.Errorf("solver bound %+v, want reached at 100ms", solverBound)
+	}
+	if len(result.Values) != 1 || result.Values[0].Solved == nil || !result.Values[0].Solved.TimedOut {
+		t.Errorf("the undecided query is not reported: %+v", result.Values)
+	}
+}
