@@ -494,6 +494,59 @@ func TestHeldImageRefusesAnIdentitySetAsideByTheDestination(t *testing.T) {
 	}
 }
 
+// A usage the image has denote an object of its own is refused where the destination
+// already has it denote another live object; a destination not yet holding one has the
+// usage denote the copy.
+func TestHeldImageRefusesAUsageDenotingAnotherObjectOfTheDestination(t *testing.T) {
+	root, src, _ := lampBulb(t)
+	usage := resolveSymbol(t, root, "plain")
+	plain, err := src.Instantiate(usage)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if got := src.OccurrenceUsage(plain); got != "plain" {
+		t.Fatalf("OccurrenceUsage(#%d) = %q, want plain", plain.ID, got)
+	}
+	img, err := src.Image(plain)
+	if err != nil {
+		t.Fatalf("Image: %v", err)
+	}
+
+	dst := NewContext(src.Model(), 10000)
+	dst.claimID(100)
+	own, err := dst.Instantiate(usage)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	before := destinationStateOf(dst)
+	err = img.Materialize(dst)
+	var imageErr *HeldImageError
+	if !errors.Is(err, ErrImageBindingTaken) || !errors.As(err, &imageErr) || imageErr.ID != plain.ID {
+		t.Fatalf("Materialize where plain denotes #%d = %v, want ErrImageBindingTaken about #%d", own.ID, err, plain.ID)
+	}
+	if !strings.Contains(err.Error(), fmt.Sprintf("usage plain denotes #%d", own.ID)) {
+		t.Errorf("Materialize = %v, want it to name the usage and #%d", err, own.ID)
+	}
+	if after := destinationStateOf(dst); after != before {
+		t.Errorf("the refused materialization changed the destination:\n before %+v\n after  %+v", before, after)
+	}
+	if got := dst.OccurrenceUsage(own); got != "plain" {
+		t.Errorf("OccurrenceUsage(#%d) = %q after the refusal, want plain", own.ID, got)
+	}
+
+	free := NewContext(src.Model(), 10000)
+	if err := img.Materialize(free); err != nil {
+		t.Fatalf("Materialize into a context not holding plain: %v", err)
+	}
+	copied, ok := free.Instance(plain.ID)
+	if !ok {
+		t.Fatalf("the destination holds no #%d", plain.ID)
+	}
+	if got := free.OccurrenceUsage(copied); got != "plain" {
+		t.Errorf("OccurrenceUsage(copy) = %q, want plain", got)
+	}
+}
+
 // destinationState is every part of a context a materialization writes, as one value to compare.
 type destinationState struct {
 	instances, created, lives, behaviors, messages, occurrences, metadata, variants, selected int

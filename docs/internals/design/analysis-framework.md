@@ -820,8 +820,9 @@ behavior unchanged until stage 4.
    makes the copy in each row's context under the same identities, with fresh executors on the
    row's clock holding the captured state; `rowObjects` takes an image-backed reference from
    the copy and a pristine one from its declaration, in one sweep (an argument naming a fresh
-   object beside a moved subject). `HeldImageError` (`ErrImageIdentityTaken`, `ErrImageClock`,
-   `ErrImageBound`, `ErrImageRoot`), `ErrOccurrenceDestroyed`, `ErrSnapshotMidRun`,
+   object beside a moved subject). `HeldImageError` (`ErrImageIdentityTaken`,
+   `ErrImageBindingTaken`, `ErrImageClock`, `ErrImageBound`, `ErrImageRoot`),
+   `ErrOccurrenceDestroyed`, `ErrSnapshotMidRun`,
    `ErrSnapshotPausedBody` and `NotPortableError` are the typed reasons, wrapped in
    `SweptObjectError` before any row runs; no shared-context fallback; a materialization that
    fails leaves the row's context as it found it. `Snapshot`'s wire shape is unchanged. Tests: the table the sequential form printed

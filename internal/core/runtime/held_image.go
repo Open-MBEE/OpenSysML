@@ -14,6 +14,10 @@ import (
 // the destination context already holds an object under.
 var ErrImageIdentityTaken = errors.New("identity already held by the destination context")
 
+// ErrImageBindingTaken is the typed error for a declaration the image has denote an
+// object of its own that already denotes another live object of the destination.
+var ErrImageBindingTaken = errors.New("declaration already denotes an object of the destination context")
+
 // ErrImageClock is the typed error for a destination clock already past the
 // instant the image was taken at.
 var ErrImageClock = errors.New("destination clock is past the image's instant")
@@ -498,6 +502,9 @@ func (img *HeldImage) Materialize(dst *Context) error {
 			}
 		}
 	}
+	if err := img.bindingsFree(dst); err != nil {
+		return err
+	}
 	if dst.clock.now > img.clock {
 		return fmt.Errorf("%w: at t=%v, image at t=%v", ErrImageClock, dst.clock.now, img.clock)
 	}
@@ -508,6 +515,40 @@ func (img *HeldImage) Materialize(dst *Context) error {
 		return err
 	}
 	return nil
+}
+
+// bindingsFree refuses a destination where a usage or annotation the image has denote an
+// object of its own already denotes another live object: the two would disagree on what
+// the declaration denotes. Variant bindings are keyed by their owner's identity, which the
+// identity preflight settles.
+func (img *HeldImage) bindingsFree(dst *Context) error {
+	var err *HeldImageError
+	refuse := func(id int64, reason error) {
+		if err == nil || id < err.ID {
+			obj := img.objects[slices.IndexFunc(img.objects, func(o imagedObject) bool { return o.id == id })]
+			err = &HeldImageError{ID: id, Type: obj.typ, What: "materialize", Err: reason}
+		}
+	}
+	for sym, id := range img.occurrences {
+		if prior, ok := dst.occurrences[sym]; ok && prior != id && dst.holds(prior) {
+			refuse(id, fmt.Errorf("%w: usage %s denotes #%d", ErrImageBindingTaken, dst.qualifiedSymbolName(sym), prior))
+		}
+	}
+	for key, id := range img.metadataObjects {
+		if prior, ok := dst.metadataObjects[key]; ok && prior != id && dst.holds(prior) {
+			refuse(id, fmt.Errorf("%w: annotation %d of %s denotes #%d", ErrImageBindingTaken, key.index, dst.qualifiedSymbolName(key.element), prior))
+		}
+	}
+	if err == nil {
+		return nil
+	}
+	return err
+}
+
+// holds reports whether ctx holds an object under id.
+func (ctx *Context) holds(id int64) bool {
+	_, ok := ctx.instances[id]
+	return ok
 }
 
 // materializeMark is what a materialization changes of dst besides the objects it
