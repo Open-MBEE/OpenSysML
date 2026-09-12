@@ -440,11 +440,12 @@ succession "cannot re-enable itself"), `state_transition_sibling_region`,
 Six choice points are recorded by `scheduling.md`. Three belong to the state executor and are
 adjudicated here — `ChoiceTransition` (SM19), `ChoiceRegionOrder` (SM21, and SM24 for the do
 round) and `ChoiceDueOrder` (SM42); the other three — `ChoiceTokenOrder`, `ChoiceDecisionBranch`,
-`ChoiceWriteOrder` — belong to the action executor and are the fUML rows AC1, AC5 and AC2.
+`ChoiceWriteOrder` — belong to the action executor and are the fUML rows A5 and A7.
 
 **SM21. Firing order across orthogonal regions.** PSSM §8.5.10 fires the selected transitions
 "concurrently"; the test suite therefore lists every interleaving of the regions' effects as an
-admissible trace (*Transition 011-D*, §9.3.3.7: "S2.1 is exited before S1.1" as the alternative;
+admissible trace (*Transition 011-D*, §9.3.3.7: the second region's substate exited before the
+first's as the alternative;
 *Transition 019*, §9.3.3.12: five interleavings of two regions' exits and effects).
 *v2/KerML:* silent — the library orders a transition against its own source and nothing else, and
 `state_explore_region_order`'s header records "the order ... is open". *Runtime:* `dispatchInOrder`
