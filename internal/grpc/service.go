@@ -152,6 +152,11 @@ const CapabilityScheduleExplore = "schedule_explore"
 // when it ended. Without it the field is 0 whatever the run waited on.
 const CapabilityFinalTime = "final_time"
 
+// CapabilityMetaobjectValues names the capability of carrying an element
+// reflected on as an instance of its metaclass (`x meta T`, the last element of
+// `x.metadata`) as Value.metaobject, rather than as an unsupported null.
+const CapabilityMetaobjectValues = "metaobject_values"
+
 // CapabilityUndeterminedValue names the capability of carrying a result the model
 // leaves open as Value.undetermined rather than as an unsupported null.
 const CapabilityUndeterminedValue = "undetermined_value"
@@ -169,6 +174,7 @@ var capabilities = []string{
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
 	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
 	CapabilityScheduleExplore, CapabilityFinalTime, CapabilityEngines,
+	CapabilityMetaobjectValues,
 	CapabilityUndeterminedValue,
 }
 
@@ -355,7 +361,12 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if ValueCarriesTensor(pv) {
-		return s.requireCapability(CapabilityTensorValues)
+		if err := s.requireCapability(CapabilityTensorValues); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesMetaobject(pv) {
+		return s.requireCapability(CapabilityMetaobjectValues)
 	}
 	return nil
 }

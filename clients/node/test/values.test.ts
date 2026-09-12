@@ -10,6 +10,7 @@ import {
   FailureReason,
   FunctionSchema,
   MeasurementRefSchema,
+  MetaobjectSchema,
   QuantitySchema,
   TensorQuantitySchema,
   UnitFactorSchema,
@@ -801,6 +802,49 @@ test("a function is the calc it names, read against an object or none", () => {
   assert.throws(() => encodeValue({ kind: "function", calcId: "" }), MalformedValueError);
 });
 
+test("a metaobject is the element it reflects on, under its own metaclass", () => {
+  const meta = (elementId: string, metaclassId: string) =>
+    create(ValueSchema, {
+      kind: { case: "metaobject", value: create(MetaobjectSchema, { elementId, metaclassId }) },
+    });
+  const seatBelt = decodeValue(meta("Demo::seatBelt", "SysML::Systems::PartUsage"));
+  assert.deepEqual(seatBelt, {
+    kind: "metaobject",
+    elementId: "Demo::seatBelt",
+    metaclassId: "SysML::Systems::PartUsage",
+  });
+  assert.equal(formatValue(seatBelt), "meta(Demo::seatBelt : SysML::Systems::PartUsage)");
+
+  // The element is the identity: the cast target does not distinguish two reads of one element.
+  assert.equal(valuesEqual(seatBelt, { kind: "metaobject", elementId: "Demo::seatBelt", metaclassId: "" }), true);
+  assert.equal(
+    valuesEqual(seatBelt, { kind: "metaobject", elementId: "Demo::Vehicle", metaclassId: "SysML::Systems::PartUsage" }),
+    false,
+  );
+  assert.equal(valuesEqual(seatBelt, { kind: "string", value: "Demo::seatBelt" }), false);
+  assert.throws(
+    () =>
+      encodeValue({
+        kind: "set",
+        elements: [seatBelt, { kind: "metaobject", elementId: "Demo::seatBelt", metaclassId: "KerML::Feature" }],
+      }),
+    MalformedValueError,
+  );
+
+  // The metaclass may be left to the model when sending; the element may not.
+  const bare = encodeValue({ kind: "metaobject", elementId: "Demo::seatBelt", metaclassId: "" });
+  assert.deepEqual(decodeValue(bare), { kind: "metaobject", elementId: "Demo::seatBelt", metaclassId: "" });
+  assert.throws(
+    () => decodeValue(meta("", "KerML::Feature")),
+    (error: unknown) => error instanceof MalformedValueError && /names no element/.test(error.message),
+  );
+  const nested = create(ValueSchema, {
+    kind: { case: "sequence", value: create(ValueSequenceSchema, { elements: [meta("", "")] }) },
+  });
+  assert.throws(() => decodeValue(nested), MalformedValueError);
+  assert.throws(() => encodeValue({ kind: "metaobject", elementId: "", metaclassId: "" }), MalformedValueError);
+});
+
 test("encodeValue is the inverse of decodeValue, through the wire bytes", () => {
   const values: SysMLValue[] = [
     { kind: "int", value: 9007199254740993n },
@@ -827,6 +871,8 @@ test("encodeValue is the inverse of decodeValue, through the wire bytes", () => 
     { kind: "sequence", elements: [{ kind: "measurementRef", unit: "m", unitTerm: METRE, unitId: "SI::metre" }] },
     { kind: "function", calcId: "Demo::Sq" },
     { kind: "function", calcId: "Demo::Scaler::scale", selfId: 7n },
+    { kind: "metaobject", elementId: "Demo::seatBelt", metaclassId: "SysML::Systems::PartUsage" },
+    { kind: "sequence", elements: [{ kind: "metaobject", elementId: "Demo::seatBelt", metaclassId: "" }] },
     { kind: "enum", value: { name: "red", literalId: "P::Color::red", enumerationId: "P::Color" } },
     { kind: "null", reason: "" },
     { kind: "unset" },
@@ -903,6 +949,37 @@ test("an enum literal keeps the enumeration that declares it", () => {
     kind: "enum",
     value: { name: "Colour::red", literalId: "D::Colour::red", enumerationId: "D::Colour" },
   });
+});
+
+test("a scalar-valued enum literal carries the scalar it equals, both ways", () => {
+  const high = {
+    kind: "enum",
+    value: {
+      name: "Level::high",
+      literalId: "D::Level::high",
+      enumerationId: "D::Level",
+      value: { kind: "int", value: 3n },
+    },
+  } as const;
+  const sent = encodeValue(high);
+  assert.equal(sent.kind.case, "enumLiteral");
+  assert.equal(sent.kind.value.value?.kind.case, "intValue");
+  assert.deepEqual(decodeValue(fromBinary(ValueSchema, toBinary(ValueSchema, sent))), high);
+
+  const red = encodeValue({
+    kind: "enum",
+    value: { name: "Colour::red", literalId: "D::Colour::red", enumerationId: "D::Colour" },
+  });
+  assert.equal(red.kind.case, "enumLiteral");
+  assert.equal(red.kind.value.value, undefined);
+
+  const armless = create(ValueSchema, {
+    kind: {
+      case: "enumLiteral",
+      value: create(EnumLiteralSchema, { literalId: "D::Level::high", value: create(ValueSchema, {}) }),
+    },
+  });
+  assert.throws(() => decodeValue(armless), MalformedValueError);
 });
 
 test("a verdict holds, fails or is undecided, and always names its subject", () => {

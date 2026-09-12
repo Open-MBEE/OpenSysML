@@ -2,14 +2,12 @@
 
 import contextlib
 import hashlib
-import http.client
 import json
 import os
 import platform
 import shutil
 import stat
 import threading
-import urllib.request
 import warnings
 from opensysml.errors import (
     ChecksumMismatchError,
@@ -60,6 +58,35 @@ def read_bounded(response, url, limit):
     if len(body) > limit:
         raise ConnectionError(f"{url} is larger than {limit} bytes")
     return body
+
+
+def fetch(url, limit):
+    """GET a URL and read its body, bounded.
+
+    Only a download needs the HTTP stack, so it is imported here, not with the module.
+
+    Args:
+        url (str): What to fetch
+        limit (int): Most bytes the body may be
+
+    Returns:
+        bytes: The body
+
+    Raises:
+        OSError: If the request or the read fails, however the HTTP stack
+            reports it
+        ConnectionError: If the body is longer than the limit
+    """
+    import http.client
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(url, timeout=NETWORK_TIMEOUT) as response:
+            return read_bounded(response, url, limit)
+    # urlopen leaves read-phase failures unwrapped, so a truncated body or a
+    # dropped connection is an HTTPException, not a URLError.
+    except http.client.HTTPException as e:
+        raise OSError(str(e)) from e
 
 
 #: The pinned digests, shipped beside this module as package data.
@@ -249,9 +276,8 @@ def signed_manifest_digest(version, asset, github_repo=None):
     for name in (MANIFEST_ASSET, BUNDLE_ASSET):
         url = release_download_url(version, name, repo)
         try:
-            with urllib.request.urlopen(url, timeout=NETWORK_TIMEOUT) as response:
-                downloaded[name] = read_bounded(response, url, MAX_METADATA_BYTES)
-        except (OSError, http.client.HTTPException) as e:
+            downloaded[name] = fetch(url, MAX_METADATA_BYTES)
+        except OSError as e:
             raise UnsignedReleaseError(
                 f"{version} of {repo} publishes no readable {name} ({url}: {e}), so "
                 f"its checksums carry no signature to verify"
@@ -277,13 +303,8 @@ def resolve_latest_version(github_repo=None):
     repo = github_repo or default_github_repo()
     url = f'https://api.github.com/repos/{repo}/releases/latest'
     try:
-        with urllib.request.urlopen(url, timeout=NETWORK_TIMEOUT) as response:
-            release = json.loads(
-                read_bounded(response, url, MAX_METADATA_BYTES).decode('utf-8')
-            )
-    # urlopen leaves read-phase failures unwrapped, so a timeout, a reset
-    # connection or a truncated body is not a URLError.
-    except (OSError, http.client.HTTPException, ValueError) as e:
+        release = json.loads(fetch(url, MAX_METADATA_BYTES).decode('utf-8'))
+    except (OSError, ValueError) as e:
         raise ConnectionError(f"Failed to resolve latest release from {url}: {e}")
 
     tag = release.get('tag_name')
@@ -682,10 +703,7 @@ def _download_binary_locked(version, github_repo):
     
     try:
         # Download checksum file first
-        with urllib.request.urlopen(checksum_url, timeout=NETWORK_TIMEOUT) as response:
-            checksum_content = read_bounded(
-                response, checksum_url, MAX_METADATA_BYTES
-            ).decode('utf-8')
+        checksum_content = fetch(checksum_url, MAX_METADATA_BYTES).decode('utf-8')
         
         # Parse checksum (format: "hexdigest  filename\n")
         served_checksum = checksum_content.split()[0]
@@ -708,8 +726,7 @@ def _download_binary_locked(version, github_repo):
         )
         
         # Download binary
-        with urllib.request.urlopen(binary_url, timeout=NETWORK_TIMEOUT) as response:
-            binary_data = read_bounded(response, binary_url, MAX_BINARY_BYTES)
+        binary_data = fetch(binary_url, MAX_BINARY_BYTES)
         
         # Write to temporary file first
         temp_path = binary_path + '.tmp'
@@ -746,7 +763,7 @@ def _download_binary_locked(version, github_repo):
         
     except ConnectionError:
         raise
-    except (OSError, http.client.HTTPException) as e:
+    except OSError as e:
         raise ConnectionError(f"Failed to download binary from {binary_url}: {e}")
 
 

@@ -172,6 +172,15 @@ func TestCastConformanceCollectionBody(t *testing.T) {
 	castDiags(t, "", `feature none = (().{in x : A; x}).{in y : A; s} as C; feature none2 = (xs.{in x : A; nothing}).?{in y : String; true} as C;`)
 }
 
+// An extent `all T` casts element by element as an instance of T: one of a classifier is of
+// it, one of a feature is of the feature's types.
+func TestCastConformanceExtent(t *testing.T) {
+	castDiags(t, "", `feature bad = all Q as String;`, "16:16 cast argument is typed by Q, unrelated to the target String")
+	castDiags(t, "", `feature bad = all A as C;`, "16:16 cast argument is typed by A, unrelated to the target C")
+	castDiags(t, "", `feature bad = all ab as String;`, "16:16 cast argument is typed by A and C, unrelated to the target String")
+	castDiags(t, "", `feature down = all Q as R; feature up = all R as Q; feature some = all ab as B;`)
+}
+
 // A cast up, down, or sideways through one of several types conforms; so does
 // one whose argument's type is not statically known, or is Anything, and one
 // between a composed type and a type it is composed of.

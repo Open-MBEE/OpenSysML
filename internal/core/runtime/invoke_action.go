@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -78,34 +77,67 @@ func expressionInvocation(e *ast.InvocationExpr) actionInvocation {
 	return actionInvocation{target: e.Type, args: args, named: e.NamedArgs, expr: e}
 }
 
-// invocationArguments evaluates the arguments of a `Callee(...)` invocation in ec, the caller's
-// context, keyed by the input parameter of performanceInterface they bind; nil for the other forms.
+// invocationArguments resolves the action a `Callee(...)` invocation names and evaluates its
+// arguments in ec, the caller's context, keyed by the input parameter of performanceInterface
+// they bind. A call the checker leaves tied on arguments of unknown type is settled by the
+// values, evaluated once. The other forms resolve the callee and bind nothing.
 func invocationArguments(
 	ctx *Context, scope *symbols.Scope, inv actionInvocation, ec *EvalContext,
-) (map[string]Value, error) {
+) (map[string]Value, *symbols.Symbol, error) {
+	sym, tied, err := actionCandidates(ctx, scope, inv)
+	if err != nil {
+		return nil, nil, err
+	}
 	if inv.expr == nil {
-		return nil, nil
+		return nil, sym, nil
 	}
 	if inv.expr.Operand != nil && len(inv.named) > 0 {
-		return nil, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"%w: %s is called with a receiver and named arguments",
 			ErrReceiverWithNamedArgs, qualifiedNameText(inv.target),
 		)
 	}
-	sym, err := resolveActionSymbol(ctx, scope, inv)
-	if err != nil {
-		return nil, err
+	written := writtenArguments(inv.args, inv.named)
+	if sym == nil {
+		if sym, err = settleAction(ec, inv, tied, written); err != nil {
+			return nil, nil, err
+		}
 	}
 	held, err := ctx.performanceInterface(inv.performed(sym), sym)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	in, _ := parameterNames(ctx.actionParametersOf(held))
-	arguments := make(map[string]Value, len(inv.args)+len(inv.named))
-	if err := bindArgumentList(ec, inv, held, in, arguments); err != nil {
-		return nil, err
+	arguments := make(map[string]Value, len(written))
+	if err := bindArgumentList(ec, inv, held, in, arguments, written); err != nil {
+		return nil, nil, err
 	}
-	return arguments, nil
+	return arguments, sym, nil
+}
+
+// settleAction selects among the tied actions by the types of the arguments' values,
+// evaluated in source order.
+func settleAction(ec *EvalContext, inv actionInvocation, tied []*symbols.Symbol, written []*writtenArgument) (*symbols.Symbol, error) {
+	args := make([]semantics.Argument, 0, len(written))
+	for k, w := range written {
+		var name *ast.QualifiedName
+		if k >= len(inv.args) {
+			name = inv.named[k-len(inv.args)].Name
+			if name == nil || len(name.Parts) == 0 {
+				continue
+			}
+		}
+		val, err := w.eval(ec)
+		if err != nil {
+			return nil, fmt.Errorf("eval argument %d of %s: %w", k+1, qualifiedNameText(inv.target), err)
+		}
+		args = append(args, ec.valueArgument(val, name))
+	}
+	sel := ec.ctx.model.semantics.SelectAmongArguments(ec.scope, tied, args, semantics.PerformsAction)
+	if sel.Ambiguous || sel.Called() == nil {
+		return nil, ambiguousInvocationError(qualifiedNameText(inv.target), sel.Tied)
+	}
+	return sel.Called(), nil
 }
 
 // invokeAction runs the action named by inv to completion as a sub-execution of
@@ -130,28 +162,24 @@ func invokeAction(
 	ec.inBehaviorBody = true
 	ec.Push(data)
 	defer ec.beginStep()()
-	arguments, err := invocationArguments(ctx, scope, inv, ec)
+	arguments, sym, err := invocationArguments(ctx, scope, inv, ec)
 	if err != nil {
 		return nil, nil, err
 	}
-	return invokeBoundAction(ctx, scope, inv, arguments, data, self)
+	return invokeBoundAction(ctx, inv, sym, arguments, data, self)
 }
 
-// invokeBoundAction is invokeAction with the callee's inputs already bound in pins (the
-// performing node's, arguments included); a bare `perform`/typed usage still reads data.
+// invokeBoundAction is invokeAction with the callee sym resolved and its inputs already
+// bound in pins (the performing node's, arguments included); a bare `perform`/typed usage
+// still reads data.
 func invokeBoundAction(
 	ctx *Context,
-	scope *symbols.Scope,
 	inv actionInvocation,
+	sym *symbols.Symbol,
 	pins map[string]Value,
 	data map[string]Value,
 	self *Instance,
 ) (features, outputs map[string]Value, err error) {
-	sym, err := resolveActionSymbol(ctx, scope, inv)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	if ctx.actionDepth >= maxActionNestingDepth {
 		return nil, nil, fmt.Errorf(
 			"action invocation nested more than %d deep at %s (recursive action?)",
@@ -203,59 +231,82 @@ func invokeBoundAction(
 	return features, outputs, nil
 }
 
+// resolveActionSymbol is the action inv names; a call only its arguments' values can
+// settle is refused as ambiguous.
 func resolveActionSymbol(
 	ctx *Context,
 	scope *symbols.Scope,
 	inv actionInvocation,
 ) (*symbols.Symbol, error) {
+	sym, tied, err := actionCandidates(ctx, scope, inv)
+	if err != nil {
+		return nil, err
+	}
+	if sym == nil {
+		return nil, ambiguousInvocationError(qualifiedNameText(inv.target), tied)
+	}
+	return sym, nil
+}
+
+// actionCandidates resolves the action inv names: the one it denotes, or, for a call the
+// checker leaves tied on arguments of unknown type, nil and the tied actions.
+func actionCandidates(
+	ctx *Context,
+	scope *symbols.Scope,
+	inv actionInvocation,
+) (*symbols.Symbol, []*symbols.Symbol, error) {
 	target := inv.target
 	if target == nil || len(target.Parts) == 0 {
-		return nil, fmt.Errorf("empty action reference")
+		return nil, nil, fmt.Errorf("empty action reference")
 	}
 	name := qualifiedNameText(target)
 	if scope == nil || ctx.model.resolver == nil {
-		return nil, fmt.Errorf("cannot resolve action %s: no scope", name)
+		return nil, nil, fmt.Errorf("cannot resolve action %s: no scope", name)
 	}
 	var sym *symbols.Symbol
 	var ok bool
 	switch {
 	case inv.referrer != nil:
-		sym, ok = ctx.model.resolver.ResolveReferenceTarget(scope, inv.referrer, target)
+		sym, ok = ctx.resolveReferenceTarget(scope, inv.referrer, target)
 	case inv.expr != nil:
-		sel := passes.SelectInvocation(ctx.model.resolver, ctx.model.semantics, scope, inv.expr, semantics.PerformsAction)
-		if sel.Ambiguous {
-			return nil, ambiguousInvocationError(name, sel.Tied)
+		sel := ctx.selectInvocation(scope, inv.expr, semantics.PerformsAction)
+		switch {
+		case sel.Ambiguous && sel.Undetermined:
+			return nil, sel.Tied, nil
+		case sel.Ambiguous:
+			return nil, nil, ambiguousInvocationError(name, sel.Tied)
 		}
 		sym = sel.Called()
 		ok = sym != nil
 	default:
-		sym, ok = ctx.model.resolver.ResolveQualified(scope, target)
+		sym, ok = ctx.resolveQualified(scope, target)
 	}
 	if !ok || sym == nil {
-		return nil, fmt.Errorf("unresolved action reference: %s", name)
+		return nil, nil, fmt.Errorf("unresolved action reference: %s", name)
 	}
 	if inv.referrer != nil && sym.Decl == inv.referrer {
-		return nil, fmt.Errorf("unresolved action reference: %s (a perform statement cannot perform itself)", name)
+		return nil, nil, fmt.Errorf("unresolved action reference: %s (a perform statement cannot perform itself)", name)
 	}
 	if !ctx.model.semantics.Performable(semantics.PerformsAction, sym) {
-		return nil, fmt.Errorf("%s is not an action (%v)", name, sym.Kind)
+		return nil, nil, fmt.Errorf("%s is not an action (%v)", name, sym.Kind)
 	}
-	return sym, nil
+	return sym, nil, nil
 }
 
-// bindArgumentList binds an invocation's arguments into inputs by the callee's parameter
-// order (positional) or names (named); arguments are evaluated in ec, the caller's context.
-// A parameter two arguments would bind is rejected rather than taking the later one.
-func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Symbol, in []string, inputs map[string]Value) error {
+// bindArgumentList binds an invocation's arguments, written, into inputs by the callee's
+// parameter order (positional) or names (named); each is evaluated in ec, the caller's
+// context, unless settling the callee already did. A parameter two arguments would bind
+// is rejected rather than taking the later one.
+func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Symbol, in []string, inputs map[string]Value, written []*writtenArgument) error {
 	if len(inv.args) > len(in) {
 		return fmt.Errorf(
 			"%w: action %s takes %d input parameter(s), got %d argument(s)",
 			ErrActionArity, qualifiedNameText(inv.target), len(in), len(inv.args),
 		)
 	}
-	bound := make(map[string]bool, len(inv.args)+len(inv.named))
-	for i, arg := range inv.args {
-		value, err := ec.Eval(arg)
+	bound := make(map[string]bool, len(written))
+	for i := range inv.args {
+		value, err := written[i].eval(ec)
 		if err != nil {
 			return fmt.Errorf("eval argument %d of %s: %w", i+1, qualifiedNameText(inv.target), err)
 		}
@@ -264,7 +315,7 @@ func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Sym
 	}
 
 	names, unbound := ec.ctx.boundParameterNames(ec.scope, callee, inv.named)
-	for i, named := range inv.named {
+	for i := range inv.named {
 		name := names[i]
 		if name == "" {
 			return fmt.Errorf("unnamed argument in invocation of %s", qualifiedNameText(inv.target))
@@ -285,7 +336,7 @@ func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Sym
 			)
 		}
 		bound[name] = true
-		value, err := ec.Eval(named.Value)
+		value, err := written[len(inv.args)+i].eval(ec)
 		if err != nil {
 			return fmt.Errorf("eval argument %q of %s: %w", name, qualifiedNameText(inv.target), err)
 		}

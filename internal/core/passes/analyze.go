@@ -66,6 +66,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(W11AKerMLSpecializationPass{})
 	reg.Register(ControlNodeSuccessionPass{})
 	reg.Register(OOSEMMethodPass{})
+	reg.Register(MOSAPass{})
 	return reg
 }
 

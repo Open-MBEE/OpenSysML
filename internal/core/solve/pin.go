@@ -362,6 +362,12 @@ const (
 // the notation writes it. A value the variable's sort cannot hold refuses.
 func (t *translator) pinTerm(p Pin, v *Var) (*Term, string, error) {
 	text := pinText(t, p.Value)
+	// A literal of a scalar-valued enumeration pins a datatype variable by its
+	// identity, and an Integer or Real one by the scalar it equals.
+	if lit := p.Value.EnumerationLiteral(); lit != nil && v.Sort.Kind == SortDatatype {
+		term, err := t.pinDatatype(p, v, text, lit)
+		return term, text, err
+	}
 	switch p.Value.Kind {
 	case runtime.ValConst:
 		term, err := t.pinConst(p, v, text)
@@ -523,6 +529,9 @@ func (t *translator) pinRefusal(p Pin, v *Var, text, reason string) error {
 
 // pinText renders a fixed value as the notation writes it.
 func pinText(t *translator, val runtime.Value) string {
+	if lit := val.EnumerationLiteral(); lit != nil {
+		return runtime.NewEnumLiteral(lit).LiteralText()
+	}
 	switch val.Kind {
 	case runtime.ValConst:
 		return constText(val.Const)

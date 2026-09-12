@@ -25,6 +25,7 @@ from opensysml.capabilities import (
     CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_INFINITY_VALUE,
     CAPABILITY_MEASUREMENT_REFS,
+    CAPABILITY_METAOBJECT_VALUES,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_SCHEDULE,
@@ -70,6 +71,7 @@ from opensysml.values import (
     Function,
     InstanceRef,
     MeasurementRef,
+    Metaobject,
     Quantity,
     SetValue,
     TensorQuantity,
@@ -1268,8 +1270,10 @@ class Connection:
                 and the service predates ``function_values``, a
                 :class:`~opensysml.values.SetValue` and the service predates
                 ``set_values``, a :class:`~opensysml.values.TensorQuantity`
-                and the service predates ``tensor_values``, or a schedule is
-                given and the service predates ``schedule``; nothing is sent
+                and the service predates ``tensor_values``, a
+                :class:`~opensysml.values.Metaobject` and the service predates
+                ``metaobject_values``, or a schedule is given and the service
+                predates ``schedule``; nothing is sent
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_action")
@@ -1635,7 +1639,8 @@ class Connection:
                 reference and the service predates ``measurement_refs``, a
                 function and the service predates ``function_values``, a set
                 and the service predates ``set_values``, a tensor quantity
-                and the service predates ``tensor_values``, or an engine is
+                and the service predates ``tensor_values``, a metaobject and
+                the service predates ``metaobject_values``, or an engine is
                 given and the service predates ``engines``; nothing is sent
             InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
@@ -1657,6 +1662,7 @@ class Connection:
                 CAPABILITY_FUNCTION_VALUES,
                 CAPABILITY_SET_VALUES,
                 CAPABILITY_TENSOR_VALUES,
+                CAPABILITY_METAOBJECT_VALUES,
             ) + self._engine_capabilities(engine))
         ):
             response = self._stub.EvaluateCalc(request)
@@ -1724,7 +1730,8 @@ class Connection:
                 ``complex_values``, an array, vector or vector quantity and
                 the service predates ``structured_values``, a set and the
                 service predates ``set_values``, a tensor quantity and the
-                service predates ``tensor_values``, a schedule is given and
+                service predates ``tensor_values``, a metaobject and the
+                service predates ``metaobject_values``, a schedule is given and
                 the service predates ``schedule``, or an engine is given and
                 the service predates ``engines``; nothing is sent
             InvalidRequestError: If the schedule names no policy, or the
@@ -1841,6 +1848,7 @@ class Connection:
                 CAPABILITY_MEASUREMENT_REFS,
                 CAPABILITY_SET_VALUES,
                 CAPABILITY_TENSOR_VALUES,
+                CAPABILITY_METAOBJECT_VALUES,
                 *self._schedule_capabilities(schedule),
                 *self._engine_capabilities(engine),
             ])
@@ -2056,6 +2064,14 @@ class Connection:
             upgrade_remedy(CAPABILITY_FUNCTION_VALUES),
         )
 
+    def _require_metaobject_values(self):
+        """Refuse to send a metaobject a service without ``metaobject_values`` would read as null."""
+        require(
+            self.server_info(),
+            CAPABILITY_METAOBJECT_VALUES,
+            upgrade_remedy(CAPABILITY_METAOBJECT_VALUES),
+        )
+
     def _require_infinity_value(self):
         """Refuse to send the unbounded value ``*`` a service without ``infinity_value`` would read as null."""
         require(
@@ -2150,6 +2166,9 @@ class Connection:
         elif isinstance(py_value, Function):
             self._require_function_values()
             return sysml_pb2.Value(function=py_value.to_pb())
+        elif isinstance(py_value, Metaobject):
+            self._require_metaobject_values()
+            return sysml_pb2.Value(metaobject=py_value.to_pb())
         elif isinstance(py_value, Array):
             self._require_structured_values()
             return sysml_pb2.Value(array=py_value.to_pb(self._python_to_value))
@@ -2166,11 +2185,14 @@ class Connection:
             self._require_tensor_values()
             return sysml_pb2.Value(tensor_quantity=py_value.to_pb())
         elif isinstance(py_value, EnumLiteral):
-            return sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(
+            literal = sysml_pb2.EnumLiteral(
                 literal_id=py_value.literal_id,
                 enumeration_id=py_value.enumeration_id,
                 name=py_value.name,
-            ))
+            )
+            if py_value.value is not None:
+                literal.value.CopyFrom(self._python_to_value(py_value.value))
+            return sysml_pb2.Value(enum_literal=literal)
         elif isinstance(py_value, list):
             elements = [self._python_to_value(v) for v in py_value]
             return sysml_pb2.Value(sequence=sysml_pb2.ValueSequence(elements=elements))

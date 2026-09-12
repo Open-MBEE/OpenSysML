@@ -714,6 +714,96 @@
       }
     },
     {
+      "id": "evaluate/a_meta_cast_arrives_as_a_metaobject_under_its_own_metaclass",
+      "description": "`x meta T` reflects on the element x names, so the result travels as that element's qualified name under the metaclass that classifies it, not under T: seatBelt is a PartUsage however it was cast.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "metaobject_values"
+      ],
+      "model": {
+        "fixture": "metaobject.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "Meta::asFeature"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "sequence": {
+              "elements": [
+                {
+                  "metaobject": {
+                    "element_id": "Meta::seatBelt",
+                    "metaclass_id": "SysML::Systems::PartUsage"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "evaluate/metadata_access_ends_with_the_reflective_metaobject",
+      "description": "`x.metadata` is the element's annotations in model order followed by its reflective metaobject, so a client sees the annotation object first and the metaobject last.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "metaobject_values"
+      ],
+      "model": {
+        "fixture": "metaobject.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "Meta::everything"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "sequence": {
+              "elements": [
+                {
+                  "instance_id": "@1"
+                },
+                {
+                  "metaobject": {
+                    "element_id": "Meta::seatBelt",
+                    "metaclass_id": "SysML::Systems::PartUsage"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "evaluate/a_meta_cast_to_a_metaclass_the_element_is_not_an_instance_of_is_empty",
+      "description": "A part usage is no PartDefinition, so the cast yields the empty sequence rather than a metaobject or an error.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "metaobject_values"
+      ],
+      "model": {
+        "fixture": "metaobject.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "Meta::notADefinition"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "sequence": {}
+          }
+        },
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
       "id": "evaluate/an_unknown_model_is_not_found",
       "rpc": "Evaluate",
       "request": {

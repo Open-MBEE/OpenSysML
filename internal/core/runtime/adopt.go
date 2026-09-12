@@ -650,6 +650,11 @@ func (a *adoption) planValue(owner string, val Value) error {
 				return
 			}
 		}
+		if v.Kind == ValMetaobject {
+			if err = a.planMetaobject(v); err != nil {
+				return
+			}
+		}
 		for _, unit := range unitsOf(v) {
 			if err = a.planUnit(unit); err != nil {
 				return
@@ -1044,6 +1049,151 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 			a.ctx.selectedVariants[key] = variant
 		}
 	}
+	carried := make(map[*symbols.Symbol]bool)
+	for sym := range a.prev.namespaceBindings {
+		a.carryBinding(sym, adopted, carried)
+	}
+}
+
+// carryBinding carries a usage's binding only while everything its value read still reads as
+// it did — declarations, names, type hierarchies — bound dependencies first; else it is read again.
+func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, carried map[*symbols.Symbol]bool) bool {
+	if done, ok := carried[sym]; ok {
+		return done
+	}
+	carried[sym] = false
+	val := a.prev.namespaceBindings[sym]
+	found, err := a.rebind(sym, "a usage of it")
+	if err != nil || !a.allAdopted(val, adopted) {
+		return false
+	}
+	stated := a.prev.declarationDigest(sym)
+	if stated == "" || stated != a.ctx.declarationDigest(found) {
+		return false
+	}
+	reads := a.prev.bindingReads[sym]
+	rewritten := newBindingReads()
+	if reads != nil {
+		if reads.opaque {
+			return false
+		}
+		for dep, digest := range reads.decls {
+			depFound, err := a.rebind(dep, "a declaration it read")
+			if err != nil || digest != a.ctx.declarationDigest(depFound) {
+				return false
+			}
+			if namespaceObjectUsage(dep) {
+				if _, bound := a.prev.namespaceBindings[dep]; !bound || !a.carryBinding(dep, adopted, carried) {
+					return false
+				}
+			}
+			if id, occurs := a.prev.occurrences[dep]; occurs && a.ctx.occurrences[depFound] != id {
+				return false
+			}
+			rewritten.decls[depFound] = digest
+		}
+		for doc, digest := range reads.docs {
+			if digest != a.ctx.documentDigest(doc) {
+				return false
+			}
+			rewritten.docs[doc] = digest
+		}
+		for typ, digest := range reads.types {
+			typFound, err := a.rebind(typ, "a type it judged")
+			if err != nil || digest != a.ctx.typeDigest(typFound) {
+				return false
+			}
+			rewritten.types[typFound] = digest
+		}
+		for read, denoted := range reads.names {
+			read, ok := a.rebindNameRead(read)
+			if !ok {
+				return false
+			}
+			if now, ok := a.ctx.replay(read); !ok || now != denoted {
+				return false
+			}
+			rewritten.names[read] = denoted
+		}
+	}
+	a.ctx.namespaceBindings[found] = a.rewrite(val)
+	a.ctx.bindingReads[found] = rewritten
+	carried[sym] = true
+	return true
+}
+
+// allAdopted reports whether every object a value carries — an element of a collection, the one
+// an array, vector, frame or transformation was read from, a function's self — is here: carried
+// over now, or by an earlier carry-over from the same previous context.
+func (a *adoption) allAdopted(val Value, adopted map[int64]bool) bool {
+	all := true
+	a.prev.walkValue(val, func(v Value) {
+		if id, ok := carriedObject(v); ok && !adopted[id] && !a.carriedEarlier(id) {
+			all = false
+		}
+		if self := v.FunctionSelf(); self != nil && !adopted[self.ID] && !a.carriedEarlier(self.ID) {
+			all = false
+		}
+	})
+	return all
+}
+
+// carriedEarlier reports whether this context already holds the previous context's object id —
+// the very object, not another one that took the identity.
+func (a *adoption) carriedEarlier(id int64) bool {
+	was, ok := a.prev.instances[id]
+	if !ok {
+		return false
+	}
+	now, ok := a.ctx.instances[id]
+	return ok && now == was
+}
+
+// rebindNameRead names a lookup's scope and hidden declaration in this context.
+func (a *adoption) rebindNameRead(read nameRead) (nameRead, bool) {
+	if read.scope.owner != nil {
+		owner, err := a.rebind(read.scope.owner, "a namespace it looked a name up in")
+		if err != nil {
+			return read, false
+		}
+		read.scope.owner = owner
+	}
+	if read.excluding != nil {
+		excluding, err := a.rebind(read.excluding, "a declaration it looked a name up around")
+		if err != nil {
+			return read, false
+		}
+		read.excluding = excluding
+	}
+	return read, true
+}
+
+// declarationDigest is the text of a symbol's declaration, as its document states it, and
+// what this context resolves it to.
+func (ctx *Context) declarationDigest(sym *symbols.Symbol) string {
+	if sym == nil || sym.DocName == "" {
+		return ""
+	}
+	return ctx.textIn(sym.DocName, sym.DeclSpan) + "\n" + ctx.typeDigest(sym)
+}
+
+// documentDigest is the whole text of a document, as this context was given it.
+func (ctx *Context) documentDigest(doc string) string {
+	sf, ok := ctx.model.sources[doc]
+	if !ok {
+		return ""
+	}
+	return ctx.textIn(doc, source.Span{Len: sf.Len()})
+}
+
+// planMetaobject rebinds the element a metaobject denotes and the metaclass it
+// is an instance of, both named by qualified name.
+func (a *adoption) planMetaobject(v Value) error {
+	if _, err := a.rebind(v.MetaobjectElement(), "an element a metaobject denotes"); err != nil {
+		return err
+	}
+	_, err := a.rebind(v.MetaobjectClass(), "the metaclass of a metaobject")
+	return err
 }
 
 // rewrite returns the value as this context holds it: the same value with every
@@ -1056,6 +1206,13 @@ func (a *adoption) rewrite(val Value) Value {
 			return NewVariantValue(found, val.Instance)
 		}
 		return val
+	case ValMetaobject:
+		element, elementOK := a.rebound[val.MetaobjectElement()]
+		metaclass, metaclassOK := a.rebound[val.MetaobjectClass()]
+		if !elementOK || !metaclassOK {
+			return val
+		}
+		return NewMetaobject(element, metaclass)
 	case ValFunction:
 		found, ok := a.rebound[val.Function()]
 		if !ok {

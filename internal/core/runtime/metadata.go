@@ -34,7 +34,14 @@ func (ec *EvalContext) evalMetadataAccess(n *ast.MetadataAccessExpr) (Value, err
 		}
 		values = append(values, val)
 	}
-	seq, err := ec.newSequence(values)
+	// The annotations are followed by the element's own reflective metaobject
+	// (KerML 1.0 §8.3.4.8.15).
+	meta, err := ec.reflectiveMetaobject(sym)
+	if err != nil {
+		rollback()
+		return Value{}, err
+	}
+	seq, err := ec.newSequence(append(values, meta))
 	if err != nil {
 		rollback()
 		return Value{}, err
@@ -54,11 +61,11 @@ func (ec *EvalContext) metadataSubject(n *ast.MetadataAccessExpr) (*symbols.Symb
 	if ec.ctx == nil || ec.ctx.model.resolver == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
 	}
-	sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, n.Ref)
+	sym, ok := ec.ctx.resolveQualified(ec.scope, n.Ref)
 	if !ok || sym == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
 	}
-	if resolved, aliasOK := ec.ctx.model.resolver.ResolveAliasTarget(sym); aliasOK {
+	if resolved, aliasOK := ec.ctx.resolveAliasTarget(sym); aliasOK {
 		sym = resolved
 	}
 	if sym.Decl == nil {

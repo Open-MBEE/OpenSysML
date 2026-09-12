@@ -3,6 +3,8 @@ package libs
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -51,5 +53,24 @@ func BenchmarkIndexLibrary(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		unexpandedIndex(files)
+	}
+}
+
+// BenchmarkExpandModelImports times expanding a model's own `import ISQ::*` and
+// `import SI::*` over the shared library: the cost every such model pays on load,
+// which is the re-export of a few thousand library members into one package.
+func BenchmarkExpandModelImports(b *testing.B) {
+	base := SharedBase()
+	root := parser.New(source.New("m.sysml", []byte(
+		"package P { private import ISQ::*; private import SI::*; attribute x : MassValue = 1 [kg]; }\n",
+	))).ParseFile()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		idx := symbols.NewOverlay(base)
+		idx.AddDocument("m.sysml", root)
+		b.StartTimer()
+		idx.ExpandWildcardImports()
 	}
 }

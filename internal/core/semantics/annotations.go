@@ -4,6 +4,8 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -687,10 +689,57 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if isMetadataBodyFeature(sym) {
 		return m.metadataBodyFeatureMetaclass(m.isKerMLDoc(sym))
 	}
+	// Annotating elements and dependencies are KerML elements in either language.
+	switch sym.Kind {
+	case symbols.SymbolComment:
+		return m.kermlMetaclass("Comment")
+	case symbols.SymbolDocumentation:
+		return m.kermlMetaclass("Documentation")
+	case symbols.SymbolTextualRepresentation:
+		return m.kermlMetaclass("TextualRepresentation")
+	case symbols.SymbolDependency:
+		return m.kermlMetaclass("Dependency")
+	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
 	}
-	return m.sysmlMetaclass(metaclassName(sym.Kind))
+	return m.sysmlMetaclass(sysmlMetaclassName(sym))
+}
+
+// sysmlMetaclassName is the SysML metaclass of sym's declaration: by its symbol
+// kind, or by the declaration where the kind spans several (SysML.xtext).
+func sysmlMetaclassName(sym *symbols.Symbol) string {
+	switch sym.Kind {
+	case symbols.SymbolConnectorEnd:
+		return ConnectorEndMetaclassName(sym)
+	case symbols.SymbolUnknown:
+		if usage, ok := sym.Decl.(*ast.Usage); ok {
+			return usageMetaclassNames[usage.Kind]
+		}
+	case symbols.SymbolActionUsage:
+		if _, ok := sym.Decl.(*ast.TransitionMember); ok {
+			return usageMetaclassNames[ast.UsageTransition]
+		}
+	}
+	return metaclassName(sym.Kind)
+}
+
+// ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
+// PortUsage as an interface's end, a ReferenceUsage otherwise (SysML.xtext).
+func ConnectorEndMetaclassName(sym *symbols.Symbol) string {
+	if sym.OwnerScope != nil {
+		if usage, ok := sym.OwnerScope.Node().(*ast.Usage); ok && usage.Kind == ast.UsageInterface {
+			return metaclassName(symbols.SymbolPortUsage)
+		}
+	}
+	return referenceUsageMetaclassName
+}
+
+// usageMetaclassNames maps the usage kinds the symbol taxonomy keeps no kind
+// of their own for to their SysML metaclasses (SysML.xtext).
+var usageMetaclassNames = map[ast.UsageKind]string{
+	ast.UsageBinding:    "BindingConnectorAsUsage",
+	ast.UsageTransition: "TransitionUsage",
 }
 
 // isMetadataBodyFeature reports whether sym is a feature a metadata body declares,
@@ -842,8 +891,107 @@ func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 		return kermlMetaclassNames[d.Keyword]
 	case *ast.PrefixMetadata:
 		return kermlMetaclassNames["metadata"]
+	case *ast.ConnectorEnd, *ast.CrossFeatureMember:
+		return kermlMetaclassNames["feature"]
 	}
 	return ""
+}
+
+// MetaclassOf is the reflective metaclass classifying sym's declaration — the
+// library element `x meta T` yields an instance of — or nil where none is known.
+func (m *Model) MetaclassOf(sym *symbols.Symbol) *symbols.Symbol {
+	if m == nil || sym == nil {
+		return nil
+	}
+	return m.metaclassOf(sym)
+}
+
+// ReflectiveElements reads an element-valued metaclass feature of sym as the
+// elements it holds, in model order; ok is false where the feature is not derived.
+func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	if m == nil || sym == nil {
+		return nil, false
+	}
+	switch feature {
+	case "owner":
+		if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
+			return nil, true
+		}
+		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
+	case "ownedMember":
+		return ownedMembersOf(sym), true
+	case "documentation":
+		return m.documentationSymbols(sym), true
+	case "ownedFeature":
+		var features []*symbols.Symbol
+		for _, member := range ownedMembersOf(sym) {
+			if member.IsFeature() {
+				features = append(features, member)
+			}
+		}
+		return features, true
+	case "type":
+		if !sym.IsFeature() {
+			return nil, false
+		}
+		return m.FeatureTypeSet(sym), true
+	case "client", "supplier":
+		dep, ok := sym.Decl.(*ast.Dependency)
+		if !ok {
+			return nil, false
+		}
+		if feature == "client" {
+			return m.dependencyEnds(sym, dep.Clients), true
+		}
+		return m.dependencyEnds(sym, dep.Suppliers), true
+	case "representedElement":
+		if _, ok := sym.Decl.(*ast.TextualRepresentation); !ok || sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
+			return nil, false
+		}
+		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
+	}
+	return nil, false
+}
+
+// dependencyEnds is the elements one side of a dependency names, in order; a
+// name resolving to nothing is a resolver diagnostic, not an element.
+func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) []*symbols.Symbol {
+	ends := make([]*symbols.Symbol, 0, len(names))
+	for _, name := range names {
+		if end, ok := m.resolver.ResolveQualified(sym.OwnerScope, name); ok && end != nil {
+			ends = append(ends, m.resolver.AliasedElement(end))
+		}
+	}
+	return ends
+}
+
+// ownedMembersOf is every element sym's own body declares, in declaration order:
+// an alias is a membership rather than an element, and a name registered twice
+// (short and primary) is one element.
+func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym.Scope == nil {
+		return nil
+	}
+	var members []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member.Kind != symbols.SymbolAlias && !seen[member] {
+			seen[member] = true
+			members = append(members, member)
+		}
+		return true
+	})
+	return members
+}
+
+// ReflectiveDirection is the direction sym's feature declaration states
+// (Feature::direction); ok is false where sym declares no feature.
+func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
+	traits, ok := featureTraitsOf(sym)
+	if !ok {
+		return ast.DirNone, false
+	}
+	return traits.Direction, true
 }
 
 // ReflectiveFeatureValue reads a metaclass feature derived from the
@@ -891,9 +1039,34 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	case "declaredShortName":
 		return stringOrEmpty(sym.ShortName), true
 	case "qualifiedName":
+		// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
+		if simpleSymbolName(sym) == "" {
+			return emptyValue(), true
+		}
 		return stringOrEmpty(m.fqnOf(sym)), true
 	}
 	switch d := sym.Decl.(type) {
+	case *ast.Comment:
+		switch feature {
+		case "body":
+			return m.reflectiveCommentBody(sym, d.BodySpan)
+		case "locale":
+			return stringOrEmpty(lexer.StringValue(d.Locale)), true
+		}
+	case *ast.Documentation:
+		switch feature {
+		case "body":
+			return m.reflectiveCommentBody(sym, d.BodySpan)
+		case "locale":
+			return stringOrEmpty(lexer.StringValue(d.Locale)), true
+		}
+	case *ast.TextualRepresentation:
+		switch feature {
+		case "body":
+			return m.reflectiveCommentBody(sym, d.BodySpan)
+		case "language":
+			return stringOrEmpty(lexer.StringValue(d.Language)), true
+		}
 	case *ast.Definition:
 		switch feature {
 		case "isAbstract":
@@ -946,6 +1119,15 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	return symbols.FilterValue{}, false
 }
 
+// reflectiveCommentBody is Comment::body, String[1..1]: "" for a blank comment, and
+// underived for a model whose notation was never given (SetSourceText).
+func (m *Model) reflectiveCommentBody(sym *symbols.Symbol, span source.Span) (symbols.FilterValue, bool) {
+	if m.sourceText == nil {
+		return symbols.FilterValue{}, false
+	}
+	return symbols.FilterValue{Kind: symbols.FilterValueString, Str: m.commentBody(sym, span)}, true
+}
+
 // stringOrEmpty is a string value, or the empty sequence for a name the
 // declaration does not have.
 func stringOrEmpty(s string) symbols.FilterValue {
@@ -958,59 +1140,61 @@ func stringOrEmpty(s string) symbols.FilterValue {
 // metaclassNames maps each declaration kind to its reflective SysML metadata
 // type.
 var metaclassNames = map[symbols.SymbolKind]string{
-	symbols.SymbolPackage:               "Package",
-	symbols.SymbolNamespace:             "Namespace",
-	symbols.SymbolPartDef:               "PartDefinition",
-	symbols.SymbolPartUsage:             "PartUsage",
-	symbols.SymbolAttributeDef:          "AttributeDefinition",
-	symbols.SymbolAttributeUsage:        "AttributeUsage",
-	symbols.SymbolItemDef:               "ItemDefinition",
-	symbols.SymbolItemUsage:             "ItemUsage",
-	symbols.SymbolOccurrenceDef:         "OccurrenceDefinition",
-	symbols.SymbolOccurrenceUsage:       "OccurrenceUsage",
-	symbols.SymbolIndividualUsage:       "OccurrenceUsage",
-	symbols.SymbolIndividualDef:         "OccurrenceDefinition",
-	symbols.SymbolMetadataDef:           "MetadataDefinition",
-	symbols.SymbolMetadataUsage:         "MetadataUsage",
-	symbols.SymbolEnumerationDef:        "EnumerationDefinition",
-	symbols.SymbolEnumerationUsage:      "EnumerationUsage",
-	symbols.SymbolViewDef:               "ViewDefinition",
-	symbols.SymbolViewUsage:             "ViewUsage",
-	symbols.SymbolViewpointDef:          "ViewpointDefinition",
-	symbols.SymbolViewpointUsage:        "ViewpointUsage",
-	symbols.SymbolRenderingDef:          "RenderingDefinition",
-	symbols.SymbolRenderingUsage:        "RenderingUsage",
-	symbols.SymbolConcernDef:            "ConcernDefinition",
-	symbols.SymbolConcernUsage:          "ConcernUsage",
-	symbols.SymbolConnectionDef:         "ConnectionDefinition",
-	symbols.SymbolConnectionUsage:       "ConnectionUsage",
-	symbols.SymbolSuccessionUsage:       "SuccessionAsUsage",
-	symbols.SymbolFlowDef:               "FlowDefinition",
-	symbols.SymbolFlowUsage:             "FlowUsage",
-	symbols.SymbolPortDef:               "PortDefinition",
-	symbols.SymbolPortUsage:             "PortUsage",
-	symbols.SymbolInterfaceDef:          "InterfaceDefinition",
-	symbols.SymbolInterfaceUsage:        "InterfaceUsage",
-	symbols.SymbolAllocationDef:         "AllocationDefinition",
-	symbols.SymbolAllocationUsage:       "AllocationUsage",
-	symbols.SymbolActionDef:             "ActionDefinition",
-	symbols.SymbolActionUsage:           "ActionUsage",
-	symbols.SymbolStateDef:              "StateDefinition",
-	symbols.SymbolStateUsage:            "StateUsage",
-	symbols.SymbolCalcDef:               "CalculationDefinition",
-	symbols.SymbolCalcUsage:             "CalculationUsage",
-	symbols.SymbolConstraintDef:         "ConstraintDefinition",
-	symbols.SymbolConstraintUsage:       "ConstraintUsage",
-	symbols.SymbolRequirementDef:        "RequirementDefinition",
-	symbols.SymbolRequirementUsage:      "RequirementUsage",
-	symbols.SymbolCaseDef:               "CaseDefinition",
-	symbols.SymbolCaseUsage:             "CaseUsage",
-	symbols.SymbolAnalysisCaseDef:       "AnalysisCaseDefinition",
-	symbols.SymbolAnalysisCaseUsage:     "AnalysisCaseUsage",
-	symbols.SymbolVerificationCaseDef:   "VerificationCaseDefinition",
-	symbols.SymbolVerificationCaseUsage: "VerificationCaseUsage",
-	symbols.SymbolUseCaseDef:            "UseCaseDefinition",
-	symbols.SymbolUseCaseUsage:          "UseCaseUsage",
+	symbols.SymbolPackage:                 "Package",
+	symbols.SymbolNamespace:               "Namespace",
+	symbols.SymbolPartDef:                 "PartDefinition",
+	symbols.SymbolPartUsage:               "PartUsage",
+	symbols.SymbolAttributeDef:            "AttributeDefinition",
+	symbols.SymbolAttributeUsage:          "AttributeUsage",
+	symbols.SymbolItemDef:                 "ItemDefinition",
+	symbols.SymbolItemUsage:               "ItemUsage",
+	symbols.SymbolOccurrenceDef:           "OccurrenceDefinition",
+	symbols.SymbolOccurrenceUsage:         "OccurrenceUsage",
+	symbols.SymbolIndividualUsage:         "OccurrenceUsage",
+	symbols.SymbolIndividualDef:           "OccurrenceDefinition",
+	symbols.SymbolMetadataDef:             "MetadataDefinition",
+	symbols.SymbolMetadataUsage:           "MetadataUsage",
+	symbols.SymbolEnumerationDef:          "EnumerationDefinition",
+	symbols.SymbolEnumerationUsage:        "EnumerationUsage",
+	symbols.SymbolViewDef:                 "ViewDefinition",
+	symbols.SymbolViewUsage:               "ViewUsage",
+	symbols.SymbolViewpointDef:            "ViewpointDefinition",
+	symbols.SymbolViewpointUsage:          "ViewpointUsage",
+	symbols.SymbolRenderingDef:            "RenderingDefinition",
+	symbols.SymbolRenderingUsage:          "RenderingUsage",
+	symbols.SymbolConcernDef:              "ConcernDefinition",
+	symbols.SymbolConcernUsage:            "ConcernUsage",
+	symbols.SymbolConnectionDef:           "ConnectionDefinition",
+	symbols.SymbolConnectionUsage:         "ConnectionUsage",
+	symbols.SymbolSuccessionUsage:         "SuccessionAsUsage",
+	symbols.SymbolFlowDef:                 "FlowDefinition",
+	symbols.SymbolFlowUsage:               "FlowUsage",
+	symbols.SymbolPortDef:                 "PortDefinition",
+	symbols.SymbolPortUsage:               "PortUsage",
+	symbols.SymbolInterfaceDef:            "InterfaceDefinition",
+	symbols.SymbolInterfaceUsage:          "InterfaceUsage",
+	symbols.SymbolAllocationDef:           "AllocationDefinition",
+	symbols.SymbolAllocationUsage:         "AllocationUsage",
+	symbols.SymbolActionDef:               "ActionDefinition",
+	symbols.SymbolActionUsage:             "ActionUsage",
+	symbols.SymbolStateDef:                "StateDefinition",
+	symbols.SymbolStateUsage:              "StateUsage",
+	symbols.SymbolCalcDef:                 "CalculationDefinition",
+	symbols.SymbolCalcUsage:               "CalculationUsage",
+	symbols.SymbolConstraintDef:           "ConstraintDefinition",
+	symbols.SymbolConstraintUsage:         "ConstraintUsage",
+	symbols.SymbolRequirementDef:          "RequirementDefinition",
+	symbols.SymbolRequirementUsage:        "RequirementUsage",
+	symbols.SymbolCaseDef:                 "CaseDefinition",
+	symbols.SymbolCaseUsage:               "CaseUsage",
+	symbols.SymbolAnalysisCaseDef:         "AnalysisCaseDefinition",
+	symbols.SymbolAnalysisCaseUsage:       "AnalysisCaseUsage",
+	symbols.SymbolVerificationCaseDef:     "VerificationCaseDefinition",
+	symbols.SymbolVerificationCaseUsage:   "VerificationCaseUsage",
+	symbols.SymbolUseCaseDef:              "UseCaseDefinition",
+	symbols.SymbolUseCaseUsage:            "UseCaseUsage",
+	symbols.SymbolSatisfyRequirementUsage: "SatisfyRequirementUsage",
+	symbols.SymbolCrossFeature:            referenceUsageMetaclassName,
 }
 
 // metaclassName is the reflective SysML metadata type classifying a declaration

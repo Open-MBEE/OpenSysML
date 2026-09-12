@@ -210,7 +210,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `sequence` | object | `{"result":{"sequence":{"elements":[{"stringValue":"nav"},{"stringValue":"sci"}]}}}` | Ordered collection; `elements` are `Value`s |
 | `null` | string | `{"result":{"null":""}}` | The SysML `null`, or an unsupported value (non-empty string) |
 | `quantity` | object | `{"result":{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{…}}}}` | Magnitude with a unit |
-| `enumLiteral` | object | `{"result":{"enumLiteral":{"literalId":"Rover::Mode::idle","enumerationId":"Rover::Mode","name":"Mode::idle"}}}` | Enumeration literal |
+| `enumLiteral` | object | `{"result":{"enumLiteral":{"literalId":"Rover::Mode::idle","enumerationId":"Rover::Mode","name":"Mode::idle"}}}` | Enumeration literal; a scalar-valued one (`high = 3`) also carries `value` |
 | `unset` | boolean | `{"result":{"unset":true}}` | A feature that exists and has no value |
 | `complex` | object | `{"result":{"complex":{"real":1.5,"imaginary":-2}}}` | Complex number |
 | `array` | object | `{"result":{"array":{"dimensions":["2","3"],"elements":[{"intValue":"1"},…,{"intValue":"6"}]}}}` | Multi-dimensional array; `elements` are `Value`s in row-major order |
@@ -221,13 +221,15 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `function` | object | `{"result":{"function":{"calcId":"F::Sq"}}}` | A calc held as a value: the calc it names and, when it was read off an object, that object |
 | `set` | object | `{"result":{"set":{"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"}]}}}` | Unordered collection without duplicates; `elements` are `Value`s, listed in canonical order |
 | `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
+| `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on and the metaclass that classifies it |
 | `undetermined` | object | `{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}` | A model-level result the model leaves open: a read of a feature with no value, or of one whose count is not fixed, or an operation over such a read. `count` bounds the values it would hold |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/structured.sysml` (`S::grid`, `S::v`, `S::d`), `measurementRef` against
 `conformance/fixtures/measurement_ref.sysml` (`M::u`), `function` against
 `conformance/fixtures/function.sysml` (`F::pick`), `set` and `tensorQuantity` against
-`conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`); the rest against the model below, with requests of the form
+`conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`), `metaobject` against
+`conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`); the rest against the model below, with requests of the form
 `{"modelHash":"59c4…a654","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
 `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
@@ -278,7 +280,8 @@ decode(v):
   null         → if v.null == "" then the language's null, else an error naming v.null
   unset        → the language's "unset" sentinel, distinct from null and from false
   quantity     → see below
-  enumLiteral  → identity is literalId; enumerationId is its type; name is for display
+  enumLiteral  → identity is literalId; enumerationId is its type; name is for display;
+                 value, when present, is the scalar Value the literal equals
   complex      → complex(v.complex.real or 0, v.complex.imaginary or 0)
   array        → shape v.array.dimensions (parse each as int64); elements := map decode over
                  v.array.elements; require len(elements) == product(dimensions), else an error
@@ -301,6 +304,8 @@ decode(v):
   tensorQuantity → shape v.tensorQuantity.dimensions (parse each as int64, every one positive);
                  components := map the quantity rule over v.tensorQuantity.components;
                  require len(components) == product(dimensions), else an error
+  metaobject   → element := v.metaobject.elementId, require it non-empty, else an error;
+                 metaclass := v.metaobject.metaclassId; the element is the identity
   undetermined → the language's "undetermined" sentinel carrying v.undetermined.reason (a
                  string) and v.undetermined.count (lower and upper as strings, upper "*"
                  when unbounded); distinct from unset, from null and from false. Never
@@ -435,6 +440,14 @@ display label. Compare literals by `literalId`. `name` is what the model author 
 reference site relative to a scope (`Mode::idle` here, but `idle` or `Rover::Mode::idle` from
 another scope for the same literal), so two equal literals can carry different `name`s and two
 literals of different enumerations can carry the same one.
+
+A literal of an enumeration that specializes a scalar type (`enum def Level :> Integer { low = 1;
+high = 3; }`) is still a literal on the wire — `Level::high`, a feature `l : Level = Level::high`
+and a successful `3 as Level` all arrive as `enumLiteral` — and additionally carries `value`, the
+scalar `Value` it equals: `{"enumLiteral":{"literalId":"D::Level::high","enumerationId":"D::Level",
+"name":"Level::high","value":{"intValue":"3"}}}`. `value` is absent for a literal that is only its
+identity (`Mode::idle`). A client that computes with the scalar reads `value`; one that only
+compares identity ignores it. A bare `3` that no enumeration value holds stays `intValue`.
 
 **`complex`.** `real` and `imaginary`, both doubles, **either omitted when zero**:
 `rect(0.0, 2.0)` is `{"result":{"complex":{"imaginary":2}}}`. Read each with a default of 0.
@@ -601,6 +614,50 @@ $ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::cube#(2, 1, 2)"}
 - The unit is per component, as in `vectorQuantity`; a component without its `unitTerm` is
   refused by the rule under `quantity`.
 
+**`metaobject`.** An element of the model held as a value — what `x meta T` yields when the
+element `x` names is an instance of the metaclass `T`, and the last member of `x.metadata`
+after the element's metadata annotations — travels as the element it reflects on and the
+metaclass that classifies it, not as the metaclass it was cast to and not as its features:
+
+```console
+$ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"(Meta::seatBelt meta KerML::Feature)#(1)"}'
+{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}
+
+$ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::everything"}'
+{"result":{"sequence":{"elements":[{"instanceId":"1"},{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}]}}}
+
+$ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinition"}'
+{"result":{"sequence":{}}}
+```
+
+- `elementId` is the fully qualified name of the element, and is the identity a client keeps
+  to send the same metaobject back. It is never empty: a `metaobject` with no `elementId` is
+  malformed, and a decoder refuses it rather than reading it as "no element".
+- `metaclassId` is the fully qualified name of the reflective metaclass that classifies the
+  element — a part usage is a `SysML::Systems::PartUsage` however it was cast — so a client
+  learns what the element is, not what the model asked for. A cast to a metaclass the element
+  is not an instance of is the empty sequence (`Meta::notADefinition` above), never a
+  `metaobject` under that metaclass.
+- Two metaobjects are the same metaobject when their `elementId`s are equal; the engine's
+  `===` and `==` say the same, whatever metaclass either was cast to. `metaclassId` does not
+  enter the comparison, and cannot differ for one element.
+- The element's reflective features (`declaredName`, `qualifiedName`, `ownedFeature`, …) are
+  not on the wire. They are read from the model, so a client that needs one evaluates it —
+  `(Meta::seatBelt meta KerML::Feature)#(1).qualifiedName` is `{"stringValue":"Meta::seatBelt"}` —
+  and a feature the engine does not derive is an evaluation failure naming the feature, not a
+  guess.
+- A metaobject of an anonymous element — one with no qualified name to send, such as an
+  unnamed part among a type's `ownedFeature` — is the unsupported null
+  `{"null":"unsupported: metaobject of an element with no qualified name"}`, under the `null`
+  arm's rule. A named element nested in an anonymous one keeps its name (`Mid::inner`).
+- An `element_id` sent that two declarations of the model share (the same qualified name in two
+  documents) identifies neither and is refused in band as ambiguous, never bound to whichever the
+  index lists first.
+- The arm is gated by the `metaobject_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
+  A service without it sends every metaobject, at any depth, as
+  `{"null":"unsupported: metaobject Meta::seatBelt : SysML::Systems::PartUsage"}` and refuses a
+  request carrying one.
+
 ### What a client must not do
 
 - **Do not compare enum literals by `name`.** Compare `literalId`.
@@ -630,6 +687,9 @@ $ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::cube#(2, 1, 2)"}
   significant, and a `set` sent back may list them in any order — but never twice.
 - **Do not index a `tensorQuantity` before checking `len(components) == product(dimensions)`**,
   and do not read a rank-one tensor as a `vectorQuantity`.
+- **Do not read a `metaobject` as the element's values, or compare two by `metaclassId`.** It
+  is the element itself, identified by `elementId`; its features live in the model and are
+  evaluated there, and the metaclass says what the element is, not which cast produced it.
 
 ## Three places a failure can be
 
@@ -1174,6 +1234,27 @@ A service without `set_values` refuses a `set` argument and one without `tensor_
 `tensorQuantity` — nested anywhere in the argument — the same way, and answers a set or a
 tensor it cannot send as the non-empty `null` arm (`{"null":"unsupported: set Set{1, 2, 3}"}`),
 the rule under `null`.
+
+A `metaobject` argument binds a parameter typed by a metaclass to the element its `elementId`
+names, resolved against the model; the element's reflective features are then read there,
+so only the identity crosses. `metaclassId` may be omitted — the service derives it — but
+one that is present must be the metaclass that classifies the element: a name that is empty
+or names nothing, or a metaclass the element is not an instance of, is an in-body failure,
+at any depth, rather than a binding to a guess:
+
+```console
+$ … /EvaluateCalc -d '{"modelHash":"07a0…b5ca","symbolId":"Meta::nameOf","arguments":[{"metaobject":{"elementId":"Meta::seatBelt"}}]}'
+{"result":{"stringValue":"seatBelt"}}
+
+$ … /EvaluateCalc -d '{"modelHash":"07a0…b5ca","symbolId":"Meta::nameOf","arguments":[{"metaobject":{"elementId":"Meta::nobody"}}]}'
+{"error":"calc argument could not be read: metaobject names no element of this model: Meta::nobody","failureReason":"FAILURE_REASON_EVALUATION"}
+
+$ … /EvaluateCalc -d '{"modelHash":"07a0…b5ca","symbolId":"Meta::nameOf","arguments":[{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartDefinition"}}]}'
+{"error":"calc argument could not be read: metaclass_id is not the element's metaclass: Meta::seatBelt is classified by SysML::Systems::PartUsage, not SysML::Systems::PartDefinition","failureReason":"FAILURE_REASON_EVALUATION"}
+```
+
+A service without `metaobject_values` refuses a `metaobject` argument — nested anywhere in
+the argument — with the `unimplemented` Connect error naming the capability.
 
 A calc *usage* whose output features are evaluated from its own members (no `arguments`)
 answers them as `outputs`, a list of `{"name":…,"value":<Value>}` in declaration order, in

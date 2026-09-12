@@ -66,7 +66,9 @@ func (d *calcMemberDecl) check(ctx *Context, value *Value, what func() string) e
 	if refusal, refused := ctx.writeTypeRefusal(declScope(d.Owner), d.Target.typ, value, admitWritten); refused {
 		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)
 	}
-	ctx.spellForDeclared(value, d.Target.typ)
+	if err := ctx.holdForDeclared(value, d.Target.typ); err != nil {
+		return fmt.Errorf("%s: %w", what(), err)
+	}
 	if msg := ctx.uniquenessRefusal(d.Target.unique, d.Target.holdsSet, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}

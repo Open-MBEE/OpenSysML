@@ -112,6 +112,11 @@ final class Rendering {
           TensorQuantity.newBuilder().addAllDimensions(tensor.dimensions());
       tensor.components().forEach(component -> components.addComponents(quantity(component)));
       builder.setTensorQuantity(components);
+    } else if (value instanceof Value.MetaobjectValue metaobject) {
+      builder.setMetaobject(
+          org.openmbee.opensysml.proto.Metaobject.newBuilder()
+              .setElementId(metaobject.elementId())
+              .setMetaclassId(metaobject.metaclassId()));
     } else {
       throw new IllegalStateException("no rendering for " + value.getClass());
     }

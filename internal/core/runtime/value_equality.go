@@ -21,7 +21,8 @@ type valueKey struct {
 	variant *symbols.Symbol
 	literal *symbols.Symbol
 	calc    *symbols.Symbol
-	run     int64 // the body run a function closes over (Value.functionRun)
+	run     int64              // the body run a function closes over (Value.functionRun)
+	element symbols.ElementKey // the element a metaobject denotes
 }
 
 // valueKeyFunc extracts a comparable key from a Value. Values valueEqual holds
@@ -89,6 +90,8 @@ func (ctx *Context) valueKey(v Value) valueKey {
 		if self := v.FunctionSelf(); self != nil {
 			key.instID = self.ID
 		}
+	case ValMetaobject:
+		key.element = symbols.KeyOf(v.MetaobjectElement())
 	case ValUndetermined:
 		key.strVal = v.Undetermined().Reason()
 	}

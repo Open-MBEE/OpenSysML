@@ -203,6 +203,48 @@ public sealed interface Value {
   }
 
   /**
+   * An element of the model held as an instance of its reflective metaclass: what {@code x meta
+   * KerML::Feature}, or the last element of {@code x.metadata}, evaluates to.
+   *
+   * <p>It is the element it reflects on, which is its identity: two metaobjects are equal exactly
+   * when {@code elementId} is, whatever type each was cast to. Its features ({@code declaredName},
+   * {@code ownedFeature}, ...) are read in the model, not carried. Only a service advertising the
+   * {@code metaobject_values} capability reports one as itself rather than as an unsupported
+   * {@link NullValue}.
+   *
+   * @param elementId FQN of the element reflected on ({@code "Vehicle::seatBelt"}), never empty
+   * @param metaclassId FQN of the element's own reflective metaclass ({@code
+   *     "SysML::Systems::PartUsage"}), not the type it was cast to; the service always sends it
+   */
+  record MetaobjectValue(String elementId, String metaclassId) implements Value {
+    /**
+     * Creates a metaobject.
+     *
+     * @param elementId the element reflected on, never {@code null} or empty
+     * @param metaclassId the element's own metaclass, never {@code null}
+     * @throws IllegalArgumentException if {@code elementId} is empty
+     */
+    public MetaobjectValue {
+      Objects.requireNonNull(elementId, "elementId");
+      Objects.requireNonNull(metaclassId, "metaclassId");
+      if (elementId.isEmpty()) {
+        throw new IllegalArgumentException("a metaobject names no element");
+      }
+    }
+
+    /** The element is the identity, whatever type each side was cast to. */
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof MetaobjectValue that && elementId.equals(that.elementId);
+    }
+
+    @Override
+    public int hashCode() {
+      return elementId.hashCode();
+    }
+  }
+
+  /**
    * One literal of an enumeration definition.
    *
    * <p>Only a service advertising the {@code enum_values} capability reports a literal as itself

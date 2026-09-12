@@ -1,0 +1,14 @@
+{
+  "type": "action",
+  "evaluate": "test::link",
+  "libraries": true,
+  "outputs": {
+    "wheeled": {"type": "Sequence", "elements": [
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true}
+    ]}
+  }
+}

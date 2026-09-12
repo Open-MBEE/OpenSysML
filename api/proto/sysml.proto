@@ -910,10 +910,28 @@ message Value {
     Function function = 17;     // a calc as a value, named by its declaration
     ValueSet set = 18;          // distinct elements with no order of their own
     TensorQuantity tensor_quantity = 19; // shape and one Quantity per component
+    Metaobject metaobject = 20;  // an element reflected on as its metaclass
     // A result the model leaves open: not an error, but no definite answer.
     // A value the server sends, never one it accepts.
-    Undetermined undetermined = 20;
+    Undetermined undetermined = 21;
   }
+}
+
+// Metaobject is an element of the model held as an instance of its reflective
+// metaclass: what `x meta KerML::Feature`, or the last element of
+// `x.metadata`, evaluates to (KerML 7.4.9.2, 8.3.4.8.15). It crosses as the
+// element it reflects, which is its identity: two metaobjects are the same
+// exactly when element_id is, whatever type each was cast to. Its features
+// (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
+message Metaobject {
+  // FQN of the element reflected on ("Vehicle::seatBelt"). Its identity.
+  string element_id = 1;
+  // FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
+  // the most specific metaclass of the KerML or SysML library classifying it;
+  // not the type it was cast to. The service always sends it; a client may omit
+  // it, in which case the model's is used, but one sent must be the model's or
+  // the value is rejected.
+  string metaclass_id = 2;
 }
 
 // Undetermined is the model-level result of an expression the model does not
@@ -1015,6 +1033,9 @@ message EnumLiteral {
   string enumeration_id = 2;
   // The literal as a reader writes it ("Color::red").
   string name = 3;
+  // The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+  // literal that is only its identity. Identity stays `literal_id`.
+  Value value = 4;
 }
 
 message ValueSequence {
@@ -1167,6 +1188,13 @@ message ServerInfoResponse {
   //                  unsupported null, and one is accepted as an action input
   //                  or calc argument; without it, one is refused with
   //                  UNIMPLEMENTED rather than read as another value.
+  //   "metaobject_values" - a Value carries an element reflected on as an
+  //                  instance of its metaclass (`x meta T`, the last element
+  //                  of `x.metadata`) as metaobject, named by the element and
+  //                  its metaclass, rather than reporting it as an unsupported
+  //                  null, and one is accepted as an action input or calc
+  //                  argument; without it, one is refused with UNIMPLEMENTED
+  //                  rather than read as another value.
   //   "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
   //                  preserving everything the edit did not touch.
   //   "document_query" - the RunDocumentQuery RPC runs a named document query

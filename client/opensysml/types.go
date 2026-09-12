@@ -34,6 +34,7 @@ const (
 	CapabilityFunctionValues       = sysmlgrpc.CapabilityFunctionValues
 	CapabilitySetValues            = sysmlgrpc.CapabilitySetValues
 	CapabilityTensorValues         = sysmlgrpc.CapabilityTensorValues
+	CapabilityMetaobjectValues     = sysmlgrpc.CapabilityMetaobjectValues
 	CapabilityDiagnosticCodes      = sysmlgrpc.CapabilityDiagnosticCodes
 	CapabilitySchedule             = sysmlgrpc.CapabilitySchedule
 	CapabilityScheduleExplore      = sysmlgrpc.CapabilityScheduleExplore

@@ -27,6 +27,33 @@ from `UNSET` and `None`; `bool()` must raise TypeError. Check the advertised
 for `U::u` (`1..1`), `T::rack.gear` (`1..*`), and `T::rack.loose` (`0..2`)
 to distinguish typed transport from a string-only rendering.
 
+## Error-model lookup order and bounded walking
+
+Use real-service fixtures that distinguish an empty Query from an incomplete
+Query. `package Demo { attribute :>> mass; part def Part { attribute mass; } }`
+has an unresolved outer `Demo::mass` with SymbolInfo name `mass`, while the
+effective-name Query sees only `Demo::Part::mass`. Lookup must agree with an
+independent BFS and select the outer symbol despite the nonempty Query.
+
+Also test the inclusive depth boundary: declare `part def First { attribute
+:>> mass; }` before `part def Second { attribute mass; }` in Demo. The hidden
+`Demo::First::mass` must win over the visible, same-depth `Demo::Second::mass`.
+Inspect `model.root.id`: a real file root can be `""`, adding a BFS level not
+represented by a nonempty owner ID. Do not infer tree depth from ID separators.
+
+Count real GetSymbol requests with a transparent delegating observer on
+`Connection._service`. Take counts before independent BFS warms child caches.
+When comparing many lookups, create a fresh `Model(model._pb, connection)` for
+each cold lookup. In a bounded-walk fixture, place hundreds of descendants
+below the best candidate; assert that no descendant IDs are fetched, rather
+than judging boundedness only from wall-clock timing. Clean shared names can
+need owner Query requests; a unique name is the one-Query/one-GetSymbol control.
+
+An equivalence corpus should separately report erroring files, not simply a
+total lookup count. Files from a multi-file example loaded individually may
+provide useful real unresolved-reference cases. Preserve their diagnostics
+instead of silently skipping them.
+
 ## Unicode unit expressions in a GUI terminal
 
 Synthetic keyboard typing can corrupt middle dots and superscript minus signs

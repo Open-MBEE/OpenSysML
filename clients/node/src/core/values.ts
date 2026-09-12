@@ -8,6 +8,7 @@ import type {
   EnumLiteral,
   Function as FunctionMessage,
   MeasurementRef,
+  Metaobject as MetaobjectMessage,
   Quantity,
   TensorQuantity,
   UnitTerm,
@@ -24,6 +25,7 @@ import {
   FailureReason,
   FunctionSchema,
   MeasurementRefSchema,
+  MetaobjectSchema,
   QuantitySchema,
   TensorQuantitySchema,
   UnitFactorSchema,
@@ -63,6 +65,8 @@ export interface EnumValue {
   name: string;
   literalId: string;
   enumerationId: string;
+  /** The scalar the literal equals when its enumeration specializes a scalar type (`high = 3`). */
+  value?: SysMLValue;
 }
 
 /** A magnitude in a unit as written, with the unit's reduction when the service reports one. */
@@ -93,6 +97,22 @@ export interface MeasurementRefValue {
 export interface FunctionValue {
   calcId: string;
   selfId?: bigint;
+}
+
+/**
+ * An element of the model held as an instance of its reflective metaclass: what
+ * `x meta KerML::Feature`, or the last element of `x.metadata`, evaluates to.
+ * `elementId` is the FQN of the element reflected on, which is its identity;
+ * `metaclassId` is the FQN of the element's own metaclass
+ * (`SysML::Systems::PartUsage`), not the type it was cast to. The service always
+ * sends it; one sent to the service may leave it empty to have the model's used,
+ * but one naming a metaclass that is not the element's is refused. The
+ * metaobject's features (`declaredName`, `ownedFeature`, ...) are read in the
+ * model, not carried.
+ */
+export interface MetaobjectValue {
+  elementId: string;
+  metaclassId: string;
 }
 
 /**
@@ -153,6 +173,7 @@ export type SysMLValue =
   | { kind: "vectorQuantity"; components: QuantityValue[] }
   | { kind: "set"; elements: SysMLValue[] }
   | ({ kind: "tensorQuantity" } & TensorQuantityValue)
+  | ({ kind: "metaobject" } & MetaobjectValue)
   | { kind: "null"; reason: string }
   | { kind: "unset" }
   | ({ kind: "undetermined" } & UndeterminedValue)
@@ -217,8 +238,9 @@ export type SysMLVerdict =
  *   whose elements do not fill its dimensions, a vector with a component that
  *   is not a number, a vector quantity with no components, a set listing a
  *   member twice, a tensor quantity whose components do not fill its
- *   dimensions, a quantity (alone or as a component) with no magnitude, or a
- *   measurement reference naming no unit or a unit without its reduction.
+ *   dimensions, a quantity (alone or as a component) with no magnitude, a
+ *   measurement reference naming no unit or a unit without its reduction, or a
+ *   metaobject naming no element.
  */
 export function decodeValue(value: Value | undefined): SysMLValue {
   if (value === undefined) {
@@ -258,6 +280,8 @@ export function decodeValue(value: Value | undefined): SysMLValue {
       return { kind: "set", elements: decodeSet(kind.value) };
     case "tensorQuantity":
       return { kind: "tensorQuantity", ...decodeTensorQuantity(kind.value) };
+    case "metaobject":
+      return { kind: "metaobject", ...decodeMetaobject(kind.value) };
     case "null":
       return { kind: "null", reason: kind.value };
     case "unset":
@@ -320,7 +344,7 @@ export function encodeValue(value: SysMLValue): Value {
       return create(ValueSchema, { kind: { case: "function", value: encodeFunction(value) } });
     case "enum":
       return create(ValueSchema, {
-        kind: { case: "enumLiteral", value: create(EnumLiteralSchema, value.value) },
+        kind: { case: "enumLiteral", value: encodeEnumLiteral(value.value) },
       });
     case "array":
       checkShape("an array", value.dimensions, value.elements.length);
@@ -370,6 +394,8 @@ export function encodeValue(value: SysMLValue): Value {
           }),
         },
       });
+    case "metaobject":
+      return create(ValueSchema, { kind: { case: "metaobject", value: encodeMetaobject(value) } });
     case "null":
       return create(ValueSchema, { kind: { case: "null", value: value.reason } });
     case "unset":
@@ -471,6 +497,8 @@ export function formatValue(value: SysMLValue): string {
       return `{${value.elements.map(formatValue).join(", ")}}`;
     case "tensorQuantity":
       return formatTensorQuantity(value);
+    case "metaobject":
+      return `meta(${value.elementId} : ${value.metaclassId})`;
     case "null":
       return value.reason === "" ? "null" : `null (${value.reason})`;
     case "unset":
@@ -577,6 +605,20 @@ function encodeFunction(fn: FunctionValue): FunctionMessage {
     throw new MalformedValueError("a function names no calc");
   }
   return create(FunctionSchema, { calcId: fn.calcId, selfId: fn.selfId ?? 0n });
+}
+
+function decodeMetaobject(meta: MetaobjectMessage): MetaobjectValue {
+  if (meta.elementId === "") {
+    throw new MalformedValueError("a metaobject names no element");
+  }
+  return { elementId: meta.elementId, metaclassId: meta.metaclassId };
+}
+
+function encodeMetaobject(meta: MetaobjectValue): MetaobjectMessage {
+  if (meta.elementId === "") {
+    throw new MalformedValueError("a metaobject names no element");
+  }
+  return create(MetaobjectSchema, { elementId: meta.elementId, metaclassId: meta.metaclassId });
 }
 
 function encodeUnitTerm(term: UnitFactorization): UnitTerm {
@@ -709,6 +751,9 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
         dimensionsEqual(a.dimensions, b.dimensions) &&
         componentsEqual(a.components, b.components)
       );
+    case "metaobject":
+      // The element is the identity, whatever type each side was cast to.
+      return b.kind === "metaobject" && a.elementId === b.elementId;
     case "undetermined":
       return (
         b.kind === "undetermined" &&
@@ -940,9 +985,26 @@ function decodeUnitTerm(term: UnitTerm): UnitFactorization {
 }
 
 function decodeEnumLiteral(literal: EnumLiteral): EnumValue {
-  return {
+  const decoded: EnumValue = {
     name: literal.name,
     literalId: literal.literalId,
     enumerationId: literal.enumerationId,
   };
+  if (literal.value !== undefined) {
+    const scalar = decodeValue(literal.value);
+    if (scalar.kind === "absent") {
+      throw new MalformedValueError("an enumeration literal's value, when present, states a scalar");
+    }
+    decoded.value = scalar;
+  }
+  return decoded;
+}
+
+function encodeEnumLiteral(literal: EnumValue): EnumLiteral {
+  return create(EnumLiteralSchema, {
+    name: literal.name,
+    literalId: literal.literalId,
+    enumerationId: literal.enumerationId,
+    value: literal.value === undefined ? undefined : encodeValue(literal.value),
+  });
 }

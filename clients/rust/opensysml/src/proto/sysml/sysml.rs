@@ -1078,7 +1078,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -1105,7 +1105,7 @@ pub mod value {
         #[prost(message, tag="8")]
         Quantity(super::Quantity),
         #[prost(message, tag="9")]
-        EnumLiteral(super::EnumLiteral),
+        EnumLiteral(::prost::alloc::boxed::Box<super::EnumLiteral>),
         /// A valueless feature of a value type: materialized, holding no value.
         /// Always true when set; a value the server sends, never one it accepts.
         #[prost(bool, tag="10")]
@@ -1139,11 +1139,33 @@ pub mod value {
         /// shape and one Quantity per component
         #[prost(message, tag="19")]
         TensorQuantity(super::TensorQuantity),
+        /// an element reflected on as its metaclass
+        #[prost(message, tag="20")]
+        Metaobject(super::Metaobject),
         /// A result the model leaves open: not an error, but no definite answer.
         /// A value the server sends, never one it accepts.
-        #[prost(message, tag="20")]
+        #[prost(message, tag="21")]
         Undetermined(super::Undetermined),
     }
+}
+/// Metaobject is an element of the model held as an instance of its reflective
+/// metaclass: what `x meta KerML::Feature`, or the last element of
+/// `x.metadata`, evaluates to (KerML 7.4.9.2, 8.3.4.8.15). It crosses as the
+/// element it reflects, which is its identity: two metaobjects are the same
+/// exactly when element_id is, whatever type each was cast to. Its features
+/// (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Metaobject {
+    /// FQN of the element reflected on ("Vehicle::seatBelt"). Its identity.
+    #[prost(string, tag="1")]
+    pub element_id: ::prost::alloc::string::String,
+    /// FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
+    /// the most specific metaclass of the KerML or SysML library classifying it;
+    /// not the type it was cast to. The service always sends it; a client may omit
+    /// it, in which case the model's is used, but one sent must be the model's or
+    /// the value is rejected.
+    #[prost(string, tag="2")]
+    pub metaclass_id: ::prost::alloc::string::String,
 }
 /// Undetermined is the model-level result of an expression the model does not
 /// decide: it reads a feature no value is given (`attribute u;`) or counts a
@@ -1250,7 +1272,7 @@ pub struct Complex {
 /// EnumLiteral is one literal of an enumeration definition. A literal is its own
 /// identity, so it travels as the declaration it names rather than as a number
 /// or a string: two values are the same literal exactly when `literal_id` is.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EnumLiteral {
     /// FQN of the literal's declaration ("D::Color::red"). Its identity.
     #[prost(string, tag="1")]
@@ -1261,6 +1283,10 @@ pub struct EnumLiteral {
     /// The literal as a reader writes it ("Color::red").
     #[prost(string, tag="3")]
     pub name: ::prost::alloc::string::String,
+    /// The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+    /// literal that is only its identity. Identity stays `literal_id`.
+    #[prost(message, optional, boxed, tag="4")]
+    pub value: ::core::option::Option<::prost::alloc::boxed::Box<Value>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ValueSequence {
@@ -1445,6 +1471,13 @@ pub struct ServerInfoResponse {
     ///                   unsupported null, and one is accepted as an action input
     ///                   or calc argument; without it, one is refused with
     ///                   UNIMPLEMENTED rather than read as another value.
+    ///    "metaobject_values" - a Value carries an element reflected on as an
+    ///                   instance of its metaclass (`x meta T`, the last element
+    ///                   of `x.metadata`) as metaobject, named by the element and
+    ///                   its metaclass, rather than reporting it as an unsupported
+    ///                   null, and one is accepted as an action input or calc
+    ///                   argument; without it, one is refused with UNIMPLEMENTED
+    ///                   rather than read as another value.
     ///    "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
     ///                   preserving everything the edit did not touch.
     ///    "document_query" - the RunDocumentQuery RPC runs a named document query

@@ -63,6 +63,7 @@ public final class Protos {
       case FUNCTION -> Optional.of(function(value.getFunction()));
       case SET -> Optional.of(set(value.getSet()));
       case TENSOR_QUANTITY -> Optional.of(tensorQuantity(value.getTensorQuantity()));
+      case METAOBJECT -> Optional.of(metaobject(value.getMetaobject()));
       case KIND_NOT_SET -> Optional.empty();
     };
   }
@@ -169,6 +170,14 @@ public final class Protos {
         ref.getUnit(), unitTerm(ref.getUnitTerm()), present(ref.getUnitId()));
   }
 
+  private static Value metaobject(org.openmbee.opensysml.proto.Metaobject metaobject) {
+    if (metaobject.getElementId().isEmpty()) {
+      throw new TransportException(
+          "the service answered a malformed metaobject: it names no element", null);
+    }
+    return new Value.MetaobjectValue(metaobject.getElementId(), metaobject.getMetaclassId());
+  }
+
   private static Value function(org.openmbee.opensysml.proto.Function function) {
     if (function.getCalcId().isEmpty()) {
       throw new TransportException(
@@ -239,7 +248,10 @@ public final class Protos {
    */
   public static EnumLiteral literal(org.openmbee.opensysml.proto.EnumLiteral literal) {
     return new EnumLiteral(
-        literal.getLiteralId(), literal.getEnumerationId(), literal.getName());
+        literal.getLiteralId(),
+        literal.getEnumerationId(),
+        literal.getName(),
+        literal.hasValue() ? Optional.of(readable(literal.getValue())) : Optional.empty());
   }
 
   /**

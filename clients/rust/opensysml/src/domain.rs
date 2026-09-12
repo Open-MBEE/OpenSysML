@@ -227,7 +227,7 @@ impl fmt::Display for Complex {
 }
 
 /// An enumeration literal value.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EnumLiteral {
     /// Fully qualified literal identity.
     pub literal_id: String,
@@ -235,6 +235,9 @@ pub struct EnumLiteral {
     pub enumeration_id: String,
     /// Reader-facing literal name.
     pub name: String,
+    /// The scalar the literal equals when its enumeration specializes a scalar
+    /// type (`3` for `high = 3` in `enum def Level :> Integer`), else `None`.
+    pub value: Option<Box<Value>>,
 }
 
 /// A multidimensional array: its shape, and its elements flattened in
@@ -531,6 +534,37 @@ pub struct Function {
     pub self_id: Option<i64>,
 }
 
+/// An element of the model held as an instance of its reflective metaclass:
+/// what `x meta KerML::Feature`, or the last element of `x.metadata`,
+/// evaluates to.
+///
+/// It is the element it reflects on, which is its identity: two metaobjects
+/// are equal exactly when `element_id` is, whatever type each was cast to. Its
+/// features (`declaredName`, `ownedFeature`, ...) are read in the model, not
+/// carried. A service without `metaobject_values` sends an unsupported
+/// [`Value::Null`] in its place.
+#[derive(Clone, Debug, Eq)]
+pub struct Metaobject {
+    /// FQN of the element reflected on (`Vehicle::seatBelt`).
+    pub element_id: String,
+    /// FQN of the element's own reflective metaclass
+    /// (`SysML::Systems::PartUsage`), not the type it was cast to.
+    pub metaclass_id: String,
+}
+
+impl PartialEq for Metaobject {
+    /// The element is the identity, whatever type each side was cast to.
+    fn eq(&self, other: &Self) -> bool {
+        self.element_id == other.element_id
+    }
+}
+
+impl std::hash::Hash for Metaobject {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.element_id.hash(state);
+    }
+}
+
 /// A runtime value returned by the service.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -566,6 +600,8 @@ pub enum Value {
     Set(Set),
     /// A tensor of quantities of any rank.
     TensorQuantity(TensorQuantity),
+    /// An element reflected on, under its own metaclass.
+    Metaobject(Metaobject),
     /// Explicit null value.
     Null,
     /// A materialized feature with no value.
@@ -861,10 +897,23 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 .map(quantity_from_wire)
                 .collect::<Result<_, _>>()?,
         )?)),
+        wire::value::Kind::Metaobject(v) => {
+            if v.element_id.is_empty() {
+                return Err(Error::Decode("a metaobject names no element".to_owned()));
+            }
+            Ok(Value::Metaobject(Metaobject {
+                element_id: v.element_id,
+                metaclass_id: v.metaclass_id,
+            }))
+        }
         wire::value::Kind::EnumLiteral(v) => Ok(Value::EnumLiteral(EnumLiteral {
             literal_id: v.literal_id,
             enumeration_id: v.enumeration_id,
             name: v.name,
+            value: match v.value {
+                Some(scalar) => Some(Box::new(value_from_wire(*scalar)?)),
+                None => None,
+            },
         })),
         wire::value::Kind::Unset(_) => Ok(Value::Unset),
         wire::value::Kind::Undetermined(v) => {
@@ -911,6 +960,7 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
         wire::value::Kind::Function(_) => "function",
         wire::value::Kind::Set(_) => "set",
         wire::value::Kind::TensorQuantity(_) => "tensor_quantity",
+        wire::value::Kind::Metaobject(_) => "metaobject",
     }
 }
 
@@ -2191,6 +2241,7 @@ mod tests {
                 literal_id: literal_id.to_owned(),
                 enumeration_id: enumeration_id.to_owned(),
                 name: name.to_owned(),
+                value: None,
             })
         };
         let red = || literal("D::Color::red", "D::Color", "Color::red");
@@ -2385,6 +2436,63 @@ mod tests {
         ));
     }
 
+    fn metaobject(element_id: &str, metaclass_id: &str) -> wire::Value {
+        wire::Value {
+            kind: Some(wire::value::Kind::Metaobject(wire::Metaobject {
+                element_id: element_id.to_owned(),
+                metaclass_id: metaclass_id.to_owned(),
+            })),
+        }
+    }
+
+    #[test]
+    fn a_metaobject_is_the_element_it_reflects_on_under_its_own_metaclass() {
+        let seat_belt = value_from_wire(metaobject("Demo::seatBelt", "SysML::Systems::PartUsage"))
+            .expect("a metaobject should decode");
+        assert_eq!(
+            seat_belt,
+            Value::Metaobject(Metaobject {
+                element_id: "Demo::seatBelt".to_owned(),
+                metaclass_id: "SysML::Systems::PartUsage".to_owned(),
+            })
+        );
+        let Value::Metaobject(inner) = &seat_belt else {
+            panic!("a metaobject should decode as one");
+        };
+        assert_eq!(inner.metaclass_id, "SysML::Systems::PartUsage");
+
+        // The element is the identity: the type it was cast to does not distinguish two reads.
+        let as_feature = value_from_wire(metaobject("Demo::seatBelt", "KerML::Feature")).unwrap();
+        assert_eq!(seat_belt, as_feature);
+        assert!(seat_belt.same_value(&as_feature));
+        let other =
+            value_from_wire(metaobject("Demo::Vehicle", "SysML::Systems::PartUsage")).unwrap();
+        assert_ne!(seat_belt, other);
+        assert!(!seat_belt.same_value(&Value::Text("Demo::seatBelt".to_owned())));
+        assert!(matches!(
+            value_from_wire(set(vec![
+                metaobject("Demo::seatBelt", "KerML::Feature"),
+                metaobject("Demo::seatBelt", "KerML::Type"),
+            ])),
+            Err(Error::Decode(message)) if message.contains("twice")
+        ));
+
+        // Naming no element is malformed at any depth.
+        assert!(matches!(
+            value_from_wire(metaobject("", "KerML::Feature")),
+            Err(Error::Decode(message)) if message.contains("names no element")
+        ));
+        let nested = wire::Value {
+            kind: Some(wire::value::Kind::Sequence(wire::ValueSequence {
+                elements: vec![metaobject("", "")],
+            })),
+        };
+        assert!(matches!(
+            value_from_wire(nested),
+            Err(Error::Decode(message)) if message.contains("names no element")
+        ));
+    }
+
     #[test]
     fn a_measurement_reference_keeps_its_unit_reduction_and_declaration() {
         let km = wire_term(1000.0, &[("SI::metre", 1.0)]);
@@ -2456,6 +2564,35 @@ mod tests {
                 value_from_wire(value.clone()).ok(),
                 value_from_wire(again).ok()
             );
+        }
+    }
+
+    #[test]
+    fn a_scalar_valued_enum_literal_keeps_the_scalar_it_equals() {
+        let literal = |value| wire::Value {
+            kind: Some(wire::value::Kind::EnumLiteral(Box::new(
+                wire::EnumLiteral {
+                    literal_id: "D::Level::high".to_owned(),
+                    enumeration_id: "D::Level".to_owned(),
+                    name: "Level::high".to_owned(),
+                    value,
+                },
+            ))),
+        };
+        let high = value_from_wire(literal(Some(Box::new(wire::Value {
+            kind: Some(wire::value::Kind::IntValue(3)),
+        }))))
+        .unwrap();
+        match &high {
+            Value::EnumLiteral(lit) => {
+                assert_eq!(lit.value.as_deref(), Some(&Value::Integer(3)))
+            }
+            other => panic!("decoded {other:?}"),
+        }
+        assert!(!high.same_value(&Value::Integer(3)));
+        match value_from_wire(literal(None)).unwrap() {
+            Value::EnumLiteral(lit) => assert_eq!(lit.value, None),
+            other => panic!("decoded {other:?}"),
         }
     }
 

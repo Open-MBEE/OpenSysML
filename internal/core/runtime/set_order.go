@@ -159,6 +159,9 @@ func (ctx *Context) compareContents(a, b Value) int {
 			cmp.Compare(instanceID(a.FunctionSelf()), instanceID(b.FunctionSelf())),
 			cmp.Compare(a.functionRun(), b.functionRun()),
 		)
+	case ValMetaobject:
+		// A metaobject is its element, as valueEqual and valueKeyFunc have it.
+		return compareSymbols(a.MetaobjectElement(), b.MetaobjectElement())
 	case ValUndetermined:
 		return strings.Compare(a.Undetermined().Reason(), b.Undetermined().Reason())
 	}

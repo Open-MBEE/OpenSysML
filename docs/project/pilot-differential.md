@@ -208,18 +208,18 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-07`, 370 files)
+## Results (pilot `2026-07`, 371 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 49 | 6 | 6 | 0 | 0 | 6 | 6 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 49 | 10 | 6 | 0 | 0 | 10 | 6 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 35 | 26 | 2 | 646 | 0 | 1 | 1 | 645 |
+| `examples` | 36 | 26 | 8 | 1087 | 0 | 2 | 6 | 1085 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **370** | **337** | **64** | **707** | **34** | **2** | **28** | **671** |
+| **Total** | **371** | **337** | **74** | **1148** | **34** | **3** | **37** | **1111** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -229,8 +229,9 @@ retired one more of `pilot-examples` by publishing the conforming type its
 `Analysis Examples/Dynamics.sysml`:13 — a published product bound to a return typed by another
 dimension — takes it to **7**; the [unbound-parameter advisory](#the-unbound-parameter-advisory)
 then takes `kerml-examples` to **4**, and the
-[collection-body element typing round](#collection-body-element-typing-round) to **6**. Our
-diagnostics on those roots therefore fall 20 → **13**. The
+[collection-body element typing round](#collection-body-element-typing-round) to **6**, and the
+[bare feature-reference typing round](#bare-feature-reference-typing-round) to **10**. Our
+diagnostics on those roots therefore fall 20 → **17**. The
 `examples` root carries 1, the non-standard-notation warning on the `junction` of
 `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because no SysML v2
 spelling of it exists. It carried 64 before the demos were rewritten to standard notation: the
@@ -241,10 +242,84 @@ fixture that exists to draw them (see [Value uniqueness](#value-uniqueness--only
 pilot has no value-level uniqueness constraint, so all 5 are one-sided by construction. **Those that remain are
 true positives about our own examples, not candidate false positives about our implementation** — the
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
-reference corpora is **13** — of which three, the `Behaviors.kerml` advisory and the two
-`Expressions.kerml` operator errors, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
+reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory and the six
+`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### MOSA library round
+
+`examples/mosa-demo/mosa-demo.sysml` is one file added to the `examples` root: files 35 → **36** on
+the root, 370 → **371** overall. Our diagnostics rise 68 → **74** and only-ours 32 → **37**: the six
+warnings the demo draws on purpose from the warning-only MOSA checks, five of them only-ours and
+the sixth a severity-only pair (2 → **3**). Pilot diagnostics rise 636 → **1148** / only pilot
+600 → **1111**. Of that, 440 rows are the reference's cascade from a `MOSA` library it does not
+ship, read the same way as the `OOSEM` cascade in the [Step 3 obligation round](#step-3-obligation-round).
+The other 71 are `self-model/document.sysml` growing 259 → **330** when the analysis framework
+joined the architecture self-model — a movement the previous baseline had not yet recorded, and
+the same `DocumentQueries` cascade as before, so it is measured here rather than in a round of its
+own. `fully agreeing` and `agreed` do not move.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 370 | **371** |
+| overall: fully agreeing | 337 | **337** |
+| overall: our diagnostics | 68 | **74** |
+| overall: only ours | 32 | **37** |
+| only pilot | 600 | **1111** |
+| pilot diagnostics | 636 | **1148** |
+| severity-only | 2 | **3** |
+| `examples`: only pilot | 574 | **1085** |
+
+### Bare feature-reference typing round
+
+A bare feature reference — a plain name or a feature chain standing as an operand or a
+condition — is now typed statically by the effective type of the feature it resolves to
+(KerML 1.1 §8.3.4.8.5, a `FeatureReferenceExpression`'s result is bound to the feature it
+references, evaluated through the feature redefining it; §8.4.4.9.3, that result subsets the
+referent "to allow for simpler static type checking"; §§7.3.4.3–7.3.4.5, a feature's type is
+carried by subsetting and redefinition; §7.4.11, a feature declaring none takes its values from
+the expression it is bound to), where before a plain name inferred no scalar type at all and
+its uses were left to the executor. `-s` over `attribute s : String` therefore draws the operand error the same expression
+already drew written `-"x"`, `total > 3` over `attribute total : Integer` types as `Integer`
+compares, and `while total { }` is reported before execution rather than at the loop. The
+executor's condition check remains for a condition whose type genuinely cannot be settled
+statically — an unresolved chain, a behavior declaring no result.
+
+The rule reaches the same file as the round before it, `kerml-examples/Simple Tests/Expressions.kerml`,
+four more times, all over `x = ToString(a * a + 3 == 4);`, whose `x` is the `String`
+`BaseFunctions::ToString` returns:
+
+- line 12, `grp = -x + x * y * y + a ** 3 ^ 4;`: `-x` draws
+  `operator '-' requires a numeric operand, found String` (`passes/typecheck_expr.go`
+  `checkUnaryNumeric`, the answer it already gave `-"x"`). `ScalarFunctions::'-'` is abstract
+  over `ScalarValue`, its only concrete specializations are `NumericalFunctions::'-'` and below,
+  and no function library declares a `'-'` over `String` — so, as with the `'+'` of the round
+  before, the expression has no value, and the runtime refuses it with `ErrTypeMismatch`.
+- lines 41–43, `xx = if x == 1 and y == 2? a else if x == 2? b else if x == 3? c else 0;`:
+  each `x == <n>` draws the warning `comparing String with Natural is always false`
+  (`checkEquality`, unchanged: `'=='` is declared over `Anything`, so disjoint operands are a
+  warning, never an error). A `String` is never equal to a `Natural`, so the three conditions are
+  constant `false` and the conditional always yields `0`; the file stays executable, which is why
+  the rule warns.
+
+The pilot's `validate-kerml` accepts the file and its `ParsingTests_Expressions.kerml.xt`
+declares `noErrors` — the file was already the one `noErrors` row we disagree with, and the round
+moves no further Xpect row (warnings are not errors there, and the row was already lost to the
+line-15 and line-16 errors). All four are **ours, one-sided by design**: neither the operand rule
+nor the equality rule changed, the round only lets them see the type of a name they could not
+type before, and they judge `x` exactly as they already judged the `xx` bound to it two lines
+below. Recorded in the pilot-corpora ratchet (`Expressions.kerml` 2 → 6) and here. No other
+file moves in either direction: a control run of the parent commit reproduces the committed
+baseline's every count and diagnostic, and the branch's run differs from it in this file alone.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 337 | **337** |
+| overall: our diagnostics | 64 | **68** |
+| overall: only ours | 28 | **32** |
+| `kerml-examples`: fully agreeing | 49 | **49** |
+| `kerml-examples`: only ours | 6 | **10** |
 
 ### Value uniqueness round
 
@@ -441,9 +516,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **671** |
-| pilot diagnostics | 123 | **707** |
-| severity-only | 9 | **2** |
+| only pilot | 82 | **1111** |
+| pilot diagnostics | 123 | **1148** |
+| severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -569,11 +644,12 @@ populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two sema
 Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
-`units`, 1 `kind-mismatch`; `kerml-examples` 5 `unmapped`, 1 `multiplicity` (the
-[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax; `testdata` 7
+`units`, 1 `kind-mismatch`; `kerml-examples` 9 `unmapped`, 1 `multiplicity` (the
+[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax, 4 `unmapped`,
+1 `multiplicity` (the five warnings the MOSA demo draws on purpose, below); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 279 `kind-mismatch`, 337 `unresolved-reference` — of which
+`examples` 10 syntax, 19 `unmapped`, 527 `kind-mismatch`, 529 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -596,14 +672,13 @@ document written in the notation, so its first line imports the document and que
 project bundles as an OpenSysML library ([the authoring chapter](../manual/authoring.md)); the
 reference cannot resolve that namespace, and the cascade is 230 `unresolved-reference`, 83
 `kind-mismatch` (`Must invoke a behavior or a behavioral feature`, once per query invocation whose
-calc def did not resolve) and 17 `unmapped`. It is the first file in any root that depends on a
+calc def did not resolve, 6 of them warnings) and 17 `unmapped`. It is the first file in any root that depends on a
 library the reference does not ship, which is why the `examples` only-pilot column jumps 34 → 307
 without a single one of our own diagnostics moving: only-ours stays at 20 and our diagnostics at 56.
 The cascade grows with the document (182 rows when the self-model landed, 240 after its accuracy
 round added queries over the pass registry, the budgets and the rendering kinds, 249 after the
 section on loading the library snapshot, 259 after the paragraph and diagram on invoking a calc,
-330 after the section on the analysis framework),
-so its size measures how much the document asks of the library, not conformance. Read this root's
+330 after the analysis framework joined the model), so its size measures how much the document asks of the library, not conformance. Read this root's
 only-pilot total as "one file the reference has no library for, plus the 48 rows the other files
 carry", not as a conformance movement.
 
@@ -616,6 +691,22 @@ specialization the reference cannot resolve cascades into 98 `unresolved-referen
 cousins, 7 of them warnings). The `examples` only-pilot column moves 302 → 572 while only-ours
 stays at 20 and our diagnostics at 65: two files the reference has no library for, plus the 48
 rows the other files carry.
+
+**`mosa-demo/mosa-demo.sysml` adds 440 pilot-only rows for the same reason: the reference has no
+`MOSA` library.** The modular ground vehicle imports the Modular Open Systems Approach vocabulary
+this project bundles ([the design record](mosa-library.md)), so every `#majorSystemComponent`,
+`#modularSystemInterface`, `#consensusStandard` or `#conformance` prefix, every `@DataRights` or
+`@InterfaceControl` annotation and every `: MajorSystemComponent` typing the reference cannot
+resolve cascades into 192 `unresolved-reference` and 248 `kind-mismatch` (23 of them warnings).
+The file parses cleanly on both sides. Our side reports the six warnings the demo is written to
+draw — a component without data rights, a proprietary item without a rationale, an interface
+satisfying no requirement, one naming no control authority, one conforming to no standard, and a
+connector between two components not designated an interface — five of them only-ours (4
+`unmapped`, 1 `multiplicity`) and the sixth a severity-only pair: the reference also flags the
+line of the interface without a standard, as an error, for the `#modularSystemInterface` prefix it
+cannot resolve. The `examples` only-pilot column moves 574 → 1085, only-ours 1 → 6, our
+diagnostics 2 → 8 and severity-only 1 → 2: three files the reference has no library for, plus the
+48 rows the other files carry.
 
 **`pilot-examples` is the row to read carefully: its total falls 68 → 63 and its mix barely
 resembles the old one.** All 31 syntax rows are gone, and `pilot-validation`'s 7 with them — the parser now
@@ -648,22 +739,24 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **337 / 28 / 64** |
-| only pilot | **671** |
-| pilot diagnostics | **707** |
-| severity-only | **2** |
-| unmapped, our side | **26** |
-| kerml-examples: only ours | **6** |
+| overall: fully agreeing / only ours / our diagnostics | **337 / 37 / 74** |
+| only pilot | **1111** |
+| pilot diagnostics | **1148** |
+| severity-only | **3** |
+| unmapped, our side | **34** |
+| kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **645** |
+| examples: only pilot | **1085** |
 
-The KerML root is now the *cleanest* of the three OMG roots in proportion: **6** only-ours against 6
-only-pilot — the only root where the reference reports as much as we do — with 49 of 58 files fully
-agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 6 is a syntax or `kind-mismatch` diagnostic — the notation
+The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
+only-pilot, with 49 of 58 files fully
+agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 10 is a syntax or `kind-mismatch` diagnostic — the notation
 the reference accepts, we parse, and the checks we applied to KerML typings that it does not apply
 are gone. What is left is K5's three specialization cycles, the one deliberate
-[unbound-parameter advisory](#the-unbound-parameter-advisory) and the two operator errors of the
-[collection-body element typing round](#collection-body-element-typing-round), all adjudicated. The class tables below
+[unbound-parameter advisory](#the-unbound-parameter-advisory), the two operator errors of the
+[collection-body element typing round](#collection-body-element-typing-round) and the four
+operator diagnostics of the [bare feature-reference typing round](#bare-feature-reference-typing-round),
+all adjudicated. The class tables below
 are kept as measured when each class was adjudicated, so they describe the root at 150 rather than at 3.
 
 One category label moved with this adjudication and **no count did**:
@@ -797,16 +890,6 @@ root, 368 → **369** overall, and pilot diagnostics 632 → **636** / only pilo
 of them the `kind-mismatch` rows adjudicated below where a `calc def` is passed as an argument.
 Nothing else moves: the file draws no diagnostic from this implementation, so `fully agreeing`,
 `only ours` and `agreed` stay where the analysis walkthrough left them.
-
-### Analysis framework round
-
-The architecture self-model gains its section on the analysis framework, and the only movement is
-the `DocumentQueries` cascade in `self-model/document.sysml` growing with the document: pilot
-diagnostics 636 → **707** and only pilot 600 → **671**, the 71 new rows being 50
-`unresolved-reference`, 17 `kind-mismatch` and 4 `unmapped` on that one file, all with the single
-cause adjudicated above. `views.sysml` keeps its two syntax rows on the framed concern, at new line
-numbers. No file is added, no diagnostic of this implementation moves, and `fully agreeing`, `only
-ours` and `agreed` stay where the expressions walkthrough left them.
 
 ## Adjudications
 

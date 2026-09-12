@@ -504,6 +504,62 @@ class Function:
         return self.calc_id
 
 
+@dataclass(frozen=True, eq=False)
+class Metaobject:
+    """An element of the model held as an instance of its reflective metaclass:
+    what ``x meta KerML::Feature``, or the last element of ``x.metadata``,
+    evaluates to.
+
+    It is the element it reflects on, which is its identity: two metaobjects are
+    equal exactly when ``element_id`` is, whatever type each was cast to. Its
+    features (``declaredName``, ``ownedFeature``, ...) are read in the model,
+    not carried.
+
+    Attributes:
+        element_id (str): FQN of the element reflected on (``Vehicle::seatBelt``)
+        metaclass_id (str): FQN of the element's own reflective metaclass
+            (``SysML::Systems::PartUsage``), not the type it was cast to. The
+            service always sends it; one sent to the service may be left empty
+            to have the model's used, but one naming a metaclass that is not
+            the element's is rejected.
+    """
+
+    element_id: str
+    metaclass_id: str = ""
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Metaobject):
+            return NotImplemented
+        return self.element_id == other.element_id
+
+    def __hash__(self) -> int:
+        return hash(self.element_id)
+
+    @classmethod
+    def from_pb(cls, pb_meta) -> "Metaobject":
+        """Build from a ``Metaobject`` protobuf message.
+
+        Raises:
+            UnsupportedValueError: If the message names no element.
+        """
+        if not pb_meta.element_id:
+            raise UnsupportedValueError("metaobject naming no element")
+        return cls(pb_meta.element_id, pb_meta.metaclass_id)
+
+    def to_pb(self) -> "sysml_pb2.Metaobject":
+        """Encode as a ``Metaobject`` message.
+
+        Raises:
+            UnsupportedValueError: If the metaobject names no element.
+        """
+        if not self.element_id:
+            raise UnsupportedValueError("metaobject naming no element")
+        return sysml_pb2.Metaobject(element_id=self.element_id, metaclass_id=self.metaclass_id)
+
+    def __str__(self) -> str:
+        return f"meta({self.element_id} : {self.metaclass_id})"
+
+
 def _is_number(value: object) -> bool:
     """Whether a value is an Integer or a Real as the wire keeps them apart: a bool is neither."""
     return isinstance(value, (int, float)) and not isinstance(value, bool)
@@ -1060,8 +1116,9 @@ def value_to_python(pb_value, resolve_instance=None):
     Returns:
         int, float, complex, bool, str, list, None, :data:`UNSET`,
         :data:`INFINITY`, an :class:`Undetermined`, a
-        :class:`Quantity`, a :class:`MeasurementRef`, a :class:`Function`, an
-        :class:`Array`, a :class:`Vector`, a :class:`VectorQuantity`, a :class:`SetValue`, a
+        :class:`Quantity`, a :class:`MeasurementRef`, a :class:`Function`, a
+        :class:`Metaobject`, an :class:`Array`, a :class:`Vector`, a
+        :class:`VectorQuantity`, a :class:`SetValue`, a
         :class:`TensorQuantity`, an :class:`~opensysml.enumeration.EnumLiteral`,
         an :class:`InstanceRef`, or the resolved instance object. A Complex is one ``complex``, never two
         floats; a Vector is one :class:`Vector`, never a list of numbers; a set
@@ -1088,6 +1145,8 @@ def value_to_python(pb_value, resolve_instance=None):
         return MeasurementRef.from_pb(pb_value.measurement_ref)
     if kind == 'function':
         return Function.from_pb(pb_value.function)
+    if kind == 'metaobject':
+        return Metaobject.from_pb(pb_value.metaobject)
     if kind == 'instance_id':
         if resolve_instance is None:
             return InstanceRef(pb_value.instance_id)
@@ -1106,7 +1165,10 @@ def value_to_python(pb_value, resolve_instance=None):
         return TensorQuantity.from_pb(pb_value.tensor_quantity)
     if kind == 'enum_literal':
         lit = pb_value.enum_literal
-        return EnumLiteral(lit.literal_id, lit.enumeration_id, lit.name)
+        value = None
+        if lit.HasField('value'):
+            value = value_to_python(lit.value, resolve_instance)
+        return EnumLiteral(lit.literal_id, lit.enumeration_id, lit.name, value)
     if kind == 'unset':
         return UNSET
     if kind == 'undetermined':

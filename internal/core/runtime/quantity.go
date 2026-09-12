@@ -109,13 +109,13 @@ func (ec *EvalContext) declaredCollection(operand ast.Node) (string, bool) {
 	if qn == nil || ec.ctx.model.resolver == nil {
 		return "", false
 	}
-	sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, qn)
+	sym, ok := ec.ctx.resolveQualified(ec.scope, qn)
 	if !ok || sym == nil || !semantics.IsShapeFeature(sym) {
 		return "", false
 	}
 	if typ := ec.ctx.extractType(sym); typ != nil {
 		for _, lib := range []struct{ fqn, what string }{{vectorTypeFQN, "a vector"}, {arrayTypeFQN, "an array"}} {
-			if libSym := ec.ctx.librarySymbol(lib.fqn); libSym != nil && ec.ctx.model.semantics.Conforms(typ, libSym) {
+			if libSym := ec.ctx.librarySymbol(lib.fqn); libSym != nil && ec.ctx.modelConforms(typ, libSym) {
 				return lib.what, true
 			}
 		}

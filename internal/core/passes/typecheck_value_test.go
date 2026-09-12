@@ -55,6 +55,60 @@ func TestValueScalarLiteralToEnumeration(t *testing.T) {
 		"cannot bind Natural value to a feature typed by Color")
 }
 
+// A constant equal to an enumerated value is admitted and any other refused;
+// a value of another kind is the scalar lattice's to report, once.
+func TestValueScalarConstantToScalarValuedEnumeration(t *testing.T) {
+	const level = `package L {
+		enum def Level :> ScalarValues::Integer { low = 1; high = 3; }
+		enum def Grade :> ScalarValues::Real { a = 4.0; b = 3.0; }
+	}
+	`
+	wantNoValueDiags(t, level+`package P {
+		attribute l : L::Level = 3;
+		attribute h : L::Level = L::Level::high;
+		attribute g : L::Grade = 4;
+		attribute many : L::Level[*] = (1, 3);
+		attribute n : ScalarValues::Integer = 2;
+		attribute fromFeature : L::Level = n;
+		attribute folded : L::Level = 1 + 2;
+		attribute computed : L::Level = n + 1;
+	}`)
+	wantOneValueDiag(t, level+`package P { attribute l : L::Level = 1 + 1; }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1, Level::high = 3")
+	wantOneValueDiag(t, level+`package P { attribute l : L::Level = 2; }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1, Level::high = 3")
+	wantOneValueDiag(t, level+`package P { attribute g : L::Grade = 2.5; }`,
+		"cannot bind 2.5 (a Real) to a feature typed by Grade, whose values are Grade::a = 4.0, Grade::b = 3.0")
+	wantOneValueDiag(t, level+`package P { attribute many : L::Level[*] = (1, 2); }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1, Level::high = 3")
+	wantOneValueDiag(t, level+`package P { attribute l : L::Level = "x"; }`,
+		"cannot bind String value to a feature typed by Integer")
+	wantOneValueDiag(t, `package L { enum def Flag :> ScalarValues::Boolean { off = false; on = true; } }
+		package P { attribute f : L::Flag = 1; }`,
+		"cannot bind Natural value to a feature typed by Boolean")
+	wantOneValueDiag(t, `package L { enum def Empty :> ScalarValues::Integer {} }
+		package P { attribute e : L::Empty = 1; }`,
+		"cannot bind 1 (an Integer) to a feature typed by Empty, which enumerates no values")
+	const size = `package L { enum def Size :> ScalarValues::Real { = 60.0; = 70.0; } }`
+	wantNoValueDiags(t, size+`package P { attribute s : L::Size = 60.0; }`)
+	wantOneValueDiag(t, size+`package P { attribute s : L::Size = 65.0; }`,
+		"cannot bind 65.0 (a Real) to a feature typed by Size, whose values are 60.0, 70.0")
+	const wide = size + `package W { enum def Wide :> L::Size { = 80.0; } }`
+	wantNoValueDiags(t, wide+`package P { attribute s : W::Wide = 60.0; attribute w : W::Wide = 80.0; }`)
+	wantOneValueDiag(t, wide+`package P { attribute s : W::Wide = 65.0; }`,
+		"cannot bind 65.0 (a Real) to a feature typed by Wide, whose values are 80.0, 60.0, 70.0")
+	const mixed = `package L { enum def Level :> ScalarValues::Integer { unknown; high = 3; } }`
+	wantNoValueDiags(t, mixed+`package P { attribute l : L::Level = 3; }`)
+	wantOneValueDiag(t, mixed+`package P { attribute l : L::Level = 2; }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::high = 3")
+	wantOneValueDiag(t, `package L { enum def Level :> ScalarValues::Integer { unknown; } }
+		package P { attribute l : L::Level = 2; }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are only its literals")
+	wantOneValueDiag(t, `package L { enum def Color { red; green; } }
+		package P { attribute c : L::Color = 2; }`,
+		"cannot bind Natural value to a feature typed by Color")
+}
+
 func TestValueSubtypeInstanceConforms(t *testing.T) {
 	wantNoValueDiags(t, `package P {
 		part t : M::Truck;

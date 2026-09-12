@@ -63,6 +63,7 @@ switch (value.kind) {
   case "vectorQuantity": value.components;             // QuantityValue[], a unit per component
   case "set":      value.elements;                     // SysMLValue[], each once, unordered
   case "tensorQuantity": value.dimensions; value.components;  // any rank, row-major QuantityValue[]
+  case "metaobject": value.elementId; value.metaclassId;  // an element reflected on: x meta KerML::Feature
   case "enum":     value.value.name;                   // and its literal/enumeration ids
   case "instance": value.id;                          // an object in the same tree
   case "sequence": value.elements;                    // SysMLValue[]
@@ -189,9 +190,10 @@ raise a `MissingCapabilityError` naming the service, its version and the way to
 get one that has it. A direct capability-gated request to a service without the
 capability is refused with `UNIMPLEMENTED`; response-population capabilities
 instead omit the fields they name. A service without `structured_values`,
-`measurement_refs`, `function_values`, `set_values` or `tensor_values` sends the
-value kinds those name (`array`, `vector`, `vectorQuantity`; `measurementRef`;
-`function`; `set`; `tensorQuantity`) as `null` with an `unsupported: …` reason.
+`measurement_refs`, `function_values`, `set_values`, `tensor_values` or
+`metaobject_values` sends the value kinds those name (`array`, `vector`,
+`vectorQuantity`; `measurementRef`; `function`; `set`; `tensorQuantity`;
+`metaobject`) as `null` with an `unsupported: …` reason.
 A function closing over the bindings of a behavior body has no wire form and is
 sent as `null` by every service. A `set` arrives
 with its elements in the service's canonical order, so two equal sets arrive
@@ -203,7 +205,14 @@ member, exactly across the whole `int` range — and a quantity by magnitude
 through its `unitTerm`, so `1 [m]` is `100 [cm]` (exactly, while the magnitude
 is an `int` and the scale a whole ratio); one without a `unitTerm` is compared
 in its unit as written. A `tensorQuantity` carries its `dimensions` and one
-quantity per component, row-major.
+quantity per component, row-major. A `metaobject` — what `x meta KerML::Feature`
+or the last element of `x.metadata` evaluates to — names the element reflected
+on (`elementId`, its identity) and the element's own metaclass (`metaclassId`,
+not the type it was cast to); two are `valuesEqual` exactly when they name one
+element. Its features (`declaredName`, `ownedFeature`, …) are read in the model,
+not carried. One sent to the service may leave `metaclassId` empty to have the
+model's used; one naming a metaclass that is not the element's is refused, and
+one naming no element is a `MalformedValueError`.
 
 ## Failures are typed
 

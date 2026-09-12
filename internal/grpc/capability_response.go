@@ -125,6 +125,11 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		if !s.capabilities.has(CapabilityTensorValues) {
 			value.Kind = unsupportedShown(displayValue(value))
 		}
+	case *pb.Value_Metaobject:
+		if !s.capabilities.has(CapabilityMetaobjectValues) {
+			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.ValMetaobject.String() + " " +
+				kind.Metaobject.GetElementId() + " : " + kind.Metaobject.GetMetaclassId()}
+		}
 	case *pb.Value_Undetermined:
 		if !s.capabilities.has(CapabilityUndeterminedValue) {
 			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.UndeterminedText + ": " + kind.Undetermined.GetReason()}
@@ -188,6 +193,8 @@ func displayValue(pv *pb.Value) runtime.Value {
 			units = append(units, q.Unit)
 		}
 		return runtime.NewTensorQuantityValue(k.TensorQuantity.GetDimensions(), num, units)
+	case *pb.Value_Metaobject:
+		return runtime.NewMetaobject(&symbols.Symbol{Name: k.Metaobject.GetElementId()}, &symbols.Symbol{Name: k.Metaobject.GetMetaclassId()})
 	default:
 		return protoToScalar(pv)
 	}

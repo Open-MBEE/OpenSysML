@@ -63,24 +63,39 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (246 cases, all thirteen default
+Reference values at the current implementation (299 cases, all sixteen default
 fixtures):
-`agree 140 · kind-only 1 · order-only 0 · disagree 6 · pilot-unevaluated 65 ·
-pilot-silent 10 · pilot-error 2 · ours-error 2 · ours-undetermined 12 · both-error 8 ·
+`agree 173 · kind-only 1 · order-only 0 · disagree 18 · pilot-unevaluated 69 ·
+pilot-silent 14 · pilot-error 2 · ours-error 2 · ours-undetermined 12 · both-error 8 ·
 nondeterministic 0`.
-The sixth `disagree` is `undetermined_operands:size-slots`: `size(rack.slots)` for a
+One of the eighteen `disagree` is `undetermined_operands:size-slots`: `size(rack.slots)` for a
 `part slots[3]` is `3` here, since `[3]` fixes the count, and `1` from the pilot,
 which counts the one unevaluated feature-reference operand; the pilot's number is
-not a semantic answer. Four of the other five `disagree` are unrefereeable rather
-than verdicts against us:
+not a semantic answer. The twelve `ours-undetermined` are the model-level reads of an
+unbound `attribute u;` and of usages whose multiplicity leaves the count open
+(`gear[1..*]`, `loose[0..2]`), where we answer `<undetermined>` and the pilot leaves
+the expression unevaluated.
+Eight of the other seventeen `disagree` are the `enumeration_classification.cases`
+adjudicated ours: the pilot never consults an enumeration's enumerated values
+(`3 istype Level` false) and folds a scalar-valued literal to its Integer
+(`Level::high istype Level` false). Seven more are unrefereeable rather than verdicts against us:
+`extent-variation-count` and `extent-uninstantiated-count`, where the pilot does
+not evaluate `all T` (KerML 1.0 §8.2.5.8.1 Table 5 marks it not model-level
+evaluable) and `size(all T)` counts the one unevaluated node as `1` whether `T`
+has two variants or no instance;
 `w6d:complex-is-zero-qualified`, where the pilot answers `false` for
 `isZero(rect(0.0, 0.0))` *and* for `isZero(rect(3.0, 4.0))`, because its
 `re`/`im` have no evaluable body; and the three `w6d:subsetting-*-count`
 cases, where the pilot counts a `[*]` collection as `1` whether two parts
-subset it or none does (and folds a `default null` one to `0`). The fifth,
-`natural-feature-istype-natural`, is adjudicated ours: a feature's values are
-instances of all its types (KerML 1.0 §8.3.3.3.4), so `nat : Natural = 7`
-answers `nat istype Natural` `true` where the pilot reads the literal's type alone. See
+subset it or none does (and folds a `default null` one to `0`); and
+`meta-doc-body`, where the pilot prints the comment body `/* Turns. */` with its
+trailing blank (`Turns. `) and we print `Turns.`. The other two are adjudicated
+ours: `natural-feature-istype-natural`, since a feature's values are instances of
+all its types (KerML 1.0 §8.3.3.3.4), so `nat : Natural = 7` answers
+`nat istype Natural` `true` where the pilot reads the literal's type alone; and
+`meta-rep-represented-name`, since `TextualRepresentation::representedElement`
+`subsets owner` in `KerML.kerml`, so we answer the owning part's name where the
+pilot answers the representation's own. See
 [pilot-execution-referee.md](../../../docs/project/pilot-execution-referee.md).
 
 ## Checks that actually distinguish working from broken
@@ -115,8 +130,8 @@ answers `nat istype Natural` `true` where the pilot reads the literal's type alo
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`370 file(s), 337 fully agreeing; 34 agreed
-  diagnostic(s), 28 only ours, 671 only the pilot's` after the value uniqueness and analysis framework rounds — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`371 file(s), 337 fully agreeing; 34 agreed
+  diagnostic(s), 37 only ours, 1111 only the pilot's` after the MOSA example joined `examples/` and the bare feature-reference typing round — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

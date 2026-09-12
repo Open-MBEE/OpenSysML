@@ -144,12 +144,12 @@ for:
 
 Decoding a response is never gated on capabilities: if a service sends an
 enum, unset value, complex number, array, vector, vector quantity, measurement
-reference, function, set, tensor quantity, or feature-value arm, the client
-understands that answer. Consumers can inspect `Capabilities::has` or use
-`Capabilities::require` when they need to gate their own use of `enum_values`,
-`unset_value`, `complex_values`, `structured_values`, `measurement_refs`,
-`function_values`, `set_values`, `tensor_values`, `feature_values`, or another
-advertised operation.
+reference, function, set, tensor quantity, metaobject, or feature-value arm,
+the client understands that answer. Consumers can inspect `Capabilities::has`
+or use `Capabilities::require` when they need to gate their own use of
+`enum_values`, `unset_value`, `complex_values`, `structured_values`,
+`measurement_refs`, `function_values`, `set_values`, `tensor_values`,
+`metaobject_values`, `feature_values`, or another advertised operation.
 
 A `Value::Set` is a `Collections::Set`'s elements: each member once, sent in
 the service's canonical order (numbers ascending, then strings, and so on), and
@@ -167,6 +167,15 @@ dimension. A rank-one tensor stays a `TensorQuantity`, distinct from a
 `VectorQuantity`. A malformed set (a member listed twice) or tensor (a
 non-positive dimension, or components that do not fill the shape) is an
 `Error::Decode`, never a partial value.
+
+A `Value::Metaobject` is an element of the model held as an instance of its
+reflective metaclass: what `x meta KerML::Feature`, or the last element of
+`x.metadata`, evaluates to. Its `element_id` is the FQN of the element
+reflected on and is its identity: two metaobjects are `==` exactly when their
+`element_id` is, whatever type each was cast to. Its `metaclass_id` is the FQN
+of the element's own metaclass (`SysML::Systems::PartUsage`), not the type it
+was cast to. Its features (`declaredName`, `ownedFeature`, ...) are read in the
+model, not carried. A metaobject naming no element is an `Error::Decode`.
 
 ## Conformance runner
 

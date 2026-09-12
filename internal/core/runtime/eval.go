@@ -206,7 +206,7 @@ func (ec *EvalContext) lookupSubaction(name string) (perf *actionFrame, declared
 	}
 	var decl ast.Node
 	if ec.ctx.model.resolver != nil {
-		if sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name); ok && sym != nil {
+		if sym, ok := ec.ctx.lookupName(ec.scope, name); ok && sym != nil {
 			if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind != ast.UsageAction && !lower.IsCaseNode(usage) {
 				return nil, false, nil
 			}
@@ -615,10 +615,11 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		// evaluated in the scope it was declared in, so the imports in force there
 		// — rather than the ones in force here — answer the names it uses.
 		if ec.scope != nil && !ec.resolving[name] {
-			if sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name); ok && sym != nil {
+			if sym, ok := ec.ctx.lookupName(ec.scope, name); ok && sym != nil {
 				// An inherited expression reads the feature as the running behavior
 				// inherits it: through the redefinition, when it states one.
 				sym = ec.ctx.inheritedFeature(ec.runningBehavior(), sym)
+				ec.ctx.noteDeclarationRead(sym)
 				// An enumerated value is the value of its enumeration it stands
 				// for; any other variant names a choice, not the value it declares.
 				if semantics.EnumerationOwning(sym) != nil {
@@ -703,7 +704,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 	// visibility, aliases and inherited members included — so the two agree. It
 	// is read in this evaluation's scope, since one expression may be evaluated
 	// in several.
-	reading := ec.ctx.model.resolver.ReadQualified(ec.scope, qn)
+	reading := ec.ctx.readQualified(ec.scope, qn)
 
 	// A path starting at a node of an action performance on the stack reads
 	// through that node's performance: `p.v`, `leg.inner.v`.
@@ -729,6 +730,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 	if !ok {
 		return Value{}, ec.unresolvedQualifiedName(qn, reading)
 	}
+	ec.ctx.noteDeclarationRead(currentSym)
 
 	// A feature of a behavior whose run is on the stack (`MassCase::result` in its
 	// objective or assertion) reads the value that run bound to it.
@@ -920,7 +922,54 @@ func (ec *EvalContext) unresolvedQualifiedName(qn *ast.QualifiedName, reading re
 
 // declaredValue evaluates the value a declaration binds in the scope it was written
 // in (its units and imports answer its names); the value answers to the declared type.
+// A namespace-level object usage's value is one binding (KerML 1.0 §7.4.11), kept for the run.
 func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value, error) {
+	ec.ctx.noteDeclarationRead(sym)
+	if val, ok := ec.ctx.namespaceBindings[sym]; ok {
+		return val, nil
+	}
+	if !namespaceObjectUsage(sym) {
+		return ec.evaluateDeclared(sym, value)
+	}
+	if ec.ctx.binding(sym) {
+		return Value{}, &CyclicBindingError{Usage: sym, Stated: ec.ctx.qualifiedSymbolName(sym)}
+	}
+	ec.ctx.bindingStack = append(ec.ctx.bindingStack, sym)
+	defer func() { ec.ctx.bindingStack = ec.ctx.bindingStack[:len(ec.ctx.bindingStack)-1] }()
+	// The binding is made whole or not at all: a value refused after constructing
+	// objects leaves none of them, nor their behaviors, behind.
+	commit, rollback := ec.ctx.beginJournal()
+	val, err := ec.evaluateDeclared(sym, value)
+	if err != nil {
+		rollback()
+		delete(ec.ctx.bindingReads, sym)
+		return Value{}, err
+	}
+	ec.ctx.bindNamespace(sym, val)
+	commit()
+	return val, nil
+}
+
+// binding reports whether sym's value is being evaluated.
+func (ctx *Context) binding(sym *symbols.Symbol) bool {
+	return slices.Contains(ctx.bindingStack, sym)
+}
+
+// bindNamespace records the value a namespace-level usage denotes for the run; a probe
+// that made it is undone with it.
+func (ctx *Context) bindNamespace(sym *symbols.Symbol, val Value) {
+	ctx.noteProbeUndo(func() { ctx.unbindNamespace(sym) })
+	ctx.namespaceBindings[sym] = val
+}
+
+// unbindNamespace forgets a namespace-level usage's binding, and what was read to make it.
+func (ctx *Context) unbindNamespace(sym *symbols.Symbol) {
+	delete(ctx.namespaceBindings, sym)
+	delete(ctx.bindingReads, sym)
+}
+
+// evaluateDeclared evaluates a declaration's value anew, answering to its declared type.
+func (ec *EvalContext) evaluateDeclared(sym *symbols.Symbol, value ast.Node) (Value, error) {
 	val, err := ec.evalIn(sym.OwnerScope).Eval(value)
 	if err != nil {
 		return Value{}, err
@@ -948,6 +997,7 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 	if !ec.ctx.namesOneObject(sym) {
 		return Value{}, false, nil
 	}
+	ec.ctx.noteDeclarationRead(sym)
 	inst, err := ec.ctx.occurrenceOf(sym)
 	if err != nil {
 		return Value{}, true, fmt.Errorf("usage %s: %w", symbolText(sym), err)
@@ -972,7 +1022,7 @@ func (ec *EvalContext) namesSelf(name string) bool {
 	if ec.scope == nil {
 		return false
 	}
-	sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name)
+	sym, ok := ec.ctx.lookupName(ec.scope, name)
 	return ok && ec.ctx.model.semantics.IsSelf(sym)
 }
 
@@ -982,7 +1032,7 @@ func (ec *EvalContext) namesOccurrenceThis(name string) bool {
 	if ec.scope == nil {
 		return false
 	}
-	sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name)
+	sym, ok := ec.ctx.lookupName(ec.scope, name)
 	return ok && ec.ctx.model.resolver.IsOccurrenceThis(sym)
 }
 
@@ -1131,7 +1181,7 @@ func (ec *EvalContext) chainBaseSymbol(base ast.Node) (*symbols.Symbol, bool) {
 	if !ok || ref.Name == nil || ec.ctx.model.resolver == nil {
 		return nil, false
 	}
-	sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, ref.Name)
+	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
 	return sym, ok && sym != nil
 }
 
@@ -1174,7 +1224,17 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return value, nil
 	}
+	name, rest := parts[0].Text, parts[1:]
 
+	if literal := value.EnumerationLiteral(); literal != nil {
+		// A literal is an occurrence of its enumeration, so its own features are
+		// read from the object that literal stands for, whatever scalar it equals.
+		inst, err := ec.ctx.enumLiteralObject(literal)
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
+	}
 	switch value.Kind {
 	case ValSequence, ValSet:
 		return ec.chainOverElements(value, parts, from)
@@ -1184,26 +1244,14 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if inst, ok := ec.ctx.structuredObject(value); ok && isStructuredValue(&value) {
 			return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 		}
-		member, ok, err := ec.ctx.structuredFeature(value, parts[0].Text)
-		if err != nil {
-			return Value{}, err
-		}
-		if !ok {
-			return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(value), parts[0].Text)
-		}
-		return ec.chainMemberValue(member, parts[1:], from)
+		return ec.chainOwnFeature(value, parts, from)
 	case ValInstance, ValVariant:
 		// handled below
+	case ValMetaobject:
+		// A metaobject answers its metaclass's features for the element it denotes.
+		return ec.chainOwnFeature(value, parts, from)
 	case ValUndetermined:
 		return ec.chainThroughUndetermined(value, parts, from)
-	case ValEnumLiteral:
-		// A literal is an occurrence of its enumeration, so its own features are
-		// read from the object that literal stands for.
-		inst, err := ec.ctx.enumLiteralObject(value.Literal())
-		if err != nil {
-			return Value{}, err
-		}
-		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 	default:
 		if err := metadataOfAValue(value, parts); err != nil {
 			return Value{}, err
@@ -1223,7 +1271,6 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	if !ok {
 		return Value{}, fmt.Errorf("instance ID %d not found for member %s", id, from)
 	}
-	name, rest := parts[0].Text, parts[1:]
 	// A frame, scale or transformation object answers its members from the value it is.
 	if ref, isRef, err := ec.ctx.referenceValueOfObject(inst); isRef {
 		if err != nil {
@@ -1256,8 +1303,8 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	}
 	// A variant named through the variation feature it belongs to is the choice
 	// itself, not a member of the variation's value.
-	if variant, after, ok := ec.variantSegment(fvDecl.Feature, rest); ok {
-		if len(after) == 0 {
+	if variant, rest, ok := ec.variantSegment(fvDecl.Feature, rest); ok {
+		if len(rest) == 0 {
 			return variantReference(variant), nil
 		}
 		// Members are read from the object the variant stands for.
@@ -1265,7 +1312,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if err != nil {
 			return Value{}, err
 		}
-		return ec.chainMemberValue(val, after, variant.Name)
+		return ec.chainMemberValue(val, rest, variant.Name)
 	}
 	// Read through GetFeatureValue so a derived or composite member is materialized
 	// on demand rather than read as an empty feature value.
@@ -1283,6 +1330,33 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		return Value{}, err
 	}
 	return ec.chainMemberValue(member, rest, name)
+}
+
+// chainOwnFeature continues a chain through a feature the value answers from
+// itself rather than from an object it names.
+func (ec *EvalContext) chainOwnFeature(value Value, parts []ast.NameSegment, from string) (Value, error) {
+	member, err := ec.ownFeature(value, parts[0].Text)
+	if err != nil {
+		return Value{}, err
+	}
+	return ec.chainMemberValue(member, parts[1:], from)
+}
+
+// ownFeature reads a feature a value answers from itself: a metaobject's
+// reflective feature, or a library feature of an array, vector, quantity,
+// measurement reference or frame.
+func (ec *EvalContext) ownFeature(value Value, name string) (Value, error) {
+	if value.Kind == ValMetaobject {
+		return ec.metaobjectFeature(value, name)
+	}
+	member, ok, err := ec.ctx.structuredFeature(value, name)
+	if err != nil {
+		return Value{}, err
+	}
+	if !ok {
+		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(value), name)
+	}
+	return member, nil
 }
 
 // chainOverElements reads the rest of a chain from every element of a
@@ -1324,7 +1398,7 @@ func (ec *EvalContext) enumLiteralValue(sym *symbols.Symbol) (Value, error) {
 	if err != nil {
 		return Value{}, fmt.Errorf("enumeration literal %s: %w", sym.Name, err)
 	}
-	return val, nil
+	return val.ofLiteral(sym), nil
 }
 
 // EnumerationLiteralValue is the value sym has when it is an enumeration
@@ -1369,8 +1443,6 @@ func (ctx *Context) enumerationSummary(enum *symbols.Symbol) string {
 // says what each would need, so reaching one reports why rather than "unsupported".
 var unimplementedOperators = map[ast.OperatorKind]string{
 	ast.OpBitNot: "bitwise complement is declared by no function library the runtime applies",
-	ast.OpMeta:   "metadata access is evaluated from a MetadataAccessExpression, not this operator",
-	ast.OpAll:    "'all' needs the extent of a type, which the runtime does not enumerate",
 	ast.OpIndex:  "indexing is evaluated from an IndexExpression, not this operator",
 }
 
@@ -1414,6 +1486,10 @@ func (ec *EvalContext) evalOperator(n *ast.OperatorExpr) (Value, error) {
 		return ec.evalTypeClassification(n)
 	case ast.OpAs:
 		return ec.evalCast(n)
+	case ast.OpAll:
+		return ec.evalExtent(n)
+	case ast.OpMeta:
+		return ec.evalMetaCast(n)
 	default:
 		if why, ok := unimplementedOperators[n.Operator]; ok {
 			return Value{}, fmt.Errorf("%w: '%s': %s", ErrUnsupportedOperator, n.Operator, why)
@@ -1435,13 +1511,14 @@ func (ec *EvalContext) classifiesValue(n *ast.OperatorExpr) bool {
 // resolveClassificationType resolves the type a classification names, seeing
 // through an alias to the type it stands for.
 func (ec *EvalContext) resolveClassificationType(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
-	target, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, qn)
+	target, ok := ec.ctx.resolveQualified(ec.scope, qn)
 	if !ok || target == nil {
 		return nil, false
 	}
-	if canonical, ok := ec.ctx.model.resolver.ResolveAliasTarget(target); ok {
+	if canonical, ok := ec.ctx.resolveAliasTarget(target); ok {
 		target = canonical
 	}
+	ec.ctx.noteDeclarationRead(target)
 	return target, true
 }
 
@@ -1586,6 +1663,12 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 			return nil, fmt.Errorf("%w: function", ErrUndeterminedValueType)
 		}
 		return value.Function(), nil
+	case ValMetaobject:
+		// A metaobject is an instance of the reflective metaclass of its element.
+		if value.MetaobjectClass() == nil {
+			return nil, fmt.Errorf("%w: metaobject", ErrUndeterminedValueType)
+		}
+		return value.MetaobjectClass(), nil
 	case ValQuantity:
 		if value.Quantity() == nil {
 			return nil, fmt.Errorf("%w: quantity", ErrUndeterminedValueType)
@@ -1659,7 +1742,7 @@ func (ec *EvalContext) classifiedElement(n *ast.OperatorExpr) (*symbols.Symbol, 
 	// A name is the element it names: what `p @ Safety` classifies is the
 	// declaration p, the same element a filter condition would be judged for.
 	if qn := subjectName(subject); qn != nil {
-		if sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, qn); ok && sym != nil {
+		if sym, ok := ec.ctx.resolveQualified(ec.scope, qn); ok && sym != nil {
 			return sym, nil
 		}
 	}
@@ -1688,10 +1771,11 @@ func (ec *EvalContext) elementDenotedBy(val Value) (*symbols.Symbol, bool) {
 		return inst.Type, true
 	case ValVariant:
 		return val.Variant(), val.Variant() != nil
-	case ValEnumLiteral:
-		return val.Literal(), val.Literal() != nil
+	case ValMetaobject:
+		return val.MetaobjectElement(), val.MetaobjectElement() != nil
 	default:
-		return nil, false
+		literal := val.EnumerationLiteral()
+		return literal, literal != nil
 	}
 }
 
@@ -1808,12 +1892,13 @@ func (ec *EvalContext) evalIdentity(n *ast.OperatorExpr) (Value, error) {
 // the identity operator `===` and SequenceFunctions::same ask. Identity is
 // stricter than equality: a value of another kind, or a constant of another
 // kind, is never the same value, so an Integer is not identical to a Real of
-// equal magnitude.
+// equal magnitude, nor an enumeration's literal to the bare scalar it equals or
+// to another enumeration's literal of that value.
 func valueIdentical(left, right Value) bool {
 	if isEmptyValue(left) || isEmptyValue(right) {
 		return isEmptyValue(left) && isEmptyValue(right)
 	}
-	if left.Kind != right.Kind {
+	if left.Kind != right.Kind || left.EnumerationLiteral() != right.EnumerationLiteral() {
 		return false
 	}
 	if left.Kind == ValConst && left.Const.Kind != right.Const.Kind {
@@ -2097,21 +2182,101 @@ func (ctx *Context) comparisonValues(op ast.OperatorKind, left, right Value, spa
 		return boolValue(ordered), nil
 	}
 
-	// Both must be ValConst
-	if left.Kind != ValConst || right.Kind != ValConst {
-		return Value{}, fmt.Errorf("comparison operands must be constants, got %s and %s", left.Kind, right.Kind)
+	// Numbers, Strings and quantities are ordered, so the operand blamed is the
+	// other one, or the pairing when a quantity meets the unbounded value.
+	refuse := func(library string) (Value, error) {
+		return Value{}, &OperandTypeError{
+			Op:      op.String(),
+			Left:    describeOperand(left),
+			Right:   describeOperand(right),
+			Library: library,
+			Span:    span,
+		}
+	}
+	for _, val := range []Value{left, right} {
+		if val.Kind != ValConst && val.Kind != ValQuantity {
+			return refuse(ctx.orderingGap(op, val))
+		}
+	}
+	if left.Kind == ValQuantity || right.Kind == ValQuantity {
+		for _, val := range []Value{left, right} {
+			if val.Kind == ValConst && val.Const.Kind == semantics.ValBool {
+				return refuse(booleanOrderingGap(op))
+			}
+			if val.Kind == ValConst {
+				return refuse(fmt.Sprintf("QuantityCalculations::'%s' takes ScalarQuantityValue operands and %s is none", op, describeOperand(val)))
+			}
+		}
 	}
 
 	result, err := constComparison(op, left.Const, right.Const)
+	var mismatch *OperandTypeError
+	if errors.As(err, &mismatch) {
+		mismatch.Span = span
+	}
 	if err != nil {
 		return Value{}, err
 	}
 	return boolValue(result), nil
 }
 
+// orderingGap says which Kernel Function Library function would have to declare
+// the ordering operator op for val, and why none does: DataFunctions::'<' and
+// ScalarFunctions::'<' are abstract, declared concretely by the numeric libraries
+// and StringFunctions alone.
+func (ctx *Context) orderingGap(op ast.OperatorKind, val Value) string {
+	fn := func(pkg string) string { return fmt.Sprintf("%s::'%s'", pkg, op) }
+	notScalar := func(what string) string {
+		return fmt.Sprintf("%s is abstract and no library function declares '%s' for %s, which is no ScalarValue", fn("DataFunctions"), op, what)
+	}
+	switch val.Kind {
+	case ValComplex:
+		return fmt.Sprintf("%s is abstract and ComplexFunctions declares no '%s' for Complex", fn("NumericalFunctions"), op)
+	case ValEnumLiteral:
+		enum := semantics.EnumerationOwning(val.Literal())
+		if enum == nil {
+			return notScalar(val.LiteralText())
+		}
+		if ctx.conformsToLibrary(enum, "ScalarValues::ScalarValue") {
+			return fmt.Sprintf("the library orders %s by value and %s declares none", enum.Name, val.LiteralText())
+		}
+		return notScalar("the enumeration " + enum.Name)
+	case ValNull, ValSequence, ValSet:
+		return fmt.Sprintf("%s takes one DataValue per operand", fn("DataFunctions"))
+	case ValInstance, ValVariant:
+		what := describeOperand(val)
+		if types, err := ctx.directValueTypes(nil, val); err == nil && len(types) > 0 {
+			what = fmt.Sprintf("an instance of the %s %s", ast.Notation(types[0].Decl), types[0].Name)
+		}
+		if ctx.isDataValue(val) {
+			return notScalar(what)
+		}
+		return fmt.Sprintf("%s takes DataValue operands and %s is none", fn("DataFunctions"), what)
+	case ValFunction, ValExpr:
+		return fmt.Sprintf("%s takes DataValue operands and %s is none", fn("DataFunctions"), describeOperand(val))
+	}
+	return notScalar(describeOperand(val))
+}
+
+// booleanOrderingGap is orderingGap for a Boolean, which the compiled tier
+// reports without a Context.
+func booleanOrderingGap(op ast.OperatorKind) string {
+	return fmt.Sprintf("ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean", op, op)
+}
+
 // constComparison orders two scalar constants, the core the evaluator and the
 // compiled calc tier share.
 func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, error) {
+	// A Boolean is a ScalarValue no library orders, so it is refused rather
+	// than read as a number.
+	if left.Kind == semantics.ValBool || right.Kind == semantics.ValBool {
+		return false, &OperandTypeError{
+			Op:      op.String(),
+			Left:    describeValue(Value{Kind: ValConst, Const: left}),
+			Right:   describeValue(Value{Kind: ValConst, Const: right}),
+			Library: booleanOrderingGap(op),
+		}
+	}
 	// The unbounded `*` orders above every finite number and equals itself.
 	if left.IsUnbounded() || right.IsUnbounded() {
 		order, ok := semantics.UnboundedOrder(left, right)
@@ -2472,16 +2637,18 @@ type invocationKey struct {
 // invocationTarget is what an invocation expression denotes, resolved once per
 // context; at most one implementation is set, in the order they are tried.
 type invocationTarget struct {
-	qualName    string
-	ambiguous   []*symbols.Symbol // the equally specific declarations the written name denotes
-	calc        *symbols.Symbol   // the declaration the written name resolves to, nil for none
-	builtin     builtinFunc       // the built-in the name denotes: the library declaration calc is
-	builtinName string            // the built-in's registered name, keying its declared signature
-	library     *libraryFunction  // the library function the name denotes: the library declaration calc is
-	shape       *calcShape        // calc's invocation interface, nil when it has none
-	predicate   bool              // calc is a constraint or requirement, applied as a predicate
-	names       []string          // the parameter each named argument binds, as calc's signature spells it
-	unbound     []error           // per named argument, why calc has no parameter for it; nil when it binds
+	qualName     string
+	ambiguous    []*symbols.Symbol // the equally specific declarations the written name denotes
+	undetermined []*symbols.Symbol // the declarations the static argument types leave open, settled by the values
+	calc         *symbols.Symbol   // the declaration the written name resolves to, nil for none
+	builtin      builtinFunc       // the built-in the name denotes: the library declaration calc is
+	builtinName  string            // the built-in's registered name, keying its declared signature
+	library      *libraryFunction  // the library function the name denotes: the library declaration calc is
+	shape        *calcShape        // calc's invocation interface, nil when it has none
+	predicate    bool              // calc is a constraint or requirement, applied as a predicate
+	names        []string          // the parameter each named argument binds, as calc's signature spells it
+	unbound      []error           // per named argument, why calc has no parameter for it; nil when it binds
+	candidates   []*symbols.Symbol // the declarations the written name may denote, which the selection chose among
 }
 
 // invocationTarget resolves what n denotes in this context's scope, memoized
@@ -2489,22 +2656,43 @@ type invocationTarget struct {
 // The declaration is the one the checker selects for the call, so the two agree: a
 // library function is callable only where the model imports it or writes it qualified,
 // and a declaration of the model's own is invoked as written even under a name a
-// library built-in is registered by.
+// library built-in is registered by. What the selection read of the model is recorded for the
+// binding being made on every use, a memoized target's included.
 func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget {
 	key := invocationKey{node: n, scope: ec.scope, running: ec.runningBehavior()}
-	if target, ok := ec.ctx.model.invocationTargets[key]; ok {
-		return target
+	target, ok := ec.ctx.model.invocationTargets[key]
+	if !ok {
+		target = ec.selectInvocationTarget(key, n)
+		ec.ctx.model.invocationTargets[key] = target
 	}
-	target := &invocationTarget{qualName: qualifiedNameToString(n.Type)}
-	if sel := passes.SelectInvocation(ec.ctx.model.resolver, ec.ctx.model.semantics, ec.scope, n, semantics.PerformsBehavior); sel.Ambiguous {
+	ec.ctx.noteInvocationRead(ec.scope, n.Type, target.candidates)
+	for b := key.running; b != nil; b = enclosingBehavior(b) {
+		ec.ctx.noteTypeRead(b)
+	}
+	ec.ctx.noteDeclarationRead(target.calc)
+	return target
+}
+
+// selectInvocationTarget resolves n as the checker selects it, from the candidates its name denotes.
+func (ec *EvalContext) selectInvocationTarget(key invocationKey, n *ast.InvocationExpr) *invocationTarget {
+	model := ec.ctx.model
+	target := &invocationTarget{
+		qualName:   qualifiedNameToString(n.Type),
+		candidates: model.resolver.InvocationCandidates(ec.scope, n.Type),
+	}
+	sel := passes.SelectInvocation(model.resolver, model.semantics, ec.scope, n, semantics.PerformsBehavior)
+	switch {
+	case sel.Ambiguous && sel.Undetermined:
+		target.undetermined = sel.Tied
+	case sel.Ambiguous:
 		target.ambiguous = sel.Tied
-	} else if sym := sel.Called(); sym != nil {
+	case sel.Called() != nil:
+		sym := sel.Called()
 		ec.ctx.implementInvocation(target, ec.ctx.inheritedFeature(key.running, sym))
 	}
 	if len(n.NamedArgs) > 0 {
 		target.names, target.unbound = ec.ctx.boundParameterNames(ec.scope, target.calc, n.NamedArgs)
 	}
-	ec.ctx.model.invocationTargets[key] = target
 	return target
 }
 
@@ -2599,7 +2787,7 @@ func (ec *EvalContext) unresolvedInvocation(qn *ast.QualifiedName, written strin
 	if len(qn.Parts) == 1 && !qn.Global {
 		return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedName(ec.scope, written, qn))
 	}
-	reading := ec.ctx.model.resolver.ReadQualified(ec.scope, qn)
+	reading := ec.ctx.readQualified(ec.scope, qn)
 	for i := len(qn.Parts) - 2; i >= 0; i-- {
 		if owner, ok := reading.Part(i); ok {
 			return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedMember(ec.scope, qn, owner, i+1))
@@ -2618,6 +2806,9 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	qualName := target.qualName
 	if len(target.ambiguous) > 0 {
 		return Value{}, ambiguousInvocationError(qualName, target.ambiguous)
+	}
+	if len(target.undetermined) > 0 {
+		return ec.evalUndeterminedInvocation(n, target)
 	}
 
 	// A receiver binds by position, so it has no meaning beside arguments that
@@ -2672,8 +2863,12 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	if target.calc == nil && target.library == nil {
 		return Value{}, ec.unresolvedInvocation(n.Type, qualName)
 	}
-	// Every invocation goes through the one calc path, so an expression and a
-	// direct InvokeCalc bind parameters and trace identically.
+	return ec.applyInvocation(target, callArgs)
+}
+
+// applyInvocation applies target to arguments already evaluated, through the one calc
+// path, so an expression and a direct InvokeCalc bind parameters and trace identically.
+func (ec *EvalContext) applyInvocation(target *invocationTarget, callArgs calcArgs) (Value, error) {
 	if target.library != nil {
 		return target.library.invoke(ec.ctx, callArgs)
 	}
@@ -2748,6 +2943,223 @@ func chainText(n ast.Node) string {
 	return TraceLabel(n)
 }
 
+// evalUndeterminedInvocation evaluates a call left open among target.undetermined: the
+// values' types select; a tie they leave is reported, values fitting none run the first.
+func (ec *EvalContext) evalUndeterminedInvocation(n *ast.InvocationExpr, target *invocationTarget) (Value, error) {
+	qualName := target.qualName
+	if n.Operand != nil && len(n.NamedArgs) > 0 {
+		return Value{}, fmt.Errorf("%w: %s is called with a receiver and named arguments", ErrReceiverWithNamedArgs, qualName)
+	}
+	exprs := passes.InvocationArgs(n)
+	// An argument some candidate takes as an `expr` stays unevaluated, unknown to the
+	// selection, so a short-circuiting built-in never sees a branch it would not have run.
+	written := writtenArguments(exprs, n.NamedArgs)
+	deferred := ec.deferredArguments(target.undetermined, exprs, n.NamedArgs)
+	args := make([]semantics.Argument, 0, len(written))
+	for k, w := range written {
+		var name *ast.QualifiedName
+		if k >= len(exprs) {
+			name = n.NamedArgs[k-len(exprs)].Name
+			if name == nil || len(name.Parts) == 0 {
+				continue
+			}
+		}
+		if deferred[k] {
+			args = append(args, semantics.Argument{Name: name})
+			continue
+		}
+		val, err := w.eval(ec)
+		if err != nil {
+			return Value{}, err
+		}
+		args = append(args, ec.valueArgument(val, name))
+	}
+	sel := ec.ctx.model.semantics.SelectAmongArguments(ec.scope, target.undetermined, args, semantics.PerformsBehavior)
+	if sel.Ambiguous {
+		return Value{}, ambiguousInvocationError(qualName, sel.Tied)
+	}
+	settled := &invocationTarget{qualName: qualName}
+	ec.ctx.implementInvocation(settled, ec.ctx.inheritedFeature(ec.runningBehavior(), sel.Called()))
+	callee := settled.calc
+	fn, applied, err := ec.boundFunction(settled.calc, n.Type)
+	if err != nil {
+		return Value{}, err
+	}
+	if applied {
+		callee = fn.Function()
+	}
+	if len(n.NamedArgs) > 0 {
+		settled.names, settled.unbound = ec.ctx.boundParameterNames(ec.scope, callee, n.NamedArgs)
+	}
+	if settled.builtin != nil && !applied {
+		return ec.invokeBuiltinWith(settled.builtinName, settled.builtin, exprs, n.NamedArgs, settled.names, settled.unbound,
+			func(params []declaredParam, param, at int) (Value, error) {
+				w := written[at]
+				if _, body := w.expr.(*ast.BodyExpr); !body && param < len(params) && params[param].deferred {
+					return NewExprValue(w.expr, ec.closure()), nil
+				}
+				return w.eval(ec)
+			})
+	}
+	values := make([]Value, len(written))
+	for k, w := range written {
+		val, err := w.eval(ec)
+		if err != nil {
+			return Value{}, err
+		}
+		values[k] = val
+	}
+	callArgs, err := bindEvaluatedArgs(qualName, values[:len(exprs)], values[len(exprs):], settled)
+	if err != nil {
+		return Value{}, err
+	}
+	if applied {
+		return ec.invokeFunction(qualName, fn, callArgs)
+	}
+	return ec.applyInvocation(settled, callArgs)
+}
+
+// writtenArgument is one argument of a call as written, and its value once evaluated.
+type writtenArgument struct {
+	expr      ast.Node
+	value     Value
+	evaluated bool
+}
+
+// writtenArguments lists a call's arguments in source order, the positional ones first.
+func writtenArguments(exprs []ast.Node, named []ast.NamedArg) []*writtenArgument {
+	written := make([]*writtenArgument, 0, len(exprs)+len(named))
+	for _, expr := range exprs {
+		written = append(written, &writtenArgument{expr: expr})
+	}
+	for _, arg := range named {
+		written = append(written, &writtenArgument{expr: arg.Value})
+	}
+	return written
+}
+
+// eval evaluates the argument once in ec; a later ask reads the value.
+func (w *writtenArgument) eval(ec *EvalContext) (Value, error) {
+	if w.evaluated {
+		return w.value, nil
+	}
+	val, err := ec.Eval(w.expr)
+	if err != nil {
+		return Value{}, err
+	}
+	w.value, w.evaluated = val, true
+	return val, nil
+}
+
+// deferredArguments marks, per argument written, whether any of the candidates binds it to
+// an `expr` parameter of a built-in, which takes the expression rather than its value.
+func (ec *EvalContext) deferredArguments(candidates []*symbols.Symbol, exprs []ast.Node, named []ast.NamedArg) []bool {
+	deferred := make([]bool, len(exprs)+len(named))
+	for _, c := range candidates {
+		var candidate invocationTarget
+		ec.ctx.implementInvocation(&candidate, ec.ctx.inheritedFeature(ec.runningBehavior(), c))
+		if candidate.builtin == nil {
+			continue
+		}
+		params := builtinSignatures[candidate.builtinName]
+		for i := range exprs {
+			if i < len(params) && params[i].deferred {
+				deferred[i] = true
+			}
+		}
+		if len(named) == 0 {
+			continue
+		}
+		names, _ := ec.ctx.boundParameterNames(ec.scope, candidate.calc, named)
+		for j, name := range names {
+			for _, p := range params {
+				if p.name == name && p.deferred {
+					deferred[len(exprs)+j] = true
+				}
+			}
+		}
+	}
+	return deferred
+}
+
+// valueArgument types an evaluated argument for overload selection: a scalar as the literal
+// spelling it, an object by every type classifying it, a collection by what its elements share.
+func (ec *EvalContext) valueArgument(val Value, name *ast.QualifiedName) semantics.Argument {
+	arg := semantics.Argument{Name: name}
+	elements := elementsOf(val)
+	if len(elements) == 0 {
+		arg.Empty = true
+		return arg
+	}
+	if prim := spelledPrim(elements); prim != semantics.PrimUnknown {
+		arg.Prim, arg.Exact = prim, true
+		return arg
+	}
+	var common []*symbols.Symbol
+	for i, el := range elements {
+		types, err := ec.ctx.valueTypes(ec.scope, el)
+		if err != nil || len(types) == 0 {
+			return arg
+		}
+		if i == 0 {
+			common = types
+			continue
+		}
+		if common = ec.sharedTypes(common, types); len(common) == 0 {
+			return arg
+		}
+	}
+	arg.Type, arg.Also = common[0], common[1:]
+	arg.Prim = ec.ctx.model.semantics.PrimTypeOf(common[0])
+	return arg
+}
+
+// spelledPrim is the type the checker gives a literal spelling each element (a nonnegative
+// integer a Natural), widened over them; PrimUnknown for a non-scalar element.
+func spelledPrim(elements []Value) semantics.PrimType {
+	common := semantics.PrimUnknown
+	for i, el := range elements {
+		prim := representationPrim(el)
+		if prim == semantics.PrimInteger && el.Const.Int >= 0 {
+			prim = semantics.PrimNatural
+		}
+		switch {
+		case prim == semantics.PrimUnknown:
+			return semantics.PrimUnknown
+		case i == 0, semantics.PrimConforms(common, prim):
+			common = prim
+		case !semantics.PrimConforms(prim, common):
+			return semantics.PrimUnknown
+		}
+	}
+	return common
+}
+
+// sharedTypes narrows the types the elements so far share to those an element of types
+// also is: a type it conforms to stays, one it generalizes widens to the element's, else drops.
+func (ec *EvalContext) sharedTypes(common, types []*symbols.Symbol) []*symbols.Symbol {
+	var shared []*symbols.Symbol
+	for _, c := range common {
+		kept := c
+		found := false
+		for _, t := range types {
+			switch {
+			case ec.ctx.modelConforms(t, c):
+				kept, found = c, true
+			case ec.ctx.modelConforms(c, t):
+				kept, found = t, true
+			}
+			if found {
+				break
+			}
+		}
+		if found && !slices.Contains(shared, kept) {
+			shared = append(shared, kept)
+		}
+	}
+	return shared
+}
+
 // evalInvocationArgs evaluates an invocation's arguments in source order into the
 // calc arguments they bind: positional, or named against target's parameter names.
 // The notation keeps the two forms mutually exclusive.
@@ -2765,15 +3177,9 @@ func (ec *EvalContext) evalInvocationArgs(qualName string, exprs []ast.Node, nam
 	}
 	named := make(map[string]Value, len(namedArgs))
 	for i, arg := range namedArgs {
-		name := target.names[i]
-		if name == "" {
-			return calcArgs{}, fmt.Errorf("unnamed argument in invocation of %s", qualName)
-		}
-		if err := target.unbound[i]; err != nil {
+		name, err := target.namedBinding(qualName, i, named)
+		if err != nil {
 			return calcArgs{}, err
-		}
-		if _, dup := named[name]; dup {
-			return calcArgs{}, fmt.Errorf("%w: %s binds parameter %q twice", ErrCalcArity, qualName, name)
 		}
 		val, err := ec.Eval(arg.Value)
 		if err != nil {
@@ -2782,6 +3188,39 @@ func (ec *EvalContext) evalInvocationArgs(qualName string, exprs []ast.Node, nam
 		named[name] = val
 	}
 	return calcArgs{named: named}, nil
+}
+
+// bindEvaluatedArgs binds arguments already evaluated in source order, as
+// evalInvocationArgs binds the ones it evaluates.
+func bindEvaluatedArgs(qualName string, positional, namedValues []Value, target *invocationTarget) (calcArgs, error) {
+	if len(namedValues) == 0 {
+		return calcArgs{positional: positional}, nil
+	}
+	named := make(map[string]Value, len(namedValues))
+	for i, val := range namedValues {
+		name, err := target.namedBinding(qualName, i, named)
+		if err != nil {
+			return calcArgs{}, err
+		}
+		named[name] = val
+	}
+	return calcArgs{named: named}, nil
+}
+
+// namedBinding is the parameter the i-th named argument binds, or why it binds none:
+// unnamed, no such parameter of the target, or a parameter already bound in named.
+func (target *invocationTarget) namedBinding(qualName string, i int, named map[string]Value) (string, error) {
+	name := target.names[i]
+	if name == "" {
+		return "", fmt.Errorf("unnamed argument in invocation of %s", qualName)
+	}
+	if err := target.unbound[i]; err != nil {
+		return "", err
+	}
+	if _, dup := named[name]; dup {
+		return "", fmt.Errorf("%w: %s binds parameter %q twice", ErrCalcArity, qualName, name)
+	}
+	return name, nil
 }
 
 // invokeCalcShapeStacked evaluates exprs onto the context's argument stack and
@@ -2904,6 +3343,9 @@ func (ctx *Context) valueEqual(a, b Value) bool {
 		// one closing over a body's bindings, within the same run of that body.
 		return a.Function() == b.Function() && a.FunctionSelf() == b.FunctionSelf() &&
 			a.functionRun() == b.functionRun()
+	case ValMetaobject:
+		// A metaobject is the element it denotes, whichever metaclass it was cast to.
+		return symbols.SameElement(a.MetaobjectElement(), b.MetaobjectElement())
 	case ValUndetermined:
 		return a.ref == b.ref
 	default:
