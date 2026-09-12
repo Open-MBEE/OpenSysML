@@ -498,38 +498,40 @@ func (f *actionFrame) lexicalFrames() []frame {
 // flow's nodes, those its bodies' blocks declare, and those of the action it performed.
 func (f *actionFrame) nodesNamed(name string) []ast.Node {
 	var named []ast.Node
-	add := func(node ast.Node) {
+	switch {
+	case f.graph != nil:
+		named = flowNodesNamed(f.graph, name)
+	case f.flow != nil:
+		named = usagesNamed(f.flow.BlockNodes[f.node], name)
+	default:
+		named = usagesNamed(f.nodes, name)
+	}
+	if f.performs != nil {
+		named = append(named, flowNodesNamed(f.performs, name)...)
+	}
+	return named
+}
+
+// flowNodesNamed returns the nodes of graph named name: its own, then those the
+// blocks of its statement nodes declare.
+func flowNodesNamed(graph *lower.ActionGraph, name string) []ast.Node {
+	named := usagesNamed(graph.Nodes, name)
+	for _, node := range graph.Nodes {
+		if _, isUsage := node.(*ast.Usage); isUsage {
+			continue
+		}
+		named = append(named, usagesNamed(graph.BlockNodes[node], name)...)
+	}
+	return named
+}
+
+// usagesNamed returns the usages among nodes named name.
+func usagesNamed(nodes []ast.Node, name string) []ast.Node {
+	var named []ast.Node
+	for _, node := range nodes {
 		if _, isUsage := node.(*ast.Usage); isUsage && slices.Contains(ActionNodeNames(node), name) {
 			named = append(named, node)
 		}
-	}
-	inFlow := func(graph *lower.ActionGraph) {
-		for _, node := range graph.Nodes {
-			add(node)
-		}
-		for _, node := range graph.Nodes {
-			if _, isUsage := node.(*ast.Usage); isUsage {
-				continue
-			}
-			for _, declared := range graph.BlockNodes[node] {
-				add(declared)
-			}
-		}
-	}
-	switch {
-	case f.graph != nil:
-		inFlow(f.graph)
-	case f.flow != nil:
-		for _, node := range f.flow.BlockNodes[f.node] {
-			add(node)
-		}
-	default:
-		for _, node := range f.nodes {
-			add(node)
-		}
-	}
-	if f.performs != nil {
-		inFlow(f.performs)
 	}
 	return named
 }

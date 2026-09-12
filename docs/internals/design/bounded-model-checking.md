@@ -309,8 +309,10 @@ and declares `a` and `b` **dependent** when any of these hold:
 - Either footprint contains a **dynamic** target the static analysis cannot resolve: a chained
   assignment whose `Base` is an expression (`assign pick.target.mark := …` where `pick` is an
   object-valued pin), a `send` through a `via` path routed by connections, a feature read
-  through a variant selection. Such a move is dependent on every other move. This is the
-  soundness clause: the reduction never assumes independence it cannot prove.
+  through a variant selection, a constructor `new T(…)` (the object it materializes joins
+  `all T` and starts `T`'s classifier behaviors, effects no feature names). Such a move is
+  dependent on every other move. This is the soundness clause: the reduction never assumes
+  independence it cannot prove.
 
 Two moves in different `actionFrame`s that read and write only their own frame's `data` are
 independent by construction; this is the common case for fork branches that compute into their
@@ -535,7 +537,10 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    state of "Visited states", every live root object named by its materialization path; the
    bounds above; properties at every stable state and at completion, deadlocks and typed
    failures as violations with a witness; divergence of the named features (a name nothing
-   holds refused, a feature a schedule leaves unset spelt `<unset>`), or of the action's and
+   holds refused — a `node.path` resolved through the lowered flows of the nodes it names,
+   so a misspelt path is refused before the search, whether or not a schedule completes; a
+   path under a call tied on its arguments' types is answered by the performances and refused
+   when no state held it — a feature a schedule leaves unset spelt `<unset>`), or of the action's and
    performer's attributes; witnesses as the choice lines, a blank line and the trace — a
    property's ending in `property: <name>`, a deadlock's or failure's in `fails: <the error>`,
    after a blank line, so a failing move leaving no trace is still the move a replay must

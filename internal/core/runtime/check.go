@@ -310,8 +310,9 @@ type checker struct {
 	// finals indexes result.Finals by outcome identity.
 	finals  map[string]int
 	results []CheckFinal
-	// nested are the `node.pin` names Diverge selects, each marked once a final held it.
-	nested map[string]bool
+	// nested are the `node.pin` names Diverge selects; untold are those among them only
+	// a performance can tell, each dropped once a state held it.
+	nested, untold map[string]bool
 }
 
 // visitedState is what the search remembers of a state: the moves explored from
@@ -560,6 +561,7 @@ func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visi
 		}
 		seen = &visitedState{explored: make(map[string]bool), depth: depth}
 		c.visited[key] = seen
+		c.tellHeld()
 		c.properties(depth)
 	} else if depth < seen.depth {
 		if seen.cut {
@@ -688,16 +690,7 @@ func (c *checker) evaluate(p CheckProperty) (bool, error) {
 // final records the outcome of a complete schedule, the first schedule
 // reaching each distinct outcome being its witness.
 func (c *checker) final() {
-	outcome := c.ctx.ActionOutcome(c.exec.Results())
-	values := c.divergenceValues(outcome)
-	spelled, identity := outcome.String(), outcome.identity()
-	for _, name := range slices.Sorted(maps.Keys(values)) {
-		if !strings.HasPrefix(name, "this.") {
-			continue
-		}
-		spelled += "; " + name + " = " + values[name]
-		identity += "; " + name + " = " + strconv.Quote(values[name])
-	}
+	values, spelled, identity := c.spellFinal()
 	if _, seen := c.finals[identity]; seen {
 		return
 	}
@@ -708,6 +701,24 @@ func (c *checker) final() {
 		Witness:  c.witness(),
 		identity: identity,
 	})
+}
+
+// spellFinal renders the completed state's outcome and divergence values under
+// a probe: rendering may evaluate a held object's defaults, which must leave no
+// trace behind for the witness to carry.
+func (c *checker) spellFinal() (values map[string]string, spelled, identity string) {
+	defer c.ctx.beginProbe()()
+	outcome := c.ctx.ActionOutcome(c.exec.Results())
+	values = c.divergenceValues(outcome)
+	spelled, identity = outcome.String(), outcome.identity()
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if !strings.HasPrefix(name, "this.") {
+			continue
+		}
+		spelled += "; " + name + " = " + values[name]
+		identity += "; " + name + " = " + strconv.Quote(values[name])
+	}
+	return values, spelled, identity
 }
 
 // divergenceValues spells the features divergence is reported over as the
@@ -733,13 +744,9 @@ func (c *checker) divergenceValues(outcome Outcome) map[string]string {
 		values[out.Name] = out.Text
 	}
 	if len(c.nested) > 0 {
-		held := make(map[string]bool)
-		for name, sub := range root.latestSubactions() {
-			sub.heldFeatures(name+".", held)
-		}
+		held := c.heldUnderNodes()
 		for name := range c.nested {
 			if held[name] {
-				c.nested[name] = true
 				values[name] = UnsetText
 			}
 		}
@@ -792,11 +799,32 @@ func (c *checker) reportsPerformerDivergenceOf(name string, of *EffectiveFeature
 	return slices.Contains(c.opts.Diverge, "this."+name)
 }
 
+// heldUnderNodes names, as `node.feature`, every feature the latest performances
+// of the action's nodes hold at the state the executor stands in.
+func (c *checker) heldUnderNodes() map[string]bool {
+	held := make(map[string]bool)
+	for name, sub := range c.exec.root.latestSubactions() {
+		sub.heldFeatures(name+".", held)
+	}
+	return held
+}
+
+// tellHeld drops from untold every path a performance at this state holds.
+func (c *checker) tellHeld() {
+	if len(c.untold) == 0 {
+		return
+	}
+	for name := range c.heldUnderNodes() {
+		delete(c.untold, name)
+	}
+}
+
 // resolveDiverge checks every name Diverge selects against what the started action
 // holds: `this.<name>` the performing object's feature, a bare name the action's own,
-// `node.pin` a pin of a node it performs; a deeper path is checked once a final held it.
+// `node.path` a feature under a node it performs, told from the lowered flows where
+// a call is settled and left to the performances where it is tied.
 func (c *checker) resolveDiverge() error {
-	c.nested = make(map[string]bool)
+	c.nested, c.untold = make(map[string]bool), make(map[string]bool)
 	root := c.exec.root
 	for _, name := range c.opts.Diverge {
 		if feature, ofSelf := strings.CutPrefix(name, "this."); ofSelf {
@@ -812,40 +840,104 @@ func (c *checker) resolveDiverge() error {
 		if root.owns(name) {
 			continue
 		}
-		node, pin, nested := strings.Cut(name, ".")
+		node, path, nested := strings.Cut(name, ".")
 		named := root.nodesNamed(node)
 		if !nested || len(named) == 0 {
 			return &UnknownCheckFeatureError{Name: name, Reason: "the action holds no such feature and performs no such node"}
 		}
-		if !strings.Contains(pin, ".") && !c.pinOf(named, pin) {
-			return &UnknownCheckFeatureError{Name: name, Reason: "action node " + node + " holds no pin " + pin}
+		held, told := c.pathUnder(c.exec.graph, named, path)
+		if !held {
+			return &UnknownCheckFeatureError{Name: name, Reason: "action node " + node + " holds no feature " + path}
 		}
-		c.nested[name] = false
+		c.nested[name] = true
+		if !told {
+			c.untold[name] = true
+		}
 	}
 	return nil
 }
 
-// pinOf reports whether a node among named holds pin; a node whose pins cannot
-// be told before it runs may, the search reporting why it cannot.
-func (c *checker) pinOf(named []ast.Node, pin string) bool {
-	for _, node := range named {
-		pins, err := c.exec.nodePins(c.exec.graph, node)
-		if err != nil || pins.declares(pin) {
-			return true
+// pathUnder reports whether a performance of a node among nodes, of graph, holds the
+// feature path names — a pin of the node, or a path under a node its flow performs —
+// and whether that is told before it runs; a call tied on its arguments' types, or a
+// node whose pins cannot be told, may hold the path, the performance telling.
+func (c *checker) pathUnder(graph *lower.ActionGraph, nodes []ast.Node, path string) (held, told bool) {
+	told = true
+	for _, node := range nodes {
+		pins, err := c.exec.nodePins(graph, node)
+		if err != nil {
+			return true, false
+		}
+		settled, callees, tied := c.performedBy(graph, node)
+		if pins.declares(path) {
+			return true, !tied
+		}
+		name, rest, deeper := strings.Cut(path, ".")
+		if !deeper {
+			told = told && !tied
+			continue
+		}
+		if under := usagesNamed(graph.BlockNodes[node], name); len(under) > 0 {
+			if h, t := c.pathUnder(graph, under, rest); h {
+				return true, t
+			}
+		}
+		if sub, owns := c.exec.subflowOf(graph, node); owns {
+			if h, t := c.pathUnder(sub.Graph, flowNodesNamed(sub.Graph, name), rest); h {
+				return true, t
+			}
+		}
+		for _, callee := range callees {
+			flow, err := c.calleeFlow(graph, node, callee)
+			if err != nil {
+				return true, false
+			}
+			if h, t := c.pathUnder(flow, flowNodesNamed(flow, name), rest); h {
+				return true, t && callee == settled
+			}
 		}
 	}
-	return false
+	return false, told
 }
 
-// divergeReached fails the check when a path Diverge selects under a node's own
-// performances was held by no complete schedule, once one completed to say so.
-func (c *checker) divergeReached() error {
-	if len(c.results) == 0 {
-		return nil
+// performedBy is the action a node performs, settled, or the actions its call is tied
+// among; a node performing none has neither.
+func (c *checker) performedBy(graph *lower.ActionGraph, node ast.Node) (settled *symbols.Symbol, callees []*symbols.Symbol, tied bool) {
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return nil, nil, false
 	}
+	inv, performs := nestedInvocation(usage)
+	if !performs || lower.IsCaseNode(usage) {
+		return nil, nil, false
+	}
+	settled, callees, err := actionCandidates(c.ctx, nodeScope(graph, node), inv)
+	if err != nil {
+		return nil, nil, true
+	}
+	if settled != nil {
+		return settled, []*symbols.Symbol{settled}, false
+	}
+	return nil, callees, true
+}
+
+// calleeFlow lowers what node's performance of callee runs, as the executor will.
+func (c *checker) calleeFlow(graph *lower.ActionGraph, node ast.Node, callee *symbols.Symbol) (*lower.ActionGraph, error) {
+	usage := node.(*ast.Usage)
+	inv, _ := nestedInvocation(usage)
+	inv.step, _ = stepSymbol(graph, node)
+	body, tool, err := c.ctx.performanceBody(inv.performed(callee), callee)
+	if err != nil {
+		return nil, err
+	}
+	return lowerPerformance(body, tool)
+}
+
+// divergeReached fails the check when a path Diverge selects, one only a performance
+// could tell, was held at no state the search reached.
+func (c *checker) divergeReached() error {
 	for _, name := range c.opts.Diverge {
-		_, pin, _ := strings.Cut(name, ".")
-		if reached, nested := c.nested[name]; nested && !reached && strings.Contains(pin, ".") {
+		if c.untold[name] {
 			return &UnknownCheckFeatureError{Name: name, Reason: "no performance under the action held such a feature"}
 		}
 	}

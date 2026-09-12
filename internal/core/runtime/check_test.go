@@ -995,6 +995,42 @@ func TestCheckRejectsAnUnknownDivergeName(t *testing.T) {
 	}
 }
 
+// A Diverge path under a node's own performances is told from the lowered flows,
+// so a misspelt one fails the check even when no schedule completes to say so.
+func TestCheckRejectsAnUnknownDeepDivergePathWhenNoScheduleCompletes(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action def Emit { out v : Integer; first set; action set { assign v := 1; } }
+		action def Work { first start; then action output : Emit; then done; }
+		action stuck {
+			attribute x : Integer = 0;
+			first start;
+			action worker : Work;
+			action stranded;
+			join sync;
+			done;
+			succession first start then worker;
+			succession first worker then sync;
+			succession first stranded then sync;
+			succession first sync then done;
+		}
+	}`)
+	for _, name := range []string{"worker.output.typo", "worker.nope.v", "worker.output.v.deeper"} {
+		_, err := checkModelErr(t, m, "stuck", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{name}})
+		var unknown *UnknownCheckFeatureError
+		if !errors.As(err, &unknown) || unknown.Name != name {
+			t.Errorf("Diverge %s: %v, want ErrUnknownCheckFeature naming it", name, err)
+		}
+	}
+	report := checkModel(t, m, "stuck", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"worker.output.v"}})
+	if report.Verdict != CheckViolation || len(report.Violations) != 1 || report.Violations[0].Kind != ViolationDeadlock {
+		t.Fatalf("%s, want the deadlock alone", report.Status())
+	}
+	if len(report.Finals) != 0 {
+		t.Fatalf("%d finals, want none: no schedule completes", len(report.Finals))
+	}
+}
+
 // A property may read what no footprint names, so a check with properties
 // searches every interleaving: a property false only where one branch ran
 // ahead of the other is found either way round, and the outcome-only search still reduces.
