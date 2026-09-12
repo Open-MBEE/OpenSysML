@@ -18,9 +18,9 @@ var ErrImageIdentityTaken = errors.New("identity already held by the destination
 // object of its own that already denotes another live object of the destination.
 var ErrImageBindingTaken = errors.New("declaration already denotes an object of the destination context")
 
-// ErrImageClock is the typed error for a destination clock already past the
-// instant the image was taken at.
-var ErrImageClock = errors.New("destination clock is past the image's instant")
+// ErrImageClock is the typed error for a destination clock that cannot stand at the
+// instant the image was taken at: already past it, or with a wait due before it.
+var ErrImageClock = errors.New("destination clock cannot stand at the image's instant")
 
 // ErrImageBound is the typed error for execution state bound to the context that
 // made it, which no image carries: an evaluation under way, or a frame of a calc.
@@ -505,14 +505,27 @@ func (img *HeldImage) Materialize(dst *Context) error {
 	if err := img.bindingsFree(dst); err != nil {
 		return err
 	}
-	if dst.clock.now > img.clock {
-		return fmt.Errorf("%w: at t=%v, image at t=%v", ErrImageClock, dst.clock.now, img.clock)
+	if err := img.clockFree(dst); err != nil {
+		return err
 	}
 	m := &materializing{dst: dst, img: img, made: make(map[int64]*Instance, len(img.objects))}
 	mark := dst.materializeMark()
 	if err := m.run(); err != nil {
 		mark.rollBack(dst)
 		return err
+	}
+	return nil
+}
+
+// clockFree refuses a destination whose clock is past the image's instant or has a wait
+// due before it: the clock reaches an instant by running what is due on the way.
+func (img *HeldImage) clockFree(dst *Context) error {
+	if dst.clock.now > img.clock {
+		return fmt.Errorf("%w: at t=%v, image at t=%v", ErrImageClock, dst.clock.now, img.clock)
+	}
+	if waits := dst.clock.Waits(); len(waits) > 0 && waits[0].Due < img.clock {
+		return fmt.Errorf("%w: %s of %s is due at t=%v, before the image's t=%v",
+			ErrImageClock, waits[0].What, waits[0].Holder, waits[0].Due, img.clock)
 	}
 	return nil
 }

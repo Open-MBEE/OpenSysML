@@ -182,6 +182,80 @@ func TestPristineRefusesATimedBehaviorOnceTheClockHasMoved(t *testing.T) {
 	}
 }
 
+// A destination behind the image's instant takes the image only where nothing of its
+// own is due before that instant: the clock reaches an instant by running what is due
+// on the way, and Materialize runs nothing. A wait due before is refused, the
+// destination left as it was; one due at the instant, or later, is admitted and stays due.
+func TestHeldImageRefusesADestinationWithAWaitDueBeforeItsInstant(t *testing.T) {
+	idx, _, src := buildRuntimeWithLibraries(t, "fuse.sysml", parseAndBuild(t, fuseSource))
+	root := idx.DocumentRoot("fuse.sysml")
+	// A plain object imaged at an instant, its identity past the ids a Charge takes.
+	imageAt := func(ctx *Context, instant float64) *HeldImage {
+		t.Helper()
+		if _, err := ctx.Instantiate(resolveSymbol(t, root, "Charge")); err != nil {
+			t.Fatalf("Instantiate Charge: %v", err)
+		}
+		plain, err := ctx.Instantiate(resolveSymbol(t, root, "Plain"))
+		if err != nil {
+			t.Fatalf("Instantiate Plain: %v", err)
+		}
+		if _, err := ctx.Advance(instant); err != nil {
+			t.Fatalf("Advance(%v): %v", instant, err)
+		}
+		img, err := ctx.Image(plain)
+		if err != nil {
+			t.Fatalf("Image at t=%v: %v", instant, err)
+		}
+		return img
+	}
+	// A destination holding a Charge, its fuse due to burn at t=2.
+	armed := func() (*Context, *Instance) {
+		t.Helper()
+		dst := NewContext(src.Model(), 10000)
+		charge, err := dst.Instantiate(resolveSymbol(t, root, "Charge"))
+		if err != nil {
+			t.Fatalf("Instantiate Charge: %v", err)
+		}
+		return dst, charge
+	}
+
+	atFive := imageAt(src, 5)
+	dst, charge := armed()
+	before, objects := dst.clock.now, len(dst.instances)
+	err := atFive.Materialize(dst)
+	if !errors.Is(err, ErrImageClock) || !strings.Contains(err.Error(), "due at t=2, before the image's t=5") {
+		t.Fatalf("Materialize over a wait due at t=2 = %v, want ErrImageClock naming the wait", err)
+	}
+	if dst.clock.now != before || len(dst.instances) != objects || lampLeaf(t, charge) != "armed" {
+		t.Errorf("the refused materialization left the destination at t=%v with %d objects, fuse %s; want t=%v, %d, armed",
+			dst.clock.now, len(dst.instances), lampLeaf(t, charge), before, objects)
+	}
+
+	// Burnt at t=2, nothing waits: the image goes in and the clock stands at its instant.
+	if _, err := dst.Advance(2); err != nil {
+		t.Fatalf("Advance(2): %v", err)
+	}
+	if err := atFive.Materialize(dst); err != nil {
+		t.Fatalf("Materialize into a destination at t=2 with nothing due = %v, want admitted", err)
+	}
+	if dst.clock.now != 5 || lampLeaf(t, charge) != "spent" {
+		t.Errorf("after the materialization the destination is at t=%v, fuse %s; want t=5, spent", dst.clock.now, lampLeaf(t, charge))
+	}
+
+	// A wait due at the image's instant is due once the clock stands there.
+	atTwo := imageAt(NewContext(src.Model(), 10000), 2)
+	dueAtTwo, charge := armed()
+	if err := atTwo.Materialize(dueAtTwo); err != nil {
+		t.Fatalf("Materialize over a wait due at the image's t=2 = %v, want admitted", err)
+	}
+	if _, err := dueAtTwo.Advance(0); err != nil {
+		t.Fatalf("Advance(0): %v", err)
+	}
+	if dueAtTwo.clock.now != 2 || lampLeaf(t, charge) != "spent" {
+		t.Errorf("the wait due at the image's instant left the fuse %s at t=%v, want spent at t=2", lampLeaf(t, charge), dueAtTwo.clock.now)
+	}
+}
+
 // A message addressed to no object in particular is open to any execution that
 // accepts it: a behaving object is refused while one is in flight, an object
 // running nothing is not, and the image carries the message to the copy.

@@ -836,12 +836,14 @@ behavior unchanged until stage 4.
    moves and through `Snapshot` and `Restore`; a machine and a parked action imaged into
    another context, run there and beside the source, and re-imaged after; the refusals pinned
    by name and reason — a body paused mid-statement, an identity the destination holds, a clock
-   past the image's, a value bound to its run, an object outside the image, a destroyed root (in
-   the REPL, before any row, named as written); a materialization failing on its last message
-   leaving the destination as it found it and going in whole next time; one image serving
-   two sweeps of eight rows on two goroutines under `-race`, and two gRPC sweeps of one model
-   at once. What the image does not carry, and the sweep refuses: a body paused mid-statement
-   and a session inside a step (`Snapshot`'s bounds); a value closed over its run.
+   past the image's or with a wait due before it (the clock reaches an instant by running what
+   is due on the way, and a materialization runs nothing), a value bound to its run, an object
+   outside the image, a destroyed root (in the REPL, before any row, named as written); a
+   materialization failing on its last message leaving the destination as it found it and
+   going in whole next time; one image serving two sweeps of eight rows on two goroutines
+   under `-race`, and two gRPC sweeps of one model at once. What the image does not carry, and
+   the sweep refuses: a body paused mid-statement and a session inside a step (`Snapshot`'s
+   bounds); a value closed over its run.
 4. **Surface.** `-engines`, `-engine`, `%engines`, `ListEngines`, the response fields, the
    standing line on every verdict; the strength-scale tests; `all` and the disagreement result.
    The `-json` additions land here, and its release checklist records whether they are patch or
