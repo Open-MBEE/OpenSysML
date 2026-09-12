@@ -50,6 +50,26 @@ func (c *Clock) Waits() []ClockWait {
 	return waits
 }
 
+// armed lists every wait on the clock, due or not, by due instant and, at one
+// instant, by the executors' creation order.
+func (c *Clock) armed() []ClockWait {
+	var waits []ClockWait
+	for _, w := range c.waiters {
+		waits = append(waits, w.armedWaits()...)
+	}
+	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
+	return waits
+}
+
+// notYetDue keeps the waits, given earliest first, for instants past now.
+func notYetDue(waits []ClockWait, now float64) []ClockWait {
+	i := slices.IndexFunc(waits, func(w ClockWait) bool { return w.Due > now })
+	if i < 0 {
+		return nil
+	}
+	return waits[i:]
+}
+
 // NextDue returns the earliest instant a wait comes due at past the current
 // one, false when nothing waits on the clock.
 func (c *Clock) NextDue() (float64, bool) {

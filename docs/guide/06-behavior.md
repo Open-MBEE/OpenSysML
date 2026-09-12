@@ -1138,13 +1138,18 @@ the session holds, as `An::ship` above, runs each row on a fresh `An::Ship` made
 declaration, not on the held object, and the held object is untouched afterwards. That stands
 for the held object exactly while it is as its declaration made it — an object reached through a
 feature of another, `fleet.flagship`, is made again by instantiating `fleet`'s declaration and
-walking to its `flagship` — so a sweep over an object named by `#<id>`, or over one a run has
-written a feature of or destroyed (or that is reached through one it has), is refused naming the
-reason rather than run on shared state — `%instantiate` it afresh, or name it by its declaration,
-and sweep that. An object running a
-behavior its type exhibits or performs is refused too: its execution is one no other context
-carries, so no row could stand for it. An argument naming such an object is refused the same way,
-naming the argument.
+walking to its `flagship` — and while every behavior its type exhibits or performs is still as
+its start left it, as it is fresh from `%instantiate`. Once the object is not as its declaration
+made it — named by `#<id>`, a feature of it written by a run, its state machine moved by a
+`%send` or an `%advance`, its performed action gone past a wait — each row runs instead on a
+copy of it: an image of the held object and everything it holds, taken once when the sweep
+begins and made afresh in every row's context under the same identities, so a row reads the
+written feature, the current state and the parked action as the session holds them, writes only
+its own copy, and the held object is untouched afterwards. An object destroyed, or one whose
+state no copy can carry — a body paused mid-statement, such as a `do action` waiting at an `accept` — is
+refused naming the reason rather than run on shared state; `%instantiate` it afresh and sweep
+that. An argument naming a held object is carried the same way, the row's own copy bound in
+place of it, and refused the same way when no copy can be made.
 
 ### Trade studies
 

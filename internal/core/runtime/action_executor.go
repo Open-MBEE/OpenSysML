@@ -69,6 +69,9 @@ type ActionExecutor struct {
 	stepsSpent int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
+	// moved is set once a token acted — a failed step included — or the body wrote a
+	// feature, and cleared when the start that attached the execution to its object settles.
+	moved bool
 	// awaiting is the subflow whose parked tokens a run waits on the clock for,
 	// nil for the action's own.
 	awaiting *actionFrame
@@ -139,7 +142,18 @@ func newActionExecutorOf(
 	if err != nil {
 		return nil, err
 	}
+	return newActionExecutorOn(ctx, performed, action, tool, graph, self, occurrence), nil
+}
 
+// newActionExecutorOn is an execution of graph, the lowering of action, ready to
+// begin at its root and attached to ctx's clock.
+func newActionExecutorOn(
+	ctx *Context,
+	performed, action *symbols.Symbol,
+	tool *toolExecution,
+	graph *lower.ActionGraph,
+	self, occurrence *Instance,
+) *ActionExecutor {
 	exec := &ActionExecutor{
 		performances: performances{ctx: ctx, self: self},
 		action:       action,
@@ -158,8 +172,7 @@ func newActionExecutorOf(
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
 	ctx.clock.attach(exec)
-
-	return exec, nil
+	return exec
 }
 
 // lowerPerformance lowers what a performance of action runs, in the scope it was written
@@ -292,14 +305,18 @@ func (e *ActionExecutor) Step() error {
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 
 	schedule := e.scheduleTokens(&order, eligible)
-	err := e.stepTokens(schedule, paused, &order)
+	acted, err := e.stepTokens(schedule, paused, &order)
 	if refused := e.ctx.scheduling().refusal(); refused != nil {
 		err = refused
 	}
-	// What the tokens wrote and the order they took are facts of the step whether
-	// or not it failed.
+	// What the tokens wrote, the order they took and that they acted are facts of
+	// the step whether or not it failed.
 	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order, schedule)
+	if acted {
+		e.moved = true
+	}
+	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore)
 	if err != nil {
 		e.endPausedBodies()
 		return err
@@ -307,27 +324,9 @@ func (e *ActionExecutor) Step() error {
 
 	// A step a breakpoint ends leaves every other token where it was, yet the run
 	// went on.
-	progressMade := e.state == StateSuspended
-
-	// Progress indicators:
-	// 1. Token count changed (fork/join/final consumed/created tokens)
-	if len(e.tokens) != tokenCountBefore {
+	if e.state == StateSuspended {
 		progressMade = true
-	}
-
-	// 2. At least one token moved to different location
-	if !progressMade && len(e.tokens) > 0 {
-		for i := 0; i < len(e.tokens) && i < len(tokenLocationsBefore); i++ {
-			if e.tokens[i].Location != tokenLocationsBefore[i] {
-				progressMade = true
-				break
-			}
-		}
-	}
-
-	// 3. All tokens consumed (completion)
-	if len(e.tokens) == 0 {
-		progressMade = true
+		e.moved = true
 	}
 
 	// If no progress and tokens remain, either the action is suspended waiting
@@ -354,6 +353,20 @@ func (e *ActionExecutor) Step() error {
 	}
 
 	return nil
+}
+
+// tokensProgressed reports whether the tokens got anywhere since the count and locations
+// given: one created or consumed, one at another node, or all consumed.
+func (e *ActionExecutor) tokensProgressed(countBefore int, locationsBefore []ast.Node) bool {
+	if len(e.tokens) != countBefore || len(e.tokens) == 0 {
+		return true
+	}
+	for i := 0; i < len(e.tokens) && i < len(locationsBefore); i++ {
+		if e.tokens[i].Location != locationsBefore[i] {
+			return true
+		}
+	}
+	return false
 }
 
 // waitsOnClockAlone reports whether every remaining token is parked on the clock
@@ -928,6 +941,7 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 		return err
 	}
 	e.root.data[e.root.key(name)] = value
+	e.moved = true
 	return nil
 }
 
@@ -1425,8 +1439,9 @@ func (e *ActionExecutor) parked(t Token, order *stepOrder) bool {
 }
 
 // stepTokens gives each scheduled token its step, then the tokens whose paused
-// work a sweep resumes last; a breakpoint on the way ends the sweep.
-func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) error {
+// work a sweep resumes last; a breakpoint on the way ends the sweep. It reports
+// whether any token acted, one whose step failed among them.
+func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) (acted bool, err error) {
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		if e.state == StateSuspended {
 			break
@@ -1437,10 +1452,11 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 			schedule.Acted(id, false)
 			continue
 		}
-		acted, err := e.stepTokenNoting(i, order)
-		schedule.Acted(id, acted)
+		did, err := e.stepTokenNoting(i, order)
+		schedule.Acted(id, did)
+		acted = acted || did
 		if err != nil {
-			return err
+			return acted, err
 		}
 	}
 	for _, id := range paused {
@@ -1448,12 +1464,14 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 			break
 		}
 		if i := e.tokenIndex(id); i >= 0 {
-			if _, err := e.stepTokenNoting(i, order); err != nil {
-				return err
+			did, err := e.stepTokenNoting(i, order)
+			acted = acted || did
+			if err != nil {
+				return acted, err
 			}
 		}
 	}
-	return nil
+	return acted, nil
 }
 
 // stepInitialNode advances token from initial node to successors.
@@ -2038,12 +2056,18 @@ func (e *ActionExecutor) TimeWaits() []string {
 	return out
 }
 
-// visibleWaits lists, in due order, the waits on the clock that hold this
+// visibleWaits lists, in due order, the waits on the clock not yet due that hold this
 // action: its own, and those of the actions the paused work of its tokens performs.
 func (e *ActionExecutor) visibleWaits() []ClockWait {
-	waits := e.clockWaits()
+	return notYetDue(e.visibleArmedWaits(), e.ctx.clock.now)
+}
+
+// visibleArmedWaits lists, due or not, the waits that hold this action, earliest first:
+// its own and, through the paused work of its tokens, those of the actions it performs.
+func (e *ActionExecutor) visibleArmedWaits() []ClockWait {
+	waits := e.armedWaits()
 	for _, held := range e.heldWaiters() {
-		waits = append(waits, held.clockWaits()...)
+		waits = append(waits, held.visibleArmedWaits()...)
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
@@ -2070,11 +2094,15 @@ func (e *ActionExecutor) dueLabel() string {
 // clockWaits lists the tokens parked on the clock for an instant it has not
 // reached; an action performed for a paused body lists its own.
 func (e *ActionExecutor) clockWaits() []ClockWait {
+	return notYetDue(e.armedWaits(), e.ctx.clock.now)
+}
+
+// armedWaits lists the tokens parked on the clock, due or not, earliest first; an
+// action performed for a paused body lists its own to the clock.
+func (e *ActionExecutor) armedWaits() []ClockWait {
 	var waits []ClockWait
 	for _, token := range e.timeWaits(nil) {
-		if token.Wait.Due > e.ctx.clock.now {
-			waits = append(waits, ClockWait{Due: token.Wait.Due, Holder: e.dueLabel(), What: token.Wait.String()})
-		}
+		waits = append(waits, ClockWait{Due: token.Wait.Due, Holder: e.dueLabel(), What: token.Wait.String()})
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits

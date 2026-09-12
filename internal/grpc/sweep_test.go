@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -755,5 +756,105 @@ func TestRunSweepRowsNameTheirOwnObjects(t *testing.T) {
 				seen[ids[0]] = i
 			}
 		})
+	}
+}
+
+// heldBehaviourModelSource declares subjects whose types run a behaviour — a beacon
+// exhibiting a state machine, a tug performing an action parked at a wait on the
+// clock — and a case reading its subject.
+const heldBehaviourModelSource = `package Held {
+	private import ScalarValues::*;
+	private import SI::*;
+	attribute def Lit;
+	part def Ship { attribute cost : Real = 5.0; }
+	part def Beacon :> Ship {
+		exhibit state blinking {
+			entry; then off;
+			state off;
+			transition first off accept Lit do assign cost := cost + 10.0 then on;
+			state on;
+		}
+	}
+	part beacon : Beacon;
+	part def Tug :> Ship {
+		perform action tow {
+			first start;
+			then action wait accept after 2 [s];
+			then action pull { assign cost := cost + 1.0; }
+			then done;
+		}
+	}
+	part tug : Tug;
+	analysis def Quote {
+		subject s : Ship;
+		in tax : Real;
+		out total : Real = s.cost * (1.0 + tax);
+	}
+}
+`
+
+// TestRunSweepOverASubjectRunningABehaviour verifies a sweep whose subject's type
+// exhibits a state machine, or performs an action, answers on one job and on eight
+// the rows the REPL and the CLI print for the same sweep over the object held there.
+func TestRunSweepOverASubjectRunningABehaviour(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	hash := mustVerifyModel(t, srv, heldBehaviourModelSource, "held-behaviour")
+	want := "tax=0.0 total -> 5.0\ntax=0.25 total -> 6.25\ntax=0.5 total -> 7.5"
+	for _, subject := range []string{"Held::beacon", "Held::tug"} {
+		t.Run(subject, func(t *testing.T) {
+			for _, jobs := range []int{1, 8} {
+				srv.jobs = jobs
+				resp := runSweep(t, srv, &pb.RunSweepRequest{
+					ModelHash: hash, SymbolId: "Held::Quote", SubjectSymbolId: subject,
+					Ranges: []*pb.SweepRange{{Parameter: "tax", Start: realProto(0), End: realProto(0.5), Step: realProto(0.25)}},
+				})
+				if resp.Error != "" {
+					t.Fatalf("%d job(s): RunSweep reported %q", jobs, resp.Error)
+				}
+				if got := rowText(resp); got != want {
+					t.Errorf("%d job(s) answered\n%s\nwant\n%s", jobs, got, want)
+				}
+			}
+		})
+	}
+}
+
+// TestRunSweepOverSubjectsRunningABehaviourConcurrently runs two sweeps over one
+// verified model on two goroutines, eight jobs each, over the beacon and the tug, and
+// checks each answers as it does alone.
+func TestRunSweepOverSubjectsRunningABehaviourConcurrently(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	srv.jobs = 8
+	hash := mustVerifyModel(t, srv, heldBehaviourModelSource, "held-behaviour")
+	want := "tax=0.0 total -> 5.0\ntax=0.25 total -> 6.25\ntax=0.5 total -> 7.5"
+	var wg sync.WaitGroup
+	answers := make(chan string, 2)
+	for _, subject := range []string{"Held::beacon", "Held::tug"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := srv.RunSweep(context.Background(), &pb.RunSweepRequest{
+				ModelHash: hash, SymbolId: "Held::Quote", SubjectSymbolId: subject,
+				Ranges: []*pb.SweepRange{{Parameter: "tax", Start: realProto(0), End: realProto(0.5), Step: realProto(0.25)}},
+			})
+			if err != nil {
+				answers <- subject + ": " + err.Error()
+				return
+			}
+			if resp.Error != "" {
+				answers <- subject + ": " + resp.Error
+				return
+			}
+			answers <- rowText(resp)
+		}()
+	}
+	wg.Wait()
+	close(answers)
+	for got := range answers {
+		if got != want {
+			t.Errorf("a concurrent sweep answered\n%s\nwant\n%s", got, want)
+		}
 	}
 }
