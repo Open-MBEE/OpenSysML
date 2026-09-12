@@ -530,3 +530,77 @@ func TestFootprintAliasesMeet(t *testing.T) {
 		}
 	}
 }
+
+// Routing a send reads every feature its address leads through, so a write that
+// redirects the address is dependent on the send; a chained read likewise reads
+// the features between its base and its end.
+func TestFootprintAddressReads(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		item def Ping;
+		port def PingPort { in item ping : Ping; }
+		part def Node { port inPort : PingPort; attribute n : Integer = 0; }
+		part alpha : Node;
+		part beta : Node;
+		part hub { ref part dest : Node = alpha; }
+		action def Addressed {
+			attribute seen : Integer = 0;
+			first start;
+			fork split;
+			action aim { assign hub.dest := beta; }
+			action post { send new Ping() to hub.dest.inPort; }
+			action named { send new Ping() to alpha::inPort; }
+			action peek { assign seen := hub.dest.n; }
+			action aimed;
+			action posted;
+			action sent;
+			action peeked;
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then aim;
+			succession first split then post;
+			succession first split then named;
+			succession first split then peek;
+			succession first aim then aimed;
+			succession first post then posted;
+			succession first named then sent;
+			succession first peek then peeked;
+			succession first aimed then sync;
+			succession first posted then sync;
+			succession first sent then sync;
+			succession first peeked then sync;
+			succession first sync then done;
+		}
+	`, "Addressed")
+
+	aim := footprintNamed(t, graph, "aim")
+	if !hasPlace(aim.Reads, "hub") || !hasPlace(aim.Writes, "dest") {
+		t.Errorf("aim reads %v writes %v, want hub read and dest written", placeNames(aim.Reads), placeNames(aim.Writes))
+	}
+	post := footprintNamed(t, graph, "post")
+	for _, name := range []string{"hub", "dest", "inPort"} {
+		if !hasPlace(post.Reads, name) {
+			t.Errorf("post reads = %v, want %s", placeNames(post.Reads), name)
+		}
+	}
+	if post.Dynamic {
+		t.Errorf("post is dynamic:\n%s", post)
+	}
+	if !aim.Dependent(post) {
+		t.Error("redirecting the address commutes with the send")
+	}
+	named := footprintNamed(t, graph, "named")
+	if !hasPlace(named.Reads, "alpha") || !hasPlace(named.Reads, "inPort") {
+		t.Errorf("named reads = %v, want alpha and inPort", placeNames(named.Reads))
+	}
+	if aim.Dependent(named) {
+		t.Error("redirecting hub.dest meets a send addressed to alpha")
+	}
+	peek := footprintNamed(t, graph, "peek")
+	if !hasPlace(peek.Reads, "dest") || !hasPlace(peek.Reads, "n") {
+		t.Errorf("peek reads = %v, want dest and n", placeNames(peek.Reads))
+	}
+	if !aim.Dependent(peek) {
+		t.Error("redirecting the chain commutes with reading through it")
+	}
+}

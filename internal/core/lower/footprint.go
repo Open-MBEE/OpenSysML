@@ -262,6 +262,28 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 	}
 }
 
+// path adds a feature reached through a chain: each names the feature at its end,
+// and every prefix is read, since a write to one changes what the chain reaches.
+func (b *footprintBuilder) path(scope *symbols.Scope, segments []string, each func(Place)) {
+	for n := 1; n < len(segments); n++ {
+		b.place(scope, segments[:n], b.read)
+	}
+	b.place(scope, segments, each)
+}
+
+// address adds what routing a send reads: every feature its target path leads
+// through and the port or receiver it ends at, chained or qualified.
+func (b *footprintBuilder) address(scope *symbols.Scope, target string, chained bool) {
+	if target == "" {
+		return
+	}
+	separator := "::"
+	if chained {
+		separator = "."
+	}
+	b.path(scope, strings.Split(target, separator), b.read)
+}
+
 // declaredByNode reports whether sym is a feature some node of the graph declares.
 func (b *footprintBuilder) declaredByNode(sym *symbols.Symbol) bool {
 	for _, features := range b.graph.Features {
@@ -288,8 +310,7 @@ func (b *footprintBuilder) reads(scope *symbols.Scope, expr ast.Node) {
 	case *ast.FeatureChainExpr:
 		base, segments := flattenChain(e)
 		if ref, ok := base.(*ast.FeatureReference); ok && ref.Name != nil && len(ref.Name.Parts) == 1 && len(segments) > 0 {
-			b.place(scope, append([]string{ref.Name.Parts[0].Text}, segments...), b.read)
-			b.readName(scope, ref.Name)
+			b.path(scope, append([]string{ref.Name.Parts[0].Text}, segments...), b.read)
 			return
 		}
 		b.footprint.Dynamic = true
@@ -395,10 +416,11 @@ func (b *footprintBuilder) statement(stmt Statement) {
 			return
 		}
 		segments := append([]string{ref.Name.Parts[0].Text}, s.Chain.Steps...)
-		b.readName(s.Scope, ref.Name)
-		b.place(s.Scope, append(segments, s.Target), b.write)
+		b.path(s.Scope, append(segments, s.Target), b.write)
 	case Send:
 		b.reads(s.Scope, s.Message)
+		b.address(s.Scope, s.Target, s.TargetPath)
+		b.address(s.Scope, s.Receiver, s.ReceiverPath)
 		if s.IsVia {
 			// A `via` send is routed by connections at run time.
 			b.footprint.Dynamic = true

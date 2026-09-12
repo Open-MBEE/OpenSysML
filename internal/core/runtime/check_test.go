@@ -622,6 +622,55 @@ func TestCheckMergeLoopHitsTheDepthBound(t *testing.T) {
 	}
 }
 
+// A state the depth bound cut under a long schedule is searched again when a
+// shorter one reaches it, so what lies within the shorter one's bound is found.
+func TestCheckSearchesAgainWhatTheDepthBoundCutFromAShorterWay(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action detour {
+			attribute n : Integer = 0;
+			first start;
+			decide pick;
+			merge m1;
+			merge m2;
+			merge m3;
+			merge meet;
+			action bump { assign n := n + 1; }
+			done;
+			succession first start then pick;
+			succession first pick if n >= 0 then m1;
+			succession first pick if n >= 0 then meet;
+			succession first m1 then m2;
+			succession first m2 then m3;
+			succession first m3 then meet;
+			succession first meet then bump;
+			succession first bump then done;
+		}
+	}`)
+	low := CheckProperty{Name: "low", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+		return exec.Data()["n"].Const.Int < 1, nil
+	}}
+	// The short way makes n = 1 after 4 moves, the long way after 7: with a bound
+	// between, the long way (searched first) is cut at meet, the short way is not.
+	for _, depth := range []int{4, 5, 6} {
+		report := checkModel(t, m, "detour", CheckBudget{Depth: depth}, reduced(), low)
+		if report.Verdict != CheckViolation || len(report.Violations) != 1 {
+			t.Fatalf("depth %d: %s, want the violation the short way reaches", depth, report.Status())
+		}
+		if v := report.Violations[0]; v.Kind != ViolationProperty || v.Name != "low" || v.Depth != 4 {
+			t.Fatalf("depth %d: violation %s at depth %d, want low at depth 4", depth, v, v.Depth)
+		}
+		if !slices.Contains(report.BoundsHit, "depth") {
+			t.Fatalf("depth %d: bounds hit %v, want depth", depth, report.BoundsHit)
+		}
+	}
+	// With room for both ways nothing is cut, and the search is exhaustive.
+	report := checkModel(t, m, "detour", CheckBudget{Depth: 8}, reduced(), low)
+	if report.Verdict != CheckViolation || len(report.BoundsHit) != 0 {
+		t.Fatalf("depth 8: %s, want a violation with no bound hit", report.Status())
+	}
+}
+
 // Every executor budget the search can exhaust is a bound of its own, named by
 // its budget, its limit that budget's.
 func TestCheckNamesEachExecutorBudget(t *testing.T) {

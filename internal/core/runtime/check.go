@@ -277,10 +277,12 @@ type checker struct {
 	results []CheckFinal
 }
 
-// visitedState is what the search remembers of a state: the moves it has
-// explored from it, by canonical name.
+// visitedState is what the search remembers of a state: the moves explored from
+// it, the shallowest depth it was searched from, and whether a bound cut below it.
 type visitedState struct {
 	explored map[string]bool
+	depth    int
+	cut      bool
 }
 
 // checkFrame is one state on the search stack.
@@ -297,6 +299,8 @@ type checkFrame struct {
 	sleep []searchMove
 	// full is set once the state expands to every enabled move.
 	full bool
+	// cut is set once the depth bound cut a schedule through the state.
+	cut bool
 }
 
 // searchMove is an enabled move with what the reduction needs of it: its
@@ -373,6 +377,9 @@ func (c *checker) search() error {
 			c.stack = c.stack[:len(c.stack)-1]
 			c.onStack[f.key]--
 			f.snap.Release()
+			if f.cut && len(c.stack) > 0 {
+				c.cut(c.stack[len(c.stack)-1])
+			}
 			continue
 		}
 		m := f.moves[f.next]
@@ -387,6 +394,12 @@ func (c *checker) search() error {
 	return nil
 }
 
+// cut marks the frame's state as one the depth bound cut a schedule through.
+func (c *checker) cut(f *checkFrame) {
+	f.cut = true
+	c.visited[f.key].cut = true
+}
+
 func (c *checker) releaseAll() {
 	for _, f := range c.stack {
 		f.snap.Release()
@@ -399,10 +412,12 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 	depth := f.depth + 1
 	if c.budget.Depth > 0 && depth > c.budget.Depth {
 		c.hit("depth")
+		c.cut(f)
 		return nil
 	}
 	if c.maxSteps > 0 && depth > c.maxSteps {
 		c.hit(BoundActionSteps)
+		c.cut(f)
 		return nil
 	}
 	branches, err := c.exec.makeMove(m.enabledMove)
@@ -423,6 +438,9 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 	child, key, err := c.enter(depth, c.childSleep(f, m))
 	if err != nil {
 		return err
+	}
+	if seen := c.visited[key]; seen != nil && seen.cut {
+		c.cut(f)
 	}
 	if c.onStack[key] > 0 {
 		// A move closing a cycle on the stack: the state expands fully, so no move is ignored.
@@ -496,9 +514,15 @@ func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visi
 			c.hit("states")
 			return form, key, nil, false, nil
 		}
-		seen = &visitedState{explored: make(map[string]bool)}
+		seen = &visitedState{explored: make(map[string]bool), depth: depth}
 		c.visited[key] = seen
 		c.properties(depth)
+	} else if depth < seen.depth {
+		if seen.cut {
+			seen.explored = make(map[string]bool)
+			seen.cut = false
+		}
+		seen.depth = depth
 	}
 	return form, key, seen, visited, nil
 }

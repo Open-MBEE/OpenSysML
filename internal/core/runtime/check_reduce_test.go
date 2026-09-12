@@ -24,6 +24,7 @@ var reductionCorpus = []struct{ file, action string }{
 	{"por_dynamic_target", "dynamic"},
 	{"por_independent_branches", "parallel"},
 	{"por_alias", "aliased"},
+	{"por_address", "addressed"},
 }
 
 const reductionExpected = "testdata/check/reduction_expected.txt"
@@ -131,5 +132,41 @@ func TestCheckReductionRatchet(t *testing.T) {
 	}
 	if len(want) != len(reductionCorpus) {
 		t.Errorf("%s pins %d models, the corpus has %d", reductionExpected, len(want), len(reductionCorpus))
+	}
+}
+
+// A write that redirects a send's address is dependent on the send: the reduced
+// search reaches the message at each node the address may name, as the full one does.
+func TestCheckReductionKeepsEveryAddressee(t *testing.T) {
+	m := reductionModel(t, "por_address")
+	addressed := func(node string) CheckProperty {
+		return CheckProperty{Name: node + " unaddressed", Holds: func(ctx *Context, _ *ActionExecutor) (bool, error) {
+			for _, msg := range ctx.PendingMessages() {
+				if inst, held := ctx.instances[msg.Object]; held && symbolText(inst.Type) == node {
+					return false, nil
+				}
+			}
+			return true, nil
+		}}
+	}
+	violated := func(report *CheckReport) []string {
+		names := make([]string, 0, len(report.Violations))
+		for _, v := range report.Violations {
+			names = append(names, v.Name)
+		}
+		sort.Strings(names)
+		return names
+	}
+	with := checkModel(t, m, "addressed", CheckBudget{}, reduced(), addressed("alpha"), addressed("beta"))
+	without := checkModel(t, m, "addressed", CheckBudget{}, unreduced(), addressed("alpha"), addressed("beta"))
+	want := []string{"alpha unaddressed", "beta unaddressed"}
+	if got := violated(without); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("unreduced violations %v, want %v", got, want)
+	}
+	if got := violated(with); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("reduced violations %v, want %v", got, want)
+	}
+	if len(with.BoundsHit) != 0 || with.States > without.States {
+		t.Fatalf("reduced %s against unreduced %s", with.Status(), without.Status())
 	}
 }

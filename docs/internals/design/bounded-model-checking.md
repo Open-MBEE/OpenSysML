@@ -260,7 +260,8 @@ footprint(node) = {
   reads:    features the body's expressions read, by resolved declaration,
             and features the guards of the node's outgoing successions read
   writes:   Assign.Target / AssignTarget.Steps[last], bind ends, out pins delivered
-  sends:    Send targets (port or receiver), by resolved feature
+  sends:    Send targets (port or receiver), by resolved feature; every feature
+            the address leads through is read (`hub.dest.inPort` reads hub and dest)
   accepts:  Accept.SignalType / ViaPort, and the features an accept's trigger
             condition reads
   control:  the join/merge nodes the token's successions reach; for a transition,
@@ -327,7 +328,11 @@ frame path), frames in root-first order with values rendered through the same ca
 formatter the trace recorder uses (`RecordActionStep` sorts by id for the same reason), objects
 by materialization path rather than by `Instance.ID`, the event queue in dispatch order. Ids
 handed out by `idSequence` and `nextTokenID` are excluded: two states that differ only in the
-numbers the run happened to assign are one state.
+numbers the run happened to assign are one state. The set also remembers the shallowest
+depth each state was searched from and whether the depth bound cut a schedule below it: a
+state first reached the long way round, with little depth left, is searched again when a
+shorter schedule reaches it, so the bound cuts what lies beyond it, never what a shorter
+schedule reaches within it.
 
 ## Bounds
 
