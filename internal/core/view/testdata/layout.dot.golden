@@ -1,6 +1,7 @@
 // view: PlantViews::placedView
 // kind: interconnection
 // stated: render asInterconnectionDiagram
+// not represented: 1 route(s) written as pos; neato redraws every edge, only neato -n2 keeps them
 // canvas: unit=px w=1200 h=800
 // layout: neato
 digraph "PlantViews::placedView" {

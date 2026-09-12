@@ -488,9 +488,9 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 
 // A graph whose every node is positioned is written for `neato -n`, and for
 // `neato -n2` once every edge is routed too; a route of one waypoint is
-// noticed; a cluster states its box — the stated one, or the one from its
-// corner round its members — and pins its anchor at the centre; a tree pins
-// the node itself.
+// noticed, as are routes an engine short of `neato -n2` redraws; a cluster
+// states its box — the stated one, or the one from its corner round its
+// members — and pins its anchor at the centre; a tree pins the node itself.
 func TestDOTPinsEveryNode(t *testing.T) {
 	rendering := &Rendering{
 		View:   "Pinned::view",
@@ -518,6 +518,7 @@ func TestDOTPinsEveryNode(t *testing.T) {
 	want := `// view: Pinned::view
 // kind: interconnection
 // not represented: route of n2->n3 is one waypoint, (174, 48); a line needs two
+// not represented: 1 route(s) written as pos; neato -n redraws every edge, only neato -n2 keeps them
 // canvas: unit=px w=400 h=300
 // layout: neato -n
 digraph "Pinned::view" {
@@ -556,7 +557,8 @@ digraph "Pinned::view" {
 		t.Errorf("fully routed DOT:\n%s", dot)
 	}
 	// A tree has no cluster, so the node with children is pinned itself and no
-	// `bb` is written; the canvas still sizes the graph.
+	// `bb` is written; the canvas still sizes the graph. Its containment edges
+	// have no route, so the engine is `neato -n` and the routes are noticed.
 	rendering.Kind = KindTree
 	dot, err = rendering.DOT()
 	if err != nil {
@@ -564,7 +566,8 @@ digraph "Pinned::view" {
 	}
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
-		"// layout: neato -n2\n",
+		"// not represented: 2 route(s) written as pos; neato -n redraws every edge, only neato -n2 keeps them\n",
+		"// layout: neato -n\n",
 		`  graph [inputscale=72, dpi=72, size="5.555555555555555,4.166666666666667"];`,
 		`"n0" [label="part def Outer", pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
 		`"n3" [label="part def Other", pos="367,82!", pin=true, width=1.8611111111111112, height=0.5];`,

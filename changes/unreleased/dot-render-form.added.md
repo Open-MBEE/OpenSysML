@@ -29,5 +29,5 @@
   `// canvas:` header line. The `// layout:` header names the engine that honours the file:
   `neato -n2` when every node is placed and every edge routed, `neato -n` when every node is
   placed, `neato` when some are, `dot` when none — so `neato -n -Tsvg view.dot` draws the view
-  as laid out. A model without layout annotations
+  as laid out; a route an engine short of `neato -n2` redraws is noticed. A model without layout annotations
   writes the same DOT as before, and no Graphviz binary is run to produce it.

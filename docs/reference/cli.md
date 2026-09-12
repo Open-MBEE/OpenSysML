@@ -454,7 +454,8 @@ positioned cluster states its `bb`, a route is the edge's `pos` spline (a route 
 draws no line and is noticed), the canvas is echoed as `// canvas:` and sizes the graph, and the
 `// layout:` header names the command that honours it — `neato -n2` when every node is placed
 and every edge routed, `neato -n` when every node is placed, `neato` when only some are — so
-`neato -n -Tsvg view.dot` draws the view where the model put it.
+`neato -n -Tsvg view.dot` draws the view where the model put it. Only `neato -n2` keeps the
+`pos` splines; under any other engine a written route is noticed as redrawn.
 A model with no layout annotations renders exactly as before. `-validate` reports a `Layout` or
 `Route` on an element the rendering does not draw as a node or an edge, a `Route` with an odd
 number of values, a `Canvas` outside a view, and two positions for one element in one view (the

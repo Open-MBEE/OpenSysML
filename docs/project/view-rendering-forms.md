@@ -158,7 +158,11 @@ digraph "PlantViews::placedView" {
 - **Engine.** The `// layout:` header names the command that honours what is written:
   `neato -n2` when every node is positioned and every edge routed (both are taken as given),
   `neato -n` when every node is positioned (the edges are routed), `neato` when some are
-  (pinned nodes stay, the rest are placed around them), `dot` when none is. A rendering with no geometry is written byte for byte as before.
+  (pinned nodes stay, the rest are placed around them), `dot` when none is. A tree's
+  containment edges carry no route, so a positioned tree is `neato -n` at best. Only
+  `neato -n2` keeps a `pos` spline; when the header names anything else and a route was
+  written, a `// not represented:` notice says the engine redraws it. A rendering with no
+  geometry is written byte for byte as before.
 
 The writer is still text over the tree: no Graphviz binary is run to produce, check or test
 the output.

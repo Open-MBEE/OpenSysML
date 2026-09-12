@@ -48,13 +48,18 @@ func (r *Rendering) DOTDirected(direction Direction) (string, error) {
 		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
 			w.compound = true
 		}
-		if len(edge.Route) < 2 {
+		if len(edge.Route) > 1 {
+			w.routed++
+		} else {
 			w.unrouted++
 		}
 		if len(edge.Route) == 1 {
 			p := edge.Route[0]
 			w.notices = append(w.notices, fmt.Sprintf("route of %s->%s is one waypoint, (%s, %s); a line needs two", edge.From, edge.To, formatCoord(p.X), formatCoord(p.Y)))
 		}
+	}
+	if engine := w.engine(); w.routed > 0 && engine != "neato -n2" {
+		w.notices = append(w.notices, fmt.Sprintf("%d route(s) written as pos; %s redraws every edge, only neato -n2 keeps them", w.routed, engine))
 	}
 	b := &w.b
 	if r.View != "" {
@@ -112,15 +117,20 @@ type dotWriter struct {
 	canvas    *Canvas             // the surface positions are flipped against
 	nodes     int                 // nodes written, and how many are positioned
 	placed    int
-	unrouted  int      // edges with no route to write
+	routed    int // edges with a route to write, and those without
+	unrouted  int
 	notices   []string // geometry the form cannot draw
 }
 
-// countPlaced counts the nodes under node and those a Geometry positions.
+// countPlaced counts the nodes under node, those a Geometry positions, and a
+// tree's containment edges, which no Route covers.
 func (w *dotWriter) countPlaced(node *Node) {
 	w.nodes++
 	if node.Geometry != nil {
 		w.placed++
+	}
+	if w.tree {
+		w.unrouted += len(node.Children)
 	}
 	for _, child := range node.Children {
 		w.countPlaced(child)
