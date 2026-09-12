@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -196,6 +197,9 @@ func readEngineEntry(path, env string, kind EntryKind, data []byte) (EngineEntry
 	if !containsInt(ProtocolVersions, entry.Protocol) {
 		return fault(fmt.Sprintf("protocol %d is not served; this build serves %s", entry.Protocol, joinInts(ProtocolVersions)), nil)
 	}
+	if wire.Concurrent != nil {
+		entry.Concurrent = *wire.Concurrent
+	}
 	if kind != KindEngine {
 		if wire.Answers != nil || wire.Subjects != nil || wire.Model != nil || wire.Bounds != nil || wire.Witness != "" || wire.Authority != "" {
 			return fault(fmt.Sprintf("a %s entry has no question fields (answers, subjects, model, bounds, witness, authority)", kind), nil)
@@ -255,14 +259,12 @@ func readEngineEntry(path, env string, kind EntryKind, data []byte) (EngineEntry
 		return fault(fmt.Sprintf("authority %q is not observed, witnessed, bounded or proved", wire.Authority), nil)
 	}
 	entry.Authority = authority
-	if wire.Concurrent != nil {
-		entry.Concurrent = *wire.Concurrent
-	}
 	return entry, nil
 }
 
-// confinedPath resolves a command or module path: an absolute path as given, a relative one
-// joined to dir, followed through every link, and refused unless it stays inside dir.
+// confinedPath resolves a command or module path: an absolute path cleaned, a relative one
+// joined to dir, followed through every link, and refused unless it stays inside dir. A bare
+// name is relative too: an engine is never looked up on PATH.
 func confinedPath(dir, path string) (string, error) {
 	if filepath.IsAbs(path) {
 		return filepath.Clean(path), nil
@@ -271,22 +273,78 @@ func confinedPath(dir, path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%q: the manifest directory cannot be resolved: %v", path, err)
 	}
-	joined := filepath.Join(dir, path)
-	if rel, err := filepath.Rel(dir, joined); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	joined := filepath.Join(root, path)
+	if !within(root, joined) {
 		return "", fmt.Errorf("%q names a path outside the manifest directory %s", path, dir)
 	}
-	resolved, err := filepath.EvalSymlinks(joined)
-	switch {
-	case err == nil:
-		if rel, err := filepath.Rel(root, resolved); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return "", fmt.Errorf("%q resolves to %s, outside the manifest directory %s", path, resolved, dir)
-		}
-		return resolved, nil
-	case os.IsNotExist(err):
-		return joined, nil
-	default:
+	resolved, err := resolveExisting(joined)
+	if err != nil {
 		return "", fmt.Errorf("%q cannot be resolved: %v", path, err)
 	}
+	if !within(root, resolved) {
+		return "", fmt.Errorf("%q resolves to %s, outside the manifest directory %s", path, resolved, dir)
+	}
+	return resolved, nil
+}
+
+// resolveExisting follows the links of path's longest existing prefix and appends the rest,
+// so a link among the ancestors of a file not yet there still resolves to where it points.
+func resolveExisting(path string) (string, error) {
+	var rest []string
+	for {
+		resolved, err := filepath.EvalSymlinks(path)
+		switch {
+		case err == nil:
+			for i := len(rest) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, rest[i])
+			}
+			return resolved, nil
+		case !errors.Is(err, os.ErrNotExist):
+			return "", err
+		}
+		parent, base := filepath.Dir(path), filepath.Base(path)
+		if parent == path {
+			return "", err
+		}
+		rest = append(rest, base)
+		path = parent
+	}
+}
+
+// within reports whether path is root or lies under it, both already cleaned.
+func within(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// Program is the resolved executable or module path the entry runs, empty for a grpc engine.
+func (e EngineEntry) Program() string {
+	if e.Module != "" {
+		return e.Module
+	}
+	return e.Executable
+}
+
+// Present checks the entry's program is there without running it: a regular file, executable
+// by someone for a command. It is the one check a listing makes of the file system.
+func (e EngineEntry) Present() error {
+	program := e.Program()
+	if program == "" {
+		return nil
+	}
+	info, err := os.Stat(program)
+	switch {
+	case err != nil:
+		return &ProcessAbsentError{Engine: e.Name, Process: program, Err: err}
+	case !info.Mode().IsRegular():
+		return &ProcessAbsentError{Engine: e.Name, Process: program, Err: fmt.Errorf("%s is not a regular file", program)}
+	case e.Module == "" && runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0:
+		return &ProcessAbsentError{Engine: e.Name, Process: program, Err: fmt.Errorf("%s is not executable", program)}
+	}
+	return nil
 }
 
 // ErrNotServed is the typed error for a manifest entry this build lists but does not run.
@@ -323,7 +381,7 @@ func (e EngineEntry) Served() error {
 	}
 	for _, form := range e.Model {
 		if form == FormRDF {
-			return &NotServedError{Name: e.Name, Kind: e.Kind, Reason: "the rdf model form is the strategies stage, with the RDF export it rests on"}
+			return &NotServedError{Name: e.Name, Kind: e.Kind, Reason: "the rdf model form is the rdf stage, with the graph-store engines it is for"}
 		}
 	}
 	return nil
@@ -342,11 +400,9 @@ func (e EngineEntry) Forms() []ModelForm {
 
 // Description is the entry as the framework describes an engine.
 func (e EngineEntry) Description() Description {
-	process := e.Executable
+	process := e.Program()
 	if e.Transport == TransportGRPC {
 		process = e.Address
-	} else if e.Module != "" {
-		process = e.Module
 	}
 	return Description{Questions: e.Answers, Process: process, Bounds: e.Bounds,
 		Replays: e.Witness != WitnessNone, Authority: e.Authority}
@@ -354,7 +410,7 @@ func (e EngineEntry) Description() Description {
 
 // Origin is where the entry comes from, as a listing prints it.
 func (e EngineEntry) Origin() Origin {
-	return Origin{Kind: e.Kind, Version: e.Version, File: e.File, Command: e.Executable,
+	return Origin{Kind: e.Kind, Version: e.Version, File: e.File, Command: e.Program(),
 		Transport: e.Transport, Protocol: e.Protocol}
 }
 

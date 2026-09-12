@@ -140,8 +140,10 @@ func LoadManifest(dir string) ([]ToolEntry, error) {
 
 // ReadManifest reads the manifest in dir, named by the environment variable env: every
 // `.json` file is one entry of the kind its `kind` field says, `tool` when absent. Every
-// fault is a ManifestError; a duplicate name among entries of one kind is one too.
-func ReadManifest(dir, env string) (*Manifest, error) {
+// fault is a ManifestError; a duplicate name among entries of one kind is one too. A dir
+// under one of the workspaces is refused unread: a manifest comes from the environment,
+// never from a workspace or a model.
+func ReadManifest(dir, env string, workspaces ...string) (*Manifest, error) {
 	fault := func(path, detail string, err error) error {
 		return &ManifestError{Env: env, Path: path, Detail: detail, Err: err}
 	}
@@ -151,6 +153,9 @@ func ReadManifest(dir, env string) (*Manifest, error) {
 	}
 	if !info.IsDir() {
 		return nil, fault(dir, "is not a directory", nil)
+	}
+	if workspace, under := underWorkspace(dir, workspaces); under {
+		return nil, fault(dir, fmt.Sprintf("is under the workspace %s; a manifest is read from a directory the environment names outside every workspace", workspace), nil)
 	}
 	if err := ownerWritableOnly(dir, info); err != nil {
 		return nil, fault(dir, err.Error(), nil)
@@ -230,6 +235,27 @@ func readEntryFile(path, env string) ([]byte, EntryKind, error) {
 	return data, EntryKind(strings.TrimSpace(kind)), nil
 }
 
+// underWorkspace reports which workspace dir lies in, both followed through their links.
+func underWorkspace(dir string, workspaces []string) (string, bool) {
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		resolved = filepath.Clean(dir)
+	}
+	for _, workspace := range workspaces {
+		if strings.TrimSpace(workspace) == "" {
+			continue
+		}
+		root, err := filepath.EvalSymlinks(workspace)
+		if err != nil {
+			root = filepath.Clean(workspace)
+		}
+		if within(root, resolved) {
+			return workspace, true
+		}
+	}
+	return "", false
+}
+
 // ownerWritableOnly refuses a manifest file or directory writable by anyone but its owner,
 // the check ssh makes of its configuration; the bits mean nothing on Windows.
 func ownerWritableOnly(path string, info os.FileInfo) error {
@@ -242,7 +268,8 @@ func ownerWritableOnly(path string, info os.FileInfo) error {
 	return nil
 }
 
-// readToolEntry reads one tool entry, resolving a relative executable against the entry's directory.
+// readToolEntry reads one tool entry; a relative executable with a separator in it is confined
+// to the entry's directory, a bare name kept for PATH.
 func readToolEntry(path, env string, data []byte) (ToolEntry, error) {
 	fault := func(detail string, err error) (ToolEntry, error) {
 		return ToolEntry{}, &ManifestError{Env: env, Path: path, Detail: detail, Err: err}
@@ -277,7 +304,11 @@ func readToolEntry(path, env string, data []byte) (ToolEntry, error) {
 		seen[v] = true
 	}
 	if strings.ContainsAny(entry.Executable, `/\`) && !filepath.IsAbs(entry.Executable) {
-		entry.Executable = filepath.Join(filepath.Dir(path), entry.Executable)
+		resolved, err := confinedPath(filepath.Dir(path), entry.Executable)
+		if err != nil {
+			return fault("executable "+err.Error(), nil)
+		}
+		entry.Executable = resolved
 	}
 	return entry, nil
 }
@@ -299,8 +330,8 @@ func decodeOne(data []byte, v any) error {
 
 // ToolsFromEnv reads the manifest OPENSYSML_TOOLS names as engines, one per tool entry;
 // none when it is unset. A manifest that cannot be read is a ManifestError.
-func ToolsFromEnv() ([]External, error) {
-	m, err := manifestFromEnv(ToolsEnv)
+func ToolsFromEnv(workspaces ...string) ([]External, error) {
+	m, err := manifestFromEnv(ToolsEnv, workspaces)
 	if err != nil || m == nil {
 		return nil, err
 	}
@@ -312,11 +343,12 @@ func ToolsFromEnv() ([]External, error) {
 }
 
 // ManifestsFromEnv reads both manifest directories the environment names, OPENSYSML_TOOLS
-// then OPENSYSML_ENGINES, skipping one unset; a manifest that cannot be read is a ManifestError.
-func ManifestsFromEnv() ([]*Manifest, error) {
+// then OPENSYSML_ENGINES, skipping one unset and refusing one under a workspace; a manifest
+// that cannot be read is a ManifestError.
+func ManifestsFromEnv(workspaces ...string) ([]*Manifest, error) {
 	var manifests []*Manifest
 	for _, env := range []string{ToolsEnv, EnginesEnv} {
-		m, err := manifestFromEnv(env)
+		m, err := manifestFromEnv(env, workspaces)
 		if err != nil {
 			return nil, err
 		}
@@ -328,12 +360,12 @@ func ManifestsFromEnv() ([]*Manifest, error) {
 }
 
 // manifestFromEnv reads the manifest the variable names, nil when it is unset.
-func manifestFromEnv(env string) (*Manifest, error) {
+func manifestFromEnv(env string, workspaces []string) (*Manifest, error) {
 	dir := strings.TrimSpace(os.Getenv(env))
 	if dir == "" {
 		return nil, nil
 	}
-	return ReadManifest(dir, env)
+	return ReadManifest(dir, env, workspaces...)
 }
 
 // lookExecutable finds an entry's executable: a path as given, a bare name on PATH.
