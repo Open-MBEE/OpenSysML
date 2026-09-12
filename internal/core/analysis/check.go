@@ -17,6 +17,13 @@ import (
 // CheckEngineName is the name of the engine that searches an action's schedules explicitly.
 const CheckEngineName = "check"
 
+// The bounds a check searches under when the budget leaves them 0: the moves one
+// schedule may make and the distinct states the search may visit.
+const (
+	DefaultCheckDepth  = 10000
+	DefaultCheckStates = 1000000
+)
+
 // CheckAsk is what a check question asks over the schedules of one action: how the
 // action begins, what must hold at every stable state, what may not diverge, and
 // where the witnesses go.
@@ -111,6 +118,12 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	}
 	fresh := func() (*runtime.Context, error) { return model.NewContextOn(0, budget) }
 	started := time.Now()
+	if budget.Depth <= 0 {
+		budget.Depth = DefaultCheckDepth
+	}
+	if budget.Runs <= 0 {
+		budget.Runs = DefaultCheckStates
+	}
 	limits := runtime.CheckBudget{Depth: budget.Depth, States: budget.Runs}
 	options := runtime.CheckOptions{Diverge: q.Check.Diverge, Reduce: true}
 	report, err := runtime.CheckAction(ctx, fresh, q.Check.Start, limits, options, q.Check.Properties)

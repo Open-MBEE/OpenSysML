@@ -144,6 +144,36 @@ func (r *Registry) Explore(
 	return plan, nil
 }
 
+// Check puts an action's schedules to the registry under the selection: kind is Holds
+// when ask states properties, else Outcomes; run performs the action once for an
+// engine that explores it beside the check, each in a context the model makes.
+func (r *Registry) Check(
+	ctx context.Context,
+	model *Model,
+	subject string,
+	kind Kind,
+	ask *CheckAsk,
+	run Linearization,
+	budget Budget,
+	selection Selection,
+) (Plan, error) {
+	plan, err := r.AnswerWith(ctx, model, Question{
+		Kind:      kind,
+		Subject:   subject,
+		Schedule:  runtime.DefaultExploreSchedulePolicy,
+		Free:      FreeSchedule,
+		Linearize: run,
+		Check:     ask,
+	}, budget, selection)
+	if err != nil {
+		return plan, err
+	}
+	if refused := plan.Refused(); refused != nil {
+		return plan, refused
+	}
+	return plan, nil
+}
+
 // Sweep puts a domain to the registry under the selection: row runs the subject once per
 // row of the plan, each in a context of its own the model builds; the answered plan's
 // result tables the rows.
