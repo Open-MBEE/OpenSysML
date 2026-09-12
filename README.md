@@ -221,7 +221,7 @@ The project is under active development, with the core infrastructure operationa
 
 | Component | Status |
 |-----------|--------|
-| Lexer/Parser (structural + behavioral grammar) | ✅ Operational (98/98 stdlib clean - see [conformance gate](internal/core/libs/stdlib_conformance_test.go)) |
+| Lexer/Parser (structural + behavioral grammar) | ✅ Operational (100/100 stdlib clean - see [conformance gate](internal/core/libs/stdlib_conformance_test.go)) |
 | Symbol resolution & type system | ✅ Complete |
 | Semantic layer (operators, builtins, validation) | ✅ Complete |
 | Feature chain resolution (member access) | ✅ Complete |
