@@ -313,3 +313,46 @@ func TestSemanticMetadataInheritsBaseType(t *testing.T) {
 		}
 	}
 }
+
+// With several supertypes, a rebinding of a common ancestor's baseType wins over
+// the ancestor's binding reached through another supertype, whichever is listed first;
+// bindings of unrelated ancestors are taken in breadth-first declaration order.
+func TestSemanticMetadataInheritsMostSpecificBaseType(t *testing.T) {
+	m, idx := requirementMemberModel(t, `package P {
+		private import Metaobjects::SemanticMetadata;
+		part def Vehicle;
+		part vehicles : Vehicle[*];
+		part trucks : Vehicle[*] :> vehicles;
+		part boats : Vehicle[*];
+		metadata def vehicle :> SemanticMetadata {
+			:>> baseType = vehicles meta SysML::Usage;
+		}
+		metadata def car :> vehicle;
+		metadata def truck :> vehicle {
+			:>> baseType = trucks meta SysML::Usage;
+		}
+		metadata def boat :> SemanticMetadata {
+			:>> baseType = boats meta SysML::Usage;
+		}
+		metadata def pickup :> car, truck;
+		metadata def lorry :> truck, car;
+		metadata def amphibious :> car, boat;
+		metadata def hovercraft :> boat, car;
+		#pickup part p : Vehicle;
+		#lorry part l : Vehicle;
+		#amphibious part a : Vehicle;
+		#hovercraft part h : Vehicle;
+	}`)
+	for _, fqn := range []string{"P::p", "P::l"} {
+		got := supertypeNames(m, lookupFQN(t, idx, fqn))
+		if !containsName(got, "P::trucks") || containsName(got, "P::vehicles") {
+			t.Errorf("supertypes of %s = %v, want the rebound base P::trucks only", fqn, got)
+		}
+	}
+	for _, fqn := range []string{"P::a", "P::h"} {
+		got := supertypeNames(m, lookupFQN(t, idx, fqn))
+		if !containsName(got, "P::boats") || containsName(got, "P::vehicles") {
+			t.Errorf("supertypes of %s = %v, want the nearer base P::boats only", fqn, got)
+		}
+	}
+}

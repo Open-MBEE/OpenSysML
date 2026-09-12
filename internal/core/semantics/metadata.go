@@ -178,48 +178,91 @@ func (m *Model) isSemanticMetadata(def *symbols.Symbol) bool {
 // resolving the meta-cast operand of `:>> baseType = causes meta SysML::Usage`
 // (§7.27.3). The binding is model-level evaluated, so a conditional binding is
 // decided against the element being annotated. A definition binding no baseType
-// of its own inherits its supertypes' binding; one that binds it, even to a value
-// that does not resolve, replaces the inherited binding. Returns nil when the
-// binding in force names no type.
+// of its own inherits the binding of the nearest supertypes that do; a binding
+// replaces those of the supertypes of its binder, and unrelated binders are
+// ordered as inherited members are, breadth-first in declaration order. A binder
+// whose value does not resolve still replaces what it inherits. Returns nil when
+// the binding in force names no type.
 func (m *Model) baseTypeOf(def, annotated *symbols.Symbol) *symbols.Symbol {
-	return m.baseTypeOfWithin(def, annotated, map[*symbols.Symbol]bool{})
-}
-
-func (m *Model) baseTypeOfWithin(def, annotated *symbols.Symbol, seen map[*symbols.Symbol]bool) *symbols.Symbol {
-	if def == nil || seen[def] {
+	if def == nil {
 		return nil
 	}
-	seen[def] = true
 	if base, bound := m.ownBaseTypeOf(def, annotated); bound {
 		return base
 	}
-	for _, super := range m.DirectSupertypes(def) {
-		if base := m.baseTypeOfWithin(super, annotated, seen); base != nil {
+	binders := m.baseTypeBinders(def)
+	for _, binder := range binders {
+		if !m.baseTypeRebound(binder, binders) {
+			base, _ := m.ownBaseTypeOf(binder, annotated)
 			return base
 		}
 	}
 	return nil
 }
 
-// ownBaseTypeOf returns the type def's own body binds baseType to for annotated,
-// and whether the body binds baseType at all.
-func (m *Model) ownBaseTypeOf(def, annotated *symbols.Symbol) (*symbols.Symbol, bool) {
+// baseTypeBinders lists the nearest supertypes of def whose own body binds
+// baseType, breadth-first in declaration order, not looking past a binder.
+func (m *Model) baseTypeBinders(def *symbols.Symbol) []*symbols.Symbol {
+	seen := map[*symbols.Symbol]bool{def: true}
+	var binders []*symbols.Symbol
+	for frontier := m.DirectSupertypes(def); len(frontier) > 0; {
+		var next []*symbols.Symbol
+		for _, super := range frontier {
+			if seen[super] {
+				continue
+			}
+			seen[super] = true
+			if m.bindsBaseType(super) {
+				binders = append(binders, super)
+				continue
+			}
+			next = append(next, m.DirectSupertypes(super)...)
+		}
+		frontier = next
+	}
+	return binders
+}
+
+// baseTypeRebound reports whether another of binders specializes binder, so its
+// binding replaces binder's.
+func (m *Model) baseTypeRebound(binder *symbols.Symbol, binders []*symbols.Symbol) bool {
+	for _, other := range binders {
+		if other != binder && m.Conforms(other, binder) {
+			return true
+		}
+	}
+	return false
+}
+
+// bindsBaseType reports whether def's own body binds baseType.
+func (m *Model) bindsBaseType(def *symbols.Symbol) bool {
+	return len(baseTypeBindings(def)) > 0
+}
+
+// baseTypeBindings lists the usages in def's own body that redefine and bind baseType.
+// The binding is an anonymous member, so it is reached through the AST, not the scope.
+func baseTypeBindings(def *symbols.Symbol) []*ast.Usage {
 	decl, ok := def.Decl.(*ast.Definition)
 	if !ok || def.Scope == nil {
-		return nil, false
+		return nil
 	}
-	bound := false
-	// The binding is an anonymous member, so it is reached through the AST
-	// rather than through the (name-keyed) scope.
+	var out []*ast.Usage
 	for _, member := range decl.Members {
 		if mem, ok := member.(*ast.Membership); ok {
 			member = mem.Member
 		}
-		usage, ok := member.(*ast.Usage)
-		if !ok || !redefinesBaseType(usage) || usage.Value == nil {
-			continue
+		if usage, ok := member.(*ast.Usage); ok && redefinesBaseType(usage) && usage.Value != nil {
+			out = append(out, usage)
 		}
-		bound = true
+	}
+	return out
+}
+
+// ownBaseTypeOf returns the type def's own body binds baseType to for annotated,
+// and whether the body binds baseType at all.
+func (m *Model) ownBaseTypeOf(def, annotated *symbols.Symbol) (*symbols.Symbol, bool) {
+	bindings := baseTypeBindings(def)
+	for _, usage := range bindings {
 		name := metaCastOperand(m.baseTypeBinding(def, annotated, usage.Value))
 		if name == nil {
 			continue
@@ -230,7 +273,7 @@ func (m *Model) ownBaseTypeOf(def, annotated *symbols.Symbol) (*symbols.Symbol, 
 			}
 		}
 	}
-	return nil, bound
+	return nil, len(bindings) > 0
 }
 
 // baseTypeBinding reduces a baseType binding to the branch that applies to the
