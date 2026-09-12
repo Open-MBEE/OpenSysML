@@ -2172,6 +2172,17 @@ func (e *StateExecutor) clockWaits() []ClockWait {
 // armedWaits lists the timers set and the do behaviors' waits on the clock, due
 // or not, earliest first.
 func (e *StateExecutor) armedWaits() []ClockWait {
+	return e.armed((*doRun).armedWaits)
+}
+
+// visibleArmedWaits lists armedWaits and, through the do behaviors' paused work,
+// the waits of the actions it performs.
+func (e *StateExecutor) visibleArmedWaits() []ClockWait {
+	return e.armed((*doRun).visibleArmedWaits)
+}
+
+// armed lists the timers set and, of each do behavior under way, the waits ofRun lists.
+func (e *StateExecutor) armed(ofRun func(*doRun) []ClockWait) []ClockWait {
 	var waits []ClockWait
 	for _, event := range e.eventQueue.events {
 		trans, ok := event.Payload.(*lower.Transition)
@@ -2188,7 +2199,7 @@ func (e *StateExecutor) armedWaits() []ClockWait {
 		if act.run == nil {
 			continue
 		}
-		for _, wait := range act.run.armedWaits() {
+		for _, wait := range ofRun(act.run) {
 			waits = append(waits, ClockWait{Due: wait.Due, Holder: e.dueLabel(), What: wait.What})
 		}
 	}

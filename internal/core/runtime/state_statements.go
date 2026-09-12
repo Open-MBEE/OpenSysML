@@ -143,7 +143,17 @@ func (run *doRun) acceptsMessage(m Message) (bool, error) {
 func (run *doRun) armedWaits() []ClockWait {
 	waits := run.host.flow.armedWaits()
 	if held := run.body.paused.held; held != nil {
-		waits = append(waits, held.clockWaits()...)
+		waits = append(waits, held.armedWaits()...)
+	}
+	return waits
+}
+
+// visibleArmedWaits lists armedWaits and the waits of the actions performed, in
+// turn, for the paused work of the flow and of the action performed.
+func (run *doRun) visibleArmedWaits() []ClockWait {
+	waits := run.host.flow.visibleArmedWaits()
+	if held := run.body.paused.held; held != nil {
+		waits = append(waits, held.visibleArmedWaits()...)
 	}
 	return waits
 }

@@ -11,11 +11,13 @@ import (
 // clockWaiter is an executor the shared clock drives: it registers its waits on
 // the clock and is run when work of its is due at the current instant.
 type clockWaiter interface {
-	// dueLabel names the executor in a due-order choice; clockWaits lists its
-	// waits on the clock not yet due, armedWaits every one, due or not, in due order.
+	// dueLabel names the executor in a due-order choice; clockWaits lists its waits on
+	// the clock not yet due, armedWaits every one, due or not, in due order, and
+	// visibleArmedWaits those and the waits of the executors its paused work performs.
 	dueLabel() string
 	clockWaits() []ClockWait
 	armedWaits() []ClockWait
+	visibleArmedWaits() []ClockWait
 	// dueWork reports work runnable at the current instant; watchesChange a change
 	// condition the executor polls once the definite work has settled.
 	dueWork() bool

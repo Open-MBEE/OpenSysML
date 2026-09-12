@@ -592,13 +592,14 @@ func (b *ObjectBehavior) Moved() bool {
 	}
 }
 
-// armedWaits lists the execution's waits on the clock, due or not.
+// armedWaits lists the waits on the clock that hold the execution, due or not, those
+// of the actions its paused work performs included.
 func (b *ObjectBehavior) armedWaits() []ClockWait {
 	switch {
 	case b.State != nil:
-		return b.State.armedWaits()
+		return b.State.visibleArmedWaits()
 	case b.Action != nil:
-		return b.Action.armedWaits()
+		return b.Action.visibleArmedWaits()
 	default:
 		return nil
 	}

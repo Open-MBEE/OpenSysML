@@ -2051,12 +2051,18 @@ func (e *ActionExecutor) TimeWaits() []string {
 	return out
 }
 
-// visibleWaits lists, in due order, the waits on the clock that hold this
+// visibleWaits lists, in due order, the waits on the clock not yet due that hold this
 // action: its own, and those of the actions the paused work of its tokens performs.
 func (e *ActionExecutor) visibleWaits() []ClockWait {
-	waits := e.clockWaits()
+	return notYetDue(e.visibleArmedWaits(), e.ctx.clock.now)
+}
+
+// visibleArmedWaits lists, due or not, the waits that hold this action, earliest first:
+// its own and, through the paused work of its tokens, those of the actions it performs.
+func (e *ActionExecutor) visibleArmedWaits() []ClockWait {
+	waits := e.armedWaits()
 	for _, held := range e.heldWaiters() {
-		waits = append(waits, held.clockWaits()...)
+		waits = append(waits, held.visibleArmedWaits()...)
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
@@ -2086,7 +2092,8 @@ func (e *ActionExecutor) clockWaits() []ClockWait {
 	return notYetDue(e.armedWaits(), e.ctx.clock.now)
 }
 
-// armedWaits lists the tokens parked on the clock, due or not, earliest first.
+// armedWaits lists the tokens parked on the clock, due or not, earliest first; an
+// action performed for a paused body lists its own to the clock.
 func (e *ActionExecutor) armedWaits() []ClockWait {
 	var waits []ClockWait
 	for _, token := range e.timeWaits(nil) {

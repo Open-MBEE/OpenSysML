@@ -461,3 +461,50 @@ func TestStateChangeTransitionFailingRecordsTheMove(t *testing.T) {
 		t.Error("the transition left idle and its effect failed, yet the machine does not read as moved")
 	}
 }
+
+const performerSource = `
+	package test {
+		private import SI::*;
+		private import ScalarValues::*;
+		action def Napper {
+			first start;
+			then action nap accept after 3 [s];
+			then done;
+		}
+		part def Sleeper {
+			perform action rest {
+				first start;
+				then perform action call : Napper;
+				then done;
+			}
+		}
+	}
+`
+
+// A wait held by the action a paused body performs holds the object's execution as
+// its own would: once the clock has moved, the object is not pristine for it.
+func TestPristineSeesTheWaitOfAnActionAPausedBodyPerforms(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "sleeper.sysml", parseAndBuild(t, performerSource))
+	root := idx.DocumentRoot("sleeper.sysml")
+	sleeper, err := ctx.Instantiate(resolveSymbol(t, resolveSymbol(t, root, "test").Scope, "Sleeper"))
+	if err != nil {
+		t.Fatalf("Instantiate Sleeper: %v", err)
+	}
+	rest := sleeper.behaviors[0]
+	if rest.Action == nil || len(rest.Action.armedWaits()) != 0 || len(rest.Action.heldWaiters()) != 1 {
+		t.Fatalf("rest = %+v; want an action holding no wait of its own and one performed action", rest)
+	}
+	if waits := rest.armedWaits(); len(waits) != 1 || waits[0].Due != 3 {
+		t.Fatalf("rest.armedWaits() = %+v; want the performed action's wait due at 3", waits)
+	}
+	if err := ctx.Pristine(sleeper); err != nil {
+		t.Fatalf("Pristine(fresh sleeper) = %v, want admitted: the clock stands at zero", err)
+	}
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("Advance(1): %v", err)
+	}
+	refusal(t, ctx, sleeper, "with the clock at 1", "object #1 (Sleeper) runs performed action rest, which waits on the clock (accept after waiting since step 2 for the clock to reach t=3.0) with the clock at t=1.0, not at zero")
+	if waits := rest.armedWaits(); len(waits) != 1 || waits[0].Due != 3 {
+		t.Errorf("rest.armedWaits() at t=1 = %+v; want the performed action's wait, still due at 3", waits)
+	}
+}
