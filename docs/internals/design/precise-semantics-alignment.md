@@ -4,7 +4,7 @@ Whether, and how far, the runtime should align with the OMG precise-semantics fa
 SysML v1 execution tools ran under: **fUML** (the executable subset of UML activities and
 classes), **PSCS** (composite structures: parts, ports, connectors) and **PSSM** (state
 machines, which ships a conformance test suite of UML models with expected traces). The runtime's
-position is stated in [the architecture](../architecture.md#spec-alignment): the SysML v2
+position is stated in [the architecture](../architecture.md) (the runtime section's *Spec Alignment* paragraph): the SysML v2
 metamodel and the bundled KerML semantic library govern execution, UML 2.5.1 is the fallback only
 where v2 has no production and the library no performance, and the runtime is not a UML or fUML
 activity engine. This note tests that position against the three specifications clause by
