@@ -5,6 +5,35 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Choice-pseudostate scheduling across driver surfaces
+
+For a library-backed CLI fixture, import `ScalarValues::*` and `SI::*`; use
+`accept after 1 [s]`, not the unitless trigger accepted by some isolated runtime
+test fixtures. A timer lets identical models run in REPL and CLI without signal
+injection flags. Put `do assign x := 8` on the incoming transition and two guards
+`x > 5` and `x > 7` after `choice pick;` to distinguish dynamic choice guards
+from pre-effect evaluation.
+
+Use `%trace on`, `%state P::Machine`, `%advance 1`, `%current`. `%schedule
+explore` may explicitly refuse at the prompt: use CLI `-schedule explore
+-state P::Machine -advance 1 -trace model.sysml` for the outcome/witness table.
+Copy `choice pick -> 2->right` into a witness file and select it via `%schedule
+replay:<file>` before a fresh `%state`. Default policy is named `reverse`,
+but a choice's default branch is still the first enabled declared branch.
+
+Make replay rejection load-bearing: declare a third, disabled branch and replay
+its exact label while two other branches stay enabled. Check both the absence of
+successful branch execution and `is not enabled`; some driver paths may fail to
+surface scheduler refusal. Repeat in a fresh CLI process, check its exit status,
+and compare a signal-driven `%send Go` / `%step` to timer-driven `%advance`.
+Also put a disabled branch *before* two enabled branches to verify witness
+labels keep original declaration positions (`2->left`, `3->right`).
+The text trace alone does not prove ChoicePoint File/Span or Go error identity.
+
+### Devin Secrets Needed
+
+None for local choice-pseudostate CLI/REPL testing.
+
 ## Model-level uncertainty versus object-level empty values
 
 Use `cmd/pilot-exec-diff/testdata/models/undetermined_operands.sysml` to
