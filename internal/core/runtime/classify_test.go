@@ -936,7 +936,8 @@ func TestChainValueCollectsAcrossTheCollection(t *testing.T) {
 // order: the end holds their values together, and a value the other end holds on its own
 // determines none of the objects' parts (KerML 1.0 §7.3.4.6, §7.4.9.2).
 func TestBindingEndAcrossACollection(t *testing.T) {
-	model := func(shelf string) string {
+	// shelf fills the definition; usage redefines its features on the instance.
+	instance := func(shelf, usage string) string {
 		return `package test {
 			private import ScalarValues::*;
 			item def Thing;
@@ -952,9 +953,10 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 				attribute allShares : Real [0..*] = (0.1, 0.2, 0.3, 0.4);
 				` + shelf + `
 			}
-			item shelf : Shelf;
+			item shelf : Shelf { ` + usage + ` }
 		}`
 	}
+	model := func(shelf string) string { return instance(shelf, "") }
 	values := func(t *testing.T, ctx *Context, inst *Instance, name string) string {
 		t.Helper()
 		fv, err := inst.GetFeatureValue(ctx, name)
@@ -1052,7 +1054,7 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 	}
 
 	t.Run("union_disagrees_with_its_own_value", func(t *testing.T) {
-		ctx, idx := libraryShapeContext(t, model(bound+"\n:>> allWeights = (9.0, 9.0, 9.0, 9.0);"))
+		ctx, idx := libraryShapeContext(t, instance(bound, ":>> allWeights = (9.0, 9.0, 9.0, 9.0);"))
 		shelf := instantiateQualified(t, ctx, idx, "test::shelf")
 		_, err := shelf.GetFeatureValue(ctx, "allWeights")
 		var conflict *BindingConflictError
@@ -1107,7 +1109,7 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 		{"missing_feature", "bind [0..*] groups.nothing = [0..*] allItems;", `binding end cannot be resolved "groups.nothing": feature nothing not found`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, idx := libraryShapeContext(t, model(":>> allWeights = (1.0, 2.0);\n"+tc.shelf))
+			ctx, idx := libraryShapeContext(t, instance(tc.shelf, ":>> allWeights = (1.0, 2.0);"))
 			shelf := instantiateQualified(t, ctx, idx, "test::shelf")
 			_, err := shelf.GetFeatureValue(ctx, "allItems")
 			if !errors.Is(err, ErrBindingEnd) || !strings.Contains(err.Error(), tc.want) {

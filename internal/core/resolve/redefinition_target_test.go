@@ -408,10 +408,94 @@ func TestRedefinitionTargetsFollowTheGeneralsThenTheEnclosingNamespace(t *testin
 	}
 }
 
+// An unnamed feature takes the name of the feature it redefines (KerML 7.3.4.5),
+// so it names nothing when the target is a sibling the redefinition cannot see,
+// whether the name is asked for before or after the document is resolved.
+func TestAnonymousRedefinitionOfASiblingNamesNothing(t *testing.T) {
+	cases := []struct {
+		name, src string
+		binds     bool
+		want      map[string]string
+	}{
+		{
+			name: "sibling",
+			src:  `package P { part def B { part x; part :>> x; } }`,
+			want: map[string]string{"x": ""},
+		},
+		{
+			name:  "inherited",
+			src:   `package P { part def A { part x; } part def B :> A { part :>> x; } }`,
+			binds: true,
+			want:  map[string]string{"x": "P::A::x"},
+		},
+	}
+	for _, tc := range cases {
+		for _, withModel := range []bool{false, true} {
+			for _, nameFirst := range []bool{false, true} {
+				name := tc.name
+				if withModel {
+					name += " (semantic model)"
+				}
+				if nameFirst {
+					name += " asked before the document walk"
+				}
+				t.Run(name, func(t *testing.T) {
+					r, root, rootScope := redefinitionIndex(t, tc.src, withModel)
+					anon := anonymousMember(t, rootScope, "P", "B")
+					if !nameFirst {
+						r.ResolveDocument("app.sysml", root)
+					}
+					if binds := r.BindsName(anon); binds != tc.binds {
+						t.Errorf("BindsName = %v, want %v", binds, tc.binds)
+					}
+					if nameFirst {
+						r.ResolveDocument("app.sysml", root)
+					}
+					checkRedefinitionVerdicts(t, r, root, rootScope, tc.want)
+				})
+			}
+		}
+	}
+}
+
+// anonymousMember returns the one unnamed member of the type reached by path.
+func anonymousMember(t *testing.T, scope *symbols.Scope, path ...string) *symbols.Symbol {
+	t.Helper()
+	for _, name := range path {
+		sym, ok := scope.LookupLocal(name)
+		if !ok {
+			t.Fatalf("%s is not a member of %v", name, scope.MemberNames())
+		}
+		scope = sym.Scope
+	}
+	var anon *symbols.Symbol
+	for _, m := range scope.Members() {
+		if m.Naming == symbols.NamedByDeclaration {
+			continue
+		}
+		if anon != nil {
+			t.Fatalf("%v has more than one derived-name member", path)
+		}
+		anon = m
+	}
+	if anon == nil {
+		t.Fatalf("%v has no derived-name member among %v", path, scope.MemberNames())
+	}
+	return anon
+}
+
 // redefinitionDoc resolves src with or without a semantic model attached: the
 // generals of an owning type are read from the model when there is one and
 // from its declared relationships otherwise.
 func redefinitionDoc(t *testing.T, src string, withModel bool) (*resolve.Resolver, *ast.RootNamespace, *symbols.Scope) {
+	t.Helper()
+	r, root, rootScope := redefinitionIndex(t, src, withModel)
+	r.ResolveDocument("app.sysml", root)
+	return r, root, rootScope
+}
+
+// redefinitionIndex parses and indexes src, leaving the document unresolved.
+func redefinitionIndex(t *testing.T, src string, withModel bool) (*resolve.Resolver, *ast.RootNamespace, *symbols.Scope) {
 	t.Helper()
 	p := parser.New(source.New("app.sysml", []byte(src)))
 	root := p.ParseFile()
@@ -424,7 +508,6 @@ func redefinitionDoc(t *testing.T, src string, withModel bool) (*resolve.Resolve
 	if withModel {
 		r.SetModel(semantics.NewModel(r))
 	}
-	r.ResolveDocument("app.sysml", root)
 	return r, root, idx.DocumentRoot("app.sysml")
 }
 
