@@ -241,6 +241,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("unbounded_value_compared_with_a_string", testUnboundedValueComparedWithAString)
 	t.Run("metadata_of_a_value", testMetadataOfAValue)
 	t.Run("metadata_of_an_unresolved_name", testMetadataOfAnUnresolvedName)
+	t.Run("metadata_without_the_reflective_library", testMetadataWithoutTheReflectiveLibrary)
 	t.Run("constraint_missing_feature", testConstraintMissingFeature)
 	t.Run("nested_condition_subject_is_ambiguous", testNestedConditionSubjectIsAmbiguous)
 	t.Run("satisfaction_subject_is_ambiguous", testSatisfactionSubjectIsAmbiguous)
@@ -397,6 +398,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("enumeration_name_that_is_not_a_literal", testEnumerationNameThatIsNotALiteral)
 	t.Run("chain_through_a_literal_without_that_attribute", testChainThroughALiteralWithoutThatAttribute)
 	t.Run("classification_outside_the_evaluable_subset", testClassificationOutsideTheEvaluableSubset)
+	t.Run("meta_cast_failure_modes", testMetaCastFailureModes)
 	t.Run("expression_over_a_feature_value_holding_no_value", testExpressionOverAFeatureValueHoldingNoValue)
 	t.Run("succession_guard_failure_modes", testSuccessionGuardFailureModes)
 	t.Run("quantity_write_of_another_dimension", testQuantityWriteOfAnotherDimension)
@@ -1940,6 +1942,50 @@ func testClassificationOutsideTheEvaluableSubset(t *testing.T) {
 	// A subject naming nothing is the unresolved reference it is, not a verdict.
 	if got, err := constraintVerdict(t, model+"\nconstraint c { Missing @ Safety }", "c"); got || err == nil {
 		t.Errorf("`Missing @ Safety` = %v err=%v, want a report", got, err)
+	}
+}
+
+// testMetaCastFailureModes: `x meta T` reflects on the element x names, so a
+// datum, an unresolved type or a feature the metaclass lacks or does not derive
+// each report a typed error naming what is wrong, never a guessed metaobject.
+// A member read through a cast that matched nothing is the empty sequence
+// every feature chain over `()` is. `Comment::body` of a model never given its
+// notation (no SetSourceText) is underived, not an empty string.
+func testMetaCastFailureModes(t *testing.T) {
+	const model = `
+	package test {
+		part def Vehicle {
+			doc /* Carries. */
+		}
+		part seatBelt : Vehicle;
+	}`
+	_, got, err := evalDeclaredExpr(t, model, "(test::seatBelt meta SysML::PartDefinition).declaredName")
+	if err != nil || got.Kind != ValSequence || got.Sequence().Size() != 0 {
+		t.Errorf("member of an empty cast = %s, %v; want ()", FormatValue(got), err)
+	}
+	for _, tc := range []struct {
+		name, expr, names string
+		want              error
+	}{
+		{"a datum subject", "42 meta KerML::Feature", "element", semantics.ErrFilterUnevaluable},
+		{"a string subject", `"belt" meta KerML::Feature`, "element", semantics.ErrFilterUnevaluable},
+		{"an unresolved subject", "test::nope meta KerML::Feature", "nope", ErrUnresolvedReference},
+		{"an unresolved type", "test::seatBelt meta KerML::Nonexistent", "KerML::Nonexistent", ErrUnresolvedType},
+		{"a feature the metaclass lacks", "(test::seatBelt meta KerML::Feature).wheels", "wheels", ErrNoSuchFeature},
+		{"a feature the runtime does not derive", "(test::seatBelt meta KerML::Feature).ownedRelationship", "ownedRelationship", ErrReflectiveFeatureUnsupported},
+		{"a documentation body without the notation", "(test::Vehicle meta KerML::Element).documentation.body", "body", ErrReflectiveFeatureUnsupported},
+	} {
+		_, got, err := evalDeclaredExpr(t, model, tc.expr)
+		if err == nil {
+			t.Errorf("%s: `%s` = %s, want a typed error", tc.name, tc.expr, FormatValue(got))
+			continue
+		}
+		if !errors.Is(err, tc.want) {
+			t.Errorf("%s: `%s` err = %v, want %v", tc.name, tc.expr, err, tc.want)
+		}
+		if !strings.Contains(err.Error(), tc.names) {
+			t.Errorf("%s: `%s` err = %q, want it to name %q", tc.name, tc.expr, err, tc.names)
+		}
 	}
 }
 
@@ -14952,6 +14998,44 @@ func testMetadataOfAnUnresolvedName(t *testing.T) {
 	_, _, err := evalDeclaredExpr(t, "package test {}", "test::missing.metadata")
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("error = %v, want ErrUnresolvedReference", err)
+	}
+}
+
+// testMetadataWithoutTheReflectiveLibrary: without the KerML library the reflective
+// metaobject has no metaclass, so `.metadata` is refused whole; `@` still answers.
+func testMetadataWithoutTheReflectiveLibrary(t *testing.T) {
+	const src = `
+	package test {
+		metadata def Safety { attribute level = 4; }
+		part def Vehicle;
+		part seatBelt : Vehicle { @Safety; }
+		package probe {
+			attribute all [*] = test::seatBelt.metadata;
+			attribute safe = test::seatBelt @ Safety;
+		}
+	}`
+	model, resolver, root := parseAndBuildModel(t, src)
+	ctx := NewContext(NewModel(model, resolver), 10000)
+	probe := resolveSymbol(t, root, "test").Scope
+	probe = resolveSymbol(t, probe, "probe").Scope
+	valueOf := func(name string) (Value, error) {
+		decl := resolveSymbol(t, probe, name).Decl.(*ast.Usage)
+		return NewEvalContext(ctx, probe).Eval(decl.Value)
+	}
+	for range 2 {
+		got, err := valueOf("all")
+		if err == nil {
+			t.Fatalf("seatBelt.metadata = %s without the library, want ErrNoMetaclass", FormatValue(got))
+		}
+		if !errors.Is(err, ErrNoMetaclass) || !strings.Contains(err.Error(), "test::seatBelt") {
+			t.Fatalf("seatBelt.metadata err = %v, want ErrNoMetaclass naming test::seatBelt", err)
+		}
+	}
+	if n := len(ctx.metadataObjects); n != 0 {
+		t.Errorf("%d annotation objects survive the refused read, want none", n)
+	}
+	if got, err := valueOf("safe"); err != nil || !got.isBool() || !got.Const.Bool {
+		t.Errorf("seatBelt @ Safety = %s, %v; want true", FormatValue(got), err)
 	}
 }
 

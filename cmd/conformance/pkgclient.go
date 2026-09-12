@@ -858,6 +858,11 @@ func valueToProto(value opensysml.Value) *pb.Value {
 			CalcId: v.CalcID,
 			SelfId: int64(v.Self),
 		}}}
+	case opensysml.Metaobject:
+		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: &pb.Metaobject{
+			ElementId:   v.ElementID,
+			MetaclassId: v.MetaclassID,
+		}}}
 	default:
 		return nil
 	}
@@ -967,6 +972,11 @@ func valueFromProto(value *pb.Value) (opensysml.Value, bool) {
 		return opensysml.Function{
 			CalcID: kind.Function.GetCalcId(),
 			Self:   opensysml.InstanceID(kind.Function.GetSelfId()),
+		}, true
+	case *pb.Value_Metaobject:
+		return opensysml.Metaobject{
+			ElementID:   kind.Metaobject.GetElementId(),
+			MetaclassID: kind.Metaobject.GetMetaclassId(),
 		}, true
 	default:
 		return nil, true
