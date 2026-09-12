@@ -68,12 +68,17 @@ pilot_install_dir() {
 	mkdir -p "$(dirname "$dst")"
 	pilot_recover_dir "$dst"
 	rm -rf "$dst.new" "$dst.old"
-	mv "$src" "$dst.new" || return 1
+	if ! mv "$src" "$dst.new"; then
+		rm -rf "$dst.new"
+		return 1
+	fi
 	if [[ -e "$dst" ]] && ! mv "$dst" "$dst.old"; then
+		rm -rf "$dst.new"
 		return 1
 	fi
 	if ! mv "$dst.new" "$dst"; then
 		pilot_recover_dir "$dst"
+		rm -rf "$dst.new"
 		return 1
 	fi
 	rm -rf "$dst.old"
