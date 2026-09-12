@@ -1,6 +1,9 @@
 package repl
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -80,4 +83,31 @@ func mustSchedule(t *testing.T, spelling string) runtime.SchedulePolicy {
 		t.Fatal(err)
 	}
 	return policy
+}
+
+// A debugging session under replay follows its witness move for move and, once
+// the action completes with witness moves left over, %step and %continue report
+// the refusal rather than a completed run.
+func TestScheduleReplayRefusesMovesLeftOverByADebuggingSession(t *testing.T) {
+	witness := filepath.Join(t.TempDir(), "witness.txt")
+	if err := os.WriteFile(witness, []byte("step 3: 3@right first of 2@left, 3@right\nstep 9: 3@right first of 2@left, 3@right\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := loadSource(t, choiceForkSource)
+	run(t, s, "%trace on")
+	wants(t, run(t, s, "%schedule replay:"+witness), "schedule: replay:"+witness)
+
+	run(t, s, "%action tally")
+	wants(t, run(t, s, "%continue"), "error: execution failed: replay refused: move 2 (step 9: 3@right first of 2@left, 3@right): the run ended")
+
+	run(t, s, "%action tally")
+	run(t, s, "%step")
+	run(t, s, "%step")
+	wants(t, run(t, s, "%step"), "took 3@right first")
+	var out string
+	for i := 0; i < 8 && !strings.Contains(out, "error:") && !strings.Contains(out, "Action completed"); i++ {
+		out = run(t, s, "%step")
+	}
+	wants(t, out, "error: step failed: replay refused: move 2 (step 9: 3@right first of 2@left, 3@right): the run ended")
+	rejects(t, out, "Action completed")
 }

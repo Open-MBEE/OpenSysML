@@ -526,6 +526,15 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 	}
 }
 
+// DeclOf is the declaration state was lowered from: the node the scope tree
+// is keyed by, or the state itself when it was written as one.
+func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
+	if decl, ok := g.declOf[state]; ok {
+		return decl
+	}
+	return state
+}
+
 // Completes reports whether entering state completes the region it belongs to:
 // it is the `done` end shot of the state or machine whose body names it.
 func (g *StateGraph) Completes(state *ast.StateNode) bool {

@@ -8,7 +8,7 @@ package MassRollup {
     abstract part def Component {
         part subcomponents : Component[*] default null;
         attribute mass :> ISQ::mass;
-        attribute totalMass :> ISQ::mass = mass + sum(subcomponents.totalMass);
+        attribute totalMass :> ISQ::mass default = mass + sum(subcomponents.totalMass);
     }
 
     part def Engine :> Component {
@@ -30,6 +30,7 @@ package MassRollup {
 
     part def Stage :> Component {
         attribute propellantMass :> ISQ::mass;
+        attribute :>> totalMass = mass + propellantMass + sum(subcomponents.totalMass);
         part engines : Engine[*];
         part :>> subcomponents = engines;
     }

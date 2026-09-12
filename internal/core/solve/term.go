@@ -65,6 +65,9 @@ const (
 	OpIte
 	// OpToReal widens an integer term to a real one.
 	OpToReal
+	// OpInt64 is whether an integer term lies within int64, one argument: where
+	// the evaluator computes it without reporting overflow.
+	OpInt64
 )
 
 // smtOps names the SMT-LIB operator each compound term is written with.
@@ -200,6 +203,9 @@ func ToReal(arg *Term) *Term {
 	}
 	return &Term{Op: OpToReal, Sort: Real, Args: []*Term{arg}}
 }
+
+// Int64 returns whether an integer term lies within int64.
+func Int64(arg *Term) *Term { return &Term{Op: OpInt64, Sort: Bool, Args: []*Term{arg}} }
 
 // TruncDiv returns integer division truncating toward zero:
 // `ite(a >= 0, div(a, b), -div(-a, b))`. TruncRem builds the remainder from it.

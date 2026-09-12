@@ -74,14 +74,34 @@ func (m *Model) AllRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// directRedefinedFeatures returns the features sym redefines by clause or by position.
+// directRedefinedFeatures returns the features sym redefines by clause, by
+// position, or by name in a metadata body.
 func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	explicit := m.RedefinedFeatures(sym)
 	out := make([]*symbols.Symbol, 0, len(explicit))
 	out = append(out, explicit...)
 	out = append(out, m.ImplicitParameterRedefinitions(sym)...)
 	out = append(out, m.implicitEndRedefinitions(sym)...)
-	return append(out, m.ImplicitRoleRedefinitions(sym)...)
+	out = append(out, m.ImplicitRoleRedefinitions(sym)...)
+	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
+}
+
+// implicitMetadataBodyRedefinitions is the metadata type's feature a body
+// declaration without a `:>>` clause redefines by its name (KerML 7.4.7).
+func (m *Model) implicitMetadataBodyRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || m.resolver == nil || declaresRedefinitionAST(usage) {
+		return nil
+	}
+	owner := m.resolver.MetadataBodyOwner(sym.OwnerScope)
+	if owner == nil {
+		return nil
+	}
+	target := symbols.MetadataBodyTarget(m, owner, usage.Ident)
+	if target == nil || target == sym {
+		return nil
+	}
+	return []*symbols.Symbol{target}
 }
 
 // maskingRedefinedFeatures returns the features sym redefines by clause or by

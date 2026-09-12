@@ -266,7 +266,7 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 		sort.Slice(tokens, func(i, j int) bool { return tokens[i].ID < tokens[j].ID })
 		alts = make([]string, len(tokens))
 		for i, t := range tokens {
-			alts[i] = fmt.Sprintf("%d@%s", t.ID, nodeIdentifier(t.Location))
+			alts[i] = TokenLabel(t.ID, t.Location)
 			if t.ID == first {
 				taken = i
 			}
@@ -282,12 +282,12 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 	})
 }
 
-// noteDecisionBranches records the holding guarded successions of a decision node,
-// at their declared positions, as a choice point when there are at least two;
-// pick is the position in holding of the one the token takes.
-func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int, pick int) {
+// chooseBranch resolves which of the holding guarded successions of a decision
+// node, at their declared positions, the token takes: the position in holding, and
+// the choice point to note when there are at least two.
+func (e *ActionExecutor) chooseBranch(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int) {
 	if len(holding) < 2 {
-		return
+		return nil, 0
 	}
 	alts := make([]string, len(holding))
 	for i, pos := range holding {
@@ -296,14 +296,13 @@ func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.Deci
 	choice := ChoicePoint{
 		Kind:         ChoiceDecisionBranch,
 		Step:         e.stepCount + 1,
-		Where:        "decision " + nodeIdentifier(node),
+		Where:        DecisionPlace(node),
 		Alternatives: alts,
-		Taken:        pick,
 		File:         e.decisionFile(frame),
 		Span:         node.Span(),
 	}
-	e.ctx.scheduling().describe(choice)
-	e.ctx.noteChoice(choice)
+	choice.Taken = e.ctx.scheduling().choose(choice, nil)
+	return &choice, choice.Taken
 }
 
 // noteUnevaluableGuard records the guard of the succession at position pos out of
@@ -311,7 +310,7 @@ func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.Deci
 func (e *ActionExecutor) noteUnevaluableGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, pos int, err error) {
 	e.ctx.noteUnevaluableGuard(UnevaluableGuard{
 		Step:        e.stepCount + 1,
-		Where:       "decision " + nodeIdentifier(node),
+		Where:       DecisionPlace(node),
 		Alternative: branchName(successors, pos),
 		Reason:      err.Error(),
 		File:        e.decisionFile(frame),
@@ -321,7 +320,23 @@ func (e *ActionExecutor) noteUnevaluableGuard(frame *actionFrame, node *ast.Deci
 
 // branchName names a decision's succession by declared position and target.
 func branchName(successors []lower.ActionEdge, pos int) string {
-	return fmt.Sprintf("%d->%s", pos+1, nodeIdentifier(successors[pos].Target))
+	return BranchLabel(pos, successors[pos].Target)
+}
+
+// TokenLabel names a token as a choice line does: its ID at the node it sits at.
+func TokenLabel(id int64, node ast.Node) string {
+	return fmt.Sprintf("%d@%s", id, nodeIdentifier(node))
+}
+
+// BranchLabel names a decision's succession as a choice line does: its declared
+// position, counted from 1, and its target.
+func BranchLabel(pos int, target ast.Node) string {
+	return fmt.Sprintf("%d->%s", pos+1, nodeIdentifier(target))
+}
+
+// DecisionPlace is where a choice line places a decision node's branch choice.
+func DecisionPlace(node ast.Node) string {
+	return "decision " + nodeIdentifier(node)
 }
 
 // decisionFile is the file the flow frame performs was declared in.

@@ -72,7 +72,7 @@ func scopeRow(ws *model.Workspace, main string, a assertion, src squeezed, libra
 	// Whether a fixture sees the library's implicit members is its own
 	// declaration: only a resource set loading /library has them in scope.
 	opts := model.VisibleNamesOptions{
-		Redefinition: ref.Redefines,
+		Redefinition: narrowsToInherited(ref),
 		LibraryRoots: libraryRoots,
 	}
 	d := scopeDiffOf(ws, scope, ws.VisibleNames(scope, opts), want, a.Names)
@@ -107,6 +107,12 @@ func scopeRow(ws *model.Workspace, main string, a assertion, src squeezed, libra
 			len(d.otherPath), sample(d.otherPath))
 	}
 	return r
+}
+
+// narrowsToInherited reports whether the pilot scopes the anchor to inherited
+// members only: a redefinition does, a subsetting may name any accessible feature.
+func narrowsToInherited(ref resolve.Reference) bool {
+	return ref.Redefines && ref.Subsetting == nil
 }
 
 // scopeAnchor locates the position a scope assertion is taken at. The `at` text

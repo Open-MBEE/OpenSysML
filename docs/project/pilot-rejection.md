@@ -26,8 +26,8 @@ the pass that implements it and its census status.
 
 ## Pinned reference
 
-The same pin as the differential: OMG SysML v2 Pilot Implementation `2026-07`
-(`jupyter-sysml-kernel 0.61.0`, see `scripts/pilot-pin.sh`). Two validators referee:
+The same pin as the differential: OMG SysML v2 Pilot Implementation `2026-08`
+(`jupyter-sysml-kernel 0.62.0`, see `scripts/pilot-pin.sh`). Two validators referee:
 
 - `build/pilot-sysml-validator/validate-sysml-batch` for `.sysml` cases
   (`./scripts/download-pilot-sysml-validator.sh`)

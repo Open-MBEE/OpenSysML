@@ -93,6 +93,39 @@ func TestBodyExprScopeWithoutParameters(t *testing.T) {
 	}
 }
 
+// An unnamed transition is an anonymous member of its state, with or without a
+// body, effect or trigger, and owns its body's scope as a named one does.
+func TestUnnamedTransitionIsAnAnonymousMember(t *testing.T) {
+	root := build(t, `package P {
+	state def S {
+		state a; state b;
+		transition first a then b { attribute count; }
+		transition first b then a;
+		transition first a when ready then b;
+	}
+}`)
+	p, _ := root.LookupLocal("P")
+	s, _ := p.Scope.LookupLocal("S")
+	anonymous := s.Scope.AnonymousMembers()
+	if len(anonymous) != 3 {
+		t.Fatalf("anonymous members of S = %v, want the three transitions", anonymous)
+	}
+	for _, trans := range anonymous {
+		if _, ok := trans.Decl.(*ast.TransitionMember); !ok || trans.Kind != SymbolActionUsage {
+			t.Fatalf("anonymous member is %v (%T), want a transition action usage", trans.Kind, trans.Decl)
+		}
+		if trans.Scope == nil || trans.Scope.Owner() != trans || trans.Scope.BodyLocal() {
+			t.Fatalf("the transition does not own its scope as a feature: %+v", trans.Scope)
+		}
+	}
+	if count, ok := anonymous[0].Scope.LookupLocal("count"); !ok || count.OwnerScope != anonymous[0].Scope {
+		t.Errorf("count is not a member of the transition")
+	}
+	if _, ok := s.Scope.LookupLocal("count"); ok {
+		t.Errorf("the body's count escaped into the state")
+	}
+}
+
 // An effect's members are the transition's own features (SysML v2 §7.19.2),
 // whether it is an action or a `do send` with parameters; the trigger's are not.
 func TestTriggeredTransitionOwnsItsEffectMembers(t *testing.T) {

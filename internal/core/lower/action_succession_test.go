@@ -170,6 +170,39 @@ func TestToActionGraph_ExplicitSuccessionUnsupportedMultiplicity(t *testing.T) {
 	}
 }
 
+// A succession body holding only annotations declares nothing the flow depends
+// on, so it lowers; one declaring a feature does not.
+func TestToActionGraph_ExplicitSuccessionBody(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action seq {
+			action alpha;
+			action beta;
+			succession first alpha then beta { @Layout { x = 1; } doc /* routed */ }
+		}
+	`)
+	alpha := nodeNamed(t, graph, "alpha")
+	if edges := graph.Edges[alpha]; len(edges) != 1 || edges[0].Target != nodeNamed(t, graph, "beta") {
+		t.Fatalf("alpha edges = %v, want [beta]", edges)
+	}
+
+	p := parser.New(source.New("test.sysml", []byte(`
+		action seq {
+			action alpha;
+			action beta;
+			succession first alpha then beta { attribute weight : Integer; }
+		}
+	`)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	action := root.Members[0].(*ast.Membership).Member.(*ast.Usage)
+	_, err := ToActionGraph(action, nil)
+	if err == nil || !strings.Contains(err.Error(), "action succession has unsupported body") {
+		t.Fatalf("error = %v, want an explicit succession body diagnostic", err)
+	}
+}
+
 func namedActionNode(t *testing.T, graph *ActionGraph, name string) ast.Node {
 	t.Helper()
 	for _, node := range graph.Nodes {

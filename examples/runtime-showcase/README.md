@@ -30,10 +30,12 @@ further.
 
 ## What the stack weighs
 
-`Component` declares a `mass` and a `totalMass` that is its own mass plus the
-sum of its subcomponents' totals. `Stage` binds `subcomponents` to its engines,
-`LaunchVehicle` binds it to its stages, and `saturnV` is one such vehicle. No
-value of `totalMass` is written anywhere; it exists only for an instance.
+`Component` declares a `mass` and a `totalMass` that defaults to its own mass
+plus the sum of its subcomponents' totals. `Stage` binds `subcomponents` to its
+engines and redefines `totalMass` to add the propellant it carries,
+`LaunchVehicle` binds `subcomponents` to its stages, and `saturnV` is one such
+vehicle. No value of `totalMass` is written anywhere; it exists only for an
+instance.
 
 ```bash
 ./bin/sysml -quiet \
@@ -45,13 +47,14 @@ value of `totalMass` is written anywhere; it exists only for an instance.
 ```
 ✓ package MassRollup
 ✓ MassRollup::saturnV.totalMass
-  = 228728.0 [kg]
+  = 2941728.0 [kg]
 ✓ MassRollup::saturnV.stage1.totalMass
-  = 172000.0 [kg]
+  = 2332000.0 [kg]
 ```
 
-The 172 000 kg is 130 000 kg of stage plus five 8 400 kg F-1 engines; the total
-adds the second and third stages the same way. Evaluating `saturnV.totalMass`
+The 2 332 000 kg is 130 000 kg of stage structure, 2 160 000 kg of propellant
+and five 8 400 kg F-1 engines; the total adds the second and third stages the
+same way. Evaluating `saturnV.totalMass`
 made an instance of the vehicle — three stages, eleven engines — and evaluated
 `totalMass` at every level of it.
 
