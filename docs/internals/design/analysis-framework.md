@@ -478,8 +478,8 @@ or perform still as its start left it (`Context.Pristine`, over the root's closu
 object is the held object's *declaration* materialized afresh in the row, an object nested in
 another's feature reached again by instantiating the root declaration and walking the same
 feature path (`rowObjects`). Anything else — an object named by identity, a feature written, a
-behavior that has *moved* (an action whose step made progress — a token stepped, a body run, an
-accept or wait consumed — or whose body wrote a feature; a machine that queued a signal or
+behavior that has *moved* (an action a token of which acted — a token stepped, a body run, an
+accept or wait consumed, a step that failed part way — or whose body wrote a feature; a machine that queued a signal or
 call, dispatched an event, took a timer or change trigger, stepped a do behavior or wrote an
 attribute; the executors record the fact at those points,
 `ActionExecutor.moved`/`StateExecutor.moved`, carried through `Snapshot` and `Restore`) — is
@@ -804,7 +804,8 @@ behavior unchanged until stage 4.
    answers every row and, without a manifest, every row is `ToolNotRegisteredError`.
    *Implemented:* sweeps over held objects that have, or have run, a behavior. The action and
    state executors record whether they have *moved* since initialization at their own step
-   points (`ActionExecutor.moved`: a step that made progress, a feature the body wrote;
+   points (`ActionExecutor.moved`: a token that acted, a step that failed part way, a feature
+   the body wrote;
    `StateExecutor.moved`: a signal or call queued, an event dispatched, a timer or change
    trigger taken, a do behavior stepped, an attribute written), `actionCapture`/`stateCapture`
    carry the record through `Snapshot` and `Restore`, and `Context.Pristine` admits an object

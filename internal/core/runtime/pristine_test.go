@@ -267,6 +267,50 @@ func TestActionStepFailingAfterAMoveRecordsIt(t *testing.T) {
 	}
 }
 
+// A step whose body writes a nested performance's feature and then fails, its token
+// still at the node, has moved the action: what the body wrote before failing stands.
+func TestActionBodyFailingAfterAWriteRecordsTheMove(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+		action count {
+			first start;
+			action tally {
+				out attempts : Integer = 0;
+				assign attempts := attempts + 1;
+				assign attempts := missingName;
+			}
+			done;
+			succession first start then tally;
+			succession first tally then done;
+		}
+	}`))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "count", ast.DefAction)
+	exec, err := newActionExecutor(ctx, sym, nil)
+	if err != nil {
+		t.Fatalf("newActionExecutor: %v", err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	for tokenNodes(exec) != "tally" {
+		if err := exec.Step(); err != nil {
+			t.Fatalf("Step towards tally: %v", err)
+		}
+	}
+
+	// The record of the steps that got here is set aside to see the failing step's own.
+	exec.moved = false
+	err = exec.Step()
+	if !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("Step = %v, want ErrUnresolvedReference from tally's body", err)
+	}
+	if got := tokenNodes(exec); got != "tally" {
+		t.Fatalf("tokens at %s after the failing step, want the token still at tally", got)
+	}
+	if !exec.moved {
+		t.Error("the body wrote attempts and failed, yet the action does not read as moved")
+	}
+}
+
 // tokenNodes names the nodes the tokens sit at, sorted.
 func tokenNodes(exec *ActionExecutor) string {
 	names := make([]string, 0, len(exec.tokens))

@@ -69,8 +69,8 @@ type ActionExecutor struct {
 	stepsSpent int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
-	// moved is set once a step got somewhere or the body wrote a feature, and
-	// cleared when the start that attached the execution to its object settles.
+	// moved is set once a token acted — a failed step included — or the body wrote a
+	// feature, and cleared when the start that attached the execution to its object settles.
 	moved bool
 	// awaiting is the subflow whose parked tokens a run waits on the clock for,
 	// nil for the action's own.
@@ -305,15 +305,15 @@ func (e *ActionExecutor) Step() error {
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 
 	schedule := e.scheduleTokens(&order, eligible)
-	err := e.stepTokens(schedule, paused, &order)
-	// What the tokens wrote, the order they took and how far they got are facts of
+	acted, err := e.stepTokens(schedule, paused, &order)
+	// What the tokens wrote, the order they took and that they acted are facts of
 	// the step whether or not it failed.
 	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order, schedule)
-	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore)
-	if progressMade {
+	if acted {
 		e.moved = true
 	}
+	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore)
 	if err != nil {
 		e.endPausedBodies()
 		return err
@@ -1436,8 +1436,9 @@ func (e *ActionExecutor) parked(t Token, order *stepOrder) bool {
 }
 
 // stepTokens gives each scheduled token its step, then the tokens whose paused
-// work a sweep resumes last; a breakpoint on the way ends the sweep.
-func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) error {
+// work a sweep resumes last; a breakpoint on the way ends the sweep. It reports
+// whether any token acted, one whose step failed among them.
+func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) (acted bool, err error) {
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		if e.state == StateSuspended {
 			break
@@ -1448,10 +1449,11 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 			schedule.Acted(id, false)
 			continue
 		}
-		acted, err := e.stepTokenNoting(i, order)
-		schedule.Acted(id, acted)
+		did, err := e.stepTokenNoting(i, order)
+		schedule.Acted(id, did)
+		acted = acted || did
 		if err != nil {
-			return err
+			return acted, err
 		}
 	}
 	for _, id := range paused {
@@ -1459,12 +1461,14 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 			break
 		}
 		if i := e.tokenIndex(id); i >= 0 {
-			if _, err := e.stepTokenNoting(i, order); err != nil {
-				return err
+			did, err := e.stepTokenNoting(i, order)
+			acted = acted || did
+			if err != nil {
+				return acted, err
 			}
 		}
 	}
-	return nil
+	return acted, nil
 }
 
 // stepInitialNode advances token from initial node to successors.
