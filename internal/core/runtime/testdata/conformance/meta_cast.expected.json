@@ -25,6 +25,7 @@
     "docOwner": {"type": "Boolean", "value": true},
     "docQualifiedName": {"type": "Sequence", "elements": []},
     "noDocs": {"type": "Sequence", "elements": []},
+    "blankDocBody": {"type": "Sequence", "elements": [{"type": "String", "value": ""}]},
     "commentLocales": {"type": "Sequence", "elements": [{"type": "String", "value": "en"}]},
     "sameElement": {"type": "Boolean", "value": true},
     "sameAgain": {"type": "Boolean", "value": true},

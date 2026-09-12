@@ -158,3 +158,22 @@ func TestEveryValueKindIsDispatched(t *testing.T) {
 		}
 	}
 }
+
+// TestMetaobjectSetOrderIsElementIdentity: a set orders metaobjects as valueEqual
+// identifies them, by element, so one element under two metaclasses holds one place.
+func TestMetaobjectSetOrderIsElementIdentity(t *testing.T) {
+	element, other := &symbols.Symbol{Name: "x"}, &symbols.Symbol{Name: "y"}
+	typeClass, featureClass := &symbols.Symbol{Name: "Type"}, &symbols.Symbol{Name: "Feature"}
+	asType, asFeature := NewMetaobject(element, typeClass), NewMetaobject(element, featureClass)
+	if !valueEqual(asType, asFeature) || canonicalCompare(asType, asFeature) != 0 {
+		t.Fatalf("compare = %d for equal metaobjects %s and %s, want 0",
+			canonicalCompare(asType, asFeature), FormatValue(asType), FormatValue(asFeature))
+	}
+	if set := setOf([]Value{asType, asFeature}).Set(); set.Size() != 1 {
+		t.Errorf("set of one element's metaobjects has %d members, want 1", set.Size())
+	}
+	different := NewMetaobject(other, typeClass)
+	if c := canonicalCompare(asType, different); c == 0 || c != -canonicalCompare(different, asType) {
+		t.Errorf("compare = %d and %d for distinct elements, want opposite and non-zero", c, canonicalCompare(different, asType))
+	}
+}

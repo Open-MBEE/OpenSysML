@@ -160,10 +160,8 @@ func (ctx *Context) compareContents(a, b Value) int {
 			cmp.Compare(a.functionRun(), b.functionRun()),
 		)
 	case ValMetaobject:
-		return cmp.Or(
-			compareSymbols(a.MetaobjectElement(), b.MetaobjectElement()),
-			compareSymbols(a.MetaobjectClass(), b.MetaobjectClass()),
-		)
+		// A metaobject is its element, as valueEqual and valueKeyFunc have it.
+		return compareSymbols(a.MetaobjectElement(), b.MetaobjectElement())
 	}
 	return 0
 }

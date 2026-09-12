@@ -240,6 +240,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("unbounded_value_compared_with_a_string", testUnboundedValueComparedWithAString)
 	t.Run("metadata_of_a_value", testMetadataOfAValue)
 	t.Run("metadata_of_an_unresolved_name", testMetadataOfAnUnresolvedName)
+	t.Run("metadata_without_the_reflective_library", testMetadataWithoutTheReflectiveLibrary)
 	t.Run("constraint_missing_feature", testConstraintMissingFeature)
 	t.Run("nested_condition_subject_is_ambiguous", testNestedConditionSubjectIsAmbiguous)
 	t.Run("satisfaction_subject_is_ambiguous", testSatisfactionSubjectIsAmbiguous)
@@ -14957,6 +14958,44 @@ func testMetadataOfAnUnresolvedName(t *testing.T) {
 	_, _, err := evalDeclaredExpr(t, "package test {}", "test::missing.metadata")
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("error = %v, want ErrUnresolvedReference", err)
+	}
+}
+
+// testMetadataWithoutTheReflectiveLibrary: without the KerML library the reflective
+// metaobject has no metaclass, so `.metadata` is refused whole; `@` still answers.
+func testMetadataWithoutTheReflectiveLibrary(t *testing.T) {
+	const src = `
+	package test {
+		metadata def Safety { attribute level = 4; }
+		part def Vehicle;
+		part seatBelt : Vehicle { @Safety; }
+		package probe {
+			attribute all [*] = test::seatBelt.metadata;
+			attribute safe = test::seatBelt @ Safety;
+		}
+	}`
+	model, resolver, root := parseAndBuildModel(t, src)
+	ctx := NewContext(NewModel(model, resolver), 10000)
+	probe := resolveSymbol(t, root, "test").Scope
+	probe = resolveSymbol(t, probe, "probe").Scope
+	valueOf := func(name string) (Value, error) {
+		decl := resolveSymbol(t, probe, name).Decl.(*ast.Usage)
+		return NewEvalContext(ctx, probe).Eval(decl.Value)
+	}
+	for range 2 {
+		got, err := valueOf("all")
+		if err == nil {
+			t.Fatalf("seatBelt.metadata = %s without the library, want ErrNoMetaclass", FormatValue(got))
+		}
+		if !errors.Is(err, ErrNoMetaclass) || !strings.Contains(err.Error(), "test::seatBelt") {
+			t.Fatalf("seatBelt.metadata err = %v, want ErrNoMetaclass naming test::seatBelt", err)
+		}
+	}
+	if n := len(ctx.metadataObjects); n != 0 {
+		t.Errorf("%d annotation objects survive the refused read, want none", n)
+	}
+	if got, err := valueOf("safe"); err != nil || !got.isBool() || !got.Const.Bool {
+		t.Errorf("seatBelt @ Safety = %s, %v; want true", FormatValue(got), err)
 	}
 }
 

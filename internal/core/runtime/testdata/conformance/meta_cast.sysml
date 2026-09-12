@@ -25,7 +25,9 @@ package test {
         @Safety { level = 4; }
     }
 
-    abstract part def Shape;
+    abstract part def Shape {
+        doc /**/
+    }
 
     part def Report {
         attribute usage [*] = seatBelt meta SysML::PartUsage;
@@ -50,6 +52,7 @@ package test {
         attribute docOwner = (Wheel meta KerML::Element).documentation#(1).owner === (Wheel meta KerML::Type)#(1);
         attribute docQualifiedName [*] = (Wheel meta KerML::Element).documentation.qualifiedName;
         attribute noDocs [*] = (Vehicle meta KerML::Element).documentation;
+        attribute blankDocBody [*] = (Shape meta KerML::Element).documentation.body;
         attribute commentLocales [*] = (Wheel meta KerML::Namespace).ownedMember.locale;
         attribute sameElement = (seatBelt meta KerML::Type) === (seatBelt meta KerML::Feature);
         attribute sameAgain = (seatBelt meta KerML::Feature) == (seatBelt meta KerML::Feature);
