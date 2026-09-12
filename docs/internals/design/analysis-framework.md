@@ -837,9 +837,12 @@ behavior unchanged until stage 4.
    moves and through `Snapshot` and `Restore`; a machine and a parked action imaged into
    another context, run there and beside the source, and re-imaged after; the refusals pinned
    by name and reason — a body paused mid-statement, an identity the destination holds, a clock
-   past the image's or with a wait due before it (the clock reaches an instant by running what
-   is due on the way, and a materialization runs nothing), a value bound to its run, an object
-   outside the image, a destroyed root (in the REPL, before any row, named as written); a
+   past the image's or with a wait due before it, not yet run at the destination's own instant
+   included (the clock reaches an instant by running what is due on the way, and a
+   materialization runs nothing), a value bound to its run, an object outside the image, a
+   message naming an object the context does not hold, a destroyed root (in the REPL, before
+   any row, named as written); an open message carried by an image whose closure runs a
+   behavior and left be by one whose closure runs none (only an execution reads the bus); a
    materialization failing on its last message leaving the destination as it found it and
    going in whole next time; one image serving two sweeps of eight rows on two goroutines
    under `-race`, and two gRPC sweeps of one model at once. What the image does not carry, and

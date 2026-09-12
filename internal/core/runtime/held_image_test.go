@@ -322,6 +322,74 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 	}
 }
 
+// A message in flight naming an object the context does not hold — as its event
+// occurrence, or the port it reached — is ErrImageRoot naming that object, whether the
+// message is bound for an object of the closure or open to any consumer; the image
+// panics on none of them.
+func TestHeldImageRefusesAMessageNamingAnObjectNotHeld(t *testing.T) {
+	root, src, bulb := lampBulb(t)
+	dispatchTo(t, root, src, bulb, "go", nil)
+	sound := slices.Clone(src.messages)
+	for _, tc := range []struct {
+		name string
+		msg  Message
+	}{
+		{"event occurrence of a message to the bulb", Message{Object: bulb.ID, SignalType: "go", EventObject: 404}},
+		{"port of a message to the bulb", Message{Object: bulb.ID, SignalType: "go", PortID: 404}},
+		{"event occurrence of an open message", Message{SignalType: "go", EventObject: 404}},
+		{"port of an open message", Message{SignalType: "go", PortID: 404}},
+	} {
+		src.messages = append(slices.Clone(sound), tc.msg)
+		_, err := src.Image(bulb)
+		var hie *HeldImageError
+		if !errors.Is(err, ErrImageRoot) || !errors.As(err, &hie) || !strings.Contains(err.Error(), "object #404") {
+			t.Errorf("Image with the %s not held = %v, want ErrImageRoot naming #404", tc.name, err)
+		}
+	}
+	src.messages = sound
+	if _, err := src.Image(bulb); err != nil {
+		t.Errorf("Image with the messages as they were = %v, want taken", err)
+	}
+}
+
+// The messages open to any consumer are the shared bus, which only an execution
+// reads: the image of a closure running no behavior leaves them be, so an open message
+// carrying what no image can — or naming objects of its own — does not keep a written
+// plain object from sweeping; a closure with an execution carries them as before.
+func TestHeldImageOfABehaviorlessClosureLeavesTheBusBe(t *testing.T) {
+	root, src, bulb := lampBulb(t)
+	plain, err := src.Instantiate(resolveSymbol(t, root, "Plain"))
+	if err != nil {
+		t.Fatalf("Instantiate(Plain): %v", err)
+	}
+	inBody := Value{Kind: ValFunction, ref: &functionValue{
+		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
+	}}
+	src.PostMessage(Message{SignalType: "go", Payload: map[string]Value{"k": inBody}})
+	src.PostMessage(Message{SignalType: "go", EventObject: bulb.ID})
+
+	img, err := src.Image(plain)
+	if err != nil {
+		t.Fatalf("Image of a plain object beside an open message it cannot carry = %v, want taken", err)
+	}
+	if len(img.messages) != 0 || img.Holds(bulb.ID) {
+		t.Errorf("the plain object's image carries %d messages and holds the bulb: %v; want none and no", len(img.messages), img.Holds(bulb.ID))
+	}
+	dst := NewContext(src.Model(), 10000)
+	if err := img.Materialize(dst); err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+	if n := len(dst.messages); n != 0 {
+		t.Errorf("the destination has %d messages in flight, want none", n)
+	}
+
+	var notPortable *NotPortableError
+	if _, err := src.Image(bulb); !errors.As(err, &notPortable) {
+		t.Errorf("Image of the bulb, whose machine reads the bus = %v, want a NotPortableError", err)
+	}
+}
+
 // A materialization that fails after its objects stand — here on the last message
 // carried — leaves the destination as it found it: no object, behavior, identity,
 // counter, clock or run of the image stays behind, and the image goes in whole next time.

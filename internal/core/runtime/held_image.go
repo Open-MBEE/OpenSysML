@@ -238,7 +238,8 @@ func (t *imaging) values(vals map[string]Value) error {
 
 // close takes the closure to a fixpoint: every object reached, its owner, what its
 // values name, its behaviors' executions, the occurrences of usages declared under
-// its types and behaviors, and the messages bound for it.
+// its types and behaviors, the messages bound for it and, where an execution of
+// the closure could take one, the messages open to any consumer.
 func (t *imaging) close() error {
 	ctx := t.ctx
 	for len(t.queue) > 0 || !t.open {
@@ -252,6 +253,9 @@ func (t *imaging) close() error {
 				continue
 			}
 			t.open = true
+			if !t.carriesBus() {
+				continue
+			}
 			for _, msg := range ctx.messages {
 				if msg.Object == 0 {
 					if err := t.message(msg); err != nil {
@@ -369,10 +373,23 @@ func (t *imaging) messagesTo(inst *Instance) error {
 	return nil
 }
 
-// message checks that a message carries, reaching what it names.
+// carriesBus reports whether the image carries the messages open to any consumer:
+// only an execution of the closure could take one, so a closure without any does not.
+func (t *imaging) carriesBus() bool {
+	return len(t.img.behaviors) > 0
+}
+
+// message checks that a message carries, reaching the objects it names; one the
+// context does not hold is ErrImageRoot.
 func (t *imaging) message(msg Message) error {
-	t.reach(msg.EventObject)
-	t.reach(msg.PortID)
+	for _, id := range []int64{msg.EventObject, msg.PortID} {
+		if id == 0 {
+			continue
+		}
+		if _, err := t.bring(id); err != nil {
+			return fmt.Errorf("signal %s: %w", msg.SignalType, err)
+		}
+	}
 	if err := t.values(msg.Payload); err != nil {
 		return fmt.Errorf("signal %s: %w", msg.SignalType, err)
 	}
@@ -456,7 +473,7 @@ func (t *imaging) finish() {
 	}
 	slices.SortStableFunc(img.behaviors, func(a, b imagedBehavior) int { return a.attached - b.attached })
 	for _, msg := range ctx.messages {
-		if msg.Object == 0 || img.held[msg.Object] {
+		if (msg.Object == 0 && t.carriesBus()) || img.held[msg.Object] {
 			img.messages = append(img.messages, msg)
 		}
 	}
@@ -520,12 +537,12 @@ func (img *HeldImage) Materialize(dst *Context) error {
 }
 
 // clockFree refuses a destination whose clock is past the image's instant or has a wait
-// due before it: the clock reaches an instant by running what is due on the way.
+// due before it, already due or not: the clock reaches an instant by running what is due on the way.
 func (img *HeldImage) clockFree(dst *Context) error {
 	if dst.clock.now > img.clock {
 		return fmt.Errorf("%w: at t=%v, image at t=%v", ErrImageClock, dst.clock.now, img.clock)
 	}
-	if waits := dst.clock.Waits(); len(waits) > 0 && waits[0].Due < img.clock {
+	if waits := dst.clock.armed(); len(waits) > 0 && waits[0].Due < img.clock {
 		return fmt.Errorf("%w: %s of %s is due at t=%v, before the image's t=%v",
 			ErrImageClock, waits[0].What, waits[0].Holder, waits[0].Due, img.clock)
 	}

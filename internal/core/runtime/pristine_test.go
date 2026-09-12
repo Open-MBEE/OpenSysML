@@ -117,6 +117,16 @@ const fuseSource = `
 		state spent;
 	}
 	part def Charge { exhibit state fuse : Fuse; }
+	attribute def go;
+	state def Squib {
+		entry; then armed;
+		state armed;
+		transition prime first armed accept go then primed;
+		state primed;
+		transition pop first primed accept after 0 [s] then spent;
+		state spent;
+	}
+	part def Detonator { exhibit state squib : Squib; }
 	part def Plain;
 `
 
@@ -253,6 +263,36 @@ func TestHeldImageRefusesADestinationWithAWaitDueBeforeItsInstant(t *testing.T) 
 	}
 	if dueAtTwo.clock.now != 2 || lampLeaf(t, charge) != "spent" {
 		t.Errorf("the wait due at the image's instant left the fuse %s at t=%v, want spent at t=2", lampLeaf(t, charge), dueAtTwo.clock.now)
+	}
+
+	// A wait already due at the destination's instant is work not yet run, as much as
+	// one due later is: refused until the destination has run it.
+	dueNow := NewContext(src.Model(), 10000)
+	detonator, err := dueNow.Instantiate(resolveSymbol(t, root, "Detonator"))
+	if err != nil {
+		t.Fatalf("Instantiate Detonator: %v", err)
+	}
+	dispatchTo(t, root, dueNow, detonator, "go", nil)
+	if waits := dueNow.clock.Waits(); len(waits) != 0 || lampLeaf(t, detonator) != "primed" {
+		t.Fatalf("the squib is %s with %v not yet due; want primed with its wait due at t=0 already", lampLeaf(t, detonator), waits)
+	}
+	before, objects = dueNow.clock.now, len(dueNow.instances)
+	err = atFive.Materialize(dueNow)
+	if !errors.Is(err, ErrImageClock) || !strings.Contains(err.Error(), "due at t=0, before the image's t=5") {
+		t.Fatalf("Materialize over a wait due at the destination's t=0 = %v, want ErrImageClock naming the wait", err)
+	}
+	if dueNow.clock.now != before || len(dueNow.instances) != objects || lampLeaf(t, detonator) != "primed" {
+		t.Errorf("the refused materialization left the destination at t=%v with %d objects, squib %s; want t=%v, %d, primed",
+			dueNow.clock.now, len(dueNow.instances), lampLeaf(t, detonator), before, objects)
+	}
+	if _, err := dueNow.Advance(0); err != nil {
+		t.Fatalf("Advance(0): %v", err)
+	}
+	if err := atFive.Materialize(dueNow); err != nil {
+		t.Fatalf("Materialize once the wait has run = %v, want admitted", err)
+	}
+	if dueNow.clock.now != 5 || lampLeaf(t, detonator) != "spent" {
+		t.Errorf("after the materialization the destination is at t=%v, squib %s; want t=5, spent", dueNow.clock.now, lampLeaf(t, detonator))
 	}
 }
 
