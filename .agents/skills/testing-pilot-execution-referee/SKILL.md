@@ -63,12 +63,12 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (215 cases, all thirteen default
+Reference values at the current implementation (239 cases, all fourteen default
 fixtures):
-`agree 125 · kind-only 1 · order-only 0 · disagree 7 · pilot-unevaluated 63 ·
-pilot-silent 7 · pilot-error 2 · ours-error 2 · both-error 8 ·
+`agree 146 · kind-only 1 · order-only 0 · disagree 9 · pilot-unevaluated 63 ·
+pilot-silent 8 · pilot-error 2 · ours-error 2 · both-error 8 ·
 nondeterministic 0`.
-Six of the seven `disagree` are unrefereeable rather than verdicts against us:
+Seven of the nine `disagree` are unrefereeable rather than verdicts against us:
 `extent-variation-count` and `extent-uninstantiated-count`, where the pilot does
 not evaluate `all T` (KerML 1.0 §8.2.5.8.1 Table 5 marks it not model-level
 evaluable) and `size(all T)` counts the one unevaluated node as `1` whether `T`
@@ -77,10 +77,15 @@ has two variants or no instance;
 `isZero(rect(0.0, 0.0))` *and* for `isZero(rect(3.0, 4.0))`, because its
 `re`/`im` have no evaluable body; and the three `w6d:subsetting-*-count`
 cases, where the pilot counts a `[*]` collection as `1` whether two parts
-subset it or none does (and folds a `default null` one to `0`). The seventh,
-`natural-feature-istype-natural`, is adjudicated ours: a feature's values are
-instances of all its types (KerML 1.0 §8.3.3.3.4), so `nat : Natural = 7`
-answers `nat istype Natural` `true` where the pilot reads the literal's type alone. See
+subset it or none does (and folds a `default null` one to `0`); and
+`meta-doc-body`, where the pilot prints the comment body `/* Turns. */` with its
+trailing blank (`Turns. `) and we print `Turns.`. The other two are adjudicated
+ours: `natural-feature-istype-natural`, since a feature's values are instances of
+all its types (KerML 1.0 §8.3.3.3.4), so `nat : Natural = 7` answers
+`nat istype Natural` `true` where the pilot reads the literal's type alone; and
+`meta-rep-represented-name`, since `TextualRepresentation::representedElement`
+`subsets owner` in `KerML.kerml`, so we answer the owning part's name where the
+pilot answers the representation's own. See
 [pilot-execution-referee.md](../../../docs/project/pilot-execution-referee.md).
 
 ## Checks that actually distinguish working from broken
@@ -116,7 +121,7 @@ answers `nat istype Natural` `true` where the pilot reads the literal's type alo
   such file or directory`.
 - **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
   committed baseline holds (`370 file(s), 337 fully agreeing; 34 agreed
-  diagnostic(s), 28 only ours, 671 only the pilot's` after the value uniqueness and analysis framework rounds — read it from the baseline JSON, not from this line, since each
+  diagnostic(s), 32 only ours, 671 only the pilot's` after the bare feature-reference typing round — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

@@ -489,6 +489,10 @@ package Refused {
 	attribute cubeRef : TensorMeasurementReference { :>> dimensions = (2, 2, 2); :>> mRefs = (m, m, m, m, m, m, m, m); }
 	calc def TensorBuilt { in x : Real; return : TensorQuantityValue = TensorCalculations::'['((x, x, x, x, x, x, x, x), cubeRef); }
 
+	// A metaobject reflects a model element, which a native program has no representation of.
+	attribute reflected : Integer = 1;
+	calc def MetaCast { in x : Integer; return : Integer = SequenceFunctions::size(reflected meta KerML::Feature) + x; }
+
 	attribute def Point { attribute x : Real; attribute y : Real; }
 	enum def Color { red; green; }
 	calc def Extent { return : Natural = size(all Color); }

@@ -886,6 +886,8 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 			return nil, err
 		}
 		return Unary{Op: n.Operator, X: x, T: TypeBool}, nil
+	case ast.OpMeta:
+		return nil, fc.unsupported("a `meta` cast, whose metaobject reflects a model element and has no native representation")
 	}
 	return nil, fc.unsupported(fmt.Sprintf("operator '%s'", n.Operator))
 }

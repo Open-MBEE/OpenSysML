@@ -348,7 +348,7 @@ func TestTriggerWhenRejectsNonBoolean(t *testing.T) {
 		{"when lazy", "an untyped feature"},
 		{"when given", "an untyped feature"},
 		{"when count", "Natural"},
-		{"when total", "NumericalValue"},
+		{"when total", "Natural"},
 		{"when label + label", "String"},
 		{"when wait", "ScalarQuantityValue"},
 		{"when x + 1", "Integer"},

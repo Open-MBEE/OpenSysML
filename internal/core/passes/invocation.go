@@ -109,11 +109,15 @@ func (t argumentTypes) arguments() []semantics.Argument {
 // literal binds its elements, so it is typed by the type they have in common.
 func (ec *exprChecker) argument(scope *symbols.Scope, value ast.Node, name *ast.QualifiedName) semantics.Argument {
 	elements := []ast.Node{value}
-	if seq, ok := value.(*ast.SequenceExpr); ok {
-		elements = seq.Elements
+	switch v := value.(type) {
+	case *ast.SequenceExpr:
+		elements = v.Elements
+	case *ast.NullExpr:
+		elements = nil
 	}
 	arg := ec.argumentOf(scope, elements)
 	arg.Exact = len(elements) > 0 && allSpellOneValue(elements)
+	arg.Empty = len(elements) == 0
 	arg.Name = name
 	return arg
 }

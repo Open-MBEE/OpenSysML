@@ -389,7 +389,13 @@ declares the file clean, and its `c = x->collect {in xx; xx + 1};` and `c1 = x.{
 `String` that `ToString` returns. The same body written `in xx : String` drew that error already;
 the adjudication is in
 [pilot-differential.md](pilot-differential.md#collection-body-element-typing-round). The
-committed baseline is likewise not re-recorded for it.
+committed baseline is likewise not re-recorded for it. The same row's `ours` column later grew by
+one error when a bare feature reference began taking the effective type of the feature it names:
+line 52, `grp = -x + x * y * y + a ** 3 ^ 4;`, draws `operator '-' requires a numeric operand,
+found String` for the same `x`; the three `x == <n>` comparisons on lines 81–83 draw warnings,
+which `noErrors` does not count. No row moves — the file was already disagreeing — and the
+adjudication is in
+[pilot-differential.md](pilot-differential.md#bare-feature-reference-typing-round).
 
 The two former unresolved-reference rows were checked independently before Step 2 and were already
 closed at its merge base. `AllocationTest.sysml.xt:31` was the n-ary connector-end parser defect;
