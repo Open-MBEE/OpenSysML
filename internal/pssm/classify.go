@@ -69,7 +69,9 @@ const (
 	ConstructBehaviorParameter Construct = "behavior parameter"
 	ConstructOperationResult   Construct = "operation result"
 	ConstructTesterTrace       Construct = "tester trace"
-	ConstructNoInitial         Construct = "orthogonal region without an initial state"
+	// This project's lowerer refusing a shape UML allows and v2 can spell:
+	// a candidate gap of ours, recorded apart from v2's missing spellings.
+	ConstructForkedRegionNoEntry Construct = "lowerer refuses fork into a region without an entry transition"
 	// Recorded but not deciding: a pseudostate filed as a connection point that
 	// is neither an entry nor an exit point and that no transition reaches.
 	ConstructStrayConnectionPoint Construct = "stray connection point"
@@ -103,7 +105,7 @@ var constructClass = map[Construct]Expressibility{
 	ConstructBehaviorParameter:    NotExpressible,
 	ConstructOperationResult:      NotExpressible,
 	ConstructTesterTrace:          NotExpressible,
-	ConstructNoInitial:            NotExpressible,
+	ConstructForkedRegionNoEntry:  NotExpressible,
 	ConstructTerminate:            TerminateGap,
 	ConstructDefer:                Extension,
 	ConstructFork:                 Extension,
@@ -121,6 +123,10 @@ type Use struct {
 	// Where names the element using it, e.g. "T3" or "S1.S1.1".
 	Where string
 }
+
+// Ours reports whether the construct is unspellable because of this project's
+// lowerer rather than because SysML v2 has no notation for it.
+func (c Construct) Ours() bool { return c == ConstructForkedRegionNoEntry }
 
 func (u Use) String() string {
 	if u.Where == "" {
@@ -250,8 +256,8 @@ func (w *walker) regions(regions []*Region) {
 	}
 }
 
-// initial records an orthogonal region no initial pseudostate starts: the
-// notation's explicit regions each need an `entry; then` the lowerer checks.
+// initial records an orthogonal region no initial pseudostate starts, entered
+// by a fork instead: UML allows it, `parallel` can spell it, the lowerer refuses it.
 func (w *walker) initial(r *Region) {
 	if r.owner == nil || len(r.owner.Regions) < 2 {
 		return
@@ -261,7 +267,7 @@ func (w *walker) initial(r *Region) {
 			return
 		}
 	}
-	w.add(ConstructNoInitial, r.owner.Path()+"/"+r.Name)
+	w.add(ConstructForkedRegionNoEntry, r.owner.Path()+"/"+r.Name)
 }
 
 // behavior records a state behavior with parameters: the notation binds event

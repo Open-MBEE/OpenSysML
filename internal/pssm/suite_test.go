@@ -67,11 +67,9 @@ func TestSuiteRead(t *testing.T) {
 	}
 }
 
-// TestSuiteClassification pins the classifier area by area. It differs from
-// the alignment note's hand count (37/33/3/30) by nine tests the notation
-// cannot spell: six Event tests and Deferred 007 use parameterised
-// entry/exit/do behaviors, operation results or a tester-side trace, and
-// Fork 002 and Join 001 fork into orthogonal regions with no initial state.
+// TestSuiteClassification pins the classifier area by area; the alignment
+// note's test-suite section and docs/project/pssm-referee.md record the nine
+// tests it moves out of the original hand count (37/33/3/30) and why.
 func TestSuiteClassification(t *testing.T) {
 	s := loadSuite(t)
 	type row struct{ std, ext, gap, none int }

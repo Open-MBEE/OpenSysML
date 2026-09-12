@@ -433,7 +433,7 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 			return err
 		}
 		if init == nil {
-			return e.fail("region "+regionName, "an orthogonal region without an initial state has no spelling the lowerer accepts")
+			return e.fail("region "+regionName, "the lowerer refuses a fork into a region without an entry transition")
 		}
 		target, err := e.startTarget(b, inner+"    ", init, tr, "region "+regionName)
 		if err != nil {
