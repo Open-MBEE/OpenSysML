@@ -222,7 +222,9 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		}
 		declared[name] = len(features)
 		value, scope := e.ctx.model.semantics.ParameterDefault(member)
-		features = append(features, lower.Attribute{Name: name, Value: value, Node: usage, Scope: scope})
+		features = append(features, lower.Attribute{
+			Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Value: value, Node: usage, Scope: scope,
+		})
 	}
 	return features
 }

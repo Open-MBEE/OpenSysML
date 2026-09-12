@@ -363,12 +363,21 @@ type Accept struct {
 // (`attribute h : LengthValue = 500.0 [m];`), whose Value resolves in the
 // graph's own scope.
 type Attribute struct {
-	Name  string
-	Value ast.Node
-	Node  ast.Node // the declaration itself, for diagnostics
+	Name string
+	// Direction is the parameter direction written, DirNone for a plain attribute.
+	Direction ast.FeatureDirection
+	IsResult  bool // a `return` parameter, what the behavior yields
+	Value     ast.Node
+	Node      ast.Node // the declaration itself, for diagnostics
 	// Scope is the scope the declaration was written in, in which its default
 	// resolves; nil where the owner's own scope resolves it.
 	Scope *symbols.Scope
+}
+
+// Output reports whether the feature is written back rather than read: an `out`
+// or `return` parameter, which no caller and no witness may fix.
+func (a Attribute) Output() bool {
+	return a.Direction == ast.DirOut || a.IsResult
 }
 
 // Feature is one parameter or attribute an action node declares itself. Value
@@ -1107,7 +1116,7 @@ func lowerAttributes(members []ast.Node) []Attribute {
 		if name == "" {
 			continue
 		}
-		attrs = append(attrs, Attribute{Name: name, Value: usage.Value, Node: usage})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Value: usage.Value, Node: usage})
 	}
 	return attrs
 }

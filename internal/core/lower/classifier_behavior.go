@@ -149,7 +149,7 @@ func behaviorArguments(members []ast.Node) []Attribute {
 		if name == "" {
 			continue
 		}
-		args = append(args, Attribute{Name: name, Value: usage.Value, Node: usage})
+		args = append(args, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Value: usage.Value, Node: usage})
 	}
 	return args
 }
