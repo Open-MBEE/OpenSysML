@@ -401,7 +401,7 @@ behavior to check is named as it is run. Command line, alongside the check flags
 sysml model.sysml -engine check -instantiate Fleet::truck \
     -action "Fleet::Truck::dispatch truck" \
     -check-property Fleet::NeverOverloaded \
-    -check-diverge load
+    -check-diverge this.load
 ```
 
 | Flag | Meaning |

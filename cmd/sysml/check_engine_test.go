@@ -132,10 +132,41 @@ func TestEngineCheckJudgesAPropertyOfThePerformer(t *testing.T) {
 
 	// A property that holds at every state, over a feature the schedules agree on, holds exhaustively.
 	held := check(t, binary, tankModel, "-engine", "check", "-instantiate", "Plant::tank",
-		"-action", "Plant::Tank::fill Plant::tank", "-check-property", "Plant::Tank::capped", "-check-diverge", "capacity")
+		"-action", "Plant::Tank::fill Plant::tank", "-check-property", "Plant::Tank::capped", "-check-diverge", "this.capacity")
 	wantReport(t, held, 0, "✓ Action Plant::Tank::fill: no violation, exhaustive (11 states, 10 moves, depth 6)",
 		"standing: holds (bounded over schedules: 11 states, 10 moves searched)")
 	rejectReport(t, held, "violation:", "divergent:")
+}
+
+// One action checked on two objects writes two sets of witnesses, each named for
+// its performer, so the second check does not overwrite the first's files.
+func TestEngineCheckNamesWitnessesForThePerformer(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := strings.Replace(tankModel, "part tank : Tank;", "part tank : Tank;\n    part spare : Tank;", 1)
+
+	got := check(t, binary, model, "-engine", "check", "-instantiate", "Plant::tank", "-instantiate", "Plant::spare",
+		"-action", "Plant::Tank::fill Plant::tank", "-action", "Plant::Tank::fill Plant::spare",
+		"-check-diverge", "this.level", "-check-witness", dir)
+	tank := filepath.Join(dir, "Plant.Tank.fill@Plant.tank-this.level-1.witness")
+	spare := filepath.Join(dir, "Plant.Tank.fill@Plant.spare-this.level-1.witness")
+	wantReport(t, got, 1,
+		"this.level = 1 (witness "+tank+")",
+		"this.level = 2 (witness "+filepath.Join(dir, "Plant.Tank.fill@Plant.tank-this.level-2.witness")+")",
+		"this.level = 1 (witness "+spare+")",
+		"this.level = 2 (witness "+filepath.Join(dir, "Plant.Tank.fill@Plant.spare-this.level-2.witness")+")")
+	for _, path := range []string{tank, spare} {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(string(content), "step 3: ") {
+			t.Errorf("%s:\n%s", path, content)
+		}
+	}
+	replayed := check(t, binary, model, "-schedule", "replay:"+spare, "-trace", "-instantiate", "Plant::spare",
+		"-action", "Plant::Tank::fill Plant::spare")
+	wantReport(t, replayed, 0, "took 3@b first", "standing: value (observed: 1 run under replay:"+spare+")")
 }
 
 // The bounds are named on the verdict when reached and the check is undecided:

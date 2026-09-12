@@ -943,10 +943,11 @@ A **witness** is the schedule that reaches a violation or a divergent value: its
 as `-trace` prints a `choice` under `-schedule explore` (`step 3: 3@right first of 2@left,
 3@right`), then a blank line, then the trace of the run under that schedule, so it reads like
 any `-trace` and is reviewed the same way. `-check-witness <dir>` writes one file per witness,
-named for the action and what it witnesses (`Mission.race-x-1.witness`,
-`Mission.race.violation-1.witness`; a character of a name that is no letter, digit or `_` is
-spelled `%XX`, so two features spelled apart never share a file), and the verdict names each
-path. Every witness is
+named for the action, the object performing it when `-action` names one, and what it
+witnesses (`Mission.race-x-1.witness`, `Mission.race.violation-1.witness`,
+`Plant.Tank.fill@Plant.tank-this.level-1.witness`; a character of a name that is no letter,
+digit or `_` is spelled `%XX`, so two features spelled apart never share a file, and one action
+checked on two objects writes two sets), and the verdict names each path. Every witness is
 **replayed** before it is reported: the interpreter re-runs the action under
 `-schedule replay:<file>`, the schedule policy that follows a witness file's choice lines, and
 the standing is *witnessed* only when that run reaches the state the witness claims with the

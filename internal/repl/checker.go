@@ -279,6 +279,9 @@ func (s *Session) checkAsk(name string, performer []string) (*analysis.CheckAsk,
 		Diverge:    append([]string(nil), s.checker.diverge...),
 		WitnessDir: s.checker.witnessDir,
 	}
+	if len(performer) > 0 {
+		ask.Performer = performer[0]
+	}
 	return ask, run, nil
 }
 

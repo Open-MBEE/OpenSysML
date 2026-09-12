@@ -14,8 +14,9 @@
   stops is reported `incomplete: time`, not as a verdict) and the executor's own budgets, set
   in the REPL with `%check-bounds`. Two moves whose statically computed footprints are
   independent are searched in one order only, and a state already visited is not searched
-  again. `-check-witness <dir>` writes one file per violation and divergent value — the
-  schedule's choice lines, a blank line, then the run's trace — and each is reported
+  again. `-check-witness <dir>` writes one file per violation and divergent value, named for
+  the action and the object performing it — the schedule's choice lines, a blank line, then
+  the run's trace — and each is reported
   *witnessed* only after the interpreter replayed it to the state it claims; `-schedule
   replay:<file>` and `%replay <witness>` step that run under the ordinary debugger. The CLI
   exits `1` on a violation or a divergence, `0` on an exhaustive clean search and `2` on a

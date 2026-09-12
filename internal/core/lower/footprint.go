@@ -22,16 +22,20 @@ type Place struct {
 	Local bool
 }
 
-// Conflicts reports whether the two places may name one value: same-named places
-// do, except two distinct pins, which each performance holds its own of.
+// Conflicts reports whether the two places may name one value: places resolving
+// to one declaration do under any of its names (a short name, a redefined name),
+// as do same-named places, except two distinct pins, which each performance
+// holds its own of.
 func (p Place) Conflicts(q Place) bool {
-	if p.Name != q.Name {
-		return false
+	if p.Sym != nil && q.Sym != nil {
+		if p.Sym == q.Sym {
+			return true
+		}
+		if p.Local && q.Local {
+			return false
+		}
 	}
-	if p.Local && q.Local && p.Sym != nil && q.Sym != nil && p.Sym != q.Sym {
-		return false
-	}
-	return true
+	return p.Name == q.Name
 }
 
 // String renders the place as the name it was written under.

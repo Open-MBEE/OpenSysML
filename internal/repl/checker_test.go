@@ -84,10 +84,10 @@ func TestEngineCheckSearchesTheActionsSchedules(t *testing.T) {
 	wantVerdict(t, v, VerdictFails,
 		"Action Plant::Tank::fill: divergent (11 states, 10 moves, depth 6)",
 		"divergent: this.level ends as 1 or 2",
-		"this.level = 1 (witness "+filepath.Join(dir, "Plant.Tank.fill-this.level-1.witness")+")",
+		"this.level = 1 (witness "+filepath.Join(dir, "Plant.Tank.fill@Plant.tank-this.level-1.witness")+")",
 		"standing: sensitive (witnessed: 11 states, 10 moves searched, witness of 1 choice replayed)")
 	rejects(t, run(t, s, "%step"), "Step complete")
-	witness, err := os.ReadFile(filepath.Join(dir, "Plant.Tank.fill-this.level-2.witness"))
+	witness, err := os.ReadFile(filepath.Join(dir, "Plant.Tank.fill@Plant.tank-this.level-2.witness"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestEngineCheckSearchesTheActionsSchedules(t *testing.T) {
 		t.Errorf("witness is not choices, a blank line, then the trace:\n%s", witness)
 	}
 
-	run(t, s, "%check-diverge capacity")
+	run(t, s, "%check-diverge this.capacity")
 	wantVerdict(t, s.RunAction("Plant::Tank::fill", "Plant::tank"), VerdictHolds,
 		"Action Plant::Tank::fill: no violation, exhaustive (11 states, 10 moves, depth 6)",
 		"standing: outcomes (bounded over schedules: 11 states, 10 moves searched)")
@@ -116,7 +116,7 @@ func TestEngineCheckJudgesPropertiesOfThePerformer(t *testing.T) {
 		"standing: violated (witnessed: 11 states, 10 moves searched, witness of 1 choice replayed)")
 
 	run(t, s, "%check-property Plant::Tank::capped")
-	run(t, s, "%check-diverge capacity")
+	run(t, s, "%check-diverge this.capacity")
 	wantVerdict(t, s.RunAction("Plant::Tank::fill", "Plant::tank"), VerdictHolds,
 		"Action Plant::Tank::fill: no violation, exhaustive (11 states, 10 moves, depth 6)",
 		"standing: holds (bounded over schedules")

@@ -30,6 +30,10 @@ const (
 type CheckAsk struct {
 	// Start begins the action in a context of the check's own; a replay begins it the same way.
 	Start runtime.ActionStarter
+	// Performer names the object Start performs the action on, as the surface
+	// spelled it, so the witnesses of one action on two objects are two sets of
+	// files; empty when no object performs it.
+	Performer string
 	// Properties are evaluated at every stable state; one false is a violation.
 	Properties []runtime.CheckProperty
 	// Diverge names the features whose final values are compared across the
@@ -223,7 +227,7 @@ func (e checkEngine) replayed(ctx context.Context, model *Model, q Question, bud
 		checked.Divergent = make([][]string, len(report.Divergent))
 	}
 	for i, v := range report.Violations {
-		w := &replayWitness{what: "violation " + fmt.Sprint(i+1) + " (" + v.String() + ")", witness: v.Witness, file: violationFile(q.Subject, i+1)}
+		w := &replayWitness{what: "violation " + fmt.Sprint(i+1) + " (" + v.String() + ")", witness: v.Witness, file: violationFile(q.Subject, q.Check.Performer, i+1)}
 		if checked.Violations != nil {
 			w.path = &checked.Violations[i]
 		}
@@ -235,7 +239,7 @@ func (e checkEngine) replayed(ctx context.Context, model *Model, q Question, bud
 		}
 		for j, value := range d.Values {
 			w := &replayWitness{what: fmt.Sprintf("%s = %s", d.Feature, value.Value), witness: value.Witness,
-				file: divergenceFile(q.Subject, d.Feature, j+1)}
+				file: divergenceFile(q.Subject, q.Check.Performer, d.Feature, j+1)}
 			if checked.Divergent != nil {
 				w.path = &checked.Divergent[i][j]
 			}
@@ -315,15 +319,25 @@ func writeWitness(path, text string) (err error) {
 
 // violationFile names the witness of the n-th violation, `test.race.violation-1.witness`:
 // its one `-` tells it from a divergence's file, whose tokens carry none.
-func violationFile(subject string, n int) string {
-	return fmt.Sprintf("%s.violation-%d.witness", fileSegments(subject, "::"), n)
+func violationFile(subject, performer string, n int) string {
+	return fmt.Sprintf("%s.violation-%d.witness", checkedName(subject, performer), n)
 }
 
 // divergenceFile names the witness of a feature's n-th final value,
-// `test.race-x-1.witness`, `test.race-this.level-2.witness`: the subject's segments,
-// the feature's and the count, told apart by the `-` no token carries.
-func divergenceFile(subject, feature string, n int) string {
-	return fmt.Sprintf("%s-%s-%d.witness", fileSegments(subject, "::"), fileSegments(feature, "."), n)
+// `test.race-x-1.witness`, `test.race-this.level-2.witness`: the checked name,
+// the feature's segments and the count, told apart by the `-` no token carries.
+func divergenceFile(subject, performer, feature string, n int) string {
+	return fmt.Sprintf("%s-%s-%d.witness", checkedName(subject, performer), fileSegments(feature, "."), n)
+}
+
+// checkedName is the subject's segments and, after `@`, the performer's when an
+// object performs it: `Plant.Tank.fill@Plant.tank`, one name per action and object.
+func checkedName(subject, performer string) string {
+	name := fileSegments(subject, "::")
+	if performer != "" {
+		name += "@" + fileSegments(performer, "::")
+	}
+	return name
 }
 
 // fileSegments joins the tokens of a name's segments with `.`, one name per spelling.

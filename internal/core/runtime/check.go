@@ -676,8 +676,8 @@ func (c *checker) divergenceValues(outcome Outcome) map[string]string {
 }
 
 // reportsDivergenceOf reports whether the feature — the performing object's when
-// of is given, else the action's — is one divergence is reported over; absent
-// names, the action's own attributes and the object's attributes are.
+// of is given, named `this.<name>`, else the action's, named bare — is one
+// divergence is reported over; absent names, both's attributes are.
 func (c *checker) reportsDivergenceOf(name string, of *EffectiveFeature) bool {
 	if len(c.opts.Diverge) == 0 {
 		if of != nil {
@@ -686,7 +686,7 @@ func (c *checker) reportsDivergenceOf(name string, of *EffectiveFeature) bool {
 		return !strings.Contains(name, ".")
 	}
 	if of != nil {
-		return slices.Contains(c.opts.Diverge, name) || slices.Contains(c.opts.Diverge, "this."+name)
+		name = "this." + name
 	}
 	return slices.Contains(c.opts.Diverge, name)
 }

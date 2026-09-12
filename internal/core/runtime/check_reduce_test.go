@@ -23,6 +23,7 @@ var reductionCorpus = []struct{ file, action string }{
 	{"por_join", "gather"},
 	{"por_dynamic_target", "dynamic"},
 	{"por_independent_branches", "parallel"},
+	{"por_alias", "aliased"},
 }
 
 const reductionExpected = "testdata/check/reduction_expected.txt"

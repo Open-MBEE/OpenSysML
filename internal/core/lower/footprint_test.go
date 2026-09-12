@@ -435,3 +435,98 @@ func TestFootprintStringAndClauses(t *testing.T) {
 		t.Error("arrivals at different joins are dependent")
 	}
 }
+
+// One declaration under two names is one place: a write through the declared
+// name meets a read through its short name, and a write through a redefining
+// feature meets a read through the name it redefines. Distinct declarations
+// that share a name meet by name unless both are pins.
+func TestFootprintAliasesMeet(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		action def Base {
+			attribute base : Integer = 0;
+		}
+		action def Aliased :> Base {
+			attribute <sx> x : Integer = 0;
+			attribute y :>> base;
+			attribute seenX : Integer = -1;
+			attribute seenBase : Integer = -1;
+			attribute other : Integer = 0;
+			first start;
+			fork split;
+			action wx { assign x := 1; }
+			action rx { assign seenX := sx; }
+			action wy { assign y := 1; }
+			action rb { assign seenBase := base; }
+			action wo { assign other := 1; }
+			action ax;
+			action arx;
+			action ay;
+			action ab;
+			action ao;
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then wx;
+			succession first split then rx;
+			succession first split then wy;
+			succession first split then rb;
+			succession first split then wo;
+			succession first wx then ax;
+			succession first rx then arx;
+			succession first wy then ay;
+			succession first rb then ab;
+			succession first wo then ao;
+			succession first ax then sync;
+			succession first arx then sync;
+			succession first ay then sync;
+			succession first ab then sync;
+			succession first ao then sync;
+			succession first sync then done;
+		}
+	`, "Aliased")
+
+	fp := func(name string) Footprint { return footprintNamed(t, graph, name) }
+	cases := []struct {
+		a, b      string
+		dependent bool
+		why       string
+	}{
+		{"wx", "rx", true, "a write through the name meets a read through the short name"},
+		{"wy", "rb", true, "a write through the redefining feature meets a read of the redefined one"},
+		{"wx", "wy", false, "distinct features under distinct names"},
+		{"rx", "wo", false, "the short name resolves to no feature the other writes"},
+	}
+	for _, tc := range cases {
+		got := fp(tc.a).Dependent(fp(tc.b))
+		if got != tc.dependent {
+			t.Errorf("%s ~ %s = %v, want %v (%s)\n%s\n%s", tc.a, tc.b, got, tc.dependent, tc.why, fp(tc.a), fp(tc.b))
+		}
+	}
+	for _, p := range fp("rx").Reads {
+		if p.Name == "sx" && p.Sym == nil {
+			t.Error("the short name did not resolve to its declaration")
+		}
+	}
+
+	x := &symbols.Symbol{Name: "x"}
+	cases2 := []struct {
+		p, q      Place
+		conflicts bool
+		why       string
+	}{
+		{Place{Sym: x, Name: "x"}, Place{Sym: x, Name: "sx"}, true, "one declaration under two names"},
+		{Place{Sym: x, Name: "x", Local: true}, Place{Sym: x, Name: "sx", Local: true}, true, "one pin under two names"},
+		{Place{Sym: x, Name: "n", Local: true}, Place{Sym: &symbols.Symbol{Name: "n"}, Name: "n", Local: true}, false, "two pins named alike"},
+		{Place{Sym: x, Name: "n"}, Place{Sym: &symbols.Symbol{Name: "n"}, Name: "n"}, true, "two features named alike"},
+		{Place{Name: "x"}, Place{Sym: x, Name: "x"}, true, "an unresolved name meets the resolved one"},
+		{Place{Name: "x"}, Place{Sym: x, Name: "sx"}, false, "an unresolved name meets only its spelling"},
+	}
+	for _, tc := range cases2 {
+		if got := tc.p.Conflicts(tc.q); got != tc.conflicts {
+			t.Errorf("%v ~ %v = %v, want %v (%s)", tc.p, tc.q, got, tc.conflicts, tc.why)
+		}
+		if back := tc.q.Conflicts(tc.p); back != tc.conflicts {
+			t.Errorf("%v ~ %v is not symmetric", tc.p, tc.q)
+		}
+	}
+}

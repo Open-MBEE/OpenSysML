@@ -298,6 +298,70 @@ func TestCheckWitnessesAPerformedActionThroughItsPerformer(t *testing.T) {
 	}
 }
 
+// A name given to Diverge selects one namespace: `level` the action's own
+// attribute, `this.level` the performer's, though both are spelled level.
+func TestCheckDivergeNamesTellTheActionsFeaturesFromThePerformers(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		part def Tank {
+			attribute level : Integer = 0;
+			perform action fill {
+				attribute level : Integer = 0;
+				first start;
+				fork split;
+				action a { assign this.level := 1; assign level := 1; }
+				action b { assign this.level := 2; assign level := 2; }
+				join sync;
+				done;
+				succession first start then split;
+				succession first split then a;
+				succession first split then b;
+				succession first a then sync;
+				succession first b then sync;
+				succession first sync then done;
+			}
+		}
+	}`)
+	fill := m.idx.LookupQualified("test::Tank::fill")[0]
+	tank := m.idx.LookupQualified("test::Tank")[0]
+	start := func(ctx *Context) (*ActionExecutor, error) {
+		self, err := ctx.Instantiate(tank)
+		if err != nil {
+			return nil, err
+		}
+		return ctx.CreateActionExecutorFor(fill, self)
+	}
+	features := func(report *CheckReport) []string {
+		var names []string
+		for _, d := range report.Divergent {
+			names = append(names, d.Feature)
+		}
+		return names
+	}
+	for _, tc := range []struct {
+		diverge []string
+		want    []string
+	}{
+		{nil, []string{"level", "this.level"}},
+		{[]string{"level"}, []string{"level"}},
+		{[]string{"this.level"}, []string{"this.level"}},
+		{[]string{"level", "this.level"}, []string{"level", "this.level"}},
+	} {
+		report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, CheckOptions{Reduce: true, Diverge: tc.diverge}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := features(report); !slices.Equal(got, tc.want) {
+			t.Errorf("Diverge %v reports %v divergent, want %v", tc.diverge, got, tc.want)
+		}
+		for _, name := range tc.want {
+			if got := divergentValues(report, name); !slices.Equal(got, []string{"1", "2"}) {
+				t.Errorf("Diverge %v: %s diverges over %v, want [1 2]", tc.diverge, name, got)
+			}
+		}
+	}
+}
+
 // A constraint of the performer evaluated at every state is a property: the
 // schedule reaching a state where it is false is the violation, once, and its
 // witness replays to that state.
