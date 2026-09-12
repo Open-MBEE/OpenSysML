@@ -281,7 +281,7 @@ func TestMOSASpecializedMetadataIsRecognised(t *testing.T) {
 		metadata def ProgramControl :> InterfaceControl;
 		metadata def VendorOwned :> Proprietary;
 		metadata def <verifiedAgainst> Verified :> StandardConformanceMetadata;
-		metadata def <subject> Subject :> ConformantMetadata;
+		metadata def <'subject'> Subject :> ConformantMetadata;
 		#technicalStandard item std : Standard;
 		part v {
 			part a : A { @ProgramRights { kind = DataRightsKind::limited; } }
@@ -290,7 +290,7 @@ func TestMOSASpecializedMetadataIsRecognised(t *testing.T) {
 			interface l2 : Link connect a.p to b.p { @VendorOwned { rationale = "qualified"; } }
 			interface l3 : Link connect a.p to b.p { @VendorOwned; }
 			interface l4 : Link connect a.p to b.p;
-			#verifiedAgainst connection { end #subject ::> l4; end #conformsTo ::> std; }
+			#verifiedAgainst connection { end #'subject' ::> l4; end #conformsTo ::> std; }
 		}`)
 	w8dWantLines(t, src, CodeMOSAComponentNoDataRights, 15)
 	w8dWantLines(t, src, CodeMOSAInterfaceNoControl, 17, 18, 19)

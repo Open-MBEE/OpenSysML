@@ -1219,6 +1219,45 @@ func TestVarPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
+// A negated invariant (KerML.xtext Invariant, isNegated ?= 'false') comes back
+// from the graph as `inv false`; `inv true` is the default and comes back bare.
+func TestNegatedInvariantComesBackFromTheGraphAlone(t *testing.T) {
+	for head, back := range map[string]string{
+		"inv false w {": "inv false w {",
+		"inv true v {":  "inv v {",
+		"inv u {":       "inv u {",
+	} {
+		t.Run(head, func(t *testing.T) {
+			src := "package P {\n    class C {\n        " + head + " 1 > 2 }\n    }\n}\n"
+			structural := func(turtle []byte) []byte {
+				return withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+			}
+			turtle, err := export.Convert("m.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			if err != nil {
+				t.Fatalf("to turtle: %v", err)
+			}
+			if got := strings.Count(string(turtle), "sysml:isNegated"); got != strings.Count(head, "false") {
+				t.Fatalf("isNegated written %d times for %q:\n%s", got, head, turtle)
+			}
+			notation, err := export.Convert("m.ttl", structural(turtle), export.FormatTurtle, export.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if !strings.Contains(string(notation), back) {
+				t.Fatalf("the head should come back as `%s`:\n%s", back, notation)
+			}
+			again, err := export.Convert("m.kerml", notation, export.FormatSysML, export.FormatTurtle)
+			if err != nil {
+				t.Fatalf("to turtle again: %v", err)
+			}
+			first, second := structural(turtle), structural(again)
+			if string(second) != string(first) {
+				t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", first, second)
+			}
+		})
+	}
+}
+
 // A prefix annotation is identified by its position after the body members,
 // so a body member named as that position is refused rather than merged with
 // it; a member named as another position is no collision.
@@ -1810,7 +1849,7 @@ func TestPrefixOnAVerbatimHeadIsWrittenOrReported(t *testing.T) {
 		"#$::P::Safety connect x to y;",
 		"#Safety connect x to y {\n\t\t\t#Audit part p;\n\t\t}",
 		"connect x to y {\n\t\t\t#Safety part p;\n\t\t}",
-		"transition t first x if xs#(1) > 0 then y;",
+		"state s {\n\t\t\ttransition t first x if xs#(1) > 0 then y;\n\t\t}",
 	}
 	for _, head := range heads {
 		src := "package P {\n\tmetadata def Safety;\n\tmetadata def Audit;\n\tattribute xs : Integer[*];\n\tpart def A {\n\t\tport x;\n\t\tport y;\n\t}\n\tpart a : A {\n\t\t" + head + "\n\t}\n}"

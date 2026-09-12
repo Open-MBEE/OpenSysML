@@ -1467,7 +1467,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		if negated {
 			words = append(words, "not")
 		}
-	case negated:
+	case negated && keyword != "inv":
 		return "", d.missing(el, "sysx:"+xDeclaredPrefix, "the `not` of a negated declaration qualifies the prefix keyword it follows")
 	}
 	keywordAt := len(words)
@@ -1483,6 +1483,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		keywordAt = len(words)
 		if keyword != "" {
 			words = append(words, keyword)
+		}
+		// `inv false c { … }` negates an invariant after its keyword (KerML.xtext Invariant).
+		if negated && !hasPrefix && keyword == "inv" {
+			words = append(words, "false")
 		}
 	}
 	// `chain` qualifies the kind keyword it follows, unlike the modifiers above.

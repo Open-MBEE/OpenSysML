@@ -1090,6 +1090,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.node(n.Via)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
+		e.w.Bool(n.IsSuccession)
 	case *ast.Usage:
 		e.base(&n.NodeBase)
 		e.prefixes(n.Prefixes)
@@ -1592,6 +1593,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Via = typed[*ast.QualifiedName](d)
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
+		n.IsSuccession = d.r.Bool()
 	case *ast.Usage:
 		d.base(&n.NodeBase)
 		n.Prefixes = d.prefixes()
