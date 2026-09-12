@@ -36,8 +36,8 @@ func multiValued(mult semantics.Range) bool {
 // declaredUniquenessRefusal is uniquenessRefusal for the value a standalone
 // multi-valued feature declares, read outside any instance.
 func (ctx *Context) declaredUniquenessRefusal(sym *symbols.Symbol, value *Value) string {
-	mult := ctx.featureMultiplicity(sym, nil)
-	if !multiValued(mult) {
+	mult, stated := ctx.statedMultiplicity(sym)
+	if !stated || !multiValued(mult) {
 		return ""
 	}
 	return ctx.uniquenessRefusal(ctx.model.semantics.IsUnique(sym), ctx.holdsSet(sym, ctx.findOwnerType(sym), mult), value)

@@ -925,11 +925,11 @@ func TestBodyLocalKeepsOpenInitializerCount(t *testing.T) {
 		}
 		return sym
 	}
-	val, err := ec.conformBodyDeclared(local("kept"), open, initializer())
+	val, err := ec.conformBodyDeclared(local("kept"), initializer())
 	wantUndetermined(t, "kept", val, err, "[2..*]")
-	val, err = ec.conformBodyDeclared(local("two"), open, initializer())
+	val, err = ec.conformBodyDeclared(local("two"), initializer())
 	wantUndetermined(t, "two", val, err, "[2..*]")
-	if _, err := ec.conformBodyDeclared(local("one"), open, initializer()); !errors.Is(err, ErrMultiplicityViolation) {
+	if _, err := ec.conformBodyDeclared(local("one"), initializer()); !errors.Is(err, ErrMultiplicityViolation) {
 		t.Errorf("one[1] = xs: err = %v; want ErrMultiplicityViolation", err)
 	}
 }
@@ -1122,5 +1122,44 @@ func TestOpenSubsettersAreNotMaterializedAtModelLevel(t *testing.T) {
 		if u := val.Undetermined(); u != nil && len(u.Known()) != known {
 			t.Errorf("%s certainly holds %d objects, want %d", src, len(u.Known()), known)
 		}
+	}
+}
+
+// A local restating no multiplicity over several redefined declarations answers to the
+// intersection of the multiplicities they state, not to whichever is reached first.
+func TestBodyLocalIntersectsRedefinedMultiplicities(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		constraint def Wide { attribute a : Integer[0..4]; }
+		constraint def Deep { attribute b : Integer[2..*]; }
+		constraint def Both :> Wide, Deep {
+			attribute ab : Integer redefines a, b = (1, 2, 3);
+			SequenceFunctions::size(ab) > 0
+		}
+	}`))
+	both := oneSymbol(t, idx, "test::Both")
+	ab, ok := both.Scope.LookupLocal("ab")
+	if !ok {
+		t.Fatal("test::Both::ab not declared")
+	}
+	mult, stated := ctx.statedMultiplicity(ab)
+	if want := (semantics.Range{Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Value: 4}}); !stated || mult != want {
+		t.Fatalf("statedMultiplicity(ab) = %v, %v; want [2..4], true", mult, stated)
+	}
+	ec := NewEvalContext(ctx, both.Scope)
+	integers := func(n int64) Value {
+		seq := NewSequence()
+		for i := int64(1); i <= n; i++ {
+			seq.Append(Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: i}})
+		}
+		return NewSequenceValue(seq)
+	}
+	for _, n := range []int64{1, 5} {
+		if _, err := ec.conformBodyDeclared(ab, integers(n)); !errors.Is(err, ErrMultiplicityViolation) {
+			t.Errorf("ab holding %d values: err = %v; want ErrMultiplicityViolation", n, err)
+		}
+	}
+	if _, err := ec.conformBodyDeclared(ab, integers(3)); err != nil {
+		t.Errorf("ab holding 3 values: %v", err)
 	}
 }

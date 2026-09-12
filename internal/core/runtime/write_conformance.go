@@ -51,7 +51,10 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 	}
 	var target *writeTarget
 	if sym, ok := ctx.lookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
-		mult, stated := ctx.extractMultiplicity(sym)
+		mult, stated := ctx.statedMultiplicity(sym)
+		if !stated {
+			mult = semantics.AssumedRange()
+		}
 		target = ctx.newWriteTarget(sym, name, mult)
 		target.multStated = stated
 	}

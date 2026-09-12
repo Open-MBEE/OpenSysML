@@ -87,7 +87,6 @@ type scopedExpr struct {
 	scope *symbols.Scope
 	decl  *symbols.Symbol // feature the expression was written on
 	held  *symbols.Symbol // effective declaration holding the value, decl or one redefining it
-	owner *symbols.Symbol // type held is effective on
 
 	// env is the environment the expression's names resolve in when it is a
 	// named constraint's parameter value; nil for a feature read in place.
@@ -925,7 +924,7 @@ func (ctx *Context) conditionFeatures(sym *symbols.Symbol) map[string]scopedExpr
 			// uninitialized rather than the value materializing replaces.
 			expr = nil
 		}
-		out[feat.Name] = scopedExpr{expr: expr, scope: feat.DefaultScope(), decl: feat.DefaultDecl, held: feat.Symbol, owner: feat.OwnerType}
+		out[feat.Name] = scopedExpr{expr: expr, scope: feat.DefaultScope(), decl: feat.DefaultDecl, held: feat.Symbol}
 	}
 	for i := range features {
 		add(&features[i])
