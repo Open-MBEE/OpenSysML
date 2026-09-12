@@ -1199,7 +1199,7 @@ standard otherwise. By area:
 Of the 30 with no spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2 an
 internal transition and 6 the redefinition machinery (several use more than one). Of the 70
 expressible and runnable tests, 21 use orthogonal regions, 10 a do activity, 10 deferral, 8
-history, 6 a junction, 5 a choice, 6 a fork or join and 6 a call event.
+history, 6 a junction, 5 a choice, 5 a fork or join and 6 a call event.
 
 ### What a translated test looks like
 
