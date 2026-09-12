@@ -570,7 +570,7 @@ func TestReadUnsupportedNodes(t *testing.T) {
 	src := fixtureHead +
 		`  <packagedElement xmi:type="uml:Activity" xmi:id="actOdd" name="odd">
     <node xmi:type="uml:LoopNode" xmi:id="loop" name="while"/>
-    <node xmi:type="uml:CreateObjectAction" xmi:id="create" name="new" classifier="clsTarget"/>
+    <node xmi:type="uml:CreateLinkAction" xmi:id="link" name="link"/>
     <node xmi:type="uml:Something" xmi:id="odd" name="odd"/>
     <node xmi:type="uml:ForkNode" xmi:id="cycA"/>
     <node xmi:type="uml:ForkNode" xmi:id="cycB"/>

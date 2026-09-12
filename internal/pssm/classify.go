@@ -65,6 +65,10 @@ const (
 	ConstructStandalone          Construct = "standalone state machine"
 	ConstructUnknownVertex       Construct = "unknown pseudostate kind"
 	ConstructNoMachine           Construct = "no state machine"
+	// No translation: the model's behaviors read what the notation cannot bind.
+	ConstructBehaviorParameter Construct = "behavior parameter"
+	ConstructOperationResult   Construct = "operation result"
+	ConstructTesterTrace       Construct = "tester trace"
 	// Recorded but not deciding: a pseudostate filed as a connection point that
 	// is neither an entry nor an exit point and that no transition reaches.
 	ConstructStrayConnectionPoint Construct = "stray connection point"
@@ -95,6 +99,9 @@ var constructClass = map[Construct]Expressibility{
 	ConstructStandalone:           NotExpressible,
 	ConstructUnknownVertex:        NotExpressible,
 	ConstructNoMachine:            NotExpressible,
+	ConstructBehaviorParameter:    NotExpressible,
+	ConstructOperationResult:      NotExpressible,
+	ConstructTesterTrace:          NotExpressible,
 	ConstructTerminate:            TerminateGap,
 	ConstructDefer:                Extension,
 	ConstructFork:                 Extension,
@@ -159,6 +166,7 @@ func Classify(t *Test) Classification {
 		w := &walker{add: add, reached: reachedVertices(t.Machine.Regions)}
 		w.connectionPoints(t.Machine.ConnectionPoints)
 		w.regions(t.Machine.Regions)
+		w.tester(t.Stimulation)
 	}
 	class := Standard
 	for _, u := range uses {
@@ -221,6 +229,11 @@ func (w *walker) regions(regions []*Region) {
 			w.vertex(v)
 		}
 		for _, tr := range r.Transitions {
+			for _, trig := range tr.Triggers {
+				if trig.Event != nil && trig.Event.Kind == EventCall && trig.Event.Operation != nil {
+					w.operation(trig.Event.Operation, tr.Name)
+				}
+			}
 			switch tr.Kind {
 			case TransitionLocal:
 				w.add(ConstructLocalTransition, tr.Name)
@@ -230,6 +243,38 @@ func (w *walker) regions(regions []*Region) {
 			if tr.Redefines != "" {
 				w.add(ConstructRedefinedTransition, tr.Name)
 			}
+		}
+	}
+}
+
+// behavior records a state behavior with parameters: the notation binds event
+// data on the transition, never on an entry, exit or do action.
+func (w *walker) behavior(b *Behavior, where string) {
+	if b != nil && len(b.Params) > 0 {
+		w.add(ConstructBehaviorParameter, where)
+	}
+}
+
+// operation records a call trigger whose operation returns a value: the
+// runtime's call events carry no result back to the caller.
+func (w *walker) operation(op *Operation, where string) {
+	for _, p := range op.Params {
+		if p.Direction == "out" || p.Direction == "return" || p.Direction == "inout" {
+			w.add(ConstructOperationResult, where)
+			return
+		}
+	}
+}
+
+// tester records a tester that writes the trace itself: only the target's
+// behaviors append to the model's log.
+func (w *walker) tester(body *Body) {
+	if body == nil {
+		return
+	}
+	for _, st := range body.Statements {
+		if st.Kind == StmtCall && st.Name == "trace" && isTarget(st.Receiver) {
+			w.add(ConstructTesterTrace, st.String())
 		}
 	}
 }
@@ -262,6 +307,9 @@ func (w *walker) vertex(v *Vertex) {
 	if v.Kind != VertexState {
 		return
 	}
+	w.behavior(v.Entry, where)
+	w.behavior(v.Exit, where)
+	w.behavior(v.Do, where)
 	if len(v.Deferred) > 0 {
 		w.add(ConstructDefer, where)
 	}

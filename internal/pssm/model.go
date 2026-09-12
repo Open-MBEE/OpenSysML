@@ -456,6 +456,7 @@ const (
 	StmtAccept                      // accept one of Events
 	StmtAssign                      // Receiver.Feature := Value
 	StmtReturn                      // return Value
+	StmtStart                       // start Receiver's classifier behavior
 )
 
 func (s Statement) String() string {
@@ -484,6 +485,8 @@ func (s Statement) String() string {
 		return fmt.Sprintf("%s.%s %s %s", s.Receiver, s.Feature, op, s.Value)
 	case StmtReturn:
 		return fmt.Sprintf("return %s", s.Value)
+	case StmtStart:
+		return fmt.Sprintf("start %s", s.Receiver)
 	}
 	return fmt.Sprintf("Statement(%d)", int(s.Kind))
 }
@@ -507,7 +510,7 @@ type Expr struct {
 	Object *Expr
 	// Apply: the behavior applied, by its library name (Concat, ToString, Not,
 	// ...), and its arguments in parameter order. Call: the operation called on
-	// Object, with its result used as a value.
+	// Object, with its result used as a value. New: the classifier instantiated, by Name.
 	Args []Expr
 	// Unknown: what the reader could not follow, for the diagnostic.
 	Text string
@@ -525,6 +528,7 @@ const (
 	ExprRead
 	ExprApply
 	ExprCall
+	ExprNew
 	ExprUnknown
 )
 
@@ -542,6 +546,8 @@ func (e Expr) String() string {
 		return e.Name + "(" + exprList(e.Args) + ")"
 	case ExprCall:
 		return e.Object.String() + "." + e.Name + "(" + exprList(e.Args) + ")"
+	case ExprNew:
+		return "new " + e.Name
 	case ExprUnknown:
 		return "?(" + e.Text + ")"
 	}

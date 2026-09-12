@@ -193,9 +193,12 @@ func (ar *activityReader) readNode(n *Element) {
 	case "uml:InitialNode", "uml:ActivityFinalNode", "uml:FlowFinalNode", "uml:ForkNode", "uml:JoinNode",
 		"uml:MergeNode", "uml:DecisionNode", "uml:ExpansionNode":
 	case "uml:ValueSpecificationAction", "uml:ReadSelfAction", "uml:ReadStructuralFeatureAction",
-		"uml:ClearStructuralFeatureAction", "uml:TestIdentityAction", "uml:ReadIsClassifiedObjectAction":
+		"uml:ClearStructuralFeatureAction", "uml:TestIdentityAction", "uml:ReadIsClassifiedObjectAction",
+		"uml:CreateObjectAction":
 		// Values: read where a pin consumes them. An unconsumed one is dead.
-	case "uml:CreateObjectAction", "uml:StartObjectBehaviorAction", "uml:DestroyObjectAction",
+	case "uml:StartObjectBehaviorAction":
+		ar.emit(Statement{Kind: StmtStart, Receiver: ar.pinValue(n.First("object"))})
+	case "uml:DestroyObjectAction",
 		"uml:ReadExtentAction", "uml:StartClassifierBehaviorAction", "uml:ReduceAction",
 		"uml:RemoveStructuralFeatureValueAction", "uml:CreateLinkAction", "uml:DestroyLinkAction",
 		"uml:ReadLinkAction", "uml:ClearAssociationAction", "uml:ReclassifyObjectAction", "uml:UnmarshallAction":
@@ -328,6 +331,12 @@ func (ar *activityReader) actionValue(n, pin *Element) Expr {
 		return Expr{Kind: ExprLiteral, Literal: lit}
 	case "uml:ReadSelfAction":
 		return Expr{Kind: ExprSelf}
+	case "uml:CreateObjectAction":
+		classifier := ar.r.doc.ByID(n.Attr("classifier"))
+		if classifier == nil {
+			return Expr{Kind: ExprUnknown, Text: n.Describe() + " creates an object of a classifier the document does not define"}
+		}
+		return Expr{Kind: ExprNew, Name: classifier.Name()}
 	case "uml:ReadStructuralFeatureAction":
 		feature := ar.r.doc.ByID(n.Attr("structuralFeature"))
 		if feature == nil {
