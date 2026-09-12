@@ -201,17 +201,19 @@ func (m *Model) baseTypeOf(def, annotated *symbols.Symbol) *symbols.Symbol {
 }
 
 // baseTypeBinders lists the nearest supertypes of def whose own body binds
-// baseType, breadth-first in declaration order, not looking past a binder.
+// baseType, breadth-first in declaration order, not looking past a binder. A
+// declaration reached through several scope trees is visited once.
 func (m *Model) baseTypeBinders(def *symbols.Symbol) []*symbols.Symbol {
-	seen := map[*symbols.Symbol]bool{def: true}
+	seen := map[symbols.ElementKey]bool{symbols.KeyOf(def): true}
 	var binders []*symbols.Symbol
 	for frontier := m.DirectSupertypes(def); len(frontier) > 0; {
 		var next []*symbols.Symbol
 		for _, super := range frontier {
-			if seen[super] {
+			key := symbols.KeyOf(super)
+			if seen[key] {
 				continue
 			}
-			seen[super] = true
+			seen[key] = true
 			if m.bindsBaseType(super) {
 				binders = append(binders, super)
 				continue
@@ -227,7 +229,7 @@ func (m *Model) baseTypeBinders(def *symbols.Symbol) []*symbols.Symbol {
 // binding replaces binder's.
 func (m *Model) baseTypeRebound(binder *symbols.Symbol, binders []*symbols.Symbol) bool {
 	for _, other := range binders {
-		if other != binder && m.Conforms(other, binder) {
+		if !symbols.SameElement(other, binder) && m.Conforms(other, binder) {
 			return true
 		}
 	}
