@@ -429,6 +429,15 @@ func (s *scheduler) refusal() error {
 	return s.replay.refused
 }
 
+// ended is the witness move a replaying run left to follow when it ended, nil
+// when it followed the witness whole or follows none.
+func (s *scheduler) ended() error {
+	if s.replay == nil {
+		return nil
+	}
+	return s.replay.unfollowed("the run ended")
+}
+
 // mark returns the state a probe restores, so previewing a run does not move
 // the seeded generator, the exploration's position or the witness's.
 func (s *scheduler) mark() func() {

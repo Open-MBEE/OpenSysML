@@ -2153,7 +2153,19 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) e
 			}
 		}
 	}
-	return nil
+	if atCurrentTime {
+		return nil
+	}
+	return e.completedRun()
+}
+
+// completedRun reports a witness move left to follow once a run asked to complete
+// the machine did; an object's behavior brought to quiescence asks no such thing.
+func (e *StateExecutor) completedRun() error {
+	if e.state != StateCompleted {
+		return nil
+	}
+	return e.ctx.completedRun()
 }
 
 // dueLabel names the machine in a due-order choice.
@@ -2344,7 +2356,10 @@ func (e *StateExecutor) runDoRound() (int, error) {
 		if len(due) == 0 {
 			break
 		}
-		next := e.chooseDoAction(due)
+		next, err := e.chooseDoAction(due)
+		if err != nil {
+			return ran, err
+		}
 		act := due[next]
 		due = slices.Delete(due, next, next+1)
 		if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
@@ -2545,18 +2560,22 @@ func (e *StateExecutor) settleDoActions() error {
 }
 
 // chooseDoAction resolves which of the do behaviors due in a round acts next: the
-// policy draws the pick and, with several due, the choice is reported.
-func (e *StateExecutor) chooseDoAction(due []*doAction) int {
+// policy draws the pick and, with several due, the choice is reported. A draw the
+// policy refuses is the round's error, before any behavior acts on it.
+func (e *StateExecutor) chooseDoAction(due []*doAction) (int, error) {
 	if len(due) < 2 {
-		return 0
+		return 0, nil
 	}
 	states := make([]*ast.StateNode, len(due))
 	for i, act := range due {
 		states[i] = act.state
 	}
 	choice := e.regionOrderChoice("do round at t="+semantics.FormatReal(e.ctx.clock.now), states)
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return 0, err
+	}
 	e.ctx.noteChoice(choice)
-	return choice.Taken
+	return choice.Taken, nil
 }
 
 // isRunningDoAction reports whether a do action is still registered, which it
@@ -3560,7 +3579,7 @@ func (e *StateExecutor) ProcessNextEvent() error {
 			return fmt.Errorf("poll change conditions: %w", err)
 		}
 		if fired {
-			return nil
+			return e.completedRun()
 		}
 		// A signal sent by a behavior sharing this context is dispatched by the same
 		// step RunToCompletion takes, so stepping and running agree.
@@ -3572,7 +3591,10 @@ func (e *StateExecutor) ProcessNextEvent() error {
 			return nil
 		}
 		if _, waiting := e.NextWait(); delivered || !waiting {
-			return e.processNextEvent()
+			if err := e.processNextEvent(); err != nil {
+				return err
+			}
+			return e.completedRun()
 		}
 		// Polled and found nothing: settled until another executor gets somewhere.
 		progress.settle(e)

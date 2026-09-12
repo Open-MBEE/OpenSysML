@@ -603,6 +603,15 @@ func (ctx *Context) beginRun() func() {
 	return ctx.enterRun(ctx.newRunState())
 }
 
+// completedRun is what a run reports on completing: at the top level the context's
+// runs are over, so a witness move left to follow is refused (scheduler.ended).
+func (ctx *Context) completedRun() error {
+	if ctx.runDepth != 1 {
+		return nil
+	}
+	return ctx.scheduling().ended()
+}
+
 // executorRun is a run driven call by call: its state, nil until its first call
 // begins it, which every later call resumes.
 type executorRun struct {
@@ -1351,11 +1360,12 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 	if err := ctx.startAction(exec, start); err != nil {
 		return nil, err
 	}
-	if exec.state == StateCompleted {
-		return exec, nil
+	if exec.state != StateCompleted {
+		if err := exec.RunToCompletion(); err != nil {
+			return nil, fmt.Errorf("execute action: %w", err)
+		}
 	}
-
-	if err := exec.RunToCompletion(); err != nil {
+	if err := exec.completedRun(); err != nil {
 		return nil, fmt.Errorf("execute action: %w", err)
 	}
 	return exec, nil
@@ -1442,6 +1452,9 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	}
 
 	if err := exec.RunToCompletion(); err != nil {
+		return nil, err
+	}
+	if err := exec.completedRun(); err != nil {
 		return nil, err
 	}
 	return exec, nil

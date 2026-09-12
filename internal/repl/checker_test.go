@@ -232,3 +232,32 @@ func TestReplayRefusesAWitnessOfAnotherRun(t *testing.T) {
 	wants(t, out, "error: step failed: replay refused: move 1 (step 3: 9@nowhere first of 9@nowhere, 3@right): step 3: 9@nowhere is not able to act (able to act: 2@left, 3@right)")
 	rejects(t, out, "Step complete")
 }
+
+// A witness with moves left when the run completes is refused as the run ends,
+// whether %continue or %step brings the run there.
+func TestReplayRefusesMovesLeftWhenTheRunCompletes(t *testing.T) {
+	witness := filepath.Join(t.TempDir(), "long.witness")
+	if err := os.WriteFile(witness, []byte("step 3: 3@right first of 2@left, 3@right\nstep 9: 2@left first of 2@left, 3@right\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	refused := "replay refused: move 2 (step 9: 2@left first of 2@left, 3@right): the run ended"
+
+	s := loadSource(t, choiceForkSource)
+	run(t, s, "%replay "+witness)
+	run(t, s, "%action Debug::tally")
+	out := run(t, s, "%continue")
+	wants(t, out, refused)
+	rejects(t, out, "Action completed")
+
+	s = loadSource(t, choiceForkSource)
+	run(t, s, "%replay "+witness)
+	run(t, s, "%action Debug::tally")
+	for i := 0; i < 20; i++ {
+		out = run(t, s, "%step")
+		if !strings.Contains(out, "Step complete") {
+			break
+		}
+	}
+	wants(t, out, refused)
+	rejects(t, out, "Action completed")
+}

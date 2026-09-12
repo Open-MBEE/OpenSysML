@@ -245,7 +245,11 @@ func (p *changePoll) wait(trans *lower.Transition, state, reason string) {
 func (e *StateExecutor) PollChangeEvents() (bool, error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
-	return e.pollChangeEvents()
+	fired, err := e.pollChangeEvents()
+	if err != nil {
+		return fired, err
+	}
+	return fired, e.completedRun()
 }
 
 // ChangeWaits describes the change conditions the active configuration was

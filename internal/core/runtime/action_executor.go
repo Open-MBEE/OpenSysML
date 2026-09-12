@@ -352,7 +352,16 @@ func (e *ActionExecutor) Step() error {
 		e.trace().RecordActionStep(e.stepCount, e.tokens)
 	}
 
-	return nil
+	return e.completedRun()
+}
+
+// completedRun reports a witness move left to follow once a run asked to complete
+// the action did; an object's behavior brought to quiescence asks no such thing.
+func (e *ActionExecutor) completedRun() error {
+	if e.state != StateCompleted {
+		return nil
+	}
+	return e.ctx.completedRun()
 }
 
 // tokensProgressed reports whether the tokens got anywhere since the count and locations
@@ -529,11 +538,14 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			break
 		}
 	}
-	if e.state == StateWaiting && !atCurrentTime {
+	if atCurrentTime {
+		return nil
+	}
+	if e.state == StateWaiting {
 		e.endPausedBodies()
 		return e.deadlockError(nil)
 	}
-	return nil
+	return e.completedRun()
 }
 
 // awaitClock runs what is due, then moves the clock to the earliest wait, until a

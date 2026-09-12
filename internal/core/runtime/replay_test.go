@@ -141,9 +141,6 @@ func replayed(t *testing.T, fresh func() (*Context, error), run func(*Context) (
 	}
 	mustSchedule(t, ctx, ReplayPolicy(witness))
 	outcome, err := run(ctx)
-	if err == nil {
-		err = ctx.Unfollowed()
-	}
 	var choices []ChoiceTaken
 	for _, c := range ctx.Choices() {
 		choices = append(choices, c.Choice())
@@ -229,9 +226,6 @@ func TestReplayFileReproducesTheExploredRun(t *testing.T) {
 		trace := NewTraceRecorder()
 		exec.SetTrace(trace)
 		if err := exec.RunToCompletion(); err != nil {
-			t.Fatalf("%s: %v", policy, err)
-		}
-		if err := ctx.Unfollowed(); err != nil {
 			t.Fatalf("%s: %v", policy, err)
 		}
 		return trace.String(), exec.Results()
@@ -442,6 +436,225 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}
 	if _, _, err := replayed(t, m.fresh, run, good); err != nil {
 		t.Fatalf("the witness itself is refused: %v", err)
+	}
+}
+
+// A witness move left over when the run completes is refused by the run itself,
+// however it was brought to completion: run whole, resumed past a breakpoint, or
+// stepped; a run that has not completed refuses nothing.
+func TestReplayRefusesAMoveLeftOverAtCompletion(t *testing.T) {
+	m := parseExploreModel(t, choiceModel)
+	sym := m.action(t, "route")
+	good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+	leftOver, err := ParseChoice("step 99: 1@a first of 1@a, 2@b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	witness := append(slices.Clone(good), leftOver)
+	assertRefusedLeftOver := func(t *testing.T, err error) {
+		t.Helper()
+		var refused *ReplayError
+		if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
+			t.Fatalf("error %T %v, want a ReplayError", err, err)
+		}
+		if refused.Move != len(witness) || refused.Choice.String() != leftOver.String() || !strings.Contains(err.Error(), "the run ended") {
+			t.Fatalf("error %q, want move %d (%s) refused as the run ended", err, len(witness), leftOver)
+		}
+	}
+	executor := func(t *testing.T) *ActionExecutor {
+		t.Helper()
+		ctx, _ := m.fresh()
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		exec, err := ctx.CreateActionExecutor(sym)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return exec
+	}
+	t.Run("run whole", func(t *testing.T) {
+		ctx, _ := m.fresh()
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		_, err := ctx.ExecuteAction(sym)
+		assertRefusedLeftOver(t, err)
+		exec := executor(t)
+		assertRefusedLeftOver(t, exec.RunToCompletion())
+		if exec.State() != StateCompleted {
+			t.Fatalf("the run refused stands %s, want completed", exec.State())
+		}
+	})
+	t.Run("resumed past a breakpoint", func(t *testing.T) {
+		exec := executor(t)
+		exec.SetBreakpoint("warn")
+		if err := exec.RunToCompletion(); err != nil || exec.PausedAt() != "warn" {
+			t.Fatalf("run to the breakpoint: %v, paused at %q", err, exec.PausedAt())
+		}
+		assertRefusedLeftOver(t, exec.RunToCompletion())
+	})
+	t.Run("stepped", func(t *testing.T) {
+		exec := executor(t)
+		for exec.State() != StateCompleted {
+			err := exec.Step()
+			if exec.State() != StateCompleted {
+				if err != nil {
+					t.Fatalf("step %d: %v", exec.stepCount, err)
+				}
+				continue
+			}
+			assertRefusedLeftOver(t, err)
+		}
+	})
+	t.Run("state machine", func(t *testing.T) {
+		m := parseExploreModel(t, `package test {
+			state def Machine {
+				entry; then idle;
+				state idle;
+				state left;
+				state right;
+				transition idle_left first idle accept go then left;
+				transition idle_right first idle accept go then right;
+				transition first left then done;
+				transition first right then done;
+			}
+		}`)
+		run := stateRun(m.state(t, "Machine"), "go")
+		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+		if err != nil || !x.Complete() || x.Runs != 2 {
+			t.Fatalf("explore: %v, %v", x, err)
+		}
+		assertWitnessesReplay(t, x, m.fresh, run)
+		stale := append(slices.Clone(x.Outcomes[0].Witness), leftOver)
+		_, _, err = replayed(t, m.fresh, run, stale)
+		var refused *ReplayError
+		if !errors.As(err, &refused) || refused.Move != len(stale) || !strings.Contains(err.Error(), "the run ended") {
+			t.Fatalf("error %T %v, want move %d refused as the run ended", err, err, len(stale))
+		}
+	})
+}
+
+// A run that completes inside another — an action a node performs, an object's
+// behavior run as it is materialized — leaves the enclosing run's moves to it.
+func TestReplayLeavesMovesToTheEnclosingRun(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action def Inner {
+			attribute y : Integer = 0;
+			first start;
+			fork split;
+			action a { assign y := 1; }
+			action b { assign y := 2; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then a;
+			succession first split then b;
+			succession first a then sync;
+			succession first b then sync;
+			succession first sync then done;
+		}
+		action outer {
+			attribute x : Integer = 0;
+			first start;
+			perform Inner;
+			fork split;
+			action a { assign x := 1; }
+			action b { assign x := 2; }
+			join sync;
+			done;
+			succession first start then Inner;
+			succession first Inner then split;
+			succession first split then a;
+			succession first split then b;
+			succession first a then sync;
+			succession first b then sync;
+			succession first sync then done;
+		}
+	}`)
+	x := m.exploreAction(t, "explore", "outer")
+	if !x.Complete() || x.Runs != 4 {
+		t.Fatalf("explore: %s, %d runs", x.Status(), x.Runs)
+	}
+	sym := m.action(t, "outer")
+	for _, o := range x.Outcomes {
+		if len(o.Witness) != 2 {
+			t.Fatalf("%s: witness %s, want the performed action's move and the action's", o.Outcome, FormatChoices(o.Witness))
+		}
+	}
+	assertWitnessesReplay(t, x, m.fresh, func(ctx *Context) (Outcome, error) {
+		outputs, err := ctx.ExecuteAction(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(outputs), nil
+	})
+}
+
+// A do-round order the witness names that the round cannot take is refused as
+// such, before any do behavior of the round acts.
+func TestReplayRefusesADoOrderBeforeTheRoundActs(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		state def Interleave parallel {
+			attribute seq : Integer = 0;
+			state left {
+				entry; then lwork;
+				state lwork { do { assign seq := seq * 10 + 1; assign seq := seq * 10 + 2; } }
+			}
+			state right {
+				entry; then rwork;
+				state rwork { do { assign seq := seq * 10 + 3; assign seq := seq * 10 + 4; } }
+			}
+		}
+	}`)
+	sym := m.state(t, "Interleave")
+	run := func(ctx *Context) (Outcome, error) {
+		exec, err := ctx.CreateStateExecutor(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(map[string]Value{"seq": exec.StateData()["seq"]}), nil
+	}
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	if err != nil || !x.Complete() || x.Runs != 4 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	assertWitnessesReplay(t, x, m.fresh, run)
+	first := x.Outcomes[0].Witness[0]
+	if first.Kind != ChoiceRegionOrder || !strings.HasPrefix(first.Where, "do round at ") {
+		t.Fatalf("the first choice is %s, want a do-round order", first)
+	}
+	for _, c := range []struct{ name, line, faced string }{
+		{"state not due", first.Where + ": zzz first of lwork, zzz", "zzz"},
+		{"alternatives left out", first.Where + ": lwork first of lwork", "more are enabled"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			witness, err := ParseChoices(c.line)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, _ := m.fresh()
+			mustSchedule(t, ctx, ReplayPolicy(witness))
+			exec, err := ctx.CreateStateExecutor(sym)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = exec.RunToCompletion()
+			var refused *ReplayError
+			if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 {
+				t.Fatalf("error %T %v, want move 1 refused", err, err)
+			}
+			if !strings.Contains(err.Error(), c.faced) {
+				t.Errorf("error %q does not say %q", err, c.faced)
+			}
+			if seq := exec.StateData()["seq"]; seq.Const.Int != 0 {
+				t.Errorf("a do behavior acted on the refused round: seq = %d", seq.Const.Int)
+			}
+			if len(ctx.Choices()) != 0 {
+				t.Errorf("the refused draw was recorded: %v", ctx.Choices())
+			}
+		})
 	}
 }
 
