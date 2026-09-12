@@ -110,11 +110,24 @@ func TestEngineCheckWitnessesADivergence(t *testing.T) {
 	wantReport(t, replayed, 0, "took 2@left first", "x = 2", "standing: value (observed: 1 run under replay:"+witness+")")
 
 	// A feature the schedules agree on is not divergent: the search is exhaustive, and holds.
-	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-action", "Mission::race", "-check-diverge", "y"),
+	agreed := strings.Replace(forkModel, "attribute x : Integer = 0;", "attribute x : Integer = 0;\n        attribute y : Integer = 0;", 1)
+	wantReport(t, check(t, binary, agreed, "-engine", "check", "-action", "Mission::race", "-check-diverge", "y"),
 		0, "✓ Action Mission::race: no violation, exhaustive (11 states, 10 moves, depth 6)",
 		"standing: outcomes (bounded over schedules: 11 states, 10 moves searched)")
-	rejects := check(t, binary, forkModel, "-engine", "check", "-action", "Mission::race", "-check-diverge", "y")
+	rejects := check(t, binary, agreed, "-engine", "check", "-action", "Mission::race", "-check-diverge", "y")
 	rejectReport(t, rejects, "divergent:")
+
+	// A name nothing holds is refused, not silently a clean search.
+	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-action", "Mission::race", "-check-diverge", "y"), 2,
+		"no such feature to check divergence of: y: the action holds no such feature and performs no such node")
+
+	// The action's own attribute is divergent whatever its name is spelt with, by default and by name.
+	dotted := strings.ReplaceAll(forkModel, " x ", " 'a.b' ")
+	for _, args := range [][]string{nil, {"-check-diverge", "a.b"}} {
+		got := check(t, binary, dotted, append([]string{"-engine", "check", "-action", "Mission::race", "-check-witness", dir}, args...)...)
+		wantReport(t, got, 1, "divergent: a.b ends as 1 or 2",
+			"a.b = 2 (witness "+filepath.Join(dir, "Mission.race-a.b-2.witness")+")")
+	}
 }
 
 // A property is evaluated on the performer at every stable state, false at one a

@@ -125,7 +125,7 @@ func TestCheckEvaluatesPropertiesAtCompletion(t *testing.T) {
 		if v.Kind != ViolationProperty || v.Name != "incomplete" || v.Depth != report.MaxDepth || len(v.Witness.Choices) == 0 {
 			t.Fatalf("reduce=%v: violation %+v, want incomplete false at the completing depth %d", opts.Reduce, v, report.MaxDepth)
 		}
-		r := replayWitness(t, m, starterOf(m.action(t, "gather")), v.Witness, "completion")
+		r := replayWitness(t, m, starterOf(m.action(t, "gather")), v.Witness, "completion", incomplete)
 		if r.Err != nil || r.Exec.State() != StateCompleted {
 			t.Fatalf("reduce=%v: the replay ends %s with %v, want complete", opts.Reduce, r.Exec.State(), r.Err)
 		}
@@ -194,16 +194,16 @@ func TestCheckWitnessesReplay(t *testing.T) {
 	}
 }
 
-func replayWitness(t *testing.T, m *exploreModel, start ActionStarter, w Witness, claim string) *Replayed {
+func replayWitness(t *testing.T, m *exploreModel, start ActionStarter, w Witness, claim string, props ...CheckProperty) *Replayed {
 	t.Helper()
 	parsed, err := ParseWitness(w.String())
 	if err != nil {
 		t.Fatalf("%s: parsing the witness: %v", claim, err)
 	}
-	if parsed.Trace != w.Trace || parsed.Fails != w.Fails || len(parsed.Choices) != len(w.Choices) {
+	if parsed.Trace != w.Trace || parsed.Fails != w.Fails || parsed.Property != w.Property || len(parsed.Choices) != len(w.Choices) {
 		t.Fatalf("%s: the witness reads back otherwise:\n%s", claim, w)
 	}
-	r, err := ReplayAction(context.Background(), m.fresh, start, parsed)
+	r, err := ReplayAction(context.Background(), m.fresh, start, parsed, props)
 	if err != nil {
 		t.Fatalf("%s: replay: %v", claim, err)
 	}
@@ -216,7 +216,7 @@ func TestCheckReplayDisagreesWithATamperedWitness(t *testing.T) {
 	report := checkModel(t, m, "clash", CheckBudget{}, reduced())
 	w := report.Finals[0].Witness
 	other := Witness{Choices: report.Finals[1].Witness.Choices, Trace: w.Trace}
-	_, err := ReplayAction(context.Background(), m.fresh, starterOf(m.action(t, "clash")), other)
+	_, err := ReplayAction(context.Background(), m.fresh, starterOf(m.action(t, "clash")), other, nil)
 	var dis *ReplayDisagreement
 	if !errors.As(err, &dis) || !errors.Is(err, ErrReplayDisagrees) {
 		t.Fatalf("replay = %v, want a ReplayDisagreement", err)
@@ -236,14 +236,14 @@ func TestCheckReplayStopsWhenCancelled(t *testing.T) {
 		cancel()
 		return m.fresh()
 	}
-	r, err := ReplayAction(stop, fresh, starterOf(m.action(t, "clash")), w)
+	r, err := ReplayAction(stop, fresh, starterOf(m.action(t, "clash")), w, nil)
 	if !errors.Is(err, context.Canceled) || errors.Is(err, ErrReplayDisagrees) {
 		t.Fatalf("replay = %v, want context.Canceled", err)
 	}
 	if r == nil || r.Exec == nil || r.Ctx.Trace().String() == w.Trace {
 		t.Fatalf("the replay ran to the claimed state after being cancelled")
 	}
-	if _, err := ReplayAction(stop, m.fresh, starterOf(m.action(t, "clash")), w); !errors.Is(err, context.Canceled) {
+	if _, err := ReplayAction(stop, m.fresh, starterOf(m.action(t, "clash")), w, nil); !errors.Is(err, context.Canceled) {
 		t.Fatalf("replay under a cancelled context = %v, want context.Canceled", err)
 	}
 }
@@ -416,7 +416,7 @@ func TestCheckPropertyOfThePerformerIsWitnessed(t *testing.T) {
 		if v.Kind != ViolationProperty || v.Name != "low" {
 			t.Fatalf("reduce=%v: violation %+v, want the property low", opts.Reduce, v)
 		}
-		r := replayWitness(t, m, start, v.Witness, "low false")
+		r := replayWitness(t, m, start, v.Witness, "low false", prop)
 		holds, err := prop.Holds(r.Ctx, r.Exec)
 		if err != nil || holds {
 			t.Fatalf("reduce=%v: replayed to a state where low = %v, %v; want false", opts.Reduce, holds, err)
@@ -507,7 +507,7 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 			}
 			// The same schedule claiming a state the run goes on from does not replay.
 			state := Witness{Choices: v.Witness.Choices, Trace: v.Witness.Trace}
-			_, err := ReplayAction(context.Background(), m.fresh, starterOf(m.action(t, c.action)), state)
+			_, err := ReplayAction(context.Background(), m.fresh, starterOf(m.action(t, c.action)), state, nil)
 			if !errors.Is(err, ErrReplayDisagrees) {
 				t.Fatalf("replay of the schedule without its failure = %v, want a disagreement", err)
 			}
@@ -581,7 +581,7 @@ func TestCheckReplaysAFailureLeavingNoTrace(t *testing.T) {
 	}
 	other := Witness{Trace: v.Witness.Trace, Fails: "another failure"}
 	var dis *ReplayDisagreement
-	if _, err := ReplayAction(context.Background(), m.fresh, start, other); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "otherwise than claimed") {
+	if _, err := ReplayAction(context.Background(), m.fresh, start, other, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "otherwise than claimed") {
 		t.Fatalf("replay claiming another failure = %v, want a disagreement naming both", err)
 	}
 }
@@ -847,5 +847,232 @@ func TestCheckVisitedStatesCloseALoop(t *testing.T) {
 	// start, then m and flip with `on` each way, the first pass through flip apart.
 	if report.States != 7 {
 		t.Fatalf("%d states for a two-valued loop, want 7", report.States)
+	}
+}
+
+// A feature a final leaves unset is still reported, as UnsetText: a branch that
+// may or may not set one makes it divergent over the value and `<unset>`, for
+// the action's own and the performer's alike.
+func TestCheckKeepsAnUnsetFeatureInADivergence(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		part def Tank {
+			attribute mark : Integer;
+			action fill {
+				attribute x : Integer = 0;
+				attribute y : Integer;
+				first start;
+				fork split;
+				action left { assign x := 1; }
+				decide look;
+				if x == 1 then note;
+				else idle;
+				action note { assign y := 1; assign this.mark := 1; }
+				action idle;
+				merge meet;
+				join sync;
+				done;
+				succession first start then split;
+				succession first split then left;
+				succession first split then look;
+				succession first note then meet;
+				succession first idle then meet;
+				succession first left then sync;
+				succession first meet then sync;
+				succession first sync then done;
+			}
+		}
+	}`)
+	fill := m.idx.LookupQualified("test::Tank::fill")[0]
+	tank := m.idx.LookupQualified("test::Tank")[0]
+	start := func(ctx *Context) (*ActionExecutor, error) {
+		self, err := ctx.Instantiate(tank)
+		if err != nil {
+			return nil, err
+		}
+		return ctx.CreateActionExecutorFor(fill, self)
+	}
+	for _, diverge := range [][]string{nil, {"y", "this.mark"}} {
+		for _, opts := range []CheckOptions{reduced(), unreduced()} {
+			opts.Diverge = diverge
+			report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, opts, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.Verdict != CheckDivergent {
+				t.Fatalf("Diverge %v, reduce=%v: %s, violations %v", diverge, opts.Reduce, report.Status(), report.Violations)
+			}
+			for _, name := range []string{"y", "this.mark"} {
+				if got := divergentValues(report, name); !slices.Equal(got, []string{"1", UnsetText}) {
+					t.Errorf("Diverge %v, reduce=%v: %s diverges over %v, want [1 %s]: %s", diverge, opts.Reduce, name, got, UnsetText, report.Status())
+				}
+			}
+			if diverge == nil && divergentValues(report, "x") != nil {
+				t.Errorf("reduce=%v: x diverges: %s", opts.Reduce, report.Status())
+			}
+			for _, d := range report.Divergent {
+				for _, v := range d.Values {
+					replayWitness(t, m, start, v.Witness, d.Feature+" = "+v.Value)
+				}
+			}
+		}
+	}
+}
+
+// The action's own features are told from a performed node's by what the
+// lowered graph declares, not by punctuation: an attribute named 'a.b' is the
+// action's own, and a `node.pin` path selects the node's output.
+func TestCheckDivergeTellsAQuotedNameFromANodePath(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action def Mark { out tag : Integer; first set; action set { assign tag := 1; } }
+		action race {
+			attribute 'a.b' : Integer = 0;
+			first start;
+			fork split;
+			action left { assign 'a.b' := 1; }
+			action right { assign 'a.b' := 2; }
+			action marker : Mark;
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then left;
+			succession first split then right;
+			succession first split then marker;
+			succession first left then sync;
+			succession first right then sync;
+			succession first marker then sync;
+			succession first sync then done;
+		}
+	}`)
+	for _, diverge := range [][]string{nil, {"a.b"}, {"a.b", "marker.tag"}} {
+		report := checkModel(t, m, "race", CheckBudget{}, CheckOptions{Reduce: true, Diverge: diverge})
+		if got := divergentValues(report, "a.b"); !slices.Equal(got, []string{"1", "2"}) {
+			t.Errorf("Diverge %v: 'a.b' diverges over %v, want [1 2]: %s", diverge, got, report.Status())
+		}
+		if len(report.Divergent) != 1 {
+			t.Errorf("Diverge %v: %d features divergent, want 'a.b' alone: %s", diverge, len(report.Divergent), report.Status())
+		}
+		for _, final := range report.Finals {
+			if _, held := final.Values["marker.tag"]; held != slices.Contains(diverge, "marker.tag") {
+				t.Errorf("Diverge %v: final holds marker.tag = %v", diverge, held)
+			}
+		}
+	}
+	report := checkModel(t, m, "race", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"marker.tag"}})
+	if len(report.Divergent) != 0 || report.Finals[0].Values["marker.tag"] != "1" {
+		t.Fatalf("Diverge marker.tag: %s, finals %v; want marker.tag = 1 on every schedule", report.Status(), report.Finals)
+	}
+}
+
+// A Diverge name nothing answers to fails the check, typed, rather than silently
+// selecting nothing; a feature declared but never valued is answered to, as unset.
+func TestCheckRejectsAnUnknownDivergeName(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action def Mark { out tag : Integer; first set; action set { assign tag := 1; } }
+		action lone {
+			attribute x : Integer = 0;
+			attribute later : Integer;
+			first start;
+			then action marker : Mark;
+			then done;
+		}
+	}`)
+	for _, name := range []string{"y", "this.x", "marker.nope", "nobody.tag", "x.y"} {
+		_, err := checkModelErr(t, m, "lone", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"x", name}})
+		var unknown *UnknownCheckFeatureError
+		if !errors.As(err, &unknown) || !errors.Is(err, ErrUnknownCheckFeature) || unknown.Name != name {
+			t.Errorf("Diverge %s: %v, want ErrUnknownCheckFeature naming it", name, err)
+		}
+	}
+	report := checkModel(t, m, "lone", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"later", "marker.tag"}})
+	if report.Verdict != CheckExhaustive || len(report.Finals) != 1 {
+		t.Fatalf("%s, want one final", report.Status())
+	}
+	if values := report.Finals[0].Values; values["later"] != UnsetText || values["marker.tag"] != "1" {
+		t.Fatalf("final values %v, want later unset and marker.tag = 1", values)
+	}
+}
+
+// A property may read what no footprint names, so a check with properties
+// searches every interleaving: a property false only where one branch ran
+// ahead of the other is found either way round, and the outcome-only search still reduces.
+func TestCheckSearchesEveryOrderUnderAProperty(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action pair {
+			attribute a : Integer = 0;
+			attribute b : Integer = 0;
+			first start;
+			fork split;
+			action left { assign a := 1; }
+			then action leftAgain { assign a := 2; }
+			action right { assign b := 1; }
+			then action rightAgain { assign b := 2; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then left;
+			succession first split then right;
+			succession first leftAgain then sync;
+			succession first rightAgain then sync;
+			succession first sync then done;
+		}
+	}`)
+	at := func(exec *ActionExecutor, name string) int64 { return exec.Results()[name].Const.Int }
+	notLeftFirst := CheckProperty{Name: "notLeftFirst", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+		return !(at(exec, "a") == 2 && at(exec, "b") == 0), nil
+	}}
+	notRightFirst := CheckProperty{Name: "notRightFirst", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+		return !(at(exec, "b") == 2 && at(exec, "a") == 0), nil
+	}}
+	outcomes := checkModel(t, m, "pair", CheckBudget{}, reduced())
+	if full := checkModel(t, m, "pair", CheckBudget{}, unreduced()); outcomes.Moves >= full.Moves {
+		t.Fatalf("outcome-only search made %d moves, unreduced %d; want fewer", outcomes.Moves, full.Moves)
+	}
+	for _, p := range []CheckProperty{notLeftFirst, notRightFirst} {
+		report := checkModel(t, m, "pair", CheckBudget{}, reduced(), p)
+		if report.Verdict != CheckViolation || len(report.Violations) != 1 || report.Violations[0].Name != p.Name {
+			t.Fatalf("%s under the reduction: %s, violations %v; want it false once", p.Name, report.Status(), report.Violations)
+		}
+		replayWitness(t, m, starterOf(m.action(t, "pair")), report.Violations[0].Witness, p.Name, p)
+	}
+}
+
+// A property failing to evaluate is a failure whose witness names the property
+// and what it raised; its replay evaluates the property again and holds the
+// witness to it, so a replay given another property, or none, disagrees.
+func TestCheckReplaysAPropertyThatFailsToEvaluate(t *testing.T) {
+	m := conformanceModel(t, "action_fork_branches_write_one_feature")
+	start := starterOf(m.action(t, "clash"))
+	offline := errors.New("the sensor is offline")
+	sensor := CheckProperty{Name: "sensor", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+		if exec.State() == StateCompleted && exec.Results()["x"].Const.Int == 2 {
+			return false, offline
+		}
+		return true, nil
+	}}
+	report := checkModel(t, m, "clash", CheckBudget{}, reduced(), sensor)
+	if report.Verdict != CheckViolation || len(report.Violations) != 1 {
+		t.Fatalf("%s, violations %v; want the sensor's failure once", report.Status(), report.Violations)
+	}
+	v := report.Violations[0]
+	if v.Kind != ViolationFailure || !errors.Is(v.Err, offline) || v.Witness.Property != "sensor" || v.Witness.Fails != offline.Error() {
+		t.Fatalf("violation %+v, want the sensor failing as its witness claims", v)
+	}
+	if !strings.HasSuffix(v.Witness.String(), "\n\nproperty: sensor\nfails: "+offline.Error()) {
+		t.Fatalf("witness:\n%s", v.Witness)
+	}
+	r := replayWitness(t, m, start, v.Witness, "sensor failing", sensor)
+	if !errors.Is(r.Err, offline) {
+		t.Fatalf("replay ends with %v, want the sensor's failure", r.Err)
+	}
+	quiet := CheckProperty{Name: "sensor", Holds: func(*Context, *ActionExecutor) (bool, error) { return false, nil }}
+	for name, props := range map[string][]CheckProperty{"none": nil, "another": {quiet}} {
+		var dis *ReplayDisagreement
+		if _, err := ReplayAction(context.Background(), m.fresh, start, v.Witness, props); !errors.As(err, &dis) {
+			t.Errorf("replay given %s property: %v, want a ReplayDisagreement", name, err)
+		}
 	}
 }

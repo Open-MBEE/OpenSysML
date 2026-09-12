@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
 )
 
 // CheckEngineName is the name of the engine that searches an action's schedules explicitly.
@@ -291,12 +292,12 @@ func (e checkEngine) replayOne(ctx context.Context, fresh func() (*runtime.Conte
 			return err
 		}
 	}
-	_, err := runtime.ReplayAction(ctx, fresh, q.Check.Start, w.witness)
+	_, err := runtime.ReplayAction(ctx, fresh, q.Check.Start, w.witness, q.Check.Properties)
 	return err
 }
 
-// writeWitness writes the witness beside path and renames it into place, so a link
-// planted at the path is replaced, never followed to what it points at.
+// writeWitness writes the witness beside path and moves it into place over what
+// the path held, so a link planted there is replaced, never followed to what it points at.
 func writeWitness(path, text string) (err error) {
 	dir, name := filepath.Split(path)
 	f, err := os.CreateTemp(dir, "."+name+".*")
@@ -314,7 +315,7 @@ func writeWitness(path, text string) (err error) {
 	if err = f.Close(); err != nil {
 		return err
 	}
-	return os.Rename(f.Name(), path)
+	return fsutil.Replace(f.Name(), path)
 }
 
 // violationFile names the witness of the n-th violation, `test.race.violation-1.witness`:

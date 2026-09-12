@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -40,13 +41,25 @@ type Replayed struct {
 // ReplayAction re-runs the witness: it starts the action start begins in the
 // context fresh makes, under the `replay` policy over the witness's choices, and
 // steps it until its trace equals the witness's, settling as the check did — or,
-// for a witness ending in a failure, until a move raises it. The run failing to
-// follow a choice, ending, failing otherwise or leaving another trace is a
+// for a witness ending in a failure, until a move raises it. A witness naming a
+// property has that property, found among props, evaluated at the state reached:
+// it must be false or fail as the witness says. The run failing to follow a
+// choice, ending, failing otherwise or leaving another trace is a
 // ReplayDisagreement; a caller that goes away mid-run takes the replay with it,
 // its error being stop's.
-func ReplayAction(stop context.Context, fresh func() (*Context, error), start ActionStarter, w Witness) (*Replayed, error) {
+func ReplayAction(
+	stop context.Context, fresh func() (*Context, error), start ActionStarter, w Witness, props []CheckProperty,
+) (*Replayed, error) {
 	if err := stop.Err(); err != nil {
 		return nil, err
+	}
+	var property *CheckProperty
+	if w.Property != "" {
+		at := slices.IndexFunc(props, func(p CheckProperty) bool { return p.Name == w.Property })
+		if at < 0 {
+			return nil, &ReplayDisagreement{Reason: "the witness names a property the replay was not given: " + w.Property, Witness: w.Trace}
+		}
+		property = &props[at]
 	}
 	ctx, err := fresh()
 	if err != nil {
@@ -69,12 +82,15 @@ func ReplayAction(stop context.Context, fresh func() (*Context, error), start Ac
 		if err := stop.Err(); err != nil {
 			return r, err
 		}
-		if w.Fails == "" && ctx.Trace().String() == w.Trace {
+		if (w.Fails == "" || property != nil) && ctx.Trace().String() == w.Trace {
 			if err := r.settle(stop); err != nil {
 				if stop.Err() != nil {
 					return r, err
 				}
 				r.Err = err
+			}
+			if property != nil {
+				return r, r.agreeOnProperty(w, *property)
 			}
 			return r, r.agree(w, "settling the claimed state")
 		}
@@ -87,6 +103,9 @@ func ReplayAction(stop context.Context, fresh func() (*Context, error), start Ac
 		before := len(ctx.Trace().Entries())
 		if err := exec.advance(); err != nil {
 			r.Err = err
+			if property != nil {
+				return r, r.disagree(w, "the run failed before reaching the claimed state: "+err.Error())
+			}
 			return r, r.agree(w, "the run failed: "+err.Error())
 		}
 		if len(ctx.Trace().Entries()) == before && exec.State() == StateWaiting {
@@ -134,6 +153,40 @@ func (r *Replayed) agree(w Witness, why string) error {
 	return nil
 }
 
+// agreeOnProperty checks the run reached the claimed state and the property
+// there is false, or fails to evaluate, as the witness claims.
+func (r *Replayed) agreeOnProperty(w Witness, p CheckProperty) error {
+	if err := r.Ctx.Unfollowed(); err != nil {
+		return r.disagree(w, err.Error())
+	}
+	if r.Ctx.Trace().String() != w.Trace {
+		return r.disagree(w, "settling the claimed state left another trace")
+	}
+	if r.Err != nil {
+		return r.disagree(w, "the run failed where the witness claims a state: "+r.Err.Error())
+	}
+	holds, err := r.evaluate(p)
+	switch {
+	case err != nil && w.Fails == "":
+		return r.disagree(w, "evaluating "+p.Name+" failed where the witness claims it false: "+err.Error())
+	case err != nil && err.Error() != w.Fails:
+		return r.disagree(w, "evaluating "+p.Name+" failed otherwise than claimed: "+err.Error()+", not "+w.Fails)
+	case err != nil:
+		r.Err = err
+	case w.Fails != "":
+		return r.disagree(w, "evaluating "+p.Name+" did not fail as claimed: "+w.Fails)
+	case holds:
+		return r.disagree(w, p.Name+" holds at the claimed state")
+	}
+	return nil
+}
+
+// evaluate asks the property of the replayed run under a readiness probe, as the check did.
+func (r *Replayed) evaluate(p CheckProperty) (bool, error) {
+	defer r.Ctx.beginProbe()()
+	return p.Holds(r.Ctx, r.Exec)
+}
+
 func (r *Replayed) disagree(w Witness, reason string) error {
 	return &ReplayDisagreement{Reason: reason, Witness: w.Trace, Trace: r.Ctx.Trace().String()}
 }
@@ -153,12 +206,16 @@ func (e *ActionExecutor) advance() error {
 	return err
 }
 
-// failsPrefix opens the last line of a witness ending in a failure.
-const failsPrefix = "fails: "
+// The lines closing a witness after its trace: the property it claims, the failure it ends in.
+const (
+	propertyPrefix = "property: "
+	failsPrefix    = "fails: "
+)
 
 // String renders the witness as a file holds it: its choices one per line — or
-// `no choice points` — a blank line, the trace, and for a schedule ending in a
-// failure a blank line and `fails: <the failure>` last.
+// `no choice points` — a blank line, the trace, and after a blank line the
+// claims closing it: `property: <name>` for a property's, `fails: <the
+// failure>` for a schedule ending in a failure, last.
 func (w Witness) String() string {
 	var b strings.Builder
 	if len(w.Choices) == 0 {
@@ -170,15 +227,21 @@ func (w Witness) String() string {
 	}
 	b.WriteByte('\n')
 	b.WriteString(w.Trace)
+	if w.Property != "" || w.Fails != "" {
+		b.WriteString("\n")
+	}
+	if w.Property != "" {
+		b.WriteString("\n" + propertyPrefix + w.Property)
+	}
 	if w.Fails != "" {
-		b.WriteString("\n\n" + failsPrefix + w.Fails)
+		b.WriteString("\n" + failsPrefix + w.Fails)
 	}
 	return b.String()
 }
 
 // ParseWitness reads a witness as Witness.String writes it: the choices
 // ParseChoices reads, after the blank line ending them the trace, exact, and
-// after a blank line ending that the failure claimed, if any.
+// after a blank line ending that the claims closing it, if any.
 func ParseWitness(text string) (Witness, error) {
 	choices, err := ParseChoices(text)
 	if err != nil {
@@ -190,9 +253,7 @@ func ParseWitness(text string) (Witness, error) {
 		if strings.TrimSpace(line) == "" {
 			if begun {
 				w := Witness{Choices: choices, Trace: strings.Join(lines[i+1:], "")}
-				if trace, fails, found := strings.Cut(w.Trace, "\n\n"+failsPrefix); found {
-					w.Trace, w.Fails = trace, strings.TrimSuffix(fails, "\n")
-				}
+				w.readClaims()
 				return w, nil
 			}
 			continue
@@ -200,4 +261,16 @@ func ParseWitness(text string) (Witness, error) {
 		begun = true
 	}
 	return Witness{Choices: choices}, nil
+}
+
+// readClaims splits the claims closing the witness off its trace.
+func (w *Witness) readClaims() {
+	if trace, claims, found := strings.Cut(w.Trace, "\n\n"+propertyPrefix); found {
+		w.Trace = trace
+		w.Property, w.Fails, _ = strings.Cut(strings.TrimSuffix(claims, "\n"), "\n"+failsPrefix)
+		return
+	}
+	if trace, fails, found := strings.Cut(w.Trace, "\n\n"+failsPrefix); found {
+		w.Trace, w.Fails = trace, strings.TrimSuffix(fails, "\n")
+	}
 }

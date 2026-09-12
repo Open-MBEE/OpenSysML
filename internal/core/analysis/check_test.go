@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -373,7 +374,7 @@ func TestCheckWitnessFilesTellFeaturesApart(t *testing.T) {
 			if w.String() != d.Values[j].Witness.String() {
 				t.Errorf("%s holds another witness than %s = %s", path, d.Feature, d.Values[j].Value)
 			}
-			replayed, err := runtime.ReplayAction(context.Background(), func() (*runtime.Context, error) { return f.context(t), nil }, race.start, w)
+			replayed, err := runtime.ReplayAction(context.Background(), func() (*runtime.Context, error) { return f.context(t), nil }, race.start, w, nil)
 			if err != nil {
 				t.Fatalf("%s: replay: %v", path, err)
 			}
@@ -553,5 +554,38 @@ func TestChecksOnOneModelHaveWorkersOfTheirOwn(t *testing.T) {
 	}
 	if w.asked < 2 {
 		t.Fatalf("semantics asked %d times, want once per plan at least", w.asked)
+	}
+}
+
+// A property that fails to evaluate is a violation witnessed once its replay raises the same
+// failure; a property whose replay evaluates otherwise leaves the report not covered.
+func TestCheckWitnessesAPropertyThatFailsToEvaluate(t *testing.T) {
+	f := parseFixture(t)
+	race := f.checked(t, "race")
+	offline := errors.New("x is offline")
+	failing := runtime.CheckProperty{Name: "sensor", Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
+		if exec.State() == runtime.StateCompleted && exec.Results()["x"].Const.Int == 2 {
+			return false, offline
+		}
+		return true, nil
+	}}
+	result := answered(t, Default(), f.building(), checkQuestion(t, f, Holds, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{failing}}), Budget{}).Result
+	if result.Claim != ClaimViolated || result.Strength != Witnessed || result.Witness == nil {
+		t.Fatalf("result %+v, want the failure violated and witnessed", result)
+	}
+	c := result.Check()
+	if c == nil || len(c.Report.Violations) != 1 || c.Report.Violations[0].Kind != runtime.ViolationFailure || c.Report.Violations[0].Witness.Property != "sensor" {
+		t.Fatalf("checked %+v, want the sensor's failure as the one violation", c)
+	}
+	var evaluations atomic.Int32
+	flaky := runtime.CheckProperty{Name: "sensor", Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
+		if exec.State() == runtime.StateCompleted && exec.Results()["x"].Const.Int == 2 && evaluations.Add(1) == 1 {
+			return false, offline
+		}
+		return true, nil
+	}}
+	result = answered(t, Default(), f.building(), checkQuestion(t, f, Holds, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{flaky}}), Budget{}).Result
+	if result.Covered() || result.Claim != ClaimNone || !strings.Contains(result.Reason, "sensor") {
+		t.Fatalf("result %+v, want not covered by the sensor's disagreement", result)
 	}
 }

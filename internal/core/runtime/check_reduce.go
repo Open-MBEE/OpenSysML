@@ -117,13 +117,14 @@ func dependent(a, b searchMove) bool {
 }
 
 // persistent selects the moves to explore from a state, less the moves asleep;
-// every move when unreduced. The set is grown from the first awake move: a
+// every move when unreduced or under a property, which reads what no footprint
+// names. The set is grown from the first awake move: a
 // token whose future may not commute with a member's move joins with every move
 // it has; one with none (parked, or waiting at a join) brings in the tokens
 // whose future may let it go on, since a schedule outside the set could
 // otherwise reach its dependent moves.
 func (c *checker) persistent(all, sleep []searchMove) []searchMove {
-	if !c.opts.Reduce {
+	if !c.opts.Reduce || len(c.props) > 0 {
 		return slices.Clone(all)
 	}
 	awake := func(m searchMove) bool {

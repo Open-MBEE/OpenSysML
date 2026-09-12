@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -29,17 +30,38 @@ type CheckBudget struct {
 
 // CheckOptions selects what a check reports and how it searches.
 type CheckOptions struct {
-	// Diverge names the features whose divergence is reported; none names the
-	// action's own attributes and, when an object performs it, its features as `this.<name>`.
+	// Diverge names the features whose divergence is reported: the action's own
+	// bare, a performed node's as `node.pin`, the performing object's as `this.<name>`;
+	// none names the action's own features and the object's attributes. A name
+	// no feature answers to fails the check (ErrUnknownCheckFeature).
 	Diverge []string
 	// Reduce explores one representative of each class of equivalent schedules;
 	// off, every schedule. It is off only to test that the reduction loses nothing.
+	// A check with properties searches unreduced: what a property reads is not
+	// in the footprints the reduction is sound for.
 	Reduce bool
 }
 
+// ErrUnknownCheckFeature is the typed error a check whose Diverge names no feature wraps.
+var ErrUnknownCheckFeature = errors.New("no such feature to check divergence of")
+
+// UnknownCheckFeatureError names a feature Diverge selects that nothing answers to.
+type UnknownCheckFeatureError struct {
+	Name   string
+	Reason string
+}
+
+func (e *UnknownCheckFeatureError) Error() string {
+	return fmt.Sprintf("%v: %s: %s", ErrUnknownCheckFeature, e.Name, e.Reason)
+}
+
+// Is makes every UnknownCheckFeatureError match ErrUnknownCheckFeature.
+func (e *UnknownCheckFeatureError) Is(target error) bool { return target == ErrUnknownCheckFeature }
+
 // CheckProperty is a property evaluated at every stable state of a check: a
 // requirement or constraint, false at a state being a violation. Holds is asked
-// in the check's context of the executor the check runs.
+// in the check's context of the executor the check runs, and again of a replay
+// of the witness that claims it false or failing to evaluate.
 type CheckProperty struct {
 	Name  string
 	Holds func(*Context, *ActionExecutor) (bool, error)
@@ -101,8 +123,11 @@ func (v Violation) String() string {
 type Witness struct {
 	Choices []ChoiceTaken
 	Trace   string
+	// Property names the property false at the state the schedule reaches, or
+	// whose evaluation there fails as Fails says; empty for a state or a run's failure.
+	Property string
 	// Fails is the deadlock or failure the schedule ends in, as the executor
-	// spells it; empty for a state the run goes on from.
+	// spells it — or the property's evaluation raised; empty for a state the run goes on from.
 	Fails string
 }
 
@@ -248,7 +273,13 @@ func CheckAction(stop context.Context, fresh func() (*Context, error), start Act
 	}
 	c.exec = exec
 	defer exec.Release()
+	if err := c.resolveDiverge(); err != nil {
+		return nil, err
+	}
 	if err := c.search(); err != nil {
+		return nil, err
+	}
+	if err := c.divergeReached(); err != nil {
 		return nil, err
 	}
 	return c.result(), nil
@@ -279,6 +310,8 @@ type checker struct {
 	// finals indexes result.Finals by outcome identity.
 	finals  map[string]int
 	results []CheckFinal
+	// nested are the `node.pin` names Diverge selects, each marked once a final held it.
+	nested map[string]bool
 }
 
 // visitedState is what the search remembers of a state: the moves explored from
@@ -627,16 +660,20 @@ func (f *checkFrame) expand() {
 	}
 }
 
-// properties evaluates every property at the state; one false is a violation.
+// properties evaluates every property at the state; one false is a violation,
+// one failing to evaluate a failure, the witness naming the property either way.
 func (c *checker) properties(depth int) {
 	for _, p := range c.props {
 		holds, err := c.evaluate(p)
-		if err != nil {
-			c.violate(Violation{Kind: ViolationFailure, Name: p.Name, Err: err, Depth: depth, Witness: c.witness()})
-			continue
-		}
-		if !holds {
-			c.violate(Violation{Kind: ViolationProperty, Name: p.Name, Depth: depth, Witness: c.witness()})
+		switch {
+		case err != nil:
+			w := c.failing(err)
+			w.Property = p.Name
+			c.violate(Violation{Kind: ViolationFailure, Name: p.Name, Err: err, Depth: depth, Witness: w})
+		case !holds:
+			w := c.witness()
+			w.Property = p.Name
+			c.violate(Violation{Kind: ViolationProperty, Name: p.Name, Depth: depth, Witness: w})
 		}
 	}
 }
@@ -674,20 +711,48 @@ func (c *checker) final() {
 }
 
 // divergenceValues spells the features divergence is reported over as the
-// schedule left them: the named ones, or the action's own attributes and the
-// performing object's features.
+// schedule left them, a selected feature holding no value as UnsetText: the
+// action's own from its root performance, a performed node's from the outputs
+// under `node.`, the performing object's as `this.<name>`.
 func (c *checker) divergenceValues(outcome Outcome) map[string]string {
 	defer c.ctx.beginProbe()()
 	values := make(map[string]string)
-	for _, out := range outcome.RenderedOutputs() {
-		if c.reportsDivergenceOf(out.Name, nil) {
-			values[out.Name] = out.Text
+	root := c.exec.root
+	own := make(map[string]Value)
+	for name := range root.ownFeatures() {
+		if !c.reportsDivergenceOf(name) {
+			continue
+		}
+		if value, held := root.data[name]; held {
+			own[name] = value
+		} else {
+			values[name] = UnsetText
+		}
+	}
+	for _, out := range c.ctx.ActionOutcome(own).RenderedOutputs() {
+		values[out.Name] = out.Text
+	}
+	if len(c.nested) > 0 {
+		held := make(map[string]bool)
+		for name, sub := range root.latestSubactions() {
+			sub.heldFeatures(name+".", held)
+		}
+		for name := range c.nested {
+			if held[name] {
+				c.nested[name] = true
+				values[name] = UnsetText
+			}
+		}
+		for _, out := range outcome.RenderedOutputs() {
+			if _, wanted := c.nested[out.Name]; wanted {
+				values[out.Name] = out.Text
+			}
 		}
 	}
 	if self := c.exec.Performer(); self != nil {
-		own := make(map[string]Value)
+		selfOwn := make(map[string]Value)
 		for name, held := range self.FeatureValues {
-			if !c.reportsDivergenceOf(name, held.Feature) {
+			if !c.reportsPerformerDivergenceOf(name, held.Feature) {
 				continue
 			}
 			fv, err := self.GetFeatureValue(c.ctx, name)
@@ -697,33 +762,94 @@ func (c *checker) divergenceValues(outcome Outcome) map[string]string {
 			}
 			switch {
 			case !fv.Materialized:
+				values["this."+name] = UnsetText
 			case fv.Feature.Scalar():
-				own[name] = fv.Value
+				selfOwn[name] = fv.Value
 			default:
-				own[name] = fv.Values
+				selfOwn[name] = fv.Values
 			}
 		}
-		for _, out := range c.ctx.ActionOutcome(own).RenderedOutputs() {
+		for _, out := range c.ctx.ActionOutcome(selfOwn).RenderedOutputs() {
 			values["this."+out.Name] = out.Text
 		}
 	}
 	return values
 }
 
-// reportsDivergenceOf reports whether the feature — the performing object's when
-// of is given, named `this.<name>`, else the action's, named bare — is one
-// divergence is reported over; absent names, both's attributes are.
-func (c *checker) reportsDivergenceOf(name string, of *EffectiveFeature) bool {
+// reportsDivergenceOf reports whether the action's own feature, under the name
+// its performance holds it by, is one divergence is reported over; absent names, every one is.
+func (c *checker) reportsDivergenceOf(name string) bool {
+	return len(c.opts.Diverge) == 0 ||
+		slices.ContainsFunc(c.opts.Diverge, func(d string) bool { return c.exec.root.key(d) == name })
+}
+
+// reportsPerformerDivergenceOf reports whether the performing object's feature,
+// named `this.<name>`, is one divergence is reported over; absent names, its attributes are.
+func (c *checker) reportsPerformerDivergenceOf(name string, of *EffectiveFeature) bool {
 	if len(c.opts.Diverge) == 0 {
-		if of != nil {
-			return of.Symbol != nil && of.Symbol.Kind == symbols.SymbolAttributeUsage
+		return of != nil && of.Symbol != nil && of.Symbol.Kind == symbols.SymbolAttributeUsage
+	}
+	return slices.Contains(c.opts.Diverge, "this."+name)
+}
+
+// resolveDiverge checks every name Diverge selects against what the started action
+// holds: `this.<name>` the performing object's feature, a bare name the action's own,
+// `node.pin` a pin of a node it performs; a deeper path is checked once a final held it.
+func (c *checker) resolveDiverge() error {
+	c.nested = make(map[string]bool)
+	root := c.exec.root
+	for _, name := range c.opts.Diverge {
+		if feature, ofSelf := strings.CutPrefix(name, "this."); ofSelf {
+			self := c.exec.Performer()
+			switch {
+			case self == nil:
+				return &UnknownCheckFeatureError{Name: name, Reason: "no object performs the action"}
+			case self.FeatureValues[feature] == nil:
+				return &UnknownCheckFeatureError{Name: name, Reason: "the performing object has no feature " + feature}
+			}
+			continue
 		}
-		return !strings.Contains(name, ".")
+		if root.owns(name) {
+			continue
+		}
+		node, pin, nested := strings.Cut(name, ".")
+		named := root.nodesNamed(node)
+		if !nested || len(named) == 0 {
+			return &UnknownCheckFeatureError{Name: name, Reason: "the action holds no such feature and performs no such node"}
+		}
+		if !strings.Contains(pin, ".") && !c.pinOf(named, pin) {
+			return &UnknownCheckFeatureError{Name: name, Reason: "action node " + node + " holds no pin " + pin}
+		}
+		c.nested[name] = false
 	}
-	if of != nil {
-		name = "this." + name
+	return nil
+}
+
+// pinOf reports whether a node among named holds pin; a node whose pins cannot
+// be told before it runs may, the search reporting why it cannot.
+func (c *checker) pinOf(named []ast.Node, pin string) bool {
+	for _, node := range named {
+		pins, err := c.exec.nodePins(c.exec.graph, node)
+		if err != nil || pins.declares(pin) {
+			return true
+		}
 	}
-	return slices.Contains(c.opts.Diverge, name)
+	return false
+}
+
+// divergeReached fails the check when a path Diverge selects under a node's own
+// performances was held by no complete schedule, once one completed to say so.
+func (c *checker) divergeReached() error {
+	if len(c.results) == 0 {
+		return nil
+	}
+	for _, name := range c.opts.Diverge {
+		_, pin, _ := strings.Cut(name, ".")
+		if reached, nested := c.nested[name]; nested && !reached && strings.Contains(pin, ".") {
+			return &UnknownCheckFeatureError{Name: name, Reason: "no performance under the action held such a feature"}
+		}
+	}
+	return nil
 }
 
 // result assembles what the search found.

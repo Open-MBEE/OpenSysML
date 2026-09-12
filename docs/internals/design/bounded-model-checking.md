@@ -433,7 +433,7 @@ sysml model.sysml -engine check -instantiate Fleet::truck \
 |------|---------|
 | `-engine check` with `-action "<name> [object]"` | Explore the schedules of the action `-action` would run once; with `-state`, the state machine is refused by name (stage 3) |
 | `-check-property <name>` | Evaluate this constraint or requirement at every stable state, on the performing object where there is one; repeatable |
-| `-check-diverge <feature>` | Report divergence of this feature (`x`, or `this.level` for the performing object's); repeatable; absent, every attribute of the action and, with a performer, every attribute of the object — with no performer there is no object, so the action's own attributes only |
+| `-check-diverge <feature>` | Report divergence of this feature (`x`, `step.out` for a performed node's output, or `this.level` for the performing object's; a name nothing holds is refused; a schedule leaving it unset ends as `<unset>`); repeatable; absent, every attribute of the action and, with a performer, every attribute of the object — with no performer there is no object, so the action's own attributes only |
 | `-check-depth N`, `-check-states N`, `-check-timeout D` | The bounds, onto `Budget.Depth`, `Budget.Runs` and `Budget.Deadline` |
 | `-check-witness <dir>` | Write each violation's and each divergent value's witness schedule as a trace file |
 
@@ -530,13 +530,16 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    for the same step and a witness is a choice sequence; persistent sets with a sleep set over
    `lower.Footprints` — reads including outgoing-succession guards and a parked accept's
    condition, writes, sends, accepts, joins and merges reached, a dynamic target dependent on
-   everything — computed once per node beside `Bodies`; the visited set keyed by the canonical
+   everything — computed once per node beside `Bodies`, and switched off while a property is
+   given, since a property reads what no footprint names; the visited set keyed by the canonical
    state of "Visited states", every live root object named by its materialization path; the
    bounds above; properties at every stable state and at completion, deadlocks and typed
-   failures as violations with a witness; divergence of the named features, or of the action's
-   and performer's attributes; witnesses as the choice lines, a blank line and the trace — a
-   deadlock's or failure's ending in `fails: <the error>` after a blank line, so a failing move
-   leaving no trace is still the move a replay must make and raise — read back by the one
+   failures as violations with a witness; divergence of the named features (a name nothing
+   holds refused, a feature a schedule leaves unset spelt `<unset>`), or of the action's and
+   performer's attributes; witnesses as the choice lines, a blank line and the trace — a
+   property's ending in `property: <name>`, a deadlock's or failure's in `fails: <the error>`,
+   after a blank line, so a failing move leaving no trace is still the move a replay must
+   make and raise, and a property is evaluated again at the replayed state — read back by the one
    `ParseChoices`/`ReplayPolicy` the SMT stage shares. The framework's `check`
    engine answers `outcomes` and `holds` at authority *bounded* — exhaustive is `Bounded`,
    never `Proved` — with every violation and divergent value *witnessed* only after

@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 	"github.com/Open-MBEE/OpenSysML/internal/docpdf"
+	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -343,7 +344,7 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 			}
 			switch {
 			case committed[i] && backups[i] != "":
-				_ = replaceFile(backups[i], targets[i])
+				_ = fsutil.Replace(backups[i], targets[i])
 			case committed[i]:
 				_ = os.Remove(targets[i])
 			case backups[i] != "":
@@ -378,7 +379,7 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 		if direct[i] {
 			continue
 		}
-		if err := replaceFile(staged[i], targets[i]); err != nil {
+		if err := fsutil.Replace(staged[i], targets[i]); err != nil {
 			rollback()
 			return fmt.Errorf("write %s: %w", targets[i], err)
 		}
@@ -514,19 +515,6 @@ func restoreBackup(target, backup string, movedAside bool) {
 		return
 	}
 	_ = os.Remove(backup)
-}
-
-// replaceFile renames source over target, atomically where the platform
-// allows; Windows refuses a rename over an existing file, so it retries
-// after removing the target, keeping the target until the retry begins.
-func replaceFile(source, target string) error {
-	if err := os.Rename(source, target); err == nil {
-		return nil
-	}
-	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return os.Rename(source, target)
 }
 
 // backUp preserves an existing destination so a failed commit can restore
