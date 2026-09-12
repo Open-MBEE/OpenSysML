@@ -185,8 +185,8 @@ package OpenSysMLPipeline {
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
         part syntax : SyntaxCheck { attribute :>> goType = "SyntaxPass"; }
-        part importVisibility : SyntaxCheck { attribute :>> goType = "ImportVisibilityPass"; }
-        part enumerationBody : SyntaxCheck { attribute :>> goType = "EnumerationBodyPass"; }
+        // Grammar violations the parser reads through as recoverable warnings.
+        part grammarViolations : SyntaxCheck { attribute :>> goType = "GrammarViolationPass"; }
         // Non-standard notation is a syntax-level warning, not a constraint.
         part notation : SyntaxCheck { attribute :>> goType = "NonstandardNotationPass"; }
         part nameResolution : NameResolutionCheck { attribute :>> goType = "NameResolutionPass"; }
@@ -263,6 +263,10 @@ package OpenSysMLPipeline {
         part connectorFeaturing : ConstraintCheck { attribute :>> goType = "W8DConnectorFeaturingPass"; }
         part flowEnds : ConstraintCheck { attribute :>> goType = "W8DFlowEndPass"; }
         part variability : ConstraintCheck { attribute :>> goType = "W8DVariabilityPass"; }
+        part variantOwners : ConstraintCheck {
+            attribute :>> goType = "VariantOwnerPass";
+            attribute :>> elementScoped = true;
+        }
         part relatedElements : ConstraintCheck { attribute :>> goType = "W10BRelatedElementsPass"; }
         part individualTyping : TypeCheck { attribute :>> goType = "W10BIndividualTypingPass"; }
         part endKinds : TypeCheck { attribute :>> goType = "W10BEndKindPass"; }

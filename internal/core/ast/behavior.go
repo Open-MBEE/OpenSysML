@@ -734,6 +734,9 @@ type TransitionMember struct {
 	// (`then starting { … }`).
 	Members []Node
 	HasBody bool
+	// IsSuccession records the `succession … if …` spelling (SysML.xtext
+	// GuardedSuccession), the one an action body admits.
+	IsSuccession bool
 }
 
 // SendStatement sends a message to a target.
