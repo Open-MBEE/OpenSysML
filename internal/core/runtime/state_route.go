@@ -187,6 +187,9 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	pick := 0
 	if point, ok := e.choiceBranchPoint(choice, outgoing, enabled); ok {
 		pick = e.ctx.scheduling().choose(point, nil)
+		if err := e.ctx.scheduling().refusal(); err != nil {
+			return route{}, err
+		}
 		point.Taken = pick
 		point.File, point.Span = e.transitionLocation(choice, outgoing[enabled[pick]])
 		e.ctx.note(point)
