@@ -447,3 +447,49 @@ func TestSubstituteSharesUnchangedTerms(t *testing.T) {
 		t.Errorf("substituted %s", writeTerm(got))
 	}
 }
+
+// TestTranslatorConditionsJudgeTheSetAsTheEvaluatorDoes: the conditions of a
+// requirement translate to the conjunction of the required ones, an assumed one
+// only adding its side conditions; a negated declaration denies that conjunction,
+// and one with nothing required refuses.
+func TestTranslatorConditionsJudgeTheSetAsTheEvaluatorDoes(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			private import ScalarValues::*;
+			part def P {
+				attribute a : Integer;
+				attribute b : Integer;
+				requirement safe { assume a / b > 0; require a > 1; require b > 2; }
+				assert not constraint unsafe { a > 10 }
+				assert not constraint vacuous { assume a > 0; }
+			}
+		}`)
+	translate := func(name string) (*Expression, error) {
+		sym := symbolNamed(t, idx, "test::P::"+name)
+		x, err := NewTranslator(ctx, Subject{Kind: "condition", Name: name, Symbol: sym, Negated: runtime.NegatedDecl(sym)})
+		if err != nil {
+			t.Fatalf("start translating %s: %v", name, err)
+		}
+		return x.Conditions(ctx.ConditionsOf(sym, nil))
+	}
+	safe, err := translate("safe")
+	if err != nil {
+		t.Fatalf("safe: %v", err)
+	}
+	if got := writeTerm(safe.Term); got != "(and (> |test::P::a| 1) (> |test::P::b| 2))" {
+		t.Errorf("safe judges %s", got)
+	}
+	if len(safe.Defined) != 1 || writeTerm(safe.Defined[0]) != "(distinct |test::P::b| 0)" {
+		t.Errorf("safe is defined where %v, want the assumption's divisor", safe.Defined)
+	}
+	unsafe, err := translate("unsafe")
+	if err != nil {
+		t.Fatalf("unsafe: %v", err)
+	}
+	if got := writeTerm(unsafe.Term); got != "(not (> |test::P::a| 10))" {
+		t.Errorf("not unsafe judges %s", got)
+	}
+	if _, err := translate("vacuous"); !errors.Is(err, ErrNoConditions) {
+		t.Errorf("not vacuous: %v, want ErrNoConditions", err)
+	}
+}

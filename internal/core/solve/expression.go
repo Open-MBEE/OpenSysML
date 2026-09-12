@@ -87,6 +87,64 @@ func (x *Translator) Boolean(node ast.Node, scope *symbols.Scope, within string)
 	return expr, nil
 }
 
+// Condition translates one condition as the evaluator reads it: a group as the
+// conjunction of its members, negated as written. Its Term is Boolean; Defined
+// holds the conditions under which the evaluator computes it at all.
+func (x *Translator) Condition(cond runtime.Condition) (*Expression, error) {
+	t := x.t
+	owner, _ := conditionOrigin(cond)
+	t.condLabel = cond.Label()
+	t.condFile = ""
+	if owner != nil {
+		t.condFile = owner.DocName
+	}
+	guards, guarded := t.guards, t.guarded
+	t.guards, t.guarded = nil, map[string]bool{}
+	defer func() { t.guards, t.guarded = guards, guarded }()
+	term, err := t.condition(cond)
+	if err != nil {
+		return nil, err
+	}
+	expr := &Expression{Term: term}
+	for _, guard := range t.guards {
+		expr.Defined = append(expr.Defined, guard.Term)
+	}
+	return expr, nil
+}
+
+// Conditions translates what the subject's conditions establish as a set, the
+// way the evaluator judges them: the required ones must hold, an assumed one is
+// evaluated but binds nothing, and a negated subject denies the conjunction of
+// its required ones. Its Term is that verdict; Defined holds the conditions
+// under which the evaluator computes every one of them, assumed ones included.
+func (x *Translator) Conditions(conds []runtime.Condition) (*Expression, error) {
+	t := x.t
+	if len(conds) == 0 {
+		return nil, fmt.Errorf("%s %s: %w", t.subject.Kind, t.subject.Name, ErrNoConditions)
+	}
+	var required []*Term
+	expr := &Expression{}
+	for _, cond := range conds {
+		one, err := x.Condition(cond)
+		if err != nil {
+			return nil, err
+		}
+		expr.Defined = append(expr.Defined, one.Defined...)
+		if cond.Required {
+			required = append(required, one.Term)
+		}
+	}
+	if t.subject.Negated {
+		if len(required) == 0 {
+			return nil, fmt.Errorf("%s %s: %w to deny", t.subject.Kind, t.subject.Name, ErrNoConditions)
+		}
+		expr.Term = Not(And(required...))
+		return expr, nil
+	}
+	expr.Term = And(required...)
+	return expr, nil
+}
+
 // Variable is the variable standing for the feature name resolves to where it is
 // written in scope — the one a reference to the name in an expression reads — for
 // a consumer encoding a write to it. within names the statement writing it.
