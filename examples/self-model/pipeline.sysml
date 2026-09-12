@@ -180,7 +180,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/core/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 55;
+        attribute passCount : Integer = 56;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -272,6 +272,7 @@ package OpenSysMLPipeline {
         part viewRenderings : ConstraintCheck { attribute :>> goType = "W8DViewRenderingPass"; }
         part metadataUsages : TypeCheck { attribute :>> goType = "W8DMetadataUsagePass"; }
         part identityMetadata : ConstraintCheck { attribute :>> goType = "IdentityMetadataPass"; }
+        part diagramLayout : ConstraintCheck { attribute :>> goType = "DiagramLayoutPass"; }
         part redefinitionConformance : ConstraintCheck { attribute :>> goType = "RedefinitionConformancePass"; }
         part shortNameDistinguishability : NameResolutionCheck { attribute :>> goType = "W9CShortNameDistinguishabilityPass"; }
         part userStandardLibrary : NameResolutionCheck { attribute :>> goType = "W9CUserStandardLibraryPass"; }
@@ -323,7 +324,7 @@ package OpenSysMLPipeline {
     // snapshot when that matches the files, and parsed from the files otherwise.
     #SemanticEngine part def StandardLibrary :> Stage {
         attribute :>> goPackage = "internal/core/libs";
-        attribute bundledFileCount : Integer = 99;
+        attribute bundledFileCount : Integer = 100;
         attribute cached : Boolean = true;
         attribute snapshotFile : String = "internal/core/libs/stdlib.snapshot";
         attribute snapshotEmbedded : Boolean = true;

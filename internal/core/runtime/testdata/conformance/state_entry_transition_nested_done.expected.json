@@ -5,11 +5,12 @@
       "signal": "Go"
     }
   ],
-  "finalState": "done+done",
+  "finalState": "done",
   "outputs": {
     "log": {
       "type": "String",
       "value": "in;outer;out;"
     }
-  }
+  },
+  "trace": true
 }

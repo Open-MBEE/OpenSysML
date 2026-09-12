@@ -118,6 +118,31 @@ func TestRequirementConditionWithoutValueIsNotUnresolved(t *testing.T) {
 	}
 }
 
+// A constraint checked at model level over a feature the model leaves open is not
+// decided: ErrNoValue naming the feature, never a verdict; a constant operand still decides.
+func TestConstraintOverUndeterminedOperandIsNotDecided(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			attribute u : Real;
+			constraint big { u > 3.0 }
+			constraint fixed { (u > 3.0) or true }
+		}
+	`
+	ctx, pkg := conditionFixture(t, src)
+	_, err := ctx.EvaluateConstraint(requirementNamed(t, pkg, "big"), pkg)
+	if !errors.Is(err, ErrNoValue) {
+		t.Fatalf("big: err = %v, want ErrNoValue", err)
+	}
+	if !strings.Contains(err.Error(), "u has no value in the model") {
+		t.Errorf("big: err = %v, want the open feature named", err)
+	}
+	holds, err := ctx.EvaluateConstraint(requirementNamed(t, pkg, "fixed"), pkg)
+	if err != nil || !holds {
+		t.Errorf("fixed = %v, %v; want true without error", holds, err)
+	}
+}
+
 // An assumption that does not hold is not a violation: assumptions are trusted.
 func TestRequirementAssumptionIsNotRequired(t *testing.T) {
 	src := `

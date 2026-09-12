@@ -54,6 +54,7 @@ public final class Protos {
       case QUANTITY -> Optional.of(new Value.QuantityValue(quantity(value.getQuantity())));
       case ENUM_LITERAL -> Optional.of(new Value.EnumerationValue(literal(value.getEnumLiteral())));
       case UNSET -> Optional.of(new Value.UnsetValue());
+      case UNDETERMINED -> Optional.of(undetermined(value.getUndetermined()));
       case INFINITY -> Optional.of(infinity(value));
       case ARRAY -> Optional.of(array(value.getArray()));
       case VECTOR -> Optional.of(vector(value.getVector()));
@@ -76,6 +77,11 @@ public final class Protos {
           null);
     }
     return new Value.InfinityValue();
+  }
+
+  private static Value undetermined(org.openmbee.opensysml.proto.Undetermined undetermined) {
+    org.openmbee.opensysml.proto.MultiplicityInfo count = undetermined.getCount();
+    return new Value.UndeterminedValue(undetermined.getReason(), count.getLower(), count.getUpper());
   }
 
   private static Value array(org.openmbee.opensysml.proto.Array array) {

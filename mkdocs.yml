@@ -140,6 +140,7 @@ exclude_docs: |
   project/grammar-coverage.md
   project/validation-constraints.md
   project/element-identity-annotations.md
+  project/diagram-layout-annotations.md
   project/html-document-backend.md
   project/adjudications.md
   project/element-scoped-tier-gating.md

@@ -153,10 +153,13 @@ schedule of *at most* `k` moves.
    makes the node **not encodable** and the query is refused for the behavior, naming the node
    and the construct.
 2. **Successions.** `Edges[n]` with their guards, translated as Booleans over `s_{i+1}`. A plain
-   node follows every guard that holds; a decision follows exactly one — the library fixes one
-   (`DecisionPerformance::outgoingHBLink [1]`), so two guards holding is asserted impossible and
-   its negation is checked as a property of its own, reported as a model defect with the state
-   that reaches it, as the explicit note reports overlapping guards.
+   node follows every guard that holds; a decision follows exactly one. The library fixes one
+   (`DecisionPerformance::outgoingHBLink [1]`) but not which, and the executor reads every
+   guard and resolves two holding ones as a *decision branch* choice point
+   (`action_choice_decision_overlapping_guards` lists both outcomes), so the encoding follows the
+   executor: the branch taken is part of the move's choice, and each holding guard is a schedule
+   the solver ranges over rather than a defect it asserts away. A decision none of whose guards
+   holds is the executor's error at that node, and the move is a failure.
 3. **Placement.** The token moves to its single successor; a fork sets its branch slots to their
    first nodes; arriving at a join increments `joined[j]` and the arriving slot becomes `Absent`
    unless it is the one that collects; arriving at a merge is arriving at a plain node, and two
@@ -515,14 +518,43 @@ Written before the code, as the behavioral contract asks:
 
 ## Stages
 
-Each stage leaves `develop` green, ships behind `-check-engine smt`, and is useful on its own.
+Each stage leaves `develop` green, ships behind `-engine smt` (the framework's spelling of
+`-check-engine smt`), and is useful on its own.
 
 1. **The transition relation for actions on concrete inputs.** Straight-line bodies, fork, join,
    merge, body loops with unrolling, decisions, pins and object flows; no clock, no messages, no
    nested flows. The requirement and deadlock properties, the *proved*/*bounded*/*violated*/*not
    covered* verdicts, witness decoding and the `replay:` policy. Referee checks 1–3 over the
    corpus cases these constructs cover. This is where the encoding is proved faithful and is the
-   stage whose review matters most.
+   stage whose review matters most. *Implemented:* `internal/core/smt`, beside `solve` and
+   `analysis`: `Encode` builds the relation over a lowered `ActionGraph` (`state.go`,
+   `encode.go`), the properties and the cut, unroll and overflow flags are `property.go`, the
+   `smt` engine (`engine.go`) answers `analysis.Question.Holds` with the schedule free and refuses
+   every other kind, free inputs and a fixed schedule with a typed reason, and `witness.go`
+   decodes a `sat` model to `ChoiceTaken` lines and replays it under `replay:`. The engine is
+   `analysis.External` over the SMT layer's solver discovery (`OPENSYSML_SMT`, then `z3`, then
+   `cvc5`). `k` is `Budget.Depth`, the solver time `Budget.Solver`; the unroll bound `L` has no
+   `Budget` field and is the engine's own, 4 by default, reported in `Bounds` as `unroll`. An
+   `unsat` is *proved* only when the cut, unroll and slot-overflow flags are all unsatisfiable
+   at `k` too — every schedule finishes within the bounds — and *bounded* otherwise; `unknown`,
+   a timeout, a refusal, a witness that does not replay and a replay that disagrees are *not
+   covered*, and so is an `unsat` over arithmetic the evaluator rounds (`Query.Rounded`): the
+   framework's strength table downgrades it as `%check` does, rather than qualifying a proof
+   *over exact arithmetic*, because a violation that exists only after `float64` rounding has
+   no witness to replay. State zero is the values the started performance holds — the inputs
+   the question's `Start` supplies ahead of the defaults the action declares. The engine is
+   **not registered in `analysis.Default()`** yet: `auto` picks the strongest covering engine,
+   so registering it would route today's `-schedule explore -requirement …` through the solver
+   and change output before the framework's surface stage allows it. It is reached through
+   `analysis.NewRegistry()` in its tests and in the referee harness (`referee_test.go`), whose
+   comparison against `explore` is checks 1–3; a small
+   follow-up adds it to `Default()` and makes it `-engine smt`. Checks 1–3 run over every
+   corpus action case with `outcomes` whose body encodes and record the rest as *refused*; no
+   corpus action case names a requirement, so check 3's requirement side is over pinned referee
+   models (`discipline_test.go`). Check 4, the randomized graphs, is not built. Every solver test
+   skips with a named reason without a solver and fails under `OPENSYSML_REQUIRE_SMT=1`. Test
+   layers 1–3, 6 and 7 of the contract are met for these constructs; layers 4 and 5 and the
+   k-induction sentences of layer 3 are later stages.
 2. **Free inputs.** `-check-input`, `-check-assume`, domains from declared types, input values in
    witnesses. Test layer 4.
 3. **Sensitivity.** The two-copy query, the diverging pair, `-check-sensitive`. Test layer 5.

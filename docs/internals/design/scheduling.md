@@ -30,7 +30,7 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the six:
 | `ChoiceTokenOrder` | `ActionExecutor.noteTokenOrder` | the tokens that could act in the step, by ID; the one stepped first is taken |
 | `ChoiceDecisionBranch` | `ActionExecutor.noteDecisionBranches` | the successions whose guards hold, by declaration position |
 | `ChoiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
-| `ChoiceTransition` | `StateExecutor.chooseTransition` | the transitions one event enables out of one state, by declaration position |
+| `ChoiceTransition` | `StateExecutor.chooseTransition`; `choiceBranchPoint` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` pseudostate enabled on arrival, read after the incoming segment's effect, labelled `choice <name>` |
 | `ChoiceRegionOrder` | `StateExecutor.chooseRegion`, drawn by `dispatchInOrder` | the states whose transitions one occurrence selected, by name in declaration order; the one fired first is taken |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`) | the executors due at one instant, in creation order; the one run first is taken |
 
@@ -59,6 +59,21 @@ broadcast of a queued event and the polling of change triggers (`state_change_tr
 through it. The choice is labelled by the occurrence dispatched, not by the trigger of whichever
 region was drawn first, so the label is the same under every policy.
 
+A `choice` pseudostate's branch is drawn on arrival: `resolveChoice` reads its guards once the
+incoming segments' effects have run, so which branches are enabled can depend on those effects,
+and with two or more enabled the draw is a `ChoiceTransition` at `choice <name>` that `explore`
+enumerates and a seed replays (`TestExploreDynamicChoiceBranches`). A junction's branch is settled
+statically before the transition fires and is not a choice point.
+
+Two things that look like openings are determined and are never recorded. Deferral: a state in the
+active configuration that defers the occurrence dispatched holds it back from every enabled
+transition except one sourced by that state or by a state nested in it (`deferralOutranks`); the
+occurrence is deferred, or consumed by the nested transition, by rule, with nothing for the policy
+to draw. A composite state's completion: once its do behavior and every one of its regions have
+ended, its nil-trigger transitions are queued as completion events at the current instant, ordered
+as a leaf's are, and the machine ends only when its own top-level regions are all at `done`
+(`completeIfDone` → `scheduleCompletedComposites`).
+
 ## Policies (`scheduler.go`)
 
 A `SchedulePolicy` is parsed from one spelling and printed back to it:
@@ -68,6 +83,7 @@ A `SchedulePolicy` is parsed from one spelling and printed back to it:
 | `reverse` (default, zero value) | reverse spawn order | first in declaration order | last created |
 | `declared` | spawn order | first in declaration order | first created |
 | `seed:<n>` | shuffle of the tokens not parked | uniform draw | uniform draw |
+| `replay:<file>` | the witness's `step n: …` line, then `reverse` | the witness's line, then `reverse` | the witness's line, then `reverse` |
 | `explore[:runs=N,depth=D]` | the exploration's plan | the exploration's plan | the exploration's plan |
 
 `reverse` is exactly what every run did before policies existed, so every `.expected.json` and
@@ -86,6 +102,16 @@ The scheduler lives in the run's `runState` beside the budget and the notes. A r
 call — a REPL `%action` or `%state` session — owns its `executorRun.state`, installed for each
 call by `beginExecutorRun` whatever ran in between, so a seeded debugging session draws from its
 own generator and an interleaved run neither consumes its draws nor inherits its notes.
+
+`replay:<file>` (`replay.go`) is the policy a witness is run again under: the file's choice lines
+— `ChoiceTaken.String` spellings, one per line up to the first blank line, so a checker's witness
+file with a trace body after its header serves as it stands — are followed one move at a time,
+each having to name the step the run is at and pick among the alternatives it offers, and once
+they are spent the run continues as `reverse`. A line the run cannot follow, or one left over at
+the end, is recorded as the run goes and reported by `Context.Unfollowed` as a `ReplayError`
+naming the move, its choice and what the run faced; the run is never quietly turned into another
+linearization. The model checkers replay every `sat` witness under it before claiming a
+violation.
 
 ## Exploration (`explore.go`)
 

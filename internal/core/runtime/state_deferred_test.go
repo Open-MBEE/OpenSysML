@@ -218,28 +218,212 @@ func TestDeferralSpansOrthogonalRegions(t *testing.T) {
 	}
 }
 
-// An event another region consumes is not deferred: deferral only retains what
-// the active configuration leaves unhandled.
-func TestEventConsumedByAnotherRegionIsNotDeferred(t *testing.T) {
+// A state's deferral outranks a transition in a sibling region: the sibling's
+// transition waits while the deferring state is active, and fires on the
+// occurrence once the deferring state exits and releases it — along with the
+// transition the deferring region reached by then.
+func TestDeferralOutranksASiblingRegionsTransition(t *testing.T) {
 	exec := stateExecutorFor(t, orthogonalDeferMachine(true))
 	if err := exec.initialize(); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("settle: %v", err)
+	}
 
 	exec.SendSignal("Ping", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch Ping: %v", err)
+	}
+	if dispatch, _ := exec.LastDispatch(); !dispatch.Deferred || dispatch.Fired {
+		t.Fatalf("Ping should be deferred by lwait, not consumed by rwait: %+v", dispatch)
+	}
+	if containsState(exec.stateVisits, "rping") {
+		t.Fatalf("the right region reacted to a deferred Ping, visits: %v", exec.stateVisits)
+	}
+	if len(exec.deferred) != 1 {
+		t.Fatalf("expected the Ping deferred, got %d deferred events", len(exec.deferred))
+	}
+
 	exec.SendSignal("Go", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
 	if !containsState(exec.stateVisits, "rping") {
-		t.Errorf("the right region did not consume the Ping, visits: %v", exec.stateVisits)
+		t.Errorf("the released Ping did not reach the right region, visits: %v", exec.stateVisits)
 	}
-	if containsState(exec.stateVisits, "lping") {
-		t.Errorf("a consumed event must not also be deferred, visits: %v", exec.stateVisits)
+	if !containsState(exec.stateVisits, "lping") {
+		t.Errorf("the released Ping did not reach the left region, visits: %v", exec.stateVisits)
 	}
 	if len(exec.deferred) != 0 {
-		t.Errorf("expected no event deferred, got %d", len(exec.deferred))
+		t.Errorf("expected no event still deferred, got %d", len(exec.deferred))
+	}
+}
+
+// A transition nested in the deferring state overrides its deferral: the
+// substate's transition on the deferred event fires and consumes the event.
+func TestTransitionNestedInTheDeferringStateOverridesDeferral(t *testing.T) {
+	outer := &ast.StateNode{
+		Name:  "outer",
+		Defer: []ast.Node{acceptTrigger("Ping")},
+		Substates: []ast.Node{
+			entryStart("inner"),
+			&ast.StateNode{Name: "inner"},
+			&ast.StateNode{Name: "pinged"},
+			triggeredTransition("inner", "pinged", "Ping"),
+		},
+	}
+	exec := stateExecutorFor(t, &ast.Usage{
+		Kind:  ast.UsageState,
+		Ident: ast.Identification{Name: "Machine"},
+		Members: []ast.Node{
+			entryStart("outer"),
+			outer,
+			&ast.StateNode{Name: "done"},
+			triggeredTransition("outer", "done", "Go"),
+		},
+	})
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("settle: %v", err)
+	}
+
+	exec.SendSignal("Ping", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch Ping: %v", err)
+	}
+	if dispatch, _ := exec.LastDispatch(); !dispatch.Fired || dispatch.Deferred {
+		t.Fatalf("the nested transition should consume Ping: %+v", dispatch)
+	}
+	assertVisits(t, exec.stateVisits, "outer", "inner", "pinged")
+	if len(exec.deferred) != 0 {
+		t.Errorf("an overridden deferral holds nothing, got %d deferred events", len(exec.deferred))
+	}
+}
+
+// A deferring state's deferral outranks a transition out of a state enclosing
+// it: the enclosing transition waits until the deferring state exits.
+func TestDeferralOutranksAnEnclosingStatesTransition(t *testing.T) {
+	outer := &ast.StateNode{
+		Name: "outer",
+		Substates: []ast.Node{
+			entryStart("waiting"),
+			&ast.StateNode{Name: "waiting", Defer: []ast.Node{acceptTrigger("Ping")}},
+			&ast.StateNode{Name: "open"},
+			triggeredTransition("waiting", "open", "Go"),
+		},
+	}
+	exec := stateExecutorFor(t, &ast.Usage{
+		Kind:  ast.UsageState,
+		Ident: ast.Identification{Name: "Machine"},
+		Members: []ast.Node{
+			entryStart("outer"),
+			outer,
+			&ast.StateNode{Name: "pinged"},
+			triggeredTransition("outer", "pinged", "Ping"),
+		},
+	})
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("settle: %v", err)
+	}
+
+	exec.SendSignal("Ping", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch Ping: %v", err)
+	}
+	if dispatch, _ := exec.LastDispatch(); !dispatch.Deferred || dispatch.Fired {
+		t.Fatalf("Ping should be deferred by waiting, not taken by outer's transition: %+v", dispatch)
+	}
+	assertVisits(t, exec.stateVisits, "outer", "waiting")
+
+	exec.SendSignal("Go", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	assertVisits(t, exec.stateVisits, "outer", "waiting", "open", "pinged")
+}
+
+// With a deferring state in each of two orthogonal regions, a transition nested
+// in one of them overrides only that state's deferral: the event is deferred
+// while the other region's state is not overridden too, and stays held until no
+// active state defers it any more — so the nested transition fires on it only if
+// the event is dispatched while it is enabled and nothing else defers it.
+func TestDeferralInEachRegionMustBeOverriddenForTheEventToFire(t *testing.T) {
+	left := &ast.StateRegion{
+		Name: "left",
+		States: []ast.Node{
+			entryStart("lwait"),
+			&ast.StateNode{
+				Name:  "lwait",
+				Defer: []ast.Node{acceptTrigger("Ping")},
+				Substates: []ast.Node{
+					entryStart("linner"),
+					&ast.StateNode{Name: "linner"},
+					&ast.StateNode{Name: "lpinged"},
+					triggeredTransition("linner", "lpinged", "Ping"),
+				},
+			},
+			&ast.StateNode{Name: "lopen"},
+			&ast.StateNode{Name: "lping"},
+			triggeredTransition("lwait", "lopen", "Leave"),
+			triggeredTransition("lopen", "lping", "Ping"),
+		},
+	}
+	right := &ast.StateRegion{
+		Name: "right",
+		States: []ast.Node{
+			entryStart("rwait"),
+			&ast.StateNode{Name: "rwait", Defer: []ast.Node{acceptTrigger("Ping")}},
+			&ast.StateNode{Name: "ropen"},
+			triggeredTransition("rwait", "ropen", "Go"),
+		},
+	}
+	exec := stateExecutorFor(t, &ast.Usage{
+		Kind:    ast.UsageState,
+		Ident:   ast.Identification{Name: "Machine"},
+		Members: []ast.Node{left, right},
+	})
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("settle: %v", err)
+	}
+
+	exec.SendSignal("Ping", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch Ping: %v", err)
+	}
+	if dispatch, _ := exec.LastDispatch(); !dispatch.Deferred || dispatch.Fired {
+		t.Fatalf("rwait's deferral is not overridden, so Ping should be deferred: %+v", dispatch)
+	}
+	if containsState(exec.stateVisits, "lpinged") {
+		t.Fatalf("the nested transition fired while a sibling region still deferred Ping, visits: %v", exec.stateVisits)
+	}
+
+	exec.SendSignal("Go", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run Go: %v", err)
+	}
+	if len(exec.deferred) != 1 || containsState(exec.stateVisits, "lpinged") {
+		t.Fatalf("lwait still defers Ping once rwait has exited, visits: %v, deferred: %d", exec.stateVisits, len(exec.deferred))
+	}
+
+	exec.SendSignal("Leave", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run Leave: %v", err)
+	}
+	if !containsState(exec.stateVisits, "lping") || containsState(exec.stateVisits, "lpinged") {
+		t.Errorf("the Ping released by leaving lwait should reach lopen, visits: %v", exec.stateVisits)
+	}
+	if len(exec.deferred) != 0 {
+		t.Errorf("expected no event still deferred, got %d", len(exec.deferred))
 	}
 }
 

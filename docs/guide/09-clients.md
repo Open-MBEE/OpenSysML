@@ -234,7 +234,8 @@ an unsupported operator is a compile error rather than a refused call.
 
 A run with [more than one valid order](06-behavior.md#when-a-model-has-more-than-one-valid-run)
 is scheduled by the same spellings `sysml -schedule` takes: `ExecuteAction` and `ExecuteState` take
-`opensysml.WithSchedule("declared")` (`"reverse"`, the default, or `"seed:<n>"`), `RunAnalysis`
+`opensysml.WithSchedule("declared")` (`"reverse"`, the default, or `"seed:<n>"`; `"replay:<file>"` is
+refused with `INVALID_ARGUMENT`, a request carrying no file of the caller's), `RunAnalysis`
 takes `opensysml.Schedule(...)`, and `ExploreAction`, `ExploreState` and `ExploreAnalysis` run
 every linearization under `"explore"` — the default when no policy is given — or
 `"explore:runs=N,depth=D"`, answering an `*Exploration` (`Outcomes`, each with `Linearizations`,
@@ -359,6 +360,22 @@ print(model.eval("1 + 2 * 3"))
 Evaluation is a method on the model, like every other operation, so a script never has to carry
 the model hash back to the connection. `model.eval(expr, context_symbol_id=…)` resolves the
 expression's names in that element's scope.
+
+It evaluates at model level, over what the declarations state. An expression whose answer
+the model leaves open — it reads an attribute with no value, or the count of a `[1..*]` or
+`[0..2]` feature — is not an error but an `opensysml.Undetermined`, which prints as
+`<undetermined>`, carries the `reason` and the `count_lower`/`count_upper` bounds of what
+it stands for, and refuses `bool()` with a `TypeError` so a script cannot mistake it for
+`False`. What the model does fix still answers: `(u > 3) and false` is `False`. It is neither
+`opensysml.UNSET` (a feature an *object* holds nothing for) nor `None` (the model's `null`):
+
+```python
+u = model.eval("T::u")                           # attribute u; with no value
+isinstance(u, opensysml.Undetermined)            # True
+str(u), u.reason                                 # ('<undetermined>', 'T::u has no value in the model')
+model.eval("(T::u > 3) and false")               # False
+model.eval("SequenceFunctions::size(T::rack.gear)")   # Undetermined, gear is [1..*]
+```
 
 ### Requiring a usable model
 
@@ -513,7 +530,7 @@ machine's time-triggered transition — on a simulation clock of its own that st
 service that predates the `final_time` capability).
 
 Both take a `schedule=` — `"declared"`, `"reverse"` (the default) or `"seed:<n>"`, the spellings
-`sysml -schedule` takes — for a run with [more than one valid
+`sysml -schedule` takes, less `"replay:<file>"`, which the service refuses — for a run with [more than one valid
 order](06-behavior.md#when-a-model-has-more-than-one-valid-run); `run_analysis` takes the same.
 The `explore` policy answers every outcome rather than one run's, so it has methods of its own:
 
@@ -1053,8 +1070,9 @@ in `clients/node`. `loads` and `load` are the one-shot forms; `connect()` keeps 
 a service and its parse cache) open across several models. Both a connection and a model are
 async-disposable, so `await using` closes them, and `close()` is the explicit form. Values arrive as
 discriminated unions to switch on (`value.kind === "quantity"`), integers as `bigint` so an `int64`
-is never rounded, and `unset` (a feature the model never gives a value) is distinct from `absent`
-(a field the answer did not carry).
+is never rounded, `unset` (a feature an object holds nothing for) is distinct from `absent`
+(a field the answer did not carry), and `undetermined` is a model-level answer the model
+leaves open, with its `reason` and count bounds.
 
 The same package runs in a browser, from a second entry point that spawns nothing:
 

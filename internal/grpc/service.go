@@ -157,6 +157,10 @@ const CapabilityFinalTime = "final_time"
 // `x.metadata`) as Value.metaobject, rather than as an unsupported null.
 const CapabilityMetaobjectValues = "metaobject_values"
 
+// CapabilityUndeterminedValue names the capability of carrying a result the model
+// leaves open as Value.undetermined rather than as an unsupported null.
+const CapabilityUndeterminedValue = "undetermined_value"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -171,6 +175,7 @@ var capabilities = []string{
 	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
 	CapabilityScheduleExplore, CapabilityFinalTime, CapabilityEngines,
 	CapabilityMetaobjectValues,
+	CapabilityUndeterminedValue,
 }
 
 type capabilityAvailability struct {
@@ -401,6 +406,10 @@ func (s *Service) schedulePolicy(spelling string) (runtime.SchedulePolicy, error
 	}
 	if err := s.requireCapability(CapabilitySchedule); err != nil {
 		return runtime.SchedulePolicy{}, err
+	}
+	if runtime.ReplaySpelling(spelling) {
+		return runtime.SchedulePolicy{}, statusError(connect.CodeInvalidArgument,
+			fmt.Sprintf("invalid scheduling policy %q: a replay follows a witness file of the caller's, which a request does not carry", spelling))
 	}
 	policy, err := runtime.ParseSchedulePolicy(spelling)
 	if err != nil {

@@ -37,38 +37,58 @@ type renderParams struct {
 // renderResult is one rendering: the artifact a client draws, plus the nodes and
 // edges it is made of, each located in the source it was declared in.
 type renderResult struct {
-	View     string       `json:"view"`
-	Kind     string       `json:"kind"`
-	Stated   string       `json:"stated"`
-	Form     string       `json:"form"`
-	Artifact string       `json:"artifact"`
-	Nodes    []renderNode `json:"nodes"`
-	Edges    []renderEdge `json:"edges"`
-	Rows     []renderRow  `json:"rows,omitempty"`
-	Columns  []string     `json:"columns,omitempty"`
-	Notices  []string     `json:"notices"`
-	Version  int          `json:"version"`
+	View     string        `json:"view"`
+	Kind     string        `json:"kind"`
+	Stated   string        `json:"stated"`
+	Form     string        `json:"form"`
+	Artifact string        `json:"artifact"`
+	Nodes    []renderNode  `json:"nodes"`
+	Edges    []renderEdge  `json:"edges"`
+	Rows     []renderRow   `json:"rows,omitempty"`
+	Columns  []string      `json:"columns,omitempty"`
+	Notices  []string      `json:"notices"`
+	Canvas   *renderCanvas `json:"canvas,omitempty"`
+	Version  int           `json:"version"`
 }
 
 // renderNode is one node of a rendering, with the range of the declaration it
-// was built from when there is one.
+// was built from when there is one, and its position when a Layout gives one.
 type renderNode struct {
-	ID     string        `json:"id"`
-	Kind   string        `json:"kind"`
-	Name   string        `json:"name"`
-	Detail string        `json:"detail"`
-	Parent string        `json:"parent,omitempty"`
-	Origin *renderOrigin `json:"origin,omitempty"`
+	ID        string        `json:"id"`
+	Kind      string        `json:"kind"`
+	Name      string        `json:"name"`
+	Detail    string        `json:"detail"`
+	Parent    string        `json:"parent,omitempty"`
+	Origin    *renderOrigin `json:"origin,omitempty"`
+	X         *float64      `json:"x,omitempty"`
+	Y         *float64      `json:"y,omitempty"`
+	Width     *float64      `json:"width,omitempty"`
+	Height    *float64      `json:"height,omitempty"`
+	Collapsed bool          `json:"collapsed,omitempty"`
 }
 
 // renderEdge is one edge of a rendering, located at the connector, transition,
-// succession or flow it was written as.
+// succession or flow it was written as, with the waypoints a Route gives it.
 type renderEdge struct {
 	From   string        `json:"from"`
 	To     string        `json:"to"`
 	Label  string        `json:"label"`
 	Kind   string        `json:"kind"`
 	Origin *renderOrigin `json:"origin,omitempty"`
+	Route  []renderPoint `json:"route,omitempty"`
+}
+
+// renderPoint is one waypoint of an edge, in the canvas's pixels, y down.
+type renderPoint struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+// renderCanvas is the drawing surface the view states with a Canvas annotation.
+type renderCanvas struct {
+	Unit   string   `json:"unit,omitempty"`
+	Width  *float64 `json:"width,omitempty"`
+	Height *float64 `json:"height,omitempty"`
 }
 
 // renderRow is one row of a table rendering, located at the element it reports.
@@ -202,24 +222,44 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if out.Notices == nil {
 		out.Notices = []string{}
 	}
+	if c := data.Canvas; c != nil {
+		out.Canvas = &renderCanvas{Unit: c.Unit}
+		if c.HasSize {
+			w, h := c.Width, c.Height
+			out.Canvas.Width, out.Canvas.Height = &w, &h
+		}
+	}
 	for _, node := range data.Nodes {
-		out.Nodes = append(out.Nodes, renderNode{
+		n := renderNode{
 			ID:     node.ID,
 			Kind:   node.Kind,
 			Name:   node.Name,
 			Detail: node.Detail,
 			Parent: node.Parent,
 			Origin: s.origin(node.Origin),
-		})
+		}
+		if g := node.Geometry; g != nil {
+			x, y := g.X, g.Y
+			n.X, n.Y, n.Collapsed = &x, &y, g.Collapsed
+			if g.HasSize {
+				w, h := g.Width, g.Height
+				n.Width, n.Height = &w, &h
+			}
+		}
+		out.Nodes = append(out.Nodes, n)
 	}
 	for _, edge := range data.Edges {
-		out.Edges = append(out.Edges, renderEdge{
+		e := renderEdge{
 			From:   edge.From,
 			To:     edge.To,
 			Label:  edge.Label,
 			Kind:   edge.Kind.String(),
 			Origin: s.origin(edge.Origin),
-		})
+		}
+		for _, p := range edge.Route {
+			e.Route = append(e.Route, renderPoint{X: p.X, Y: p.Y})
+		}
+		out.Edges = append(out.Edges, e)
 	}
 	for _, row := range data.Rows {
 		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: s.origin(row.Origin)})

@@ -38,6 +38,9 @@ func (ec *EvalContext) evalRange(n *ast.OperatorExpr) (Value, error) {
 // Every element costs a step and an element of the budgets, so a range too wide
 // to hold is reported before it is held.
 func (ec *EvalContext) rangeSequence(op string, lowerVal, upperVal Value) (Value, error) {
+	if _, open := undeterminedIn(lowerVal, upperVal); open {
+		return undeterminedOf(openRange(), lowerVal, upperVal), nil
+	}
 	lower, err := rangeBound(op, "lower", lowerVal)
 	if err != nil {
 		return Value{}, err

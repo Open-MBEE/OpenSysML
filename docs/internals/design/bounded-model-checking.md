@@ -221,6 +221,20 @@ At each state the checker enumerates the **enabled moves**:
   candidates that order dropped, and the replay scheduler honours it. Without this split the
   checker could not claim to find a divergence two regions produce, and the verdict would have
   to exclude it.
+- **Choice pseudostates**: a compound transition through a `choice` has one move per branch
+  whose guard holds *after* the effects of the segments into the choice have run — the guards
+  are read against the state those effects leave (`state_route.go:resolveChoice`), so a branch
+  an incoming effect enables is a move and one it disables is not. Several enabled is the
+  executor's `ChoiceTransition` at `choice <name>` today, the first in declaration order under
+  `reverse` and `declared`, a seeded draw under `seed:<n>`, every branch under `explore`. A
+  junction contributes no move: its branch is settled before the transition fires, from the
+  state the dispatch starts in, and is part of the transition's enabledness (a junction with no
+  enabled branch means the transition is not enabled).
+- **Not moves**: deferral is determined by the configuration — a state that defers the
+  occurrence holds it back from every transition not nested in it, and the occurrence is either
+  consumed by a nested transition or deferred (`deferralOutranks`) — and a composite state's
+  completion is a completion event queued at the current instant as a leaf's is, ordered by the
+  same `eventHeap` rule. Both are read from the state, not drawn.
 
 ### The properties
 
@@ -283,6 +297,12 @@ and declares `a` and `b` **dependent** when any of these hold:
 - `writes(a) ∩ (reads(b) ∪ writes(b)) ≠ ∅`, or symmetrically — a data race.
 - `sends(a)` may deliver what `accepts(b)` waits for — a message the order of moves can make
   available or not.
+- Both moves send, or both accept, whatever their receivers or signal types — the bus is one
+  context-wide list in arrival order (`Context.messages`), so two sends leave it in the order
+  they ran and two accepts each take the oldest match from a list the other has changed;
+  neither pair reaches the same captured state in both orders. Sends to distinct receivers
+  are no exception: the captured bus keeps their order, and an accept whose match is by signal
+  type alone can observe it.
 - `control(a) ∩ control(b) ≠ ∅` — both tokens converge on one join or merge, whose behavior
   depends on arrival count and order (`stepJoinNode`, `stepMergeNode`).
 - Either footprint contains a **dynamic** target the static analysis cannot resolve: a chained
