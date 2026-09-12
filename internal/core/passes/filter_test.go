@@ -180,6 +180,16 @@ func TestFilterConstructorIsNotBooleanRatherThanInevaluable(t *testing.T) {
 	}
 }
 
+// An extent is a run's answer, not the model's (KerML §8.2.5.8.1 Table 5), so a
+// filter over `all T` is inevaluable even where T declares every value it has.
+func TestFilterExtentIsNotModelLevelEvaluable(t *testing.T) {
+	src := `package P { datatype Color { feature red : Color; }
+		package Q { filter (all Color) == null; } }`
+	if diags := only(filterDiags(t, src), "filter-not-evaluable"); len(diags) != 1 {
+		t.Fatalf("want one filter-not-evaluable for the extent, got %v", diags)
+	}
+}
+
 // The two faults are stated on the membership carrying the condition, once each,
 // however many operands share the fault.
 func TestFilterReportsEachFaultOnceOnTheMembership(t *testing.T) {

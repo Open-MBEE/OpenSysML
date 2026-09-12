@@ -43,7 +43,7 @@ func (ec *EvalContext) evalMetaCast(n *ast.OperatorExpr) (Value, error) {
 	commit, rollback := ec.ctx.beginJournal()
 	var values []Value
 	for i, annotation := range sem.ElementMetadataOf(sym) {
-		if !sem.Conforms(annotation.Type, target) {
+		if !ec.ctx.modelConforms(annotation.Type, target) {
 			continue
 		}
 		val, err := ec.metadataInstance(metadataAnnotation{element: sym, index: i}, annotation)
@@ -77,7 +77,7 @@ func (ec *EvalContext) metaCastSubject(n *ast.OperatorExpr) (*symbols.Symbol, er
 	if err != nil {
 		return nil, err
 	}
-	if resolved, aliased := ec.ctx.model.resolver.ResolveAliasTarget(sym); aliased {
+	if resolved, aliased := ec.ctx.resolveAliasTarget(sym); aliased {
 		sym = resolved
 	}
 	if sym.Decl == nil {

@@ -89,6 +89,10 @@ func (m *Model) resultTypes(scope *symbols.Scope, node ast.Node) []*symbols.Symb
 			return types
 		}
 		return m.resultTypes(scope, n.Operand)
+	case *ast.OperatorExpr:
+		if types := m.extentTypes(scope, n); len(types) > 0 {
+			return types
+		}
 	}
 	if typ := m.ExprResultType(scope, node); typ != nil {
 		return []*symbols.Symbol{typ}

@@ -89,7 +89,7 @@ func (ctx *Context) verifiedIn(objective *symbols.Symbol) []*symbols.Symbol {
 			if rel == nil || rel.Kind != ast.RelSubsets || rel.Target == nil {
 				continue
 			}
-			if target, ok := ctx.model.resolver.ResolveTarget(member.OwnerScope, rel.Target); ok && target != nil {
+			if target, ok := ctx.resolveTarget(member.OwnerScope, rel.Target); ok && target != nil {
 				out = append(out, target)
 			}
 		}

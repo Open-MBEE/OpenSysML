@@ -78,6 +78,11 @@ func (m *Model) allEvaluable(scope *symbols.Scope, nodes []ast.Node, depth int) 
 // must fold: `~3` names only the abstract library function `DataFunctions::'~'`,
 // which no concrete function implements for an Integer.
 func (m *Model) evaluableOperator(scope *symbols.Scope, e *ast.OperatorExpr, depth int) bool {
+	if e.Operator == ast.OpAll {
+		// An extent is what a run holds of the type, not what the model declares
+		// (KerML 1.0 §8.2.5.8.1 Table 5: `all` is not model-level evaluable).
+		return false
+	}
 	if !m.allEvaluable(scope, e.Operands, depth) {
 		return false
 	}

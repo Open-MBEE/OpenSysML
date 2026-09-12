@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "instantiate": "test::counter",
+  "libraries": true,
+  "slots": {
+    "origin": {"type": "Instance"},
+    "integers": {"error": "unbounded extent: Integer is a data type, whose values are not enumerated"},
+    "strings": {"error": "unbounded extent: String is a data type, whose values are not enumerated"},
+    "points": {"error": "unbounded extent: Point is a data type, whose values are not enumerated"}
+  }
+}

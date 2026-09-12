@@ -307,6 +307,11 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 			delete(ctx.metadataObjects, annotation)
 		}
 	}
+	for sym, val := range ctx.namespaceBindings {
+		if namesAbandonedValue(val, abandoned) {
+			ctx.unbindNamespace(sym)
+		}
+	}
 	ctx.forgetLives(abandoned)
 	ctx.forgetVariantsNaming(abandoned)
 	ctx.forgetEdgesOf(gone)
@@ -356,6 +361,20 @@ func namesAbandoned(fv *FeatureValue, abandoned map[int64]bool) bool {
 	}
 	for _, val := range elementsOf(fv.Values) {
 		if namesAbandonedObject(val, abandoned) {
+			return true
+		}
+	}
+	return false
+}
+
+// namesAbandonedValue reports whether a value, or an element of a collection, names an
+// abandoned object.
+func namesAbandonedValue(val Value, abandoned map[int64]bool) bool {
+	if namesAbandonedObject(val, abandoned) {
+		return true
+	}
+	for _, elem := range elementsOf(val) {
+		if namesAbandonedObject(elem, abandoned) {
 			return true
 		}
 	}
@@ -947,7 +966,7 @@ func (ctx *Context) namedBehavior(sym *symbols.Symbol) *symbols.Symbol {
 		return typ
 	}
 	if sym.Name != "" && sym.OwnerScope != nil {
-		if named, ok := ctx.model.resolver.LookupNameExcluding(sym.OwnerScope, sym.Name, sym.Decl); ok {
+		if named, ok := ctx.lookupNameExcluding(sym.OwnerScope, sym.Name, sym); ok {
 			return named
 		}
 	}
@@ -1053,7 +1072,7 @@ func namesPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, n
 	if ctx == nil || ctx.model.resolver == nil || self == nil || scope == nil {
 		return false
 	}
-	sym, ok := ctx.model.resolver.LookupName(scope, name)
+	sym, ok := ctx.lookupName(scope, name)
 	if !ok || sym == nil {
 		return false
 	}

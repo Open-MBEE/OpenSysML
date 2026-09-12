@@ -1,0 +1,22 @@
+{
+  "type": "instance",
+  "instantiate": "test::vehicle",
+  "libraries": true,
+  "slots": {
+    "gearboxCount": {"type": "Integer", "value": 2},
+    "firstGearbox": {"type": "Variant", "value": "manual"},
+    "choices": {"type": "Sequence", "elements": [
+      {"type": "Variant", "value": "fourCyl"},
+      {"type": "Variant", "value": "sixCyl"},
+      {"type": "Variant", "value": "eightCyl"}
+    ]},
+    "choiceCount": {"type": "Integer", "value": 3},
+    "firstChoice": {"type": "Variant", "value": "fourCyl"},
+    "lastChoice": {"type": "Variant", "value": "eightCyl"},
+    "lastCylinders": {"type": "Integer", "value": 8},
+    "totalCylinders": {"type": "Integer", "value": 18}
+  },
+  "constraints": {
+    "offersSix": true
+  }
+}
