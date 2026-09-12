@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -38,7 +39,23 @@ func requireSolver(t *testing.T) *solve.Solver {
 // loweredAction indexes src and lowers the action fqn declares.
 func loweredAction(t *testing.T, src, fqn string) (*runtime.Context, *symbols.Symbol, *lower.ActionGraph) {
 	t.Helper()
-	ctx, idx := fixture(t, "encode_test.sysml", src)
+	return loweredDocument(t, "encode_test.sysml", src, fqn)
+}
+
+// loweredConformanceAction lowers the named action of a conformance case with
+// a context to encode it in.
+func loweredConformanceAction(t *testing.T, file, fqn string) (*runtime.Context, *symbols.Symbol, *lower.ActionGraph) {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join(conformanceDir, file))
+	if err != nil {
+		t.Fatalf("read %s: %v", file, err)
+	}
+	return loweredDocument(t, file, string(src), fqn)
+}
+
+func loweredDocument(t *testing.T, path, src, fqn string) (*runtime.Context, *symbols.Symbol, *lower.ActionGraph) {
+	t.Helper()
+	ctx, idx := fixture(t, path, src)
 	matches := idx.LookupQualified(fqn)
 	if len(matches) != 1 {
 		t.Fatalf("%s matched %d symbols, want 1", fqn, len(matches))
@@ -137,4 +154,78 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 	if result.Status != solve.StatusUnsat {
 		t.Fatalf("completes within 5 moves: %v\n%s", result.Status, model(result))
 	}
+}
+
+// status solves enc's query with the completion at k and extra asserted.
+func status(t *testing.T, solver *solve.Solver, enc *Encoding, k int, extra *solve.Term) solve.Status {
+	t.Helper()
+	q := *enc.Query
+	q.Assertions = append(q.Assertions, solve.Assertion{Term: enc.Completed[k]}, solve.Assertion{Term: extra})
+	result, err := solver.Solve(context.Background(), &q)
+	if err != nil {
+		t.Fatalf("solve: %v\n%s", err, solve.Script(&q))
+	}
+	return result.Status
+}
+
+// TestEncodePinsAndObjectFlows: the conformance cases over pins and object
+// flows complete with exactly the values the interpreter's outcomes record,
+// each node's pins being features of its own; a node reading a pin of a node
+// not yet performed fails, as the interpreter does.
+func TestEncodePinsAndObjectFlows(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 8
+	cases := []struct {
+		file, fqn string
+		fails     bool
+		values    map[string]int64
+	}{
+		{"action_flow_between_same_named_pins.sysml", "test::outer", false,
+			map[string]int64{"test::outer::result": 21, "test::outer::p::v": 21, "test::outer::q::v": 21, "test::outer::q::w": 42}},
+		{"action_node_pins_isolated.sysml", "test::outer", false,
+			map[string]int64{"test::outer::total": 7, "test::outer::p::v": 3, "test::outer::q::v": 4}},
+		{"action_flow_named_from.sysml", "test::driveTrain", false,
+			map[string]int64{"test::driveTrain::generateTorque::engineTorque": 21, "test::driveTrain::amplifyTorque::torqueIn": 21, "test::driveTrain::amplifyTorque::amplified": 42}},
+		{"action_node_pin_read_before_performed.sysml", "test::outer", true, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.file, func(t *testing.T) {
+			ctx, action, graph := loweredConformanceAction(t, c.file, c.fqn)
+			enc, err := Encode(ctx, action, graph, k, DefaultUnroll)
+			if err != nil {
+				t.Fatalf("encode: %v", err)
+			}
+			last := enc.States[k]
+			failed := solve.VarTerm(last.Failed)
+			if got := status(t, solver, enc, k, failed); (got == solve.StatusSat) != c.fails {
+				t.Errorf("completes failed: %v, want fails=%v", got, c.fails)
+			}
+			if got := status(t, solver, enc, k, solve.Not(failed)); (got == solve.StatusSat) == c.fails {
+				t.Errorf("completes unfailed: %v, want fails=%v", got, c.fails)
+			}
+			for name, want := range c.values {
+				v := last.Values[name]
+				if v == nil {
+					t.Errorf("no feature %s among %v", name, names(enc.Features))
+					continue
+				}
+				is := eq(solve.VarTerm(v), solve.IntTerm(want))
+				if got := status(t, solver, enc, k, is); got != solve.StatusSat {
+					t.Errorf("%s = %d on completion: %v, want sat", name, want, got)
+				}
+				if got := status(t, solver, enc, k, solve.And(solve.Not(failed), solve.Not(is))); got != solve.StatusUnsat {
+					t.Errorf("%s != %d on completion: %v, want unsat", name, want, got)
+				}
+			}
+		})
+	}
+}
+
+// names lists the variables' names.
+func names(vars []*solve.Var) []string {
+	out := make([]string, len(vars))
+	for i, v := range vars {
+		out[i] = v.Name
+	}
+	return out
 }

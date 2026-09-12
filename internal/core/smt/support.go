@@ -42,6 +42,9 @@ type Flow struct {
 	// Cyclic is set when a fork lies on a cycle, so the tokens in flight are
 	// bounded by k rather than by the graph, and a fork may find no free slot.
 	Cyclic bool
+	// Delivers is set when an object flow delivers to a node performing in a
+	// frame of its own, whose pin queues the deliveries it has yet to take.
+	Delivers bool
 }
 
 // BodyLoop is one body loop the encoding unrolls, and the node whose body it is in.
@@ -98,7 +101,7 @@ func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
 	}
 	if len(graph.Bindings) > 0 {
 		return nil, &UnsupportedError{Node: nodeLabel(graph.Bindings[0].Node), Construct: "pin binding",
-			Reason: "a binding connector to a pin is not encoded"}
+			Reason: "a binding connector at a pin is not encoded; object flows are"}
 	}
 	for _, node := range f.Nodes {
 		if err := f.checkNode(node); err != nil {
@@ -106,6 +109,13 @@ func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
 		}
 	}
 	f.sizeSlots(k)
+	if f.Slots > 1 {
+		for _, node := range f.Nodes {
+			if err := f.checkImplicitJoin(node); err != nil {
+				return nil, err
+			}
+		}
+	}
 	if f.Slots > MaxSlots {
 		return nil, fmt.Errorf("%w: %d tokens may be in flight within %d moves, %d slots at most",
 			ErrSlotOverflow, f.Slots, k, MaxSlots)
@@ -185,8 +195,29 @@ func (f *Flow) checkNode(node ast.Node) error {
 		if _, ok := f.Index[flow.Target]; !ok {
 			return &FlowError{Node: label, Reason: "an object flow leaves the flow's nodes"}
 		}
+		if flow.SourcePin == "" || flow.TargetPin == "" {
+			return &FlowError{Node: label, Reason: "an object flow names no pin at one end"}
+		}
+		if _, performs := flow.Target.(*ast.Usage); performs {
+			f.Delivers = true
+		}
 	}
 	return f.checkBody(node, label, graph.Bodies[node])
+}
+
+// checkImplicitJoin refuses a node other than a join or a merge that several
+// successions enter while forks put several tokens in flight: the interpreter
+// synchronizes it over the successions still reachable, which is not encoded.
+func (f *Flow) checkImplicitJoin(node ast.Node) error {
+	switch node.(type) {
+	case *ast.JoinNode, *ast.MergeNode:
+		return nil
+	}
+	if len(f.Incoming[node]) < 2 {
+		return nil
+	}
+	return &UnsupportedError{Node: f.label(node), Construct: "implicit join",
+		Reason: "a node several successions enter synchronizes over those still reachable while tokens run concurrently; only a join or a merge is encoded there"}
 }
 
 // checkBody refuses the statements of a body the stage does not encode, and

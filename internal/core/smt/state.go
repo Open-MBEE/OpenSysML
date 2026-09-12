@@ -93,8 +93,8 @@ type State struct {
 	// Failed is set when the move reaching this state met an error the
 	// evaluator reports: a division by zero, a guard that is not Boolean.
 	Failed *solve.Var
-	// Overflow is set when a fork in the move reaching this state found no
-	// free slot; the encoding says nothing about what follows.
+	// Overflow is set when a move reaching this state exceeded what the state
+	// holds: a fork found no free slot, or a delivery found a pin's queue full.
 	Overflow *solve.Var
 }
 
@@ -128,7 +128,7 @@ func newState(sorts Sorts, f *Flow, i int) *State {
 	for l := range s.Loop {
 		s.Loop[l] = boolVar(fmt.Sprintf("loop[%d]@%d", l, i))
 	}
-	if f.Cyclic {
+	if f.Cyclic || f.Delivers {
 		s.Overflow = boolVar(fmt.Sprintf("overflow@%d", i))
 	}
 	return s

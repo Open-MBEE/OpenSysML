@@ -35,10 +35,24 @@ type Encoding struct {
 
 	translator *solve.Translator
 	features   map[string]*solve.Var
-	flagged    map[string]bool
-	domains    map[string]*solve.Term
-	exprs      map[ast.Node]*solve.Expression
-	fresh      int
+	// canonical maps a feature's symbol to its variable, so a chain naming a
+	// node's pin (`p.v`) reads the variable the pin's own name declares.
+	canonical map[*symbols.Symbol]*solve.Var
+	aliases   map[string]*solve.Var
+	flagged   map[string]bool
+	domains   map[string]*solve.Term
+	exprs     map[ast.Node]*solve.Expression
+	// pins are the features each node's performance starts afresh; pending
+	// holds the delivery an object flow left at a pin, keyed by the pin.
+	pins    map[ast.Node][]pin
+	pending map[string]*solve.Var
+	fresh   int
+}
+
+// pin is one feature a node's performance holds, and its declared default.
+type pin struct {
+	feature lower.Feature
+	v       *solve.Var
 }
 
 // Encode builds the transition relation of action's flow graph for k moves,
@@ -67,9 +81,13 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 		Unroll:     unroll,
 		translator: translator,
 		features:   make(map[string]*solve.Var),
+		canonical:  make(map[*symbols.Symbol]*solve.Var),
+		aliases:    make(map[string]*solve.Var),
 		flagged:    make(map[string]bool),
 		domains:    make(map[string]*solve.Term),
 		exprs:      make(map[ast.Node]*solve.Expression),
+		pins:       make(map[ast.Node][]pin),
+		pending:    make(map[string]*solve.Var),
 		Query:      &solve.Query{Kind: "action", Element: name},
 	}
 	if err := e.collectFeatures(); err != nil {
@@ -157,7 +175,15 @@ func (e *Encoding) collectFeatures() error {
 		}
 	}
 	for _, node := range e.Flow.Nodes {
+		if err := e.collectPins(node, declared); err != nil {
+			return err
+		}
+	}
+	for _, node := range e.Flow.Nodes {
 		label := e.Flow.label(node)
+		if err := e.collectFlows(node); err != nil {
+			return err
+		}
 		if err := e.collectBody(graph.Bodies[node], label, declared); err != nil {
 			return err
 		}
@@ -180,17 +206,20 @@ func (e *Encoding) collectFeatures() error {
 		if _, ok := e.features[v.Name]; ok {
 			continue
 		}
+		if _, ok := e.aliases[v.Name]; ok {
+			continue
+		}
 		return &UnsupportedError{Node: nodeLabel(graph.Initial), Construct: "feature " + v.Name,
 			Reason: "a feature the action does not declare is read; objects and their features are encoded by a later stage"}
 	}
 	for _, d := range e.translator.Domains() {
 		var read *solve.Var
-		solve.Substitute(d.Term, func(v *solve.Var) *solve.Term {
-			read = v
-			return nil
+		term := solve.Substitute(d.Term, func(v *solve.Var) *solve.Term {
+			read = e.resolve(v)
+			return solve.VarTerm(read)
 		})
 		if read != nil {
-			e.domains[read.Name] = d.Term
+			e.domains[read.Name] = term
 		}
 	}
 	e.Features = make([]*solve.Var, 0, len(e.features))
@@ -199,6 +228,87 @@ func (e *Encoding) collectFeatures() error {
 	}
 	sort.Slice(e.Features, func(i, j int) bool { return e.Features[i].Name < e.Features[j].Name })
 	return nil
+}
+
+// collectPins registers the features a node's performance holds, each starting
+// without a value unless a delivery or its own default gives it one.
+func (e *Encoding) collectPins(node ast.Node, declared map[string]bool) error {
+	label := e.Flow.label(node)
+	for _, feature := range e.Flow.Graph.Features[node] {
+		scope := feature.Scope
+		if scope == nil {
+			scope = e.Flow.Graph.Scopes[node]
+		}
+		v, err := e.variable(feature.Name, scope, "pin "+feature.Name, label)
+		if err != nil {
+			return err
+		}
+		if declared[v.Name] {
+			return &UnsupportedError{Node: label, Construct: "pin " + feature.Name,
+				Reason: "a pin sharing its variable with a feature the action declares is not encoded"}
+		}
+		declared[v.Name] = true
+		e.flagged[v.Name] = true
+		e.pins[node] = append(e.pins[node], pin{feature: feature, v: v})
+		if feature.Value != nil {
+			if _, err := e.expression(feature.Value, scope, "default of pin "+feature.Name, label); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// collectFlows registers the pins the object flows out of node read and write,
+// and a pending slot per pin a flow delivers to a node performing in a frame of its own.
+func (e *Encoding) collectFlows(node ast.Node) error {
+	graph := e.Flow.Graph
+	label := e.Flow.label(node)
+	for _, flow := range graph.DataFlows[node] {
+		within := flowLabel(flow)
+		if _, err := e.flowEnd(node, flow.SourcePin, within, label); err != nil {
+			return err
+		}
+		target, err := e.flowEnd(flow.Target, flow.TargetPin, within, label)
+		if err != nil {
+			return err
+		}
+		if _, performs := flow.Target.(*ast.Usage); !performs {
+			continue
+		}
+		if _, ok := e.pending[target.Name]; ok {
+			continue
+		}
+		p := &solve.Var{Name: "pending(" + target.Name + ")", Sort: target.Sort, Symbol: target.Symbol,
+			Dimension: target.Dimension, Unit: target.Unit}
+		e.pending[target.Name] = p
+		e.features[p.Name] = p
+		e.flagged[p.Name] = true
+	}
+	return nil
+}
+
+// flowEnd is the variable an object flow reads or writes at node: the pin a
+// node performing in a frame of its own declares, else the action's feature.
+func (e *Encoding) flowEnd(node ast.Node, name, within, label string) (*solve.Var, error) {
+	if _, performs := node.(*ast.Usage); !performs {
+		return e.variable(name, e.Flow.Graph.Scope, within, label)
+	}
+	for _, p := range e.pins[node] {
+		if p.feature.Name == name {
+			return p.v, nil
+		}
+	}
+	return nil, &UnsupportedError{Node: label, Construct: within,
+		Reason: fmt.Sprintf("%s declares no pin %s", e.Flow.label(node), name)}
+}
+
+// flowLabel names an object flow as a diagnostic does.
+func flowLabel(flow lower.ObjectFlow) string {
+	if flow.Name != "" {
+		return "flow " + flow.Name
+	}
+	return fmt.Sprintf("flow from %s to %s", flow.SourcePin, flow.TargetPin)
 }
 
 // collectBody translates a body's expressions and registers what it declares.
@@ -272,7 +382,25 @@ func (e *Encoding) variable(name string, scope *symbols.Scope, within, label str
 		return held, nil
 	}
 	e.features[v.Name] = v
+	if v.Symbol != nil {
+		e.canonical[v.Symbol] = v
+	}
 	return v, nil
+}
+
+// resolve is the variable standing for the feature v reads: the one its symbol
+// declares when a chain named it otherwise, else v itself.
+func (e *Encoding) resolve(v *solve.Var) *solve.Var {
+	if held, ok := e.features[v.Name]; ok {
+		return held
+	}
+	if v.Symbol != nil {
+		if held, ok := e.canonical[v.Symbol]; ok {
+			e.aliases[v.Name] = held
+			return held
+		}
+	}
+	return v
 }
 
 // expression translates node once, in scope, registering the features it reads.
@@ -303,17 +431,22 @@ func (e *Encoding) boolean(node ast.Node, scope *symbols.Scope, within, label st
 	return expr, nil
 }
 
-// register records the features an expression reads.
+// register records the features an expression reads, rewriting each read
+// to the variable the feature's own name declares.
 func (e *Encoding) register(expr *solve.Expression) {
 	visit := func(v *solve.Var) *solve.Term {
-		if _, ok := e.features[v.Name]; !ok {
-			e.features[v.Name] = v
+		held := e.resolve(v)
+		if _, ok := e.features[held.Name]; !ok {
+			e.features[held.Name] = held
 		}
-		return nil
+		if held == v {
+			return nil
+		}
+		return solve.VarTerm(held)
 	}
-	solve.Substitute(expr.Term, visit)
-	for _, d := range expr.Defined {
-		solve.Substitute(d, visit)
+	expr.Term = solve.Substitute(expr.Term, visit)
+	for i, d := range expr.Defined {
+		expr.Defined[i] = solve.Substitute(d, visit)
 	}
 }
 
@@ -408,6 +541,9 @@ func (e *Encoding) initial() error {
 	for _, flag := range s.Loop {
 		e.assert(solve.Not(solve.VarTerm(flag)), "initial state")
 	}
+	if s.Overflow != nil {
+		e.assert(solve.Not(solve.VarTerm(s.Overflow)), "initial state")
+	}
 	env := e.environment(s)
 	for _, base := range e.Features {
 		if e.flagged[base.Name] {
@@ -474,11 +610,14 @@ func (e *Encoding) environment(s *State) *env {
 
 // nodeEffect is what one performance of a node does to the features, and the
 // conditions under which the interpreter would report an error or run a body
-// loop past the unroll bound.
+// loop past the unroll bound. guards is the environment its guards read: after
+// its body, before its object flows.
 type nodeEffect struct {
-	env    *env
-	failed []*solve.Term
-	loops  map[int]*solve.Term
+	env      *env
+	guards   *env
+	failed   []*solve.Term
+	overflow []*solve.Term
+	loops    map[int]*solve.Term
 }
 
 // move ties state i to state i-1 by the choice of move i.
@@ -528,7 +667,7 @@ func (e *Encoding) move(i int) error {
 				guards[n][p], guardsDefined[n][p] = solve.BoolTerm(true), solve.BoolTerm(true)
 				continue
 			}
-			guards[n][p], guardsDefined[n][p] = effect.env.evaluate(e.exprs[guard])
+			guards[n][p], guardsDefined[n][p] = effect.guards.evaluate(e.exprs[guard])
 		}
 	}
 
@@ -554,11 +693,18 @@ func (e *Encoding) move(i int) error {
 		}
 	}
 
-	// Errors and loops past the bound, once met, stay.
+	// Errors, overflows and loops past the bound, once met, stay.
 	failed := []*solve.Term{solve.VarTerm(prev.Failed)}
+	var overflow []*solve.Term
+	if prev.Overflow != nil {
+		overflow = append(overflow, solve.VarTerm(prev.Overflow))
+	}
 	for n := range f.Nodes {
 		if len(effects[n].failed) > 0 {
 			failed = append(failed, solve.And(acts[n], solve.Or(effects[n].failed...)))
+		}
+		if len(effects[n].overflow) > 0 {
+			overflow = append(overflow, solve.And(acts[n], solve.Or(effects[n].overflow...)))
 		}
 	}
 	for l := range f.Loops {
@@ -587,14 +733,22 @@ func (e *Encoding) move(i int) error {
 		for n, node := range f.Nodes {
 			pick := solve.And(eq(choice, solve.ValueTerm(e.Sorts.Choice, slotLabel(t))),
 				eq(solve.VarTerm(prev.Slots[t].At), nodeValue(e.Sorts, f, n)))
-			step, fails := e.tokens(i, t, n, node, prev, next, m, guards[n], guardsDefined[n])
+			step, fails, full := e.tokens(i, t, n, node, prev, next, m, guards[n], guardsDefined[n])
 			e.assert(implies(pick, step), fmt.Sprintf("move %d: slot %d acts at %s", i, t, f.Labels[n]))
 			if fails != nil {
 				failed = append(failed, solve.And(pick, fails))
 			}
+			if full != nil {
+				overflow = append(overflow, solve.And(pick, full))
+			}
 		}
 	}
 	e.assert(eq(solve.VarTerm(next.Failed), solve.Or(failed...)), fmt.Sprintf("move %d fails", i))
+	if next.Overflow != nil {
+		e.assert(eq(solve.VarTerm(next.Overflow), solve.Or(overflow...)), fmt.Sprintf("move %d overflows", i))
+	} else if len(overflow) > 0 {
+		return &FlowError{Node: nodeLabel(f.Graph.Initial), Reason: "a move may overflow a state declaring no overflow"}
+	}
 	return nil
 }
 
@@ -612,10 +766,10 @@ func (e *Encoding) unchanged(before, after Slot) *solve.Term {
 }
 
 // tokens is what happens to the tokens when the token in slot t, at node n,
-// acts in move i: synchronization, then the node's own succession. The second
-// result is the condition under which the interpreter reports an error at the
-// succession, nil when it cannot.
-func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move, guards, defined []*solve.Term) (*solve.Term, *solve.Term) {
+// acts in move i: synchronization, then the node's own succession. The other
+// results are the conditions under which the interpreter reports an error at
+// the succession and under which a fork finds no free slot, nil when they cannot.
+func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move, guards, defined []*solve.Term) (step, fails, full *solve.Term) {
 	f := e.Flow
 	slot := prev.Slots[t]
 	out := f.Outgoing[node]
@@ -669,7 +823,6 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 		placed[u] = solve.BoolTerm(false)
 	}
 	var terms []*solve.Term
-	var fails *solve.Term
 	retire := solve.And(
 		eq(solve.VarTerm(next.Slots[t].At), absent),
 		eq(solve.VarTerm(next.Slots[t].Via), noEdge),
@@ -738,6 +891,9 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 		}
 		nextID = solve.Binary(solve.OpAdd, solve.Int, base, count)
 		fails = solve.Or(undefinedGuards(guards, defined)...)
+		if f.Cyclic {
+			full = solve.Binary(solve.OpGt, solve.Bool, count, solve.Binary(solve.OpAdd, solve.Int, running, solve.IntTerm(1)))
+		}
 	case *ast.DecisionNode:
 		// The guarded successions that hold are the branches; none holding
 		// takes the unguarded one, and without one the run fails.
@@ -810,7 +966,7 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 			implies(solve.And(solve.Not(consumed[u]), solve.Not(placed[u])), e.unchanged(prev.Slots[u], next.Slots[u])))
 	}
 	terms = append(terms, eq(solve.VarTerm(next.NextID), nextID))
-	return solve.And(terms...), fails
+	return solve.And(terms...), fails, full
 }
 
 // undefinedGuards are the conditions under which evaluating the guards, in
@@ -827,11 +983,14 @@ func undefinedGuards(guards, defined []*solve.Term) []*solve.Term {
 	return terms
 }
 
-// perform is the effect of one performance of node n in move i on the features:
-// its body's statements over the values in prev.
+// perform is the effect of one performance of node n in move i on the features,
+// as the interpreter orders it: the pins take their deliveries or defaults, the
+// body's statements run over the values in prev, the guards are read, and the
+// object flows out of the node carry what it produced.
 func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, error) {
 	effect := &nodeEffect{env: e.environment(prev), loops: make(map[int]*solve.Term)}
 	where := fmt.Sprintf("%d.%s", i, e.Flow.Labels[n])
+	e.begin(effect, node, where)
 	body := e.Flow.Graph.Bodies[node]
 	if err := e.statements(effect, body, solve.BoolTerm(true), where, node); err != nil {
 		return nil, err
@@ -840,7 +999,80 @@ func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, e
 		_, defined := effect.env.evaluate(e.exprs[action.Expression])
 		effect.fail(solve.BoolTerm(true), defined)
 	}
+	effect.guards = effect.env.clone()
+	if err := e.flows(effect, node, where); err != nil {
+		return nil, err
+	}
 	return effect, nil
+}
+
+// begin starts a performance of node: each pin holds the delivery queued for
+// it, else the value its own declaration gives it, else none.
+func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) {
+	true_ := solve.BoolTerm(true)
+	for _, p := range e.pins[node] {
+		name := p.v.Name
+		value, has := x.env.values[name], solve.BoolTerm(false)
+		seeded := true_
+		pending, queued := e.pending[name]
+		if queued {
+			seeded = solve.Not(x.env.has[pending.Name])
+		}
+		if p.feature.Value != nil {
+			default_, defined := x.env.evaluate(e.exprs[p.feature.Value])
+			x.fail(seeded, defined)
+			if domain := e.domain(name, default_); domain != nil {
+				x.fail(seeded, domain)
+			}
+			value, has = default_, true_
+		}
+		if queued {
+			value = solve.Ite(seeded, value, x.env.values[pending.Name])
+			has = solve.Ite(seeded, has, true_)
+			x.env.has[pending.Name] = solve.BoolTerm(false)
+		}
+		e.fresh++
+		v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", name, where, e.fresh), Sort: p.v.Sort,
+			Symbol: p.v.Symbol, Dimension: p.v.Dimension, Unit: p.v.Unit}
+		e.declare(v)
+		e.assert(eq(solve.VarTerm(v), value), "start of "+name)
+		x.env.values[name] = solve.VarTerm(v)
+		x.env.has[name] = has
+	}
+}
+
+// flows carries what a completed performance of node produced over the object
+// flows out of it: to the queue at a pin of a node performing in a frame of
+// its own, else to the action's feature. A source pin holding no value is the
+// interpreter's error; a queue already holding a delivery is not modelled.
+func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
+	true_ := solve.BoolTerm(true)
+	label := e.Flow.label(node)
+	for _, flow := range e.Flow.Graph.DataFlows[node] {
+		source, err := e.flowEnd(node, flow.SourcePin, flowLabel(flow), label)
+		if err != nil {
+			return err
+		}
+		target, err := e.flowEnd(flow.Target, flow.TargetPin, flowLabel(flow), label)
+		if err != nil {
+			return err
+		}
+		if has, flagged := x.env.has[source.Name]; flagged {
+			x.fail(true_, has)
+		}
+		value := x.env.values[source.Name]
+		if domain := e.domain(target.Name, value); domain != nil {
+			x.fail(true_, domain)
+		}
+		pending, queued := e.pending[target.Name]
+		if !queued {
+			e.write(x, true_, target, value, where)
+			continue
+		}
+		x.overflow = append(x.overflow, x.env.has[pending.Name])
+		e.write(x, true_, pending, value, where)
+	}
+	return nil
 }
 
 // fail records that the interpreter reports an error where path holds and
