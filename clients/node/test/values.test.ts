@@ -949,6 +949,14 @@ test("a scalar-valued enum literal carries the scalar it equals, both ways", () 
   });
   assert.equal(red.kind.case, "enumLiteral");
   assert.equal(red.kind.value.value, undefined);
+
+  const armless = create(ValueSchema, {
+    kind: {
+      case: "enumLiteral",
+      value: create(EnumLiteralSchema, { literalId: "D::Level::high", value: create(ValueSchema, {}) }),
+    },
+  });
+  assert.throws(() => decodeValue(armless), MalformedValueError);
 });
 
 test("a verdict holds, fails or is undecided, and always names its subject", () => {

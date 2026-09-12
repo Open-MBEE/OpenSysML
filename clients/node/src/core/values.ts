@@ -961,7 +961,11 @@ function decodeEnumLiteral(literal: EnumLiteral): EnumValue {
     enumerationId: literal.enumerationId,
   };
   if (literal.value !== undefined) {
-    decoded.value = decodeValue(literal.value);
+    const scalar = decodeValue(literal.value);
+    if (scalar.kind === "absent") {
+      throw new MalformedValueError("an enumeration literal's value, when present, states a scalar");
+    }
+    decoded.value = scalar;
   }
   return decoded;
 }

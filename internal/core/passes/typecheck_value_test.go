@@ -70,7 +70,11 @@ func TestValueScalarConstantToScalarValuedEnumeration(t *testing.T) {
 		attribute many : L::Level[*] = (1, 3);
 		attribute n : ScalarValues::Integer = 2;
 		attribute fromFeature : L::Level = n;
+		attribute folded : L::Level = 1 + 2;
+		attribute computed : L::Level = n + 1;
 	}`)
+	wantOneValueDiag(t, level+`package P { attribute l : L::Level = 1 + 1; }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1, Level::high = 3")
 	wantOneValueDiag(t, level+`package P { attribute l : L::Level = 2; }`,
 		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1, Level::high = 3")
 	wantOneValueDiag(t, level+`package P { attribute g : L::Grade = 2.5; }`,

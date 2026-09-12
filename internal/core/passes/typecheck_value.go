@@ -64,17 +64,18 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			// result or a selection that settled on none: the value stays unjudged.
 			gots := ec.model.ExprResultTypes(valueScope, value)
 			if len(gots) == 0 || (scalar && ec.anyScalar(gots) && latticeTyped[value]) {
+				ec.checkEnumeratedTarget(valueScope, wants, value)
 				continue
 			}
 			if !ec.boundTypesConform(nil, gots, wants) {
 				ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
+				continue
 			}
+			ec.checkEnumeratedTarget(valueScope, wants, value)
 			continue
 		}
 		if scalar {
-			if len(wants) == 1 && wants[0].Kind == symbols.SymbolEnumerationDef {
-				ec.checkEnumeratedValue(valueScope, wants[0], value)
-			}
+			ec.checkEnumeratedTarget(valueScope, wants, value)
 			continue
 		}
 		// The feature's type has no scalar ancestor, so no literal value can
@@ -91,6 +92,13 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 		if got != nil && !ec.boundTypesConform(nil, []*symbols.Symbol{got}, wants) {
 			ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", semantics.PrimExpression, typeNames(wants))
 		}
+	}
+}
+
+// checkEnumeratedTarget applies checkEnumeratedValue where the one declared type is an enumeration.
+func (ec *exprChecker) checkEnumeratedTarget(scope *symbols.Scope, wants []*symbols.Symbol, value ast.Node) {
+	if len(wants) == 1 && wants[0].Kind == symbols.SymbolEnumerationDef {
+		ec.checkEnumeratedValue(scope, wants[0], value)
 	}
 }
 
