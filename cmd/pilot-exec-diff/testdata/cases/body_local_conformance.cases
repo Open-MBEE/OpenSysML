@@ -1,0 +1,11 @@
+model: cmd/pilot-exec-diff/testdata/models/body_local_conformance.sysml
+
+# A value bound to a body-local declaration is an instance of the declared type,
+# within the stated multiplicity and, for a unique feature, without repeats
+# (KerML 1.0 §7.3.4). The pilot checks nothing when it binds a body-local value,
+# so only the accepted case can agree; the refused cases are ours-error against a
+# pilot answer or silence. Each case reads a model-level attribute bound to a call.
+body-local-level-accepted ::  :: BodyLocals::acceptedLevel
+body-local-level-refused ::  :: BodyLocals::refusedLevel
+body-local-count-refused ::  :: BodyLocals::refusedCount
+body-local-repeat-refused ::  :: BodyLocals::refusedRepeat

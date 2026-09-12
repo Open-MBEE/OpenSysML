@@ -1,7 +1,8 @@
 // `all D` evaluated outside any object — in a calc a package declares — reaches the objects
-// that package's usages denote, materializing those whose type may hold a D, nested ones
-// included, in declaration order — and no other: `all Garage` leaves the garage's tool
-// unmaterialized. Usages of another package are not this context's.
+// every namespace-level usage of the model denotes, materializing those whose type may hold a
+// D, nested ones included, in document then declaration order — and no other: `all Garage`
+// leaves the garage's tool unmaterialized. The extent is of the type (KerML 1.0 §7.4.9.2), so
+// `elsewhere::truck`, declared in a package `test` never imports, counts as a Car too.
 package test {
     private import ScalarValues::*;
     private import SequenceFunctions::*;
@@ -21,11 +22,12 @@ package test {
 
     calc extents {
         return : Boolean[*] nonunique = (
-            size(all Wheel) == 5,
-            size(all Car) == 2,
+            size(all Wheel) == 7,
+            size(all Car) == 3,
             size(all Garage) == 1,
             (all Car)#(1) === sedan,
             (all Car)#(2) === coupe,
+            (all Car)#(3) === elsewhere::truck,
             (all Wheel)#(3) === spare
         );
     }

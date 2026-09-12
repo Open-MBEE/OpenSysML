@@ -219,6 +219,12 @@ package Compiled {
 		return : Integer = k;
 	}
 
+	calc def PosLoc {
+		in n : Integer;
+		attribute k : Positive = n - 1;
+		return : Integer = k;
+	}
+
 	calc def One {
 		in n : Integer[1];
 		attribute m : Integer[1..1] = n;
@@ -311,6 +317,9 @@ package Compiled {
 		calc def M2 { in x : Integer[2..3]; return : Integer = size(x); }
 		calc def Ret2 { in x : Integer[0..*]; return : Integer[2..3] = x; }
 		calc def Ass { in x : Integer[0..*]; attribute y : Integer[1..2] = x; return : Integer = size(y); }
+		calc def LocM1 { in x : Integer[0..*]; attribute y : Integer[1] = x; return : Integer = size(y); }
+		calc def LocN { in x : Integer[0..*]; attribute y : Natural[0..*] = x; return : Integer = size(y); }
+		calc def LocAny2 { in x : Integer[0..*]; attribute y[2] = x; return : Integer = size(y); }
 		calc def Ret1 { in x : Integer[0..*]; return : Integer[1] = x; }
 		calc def RetN { in x : Integer[0..*]; return : Natural[0..*] = x; }
 		calc def Coal { in x : Integer[0..*]; return : Integer = x ?? 5; }
@@ -485,6 +494,8 @@ package Refused {
 	calc def SetParam { in s : Set; return : Integer = CollectionFunctions::size(s); }
 	calc def SetElements { in s : Set; return : Integer[0..*] = s.elements; }
 	calc def SetLocal { in n : Integer; attribute s : Set { :>> elements = (n, n); } return : Integer = CollectionFunctions::size(s); }
+	attribute pool : Integer[2];
+	calc def SubsetLocal { in xs : Integer[0..*]; attribute ys :> pool = xs; return : Integer = size(ys); }
 	calc def TensorParam { in t : TensorQuantityValue; return : Real = t.num#(1, 1, 1); }
 	attribute cubeRef : TensorMeasurementReference { :>> dimensions = (2, 2, 2); :>> mRefs = (m, m, m, m, m, m, m, m); }
 	calc def TensorBuilt { in x : Real; return : TensorQuantityValue = TensorCalculations::'['((x, x, x, x, x, x, x, x), cubeRef); }

@@ -314,6 +314,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("routed_send_receiver_name_mismatch_deadlock", testRoutedSendReceiverNameMismatchDeadlock)
 	t.Run("type_classification_unresolved_type", testTypeClassificationUnresolvedType)
 	t.Run("two_valued_member_in_scalar_context", testTwoValuedMemberInScalarContext)
+	t.Run("body_local_outside_its_declaration", testBodyLocalOutsideItsDeclaration)
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
@@ -322,6 +323,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("chained_write_through_a_namespace_collection", testChainedWriteThroughANamespaceCollection)
 	t.Run("namespace_collection_over_budget", testNamespaceCollectionOverBudget)
 	t.Run("extent_over_an_object_that_cannot_be_read", testExtentOverAnObjectThatCannotBeRead)
+	t.Run("extent_reaching_a_far_usage_that_cannot_be_read", testExtentReachingAFarUsageThatCannotBeRead)
+	t.Run("extent_over_far_usages_under_the_element_budget", testExtentOverFarUsagesUnderTheElementBudget)
 	t.Run("extent_over_recursive_composition", testExtentOverRecursiveComposition)
 	t.Run("extent_through_a_value_recursing_and_not", testExtentThroughAValueRecursingAndNot)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
@@ -4718,6 +4721,54 @@ func testTwoValuedMemberInScalarContext(t *testing.T) {
 	}
 }
 
+// testBodyLocalOutsideItsDeclaration: a body-local whose run-time value falls
+// outside its declared type, multiplicity or uniqueness is refused with a typed
+// error where it is declared - in the evaluator and, where eligible, in the
+// compiled tier alike - rather than computed with, hung on or panicked over.
+func testBodyLocalOutsideItsDeclaration(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+		want error
+	}{
+		{"enumeration extent", "attribute l : Level = n; return : Integer = l + 0;", ErrTypeMismatch},
+		{"scalar subtype", "attribute p : Positive = n - 3; return : Integer = p;", ErrTypeMismatch},
+		{"stated multiplicity", "attribute xs : Integer[2] = (n, n + 1, n + 2); return : Integer = SequenceFunctions::size(xs);", ErrMultiplicityViolation},
+		{"uniqueness", "attribute xs : Integer[*] = (n, n + 1, n); return : Integer = SequenceFunctions::size(xs);", ErrUniquenessViolation},
+		{"nested block", "attribute r : Integer = 0; if n > 0 { attribute l : Level = n; assign r := l; } return : Integer = r;", ErrTypeMismatch},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+				private import ScalarValues::*;
+				enum def Level :> Integer { low = 1; high = 3; }
+				calc def Body { in n : Integer; ` + tc.body + ` }
+			}`
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+			pkg := resolveSymbol(t, idx.DocumentRoot("<test>"), "test")
+			sym := resolveSymbol(t, pkg.Scope, "Body")
+
+			done := make(chan error, 1)
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						done <- fmt.Errorf("panic: %v", r)
+					}
+				}()
+				_, err := ctx.InvokeCalc(sym, []Value{constInt(2)}, pkg.Scope)
+				done <- err
+			}()
+			select {
+			case err := <-done:
+				if !errors.Is(err, tc.want) {
+					t.Errorf("InvokeCalc err = %v, want %v", err, tc.want)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("declaring the body-local did not terminate")
+			}
+		})
+	}
+}
+
 func testTypeClassificationUnresolvedType(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, `package P {
 		item def Integer;
@@ -4847,12 +4898,12 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 
 // testExtentReachingANamespaceCollection: a namespace-level usage of several occurrences
 // (`part wheels : Wheel[2]` in a package) denotes its lower bound of objects for the run,
-// created once, so an extent counts them, each once, along with the objects nested in them; a
-// `[0..*]` usage denotes none. Read directly, a usage of exact count is the sequence of its
-// objects on every surface, one of open count undetermined of that count, as a nested
-// collection reads. A namespace-level port denotes no object the run reaches, so an
-// extent it may contribute to is refused rather than answered short, while one a port nested in
-// a part contributes to is answered.
+// created once, so an extent counts them, each once, along with the objects nested in them,
+// wherever in the model the extent is taken and the usage declared; a `[0..*]` usage denotes
+// none. Read directly, a usage of exact count is the sequence of its objects on every surface,
+// one of open count undetermined of that count, as a nested collection reads. A namespace-level
+// port denotes no object the run reaches, so an extent it may contribute to is refused rather
+// than answered short, while one a port nested in a part contributes to is answered.
 func testExtentReachingANamespaceCollection(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
 		private import ScalarValues::*;
@@ -4880,9 +4931,6 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	package R {
 		private import ScalarValues::*;
 		private import SequenceFunctions::size;
-		part def Rig { port p : P::Link; }
-		part rig : Rig;
-		port spare : P::Link[0..1];
 		calc linkCount { return : Natural = size(all P::Link); }
 		package S {
 			port links : P::Link[2];
@@ -4891,11 +4939,11 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	ctx := NewContext(NewModel(model, resolver), 1000)
-	for calc, want := range map[string]string{"wheelCount": "3", "hubCount": "1", "seatCount": "1"} {
+	for calc, want := range map[string]string{"wheelCount": "3", "hubCount": "1", "seatCount": "2"} {
 		for attempt := 1; attempt <= 2; attempt++ {
 			got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
 			if err != nil || FormatValue(got) != want {
-				t.Errorf("attempt %d: %s = %s, %v; want %s: the two wheels, the hub and its wheel, the seat", attempt, calc, FormatValue(got), err, want)
+				t.Errorf("attempt %d: %s = %s, %v; want %s: the two wheels, the hub and its wheel, both packages' seats", attempt, calc, FormatValue(got), err, want)
 			}
 		}
 	}
@@ -4918,13 +4966,13 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 		t.Error("spares, a [0..*] usage, denotes objects; want none")
 	}
 	_, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "linkCount"), nil, pkg.Scope)
-	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "link") || !strings.Contains(err.Error(), "port") {
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
 		t.Errorf("size(all Link) = %v, want %v naming the port link", err, ErrExtentUnavailable)
 	}
 	q := resolveSymbol(t, pkg.Scope, "Q")
 	got, err := ctx.InvokeCalc(resolveSymbol(t, q.Scope, "seatCount"), nil, q.Scope)
 	if err != nil || FormatValue(got) != "2" {
-		t.Errorf("Q: size(all Seat) = %s, %v; want 2", FormatValue(got), err)
+		t.Errorf("Q: size(all Seat) = %s, %v; want 2: both packages' seats, and the wheel collections hold no Seat", FormatValue(got), err)
 	}
 	got, err = ctx.InvokeCalc(resolveSymbol(t, q.Scope, "wheelCount"), nil, q.Scope)
 	if err != nil || FormatValue(got) != "3" {
@@ -4934,14 +4982,48 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 		t.Errorf("%d objects stand, want 6: two wheels, a hub and its wheel, two seats", got)
 	}
 	r := resolveSymbol(t, root, "R")
+	_, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
+		t.Errorf("R: size(all Link) = %v, want the other package's port refused", err)
+	}
+	s := resolveSymbol(t, r.Scope, "S")
+	_, err = ctx.InvokeCalc(resolveSymbol(t, s.Scope, "linkCount"), nil, s.Scope)
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
+		t.Errorf("S: size(all Link) = %v, want the first unreadable usage of the model refused", err)
+	}
+
+	model, resolver, root = parseAndBuildLibraryModel(t, `package R {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		port def Link;
+		part def Rig { port p : Link; }
+		part rig : Rig;
+		port spare : Link[0..1];
+		calc linkCount { return : Natural = size(all Link); }
+	}`)
+	r = resolveSymbol(t, root, "R")
+	ctx = NewContext(NewModel(model, resolver), 1000)
 	got, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
 	if err != nil || FormatValue(got) != "1" {
 		t.Errorf("R: size(all Link) = %s, %v; want 1: the rig's port, an optional one holding nothing", FormatValue(got), err)
 	}
-	s := resolveSymbol(t, r.Scope, "S")
+
+	model, resolver, root = parseAndBuildLibraryModel(t, `package S {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		port def Link;
+		part def Rig { port p : Link; }
+		part rig : Rig;
+		calc linkCount { return : Natural = size(all Link); }
+		package T {
+			port links : Link[2];
+		}
+	}`)
+	s = resolveSymbol(t, root, "S")
+	ctx = NewContext(NewModel(model, resolver), 1000)
 	_, err = ctx.InvokeCalc(resolveSymbol(t, s.Scope, "linkCount"), nil, s.Scope)
 	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), "port") {
-		t.Errorf("S: size(all Link) = %v, want the two-port usage refused", err)
+		t.Errorf("S: size(all Link) = %v, want the nested package's two-port usage refused", err)
 	}
 }
 
@@ -5123,6 +5205,107 @@ func testExtentOverAnObjectThatCannotBeRead(t *testing.T) {
 		if err != nil || FormatValue(got) != want {
 			t.Fatalf("%s = %s, %v; want %s: the wheels hold no such object and are not read", calc, FormatValue(got), err, want)
 		}
+	}
+}
+
+// testExtentReachingAFarUsageThatCannotBeRead: a namespace usage of another document that cannot
+// be read ends the extent with a typed error naming it; a type it cannot hold is still answered,
+// as is one a far document's collection holds.
+func testExtentReachingAFarUsageThatCannotBeRead(t *testing.T) {
+	ctx := contextOverDocs(t, [][2]string{
+		{"model.sysml", `package P {
+			private import ScalarValues::*;
+			private import SequenceFunctions::size;
+			part def Wheel;
+			part def Seat;
+			part def Driver;
+			part def Car { part wheel : Wheel; }
+			part local : Car;
+			part driver : Driver;
+			calc carCount { return : Natural = size(all Car); }
+			calc wheelCount { return : Natural = size(all Wheel); }
+			calc seatCount { return : Natural = size(all Seat); }
+			calc driverCount { return : Natural = size(all Driver); }
+		}`},
+		{"far.sysml", `package Far {
+			part def Boat;
+			ref part car : P::Car = new Boat();
+		}`},
+		{"spares.sysml", `package Spares {
+			part seats : P::Seat[2];
+		}`},
+	})
+	pkg := lookupOne(t, ctx.Resolver().Index(), "P")
+	for _, tc := range []struct {
+		calc string
+		want error
+		name []string
+	}{
+		{"carCount", ErrTypeMismatch, []string{"usage car", "Far::car"}},
+		{"wheelCount", ErrTypeMismatch, []string{"usage car", "Far::car"}},
+	} {
+		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
+		if !errors.Is(err, tc.want) {
+			t.Fatalf("%s = %s, %v; want %v", tc.calc, FormatValue(got), err, tc.want)
+		}
+		for _, want := range tc.name {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("%s: error = %v, want %q named", tc.calc, err, want)
+			}
+		}
+	}
+	for calc, want := range map[string]string{"driverCount": "1", "seatCount": "2"} {
+		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		if err != nil || FormatValue(got) != want {
+			t.Errorf("%s = %s, %v; want %s: the far car is not read, the far seats collection is counted", calc, FormatValue(got), err, want)
+		}
+	}
+}
+
+// testExtentOverFarUsagesUnderTheElementBudget: far usages materialize in document order against
+// the element budget, whose exhaustion names the usage it stopped at; a type they cannot hold reads none.
+func testExtentOverFarUsagesUnderTheElementBudget(t *testing.T) {
+	docs := [][2]string{
+		{"fleet_a.sysml", `package FleetA { part first : P::Car; }`},
+		{"fleet_b.sysml", `package FleetB { part second : P::Car; }`},
+		{"model.sysml", `package P {
+			private import ScalarValues::*;
+			private import SequenceFunctions::size;
+			part def Wheel;
+			part def Driver;
+			part def Car { part wheels : Wheel[2]; }
+			part driver : Driver;
+			calc wheelCount { return : Natural = size(all Wheel); }
+			calc driverCount { return : Natural = size(all Driver); }
+		}`},
+	}
+	ctx := contextOverDocs(t, docs)
+	pkg := lookupOne(t, ctx.Resolver().Index(), "P")
+	ctx.maxElements = 3
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	if !errors.Is(err, ErrElementLimitExceeded) || !strings.Contains(err.Error(), "object of second: feature wheels") {
+		t.Fatalf("size(all Wheel) = %s, %v; want %v naming the second document's usage and its wheels", FormatValue(got), err, ErrElementLimitExceeded)
+	}
+	cars := 0
+	for _, id := range ctx.InstanceIDs() {
+		if inst, _ := ctx.Instance(id); ctx.isOf(inst, lookupOne(t, ctx.Resolver().Index(), "P::Car")) {
+			cars++
+		}
+	}
+	if cars != 2 {
+		t.Errorf("cars materialized before the budget ran out = %d, want both far usages read in document order", cars)
+	}
+	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "driverCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "1" {
+		t.Errorf("size(all Driver) = %s, %v; want 1: the cars hold no Driver and are not read", FormatValue(got), err)
+	}
+
+	ctx = contextOverDocs(t, docs)
+	pkg = lookupOne(t, ctx.Resolver().Index(), "P")
+	ctx.maxElements = 8
+	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "4" {
+		t.Errorf("size(all Wheel) under a budget of eight = %s, %v; want 4: both cars' wheels and the extent holding them", FormatValue(got), err)
 	}
 }
 

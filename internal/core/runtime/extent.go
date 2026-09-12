@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -240,7 +241,7 @@ func (ctx *Context) declarationsOf(inst *Instance) []*symbols.Symbol {
 }
 
 // extentRoots is the objects an extent is searched from, in declaration order: the run's free-standing
-// objects, the evaluating object's outermost holder, and what the enclosing namespaces' usages denote.
+// objects, the evaluating object's outermost holder, and what the model's namespace usages denote.
 func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) {
 	ctx := ec.ctx
 	var roots []*Instance
@@ -256,10 +257,7 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 			add(top, top.Type)
 		}
 	}
-	for _, sym := range ctx.namespaceUsages(ec.scope) {
-		if !ctx.mayHold(sym, target, make(map[*symbols.Symbol]bool)) {
-			continue
-		}
+	for _, sym := range ctx.extentCandidates(target) {
 		if namespaceObjectUsage(sym) {
 			if ctx.binding(sym) {
 				continue
@@ -322,26 +320,94 @@ func (ctx *Context) undenotedUsage(sym *symbols.Symbol) error {
 		ErrExtentUnavailable, symbolText(sym), sym.Notation())
 }
 
-// namespaceUsages is the object usages the namespaces enclosing scope declare, innermost first,
-// whether the run denotes an object of each or not; a variation stands for none.
-func (ctx *Context) namespaceUsages(scope *symbols.Scope) []*symbols.Symbol {
-	var out []*symbols.Symbol
-	for ; scope != nil; scope = scope.Parent() {
-		if !namespaceScope(scope) {
-			continue
-		}
-		ctx.noteNamespaceRead(scope)
+// usageCensus is the object usages the namespaces of every document of the model declare, in
+// document-name then declaration order, and the digest a binding that walked them is carried by.
+type usageCensus struct {
+	usages []*symbols.Symbol
+	digest string
+}
+
+// modelUsages is the model's usage census, taken once per Model, each usage as the symbol a
+// registered scope tree declares for it; variations and optional valueless usages are not listed.
+func (ctx *Context) modelUsages() *usageCensus {
+	if ctx.model.census != nil {
+		return ctx.model.census
+	}
+	census := &usageCensus{}
+	var walk func(scope *symbols.Scope)
+	walk = func(scope *symbols.Scope) {
 		scope.ForEachMember(func(sym *symbols.Symbol) bool {
-			if ctx.model.semantics.IsVariationFeature(sym) {
+			if sym.Scope != nil && sym.Scope != scope && namespaceScope(sym.Scope) {
+				walk(sym.Scope)
+				return true
+			}
+			sym = ctx.declaredSymbol(sym)
+			if ctx.model.semantics.IsVariationFeature(sym) || ctx.optionalValueless(sym) {
 				return true
 			}
 			if objectFeature(sym) || ctx.namesOneObject(sym) {
-				out = append(out, sym)
+				census.usages = append(census.usages, sym)
 			}
 			return true
 		})
 	}
-	return out
+	if ctx.model.resolver != nil {
+		if idx := ctx.model.resolver.Index(); idx != nil {
+			for _, doc := range idx.Documents() {
+				walk(idx.DocumentRoot(doc))
+			}
+		}
+	}
+	sort.SliceStable(census.usages, func(i, j int) bool {
+		return declaredBefore(census.usages[i], census.usages[j])
+	})
+	var b strings.Builder
+	for _, sym := range census.usages {
+		fmt.Fprintf(&b, "%s/%s;", ctx.fqnOf(sym), sym.Kind)
+	}
+	census.digest = b.String()
+	ctx.model.census = census
+	return census
+}
+
+// extentCandidates is the census usages that may hold target, judged once per run. A binding
+// taking the extent reads the census, the types judged and the candidates' declarations.
+func (ctx *Context) extentCandidates(target *symbols.Symbol) []*symbols.Symbol {
+	census := ctx.modelUsages()
+	ctx.noteCensusRead(census)
+	found, ok := ctx.run.extentCandidates[target]
+	if ok {
+		for _, typ := range found.judged {
+			ctx.noteTypeRead(typ)
+		}
+	} else {
+		found = &extentCandidates{}
+		judged := make(map[*symbols.Symbol]bool)
+		for _, sym := range census.usages {
+			visited := make(map[*symbols.Symbol]bool)
+			if ctx.mayHold(sym, target, visited) {
+				found.usages = append(found.usages, sym)
+			}
+			for typ := range visited {
+				if !judged[typ] {
+					judged[typ] = true
+					found.judged = append(found.judged, typ)
+				}
+			}
+		}
+		found.judged = append(found.judged, target)
+		ctx.run.extentCandidates[target] = found
+	}
+	for _, sym := range found.usages {
+		ctx.noteDeclarationRead(sym)
+	}
+	return found.usages
+}
+
+// extentCandidates is what one run found the extent of a type may be rooted in.
+type extentCandidates struct {
+	usages []*symbols.Symbol
+	judged []*symbols.Symbol
 }
 
 // namespaceObjectUsage reports whether sym is an object-holding usage (ports included) a

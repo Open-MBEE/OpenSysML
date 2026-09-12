@@ -63,10 +63,10 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (442 cases, all eighteen default
+Reference values at the current implementation (446 cases, all twenty default
 fixtures):
-`agree 210 · kind-only 1 · order-only 0 · disagree 30 · pilot-unevaluated 124 ·
-pilot-silent 21 · pilot-error 9 · ours-error 7 · ours-undetermined 28 · both-error 12 ·
+`agree 211 · kind-only 1 · order-only 0 · disagree 30 · pilot-unevaluated 124 ·
+pilot-silent 21 · pilot-error 9 · ours-error 10 · ours-undetermined 28 · both-error 12 ·
 nondeterministic 0`.
 Four of the nine `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
 model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural
@@ -97,9 +97,10 @@ evaluable) and `size(all T)` counts the one unevaluated node as `1` whether `T`
 has two variants or no instance; the four `extent-namespace-*` disagreements,
 where a package-level `part rims : Rim[2];` denotes two objects here and the
 pilot folds `size` over the unevaluated usage to `1` (`[0..*]` included) and
-`rims.radius` to the one default (the seventh `ours-error` is the same round's
+`rims.radius` to the one default (one more `ours-error` is the same round's
 `extent-namespace-valued-count-mismatch`, a `[2]` usage given three values the
-pilot counts as `3` and we refuse);
+pilot counts as `3` and we refuse, in a model of its own so the refusal ends no
+other extent);
 `w6d:complex-is-zero-qualified`, where the pilot answers `false` for
 `isZero(rect(0.0, 0.0))` *and* for `isZero(rect(3.0, 4.0))`, because its
 `re`/`im` have no evaluable body; and the three `w6d:subsetting-*-count`
