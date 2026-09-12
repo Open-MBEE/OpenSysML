@@ -141,8 +141,9 @@ their end, entry behaviors included, before the next occurrence is looked at
 transitions are *queued* (SM9) and dispatched by a later step, never inside the entry.
 `state_composite_orthogonal_exit` and its trace golden pin one whole step; `state_completion_done`
 pins that the completion step follows the entering step. The runtime never reads a redefinition
-of `isRunToCompletion`, so it implements the library default only (noted under
-*Findings*, as an unsupported v2 feature rather than a PSSM question). **agrees.**
+of `isRunToCompletion`, so it implements the library default only; a model redefining it away
+from the default is refused by lowering (noted under *Findings*, as an unsupported v2 feature
+rather than a PSSM question). **agrees.**
 
 **SM3. One occurrence, one dispatch, possibly several transitions.** PSSM §8.5.2 (`select`) builds
 "the set of transitions that can be fired using the proposed event occurrence"; UML 14.2.3.9.4
@@ -1434,9 +1435,18 @@ are not fixed in this note's change set. Each names its evidence.
 3. **`isRunToCompletion` and `runToCompletionScope` redefinitions are not read** (SM1).
    `Occurrences.kerml` declares both as redefinable features with defaults; the runtime
    implements the defaults (one occurrence per step, the whole machine as scope) and never
-   consults a model's redefinition. A model that redefines them is accepted and run under the
-   defaults without a diagnostic. Unsupported v2 feature; no fixture on `develop` exercises a
-   redefinition.
+   consults a model's redefinition. A model that redefines them was accepted and run under the
+   defaults without a diagnostic. *Refused since the release after 0.7.0:*
+   `lower/run_to_completion.go:refuseRunToCompletionRedefinition`, applied to the machine's own
+   and inherited members by `lower/state_graph.go:ToStateGraphWithEndpoints` and to every
+   substate's by `lower/state_inheritance.go:addMember`, returns the typed
+   `lower.RunToCompletionRedefinition` (an `ErrUnsupportedStateContent`) for `false`, for a scope
+   narrowed to a substate, and for a value lowering cannot read as the default; a redefinition
+   restating the default (`= true`, `= self` on the machine) runs. Pinned by the conformance
+   cases `state_run_to_completion_redefined_false`, `_scope_narrowed`, `_inherited_redefinition`,
+   `_region_redefinition`, `_unverified`, the positive `_defaults_restated`, and
+   `robustness_test.go:run_to_completion_*`. Unsupported v2 feature still: the refusal implements
+   neither a non-run-to-completion scheduling nor a narrowed scope.
 4. **A completion transition whose guard turns true between completion and dispatch is never
    scheduled** (SM9). SysML v2 §7.18.3 lets an unaccepted transition trigger whenever its guard
    holds during the source's performance; `scheduleCompletionTransitions` reads the guard at

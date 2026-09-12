@@ -1041,6 +1041,19 @@ func TestStateDebuggerRoutesForThePerformingObject(t *testing.T) {
 	wants(t, run(t, s, "%advance 1"), "Current state: diverted")
 }
 
+// A machine redefining isRunToCompletion away from the library default is
+// refused where every lowering error surfaces, and leaves no debugging session.
+func TestStateDebuggerRefusesRunToCompletionRedefinition(t *testing.T) {
+	s := loadFixture(t, "testdata/state_run_to_completion.sysml")
+	out := run(t, s, "%state Refused::Machine")
+	wants(t, out, "error: failed to create executor:", "lower state machine: unsupported state machine content:",
+		"the state definition Machine redefines isRunToCompletion = false, which the runtime cannot honor:",
+		"every state machine runs to completion (Occurrences::Occurrence::isRunToCompletion default true)")
+	if s.stateExec != nil {
+		t.Fatal("a refused machine left a state debugging session")
+	}
+}
+
 // A behavior performed by nothing routes over its own connections only, and an
 // object named for a behavior that was never instantiated is reported.
 func TestStateDebuggerReportsAnUninstantiatedPerformer(t *testing.T) {
