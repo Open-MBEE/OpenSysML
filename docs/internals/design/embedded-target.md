@@ -189,12 +189,17 @@ therefore holds three rules:
    the guards of its outgoing successions; for a transition, its guard, its effect, the exit
    actions of the states it leaves and the entry actions of the states it enters — together
    with its `control` entry, the states it exits and enters and the leaf it fires from. Two
-   moves commute when neither writes what the other reads or writes, neither sends what the
-   other accepts, their `control` entries are disjoint, at most one posts an outgoing event, and
-   neither footprint holds a target the analysis cannot resolve statically; anything else is
-   dependent. *Token order*: the runtime records the choice whenever several tokens can step in
-   one step, not only when they collide, so a fork, and any other node that leaves several tokens
-   live, is admitted only when every pair of concurrent branches commutes, and refused otherwise.
+   moves commute when neither writes what the other reads or writes, their `control` entries
+   are disjoint, at most one of them touches a message queue at all — a send, an accept or a
+   posted outgoing event, since the bus and the outgoing queue keep arrival order and an accept
+   takes the oldest match, so two sends, two accepts, or a send and an accept are ordered by the
+   schedule — and neither footprint holds a target the analysis cannot resolve statically;
+   anything else is dependent. The profile's message clause is stricter than the checker's
+   dependence bullets need on their own, and stated this way so the compiler never has to
+   prove which receiver a send reaches. *Token order*: the runtime records the
+   choice whenever several tokens can step in one step, not only when they collide, so a fork,
+   and any other node that leaves several tokens live, is admitted only when every pair of
+   concurrent branches commutes, and refused otherwise.
    *Decision branch*: the guards must be provably exclusive (the last guard `else`, or the guards
    a partition the compiler can read, such as comparisons of one enumeration against distinct
    literals). *Write order*: two writes to one feature in one step refuse (a dependent pair under
