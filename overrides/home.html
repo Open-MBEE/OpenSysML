@@ -103,8 +103,11 @@
       text-decoration: underline;
     }
 
-    /* The showcase: one terminal whose panes (real sessions) share a grid cell, so it
-       keeps the tallest pane's height as they rotate. Without script the first shows. */
+    /* The showcase: one terminal of fixed height whose panes (real sessions) share a
+       grid cell, so every slide is the same size as they rotate. A wide or tall
+       transcript scrolls both ways behind hidden scrollbars; the caption floats over
+       the bottom of the pane. A pane prints itself when it comes up. Without script the
+       first pane shows, complete. */
     .osml-terminal {
       background: rgba(0, 0, 0, .38);
       border: 1px solid rgba(255, 255, 255, .18);
@@ -135,9 +138,14 @@
     }
     .osml-terminal__panes {
       display: grid;
+      height: 22rem;
     }
     .osml-pane {
       grid-area: 1 / 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
       visibility: hidden;
       opacity: 0;
       transition: opacity .35s;
@@ -147,12 +155,31 @@
       opacity: 1;
     }
     .osml-terminal pre {
+      flex: 1;
+      min-height: 0;
       margin: 0;
-      padding: .9rem 1rem;
+      padding: .9rem 1rem 2.6rem;
       font-size: .62rem;
       line-height: 1.65;
       color: #e8eaf6;
-      overflow-x: auto;
+      overflow: auto;
+      scrollbar-width: none;
+    }
+    .osml-terminal pre::-webkit-scrollbar {
+      display: none;
+    }
+    .osml-pane.is-printing code::after {
+      content: "";
+      display: inline-block;
+      width: .5em;
+      height: 1em;
+      margin-left: .05em;
+      vertical-align: -.15em;
+      background: #e8eaf6;
+      animation: osml-blink 1s steps(1) infinite;
+    }
+    @keyframes osml-blink {
+      50% { opacity: 0; }
     }
     .osml-terminal .osml-prompt { color: #90caf9; }
     .osml-terminal .osml-ok     { color: #a5d6a7; }
@@ -192,16 +219,23 @@
       color: var(--osml-hero-from);
     }
     .osml-pane__more {
-      display: block;
-      padding: .45rem 1rem .6rem;
+      position: absolute;
+      right: .7rem;
+      bottom: .6rem;
+      padding: .3rem .7rem;
+      border: 1px solid rgba(255, 255, 255, .25);
+      border-radius: 1rem;
+      background: rgba(20, 24, 60, .82);
       font-size: .62rem;
       color: #fff;
-      opacity: .75;
+      opacity: .85;
       text-decoration: underline;
+      transition: opacity .2s, border-color .2s;
     }
     .osml-pane__more:hover,
     .osml-pane__more:focus {
       opacity: 1;
+      border-color: #fff;
     }
     @media (prefers-reduced-motion: reduce) {
       .osml-pane { transition: none; }
@@ -629,17 +663,99 @@ Vehicles::Car::wheels  PartUsage
 </section>
 <script>
 (function () {
-  var INTERVAL = 7000;
+  var DWELL = 4500;      // ms a pane stays once printed, before the next comes up
+  var TYPE_MS = 14;      // per character of a command, plus up to as much again of jitter
+  var LINE_MS = 30;      // per line of output
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  // Refills the pane's text nodes in place: commands typed per character, output per line;
+  // the <pre> follows the tail until the reader scrolls it.
+  function printer(pane) {
+    var pre = pane.querySelector("pre");
+    var code = pane.querySelector("pre > code");
+    var nodes = [];
+    var timer = null;
+    var follow = true;
+    if (code) {
+      var walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT, null, false);
+      var node;
+      while ((node = walker.nextNode())) {
+        nodes.push({ node: node, text: node.data, prompt: !!node.parentNode.closest(".osml-prompt") });
+      }
+    }
+
+    function unfollow() { follow = false; }
+    if (pre) {
+      pre.addEventListener("wheel", unfollow, { passive: true });
+      pre.addEventListener("touchmove", unfollow, { passive: true });
+    }
+
+    function restore() {
+      nodes.forEach(function (n) { n.node.data = n.text; });
+    }
+
+    function cancel() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      pane.classList.remove("is-printing");
+      restore();
+    }
+
+    function run(done) {
+      cancel();
+      if (reduceMotion.matches || !nodes.length) { done(); return; }
+      nodes.forEach(function (n) { n.node.data = ""; });
+      pre.scrollTop = 0;
+      pre.scrollLeft = 0;
+      follow = true;
+      pane.classList.add("is-printing");
+      var i = 0, pos = 0, typing = false;
+
+      function step() {
+        if (i >= nodes.length) {
+          timer = null;
+          pane.classList.remove("is-printing");
+          done();
+          return;
+        }
+        var n = nodes[i], delay;
+        if (n.prompt) {
+          n.node.data = n.text;
+          pos = n.text.length;
+          typing = true;
+          delay = TYPE_MS * 6;
+        } else if (typing) {
+          var ch = n.text.charAt(pos++);
+          n.node.data += ch;
+          if (ch === "\n") typing = false;
+          delay = TYPE_MS + Math.random() * TYPE_MS;
+        } else {
+          var end = n.text.indexOf("\n", pos);
+          end = end < 0 ? n.text.length : end + 1;
+          n.node.data += n.text.slice(pos, end);
+          pos = end;
+          delay = LINE_MS;
+        }
+        if (pos >= n.text.length) { i++; pos = 0; }
+        if (follow) pre.scrollTop = pre.scrollHeight;
+        timer = setTimeout(step, delay);
+      }
+      step();
+    }
+
+    return { run: run, cancel: cancel };
+  }
 
   function setUp(root) {
     var tabs = Array.prototype.slice.call(root.querySelectorAll("[role=tab]"));
     var panes = Array.prototype.slice.call(root.querySelectorAll("[role=tabpanel]"));
+    var printers = panes.map(printer);
     var title = root.querySelector("[data-osml-title]");
     var current = 0;
     var timer = null;
+    var autoplay = false;
 
     function show(index, focus) {
+      printers[current].cancel();
       current = (index + panes.length) % panes.length;
       panes.forEach(function (pane, i) {
         pane.classList.toggle("is-active", i === current);
@@ -651,20 +767,31 @@ Vehicles::Car::wheels  PartUsage
         if (active && focus) tab.focus();
       });
       if (title) title.textContent = panes[current].getAttribute("data-title") || "";
+      printers[current].run(function () { schedule(DWELL); });
     }
 
     function stop() {
-      if (timer) { clearInterval(timer); timer = null; }
+      autoplay = false;
+      if (timer) { clearTimeout(timer); timer = null; }
+    }
+
+    function schedule(delay) {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      if (!autoplay || reduceMotion.matches) return;
+      timer = setTimeout(advance, delay);
+    }
+
+    function advance() {
+      timer = null;
+      if (!root.isConnected) { stop(); return; }
+      if (root.matches(":hover") || root.contains(document.activeElement)) { schedule(1000); return; }
+      show(current + 1, false);
     }
 
     function start() {
       stop();
-      if (reduceMotion.matches) return;
-      timer = setInterval(function () {
-        if (!root.isConnected) { stop(); return; }
-        if (reduceMotion.matches || root.matches(":hover") || root.contains(document.activeElement)) return;
-        show(current + 1, false);
-      }, INTERVAL);
+      autoplay = !reduceMotion.matches;
     }
 
     tabs.forEach(function (tab, i) {
