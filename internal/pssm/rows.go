@@ -44,11 +44,15 @@ var TestRows = map[string]string{
 	// One region defers what a sibling region's transition takes.
 	"Deferred 004 A": "SM7",
 	"Deferred 004 B": "SM7",
-	// A composite state's regions reaching their final states completes the
-	// composite, not the machine.
-	"Final001": "SM11",
-	// A history entered with nothing recorded and no default transition.
-	"History 001-A": "SM28",
+	// A substate defers what the enclosing state's transition takes; released
+	// when the deferring state is left, ahead of later arrivals.
+	"Deferred 003": "SM7",
+	// A composite state's body reaching `done` completes the composite, not
+	// the machine, and its own completion or triggered transition then fires.
+	"Final001":    "SM11",
+	"Event 016 A": "SM11",
+	// A history entered with nothing recorded and no default transition; History
+	// 001-A has a configuration to restore (the note's own-conformance findings).
 	"History 002-C": "SM28",
 	// A choice's guards read what the incoming transition's effect wrote.
 	"Choice 001": "SM30",

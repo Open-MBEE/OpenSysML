@@ -81,9 +81,9 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
 - **Determinism.** `go run ./cmd/pssm-referee -json -jobs 1 | sha256sum` equals the same
   with `-jobs 8`, and two `-jobs 8` runs agree. `go run -race ./cmd/pssm-referee -jobs 8`
   prints no `DATA RACE`. `TestRefereeDeterministic` pins the JSON across job counts in-process.
-- **The count gate is live.** Copy the baseline aside, edit one count (`"pass": 25` → `24`
-  and `"fail": 34` → `35`, keeping the total), run `-check`: exit 1 with `does not
-  reproduce:` / `pass: baseline 24, this run 25` / `fail: baseline 35, this run 34` and the
+- **The count gate is live.** Copy the baseline aside, edit one count (`"pass": 36` → `35`
+  and `"fail": 23` → `24`, keeping the total), run `-check`: exit 1 with `does not
+  reproduce:` / `pass: baseline 35, this run 36` / `fail: baseline 24, this run 23` and the
   line `the provenance matches, so this is a movement of the runtime or the translation:
   adjudicate it, then re-record with -update`. Restore the file. Changing a per-test bucket
   in the JSON without changing the counts does **not** fail `-check` — that is the design
@@ -103,9 +103,11 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
   one unreachable trace, and asserts both reasons name the trace. Reproduce by hand from the
   real suite: `-filter "Transition 011 C"` shows one extra and one missing trace — a
   `reached a trace the suite does not admit` **and** an `admitted trace not reached` line.
-- **Runtime errors are `fail`, never `differs-by-design`.** `-filter "History 001-A"` files
-  a `run error: … history … has no default transition` under `fail` with `reports on SM28`;
-  the SM28 row is `differs, v2 silent` (a tool choice), so the bucket stays `fail`.
+- **Runtime errors are `fail`, never `differs-by-design`.** `-filter "Junction 002"` files
+  a `run error: … junction S1_Junction1: no guard evaluated to true` under `fail` with
+  `reports on SM32`; the SM32 row is `differs, v2 silent` (a tool choice), so the bucket
+  stays `fail`. `-filter "History 002-D"` shows a budget exhaustion (`evaluation step limit
+  exceeded`) filed as `fail` with no row.
   `TestRefereeDiffersByDesignIsNotInferred` pins that a failing test with no row, or with a
   tool-choice row, is `fail`, and only an explicit `differs because v2 differs` row moves it.
   `TestRefereeRowsAreWellFormed` pins that every test in `TestRows` names a row in `Rows`
@@ -144,7 +146,7 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
      passes (the model is syntactically fine), and that is the point: the parse gate cannot
      see it. `go run ./cmd/pssm-referee` then moves every multi-segment `pass` to `fail`
      with `reached a trace the suite does not admit: S1(entry)--…` — `-check` exits 1 with
-     `pass: baseline 25, this run <n>`. Restore the file; `-check` is green again.
+     `pass: baseline 36, this run <n>`. Restore the file; `-check` is green again.
   2. Write a model the front end rejects: in `emit.go` change `attribute log : String = ""`
      to `attribute log : Strin = ""`. `TestEmitSuite` now fails for every expressible test
      with the validator's diagnostic and the model text, and `TestEmitStandard` (the

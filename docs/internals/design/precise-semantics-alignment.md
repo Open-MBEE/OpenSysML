@@ -1613,11 +1613,29 @@ are not alignment questions. Each names its evidence; items 4 and 5 are fixed, a
    gap of ours, recorded by the PSSM referee's classifier as *lowerer refuses fork into a region
    without an entry transition*; not fixed in this note's change set, and a fix moves the two
    tests into the referee's expressible buckets.
+7. **A transition from a composite state into its own history pseudostate reads the record
+   before the state is left.** The configuration a history restores is written when its owner
+   is exited (`state_executor.go:exitState` → `recordChildHistory`, `recordRegionHistory`), but
+   `state_route.go:resolveRoute` and `state_executor.go:historyEntry` read it before the
+   transition's exits run — the code says so: "read before the source configuration is left".
+   For a transition whose source is the owner itself the read sees the owner's *previous* exit,
+   not the configuration being left, where UML and PSSM restore the "most recent" one (the
+   *History 001* and *History 005* requirements quoted at SM26 and SM27). PSSM *History 001-A*
+   (a composite's self-transition into its own deep history while a nested substate is active)
+   finds no record and performs a default entry where the suite restores the substate;
+   *History 002-D* (a composite's completion transition into its own shallow history, its
+   region having reached a final state) finds the record the completed substate's exit left —
+   which the composite's own exit would have cleared under SM28's rule — so the history's
+   default transition is skipped, the substate is re-entered, the composite completes again and
+   the run exhausts its step budget. Surfaced by the PSSM referee once SM11 and SM28 landed
+   (before them 001-A was a typed error and 002-D ended at the machine's completion). Not fixed
+   in this note's change set; the two tests are its cases.
 
-Items 3 and 6 have no fixture on `develop`; the first thing each needs is the conformance case
-that pins the behavior, then the fix, in a change set of its own — Track E of the roadmap holds
-item 3's entry, and item 6 has the two PSSM tests as its cases once the referee can translate
-them. Items 4 and 5 took that path in the change set that decided them.
+Items 3, 6 and 7 have no fixture on `develop`; the first thing each needs is the conformance
+case that pins the behavior, then the fix, in a change set of its own — Track E of the roadmap
+holds item 3's entry, item 6 has the two PSSM tests as its cases once the referee can translate
+them, and item 7 has its two as `fail` rows of the referee's baseline. Items 4 and 5 took that
+path in the change set that decided them.
 
 ## Open decisions
 

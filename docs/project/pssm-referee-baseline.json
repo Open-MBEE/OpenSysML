@@ -7,13 +7,13 @@
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
     "recorded": "2026-09-12",
-    "develop": "fb034e81736e226593b3da93dd6dc41aa03abd2b"
+    "develop": "bb95cf2264ed02dc6eaca3cf3cc880a3ea020548"
   },
   "buckets": {
     "differs-by-design": 2,
-    "fail": 34,
+    "fail": 23,
     "not-expressible": 39,
-    "pass": 25,
+    "pass": 36,
     "terminate-gap": 3
   },
   "tests": [
@@ -211,8 +211,6 @@
       "class": "standard",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)",
-        "admitted trace not reached: T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)::T3.2(effect)",
         "admitted trace not reached: T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)",
         "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::S3.1(doActivity)::T3.1.2(effect)::T3.2(effect)",
         "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::T3.1.2(effect)::S3.1(doActivity)::T3.2(effect)",
@@ -232,7 +230,7 @@
         "T2(effect)::S1(entry)::T3.1.2(effect)::T2.2(effect)::S3.1(doActivity)::T3.2(effect)"
       ],
       "reached": [
-        "T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)"
+        "T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)::T3.2(effect)"
       ],
       "runs": 1
     },
@@ -392,16 +390,14 @@
       "name": "Event 016 A",
       "area": "Event",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: T1.2(effect)",
-        "admitted trace not reached: T1.2(effect)::T3(effect)"
-      ],
+      "row": "SM11",
+      "rowKind": "differs, v2 silent",
+      "bucket": "pass",
       "expected": [
         "T1.2(effect)::T3(effect)"
       ],
       "reached": [
-        "T1.2(effect)"
+        "T1.2(effect)::T3(effect)"
       ],
       "runs": 1
     },
@@ -809,17 +805,12 @@
       "class": "extension",
       "row": "SM30",
       "rowKind": "differs, v2 silent",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: ",
-        "admitted trace not reached: T4(effect)::T4(effect)::T4(effect)::T4(effect)",
-        "reports on SM30 (Choice: guards read on arrival): differs, v2 silent"
-      ],
+      "bucket": "pass",
       "expected": [
         "T4(effect)::T4(effect)::T4(effect)::T4(effect)"
       ],
       "reached": [
-        ""
+        "T4(effect)::T4(effect)::T4(effect)::T4(effect)"
       ],
       "runs": 1
     },
@@ -829,38 +820,29 @@
       "class": "extension",
       "row": "SM30",
       "rowKind": "differs, v2 silent",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: ",
-        "admitted trace not reached: T3(effect)",
-        "admitted trace not reached: T4(effect)",
-        "admitted trace not reached: T5(effect)",
-        "reports on SM30 (Choice: guards read on arrival): differs, v2 silent"
-      ],
+      "bucket": "pass",
       "expected": [
         "T3(effect)",
         "T4(effect)",
         "T5(effect)"
       ],
       "reached": [
-        ""
+        "T3(effect)",
+        "T4(effect)",
+        "T5(effect)"
       ],
-      "runs": 1
+      "runs": 3
     },
     {
       "name": "Choice 003",
       "area": "Choice",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: ",
-        "admitted trace not reached: T4(effect)"
-      ],
+      "bucket": "pass",
       "expected": [
         "T4(effect)"
       ],
       "reached": [
-        ""
+        "T4(effect)"
       ],
       "runs": 1
     },
@@ -868,16 +850,12 @@
       "name": "Choice 004",
       "area": "Choice",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: ",
-        "admitted trace not reached: T4(effect)"
-      ],
+      "bucket": "pass",
       "expected": [
         "T4(effect)"
       ],
       "reached": [
-        ""
+        "T4(effect)"
       ],
       "runs": 1
     },
@@ -958,7 +936,7 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: S1(exit)::T2.2(effect)::S2(entry)",
+        "reached a trace the suite does not admit: S1(exit)::T2.2(effect)::T3(effect)::S2(entry)",
         "admitted trace not reached: T1.2(effect)::T2.2(effect)::S1(exit)::T3(effect)::S2(entry)",
         "admitted trace not reached: T2.2(effect)::T1.2(effect)::S1(exit)::T3(effect)::S2(entry)"
       ],
@@ -967,7 +945,7 @@
         "T2.2(effect)::T1.2(effect)::S1(exit)::T3(effect)::S2(entry)"
       ],
       "reached": [
-        "S1(exit)::T2.2(effect)::S2(entry)"
+        "S1(exit)::T2.2(effect)::T3(effect)::S2(entry)"
       ],
       "runs": 1
     },
@@ -1020,17 +998,12 @@
       "class": "standard",
       "row": "SM11",
       "rowKind": "differs, v2 silent",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)::S2.1(exit)",
-        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S2.1(exit)",
-        "reports on SM11 (What the completion of a composite state completes): differs, v2 silent"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S2.1(exit)"
       ],
       "reached": [
-        "S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)::S2.1(exit)"
+        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S2.1(exit)"
       ],
       "runs": 1
     },
@@ -1064,16 +1037,14 @@
       "name": "Deferred 003",
       "area": "Deferred",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)",
-        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)"
-      ],
+      "row": "SM7",
+      "rowKind": "differs, v2 silent",
+      "bucket": "pass",
       "expected": [
         "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)"
       ],
       "reached": [
-        "S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)"
+        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)"
       ],
       "runs": 1
     },
@@ -1083,17 +1054,12 @@
       "class": "extension",
       "row": "SM7",
       "rowKind": "differs, v2 silent",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)",
-        "admitted trace not reached: S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)",
-        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs, v2 silent"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)"
       ],
       "reached": [
-        "S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)"
+        "S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)"
       ],
       "runs": 1
     },
@@ -1103,17 +1069,12 @@
       "class": "extension",
       "row": "SM7",
       "rowKind": "differs, v2 silent",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)",
-        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)",
-        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs, v2 silent"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)"
       ],
       "reached": [
-        "S2.1(exit)::T2.2(effect)::S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)"
+        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)"
       ],
       "runs": 1
     },
@@ -1252,16 +1213,16 @@
       "name": "History 001-A",
       "area": "History",
       "class": "extension",
-      "row": "SM28",
-      "rowKind": "differs, v2 silent",
       "bucket": "fail",
       "reasons": [
-        "run error: process event: transition out of S1: history S1_DeepHistory1 has no default transition and S1 has no recorded configuration: deep history S1_DeepHistory1 has no outgoing transitions",
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.2(entry)",
-        "reports on SM28 (History with nothing to restore): differs, v2 silent"
+        "reached a trace the suite does not admit: S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)",
+        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.2(entry)"
       ],
       "expected": [
         "S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.2(entry)"
+      ],
+      "reached": [
+        "S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)"
       ],
       "runs": 1
     },
@@ -1271,14 +1232,14 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)",
+        "reached a trace the suite does not admit: T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)",
         "admitted trace not reached: S1(entry)::T1.4(effect)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
       ],
       "expected": [
         "S1(entry)::T1.4(effect)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
       ],
       "reached": [
-        "S1(entry)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
+        "T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
       ],
       "runs": 1
     },
@@ -1385,13 +1346,11 @@
       "class": "extension",
       "row": "SM28",
       "rowKind": "differs, v2 silent",
-      "bucket": "fail",
-      "reasons": [
-        "run error: process event: transition out of wait: history S1_ShallowHistory1 has no default transition and S1 has no recorded configuration: shallow history S1_ShallowHistory1 has no outgoing transitions",
-        "admitted trace not reached: S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)",
-        "reports on SM28 (History with nothing to restore): differs, v2 silent"
-      ],
+      "bucket": "pass",
       "expected": [
+        "S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)"
+      ],
+      "reached": [
         "S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)"
       ],
       "runs": 1
@@ -1402,14 +1361,11 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::S1(exit)::T1.2(effect)",
+        "run error: process event: enter state: entry action: eval assignment RHS: evaluation step limit exceeded (100000 steps; raise OPENSYSML_MAX_STEPS to allow more)",
         "admitted trace not reached: S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::T1.2(effect)::S1(exit)::T3(effect)::S1(entry)::T1.3(effect)::S1.2(entry)::S1(exit)"
       ],
       "expected": [
         "S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::T1.2(effect)::S1(exit)::T3(effect)::S1(entry)::T1.3(effect)::S1.2(entry)::S1(exit)"
-      ],
-      "reached": [
-        "S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::S1(exit)::T1.2(effect)"
       ],
       "runs": 1
     },
@@ -1417,16 +1373,12 @@
       "name": "Junction 001",
       "area": "Junction",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1(exit)",
-        "admitted trace not reached: S1(entry)::T1.1(effect)::T1.2(effect)::S1(exit)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::T1.1(effect)::T1.2(effect)::S1(exit)"
       ],
       "reached": [
-        "S1(entry)::T1.1(effect)::S1(exit)"
+        "S1(entry)::T1.1(effect)::T1.2(effect)::S1(exit)"
       ],
       "runs": 1
     },
@@ -1453,8 +1405,6 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: T1.6(effect)",
-        "admitted trace not reached: T1.3(effect)::T3.1.1(effect)::T3.1.1.2(effect)::T1.6(effect)",
         "admitted trace not reached: T1.4(effect)::T1.4.1(effect)::T1.8(effect)"
       ],
       "expected": [
@@ -1462,7 +1412,7 @@
         "T1.4(effect)::T1.4.1(effect)::T1.8(effect)"
       ],
       "reached": [
-        "T1.6(effect)"
+        "T1.3(effect)::T3.1.1(effect)::T3.1.1.2(effect)::T1.6(effect)"
       ],
       "runs": 1
     },
@@ -1472,14 +1422,14 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)",
+        "reached a trace the suite does not admit: T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)",
         "admitted trace not reached: T3(effect)"
       ],
       "expected": [
         "T3(effect)"
       ],
       "reached": [
-        "S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)"
+        "T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)"
       ],
       "runs": 1
     },
@@ -1489,7 +1439,7 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)",
+        "reached a trace the suite does not admit: T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)",
         "admitted trace not reached: S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
@@ -1500,7 +1450,7 @@
         "S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
       ],
       "reached": [
-        "S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)"
+        "T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)"
       ],
       "runs": 1
     },
