@@ -234,22 +234,12 @@ func NotYetMember(sym, declaring *symbols.Symbol) bool {
 // redefinitionTarget resolves one redefinition target reference as the resolver
 // reads it: from the owner's generals, then the enclosing namespaces (KerML 8.2.3.5.2).
 func (m *Model) redefinitionTarget(sym *symbols.Symbol, target ast.Node) *symbols.Symbol {
-	if ref, ok := target.(*ast.FeatureReference); ok {
-		target = ref.Name
+	found, ok := m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, target)
+	if !ok || found == nil {
+		return nil
 	}
-	switch node := target.(type) {
-	case *ast.QualifiedName:
-		found, ok := m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, node)
-		if !ok || found == nil {
-			return nil
-		}
-		if resolved, aliasOK := m.resolver.ResolveAliasTarget(found); aliasOK {
-			return resolved
-		}
-	case *ast.FeatureChainExpr:
-		if found, ok := m.resolver.ResolveTarget(sym.OwnerScope, node); ok {
-			return found
-		}
+	if resolved, aliasOK := m.resolver.ResolveAliasTarget(found); aliasOK {
+		return resolved
 	}
 	return nil
 }

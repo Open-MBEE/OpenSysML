@@ -137,6 +137,34 @@ var redefinitionTargetCases = []struct {
 		want: map[string]string{"x": "P::A::x"},
 	},
 	{
+		name: "a qualified name takes its first segment from whichever general carries the tail",
+		src: `package P {
+			part def X { attribute x; }
+			part def Y :> X { attribute q :>> x; }
+			part def A { part f : X; }
+			part def B :> A { part f : Y :>> f; }
+			part def D :> A, B {
+				attribute z :>> f::x;
+				attribute z2 :>> f::q;
+			}
+		}`,
+		want: map[string]string{"f::x": "P::X::x", "f::q": "P::Y::q"},
+	},
+	{
+		name: "a qualified name takes its first segment from whichever general carries the tail, generals reversed",
+		src: `package P {
+			part def X { attribute x; }
+			part def Y :> X { attribute q :>> x; }
+			part def A { part f : X; }
+			part def B :> A { part f : Y :>> f; }
+			part def D :> B, A {
+				attribute z :>> f::x;
+				attribute z2 :>> f::q;
+			}
+		}`,
+		want: map[string]string{"f::x": "P::X::x", "f::q": "P::Y::q"},
+	},
+	{
 		name: "a chain starts at an inherited feature",
 		src: `package P {
 			part def W { attribute x; }

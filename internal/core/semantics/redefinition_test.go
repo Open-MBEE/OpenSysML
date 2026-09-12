@@ -253,10 +253,20 @@ func TestChainRedefinitionTargetStartsInTheGenerals(t *testing.T) {
 		}
 		p := sym(t, root, "P")
 		wantX := nested(t, p.Scope, "W", "x")
-		if supers := m.DirectSupertypes(nested(t, p.Scope, "B", "z")); len(supers) != 1 || supers[0] != wantX {
+		bz, cz := nested(t, p.Scope, "B", "z"), nested(t, p.Scope, "C", "z")
+		if got := m.RedefinedFeatures(cz); len(got) != 0 {
+			t.Errorf("resolvedFirst=%v: RedefinedFeatures(C::z) = %v, want none", resolvedFirst, got)
+		}
+		if got := m.ConformanceViolations(cz); len(got) != 0 {
+			t.Errorf("resolvedFirst=%v: ConformanceViolations(C::z) = %v, want none", resolvedFirst, got)
+		}
+		if got := m.RedefinedFeatures(bz); len(got) != 1 || got[0] != wantX {
+			t.Errorf("resolvedFirst=%v: RedefinedFeatures(B::z) = %v, want [W::x]", resolvedFirst, got)
+		}
+		if supers := m.DirectSupertypes(bz); len(supers) != 1 || supers[0] != wantX {
 			t.Errorf("resolvedFirst=%v: DirectSupertypes(B::z) = %v, want [W::x]", resolvedFirst, supers)
 		}
-		if supers := m.DirectSupertypes(nested(t, p.Scope, "C", "z")); len(supers) != 0 {
+		if supers := m.DirectSupertypes(cz); len(supers) != 0 {
 			t.Errorf("resolvedFirst=%v: DirectSupertypes(C::z) = %v, want none", resolvedFirst, supers)
 		}
 		if !resolvedFirst {
