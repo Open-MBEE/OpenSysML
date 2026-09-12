@@ -360,6 +360,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("structured_value_outside_the_declared_shape", testStructuredValueOutsideTheDeclaredShape)
 	t.Run("real_literal_that_underflows", testRealLiteralThatUnderflows)
 	t.Run("string_operand_of_the_wrong_kind", testStringOperandOfTheWrongKind)
+	t.Run("ordering_operand_with_no_library_ordering", testOrderingOperandWithNoLibraryOrdering)
 	t.Run("collection_body_of_the_wrong_arity", testCollectionBodyOfTheWrongArity)
 	t.Run("select_predicate_is_not_a_condition", testSelectPredicateIsNotACondition)
 	t.Run("collection_operation_step_budget", testCollectionOperationStepBudget)
@@ -2734,6 +2735,109 @@ func testStringOperandOfTheWrongKind(t *testing.T) {
 		got, err := evalCollectionExpr(t, tt.expr)
 		if !errors.Is(err, tt.want) {
 			t.Errorf("%s = (%v, %v), want %v", tt.expr, got, err, tt.want)
+		}
+	}
+}
+
+// testOrderingOperandWithNoLibraryOrdering: an ordering operator over a value
+// the Kernel Function Library declares no ordering for — DataFunctions::'<' and
+// ScalarFunctions::'<' are abstract; the numeric libraries and StringFunctions
+// alone declare it — is a type mismatch naming the operator, both operands and
+// the library function that would have to declare it, never a claim that the
+// operands are not constants. Where the library does order (a numeric
+// enumeration, Strings, quantities) the answer is unchanged.
+func testOrderingOperandWithNoLibraryOrdering(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			private import ISQ::*;
+			private import SI::*;
+			enum def Color { red; green; blue; }
+			enum def Level :> Integer { low = 1; high = 3; }
+			part def Widget;
+			part widget : Widget;
+			attribute def Point { attribute x : Integer = 1; }
+			attribute point : Point;
+			metadata def Tag;
+			#Tag part tagged : Widget;
+			calc twice { in x : Integer; x * 2 }
+			attribute xs : Integer[*] = (1, 2);
+			part other : Widget;
+			attribute widgets : Widget[*] = (widget, other);
+			attribute nothing : Integer[0..1];
+			attribute side : LengthValue = 2 [m];
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	const (
+		color  = "DataFunctions::'%s' is abstract and no library function declares '%s' for the enumeration Color, which is no ScalarValue"
+		oneVal = "DataFunctions::'%s' takes one DataValue per operand"
+	)
+	refused := []struct {
+		expr, op string
+		what     string
+		library  string
+	}{
+		{"Color::red < Color::blue", "<", "the enumeration literal Color::red and the enumeration literal Color::blue", color},
+		{"Color::red > Color::blue", ">", "the enumeration literal Color::red and the enumeration literal Color::blue", color},
+		{"Color::red <= Color::blue", "<=", "the enumeration literal Color::red and the enumeration literal Color::blue", color},
+		{"Color::red >= Color::blue", ">=", "the enumeration literal Color::red and the enumeration literal Color::blue", color},
+		{"1 < Color::red", "<", "an Integer and the enumeration literal Color::red", color},
+		{"Level::low < Color::red", "<", "an Integer and the enumeration literal Color::red", color},
+		{"widget < widget", "<", "an instance and an instance", "DataFunctions::'%s' takes DataValue operands and an instance of the part def Widget is none"},
+		{"tagged.metadata < 1", "<", "an instance and an Integer", "DataFunctions::'%s' takes DataValue operands and an instance of the metadata def Tag is none"},
+		{"point < point", "<", "an instance and an instance", "DataFunctions::'%s' is abstract and no library function declares '%s' for an instance of the attribute def Point, which is no ScalarValue"},
+		{"twice < 1", "<", "the function test::twice and an Integer", "DataFunctions::'%s' takes DataValue operands and the function test::twice is none"},
+		{"widgets < 1", "<", "a sequence and an Integer", oneVal},
+		{"xs > 1", ">", "a sequence and an Integer", oneVal},
+		{"1 <= xs->including(3)", "<=", "an Integer and a sequence", oneVal},
+		{"nothing < 1", "<", "a sequence and an Integer", oneVal},
+		{"null >= 1", ">=", "null and an Integer", oneVal},
+		{"true < false", "<", "a Boolean and a Boolean", "ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean"},
+		{"1 < true", "<", "an Integer and a Boolean", "ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean"},
+		{"2 [m] < true", "<", "a quantity and a Boolean", "ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean"},
+		{"2 [m] < *", "<", "a quantity and an infinity", "QuantityCalculations::'%s' takes ScalarQuantityValue operands and an infinity is none"},
+		{"* >= side", ">=", "an infinity and a quantity", "QuantityCalculations::'%s' takes ScalarQuantityValue operands and an infinity is none"},
+		{"side < Color::red", "<", "a quantity and the enumeration literal Color::red", color},
+		{"m < s", "<", "a measurement reference and a measurement reference", "DataFunctions::'%s' is abstract and no library function declares '%s' for a measurement reference, which is no ScalarValue"},
+	}
+	for _, tt := range refused {
+		library := strings.ReplaceAll(tt.library, "%s", tt.op)
+		want := fmt.Sprintf("type mismatch: operator '%s' is not defined for %s; %s", tt.op, tt.what, library)
+		got, err := evalIn(t, ctx, pkg.Scope, tt.expr)
+		var opErr *OperandTypeError
+		if !errors.As(err, &opErr) || !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s = (%s, %v), want an OperandTypeError wrapping %v", tt.expr, FormatValue(got), err, ErrTypeMismatch)
+			continue
+		}
+		if err.Error() != want {
+			t.Errorf("%s:\n got  %q\n want %q", tt.expr, err.Error(), want)
+		}
+		if strings.Contains(err.Error(), "must be constants") {
+			t.Errorf("%s: %q claims the operands are not constants", tt.expr, err)
+		}
+		if opErr.Span == (source.Span{}) {
+			t.Errorf("%s: the error carries no span to locate the operator", tt.expr)
+		}
+	}
+	ordered := map[string]bool{
+		"Level::low < Level::high":  true,
+		"Level::high <= Level::low": false,
+		`"a" < "b"`:                 true,
+		"2 [m] > 1 [m]":             true,
+		"side >= 200 [cm]":          true,
+		"1 < 2.5":                   true,
+		"3 > *":                     false,
+	}
+	for expr, want := range ordered {
+		got, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil || !valueIdentical(got, constBool(want)) {
+			t.Errorf("%s = %s, %v; want %v", expr, FormatValue(got), err, want)
 		}
 	}
 }
