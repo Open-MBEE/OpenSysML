@@ -271,7 +271,10 @@ func NewContext(model *Model, maxSteps int64) *Context {
 
 		compileCalcs: CalcCompileFromEnv(),
 
-		run:              &runState{calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun)},
+		run: &runState{
+			calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
+			extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
+		},
 		calcUsageRunning: make(map[calcUsageKey]*calcShape),
 
 		maxActionSteps: DefaultMaxActionSteps,
@@ -553,13 +556,17 @@ type runState struct {
 	// calcUsageRuns holds, per activation under way, the evaluation of each calc
 	// usage read in it, so its outputs answer from one run of the body (calc_usage.go).
 	calcUsageRuns map[int64]map[calcUsageKey]*calcRun
+	// extentCandidates holds, per type an extent was taken of, the namespace usages
+	// that may hold one (extent.go).
+	extentCandidates map[*symbols.Symbol]*extentCandidates
 }
 
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
 	return &runState{
-		scheduler:     ctx.newScheduler(),
-		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
+		scheduler:        ctx.newScheduler(),
+		calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
+		extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
 	}
 }
 

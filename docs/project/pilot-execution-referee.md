@@ -244,8 +244,12 @@ two wheels `car` holds, `car`, and the empty sequence. The two counts are the `d
 with two variants and `size(all Boat)` over a definition with no instance both answer `1` from the
 pilot, against our `2` and `0`. The `1` is the size of the one unevaluated node `size` was handed,
 not a count of instances — no reading of the extent gives a type with no instances the same size
-as one with two — so neither is a verdict against us. The extent semantics are self-assessed in
-the extent row of [spec-compliance.md](spec-compliance.md).
+as one with two — so neither is a verdict against us. The extent is taken over the whole loaded
+model — every document's namespace-level object usages, the standard library's included — and
+not over the namespaces enclosing the expression, which leaves these six where they were: the
+referee's model is one package in one document, the library declares no `Wheel`, `Car` or `Boat`,
+and the pilot returns the same unevaluated node whatever the extent's reach. The extent semantics
+are self-assessed in the extent row of [spec-compliance.md](spec-compliance.md).
 
 The run is deterministic: two runs into separate output directories differ only in the pilot's
 element UUIDs, and agree line for line once those are stripped.

@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -259,21 +258,15 @@ func loadTraceCase(t *testing.T, conformanceDir, testName string, expected Expec
 	if err != nil {
 		t.Fatalf("load source: %v", err)
 	}
-	p := parser.New(source.New(sysmlPath, sysmlData))
+	src := source.New(sysmlPath, sysmlData)
+	p := parser.New(src)
 	file := p.ParseFile()
 	checkDiagnostics(t, p.Diagnostics, expected.Diagnostics)
 
-	idx := symbols.NewIndex()
-	// A case whose model names library elements — the measurement unit of a
-	// quantity is one — resolves them only with the standard library indexed,
-	// exactly as the conformance harness loads it.
-	if expected.Libraries {
-		idx = libs.NewModelIndex()
-	}
-	idx.AddDocument(sysmlPath, file)
-	if expected.Libraries {
-		idx.ExpandWildcardImports()
-	}
+	// The model is indexed exactly as the conformance harness indexes it: with
+	// the standard library when the case names library elements, and with the
+	// further documents it lists.
+	idx, _ := indexCaseDocuments(t, conformanceDir, src, file, expected)
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
 	ctx := NewContext(NewModel(model, resolver), 10000)

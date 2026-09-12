@@ -1902,8 +1902,9 @@ const adoptExtentBindingSrc = `package Demo {
 	ref part cars : Car[*] = all Car;
 }`
 
-// A binding to an extent read the namespaces it walked: a usage added to one is in the
-// extent the re-analysis binds, while an edit to another document leaves the binding carried.
+// A binding to an extent read the model's census of namespace usages: a usage added to any
+// document, the extent's own or another, is in the extent the re-analysis binds, while an edit
+// declaring no usage leaves the binding carried.
 func TestAdoptRebindsAnExtentWhenItsNamespaceChanges(t *testing.T) {
 	over := func(t *testing.T, model, other string) *Context {
 		t.Helper()
@@ -1946,6 +1947,17 @@ func TestAdoptRebindsAnExtentWhenItsNamespaceChanges(t *testing.T) {
 	got := carsIn(t, ctx)
 	if len(got) != 2 || got[0] != alpha {
 		t.Errorf("cars in the re-analysis = %d objects, want the carried alpha and the added beta", len(got))
+	}
+
+	prev = over(t, adoptExtentBindingSrc, "package Other;")
+	alpha = carsIn(t, prev)[0]
+	ctx = over(t, adoptExtentBindingSrc, "package Other { part gamma : Demo::Car; }")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(alpha), alpha); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	got = carsIn(t, ctx)
+	if len(got) != 2 || got[0] != alpha || ctx.OccurrenceUsage(got[1]) != "Other::gamma" {
+		t.Errorf("cars in the re-analysis = %d objects, want the carried alpha then the gamma the other document added", len(got))
 	}
 }
 
