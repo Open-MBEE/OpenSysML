@@ -7,7 +7,10 @@
   exact count reads as the sequence (or set) of those objects, and `wheels#(1)`, `wheels.radius`
   and `size(wheels)` read them, in the REPL and over gRPC alike, while a usage of open count read
   directly (`hubs`, `size(hubs)`) stays undetermined of that count, as a nested collection of open
-  count does; the trace names each member after its usage (`wheels #1`, `wheels #2`). It used to denote nothing, so `all Wheel` was refused with
+  count does, and one whose bound the model does not evaluate (`part wheels : Wheel[2..n];`)
+  fixes no count, so it denotes nothing and an extent that may reach it is refused with
+  `ErrExtentUnavailable` naming the usage and its bounds; the trace names each member after its
+  usage (`wheels #1`, `wheels #2`). It used to denote nothing, so `all Wheel` was refused with
   `ErrExtentUnavailable` and `wheels.radius` was undetermined. A valued usage (`part wheels :
   Wheel[2] = (new Wheel(), new Wheel());`) is bound to its value instead, and a value whose count
   breaks the declared multiplicity is refused with `ErrMultiplicityViolation` naming the usage. A

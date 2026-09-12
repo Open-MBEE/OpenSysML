@@ -320,6 +320,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
 	t.Run("extent_reaching_a_namespace_collection", testExtentReachingANamespaceCollection)
 	t.Run("namespace_collection_that_cannot_be_constructed", testNamespaceCollectionThatCannotBeConstructed)
+	t.Run("namespace_collection_of_unfixed_count", testNamespaceCollectionOfUnfixedCount)
 	t.Run("chained_write_through_a_namespace_collection", testChainedWriteThroughANamespaceCollection)
 	t.Run("namespace_collection_over_budget", testNamespaceCollectionOverBudget)
 	t.Run("extent_over_an_object_that_cannot_be_read", testExtentOverAnObjectThatCannotBeRead)
@@ -5024,6 +5025,55 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	_, err = ctx.InvokeCalc(resolveSymbol(t, s.Scope, "linkCount"), nil, s.Scope)
 	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), "port") {
 		t.Errorf("S: size(all Link) = %v, want the nested package's two-port usage refused", err)
+	}
+}
+
+// testNamespaceCollectionOfUnfixedCount: a namespace-level usage whose multiplicity bound the
+// model does not evaluate (`[2..n]`, `[n]`) fixes no count, so it is never materialized — not
+// as one object, not as its lower bound: an extent that may reach it is refused naming the usage
+// and its bounds, and a model-level read is undetermined of the bounds the declaration does fix.
+func testNamespaceCollectionOfUnfixedCount(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::*;
+		part def Wheel;
+		part def Hub;
+		part def Seat;
+		attribute n : Natural;
+		part wheels : Wheel[2..n];
+		part hubs : Hub[n];
+		part seat : Seat;
+		calc wheelCount { return : Natural = size(all Wheel); }
+		calc hubCount { return : Natural = size(all Hub); }
+		calc seatCount { return : Natural = size(all Seat); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	for calc, want := range map[string]string{"wheelCount": "wheels declares [2..?]", "hubCount": "hubs declares [?..?]"} {
+		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s = %v, want %v naming %q", calc, err, ErrExtentUnavailable, want)
+		}
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "1" {
+		t.Errorf("seatCount = %s, %v; want 1: the usages of unfixed count hold no Seat", FormatValue(got), err)
+	}
+	for src, count := range map[string]string{"wheels": "[2..?]", "size(wheels)": "[1]", "hubs": "[?..?]", "hubs#(1)": "[1]"} {
+		val, err := evalIn(t, ctx, pkg.Scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	val, err := ctx.EvalDeclaredValue(resolveSymbol(t, pkg.Scope, "wheels"))
+	wantUndetermined(t, "declared wheels", val, err, "[2..?]")
+	val, err = evalIn(t, ctx, pkg.Scope, "notEmpty(wheels)")
+	wantFormatted(t, "notEmpty(wheels)", val, err, "true")
+	for _, name := range []string{"wheels", "hubs"} {
+		if _, ok := ctx.occurrences[resolveSymbol(t, pkg.Scope, name)]; ok {
+			t.Errorf("%s, a usage of unfixed count, denotes objects; want none", name)
+		}
+	}
+	if got := len(ctx.instances); got != 1 {
+		t.Errorf("%d objects stand, want 1: the seat alone", got)
 	}
 }
 

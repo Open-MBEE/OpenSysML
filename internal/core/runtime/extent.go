@@ -313,9 +313,14 @@ func (ec *EvalContext) boundObjects(sym *symbols.Symbol) ([]*Instance, error) {
 	return out, nil
 }
 
-// undenotedUsage refuses an extent for a namespace usage the run denotes no object of: a
-// port, which stands for an interaction point of an object the namespace has none of.
+// undenotedUsage refuses an extent for a namespace usage the run denotes no object of: one
+// of a count the model does not fix, or a port, an interaction point of an object the
+// namespace has none of.
 func (ctx *Context) undenotedUsage(sym *symbols.Symbol) error {
+	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); !mult.Lower.Known || !mult.Upper.Known {
+		return fmt.Errorf("%w: usage %s declares %s occurrences, a count the model does not fix, which the run denotes no object of",
+			ErrExtentUnavailable, symbolText(sym), mult.Text())
+	}
 	return fmt.Errorf("%w: usage %s is a %s at namespace level, which the run denotes no object of",
 		ErrExtentUnavailable, symbolText(sym), sym.Notation())
 }

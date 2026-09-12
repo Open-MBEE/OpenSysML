@@ -519,7 +519,7 @@ func (ctx *Context) namesOneObject(sym *symbols.Symbol) bool {
 }
 
 // namesObjects reports whether a usage denotes several objects of its own: an occurrence
-// usage a namespace declares of a collection multiplicity whose lower bound is at least one.
+// usage a namespace declares of a collection multiplicity whose bounds the model fixes.
 func (ctx *Context) namesObjects(sym *symbols.Symbol) bool {
 	if sym == nil || sym.OwnerScope == nil || !namespaceScope(sym.OwnerScope) || !isOccurrenceUsage(sym) {
 		return false
@@ -527,7 +527,8 @@ func (ctx *Context) namesObjects(sym *symbols.Symbol) bool {
 	if ctx.occursOnce(sym) || ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) {
 		return false
 	}
-	return ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)).Lower.Known
+	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
+	return mult.Lower.Known && mult.Upper.Known
 }
 
 // registersOccurrence reports whether an object materialized for a usage is the one a
@@ -554,11 +555,11 @@ func (ctx *Context) namesStructuredValue(sym *symbols.Symbol) bool {
 	return ctx.shapeHoldsValue(sym)
 }
 
-// occursOnce reports whether a usage names at most one occurrence; several
-// occurrences are a collection rather than one object to read features from.
+// occursOnce reports whether a usage names at most one occurrence; several occurrences, or
+// a count the model does not fix, are a collection rather than one object to read features from.
 func (ctx *Context) occursOnce(sym *symbols.Symbol) bool {
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
-	return !mult.Upper.Infinite && mult.Upper.Value <= 1
+	return mult.Upper.Known && !mult.Upper.Infinite && mult.Upper.Value <= 1
 }
 
 // optionalValueless reports whether a usage or subject declares no value and a
