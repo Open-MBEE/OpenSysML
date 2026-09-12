@@ -170,16 +170,19 @@ regression — see "Isolating one change's effect" below.
   - `rm -rf build/pilot-sysml-validator` and re-run → recreated in seconds, and the launcher is
     **byte-identical** with `pilot-pin.txt` = `sysml.release.tag=2026-08`
     / `sysml.artifact.version=0.62.0` and no `__PILOT_ARTIFACT_VERSION__` placeholder left.
+  - the script always runs `download-pilot-validator.sh` first (no args → its `already built`
+    fast path, ~1 s), so a re-pin that keeps the artifact version but changes the tag, commit,
+    repository or wrapper commit still rebuilds the jar before anything compiles against it.
   - bad pin: move `build/pilot-validator` aside, then
     `PILOT_TAG=9999-99 PILOT_ARTIFACT_VERSION=9.9.9 ./scripts/download-pilot-sysml-validator.sh`
-    → prints `Pilot validator dependencies are missing; provisioning them first ...`, clones,
-    prints `Downloading the pilot 9999-99 (9.9.9) release ...` (the pin is handed to Maven, so
+    → clones, prints `Downloading the pilot 9999-99 (9.9.9) release ...` (the pin is handed to Maven, so
     the wrapper's own `pom.xml` default never decides the release) and exits 1 when Maven's
     release download 404s; `build/pilot-sysml-validator/pilot-pin.txt` is left untouched.
   - missing tools need `--force` (the already-compiled early return is after the tool guards but
     before the compile): a stripped PATH without `javac` → `error: javac 21+ is required to build
-    the SysML validator`; without `java` too → `error: Java 21+ is required ...`. The pinned jar
-    must be present for these, otherwise the script tries to auto-provision first and you get
+    the SysML validator`; without `java` too → `error: Java 21+ is required ...`. The pinned
+    build must be current for these (stamp and versioned jar present), otherwise the delegated
+    `download-pilot-validator.sh` reaches its own tool guards first and you get
     `error: git is required to build the pilot validator` instead.
   - **Pitfall:** `mv build/pilot-validator /tmp/pv-aside` twice nests the backup
     (`/tmp/pv-aside/pilot-validator`), and restoring onto an existing directory nests it again as
@@ -559,16 +562,22 @@ Provisioning script (`scripts/download-pilot-validator.sh`):
   `ls -l --time-style=full-iso build/pilot-validator/validate-sysml` before and after, not just by
   reading the message.
 - Stale build → the early return is taken only when `build/pilot-validator/.pilot-pin` holds the
-  current pin (tag, commit, repository, artifact version, wrapper commit) *and* the versioned
-  shaded jar `target/sysml-download/sysml/jupyter-sysml-kernel-<version>-all.jar` exists.
-  Overwrite the stamp (`printf x > build/pilot-validator/.pilot-pin`) and the script prints
-  `Stale build at ...: built from x, pin is now ...; rebuilding.` and re-clones; delete it and it
-  prints `Unstamped build at ...; rebuilding ...`. Both rebuild for real (minutes), so `mv` the
-  directory aside first as described below and `timeout 5` the run if the message is all you need.
-- Pin propagation → `mv build/pilot-validator /tmp/pv-backup` then
+  current pin (tag, commit, repository, artifact version, wrapper commit) *and* the build is
+  complete: `validate-sysml`, the wrapper jar, the versioned shaded jar
+  `target/sysml-download/sysml/jupyter-sysml-kernel-<version>-all.jar` and `sysml.library` all
+  present. Overwrite the stamp (`printf x > build/pilot-validator/.pilot-pin`) and the script
+  prints `Stale build at ...: built from x, pin is now ...; rebuilding.`; delete it and it prints
+  `Unstamped build at ...; rebuilding ...`; `rm -rf` only `sysml.library` and it prints
+  `Incomplete build at ...; rebuilding ...`. All three rebuild for real (~20 s with a warm `~/.m2`,
+  minutes cold), so `timeout 5` the run if the message is all you need — the build happens in a
+  sibling `build/pilot-validator.build.XXXXXX` directory that is swapped in only once complete, so
+  an interrupted or failed rebuild leaves the installed validator untouched (verify the
+  `validate-sysml` mtime and that `ls build | grep pilot-validator` shows no leftover stage).
+- Pin propagation → with a good build in place,
   `PILOT_TAG=9999-99 PILOT_ARTIFACT_VERSION=9.9.9 ./scripts/download-pilot-validator.sh`: it
-  clones (fast), prints `Downloading the pilot 9999-99 (9.9.9) release ...` and Maven's
-  `download-maven-plugin` fails with `Download failed with code 404`. Exit 1. The tag and version
+  prints `Stale build at ...`, clones (fast), prints `Downloading the pilot 9999-99 (9.9.9)
+  release ...` and Maven's `download-maven-plugin` fails with `Download failed with code 404`.
+  Exit 1, and the `2026-08` validator is still there (`.pilot-pin` unchanged). The tag and version
   reach Maven as `-Dsysml.release.tag` / `-Dsysml.artifact.version`, overriding the wrapper's
   `pom.xml` defaults, so a wrapper commit pinned to an older release still builds against ours.
   The script aborts *before* Maven only if the wrapper's `pom.xml` stopped declaring those two
@@ -579,11 +588,11 @@ Provisioning script (`scripts/download-pilot-validator.sh`):
   `error: mvn is required to build the pilot validator`. If you forget `dirname`, the script
   first emits `line 16: dirname: command not found` — an artifact of the stripped PATH, not a bug.
 
-**Never `rm -rf build/pilot-validator` while testing** — `mv` it aside and move it back, since a
-rebuild costs minutes. Watch out for the classic `mv /tmp/pv-backup build/pilot-validator` when
-the target directory already exists again: that nests the backup at
-`build/pilot-validator/pv-backup` instead of restoring it. `rm -rf` the *new* directory first (or
-restore to a fresh path) and verify with `ls build/pilot-validator | tr '\n' ' '`.
+**Avoid `rm -rf build/pilot-validator` while testing** — `mv` it aside and move it back if the
+Maven cache is cold, since a from-scratch rebuild costs minutes. Watch out for the classic
+`mv /tmp/pv-backup build/pilot-validator` when the target directory already exists again: that
+nests the backup at `build/pilot-validator/pv-backup` instead of restoring it. `rm -rf` the *new*
+directory first (or restore to a fresh path) and verify with `ls build/pilot-validator | tr '\n' ' '`.
 
 ## The optional SysIDE third column (F7)
 

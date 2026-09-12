@@ -72,8 +72,9 @@ now single-batch, which is what makes a per-file comparison meaningful.
 The DeciSym CLI is `.sysml`-only, so the KerML root is validated by a sibling program,
 [`scripts/pilot-kerml-validator/ValidateKerML.java`](../../scripts/pilot-kerml-validator/ValidateKerML.java),
 built against the *same* pinned pilot jar by `./scripts/download-pilot-kerml-validator.sh`
-(which sources `scripts/pilot-pin.sh`, provisions the SysML wrapper first if its jar is
-missing, and writes only under `build/pilot-kerml-validator/`). It is ~150 lines of glue and
+(which sources `scripts/pilot-pin.sh`, runs `download-pilot-validator.sh` first so the wrapper
+is provisioned or rebuilt at the current pin, and writes only under
+`build/pilot-kerml-validator/`). It is ~150 lines of glue and
 contains no rule of its own: it registers `KerMLStandaloneSetup`
 (`createInjectorAndDoEMFRegistration`), extends the pilot's own `SysMLUtil` to load
 `sysml.library` and the corpus into one `ResourceSet`, then asks the injected Xtext

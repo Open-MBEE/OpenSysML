@@ -15,19 +15,31 @@ VALIDATOR_COMMIT="${VALIDATOR_COMMIT:-63abbd9fbc7851dc437d01b2dc07836b919770b8}"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="$repo_root/build/pilot-validator"
-pilot_jar="$target/target/sysml-download/sysml/jupyter-sysml-kernel-${PILOT_ARTIFACT_VERSION}-all.jar"
+# What the build contains, relative to its directory; checked on the installed
+# copy for the fast path and on the staged copy before it replaces the old one.
+pilot_jar_rel="target/sysml-download/sysml/jupyter-sysml-kernel-${PILOT_ARTIFACT_VERSION}-all.jar"
+library_rel="target/sysml-download/sysml/sysml.library"
+wrapper_jar_rel="target/sysmlv2-validator-1.0.0-SNAPSHOT.jar"
 # The build records what it was made from, so a re-pin re-provisions it.
-stamp="$target/.pilot-pin"
+stamp_rel=".pilot-pin"
 pin="$(pilot_pin) $PILOT_ARTIFACT_VERSION $VALIDATOR_COMMIT"
 
-if [[ -x "$target/validate-sysml" ]] && [[ -f "$target/target/sysmlv2-validator-1.0.0-SNAPSHOT.jar" ]]; then
-	if [[ -f "$pilot_jar" ]] && [[ -f "$stamp" ]] && [[ "$(cat "$stamp")" == "$pin" ]]; then
-		echo "Pilot validator already built at $target (pilot $PILOT_TAG, $PILOT_ARTIFACT_VERSION)"
-		echo "Remove that directory to re-provision."
-		exit 0
-	fi
-	if [[ -f "$stamp" ]]; then
-		echo "Stale build at $target: built from $(cat "$stamp"), pin is now $pin; rebuilding."
+# build_is_complete reports whether $1 holds every artifact of a finished build.
+build_is_complete() {
+	[[ -x "$1/validate-sysml" ]] && [[ -f "$1/$wrapper_jar_rel" ]] &&
+		[[ -f "$1/$pilot_jar_rel" ]] && [[ -d "$1/$library_rel" ]]
+}
+
+if build_is_complete "$target" && [[ -f "$target/$stamp_rel" ]] && [[ "$(cat "$target/$stamp_rel")" == "$pin" ]]; then
+	echo "Pilot validator already built at $target (pilot $PILOT_TAG, $PILOT_ARTIFACT_VERSION)"
+	echo "Remove that directory to re-provision."
+	exit 0
+fi
+if [[ -e "$target" ]]; then
+	if [[ -f "$target/$stamp_rel" ]] && [[ "$(cat "$target/$stamp_rel")" != "$pin" ]]; then
+		echo "Stale build at $target: built from $(cat "$target/$stamp_rel"), pin is now $pin; rebuilding."
+	elif [[ -f "$target/$stamp_rel" ]]; then
+		echo "Incomplete build at $target; rebuilding at pilot $PILOT_TAG ($PILOT_ARTIFACT_VERSION)."
 	else
 		echo "Unstamped build at $target; rebuilding at pilot $PILOT_TAG ($PILOT_ARTIFACT_VERSION)."
 	fi
@@ -46,19 +58,22 @@ if [[ -z "$java_major" ]] || [[ "$java_major" -lt 21 ]]; then
 	exit 1
 fi
 
+# Built beside the target and swapped in whole, so a failed clone or Maven run
+# leaves the previous validator in place.
 mkdir -p "$(dirname "$target")"
-rm -rf "$target"
+work="$(mktemp -d "$target.build.XXXXXX")"
+trap 'rm -rf "$work"' EXIT
 
 echo "Cloning $VALIDATOR_REPO at $VALIDATOR_COMMIT ..."
-git init --quiet "$target"
-git -C "$target" remote add origin "$VALIDATOR_REPO"
-git -C "$target" fetch --quiet --depth 1 origin "$VALIDATOR_COMMIT"
-git -C "$target" checkout --quiet FETCH_HEAD
+git init --quiet "$work"
+git -C "$work" remote add origin "$VALIDATOR_REPO"
+git -C "$work" fetch --quiet --depth 1 origin "$VALIDATOR_COMMIT"
+git -C "$work" checkout --quiet FETCH_HEAD
 
 # The wrapper must still select the release through these properties, or the
 # overrides below are silently ignored.
 for property in sysml.release.tag sysml.artifact.version; do
-	if ! grep -Fq "<${property}>" "$target/pom.xml" || ! grep -Fq "\${${property}}" "$target/pom.xml"; then
+	if ! grep -Fq "<${property}>" "$work/pom.xml" || ! grep -Fq "\${${property}}" "$work/pom.xml"; then
 		echo "error: $VALIDATOR_COMMIT no longer selects the pilot release through the $property property" >&2
 		echo "       re-pin VALIDATOR_COMMIT to a wrapper that does" >&2
 		exit 1
@@ -70,20 +85,25 @@ done
 # into ~/.m2, which `mvn package` then shades into the validator jar.
 pin_properties=("-Dsysml.release.tag=$PILOT_TAG" "-Dsysml.artifact.version=$PILOT_ARTIFACT_VERSION")
 echo "Downloading the pilot $PILOT_TAG ($PILOT_ARTIFACT_VERSION) release and building the validator ..."
-(cd "$target" &&
+(cd "$work" &&
 	mvn -B -q "${pin_properties[@]}" -Psetup-dependency initialize &&
 	mvn -B -q "${pin_properties[@]}" package)
 
-library="$target/target/sysml-download/sysml/sysml.library"
-if [[ ! -d "$library" ]]; then
-	echo "error: the pilot standard library is missing from $library" >&2
+if [[ ! -d "$work/$library_rel" ]]; then
+	echo "error: the pilot standard library is missing from $work/$library_rel" >&2
 	exit 1
 fi
-if [[ ! -f "$pilot_jar" ]]; then
-	echo "error: the pilot shaded jar is missing from $pilot_jar" >&2
+if [[ ! -f "$work/$pilot_jar_rel" ]]; then
+	echo "error: the pilot shaded jar is missing from $work/$pilot_jar_rel" >&2
 	exit 1
 fi
-printf '%s' "$pin" >"$stamp"
+if ! build_is_complete "$work"; then
+	echo "error: the wrapper build under $work is incomplete" >&2
+	exit 1
+fi
+printf '%s' "$pin" >"$work/$stamp_rel"
+
+pilot_install_dir "$work" "$target"
 
 echo "Built $target/validate-sysml (pilot $PILOT_TAG, $PILOT_ARTIFACT_VERSION)"
 echo "Compare it against this implementation with:"
