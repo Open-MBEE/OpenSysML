@@ -71,16 +71,16 @@
         "digest": "sha256:b0153c55bbfcdacabab911725dc44e0e7f4d3a501a281b1f3f2a13cda19737c6"
       }
     ],
-    "recorded": "2026-09-11"
+    "recorded": "2026-09-12"
   },
   "totals": {
     "files": 371,
     "filesFullyAgreeing": 337,
     "agreement": 34,
     "severityMismatch": 3,
-    "openSysMLOnly": 33,
+    "openSysMLOnly": 37,
     "pilotOnly": 1111,
-    "openSysMLDiagnostics": 70,
+    "openSysMLDiagnostics": 74,
     "pilotDiagnostics": 1148
   },
   "roots": [
@@ -222,9 +222,9 @@
         "filesFullyAgreeing": 49,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 6,
+        "openSysMLOnly": 10,
         "pilotOnly": 6,
-        "openSysMLDiagnostics": 6,
+        "openSysMLDiagnostics": 10,
         "pilotDiagnostics": 6
       },
       "files": [
@@ -302,6 +302,12 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
+              "line": 12,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
               "line": 15,
               "severity": "error",
               "category": "unmapped",
@@ -310,6 +316,24 @@
             {
               "line": 16,
               "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 41,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 42,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 43,
+              "severity": "warning",
               "category": "unmapped",
               "count": 1
             }
@@ -5681,6 +5705,11 @@
     },
     {
       "side": "opensysml",
+      "message": "comparing String with Natural is always false",
+      "count": 3
+    },
+    {
+      "side": "opensysml",
       "message": "1 (an Integer) is written at positions 1 and 2 of a unique feature",
       "count": 2
     },
@@ -5777,6 +5806,11 @@
     {
       "side": "opensysml",
       "message": "This modular system interface satisfies no requirement: the model declares interface requirements, so MOSA expects a `satisfy` naming it (or its definition) after `by`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "operator '-' requires a numeric operand, found String",
       "count": 1
     },
     {
@@ -5976,9 +6010,9 @@
       "filesFullyAgreeing": 338,
       "agreement": 34,
       "severityMismatch": 3,
-      "openSysMLOnly": 32,
+      "openSysMLOnly": 36,
       "pilotOnly": 1111,
-      "openSysMLDiagnostics": 69,
+      "openSysMLDiagnostics": 73,
       "pilotDiagnostics": 1148
     },
     "findings": [

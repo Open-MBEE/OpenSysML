@@ -157,7 +157,7 @@ func (ctx *Context) scalarLibraryType(value Value) *symbols.Symbol {
 	if prim == semantics.PrimUnknown {
 		return nil
 	}
-	return ctx.model.semantics.ScalarSymbol(prim)
+	return ctx.librarySymbol(semantics.ScalarFQN(prim))
 }
 
 // representationClassifies reads a scalar target narrower than a scalar's types off its

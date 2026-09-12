@@ -1580,8 +1580,9 @@ calcs, constraints, requirements, actions, state machines and, since 0.6.0, an *
 expect from "SysML v2 execution" hangs off that keystone, and since the tag four of the five
 landed on `main`: verification verdicts (A6, #117), parameter sweeps (A3, #118), the trade study
 (A2, #133) and the shared clock (A5, #136). What is open in the track is A4, the state-space
-runner, which A5 unblocked. Every item below is self-assessed (the pilot executes none of this);
-A4 is not started, and no surface claims to integrate a `StateSpaceRepresentation`.
+runner, which A5 unblocked, and A7, one verdict for every assertion an object carries. Every item
+below is self-assessed (the pilot executes none of this); neither is started, and no surface
+claims to integrate a `StateSpaceRepresentation` or to validate an object as a whole.
 
 ## A1 — an analysis case runs (landed)
 
@@ -1705,6 +1706,47 @@ unchanged. Over gRPC the verdicts are `verification_verdicts` fields under the
 `-json` reports them under `verifications`; the Go and Python clients expose them as
 `Verifications`/`verifications`. What it leaves, by design: a case performed as a step of another
 is reported on its own, marked as a subcase, since the library states no roll-up.
+
+## A7 — an object validates as a whole: every assertion it carries, in one verdict
+
+An object is checked today one assertion at a time. `-instantiate car -constraint C`,
+`%constraint C`, `%requirement R`, `%satisfy` and the `VerifyConstraint`/`VerifyRequirement`/
+`VerifySatisfaction` RPCs each name the element to judge, and the runtime finds the object that
+carries it (`Context.conditionSubject`, `carriersUnder`): the constraint's or requirement's
+conditions are then read from that object's feature values — `car`'s 1800 kg, not `Vehicle`'s
+default — and structural conformance (multiplicity, type, uniqueness, binding conflicts) is
+refused at materialization and on every write (`checkAdmits`, `write_conformance.go`). What no
+surface offers is the question a modeler asks first: *is this object valid?* — every `assert
+constraint` declared on the object's type or on any part nested under it, every requirement usage
+it or its parts carry, and every `satisfy` assertion whose subject lies in the tree, judged on the
+object that carries each and reported together. `-validate` is not that: it reports only that the
+model analysed cleanly and that the objects `-instantiate` asked for could be built, and the CLI
+reference says so. Reaching the whole set today means knowing every assertion's name, one command
+each, and `%constraint C` refuses when two nested parts both carry `C` ("check it on one of
+them"), so a `part wheels : Wheel[4]` with an asserted constraint cannot be judged on all four in
+one step at all.
+
+The semantics are already the runtime's. An `assert constraint` is KerML's `Invariant`
+(`AssertConstraintUsage`, SysML v2 §8.3.19.2; `Invariant::isNegated`, §8.3.21.10): a Boolean
+expression that must be true of every instance of its featuring type, negated by `assert not`,
+which is exactly what `CheckConstraintOn` evaluates for one carrier; requirements and `satisfy`
+assertions have `CheckRequirementOn` and `CheckSatisfactionOn` likewise. A7 is the sweep over
+them: walk the object's part tree (the composite features `Instantiate` materialized, collections
+included), collect on each object the invariants and requirement usages its type declares or
+inherits and the `satisfy` assertions whose subject it is, evaluate each on that object, and
+report one verdict per (assertion, carrier) — `holds`, `violated` with the condition, or
+`undecided` with the reason, each with the object's path (`car.wheels[2]`) — beside one overall
+verdict, `valid` only when every line holds. Surfaces: `-validate <object>` (the flag already
+exists; given an object reference it does this and keeps its present meaning bare), `%validate
+<object>`, a `ValidateInstance` RPC under its own capability, `-json` under `validation`, and the
+Go and Python clients. Unasserted constraints (`constraint c { … }` with no `assert`) are declared,
+not asserted, and are left out — they are what `%constraint` is for — and the verification-case
+verdicts A6 reports beside a requirement are reported beside it here too. The pilot cannot referee
+any of this, so the evidence is the conformance fixtures: one object with asserted constraints at
+three depths and a collection part, a violated nested assertion, an ambiguous-by-name pair that
+this sweep disambiguates by carrier, and a `satisfy` whose subject is a nested part. Depends on
+nothing open; Q2's population (`all T`) would let the same sweep run over every object of a type
+rather than one tree, and should share the carrier walk rather than add one.
 
 ---
 
@@ -2098,7 +2140,8 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   adjudication file, and a standalone RDF expression-tree round trip).
 - **Track L** — L7, gated on X2's chain-read half alone: `Sample` runs and a domain library's calc
   executes from its text; `interpolateLinear` does not.
-- **Track A** — A4, the state-space runner, unblocked by A5 and not started.
+- **Track A** — A4, the state-space runner, unblocked by A5 and not started; A7, one verdict for
+  every assertion an object carries, depending on nothing open and not started.
 - **Track Q** — Q3, unblocked by A5, still behind Q2's population; Q1 and Q2 unchanged.
 - **Track E** — deferred to the release after the one that ships F and S; next once that release
   is tagged.
@@ -2192,7 +2235,9 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   harness halves (normalization and adjudication in the pilot differential, a standalone RDF
   expression-tree round trip) so every later X item is measured; X7's RDF literal form and native
   layout for sets and tensors last, when something needs them.
-- **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); only A4 is left — step 7 above.
+- **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A4 is step 7 above; A7 (an
+  object validated as a whole) depends on nothing open, so it can run beside any step, and its
+  carrier walk is what Q2's population should reuse when Q2 is taken.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
   reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
   negative case first, each change moving its row.

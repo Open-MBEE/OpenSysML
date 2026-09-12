@@ -215,11 +215,11 @@ nor double-counted as two independent disagreements.
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 49 | 6 | 6 | 0 | 0 | 6 | 6 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 49 | 10 | 6 | 0 | 0 | 10 | 6 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
 | `examples` | 36 | 26 | 8 | 1087 | 0 | 2 | 6 | 1085 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **371** | **337** | **70** | **1148** | **34** | **3** | **33** | **1111** |
+| **Total** | **371** | **337** | **74** | **1148** | **34** | **3** | **37** | **1111** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -229,8 +229,9 @@ retired one more of `pilot-examples` by publishing the conforming type its
 `Analysis Examples/Dynamics.sysml`:13 — a published product bound to a return typed by another
 dimension — takes it to **7**; the [unbound-parameter advisory](#the-unbound-parameter-advisory)
 then takes `kerml-examples` to **4**, and the
-[collection-body element typing round](#collection-body-element-typing-round) to **6**. Our
-diagnostics on those roots therefore fall 20 → **13**. The
+[collection-body element typing round](#collection-body-element-typing-round) to **6**, and the
+[bare feature-reference typing round](#bare-feature-reference-typing-round) to **10**. Our
+diagnostics on those roots therefore fall 20 → **17**. The
 `examples` root carries 1, the non-standard-notation warning on the `junction` of
 `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because no SysML v2
 spelling of it exists. It carried 64 before the demos were rewritten to standard notation: the
@@ -241,15 +242,15 @@ fixture that exists to draw them (see [Value uniqueness](#value-uniqueness--only
 pilot has no value-level uniqueness constraint, so all 5 are one-sided by construction. **Those that remain are
 true positives about our own examples, not candidate false positives about our implementation** — the
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
-reference corpora is **13** — of which three, the `Behaviors.kerml` advisory and the two
-`Expressions.kerml` operator errors, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
+reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory and the six
+`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
 
 ### MOSA library round
 
 `examples/mosa-demo/mosa-demo.sysml` is one file added to the `examples` root: files 35 → **36** on
-the root, 370 → **371** overall. Our diagnostics rise 64 → **70** and only-ours 28 → **33**: the six
+the root, 370 → **371** overall. Our diagnostics rise 68 → **74** and only-ours 32 → **37**: the six
 warnings the demo draws on purpose from the warning-only MOSA checks, five of them only-ours and
 the sixth a severity-only pair (2 → **3**). Pilot diagnostics rise 636 → **1148** / only pilot
 600 → **1111**. Of that, 440 rows are the reference's cascade from a `MOSA` library it does not
@@ -263,12 +264,62 @@ own. `fully agreeing` and `agreed` do not move.
 |---|---:|---:|
 | files | 370 | **371** |
 | overall: fully agreeing | 337 | **337** |
-| overall: our diagnostics | 64 | **70** |
-| overall: only ours | 28 | **33** |
+| overall: our diagnostics | 68 | **74** |
+| overall: only ours | 32 | **37** |
 | only pilot | 600 | **1111** |
 | pilot diagnostics | 636 | **1148** |
 | severity-only | 2 | **3** |
 | `examples`: only pilot | 574 | **1085** |
+
+### Bare feature-reference typing round
+
+A bare feature reference — a plain name or a feature chain standing as an operand or a
+condition — is now typed statically by the effective type of the feature it resolves to
+(KerML 1.1 §8.3.4.8.5, a `FeatureReferenceExpression`'s result is bound to the feature it
+references, evaluated through the feature redefining it; §8.4.4.9.3, that result subsets the
+referent "to allow for simpler static type checking"; §§7.3.4.3–7.3.4.5, a feature's type is
+carried by subsetting and redefinition; §7.4.11, a feature declaring none takes its values from
+the expression it is bound to), where before a plain name inferred no scalar type at all and
+its uses were left to the executor. `-s` over `attribute s : String` therefore draws the operand error the same expression
+already drew written `-"x"`, `total > 3` over `attribute total : Integer` types as `Integer`
+compares, and `while total { }` is reported before execution rather than at the loop. The
+executor's condition check remains for a condition whose type genuinely cannot be settled
+statically — an unresolved chain, a behavior declaring no result.
+
+The rule reaches the same file as the round before it, `kerml-examples/Simple Tests/Expressions.kerml`,
+four more times, all over `x = ToString(a * a + 3 == 4);`, whose `x` is the `String`
+`BaseFunctions::ToString` returns:
+
+- line 12, `grp = -x + x * y * y + a ** 3 ^ 4;`: `-x` draws
+  `operator '-' requires a numeric operand, found String` (`passes/typecheck_expr.go`
+  `checkUnaryNumeric`, the answer it already gave `-"x"`). `ScalarFunctions::'-'` is abstract
+  over `ScalarValue`, its only concrete specializations are `NumericalFunctions::'-'` and below,
+  and no function library declares a `'-'` over `String` — so, as with the `'+'` of the round
+  before, the expression has no value, and the runtime refuses it with `ErrTypeMismatch`.
+- lines 41–43, `xx = if x == 1 and y == 2? a else if x == 2? b else if x == 3? c else 0;`:
+  each `x == <n>` draws the warning `comparing String with Natural is always false`
+  (`checkEquality`, unchanged: `'=='` is declared over `Anything`, so disjoint operands are a
+  warning, never an error). A `String` is never equal to a `Natural`, so the three conditions are
+  constant `false` and the conditional always yields `0`; the file stays executable, which is why
+  the rule warns.
+
+The pilot's `validate-kerml` accepts the file and its `ParsingTests_Expressions.kerml.xt`
+declares `noErrors` — the file was already the one `noErrors` row we disagree with, and the round
+moves no further Xpect row (warnings are not errors there, and the row was already lost to the
+line-15 and line-16 errors). All four are **ours, one-sided by design**: neither the operand rule
+nor the equality rule changed, the round only lets them see the type of a name they could not
+type before, and they judge `x` exactly as they already judged the `xx` bound to it two lines
+below. Recorded in the pilot-corpora ratchet (`Expressions.kerml` 2 → 6) and here. No other
+file moves in either direction: a control run of the parent commit reproduces the committed
+baseline's every count and diagnostic, and the branch's run differs from it in this file alone.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 337 | **337** |
+| overall: our diagnostics | 64 | **68** |
+| overall: only ours | 28 | **32** |
+| `kerml-examples`: fully agreeing | 49 | **49** |
+| `kerml-examples`: only ours | 6 | **10** |
 
 ### Value uniqueness round
 
@@ -593,7 +644,7 @@ populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two sema
 Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
-`units`, 1 `kind-mismatch`; `kerml-examples` 5 `unmapped`, 1 `multiplicity` (the
+`units`, 1 `kind-mismatch`; `kerml-examples` 9 `unmapped`, 1 `multiplicity` (the
 [unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax, 4 `unmapped`,
 1 `multiplicity` (the five warnings the MOSA demo draws on purpose, below); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
@@ -688,22 +739,24 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **337 / 33 / 70** |
+| overall: fully agreeing / only ours / our diagnostics | **337 / 37 / 74** |
 | only pilot | **1111** |
 | pilot diagnostics | **1148** |
 | severity-only | **3** |
-| unmapped, our side | **30** |
-| kerml-examples: only ours | **6** |
+| unmapped, our side | **34** |
+| kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
 | examples: only pilot | **1085** |
 
-The KerML root is now the *cleanest* of the three OMG roots in proportion: **6** only-ours against 6
-only-pilot — the only root where the reference reports as much as we do — with 49 of 58 files fully
-agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 6 is a syntax or `kind-mismatch` diagnostic — the notation
+The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
+only-pilot, with 49 of 58 files fully
+agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 10 is a syntax or `kind-mismatch` diagnostic — the notation
 the reference accepts, we parse, and the checks we applied to KerML typings that it does not apply
 are gone. What is left is K5's three specialization cycles, the one deliberate
-[unbound-parameter advisory](#the-unbound-parameter-advisory) and the two operator errors of the
-[collection-body element typing round](#collection-body-element-typing-round), all adjudicated. The class tables below
+[unbound-parameter advisory](#the-unbound-parameter-advisory), the two operator errors of the
+[collection-body element typing round](#collection-body-element-typing-round) and the four
+operator diagnostics of the [bare feature-reference typing round](#bare-feature-reference-typing-round),
+all adjudicated. The class tables below
 are kept as measured when each class was adjudicated, so they describe the root at 150 rather than at 3.
 
 One category label moved with this adjudication and **no count did**:

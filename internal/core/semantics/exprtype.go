@@ -136,6 +136,12 @@ func (m *Model) ScalarLatticeElement(sym *symbols.Symbol) (PrimType, bool) {
 	return prim, ok
 }
 
+// ScalarFQN is the qualified name of the library definition a lattice element
+// stands for (`ScalarValues::Natural` for PrimNatural), or "" for none.
+func ScalarFQN(prim PrimType) string {
+	return scalarDefFQNs[prim]
+}
+
 // ScalarSymbol returns the library definition a lattice element stands for
 // (`ScalarValues::Natural` for PrimNatural), or nil when none is loaded.
 func (m *Model) ScalarSymbol(prim PrimType) *symbols.Symbol {
