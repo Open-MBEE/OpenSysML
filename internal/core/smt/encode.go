@@ -2,6 +2,7 @@ package smt
 
 import (
 	"fmt"
+	"math/big"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -1299,7 +1300,28 @@ func (v *env) evaluate(expr *solve.Expression) (value, defined *solve.Term) {
 		conditions = append(conditions, solve.Substitute(d, replace))
 	}
 	conditions = append(conditions, reads...)
-	return value, solve.And(conditions...)
+	defined = solve.And(conditions...)
+	if len(conditions) > 0 {
+		// Where the interpreter would not compute it, the value is any of its
+		// sort, so no term the relation states is ever evaluated undefined.
+		value = solve.Ite(defined, value, zeroOf(value.Sort))
+	}
+	return value, defined
+}
+
+// zeroOf is a literal of the sort, the value an undefined computation stands in as.
+func zeroOf(sort solve.Sort) *solve.Term {
+	switch sort.Kind {
+	case solve.SortBool:
+		return solve.BoolTerm(false)
+	case solve.SortInt:
+		return solve.IntTerm(0)
+	case solve.SortReal:
+		return solve.RealTerm(new(big.Rat))
+	case solve.SortString:
+		return solve.StringTerm("")
+	}
+	return solve.ValueTerm(sort, sort.Values[0])
 }
 
 // has is state s's copy of the flag saying whether base holds a value.

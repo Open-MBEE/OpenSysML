@@ -172,18 +172,35 @@ func TestRefereeCorpus(t *testing.T) {
 // refereeCase holds one case to the interpreter, adding to the tally.
 func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, tally *refereeTally) {
 	d, action := corpusDocument(t, name, c)
-	q := analysis.Question{Kind: analysis.Holds, Subject: action.Name, Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{
-		Behavior: action,
-		Start: func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
-			return ctx.CreateActionExecutor(action)
-		},
-	}}
 	budget := analysis.Budget{Depth: DefaultMoves}
-	fresh := func() (*runtime.Context, error) {
-		return d.model.NewContextOn(0, budget)
+	encoding, refusal := encodeDocument(t, d, action, budget)
+	if refusal != nil {
+		tally.refused++
+		tally.refusals = append(tally.refusals, name+": "+refusal.Error())
+		t.Logf("refused: %v", refusal)
+		return
 	}
+	tally.encoded++
+	exploration := explore(t, c.exploreBudget(), d.fresh(budget), action)
+	outcomes := compareOutcomes(t, solver, encoding, d, action, budget, exploration)
+	tally.witnesses += outcomes.witnesses
+	tally.replayed += outcomes.replayed
+	agreeing := outcomes.agreeing && refereeVerdict(t, solver, d, action, budget, exploration)
+	if agreeing {
+		tally.agreeing++
+	}
+}
 
-	ctx, err := fresh()
+// fresh builds one context of the document's model under the budget.
+func (d *document) fresh(budget analysis.Budget) func() (*runtime.Context, error) {
+	return func() (*runtime.Context, error) { return d.model.NewContextOn(0, budget) }
+}
+
+// encodeDocument encodes the action as the engine would, returning the refusal
+// of a construct outside the stage, or failing on a fault.
+func encodeDocument(t *testing.T, d *document, action *symbols.Symbol, budget analysis.Budget) (*Encoding, error) {
+	t.Helper()
+	ctx, err := d.fresh(budget)()
 	if err != nil {
 		t.Fatalf("context: %v", err)
 	}
@@ -191,40 +208,38 @@ func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, 
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	encoding, err := Encode(ctx, action, exec.Graph(), DefaultMoves, DefaultUnroll)
-	exec.Release()
+	defer exec.Release()
+	encoding, err := Encode(ctx, action, exec.Graph(), budget.Depth, DefaultUnroll)
 	if err != nil {
-		if refusal, fault := refusalOf(err); fault != nil {
+		refusal, fault := refusalOf(err)
+		if fault != nil {
 			t.Fatalf("encode: %v", fault)
-		} else {
-			tally.refused++
-			tally.refusals = append(tally.refusals, name+": "+refusal.Error())
-			t.Logf("refused: %v", refusal)
-			return
 		}
+		return nil, refusal
 	}
-	tally.encoded++
+	return encoding, nil
+}
 
-	exploration := exploreCase(t, c, fresh, action)
+// comparedOutcomes is what checks 1 and 2 found over one action.
+type comparedOutcomes struct {
+	explored, found     []string
+	agreeing            bool
+	witnesses, replayed int
+}
+
+// compareOutcomes runs checks 1 and 2: the outcomes the solver enumerates are
+// the completed outcomes the exploration reached, and one witness per outcome
+// replays to it with the witness's own trace.
+func compareOutcomes(t *testing.T, solver *solve.Solver, encoding *Encoding, d *document, action *symbols.Symbol, budget analysis.Budget, exploration *runtime.Exploration) comparedOutcomes {
+	t.Helper()
+	fresh := d.fresh(budget)
 	explored := make(map[string]string)
 	for _, o := range exploration.Outcomes {
-		if o.Outcome.Err != nil {
-			continue
-		}
-		explored[rootOutputs(o.Outcome)] = runtime.FormatChoices(o.Witness)
-	}
-	deadlocks, failures := 0, 0
-	for _, o := range exploration.Outcomes {
-		switch {
-		case o.Outcome.Err == nil:
-		case errors.Is(o.Outcome.Err, runtime.ErrActionDeadlock):
-			deadlocks++
-		default:
-			failures++
+		if o.Outcome.Err == nil {
+			explored[rootOutputs(o.Outcome)] = runtime.FormatChoices(o.Witness)
 		}
 	}
 
-	// Check 1: the outcome sets agree.
 	completion := encoding.Completion()
 	enumerated, err := solver.Enumerate(context.Background(), completion, encoding.OutputVars(), len(explored)+1)
 	if err != nil {
@@ -241,22 +256,21 @@ func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, 
 		}
 		found[spellOutputs(outputs)] = values
 	}
-	agreeing := true
+	out := comparedOutcomes{explored: sortedKeys(explored), found: sortedKeys(found), agreeing: true}
 	for identity, witness := range explored {
 		if _, ok := found[identity]; !ok {
-			agreeing = false
+			out.agreeing = false
 			t.Errorf("the exploration reached an outcome the solver does not: %s\n  witness: %s", identity, witness)
 		}
 	}
 	for identity := range found {
 		if _, ok := explored[identity]; !ok {
-			agreeing = false
+			out.agreeing = false
 			t.Errorf("the solver reaches an outcome the exploration does not: %s", identity)
 		}
 	}
 
-	// Check 2: one witness per outcome replays to it, its trace the witness's choices.
-	for _, identity := range sortedKeys(found) {
+	for _, identity := range out.found {
 		fixed, err := encoding.Fix(completion, found[identity])
 		if err != nil {
 			t.Fatalf("fix outcome: %v", err)
@@ -273,15 +287,37 @@ func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, 
 		if err != nil {
 			t.Fatalf("decode witness: %v", err)
 		}
-		tally.witnesses++
+		out.witnesses++
 		if replayOutcome(t, fresh, action, identity, w) {
-			tally.replayed++
+			out.replayed++
 		}
 	}
+	t.Logf("%d outcomes explored (%s), %d enumerated, %d of %d witnesses replayed", len(explored), exploration.Status(), len(found), out.replayed, out.witnesses)
+	return out
+}
 
-	// Check 3: the deadlock verdict agrees with the exhaustive exploration.
-	engine := New(func() (*solve.Solver, error) { return solver, nil })
-	verdict := answer(t, engine, d, q, budget)
+// refereeVerdict runs check 3: the engine's verdict on the action agrees with
+// what the exhaustive exploration reached.
+func refereeVerdict(t *testing.T, solver *solve.Solver, d *document, action *symbols.Symbol, budget analysis.Budget, exploration *runtime.Exploration) bool {
+	t.Helper()
+	deadlocks, failures := 0, 0
+	for _, o := range exploration.Outcomes {
+		switch {
+		case o.Outcome.Err == nil:
+		case errors.Is(o.Outcome.Err, runtime.ErrActionDeadlock):
+			deadlocks++
+		default:
+			failures++
+		}
+	}
+	q := analysis.Question{Kind: analysis.Holds, Subject: action.Name, Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{
+		Behavior: action,
+		Start: func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
+			return ctx.CreateActionExecutor(action)
+		},
+	}}
+	verdict := answer(t, New(func() (*solve.Solver, error) { return solver, nil }), d, q, budget)
+	agreeing := true
 	switch {
 	case deadlocks > 0:
 		if verdict.Claim != analysis.ClaimViolated || !errors.Is(verdict.Values[0].Err, runtime.ErrActionDeadlock) {
@@ -302,15 +338,12 @@ func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, 
 			t.Logf("proved by the engine; the exploration was %s", exploration.Status())
 		}
 	}
-	if agreeing {
-		tally.agreeing++
-	}
-	t.Logf("%d outcomes explored (%s), %d enumerated; engine: %v/%v", len(explored), exploration.Status(), len(found), verdict.Claim, verdict.Strength)
+	t.Logf("engine: %v/%v", verdict.Claim, verdict.Strength)
+	return agreeing
 }
 
-// exploreCase runs the case's exploration under its own budget.
-func exploreCase(t *testing.T, c corpusCase, fresh func() (*runtime.Context, error), action *symbols.Symbol) *runtime.Exploration {
-	t.Helper()
+// exploreBudget is the budget a case's exploration runs under.
+func (c corpusCase) exploreBudget() runtime.ExploreBudget {
 	budget := runtime.DefaultExploreBudget
 	if c.ExploreBudget != nil {
 		if c.ExploreBudget.Runs != nil {
@@ -320,6 +353,12 @@ func exploreCase(t *testing.T, c corpusCase, fresh func() (*runtime.Context, err
 			budget.Depth = *c.ExploreBudget.Depth
 		}
 	}
+	return budget
+}
+
+// explore runs every linearization of the action under the budget.
+func explore(t *testing.T, budget runtime.ExploreBudget, fresh func() (*runtime.Context, error), action *symbols.Symbol) *runtime.Exploration {
+	t.Helper()
 	policy, err := runtime.ExplorePolicy(budget)
 	if err != nil {
 		t.Fatalf("explore policy: %v", err)
