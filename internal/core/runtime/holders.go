@@ -249,7 +249,7 @@ func (ctx *Context) returnedArguments(scope *symbols.Scope, call *ast.Invocation
 // shape of the calc feature the chain denotes, which the named arguments bind parameters of.
 func (ctx *Context) chainTarget(scope *symbols.Scope, chain *ast.FeatureChainExpr, named []ast.NamedArg) *invocationTarget {
 	target := &invocationTarget{qualName: chainText(chain)}
-	if sym, ok := ctx.model.resolver.ResolveTarget(scope, chain); ok && sym != nil {
+	if sym, ok := ctx.resolveTarget(scope, chain); ok && sym != nil {
 		if shape, err := ctx.calcShapeOf(sym); err == nil {
 			target.calc, target.shape = sym, shape
 		}
@@ -335,7 +335,7 @@ func (ctx *Context) collectReturnedParameters(shape *calcShape, passed, params m
 		if source.expr == nil {
 			return
 		}
-		if sym, ok := ctx.model.resolver.LookupName(in, name); ok {
+		if sym, ok := ctx.lookupName(in, name); ok {
 			locals[sym] = append(locals[sym], source)
 		}
 	}
@@ -413,12 +413,12 @@ func (ctx *Context) referencedSymbol(scope *symbols.Scope, qn *ast.QualifiedName
 		return nil
 	}
 	if len(qn.Parts) == 1 && !qn.Global {
-		if sym, ok := ctx.model.resolver.LookupName(scope, qn.Parts[0].Text); ok {
+		if sym, ok := ctx.lookupName(scope, qn.Parts[0].Text); ok {
 			return sym
 		}
 		return nil
 	}
-	sym, _ := ctx.model.resolver.ReadQualified(scope, qn).Symbol()
+	sym, _ := ctx.readQualified(scope, qn).Symbol()
 	return sym
 }
 

@@ -1962,3 +1962,123 @@ func TestHoldingByAWiderTypeRecordsItAsADirectType(t *testing.T) {
 		})
 	}
 }
+
+// Membership in an enumeration is decided by equality with its enumerated values, its only
+// instances (SysML v2 §8.3.7); hastype reads the value's own type alone (KerML 1.0 §7.4.9.2).
+func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::*;
+		metadata def Hot;
+		enum def Level :> Integer { low = 1; high = 3 { attribute n = 9; @Hot; } }
+		enum def Grade :> Real { a = 4.0; b = 3.0; }
+		enum def Color { red; green; blue; }
+		enum def Rank :> Integer { one = 1; three = 3; }
+		enum def Size :> Real { = 60.0; = 70.0; }
+		enum def Wide :> Size { = 80.0; }
+		attribute def Even :> Integer;
+		attribute two : Integer = 2;
+		attribute three : Integer = 3;
+		attribute lvl : Level = Level::high;
+		attribute held : Level = three;
+		attribute cast : Level[0..1] = 3 as Level;
+		attribute ranked : Rank = Level::high;
+		attribute c : Color = Color::red;
+		calc def isLevel { in x : Level; return : Boolean = x hastype Level; }
+		calc def asLevel { in n : Integer; return : Level = n; }
+		calc def viaBody { in n : Integer; attribute doubled = n + n; return : Level = doubled - n; }
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	for src, want := range map[string]bool{
+		"3 istype Level": true, "2 istype Level": false, "three istype Level": true, "two istype Level": false,
+		"3 @ Level": true, "2 @ Level": false, "(1, 2, 3) @ Level": true, "(2, 4) @ Level": false,
+		"3 hastype Level": false, "3 hastype Integer": true, "three hastype Level": false,
+		"Level::high hastype Level": true, "Level::high hastype Integer": false,
+		"Level::high istype Integer": true, "Level::high istype Level": true, "Level::high istype Even": false,
+		"lvl hastype Level": true, "lvl hastype Integer": false, "lvl istype Integer": true,
+		"held hastype Level": true, "cast hastype Level": true,
+		"Level::high istype Rank": true, "Level::high hastype Rank": false,
+		"(Level::high as Rank) hastype Rank": true, "(Level::high as Rank) hastype Level": false,
+		"ranked hastype Rank": true, "ranked hastype Level": false, "Level::low istype Rank": true,
+		"60.0 istype Size": true, "65.0 istype Size": false, "(60.0 as Size) hastype Size": true, "60.0 hastype Size": false,
+		"60.0 istype Wide": true, "80.0 istype Wide": true, "65.0 istype Wide": false, "(60.0 as Wide) istype Wide": true, "(60.0 as Wide) hastype Size": true,
+		"(3 as Level) hastype Level": true, "(3 as Level) hastype Integer": false, "(3 as Level) == 3": true,
+		"Level::high == 3": true, "Level::high + 1 == 4": true, "(Level::high + 1) hastype Integer": true,
+		"4 istype Grade": true, "4.0 istype Grade": true, "2.5 istype Grade": false, "3 istype Grade": true,
+		"Grade::a hastype Grade": true, "Grade::a hastype Real": false,
+		"3 istype Color": false, "Color::red istype Color": true, "Color::red hastype Color": true,
+		"c hastype Color": true, "Color::red istype Level": false, "Level::high istype Color": false,
+		"(Color::red as Color) hastype Color": true,
+		"isLevel(3)":                          true, "isLevel(three)": true, "asLevel(3) hastype Level": true, "asLevel(3) hastype Integer": false,
+		"viaBody(3) hastype Level": true, "viaBody(3) hastype Integer": false,
+		"Level::high.n == 9": true, "lvl.n == 9": true, "(3 as Level).n == 9": true,
+		"Level::high @ Hot": true, "Level::low @ Hot": false,
+		"Level::high === 3": false, "Level::high === Level::high": true, "Level::high === Rank::three": false,
+		"lvl === Level::high": true, "(3 as Level) === Level::high": true, "Level::high !== 3": true,
+	} {
+		val, err := evalIn(t, ctx, pkg.Scope, src)
+		if err != nil || val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
+			t.Fatalf("%s = %s, %v; want a Boolean", src, FormatValue(val), err)
+		}
+		if val.Const.Bool != want {
+			t.Errorf("%s = %t, want %t", src, val.Const.Bool, want)
+		}
+	}
+	for src, want := range map[string]string{
+		"3 as Level": "3", "2 as Level": "[]", "(1, 2, 3, 4) as Level": "[1, 3]", "three as Level": "3",
+		"Color::red as Color": "Color::red", "Color::red as Level": "[]", "4 as Grade": "4.0",
+	} {
+		val, err := evalIn(t, ctx, pkg.Scope, src)
+		if err != nil {
+			t.Fatalf("%s: %v", src, err)
+		}
+		if got := FormatValue(val); got != want {
+			t.Errorf("%s = %s, want %s", src, got, want)
+		}
+	}
+	if _, err := evalIn(t, ctx, pkg.Scope, "5 as Even"); !errors.Is(err, ErrUndecidedClassification) {
+		t.Errorf("5 as Even: %v, want ErrUndecidedClassification", err)
+	}
+	for _, src := range []string{"isLevel(2)", "asLevel(2)"} {
+		if _, err := evalIn(t, ctx, pkg.Scope, src); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: %v, want ErrTypeMismatch", src, err)
+		}
+	}
+}
+
+// A feature typed by an enumeration admits an enumerated value, held as the literal it
+// equals, and refuses any other by the write-conformance rule.
+func TestEnumerationTypedFeatureAdmitsOnlyEnumeratedValues(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::*;
+		enum def Level :> Integer { low = 1; high = 3; }
+		attribute two : Integer = 2;
+		attribute three : Integer = 3;
+		part def Dial {
+			attribute setting : Level = three;
+			attribute isHigh = setting hastype Level;
+		}
+		part def Broken { attribute setting : Level = two; }
+		part dial : Dial;
+		part broken : Broken;
+	}`)
+	dial := instantiateQualified(t, ctx, idx, "test::dial")
+	if got := readInt(t, ctx, dial, "setting"); got != 3 {
+		t.Fatalf("dial.setting = %d, want 3", got)
+	}
+	if !readBool(t, ctx, dial, "isHigh") {
+		t.Error("dial.setting hastype Level = false once 3 is held as a Level")
+	}
+	broken, err := ctx.Instantiate(idx.LookupQualified("test::broken")[0])
+	if err == nil {
+		_, err = broken.GetFeatureValue(ctx, "setting")
+	}
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("broken.setting = 2: %v, want ErrTypeMismatch", err)
+	}
+	if !strings.Contains(err.Error(), "Level") {
+		t.Errorf("error = %v, want the feature's type named", err)
+	}
+}

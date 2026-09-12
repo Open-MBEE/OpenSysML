@@ -8,8 +8,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -1133,7 +1131,7 @@ func (e *EvalContext) invokesCalc(scope *symbols.Scope, invocation *ast.Invocati
 	if e.ctx == nil || e.ctx.model.resolver == nil || e.ctx.model.semantics == nil || scope == nil {
 		return false
 	}
-	sel := passes.SelectInvocation(e.ctx.model.resolver, e.ctx.model.semantics, scope, invocation, semantics.PerformsBehavior)
+	sel := e.ctx.selectInvocation(scope, invocation, semantics.PerformsBehavior)
 	if sel.Ambiguous {
 		return true
 	}
@@ -1231,7 +1229,7 @@ func (e *EvalContext) constructedType(scope *symbols.Scope, typeRef *ast.Qualifi
 	if scope == nil || e.ctx == nil || e.ctx.model.resolver == nil {
 		return nil, fmt.Errorf("%s %s: no scope resolves the type", prefix, name)
 	}
-	sym, ok := e.ctx.model.resolver.ResolveQualified(scope, typeRef)
+	sym, ok := e.ctx.resolveQualified(scope, typeRef)
 	if !ok || sym == nil {
 		return nil, fmt.Errorf("%s %s: unresolved reference: %s", prefix, name, name)
 	}
@@ -1329,7 +1327,7 @@ func (e *EvalContext) constructorLabel(scope *symbols.Scope, signal *symbols.Sym
 		}
 		return qn.Parts[0].Text, nil
 	}
-	feature, ok := e.ctx.model.resolver.ResolveReference(resolve.Reference{Scope: scope, QN: qn, Constructed: typeRef})
+	feature, ok := e.ctx.resolveConstructorLabel(scope, typeRef, qn)
 	if !ok || feature == nil || !slices.Contains(e.ctx.model.semantics.MembersOf(signal), feature) {
 		return "", fmt.Errorf("%s is not a feature of %s", label, signal.Name)
 	}
@@ -1459,7 +1457,7 @@ func (e *EvalContext) definitionNamed(scope *symbols.Scope, qname *ast.Qualified
 	if qname == nil || scope == nil || e.ctx == nil || e.ctx.model.resolver == nil {
 		return nil, false
 	}
-	sym, ok := e.ctx.model.resolver.ResolveQualified(scope, qname)
+	sym, ok := e.ctx.resolveQualified(scope, qname)
 	if !ok || sym == nil {
 		return nil, false
 	}

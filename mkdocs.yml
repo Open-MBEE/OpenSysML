@@ -145,6 +145,7 @@ exclude_docs: |
   project/lossless-library-records.md
   project/errata-overlay.md
   project/oosem-library.md
+  project/mosa-library.md
 
 nav:
   - Documentation: README.md

@@ -21,9 +21,9 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - The pin `cmd/pilot-diff` reports comes from `build/pilot-sysml-validator/pilot-pin.txt`
   (written by the new script), not from the DeciSym `pom.xml`.
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
-- Measured after the bare feature-reference typing round, with a fresh library cache: `370 file(s), 337 fully agreeing; 34 agreed,
-  32 only ours, 671 only the pilot's`, JSON totals `openSysMLDiagnostics 68 / pilotDiagnostics
-  707 / severityMismatch 2`; ~2 min wall, byte-identical across runs *and* after a from-scratch
+- Measured after the MOSA library and bare feature-reference typing rounds, with a fresh library cache: `371 file(s), 337 fully agreeing; 34 agreed,
+  37 only ours, 1111 only the pilot's`, JSON totals `openSysMLDiagnostics 74 / pilotDiagnostics
+  1148 / severityMismatch 3`; ~2 min wall, byte-identical across runs *and* after a from-scratch
   rebuild of `build/pilot-validator`. `kerml-examples` carries no `syntax` diagnostic on either
   side. Refresh this paragraph with every rebaseline, and treat a stale one as a finding.
 - **`cmd/pilot-diff` has no `-jobs` flag.** Its full flag set is
@@ -134,8 +134,8 @@ The harness compares OpenSysML diagnostics against the OMG SysML v2 Pilot Implem
 (via two pinned plain-Java bridges over the pilot's own validators) over four corpus roots and writes
 `build/pilot-diff/pilot-diff.{txt,json}`. `docs/project/pilot-differential-baseline.json` is the
 committed result of the *last refreshed* run, so **the harness is testable by reproduction** —
-but only while the baseline is current. Check that first. As of the rebaseline that came with the bare feature-reference typing round it **is**
-current: a live run gives `370 file(s), 337 fully agreeing; 34 agreed, 32 only ours, 671 only the
+but only while the baseline is current. Check that first. As of the rebaseline that came with the MOSA library and bare feature-reference typing rounds it **is**
+current: a live run gives `371 file(s), 337 fully agreeing; 34 agreed, 37 only ours, 1111 only the
 pilot's`, byte-identical to the committed baseline, and `docs/project/pilot-differential.md`'s
 "Results" table matches. The rebaseline before it, at the architecture self-model's landing, covered two rounds, because the succession-shorthand
 removal before it landed without refreshing the baseline; a control run of its merge commit gives

@@ -83,15 +83,12 @@ func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
 // step after it walks from and the last step writes on. named names the step for
 // the diagnostic.
 func (ec *EvalContext) chainObject(value Value, named string) (*Instance, error) {
+	if literal := value.EnumerationLiteral(); literal != nil {
+		return ec.ctx.enumLiteralObject(literal)
+	}
 	switch value.Kind {
 	case ValNull, ValInvalid:
 		return nil, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, named)
-	case ValEnumLiteral:
-		inst, err := ec.ctx.enumLiteralObject(value.Literal())
-		if err != nil {
-			return nil, err
-		}
-		return inst, nil
 	case ValSequence, ValSet:
 		return nil, fmt.Errorf("%w: %s holds %s, and a write reaches one object",
 			ErrTypeMismatch, named, describeValue(value))

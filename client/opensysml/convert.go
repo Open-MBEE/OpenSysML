@@ -120,6 +120,7 @@ func valueFromProto(value *pb.Value) Value {
 			LiteralID:     kind.EnumLiteral.GetLiteralId(),
 			EnumerationID: kind.EnumLiteral.GetEnumerationId(),
 			Name:          kind.EnumLiteral.GetName(),
+			Value:         valueFromProto(kind.EnumLiteral.GetValue()),
 		}
 	case *pb.Value_Unset:
 		return Unset{}
@@ -247,10 +248,15 @@ func valueToProto(value Value) (*pb.Value, error) {
 		}
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: sent}}, nil
 	case EnumLiteral:
+		scalar, err := valueToProto(v.Value)
+		if err != nil {
+			return nil, err
+		}
 		return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: &pb.EnumLiteral{
 			LiteralId:     v.LiteralID,
 			EnumerationId: v.EnumerationID,
 			Name:          v.Name,
+			Value:         scalar,
 		}}}, nil
 	case Array:
 		array := &pb.Array{

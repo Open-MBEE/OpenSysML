@@ -71,8 +71,8 @@ func (ec *EvalContext) castEntries(
 // its values where their own content does not state their type (KerML 1.0 §7.3.4.1).
 func (ec *EvalContext) declaredOperandTypes(operand ast.Node) []*symbols.Symbol {
 	// An enumeration literal is of its enumeration however its value is written.
-	if sym, ok := ec.ctx.model.resolver.ResolveTarget(ec.scope, operand); ok && sym != nil {
-		if canonical, aliased := ec.ctx.model.resolver.ResolveAliasTarget(sym); aliased {
+	if sym, ok := ec.ctx.resolveTarget(ec.scope, operand); ok && sym != nil {
+		if canonical, aliased := ec.ctx.resolveAliasTarget(sym); aliased {
 			sym = canonical
 		}
 		if enum := semantics.EnumerationOwning(sym); enum != nil {
@@ -101,7 +101,7 @@ func (ec *EvalContext) castValue(
 		elements := elementsOf(value)
 		kept := make([]Value, 0, len(elements))
 		for _, element := range elements {
-			keep, err := ec.castKeeps(element, target, declared)
+			element, keep, err := ec.castKept(element, target, declared)
 			if err != nil {
 				return Value{}, err
 			}
@@ -121,14 +121,30 @@ func (ec *EvalContext) castValue(
 		}
 		return ec.sequenceFrom(kept, value)
 	}
-	keep, err := ec.castKeeps(value, target, declared)
+	kept, keep, err := ec.castKept(value, target, declared)
 	if err != nil {
 		return Value{}, err
 	}
 	if !keep {
 		return ec.sequenceFrom(nil, value)
 	}
-	return value, nil
+	return kept, nil
+}
+
+// castKept is the value a cast keeps: the value itself, or the enumerated value it
+// equals when target is an enumeration (`3 as Level` is `Level::high`).
+func (ec *EvalContext) castKept(
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
+) (Value, bool, error) {
+	keep, err := ec.castKeeps(value, target, declared)
+	if err != nil || !keep {
+		return value, keep, err
+	}
+	enumerated, found, err := ec.ctx.asEnumerated(value, target)
+	if err != nil || !found {
+		return value, true, err
+	}
+	return enumerated, true, nil
 }
 
 // castKeeps reports whether target classifies one value, by the shared classification;

@@ -302,7 +302,14 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("two_valued_member_in_scalar_context", testTwoValuedMemberInScalarContext)
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
+	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
+	t.Run("extent_reaching_a_namespace_collection", testExtentReachingANamespaceCollection)
+	t.Run("extent_over_an_object_that_cannot_be_read", testExtentOverAnObjectThatCannotBeRead)
+	t.Run("extent_over_recursive_composition", testExtentOverRecursiveComposition)
+	t.Run("extent_through_a_value_recursing_and_not", testExtentThroughAValueRecursingAndNot)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
+	t.Run("enumeration_typed_feature_holding_an_unenumerated_value", testEnumerationTypedFeatureHoldingAnUnenumeratedValue)
+	t.Run("enumeration_whose_literal_value_cannot_be_evaluated", testEnumerationWhoseLiteralValueCannotBeEvaluated)
 	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
 	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
 	t.Run("send_addressed_through_several_occurrences", testSendAddressedThroughSeveralOccurrences)
@@ -360,6 +367,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("structured_value_outside_the_declared_shape", testStructuredValueOutsideTheDeclaredShape)
 	t.Run("real_literal_that_underflows", testRealLiteralThatUnderflows)
 	t.Run("string_operand_of_the_wrong_kind", testStringOperandOfTheWrongKind)
+	t.Run("ordering_operand_with_no_library_ordering", testOrderingOperandWithNoLibraryOrdering)
 	t.Run("collection_body_of_the_wrong_arity", testCollectionBodyOfTheWrongArity)
 	t.Run("select_predicate_is_not_a_condition", testSelectPredicateIsNotACondition)
 	t.Run("collection_operation_step_budget", testCollectionOperationStepBudget)
@@ -2738,6 +2746,111 @@ func testStringOperandOfTheWrongKind(t *testing.T) {
 	}
 }
 
+// testOrderingOperandWithNoLibraryOrdering: an ordering operator over a value
+// the Kernel Function Library declares no ordering for — DataFunctions::'<' and
+// ScalarFunctions::'<' are abstract; the numeric libraries and StringFunctions
+// alone declare it — is a type mismatch naming the operator, both operands and
+// the library function that would have to declare it, never a claim that the
+// operands are not constants. Where the library does order (a numeric
+// enumeration, Strings, quantities) the answer is unchanged.
+func testOrderingOperandWithNoLibraryOrdering(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			private import ISQ::*;
+			private import SI::*;
+			enum def Color { red; green; blue; }
+			enum def Level :> Integer { low = 1; high = 3; }
+			part def Widget;
+			part widget : Widget;
+			attribute def Point { attribute x : Integer = 1; }
+			attribute point : Point;
+			metadata def Tag;
+			#Tag part tagged : Widget;
+			calc twice { in x : Integer; x * 2 }
+			attribute xs : Integer[*] = (1, 2);
+			part other : Widget;
+			attribute widgets : Widget[*] = (widget, other);
+			attribute nothing : Integer[0..1];
+			attribute side : LengthValue = 2 [m];
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	const (
+		color  = "DataFunctions::'%s' is abstract and no library function declares '%s' for the enumeration Color, which is no ScalarValue"
+		oneVal = "DataFunctions::'%s' takes one DataValue per operand"
+	)
+	refused := []struct {
+		expr, op string
+		what     string
+		library  string
+	}{
+		{"Color::red < Color::blue", "<", "the enumeration literal Color::red and the enumeration literal Color::blue", color},
+		{"Color::red > Color::blue", ">", "the enumeration literal Color::red and the enumeration literal Color::blue", color},
+		{"Color::red <= Color::blue", "<=", "the enumeration literal Color::red and the enumeration literal Color::blue", color},
+		{"Color::red >= Color::blue", ">=", "the enumeration literal Color::red and the enumeration literal Color::blue", color},
+		{"1 < Color::red", "<", "an Integer and the enumeration literal Color::red", color},
+		{"Level::low < Color::red", "<", "an Integer and the enumeration literal Color::red", color},
+		{"widget < widget", "<", "an instance and an instance", "DataFunctions::'%s' takes DataValue operands and an instance of the part def Widget is none"},
+		{"tagged.metadata#(1) < 1", "<", "an instance and an Integer", "DataFunctions::'%s' takes DataValue operands and an instance of the metadata def Tag is none"},
+		{"(tagged meta Tag) < 1", "<", "an instance and an Integer", "DataFunctions::'%s' takes DataValue operands and an instance of the metadata def Tag is none"},
+		{"tagged.metadata < 1", "<", "a sequence and an Integer", oneVal},
+		{"point < point", "<", "an instance and an instance", "DataFunctions::'%s' is abstract and no library function declares '%s' for an instance of the attribute def Point, which is no ScalarValue"},
+		{"twice < 1", "<", "the function test::twice and an Integer", "DataFunctions::'%s' takes DataValue operands and the function test::twice is none"},
+		{"widgets < 1", "<", "a sequence and an Integer", oneVal},
+		{"xs > 1", ">", "a sequence and an Integer", oneVal},
+		{"1 <= xs->including(3)", "<=", "an Integer and a sequence", oneVal},
+		{"nothing < 1", "<", "a sequence and an Integer", oneVal},
+		{"null >= 1", ">=", "null and an Integer", oneVal},
+		{"true < false", "<", "a Boolean and a Boolean", "ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean"},
+		{"1 < true", "<", "an Integer and a Boolean", "ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean"},
+		{"2 [m] < true", "<", "a quantity and a Boolean", "ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean"},
+		{"2 [m] < *", "<", "a quantity and an infinity", "QuantityCalculations::'%s' takes ScalarQuantityValue operands and an infinity is none"},
+		{"* >= side", ">=", "an infinity and a quantity", "QuantityCalculations::'%s' takes ScalarQuantityValue operands and an infinity is none"},
+		{"side < Color::red", "<", "a quantity and the enumeration literal Color::red", color},
+		{"m < s", "<", "a measurement reference and a measurement reference", "DataFunctions::'%s' is abstract and no library function declares '%s' for a measurement reference, which is no ScalarValue"},
+	}
+	for _, tt := range refused {
+		library := strings.ReplaceAll(tt.library, "%s", tt.op)
+		want := fmt.Sprintf("type mismatch: operator '%s' is not defined for %s; %s", tt.op, tt.what, library)
+		got, err := evalIn(t, ctx, pkg.Scope, tt.expr)
+		var opErr *OperandTypeError
+		if !errors.As(err, &opErr) || !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s = (%s, %v), want an OperandTypeError wrapping %v", tt.expr, FormatValue(got), err, ErrTypeMismatch)
+			continue
+		}
+		if err.Error() != want {
+			t.Errorf("%s:\n got  %q\n want %q", tt.expr, err.Error(), want)
+		}
+		if strings.Contains(err.Error(), "must be constants") {
+			t.Errorf("%s: %q claims the operands are not constants", tt.expr, err)
+		}
+		if opErr.Span == (source.Span{}) {
+			t.Errorf("%s: the error carries no span to locate the operator", tt.expr)
+		}
+	}
+	ordered := map[string]bool{
+		"Level::low < Level::high":  true,
+		"Level::high <= Level::low": false,
+		`"a" < "b"`:                 true,
+		"2 [m] > 1 [m]":             true,
+		"side >= 200 [cm]":          true,
+		"1 < 2.5":                   true,
+		"3 > *":                     false,
+	}
+	for expr, want := range ordered {
+		got, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil || !valueIdentical(got, constBool(want)) {
+			t.Errorf("%s = %s, %v; want %v", expr, FormatValue(got), err, want)
+		}
+	}
+}
+
 // testCollectionOperandOfTheWrongKind: an operation given something that is not
 // the kind of value it operates on reports it rather than reading the value as a
 // collection of itself or as nothing.
@@ -4612,6 +4725,288 @@ func testCastToAnUnresolvedType(t *testing.T) {
 	}
 }
 
+// `all T` names a type: a name resolving to nothing, an operand that is no name, and a
+// data type declaring no values are each a typed error, and none disturbs the run.
+func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Car { part wheels : Wheel[2]; }
+		part car : Car;
+		package Spares;
+		dependency Supply from Spares to Car;
+		comment Note about Car /* wheels */
+		calc missing { return : Natural = size(all MissingType); }
+		calc noName { return : Natural = size(all (1 + 2)); }
+		calc ofPackage { return : Natural = size(all Spares); }
+		calc ofQualifiedPackage { return : Natural = size(all P::Spares); }
+		calc ofRelationship { return : Natural = size(all Supply); }
+		calc ofComment { return : Natural = size(all Note); }
+		calc unbounded { return : Natural = size(all Integer); }
+		calc unboundedString { return : Natural = size(all String); }
+		attribute def Point { attribute x : Real; }
+		attribute origin : Point;
+		calc unboundedStructured { return : Natural = size(all Point); }
+		calc counted { return : Natural = size(all Wheel); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	for _, tc := range []struct {
+		calc string
+		want error
+		name string
+	}{
+		{"missing", ErrUnresolvedType, "MissingType"},
+		{"noName", ErrTypeMismatch, "requires the name of a type"},
+		{"ofPackage", ErrTypeMismatch, "Spares is a package"},
+		{"ofQualifiedPackage", ErrTypeMismatch, "P::Spares is a package"},
+		{"ofRelationship", ErrTypeMismatch, "Supply is a dependency"},
+		{"ofComment", ErrTypeMismatch, "Note is a comment"},
+		{"unbounded", ErrUnboundedExtent, "Integer"},
+		{"unboundedString", ErrUnboundedExtent, "String"},
+		{"unboundedStructured", ErrUnboundedExtent, "Point is a data type"},
+	} {
+		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
+		if !errors.Is(err, tc.want) {
+			t.Fatalf("%s: err = %v, want %v", tc.calc, err, tc.want)
+		}
+		if !strings.Contains(err.Error(), tc.name) {
+			t.Errorf("%s: error = %v, want %q named", tc.calc, err, tc.name)
+		}
+	}
+	if _, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "car")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "counted"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "2" {
+		t.Errorf("size(all Wheel) = %s, %v; want 2", FormatValue(got), err)
+	}
+}
+
+// testExtentReachingANamespaceCollection: a namespace-level usage of several occurrences
+// (`part wheels : Wheel[2]` in a package), or a namespace-level port, denotes no object the run
+// reaches — reading it yields nothing — so an extent it may contribute to is refused rather than
+// answered short; one it cannot contribute to, one a `[0..*]` usage would hold nothing of, and
+// one a port nested in a part contributes to, are answered.
+func testExtentReachingANamespaceCollection(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Hub { part wheel : Wheel; }
+		part def Seat;
+		port def Link;
+		part wheels : Wheel[2];
+		part hubs : Hub[1..*];
+		part spares : Wheel[0..*];
+		part seat : Seat;
+		port link : Link;
+		calc wheelCount { return : Natural = size(all Wheel); }
+		calc hubCount { return : Natural = size(all Hub); }
+		calc linkCount { return : Natural = size(all Link); }
+		calc seatCount { return : Natural = size(all Seat); }
+		package Q {
+			part seat2 : Seat;
+			part spares : Wheel[0..*];
+			calc seatCount { return : Natural = size(all Seat); }
+			calc wheelCount { return : Natural = size(all Wheel); }
+		}
+	}
+	package R {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Rig { port p : P::Link; }
+		part rig : Rig;
+		port spare : P::Link[0..1];
+		calc linkCount { return : Natural = size(all P::Link); }
+		package S {
+			port links : P::Link[2];
+			calc linkCount { return : Natural = size(all P::Link); }
+		}
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	for _, tc := range []struct{ calc, usage, mult string }{
+		{"wheelCount", "wheels", "[2]"},
+		{"hubCount", "hubs", "[1..*]"},
+		{"linkCount", "link", "port"},
+	} {
+		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
+		if !errors.Is(err, ErrExtentUnavailable) {
+			t.Fatalf("%s: err = %v, want %v", tc.calc, err, ErrExtentUnavailable)
+		}
+		for _, want := range []string{tc.usage, tc.mult} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("%s: error = %v, want %q named", tc.calc, err, want)
+			}
+		}
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "1" {
+		t.Errorf("size(all Seat) = %s, %v; want 1: the wheel collections hold no Seat", FormatValue(got), err)
+	}
+	q := resolveSymbol(t, pkg.Scope, "Q")
+	got, err = ctx.InvokeCalc(resolveSymbol(t, q.Scope, "seatCount"), nil, q.Scope)
+	if err != nil || FormatValue(got) != "2" {
+		t.Errorf("Q: size(all Seat) = %s, %v; want 2", FormatValue(got), err)
+	}
+	_, err = ctx.InvokeCalc(resolveSymbol(t, q.Scope, "wheelCount"), nil, q.Scope)
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "wheels") {
+		t.Errorf("Q: size(all Wheel) = %v, want the enclosing package's wheels refused", err)
+	}
+	r := resolveSymbol(t, root, "R")
+	got, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
+	if err != nil || FormatValue(got) != "1" {
+		t.Errorf("R: size(all Link) = %s, %v; want 1: the rig's port, an optional one holding nothing", FormatValue(got), err)
+	}
+	s := resolveSymbol(t, r.Scope, "S")
+	_, err = ctx.InvokeCalc(resolveSymbol(t, s.Scope, "linkCount"), nil, s.Scope)
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), "[2]") {
+		t.Errorf("S: size(all Link) = %v, want the two-port usage refused", err)
+	}
+}
+
+// testExtentOverAnObjectThatCannotBeRead: an extent materializes the nested usages it walks that
+// may hold an object of its type, and only those, so a usage that cannot be materialized — five
+// wheels under a budget of four elements — ends the extent with that usage's typed error, never
+// an extent short of what stands behind it, and leaves the extent of another type alone.
+func testExtentOverAnObjectThatCannotBeRead(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Seat;
+		part def Driver;
+		part def Car {
+			part seats : Seat[2];
+			part wheels : Wheel[5];
+			part driver : Driver;
+		}
+		part car : Car;
+		calc wheelCount { return : Natural = size(all Wheel); }
+		calc seatCount { return : Natural = size(all Seat); }
+		calc driverCount { return : Natural = size(all Driver); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx.maxElements = 4
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	if !errors.Is(err, ErrElementLimitExceeded) || !strings.Contains(err.Error(), "wheels") {
+		t.Fatalf("size(all Wheel) = %s, %v; want %v naming wheels", FormatValue(got), err, ErrElementLimitExceeded)
+	}
+	for calc, want := range map[string]string{"seatCount": "2", "driverCount": "1"} {
+		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		if err != nil || FormatValue(got) != want {
+			t.Fatalf("%s = %s, %v; want %s: the wheels hold no such object and are not read", calc, FormatValue(got), err, want)
+		}
+	}
+}
+
+// testExtentOverRecursiveComposition: an extent walked into a composition recursing through one
+// declaration — a part of its own type, a constructor of it, two types holding each other, a value
+// choosing one at run time — ends, leaving unread only the feature that would create another object
+// of a declaration on the path; every object it does create has its own wheel read, so none is
+// answered short of it.
+func testExtentOverRecursiveComposition(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Tree { part left : Tree; part leaf : Wheel; }
+		part def Chain { ref part tail : Chain = new Chain(); part leaf : Wheel; }
+		part def Pair { part a : Half; part b : Half; }
+		part def Half { part back : Pair; part hub : Wheel; }
+		part def Fork {
+			part tine = if false ? new Fork() else new Wheel();
+			part stem = if true ? new Fork() else new Wheel();
+		}
+		part tree : Tree;
+		part chain : Chain;
+		part pair : Pair;
+		part fork : Fork;
+		calc wheelCount { return : Natural = size(all Wheel); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 100000)
+	done := make(chan struct{})
+	var got Value
+	var err error
+	go func() {
+		defer close(done)
+		got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	}()
+	select {
+	case <-done:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the extent did not terminate on recursive composition")
+	}
+	if err != nil {
+		t.Fatalf("size(all Wheel): %v", err)
+	}
+	wheels := 0
+	for _, inst := range ctx.instances {
+		if inst.Type == nil {
+			continue
+		}
+		switch inst.Type.Name {
+		case "Wheel":
+			wheels++
+		case "tree", "Tree", "chain", "Chain", "Half", "fork", "Fork":
+			for _, name := range []string{"leaf", "hub", "tine"} {
+				if fv, has := inst.FeatureValues[name]; has && !fv.Materialized {
+					t.Errorf("object %d of %s: %s left unread, the extent is short of it", inst.ID, inst.Type.Name, name)
+				}
+			}
+			if fv, has := inst.FeatureValues["stem"]; has && fv.Materialized {
+				t.Errorf("object %d of %s: stem read, though what it makes is another Fork", inst.ID, inst.Type.Name)
+			}
+		}
+	}
+	if FormatValue(got) != fmt.Sprint(wheels) || wheels < 5 {
+		t.Errorf("size(all Wheel) = %s with %d wheels materialized; want every wheel of the objects there are, the tree's and chain's leaves, the pair's two hubs and the fork's tine at least", FormatValue(got), wheels)
+	}
+	if len(ctx.instances) > 20 {
+		t.Errorf("%d objects materialized: the walk is not bounded by the declarations on its path", len(ctx.instances))
+	}
+}
+
+// testExtentThroughAValueRecursingAndNot: a value that makes an object of a declaration on the path
+// together with one the extent would reach can be kept neither whole (the walk would not end) nor
+// in part, so the extent is refused with a typed error naming the usage, and the read is undone.
+func testExtentThroughAValueRecursingAndNot(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Seat;
+		part def Fork {
+			part mixed[*] = (new Wheel(), new Fork());
+			part leaf : Wheel;
+			part seat : Seat;
+		}
+		part fork : Fork;
+		calc wheelCount { return : Natural = size(all Wheel); }
+		calc seatCount { return : Natural = size(all Seat); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 100000)
+	_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "mixed") || !strings.Contains(err.Error(), "Fork") {
+		t.Fatalf("size(all Wheel) = %v, want ErrExtentUnavailable naming mixed and Fork", err)
+	}
+	if fv := ctx.instances[1].FeatureValues["mixed"]; fv != nil && fv.Materialized {
+		t.Error("mixed kept materialized after the refusal")
+	}
+	if n := len(ctx.instances); n != 1 {
+		t.Errorf("%d objects after the refusal, want the fork alone: what mixed made is undone", n)
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "1" {
+		t.Errorf("size(all Seat) = %s, %v; want 1: mixed holds no Seat and is left unread", FormatValue(got), err)
+	}
+}
+
 // testCastUndecidedByTheValue: a target narrower than the value's own type that
 // the value does not settle — 5 states nothing about being an Even — fails
 // rather than dropping a value that may well be one of the target's.
@@ -4632,6 +5027,57 @@ func testCastUndecidedByTheValue(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Even") {
 		t.Errorf("error = %v, want the target type named", err)
+	}
+}
+
+// testEnumerationTypedFeatureHoldingAnUnenumeratedValue: an enumeration-typed feature
+// refuses a value equal to no enumerated one by the write-conformance rule, decidedly.
+func testEnumerationTypedFeatureHoldingAnUnenumeratedValue(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		attribute def Integer;
+		enum def Level :> Integer { low = 1; high = 3; }
+		attribute two : Integer = 2;
+		part def Dial { attribute setting : Level = two; }
+		part dial : Dial;
+		calc narrow { return : Level[0..1] = two as Level; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	dial, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "dial"))
+	if err == nil {
+		_, err = dial.GetFeatureValue(ctx, "setting")
+	}
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("expected ErrTypeMismatch, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Level") {
+		t.Errorf("error = %v, want the feature's type named", err)
+	}
+	result, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "narrow"), nil, pkg.Scope)
+	if err != nil {
+		t.Fatalf("2 as Level: %v, want the empty sequence", err)
+	}
+	if got := FormatValue(result); got != "[]" {
+		t.Errorf("2 as Level = %s, want the empty sequence", got)
+	}
+}
+
+// testEnumerationWhoseLiteralValueCannotBeEvaluated: a literal whose value fails to
+// evaluate fails the classification with that error rather than answering false.
+func testEnumerationWhoseLiteralValueCannotBeEvaluated(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		attribute def Integer;
+		enum def Level :> Integer { low = 1; high = 1 / 0; }
+		attribute isLevel = 2 istype Level;
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	sym := resolveSymbol(t, pkg.Scope, "isLevel")
+	_, err := NewContext(NewModel(model, resolver), 1000).EvalWithScope(sym.Decl.(*ast.Usage).Value, pkg.Scope)
+	if err == nil {
+		t.Fatal("expected the literal's failing value to fail the classification")
+	}
+	if !strings.Contains(err.Error(), "high") {
+		t.Errorf("error = %v, want the failing literal named", err)
 	}
 }
 

@@ -596,11 +596,11 @@ func (ctx *Context) resolveTypeRef(scope *symbols.Scope, qn *ast.QualifiedName) 
 	if ctx.model.resolver == nil || qn == nil || len(qn.Parts) == 0 {
 		return nil
 	}
-	sym, ok := ctx.model.resolver.ResolveQualified(scope, qn)
+	sym, ok := ctx.resolveQualified(scope, qn)
 	if !ok || sym == nil {
 		return nil
 	}
-	if canonical, ok := ctx.model.resolver.ResolveAliasTarget(sym); ok {
+	if canonical, ok := ctx.resolveAliasTarget(sym); ok {
 		return canonical
 	}
 	return sym
@@ -619,7 +619,7 @@ func (ctx *Context) pathSymbol(scope *symbols.Scope, segments []string) (*symbol
 	if scope == nil || ctx.model.resolver == nil || len(segments) == 0 || segments[0] == "" {
 		return nil, false
 	}
-	sym, ok := ctx.model.resolver.LookupName(scope, segments[0])
+	sym, ok := ctx.lookupName(scope, segments[0])
 	for _, segment := range segments[1:] {
 		if !ok || sym == nil {
 			return nil, false
@@ -658,5 +658,5 @@ func (ctx *Context) joinsTarget(conn lower.Connection, want string, target *symb
 	if !ok || sym == nil {
 		return true
 	}
-	return sym == target || ctx.model.semantics.Conforms(sym, target) || ctx.model.semantics.Conforms(target, sym)
+	return sym == target || ctx.modelConforms(sym, target) || ctx.modelConforms(target, sym)
 }

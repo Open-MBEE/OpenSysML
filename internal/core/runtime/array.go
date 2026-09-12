@@ -480,7 +480,7 @@ func (ctx *Context) arrayOfObject(inst *Instance) (Value, bool, error) {
 	if arraySym == nil || inst == nil || inst.Type == nil {
 		return Value{}, false, nil
 	}
-	if !ctx.model.semantics.Conforms(ctx.objectType(inst), arraySym) || !ctx.shapeHoldsValue(inst.Type) {
+	if !ctx.modelConforms(ctx.objectType(inst), arraySym) || !ctx.shapeHoldsValue(inst.Type) {
 		return Value{}, false, nil
 	}
 	dims, dimsStated, err := ctx.objectArrayFeature(inst, arrayDimensionsFeature)
@@ -517,7 +517,7 @@ func (ctx *Context) arrayOfObject(inst *Instance) (Value, bool, error) {
 func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, error) {
 	vectorSym := ctx.librarySymbol(numericalVectorTypeFQN)
 	typ := ctx.objectType(inst)
-	if vectorSym == nil || !ctx.model.semantics.Conforms(typ, vectorSym) {
+	if vectorSym == nil || !ctx.modelConforms(typ, vectorSym) {
 		return array, true, nil
 	}
 	a := array.Array()
@@ -529,7 +529,7 @@ func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, er
 		)
 	}
 	quantitySym := ctx.librarySymbol(vectorQuantityTypeFQN)
-	if a.Rank() == 0 || (quantitySym != nil && ctx.model.semantics.Conforms(typ, quantitySym)) {
+	if a.Rank() == 0 || (quantitySym != nil && ctx.modelConforms(typ, quantitySym)) {
 		return array, true, nil
 	}
 	components := make([]semantics.Value, len(a.Elements))
@@ -579,7 +579,7 @@ func (ctx *Context) objectType(inst *Instance) *symbols.Symbol {
 func (ctx *Context) declaredArrayValue(sym *symbols.Symbol) (Value, bool, error) {
 	arraySym := ctx.librarySymbol(arrayTypeFQN)
 	typ := ctx.extractType(sym)
-	if arraySym == nil || typ == nil || !ctx.model.semantics.Conforms(typ, arraySym) || !ctx.namesOneObject(sym) {
+	if arraySym == nil || typ == nil || !ctx.modelConforms(typ, arraySym) || !ctx.namesOneObject(sym) {
 		return Value{}, false, nil
 	}
 	inst, err := ctx.occurrenceOf(sym)

@@ -1015,6 +1015,9 @@ message EnumLiteral {
   string enumeration_id = 2;
   // The literal as a reader writes it ("Color::red").
   string name = 3;
+  // The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+  // literal that is only its identity. Identity stays `literal_id`.
+  Value value = 4;
 }
 
 message ValueSequence {

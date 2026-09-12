@@ -354,7 +354,8 @@ func (c *calcCompiler) compileReturnBody(cell *compiledCalc, ret lower.Return, l
 }
 
 // scalarCheckFor decides a declaration for scalars, declining a declared type
-// the scalar lattice does not place. A declaration stating no type, or one that
+// the scalar lattice does not place — an enumeration among them, whose value a
+// scalar cannot carry the identity of. A declaration stating no type, or one that
 // does not resolve, holds any scalar, as it does on the evaluator; a non-scalar
 // argument never reaches the compiled tier.
 func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) {
@@ -367,6 +368,9 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	check.countOK = c.ctx.writeCountRefusal(decl.Target, &one) == ""
 	if decl.Target.typ == nil {
 		return check, true
+	}
+	if decl.Target.typ.Kind == symbols.SymbolEnumerationDef {
+		return scalarCheck{}, false
 	}
 	prim := c.ctx.model.semantics.PrimTypeOf(decl.Target.typ)
 	if prim == semantics.PrimUnknown {
@@ -455,7 +459,7 @@ func (c *calcCompiler) compileName(qn *ast.QualifiedName, scope *symbols.Scope, 
 	if name == thatName || name == thisName {
 		return nil, ineligible(fmt.Sprintf("name %q reads the bound object", name))
 	}
-	sym, ok := c.ctx.model.resolver.LookupName(scope, name)
+	sym, ok := c.ctx.lookupName(scope, name)
 	if !ok || sym == nil {
 		return nil, ineligible(fmt.Sprintf("name %q is not bound in the frame", name))
 	}
@@ -475,7 +479,7 @@ func (c *calcCompiler) compileName(qn *ast.QualifiedName, scope *symbols.Scope, 
 func (c *calcCompiler) compileQualifiedName(qn *ast.QualifiedName, scope *symbols.Scope) (*cnode, error) {
 	firstQN := &ast.QualifiedName{Global: qn.Global, Parts: []ast.NameSegment{qn.Parts[0]}}
 	firstQN.NodeBase = qn.NodeBase
-	sym, ok := c.ctx.model.resolver.ResolveQualified(scope, firstQN)
+	sym, ok := c.ctx.resolveQualified(scope, firstQN)
 	if !ok || sym == nil {
 		return nil, ineligible(fmt.Sprintf("qualified name %s does not resolve", qualifiedNameToString(qn)))
 	}

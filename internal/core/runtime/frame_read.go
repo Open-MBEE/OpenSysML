@@ -142,22 +142,22 @@ func (ctx *Context) roleValue(what string, inst *Instance, role string) (Value, 
 func (ctx *Context) isFrameType(typ *symbols.Symbol) bool {
 	vectorRef := ctx.librarySymbol(vectorMRefTypeFQN)
 	unit := ctx.librarySymbol(measurementUnitTypeFQN)
-	if vectorRef == nil || typ == nil || !ctx.model.semantics.Conforms(typ, vectorRef) {
+	if vectorRef == nil || typ == nil || !ctx.modelConforms(typ, vectorRef) {
 		return false
 	}
-	return unit == nil || !ctx.model.semantics.Conforms(typ, unit)
+	return unit == nil || !ctx.modelConforms(typ, unit)
 }
 
 // isTransformationType reports a type whose objects are coordinate transformations.
 func (ctx *Context) isTransformationType(typ *symbols.Symbol) bool {
 	base := ctx.librarySymbol(transformationTypeFQN)
-	return base != nil && typ != nil && ctx.model.semantics.Conforms(typ, base)
+	return base != nil && typ != nil && ctx.modelConforms(typ, base)
 }
 
 // conformsToLibrary reports whether typ conforms to the library type named.
 func (ctx *Context) conformsToLibrary(typ *symbols.Symbol, fqn string) bool {
 	base := ctx.librarySymbol(fqn)
-	return base != nil && typ != nil && ctx.model.semantics.Conforms(typ, base)
+	return base != nil && typ != nil && ctx.modelConforms(typ, base)
 }
 
 // referenceValueOfObject reads an object typed by a MeasurementReferences type

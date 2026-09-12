@@ -1,0 +1,510 @@
+package runtime
+
+import (
+	"errors"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+)
+
+// refusal checks Pristine refuses the object with a HeldStateError giving reason.
+func refusal(t *testing.T, ctx *Context, obj *Instance, what, reason string) {
+	t.Helper()
+	var hse *HeldStateError
+	err := ctx.Pristine(obj)
+	if !errors.As(err, &hse) || !strings.Contains(err.Error(), reason) {
+		t.Errorf("Pristine %s = %v, want a HeldStateError saying %q", what, err, reason)
+	}
+}
+
+// movedRefusal checks Pristine refuses the object for a behavior that has moved.
+func movedRefusal(t *testing.T, ctx *Context, obj *Instance, what string) {
+	t.Helper()
+	refusal(t, ctx, obj, what, "has moved")
+}
+
+// A machine as its start left it is pristine; one that dispatched an event has moved,
+// and stays so until a snapshot taken before the move is restored, which restores the
+// record with the state; a snapshot taken after the move restores it moved.
+func TestPristineFollowsAStateMachinesMoves(t *testing.T) {
+	root, ctx, bulb := lampBulb(t)
+	if err := ctx.Pristine(bulb); err != nil {
+		t.Fatalf("Pristine(fresh bulb) = %v, want admitted", err)
+	}
+	fresh, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+
+	dispatchTo(t, root, ctx, bulb, "go", nil)
+	movedRefusal(t, ctx, bulb, "after a transition fired")
+	moved, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot after the move: %v", err)
+	}
+	dispatchTo(t, root, ctx, bulb, "Dim", map[string]Value{"level": integerValue(7)})
+	moved.Restore()
+	if got := lampLeaf(t, bulb); got != "on" {
+		t.Fatalf("state after restoring the moved snapshot = %s, want on", got)
+	}
+	movedRefusal(t, ctx, bulb, "after restoring the moved snapshot")
+
+	fresh.Restore()
+	if got := lampLeaf(t, bulb); got != "off" {
+		t.Fatalf("state after restoring the fresh snapshot = %s, want off", got)
+	}
+	if err := ctx.Pristine(bulb); err != nil {
+		t.Errorf("Pristine after restoring the fresh snapshot = %v, want admitted", err)
+	}
+
+	// A signal posted to the object and not yet dispatched is not a move of the
+	// machine, but a fresh object would not receive it: refused for that reason.
+	msg, err := ctx.SignalMessage(resolveSymbol(t, root, "go"), nil, bulb)
+	if err != nil {
+		t.Fatalf("SignalMessage: %v", err)
+	}
+	ctx.PostMessage(msg)
+	refusal(t, ctx, bulb, "with a signal posted to it", "has a go posted to it awaiting dispatch")
+}
+
+// A performed action parked at the accept its start reached is pristine; consuming
+// the accept and writing a feature from the body moves it, and the record follows
+// the action through a snapshot as the machine's does.
+func TestPristineFollowsAPerformedActionsMoves(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, waiterSource)
+	ctx := NewContext(NewModel(model, resolver), 10000)
+	waiter, err := ctx.Instantiate(resolveSymbol(t, resolveSymbol(t, root, "test").Scope, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	if err := ctx.Pristine(waiter); err != nil {
+		t.Fatalf("Pristine(waiter parked by its start) = %v, want admitted", err)
+	}
+	parked, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+
+	behavior, _ := waiter.Behavior("await")
+	nine := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 9}}
+	ctx.PostMessage(Message{SignalType: "Integer", Object: waiter.ID, Value: &nine})
+	if err := behavior.Action.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if got := featureInt(t, ctx, waiter, "woken"); got != 9 {
+		t.Fatalf("woken = %d after the message, want 9", got)
+	}
+	movedRefusal(t, ctx, waiter, "after the accept was taken and the body wrote")
+
+	parked.Restore()
+	if got := featureInt(t, ctx, waiter, "woken"); got != 0 {
+		t.Fatalf("woken = %d after restoring the parked snapshot, want 0", got)
+	}
+	if err := ctx.Pristine(waiter); err != nil {
+		t.Errorf("Pristine after restoring the parked snapshot = %v, want admitted", err)
+	}
+}
+
+const fuseSource = `
+	private import SI::*;
+	state def Fuse {
+		entry; then armed;
+		state armed;
+		transition burn first armed accept after 2 [s] then spent;
+		state spent;
+	}
+	part def Charge { exhibit state fuse : Fuse; }
+	attribute def go;
+	state def Squib {
+		entry; then armed;
+		state armed;
+		transition prime first armed accept go then primed;
+		state primed;
+		transition pop first primed accept after 0 [s] then spent;
+		state spent;
+	}
+	part def Detonator { exhibit state squib : Squib; }
+	part def Plain;
+`
+
+// A timer set by the start is pristine while the clock stands at zero, where a
+// fresh context's clock would set it too. Once the clock has moved, the wait is
+// due at another instant than a fresh declaration's: refused though nothing fired,
+// and the image carries the wait as it stands, so the copy fires when the object would.
+func TestPristineRefusesATimedBehaviorOnceTheClockHasMoved(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "fuse.sysml", parseAndBuild(t, fuseSource))
+	root := idx.DocumentRoot("fuse.sysml")
+	charge, err := ctx.Instantiate(resolveSymbol(t, root, "Charge"))
+	if err != nil {
+		t.Fatalf("Instantiate Charge: %v", err)
+	}
+	if err := ctx.Pristine(charge); err != nil {
+		t.Fatalf("Pristine(fresh charge) = %v, want admitted", err)
+	}
+
+	report, err := ctx.Advance(1)
+	if err != nil {
+		t.Fatalf("Advance(1): %v", err)
+	}
+	if report.Events != 0 || lampLeaf(t, charge) != "armed" {
+		t.Fatalf("Advance(1) dispatched %d events, leaf %s; want nothing due yet", report.Events, lampLeaf(t, charge))
+	}
+	fuse, _ := charge.ExhibitedState()
+	if fuse.Moved() {
+		t.Fatal("the machine reads as moved though no event was dispatched")
+	}
+	refusal(t, ctx, charge, "with the clock at 1", "waits on the clock (time -> spent) with the clock at t=1.0, not at zero")
+
+	// Only an execution waiting on the clock cares where the clock stands.
+	plain, err := ctx.Instantiate(resolveSymbol(t, root, "Plain"))
+	if err != nil {
+		t.Fatalf("Instantiate Plain: %v", err)
+	}
+	if err := ctx.Pristine(plain); err != nil {
+		t.Errorf("Pristine(plain object at t=1) = %v, want admitted", err)
+	}
+
+	// The copy's wait is due at t=2 as the object's is; a fresh declaration's would
+	// be due 2 s after its own clock's zero.
+	dst := imageInto(t, ctx, charge)
+	copied, _ := dst.Instance(charge.ID)
+	fresh := NewContext(ctx.Model(), 10000)
+	declared, err := fresh.Instantiate(resolveSymbol(t, root, "Charge"))
+	if err != nil {
+		t.Fatalf("Instantiate Charge afresh: %v", err)
+	}
+	for name, c := range map[string]*Context{"copy": dst, "fresh": fresh} {
+		if _, err := c.Advance(1); err != nil {
+			t.Fatalf("Advance(%s, 1): %v", name, err)
+		}
+	}
+	if got := lampLeaf(t, copied); got != "spent" {
+		t.Errorf("the copy is at %s after 1 s more, want spent", got)
+	}
+	if got := lampLeaf(t, declared); got != "armed" {
+		t.Errorf("a fresh declaration is at %s after 1 s, want armed", got)
+	}
+	if got := lampLeaf(t, charge); got != "armed" {
+		t.Errorf("the source moved to %s with the copy's clock, want armed", got)
+	}
+}
+
+// A destination behind the image's instant takes the image only where nothing of its
+// own is due before that instant: the clock reaches an instant by running what is due
+// on the way, and Materialize runs nothing. A wait due before is refused, the
+// destination left as it was; one due at the instant, or later, is admitted and stays due.
+func TestHeldImageRefusesADestinationWithAWaitDueBeforeItsInstant(t *testing.T) {
+	idx, _, src := buildRuntimeWithLibraries(t, "fuse.sysml", parseAndBuild(t, fuseSource))
+	root := idx.DocumentRoot("fuse.sysml")
+	// A plain object imaged at an instant, its identity past the ids a Charge takes.
+	imageAt := func(ctx *Context, instant float64) *HeldImage {
+		t.Helper()
+		if _, err := ctx.Instantiate(resolveSymbol(t, root, "Charge")); err != nil {
+			t.Fatalf("Instantiate Charge: %v", err)
+		}
+		plain, err := ctx.Instantiate(resolveSymbol(t, root, "Plain"))
+		if err != nil {
+			t.Fatalf("Instantiate Plain: %v", err)
+		}
+		if _, err := ctx.Advance(instant); err != nil {
+			t.Fatalf("Advance(%v): %v", instant, err)
+		}
+		img, err := ctx.Image(plain)
+		if err != nil {
+			t.Fatalf("Image at t=%v: %v", instant, err)
+		}
+		return img
+	}
+	// A destination holding a Charge, its fuse due to burn at t=2.
+	armed := func() (*Context, *Instance) {
+		t.Helper()
+		dst := NewContext(src.Model(), 10000)
+		charge, err := dst.Instantiate(resolveSymbol(t, root, "Charge"))
+		if err != nil {
+			t.Fatalf("Instantiate Charge: %v", err)
+		}
+		return dst, charge
+	}
+
+	atFive := imageAt(src, 5)
+	dst, charge := armed()
+	before, objects := dst.clock.now, len(dst.instances)
+	err := atFive.Materialize(dst)
+	if !errors.Is(err, ErrImageClock) || !strings.Contains(err.Error(), "due at t=2, before the image's t=5") {
+		t.Fatalf("Materialize over a wait due at t=2 = %v, want ErrImageClock naming the wait", err)
+	}
+	if dst.clock.now != before || len(dst.instances) != objects || lampLeaf(t, charge) != "armed" {
+		t.Errorf("the refused materialization left the destination at t=%v with %d objects, fuse %s; want t=%v, %d, armed",
+			dst.clock.now, len(dst.instances), lampLeaf(t, charge), before, objects)
+	}
+
+	// Burnt at t=2, nothing waits: the image goes in and the clock stands at its instant.
+	if _, err := dst.Advance(2); err != nil {
+		t.Fatalf("Advance(2): %v", err)
+	}
+	if err := atFive.Materialize(dst); err != nil {
+		t.Fatalf("Materialize into a destination at t=2 with nothing due = %v, want admitted", err)
+	}
+	if dst.clock.now != 5 || lampLeaf(t, charge) != "spent" {
+		t.Errorf("after the materialization the destination is at t=%v, fuse %s; want t=5, spent", dst.clock.now, lampLeaf(t, charge))
+	}
+
+	// A wait due at the image's instant is due once the clock stands there.
+	atTwo := imageAt(NewContext(src.Model(), 10000), 2)
+	dueAtTwo, charge := armed()
+	if err := atTwo.Materialize(dueAtTwo); err != nil {
+		t.Fatalf("Materialize over a wait due at the image's t=2 = %v, want admitted", err)
+	}
+	if _, err := dueAtTwo.Advance(0); err != nil {
+		t.Fatalf("Advance(0): %v", err)
+	}
+	if dueAtTwo.clock.now != 2 || lampLeaf(t, charge) != "spent" {
+		t.Errorf("the wait due at the image's instant left the fuse %s at t=%v, want spent at t=2", lampLeaf(t, charge), dueAtTwo.clock.now)
+	}
+
+	// A wait already due at the destination's instant is work not yet run, as much as
+	// one due later is: refused until the destination has run it.
+	dueNow := NewContext(src.Model(), 10000)
+	detonator, err := dueNow.Instantiate(resolveSymbol(t, root, "Detonator"))
+	if err != nil {
+		t.Fatalf("Instantiate Detonator: %v", err)
+	}
+	dispatchTo(t, root, dueNow, detonator, "go", nil)
+	if waits := dueNow.clock.Waits(); len(waits) != 0 || lampLeaf(t, detonator) != "primed" {
+		t.Fatalf("the squib is %s with %v not yet due; want primed with its wait due at t=0 already", lampLeaf(t, detonator), waits)
+	}
+	before, objects = dueNow.clock.now, len(dueNow.instances)
+	err = atFive.Materialize(dueNow)
+	if !errors.Is(err, ErrImageClock) || !strings.Contains(err.Error(), "due at t=0, before the image's t=5") {
+		t.Fatalf("Materialize over a wait due at the destination's t=0 = %v, want ErrImageClock naming the wait", err)
+	}
+	if dueNow.clock.now != before || len(dueNow.instances) != objects || lampLeaf(t, detonator) != "primed" {
+		t.Errorf("the refused materialization left the destination at t=%v with %d objects, squib %s; want t=%v, %d, primed",
+			dueNow.clock.now, len(dueNow.instances), lampLeaf(t, detonator), before, objects)
+	}
+	if _, err := dueNow.Advance(0); err != nil {
+		t.Fatalf("Advance(0): %v", err)
+	}
+	if err := atFive.Materialize(dueNow); err != nil {
+		t.Fatalf("Materialize once the wait has run = %v, want admitted", err)
+	}
+	if dueNow.clock.now != 5 || lampLeaf(t, detonator) != "spent" {
+		t.Errorf("after the materialization the destination is at t=%v, squib %s; want t=5, spent", dueNow.clock.now, lampLeaf(t, detonator))
+	}
+}
+
+// A message addressed to no object in particular is open to any execution that
+// accepts it: a behaving object is refused while one is in flight, an object
+// running nothing is not, and the image carries the message to the copy.
+func TestPristineRefusesABehavingObjectWhileAnOpenMessageIsInFlight(t *testing.T) {
+	root, ctx, bulb := lampBulb(t)
+	plain, err := ctx.Instantiate(resolveSymbol(t, root, "Plain"))
+	if err != nil {
+		t.Fatalf("Instantiate Plain: %v", err)
+	}
+	ctx.PostMessage(NamedSignalMessage("go", nil))
+	refusal(t, ctx, bulb, "with an open go in flight", "runs exhibited state machine lamp while a go addressed to no object in particular awaits dispatch")
+	if err := ctx.Pristine(plain); err != nil {
+		t.Errorf("Pristine(plain object) = %v, want admitted: it runs nothing the message could reach", err)
+	}
+
+	dst := imageInto(t, ctx, bulb)
+	copied, _ := dst.Instance(bulb.ID)
+	behavior, _ := copied.ExhibitedState()
+	if err := behavior.State.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent(copy): %v", err)
+	}
+	if got := lampLeaf(t, copied); got != "on" {
+		t.Errorf("the copy is at %s after taking the open go, want on", got)
+	}
+	if got := lampLeaf(t, bulb); got != "off" {
+		t.Errorf("the source is at %s, want off: the copy took its own message", got)
+	}
+	if n := len(ctx.PendingMessages()); n != 1 {
+		t.Errorf("%d messages in flight in the source, want the open go still there", n)
+	}
+}
+
+// A step that fails after moving a token has moved the action: the record is
+// made from where the tokens got, not withheld for the error.
+func TestActionStepFailingAfterAMoveRecordsIt(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+		action race {
+			attribute woken : Integer = 0;
+			first start;
+			fork split;
+			action mark { assign woken := missingName + 1; }
+			action idle;
+			action after;
+			join meet;
+			done;
+			succession first start then split;
+			succession first split then mark;
+			succession first split then idle;
+			succession first idle then after;
+			succession first after then meet;
+			succession first mark then meet;
+			succession first meet then done;
+		}
+	}`))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "race", ast.DefAction)
+	exec, err := newActionExecutor(ctx, sym, nil)
+	if err != nil {
+		t.Fatalf("newActionExecutor: %v", err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := exec.Step(); err != nil {
+			t.Fatalf("Step %d: %v", i+1, err)
+		}
+	}
+	if got := tokenNodes(exec); got != "idle mark" {
+		t.Fatalf("tokens at %s after the fork, want idle mark", got)
+	}
+
+	// The record of the two steps that got here is set aside to see the failing step's own.
+	exec.moved = false
+	err = exec.Step()
+	if !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("Step = %v, want ErrUnresolvedReference from mark's body", err)
+	}
+	if got := tokenNodes(exec); got != "after mark" {
+		t.Fatalf("tokens at %s after the failing step, want the idle token moved on to after", got)
+	}
+	if !exec.moved {
+		t.Error("the step moved a token and failed, yet the action does not read as moved")
+	}
+}
+
+// A step whose body writes a nested performance's feature and then fails, its token
+// still at the node, has moved the action: what the body wrote before failing stands.
+func TestActionBodyFailingAfterAWriteRecordsTheMove(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+		action count {
+			first start;
+			action tally {
+				out attempts : Integer = 0;
+				assign attempts := attempts + 1;
+				assign attempts := missingName;
+			}
+			done;
+			succession first start then tally;
+			succession first tally then done;
+		}
+	}`))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "count", ast.DefAction)
+	exec, err := newActionExecutor(ctx, sym, nil)
+	if err != nil {
+		t.Fatalf("newActionExecutor: %v", err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	for tokenNodes(exec) != "tally" {
+		if err := exec.Step(); err != nil {
+			t.Fatalf("Step towards tally: %v", err)
+		}
+	}
+
+	// The record of the steps that got here is set aside to see the failing step's own.
+	exec.moved = false
+	err = exec.Step()
+	if !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("Step = %v, want ErrUnresolvedReference from tally's body", err)
+	}
+	if got := tokenNodes(exec); got != "tally" {
+		t.Fatalf("tokens at %s after the failing step, want the token still at tally", got)
+	}
+	if !exec.moved {
+		t.Error("the body wrote attempts and failed, yet the action does not read as moved")
+	}
+}
+
+// tokenNodes names the nodes the tokens sit at, sorted.
+func tokenNodes(exec *ActionExecutor) string {
+	names := make([]string, 0, len(exec.tokens))
+	for _, token := range exec.tokens {
+		names = append(names, ActionNodeName(token.Location))
+	}
+	slices.Sort(names)
+	return strings.Join(names, " ")
+}
+
+// A change transition whose effect fails has left its source state: the machine
+// has moved, and reads so.
+func TestStateChangeTransitionFailingRecordsTheMove(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		state Machine {
+			attribute counter : Integer = 0;
+			entry; then idle;
+			state idle;
+			state busy;
+			transition first idle accept when counter == 0 do assign counter := missingName + 1 then busy;
+		}
+	}`)
+	if exec.moved || activeLeaf(exec) != "idle" {
+		t.Fatalf("moved = %v at %s after initialize, want unmoved at idle", exec.moved, activeLeaf(exec))
+	}
+	fired, err := exec.PollChangeEvents()
+	if !fired || !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("PollChangeEvents = %v, %v; want fired with ErrUnresolvedReference from the effect", fired, err)
+	}
+	if got := activeLeaf(exec); got == "idle" {
+		t.Fatal("the machine is still at idle after the transition left it")
+	}
+	if !exec.moved {
+		t.Error("the transition left idle and its effect failed, yet the machine does not read as moved")
+	}
+}
+
+const performerSource = `
+	package test {
+		private import SI::*;
+		private import ScalarValues::*;
+		action def Napper {
+			first start;
+			then action nap accept after 3 [s];
+			then done;
+		}
+		part def Sleeper {
+			perform action rest {
+				first start;
+				then perform action call : Napper;
+				then done;
+			}
+		}
+	}
+`
+
+// A wait held by the action a paused body performs holds the object's execution as
+// its own would: once the clock has moved, the object is not pristine for it.
+func TestPristineSeesTheWaitOfAnActionAPausedBodyPerforms(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "sleeper.sysml", parseAndBuild(t, performerSource))
+	root := idx.DocumentRoot("sleeper.sysml")
+	sleeper, err := ctx.Instantiate(resolveSymbol(t, resolveSymbol(t, root, "test").Scope, "Sleeper"))
+	if err != nil {
+		t.Fatalf("Instantiate Sleeper: %v", err)
+	}
+	rest := sleeper.behaviors[0]
+	if rest.Action == nil || len(rest.Action.armedWaits()) != 0 || len(rest.Action.heldWaiters()) != 1 {
+		t.Fatalf("rest = %+v; want an action holding no wait of its own and one performed action", rest)
+	}
+	if waits := rest.armedWaits(); len(waits) != 1 || waits[0].Due != 3 {
+		t.Fatalf("rest.armedWaits() = %+v; want the performed action's wait due at 3", waits)
+	}
+	if err := ctx.Pristine(sleeper); err != nil {
+		t.Fatalf("Pristine(fresh sleeper) = %v, want admitted: the clock stands at zero", err)
+	}
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("Advance(1): %v", err)
+	}
+	refusal(t, ctx, sleeper, "with the clock at 1", "object #1 (Sleeper) runs performed action rest, which waits on the clock (accept after waiting since step 2 for the clock to reach t=3.0) with the clock at t=1.0, not at zero")
+	if waits := rest.armedWaits(); len(waits) != 1 || waits[0].Due != 3 {
+		t.Errorf("rest.armedWaits() at t=1 = %+v; want the performed action's wait, still due at 3", waits)
+	}
+}

@@ -470,17 +470,40 @@ the row's subject or `self` when they coincide), a function read again in the ro
 over that object. A value bound to the run that made it — a deferred expression closed over
 its environment, a function of a calc declared in a behavior body — is refused with the typed
 `NotPortableError`, wrapped in `SweptArgumentError`. A `%sweep` on an object the session holds
-runs each row on an object of the held object's *declaration*, materialized afresh in the row's
-context, which is the held state as it was when the sweep began exactly when the held closure is
-**pristine**: reached from a declaration (not `#id`) — an object nested in another's feature is
-reached again by instantiating the root declaration in the row and walking the same feature
-path (`rowObjects`) — and the root not destroyed, no behavior started on it, no feature of it or
-of an object it holds written since it was materialized (`Context.Pristine`, over the root's
-closure). Anything else is refused with the typed
-`SweptObjectError` naming the reason; the sweep never falls back to the session's context. A
-`Snapshot` cannot carry a held object across contexts — `Restore` restores its source context
-alone, and `Adopt` moves an object out of the session's — so the declaration is what a row can
-reproduce, and what it cannot reproduce it does not pretend to.
+runs each row on an object of its own, made in the row's context, that is the held object as
+the sweep found it. Where the held closure is **pristine** — reached from a declaration (not
+`#id`), the root not destroyed, no feature of it or of an object it holds written since it was
+materialized, no signal posted to it awaiting dispatch, and every behavior its objects exhibit
+or perform still as its start left it (`Context.Pristine`, over the root's closure) — that
+object is the held object's *declaration* materialized afresh in the row, an object nested in
+another's feature reached again by instantiating the root declaration and walking the same
+feature path (`rowObjects`). Anything else — an object named by identity, a feature written, a
+behavior that has *moved* (an action a token of which acted — a token stepped, a body run, an
+accept or wait consumed, a step that failed part way — or whose body wrote a feature; a machine that queued a signal or
+call, dispatched an event, took a timer or change trigger, stepped a do behavior or wrote an
+attribute; the executors record the fact at those points,
+`ActionExecutor.moved`/`StateExecutor.moved`, carried through `Snapshot` and `Restore`) — is
+taken from an **image** of the held graph (`runtime.HeldImage`): a by-value copy of the objects
+in the roots' closure — identities, lives, owner links and feature values; the messages and
+occurrences of their behaviors; the executors' state by value, as `Snapshot` captures it —
+taken once when the sweep begins, while the session's state is still held, and materialized
+into every row's context (`HeldImage.Materialize`), where it makes objects under the same
+identities (the row's identity sequence advanced past them), attaches fresh executors on the
+row's clock and puts the captured state into them — each run's own scheduler under the policy it
+started with, at its generator's position, not the row's; a materialization that fails leaves the
+row's context as it found it (objects, behaviors, identities, counters, clock and messages
+alike). Neither `Restore` nor `Adopt` is that copy:
+`Restore` restores its source context alone, over the executors and journal it captured, and
+`Adopt` moves the very same `*Instance` into another context, which a row would then write. An
+object the image cannot carry is refused with the typed `SweptObjectError` naming the reason
+before any row runs — a destroyed object the sweep names (`ErrOccurrenceDestroyed`), a session
+inside a step (`ErrSnapshotMidRun`), a body paused mid-statement
+(`ErrSnapshotPausedBody`), a value bound to the run that made it (`NotPortableError`), an
+object outside the imaged closure (`HeldImageError`) — and the sweep never falls back to the
+session's context. `#id`-named objects are admitted exactly when the image holds the identity,
+and an object reached by a feature path exactly when the copied graph resolves the path, which
+it does whenever the held graph does: the copy keeps the owner links and feature values the
+path walks.
 
 ### Units of work
 
@@ -779,14 +802,52 @@ behavior unchanged until stage 4.
    model on two goroutines under `-race`; a debugger session surviving a sweep; a sweep of a
    case whose step the tool engine performs, its rows on several jobs, each row's context
    carrying the plan-scoped tool runner (`Model.NewContextOn` installs it) so the stand-in
-   answers every row and, without a manifest, every row is `ToolNotRegisteredError`. **Known
-   limitation:** `Context.Pristine` refuses every object running a behavior its type exhibits or
-   performs, one fresh from `%instantiate` included, because the runtime does not yet tell an
-   execution still as its start left it from one that has moved (an event taken, a step made, the
-   clock advanced past a wait); so a `%sweep`, or the CLI's `-instantiate` followed by `-sweep`,
-   on such an object is refused where the sequential form ran it in the session's context.
-   Admitting the unmoved case needs the executors to record the fact, which is a stage of its
-   own; the refusal names the behavior.
+   answers every row and, without a manifest, every row is `ToolNotRegisteredError`.
+   *Implemented:* sweeps over held objects that have, or have run, a behavior. The action and
+   state executors record whether they have *moved* since initialization at their own step
+   points (`ActionExecutor.moved`: a token that acted, a step that failed part way, a feature
+   the body wrote;
+   `StateExecutor.moved`: a signal or call queued, an event dispatched, a timer or change
+   trigger taken, a do behavior stepped, an attribute written), `actionCapture`/`stateCapture`
+   carry the record through `Snapshot` and `Restore`, and `Context.Pristine` admits an object
+   whose executions are all unmoved, none waiting on a clock that has left zero (a fresh
+   context's clock starts there, so its wait would come due at another instant), and to which
+   no signal is posted awaiting dispatch, nor one open to any taker while it runs a behavior
+   (the bus is the context's, so a fresh object would not receive it) — so an object fresh from
+   `%instantiate`, or the CLI's `-instantiate`, sweeps from its declaration in every row's
+   context, as the sequential form ran it. An object that is not pristine — moved, written, or
+   named by identity — is swept from a `runtime.HeldImage` under *What may be shared*:
+   `Context.Image(roots…)` takes the by-value image of the roots' closure once, while the REPL
+   holds the session's state (before the state lock is released), `HeldImage.Materialize(dst)`
+   makes the copy in each row's context under the same identities, with fresh executors on the
+   row's clock holding the captured state; `rowObjects` takes an image-backed reference from
+   the copy and a pristine one from its declaration, in one sweep (an argument naming a fresh
+   object beside a moved subject). `HeldImageError` (`ErrImageIdentityTaken`,
+   `ErrImageBindingTaken`, `ErrImageClock`, `ErrImageBound`, `ErrImageRoot`),
+   `ErrOccurrenceDestroyed`, `ErrSnapshotMidRun`,
+   `ErrSnapshotPausedBody` and `NotPortableError` are the typed reasons, wrapped in
+   `SweptObjectError` before any row runs; no shared-context fallback; a materialization that
+   fails leaves the row's context as it found it. `Snapshot`'s wire shape is unchanged. Tests: the table the sequential form printed
+   for a sweep over an object fresh from `%instantiate` whose type exhibits a state machine and
+   one that performs an action, pinned on one job and on eight, in the REPL, through the CLI's
+   `-instantiate` and `-sweep` and the gRPC service; the same object after a transition fired,
+   a wait taken and a feature written swept from its image, every row reading the moved state
+   and the held object byte for byte as it was, a signal posted and not yet dispatched imaged
+   with it and left posted; the record following a machine and a parked action through their
+   moves and through `Snapshot` and `Restore`; a machine and a parked action imaged into
+   another context, run there and beside the source, and re-imaged after; the refusals pinned
+   by name and reason — a body paused mid-statement, an identity the destination holds, a clock
+   past the image's or with a wait due before it, not yet run at the destination's own instant
+   included (the clock reaches an instant by running what is due on the way, and a
+   materialization runs nothing), a value bound to its run, an object outside the image, a
+   message naming an object the context does not hold, a destroyed root (in the REPL, before
+   any row, named as written); an open message carried by an image whose closure runs a
+   behavior and left be by one whose closure runs none (only an execution reads the bus); a
+   materialization failing on its last message leaving the destination as it found it and
+   going in whole next time; one image serving two sweeps of eight rows on two goroutines
+   under `-race`, and two gRPC sweeps of one model at once. What the image does not carry, and
+   the sweep refuses: a body paused mid-statement and a session inside a step (`Snapshot`'s
+   bounds); a value closed over its run.
 4. **Surface.** `-engines`, `-engine`, `%engines`, `ListEngines`, the response fields, the
    standing line on every verdict; the strength-scale tests; `all` and the disagreement result.
    The `-json` additions land here, and its release checklist records whether they are patch or

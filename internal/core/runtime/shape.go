@@ -177,7 +177,7 @@ func (ctx *Context) declaredType(featureSym *symbols.Symbol) *symbols.Symbol {
 				target = fr.Name
 			}
 			if qn, ok := target.(*ast.QualifiedName); ok {
-				if resolved, ok := ctx.model.resolver.ResolveQualified(featureSym.OwnerScope, qn); ok {
+				if resolved, ok := ctx.resolveQualified(featureSym.OwnerScope, qn); ok {
 					return resolved
 				}
 			}

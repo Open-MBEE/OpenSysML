@@ -152,7 +152,7 @@ func (ctx *Context) featureLocation(scope *symbols.Scope, name string) (string, 
 	if ctx.model.resolver == nil || scope == nil {
 		return "", source.Span{}
 	}
-	sym, ok := ctx.model.resolver.LookupName(scope, name)
+	sym, ok := ctx.lookupName(scope, name)
 	if !ok || sym == nil {
 		return "", source.Span{}
 	}

@@ -63,12 +63,19 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (233 cases, all thirteen default
+Reference values at the current implementation (262 cases, all fifteen default
 fixtures):
-`agree 146 · kind-only 1 · order-only 0 · disagree 7 · pilot-unevaluated 59 ·
-pilot-silent 8 · pilot-error 2 · ours-error 2 · both-error 8 ·
+`agree 158 · kind-only 1 · order-only 0 · disagree 17 · pilot-unevaluated 63 ·
+pilot-silent 11 · pilot-error 2 · ours-error 2 · both-error 8 ·
 nondeterministic 0`.
-Five of the seven `disagree` are unrefereeable rather than verdicts against us:
+Eight of the seventeen `disagree` are the `enumeration_classification.cases`
+adjudicated ours: the pilot never consults an enumeration's enumerated values
+(`3 istype Level` false) and folds a scalar-valued literal to its Integer
+(`Level::high istype Level` false). Seven more are unrefereeable rather than verdicts against us:
+`extent-variation-count` and `extent-uninstantiated-count`, where the pilot does
+not evaluate `all T` (KerML 1.0 §8.2.5.8.1 Table 5 marks it not model-level
+evaluable) and `size(all T)` counts the one unevaluated node as `1` whether `T`
+has two variants or no instance;
 `w6d:complex-is-zero-qualified`, where the pilot answers `false` for
 `isZero(rect(0.0, 0.0))` *and* for `isZero(rect(3.0, 4.0))`, because its
 `re`/`im` have no evaluable body; and the three `w6d:subsetting-*-count`
@@ -116,8 +123,8 @@ pilot answers the representation's own. See
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`370 file(s), 337 fully agreeing; 34 agreed
-  diagnostic(s), 32 only ours, 671 only the pilot's` after the bare feature-reference typing round — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`371 file(s), 337 fully agreeing; 34 agreed
+  diagnostic(s), 37 only ours, 1111 only the pilot's` after the MOSA example joined `examples/` and the bare feature-reference typing round — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

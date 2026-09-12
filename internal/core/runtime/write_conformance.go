@@ -48,7 +48,7 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 		return cached, cached != nil
 	}
 	var target *writeTarget
-	if sym, ok := ctx.model.resolver.LookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
+	if sym, ok := ctx.lookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
 		mult, _ := ctx.extractMultiplicity(sym)
 		target = ctx.newWriteTarget(sym, name, mult)
 	}
@@ -140,7 +140,49 @@ func (ctx *Context) checkWriteType(scope *symbols.Scope, what string, declared *
 	if refusal, refused := ctx.writeTypeRefusal(scope, declared, value, how); refused {
 		return fmt.Errorf("%s: %w: %s", what, ErrTypeMismatch, refusal)
 	}
+	return ctx.holdForDeclared(value, declared)
+}
+
+// holdForDeclared shapes an admitted value as the declared type holds it: quantities in
+// its preferred unit, scalars an enumeration admits as the enumerated value they equal.
+func (ctx *Context) holdForDeclared(value *Value, declared *symbols.Symbol) error {
 	ctx.spellForDeclared(value, declared)
+	return ctx.holdAsEnumerated(value, declared)
+}
+
+// holdAsEnumerated stores a scalar admitted by an enumeration-typed feature as the
+// enumerated value it equals, so what the feature holds is of the enumeration.
+func (ctx *Context) holdAsEnumerated(value *Value, declared *symbols.Symbol) error {
+	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef {
+		return nil
+	}
+	switch value.Kind {
+	case ValSequence, ValSet:
+		elements := append([]Value(nil), elementsOf(*value)...)
+		changed := false
+		for i := range elements {
+			enumerated, found, err := ctx.asEnumerated(elements[i], declared)
+			if err != nil {
+				return err
+			}
+			changed = changed || found && enumerated.EnumerationLiteral() != elements[i].EnumerationLiteral()
+			elements[i] = enumerated
+		}
+		if !changed {
+			return nil
+		}
+		if value.Kind == ValSequence {
+			*value = sequenceOf(elements)
+			return nil
+		}
+		*value = ctx.setOf(elements)
+	default:
+		enumerated, found, err := ctx.asEnumerated(*value, declared)
+		if err != nil || !found {
+			return err
+		}
+		*value = enumerated
+	}
 	return nil
 }
 
@@ -272,15 +314,15 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 	if err != nil {
 		return false, "", err
 	}
-	if !ctx.model.semantics.Conforms(direct, declared) {
+	if !ctx.modelConforms(direct, declared) {
 		base, err := ctx.structuredBaseType(value)
 		if err != nil {
 			return false, "", err
 		}
-		if !ctx.model.semantics.Conforms(declared, base) {
+		if !ctx.modelConforms(declared, base) {
 			return false, "", nil
 		}
-		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.model.semantics.Conforms(declared, scalar) {
+		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.modelConforms(declared, scalar) {
 			return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it is a %s, which holds one scalar",
 				FormatValue(value), describeValue(value), symbolText(declared), symbolText(scalar)), nil
 		}

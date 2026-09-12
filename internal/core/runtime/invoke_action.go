@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -268,9 +267,9 @@ func actionCandidates(
 	var ok bool
 	switch {
 	case inv.referrer != nil:
-		sym, ok = ctx.model.resolver.ResolveReferenceTarget(scope, inv.referrer, target)
+		sym, ok = ctx.resolveReferenceTarget(scope, inv.referrer, target)
 	case inv.expr != nil:
-		sel := passes.SelectInvocation(ctx.model.resolver, ctx.model.semantics, scope, inv.expr, semantics.PerformsAction)
+		sel := ctx.selectInvocation(scope, inv.expr, semantics.PerformsAction)
 		switch {
 		case sel.Ambiguous && sel.Undetermined:
 			return nil, sel.Tied, nil
@@ -280,7 +279,7 @@ func actionCandidates(
 		sym = sel.Called()
 		ok = sym != nil
 	default:
-		sym, ok = ctx.model.resolver.ResolveQualified(scope, target)
+		sym, ok = ctx.resolveQualified(scope, target)
 	}
 	if !ok || sym == nil {
 		return nil, nil, fmt.Errorf("unresolved action reference: %s", name)

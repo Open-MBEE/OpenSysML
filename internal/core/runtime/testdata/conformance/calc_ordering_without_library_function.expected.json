@@ -1,0 +1,27 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "numericEnumeration": {"type": "Boolean", "value": true},
+    "numericEnumerationReversed": {"type": "Boolean", "value": false},
+    "strings": {"type": "Boolean", "value": true},
+    "quantities": {"type": "Boolean", "value": true},
+    "mixedNumbers": {"type": "Boolean", "value": true}
+  },
+  "reads": {
+    "test::enumerationLess": {"error": "type mismatch: operator '<' is not defined for the enumeration literal Color::red and the enumeration literal Color::blue; DataFunctions::'<' is abstract and no library function declares '<' for the enumeration Color, which is no ScalarValue"},
+    "test::enumerationGreater": {"error": "type mismatch: operator '>' is not defined for the enumeration literal Color::red and the enumeration literal Color::blue; DataFunctions::'>' is abstract and no library function declares '>' for the enumeration Color, which is no ScalarValue"},
+    "test::enumerationLessEqual": {"error": "type mismatch: operator '<=' is not defined for the enumeration literal Color::red and the enumeration literal Color::blue; DataFunctions::'<=' is abstract and no library function declares '<=' for the enumeration Color, which is no ScalarValue"},
+    "test::enumerationGreaterEqual": {"error": "type mismatch: operator '>=' is not defined for the enumeration literal Color::red and the enumeration literal Color::blue; DataFunctions::'>=' is abstract and no library function declares '>=' for the enumeration Color, which is no ScalarValue"},
+    "test::enumerationAgainstNumber": {"error": "type mismatch: operator '<' is not defined for an Integer and the enumeration literal Color::red; DataFunctions::'<' is abstract and no library function declares '<' for the enumeration Color, which is no ScalarValue"},
+    "test::partInstance": {"error": "type mismatch: operator '<' is not defined for an instance and an instance; DataFunctions::'<' takes DataValue operands and an instance of the part def Widget is none"},
+    "test::partSequence": {"error": "type mismatch: operator '<' is not defined for a sequence and an Integer; DataFunctions::'<' takes one DataValue per operand"},
+    "test::metadataValue": {"error": "type mismatch: operator '<' is not defined for an instance and an Integer; DataFunctions::'<' takes DataValue operands and an instance of the metadata def Tag is none"},
+    "test::metadataCast": {"error": "type mismatch: operator '<' is not defined for an instance and an Integer; DataFunctions::'<' takes DataValue operands and an instance of the metadata def Tag is none"},
+    "test::metadataSequence": {"error": "type mismatch: operator '<' is not defined for a sequence and an Integer; DataFunctions::'<' takes one DataValue per operand"},
+    "test::functionValue": {"error": "type mismatch: operator '<' is not defined for the function test::twice and an Integer; DataFunctions::'<' takes DataValue operands and the function test::twice is none"},
+    "test::nullValue": {"error": "type mismatch: operator '>=' is not defined for null and an Integer; DataFunctions::'>=' takes one DataValue per operand"},
+    "test::emptyValue": {"error": "type mismatch: operator '<' is not defined for a sequence and an Integer; DataFunctions::'<' takes one DataValue per operand"}
+  }
+}

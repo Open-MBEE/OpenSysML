@@ -338,7 +338,7 @@ type actionCapture struct {
 	released          bool
 	pauses            int64
 	steps, stepsSpent int64
-	inRun             bool
+	inRun, moved      bool
 	awaiting          *actionFrame
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	driven            *runState
@@ -356,7 +356,7 @@ func (e *ActionExecutor) capture() (actionCapture, error) {
 		exec: e, tokens: slices.Clone(e.tokens), state: e.state,
 		nextTokenID: e.nextTokenID, stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
-		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, awaiting: e.awaiting,
+		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, moved: e.moved, awaiting: e.awaiting,
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		driven:           e.driven.state,
 	}
@@ -371,7 +371,7 @@ func (c actionCapture) restore() {
 	e.tokens = slices.Clone(c.tokens)
 	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = c.state, c.nextTokenID, c.stepCount, c.sweep, c.sweeps
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
-	e.steps, e.stepsSpent, e.inRun, e.awaiting = c.steps, c.stepsSpent, c.inRun, c.awaiting
+	e.steps, e.stepsSpent, e.inRun, e.moved, e.awaiting = c.steps, c.stepsSpent, c.inRun, c.moved, c.awaiting
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.driven.state = c.driven
 	for _, perf := range c.frames {
@@ -492,7 +492,7 @@ type stateCapture struct {
 	doActions          []doActionCapture
 	machineExited      bool
 	driven             *runState
-	inRun              bool
+	inRun, moved       bool
 	timerScheduled     mapState[*lower.Transition, bool]
 	timeTriggerVerdict mapState[*lower.Transition, error]
 	changeFired        mapState[*lower.Transition, bool]
@@ -523,6 +523,7 @@ func (e *StateExecutor) capture() (stateCapture, error) {
 		machineExited:      e.machineExited,
 		driven:             e.driven.state,
 		inRun:              e.inRun,
+		moved:              e.moved,
 		timerScheduled:     captureMap(e.timerScheduled),
 		timeTriggerVerdict: captureMap(e.timeTriggerVerdict),
 		changeFired:        captureMap(e.changeFired),
@@ -576,7 +577,7 @@ func (c stateCapture) restore() {
 		act.act.pending, act.act.run = slices.Clone(act.pending), nil
 		e.doActions = append(e.doActions, act.act)
 	}
-	e.machineExited, e.driven.state, e.inRun = c.machineExited, c.driven, c.inRun
+	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()
 	e.changeFired = c.changeFired.restore()
