@@ -111,6 +111,9 @@ func TestBucketResults(t *testing.T) {
 		{"both error", sideResult{Error: true}, sideResult{Error: true}, "both-error"},
 		{"pilot silent", normalizePilot(""), sideResult{}, "pilot-silent"},
 		{"pilot silent over ours error", normalizePilot(""), sideResult{Error: true}, "pilot-silent"},
+		{"ours undetermined against a pilot literal", sideResult{Value: normalized{Kind: kindInt, Value: "1"}}, normalizeOurs("✓ size(gear)\n  = <undetermined>\n", false), "ours-undetermined"},
+		{"pilot unevaluated over ours undetermined", sideResult{Value: normalized{Unevaluated: true}}, normalizeOurs("  = <undetermined>\n", false), "pilot-unevaluated"},
+		{"pilot error over ours undetermined", sideResult{Error: true}, normalizeOurs("  = <undetermined>\n", false), "pilot-error"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -118,6 +121,19 @@ func TestBucketResults(t *testing.T) {
 				t.Errorf("bucketResults() = %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestOursUndeterminedIsAValueNotAnError(t *testing.T) {
+	got := normalizeOurs("✓ u + 5 (in U)\n  = <undetermined>\n", false)
+	if got.Error {
+		t.Fatal("normalizeOurs(<undetermined>) reports an error; want the undetermined kind")
+	}
+	if got.Value.Kind != kindUndetermined {
+		t.Fatalf("normalizeOurs(<undetermined>).Kind = %q, want %q", got.Value.Kind, kindUndetermined)
+	}
+	if text := normalizedText(got.Value); text != "undetermined" {
+		t.Fatalf("normalizedText() = %q, want undetermined", text)
 	}
 }
 

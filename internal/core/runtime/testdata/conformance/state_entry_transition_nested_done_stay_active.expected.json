@@ -1,0 +1,26 @@
+{
+  "type": "state",
+  "events": [
+    {
+      "signal": "Go"
+    },
+    {
+      "signal": "Again"
+    }
+  ],
+  "finalState": "idle",
+  "stateVisits": [
+    "idle",
+    "outer",
+    "done",
+    "done",
+    "idle"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "in;outer;"
+    }
+  },
+  "trace": true
+}

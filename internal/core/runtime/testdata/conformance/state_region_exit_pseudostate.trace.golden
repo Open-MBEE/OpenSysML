@@ -4,9 +4,6 @@ transition: lstart -> lwork
 exit: rstart
 enter: rwork
 transition: rstart -> rwork
-  eval feature exits -> 0
-  eval literal 0 -> 0
-eval operator == -> true
 exit: lwork (exit action)
 stmt assign exits
     eval feature exits -> 0
@@ -18,5 +15,8 @@ stmt assign exits
     eval literal 10 -> 10
   eval operator + -> 11
 exit: working
+  eval feature exits -> 11
+  eval literal 11 -> 11
+eval operator == -> true
 enter: stopped
 transition: lwork -> stopped

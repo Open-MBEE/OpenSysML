@@ -1,0 +1,9 @@
+model: cmd/pilot-exec-diff/testdata/models/vast_bounds.sysml
+
+# Model-level evaluation over a usage whose upper bound is the largest count the
+# runtime represents. The pilot rejects the bound itself, so it then resolves no
+# name in the model ("Couldn't resolve reference to Element 'V'") and every case
+# here is a pilot error, kept to a model of its own so the rejection reaches no
+# other case; ours leaves an insertion at that bound, or at 1, <undetermined>.
+includingat-vast-max :: V :: SequenceFunctions::includingAt(vast, 1.0, 9223372036854775807)
+includingat-vast-one :: V :: SequenceFunctions::includingAt(vast, 1.0, 1)

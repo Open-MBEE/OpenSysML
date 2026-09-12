@@ -82,6 +82,9 @@ type FeatureValue struct {
 	Materialized   bool  // lazy flag: has this feature value been instantiated?
 	Written        bool  // a run assigned this value, so no default derives it again
 	BindingDerived bool  // value came from binding propagation rather than a write
+	// Assumed marks a value fixed by nothing but the feature's multiplicity: its
+	// minimum materialized, or contributions short of its maximum.
+	Assumed bool
 	// dependents are the derived values that read this one, to unmaterialize when
 	// it changes; nil until one does (see dependents.go).
 	dependents []*FeatureValue
@@ -465,7 +468,7 @@ func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, 
 // checkAdmits reports a value the feature does not admit, by count, by type
 // or by uniqueness, naming the value as what.
 func (ctx *Context) checkAdmits(feat *EffectiveFeature, what string, val *Value, how admission) error {
-	if msg := feat.Multiplicity.CountViolation(elementCount(val)); msg != "" {
+	if msg := feat.Multiplicity.HeldViolation(heldCountOf(val)); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
 	}
 	if err := ctx.checkWriteType(feat.DeclScope(), what, feat.Type, val, how); err != nil {
@@ -515,6 +518,26 @@ func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (
 // so a caller can tell it from any other failure to evaluate, whatever the
 // expression it surfaced through.
 func (inst *Instance) GetFeatureValue(ctx *Context, name string) (*FeatureValue, error) {
+	return inst.getFeatureValue(ctx, name, nil)
+}
+
+// openPopulation is where a read that stops short of making up a collection's lower bound
+// leaves what it certainly holds: its subsetters' values, and the fewest an open one holds.
+type openPopulation struct {
+	Stopped     bool
+	Contributed []Value
+	AtLeast     int64
+}
+
+// openFeatureValue is GetFeatureValue for a model-level read: a collection whose count
+// the model leaves open is not made up to its lower bound, and open reports that.
+func (inst *Instance) openFeatureValue(ctx *Context, name string) (*FeatureValue, *openPopulation, error) {
+	open := &openPopulation{}
+	fv, err := inst.getFeatureValue(ctx, name, open)
+	return fv, open, err
+}
+
+func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopulation) (*FeatureValue, error) {
 	if err := ctx.checkNotDestroyed(inst); err != nil {
 		return nil, err
 	}
@@ -522,7 +545,7 @@ func (inst *Instance) GetFeatureValue(ctx *Context, name string) (*FeatureValue,
 		// Naming no feature value of the object is no materialization of one.
 		return nil, fmt.Errorf("%w: feature %q not found in instance %d (type %s)", ErrNoSuchFeature, name, inst.ID, inst.Type.Name)
 	}
-	fv, err := inst.materializeFeatureValue(ctx, name)
+	fv, err := inst.materializeFeatureValue(ctx, name, open)
 	if err != nil {
 		return nil, &FeatureValueError{Err: err}
 	}
@@ -560,19 +583,19 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 		fv.Value = Value{}
 	}
 	fv.Materialized, fv.Written = true, true
-	fv.BindingDerived = false
+	fv.BindingDerived, fv.Assumed = false, false
 	ctx.afterWrite(fv, before)
 	return nil
 }
 
 // materializeFeatureValue is GetFeatureValue's materialization: the feature value's value, evaluated and
 // checked against the multiplicity governing its feature the first time it is read.
-func (inst *Instance) materializeFeatureValue(ctx *Context, name string) (*FeatureValue, error) {
+func (inst *Instance) materializeFeatureValue(ctx *Context, name string, open *openPopulation) (*FeatureValue, error) {
 	defer ctx.beginRun()()
 
 	fv := inst.FeatureValues[name]
 	before := ctx.beforeWrite(fv)
-	err := inst.materializeBoundOrIntrinsic(ctx, fv, name)
+	err := inst.materializeBoundOrIntrinsic(ctx, fv, name, open)
 	ctx.afterWrite(fv, before)
 	if err != nil {
 		return nil, err
@@ -583,13 +606,13 @@ func (inst *Instance) materializeFeatureValue(ctx *Context, name string) (*Featu
 
 // materializeBoundOrIntrinsic gives fv the value a binding determines, else the one
 // its feature states, once.
-func (inst *Instance) materializeBoundOrIntrinsic(ctx *Context, fv *FeatureValue, name string) error {
+func (inst *Instance) materializeBoundOrIntrinsic(ctx *Context, fv *FeatureValue, name string, open *openPopulation) error {
 	if val, found, err := ctx.resolveBindingValue(inst, name); err != nil {
 		return err
 	} else if found {
 		return ctx.assignBindingValue(inst, fv, name, val)
 	} else if !fv.Materialized {
-		_, err := inst.materializeFeatureValueIntrinsic(ctx, name)
+		_, err := inst.materializeIntrinsicValue(ctx, name, open)
 		return err
 	}
 	return nil
@@ -598,9 +621,13 @@ func (inst *Instance) materializeBoundOrIntrinsic(ctx *Context, fv *FeatureValue
 // materializeFeatureValueIntrinsic evaluates a feature without following
 // binding connectors; binding resolution calls it to inspect an endpoint.
 func (inst *Instance) materializeFeatureValueIntrinsic(ctx *Context, name string) (*FeatureValue, error) {
+	return inst.materializeIntrinsicValue(ctx, name, nil)
+}
+
+func (inst *Instance) materializeIntrinsicValue(ctx *Context, name string, open *openPopulation) (*FeatureValue, error) {
 	fv := inst.FeatureValues[name]
 	before := ctx.beforeWrite(fv)
-	_, err := inst.materializeIntrinsic(ctx, fv, name)
+	_, err := inst.materializeIntrinsic(ctx, fv, name, open)
 	ctx.afterWrite(fv, before)
 	if err != nil {
 		return nil, err
@@ -609,8 +636,9 @@ func (inst *Instance) materializeFeatureValueIntrinsic(ctx *Context, name string
 }
 
 // materializeIntrinsic evaluates fv from what the model states of its feature: a
-// variation, a default, the members subsetting it, or the objects it holds.
-func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name string) (*FeatureValue, error) {
+// variation, a default, the members subsetting it, or the objects it holds. A non-nil
+// open stops the read short of making up an open collection's lower bound.
+func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
 	ctx.noteProbeWrite(fv)
 
 	// A feature listing this one as a value, on this object or an owner reaching it by a
@@ -708,8 +736,24 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 
 	// Lazy instantiation: a composite feature holds objects of its own.
 	if composite := ctx.CompositeTypeOf(fv.Feature); composite != nil {
-		// Check multiplicity (C2 + C1)
 		mult := fv.Feature.Multiplicity
+		// A model-level read makes up no collection whose count the model leaves open;
+		// a body binding a feature of the one object an optional scalar holds fixes it at one.
+		_, exact := mult.Exactly()
+		if open != nil && !exact && !(fv.Feature.Scalar() && ctx.bodyBindsAFeature(fv.Feature)) {
+			release := ctx.elementScope()
+			contributed, atLeast, err := ctx.openSubsettingContributions(inst, name)
+			release()
+			if err != nil {
+				return nil, err
+			}
+			if held := int64(len(contributed)); atLeast > held || mult.MayAdmitMore(held) {
+				open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
+				return fv, nil
+			}
+		}
+
+		// Check multiplicity (C2 + C1)
 		if !mult.Upper.Known || !mult.Lower.Known {
 			return nil, fmt.Errorf("cannot materialize feature %q with unknown multiplicity", name)
 		}
@@ -729,11 +773,6 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 				return nil, err
 			}
 		} else {
-			// Guard against infinite/huge lower bound (C3)
-			if mult.Lower.Infinite || mult.Lower.Value > maxMaterializedLowerBound {
-				return nil, fmt.Errorf("%w: lower bound too large or infinite for feature %q", ErrMultiplicityViolation, name)
-			}
-
 			// Subsetting features' objects are members; optional subsetters with room, then
 			// anonymous objects, make up the lower bound. A failed read leaves nothing behind.
 			release := ctx.elementScope()
@@ -741,6 +780,12 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 			if err != nil {
 				release()
 				return nil, err
+			}
+
+			// Guard against infinite/huge lower bound (C3)
+			if mult.Lower.Infinite || mult.Lower.Value > maxMaterializedLowerBound {
+				release()
+				return nil, fmt.Errorf("%w: lower bound too large or infinite for feature %q", ErrMultiplicityViolation, name)
 			}
 
 			count := int(mult.Lower.Value) - len(contributed)
@@ -783,6 +828,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 			}
 			fv.Values = ctx.collectionOf(fv.Feature, seq.Elements())
 			fv.Materialized = true
+			fv.Assumed = mult.AdmitsMore(int64(seq.Size()))
 			if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
 				return fail(err)
 			}
@@ -833,6 +879,7 @@ func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name strin
 		fv.Values = val
 	}
 	fv.Materialized = true
+	fv.Assumed = !symbols.IsAbstract(fv.Feature.Symbol) && fv.Feature.Multiplicity.AdmitsMore(int64(len(contributed)))
 	return fv, nil
 }
 

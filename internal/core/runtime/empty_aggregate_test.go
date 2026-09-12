@@ -11,6 +11,8 @@ import (
 
 // emptyAggregateModel declares collections of every kind an aggregate is taken
 // over, each without a member, so that what an empty aggregate yields is read.
+// They are read on the instantiated rig: at model level a valueless `[*]`
+// collection is undetermined, on an object it is empty.
 const emptyAggregateModel = `
 	package test {
 		public import ScalarValues::*;
@@ -54,6 +56,9 @@ func emptyAggregateContext(t *testing.T) (*Context, *symbols.Scope) {
 	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
 	if !ok || pkg.Scope == nil {
 		t.Fatal("test package not indexed")
+	}
+	if _, err := ctx.Instantiate(lookupOne(t, idx, "test::rig")); err != nil {
+		t.Fatalf("Instantiate rig: %v", err)
 	}
 	return ctx, pkg.Scope
 }

@@ -72,6 +72,8 @@ func describeOperand(val Value) string {
 		return "the function " + val.FunctionName()
 	case ValMetaobject:
 		return "a metaobject"
+	case ValUndetermined:
+		return "an undetermined value"
 	}
 	return "a value"
 }

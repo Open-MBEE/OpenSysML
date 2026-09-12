@@ -1,0 +1,13 @@
+exit: idle
+stmt assign x
+  eval literal 1 -> 1
+  eval feature x -> 1
+  eval literal 1 -> 1
+eval operator == -> true
+stmt assign y
+  eval literal 7 -> 7
+enter: seen
+transition: idle -> seen
+exit: seen
+enter: done
+transition: seen -> done

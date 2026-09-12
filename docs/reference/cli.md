@@ -51,6 +51,28 @@ sysml -e "someAttribute" model.sysml
 **Note:** flags may be written before or after the files — `sysml model.sysml -e "x"`
 and `sysml -e "x" model.sysml` do the same thing.
 
+An `-e` expression is evaluated at model level: over what the declarations state,
+not over an object. A feature the model leaves open — an attribute with no value,
+or a `[1..*]` or `[0..2]` feature whose count the model does not fix — reads as the
+value `<undetermined>`, and so does every expression whose answer depends on it
+(`u + 5`, `u > 3`, `size(rack.gear)`, `isEmpty(rack.loose)`). What the model does
+fix still answers: `(u > 3) and false` is `false`, `notEmpty(rack.gear)` is `true`,
+`size(rack.slots)` for `part slots[3]` is `3`. `<undetermined>` is a value, so the
+run exits `0`; a name nothing declares is still an `unresolved reference` and exits
+`2`. To read what an object holds, instantiate it (`-instantiate`), where a valueless
+feature shows `<unset>` and multiplicity minimums are materialized:
+
+```bash
+$ sysml -e "T::u" -e "(T::u > 3) and false" -e "size(T::rack.gear)" model.sysml
+✓ package T
+✓ T::u
+  = <undetermined>
+✓ (T::u > 3) and false
+  = false
+✓ size(T::rack.gear)
+  = <undetermined>
+```
+
 ### Multiple Evaluations
 
 Evaluate multiple expressions in sequence:
@@ -106,7 +128,9 @@ done
 
 A pipeline can gate on the exit status: an expression that could not be evaluated
 exits `2`, so anything left on stdout is a value you can compare (see
-[Exit status](#exit-status)):
+[Exit status](#exit-status)). Compare it literally: a feature the model leaves
+open prints the value `<undetermined>` with status `0`, which is not the number
+you expected either:
 
 ```bash
 # Check that a calculated value matches what is expected
@@ -981,9 +1005,9 @@ the one place it is written down; [the guide](../guide/) links here.
 
 | Status | Means |
 |--------|-------|
-| `0` | What was asked for was done: every file loaded and analysed cleanly, every `-e` expression produced a value, every check held, a conversion was written. Warnings leave the status `0`. |
+| `0` | What was asked for was done: every file loaded and analysed cleanly, every `-e` expression produced a value (`<undetermined>`, the model-level value of an expression over a feature the model leaves open, is one), every check held, a conversion was written. Warnings leave the status `0`. |
 | `1` | The model answered false: a constraint, requirement or satisfaction assertion the model decided did not hold. Only a verdict reports this status. |
-| `2` | What was asked for could not be done, so the model answered nothing: a file that could not be read, a model that did not analyse cleanly, an object whose feature values did not materialize, an unresolved name, a check that could not be made, an exploration that hit its budget before every linearization was tried, a conversion that could not be written because the RDF graph cannot rebuild a source construct, a misused flag or an invalid `OPENSYSML_MAX_*` value. |
+| `2` | What was asked for could not be done, so the model answered nothing: a file that could not be read, a model that did not analyse cleanly, an object whose feature values did not materialize, an unresolved name, a check that could not be made (including a condition that is `<undetermined>`: it is reported as `no value`, naming the feature the model leaves open, never as a verdict), an exploration that hit its budget before every linearization was tried, a conversion that could not be written because the RDF graph cannot rebuild a source construct, a misused flag or an invalid `OPENSYSML_MAX_*` value. |
 
 ```bash
 $ printf '%s\n' 'constraint MassBudget { 1 > 2 }' > model.sysml

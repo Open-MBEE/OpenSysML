@@ -1,0 +1,24 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"outcomes": [
+		{
+			"finalState": "low",
+			"stateVisits": ["idle", "low"],
+			"outputs": {
+				"level": {"type": "Integer", "value": 8},
+				"route": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"finalState": "high",
+			"stateVisits": ["idle", "high"],
+			"outputs": {
+				"level": {"type": "Integer", "value": 8},
+				"route": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "Two branches of a choice enabled by the data the incoming effect wrote: exactly one is taken, which one is open"
+}

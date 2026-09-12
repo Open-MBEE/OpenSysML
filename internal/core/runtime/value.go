@@ -37,6 +37,7 @@ const (
 	ValCoordinateTransformation // a CoordinateTransformation: a placement of one frame in another
 	ValFunction                 // a calc as a value: its lowered shape closed over the environment it was read in
 	ValMetaobject               // an element of the model as an instance of its reflective metaclass (`x meta T`)
+	ValUndetermined             // a model-level result the model does not determine; see Undetermined
 
 	// valueKindCount bounds the kinds; TestEveryValueKindIsDispatched walks them.
 	valueKindCount
@@ -112,6 +113,8 @@ func FormatValue(v Value) string {
 		return v.FunctionName()
 	case ValMetaobject:
 		return v.MetaobjectText()
+	case ValUndetermined:
+		return UndeterminedText
 	default:
 		return unknownText
 	}
@@ -179,6 +182,8 @@ func (k ValueKind) String() string {
 		return "function"
 	case ValMetaobject:
 		return "metaobject"
+	case ValUndetermined:
+		return "undetermined"
 	default:
 		return "invalid"
 	}
@@ -194,8 +199,8 @@ type Value struct {
 	// ref holds the kind-specific payload of the remaining kinds: a string
 	// (ValString), *Sequence, *Set, *exprValue (ValExpr), *Quantity, a complex128
 	// (ValComplex), *Array, *Vector, *VectorQuantity, *MeasurementRef, *TensorQuantity,
-	// *functionValue (ValFunction), *metaobjectValue (ValMetaobject), or the
-	// *symbols.Symbol of a variant (ValVariant) or enumeration literal (ValEnumLiteral).
+	// *functionValue (ValFunction), *metaobjectValue (ValMetaobject), *Undetermined, or
+	// the *symbols.Symbol of a variant (ValVariant) or enumeration literal (ValEnumLiteral).
 	// A scalar that is the value of an enumeration literal holds an *enumerated wrapping its payload.
 	ref any
 }

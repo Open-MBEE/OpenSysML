@@ -1,0 +1,34 @@
+exit: start
+enter: outer
+enter: first
+transition: start -> outer (event: accept Go)
+exit: first
+exit: outer
+enter: away
+transition: first -> away (event: accept Leave)
+exit: away
+enter: outer
+enter: first
+transition: away -> first (event: accept Back)
+exit: first
+enter: done
+transition: first -> done (event: accept Finish)
+exit: done
+exit: outer
+enter: away
+transition: done -> away
+exit: away
+enter: outer
+enter: second
+transition: away -> second (event: accept Back)
+exit: second
+enter: done
+transition: second -> done (event: accept Stop)
+exit: done
+exit: outer
+enter: away
+transition: done -> away
+exit: away
+enter: outer
+enter: second
+transition: away -> second (event: accept Back)
