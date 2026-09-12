@@ -1,0 +1,44 @@
+exit: leaf (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "/leaf;" -> "/leaf;"
+    eval operator + -> "/leaf;"
+stmt assign rounds
+    eval feature rounds -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+enter: done
+transition: leaf -> done (event: accept Go)
+exit: done
+exit: inner (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "/leaf;"
+      eval literal "/inner;" -> "/inner;"
+    eval operator + -> "/leaf;/inner;"
+enter: done
+  eval feature rounds -> 1
+  eval literal 1 -> 1
+eval operator == -> true
+  eval feature rounds -> 1
+  eval literal 0 -> 0
+eval operator == -> false
+transition: done -> done
+  eval feature rounds -> 1
+  eval literal 1 -> 1
+eval operator == -> true
+exit: done
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "/leaf;/inner;"
+      eval literal "/outer;" -> "/outer;"
+    eval operator + -> "/leaf;/inner;/outer;"
+enter: next (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "/leaf;/inner;/outer;"
+      eval literal "next;" -> "next;"
+    eval operator + -> "/leaf;/inner;/outer;next;"
+transition: done -> next

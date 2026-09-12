@@ -194,7 +194,7 @@ func (ctx *Context) resolveBindingValue(inst *Instance, name string) (Value, boo
 	target.Value = Value{}
 	target.Values = Value{}
 	target.Materialized = false
-	target.BindingDerived = false
+	target.BindingDerived, target.Assumed = false, false
 	val, found, err := ctx.resolveBindings(inst, target, name, key)
 	ctx.afterWrite(target, before)
 	return val, found, err
@@ -870,7 +870,7 @@ func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name st
 		fv.Values = val
 	}
 	fv.Materialized = true
-	fv.BindingDerived = true
+	fv.BindingDerived, fv.Assumed = true, false
 	return nil
 }
 

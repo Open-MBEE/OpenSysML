@@ -369,25 +369,73 @@ func (ctx *Context) SubsettingFeatures(inst *Instance, typ *symbols.Symbol, name
 // feature materializes it, so a cycle between subsetting features is reported as
 // ErrCyclicFeatureValue rather than recursing until the step budget runs out.
 func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Value, error) {
-	key := featureValueRef{instance: inst.ID, feature: name}
-	if ctx.collectingSubsets[key] {
-		return nil, fmt.Errorf("%w: %s.%s subsets itself", ErrCyclicFeatureValue, inst.Type.Name, name)
-	}
-	ctx.collectingSubsets[key] = true
-	defer delete(ctx.collectingSubsets, key)
-
 	var values []Value
-	for _, feat := range ctx.subsettingFeaturesOf(inst, name) {
+	err := ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
 		sub, err := inst.GetFeatureValue(ctx, feat.Name)
 		if err != nil {
-			return nil, fmt.Errorf("subsetting feature %s of %s: %w", feat.Name, name, err)
+			return err
 		}
 		values = append(values, elementsOf(sub.HeldValue())...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	if err := ctx.chargeElements(int64(len(values))); err != nil {
 		return nil, err
 	}
 	return values, nil
+}
+
+// openSubsettingContributions is subsettingContributions for a model-level read: an open
+// subsetter is not made up, contributing what it certainly holds and its fewest as atLeast.
+func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (values []Value, atLeast int64, err error) {
+	err = ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
+		sub, open, err := inst.openFeatureValue(ctx, feat.Name)
+		if err != nil {
+			return err
+		}
+		if !open.Stopped {
+			values = append(values, elementsOf(sub.HeldValue())...)
+			return nil
+		}
+		values = append(values, open.Contributed...)
+		atLeast = max(atLeast, open.AtLeast, fewestOf(feat.Multiplicity))
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := ctx.chargeElements(int64(len(values))); err != nil {
+		return nil, 0, err
+	}
+	return values, atLeast, nil
+}
+
+// eachSubsetterOf reads each feature subsetting the named feature of inst through
+// read, in declaration order; a cycle between subsetting features is an error.
+func (ctx *Context) eachSubsetterOf(inst *Instance, name string, read func(feat *EffectiveFeature) error) error {
+	key := featureValueRef{instance: inst.ID, feature: name}
+	if ctx.collectingSubsets[key] {
+		return fmt.Errorf("%w: %s.%s subsets itself", ErrCyclicFeatureValue, inst.Type.Name, name)
+	}
+	ctx.collectingSubsets[key] = true
+	defer delete(ctx.collectingSubsets, key)
+
+	for _, feat := range ctx.subsettingFeaturesOf(inst, name) {
+		if err := read(&feat); err != nil {
+			return fmt.Errorf("subsetting feature %s of %s: %w", feat.Name, name, err)
+		}
+	}
+	return nil
+}
+
+// fewestOf is the fewest values a feature of multiplicity mult holds.
+func fewestOf(mult semantics.Range) int64 {
+	if mult.Lower.Known && !mult.Lower.Infinite {
+		return mult.Lower.Value
+	}
+	return 0
 }
 
 // fillsFromSubsetted reports whether feat may hold objects a collection it

@@ -160,6 +160,35 @@ drawn first, so the label reads the same under every policy. Change triggers
 hold and dispatch through the same loop. See
 [scheduling policies, choice points and exploration](scheduling.md).
 
+**Deferral against a sibling region.** Before the survivors are dispatched, `selectTransitions`
+asks `deferralOutranks`: a state in the active configuration that defers the occurrence
+(`deferringStates`, over `StateGraph.Deferred`) holds it back from every candidate whose source is
+not that state or a state nested in it (`encloses`). A transition in a sibling region or in an
+enclosing state therefore waits: the occurrence is deferred, and recalled — with its arrival
+identity and the current clock time, ahead of the events that arrived meanwhile — once the
+deferring state is exited, into whatever configuration that exit leaves, where the sibling's
+transition then fires (`state_deferral_outranks_sibling_region`,
+`state_deferral_outranks_enclosing_state`). Only a transition nested in the deferring state
+overrides its deferral and consumes the occurrence (`state_deferral_nested_override`). With two
+orthogonal regions each holding a deferring state, the rule applies to each deferring state: the
+occurrence fires only if *every* deferring state has an overriding transition nested in it, else it
+is deferred whole, a nested override in one region included
+(`TestDeferralInEachRegionMustBeOverriddenForTheEventToFire`); a deferring state nested deeper than
+the sibling's transition outranks it all the same
+(`state_deferral_nested_outranks_sibling_region`). The outcome is determined by the
+configuration, so it is never a choice point; a do behavior's `accept` still takes the occurrence
+ahead of any deferral.
+
+**Completion of a composite state.** `done` written in a composite state's body is that state's
+own end (`States.sysml`: `done` is `StatePerformance::endShot`), so when every region of a
+composite state has reached its `done` and its do behavior has ended, the composite *completes*
+(`completeIfDone` → `scheduleCompletedComposites`): its nil-trigger transitions are queued as
+completion events at the current instant, exactly as a leaf's are, and the machine ends only when
+its own top-level regions (`TopRegions`) are all at `done`. A completed composite with no enabled
+completion transition stays completed and active — its triggered transitions still fire and the
+machine runs on (`state_completion_nested_regions_stay_active`). A region left at `done` leaves
+no history record, so a later history transition into it is a default entry.
+
 ### 4. State Entry/Exit with Regions
 
 **Entering composite state with regions:**
@@ -387,6 +416,7 @@ state def Parallel {
 - §14.2.3.3.5: Join transitions (N→1 with AND condition)
 
 **Not implemented (future):**
-- Transition priorities within regions
+- Transition priorities within regions beyond the nesting rule (a nested transition and a nested
+  override of a deferral outrank an enclosing state's)
 - Inter-region communication (requires ports)
 - Region-specific event queues (single queue sufficient for most cases)

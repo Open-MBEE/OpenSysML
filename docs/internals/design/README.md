@@ -20,6 +20,13 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 - **[Bounded model checking of behaviors](bounded-model-checking.md)** — a proposal: explore
   every admissible interleaving up to a bound with partial-order reduction, and report the
   requirement violations, deadlocks and schedule-dependent outcomes it finds
+- **[An embedded target for Class A flight software](embedded-target.md)** — a proposal: a
+  closed, serializable behavior IR with a written semantics as the requirement basis, a
+  freestanding C profile (no allocation, no recursion, static loop bounds, no extensions,
+  structurally coverable emission) over static tables, static refusal of every admissible
+  scheduling choice and every unbounded resource, the artifacts and traceability a tool
+  qualification argument consumes, and a fixed-step host interface proved under Zephyr on QEMU
+  and as an F´ component
 - **[Scheduling policies, choice points and exploration](scheduling.md)** — how a run
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one

@@ -809,6 +809,11 @@ func valueToProto(value opensysml.Value) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_Null{Null: string(v)}}
 	case opensysml.Unset:
 		return &pb.Value{Kind: &pb.Value_Unset{Unset: true}}
+	case opensysml.Undetermined:
+		return &pb.Value{Kind: &pb.Value_Undetermined{Undetermined: &pb.Undetermined{
+			Reason: v.Reason,
+			Count:  &pb.MultiplicityInfo{Lower: v.CountLower, Upper: v.CountUpper},
+		}}}
 	case opensysml.Quantity:
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: quantityToProto(v)}}
 	case opensysml.EnumLiteral:
@@ -901,6 +906,12 @@ func valueFromProto(value *pb.Value) (opensysml.Value, bool) {
 		return opensysml.Null(kind.Null), true
 	case *pb.Value_Unset:
 		return opensysml.Unset{}, true
+	case *pb.Value_Undetermined:
+		return opensysml.Undetermined{
+			Reason:     kind.Undetermined.GetReason(),
+			CountLower: kind.Undetermined.GetCount().GetLower(),
+			CountUpper: kind.Undetermined.GetCount().GetUpper(),
+		}, true
 	case *pb.Value_Sequence:
 		sequence := make(opensysml.Sequence, 0, len(kind.Sequence.GetElements()))
 		for _, element := range kind.Sequence.GetElements() {

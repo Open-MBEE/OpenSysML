@@ -1,0 +1,11 @@
+exit: l
+exit: r (exit action)
+stmt assign x
+  eval literal 1 -> 1
+  eval feature x -> 1
+  eval literal 1 -> 1
+eval operator == -> true
+enter: seen (entry action)
+stmt assign picked
+  eval literal 1 -> 1
+transition: l -> seen

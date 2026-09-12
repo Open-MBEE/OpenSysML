@@ -42,6 +42,29 @@ test("a value the service never sent is absent, and an unset feature is unset", 
   });
 });
 
+test("an undetermined result reads with its reason and count, and is not unset", () => {
+  const wire = create(ValueSchema, {
+    kind: {
+      case: "undetermined",
+      value: { reason: "u has no value in the model", count: { lower: "1", upper: "*" } },
+    },
+  });
+  const value = decodeValue(wire);
+  assert.deepEqual(value, {
+    kind: "undetermined",
+    reason: "u has no value in the model",
+    countLower: "1",
+    countUpper: "*",
+  });
+  assert.equal(formatValue(value), "<undetermined>");
+  assert.ok(valuesEqual(value, decodeValue(wire)));
+  assert.ok(!valuesEqual(value, { kind: "unset" }));
+  assert.ok(!valuesEqual(value, { kind: "null", reason: "" }));
+  assert.ok(!valuesEqual(value, { kind: "undetermined", reason: "other", countLower: "1", countUpper: "*" }));
+  // Something to read, never to send.
+  assert.throws(() => encodeValue(value), MalformedValueError);
+});
+
 test("integers keep their width and reals stay numbers", () => {
   const big = 9007199254740993n;
   assert.deepEqual(decodeValue(create(ValueSchema, { kind: { case: "intValue", value: big } })), {
