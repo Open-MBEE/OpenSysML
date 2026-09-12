@@ -61,11 +61,11 @@ func (ec *EvalContext) metadataSubject(n *ast.MetadataAccessExpr) (*symbols.Symb
 	if ec.ctx == nil || ec.ctx.model.resolver == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
 	}
-	sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, n.Ref)
+	sym, ok := ec.ctx.resolveQualified(ec.scope, n.Ref)
 	if !ok || sym == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
 	}
-	if resolved, aliasOK := ec.ctx.model.resolver.ResolveAliasTarget(sym); aliasOK {
+	if resolved, aliasOK := ec.ctx.resolveAliasTarget(sym); aliasOK {
 		sym = resolved
 	}
 	if sym.Decl == nil {

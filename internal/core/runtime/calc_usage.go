@@ -615,7 +615,7 @@ func (ctx *Context) bodyUsageSymbol(stmt lower.DeclareUsage) (*symbols.Symbol, e
 	if ctx.model.resolver == nil {
 		return nil, fmt.Errorf("%w: calc usage %s needs a resolved model", ErrNotACalcUsage, stmt.Name)
 	}
-	sym, ok := ctx.model.resolver.LookupName(stmt.Scope, stmt.Name)
+	sym, ok := ctx.lookupName(stmt.Scope, stmt.Name)
 	if !ok || !isCalcUsageSymbol(sym) {
 		return nil, fmt.Errorf(
 			"%w: calc usage %s is declared in this body but is not resolved to one",
@@ -1007,7 +1007,7 @@ func (run *calcRun) nestedUsage(ctx *Context, name string) (*calcRun, bool, erro
 		return nil, false, nil
 	}
 	scope := ctx.calcScope(run.shape.BodyOwner, run.shape.Sym, run.scope)
-	sym, ok := ctx.model.resolver.LookupName(scope, name)
+	sym, ok := ctx.lookupName(scope, name)
 	if !ok || !isCalcUsageSymbol(sym) {
 		return nil, false, nil
 	}
@@ -1030,7 +1030,7 @@ func (ec *EvalContext) calcUsageOperand(operand ast.Node) (*symbols.Symbol, bool
 	if len(ref.Name.Parts) == 1 && ec.namesValue(ref.Name.Parts[0].Text) {
 		return nil, false
 	}
-	sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, ref.Name)
+	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
 	if !ok || !isCalcUsageSymbol(sym) {
 		return nil, false
 	}
@@ -1066,7 +1066,7 @@ func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, boo
 			}
 		}
 	}
-	sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, ref.Name)
+	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
 	if !ok || !ec.ctx.namesOneObject(sym) {
 		return nil, false
 	}

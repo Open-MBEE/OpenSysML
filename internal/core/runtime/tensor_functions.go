@@ -174,7 +174,7 @@ func (ctx *Context) tensorMRefArg(name, param string, val Value) (*Array, error)
 		arr := val.Array()
 		if arr.Object != 0 {
 			inst, ok := ctx.instances[arr.Object]
-			if refSym := ctx.librarySymbol(tensorMRefTypeFQN); !ok || refSym == nil || !ctx.model.semantics.Conforms(ctx.objectType(inst), refSym) {
+			if refSym := ctx.librarySymbol(tensorMRefTypeFQN); !ok || refSym == nil || !ctx.modelConforms(ctx.objectType(inst), refSym) {
 				return nil, fmt.Errorf("%w: function %s parameter %q requires a %s, got %s",
 					ErrTypeMismatch, name, param, tensorMRefTypeFQN, describeValue(val))
 			}

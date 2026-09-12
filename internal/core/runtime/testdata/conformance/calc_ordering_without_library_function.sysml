@@ -38,6 +38,8 @@ package test {
 	attribute partInstance : Boolean = widget < other;
 	attribute partSequence : Boolean = widgets < 1;
 	attribute metadataValue : Boolean = tagged.metadata#(1) < 1;
+	attribute metadataCast : Boolean = (tagged meta Tag) < 1;
+	attribute metadataSequence : Boolean = tagged.metadata < 1;
 	attribute functionValue : Boolean = twice < 1;
 	attribute nullValue : Boolean = null >= 1;
 	attribute emptyValue : Boolean = nothing < 1;

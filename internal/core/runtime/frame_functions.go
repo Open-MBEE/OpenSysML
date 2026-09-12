@@ -16,11 +16,11 @@ func (ec *EvalContext) frameIndex(index ast.Node) (*CoordinateFrame, bool, error
 		if ec.ctx.model.resolver == nil {
 			return nil, false, nil
 		}
-		sym, ok := ec.ctx.model.resolver.ResolveTarget(ec.scope, index)
+		sym, ok := ec.ctx.resolveTarget(ec.scope, index)
 		if !ok || sym == nil {
 			return nil, false, nil
 		}
-		if alias, ok := ec.ctx.model.resolver.ResolveAliasTarget(sym); ok {
+		if alias, ok := ec.ctx.resolveAliasTarget(sym); ok {
 			sym = alias
 		}
 		if !ec.ctx.isFrameType(ec.ctx.extractType(sym)) {
@@ -235,7 +235,7 @@ func (ctx *Context) frameConforms(frame *CoordinateFrame, declared *symbols.Symb
 // its type, or what the checker knows of a composed frame; false where it conforms.
 func (ctx *Context) frameRefusal(frame *CoordinateFrame, declared *symbols.Symbol) (string, bool) {
 	if frame.Type != nil {
-		if ctx.model.semantics.Conforms(frame.Type, declared) {
+		if ctx.modelConforms(frame.Type, declared) {
 			return "", false
 		}
 		return "a " + symbolText(frame.Type), true
@@ -285,7 +285,7 @@ func (ctx *Context) transformationConforms(t *CoordinateTransformation, declared
 			return false, "", err
 		}
 	}
-	if ctx.model.semantics.Conforms(typ, declared) {
+	if ctx.modelConforms(typ, declared) {
 		return true, "", nil
 	}
 	return false, fmt.Sprintf("cannot write the coordinate transformation %s, a %s, to a feature typed by %s",

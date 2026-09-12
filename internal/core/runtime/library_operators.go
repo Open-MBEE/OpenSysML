@@ -348,7 +348,7 @@ func (ctx *Context) isDataValue(val Value) bool {
 		return false
 	}
 	for _, typ := range direct {
-		if ctx.model.semantics.Conforms(typ, dataValue) {
+		if ctx.modelConforms(typ, dataValue) {
 			return true
 		}
 	}

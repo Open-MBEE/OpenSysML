@@ -46,7 +46,7 @@ func (ctx *Context) canClassify(inst *Instance, typ *symbols.Symbol) bool {
 // comparableTypes reports whether one of typ and other specializes the other. A
 // feature stands for the types it is typed by, implicit base included.
 func (ctx *Context) comparableTypes(typ, other *symbols.Symbol, seen map[*symbols.Symbol]bool) bool {
-	if typ == nil || other == nil || ctx.model.semantics.Conforms(typ, other) || ctx.model.semantics.Conforms(other, typ) {
+	if typ == nil || other == nil || ctx.modelConforms(typ, other) || ctx.modelConforms(other, typ) {
 		return true
 	}
 	if !semantics.IsShapeFeature(typ) || seen[typ] {
@@ -146,7 +146,7 @@ func (ctx *Context) refineFeatureValue(inst *Instance, fv *FeatureValue, feat *E
 		return nil
 	}
 	if !slices.Contains(ctx.redefinedFeatures(feat.Symbol, typ), have.Symbol) &&
-		(!ctx.model.semantics.Conforms(typ, have.OwnerType) || slices.Contains(ctx.redefinedFeatures(have.Symbol, have.OwnerType), feat.Symbol)) {
+		(!ctx.modelConforms(typ, have.OwnerType) || slices.Contains(ctx.redefinedFeatures(have.Symbol, have.OwnerType), feat.Symbol)) {
 		return nil
 	}
 	ctx.noteProbeWrite(fv)

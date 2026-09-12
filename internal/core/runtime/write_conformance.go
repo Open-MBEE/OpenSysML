@@ -48,7 +48,7 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 		return cached, cached != nil
 	}
 	var target *writeTarget
-	if sym, ok := ctx.model.resolver.LookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
+	if sym, ok := ctx.lookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
 		mult, _ := ctx.extractMultiplicity(sym)
 		target = ctx.newWriteTarget(sym, name, mult)
 	}
@@ -314,15 +314,15 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 	if err != nil {
 		return false, "", err
 	}
-	if !ctx.model.semantics.Conforms(direct, declared) {
+	if !ctx.modelConforms(direct, declared) {
 		base, err := ctx.structuredBaseType(value)
 		if err != nil {
 			return false, "", err
 		}
-		if !ctx.model.semantics.Conforms(declared, base) {
+		if !ctx.modelConforms(declared, base) {
 			return false, "", nil
 		}
-		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.model.semantics.Conforms(declared, scalar) {
+		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.modelConforms(declared, scalar) {
 			return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it is a %s, which holds one scalar",
 				FormatValue(value), describeValue(value), symbolText(declared), symbolText(scalar)), nil
 		}
