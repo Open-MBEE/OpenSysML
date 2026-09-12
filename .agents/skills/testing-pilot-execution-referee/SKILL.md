@@ -123,8 +123,8 @@ pilot answers the representation's own. See
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`371 file(s), 337 fully agreeing; 34 agreed
-  diagnostic(s), 37 only ours, 1111 only the pilot's` after the MOSA example joined `examples/` and the bare feature-reference typing round — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`375 file(s), 338 fully agreeing; 34 agreed
+  diagnostic(s), 38 only ours, 1118 only the pilot's` after the runtime showcase joined `examples/` — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

@@ -19,10 +19,29 @@ interactive REPL, an execution runtime, an embeddable Go API, and Python, Node/T
 and Rust client libraries, covering the lifecycle from authoring through execution with the
 integrated tooling systems engineers expect from a modern language ecosystem.
 
+**It runs the model.** A validator reads declarations; an expression evaluator computes a value
+from the ones it is handed. OpenSysML materializes the instances a model describes, evaluates
+their features through the whole part tree with units carried and checked, performs actions on
+those objects and advances state machines on a clock, and decides requirements, analysis
+objectives and satisfaction claims against what it finds. Because it runs the model, it finds
+what reading cannot: a mass rollup whose one unvalued leaf makes the total incomputable, a
+calculation whose result comes out in the wrong dimension, a well-formed action with no step to
+start at. The [runtime showcase](examples/runtime-showcase/README.md) is a set of small models
+built around exactly those questions, run and reported; the first of the [examples](#examples)
+below is the shortest version.
+
 It is fast. The public [Apollo 11 SysML v2 model](https://github.com/airbus/apollo-11-sysml-v2)
 — 28 files, 7,200 lines — parses in **8 ms** (42 MB/s on one core) and loads, resolves and
 validates against the full standard library in **0.43 s**. The measurement and how to repeat
-it are in [performance](docs/internals/performance.md#a-real-model-apollo-11).
+it are in [performance](docs/internals/performance.md#a-real-model-apollo-11). The same model
+is where the runtime earns its keep: the pinned OMG pilot validator passes all 28 files without
+a finding, and OpenSysML's validation reports 37 warnings and no error, yet asked to *run* the
+model's delta-v, reliability and injection calculations, or to instantiate the mission
+individual that performs the top-level `PerformLunarMission` action, the runtime stops each one
+at a defect only execution reaches — an `e` that resolves to a valueless ISO 80000 quantity, a
+gravitational parameter typed as a force so the result is not a speed, three mission phases with
+no succession between them. Each is reproduced, command by command, in
+[the showcase's Apollo 11 section](examples/runtime-showcase/README.md#apollo-11).
 
 The basis for these claims, and their limits, are documented in
 [spec compliance](docs/project/spec-compliance.md) and the
@@ -78,6 +97,45 @@ make build
 > `brew trust --formula Open-MBEE/tap/opensysml` in between.
 
 ### Examples
+
+**A model that runs.** `saturnIBAscent` is an analysis case bound to a two-stage rocket; its
+outputs are computed from the rocket equation over the stages' masses and specific impulses,
+with units, and its objective is a requirement. Arguments in parentheses rebind its inputs:
+
+```bash
+$ sysml -quiet -analysis DeltaVBudget::saturnIBAscent examples/runtime-showcase/delta-v-budget.sysml
+✓ package DeltaVBudget
+✓ DeltaVBudget::saturnIBAscent
+  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
+  stage2DeltaV = 6432.955324716369 [SI::'m/s']
+  margin = 70.65198768706614 [SI::'m/s']
+  objective reachesOrbit: satisfied
+  standing: value (observed: 1 run under reverse)
+
+$ sysml -quiet -analysis "DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])" examples/runtime-showcase/delta-v-budget.sysml
+✓ package DeltaVBudget
+✗ DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])
+  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
+  stage2DeltaV = 6432.955324716369 [SI::'m/s']
+  margin = -329.34801231293386 [SI::'m/s']
+  objective reachesOrbit: not satisfied: margin > 0 ['m/s']
+  standing: value (observed: 1 run under reverse)
+```
+
+The same file's `InjectionDeltaV` types a gravitational parameter as a force. Every name
+resolves and every operator applies, so validation passes it; the runtime computes the number
+and refuses to store it as a speed:
+
+```bash
+$ sysml -quiet -calc "DeltaVBudget::InjectionDeltaV(3.986E14 [SI::N], 6563000 [SI::m], 384400000 [SI::m])" examples/runtime-showcase/delta-v-budget.sysml
+✓ package DeltaVBudget
+sysml: calc invocation failed: calc DeltaVBudget::InjectionDeltaV: result: type mismatch: cannot write 3135.1638390999387 [kg**0.5/s] (dimension M^0.5·T^-1) to a feature typed by SpeedValue (dimension L·T^-1)
+  standing: not covered (…)
+```
+
+The [runtime showcase](examples/runtime-showcase/README.md) continues from here: a recursive
+mass rollup, a reliability requirement asserted of two missions, a mission action that branches
+on its remaining budget, a clocked state machine, and the Apollo 11 model under the same tool.
 
 **Interactive modeling:**
 ```bash
@@ -195,10 +253,10 @@ sysml> %advance 30
 The project provides the tooling familiar from the Python, Rust and Go ecosystems, applied to
 SysML v2:
 
+- **Execution Runtime** — More than a validator: instantiate parts, evaluate constraints against concrete values and execute calc and analysis cases. Action and state executor infrastructure is complete (activity fork/join parallelism, decision guards, hierarchical/orthogonal states, choice/junction pseudostates, TimeEvent/ChangeEvent/AcceptEvent, sourceless transitions). See [spec compliance](docs/project/spec-compliance.md) for measured behavioral coverage and the [runtime showcase](examples/runtime-showcase/README.md) for what running a model finds that validating it cannot.
 - **Language Server** — A standard LSP server (`sysml-lsp`) with live diagnostics, semantic hover, go-to-definition, find references, completion, workspace-wide symbol search, formatting, rename, semantic tokens and quick fixes. A VS Code extension with TextMate grammars for `.sysml` and `.kerml` ships in [editors/vscode](editors/vscode), and any editor with a generic LSP client can drive the server directly — [guide chapter 8](docs/guide/08-editors.md) walks through both. *Not yet:* the extension is built from source rather than published to a marketplace, and the server answers no semantic token delta requests or signature help.
 - **Interactive REPL** — An exploratory modeling environment: define models incrementally, evaluate expressions interactively, instantiate parts, run calculations and inspect runtime state, comparable to IPython or Jupyter for systems engineering.
 - **Constraint Solving** *(experimental)* — In addition to evaluating what holds of an object, an external SMT solver determines whether a constraint, requirement or satisfaction assertion *can* hold, which conditions conflict when it cannot, which values would satisfy it, which variants a model permits, and what optimizes an `analysis def`'s objectives. The solver is optional and discovered at runtime. [The REPL command reference](docs/reference/repl-commands.md) documents each command, and [installing a solver](docs/guide/01-install.md#installing-a-solver-optional) describes how to obtain one. The design follows OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf) (see [Acknowledgements](#acknowledgements)).
-- **Execution Runtime** — More than a validator: instantiate parts, evaluate constraints against concrete values and execute calc and analysis cases. Action and state executor infrastructure is complete (activity fork/join parallelism, decision guards, hierarchical/orthogonal states, choice/junction pseudostates, TimeEvent/ChangeEvent/AcceptEvent, sourceless transitions). See [spec compliance](docs/project/spec-compliance.md) for measured behavioral coverage.
 - **Embeddable Go API** — `client/opensysml` is the public Go surface: parse, look up symbols, evaluate expressions and instantiate parts from Go code, answered in process by the engine the calling binary already links (no port, no child process and no serialization round trip), or over the Connect protocol against an externally hosted service. See [client/opensysml/README.md](client/opensysml/README.md).
 - **Python Client Library** — gRPC-based Python bindings for programmatic access: parse models, resolve symbols, evaluate expressions, instantiate parts, execute actions/state machines. Includes IPython display hooks for Jupyter notebooks and pandas DataFrame integration. Constraint, requirement, satisfaction and calc verdicts are available as RPCs (`verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`).
 - **Node/TypeScript Client Library** — `@opensysml/client` for Node and the browser, over the Connect protocol with protobuf bodies: parse, evaluate, look up symbols and instantiate, with values as discriminated unions. No native addon and nothing downloaded at install time ([clients/node/README.md](clients/node/README.md)).
@@ -253,11 +311,11 @@ The project is under active development, with the core infrastructure operationa
 <!-- doc-counts:begin refereed-figures -->
 **Measured against the pinned reference** (`PILOT_TAG=2026-07`, artifact `0.61.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
 
-- **Corpus agreement:** 337 of 371 files agree diagnostic-by-diagnostic; 37 diagnostics are ours alone and 1111 the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential](docs/project/pilot-differential.md), `go run ./cmd/pilot-diff`).
+- **Corpus agreement:** 338 of 375 files agree diagnostic-by-diagnostic; 38 diagnostics are ours alone and 1118 the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential](docs/project/pilot-differential.md), `go run ./cmd/pilot-diff`).
 - **Declared-diagnostic silence:** of the 511 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 244 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](docs/project/pilot-xpect.md), `go run ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
 - **Permissiveness gaps:** of 285 invalid models we wrote ourselves, the reference rejects 3 that we accept by default, and 273 both reject; 3 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](docs/project/pilot-rejection.md), `go run ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 3 defect(s) in the published reference material — 1 with a specification-derived correction, 2 documented without one, since no intended reading can be inferred ([OMG issues](docs/project/omg-issues.md), `internal/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 338 of 371 files agreeing, 36 diagnostics ours alone and 1111 the reference's alone, 0 declared rows we are silent on, and 0 of 285 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Declared errata:** the registry declares 3 defect(s) in the published reference material — 1 with a specification-derived correction, 2 documented without one, since no intended reading can be inferred ([OMG issues](docs/project/omg-issues.md), `internal/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 339 of 375 files agreeing, 37 diagnostics ours alone and 1118 the reference's alone, 0 declared rows we are silent on, and 0 of 285 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](docs/project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.
@@ -269,7 +327,7 @@ What these numbers cannot show: the OMG corpora are demonstrations rather than a
 **Test coverage:** 15,139 tests and subtests (15,122 pass, 17 skip — 3 skip themselves, 14 gate on a PDF toolchain, a pinned pilot artifact, a locale, a case-insensitive filesystem or a live Flexo stack; 6,570 top-level `Test` functions; counted with the OMG corpora downloaded and an SMT solver installed, without which 80 more skip) covering parsers, semantics, runtime (actions, states, instances, operators, validation). Behavioral robustness: 195 golden ASTs, 249 negatives, 671 conformance cases, 140 golden traces, 336 runtime robustness cases, 15 gRPC conformance cases and 8 gRPC robustness cases.
 **Parser coverage:** 98/98 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the non-normative `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `OpenSysML Libraries/DocumentQueries.sysml`, `OpenSysML Libraries/IdentityMetadata.sysml` and `OpenSysML Libraries/OOSEM.sysml` extensions. Conformance verified by [stdlib_conformance_test.go](internal/core/libs/stdlib_conformance_test.go). Grammar reference: [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 **Behavioral execution:** Calc/constraint/requirement/satisfy functional. Action/state executors handle nested invocation, control flow keywords, loop and conditional statements and the send statement (671/671 conformance cases passing). Coverage is self-assessed against the specification text and the normative library: the pinned OMG pilot implementation evaluates expressions but does not execute actions or state machines headlessly, so no external implementation currently adjudicates these rows. See [spec compliance](docs/project/spec-compliance.md).
-**Reference differential:** 371 files compared diagnostic-by-diagnostic against the pinned OMG pilot implementation (`2026-07`), 337 in full agreement; every divergence is enumerated and adjudicated in [the differential](docs/project/pilot-differential.md), reproducible with `go run ./cmd/pilot-diff`.
+**Reference differential:** 375 files compared diagnostic-by-diagnostic against the pinned OMG pilot implementation (`2026-07`), 338 in full agreement; every divergence is enumerated and adjudicated in [the differential](docs/project/pilot-differential.md), reproducible with `go run ./cmd/pilot-diff`.
 **Rejection oracle:** the reverse direction — do we reject what the reference rejects? 285 hand-written invalid models validated by both implementations, 276 rejected by both, 0 the pinned pilot rejects and we accept; the remainder only we reject — the control-node succession rules the pinned pilot leaves unimplemented and a non-Boolean succession guard it accepts once the standard library types it — and every permissiveness gap is enumerated with a reproducer and likely root cause in [the rejection oracle](docs/project/pilot-rejection.md), reproducible with `go run ./cmd/pilot-reject`. We wrote every case, so the count measures our coverage of the rejection surface, not our conformance — a sample, not a proof.
 **Training examples:** 100/100 files clean, gated by `internal/core/model/testdata/training_examples_expected.txt`. Download with `./scripts/download-training-examples.sh` (from the [OMG training directory](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/sysml/src/training)). See [training examples](docs/project/training-examples.md) for analysis.
 **Semantic layer:** a complete implementation of runtime operators, feature chains and validation rules. See [examples/semantic-layer/](examples/semantic-layer/) for a full demonstration.

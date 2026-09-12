@@ -208,7 +208,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-07`, 371 files)
+## Results (pilot `2026-07`, 375 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -217,9 +217,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 49 | 10 | 6 | 0 | 0 | 10 | 6 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 36 | 26 | 8 | 1087 | 0 | 2 | 6 | 1085 |
+| `examples` | 40 | 27 | 9 | 1094 | 0 | 2 | 7 | 1092 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **371** | **337** | **74** | **1148** | **34** | **3** | **37** | **1111** |
+| **Total** | **375** | **338** | **75** | **1155** | **34** | **3** | **38** | **1118** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -232,9 +232,11 @@ then takes `kerml-examples` to **4**, and the
 [collection-body element typing round](#collection-body-element-typing-round) to **6**, and the
 [bare feature-reference typing round](#bare-feature-reference-typing-round) to **10**. Our
 diagnostics on those roots therefore fall 20 → **17**. The
-`examples` root carries 1, the non-standard-notation warning on the `junction` of
-`pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because no SysML v2
-spelling of it exists. It carried 64 before the demos were rewritten to standard notation: the
+`examples` root carries 1 outside the demos that draw diagnostics on purpose (the five MOSA
+warnings of the [MOSA library round](#mosa-library-round) and the unbound-parameter advisory of
+the [runtime showcase round](#runtime-showcase-round)): the non-standard-notation warning on the
+`junction` of `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because
+no SysML v2 spelling of it exists. It carried 64 before the demos were rewritten to standard notation: the
 succession shorthands retired 30, removing `initial <state>;` and `transition <src> to <tgt>;`
 retired 27 more, and the standard-notation round below retired the last 7. `testdata` carries 8:
 the 3 adjudicated below and the 5 value-uniqueness diagnostics of `passes/unique_values.sysml`, a
@@ -246,6 +248,36 @@ reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Runtime showcase round
+
+The four models of `examples/runtime-showcase/` join the `examples` root: files 36 → **40** on
+the root, 371 → **375** overall. `mission-sequence.sysml` is silent on both sides and takes
+`fully agreeing` 337 → **338**. Our diagnostics rise 74 → **75** and only-ours 37 → **38**: the
+one warning `delta-v-budget.sysml` draws on purpose, `RocketEquation leaves parameter mf unbound,
+so the call cannot be evaluated`, on a calculation written to show the
+[unbound-parameter advisory](#the-unbound-parameter-advisory) — the pilot has no such check.
+Pilot diagnostics rise 1148 → **1155** / only pilot 1111 → **1118**. Six of the seven are the
+reference's cascade from `OpenSysMLMathFunctions`, a library it does not ship: the
+`import OpenSysMLMathFunctions::ln;` and `::exp` of `delta-v-budget.sysml` and
+`reliability.sysml` fail to resolve, and each invocation of the imported function then draws
+`Must invoke a behavior or a behavioral feature` beside its unresolved reference — read the same
+way as the `MOSA` and `OOSEM` cascades. The seventh is the warning
+`Bound features should have conforming types` on `mass + sum(subcomponents.totalMass)` in
+`mass-rollup.sysml` — a quantity feature initialized by an operator expression over a `sum`, the
+same family as the `sum(robots.mass) + sum(cradles.mass)` row adjudicated under
+[The team demo](#the-team-demo). `agreed` and `severity-only` do not move.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 371 | **375** |
+| overall: fully agreeing | 337 | **338** |
+| overall: our diagnostics | 74 | **75** |
+| overall: only ours | 37 | **38** |
+| only pilot | 1111 | **1118** |
+| pilot diagnostics | 1148 | **1155** |
+| severity-only | 3 | **3** |
+| `examples`: only pilot | 1085 | **1092** |
 
 ### MOSA library round
 
@@ -516,8 +548,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1111** |
-| pilot diagnostics | 123 | **1148** |
+| only pilot | 82 | **1118** |
+| pilot diagnostics | 123 | **1155** |
 | severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -646,10 +678,11 @@ Xpect assertions not present in these seven differential roots.
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 `units`, 1 `kind-mismatch`; `kerml-examples` 9 `unmapped`, 1 `multiplicity` (the
 [unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax, 4 `unmapped`,
-1 `multiplicity` (the five warnings the MOSA demo draws on purpose, below); `testdata` 7
+2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
+advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 527 `kind-mismatch`, 529 `unresolved-reference` — of which
+`examples` 10 syntax, 19 `unmapped`, 530 `kind-mismatch`, 533 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -739,14 +772,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **337 / 37 / 74** |
-| only pilot | **1111** |
-| pilot diagnostics | **1148** |
+| overall: fully agreeing / only ours / our diagnostics | **338 / 38 / 75** |
+| only pilot | **1118** |
+| pilot diagnostics | **1155** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **1085** |
+| examples: only pilot | **1092** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
 only-pilot, with 49 of 58 files fully
