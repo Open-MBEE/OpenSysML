@@ -190,6 +190,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView", "ASCII text at a terminal"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form markdown", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -o view.mmd", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
 			},
@@ -199,7 +200,10 @@ func doc() usage.Doc {
 					"output: SysML v2 specifies the notation, not how a tool draws " +
 					"it. Notices — an empty view, an element the rendering cannot " +
 					"represent — go on stderr. Every file named is loaded as one " +
-					"model, so a view may expose elements a sibling file declares.",
+					"model, so a view may expose elements a sibling file declares. " +
+					"A graph-shaped rendering is written as a Mermaid diagram by " +
+					"default and as Graphviz DOT with -render-form dot; no Graphviz " +
+					"installation is needed to write it.",
 			},
 		}, {
 			Title: "Rendering a document",
@@ -342,7 +346,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered Markdown")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition as linked Markdown into this directory")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid or markdown (default: destination-dependent for -render, each kind's machine form for -render-all)")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown or dot (default: destination-dependent for -render, each kind's machine form for -render-all)")
 	fs.StringVar(&docForm, "doc-form", "", "Form -render-document and -render-documents write: markdown (default), html or pdf, which drives an external converter")
 	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
 	fs.BoolVar(&pdfTitlePage, "pdf-title-page", false, "Put the document title on a page of its own (-doc-form pdf)")

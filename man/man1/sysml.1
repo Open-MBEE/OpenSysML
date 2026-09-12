@@ -182,8 +182,8 @@ Markdown
 Render every document definition as linked Markdown into this directory
 .TP
 .BI \-render\-form " string"
-Form \-render or \-render\-all writes: text, mermaid or markdown (default:
-destination\-dependent for \-render, each kind's machine form for
+Form \-render or \-render\-all writes: text, mermaid, markdown or dot
+(default: destination\-dependent for \-render, each kind's machine form for
 \-render\-all)
 .TP
 .BI \-requirement " value"
@@ -490,6 +490,7 @@ the resulting commit; the token comes from FLEXO_INTEROP_TOKEN.
 sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render Views::vehicleView \-render\-form markdown
 sysml model.sysml \-render Views::vehicleView \-o view.mmd
+sysml model.sysml \-render Views::vehicleView \-render\-form dot
 # several files, loaded as one model
 sysml types.sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render\-all rendered
@@ -500,7 +501,10 @@ The rendering is the one the view's render member states, and a containment
 tree where it states none. It is tool\-defined output: SysML v2 specifies the
 notation, not how a tool draws it. Notices \(em an empty view, an element the
 rendering cannot represent \(em go on stderr. Every file named is loaded as
-one model, so a view may expose elements a sibling file declares.
+one model, so a view may expose elements a sibling file declares. A
+graph\-shaped rendering is written as a Mermaid diagram by default and as
+Graphviz DOT with \-render\-form dot; no Graphviz installation is needed to
+write it.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf

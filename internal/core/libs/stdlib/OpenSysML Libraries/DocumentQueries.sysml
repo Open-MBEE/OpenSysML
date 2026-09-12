@@ -183,6 +183,9 @@ library package DocumentQueries {
 		attribute kind : String[0..1];
 		/* direction: "TB", "LR", "RL" or "BT", for kinds drawn as graphs. */
 		attribute direction : String[0..1];
+		/* form: "mermaid" (the default) or "dot", the diagram source a
+		 * graph-shaped kind is written as; a table is always a table. */
+		attribute form : String[0..1];
 		ref source : Element[0..1];
 	}
 }

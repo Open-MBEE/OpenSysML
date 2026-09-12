@@ -234,6 +234,7 @@ type DiagramRef struct {
 	kind      view.Kind
 	stated    string
 	direction view.Direction
+	form      view.Form
 	origin    provenance.Origin
 }
 
@@ -251,6 +252,9 @@ func (d *DiagramRef) Stated() string { return d.stated }
 
 // Direction returns the stated flow direction, empty for the kind's default.
 func (d *DiagramRef) Direction() view.Direction { return d.direction }
+
+// Form returns the stated diagram form, empty for the kind's machine form.
+func (d *DiagramRef) Form() view.Form { return d.form }
 
 // Origin returns the source declaration behind the reference.
 func (d *DiagramRef) Origin() provenance.Origin { return d.origin }

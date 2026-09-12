@@ -60,8 +60,8 @@ func TestEvaluateDiagramFromDeclaredView(t *testing.T) {
 	if diagram.Caption() != "Imaging chain" {
 		t.Fatalf("caption = %q", diagram.Caption())
 	}
-	if diagram.Direction() != "" {
-		t.Fatalf("direction = %q", diagram.Direction())
+	if diagram.Direction() != "" || diagram.Form() != "" {
+		t.Fatalf("direction = %q, form = %q", diagram.Direction(), diagram.Form())
 	}
 	rendering := diagram.Rendering()
 	if rendering == nil {
@@ -94,6 +94,26 @@ func TestEvaluateDiagramFromElementAndKind(t *testing.T) {
 	rendering := diagram.Rendering()
 	if rendering == nil || rendering.Kind != view.KindState {
 		t.Fatalf("rendering = %+v", rendering)
+	}
+}
+
+// The stated form is carried through evaluation, by value and by clone, so the
+// renderers write the diagram's source in it.
+func TestEvaluateDiagramCarriesTheForm(t *testing.T) {
+	fixture := loadEvaluationFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines form = "dot";
+			attribute redefines direction = "LR";
+			ref redefines source = interconnectView;
+		}
+	`))
+	document := fixture.mustEvaluate(t, "Report")
+	diagram := document.Content()[0]
+	if diagram.Form() != view.FormDot || diagram.Direction() != view.DirectionLeftRight {
+		t.Fatalf("form = %q, direction = %q", diagram.Form(), diagram.Direction())
+	}
+	if got := cloneContent([]Content{diagram})[0].Form(); got != view.FormDot {
+		t.Fatalf("cloned form = %q", got)
 	}
 }
 

@@ -137,14 +137,15 @@ func pipeTable(names []string, rows []queryexec.Row, columns int) string {
 
 // renderDiagram writes one diagram, preceded by its marked caption in
 // emphasis: a table-kind view as a pipe table, every other supported kind
-// as a fenced Mermaid block drawn in the diagram's direction.
+// as a fenced block of its diagram source drawn in the diagram's direction.
 func renderDiagram(node docir.Content) ([]string, error) {
-	return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), node.Direction())
+	return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), node.Direction(), node.Form())
 }
 
 // diagramBlocks writes a marked caption in emphasis, then the rendering
-// itself: a table-kind view as a pipe table, every other kind as Mermaid.
-func diagramBlocks(name, caption string, rendering *view.Rendering, direction view.Direction) ([]string, error) {
+// itself: a table-kind view as a pipe table, every other kind as a fence
+// whose info string names the form (Mermaid unless another is stated).
+func diagramBlocks(name, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) ([]string, error) {
 	if rendering == nil {
 		return nil, &Error{Kind: ErrorMissingRendering, Content: name}
 	}
@@ -158,8 +159,27 @@ func diagramBlocks(name, caption string, rendering *view.Rendering, direction vi
 	if !rendering.Kind.Supported() {
 		return nil, &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind)}
 	}
-	mermaid := strings.TrimRight(rendering.MermaidDirected(direction), "\n")
-	return append(blocks, "```mermaid\n"+mermaid+"\n```"), nil
+	form, source, err := diagramSource(name, rendering, direction, form)
+	if err != nil {
+		return nil, err
+	}
+	return append(blocks, "```"+string(form)+"\n"+source+"\n```"), nil
+}
+
+// diagramSource writes a graph-shaped rendering in the stated diagram form,
+// Mermaid when none is stated, returning the form written and its source.
+func diagramSource(name string, rendering *view.Rendering, direction view.Direction, form view.Form) (view.Form, string, error) {
+	switch form {
+	case "", view.FormMermaid:
+		return view.FormMermaid, strings.TrimRight(rendering.MermaidDirected(direction), "\n"), nil
+	case view.FormDot:
+		dot, err := rendering.DOTDirected(direction)
+		if err != nil {
+			return "", "", &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(form), Expected: string(rendering.Kind)}
+		}
+		return view.FormDot, strings.TrimRight(dot, "\n"), nil
+	}
+	return "", "", &Error{Kind: ErrorUnknownForm, Content: name, Actual: string(form)}
 }
 
 // tableCells renders one row's cells, padded or truncated to the column count.

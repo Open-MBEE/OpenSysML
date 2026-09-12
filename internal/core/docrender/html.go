@@ -504,18 +504,25 @@ func (w *htmlWriter) writeDefinitions(node docir.Content, id string) {
 }
 
 // writeDiagram writes one diagram as a figure: a table-kind view as a table,
-// every other supported kind as Mermaid source, which a loaded Mermaid script
-// draws and any other page shows as readable text.
+// every other supported kind as its diagram source — Mermaid, which a loaded
+// Mermaid script draws, or DOT for a Graphviz toolchain — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
-	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Direction())
+	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Direction(), node.Form())
 }
 
-func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, direction view.Direction) error {
+func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) error {
 	if rendering == nil {
 		return &Error{Kind: ErrorMissingRendering, Content: name}
 	}
 	if rendering.Kind != view.KindTable && !rendering.Kind.Supported() {
 		return &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind), Form: "HTML"}
+	}
+	var source string
+	if rendering.Kind != view.KindTable {
+		var err error
+		if form, source, err = diagramSource(name, rendering, direction, form); err != nil {
+			return err
+		}
 	}
 	w.b.WriteString("<figure class=\"sysml-diagram\"" + attr("id", id) + " data-content=\"diagram\"" +
 		attr(attrName, name) + attr("data-view", rendering.View) +
@@ -524,8 +531,7 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 	if rendering.Kind == view.KindTable {
 		w.writeRenderingTable(rendering)
 	} else {
-		w.b.WriteString("<pre class=\"mermaid\">" +
-			html.EscapeString(strings.TrimRight(rendering.MermaidDirected(direction), "\n")) + "</pre>\n")
+		w.b.WriteString("<pre" + attr("class", string(form)) + ">" + html.EscapeString(source) + "</pre>\n")
 	}
 	if caption != "" {
 		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(caption) + "</figcaption>\n")

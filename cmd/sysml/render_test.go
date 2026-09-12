@@ -89,6 +89,55 @@ func TestRenderOfATabularView(t *testing.T) {
 	}
 }
 
+// The DOT form is asked for by name, writes a digraph of the same rendering
+// into a .dot file, and is refused for a table with the forms a table has.
+func TestRenderDotForm(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label="part def Demo::Vehicle"`, `"n0" -> "n1" [arrowhead=none];`} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	if strings.Contains(got.stdout, "flowchart") {
+		t.Errorf("the DOT form is Mermaid:\n%s", got.stdout)
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	got = runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "dot")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{
+		"wrote " + filepath.Join(dir, "Demo.treeView.dot") + " (dot, ",
+		"wrote " + filepath.Join(dir, "Demo.stateView.dot") + " (dot, ",
+		"Demo::tableView: skipped:",
+		"not written as dot; ask for text or markdown",
+	} {
+		if !strings.Contains(got.stderr, want) {
+			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
+		}
+	}
+	state, err := os.ReadFile(filepath.Join(dir, "Demo.stateView.dot"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`digraph "Demo::stateView" {`, "shape=point", "style=rounded"} {
+		if !strings.Contains(string(state), want) {
+			t.Errorf("state artifact is missing %q:\n%s", want, state)
+		}
+	}
+
+	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "dot")
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as dot; ask for text or markdown") {
+		t.Errorf("DOT of a table = %d\n%s", table.status, table.output())
+	}
+}
+
 // TestRenderSeveralFiles checks that a view declared in one file renders the
 // elements its sibling files declare, loaded as one model, on stdout and into
 // -o in the form -render-form names.
@@ -179,9 +228,9 @@ func TestRenderReportsWhatItCouldNotDo(t *testing.T) {
 		stderr: []string{"sysml: "},
 	}, {
 		name:   "a form that is not a form is reported",
-		args:   []string{"-render", "Demo::overview", "-render-form", "dot"},
+		args:   []string{"-render", "Demo::overview", "-render-form", "svg"},
 		status: exitUnevaluable,
-		stderr: []string{"unknown rendering form \"dot\""},
+		stderr: []string{"unknown rendering form \"svg\"", "text, mermaid, markdown, dot"},
 	}, {
 		name:   "a form without a view to render is reported",
 		args:   []string{"-render-form", "text"},

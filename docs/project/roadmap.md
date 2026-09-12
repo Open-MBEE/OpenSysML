@@ -1967,10 +1967,10 @@ showing it unset. Small; after B2, and it belongs with Q1's page that says which
 
 A view's rendering is a `view.Rendering` — typed nodes (`part def`, `state`, `fork`,
 `decision`, a lifeline), edges with labels, notices for what was not represented — and a
-**form** is only a writer over it: `text`, `markdown` and `mermaid` today, chosen by
-`-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code panel makes,
-and the document renderer, which embeds the Mermaid form in HTML and rasterizes it through
-`mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
+**form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1 landed, `dot`,
+chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
+panel makes, and the document renderer, which embeds the Mermaid form in HTML and rasterizes it
+through `mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
 state rendering from the lowered `StateGraph` (regions, entry transitions, triggers, guards,
 effects), the action rendering from the `ActionGraph`, the sequence rendering as lifelines and
 ordered messages — so what is missing is not a diagram kind but the **formats** a rendering can
@@ -1987,15 +1987,22 @@ pipelines this project is meant to feed already consume.
 
 ## W1 — a `dot` form
 
-A DOT writer over `Rendering`: a rendering is a `digraph`, a node with children a `subgraph
-cluster_*`, and the node's `Kind` chooses the shape — `Mdiamond`/`Msquare` for initial and
-final, `diamond` for a decision, a filled bar (`shape=rect, height=0.05`) for fork and join,
-`record` or HTML-like labels for a part with its compartments, `note` for a notice. Direction
-maps onto `rankdir`; the origin every node carries becomes `URL=` and `tooltip=`, so an SVG
-rendered from the DOT links back to the declaration the way the LSP panel does. Gate as the other
-forms are gated: a `*.dot.golden` beside every `*.mermaid.golden` in `internal/core/view/testdata`,
-and a test that runs `dot -Tsvg` over each golden when Graphviz is installed and skips with the
-reason when it is not, so the goldens are proven to be valid DOT rather than assumed.
+**Landed** — see [view rendering forms](view-rendering-forms.md). A DOT writer over `Rendering`
+(`internal/core/view/dot.go`): a rendering is a `digraph`, a node with children a `subgraph
+"cluster_*"` (a tree keeps containment as edges, as its Mermaid form does), direction maps onto
+`rankdir`, the `EdgeKind` styles parallel the Mermaid arrows, and a state rendering draws its
+states as rounded boxes with `point`/`circle`/`doublecircle` pseudo-states. Every identifier and
+label is quoted through one helper; a `// layout: dot` header names the engine the file is written
+for. The goldens beside every `*.mermaid.golden` are checked by an in-test DOT syntax walker
+rather than by running `dot -Tsvg`, so no Graphviz installation is involved anywhere.
+
+Still open from the original sketch, each a writer change and nothing else: the shape per action
+node kind (`diamond` for a decision, a filled bar for fork and join), `record` or HTML-like labels
+for a part with its compartments, `note` for a notice, and `URL=`/`tooltip=` from the origin every
+node carries so an SVG rendered from the DOT links back to the declaration the way the LSP panel
+does. The node and edge attribute lists are each written by one function (`dotNodeAttributes`,
+`dotEdgeAttributes`), which is also where a position or a route joins once the rendering carries
+geometry.
 
 ## W2 — a `plantuml` form
 
@@ -2010,17 +2017,23 @@ and a validation run through the PlantUML jar when present.
 
 `dot` and `plantuml` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
-it can draw in-process, and offers the others as *save as*), and the document renderer, which
-gains `-doc-diagrams dot|plantuml|mermaid` and rasterizes through `dot` or the PlantUML jar as
-it does through `mmdc` today — optional tools, located by environment variable, skipping the
-tests with the reason when absent, as the PDF toolchain is handled now. The man pages, the REPL
-guide and the editors guide name the new forms. The gRPC surface has no view-render RPC — only
-`RenderDocument`, to Markdown — so the wire contract does not change; if one is added later it
-takes the form as a string the same way `-render-form` does.
+it can draw in-process, and offers the others as *save as*), and the document renderer. **For
+`dot` this has landed** with W1: `-render-form dot`, `%render <name> dot`, `"form": "dot"` on
+`opensysml/render`, and a `Diagram` block's `form` attribute, which writes a ` ```dot ` fence in
+Markdown and `<pre class="dot">` in HTML; the PDF backend keeps a DOT block as source under a
+notice and looks for no Graphviz tool. The man pages, the REPL reference and the LSP reference
+name the form. The gRPC surface has no view-render RPC — only `RenderDocument`, to Markdown — so
+the wire contract did not change; if one is added later it takes the form as a string the same
+way `-render-form` does.
 
-W1 first, being the smaller grammar and the one Graphviz-based pipelines want; W2 after it over
-the same node kinds; W3 with each. Independent of every other track: nothing here touches the
-rendering model, only writers over it. Targeted at `0.8.0`.
+Still open: rasterizing a DOT (and later PlantUML) block for PDF through `dot` or the PlantUML
+jar as Mermaid is rasterized through `mmdc` today — optional tools, located by environment
+variable, skipping the tests with the reason when absent, as the PDF toolchain is handled now —
+and the VS Code panel's *save as* for the non-Mermaid forms.
+
+W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 follows
+over the same node kinds; W3 with each. Independent of every other track: nothing here touches
+the rendering model, only writers over it. Targeted at `0.8.0`.
 
 ---
 
@@ -2243,6 +2256,7 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   negative case first, each change moving its row.
 - **Track B.** B1, B2, then B3; step 1 above has landed, so nothing holds B1 or B2 back; B4's file
   and HTTP providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
-- **Track W.** W1 (`dot`), then W2 (`plantuml`), W3 alongside each; targeted at `0.8.0`, and
-  independent of every other track, so it can run beside any step above.
+- **Track W.** W1 (`dot`) has landed with its share of W3; W2 (`plantuml`) next, with the rest
+  of W3 — DOT and PlantUML rasterized for PDF — alongside; targeted at `0.8.0`, and independent
+  of every other track, so it can run beside any step above.
 - **Track Q, I, M.** Entirely given by the cross-cutting order above.

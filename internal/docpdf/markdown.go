@@ -15,11 +15,12 @@ const (
 	blockTable
 	blockList
 	blockMermaid
+	blockDOT
 	blockAnchor
 )
 
 // block is one parsed Markdown block. Text fields hold Markdown-escaped
-// prose; Source holds a Mermaid block's raw body.
+// prose; Source holds a diagram block's raw body.
 type block struct {
 	Kind    blockKind
 	Level   int        // blockHeading: ATX level 1..6
@@ -29,8 +30,14 @@ type block struct {
 	Rows    [][]string // blockTable: body rows
 	Ordered bool       // blockList
 	Items   []string   // blockList
-	Source  string     // blockMermaid
+	Source  string     // blockMermaid, blockDOT
 }
+
+// Fences docrender opens diagram blocks with.
+const (
+	mermaidFence = "```mermaid"
+	dotFence     = "```dot"
+)
 
 // parseBlocks parses docrender's Markdown dialect into blocks.
 func parseBlocks(markdown string) ([]block, error) {
@@ -53,12 +60,16 @@ func parseBlocks(markdown string) ([]block, error) {
 			continue
 		case strings.HasPrefix(line, anchorOpen) && strings.HasSuffix(line, anchorClose):
 			blocks = append(blocks, block{Kind: blockAnchor, Anchor: line[len(anchorOpen) : len(line)-len(anchorClose)]})
-		case line == "```mermaid":
+		case line == mermaidFence || line == dotFence:
 			body, next, ok := fenceBody(lines, i+1)
 			if !ok {
 				return nil, &Error{Kind: ErrorUnclosedFence}
 			}
-			blocks = append(blocks, block{Kind: blockMermaid, Source: body})
+			kind := blockMermaid
+			if line == dotFence {
+				kind = blockDOT
+			}
+			blocks = append(blocks, block{Kind: kind, Source: body})
 			i = next
 		case strings.HasPrefix(line, "#"):
 			level, text := headingParts(line)

@@ -59,7 +59,7 @@ Renders one view of a document.
 | --- | --- |
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
-| `form` | `mermaid`, `text` or `markdown`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. |
+| `form` | `mermaid`, `text`, `markdown` or `dot`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed. |
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -67,8 +67,8 @@ several, the request is ambiguous and fails, naming them
 than picking one. If it declares none, the request fails and points at the pseudo-views.
 
 A `form` the rendering kind cannot be written in (Mermaid for a table, Markdown for a
-diagram) is refused, and the reply names the form the kind does use. A `form` that is
-not one of the three is refused, and the reply names all three.
+diagram, DOT for a table or a sequence) is refused, and the reply names the form the kind
+does use. A `form` that is not one of the four is refused, and the reply names all four.
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:
@@ -129,7 +129,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `view` | The view rendered, by qualified name; empty for a pseudo-view. |
 | `kind` | `tree`, `interconnection`, `state`, `action`, `sequence` or `table`. |
 | `stated` | How the kind was decided — the rendering the view names, the standard view definition it specializes, or that no view was declared. Empty when the view took the default. |
-| `artifact` | What to draw or show: a Mermaid diagram, the text form, or a Markdown table. |
+| `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, the text form, or a Markdown table. |
 | `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession` or `flow`. |
 | `rows`, `columns` | A table rendering's cells, in place of nodes and edges. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |

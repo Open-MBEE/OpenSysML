@@ -26,7 +26,7 @@ import (
 
 // renderUsage is how %render is written: a view, and the form to write it in,
 // text when none is named.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown]"
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -156,7 +156,7 @@ var metaCommandTable = []metaCommand{
 	{group: groupLibrary, name: "%search", args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{group: groupLibrary, name: "%builtins", desc: "list the library functions this build implements directly"},
 	{group: groupLibrary, name: "%view", args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{group: groupLibrary, name: "%render", args: "<name> [form]", desc: "render a view as the rendering it states — as text, or as a Mermaid diagram or a Markdown table"},
+	{group: groupLibrary, name: "%render", args: "<name> [form]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT"},
 
 	{group: groupRuntime, name: "%instantiate", args: argName, desc: "create an instance of a part def"},
 	{group: groupRuntime, name: "%eval", args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},

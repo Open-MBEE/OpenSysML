@@ -21,8 +21,9 @@ What the renderer emits:
 - Tables as GitHub-flavored pipe tables; grouped tables as one subtable per
   group key.
 - Lists as `-` bullets or `1.` numbered items.
-- Diagrams as fenced ` ```mermaid ` blocks (or a pipe table for the `table`
-  kind), with captions in emphasis.
+- Diagrams as fenced ` ```mermaid ` blocks (` ```dot ` for a block stating
+  `form = "dot"`, or a pipe table for the `table` kind), with captions in
+  emphasis.
 - Every table and diagram caption preceded by a `<!-- caption -->` marker
   line, so the caption is distinguishable from an emphasis-only paragraph.
   The marker is metadata of OpenSysML's Markdown dialect: ordinary Markdown
@@ -103,7 +104,9 @@ diagrams, `-html-mermaid cdn` adds a `<script>` loading a pinned Mermaid
 release from jsDelivr, and `-html-mermaid <url>` loads it from a URL of your
 own; the page keeps the source, so it still reads where the script cannot
 load. A fragment has no page shell for the script, so a page embedding one
-loads Mermaid itself.
+loads Mermaid itself. A diagram block stating `form = "dot"` embeds its
+Graphviz DOT source in `<pre class="dot">` instead; the page never draws it,
+and `-html-mermaid` leaves it alone.
 
 ### Styling it
 
@@ -167,7 +170,10 @@ $ sysml report.sysml -render-document Observatory::MassReport \
 
 Internally the engine renders Markdown, converts it to styled HTML, renders
 any Mermaid diagrams to SVG with Mermaid CLI (`mmdc`), and hands the result
-to an external HTML-to-PDF converter.
+to an external HTML-to-PDF converter. A diagram block stating `form = "dot"`
+is not drawn: the PDF keeps its DOT source under a notice saying so, and no
+Graphviz tool is looked for, so a document whose diagrams are all DOT needs
+no diagram tool at all.
 
 ### Engines
 

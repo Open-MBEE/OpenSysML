@@ -150,6 +150,7 @@ type Content struct {
 	definitions []Definition
 	rendering   *view.Rendering
 	direction   view.Direction
+	form        view.Form
 	children    []Content
 	query       string
 	queryOrigin provenance.Origin
@@ -223,6 +224,10 @@ func (c Content) Rendering() *view.Rendering { return c.rendering.Clone() }
 // kind's default.
 func (c Content) Direction() view.Direction { return c.direction }
 
+// Form returns the form a diagram's source is written in, empty for the
+// rendering kind's machine form.
+func (c Content) Form() view.Form { return c.form }
+
 // Children returns the nested content of a section in declaration order.
 func (c Content) Children() []Content { return cloneContent(c.children) }
 
@@ -255,6 +260,7 @@ func cloneContent(content []Content) []Content {
 			definitions: child.Definitions(),
 			rendering:   child.rendering.Clone(),
 			direction:   child.direction,
+			form:        child.form,
 			children:    cloneContent(child.children),
 			query:       child.query,
 			queryOrigin: child.queryOrigin,

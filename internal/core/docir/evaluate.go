@@ -656,6 +656,7 @@ func (e *evaluator) evaluateDiagram(node docplan.Content) (Content, error) {
 		caption:   node.Caption(),
 		rendering: rendering,
 		direction: reference.Direction(),
+		form:      reference.Form(),
 		origin:    node.Origin(),
 	}, nil
 }

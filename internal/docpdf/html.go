@@ -21,8 +21,8 @@ type Options struct {
 }
 
 // documentHTML writes the parsed document as one standalone, deterministic
-// HTML page for a converter to lay out. Diagram blocks reference the files
-// named in images, in block order.
+// HTML page for a converter to lay out. Mermaid blocks reference the files
+// named in images, in block order; DOT blocks are kept as source.
 func documentHTML(blocks []block, images []string, opts Options) string {
 	var b strings.Builder
 	b.WriteString("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
@@ -123,6 +123,9 @@ func writeContent(b *strings.Builder, blocks []block, images []string, opts Opti
 				b.WriteString("<figure><img src=\"" + html.EscapeString(images[image]) + "\" alt=\"diagram\"></figure>\n")
 				image++
 			}
+		case blockDOT:
+			b.WriteString("<figure class=\"dot\"><p class=\"notice\"><em>" + html.EscapeString(dotNotice) + "</em></p>\n" +
+				"<pre>" + html.EscapeString(blk.Source) + "</pre></figure>\n")
 		}
 	}
 }
@@ -214,4 +217,6 @@ th { background: #eeeeee; }
 p.caption, span.caption { font-size: 9.5pt; color: #444444; }
 figure { margin: 0.8em 0; }
 figure img { max-width: 100%; }
+figure.dot pre { font-size: 9pt; white-space: pre-wrap; }
+p.notice { font-size: 9.5pt; color: #444444; }
 `

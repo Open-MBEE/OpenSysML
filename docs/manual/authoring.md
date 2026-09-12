@@ -396,8 +396,14 @@ part structure : Diagram {
 - `caption` is optional and renders in emphasis above the diagram.
 - `direction` — `"TB"`, `"LR"`, `"RL"` or `"BT"` — is accepted only by kinds
   drawn as directed graphs; it becomes the Mermaid flowchart direction or a
-  `stateDiagram-v2` `direction` statement. Stating one on a sequence diagram
-  is a typed error.
+  `stateDiagram-v2` `direction` statement, or the Graphviz `rankdir` when the
+  form is `"dot"`. Stating one on a sequence diagram is a typed error.
+- `form` — `"mermaid"` (the default) or `"dot"` — is the diagram source a
+  graph-shaped kind is written as. `"dot"` writes Graphviz DOT for a `tree`,
+  `interconnection`, `state` or `action` rendering, for a toolchain that lays
+  diagrams out with Graphviz; no Graphviz installation is needed to write it.
+  Any other form, or `"dot"` on a `sequence` or `table` kind, is a typed
+  error. A `table` is written as a table whatever form is stated.
 
 Most kinds render as a fenced ` ```mermaid ` block:
 
@@ -415,9 +421,36 @@ flowchart LR
 ```
 ```
 
+With `attribute redefines form = "dot";` the same block is a fenced ` ```dot `
+block instead:
+
+```markdown
+*Imaging chain interconnection*
+
+```dot
+// view: Observatory::interconnectView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// layout: dot
+digraph "Observatory::interconnectView" {
+  graph [rankdir=LR];
+  node [shape=box];
+  subgraph "cluster_n0" {
+    label="part Observatory::imagingChain";
+    "n1" [label="part camera\nCamera"];
+    "n2" [label="part recorder\nRecorder"];
+  }
+  "n1" -> "n2" [label="link", arrowhead=none];
+}
+```
+```
+
+The HTML backend embeds the source in `<pre class="dot">`, and the PDF backend
+keeps it as source under a notice rather than drawing it.
+
 The `table` kind is the exception — it renders as a pipe table of the
 element's structure (Element / Kind / Type / Declared in) rather than a
-Mermaid block.
+Mermaid or DOT block.
 
 ## Binding queries to blocks
 
