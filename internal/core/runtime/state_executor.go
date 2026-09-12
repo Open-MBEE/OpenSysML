@@ -682,13 +682,42 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 // ancestor of one, defers this event. A composite state's deferral holds while
 // any of its substates is active.
 func (e *StateExecutor) defersEvent(event *Event) bool {
+	return len(e.deferringStates(event)) > 0
+}
+
+// deferringStates lists the states of the active configuration, each active leaf
+// and its ancestors, that defer this event; each is listed once.
+func (e *StateExecutor) deferringStates(event *Event) []*ast.StateNode {
+	var deferring []*ast.StateNode
+	asked := make(map[*ast.StateNode]bool)
 	for _, state := range e.activeStates() {
 		for _, ancestor := range e.getParentChain(state) {
+			if asked[ancestor] {
+				continue
+			}
+			asked[ancestor] = true
 			for _, trigger := range e.graph.Deferred[ancestor] {
 				if e.triggerMatches(trigger, e.graph.StateScopes[ancestor], event) {
-					return true
+					deferring = append(deferring, ancestor)
+					break
 				}
 			}
+		}
+	}
+	return deferring
+}
+
+// deferralOutranks reports whether a deferring state of the configuration holds
+// the event back from the selected transitions: only a transition out of that
+// state, or out of a state nested in it, is nested deeply enough to override its
+// deferral, and every deferring state must be overridden for any of them to fire.
+func (e *StateExecutor) deferralOutranks(candidates []dispatchCandidate, event *Event) bool {
+	for _, deferring := range e.deferringStates(event) {
+		overridden := slices.ContainsFunc(candidates, func(candidate dispatchCandidate) bool {
+			return e.encloses(deferring, candidate.source)
+		})
+		if !overridden {
+			return true
 		}
 	}
 	return false
@@ -814,10 +843,19 @@ type dispatchCandidate struct {
 // innermost state with an enabled transition. A false guard does not consume
 // the event, so the walk carries on past it. Leaves in sibling regions of one
 // composite state select the same state, which the event still leaves only once.
+// A state that defers the event outranks every transition not nested in it: it
+// selects nothing, to defer the event, unless each deferring state is overridden.
 func (e *StateExecutor) selectTransitions(event *Event) ([]dispatchCandidate, error) {
-	return e.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
+	candidates, err := e.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
 		return e.enabledTransitions(source, event)
 	})
+	if err != nil {
+		return nil, err
+	}
+	if e.deferralOutranks(candidates, event) {
+		return nil, nil
+	}
+	return candidates, nil
 }
 
 // selectCandidates walks outward from every active leaf, asking enabled which
