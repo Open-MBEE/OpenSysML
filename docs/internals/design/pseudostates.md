@@ -10,13 +10,17 @@ Pseudostates are transient vertices in state machines that enable complex contro
 ### Choice vs Junction
 
 **Choice (Dynamic Conditional Branch):**
-- Guards evaluated **when entered** (runtime decision)
+- Guards evaluated **on arrival**, after the incoming segment's effect has run, against the data
+  as it then stands (`state_route.go:resolveChoice`)
 - Used for dynamic branching based on current conditions
-- Outgoing transitions evaluated in order until one guard succeeds
-- Must have at least one guard that evaluates to true (or else clause)
+- Several enabled branches are a transition choice point (`ChoiceTaken` at the choice, enumerated
+  by `explore`); an unguarded branch is the else branch
+- No enabled branch is the typed `ErrChoiceWithoutBranch`, raised at that instant and naming the
+  choice (PSSM *Choice 003*: the model is ill formed)
 
 **Junction (Static Merge/Branch):**
-- Guards evaluated **before entering** (static connectors)
+- Guards evaluated **before the incoming transition fires**, before any effect runs
+  (`state_route.go:resolveRoute` → `followOut` → `pseudostateBranch`)
 - Used to merge multiple incoming transitions or split paths
 - All outgoing guards must be mutually exclusive and complete
 - Deterministic - no runtime evaluation order
@@ -118,68 +122,43 @@ state def Player {
 
 ### Phase 3: Runtime Evaluation
 
-**Choice Evaluation:**
-```go
-func (e *StateExecutor) evaluateChoice(choiceName string, event Event) (string, error) {
-    // Get all outgoing transitions from choice
-    outgoing := e.getOutgoingTransitions(choiceName)
-    
-    // Evaluate guards in order (runtime)
-    for _, trans := range outgoing {
-        if trans.Guard == nil {
-            return trans.Target, nil // else clause
-        }
-        
-        satisfied, err := e.evaluateGuard(trans.Guard)
-        if err != nil {
-            return "", err
-        }
-        if satisfied {
-            return trans.Target, nil
-        }
-    }
-    
-    return "", fmt.Errorf("no guard satisfied at choice %s", choiceName)
-}
-```
+The two kinds differ in *when* their guards are read, and `state_route.go` keeps the two instants
+apart with one value, a `route`: a compound transition's path as far as it is settled — the
+segments to run, ending at a state or *open* at a choice.
 
-**Junction Evaluation:**
-- Similar to choice but guards evaluated before entering junction
-- Used in `fireTransition()` when source transition leads to junction
-- All guards must be mutually exclusive (validation)
+**Junction evaluation** is static. `resolveRoute` settles a transition's route before anything
+moves: out of a junction `followOut` → `pseudostateBranch` takes the first outgoing segment whose
+guard holds, in declaration order, an unguarded one being the default, and goes on until the
+route reaches a state or a choice. The guards read the data as it stands before the incoming
+transition's effect; a junction none of whose guards holds fails the route, so the incoming
+transition does not fire (see the precise-semantics alignment note, SM29 and SM32).
+
+**Choice evaluation** is dynamic. `followOut` leaves the route open at a choice. Firing
+(`travel`) then exits the states every branch of the open choice leaves, runs the effects of the
+segments into it, and only then `resolveChoice` reads the choice's guards against the data as it
+now stands: with several enabled the run's policy draws one and records a `ChoiceTaken` at the
+choice, so `explore` enumerates the branches and `replay` re-takes one; an unguarded branch is the
+else branch, taken when no guard holds; none enabled is `ErrChoiceWithoutBranch`. The route then
+goes on from the branch taken and `move` finishes it with the effects left.
+
+**Chains.** Each pseudostate on a route is resolved by its own rule at the point the route
+reaches it: a junction after a choice is read statically *then*, against the data the choice's
+segment left, and a choice after a junction or another choice lazily again on arrival. So
+`junction → choice` settles the junction before firing and the choice after the effects into it;
+`choice → junction` and `choice → choice` settle nothing past the first choice before firing.
+Pinned by `state_pseudostate_chain_junction_choice`, `state_pseudostate_chain_choice_junction`
+and `state_pseudostate_chain_choice_choice`.
 
 ### Phase 4: Transition Firing Integration
 
-**Update `fireTransition()` in state_executor.go:**
-
-```go
-// After exiting source state
-target := transition.Target
-
-// Check if target is pseudostate
-if ps, ok := e.pseudostates[target]; ok {
-    switch ps.Kind {
-    case ast.PseudostateChoice:
-        // Evaluate guards at runtime
-        nextTarget, err := e.evaluateChoice(target, event)
-        if err != nil {
-            return err
-        }
-        target = nextTarget
-        
-    case ast.PseudostateJunction:
-        // Guards already evaluated, pick deterministic path
-        nextTarget, err := e.evaluateJunction(target)
-        if err != nil {
-            return err
-        }
-        target = nextTarget
-    }
-}
-
-// Enter final target state
-e.enterState(target)
-```
+`fireTransition` resolves the route (`resolveRoute`) and `travel`s it: at an open choice
+`certainExits` lists the states a move to *any* of the branches' reachable targets exits
+(`reachable`), those are exited ahead (`exitAhead`), the effects into the choice run, the choice
+is resolved as described above, and the settled rest is moved with the effects left, exiting
+what remains up to the least common ancestor and entering the target and its regions.
+Since a compound transition completes within one step, no lazily-resolved choice is ever
+pending across a step boundary, and snapshots taken before and after such a step restore and
+continue identically (`snapshot_test.go`).
 
 ### Phase 5: Conformance Tests
 
@@ -260,8 +239,10 @@ package JunctionTest {
 
 1. **Choice:**
    - Must have at least one outgoing transition
-   - At least one guard must be satisfiable (or else clause)
-   - Guards evaluated in definition order
+   - At least one guard must hold on arrival (or else clause), else the run fails with
+     `ErrChoiceWithoutBranch` naming the choice
+   - Guards read after the incoming segment's effect, in definition order; several holding is a
+     recorded choice point
 
 2. **Junction:**
    - Outgoing guards must be mutually exclusive
@@ -378,12 +359,14 @@ state def RegionChoice parallel {
 }
 ```
 
-- **`pseudostateTarget`** follows the chain of transient pseudostates (choice,
-  junction) from the transition's target until a state is reached, so
-  `choice → junction → state` enters that state. A chain that
-  routes back into a pseudostate it already passed, a branch with no satisfied
-  guard, and a branch into a fork, join or history all return typed errors rather
-  than leaving the machine resting on a pseudostate.
+- **`resolveRoute`** (`state_route.go`) follows the chain of transient pseudostates
+  (choice, junction) from the transition's target: junctions are settled before
+  the transition fires, a choice on arrival, so `choice → junction → state`
+  enters that state with the junction read after the effects into the choice. A
+  chain that routes back into a pseudostate it already passed, a junction with
+  no satisfied guard, a choice with no enabled branch (`ErrChoiceWithoutBranch`)
+  and a branch into a fork, join or history all return typed errors rather than
+  leaving the machine resting on a pseudostate.
 - **`moveBetweenRegions`** handles a branch ending inside the source region or
   inside a region concurrent with it, which `concurrentRegionsFor` and
   `siblingRegionContaining` classify. KerML `StateTransitionPerformance` orders
@@ -414,9 +397,6 @@ region.
 
 ### Known limitations
 
-- A junction's guards are evaluated when it is reached, like a choice's, rather
-  than statically together with its incoming transition. The two differ only for
-  guards over data an effect on the incoming transition changes.
 - History is an OpenSysML extension to the OMG textual notation, which has no
   production for any pseudostate; see `docs/reference/grammar/README.md`. UML's
   entry and exit points are not offered: a transition targets a nested state

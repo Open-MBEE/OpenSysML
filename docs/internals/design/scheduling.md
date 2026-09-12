@@ -30,7 +30,7 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the six:
 | `ChoiceTokenOrder` | `ActionExecutor.noteTokenOrder` | the tokens that could act in the step, by ID; the one stepped first is taken |
 | `ChoiceDecisionBranch` | `ActionExecutor.noteDecisionBranches` | the successions whose guards hold, by declaration position |
 | `ChoiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
-| `ChoiceTransition` | `StateExecutor.chooseTransition` | the transitions one event enables out of one state, by declaration position |
+| `ChoiceTransition` | `StateExecutor.chooseTransition`; `choiceBranchPoint` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` pseudostate enabled on arrival, read after the incoming segment's effect, labelled `choice <name>` |
 | `ChoiceRegionOrder` | `StateExecutor.chooseRegion`, drawn by `dispatchInOrder` | the states whose transitions one occurrence selected, by name in declaration order; the one fired first is taken |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`) | the executors due at one instant, in creation order; the one run first is taken |
 
@@ -58,6 +58,21 @@ still active before each firing, since a reaction may leave a sibling's leaf, an
 broadcast of a queued event and the polling of change triggers (`state_change_trigger.go`) go
 through it. The choice is labelled by the occurrence dispatched, not by the trigger of whichever
 region was drawn first, so the label is the same under every policy.
+
+A `choice` pseudostate's branch is drawn on arrival: `resolveChoice` reads its guards once the
+incoming segments' effects have run, so which branches are enabled can depend on those effects,
+and with two or more enabled the draw is a `ChoiceTransition` at `choice <name>` that `explore`
+enumerates and a seed replays (`TestExploreDynamicChoiceBranches`). A junction's branch is settled
+statically before the transition fires and is not a choice point.
+
+Two things that look like openings are determined and are never recorded. Deferral: a state in the
+active configuration that defers the occurrence dispatched holds it back from every enabled
+transition except one sourced by that state or by a state nested in it (`deferralOutranks`); the
+occurrence is deferred, or consumed by the nested transition, by rule, with nothing for the policy
+to draw. A composite state's completion: once its do behavior and every one of its regions have
+ended, its nil-trigger transitions are queued as completion events at the current instant, ordered
+as a leaf's are, and the machine ends only when its own top-level regions are all at `done`
+(`completeIfDone` → `scheduleCompletedComposites`).
 
 ## Policies (`scheduler.go`)
 

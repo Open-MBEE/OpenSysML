@@ -45,7 +45,11 @@ sysml> %continue
 A machine completes when a transition reaches `done`, the terminal state the standard
 library provides for every state machine. Entering it runs the exit actions, and then the
 machine reports itself completed. With orthogonal regions, each region has its own `done`,
-and the machine completes only once every region has reached it.
+and the machine completes only once every region has reached it. A `done` written inside a
+composite state's body ends that state, not the machine: the composite *completes*, and its
+transitions with no trigger (`transition first outer then next;`) fire, exactly as a plain
+state's do when its `do` behavior ends. A completed composite with no such transition stays
+active, and the machine runs on until its own top-level regions reach `done`.
 
 ```sysml
 sysml> state TrafficLight {
@@ -412,7 +416,9 @@ instruction. The KerML Kernel Semantic Library orders three things and nothing e
 Everything else two performances could do in either order, they may: which of two fork branches
 steps first (*token interleaving*), which of two holding guards a decision follows (*overlapping
 guards*), which of two transitions out of one state fires on one event (*competing transitions*),
-which of two orthogonal regions reacts first to an event both accept (*region order*), whose
+which of two orthogonal regions reacts first to an event both accept (*region order*), which
+of two holding guards a `choice` pseudostate follows — its guards are read on arrival, after the
+transition into it has run its effect (*choice branch*) —, whose
 value stands when two branches assign one feature in one step (*same-step writes*), and which of
 two executors due at one instant of the shared clock — an action token and a state transition,
 two state machines, two actions — runs first (*due order*). A model with
