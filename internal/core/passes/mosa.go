@@ -510,7 +510,7 @@ type mosaAttachment struct {
 }
 
 // checkBoundary expects a connector joining two distinct components to be a modular
-// system interface once the model designates any; ends attached elsewhere are ignored.
+// system interface once the model designates any; a party nested in another is part of it.
 func (a *mosaAudit) checkBoundary(sym *symbols.Symbol, usage *ast.Usage) {
 	if !a.present[mosaModularSystemInterface] {
 		return
@@ -519,6 +519,14 @@ func (a *mosaAudit) checkBoundary(sym *symbols.Symbol, usage *ast.Usage) {
 	for _, att := range a.attachments(sym, usage) {
 		if party := a.boundaryParty(att); party != nil {
 			parties[party] = true
+		}
+	}
+	for inner := range parties {
+		for outer := range parties {
+			if outer != inner && a.encloses(outer, inner) {
+				delete(parties, inner)
+				break
+			}
 		}
 	}
 	if len(parties) < 2 {
@@ -555,26 +563,61 @@ func (a *mosaAudit) attachments(sym *symbols.Symbol, usage *ast.Usage) []mosaAtt
 	return out
 }
 
-// boundaryParty is the component a connector end attaches to: the shortest
-// prefix of the end's feature chain that names one.
+// boundaryParty is the component a connector end attaches to: the shortest prefix of
+// the end's feature chain naming one, else the nearest enclosing one the feature belongs to.
 func (a *mosaAudit) boundaryParty(att mosaAttachment) *symbols.Symbol {
-	if att.node == nil {
+	if att.node == nil || att.scope == nil {
 		return nil
 	}
 	prefixes := []ast.Node{att.node}
 	if chain, ok := att.node.(*ast.FeatureChainExpr); ok {
 		prefixes = append(chainSteps(chain), att.node)
 	}
+	var feature *symbols.Symbol
 	for _, prefix := range prefixes {
 		target, ok := a.ctx.Resolver().ResolveTarget(att.scope, prefix)
 		if !ok || target == nil {
 			continue
 		}
-		if k := a.kindOf(target); k == mosaMajorSystemComponent || k == mosaModularSystem {
+		if a.isBoundaryParty(target) {
 			return target
+		}
+		if prefix == att.node {
+			feature = target
+		}
+	}
+	if feature == nil {
+		return nil
+	}
+	for owner := att.scope.Owner(); owner != nil; owner = mosaOwnerOf(owner) {
+		if a.isBoundaryParty(owner) && a.encloses(owner, feature) {
+			return owner
 		}
 	}
 	return nil
+}
+
+func (a *mosaAudit) isBoundaryParty(sym *symbols.Symbol) bool {
+	k := a.kindOf(sym)
+	return k == mosaMajorSystemComponent || k == mosaModularSystem
+}
+
+// encloses reports whether inner is declared in outer's body or in that of a type outer conforms to.
+func (a *mosaAudit) encloses(outer, inner *symbols.Symbol) bool {
+	for owner := mosaOwnerOf(inner); owner != nil; owner = mosaOwnerOf(owner) {
+		if owner == outer || a.model.Conforms(outer, owner) {
+			return true
+		}
+	}
+	return false
+}
+
+// mosaOwnerOf is the element whose body declares sym, or nil at a package or root.
+func mosaOwnerOf(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || sym.OwnerScope == nil {
+		return nil
+	}
+	return sym.OwnerScope.Owner()
 }
 
 func (a *mosaAudit) report(sym *symbols.Symbol, code, message string) {

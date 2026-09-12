@@ -246,6 +246,33 @@ func TestMOSABoundaryNotDesignatedWithMixedEnds(t *testing.T) {
 	w8dWantLines(t, src, CodeMOSABoundaryNotDesignated, 12, 13)
 }
 
+// An end naming a port of the connector's own component, with no prefix, makes
+// that component a party; a component nested in a party is part of it.
+func TestMOSABoundaryNotDesignatedWithRelativeEnds(t *testing.T) {
+	src := mosaModel(mosaPlatform + `
+		#majorSystemPlatform part v {
+			part b : B;
+			port q : P;
+			interface link : Link connect b.p to q;
+			part a : A {
+				part sub : B;
+				connect p to b.p;
+				connection n { end ::> p; end ::> b.p; }
+				connect p to sub.p;
+				connect b.p to sub.p;
+			}
+			part plain { port p : P; connect p to b.p; }
+			part c : C { connect p to sub.p; }
+		}
+		part b2 : B;
+		#majorSystemComponent part def C {
+			port p : P; part sub : B;
+			connect p to sub.p;
+			connect p to b2.p;
+		}`)
+	w8dWantLines(t, src, CodeMOSABoundaryNotDesignated, 13, 14, 16, 25)
+}
+
 // Metadata specializing a MOSA metadata definition counts as that metadata:
 // a program's own rights, control, proprietary and conformance keywords are recognised.
 func TestMOSASpecializedMetadataIsRecognised(t *testing.T) {
