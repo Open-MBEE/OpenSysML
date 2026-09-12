@@ -645,7 +645,7 @@ sysml> %schedule explore
 error: explore replays a behavior from the start once per linearization, which %action and %state, stepping one run, cannot do: run `sysml -schedule explore -action <name>` (or -state, -analysis, -calc), or a request with schedule "explore"
 ```
 
-### Running one witness again: `replay:<file>`
+### Running one witness again
 
 A witness column is a run you can run again. `replay:<file>` reads a file of choice lines — each
 spelled as the table spells them, one per line or joined by `; `, ending at the first blank line
