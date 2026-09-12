@@ -4,10 +4,58 @@ import inspect
 
 import pytest
 from unittest.mock import Mock
+from opensysml.capabilities import CAPABILITY_QUERY, ServerInfo
 from opensysml.connection import Connection
 from opensysml.proto import sysml_pb2
-from opensysml.errors import ExecutionError
+from opensysml.errors import ExecutionError, SymbolNotFoundError
 from opensysml.model import Model
+from opensysml.query import QueryElement
+
+
+def _server_info(*capabilities):
+    return ServerInfo(
+        version="test", capabilities=frozenset(capabilities), answered=True, origin="test"
+    )
+
+
+def _client(symbols, capabilities=(CAPABILITY_QUERY,), library=()):
+    """A connection to a service holding ``symbols``, keyed and answered by id.
+
+    ``get_symbol`` answers by id and ``query`` filters on ``name`` or ``@id``, in
+    the declaration order the dict states, as the service does. ``library``
+    symbols are resolvable by id but, not being the model's own, are never
+    queried. An element's ``owner`` is the symbol whose ``child_ids`` list it,
+    else its id's parent segment.
+    """
+    client = Mock()
+    client.server_info.return_value = _server_info(*capabilities)
+    client.get_symbol.side_effect = lambda model_hash, symbol_id: (
+        symbols.get(symbol_id) or next((s for s in library if s.id == symbol_id), None)
+    )
+
+    def owner(info):
+        for parent in symbols.values():
+            if info.id in parent.child_ids:
+                return parent.id
+        return info.id.rpartition("::")[0]
+
+    def query(model_hash, payload=None, scope=None, select=None, where=None):
+        wanted = None if where is None else where["value"]
+        if isinstance(wanted, str):
+            wanted = [wanted]
+        return [
+            QueryElement(
+                id=info.id, type=info.kind,
+                properties={"name": info.name, "owner": owner(info)},
+            )
+            for info in symbols.values()
+            if wanted is None
+            or (where["property"] == "name" and info.name in wanted)
+            or (where["property"] == "@id" and info.id in wanted)
+        ]
+
+    client.query.side_effect = query
+    return client
 
 
 def test_model_properties():
@@ -97,8 +145,6 @@ def test_model_find():
         diagnostics=[],
     )
     
-    mock_client = Mock()
-    
     # Mock children for root
     pb_vehicle = sysml_pb2.SymbolInfo(
         id="MyModel::Vehicle",
@@ -127,16 +173,11 @@ def test_model_find():
         attributes=[],
     )
     
-    # Mock get_symbol calls
-    def mock_get_symbol(model_hash, symbol_id):
-        mapping = {
-            "MyModel::Vehicle": pb_vehicle,
-            "MyModel::Sensor": pb_sensor,
-            "MyModel::Vehicle::Engine": pb_engine,
-        }
-        return mapping.get(symbol_id)
-    
-    mock_client.get_symbol.side_effect = mock_get_symbol
+    mock_client = _client({
+        "MyModel::Vehicle": pb_vehicle,
+        "MyModel::Sensor": pb_sensor,
+        "MyModel::Vehicle::Engine": pb_engine,
+    })
     
     model = Model(pb_response, mock_client)
     
@@ -177,10 +218,7 @@ def test_model_find_accepts_fully_qualified_name():
         attributes=[],
     )
 
-    mock_client = Mock()
-    mock_client.get_symbol.side_effect = lambda model_hash, symbol_id: {
-        "Lander::Rhs": pb_rhs,
-    }.get(symbol_id)
+    mock_client = _client({"Lander::Rhs": pb_rhs})
 
     model = Model(
         sysml_pb2.ParseFileResponse(model_hash="hash", root=pb_root, diagnostics=[]),
@@ -217,8 +255,6 @@ def test_model_find_short_circuit():
         diagnostics=[],
     )
     
-    mock_client = Mock()
-    
     pb_target = sysml_pb2.SymbolInfo(
         id="Root::Target",
         name="Target",
@@ -227,19 +263,22 @@ def test_model_find_short_circuit():
         child_ids=["Root::Target::Nested"],
         attributes=[],
     )
-    
-    mock_client.get_symbol.return_value = pb_target
+    pb_nested = sysml_pb2.SymbolInfo(
+        id="Root::Target::Nested", name="Nested", kind="PartDef"
+    )
+
+    mock_client = _client({"Root::Target": pb_target, "Root::Target::Nested": pb_nested})
     
     model = Model(pb_response, mock_client)
     
-    # Find should stop at first match (don't traverse into Target's children)
     target = model.find("Target")
     
     assert target is not None
     assert target.name == "Target"
-    
-    # Should have called get_symbol only once (for Target, not its children)
-    # Note: children() is lazy, so get_symbol only called when explicitly requested
+
+    # Only the match itself was fetched, not the symbols around or below it.
+    fetched = [call.args[1] for call in mock_client.get_symbol.call_args_list]
+    assert "Root::Target::Nested" not in fetched
 
 
 def test_model_get_by_fqn():
@@ -276,12 +315,10 @@ def test_model_get_by_fqn():
         diagnostics=[],
     )
 
-    mock_client = Mock()
-    mapping = {
+    mock_client = _client({
         "MyModel::Vehicle": pb_vehicle,
         "MyModel::Vehicle::engine": pb_engine,
-    }
-    mock_client.get_symbol.side_effect = lambda model_hash, symbol_id: mapping.get(symbol_id)
+    })
 
     model = Model(pb_response, mock_client)
 
@@ -292,6 +329,174 @@ def test_model_get_by_fqn():
     # A short name is not an FQN, and an unknown FQN is not an error.
     assert model.get("Vehicle") is None
     assert model.get("MyModel::Missing") is None
+
+    # An FQN is one call to the service, however deep it is.
+    mock_client.get_symbol.reset_mock()
+    assert model.get("MyModel::Vehicle::engine") is not None
+    assert mock_client.get_symbol.call_count == 1
+    mock_client.query.assert_not_called()
+
+
+class TestModelLookup:
+    """Lookups are answered by the service's index, not by walking the tree."""
+
+    ROOT = sysml_pb2.SymbolInfo(
+        id="Demo", name="Demo", kind="package",
+        child_ids=["Demo::Vehicle", "Demo::Engine", "Demo::Sub"],
+    )
+    SYMBOLS = {
+        "Demo::Vehicle": sysml_pb2.SymbolInfo(
+            id="Demo::Vehicle", name="Vehicle", kind="partDef",
+            child_ids=["Demo::Vehicle::engine"],
+        ),
+        "Demo::Vehicle::engine": sysml_pb2.SymbolInfo(
+            id="Demo::Vehicle::engine", name="engine", kind="partUsage",
+        ),
+        "Demo::Engine": sysml_pb2.SymbolInfo(
+            id="Demo::Engine", name="Engine", kind="partDef",
+        ),
+        "Demo::Sub": sysml_pb2.SymbolInfo(
+            id="Demo::Sub", name="Sub", kind="package",
+            child_ids=["Demo::Sub::Engine"],
+        ),
+        "Demo::Sub::Engine": sysml_pb2.SymbolInfo(
+            id="Demo::Sub::Engine", name="Engine", kind="partDef",
+        ),
+    }
+
+    def _model(self, client, diagnostics=()):
+        return Model(
+            sysml_pb2.ParseFileResponse(
+                model_hash="hash", root=self.ROOT, diagnostics=list(diagnostics)
+            ),
+            client,
+        )
+
+    def test_short_name_is_one_query_and_one_fetch(self):
+        client = _client(self.SYMBOLS)
+        model = self._model(client)
+
+        assert model.find("engine").id == "Demo::Vehicle::engine"
+
+        assert client.query.call_count == 1
+        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        assert fetched == ["Demo::Vehicle::engine"]
+
+    def test_a_missing_short_name_is_one_query_and_one_fetch(self):
+        client = _client(self.SYMBOLS)
+        model = self._model(client)
+
+        assert model.find("Nope") is None
+
+        assert client.query.call_count == 1
+        # A bare name may still be the id of a library package, so that is tried.
+        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        assert fetched == ["Nope"]
+
+    LIBRARY = [sysml_pb2.SymbolInfo(id="Base", name="Base", kind="package")]
+
+    def test_a_library_package_is_found_by_its_id(self):
+        model = self._model(_client(self.SYMBOLS, library=self.LIBRARY))
+
+        assert model.find("Base").id == "Base"
+        assert model.get("Base").id == "Base"
+
+    def test_a_name_declared_in_the_model_wins_over_a_library_id(self):
+        own = sysml_pb2.SymbolInfo(id="Demo::Base", name="Base", kind="partDef")
+        client = _client({**self.SYMBOLS, "Demo::Base": own}, library=self.LIBRARY)
+        model = self._model(client)
+
+        assert model.find("Base").id == "Demo::Base"
+        assert model.get("Base").id == "Base"
+
+    def test_an_erroring_model_is_walked_for_a_name_the_query_cannot_see(self):
+        """A feature named by an unresolved redefinition has no effective name to query."""
+        unresolved = sysml_pb2.SymbolInfo(
+            id="Demo::Vehicle::mass", name="mass", kind="attributeUsage"
+        )
+        symbols = {**self.SYMBOLS, "Demo::Vehicle::mass": unresolved}
+        symbols["Demo::Vehicle"] = sysml_pb2.SymbolInfo(
+            id="Demo::Vehicle", name="Vehicle", kind="partDef",
+            child_ids=["Demo::Vehicle::engine", "Demo::Vehicle::mass"],
+        )
+        client = _client(symbols)
+        client.query.side_effect = lambda *args, **kwargs: []
+        error = sysml_pb2.Diagnostic(severity="error", message="unresolved reference: Base")
+
+        assert self._model(client).find("mass") is None
+        assert self._model(client, [error]).find("mass").id == "Demo::Vehicle::mass"
+
+    def test_outermost_of_a_shared_short_name_wins(self):
+        symbols = dict(self.SYMBOLS)
+        # Declared first in the model, but nested deeper than Demo::Engine.
+        symbols = {"Demo::Sub::Engine": symbols.pop("Demo::Sub::Engine"), **symbols}
+        model = self._model(_client(symbols))
+
+        assert model.find("Engine").id == "Demo::Engine"
+
+    def test_depth_is_the_owner_chain_not_the_ids_segments(self):
+        """A quoted name may contain ``::``; ``'Z::First'`` is one namespace, not two."""
+        symbols = {
+            "Demo": sysml_pb2.SymbolInfo(
+                id="Demo", name="Demo", kind="package",
+                child_ids=["Demo::Z::First", "Demo::ASecond"],
+            ),
+            "Demo::Z::First": sysml_pb2.SymbolInfo(
+                id="Demo::Z::First", name="Z::First", kind="package",
+                child_ids=["Demo::Z::First::Engine"],
+            ),
+            "Demo::Z::First::Engine": sysml_pb2.SymbolInfo(
+                id="Demo::Z::First::Engine", name="Engine", kind="partDef",
+            ),
+            "Demo::ASecond": sysml_pb2.SymbolInfo(
+                id="Demo::ASecond", name="ASecond", kind="package",
+                child_ids=["Demo::ASecond::Engine"],
+            ),
+            "Demo::ASecond::Engine": sysml_pb2.SymbolInfo(
+                id="Demo::ASecond::Engine", name="Engine", kind="partDef",
+            ),
+        }
+        client = _client(symbols)
+        model = self._model(client)
+
+        assert model.find("Engine").id == "Demo::Z::First::Engine"
+        # Both owners are packages of the root, so one hop up settled the depths.
+        assert client.query.call_count == 2
+
+    def test_an_id_the_service_resolves_to_another_symbol_is_not_found(self):
+        """The service follows imports; an id lookup names only the symbol carrying that id."""
+        library = sysml_pb2.SymbolInfo(
+            id="ISQBase::MassValue", name="MassValue", kind="attributeDef"
+        )
+        client = _client({**self.SYMBOLS, "Demo::MassValue": library})
+        model = self._model(client)
+
+        assert model.get("Demo::MassValue") is None
+        assert model.find("Demo::MassValue") is None
+        assert "Demo::MassValue" not in model
+
+    def test_missing_symbol_names_the_closest_declared_ones(self):
+        client = _client(self.SYMBOLS)
+        model = self._model(client)
+
+        with pytest.raises(SymbolNotFoundError) as excinfo:
+            model["Vehicel"]
+
+        assert "Vehicle" in str(excinfo.value)
+        # The declared names came from one query, not from walking the tree.
+        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        assert fetched == ["Vehicel"]
+
+    def test_a_service_without_query_is_walked(self):
+        client = _client(self.SYMBOLS, capabilities=())
+        model = self._model(client)
+
+        assert model.find("Engine").id == "Demo::Engine"
+        assert model.find("Demo::Sub::Engine").id == "Demo::Sub::Engine"
+        assert model.find("Nope") is None
+        with pytest.raises(SymbolNotFoundError):
+            model["Vehicel"]
+        client.query.assert_not_called()
 
 
 class TestModelEval:

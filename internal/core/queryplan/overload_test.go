@@ -116,7 +116,8 @@ func TestCompileSelectsQueryOverloadByArgumentType(t *testing.T) {
 	}
 }
 
-// Selections memoized before the checker's typing was installed do not outlive it.
+// Selections memoized before the checker's typing was installed do not outlive it:
+// untyped, the arguments leave the overloads tied; typed, they select one.
 func TestCompileFollowsTheArgumentTypingInstalledLast(t *testing.T) {
 	const src = `
 		package A { %[1]s calc def Pick :> Query { in source : Element; in depth : Integer; Descendants(source = source, maxDepth = depth) } }
@@ -128,8 +129,8 @@ func TestCompileFollowsTheArgumentTypingInstalledLast(t *testing.T) {
 	`
 	m := parseOverloaded(t, fmt.Sprintf(src, overloadImports))
 	var planning *queryplan.Error
-	if _, err := m.compile(t, "ByType"); !errors.As(err, &planning) || planning.Kind != queryplan.ErrorArgumentType {
-		t.Fatalf("untyped: error = %v, want %s against A::Pick", err, queryplan.ErrorArgumentType)
+	if _, err := m.compile(t, "ByType"); !errors.As(err, &planning) || planning.Kind != queryplan.ErrorAmbiguousInvocation {
+		t.Fatalf("untyped: error = %v, want %s between A::Pick and B::Pick", err, queryplan.ErrorAmbiguousInvocation)
 	}
 	program, err := m.typed().compile(t, "ByType")
 	if err != nil {

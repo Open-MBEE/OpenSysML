@@ -513,6 +513,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"SetLocal", "type Collections::Set is not Integer, Real or Boolean"},
 		{"TensorParam", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
 		{"TensorBuilt", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
+		{"MetaCast", "a `meta` cast, whose metaobject reflects a model element and has no native representation"},
 	} {
 		_, err := s.CompileCalc("Refused::" + tc.calc)
 		if err == nil {

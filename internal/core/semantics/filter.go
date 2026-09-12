@@ -1339,6 +1339,12 @@ func simpleSymbolName(sym *symbols.Symbol) string {
 	return simpleName(sym.Name)
 }
 
+// SimpleSymbolName is a symbol's own name, without the qualification an indexed
+// symbol's name may carry.
+func SimpleSymbolName(sym *symbols.Symbol) string {
+	return simpleSymbolName(sym)
+}
+
 // ownerSymbol returns the element a symbol is a member of.
 func ownerSymbol(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil || sym.OwnerScope == nil {

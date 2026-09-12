@@ -211,18 +211,78 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 209 committed cases, the original 32, the 62 the
+prints the current ones. State of the 233 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
-the 27 of `scalar_classification.cases` and the 24 of `literal_types.cases`:
+the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases` and the 24 of
+`metadata_access.cases`:
 
 ```
-agree: 125 · kind-only: 1 · order-only: 0 · disagree: 5
-pilot-unevaluated: 59 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
+agree: 146 · kind-only: 1 · order-only: 0 · disagree: 7
+pilot-unevaluated: 59 · pilot-silent: 8 · pilot-error: 2 · ours-error: 2 · both-error: 8
 nondeterministic: 0
 ```
+
+The fourteen `metadata_access.cases` referee `x.metadata` and the `meta` cast, added with the
+evaluation they referee, and all fourteen agree. They were run *before* the runtime changed, to
+settle what `.metadata` answers: KerML 1.0 §8.3.4.8.15 states that the result of a
+MetadataAccessExpression is the metadata annotations of the referenced element followed by one
+reflective metaobject of the element's own metaclass, and the pilot (`0.61.0`) reads it the same
+way — `seatBelt.metadata->size()` on a part annotated once is `2` and `chassis.metadata->size()`
+on a part nothing annotates is `1`, where the runtime then answered `1` and `0` (the two
+`disagree` of that run; every `meta` case was `ours-error`, the operator refused). The pilot and
+the spec text agree, so the runtime now appends the reflective metaobject and the two committed
+`.metadata` conformance fixtures moved with it: `metadata_access_annotations` expects the
+two annotation objects then `meta(test::seatBelt : SysML::Systems::PartUsage)` (and the metaobject
+alone for the element nothing annotates, where it expected `()`), and
+`metadata_access_textual_order` expects its four annotations then the metaobject. The `meta`
+cases fix the cast as `x.metadata as T` (§7.4.9.2): `(seatBelt meta KerML::Feature)->size()` is
+`1` (the metaobject alone — a `Safety` annotation is not a `Feature`), `(seatBelt meta
+Safety)->size()` `1` with `.level` `4`, `(chassis meta SysML::PartDefinition)->size()` `0` for a
+part usage and `(chassis meta SysML::PartUsage)->size()` `1`; the reflective features read
+alike on both sides — `.name` `"seatBelt"`, `.declaredName` `"chassis"`, `.qualifiedName`
+`"Meta::chassis"`, `.ownedFeature->size()` `2` (the nested part and the attribute),
+`(Vehicle meta SysML::PartDefinition).declaredName` `"Vehicle"`, `.isAbstract` `false` — and
+`(chassis meta KerML::Feature) === (chassis meta KerML::Type)` is `true` on both, so a
+metaobject's identity is the element's whatever metaclass it is cast to. Each case reads a
+model-level attribute bound to the expression because the pilot resolves no library name
+(`KerML::Feature`, `SysML::PartUsage`) inside a bare `%eval`.
+
+Five more `metadata_access.cases` referee `Element::documentation`, declared
+`Documentation[0..*]` in `KerML.kerml`, so a documentation comment reads back as a metaobject
+whose own `Comment::body` and `Comment::locale` are the strings. Three agree:
+`(Wheel meta KerML::Element).documentation->size()` is `1` for a part definition with one
+`doc` comment and `0` for one without, and `.documentation.owner.declaredName` is `"Wheel"`.
+`.documentation.body` is the one new `disagree`, and it is a rendering artefact of the pilot,
+not a semantic difference: the pilot prints `LiteralString Turns.  (<uuid>)`, a body with a
+trailing space before its two-space id separator, which normalizes to `Turns. ` against the
+runtime's `"Turns."`: the pilot keeps the blank before `*/`, the runtime reads the body the way
+`Element::documentation` and LSP hover always have (`lexer.CommentBody`, delimiters and
+margin off), so the runtime's answer stands and the referee's normalizer is left honest rather
+than taught to trim. `.documentation.qualifiedName` is `pilot-silent`: the pilot prints nothing
+for it, and the runtime answers `()`, which is what `Element::qualifiedName` derives to for an
+element that declares no name (KerML 1.0 §8.3.2.1 Elements — a `doc` comment names nothing);
+the empty pilot line and the empty sequence are the same reading, but the referee cannot tell
+the pilot's "no value" from "declined", so the bucket is left as measured.
+
+Five more `metadata_access.cases` referee the two KerML declarations a SysML model holds that
+are neither types nor features — a `dependency` and a textual representation (`rep … language
+"Java" /* … */`) — which `.metadata` classifies as `KerML::Dependency` and
+`KerML::TextualRepresentation`. Four agree: `relies.metadata->size()` is `1` (the metaobject
+alone) and `(relies meta KerML::Dependency)->size()` `1`, `.client.declaredName` is
+`"seatBelt"` (`Dependency::client` redefines `Relationship::source`, the `from` side), and
+`chassis::asJava.metadata->size()` is `1`. `.representedElement.declaredName` is the seventh
+`disagree`, adjudicated ours: `KerML.kerml` declares `TextualRepresentation::representedElement :
+Element[1..1] subsets owner redefines annotatedElement` (KerML 1.0 §8.3.2.2.12, the element the
+representation is of, always its owner), so the runtime answers `"chassis"`, the owning part;
+the pilot answers `"asJava"`, the representation's own name — it reads `representedElement` as
+the representation itself, while its `.owner.declaredName` is `"chassis"` and its
+`.documentation.annotatedElement` prints nothing, so its `annotatedElement` redefinitions do
+not derive to the owner the library says they subset. The case reads `.representedElement`
+rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
+viable alternative at input 'language'`), which would fail the whole model.
 
 The twelve `tensor_quantities.cases` probe `TensorCalculations` over a 2×2 stress tensor built
 by `TensorCalculations::'['` on a model-declared `TensorMeasurementReference`, added with the

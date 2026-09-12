@@ -65,8 +65,8 @@ type Index struct {
 	// the declared member. hidden is the subset a *private* import surfaced,
 	// which a further wildcard import must not carry on. Both are derived from
 	// reexportDocs and kept alongside it for the lookup path.
-	reexported *layer[string, map[*Symbol]bool]
-	hidden     *layer[string, map[*Symbol]bool]
+	reexported *layer[string, symbolSet]
+	hidden     *layer[string, symbolSet]
 
 	// reexportDocs attributes each re-export to every document whose wildcard
 	// imports surface it, recording whether that document surfaces it publicly and
@@ -91,10 +91,10 @@ type Index struct {
 	// scan of every name in the workspace.
 	children *layer[string, []string]
 
-	// bySegment maps a last name segment to the qualified names ending in it, so
-	// suggesting a candidate for an unresolved reference costs its matches rather
-	// than a scan of every name the library declares.
-	bySegment *layer[string, map[string]bool]
+	// bySegment maps a last name segment to the sorted qualified names ending in
+	// it, so suggesting a candidate for an unresolved reference costs its matches
+	// rather than a scan of every name the library declares.
+	bySegment *layer[string, []string]
 
 	// dirtyNS records how each namespace's direct members changed since the last
 	// expansion, and lastTargets what each importer's imports resolved to when it
@@ -194,13 +194,13 @@ func NewIndex() *Index {
 		fqn:                  newLayer[string, []*Symbol](gen),
 		contributions:        newLayer[string, []fqnEntry](gen),
 		wildcardMeta:         newLayer[string, map[string][]WildcardImport](gen),
-		reexported:           newLayer[string, map[*Symbol]bool](gen),
-		hidden:               newLayer[string, map[*Symbol]bool](gen),
+		reexported:           newLayer[string, symbolSet](gen),
+		hidden:               newLayer[string, symbolSet](gen),
 		reexportDocs:         newLayer[reexportKey, map[string]*reexportClaim](gen),
 		docReexports:         newLayer[string, map[reexportKey]bool](gen),
 		declaredAt:           newLayer[*Symbol, string](gen),
 		children:             newLayer[string, []string](gen),
-		bySegment:            newLayer[string, map[string]bool](gen),
+		bySegment:            newLayer[string, []string](gen),
 		dirtyNS:              make(map[string]nsChange),
 		lastTargets:          newLayer[string, []resolvedImport](gen),
 		libraryDocs:          newLayer[string, LibraryDocument](gen),
@@ -577,10 +577,7 @@ func (idx *Index) expandImporter(pkgFQN string) {
 		direct := [][]ElementFilter{gate}
 		for _, child := range idx.exportedChildren(targetFQN) {
 			// Extract child's primary name
-			childName := child.Name
-			if i := strings.LastIndex(childName, "::"); i >= 0 {
-				childName = childName[i+2:]
-			}
+			childName := lastSegment(child.Name)
 			idx.reexportGated(joinFQN(pkgFQN, childName), child, imp.doc, imp.private,
 				idx.routesOnward(imp.doc, targetFQN, childName, child, direct))
 
@@ -611,7 +608,7 @@ func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string) string {
 		if fqn, ok := idx.wildcardTargetAt(prefix + "::" + targetText); ok {
 			return fqn
 		}
-		i := strings.LastIndex(prefix, "::")
+		i := lastSeparator(prefix)
 		if i < 0 {
 			break
 		}
@@ -640,7 +637,7 @@ func (idx *Index) wildcardTargetAt(key string) (string, bool) {
 	owned, reexports := 0, 0
 	var soleOwned, soleImported *Symbol
 	for _, sym := range idx.fqn.at(key) {
-		if imported[sym] {
+		if imported.has(sym) {
 			reexports++
 			soleImported = sym
 			continue
@@ -665,12 +662,19 @@ func (idx *Index) wildcardTargetAt(key string) (string, bool) {
 // register records sym under fqn, linking fqn to its parent namespace — the
 // document root "" included, so a file-level import's re-exports can be dropped.
 func (idx *Index) register(fqn string, sym *Symbol) {
+	idx.link(fqn, sym)
+	parent, _ := splitFQN(fqn)
+	idx.markGained(parent)
+}
+
+// link is register without noting the change to the parent namespace, for a
+// caller that records it itself.
+func (idx *Index) link(fqn string, sym *Symbol) {
 	appendSlice(idx.fqn, fqn, sym)
 	parent, last := splitFQN(fqn)
-	idx.markGained(parent)
 	insertSorted(idx.children, parent, fqn)
 	if parent != "" {
-		writableMap(idx.bySegment, last)[fqn] = true
+		insertSorted(idx.bySegment, last, fqn)
 	}
 }
 
@@ -695,9 +699,7 @@ func (idx *Index) unregisterSegment(fqn string) {
 	if _, ok := idx.bySegment.get(last); !ok {
 		return
 	}
-	names := writableMap(idx.bySegment, last)
-	delete(names, fqn)
-	if len(names) == 0 {
+	if names := removeSorted(idx.bySegment, last, fqn); len(names) == 0 {
 		idx.bySegment.del(last)
 	}
 }
@@ -744,11 +746,22 @@ func (idx *Index) markLost(ns string) {
 
 // splitFQN separates fqn into its owning namespace and the name within it.
 func splitFQN(fqn string) (parent, name string) {
-	i := strings.LastIndex(fqn, "::")
+	i := lastSeparator(fqn)
 	if i < 0 {
 		return "", fqn
 	}
 	return fqn[:i], fqn[i+2:]
+}
+
+// lastSeparator returns the index of the last "::" in fqn, or -1. It is on the
+// path of every re-export, where strings.LastIndex's general search costs.
+func lastSeparator(fqn string) int {
+	for i := len(fqn) - 2; i >= 0; i-- {
+		if fqn[i] == ':' && fqn[i+1] == ':' {
+			return i
+		}
+	}
+	return -1
 }
 
 func (idx *Index) hasFQN(fqn string, sym *Symbol) bool {
@@ -962,17 +975,10 @@ func (idx *Index) purgeReexportsUnder(pkgFQN string) {
 	}
 }
 
-// reexportedAt returns the symbols a wildcard import surfaced under fqn.
+// reexportedAt returns the symbols a wildcard import surfaced under fqn. The
+// copy lets callers deregister while they iterate.
 func (idx *Index) reexportedAt(fqn string) []*Symbol {
-	marks := idx.reexported.at(fqn)
-	if len(marks) == 0 {
-		return nil
-	}
-	out := make([]*Symbol, 0, len(marks))
-	for sym := range marks {
-		out = append(out, sym)
-	}
-	return out
+	return slices.Clone(idx.reexported.at(fqn))
 }
 
 // reexport registers sym under fqn on behalf of a wildcard import doc states,
@@ -996,6 +1002,9 @@ func (idx *Index) routesOnward(doc, sourceFQN, name string, sym *Symbol, direct 
 		return direct
 	}
 	gate := direct[0]
+	if len(gate) == 0 {
+		return inherited // an unfiltered import passes the routes on as they are
+	}
 	out := make([][]ElementFilter, 0, len(inherited))
 	for _, route := range inherited {
 		out = append(out, addFilters(route, gate))
@@ -1132,7 +1141,7 @@ func (idx *Index) ReexportVisible(doc, fqn string, sym *Symbol) bool {
 	if parent, _ := splitFQN(fqn); parent != "" {
 		return true
 	}
-	if !idx.reexported.at(fqn)[sym] {
+	if !idx.reexported.at(fqn).has(sym) {
 		return true // declared under this name rather than borrowed
 	}
 	return idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})[doc] != nil
@@ -1168,12 +1177,12 @@ func nonZeroFilters(filters []ElementFilter) []ElementFilter {
 // reexport registers sym under fqn on doc's behalf and returns doc's writable
 // claim on it, or nil when the namespace declares sym there itself.
 func (idx *Index) reexport(fqn string, sym *Symbol, doc string, private bool) *reexportClaim {
-	registered := idx.hasFQN(fqn, sym)
-	if registered && !idx.reexported.at(fqn)[sym] {
-		return nil // declared here, not borrowed
-	}
-	if !registered {
-		idx.register(fqn, sym)
+	if idx.hasFQN(fqn, sym) {
+		if !idx.reexported.at(fqn).has(sym) {
+			return nil // declared here, not borrowed
+		}
+	} else {
+		idx.link(fqn, sym) // claimReexport notes the gain
 	}
 	return idx.claimReexport(reexportKey{fqn: fqn, sym: sym}, doc, !private)
 }
@@ -1183,18 +1192,18 @@ func (idx *Index) reexport(fqn string, sym *Symbol, doc string, private bool) *r
 // any import that surfaced it was public, so a public claim clears the hidden
 // mark a private one left. It returns doc's writable claim.
 func (idx *Index) claimReexport(key reexportKey, doc string, public bool) *reexportClaim {
-	if claim := idx.reexportDocs.at(key)[doc]; claim != nil && (claim.public || !public) {
-		return idx.writableClaims(key)[doc] // nothing new
-	}
 	docs := idx.writableClaims(key)
 	claim, claimed := docs[doc]
+	if claimed && (claim.public || !public) {
+		return claim // nothing new
+	}
 	if !claimed {
 		claim = &reexportClaim{}
 		docs[doc] = claim
 	}
 	claim.public = claim.public || public
 	writableMap(idx.docReexports, doc)[key] = true
-	idx.applyReexportMarks(key)
+	idx.applyReexportMarks(key, docs)
 	parent, _ := splitFQN(key.fqn)
 	idx.markGained(parent) // a public claim can un-hide it, which exports it onward
 	return claim
@@ -1214,7 +1223,7 @@ func (idx *Index) dropClaim(key reexportKey, doc string) {
 		idx.deregister(key.fqn, key.sym)
 		return
 	}
-	idx.applyReexportMarks(key)
+	idx.applyReexportMarks(key, docs)
 	parent, _ := splitFQN(key.fqn)
 	idx.markLost(parent) // only private imports may remain, hiding it again
 }
@@ -1237,24 +1246,25 @@ func (idx *Index) purgeReexport(key reexportKey) {
 // the frozen base recorded is copied with them: recording a route on it would
 // otherwise change what every index over that base re-exports.
 func (idx *Index) writableClaims(key reexportKey) map[string]*reexportClaim {
-	owned := idx.reexportDocs.owns(key)
-	docs := writableMap(idx.reexportDocs, key)
-	if owned {
+	if docs, owned := idx.reexportDocs.own[key]; owned {
+		idx.reexportDocs.gen.bump()
 		return docs
 	}
-	for doc, claim := range docs {
+	shared, _ := idx.reexportDocs.below(key)
+	docs := make(map[string]*reexportClaim, len(shared)+1)
+	for doc, claim := range shared {
 		copied := *claim
 		copied.routes = append([]gateRoute(nil), claim.routes...)
 		docs[doc] = &copied
 	}
+	idx.reexportDocs.set(key, docs)
 	return docs
 }
 
-// applyReexportMarks brings the reexported and hidden marks in line with the
-// claims on key: a claimed name is re-exported, and hidden while every document
-// that surfaced it did so with a private import (KerML 8.2.3.3).
-func (idx *Index) applyReexportMarks(key reexportKey) {
-	docs := idx.reexportDocs.at(key)
+// applyReexportMarks brings the reexported and hidden marks in line with docs,
+// the claims on key: a claimed name is re-exported, and hidden while every
+// document that surfaced it did so with a private import (KerML 8.2.3.3).
+func (idx *Index) applyReexportMarks(key reexportKey, docs map[string]*reexportClaim) {
 	if len(docs) == 0 {
 		clearMark(idx.reexported, key.fqn, key.sym)
 		clearMark(idx.hidden, key.fqn, key.sym)
@@ -1270,19 +1280,42 @@ func (idx *Index) applyReexportMarks(key reexportKey) {
 	setMark(idx.hidden, key.fqn, key.sym)
 }
 
-func setMark(marks *layer[string, map[*Symbol]bool], fqn string, sym *Symbol) {
-	writableMap(marks, fqn)[sym] = true
+// symbolSet is the few symbols marked under one name; a linear scan of it beats
+// a map for the one or two entries it holds.
+type symbolSet []*Symbol
+
+func (s symbolSet) has(sym *Symbol) bool {
+	return slices.Contains(s, sym)
 }
 
-func clearMark(marks *layer[string, map[*Symbol]bool], fqn string, sym *Symbol) {
-	if _, ok := marks.get(fqn); !ok {
+func setMark(marks *layer[string, symbolSet], fqn string, sym *Symbol) {
+	if owned, ok := marks.own[fqn]; ok {
+		if !owned.has(sym) {
+			marks.gen.bump()
+			marks.own[fqn] = append(owned, sym)
+		}
 		return
 	}
-	at := writableMap(marks, fqn)
-	delete(at, sym)
+	shared, _ := marks.below(fqn)
+	if shared.has(sym) {
+		return
+	}
+	out := make(symbolSet, len(shared), len(shared)+1)
+	copy(out, shared)
+	marks.set(fqn, append(out, sym))
+}
+
+func clearMark(marks *layer[string, symbolSet], fqn string, sym *Symbol) {
+	i := slices.Index(marks.at(fqn), sym)
+	if i < 0 {
+		return
+	}
+	at := slices.Delete(writableSlice(marks, fqn), i, i+1)
 	if len(at) == 0 {
 		marks.del(fqn)
+		return
 	}
+	marks.set(fqn, at)
 }
 
 // indexScope walks a scope, recording each distinct symbol under its FQN and
@@ -1419,7 +1452,7 @@ func (idx *Index) LookupQualifiedFrom(fqn, fromFQN string) []*Symbol {
 	if len(hidden) > 0 && namespaceOf(fqn) != "" && !withinNamespace(fromFQN, namespaceOf(fqn)) {
 		visible := make([]*Symbol, 0, len(syms))
 		for _, sym := range syms {
-			if !hidden[sym] {
+			if !hidden.has(sym) {
 				visible = append(visible, sym)
 			}
 		}
@@ -1427,7 +1460,7 @@ func (idx *Index) LookupQualifiedFrom(fqn, fromFQN string) []*Symbol {
 	}
 	owned := make([]*Symbol, 0, len(syms))
 	for _, sym := range syms {
-		if !imported[sym] {
+		if !imported.has(sym) {
 			owned = append(owned, sym)
 		}
 	}
@@ -1461,7 +1494,7 @@ func (idx *Index) HiddenFrom(fqn, fromFQN string) bool {
 		return false
 	}
 	for _, sym := range idx.fqn.at(fqn) {
-		if !hidden[sym] {
+		if !hidden.has(sym) {
 			return false
 		}
 	}
@@ -1471,7 +1504,7 @@ func (idx *Index) HiddenFrom(fqn, fromFQN string) bool {
 // namespaceOf returns the FQN of the namespace a qualified name names a member
 // of: "A::B::C" -> "A::B", and "" for a top-level name.
 func namespaceOf(fqn string) string {
-	i := strings.LastIndex(fqn, "::")
+	i := lastSeparator(fqn)
 	if i < 0 {
 		return ""
 	}
@@ -1510,15 +1543,11 @@ func (idx *Index) FQNsEndingIn(name string, limit int) []string {
 	if name == "" || limit <= 0 {
 		return nil
 	}
-	var out []string
-	for fqn := range idx.bySegment.at(name) {
-		out = append(out, fqn)
-	}
-	sort.Strings(out)
+	out := idx.bySegment.at(name)
 	if len(out) > limit {
 		out = out[:limit]
 	}
-	return out
+	return slices.Clone(out)
 }
 
 // WildcardImportsOf returns the wildcard-import targets recorded for the
@@ -1582,11 +1611,12 @@ func (idx *Index) lookupDirectChildren(key directChildrenKey) []*Symbol {
 	idx.directChildrenMu.Unlock()
 
 	var out []*Symbol
-	seen := make(map[*Symbol]bool)
-	for _, fqn := range idx.childKeys(key.prefix) {
+	keys := idx.childKeys(key.prefix)
+	seen := make(map[*Symbol]bool, len(keys))
+	for _, fqn := range keys {
 		hidden := idx.hidden.at(fqn)
 		for _, sym := range idx.fqn.at(fqn) {
-			if seen[sym] || (!key.allowsPrivate && hidden[sym]) {
+			if seen[sym] || (!key.allowsPrivate && hidden.has(sym)) {
 				continue
 			}
 			seen[sym] = true
@@ -1664,7 +1694,7 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 
 // lastSegment returns the last "::"-separated segment of a possibly qualified name.
 func lastSegment(name string) string {
-	if i := strings.LastIndex(name, "::"); i >= 0 {
+	if i := lastSeparator(name); i >= 0 {
 		return name[i+2:]
 	}
 	return name
@@ -1692,7 +1722,7 @@ func (idx *Index) TopLevelBindings(doc string) []RootBinding {
 			if seen[sym] {
 				continue
 			}
-			if hidden[sym] && !claimed[reexportKey{fqn: fqn, sym: sym}] {
+			if hidden.has(sym) && !claimed[reexportKey{fqn: fqn, sym: sym}] {
 				continue // only some other document's private import surfaced it
 			}
 			seen[sym] = true

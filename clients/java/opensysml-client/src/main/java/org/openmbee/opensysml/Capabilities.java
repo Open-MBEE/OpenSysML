@@ -65,6 +65,9 @@ public final class Capabilities {
   /** A tensor of quantities of any rank travels as itself rather than as an unsupported null. */
   public static final String TENSOR_VALUES = "tensor_values";
 
+  /** An element reflected on ({@code x meta T}) travels as a metaobject rather than as an unsupported null. */
+  public static final String METAOBJECT_VALUES = "metaobject_values";
+
   /** The {@code ApplyEdits} RPC edits a parsed model's own source. */
   public static final String APPLY_EDITS = "apply_edits";
 
