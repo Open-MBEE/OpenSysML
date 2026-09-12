@@ -28,6 +28,8 @@ func (e *StateExecutor) Enqueue(event QueuedEvent) error {
 		return fmt.Errorf("%w: event declares both signal %q and call %q", ErrMalformedEvent, event.Signal, event.Call)
 	case event.Value != nil && (event.Call != "" || len(event.Args) > 0):
 		return fmt.Errorf("%w: event %s%s carries a bare value beside its arguments", ErrMalformedEvent, event.Signal, event.Call)
+	case event.Value != nil && event.Signal == "":
+		return fmt.Errorf("%w: event carries a bare value but declares no signal", ErrMalformedEvent)
 	case event.Call != "":
 		e.InvokeOperation(event.Call, event.Args)
 	case event.Value != nil:
@@ -52,10 +54,12 @@ func (ctx *Context) PerformState(stateMachine *symbols.Symbol, self *Instance, e
 	}
 	for _, event := range events {
 		if err := exec.Enqueue(event); err != nil {
+			exec.Release()
 			return nil, err
 		}
 	}
 	if err := exec.RunToCompletion(); err != nil {
+		exec.Release()
 		return nil, err
 	}
 	return exec, nil
