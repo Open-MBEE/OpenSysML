@@ -1147,9 +1147,9 @@ nothing below describes one that has been run.
 |---|---|---|
 | **Expressing the test model in SysML v2 textual notation** | **Can, for 73 of 103** (37 with standard notation, 33 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 30** | Every test's state machine was classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
 | **Driving the test** | **Can, with one normalization** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling; the conformance harness queues a case's `events` before the first step (`conformance_test.go:injectEvents`). The two coincide when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
-| **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("S1(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "S1(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
+| **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("<state>(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "<state>(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
 | **Alternative expected traces** | **Can, and exactly** | 36 tests declare more than one admissible trace. The conformance schema's `outcomes` with the `explore` policy replays a case once per linearization of its choice points (`ChoiceRegionOrder`, `ChoiceTransition`, `ChoiceDueOrder`) and fails when a listed outcome is unreachable or an unlisted one is reached — the same set-equality PSSM's alternatives ask for, and stricter than the single-run comparison the PSSM harness performs |
-| **The run-to-completion step table** | **Cannot compare** | Each test's "RTC steps" table lists the pool's contents and the fired transitions per step, including completion events (`CE(S1)`). The runtime has no pool of completion occurrences (SM9) and the `%trace` records no pool; only the fired transitions and the final trace are comparable |
+| **The run-to-completion step table** | **Cannot compare** | Each test's "RTC steps" table lists the pool's contents and the fired transitions per step, including completion events (`CE(<state>)`). The runtime has no pool of completion occurrences (SM9) and the `%trace` records no pool; only the fired transitions and the final trace are comparable |
 | **A pass as evidence about SysML v2 semantics** | **Only on the eight `differs, v2 silent` rows and as corroboration on the `agrees` rows** | Where PSSM and v2 coincide (51 rows) a pass says the runtime does what both texts say — worth having, but not a second opinion on v2. Where they differ because v2 differs (6 rows) the corresponding tests fail by design and their failure means nothing. Where v2 is silent (8 rows) a pass or a fail reports on a tool choice, which is the one place the suite is informative about this runtime's rules |
 
 ### Which UML construct maps to which notation
@@ -1204,10 +1204,13 @@ history, 6 a junction, 5 a choice, 6 a fork or join and 6 a call event.
 ### What a translated test looks like
 
 *Deferred 001* (PSSM §9.3.16.2, Figure 9.90) exercises deferral in a simple state: `Continue`
-arrives while `S1` defers it, `AnotherSignal` moves the machine to `S2`, the recalled `Continue`
-fires `T4` ahead of the later `Pending`, and `S3`'s completion transition ends the machine with
-`Pending` never dispatched. Expected trace `S1(exit)::S2(entry)::T4(effect)::S3(entry)`. Written
-by hand from the figure, with this project's `defer`:
+arrives while the first state defers it, `AnotherSignal` moves the machine to the second, the
+recalled `Continue` fires its transition ahead of the later `Pending`, and the third state's
+completion transition ends the machine with `Pending` never dispatched. The expected trace is the
+first state's exit segment, the second's entry, the recalled transition's effect and the third's
+entry, in that order. Written by hand from the figure with this project's `defer`, the states
+and transitions renamed for the translation (`deferring`, `released`, `last`; `recall`,
+`lapsed`):
 
 ```sysml
 package Deferred001 {
@@ -1218,38 +1221,40 @@ package Deferred001 {
 
         entry; then wait;
         state wait;
-        state S1 {
+        state deferring {
             defer Continue;
-            exit action { assign log := log + "S1(exit)::"; }
+            exit action { assign log := log + "deferring(exit)::"; }
         }
-        state S2 {
-            entry action { assign log := log + "S2(entry)::"; }
+        state released {
+            entry action { assign log := log + "released(entry)::"; }
         }
-        state S3 {
-            entry action { assign log := log + "S3(entry)"; }
+        state last {
+            entry action { assign log := log + "last(entry)"; }
         }
 
-        transition first wait accept Start then S1;
-        transition first S1 accept AnotherSignal then S2;
-        transition first S2 accept Continue do { assign log := log + "T4(effect)::"; } then S3;
-        transition first S2 accept Pending do { assign log := log + "T5(effect)::"; } then S3;
-        succession first S3 then done;
+        transition first wait accept Start then deferring;
+        transition first deferring accept AnotherSignal then released;
+        transition recall first released accept Continue
+            do { assign log := log + "recall(effect)::"; } then last;
+        transition lapsed first released accept Pending
+            do { assign log := log + "lapsed(effect)::"; } then last;
+        succession first last then done;
     }
 }
 ```
 
 The case's `events` would list `Start`, `Continue`, `AnotherSignal`, `Pending` and its `slots`
-the expected `log`. Every step of it lands on an **agrees** row (SM4 dispatch order, SM5
-deferral, SM6 recall order, SM8/SM10 completion ahead of `Pending`), which is exactly why a pass
-would corroborate but not adjudicate: v2 and PSSM say the same thing here. The example is prose,
+the expected `log`, `deferring(exit)::released(entry)::recall(effect)::last(entry)`. Every step
+of it lands on an **agrees** row (SM4 dispatch order, SM5 deferral, SM6 recall order, SM8/SM10
+completion ahead of `Pending`), which is exactly why a pass would corroborate but not adjudicate: v2 and PSSM say the same thing here. The example is prose,
 not a fixture, and whether the runtime passes it is not asserted.
 
 *Transition 011-D* (PSSM §9.3.3.7, Figure 9.17) is the other kind: a *local* transition out of
-`S1` to one of its own exit points, whose purpose is "to demonstrate that, when a local
+a composite state to one of its own exit points, whose purpose is "to demonstrate that, when a local
 transition leaves the containing state, then this state is not exited". It has no SysML v2
 spelling (SM36) and none of this project's extensions reaches it; a translation to an external
-transition would exit `S1` and produce a trace PSSM rejects, and the disagreement would be v2's,
-not the runtime's. Its two admissible traces (`S1.1(exit)::S2.1(exit)` and the reverse) are the
+transition would exit the composite state and produce a trace PSSM rejects, and the disagreement would be v2's,
+not the runtime's. Its two admissible traces (the two regions' exit segments in either order) are the
 pattern the `outcomes` mechanism already handles for the expressible orthogonal-region tests.
 
 ### What the suite is, and is not, for this runtime
@@ -1270,8 +1275,236 @@ oracle for fifty-one; it is never a conformance statement about SysML v2.
 
 ## Options
 
+Four courses of action, each judged on scope, on what it depends on, on its order against the
+state-machine stage of the [bounded model checking](bounded-model-checking.md) note (state
+executor snapshot/restore, dispatch-order choice points, time ties — stage 3 there) and against
+Track E of the roadmap, on its acceptance gate, and on what a user would see.
+
+### (a) Keep the v2/KerML position; adopt PSSM's rule on the `differs, v2 silent` rows where it is better grounded
+
+- **Scope.** Eight rows. For each, decide between the runtime's rule and PSSM's, record the
+  decision in the row and in `docs/project/spec-compliance.md`, and implement the changes that
+  fall out. The map suggests the split: **adopt PSSM** on SM7 (deferral outranks a transition in
+  an enclosing state or a sibling region — the runtime's rule makes `defer` ineffective whenever
+  any other region reacts, which defeats the purpose of the extension) and SM28 (an empty history
+  with no default falls back to the region's initial transition — a refusal serves no v2 rule,
+  and UML is the extension's reference); **keep ours, and say so** on SM30 and SM32 (the
+  runtime's static evaluation of choice and junction guards is one rule for both vertices and is
+  what makes `pseudostates.md`'s reading of a junction hold; a change would split them), on SM45
+  and C8 (a refused destroy and a failed send are typed errors a modeler sees, where fUML/PSCS
+  silently drop; that is a deliberate tool choice this project makes everywhere), and on C3 (the
+  connector model is the library's, and the pattern strategies would be a second one); **decide**
+  SM11 — it is the one row where PSSM's rule (a composite state's completion fires the composite's
+  completion transition) is arguably what a v2 modeler expects and the v2 sentence is uneasy, so
+  it is listed in *Open decisions*.
+- **Dependencies.** None on the bounded-model-checking stages: SM7 and SM28 are changes to
+  `selectTransitions`/`dispatchEvent` and `fireHistoryTransition`, both already inside the
+  snapshotted state (stage 1 of that note is implemented and captures the event queue, deferred
+  events and history), and neither adds a choice point. None on Track E. SM11, if changed,
+  touches `completeIfDone`/`scheduleFromLeaf` and the completion-event ordering the trace goldens
+  pin, so it would come with golden updates and belongs *before* stage 3 (dispatch-order choice
+  points) rather than after, so the choice points are added over the final completion rule.
+- **Acceptance gate.** Per row: a conformance case for the new rule, the existing cases
+  unchanged except where the row's decision says otherwise (SM7 changes the outcome
+  `TestEventConsumedByAnotherRegionIsNotDeferred` pins, and that test is rewritten *with* the
+  decision, not deleted), the spec-compliance row updated, and the semantic-map row here gaining
+  a "*Decided:*" sentence.
+- **User-visible change.** Two models behave differently: one with `defer` beside a reacting
+  sibling region, and one entering an unvisited `history` without a default transition (a run
+  that failed now proceeds). Nothing else moves.
+
+### (b) Also build the referee harness as an advisory, opt-in gate
+
+- **Scope.** Option (a) plus a `cmd/pssm-referee` in the shape of `cmd/pilot-exec-diff`: a
+  script fetching `ptc/18-11-06` at its pinned checksum into a git-ignored directory (never
+  vendored), a translator from the suite's UML XMI to `.sysml` for the constructs in the mapping
+  table above, refusing every test that uses a construct with no spelling and bucketing it
+  `not-expressible`, a driver queuing the test's stimulation sequence and running the translated
+  machine, a comparator normalizing the `TraceBuilder` string against the model's `log` and
+  matching the result against the test's set of expected traces (as a set, under the `explore`
+  policy), and a committed baseline of bucket counts (`pass`, `fail`, `not-expressible`,
+  `terminate-gap`, `differs-by-design` for the tests reaching SM15/SM36/SM37) that CI compares
+  by count and never by pass/fail.
+- **Dependencies.** The translator's hardest part, the `Tester`/`Target` protocol, is a
+  fixed pattern in the suite (one `Start`, then the listed signals), so the harness's driver is
+  the conformance harness's `injectEvents` and nothing more; tests that need mid-run arrival
+  would be bucketed, not driven. Independent of the bounded-model-checking stages, since the
+  `explore` policy already exists; it *benefits* from stage 3 (dispatch-order choice points make
+  the set comparison exhaustive for the orthogonal-region tests rather than budget-bounded). No
+  Track E dependency, but the three terminate tests stay in their bucket until Track E closes
+  terminate, after which they move to `pass`/`fail` and the count moves.
+- **Acceptance gate.** The harness reproduces its committed baseline deterministically; the
+  `pass` bucket is not a CI gate, only its *count* is, adjudicated on every movement like the
+  corpus ratchets. The tool's `-h` says in one sentence what a pass means, in the words of the
+  paragraph closing the capability map.
+- **User-visible change.** None to the runtime beyond (a). A maintainer gains a second oracle for
+  the eight rows and a regression net of about fifty translated machines.
+- **Cost.** A UML XMI reader for the suite's subset (state machines, regions, vertices,
+  transitions, triggers, opaque behaviors whose bodies are `trace(...)` calls, signals) and a
+  `.sysml` emitter; a checksum-pinned download script; a baseline document under `docs/project/`
+  in the shape of `pilot-execution-referee.md`. It is the size of `cmd/pilot-exec-diff`, not
+  of an executor.
+
+### (c) A user-selectable PSSM-conformant execution mode
+
+- **Scope.** A `-semantics pssm` (or `%semantics`) switch under which the state executor follows
+  PSSM on every row where it differs: SM7, SM11, SM15, SM28, SM30, SM32, SM36, SM37, SM45, plus
+  the local and internal transition kinds themselves, which need new notation and lowering
+  (`transition local first …`), a completion-event pool (SM9 exactly rather than equivalently),
+  and PSSM's variation points (time source, choice of conflicting transitions) made explicit.
+  Two semantics in one executor: every `switch` on the mode in `selectTransitions`,
+  `broadcastEvent`, `completeIfDone`, `resolveRoute`, `fireHistoryTransition`, `destroy` and the
+  lowering of transition kinds, with each conformance case, trace golden and robustness case
+  doubled or annotated by mode.
+- **Dependencies.** Blocks on stage 3 of the bounded-model-checking note and then doubles it:
+  the dispatch-order choice points and the `do` interleaving representation would have to be
+  defined per mode, and the [analysis framework](analysis-framework.md)'s rule that "the
+  interpreter is normative" would have two normative interpreters — every engine (`smt`, `check`)
+  either supports both or is silently wrong under one. Track E's terminate closes for both modes
+  at once (the rules coincide, SM38); its interrupting-performance and streaming entries are fUML
+  rows the mode would not touch.
+- **Acceptance gate.** The PSSM suite itself, passing on every expressible test — which is the
+  one thing this option buys that (b) does not, and only for the 70 expressible tests, since the
+  30 with no spelling need new notation first.
+- **User-visible change.** A mode switch a user has to understand, whose meaning ("this model
+  now runs as UML") contradicts the architecture's stated position; two answers to "what does
+  this model do"; and the `differs because v2 differs` rows, where the mode would make the runtime
+  disagree with the SysML v2 text it implements. This is the cost the question asks for stating
+  plainly: the two semantics are not two configurations of one engine but two engines, and the
+  project's normativity rule cannot hold for both.
+
+### (d) Do nothing
+
+- **Scope.** Leave the eight `differs, v2 silent` rows as they are, this note as the record
+  that they were examined, and the four gaps to Track E.
+- **Dependencies, gate, user-visible change.** None.
+- **What it leaves.** SM7 — a `defer` that any sibling region's reaction overrides — is a rule
+  this project chose without the alternative in view; it stays chosen. SM28 stays a run failure
+  where UML, the extension's own reference, proceeds. The architecture's fallback clause ("UML
+  2.5.1 where v2 has no production and the library no performance") would then be applied to the
+  *existence* of `history`, `fork`, `join`, `choice`, `junction` and `defer` but not to their
+  *semantics* on these rows, which is a harder position to defend than either (a) or (d)'s
+  simplicity suggests.
+
 ## Recommendation
+
+**Option (a), with (b) as a follow-on once (a)'s two changes have landed.** The map shows no case
+for porting the precise-semantics family: 51 of 69 rows agree already, 6 differ because SysML v2
+says otherwise and must stay as they are, and the 4 gaps are v2 gaps Track E already owns. What
+remains is eight tool choices, and on two of them — SM7 and SM28 — PSSM's rule is the reference
+this project's own extensions name (UML) applied consistently, while ours is an accident of
+implementation order; on the other six the runtime's rule is deliberate and better for a modeler
+(typed errors over silent drops, one guard-evaluation rule for both pseudostates, the library's
+connector model), and the row records why. Option (b) is worth having *after* that, as an
+advisory oracle in the established `cmd/pilot-*` shape and with its meaning stated in its own
+words: an advisory PSSM comparison tests reproduction of UML behavior unless the model and
+semantics have a defensible SysML v2 mapping, and it is never proof of SysML v2 conformance.
+Option (c) is rejected: two normative interpreters break the analysis framework's rule, double
+stage 3 of the model checker, and make the runtime disagree with the v2 text on six rows for
+users who select the mode. Option (d) is rejected because SM7 and SM28 are findings this note
+has now made and leaving them stands the extensions on UML for their syntax and on nothing for
+their semantics.
+
+Nothing here changes the architecture's position. SysML v2 and the Kernel Semantic Library
+govern; UML 2.5.1 — and now, on the state-body extensions, PSSM's reading of UML — is the
+reference where v2 has no production and the library no performance; the runtime is not a fUML
+activity engine and does not become one.
 
 ## Findings about our own conformance
 
+The rows below report the runtime differing from, or falling short of, SysML v2's or the Kernel
+Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
+unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
+are not fixed in this note's change set. Each names its evidence.
+
+1. **Terminate is parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
+   define `terminate`; `Performances.kerml` provides `TerminatePerformance`; the parser accepts
+   it and `lower.EffectTerminate` carries it; `action_statements.go:actionStmtHost.effect`
+   refuses it as "'terminate' in a body is not executable"
+   (`robustness_test.go:calc_terminate_is_rejected`). Roadmap Track E, "terminate in a body".
+   That PSSM's *Terminate 001–002* describe the same behavior is a coincidence of the two texts
+   and does not make this a PSSM alignment item: the implementation follows §7.17.10, and the
+   PSSM tests would then pass as a consequence.
+2. **Streaming flows, parallel expansion and interrupting an ongoing performance** (A8, A9,
+   A10). `Flows.sysml` distinguishes `Flow` from `SuccessionFlow` and SysML v2 §7.16.1 says a
+   streaming flow may be ongoing while both actions perform; the runtime applies every flow at
+   source completion (`action_frame.go:applyDataFlows`) and `lower.ObjectFlow` carries no flow
+   kind. Roadmap Track E, "streaming flows", "concurrent per-element performance",
+   "interrupting an ongoing performance". Recorded there; not re-scoped here.
+3. **`isRunToCompletion` and `runToCompletionScope` redefinitions are not read** (SM1).
+   `Occurrences.kerml` declares both as redefinable features with defaults; the runtime
+   implements the defaults (one occurrence per step, the whole machine as scope) and never
+   consults a model's redefinition. A model that redefines them is accepted and run under the
+   defaults without a diagnostic. Unsupported v2 feature; no fixture on `develop` exercises a
+   redefinition.
+4. **A completion transition whose guard turns true between completion and dispatch is never
+   scheduled** (SM9). SysML v2 §7.18.3 lets an unaccepted transition trigger whenever its guard
+   holds during the source's performance; `scheduleCompletionTransitions` reads the guard at
+   completion and schedules only the transitions then enabled, so a guard made true by a sibling
+   region's completion transition dispatched first is missed. Follows from
+   `scheduleCompletionTransitions` and `eventHeap.Less`; no fixture on `develop` reaches it.
+5. **A composite state's completion ends the machine and never fires the composite's own
+   completion transition** (SM11). SysML v2 §7.18.3 says a transition to `done` completes "the
+   containing state performance" and that the containing state "does not necessarily terminate
+   immediately"; `completeIfDone` → `machineComplete` propagates the completion to the machine and
+   `scheduleFromLeaf` never schedules a nil-trigger transition out of a composite state
+   (`state_completion_nested_regions`). The v2 sentence is at least uneasy with this; whether it
+   forbids it is the first open decision below. The spec-compliance record states the current
+   rule as adopted, so this is a finding against the specification text, not against the record.
+6. **Choice guards are read before the incoming effect runs, where the project's own note says
+   otherwise** (SM30). `pseudostates.md` describes a choice as "a dynamic conditional branch whose
+   outgoing guards are evaluated when the choice is entered"; `resolveRoute`/`pseudostateBranch`
+   pick the branch before the incoming transition's effect runs, and the code comment says the
+   two pseudostates are "indistinguishable for a guard over state data". v2 has no choice vertex,
+   so this is not a v2 finding; it is a disagreement between a design note and the code, and one
+   of them has to change (second open decision). `state_choice_pseudostate` does not reach it.
+
+Items 3–6 have no fixture on `develop`; the first thing each needs is the conformance case that
+pins the behavior, then the fix or the documentation change, in a change set of its own.
+
 ## Open decisions
+
+Addressed to the maintainers; each gives the options and the lean.
+
+1. **SM11 — does a composite state's completion fire the composite's own completion transition?**
+   *Options:* (i) keep the runtime's rule — completion propagates to the machine, a nil-trigger
+   transition out of a composite state is unreachable — and amend the spec-compliance record and
+   `orthogonal-regions.md` to say so explicitly with the §7.18.3 sentence quoted; (ii) adopt
+   PSSM's rule — the composite generates a completion occurrence, its completion transition fires
+   if enabled, the machine ends only when its top-level regions complete — as the reading of
+   "does not necessarily terminate immediately", with the trace goldens that change adjudicated.
+   *Lean:* (ii), because a `state outer { … then done; } transition first outer then next;` that
+   never reaches `next` is a model no v2 author would write with the current meaning intended,
+   and because the change belongs before stage 3 of the model checker adds choice points over
+   completion dispatch. But the v2 sentence does not decide it, and the goldens that move are the
+   cost.
+2. **SM30 — dynamic or static choice guards?** *Options:* (i) make the code match
+   `pseudostates.md`: evaluate a choice's guards after the incoming effect, keeping a junction's
+   static; (ii) make the note match the code: one static rule for both, the choice/junction
+   distinction being one of notation. *Lean:* (i). UML's one reason to have two vertices is this
+   distinction, the project's note already promises it, and PSSM's *Choice 001* test would be the
+   conformance case. The cost is that `resolveRoute` must resolve a choice lazily, after the
+   segment's effect, which the route-resolution code does not do today.
+3. **SM7 — does a deferral outrank a transition in a sibling region?** *Options:* (i) adopt
+   PSSM: only a more deeply nested transition overrides a deferral; (ii) keep the runtime's rule
+   and document it as the meaning of `defer` in this project. *Lean:* (i), for the reason given
+   under option (a); it rewrites `TestEventConsumedByAnotherRegionIsNotDeferred`'s expectation,
+   which is the decision's cost and should be made knowingly.
+4. **SM28 — empty history with no default transition.** *Options:* (i) adopt PSSM: perform the
+   region's default entry; (ii) keep the run failure. *Lean:* (i); the failure protects no v2
+   rule, and UML is the extension's stated reference.
+5. **Whether to build option (b) at all, and when.** *Options:* (i) after (a)'s changes land;
+   (ii) never — the eight rows are decided by this note and the suite adds only a regression net
+   over behavior the conformance cases already pin; (iii) now, in parallel with (a), so the suite
+   can be run against the current runtime once as evidence for decisions 1–4. *Lean:* (iii) for
+   the one-time evidence if a maintainer has the appetite, otherwise (i). The translator's cost
+   is the only argument against, and the capability map bounds it.
+6. **Licensing of the harness's download.** PSSM's front matter licenses the specification for
+   informational, non-commercial use without modification; a harness that downloads
+   `ptc/18-11-06` at build time, translates it in memory and commits only bucket counts does not
+   copy or modify the suite in this repository, which is how `cmd/pilot-*` treat the OMG pilot
+   corpora. *Options:* (i) proceed on that reading; (ii) ask OMG before building (b). *Lean:* (i),
+   by the corpora's precedent; not a decision this note can settle.
+7. **Whether the six findings above take issues or a roadmap entry.** *Options:* (i) one roadmap
+   Track E entry each for items 3–6 (1 and 2 already have theirs); (ii) issues only. *Lean:* (i),
+   so the record that lists "what we don't (yet) support" stays the one place a user looks.
