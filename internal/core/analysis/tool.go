@@ -135,7 +135,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 	}
 	timeout := e.timeout()
 	started := time.Now()
-	reply, err := e.invoke(ctx, path, request, timeout, e.limit())
+	reply, err := e.invoke(ctx, path, request, timeout, e.outputLimit())
 	if err != nil {
 		return Result{}, err
 	}
@@ -178,6 +178,14 @@ func renderReply(reply map[string]runtime.ToolValue) string {
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, " ")
+}
+
+// outputLimit is the bound on one reply, OutputLimitEnv's unless the engine was built without it.
+func (e toolEngine) outputLimit() int {
+	if e.limit == nil {
+		return outputLimitFromEnv()
+	}
+	return e.limit()
 }
 
 // invoke runs the executable once under the timeout and reads its reply.
