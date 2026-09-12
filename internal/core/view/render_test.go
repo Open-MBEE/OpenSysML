@@ -178,6 +178,24 @@ func TestStateRenderingComesFromTheLoweredGraph(t *testing.T) {
 	}
 }
 
+// A machine the runtime refuses is refused by the state rendering too, its
+// redefinitions resolved as the runtime resolves them: an alias of the
+// library's run-to-completion feature is reported, not drawn as if it ran.
+func TestStateRenderingRefusesWhatTheRuntimeRefuses(t *testing.T) {
+	rendering := render(t, "state-refused.sysml", "MachineViews::relaxedStates")
+	if len(rendering.Roots) != 0 {
+		t.Fatalf("roots = %v, want none: the machine does not lower", rendering.Roots)
+	}
+	if len(rendering.Notices) != 1 {
+		t.Fatalf("notices = %v, want one refusing the machine", rendering.Notices)
+	}
+	for _, want := range []string{"Machines::Relaxed does not lower to a state graph", "isRunToCompletion", "= false"} {
+		if !strings.Contains(rendering.Notices[0], want) {
+			t.Errorf("notice = %q, want %q named", rendering.Notices[0], want)
+		}
+	}
+}
+
 // A body's entry transitions are edges out of its start node, in the order their
 // guards are tried in and carrying the guard as transitions carry theirs; only
 // the state an unguarded first entry transition names is initial, a guarded

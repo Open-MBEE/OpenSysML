@@ -25,7 +25,7 @@ func (r *Renderer) renderStates(exposed []*symbols.Symbol, out *Rendering) {
 				declKind(elem), r.notationName(elem)))
 			continue
 		}
-		graph, err := lower.ToStateGraph(elem.Decl, declScope(elem))
+		graph, err := lower.ToStateGraphWithEndpoints(elem.Decl, declScope(elem), r.stateEndpoints())
 		if err != nil {
 			out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to a state graph: %v",
 				declKind(elem), r.notationName(elem), err))
@@ -33,6 +33,15 @@ func (r *Renderer) renderStates(exposed []*symbols.Symbol, out *Rendering) {
 		}
 		out.Roots = append(out.Roots, r.stateMachineNode(elem, graph, ids, out))
 	}
+}
+
+// stateEndpoints is the resolver a rendered machine is lowered with, so its
+// names and redefinitions resolve as the runtime's do; nil without one.
+func (r *Renderer) stateEndpoints() lower.EndpointResolver {
+	if r.resolver == nil {
+		return nil
+	}
+	return r.resolver
 }
 
 // stateMachineNode renders one lowered state machine: its regions and states as
