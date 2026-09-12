@@ -113,10 +113,14 @@ func TestDiagramLayoutNonConstantValueIsAnError(t *testing.T) {
 			@Route { points = (0, 0, "a", 1); }
 		}
 	}
+	view def Diagram;
+	view diagram : Diagram {
+		@Canvas { unit = "px"; width = 640; }
+	}
 `)
 	diags := layoutDiags(t, src)
-	if len(diags) != 4 {
-		t.Fatalf("got %d diagnostics, want 4: %v", len(diags), diags)
+	if len(diags) != 5 {
+		t.Fatalf("got %d diagnostics, want 5: %v", len(diags), diags)
 	}
 	wantLayoutDiag(t, src, diags[0], SeverityError, "diagram-layout-value", 5,
 		"part def P::Pump: y of Layout is not a constant number")
@@ -126,6 +130,8 @@ func TestDiagramLayoutNonConstantValueIsAnError(t *testing.T) {
 		"part def P::Tank: collapsed of Layout is not a constant boolean")
 	wantLayoutDiag(t, src, diags[3], SeverityError, "diagram-layout-value", 14,
 		"connection P::Loop::supply: points of Route is not a constant number")
+	wantLayoutDiag(t, src, diags[4], SeverityError, "diagram-layout-value", 19,
+		"view P::diagram: Canvas binds one of width and height; an extent needs both")
 }
 
 func TestDiagramLayoutCanvasOutsideAViewIsAnError(t *testing.T) {
@@ -134,7 +140,7 @@ func TestDiagramLayoutCanvasOutsideAViewIsAnError(t *testing.T) {
 	}
 	view def Diagram;
 	view diagram : Diagram {
-		@Canvas { width = 400; }
+		@Canvas { width = 400; height = 300; }
 	}
 `)
 	diags := layoutDiags(t, src)
@@ -143,6 +149,28 @@ func TestDiagramLayoutCanvasOutsideAViewIsAnError(t *testing.T) {
 	}
 	wantLayoutDiag(t, src, diags[0], SeverityError, "diagram-layout-canvas", 5,
 		"Canvas annotates part def P::Pump", "no view")
+}
+
+// A Canvas about a view sizes it only from inside its body: one stated in the
+// enclosing package, or in the body of another view, is an error.
+func TestDiagramLayoutCanvasAboutAViewFromOutsideItsBodyIsAnError(t *testing.T) {
+	src := layoutModel(`	view def Diagram;
+	view diagram : Diagram {
+		metadata Canvas about diagram { width = 400; height = 300; }
+	}
+	metadata Canvas about diagram { width = 800; height = 600; }
+	view other : Diagram {
+		metadata Canvas about diagram { width = 1200; height = 900; }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 2 {
+		t.Fatalf("got %d diagnostics, want 2: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], SeverityError, "diagram-layout-canvas", 8,
+		"Canvas about view P::diagram is stated outside its body")
+	wantLayoutDiag(t, src, diags[1], SeverityError, "diagram-layout-canvas", 10,
+		"Canvas about view P::diagram is stated outside its body")
 }
 
 // An annotation applying in every view is judged against every rendering kind:
@@ -201,6 +229,64 @@ func TestDiagramLayoutViewLocalAnnotationsJudgedByTheViewsRendering(t *testing.T
 		"Layout positions connection P::Loop::supply", "interconnection rendering of view P::wiring does not draw as a node")
 	wantLayoutDiag(t, src, diags[1], SeverityWarning, "diagram-layout-unplaced", 16,
 		"Route steers part P::Loop::pump", "interconnection rendering of view P::wiring does not draw as an edge")
+}
+
+// A view-local annotation is judged by what the view's rendering draws, not by
+// what its kind could draw: a part and a connection nested in an exposed part
+// are drawn; a part the view does not expose, and a connection declared beside
+// the exposed parts rather than in or among them, are not.
+func TestDiagramLayoutViewLocalAnnotationsJudgedByWhatTheViewExposes(t *testing.T) {
+	src := layoutModel(`	part def Loop {
+		part pump {
+			part impeller;
+			connection shaft connect impeller to impeller;
+		}
+		part tank;
+		connection supply connect pump to tank;
+	}
+	part def Spare { part valve; }
+	view def Diagram;
+	view wiring : Diagram {
+		render asInterconnectionDiagram;
+		expose Loop::pump;
+		expose Loop::tank;
+		metadata Layout about Loop::pump::impeller { x = 1; y = 1; }
+		metadata Route about Loop::pump::shaft { points = (0, 0, 1, 1); }
+		metadata Route about Loop::supply { points = (0, 0, 1, 1); }
+		metadata Layout about Spare::valve { x = 2; y = 2; }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 2 {
+		t.Fatalf("got %d diagnostics, want 2: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], SeverityWarning, "diagram-layout-unplaced", 20,
+		"Route steers connection P::Loop::supply", "interconnection rendering of view P::wiring does not draw as an edge")
+	wantLayoutDiag(t, src, diags[1], SeverityWarning, "diagram-layout-unplaced", 21,
+		"Layout positions part P::Spare::valve", "interconnection rendering of view P::wiring does not draw as a node")
+}
+
+// The states and transitions of an exposed state usage are drawn from its
+// definition, so annotations about them are placed.
+func TestDiagramLayoutViewLocalAnnotationsFollowInheritedBehavior(t *testing.T) {
+	src := layoutModel(`	state def Machine {
+		entry; then off;
+		state off;
+		state on;
+		transition off_on first off then on;
+	}
+	state machine : Machine;
+	view def Diagram;
+	view lifecycle : Diagram {
+		render asStateDiagram;
+		expose machine;
+		metadata Layout about Machine::off { x = 1; y = 1; }
+		metadata Route about Machine::off_on { points = (0, 0, 1, 1); }
+	}
+`)
+	if diags := layoutDiags(t, src); len(diags) != 0 {
+		t.Fatalf("got %d diagnostics, want none: %v", len(diags), diags)
+	}
 }
 
 func TestDiagramLayoutDuplicateViewLocalAnnotationWarnsOnTheSecond(t *testing.T) {

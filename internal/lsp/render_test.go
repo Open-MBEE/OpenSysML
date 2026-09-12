@@ -413,7 +413,7 @@ package KitViews {
 
 	view placed : InterconnectionView {
 		expose Kit::Widget;
-		@Canvas { unit = "px"; width = 640; }
+		@Canvas { unit = "px"; width = 640; height = 0; }
 		metadata Layout about Kit::Widget::cog { x = 10; y = 20; width = 90; height = 40; collapsed = true; }
 		metadata Route about Kit::Widget::mesh { points = (1, 2, 3, 4); }
 	}
@@ -435,8 +435,8 @@ package KitViews {
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
-	if got := fmt.Sprintf("%s|%s|%s", out.Canvas["unit"], out.Canvas["width"], out.Canvas["height"]); got != `"px"|640|` {
-		t.Errorf("canvas = %s, want unit px, width 640 and no height", got)
+	if got := fmt.Sprintf("%s|%s|%s", out.Canvas["unit"], out.Canvas["width"], out.Canvas["height"]); got != `"px"|640|0` {
+		t.Errorf("canvas = %s, want unit px, width 640 and the explicit height 0", got)
 	}
 	nodeBy := func(name string) map[string]json.RawMessage {
 		for _, n := range out.Nodes {

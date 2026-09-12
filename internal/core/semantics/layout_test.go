@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -164,6 +166,60 @@ func TestCanvasOfReadsTheViewsCanvas(t *testing.T) {
 	}
 }
 
+// A Canvas extent is a pair: an explicit zero is a size, an unbound pair is
+// none, and one of the two is reported.
+func TestCanvasExtentNeedsBothWidthAndHeight(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine;
+		view zero { expose engine; @Canvas { width = 0; height = 0; } }
+		view unit { expose engine; @Canvas { unit = "mm"; } }
+		view half { expose engine; @Canvas { unit = "px"; width = 640; } }
+	`)
+	if site, ok := m.CanvasOf(sym(t, p, "zero")); !ok || site.Canvas == nil || !site.Canvas.HasSize || site.Canvas.Width != 0 || site.Canvas.Height != 0 || len(site.Problems) != 0 {
+		t.Fatalf("CanvasOf(zero) = %+v, %v, want a 0×0 extent", site, ok)
+	}
+	if site, ok := m.CanvasOf(sym(t, p, "unit")); !ok || site.Canvas == nil || site.Canvas.HasSize || site.Canvas.Unit != "mm" || len(site.Problems) != 0 {
+		t.Fatalf("CanvasOf(unit) = %+v, %v, want a unit and no extent", site, ok)
+	}
+	site, ok := m.CanvasOf(sym(t, p, "half"))
+	if !ok || site.Canvas == nil || site.Canvas.HasSize || site.Canvas.Unit != "px" {
+		t.Fatalf("CanvasOf(half) = %+v, %v, want the unit and no extent", site, ok)
+	}
+	if len(site.Problems) != 1 || site.Problems[0].Message != "Canvas binds one of width and height; an extent needs both" {
+		t.Fatalf("problems of half = %+v", site.Problems)
+	}
+}
+
+// A Canvas about a view stated outside its body is listed as a site of the view,
+// so the layout pass reports it, but sizes nothing.
+func TestCanvasOfIgnoresACanvasStatedOutsideTheViewBody(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine;
+		view a { expose engine; }
+		metadata Canvas about a { width = 400; }
+		view b { expose engine; metadata Canvas about a { width = 800; } }
+		view c { expose engine; metadata Canvas about c { width = 100; } }
+	`)
+	a := sym(t, p, "a")
+	if got := len(m.LayoutSitesOf(a)); got != 2 {
+		t.Fatalf("LayoutSitesOf(a) has %d sites, want 2", got)
+	}
+	for _, site := range m.LayoutSitesOf(a) {
+		if site.StatedInBodyOf(a) {
+			t.Fatalf("site %+v is stated in the body of a", site)
+		}
+	}
+	if site, ok := m.CanvasOf(a); ok {
+		t.Fatalf("CanvasOf(a) = %+v, want none", site)
+	}
+	c := sym(t, p, "c")
+	if site, ok := m.CanvasOf(c); !ok || site.Canvas == nil || site.Canvas.Width != 100 || !site.StatedInBodyOf(c) {
+		t.Fatalf("CanvasOf(c) = %+v, %v", site, ok)
+	}
+}
+
 func TestSymbolDeclaringFindsATransitionByItsDeclaration(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;
@@ -182,5 +238,32 @@ func TestSymbolDeclaringFindsATransitionByItsDeclaration(t *testing.T) {
 	}
 	if site, ok := m.RouteOf(nil, got); !ok || site.Route == nil || len(site.Route.Points) != 2 {
 		t.Fatalf("RouteOf(nil, off_on) = %+v, %v", site, ok)
+	}
+}
+
+// A declaration inherited from a definition in another document is traced to
+// its symbol from the scope of the usage's document.
+func TestSymbolDeclaringSearchesEveryDocument(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		state def S {
+			entry; then off;
+			state off { @Layout { x = 1; y = 2; } }
+		}
+	`)
+	other := parser.New(source.New("other.sysml", []byte("package Q { state s : P::S; }\n")))
+	otherRoot := other.ParseFile()
+	if len(other.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", other.Diagnostics)
+	}
+	idx := m.resolver.Index()
+	idx.AddDocument("other.sysml", otherRoot)
+	off := sym(t, sym(t, p, "S").Scope, "off")
+	got, ok := m.SymbolDeclaring(idx.DocumentRoot("other.sysml"), off.Decl)
+	if !ok || got != off {
+		t.Fatalf("SymbolDeclaring from other.sysml = %v, %v, want %v", got, ok, off)
+	}
+	if site, ok := m.LayoutOf(nil, got); !ok || site.Layout == nil || site.Layout.X != 1 {
+		t.Fatalf("LayoutOf(nil, off) = %+v, %v", site, ok)
 	}
 }

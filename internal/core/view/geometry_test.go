@@ -88,12 +88,7 @@ func TestTransitionRouteAndStateLayoutReachTheStateRendering(t *testing.T) {
 	if want := (&Geometry{X: 0, Y: 100, Width: 80, Height: 40, HasSize: true}); !reflect.DeepEqual(on.Geometry, want) {
 		t.Errorf("on geometry = %+v, want %+v", on.Geometry, want)
 	}
-	var routed []Edge
-	for _, edge := range rendering.Edges {
-		if len(edge.Route) > 0 {
-			routed = append(routed, edge)
-		}
-	}
+	routed := routedEdges(rendering)
 	if len(routed) != 1 || routed[0].From != off.ID || routed[0].To != on.ID {
 		t.Fatalf("routed edges = %+v, want the one from off to on", routed)
 	}
@@ -115,12 +110,7 @@ func TestActionLayoutAndSuccessionRouteReachTheActionRendering(t *testing.T) {
 	if want := (&Geometry{X: 20, Y: 150}); !reflect.DeepEqual(park.Geometry, want) {
 		t.Errorf("park geometry = %+v, want %+v", park.Geometry, want)
 	}
-	var routed []Edge
-	for _, edge := range rendering.Edges {
-		if len(edge.Route) > 0 {
-			routed = append(routed, edge)
-		}
-	}
+	routed := routedEdges(rendering)
 	if len(routed) != 1 || routed[0].From != provide.ID || routed[0].To != park.ID {
 		t.Fatalf("routed edges = %+v, want the one from provide to park", routed)
 	}
@@ -129,15 +119,87 @@ func TestActionLayoutAndSuccessionRouteReachTheActionRendering(t *testing.T) {
 	}
 }
 
-// A Canvas in the view's body reaches the rendering; a view stating none has none.
+// The states a usage inherits from another document's definition are declared
+// outside its scope, and still take the view's Layouts and the inline Routes.
+func TestInheritedStatesKeepTheirGeometry(t *testing.T) {
+	machine := renderIn(t, "PlantUsages::inheritedMachineView", "layout-usages.sysml", "layout.sysml")
+	if len(machine.Notices) != 0 {
+		t.Errorf("notices = %v, want none", machine.Notices)
+	}
+	off := findNode(t, machine.Roots, "off")
+	if want := (&Geometry{X: 5, Y: 5}); !reflect.DeepEqual(off.Geometry, want) {
+		t.Errorf("off geometry = %+v, want %+v", off.Geometry, want)
+	}
+	on := findNode(t, machine.Roots, "on")
+	if on.Geometry != nil {
+		t.Errorf("on geometry = %+v, want none in this view", on.Geometry)
+	}
+	if got := routedEdges(machine); len(got) != 1 || got[0].From != off.ID || got[0].To != on.ID ||
+		!reflect.DeepEqual(got[0].Route, []Point{{50, 10}, {50, 90}}) {
+		t.Errorf("routed edges = %+v, want the inline route from off to on", got)
+	}
+}
+
+// The nodes an action usage inherits from its definition keep their inline
+// positions, take the view's, and the usage's own succession over them its route.
+func TestInheritedActionNodesKeepTheirGeometry(t *testing.T) {
+	drive := render(t, "layout.sysml", "PlantActions::inheritedDriveView")
+	if len(drive.Notices) != 0 {
+		t.Errorf("notices = %v, want none", drive.Notices)
+	}
+	provide := findNode(t, drive.Roots, "provide")
+	if want := (&Geometry{X: 20, Y: 30}); !reflect.DeepEqual(provide.Geometry, want) {
+		t.Errorf("provide geometry = %+v, want the inline %+v", provide.Geometry, want)
+	}
+	park := findNode(t, drive.Roots, "park")
+	if want := (&Geometry{X: 7, Y: 8}); !reflect.DeepEqual(park.Geometry, want) {
+		t.Errorf("park geometry = %+v, want the view's %+v", park.Geometry, want)
+	}
+	if got := routedEdges(drive); len(got) != 1 || got[0].From != provide.ID || got[0].To != park.ID ||
+		!reflect.DeepEqual(got[0].Route, []Point{{1, 2}, {3, 4}}) {
+		t.Errorf("routed edges = %+v, want the usage's route from provide to park", got)
+	}
+}
+
+// routedEdges are the edges of a rendering that carry a route.
+func routedEdges(rendering *Rendering) []Edge {
+	var routed []Edge
+	for _, edge := range rendering.Edges {
+		if len(edge.Route) > 0 {
+			routed = append(routed, edge)
+		}
+	}
+	return routed
+}
+
+// A Canvas in the view's body reaches the rendering; a view stating none in its
+// body has none, whatever is stated about it from outside.
 func TestCanvasReachesTheRendering(t *testing.T) {
 	rendering := render(t, "layout.sysml", "PlantViews::placedView")
-	want := &Canvas{Unit: "px", Width: 1200, Height: 800}
+	want := &Canvas{Unit: "px", Width: 1200, Height: 800, HasSize: true}
 	if !reflect.DeepEqual(rendering.Canvas, want) {
 		t.Errorf("canvas = %+v, want %+v", rendering.Canvas, want)
 	}
 	if plain := render(t, "layout.sysml", "PlantViews::plainView"); plain.Canvas != nil {
-		t.Errorf("plainView canvas = %+v, want none", plain.Canvas)
+		t.Errorf("plainView canvas = %+v, want none from outside its body", plain.Canvas)
+	}
+}
+
+// An explicit extent of zero is a size the writers show; an unbound one is not.
+func TestZeroCanvasExtentIsASize(t *testing.T) {
+	rendering := renderIn(t, "PlantUsages::zeroCanvasView", "layout-usages.sysml", "layout.sysml")
+	want := &Canvas{Unit: "mm", HasSize: true}
+	if !reflect.DeepEqual(rendering.Canvas, want) {
+		t.Fatalf("canvas = %+v, want %+v", rendering.Canvas, want)
+	}
+	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "%% canvas: unit=mm w=0 h=0\n") {
+		t.Errorf("Mermaid lacks the zero extent:\n%s", mermaid)
+	}
+	if text := rendering.Text(); !strings.Contains(text, "canvas size 0×0 in mm\n") {
+		t.Errorf("text lacks the zero extent:\n%s", text)
+	}
+	if got := canvasText(&Canvas{Unit: "mm"}); got != "canvas in mm" {
+		t.Errorf("canvasText without an extent = %q", got)
 	}
 }
 

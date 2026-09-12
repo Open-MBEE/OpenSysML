@@ -27,7 +27,7 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 				declKind(elem), r.notationName(elem)))
 			continue
 		}
-		graph, err := lower.ToStateGraph(elem.Decl, declScope(elem))
+		graph, err := lower.ToStateGraphWithEndpoints(elem.Decl, declScope(elem), lower.NewLibraryStateTypes(r.resolver))
 		if err != nil {
 			out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to a state graph: %v",
 				declKind(elem), r.notationName(elem), err))

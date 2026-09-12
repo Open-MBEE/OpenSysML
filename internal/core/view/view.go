@@ -238,6 +238,9 @@ type Rendering struct {
 	// connection to something the view does not expose, a behavior that does not
 	// lower.
 	Notices []string
+
+	// drawn collects the elements drawn while rendering, nil when no one asked.
+	drawn *Drawn
 }
 
 // Empty reports whether the rendering has nothing to show.
@@ -250,6 +253,11 @@ func (r *Rendering) Empty() bool {
 // recognized kind this package does not produce is an *UnsupportedKindError —
 // never another kind's rendering.
 func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
+	return r.render(view, nil)
+}
+
+// render is Render, collecting what is drawn into drawn when it is not nil.
+func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error) {
 	kind, stated, err := r.KindOf(view)
 	if err != nil {
 		return nil, err
@@ -258,7 +266,7 @@ func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated}
+	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, drawn: drawn}
 	switch kind {
 	case KindTree:
 		r.renderTree(view, exposed, out)

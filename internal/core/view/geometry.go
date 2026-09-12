@@ -25,16 +25,18 @@ type Geometry struct {
 	Collapsed     bool
 }
 
-// Canvas is the drawing surface a view states with DiagramLayout::Canvas. A
-// zero Width or Height is one the view left unbound.
+// Canvas is the drawing surface a view states with DiagramLayout::Canvas: its
+// unit, and its extent when HasSize.
 type Canvas struct {
 	Unit          string
 	Width, Height float64
+	HasSize       bool
 }
 
 // geometryOf is the Geometry positioning elem in view (nil view: inline Layout
 // only), nil when none does; a Layout that does not read as geometry is noticed.
 func (r *Renderer) geometryOf(view, elem *symbols.Symbol, out *Rendering) *Geometry {
+	out.drawn.note(elem, false)
 	site, ok := r.model.LayoutOf(view, elem)
 	if !ok {
 		return nil
@@ -50,6 +52,7 @@ func (r *Renderer) geometryOf(view, elem *symbols.Symbol, out *Rendering) *Geome
 // routeOf is the waypoints the edge declared as elem follows in view, nil when
 // no Route annotation gives any, resolved as geometryOf resolves a Layout.
 func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
+	out.drawn.note(elem, true)
 	site, ok := r.model.RouteOf(view, elem)
 	if !ok {
 		return nil
@@ -96,7 +99,7 @@ func (r *Renderer) canvasOf(view *symbols.Symbol, out *Rendering) *Canvas {
 	if site.Canvas == nil {
 		return nil
 	}
-	return &Canvas{Unit: site.Canvas.Unit, Width: site.Canvas.Width, Height: site.Canvas.Height}
+	return &Canvas{Unit: site.Canvas.Unit, Width: site.Canvas.Width, Height: site.Canvas.Height, HasSize: site.Canvas.HasSize}
 }
 
 // noteLayoutProblems reports, once, the bindings of a DiagramLayout annotation

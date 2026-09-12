@@ -59,7 +59,7 @@ func (r *Rendering) writeGeometryComments(b *strings.Builder) {
 		if c.Unit != "" {
 			b.WriteString(" unit=" + c.Unit)
 		}
-		if c.Width != 0 || c.Height != 0 {
+		if c.HasSize {
 			fmt.Fprintf(b, " w=%s h=%s", formatCoord(c.Width), formatCoord(c.Height))
 		}
 		b.WriteString("\n")

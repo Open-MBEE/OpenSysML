@@ -52,10 +52,12 @@ package PlantViews {
 	}
 
 	// Positions nothing of its own: pump keeps its inline position, tank has none.
+	// The Canvas stated about it from outside its body sizes nothing.
 	view plainView {
 		expose Plant::Loop;
 		render asInterconnectionDiagram;
 	}
+	metadata Canvas about plainView { width = 640; height = 480; }
 
 	view driveView : ActionFlowView {
 		expose Plant::Drive;
@@ -66,5 +68,22 @@ package PlantViews {
 		expose Plant::Machine;
 		metadata Layout about Plant::Machine::off { x = 0; y = 0; }
 		metadata Layout about Plant::Machine::on { x = 0; y = 100; width = 80; height = 40; }
+	}
+}
+
+// An action usage's own successions name the nodes it inherits from its
+// definition, which keep their inline positions under the view's own.
+package PlantActions {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	private import DiagramLayout::*;
+
+	action drive : Plant::Drive {
+		succession first provide then park { @Route { points = (1, 2, 3, 4); } }
+	}
+
+	view inheritedDriveView : ActionFlowView {
+		expose drive;
+		metadata Layout about Plant::Drive::park { x = 7; y = 8; }
 	}
 }

@@ -7,6 +7,7 @@ func (r *Rendering) Clone() *Rendering {
 		return nil
 	}
 	out := *r
+	out.drawn = nil
 	out.Roots = cloneNodes(r.Roots)
 	out.Edges = append([]Edge(nil), r.Edges...)
 	for i := range out.Edges {

@@ -118,6 +118,10 @@ Decisions, each with its reason:
   that doubles back repeats a whole point, so a unique `points` would reject the routes
   that most need stating. `ordered nonunique` is what the Kernel library's own sequence
   features declare, and it makes the checker accept repeats without a special case.
+- **An extent is a pair, and `0` is an extent.** `Layout.width`/`height` and
+  `Canvas.width`/`height` are sized when both are bound, unsized when neither is, and an
+  error when only one is; a bound `0` is the size zero, not an omission, so the writers
+  and the LSP show it as such.
 - **In-band metadata, not a sidecar and not comments.** A sidecar file does not travel
   through another tool; a comment convention has no structure, is reflowed or dropped
   freely, and nothing validates it. Standard metadata survives any conforming tool, is
@@ -172,7 +176,7 @@ annotation stated anywhere else is element-level.
 
 `view.Node` carries `Geometry *Geometry` (`X`, `Y`, `Width`, `Height`, `HasSize`,
 `Collapsed`), `view.Edge` carries `Route []Point`, and `view.Rendering` carries
-`Canvas *Canvas` (`Unit`, `Width`, `Height`). They are values: the tree stays free of AST
+`Canvas *Canvas` (`Unit`, `Width`, `Height`, `HasSize`). They are values: the tree stays free of AST
 nodes and symbols, and `Rendering.Clone` copies them. Every graph-shaped rendering
 populates them — the containment tree, the interconnection diagram, the state machine
 and the action flow — through `Renderer.Render` (the view given, so `about` annotations
@@ -183,7 +187,14 @@ has no geometry.
 The state and action renderings draw the lowered `StateGraph` and `ActionGraph`, so their
 nodes are lowered declarations; each graph maps a lowered node back to the declaration
 it came from (`StateGraph.DeclOf`), and the renderer resolves that declaration to its
-symbol through the scopes — never by re-parsing source text.
+symbol through the scopes — never by re-parsing source text. A usage typed by a
+definition of another document inherits that definition's states and transitions, so
+the state machine is lowered through the name-resolution tier
+(`lower.NewLibraryStateTypes`), as the runtime lowers it, and the inherited declarations
+keep their inline annotations and take the view's. An action usage's graph is its own
+successions over the nodes they name, inherited ones included; the lowering finds
+those through the scope tree, so a definition in another document is out of its reach,
+which the rendering reports as a notice rather than drawing a partial flow.
 
 ### Validation (a constraint-tier pass)
 
@@ -191,13 +202,15 @@ symbol through the scopes — never by re-parsing source text.
 
 | Code | Severity | When |
 |---|---|---|
-| `diagram-layout-unplaced` | warning | A `Layout` on an element the rendering draws no node for, or a `Route` on one it draws no edge for. In a view's body the judge is that view's rendering kind (`Route about Loop::pump` in an interconnection view: a part is a node, not an edge); for an element-level annotation, every kind this build produces (`Route` on a `part def`, `Layout` on a dependency). A package is a node of the containment tree, so a `Layout` on one is placed. |
-| `diagram-layout-value` | error | `Route.points` of odd length (waypoints are x, y pairs), or a binding that is not a constant of the attribute's kind. |
-| `diagram-layout-canvas` | error | A `Canvas` annotating anything that is not a view. |
+| `diagram-layout-unplaced` | warning | A `Layout` on an element the rendering draws no node for, or a `Route` on one it draws no edge for. In a view's body the judge is what that view's rendering actually draws (`Route about Loop::pump` in an interconnection view: a part is a node, not an edge; `Layout about Spare::valve` in a view exposing `Loop` only: nothing is drawn for it); for an element-level annotation, every kind this build produces (`Route` on a `part def`, `Layout` on a dependency). A package is a node of the containment tree, so a `Layout` on one is placed. |
+| `diagram-layout-value` | error | `Route.points` of odd length (waypoints are x, y pairs), a `Canvas` binding one of `width` and `height` without the other (an extent is a pair, and `0` is an extent), or a binding that is not a constant of the attribute's kind. |
+| `diagram-layout-canvas` | error | A `Canvas` annotating anything that is not a view, or one about a view stated outside that view's body (`metadata Canvas about V { … }` beside `V`, or in another view): it sizes nothing. |
 | `diagram-layout-duplicate` | warning | Two `about` annotations of one kind for one element in one view's body; the first stated applies. |
 
-Which elements a rendering draws is asked of the renderer itself (`Renderer.Draws`,
-`Renderer.DrawsAnywhere`), so the pass and the renderings cannot disagree. A binding that
+Which elements a rendering draws is asked of the renderer itself: for a view-local
+annotation the pass renders the view once and reads what was drawn (`Renderer.DrawnIn`),
+for an element-level one it asks what any kind can draw (`Renderer.DrawsAnywhere`), so
+the pass and the renderings cannot disagree. A binding that
 reads a feature rather than a literal is already an error of the type tier
 (`metadata-value-not-evaluable`), so the pass does not repeat it.
 

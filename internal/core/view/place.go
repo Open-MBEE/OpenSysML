@@ -5,10 +5,49 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Draws reports how a rendering of kind shows sym: as a node a Layout positions,
+// Drawn is what one rendering of a view draws: the elements it positions as
+// nodes and those it steers as edges, by their declarations.
+type Drawn struct {
+	nodes, edges map[ast.Node]bool
+}
+
+// Node reports whether the rendering draws sym as a node a Layout positions.
+func (d *Drawn) Node(sym *symbols.Symbol) bool {
+	return d != nil && sym != nil && d.nodes[sym.Decl]
+}
+
+// Edge reports whether the rendering draws sym as an edge a Route steers.
+func (d *Drawn) Edge(sym *symbols.Symbol) bool {
+	return d != nil && sym != nil && d.edges[sym.Decl]
+}
+
+// note records that the rendering drew elem; a nil Drawn collects nothing.
+func (d *Drawn) note(elem *symbols.Symbol, asEdge bool) {
+	if d == nil || elem == nil || elem.Decl == nil {
+		return
+	}
+	if asEdge {
+		d.edges[elem.Decl] = true
+	} else {
+		d.nodes[elem.Decl] = true
+	}
+}
+
+// DrawnIn renders view and reports what the rendering draws: the elements a
+// Layout or Route stated in the view's body can apply to. A view that does
+// not render is the error Render gives.
+func (r *Renderer) DrawnIn(view *symbols.Symbol) (*Drawn, error) {
+	drawn := &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}}
+	if _, err := r.render(view, drawn); err != nil {
+		return nil, err
+	}
+	return drawn, nil
+}
+
+// draws reports how a rendering of kind shows sym: as a node a Layout positions,
 // as an edge a Route steers, or not at all. The answer is the classification the
 // renderer of that kind draws by.
-func (r *Renderer) Draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
+func (r *Renderer) draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
 	if sym == nil {
 		return false, false
 	}
@@ -30,7 +69,7 @@ func (r *Renderer) Draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
 // can position.
 func (r *Renderer) DrawsAnywhere(sym *symbols.Symbol) (node, edge bool) {
 	for _, kind := range Kinds() {
-		n, e := r.Draws(kind, sym)
+		n, e := r.draws(kind, sym)
 		node, edge = node || n, edge || e
 	}
 	return node, edge

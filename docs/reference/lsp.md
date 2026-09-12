@@ -136,7 +136,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `notices` | What the rendering could not represent, as the text form reports it. |
 | `x`, `y`, `width`, `height`, `collapsed` | On a node: where the model places it, from a `DiagramLayout::Layout` annotation, in pixels from the canvas's top-left corner with y increasing downward. Absent for a node the model does not place; `width` and `height` only when the annotation sizes it; `collapsed` only when it says so. |
 | `route` | On an edge: the waypoints a `DiagramLayout::Route` annotation gives it, as an array of `{"x", "y"}` in the same coordinates. Absent for an edge with none. |
-| `canvas` | The drawing surface the view states with a `DiagramLayout::Canvas` annotation: its `unit`, `width` and `height`, each only when given. Absent for a view stating none and for every pseudo-view. |
+| `canvas` | The drawing surface the view states with a `DiagramLayout::Canvas` annotation: its `unit` when given, and `width` and `height` together when the annotation sizes it (an explicit `0` is a size). Absent for a view stating none and for every pseudo-view. |
 | `version` | The version of the document the rendering was made from, so a client can tell a rendering of the text it is showing from a stale one. |
 
 A node placed by `metadata Layout about cog { x = 120; y = 80; width = 90; height = 40; }`

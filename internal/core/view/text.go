@@ -251,7 +251,7 @@ func writeNotices(b *strings.Builder, notices []string) {
 // canvasText states the canvas a view draws on: its size when given, and its unit.
 func canvasText(c *Canvas) string {
 	line := "canvas"
-	if c.Width != 0 || c.Height != 0 {
+	if c.HasSize {
 		line += fmt.Sprintf(" size %s×%s", formatCoord(c.Width), formatCoord(c.Height))
 	}
 	if c.Unit != "" {

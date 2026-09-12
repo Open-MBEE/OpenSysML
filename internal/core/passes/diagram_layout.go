@@ -13,8 +13,9 @@ import (
 
 // DiagramLayoutPass validates the DiagramLayout annotations of a document: a
 // Layout or Route the rendering it applies to cannot draw, a binding that does
-// not read as geometry, a Canvas annotating no view, and two `about` annotations
-// of one kind for one element in one view, of which the first applies.
+// not read as geometry, a Canvas stated outside the body of the view it
+// annotates, and two `about` annotations of one kind for one element in one
+// view, of which the first applies.
 type DiagramLayoutPass struct{}
 
 // Diagnostic codes of the pass.
@@ -40,6 +41,7 @@ func (DiagramLayoutPass) Run(ctx *Context, name string, root *ast.RootNamespace)
 		renderer: view.NewRenderer(ctx.Model(), ctx.Resolver(), nil),
 		docRoot:  rootScope,
 		fqn:      func(sym *symbols.Symbol) string { return ctx.Index.GetFQN(sym) },
+		drawn:    map[ast.Node]*view.Drawn{},
 	}
 	// An `about` annotation stated in this document may annotate an element of
 	// another, so the annotated elements of the whole workspace are visited too.
@@ -63,6 +65,8 @@ type layoutChecker struct {
 	docRoot  *symbols.Scope
 	fqn      func(*symbols.Symbol) string
 	diags    []Diagnostic
+	// drawn is what each view's rendering draws, by the view's declaration.
+	drawn map[ast.Node]*view.Drawn
 }
 
 // inDoc reports whether a scope lies in the document under validation, so each
@@ -105,6 +109,9 @@ func (c *layoutChecker) check(sym *symbols.Symbol) {
 			if !semantics.IsView(sym) {
 				c.errorf(site.Node.Span(), layoutCanvasCode,
 					"Canvas annotates %s, which is no view; a Canvas belongs in the body of the view it sizes", c.describe(sym))
+			} else if !site.StatedInBodyOf(sym) {
+				c.errorf(site.Node.Span(), layoutCanvasCode,
+					"Canvas about %s is stated outside its body and sizes nothing; a Canvas belongs in the body of the view it sizes", c.describe(sym))
 			}
 		case semantics.LayoutFQN, semantics.RouteFQN:
 			c.checkPlaced(site, sym)
@@ -120,7 +127,7 @@ type viewKey struct {
 }
 
 // checkPlaced warns when the rendering a Layout or Route applies to draws no
-// node, or no edge, for the element: the rendering kind of the view an `about`
+// node, or no edge, for the element: the rendering of the view an `about`
 // annotation is stated in, any kind for an annotation applying in every view.
 func (c *layoutChecker) checkPlaced(site *semantics.LayoutSite, sym *symbols.Symbol) {
 	asLayout := site.TypeFQN == semantics.LayoutFQN
@@ -140,17 +147,34 @@ func (c *layoutChecker) checkPlaced(site *semantics.LayoutSite, sym *symbols.Sym
 	if err != nil {
 		return
 	}
-	node, edge := c.renderer.Draws(kind, sym)
-	if asLayout && !node {
+	drawn, ok := c.drawnIn(site.View)
+	if !ok {
+		return
+	}
+	if asLayout && !drawn.Node(sym) {
 		c.warnf(site.Node.Span(), layoutUnplacedCode,
 			"Layout positions %s, which the %s rendering of %s does not draw as a node",
 			c.describe(sym), kind, c.describe(site.View))
 	}
-	if !asLayout && !edge {
+	if !asLayout && !drawn.Edge(sym) {
 		c.warnf(site.Node.Span(), layoutUnplacedCode,
 			"Route steers %s, which the %s rendering of %s does not draw as an edge",
 			c.describe(sym), kind, c.describe(site.View))
 	}
+}
+
+// drawnIn is what the rendering of v draws, rendered once per view; false when
+// the view does not render, which other passes report.
+func (c *layoutChecker) drawnIn(v *symbols.Symbol) (*view.Drawn, bool) {
+	if drawn, ok := c.drawn[v.Decl]; ok {
+		return drawn, drawn != nil
+	}
+	drawn, err := c.renderer.DrawnIn(v)
+	if err != nil {
+		drawn = nil
+	}
+	c.drawn[v.Decl] = drawn
+	return drawn, drawn != nil
 }
 
 // layoutTypeName is the simple name of a DiagramLayout metadata definition.

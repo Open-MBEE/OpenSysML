@@ -223,7 +223,11 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		out.Notices = []string{}
 	}
 	if c := data.Canvas; c != nil {
-		out.Canvas = &renderCanvas{Unit: c.Unit, Width: sizeValue(c.Width), Height: sizeValue(c.Height)}
+		out.Canvas = &renderCanvas{Unit: c.Unit}
+		if c.HasSize {
+			w, h := c.Width, c.Height
+			out.Canvas.Width, out.Canvas.Height = &w, &h
+		}
 	}
 	for _, node := range data.Nodes {
 		n := renderNode{
@@ -261,15 +265,6 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: s.origin(row.Origin)})
 	}
 	return out, nil
-}
-
-// sizeValue is a canvas extent as a JSON field: absent when the view left it
-// unbound, which the rendering carries as zero.
-func sizeValue(v float64) *float64 {
-	if v == 0 {
-		return nil
-	}
-	return &v
 }
 
 // renderForm is the form to write: the one asked for, else the machine form of

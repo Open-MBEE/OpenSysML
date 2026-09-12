@@ -34,11 +34,12 @@ type Route struct {
 	Points []Waypoint
 }
 
-// Canvas is the drawing surface one Canvas annotation binds; a zero Width or
-// Height is one the annotation left unbound.
+// Canvas is the drawing surface one Canvas annotation binds: its unit, and its
+// extent when both width and height were given.
 type Canvas struct {
 	Unit          string
 	Width, Height float64
+	HasSize       bool
 }
 
 // LayoutProblem is a binding of a DiagramLayout annotation that could not be
@@ -85,6 +86,16 @@ func (s *LayoutSite) Applies() bool {
 // annotation stated in the view's body, or one applying in every view.
 func (s *LayoutSite) InView(view *symbols.Symbol) bool {
 	return s.View == nil || sameElement(s.View, view)
+}
+
+// StatedInBodyOf reports whether the annotation is declared in the body of
+// view or a namespace nested in it, inline or with an `about` clause.
+func (s *LayoutSite) StatedInBodyOf(view *symbols.Symbol) bool {
+	if s == nil || view == nil {
+		return false
+	}
+	enclosing := enclosingView(s.Scope)
+	return enclosing != nil && sameElement(enclosing, view)
 }
 
 // LayoutSitesOf returns the DiagramLayout annotations of sym in the order
@@ -143,14 +154,15 @@ func (m *Model) RouteOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
 	return m.resolveSite(view, elem, RouteFQN)
 }
 
-// CanvasOf resolves the Canvas of view: the first Canvas annotation of the view
-// itself, whether stated in its body or from elsewhere.
+// CanvasOf resolves the Canvas of view: the first Canvas annotation stated in
+// the view's body. One stated elsewhere sizes nothing; the layout pass
+// reports it.
 func (m *Model) CanvasOf(view *symbols.Symbol) (*LayoutSite, bool) {
 	if view == nil {
 		return nil, false
 	}
 	for _, site := range m.LayoutSitesOf(view) {
-		if site.TypeFQN == CanvasFQN {
+		if site.TypeFQN == CanvasFQN && site.StatedInBodyOf(view) {
 			return site, true
 		}
 	}
@@ -176,11 +188,35 @@ func (m *Model) resolveSite(view, elem *symbols.Symbol, typeFQN string) (*Layout
 	return nil, false
 }
 
-// SymbolDeclaring returns the symbol scope's subtree registers for decl, so an
-// edge of a lowered graph is traced back to the element whose annotations
-// position it. Memoized per scope.
+// SymbolDeclaring returns the symbol registered for decl, so a node of a
+// lowered graph is traced back to the element whose annotations position it.
+// The subtree of scope is searched first, then every other document of the
+// model: a lowered graph inherits content from definitions declared anywhere.
 func (m *Model) SymbolDeclaring(scope *symbols.Scope, decl ast.Node) (*symbols.Symbol, bool) {
-	if m == nil || scope == nil || decl == nil {
+	if m == nil || decl == nil {
+		return nil, false
+	}
+	if sym, ok := m.symbolDeclaringUnder(scope, decl); ok {
+		return sym, true
+	}
+	if m.resolver == nil || m.resolver.Index() == nil {
+		return nil, false
+	}
+	idx := m.resolver.Index()
+	for _, name := range idx.Documents() {
+		if root := idx.DocumentRoot(name); root != scope {
+			if sym, ok := m.symbolDeclaringUnder(root, decl); ok {
+				return sym, true
+			}
+		}
+	}
+	return nil, false
+}
+
+// symbolDeclaringUnder is the symbol scope's subtree registers for decl,
+// memoized per scope.
+func (m *Model) symbolDeclaringUnder(scope *symbols.Scope, decl ast.Node) (*symbols.Symbol, bool) {
+	if scope == nil {
 		return nil, false
 	}
 	index, ok := m.declSymbols[scope]
@@ -301,11 +337,12 @@ func (m *Model) readRoute(site *LayoutSite, bindings []MetadataBinding) {
 	site.Route = route
 }
 
-// readCanvas reads a Canvas body: an optional unit string and optional width
-// and height.
+// readCanvas reads a Canvas body: an optional unit string and an optional
+// width and height pair.
 func (m *Model) readCanvas(site *LayoutSite, bindings []MetadataBinding) {
 	canvas := &Canvas{}
 	ok := true
+	var hasWidth, hasHeight bool
 	for _, b := range bindings {
 		switch b.Feature {
 		case "unit":
@@ -320,12 +357,18 @@ func (m *Model) readCanvas(site *LayoutSite, bindings []MetadataBinding) {
 			}
 			canvas.Unit = v.Str
 		case "width":
-			ok = m.readReal(site, b, &canvas.Width) && ok
+			hasWidth = m.readReal(site, b, &canvas.Width)
+			ok = hasWidth && ok
 		case "height":
-			ok = m.readReal(site, b, &canvas.Height) && ok
+			hasHeight = m.readReal(site, b, &canvas.Height)
+			ok = hasHeight && ok
 		}
 	}
+	if bindsFeature(bindings, "width") != bindsFeature(bindings, "height") {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Canvas binds one of width and height; an extent needs both"})
+	}
 	if ok {
+		canvas.HasSize = hasWidth && hasHeight
 		site.Canvas = canvas
 	}
 }

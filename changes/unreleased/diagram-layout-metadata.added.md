@@ -12,4 +12,5 @@
 - **Validation of layout annotations.** `-validate` and the REPL warn about a `Layout` or `Route`
   on an element the rendering draws no node or edge for, and about a second position for one
   element in one view (the first applies); a `Route` with an odd number of values, a non-constant
-  binding and a `Canvas` outside a view are errors.
+  binding, a `Canvas` binding only one of `width` and `height`, and a `Canvas` stated outside the
+  body of the view it sizes are errors.
