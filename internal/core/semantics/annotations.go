@@ -4,6 +4,8 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -687,6 +689,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if isMetadataBodyFeature(sym) {
 		return m.metadataBodyFeatureMetaclass(m.isKerMLDoc(sym))
 	}
+	// Comments and documentation are KerML annotating elements in either language.
+	switch sym.Kind {
+	case symbols.SymbolComment:
+		return m.kermlMetaclass("Comment")
+	case symbols.SymbolDocumentation:
+		return m.kermlMetaclass("Documentation")
+	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
 	}
@@ -869,6 +878,8 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
 	case "ownedMember":
 		return ownedMembersOf(sym), true
+	case "documentation":
+		return m.documentationSymbols(sym), true
 	case "ownedFeature":
 		var features []*symbols.Symbol
 		for _, member := range ownedMembersOf(sym) {
@@ -960,9 +971,27 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	case "declaredShortName":
 		return stringOrEmpty(sym.ShortName), true
 	case "qualifiedName":
+		// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
+		if simpleSymbolName(sym) == "" {
+			return emptyValue(), true
+		}
 		return stringOrEmpty(m.fqnOf(sym)), true
 	}
 	switch d := sym.Decl.(type) {
+	case *ast.Comment:
+		switch feature {
+		case "body":
+			return m.reflectiveCommentBody(sym, d.BodySpan)
+		case "locale":
+			return stringOrEmpty(lexer.StringValue(d.Locale)), true
+		}
+	case *ast.Documentation:
+		switch feature {
+		case "body":
+			return m.reflectiveCommentBody(sym, d.BodySpan)
+		case "locale":
+			return stringOrEmpty(lexer.StringValue(d.Locale)), true
+		}
 	case *ast.Definition:
 		switch feature {
 		case "isAbstract":
@@ -1017,6 +1046,15 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 
 // stringOrEmpty is a string value, or the empty sequence for a name the
 // declaration does not have.
+// reflectiveCommentBody is Comment::body; it is underived, not empty, for a model
+// whose notation was never given (SetSourceText).
+func (m *Model) reflectiveCommentBody(sym *symbols.Symbol, span source.Span) (symbols.FilterValue, bool) {
+	if m.sourceText == nil {
+		return symbols.FilterValue{}, false
+	}
+	return stringOrEmpty(m.commentBody(sym, span)), true
+}
+
 func stringOrEmpty(s string) symbols.FilterValue {
 	if s == "" {
 		return emptyValue()

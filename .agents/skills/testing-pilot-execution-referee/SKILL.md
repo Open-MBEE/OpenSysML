@@ -63,17 +63,19 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (223 cases, all thirteen default
+Reference values at the current implementation (228 cases, all thirteen default
 fixtures):
-`agree 139 · kind-only 1 · order-only 0 · disagree 5 · pilot-unevaluated 59 ·
-pilot-silent 7 · pilot-error 2 · ours-error 2 · both-error 8 ·
+`agree 142 · kind-only 1 · order-only 0 · disagree 6 · pilot-unevaluated 59 ·
+pilot-silent 8 · pilot-error 2 · ours-error 2 · both-error 8 ·
 nondeterministic 0`.
-Four of the five `disagree` are unrefereeable rather than verdicts against us:
+Five of the six `disagree` are unrefereeable rather than verdicts against us:
 `w6d:complex-is-zero-qualified`, where the pilot answers `false` for
 `isZero(rect(0.0, 0.0))` *and* for `isZero(rect(3.0, 4.0))`, because its
 `re`/`im` have no evaluable body; and the three `w6d:subsetting-*-count`
 cases, where the pilot counts a `[*]` collection as `1` whether two parts
-subset it or none does (and folds a `default null` one to `0`). The fifth,
+subset it or none does (and folds a `default null` one to `0`); and
+`meta-doc-body`, where the pilot prints the comment body `/* Turns. */` with its
+trailing blank (`Turns. `) and we print `Turns.`. The sixth,
 `natural-feature-istype-natural`, is adjudicated ours: a feature's values are
 instances of all its types (KerML 1.0 §8.3.3.3.4), so `nat : Natural = 7`
 answers `nat istype Natural` `true` where the pilot reads the literal's type alone. See

@@ -45,6 +45,9 @@ const (
 // unknownText stands for a value or reference that is absent where a name is rendered.
 const unknownText = "<unknown>"
 
+// unnamedText stands for an element that declares no name where a name is rendered.
+const unnamedText = "<unnamed>"
+
 // FormatValue renders a value with the notation used by user-facing runtime
 // results and diagnostics.
 func FormatValue(v Value) string {
@@ -237,18 +240,23 @@ func (v Value) MetaobjectText() string {
 }
 
 // symbolQualifiedText is a symbol's qualified name in its scope tree, else its own
-// name, else unknownText.
+// name, else unknownText. An unnamed symbol is `<unnamed>` under its owner's name.
 func symbolQualifiedText(sym *symbols.Symbol) string {
 	if sym == nil {
 		return unknownText
 	}
+	if sym.Name == "" {
+		if sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil {
+			if owner := symbols.FQNOf(sym.OwnerScope.Owner()); owner != "" {
+				return owner + "::" + unnamedText
+			}
+		}
+		return unnamedText
+	}
 	if fqn := symbols.FQNOf(sym); fqn != "" {
 		return fqn
 	}
-	if sym.Name != "" {
-		return sym.Name
-	}
-	return unknownText
+	return sym.Name
 }
 
 // NewComplex is the value of one complex number. One with a zero imaginary part

@@ -21,3 +21,8 @@ meta-usage-count ::  :: Meta::metaUsageCount
 meta-definition-name ::  :: Meta::metaDefinitionName
 meta-is-abstract ::  :: Meta::metaIsAbstract
 meta-same ::  :: Meta::metaSame
+meta-doc-count ::  :: Meta::metaDocCount
+meta-doc-body ::  :: Meta::metaDocBody
+meta-doc-qualified-name ::  :: Meta::metaDocQualifiedName
+meta-doc-owner-name ::  :: Meta::metaDocOwnerName
+meta-no-doc-count ::  :: Meta::metaNoDocCount

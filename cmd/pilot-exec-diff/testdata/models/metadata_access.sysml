@@ -8,7 +8,9 @@ package Meta {
     }
 
     part def Vehicle;
-    part def Wheel;
+    part def Wheel {
+        doc /* Turns. */
+    }
 
     part seatBelt : Vehicle {
         @Safety {
@@ -36,4 +38,9 @@ package Meta {
     attribute metaDefinitionName = (Vehicle meta SysML::PartDefinition).declaredName;
     attribute metaIsAbstract = (Vehicle meta KerML::Type).isAbstract;
     attribute metaSame = (chassis meta KerML::Feature) === (chassis meta KerML::Type);
+    attribute metaDocCount = (Wheel meta KerML::Element).documentation->size();
+    attribute metaDocBody = (Wheel meta KerML::Element).documentation.body;
+    attribute metaDocQualifiedName = (Wheel meta KerML::Element).documentation.qualifiedName;
+    attribute metaDocOwnerName = (Wheel meta KerML::Element).documentation.owner.declaredName;
+    attribute metaNoDocCount = (Vehicle meta KerML::Element).documentation->size();
 }

@@ -9,8 +9,9 @@
   in the REPL and in traces. The metaclass's features read off it through ordinary member access —
   `declaredName`, `name`, `qualifiedName`, `shortName`, `documentation`, `isAbstract`, `isComposite`,
   `isDerived`, `isEnd`, `isOrdered`, `isUnique`, `isVariable`, `isConstant`, `isPortion`,
-  `isSufficient`, the element-valued `owner`, `ownedMember`, `ownedFeature` and `type` (metaobjects
-  in turn, `definition` for a SysML usage) and `direction` (a `FeatureDirectionKind` literal) —
+  `isSufficient`, the element-valued `owner`, `ownedMember`, `ownedFeature`, `type` and
+  `documentation` (metaobjects in turn, `definition` for a SysML usage; a `doc` comment's own
+  `body` and `locale` are its strings) and `direction` (a `FeatureDirectionKind` literal) —
   each shaped by the feature's declared multiplicity; a feature the metaclass declares but the
   runtime does not derive (`ownedRelationship`, …) is a typed error naming the feature and the
   element, and a name the metaclass does not declare is the ordinary missing-member error.

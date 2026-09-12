@@ -16,7 +16,10 @@ package test {
         part wheel : Wheel[4];
     }
 
-    part def Wheel;
+    part def Wheel {
+        doc /* Turns. */
+        comment locale "en" /* Four per vehicle. */
+    }
 
     part seatBelt : Vehicle {
         @Safety { level = 4; }
@@ -42,6 +45,12 @@ package test {
         attribute abstract = (Shape meta KerML::Type).isAbstract;
         attribute concrete = (Vehicle meta KerML::Type).isAbstract;
         attribute direction [*] = (seatBelt meta KerML::Feature).direction;
+        attribute docs [*] = (Wheel meta KerML::Element).documentation;
+        attribute docBodies [*] = (Wheel meta KerML::Element).documentation.body;
+        attribute docOwner = (Wheel meta KerML::Element).documentation#(1).owner === (Wheel meta KerML::Type)#(1);
+        attribute docQualifiedName [*] = (Wheel meta KerML::Element).documentation.qualifiedName;
+        attribute noDocs [*] = (Vehicle meta KerML::Element).documentation;
+        attribute commentLocales [*] = (Wheel meta KerML::Namespace).ownedMember.locale;
         attribute sameElement = (seatBelt meta KerML::Type) === (seatBelt meta KerML::Feature);
         attribute sameAgain = (seatBelt meta KerML::Feature) == (seatBelt meta KerML::Feature);
         attribute otherElement = (seatBelt meta KerML::Feature) === (Vehicle meta KerML::Type);

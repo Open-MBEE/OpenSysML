@@ -211,17 +211,17 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 223 committed cases, the original 32, the 62 the
+prints the current ones. State of the 228 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
-the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases` and the 14 of
+the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases` and the 19 of
 `metadata_access.cases`:
 
 ```
-agree: 139 · kind-only: 1 · order-only: 0 · disagree: 5
-pilot-unevaluated: 59 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
+agree: 142 · kind-only: 1 · order-only: 0 · disagree: 6
+pilot-unevaluated: 59 · pilot-silent: 8 · pilot-error: 2 · ours-error: 2 · both-error: 8
 nondeterministic: 0
 ```
 
@@ -249,6 +249,23 @@ alike on both sides — `.name` `"seatBelt"`, `.declaredName` `"chassis"`, `.qua
 metaobject's identity is the element's whatever metaclass it is cast to. Each case reads a
 model-level attribute bound to the expression because the pilot resolves no library name
 (`KerML::Feature`, `SysML::PartUsage`) inside a bare `%eval`.
+
+Five more `metadata_access.cases` referee `Element::documentation`, declared
+`Documentation[0..*]` in `KerML.kerml`, so a documentation comment reads back as a metaobject
+whose own `Comment::body` and `Comment::locale` are the strings. Three agree:
+`(Wheel meta KerML::Element).documentation->size()` is `1` for a part definition with one
+`doc` comment and `0` for one without, and `.documentation.owner.declaredName` is `"Wheel"`.
+`.documentation.body` is the one new `disagree`, and it is a rendering artefact of the pilot,
+not a semantic difference: the pilot prints `LiteralString Turns.  (<uuid>)`, a body with a
+trailing space before its two-space id separator, which normalizes to `Turns. ` against the
+runtime's `"Turns."`: the pilot keeps the blank before `*/`, the runtime reads the body the way
+`Element::documentation` and LSP hover always have (`lexer.CommentBody`, delimiters and
+margin off), so the runtime's answer stands and the referee's normalizer is left honest rather
+than taught to trim. `.documentation.qualifiedName` is `pilot-silent`: the pilot prints nothing
+for it, and the runtime answers `()`, which is what `Element::qualifiedName` derives to for an
+element that declares no name (KerML 1.0 §8.3.2.1 Elements — a `doc` comment names nothing);
+the empty pilot line and the empty sequence are the same reading, but the referee cannot tell
+the pilot's "no value" from "declined", so the bucket is left as measured.
 
 The twelve `tensor_quantities.cases` probe `TensorCalculations` over a 2×2 stress tensor built
 by `TensorCalculations::'['` on a model-declared `TensorMeasurementReference`, added with the

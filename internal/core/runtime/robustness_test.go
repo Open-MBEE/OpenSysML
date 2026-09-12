@@ -1947,11 +1947,14 @@ func testClassificationOutsideTheEvaluableSubset(t *testing.T) {
 // datum, an unresolved type or a feature the metaclass lacks or does not derive
 // each report a typed error naming what is wrong, never a guessed metaobject.
 // A member read through a cast that matched nothing is the empty sequence
-// every feature chain over `()` is.
+// every feature chain over `()` is. `Comment::body` of a model never given its
+// notation (no SetSourceText) is underived, not an empty string.
 func testMetaCastFailureModes(t *testing.T) {
 	const model = `
 	package test {
-		part def Vehicle;
+		part def Vehicle {
+			doc /* Carries. */
+		}
 		part seatBelt : Vehicle;
 	}`
 	_, got, err := evalDeclaredExpr(t, model, "(test::seatBelt meta SysML::PartDefinition).declaredName")
@@ -1968,6 +1971,7 @@ func testMetaCastFailureModes(t *testing.T) {
 		{"an unresolved type", "test::seatBelt meta KerML::Nonexistent", "KerML::Nonexistent", ErrUnresolvedType},
 		{"a feature the metaclass lacks", "(test::seatBelt meta KerML::Feature).wheels", "wheels", ErrNoSuchFeature},
 		{"a feature the runtime does not derive", "(test::seatBelt meta KerML::Feature).ownedRelationship", "ownedRelationship", ErrReflectiveFeatureUnsupported},
+		{"a documentation body without the notation", "(test::Vehicle meta KerML::Element).documentation.body", "body", ErrReflectiveFeatureUnsupported},
 	} {
 		_, got, err := evalDeclaredExpr(t, model, tc.expr)
 		if err == nil {

@@ -20,6 +20,12 @@
     "abstract": {"type": "Boolean", "value": true},
     "concrete": {"type": "Boolean", "value": false},
     "direction": {"type": "Sequence", "elements": []},
+    "docs": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Wheel::<unnamed> : KerML::Root::Documentation)"}]},
+    "docBodies": {"type": "Sequence", "elements": [{"type": "String", "value": "Turns."}]},
+    "docOwner": {"type": "Boolean", "value": true},
+    "docQualifiedName": {"type": "Sequence", "elements": []},
+    "noDocs": {"type": "Sequence", "elements": []},
+    "commentLocales": {"type": "Sequence", "elements": [{"type": "String", "value": "en"}]},
     "sameElement": {"type": "Boolean", "value": true},
     "sameAgain": {"type": "Boolean", "value": true},
     "otherElement": {"type": "Boolean", "value": false}

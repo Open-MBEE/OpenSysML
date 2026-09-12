@@ -384,7 +384,8 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	}
 
 	// Parse and build model
-	p := parser.New(source.New(sysmlPath, sysmlData))
+	src := source.New(sysmlPath, sysmlData)
+	p := parser.New(src)
 	file := p.ParseFile()
 	checkDiagnostics(t, p.Diagnostics, expected.Diagnostics)
 
@@ -398,6 +399,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
+	model.SetSourceText(source.TextOf(map[string]*source.SourceFile{sysmlPath: src}, nil))
 	fresh := func() *Context { return NewContext(NewModel(model, resolver), 10000) }
 	ctx := fresh()
 	if err := ctx.SetSchedule(casePolicy(t, expected, policy)); err != nil {
