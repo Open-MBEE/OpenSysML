@@ -2036,7 +2036,11 @@ behavior IR**, an **AOT C backend** that emits static tables and no allocation, 
 typed, naming the construct — for any model the target cannot bound. What the runtime can promise
 is *bounded and reproducible* execution; hard real-time guarantees (WCET) are properties of the
 target, the compiler and the RTOS configuration, and the documentation must say so rather than
-imply them.
+imply them. The design record for the track at the highest software class —
+[docs/internals/design/embedded-target.md](../internals/design/embedded-target.md) — fixes the
+freestanding C profile M2 emits, makes the IR's written semantics rather than the interpreter the
+requirement basis, turns every admissible scheduling choice into a static refusal, lists the
+artifacts under configuration control and restates M1–M6 as stages with exit criteria.
 
 ## M1 — a closed behavior IR
 
