@@ -170,6 +170,15 @@ func replayed(t *testing.T, fresh func() (*Context, error), run func(*Context) (
 	return outcome, choices, err
 }
 
+// choiceKinds lists the kind of each choice, in order.
+func choiceKinds(choices []ChoiceTaken) []ChoiceKind {
+	kinds := make([]ChoiceKind, len(choices))
+	for i, c := range choices {
+		kinds[i] = c.Kind
+	}
+	return kinds
+}
+
 // assertWitnessesReplay checks every outcome of an exploration: the run under its
 // witness reaches the outcome, and its choices are the witness's lines.
 func assertWitnessesReplay(t *testing.T, x *Exploration, fresh func() (*Context, error), run func(*Context) (Outcome, error)) {
@@ -321,6 +330,51 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		assertWitnessesReplay(t, x, m.fresh, run)
+	})
+	// A dispatch draws every region's transition before the order they fire in, and
+	// notes each with its firing; the witness lists the draws, the run the firings.
+	t.Run("regions with a conflict", func(t *testing.T) {
+		m := parseExploreModel(t, `package test {
+			private import ScalarValues::*;
+			state def Machine {
+				attribute last : Integer = 0;
+				entry; then work;
+				state work parallel {
+					state a { entry; then a1; state a1; state a2; state a3;
+						transition first a1 accept go do assign last := 1 then a2;
+						transition first a1 accept go do assign last := 2 then a3; }
+					state b { entry; then b1; state b1; state b2; transition first b1 accept go do assign last := 3 then b2; }
+				}
+			}
+		}`)
+		sym := m.state(t, "Machine")
+		run := stateRun(sym, "go")
+		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+		if err != nil || !x.Complete() || x.Runs != 4 {
+			t.Fatalf("explore: %v, %v", x, err)
+		}
+		for _, o := range x.Outcomes {
+			if kinds := choiceKinds(o.Witness); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceTransition, ChoiceRegionOrder}) {
+				t.Fatalf("witness %s draws %v, want the transition then the region order", FormatChoices(o.Witness), kinds)
+			}
+			outcome, choices, err := replayed(t, m.fresh, run, o.Witness)
+			if err != nil {
+				t.Errorf("%s: replaying %s: %v", o.Outcome, FormatChoices(o.Witness), err)
+				continue
+			}
+			if outcome.String() != o.Outcome.String() {
+				t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
+			}
+			if kinds := choiceKinds(choices); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceRegionOrder, ChoiceTransition}) {
+				t.Errorf("replaying %s noted %v, want the region order then the transition", FormatChoices(o.Witness), kinds)
+			}
+			got, want := strings.Split(FormatChoices(choices), "; "), strings.Split(FormatChoices(o.Witness), "; ")
+			slices.Sort(got)
+			slices.Sort(want)
+			if !slices.Equal(got, want) {
+				t.Errorf("replaying %s made the choices\n%s", FormatChoices(o.Witness), FormatChoices(choices))
+			}
+		}
 	})
 	t.Run("due", func(t *testing.T) {
 		fresh, run := dueOrderModel(t)
@@ -633,6 +687,10 @@ func TestReplayRefusesMovesLeftOverByARun(t *testing.T) {
 			t.Fatal(err)
 		}
 		mustSchedule(t, ctx, ReplayPolicy(append(slices.Clone(good), extra)))
+		// Before any run there is nothing unfollowed, and asking begins no run.
+		if err := ctx.Unfollowed(); err != nil || ctx.run.scheduler != nil {
+			t.Fatalf("before a run: Unfollowed() = %v, scheduler begun %v", err, ctx.run.scheduler != nil)
+		}
 		_, err = ctx.ExecuteAction(sym)
 		assertRefusedLeftOver(t, err, len(good)+1, extra)
 	})
