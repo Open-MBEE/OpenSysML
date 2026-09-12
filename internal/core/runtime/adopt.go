@@ -1060,7 +1060,7 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 	carried[sym] = false
 	val := a.prev.namespaceBindings[sym]
 	found, err := a.rebind(sym, "a usage of it")
-	if err != nil || !allAdopted(val, adopted) {
+	if err != nil || !a.prev.allAdopted(val, adopted) {
 		return false
 	}
 	stated := a.prev.declarationDigest(sym)
@@ -1118,15 +1118,19 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 	return true
 }
 
-// allAdopted reports whether every object a value names, an element of a collection
-// included, is carried over.
-func allAdopted(val Value, adopted map[int64]bool) bool {
-	for _, id := range heldObjects(val) {
-		if !adopted[id] {
-			return false
+// allAdopted reports whether every object a value carries — an element of a collection, the one
+// an array, vector, frame or transformation was read from, a function's self — is carried over.
+func (ctx *Context) allAdopted(val Value, adopted map[int64]bool) bool {
+	all := true
+	ctx.walkValue(val, func(v Value) {
+		if id, ok := carriedObject(v); ok && !adopted[id] {
+			all = false
 		}
-	}
-	return true
+		if self := v.FunctionSelf(); self != nil && !adopted[self.ID] {
+			all = false
+		}
+	})
+	return all
 }
 
 // rebindNameRead names a lookup's scope and hidden declaration in this context.

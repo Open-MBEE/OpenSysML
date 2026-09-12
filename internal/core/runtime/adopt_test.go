@@ -1741,6 +1741,60 @@ func TestAdoptCarriesANamespaceBinding(t *testing.T) {
 	}
 }
 
+// A binding whose value carries an object other than as an element — the Array object an array
+// was read from — is carried only with that object; adopted without it, the usage binds anew.
+func TestAdoptRebindsAStructuredBindingWhoseObjectIsNotAdopted(t *testing.T) {
+	const src = `package Demo {
+	private import ScalarValues::*;
+	private import Collections::*;
+	part def Car;
+	part def Rig { item grid : Array { :>> dimensions = (2, 1); :>> elements = (1, 2); } }
+	part rig : Rig;
+	ref part car : Car = new Car();
+	ref item grid : Array = rig.grid;
+}`
+	gridIn := func(t *testing.T, ctx *Context) Value {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "grid")
+		if err != nil {
+			t.Fatalf("grid: %v", err)
+		}
+		if val.Kind != ValArray || val.Array().Object == 0 {
+			t.Fatalf("grid = %s, want an array read from an object", FormatValue(val))
+		}
+		return val
+	}
+	carIn := func(t *testing.T, ctx *Context) *Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "car")
+		if err != nil {
+			t.Fatalf("car: %v", err)
+		}
+		id, _ := val.Object()
+		return ctx.instances[id]
+	}
+	prev := libraryContextOver(t, src)
+	before := gridIn(t, prev)
+	car := carIn(t, prev)
+
+	ctx := libraryContextOver(t, src+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(car), car); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := carIn(t, ctx); got != car {
+		t.Errorf("car in the re-analysis denotes %d, want the carried object %d", got.ID, car.ID)
+	}
+	after := gridIn(t, ctx)
+	if after.Array().Object == before.Array().Object {
+		t.Errorf("grid in the re-analysis is read from object %d, which was not adopted; want it bound anew", after.Array().Object)
+	}
+	if _, live := ctx.instances[after.Array().Object]; !live {
+		t.Errorf("grid in the re-analysis is read from object %d, which the context has no instance of", after.Array().Object)
+	}
+}
+
 const adoptDependentBindingSrc = `package Demo {
 	part def Car;
 	part def Truck :> Car;
