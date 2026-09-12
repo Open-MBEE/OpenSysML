@@ -257,6 +257,12 @@ func (ec *exprChecker) checkCondition(scope *symbols.Scope, n ast.Node, code, fo
 	if n == nil {
 		return
 	}
+	// An extent is a sequence of instances (KerML 1.0 §7.4.9.2), never the one Boolean a
+	// condition is, however its type conforms.
+	if typ := ec.model.ExtentType(scope, n); typ != nil {
+		ec.errorCode(code, n.Span(), format, fmt.Sprintf("the extent of %s, a sequence", typ.Name))
+		return
+	}
 	got := ec.infer(scope, n)
 	if got == semantics.PrimBoolean {
 		if mustType {

@@ -1,8 +1,10 @@
 - **The extent operator `all T` evaluates.** `all T` (KerML `ExtentExpression`,
   `BaseFunctions::'all'`) answers the instances of the named type as an ordered sequence in
   declaration order, and the typer gives it the static type `T[0..*]`, judging it element by
-  element as it does any collection: a condition `all Color` is refused as no Boolean, and
-  `all Car as String` warns that the cast selects nothing. Because objects materialize
+  element as it does any collection where a collection binds (`attribute xs : Boolean[*] = all
+  Flags;`), while a condition `all T` is refused for any `T`, Boolean-typed included, as the
+  sequence it is rather than the one Boolean a condition needs, and `all Car as String` warns
+  that the cast selects nothing. Because objects materialize
   lazily, the extent is the run's: for a variation definition or usage it is the variants it
   declares (`all engineChoice` in the trade-off pilot model now yields the engine alternatives,
   and its trade study proceeds to evaluation instead of stopping at the operator); for an ordinary
