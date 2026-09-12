@@ -1,0 +1,1517 @@
+{
+  "meaning": "A pass checks that the runtime reproduces UML behavior where the model has a defensible SysML v2 mapping, provides a second opinion on the tool-choice rows, and is never evidence of SysML v2 conformance.",
+  "provenance": {
+    "document": "ptc/18-11-06",
+    "version": "1.0",
+    "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
+    "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
+    "tests": 103,
+    "recorded": "2026-09-12",
+    "develop": "fb034e81736e226593b3da93dd6dc41aa03abd2b"
+  },
+  "buckets": {
+    "differs-by-design": 2,
+    "fail": 34,
+    "not-expressible": 39,
+    "pass": 25,
+    "terminate-gap": 3
+  },
+  "tests": [
+    {
+      "name": "Behavior 001",
+      "area": "Behavior",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)"
+      ],
+      "reached": [
+        "S1(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Behavior 002",
+      "area": "Behavior",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(exit)"
+      ],
+      "reached": [
+        "S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Behavior 003 A",
+      "area": "Behavior",
+      "class": "standard",
+      "bucket": "fail",
+      "reasons": [
+        "admitted trace not reached: S1(entry)"
+      ],
+      "expected": [
+        "S1(entry)",
+        "S1(entry)::S1(doActivityPartI)"
+      ],
+      "reached": [
+        "S1(entry)::S1(doActivityPartI)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Behavior 003 B",
+      "area": "Behavior",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)::S1(doActivityPartI)::S1(doActivityPartII)"
+      ],
+      "reached": [
+        "S1(entry)::S1(doActivityPartI)::S1(doActivityPartII)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Behavior 004",
+      "area": "Behavior",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "internal transition T3"
+      ]
+    },
+    {
+      "name": "TransitionExecutionAlgorithm",
+      "area": "Other",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exit point ExitPoint1; entry point EntryPoint1; local transition T2.1"
+      ]
+    },
+    {
+      "name": "Transition 001",
+      "area": "Transition",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T2(effect)"
+      ],
+      "reached": [
+        "T2(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Transition 007",
+      "area": "Transition",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T1(effect)::T2(effect)::T3(effect)"
+      ],
+      "reached": [
+        "T1(effect)::T2(effect)::T3(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Transition 010",
+      "area": "Transition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "internal transition IT"
+      ]
+    },
+    {
+      "name": "Transition 011 A",
+      "area": "Transition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "local transition T1.3"
+      ]
+    },
+    {
+      "name": "Transition 011 B",
+      "area": "Transition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "entry point EntryPoint1; local transition T1.3"
+      ]
+    },
+    {
+      "name": "Transition 011 C",
+      "area": "Transition",
+      "class": "standard",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)",
+        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Transition 011 D",
+      "area": "Transition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exit point ExitPoint1; local transition T3"
+      ]
+    },
+    {
+      "name": "Transition 011 E",
+      "area": "Transition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "entry point EntryPoint1; exit point ExitPoint1"
+      ]
+    },
+    {
+      "name": "Transition 015",
+      "area": "Transition",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)::S1(doActivity)"
+      ],
+      "reached": [
+        "S1(entry)::S1(doActivity)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Transition 016",
+      "area": "Transition",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T2(effect)"
+      ],
+      "reached": [
+        "T2(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Transition 017",
+      "area": "Transition",
+      "class": "standard",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)",
+        "admitted trace not reached: T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)::T3.2(effect)",
+        "admitted trace not reached: T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)",
+        "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::S3.1(doActivity)::T3.1.2(effect)::T3.2(effect)",
+        "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::T3.1.2(effect)::S3.1(doActivity)::T3.2(effect)",
+        "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::S3.1(doActivity)::T3.1.2(effect)",
+        "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::T3.1.2(effect)::S3.1(doActivity)",
+        "admitted trace not reached: T2(effect)::S1(entry)::T3.1.2(effect)::S3.1(doActivity)::T2.2(effect)::T3.2(effect)",
+        "admitted trace not reached: T2(effect)::S1(entry)::T3.1.2(effect)::T2.2(effect)::S3.1(doActivity)::T3.2(effect)"
+      ],
+      "expected": [
+        "T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)::T3.2(effect)",
+        "T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)",
+        "T2(effect)::S1(entry)::T2.2(effect)::S3.1(doActivity)::T3.1.2(effect)::T3.2(effect)",
+        "T2(effect)::S1(entry)::T2.2(effect)::T3.1.2(effect)::S3.1(doActivity)::T3.2(effect)",
+        "T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::S3.1(doActivity)::T3.1.2(effect)",
+        "T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::T3.1.2(effect)::S3.1(doActivity)",
+        "T2(effect)::S1(entry)::T3.1.2(effect)::S3.1(doActivity)::T2.2(effect)::T3.2(effect)",
+        "T2(effect)::S1(entry)::T3.1.2(effect)::T2.2(effect)::S3.1(doActivity)::T3.2(effect)"
+      ],
+      "reached": [
+        "T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Transition 019",
+      "area": "Transition",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T1.3(effect)",
+        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::T2.3(effect)",
+        "admitted trace not reached: S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)",
+        "admitted trace not reached: S1.1(exit)::S2.1(exit)::T2.2(effect)::T1.2(effect)::T2.3(effect)::T1.3(effect)",
+        "admitted trace not reached: S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T1.3(effect)::T2.3(effect)",
+        "admitted trace not reached: S2.1(exit)::S1.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)",
+        "admitted trace not reached: S2.1(exit)::S1.1(exit)::T2.2(effect)::T1.2(effect)::T2.3(effect)::T1.3(effect)",
+        "admitted trace not reached: S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::T2.3(effect)::T1.3(effect)"
+      ],
+      "expected": [
+        "S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)",
+        "S1.1(exit)::S2.1(exit)::T2.2(effect)::T1.2(effect)::T2.3(effect)::T1.3(effect)",
+        "S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T1.3(effect)::T2.3(effect)",
+        "S2.1(exit)::S1.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)",
+        "S2.1(exit)::S1.1(exit)::T2.2(effect)::T1.2(effect)::T2.3(effect)::T1.3(effect)",
+        "S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::T2.3(effect)::T1.3(effect)"
+      ],
+      "reached": [
+        "S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T1.3(effect)",
+        "S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::T2.3(effect)"
+      ],
+      "runs": 2
+    },
+    {
+      "name": "Transition 020",
+      "area": "Transition",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)::T4(effect)"
+      ],
+      "reached": [
+        "S1(entry)::T4(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Transition 022",
+      "area": "Transition",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T3::T3::T3::T3::T3"
+      ],
+      "reached": [
+        "T3::T3::T3::T3::T3"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Transition 023",
+      "area": "Transition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exit point ExitPoint1; entry point EntryPoint1; lowerer refuses fork into a region without an entry transition S2/Region1; lowerer refuses fork into a region without an entry transition S2/Region2"
+      ]
+    },
+    {
+      "name": "Event 001",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "wait(exit)"
+      ],
+      "reached": [
+        "wait(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Event 002",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)::S1.1(entry)::S1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::S1.1(entry)::S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Event 008",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T2(effect)::T3(effect)"
+      ],
+      "reached": [
+        "T2(effect)::T3(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Event 009",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T1.2(effect)::T2.2(effect)",
+        "T2.2(effect)::T1.2(effect)"
+      ],
+      "reached": [
+        "T1.2(effect)::T2.2(effect)",
+        "T2.2(effect)::T1.2(effect)"
+      ],
+      "runs": 2
+    },
+    {
+      "name": "Event 010",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T2(effect)::S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)",
+        "T2(effect)::S1(entry)::S1.1(entry)::T1.3(effect)::S1.3(entry)",
+        "T3(effect)::S2(entry)"
+      ],
+      "reached": [
+        "T2(effect)::S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)",
+        "T2(effect)::S1(entry)::S1.1(entry)::T1.3(effect)::S1.3(entry)",
+        "T3(effect)::S2(entry)"
+      ],
+      "runs": 3
+    },
+    {
+      "name": "Event 015",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "fail",
+      "reasons": [
+        "admitted trace not reached: T1.3(effect)"
+      ],
+      "expected": [
+        "T1.2(effect)",
+        "T1.3(effect)"
+      ],
+      "reached": [
+        "T1.2(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Event 016 A",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: T1.2(effect)",
+        "admitted trace not reached: T1.2(effect)::T3(effect)"
+      ],
+      "expected": [
+        "T1.2(effect)::T3(effect)"
+      ],
+      "reached": [
+        "T1.2(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Event 016 B",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T1.2(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.3(effect)::T2.2.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.3(effect)::T2.2.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.3(effect)::T2.2.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.3(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.3(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.3(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.3(effect)::T2.1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.3(effect)::T2.1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.3(effect)::T2.1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.3(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.3(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.3(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)"
+      ],
+      "reached": [
+        "T1.2(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T1.2(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T1.3(effect)::T2.2.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.2(effect)::T2.2.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.3(effect)::T2.2.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.3(effect)::T2.2.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T1.3(effect)::T2.2.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.3(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.3(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.1.2(effect)::T2.2.2(effect)::T1.3(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.2(effect)::T2.1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.3(effect)::T2.1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.3(effect)::T2.1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T1.3(effect)::T2.1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.2(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.2(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.3(effect)::S2.1(exit)::T2.2(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.3(effect)::S2.1(exit)::T2.3(effect)::S1.2(exit)::S1(exit)",
+        "T2.2.2(effect)::T2.1.2(effect)::T1.3(effect)::S2.1(exit)::T2.4(effect)::S1.2(exit)::S1(exit)"
+      ],
+      "runs": 36
+    },
+    {
+      "name": "Event 017 A",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T3(effect)"
+      ],
+      "reached": [
+        "T3(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Event 017 B",
+      "area": "Event",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "behavior parameter S1; behavior parameter S1.S1.1; behavior parameter S1.S1.1; behavior parameter S1.S1.1"
+      ]
+    },
+    {
+      "name": "Event 018",
+      "area": "Event",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1.1.1(exit)::S1.1(exit)::S1(exit)::T3(effect)::S2(entry)::S1.2(entry)"
+      ],
+      "reached": [
+        "S1.1.1(exit)::S1.1(exit)::S1(exit)::T3(effect)::S2(entry)::S1.2(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Event 019 A",
+      "area": "Event",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "tester trace this.testable.trace(\"End\")"
+      ]
+    },
+    {
+      "name": "Event 019 B",
+      "area": "Event",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "behavior parameter S1; behavior parameter S2"
+      ]
+    },
+    {
+      "name": "Event 019 C",
+      "area": "Event",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "behavior parameter S1; behavior parameter S1.S1.1; behavior parameter S1.S1.1.S1.1.1; behavior parameter S1.S1.1.S1.1.1"
+      ]
+    },
+    {
+      "name": "Event 019 D",
+      "area": "Event",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "operation result T2; tester trace this.testable.trace(formatParameterValue(false, this.testable.op()))"
+      ]
+    },
+    {
+      "name": "Event 019 E",
+      "area": "Event",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2; tester trace this.testable.trace(Concat(formatParameterValue(false, this.testable.or(true, true)), formatParameterValue(false, this.testable.or(true, true))))"
+      ]
+    },
+    {
+      "name": "Entering 004",
+      "area": "Entering",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)::S1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Entering 005",
+      "area": "Entering",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T2(effect)::S1(entry)::S1.1(entry)::S1.1.1(entry)"
+      ],
+      "reached": [
+        "T2(effect)::S1(entry)::S1.1(entry)::S1.1.1(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Entering 009",
+      "area": "Entering",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "entry point EntryPoint1; local transition T1.1"
+      ]
+    },
+    {
+      "name": "Entering 010",
+      "area": "Entering",
+      "class": "standard",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S2.1(entry)::T1.1(effect)::S1.1(entry)",
+        "admitted trace not reached: S1(entry)::S1.1(entry)::T2.1(effect)::S2.1(entry)",
+        "admitted trace not reached: S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)",
+        "admitted trace not reached: S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(entry)::T2.1(effect)::S2.1(entry)",
+        "S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)",
+        "S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)"
+      ],
+      "reached": [
+        "S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S2.1(entry)::T1.1(effect)::S1.1(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Entering 011",
+      "area": "Entering",
+      "class": "standard",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)",
+        "admitted trace not reached: S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)",
+        "admitted trace not reached: S1(entry)::T1.1(effect)::T2.1(effect)::S1.1(entry)::S1.2(entry)",
+        "admitted trace not reached: S1(entry)::T1.1(effect)::T2.1(effect)::S1.2(entry)::S1.1(entry)",
+        "admitted trace not reached: S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)",
+        "admitted trace not reached: S1(entry)::T2.1(effect)::T1.1(effect)::S1.1(entry)::S1.2(entry)",
+        "admitted trace not reached: S1(entry)::T2.1(effect)::T1.1(effect)::S1.2(entry)::S1.1(entry)"
+      ],
+      "expected": [
+        "S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)",
+        "S1(entry)::T1.1(effect)::T2.1(effect)::S1.1(entry)::S1.2(entry)",
+        "S1(entry)::T1.1(effect)::T2.1(effect)::S1.2(entry)::S1.1(entry)",
+        "S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)",
+        "S1(entry)::T2.1(effect)::T1.1(effect)::S1.1(entry)::S1.2(entry)",
+        "S1(entry)::T2.1(effect)::T1.1(effect)::S1.2(entry)::S1.1(entry)"
+      ],
+      "reached": [
+        "S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Exiting 001",
+      "area": "Exiting",
+      "class": "standard",
+      "bucket": "fail",
+      "reasons": [
+        "admitted trace not reached: S1.1.1(exit)::S2.1(exit)::S1.1(exit)::S1(exit)",
+        "admitted trace not reached: S2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)"
+      ],
+      "expected": [
+        "S1.1.1(exit)::S1.1(exit)::S2.1(exit)::S1(exit)",
+        "S1.1.1(exit)::S2.1(exit)::S1.1(exit)::S1(exit)",
+        "S2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)"
+      ],
+      "reached": [
+        "S1.1.1(exit)::S1.1(exit)::S2.1(exit)::S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Exiting 002",
+      "area": "Exiting",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(doActivityPartI)::S1(exit)"
+      ],
+      "reached": [
+        "S1(doActivityPartI)::S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Exiting 003",
+      "area": "Exiting",
+      "class": "standard",
+      "bucket": "fail",
+      "reasons": [
+        "admitted trace not reached: S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)"
+      ],
+      "expected": [
+        "S1.1.1(exit)::S1.2.1(exit)::S1.1(exit)::S1(exit)",
+        "S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)"
+      ],
+      "reached": [
+        "S1.1.1(exit)::S1.2.1(exit)::S1.1(exit)::S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Exiting 004",
+      "area": "Exiting",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exit point ExitPoint1"
+      ]
+    },
+    {
+      "name": "Exiting 005",
+      "area": "Exiting",
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1.1(exit)::S2.1(exit)::S1(exit)"
+      ],
+      "reached": [
+        "S1.1(exit)::S2.1(exit)::S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Exit 001",
+      "area": "Exit",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exit point ExitPoint1"
+      ]
+    },
+    {
+      "name": "Exit 002",
+      "area": "Exit",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exit point ExitPoint1"
+      ]
+    },
+    {
+      "name": "Exit 003",
+      "area": "Exit",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exit point ExitPoint1"
+      ]
+    },
+    {
+      "name": "Entry 002 A",
+      "area": "Entry",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "entry point EntryPoint1"
+      ]
+    },
+    {
+      "name": "Entry 002 B",
+      "area": "Entry",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "entry point EntryPoint1; local transition T1.2"
+      ]
+    },
+    {
+      "name": "Entry 002 C",
+      "area": "Entry",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "entry point EntryPoint1; local transition T1.1"
+      ]
+    },
+    {
+      "name": "Entry 002 D",
+      "area": "Entry",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "entry point EntryPoint1"
+      ]
+    },
+    {
+      "name": "Entry 002 E",
+      "area": "Entry",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "entry point EntryPoint1; lowerer refuses fork into a region without an entry transition S1/Region1; lowerer refuses fork into a region without an entry transition S1/Region2; local transition T1.1; local transition T2.1"
+      ]
+    },
+    {
+      "name": "Entry 002 F",
+      "area": "Entry",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "behavior parameter S1; entry point EntryPoint1; behavior parameter S1.S1.1; behavior parameter S1.S1.2; local transition T1.1; local transition T1.2"
+      ]
+    },
+    {
+      "name": "Choice 001",
+      "area": "Choice",
+      "class": "extension",
+      "row": "SM30",
+      "rowKind": "differs, v2 silent",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: ",
+        "admitted trace not reached: T4(effect)::T4(effect)::T4(effect)::T4(effect)",
+        "reports on SM30 (Choice: guards read on arrival): differs, v2 silent"
+      ],
+      "expected": [
+        "T4(effect)::T4(effect)::T4(effect)::T4(effect)"
+      ],
+      "reached": [
+        ""
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Choice 002",
+      "area": "Choice",
+      "class": "extension",
+      "row": "SM30",
+      "rowKind": "differs, v2 silent",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: ",
+        "admitted trace not reached: T3(effect)",
+        "admitted trace not reached: T4(effect)",
+        "admitted trace not reached: T5(effect)",
+        "reports on SM30 (Choice: guards read on arrival): differs, v2 silent"
+      ],
+      "expected": [
+        "T3(effect)",
+        "T4(effect)",
+        "T5(effect)"
+      ],
+      "reached": [
+        ""
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Choice 003",
+      "area": "Choice",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: ",
+        "admitted trace not reached: T4(effect)"
+      ],
+      "expected": [
+        "T4(effect)"
+      ],
+      "reached": [
+        ""
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Choice 004",
+      "area": "Choice",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: ",
+        "admitted trace not reached: T4(effect)"
+      ],
+      "expected": [
+        "T4(effect)"
+      ],
+      "reached": [
+        ""
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Choice 005",
+      "area": "Choice",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: T2(effect)::S1(entry)::S1.1(entry)",
+        "admitted trace not reached: T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)"
+      ],
+      "expected": [
+        "T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)"
+      ],
+      "reached": [
+        "T2(effect)::S1(entry)::S1.1(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Standalone 001",
+      "area": "Standalone",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "standalone state machine Standalone001_Test; exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1"
+      ]
+    },
+    {
+      "name": "Standalone 002",
+      "area": "Standalone",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "standalone state machine Standalone002_Test; exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2; behavior parameter S2; lowerer refuses fork into a region without an entry transition S2/Region1; behavior parameter S2.S2.1; lowerer refuses fork into a region without an entry transition S2/Region2; behavior parameter S2.S2.2"
+      ]
+    },
+    {
+      "name": "Standalone 003",
+      "area": "Standalone",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "standalone state machine Standalone003_Test; behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2; tester trace this.testable.trace(Concat(formatParameterValue(false, this.testable.or(true, true)), formatParameterValue(false, this.testable.or(true, true))))"
+      ]
+    },
+    {
+      "name": "Fork 001",
+      "area": "Fork",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exit point ExitPoint1"
+      ]
+    },
+    {
+      "name": "Fork 002",
+      "area": "Fork",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "lowerer refuses fork into a region without an entry transition S1.S1.1/Region1; lowerer refuses fork into a region without an entry transition S1.S1.1/Region2"
+      ]
+    },
+    {
+      "name": "Join001",
+      "area": "Join",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "lowerer refuses fork into a region without an entry transition S1/Region1; lowerer refuses fork into a region without an entry transition S1/Region2"
+      ]
+    },
+    {
+      "name": "Join002",
+      "area": "Join",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(exit)::T2.2(effect)::S2(entry)",
+        "admitted trace not reached: T1.2(effect)::T2.2(effect)::S1(exit)::T3(effect)::S2(entry)",
+        "admitted trace not reached: T2.2(effect)::T1.2(effect)::S1(exit)::T3(effect)::S2(entry)"
+      ],
+      "expected": [
+        "T1.2(effect)::T2.2(effect)::S1(exit)::T3(effect)::S2(entry)",
+        "T2.2(effect)::T1.2(effect)::S1(exit)::T3(effect)::S2(entry)"
+      ],
+      "reached": [
+        "S1(exit)::T2.2(effect)::S2(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Join003",
+      "area": "Join",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "run error: process event: evaluate pseudostate: join Join1: eval guard of transition Join1 -\u003e S2: no value for feature value",
+        "admitted trace not reached: T1.2(effect)::T5(effect)",
+        "admitted trace not reached: T1.4(effect)::T5(effect)"
+      ],
+      "expected": [
+        "T1.2(effect)::T5(effect)",
+        "T1.4(effect)::T5(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Terminate 001",
+      "area": "Terminate",
+      "class": "terminate-gap",
+      "bucket": "terminate-gap",
+      "reasons": [
+        "terminate S1.Terminate1"
+      ]
+    },
+    {
+      "name": "Terminate 002",
+      "area": "Terminate",
+      "class": "terminate-gap",
+      "bucket": "terminate-gap",
+      "reasons": [
+        "terminate S1.Terminate1"
+      ]
+    },
+    {
+      "name": "Terminate 003",
+      "area": "Terminate",
+      "class": "terminate-gap",
+      "bucket": "terminate-gap",
+      "reasons": [
+        "terminate S1.Terminate1"
+      ]
+    },
+    {
+      "name": "Final001",
+      "area": "Final",
+      "class": "standard",
+      "row": "SM11",
+      "rowKind": "differs, v2 silent",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)::S2.1(exit)",
+        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S2.1(exit)",
+        "reports on SM11 (What the completion of a composite state completes): differs, v2 silent"
+      ],
+      "expected": [
+        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S2.1(exit)"
+      ],
+      "reached": [
+        "S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)::S2.1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Deferred 001",
+      "area": "Deferred",
+      "class": "extension",
+      "bucket": "pass",
+      "expected": [
+        "S1(exit)::S2(entry)::T4(effect)::S3(entry)"
+      ],
+      "reached": [
+        "S1(exit)::S2(entry)::T4(effect)::S3(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Deferred 002",
+      "area": "Deferred",
+      "class": "extension",
+      "bucket": "pass",
+      "expected": [
+        "S1(exit)::T4(effect)::S2(entry)::T6(effect)::S3(entry)"
+      ],
+      "reached": [
+        "S1(exit)::T4(effect)::S2(entry)::T6(effect)::S3(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Deferred 003",
+      "area": "Deferred",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)",
+        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)"
+      ],
+      "expected": [
+        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)"
+      ],
+      "reached": [
+        "S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Deferred 004 A",
+      "area": "Deferred",
+      "class": "extension",
+      "row": "SM7",
+      "rowKind": "differs, v2 silent",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)",
+        "admitted trace not reached: S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)",
+        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs, v2 silent"
+      ],
+      "expected": [
+        "S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)"
+      ],
+      "reached": [
+        "S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Deferred 004 B",
+      "area": "Deferred",
+      "class": "extension",
+      "row": "SM7",
+      "rowKind": "differs, v2 silent",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)",
+        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)",
+        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs, v2 silent"
+      ],
+      "expected": [
+        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)"
+      ],
+      "reached": [
+        "S2.1(exit)::T2.2(effect)::S1.1.1(exit)::S1.1(exit)::T1.1.2(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Deferred 005",
+      "area": "Deferred",
+      "class": "extension",
+      "bucket": "pass",
+      "expected": [
+        "T3(effect)::S2(entry)::T4(effect)::S2(entry)::T5(effect)::S2(entry)"
+      ],
+      "reached": [
+        "T3(effect)::S2(entry)::T4(effect)::S2(entry)::T5(effect)::S2(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Deferred 006 A",
+      "area": "Deferred",
+      "class": "extension",
+      "row": "SM15",
+      "rowKind": "differs because v2 differs",
+      "bucket": "pass",
+      "expected": [
+        "S2(doActivity-AnotherSignal)"
+      ],
+      "reached": [
+        "S2(doActivity-AnotherSignal)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Deferred 006 B",
+      "area": "Deferred",
+      "class": "extension",
+      "row": "SM15",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "admitted trace not reached: S2(doActivityPartI)::S2(doActivityPartII)",
+        "reports on SM15 (A do activity and the machine competing for one occurrence): differs because v2 differs"
+      ],
+      "expected": [
+        "",
+        "S2(doActivityPartI)::S2(doActivityPartII)"
+      ],
+      "reached": [
+        ""
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Deferred 006 C",
+      "area": "Deferred",
+      "class": "extension",
+      "row": "SM15",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "admitted trace not reached: S1.2(doActivity)::S1.1(doActivity)",
+        "reports on SM15 (A do activity and the machine competing for one occurrence): differs because v2 differs"
+      ],
+      "expected": [
+        "S1.1(doActivity)::S1.2(doActivity)",
+        "S1.2(doActivity)::S1.1(doActivity)"
+      ],
+      "reached": [
+        "S1.1(doActivity)::S1.2(doActivity)"
+      ],
+      "runs": 2
+    },
+    {
+      "name": "Deferred 007",
+      "area": "Deferred",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "operation result T4; tester trace this.testable.trace(formatParameterValue(false, this.testable.op(true)))"
+      ]
+    },
+    {
+      "name": "Redefinition 001",
+      "area": "Redefinition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "redefined state machine Redefinition001_Test_Redefinition$behavior$2; extended region Region1"
+      ]
+    },
+    {
+      "name": "Redefinition 002",
+      "area": "Redefinition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "redefined state machine Redefinition002_Test_Redefinition_Second$behavior$1; extended region Region1; extended region Region1; redefined transition T2"
+      ]
+    },
+    {
+      "name": "Redefinition 003",
+      "area": "Redefinition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "extended region Region1"
+      ]
+    },
+    {
+      "name": "Redefinition 004",
+      "area": "Redefinition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "redefined state machine Redefinition004_Test_Prime$behavior$1; extended region Region1; extended region Region1; redefined transition T1.2'; redefined transition T2'"
+      ]
+    },
+    {
+      "name": "Redefinition 005",
+      "area": "Redefinition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "redefined state machine Redefinition005_Test_Prime$behavior$1; extended region Region1; redefined transition T3'; redefined transition T2'"
+      ]
+    },
+    {
+      "name": "Redefinition 006",
+      "area": "Redefinition",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "extended region Region1; extended region Region1"
+      ]
+    },
+    {
+      "name": "History 001-A",
+      "area": "History",
+      "class": "extension",
+      "row": "SM28",
+      "rowKind": "differs, v2 silent",
+      "bucket": "fail",
+      "reasons": [
+        "run error: process event: transition out of S1: history S1_DeepHistory1 has no default transition and S1 has no recorded configuration: deep history S1_DeepHistory1 has no outgoing transitions",
+        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.2(entry)",
+        "reports on SM28 (History with nothing to restore): differs, v2 silent"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.2(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "History 001-B",
+      "area": "History",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)",
+        "admitted trace not reached: S1(entry)::T1.4(effect)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
+      ],
+      "expected": [
+        "S1(entry)::T1.4(effect)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
+      ],
+      "reached": [
+        "S1(entry)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "History 001-C",
+      "area": "History",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)",
+        "S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
+        "S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
+        "S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "History 001-D",
+      "area": "History",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "run error: process event: fire transition out of S1_S1_2: history DeepHistory1 must be declared inside the composite state it restores",
+        "admitted trace not reached: S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1(exit)::S2(entry)"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1(exit)::S2(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "History 002-A",
+      "area": "History",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "History 002-B",
+      "area": "History",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
+        "admitted trace not reached: S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)",
+        "S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
+        "S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "History 002-C",
+      "area": "History",
+      "class": "extension",
+      "row": "SM28",
+      "rowKind": "differs, v2 silent",
+      "bucket": "fail",
+      "reasons": [
+        "run error: process event: transition out of wait: history S1_ShallowHistory1 has no default transition and S1 has no recorded configuration: shallow history S1_ShallowHistory1 has no outgoing transitions",
+        "admitted trace not reached: S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)",
+        "reports on SM28 (History with nothing to restore): differs, v2 silent"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "History 002-D",
+      "area": "History",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::S1(exit)::T1.2(effect)",
+        "admitted trace not reached: S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::T1.2(effect)::S1(exit)::T3(effect)::S1(entry)::T1.3(effect)::S1.2(entry)::S1(exit)"
+      ],
+      "expected": [
+        "S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::T1.2(effect)::S1(exit)::T3(effect)::S1(entry)::T1.3(effect)::S1.2(entry)::S1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::S1(exit)::T1.2(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Junction 001",
+      "area": "Junction",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1(exit)",
+        "admitted trace not reached: S1(entry)::T1.1(effect)::T1.2(effect)::S1(exit)"
+      ],
+      "expected": [
+        "S1(entry)::T1.1(effect)::T1.2(effect)::S1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::T1.1(effect)::S1(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Junction 002",
+      "area": "Junction",
+      "class": "extension",
+      "row": "SM32",
+      "rowKind": "differs, v2 silent",
+      "bucket": "fail",
+      "reasons": [
+        "run error: process event: evaluate pseudostate: junction S1_Junction1: no guard evaluated to true",
+        "admitted trace not reached: T3(effect)",
+        "reports on SM32 (Junction with no path through): differs, v2 silent"
+      ],
+      "expected": [
+        "T3(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Junction 003",
+      "area": "Junction",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: T1.6(effect)",
+        "admitted trace not reached: T1.3(effect)::T3.1.1(effect)::T3.1.1.2(effect)::T1.6(effect)",
+        "admitted trace not reached: T1.4(effect)::T1.4.1(effect)::T1.8(effect)"
+      ],
+      "expected": [
+        "T1.3(effect)::T3.1.1(effect)::T3.1.1.2(effect)::T1.6(effect)",
+        "T1.4(effect)::T1.4.1(effect)::T1.8(effect)"
+      ],
+      "reached": [
+        "T1.6(effect)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Junction 004",
+      "area": "Junction",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)",
+        "admitted trace not reached: T3(effect)"
+      ],
+      "expected": [
+        "T3(effect)"
+      ],
+      "reached": [
+        "S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Junction 005",
+      "area": "Junction",
+      "class": "extension",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)",
+        "admitted trace not reached: S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)",
+        "admitted trace not reached: S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)",
+        "admitted trace not reached: S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
+      ],
+      "expected": [
+        "S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)",
+        "S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)",
+        "S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)"
+      ],
+      "runs": 1
+    },
+    {
+      "name": "Junction 006",
+      "area": "Junction",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "entry point EntryPoint1; exit point ExitPoint1"
+      ]
+    }
+  ]
+}
