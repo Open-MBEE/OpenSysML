@@ -113,7 +113,7 @@ func TestRegistriesDoNotSeeEachOther(t *testing.T) {
 }
 
 func TestDefaultHoldsTheBuildsEngines(t *testing.T) {
-	want := []string{ExploreEngineName, RunEngineName, SolveEngineName, SweepEngineName}
+	want := []string{CheckEngineName, ExploreEngineName, RunEngineName, SolveEngineName, SweepEngineName}
 	got := names(Default())
 	if len(got) != len(want) {
 		t.Fatalf("default engines %v, want %v", got, want)

@@ -227,7 +227,7 @@ type Witness struct {
 }
 
 // Evaluation is one thing the question asked for, as the engine established it: exactly
-// one of Value, Row, Explored and Solved is set, or Err when this unit failed.
+// one of Value, Row, Explored, Solved and Checked is set, or Err when this unit failed.
 type Evaluation struct {
 	// Name is the feature, output, row or query the evaluation is of.
 	Name string
@@ -239,6 +239,8 @@ type Evaluation struct {
 	Explored *runtime.Exploration
 	// Solved is a solver's answer to one query.
 	Solved *solve.Result
+	// Checked is what a search of an action's schedules found, with its witnesses written.
+	Checked *Checked
 	// Err is what failed this unit.
 	Err error
 }
@@ -339,6 +341,16 @@ func (r Result) Exploration() *runtime.Exploration {
 	for _, v := range r.Values {
 		if v.Explored != nil {
 			return v.Explored
+		}
+	}
+	return nil
+}
+
+// Check is what the check engine found, nil for another engine's result.
+func (r Result) Check() *Checked {
+	for _, v := range r.Values {
+		if v.Checked != nil {
+			return v.Checked
 		}
 	}
 	return nil

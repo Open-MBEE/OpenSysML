@@ -141,7 +141,7 @@ func TestToolsFromEnvRegisterEachEntry(t *testing.T) {
 		ToolEntry{ToolName: "Zed", Version: "9", Executable: present, Variables: []string{"x"}},
 		ToolEntry{ToolName: "Absent", Executable: absent, Variables: []string{"x"}},
 	))
-	want := []string{ExploreEngineName, RunEngineName, SolveEngineName, SweepEngineName, "tool:Absent", "tool:Zed"}
+	want := []string{CheckEngineName, ExploreEngineName, RunEngineName, SolveEngineName, SweepEngineName, "tool:Absent", "tool:Zed"}
 	if got := names(r); strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("engines %v, want %v", got, want)
 	}
@@ -186,8 +186,8 @@ func TestToolRegistrationIsIsolatedAndUnique(t *testing.T) {
 	if err := second.Register(NewTool(entry)); err != nil {
 		t.Fatalf("tool:MC in another registry: %v", err)
 	}
-	if got := names(first); len(got) != 5 {
-		t.Errorf("first registry %v, want the build's four engines and tool:MC", got)
+	if got := names(first); len(got) != 6 {
+		t.Errorf("first registry %v, want the build's five engines and tool:MC", got)
 	}
 	if got := names(second); strings.Join(got, ",") != RunEngineName+",tool:MC" {
 		t.Errorf("second registry %v, want run and tool:MC", got)

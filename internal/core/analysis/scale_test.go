@@ -70,6 +70,12 @@ func TestEveryEngineClaimStrengthPair(t *testing.T) {
 			return answered(t, Default(), f.building(), q, budget)
 		}
 	}
+	race := f.checked(t, "race")
+	checking := func(kind Kind, budget Budget, props ...runtime.CheckProperty) func(t *testing.T) Plan {
+		return func(t *testing.T) Plan {
+			return answered(t, Default(), f.building(), checkQuestion(t, f, kind, &CheckAsk{Start: race.start, Properties: props}), budget)
+		}
+	}
 	solving := func(status solve.Status, reason string, optima ...solve.Optimum) func(t *testing.T) Plan {
 		return func(t *testing.T) Plan {
 			r, q := scriptedSolver(t, func(query *solve.Query) *solve.Result {
@@ -104,6 +110,10 @@ func TestEveryEngineClaimStrengthPair(t *testing.T) {
 		})},
 		{ExploreEngineName, ClaimOutcomes, Proved, "outcomes (proved over schedules: 6 linearizations, inputs as written)", exploration(Budget{})},
 		{ExploreEngineName, ClaimOutcomes, Observed, "outcomes (observed: 1 linearization, inputs as written, runs=1 (reached))", exploration(Budget{Runs: 1})},
+		{CheckEngineName, ClaimOutcomes, Bounded, "outcomes (bounded over schedules: 18 states, 23 moves searched)", checking(Outcomes, Budget{})},
+		{CheckEngineName, ClaimOutcomes, Bounded, "outcomes (bounded over schedules: 2 states, 2 moves searched, states=2 (reached))", checking(Outcomes, Budget{Runs: 2})},
+		{CheckEngineName, ClaimHolds, Bounded, "holds (bounded over schedules: 18 states, 23 moves searched)", checking(Holds, Budget{}, race.x(3))},
+		{CheckEngineName, ClaimViolated, Witnessed, "violated (witnessed: 18 states, 23 moves searched, witness of 2 choices replayed)", checking(Holds, Budget{}, race.x(2))},
 		{SweepEngineName, ClaimTable, Observed, "table (observed: 3 rows)", func(t *testing.T) Plan {
 			ctx := f.context(t)
 			q := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f)}}

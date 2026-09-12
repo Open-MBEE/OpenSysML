@@ -160,7 +160,9 @@ type CheckReport struct {
 	MaxDepth int
 	// BoundsHit names the bounds the search ran into: `depth`, `states`, and the
 	// executor's budgets by name (`steps`, `elements`); none when exhaustive.
-	BoundsHit  []string
+	BoundsHit []string
+	// Limits are the executor's budgets the search ran under.
+	Limits     Budgets
 	Violations []Violation
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
@@ -649,6 +651,7 @@ func (c *checker) result() *CheckReport {
 		Moves:      c.moves,
 		MaxDepth:   c.maxDepth,
 		BoundsHit:  c.bounds,
+		Limits:     c.ctx.Budgets(),
 		Violations: c.violations,
 		Finals:     slices.Clone(c.results),
 	}

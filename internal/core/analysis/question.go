@@ -104,6 +104,9 @@ type Question struct {
 	Solve *SolveAsk
 	// Compute is the tool invocation a Compute question asks for.
 	Compute *ComputeAsk
+	// Check is the action an Outcomes or Holds question asks the check engine to
+	// search the schedules of, with what must hold and what may not diverge.
+	Check *CheckAsk
 }
 
 // Performance makes one execution in the given context and reports what it established.
