@@ -25,7 +25,7 @@ package Plant {
 		state off;
 		state on;
 		transition off_on first off then on { @Route { points = (50, 10, 50, 90); } }
-		transition first on then off;
+		transition first on then off { @Route { points = (30, 90, 30, 10); } }
 	}
 
 	action def Drive {

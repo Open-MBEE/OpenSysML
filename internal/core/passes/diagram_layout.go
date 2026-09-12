@@ -182,8 +182,15 @@ func layoutTypeName(fqn string) string {
 	return fqn[strings.LastIndex(fqn, "::")+2:]
 }
 
-// describe names an element as the notation declares it: "part def Kit::Cog".
+// describe names an element as the notation declares it: "part def Kit::Cog",
+// or "an unnamed transition of state def Kit::Motor".
 func (c *layoutChecker) describe(sym *symbols.Symbol) string {
+	if sym.Name == "" {
+		if sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil {
+			return "an unnamed " + sym.Notation() + " of " + c.describe(sym.OwnerScope.Owner())
+		}
+		return "an unnamed " + sym.Notation()
+	}
 	name := c.fqn(sym)
 	if name == "" {
 		name = sym.Name

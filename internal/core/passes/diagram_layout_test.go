@@ -88,6 +88,24 @@ func TestDiagramLayoutOddRoutePointsIsAnError(t *testing.T) {
 		"connection P::Loop::supply: Route binds 3 values", "x, y pairs")
 }
 
+// An unnamed transition is an anonymous member of its state, so the Route in
+// its body is checked like a named one's and named by the state it belongs to.
+func TestDiagramLayoutOddRoutePointsOnAnUnnamedTransitionIsAnError(t *testing.T) {
+	src := layoutModel(`	state def Machine {
+		state off;
+		state on;
+		transition first off then on { @Route { points = (0, 0, 10, 10); } }
+		transition first on then off { @Route { points = (0, 0, 10); } }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], SeverityError, "diagram-layout-value", 8,
+		"an unnamed transition of state def P::Machine: Route binds 3 values", "x, y pairs")
+}
+
 // A binding the model cannot evaluate is the metadata annotation check's report at
 // the type tier; one it evaluates to something other than the geometry's kind is
 // reported here.

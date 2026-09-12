@@ -187,14 +187,19 @@ has no geometry.
 The state and action renderings draw the lowered `StateGraph` and `ActionGraph`, so their
 nodes are lowered declarations; each graph maps a lowered node back to the declaration
 it came from (`StateGraph.DeclOf`), and the renderer resolves that declaration to its
-symbol through the scopes — never by re-parsing source text. A usage typed by a
-definition of another document inherits that definition's states and transitions, so
-the state machine is lowered through the name-resolution tier
-(`lower.NewLibraryStateTypes`), as the runtime lowers it, and the inherited declarations
-keep their inline annotations and take the view's. An action usage's graph is its own
-successions over the nodes they name, inherited ones included; the lowering finds
-those through the scope tree, so a definition in another document is out of its reach,
-which the rendering reports as a notice rather than drawing a partial flow.
+symbol through the scopes — never by re-parsing source text. That holds for an unnamed
+transition too: `transition first off then on { @Route { … } }` has no name to state a
+`Route` `about`, so the annotation lives in its body, and a transition with a body is
+an anonymous member of its state (a `TransitionUsage` is a feature of the state that
+declares it, SysML v2 §7.19.2) that the rendering and the validation pass both find
+by its declaration. A usage typed by a definition of another document inherits that
+definition's states and transitions, so the state machine is lowered through the
+name-resolution tier (`lower.NewLibraryStateTypes`), as the runtime lowers it, and the
+inherited declarations keep their inline annotations and take the view's. An action
+usage's graph is its own successions over the nodes they name, inherited ones included;
+the lowering finds those through the scope tree, so a definition in another document is
+out of its reach, which the rendering reports as a notice rather than drawing a partial
+flow.
 
 ### Validation (a constraint-tier pass)
 

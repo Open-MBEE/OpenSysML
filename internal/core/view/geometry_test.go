@@ -77,7 +77,8 @@ func TestConnectionRouteComesFromTheView(t *testing.T) {
 }
 
 // A transition's Route, written in its body, routes the edge the lowered state
-// graph gives it; the states are placed by the view's Layouts.
+// graph gives it, whether or not the transition is named; the states are placed
+// by the view's Layouts.
 func TestTransitionRouteAndStateLayoutReachTheStateRendering(t *testing.T) {
 	rendering := render(t, "layout.sysml", "PlantViews::machineView")
 	off := findNode(t, rendering.Roots, "off")
@@ -88,12 +89,14 @@ func TestTransitionRouteAndStateLayoutReachTheStateRendering(t *testing.T) {
 	if want := (&Geometry{X: 0, Y: 100, Width: 80, Height: 40, HasSize: true}); !reflect.DeepEqual(on.Geometry, want) {
 		t.Errorf("on geometry = %+v, want %+v", on.Geometry, want)
 	}
-	routed := routedEdges(rendering)
-	if len(routed) != 1 || routed[0].From != off.ID || routed[0].To != on.ID {
-		t.Fatalf("routed edges = %+v, want the one from off to on", routed)
+	if routed := routedEdges(rendering); len(routed) != 2 {
+		t.Fatalf("routed edges = %+v, want the named off_on and the unnamed on to off", routed)
 	}
-	if want := []Point{{50, 10}, {50, 90}}; !reflect.DeepEqual(routed[0].Route, want) {
-		t.Errorf("route = %v, want %v", routed[0].Route, want)
+	if got, want := routeBetween(rendering, off.ID, on.ID), []Point{{50, 10}, {50, 90}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("route of off_on = %v, want %v", got, want)
+	}
+	if got, want := routeBetween(rendering, on.ID, off.ID), []Point{{30, 90}, {30, 10}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("route of the unnamed transition = %v, want %v", got, want)
 	}
 }
 
@@ -134,9 +137,14 @@ func TestInheritedStatesKeepTheirGeometry(t *testing.T) {
 	if on.Geometry != nil {
 		t.Errorf("on geometry = %+v, want none in this view", on.Geometry)
 	}
-	if got := routedEdges(machine); len(got) != 1 || got[0].From != off.ID || got[0].To != on.ID ||
-		!reflect.DeepEqual(got[0].Route, []Point{{50, 10}, {50, 90}}) {
-		t.Errorf("routed edges = %+v, want the inline route from off to on", got)
+	if got := routedEdges(machine); len(got) != 2 {
+		t.Errorf("routed edges = %+v, want the inline routes of both transitions", got)
+	}
+	if got, want := routeBetween(machine, off.ID, on.ID), []Point{{50, 10}, {50, 90}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("route of off_on = %v, want the inline %v", got, want)
+	}
+	if got, want := routeBetween(machine, on.ID, off.ID), []Point{{30, 90}, {30, 10}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("route of the unnamed transition = %v, want the inline %v", got, want)
 	}
 }
 
@@ -159,6 +167,17 @@ func TestInheritedActionNodesKeepTheirGeometry(t *testing.T) {
 		!reflect.DeepEqual(got[0].Route, []Point{{1, 2}, {3, 4}}) {
 		t.Errorf("routed edges = %+v, want the usage's route from provide to park", got)
 	}
+}
+
+// routeBetween is the route of the edge from one node to another, nil when
+// the rendering draws none.
+func routeBetween(rendering *Rendering, from, to string) []Point {
+	for _, edge := range rendering.Edges {
+		if edge.From == from && edge.To == to {
+			return edge.Route
+		}
+	}
+	return nil
 }
 
 // routedEdges are the edges of a rendering that carry a route.
