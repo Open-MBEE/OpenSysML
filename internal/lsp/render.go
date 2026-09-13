@@ -92,6 +92,7 @@ type renderEdge struct {
 	To     string        `json:"to"`
 	Label  string        `json:"label"`
 	Kind   string        `json:"kind"`
+	FQN    string        `json:"fqn,omitempty"`
 	Origin *renderOrigin `json:"origin,omitempty"`
 	Route  []renderPoint `json:"route,omitempty"`
 }
@@ -288,6 +289,13 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			Label:  edge.Label,
 			Kind:   edge.Kind.String(),
 			Origin: origin(edge.Origin),
+		}
+		if edge.Origin.Doc == name {
+			if sym := nodeSymbol(doc.Scope, edge.Origin); sym != nil {
+				if _, ok := nodeOwners(sym); ok {
+					e.FQN = notationName(sym)
+				}
+			}
 		}
 		for _, p := range edge.Route {
 			e.Route = append(e.Route, renderPoint{X: p.X, Y: p.Y})

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -61,10 +62,23 @@ func loadContent(t *testing.T, name, content string) Model {
 func loadWorkspace(t *testing.T, name, content string, siblings map[string]string) Model {
 	t.Helper()
 	m := loadContent(t, name, content)
+	parsed := map[string]*ast.RootNamespace{}
 	for sibling, text := range siblings {
-		m.Index.AddDocument(sibling, parser.New(source.New(sibling, []byte(text))).ParseFile())
+		parsed[sibling] = parser.New(source.New(sibling, []byte(text))).ParseFile()
+		m.Index.AddDocument(sibling, parsed[sibling])
 	}
+	m.Index.AddDocument(name, m.Root)
 	m.Index.ExpandWildcardImports()
+	if len(m.ParseDiags) == 0 {
+		m.SemDiags = passes.Analyze(name, m.Root, nil, m.Index)
+	}
+	m.NewIndex = func() *symbols.Index {
+		idx := libraryIndex(t)
+		for sibling, root := range parsed {
+			idx.AddDocument(sibling, root)
+		}
+		return idx
+	}
 	return m
 }
 

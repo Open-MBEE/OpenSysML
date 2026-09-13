@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -30,6 +31,9 @@ const (
 	EditAddMember     = "addMember"
 	EditAddConnection = "addConnection"
 	EditDelete        = "delete"
+	EditSetLayout     = "setLayout"
+	EditSetRoute      = "setRoute"
+	EditSetCanvas     = "setCanvas"
 )
 
 // applyModelEditParams asks for the operations to be applied to the document as
@@ -43,20 +47,43 @@ type applyModelEditParams struct {
 // modelEditOperation is one modeledit.Operation on the wire. Kind selects the
 // operation; the other fields are read as that operation reads them. Elements
 // are named by qualified name, as a rendering's nodes report them.
+//
+// The DiagramLayout kinds place what a rendering draws: setLayout writes the
+// Layout of the node Target, setRoute the Route of the edge Target, setCanvas
+// the Canvas of the view Target. View names the view whose body states a Layout
+// or Route, so it applies in that view alone; left empty, the annotation goes
+// inline into Target's declaration and applies in every view. A setLayout with
+// no Layout, a setRoute with no or an empty Route and a setCanvas with no Canvas
+// clear the annotation.
 type modelEditOperation struct {
-	Kind         string   `json:"kind"`
-	Target       string   `json:"target,omitempty"`
-	Value        string   `json:"value,omitempty"`
-	NewName      string   `json:"newName,omitempty"`
-	Owner        string   `json:"owner,omitempty"`
-	MemberKind   string   `json:"memberKind,omitempty"`
-	Name         string   `json:"name,omitempty"`
-	Type         string   `json:"type,omitempty"`
-	Multiplicity string   `json:"multiplicity,omitempty"`
-	Specializes  []string `json:"specializes,omitempty"`
-	From         string   `json:"from,omitempty"`
-	To           string   `json:"to,omitempty"`
-	Cascade      bool     `json:"cascade,omitempty"`
+	Kind         string           `json:"kind"`
+	Target       string           `json:"target,omitempty"`
+	Value        string           `json:"value,omitempty"`
+	NewName      string           `json:"newName,omitempty"`
+	Owner        string           `json:"owner,omitempty"`
+	MemberKind   string           `json:"memberKind,omitempty"`
+	Name         string           `json:"name,omitempty"`
+	Type         string           `json:"type,omitempty"`
+	Multiplicity string           `json:"multiplicity,omitempty"`
+	Specializes  []string         `json:"specializes,omitempty"`
+	From         string           `json:"from,omitempty"`
+	To           string           `json:"to,omitempty"`
+	Cascade      bool             `json:"cascade,omitempty"`
+	View         string           `json:"view,omitempty"`
+	Layout       *modelEditLayout `json:"layout,omitempty"`
+	Route        []renderPoint    `json:"route,omitempty"`
+	Canvas       *renderCanvas    `json:"canvas,omitempty"`
+}
+
+// modelEditLayout is a node's geometry as setLayout writes it, in the units
+// opensysml/render reports: pixels, y down. Width and Height are written both
+// or neither; Collapsed is written only when set.
+type modelEditLayout struct {
+	X         float64  `json:"x"`
+	Y         float64  `json:"y"`
+	Width     *float64 `json:"width,omitempty"`
+	Height    *float64 `json:"height,omitempty"`
+	Collapsed bool     `json:"collapsed,omitempty"`
 }
 
 // applyModelEditResult is exactly one of: an edit to apply, the refusals that
@@ -189,9 +216,60 @@ func (op modelEditOperation) operation() (modeledit.Operation, error) {
 		return out, nil
 	case EditDelete:
 		return modeledit.Delete(op.Target, op.Cascade), nil
+	case EditSetLayout:
+		layout, err := op.Layout.layout()
+		if err != nil {
+			return modeledit.Operation{}, err
+		}
+		return modeledit.SetLayout(op.Target, op.View, layout), nil
+	case EditSetRoute:
+		var route *semantics.Route
+		if len(op.Route) > 0 {
+			route = &semantics.Route{Points: make([]semantics.Waypoint, len(op.Route))}
+			for i, p := range op.Route {
+				route.Points[i] = semantics.Waypoint{X: p.X, Y: p.Y}
+			}
+		}
+		return modeledit.SetRoute(op.Target, op.View, route), nil
+	case EditSetCanvas:
+		canvas, err := op.Canvas.canvas()
+		if err != nil {
+			return modeledit.Operation{}, err
+		}
+		return modeledit.SetCanvas(op.Target, canvas), nil
 	}
 	return modeledit.Operation{}, fmt.Errorf("kind %q is none of %s", op.Kind,
-		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete}, ", "))
+		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete, EditSetLayout, EditSetRoute, EditSetCanvas}, ", "))
+}
+
+// layout reads the wire geometry as the edit layer writes it; nil clears.
+func (l *modelEditLayout) layout() (*semantics.Layout, error) {
+	if l == nil {
+		return nil, nil
+	}
+	if (l.Width == nil) != (l.Height == nil) {
+		return nil, errors.New("a layout sizes its node with both width and height or with neither")
+	}
+	out := &semantics.Layout{X: l.X, Y: l.Y, Collapsed: l.Collapsed}
+	if l.Width != nil {
+		out.Width, out.Height, out.HasSize = *l.Width, *l.Height, true
+	}
+	return out, nil
+}
+
+// canvas reads the wire canvas as the edit layer writes it; nil clears.
+func (c *renderCanvas) canvas() (*semantics.Canvas, error) {
+	if c == nil {
+		return nil, nil
+	}
+	if (c.Width == nil) != (c.Height == nil) {
+		return nil, errors.New("a canvas sizes the drawing surface with both width and height or with neither")
+	}
+	out := &semantics.Canvas{Unit: c.Unit}
+	if c.Width != nil {
+		out.Width, out.Height, out.HasSize = *c.Width, *c.Height, true
+	}
+	return out, nil
 }
 
 // refusal reports an edit refusal to the client. Diagnostics of the edited

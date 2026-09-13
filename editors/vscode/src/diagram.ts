@@ -9,6 +9,7 @@ import {
   endpointPath,
   offeredOn,
   ownerOf,
+  placementOperations,
   REDRAWN_MESSAGE,
   Rendering,
   rootOwner,
@@ -19,9 +20,11 @@ import {
   APPLY_MODEL_EDIT_CAPABILITY,
   APPLY_MODEL_EDIT_METHOD,
   ApplyModelEditResult,
+  EdgePlacement,
   EditAction,
   FromWebview,
   ModelEditOperation,
+  NodePlacement,
   PickerEntry,
   RENDER_CAPABILITY,
   RENDER_CHANGED_METHOD,
@@ -49,6 +52,13 @@ const PSEUDO_VIEW_LABELS: Record<string, string> = {
   sequence: "Message sequence",
 };
 
+// The file an exported rendering is saved as, by the form the server wrote.
+const EXPORT_FORMS: Record<string, { extension: string; filter: string }> = {
+  mermaid: { extension: ".mmd", filter: "Mermaid" },
+  markdown: { extension: ".md", filter: "Markdown" },
+  text: { extension: ".txt", filter: "Text" },
+};
+
 // This is the historical set for servers that predate the pseudoViews field; do not grow it.
 const HISTORICAL_PSEUDO_VIEWS = ["#tree", "#interconnection", "#state", "#action", "#table"];
 
@@ -71,7 +81,7 @@ function pseudoViewEntries(specs: string[] | undefined): PickerEntry[] {
 export class DiagramPanels implements vscode.Disposable {
   private readonly panels = new Map<string, DiagramPanel>();
   private readonly disposables: vscode.Disposable[] = [];
-  private command: vscode.Disposable | undefined;
+  private commands: vscode.Disposable[] = [];
   private notification: vscode.Disposable | undefined;
   private client: LanguageClient | undefined;
 
@@ -115,7 +125,10 @@ export class DiagramPanels implements vscode.Disposable {
       return;
     }
     this.client = client;
-    this.command = vscode.commands.registerCommand("opensysml.openDiagram", () => this.open());
+    this.commands = [
+      vscode.commands.registerCommand("opensysml.openDiagram", () => this.open()),
+      vscode.commands.registerCommand("opensysml.exportDiagram", () => this.export(client)),
+    ];
     this.notification = client.onNotification(RENDER_CHANGED_METHOD, (params: RenderChangedParams) => {
       this.panels.get(vscode.Uri.parse(params.textDocument.uri).toString())?.refresh();
     });
@@ -130,8 +143,10 @@ export class DiagramPanels implements vscode.Disposable {
     this.client = undefined;
     this.notification?.dispose();
     this.notification = undefined;
-    this.command?.dispose();
-    this.command = undefined;
+    for (const command of this.commands) {
+      command.dispose();
+    }
+    this.commands = [];
     void vscode.commands.executeCommand("setContext", SUPPORTED_KEY, false);
   }
 
@@ -165,6 +180,41 @@ export class DiagramPanels implements vscode.Disposable {
       { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")] },
     );
     this.adopt(editor.document.uri, panel, "");
+  }
+
+  /**
+   * export writes the machine form of the active document's diagram — Mermaid
+   * for a diagram, Markdown for a table — to a file the user picks: the view
+   * its panel shows when one is open, else the document's own.
+   */
+  private async export(client: LanguageClient): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || !isModel(editor.document)) {
+      void vscode.window.showInformationMessage("Open a .sysml or .kerml file to export a diagram of it.");
+      return;
+    }
+    const view = this.panels.get(editor.document.uri.toString())?.selectedView();
+    let result: RenderResult;
+    try {
+      result = await client.sendRequest<RenderResult>(RENDER_METHOD, {
+        textDocument: { uri: editor.document.uri.toString() },
+        view: view === undefined || view === "" ? undefined : view,
+      });
+    } catch (err) {
+      void vscode.window.showErrorMessage(`Rendering ${basename(editor.document.uri)} failed: ${errorMessage(err)}`);
+      return;
+    }
+    const { extension, filter } = EXPORT_FORMS[result.form] ?? { extension: ".txt", filter: "Text" };
+    const stem = basename(editor.document.uri).replace(/\.(sysml|kerml)$/, "");
+    const target = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.joinPath(editor.document.uri, "..", `${stem}${extension}`),
+      filters: { [filter]: [extension.slice(1)] },
+    });
+    if (!target) {
+      return;
+    }
+    await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(result.artifact));
+    this.output.appendLine(`Exported ${result.form} of ${basename(editor.document.uri)} to ${target.fsPath}`);
   }
 
   // adopt takes ownership of a panel, whether it was just created or restored.
@@ -215,6 +265,11 @@ class DiagramPanel {
 
   reveal(): void {
     this.panel.reveal(vscode.ViewColumn.Beside, true);
+  }
+
+  /** selectedView is the view the panel draws, "" for the document's own. */
+  selectedView(): string {
+    return this.selected;
   }
 
   dispose(): void {
@@ -301,7 +356,13 @@ class DiagramPanel {
       if (!supportsEdit(client)) {
         delete result.palette;
       }
-      this.rendering = { nodes: result.nodes ?? [], version: result.version, palette: result.palette };
+      this.rendering = {
+        nodes: result.nodes ?? [],
+        edges: result.edges ?? [],
+        view: result.view,
+        version: result.version,
+        palette: result.palette,
+      };
       this.post({ type: "render", result, selected: this.selected });
       this.highlightActive();
     } catch (err) {
@@ -358,6 +419,9 @@ class DiagramPanel {
       case "edit":
         void this.edit(message.action, message.version);
         return;
+      case "place":
+        void this.place(message.nodes, message.edges, message.version);
+        return;
       case "failed":
         this.fail(message.message);
         return;
@@ -395,6 +459,23 @@ class DiagramPanel {
       return;
     }
     await this.apply(rendering, operations, action);
+  }
+
+  // place writes where a drag left nodes and edges into the model as one edit, so
+  // the whole gesture is one undo step. A stale version is redrawn, not applied.
+  private async place(nodes: NodePlacement[], edges: EdgePlacement[], version: number): Promise<void> {
+    const rendering = this.rendering;
+    if (!offeredOn(rendering, version)) {
+      this.refresh();
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return;
+    }
+    const operations = placementOperations(rendering, nodes, edges);
+    if (!operations || operations.length === 0) {
+      this.refresh();
+      return;
+    }
+    await this.apply(rendering, operations, { kind: "place" });
   }
 
   private async operationsFor(rendering: Rendering, action: EditAction): Promise<ModelEditOperation[] | undefined> {
@@ -556,7 +637,7 @@ class DiagramPanel {
     return rendering.nodes.find((node) => node.id === id);
   }
 
-  private async apply(rendering: Rendering, operations: ModelEditOperation[], action: EditAction): Promise<void> {
+  private async apply(rendering: Rendering, operations: ModelEditOperation[], action: AppliedAction): Promise<void> {
     const client = this.client();
     if (!client || !supportsEdit(client)) {
       this.fail("The language server does not serve model edits.");
@@ -597,11 +678,15 @@ class DiagramPanel {
     }
   }
 
-  // A delete refused for references is offered again as a cascade; anything else is just told.
-  private async refused(rendering: Rendering, result: ApplyModelEditResult, action: EditAction): Promise<void> {
+  // A delete refused for references is offered again as a cascade; anything else is
+  // just told, and a refused placement is redrawn so the canvas shows the model again.
+  private async refused(rendering: Rendering, result: ApplyModelEditResult, action: AppliedAction): Promise<void> {
     const refused = result.refused ?? [];
     const message = describeRefusal(refused);
     this.output.appendLine(`Model edit refused:\n${message}`);
+    if (action.kind === "place") {
+      this.refresh();
+    }
     if (action.kind === "delete" && refused.some((refusal) => refusal.failure === "delete-referenced")) {
       const referring = refused.flatMap((refusal) => refusal.referring ?? []);
       const answer = await vscode.window.showWarningMessage(
@@ -626,6 +711,9 @@ class DiagramPanel {
     }
   }
 }
+
+/** AppliedAction is what an edit was made for: a menu or palette action, or a drag on the canvas. */
+type AppliedAction = EditAction | { kind: "place" };
 
 /** supportsEdit reports whether the server advertised the model-edit capability. */
 function supportsEdit(client: LanguageClient): boolean {
@@ -667,7 +755,7 @@ function errorMessage(err: unknown): string {
 /**
  * html is the panel's document. Scripts are the bundled webview script alone,
  * allowed by nonce, and nothing is loaded from the network: the diagram is drawn
- * by the Mermaid bundled into the extension.
+ * as SVG by that script.
  */
 function html(
   webview: vscode.Webview,
@@ -710,13 +798,30 @@ function html(
       #menu li.separator { height: 0; padding: 0; margin: 0.25rem 0; border-top: 1px solid var(--vscode-menu-separatorBackground, var(--vscode-widget-border)); cursor: default; }
       #menu li.title { opacity: 0.7; cursor: default; font-size: 0.9em; }
       #diagram.stale { opacity: 0.45; }
-      #diagram svg { max-width: 100%; height: auto; }
+      #diagram svg { display: block; font-family: var(--vscode-font-family); user-select: none; touch-action: none; }
+      #diagram svg.dragging { cursor: grabbing; }
       #diagram g.opensysml-node { cursor: pointer; }
-      /* Mermaid injects its own stylesheet into the SVG, so the highlight has to
-         win over it. */
-      #diagram .opensysml-selected > rect, #diagram .opensysml-selected > polygon,
-      #diagram .opensysml-selected > circle, #diagram .opensysml-selected > path {
-        stroke: var(--vscode-focusBorder) !important; stroke-width: 3px !important;
+      #diagram g.opensysml-node.movable { cursor: grab; }
+      #diagram .shape { fill: var(--vscode-editorWidget-background, var(--vscode-editor-background)); stroke: var(--vscode-foreground); stroke-width: 1.25px; }
+      #diagram .shape.container { fill: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
+      #diagram .shape.filled { fill: var(--vscode-foreground); }
+      #diagram .label { fill: var(--vscode-foreground); }
+      #diagram .label .head { font-weight: 600; }
+      #diagram .label .keyword { font-size: 0.85em; opacity: 0.8; }
+      #diagram .label .detail { font-size: 0.9em; opacity: 0.9; }
+      #diagram .collapsed { fill: var(--vscode-foreground); opacity: 0.7; }
+      #diagram .line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
+      #diagram .lifeline { stroke: var(--vscode-foreground); stroke-width: 1px; stroke-dasharray: 6 4; opacity: 0.6; }
+      #diagram .flow .line { stroke-dasharray: 5 4; }
+      #diagram .arrow-fill { fill: var(--vscode-foreground); }
+      #diagram .arrow-line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
+      #diagram .edge-label { fill: var(--vscode-foreground); font-size: 0.85em; paint-order: stroke; stroke: var(--vscode-editor-background); stroke-width: 3px; stroke-linejoin: round; }
+      #diagram .waypoint { fill: var(--vscode-editor-background); stroke: var(--vscode-focusBorder); stroke-width: 1.5px; cursor: move; }
+      #diagram .segment { fill: var(--vscode-focusBorder); opacity: 0; cursor: copy; }
+      #diagram .segment:hover, #diagram .waypoint:hover { opacity: 1; }
+      #diagram svg:hover .segment { opacity: 0.45; }
+      #diagram .opensysml-selected > .shape, #diagram .opensysml-selected > g.shape > circle {
+        stroke: var(--vscode-focusBorder); stroke-width: 3px;
       }
       details { margin-top: 0.75rem; font-size: 0.9em; }
       pre { white-space: pre-wrap; }

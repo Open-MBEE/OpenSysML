@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -31,6 +32,8 @@ const (
 	OpDelete
 	// OpAddConnection inserts a connector-like usage joining two features.
 	OpAddConnection
+	// OpSetLayout writes, updates or clears a DiagramLayout annotation.
+	OpSetLayout
 )
 
 // Operation is one change to make to a model's source.
@@ -57,6 +60,17 @@ type Operation struct {
 	From    string
 	To      string
 	Cascade bool
+	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
+	// (semantics.LayoutFQN, RouteFQN or CanvasFQN). View names the view whose
+	// body states it about Target; empty, the annotation is inline on Target
+	// and applies in every view.
+	Annotation string
+	View       string
+	// The geometry to write, the one Annotation names; all nil clears the
+	// annotation.
+	Layout *semantics.Layout
+	Route  *semantics.Route
+	Canvas *semantics.Canvas
 }
 
 // SetValue is an operation setting target's value to the expression value.
@@ -84,6 +98,24 @@ func Delete(target string, cascade bool) Operation {
 // name may be empty for an anonymous connection.
 func AddConnection(owner, kind, from, to, name string) Operation {
 	return Operation{Kind: OpAddConnection, Owner: owner, MemberKind: kind, From: from, To: to, MemberName: name}
+}
+
+// SetLayout is an operation placing target in view — inline on target when
+// view is empty — or clearing its position when layout is nil.
+func SetLayout(target, view string, layout *semantics.Layout) Operation {
+	return Operation{Kind: OpSetLayout, Target: target, View: view, Annotation: semantics.LayoutFQN, Layout: layout}
+}
+
+// SetRoute is an operation steering the edge target through route's waypoints in
+// view — inline on target when view is empty — or clearing them when route is nil.
+func SetRoute(target, view string, route *semantics.Route) Operation {
+	return Operation{Kind: OpSetLayout, Target: target, View: view, Annotation: semantics.RouteFQN, Route: route}
+}
+
+// SetCanvas is an operation sizing the drawing surface of view, or clearing its
+// size when canvas is nil.
+func SetCanvas(view string, canvas *semantics.Canvas) Operation {
+	return Operation{Kind: OpSetLayout, Target: view, Annotation: semantics.CanvasFQN, Canvas: canvas}
 }
 
 // Model is a parsed model to edit: the source that was read, its parse, and the
@@ -277,6 +309,9 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 			return nil, err
 		}
 		return []splice{sp}, nil
+	}
+	if op.Kind == OpSetLayout {
+		return m.layoutSplices(i, op)
 	}
 	if op.Kind == OpDelete {
 		deletes, err := m.deleteSplices(i, op)

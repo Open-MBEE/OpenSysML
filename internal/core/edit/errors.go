@@ -48,6 +48,16 @@ const (
 	// FailureReferencedElsewhere is a delete or rename of a declaration that
 	// another document refers to, which an edit of this one cannot follow.
 	FailureReferencedElsewhere
+	// FailureNotAView is a layout view, or a Canvas target, that is no view.
+	FailureNotAView
+	// FailureNotExposed is a view-local layout of an element the view does not
+	// expose.
+	FailureNotExposed
+	// FailureNotDrawn is a layout of an element no rendering draws as the node
+	// or edge the annotation positions.
+	FailureNotDrawn
+	// FailureNotAnnotated is a clearing of an annotation that is not there.
+	FailureNotAnnotated
 )
 
 var failureNames = map[Failure]string{
@@ -68,6 +78,10 @@ var failureNames = map[Failure]string{
 	FailureMemberNameTaken:     "member-name-taken",
 	FailureDeleteReferenced:    "delete-referenced",
 	FailureReferencedElsewhere: "referenced-elsewhere",
+	FailureNotAView:            "not-a-view",
+	FailureNotExposed:          "not-exposed",
+	FailureNotDrawn:            "not-drawn",
+	FailureNotAnnotated:        "not-annotated",
 }
 
 // String returns the lowercase name of the failure, or "unknown".

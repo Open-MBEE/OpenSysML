@@ -155,7 +155,9 @@ A node placed by `metadata Layout about cog { x = 120; y = 80; width = 90; heigh
 in the view's body arrives as
 `{ "id": "n1", …, "x": 120, "y": 80, "width": 90, "height": 40 }`; the `artifact`
 carries the same geometry in the writer's own notation (`%% layout: n1 x=120 y=80 w=90 h=40`
-in Mermaid, `at (120, 80) size 90×40` in text). See
+in Mermaid, `at (120, 80) size 90×40` in text). A client that lets the user drag the
+node writes the position back with `opensysml/applyModelEdit`'s `setLayout`, so the
+rendering it gets next carries the new `x` and `y`. See
 [Diagram layout annotations](../project/diagram-layout-annotations.md) for how a
 position is resolved when a view and the element itself both state one.
 
@@ -320,10 +322,20 @@ operation and its fields beside it:
 | `addMember` | `owner`, `memberKind`, `name`, `type?`, `multiplicity?`, `value?`, `specializes?` | A member at the end of the owner's body, indented like its neighbors; an owner declared without a body gets one. `memberKind` is a keyword the language declares members with (`part`, `port def`, `state`, `fork`, KerML `feature`); `type` is legal only for a usage, `specializes` only for a definition. A connector definition (`connection def`, `interface def`, `flow def`, KerML `assoc`, `interaction`) is not a member kind: declared by name alone it lacks the ends the analyzer requires, so the request is refused as `illegal-kind`. |
 | `addConnection` | `owner`, `memberKind`, `from`, `to`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from` and `to` written as they resolve from the owner's scope (`tank.fuelOut`). |
 | `delete` | `target`, `cascade?` | The declaration and the trivia that belongs to it — its own line and the comment block above it. Refused when something else still refers to it unless `cascade` is set, in which case the referring declarations go too — an import of the target, the usage typed by it, whatever refers to those — until nothing left behind refers to anything removed. Refused as `referenced-elsewhere`, cascade or not, while another document of the workspace refers to anything the delete would remove. |
+| `setLayout` | `target`, `view?`, `layout?` | The `DiagramLayout::Layout` annotation placing the target: `layout` is `{ "x", "y", "width"?, "height"?, "collapsed"? }` in the coordinates `opensysml/render` reports, `width` and `height` given together or not at all. With a `view`, the annotation is stated about the target in that view's body and places it there alone; without one, it is written inline in the target's own body and places it in every view that states nothing. An annotation already there is rewritten in place, value by value; a target declared without a body gets one; omitting `layout` removes the annotation with the line it stood on (and the body it alone filled). |
+| `setRoute` | `target`, `view?`, `route?` | The `DiagramLayout::Route` annotation of a connection, transition, succession or flow, `route` being its waypoints as an array of `{"x", "y"}`; `view` and an omitted or empty `route` mean what they do for `setLayout`. |
+| `setCanvas` | `target`, `canvas?` | The `DiagramLayout::Canvas` annotation of the view `target` names: `{ "unit"?, "width"?, "height"? }`, the sizes together or not at all; omitted, the annotation is removed. |
 
 `target` and `owner` are qualified names, as `nodes[].fqn` and `nodes[].owners[].fqn` in a
 rendering give them, each name quoted on its own where the notation requires it; the empty
-`owner` is the document. The result is one of three shapes:
+`owner` is the document. A `view` is the rendering's `view`; the `target` of a `setRoute`
+is the edge's `fqn`. The three layout operations write into the document alone — the
+target of an inline annotation, or the view whose body states a view-local one, must be
+declared in it, though such a view may place an element another document declares —
+and are refused as `not-a-view` when `view` or a canvas `target` is not a view, `not-exposed`
+when the view does not expose the target, `not-drawn` when no rendering the annotation
+applies in draws the target as the node or edge it positions, and `not-annotated` when
+there is nothing to clear. The result is one of three shapes:
 
 ```json
 { "version": 7,
@@ -345,7 +357,7 @@ rendering give them, each name quoted on its own where the notation requires it;
 | --- | --- |
 | `version` | The document version the answer is about. |
 | `edit` | A `WorkspaceEdit` with one versioned `TextDocumentEdit` on the document, whose edits, applied to the version named, produce the text the operations ask for. Every byte outside the edited spans is unchanged: comments, blank lines and indentation survive. |
-| `refused` | Why nothing was written. `operation` is the index of the operation at fault, or `-1` when the request as a whole was; `failure` is a stable name (`unknown-target`, `invalid-name`, `owner-unknown`, `illegal-kind`, `member-name-taken`, `rename-referenced`, `delete-referenced`, `referenced-elsewhere`, `result-invalid`, …); `message` says it in words. `diagnostics` carries the errors the edited text would have had, located in that text; `referring` names the declarations that still refer to a target whose delete was refused, the reference a rename would capture, or the declarations of other documents — each with its document — that refer to what a delete or rename would change. |
+| `refused` | Why nothing was written. `operation` is the index of the operation at fault, or `-1` when the request as a whole was; `failure` is a stable name (`unknown-target`, `invalid-name`, `owner-unknown`, `illegal-kind`, `member-name-taken`, `rename-referenced`, `delete-referenced`, `referenced-elsewhere`, `not-a-view`, `not-exposed`, `not-drawn`, `not-annotated`, `result-invalid`, …); `message` says it in words. `diagnostics` carries the errors the edited text would have had, located in that text; `referring` names the declarations that still refer to a target whose delete was refused, the reference a rename would capture, or the declarations of other documents — each with its document — that refer to what a delete or rename would change. |
 | `stale` | The client's `version` is not the document's; nothing was computed. The operations may name declarations that version no longer has, or namesakes that replaced them, so a client does not resend them at the newer version: it shows the newer text or rendering and lets the action be taken again. |
 
 An edit is refused, rather than written, whenever the edited document would

@@ -3,18 +3,57 @@
 // Code here, so it is unit-tested.
 import type {
   ApplyModelEditParams,
+  EdgePlacement,
   EditPalette,
   ModelEditOperation,
   ModelEditRefusal,
+  NodePlacement,
+  RenderEdge,
   RenderNode,
   RenderOwner,
 } from "./protocol";
 
-/** Rendering is the diagram an action is taken on: its nodes, what they offer to add, and the document version they draw. */
+/**
+ * Rendering is the diagram an action is taken on: its nodes and edges, the view
+ * they were drawn for (empty for a pseudo-view), what they offer to add, and the
+ * document version they draw.
+ */
 export interface Rendering {
   nodes: RenderNode[];
+  edges?: RenderEdge[];
+  view?: string;
   version: number;
   palette?: EditPalette;
+}
+
+/**
+ * placementOperations turns where a gesture left nodes and edges into the layout
+ * and route operations of one edit: a Layout in the view's body for a rendering
+ * of a declared view, inline on the element for a pseudo-view. Undefined when
+ * something placed is not declared by the document, since no annotation can name it.
+ */
+export function placementOperations(
+  rendering: Rendering,
+  nodes: NodePlacement[],
+  edges: EdgePlacement[],
+): ModelEditOperation[] | undefined {
+  const view = rendering.view || undefined;
+  const operations: ModelEditOperation[] = [];
+  for (const placement of nodes) {
+    const target = rendering.nodes.find((node) => node.id === placement.id)?.fqn;
+    if (!target) {
+      return undefined;
+    }
+    operations.push({ kind: "setLayout", target, view, layout: placement.layout });
+  }
+  for (const placement of edges) {
+    const target = rendering.edges?.[placement.index]?.fqn;
+    if (!target) {
+      return undefined;
+    }
+    operations.push({ kind: "setRoute", target, view, route: placement.route });
+  }
+  return operations;
 }
 
 /** A node's ancestors, nearest first, ending at a root. */

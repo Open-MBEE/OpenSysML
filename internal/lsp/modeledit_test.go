@@ -578,3 +578,174 @@ func contains(list []string, want string) bool {
 	}
 	return false
 }
+
+// plantModel is a document with an interconnection view over unplaced parts and
+// a connection, as a diagram panel first draws it.
+const plantModel = `package Plant {
+	part def Pump;
+	part def Tank;
+	part def Loop {
+		part pump : Pump;
+		part tank : Tank;
+		connection supply connect pump to tank;
+	}
+}
+
+package PlantViews {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+
+	view loopView : InterconnectionView {
+		expose Plant::Loop;
+	}
+}
+`
+
+// float is a wire number the operation payload points at.
+func float(v float64) *float64 { return &v }
+
+// redraw applies the edit as the client would, tells the server, and renders
+// the view again at the new version.
+func redraw(t *testing.T, s *Server, docURI uri.URI, content string, out *applyModelEditResult, version int, viewName string) (string, *renderResult) {
+	t.Helper()
+	if out.Stale || out.Refused != nil || out.Edit == nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	applied := applyWorkspaceEdit(t, content, out.Edit, docURI)
+	encoded, _ := json.Marshal(map[string]string{"text": applied})
+	sendDidChange(t, s, docURI, int32(version), []json.RawMessage{encoded})
+	r := render(t, s, docURI, viewName)
+	if r.Version != version {
+		t.Fatalf("render version = %d, want %d", r.Version, version)
+	}
+	return applied, r
+}
+
+// Dragging a node on the rendering of a view writes its Layout into the view's
+// body as one WorkspaceEdit; the redrawn rendering carries the position, and
+// dragging it again updates the annotation in place rather than adding one.
+func TestApplyModelEditSetLayoutRoundTripsThroughRender(t *testing.T) {
+	s, docURI := renderServer(t, "plant.sysml", plantModel)
+	drawn := render(t, s, docURI, "PlantViews::loopView")
+	var pump renderNode
+	for _, n := range drawn.Nodes {
+		if n.Name == "pump" {
+			pump = n
+		}
+	}
+	if pump.FQN != "Plant::Loop::pump" || pump.X != nil || pump.Y != nil {
+		t.Fatalf("pump before the drag = %+v, want its fqn and no geometry", pump)
+	}
+	if drawn.View != "PlantViews::loopView" {
+		t.Fatalf("rendering names view %q", drawn.View)
+	}
+
+	drag := modelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View, Layout: &modelEditLayout{X: 120, Y: 40.5}}
+	out := applyModelEdit(t, s, docURI, drawn.Version, drag)
+	applied, redrawn := redraw(t, s, docURI, plantModel, out, 2, drawn.View)
+	if want := golden(t, s, docURI.Filename(), drag); applied != want {
+		t.Errorf("applied edit:\n%s\nwant:\n%s", applied, want)
+	}
+	if !strings.Contains(applied, "\t\texpose Plant::Loop;\n\t\tmetadata DiagramLayout::Layout about Plant::Loop::pump { x = 120; y = 40.5; }\n\t}\n") {
+		t.Errorf("Layout not stated in the view body:\n%s", applied)
+	}
+	for _, n := range redrawn.Nodes {
+		switch n.Name {
+		case "pump":
+			if n.X == nil || n.Y == nil || *n.X != 120 || *n.Y != 40.5 || n.Width != nil {
+				t.Errorf("redrawn pump = %+v, want x 120, y 40.5 and no size", n)
+			}
+		default:
+			if n.X != nil || n.Y != nil {
+				t.Errorf("redrawn %s gained geometry %+v", n.Name, n)
+			}
+		}
+	}
+
+	again := modelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View,
+		Layout: &modelEditLayout{X: 10, Y: 20, Width: float(200), Height: float(80), Collapsed: true}}
+	out = applyModelEdit(t, s, docURI, redrawn.Version, again)
+	applied, redrawn = redraw(t, s, docURI, applied, out, 3, drawn.View)
+	if strings.Count(applied, "DiagramLayout::Layout") != 1 {
+		t.Errorf("second drag did not update the annotation in place:\n%s", applied)
+	}
+	for _, n := range redrawn.Nodes {
+		if n.Name == "pump" {
+			if n.X == nil || *n.X != 10 || n.Width == nil || *n.Width != 200 || n.Height == nil || *n.Height != 80 || !n.Collapsed {
+				t.Errorf("redrawn pump = %+v, want the sized, collapsed layout", n)
+			}
+		}
+	}
+
+	unplace := modelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View}
+	out = applyModelEdit(t, s, docURI, redrawn.Version, unplace)
+	applied, _ = redraw(t, s, docURI, applied, out, 4, drawn.View)
+	if applied != plantModel {
+		t.Errorf("clearing the layout did not restore the document:\n%s", applied)
+	}
+}
+
+// Dragging an edge's waypoints writes a Route, sizing the canvas writes a
+// Canvas; each reaches the redrawn rendering as the geometry it wrote.
+func TestApplyModelEditSetRouteAndCanvasRoundTrip(t *testing.T) {
+	s, docURI := renderServer(t, "plant.sysml", plantModel)
+	drawn := render(t, s, docURI, "PlantViews::loopView")
+	if len(drawn.Edges) != 1 || drawn.Edges[0].FQN != "Plant::Loop::supply" || drawn.Edges[0].Route != nil {
+		t.Fatalf("edges = %+v, want the supply connection with its fqn and no route", drawn.Edges)
+	}
+	if drawn.Canvas != nil {
+		t.Fatalf("canvas before any edit = %+v", drawn.Canvas)
+	}
+	out := applyModelEdit(t, s, docURI, drawn.Version,
+		modelEditOperation{Kind: EditSetRoute, Target: drawn.Edges[0].FQN, View: drawn.View, Route: []renderPoint{{X: 50, Y: 60}, {X: 70, Y: 60}}},
+		modelEditOperation{Kind: EditSetCanvas, Target: drawn.View, Canvas: &renderCanvas{Unit: "px", Width: float(800), Height: float(600)}},
+	)
+	applied, redrawn := redraw(t, s, docURI, plantModel, out, 2, drawn.View)
+	if !strings.Contains(applied, "metadata DiagramLayout::Route about Plant::Loop::supply { points = (50, 60, 70, 60); }") ||
+		!strings.Contains(applied, `@DiagramLayout::Canvas { unit = "px"; width = 800; height = 600; }`) {
+		t.Errorf("route and canvas not written:\n%s", applied)
+	}
+	if got := redrawn.Edges[0].Route; len(got) != 2 || got[0] != (renderPoint{X: 50, Y: 60}) || got[1] != (renderPoint{X: 70, Y: 60}) {
+		t.Errorf("redrawn route = %+v", got)
+	}
+	if c := redrawn.Canvas; c == nil || c.Unit != "px" || c.Width == nil || *c.Width != 800 || c.Height == nil || *c.Height != 600 {
+		t.Errorf("redrawn canvas = %+v", c)
+	}
+}
+
+// A layout the view cannot show is refused with the edit layer's failure name
+// and nothing is written; an empty route clears like an absent one, so there is
+// nothing to clear here; a payload that is not a layout is invalid params.
+func TestApplyModelEditSetLayoutRefusals(t *testing.T) {
+	s, docURI := renderServer(t, "plant.sysml", plantModel)
+	for _, tc := range []struct {
+		op      modelEditOperation
+		failure string
+	}{
+		{modelEditOperation{Kind: EditSetLayout, Target: "Plant::Pump", View: "PlantViews::loopView", Layout: &modelEditLayout{X: 1, Y: 2}}, "not-exposed"},
+		{modelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::supply", View: "PlantViews::loopView", Layout: &modelEditLayout{X: 1, Y: 2}}, "not-drawn"},
+		{modelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: "Plant::Loop", Layout: &modelEditLayout{X: 1, Y: 2}}, "not-a-view"},
+		{modelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: "PlantViews::loopView"}, "not-annotated"},
+		{modelEditOperation{Kind: EditSetRoute, Target: "Plant::Loop::supply", Route: []renderPoint{}}, "not-annotated"},
+		{modelEditOperation{Kind: EditSetCanvas, Target: "Plant::Loop", Canvas: &renderCanvas{Unit: "px"}}, "not-a-view"},
+	} {
+		out := applyModelEdit(t, s, docURI, 1, tc.op)
+		if out.Edit != nil || out.Stale || len(out.Refused) != 1 {
+			t.Fatalf("%+v: result = %+v, want one refusal", tc.op, out)
+		}
+		if out.Refused[0].Failure != tc.failure || out.Refused[0].Operation != 0 {
+			t.Errorf("%+v: refusal = %+v, want %s", tc.op, out.Refused[0], tc.failure)
+		}
+	}
+	if got := string(s.ws.Document(docURI.Filename()).Content); got != plantModel {
+		t.Error("server document changed on refused requests")
+	}
+	_, err := call(t, s, MethodApplyModelEdit, &applyModelEditParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		Version:      1,
+		Operations:   []modelEditOperation{{Kind: EditSetLayout, Target: "Plant::Loop::pump", Layout: &modelEditLayout{X: 1, Y: 2, Width: float(10)}}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "width and height") {
+		t.Errorf("err = %v, want an invalid-params error about the size", err)
+	}
+}

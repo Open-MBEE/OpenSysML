@@ -39,24 +39,10 @@ func notationName(sym *symbols.Symbol) string {
 // target returns the declaration an operation names. Only a declaration of this
 // model's own document can be edited: its source is the only one being rewritten.
 func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
-	declaring := m.declared(op.Target)
-	switch len(declaring) {
-	case 0:
-		return nil, &Error{
-			Failure:        FailureUnknownTarget,
-			OperationIndex: i,
-			Message:        fmt.Sprintf("no element named %q in this model", op.Target),
-		}
-	case 1:
-	default:
-		return nil, &Error{
-			Failure:        FailureAmbiguousTarget,
-			OperationIndex: i,
-			Message: fmt.Sprintf("%q names %d declarations; it does not say which to edit",
-				op.Target, len(declaring)),
-		}
+	sym, err := m.declaredOnce(i, op.Target)
+	if err != nil {
+		return nil, err
 	}
-	sym := declaring[0]
 	if doc := sym.DocName; doc != m.Source.Name() {
 		return nil, &Error{
 			Failure:        FailureUnknownTarget,
@@ -66,6 +52,28 @@ func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
 		}
 	}
 	return sym, nil
+}
+
+// declaredOnce is the one declaration name names, in whichever document.
+func (m Model) declaredOnce(i int, name string) (*symbols.Symbol, error) {
+	declaring := m.declared(name)
+	switch len(declaring) {
+	case 0:
+		return nil, &Error{
+			Failure:        FailureUnknownTarget,
+			OperationIndex: i,
+			Message:        fmt.Sprintf("no element named %q in this model", name),
+		}
+	case 1:
+		return declaring[0], nil
+	default:
+		return nil, &Error{
+			Failure:        FailureAmbiguousTarget,
+			OperationIndex: i,
+			Message: fmt.Sprintf("%q names %d declarations; it does not say which to edit",
+				name, len(declaring)),
+		}
+	}
 }
 
 // docLabel names a document for a message, for the library declarations that

@@ -68,6 +68,27 @@ export interface RenderNode {
   /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
   owners?: RenderOwner[];
   origin?: RenderOrigin;
+  /** Where a `DiagramLayout::Layout` puts the node, in pixels, y down; absent when the model does not place it. */
+  x?: number;
+  y?: number;
+  /** The stated size, both or neither. */
+  width?: number;
+  height?: number;
+  /** The node is drawn closed, its children hidden. */
+  collapsed?: boolean;
+}
+
+/** One waypoint or corner, in the canvas's pixels, y down. */
+export interface RenderPoint {
+  x: number;
+  y: number;
+}
+
+/** The drawing surface a view states with a `DiagramLayout::Canvas`. */
+export interface RenderCanvas {
+  unit?: string;
+  width?: number;
+  height?: number;
 }
 
 /** RenderOwner is a namespace declaring a node: its qualified name, and whether it is a feature an end path chains through with `.`. */
@@ -81,7 +102,11 @@ export interface RenderEdge {
   to: string;
   label: string;
   kind: string;
+  /** The qualified name a model edit targets the declaring connection by; absent for one not declared in this document. */
+  fqn?: string;
   origin?: RenderOrigin;
+  /** The waypoints a `DiagramLayout::Route` steers the edge through, source to target. */
+  route?: RenderPoint[];
 }
 
 export interface RenderRow {
@@ -106,9 +131,19 @@ export interface RenderResult {
   rows?: RenderRow[];
   columns?: string[];
   notices: string[];
+  canvas?: RenderCanvas;
   /** What a diagram of this kind offers to add; absent when the rendering is not editable. */
   palette?: EditPalette;
   version: number;
+}
+
+/** The geometry a `setLayout` writes; `width` and `height` go together. */
+export interface LayoutGeometry {
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  collapsed?: boolean;
 }
 
 /** The member and connection kinds a rendering's kind offers, in the document's language. */
@@ -133,7 +168,13 @@ export type ModelEditOperation =
   | { kind: "rename"; target: string; newName: string }
   | { kind: "addMember"; owner: string; memberKind: string; name: string; type?: string; multiplicity?: string; value?: string; specializes?: string[] }
   | { kind: "addConnection"; owner: string; memberKind: string; from: string; to: string; name?: string; type?: string }
-  | { kind: "delete"; target: string; cascade?: boolean };
+  | { kind: "delete"; target: string; cascade?: boolean }
+  /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. */
+  | { kind: "setLayout"; target: string; view?: string; layout?: LayoutGeometry }
+  /** Steers the connection `target` through `route`, per view or inline as above; an empty or absent route clears it. */
+  | { kind: "setRoute"; target: string; view?: string; route?: RenderPoint[] }
+  /** Sizes the drawing surface of the view `target`; no `canvas` clears it. */
+  | { kind: "setCanvas"; target: string; canvas?: RenderCanvas };
 
 export interface ApplyModelEditParams {
   textDocument: { uri: string };
@@ -233,10 +274,24 @@ export type EditAction =
   | { kind: "rename"; id: string }
   | { kind: "delete"; id: string };
 
+/** Where a gesture left a node. */
+export interface NodePlacement {
+  id: string;
+  layout: LayoutGeometry;
+}
+
+/** Where a gesture left an edge, by its index in the rendering's edges: its waypoints, or none for a straight edge. */
+export interface EdgePlacement {
+  index: number;
+  route?: RenderPoint[];
+}
+
 /** A message the webview sends the extension; `version` is the rendering an action's ids name. */
 export type FromWebview =
   | { type: "ready" }
   | { type: "reveal"; id: string }
   | { type: "pick"; view: string }
   | { type: "edit"; action: EditAction; version: number }
+  /** One completed gesture: everything it moved, applied as one edit. */
+  | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; version: number }
   | { type: "failed"; message: string };

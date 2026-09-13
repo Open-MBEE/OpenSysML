@@ -43,22 +43,25 @@ the Output channel says so.
 ## The diagram panel
 
 `SysML: Open Diagram` opens a diagram of the active model beside it, drawn as
-Mermaid from the server's rendering and redrawn as the model is typed.
+SVG from the server's rendering and redrawn as the model is typed.
 
 | | |
 | --- | --- |
 | **What it draws** | The view the document declares, chosen in the picker when it declares several. A document declaring none is drawn directly, as a model tree, interconnection diagram, state diagram, action flow, sequence diagram or element table — a table is written as Markdown rather than drawn, and is shown as that. A view whose rendering is not supported (`geometry`, `textual`) is listed but not drawable, and the reason is written under the diagram. |
+| **Where things go** | A node the model places — a `DiagramLayout::Layout` annotation in the view's body or the element's own — is drawn exactly there, at the size it states; every other node takes a slot in a grid under its owner, in the order rendered, so the same model draws the same way every time. An edge follows the waypoints its `DiagramLayout::Route` gives it, else runs straight. |
 | **Navigation** | Click a node to open the declaration it was built from; moving the cursor in the editor highlights the node whose declaration contains it. A node built from a standard library declaration opens the bundled library file, read-only. |
 | **While typing** | A rendering that fails mid-keystroke leaves the last good diagram on screen, dimmed, with the error in the status line: the panel never blanks. What a rendering could not represent is listed under it. |
-| **Cost** | The panel asks for a diagram only while visible, and only once an editing burst settles. Mermaid is bundled into the extension, and the panel's CSP allows the bundled script alone — nothing is fetched from the network. |
+| **Cost** | The panel asks for a diagram only while visible, and only once an editing burst settles. The panel draws its own SVG, and its CSP allows the bundled script alone — nothing is fetched from the network. |
+| **Export** | `SysML: Export Diagram` saves the server's machine form of the diagram — Mermaid (`.mmd`) for a diagram, with the model's positions as `%% layout:` comments, Markdown for a table — for the view the document's panel shows, else the document itself. |
 
 ### Editing from the diagram
 
-The panel's **Add…** menu and a node's right-click menu write to the `.sysml` or
-`.kerml` file; the diagram itself is never edited. Each action is turned into a
-source-preserving edit by the language server and applied to the editor's buffer
-like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it, the file is the only
-source of truth, and the diagram redraws from what the file now says.
+The panel's **Add…** menu, a node's right-click menu and dragging on the canvas
+write to the `.sysml` or `.kerml` file; the diagram itself is never edited. Each
+action is turned into a source-preserving edit by the language server and applied
+to the editor's buffer like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it,
+the file is the only source of truth, and the diagram redraws from what the file
+now says.
 
 | Action | What it writes |
 | --- | --- |
@@ -66,6 +69,16 @@ source of truth, and the diagram redraws from what the file now says.
 | **Add …** (node menu) | The member kinds the node's declaration may hold, into it; or a connection, flow, succession, … from the node to one picked from a list. The connection is written in the nearest declaration that contains both ends, with the ends spelled as paths from it (`tank.fuelOut`). |
 | **Rename…** | The declaration's name, at the declaration and every reference in the file. |
 | **Delete** | The declaration, its own line and the comment block above it. A declaration something still refers to is refused, naming the referents; **Delete all** removes them too. A declaration another file refers to is refused outright, as is renaming one: an edit rewrites one file. |
+| **Drag a node** | A `metadata Layout about … { x = …; y = …; }` annotation — in the view's body when a view is drawn, inline in the node's declaration when the document is drawn directly — written when the pointer is released: one edit per drag, whatever the distance, so one <kbd>Ctrl</kbd>+<kbd>Z</kbd> puts the node back. An annotation already there is updated in place, keeping its size and collapsed state; the children the model places move with their owner, and those it does not follow it on their own. |
+| **Drag an edge** | A `metadata Route` annotation: drag the handle at the middle of a segment to bend the edge there, drag a waypoint to move it, double-click one to remove it (removing the last removes the annotation). |
+
+A drag writes to the diagram kinds that read the annotations back — tree,
+interconnection, state and action — and only for nodes and edges the file
+declares; a sequence diagram's lifelines and a table are not dragged. Positions
+are pixels from the canvas's top-left corner, y downward, as
+[the layout annotations](../../docs/project/diagram-layout-annotations.md) define
+them. Not built: moving a node into another owner, placing an element in another
+file's view, and the `geometry` view kind.
 
 An edit that would leave the file with an error it did not have — a type that
 does not resolve, a name already taken, a connection end out of scope — is
@@ -77,9 +90,7 @@ The command exists only when the server advertises
 `openSysmlApplyModelEdit`, so an older `sysml-lsp` keeps working without them.
 The requests behind the panel — `opensysml/render`, `opensysml/views`,
 `opensysml/applyModelEdit` and the `opensysml/renderChanged` notification — are
-documented in [docs/reference/lsp.md](../../docs/reference/lsp.md). Layout is
-not persisted and nodes are not dragged: that is the design's Tier 3, not yet
-built.
+documented in [docs/reference/lsp.md](../../docs/reference/lsp.md).
 
 ## Rendering documents
 
@@ -124,12 +135,11 @@ go test ./editors/...  # fails if the committed grammars are stale
 ```bash
 npm run watch       # rebuild dist/extension.js and dist/webview.js on change
 npm run typecheck   # tsc --noEmit, extension and webview
-npm test            # unit tests for the edit and menu logic, on node's test runner
-npm run check-nodes # render Mermaid fixtures and verify source-node matching
+npm test            # unit tests for the edit, menu, layout and canvas logic, on node's test runner
 ```
 
 `esbuild.mjs` builds two bundles: the extension for Node, and the diagram
-webview for the browser with Mermaid bundled in. They typecheck against
+webview for the browser, which draws its SVG itself. They typecheck against
 different libraries — the webview needs the DOM, the extension must not see it —
 so `src/webview` has its own `tsconfig.json`.
 

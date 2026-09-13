@@ -55,7 +55,7 @@ extension, start the server in strict mode instead:
 
 Running `SysML: Open Diagram` from the command palette with a `.sysml` or `.kerml` file open
 shows a diagram of the model beside the editor. The panel draws the same renderings the
-REPL's `%view` command prints, using Mermaid, and redraws as you edit the model.
+REPL's `%view` command prints, as an SVG canvas of its own, and redraws as you edit the model.
 
 - **Content.** The panel draws a view the document declares (chosen from a dropdown when there
   are several) or, as is usual for a model under development, the document itself, rendered as a
@@ -70,18 +70,29 @@ REPL's `%view` command prints, using Mermaid, and redraws as you edit the model.
   diagram and reports the error in the status line beneath it; the panel is never blanked.
   Anything the rendering could not represent is listed below the diagram.
 - **Resource use.** The panel requests a diagram only while it is visible, and only after a
-  burst of editing has settled. Mermaid is bundled with the extension, so nothing is fetched from
-  the network.
+  burst of editing has settled. The panel draws its own SVG, so nothing is fetched from the
+  network.
 
-The panel is read-only: it renders the model, and editing the diagram does not change the model.
-Where a diagram's boxes go is Mermaid's decision, unless the model states it: a view whose body
-places its elements with the bundled `DiagramLayout` library (`metadata Layout about engine { x =
-120; y = 80; }`, and `Route` for an edge's waypoints) has that geometry on every node and edge the
-server sends (`x`, `y`, `width`, `height`, `route`), and in the Mermaid source as `%% layout:`
-comments, so a client that lays out its own diagram can honor it; see
-[Diagram layout annotations](../project/diagram-layout-annotations.md).
-It is only available when the connected server provides the render methods
-([LSP extensions](../reference/lsp.md)), so an older `sysml-lsp` does not offer the command.
+The model is the only thing edited: the panel's **Add…** menu, a node's right-click menu and
+a drag on the canvas each become a source-preserving edit of the `.sysml` file, applied to the
+editor's buffer like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it and the diagram
+redraws from what the file now says.
+
+Where a diagram's boxes go is the model's decision when it states one: a view whose body places
+its elements with the bundled `DiagramLayout` library (`metadata Layout about engine { x = 120;
+y = 80; }`, and `Route` for an edge's waypoints) is drawn exactly so, and a node the model does
+not place takes a slot in a grid under its owner. Dragging a node writes that annotation — into
+the view's body when a view is drawn, into the element's own when the document is drawn
+directly — as one edit when the pointer is released; dragging the handle on an edge bends it
+through a `Route` waypoint. The geometry is on every node and edge the server sends (`x`, `y`,
+`width`, `height`, `route`) and in the Mermaid the REPL and the document pipeline write as
+`%% layout:` comments, so other clients can honor it; see
+[Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
+tree, interconnection, state and action diagrams, which read the annotations back.
+`SysML: Export Diagram` saves that Mermaid (or a table's Markdown) to a file.
+
+The commands are only available when the connected server provides the render methods
+([LSP extensions](../reference/lsp.md)), so an older `sysml-lsp` does not offer them.
 
 ### The standard library in the editor
 
