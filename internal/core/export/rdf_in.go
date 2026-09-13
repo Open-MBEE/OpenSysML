@@ -113,7 +113,7 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 	if !ok {
 		name = "<converted>"
 	}
-	names, _, err := chooseNames(name, text, first.wanted, nil)
+	names, _, err := chooseNames(name, first.library, text, first.wanted, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 		if text, _, err = d.notation(); err != nil {
 			return nil, err
 		}
-		revised, changed, err := chooseNames(name, text, d.wanted, names)
+		revised, changed, err := chooseNames(name, d.library, text, d.wanted, names)
 		if err != nil {
 			return nil, err
 		}
@@ -158,6 +158,7 @@ func (d *decoder) notation() ([]byte, []*element, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	d.library = libraryDocument(roots)
 	d.nl = d.newline()
 	text, err := d.render(roots)
 	if err != nil {
@@ -589,6 +590,9 @@ type decoder struct {
 	// derive; explicit, once set, writes them as annotations instead.
 	implied  int
 	explicit bool
+	// library is the bundled library document the graph is a version of, if any;
+	// its notation is read in that document's place.
+	library string
 	// written records where each element landed in this pass's notation, the
 	// members of one ahead of it.
 	written []writing
@@ -2131,13 +2135,16 @@ func (d *decoder) keywordTyped(el *element, keyword, portion string, event bool)
 }
 
 // kerml reports whether el is written under KerML's grammar: the one its root
-// records, or SysML for a root recording none, which is how candidateName reads it.
+// records, else the library document's, else SysML — as candidateName reads it.
 func (d *decoder) kerml(el *element) bool {
 	root := el
 	for root.owner != nil {
 		root = root.owner
 	}
-	language, _ := d.stringOf(root, rdf.OpenSysML+xSourceLanguage)
+	language, ok := d.stringOf(root, rdf.OpenSysML+xSourceLanguage)
+	if _, hasText := d.graph.Lexical(rdf.IRI(root.iri), rdf.OpenSysML+xSourceText); !ok && !hasText {
+		language = d.libraryLanguage()
+	}
 	return language == "kerml"
 }
 

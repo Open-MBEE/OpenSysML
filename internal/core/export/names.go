@@ -66,11 +66,12 @@ func (w *wanted) empty() bool {
 	return len(w.references) == 0 && len(w.segments) == 0 && len(w.starts) == 0
 }
 
-// chooseNames reads a rendering as the language name says and picks each
-// reference and chain segment the shortest spelling that resolves to its target
-// there, never shorter than what previous chose; none is a refusal. changed
-// reports whether any choice differs from the spelling the rendering wrote.
-func chooseNames(name string, text []byte, want *wanted, previous *nameChoices) (names *nameChoices, changed bool, err error) {
+// chooseNames reads a rendering as the language name says, in the place of the
+// bundled library document it is a version of if any, and picks each reference
+// and chain segment the shortest spelling that resolves to its target there,
+// never shorter than what previous chose; none is a refusal. changed reports
+// whether any choice differs from the spelling the rendering wrote.
+func chooseNames(name, library string, text []byte, want *wanted, previous *nameChoices) (names *nameChoices, changed bool, err error) {
 	names = &nameChoices{references: map[nameKey]string{}, segments: map[segmentKey]string{}}
 	if want.empty() {
 		return names, false, nil
@@ -84,7 +85,7 @@ func chooseNames(name string, text []byte, want *wanted, previous *nameChoices) 
 			Note: "the notation written for them does not parse, so no spelling can be checked to reach its element",
 		}
 	}
-	e, err := newEncoder(file, root)
+	e, err := newEncoder(file, root, library)
 	if err != nil {
 		return nil, false, &UnsupportedError{
 			What: "the references the graph links",

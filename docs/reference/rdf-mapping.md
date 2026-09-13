@@ -208,6 +208,18 @@ that happens to carry a library UUID without `sysx:declaredId` keeps it as a
 declared id, as any other foreign id. An explicit `@IdentityMetadata::ElementId`
 still wins over the normative id when a library element carries one.
 
+A graph whose every root is a library package under its normative id and name is
+a version of that bundled library file, and the reader reads the notation it
+writes back *in that file's place*: in the file's grammar (KerML for a `.kerml`
+library) when the roots record none, and with the file's own declarations
+standing in for the bundled ones when a name is checked to reach the element
+the graph links. That is what lets a chain reach a feature the library only
+implies — `aState.aTransition.accepter.acceptedMessage` in `Actions.sysml`
+reads `accepter` off the `TransitionAction` every transition inherits — and
+lets a KerML library read back without its source text at all. The target
+still has to be the graph's exact element; a spelling that reaches anything
+else is refused as before.
+
 A document holding **more than one project scope** qualifies each element's IRI
 with its scope's provenance (`elmt:<encoded-org>.<encoded-project>:<id>`), so an
 id repeated across scopes stays two subjects; two scopes whose elements would

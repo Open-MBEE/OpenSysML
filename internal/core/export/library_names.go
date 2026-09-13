@@ -28,6 +28,22 @@ func NormativeSubject(id, qualifiedName string) bool {
 	return err == nil && written == qualifiedName
 }
 
+// libraryDocument is the bundled library document a graph is a version of: the
+// one declaring every root, each a package the norm names and ids as the graph
+// does. A graph rooted anywhere else, or in several documents, is none.
+func libraryDocument(roots []*element) string {
+	catalog := identity.LibraryCatalog(libs.NewModelIndex())
+	doc := ""
+	for _, root := range roots {
+		el, ok := catalog.Element(root.elementID)
+		if !ok || el.FQN != root.qname || (doc != "" && el.Symbol.DocName != doc) {
+			return ""
+		}
+		doc = el.Symbol.DocName
+	}
+	return doc
+}
+
 // libraryGraphNames memoizes, per bundled library document, the qualified name
 // the encoder writes for each element the norm fixes an id for, keyed by that id.
 var libraryGraphNames sync.Map // document name → map[string]string, or error
@@ -65,7 +81,7 @@ func encodeLibraryNames(doc string) any {
 	if err := syntaxError(doc, file, p); err != nil {
 		return err
 	}
-	e, err := newEncoder(file, root)
+	e, err := newEncoder(file, root, doc)
 	if err != nil {
 		return err
 	}
