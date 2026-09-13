@@ -52,16 +52,20 @@ func (c *checker) standing(exec *ActionExecutor, t Token) lower.Footprint {
 	return tokenGraphOf(exec, t).Footprints()[t.Location]
 }
 
-// futureOf is the footprint of every move the unit may make from where it
-// stands: for a token, the nodes it can reach in its flow and, when its flow
-// ends, in the flows it returns to; for a machine, its whole graph.
-func (c *checker) futureOf(m enabledMove) lower.Footprint {
+// turnFootprint is what the move's owner may touch over the turn the move takes:
+// the owner keeps the turn until it has no move left at the instant, so it is the
+// future of every unit of the owner — each token of an action, the machine whole.
+func (c *checker) turnFootprint(m enabledMove) lower.Footprint {
 	if m.Fails != nil {
 		return lower.Footprint{Dynamic: true}
 	}
 	switch exec := m.Owner.(type) {
 	case *ActionExecutor:
-		return c.tokenFuture(exec, exec.tokens[exec.tokenIndex(m.Token)])
+		var turn lower.Footprint
+		for _, t := range exec.tokens {
+			turn = unionFootprints(turn, c.tokenFuture(exec, t))
+		}
+		return turn
 	case *StateExecutor:
 		return c.machineFuture(exec)
 	}

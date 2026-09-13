@@ -6,10 +6,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
-// An invocation under check or replay moves one executor one unit at a time,
-// every executor on the clock interleaving freely at an instant. Between moves
-// the run settles: actions park their tokens, and the clock moves to the earliest
-// wait within the horizon once nothing is left at the instant.
+// An invocation under check or replay moves one executor one unit at a time. The
+// due order is drawn as the clock draws it when it runs what is due: among the
+// executors with a move, the one drawn holds the turn until it has no move left
+// at the instant, then the order is drawn again. A turn only one executor could
+// take is held by none, so a state spells the same however it was reached.
+// Between moves the run settles: actions park their tokens, and the clock moves
+// to the earliest wait within the horizon once nothing is left at the instant.
 
 // invocationRun is an invocation driven move by move. Its executors share one
 // run: one scheduler draws every choice, and one executor completing ends nothing.
@@ -17,6 +20,9 @@ type invocationRun struct {
 	ctx   *Context
 	inv   *Invocation
 	state *runState
+	// turn is the executor the due order drew, whose moves alone are enabled while
+	// it has one and another executor has one too.
+	turn checkedExecutor
 }
 
 // beginInvocation starts the invocation within one run of its own, so the
@@ -41,14 +47,24 @@ func (r *invocationRun) enter() func() {
 	return r.ctx.enterRun(r.state)
 }
 
-// enabledMoves lists the moves of the state: every executor's, in executor order.
+// enabledMoves lists the moves of the state: the turn holder's while it has one
+// and another executor has one too, else every executor's in executor order, the
+// turn given up.
 func (r *invocationRun) enabledMoves() []enabledMove {
 	defer r.enter()()
-	var moves []enabledMove
+	var all, held []enabledMove
 	for _, exec := range r.inv.executors() {
-		moves = append(moves, exec.enabledMoves()...)
+		moves := exec.enabledMoves()
+		if exec == r.turn {
+			held = moves
+		}
+		all = append(all, moves...)
 	}
-	return moves
+	if len(held) == 0 || len(held) == len(all) {
+		r.turn = nil
+		return all
+	}
+	return held
 }
 
 // owners lists the executors with a move among moves, in executor order.
@@ -62,10 +78,13 @@ func owners(moves []enabledMove) []checkedExecutor {
 	return execs
 }
 
-// drawOwner resolves which of the executors with a move makes the next: the only
+// drawOwner resolves which of the executors with a move takes the turn: the only
 // one where there is one, else the policy's pick, noted as a due-order choice.
 func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 	if len(execs) < 2 {
+		if len(execs) == 1 {
+			r.turn = execs[0]
+		}
 		return 0, nil
 	}
 	choice := ChoicePoint{
@@ -80,6 +99,7 @@ func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 	}
 	choice.Taken = pick
 	r.ctx.noteChoice(choice)
+	r.turn = execs[pick]
 	return pick, nil
 }
 
@@ -132,6 +152,7 @@ func (r *invocationRun) advanceClock() bool {
 		return false
 	}
 	r.ctx.clock.now = next
+	r.turn = nil
 	return true
 }
 
@@ -169,8 +190,8 @@ func (r *invocationRun) waitsPastHorizon(exec checkedExecutor) bool {
 }
 
 // makeMove makes the move under the `check` policy as one atomic unit: the owner
-// drawn as the due order among the executors with a move, the token and picks
-// scripted. It reports the choice points the move drew past its picks.
+// drawn as the due order among the executors with a move where no turn is held,
+// the token and picks scripted. It reports the choice points the move drew past its picks.
 func (r *invocationRun) makeMove(m enabledMove) ([]ChoicePoint, error) {
 	defer r.enter()()
 	check := r.ctx.scheduling().check
@@ -189,7 +210,8 @@ func (r *invocationRun) makeMove(m enabledMove) ([]ChoicePoint, error) {
 	return check.drawn, err
 }
 
-// step moves one executor one unit: the one the policy draws among those with a move.
+// step moves one executor one unit: the turn holder, drawn by the policy among
+// those with a move where none holds it.
 func (r *invocationRun) step(execs []checkedExecutor) error {
 	defer r.enter()()
 	pick, err := r.drawOwner(execs)

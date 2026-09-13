@@ -322,7 +322,9 @@ type visitedState struct {
 
 // checkFrame is one state on the search stack.
 type checkFrame struct {
-	snap  *Snapshot
+	snap *Snapshot
+	// turn is the executor holding the turn in the state, nil for none.
+	turn  checkedExecutor
 	key   stateKey
 	depth int
 	// spent counts the moves of each kind the schedule to the state made.
@@ -360,12 +362,11 @@ func (s *spending) spend(kind moveKind, budgets Budgets) (bound string, exceeded
 }
 
 // searchMove is an enabled move with what the reduction needs of it: its
-// canonical name, its footprint, and the footprint of its unit's future.
+// canonical name and its footprint.
 type searchMove struct {
 	enabledMove
 	name      string
 	footprint lower.Footprint
-	future    lower.Footprint
 }
 
 // same reports whether the two are one move: one unit taking one pick sequence.
@@ -450,6 +451,7 @@ func (c *checker) search(stop context.Context) error {
 		f.next++
 		c.visited[f.key].explored[m.name] = true
 		f.snap.Restore()
+		c.run.turn = f.turn
 		if err := c.take(f, m); err != nil {
 			c.releaseAll()
 			return err
@@ -551,7 +553,7 @@ func (c *checker) complete(depth int) error {
 // visit records the stable state the invocation stands in, evaluating the
 // properties at a new one; seen is nil when the states bound keeps the search out.
 func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
-	if form, err = c.inv.canonicalState(); err != nil {
+	if form, err = c.run.canonicalState(); err != nil {
 		return form, "", nil, false, err
 	}
 	key = form.key()
@@ -583,7 +585,7 @@ func (c *checker) enter(depth int, sleep []searchMove) (*checkFrame, stateKey, e
 		return nil, key, err
 	}
 	all := c.movesOf(form)
-	f := &checkFrame{key: key, depth: depth, all: all, sleep: sleep}
+	f := &checkFrame{turn: c.run.turn, key: key, depth: depth, all: all, sleep: sleep}
 	f.moves = c.persistent(all, sleep)
 	if visited && !seen.wanted(f) {
 		return nil, key, nil
@@ -620,17 +622,19 @@ func (s *visitedState) mark(moves []searchMove) {
 // footprints, in canonical order.
 func (c *checker) movesOf(form canonicalForm) []searchMove {
 	enabled := c.run.enabledMoves()
+	draw := len(owners(enabled)) > 1
 	moves := make([]searchMove, 0, len(enabled))
 	for _, m := range enabled {
-		moves = append(moves, c.named(form, m))
+		moves = append(moves, c.named(form, m, draw))
 	}
 	slices.SortFunc(moves, func(a, b searchMove) int { return strings.Compare(a.name, b.name) })
 	return moves
 }
 
-// named gives the move its canonical name: its executor's canonical name, its
-// token's where it moves one, else its label, and its picks.
-func (c *checker) named(form canonicalForm, m enabledMove) searchMove {
+// named gives the move its canonical name — its executor's canonical name, its
+// token's where it moves one, else its label, and its picks — and its footprint:
+// the whole turn's where the move takes the turn, at a state drawing the due order.
+func (c *checker) named(form canonicalForm, m enabledMove, draw bool) searchMove {
 	name := form.names[m.Owner] + ": "
 	if m.Token != 0 {
 		name += form.tokens[tokenKey{m.Owner, m.Token}]
@@ -640,7 +644,11 @@ func (c *checker) named(form canonicalForm, m enabledMove) searchMove {
 	for _, pick := range m.Picks {
 		name = fmt.Sprintf("%s pick %d", name, pick+1)
 	}
-	return searchMove{enabledMove: m, name: name, footprint: c.footprintOf(m), future: c.futureOf(m)}
+	footprint := c.footprintOf(m)
+	if draw {
+		footprint = c.turnFootprint(m)
+	}
+	return searchMove{enabledMove: m, name: name, footprint: footprint}
 }
 
 // reveal adds, right after the move, the moves taking each other alternative of

@@ -12,9 +12,9 @@
 44	78	123	306	por_alias
 18	19	19	22	por_address
 19	21	19	22	por_constructor
-13	13	52	103	por_state_independent
-15	16	20	27	por_state_effect_write
-15	16	20	27	por_state_guard_read
-28	30	52	83	por_state_do_write
-13	13	15	17	por_state_send_accept
-7	6	15	22	por_two_machines
+13	13	30	38	por_state_independent
+17	18	17	18	por_state_effect_write
+17	18	17	18	por_state_guard_read
+21	22	21	22	por_state_do_write
+9	9	9	9	por_state_send_accept
+7	6	15	18	por_two_machines

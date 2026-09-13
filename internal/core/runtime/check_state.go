@@ -17,13 +17,13 @@ import (
 )
 
 // The canonical form of a checked run's state is the text of what a future move
-// can observe: the clock, then every executor on it in invocation order — an
-// action's tokens by node and performance and its performances root-first with
-// what they hold, a state machine's configuration, history, values, queue,
-// timers and do progress — then the messages in flight and the objects reached
-// by their materialization path. Identities a run hands out — token ids, event
-// ids, object ids, step counters, activation numbers — are spelled by position
-// instead, so two runs reaching one state spell it alike.
+// can observe: the clock, the executor holding the turn, then every executor on
+// it in invocation order — an action's tokens by node and performance and its
+// performances root-first with what they hold, a state machine's configuration,
+// history, values, queue, timers and do progress — then the messages in flight
+// and the objects reached by their materialization path. Identities a run hands
+// out — token ids, event ids, object ids, step counters, activation numbers — are
+// spelled by position instead, so two runs reaching one state spell it alike.
 
 // stateKey is the SHA-256 of a state's canonical form, hex-encoded.
 type stateKey string
@@ -48,9 +48,16 @@ func (f canonicalForm) key() stateKey {
 	return stateKey(hex.EncodeToString(sum[:]))
 }
 
-// canonicalState renders the state of the invocation's run in canonical form; a
-// body paused where the snapshot cannot capture it is refused as the snapshot refuses it.
-func (inv *Invocation) canonicalState() (canonicalForm, error) {
+// canonicalState renders the state of the invocation's run in canonical form, the
+// turn settled first; a body paused where the snapshot cannot capture it is
+// refused as the snapshot refuses it.
+func (r *invocationRun) canonicalState() (canonicalForm, error) {
+	r.enabledMoves()
+	return r.inv.canonicalState(r.turn)
+}
+
+// canonicalState renders the invocation's state with turn holding the turn, nil for none.
+func (inv *Invocation) canonicalState(turn checkedExecutor) (canonicalForm, error) {
 	execs := inv.executors()
 	for _, exec := range execs {
 		if err := pausedBodyOf(exec); err != nil {
@@ -66,7 +73,7 @@ func (inv *Invocation) canonicalState() (canonicalForm, error) {
 		names:  make(map[checkedExecutor]string, len(execs)),
 		tokens: make(map[tokenKey]string),
 	}
-	text := s.spell(execs)
+	text := s.spell(execs, turn)
 	return canonicalForm{text: text, names: s.names, tokens: s.tokens}, nil
 }
 
@@ -109,9 +116,12 @@ type stateSpeller struct {
 	out    strings.Builder
 }
 
-func (s *stateSpeller) spell(execs []checkedExecutor) string {
+func (s *stateSpeller) spell(execs []checkedExecutor, turn checkedExecutor) string {
 	fmt.Fprintf(&s.out, "clock t=%s\n", semantics.FormatReal(s.ctx.clock.now))
 	s.nameExecutors(execs)
+	if turn != nil {
+		fmt.Fprintf(&s.out, "turn: %s\n", s.names[turn])
+	}
 	for _, exec := range execs {
 		switch e := exec.(type) {
 		case *ActionExecutor:

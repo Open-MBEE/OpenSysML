@@ -380,13 +380,13 @@ func TestEngineCheckSearchesBehaviorsOnOneClock(t *testing.T) {
 
 	// Named apart, each behavior is its own search; the action's clock runs to its end.
 	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow),
-		1, "✗ Action Shine::Lamp::peek: divergent (9 states, 8 moves, depth 5)", "divergent: saw ends as false or true",
+		1, "✗ Action Shine::Lamp::peek: divergent (10 states, 9 moves, depth 5)", "divergent: saw ends as false or true",
 		"✓ State machine Shine::Lamp::glow: no violation, exhaustive (2 states, 1 moves, depth 1)")
 
 	// With -advance they are one invocation: the machine's timer and the action's
 	// wait are due together, and the order the search draws decides what peek saw.
 	got := check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "3")
-	wantReport(t, got, 1, "✗ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: divergent up to t=3.0 (9 states, 8 moves, depth 5)",
+	wantReport(t, got, 1, "✗ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: divergent up to t=3.0 (10 states, 9 moves, depth 5)",
 		"divergent: Shine::Lamp::peek.saw ends as false or true",
 		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = false; this.isSolid = true; this.lit = true`,
 		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = true; this.isSolid = true; this.lit = true`)

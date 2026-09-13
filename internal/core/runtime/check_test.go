@@ -941,7 +941,7 @@ func TestCheckTellsSetMembersApartInTheVisitedSet(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}
-	form, err := (&Invocation{Actions: []*ActionExecutor{exec}}).canonicalState()
+	form, err := (&Invocation{Actions: []*ActionExecutor{exec}}).canonicalState(nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -136,6 +136,7 @@ func TestStateDoStepFootprintIsTheBehaviorPending(t *testing.T) {
 func TestStateMoveUnitsAreTheirExecutor(t *testing.T) {
 	m := reductionModel(t, "por_two_machines", false)
 	ci := startCheckedInvocation(t, m, nil, []string{"turner", "router", "loner"})
+	turner := ci.moveOf(t, "state machine turner")
 	before := ci.moveOf(t, "state machine loner")
 	if _, err := ci.run.makeMove(before); err != nil {
 		t.Fatalf("move %s: %v", before, err)
@@ -144,7 +145,7 @@ func TestStateMoveUnitsAreTheirExecutor(t *testing.T) {
 	if before.unit() != after.unit() {
 		t.Fatalf("loner's unit moved from %v to %v", before.unit(), after.unit())
 	}
-	if before.unit() == ci.moveOf(t, "state machine turner").unit() {
+	if before.unit() == turner.unit() {
 		t.Fatal("two machines share a unit")
 	}
 }
@@ -157,4 +158,20 @@ func TestFailingMoveFootprintIsDynamic(t *testing.T) {
 	if !ci.c.footprintOf(failing).Dynamic || !ci.c.futureOf(failing).Dynamic {
 		t.Fatal("a failing move's footprint is not dynamic")
 	}
+}
+
+// futureOf is the footprint of every move the unit may make from where it
+// stands: for a token, the nodes it can reach in its flow and, when its flow
+// ends, in the flows it returns to; for a machine, its whole graph.
+func (c *checker) futureOf(m enabledMove) lower.Footprint {
+	if m.Fails != nil {
+		return lower.Footprint{Dynamic: true}
+	}
+	switch exec := m.Owner.(type) {
+	case *ActionExecutor:
+		return c.tokenFuture(exec, exec.tokens[exec.tokenIndex(m.Token)])
+	case *StateExecutor:
+		return c.machineFuture(exec)
+	}
+	return lower.Footprint{Dynamic: true}
 }

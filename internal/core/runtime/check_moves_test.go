@@ -285,9 +285,9 @@ func TestMakeMoveNeedsTheCheckPolicy(t *testing.T) {
 }
 
 // A move of an invocation with several executors due draws the due order exactly
-// once, taken at the move's owner; one with a single executor due draws none.
-// The order once drawn, a second draw within the move is a refusal, not a
-// second choice.
+// once, taken at the move's owner, who then holds the turn while it has a move;
+// one with a single executor due draws none. The order once drawn, a second draw
+// within the move is a refusal, not a second choice.
 func TestMakeMoveDrawsTheDueOrderOnce(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		private import ScalarValues::*;
@@ -335,8 +335,8 @@ func TestMakeMoveDrawsTheDueOrderOnce(t *testing.T) {
 		}
 		return drawn
 	}
-	// The machine's moves are taken first, so the two are due together until the
-	// machine rests, and the action alone moves after.
+	// The machine's move is taken first, so the one draw gives it the turn until
+	// it rests, and the action alone moves after.
 	moves := 0
 	for {
 		if err := run.stabilize(); err != nil {
@@ -366,8 +366,8 @@ func TestMakeMoveDrawsTheDueOrderOnce(t *testing.T) {
 	if moves != 6 {
 		t.Fatalf("made %d moves, want the machine's two dispatches and the action's four steps", moves)
 	}
-	if orders := dueOrders(); len(orders) != 2 {
-		t.Fatalf("drew %d due orders, want the two moves both executors were due for", len(orders))
+	if orders := dueOrders(); len(orders) != 1 {
+		t.Fatalf("drew %d due orders, want the one move both executors were due for", len(orders))
 	}
 	if x := FormatValue(action.Results()["x"]); x != "2" {
 		t.Fatalf("x = %s, want 2", x)
