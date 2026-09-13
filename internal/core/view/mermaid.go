@@ -17,14 +17,16 @@ import (
 // rendering could not represent is written as comments, so no notice is lost in
 // the machine-readable form either.
 func (r *Rendering) Mermaid() string {
-	return r.MermaidDirected("")
+	return r.MermaidWith(Options{})
 }
 
-// MermaidDirected is the Mermaid form drawn in the stated direction: a
-// flowchart flows that way, and a state diagram states it as a `direction`
-// statement. The empty direction keeps each kind's default, and a kind no
-// direction applies to ignores it.
-func (r *Rendering) MermaidDirected(direction Direction) string {
+// MermaidWith is the Mermaid form written with options. It is drawn in the
+// stated direction: a flowchart flows that way, and a state diagram states it
+// as a `direction` statement. The empty direction keeps each kind's default,
+// and a kind no direction applies to ignores it. A palette is not drawn,
+// Mermaid having no fill per node kind, and is noted as not represented.
+func (r *Rendering) MermaidWith(options Options) string {
+	direction := options.Direction
 	var b strings.Builder
 	r.writeFlowchartFrontmatter(&b)
 	if r.View == "" {
@@ -38,6 +40,9 @@ func (r *Rendering) MermaidDirected(direction Direction) string {
 	b.WriteString("\n")
 	for _, notice := range r.Notices {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
+	}
+	if options.Palette != "" {
+		fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette))
 	}
 	r.writeGeometryComments(&b)
 	switch r.Kind {

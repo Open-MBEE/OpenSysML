@@ -1,0 +1,32 @@
+// view: MachineViews::vehicleStates
+// kind: state
+// stated: view def StateTransitionView
+// layout: dot
+digraph "MachineViews::vehicleStates" {
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<b>Machines::VehicleStates</b><br/><font point-size="10"><i>«state def»</i></font>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n5" [shape=point, fillcolor=black, label=""];
+    "n1" [style="rounded,filled", fillcolor="#EEBF99", color="#D55E00", penwidth=1, label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];
+    subgraph "cluster_n2" {
+      label=<<b>operating</b><br/><font point-size="10"><i>«state»</i></font>>;
+      color=black;
+      penwidth=0.5;
+      "n2" [shape=point, style=invis, width=0, height=0, label=""];
+      "n6" [shape=point, fillcolor=black, label=""];
+      "n3" [style="rounded,filled", fillcolor="#EEBF99", color="#D55E00", penwidth=1, label=<<b>idle</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];
+      "n4" [style="rounded,filled", fillcolor="#EEBF99", color="#D55E00", penwidth=1, label=<<b>moving</b><br/><font point-size="10"><i>«state»</i></font>>];
+    }
+  }
+  "n5" -> "n1";
+  "n6" -> "n3";
+  "n1" -> "n2" [lhead="cluster_n2"];
+  "n2" -> "n1" [ltail="cluster_n2"];
+  "n3" -> "n4" [label="idle_to_moving: accept Signal [temperature > 0]"];
+  "n4" -> "n3";
+}

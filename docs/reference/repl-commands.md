@@ -55,7 +55,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%search <substring>` | List the declared and library symbols whose qualified name contains the substring, with the kind of each |
 | `%builtins` | List the library functions the runtime implements directly (`sqrt`, `abs`, `max`, `floor`, `x->isEmpty()`, `x->sum()` …), each with the package an `import` must name for its bare name to resolve; the qualified name (`RealFunctions::sqrt(2.0)`) resolves anywhere |
 | `%view <name>` | Show what a view exposes: its own `expose` relationships plus the protected ones of the views it specializes, the views nested in it (each with its own exposed set), and its conformance to every viewpoint it satisfies. Conformance is a verdict of `conforms`, `violated` or `unevaluable` per viewpoint and per framed concern, with the reason, the exposed element a concern's condition failed for, and `(from <view>)` where the `satisfy` is inherited. Asking about an element that is not a view says so |
-| `%render <name> [form]` | Render a view's exposed set in the kind its `render` member states: a containment tree with nested views as subtrees, an interconnection diagram of the exposed parts and the connections between them, a state machine's states and transitions, an action's nodes and successions, or a table of the exposed elements and what they declare. A view with no `render` member renders as a tree. Output is indented text by default, or the machine-readable form of the kind: a [Mermaid](#rendering-a-view) diagram with `mermaid`, a Markdown table with `markdown`; `dot` writes a graph-shaped kind as Graphviz DOT instead of Mermaid. Asking for a form the kind cannot be written in tells you which form it uses. Read-only: it creates no object and leaves a `%action`/`%state` debugging session running. A view that exposes nothing renders empty and says so; a rendering kind this build does not produce is reported by kind and view rather than rendered as something else; an element the rendering cannot represent is reported, not dropped |
+| `%render <name> [form [palette]]` | Render a view's exposed set in the kind its `render` member states: a containment tree with nested views as subtrees, an interconnection diagram of the exposed parts and the connections between them, a state machine's states and transitions, an action's nodes and successions, or a table of the exposed elements and what they declare. A view with no `render` member renders as a tree. Output is indented text by default, or the machine-readable form of the kind: a [Mermaid](#rendering-a-view) diagram with `mermaid`, a Markdown table with `markdown`; `dot` writes a graph-shaped kind as Graphviz DOT instead of Mermaid, in the Pilot visualizer's Standard B&W style, and `dot <palette>` fills its nodes by keyword family from `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; an unknown palette is refused with the names there are. Asking for a form the kind cannot be written in tells you which form it uses. Read-only: it creates no object and leaves a `%action`/`%state` debugging session running. A view that exposes nothing renders empty and says so; a rendering kind this build does not produce is reported by kind and view rather than rendered as something else; an element the rendering cannot represent is reported, not dropped |
 | **Instantiation & Inspection** | |
 | `%instantiate <name>` | Create an object of a part definition and start the behaviors its type exhibits or performs. Each object runs its own machine, initialized after its feature values are built and run until it is quiescent. A second `%instantiate` of the same name creates a new object, and the name then refers to that one. A later submission keeps the object's identity but restarts its behaviors from their initial states, and says so |
 | `%features <object> [all\|depth <n>] [json]` | Show what an object holds for each feature of its type. The object is named, addressed by id, or reached by a path: `%features car`, `%features #3`, `%features car.fl.hub`, `%features car.wheels[2]`. A feature with no value reads `<unset>`. States and actions hold no value, so they are listed after the values under a `Behaviors:` heading with what the object is doing with each: the current active state of a machine it exhibits (the state `%current` reports), the execution state of an action it performs, `not running` for a state or action it neither exhibits nor performs, or, for a named transition, the step it declares (`toggle: transition, modes.closed → modes.opened`). A behavior a redefinition renamed (`exhibit state fancyModes :>> modes`) is one execution under two names, and both rows report it. The values a running behavior owns — the attributes of the machine's own occurrence, an action's parameters and outputs — are listed under its row (`modes: exhibited state machine, current state running` followed by `count = 1`), apart from the performer's own values, and are bounded like any nested object. Reading a feature value builds the objects it holds, so the listing is bounded by default — 200 lines, nesting 8 deep — and a listing cut short says which form shows the rest. `all` lifts both bounds and reads the whole tree out; `depth <n>` bounds nesting at `n` levels and lifts the size bound, naming what it did not expand (`machine : Machine (not expanded: depth 1)`). `json` writes the object and everything reachable from it as one document in the shape the API's `Instantiate` returns (`instance`, `instances`, `diagnostics`), bounded by default at 1000 objects, with a graph cut short reported as a `warning` diagnostic. `all`/`depth` and `json` combine (`%features ctx all json`); `all` and `depth` together, a missing or negative depth, and an unknown word are errors naming the usage |
@@ -93,7 +93,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%advance <time>` | Advance the runtime's simulation clock by `<time>` seconds (`SI::s`), running every state event, action token, change-condition poll and do behavior that comes due, in due order. The clock is the session's, not one debugger's: an `%action` parked at `accept after` and a `%state` machine both move, and the report covers each. A state's do behavior whose action body waits (`do action poll { action wait accept after 3 [SI::s]; then … }`) is parked on the clock too, listed under `Waiting on the clock` and resumed when its instant comes; a transition that leaves the state first ends it, its wait leaving the clock. Two executors due at the same instant run in the order the scheduling policy picks — the one started last first under the default `reverse` — and the pick is a choice point, as is which of two regions' do behaviors due together acts first in a round ([Choice points](../guide/06-behavior.md)) |
 | **Control** | |
 | `%quit` | Exit the REPL |
-| `Tab` | Complete meta commands, symbol names (after `%print`, `%instantiate`, `%features` …; a name that needs quoting is offered in quotes, `Q::'the ra` completing to `Q::'the rack'`), object references where a command takes one (`#` offers the ids there are; `car.` offers the object-holding features of `car` — the same ones a path may pass through — a multi-valued one as `car.wheels[1]`, `car.wheels[2]` …; completing reads and materializes nothing, so a part no command has reached yet is offered by type, and only the elements reading it would hold: those the features subsetting it contribute, then anonymous ones up to its lower bound — so an optional part (`spare : Wheel[0..1]`) or an abstract one, which hold only what subsets them, is offered only once something does), the form after `%render <name>`, and file paths after `%load` and `%save` |
+| `Tab` | Complete meta commands, symbol names (after `%print`, `%instantiate`, `%features` …; a name that needs quoting is offered in quotes, `Q::'the ra` completing to `Q::'the rack'`), object references where a command takes one (`#` offers the ids there are; `car.` offers the object-holding features of `car` — the same ones a path may pass through — a multi-valued one as `car.wheels[1]`, `car.wheels[2]` …; completing reads and materializes nothing, so a part no command has reached yet is offered by type, and only the elements reading it would hold: those the features subsetting it contribute, then anonymous ones up to its lower bound — so an optional part (`spare : Wheel[0..1]`) or an abstract one, which hold only what subsets them, is offered only once something does), the form after `%render <name>` and the palette after `%render <name> dot`, and file paths after `%load` and `%save` |
 | `Ctrl-D` | Exit REPL |
 
 The five solving commands (`%check`, `%explain`, `%solve`, `%configure`, `%optimize`) follow the
@@ -366,19 +366,41 @@ sysml> %render Demo::summary dot
 // kind: tree
 // layout: dot
 digraph "Demo::summary" {
-  node [shape=box];
-  "n0" [label=<<b>Demo::Vehicle</b><br/><font point-size="10">«part def»</font>>];
-  "n1" [label=<<b>mass : Real</b><br/><font point-size="10">«attribute»</font>>];
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n1" [style="rounded,filled", label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
   "n0" -> "n1" [arrowhead=none];
-  "n2" [label=<<b>wheel : Wheel</b><br/><font point-size="10">«part»</font>>];
+  "n2" [style="rounded,filled", label=<<b>wheel : Wheel</b><br/><font point-size="10"><i>«part»</i></font>>];
   "n0" -> "n2" [arrowhead=none];
-  "n3" [label=<<b>Demo::summary::detail</b><br/><font point-size="10">«view»</font>>];
-  "n4" [label=<<b>Demo::Wheel</b><br/><font point-size="10">«part def»</font>>];
-  "n5" [label=<<b>diameter : Real</b><br/><font point-size="10">«attribute»</font>>];
+  "n3" [style="rounded,filled", label=<<b>Demo::summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>];
+  "n4" [label=<<b>Demo::Wheel</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n5" [style="rounded,filled", label=<<b>diameter : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
   "n4" -> "n5" [arrowhead=none];
   "n3" -> "n4" [arrowhead=none];
 }
 ```
+
+The drawing is the Standard B&W style of the SysML v2 Pilot visualizer — white fills, thin
+`#181818` lines, square definitions and rounded usages, a bold name over an italic keyword line
+([the translation](../project/view-rendering-forms.md#style)). A palette name after `dot` fills
+the nodes by keyword family, a `part def` and its `part` usages sharing a hue, with black text
+kept legible on every fill:
+
+```text
+sysml> %render Demo::summary dot okabe-ito
+…
+  "n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n1" [style="rounded,filled", fillcolor="#F9F4B3", color="#F0E442", penwidth=1, label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+…
+```
+
+The palettes are `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`,
+`brewer-dark2`, `viridis` and `cividis` ([their sources](../project/view-rendering-forms.md#palettes));
+any other name is refused with that list. A palette is a `dot` matter: `%render <name> mermaid`
+has no place for one, and a `Diagram` block of a document states its own
+([`palette`](../manual/authoring.md#diagrams)).
 
 A `sequence` or `table` view has no DOT form, and asking for one tells you which form the kind
 uses.

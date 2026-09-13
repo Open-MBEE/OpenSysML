@@ -2,19 +2,21 @@
 // kind: tree
 // layout: dot
 digraph "VehicleViews::vehicleView" {
-  node [shape=box];
-  "n0" [label=<<b>Vehicles::Vehicle</b><br/><font point-size="10">«part def»</font>>];
-  "n1" [label=<<b>engine : Engine</b><br/><font point-size="10">«part»</font>>];
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<b>Vehicles::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n1" [style="rounded,filled", label=<<b>engine : Engine</b><br/><font point-size="10"><i>«part»</i></font>>];
   "n0" -> "n1" [arrowhead=none];
-  "n2" [label=<<b>wheels : Wheel</b><br/><font point-size="10">«part»</font>>];
+  "n2" [style="rounded,filled", label=<<b>wheels : Wheel</b><br/><font point-size="10"><i>«part»</i></font>>];
   "n0" -> "n2" [arrowhead=none];
-  "n3" [label=<<b>connect</b>>];
+  "n3" [style="rounded,filled", label=<<b>connect</b>>];
   "n0" -> "n3" [arrowhead=none];
-  "n4" [label=<<b>VehicleViews::vehicleView::engineSubview</b><br/><font point-size="10">«view»</font>>];
-  "n5" [label=<<b>Vehicles::Engine</b><br/><font point-size="10">«part def»</font>>];
-  "n6" [label=<<b>power</b><br/><font point-size="10">«attribute»</font>>];
+  "n4" [style="rounded,filled", label=<<b>VehicleViews::vehicleView::engineSubview</b><br/><font point-size="10"><i>«view»</i></font>>];
+  "n5" [label=<<b>Vehicles::Engine</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n6" [style="rounded,filled", label=<<b>power</b><br/><font point-size="10"><i>«attribute»</i></font>>];
   "n5" -> "n6" [arrowhead=none];
-  "n7" [label=<<b>cylinder : Cylinder</b><br/><font point-size="10">«part»</font>>];
+  "n7" [style="rounded,filled", label=<<b>cylinder : Cylinder</b><br/><font point-size="10"><i>«part»</i></font>>];
   "n5" -> "n7" [arrowhead=none];
   "n4" -> "n5" [arrowhead=none];
 }

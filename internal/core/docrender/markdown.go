@@ -112,7 +112,7 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 	case docir.ContentDefinitions:
 		return renderDefinitions(node), nil
 	case docir.ContentDiagram:
-		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), node.Direction(), w.form)
+		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), node.Options(), w.form)
 	default:
 		return nil, &Error{Kind: ErrorUnknownContent, Content: node.Name(), Actual: string(node.Kind())}
 	}
@@ -170,7 +170,7 @@ func pipeTable(names []string, rows []queryexec.Row, columns int) string {
 
 // diagramBlocks writes one diagram under its marked caption: a table-kind view
 // as a pipe table, every other kind as a fence in the render's diagram form.
-func diagramBlocks(name, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) ([]string, error) {
+func diagramBlocks(name, caption string, rendering *view.Rendering, options view.Options, form view.Form) ([]string, error) {
 	if rendering == nil {
 		return nil, &Error{Kind: ErrorMissingRendering, Content: name}
 	}
@@ -184,24 +184,24 @@ func diagramBlocks(name, caption string, rendering *view.Rendering, direction vi
 	if !rendering.Kind.Supported() {
 		return nil, &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind)}
 	}
-	source, err := diagramSource(name, rendering, direction, form)
+	source, err := diagramSource(name, rendering, options, form)
 	if err != nil {
 		return nil, err
 	}
 	return append(blocks, "```"+string(form)+"\n"+source+"\n```"), nil
 }
 
-// diagramSource writes a graph-shaped rendering in the resolved diagram form,
-// without its trailing newline.
-func diagramSource(name string, rendering *view.Rendering, direction view.Direction, form view.Form) (string, error) {
+// diagramSource writes a graph-shaped rendering in the resolved diagram form
+// with the diagram's direction and palette, without its trailing newline.
+func diagramSource(name string, rendering *view.Rendering, options view.Options, form view.Form) (string, error) {
 	if !rendering.Kind.SupportsForm(form) {
 		return "", &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}
 	}
 	switch form {
 	case view.FormMermaid:
-		return strings.TrimRight(rendering.MermaidDirected(direction), "\n"), nil
+		return strings.TrimRight(rendering.MermaidWith(options), "\n"), nil
 	case view.FormDot:
-		dot, err := rendering.DOTDirected(direction)
+		dot, err := rendering.DOTWith(options)
 		if err != nil {
 			return "", err
 		}

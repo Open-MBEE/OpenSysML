@@ -232,6 +232,11 @@ Form \-render or \-render\-all writes: text, mermaid, markdown or dot
 (default: destination\-dependent for \-render, each kind's machine form for
 \-render\-all)
 .TP
+.BI \-render\-palette " string"
+Palette the DOT form of \-render or \-render\-all fills nodes from, by keyword
+family: okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2,
+brewer\-dark2, viridis or cividis (default: black and white)
+.TP
 .BI \-requirement " value"
 Evaluate this requirement and exit, reporting beside its verdict the verdict
 of every verification case verifying it (repeatable)
@@ -540,6 +545,8 @@ sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render Views::vehicleView \-render\-form markdown
 sysml model.sysml \-render Views::vehicleView \-o view.mmd
 sysml model.sysml \-render Views::vehicleView \-render\-form dot
+sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
+    \-render\-palette okabe\-ito
 # several files, loaded as one model
 sysml types.sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render\-all rendered
@@ -553,7 +560,11 @@ rendering cannot represent \(em go on stderr. Every file named is loaded as
 one model, so a view may expose elements a sibling file declares. A
 graph\-shaped rendering is written as a Mermaid diagram by default and as
 Graphviz DOT with \-render\-form dot; no Graphviz installation is needed to
-write it.
+write it. DOT is drawn in the black\-and\-white style of the SysML v2 Pilot
+visualizer; \-render\-palette fills its nodes by keyword family from a
+colourblind\-safe palette (okabe\-ito, tol\-bright, tol\-muted, tol\-light,
+brewer\-set2, brewer\-dark2, viridis or cividis), keeping black text legible
+on every fill.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf

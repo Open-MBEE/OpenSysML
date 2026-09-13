@@ -92,16 +92,25 @@ func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeT
 // checkTarget reports a value the target does not admit: by count when countJudged,
 // then by type under the given admission, then by uniqueness.
 func (ctx *Context) checkTarget(scope *symbols.Scope, what string, target *writeTarget, value *Value, how admission, countJudged bool) error {
+	return ctx.checkTargetAs(scope, func() string { return what }, target, value, how, countJudged)
+}
+
+// checkTargetAs is checkTarget naming the write only when it is refused, so a
+// conformant write on a hot path does not pay for its description.
+func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged bool) error {
 	if countJudged {
 		if msg := ctx.writeCountRefusal(target, value); msg != "" {
-			return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+			return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
 		}
 	}
-	if err := ctx.checkWriteType(scope, what, target.typ, value, how); err != nil {
+	if refusal, refused := ctx.writeTypeRefusal(scope, target.typ, value, how); refused {
+		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)
+	}
+	if err := ctx.holdForDeclared(value, target.typ); err != nil {
 		return err
 	}
 	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
-		return fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
 	return nil
 }
@@ -122,18 +131,12 @@ func (ctx *Context) checkBodyWrite(host stmtHost, s lower.Assign, value *Value) 
 // checkNamedWrite checks a write of a name resolved in scope, for a path that
 // stores the value itself rather than reaching Instance.SetFeatureValue.
 func (ctx *Context) checkNamedWrite(scope *symbols.Scope, where, name string, value *Value) error {
-	return ctx.checkBoundName(scope, fmt.Sprintf("%s: assignment to %s", where, name), name, value)
-}
-
-// checkBoundName checks a value bound to the feature name declares in scope,
-// described by what: an assignment, or a binding that gives a value to an
-// output the run time computes.
-func (ctx *Context) checkBoundName(scope *symbols.Scope, what, name string, value *Value) error {
 	target, ok := ctx.writeTargetIn(scope, name)
 	if !ok {
 		return nil
 	}
-	return ctx.checkWrite(scope, what, target, value)
+	what := func() string { return fmt.Sprintf("%s: assignment to %s", where, name) }
+	return ctx.checkTargetAs(scope, what, target, value, admitWritten, true)
 }
 
 // checkBodyDeclaration checks the initial value a body-local declaration binds against
@@ -149,8 +152,8 @@ func (ctx *Context) checkBodyDeclaration(scope *symbols.Scope, where, name strin
 	}
 	declared := *target
 	declared.unique = target.unique && multiValued(target.mult)
-	what := fmt.Sprintf("%s: declaration of %s", where, name)
-	return ctx.checkTarget(scope, what, &declared, value, admitDeclared, target.multStated)
+	what := func() string { return fmt.Sprintf("%s: declaration of %s", where, name) }
+	return ctx.checkTargetAs(scope, what, &declared, value, admitDeclared, target.multStated)
 }
 
 // storeBodyValue writes a value into the behavior's own data once it conforms
@@ -167,9 +170,9 @@ func storeBodyValue(ctx *Context, host stmtHost, env *stmtEnv, name string, valu
 // declared type could hold. A target declaring no type holds anything, and a
 // value whose type the run time cannot name is not judged here. A quantity the
 // feature holds is spelt in the coherent unit its declared type prefers.
-func (ctx *Context) checkWriteType(scope *symbols.Scope, what string, declared *symbols.Symbol, value *Value, how admission) error {
+func (ctx *Context) checkWriteType(scope *symbols.Scope, what func() string, declared *symbols.Symbol, value *Value, how admission) error {
 	if refusal, refused := ctx.writeTypeRefusal(scope, declared, value, how); refused {
-		return fmt.Errorf("%s: %w: %s", what, ErrTypeMismatch, refusal)
+		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)
 	}
 	return ctx.holdForDeclared(value, declared)
 }

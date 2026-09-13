@@ -51,6 +51,10 @@ type Model struct {
 	typingArgs map[*ast.InvocationExpr]bool
 	composed   map[composedKey][]*symbols.Symbol
 	ends       map[*symbols.Symbol][]connectorEnd
+	// subtracting memoizes whether a type reaches a difference (see cast.go).
+	subtracting map[*symbols.Symbol]bool
+	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
+	implicitBase map[*symbols.Symbol][]*symbols.Symbol
 
 	superEdgeCache map[*symbols.Symbol][]superEdge      // generalization edges with conjugation
 	conjSupers     map[*symbols.Symbol][]conjugatedType // supertypes with conjugation parity
@@ -63,6 +67,7 @@ type Model struct {
 	libSymbols    map[string]*symbols.Symbol          // library elements resolved by qualified name
 	baseUnits     map[*symbols.Symbol]*symbols.Symbol // base quantities to SI::si's base units, nil until read
 	coherentUnits map[string][]coherentUnit           // declared coherent units by reduced factors, nil until indexed
+	docRanks      map[string]int                      // documents ranked in index order, nil until read
 
 	// Element-filter evaluation: conditions compiled once per expression, their
 	// verdicts memoized per candidate, and the metadata annotating each candidate
@@ -138,6 +143,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		typingArgs:        make(map[*ast.InvocationExpr]bool),
 		composed:          make(map[composedKey][]*symbols.Symbol),
 		ends:              make(map[*symbols.Symbol][]connectorEnd),
+		subtracting:       make(map[*symbols.Symbol]bool),
+		implicitBase:      make(map[*symbols.Symbol][]*symbols.Symbol),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
 		conjSupers:     make(map[*symbols.Symbol][]conjugatedType),

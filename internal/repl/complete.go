@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
 // completionLimit bounds a completion answer: the library registers tens of
@@ -48,10 +49,15 @@ func (s *Session) Complete(line string, pos int) Completion {
 		word := lastField(head)
 		return completion(word, pathCompletions(word))
 	}
-	// %render takes the form after the view name, which is no name to look up.
+	// %render takes the form after the view name, which is no name to look up,
+	// and a palette after the dot form.
 	if command == "%render" && atSecondArgument(head) {
 		word := lastField(head)
 		return completion(word, matchingPrefix(renderForms(), word))
+	}
+	if command == "%render" && atDotPalette(head) {
+		word := lastField(head)
+		return completion(word, matchingPrefix(renderPalettes(), word))
 	}
 	if atObjectArgument(head) {
 		word := objectWord(head)
@@ -105,6 +111,13 @@ func sharedPrefix(candidates []string) string {
 // space ('My View') is one argument, and one still being typed is not yet past.
 func atSecondArgument(head string) bool {
 	return !inUnfinishedName(head) && argumentIndex(head) == 2
+}
+
+// atDotPalette reports whether the word being typed is %render's third
+// argument after the dot form: the palette to fill from.
+func atDotPalette(head string) bool {
+	args := typedArgs(head)
+	return !inUnfinishedName(head) && argumentIndex(head) == 3 && len(args) > 2 && args[2] == string(view.FormDot)
 }
 
 // atObjectArgument reports whether the word being typed is an argument the

@@ -192,6 +192,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form markdown", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -o view.mmd", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
 			},
@@ -204,7 +205,11 @@ func doc() usage.Doc {
 					"model, so a view may expose elements a sibling file declares. " +
 					"A graph-shaped rendering is written as a Mermaid diagram by " +
 					"default and as Graphviz DOT with -render-form dot; no Graphviz " +
-					"installation is needed to write it.",
+					"installation is needed to write it. DOT is drawn in the black-and-white " +
+					"style of the SysML v2 Pilot visualizer; -render-palette fills its nodes " +
+					"by keyword family from a colourblind-safe palette (okabe-ito, tol-bright, " +
+					"tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis), " +
+					"keeping black text legible on every fill.",
 			},
 		}, {
 			Title: "Rendering a document",
@@ -354,6 +359,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered Markdown")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition as linked Markdown into this directory")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown or dot (default: destination-dependent for -render, each kind's machine form for -render-all)")
+	fs.StringVar(&renderPalette, "render-palette", "", "Palette the DOT form of -render or -render-all fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis (default: black and white)")
 	fs.StringVar(&docForm, "doc-form", "", "Form -render-document and -render-documents write: markdown (default), html or pdf, which drives an external converter")
 	fs.StringVar(&diagramForm, "diagram-form", "", "Form the graph-shaped diagrams of -render-document and -render-documents are written in: mermaid (default) or dot; a table-kind view is a table either way")
 	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
