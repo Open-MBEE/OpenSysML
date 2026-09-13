@@ -94,7 +94,7 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 		d.demoteAll()
 		return
 	}
-	check, err := encodeDocument(file, root)
+	check, err := encodeDocument(file, root, d.library)
 	if err != nil {
 		d.demoteAll()
 		return
@@ -130,7 +130,9 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 // their text was written in; a root with text recording none was read as a
 // buffer with no extension, and the candidate is named so it reads the same
 // way. Roots recording different grammars cannot be read as one document; one
-// with neither text nor grammar was added to the graph and says nothing.
+// with neither text nor grammar was added to the graph and says nothing, and a
+// graph whose roots all say nothing is read in the grammar of the library
+// document it is a version of, if it is one.
 func (d *decoder) candidateName(roots []*element) (string, bool) {
 	language, seen := "", false
 	for _, root := range roots {
@@ -143,10 +145,22 @@ func (d *decoder) candidateName(roots []*element) (string, bool) {
 		}
 		language, seen = recorded, true
 	}
+	if !seen {
+		language = d.libraryLanguage()
+	}
 	if language == "" {
 		return "<converted>", true
 	}
 	return "<converted>." + language, true
+}
+
+// libraryLanguage is the grammar the library document the graph is a version of
+// is written in, as languageName records it; "" for a graph that is no library.
+func (d *decoder) libraryLanguage() string {
+	if d.library == "" {
+		return ""
+	}
+	return languageName(source.KindOf(d.library))
 }
 
 // demoteAll demotes every verbatim text and expression printed in this pass.
