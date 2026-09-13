@@ -2,6 +2,8 @@ package edit
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
@@ -12,15 +14,32 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// target returns the declaration an operation names. Only a declaration of this
-// model's own document can be edited: its source is the only one being rewritten.
-func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
+// declared returns the declarations a qualified name, spelled as the notation
+// does, names: `'x::y'` is one name and `x::y` two, so each finds its own.
+func (m Model) declared(name string) []*symbols.Symbol {
+	names, ok := lexer.QualifiedNameSegments(name)
+	if !ok {
+		return nil
+	}
+	joined := strings.Join(names, "::")
 	var declaring []*symbols.Symbol
-	for _, sym := range m.Index.LookupQualifiedFrom(op.Target, op.Target) {
-		if sym != nil && m.Index.GetFQN(sym) == op.Target {
+	for _, sym := range m.Index.LookupQualifiedFrom(joined, joined) {
+		if sym != nil && slices.Equal(symbols.NameChain(sym), names) {
 			declaring = append(declaring, sym)
 		}
 	}
+	return declaring
+}
+
+// notationName spells a symbol's qualified name as declared reads it back.
+func notationName(sym *symbols.Symbol) string {
+	return lexer.QualifiedNameOf(symbols.NameChain(sym))
+}
+
+// target returns the declaration an operation names. Only a declaration of this
+// model's own document can be edited: its source is the only one being rewritten.
+func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
+	declaring := m.declared(op.Target)
 	switch len(declaring) {
 	case 0:
 		return nil, &Error{

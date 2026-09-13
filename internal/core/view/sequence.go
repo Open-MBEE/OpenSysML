@@ -35,7 +35,7 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 				}
 				name := r.notationName(participant)
 				if participant != elem {
-					name = notationName(simpleName(r.fqn(participant)))
+					name = localName(participant)
 				}
 				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name,
 					Type: declType(participant), Origin: symbolOrigin(participant)}
@@ -186,8 +186,8 @@ func (r *Renderer) addSuccessionUsage(succession *symbols.Symbol, into *interact
 		return
 	}
 	name := ""
-	if simple := simpleName(r.fqn(succession)); simple != "" && !succession.EffectiveName() {
-		name = notationName(simple)
+	if succession.Name != "" && !succession.EffectiveName() {
+		name = localName(succession)
 	}
 	into.orders = append(into.orders, order{from: from, to: to, name: name})
 }
@@ -313,8 +313,8 @@ func (r *Renderer) noticeSubject(sym *symbols.Symbol) string {
 // subject names an element a notice is about: what it is and its name, else what
 // it is and where it is written, since anonymity is normal notation.
 func (r *Renderer) subject(sym *symbols.Symbol, kind string) string {
-	if name := simpleName(r.fqn(sym)); name != "" && !sym.EffectiveName() {
-		return kind + " " + notationName(name)
+	if sym.Name != "" && !sym.EffectiveName() {
+		return kind + " " + localName(sym)
 	}
 	if owner := ownerOf(sym); owner != nil {
 		return fmt.Sprintf("%s %s in %s", article(kind), kind, r.notationName(owner))
@@ -346,7 +346,7 @@ func endText(end ast.Node) string {
 	}
 	segments := strings.Split(lower.FeaturePath(end), ".")
 	for i, segment := range segments {
-		segments[i] = notationName(segment)
+		segments[i] = nameText(segment)
 	}
 	return strings.Join(segments, ".")
 }
@@ -355,8 +355,8 @@ func endText(end ast.Node) string {
 // else the payload it carries as written, else the keyword that declared it. An
 // anonymous message is normal notation, so it is never left unlabeled.
 func (r *Renderer) messageLabel(flow *symbols.Symbol) string {
-	if name := simpleName(r.fqn(flow)); name != "" && !flow.EffectiveName() {
-		return notationName(name)
+	if flow.Name != "" && !flow.EffectiveName() {
+		return localName(flow)
 	}
 	if declared := declType(flow); declared != "" {
 		return declared
@@ -497,7 +497,7 @@ func (r *Renderer) cyclicOrders(orders []order, at map[*symbols.Symbol]int, plac
 		name := o.name
 		if name == "" {
 			name = fmt.Sprintf("%s to %s",
-				notationName(simpleName(r.fqn(o.from))), notationName(simpleName(r.fqn(o.to))))
+				localName(o.from), localName(o.to))
 		}
 		names = append(names, name)
 	}

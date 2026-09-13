@@ -21,9 +21,60 @@ func QualifiedNameText(fqn string) string {
 	if fqn == "" {
 		return fqn
 	}
-	segments := strings.Split(fqn, "::")
-	for i, segment := range segments {
-		segments[i] = NameText(segment)
+	return QualifiedNameOf(strings.Split(fqn, "::"))
+}
+
+// QualifiedNameOf writes names, outermost first, as one qualified name, each
+// quoted on its own; a name may hold `::`, so the text is read back exactly.
+func QualifiedNameOf(names []string) string {
+	segments := make([]string, len(names))
+	for i, name := range names {
+		segments[i] = NameText(name)
 	}
 	return strings.Join(segments, "::")
+}
+
+// QualifiedNameSegments reads a qualified name back into its names, `'x::y'` one
+// and `x::y` two, quotes dropped and escapes kept; false for malformed text.
+func QualifiedNameSegments(text string) ([]string, bool) {
+	var names []string
+	for {
+		name, rest, ok := readName(text)
+		if !ok {
+			return nil, false
+		}
+		names = append(names, name)
+		if rest == "" {
+			return names, true
+		}
+		if !strings.HasPrefix(rest, "::") {
+			return nil, false
+		}
+		text = rest[2:]
+	}
+}
+
+// readName reads one name off the front of text: a quoted one up to its closing
+// quote, else a bare one up to `::`.
+func readName(text string) (name, rest string, ok bool) {
+	if text == "" {
+		return "", "", false
+	}
+	if text[0] != '\'' {
+		end := strings.Index(text, "::")
+		if end < 0 {
+			end = len(text)
+		}
+		name = text[:end]
+		return name, text[end:], name != "" && !strings.Contains(name, "'")
+	}
+	for i := 1; i < len(text); i++ {
+		switch text[i] {
+		case '\\':
+			i++
+		case '\'':
+			return text[1:i], text[i+1:], i > 1
+		}
+	}
+	return "", "", false
 }

@@ -1815,6 +1815,22 @@ func FQNOf(sym *Symbol) string {
 	return out.String()
 }
 
+// NameChain is the names FQNOf joins, outermost first: a symbol's own name
+// after those of its named owners. Kept apart, they tell `'x::y'` from `x::y`.
+func NameChain(sym *Symbol) []string {
+	if sym == nil {
+		return nil
+	}
+	names := []string{sym.Name}
+	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
+		if owner := scope.Owner(); owner.Name != "" {
+			names = append(names, owner.Name)
+		}
+	}
+	slices.Reverse(names)
+	return names
+}
+
 // HasFQN reports whether sym's fully-qualified name is fqn, without building
 // that name: the segments are compared against the owner chain from the end,
 // skipping unnamed owners as FQNOf does.
