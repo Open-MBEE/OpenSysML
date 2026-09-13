@@ -149,7 +149,7 @@ of the pilot corpora fails `cmd/pilot-diff`, `cmd/pilot-xpect` and the `TestPilo
 with a provenance message naming the drift; that is the gate working, not a regression — re-fetch
 before re-recording anything.
 
-| Gate | Count at `develop` @ `54e06c592` (2026-09-13, Go 1.25.0); the `v0.7.0` figure in brackets where it moved |
+| Gate | Count at `develop` @ `074f9c4b7` (2026-09-13, Go 1.25.0); the `v0.7.0` figure in brackets where it moved |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
 | OMG pilot corpora (ratchet) | 213 files; 7 report a diagnostic [6], each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
@@ -173,14 +173,14 @@ docs-counts` from the committed baselines; they are not repeated here.
 
 The test-suite figures above are counted from `go test -v` at the commit the table names. The
 other surfaces `releasing.md` allows to repeat them (`README.md`, `docs/project/spec-compliance.md`,
-`docs/project/training-examples.md`) are still typed in by hand, and at this baseline they
-state the `v0.6.0` figures #108 recounted (671 conformance cases, 140 traces, 336 robustness
-cases, 195 golden ASTs, 15,139 tests and subtests) rather than the ones above; `make docs-counts`
+`docs/project/training-examples.md`) are still typed in by hand and were recounted at the same
+commit, so they agree with the table; `make docs-counts`
 generates only the refereed pilot figures and does not check them. Folding the test-suite figures
 into `cmd/doc-counts` so they are generated like the pilot figures and can no longer drift is the
 small open item listed under sequencing, and the recount of those surfaces for the next release belongs to
 the release procedure (`releasing.md`), not to this record. The census, rejection-oracle and RDF
-round-trip rows follow the committed baselines, none of which moved since the tag.
+round-trip rows follow the committed baselines; the census did not move since the tag, the other
+two grew with the corpus and the baseline (bracketed above).
 
 Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
 present. It counts only each package's own tests, which understates a package consumed by others
@@ -508,7 +508,7 @@ drops what those items carry. Every surface says so (`export.ExperimentalNotice`
 it to stable is re-measuring the harness once those land, not a documentation change.
 
 Measured by the per-file ratchet at this baseline (`TestCorpusRoundTrip`,
-`internal/core/export/testdata/corpus_roundtrip_expected.txt`), **all 346 models under
+`internal/core/export/testdata/corpus_roundtrip_expected.txt`), **all 353 models under
 `examples/` convert** (the training corpus, the three pilot corpora and this repository's own
 demos), every one round-tripping `notation → RDF → notation → RDF` byte-identically; there is no
 whitespace-only, graph-diff, unwritable, unparseable or refused verdict left — each file is
@@ -2344,7 +2344,7 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the
   differential's record and constructor coverage both need it; decide N2.2 (the budget) before
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
-- **Track D.** The RDF ratchet is 346/346 with no refusal left; step 6 above is next; **D7** is
+- **Track D.** The RDF ratchet is 353/353 with no refusal left; step 6 above is next; **D7** is
   mechanical now that identity is stable and fits anywhere; the ontology modules (#774 on the
   previous repository) have to be re-proposed against this `main` before **D8**'s profile, which
   only becomes conformant behind D1 and D2; **D12** (the standard library's normative element
