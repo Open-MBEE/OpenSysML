@@ -267,3 +267,130 @@ func TestLibraryDocumentAboutFormAnnotationsAreIndexed(t *testing.T) {
 		t.Fatalf("scope = %+v, want proj-lib/org-lib from the library document's about-form ProjectRef", info.Scope)
 	}
 }
+
+func TestLibraryElementCarriesItsNormativeID(t *testing.T) {
+	_, idx := buildTable(t, `package Use { import ScalarValues::Real; }`)
+	// Build tables only the document's own symbols; library ones are computed directly.
+	res := resolve.New(idx)
+	model := semantics.NewModel(res)
+	res.SetModel(model)
+	for _, tc := range []struct{ fqn, id, lang, membership string }{
+		{"ScalarValues", "40bb440c-5036-58e1-8675-5afccb8b8f1d", "KerML", "1cecd337-acef-524c-847a-1f3e7a2e65e9"},
+		{"ScalarValues::Real", "14c0aa22-5489-59b5-b438-ded26e83ba31", "KerML", "ab72a695-5fe9-58a3-9d48-9e9a8711862d"},
+	} {
+		syms := idx.LookupQualified(tc.fqn)
+		if len(syms) == 0 {
+			t.Fatalf("%s: no symbol", tc.fqn)
+		}
+		info, ok := identity.Of(model, res, syms[0])
+		if !ok {
+			t.Fatalf("%s: no identity", tc.fqn)
+		}
+		if info.Source != identity.SourceNormative || !info.Normative() || info.Language.String() != tc.lang {
+			t.Errorf("%s: source=%v language=%v, want normative %s", tc.fqn, info.Source, info.Language, tc.lang)
+		}
+		if info.EffectiveID != tc.id {
+			t.Errorf("%s: effective=%q, want %q", tc.fqn, info.EffectiveID, tc.id)
+		}
+		if got := info.OwningMembershipID(); got != tc.membership {
+			t.Errorf("%s: owning membership=%q, want %q", tc.fqn, got, tc.membership)
+		}
+		if info.Annotated || info.Declared {
+			t.Errorf("%s: normative id reported as an annotation", tc.fqn)
+		}
+	}
+}
+
+func TestSystemsLibraryElementIsMintedUnderSysML(t *testing.T) {
+	_, idx := buildTable(t, `package Use { import Parts::*; }`)
+	res := resolve.New(idx)
+	model := semantics.NewModel(res)
+	res.SetModel(model)
+	syms := idx.LookupQualified("Parts::Part")
+	if len(syms) == 0 {
+		t.Fatal("Parts::Part: no symbol")
+	}
+	info, ok := identity.Of(model, res, syms[0])
+	if !ok || info.Language.String() != "SysML" || info.Source != identity.SourceNormative {
+		t.Fatalf("Parts::Part: info=%+v, want SysML normative", info)
+	}
+	if info.EffectiveID == rdf.EncodeElementID("Parts::Part") || info.EffectiveID == "" {
+		t.Fatalf("Parts::Part: effective=%q, want a UUID", info.EffectiveID)
+	}
+}
+
+func TestUserElementIsDerivedAndOpenSysMLLibraryIsNotNormative(t *testing.T) {
+	table, idx := buildTable(t, `package Vehicles { part def Vehicle; }`)
+	info := infoOf(t, table, idx, "Vehicles::Vehicle")
+	if info.Source != identity.SourceDerived || info.Normative() || info.OwningMembershipID() != "" {
+		t.Fatalf("Vehicles::Vehicle: source=%v, want derived", info.Source)
+	}
+	res := resolve.New(idx)
+	model := semantics.NewModel(res)
+	res.SetModel(model)
+	syms := idx.LookupQualified("IdentityMetadata::ElementId")
+	if len(syms) == 0 {
+		t.Fatal("IdentityMetadata::ElementId: no symbol")
+	}
+	ext, ok := identity.Of(model, res, syms[0])
+	if !ok || ext.Source != identity.SourceDerived {
+		t.Fatalf("IdentityMetadata::ElementId: source=%v, want derived (an OpenSysML extension is not normative)", ext.Source)
+	}
+}
+
+func TestDeclaredIDOverridesTheNormativeID(t *testing.T) {
+	table, idx := buildTable(t, `package Meta {
+	metadata sid : IdentityMetadata::ElementId about ScalarValues::Boolean {
+		id = "bool-id";
+	}
+}
+`)
+	info := infoOf(t, table, idx, "ScalarValues::Boolean")
+	if info.Source != identity.SourceDeclared || info.EffectiveID != "bool-id" || info.Language != 0 {
+		t.Fatalf("source=%v effective=%q language=%v, want declared bool-id", info.Source, info.EffectiveID, info.Language)
+	}
+}
+
+func TestLibraryCatalogNamesEveryNormativeIDAndIsSharedByOverlays(t *testing.T) {
+	_, idx := buildTable(t, `package Use;`)
+	catalog := identity.LibraryCatalog(idx)
+	if other := identity.LibraryCatalog(libs.NewModelIndex()); other != catalog {
+		t.Fatal("two overlays over one library base should share one catalog")
+	}
+	el, ok := catalog.Element("14c0aa22-5489-59b5-b438-ded26e83ba31")
+	if !ok || el.FQN != "ScalarValues::Real" || el.Language.String() != "KerML" {
+		t.Fatalf("Real by id: %+v, %v", el, ok)
+	}
+	om, ok := catalog.OwningMembership("ab72a695-5fe9-58a3-9d48-9e9a8711862d")
+	if !ok || om != el {
+		t.Fatalf("Real's owning membership by id: %+v, %v", om, ok)
+	}
+	derived := rdf.EncodeElementID("ScalarValues::Real")
+	if _, ok := catalog.Element(derived); ok {
+		t.Fatal("a derived id is not a normative one")
+	}
+	if _, ok := catalog.OwningMembership(derived); ok {
+		t.Fatal("a derived id is not a normative membership either")
+	}
+	edges, ok := catalog.Element("6749b419-719a-51d9-8e13-d993bb953e80")
+	if !ok || edges.FQN != "ShapeItems::RectangularPyramid::base::edges" {
+		t.Fatalf("%+v: an effectively named member is catalogued under its effective name", edges)
+	}
+	res := resolve.New(idx)
+	model := semantics.NewModel(res)
+	res.SetModel(model)
+	seen := map[string]bool{}
+	for _, el := range catalog.Elements() {
+		if seen[el.ID] {
+			t.Fatalf("%s: id %s catalogued twice", el.FQN, el.ID)
+		}
+		seen[el.ID] = true
+		info, ok := identity.Of(model, res, el.Symbol)
+		if !ok || info.EffectiveID != el.ID || info.OwningMembershipID() != el.OwningMembershipID || info.Language != el.Language {
+			t.Fatalf("%s: catalog and identity.Of disagree: %+v vs %+v", el.FQN, el, info)
+		}
+	}
+	if len(seen) < 5000 {
+		t.Fatalf("catalogued %d elements, want the whole named library", len(seen))
+	}
+}

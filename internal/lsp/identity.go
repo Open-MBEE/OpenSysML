@@ -24,7 +24,8 @@ const identityActionKind = protocol.RefactorRewrite
 const placeholderProjectID = "<projectId>"
 
 // identityActions offers, for the declaration whose header the range touches,
-// minting an ElementId it lacks and binding an unbound root to a project.
+// minting an ElementId it lacks and binding an unbound root to a project. An id
+// the norm fixes is not lacking, so a library element is never minted for.
 func (s *Server) identityActions(name string, doc *model.Document, want source.Span) ([]protocol.CodeAction, error) {
 	sym := s.declarationAt(doc, want)
 	if sym == nil {
@@ -44,7 +45,7 @@ func (s *Server) identityActions(name string, doc *model.Document, want source.S
 			Edit:  workspaceEdit(uri, doc.Content, annotate(doc.Content, []annotation{projectRef(root)})),
 		})
 	}
-	if info.Annotated {
+	if info.Annotated || info.Normative() {
 		return out, nil
 	}
 	id, err := reposync.MintUUID()

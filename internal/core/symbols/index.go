@@ -284,6 +284,10 @@ func UsageAnnotatesOthers(u *ast.Usage) bool {
 // Frozen reports whether the index has been frozen.
 func (idx *Index) Frozen() bool { return idx.frozen }
 
+// Base is the frozen index an overlay reads through to, nil for an index that
+// stands alone. Two overlays over one base share its documents and symbols.
+func (idx *Index) Base() *Index { return idx.base }
+
 // NewOverlay returns an index holding everything base holds, whose own writes
 // are its own: documents it adds, the re-exports their imports surface and the
 // ones they invalidate are visible in it alone, and base is left untouched. It
@@ -928,6 +932,20 @@ func (idx *Index) DocumentLibraryTier(name string) LibraryTier {
 // LibraryDocument of TierNone for a workspace document.
 func (idx *Index) LibraryDocumentOf(name string) LibraryDocument {
 	return idx.libraryDocs.at(name)
+}
+
+// LibraryDocumentByDigest finds the bundled library document whose text has
+// the given digest (see TextDigest): the document a byte-identical text is.
+func (idx *Index) LibraryDocumentByDigest(digest string) (string, LibraryDocument, bool) {
+	if digest == "" {
+		return "", LibraryDocument{}, false
+	}
+	for _, name := range idx.libraryDocs.keys() {
+		if doc := idx.libraryDocs.at(name); doc.Digest == digest {
+			return name, doc, true
+		}
+	}
+	return "", LibraryDocument{}, false
 }
 
 // IsLibraryDocument reports whether the named document holds bundled library

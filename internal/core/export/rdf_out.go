@@ -246,7 +246,7 @@ func (e *encoder) sourceText() {
 // newEncoder resolves a parsed document, builds its identity side table and
 // records each member's qualified name, so references can be told from names.
 func newEncoder(file *source.SourceFile, root *ast.RootNamespace) (*encoder, error) {
-	res, model := analyzeDocument(file.Name(), root)
+	res, model := analyzeDocument(file, root)
 	ids, err := documentIdentity(file.Name(), res, model)
 	if err != nil {
 		return nil, err
@@ -604,7 +604,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 			e.graph.Add(subject, e.sysml(pOwningNamespace), ownerTerm)
 		}
 		_, crossing := node.(*ast.CrossFeatureMember)
-		membership = e.owningMembership(subject, ownerTerm, fqn, ast.IsExpression(node), e.variantMember(node, ownerTerm), crossing || h.typeFeature)
+		membership = e.owningMembership(node, subject, ownerTerm, fqn, ast.IsExpression(node), e.variantMember(node, ownerTerm), crossing || h.typeFeature)
 	}
 	if keyword := visibilityKeyword(visibility); keyword != "" {
 		// The membership states the visibility a member is declared with; a
@@ -950,7 +950,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 // which a ResultExpressionMembership owns; variant a usage a VariantMembership
 // owns; plain a feature its type owns through a plain OwningMembership rather
 // than a FeatureMembership: an end's cross feature, or a KerML `member` feature.
-func (e *encoder) owningMembership(member, owner rdf.Term, memberFQN string, result, variant, plain bool) rdf.Term {
+func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, memberFQN string, result, variant, plain bool) rdf.Term {
 	ownerClass, memberClass := e.metaclassOf(owner), e.metaclassOf(member)
 	// A metadata usage annotates its owner through an OwningMembership whatever
 	// the owner is, a relationship included (SysML.xtext PrefixMetadataMember).
@@ -977,7 +977,7 @@ func (e *encoder) owningMembership(member, owner rdf.Term, memberFQN string, res
 	// the API's payloads carry for it; anything else, a metadata usage included,
 	// through an OwningMembership.
 	feature := ontology.IsAncestorOrSelf(memberClass, "Feature") && isType(ownerClass) && !metadata
-	membership := rdf.OwningMembershipIRIOf(member)
+	membership := e.ids.owningMembershipOf(node, member)
 	// The membership shares the element namespace, so its IRI is reserved too.
 	if prior, taken := e.claim(membership.Value, memberFQN+"'s owning membership"); taken && e.idErr == nil {
 		e.idErr = &UnsupportedError{
