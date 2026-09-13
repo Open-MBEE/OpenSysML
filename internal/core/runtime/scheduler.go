@@ -314,6 +314,13 @@ func (ts *tokenSchedule) Acted(id int64, acted bool) {
 	}
 }
 
+// Ended tells the schedule the step is over, and whether the clock retries it.
+func (ts *tokenSchedule) Ended(retry bool) {
+	if ts.replay != nil {
+		ts.replay.ended(retry)
+	}
+}
+
 // Choice is the token-order pick an exploring or replaying step resolved, as the
 // trace names the tokens able to act and the index of the one moved; false when
 // it made none.

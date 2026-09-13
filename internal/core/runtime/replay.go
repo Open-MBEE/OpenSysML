@@ -647,13 +647,12 @@ type replayMove struct {
 	// enabled labels the tokens able to act, sorted by ID; taken indexes the one moved.
 	enabled []string
 	taken   int
+	// kept names a token of the witness's move present but not yet able to act: the move waits for the clock's retry.
+	kept string
 }
 
-// beginStep resolves the step: the witness's move when it is at this step and each
-// of its tokens is able to act, else — with one token at most able to act — that one
-// first and the rest after; two able to act with no move for them is a refusal. A
-// move for an earlier step is stale only at a choice point: with one token at most
-// able to act it may be a later run's, whose steps count from one again.
+// beginStep resolves the step by the witness's move at it: taken when each token named is able to act, kept for
+// the clock's retry when one at most is and the rest are present but parked or held; a token absent is refused.
 func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	m := &replayMove{run: r, step: tokens.step}
 	var enabled, rest, held []int64
@@ -674,18 +673,25 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	for i, id := range enabled {
 		m.enabled[i] = tokens.label(id)
 	}
-	able := "none is able to act"
-	if len(m.enabled) > 0 {
-		able = "able to act: " + strings.Join(m.enabled, ", ")
-	}
+	able := m.able()
 	r.hoistOrder(tokens.step)
 	c := &r.choices[r.next]
 	if c.Kind == ChoiceTokenOrder && c.Step == tokens.step {
 		for _, alt := range c.Among {
-			if !slices.Contains(m.enabled, alt) {
+			switch {
+			case slices.Contains(m.enabled, alt):
+			case len(enabled) < 2 && slices.ContainsFunc(tokens.ids, func(id int64) bool { return tokens.label(id) == alt }):
+				if m.kept == "" {
+					m.kept = alt
+				}
+			default:
 				r.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", tokens.step, alt, able))
 				return m
 			}
+		}
+		if m.kept != "" {
+			m.order = slices.Concat(enabled, rest, held)
+			return m
 		}
 		m.taken = slices.Index(m.enabled, c.Took)
 		if m.taken < 0 {
@@ -721,6 +727,21 @@ func (r *replayRun) hoistOrder(step int) {
 			r.choices[r.next] = c
 			return
 		}
+	}
+}
+
+// able spells the tokens able to act, as a refusal names them.
+func (m *replayMove) able() string {
+	if len(m.enabled) == 0 {
+		return "none is able to act"
+	}
+	return "able to act: " + strings.Join(m.enabled, ", ")
+}
+
+// ended settles a kept move: the clock retrying the step faces it then; a step ending any other way refuses it.
+func (m *replayMove) ended(retry bool) {
+	if m.kept != "" && !retry {
+		m.run.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", m.step, m.kept, m.able()))
 	}
 }
 

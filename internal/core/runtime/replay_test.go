@@ -564,6 +564,144 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}
 }
 
+// clockRetriedModel loads the conformance case whose step 3 the clock retries: on
+// the first pass only the performed branch acts, so explore draws the token order
+// at the retry, where both branches are due.
+func clockRetriedModel(t *testing.T) (m *exploreModel, run func(*Context) (Outcome, error)) {
+	t.Helper()
+	path := filepath.Join("testdata", "conformance", "action_explore_performed_and_accept_due_together.sysml")
+	text, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m = parseLibraryModel(t, string(text))
+	sym := m.action(t, "wake")
+	run = func(ctx *Context) (Outcome, error) {
+		outputs, err := ctx.ExecuteAction(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(outputs), nil
+	}
+	return m, run
+}
+
+// A token order explore draws once the clock has retried a step replays: the
+// move is kept through the pass where one token alone is able to act, and taken
+// at the retry. Each of the six linearizations reaches the outcome it recorded.
+func TestReplayFollowsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
+	m, run := clockRetriedModel(t)
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	if err != nil || !x.Complete() || x.Runs != 6 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	assertWitnessesReplay(t, x, m.fresh, run)
+	const (
+		perf   = "step 3: 2@performed first of 2@performed, 3@direct"
+		direct = "step 3: 3@direct first of 2@performed, 3@direct"
+	)
+	for witness, want := range map[string]string{
+		perf + "; step 4: 2@writeOne first of 2@writeOne, 3@direct":                                                           "x = 2",
+		perf + "; step 4: 3@direct first of 2@writeOne, 3@direct; step 5: 2@writeOne first of 2@writeOne, 3@writeTwo":         "x = 2",
+		perf + "; step 4: 3@direct first of 2@writeOne, 3@direct; step 5: 3@writeTwo first of 2@writeOne, 3@writeTwo":         "x = 1",
+		direct + "; step 4: 2@performed first of 2@performed, 3@writeTwo; step 5: 2@writeOne first of 2@writeOne, 3@writeTwo": "x = 2",
+		direct + "; step 4: 2@performed first of 2@performed, 3@writeTwo; step 5: 3@writeTwo first of 2@writeOne, 3@writeTwo": "x = 1",
+		direct + "; step 4: 3@writeTwo first of 2@performed, 3@writeTwo":                                                      "x = 1",
+	} {
+		choices, err := ParseChoices(strings.ReplaceAll(witness, "; ", "\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		outcome, made, err := replayed(t, m.fresh, run, choices)
+		if err != nil {
+			t.Errorf("replaying %s: %v", witness, err)
+			continue
+		}
+		if outcome.String() != want {
+			t.Errorf("replaying %s reached %s, want %s", witness, outcome, want)
+		}
+		if got := FormatChoices(made); got != witness {
+			t.Errorf("replaying %s made the choices\n%s", witness, got)
+		}
+	}
+}
+
+// A move kept for the clock's retry is bounded by presence and by the retry: an
+// alternative absent from the step is refused at once, and one present but parked
+// on an accept no send answers is refused when the step ends without a retry —
+// whether the other token acts or none does, in which case the run is deadlocked.
+func TestReplayRefusesAParkedTokenTheClockCannotEnable(t *testing.T) {
+	retried, run := clockRetriedModel(t)
+	fresh := retried.fresh
+	stalled := func(sends bool) (func() (*Context, error), func(*Context) (Outcome, error)) {
+		sender := "succession first start then split;"
+		if sends {
+			sender = "action sender { send 7 to reader; }\nsuccession first start then sender;\nsuccession first sender then split;"
+		}
+		m := parseExploreModel(t, `package test {
+			action stall {
+				attribute got : Integer = 0;
+				first start;
+				`+sender+`
+				fork split;
+				action reader accept n : Integer;
+				action recorder { assign got := n; }
+				action listener accept text : String;
+				join sync;
+				done;
+				succession first split then reader;
+				succession first split then listener;
+				succession first reader then recorder;
+				succession first recorder then sync;
+				succession first listener then sync;
+				succession first sync then done;
+			}
+		}`)
+		sym := m.action(t, "stall")
+		return m.fresh, func(ctx *Context) (Outcome, error) {
+			outputs, err := ctx.ExecuteAction(sym)
+			if err != nil {
+				return Outcome{}, err
+			}
+			return ctx.ActionOutcome(outputs), nil
+		}
+	}
+	oneParked, oneParkedRun := stalled(true)
+	bothParked, bothParkedRun := stalled(false)
+	ctx, _ := bothParked()
+	if _, err := bothParkedRun(ctx); !errors.Is(err, ErrAcceptDeadlock) {
+		t.Fatalf("the stalled model under the default policy: %v, want %v", err, ErrAcceptDeadlock)
+	}
+	cases := []struct {
+		name  string
+		fresh func() (*Context, error)
+		run   func(*Context) (Outcome, error)
+		line  string
+		faced string
+	}{
+		{"alternative absent", fresh, run, "step 3: 2@performed first of 2@performed, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed)"},
+		{"token absent beside one parked", fresh, run, "step 3: 9@zzz first of 3@direct, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed)"},
+		{"parked beside a token that acts", oneParked, oneParkedRun, "step 4: 3@listener first of 2@reader, 3@listener", "step 4: 3@listener is not able to act (able to act: 2@reader)"},
+		{"parked in a deadlock", bothParked, bothParkedRun, "step 3: 2@reader first of 2@reader, 3@listener", "step 3: 2@reader is not able to act (none is able to act)"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			witness, err := ParseChoices(c.line)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _, err = replayed(t, c.fresh, c.run, witness)
+			var refused *ReplayError
+			if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
+				t.Fatalf("error %T %v, want a ReplayError", err, err)
+			}
+			if refused.Move != 1 || refused.Choice.String() != c.line || refused.Faced != c.faced {
+				t.Errorf("refused move %d (%s): %q, want move 1 (%s): %q", refused.Move, refused.Choice, refused.Faced, c.line, c.faced)
+			}
+		})
+	}
+}
+
 // A run that outlives its witness goes on as `reverse` does: the witness's first
 // move is taken, and from there the choices are the default policy's.
 func TestReplayFallsBackToReverse(t *testing.T) {
