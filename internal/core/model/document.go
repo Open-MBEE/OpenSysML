@@ -14,7 +14,7 @@ import (
 // Document is the parsed state of one source file. It is immutable once built:
 // it is parsed from bytes the workspace owns, newDocument sets every field and
 // nothing writes one afterwards, so a document the workspace hands out is a
-// snapshot that neither a later update nor the caller's buffer can touch.
+// snapshot that neither a later update nor whoever supplied the bytes can touch.
 type Document struct {
 	Name             string
 	Content          []byte

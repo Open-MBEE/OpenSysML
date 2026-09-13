@@ -2,10 +2,13 @@ package model
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // sameSlice reports whether a and b are the same slice value: same length over
@@ -133,6 +136,65 @@ func TestDocumentSnapshotOwnsContent(t *testing.T) {
 				t.Error("Scope lost P")
 			}
 		})
+	}
+}
+
+// scratchSource is a libs.Source that answers every Read from one reused buffer.
+type scratchSource struct {
+	files map[string]string
+	buf   []byte
+}
+
+func (s *scratchSource) List() []string {
+	names := make([]string, 0, len(s.files))
+	for name := range s.files {
+		names = append(names, name)
+	}
+	return names
+}
+
+func (s *scratchSource) Read(name string) ([]byte, error) {
+	text, ok := s.files[name]
+	if !ok {
+		return nil, fmt.Errorf("no %q", name)
+	}
+	s.buf = append(s.buf[:0], text...)
+	return s.buf, nil
+}
+
+// A library document owns its bytes too: a source that reuses the buffer it
+// returns cannot change a document already served from it.
+func TestLibraryDocumentSnapshotOwnsContent(t *testing.T) {
+	const a, b = "lib/a.sysml", "lib/b.sysml"
+	const wantA = "package A { part def X; }"
+	src := &scratchSource{files: map[string]string{a: wantA, b: "package B { part def Y; }"}}
+	idx := symbols.NewIndex()
+	for _, name := range []string{a, b} {
+		text := []byte(src.files[name])
+		idx.AddDocumentWithKind(name, parser.New(source.New(name, text)).ParseFile(), source.KindSysML)
+		idx.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: symbols.TierLibrary, Digest: symbols.TextDigest(text)})
+	}
+	idx.ExpandWildcardImports()
+	ws := NewWorkspaceWithIndex(idx, WithLibrarySource(src))
+
+	docA := ws.LibraryDocument(a)
+	if docA == nil {
+		t.Fatal("LibraryDocument(a) = nil")
+	}
+	if sameSlice(docA.Content, src.buf) || sameSlice(docA.sf.Bytes(), src.buf) {
+		t.Fatal("library document aliases the source's buffer")
+	}
+	if docB := ws.LibraryDocument(b); docB == nil {
+		t.Fatal("LibraryDocument(b) = nil")
+	}
+	if got := string(docA.Content); got != wantA {
+		t.Errorf("Content = %q, want %q", got, wantA)
+	}
+	if got := docA.sf.Text(docA.AST.Members[0].Span()); got != wantA {
+		t.Errorf("text of the package member = %q, want %q", got, wantA)
+	}
+	if again := ws.LibraryDocument(a); again != docA {
+		t.Error("LibraryDocument(a) is not cached")
 	}
 }
 

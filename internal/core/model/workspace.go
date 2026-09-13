@@ -430,7 +430,7 @@ func (w *Workspace) LibraryDocument(name string) *Document {
 	if err != nil {
 		return nil
 	}
-	doc = newDocument(name, content, 0)
+	doc = newDocument(name, bytes.Clone(content), 0)
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
