@@ -86,11 +86,6 @@ func AddConnection(owner, kind, from, to, name string) Operation {
 	return Operation{Kind: OpAddConnection, Owner: owner, MemberKind: kind, From: from, To: to, MemberName: name}
 }
 
-// adds reports whether op inserts a declaration into a namespace.
-func (op Operation) adds() bool {
-	return op.Kind == OpAddMember || op.Kind == OpAddConnection
-}
-
 // Model is a parsed model to edit: the source that was read, its parse, and the
 // index it was analyzed in.
 type Model struct {
