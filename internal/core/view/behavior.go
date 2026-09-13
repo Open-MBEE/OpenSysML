@@ -76,7 +76,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		parent.Children = append(parent.Children, nodes[state])
 	}
 	for _, pseudo := range graph.Pseudostates {
-		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: notationName(pseudo.Name),
+		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: nameText(pseudo.Name),
 			Origin: nodeOrigin(doc, pseudo)}, pseudo)
 		nodes[pseudo] = node
 		parent := root
@@ -176,13 +176,13 @@ type stateBody struct {
 // regionNode renders one orthogonal region, which holds the states declared in
 // it.
 func (r *Renderer) regionNode(region *ast.StateRegion, doc string, ids *nodeIDs) *Node {
-	return &Node{ID: ids.take(), Kind: "region", Name: notationName(region.Name), Origin: nodeOrigin(doc, region)}
+	return &Node{ID: ids.take(), Kind: "region", Name: nameText(region.Name), Origin: nodeOrigin(doc, region)}
 }
 
 // stateNode renders one state with what the machine says about it: whether its
 // body unconditionally starts in it, whether entering it completes, what it runs.
 func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, doc string, ids *nodeIDs) *Node {
-	node := &Node{ID: ids.take(), Kind: "state", Name: notationName(state.Name), Type: nodeType(graph.DeclOf(state)),
+	node := &Node{ID: ids.take(), Kind: "state", Name: nameText(state.Name), Type: nodeType(graph.DeclOf(state)),
 		Origin: nodeOrigin(doc, state)}
 	var detail []string
 	if graph.UnconditionalStart(bodyOwning(graph, state)) == state {
@@ -226,7 +226,7 @@ func bodyOwning(graph *lower.StateGraph, state *ast.StateNode) ast.Node {
 func (r *Renderer) transitionLabel(doc string, transition *lower.Transition) string {
 	var parts []string
 	if transition.Name != "" {
-		parts = append(parts, notationName(transition.Name)+":")
+		parts = append(parts, nameText(transition.Name)+":")
 	}
 	if trigger := r.triggerLabel(doc, transition.Trigger); trigger != "" {
 		parts = append(parts, trigger)
@@ -259,7 +259,7 @@ func (r *Renderer) guardLabel(doc string, guard ast.Node) string {
 // it was written between.
 func transitionName(transition *lower.Transition) string {
 	if transition.Name != "" {
-		return notationName(transition.Name)
+		return nameText(transition.Name)
 	}
 	return fmt.Sprintf("first %s then %s", behaviorNodeName(transition.Source), behaviorNodeName(transition.Target))
 }
@@ -270,7 +270,7 @@ func behaviorNames(behaviors []lower.StateBehavior) string {
 	names := make([]string, 0, len(behaviors))
 	for _, behavior := range behaviors {
 		if behavior.Name != "" {
-			names = append(names, notationName(behavior.Name))
+			names = append(names, nameText(behavior.Name))
 			continue
 		}
 		names = append(names, "effect")
@@ -397,7 +397,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
-		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: notationName(behaviorNodeName(node)),
+		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
 			Type: nodeType(node), Origin: nodeOrigin(doc, node),
 			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
 		nodes[node] = child
@@ -418,7 +418,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 			to, ok := nodes[edge.Target]
 			if !ok {
 				out.Notices = append(out.Notices, fmt.Sprintf("succession from %s in %s leaves the action's own nodes; no edge is drawn",
-					notationName(behaviorNodeName(src)), name))
+					nameText(behaviorNodeName(src)), name))
 				continue
 			}
 			label := ""
@@ -436,7 +436,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 			to, ok := nodes[flow.Target]
 			if !ok {
 				out.Notices = append(out.Notices, fmt.Sprintf("flow from %s in %s leaves the action's own nodes; no edge is drawn",
-					notationName(behaviorNodeName(src)), name))
+					nameText(behaviorNodeName(src)), name))
 				continue
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: flowLabel(flow), Kind: EdgeFlow,
@@ -457,7 +457,7 @@ func flowLabel(flow lower.ObjectFlow) string {
 		label = strings.TrimPrefix(label+" to "+flow.TargetPin, " to ")
 	}
 	if flow.Name != "" {
-		return notationName(flow.Name) + ": " + label
+		return nameText(flow.Name) + ": " + label
 	}
 	return label
 }

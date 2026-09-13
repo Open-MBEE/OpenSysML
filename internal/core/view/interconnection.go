@@ -58,7 +58,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 	r := w.r
 	name := r.notationName(sym)
 	if !qualified {
-		name = notationName(simpleName(r.fqn(sym)))
+		name = localName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, Type: declType(sym), Origin: symbolOrigin(sym),
 		Geometry: r.geometryOf(w.view, sym, w.out)}
@@ -193,8 +193,8 @@ func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 // connectorLabel names a connection on an edge: its own name, else the type it
 // is declared with, else the keyword that declared it.
 func (r *Renderer) connectorLabel(connector *symbols.Symbol) string {
-	if name := simpleName(r.fqn(connector)); name != "" && !connector.EffectiveName() {
-		return notationName(name)
+	if connector.Name != "" && !connector.EffectiveName() {
+		return localName(connector)
 	}
 	if declared := declType(connector); declared != "" {
 		return declared

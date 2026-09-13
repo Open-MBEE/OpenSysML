@@ -56,6 +56,18 @@ func loadContent(t *testing.T, name, content string) Model {
 	}
 }
 
+// loadWorkspace is loadContent with sibling workspace documents indexed beside
+// the edited one, the way the language server edits a document of several.
+func loadWorkspace(t *testing.T, name, content string, siblings map[string]string) Model {
+	t.Helper()
+	m := loadContent(t, name, content)
+	for sibling, text := range siblings {
+		m.Index.AddDocument(sibling, parser.New(source.New(sibling, []byte(text))).ParseFile())
+	}
+	m.Index.ExpandWildcardImports()
+	return m
+}
+
 // requireClean fails when a fixture does not start out valid: a test about what
 // an edit introduced says nothing if the original was already broken.
 func requireClean(t *testing.T, m Model) {
@@ -318,6 +330,113 @@ func TestApplyManyEditsInOnePass(t *testing.T) {
 		}
 	}
 	requireClean(t, loadContent(t, "spacecraft.sysml", string(res.Content)))
+}
+
+// Every operation in a request sees the result of the ones before it: a
+// declaration an earlier operation adds or renames is there for a later one to
+// name, and one an earlier operation removes is gone.
+func TestOrderedOperationsSeeEarlierResults(t *testing.T) {
+	cases := []struct {
+		name string
+		ops  []Operation
+		want string
+	}{
+		{
+			"add then rename",
+			[]Operation{AddMember("P", "part", "x"), Rename("P::x", "y")},
+			"package P {\n    part def Base;\n    part y;\n}\n",
+		},
+		{
+			"add then set value",
+			[]Operation{AddMember("P", "attribute", "n"), SetValue("P::n", "3")},
+			"package P {\n    part def Base;\n    attribute n = 3;\n}\n",
+		},
+		{
+			"add then delete",
+			[]Operation{AddMember("P", "part", "x"), Delete("P::x", false)},
+			"package P {\n    part def Base;\n}\n",
+		},
+		{
+			"add, type it, then connect it",
+			[]Operation{
+				AddMember("P", "part", "a"),
+				AddMember("P", "part", "b"),
+				AddConnection("P", "connection", "a", "b", "c"),
+			},
+			"package P {\n    part def Base;\n    part a;\n    part b;\n    connection c connect a to b;\n}\n",
+		},
+		{
+			"rename then add into the new name",
+			[]Operation{Rename("P::Base", "Root"), AddMember("P::Root", "part", "x")},
+			"package P {\n    part def Root {\n        part x;\n    }\n}\n",
+		},
+		{
+			"rename then rename again",
+			[]Operation{Rename("P::Base", "Mid"), Rename("P::Mid", "Last")},
+			"package P {\n    part def Last;\n}\n",
+		},
+		{
+			"delete then add a namesake",
+			[]Operation{Delete("P::Base", false), AddMember("P", "part def", "Base")},
+			"package P {\n    part def Base;\n}\n",
+		},
+		{
+			"add, delete, then reuse the name for another kind",
+			[]Operation{
+				AddMember("P", "part", "x"),
+				Delete("P::x", false),
+				AddMember("P", "attribute", "x"),
+			},
+			"package P {\n    part def Base;\n    attribute x;\n}\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := loadContent(t, "ordered.sysml", "package P {\n    part def Base;\n}\n")
+			res, err := Apply(m, tc.ops)
+			if err != nil {
+				t.Fatalf("Apply: %v", err)
+			}
+			got := string(res.Content)
+			if got != tc.want {
+				t.Fatalf("content = %q, want %q", got, tc.want)
+			}
+			requireClean(t, loadContent(t, "ordered.sysml", got))
+		})
+	}
+}
+
+// A value set and then deleted with its declaration is one request in order,
+// not two edits of the same bytes.
+func TestOrderedOperationsMayRewriteTheSameBytes(t *testing.T) {
+	m := loadContent(t, "ordered.sysml", "package P {\n    attribute n = 1;\n    attribute k = 2;\n}\n")
+	res, err := Apply(m, []Operation{SetValue("P::n", "3"), Delete("P::n", false)})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if got, want := string(res.Content), "package P {\n    attribute k = 2;\n}\n"; got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+}
+
+// An operation naming what an earlier one removed is refused, not resolved
+// against the original text.
+func TestOrderedOperationsDoNotSeeRemovedNames(t *testing.T) {
+	m := loadContent(t, "ordered.sysml", "package P {\n    part def Base;\n    part def Other;\n}\n")
+	_, err := Apply(m, []Operation{
+		Rename("P::Base", "Root"),
+		Rename("P::Base", "Again"),
+	})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget || e.OperationIndex != 1 {
+		t.Fatalf("got %v, want unknown-target at operation 1", err)
+	}
+	_, err = Apply(m, []Operation{
+		Delete("P::Other", false),
+		SetValue("P::Other", "1"),
+	})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget || e.OperationIndex != 1 {
+		t.Fatalf("got %v, want unknown-target at operation 1", err)
+	}
 }
 
 func TestRenameRewritesTheNameTokenOnly(t *testing.T) {

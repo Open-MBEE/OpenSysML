@@ -365,3 +365,36 @@ func TestParseEnumLiteralsWithTyping(t *testing.T) {
 
 	t.Logf("parsed cleanly")
 }
+
+// BodyAdmitsMember answers, for a declaration's body, what the parser would
+// accept in it; MemberOwner names the body kind a confined member wants.
+func TestBodyAdmitsMember(t *testing.T) {
+	decl := func(src string) ast.Node { return parseOneMember(t, src) }
+	for _, tc := range []struct {
+		owner ast.Node
+		kw    string
+		want  bool
+	}{
+		{decl("requirement def R;"), "subject", true},
+		{decl("requirement r;"), "actor", true},
+		{decl("verification def V;"), "objective", true},
+		{decl("verification def V;"), "stakeholder", false},
+		{decl("concern def C;"), "stakeholder", true},
+		{decl("requirement def R;"), "objective", false},
+		{decl("part def P;"), "subject", false},
+		{decl("part def P;"), "part", true},
+		{decl("package K;"), "part", true},
+		{decl("package K;"), "actor", false},
+		{nil, "part", true},
+		{nil, "subject", false},
+	} {
+		if got := BodyAdmitsMember(tc.owner, tc.kw); got != tc.want {
+			t.Errorf("BodyAdmitsMember(%T, %q) = %v, want %v", tc.owner, tc.kw, got, tc.want)
+		}
+	}
+	for kw, want := range map[string]string{"subject": "requirement or case", "objective": "case", "part": ""} {
+		if got := MemberOwner(kw); got != want {
+			t.Errorf("MemberOwner(%q) = %q, want %q", kw, got, want)
+		}
+	}
+}
