@@ -1672,3 +1672,136 @@ func activeLeaf(exec *StateExecutor) string {
 	}
 	return states[len(states)-1].Name
 }
+
+// A message built from outside the model is taken by the accept a performed
+// action's token is parked at — in its own flow, or in an action nested in it —
+// and AcceptTaking names that accept; posted, it wakes the object's action.
+func TestAcceptTakingNamesThePerformedActionsAccept(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		attribute def Go { attribute n : Integer; }
+		attribute def Halt;
+		attribute def Other;
+		part def Waiter {
+			attribute total : Integer = 0;
+			attribute heard : Integer = 0;
+			perform action main {
+				first start;
+				then action w1 accept g : Go;
+				then action a1 assign total := total + g.n;
+				then done;
+			}
+			perform action outer {
+				first start;
+				then action inner {
+					first start;
+					then action listen accept h : Halt;
+					then action mark assign heard := 1;
+					then done;
+				}
+				then done;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "waiter.sysml", parseAndBuild(t, src))
+	root := idx.DocumentRoot("waiter.sysml")
+	waiter, err := ctx.Instantiate(resolveSymbol(t, root, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	main, ok := waiter.Behavior("main")
+	if !ok || main.Action == nil || main.Action.Performer() != waiter {
+		t.Fatalf("the waiter performs no main action on its own behalf, behaviors: %v", waiter.Behaviors())
+	}
+	outer, ok := waiter.Behavior("outer")
+	if !ok || outer.Action == nil {
+		t.Fatalf("the waiter performs no outer action, behaviors: %v", waiter.Behaviors())
+	}
+
+	goMsg, err := ctx.SignalMessage(resolveSymbol(t, root, "Go"), map[string]Value{"n": integerValue(7)}, waiter)
+	if err != nil {
+		t.Fatalf("SignalMessage(Go): %v", err)
+	}
+	halt, err := ctx.SignalMessage(resolveSymbol(t, root, "Halt"), nil, waiter)
+	if err != nil {
+		t.Fatalf("SignalMessage(Halt): %v", err)
+	}
+	other, err := ctx.SignalMessage(resolveSymbol(t, root, "Other"), nil, waiter)
+	if err != nil {
+		t.Fatalf("SignalMessage(Other): %v", err)
+	}
+
+	// The accept in the action's own flow, named by its parameter.
+	taking, accepted, err := main.Action.AcceptTaking(goMsg)
+	if err != nil || !accepted {
+		t.Fatalf("main.AcceptTaking(Go) = %v, %v; want the parked accept to take it", accepted, err)
+	}
+	if want := (TakingAccept{Param: "g", Node: "w1"}); taking != want || taking.String() != "accept g" {
+		t.Errorf("main.AcceptTaking(Go) = %+v (%q), want %+v", taking, taking, want)
+	}
+	if accepted, err := main.Action.AcceptsMessage(goMsg); err != nil || !accepted {
+		t.Errorf("main.AcceptsMessage(Go) = %v, %v; want accepted", accepted, err)
+	}
+	// The accept in a nested action, placed in it.
+	taking, accepted, err = outer.Action.AcceptTaking(halt)
+	if err != nil || !accepted {
+		t.Fatalf("outer.AcceptTaking(Halt) = %v, %v; want the nested accept to take it", accepted, err)
+	}
+	if want := (TakingAccept{Param: "h", Node: "listen", Within: "inner"}); taking != want || taking.String() != "accept h of inner" {
+		t.Errorf("outer.AcceptTaking(Halt) = %+v (%q), want %+v", taking, taking, want)
+	}
+	// A signal no parked accept awaits is taken by neither action.
+	for name, action := range map[string]*ActionExecutor{"main": main.Action, "outer": outer.Action} {
+		if taking, accepted, err := action.AcceptTaking(other); err != nil || accepted || taking != (TakingAccept{}) {
+			t.Errorf("%s.AcceptTaking(Other) = %+v, %v, %v; want nothing taking it", name, taking, accepted, err)
+		}
+	}
+	if _, accepted, err := main.Action.AcceptTaking(halt); err != nil || accepted {
+		t.Errorf("main.AcceptTaking(Halt) = %v, %v; want main not to take outer's signal", accepted, err)
+	}
+
+	// Posted on the bus, each message is the object's work, and draining the
+	// object's behaviors lets the parked action finish with it.
+	ctx.PostMessage(goMsg)
+	ctx.PostMessage(halt)
+	if !main.Action.HasPendingSignal() || !outer.Action.HasPendingSignal() {
+		t.Fatal("the posted messages are not pending for the actions parked for them")
+	}
+	if err := ctx.drainObjectBehaviors(); err != nil {
+		t.Fatalf("drainObjectBehaviors: %v", err)
+	}
+	if got := featureInt(t, ctx, waiter, "total"); got != 7 {
+		t.Errorf("total = %d after Go(n=7), want 7", got)
+	}
+	if got := featureInt(t, ctx, waiter, "heard"); got != 1 {
+		t.Errorf("heard = %d after Halt, want 1", got)
+	}
+	if main.Action.State() != StateCompleted || outer.Action.State() != StateCompleted {
+		t.Errorf("states = %v, %v after the messages; want both completed", main.Action.State(), outer.Action.State())
+	}
+	if _, accepted, err := main.Action.AcceptTaking(goMsg); err != nil || accepted {
+		t.Errorf("main.AcceptTaking(Go) once completed = %v, %v; want nothing taking it", accepted, err)
+	}
+}
+
+// TakingAccept reads as a report names an accept: by the parameter it binds, by
+// the node when it binds none, and placed in the performance it is parked in.
+func TestTakingAcceptString(t *testing.T) {
+	for _, tc := range []struct {
+		accept TakingAccept
+		want   string
+	}{
+		{TakingAccept{Param: "g"}, "accept g"},
+		{TakingAccept{Param: "g", Node: "w1"}, "accept g"},
+		{TakingAccept{Node: "w1"}, "the accept of action w1"},
+		{TakingAccept{}, "an unnamed accept"},
+		{TakingAccept{Param: "h", Within: "inner"}, "accept h of inner"},
+		{TakingAccept{Node: "listen", Within: "outer.inner"}, "the accept of action listen of outer.inner"},
+		{TakingAccept{Param: "h", Within: "inner"}.within("outer"), "accept h of outer.inner"},
+		{TakingAccept{Param: "h"}.within("outer"), "accept h of outer"},
+	} {
+		if got := tc.accept.String(); got != tc.want {
+			t.Errorf("%+v.String() = %q, want %q", tc.accept, got, tc.want)
+		}
+	}
+}

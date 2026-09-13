@@ -218,8 +218,10 @@ error: object #1 of "Lamps::bulb" accepts no signal go now: state machine "Lamp"
 ```
 
 Without `to <object>`, the signal goes to the object whose machine the `%state` session is
-debugging (`%send go to bulb` names it explicitly, and is the form to use when no session is
-active; the object is any object reference, `to #1` or `to rack.lamp` included). Payload features
+debugging, or failing that to the object an `%action <name> <object>` session performs its action
+on behalf of (`%send go to bulb` names it explicitly, and is the form to use when no session is
+active, or the `%action` session performs on behalf of no object; the object is any object
+reference, `to #1` or `to rack.lamp` included). Payload features
 are written `<parameter>=<expression>` as for `%invoke`, and are checked against the signal's
 declaration: `%send Dim(lvl=1)` is refused because `Dim` carries no `lvl`. A
 signal nothing in the machine's current state accepts is refused up front, with the state named,
@@ -417,7 +419,7 @@ refused when the behavior starts, naming the pin.
 
 **State machine debugging commands:**
 - `%state <name> [<object>]` — Start a state machine debugging session; naming an instantiated object runs the machine on behalf of that object, so what it sends routes over that object's connections. Naming the machine the object exhibits attaches to its running machine instead (see [below](#an-object-runs-the-behaviors-its-type-exhibits))
-- `%send <signal>[(<p>=<expr>, ...)] [to <object>]` — Send a signal to an object's machine over the runtime's message bus; by default to the object being debugged
+- `%send <signal>[(<p>=<expr>, ...)] [to <object>]` — Send a signal to an object over the runtime's message bus, for a machine it exhibits or an action it performs to take; by default to the object being debugged
 - `%events` — Show event queue and signals in flight
 - `%current` — Show current state, stack, data
 - `%advance <time>` — Advance the runtime's simulation clock by `<time>` seconds, running every state event, action token, change-condition poll and do behavior due along the way, in every debugging session of the runtime
@@ -922,7 +924,45 @@ debugged by naming that part through its owner, `%state Monitor.sensor` or `%sta
 An exhibited machine with no initial state is reported as such. A performed action
 that declares no flow has nothing to step, but the object is still created. A performed action
 waiting at an `accept` is also quiescent, and a message sent later by a sibling object
-wakes it up.
+wakes it up — as does one sent from the prompt: `%send` reaches an action the object performs
+(a top-level `perform`, or one nested in it) whose token is parked at a matching `accept`, no
+machine needed, and reports the accept that takes it:
+
+```sysml
+sysml> package Q {
+  ...>     private import ScalarValues::*;
+  ...>     attribute def Go { attribute n : Integer; }
+  ...>     action def Main {
+  ...>         out total : Integer = 0;
+  ...>         first start;
+  ...>         then action w1 accept g : Go;
+  ...>         then action a1 assign total := total + g.n;
+  ...>         then done;
+  ...>     }
+  ...>     part def PD { perform action main : Main; }
+  ...>     part pd : PD;
+  ...> }
+
+sysml> %instantiate Q::pd
+✓ Created instance of Q::pd
+
+sysml> %send Go(n=7) to Q::pd
+✓ Sent Go(n=7) to object #1 of "Q::pd"
+  Accepted by performed action "main" waiting at accept g
+```
+
+The message is in flight until the object's behaviors next run: the next `%advance` of any
+debugging session of the runtime moves the action past its accept, after which `%eval
+Q::pd.main.total` reads `7`. An object performing an action nothing is parked at for the signal
+is refused up front, with the action's standing (`performed action "main" waiting at accept g of
+type Go`, or `completed`), as a machine in a state accepting nothing is; an object that neither
+exhibits a machine nor performs an action is refused too. With an `%action Main Q::pd` session
+open, a bare `%send Go(n=7)` goes to that object — the very one the session materialized, across
+an unrelated declaration that leaves the session running. The session's own executor is a fresh
+performance of `Main` beside the object's running one, not that one: both perform on behalf of
+the object, so a `Go` in flight for it is taken by whichever of the two is at its accept when the
+object's behaviors run, and `%send` reports each that is parked for it now. A bare `%send` in an
+`%action` session performing on behalf of no object is refused: there is no object to address.
 
 **Editing the model while an object runs.** Submitting an unrelated declaration keeps the object
 (its identity survives the rebuilt analysis) but not the execution it was running. An execution

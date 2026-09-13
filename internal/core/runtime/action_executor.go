@@ -673,7 +673,7 @@ func (e *ActionExecutor) HasPendingSignal() bool {
 // of perf's flow (of the whole action for nil) proceed, without consuming it.
 func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
 	pending := e.ctx.acceptable()
-	return e.parkedAcceptTakes(perf, func(matches func(Message) bool, failed *error) bool {
+	return e.parkedAcceptTakes(perf, func(_ Token, matches func(Message) bool, failed *error) bool {
 		for _, msg := range pending {
 			// A port that fails to resolve counts as pending: the step this
 			// provokes surfaces the failure.
@@ -685,30 +685,100 @@ func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
 	})
 }
 
-// acceptsMessage reports whether a token parked at a signal accept, or an action
-// performed for a paused token, would take m; a port failing to resolve is the error.
-func (e *ActionExecutor) acceptsMessage(m Message) (bool, error) {
-	var err error
-	if e.parkedAcceptTakes(nil, func(matches func(Message) bool, failed *error) bool {
-		accepted := matches(m)
-		err = *failed
-		return accepted || err != nil
-	}) {
-		return err == nil, err
-	}
-	for _, token := range e.tokens {
-		if held, ok := token.heldWaiter().(messageAcceptor); ok {
-			if accepted, err := held.acceptsMessage(m); err != nil || accepted {
-				return accepted, err
-			}
-		}
-	}
-	return false, nil
+// TakingAccept is the accept a message in flight would let a parked token go on
+// from, and the performance it is parked in.
+type TakingAccept struct {
+	Param  string // the parameter the accept binds, "" where it binds none
+	Node   string // the accept node's own name, "" for an anonymous one
+	Within string // the dotted path of the nested performance parked there, "" for the action's own flow
 }
 
-// parkedAcceptTakes calls takes with the predicate of each signal accept a token of
-// perf's flow (of the whole action for nil) is parked at, until one reports true.
-func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(matches func(Message) bool, failed *error) bool) bool {
+// String names the accept as a report reads it: `accept g`, `accept g of inner`.
+func (a TakingAccept) String() string {
+	name := "accept " + a.Param
+	switch {
+	case a.Param != "":
+	case a.Node != "":
+		name = "the accept of action " + a.Node
+	default:
+		name = "an unnamed accept"
+	}
+	if a.Within == "" {
+		return name
+	}
+	return name + " of " + a.Within
+}
+
+// within places the accept in the performance named, around the one it is already in.
+func (a TakingAccept) within(performance string) TakingAccept {
+	if a.Within == "" {
+		a.Within = performance
+	} else {
+		a.Within = performance + "." + a.Within
+	}
+	return a
+}
+
+// AcceptsMessage reports whether a token parked at a signal accept, or an action
+// performed for a paused token, would take m; a port failing to resolve is the error.
+func (e *ActionExecutor) AcceptsMessage(m Message) (bool, error) {
+	return e.acceptsMessage(m)
+}
+
+// acceptsMessage is AcceptsMessage for the executors that reach this one.
+func (e *ActionExecutor) acceptsMessage(m Message) (bool, error) {
+	_, accepted, err := e.acceptTaking(m)
+	return accepted, err
+}
+
+// AcceptTaking reports the accept a parked token would go on from on m, in the
+// action's own flow or in work it performs; a port failing to resolve is the error.
+func (e *ActionExecutor) AcceptTaking(m Message) (TakingAccept, bool, error) {
+	return e.acceptTaking(m)
+}
+
+// acceptTaking is AcceptTaking for the executors that reach this one.
+func (e *ActionExecutor) acceptTaking(m Message) (TakingAccept, bool, error) {
+	var (
+		taking TakingAccept
+		err    error
+	)
+	if e.parkedAcceptTakes(nil, func(token Token, matches func(Message) bool, failed *error) bool {
+		accepted := matches(m)
+		err = *failed
+		if accepted {
+			taking = TakingAccept{
+				Param:  token.Wait.ParamName,
+				Node:   ActionNodeName(token.Location),
+				Within: token.frame.path(),
+			}
+		}
+		return accepted || err != nil
+	}) {
+		return taking, err == nil, err
+	}
+	for _, token := range e.tokens {
+		held, ok := token.heldWaiter().(messageAcceptor)
+		if !ok {
+			continue
+		}
+		taking, accepted, err := held.acceptTaking(m)
+		if err != nil || accepted {
+			return taking.within(held.performanceName()), accepted, err
+		}
+	}
+	return TakingAccept{}, false, nil
+}
+
+// performanceName names the action the executor performs, which the accepts it
+// holds are placed in.
+func (e *ActionExecutor) performanceName() string {
+	return symbolText(e.action)
+}
+
+// parkedAcceptTakes calls takes with each token of perf's flow (of the whole action
+// for nil) parked at a signal accept, and its predicate, until one reports true.
+func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(token Token, matches func(Message) bool, failed *error) bool) bool {
 	for _, token := range e.tokens {
 		if token.Wait == nil || token.Wait.Timed || !token.inFlowOf(perf) {
 			continue
@@ -721,7 +791,8 @@ func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(matches
 		if !isAccept || accept.Trigger != nil {
 			continue
 		}
-		if takes(e.acceptMatch(token.frame, accept, usage)) {
+		matches, failed := e.acceptMatch(token.frame, accept, usage)
+		if takes(token, matches, failed) {
 			return true
 		}
 	}
