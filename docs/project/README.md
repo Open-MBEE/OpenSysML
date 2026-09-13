@@ -55,6 +55,11 @@ within these records and means nothing outside this repository.
 - **[MOSA library](mosa-library.md)** — the Modular Open Systems Approach as a bundled OpenSysML
   library: the statute's vocabulary, openness as metadata over the standard model, the
   interface control document and the warning-only checks
+- **[Performance: 0.8.0 against 0.7.0](performance-release-0.8-vs-0.7.0.md)** — the release-gate
+  measurement of the 0.8 line against the previous release: every benchmark on both revisions,
+  whole-binary scaling, and each regression fixed or priced; the
+  [0.6 against 0.4.2](performance-release-0.6-vs-0.4.2.md) and
+  [0.5 against 0.4.3](performance-release-0.5-vs-0.4.3.md) records precede it
 - **[Roadmap](roadmap.md)** — the known gaps, in the order they should be picked up
 - **[Releasing](releasing.md)** — the pre-tag gate, tagging, artifacts, Homebrew
 - **[macOS distribution](macos-distribution.md)** — Gatekeeper and the signing decision
