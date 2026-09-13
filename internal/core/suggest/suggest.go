@@ -284,12 +284,12 @@ func SimpleNames(idx *symbols.Index) []string {
 	}
 	seen := map[string]bool{}
 	var out []string
-	for _, fqn := range idx.FQNs() {
-		if last := simpleName(idx, fqn); !seen[last] {
+	idx.Registered(func(fqn string, syms []*symbols.Symbol) {
+		if last := simpleName(fqn, syms); !seen[last] {
 			seen[last] = true
 			out = append(out, last)
 		}
-	}
+	})
 	sort.Strings(out)
 	return out
 }

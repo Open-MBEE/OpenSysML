@@ -32,7 +32,7 @@ func (c *checker) standing(t Token) lower.Footprint {
 	if t.body != nil {
 		return lower.Footprint{Dynamic: true}
 	}
-	return c.tokenGraphOf(t).Footprints[t.Location]
+	return c.tokenGraphOf(t).Footprints()[t.Location]
 }
 
 // futureOf is the footprint of every move the token may make from where it
@@ -87,7 +87,7 @@ func (c *checker) reach(graph *lower.ActionGraph, node ast.Node) lower.Footprint
 			continue
 		}
 		seen[n] = true
-		future = unionFootprints(future, graph.Footprints[n])
+		future = unionFootprints(future, graph.Footprints()[n])
 		if sub, owns := graph.Subflows[n]; owns && sub != nil && sub.Graph != nil && sub.Graph.Initial != nil {
 			future = unionFootprints(future, c.reach(sub.Graph, sub.Graph.Initial))
 		}

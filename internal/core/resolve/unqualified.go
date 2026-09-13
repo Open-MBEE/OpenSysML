@@ -223,9 +223,10 @@ func (r *Resolver) implicitlyNamedMember(scope *symbols.Scope, name string, hide
 	if !ok {
 		return nil, false
 	}
-	for _, sym := range scope.AnonymousMembers() {
+	var found *symbols.Symbol
+	scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
 		if r.naming[sym] || hide.hides(sym) || !impliesNamingFeature(sym) {
-			continue
+			return true
 		}
 		r.naming[sym] = true
 		var redefined *symbols.Symbol
@@ -240,10 +241,12 @@ func (r *Resolver) implicitlyNamedMember(scope *symbols.Scope, name string, hide
 		// One redefinition names the feature; several need not agree on a
 		// name, so the feature stays anonymous (KerML 7.3.4.5).
 		if count == 1 && simpleName(redefined) == name {
-			return sym, true
+			found = sym
+			return false
 		}
-	}
-	return nil, false
+		return true
+	})
+	return found, found != nil
 }
 
 // impliesNamingFeature reports whether sym is a nameless parameter whose naming
