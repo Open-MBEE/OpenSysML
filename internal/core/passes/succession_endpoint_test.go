@@ -382,6 +382,28 @@ func TestStateSuccessionEndpointSpellingsAcceptVertices(t *testing.T) {
 	}
 }
 
+// A succession end written as a feature chain names the nested vertex the
+// qualified spelling does, whichever end it stands at.
+func TestStateSuccessionChainedEndpointsAcceptNestedVertices(t *testing.T) {
+	for _, keyword := range []string{"succession", ""} {
+		for _, sep := range []string{"::", "."} {
+			t.Run(keyword+"/"+sep, func(t *testing.T) {
+				src := `package P { state def M {
+					entry; then idle;
+					state idle;
+					state outer { state inner { state deep; } state other; }
+					` + keyword + ` first idle then outer` + sep + `inner` + sep + `deep;
+					` + keyword + ` first outer` + sep + `inner` + sep + `deep then outer` + sep + `other;
+					` + keyword + ` first outer` + sep + `other then done;
+				} }`
+				if got := endpointDiags(t, src); len(got) != 0 {
+					t.Fatalf("expected no diagnostics for a legal vertex endpoint, got %+v", got)
+				}
+			})
+		}
+	}
+}
+
 func TestActionEndpointPassFindsNestedActionDefinitions(t *testing.T) {
 	cases := map[string]string{
 		"state substate": `package P { state def M {
@@ -442,6 +464,18 @@ func TestResolvedStateEndpointNotVertexIsReported(t *testing.T) {
 			state idle;
 			transition first idle then mode;
 		} }`,
+		"chained succession": `package P { state def M {
+			entry; then idle;
+			state idle;
+			state outer { attribute mode = 0; }
+			succession first idle then outer.mode;
+		} }`,
+		"chained keyword-less succession": `package P { state def M {
+			entry; then idle;
+			state idle;
+			state outer { attribute mode = 0; }
+			first idle then outer.mode;
+		} }`,
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -453,7 +487,7 @@ func TestResolvedStateEndpointNotVertexIsReported(t *testing.T) {
 				t.Fatalf("got code %q, want %q", got[0].Code, resolve.CodeNotAVertex)
 			}
 			covered := src[got[0].Span.Offset : got[0].Span.Offset+got[0].Span.Len]
-			if covered != "mode" && covered != "t" {
+			if covered != "mode" && covered != "t" && covered != "outer.mode" {
 				t.Fatalf("expected the span to cover the endpoint name, it covers %q", covered)
 			}
 		})

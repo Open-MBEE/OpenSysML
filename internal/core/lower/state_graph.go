@@ -593,36 +593,62 @@ func (g *StateGraph) completionOwner(node, outer ast.Node) ast.Node {
 
 // isDoneEndpoint reports whether an endpoint names the end shot every state
 // inherits rather than a vertex of its own: the unqualified `done`.
-func isDoneEndpoint(qn *ast.QualifiedName) bool {
-	return qn != nil && len(qn.Parts) == 1 && qn.Parts[0].Text == ast.DoneFeature
+func isDoneEndpoint(target ast.Node) bool {
+	return isBareEndpoint(target, ast.DoneFeature)
 }
 
 // isStartEndpoint reports whether an endpoint names the start shot every state
 // inherits rather than a vertex of its own: the unqualified `start`.
-func isStartEndpoint(qn *ast.QualifiedName) bool {
-	return qn != nil && len(qn.Parts) == 1 && qn.Parts[0].Text == ast.StartFeature
+func isStartEndpoint(target ast.Node) bool {
+	return isBareEndpoint(target, ast.StartFeature)
+}
+
+// isBareEndpoint reports whether an endpoint is the single unqualified name.
+func isBareEndpoint(target ast.Node, name string) bool {
+	qn, ok := target.(*ast.QualifiedName)
+	return ok && qn != nil && len(qn.Parts) == 1 && qn.Parts[0].Text == name
+}
+
+// endpointPrefix is what an endpoint reaches into: `c` of `c.c1` or `c::c1`,
+// nil for a plain name.
+func endpointPrefix(target ast.Node) ast.Node {
+	switch t := target.(type) {
+	case *ast.FeatureChainExpr:
+		if t != nil {
+			return t.Operand
+		}
+	case *ast.FeatureReference:
+		if t != nil {
+			return endpointPrefix(t.Name)
+		}
+	case *ast.QualifiedName:
+		if t != nil && len(t.Parts) >= 2 {
+			return &ast.QualifiedName{Parts: t.Parts[:len(t.Parts)-1]}
+		}
+	}
+	return nil
 }
 
 // startShot reports whether decl, what an endpoint resolved to, is the inherited
 // `start` of the body's state (`States::StateAction::start`) and no vertex of the machine.
-func (g *StateGraph) startShot(qn *ast.QualifiedName, decl ast.Node) bool {
-	if !isStartEndpoint(qn) {
+func (g *StateGraph) startShot(target ast.Node, decl ast.Node) bool {
+	if !isStartEndpoint(target) {
 		return false
 	}
 	if _, ok := g.findVertex(decl); ok {
 		return false
 	}
-	usage, ok := decl.(*ast.Usage)
-	return ok && usage.Kind == ast.UsageState
+	shots, ok := g.endpoints.(StartShotResolver)
+	return ok && shots.StartShot(decl)
 }
 
 // targetVertex is the vertex a transition ends at: the one its endpoint names,
 // or the completion of the body it is written in when that endpoint is `done`
 // and no vertex of the machine is declared under that name.
-func (g *StateGraph) targetVertex(scope *symbols.Scope, qn *ast.QualifiedName, owner ast.Node) (ast.Node, error) {
-	node, err := g.vertex(scope, qn)
-	if node == nil && isDoneEndpoint(qn) {
-		return g.completion(owner, scope, qn.Span()), nil
+func (g *StateGraph) targetVertex(scope *symbols.Scope, target ast.Node, owner ast.Node) (ast.Node, error) {
+	node, err := g.vertex(scope, target)
+	if node == nil && isDoneEndpoint(target) {
+		return g.completion(owner, scope, target.Span()), nil
 	}
 	return node, err
 }
@@ -1102,8 +1128,8 @@ func collectDeferred(graph *StateGraph, state *ast.StateNode) error {
 // nested or region-local vertex is reached and a same-named one elsewhere is not.
 // A succession naming no vertex is left out of the graph, which the
 // name-resolution tier reports about (UML 2.5.1 §14.2.3.9 leniency).
-func (g *StateGraph) endpointVertex(scope *symbols.Scope, qn *ast.QualifiedName) ast.Node {
-	node, err := g.vertex(scope, qn)
+func (g *StateGraph) endpointVertex(scope *symbols.Scope, target ast.Node) ast.Node {
+	node, err := g.vertex(scope, target)
 	if err != nil {
 		return nil
 	}
@@ -1138,32 +1164,47 @@ func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode) {
 // which declaration it reaches, and lowering collected a vertex from that. An
 // endpoint naming no vertex yields a nil node and no error — the name-resolution
 // tier reports it, and how strictly the machine then runs is the runtime's call.
-func (g *StateGraph) vertex(scope *symbols.Scope, qn *ast.QualifiedName) (ast.Node, error) {
-	if qn == nil {
+func (g *StateGraph) vertex(scope *symbols.Scope, target ast.Node) (ast.Node, error) {
+	if isNilEndpoint(target) {
 		return nil, fmt.Errorf("transition endpoint names nothing")
 	}
-	decl, ok := g.endpoints.Endpoint(scope, qn)
+	decl, ok := g.endpoints.Endpoint(scope, target)
 	if !ok {
 		return nil, nil
 	}
-	node, ok := g.vertexFor(scope, qn, decl)
+	node, ok := g.vertexFor(scope, target, decl)
 	if !ok {
-		return nil, fmt.Errorf(NotAVertexFormat, endpointText(qn), VertexKind(decl))
+		return nil, fmt.Errorf(NotAVertexFormat, EndpointText(target), VertexKind(decl))
 	}
 	return node, nil
 }
 
-// vertexFor is the graph node an endpoint names. A qualified endpoint reaching
-// into content a state inherits (`nested.i1`) names that state's own copy of the
-// declaration, which is held by its materialization rather than by the machine.
-func (g *StateGraph) vertexFor(scope *symbols.Scope, qn *ast.QualifiedName, decl ast.Node) (ast.Node, bool) {
+// isNilEndpoint reports an endpoint that is no node at all, a typed nil included.
+func isNilEndpoint(target ast.Node) bool {
+	switch t := target.(type) {
+	case nil:
+		return true
+	case *ast.QualifiedName:
+		return t == nil
+	case *ast.FeatureChainExpr:
+		return t == nil
+	case *ast.FeatureReference:
+		return t == nil
+	}
+	return false
+}
+
+// vertexFor is the graph node an endpoint names. An endpoint reaching into
+// content a state inherits (`nested.i1`, `nested::i1`) names that state's own
+// copy of the declaration, held by its materialization rather than the machine.
+func (g *StateGraph) vertexFor(scope *symbols.Scope, target ast.Node, decl ast.Node) (ast.Node, bool) {
 	if node, ok := g.findVertex(decl); ok {
 		return node, true
 	}
-	if qn == nil || len(qn.Parts) < 2 {
+	prefix := endpointPrefix(target)
+	if prefix == nil {
 		return nil, false
 	}
-	prefix := &ast.QualifiedName{Parts: qn.Parts[:len(qn.Parts)-1]}
 	ownerDecl, ok := g.endpoints.Endpoint(scope, prefix)
 	if !ok {
 		return nil, false
@@ -1204,13 +1245,21 @@ func VertexKind(decl ast.Node) string {
 	return "element"
 }
 
-// endpointText renders an endpoint name for an error message.
-func endpointText(qn *ast.QualifiedName) string {
-	parts := make([]string, 0, len(qn.Parts))
-	for _, p := range qn.Parts {
-		parts = append(parts, p.Text)
+// EndpointText renders an endpoint as written (`c::c1`, `c.c1`), for a message about it.
+func EndpointText(target ast.Node) string {
+	switch t := target.(type) {
+	case *ast.FeatureChainExpr:
+		return EndpointText(t.Operand) + "." + EndpointText(t.Member)
+	case *ast.FeatureReference:
+		return EndpointText(t.Name)
+	case *ast.QualifiedName:
+		parts := make([]string, 0, len(t.Parts))
+		for _, p := range t.Parts {
+			parts = append(parts, p.Text)
+		}
+		return strings.Join(parts, "::")
 	}
-	return strings.Join(parts, "::")
+	return ""
 }
 
 // lowerTransitionEdge converts a TransitionEdge (legacy) to a Transition. No
@@ -1222,14 +1271,14 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		return nil, err
 	}
 	if source == nil {
-		return nil, fmt.Errorf("transition edge references undefined source state %s", endpointText(edge.Source))
+		return nil, fmt.Errorf("transition edge references undefined source state %s", EndpointText(edge.Source))
 	}
 	target, err := graph.targetVertex(scope, edge.Target, owner)
 	if err != nil {
 		return nil, err
 	}
 	if target == nil {
-		return nil, fmt.Errorf("transition edge references undefined target state %s", endpointText(edge.Target))
+		return nil, fmt.Errorf("transition edge references undefined target state %s", EndpointText(edge.Target))
 	}
 
 	return &Transition{
@@ -1314,8 +1363,8 @@ func isEntrySubaction(member ast.Node) bool {
 // action, or out of the `start` shot its state inherits (`first start then off;`),
 // starts the machine in, as `entry; then off;` does, and reports whether it did.
 // guard is the condition a `transition initial if c then off;` chooses it under.
-func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source, target *ast.QualifiedName) (bool, error) {
-	if source == nil || target == nil {
+func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source, target ast.Node) (bool, error) {
+	if isNilEndpoint(source) || isNilEndpoint(target) {
 		return false, nil
 	}
 	entry, ok := g.endpoints.Endpoint(body.scope, source)
@@ -1543,19 +1592,20 @@ func collectUsageTransitions(graph *StateGraph, n *ast.Usage, body transitionBod
 		if len(n.ConnectorEnds) != 2 {
 			return nil
 		}
-		// Connector-end targets name the source and target states.
-		sourceQName, _ := connectorEndReference(n.ConnectorEnds[0]).(*ast.QualifiedName)
-		targetQName, _ := connectorEndReference(n.ConnectorEnds[1]).(*ast.QualifiedName)
-		if sourceQName == nil || targetQName == nil {
+		// Connector-end targets name the source and target states, as a name
+		// (`c::c1`) or a feature chain (`c.c1`).
+		source := EndpointRef(connectorEndReference(n.ConnectorEnds[0]))
+		target := EndpointRef(connectorEndReference(n.ConnectorEnds[1]))
+		if source == nil || target == nil {
 			return nil
 		}
-		sourceVertex := graph.endpointVertex(scope, sourceQName)
-		targetVertex, _ := graph.targetVertex(scope, targetQName, owner)
+		sourceVertex := graph.endpointVertex(scope, source)
+		targetVertex, _ := graph.targetVertex(scope, target, owner)
 
 		// `succession first begin then off;` out of a named entry action names the
 		// state the machine starts in, not an edge (SysML 7.19.3).
 		if sourceVertex == nil {
-			starts, err := graph.startsAt(n, nil, body, sourceQName, targetQName)
+			starts, err := graph.startsAt(n, nil, body, source, target)
 			if err != nil || starts {
 				return err
 			}

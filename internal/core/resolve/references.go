@@ -577,11 +577,22 @@ func (c *refCollector) referenceTarget(scope *symbols.Scope, decl ast.Node, targ
 // connectorEnd collects what a connector end names, as a transition endpoint
 // when the connector orders the vertices of a state machine.
 func (c *refCollector) connectorEnd(scope *symbols.Scope, target ast.Node, asEndpoint bool) {
-	if qn, ok := target.(*ast.QualifiedName); ok && asEndpoint {
-		c.addEndpoint(scope, qn)
+	if !asEndpoint {
+		c.target(scope, target)
 		return
 	}
-	c.target(scope, target)
+	switch t := target.(type) {
+	case *ast.QualifiedName:
+		c.addEndpoint(scope, t)
+	case *ast.FeatureChainExpr:
+		// `c.c1` names c as an endpoint too, then c1 as its member.
+		c.connectorEnd(scope, t.Operand, true)
+		if t.Member != nil {
+			c.push(Reference{Scope: scope, QN: t.Member, Chain: t, Endpoint: true})
+		}
+	default:
+		c.target(scope, target)
+	}
 }
 
 // target collects a node that names something, whether it was parsed as a

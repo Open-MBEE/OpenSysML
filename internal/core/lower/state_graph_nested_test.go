@@ -816,6 +816,60 @@ func TestKeywordlessSuccessionLowersLikeTheSuccessionKeyword(t *testing.T) {
 	}
 }
 
+// A succession end written as a feature chain (`c.c1`) names the nested vertex
+// the same qualified name (`c::c1`) does, as source and as target, in both the
+// `succession` and the keyword-less spelling.
+func TestSuccessionChainedEndpointsNameNestedVertices(t *testing.T) {
+	const body = `
+		package test {
+			state Machine {
+				entry; then a;
+				state a;
+				state b {
+					state b1;
+					state b2;
+				}
+				state c {
+					state c1 {
+						state deep;
+					}
+				}
+				%[1]s first a then b%[2]sb1;
+				%[1]s first b%[2]sb1 then b%[2]sb2;
+				%[1]s first b%[2]sb2 then c%[2]sc1%[2]sdeep;
+				%[1]s first c%[2]sc1%[2]sdeep then done;
+			}
+		}
+	`
+	describe := func(graph *StateGraph) []string {
+		var edges []string
+		for source, transitions := range graph.Transitions {
+			for _, tr := range transitions {
+				if tr.Trigger != nil || tr.Guard != nil || tr.Effect != nil {
+					t.Errorf("%v -> %v carries a trigger, guard or effect, want a bare completion", source, tr.Target)
+				}
+				edges = append(edges, vertexName(source)+"->"+vertexName(tr.Target))
+			}
+		}
+		sort.Strings(edges)
+		return edges
+	}
+	want := []string{"a->b1", "b1->b2", "b2->deep", "deep->done"}
+	for _, keyword := range []string{"succession", ""} {
+		for _, separator := range []string{"::", "."} {
+			name := keyword + "/" + separator
+			root, machine := parseStateUsage(t, fmt.Sprintf(body, keyword, separator))
+			graph := graphOf(t, root, machine)
+			if got := describe(graph); !reflect.DeepEqual(got, want) {
+				t.Errorf("%s: lowered %v, want %v", name, got, want)
+			}
+			if graph.Initial != stateNamed(graph, "a") {
+				t.Errorf("%s: the machine starts in %v, want a", name, graph.Initial)
+			}
+		}
+	}
+}
+
 // regionName is the name of the region a vertex belongs to, "" at the top level.
 func regionName(graph *StateGraph, vertex ast.Node) string {
 	if state, ok := vertex.(*ast.StateNode); ok && graph.RegionOf[state] != nil {

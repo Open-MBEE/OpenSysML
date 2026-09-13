@@ -2,7 +2,6 @@ package passes
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -344,10 +343,11 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 			case ast.UsageState:
 				c.walkBody(m, bodyScope(scope, n), n.Members, n)
 			case ast.UsageSuccession:
-				// A succession is a connector whose two ends name vertices.
+				// A succession is a connector whose two ends name vertices, as a
+				// name (`c::c1`) or a feature chain (`c.c1`).
 				if len(n.ConnectorEnds) == 2 {
-					source := connectorEndName(n.ConnectorEnds[0])
-					target := connectorEndName(n.ConnectorEnds[1])
+					source := lower.EndpointRef(n.ConnectorEnds[0].AttachedTarget())
+					target := lower.EndpointRef(n.ConnectorEnds[1].AttachedTarget())
 					m.markLeft(c.checkEndpoint(m, scope, source, false, c.startsOf(m, scope, target, true, starts)), source)
 					c.checkEndpoint(m, scope, target, true, nil)
 				}
@@ -400,11 +400,11 @@ func (c *transitionChecker) checkEntryTransition(m *machine, scope *symbols.Scop
 func (c *transitionChecker) startsOf(
 	m *machine,
 	scope *symbols.Scope,
-	target *ast.QualifiedName,
+	target ast.Node,
 	bare bool,
 	starts map[ast.Node]bool,
 ) map[ast.Node]bool {
-	if !bare || target == nil {
+	if !bare || lower.EndpointRef(target) == nil {
 		return nil
 	}
 	sym, ok := c.resolver.EndpointSymbol(scope, target)
@@ -428,20 +428,20 @@ func (c *transitionChecker) startsOf(
 func (c *transitionChecker) checkEndpoint(
 	m *machine,
 	scope *symbols.Scope,
-	qn *ast.QualifiedName,
+	target ast.Node,
 	isTarget bool,
 	starts map[ast.Node]bool,
 ) ast.Node {
-	if qn == nil {
+	if lower.EndpointRef(target) == nil {
 		return nil
 	}
-	sym, ok := c.resolver.EndpointSymbol(scope, qn)
+	sym, ok := c.resolver.EndpointSymbol(scope, target)
 	if !ok {
 		return nil
 	}
 	decl := sym.Decl
 	if m.vertices[decl] ||
-		c.resolver.MachineStateVertex(scope, qn, sym) {
+		c.resolver.MachineStateVertex(scope, endpointName(target), sym) {
 		return decl
 	}
 	// A `first m then x` marker gets no incoming transition (UML 15.7.18), so a
@@ -454,8 +454,8 @@ func (c *transitionChecker) checkEndpoint(
 	if starts[decl] && !isTarget {
 		return decl
 	}
-	c.report(qn.Span(), CodeEndpointNotOfMachine, fmt.Sprintf(
-		lower.NotAVertexFormat, endpointText(qn), lower.VertexKind(decl)))
+	c.report(target.Span(), CodeEndpointNotOfMachine, fmt.Sprintf(
+		lower.NotAVertexFormat, lower.EndpointText(target), lower.VertexKind(decl)))
 	return decl
 }
 
@@ -474,13 +474,13 @@ func (c *transitionChecker) report(span source.Span, code, message string) {
 // regions declaring same-named pseudostates do not mask each other's dead ends.
 // An endpoint naming no vertex is recorded by name instead: what it meant to
 // leave is unknown, and reporting that as a dead end would be a false positive.
-func (m *machine) markLeft(decl ast.Node, qn *ast.QualifiedName) {
+func (m *machine) markLeft(decl ast.Node, target ast.Node) {
 	if decl != nil {
 		m.sources[decl] = true
 		return
 	}
-	if qn != nil && len(qn.Parts) > 0 {
-		m.unresolved[qn.Parts[len(qn.Parts)-1].Text] = true
+	if name, _ := ast.TargetName(target); name != "" {
+		m.unresolved[name] = true
 	}
 }
 
@@ -515,13 +515,13 @@ func connectorEndName(end *ast.ConnectorEnd) *ast.QualifiedName {
 	return ast.AsQualifiedName(end.Reference)
 }
 
-// endpointText renders an endpoint name as written, for a message about it.
-func endpointText(qn *ast.QualifiedName) string {
-	parts := make([]string, 0, len(qn.Parts))
-	for _, part := range qn.Parts {
-		parts = append(parts, part.Text)
+// endpointName is the name an endpoint ends in: the member of a chain (`c1` of
+// `c.c1`), or the name itself.
+func endpointName(target ast.Node) *ast.QualifiedName {
+	if chain, ok := target.(*ast.FeatureChainExpr); ok {
+		return chain.Member
 	}
-	return strings.Join(parts, "::")
+	return ast.AsQualifiedName(target)
 }
 
 // unwrapMembership strips the membership a declaration reaches a body wrapped in.

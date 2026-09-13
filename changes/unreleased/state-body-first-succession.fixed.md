@@ -10,3 +10,8 @@
   orders nothing and is reported (`first-names-no-target`) rather than ignored. Validation and the
   RDF mapping follow: the two-ended form is checked and exported as a succession, with no
   `sysx:InitialNode` written for it.
+- **A succession end written as a feature chain (`succession first b then c.c1;`, `first b then
+  c.c1;`) names the nested vertex `c::c1` names.** The chained end was dropped, so the edge into
+  `c1` was never lowered; it is now resolved through the endpoint lookup as the qualified spelling
+  is, at either end of the edge, and a chain whose member is not a state or pseudostate is
+  reported.

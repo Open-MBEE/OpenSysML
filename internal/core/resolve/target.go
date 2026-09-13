@@ -359,6 +359,9 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		return sym, ok
 	}
 	if ref.Chain != nil {
+		if ref.Endpoint {
+			return r.ResolveEndpointRef(ref.Scope, ref.Chain)
+		}
 		return r.resolveChainSegment(ref, hide)
 	}
 	if ref.Constructed != nil {

@@ -53,21 +53,83 @@ func (r *Resolver) ResolveEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) 
 	return res.sym, res.ok
 }
 
+// ResolveEndpointRef resolves an endpoint however a connector end writes it: a
+// name, or a feature chain (`c.c1`) whose member segments read from the vertex
+// its operand names. A nil name is the sourceless form: legal.
+func (r *Resolver) ResolveEndpointRef(scope *symbols.Scope, target ast.Node) (*symbols.Symbol, bool) {
+	switch t := target.(type) {
+	case *ast.QualifiedName:
+		return r.ResolveEndpoint(scope, t)
+	case *ast.FeatureReference:
+		if t == nil {
+			return nil, false
+		}
+		return r.ResolveEndpoint(scope, t.Name)
+	case *ast.FeatureChainExpr:
+		return r.resolveEndpointChain(scope, t)
+	}
+	return nil, false
+}
+
+// resolveEndpointChain resolves a chained endpoint, memoized on its member name
+// as ResolveEndpoint memoizes a plain one, and reports what that reports.
+func (r *Resolver) resolveEndpointChain(scope *symbols.Scope, chain *ast.FeatureChainExpr) (*symbols.Symbol, bool) {
+	if chain == nil || chain.Member == nil || len(chain.Member.Parts) == 0 {
+		return nil, false
+	}
+	member := chain.Member
+	if res, done := r.endpoints[member]; done {
+		return res.sym, res.ok
+	}
+	// An operand naming nothing reports as the reference it is, and nothing is
+	// memoized for the member so its own document still reports it.
+	owner := r.getOperandSymbol(scope, chain.Operand)
+	if owner == nil {
+		return nil, false
+	}
+	sym, ok := r.lookupEndpointChain(scope, chain, owner)
+	res := resolution{sym: sym, ok: ok}
+	name := chainText(chain)
+	switch {
+	case !ok:
+		last := member.Parts[len(member.Parts)-1]
+		cands := r.vertexSuggestions(scope, member)
+		r.report(Diagnostic{
+			Span:    chain.Span(),
+			Message: suggest.With(unresolvedReferencePrefix+name, name, cands),
+			Code:    "unresolved",
+			Fixes:   endpointFixes(last.Text, last.Span, cands),
+		})
+	case stateMachineEndpoint(scope) && !r.endpointIsVertex(scope, member, sym):
+		r.report(Diagnostic{
+			Span:    chain.Span(),
+			Message: "transition endpoint " + name + " is not a state or pseudostate",
+			Code:    CodeNotAVertex,
+		})
+		res = resolution{}
+	}
+	if res.ok || r.quiet == 0 {
+		journalNew(r, r.endpoints, member, member)
+		r.endpoints[member] = res
+	}
+	return res.sym, res.ok
+}
+
 // EndpointSymbol returns the resolved symbol for a transition endpoint.
-func (r *Resolver) EndpointSymbol(scope *symbols.Scope, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
+func (r *Resolver) EndpointSymbol(scope *symbols.Scope, target ast.Node) (*symbols.Symbol, bool) {
 	var sym *symbols.Symbol
 	var ok bool
-	r.aside(func() { sym, ok = r.ResolveEndpoint(scope, qn) })
+	r.aside(func() { sym, ok = r.ResolveEndpointRef(scope, target) })
 	return sym, ok
 }
 
 // Endpoint returns the declaration an endpoint names, which lowering builds its
 // edges from (lower.EndpointResolver); the lookup itself reports nothing, since
 // this tier reports an endpoint naming no vertex when it resolves the document.
-func (r *Resolver) Endpoint(scope *symbols.Scope, qn *ast.QualifiedName) (ast.Node, bool) {
+func (r *Resolver) Endpoint(scope *symbols.Scope, target ast.Node) (ast.Node, bool) {
 	var sym *symbols.Symbol
 	var ok bool
-	r.aside(func() { sym, ok = r.ResolveEndpoint(scope, qn) })
+	r.aside(func() { sym, ok = r.ResolveEndpointRef(scope, target) })
 	if ok && sym != nil {
 		return sym.Decl, true
 	}
@@ -78,11 +140,11 @@ func (r *Resolver) Endpoint(scope *symbols.Scope, qn *ast.QualifiedName) (ast.No
 // innermost scope first, for a machine lowered without a resolver over its
 // document (lower.ToStateGraph): no index is consulted, so nothing outside the
 // scopes the endpoint was written in can answer it.
-func VertexInScope(scope *symbols.Scope, qn *ast.QualifiedName) (ast.Node, bool) {
-	if scope == nil || qn == nil || len(qn.Parts) == 0 {
+func VertexInScope(scope *symbols.Scope, target ast.Node) (ast.Node, bool) {
+	parts := endpointParts(target)
+	if scope == nil || len(parts) == 0 {
 		return nil, false
 	}
-	parts := qualifiedParts(qn)
 	machine := machineScope(scope)
 	for s := scope; s != nil; s = s.Parent() {
 		if sym, ok := firstVertex(s, parts); ok {
@@ -460,6 +522,26 @@ func (r *Resolver) lookupEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) (
 	return sym, ok
 }
 
+// lookupEndpointChain finds the vertex a chained endpoint names: the member
+// segments read from owner, its operand's feature, then as lookupEndpoint ranks
+// a vertex of the machine itself ahead of one the name reaches elsewhere.
+func (r *Resolver) lookupEndpointChain(scope *symbols.Scope, chain *ast.FeatureChainExpr, owner *symbols.Symbol) (*symbols.Symbol, bool) {
+	var sym *symbols.Symbol
+	var ok bool
+	r.aside(func() { sym, ok = r.memberChain(owner, chain.Member, chain) })
+	machine := machineScope(scope)
+	if ok && r.endpointIsVertex(scope, chain.Member, sym) && declaredWithin(machine, sym) {
+		return sym, true
+	}
+	if vertex, found := firstVertex(machine, endpointParts(chain)); found {
+		return vertex, true
+	}
+	if ok && r.endpointIsVertex(scope, chain.Member, sym) {
+		return sym, true
+	}
+	return sym, ok
+}
+
 // completionEndpoint reports whether an endpoint names the end shot every state
 // inherits — the unqualified `done` — rather than a vertex the machine declares.
 func completionEndpoint(scope *symbols.Scope, qn *ast.QualifiedName, sym *symbols.Symbol) bool {
@@ -724,4 +806,42 @@ func qualifiedParts(qn *ast.QualifiedName) []string {
 		parts[i] = part.Text
 	}
 	return parts
+}
+
+// endpointParts flattens an endpoint to the names it walks: `c.c1` and `c::c1`
+// both name c1 under c. It is empty for a node that is no name at all.
+func endpointParts(target ast.Node) []string {
+	switch t := target.(type) {
+	case *ast.QualifiedName:
+		if t == nil {
+			return nil
+		}
+		return qualifiedParts(t)
+	case *ast.FeatureReference:
+		if t == nil {
+			return nil
+		}
+		return endpointParts(t.Name)
+	case *ast.FeatureChainExpr:
+		if t == nil || t.Member == nil || len(t.Member.Parts) == 0 {
+			return nil
+		}
+		if operand := endpointParts(t.Operand); len(operand) > 0 {
+			return append(operand, qualifiedParts(t.Member)...)
+		}
+	}
+	return nil
+}
+
+// chainText renders a chained endpoint as written (`c.c1`), for a message about it.
+func chainText(chain *ast.FeatureChainExpr) string {
+	switch operand := chain.Operand.(type) {
+	case *ast.QualifiedName:
+		return qnText(operand) + "." + qnText(chain.Member)
+	case *ast.FeatureReference:
+		return qnText(operand.Name) + "." + qnText(chain.Member)
+	case *ast.FeatureChainExpr:
+		return chainText(operand) + "." + qnText(chain.Member)
+	}
+	return qnText(chain.Member)
 }
