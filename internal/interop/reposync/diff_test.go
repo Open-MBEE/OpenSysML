@@ -705,9 +705,9 @@ func TestTextIsDeterministic(t *testing.T) {
 // A standard-library element carries the id the norm fixes for it: not an
 // annotation, so the repository lacking it is a create, and not minted for.
 func TestNormativeLibraryIDIsNeitherDeclaredNorMinted(t *testing.T) {
-	const real = "14c0aa22-5489-59b5-b438-ded26e83ba31" // ScalarValues::Real
+	const realID = "14c0aa22-5489-59b5-b438-ded26e83ba31" // ScalarValues::Real
 	local := rdf.NewGraph()
-	subject := rdf.ElementIRIForID(real)
+	subject := rdf.ElementIRIForID(realID)
 	local.Add(subject, rdf.IRI(rdf.RDFType), rdf.IRI(rdf.SysML+"DataType"))
 	local.Add(subject, rdf.IRI(rdf.SysML+"qualifiedName"), rdf.String("ScalarValues::Real"))
 	set, err := reposync.Diff(local, rdf.NewGraph(), reposync.Options{

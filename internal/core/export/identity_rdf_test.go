@@ -725,7 +725,7 @@ func elementIDs(t *testing.T, turtle []byte) map[string]string {
 // is: by its effective name, or by the position the encoder writes it at.
 func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 	const (
-		real           = "14c0aa22-5489-59b5-b438-ded26e83ba31" // ScalarValues::Real
+		realID         = "14c0aa22-5489-59b5-b438-ded26e83ba31" // ScalarValues::Real
 		realMembership = "ab72a695-5fe9-58a3-9d48-9e9a8711862d"
 		edges          = "1c6076b4-48fa-5c5f-81f2-7c850aee33b1" // ShapeItems::Polyhedron::edges, written as @3
 		pyramidEdges   = "6749b419-719a-51d9-8e13-d993bb953e80" // ShapeItems::RectangularPyramid::base::edges
@@ -734,14 +734,14 @@ func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 		id, qname string
 		want      bool
 	}{
-		{real, "ScalarValues::Real", true},
+		{realID, "ScalarValues::Real", true},
 		{realMembership, "", true},
 		{realMembership, "P::A", false},
 		{realMembership, "ScalarValues::Real", false},
-		{real, "P::A", false},
-		{real, "", false},
-		{real, "ScalarValues::@7", false},
-		{real, "ScalarValues::@8", false},
+		{realID, "P::A", false},
+		{realID, "", false},
+		{realID, "ScalarValues::@7", false},
+		{realID, "ScalarValues::@8", false},
 		{rdf.EncodeElementID("ScalarValues::Real"), "ScalarValues::Real", false},
 		{edges, "ShapeItems::Polyhedron::@3", true},
 		{edges, "ShapeItems::Polyhedron::edges", true},
