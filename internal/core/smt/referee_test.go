@@ -27,6 +27,8 @@ import (
 
 // The referee holds the encoding to the interpreter over every conformance action case with
 // outcomes: same outcome set, every witness replays, same deadlock verdict; refusals are counted.
+// Its fourth check, over the cases with free inputs: a violated witness with inputs, explored
+// with those inputs pinned as a caller pins them, reproduces the violation.
 
 // corpusCase is the part of a conformance case's expectation the referee reads.
 type corpusCase struct {
@@ -135,7 +137,20 @@ func firstAction(scope *symbols.Scope) *symbols.Symbol {
 // refereeTally counts what the referee saw over the corpus.
 type refereeTally struct {
 	encoded, refused, agreeing, witnesses, replayed int
-	refusals                                        []string
+	// inputs counts the violated witnesses fixing inputs, reproduced those the
+	// exploration with the inputs pinned reaches the violation of.
+	inputs, reproduced int
+	refusals           []string
+}
+
+// log reports the tally as the referee's columns.
+func (tally *refereeTally) log(t *testing.T) {
+	t.Helper()
+	t.Logf("referee: %d cases encoded, %d refused, %d agreeing on outcomes and verdict; %d witnesses, %d replayed; %d witnesses with inputs, %d reproduced under explore",
+		tally.encoded, tally.refused, tally.agreeing, tally.witnesses, tally.replayed, tally.inputs, tally.reproduced)
+	for _, refusal := range tally.refusals {
+		t.Logf("refused: %s", refusal)
+	}
 }
 
 // refereeTimeout is how long the referee gives the solver per query: it judges
@@ -159,13 +174,56 @@ func TestRefereeCorpus(t *testing.T) {
 			refereeCase(t, &solver, name, c, tally)
 		})
 	}
-	t.Logf("referee: %d cases encoded, %d refused, %d agreeing on outcomes and verdict; %d witnesses, %d replayed",
-		tally.encoded, tally.refused, tally.agreeing, tally.witnesses, tally.replayed)
-	for _, refusal := range tally.refusals {
-		t.Logf("refused: %s", refusal)
-	}
+	tally.log(t)
 	if tally.encoded == 0 {
 		t.Fatal("the referee encoded no case")
+	}
+}
+
+// inputCase is one pinned model with free inputs the referee holds to the interpreter.
+type inputCase struct {
+	name, src, action, condition string
+}
+
+// inputCases are the free-input models of layer 4 whose verdict is violated: an
+// Integer below the default, an Integer where Natural proves, an enumeration
+// constructor, and a real.
+func inputCases() []inputCase {
+	real := strings.Replace(freeSrc, "attribute u : Natural;", "attribute u : Real;", 1)
+	return []inputCase{
+		{"integer-input", freeSrc, "test::A", "test::A::positive"},
+		{"integer-where-natural-proves", strings.Replace(freeSrc, "attribute u : Natural;", "attribute u : Integer;", 1), "test::A", "test::A::natural"},
+		{"enumeration-input", freeSrc, "test::A", "test::A::fast"},
+		{"real-input", real, "test::A", "test::A::natural"},
+	}
+}
+
+// TestRefereeInputs runs check 4 over the free-input models: every violated
+// witness fixes its inputs, and exploring with them pinned reproduces the violation.
+func TestRefereeInputs(t *testing.T) {
+	solver := *requireSolver(t)
+	solver.Timeout = refereeTimeout
+	e := New(func() (*solve.Solver, error) { return &solver, nil })
+	tally := &refereeTally{}
+	for _, c := range inputCases() {
+		t.Run(c.name, func(t *testing.T) {
+			d := indexed(t, c.name+".sysml", c.src)
+			q := d.holds(t, c.action, c.condition)
+			budget := analysis.Budget{Depth: DefaultMoves, Solver: solver.Timeout}
+			verdict := answer(t, e, d, q, budget)
+			tally.encoded++
+			expect(t, verdict, analysis.ClaimViolated, analysis.Witnessed)
+			if len(verdict.Witness.Inputs) == 0 {
+				t.Fatalf("the witness fixes no input: %v", verdict.Witness)
+			}
+			if reproduceViolation(t, d, q.Holds, budget, verdict, tally) {
+				tally.agreeing++
+			}
+		})
+	}
+	tally.log(t)
+	if tally.reproduced != len(inputCases()) {
+		t.Errorf("%d of %d violations reproduced under explore", tally.reproduced, len(inputCases()))
 	}
 }
 
@@ -185,9 +243,23 @@ func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, 
 	outcomes := compareOutcomes(t, solver, encoding, d, action, budget, exploration)
 	tally.witnesses += outcomes.witnesses
 	tally.replayed += outcomes.replayed
-	agreeing := outcomes.agreeing && refereeVerdict(t, solver, d, action, budget, exploration)
+	ask := startAsk(action)
+	agreeing, verdict := refereeVerdict(t, solver, d, ask, budget, exploration)
+	if verdict.Claim == analysis.ClaimViolated && verdict.Witness != nil && len(verdict.Witness.Inputs) > 0 {
+		agreeing = reproduceViolation(t, d, ask, budget, verdict, tally) && agreeing
+	}
 	if agreeing {
 		tally.agreeing++
+	}
+}
+
+// startAsk asks after the action begun as the interpreter begins it, no condition named.
+func startAsk(action *symbols.Symbol) *analysis.HoldsAsk {
+	return &analysis.HoldsAsk{
+		Behavior: action,
+		Start: func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
+			return ctx.CreateActionExecutor(action)
+		},
 	}
 }
 
@@ -297,8 +369,8 @@ func compareOutcomes(t *testing.T, solver *solve.Solver, encoding *Encoding, d *
 }
 
 // refereeVerdict runs check 3: the engine's verdict on the action agrees with
-// what the exhaustive exploration reached.
-func refereeVerdict(t *testing.T, solver *solve.Solver, d *document, action *symbols.Symbol, budget analysis.Budget, exploration *runtime.Exploration) bool {
+// what the exhaustive exploration reached. The verdict is returned for check 4.
+func refereeVerdict(t *testing.T, solver *solve.Solver, d *document, ask *analysis.HoldsAsk, budget analysis.Budget, exploration *runtime.Exploration) (bool, analysis.Result) {
 	t.Helper()
 	deadlocks, failures := 0, 0
 	for _, o := range exploration.Outcomes {
@@ -310,12 +382,7 @@ func refereeVerdict(t *testing.T, solver *solve.Solver, d *document, action *sym
 			failures++
 		}
 	}
-	q := analysis.Question{Kind: analysis.Holds, Subject: action.Name, Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{
-		Behavior: action,
-		Start: func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
-			return ctx.CreateActionExecutor(action)
-		},
-	}}
+	q := analysis.Question{Kind: analysis.Holds, Subject: ask.Behavior.Name, Free: analysis.FreeSchedule, Holds: ask}
 	verdict := answer(t, New(func() (*solve.Solver, error) { return solver, nil }), d, q, budget)
 	agreeing := true
 	switch {
@@ -339,7 +406,94 @@ func refereeVerdict(t *testing.T, solver *solve.Solver, d *document, action *sym
 		}
 	}
 	t.Logf("engine: %v/%v", verdict.Claim, verdict.Strength)
-	return agreeing
+	return agreeing, verdict
+}
+
+// reproduceViolation runs check 4: the action is explored over every schedule
+// with the witness's inputs pinned as a caller pins them, and some run reaches
+// the violation the witness claims: the condition false, or the failure named.
+func reproduceViolation(t *testing.T, d *document, ask *analysis.HoldsAsk, budget analysis.Budget, verdict analysis.Result, tally *refereeTally) bool {
+	t.Helper()
+	tally.inputs++
+	claimed := verdict.Values[0].Err
+	policy, err := runtime.ExplorePolicy(runtime.DefaultExploreBudget)
+	if err != nil {
+		t.Fatalf("explore policy: %v", err)
+	}
+	exploration, err := runtime.Explore(context.Background(), policy, d.fresh(budget), func(ctx *runtime.Context) (runtime.Outcome, error) {
+		pinned, err := pinInputs(ctx, verdict.Witness.Inputs)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
+		exec, err := ctx.CreateActionExecutorWithInputs(ask.Behavior, nil, pinned)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
+		defer exec.Release()
+		for {
+			for _, condition := range ask.Conditions {
+				if ok, err := exec.Holds(condition, ask.Scope); err != nil {
+					return runtime.Outcome{}, err
+				} else if !ok {
+					return runtime.Outcome{}, fmt.Errorf("%s neither holds nor is violated", condition.Name)
+				}
+			}
+			if exec.State() == runtime.StateCompleted {
+				return ctx.ActionOutcome(exec.Results()), nil
+			}
+			if err := exec.Step(); err != nil {
+				return runtime.Outcome{}, err
+			}
+		}
+	})
+	if err != nil {
+		t.Fatalf("explore with the inputs pinned: %v", err)
+	}
+	for _, o := range exploration.Outcomes {
+		if sameViolation(o.Outcome.Err, claimed) {
+			tally.reproduced++
+			t.Logf("reproduced under explore with %v pinned: %v", verdict.Witness.Inputs, o.Outcome.Err)
+			return true
+		}
+	}
+	t.Errorf("exploring with %v pinned reaches no run ending as the witness claims (%v); %d outcomes, %s",
+		verdict.Witness.Inputs, claimed, len(exploration.Outcomes), exploration.Status())
+	return false
+}
+
+// pinInputs evaluates the values a witness spells, in the context the run is about
+// to begin in, as a caller's inputs are evaluated.
+func pinInputs(ctx *runtime.Context, inputs []runtime.InputTaken) (map[string]runtime.Value, error) {
+	pinned := make(map[string]runtime.Value, len(inputs))
+	for _, in := range inputs {
+		p := parser.New(source.New("<witness>", []byte(in.Written)))
+		expr := p.ParseExpression()
+		if expr == nil || len(p.Diagnostics) > 0 {
+			return nil, fmt.Errorf("input %s = %q is not an expression", in.Feature, in.Written)
+		}
+		value, err := ctx.Eval(expr)
+		if err != nil {
+			return nil, fmt.Errorf("input %s = %q: %w", in.Feature, in.Written, err)
+		}
+		pinned[in.Feature] = value
+	}
+	return pinned, nil
+}
+
+// sameViolation reports whether a run ended as the witness claims: in the
+// violation of the same condition, or in a deadlock or failure alike.
+func sameViolation(got, claimed error) bool {
+	var violation, claimedViolation *runtime.ViolationError
+	switch {
+	case got == nil || claimed == nil:
+		return false
+	case errors.As(claimed, &claimedViolation):
+		return errors.As(got, &violation) && violation.Element == claimedViolation.Element
+	case errors.Is(claimed, runtime.ErrActionDeadlock):
+		return errors.Is(got, runtime.ErrActionDeadlock)
+	default:
+		return !errors.As(got, &violation) && !errors.Is(got, runtime.ErrActionDeadlock)
+	}
 }
 
 // exploreBudget is the budget a case's exploration runs under.

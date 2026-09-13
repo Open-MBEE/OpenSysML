@@ -192,7 +192,7 @@ func TestPinnedMergeOutcomes(t *testing.T) {
 			if !outcomes.agreeing || outcomes.replayed != outcomes.witnesses || outcomes.witnesses != len(p.outcomes) {
 				t.Errorf("%d witnesses, %d replayed, agreeing %v", outcomes.witnesses, outcomes.replayed, outcomes.agreeing)
 			}
-			if !refereeVerdict(t, solver, d, action, budget, exploration) {
+			if agreeing, _ := refereeVerdict(t, solver, d, startAsk(action), budget, exploration); !agreeing {
 				t.Error("the verdict disagrees with the exploration")
 			}
 		})
