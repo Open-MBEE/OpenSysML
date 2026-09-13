@@ -82,8 +82,8 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		head(rdf.OpenSysMLTerm(mInitialNode))
 		// `first x` names the member the body starts at, or declares a label
 		// for transitions to name when no member answers to it.
-		if n.Name != "" {
-			start := rdf.Term(rdf.String(n.Name))
+		if n.Name() != "" {
+			start := rdf.Term(rdf.String(n.Name()))
 			if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
 				start = e.ids.subjectForNode(decl, fqn)
 			}

@@ -186,16 +186,17 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		}
 		return true
 	case *ast.InitialNode:
-		// Register initial node by name so transitions can reference it; an
-		// unnamed one with a body owns a body-local scope for its members.
-		if d.Name == "" && len(d.Members) == 0 {
+		// A start marker is registered by name so transitions can reference it; a
+		// succession's `first a` declares nothing, its body owning a body-local scope.
+		marker := d.Name() != "" && !FirstNamesSource(scope, d)
+		if !marker && len(d.Members) == 0 {
 			return true
 		}
 		child := NewScope(scope, d)
-		if d.Name == "" {
+		if !marker {
 			child.markBodyLocal()
 		} else {
-			id := ast.Identification{Name: d.Name}
+			id := ast.Identification{Name: d.Name()}
 			// Use attribute usage kind (control flow nodes are structural members)
 			sym := newSymbol(id, SymbolAttributeUsage, d, vis, child, scope, trivia)
 			defineIdent(scope, id, sym)

@@ -353,10 +353,10 @@ func (r *Resolver) EndSymbol(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 // resolveInitial binds `first x` to the member of the body x names, if any:
 // lowering starts the flow there instead of at the node (see lower).
 func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
-	if n.Name == "" {
+	if n.Name() == "" {
 		return
 	}
-	if sym, ok := memberPastLabels(scope, n.Name); ok {
+	if sym, ok := memberPastLabels(scope, n.Name()); ok {
 		journalNew(r, r.initials, n, n)
 		r.initials[n] = sym
 	}
@@ -378,11 +378,17 @@ func memberPastLabels(scope *symbols.Scope, name string) (*symbols.Symbol, bool)
 	return symbols.PreferDeclared(members)[0], true
 }
 
-// InitialSymbol returns the body member the initial node's name resolved to,
-// or false where the name is a label the node itself declares.
+// InitialSymbol returns the member the initial node's name resolved to: the
+// one a start marker binds to, or the source a succession's `first` refers
+// to; false where the name is a label the node itself declares.
 func (r *Resolver) InitialSymbol(n *ast.InitialNode) (*symbols.Symbol, bool) {
-	sym, ok := r.initials[n]
-	return sym, ok
+	if sym, ok := r.initials[n]; ok {
+		return sym, true
+	}
+	if n.First == nil {
+		return nil, false
+	}
+	return r.EndSymbol(n.First)
 }
 
 // PartAlias returns the alias membership the i-th segment of qn was written as,

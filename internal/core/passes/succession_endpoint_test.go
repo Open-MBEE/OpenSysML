@@ -60,6 +60,16 @@ func TestEndpointNamingNoMemberIsReported(t *testing.T) {
 			state idle;
 			transition first zzz then idle;
 		} }`,
+		"first source": `package P { action def A {
+			first start;
+			action a;
+			first zzz then a;
+		} }`,
+		"first source with a body": `package P { action def A {
+			first start;
+			action a;
+			first zzz then a { attribute delay; }
+		} }`,
 	}
 
 	for name, src := range cases {
@@ -122,6 +132,24 @@ func TestEndpointsThatResolveStaySilent(t *testing.T) {
 			action a;
 			done;
 			succession first start then a;
+		} }`,
+		"first source": `package P { action def A {
+			first start;
+			action a;
+			action b;
+			first a then b;
+		} }`,
+		"first source is the implicit start": `package P { action def A {
+			action a;
+			first start then a;
+		} }`,
+		"one-ended first marker": `package P { action def A {
+			first a;
+			action a;
+		} }`,
+		"machine initial start": `package P { state def M {
+			first start then idle;
+			state idle;
 		} }`,
 		"implicit done": `package P { action def A {
 			first start;

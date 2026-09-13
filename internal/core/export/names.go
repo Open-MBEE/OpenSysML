@@ -366,7 +366,7 @@ func (e *encoder) checkStarts(starts map[string]string, declared map[string]ast.
 		}
 		return &UnsupportedError{
 			What: fmt.Sprintf("the initial node %s", fqn),
-			Note: fmt.Sprintf("`first %s` does not name %s in the body it is written in, so the notation cannot state it", nameText(initial.Name), target),
+			Note: fmt.Sprintf("`first %s` does not name %s in the body it is written in, so the notation cannot state it", nameText(initial.Name()), target),
 		}
 	}
 	return nil

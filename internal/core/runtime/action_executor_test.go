@@ -44,7 +44,7 @@ func TestActionExecutor_Creation(t *testing.T) {
 func TestActionExecutor_GraphExtraction(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	final := &ast.FinalNode{}
 	edge := &ast.SuccessionEdge{
 		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
@@ -80,7 +80,7 @@ func TestActionExecutor_InitialNode(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Create action: initial → final
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	final := &ast.FinalNode{}
 
 	action := &symbols.Symbol{
@@ -128,7 +128,7 @@ func TestActionExecutor_InitialNode(t *testing.T) {
 func TestActionExecutor_FinalNode(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	final := &ast.FinalNode{}
 
 	action := &symbols.Symbol{
@@ -188,7 +188,7 @@ func TestActionExecutor_FinalNode(t *testing.T) {
 func TestActionExecutor_ActionExecutionNode(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	action := &ast.ActionExecutionNode{
 		Name:       "compute",
 		Expression: &ast.LiteralInteger{Value: "42"},
@@ -256,7 +256,7 @@ func TestActionExecutor_ActionExecutionNode(t *testing.T) {
 func TestActionExecutor_ForkNode(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	action1 := &ast.ActionExecutionNode{Name: "task1"}
 	action2 := &ast.ActionExecutionNode{Name: "task2"}
@@ -314,7 +314,7 @@ func TestActionExecutor_ForkNode(t *testing.T) {
 func TestActionExecutor_ForkNode_SharedFeatureSpace(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	action1 := &ast.ActionExecutionNode{Name: "task1"}
 	action2 := &ast.ActionExecutionNode{Name: "task2"}
@@ -374,7 +374,7 @@ func TestActionExecutor_ForkNode_SharedFeatureSpace(t *testing.T) {
 func TestActionExecutor_ForkNode_NoSuccessors(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 
 	// Fork node with NO outgoing edges
@@ -415,7 +415,7 @@ func TestActionExecutor_ForkNode_NoSuccessors(t *testing.T) {
 func TestActionExecutor_NodeWithoutSuccessorsRetiresItsToken(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	task1 := &ast.ActionExecutionNode{
 		Name:       "task1",
@@ -472,7 +472,7 @@ func TestActionExecutor_NodeWithoutSuccessorsRetiresItsToken(t *testing.T) {
 func TestActionExecutor_JoinNode(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	task1 := &ast.ActionExecutionNode{
 		Name:       "task1",
@@ -575,7 +575,7 @@ func TestActionExecutor_JoinNode(t *testing.T) {
 func TestActionExecutor_JoinNode_PartialArrival(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	task1 := &ast.ActionExecutionNode{
 		Name:       "task1",
@@ -684,7 +684,7 @@ func TestActionExecutor_MergeNode(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → fork → [merge, merge] → final
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	merge := &ast.MergeNode{Name: "join"}
 	final := &ast.FinalNode{}
@@ -779,7 +779,7 @@ func TestActionExecutor_MergeNode_ControlOnly(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// fork → [path1 sets x=1, path2 sets x=2] → merge → final
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	action1 := &ast.ActionExecutionNode{
 		Name:       "task1",
@@ -902,7 +902,7 @@ func TestActionExecutor_MergeNode_SingleParent(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// initial → merge → final (degenerate case, merge pass-through)
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	merge := &ast.MergeNode{Name: "join"}
 	final := &ast.FinalNode{}
 
@@ -948,7 +948,7 @@ func TestActionExecutor_DecisionNode(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → decision → [pathA (if x>10), pathB (if x<=10)] → final
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	decision := &ast.DecisionNode{Name: "check"}
 	pathA := &ast.ActionExecutionNode{
 		Name:       "pathA",
@@ -1152,7 +1152,7 @@ func TestActionExecutor_DecisionNode_ElseBranch(t *testing.T) {
 
 	// Build: initial → decision → [pathA (if x>10), pathElse (no guard)] → final
 	// Test that unguarded edge works as fallback after guarded edges
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	decision := &ast.DecisionNode{Name: "check"}
 	pathA := &ast.ActionExecutionNode{
 		Name:       "pathA",
@@ -1270,7 +1270,7 @@ func TestActionExecutor_DecisionNode_NonBooleanGuard(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → decision → pathA (with integer guard - invalid)
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	decision := &ast.DecisionNode{Name: "check"}
 	pathA := &ast.ActionExecutionNode{
 		Name:       "pathA",
@@ -1339,7 +1339,7 @@ func TestActionExecutor_ObjectFlow(t *testing.T) {
 
 	// Build: initial → action1 → action2 → final
 	// With ObjectFlowEdge: action1.output → action2.input
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	action1 := &ast.ActionExecutionNode{
 		Name:       "action1",
 		Expression: &ast.LiteralInteger{Value: "42"}, // Produces value 42
@@ -1435,7 +1435,7 @@ func TestActionExecutor_Step(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → action → final
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	action := &ast.ActionExecutionNode{
 		Name:       "compute",
 		Expression: &ast.LiteralInteger{Value: "100"},
@@ -1504,7 +1504,7 @@ func TestActionExecutor_RunToCompletion(t *testing.T) {
 	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → fork → [action1, action2] → join → final
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	action1 := &ast.ActionExecutionNode{
 		Name:       "compute1",
@@ -1582,7 +1582,7 @@ func TestActionExecutor_Deadlock_JoinStarvation(t *testing.T) {
 	// Build deadlock scenario:
 	// initial → fork → [path1 → join, path2 → action2]
 	// Join expects 2 tokens (has 2 incoming edges), but path2 never reaches join
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	action1 := &ast.ActionExecutionNode{
 		Name:       "path1",
@@ -1684,7 +1684,7 @@ func TestActionExecutor_Integration_Sequential(t *testing.T) {
 
 	// Build: initial → compute1 → compute2 → compute3 → final
 	// Sequential execution with data flow
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	compute1 := &ast.ActionExecutionNode{
 		Name:       "step1",
 		Expression: &ast.LiteralInteger{Value: "10"},
@@ -1755,7 +1755,7 @@ func TestActionExecutor_Integration_ForkJoin(t *testing.T) {
 
 	// Build: initial → fork → [path1, path2, path3] → join → final
 	// Parallel execution with synchronization
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	path1 := &ast.ActionExecutionNode{
 		Name:       "parallel1",
@@ -1840,7 +1840,7 @@ func TestActionExecutor_Integration_DecisionMerge(t *testing.T) {
 
 	// Build: initial → decision → [pathTrue, pathFalse] → merge → final
 	// Conditional branching with merge
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	decision := &ast.DecisionNode{Name: "branch"}
 	pathTrue := &ast.ActionExecutionNode{
 		Name:       "whenTrue",
@@ -1952,7 +1952,7 @@ func TestActionExecutor_Integration_ObjectFlow(t *testing.T) {
 
 	// Build pipeline with data flow: initial → producer → consumer → final
 	// ObjectFlow: producer.result → consumer.input
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	producer := &ast.ActionExecutionNode{
 		Name:       "producer",
 		Expression: &ast.LiteralInteger{Value: "999"},
@@ -2041,7 +2041,7 @@ func TestActionExecutor_Integration_ErrorCases(t *testing.T) {
 
 	// Test 2: Undefined edge reference
 	t.Run("undefined_edge_reference", func(t *testing.T) {
-		initial := &ast.InitialNode{Name: "start"}
+		initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 
 		action := &symbols.Symbol{
 			Name: "BadEdgeAction",
@@ -2071,7 +2071,7 @@ func TestActionExecutor_Integration_ErrorCases(t *testing.T) {
 
 	// Test 3: Initial node with no successors
 	t.Run("initial_no_successors", func(t *testing.T) {
-		initial := &ast.InitialNode{Name: "start"}
+		initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 
 		action := &symbols.Symbol{
 			Name: "DeadEndAction",
@@ -2107,7 +2107,7 @@ func TestActionExecutor_Integration_ParallelProcessing(t *testing.T) {
 	// Workflow: initial → fork → [processA, processB, processC] → join → aggregate → final
 	// Each processor adds to input value, join merges all data, aggregate sums
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "parallel"}
 
 	// Each processor outputs to unique pin
@@ -2282,7 +2282,7 @@ func TestActionExecutor_Integration_ParallelProcessing(t *testing.T) {
 func guardedSuccessionExecutor(t *testing.T, guard ast.Node) *ActionExecutor {
 	t.Helper()
 
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	s1 := &ast.ActionExecutionNode{Name: "s1", Expression: &ast.LiteralInteger{Value: "1"}}
 	s2 := &ast.ActionExecutionNode{Name: "s2", Expression: &ast.LiteralInteger{Value: "2"}}
 
@@ -2401,7 +2401,7 @@ func TestActionExecutor_GuardedSuccession_GuardErrors(t *testing.T) {
 func TestActionExecutor_GuardedSuccession_OutOfInitialNode(t *testing.T) {
 	// `first start if false then s1;`
 	initial := &ast.InitialNode{
-		Name:      "start",
+		First:     &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
 		Successor: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "s1"}}},
 		Guard:     &ast.LiteralBool{Value: false},
 	}
@@ -2441,7 +2441,7 @@ func TestActionExecutor_GuardedSuccession_OutOfInitialNode(t *testing.T) {
 // A guard on a branch out of a fork prunes that branch: the branches whose guard
 // holds, and the unguarded ones, still each get a token.
 func TestActionExecutor_GuardedSuccession_PrunesAForkBranch(t *testing.T) {
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	task1 := &ast.ActionExecutionNode{Name: "task1", Expression: &ast.LiteralInteger{Value: "1"}}
 	task2 := &ast.ActionExecutionNode{Name: "task2", Expression: &ast.LiteralInteger{Value: "2"}}
@@ -2501,7 +2501,7 @@ func TestActionExecutor_GuardedSuccession_PrunesAForkBranch(t *testing.T) {
 // Two successions out of one node whose guards both hold state no order between
 // them, so the ambiguity is reported rather than resolved.
 func TestActionExecutor_GuardedSuccession_TwoGuardsHold(t *testing.T) {
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	s1 := &ast.ActionExecutionNode{Name: "s1", Expression: &ast.LiteralInteger{Value: "1"}}
 	s2 := &ast.ActionExecutionNode{Name: "s2", Expression: &ast.LiteralInteger{Value: "2"}}
 	s3 := &ast.ActionExecutionNode{Name: "s3", Expression: &ast.LiteralInteger{Value: "3"}}
@@ -2556,7 +2556,7 @@ func TestActionExecutor_GuardedSuccession_TwoGuardsHold(t *testing.T) {
 // A token whose succession out of a merge is pruned is retired, and a later token
 // still traverses: the guard drops the link, not the merge.
 func TestActionExecutor_GuardedSuccession_PrunedMergeStaysOpen(t *testing.T) {
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	fork := &ast.ForkNode{Name: "split"}
 	low := &ast.ActionExecutionNode{Name: "low", Expression: &ast.LiteralInteger{Value: "1"}}
 	high := &ast.ActionExecutionNode{Name: "high", Expression: &ast.LiteralInteger{Value: "2"}}

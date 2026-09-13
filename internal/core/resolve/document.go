@@ -189,7 +189,7 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 			r.resolveRelationships(redefinitionScope, end, redefines)
 			r.resolveRelationships(endScope, end, others)
 			endpointKind := d.Kind == ast.UsageSuccession || d.Kind == ast.UsageTransition
-			resolveAsEndpoint := endpointKind && inStateMachine(endScope) && !declaresName
+			resolveAsEndpoint := endpointKind && symbols.InStateMachine(endScope) && !declaresName
 			resolveEnd := func(target ast.Node) {
 				// A calc's binding may name its implicit result feature as an end.
 				if d.Kind == ast.UsageBinding && isImplicitCalcResult(scope, target) {
@@ -245,7 +245,11 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		}
 		return true
 	case *ast.InitialNode:
-		r.resolveInitial(scope, d)
+		if symbols.FirstNamesSource(scope, d) {
+			r.resolveEdgeEnd(scope, d.First, nil, false)
+		} else {
+			r.resolveInitial(scope, d)
+		}
 		r.resolveEdgeEnd(scope, d.Successor, nil, false)
 		r.resolveExpr(scope, d.Guard)
 		r.walkMembers(r.bodyScope(scope, d), d.Members)

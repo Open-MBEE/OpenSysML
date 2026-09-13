@@ -480,7 +480,7 @@ func memberDeclaredName(member ast.Node) string {
 	case *ast.ActionExecutionNode:
 		return n.Name
 	case *ast.InitialNode:
-		return n.Name
+		return n.Name()
 	case *ast.FinalNode:
 		return ""
 	case *ast.ForkNode:

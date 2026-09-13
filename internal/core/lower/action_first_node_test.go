@@ -73,8 +73,8 @@ func TestToActionGraph_FirstDeclaresItsOwnInitialNode(t *testing.T) {
 	if !ok {
 		t.Fatalf("initial node = %T, want *ast.InitialNode", graph.Initial)
 	}
-	if initial.Name != "start" {
-		t.Errorf("initial node name = %q, want %q", initial.Name, "start")
+	if initial.Name() != "start" {
+		t.Errorf("initial node name = %q, want %q", initial.Name(), "start")
 	}
 	if edges := graph.Edges[initial]; len(edges) != 1 || edges[0].Target != nodeNamed(t, graph, "s1") {
 		t.Errorf("initial edges = %v, want [s1]", edges)

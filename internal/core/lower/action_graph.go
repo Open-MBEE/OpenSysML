@@ -491,7 +491,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 				}
 				targetNode := resolveActionEndpoint(graph, n.Successor, false)
 				if targetNode == nil {
-					return nil, fmt.Errorf("initial node %s successor references undefined target %s", n.Name, edgeEndName(n.Successor))
+					return nil, fmt.Errorf("initial node %s successor references undefined target %s", n.Name(), edgeEndName(n.Successor))
 				}
 				graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
 					Source: sourceNode,
@@ -729,12 +729,12 @@ func inheritedNodeLookup(graph *ActionGraph, body *symbols.Scope) nodeLookup {
 // a node of the graph. Returns the named node each such initial node stands for.
 func resolveFirstNode(graph *ActionGraph) (map[*ast.InitialNode]ast.Node, error) {
 	initial, ok := graph.Initial.(*ast.InitialNode)
-	if !ok || initial.Name == "" {
+	if !ok || initial.Name() == "" {
 		return nil, nil
 	}
 	var named ast.Node
 	for _, node := range graph.Nodes {
-		if node != ast.Node(initial) && nodeAnswersTo(node, initial.Name) {
+		if node != ast.Node(initial) && nodeAnswersTo(node, initial.Name()) {
 			named = node
 			break
 		}
@@ -745,7 +745,7 @@ func resolveFirstNode(graph *ActionGraph) (map[*ast.InitialNode]ast.Node, error)
 	if _, isFinal := named.(*ast.FinalNode); isFinal {
 		// A flow cannot start where it ends: naming a final node would retire the
 		// token before any succession out of it is taken.
-		return nil, fmt.Errorf("first names the final node %s, so the action would end before it started", initial.Name)
+		return nil, fmt.Errorf("first names the final node %s, so the action would end before it started", initial.Name())
 	}
 	graph.Initial = named
 	graph.Nodes = slices.DeleteFunc(graph.Nodes, func(node ast.Node) bool {
@@ -1305,7 +1305,10 @@ func resolveActionEndpoint(graph *ActionGraph, ref ast.Node, source bool) ast.No
 		return nil
 	}
 	if source {
-		initial := &ast.InitialNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}, Name: "start"}
+		first := &ast.QualifiedName{}
+		first.NodeSpan = ref.Span()
+		first.SetSingleton(ast.NameSegment{Text: "start", Span: ref.Span()})
+		initial := &ast.InitialNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}, First: first}
 		graph.Initial = initial
 		graph.Nodes = append(graph.Nodes, initial)
 		return initial
@@ -1404,7 +1407,7 @@ func nodeAnswersTo(node ast.Node, name string) bool {
 func getNodeName(node ast.Node) string {
 	switch n := node.(type) {
 	case *ast.InitialNode:
-		return n.Name
+		return n.Name()
 	case *ast.FinalNode:
 		// The node declares no name of its own: a succession reaches it by the
 		// name of the library feature it is, `done`.

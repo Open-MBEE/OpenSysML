@@ -111,6 +111,8 @@ func TestBehavioralStatementsRoundTrip(t *testing.T) {
 		"terminate":           "terminate;",
 		"terminate a node":    "terminate brake;",
 		"succession":          "succession first brake then finish;",
+		"first then":          "first brake then finish;",
+		"first then body":     "first brake then finish {\n            attribute delay;\n        }",
 		"edge succession":     "done;\n        succession first brake then finish;",
 		"while loop":          "while speed > 0 {\n            perform brake;\n        }",
 		"loop":                "loop {\n            perform brake;\n        }",
@@ -297,6 +299,34 @@ func TestThenAfterFirstSequencesFromTheMemberTheStartNames(t *testing.T) {
 	const start = "sysml:sourceFeature elmt:P__drive___400"
 	if n := strings.Count(string(turtle), start); n != 2 {
 		t.Fatalf("the initial node and the then after it should both state %s, found %d:\n%s", start, n, turtle)
+	}
+	back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+// The `first` end of an action body's `first a then b;` is the source of that
+// succession, linked to the member it names; the one-ended `first start;`
+// beside it carries the start it marks. Both read back unchanged.
+func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
+	src := "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n" +
+		"        first start;\n        first a then b;\n        succession first a then b;\n    }\n}\n"
+	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if n := strings.Count(string(turtle), "sysml:sourceFeature elmt:P__A__a"); n != 1 {
+		t.Fatalf("`first a then b` should link a as its source once, found %d:\n%s", n, turtle)
+	}
+	if !strings.Contains(string(turtle), "sysml:referent elmt:P__A__a") {
+		t.Fatalf("`succession first a then b` should link a through its end:\n%s", turtle)
+	}
+	if !strings.Contains(string(turtle), `sysml:sourceFeature "start"`) {
+		t.Fatalf("`first start;` should carry the start it marks by name:\n%s", turtle)
 	}
 	back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
 	if err != nil {

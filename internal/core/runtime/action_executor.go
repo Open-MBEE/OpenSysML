@@ -827,7 +827,7 @@ func (e *ActionExecutor) PausedAt() string {
 func ActionNodeName(node ast.Node) string {
 	switch n := node.(type) {
 	case *ast.InitialNode:
-		return n.Name
+		return n.Name()
 	case *ast.FinalNode:
 		return "done"
 	case *ast.ForkNode:
