@@ -56,6 +56,18 @@ func loadContent(t *testing.T, name, content string) Model {
 	}
 }
 
+// loadWorkspace is loadContent with sibling workspace documents indexed beside
+// the edited one, the way the language server edits a document of several.
+func loadWorkspace(t *testing.T, name, content string, siblings map[string]string) Model {
+	t.Helper()
+	m := loadContent(t, name, content)
+	for sibling, text := range siblings {
+		m.Index.AddDocument(sibling, parser.New(source.New(sibling, []byte(text))).ParseFile())
+	}
+	m.Index.ExpandWildcardImports()
+	return m
+}
+
 // requireClean fails when a fixture does not start out valid: a test about what
 // an edit introduced says nothing if the original was already broken.
 func requireClean(t *testing.T, m Model) {

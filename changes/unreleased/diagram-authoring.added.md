@@ -17,7 +17,8 @@
   history and the server learns of it through `textDocument/didChange`. A version that no longer
   matches is answered `stale`; an edit the re-analysis refuses is answered with the operation at
   fault, a stable failure name, the diagnostics the edited text would have had and the declarations
-  still referring to a target. The server advertises it as `experimental.openSysmlApplyModelEdit`.
+  still referring to a target. A delete or rename that another document of the workspace refers to
+  is refused as `referenced-elsewhere` rather than applied to the one document the edit rewrites. The server advertises it as `experimental.openSysmlApplyModelEdit`.
   `opensysml/render` now gives each node its qualified name (`fqn`) for the request to target, and a
   `palette` naming the member and connection kinds a diagram of that kind offers and, for a member
   only some bodies declare, the nodes it may go into.

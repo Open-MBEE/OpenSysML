@@ -115,6 +115,108 @@ func TestDeleteCascadeRemovesEverySameNamedReferrer(t *testing.T) {
 	requireClean(t, loadContent(t, "delete.sysml", got))
 }
 
+// An import, a filter or an anonymous declaration referring to the target is
+// the referrer itself, not the namespace it is written in: a cascade removes
+// that one declaration and leaves the namespace's other members.
+func TestDeleteCascadeRemovesTheReferringDeclarationOnly(t *testing.T) {
+	tests := []struct {
+		name, src, referrer, want string
+	}{
+		{
+			name: "import in a package",
+			src: "package P {\n    part def Base;\n}\n" +
+				"package Q {\n    private import P::Base;\n    part keep;\n}\n",
+			referrer: "import P::Base in Q",
+			want:     "package P {\n}\npackage Q {\n    part keep;\n}\n",
+		},
+		{
+			name:     "import at the root",
+			src:      "package P {\n    part def Base;\n}\nprivate import P::Base;\npart keep;\n",
+			referrer: "import P::Base in delete.sysml",
+			want:     "package P {\n}\npart keep;\n",
+		},
+		{
+			name: "namespace import",
+			src: "package P {\n    part def Base;\n}\n" +
+				"package Q {\n    import P::Base::*;\n    part keep;\n}\n",
+			referrer: "import P::Base::* in Q",
+			want:     "package P {\n}\npackage Q {\n    part keep;\n}\n",
+		},
+		{
+			name: "filter",
+			src: "package P {\n    metadata def Base;\n" +
+				"    package Q {\n        filter @Base;\n        part def Keep;\n    }\n}\n",
+			referrer: "the filter in P::Q",
+			want:     "package P {\n    package Q {\n        part def Keep;\n    }\n}\n",
+		},
+		{
+			name:     "anonymous usage",
+			src:      "package P {\n    part def Base;\n    part : Base;\n    part def Keep;\n}\n",
+			referrer: "part : Base in P",
+			want:     "package P {\n    part def Keep;\n}\n",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := loadContent(t, "delete.sysml", tc.src)
+			requireClean(t, m)
+			e := addFailure(t, m, Delete("P::Base", false), FailureDeleteReferenced)
+			if strings.Join(e.Referring, ",") != tc.referrer {
+				t.Fatalf("referrers = %v, want %q", e.Referring, tc.referrer)
+			}
+			res, err := Apply(m, []Operation{Delete("P::Base", true)})
+			if err != nil {
+				t.Fatalf("cascade delete: %v", err)
+			}
+			if got := string(res.Content); got != tc.want {
+				t.Fatalf("cascade result:\n%s\nwant:\n%s", got, tc.want)
+			}
+			requireClean(t, loadContent(t, "delete.sysml", string(res.Content)))
+		})
+	}
+}
+
+// A declaration another workspace document refers to is not deleted, with or
+// without cascade: an edit rewrites one document, so the reference could not
+// follow. The refusal names each referrer with its document.
+func TestDeleteRefusesWhenAnotherDocumentRefers(t *testing.T) {
+	m := loadWorkspace(t, "p.sysml",
+		"package P {\n    part def Base {\n        part def Inner;\n    }\n    part def Keep;\n}\n",
+		map[string]string{
+			"q.sysml": "package Q {\n    private import P::Base;\n    part b : P::Base;\n    part : P::Base::Inner;\n}\n",
+			"r.sysml": "package R {\n    part k : P::Keep;\n}\n",
+		})
+	requireClean(t, m)
+	want := []string{"Q::b (q.sysml)", "an anonymous part in Q (q.sysml)", "import P::Base in Q (q.sysml)"}
+	for _, cascade := range []bool{false, true} {
+		e := addFailure(t, m, Delete("P::Base", cascade), FailureReferencedElsewhere)
+		if strings.Join(e.Referring, ",") != strings.Join(want, ",") {
+			t.Fatalf("cascade=%v: referrers = %v, want %v", cascade, e.Referring, want)
+		}
+	}
+	if _, err := Apply(m, []Operation{Delete("P::Keep", true)}); err == nil {
+		t.Fatal("deleting P::Keep succeeded although r.sysml refers to it")
+	}
+	if _, err := Apply(m, []Operation{Delete("P::Base::Inner", true)}); err == nil {
+		t.Fatal("deleting P::Base::Inner succeeded although q.sysml refers to it")
+	}
+}
+
+// A local cascade proceeds when the other documents refer to something else.
+func TestDeleteCascadesWhenOtherDocumentsReferElsewhere(t *testing.T) {
+	m := loadWorkspace(t, "p.sysml",
+		"package P {\n    part def Base;\n    part b : Base;\n    part def Keep;\n}\n",
+		map[string]string{"q.sysml": "package Q {\n    part k : P::Keep;\n}\n"})
+	requireClean(t, m)
+	res, err := Apply(m, []Operation{Delete("P::Base", true)})
+	if err != nil {
+		t.Fatalf("cascade delete: %v", err)
+	}
+	if got := string(res.Content); got != "package P {\n    part def Keep;\n}\n" {
+		t.Fatalf("cascade result:\n%s", got)
+	}
+}
+
 func TestDeleteOnlyMemberRootAndNeighborTrivia(t *testing.T) {
 	tests := []struct {
 		name, src, target, want string

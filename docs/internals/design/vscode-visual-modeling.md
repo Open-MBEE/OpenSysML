@@ -210,7 +210,9 @@ Deletion is where a "refuse on new errors" rule is least obviously right: deleti
 part that something connects to *should* be reported. The operation therefore
 carries `Cascade bool`; without it the delete is refused and names the referents,
 with it the referring declarations are deleted in the same operation, and the panel
-asks before setting it.
+asks before setting it. A reference from another document is refused either way,
+as is a rename one writes: the edit rewrites one document, and a `WorkspaceEdit`
+across several is not yet offered.
 
 ### From the diagram to the file
 

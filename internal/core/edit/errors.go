@@ -45,25 +45,29 @@ const (
 	FailureMemberNameTaken
 	// FailureDeleteReferenced is a non-cascade delete with live references.
 	FailureDeleteReferenced
+	// FailureReferencedElsewhere is a delete or rename of a declaration that
+	// another document refers to, which an edit of this one cannot follow.
+	FailureReferencedElsewhere
 )
 
 var failureNames = map[Failure]string{
-	FailureNone:              "none",
-	FailureNoOperations:      "no-operations",
-	FailureUnknownTarget:     "unknown-target",
-	FailureAmbiguousTarget:   "ambiguous-target",
-	FailureNotValued:         "not-valued",
-	FailureInvalidValue:      "invalid-value",
-	FailureInvalidName:       "invalid-name",
-	FailureNotNamed:          "not-named",
-	FailureRenameReferenced:  "rename-referenced",
-	FailureOverlappingEdits:  "overlapping-edits",
-	FailureResultInvalid:     "result-invalid",
-	FailureOwnerUnknown:      "owner-unknown",
-	FailureOwnerNotNamespace: "owner-not-namespace",
-	FailureIllegalKind:       "illegal-kind",
-	FailureMemberNameTaken:   "member-name-taken",
-	FailureDeleteReferenced:  "delete-referenced",
+	FailureNone:                "none",
+	FailureNoOperations:        "no-operations",
+	FailureUnknownTarget:       "unknown-target",
+	FailureAmbiguousTarget:     "ambiguous-target",
+	FailureNotValued:           "not-valued",
+	FailureInvalidValue:        "invalid-value",
+	FailureInvalidName:         "invalid-name",
+	FailureNotNamed:            "not-named",
+	FailureRenameReferenced:    "rename-referenced",
+	FailureOverlappingEdits:    "overlapping-edits",
+	FailureResultInvalid:       "result-invalid",
+	FailureOwnerUnknown:        "owner-unknown",
+	FailureOwnerNotNamespace:   "owner-not-namespace",
+	FailureIllegalKind:         "illegal-kind",
+	FailureMemberNameTaken:     "member-name-taken",
+	FailureDeleteReferenced:    "delete-referenced",
+	FailureReferencedElsewhere: "referenced-elsewhere",
 }
 
 // String returns the lowercase name of the failure, or "unknown".
@@ -86,8 +90,8 @@ type Error struct {
 	// Diagnosed is the source the Diagnostics' spans are offsets into: the new
 	// value's text, or the edited notation. A refusal still returns no model.
 	Diagnosed *source.SourceFile
-	// Referring names the elements referring to a declaration whose rename was
-	// refused.
+	// Referring names the declarations referring to a target whose delete or
+	// rename was refused, each qualified by its document when that is another.
 	Referring []string
 }
 

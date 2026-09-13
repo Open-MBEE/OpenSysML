@@ -414,3 +414,32 @@ func TestRenameSeesUnnamedTransitionBodyDeclarations(t *testing.T) {
 		}
 	}
 }
+
+// A name another workspace document writes is not renamed: an edit rewrites
+// one document, so the reference there would break. One written there by the
+// short name, or through an alias, still resolves afterwards and does not refuse.
+func TestRenameRefusesWhenAnotherDocumentWritesTheName(t *testing.T) {
+	const src = "package P {\n    part def <O> Old;\n    part def Keep;\n}\n"
+	m := loadWorkspace(t, "p.sysml", src, map[string]string{
+		"q.sysml": "package Q {\n    private import P::Old;\n    part a : P::Old;\n}\n",
+		"r.sysml": "package R {\n    alias Alt for P::Old;\n    part s : P::O;\n    part t : Alt;\n}\n",
+	})
+	requireClean(t, m)
+	res, err := Apply(m, []Operation{Rename("P::Old", "Fresh")})
+	if res != nil {
+		t.Fatalf("refused rename returned content:\n%s", res.Content)
+	}
+	e := editError(t, err)
+	if e.Failure != FailureReferencedElsewhere {
+		t.Fatalf("failure = %s, want %s", e.Failure, FailureReferencedElsewhere)
+	}
+	want := []string{"Q::a (q.sysml)", "import P::Old in Q (q.sysml)", "R::Alt (r.sysml)"}
+	if strings.Join(e.Referring, ",") != strings.Join(want, ",") {
+		t.Fatalf("referrers = %v, want %v", e.Referring, want)
+	}
+
+	got := applyOne(t, m, Rename("P::Keep", "Kept"))
+	if !strings.Contains(string(got.Content), "part def Kept;") {
+		t.Fatalf("rename of an unreferenced name refused:\n%s", got.Content)
+	}
+}

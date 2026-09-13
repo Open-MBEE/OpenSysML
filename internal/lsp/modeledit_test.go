@@ -196,6 +196,31 @@ func TestApplyModelEditDeleteCascade(t *testing.T) {
 	}
 }
 
+// A delete or rename that another open document refers to is refused, whether
+// or not it cascades: the edit rewrites one document, so the other would break.
+func TestApplyModelEditRefusesWhatAnotherDocumentRefersTo(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	fleetURI := uri.File("fleet.sysml")
+	openDoc(t, s, fleetURI, "package Fleet {\n    part truck : Vehicle::Car;\n}\n")
+	for _, op := range []modelEditOperation{
+		{Kind: EditDelete, Target: "Vehicle::Car"},
+		{Kind: EditDelete, Target: "Vehicle::Car", Cascade: true},
+		{Kind: EditRename, Target: "Vehicle::Car", NewName: "Auto"},
+	} {
+		out := applyModelEdit(t, s, docURI, 1, op)
+		if len(out.Refused) != 1 || out.Edit != nil {
+			t.Fatalf("%+v: result = %+v, want one refusal", op, out)
+		}
+		r := out.Refused[0]
+		if r.Failure != "referenced-elsewhere" || r.Operation != 0 {
+			t.Errorf("%+v: refusal = %+v, want referenced-elsewhere of operation 0", op, r)
+		}
+		if want := []string{"Fleet::truck (" + fleetURI.Filename() + ")"}; strings.Join(r.Referring, ",") != strings.Join(want, ",") {
+			t.Errorf("%+v: referring = %v, want %v", op, r.Referring, want)
+		}
+	}
+}
+
 func TestApplyModelEditRejectsStaleVersion(t *testing.T) {
 	s, docURI := renderServer(t, "vehicle.sysml", editModel)
 	out := applyModelEdit(t, s, docURI, 7, modelEditOperation{Kind: EditAddMember, Owner: "Vehicle::Car", MemberKind: "part", Name: "b", Type: "Tank"})
