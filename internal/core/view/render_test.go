@@ -363,6 +363,30 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	}
 }
 
+// A declared type is spelled as the notation does: a conjugated port typing
+// keeps its `~`, a name that is not a basic one its quotes, a global name its
+// `$::` root, and a usage typed by several types lists them all.
+func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
+	rendering := render(t, "typings.sysml", "SpelledViews::rigView")
+	cases := map[string]string{
+		"plug": "~Link",
+		"rail": "'Frame *rail*'",
+		"base": "Mount, Cart",
+		"root": "$::Spelled::Mount",
+	}
+	for name, want := range cases {
+		if node := nodeNamed(t, rendering, name); node.Type != want {
+			t.Errorf("node %s: type %q, want %q", name, node.Type, want)
+		}
+	}
+	text := rendering.Text()
+	for _, want := range []string{"port plug : ~Link", "part rail : 'Frame *rail*'", "part base : Mount, Cart", "part root : $::Spelled::Mount"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text lacks %q:\n%s", want, text)
+		}
+	}
+}
+
 // A node performing statements rather than a flow of its own is rendered as the
 // node it is, with nothing reported: it is no action the rendering cannot show.
 func TestActionRenderingSaysNothingOfANodePerformingStatements(t *testing.T) {

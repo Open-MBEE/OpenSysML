@@ -381,11 +381,8 @@ func payloadText(flow *symbols.Symbol) string {
 	}
 	text := notationName(name)
 	if decl := usage.FlowEnds.PayloadDecl; decl != nil {
-		for _, rel := range decl.Relationships {
-			if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
-				continue
-			}
-			return text + " : " + notationName(qualifiedText(rel.Target))
+		if typ := typingOf(decl.Relationships); typ != "" {
+			return text + " : " + typ
 		}
 	}
 	return text

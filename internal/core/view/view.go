@@ -504,7 +504,8 @@ func declKind(sym *symbols.Symbol) string {
 }
 
 // declType is the type a usage is declared with, as written ("Engine" of
-// `part engine : Engine`), empty for a declaration stating none.
+// `part engine : Engine`, "~Port" of `port p : ~Port`, "A, B" of
+// `feature f typed by A, B`), empty for a declaration stating none.
 func declType(sym *symbols.Symbol) string {
 	return typingOf(semantics.RelationshipsOf(sym))
 }
@@ -518,18 +519,48 @@ func nodeType(decl ast.Node) string {
 	return ""
 }
 
-// typingOf is the target of the first typing among a declaration's
-// relationships, written as the notation does.
+// typingOf spells a declaration's typings as the notation does: every typing in
+// declaration order, a conjugated one behind its `~`, each name quoted as needed.
 func typingOf(rels []*ast.Relationship) string {
+	var types []string
 	for _, rel := range rels {
-		if rel == nil || rel.Target == nil {
+		if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
 			continue
 		}
-		if rel.Kind == ast.RelTyping {
-			return qualifiedText(rel.Target)
+		text := referenceText(rel.Target)
+		if text == "" {
+			continue
 		}
+		if rel.Conjugated {
+			text = "~" + text
+		}
+		types = append(types, text)
 	}
-	return ""
+	return strings.Join(types, ", ")
+}
+
+// referenceText spells a name reference as written: a `$::` root, `::` between
+// members, `.` along a feature chain, and each segment quoted as needed.
+func referenceText(node ast.Node) string {
+	qn := ast.AsQualifiedName(node)
+	if qn == nil {
+		return ""
+	}
+	var sb strings.Builder
+	if qn.Global {
+		sb.WriteString("$::")
+	}
+	for i, part := range qn.Parts {
+		switch {
+		case i == 0:
+		case part.Chained:
+			sb.WriteString(".")
+		default:
+			sb.WriteString("::")
+		}
+		sb.WriteString(lexer.NameText(part.Text))
+	}
+	return sb.String()
 }
 
 // simpleName is the last segment of a qualified name, which is what a nested
