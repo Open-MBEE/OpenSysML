@@ -517,7 +517,7 @@ func (w *htmlWriter) writeDefinitions(node docir.Content, id string) {
 
 // writeDiagram writes one diagram as a figure: a table-kind view as a table,
 // every other supported kind as its source in the render's diagram form —
-// Mermaid, which a loaded Mermaid script draws, or DOT — shown as text.
+// Mermaid, which a loaded Mermaid script draws, or DOT or PlantUML — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
 	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Options())
 }

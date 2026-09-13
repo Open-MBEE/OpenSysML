@@ -17,7 +17,7 @@ import (
 
 // renderDocumentUsage is what %render-document accepts: a document's name,
 // then optionally the form its graph-shaped diagrams are written in.
-const renderDocumentUsage = "usage: %render-document <name> [mermaid|dot]"
+const renderDocumentUsage = "usage: %render-document <name> [mermaid|dot|plantuml]"
 
 // RenderDocumentMarkdown compiles the named document definition, evaluates its
 // queries against the session's model, and renders the result as Markdown. A

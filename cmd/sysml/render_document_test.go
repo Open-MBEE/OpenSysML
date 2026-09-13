@@ -82,13 +82,15 @@ func TestRenderDocumentFlag(t *testing.T) {
 }
 
 // TestRenderDocumentDiagramForm checks -diagram-form: Mermaid by default, DOT
-// on request, tables either way, and refused where it has nothing to act on.
+// or PlantUML on request, tables either way, and refused where it has nothing
+// to act on.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	binary := buildCLI(t)
 	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
 	goldens := map[string]string{
-		"mermaid": "telescope_report.golden.md",
-		"dot":     "telescope_report.dot.golden.md",
+		"mermaid":  "telescope_report.golden.md",
+		"dot":      "telescope_report.dot.golden.md",
+		"plantuml": "telescope_report.plantuml.golden.md",
 	}
 	for form, name := range goldens {
 		golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", name))
@@ -109,9 +111,14 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	} else if !strings.Contains(string(dot), "```dot\n") || strings.Contains(string(dot), "```mermaid") || !strings.Contains(string(dot), "| name | mass |") {
 		t.Errorf("dot rendering does not write DOT diagrams next to pipe tables:\n%s", dot)
 	}
+	if puml, err := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-diagram-form", "plantuml").Output(); err != nil {
+		t.Fatal(err)
+	} else if !strings.Contains(string(puml), "```plantuml\n@startuml\n") || strings.Contains(string(puml), "```mermaid") || !strings.Contains(string(puml), "| name | mass |") {
+		t.Errorf("plantuml rendering does not write PlantUML diagrams next to pipe tables:\n%s", puml)
+	}
 
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-diagram-form", "svg"),
-		2, `unknown diagram form "svg"`, "-diagram-form takes mermaid, dot")
+		2, `unknown diagram form "svg"`, "-diagram-form takes mermaid, dot, plantuml")
 	wantReport(t, check(t, binary, documentModel, "-diagram-form", "dot"),
 		2, "-diagram-form", "apply to -render-document and -render-documents")
 	wantReport(t, check(t, binary, documentModel, "-render", "SomeView", "-diagram-form", "dot"),

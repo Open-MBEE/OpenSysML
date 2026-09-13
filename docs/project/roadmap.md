@@ -2093,8 +2093,8 @@ showing it unset. Small; after B2, and it belongs with Q1's page that says which
 
 A view's rendering is a `view.Rendering` — typed nodes (`part def`, `state`, `fork`,
 `decision`, a lifeline), edges with labels, notices for what was not represented — and a
-**form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1 landed, `dot`,
-chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
+**form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1 and W2 landed,
+`dot` and `plantuml`, chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
 panel makes, and the document renderer, which embeds the Mermaid form in HTML and rasterizes it
 through `mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
 state rendering from the lowered `StateGraph` (regions, entry transitions, triggers, guards,
@@ -2136,36 +2136,55 @@ does. The node and edge attribute lists are each written by one method (`dotNode
 
 ## W2 — a `plantuml` form
 
-A PlantUML writer, one grammar per kind: `@startuml` state syntax for the state rendering (with
-`[H]` history, `--` regions, `state X : entry / …` compartments), activity syntax for the action
-rendering (`fork`/`fork again`/`end fork`, `if … then … else`, `|Swimlane|` from the performing
-usage, `:action;` nodes), sequence syntax for the sequence rendering, and package/component syntax
-for tree and interconnection. `[[url]]` hyperlinks carry the origin. Same gating as W1: goldens,
-and a validation run through the PlantUML jar when present.
+**Landed** — see [view rendering forms](view-rendering-forms.md#plantuml). A PlantUML writer over
+`Rendering` (`internal/core/view/plantuml.go`), one grammar per kind: a tree is a class diagram
+with containment as edges (as its Mermaid and DOT forms draw it), an interconnection nested
+`rectangle` blocks with the Pilot's `-[thickness=3]-` connectors and dashed flows, a state
+rendering the `state` grammar with composite states, `[*]` starts and PlantUML's pseudostate
+stereotypes, and a sequence — the kind DOT has no grammar for — `participant`s and `->` messages
+one for one with the Mermaid form. The action rendering takes the **state grammar too**, not the
+activity syntax the sketch named: activity syntax is procedural and cannot hold an arbitrary
+graph of successions and flows without inventing structure, so one grammar draws every action
+golden losslessly, control nodes as pseudostates and flows dashed. Every file carries the Pilot's
+Standard B&W style inline in a `<style>` block — the released PlantUML does not ship the
+`sysmlbw` skin — honouring the three rules DOT could not (the usage corner radius, shadows off,
+`wrapWidth 300`); the named palettes fill nodes with the same hex per node as the DOT form;
+DiagramLayout geometry is kept as `'` comments (PlantUML pins no position — `dot` does), through
+the geometry-comment helpers the Mermaid form shares. Goldens beside every `*.mermaid.golden` are
+walked by an in-test PlantUML syntax check; a PlantUML jar is never needed — `OPENSYSML_PLANTUML_JAR`
+turns on an extra `-checkonly` pass when one is at hand.
+
+Still open from the sketch, each a writer change: `[H]`/`[H*]` history where the rendering
+produces a history pseudostate (today drawn by stereotype), `state X : entry / …` compartments,
+notes for notices, and `[[url]]` hyperlinks from the origin — to land with the DOT `URL=` once a
+writer has a stable URL for an `Origin`.
 
 ## W3 — the forms where renderings surface
 
 `dot` and `plantuml` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
 it can draw in-process, and offers the others as *save as*), and the document renderer. **For
-`dot` this has landed** with W1: `-render-form dot`, `%render <name> dot`, `"form": "dot"` on
-`opensysml/render`, and `-diagram-form dot` on `-render-document` (`%render-document <name> dot`,
-`diagramForm` on `opensysml/renderDocument`), which writes every graph-shaped diagram block as a
-` ```dot ` fence in Markdown and `<pre class="dot">` in HTML — a render-time choice, not a
-model attribute; the PDF backend keeps a DOT block as source under a
-notice and looks for no Graphviz tool. The man pages, the REPL reference and the LSP reference
-name the form. The gRPC surface has no view-render RPC — only `RenderDocument`, to Markdown — so
+`dot` this landed** with W1 and **for `plantuml` with W2**: `-render-form dot|plantuml`
+(`-render-all` writes `.dot` and `.puml` files), `%render <name> dot|plantuml [palette]`,
+`"form"` on `opensysml/render`, and `-diagram-form dot|plantuml` on `-render-document`
+(`%render-document <name> dot|plantuml`, `diagramForm` on `opensysml/renderDocument`), which
+writes every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown and
+`<pre class="dot">` or `<pre class="plantuml">` in HTML — a render-time choice, not a model
+attribute; the PDF backend keeps a DOT or PlantUML block as source under a notice and looks for
+no Graphviz or PlantUML tool. The form lists in the CLI help and man pages, the REPL's completion
+and the LSP's errors derive from `Forms()`, so the form reached every one. The gRPC
+surface has no view-render RPC — only `RenderDocument`, to Markdown — so
 the wire contract did not change; if one is added later it takes the form as a string the same
 way `-render-form` does.
 
-Still open: rasterizing a DOT (and later PlantUML) block for PDF through `dot` or the PlantUML
+Still open: rasterizing a DOT or PlantUML block for PDF through `dot` or the PlantUML
 jar as Mermaid is rasterized through `mmdc` today — optional tools, located by environment
 variable, skipping the tests with the reason when absent, as the PDF toolchain is handled now —
 and the VS Code panel's *save as* for the non-Mermaid forms.
 
-W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 follows
-over the same node kinds; W3 with each. Independent of every other track: nothing here touches
-the rendering model, only writers over it. Targeted at `0.8.0`.
+W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 followed
+over the same node kinds and the sequence; W3 landed with each. Independent of every other track:
+nothing here touched the rendering model, only writers over it.
 
 ---
 

@@ -190,11 +190,11 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
-| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown` or `dot` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
-| `--render-palette <name>` | | Palette the `dot` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`; a table-kind view as a pipe table either way), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
+| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
+| `--render-palette <name>` | | Palette the `dot` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`, a ` ```plantuml ` block under `-diagram-form plantuml`; a table-kind view as a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
-| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid` (default) or `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed. Applies to every diagram of the document in every `--doc-form`; a table-kind view is a table either way, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
+| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid` (default), `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
 | `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
@@ -418,6 +418,10 @@ sysml model.sysml -render Views::vehicleView -render-form text
 sysml model.sysml -render Views::vehicleView -render-form dot -o view.dot
 sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito -o view.dot
 
+# PlantUML in the Pilot visualizer's B&W style, for a PlantUML toolchain; no jar is run
+sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml
+sysml model.sysml -render Views::handshake -render-form plantuml -render-palette tol-bright -o handshake.puml
+
 # A view over several files, loaded as one model
 sysml types.sysml model.sysml -render Views::vehicleView
 sysml model/*.sysml -render Views::partsTable -render-form markdown -o parts.md
@@ -444,7 +448,8 @@ with `-convert`.
 `-render-all <dir>` writes every declared view of all loaded files, in document and declaration
 order. Each qualified view name becomes a file name with `::` replaced by `.`. With no
 `-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced
-text form uses `.txt` and unbounded width, and a forced `dot` form uses `.dot`.
+text form uses `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml`
+form uses `.puml`, PlantUML's conventional extension.
 
 ```bash
 sysml types.sysml model.sysml -render-all rendered
@@ -472,6 +477,7 @@ The forms a kind can be written in:
 | `mermaid` | `tree`, `interconnection`, `state`, `action`, `sequence` | The machine-readable form of the graph-shaped kinds; a table falls back to Markdown |
 | `markdown` | `table` | A pipe table, the machine-readable form of a table |
 | `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
+| `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
 
 A node's label follows the graphical notation's header: the element's name leads, with ` : Type`
 after it for a typed usage, the kind follows on its own line in guillemets, and any note (`initial`,
@@ -484,6 +490,7 @@ in each form:
 | `text` | `part pump : Pump` (a note in parentheses after it: `part sensor : Pump (already shown)`) |
 | `mermaid` | `n1["pump : Pump<br>«part»"]` — a flowchart node, a `state "…" as n1` and a `participant n1 as …` all break at `<br>` |
 | `dot` | `"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>];` — an HTML-like label, the name in bold and the keyword line at 10pt |
+| `plantuml` | `rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>` — a creole label, the name in bold and the keyword line italic at 10pt; the stereotypes drive the style and are hidden |
 
 A Mermaid flowchart reserves the height of one line for a `subgraph` title, so a flowchart
 whose cluster title spans more — an interconnection or action rendering with a container —
@@ -525,7 +532,25 @@ Graphviz installation; laying it out does, with the engine the `// layout:` head
 `sequence` view has no DOT counterpart and, like a `table`, is refused with status 2 when `dot`
 is forced.
 
-`-render-palette <name>` fills the DOT nodes with a colourblind-safe palette by **keyword
+`plantuml` writes an `@startuml` … `@enduml` file for a PlantUML toolchain — the OMG Pilot's own
+visualizer draws with PlantUML — with the same header as `'` comments (`' <view> — <kind> rendering`,
+one `' not represented:` line per notice), the Pilot's B&W style inline as a `<style>` block plus
+`skinparam wrapWidth 300`, and one grammar per kind: a tree is a class diagram (`hide circle`,
+`hide empty members`, containment as `parent -- child` edges as the other forms draw it), an
+interconnection nested `rectangle` blocks with the Pilot's heavy `-[thickness=3]-` connectors and
+dashed `-[dashed]->` flows, a state rendering the `state` grammar with composite states, `[*] -->`
+starts and PlantUML's pseudostate stereotypes, an action rendering the state grammar too (PlantUML's
+activity syntax is procedural and cannot hold an arbitrary graph of successions and flows), and a
+sequence `participant`s and `->` messages one for one with the Mermaid form. Each node's keyword is
+a stereotype (`<<part def>>`, `<<state>>`) that the style selects on, hidden so the label's `«keyword»`
+line is the only one printed. `TB`/`LR` become `top to bottom direction`/`left to right direction`;
+PlantUML has no reversed direction, so `BT`/`RL` take the nearest forward one under a
+`' not represented:` notice. PlantUML pins no position either, so DiagramLayout geometry is kept as
+`' canvas:`, `' layout:` and `' route:` comments and noticed — `-render-form dot` is the form that
+honours it ([the PlantUML section](../project/view-rendering-forms.md#plantuml)). Producing PlantUML
+needs no Java and no PlantUML jar; drawing the file does (`java -jar plantuml.jar -tsvg view.puml`).
+
+`-render-palette <name>` fills the DOT and PlantUML nodes with a colourblind-safe palette by **keyword
 family** — a `part def` and a `part` share a hue, a `port` takes the next, and so on through
 item, port, attribute, action, state, requirement, constraint, connection, interface, use case,
 case, allocation, analysis, verification, enum, occurrence and flow. A definition is filled with
@@ -536,8 +561,10 @@ nodes and cluster borders stay black and white. The palettes are `okabe-ito` (Ok
 (ColorBrewer), and the sequential `viridis` and `cividis` (matplotlib), which are sampled evenly
 across the families the view draws, darkest first
 ([the palettes and their sources](../project/view-rendering-forms.md#palettes)). The palette
-applies to the `dot` form alone: `-render-form mermaid` writes a `%% not represented:` comment
-naming it, and the text and Markdown forms ignore it. A name that is no palette is refused with
+applies to the `dot` and `plantuml` forms alone, which fill each node with the same hex
+(`#hex;line:hex` on a PlantUML element; a sequence participant takes the fill by keyword family):
+`-render-form mermaid` writes a `%% not represented:` comment naming it, and the text and Markdown
+forms ignore it. A name that is no palette is refused with
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
 likewise.
 
@@ -717,9 +744,9 @@ Markdown unchanged.
 Diagram blocks are pre-rendered to SVG with [mermaid-cli](https://github.com/mermaid-js/mermaid-cli)
 (`mmdc`; override with `OPENSYSML_MMDC`. `OPENSYSML_MMDC_PUPPETEER` names a puppeteer configuration
 file for a browser that needs launch flags, such as `--no-sandbox` in a container). A document
-without Mermaid diagrams needs no diagram tool. Under `-diagram-form dot` no diagram is drawn:
-the PDF keeps each one's DOT source under a notice saying so, and neither `mmdc` nor a Graphviz
-tool is looked for.
+without Mermaid diagrams needs no diagram tool. Under `-diagram-form dot` or `-diagram-form
+plantuml` no diagram is drawn: the PDF keeps each one's DOT or PlantUML source under a notice
+saying so, and neither `mmdc` nor a Graphviz or PlantUML tool is looked for.
 
 Inline runs keep their meaning in PDF: emphasis, strong and code styling, links, and `Ref`
 cross-references as clickable internal links to their targets' invisible anchors, in every engine

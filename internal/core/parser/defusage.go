@@ -1984,15 +1984,22 @@ var ownedMembers = map[string]ownedMember{
 
 // MemberOwner names the body kind that alone offers the member keyword kw
 // introduces ("requirement or case" for `subject`), or "" when every body does.
+// kw may be the whole notation of a member (`entry action`); its first word decides.
 func MemberOwner(kw string) string {
-	return ownedMembers[kw].owner
+	return ownedMembers[memberKeyword(kw)].owner
+}
+
+// memberKeyword is the keyword a member notation opens with: `entry` of `entry action`.
+func memberKeyword(notation string) string {
+	kw, _, _ := strings.Cut(notation, " ")
+	return kw
 }
 
 // BodyAdmitsMember reports whether the body of owner — a Definition or Usage;
 // any other node, the document root included, opens a plain namespace body —
-// offers the member keyword kw introduces.
+// offers the member keyword kw introduces; as for MemberOwner, kw may be a notation.
 func BodyAdmitsMember(owner ast.Node, kw string) bool {
-	m, ok := ownedMembers[kw]
+	m, ok := ownedMembers[memberKeyword(kw)]
 	if !ok {
 		return true
 	}

@@ -383,8 +383,9 @@ func (m Model) deleteSpan(d deletion) source.Span {
 	for lineEnd < len(content) && content[lineEnd] != '\n' {
 		lineEnd++
 	}
-	// A declaration on its own line owns that line, including its newline.
-	if onlyWhitespace(content[lineStart:start]) && onlyWhitespace(content[end:lineEnd]) {
+	// A declaration on its own line owns that line, including its newline and
+	// a line comment written after it.
+	if onlyWhitespace(content[lineStart:start]) && trailingComment(content[end:lineEnd]) {
 		if lineEnd < len(content) {
 			lineEnd++
 		}
@@ -458,6 +459,13 @@ func (m Model) declarationEnd(d deletion) int {
 		}
 	}
 	return last
+}
+
+// trailingComment reports whether b, the rest of a declaration's line, holds
+// nothing but a `//` comment.
+func trailingComment(b []byte) bool {
+	rest := strings.TrimLeft(string(b), " \t\r")
+	return rest == "" || strings.HasPrefix(rest, "//")
 }
 
 func onlyWhitespace(b []byte) bool {
