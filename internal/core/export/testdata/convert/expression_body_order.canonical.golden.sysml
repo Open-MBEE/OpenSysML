@@ -1,1 +1,10 @@
-sysml: cannot convert the body member <urn:opensysml:expr:Ordered__Mixed___401_pm1>: a declaration inside an expression body is carried as its notation in sysx:sourceText, and this one has none; save to .sysml or .kerml instead, which writes the source exactly; see docs/reference/rdf-mapping.md § Limitations
+package Ordered {
+    attribute def Real;
+    calc def Mixed {
+        in x : Real;
+        { in a : Real; private attribute k : Real = 1; in b : Real; a + b + k * x }
+    }
+    calc def Declares {
+        { private attribute k : Real = 1; }
+    }
+}

@@ -145,10 +145,20 @@ expr:Bodies__Scaled___401_pin0
     sysml:type elmt:Bodies__Real .
 
 expr:Bodies__Scaled___401_pm1
-    a sysx:BodyMember ;
+    a sysml:AttributeUsage ;
     sysml:elementId "Bodies__Scaled___401_pm1" ;
     sysx:memberIndex "1"^^xsd:integer ;
-    sysx:sourceText "private attribute k : Real = 2;" .
+    sysml:visibility "private" ;
+    sysml:declaredName "k" ;
+    sysml:type elmt:Bodies__Real ;
+    sysml:value expr:Bodies__Scaled___401_pm1_pvalue ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+expr:Bodies__Scaled___401_pm1_pvalue
+    a sysml:LiteralInteger ;
+    sysx:sourceText "2" ;
+    sysml:elementId "Bodies__Scaled___401_pm1_pvalue" ;
+    sysml:value "2"^^xsd:integer .
 
 expr:Bodies__Scaled___401_presult
     a sysml:OperatorExpression ;
