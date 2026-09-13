@@ -176,8 +176,11 @@ type Node struct {
 	// Name is the element's name: qualified for a node the view exposes, simple
 	// for one nested in it. It is empty for an anonymous element.
 	Name string
-	// Detail is what else the kind carries, such as a state's "initial" or the
-	// type of a usage. It is empty when there is nothing to add.
+	// Type is the declared type of a typed usage, as the notation writes it
+	// after the colon. It is empty for a definition or an untyped usage.
+	Type string
+	// Detail is what else the rendering says about the node, such as a state's
+	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
 	// Children are the nodes nested in this one.
 	Children []*Node

@@ -240,7 +240,7 @@ func TestWritersShowTheGeometry(t *testing.T) {
 		}
 	}
 	text := rendering.Text()
-	for _, want := range []string{"canvas size 1200×800 in px", "pump (Pump) at (300, 40) collapsed", "tank (Tank) at (500, 40) size 120×60"} {
+	for _, want := range []string{"canvas size 1200×800 in px", "pump : Pump at (300, 40) collapsed", "tank : Tank at (500, 40) size 120×60"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
 		}

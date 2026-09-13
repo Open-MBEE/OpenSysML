@@ -88,9 +88,9 @@ mount segmentControl
 ```mermaid
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["part Observatory::imagingChain"]
-    n1["part camera (Camera)"]
-    n2["part recorder (Recorder)"]
+  subgraph n0 ["Observatory::imagingChain<br>«part»"]
+    n1["camera : Camera<br>«part»"]
+    n2["recorder : Recorder<br>«part»"]
   end
   n1 ---|"link"| n2
 ```
@@ -102,9 +102,9 @@ flowchart LR
 %% state rendering (the diagram states kind "state")
 stateDiagram-v2
   direction LR
-  state "state Observatory::operatingStates (ObservatoryStates)" as n0 {
-    state "state idle (initial)" as n1
-    state "state observing" as n2
+  state "Observatory::operatingStates : ObservatoryStates<br>«state»" as n0 {
+    state "idle<br>«state»<br>initial" as n1
+    state "observing<br>«state»" as n2
     [*] --> n1
   }
   n1 --> n2

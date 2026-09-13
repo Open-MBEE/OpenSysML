@@ -1,9 +1,9 @@
 %% PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["part def Plant::Loop"]
-    n1["part pump (Pump)"]
-    n2["part tank (Tank)"]
-    n3["part sensor (Pump)"]
+  subgraph n0 ["Plant::Loop<br>«part def»"]
+    n1["pump : Pump<br>«part»"]
+    n2["tank : Tank<br>«part»"]
+    n3["sensor : Pump<br>«part»"]
   end
   n1 ---|"supply"| n2
   n1 -.->|"of Water"| n2

@@ -259,11 +259,11 @@ sysml> %render Demo::summary
 Demo::summary - tree rendering (the view states no rendering; a tree is the default)
 
 part def Demo::Vehicle
-  attribute mass (Real)
-  part wheel (Wheel)
+  attribute mass : Real
+  part wheel : Wheel
 view Demo::summary::detail
   part def Demo::Wheel
-    attribute diameter (Real)
+    attribute diameter : Real
 ```
 
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
@@ -271,8 +271,11 @@ exposed elements, what they declare, and the views nested inside the rendered vi
 
 `%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, and
 `%render <name> markdown` writes a table as a Markdown table. Either can be pasted straight
-into a Markdown document or an editor. If you ask for a form the rendering kind does not
-support, the REPL tells you which form it does support. State and action renderings read the
+into a Markdown document or an editor. A diagram node is labelled the way the graphical notation
+heads a compartment — the name first, `wheel : Wheel`, then the kind in guillemets, `«part»`, on
+the next line — while the text form above keeps the keyword leading, as the notation declares it.
+If you ask for a form the rendering kind does not support, the REPL tells you which form it does
+support. State and action renderings read the
 lowered graphs the runtime executes, so the picture reflects what actually runs. The rendering
 itself is specific to this implementation, because SysML v2 §10.2 specifies the notation rather
 than how a tool draws it.

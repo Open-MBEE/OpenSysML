@@ -64,9 +64,9 @@ Subsystems at or above 10 kg:
 ```mermaid
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["part Observatory::imagingChain"]
-    n1["part camera (Camera)"]
-    n2["part recorder (Recorder)"]
+  subgraph n0 ["Observatory::imagingChain<br>«part»"]
+    n1["camera : Camera<br>«part»"]
+    n2["recorder : Recorder<br>«part»"]
   end
   n1 ---|"link"| n2
 ```
@@ -77,23 +77,23 @@ flowchart LR
 ```mermaid
 %% tree rendering (the diagram states kind "tree")
 flowchart LR
-  n0["part Observatory::telescope"]
-  n1["part optics (Subsystem)"]
-  n2["attribute mass"]
+  n0["Observatory::telescope<br>«part»"]
+  n1["optics : Subsystem<br>«part»"]
+  n2["mass<br>«attribute»"]
   n1 --- n2
-  n3["attribute zone"]
+  n3["zone<br>«attribute»"]
   n1 --- n3
   n0 --- n1
-  n4["part segmentControl (Subsystem)"]
-  n5["attribute mass"]
+  n4["segmentControl : Subsystem<br>«part»"]
+  n5["mass<br>«attribute»"]
   n4 --- n5
-  n6["attribute zone"]
+  n6["zone<br>«attribute»"]
   n4 --- n6
   n0 --- n4
-  n7["part mount (Subsystem)"]
-  n8["attribute mass"]
+  n7["mount : Subsystem<br>«part»"]
+  n8["mass<br>«attribute»"]
   n7 --- n8
-  n9["attribute zone"]
+  n9["zone<br>«attribute»"]
   n7 --- n9
   n0 --- n7
 ```

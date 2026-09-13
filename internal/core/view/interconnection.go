@@ -60,7 +60,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 	if !qualified {
 		name = notationName(simpleName(r.fqn(sym)))
 	}
-	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, Detail: declType(sym), Origin: symbolOrigin(sym),
+	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, Type: declType(sym), Origin: symbolOrigin(sym),
 		Geometry: r.geometryOf(w.view, sym, w.out)}
 	if existing, ok := w.nodes[sym]; ok {
 		node.Detail = detailWith(node.Detail, "already shown as "+existing.ID)

@@ -61,8 +61,8 @@ func TestRenderKeepsTheLayoutVisible(t *testing.T) {
 		}
 	}
 	wants(t, run(t, s, "%render Plant::wiring"),
-		"part Plant::Loop::pump (Pump) at (10, 20) size 100×50",
-		"part Plant::Loop::tank (Tank) at (300, 20)")
+		"part Plant::Loop::pump : Pump at (10, 20) size 100×50",
+		"part Plant::Loop::tank : Tank at (300, 20)")
 	wants(t, run(t, s, "%render Plant::wiring mermaid"),
 		"%% canvas: unit=px w=800 h=600",
 		"x=10 y=20 w=100 h=50",

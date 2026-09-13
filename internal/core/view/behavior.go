@@ -41,7 +41,7 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 // nested nodes, the start of each body with the entry transitions out of it, and
 // its transitions as edges.
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
-	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Detail: declType(machine),
+	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Type: declType(machine),
 		Origin: symbolOrigin(machine), Geometry: r.geometryOf(view, machine, out)}
 	doc := machine.DocName
 	nodes := map[ast.Node]*Node{}

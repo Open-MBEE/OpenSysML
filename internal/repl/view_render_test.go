@@ -22,7 +22,7 @@ func TestRenderDefaultsToATree(t *testing.T) {
 		"Demo::summary - tree rendering",
 		"the view states no rendering",
 		"part def Demo::Vehicle",
-		"part Demo::v (Vehicle)",
+		"part Demo::v : Vehicle",
 		"view Demo::summary::detail",
 		"part def Demo::Wheel",
 	} {
@@ -57,8 +57,8 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 		"// view: Demo::summary\n// kind: tree\n",
 		"// layout: dot\n",
 		`digraph "Demo::summary" {`,
-		`label="part def Demo::Vehicle"`,
-		`label="view Demo::summary::detail"`,
+		`label=<<b>Demo::Vehicle</b><br/><font point-size="10">«part def»</font>>`,
+		`label=<<b>Demo::summary::detail</b><br/><font point-size="10">«view»</font>>`,
 		"[arrowhead=none];",
 	} {
 		if !strings.Contains(text, want) {

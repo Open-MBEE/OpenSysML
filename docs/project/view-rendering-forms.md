@@ -14,7 +14,8 @@ included.
 
 A view renders into a `view.Rendering` (`internal/core/view/view.go`): the kind (`tree`,
 `interconnection`, `state`, `action`, `sequence`, `table`), typed nodes with an identifier, a
-kind, a name, an optional detail and their children, edges with a label and an `EdgeKind`
+kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
+`already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
 (connection, transition, succession, flow), a table's columns and rows, the origin of every node
 and row, and notices for what the kind could not represent. The tree, interconnection, state and
 action kinds are produced from the model — the last two from the lowered `StateGraph` and
@@ -36,6 +37,28 @@ a form at all. Asking for a form the kind is not written in is one typed `WrongF
 the kind, the form asked and the form the kind uses, on every surface: the CLI stops with status 2
 (`-render-all` skips the view and says so), the REPL prints the usage, the LSP refuses the request,
 and a document's `Diagram` block is refused at planning time.
+
+## Node labels
+
+Every graphical form draws a node's label the way the graphical notation heads a compartment:
+the element's name first, the kind after it. `label.go` composes the lines once, and each writer
+only joins them:
+
+1. the name, with ` : Type` after it for a typed usage (`pump : Pump`); a definition has just its
+   name; an anonymous element leads with its kind instead;
+2. the kind in guillemets, `«part»`, `«state def»` — left out when line 1 is already the kind;
+3. the detail, when there is one.
+
+Mermaid joins the lines with `<br>` in every grammar it writes — a flowchart node label, a
+`state "…" as n` and a `participant n as …` — which the pinned `mermaid-cli` breaks at whether
+`htmlLabels` is on (the text becomes HTML, `<br>` a line break) or off (the label is split into
+`<tspan>` rows); no `<br>` survives as text in the drawing. The tree, interconnection and action
+kinds draw the same flowchart labels. DOT writes an HTML-like label, `label=<<b>pump :
+Pump</b><br/><font point-size="10">«part»</font>>`, the name in bold and the keyword line under
+the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
+reads as markup. A cluster's label is the same string. The text form keeps the notation's
+declaration order, `part pump : Pump`, with a detail parenthesised after it. The declared type is
+a field of the node (`Node.Type`, `type` in the JSON), never parsed back out of the detail.
 
 ## Why DOT next to Mermaid
 
@@ -63,8 +86,8 @@ not the tests, not the PDF backend.
 // layout: dot
 digraph "VehicleViews::vehicleView" {
   node [shape=box];
-  "n0" [label="part def Vehicles::Vehicle"];
-  "n1" [label="part engine\nEngine"];
+  "n0" [label=<<b>Vehicles::Vehicle</b><br/><font point-size="10">«part def»</font>>];
+  "n1" [label=<<b>engine : Engine</b><br/><font point-size="10">«part»</font>>];
   "n0" -> "n1" [arrowhead=none];
 }
 ```
@@ -75,9 +98,10 @@ digraph "VehicleViews::vehicleView" {
 - **Graph.** `digraph "<view>"` (`digraph` alone for a pseudo-view), `graph [rankdir=<dir>]` when
   a direction is asked for and nothing when it is not, `node [shape=box]`, and `compound=true`
   only when an edge ends at a cluster.
-- **Nodes.** A leaf is `"<id>" [label="<name>\n<detail>"]`, the detail line omitted when empty.
-  In an interconnection, state or action rendering a node with children is
-  `subgraph "cluster_<id>" { label="<name>"; … }`, the containment Mermaid writes as `subgraph`;
+- **Nodes.** A leaf is `"<id>" [label=<<b><head></b><br/><font point-size="10">«<kind>»</font><br/><detail>>]`,
+  the [label lines above](#node-labels) as an HTML-like string, the detail line omitted when
+  empty. In an interconnection, state or action rendering a node with children is
+  `subgraph "cluster_<id>" { label=<…>; … }`, the containment Mermaid writes as `subgraph`;
   in a tree, containment is an `arrowhead=none` edge, as the Mermaid tree draws it, so a tree has
   no clusters. Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
   sizeless anchor node named by the cluster's own ID; an edge whose end is a cluster names that
@@ -95,8 +119,10 @@ digraph "VehicleViews::vehicleView" {
   | transition, succession | `-->` | solid, default arrowhead |
   | flow | `-.->` | `style=dashed` |
 
-- **Quoting.** Every identifier and label passes through one helper that double-quotes it and
-  escapes `"`, `\` and newlines; the writer never emits an unquoted identifier.
+- **Quoting.** Every identifier, edge label and geometry value passes through one helper that
+  double-quotes it and escapes `"`, `\` and newlines; a node or cluster label is an HTML-like
+  string whose text passes through one helper that writes `&`, `<`, `>`, `"` and `'` as entities.
+  The writer never emits an unquoted identifier or unescaped label text.
 - **Order.** Nodes and edges are written in the rendering's order; nothing is emitted from a map.
 
 Three methods of the writer produce every attribute list — `graphAttributes`,
@@ -124,10 +150,10 @@ digraph "PlantViews::placedView" {
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
   subgraph "cluster_n0" {
-    label="part def Plant::Loop";
+    label=<<b>Plant::Loop</b><br/><font point-size="10">«part def»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label="part pump\nPump", pos="346,739!", pin=true, width=1.2777777777777777, height=0.5833333333333334, comment="collapsed"];
-    "n2" [label="part tank\nTank", pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+    "n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
+    "n2" [label=<<b>tank : Tank</b><br/><font point-size="10">«part»</font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
   "n1" -> "n2" [label="supply", arrowhead=none, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
 }
@@ -147,8 +173,9 @@ digraph "PlantViews::placedView" {
 - **Nodes.** A `Layout` names the box's top-left corner; Graphviz positions a node's centre, so
   the writer pins `pos="x,y!"` at the centre of the box and `pin=true` keeps `neato` from
   moving it. A stated size is `width`/`height` in inches with `fixedsize=true`. Without one
-  the writer sizes the box to the label itself — 8.4 pt a glyph, 16.8 pt a line, Graphviz's
-  margins, no smaller than its 54×36 pt default box, a circle round the label for a
+  the writer sizes the box to the label itself — 0.6 em a glyph (0.66 em in the bold head),
+  1.2 em a line, at 14 pt for every line but the 10 pt keyword line, Graphviz's margins, no
+  smaller than its 54×36 pt default box, a circle round the label for a
   pseudo-state, a 3.6 pt point for a start — and writes that `width`/`height` without
   `fixedsize`, so Graphviz may still grow the box for its own font but the corner is where the
   Layout put it under the writer's estimate. `collapsed` is kept as `comment="collapsed"`, an
@@ -201,7 +228,12 @@ and did not change. A view-render RPC added later would take the form as a strin
   and pseudo-state nodes, the `bb` and pinned anchor of a stated, a member-fitted and a
   corner-only cluster, a route's spline and the one-waypoint notice, the zero-extent canvas,
   and the header's engine for none, some and all of the nodes positioned and all edges routed;
-  the syntax check parses every `pos` and `bb` it meets.
+  the syntax check parses every `pos` and `bb` it meets, and reads an HTML-like label as one
+  string whose tags balance and whose entities are known.
+- `internal/core/view/label_test.go`, `render_test.go`: the label lines of a typed usage, an
+  untyped usage, a definition, an anonymous node and a node with notes; the text form's
+  keyword-leading line; the same `<br>`-joined label in the flowchart, state and sequence
+  Mermaid grammars; the escaping of `<`, `>`, `"` and `#` in a Mermaid label.
 - `cmd/sysml/render_test.go`, `internal/repl/view_render_test.go`, `internal/lsp/render_test.go`:
   the form on each surface, and its refusal for a table or sequence.
 - `internal/core/docrender`, `docpdf`, `cmd/sysml`, `internal/repl`, `internal/lsp`: the

@@ -1,6 +1,6 @@
 %% OrderingViews::relayView — sequence rendering (view def SequenceView)
 sequenceDiagram
-  participant n0 as part left
-  participant n1 as part right
+  participant n0 as left<br>«part»
+  participant n1 as right<br>«part»
   n0->>n1: early
   n0->>n1: late

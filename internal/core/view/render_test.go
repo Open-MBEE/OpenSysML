@@ -517,7 +517,8 @@ func TestRenderingReportsWhatItCannotRepresent(t *testing.T) {
 	}
 }
 
-// A Mermaid label carries no character that would break the diagram.
+// A Mermaid label carries no character that would break the diagram: the only
+// markup in it is the `<br>` between its lines.
 func TestMermaidLabelsAreEscaped(t *testing.T) {
 	mermaid := render(t, "action.sysml", "FlowViews::driveView").Mermaid()
 	for _, line := range strings.Split(mermaid, "\n") {
@@ -526,10 +527,14 @@ func TestMermaidLabelsAreEscaped(t *testing.T) {
 		}
 		if i := strings.Index(line, "[\""); i >= 0 {
 			label := line[i+2 : strings.LastIndex(line, "\"")]
-			if strings.ContainsAny(label, "\"<>") {
+			if strings.ContainsAny(strings.ReplaceAll(label, "<br>", ""), "\"<>") {
 				t.Errorf("unescaped label %q in %q", label, line)
 			}
 		}
+	}
+	node := &Node{Kind: "part", Name: `a<b> "c" #d`, Type: "T<U>", Detail: "x; y"}
+	if got, want := mermaidLabel(node), "a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>«part»<br>x#59; y"; got != want {
+		t.Errorf("mermaidLabel = %q, want %q", got, want)
 	}
 }
 

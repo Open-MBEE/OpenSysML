@@ -131,18 +131,18 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction) {
 func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidText(mermaidLabel(node)))
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidLabel(node))
 		return
 	}
 	if containment {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidText(mermaidLabel(node)))
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidLabel(node))
 		for _, child := range node.Children {
 			writeFlowchartNode(b, child, depth, containment)
 			fmt.Fprintf(b, "%s%s --- %s\n", indent, node.ID, child.ID)
 		}
 		return
 	}
-	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, mermaidText(mermaidLabel(node)))
+	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, mermaidLabel(node))
 	for _, child := range node.Children {
 		writeFlowchartNode(b, child, depth+1, containment)
 	}
@@ -215,7 +215,7 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder) {
 		return
 	}
 	for _, node := range r.Roots {
-		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, mermaidText(mermaidLabel(node)))
+		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, mermaidLabel(node))
 	}
 	for _, edge := range r.Edges {
 		// The colon is part of the message syntax; only the text after it is left
@@ -233,10 +233,10 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder) {
 func writeStateNode(b *strings.Builder, node *Node, depth int, starts map[string][]Edge) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, mermaidText(mermaidLabel(node)), node.ID)
+		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, mermaidLabel(node), node.ID)
 		return
 	}
-	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, mermaidText(mermaidLabel(node)), node.ID)
+	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, mermaidLabel(node), node.ID)
 	for _, child := range node.Children {
 		if child.Kind != startKind {
 			writeStateNode(b, child, depth+1, starts)
@@ -250,17 +250,14 @@ func writeStateNode(b *strings.Builder, node *Node, depth int, starts map[string
 	fmt.Fprintf(b, "%s}\n", indent)
 }
 
-// mermaidLabel is the text a node carries in a diagram: its kind, its name, and
-// what else the rendering said about it.
+// mermaidLabel is a node's label ready to embed: its lines escaped and joined
+// with `<br>`, which flowcharts, state diagrams and sequence diagrams all break at.
 func mermaidLabel(node *Node) string {
-	label := node.Kind
-	if node.Name != "" {
-		label += " " + node.Name
+	lines := labelLines(node)
+	for i, line := range lines {
+		lines[i] = mermaidText(line)
 	}
-	if node.Detail != "" {
-		label += " (" + node.Detail + ")"
-	}
-	return label
+	return strings.Join(lines, "<br>")
 }
 
 // mermaidArrow is how an edge of each kind is drawn in a flowchart.

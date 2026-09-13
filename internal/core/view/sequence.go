@@ -38,7 +38,7 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 					name = notationName(simpleName(r.fqn(participant)))
 				}
 				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name,
-					Detail: declType(participant), Origin: symbolOrigin(participant)}
+					Type: declType(participant), Origin: symbolOrigin(participant)}
 				out.Roots = append(out.Roots, node)
 				lifelines[participant] = node
 			}

@@ -340,9 +340,9 @@
 <figure class="sysml-diagram" data-content="diagram" data-name="imaging" data-view="Observatory::interconnectView" data-diagram-kind="interconnection">
 <pre class="mermaid">%% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 [&#34;part Observatory::imagingChain&#34;]
-    n1[&#34;part camera (Camera)&#34;]
-    n2[&#34;part recorder (Recorder)&#34;]
+  subgraph n0 [&#34;Observatory::imagingChain&lt;br&gt;«part»&#34;]
+    n1[&#34;camera : Camera&lt;br&gt;«part»&#34;]
+    n2[&#34;recorder : Recorder&lt;br&gt;«part»&#34;]
   end
   n1 ---|&#34;link&#34;| n2</pre>
 <figcaption class="sysml-caption">Imaging chain interconnection</figcaption>
@@ -351,9 +351,9 @@ flowchart LR
 <pre class="mermaid">%% state rendering (the diagram states kind &#34;state&#34;)
 stateDiagram-v2
   direction LR
-  state &#34;state Observatory::operatingStates (ObservatoryStates)&#34; as n0 {
-    state &#34;state idle (initial)&#34; as n1
-    state &#34;state observing&#34; as n2
+  state &#34;Observatory::operatingStates : ObservatoryStates&lt;br&gt;«state»&#34; as n0 {
+    state &#34;idle&lt;br&gt;«state»&lt;br&gt;initial&#34; as n1
+    state &#34;observing&lt;br&gt;«state»&#34; as n2
     [*] --&gt; n1
   }
   n1 --&gt; n2

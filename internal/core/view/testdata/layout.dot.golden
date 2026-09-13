@@ -10,10 +10,10 @@ digraph "PlantViews::placedView" {
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
   subgraph "cluster_n0" {
-    label="part def Plant::Loop";
+    label=<<b>Plant::Loop</b><br/><font point-size="10">«part def»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label="part pump\nPump", pos="346,739!", pin=true, width=1.2777777777777777, height=0.5833333333333334, comment="collapsed"];
-    "n2" [label="part tank\nTank", pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+    "n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
+    "n2" [label=<<b>tank : Tank</b><br/><font point-size="10">«part»</font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
   "n1" -> "n2" [label="supply", arrowhead=none, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
 }

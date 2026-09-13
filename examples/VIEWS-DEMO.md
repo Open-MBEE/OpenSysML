@@ -54,9 +54,9 @@ own:
 ```
 LanderViews::overview - tree rendering (the view states no rendering; a tree is the default)
 
-part Lander::descender (Descender)
+part Lander::descender : Descender
   attribute mass
-part Lander::heavyDescender (Descender)
+part Lander::heavyDescender : Descender
   attribute mass
 view LanderViews::overview::interfaceSubview
   part def Lander::Descender
@@ -70,8 +70,8 @@ connections and flows between them as edges:
 LanderViews::interfaces - interconnection rendering (render asInterconnectionDiagram)
 
 part def Lander::Descender
-  part tank (Tank)
-  part thruster (Thruster)
+  part tank : Tank
+  part thruster : Thruster
   …
 
 connections:
@@ -180,8 +180,8 @@ reaches only what carries the `Safety` metadata:
 LanderViews::safetyView - tree rendering (the view states no rendering; a tree is the default)
 
 part def Lander::Thruster
-  attribute thrust (Real)
-  port supply (FuelPort)
+  attribute thrust : Real
+  port supply : FuelPort
 part def Lander::Parachute
 ```
 

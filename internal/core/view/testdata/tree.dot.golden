@@ -3,18 +3,18 @@
 // layout: dot
 digraph "VehicleViews::vehicleView" {
   node [shape=box];
-  "n0" [label="part def Vehicles::Vehicle"];
-  "n1" [label="part engine\nEngine"];
+  "n0" [label=<<b>Vehicles::Vehicle</b><br/><font point-size="10">«part def»</font>>];
+  "n1" [label=<<b>engine : Engine</b><br/><font point-size="10">«part»</font>>];
   "n0" -> "n1" [arrowhead=none];
-  "n2" [label="part wheels\nWheel"];
+  "n2" [label=<<b>wheels : Wheel</b><br/><font point-size="10">«part»</font>>];
   "n0" -> "n2" [arrowhead=none];
-  "n3" [label="connect"];
+  "n3" [label=<<b>connect</b>>];
   "n0" -> "n3" [arrowhead=none];
-  "n4" [label="view VehicleViews::vehicleView::engineSubview"];
-  "n5" [label="part def Vehicles::Engine"];
-  "n6" [label="attribute power"];
+  "n4" [label=<<b>VehicleViews::vehicleView::engineSubview</b><br/><font point-size="10">«view»</font>>];
+  "n5" [label=<<b>Vehicles::Engine</b><br/><font point-size="10">«part def»</font>>];
+  "n6" [label=<<b>power</b><br/><font point-size="10">«attribute»</font>>];
   "n5" -> "n6" [arrowhead=none];
-  "n7" [label="part cylinder\nCylinder"];
+  "n7" [label=<<b>cylinder : Cylinder</b><br/><font point-size="10">«part»</font>>];
   "n5" -> "n7" [arrowhead=none];
   "n4" -> "n5" [arrowhead=none];
 }
