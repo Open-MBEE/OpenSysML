@@ -353,7 +353,10 @@ by the exact scale factor of the reduction — never by the choice of spelling.
 Writing a quantity to a feature typed by a quantity kind checks its reduced dimension, not its
 spelling: `10 [N] / 2 [kg]` is admitted to an `AccelerationValue`, and an `L·T^-1` value written
 to one is refused as a `type mismatch` naming both dimensions. See
-[Behavior](06-behavior.md) for the same rule over `assign`.
+[Behavior](06-behavior.md) for the same rule over `assign`. An argument is bound to the
+parameter it fills, and that binding is judged like an explicit `bind`: `sum(robots.mass)`
+handing `MassValue`s to `RealFunctions::sum`, declared over `Real`, draws the validation warning
+`Bound features should have conforming types` at the argument, as the SysML v2 pilot reports it.
 
 ## Sets and tensors
 
@@ -525,7 +528,9 @@ and tabulates it over a domain.
 `collect`, `select` and `reduce` (`ControlFunctions`) take a body whose parameter is bound to each
 element in turn. A `collect` is typed by what its body returns, not by the element type of the
 collection it ran over, so its result can be declared with the body's type and a mismatch is
-reported before anything runs.
+reported before anything runs. A body parameter that declares no type (`{ in i; i.mass }`) takes
+the type of the collection's elements, so a member it does not have is reported as an
+`unresolved member` at validation, not left for the run to discover.
 
 ```sysml
 sysml> package Rollup {
