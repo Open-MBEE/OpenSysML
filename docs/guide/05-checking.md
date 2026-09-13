@@ -66,15 +66,22 @@ Instance: Car (ID: 1)
 Features:
   engine = Instance(ID: 2)
     power = 250.0
+    ownedPorts = []
+…
+  ownedPorts = []
+…
 ```
 
-The nested engine is an object of its own. Reach it by a path from the object that holds it, or
-by the id it was given, and read a value from it the same way:
+(The `…` stand for the library features every part carries, listed after the model's own;
+see [your first model](02-first-model.md#at-the-prompt).) The nested engine is an object of its
+own. Reach it by a path from the object that holds it, or by the id it was given, and read a
+value from it the same way:
 ```sysml
 sysml> %features Car.engine
 Instance: Car.engine (ID: 2)
 Features:
   power = 250.0
+…
 
 sysml> %eval in #2 : power * 2
 ✓ power * 2 (on #2 ID: 2)
@@ -220,9 +227,12 @@ error: evaluation failed: type mismatch: operator '+' is not defined for the unb
 annotation in the order written — an inline `@` annotation and a `metadata … about elem`
 usage declared elsewhere take their places by source position, across files in document
 order — each carrying the values its body binds over the defaults its
-`metadata def` declares. An element with no annotation answers the empty sequence. The library
-types the sequence as `Metaobject`, so cast an annotation to its `metadata def` before reading
-the values it binds.
+`metadata def` declares — followed by one *reflective metaobject* of the element's own
+metaclass (KerML §8.3.4.8.15), so the metadata of an element nothing annotates is that one
+metaobject, not the empty sequence. The library types the sequence as `Metaobject`, so cast an
+annotation to its `metadata def` before reading the values it binds; `x meta T` is the shorthand
+for `x.metadata as T`, and the metaclass's own features (`name`, `qualifiedName`, `owner`,
+`isAbstract`, …) read off the metaobject through ordinary member access.
 
 ```sysml
 sysml> package Provenance {
@@ -244,7 +254,40 @@ sysml> %eval (Provenance::navCam.metadata#(1) as Provenance::Heritage).flown
 
 sysml> %eval Provenance::sciCam.metadata
 ✓ Provenance::sciCam.metadata
-  = []
+  = [meta(Provenance::sciCam : SysML::Systems::PartUsage)]
+
+sysml> %eval Provenance::sciCam.metadata#(1).name
+✓ Provenance::sciCam.metadata#(1).name
+  = "sciCam"
+```
+
+**Extents:** `all T` (KerML's extent operator) is the ordered sequence of the instances of `T`
+the run has — every object the definition classifies, nested usages included, in declaration
+order; for an enumeration, its literals; for a variation, the variants it declares. It is the
+run's extent, so a scalar or structured data type (`all Integer`, `all Point`) is refused, since
+a run creates no data values to enumerate, and a `filter` or metadata value built on `all T` is
+diagnosed rather than evaluated.
+
+```sysml
+sysml> package Fleet {
+  ...>     private import ScalarValues::*;
+  ...>     part def Car { attribute seats : Integer; }
+  ...>     part sedan : Car { :>> seats = 5; }
+  ...>     part coupe : Car { :>> seats = 2; }
+  ...>     enum def Color { red; green; blue; }
+  ...> }
+✓ package Fleet
+
+sysml> %eval (all Fleet::Car).seats
+✓ (all Fleet::Car).seats
+  = [5, 2]
+
+sysml> %eval all Fleet::Color
+✓ all Fleet::Color
+  = [Color::red, Color::green, Color::blue]
+
+sysml> %eval all Integer
+error: evaluation failed: unbounded extent: Integer is a data type, whose values are not enumerated (only an enumeration's literals are)
 ```
 
 ## Quantities and units
@@ -277,15 +320,23 @@ sysml> package Orbit {
 sysml> %calc Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
 ✓ Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
   = 3049.86815 [SI::'m/s']
+  standing: value (observed: 1 run under reverse)
 
 sysml> %calc Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
 ✓ Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
   = 7793.229127559948 [SI::'m/s']
+  standing: value (observed: 1 run under reverse)
 
 sysml> %calc Orbit::perMass(10 [SI::N], 2 [SI::kg])
 ✓ Orbit::perMass(10 [SI::N], 2 [SI::kg])
   = 5.0 [SI::'m⋅s⁻²']
+  standing: value (observed: 1 run under reverse)
 ```
+
+Every verdict a check produces — a `%calc` value, a `%constraint` or `%requirement` pass — ends
+with a `standing:` line naming the engine that answered and how strong the evidence is: here one
+execution under the default `reverse` scheduling policy ([Analysis
+engines](../reference/cli.md#analysis-engines)).
 
 The unit chosen is the one the library declares for the dimension, `SI::'m/s'` over a synonym a
 model declares. Where the library declares several units of one dimension that measure
@@ -393,6 +444,7 @@ sysml> calc distance {
 sysml> %calc distance 3 4
 ✓ distance(3, 4)
   = 25
+  standing: value (observed: 1 run under reverse)
 ```
 
 **Library functions:**
@@ -456,6 +508,7 @@ sysml> package Gains {
 sysml> %calc Gains::Apply(Gains::Square, 3.0)
 ✓ Gains::Apply(Gains::Square, 3.0)
   = 9.0
+  standing: value (observed: 1 run under reverse)
 
 sysml> %eval Gains::Square
 ✓ Gains::Square
@@ -510,6 +563,7 @@ sysml> constraint ValidSpeed {
 
 sysml> %constraint ValidSpeed
 ✓ Constraint ValidSpeed passed
+  standing: holds (observed: 1 run under reverse)
 ```
 
 **Requirements:**
@@ -522,6 +576,7 @@ sysml> requirement SafetyReq {
 
 sysml> %requirement SafetyReq
 ✓ Requirement SafetyReq satisfied
+  standing: holds (observed: 1 run under reverse)
 ```
 
 For more examples, see
