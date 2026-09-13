@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -76,6 +78,51 @@ func TestReplayScheduleEvaluatesAtTheMoveNamed(t *testing.T) {
 	}
 	if x, _ := before.FinalValue("x"); x != "0" {
 		t.Fatalf("before any move x = %s, want 0", x)
+	}
+}
+
+// A whole execution is visited at every settled state: the schedule that runs `right` first
+// passes through x = 2 after its one move, a property false there fails the visit, and the
+// visit's own error ends the replay.
+func TestReplayExecutionVisitsEverySettledState(t *testing.T) {
+	m, start, schedules := clashSchedules(t)
+	var seen []string
+	r, err := ReplayExecution(context.Background(), m.fresh, start, schedules["1"], func(r *Replayed, moves int) error {
+		x, err := r.FinalValue("x")
+		if err != nil {
+			return err
+		}
+		seen = append(seen, fmt.Sprintf("%d:%s", moves, x))
+		return nil
+	})
+	if err != nil || r.Err != nil || r.Exec.State() != StateCompleted {
+		t.Fatalf("replay: %v, %v, %s; want a complete run", err, r.Err, r.Exec.State())
+	}
+	if len(seen) < 3 || seen[0] != "0:0" || seen[len(seen)-1] != "1:1" || !slices.Contains(seen, "1:2") {
+		t.Fatalf("visited %v, want x = 0 before any move, 2 after the move, 1 at the end", seen)
+	}
+	stopped := errors.New("x = 2 seen")
+	_, err = ReplayExecution(context.Background(), m.fresh, start, schedules["1"], func(r *Replayed, moves int) error {
+		if holds, err := r.Evaluate(xIsNot("2")); err != nil || !holds {
+			return stopped
+		}
+		return nil
+	})
+	if !errors.Is(err, stopped) {
+		t.Fatalf("replay = %v, want the visit's error", err)
+	}
+	_, err = ReplayExecution(context.Background(), m.fresh, start, schedules["1"], func(r *Replayed, moves int) error {
+		holds, err := r.Evaluate(xIsNot("1"))
+		if err != nil {
+			return err
+		}
+		if !holds && moves == 0 {
+			return errors.New("x = 1 before any move")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("replay = %v, want x != 1 to hold before the last move only", err)
 	}
 }
 

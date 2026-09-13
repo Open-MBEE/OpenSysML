@@ -19,6 +19,24 @@ const ScheduleEnd = -1
 func ReplaySchedule(
 	stop context.Context, fresh func() (*Context, error), start ActionStarter, choices []ChoiceTaken, at int,
 ) (*Replayed, error) {
+	return replaySchedule(stop, fresh, start, choices, at, nil)
+}
+
+// ReplayExecution re-runs the whole schedule as ReplaySchedule does at ScheduleEnd, calling
+// visit at every stable state on the way, settled as a check settles, with the moves made so
+// far. An error visit returns ends the replay with it.
+func ReplayExecution(
+	stop context.Context, fresh func() (*Context, error), start ActionStarter, choices []ChoiceTaken,
+	visit func(r *Replayed, moves int) error,
+) (*Replayed, error) {
+	return replaySchedule(stop, fresh, start, choices, ScheduleEnd, visit)
+}
+
+// replaySchedule is ReplaySchedule with an optional visitor of every settled state.
+func replaySchedule(
+	stop context.Context, fresh func() (*Context, error), start ActionStarter, choices []ChoiceTaken, at int,
+	visit func(r *Replayed, moves int) error,
+) (*Replayed, error) {
 	if err := stop.Err(); err != nil {
 		return nil, err
 	}
@@ -50,6 +68,24 @@ func ReplaySchedule(
 			return r, err
 		}
 		taken := len(ctx.ChoicesTaken())
+		if visit != nil {
+			if err := r.settle(stop); err != nil {
+				if stop.Err() != nil {
+					return r, err
+				}
+				r.Err = err
+				if errors.Is(err, ErrReplayRefused) {
+					return r, r.disagreeOnSchedule(choices, err.Error())
+				}
+				if left := ctx.Unfollowed(); left != nil {
+					return r, r.disagreeOnSchedule(choices, left.Error())
+				}
+				return r, nil
+			}
+			if err := visit(r, taken); err != nil {
+				return r, err
+			}
+		}
 		if at != ScheduleEnd && taken >= at {
 			if err := r.settle(stop); err != nil {
 				if stop.Err() != nil {
