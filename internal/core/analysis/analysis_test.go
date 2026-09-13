@@ -41,6 +41,22 @@ const fixtureModel = `package test {
 		succession first c then sync;
 		succession first sync then done;
 	}
+	action steady {
+		attribute y : Integer = 0;
+		attribute z : Integer = 0;
+		first start;
+		fork split;
+		action a { assign y := 1; }
+		action b { assign z := 2; }
+		join sync;
+		done;
+		succession first start then split;
+		succession first split then a;
+		succession first split then b;
+		succession first a then sync;
+		succession first b then sync;
+		succession first sync then done;
+	}
 }`
 
 // fixture is a model parsed once, from which every context is built.
@@ -53,8 +69,14 @@ type fixture struct {
 
 func parseFixture(t *testing.T) *fixture {
 	t.Helper()
+	return parseModel(t, fixtureModel)
+}
+
+// parseModel is the fixture over a model of a test's own, its `test` package indexed.
+func parseModel(t *testing.T, model string) *fixture {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "analysis.sysml")
-	p := parser.New(source.New(path, []byte(fixtureModel)))
+	p := parser.New(source.New(path, []byte(model)))
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("parse: %v", p.Diagnostics)

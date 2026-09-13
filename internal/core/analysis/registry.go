@@ -59,12 +59,12 @@ func (r *Registry) Statuses() []Status {
 	return statuses
 }
 
-// Default returns a registry of every engine the build knows: run, explore, sweep and
-// solve. Solve registers whether or not a solver is found and refuses through Covers.
+// Default returns a registry of every engine the build knows: run, explore, check, sweep
+// and solve. Solve registers whether or not a solver is found and refuses through Covers.
 func Default() *Registry {
 	r := NewRegistry()
-	// The four names are distinct constants, so none of these registrations can be refused.
-	for _, e := range []Engine{NewRun(), NewExplore(), NewSweep(), NewSolve(nil)} {
+	// The five names are distinct constants, so none of these registrations can be refused.
+	for _, e := range []Engine{NewRun(), NewExplore(), NewCheck(), NewSweep(), NewSolve(nil)} {
 		r.engines[e.Name()] = e
 	}
 	return r

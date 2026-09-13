@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"x": ["1", "2"]},
+	"agreed": {"leftRan": "true", "rightRan": "true"}
+}

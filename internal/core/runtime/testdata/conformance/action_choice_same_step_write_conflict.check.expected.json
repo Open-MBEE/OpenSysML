@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"winner": ["\"hare\"", "\"tortoise\""]},
+	"agreed": {"hareRan": "true", "tortoiseRan": "true"}
+}

@@ -45,6 +45,9 @@ func (r Result) evidence() string {
 	case Satisfiable:
 		parts = append(parts, fmt.Sprintf("%s by %s", plural(len(r.Values), "query"), r.Engine))
 	}
+	if c := r.Check(); c != nil {
+		parts = append(parts, fmt.Sprintf("%s, %s searched", plural(c.Report.States, "state"), plural(c.Report.Moves, "move")))
+	}
 	if r.Witness != nil && len(r.Witness.Choices) > 0 {
 		parts = append(parts, fmt.Sprintf("witness of %s replayed", plural(len(r.Witness.Choices), "choice")))
 	}

@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"handler": ["1", "2"]},
+	"agreed": {"level": "75"}
+}

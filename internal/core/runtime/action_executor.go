@@ -293,7 +293,7 @@ func (e *ActionExecutor) Step() error {
 	// does not hold the rest back. An exploring step picks among every token able
 	// to act, paused work that can go on among them.
 	var paused []int64
-	eligible := func(t Token) bool { return !t.drivenByBody() && (t.body == nil || t.resumable()) }
+	eligible := oneMoveEligible
 	if !e.ctx.scheduling().oneMove() {
 		paused = e.pausedTokens()
 		eligible = func(t Token) bool { return !t.drivenByBody() && t.body == nil }
@@ -1374,7 +1374,17 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 // scheduleTokens hands the step the tokens it may move, those eligible now, in
 // the order the run's scheduling policy has it try them.
 func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) bool) *tokenSchedule {
+	return e.ctx.scheduling().scheduleStep(e.stepCandidates(order, eligible))
+}
+
+// oneMoveEligible is the eligibility of a step moving one token: a token not
+// driven by a body, whose own paused work, if any, would go on.
+func oneMoveEligible(t Token) bool { return !t.drivenByBody() && (t.body == nil || t.resumable()) }
+
+// stepCandidates lists the tokens a step may move, as the policy is handed them.
+func (e *ActionExecutor) stepCandidates(order *stepOrder, eligible func(Token) bool) stepTokens {
 	tokens := stepTokens{
+		owner:  e,
 		step:   e.stepCount + 1,
 		ids:    make([]int64, 0, len(e.tokens)),
 		parked: make(map[int64]bool),
@@ -1393,7 +1403,7 @@ func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) b
 			}
 		}
 	}
-	return e.ctx.scheduling().scheduleStep(tokens)
+	return tokens
 }
 
 // fused reports whether the token at index i collapses into a synchronization
@@ -1404,23 +1414,40 @@ func (e *ActionExecutor) fused(i int) bool {
 }
 
 // enabled reports whether the token would act were it stepped now: it is still
-// eligible, and an accept it sits at has a message in flight to take.
+// eligible, and an accept it sits at is answered — or fails, which stepping it
+// raises as the typed error — under a readiness probe that leaves the run as it was.
 func (e *ActionExecutor) enabled(id int64, eligible func(Token) bool) bool {
+	ready, _ := e.readiness(id, eligible)
+	return ready
+}
+
+// readiness is enabled along with the typed error a failing accept would raise.
+func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready bool, fails error) {
 	i := e.tokenIndex(id)
 	if i < 0 || e.moving(e.tokens[i]) || !eligible(e.tokens[i]) {
-		return false
+		return false, nil
 	}
 	t := e.tokens[i]
-	if _, waitsForMessage := e.messageAccept(t); !waitsForMessage {
-		return true
+	usage, ok := t.Location.(*ast.Usage)
+	if !ok || t.body != nil {
+		return true, nil
+	}
+	accept, isAccept := e.graphOf(t.frame).Accepts[usage]
+	if !isAccept {
+		return true, nil
+	}
+	defer e.ctx.beginProbe()()
+	if accept.Trigger != nil {
+		// triggerHolds may park the token's copy; the probe asks, it does not park.
+		holds, err := e.triggerHolds(&t, accept)
+		return holds || err != nil, err
 	}
 	pending := e.ctx.acceptable()
 	if len(pending) == 0 {
-		return false
+		return false, nil
 	}
-	// Matching may materialize a port; as a probe, the check leaves the run as it was.
-	defer e.ctx.beginProbe()()
-	return e.offeredMessage(t, pending)
+	matches, failed := e.acceptMatch(t.frame, accept, usage)
+	return slices.ContainsFunc(pending, matches) || *failed != nil, *failed
 }
 
 // tokenLabel names a token as the trace does, by ID and node.
@@ -1826,7 +1853,10 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	if isAccept && accept.Trigger != nil {
 		// A trigger waits for time to pass or for a condition to hold rather
 		// than for a message, so it is answered here and not from the queue.
-		ready, err := e.triggerHolds(token, accept)
+		ready, err := e.triggerReady(token, accept)
+		if ready || err != nil {
+			ready, err = e.triggerHolds(token, accept)
+		}
 		if err != nil {
 			return err
 		}
@@ -1959,6 +1989,16 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 
 	e.tokens[tokenIdx].travel(successors[0], e.sweep)
 	return nil
+}
+
+// triggerReady probes a change event's condition first: a test finding it not
+// holding is no move and leaves no trace. A time event parks visibly, so it is not probed.
+func (e *ActionExecutor) triggerReady(token *Token, accept lower.Accept) (bool, error) {
+	if _, changes := accept.Trigger.(*ast.ChangeEvent); !changes {
+		return true, nil
+	}
+	defer e.ctx.beginProbe()()
+	return e.triggerHolds(token, accept)
 }
 
 // triggerHolds reports whether the time or change event an accept waits for has
