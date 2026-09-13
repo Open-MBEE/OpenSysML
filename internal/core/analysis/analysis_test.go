@@ -65,6 +65,7 @@ type fixture struct {
 	model    *semantics.Model
 	resolver *resolve.Resolver
 	pkg      *symbols.Scope
+	source   *source.SourceFile
 }
 
 func parseFixture(t *testing.T) *fixture {
@@ -76,7 +77,8 @@ func parseFixture(t *testing.T) *fixture {
 func parseModel(t *testing.T, model string) *fixture {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "analysis.sysml")
-	p := parser.New(source.New(path, []byte(model)))
+	sf := source.New(path, []byte(model))
+	p := parser.New(sf)
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("parse: %v", p.Diagnostics)
@@ -88,16 +90,19 @@ func parseModel(t *testing.T, model string) *fixture {
 	if !ok || pkg.Scope == nil {
 		t.Fatal("test package not indexed")
 	}
-	return &fixture{idx: idx, model: semantics.NewModel(resolver), resolver: resolver, pkg: pkg.Scope}
+	return &fixture{idx: idx, model: semantics.NewModel(resolver), resolver: resolver, pkg: pkg.Scope, source: sf}
 }
 
 // fixtureSteps is the step limit every runtime over the fixture is built with.
 const fixtureSteps = 10000
 
-// semantics is a worker's own model-derived runtime part over the shared index.
+// semantics is a worker's own model-derived runtime part over the shared index, carrying
+// the fixture's source as a surface registers the files it read.
 func (f *fixture) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(f.idx)
-	return runtime.NewModel(semantics.NewModel(resolver), resolver), nil
+	model := runtime.NewModel(semantics.NewModel(resolver), resolver)
+	model.RegisterSource(f.source)
+	return model, nil
 }
 
 // fresh is a runtime of a run's own on a worker.

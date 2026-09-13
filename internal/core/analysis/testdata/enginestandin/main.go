@@ -216,8 +216,9 @@ func (e *engine) run(id json.RawMessage, p enginewire.RunParams) {
 	defer e.open.Add(-1)
 
 	reply := func(result json.RawMessage, err *enginewire.Error) {
-		e.write(enginewire.Message{JSONRPC: enginewire.JSONRPC, ID: id, Result: result, Error: err})
+		e.must(e.write(enginewire.Message{JSONRPC: enginewire.JSONRPC, ID: id, Result: result, Error: err}))
 	}
+	raw := func(line string) { e.must(e.raw(line)) }
 	fault := func(code string) {
 		reply(nil, &enginewire.Error{Code: code, Message: "the stand-in was told to fail with " + code})
 	}
@@ -252,31 +253,31 @@ func (e *engine) run(id json.RawMessage, p enginewire.RunParams) {
 	case ModeErrorInternal:
 		fault(enginewire.CodeInternal)
 	case ModeErrorNoCode:
-		e.raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"error":{"message":"no code"}}`)
+		raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"error":{"message":"no code"}}`)
 	case ModeNotJSON:
-		e.raw(`this is not JSON`)
+		raw(`this is not JSON`)
 	case ModeWrongJSONRPC:
-		e.raw(`{"jsonrpc":"1.0","id":` + string(id) + `,"result":{"claim":"none","strength":"not covered"}}`)
+		raw(`{"jsonrpc":"1.0","id":` + string(id) + `,"result":{"claim":"none","strength":"not covered"}}`)
 	case ModeNoID:
-		e.raw(`{"jsonrpc":"2.0","result":{"claim":"none","strength":"not covered"}}`)
+		raw(`{"jsonrpc":"2.0","result":{"claim":"none","strength":"not covered"}}`)
 	case ModeNullID:
-		e.raw(`{"jsonrpc":"2.0","id":null,"result":{"claim":"none","strength":"not covered"}}`)
+		raw(`{"jsonrpc":"2.0","id":null,"result":{"claim":"none","strength":"not covered"}}`)
 	case ModeStringID:
-		e.raw(`{"jsonrpc":"2.0","id":"` + string(id) + `","result":{"claim":"none","strength":"not covered"}}`)
+		raw(`{"jsonrpc":"2.0","id":"` + string(id) + `","result":{"claim":"none","strength":"not covered"}}`)
 	case ModeUnknownID:
-		e.raw(`{"jsonrpc":"2.0","id":987654,"result":{"claim":"none","strength":"not covered"}}`)
+		raw(`{"jsonrpc":"2.0","id":987654,"result":{"claim":"none","strength":"not covered"}}`)
 	case ModeResultAndError:
-		e.raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"result":{"claim":"none","strength":"not covered"},"error":{"code":"internal","message":"both"}}`)
+		raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"result":{"claim":"none","strength":"not covered"},"error":{"code":"internal","message":"both"}}`)
 	case ModeNeitherResultNorErr:
-		e.raw(`{"jsonrpc":"2.0","id":` + string(id) + `}`)
+		raw(`{"jsonrpc":"2.0","id":` + string(id) + `}`)
 	case ModeEngineRequest:
-		e.raw(`{"jsonrpc":"2.0","id":1,"method":"describe","params":{}}`)
+		raw(`{"jsonrpc":"2.0","id":1,"method":"describe","params":{}}`)
 	case ModeUnknownNotification:
-		e.raw(`{"jsonrpc":"2.0","method":"log","params":{"text":"hello"}}`)
+		raw(`{"jsonrpc":"2.0","method":"log","params":{"text":"hello"}}`)
 	case ModeProgressUnknownRun:
 		e.notify(enginewire.MethodProgress, enginewire.ProgressParams{ID: runID + 1000, Runs: 1})
 	case ModeOverflow:
-		e.raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"result":{"claim":"none","strength":"not covered","reason":"` + strings.Repeat("x", 1<<20) + `"}}`)
+		raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"result":{"claim":"none","strength":"not covered","reason":"` + strings.Repeat("x", 1<<20) + `"}}`)
 	case ModeSlowRun:
 		time.Sleep(time.Hour)
 	default:
@@ -290,8 +291,17 @@ func (e *engine) run(id json.RawMessage, p enginewire.RunParams) {
 
 // notify writes one notification.
 func (e *engine) notify(method string, params any) {
-	raw, _ := json.Marshal(params)
-	e.write(enginewire.Message{JSONRPC: enginewire.JSONRPC, Method: method, Params: raw})
+	raw, err := json.Marshal(params)
+	e.must(err)
+	e.must(e.write(enginewire.Message{JSONRPC: enginewire.JSONRPC, Method: method, Params: raw}))
+}
+
+// must ends the stand-in on a write the host no longer reads.
+func (e *engine) must(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "enginestandin:", err)
+		os.Exit(3)
+	}
 }
 
 // write frames one message as a line.
