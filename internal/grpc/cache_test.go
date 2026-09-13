@@ -174,20 +174,21 @@ func TestCachedModelKeepsABoundedNumberOfIdleWorkers(t *testing.T) {
 	model := &CachedModel{Documents: []*CachedDocument{{Root: &ast.RootNamespace{}}}, Index: symbols.NewIndex()}
 	model.Index.Freeze()
 
-	releases := make([]func(), 0, maxIdleWorkers+3)
-	for range maxIdleWorkers + 3 {
+	bound := maxIdleWorkers()
+	releases := make([]func(), 0, bound+3)
+	for range bound + 3 {
 		_, release := model.worker()
 		releases = append(releases, release)
 	}
 	for _, release := range releases {
 		release()
 	}
-	if got := len(model.idle); got != maxIdleWorkers {
-		t.Fatalf("%d idle workers after a burst of %d, want the bound %d", got, maxIdleWorkers+3, maxIdleWorkers)
+	if got := len(model.idle); got != bound {
+		t.Fatalf("%d idle workers after a burst of %d, want the bound %d", got, bound+3, bound)
 	}
 	_, release := model.worker()
 	defer release()
-	if got := len(model.idle); got != maxIdleWorkers-1 {
-		t.Fatalf("%d idle workers while a request after the burst holds one, want %d", got, maxIdleWorkers-1)
+	if got := len(model.idle); got != bound-1 {
+		t.Fatalf("%d idle workers while a request after the burst holds one, want %d", got, bound-1)
 	}
 }
