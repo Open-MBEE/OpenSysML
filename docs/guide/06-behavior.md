@@ -680,7 +680,16 @@ move <n> (<the choice>): <what the run faced instead>`, and the check it was par
 covered*. A file that spells no choice (a pick not among its own alternatives, a line in no
 known form, nothing at all) is refused as the policy is parsed, before anything runs; a header
 of `no choice points`, as the checker writes for a run that met none, follows the one run there
-is. The policy is accepted
+is.
+
+A witness the `smt` engine writes opens with the values it chose for the action's free inputs,
+one `input <feature> = <value>` line each — `input limit = -1`, `input mode =
+Modes::Mode::fast` for an enumeration, `input rate = 1/3` for a real — ahead of its choice
+lines. The replay pins each named feature at that value before the run starts, as an argument
+the invocation passes is pinned and before any default the model gives it, then follows the
+moves; a file without input lines is the format it always was and replays as before. An input
+line naming a feature the action does not have, or one it cannot set, is refused naming the
+feature, and the check it was part of is *not covered*. The policy is accepted
 wherever a policy is — `-schedule`, `%schedule` (the debuggers step one run, which is what a
 replay is), a conformance case's `schedule` pin — except over the wire, where a request carries
 no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.

@@ -48,9 +48,11 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%engine [<name>\|auto\|all]` | Show or set the analysis engine every question asked from then on — `%constraint`, `%requirement`, `%satisfy`, `%calc`, `%analysis`, `%sweep`, `%samples`, `%check` and the other solver commands — is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name puts it to that engine alone, whose refusal is then the verdict; `all` puts it to every covering engine, one after another in name order, and composes their answers, naming a disagreement in the interpreter's favor. Every verdict is followed by a `standing:` line — the claim, the strength of the evidence (*not covered*, *observed*, *witnessed*, *bounded*, *proved*) and what earned it — and under `all` each engine's part. A name no engine is registered under is refused and the selection left as it was. `explore` is refused at the prompt as `%schedule explore` is, since the debuggers step one run; the `%action` and `%state` debuggers keep the schedule `%schedule` set whatever the engine ([Analysis engines](cli.md#analysis-engines)). `%engine check` is the one selection that changes what `%action` does by itself: it puts the action to the `check` engine, which searches every schedule for a violation, a deadlock, a failure or a divergence and prints the verdict, instead of starting a debugging session; `%engine all` does the same, the exploration beside the checker, once a `%check-*` setting is made ([Checking every schedule](#checking-every-schedule-of-an-action)) |
 | `%check-property [<name>...\|off]` | Show or set the constraints and requirements the `check` engine evaluates at every stable state of a checked action, on its performing object where there is one; `off` (the default) names none |
 | `%check-diverge [<feature>...\|off]` | Show or set the features whose final values the `check` engine compares across schedules — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's, a name nothing holds refused; `off` (the default) compares every attribute of the action and of its performing object; an action run without one is compared on its own attributes only |
-| `%check-witness [<dir>\|off]` | Show or set the directory the `check` engine writes a witness file into for each violation and each divergent value, created if absent; `off` (the default) writes none, and the verdict names each divergent value and violation without a path |
-| `%check-bounds [depth=<n>] [states=<n>] [timeout=<duration>] \| off` | Show or set the bounds the `check` engine searches within: `depth` is the most moves of one schedule (default 10 000), `states` the most distinct states (default 1 000 000), `timeout` the wall clock the check may run for (unbounded by default); each takes a positive integer or a duration such as `30s` (a zero or a negative one is refused and the bounds left as they were), the ones not named keep their values, and `off` restores every default. The CLI's [`-check-depth`, `-check-states`, `-check-timeout`](cli.md#command-reference) |
-| `%replay <witness>` | Install the schedule a witness file fixes, as `%schedule replay:<file>` does, so the next `%action` or `%state` starts the run the witness records and `%step`/`%continue` step it, each choice taken as the witness took it; the debugger refuses where a run departs from its witness. A file that is not a witness is refused and the schedule left as it was |
+| `%check-input [<feature>...\|off]` | Show or set the features of a checked action the `smt` engine leaves free in their declared type's domain although the model binds them — a default, a value the performing object holds; `off` (the default) frees only the inputs the model leaves unbound and pins every bound one at its value. A name that is not a feature the action reads is refused naming it when the action is checked. The CLI's [`-check-input`](cli.md#deciding-a-property-over-the-inputs) |
+| `%check-assume [<name>...\|off]` | Show or set the constraints and requirements the `smt` engine asserts over the initial state of a checked action, so its claim ranges over the inputs they admit; `off` (the default) assumes none. A set no initial state satisfies is reported *not covered*, never *proved*. The CLI's [`-check-assume`](cli.md#deciding-a-property-over-the-inputs) |
+| `%check-witness [<dir>\|off]` | Show or set the directory the `check` and `smt` engines write a witness file into for each violation and each divergent value, created if absent; `off` (the default) writes none, and the verdict names each divergent value and violation without a path. A witness of the `smt` engine's opens with the input values the solver chose, one `input <feature> = <value>` line each, ahead of the choice lines |
+| `%check-bounds [depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] \| off` | Show or set the bounds the `check` and `smt` engines search within: `depth` is the most moves of one schedule (default 10 000 under `check`, 40 under `smt`, where it is the moves the action is unrolled to), `states` the most distinct states (default 1 000 000), `unroll` the most iterations of one loop the `smt` engine unrolls (default 4), `timeout` the wall clock the check may run for (unbounded by default); each takes a positive integer or a duration such as `30s` (a zero or a negative one is refused and the bounds left as they were), the ones not named keep their values, and `off` restores every default. The CLI's [`-check-depth`, `-check-states`, `-check-unroll`, `-check-timeout`](cli.md#command-reference) |
+| `%replay <witness>` | Install the schedule a witness file fixes, as `%schedule replay:<file>` does, so the next `%action` or `%state` starts the run the witness records — its `input` lines pinned before the run starts — and `%step`/`%continue` step it, each choice taken as the witness took it; the debugger refuses where a run departs from its witness, and an input line naming a feature the action does not have is refused naming it. A file that is not a witness is refused and the schedule left as it was |
 | **Library Discovery** | |
 | `%search <substring>` | List the declared and library symbols whose qualified name contains the substring, with the kind of each |
 | `%builtins` | List the library functions the runtime implements directly (`sqrt`, `abs`, `max`, `floor`, `x->isEmpty()`, `x->sum()` …), each with the package an `import` must name for its bare name to resolve; the qualified name (`RealFunctions::sqrt(2.0)`) resolves anywhere |
@@ -109,11 +111,12 @@ the action to the explicit-state model checker instead, which searches every sch
 library leaves open and reports the first violation, deadlock or failure it reaches or the
 features whose final value the schedule decides — the CLI's
 [`-engine check`](cli.md#checking-every-schedule-of-an-action), with the same verdicts and
-the same bounds. `%check-property`, `%check-diverge`, `%check-witness` and `%check-bounds`
-hold the settings the CLI's `-check-*` flags carry, each shown with no argument and kept for
-the session, and `%replay` steps the run a witness records. Under `%engine all`, `%action`
-searches once any of the four is set — the checker beside the exploration, `states=<n>` being
-the one figure each bounds in its own unit — and steps again once every one is `off`:
+the same bounds. `%check-property`, `%check-diverge`, `%check-input`, `%check-assume`,
+`%check-witness` and `%check-bounds` hold the settings the CLI's `-check-*` flags carry, each
+shown with no argument and kept for the session, and `%replay` steps the run a witness records.
+Under `%engine all`, `%action` searches once any of them is set — the checker beside the
+exploration, `states=<n>` being the one figure each bounds in its own unit — and steps again
+once every one is `off`:
 
 ```text
 sysml> %engine check
@@ -142,6 +145,33 @@ schedule: replay:witnesses/Mission.race-x-1.witness
 Use %action or %state to start the run the witness records, then %step or %continue
 sysml> %action Mission::race
 ✓ Started action executor for "Mission::race"
+```
+
+`%engine smt` puts the action to the symbolic engine instead, which
+decides the `%check-property` constraints over every schedule and every value of the free
+inputs with an SMT solver — the CLI's
+[`-engine smt`](cli.md#deciding-a-property-over-the-inputs): `%check-input` frees a feature the
+model binds, `%check-assume` narrows the initial states the claim ranges over, and a violation's
+witness names the values the solver chose and replays through `%replay` with them pinned:
+
+```text
+sysml> %engine smt
+engine: smt
+sysml> %check-property Gate::open::positive
+check-property: Gate::open::positive
+sysml> %check-input limit
+check-input: limit
+sysml> %action Gate::open
+✗ Action Gate::open: at step 0: requirement positive: require condition evaluated to false: n + limit > 0
+  inputs: n = 1, limit = -1
+  standing: violated (witnessed: witness of 1 input replayed, inputs chosen from their domains: limit = -1)
+sysml> %check-assume Gate::open::wide
+check-assume: Gate::open::wide
+sysml> %action Gate::open
+✓ Action Gate::open: holds
+  inputs: n = 1, limit : Integer free
+  assumed: constraint wide
+  standing: holds (proved over schedules and inputs: inputs free in their domains: limit : Integer free, assumed constraint wide)
 ```
 
 A check leaves no debugging session behind — `%step` after it reports no active session — and

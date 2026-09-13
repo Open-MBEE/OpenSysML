@@ -365,7 +365,7 @@ printed with a *proved* verdict, and none is ever silently exceeded:
 
 | Bound | Default | Flag | What happens at it |
 |-------|---------|------|--------------------|
-| Moves `k` | 40 | `-check-moves N` | A schedule longer than `k` is not covered. A schedule that has not completed or stuttered by move `k` sets `cut_k`; a *proved* verdict with `cut_k` satisfiable is downgraded to *no violation within k moves*, distinctly named |
+| Moves `k` | 40 | `-check-depth N` (the explicit engine's depth flag; the two bounds mean the same) | A schedule longer than `k` is not covered. A schedule that has not completed or stuttered by move `k` sets `cut_k`; a *proved* verdict with `cut_k` satisfiable is downgraded to *no violation within k moves*, distinctly named |
 | Loop unrolling `L` | 4 per body `Loop` statement | `-check-unroll N` | A body `Loop` (`while`/`for` inside one node, run within one move) is unrolled `L` times; an iteration past `L` sets the loop's flag; same downgrade. Loops through the graph (a merge back edge) are not unrolled: they are moves, bounded by `k` |
 | Token slots `T`, bus slots `M` | computed from the graph and `k` | — | Never hit by construction; reported for the record |
 | Heap `N` (later stage) | — | `-check-objects N` | An allocation past `N` refuses the query |
@@ -437,29 +437,30 @@ for one. This is a later stage in any case; the bounded verdict is what ships fi
 ## User surface
 
 The flags of the explicit note, with the engine selected and the inputs and bounds this design
-adds. Absent `-check-engine`, `explore` is used, as it is today; `smt` needs a solver on the
-path and refuses with the SMT layer's existing error otherwise; `both` runs the solver and
-confirms every witness *and* every proof with an exhaustive `explore` where its budget allows,
-which is the referee run a review would ask for.
+adds. The engine is the framework's `-engine`: absent, `auto` ranks the covering engines as
+the framework note says; `smt` needs a solver on the path and refuses with the SMT layer's
+existing error otherwise; `all` runs every covering engine, so the solver's answer stands
+beside `check`'s or its refusal, which is the referee run a review would ask for.
 
 ```
 sysml plant.sysml -instantiate Plant::reactor \
-    -check-action "Plant::Reactor::regulate reactor" -check-engine smt \
-    -requirement Plant::MaxPressure \
+    -action "Plant::Reactor::regulate reactor" -engine smt \
+    -check-property Plant::MaxPressure \
     -check-input inletTemp -check-assume Plant::EnvelopeLimits \
     -check-sensitive pressure \
-    -check-moves 40 -check-unroll 4
+    -check-depth 40 -check-unroll 4
 ```
 
 | Flag | Meaning |
 |------|---------|
-| `-check-engine explore\|smt\|both` | The engine; `explore` is the default and today's behavior |
+| `-engine auto\|explore\|check\|smt\|all` | The engine, as the framework spells it; `auto` is the default |
+| `-check-property <condition>` | The requirement or constraint to hold at every state; repeatable |
 | `-check-input <feature>` | Leave the feature free in its declared domain; repeatable. Absent, every unbound input is free and every bound one is pinned |
 | `-check-assume <constraint>` | Assume a constraint over the initial state; repeatable |
-| `-check-sensitive <feature>` | Ask the two-copy query for the feature; repeatable; absent with `-check-engine smt`, every feature the behavior writes |
-| `-check-moves`, `-check-unroll`, `-check-timeout` | The bounds |
+| `-check-sensitive <feature>` | Ask the two-copy query for the feature; repeatable; absent with `-engine smt`, every feature the behavior writes (stage 3) |
+| `-check-depth`, `-check-unroll`, `-check-timeout` | The bounds: moves `k`, loop unrolling `L`, solver time |
 | `-check-witness <dir>` | Write each witness as a replayable trace file |
-| `-schedule replay:<file>` | The replay policy: follow a witness move for move, then behave as `reverse` if it runs out. Refused when a move in the file is not enabled at that point, naming the move — a witness that cannot be followed is never silently resolved |
+| `-schedule replay:<file>` | The replay policy: fix the witness's inputs, then follow it move for move, then behave as `reverse` if it runs out. Refused when a move in the file is not enabled at that point, naming the move, or when an input names a feature the behavior does not have — a witness that cannot be followed is never silently resolved |
 
 `-json` carries `engine`, `verdict` (`proved`, `bounded`, `violated`, `sensitive`, `not-covered`),
 `bounds` (each with its value and whether it could be reached), `inputs` (each with its domain
@@ -467,7 +468,22 @@ and, for a witness, its value), `witness` and `replay` (the command), and `reaso
 *not covered*. The REPL gains `%check-action … engine=smt` with the same words, and `%replay
 <witness>` from the explicit note walks a solver witness in the debugger exactly as it walks an
 explored one. The wire and the clients gain the engine as an option of the existing exploration
-request once the CLI surface has settled, advertised as a capability of its own.
+request once the CLI surface has settled, advertised as a capability of its own; that is still
+deferred, no stage so far touching the wire.
+
+The witness file is the one the explicit note's `replay:` policy reads, one line per move, and
+opens with the inputs the solver chose when the witness fixes any:
+
+```
+input inletTemp = 399.5
+input mode = Plant::Mode::Fast
+step 3: 2@heat first of 2@heat, 3@vent
+```
+
+An `input` line spells the value as the notation does — an integer, a rational as `-1.0`, a
+Boolean, an enumeration or variation value by its qualified constructor — and is evaluated and
+fixed before the action's defaults, through the same path a caller's inputs take. A file with
+no `input` line is a stage-1 or `check` witness and replays as before.
 
 Solver requirements are stated through the capability model: the query needs `CapModels`,
 `CapDatatypes` (nodes, slots and choices are finite datatypes) and therefore
@@ -543,20 +559,73 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    *over exact arithmetic*, because a violation that exists only after `float64` rounding has
    no witness to replay. State zero is the values the started performance holds — the inputs
    the question's `Start` supplies ahead of the defaults the action declares. The engine is
-   **not registered in `analysis.Default()`** yet: `auto` picks the strongest covering engine,
-   so registering it would route today's `-schedule explore -requirement …` through the solver
-   and change output before the framework's surface stage allows it. It is reached through
-   `analysis.NewRegistry()` in its tests and in the referee harness (`referee_test.go`), whose
-   comparison against `explore` is checks 1–3; a small
-   follow-up adds it to `Default()` and makes it `-engine smt`. Checks 1–3 run over every
-   corpus action case with `outcomes` whose body encodes and record the rest as *refused*; no
+   **registered in the build's registry**, `engines.Default()` (`internal/core/engines`), which
+   composes `analysis.Default()` — the framework's own engines, which `smt` imports and so cannot
+   be constructed from — with `smt`; the CLI, REPL and gRPC service build that registry at
+   startup, so `-engine smt` and `%engine smt` reach it, and `-engines`, `%engines` and
+   `ListEngines` list it with its solver as its status (*not covered: no solver* in a plan when
+   none is found); no wire request asks `holds`, so over gRPC it is listed and not reached. It
+   is registered at its authority, *proved*, and ranks ahead of `check` for a `holds` question
+   under `auto`; since `holds` is asked only under `-engine check`, `-engine smt` or `-engine
+   all` with a `-check-*` flag, never under `auto`, registration moved no verdict, plan line or
+   golden and made no output depend on a solver being installed — what moved is the engine
+   listings (a sixth engine) and the self-model's engine count. A surface that later asks
+   `holds` without naming an engine will reach `smt` first; ranking it below `check` instead is
+   a one-line change in `engines.register` should that be wanted. The referee harness
+   (`referee_test.go`) compares it against `explore`: checks 1–3 run over every corpus action
+   case with `outcomes` whose body encodes and record the rest as *refused*; no
    corpus action case names a requirement, so check 3's requirement side is over pinned referee
    models (`discipline_test.go`). Check 4, the randomized graphs, is not built. Every solver test
    skips with a named reason without a solver and fails under `OPENSYSML_REQUIRE_SMT=1`. Test
-   layers 1–3, 6 and 7 of the contract are met for these constructs; layers 4 and 5 and the
+   layers 1–3, 6 and 7 of the contract are met for these constructs; layer 5 and the
    k-induction sentences of layer 3 are later stages.
 2. **Free inputs.** `-check-input`, `-check-assume`, domains from declared types, input values in
-   witnesses. Test layer 4.
+   witnesses. Test layer 4. *Implemented:* `Encode` takes the features the started performance
+   holds and the names to release (`input.go`, `encode.go`): a feature the model binds — a
+   default, a value the performer holds, a value the question's `Start` fixed — is pinned in
+   `s_0` as before, and is checked against its declared domain there, so a default outside it
+   is a failed start rather than a silent state; a feature the model leaves unbound, or one
+   `-check-input` names, is a variable of `s_0` ranging over its sort narrowed by the declared
+   type: `Boolean`; `Integer` within the interpreter's `int64`, since a value beyond it has
+   nothing to replay; `Natural` as `Integer ≥ 0`; `Real`, `Rational` and a quantity type over
+   them as the solver's reals; an enumeration or variation as its constructors. A declared type
+   the translator gives no sort — `String`, a collection, an object-valued feature, a type
+   without a translation — is `analysis.DomainError` naming the feature and the type, before any
+   query, and the verdict is *not covered*; a released name that is no feature of the action, or
+   one the action writes back rather than reads, is `analysis.InputError` naming it. The
+   performing object's own features are not encoded (stage 6), so releasing one is refused as no
+   feature of the action. `-check-assume` names constraints and requirements; each is translated
+   as a condition (`Encoding.Assume`, `property.go`) and asserted over `s_0`, one the translator
+   refuses refusing the question before any query; the first query asks whether the assumptions
+   admit an initial state at all, and an assumption set that admits none is *not covered:
+   assumptions admit no initial state* — never *proved*, since `unsat` over no initial state
+   establishes nothing about the model. The question carries what the asker fixes or frees:
+   `HoldsAsk.Inputs` (the releases) and `HoldsAsk.Assume`, with `FreeInputs` set when either is
+   given; which inputs the model leaves unbound is what the engine finds, reported per input in
+   `Result.Inputs` (name, type, domain, free or its value) with `Result.Assumptions`, and the
+   answered question's `Free` gains `FreeInputs` when any input ranged, so the standing reads
+   *proved over schedules and inputs: inputs free in their domains: …, assumed …* for a proof
+   and *inputs chosen from their domains: …* for a witness, against `explore`'s and `check`'s
+   *inputs as written*. `-json` carries `inputs` and `assumptions` on the result and the chosen
+   `inputs` on the witness. A `sat` model's free inputs are decoded to `runtime.InputTaken`
+   (`witness.go`), spelled as the notation does — rationals exactly, constructors qualified —
+   and replayed with the moves under `replay:`: the witness file opens with `input <feature> =
+   <value>` lines ahead of the `choice` lines, `runtime.ReplayOf` fixes them through the path a
+   caller's inputs take (`ActionExecutor.bindInputs`, ahead of the defaults), an input naming a
+   feature the behavior lacks or that cannot be set is `runtime.WitnessInputError` naming it,
+   and a witness whose inputs cannot be set or that does not reach the state it claims is *not
+   covered* in the interpreter's favor, as moves are; a file with no `input` line replays as in
+   stage 1. `Budget.Unroll` is the loop bound `L` (`analysis.DefaultUnroll`, 4, when zero),
+   `-check-unroll` sets it, and `k` is the shared `-check-depth`; `-check-input`,
+   `-check-assume` and `-check-unroll` sit on the `check` engine's flag struct, and
+   `-check-witness` writes an `smt` witness with its inputs as it writes a `check` one.
+   Referee check 4 (`TestRefereeInputs`) explores the layer-4 models with a violated witness's
+   inputs pinned and requires the violation reproduced; the corpus cases pin every input, so
+   their fourth column is zero. Layer 4 is met; layer 6 gains the enumeration-domain and
+   real-input queries. Bodies performing a `tool:<name>` engine stay refused, so the framework
+   note's `smt` clause on tool outputs does not yet apply. The engine is in the build's registry
+   as stage 1 now says; a wire request that asks `holds` and its client option stay deferred
+   until the CLI surface has settled, so the gRPC service lists `smt` but no request reaches it.
 3. **Sensitivity.** The two-copy query, the diverging pair, `-check-sensitive`. Test layer 5.
 4. **Clock, messages and nested flows.** `now` and due times, the bounded bus, performed actions
    as nested slots, so the whole action fragment the runtime executes is covered. The corpus's
