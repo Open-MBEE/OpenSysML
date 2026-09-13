@@ -211,8 +211,9 @@ in both directions, `jsonrpc` member included.
 What the host reads is bounded, because the process is not this repository's. One line longer
 than `OPENSYSML_TOOL_MAX_OUTPUT` (new, default 64 MiB; it bounds a tool's single answer under
 the tool protocol too) is a protocol break: the session ends and the result is *not covered* naming
-the size. A `witness` is written to disk only after the line that carried it passed that bound,
-so the host's disk use per result is bounded by the same number. `progress` notifications are
+the size; so is more than that written to standard error, which the process is ended for. A
+`witness` is written to disk only after the line that carried it passed that bound, so the
+host's disk use per result is bounded by the same number. `progress` notifications are
 read as they arrive and coalesced: the coordinator keeps the latest per `run` and prints at the
 rate it prints its own progress, so an engine that sends one per state costs the pipe, not the
 report. The `memory` budget is passed to the engine as a number to honor and is not enforced by
@@ -294,7 +295,7 @@ engine would answer differently) from a reason particular to one engine (*not co
 |---------|--------|
 | the process does not start, or `describe` disagrees with the manifest | `Covers` refuses: *not covered: engine 'spin-bridge' at /opt/… did not start (exit 127)*; `-engines -probe` reports the same; plain `-engines`, which spawns nothing, shows only what the file can tell |
 | `covers: false` | *not covered* with the engine's reason, in the plan; `auto` advances |
-| a line that is not JSON, a missing `jsonrpc` or `id`, a field of the wrong type, a line over `OPENSYSML_TOOL_MAX_OUTPUT`, a witness of the wrong kind for the question, a result whose `claim` and `strength` are not a pair the framework admits | *not covered: engine 'spin-bridge' broke protocol: …*, the session ended; `auto` advances |
+| a line that is not JSON, a missing `jsonrpc` or `id`, a field of the wrong type, an `error` code outside the three, a line or standard error over `OPENSYSML_TOOL_MAX_OUTPUT`, a witness of the wrong kind for the question, a result whose `claim` and `strength` are not a pair the framework admits | *not covered: engine 'spin-bridge' broke protocol: …*, the session ended; `auto` advances |
 | the process exits during a `run`, or the deadline passes without an answer to `cancel` | *not covered* with the exit status or the bound; `auto` advances |
 | an `error` answer | *not covered* with its `code` and `message` |
 | a witness that fails replay or evaluation | *not covered: engine 'spin-bridge' reports a violation; its witness does not replay (move 3, 2@vent is not enabled)*, *… reports a violation at move 5; its schedule replays and `maxPressure` holds there*, *… reports sensitive; both schedules replay and `x` is 1 under each*, or *… reports satisfiable; at its assignment `x > 3` evaluates false* — the framework's rule, never *violated*, *sensitive* or *satisfiable* |

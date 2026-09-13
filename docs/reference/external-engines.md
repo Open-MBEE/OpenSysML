@@ -123,7 +123,8 @@ ends it when the plan ends, so an engine that loads a formalism pays once per pl
 Messages are JSON-RPC 2.0 objects, one per line, over the process's standard input and output.
 Every message carries `"jsonrpc": "2.0"`; a request carries a numeric `id` its answer repeats; a
 notification carries none and gets no answer. Standard error is captured up to
-`OPENSYSML_TOOL_MAX_OUTPUT` and printed with a *not covered* reason, never parsed.
+`OPENSYSML_TOOL_MAX_OUTPUT` and printed with a *not covered* reason, never parsed; an engine
+that writes more than that to standard error is ended as a protocol break naming the bound.
 
 | Message | From | Params | Answer |
 |---------|------|--------|--------|
@@ -271,7 +272,7 @@ stops the plan:
 |---------|--------|
 | the process does not start, exits before `describe`, or its `describe` disagrees with the manifest | the engine refuses the question: `engine "spin-bridge" at /opt/… did not start (exit status 127: <its standard error>)`, `engine "spin-bridge" did not answer describe within 10s (OPENSYSML_TOOL_TIMEOUT)`, or the field named; `-engines -probe` reports the same; plain `-engines` shows what the file can tell |
 | `covers: false` | *not covered* with the engine's reason |
-| a line that is not JSON, a missing `jsonrpc` or `id`, an `id` no request carries, a member of the wrong type, a line over `OPENSYSML_TOOL_MAX_OUTPUT`, a result whose `claim` and `strength` are not a pair the framework admits, a witness of the wrong kind or count for the question (`a sensitive result's witness is two schedules, not 1`) | *not covered* `engine "spin-bridge" broke protocol: …`; the session ends |
+| a line that is not JSON, a missing `jsonrpc` or `id`, an `id` no request carries, a member of the wrong type, an `error` whose `code` is not `unsupported`, `budget` or `internal`, a line or the whole of standard error over `OPENSYSML_TOOL_MAX_OUTPUT`, a result whose `claim` and `strength` are not a pair the framework admits, a witness of the wrong kind or count for the question (`a sensitive result's witness is two schedules, not 1`) | *not covered* `engine "spin-bridge" broke protocol: …`; the session ends |
 | the process exits during a `run` | *not covered* `engine "spin-bridge" at /opt/… exited during a request (exit status 137: <its standard error>)`, with the last `progress` |
 | the deadline passes and `cancel` is not answered within `OPENSYSML_TOOL_TIMEOUT` | *not covered* `engine "spin-bridge" did not answer cancel within 10s (OPENSYSML_TOOL_TIMEOUT); the process was ended`, with the last `progress` |
 | an `error` answer | *not covered* with its `code` and `message` |

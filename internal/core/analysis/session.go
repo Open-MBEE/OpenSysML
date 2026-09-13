@@ -21,8 +21,9 @@ import (
 var ErrProtocol = errors.New("engine broke protocol")
 
 // ProtocolError reports a line the host could not take as a message: not JSON, no jsonrpc
-// member, no id, a member of the wrong type, a line over the output bound, a witness of the
-// wrong kind. The session is ended with it.
+// member, no id, a member of the wrong type, an error code outside the protocol's, a line or
+// standard error over the output bound, a witness of the wrong kind. The session is ended
+// with it.
 type ProtocolError struct {
 	Engine string
 	Detail string
@@ -331,7 +332,7 @@ func startSession(entry EngineEntry, limit int, timeout time.Duration) (*session
 	s.cmd = exec.Command(entry.Executable, entry.Command[1:]...) // #nosec G204 -- the manifest names the command
 	s.cmd.Dir = entry.Dir
 	ownProcessGroup(s.cmd)
-	s.stderr = newBoundedBuffer(limit, nil)
+	s.stderr = newBoundedBuffer(limit, s.stderrOver)
 	s.cmd.Stderr = s.stderr
 	stdin, err := s.cmd.StdinPipe()
 	if err != nil {
@@ -352,6 +353,12 @@ func startSession(entry EngineEntry, limit int, timeout time.Duration) (*session
 		return nil, err
 	}
 	return s, nil
+}
+
+// stderrOver ends the session of an engine that wrote more than the bound to standard error.
+// It runs from the process's own copier, so the end that waits for it is taken elsewhere.
+func (s *session) stderrOver() {
+	go s.end(s.broke(fmt.Sprintf("wrote more than %d bytes to standard error (%s)", s.limit, OutputLimitEnv)))
 }
 
 // notStarted is the error of a process that never ran.
@@ -691,8 +698,14 @@ func (s *session) take(line []byte) error {
 	if (msg.Result == nil) == (msg.Error == nil) {
 		return s.broke(fmt.Sprintf("the response to %d carries neither result nor error, or both", id))
 	}
-	if msg.Error != nil && msg.Error.Code == "" {
-		return s.broke(fmt.Sprintf("the error answering %d carries no code", id))
+	if msg.Error != nil {
+		switch msg.Error.Code {
+		case "":
+			return s.broke(fmt.Sprintf("the error answering %d carries no code", id))
+		case enginewire.CodeUnsupported, enginewire.CodeBudget, enginewire.CodeInternal:
+		default:
+			return s.broke(fmt.Sprintf("the error answering %d carries the code %q, not one of the protocol's", id, msg.Error.Code))
+		}
 	}
 	s.mu.Lock()
 	reply, ok := s.pending[id]

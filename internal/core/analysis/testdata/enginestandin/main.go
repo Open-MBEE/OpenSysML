@@ -54,6 +54,7 @@ const (
 	ModeErrorBudget         = "error-budget"
 	ModeErrorInternal       = "error-internal"
 	ModeErrorNoCode         = "error-no-code"
+	ModeErrorUnknownCode    = "error-unknown-code"
 	ModeNotJSON             = "not-json"
 	ModeWrongJSONRPC        = "wrong-jsonrpc"
 	ModeNoID                = "no-id"
@@ -67,6 +68,7 @@ const (
 	ModeProgressUnknownRun  = "progress-unknown-run"
 	ModeOverflow            = "overflow"
 	ModeStderr              = "stderr"
+	ModeStderrFlood         = "stderr-flood"
 	ModeSlowRun             = "slow-run"
 )
 
@@ -268,6 +270,8 @@ func (e *engine) run(id json.RawMessage, p enginewire.RunParams) {
 		fault(enginewire.CodeInternal)
 	case ModeErrorNoCode:
 		raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"error":{"message":"no code"}}`)
+	case ModeErrorUnknownCode:
+		raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"error":{"code":"unsuported","message":"misspelt"}}`)
 	case ModeNotJSON:
 		raw(`this is not JSON`)
 	case ModeWrongJSONRPC:
@@ -290,6 +294,10 @@ func (e *engine) run(id json.RawMessage, p enginewire.RunParams) {
 		raw(`{"jsonrpc":"2.0","method":"log","params":{"text":"hello"}}`)
 	case ModeProgressUnknownRun:
 		e.notify(enginewire.MethodProgress, enginewire.ProgressParams{ID: runID + 1000, Runs: 1})
+	case ModeStderrFlood:
+		for {
+			fmt.Fprintln(os.Stderr, strings.Repeat("x", 1<<16))
+		}
 	case ModeOverflow:
 		raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"result":{"claim":"none","strength":"not covered","reason":"` + strings.Repeat("x", 1<<20) + `"}}`)
 	case ModeSlowRun:

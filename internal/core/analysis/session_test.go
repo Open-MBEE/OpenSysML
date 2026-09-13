@@ -206,6 +206,7 @@ func TestSessionProtocolBreaksEndTheSession(t *testing.T) {
 		{"result-and-error", "neither result nor error, or both"},
 		{"neither", "neither result nor error, or both"},
 		{"error-no-code", "no code"},
+		{"error-unknown-code", `code "unsuported", not one of the protocol's`},
 		{"engine-request", "takes no requests"},
 		{"unknown-notification", "takes progress alone"},
 		{"progress-unknown-run", "no open request"},
@@ -241,6 +242,28 @@ func TestSessionLineOverTheBoundEndsTheSession(t *testing.T) {
 	_, err = runOnce(context.Background(), s, nil)
 	if !errors.Is(err, ErrProtocol) || !strings.Contains(err.Error(), OutputLimitEnv) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// Standard error over the output bound ends the process and the session, naming the bound.
+func TestSessionStderrOverTheBoundEndsTheSession(t *testing.T) {
+	t.Setenv(engineStandinMode, "stderr-flood")
+	s, err := startSession(standinEntry(t), 64<<10, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.close)
+	_, err = runOnce(context.Background(), s, nil)
+	if !errors.Is(err, ErrProtocol) || !strings.Contains(err.Error(), "standard error") || !strings.Contains(err.Error(), OutputLimitEnv) {
+		t.Fatalf("got %v", err)
+	}
+	if s.alive() {
+		t.Fatal("the session is still alive after standard error passed the bound")
+	}
+	select {
+	case <-s.waited:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the process is still running after standard error passed the bound")
 	}
 }
 
