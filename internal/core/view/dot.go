@@ -149,11 +149,15 @@ const (
 // dotNodeDefaults and dotEdgeDefaults are the `node` and `edge` statements the
 // digraph opens with; a node or edge lists only what it deviates in.
 var (
-	dotNodeDefaults = []string{"shape=box", "style=filled", "fillcolor=white", "color=" + dotQuote(dotLineColor),
-		"fontname=" + dotQuote(dotFontName), fmt.Sprintf("fontsize=%d", dotFontSize), "penwidth=0.5"}
-	dotEdgeDefaults = []string{"color=" + dotQuote(dotLineColor), "fontname=" + dotQuote(dotFontName),
+	dotNodeDefaults = []string{"shape=box", "style=filled", "fillcolor=white", dotColorAttr(dotLineColor),
+		dotFontAttr(dotFontName), fmt.Sprintf("fontsize=%d", dotFontSize), "penwidth=0.5"}
+	dotEdgeDefaults = []string{dotColorAttr(dotLineColor), dotFontAttr(dotFontName),
 		fmt.Sprintf("fontsize=%d", dotEdgeFontPts), "penwidth=1"}
 )
+
+// dotColorAttr and dotFontAttr are the quoted `color` and `fontname` attributes.
+func dotColorAttr(color string) string { return "color=" + dotQuote(color) }
+func dotFontAttr(name string) string   { return "fontname=" + dotQuote(name) }
 
 // dotControlKinds are the kinds drawn as control and pseudo-state nodes: they
 // keep the black-and-white rules and a square shape under every palette.
@@ -244,7 +248,7 @@ func dotClusterName(id string) string { return "cluster_" + id }
 // when one is stated, `compound` when an edge is clipped at a cluster, and the
 // pixel scale when a node is positioned.
 func (w *dotWriter) graphAttributes(direction Direction) []string {
-	attrs := []string{"fontname=" + dotQuote(dotFontName)}
+	attrs := []string{dotFontAttr(dotFontName)}
 	if direction != "" {
 		attrs = append(attrs, "rankdir="+string(direction))
 	}
@@ -347,7 +351,7 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		if w.dotFilled(node) {
 			color := w.dotFamilyColor(node)
 			attrs = append(attrs, "fillcolor="+dotQuote(paletteFill(color, !isDefinitionKind(node.Kind))),
-				"color="+dotQuote(color), "penwidth=1")
+				dotColorAttr(color), "penwidth=1")
 		}
 		attrs = append(attrs, dotLabel(node))
 	}
