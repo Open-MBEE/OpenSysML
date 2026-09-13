@@ -804,8 +804,9 @@ required upgrade rather than failing on an unimplemented method.
 
 Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen as `sysml -engine`
 chooses it: `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`,
-`run_analysis`, `explore_analysis` and `run_sweep` take `engine=` — `"auto"` (the default, the
-service picks), `"all"` (every engine that covers the question, composed) or one by name. A
+`run_analysis` and `run_sweep` take `engine=` — `"auto"` (the default, the service picks),
+`"all"` (every engine that covers the question, composed) or one by name; `explore_analysis`
+takes a `schedule=` instead and leaves the engine to the service. A
 name the service does not register raises `InvalidRequestError` listing the ones it does, and
 an engine that does not cover the question answers a verdict with `error` set (`check does not
 answer evaluate questions`) rather than a false one. `Connection.list_engines()` reports the
