@@ -1,0 +1,71 @@
+@startuml
+' FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide empty description
+state "**Flows::Drive**\n<size:10>//«action def»//</size>" as n0 <<action def>> {
+  state "**start**\n<size:10>//«initial»//</size>" as n1 <<start>>
+  state "**provide : Provide**\n<size:10>//«action»//</size>" as n2 <<action>> <<usage>>
+  state "**monitor**\n<size:10>//«action»//</size>\nown flow" as n3 <<action>> <<usage>> {
+    state "**begin**\n<size:10>//«initial»//</size>" as n5 <<start>>
+    state "**record**\n<size:10>//«action»//</size>" as n6 <<action>> <<usage>>
+  }
+  state "**tally**\n<size:10>//«action»//</size>" as n7 <<action>> <<usage>>
+  state "**split**\n<size:10>//«fork»//</size>" as n8 <<fork>>
+  state "**sync**\n<size:10>//«join»//</size>" as n9 <<join>>
+  state "**done**\n<size:10>//«final»//</size>" as n10 <<end>>
+  state "**park**\n<size:10>//«action»//</size>" as n11 <<action>> <<usage>>
+  state "**check**\n<size:10>//«decision»//</size>" as n12 <<choice>>
+}
+n5 --> n6
+n1 --> n8
+n2 --> n9
+n2 -[dashed]-> n3 : torque to reading
+n3 --> n9
+n7 --> n9
+n8 --> n2
+n8 --> n3
+n8 --> n7
+n9 --> n12
+n11 --> n10
+n12 --> n10 : [speed <U+003E> 0]
+n12 --> n11
+@enduml

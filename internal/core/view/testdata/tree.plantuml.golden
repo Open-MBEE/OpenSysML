@@ -1,0 +1,59 @@
+@startuml
+' VehicleViews::vehicleView — tree rendering
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "**Vehicles::Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>
+class "**engine : Engine**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+n0 -- n1
+class "**wheels : Wheel**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
+n0 -- n2
+class "**connect**" as n3 <<connect>> <<usage>>
+n0 -- n3
+class "**VehicleViews::vehicleView::engineSubview**\n<size:10>//«view»//</size>" as n4 <<view>> <<usage>>
+class "**Vehicles::Engine**\n<size:10>//«part def»//</size>" as n5 <<part def>>
+class "**power**\n<size:10>//«attribute»//</size>" as n6 <<attribute>> <<usage>>
+n5 -- n6
+class "**cylinder : Cylinder**\n<size:10>//«part»//</size>" as n7 <<part>> <<usage>>
+n5 -- n7
+n4 -- n5
+@enduml

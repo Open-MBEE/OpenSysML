@@ -31,6 +31,9 @@ const (
 	OpDelete
 	// OpAddConnection inserts a connector-like usage joining two features.
 	OpAddConnection
+	// OpMove re-parents a declaration: the span OpDelete removes is written
+	// where OpAddMember inserts, and the references it breaks are respelled.
+	OpMove
 )
 
 // Operation is one change to make to a model's source.
@@ -57,6 +60,8 @@ type Operation struct {
 	From    string
 	To      string
 	Cascade bool
+	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
+	NewOwner string
 }
 
 // SetValue is an operation setting target's value to the expression value.
@@ -84,6 +89,11 @@ func Delete(target string, cascade bool) Operation {
 // name may be empty for an anonymous connection.
 func AddConnection(owner, kind, from, to, name string) Operation {
 	return Operation{Kind: OpAddConnection, Owner: owner, MemberKind: kind, From: from, To: to, MemberName: name}
+}
+
+// Move is an operation making target a member of newOwner, "" for the root.
+func Move(target, newOwner string) Operation {
+	return Operation{Kind: OpMove, Target: target, NewOwner: newOwner}
 }
 
 // Model is a parsed model to edit: the source that was read, its parse, and the
@@ -407,9 +417,13 @@ func (sp splice) document(own string) string {
 	return sp.doc
 }
 
-// splicesFor turns one operation into the byte ranges it rewrites. A rename and
-// a cascading delete reach more than one span; every other operation reaches one.
+// splicesFor turns one operation into the byte ranges it rewrites. A rename, a
+// cascading delete and a move reach more than one span; every other operation
+// reaches one.
 func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
+	if op.Kind == OpMove {
+		return m.moveSplices(i, op)
+	}
 	if op.Kind == OpAddMember {
 		sp, err := m.addMemberSplice(i, op)
 		if err != nil {

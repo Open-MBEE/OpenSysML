@@ -65,6 +65,8 @@ export interface RenderNode {
   parent?: string;
   /** The qualified name a model edit targets the declaration by; absent for a node with none in this document. */
   fqn?: string;
+  /** The keyword the declaration was written with (`part def`, `port`); with `fqn`. A move asks its new owner to admit it. */
+  notation?: string;
   /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
   owners?: RenderOwner[];
   origin?: RenderOrigin;
@@ -117,7 +119,7 @@ export interface EditPalette {
   connections: string[];
   /** The members that take a type. */
   typed: string[];
-  /** For each member only some bodies offer (`subject`), the ids of the nodes that open one. */
+  /** For each member only some bodies offer (`subject`), and each drawn notation that is one, the ids of the nodes that open one. */
   owners?: Record<string, string[]>;
 }
 
@@ -133,7 +135,8 @@ export type ModelEditOperation =
   | { kind: "rename"; target: string; newName: string }
   | { kind: "addMember"; owner: string; memberKind: string; name: string; type?: string; multiplicity?: string; value?: string; specializes?: string[] }
   | { kind: "addConnection"; owner: string; memberKind: string; from: string; to: string; name?: string; type?: string }
-  | { kind: "delete"; target: string; cascade?: boolean };
+  | { kind: "delete"; target: string; cascade?: boolean }
+  | { kind: "move"; target: string; owner: string };
 
 export interface ApplyModelEditParams {
   textDocument: { uri: string };
@@ -245,7 +248,8 @@ export type EditAction =
   | { kind: "addMember"; memberKind: string; typed: boolean; owner?: string }
   | { kind: "addConnection"; connectionKind: string; from?: string; to?: string }
   | { kind: "rename"; id: string }
-  | { kind: "delete"; id: string };
+  | { kind: "delete"; id: string }
+  | { kind: "move"; id: string };
 
 /** A message the webview sends the extension; `version` is the rendering an action's ids name. */
 export type FromWebview =

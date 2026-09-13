@@ -83,6 +83,31 @@ func TestHTMLDiagramDotForm(t *testing.T) {
 	}
 }
 
+// TestHTMLDiagramPlantUMLForm checks a PlantUML render writes each diagram as
+// its source in a pre element classed by the form, the palette as fills, and
+// the sequence DOT refuses.
+func TestHTMLDiagramPlantUMLForm(t *testing.T) {
+	got := renderedFigureForm(t, "Chain", graphRendering(view.KindState), view.DirectionLeftRight, view.FormPlantUML)
+	for _, want := range []string{`data-diagram-kind="state"`, `data-direction="LR"`, `<pre class="plantuml">@startuml` + "\n&#39; state rendering", "&lt;style&gt;\n", "left to right direction\n", "n0 -[thickness=3]- n1\n", "@enduml</pre>", `<figcaption class="sysml-caption">Chain</figcaption>`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "mermaid") || strings.Contains(got, "digraph") {
+		t.Errorf("another form in a PlantUML figure:\n%s", got)
+	}
+	got = renderedFigureOptions(t, "", graphRendering(view.KindTree), view.Options{Palette: view.PaletteOkabeIto}, view.FormPlantUML)
+	if !strings.Contains(got, `data-palette="okabe-ito"`) || !strings.Contains(got, `&lt;&lt;usage&gt;&gt; #`) {
+		t.Errorf("palette not carried into the figure:\n%s", got)
+	}
+	if strings.Contains(renderedFigureForm(t, "", graphRendering(view.KindTree), "", view.FormPlantUML), "data-palette") {
+		t.Errorf("an unfilled figure carries a palette attribute")
+	}
+	if sequence := renderedFigureForm(t, "", graphRendering(view.KindSequence), "", view.FormPlantUML); !strings.Contains(sequence, `<pre class="plantuml">`) || !strings.Contains(sequence, "participant &#34;**a**") || !strings.Contains(sequence, "n0 -&gt; n1\n") {
+		t.Errorf("sequence as plantuml:\n%s", sequence)
+	}
+}
+
 // TestHTMLDiagramTableKind checks a table-kind view renders as a real table,
 // keeps its notices as comments, and explains an empty rendering.
 func TestHTMLDiagramTableKind(t *testing.T) {

@@ -52,8 +52,15 @@ const (
 	// to from a document the edit may not rewrite — one the model hands out no
 	// source for, such as a document not open in the editor or a bundled library
 	// file — so the reference could not follow. A reference from a document the
-	// edit may rewrite is followed instead.
+	// edit may rewrite is followed instead. A move respells references in its
+	// own document only, so any other document's reference refuses it.
 	FailureReferencedElsewhere
+	// FailureOwnerInsideTarget is a move whose new owner is the target itself or
+	// a declaration inside it.
+	FailureOwnerInsideTarget
+	// FailureMoveReferenced is a move leaving a reference no spelling can make
+	// reach what it reached before.
+	FailureMoveReferenced
 )
 
 var failureNames = map[Failure]string{
@@ -74,6 +81,8 @@ var failureNames = map[Failure]string{
 	FailureMemberNameTaken:     "member-name-taken",
 	FailureDeleteReferenced:    "delete-referenced",
 	FailureReferencedElsewhere: "referenced-elsewhere",
+	FailureOwnerInsideTarget:   "owner-inside-target",
+	FailureMoveReferenced:      "move-referenced",
 }
 
 // String returns the lowercase name of the failure, or "unknown".
@@ -96,8 +105,8 @@ type Error struct {
 	// Diagnosed is the source the Diagnostics' spans are offsets into: the new
 	// value's text, or the edited notation. A refusal still returns no model.
 	Diagnosed *source.SourceFile
-	// Referring names the declarations referring to a target whose delete or
-	// rename was refused, each qualified by its document when that is another.
+	// Referring names the declarations referring to a target whose delete,
+	// rename or move was refused, each qualified by its document when that is another.
 	Referring []string
 	// Referrers is Referring with each name told apart from its document, for a
 	// client that lists them by document; empty where Referring names no declaration.

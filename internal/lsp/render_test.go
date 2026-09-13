@@ -466,8 +466,8 @@ func TestRenderHonorsTheFormAsked(t *testing.T) {
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         "png",
-	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) {
-		t.Errorf("err = %v, want it to refuse the form and offer dot", err)
+	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) {
+		t.Errorf("err = %v, want it to refuse the form and offer dot and plantuml", err)
 	}
 }
 
@@ -512,6 +512,69 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	}
 }
 
+// The PlantUML form is honored for every graph-shaped view, the sequence
+// included, and is refused for a table with the forms it has.
+func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	for _, name := range []string{"KitViews::widgetTree", "KitViews::widgetParts", "KitViews::widgetStates", "KitViews::widgetActions", "KitViews::widgetSequence"} {
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         name,
+			Form:         string(view.FormPlantUML),
+		})
+		if err != nil {
+			t.Fatalf("%s as plantuml: %v", name, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		if out.Form != string(view.FormPlantUML) {
+			t.Errorf("%s: form = %q, want %q", name, out.Form, view.FormPlantUML)
+		}
+		for _, want := range []string{"@startuml\n' " + name + " — ", "<style>\n", "</style>\n", "\n@enduml\n"} {
+			if !strings.Contains(out.Artifact, want) {
+				t.Errorf("%s: artifact is missing %q:\n%s", name, want, out.Artifact)
+			}
+		}
+		if len(out.Nodes) == 0 {
+			t.Errorf("%s: the PlantUML result carries no nodes", name)
+		}
+	}
+	_, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTable",
+		Form:         string(view.FormPlantUML),
+	})
+	if err == nil || !strings.Contains(err.Error(), "not written as plantuml") {
+		t.Errorf("table as plantuml: err = %v, want the form refused", err)
+	}
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormPlantUML),
+		Palette:      string(view.PaletteOkabeIto),
+	})
+	if err != nil {
+		t.Fatalf("render plantuml with a palette: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if !strings.Contains(out.Artifact, ">> #") {
+		t.Errorf("the PlantUML artifact is not filled from the palette:\n%s", out.Artifact)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormPlantUML),
+		Palette:      "rainbow",
+	}); err == nil || !strings.Contains(err.Error(), `unknown palette "rainbow"`) {
+		t.Errorf("err = %v, want it to refuse the palette by name", err)
+	}
+}
+
 // A palette in the request fills the DOT artifact's nodes, is noted as not
 // represented in a Mermaid artifact, and an unknown one is refused by name
 // with the palettes there are.
@@ -545,7 +608,7 @@ func TestRenderFillsFromThePaletteAsked(t *testing.T) {
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
-	if !strings.Contains(out.Artifact, "%% not represented: palette viridis; only the DOT form fills nodes by keyword family") {
+	if !strings.Contains(out.Artifact, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
 		t.Errorf("Mermaid does not note the palette:\n%s", out.Artifact)
 	}
 	_, err = call(t, s, MethodRender, &renderParams{

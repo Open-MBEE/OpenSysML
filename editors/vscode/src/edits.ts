@@ -1,14 +1,15 @@
 // How a diagram action becomes an opensysml/applyModelEdit request: owner,
 // endpoint spelling, the version it is pinned to and refusal wording. No VS
 // Code here, so it is unit-tested.
-import type {
-  ApplyModelEditParams,
-  EditPalette,
-  ModelEditOperation,
-  ModelEditRefusal,
-  RenderNode,
-  RenderOwner,
-  WorkspaceEdit,
+import {
+  admits,
+  type ApplyModelEditParams,
+  type EditPalette,
+  type ModelEditOperation,
+  type ModelEditRefusal,
+  type RenderNode,
+  type RenderOwner,
+  type WorkspaceEdit,
 } from "./protocol";
 
 /** Rendering is the diagram an action is taken on: its nodes, what they offer to add, and the document version they draw. */
@@ -54,6 +55,49 @@ export const DOCUMENT_ROOT: RenderOwner = { fqn: "", feature: false };
 /** ownersOf: the namespaces declaring node, nearest first, the document last; undefined for a node the document does not declare. */
 export function ownersOf(node: RenderNode): RenderOwner[] | undefined {
   return node.fqn === undefined ? undefined : [...(node.owners ?? []), DOCUMENT_ROOT];
+}
+
+/** Destination is a namespace a move may put a node into: a drawn node, or the document itself, which no node draws. */
+export interface Destination {
+  fqn: string;
+  node?: RenderNode;
+}
+
+/**
+ * moveDestinations lists where node may be moved, in drawing order with the document last:
+ * every declared node that admits its notation, but itself, what it declares and its present
+ * owner; the document when it admits the notation and does not already own the node.
+ */
+export function moveDestinations(node: RenderNode, rendering: Rendering): Destination[] {
+  if (node.fqn === undefined || node.notation === undefined) {
+    return [];
+  }
+  const notation = node.notation;
+  const owner = node.owners?.[0] ?? DOCUMENT_ROOT;
+  const offered = new Set<string>([node.fqn, owner.fqn]);
+  const out: Destination[] = [];
+  for (const candidate of rendering.nodes) {
+    if (candidate.fqn === undefined || offered.has(candidate.fqn) || !admits(rendering.palette, notation, candidate)) {
+      continue;
+    }
+    if (
+      candidate.owners?.some((owner) => owner.fqn === node.fqn) ||
+      ancestors(candidate, rendering.nodes).includes(node)
+    ) {
+      continue;
+    }
+    offered.add(candidate.fqn);
+    out.push({ fqn: candidate.fqn, node: candidate });
+  }
+  if (!offered.has(DOCUMENT_ROOT.fqn) && rendering.palette?.owners?.[notation] === undefined) {
+    out.push({ fqn: DOCUMENT_ROOT.fqn });
+  }
+  return out;
+}
+
+/** moveOperation is the one operation that puts node into the namespace owner names; "" is the document. */
+export function moveOperation(node: RenderNode, owner: string): ModelEditOperation | undefined {
+  return node.fqn === undefined ? undefined : { kind: "move", target: node.fqn, owner };
 }
 
 /** nameSegments splits a qualified name at `::` outside quotes: `'P::Q'::x` is two segments. */

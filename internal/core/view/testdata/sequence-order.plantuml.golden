@@ -1,0 +1,47 @@
+@startuml
+' OrderingViews::relayView — sequence rendering (view def SequenceView)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+participant "**left**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>>
+participant "**right**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+n0 -> n1 : early
+n0 -> n1 : late
+@enduml

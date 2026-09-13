@@ -1,0 +1,48 @@
+@startuml
+' VehicleSequenceViews::startVehicleView — sequence rendering (view def SequenceView)
+' not represented: the flows in perform action startVehicle are its action flow, not interaction messages; they are not shown
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+participant "**driver : Driver**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>>
+participant "**vehicle : Vehicle**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+n0 -> n1 : of ignitionCmd : IgnitionCmd
+n1 -> n0 : of es : EngineStatus
+@enduml

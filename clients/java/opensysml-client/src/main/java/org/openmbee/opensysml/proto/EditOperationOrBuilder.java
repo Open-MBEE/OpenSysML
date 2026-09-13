@@ -70,5 +70,20 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.DeleteEditOrBuilder getDeleteOrBuilder();
 
+  /**
+   * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+   * @return Whether the move field is set.
+   */
+  boolean hasMove();
+  /**
+   * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+   * @return The move.
+   */
+  org.openmbee.opensysml.proto.MoveEdit getMove();
+  /**
+   * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+   */
+  org.openmbee.opensysml.proto.MoveEditOrBuilder getMoveOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }
