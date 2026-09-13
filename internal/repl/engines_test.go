@@ -55,7 +55,9 @@ func (manifestEngine) Run(context.Context, *analysis.Model, analysis.Question, a
 	return analysis.Result{}, errors.New("not run by this test")
 }
 
-func (manifestEngine) Process() (string, error) { return "standin 1.0.0 at /opt/standin/bin/standin", nil }
+func (manifestEngine) Process() (string, error) {
+	return "standin 1.0.0 at /opt/standin/bin/standin", nil
+}
 
 func (e manifestEngine) Probe() (string, error) {
 	*e.probed++
