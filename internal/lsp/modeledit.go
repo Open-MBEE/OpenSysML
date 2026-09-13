@@ -11,6 +11,7 @@ import (
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -79,10 +80,23 @@ type modelEditRefusal struct {
 
 // editPalette lists the declarations a diagram of one rendering kind offers to
 // add, in the document's language; Typed are the Members that take a type.
+// Owners lists, for each Member only some bodies offer (`subject`), the nodes
+// whose declaration offers it; a Member absent from Owners goes into any node.
 type editPalette struct {
-	Members     []string `json:"members"`
-	Connections []string `json:"connections"`
-	Typed       []string `json:"typed"`
+	Members     []string            `json:"members"`
+	Connections []string            `json:"connections"`
+	Typed       []string            `json:"typed"`
+	Owners      map[string][]string `json:"owners,omitempty"`
+}
+
+// admit records that the node with id, declared by decl, may own the members
+// only some bodies offer.
+func (p *editPalette) admit(id string, decl ast.Node) {
+	for kind, ids := range p.Owners {
+		if modeledit.MemberKindAdmittedBy(decl, kind) {
+			p.Owners[kind] = append(ids, id)
+		}
+	}
 }
 
 // modelEditHandler dispatches opensysml/applyModelEdit and passes everything
@@ -287,18 +301,24 @@ func palette(kind view.Kind, lang source.Kind) *editPalette {
 		return nil
 	}
 	p.Typed = keep(p.Members, modeledit.MemberKindTyped)
+	for _, kind := range keep(p.Members, modeledit.MemberKindOwnerBound) {
+		if p.Owners == nil {
+			p.Owners = map[string][]string{}
+		}
+		p.Owners[kind] = []string{}
+	}
 	return p
 }
 
-// nodeFQN names the declaration a rendering node was built from, as an edit
-// targets it, or "" for a node with no named declaration in the document.
-func nodeFQN(scope *symbols.Scope, o view.Origin) string {
+// nodeSymbol is the declaration a rendering node was built from, as an edit
+// targets it, or nil for a node with no named declaration in the document.
+func nodeSymbol(scope *symbols.Scope, o view.Origin) *symbols.Symbol {
 	if scope == nil || !o.Located() {
-		return ""
+		return nil
 	}
 	sym := symbolAtOffset(scope, o.Span.Offset)
 	if sym == nil || sym.Name == "" || sym.DeclSpan.Offset != o.Span.Offset {
-		return ""
+		return nil
 	}
-	return symbols.FQNOf(sym)
+	return sym
 }

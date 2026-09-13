@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 import {
   connectionOwner,
+  describeOwner,
   describeRefusal,
   editParams,
   endpointPath,
@@ -14,6 +15,7 @@ import {
   validName,
 } from "./edits";
 import {
+  admits,
   APPLY_MODEL_EDIT_CAPABILITY,
   APPLY_MODEL_EDIT_METHOD,
   ApplyModelEditResult,
@@ -295,11 +297,11 @@ class DiagramPanel {
         textDocument,
         view: this.selected === "" ? undefined : this.selected,
       });
-      this.rendering = { nodes: result.nodes ?? [], version: result.version };
       // No palette unless the server also computes the edits it would lead to.
       if (!supportsEdit(client)) {
         delete result.palette;
       }
+      this.rendering = { nodes: result.nodes ?? [], version: result.version, palette: result.palette };
       this.post({ type: "render", result, selected: this.selected });
       this.highlightActive();
     } catch (err) {
@@ -414,8 +416,12 @@ class DiagramPanel {
     typed: boolean,
     at: string | undefined,
   ): Promise<ModelEditOperation[] | undefined> {
-    const owner = at ? ownerOf(this.node(rendering, at), rendering.nodes) : await this.ownerFromContext(rendering);
+    const owner = at ? ownerOf(this.node(rendering, at), rendering.nodes) : await this.ownerFromContext(rendering, memberKind);
     if (!owner?.fqn) {
+      return undefined;
+    }
+    if (!admits(rendering.palette, memberKind, owner)) {
+      void vscode.window.showErrorMessage(`A ${memberKind} cannot be declared in ${owner.fqn}.`);
       return undefined;
     }
     const name = await vscode.window.showInputBox({
@@ -454,13 +460,13 @@ class DiagramPanel {
       return undefined;
     }
     const owner = connectionOwner(from, to, rendering.nodes);
-    if (!owner?.fqn) {
+    if (!owner) {
       void vscode.window.showErrorMessage(`${from.name} and ${to.name} share no declaration to write the ${connectionKind} in.`);
       return undefined;
     }
     const ends = [endpointPath(from, owner, rendering.nodes), endpointPath(to, owner, rendering.nodes)];
     if (!ends[0] || !ends[1]) {
-      void vscode.window.showErrorMessage(`A ${connectionKind} needs two named features below ${owner.fqn}.`);
+      void vscode.window.showErrorMessage(`A ${connectionKind} needs two named features below ${describeOwner(owner)}.`);
       return undefined;
     }
     const name = await vscode.window.showInputBox({
@@ -473,7 +479,7 @@ class DiagramPanel {
     }
     return [{
       kind: "addConnection",
-      owner: owner.fqn,
+      owner: owner.fqn ?? "",
       memberKind: connectionKind,
       from: ends[0],
       to: ends[1],
@@ -511,13 +517,22 @@ class DiagramPanel {
     return [{ kind: "delete", target: node.fqn, cascade: cascade || undefined }];
   }
 
-  // A palette addition goes into the declaration at the cursor, else the one root, else a pick.
-  private async ownerFromContext(rendering: Rendering): Promise<RenderNode | undefined> {
+  // A palette addition goes into the declaration at the cursor, else the one root, else a pick;
+  // each only if it may own the kind.
+  private async ownerFromContext(rendering: Rendering, memberKind: string): Promise<RenderNode | undefined> {
+    const keep = (node: RenderNode) => Boolean(node.fqn) && admits(rendering.palette, memberKind, node);
     const editor = vscode.window.visibleTextEditors.find(
       (candidate) => candidate.document.uri.toString() === this.docURI.toString(),
     );
     const atCursor = editor ? ownerOf(this.nodeAt(rendering, editor.selection.active), rendering.nodes) : undefined;
-    return atCursor ?? rootOwner(rendering.nodes) ?? this.pickNode(rendering, "Add to", undefined, (node) => Boolean(node.fqn));
+    if (atCursor && keep(atCursor)) {
+      return atCursor;
+    }
+    const root = rootOwner(rendering.nodes);
+    if (root && keep(root)) {
+      return root;
+    }
+    return this.pickNode(rendering, `Add ${memberKind} to`, undefined, keep);
   }
 
   private async pickNode(

@@ -50,6 +50,27 @@ test("nodeMenu offers no edits without a palette", () => {
   assert.deepEqual(commands, [{ kind: "reveal", id: "n1" }]);
 });
 
+test("a member confined to some owners is offered on those nodes alone, and on the toolbar only when one is drawn", () => {
+  const requirement: RenderNode = { ...declared, id: "n4", kind: "requirement def", name: "Fit", fqn: "Vehicle::Fit" };
+  const confined: EditPalette = {
+    members: ["part", "subject", "objective"],
+    connections: [],
+    typed: ["part", "subject", "objective"],
+    owners: { subject: ["n4"], objective: [] },
+  };
+  const kinds = (node: RenderNode) =>
+    nodeMenu(node, confined)
+      .map((item) => item.command)
+      .filter((command) => command?.kind === "addMember")
+      .map((command) => command && "memberKind" in command && command.memberKind);
+  assert.deepEqual(kinds(requirement), ["part", "subject"]);
+  assert.deepEqual(kinds(declared), ["part"]);
+  assert.deepEqual(
+    paletteItems(confined).map((item) => item.label),
+    ["Add part…", "Add subject…"],
+  );
+});
+
 test("nodeMenu skips a section the palette leaves empty", () => {
   const items = nodeMenu(declared, { members: [], connections: [], typed: [] });
   assert.equal(items.filter((item) => item.separator).length, 1);

@@ -351,6 +351,48 @@ func TestRenderNodesCarryFQNAndPalette(t *testing.T) {
 	}
 }
 
+// Owners names, for each member only some bodies offer, the nodes that open one:
+// `subject` for the requirement and use case, `objective` for the use case alone.
+func TestRenderPaletteOwnersFollowTheDeclaration(t *testing.T) {
+	src := "package Kit {\n\tpart def Widget;\n\trequirement def Fit;\n\tuse case def Assemble;\n}\n"
+	s, docURI := renderServer(t, "kit.sysml", src)
+	out := render(t, s, docURI, "#tree")
+	ids := map[string]string{}
+	for _, n := range out.Nodes {
+		ids[n.Name] = n.ID
+	}
+	if out.Palette == nil || out.Palette.Owners == nil {
+		t.Fatalf("palette = %+v, want owners", out.Palette)
+	}
+	for kind, want := range map[string][]string{
+		"subject":     {"Kit::Fit", "Kit::Assemble"},
+		"actor":       {"Kit::Fit", "Kit::Assemble"},
+		"stakeholder": {"Kit::Fit"},
+		"objective":   {"Kit::Assemble"},
+	} {
+		got := out.Palette.Owners[kind]
+		if len(got) != len(want) {
+			t.Errorf("owners of %s = %v, want %v", kind, got, want)
+			continue
+		}
+		for _, name := range want {
+			if !contains(got, ids[name]) {
+				t.Errorf("owners of %s = %v lack %s (%s)", kind, got, name, ids[name])
+			}
+		}
+		if contains(got, ids["Kit::Widget"]) || contains(got, ids["Kit"]) {
+			t.Errorf("owners of %s = %v admit a part or package", kind, got)
+		}
+	}
+	if _, ok := out.Palette.Owners["part"]; ok {
+		t.Error("part is owner-bound")
+	}
+	// A state diagram offers no owner-bound member, so it lists no owners.
+	if p := palette(view.KindState, source.KindSysML); p.Owners != nil {
+		t.Errorf("state owners = %v", p.Owners)
+	}
+}
+
 func TestPaletteFollowsRenderingKind(t *testing.T) {
 	for _, tc := range []struct {
 		kind        view.Kind

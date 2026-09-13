@@ -264,6 +264,13 @@ func TestAddMemberDuplicateRootNamesRefuse(t *testing.T) {
 // typed by. SysML usages are typed by their own `def`.
 var memberKindTypes = map[string]string{
 	"feature": "class", "step": "behavior", "expr": "function", "bool": "predicate",
+	"subject": "part def", "actor": "part def", "stakeholder": "part def", "objective": "requirement def",
+}
+
+// memberKindOwners pairs each kind only some bodies offer with a member of P
+// whose body does; every other kind goes into P itself.
+var memberKindOwners = map[string]string{
+	"subject": "P::R", "actor": "P::R", "stakeholder": "P::R", "objective": "P::U",
 }
 
 // TestEveryMemberKindWrites drives each registered kind through the parser and
@@ -277,7 +284,7 @@ func TestEveryMemberKindWrites(t *testing.T) {
 		}
 		for _, kind := range kinds {
 			t.Run(name+"/"+kind, func(t *testing.T) {
-				src := "package P {\n    action def A {\n        action a0;\n    }\n}\n"
+				src := "package P {\n    action def A {\n        action a0;\n    }\n    requirement def R;\n    use case def U;\n}\n"
 				if lang == source.KindKerML {
 					src = "package P {\n    behavior A {\n        step s0;\n    }\n}\n"
 				}
@@ -290,6 +297,9 @@ func TestEveryMemberKindWrites(t *testing.T) {
 					}
 					src = strings.Replace(src, "package P {\n", "package P {\n    "+typeKind+" T;\n", 1)
 					op.Type = "T"
+					if owner := memberKindOwners[kind]; owner != "" {
+						op.Owner = owner
+					}
 				case !memberKinds[kind].definition && kind != "package":
 					op.Owner = "P::A"
 				}
@@ -309,6 +319,61 @@ func TestEveryMemberKindWrites(t *testing.T) {
 				}
 				requireClean(t, loadContent(t, name, got))
 			})
+		}
+	}
+}
+
+// A member only a requirement or case body offers is written into one and
+// refused, as an illegal kind naming the body it wants, for any other owner.
+func TestOwnerBoundMemberKinds(t *testing.T) {
+	for _, kind := range []string{"subject", "actor", "stakeholder", "objective"} {
+		if !MemberKindOwnerBound(kind) {
+			t.Errorf("%q is not owner-bound", kind)
+		}
+	}
+	for _, kind := range []string{"part", "requirement", "use case", "fork"} {
+		if MemberKindOwnerBound(kind) {
+			t.Errorf("%q is owner-bound", kind)
+		}
+	}
+	src := "part def Driver;\nrequirement def Goal;\npart def Car;\n" +
+		"requirement def R;\nverification def V;\nrequirement r : R;\nconcern def C;\n"
+	for _, tc := range []struct {
+		owner, kind, typ, want string
+	}{
+		{"R", "subject", "Car", "requirement def R {\n    subject added : Car;\n}"},
+		{"R", "actor", "Driver", "requirement def R {\n    actor added : Driver;\n}"},
+		{"R", "stakeholder", "Driver", "requirement def R {\n    stakeholder added : Driver;\n}"},
+		{"r", "subject", "Car", "requirement r : R {\n    subject added : Car;\n}"},
+		{"C", "stakeholder", "Driver", "concern def C {\n    stakeholder added : Driver;\n}"},
+		{"V", "subject", "Car", "verification def V {\n    subject added : Car;\n}"},
+		{"V", "actor", "Driver", "verification def V {\n    actor added : Driver;\n}"},
+		{"V", "objective", "Goal", "verification def V {\n    objective added : Goal;\n}"},
+	} {
+		m := loadContent(t, "bound.sysml", src)
+		requireClean(t, m)
+		op := AddMember(tc.owner, tc.kind, "added")
+		op.Type = tc.typ
+		res, err := Apply(m, []Operation{op})
+		if err != nil {
+			t.Fatalf("%s into %s: %v", tc.kind, tc.owner, err)
+		}
+		if got := string(res.Content); !strings.Contains(got, tc.want) {
+			t.Fatalf("%s into %s lacks %q:\n%s", tc.kind, tc.owner, tc.want, got)
+		}
+		requireClean(t, loadContent(t, "bound.sysml", string(res.Content)))
+	}
+	for _, tc := range []struct{ owner, kind, body string }{
+		{"Car", "subject", "requirement or case"},
+		{"Car", "actor", "requirement or case"},
+		{"V", "stakeholder", "requirement"},
+		{"R", "objective", "case"},
+		{"", "subject", "requirement or case"},
+	} {
+		m := loadContent(t, "bound.sysml", src)
+		e := addFailure(t, m, AddMember(tc.owner, tc.kind, "added"), FailureIllegalKind)
+		if !strings.Contains(e.Message, tc.body+" body") {
+			t.Errorf("%s into %q: message %q does not name the %s body", tc.kind, tc.owner, e.Message, tc.body)
 		}
 	}
 }

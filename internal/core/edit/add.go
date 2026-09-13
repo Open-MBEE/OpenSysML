@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -19,6 +20,7 @@ type memberKind struct {
 
 // memberKinds are the kinds an OpAddMember writes by name alone: not connectors
 // (ConnectionKinds) nor connector definitions, which need ends; `fork f;` is neither typed nor a definition.
+// A kind only some bodies offer (`subject`, `actor`) is refused for any other owner.
 var memberKinds = map[string]memberKind{
 	"package":          {languages: bothLangs},
 	"part def":         {languages: sysmlOnly, definition: true},
@@ -65,6 +67,10 @@ var memberKinds = map[string]memberKind{
 	"verification":     {languages: sysmlOnly, typed: true},
 	"use case def":     {languages: sysmlOnly, definition: true},
 	"use case":         {languages: sysmlOnly, typed: true},
+	"subject":          {languages: sysmlOnly, typed: true},
+	"actor":            {languages: sysmlOnly, typed: true},
+	"stakeholder":      {languages: sysmlOnly, typed: true},
+	"objective":        {languages: sysmlOnly, typed: true},
 	"fork":             {languages: sysmlOnly},
 	"join":             {languages: sysmlOnly},
 	"merge":            {languages: sysmlOnly},
@@ -92,6 +98,18 @@ func MemberKinds(lang source.Kind) []string {
 // MemberKindTyped reports whether an OpAddMember of kind may carry a Type.
 func MemberKindTyped(kind string) bool {
 	return memberKinds[kind].typed
+}
+
+// MemberKindOwnerBound reports whether only some bodies offer a member of kind:
+// `subject` belongs in a requirement or case, `part` anywhere.
+func MemberKindOwnerBound(kind string) bool {
+	return parser.MemberOwner(kind) != ""
+}
+
+// MemberKindAdmittedBy reports whether the body of owner, a declaration an
+// OpAddMember may name, offers a member of kind.
+func MemberKindAdmittedBy(owner ast.Node, kind string) bool {
+	return parser.BodyAdmitsMember(owner, kind)
 }
 
 func legalKinds(lang source.Kind, languages func(string) map[source.Kind]bool, names []string) []string {
@@ -163,6 +181,14 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		e.OperationIndex = i
 		return splice{}, e
 	}
+	if !parser.BodyAdmitsMember(owner, op.MemberKind) {
+		return splice{}, &Error{
+			Failure:        FailureIllegalKind,
+			OperationIndex: i,
+			Message: fmt.Sprintf("kind %q is only declared in a %s body, which %s does not open",
+				op.MemberKind, parser.MemberOwner(op.MemberKind), ownerName(op.Owner)),
+		}
+	}
 	if ownerScope != nil && len(ownerScope.LookupLocalAll(op.MemberName)) > 0 {
 		return splice{}, &Error{
 			Failure:        FailureMemberNameTaken,
@@ -206,6 +232,14 @@ func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
 		return nil, nil, &Error{Failure: FailureOwnerNotNamespace,
 			Message: fmt.Sprintf("%q cannot contain members", fqn)}
 	}
+}
+
+// ownerName names an add-member owner for a message: the document for "".
+func ownerName(fqn string) string {
+	if fqn == "" {
+		return "the document"
+	}
+	return fmt.Sprintf("%q", fqn)
 }
 
 func writeMember(op Operation, kind memberKind) string {

@@ -1,6 +1,6 @@
 // The palette's and a node's context menu's entries, built from the palette the
 // server sent with the rendering.
-import type { EditAction, EditPalette, RenderNode } from "../protocol";
+import { admits, type EditAction, type EditPalette, type RenderNode } from "../protocol";
 
 /** What a menu entry does when chosen. */
 export type MenuCommand = EditAction | { kind: "reveal"; id: string };
@@ -13,10 +13,10 @@ export interface MenuItem {
   separator?: boolean;
 }
 
-/** paletteItems are the "Add …" entries of the toolbar, members then connections. */
+/** paletteItems are the "Add …" entries of the toolbar, members then connections; a member no drawn node may own is left out. */
 export function paletteItems(palette: EditPalette): MenuItem[] {
   return [
-    ...palette.members.map((memberKind) => ({
+    ...palette.members.filter((memberKind) => (palette.owners?.[memberKind]?.length ?? 1) > 0).map((memberKind) => ({
       label: `Add ${memberKind}…`,
       command: { kind: "addMember", memberKind, typed: palette.typed.includes(memberKind) } as const,
     })),
@@ -34,9 +34,10 @@ export function nodeMenu(node: RenderNode, palette: EditPalette | undefined): Me
     items.push({ label: "Go to declaration", command: { kind: "reveal", id: node.id } });
   }
   if (node.fqn && palette) {
-    if (palette.members.length > 0) {
+    const members = palette.members.filter((memberKind) => admits(palette, memberKind, node));
+    if (members.length > 0) {
       items.push({ label: "", separator: true });
-      for (const memberKind of palette.members) {
+      for (const memberKind of members) {
         items.push({
           label: `Add ${memberKind}…`,
           command: { kind: "addMember", memberKind, typed: palette.typed.includes(memberKind), owner: node.id },

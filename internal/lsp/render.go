@@ -12,6 +12,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
@@ -252,7 +253,12 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			Origin: origin(node.Origin),
 		}
 		if node.Origin.Doc == name {
-			n.FQN = nodeFQN(doc.Scope, node.Origin)
+			if sym := nodeSymbol(doc.Scope, node.Origin); sym != nil {
+				n.FQN = symbols.FQNOf(sym)
+				if out.Palette != nil {
+					out.Palette.admit(node.ID, sym.Decl)
+				}
+			}
 		}
 		if g := node.Geometry; g != nil {
 			x, y := g.X, g.Y

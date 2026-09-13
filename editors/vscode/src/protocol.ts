@@ -109,6 +109,14 @@ export interface EditPalette {
   connections: string[];
   /** The members that take a type. */
   typed: string[];
+  /** For each member only some bodies offer (`subject`), the ids of the nodes that open one. */
+  owners?: Record<string, string[]>;
+}
+
+/** admits: whether a member may go into node — any node, unless the palette confines the kind to some. */
+export function admits(palette: EditPalette | undefined, memberKind: string, node: RenderNode): boolean {
+  const owners = palette?.owners?.[memberKind];
+  return owners ? owners.includes(node.id) : true;
 }
 
 /** One edit.Operation on the wire; `kind` selects which of the other fields are read. */
