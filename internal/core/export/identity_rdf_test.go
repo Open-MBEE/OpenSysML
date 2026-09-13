@@ -1,10 +1,14 @@
 package export_test
 
 import (
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -324,6 +328,29 @@ func TestElementIDDiffersWithoutDeclaredID(t *testing.T) {
 	}
 }
 
+// TestUserElementWithLibraryIDKeepsItWithoutDeclaredID checks a foreign graph's
+// user element that happens to carry a library uuid — Real's, or the one of
+// Real's owning membership — keeps it as an annotation: the id is the norm's
+// only on the library element it names.
+func TestUserElementWithLibraryIDKeepsItWithoutDeclaredID(t *testing.T) {
+	for _, id := range []string{
+		"14c0aa22-5489-59b5-b438-ded26e83ba31", // ScalarValues::Real
+		"ab72a695-5fe9-58a3-9d48-9e9a8711862d", // ScalarValues::Real's owning membership
+	} {
+		turtle := idTurtle(t, `package P {
+	@IdentityMetadata::ProjectRef { projectId = "proj-1"; }
+	part def A {
+		@IdentityMetadata::ElementId { id = "`+id+`"; }
+	}
+}
+`)
+		back := toNotation(t, withoutTriples(t, turtle, "sysx:declaredId"))
+		if !strings.Contains(back, `@IdentityMetadata::ElementId { id = "`+id+`"; }`) {
+			t.Errorf("library uuid %s on P::A was not re-materialized without declaredId:\n%s", id, back)
+		}
+	}
+}
+
 // TestQualifiedNameKeyedGraphStillLinks locks the reader's identity key: a
 // graph whose reference IRIs match only by element id, not byte-for-byte by
 // IRI, still resolves.
@@ -525,4 +552,240 @@ func TestMembershipIDsAreDisjointFromAdversarialElements(t *testing.T) {
 	if got := rdf.LocalName(graph.Type(membership)); got != "OwningMembership" {
 		t.Errorf("membership of foreign_om typed %q, want OwningMembership", got)
 	}
+}
+
+// TestLibraryElementsCarryNormativeIDs pins the ids the norm fixes: a bundled
+// library file converts to the UUIDs the pilot assigns its elements and their
+// owning memberships, states them as implied rather than declared, and a copy
+// of the same notation that is not the library file keeps encoded ids.
+func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
+	const name = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
+	src, err := libs.EmbeddedSource().Read(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	turtle, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	text := string(turtle)
+	for _, want := range []string{
+		"<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d>",
+		`sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d"`,
+		"<urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>",
+		`sysml:elementId "14c0aa22-5489-59b5-b438-ded26e83ba31"`,
+		"elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d",
+		`sysml:elementId "ab72a695-5fe9-58a3-9d48-9e9a8711862d"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("graph lacks %q", want)
+		}
+	}
+	for _, reject := range []string{"declaredId", "ScalarValues__Real"} {
+		if strings.Contains(text, reject) {
+			t.Errorf("graph states %q, which the norm's ids leave no place for", reject)
+		}
+	}
+	// The library file comes back as written, so a second hop states the same ids.
+	back := toNotation(t, turtle)
+	if back != string(src) {
+		t.Errorf("the library file did not come back as written:\n%s", back)
+	}
+	second, err := export.Convert(name, []byte(back), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("second hop to turtle: %v", err)
+	}
+	if string(second) != text {
+		t.Errorf("second hop is not idempotent:\n%s", second)
+	}
+	// Read back from the mapping alone, the notation is not the library file,
+	// so it has to state the ids the library text would have implied.
+	keepsIDsWithoutSourceText(t, name, turtle)
+	edited := append([]byte("// not the library\n"), src...)
+	turtle, err = export.Convert(name, edited, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("edited copy to turtle: %v", err)
+	}
+	if text := string(turtle); !strings.Contains(text, "elmt:ScalarValues__Real") ||
+		strings.Contains(text, "14c0aa22-5489-59b5-b438-ded26e83ba31") {
+		t.Errorf("an edited copy of a library file is not the library, so its ids are encoded names:\n%s", text)
+	}
+}
+
+// A transition is written whole by the behavioral mapping, so its identity
+// annotations go in the body after `then`. The library's one named transition,
+// Actions::AcceptAction::aState::aTransition, keeps its normative id that way
+// in a graph without source text: here a graph of that shape whose transition
+// carries the id the library file gives it.
+func TestBehavioralLibraryMemberKeepsNormativeIDWithoutSourceText(t *testing.T) {
+	const qname = "Actions::AcceptAction::aState::aTransition"
+	want := normative.ElementID(normative.SysML, qname)
+	turtle := idTurtle(t, `package Actions {
+	action def AcceptAction {
+		state aState {
+			state s1;
+			state s2;
+			transition aTransition first s1 then s2;
+		}
+	}
+}
+`)
+	encoded := `sysml:elementId "` + rdf.EncodeElementID(qname) + `" ;`
+	stale := strings.Replace(string(turtle), encoded, `sysml:elementId "`+want+`" ;`, 1)
+	if stale == string(turtle) {
+		t.Fatalf("the transition's id is not where expected:\n%s", turtle)
+	}
+	back := toNotation(t, withoutSourceText(t, []byte(stale)))
+	if !strings.Contains(back, `@IdentityMetadata::ElementId { id = "`+want+`"; }`) {
+		t.Errorf("the transition's normative id was not written into its body:\n%s", back)
+	}
+	keepsIDsWithoutSourceText(t, "Actions.sysml", []byte(stale))
+}
+
+// A user transition's declared id is written into its body too, and a form
+// with no body of its own to hold the annotation is refused rather than written
+// under a new id.
+func TestBehavioralDeclaredIDsWithoutSourceText(t *testing.T) {
+	turtle := idTurtle(t, `package P {
+	state def S {
+		state a;
+		state b;
+		transition t first a then b {
+			@IdentityMetadata::ElementId { id = "t-id"; }
+		}
+	}
+}
+`)
+	back := toNotation(t, withoutSourceText(t, turtle))
+	if !strings.Contains(back, `then b {`) || !strings.Contains(back, `@IdentityMetadata::ElementId { id = "t-id"; }`) {
+		t.Errorf("the transition's declared id was not written into its body:\n%s", back)
+	}
+	keepsIDsWithoutSourceText(t, "m.sysml", turtle)
+
+	turtle = idTurtle(t, `package P {
+	action def A {
+		while true {
+			action x;
+		}
+	}
+}
+`)
+	loop := strings.Replace(string(turtle), `sysml:elementId "P__A___400" ;`, `sysml:elementId "loop-id" ;`, 1)
+	if loop == string(turtle) {
+		t.Fatalf("the loop's id is not where expected:\n%s", turtle)
+	}
+	_, err := export.Convert("m.ttl", withoutSourceText(t, []byte(loop)), export.FormatTurtle, export.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(unsupported.What, "the loop") {
+		t.Fatalf("a loop with a foreign id was not refused: %v", err)
+	}
+}
+
+// keepsIDsWithoutSourceText asserts a graph stripped of its source text comes
+// back as notation whose own conversion, read as a file of the same grammar
+// that is not the library's, states every element's id again.
+func keepsIDsWithoutSourceText(t *testing.T, name string, turtle []byte) {
+	t.Helper()
+	back := toNotation(t, withoutSourceText(t, turtle))
+	again, err := export.Convert("copy"+filepath.Ext(name), []byte(back), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("rebuilt notation to turtle: %v\n%s", err, back)
+	}
+	want, got := elementIDs(t, turtle), elementIDs(t, again)
+	for qname, id := range want {
+		if got[qname] != id {
+			t.Errorf("%s: id %q came back as %q", qname, id, got[qname])
+		}
+	}
+	if t.Failed() {
+		t.Logf("rebuilt notation:\n%s", back)
+	}
+}
+
+// elementIDs maps each named subject's qualified name to its element id.
+func elementIDs(t *testing.T, turtle []byte) map[string]string {
+	t.Helper()
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	out := map[string]string{}
+	for _, subject := range graph.Subjects() {
+		qname, ok := graph.Object(subject, rdf.SysML+"qualifiedName")
+		if !ok {
+			continue
+		}
+		id, _ := graph.Object(subject, rdf.SysML+"elementId")
+		out[qname.Value] = id.Value
+	}
+	return out
+}
+
+// A library uuid is the norm's only on the subject named as the library element
+// is: by its effective name, or by the position the encoder writes it at.
+func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
+	const (
+		real           = "14c0aa22-5489-59b5-b438-ded26e83ba31" // ScalarValues::Real
+		realMembership = "ab72a695-5fe9-58a3-9d48-9e9a8711862d"
+		edges          = "1c6076b4-48fa-5c5f-81f2-7c850aee33b1" // ShapeItems::Polyhedron::edges, written as @3
+		pyramidEdges   = "6749b419-719a-51d9-8e13-d993bb953e80" // ShapeItems::RectangularPyramid::base::edges
+	)
+	cases := []struct {
+		id, qname string
+		want      bool
+	}{
+		{real, "ScalarValues::Real", true},
+		{realMembership, "", true},
+		{realMembership, "P::A", false},
+		{realMembership, "ScalarValues::Real", false},
+		{real, "P::A", false},
+		{real, "", false},
+		{real, "ScalarValues::@7", false},
+		{real, "ScalarValues::@8", false},
+		{rdf.EncodeElementID("ScalarValues::Real"), "ScalarValues::Real", false},
+		{edges, "ShapeItems::Polyhedron::@3", true},
+		{edges, "ShapeItems::Polyhedron::edges", true},
+		{edges, "ShapeItems::Polyhedron::@2", false},
+		{edges, "ShapeItems::Polyhedron::@4", false},
+		{edges, "P::Polyhedron::@3", false},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::@3::@0", true},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::base::edges", true},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::@1::@3", false},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::@3::@1", false},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::base::@0", false},
+	}
+	for _, c := range cases {
+		if got := export.NormativeSubject(c.id, c.qname); got != c.want {
+			t.Errorf("NormativeSubject(%s, %q) = %v, want %v", c.id, c.qname, got, c.want)
+		}
+	}
+}
+
+// A redefining feature without a name of its own takes the redefined one, so
+// the norm fixes an id for it while the graph names it by position. Neither
+// side may mistake that id for a declared one.
+func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
+	const name = "Domain Libraries/Geometry/ShapeItems.sysml"
+	src, err := libs.EmbeddedSource().Read(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	turtle, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	// ShapeItems::Polyhedron::edges under the SysML prefix.
+	const edges = "1c6076b4-48fa-5c5f-81f2-7c850aee33b1"
+	subject := rdf.ElementIRIForID(edges)
+	if got, _ := graph.Object(subject, rdf.SysML+"qualifiedName"); got != rdf.String("ShapeItems::Polyhedron::@3") {
+		t.Fatalf("the redefining item is named %v in the graph", got)
+	}
+	if graph.HasProperty(subject, rdf.OpenSysML+"declaredId") {
+		t.Errorf("the norm's id is stated as declared")
+	}
+	keepsIDsWithoutSourceText(t, name, turtle)
 }

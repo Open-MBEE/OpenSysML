@@ -1060,8 +1060,12 @@ func (d *decoder) positionalError(el *element, end, where string) error {
 // indent is what the declaration is written after, including the `then` of a
 // succession folded into it.
 func (d *decoder) printBehavior(b *strings.Builder, el *element, indent string, depth int) (bool, error) {
+	annotations := d.identityAnnotations(el)
 	switch el.metaclass {
 	case mWhileLoop, mForLoop:
+		if len(annotations) > 0 {
+			return true, d.behaviorUnannotatable(el, "loop")
+		}
 		text, err := d.loopText(el, depth)
 		if err != nil {
 			return true, err
@@ -1070,6 +1074,9 @@ func (d *decoder) printBehavior(b *strings.Builder, el *element, indent string, 
 		return true, nil
 
 	case mIfAction:
+		if len(annotations) > 0 {
+			return true, d.behaviorUnannotatable(el, "if action")
+		}
 		text, err := d.conditionalText(el, depth)
 		if err != nil {
 			return true, err
@@ -1078,6 +1085,9 @@ func (d *decoder) printBehavior(b *strings.Builder, el *element, indent string, 
 		return true, nil
 
 	case mSubaction:
+		if len(annotations) > 0 {
+			return true, d.behaviorUnannotatable(el, "subaction membership")
+		}
 		text, err := d.subactionText(el, depth)
 		if err != nil {
 			return true, err
@@ -1098,7 +1108,7 @@ func (d *decoder) printBehavior(b *strings.Builder, el *element, indent string, 
 		if _, structural := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pTargetFeature); !structural {
 			return false, nil
 		}
-		text, body, err := d.transitionText(el, depth)
+		text, body, err := d.transitionText(el, annotations, depth)
 		if err != nil {
 			return true, err
 		}
@@ -1110,6 +1120,15 @@ func (d *decoder) printBehavior(b *strings.Builder, el *element, indent string, 
 		return true, nil
 	}
 	return false, nil
+}
+
+// behaviorUnannotatable refuses an element whose identity the notation has no
+// place to state: its form declares neither a name nor a body of its own.
+func (d *decoder) behaviorUnannotatable(el *element, form string) error {
+	return &UnsupportedError{
+		What: fmt.Sprintf("the %s <%s>", form, el.iri),
+		Note: "its id or project reference is not the one its position implies, and its notation has no place for an identity annotation",
+	}
 }
 
 // loopText writes a loop and the conditions around its body.
@@ -1217,8 +1236,8 @@ func (d *decoder) subactionText(el *element, depth int) (string, error) {
 
 // transitionText writes a transition of a state machine, in the spelling it was
 // written in, with its trigger, guard and effect; the body it ends in, if any,
-// is returned separately.
-func (d *decoder) transitionText(el *element, depth int) (string, string, error) {
+// is returned separately, its identity annotations ahead of its members.
+func (d *decoder) transitionText(el *element, annotations []string, depth int) (string, string, error) {
 	target, err := d.referenceText(el, rdf.SysML+pTargetFeature)
 	if err != nil {
 		return "", "", err
@@ -1313,8 +1332,8 @@ func (d *decoder) transitionText(el *element, depth int) (string, string, error)
 	}
 	words = append(words, "then", target)
 	var bodyText string
-	if len(body) > 0 || hasBody {
-		if bodyText, err = d.membersText(body, true, depth); err != nil {
+	if len(body) > 0 || hasBody || len(annotations) > 0 {
+		if bodyText, err = d.membersText(body, true, depth, annotations...); err != nil {
 			return "", "", err
 		}
 	}
@@ -1345,14 +1364,18 @@ func (d *decoder) bodyText(el *element, depth int) (string, error) {
 	return d.membersText(el.children, d.boolOf(el, rdf.OpenSysML+xHasBody), depth)
 }
 
-// membersText writes members one per line, in braces when braced; an unbraced
-// member continues the line the head is on, at its depth.
-func (d *decoder) membersText(members []*element, braced bool, depth int) (string, error) {
+// membersText writes members one per line, in braces when braced, any lead
+// lines ahead of them; an unbraced member continues the line the head is on,
+// at its depth.
+func (d *decoder) membersText(members []*element, braced bool, depth int, lead ...string) (string, error) {
 	memberDepth := depth
 	if braced {
 		memberDepth = depth + 1
 	}
 	var b strings.Builder
+	for _, line := range lead {
+		b.WriteString(strings.Repeat("    ", memberDepth) + line + d.nl)
+	}
 	for _, child := range members {
 		if err := d.print(&b, child, memberDepth); err != nil {
 			return "", err
