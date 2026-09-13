@@ -71,9 +71,9 @@ func (e *ConstructError) Error() string {
 // Is matches ErrConstruct.
 func (e *ConstructError) Is(target error) bool { return target == ErrConstruct }
 
-// checkEngine answers Outcomes and Holds questions over an action by a depth-first
-// search of its schedules, one token advancing one node at a time, under static
-// partial-order reduction; what it finds within its bounds is bounded, never proved.
+// checkEngine answers Outcomes, Holds and Sensitive questions over an action by a
+// depth-first search of its schedules, one token advancing one node at a time, under
+// static partial-order reduction; what it finds within its bounds is bounded, never proved.
 type checkEngine struct{}
 
 // NewCheck returns the check engine.
@@ -86,18 +86,18 @@ func (checkEngine) Name() string { return CheckEngineName }
 // executor's budgets; every violation and divergent value is a replayed witness.
 func (checkEngine) Describe() Description {
 	return Description{
-		Questions: []Kind{Outcomes, Holds},
+		Questions: []Kind{Outcomes, Holds, Sensitive},
 		Bounds:    append([]string{"depth", "states", "deadline"}, runtime.ExecutorBounds...),
 		Replays:   true,
 		Authority: Bounded,
 	}
 }
 
-// Covers takes an Outcomes or Holds question over an action's schedules with its
-// inputs as written; the constructs the search meets and cannot capture are
+// Covers takes an Outcomes, Holds or Sensitive question over an action's schedules
+// with its inputs as written; the constructs the search meets and cannot capture are
 // refused as it meets them, as a result not covered naming the construct.
 func (e checkEngine) Covers(_ *Model, q Question) Coverage {
-	if q.Kind != Outcomes && q.Kind != Holds {
+	if q.Kind != Outcomes && q.Kind != Holds && q.Kind != Sensitive {
 		return refused(&NotAskedError{Engine: e.Name(), Kind: q.Kind})
 	}
 	if q.Free.Has(FreeInputs) {
@@ -117,8 +117,10 @@ func (e checkEngine) Covers(_ *Model, q Question) Coverage {
 
 // Run searches the action's schedules under the budget's depth and, as its runs,
 // states, in a context of the check's own on the plan's first worker; a violation
-// is witnessed, a divergence is the sensitivity it witnesses, and a clean search is
-// bounded, once every witness has replayed on the plan's workers. The plan's clock
+// is witnessed, a divergence is the sensitivity it witnesses (its first two values'
+// schedules the witness and the contrast), and a clean search is bounded — the
+// feature not sensitive, the condition holding, or the outcomes reached, as the
+// question asks — once every witness has replayed on the plan's workers. The plan's clock
 // ending is the search stopping, an error, not a result. A model that builds no
 // context of a run's own is the typed fault NoRuntimeError.
 func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
@@ -175,12 +177,13 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		result.Claim = ClaimSensitive
 		result.Strength = Witnessed
 		result.Reason = divergenceReason(report.Divergent)
-		first := report.Divergent[0].Values[0].Witness
-		result.Witness = &Witness{Schedule: runtime.ReplayPolicy(first.Choices), Choices: first.Choices}
-		if len(checked.Divergent) > 0 && len(checked.Divergent[0]) > 0 {
-			result.Witness.Written = checked.Divergent[0][0]
+		var written []string
+		if len(checked.Divergent) > 0 {
+			written = checked.Divergent[0]
 		}
-	case q.Kind == Holds:
+		result.Witness = divergenceWitness(report.Divergent[0], written, 0)
+		result.Contrast = divergenceWitness(report.Divergent[0], written, 1)
+	case q.Kind == Holds, q.Kind == Sensitive:
 		result.Claim = ClaimHolds
 		result.Strength = Bounded
 	default:
@@ -188,6 +191,20 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		result.Strength = Bounded
 	}
 	return result, nil
+}
+
+// divergenceWitness is the schedule reaching the divergence's n-th value, with the
+// file it was written to when one was; nil when the divergence has no n-th value.
+func divergenceWitness(d runtime.Divergence, written []string, n int) *Witness {
+	if n >= len(d.Values) {
+		return nil
+	}
+	w := d.Values[n].Witness
+	out := &Witness{Schedule: runtime.ReplayPolicy(w.Choices), Choices: w.Choices}
+	if n < len(written) {
+		out.Written = written[n]
+	}
+	return out
 }
 
 // divergenceReason spells every divergence, `x ends as 1 or 2; y ends as a or b`.
