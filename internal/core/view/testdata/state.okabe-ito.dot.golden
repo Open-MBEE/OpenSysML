@@ -12,15 +12,15 @@ digraph "MachineViews::vehicleStates" {
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n5" [shape=point, fillcolor=black, label=""];
-    "n1" [style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];
+    "n1" [style="rounded,filled", fillcolor="#EEBF99", color="#D55E00", penwidth=1, label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];
     subgraph "cluster_n2" {
       label=<<b>operating</b><br/><font point-size="10"><i>«state»</i></font>>;
       color=black;
       penwidth=0.5;
       "n2" [shape=point, style=invis, width=0, height=0, label=""];
       "n6" [shape=point, fillcolor=black, label=""];
-      "n3" [style="rounded,filled", label=<<b>idle</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];
-      "n4" [style="rounded,filled", label=<<b>moving</b><br/><font point-size="10"><i>«state»</i></font>>];
+      "n3" [style="rounded,filled", fillcolor="#EEBF99", color="#D55E00", penwidth=1, label=<<b>idle</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];
+      "n4" [style="rounded,filled", fillcolor="#EEBF99", color="#D55E00", penwidth=1, label=<<b>moving</b><br/><font point-size="10"><i>«state»</i></font>>];
     }
   }
   "n5" -> "n1";

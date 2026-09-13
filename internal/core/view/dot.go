@@ -28,23 +28,35 @@ import (
 // `pos` splines, pinned canvas corners); docs/project/view-rendering-forms.md#geometry
 // has the rules.
 //
+// The drawing is in the Standard B&W style of the SysML v2 Pilot visualizer
+// (docs/project/view-rendering-forms.md#style): Helvetica, white fills, thin
+// #181818 lines, square definitions and rounded usages, the keyword line in
+// italics. Defaults are written once as `graph`, `node` and `edge` statements;
+// a node or edge states only what it deviates in, its style before its geometry.
+//
 // A kind with no DOT counterpart — sequence, table — is a *WrongFormError.
 func (r *Rendering) DOT() (string, error) {
-	return r.DOTDirected("")
+	return r.DOTWith(Options{})
 }
 
-// DOTDirected is the DOT form laid out in the stated direction, as `rankdir`;
-// the empty direction leaves the engine's default and writes no `rankdir`.
-func (r *Rendering) DOTDirected(direction Direction) (string, error) {
+// DOTWith is the DOT form written with options: laid out in the stated
+// direction, as `rankdir` (the empty direction leaves the engine's default and
+// writes no `rankdir`), and filled from the stated palette by keyword family
+// (the empty palette draws in black and white). The layout is the same
+// whatever the palette: it changes fills and borders alone.
+func (r *Rendering) DOTWith(options Options) (string, error) {
 	if !r.Kind.SupportsForm(FormDot) {
 		return "", &WrongFormError{Form: FormDot, Kind: r.Kind, View: r.View}
 	}
-	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas}
+	direction := options.Direction
+	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
+		palette: options.Palette}
 	for _, root := range r.Roots {
 		if !w.tree {
 			w.collectClusters(root, nil)
 		}
 		w.countPlaced(root)
+		w.collectFamilies(root)
 	}
 	for _, edge := range r.Edges {
 		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
@@ -88,10 +100,9 @@ func (r *Rendering) DOTDirected(direction Direction) (string, error) {
 	} else {
 		fmt.Fprintf(b, "digraph %s {\n", dotQuote(r.View))
 	}
-	if attrs := w.graphAttributes(direction); len(attrs) > 0 {
-		fmt.Fprintf(b, "  graph [%s];\n", strings.Join(attrs, ", "))
-	}
-	b.WriteString("  node [shape=box];\n")
+	fmt.Fprintf(b, "  graph [%s];\n", strings.Join(w.graphAttributes(direction), ", "))
+	fmt.Fprintf(b, "  node [%s];\n", strings.Join(dotNodeDefaults, ", "))
+	fmt.Fprintf(b, "  edge [%s];\n", strings.Join(dotEdgeDefaults, ", "))
 	w.writeCanvas()
 	if r.Empty() {
 		fmt.Fprintf(b, "  \"empty\" [shape=plaintext, label=%s];\n", dotQuote(r.EmptyReason()))
@@ -120,6 +131,62 @@ type dotWriter struct {
 	placed    int
 	routed    int      // edges with a route to write
 	notices   []string // geometry the form cannot draw
+	palette   Palette  // the fills, by keyword family; empty is black and white
+	families  []string // the keyword families of the nodes filled, in palette order
+}
+
+// The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
+// white fills, thin #181818 lines, edge text a point smaller than node text.
+const (
+	dotFontName    = "Helvetica"
+	dotLineColor   = "#181818"
+	dotEdgeFontPts = 13
+)
+
+// dotNodeDefaults and dotEdgeDefaults are the `node` and `edge` statements the
+// digraph opens with; a node or edge lists only what it deviates in.
+var (
+	dotNodeDefaults = []string{"shape=box", "style=filled", "fillcolor=white", "color=" + dotQuote(dotLineColor),
+		"fontname=" + dotQuote(dotFontName), fmt.Sprintf("fontsize=%d", dotFontSize), "penwidth=0.5"}
+	dotEdgeDefaults = []string{"color=" + dotQuote(dotLineColor), "fontname=" + dotQuote(dotFontName),
+		fmt.Sprintf("fontsize=%d", dotEdgeFontPts), "penwidth=1"}
+)
+
+// dotControlKinds are the kinds drawn as control and pseudo-state nodes: they
+// keep the black-and-white rules and a square shape under every palette.
+var dotControlKinds = map[string]bool{startKind: true, "initial": true, "final": true, "fork": true, "join": true,
+	"merge": true, "decision": true, "choice": true, "junction": true, "shallow history": true, "deep history": true}
+
+// dotFilled reports whether a node takes a family colour under a palette: a
+// plain node (a cluster keeps its black border) that is no control node.
+func (w *dotWriter) dotFilled(node *Node) bool {
+	return w.palette != "" && !dotControlKinds[node.Kind] && (len(node.Children) == 0 || w.tree)
+}
+
+// collectFamilies records the keyword families of the nodes under node that a
+// palette fills, in palette order, so a sequential palette spans those present.
+func (w *dotWriter) collectFamilies(node *Node) {
+	if w.dotFilled(node) {
+		family := paletteFamily(node.Kind)
+		if !slices.Contains(w.families, family) {
+			w.families = append(w.families, family)
+			slices.SortFunc(w.families, func(a, b string) int { return familyRank(a) - familyRank(b) })
+		}
+	}
+	for _, child := range node.Children {
+		w.collectFamilies(child)
+	}
+}
+
+// dotFamilyColor is the palette colour of a node's keyword family: a qualitative
+// palette's colour at the family's fixed rank, a sequential palette's at the
+// family's place among those present.
+func (w *dotWriter) dotFamilyColor(node *Node) string {
+	family := paletteFamily(node.Kind)
+	if w.palette.Sequential() {
+		return w.palette.Color(slices.Index(w.families, family), len(w.families))
+	}
+	return w.palette.Color(familyRank(family), len(paletteFamilies)+1)
 }
 
 // countPlaced counts the nodes under node and those a Geometry positions.
@@ -170,11 +237,11 @@ func (w *dotWriter) clipped(node, other string) bool {
 // dotClusterName is the subgraph name of the cluster drawn for a node.
 func dotClusterName(id string) string { return "cluster_" + id }
 
-// graphAttributes is the graph attribute list: the layout direction when one is
-// stated, `compound` when an edge is clipped at a cluster, and the pixel scale
-// when a node is positioned.
+// graphAttributes is the graph attribute list: the font, the layout direction
+// when one is stated, `compound` when an edge is clipped at a cluster, and the
+// pixel scale when a node is positioned.
 func (w *dotWriter) graphAttributes(direction Direction) []string {
-	var attrs []string
+	attrs := []string{"fontname=" + dotQuote(dotFontName)}
 	if direction != "" {
 		attrs = append(attrs, "rankdir="+string(direction))
 	}
@@ -260,21 +327,26 @@ func (w *dotWriter) writeEdge(from, to string, attrs []string) {
 	fmt.Fprintf(&w.b, "  %s -> %s [%s];\n", dotQuote(from), dotQuote(to), strings.Join(attrs, ", "))
 }
 
-// dotNodeAttributes is a plain node's attribute list: its label, the shape its
-// Kind chooses, and its position and size when a Geometry places it.
+// dotNodeAttributes is a plain node's attribute list: the shape and style its
+// Kind chooses, its family colours under a palette, its label, then its
+// position and size when a Geometry places it.
 func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	var attrs []string
 	switch node.Kind {
 	case startKind:
-		attrs = []string{"shape=point", `label=""`}
-	case "initial":
-		attrs = []string{"shape=circle", dotLabel(node)}
-	case "final":
-		attrs = []string{"shape=doublecircle", dotLabel(node)}
-	case "state":
-		attrs = []string{"shape=box", "style=rounded", dotLabel(node)}
+		attrs = []string{"shape=point", "fillcolor=black", `label=""`}
+	case "initial", "final":
+		attrs = w.dotPseudostateAttributes(node)
 	default:
-		attrs = []string{dotLabel(node)}
+		if !dotControlKinds[node.Kind] && !isDefinitionKind(node.Kind) {
+			attrs = append(attrs, `style="rounded,filled"`)
+		}
+		if w.dotFilled(node) {
+			color := w.dotFamilyColor(node)
+			attrs = append(attrs, "fillcolor="+dotQuote(paletteFill(color, !isDefinitionKind(node.Kind))),
+				"color="+dotQuote(color), "penwidth=1")
+		}
+		attrs = append(attrs, dotLabel(node))
 	}
 	if g := node.Geometry; g != nil {
 		width, height := dotBox(node)
@@ -288,6 +360,28 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		if g.Collapsed {
 			attrs = append(attrs, `comment="collapsed"`)
 		}
+	}
+	return attrs
+}
+
+// dotPseudostateWidth is the diameter, in inches, of an initial or final
+// pseudo-state drawn as the UML filled dot, with no name to show.
+const dotPseudostateWidth = "0.2"
+
+// dotPseudostateAttributes is an initial or final node's shape and label: the
+// UML filled black dot, or double ring, when it has no name to show, a labelled
+// circle when the rendering names it. A placed one keeps its placed size.
+func (w *dotWriter) dotPseudostateAttributes(node *Node) []string {
+	shape := "shape=circle"
+	if node.Kind == "final" {
+		shape = "shape=doublecircle"
+	}
+	if node.Name != "" {
+		return []string{shape, dotLabel(node)}
+	}
+	attrs := []string{shape, "fillcolor=black", `label=""`}
+	if node.Geometry == nil {
+		attrs = append(attrs, "width="+dotPseudostateWidth)
 	}
 	return attrs
 }
@@ -364,12 +458,14 @@ func (w *dotWriter) dotAnchorAttributes(node *Node) []string {
 var dotInvisibleAttributes = []string{"shape=point", "style=invis", "width=0", "height=0", `label=""`}
 
 // dotClusterAttributes is a cluster's attribute statements: its label, a dashed
-// border for an orthogonal region, and its box as `bb` when it has an extent.
+// border for an orthogonal region, its black border at the skin's thickness (a
+// package's heavier than an element's), and its box as `bb` when it has an extent.
 func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 	attrs := []string{dotLabel(node)}
 	if node.Kind == "region" {
 		attrs = append(attrs, "style=dashed")
 	}
+	attrs = append(attrs, "color=black", "penwidth="+dotClusterPenwidth(node))
 	if g := node.Geometry; g != nil {
 		if low, high := clusterBox(node); low != high {
 			attrs = append(attrs, "bb="+dotQuote(w.dotPoint(Point{X: low.X, Y: high.Y})+","+w.dotPoint(Point{X: high.X, Y: low.Y})))
@@ -379,6 +475,16 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 		}
 	}
 	return attrs
+}
+
+// dotClusterPenwidth is a cluster's border thickness: the skin's package
+// thickness for a package, its element thickness for every other cluster,
+// regions included.
+func dotClusterPenwidth(node *Node) string {
+	if slices.Contains(strings.Fields(node.Kind), "package") {
+		return "1.5"
+	}
+	return "0.5"
 }
 
 // dotClusterMargin is the space Graphviz keeps between a cluster's border and
@@ -419,8 +525,9 @@ func memberBox(node *Node) (topLeft, bottomRight Point) {
 	return Point{X: g.X, Y: g.Y}, Point{X: g.X + width, Y: g.Y + height}
 }
 
-// dotEdgeAttributes is an edge's attribute list: its label, its kind's style,
-// and its route as a `pos` spline when a Route gives waypoints.
+// dotEdgeAttributes is an edge's attribute list: its label, its kind's style (a
+// connection drawn heavy, as the Pilot draws connectors), and its route as a
+// `pos` spline when a Route gives waypoints.
 func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	var attrs []string
 	if edge.Label != "" {
@@ -428,7 +535,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	}
 	switch edge.Kind {
 	case EdgeConnection:
-		attrs = append(attrs, "arrowhead=none")
+		attrs = append(attrs, "arrowhead=none", "penwidth=3")
 	case EdgeFlow:
 		attrs = append(attrs, "style=dashed")
 	}
@@ -459,7 +566,9 @@ func dotContainmentAttributes() []string {
 const dotKeywordPointSize = 10
 
 // dotLabel is a node's label attribute, an HTML-like label for nodes and clusters
-// alike: the head in bold, the keyword line smaller, then the notes, one line each.
+// alike: the head in bold, the keyword line smaller and in italics, then the
+// notes, one line each. A state's name is bold too, where the Pilot's is plain:
+// the label's extent estimate (dotLabelExtent) and the other forms are kept to.
 func dotLabel(node *Node) string {
 	lines := labelLines(node)
 	parts := []string{"<b>" + dotEscape(lines[0]) + "</b>"}
@@ -467,7 +576,7 @@ func dotLabel(node *Node) string {
 		parts = append(parts, dotEscape(line))
 	}
 	if node.Name != "" {
-		parts[1] = fmt.Sprintf(`<font point-size="%d">%s</font>`, dotKeywordPointSize, parts[1])
+		parts[1] = fmt.Sprintf(`<font point-size="%d"><i>%s</i></font>`, dotKeywordPointSize, parts[1])
 	}
 	return dotLabelAttribute("<" + strings.Join(parts, "<br/>") + ">")
 }

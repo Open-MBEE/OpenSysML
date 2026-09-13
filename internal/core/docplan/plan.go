@@ -234,6 +234,7 @@ type DiagramRef struct {
 	kind      view.Kind
 	stated    string
 	direction view.Direction
+	palette   view.Palette
 	origin    provenance.Origin
 }
 
@@ -251,6 +252,9 @@ func (d *DiagramRef) Stated() string { return d.stated }
 
 // Direction returns the stated flow direction, empty for the kind's default.
 func (d *DiagramRef) Direction() view.Direction { return d.direction }
+
+// Palette returns the stated palette, empty for black and white.
+func (d *DiagramRef) Palette() view.Palette { return d.palette }
 
 // Origin returns the source declaration behind the reference.
 func (d *DiagramRef) Origin() provenance.Origin { return d.origin }

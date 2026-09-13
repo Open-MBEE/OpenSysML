@@ -1,0 +1,22 @@
+// view: VehicleViews::vehicleView
+// kind: tree
+// layout: dot
+digraph "VehicleViews::vehicleView" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [fillcolor="#8F6798", color="#440154", penwidth=1, label=<<b>Vehicles::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n1" [style="rounded,filled", fillcolor="#B499BB", color="#440154", penwidth=1, label=<<b>engine : Engine</b><br/><font point-size="10"><i>«part»</i></font>>];
+  "n0" -> "n1" [arrowhead=none];
+  "n2" [style="rounded,filled", fillcolor="#B499BB", color="#440154", penwidth=1, label=<<b>wheels : Wheel</b><br/><font point-size="10"><i>«part»</i></font>>];
+  "n0" -> "n2" [arrowhead=none];
+  "n3" [style="rounded,filled", fillcolor="#AEE2C9", color="#35B779", penwidth=1, label=<<b>connect</b>>];
+  "n0" -> "n3" [arrowhead=none];
+  "n4" [style="rounded,filled", fillcolor="#FEF5A8", color="#FDE725", penwidth=1, label=<<b>VehicleViews::vehicleView::engineSubview</b><br/><font point-size="10"><i>«view»</i></font>>];
+  "n5" [fillcolor="#8F6798", color="#440154", penwidth=1, label=<<b>Vehicles::Engine</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n6" [style="rounded,filled", fillcolor="#ADC3D2", color="#31688E", penwidth=1, label=<<b>power</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+  "n5" -> "n6" [arrowhead=none];
+  "n7" [style="rounded,filled", fillcolor="#B499BB", color="#440154", penwidth=1, label=<<b>cylinder : Cylinder</b><br/><font point-size="10"><i>«part»</i></font>>];
+  "n5" -> "n7" [arrowhead=none];
+  "n4" -> "n5" [arrowhead=none];
+}
