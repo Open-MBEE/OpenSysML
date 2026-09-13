@@ -7,6 +7,8 @@ import {
   describeRefusal,
   editParams,
   endpointPath,
+  moveDestinations,
+  moveOperation,
   offeredOn,
   ownerOf,
   REDRAWN_MESSAGE,
@@ -407,6 +409,8 @@ class DiagramPanel {
         return this.rename(rendering, action.id);
       case "delete":
         return this.delete(rendering, action.id, false);
+      case "move":
+        return this.move(rendering, action.id);
     }
   }
 
@@ -515,6 +519,29 @@ class DiagramPanel {
       }
     }
     return [{ kind: "delete", target: node.fqn, cascade: cascade || undefined }];
+  }
+
+  // A move is offered the drawn declarations that admit the node's kind, and the document.
+  private async move(rendering: Rendering, id: string): Promise<ModelEditOperation[] | undefined> {
+    const node = this.node(rendering, id);
+    if (!node?.fqn) {
+      return undefined;
+    }
+    const items = moveDestinations(node, rendering).map(({ fqn, node: into }) =>
+      into
+        ? { label: into.name, description: into.type ? `${into.kind} : ${into.type}` : into.kind, detail: into.fqn, fqn }
+        : { label: "Document", description: "a top-level declaration", fqn },
+    );
+    if (items.length === 0) {
+      void vscode.window.showInformationMessage(`The diagram has no node a ${node.notation} can be moved into.`);
+      return undefined;
+    }
+    const picked = await vscode.window.showQuickPick(items, { title: `Move ${node.fqn} to`, matchOnDetail: true });
+    if (!picked) {
+      return undefined;
+    }
+    const operation = moveOperation(node, picked.fqn);
+    return operation && [operation];
   }
 
   // A palette addition goes into the declaration at the cursor, else the one root, else a pick;

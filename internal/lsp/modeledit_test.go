@@ -302,6 +302,112 @@ func TestApplyModelEditDeleteCascade(t *testing.T) {
 	}
 }
 
+// A move carries the declaration, its body and its comment into the new owner
+// and respells the references the move breaks, as the edit layer does.
+func TestApplyModelEditMoves(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	op := modelEditOperation{Kind: EditMove, Target: "Vehicle::Car::tank", Owner: "Vehicle::Engine"}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Stale || out.Refused != nil || out.Edit == nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
+	if want := golden(t, s, docURI.Filename(), op); got != want {
+		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
+	}
+	if !strings.Contains(got, "\tpart def Engine {\n\t\tport fuelIn : FuelPort;\n\t\tpart tank : Tank; // holds the fuel\n\t}") {
+		t.Errorf("tank not moved to the end of Engine's body with its comment:\n%s", got)
+	}
+	if strings.Contains(got, "\tpart def Car {\n\t\tpart tank") {
+		t.Errorf("tank still declared in Car:\n%s", got)
+	}
+	if out.Version != 1 {
+		t.Errorf("version = %d, want 1", out.Version)
+	}
+}
+
+// A move to the document root and one into a bodyless owner both land where an
+// addMember would put a new member.
+func TestApplyModelEditMovesToRootAndOpensBody(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditMove, Target: "Vehicle::Car", Owner: ""})
+	if out.Edit == nil {
+		t.Fatalf("root move = %+v, want an edit", out)
+	}
+	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
+	if !strings.HasSuffix(got, "}\npart def Car {\n\tpart tank : Vehicle::Tank; // holds the fuel\n\tpart engine : Vehicle::Engine;\n}\n") {
+		t.Errorf("Car not moved after the package with its references qualified:\n%s", got)
+	}
+	out = applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditMove, Target: "Vehicle::Engine::fuelIn", Owner: "Vehicle::FuelPort"})
+	if out.Edit == nil {
+		t.Fatalf("bodyless move = %+v, want an edit", out)
+	}
+	got = applyWorkspaceEdit(t, editModel, out.Edit, docURI)
+	if !strings.Contains(got, "\tpart def Engine {\n\t}\n\tport def FuelPort {\n\t\tport fuelIn : FuelPort;\n\t}\n") {
+		t.Errorf("FuelPort not given a body holding fuelIn:\n%s", got)
+	}
+}
+
+// A move is refused, with the edit layer's failure name, when the owner is the
+// target or inside it, when it would clash, and when another document refers to
+// the target; the document is left as it was.
+func TestApplyModelEditRefusesImpossibleMoves(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	for _, tc := range []struct {
+		target, owner, failure string
+	}{
+		{"Vehicle::Car", "Vehicle::Car", "owner-inside-target"},
+		{"Vehicle::Car", "Vehicle::Car::tank", "owner-inside-target"},
+		{"Vehicle::Car::engine", "Vehicle::Nowhere", "owner-unknown"},
+		{"Vehicle::Nobody", "Vehicle::Car", "unknown-target"},
+	} {
+		out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditMove, Target: tc.target, Owner: tc.owner})
+		if len(out.Refused) != 1 || out.Edit != nil {
+			t.Fatalf("move %s into %q = %+v, want one refusal", tc.target, tc.owner, out)
+		}
+		if r := out.Refused[0]; r.Failure != tc.failure || r.Operation != 0 {
+			t.Errorf("move %s into %q refused as %+v, want %s of operation 0", tc.target, tc.owner, r, tc.failure)
+		}
+	}
+	clash := "package P {\n\tpart def A {\n\t\tpart x;\n\t}\n\tpart def B {\n\t\tpart x;\n\t}\n}\n"
+	s, docURI = renderServer(t, "clash.sysml", clash)
+	out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditMove, Target: "P::A::x", Owner: "P::B"})
+	if len(out.Refused) != 1 || out.Refused[0].Failure != "member-name-taken" {
+		t.Errorf("clashing move = %+v, want member-name-taken", out)
+	}
+	s, docURI = renderServer(t, "vehicle.sysml", editModel)
+	fleetURI := uri.File("fleet.sysml")
+	openDoc(t, s, fleetURI, "package Fleet {\n    part truck : Vehicle::Car;\n}\n")
+	out = applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditMove, Target: "Vehicle::Car", Owner: "Vehicle::Tank"})
+	if len(out.Refused) != 1 || out.Refused[0].Failure != "referenced-elsewhere" {
+		t.Fatalf("move referenced from another document = %+v, want referenced-elsewhere", out)
+	}
+	if want := "Fleet::truck (" + fleetURI.Filename() + ")"; strings.Join(out.Refused[0].Referring, ",") != want {
+		t.Errorf("referring = %v, want %q", out.Refused[0].Referring, want)
+	}
+}
+
+// Every declared node reports the keyword it was declared with, which is the
+// member kind a move asks the palette to admit.
+func TestRenderNodesCarryNotation(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	r := render(t, s, docURI, "#tree")
+	notations := map[string]string{}
+	for _, n := range r.Nodes {
+		notations[n.FQN] = n.Notation
+	}
+	for fqn, want := range map[string]string{
+		"Vehicle::FuelPort":      "port def",
+		"Vehicle::Car":           "part def",
+		"Vehicle::Car::tank":     "part",
+		"Vehicle::Tank::fuelOut": "port",
+	} {
+		if notations[fqn] != want {
+			t.Errorf("notation of %s = %q, want %q", fqn, notations[fqn], want)
+		}
+	}
+}
+
 // A delete or rename that another open document refers to is refused, whether
 // or not it cascades: the edit rewrites one document, so the other would break.
 func TestApplyModelEditRefusesWhatAnotherDocumentRefersTo(t *testing.T) {
@@ -521,6 +627,26 @@ func TestRenderPaletteOwnersFollowTheDeclaration(t *testing.T) {
 	// A state diagram offers no owner-bound member, so it lists no owners.
 	if p := palette(view.KindState, source.KindSysML); p.Owners != nil {
 		t.Errorf("state owners = %v", p.Owners)
+	}
+}
+
+// A drawn declaration only some bodies offer (`entry action`) is listed in Owners
+// under its notation, though no palette offers to add one, so a move of it is
+// offered the bodies that take it.
+func TestRenderPaletteOwnersCoverDrawnNotations(t *testing.T) {
+	src := "package Ops {\n\tstate def Run {\n\t\tentry action boot;\n\t\tstate idle;\n\t}\n\tpart def Widget;\n}\n"
+	s, docURI := renderServer(t, "ops.sysml", src)
+	out := render(t, s, docURI, "#tree")
+	ids := map[string]string{}
+	for _, n := range out.Nodes {
+		ids[n.FQN] = n.ID
+	}
+	got := out.Palette.Owners["entry action"]
+	if len(got) != 1 || got[0] != ids["Ops::Run"] {
+		t.Fatalf("owners of entry action = %v, want [%s] (Ops::Run)", got, ids["Ops::Run"])
+	}
+	if _, ok := out.Palette.Owners["state"]; ok {
+		t.Error("state is owner-bound")
 	}
 }
 
