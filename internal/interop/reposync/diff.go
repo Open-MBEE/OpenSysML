@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -50,6 +52,7 @@ type Change struct {
 	QualifiedName string
 	Metaclass     string
 	Declared      bool   // the id was declared by an @ElementId annotation
+	Normative     bool   // the id is the one the norm fixes for a standard-library element
 	MintedID      string // UUID minted for an unannotated create, when minting is on
 	Deltas        []PropertyDelta
 	Conflict      ConflictKind
@@ -231,6 +234,7 @@ func (cs *ChangeSet) add(change Change, view *subjectView) {
 	change.QualifiedName = view.qualifiedName
 	change.Metaclass = view.metaclass
 	change.Declared = view.declared
+	change.Normative = view.normative
 	cs.Changes = append(cs.Changes, change)
 }
 
@@ -307,6 +311,9 @@ type subjectView struct {
 	qualifiedName string
 	metaclass     string
 	declared      bool
+	// normative marks the id the norm fixes for a standard-library element:
+	// implied by the name, so neither declared nor minted for.
+	normative bool
 	// mintable marks an element proper: memberships and expression nodes
 	// derive their ids and are never minted for.
 	mintable bool
@@ -343,6 +350,7 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 	}
 	views := map[string]*subjectView{}
 	uncarried := map[string]int{}
+	library := identity.LibraryCatalog(libs.NewModelIndex())
 	for _, triple := range g.Triples() {
 		if !triple.Subject.IsIRI() {
 			continue
@@ -391,6 +399,7 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		if names := view.props[rdf.SysML+"qualifiedName"]; len(names) > 0 {
 			view.qualifiedName = strings.Trim(names[0], `"`)
 		}
+		view.normative = library.Normative(view.id)
 		view.declared = declaredID(g, view)
 		view.mintable = mintable(view)
 	}
@@ -411,13 +420,13 @@ func sortedKeys(m map[string]int) []string {
 }
 
 // declaredID mirrors the RDF reader: an explicit declaredId marker, or an id
-// that is not the encoding of the subject's qualified name, was declared by an
-// annotation rather than derived.
+// that is neither the encoding of the subject's qualified name nor the one the
+// norm fixes for it, was declared by an annotation rather than derived.
 func declaredID(g *rdf.Graph, view *subjectView) bool {
 	if g.BoolValue(rdf.IRI(view.subject), rdf.OpenSysML+"declaredId") {
 		return true
 	}
-	if !view.mintableIRI() || view.qualifiedName == "" {
+	if !view.mintableIRI() || view.qualifiedName == "" || view.normative {
 		return false
 	}
 	return view.id != rdf.EncodeElementID(view.qualifiedName)
@@ -429,11 +438,10 @@ func (v *subjectView) mintableIRI() bool {
 	return strings.HasPrefix(v.subject, rdf.Element)
 }
 
-// mintable reports whether the subject is an element proper. Memberships and
-// expression nodes derive their ids from their element's, classified by
-// rdf:type rather than id spelling, which an adversarial id could fake.
+// mintable reports whether the subject is an element proper (by rdf:type, which
+// an id cannot fake) whose id the norm does not fix.
 func mintable(view *subjectView) bool {
-	if !view.mintableIRI() {
+	if !view.mintableIRI() || view.normative {
 		return false
 	}
 	return view.metaclass != "OwningMembership" && view.metaclass != "FeatureMembership"

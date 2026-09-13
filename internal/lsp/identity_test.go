@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // uuidV4 matches a lowercase RFC 4122 version-4 UUID.
@@ -442,5 +443,24 @@ func TestIdentityActionHonorsKindFilter(t *testing.T) {
 		if len(acts) != tc.want {
 			t.Errorf("only=%v: actions = %+v, want %d", tc.only, acts, tc.want)
 		}
+	}
+}
+
+// A library element's id is fixed by the norm, so nothing is offered to mint one.
+func TestIdentityActionNotOfferedOnLibraryDeclaration(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	const file = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
+	doc := ws.LibraryDocument(file)
+	if doc == nil {
+		t.Fatalf("library document %q not bundled", file)
+	}
+	at := strings.Index(string(doc.Content), "datatype Real ") + len("datatype ")
+	acts, err := s.identityActions(file, doc, source.Span{Offset: at, Len: len("Real")})
+	if err != nil {
+		t.Fatalf("identityActions err = %v", err)
+	}
+	if len(acts) != 0 {
+		t.Errorf("actions on ScalarValues::Real = %+v, want none", acts)
 	}
 }

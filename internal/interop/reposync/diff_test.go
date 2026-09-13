@@ -701,3 +701,27 @@ func TestTextIsDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// A standard-library element carries the id the norm fixes for it: not an
+// annotation, so the repository lacking it is a create, and not minted for.
+func TestNormativeLibraryIDIsNeitherDeclaredNorMinted(t *testing.T) {
+	const real = "14c0aa22-5489-59b5-b438-ded26e83ba31" // ScalarValues::Real
+	local := rdf.NewGraph()
+	subject := rdf.ElementIRIForID(real)
+	local.Add(subject, rdf.IRI(rdf.RDFType), rdf.IRI(rdf.SysML+"DataType"))
+	local.Add(subject, rdf.IRI(rdf.SysML+"qualifiedName"), rdf.String("ScalarValues::Real"))
+	set, err := reposync.Diff(local, rdf.NewGraph(), reposync.Options{
+		MintIDs: true,
+		NewID:   func() (string, error) { return "minted-uuid-1", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	creates := byKind(set, reposync.KindCreate)
+	if len(creates) != 1 || set.Conflicts() != 0 {
+		t.Fatalf("the library element must be one plain create:\n%s", set.Text())
+	}
+	if change := creates[0]; change.Declared || !change.Normative || change.MintedID != "" {
+		t.Errorf("declared %v normative %v minted %q; want the norm's id as is", change.Declared, change.Normative, change.MintedID)
+	}
+}

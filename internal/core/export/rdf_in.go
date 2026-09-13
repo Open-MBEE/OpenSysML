@@ -11,7 +11,9 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf/ontology"
@@ -1088,7 +1090,8 @@ func (d *decoder) bodyMembers(el *element) ([]*element, error) {
 // identityAnnotations re-materializes the identity the graph states as the
 // annotations the notation declares it with: a ProjectRef on a scope root,
 // and an ElementId wherever the id is explicit or differs from the encoding
-// of the qualified name — a rename must not turn into a new element.
+// of the qualified name — a rename must not turn into a new element. The id
+// the norm fixes for a library element is not declared: the notation implies it.
 func identityAnnotations(el *element) []string {
 	var out []string
 	if el.projectID != "" || el.branch != "" || el.org != "" {
@@ -1102,10 +1105,16 @@ func identityAnnotations(el *element) []string {
 		}
 		out = append(out, "@IdentityMetadata::ProjectRef { "+strings.Join(fields, " ")+" }")
 	}
-	if el.declaredID || (el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname)) {
+	if el.declaredID || (el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname) && !normativeID(el)) {
 		out = append(out, fmt.Sprintf("@IdentityMetadata::ElementId { id = %s; }", lexer.StringText(el.elementID)))
 	}
 	return out
+}
+
+// normativeID reports whether el carries the id the norm fixes for a
+// standard-library element: implied by the library, so never an annotation.
+func normativeID(el *element) bool {
+	return identity.LibraryCatalog(libs.NewModelIndex()).Normative(el.elementID)
 }
 
 // head builds the declaration text up to the body or terminator, with the

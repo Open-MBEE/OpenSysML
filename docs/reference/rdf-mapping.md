@@ -157,6 +157,49 @@ id's stability.
 A `@IdentityMetadata::ProjectRef` annotation on a scope root is written as
 provenance triples on that root: `sysx:projectId`, `sysx:branch`, `sysx:org`.
 
+#### Normative library identity
+
+A named element of the KerML or SysML standard library has a third kind of id,
+sitting between declared and derived: the **normative** id the OMG
+specifications fix for it, which the pilot implementation and every conforming
+API server carry. Converting a bundled library file (or a model that owns a
+copy of one) writes that id, so `ScalarValues::Real` is the same subject here as
+it is in the pilot's `sysml.library.xmi`:
+
+```turtle
+<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> a sysml:Package ;
+    sysml:qualifiedName "ScalarValues" ;
+    sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d" ;
+    sysx:isStandardLibraryPackage "true"^^xsd:boolean ;
+    sysml:ownedMembership elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d .
+<urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> a sysml:DataType ;
+    sysml:qualifiedName "ScalarValues::Real" ;
+    sysml:elementId "14c0aa22-5489-59b5-b438-ded26e83ba31" ;
+    sysml:owningMembership elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d .
+```
+
+(A local name that starts with a digit is written as a full IRI rather than an
+`elmt:` prefixed name, so a UUID reads either way depending on its first hex
+digit.)
+
+The id is a version-5 UUID (`internal/core/identity/normative`): the library
+package's is `uuid5(URL namespace, prefix + name)` with the prefix
+`https://www.omg.org/spec/KerML/` for the kernel libraries and
+`https://www.omg.org/spec/SysML/` for the systems and domain libraries; a named
+member's is `uuid5(package id, qualified name)` and its owning membership's is
+`uuid5(package id, qualified name + "/owningMembership")`, both with the names
+quoted the way the pilot quotes them. Which bundled files are which library
+follows the stdlib tiers (`symbols.LibraryTier`), so a file OpenSysML adds under
+`internal/core/libs/stdlib` that is not part of either specification keeps
+derived ids. So does an unnamed, aliased or shadowed library element: nothing
+is guessed.
+
+A normative id is not a declared one. `sysx:declaredId` is not written for it,
+and reading the graph back does not re-materialize an `@ElementId` annotation
+for it, since the library text derives the same id again on its own. An
+explicit `@IdentityMetadata::ElementId` still wins over the normative id when a
+library element carries one.
+
 A document holding **more than one project scope** qualifies each element's IRI
 with its scope's provenance (`elmt:<encoded-org>.<encoded-project>:<id>`), so an
 id repeated across scopes stays two subjects; two scopes whose elements would
@@ -487,7 +530,9 @@ elmt:Demo__Vehicle
 - A membership's id is the member's id with `_om` appended, which no element id
   can be: an `_` in an element id starts either `__` for `::` or a hex escape.
   It is minted by `rdf.OwningMembershipID`, so it is deterministic and reverses
-  to the member's qualified name.
+  to the member's qualified name. A member with a
+  [normative id](#normative-library-identity) has a normative membership id
+  too, and that is written instead.
 - A **type owning a feature** — a usage or a state inside a definition — mints a
   `sysml:FeatureMembership` instead, and adds `sysml:ownedMemberFeature` and
   `sysml:owningType` on it and `sysml:ownedFeature` and

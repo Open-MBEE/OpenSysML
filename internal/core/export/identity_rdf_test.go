@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -524,5 +525,95 @@ func TestMembershipIDsAreDisjointFromAdversarialElements(t *testing.T) {
 	membership := rdf.IRI("urn:sysmlv2:element:foreign_om_om")
 	if got := rdf.LocalName(graph.Type(membership)); got != "OwningMembership" {
 		t.Errorf("membership of foreign_om typed %q, want OwningMembership", got)
+	}
+}
+
+// TestLibraryElementsCarryNormativeIDs pins the ids the norm fixes: a bundled
+// library file converts to the UUIDs the pilot assigns its elements and their
+// owning memberships, states them as implied rather than declared, and a copy
+// of the same notation that is not the library file keeps encoded ids.
+func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
+	const name = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
+	src, err := libs.EmbeddedSource().Read(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	turtle, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	text := string(turtle)
+	for _, want := range []string{
+		"<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d>",
+		`sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d"`,
+		"<urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>",
+		`sysml:elementId "14c0aa22-5489-59b5-b438-ded26e83ba31"`,
+		"elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d",
+		`sysml:elementId "ab72a695-5fe9-58a3-9d48-9e9a8711862d"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("graph lacks %q", want)
+		}
+	}
+	for _, reject := range []string{"declaredId", "ScalarValues__Real"} {
+		if strings.Contains(text, reject) {
+			t.Errorf("graph states %q, which the norm's ids leave no place for", reject)
+		}
+	}
+	// The library file comes back as written, so a second hop states the same ids.
+	back := toNotation(t, turtle)
+	if back != string(src) {
+		t.Errorf("the library file did not come back as written:\n%s", back)
+	}
+	second, err := export.Convert(name, []byte(back), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("second hop to turtle: %v", err)
+	}
+	if string(second) != text {
+		t.Errorf("second hop is not idempotent:\n%s", second)
+	}
+	// Read back from the mapping alone, the ids the norm implies stay implied.
+	if back := toNotation(t, withoutSourceText(t, turtle)); strings.Contains(back, "ElementId") {
+		t.Errorf("the ids the norm implies came back as declared annotations:\n%s", back)
+	}
+	edited := append([]byte("// not the library\n"), src...)
+	turtle, err = export.Convert(name, edited, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("edited copy to turtle: %v", err)
+	}
+	if text := string(turtle); !strings.Contains(text, "elmt:ScalarValues__Real") ||
+		strings.Contains(text, "14c0aa22-5489-59b5-b438-ded26e83ba31") {
+		t.Errorf("an edited copy of a library file is not the library, so its ids are encoded names:\n%s", text)
+	}
+}
+
+// A redefining feature without a name of its own takes the redefined one, so
+// the norm fixes an id for it while the graph names it by position. Neither
+// side may mistake that id for a declared one.
+func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
+	const name = "Domain Libraries/Geometry/ShapeItems.sysml"
+	src, err := libs.EmbeddedSource().Read(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	turtle, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	// ShapeItems::Polyhedron::edges under the SysML prefix.
+	const edges = "1c6076b4-48fa-5c5f-81f2-7c850aee33b1"
+	subject := rdf.ElementIRIForID(edges)
+	if got, _ := graph.Object(subject, rdf.SysML+"qualifiedName"); got != rdf.String("ShapeItems::Polyhedron::@3") {
+		t.Fatalf("the redefining item is named %v in the graph", got)
+	}
+	if graph.HasProperty(subject, rdf.OpenSysML+"declaredId") {
+		t.Errorf("the norm's id is stated as declared")
+	}
+	if back := toNotation(t, withoutSourceText(t, turtle)); strings.Contains(back, "ElementId") {
+		t.Errorf("the ids the norm implies came back as declared annotations:\n%s", back)
 	}
 }
