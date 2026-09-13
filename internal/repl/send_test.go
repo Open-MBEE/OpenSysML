@@ -568,6 +568,27 @@ func TestSendReachesAnAcceptNestedInAPerformedAction(t *testing.T) {
 	wants(t, run(t, s, "%eval Q::nest.outer.heard"), "= 1")
 }
 
+// TestSendToAnActionParkedAtTwoAcceptsForTheSignal: an action whose parallel
+// tokens both wait for the signal is reported with every accept, the step being
+// what picks the taker; one message lets exactly one of them go on.
+func TestSendToAnActionParkedAtTwoAcceptsForTheSignal(t *testing.T) {
+	s := loadFixture(t, "testdata/performed_accept.sysml")
+	run(t, s, "%instantiate Q::twin")
+	wants(t, run(t, s, "%send Halt to Q::twin"),
+		`✓ Sent Halt to object #1 of "Q::twin"`,
+		`Accepted by performed action "split" waiting at accept l and at accept r; the step dispatching it lets one of them take it`)
+	// Asking which accepts take it decides nothing: asked again, the same are waiting.
+	wants(t, run(t, s, "%send Halt to Q::twin"),
+		`Accepted by performed action "split" waiting at accept l and at accept r; the step dispatching it lets one of them take it`)
+
+	run(t, s, "%instantiate Q::other")
+	run(t, s, "%state Q::other")
+	wants(t, run(t, s, "%advance 0"), "✓ Advanced to 0.0")
+	wants(t, run(t, s, "%eval Q::twin.split.taken"), "= 11")
+	wants(t, run(t, s, "%send Halt to Q::twin"),
+		`error: object #1 of "Q::twin" accepts no signal Halt now: performed action "split" completed`)
+}
+
 // TestSendToAnObjectRunningAMachineAndAnAction: each behavior of the object is
 // asked, and the report names the one taking the signal; an action of the
 // object is not what a step of the debugged machine dispatches to, so no step

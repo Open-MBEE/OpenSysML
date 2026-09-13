@@ -170,7 +170,7 @@ func (r signalReceiver) accepts(msg runtime.Message) (bool, error) {
 }
 
 // decide says what the receiver would do with msg once dispatched (what a machine
-// fires, defers or resumes on it; the accept an action goes on from), false for nothing.
+// fires, defers or resumes on it; the accepts an action is parked at for it), false for nothing.
 func (r signalReceiver) decide(msg runtime.Message) (acceptance, bool, error) {
 	if r.machine != nil {
 		decision, err := r.machine.Decide(msg)
@@ -179,11 +179,11 @@ func (r signalReceiver) decide(msg runtime.Message) (acceptance, bool, error) {
 		}
 		return acceptance{receiver: r, decision: decision}, decision.Enabled(), nil
 	}
-	taking, accepted, err := r.action.AcceptTaking(msg)
+	taking, err := r.action.AcceptTaking(msg)
 	if err != nil {
 		return acceptance{}, false, fmt.Errorf("performed action %q cannot accept %s: %w", r.name, signalText(msg), err)
 	}
-	return acceptance{receiver: r, accept: taking}, accepted, nil
+	return acceptance{receiver: r, accepts: taking}, len(taking) > 0, nil
 }
 
 // doSend injects a signal into an object's behaviors through the runtime's own
@@ -289,17 +289,25 @@ func (s *Session) debuggedReceivers(ctx *runtime.Context) []signalReceiver {
 }
 
 // acceptance is what one receiver would do with a message once it is dispatched:
-// what a machine's dispatch does with it, or the accept an action goes on from.
+// what a machine's dispatch does with it, or the accepts an action is parked at for it.
 type acceptance struct {
 	receiver signalReceiver
 	decision runtime.Decision
-	accept   runtime.TakingAccept
+	accepts  []runtime.TakingAccept
 }
 
-// text says what the receiver would do with the message when it is dispatched.
+// text says what the receiver would do with the message when it is dispatched; an
+// action parked at several accepts for it names them all, as its step picks the taker.
 func (a acceptance) text() string {
 	if a.receiver.action != nil {
-		return fmt.Sprintf("Accepted by performed action %q waiting at %s", a.receiver.name, a.accept)
+		accepts := make([]string, len(a.accepts))
+		for i, accept := range a.accepts {
+			accepts[i] = accept.String()
+		}
+		if len(accepts) == 1 {
+			return fmt.Sprintf("Accepted by performed action %q waiting at %s", a.receiver.name, accepts[0])
+		}
+		return fmt.Sprintf("Accepted by performed action %q waiting at %s; the step dispatching it lets one of them take it", a.receiver.name, strings.Join(accepts, " and at "))
 	}
 	where := a.receiver.status()
 	if a.decision.Deferred {

@@ -721,53 +721,66 @@ func (a TakingAccept) within(performance string) TakingAccept {
 
 // AcceptsMessage reports whether a token parked at a signal accept, or an action
 // performed for a paused token, would take m; a port failing to resolve is the error.
-func (e *ActionExecutor) AcceptsMessage(m Message) (bool, error) {
-	return e.acceptsMessage(m)
+func (e *ActionExecutor) AcceptsMessage(m Message) (accepted bool, err error) {
+	e.preview(func() { accepted, err = e.acceptsMessage(m) })
+	return accepted, err
 }
 
 // acceptsMessage is AcceptsMessage for the executors that reach this one.
 func (e *ActionExecutor) acceptsMessage(m Message) (bool, error) {
-	_, accepted, err := e.acceptTaking(m)
-	return accepted, err
+	taking, err := e.acceptTaking(m)
+	return len(taking) > 0, err
 }
 
-// AcceptTaking reports the accept a parked token would go on from on m, in the
-// action's own flow or in work it performs; a port failing to resolve is the error.
-func (e *ActionExecutor) AcceptTaking(m Message) (TakingAccept, bool, error) {
-	return e.acceptTaking(m)
+// AcceptTaking lists the accepts parked for m, in the action's own flow and in the work
+// it performs, in the order their tokens are held; the step dispatching m lets one go on.
+func (e *ActionExecutor) AcceptTaking(m Message) (taking []TakingAccept, err error) {
+	e.preview(func() { taking, err = e.acceptTaking(m) })
+	return taking, err
+}
+
+// preview runs fn in the action's own run as a probe, undone whole: a port it
+// materializes to tell is not left behind.
+func (e *ActionExecutor) preview(fn func()) {
+	defer e.ctx.previewExecutorRun(&e.driven)()
+	defer e.ctx.beginProbe()()
+	fn()
 }
 
 // acceptTaking is AcceptTaking for the executors that reach this one.
-func (e *ActionExecutor) acceptTaking(m Message) (TakingAccept, bool, error) {
+func (e *ActionExecutor) acceptTaking(m Message) ([]TakingAccept, error) {
 	var (
-		taking TakingAccept
+		taking []TakingAccept
 		err    error
 	)
-	if e.parkedAcceptTakes(nil, func(token Token, matches func(Message) bool, failed *error) bool {
-		accepted := matches(m)
-		err = *failed
-		if accepted {
-			taking = TakingAccept{
+	e.parkedAcceptTakes(nil, func(token Token, matches func(Message) bool, failed *error) bool {
+		if matches(m) {
+			taking = append(taking, TakingAccept{
 				Param:  token.Wait.ParamName,
 				Node:   ActionNodeName(token.Location),
 				Within: token.frame.path(),
-			}
+			})
 		}
-		return accepted || err != nil
-	}) {
-		return taking, err == nil, err
+		err = *failed
+		return err != nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	for _, token := range e.tokens {
 		held, ok := token.heldWaiter().(messageAcceptor)
 		if !ok {
 			continue
 		}
-		taking, accepted, err := held.acceptTaking(m)
-		if err != nil || accepted {
-			return taking.within(held.performanceName()), accepted, err
+		nested, err := held.acceptTaking(m)
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range nested {
+			taking = append(taking, a.within(held.performanceName()))
 		}
 	}
-	return TakingAccept{}, false, nil
+	return taking, nil
 }
 
 // performanceName names the action the executor performs, which the accepts it

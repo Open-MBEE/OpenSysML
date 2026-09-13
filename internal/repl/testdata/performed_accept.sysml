@@ -1,7 +1,8 @@
 // Objects whose performed actions park at an accept, so %send has actions rather
-// than machines to reach: a top-level perform, a perform nested in another, a
-// part performing an action beside an exhibited machine, and an idle sibling
-// whose %state session runs the others when the clock advances.
+// than machines to reach: a top-level perform, a perform nested in another, one
+// parked at two accepts for the same signal, a part performing an action beside
+// an exhibited machine, and an idle sibling whose %state session runs the others
+// when the clock advances.
 package Q {
 	private import ScalarValues::*;
 
@@ -29,6 +30,22 @@ package Q {
 		then done;
 	}
 
+	action def Split {
+		out taken : Integer = 0;
+		first start;
+		then fork split;
+			then left;
+			then right;
+		action left accept l : Halt;
+		then action l1 assign taken := taken + 1;
+		then meet;
+		action right accept r : Halt;
+		then action r1 assign taken := taken + 10;
+		then meet;
+		join meet;
+		then done;
+	}
+
 	state def Idle {
 		entry; then a;
 		state a;
@@ -44,6 +61,10 @@ package Q {
 		perform action outer : Outer;
 	}
 
+	part def Fork {
+		perform action split : Split;
+	}
+
 	part def Both {
 		exhibit state idle : Idle;
 		perform action main : Main;
@@ -55,6 +76,7 @@ package Q {
 
 	part pd : PD;
 	part nest : Nest;
+	part twin : Fork;
 	part both : Both;
 	part other : Other;
 }

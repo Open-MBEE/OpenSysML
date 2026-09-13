@@ -123,8 +123,8 @@ func (run *doRun) end(ctx *Context) {
 // messageAcceptor is an executor a message in flight may let go on from an accept
 // it is parked at.
 type messageAcceptor interface {
-	// acceptTaking reports the accept that would take m, placed in the performance parked there.
-	acceptTaking(m Message) (TakingAccept, bool, error)
+	// acceptTaking lists the accepts parked for m, placed in the performance parked there.
+	acceptTaking(m Message) ([]TakingAccept, error)
 	// performanceName names the performance the accepts are placed in.
 	performanceName() string
 }
@@ -136,8 +136,8 @@ func (run *doRun) acceptsMessage(m Message) (bool, error) {
 		return accepted, err
 	}
 	if held, ok := run.body.paused.held.(messageAcceptor); ok {
-		_, accepted, err := held.acceptTaking(m)
-		return accepted, err
+		taking, err := held.acceptTaking(m)
+		return len(taking) > 0, err
 	}
 	return false, nil
 }
