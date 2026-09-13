@@ -81,10 +81,10 @@ func (r *Resolver) resolveEndpointChain(scope *symbols.Scope, chain *ast.Feature
 	if res, done := r.endpoints[member]; done {
 		return res.sym, res.ok
 	}
-	// An operand naming nothing reports as the reference it is, and nothing is
-	// memoized for the member so its own document still reports it.
-	owner := r.getOperandSymbol(scope, chain.Operand)
-	if owner == nil {
+	// The operand is an endpoint too, so a vertex nested anywhere in the machine
+	// answers it; one naming nothing is reported and nothing is memoized for the member.
+	owner, ok := r.ResolveEndpointRef(scope, chain.Operand)
+	if !ok || owner == nil {
 		return nil, false
 	}
 	sym, ok := r.lookupEndpointChain(scope, chain, owner)

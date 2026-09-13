@@ -383,7 +383,8 @@ func TestStateSuccessionEndpointSpellingsAcceptVertices(t *testing.T) {
 }
 
 // A succession end written as a feature chain names the nested vertex the
-// qualified spelling does, whichever end it stands at.
+// qualified spelling does, whichever end it stands at, and its first segment
+// reaches a vertex nested anywhere in the machine as a qualified end's does.
 func TestStateSuccessionChainedEndpointsAcceptNestedVertices(t *testing.T) {
 	for _, keyword := range []string{"succession", ""} {
 		for _, sep := range []string{"::", "."} {
@@ -392,9 +393,12 @@ func TestStateSuccessionChainedEndpointsAcceptNestedVertices(t *testing.T) {
 					entry; then idle;
 					state idle;
 					state outer { state inner { state deep; } state other; }
+					state region parallel { state left { state l1; } state right { state r1; } }
 					` + keyword + ` first idle then outer` + sep + `inner` + sep + `deep;
 					` + keyword + ` first outer` + sep + `inner` + sep + `deep then outer` + sep + `other;
-					` + keyword + ` first outer` + sep + `other then done;
+					` + keyword + ` first outer` + sep + `other then inner` + sep + `deep;
+					` + keyword + ` first inner` + sep + `deep then left` + sep + `l1;
+					` + keyword + ` first left` + sep + `l1 then done;
 				} }`
 				if got := endpointDiags(t, src); len(got) != 0 {
 					t.Fatalf("expected no diagnostics for a legal vertex endpoint, got %+v", got)
@@ -475,6 +479,12 @@ func TestResolvedStateEndpointNotVertexIsReported(t *testing.T) {
 			state idle;
 			state outer { attribute mode = 0; }
 			first idle then outer.mode;
+		} }`,
+		"chain operand naming no vertex": `package P { state def M {
+			entry; then idle;
+			state idle;
+			attribute mode = 0;
+			first idle then mode.deep;
 		} }`,
 	}
 	for name, src := range cases {
