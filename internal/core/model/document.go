@@ -11,7 +11,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Document is the parsed state of one source file.
+// Document is the parsed state of one source file. It is immutable once built:
+// newDocument sets every field and nothing writes one afterwards, so a document
+// the workspace hands out is a snapshot that a later update never touches.
 type Document struct {
 	Name             string
 	Content          []byte

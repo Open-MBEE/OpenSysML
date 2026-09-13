@@ -365,7 +365,8 @@ func (w *Workspace) newResolver() (*resolve.Resolver, *semantics.Model) {
 	return resolver, sem
 }
 
-// Document returns the current parsed document for name, or nil.
+// Document returns the current parsed document for name, or nil. The document is
+// a snapshot: an update installs a new one, so it stays consistent after the lock.
 func (w *Workspace) Document(name string) *Document {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
