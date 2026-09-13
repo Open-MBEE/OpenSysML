@@ -1,4 +1,5 @@
 package test {
+	import ScalarValues::*;
 	// Oracle (docs/project/behavior-semantic-oracle.md): both flags end true;
 	// the library leaves the final `x` open, so its value only pins the runtime's order.
 	action clash {
