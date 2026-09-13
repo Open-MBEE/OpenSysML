@@ -367,13 +367,17 @@ func (s *Session) signalTarget(ctx *runtime.Context, name string) (signalTarget,
 	return signalTarget{object: inst, receivers: receivers, label: label}, nil
 }
 
-// debuggedTarget is where a %send naming no object delivers: the %state session's
-// object (or its machine when no object performs it), else the %action session's object.
+// debuggedTarget is where a %send naming no object delivers: the %state session's object (or its
+// machine when none performs it, unless a rebuild left it on an earlier runtime), else the %action session's object.
 func (s *Session) debuggedTarget(ctx *runtime.Context) (signalTarget, error) {
 	if s.stateExec != nil {
 		exec := s.stateExec.executor
 		self := exec.Performer()
 		if self == nil {
+			if s.stateExec.contextOf() != ctx {
+				return signalTarget{}, fmt.Errorf("the %%state session runs %q on the runtime of an earlier model, so nothing sent now reaches it: %%state %s starts it anew, or name an object with `to <object>`",
+					s.stateExec.name, s.stateExec.name)
+			}
 			label := fmt.Sprintf("state machine %q", s.stateExec.name)
 			return signalTarget{receivers: []signalReceiver{machineReceiver(exec)}, label: label}, nil
 		}

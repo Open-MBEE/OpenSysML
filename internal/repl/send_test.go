@@ -337,6 +337,26 @@ func TestSendToAMachineNoObjectPerforms(t *testing.T) {
 	wants(t, run(t, s, "%advance 1"), "Current state: on")
 }
 
+// TestSendToAMachineNoObjectPerformsLeftOnAnEarlierRuntime: a bare %send posts on
+// the rebuilt runtime, which the detached machine an unrelated declaration left
+// behind never hears, so it is refused rather than reported as the taker.
+func TestSendToAMachineNoObjectPerformsLeftOnAnEarlierRuntime(t *testing.T) {
+	s := loadFixture(t, "testdata/lamp_signals.sysml")
+	wants(t, run(t, s, "%state Loose"), `✓ Started state machine executor for "Loose"`)
+	if res := s.Submit("package Other { part def Unrelated; }"); len(res.Diagnostics) != 0 {
+		t.Fatalf("unrelated declaration: %v", res.Diagnostics)
+	}
+	wants(t, run(t, s, "%send go"),
+		`error: the %state session runs "Loose" on the runtime of an earlier model, so nothing sent now reaches it: %state Loose starts it anew, or name an object with `+"`to <object>`")
+	wants(t, run(t, s, "%advance 1"), "No pending work")
+	wants(t, run(t, s, "%current"), "Current state: off")
+	// Reopened on the current runtime, the machine is addressable again.
+	run(t, s, "%stop")
+	wants(t, run(t, s, "%state Loose"), `✓ Started state machine executor for "Loose"`)
+	wants(t, run(t, s, "%send go"), `✓ Sent go to state machine "Loose"`, `Accepted by state machine "Loose" in state off`)
+	wants(t, run(t, s, "%advance 1"), "Current state: on")
+}
+
 // TestSendMatchesAnUndeclaredSignalByName: an accept naming a signal no
 // declaration types is matched by name, as the runtime matches a model's send.
 func TestSendMatchesAnUndeclaredSignalByName(t *testing.T) {
