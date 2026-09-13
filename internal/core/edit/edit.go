@@ -39,8 +39,12 @@ const (
 // Operation is one change to make to a model's source.
 type Operation struct {
 	Kind OpKind
-	// Target is the element to edit, by FQN, as symbols name it.
-	Target string
+	// Target is the element to edit, by FQN, as symbols name it. An OpSetLayout
+	// may give Declaration instead, the span the element is declared at in this
+	// document, for an element no qualified name reaches: an unnamed one, or
+	// one declared inside an unnamed one.
+	Target      string
+	Declaration source.Span
 	// Value is the new value in SysML notation, for OpSetValue.
 	Value string
 	// NewName is the new declared name, for OpRename.
@@ -106,10 +110,22 @@ func SetLayout(target, view string, layout *semantics.Layout) Operation {
 	return Operation{Kind: OpSetLayout, Target: target, View: view, Annotation: semantics.LayoutFQN, Layout: layout}
 }
 
+// SetLayoutAt is SetLayout of the element declared at decl in the document,
+// which is how an element no qualified name reaches is placed.
+func SetLayoutAt(decl source.Span, view string, layout *semantics.Layout) Operation {
+	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.LayoutFQN, Layout: layout}
+}
+
 // SetRoute is an operation steering the edge target through route's waypoints in
 // view — inline on target when view is empty — or clearing them when route is nil.
 func SetRoute(target, view string, route *semantics.Route) Operation {
 	return Operation{Kind: OpSetLayout, Target: target, View: view, Annotation: semantics.RouteFQN, Route: route}
+}
+
+// SetRouteAt is SetRoute of the edge declared at decl in the document, which is
+// how an unnamed transition or succession is steered.
+func SetRouteAt(decl source.Span, view string, route *semantics.Route) Operation {
+	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.RouteFQN, Route: route}
 }
 
 // SetCanvas is an operation sizing the drawing surface of view, or clearing its
@@ -312,6 +328,10 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpSetLayout {
 		return m.layoutSplices(i, op)
+	}
+	if op.Declaration.Len > 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: "only a layout operation reaches its element by declaration; name the target"}
 	}
 	if op.Kind == OpDelete {
 		deletes, err := m.deleteSplices(i, op)

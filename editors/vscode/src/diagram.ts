@@ -180,8 +180,8 @@ export class DiagramPanels implements vscode.Disposable {
   /**
    * export writes the machine form of the active document's diagram — Mermaid
    * for a diagram, Markdown for a table — to a file the user picks: the view
-   * its panel shows when one is open, else the one the document implies, else
-   * the one the user picks.
+   * its panel has chosen when one is open, else the one the document implies,
+   * else the one the user picks.
    */
   private async export(client: LanguageClient): Promise<void> {
     const editor = vscode.window.activeTextEditor;
@@ -190,16 +190,14 @@ export class DiagramPanels implements vscode.Disposable {
       return;
     }
     const uri = editor.document.uri.toString();
-    const view = this.panels.get(uri)?.selectedView() ?? await this.exportedView(client, uri);
+    // A panel that has not chosen among the document's views leaves the choice here.
+    const view = this.panels.get(uri)?.selectedView() || await this.exportedView(client, uri);
     if (view === undefined) {
       return;
     }
     let result: RenderResult;
     try {
-      result = await client.sendRequest<RenderResult>(RENDER_METHOD, {
-        textDocument: { uri },
-        view: view === "" ? undefined : view,
-      });
+      result = await client.sendRequest<RenderResult>(RENDER_METHOD, { textDocument: { uri }, view });
     } catch (err) {
       void vscode.window.showErrorMessage(`Rendering ${basename(editor.document.uri)} failed: ${errorMessage(err)}`);
       return;

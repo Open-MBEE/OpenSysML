@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // plantModel is a model with an interconnection view over parts and a
@@ -183,6 +185,98 @@ func TestSetRouteOnTransitionAndConnection(t *testing.T) {
 		"        transition t first off then on { @DiagramLayout::Route { points = (1, 2, 3, 4); } }\n", 1)
 	got = applyLayout(t, routed, SetRoute("Plant::Motor::t", "", &semantics.Route{Points: []semantics.Waypoint{{X: 9, Y: 8}}}))
 	requireReplaced(t, routed, "points = (1, 2, 3, 4);", "points = (9, 8);", got)
+}
+
+// unnamedModel is plantModel with a transition and a connection no qualified
+// name reaches: the transition is unnamed, the part declaring the connection is.
+var unnamedModel = strings.Replace(strings.Replace(plantModel,
+	"        transition t first off then on;\n",
+	"        transition t first off then on;\n        transition first on then off;\n", 1),
+	"        connection supply connect pump to tank;\n",
+	"        connection supply connect pump to tank;\n        part : Pump { part a; part b; connection line connect a to b; }\n", 1)
+
+// declaredAt is the span of the declaration a model's source spells as decl.
+func declaredAt(t *testing.T, content, decl string) source.Span {
+	t.Helper()
+	m := loadContent(t, "plant.sysml", content)
+	offset := strings.Index(content, decl)
+	if offset < 0 {
+		t.Fatalf("fixture lacks %q", decl)
+	}
+	var span source.Span
+	var walk func(*symbols.Scope)
+	walk = func(s *symbols.Scope) {
+		s.ForEachMember(func(sym *symbols.Symbol) bool {
+			if sym.DeclSpan.Offset == offset {
+				span = sym.DeclSpan
+			}
+			return span.Len == 0
+		})
+		for _, child := range s.Children() {
+			if span.Len == 0 {
+				walk(child)
+			}
+		}
+	}
+	walk(m.Index.DocumentRoot("plant.sysml"))
+	if span.Len == 0 {
+		t.Fatalf("nothing declared at %q", decl)
+	}
+	return span
+}
+
+func TestSetRouteAtOfUnnamedTransition(t *testing.T) {
+	unnamed := declaredAt(t, unnamedModel, "transition first on then off;")
+	route := &semantics.Route{Points: []semantics.Waypoint{{X: 30, Y: 90}, {X: 30, Y: 10}}}
+	got := applyLayout(t, unnamedModel, SetRouteAt(unnamed, "", route))
+	requireReplaced(t, unnamedModel,
+		"        transition first on then off;\n",
+		"        transition first on then off {\n            @DiagramLayout::Route { points = (30, 90, 30, 10); }\n        }\n",
+		got)
+
+	routed := got
+	decl := declaredAt(t, routed, "transition first on then off {")
+	got = applyLayout(t, routed, SetRouteAt(decl, "", &semantics.Route{Points: []semantics.Waypoint{{X: 5, Y: 6}}}))
+	requireReplaced(t, routed, "points = (30, 90, 30, 10);", "points = (5, 6);", got)
+
+	got = applyLayout(t, routed, SetRouteAt(decl, "", nil))
+	if got != unnamedModel {
+		t.Fatalf("clearing the route did not restore the model:\n%s", got)
+	}
+
+	_, err := Apply(loadContent(t, "plant.sysml", unnamedModel), []Operation{SetRouteAt(unnamed, "PlantViews::motorView", route)})
+	if e := editError(t, err); e.Failure != FailureNotNamed || !strings.Contains(e.Message, "no qualified name") {
+		t.Fatalf("view-local route of an unnamed transition: got %v", err)
+	}
+}
+
+func TestSetRouteAtOfConnectionInUnnamedPart(t *testing.T) {
+	decl := declaredAt(t, unnamedModel, "connection line connect a to b;")
+	route := &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}
+	got := applyLayout(t, unnamedModel, SetRouteAt(decl, "", route))
+	requireReplaced(t, unnamedModel,
+		"connection line connect a to b; }\n",
+		"connection line connect a to b {\n            @DiagramLayout::Route { points = (1, 2); }\n        } }\n",
+		got)
+
+	_, err := Apply(loadContent(t, "plant.sysml", unnamedModel), []Operation{SetRouteAt(decl, "PlantViews::loopView", route)})
+	if e := editError(t, err); e.Failure != FailureNotNamed || !strings.Contains(e.Message, "no qualified name") {
+		t.Fatalf("view-local route of a connection in an unnamed part: got %v", err)
+	}
+}
+
+func TestDeclarationRefusals(t *testing.T) {
+	m := loadContent(t, "plant.sysml", plantModel)
+	nowhere := source.Span{Offset: 3, Len: 4}
+	_, err := Apply(m, []Operation{SetLayoutAt(nowhere, "", at(1, 2))})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget || !strings.Contains(e.Message, "nothing is declared at 1:4") {
+		t.Fatalf("layout at no declaration: got %v", err)
+	}
+	decl := declaredAt(t, plantModel, "part pump : Pump;")
+	_, err = Apply(m, []Operation{{Kind: OpDelete, Declaration: decl}})
+	if e := editError(t, err); e.Failure != FailureInvalidValue || !strings.Contains(e.Message, "layout operation") {
+		t.Fatalf("delete by declaration: got %v", err)
+	}
 }
 
 func TestSetCanvas(t *testing.T) {

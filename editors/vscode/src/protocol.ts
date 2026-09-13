@@ -67,6 +67,8 @@ export interface RenderNode {
   fqn?: string;
   /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
   owners?: RenderOwner[];
+  /** The range of the node's declaration when the document declares it but no qualified name reaches it; a layout edit targets that instead of `fqn`. */
+  declaration?: Range;
   origin?: RenderOrigin;
   /** Where a `DiagramLayout::Layout` puts the node, in pixels, y down; absent when the model does not place it. */
   x?: number;
@@ -104,6 +106,8 @@ export interface RenderEdge {
   kind: string;
   /** The qualified name a model edit targets the declaring connection by; absent for one not declared in this document. */
   fqn?: string;
+  /** The range of the connection's declaration when no qualified name reaches it, as on a node. */
+  declaration?: Range;
   origin?: RenderOrigin;
   /** The waypoints a `DiagramLayout::Route` steers the edge through, source to target. */
   route?: RenderPoint[];
@@ -162,6 +166,11 @@ export function admits(palette: EditPalette | undefined, memberKind: string, nod
   return owners ? owners.includes(node.id) : true;
 }
 
+/** reachable: whether a layout edit can reach a node or edge — by qualified name, or by declaration when none reaches it. */
+export function reachable(element: RenderNode | RenderEdge): boolean {
+  return element.fqn !== undefined || element.declaration !== undefined;
+}
+
 /** One edit.Operation on the wire; `kind` selects which of the other fields are read. */
 export type ModelEditOperation =
   | { kind: "setValue"; target: string; value: string }
@@ -171,8 +180,12 @@ export type ModelEditOperation =
   | { kind: "delete"; target: string; cascade?: boolean }
   /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. */
   | { kind: "setLayout"; target: string; view?: string; layout?: LayoutGeometry }
+  /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. */
+  | { kind: "setLayout"; declaration: Range; layout?: LayoutGeometry }
   /** Steers the connection `target` through `route`, per view or inline as above; an empty or absent route clears it. */
   | { kind: "setRoute"; target: string; view?: string; route?: RenderPoint[] }
+  /** Steers the connection declared at `declaration` inline, as `setLayout` by declaration places a node. */
+  | { kind: "setRoute"; declaration: Range; route?: RenderPoint[] }
   /** Sizes the drawing surface of the view `target`; no `canvas` clears it. */
   | { kind: "setCanvas"; target: string; canvas?: RenderCanvas };
 

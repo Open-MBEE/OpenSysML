@@ -2,14 +2,15 @@
 // exactly there, and where it does not the node takes a slot in a grid under its
 // owner; a sequence is lifelines in a row with its messages down them. Pure
 // geometry, in the canvas's pixels with y down; the SVG is drawn from it.
-import type {
-  EdgePlacement,
-  LayoutGeometry,
-  NodePlacement,
-  RenderEdge,
-  RenderNode,
-  RenderPoint,
-  RenderResult,
+import {
+  reachable,
+  type EdgePlacement,
+  type LayoutGeometry,
+  type NodePlacement,
+  type RenderEdge,
+  type RenderNode,
+  type RenderPoint,
+  type RenderResult,
 } from "../protocol";
 
 export interface Box {
@@ -444,14 +445,14 @@ function midpoint(points: RenderPoint[]): RenderPoint {
   return points[0] ?? { x: 0, y: 0 };
 }
 
-/** movable reports whether a node can be dragged: the document declares it, so a Layout can name it. */
+/** movable reports whether a node can be dragged: the document declares it, so a Layout can reach it. */
 export function movable(layout: CanvasLayout, entry: PlacedNode): boolean {
-  return layout.placeable && entry.node.fqn !== undefined;
+  return layout.placeable && reachable(entry.node);
 }
 
 /** steerable reports whether an edge's route can be edited: the document declares the connection. */
 export function steerable(layout: CanvasLayout, edge: PlacedEdge): boolean {
-  return layout.placeable && edge.edge.fqn !== undefined;
+  return layout.placeable && reachable(edge.edge);
 }
 
 /**

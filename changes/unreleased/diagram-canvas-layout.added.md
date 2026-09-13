@@ -16,6 +16,9 @@
   three `DiagramLayout` annotations and refuse a target outside the document, a view that is
   none (`not-a-view`), a view-local placement of an element the view does not expose
   (`not-exposed`), an element no rendering draws (`not-drawn`) and a clearing with nothing to
-  clear (`not-annotated`); a model without annotations keeps exactly its bytes. Not built:
+  clear (`not-annotated`); a model without annotations keeps exactly its bytes. A node or edge
+  no qualified name reaches — an unnamed transition, a connection in an unnamed part — is
+  reported with the range of its `declaration` in place of an `fqn`, which `setLayout` and
+  `setRoute` take as the target of an inline annotation. Not built:
   moving a node into another owner, placing an element in another document's view, and the
   `geometry` view kind.

@@ -1,5 +1,7 @@
 package symbols
 
+import "github.com/Open-MBEE/OpenSysML/internal/core/source"
+
 // Members returns distinct symbols declared directly in this scope in
 // declaration order, with duplicate keys interleaved as declared.
 // A symbol registered under both its short and primary name appears once.
@@ -14,6 +16,37 @@ func (s *Scope) Members() []*Symbol {
 		out = append(out, sym)
 	}
 	return out
+}
+
+// DeclaredAt returns the symbol whose declaration was parsed from exactly span,
+// in this scope or one nested in it, or nil. An anonymous declaration is found
+// as a named one is, so an edit can reach an element no qualified name does.
+func (s *Scope) DeclaredAt(span source.Span) *Symbol {
+	if s == nil || span.Len <= 0 {
+		return nil
+	}
+	var found *Symbol
+	s.ForEachMember(func(sym *Symbol) bool {
+		if sym.DeclSpan == span {
+			found = sym
+			return false
+		}
+		return true
+	})
+	if found != nil {
+		return found
+	}
+	for _, child := range s.children {
+		if node := child.node; node != nil {
+			if sp := node.Span(); sp.Offset > span.Offset || sp.End() < span.End() {
+				continue
+			}
+		}
+		if sym := child.DeclaredAt(span); sym != nil {
+			return sym
+		}
+	}
+	return nil
 }
 
 // DocNameOf is the document a scope belongs to, read from the name SetDocName

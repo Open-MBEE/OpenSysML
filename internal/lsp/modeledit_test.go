@@ -86,9 +86,13 @@ func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEd
 // WorkspaceEdit must reproduce byte for byte.
 func golden(t *testing.T, s *Server, name string, ops ...modelEditOperation) string {
 	t.Helper()
+	doc := s.ws.Document(name)
+	if doc == nil {
+		t.Fatalf("no document %s", name)
+	}
 	converted := make([]modeledit.Operation, 0, len(ops))
 	for _, op := range ops {
-		c, err := op.operation()
+		c, err := op.operation(doc.Content)
 		if err != nil {
 			t.Fatalf("convert %+v: %v", op, err)
 		}
@@ -710,6 +714,85 @@ func TestApplyModelEditSetRouteAndCanvasRoundTrip(t *testing.T) {
 	}
 	if c := redrawn.Canvas; c == nil || c.Unit != "px" || c.Width == nil || *c.Width != 800 || c.Height == nil || *c.Height != 600 {
 		t.Errorf("redrawn canvas = %+v", c)
+	}
+}
+
+// An unnamed transition is reported with the range it is declared at and no
+// fqn; a setRoute targeting that range writes the Route inline and the redrawn
+// edge carries it. In a view body the edit is refused: nothing names the edge.
+func TestApplyModelEditSetRouteOfUnnamedEdgeByDeclaration(t *testing.T) {
+	const machine = `package Plant {
+	state def Motor {
+		state off;
+		state on;
+		transition first off then on;
+	}
+}
+
+package PlantViews {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+
+	view motorView : StateTransitionView {
+		expose Plant::Motor;
+	}
+}
+`
+	s, docURI := renderServer(t, "plant.sysml", machine)
+	drawn := render(t, s, docURI, "PlantViews::motorView")
+	if len(drawn.Edges) != 1 || drawn.Edges[0].FQN != "" || drawn.Edges[0].Declaration == nil {
+		t.Fatalf("edges = %+v, want the unnamed transition with a declaration range and no fqn", drawn.Edges)
+	}
+	decl := *drawn.Edges[0].Declaration
+	if want := drawn.Edges[0].Origin.Range; decl != want {
+		t.Errorf("declaration = %+v, want the origin range %+v", decl, want)
+	}
+	for _, n := range drawn.Nodes {
+		if n.Declaration != nil {
+			t.Errorf("node %s has a declaration range %+v besides its fqn %q", n.ID, *n.Declaration, n.FQN)
+		}
+	}
+
+	viewLocal := applyModelEdit(t, s, docURI, drawn.Version,
+		modelEditOperation{Kind: EditSetRoute, Declaration: &decl, View: drawn.View, Route: []renderPoint{{X: 30, Y: 90}}})
+	if viewLocal.Edit != nil || len(viewLocal.Refused) != 1 || viewLocal.Refused[0].Failure != "not-named" {
+		t.Fatalf("view-local route of an unnamed edge: %+v, want a not-named refusal", viewLocal)
+	}
+
+	op := modelEditOperation{Kind: EditSetRoute, Declaration: &decl, Route: []renderPoint{{X: 30, Y: 90}, {X: 30, Y: 10}}}
+	out := applyModelEdit(t, s, docURI, drawn.Version, op)
+	want := golden(t, s, docURI.Filename(), op)
+	applied, redrawn := redraw(t, s, docURI, machine, out, 2, drawn.View)
+	if applied != want {
+		t.Errorf("edit differs from the edit layer's:\n--- want\n%s\n--- got\n%s", want, applied)
+	}
+	if !strings.Contains(applied, "transition first off then on {\n\t\t\t@DiagramLayout::Route { points = (30, 90, 30, 10); }\n\t\t}") {
+		t.Errorf("route not written inline:\n%s", applied)
+	}
+	if got := redrawn.Edges[0].Route; len(got) != 2 || got[0] != (renderPoint{X: 30, Y: 90}) || got[1] != (renderPoint{X: 30, Y: 10}) {
+		t.Errorf("redrawn route = %+v", got)
+	}
+	if redrawn.Edges[0].Declaration == nil || redrawn.Edges[0].FQN != "" {
+		t.Errorf("redrawn edge = %+v, want a declaration range and no fqn", redrawn.Edges[0])
+	}
+
+	cleared := applyModelEdit(t, s, docURI, redrawn.Version,
+		modelEditOperation{Kind: EditSetRoute, Declaration: redrawn.Edges[0].Declaration})
+	restored, replotted := redraw(t, s, docURI, applied, cleared, 3, drawn.View)
+	if restored != machine {
+		t.Errorf("clearing the route did not restore the document:\n%s", restored)
+	}
+	if replotted.Edges[0].Route != nil {
+		t.Errorf("route after clearing = %+v", replotted.Edges[0].Route)
+	}
+
+	both := modelEditOperation{Kind: EditSetRoute, Target: "Plant::Motor", Declaration: &decl}
+	if _, err := both.operation(nil); err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Errorf("target and declaration together: err = %v", err)
+	}
+	rename := modelEditOperation{Kind: EditRename, Declaration: &decl, NewName: "x"}
+	if _, err := rename.operation(nil); err == nil || !strings.Contains(err.Error(), "setLayout or setRoute") {
+		t.Errorf("rename by declaration: err = %v", err)
 	}
 }
 

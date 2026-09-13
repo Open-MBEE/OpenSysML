@@ -29,8 +29,10 @@ export interface Rendering {
 /**
  * placementOperations turns where a gesture left nodes and edges into the layout
  * and route operations of one edit: a Layout in the view's body for a rendering
- * of a declared view, inline on the element for a pseudo-view. Undefined when
- * something placed is not declared by the document, since no annotation can name it.
+ * of a declared view, inline on the element for a pseudo-view. An element no
+ * qualified name reaches is targeted by its declaration and placed inline, since
+ * a view body cannot name it. Undefined when something placed is not declared by
+ * the document, since no annotation can reach it.
  */
 export function placementOperations(
   rendering: Rendering,
@@ -40,18 +42,24 @@ export function placementOperations(
   const view = rendering.view || undefined;
   const operations: ModelEditOperation[] = [];
   for (const placement of nodes) {
-    const target = rendering.nodes.find((node) => node.id === placement.id)?.fqn;
-    if (!target) {
+    const node = rendering.nodes.find((candidate) => candidate.id === placement.id);
+    if (node?.fqn) {
+      operations.push({ kind: "setLayout", target: node.fqn, view, layout: placement.layout });
+    } else if (node?.declaration) {
+      operations.push({ kind: "setLayout", declaration: node.declaration, layout: placement.layout });
+    } else {
       return undefined;
     }
-    operations.push({ kind: "setLayout", target, view, layout: placement.layout });
   }
   for (const placement of edges) {
-    const target = rendering.edges?.[placement.index]?.fqn;
-    if (!target) {
+    const edge = rendering.edges?.[placement.index];
+    if (edge?.fqn) {
+      operations.push({ kind: "setRoute", target: edge.fqn, view, route: placement.route });
+    } else if (edge?.declaration) {
+      operations.push({ kind: "setRoute", declaration: edge.declaration, route: placement.route });
+    } else {
       return undefined;
     }
-    operations.push({ kind: "setRoute", target, view, route: placement.route });
   }
   return operations;
 }

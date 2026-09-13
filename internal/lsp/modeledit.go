@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -50,14 +51,17 @@ type applyModelEditParams struct {
 //
 // The DiagramLayout kinds place what a rendering draws: setLayout writes the
 // Layout of the node Target, setRoute the Route of the edge Target, setCanvas
-// the Canvas of the view Target. View names the view whose body states a Layout
-// or Route, so it applies in that view alone; left empty, the annotation goes
+// the Canvas of the view Target. A setLayout or setRoute may give Declaration
+// instead of Target, the range a rendering reports for a node or edge no
+// qualified name reaches. View names the view whose body states a Layout or
+// Route, so it applies in that view alone; left empty, the annotation goes
 // inline into Target's declaration and applies in every view. A setLayout with
 // no Layout, a setRoute with no or an empty Route and a setCanvas with no Canvas
 // clear the annotation.
 type modelEditOperation struct {
 	Kind         string           `json:"kind"`
 	Target       string           `json:"target,omitempty"`
+	Declaration  *protocol.Range  `json:"declaration,omitempty"`
 	Value        string           `json:"value,omitempty"`
 	NewName      string           `json:"newName,omitempty"`
 	Owner        string           `json:"owner,omitempty"`
@@ -161,7 +165,7 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 	}
 	ops := make([]modeledit.Operation, 0, len(params.Operations))
 	for i, op := range params.Operations {
-		converted, err := op.operation()
+		converted, err := op.operation(doc.Content)
 		if err != nil {
 			return nil, fmt.Errorf("%s: operation %d: %w", jsonrpc2.ErrInvalidParams, i, err)
 		}
@@ -199,8 +203,15 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 	}, nil
 }
 
-// operation reads the wire operation as the edit operation it names.
-func (op modelEditOperation) operation() (modeledit.Operation, error) {
+// operation reads the wire operation as the edit operation it names; content
+// is the document a Declaration range is a range of.
+func (op modelEditOperation) operation(content []byte) (modeledit.Operation, error) {
+	if op.Declaration != nil && op.Kind != EditSetLayout && op.Kind != EditSetRoute {
+		return modeledit.Operation{}, fmt.Errorf("a declaration stands in for the target of a %s or %s alone", EditSetLayout, EditSetRoute)
+	}
+	if op.Declaration != nil && op.Target != "" {
+		return modeledit.Operation{}, errors.New("an operation targets its element by name or by declaration, not both")
+	}
 	switch op.Kind {
 	case EditSetValue:
 		return modeledit.SetValue(op.Target, op.Value), nil
@@ -221,6 +232,9 @@ func (op modelEditOperation) operation() (modeledit.Operation, error) {
 		if err != nil {
 			return modeledit.Operation{}, err
 		}
+		if op.Declaration != nil {
+			return modeledit.SetLayoutAt(rangeToSpan(content, *op.Declaration), op.View, layout), nil
+		}
 		return modeledit.SetLayout(op.Target, op.View, layout), nil
 	case EditSetRoute:
 		var route *semantics.Route
@@ -229,6 +243,9 @@ func (op modelEditOperation) operation() (modeledit.Operation, error) {
 			for i, p := range op.Route {
 				route.Points[i] = semantics.Waypoint{X: p.X, Y: p.Y}
 			}
+		}
+		if op.Declaration != nil {
+			return modeledit.SetRouteAt(rangeToSpan(content, *op.Declaration), op.View, route), nil
 		}
 		return modeledit.SetRoute(op.Target, op.View, route), nil
 	case EditSetCanvas:
@@ -390,8 +407,12 @@ func palette(kind view.Kind, lang source.Kind) *editPalette {
 }
 
 // nodeOwners lists the namespaces declaring sym, nearest first, as an edit names
-// them; false when an unnamed one intervenes, which no qualified name reaches.
+// them; false when sym or a namespace declaring it is unnamed, so no qualified
+// name reaches it.
 func nodeOwners(sym *symbols.Symbol) ([]renderOwner, bool) {
+	if sym.Name == "" {
+		return nil, false
+	}
 	owners := []renderOwner{}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
 		owner := scope.Owner()
@@ -409,15 +430,12 @@ func notationName(sym *symbols.Symbol) string {
 	return lexer.QualifiedNameOf(symbols.NameChain(sym))
 }
 
-// nodeSymbol is the declaration a rendering node was built from, as an edit
-// targets it, or nil for a node with no named declaration in the document.
-func nodeSymbol(scope *symbols.Scope, o view.Origin) *symbols.Symbol {
-	if scope == nil || !o.Located() {
+// nodeSymbol is the declaration a rendering node or edge was built from, named
+// or not, when the rendered document declares it; nil for one another document
+// declares or a lowering sequenced without a declaration of its own.
+func nodeSymbol(doc *model.Document, name string, o view.Origin) *symbols.Symbol {
+	if doc == nil || doc.Scope == nil || o.Doc != name || !o.Located() {
 		return nil
 	}
-	sym := symbolAtOffset(scope, o.Span.Offset)
-	if sym == nil || sym.Name == "" || sym.DeclSpan.Offset != o.Span.Offset {
-		return nil
-	}
-	return sym
+	return doc.Scope.DeclaredAt(o.Span)
 }

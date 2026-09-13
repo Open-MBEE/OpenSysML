@@ -232,11 +232,9 @@ function beginGesture(event: PointerEvent): void {
     }
     const entry = layout.nodes.get(node.id);
     gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
-    if (gesture.fixed) {
-      return;
-    }
   }
   event.preventDefault();
+  // Captured so the release is seen wherever the pointer goes, a fixed node's too.
   diagram.setPointerCapture(event.pointerId);
 }
 

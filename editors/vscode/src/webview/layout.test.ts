@@ -245,6 +245,15 @@ test("movable and steerable need the placeable kind and a declared target", () =
   assert.equal(movable(table, table.nodes.get("a")!), false);
 });
 
+test("movable and steerable accept a target reached by its declaration alone", () => {
+  const declaration = { start: { line: 2, character: 4 }, end: { line: 2, character: 30 } };
+  const unnamed = layoutCanvas(rendering([node("a", "a"), node("b", "", { fqn: undefined, declaration })], [
+    { from: "a", to: "b", label: "", kind: "transition", declaration },
+  ]));
+  assert.equal(movable(unnamed, unnamed.nodes.get("b")!), true);
+  assert.equal(steerable(unnamed, unnamed.edges[0]), true);
+});
+
 test("movedNode writes the dragged node's new position, snapped, and nothing else about it", () => {
   const layout = layoutCanvas(rendering([node("a", "a"), node("b", "b")]));
   const placements = movedNode(layout, "a", 10.4, -3.6)!;

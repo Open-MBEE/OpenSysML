@@ -277,6 +277,21 @@ test("placementOperations places on the element when the rendering has no view, 
   ]);
 });
 
+const declaration = { start: { line: 4, character: 8 }, end: { line: 4, character: 37 } };
+
+test("placementOperations targets a node or edge no qualified name reaches by its declaration, inline", () => {
+  const unnamed = {
+    ...placed,
+    nodes: [...placed.nodes, { ...imported, id: "n7", declaration }],
+    edges: [...placed.edges, { from: "n7", to: "n4", label: "", kind: "transition", declaration }],
+  };
+  assert.deepEqual(placementOperations(unnamed, [{ id: "n7", layout: { x: 1, y: 2 } }], [{ index: 2, route: [{ x: 3, y: 4 }] }, { index: 0 }]), [
+    { kind: "setLayout", declaration, layout: { x: 1, y: 2 } },
+    { kind: "setRoute", declaration, route: [{ x: 3, y: 4 }] },
+    { kind: "setRoute", target: "Vehicle::Car::fuel", view: "Vehicle::Wiring", route: undefined },
+  ]);
+});
+
 test("placementOperations refuses a node or edge the document does not declare", () => {
   assert.equal(placementOperations(placed, [{ id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
   assert.equal(placementOperations(placed, [{ id: "missing", layout: { x: 1, y: 2 } }], []), undefined);

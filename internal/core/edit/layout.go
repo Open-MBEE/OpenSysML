@@ -38,7 +38,7 @@ func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 			Message: fmt.Sprintf("%q is no DiagramLayout annotation; the annotations are %s, %s and %s",
 				op.Annotation, semantics.LayoutFQN, semantics.RouteFQN, semantics.CanvasFQN)}
 	}
-	bindings, err := layoutBindings(i, op)
+	bindings, err := m.layoutBindings(i, op)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 	if bindings == nil {
 		if site == nil {
 			return nil, &Error{Failure: FailureNotAnnotated, OperationIndex: i,
-				Message: fmt.Sprintf("%s carries no %s%s to clear", op.Target,
+				Message: fmt.Sprintf("%s carries no %s%s to clear", m.label(op),
 					layoutTypeName(op.Annotation), inView(op.View))}
 		}
 		return []splice{m.clearAnnotation(i, op, site, sym)}, nil
@@ -68,7 +68,7 @@ func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 
 // layoutBindings spells the geometry an operation writes, feature by feature,
 // or nil when the operation clears the annotation.
-func layoutBindings(i int, op Operation) ([]layoutBinding, error) {
+func (m Model) layoutBindings(i int, op Operation) ([]layoutBinding, error) {
 	switch op.Annotation {
 	case semantics.LayoutFQN:
 		if op.Layout == nil {
@@ -88,7 +88,7 @@ func layoutBindings(i int, op Operation) ([]layoutBinding, error) {
 		}
 		if len(op.Route.Points) == 0 {
 			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("a Route of %s needs at least one waypoint; clear the Route to route it straight", op.Target)}
+				Message: fmt.Sprintf("a Route of %s needs at least one waypoint; clear the Route to route it straight", m.label(op))}
 		}
 		values := make([]string, 0, 2*len(op.Route.Points))
 		for _, p := range op.Route.Points {
@@ -131,7 +131,9 @@ func stringLiteral(s string) string {
 // body states the layout. Whatever the operation writes into must be declared
 // in this document: the element for an inline annotation, the view for one in
 // its body; an element another document declares may still be placed by a view
-// of this one.
+// of this one. A view body states an annotation `about` a qualified name, so an
+// element reached by none — its own or an owner's name missing — is placed
+// inline or not at all.
 func (m Model) layoutTargets(i int, op Operation) (sym, viewSym *symbols.Symbol, err error) {
 	if op.Annotation == semantics.CanvasFQN || op.View == "" {
 		sym, err = m.target(i, op)
@@ -139,9 +141,14 @@ func (m Model) layoutTargets(i int, op Operation) (sym, viewSym *symbols.Symbol,
 			return nil, nil, err
 		}
 	} else {
-		sym, err = m.declaredOnce(i, op.Target)
+		sym, err = m.element(i, op)
 		if err != nil {
 			return nil, nil, err
+		}
+		if !qualified(sym) {
+			return nil, nil, &Error{Failure: FailureNotNamed, OperationIndex: i,
+				Message: fmt.Sprintf("%s has no qualified name for the body of %s to state a %s about; write it inline, without a view",
+					m.label(op), op.View, layoutTypeName(op.Annotation))}
 		}
 	}
 	if op.Annotation == semantics.CanvasFQN {
@@ -186,14 +193,14 @@ func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem 
 		node, edge := renderer.DrawsAnywhere(sym)
 		if (asLayout && !node) || (!asLayout && !edge) {
 			return &Error{Failure: FailureNotDrawn, OperationIndex: i,
-				Message: fmt.Sprintf("no rendering draws %s as %s", op.Target, role)}
+				Message: fmt.Sprintf("no rendering draws %s as %s", m.label(op), role)}
 		}
 		return nil
 	}
 	if !m.exposes(sem, viewSym, sym) {
 		return &Error{Failure: FailureNotExposed, OperationIndex: i,
 			Message: fmt.Sprintf("%s does not expose %s, so a %s in its body would place nothing",
-				op.View, op.Target, layoutTypeName(op.Annotation))}
+				op.View, m.label(op), layoutTypeName(op.Annotation))}
 	}
 	drawn, err := renderer.DrawnIn(viewSym)
 	if err != nil {
@@ -202,7 +209,7 @@ func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem 
 	}
 	if (asLayout && !drawn.Node(sym)) || (!asLayout && !drawn.Edge(sym)) {
 		return &Error{Failure: FailureNotDrawn, OperationIndex: i,
-			Message: fmt.Sprintf("the rendering of %s does not draw %s as %s", op.View, op.Target, role)}
+			Message: fmt.Sprintf("the rendering of %s does not draw %s as %s", op.View, m.label(op), role)}
 	}
 	return nil
 }
@@ -259,7 +266,7 @@ func (m Model) insertAnnotation(i int, op Operation, bindings []layoutBinding, s
 		text = "metadata " + op.Annotation + " about " + notationName(sym)
 	}
 	span, insertion := m.memberInsertion(owner.Decl, text+" "+writeBindings(bindings))
-	return splice{span: span, text: insertion, opIndex: i, target: op.Target}
+	return splice{span: span, text: insertion, opIndex: i, target: m.label(op)}
 }
 
 // writeBindings spells an annotation body on one line.
@@ -292,7 +299,7 @@ func (m Model) updateAnnotation(i int, op Operation, site *semantics.LayoutSite,
 		}
 		literal, keep := wanted[b.Feature]
 		if !keep {
-			out = append(out, splice{span: m.bindingSpan(b.Node), opIndex: i, target: op.Target})
+			out = append(out, splice{span: m.bindingSpan(b.Node), opIndex: i, target: m.label(op)})
 			continue
 		}
 		bound[b.Feature] = true
@@ -300,7 +307,7 @@ func (m Model) updateAnnotation(i int, op Operation, site *semantics.LayoutSite,
 		if b.Value == nil {
 			continue
 		}
-		out = append(out, splice{span: m.tokenSpan(b.Value.Span()), text: literal, opIndex: i, target: op.Target})
+		out = append(out, splice{span: m.tokenSpan(b.Value.Span()), text: literal, opIndex: i, target: m.label(op)})
 	}
 	var missing []layoutBinding
 	for _, b := range bindings {
@@ -360,7 +367,7 @@ func (m Model) bindingInsertion(i int, op Operation, node ast.Node, after *ast.U
 	for _, b := range bindings {
 		text.WriteString(sep + b.feature + " = " + b.literal + ";")
 	}
-	return splice{span: source.Span{Offset: at}, text: text.String(), opIndex: i, target: op.Target}
+	return splice{span: source.Span{Offset: at}, text: text.String(), opIndex: i, target: m.label(op)}
 }
 
 // bodyBraces are the braces of the outermost body written within span: the last
@@ -394,10 +401,10 @@ func (m Model) clearAnnotation(i int, op Operation, site *semantics.LayoutSite, 
 	removed := m.deleteSpan(deletion{node: site.Node, span: site.Node.Span()})
 	if !site.About && sym.Decl != nil && sym.DocName == m.Source.Name() {
 		if body, ok := m.emptiedBody(sym.Decl, removed); ok {
-			return splice{span: body, text: ";", opIndex: i, target: op.Target}
+			return splice{span: body, text: ";", opIndex: i, target: m.label(op)}
 		}
 	}
-	return splice{span: removed, opIndex: i, target: op.Target}
+	return splice{span: removed, opIndex: i, target: m.label(op)}
 }
 
 // emptiedBody is the span of decl's body, with the space before its `{`, when
