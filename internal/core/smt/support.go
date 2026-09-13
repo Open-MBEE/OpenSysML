@@ -143,6 +143,26 @@ func (f *Flow) checkNode(node ast.Node) error {
 	if _, ok := graph.Accepts[node]; ok {
 		return &UnsupportedError{Node: label, Construct: "accept", Reason: "messages and the clock are encoded by a later stage"}
 	}
+	if err := f.checkNodeKind(node, label); err != nil {
+		return err
+	}
+	for _, flow := range graph.DataFlows[node] {
+		if _, ok := f.Index[flow.Target]; !ok {
+			return &FlowError{Node: label, Reason: "an object flow leaves the flow's nodes"}
+		}
+		if flow.SourcePin == "" || flow.TargetPin == "" {
+			return &FlowError{Node: label, Reason: "an object flow names no pin at one end"}
+		}
+		if _, performs := flow.Target.(*ast.Usage); performs {
+			f.Delivers = true
+		}
+	}
+	return f.checkBody(node, label, graph.Bodies[node])
+}
+
+// checkNodeKind refuses a node of a kind the stage does not encode, or with
+// successors the interpreter would refuse.
+func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 	out := len(f.Outgoing[node])
 	switch n := node.(type) {
 	case *ast.InitialNode:
@@ -192,18 +212,7 @@ func (f *Flow) checkNode(node ast.Node) error {
 	default:
 		return &UnsupportedError{Node: label, Construct: fmt.Sprintf("%T", node), Reason: "the interpreter runs no such node"}
 	}
-	for _, flow := range graph.DataFlows[node] {
-		if _, ok := f.Index[flow.Target]; !ok {
-			return &FlowError{Node: label, Reason: "an object flow leaves the flow's nodes"}
-		}
-		if flow.SourcePin == "" || flow.TargetPin == "" {
-			return &FlowError{Node: label, Reason: "an object flow names no pin at one end"}
-		}
-		if _, performs := flow.Target.(*ast.Usage); performs {
-			f.Delivers = true
-		}
-	}
-	return f.checkBody(node, label, graph.Bodies[node])
+	return nil
 }
 
 // checkImplicitJoin refuses a node other than a join or a merge that several
@@ -315,25 +324,8 @@ func (f *Flow) arrivals(k int) map[ast.Node]int {
 	reached := make(map[ast.Node]int, len(f.Nodes))
 	leaving := make(map[ast.Node]int, len(f.Nodes))
 	for _, comp := range f.components() {
-		inside := make(map[ast.Node]bool, len(comp))
-		for _, node := range comp {
-			inside[node] = true
-		}
 		cyclic := len(comp) > 1 || f.reaches(comp[0], comp[0])
-		entering, multiplies := 0, false
-		for _, node := range comp {
-			if node == f.Graph.Initial {
-				entering++
-			}
-			for _, ei := range f.Incoming[node] {
-				if source := f.Edges[ei].Source; !inside[source] {
-					entering += leaving[source]
-				}
-			}
-			if _, ok := node.(*ast.ForkNode); ok && cyclic && len(f.Outgoing[node]) > 1 {
-				multiplies = true
-			}
-		}
+		entering, multiplies := f.entering(comp, cyclic, leaving)
 		entering = min(entering, k)
 		if cyclic {
 			// A token entering the cycle leaves it once at most, unless the
@@ -356,6 +348,29 @@ func (f *Flow) arrivals(k int) map[ast.Node]int {
 		reached[node], leaving[node] = entering, entering
 	}
 	return reached
+}
+
+// entering is how many tokens may enter the component comp from outside it, given
+// how many leave each node before it, and whether a fork inside a cycle multiplies them.
+func (f *Flow) entering(comp []ast.Node, cyclic bool, leaving map[ast.Node]int) (entering int, multiplies bool) {
+	inside := make(map[ast.Node]bool, len(comp))
+	for _, node := range comp {
+		inside[node] = true
+	}
+	for _, node := range comp {
+		if node == f.Graph.Initial {
+			entering++
+		}
+		for _, ei := range f.Incoming[node] {
+			if source := f.Edges[ei].Source; !inside[source] {
+				entering += leaving[source]
+			}
+		}
+		if _, ok := node.(*ast.ForkNode); ok && cyclic && len(f.Outgoing[node]) > 1 {
+			multiplies = true
+		}
+	}
+	return entering, multiplies
 }
 
 // components are the flow's strongly connected components, each before any

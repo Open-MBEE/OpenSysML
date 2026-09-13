@@ -41,7 +41,7 @@ func doublePlan(t *testing.T, f *fixture, ctx *runtime.Context) runtime.SweepPla
 
 // sweepIn is the one-job sweep with every row in ctx, as a test of a plan's rows takes it.
 func sweepIn(ctx *runtime.Context, target string, plan runtime.SweepPlan, run runtime.SweepRun) (runtime.SweepTable, error) {
-	return runtime.RunSweepWith(context.Background(), ctx, target, plan, 0, 1, func(int) (*runtime.Context, error) { return ctx, nil }, run)
+	return runtime.RunSweepWith(context.Background(), runtime.SweepWorkers{First: ctx, Jobs: 1, Fresh: func(int) (*runtime.Context, error) { return ctx, nil }}, target, plan, 0, run)
 }
 
 func TestSweepObservesATable(t *testing.T) {
@@ -100,7 +100,7 @@ func TestSweepTakesTheBudgetsRuns(t *testing.T) {
 func TestRegistrySweepIsTheRuntimesSweep(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
-	plan, err := Default().Sweep(context.Background(), f.building(), "test::Double", ctx.Schedule(), doublePlan(t, f, ctx), doubleRow(t, f), Budget{}, Auto())
+	plan, err := Default().Sweep(context.Background(), request(f.building(), "test::Double", ctx.Schedule()), doublePlan(t, f, ctx), doubleRow(t, f))
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestSweepRefusalIsTheRuntimes(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
 	plan := runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "x", From: intOf(1), To: intOf(4), Step: intOf(0), HasStep: true}}}
-	_, err := Default().Sweep(context.Background(), f.building(), "test::Double", ctx.Schedule(), plan, doubleRow(t, f), Budget{}, Auto())
+	_, err := Default().Sweep(context.Background(), request(f.building(), "test::Double", ctx.Schedule()), plan, doubleRow(t, f))
 	if !errors.Is(err, runtime.ErrSweepRange) {
 		t.Fatalf("sweep with a zero step: %v, want the runtime's range refusal", err)
 	}

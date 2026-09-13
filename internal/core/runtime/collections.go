@@ -306,14 +306,20 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 	if indexes := elementsOf(indexVal); len(indexes) != 1 || isStructuredValue(&operand) {
 		return builtinBaseIndex(ec, []Value{operand, indexVal})
 	}
-	if val, open, err := ec.ctx.undeterminedIndex("sequence index", operand, indexVal); open {
+	const op = "sequence index"
+	if val, open, err := ec.ctx.undeterminedIndex(op, operand, indexVal); open {
 		return val, err
 	}
-	index, err := indexOf("sequence index", indexVal)
+	index, err := indexOf(op, indexVal)
 	if err != nil {
 		return Value{}, err
 	}
-	return elementAt("sequence index", elementsOf(operand), index)
+	return elementAt(op, elementsOf(operand), index)
+}
+
+// indexOperand names op's index operand in a diagnostic.
+func indexOperand(op string) string {
+	return op + " index"
 }
 
 // undeterminedIndex is `seq#(index)` where the model leaves seq or index open: the
@@ -531,14 +537,14 @@ func (ctx *Context) sequenceIndex(op string, args []Value) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	if val, open, err := ctx.undeterminedIndex(op+" index", args[0], args[1]); open {
+	if val, open, err := ctx.undeterminedIndex(indexOperand(op), args[0], args[1]); open {
 		return val, err
 	}
 	index, err := indexOf(op, args[1])
 	if err != nil {
 		return Value{}, err
 	}
-	return elementAt(op+" index", elementsOf(args[0]), index)
+	return elementAt(indexOperand(op), elementsOf(args[0]), index)
 }
 
 // builtinBaseIndex is BaseFunctions::'#': over an Array (a vector included) it is
@@ -552,7 +558,7 @@ func builtinBaseIndex(ec *EvalContext, args []Value) (Value, error) {
 	if isStructuredValue(&args[0]) {
 		return arrayIndex(op, args[0], args[1])
 	}
-	if val, open, err := ec.ctx.undeterminedIndex(op+" index", args[0], args[1]); open {
+	if val, open, err := ec.ctx.undeterminedIndex(indexOperand(op), args[0], args[1]); open {
 		return val, err
 	}
 	indexes := elementsOf(args[1])

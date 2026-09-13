@@ -254,7 +254,6 @@ func CheckAction(stop context.Context, fresh func() (*Context, error), start Act
 		ctx.SetTrace(NewTraceRecorder())
 	}
 	c := &checker{
-		stop:     stop,
 		ctx:      ctx,
 		budget:   budget,
 		opts:     opts,
@@ -276,7 +275,7 @@ func CheckAction(stop context.Context, fresh func() (*Context, error), start Act
 	if err := c.resolveDiverge(); err != nil {
 		return nil, err
 	}
-	if err := c.search(); err != nil {
+	if err := c.search(stop); err != nil {
 		return nil, err
 	}
 	if err := c.divergeReached(); err != nil {
@@ -287,7 +286,6 @@ func CheckAction(stop context.Context, fresh func() (*Context, error), start Act
 
 // checker is one search in progress.
 type checker struct {
-	stop   context.Context
 	ctx    *Context
 	exec   *ActionExecutor
 	budget CheckBudget
@@ -398,8 +396,9 @@ func (c *checker) failing(err error) Witness {
 	return w
 }
 
-// search runs the depth-first search from the started executor's state.
-func (c *checker) search() error {
+// search runs the depth-first search from the started executor's state,
+// stopping early once stop ends.
+func (c *checker) search(stop context.Context) error {
 	if err := c.stabilize(); err != nil {
 		return c.failed(err, 0)
 	}
@@ -413,7 +412,7 @@ func (c *checker) search() error {
 	c.onStack[key]++
 	c.stack = append(c.stack, root)
 	for len(c.stack) > 0 {
-		if err := c.stop.Err(); err != nil {
+		if err := stop.Err(); err != nil {
 			c.releaseAll()
 			return &CheckStopped{States: len(c.visited), Moves: c.moves, MaxDepth: c.maxDepth, Cause: err}
 		}

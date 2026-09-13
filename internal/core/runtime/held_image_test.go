@@ -189,8 +189,8 @@ func TestHeldImageCarriesTheRunsSchedulePolicy(t *testing.T) {
 
 	dst := imageInto(t, src, bulb)
 	copied, _ := dst.Instance(bulb.ID)
-	copy, _ := copied.ExhibitedState()
-	run := copy.State.driven.state
+	image, _ := copied.ExhibitedState()
+	run := image.State.driven.state
 	if run == nil || run.scheduler == nil {
 		t.Fatalf("the copy's machine has no run of its own: %v", run)
 	}

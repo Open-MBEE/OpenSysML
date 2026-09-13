@@ -19,6 +19,7 @@ const (
 	featureName      = "name"
 	featureExpected  = "expectedTraces"
 	primitiveTypes   = "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#"
+	typeStateMachine = "uml:StateMachine"
 )
 
 // registrationActivity matches the name of a package's test registration
@@ -222,7 +223,7 @@ func (r *reader) behavior(e *Element) *Behavior {
 		b.Body = r.readActivity(e)
 	case "uml:OpaqueBehavior":
 		b.Opaque = readOpaque(e)
-	case "uml:StateMachine":
+	case typeStateMachine:
 		// A submachine or classifier behavior; read under readMachines.
 	default:
 		r.diag(e, "behavior kind %s is not read", e.Type)
@@ -281,7 +282,7 @@ func (r *reader) readEvent(id string, at *Element) *Event {
 // readMachines builds every state machine's regions and vertices, indexing
 // each vertex by id so transitions can be resolved afterwards.
 func (r *reader) readMachines() {
-	for _, e := range r.typed("uml:StateMachine") {
+	for _, e := range r.typed(typeStateMachine) {
 		sm := &StateMachine{ID: e.ID, Name: e.Name()}
 		if e.Parent != nil && e.Parent.Type == "uml:Class" {
 			sm.Owner = e.Parent.Name()
@@ -479,11 +480,11 @@ func (r *reader) readGuard(t *Element) *Guard {
 // readClasses reads every class and standalone state machine that specializes
 // one of the suite's architecture bases.
 func (r *reader) readClasses() {
-	for _, e := range r.typed("uml:Class", "uml:StateMachine") {
-		if e.Type == "uml:StateMachine" && len(e.Tagged("generalization")) == 0 {
+	for _, e := range r.typed("uml:Class", typeStateMachine) {
+		if e.Type == typeStateMachine && len(e.Tagged("generalization")) == 0 {
 			continue
 		}
-		c := &Class{ID: e.ID, Name: e.Name(), Attributes: r.readAttributes(e), Standalone: e.Type == "uml:StateMachine"}
+		c := &Class{ID: e.ID, Name: e.Name(), Attributes: r.readAttributes(e), Standalone: e.Type == typeStateMachine}
 		for _, g := range e.Tagged("generalization") {
 			c.Generals = append(c.Generals, r.nameOf(g.Attr("general")))
 		}
@@ -554,85 +555,106 @@ func (r *reader) readRegistrations() {
 		if body == nil {
 			continue
 		}
-		var statements []*Element
-		for _, n := range body.Tagged("node") {
-			if alfStatement.MatchString(n.Name()) {
-				statements = append(statements, n)
-			}
-		}
-		sort.SliceStable(statements, func(i, j int) bool {
-			return statementIndex(statements[i]) < statementIndex(statements[j])
-		})
+		statements := registrationStatements(body)
 		// Statements creating a test leave a fork node named after the local
 		// variable; the writes that follow are fed from it.
 		created := make(map[string]*Test) // by the id of any element inside the creating statement
 		var order []*Test
 		for _, st := range statements {
-			var test *Test
-			st.Walk(func(e *Element) bool {
-				if e.Type != "uml:CreateObjectAction" {
-					return true
-				}
-				cls := r.classes[e.Attr("classifier")]
-				if cls == nil || !r.specializes(cls, baseSemanticTest) {
-					return true
-				}
-				test = &Test{ID: cls.Name, Area: act.Parent.Name()}
-				return false
-			})
-			if test == nil {
-				continue
+			if test := r.createdTest(st, act.Parent.Name(), created); test != nil {
+				order = append(order, test)
 			}
-			st.Walk(func(e *Element) bool {
-				if e.ID != "" {
-					created[e.ID] = test
-				}
-				return true
-			})
-			order = append(order, test)
 		}
 		for _, st := range statements {
-			var write *Element
-			st.Walk(func(e *Element) bool {
-				if e.Type == "uml:AddStructuralFeatureValueAction" {
-					write = e
-					return false
-				}
-				return true
-			})
-			if write == nil {
-				continue
-			}
-			feature := r.nameOf(write.Attr("structuralFeature"))
-			if feature != featureName && feature != featureExpected {
-				continue
-			}
-			test := r.testFedInto(st, created)
-			if test == nil {
-				r.diag(st, "writes %s of no test created in %s", feature, act.Name())
-				continue
-			}
-			var literals []string
-			st.Walk(func(e *Element) bool {
-				if e.Type == "uml:LiteralString" {
-					literals = append(literals, e.Attr("value"))
-				}
-				return true
-			})
-			if len(literals) != 1 {
-				r.diag(st, "writes %s with %d string literals, not one", feature, len(literals))
-				continue
-			}
-			if feature == featureName {
-				test.Name = literals[0]
-			} else {
-				test.Expected = append(test.Expected, literals[0])
-			}
+			r.readRegistrationWrite(st, act, created)
 		}
 		for _, test := range order {
 			r.completeTest(test, byName)
 			r.suite.Tests = append(r.suite.Tests, test)
 		}
+	}
+}
+
+// registrationStatements are the numbered Alf statement nodes of a registration
+// activity's body, in statement order.
+func registrationStatements(body *Element) []*Element {
+	var statements []*Element
+	for _, n := range body.Tagged("node") {
+		if alfStatement.MatchString(n.Name()) {
+			statements = append(statements, n)
+		}
+	}
+	sort.SliceStable(statements, func(i, j int) bool {
+		return statementIndex(statements[i]) < statementIndex(statements[j])
+	})
+	return statements
+}
+
+// createdTest reads a statement creating a semantic test, recording every
+// element inside it in created; nil when the statement creates none.
+func (r *reader) createdTest(st *Element, area string, created map[string]*Test) *Test {
+	var test *Test
+	st.Walk(func(e *Element) bool {
+		if e.Type != "uml:CreateObjectAction" {
+			return true
+		}
+		cls := r.classes[e.Attr("classifier")]
+		if cls == nil || !r.specializes(cls, baseSemanticTest) {
+			return true
+		}
+		test = &Test{ID: cls.Name, Area: area}
+		return false
+	})
+	if test == nil {
+		return nil
+	}
+	st.Walk(func(e *Element) bool {
+		if e.ID != "" {
+			created[e.ID] = test
+		}
+		return true
+	})
+	return test
+}
+
+// readRegistrationWrite reads a statement writing a test's name or expected
+// trace into the test the statement is fed from.
+func (r *reader) readRegistrationWrite(st, act *Element, created map[string]*Test) {
+	var write *Element
+	st.Walk(func(e *Element) bool {
+		if e.Type == "uml:AddStructuralFeatureValueAction" {
+			write = e
+			return false
+		}
+		return true
+	})
+	if write == nil {
+		return
+	}
+	feature := r.nameOf(write.Attr("structuralFeature"))
+	if feature != featureName && feature != featureExpected {
+		return
+	}
+	test := r.testFedInto(st, created)
+	if test == nil {
+		r.diag(st, "writes %s of no test created in %s", feature, act.Name())
+		return
+	}
+	var literals []string
+	st.Walk(func(e *Element) bool {
+		if e.Type == "uml:LiteralString" {
+			literals = append(literals, e.Attr("value"))
+		}
+		return true
+	})
+	if len(literals) != 1 {
+		r.diag(st, "writes %s with %d string literals, not one", feature, len(literals))
+		return
+	}
+	if feature == featureName {
+		test.Name = literals[0]
+	} else {
+		test.Expected = append(test.Expected, literals[0])
 	}
 }
 

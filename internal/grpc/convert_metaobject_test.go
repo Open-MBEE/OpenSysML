@@ -155,7 +155,7 @@ package M {
 	if len(elems) != 2 {
 		t.Fatalf("M::features crossed as %v, want two elements", elems)
 	}
-	if got := elems[0].GetNull(); got != "unsupported: metaobject of an element with no qualified name" {
+	if elems[0].GetNull() != "unsupported: metaobject of an element with no qualified name" {
 		t.Errorf("anonymous part crossed as %v, want the unsupported null", elems[0])
 	}
 	if got := elems[1].GetMetaobject(); got.GetElementId() != "M::outer::named" || got.GetMetaclassId() != "SysML::Systems::PartUsage" {

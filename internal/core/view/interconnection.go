@@ -17,15 +17,13 @@ import (
 // Layout and Route annotations positioning their elements in view, nil for a
 // rendering outside any view.
 func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
-	ids := &nodeIDs{}
-	nodes := map[*symbols.Symbol]*Node{}
-	var connectors []*symbols.Symbol
+	w := &featureWalk{r: r, view: view, ids: &nodeIDs{}, nodes: map[*symbols.Symbol]*Node{}, out: out}
 	for _, elem := range exposed {
 		switch {
 		case r.model.IsConnectorUsage(elem), isFlowUsage(elem):
-			connectors = append(connectors, elem)
+			w.connectors = append(w.connectors, elem)
 		case featureLike(elem):
-			out.Roots = append(out.Roots, r.featureNode(view, elem, ids, nodes, &connectors, map[*symbols.Symbol]bool{}, 0, true, out))
+			out.Roots = append(out.Roots, w.featureNode(elem, map[*symbols.Symbol]bool{}, 0, true))
 		default:
 			out.Notices = append(out.Notices, fmt.Sprintf(
 				"%s %s has no place in an interconnection rendering; it is not shown",
@@ -33,31 +31,42 @@ func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbol
 		}
 	}
 	seen := map[*symbols.Symbol]bool{}
-	for _, connector := range connectors {
+	for _, connector := range w.connectors {
 		if seen[connector] {
 			continue
 		}
 		seen[connector] = true
-		r.connectionEdges(view, connector, nodes, out)
+		r.connectionEdges(view, connector, w.nodes, out)
 	}
+}
+
+// featureWalk is one interconnection rendering's walk over the exposed features:
+// the nodes rendered so far and the connectors collected along the way.
+type featureWalk struct {
+	r          *Renderer
+	view       *symbols.Symbol
+	ids        *nodeIDs
+	nodes      map[*symbols.Symbol]*Node
+	connectors []*symbols.Symbol
+	out        *Rendering
 }
 
 // featureNode renders one exposed feature and the features nested in it,
 // collecting the connectors declared along the way, which join the nodes it
 // renders.
-func (r *Renderer) featureNode(view, sym *symbols.Symbol, ids *nodeIDs, nodes map[*symbols.Symbol]*Node,
-	connectors *[]*symbols.Symbol, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering) *Node {
+func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int, qualified bool) *Node {
+	r := w.r
 	name := r.notationName(sym)
 	if !qualified {
 		name = notationName(simpleName(r.fqn(sym)))
 	}
-	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, Detail: declType(sym), Origin: symbolOrigin(sym),
-		Geometry: r.geometryOf(view, sym, out)}
-	if existing, ok := nodes[sym]; ok {
+	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, Detail: declType(sym), Origin: symbolOrigin(sym),
+		Geometry: r.geometryOf(w.view, sym, w.out)}
+	if existing, ok := w.nodes[sym]; ok {
 		node.Detail = detailWith(node.Detail, "already shown as "+existing.ID)
 		return node
 	}
-	nodes[sym] = node
+	w.nodes[sym] = node
 	if seen[sym] || depth >= maxTreeDepth {
 		return node
 	}
@@ -65,9 +74,9 @@ func (r *Renderer) featureNode(view, sym *symbols.Symbol, ids *nodeIDs, nodes ma
 	for _, member := range containedMembers(sym) {
 		switch {
 		case r.model.IsConnectorUsage(member), isFlowUsage(member):
-			*connectors = append(*connectors, member)
+			w.connectors = append(w.connectors, member)
 		case featureLike(member):
-			node.Children = append(node.Children, r.featureNode(view, member, ids, nodes, connectors, seen, depth+1, false, out))
+			node.Children = append(node.Children, w.featureNode(member, seen, depth+1, false))
 		}
 	}
 	return node

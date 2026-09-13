@@ -34,65 +34,81 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 	// A collection literal binds elementwise, so each element is checked
 	// against the feature's type rather than the sequence as a whole.
 	for _, value := range valueElements(value) {
-		if feature := ec.valueFeature(valueScope, value); feature != nil {
-			gots := ec.featureValueTypes(feature)
-			if _, indexed := value.(*ast.IndexExpr); indexed {
-				// The value is the selected element, not the indexed feature.
-				gots = ec.model.ExprResultTypes(valueScope, value)
-			}
-			if len(gots) == 0 || (scalar && ec.anyScalar(gots)) {
-				continue
-			}
-			// A binding equates the two features, so one conforming pairing in
-			// either direction suffices; only unrelated types are rejected. The
-			// feature is judged as a whole: a variant is typed by its variation too.
-			if !ec.boundTypesConform(feature, gots, wants) {
-				ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
-			}
-			continue
-		}
-		if elements, collection := ec.model.CollectionElements(valueScope, value); collection {
-			// Every element a collection value may hold binds, not the Anything the
-			// library declares; a scalar one written out is the lattice rules' to report.
-			if gots := ec.unboundElementTypes(elements, wants, scalar); len(gots) > 0 {
-				ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
-			}
-			continue
-		}
-		if computesValue(value) && !ec.composesMeasurementRef(valueScope, value) {
-			// The result the declaration types, none for a behavior declaring no
-			// result or a selection that settled on none: the value stays unjudged.
-			gots := ec.model.ExprResultTypes(valueScope, value)
-			if len(gots) == 0 || (scalar && ec.anyScalar(gots) && latticeTyped[value]) {
-				ec.checkEnumeratedTarget(valueScope, wants, value)
-				continue
-			}
-			if !ec.boundTypesConform(nil, gots, wants) {
-				ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
-				continue
-			}
-			ec.checkEnumeratedTarget(valueScope, wants, value)
-			continue
-		}
-		if scalar {
-			ec.checkEnumeratedTarget(valueScope, wants, value)
-			continue
-		}
-		// The feature's type has no scalar ancestor, so no literal value can
-		// conform to it. Only literals and bodies are judged here: any other
-		// expression may produce an instance of the type.
-		if prim := literalPrimType(value); prim != semantics.PrimUnknown {
-			ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", prim, typeNames(wants))
-			continue
-		}
-		if _, ok := value.(*ast.BodyExpr); !ok {
-			continue
-		}
-		got := ec.model.ExprResultType(valueScope, value)
-		if got != nil && !ec.boundTypesConform(nil, []*symbols.Symbol{got}, wants) {
-			ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", semantics.PrimExpression, typeNames(wants))
-		}
+		ec.checkElementConformance(valueScope, wants, scalar, value, latticeTyped)
 	}
+}
+
+// checkElementConformance checks one bound element against the feature's
+// declared types wants; scalar reports whether any of them is scalar.
+func (ec *exprChecker) checkElementConformance(valueScope *symbols.Scope, wants []*symbols.Symbol, scalar bool, value ast.Node, latticeTyped map[ast.Node]bool) {
+	if feature := ec.valueFeature(valueScope, value); feature != nil {
+		ec.checkBoundFeature(valueScope, wants, scalar, feature, value)
+		return
+	}
+	if elements, collection := ec.model.CollectionElements(valueScope, value); collection {
+		// Every element a collection value may hold binds, not the Anything the
+		// library declares; a scalar one written out is the lattice rules' to report.
+		if gots := ec.unboundElementTypes(elements, wants, scalar); len(gots) > 0 {
+			ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
+		}
+		return
+	}
+	if computesValue(value) && !ec.composesMeasurementRef(valueScope, value) {
+		ec.checkComputedValue(valueScope, wants, scalar, value, latticeTyped)
+		return
+	}
+	if scalar {
+		ec.checkEnumeratedTarget(valueScope, wants, value)
+		return
+	}
+	// The feature's type has no scalar ancestor, so no literal value can
+	// conform to it. Only literals and bodies are judged here: any other
+	// expression may produce an instance of the type.
+	if prim := literalPrimType(value); prim != semantics.PrimUnknown {
+		ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", prim, typeNames(wants))
+		return
+	}
+	if _, ok := value.(*ast.BodyExpr); !ok {
+		return
+	}
+	got := ec.model.ExprResultType(valueScope, value)
+	if got != nil && !ec.boundTypesConform(nil, []*symbols.Symbol{got}, wants) {
+		ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", semantics.PrimExpression, typeNames(wants))
+	}
+}
+
+// checkBoundFeature checks a value that names a feature by that feature's types.
+func (ec *exprChecker) checkBoundFeature(valueScope *symbols.Scope, wants []*symbols.Symbol, scalar bool, feature *symbols.Symbol, value ast.Node) {
+	gots := ec.featureValueTypes(feature)
+	if _, indexed := value.(*ast.IndexExpr); indexed {
+		// The value is the selected element, not the indexed feature.
+		gots = ec.model.ExprResultTypes(valueScope, value)
+	}
+	if len(gots) == 0 || (scalar && ec.anyScalar(gots)) {
+		return
+	}
+	// A binding equates the two features, so one conforming pairing in
+	// either direction suffices; only unrelated types are rejected. The
+	// feature is judged as a whole: a variant is typed by its variation too.
+	if !ec.boundTypesConform(feature, gots, wants) {
+		ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
+	}
+}
+
+// checkComputedValue checks a computed value by its static result types.
+func (ec *exprChecker) checkComputedValue(valueScope *symbols.Scope, wants []*symbols.Symbol, scalar bool, value ast.Node, latticeTyped map[ast.Node]bool) {
+	// The result the declaration types, none for a behavior declaring no
+	// result or a selection that settled on none: the value stays unjudged.
+	gots := ec.model.ExprResultTypes(valueScope, value)
+	if len(gots) == 0 || (scalar && ec.anyScalar(gots) && latticeTyped[value]) {
+		ec.checkEnumeratedTarget(valueScope, wants, value)
+		return
+	}
+	if !ec.boundTypesConform(nil, gots, wants) {
+		ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
+		return
+	}
+	ec.checkEnumeratedTarget(valueScope, wants, value)
 }
 
 // checkEnumeratedTarget applies checkEnumeratedValue where the one declared type is an enumeration.

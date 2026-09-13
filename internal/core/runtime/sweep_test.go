@@ -123,7 +123,7 @@ func sweepCalcRun(sym *symbols.Symbol, scope *symbols.Scope) SweepRun {
 
 // sweepIn is the one-job sweep with every row in ctx, as a test of a plan's rows takes it.
 func sweepIn(ctx *Context, stop context.Context, target string, plan SweepPlan, runs int64, run SweepRun) (SweepTable, error) {
-	return RunSweepWith(stop, ctx, target, plan, runs, 1, func(int) (*Context, error) { return ctx, nil }, run)
+	return RunSweepWith(stop, SweepWorkers{First: ctx, Jobs: 1, Fresh: func(int) (*Context, error) { return ctx, nil }}, target, plan, runs, run)
 }
 
 // resolvedPlan is the plan as the named calc's parameters type it, failing the

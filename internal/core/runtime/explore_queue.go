@@ -19,14 +19,13 @@ func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh fu
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNotExploring, policy)
 	}
-	return newExploreQueue(stop, policy, budget, jobs).explore(fresh, run)
+	return newExploreQueue(policy, budget, jobs).explore(stop, fresh, run)
 }
 
 // newExploreQueue is the queue over an exploration's prefixes under budget, the root prefix
 // queued, for min(jobs, runs) jobs.
-func newExploreQueue(stop context.Context, policy SchedulePolicy, budget ExploreBudget, jobs int) *exploreQueue {
+func newExploreQueue(policy SchedulePolicy, budget ExploreBudget, jobs int) *exploreQueue {
 	q := &exploreQueue{
-		stop:    stop,
 		policy:  policy,
 		budget:  budget,
 		jobs:    max(min(jobs, budget.Runs), 1),
@@ -38,17 +37,18 @@ func newExploreQueue(stop context.Context, policy SchedulePolicy, budget Explore
 	return q
 }
 
-// explore puts the jobs to work on the queue and assembles the exploration once it is over.
-func (q *exploreQueue) explore(fresh func(job int) (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
+// explore puts the jobs to work on the queue until it is over or the caller (stop) goes
+// away, and assembles the exploration.
+func (q *exploreQueue) explore(stop context.Context, fresh func(job int) (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
 	var wg sync.WaitGroup
 	for job := 0; job < q.jobs; job++ {
 		wg.Add(1)
 		go func(job int) {
 			defer wg.Done()
-			q.work(job, fresh, run)
+			q.work(stop, job, fresh, run)
 		}(job)
 	}
-	q.watch(&wg)
+	q.watch(stop, &wg)
 	if q.err != nil {
 		return nil, q.err
 	}
@@ -89,7 +89,6 @@ type exploreQueue struct {
 	mu   sync.Mutex
 	wake *sync.Cond
 
-	stop   context.Context
 	policy SchedulePolicy
 	budget ExploreBudget
 	jobs   int
@@ -109,9 +108,9 @@ type exploreQueue struct {
 }
 
 // work is one job: it runs prefixes as the queue hands them out until the queue is over.
-func (q *exploreQueue) work(job int, fresh func(int) (*Context, error), run func(*Context) (Outcome, error)) {
+func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Context, error), run func(*Context) (Outcome, error)) {
 	for {
-		p := q.next()
+		p := q.next(stop)
 		if p == nil {
 			return
 		}
@@ -131,7 +130,7 @@ func (q *exploreQueue) work(job int, fresh func(int) (*Context, error), run func
 }
 
 // watch waits for the jobs to finish, waking the idle ones when the caller goes away.
-func (q *exploreQueue) watch(wg *sync.WaitGroup) {
+func (q *exploreQueue) watch(stop context.Context, wg *sync.WaitGroup) {
 	finished := make(chan struct{})
 	go func() {
 		wg.Wait()
@@ -139,7 +138,7 @@ func (q *exploreQueue) watch(wg *sync.WaitGroup) {
 	}()
 	select {
 	case <-finished:
-	case <-q.stop.Done():
+	case <-stop.Done():
 		q.mu.Lock()
 		q.wake.Broadcast()
 		q.mu.Unlock()
@@ -148,8 +147,8 @@ func (q *exploreQueue) watch(wg *sync.WaitGroup) {
 }
 
 // next hands a job the least prefix it may start, waiting until there is one; nil once the
-// queue is over, which is after every run in flight has completed.
-func (q *exploreQueue) next() *explorePrefix {
+// queue is over, which is after every run in flight has completed, or the caller went away.
+func (q *exploreQueue) next(stop context.Context) *explorePrefix {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	for {
@@ -165,7 +164,7 @@ func (q *exploreQueue) next() *explorePrefix {
 			q.wake.Wait()
 			continue
 		}
-		if err := q.stop.Err(); err != nil {
+		if err := stop.Err(); err != nil {
 			q.fail(err)
 			return nil
 		}

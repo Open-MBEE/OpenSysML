@@ -322,7 +322,7 @@ func decodeOne(data []byte, v any) error {
 		return err
 	}
 	var trailing json.RawMessage
-	if err := dec.Decode(&trailing); err != io.EOF {
+	if dec.Decode(&trailing) != io.EOF {
 		return errors.New("more than one JSON value")
 	}
 	return nil

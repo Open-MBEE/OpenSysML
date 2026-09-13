@@ -99,24 +99,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		}
 	}
 	for _, body := range bodies {
-		entries := graph.StartOf(body.owner)
-		if len(entries) == 0 {
-			continue
-		}
-		start := &Node{ID: ids.take(), Kind: startKind}
-		body.node.Children = append([]*Node{start}, body.node.Children...)
-		for _, entry := range entries {
-			target, ok := nodes[entry.Target]
-			if !ok {
-				out.Notices = append(out.Notices, fmt.Sprintf("entry transition to %s of %s leaves the machine's own states; no edge is drawn",
-					behaviorNodeName(entry.Target), r.notationName(machine)))
-				continue
-			}
-			out.Edges = append(out.Edges, Edge{
-				From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
-				Origin: nodeOrigin(doc, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
-			})
-		}
+		r.entryEdges(view, machine, graph, body, nodes, ids, out)
 	}
 
 	sources := make([]ast.Node, 0, len(graph.States)+len(graph.Pseudostates))
@@ -127,23 +110,56 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		sources = append(sources, pseudo)
 	}
 	for _, src := range sources {
-		for _, transition := range graph.Transitions[src] {
-			target, ok := nodes[transition.Target]
-			if !ok {
-				out.Notices = append(out.Notices, fmt.Sprintf("transition %s of %s leaves the machine's own states; no edge is drawn",
-					transitionName(transition), r.notationName(machine)))
-				continue
-			}
-			out.Edges = append(out.Edges, Edge{
-				From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition), Kind: EdgeTransition,
-				Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
-			})
-		}
+		r.transitionEdges(view, machine, graph, src, nodes, out)
 	}
 	if len(root.Children) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no states")
 	}
 	return root
+}
+
+// entryEdges gives a body that says where it starts a start node, and one edge
+// per entry transition, in the order the guards are tried in.
+func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateGraph, body stateBody,
+	nodes map[ast.Node]*Node, ids *nodeIDs, out *Rendering) {
+	entries := graph.StartOf(body.owner)
+	if len(entries) == 0 {
+		return
+	}
+	doc := machine.DocName
+	start := &Node{ID: ids.take(), Kind: startKind}
+	body.node.Children = append([]*Node{start}, body.node.Children...)
+	for _, entry := range entries {
+		target, ok := nodes[entry.Target]
+		if !ok {
+			out.Notices = append(out.Notices, fmt.Sprintf("entry transition to %s of %s leaves the machine's own states; no edge is drawn",
+				behaviorNodeName(entry.Target), r.notationName(machine)))
+			continue
+		}
+		out.Edges = append(out.Edges, Edge{
+			From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
+			Origin: nodeOrigin(doc, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
+		})
+	}
+}
+
+// transitionEdges adds an edge for each transition leaving src, reporting one
+// whose target the machine's own states do not include.
+func (r *Renderer) transitionEdges(view, machine *symbols.Symbol, graph *lower.StateGraph, src ast.Node,
+	nodes map[ast.Node]*Node, out *Rendering) {
+	doc := machine.DocName
+	for _, transition := range graph.Transitions[src] {
+		target, ok := nodes[transition.Target]
+		if !ok {
+			out.Notices = append(out.Notices, fmt.Sprintf("transition %s of %s leaves the machine's own states; no edge is drawn",
+				transitionName(transition), r.notationName(machine)))
+			continue
+		}
+		out.Edges = append(out.Edges, Edge{
+			From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition), Kind: EdgeTransition,
+			Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
+		})
+	}
 }
 
 // startKind is the Kind of the node a body's entry transitions leave, which a

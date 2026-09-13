@@ -82,10 +82,12 @@ def test_a_metaobject_nested_in_a_sequence_or_array_decodes_in_place():
 
 
 def test_a_metaobject_naming_no_element_is_reported():
+    unnamed = pb_meta("")
     with pytest.raises(UnsupportedValueError, match="naming no element"):
-        value_to_python(pb_meta(""))
+        value_to_python(unnamed)
+    cast = pb_meta("", "KerML::Feature")
     with pytest.raises(UnsupportedValueError, match="naming no element"):
-        value_to_python(pb_meta("", "KerML::Feature"))
+        value_to_python(cast)
 
 
 def test_a_metaobject_survives_the_wire_bytes():
@@ -128,8 +130,9 @@ def test_a_metaobject_is_sent_as_its_own_arm():
 
 def test_a_metaobject_naming_no_element_is_refused_before_it_is_sent():
     conn = make_connection(Mock(), CURRENT)
+    unnamed = Metaobject("")
     with pytest.raises(UnsupportedValueError, match="naming no element"):
-        conn._python_to_value(Metaobject(""))
+        conn._python_to_value(unnamed)
 
 
 def test_a_metaobject_is_not_sent_to_a_service_without_the_capability():

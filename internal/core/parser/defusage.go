@@ -285,13 +285,19 @@ func (m *featureMods) noteUsageOnly(t lexer.Token) {
 	}
 }
 
+// The alternatives a prefix conflict names: each pair's keywords exclude one another.
+const (
+	abstractOrVariationPair = "'abstract' or 'variation'"
+	compositeOrPortionPair  = "'composite' or 'portion'"
+)
+
 // checkDefinitionPrefix rejects the usage-only prefix a definition was written with:
 // DefinitionPrefix admits `abstract`/`variation` (SysML.xtext:498), TypePrefix `abstract` (KerML.xtext:313).
 func (p *Parser) checkDefinitionPrefix(mods featureMods) {
 	if mods.usageOnly.Span.Len == 0 {
 		return
 	}
-	admitted := "'abstract' or 'variation'"
+	admitted := abstractOrVariationPair
 	if p.src.Kind() == source.KindKerML {
 		admitted = "'abstract'"
 	}
@@ -392,12 +398,7 @@ func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
 	for {
 		t := p.peek()
 		if p.atVarWord() {
-			// KerML reserves `var`; in SysML it is the cross feature's name
-			// unless a name or another modifier follows (`end var [1] item x`).
-			next := p.peekN(1)
-			if p.src.Kind() != source.KindKerML &&
-				next.Kind != lexer.Identifier && next.Kind != lexer.UnrestrictedName && next.Kind != lexer.Lt &&
-				!(next.Kind == lexer.Keyword && (featureModifierKeywords[next.KeywordID] || !p.reservedWord(next.KeywordID))) {
+			if !p.crossVarIsPrefix() {
 				return
 			}
 			if cross.IsVariable {
@@ -407,60 +408,83 @@ func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
 			p.advance()
 			continue
 		}
-		if t.Kind != lexer.Keyword {
-			return
-		}
-		switch t.KeywordID {
-		case "in", "out", "inout":
-			if cross.Direction != ast.DirNone {
-				p.prefixConflict(t, cross.Direction.String(), "one direction ('in', 'out' or 'inout')")
-			}
-			cross.Direction = directionOf(t.KeywordID)
-		case "derived":
-			if cross.IsDerived {
-				p.repeatedPrefix(t)
-			}
-			cross.IsDerived = true
-		case "abstract":
-			if cross.IsAbstract || cross.IsVariation {
-				p.prefixConflict(t, abstractOrVariationWord(cross.IsVariation), "'abstract' or 'variation'")
-			}
-			cross.IsAbstract = true
-		case "variation":
-			p.checkVariationNotation(t)
-			if cross.IsAbstract || cross.IsVariation {
-				p.prefixConflict(t, abstractOrVariationWord(cross.IsVariation), "'abstract' or 'variation'")
-			}
-			cross.IsVariation = true
-		case "composite":
-			if cross.IsComposite || cross.IsPortion {
-				p.prefixConflict(t, compositeOrPortionWord(cross.IsPortion), "'composite' or 'portion'")
-			}
-			cross.IsComposite = true
-		case "portion":
-			if cross.IsComposite || cross.IsPortion {
-				p.prefixConflict(t, compositeOrPortionWord(cross.IsPortion), "'composite' or 'portion'")
-			}
-			cross.IsComposite = true
-			cross.IsPortion = true
-		case "constant", "const":
-			if p.checkConstantSpelling(t) {
-				if constantSeen {
-					p.repeatedPrefix(t)
-				}
-				constantSeen = true
-			}
-			cross.IsConstant = true
-		case "ref":
-			if cross.IsReference {
-				p.repeatedPrefix(t)
-			}
-			cross.IsReference = true
-		default:
+		if t.Kind != lexer.Keyword || !p.applyCrossPrefixKeyword(cross, t, &constantSeen) {
 			return
 		}
 		p.advance()
 	}
+}
+
+// crossVarIsPrefix reports whether the `var` at the cursor is a cross feature's
+// prefix: KerML reserves the word; in SysML it is the feature's name unless a
+// name or another modifier follows (`end var [1] item x`).
+func (p *Parser) crossVarIsPrefix() bool {
+	if p.src.Kind() == source.KindKerML {
+		return true
+	}
+	next := p.peekN(1)
+	switch next.Kind {
+	case lexer.Identifier, lexer.UnrestrictedName, lexer.Lt:
+		return true
+	case lexer.Keyword:
+		return featureModifierKeywords[next.KeywordID] || !p.reservedWord(next.KeywordID)
+	}
+	return false
+}
+
+// applyCrossPrefixKeyword records the prefix keyword t on cross, reporting
+// whether t was one; a keyword that is not a prefix ends the prefix.
+func (p *Parser) applyCrossPrefixKeyword(cross *ast.CrossFeatureMember, t lexer.Token, constantSeen *bool) bool {
+	switch t.KeywordID {
+	case "in", "out", "inout":
+		if cross.Direction != ast.DirNone {
+			p.prefixConflict(t, cross.Direction.String(), "one direction ('in', 'out' or 'inout')")
+		}
+		cross.Direction = directionOf(t.KeywordID)
+	case "derived":
+		if cross.IsDerived {
+			p.repeatedPrefix(t)
+		}
+		cross.IsDerived = true
+	case "abstract":
+		if cross.IsAbstract || cross.IsVariation {
+			p.prefixConflict(t, abstractOrVariationWord(cross.IsVariation), abstractOrVariationPair)
+		}
+		cross.IsAbstract = true
+	case "variation":
+		p.checkVariationNotation(t)
+		if cross.IsAbstract || cross.IsVariation {
+			p.prefixConflict(t, abstractOrVariationWord(cross.IsVariation), abstractOrVariationPair)
+		}
+		cross.IsVariation = true
+	case "composite":
+		if cross.IsComposite || cross.IsPortion {
+			p.prefixConflict(t, compositeOrPortionWord(cross.IsPortion), compositeOrPortionPair)
+		}
+		cross.IsComposite = true
+	case "portion":
+		if cross.IsComposite || cross.IsPortion {
+			p.prefixConflict(t, compositeOrPortionWord(cross.IsPortion), compositeOrPortionPair)
+		}
+		cross.IsComposite = true
+		cross.IsPortion = true
+	case "constant", "const":
+		if p.checkConstantSpelling(t) {
+			if *constantSeen {
+				p.repeatedPrefix(t)
+			}
+			*constantSeen = true
+		}
+		cross.IsConstant = true
+	case "ref":
+		if cross.IsReference {
+			p.repeatedPrefix(t)
+		}
+		cross.IsReference = true
+	default:
+		return false
+	}
+	return true
 }
 
 // applyFeatureMods transfers modifiers that were consumed before a declaration's
@@ -1093,13 +1117,13 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 		switch t.KeywordID {
 		case "abstract":
 			if m.isAbstract || m.isVariation {
-				p.prefixConflict(t, m.abstractOrVariation(), "'abstract' or 'variation'")
+				p.prefixConflict(t, m.abstractOrVariation(), abstractOrVariationPair)
 			}
 			m.isAbstract = true
 		case "variation":
 			p.checkVariationNotation(t)
 			if m.isAbstract || m.isVariation {
-				p.prefixConflict(t, m.abstractOrVariation(), "'abstract' or 'variation'")
+				p.prefixConflict(t, m.abstractOrVariation(), abstractOrVariationPair)
 			}
 			m.isVariation = true
 		case "ref":
@@ -1179,13 +1203,13 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			m.noteUsageOnly(t)
 		case "composite":
 			if m.isComposite || m.isPortion {
-				p.prefixConflict(t, compositeOrPortionWord(m.isPortion), "'composite' or 'portion'")
+				p.prefixConflict(t, compositeOrPortionWord(m.isPortion), compositeOrPortionPair)
 			}
 			m.isComposite = true
 			m.noteUsageOnly(t)
 		case "portion":
 			if m.isComposite || m.isPortion {
-				p.prefixConflict(t, compositeOrPortionWord(m.isPortion), "'composite' or 'portion'")
+				p.prefixConflict(t, compositeOrPortionWord(m.isPortion), compositeOrPortionPair)
 			}
 			// A portion is composite in addition to being a portion.
 			m.isComposite = true

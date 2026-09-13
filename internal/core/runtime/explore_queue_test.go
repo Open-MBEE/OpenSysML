@@ -334,8 +334,8 @@ func TestExploreWithKeepsNoContextButTheWitnesses(t *testing.T) {
 	fresh := newExploreWorkers(idx).fresh
 	run := actionRun(t, idx, path, "race")
 	for _, jobs := range []int{1, exploreJobs} {
-		q := newExploreQueue(context.Background(), mustPolicy(t, "explore"), ExploreBudget{Runs: 1024, Depth: 64}, jobs)
-		x, err := q.explore(fresh, run)
+		q := newExploreQueue(mustPolicy(t, "explore"), ExploreBudget{Runs: 1024, Depth: 64}, jobs)
+		x, err := q.explore(context.Background(), fresh, run)
 		if err != nil {
 			t.Fatal(err)
 		}
