@@ -130,7 +130,7 @@ func (h *calcStmtHost) performer() *Instance {
 
 // effect performs the action a `perform` in a case body names, its outputs
 // returning to the body's values; a calculation states no effect at all.
-func (h *calcStmtHost) effect(s lower.Effect) error {
+func (h *calcStmtHost) effect(_ *stmtEnv, s lower.Effect) error {
 	if h.perfs == nil || s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%w: a calculation cannot state '%s'", ErrCalcSideEffect, s.Kind)
 	}

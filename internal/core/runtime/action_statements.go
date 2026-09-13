@@ -16,9 +16,6 @@ type actionStmtHost struct {
 	node ast.Node // the action node whose body is running, for diagnostics
 	// perf is the performance the body runs in, whose features it declares into.
 	perf *actionFrame
-	// engine runs the body, and holds the values a `perform` in it reads and
-	// writes: the performance's own, and those of every block entered around it.
-	engine *stmtEngine
 }
 
 // executeBody runs the lowered statements graph records for node in perf, the
@@ -27,8 +24,7 @@ func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, 
 	_, err := e.ctx.runStatements(func() *stmtEngine {
 		host := &actionStmtHost{exec: e, node: node, perf: perf}
 		lexical := perf.lexicalFrames()
-		host.engine = newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
-		return host.engine
+		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
 	}, graph.Bodies[node])
 	return err
 }
@@ -90,7 +86,7 @@ func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 
 // effect performs the action a `perform` in statement form names, where it
 // stands; any other effect is reported.
-func (h *actionStmtHost) effect(s lower.Effect) error {
+func (h *actionStmtHost) effect(env *stmtEnv, s lower.Effect) error {
 	if s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)
 	}
@@ -100,7 +96,6 @@ func (h *actionStmtHost) effect(s lower.Effect) error {
 	}
 	// The performed action reads the values in scope where it is performed and its
 	// outputs come back to them, so a perform in a loop body sees that iteration.
-	env := h.engine.env
 	_, outputs, err := invokeAction(h.exec.ctx, s.Scope, inv, env.values(), h.exec.self)
 	if err != nil {
 		return fmt.Errorf("%s: %w", h.describe(), err)
@@ -174,6 +169,8 @@ type performFrame struct {
 }
 
 func (*performFrame) abandon(*Context) {}
+
+func (f *performFrame) clone() bodyFrame { c := *f; return &c }
 
 // performPhase is how far a node's performance has come.
 type performPhase int

@@ -394,17 +394,19 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 		2, "the -check-* flags search an action's schedules under -engine smt; name one, as -action <name>")
 	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-action", "Mission::race", "-advance", "1"),
 		2, "-advance runs behaviors on one clock, which -engine smt's search of an action's schedules does not; drop one of them")
+}
 
-	// A body paused mid-statement is a wait the search does not represent: refused by name, not searched.
+// A body paused mid-statement — a performed action waiting at an accept while a
+// sibling accept falls due with it — is a state the search holds and resumes.
+func TestEngineCheckSearchesAPausedBody(t *testing.T) {
+	binary := buildCLI(t)
 	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	wantReport(t, check(t, binary, string(paused), "-engine", "check", "-action", "test::wake"),
-		2, "? Action test::wake could not be checked",
-		"check does not search a body paused mid-statement: snapshot of a body paused mid-statement: token 2 of wake at performed",
-		"standing: not covered")
+		1, "✗ Action test::wake: divergent", "divergent: x ends as 1 or 2")
 }
 
 // lampModel has a machine and an action of one part due at one instant of the

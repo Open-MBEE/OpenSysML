@@ -48,21 +48,15 @@ func (f canonicalForm) key() stateKey {
 }
 
 // canonicalState renders the state of the invocation's run in canonical form, the
-// turn settled first; a body paused where the snapshot cannot capture it is
-// refused as the snapshot refuses it.
-func (r *invocationRun) canonicalState() (canonicalForm, error) {
+// turn settled first.
+func (r *invocationRun) canonicalState() canonicalForm {
 	r.enabledMoves()
 	return r.inv.canonicalState(r.turn)
 }
 
 // canonicalState renders the invocation's state with turn holding the turn, nil for none.
-func (inv *Invocation) canonicalState(turn checkedExecutor) (canonicalForm, error) {
+func (inv *Invocation) canonicalState(turn checkedExecutor) canonicalForm {
 	execs := inv.executors()
-	for _, exec := range execs {
-		if err := pausedBodyOf(exec); err != nil {
-			return canonicalForm{}, err
-		}
-	}
 	ctx := inv.Context()
 	// Reading a feature may derive its default; a probe gives that back.
 	defer ctx.beginProbe()()
@@ -73,29 +67,7 @@ func (inv *Invocation) canonicalState(turn checkedExecutor) (canonicalForm, erro
 		tokens: make(map[tokenKey]string),
 	}
 	text := s.spell(execs, turn)
-	return canonicalForm{text: text, names: s.names, tokens: s.tokens}, nil
-}
-
-// pausedBodyOf is the error of a body the executor has paused mid-way, which no
-// snapshot captures; nil where none is.
-func pausedBodyOf(exec checkedExecutor) error {
-	switch e := exec.(type) {
-	case *ActionExecutor:
-		for _, token := range e.tokens {
-			if token.body != nil {
-				return fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
-					token.ID, symbolText(e.action), ActionNodeName(token.Location))
-			}
-		}
-	case *StateExecutor:
-		for _, act := range e.doActions {
-			if act.run != nil {
-				return fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
-					getNodeName(act.state), symbolText(e.stateMachine))
-			}
-		}
-	}
-	return nil
+	return canonicalForm{text: text, names: s.names, tokens: s.tokens}
 }
 
 // stateSpeller writes the canonical form, naming objects by materialization
@@ -107,9 +79,10 @@ type stateSpeller struct {
 	// paths are the objects mentioned so far by path; mentioned lists them in order.
 	paths     map[int64]string
 	mentioned []int64
-	// names name the executors canonically; labels the reachable performances of
-	// the action being spelled; tokens the tokens.
+	// names name the executors canonically; frames are the reachable performances
+	// of the action being spelled, root first, labels their labels; tokens the tokens.
 	names  map[checkedExecutor]string
+	frames []*actionFrame
 	labels map[*actionFrame]string
 	tokens map[tokenKey]string
 	out    strings.Builder
@@ -176,12 +149,31 @@ func (s *stateSpeller) performer(self *Instance) string {
 
 // action spells one action executor: its state, its performances root-first and its tokens.
 func (s *stateSpeller) action(e *ActionExecutor) {
-	s.exec = e
-	frames := s.labelFrames()
+	defer s.enter(e)()
 	fmt.Fprintf(&s.out, "%s: state %s\n", s.names[e], e.state)
-	for _, perf := range frames {
-		s.frame(perf)
+	for _, perf := range s.frames {
+		s.out.WriteString(s.frame(perf))
+		s.out.WriteByte('\n')
 	}
+	for _, line := range s.tokenLines() {
+		s.out.WriteString(line)
+		s.out.WriteByte('\n')
+	}
+}
+
+// enter makes e the action being spelled, its performances labelled, and returns
+// the restorer of the one spelled around it.
+func (s *stateSpeller) enter(e *ActionExecutor) func() {
+	exec, frames, labels := s.exec, s.frames, s.labels
+	s.exec = e
+	s.frames = s.labelFrames()
+	return func() { s.exec, s.frames, s.labels = exec, frames, labels }
+}
+
+// tokenLines spells the tokens of the action being spelled, sorted, naming each
+// canonically among those spelling alike.
+func (s *stateSpeller) tokenLines() []string {
+	e := s.exec
 	tokens := make([]string, 0, len(e.tokens))
 	alike := make(map[string]int)
 	for _, token := range slices.SortedFunc(slices.Values(e.tokens), func(a, b Token) int { return cmp.Compare(a.ID, b.ID) }) {
@@ -191,11 +183,7 @@ func (s *stateSpeller) action(e *ActionExecutor) {
 		s.tokens[tokenKey{e, token.ID}] = fmt.Sprintf("%s #%d", text, alike[text])
 	}
 	sort.Strings(tokens)
-	for _, line := range tokens {
-		s.out.WriteString(line)
-		s.out.WriteByte('\n')
-	}
-	s.exec = nil
+	return tokens
 }
 
 // machine spells one state machine executor: its state, active configuration,
@@ -250,6 +238,9 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(act.state), len(act.pending))
 		if slices.Contains(e.round, act) {
 			s.out.WriteString(", in round")
+		}
+		if act.run != nil {
+			fmt.Fprintf(&s.out, ", paused{%s}", s.body(act.run.body))
 		}
 		s.out.WriteString("}")
 	}
@@ -416,18 +407,19 @@ func (s *stateSpeller) frameLabel(perf *actionFrame) string {
 
 // frame spells one performance: its flags, held values, block locals, the
 // deliveries its nodes' pins queue and which performance of each node is the latest.
-func (s *stateSpeller) frame(perf *actionFrame) {
-	fmt.Fprintf(&s.out, "frame %s:", s.frameLabel(perf))
+func (s *stateSpeller) frame(perf *actionFrame) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "frame %s:", s.frameLabel(perf))
 	if perf.ended {
-		s.out.WriteString(" ended")
+		b.WriteString(" ended")
 	}
 	if perf.inBody {
-		s.out.WriteString(" body")
+		b.WriteString(" body")
 	}
-	fmt.Fprintf(&s.out, " live=%d", perf.live)
-	fmt.Fprintf(&s.out, " data{%s}", s.values(perf.data))
+	fmt.Fprintf(&b, " live=%d", perf.live)
+	fmt.Fprintf(&b, " data{%s}", s.values(perf.data))
 	for _, local := range perf.locals {
-		fmt.Fprintf(&s.out, " local{%s}", s.values(local))
+		fmt.Fprintf(&b, " local{%s}", s.values(local))
 	}
 	for _, node := range sortedNodes(perf.pending) {
 		pins := perf.pending[node]
@@ -437,7 +429,7 @@ func (s *stateSpeller) frame(perf *actionFrame) {
 		}
 		sort.Strings(names)
 		for _, pin := range names {
-			fmt.Fprintf(&s.out, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
+			fmt.Fprintf(&b, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
 		}
 	}
 	for _, node := range sortedNodes(perf.nested) {
@@ -447,13 +439,13 @@ func (s *stateSpeller) frame(perf *actionFrame) {
 			for _, step := range delivery.path {
 				path = append(path, nodeIdentifier(step))
 			}
-			fmt.Fprintf(&s.out, " nested{%s.%s = %s}", strings.Join(path, "."), delivery.pin, s.value(delivery.value))
+			fmt.Fprintf(&b, " nested{%s.%s = %s}", strings.Join(path, "."), delivery.pin, s.value(delivery.value))
 		}
 	}
 	for _, node := range sortedNodes(perf.subactions) {
-		fmt.Fprintf(&s.out, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
+		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
 	}
-	s.out.WriteByte('\n')
+	return b.String()
 }
 
 // sortedNodes orders a map's node keys by identity, so the form is independent of map order.
@@ -497,6 +489,9 @@ func (s *stateSpeller) token(t Token) string {
 	}
 	if t.Wait != nil {
 		fmt.Fprintf(&b, " wait{%s}", s.wait(*t.Wait))
+	}
+	if t.body != nil {
+		fmt.Fprintf(&b, " paused{%s}", s.body(t.body))
 	}
 	return b.String()
 }

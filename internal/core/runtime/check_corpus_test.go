@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -30,13 +29,6 @@ type CheckExpected struct {
 	Divergent map[string][]string `json:"divergent,omitempty"`
 	// Agreed lists features every schedule leaves with one value, and that value.
 	Agreed map[string]string `json:"agreed,omitempty"`
-}
-
-// checkRefusedCases are the cases with an admissible set the check refuses with
-// a typed reason: a body paused mid-statement.
-var checkRefusedCases = map[string]error{
-	"action_explore_performed_and_accept_due_together": ErrSnapshotPausedBody,
-	"state_concurrent_do_action_bodies_timed":          ErrSnapshotPausedBody,
 }
 
 // checkCase is one action or state conformance case with an admissible set, ready to check and explore.
@@ -191,20 +183,10 @@ func (c checkCase) explore(t *testing.T) *Exploration {
 
 // Every case with an admissible set is checked against its `.check.expected.json`,
 // reduced and unreduced alike: the verdict, every divergent feature with its values,
-// every agreed feature with its one value; a refused case is refused as it says.
+// every agreed feature with its one value.
 func TestCheckConformanceOracles(t *testing.T) {
 	for _, c := range checkCorpus(t) {
 		t.Run(c.name, func(t *testing.T) {
-			if want, refused := checkRefusedCases[c.name]; refused {
-				_, err := c.check(t, reduced())
-				if !errors.Is(err, want) {
-					t.Fatalf("check = %v, want the refusal %v", err, want)
-				}
-				if hasCheckExpected(c.name) {
-					t.Fatal("a refused case states no check expectation")
-				}
-				return
-			}
 			want := loadCheckExpected(t, c.name)
 			for _, opts := range []CheckOptions{reduced(), unreduced()} {
 				report := c.checked(t, opts)
@@ -238,9 +220,6 @@ func TestCheckConformanceOracles(t *testing.T) {
 // reduced and unreduced: explore is the referee of the check.
 func TestCheckAgreesWithExploreOverTheConformanceCorpus(t *testing.T) {
 	for _, c := range checkCorpus(t) {
-		if _, refused := checkRefusedCases[c.name]; refused {
-			continue
-		}
 		t.Run(c.name, func(t *testing.T) {
 			want := explored(t, c.explore(t))
 			for _, opts := range []CheckOptions{reduced(), unreduced()} {
@@ -276,9 +255,6 @@ func explored(t *testing.T, x *Exploration) []string {
 // feature with that value, and the replayed trace equals the witness's.
 func TestCheckWitnessesReplayOverTheConformanceCorpus(t *testing.T) {
 	for _, c := range checkCorpus(t) {
-		if _, refused := checkRefusedCases[c.name]; refused {
-			continue
-		}
 		t.Run(c.name, func(t *testing.T) {
 			report := c.checked(t, reduced())
 			witnessed := 0

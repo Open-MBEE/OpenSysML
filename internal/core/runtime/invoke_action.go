@@ -246,6 +246,8 @@ type calleeFrame struct {
 
 func (f *calleeFrame) abandon(*Context) { f.exec.Release() }
 
+func (f *calleeFrame) clone() bodyFrame { c := *f; return &c }
+
 // beginCallee starts action, a performance of performed, as a sub-execution of
 // the caller nested one deeper, on the clock until run to completion.
 func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value) (*calleeFrame, error) {

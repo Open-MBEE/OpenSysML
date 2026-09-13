@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -62,6 +64,13 @@ func (f *subflowFrame) abandon(ctx *Context) {
 			token.body = nil
 		}
 	}
+}
+
+func (f *subflowFrame) clone() bodyFrame {
+	c := *f
+	c.progress.dropped = slices.Clone(f.progress.dropped)
+	c.progress.settled = maps.Clone(f.progress.settled)
+	return &c
 }
 
 // runSubflow performs the flow perf owns to completion where a body statement,

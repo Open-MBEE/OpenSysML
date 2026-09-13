@@ -230,8 +230,7 @@ func (e *CheckStopped) Unwrap() error { return e.Cause }
 // Check searches the schedules of the invocation start begins in the context
 // fresh makes. Every violation and every final value carries the witness a
 // replay of the same starter follows (Replay). It stops with a CheckStopped
-// when stop ends first; it fails when a checked behavior is one the search
-// cannot snapshot (ErrSnapshotPausedBody) or the run refused a move it selected.
+// when stop ends first; it fails when the run refused a move it selected.
 func Check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
 	ctx, err := fresh()
 	if err != nil {
@@ -530,7 +529,7 @@ func (c *checker) failed(err error, depth int) error {
 		c.hit(bound)
 		return nil
 	}
-	if errors.Is(err, ErrCheckRefused) || errors.Is(err, ErrSnapshotPausedBody) {
+	if errors.Is(err, ErrCheckRefused) {
 		return err
 	}
 	kind := ViolationFailure
@@ -554,9 +553,7 @@ func (c *checker) complete(depth int) error {
 // visit records the stable state the invocation stands in, evaluating the
 // properties at a new one; seen is nil when the states bound keeps the search out.
 func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
-	if form, err = c.run.canonicalState(); err != nil {
-		return form, "", nil, false, err
-	}
+	form = c.run.canonicalState()
 	key = form.key()
 	if seen, visited = c.visited[key]; !visited {
 		if c.budget.States > 0 && len(c.visited) >= c.budget.States {

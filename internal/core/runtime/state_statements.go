@@ -65,6 +65,9 @@ func (h *stateStmtHost) run() error {
 
 func (h *stateStmtHost) perform() error { return h.run() }
 
+// clone is the host itself: what its run changes is the flow's, captured with it.
+func (h *stateStmtHost) clone() bodyWork { return h }
+
 // doRun is a do behavior under way as a body run: a wait on the clock or for a
 // message in its flow pauses it there, to be resumed once the wait ends or
 // ended when the state is exited, while the machine goes on around it.
@@ -268,7 +271,7 @@ func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 
 // effect performs the action a `perform` names; every other effect a body may
 // state has no execution in a state behavior.
-func (h *stateStmtHost) effect(s lower.Effect) error {
+func (h *stateStmtHost) effect(_ *stmtEnv, s lower.Effect) error {
 	if s.Kind == lower.EffectPerform {
 		inv, ok := performedInvocation(s)
 		if !ok {

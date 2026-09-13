@@ -139,11 +139,6 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	report, err := runtime.Check(ctx, fresh, q.Check.Start, limits, options, q.Check.Properties)
 	result := Result{Question: q, Engine: e.Name()}
 	switch {
-	case errors.Is(err, runtime.ErrSnapshotPausedBody):
-		result.Strength = NotCovered
-		result.Reason = (&ConstructError{Engine: e.Name(), Construct: "a body paused mid-statement: " + err.Error()}).Error()
-		result.Elapsed = time.Since(started)
-		return result, nil
 	case errors.Is(err, runtime.ErrCheckRefused):
 		result.Strength = NotCovered
 		result.Reason = (&ConstructError{Engine: e.Name(), Construct: "a move the run makes otherwise: " + err.Error()}).Error()

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -23,14 +24,22 @@ var errBodyContinuation = errors.New("body continuation")
 // paused reports whether err is the unwinding of a paused body.
 func paused(err error) bool { return errors.Is(err, errPaused) }
 
-// bodyWork is what a body run performs; perform is re-entered after each pause.
+// bodyWork is what a body run performs; perform is re-entered after each pause,
+// clone copies how far it has come, for a snapshot to restore it to, and spell
+// writes that into a state's canonical form.
 type bodyWork interface {
 	perform() error
+	clone() bodyWork
+	spell(*stateSpeller) string
 }
 
-// bodyFrame is where one level of a body's work paused; abandon ends what it holds open.
+// bodyFrame is where one level of a body's work paused; abandon ends what it
+// holds open, clone copies it as it stands, for a snapshot to restore it to, and
+// spell writes it into a state's canonical form.
 type bodyFrame interface {
 	abandon(ctx *Context)
+	clone() bodyFrame
+	spell(*stateSpeller) string
 }
 
 // bodyRun is the work of one body: a breakpoint met inside it, or a wait on the
@@ -209,6 +218,8 @@ const (
 	usageComplete                     // the succession out of it
 )
 
+func (w *usageWork) clone() bodyWork { c := *w; return &c }
+
 func (w *usageWork) perform() error {
 	e := w.exec
 	if w.phase == usagePerforming {
@@ -264,6 +275,8 @@ type statementWork struct {
 	done  bool
 }
 
+func (w *statementWork) clone() bodyWork { c := *w; return &c }
+
 func (w *statementWork) perform() error {
 	e := w.exec
 	if !w.done {
@@ -288,6 +301,12 @@ type executionWork struct {
 	node    *ast.ActionExecutionNode
 	outputs map[string]Value
 	invoked bool
+}
+
+func (w *executionWork) clone() bodyWork {
+	c := *w
+	c.outputs = maps.Clone(w.outputs)
+	return &c
 }
 
 func (w *executionWork) perform() error {

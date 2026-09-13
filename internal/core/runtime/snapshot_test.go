@@ -18,21 +18,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// snapshotPausedBodyCases are the conformance cases whose default run pauses a
-// body mid-statement at some step: a do behavior waiting on a message or the
-// clock. A snapshot there fails with ErrSnapshotPausedBody, which the round-trip
-// test pins; the steps before and after it round-trip as every other case's do.
-var snapshotPausedBodyCases = map[string]bool{
-	"action_explore_performed_and_accept_due_together": true,
-	"state_concurrent_do_action_bodies_timed":          true,
-	"state_do_action_declaration_order":                true,
-	"state_do_action_signal_accept_cancelled_on_exit":  true,
-	"state_do_action_timed_accept_cancelled_on_exit":   true,
-	"state_do_action_typed_inout_cancelled_on_exit":    true,
-	"state_do_action_typed_inout_valued_by_a_literal":  true,
-	"state_do_action_typed_inout_writes_back":          true,
-}
-
 // steppedRun drives one conformance case the way the trace harness does, one
 // step at a time, so a snapshot can be taken between any two steps.
 type steppedRun struct {
@@ -436,24 +421,16 @@ func TestSnapshotRoundTrip(t *testing.T) {
 
 		run := newSteppedRun(t, conformanceDir, testName, expected)
 		snapshots := make(map[int]*Snapshot)
-		paused := false
 		for i := 0; ; i++ {
 			snapshot, err := run.snapshot()
-			switch {
-			case err == nil:
-				snapshots[i] = snapshot
-			case errors.Is(err, ErrSnapshotPausedBody) && snapshotPausedBodyCases[testName]:
-				paused = true
-			default:
+			if err != nil {
 				t.Fatalf("snapshot at step %d: %v", i, err)
 			}
+			snapshots[i] = snapshot
 			if i == plain.taken {
 				break
 			}
 			run.resume(i + 1)
-		}
-		if snapshotPausedBodyCases[testName] && !paused {
-			t.Fatalf("%s is pinned as pausing a body mid-statement, but every step snapshotted", testName)
 		}
 		snapshotted := run.complete()
 		if snapshotted != reference {
@@ -501,9 +478,6 @@ func TestSnapshotRestoresTwice(t *testing.T) {
 			}
 			later, err := run.snapshot()
 			if err != nil {
-				if errors.Is(err, ErrSnapshotPausedBody) && snapshotPausedBodyCases[testName] {
-					continue
-				}
 				t.Fatalf("snapshot at step %d: %v", run.taken, err)
 			}
 			snapshot.Release()

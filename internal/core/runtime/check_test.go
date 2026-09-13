@@ -585,16 +585,16 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 	}
 }
 
-// The check lets go of the executor it started however the search ends: complete,
-// or refused by a construct a later stage owns. The clock drives it no further and
-// a step of it is the released executor's refusal.
+// The check lets go of the executor it started once the search ends, its bodies
+// paused along the way or not. The clock drives it no further and a step of it is
+// the released executor's refusal.
 func TestCheckReleasesItsExecutorHoweverTheSearchEnds(t *testing.T) {
-	want := map[string]error{
-		"action_explore_performed_and_accept_due_together": ErrSnapshotPausedBody,
-		"action_fork_branches_write_one_feature":           nil,
+	want := map[string]bool{
+		"action_explore_performed_and_accept_due_together": true,
+		"action_fork_branches_write_one_feature":           true,
 	}
 	for _, c := range checkCorpus(t) {
-		if _, tested := want[c.name]; !tested {
+		if !want[c.name] {
 			continue
 		}
 		t.Run(c.name, func(t *testing.T) {
@@ -607,9 +607,8 @@ func TestCheckReleasesItsExecutorHoweverTheSearchEnds(t *testing.T) {
 				started = inv.action()
 				return inv, nil
 			}
-			_, err := Check(context.Background(), c.model.fresh, start, CheckBudget{}, reduced(), nil)
-			if !errors.Is(err, want[c.name]) {
-				t.Fatalf("check = %v, want %v", err, want[c.name])
+			if _, err := Check(context.Background(), c.model.fresh, start, CheckBudget{}, reduced(), nil); err != nil {
+				t.Fatalf("check = %v", err)
 			}
 			if started == nil {
 				t.Fatal("the check started no executor")
@@ -971,10 +970,7 @@ func TestCheckTellsSetMembersApartInTheVisitedSet(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}
-	form, err := (&Invocation{Actions: []*ActionExecutor{exec}}).canonicalState(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	form := (&Invocation{Actions: []*ActionExecutor{exec}}).canonicalState(nil)
 	for _, path := range []string{"workers[0]", "workers[1]", "workers[2]"} {
 		if !strings.Contains(form.text, "object test::team#1."+path+": ") {
 			t.Errorf("canonical form names no object at %s:\n%s", path, form.text)

@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -158,8 +159,8 @@ type stmtHost interface {
 	declaredOutput(name string) bool
 	// acceptReturn takes the value a `return` yields.
 	acceptReturn(value Value, s lower.Return) error
-	// effect states an effect on the world outside the body.
-	effect(s lower.Effect) error
+	// effect states an effect on the world outside the body, over env's values.
+	effect(env *stmtEnv, s lower.Effect) error
 	// performNode runs a nested action a block's flow declares, node of graph,
 	// as a performance of its own with engine's block-locals in reach.
 	performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error)
@@ -254,6 +255,13 @@ type engineFrame struct{ engine *stmtEngine }
 
 func (f *engineFrame) abandon(*Context) { f.engine.finish() }
 
+func (f *engineFrame) clone() bodyFrame {
+	engine, env := *f.engine, *f.engine.env
+	env.frames, env.unvalued = slices.Clone(env.frames), slices.Clone(env.unvalued)
+	engine.env, engine.scratch, engine.frameBuf = &env, EvalContext{}, nil
+	return &engineFrame{engine: &engine}
+}
+
 // runStatements runs stmts on the engine build makes, or on the one a paused run
 // of them kept; the engine's activation ends with the run, so a body stepped many
 // times does not hold what every run computed.
@@ -283,6 +291,8 @@ type stmtListFrame struct {
 }
 
 func (f *stmtListFrame) abandon(*Context) { f.run.elements = f.elements }
+
+func (f *stmtListFrame) clone() bodyFrame { c := *f; return &c }
 
 // run executes statements in declaration order, stopping at a `return`; a body
 // pausing in one is re-entered at that statement.
@@ -399,7 +409,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		}
 		return e.block(s)
 	case lower.Effect:
-		return flowNext, e.host.effect(s)
+		return flowNext, e.host.effect(e.env, s)
 	case lower.Unsupported:
 		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", ErrStatementNotExecutable, e.host.describe(), s.Description)
 	default:
@@ -423,6 +433,8 @@ func (e *stmtEngine) declareUsage(stmt lower.DeclareUsage) error {
 type branchFrame struct{ elseBranch bool }
 
 func (*branchFrame) abandon(*Context) {}
+
+func (f *branchFrame) clone() bodyFrame { c := *f; return &c }
 
 // ifStatement runs the branch its condition selects, or nothing when the
 // condition is false and the conditional declared no else branch.
@@ -461,6 +473,12 @@ type blockFrame struct {
 }
 
 func (f *blockFrame) abandon(ctx *Context) { ctx.endActivation(f.activation) }
+
+func (f *blockFrame) clone() bodyFrame {
+	c := *f
+	c.locals, c.unvalued = maps.Clone(f.locals), maps.Clone(f.unvalued)
+	return &c
+}
 
 // enterBlock enters a frame and an activation for a block about to run, or the
 // ones a paused block ran in; leave restores what was around them.
@@ -518,6 +536,8 @@ func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
 type flowNodeFrame struct{ node ast.Node }
 
 func (*flowNodeFrame) abandon(*Context) {}
+
+func (f *flowNodeFrame) clone() bodyFrame { c := *f; return &c }
 
 // blockFlow runs a block that is a token flow of its own (lower/block_graph.go):
 // a token starts at the block's initial node and passes along the successions the
@@ -605,6 +625,12 @@ type loopFrame struct {
 }
 
 func (f *loopFrame) abandon(ctx *Context) { ctx.endActivation(f.activation) }
+
+func (f *loopFrame) clone() bodyFrame {
+	c := *f
+	c.locals, c.unvalued = maps.Clone(f.locals), maps.Clone(f.unvalued)
+	return &c
+}
 
 // enterLoop enters the frame the loop's body declares into, or re-enters the one a
 // paused loop ran in; leave restores what was around it.
