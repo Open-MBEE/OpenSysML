@@ -737,8 +737,9 @@ func (c *checker) spellFinal() (values map[string]string, spelled, identity stri
 	outcome := c.inv.Outcome()
 	values = c.divergenceValues()
 	spelled, identity = outcome.String(), outcome.identity()
+	prefixes := c.inv.performerPrefixes()
 	for _, name := range slices.Sorted(maps.Keys(values)) {
-		if !strings.HasPrefix(name, "this.") {
+		if !slices.ContainsFunc(prefixes, func(p performer) bool { return strings.HasPrefix(name, p.name) }) {
 			continue
 		}
 		spelled += "; " + name + " = " + values[name]
@@ -751,7 +752,8 @@ func (c *checker) spellFinal() (values map[string]string, spelled, identity stri
 // schedule left them, a selected feature holding no value as UnsetText: each
 // action's own features from its root performance and its performed nodes' from
 // the outputs under `node.`, each state machine's `finalState` and data, under
-// the behavior's name in a joint invocation, and the performing object's as `this.<name>`.
+// the behavior's name in a joint invocation, and the performing objects' under
+// their prefixes: `this.<name>` for one object, `<object>.<name>` for several.
 func (c *checker) divergenceValues() map[string]string {
 	defer c.ctx.beginProbe()()
 	values := make(map[string]string)
@@ -762,8 +764,8 @@ func (c *checker) divergenceValues() map[string]string {
 	for i, exec := range c.inv.States {
 		c.machineDivergence(exec, prefixes[len(c.inv.Actions)+i], values)
 	}
-	if self := c.inv.Performer(); self != nil {
-		c.performerDivergence(self, values)
+	for _, p := range c.inv.performerPrefixes() {
+		c.performerDivergence(p.self, p.name, values)
 	}
 	return values
 }
@@ -828,21 +830,21 @@ func finalStateKey(prefix string) string {
 	return strings.TrimSuffix(prefix, ".") + " finalState"
 }
 
-// performerDivergence spells the performing object's features as `this.<name>`.
-func (c *checker) performerDivergence(self *Instance, values map[string]string) {
+// performerDivergence spells the performing object's features under prefix.
+func (c *checker) performerDivergence(self *Instance, prefix string, values map[string]string) {
 	selfOwn := make(map[string]Value)
 	for name, held := range self.FeatureValues {
-		if !c.reportsPerformerDivergenceOf(name, held.Feature) {
+		if !c.reportsPerformerDivergenceOf(prefix, name, held.Feature) {
 			continue
 		}
 		fv, err := self.GetFeatureValue(c.ctx, name)
 		if err != nil {
-			values["this."+name] = "<error: " + err.Error() + ">"
+			values[prefix+name] = "<error: " + err.Error() + ">"
 			continue
 		}
 		switch {
 		case !fv.Materialized:
-			values["this."+name] = UnsetText
+			values[prefix+name] = UnsetText
 		case fv.Feature.Scalar():
 			selfOwn[name] = fv.Value
 		default:
@@ -850,7 +852,7 @@ func (c *checker) performerDivergence(self *Instance, values map[string]string) 
 		}
 	}
 	for _, out := range c.ctx.ActionOutcome(selfOwn).RenderedOutputs() {
-		values["this."+out.Name] = out.Text
+		values[prefix+out.Name] = out.Text
 	}
 }
 
@@ -867,12 +869,12 @@ func (c *checker) reportsDivergenceOf(root *actionFrame, prefix, name string) bo
 }
 
 // reportsPerformerDivergenceOf reports whether the performing object's feature,
-// named `this.<name>`, is one divergence is reported over; absent names, its attributes are.
-func (c *checker) reportsPerformerDivergenceOf(name string, of *EffectiveFeature) bool {
+// named under prefix, is one divergence is reported over; absent names, its attributes are.
+func (c *checker) reportsPerformerDivergenceOf(prefix, name string, of *EffectiveFeature) bool {
 	if len(c.opts.Diverge) == 0 {
 		return of != nil && of.Symbol != nil && of.Symbol.Kind == symbols.SymbolAttributeUsage
 	}
-	return slices.Contains(c.opts.Diverge, "this."+name)
+	return slices.Contains(c.opts.Diverge, prefix+name)
 }
 
 // heldUnderNodes names, as `node.feature` under prefix, every feature the latest
@@ -899,22 +901,18 @@ func (c *checker) tellHeld() {
 }
 
 // resolveDiverge checks every name Diverge selects against what the started
-// behaviors hold: `this.<name>` the performing object's feature; under a behavior's
-// name in a joint invocation, bare in a single one, an action's own feature, a
-// `node.path` under a node it performs — told from the lowered flows where a call
-// is settled and left to the performances where it is tied — or a machine's
-// `finalState` or data.
+// behaviors hold: `this.<name>` the performing object's feature, `<object>.<name>`
+// one of several performing objects'; under a behavior's name in a joint
+// invocation, bare in a single one, an action's own feature, a `node.path` under
+// a node it performs — told from the lowered flows where a call is settled and
+// left to the performances where it is tied — or a machine's `finalState` or data.
 func (c *checker) resolveDiverge() error {
 	c.nested, c.untold = make(map[string]bool), make(map[string]bool)
 	prefixes := c.inv.prefixes()
 	for _, name := range c.opts.Diverge {
-		if feature, ofSelf := strings.CutPrefix(name, "this."); ofSelf {
-			self := c.inv.Performer()
-			switch {
-			case self == nil:
-				return &UnknownCheckFeatureError{Name: name, Reason: "no object performs the behaviors"}
-			case self.FeatureValues[feature] == nil:
-				return &UnknownCheckFeatureError{Name: name, Reason: "the performing object has no feature " + feature}
+		if ofObject, err := c.resolvePerformerDiverge(name); ofObject {
+			if err != nil {
+				return err
 			}
 			continue
 		}
@@ -934,6 +932,49 @@ func (c *checker) resolveDiverge() error {
 		}
 	}
 	return nil
+}
+
+// resolvePerformerDiverge checks a name of a performing object's feature: `this.`
+// names the one object the behaviors perform on, `<object>.` one of several; the
+// name is not of an object when neither prefix applies.
+func (c *checker) resolvePerformerDiverge(name string) (ofObject bool, err error) {
+	performers := c.inv.performers()
+	if feature, ofThis := strings.CutPrefix(name, "this."); ofThis {
+		switch len(performers) {
+		case 0:
+			return true, &UnknownCheckFeatureError{Name: name, Reason: "no object performs the behaviors"}
+		case 1:
+			return true, c.performerHolds(performers[0], name, feature)
+		}
+		names := make([]string, len(performers))
+		for i, p := range performers {
+			names[i] = p.name
+		}
+		return true, &UnknownCheckFeatureError{Name: name, Reason: fmt.Sprintf(
+			"the behaviors perform on different objects, %s; name the object's feature, as %s.%s",
+			strings.Join(names, " and "), performers[0].name, feature)}
+	}
+	if len(performers) < 2 {
+		return false, nil
+	}
+	for _, p := range performers {
+		if feature, ofObject := strings.CutPrefix(name, p.name+"."); ofObject {
+			return true, c.performerHolds(p, name, feature)
+		}
+	}
+	return false, nil
+}
+
+// performerHolds checks the object holds the feature, name being the feature as Diverge spells it.
+func (c *checker) performerHolds(p performer, name, feature string) error {
+	if p.self.FeatureValues[feature] != nil {
+		return nil
+	}
+	object := "the performing object"
+	if !strings.HasPrefix(name, "this.") {
+		object = p.name
+	}
+	return &UnknownCheckFeatureError{Name: name, Reason: object + " has no feature " + feature}
 }
 
 // resolveActionDiverge checks the action holds the feature rest names, own or

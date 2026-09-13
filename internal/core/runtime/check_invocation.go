@@ -16,8 +16,11 @@ type Invocation struct {
 	States  []*StateExecutor
 	// Names are the names the behaviors' observables are reported under in a joint
 	// outcome, actions first; the behaviors' own names when absent.
-	Names   []string
-	Horizon Horizon
+	Names []string
+	// PerformerNames spell, beside Names, the object each behavior performs on as the
+	// surface named it, "" for none; `object #<id>` when absent.
+	PerformerNames []string
+	Horizon        Horizon
 }
 
 // Horizon is the instant a check runs the clock to: the zero Horizon is none,
@@ -83,16 +86,84 @@ func (inv *Invocation) Release() {
 	}
 }
 
-// Performer is the object the started behaviors perform on: the first started
-// behavior's, nil when it performs on none.
+// Performer is the one object the started behaviors perform on: nil when none
+// performs on an object, or when they perform on different ones.
 func (inv *Invocation) Performer() *Instance {
-	if len(inv.Actions) > 0 {
-		return inv.Actions[0].self
+	performers := inv.performers()
+	if len(performers) != 1 {
+		return nil
 	}
-	if len(inv.States) > 0 {
-		return inv.States[0].self
+	return performers[0].self
+}
+
+// Performers lists the distinct objects the started behaviors perform on, in start order.
+func (inv *Invocation) Performers() []*Instance {
+	performers := inv.performers()
+	selves := make([]*Instance, len(performers))
+	for i, p := range performers {
+		selves[i] = p.self
 	}
-	return nil
+	return selves
+}
+
+// performer is an object a started behavior performs on, spelled as the surface named it.
+type performer struct {
+	name string
+	self *Instance
+}
+
+// performers lists the distinct objects the started behaviors perform on, in
+// start order, each spelled as the first behavior performing on it names it.
+func (inv *Invocation) performers() []performer {
+	selves := inv.selves()
+	names := inv.performerNames(selves)
+	var performers []performer
+	for i, self := range selves {
+		if self == nil || slices.ContainsFunc(performers, func(p performer) bool { return p.self == self }) {
+			continue
+		}
+		performers = append(performers, performer{name: names[i], self: self})
+	}
+	return performers
+}
+
+// selves are the objects the behaviors perform on, actions first, nil for none.
+func (inv *Invocation) selves() []*Instance {
+	selves := make([]*Instance, 0, len(inv.Actions)+len(inv.States))
+	for _, exec := range inv.Actions {
+		selves = append(selves, exec.self)
+	}
+	for _, exec := range inv.States {
+		selves = append(selves, exec.self)
+	}
+	return selves
+}
+
+// performerNames spell the objects the behaviors perform on: as PerformerNames has
+// them, else by identity.
+func (inv *Invocation) performerNames(selves []*Instance) []string {
+	names := make([]string, len(selves))
+	for i, self := range selves {
+		if i < len(inv.PerformerNames) && inv.PerformerNames[i] != "" {
+			names[i] = inv.PerformerNames[i]
+		} else if self != nil {
+			names[i] = fmt.Sprintf("object #%d", self.ID)
+		}
+	}
+	return names
+}
+
+// performerPrefixes are what the performing objects' features are named under:
+// `this.` for the one object the behaviors perform on, else each object's name.
+func (inv *Invocation) performerPrefixes() []performer {
+	performers := inv.performers()
+	if len(performers) == 1 {
+		return []performer{{name: "this.", self: performers[0].self}}
+	}
+	for i := range performers {
+		performers[i].name += "."
+	}
+	return performers
 }
 
 // Snapshot captures every executor on the clock along with the context's state.

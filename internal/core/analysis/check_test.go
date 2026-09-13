@@ -460,6 +460,8 @@ func TestWitnessFilesOfSeveralBehaviors(t *testing.T) {
 		{"Plant::Tank::fill", "Plant::tank", "this.level", "Plant.Tank.fill@Plant.tank-this.level-1.witness"},
 		{"Shine::Lamp::peek, Shine::Lamp::glow", "Shine::Lamp", "Shine::Lamp::peek.saw", "Shine.Lamp.peek+Shine.Lamp.glow@Shine.Lamp-Shine.Lamp.peek.saw-1.witness"},
 		{"Shine::Lamp::peek, Shine::Lamp::glow", "Shine::Lamp", "Shine::Lamp::glow finalState", "Shine.Lamp.peek+Shine.Lamp.glow@Shine.Lamp-Shine.Lamp.glow%20finalState-1.witness"},
+		{"Plant::Tank::fill Plant::tank, Plant::Tank::fill Plant::spare", "", "Plant::spare.level", "Plant.Tank.fill@Plant.tank+Plant.Tank.fill@Plant.spare-Plant.spare.level-1.witness"},
+		{"Plant::Tank::fill #1, Plant::Tank::fill #2", "Plant::tank", "this.level", "Plant.Tank.fill.1+Plant.Tank.fill.2@Plant.tank-this.level-1.witness"},
 	} {
 		if got := divergenceFile(c.subject, c.performer, c.feature, 1); got != c.want {
 			t.Errorf("divergenceFile(%q, %q, %q) = %s, want %s", c.subject, c.performer, c.feature, got, c.want)

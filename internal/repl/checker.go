@@ -493,9 +493,9 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 }
 
 // checkProperties resolves the session's properties to the constraint or
-// requirement each names: as the check engine evaluates each about the invocation's
-// performer at every state, as the symbols the symbolic engine translates, and
-// the scope they resolve in.
+// requirement each names: as the check engine evaluates each at every state
+// about every object the invocation's behaviors perform on, holding when it holds
+// of each; as the symbols the symbolic engine translates; and the scope they resolve in.
 func (s *Session) checkProperties() ([]runtime.CheckProperty, []*symbols.Symbol, *symbols.Scope, error) {
 	docScopes := s.docScopes()
 	if (len(s.checker.properties) > 0 || len(s.checker.assume) > 0) && len(docScopes) == 0 {
@@ -514,11 +514,20 @@ func (s *Session) checkProperties() ([]runtime.CheckProperty, []*symbols.Symbol,
 		}
 		scope := declaringScope(sym, root)
 		properties = append(properties, runtime.CheckProperty{Name: name, Holds: func(ctx *runtime.Context, inv *runtime.Invocation) (bool, error) {
-			result, err := check(ctx, sym, scope, inv.Performer())
-			if err != nil && !errors.Is(err, runtime.ErrViolated) {
-				return false, err
+			performers := inv.Performers()
+			if len(performers) == 0 {
+				performers = []*runtime.Instance{nil}
 			}
-			return result.Holds, nil
+			for _, self := range performers {
+				result, err := check(ctx, sym, scope, self)
+				if err != nil && !errors.Is(err, runtime.ErrViolated) {
+					return false, err
+				}
+				if !result.Holds {
+					return false, nil
+				}
+			}
+			return true, nil
 		}})
 		conditions = append(conditions, sym)
 	}

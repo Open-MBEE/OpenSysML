@@ -342,11 +342,24 @@ func divergenceFile(subject, performer, feature string, n int) string {
 
 // checkedName is the subject's segments and, after `@`, the performer's when an
 // object performs it: `Plant.Tank.fill@Plant.tank`, one name per behavior and
-// object; several behaviors on one clock are joined by `+`.
+// object; several behaviors on one clock are joined by `+`, each with its own
+// `@<object>` when the subject spells the objects they perform on, and its `#n`
+// when the subject numbers repeats of one behavior.
 func checkedName(subject, performer string) string {
 	behaviors := strings.Split(subject, ", ")
 	for i, behavior := range behaviors {
-		behaviors[i] = fileSegments(behavior, "::")
+		words := strings.Fields(behavior)
+		if len(words) == 0 {
+			continue
+		}
+		behaviors[i] = fileSegments(words[0], "::")
+		for _, word := range words[1:] {
+			if n, numbered := strings.CutPrefix(word, "#"); numbered {
+				behaviors[i] += "." + fileToken(n)
+			} else {
+				behaviors[i] += "@" + fileSegments(word, "::")
+			}
+		}
 	}
 	name := strings.Join(behaviors, "+")
 	if performer != "" {

@@ -1,6 +1,10 @@
 package repl
 
-import "testing"
+import (
+	"fmt"
+	"path/filepath"
+	"testing"
+)
 
 // Under %engine check, %state searches every schedule of a machine as %action does
 // an action's, the clock advanced until nothing is due; %advance searches the last
@@ -53,4 +57,30 @@ func TestEngineCheckAdvanceNeedsACheckedInvocation(t *testing.T) {
 	s := loadSource(t, exploreLampSource)
 	run(t, s, "%engine check")
 	wants(t, run(t, s, "%advance 3"), "error: no behavior checked yet; under %engine check, %action or %state searches every schedule of a behavior, and %advance <time> then searches it again up to that instant")
+}
+
+// A witness of behaviors checked on one clock replays in the REPL: %replay, then
+// %action and %state on the one instance, and %advance to the horizon, ends the
+// run at the value the witness claims for either due order.
+func TestReplayStepsBehaviorsOnOneClock(t *testing.T) {
+	s := loadSource(t, exploreLampSource)
+	dir := t.TempDir()
+	run(t, s, "%engine check")
+	run(t, s, "%check-witness "+dir)
+	peek := Behavior{Name: "Shared::Lamp::peek", Performer: []string{"Shared::Lamp"}}
+	glow := Behavior{Name: "Shared::Lamp::glow", Performer: []string{"Shared::Lamp"}}
+	name := filepath.Join(dir, "Shared.Lamp.peek+Shared.Lamp.glow@Shared.Lamp-Shared.Lamp.peek.saw-%d.witness")
+	wantVerdict(t, s.RunFor([]Behavior{peek}, []Behavior{glow}, 3)[0], VerdictFails,
+		"Shared::Lamp::peek.saw = false (witness "+fmt.Sprintf(name, 1)+")",
+		"Shared::Lamp::peek.saw = true (witness "+fmt.Sprintf(name, 2)+")")
+
+	for n, saw := range map[int]string{1: "saw = false", 2: "saw = true"} {
+		s := loadSource(t, exploreLampSource)
+		witness := fmt.Sprintf(name, n)
+		wants(t, run(t, s, "%replay "+witness), "schedule: replay:"+witness)
+		run(t, s, "%instantiate Shared::Lamp")
+		wants(t, run(t, s, "%action Shared::Lamp::peek Shared::Lamp"), "Started action executor")
+		wants(t, run(t, s, "%state Shared::Lamp::glow Shared::Lamp"), "Current state: off")
+		wants(t, run(t, s, "%advance 3"), "Advanced to 3.0", "Current state: on", "Action completed", saw, "1 choice point")
+	}
 }
