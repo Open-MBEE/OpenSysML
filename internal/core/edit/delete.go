@@ -207,7 +207,7 @@ func (m Model) referrersIn(r *resolve.Resolver, doc string, targets, frontier []
 		r.ResolveReference(ref)
 		for i, part := range ref.QN.Parts {
 			seg, ok := r.PartSymbol(ref.QN, i)
-			if !ok || part.Span == seg.NameSpan || !coveredByAny(seg, frontier) {
+			if !ok || isDeclaration(doc, part.Span, seg) || !coveredByAny(seg, frontier) {
 				continue
 			}
 			referrer, ok := m.referrer(r, doc, ref, part.Span.Offset)
@@ -251,6 +251,12 @@ func (m Model) documentRoot(doc string) (*ast.RootNamespace, *symbols.Scope, boo
 	}
 	root, ok := rootScope.Node().(*ast.RootNamespace)
 	return root, rootScope, ok
+}
+
+// isDeclaration reports whether the segment at span in doc is sym's own name
+// token; an equal span in another document is a reference.
+func isDeclaration(doc string, span source.Span, sym *symbols.Symbol) bool {
+	return sym.DocName == doc && span == sym.NameSpan
 }
 
 // coveredByAny reports whether sym is declared inside one of set.

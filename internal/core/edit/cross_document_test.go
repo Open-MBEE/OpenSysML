@@ -119,6 +119,59 @@ func TestRenameConflictInAnotherDocumentRefusesWhole(t *testing.T) {
 	}
 }
 
+// A reference in another document is respelled even when it lies at the very
+// bytes the declaration occupies in its own document: a span alone does not tell
+// the declaration from a reference elsewhere.
+func TestRenameRespellsReferenceAtTheDeclarationOffsetInAnotherDocument(t *testing.T) {
+	const src = "package P {\n    part def Old;\n}\n"
+	q := "package Q {\n    part a : Old;\n    private import P::*;\n}\n"
+	requireSameOffset(t, src, q, "Old")
+	m := loadEditableWorkspace(t, "p.sysml", src, map[string]string{"q.sysml": q})
+	requireClean(t, m)
+
+	res := applyOne(t, m, Rename("P::Old", "Fresh"))
+	if got, want := string(res.Content), "package P {\n    part def Fresh;\n}\n"; got != want {
+		t.Fatalf("p.sysml = %q, want %q", got, want)
+	}
+	want := "package Q {\n    part a : Fresh;\n    private import P::*;\n}\n"
+	if got := otherContent(t, res, "q.sysml"); got != want {
+		t.Fatalf("q.sysml = %q, want %q", got, want)
+	}
+}
+
+// A referrer in another document counts even when its reference lies at the
+// very bytes the declaration occupies in its own document: without cascade the
+// delete is refused naming it, and with cascade it is removed.
+func TestDeleteFollowsReferrerAtTheDeclarationOffsetInAnotherDocument(t *testing.T) {
+	const src = "package P {\n    part def Base;\n}\n"
+	q := "package Q {\n    part b : Base;\n    private import P::*;\n}\n"
+	requireSameOffset(t, src, q, "Base")
+	m := loadEditableWorkspace(t, "p.sysml", src, map[string]string{"q.sysml": q})
+	requireClean(t, m)
+
+	e := addFailure(t, m, Delete("P::Base", false), FailureDeleteReferenced)
+	if got := strings.Join(e.Referring, ","); got != "Q::b (q.sysml)" {
+		t.Fatalf("referring = %v, want Q::b (q.sysml)", e.Referring)
+	}
+
+	res := applyOne(t, m, Delete("P::Base", true))
+	if got, want := string(res.Content), "package P {\n}\n"; got != want {
+		t.Fatalf("p.sysml = %q, want %q", got, want)
+	}
+	if got, want := otherContent(t, res, "q.sysml"), "package Q {\n    private import P::*;\n}\n"; got != want {
+		t.Fatalf("q.sysml = %q, want %q", got, want)
+	}
+}
+
+// requireSameOffset checks the fixture: name is written at one offset in both
+// documents, so the declaration and the reference have equal spans.
+func requireSameOffset(t *testing.T, a, b, name string) {
+	t.Helper()
+	if i, j := strings.Index(a, name), strings.Index(b, name); i < 0 || i != j {
+		t.Fatalf("%q at %d and %d, want one offset", name, i, j)
+	}
+}
+
 // Errors another document already had do not refuse an edit that leaves them as
 // they were: validation compares each document with its own original.
 func TestEditToleratesPreexistingErrorsInAnotherDocument(t *testing.T) {

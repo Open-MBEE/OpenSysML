@@ -366,7 +366,8 @@ document's change is answered alone. Only the requested document's version is na
 the request, so only that one can be answered `stale`; the version each other document's
 change carries is the one its edits were computed against, and a client applies the edit
 only while every open document it names is still at that version. When one has moved on
-— typed into while the request was in flight — the client applies nothing, says which
+— typed into while the request was in flight, or opened since the server read it from
+disk, so that its change carries no version — the client applies nothing, says which
 document moved, and lets the action be taken again on the newer text; a change is never
 landed on text the server did not see. The VS Code extension does exactly that, since the
 language client library applies a `TextDocumentEdit` without checking its version.

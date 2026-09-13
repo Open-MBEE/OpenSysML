@@ -331,13 +331,18 @@ test("staleDocuments names a document whose buffer moved on", () => {
   assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), [fleetURI]);
 });
 
-test("staleDocuments ignores a document without a buffer and one the server read from disk", () => {
+test("staleDocuments ignores a document no buffer holds, whether the server read it open or from disk", () => {
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => (uri === carURI ? 3 : undefined)), []);
+  assert.deepEqual(staleDocuments({ changes: { [carURI]: [] } }, () => 1), []);
+});
+
+test("staleDocuments names a document the server read from disk that a buffer has since been opened for", () => {
   const versions = new Map([
     [carURI, 3],
-    ["file:///work/disk.sysml", 12],
+    [fleetURI, 7],
+    ["file:///work/disk.sysml", 1],
   ]);
-  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), []);
-  assert.deepEqual(staleDocuments({ changes: { [carURI]: [] } }, () => 1), []);
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), ["file:///work/disk.sysml"]);
 });
 
 test("describeStale names the files and says the edit was not applied", () => {

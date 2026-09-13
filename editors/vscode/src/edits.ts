@@ -185,16 +185,16 @@ export function fileLabel(uri: string): string {
 }
 
 /**
- * staleDocuments lists the documents an edit is pinned to a version of that the client
- * holds at another version: applying it would land on text the server did not see.
- * A change without a version is one to a document the client has no buffer for.
+ * staleDocuments lists the documents an edit was computed against a text of that the
+ * client no longer holds: one pinned to a version the buffer has moved past, or one the
+ * server read from disk (no version) that a buffer has been opened for since.
  */
 export function staleDocuments(edit: WorkspaceEdit, versionOf: (uri: string) => number | undefined): string[] {
   const out: string[] = [];
   for (const change of edit.documentChanges ?? []) {
     const { uri, version } = change.textDocument;
     const held = versionOf(uri);
-    if (version !== null && held !== undefined && held !== version) {
+    if (held !== undefined && held !== version) {
       out.push(uri);
     }
   }

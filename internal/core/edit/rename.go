@@ -85,7 +85,7 @@ func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident
 			}
 			r.ResolveReference(ref)
 			for part, segment := range ref.QN.Parts {
-				if segment.Span == ident.NameSpan || segment.Text != ident.Name ||
+				if isDeclaration(doc, segment.Span, sym) || segment.Text != ident.Name ||
 					seen[segment.Span.Offset] {
 					continue
 				}
