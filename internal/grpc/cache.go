@@ -38,13 +38,36 @@ type CachedModel struct {
 
 	symCtxOnce sync.Once
 	symCtx     *SymbolContext
+
+	// idle are the workers requests have given back, warm with what they resolved.
+	idleMu sync.Mutex
+	idle   []*analysis.Worker
 }
 
-// worker builds a model-derived runtime part of one request's or plan's own over the
-// shared index: it memoizes into plain maps, so nothing mutable is shared between requests.
-func (m *CachedModel) worker() *analysis.Worker {
-	model, _ := m.Semantics()
-	return &analysis.Worker{Model: model}
+// worker takes a model-derived runtime part for one request: an idle one, warm from the requests
+// it served, else a new one. It memoizes into plain maps, so a request holds it alone until release.
+func (m *CachedModel) worker() (*analysis.Worker, func()) {
+	m.idleMu.Lock()
+	var w *analysis.Worker
+	if n := len(m.idle); n > 0 {
+		w, m.idle = m.idle[n-1], m.idle[:n-1]
+	}
+	m.idleMu.Unlock()
+	if w == nil {
+		model, _ := m.Semantics()
+		w = &analysis.Worker{Model: model}
+	}
+	// A name a request fails to resolve is the request's error, not the model's: drop it on release.
+	resolver := w.Model.Resolver()
+	diags := len(resolver.Diagnostics)
+	return w, func() {
+		if len(resolver.Diagnostics) > diags {
+			resolver.Diagnostics = resolver.Diagnostics[:diags]
+		}
+		m.idleMu.Lock()
+		m.idle = append(m.idle, w)
+		m.idleMu.Unlock()
+	}
 }
 
 // Semantics is the model-derived runtime part as an analysis.Model builds one.

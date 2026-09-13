@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -128,5 +129,41 @@ func TestCacheInvalidMaxSize(t *testing.T) {
 	}
 	if _, err := NewService(0, "test"); err == nil {
 		t.Error("expected error for cacheSize <= 0")
+	}
+}
+
+// A request holds a model's worker alone, hands it on warm when it is done, and a request
+// arriving while every worker is held gets one of its own rather than waiting.
+func TestCachedModelHandsWorkersOn(t *testing.T) {
+	model := &CachedModel{Documents: []*CachedDocument{{Root: &ast.RootNamespace{}}}, Index: symbols.NewIndex()}
+	model.Index.Freeze()
+
+	first, releaseFirst := model.worker()
+	second, releaseSecond := model.worker()
+	if first == second {
+		t.Fatal("two requests holding workers at once were handed the same one")
+	}
+	releaseFirst()
+	third, releaseThird := model.worker()
+	if third != first {
+		t.Fatal("a request after the first released was not handed its worker warm")
+	}
+	releaseThird()
+	releaseSecond()
+	if got := len(model.idle); got != 2 {
+		t.Fatalf("%d idle workers after every release, want 2", got)
+	}
+
+	// What a request failed to resolve is the request's, not the next holder's.
+	w, release := model.worker()
+	w.Model.Resolver().Diagnostics = append(w.Model.Resolver().Diagnostics, resolve.Diagnostic{Message: "nosuch"})
+	release()
+	again, releaseAgain := model.worker()
+	defer releaseAgain()
+	if again != w {
+		t.Fatal("the released worker was not the one handed on")
+	}
+	if got := len(again.Model.Resolver().Diagnostics); got != 0 {
+		t.Fatalf("a worker handed on carries %d diagnostics of an earlier request, want none", got)
 	}
 }
