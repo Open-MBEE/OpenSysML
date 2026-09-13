@@ -32,16 +32,16 @@ func TestSupportsDirection(t *testing.T) {
 	}
 }
 
-func TestMermaidDirected(t *testing.T) {
+func TestMermaidWithDirection(t *testing.T) {
 	rendering := &Rendering{Kind: KindTree, Roots: []*Node{{ID: "n0", Kind: "part", Name: "a"}}}
-	if got := rendering.MermaidDirected(DirectionBottomTop); !strings.Contains(got, "flowchart BT") {
+	if got := rendering.MermaidWith(Options{Direction: DirectionBottomTop}); !strings.Contains(got, "flowchart BT") {
 		t.Errorf("tree BT:\n%s", got)
 	}
 	if got := rendering.Mermaid(); !strings.Contains(got, "flowchart TD") {
 		t.Errorf("undirected tree:\n%s", got)
 	}
 	states := &Rendering{Kind: KindState, Roots: []*Node{{ID: "n0", Kind: "state", Name: "s"}}}
-	if got := states.MermaidDirected(DirectionLeftRight); !strings.Contains(got, "direction LR") {
+	if got := states.MermaidWith(Options{Direction: DirectionLeftRight}); !strings.Contains(got, "direction LR") {
 		t.Errorf("state LR:\n%s", got)
 	}
 	if got := states.Mermaid(); strings.Contains(got, "direction") {

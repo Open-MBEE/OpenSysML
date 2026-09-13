@@ -2161,7 +2161,7 @@ func (e *ActionExecutor) TimeWaits() []string {
 	}
 	for _, held := range e.heldWaiters() {
 		for _, wait := range held.clockWaits() {
-			out = append(out, wait.What)
+			out = append(out, wait.What())
 		}
 	}
 	return out
@@ -2213,7 +2213,7 @@ func (e *ActionExecutor) clockWaits() []ClockWait {
 func (e *ActionExecutor) armedWaits() []ClockWait {
 	var waits []ClockWait
 	for _, token := range e.timeWaits(nil) {
-		waits = append(waits, ClockWait{Due: token.Wait.Due, Holder: e.dueLabel(), What: token.Wait.String()})
+		waits = append(waits, ClockWait{Due: token.Wait.Due, holder: e, what: token.Wait})
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits

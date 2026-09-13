@@ -122,18 +122,35 @@ func joinForms(forms []Form, conjunction string) string {
 
 func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 
-// Write is the rendering in form, written to no particular width.
-func (r *Rendering) Write(form Form) (string, error) {
-	return r.WriteWidth(form, WidthUnbounded)
+// Options are what a rendering is written with beside its form. Each form
+// takes the ones that apply to it: the text form its Width, the Mermaid form
+// its Direction, the DOT form its Direction and Palette. A form ignores the
+// rest, the Mermaid form saying so of a Palette in a comment.
+type Options struct {
+	// Direction is the flow direction a graph-shaped form is drawn in; empty
+	// leaves each kind's default.
+	Direction Direction
+	// Palette is the palette the DOT form fills nodes from, by keyword family;
+	// empty draws in black and white.
+	Palette Palette
+	// Width is the width the text form is written to fit; WidthUnbounded
+	// writes every column as wide as its widest cell.
+	Width int
 }
 
-// WriteWidth is the rendering in form, the text form written to fit width. A
-// form the kind is not written in is a *WrongFormError, and an unknown form
-// names the ones there are.
-func (r *Rendering) WriteWidth(form Form, width int) (string, error) {
+// Write is the rendering in form, with the default options: no particular
+// width, each kind's direction, black and white.
+func (r *Rendering) Write(form Form) (string, error) {
+	return r.WriteWith(form, Options{})
+}
+
+// WriteWith is the rendering in form, written with options. A form the kind
+// is not written in is a *WrongFormError, and an unknown form names the ones
+// there are.
+func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 	switch form {
 	case FormText:
-		return r.TextWidth(width), nil
+		return r.TextWidth(options.Width), nil
 	case FormMermaid, FormMarkdown, FormDot:
 		if !r.Kind.SupportsForm(form) {
 			return "", &WrongFormError{Form: form, Kind: r.Kind, View: r.View}
@@ -142,9 +159,9 @@ func (r *Rendering) WriteWidth(form Form, width int) (string, error) {
 		case FormMarkdown:
 			return r.Markdown(), nil
 		case FormDot:
-			return r.DOT()
+			return r.DOTWith(options)
 		}
-		return r.Mermaid(), nil
+		return r.MermaidWith(options), nil
 	}
 	return "", fmt.Errorf("unknown rendering form %q; the forms are %s", form, joinForms(Forms(), "and"))
 }

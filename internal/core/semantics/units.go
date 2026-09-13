@@ -606,12 +606,9 @@ func (m *Model) unitTermOfName(scope *symbols.Scope, qn *ast.QualifiedName) (Uni
 	if qn == nil || m.resolver == nil {
 		return UnitTerm{}, ErrUnitExpr
 	}
-	sym, ok := m.resolver.ResolveQualified(scope, qn)
-	if !ok || sym == nil {
+	sym, ok := m.unitSymbolNamed(scope, qn)
+	if !ok {
 		return UnitTerm{}, fmt.Errorf("%w: unresolved unit %s", ErrNotAUnit, QualifiedNameText(qn))
-	}
-	if alias, ok := m.resolver.ResolveAliasTarget(sym); ok {
-		sym = alias
 	}
 	if m.IsMeasurementScale(sym) {
 		return UnitTerm{}, fmt.Errorf("%w: %s is a measurement scale; a point on it is no magnitude in a unit to compose",
@@ -621,6 +618,22 @@ func (m *Model) unitTermOfName(scope *symbols.Scope, qn *ast.QualifiedName) (Uni
 		return UnitTerm{}, m.shadowedUnit(qn, sym)
 	}
 	return m.UnitTermOf(sym)
+}
+
+// unitSymbolNamed resolves a name in unit position to the declaration it
+// refers to, through an alias; false when it resolves to nothing.
+func (m *Model) unitSymbolNamed(scope *symbols.Scope, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
+	if qn == nil || m.resolver == nil {
+		return nil, false
+	}
+	sym, ok := m.resolver.ResolveQualified(scope, qn)
+	if !ok || sym == nil {
+		return nil, false
+	}
+	if alias, ok := m.resolver.ResolveAliasTarget(sym); ok {
+		sym = alias
+	}
+	return sym, true
 }
 
 // ShadowedUnitError reports a name in unit position that resolved to a

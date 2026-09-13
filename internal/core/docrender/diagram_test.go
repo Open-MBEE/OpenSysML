@@ -26,7 +26,7 @@ func renderedDiagram(t *testing.T, caption string, rendering *view.Rendering, di
 
 func renderedDiagramForm(t *testing.T, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) string {
 	t.Helper()
-	blocks, err := diagramBlocks("d", caption, rendering, direction, form)
+	blocks, err := diagramBlocks("d", caption, rendering, view.Options{Direction: direction}, form)
 	if err != nil {
 		t.Fatalf("diagramBlocks: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestDiagramDotForm(t *testing.T) {
 		if !strings.HasPrefix(got, "```dot\n// kind: "+string(kind)+"\n") || !strings.HasSuffix(got, "\n}\n```") {
 			t.Errorf("%s: not a dot fence:\n%s", kind, got)
 		}
-		for _, want := range []string{"digraph {", "graph [rankdir=LR];", `"n0" -> "n1" [arrowhead=none];`} {
+		for _, want := range []string{"digraph {", "graph [fontname=\"Helvetica\", rankdir=LR];", `"n0" -> "n1" [arrowhead=none, penwidth=3];`} {
 			if !strings.Contains(got, want) {
 				t.Errorf("%s: missing %q:\n%s", kind, want, got)
 			}
@@ -124,7 +124,7 @@ func TestDiagramFormResolution(t *testing.T) {
 // table-kind view is a pipe table whichever form is chosen.
 func TestDiagramFormErrors(t *testing.T) {
 	var typed *Error
-	_, err := diagramBlocks("d", "", graphRendering(view.KindSequence), "", view.FormDot)
+	_, err := diagramBlocks("d", "", graphRendering(view.KindSequence), view.Options{}, view.FormDot)
 	if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm || typed.Actual != "sequence" || typed.DiagramForm != view.FormDot {
 		t.Fatalf("sequence as dot: error = %v", err)
 	}
@@ -190,7 +190,7 @@ func TestDiagramTableKindExplainsAnEmptyRendering(t *testing.T) {
 }
 
 func TestDiagramMissingRendering(t *testing.T) {
-	_, err := diagramBlocks("d", "", nil, "", view.FormMermaid)
+	_, err := diagramBlocks("d", "", nil, view.Options{}, view.FormMermaid)
 	var typed *Error
 	if !errors.As(err, &typed) || typed.Kind != ErrorMissingRendering {
 		t.Fatalf("error = %v, want %s", err, ErrorMissingRendering)
@@ -199,7 +199,7 @@ func TestDiagramMissingRendering(t *testing.T) {
 
 func TestDiagramUnrenderableKind(t *testing.T) {
 	for _, kind := range []view.Kind{view.KindTextual, view.KindGeometry} {
-		_, err := diagramBlocks("d", "", &view.Rendering{Kind: kind}, "", view.FormMermaid)
+		_, err := diagramBlocks("d", "", &view.Rendering{Kind: kind}, view.Options{}, view.FormMermaid)
 		var typed *Error
 		if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableDiagram {
 			t.Fatalf("%s: error = %v, want %s", kind, err, ErrorUnrenderableDiagram)

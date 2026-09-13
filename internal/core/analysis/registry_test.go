@@ -188,3 +188,29 @@ func TestPresentProcessIsListed(t *testing.T) {
 		t.Fatalf("statuses %+v, want z3 at /usr/bin/z3", statuses)
 	}
 }
+
+func TestEnginesForAKindFollowRegistration(t *testing.T) {
+	r := registered(t, fakeEngine{name: "run", kinds: []Kind{Evaluate}, authority: Observed})
+	if got := r.ranked(Evaluate); len(got) != 1 || got[0].Name() != "run" {
+		t.Fatalf("ranked(Evaluate) = %d engines, want [run]", len(got))
+	}
+	if err := r.Register(fakeEngine{name: "solve", kinds: []Kind{Evaluate}, authority: Proved}); err != nil {
+		t.Fatalf("register solve: %v", err)
+	}
+	ranked := r.ranked(Evaluate)
+	if len(ranked) != 2 || ranked[0].Name() != "solve" || ranked[1].Name() != "run" {
+		t.Fatalf("ranked(Evaluate) after registering solve = %v, want [solve run]", engineNames(ranked))
+	}
+	declaring := r.declaring(Evaluate)
+	if len(declaring) != 2 || declaring[0].Name() != "run" || declaring[1].Name() != "solve" {
+		t.Fatalf("declaring(Evaluate) = %v, want [run solve]", engineNames(declaring))
+	}
+}
+
+func engineNames(engines []Engine) []string {
+	var out []string
+	for _, e := range engines {
+		out = append(out, e.Name())
+	}
+	return out
+}

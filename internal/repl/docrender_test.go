@@ -154,7 +154,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	wants(t, dot,
 		"```dot\n// view: Imaging::chainView\n// kind: interconnection\n",
 		"digraph \"Imaging::chainView\" {",
-		`"n1" -> "n3" [label="link", arrowhead=none, ltail="cluster_n1", lhead="cluster_n3"];`,
+		`"n1" -> "n3" [label="link", arrowhead=none, penwidth=3, ltail="cluster_n1", lhead="cluster_n3"];`,
 		"| camera | 2.5 |",
 		"| name | mass |",
 	)

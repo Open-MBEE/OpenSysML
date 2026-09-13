@@ -98,7 +98,7 @@ func TestRenderDotForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<b>Demo::Vehicle</b><br/><font point-size="10">«part def»</font>>`, `"n0" -> "n1" [arrowhead=none];`} {
+	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>`, `"n0" -> "n1" [arrowhead=none];`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -126,7 +126,7 @@ func TestRenderDotForm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`digraph "Demo::stateView" {`, "shape=point", "style=rounded"} {
+	for _, want := range []string{`digraph "Demo::stateView" {`, "shape=point", `style="rounded,filled"`} {
 		if !strings.Contains(string(state), want) {
 			t.Errorf("state artifact is missing %q:\n%s", want, state)
 		}
@@ -135,6 +135,57 @@ func TestRenderDotForm(t *testing.T) {
 	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "dot")
 	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as dot; ask for text or markdown") {
 		t.Errorf("DOT of a table = %d\n%s", table.status, table.output())
+	}
+}
+
+// -render-palette fills the DOT form's nodes from a named palette, is noted as
+// not represented by the Mermaid form, and is refused with the palettes there
+// are when it names none of them.
+func TestRenderPalette(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "okabe-ito")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{`digraph "Demo::overview" {`, `fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Demo::Vehicle</b>`} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+
+	mermaid := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "mermaid", "-render-palette", "viridis")
+	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "%% not represented: palette viridis; only the DOT form fills nodes by keyword family") {
+		t.Errorf("Mermaid with a palette = %d\n%s", mermaid.status, mermaid.output())
+	}
+	if strings.Contains(mermaid.stdout, "fillcolor") || strings.Contains(mermaid.stdout, "style n0") {
+		t.Errorf("Mermaid is themed by the palette:\n%s", mermaid.stdout)
+	}
+
+	unknown := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "rainbow")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-palette: unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`) {
+		t.Errorf("an unknown palette = %d\n%s", unknown.status, unknown.output())
+	}
+	if unknown.stdout != "" {
+		t.Errorf("an unknown palette wrote an artifact:\n%s", unknown.stdout)
+	}
+
+	alone := runStreams(t, binary, renderModel, "-render-palette", "okabe-ito")
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT with") {
+		t.Errorf("a palette without a view = %d\n%s", alone.status, alone.output())
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	all := runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "dot", "-render-palette", "tol-bright")
+	if all.status != exitHolds {
+		t.Fatalf("-render-all exit status = %d, want %d\n%s", all.status, exitHolds, all.output())
+	}
+	tree, err := os.ReadFile(filepath.Join(dir, "Demo.treeView.dot"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(tree), `fillcolor="#`) {
+		t.Errorf("-render-all did not fill from the palette:\n%s", tree)
 	}
 }
 

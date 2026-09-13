@@ -191,6 +191,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown` or `dot` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
+| `--render-palette <name>` | | Palette the `dot` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`; a table-kind view as a pipe table either way), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
 | `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid` (default) or `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed. Applies to every diagram of the document in every `--doc-form`; a table-kind view is a table either way, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
@@ -403,6 +404,7 @@ sysml model.sysml -render Views::vehicleView -render-form text
 
 # Graphviz DOT for a graph-shaped kind, to lay out with dot(1) or any Graphviz-reading tool
 sysml model.sysml -render Views::vehicleView -render-form dot -o view.dot
+sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito -o view.dot
 
 # A view over several files, loaded as one model
 sysml types.sysml model.sysml -render Views::vehicleView
@@ -500,10 +502,32 @@ Node and cluster labels are HTML-like strings (`label=<…>`) with `&`, `<`, `>`
 written as entities; edge labels, identifiers and geometry stay double-quoted strings.
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
-or succession is a solid arrow. Producing DOT needs no Graphviz installation; laying it out does,
-with the engine the `// layout:` header names (`dot -Tsvg view.dot`, or `neato -Tsvg view.dot`
-when the view states positions — below). A `sequence` view has no DOT counterpart and, like a
-`table`, is refused with status 2 when `dot` is forced.
+or succession is a solid arrow drawn at the Pilot visualizer's thickness (`penwidth=3` for a
+connection). The drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
+visualizer, after Hisashi Miyashita's `sysmlbw` PlantUML skin: Helvetica text, white fills, thin
+`#181818` lines, square definitions and rounded usages, a bold name over an italic `«keyword»`
+line, unfilled black-bordered clusters, and unnamed initial and final pseudo-states as the filled
+UML dot ([the translation](../project/view-rendering-forms.md#style)). Producing DOT needs no
+Graphviz installation; laying it out does, with the engine the `// layout:` header names
+(`dot -Tsvg view.dot`, or `neato -Tsvg view.dot` when the view states positions — below). A
+`sequence` view has no DOT counterpart and, like a `table`, is refused with status 2 when `dot`
+is forced.
+
+`-render-palette <name>` fills the DOT nodes with a colourblind-safe palette by **keyword
+family** — a `part def` and a `part` share a hue, a `port` takes the next, and so on through
+item, port, attribute, action, state, requirement, constraint, connection, interface, use case,
+case, allocation, analysis, verification, enum, occurrence and flow. A definition is filled with
+the family colour, a usage with a lighter tint of it, both bordered in the colour; every fill is
+lightened until black text on it reads at the WCAG AA ratio of 4.5:1, and pseudo-states, control
+nodes and cluster borders stay black and white. The palettes are `okabe-ito` (Okabe & Ito),
+`tol-bright`, `tol-muted` and `tol-light` (Paul Tol), `brewer-set2` and `brewer-dark2`
+(ColorBrewer), and the sequential `viridis` and `cividis` (matplotlib), which are sampled evenly
+across the families the view draws, darkest first
+([the palettes and their sources](../project/view-rendering-forms.md#palettes)). The palette
+applies to the `dot` form alone: `-render-form mermaid` writes a `%% not represented:` comment
+naming it, and the text and Markdown forms ignore it. A name that is no palette is refused with
+status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
+likewise.
 
 A rendering is laid out by whatever draws it, unless the model says where things go. The
 `DiagramLayout` library (bundled, imported like any other) states that in notation: a

@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
@@ -38,9 +39,10 @@ type ActionGraph struct {
 	// Bodies: node → the statements that node executes, in declaration order
 	Bodies map[ast.Node][]Statement
 
-	// Footprints: node → what advancing a token through the node may read, write,
-	// send, accept and converge on, for the model checker's independence relation.
-	Footprints map[ast.Node]Footprint
+	// footprints: node → what advancing a token through the node may read, write,
+	// send, accept and converge on; computed on the first call of Footprints.
+	footprints     map[ast.Node]Footprint
+	footprintsOnce sync.Once
 
 	// Features: node → the parameters and attributes the node declares itself,
 	// in declaration order; each performance of the node holds its own values.
@@ -619,7 +621,6 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 		return nil, err
 	}
 	recordBlockNodes(graph)
-	lowerFootprints(graph)
 	return graph, nil
 }
 

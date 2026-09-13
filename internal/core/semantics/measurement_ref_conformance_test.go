@@ -40,6 +40,10 @@ func measurementRefModel(t *testing.T) (*semantics.Model, *symbols.Index) {
 		attribute numberPower = 2 ** e;
 		attribute inferred = area;
 		attribute inferredSum = sum;
+		alias metre for SI::m;
+		attribute viaAlias = metre * m;
+		attribute notAUnit = e * m;
+		attribute unresolved = nothing * m;
 	}`))).ParseFile())
 	idx.ExpandWildcardImports()
 	return semantics.NewModel(resolve.New(idx)), idx
@@ -141,6 +145,7 @@ func TestMeasurementRefExpr(t *testing.T) {
 		{"T::duration", "ISQBase::DurationUnit", true},
 		{"T::duration", "Time::TimeScale", false},
 		{"T::duration", "MeasurementReferences::IntervalScale", false},
+		{"T::viaAlias", "ISQSpaceTime::AreaUnit", true},
 	} {
 		t.Run(tc.feature+" : "+tc.want, func(t *testing.T) {
 			scope, e := boundOperatorExpr(t, idx, tc.feature)
@@ -156,7 +161,7 @@ func TestMeasurementRefExpr(t *testing.T) {
 			}
 		})
 	}
-	for _, feature := range []string{"T::sum", "T::one", "T::unity", "T::square", "T::twice", "T::whole", "T::wrongPower", "T::numberPower"} {
+	for _, feature := range []string{"T::sum", "T::one", "T::unity", "T::square", "T::twice", "T::whole", "T::wrongPower", "T::numberPower", "T::notAUnit", "T::unresolved"} {
 		scope, e := boundOperatorExpr(t, idx, feature)
 		if got := m.MeasurementRefExprType(scope, e); got != nil {
 			t.Errorf("%s typed %v, want no measurement reference", feature, got)

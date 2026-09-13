@@ -31,6 +31,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	if err != nil {
 		return nil, err
 	}
+	defer v.release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.RunSweepResponse{Error: err.Error()}, nil

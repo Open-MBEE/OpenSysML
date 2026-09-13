@@ -564,7 +564,11 @@ func ownEffectMembers(scope *Scope, members []*Symbol) {
 
 // memberDeclaring returns the member of scope that decl declared.
 func memberDeclaring(scope *Scope, decl ast.Node) (*Symbol, bool) {
-	for _, sym := range scope.AllMembers() {
+	if len(scope.members) > memberIndexThreshold {
+		sym, ok := scope.loadDeclIndex()[decl]
+		return sym, ok
+	}
+	for _, sym := range scope.members {
 		if sym.Decl == decl {
 			return sym, true
 		}

@@ -2,12 +2,22 @@ package analysis
 
 import (
 	"sort"
+	"sync"
 )
 
 // Registry holds the engines one owner answers with. There is no package-level registry:
 // a binary builds one with Default, a test with NewRegistry, and neither sees the other's.
 type Registry struct {
 	engines map[string]Engine
+
+	mu sync.Mutex
+	// byKind memoizes the engines declaring each kind (see dispatch.go); Register drops it.
+	byKind map[Kind]kindEngines
+}
+
+// kindEngines is the engines declaring one kind, in name order and ranked by authority.
+type kindEngines struct {
+	declaring, ranked []Engine
 }
 
 // SMTEngineName is the name of the symbolic engine over an SMT solver, which lives
@@ -27,6 +37,9 @@ func (r *Registry) Register(e Engine) error {
 		return &DuplicateEngineError{Name: name}
 	}
 	r.engines[name] = e
+	r.mu.Lock()
+	r.byKind = nil
+	r.mu.Unlock()
 	return nil
 }
 
