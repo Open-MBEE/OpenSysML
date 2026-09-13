@@ -645,3 +645,37 @@ func TestSendIsDispatchedToTheDebuggedActionAtItsAccept(t *testing.T) {
 		"Use %step or %advance <time> to dispatch it")
 	wants(t, run(t, s, "%continue"), "Action completed", "total = 7")
 }
+
+// TestSendAfterARebuildLeavesTheStaleDebuggerOut: a declaration that rebuilds the
+// runtime carries an object-bound %action session over on the earlier one, so a
+// %send posted on the object's new bus is not reported as taken by it, nor is a
+// step of it said to dispatch the signal; the object's restarted action takes it.
+func TestSendAfterARebuildLeavesTheStaleDebuggerOut(t *testing.T) {
+	s := performedSession(t)
+	run(t, s, "%action Q::Main Q::pd")
+	run(t, s, "%step")
+	wants(t, run(t, s, "%step"), "Step complete", "State: Waiting")
+
+	res := s.Submit("package Other { part def Unrelated; }")
+	if len(res.Diagnostics) > 0 {
+		t.Fatalf("unrelated declaration has diagnostics: %v", res.Diagnostics)
+	}
+	wants(t, strings.Join(res.Notices, "\n"), "the performed action main of object #1 was restarted")
+
+	out := run(t, s, "%send Go(n=7)")
+	wants(t, out, `✓ Sent Go(n=7) to object #1 of "Q::pd"`,
+		`Accepted by performed action "main" waiting at accept g`,
+		"The open session runs on the runtime of an earlier model, so open a %state or %action session anew, then %advance <time> dispatches it")
+	rejects(t, out, `"Main"`, "Use %step")
+	// The stale debugger hears nothing posted on the new bus.
+	wants(t, run(t, s, "%step"), "State: Waiting")
+	wants(t, run(t, s, "%advance 0"), "No pending work", "accept g waiting")
+	wants(t, run(t, s, "%eval Q::pd.main.total"), "= 0")
+
+	// A session on the rebuilt runtime drives the object's restarted action to take it.
+	run(t, s, "%stop")
+	run(t, s, "%instantiate Q::other")
+	wants(t, run(t, s, "%state Q::other"), `✓ Debugging state machine "s"`)
+	wants(t, run(t, s, "%advance 0"), "✓ Advanced to 0.0")
+	wants(t, run(t, s, "%eval Q::pd.main.total"), "= 7")
+}

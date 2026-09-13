@@ -217,7 +217,7 @@ func (s *Session) sendSignal(text string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 	}
-	target, err := s.signalTarget(req.target)
+	target, err := s.signalTarget(ctx, req.target)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func (s *Session) sendSignal(text string) ([]string, error) {
 // on, or a session to open when none does; a debugged machine whose guards would
 // drop it is said to leave it to a sibling.
 func (s *Session) dispatchHint(ctx *runtime.Context, accepting []signalReceiver, acceptances []acceptance) []string {
-	debugged := s.debuggedReceivers()
+	debugged := s.debuggedReceivers(ctx)
 	if slices.ContainsFunc(acceptances, func(a acceptance) bool { return slices.ContainsFunc(debugged, a.receiver.sameExecution) }) {
 		return []string{"", "Use %step or %advance <time> to dispatch it"}
 	}
@@ -269,16 +269,20 @@ func (s *Session) dispatchHint(ctx *runtime.Context, accepting []signalReceiver,
 	if slices.Contains(distinctContexts(s.stateExec.contextOf(), s.actionExec.contextOf()), ctx) {
 		return []string{"", "Use %advance <time> to dispatch it"}
 	}
+	if s.stateExec != nil || s.actionExec != nil {
+		return []string{"", "The open session runs on the runtime of an earlier model, so open a %state or %action session anew, then %advance <time> dispatches it"}
+	}
 	return []string{"", "Open a %state or %action session, then %advance <time> dispatches it"}
 }
 
-// debuggedReceivers are the behaviors the open debugging sessions step.
-func (s *Session) debuggedReceivers() []signalReceiver {
+// debuggedReceivers are the behaviors the open debugging sessions step on ctx's
+// bus; a session a rebuild left on an earlier runtime hears nothing posted here.
+func (s *Session) debuggedReceivers(ctx *runtime.Context) []signalReceiver {
 	var out []signalReceiver
-	if s.stateExec != nil {
+	if s.stateExec != nil && s.stateExec.contextOf() == ctx {
 		out = append(out, machineReceiver(s.stateExec.executor))
 	}
-	if s.actionExec != nil {
+	if s.actionExec != nil && s.actionExec.contextOf() == ctx {
 		out = append(out, actionReceiver(s.actionExec.executor, ""))
 	}
 	return out
@@ -338,9 +342,9 @@ func guardsHolding(machines []signalReceiver, msg runtime.Message) string {
 
 // signalTarget resolves the object a %send names, or the object the debugged
 // machine or action is performed by when it names none.
-func (s *Session) signalTarget(name string) (signalTarget, error) {
+func (s *Session) signalTarget(ctx *runtime.Context, name string) (signalTarget, error) {
 	if name == "" {
-		return s.debuggedTarget()
+		return s.debuggedTarget(ctx)
 	}
 
 	inst, ref, err := s.resolveObject(name)
@@ -348,7 +352,7 @@ func (s *Session) signalTarget(name string) (signalTarget, error) {
 		return signalTarget{}, err
 	}
 	label := objectMention(inst, ref)
-	receivers := s.receiversOf(inst)
+	receivers := s.receiversOf(ctx, inst)
 	if len(receivers) == 0 {
 		return signalTarget{}, fmt.Errorf("%s runs no state machine and performs no action, so nothing there accepts a signal (%%state <machine> <object> or %%action <action> <object> starts one)", label)
 	}
@@ -357,7 +361,7 @@ func (s *Session) signalTarget(name string) (signalTarget, error) {
 
 // debuggedTarget is where a %send naming no object delivers: the %state session's
 // object (or its machine when no object performs it), else the %action session's object.
-func (s *Session) debuggedTarget() (signalTarget, error) {
+func (s *Session) debuggedTarget(ctx *runtime.Context) (signalTarget, error) {
 	if s.stateExec != nil {
 		exec := s.stateExec.executor
 		self := exec.Performer()
@@ -365,7 +369,7 @@ func (s *Session) debuggedTarget() (signalTarget, error) {
 			label := fmt.Sprintf("state machine %q", s.stateExec.name)
 			return signalTarget{receivers: []signalReceiver{machineReceiver(exec)}, label: label}, nil
 		}
-		return signalTarget{object: self, receivers: s.receiversOf(self), label: objectMention(self, s.stateExec.selfFQN)}, nil
+		return signalTarget{object: self, receivers: s.receiversOf(ctx, self), label: objectMention(self, s.stateExec.selfFQN)}, nil
 	}
 	if s.actionExec != nil {
 		self := s.actionExec.executor.Performer()
@@ -373,15 +377,15 @@ func (s *Session) debuggedTarget() (signalTarget, error) {
 			return signalTarget{}, fmt.Errorf("the %%action session performs %q on behalf of no object, so there is no object to send to: name one with `to <object>` (%%action %s <object> performs it on one)",
 				s.actionExec.name, s.actionExec.name)
 		}
-		return signalTarget{object: self, receivers: s.receiversOf(self), label: objectMention(self, s.actionExec.selfFQN)}, nil
+		return signalTarget{object: self, receivers: s.receiversOf(ctx, self), label: objectMention(self, s.actionExec.selfFQN)}, nil
 	}
 	return signalTarget{}, fmt.Errorf("%s, so there is no object to send to: name one with `to <object>` (a %%state or %%action session on an object supplies it)",
 		noSessionText("debugging session", s.mostRecentlyEnded(), ""))
 }
 
 // receiversOf lists the behaviors an object runs, in declaration order, and the
-// machine or action a debugging session performs on its behalf.
-func (s *Session) receiversOf(inst *runtime.Instance) []signalReceiver {
+// machine or action a debugging session performs on its behalf on ctx's bus.
+func (s *Session) receiversOf(ctx *runtime.Context, inst *runtime.Instance) []signalReceiver {
 	var receivers []signalReceiver
 	for _, b := range inst.Behaviors() {
 		switch {
@@ -391,7 +395,7 @@ func (s *Session) receiversOf(inst *runtime.Instance) []signalReceiver {
 			receivers = append(receivers, actionReceiver(b.Action, b.Name))
 		}
 	}
-	for _, r := range s.debuggedReceivers() {
+	for _, r := range s.debuggedReceivers(ctx) {
 		if r.performer() == inst && !slices.ContainsFunc(receivers, r.sameExecution) {
 			receivers = append(receivers, r)
 		}
