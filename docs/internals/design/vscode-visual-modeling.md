@@ -18,10 +18,14 @@ a place to keep layout that is not the model.
 `src/webview/`), the rendering requests (`internal/lsp/render.go`) and the
 authoring request (`internal/lsp/modeledit.go` over `internal/core/edit` and
 `model.Workspace.ApplyEdit`) are what [docs/reference/lsp.md](../../reference/lsp.md)
-and the extension's README describe. Tier 3 is not started; the `DiagramLayout`
-annotations that have since landed give it a place in the model for layout, which
-changes its "layout is not model data" premise below. The rest of this note is the
-design as written before the work, kept for the reasoning behind it.
+and the extension's README describe. Of tier 3, the move re-parenting needs is
+built: `edit.OpMove` (`internal/core/edit/move.go`), the `move` operation of
+`applyModelEdit`, the service's `MoveEdit`, and the node menu's **Move to…**, which
+offers the drawn declarations whose body admits the node's kind; the drag that
+will issue it, and the layout sidecar, are not. The `DiagramLayout` annotations
+that have since landed give tier 3 a place in the model for layout, which changes
+its "layout is not model data" premise below. The rest of this note is the design
+as written before the work, kept for the reasoning behind it.
 
 ## What exists today
 

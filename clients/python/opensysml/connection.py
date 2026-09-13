@@ -992,9 +992,19 @@ class Connection:
                 require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
                 requests_authoring = True
                 operation.delete.target, operation.delete.cascade = target, cascade
+            elif kind == 'move':
+                if len(operation_data) != 3:
+                    raise ValueError(
+                        "malformed move operation: expected target and owner"
+                    )
+                _, target, owner = operation_data
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                requests_authoring = True
+                operation.move.target, operation.move.owner = target, owner
             else:
                 raise ValueError(
-                    f"unknown edit operation {kind!r}: expected set_value, rename, add_member or delete"
+                    f"unknown edit operation {kind!r}: expected set_value, rename, "
+                    f"add_member, delete or move"
                 )
 
         requested_capabilities = [CAPABILITY_APPLY_EDITS]

@@ -27,7 +27,7 @@ export function paletteItems(palette: EditPalette): MenuItem[] {
   ];
 }
 
-/** nodeMenu: a located node is revealed; a declared one is also added to, connected from, renamed, deleted. */
+/** nodeMenu: a located node is revealed; a declared one is also added to, connected from, renamed, moved, deleted. */
 export function nodeMenu(node: RenderNode, palette: EditPalette | undefined): MenuItem[] {
   const items: MenuItem[] = [{ label: node.name || node.kind, heading: true }];
   if (node.origin) {
@@ -53,11 +53,11 @@ export function nodeMenu(node: RenderNode, palette: EditPalette | undefined): Me
         });
       }
     }
-    items.push(
-      { label: "", separator: true },
-      { label: "Rename…", command: { kind: "rename", id: node.id } },
-      { label: "Delete…", command: { kind: "delete", id: node.id } },
-    );
+    items.push({ label: "", separator: true }, { label: "Rename…", command: { kind: "rename", id: node.id } });
+    if (node.notation) {
+      items.push({ label: "Move to…", command: { kind: "move", id: node.id } });
+    }
+    items.push({ label: "Delete…", command: { kind: "delete", id: node.id } });
   }
   return items.length > 1 ? items : [];
 }

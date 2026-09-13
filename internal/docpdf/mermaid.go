@@ -9,8 +9,9 @@ import (
 
 // renderDiagrams renders each Mermaid block to an SVG in dir with the pinned
 // mermaid-cli, returning the image file names in block order. A document
-// without Mermaid diagrams needs no diagram tool at all; a DOT block is kept
-// as source (see dotNotice) and never handed to Graphviz.
+// without Mermaid diagrams needs no diagram tool at all; a DOT or PlantUML
+// block is kept as source (see dotNotice, plantumlNotice) and never handed to
+// Graphviz or PlantUML.
 func renderDiagrams(dir string, blocks []block) ([]string, error) {
 	var sources []string
 	for _, blk := range blocks {
@@ -53,13 +54,17 @@ func renderDiagrams(dir string, blocks []block) ([]string, error) {
 	return images, nil
 }
 
-// dotNotice is written ahead of a DOT block the PDF backend keeps as source:
-// it draws no DOT diagram, as it draws no Mermaid one without mermaid-cli.
-const dotNotice = "This diagram is written in Graphviz DOT, which the PDF backend does not draw; its source follows."
+// dotNotice and plantumlNotice are written ahead of a DOT or PlantUML block
+// the PDF backend keeps as source: it draws neither, as it draws no Mermaid
+// diagram without mermaid-cli.
+const (
+	dotNotice      = "This diagram is written in Graphviz DOT, which the PDF backend does not draw; its source follows."
+	plantumlNotice = "This diagram is written in PlantUML, which the PDF backend does not draw; its source follows."
+)
 
 // markdownWithImages rewrites the document's Markdown with each Mermaid fence
-// replaced by a reference to its rendered image, and each DOT fence preceded
-// by dotNotice, for converters that read Markdown themselves.
+// replaced by a reference to its rendered image, and each DOT or PlantUML
+// fence preceded by its notice, for converters that read Markdown themselves.
 func markdownWithImages(markdown string, images []string) string {
 	lines := strings.Split(markdown, "\n")
 	var out []string
@@ -73,6 +78,8 @@ func markdownWithImages(markdown string, images []string) string {
 			continue
 		case lines[i] == dotFence:
 			out = append(out, "*"+dotNotice+"*", "")
+		case lines[i] == plantumlFence:
+			out = append(out, "*"+plantumlNotice+"*", "")
 		}
 		out = append(out, lines[i])
 	}

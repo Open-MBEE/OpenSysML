@@ -97,6 +97,33 @@ func TestDiagramDotForm(t *testing.T) {
 	}
 }
 
+// A render in the PlantUML form writes each graph-shaped diagram, the sequence
+// included, as a plantuml fence in the diagram's direction.
+func TestDiagramPlantUMLForm(t *testing.T) {
+	for _, kind := range []view.Kind{view.KindTree, view.KindInterconnection, view.KindAction, view.KindState} {
+		got := renderedDiagramForm(t, "", graphRendering(kind), view.DirectionLeftRight, view.FormPlantUML)
+		if !strings.HasPrefix(got, "```plantuml\n@startuml\n' "+string(kind)+" rendering") || !strings.HasSuffix(got, "\n@enduml\n```") {
+			t.Errorf("%s: not a plantuml fence:\n%s", kind, got)
+		}
+		for _, want := range []string{"<style>\n", "</style>\n", "left to right direction\n", ` as n0 <<part>> <<usage>>`} {
+			if !strings.Contains(got, want) {
+				t.Errorf("%s: missing %q:\n%s", kind, want, got)
+			}
+		}
+		if strings.Contains(got, "flowchart") || strings.Contains(got, "digraph") {
+			t.Errorf("%s: another form in a plantuml fence:\n%s", kind, got)
+		}
+	}
+	sequence := renderedDiagramForm(t, "", graphRendering(view.KindSequence), "", view.FormPlantUML)
+	if !strings.Contains(sequence, `participant "**a**\n<size:10>//«part»//</size>" as n0`) || !strings.Contains(sequence, "n0 -> n1\n") {
+		t.Errorf("sequence as plantuml:\n%s", sequence)
+	}
+	got := renderedDiagramForm(t, "Chain", graphRendering(view.KindTree), "", view.FormPlantUML)
+	if !strings.HasPrefix(got, "<!-- caption -->\n*Chain*\n\n```plantuml\n") {
+		t.Errorf("captioned plantuml: %s", got)
+	}
+}
+
 // The diagram form is resolved once per render: empty is Mermaid, and a form
 // no diagram is written as is a typed error before anything is written.
 func TestDiagramFormResolution(t *testing.T) {
@@ -114,7 +141,7 @@ func TestDiagramFormResolution(t *testing.T) {
 		if !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm || typed.DiagramForm != form {
 			t.Fatalf("%s: error = %v", form, err)
 		}
-		if !strings.Contains(err.Error(), `"`+string(form)+`"`) || !strings.Contains(err.Error(), "mermaid, dot") {
+		if !strings.Contains(err.Error(), `"`+string(form)+`"`) || !strings.Contains(err.Error(), "mermaid, dot, plantuml") {
 			t.Errorf("%s: message = %q", form, err)
 		}
 	}
@@ -131,9 +158,14 @@ func TestDiagramFormErrors(t *testing.T) {
 	if !strings.Contains(err.Error(), `kind "sequence"`) || !strings.Contains(err.Error(), "not written as dot") {
 		t.Errorf("message = %q", err)
 	}
+	if _, err := diagramBlocks("d", "", graphRendering(view.KindSequence), view.Options{}, view.FormPlantUML); err != nil {
+		t.Fatalf("sequence as plantuml: %v", err)
+	}
 	table := &view.Rendering{Kind: view.KindTable, Columns: []string{"a"}, Rows: [][]string{{"x"}}}
-	if got := renderedDiagramForm(t, "", table, "", view.FormDot); !strings.Contains(got, "| a |") || !strings.Contains(got, "| x |") {
-		t.Errorf("a table is not a table in the dot form:\n%s", got)
+	for _, form := range []view.Form{view.FormDot, view.FormPlantUML} {
+		if got := renderedDiagramForm(t, "", table, "", form); !strings.Contains(got, "| a |") || !strings.Contains(got, "| x |") {
+			t.Errorf("a table is not a table in the %s form:\n%s", form, got)
+		}
 	}
 }
 

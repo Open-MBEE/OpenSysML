@@ -1011,7 +1011,10 @@ result = model.edit().add_part_def("", "Vehicle").apply()
 
 `add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None)`
 accepts notation strings for the declaration. Typed `add_*` helpers cover the common SysML and
-KerML kinds, and `delete(target, cascade=False)` removes declarations transactionally.
+KerML kinds, `delete(target, cascade=False)` removes declarations transactionally, and
+`move(target, owner)` carries a declaration, body and comments included, into another namespace
+of the same document (`""` is the document itself), respelling the references the move
+would otherwise break.
 
 `apply()` sends the operations in a single call and returns an `EditResult`, which *is* a
 `Conversion`: `str(result)` is the edited notation, and `result.save(path)` and

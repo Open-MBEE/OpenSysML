@@ -193,6 +193,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -o view.mmd", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
 			},
@@ -204,12 +205,13 @@ func doc() usage.Doc {
 					"represent — go on stderr. Every file named is loaded as one " +
 					"model, so a view may expose elements a sibling file declares. " +
 					"A graph-shaped rendering is written as a Mermaid diagram by " +
-					"default and as Graphviz DOT with -render-form dot; no Graphviz " +
-					"installation is needed to write it. DOT is drawn in the black-and-white " +
-					"style of the SysML v2 Pilot visualizer; -render-palette fills its nodes " +
-					"by keyword family from a colourblind-safe palette (okabe-ito, tol-bright, " +
-					"tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis), " +
-					"keeping black text legible on every fill.",
+					"default, as Graphviz DOT with -render-form dot and as PlantUML with " +
+					"-render-form plantuml, which also writes a sequence rendering; neither " +
+					"Graphviz nor PlantUML is needed to write them. Both are drawn in the " +
+					"black-and-white style of the SysML v2 Pilot visualizer; -render-palette " +
+					"fills their nodes by keyword family from a colourblind-safe palette " +
+					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
+					"viridis or cividis), keeping black text legible on every fill.",
 			},
 		}, {
 			Title: "Rendering a document",
@@ -223,6 +225,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-theme report -o report.html", "a bundled theme"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-mermaid cdn -o report.html", "diagrams drawn in the browser"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form dot -o report.md", "diagrams as Graphviz DOT"),
+				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form plantuml -o report.md", "diagrams as PlantUML"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form pdf "+
 					"-pdf-engine pandoc -doc-title-page -doc-toc -doc-number-sections -o report.pdf", ""),
 				usage.Ex("sysml -html-default-css -o sysml-document.css", "the default stylesheet"),
@@ -232,10 +235,10 @@ func doc() usage.Doc {
 				"A document is a part def specializing DocumentQueries::Document. Its " +
 					"queries are bound in the model and run against it, and the " +
 					"result is written as CommonMark-compatible Markdown. Its diagram " +
-					"blocks are Mermaid source; -diagram-form dot writes every " +
-					"graph-shaped one as Graphviz DOT instead, in Markdown and HTML " +
-					"alike, while a table-kind view stays a table. No Graphviz " +
-					"installation is needed to write it.",
+					"blocks are Mermaid source; -diagram-form dot or plantuml writes every " +
+					"graph-shaped one as Graphviz DOT or PlantUML instead, in Markdown and HTML " +
+					"alike, while a table-kind view stays a table. Neither Graphviz nor " +
+					"PlantUML is needed to write it.",
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
 					"own CSS overrides without !important.",
@@ -358,10 +361,10 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered Markdown")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition as linked Markdown into this directory")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown or dot (default: destination-dependent for -render, each kind's machine form for -render-all)")
-	fs.StringVar(&renderPalette, "render-palette", "", "Palette the DOT form of -render or -render-all fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis (default: black and white)")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml (default: destination-dependent for -render, each kind's machine form for -render-all)")
+	fs.StringVar(&renderPalette, "render-palette", "", "Palette the DOT or PlantUML form of -render or -render-all fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis (default: black and white)")
 	fs.StringVar(&docForm, "doc-form", "", "Form -render-document and -render-documents write: markdown (default), html or pdf, which drives an external converter")
-	fs.StringVar(&diagramForm, "diagram-form", "", "Form the graph-shaped diagrams of -render-document and -render-documents are written in: mermaid (default) or dot; a table-kind view is a table either way")
+	fs.StringVar(&diagramForm, "diagram-form", "", "Form the graph-shaped diagrams of -render-document and -render-documents are written in: mermaid (default), dot or plantuml; a table-kind view is a table either way")
 	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
 	fs.BoolVar(&pdfTitlePage, "pdf-title-page", false, "Put the document title on a page of its own (-doc-form pdf)")
 	fs.BoolVar(&pdfTOC, "pdf-toc", false, "Write a table of contents ahead of the content (-doc-form pdf)")

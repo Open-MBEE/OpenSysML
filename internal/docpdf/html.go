@@ -126,6 +126,9 @@ func writeContent(b *strings.Builder, blocks []block, images []string, opts Opti
 		case blockDOT:
 			b.WriteString("<figure class=\"dot\"><p class=\"notice\"><em>" + html.EscapeString(dotNotice) + "</em></p>\n" +
 				"<pre>" + html.EscapeString(blk.Source) + "</pre></figure>\n")
+		case blockPlantUML:
+			b.WriteString("<figure class=\"plantuml\"><p class=\"notice\"><em>" + html.EscapeString(plantumlNotice) + "</em></p>\n" +
+				"<pre>" + html.EscapeString(blk.Source) + "</pre></figure>\n")
 		}
 	}
 }
@@ -217,6 +220,6 @@ th { background: #eeeeee; }
 p.caption, span.caption { font-size: 9.5pt; color: #444444; }
 figure { margin: 0.8em 0; }
 figure img { max-width: 100%; }
-figure.dot pre { font-size: 9pt; white-space: pre-wrap; }
+figure.dot pre, figure.plantuml pre { font-size: 9pt; white-space: pre-wrap; }
 p.notice { font-size: 9.5pt; color: #444444; }
 `

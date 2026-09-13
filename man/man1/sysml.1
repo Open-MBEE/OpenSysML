@@ -104,8 +104,8 @@ produced it
 .TP
 .BI \-diagram\-form " string"
 Form the graph\-shaped diagrams of \-render\-document and \-render\-documents
-are written in: mermaid (default) or dot; a table\-kind view is a table either
-way
+are written in: mermaid (default), dot or plantuml; a table\-kind view is a
+table either way
 .TP
 .BI \-doc\-form " string"
 Form \-render\-document and \-render\-documents write: markdown (default),
@@ -249,14 +249,14 @@ Markdown
 Render every document definition as linked Markdown into this directory
 .TP
 .BI \-render\-form " string"
-Form \-render or \-render\-all writes: text, mermaid, markdown or dot
-(default: destination\-dependent for \-render, each kind's machine form for
-\-render\-all)
+Form \-render or \-render\-all writes: text, mermaid, markdown, dot or
+plantuml (default: destination\-dependent for \-render, each kind's machine
+form for \-render\-all)
 .TP
 .BI \-render\-palette " string"
-Palette the DOT form of \-render or \-render\-all fills nodes from, by keyword
-family: okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2,
-brewer\-dark2, viridis or cividis (default: black and white)
+Palette the DOT or PlantUML form of \-render or \-render\-all fills nodes
+from, by keyword family: okabe\-ito, tol\-bright, tol\-muted, tol\-light,
+brewer\-set2, brewer\-dark2, viridis or cividis (default: black and white)
 .TP
 .BI \-requirement " value"
 Evaluate this requirement and exit, reporting beside its verdict the verdict
@@ -568,6 +568,8 @@ sysml model.sysml \-render Views::vehicleView \-o view.mmd
 sysml model.sysml \-render Views::vehicleView \-render\-form dot
 sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
     \-render\-palette okabe\-ito
+sysml model.sysml \-render Views::vehicleView \-render\-form plantuml \-o \e
+    view.puml
 # several files, loaded as one model
 sysml types.sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render\-all rendered
@@ -579,13 +581,14 @@ tree where it states none. It is tool\-defined output: SysML v2 specifies the
 notation, not how a tool draws it. Notices \(em an empty view, an element the
 rendering cannot represent \(em go on stderr. Every file named is loaded as
 one model, so a view may expose elements a sibling file declares. A
-graph\-shaped rendering is written as a Mermaid diagram by default and as
-Graphviz DOT with \-render\-form dot; no Graphviz installation is needed to
-write it. DOT is drawn in the black\-and\-white style of the SysML v2 Pilot
-visualizer; \-render\-palette fills its nodes by keyword family from a
-colourblind\-safe palette (okabe\-ito, tol\-bright, tol\-muted, tol\-light,
-brewer\-set2, brewer\-dark2, viridis or cividis), keeping black text legible
-on every fill.
+graph\-shaped rendering is written as a Mermaid diagram by default, as
+Graphviz DOT with \-render\-form dot and as PlantUML with \-render\-form
+plantuml, which also writes a sequence rendering; neither Graphviz nor
+PlantUML is needed to write them. Both are drawn in the black\-and\-white
+style of the SysML v2 Pilot visualizer; \-render\-palette fills their nodes by
+keyword family from a colourblind\-safe palette (okabe\-ito, tol\-bright,
+tol\-muted, tol\-light, brewer\-set2, brewer\-dark2, viridis or cividis),
+keeping black text legible on every fill.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf
@@ -609,6 +612,9 @@ sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
 # diagrams as Graphviz DOT
 sysml model.sysml \-render\-document Reports::MassReport \-diagram\-form \e
     dot \-o report.md
+# diagrams as PlantUML
+sysml model.sysml \-render\-document Reports::MassReport \-diagram\-form \e
+    plantuml \-o report.md
 sysml model.sysml \-render\-document Reports::MassReport \-doc\-form pdf \e
     \-pdf\-engine pandoc \-doc\-title\-page \-doc\-toc \-doc\-number\-sections \e
     \-o report.pdf
@@ -622,9 +628,9 @@ sysml \-html\-default\-css \-html\-theme modern \-o modern.css
 A document is a part def specializing DocumentQueries::Document. Its queries
 are bound in the model and run against it, and the result is written as
 CommonMark\-compatible Markdown. Its diagram blocks are Mermaid source;
-\-diagram\-form dot writes every graph\-shaped one as Graphviz DOT instead, in
-Markdown and HTML alike, while a table\-kind view stays a table. No Graphviz
-installation is needed to write it.
+\-diagram\-form dot or plantuml writes every graph\-shaped one as Graphviz DOT
+or PlantUML instead, in Markdown and HTML alike, while a table\-kind view
+stays a table. Neither Graphviz nor PlantUML is needed to write it.
 .PP
 \-doc\-form html writes semantic HTML instead, carrying each element's
 identity and kind, styled by a stylesheet in a cascade layer your own CSS

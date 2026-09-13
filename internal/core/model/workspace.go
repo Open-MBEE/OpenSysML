@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -119,8 +120,9 @@ func (w *Workspace) Open(name string, content []byte, version int) {
 	w.setOpenBuffer(name, content, version)
 }
 
-// setOpenBuffer records an open buffer and reindexes it.
+// setOpenBuffer records a copy of an open buffer and reindexes it.
 func (w *Workspace) setOpenBuffer(name string, content []byte, version int) {
+	content = bytes.Clone(content)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.open[name] = true
@@ -132,9 +134,10 @@ func (w *Workspace) Update(name string, content []byte, version int) {
 	w.setOpenBuffer(name, content, version)
 }
 
-// SetOnDisk records the bytes a file holds on disk. If the document is not open,
-// it becomes the active content and the document is reindexed.
+// SetOnDisk records a copy of the bytes a file holds on disk. If the document is
+// not open, it becomes the active content and the document is reindexed.
 func (w *Workspace) SetOnDisk(name string, content []byte) {
+	content = bytes.Clone(content)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.onDisk[name] = content
@@ -365,7 +368,8 @@ func (w *Workspace) newResolver() (*resolve.Resolver, *semantics.Model) {
 	return resolver, sem
 }
 
-// Document returns the current parsed document for name, or nil.
+// Document returns the current parsed document for name, or nil. The document is
+// a snapshot: an update installs a new one, so it stays consistent after the lock.
 func (w *Workspace) Document(name string) *Document {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -426,7 +430,7 @@ func (w *Workspace) LibraryDocument(name string) *Document {
 	if err != nil {
 		return nil
 	}
-	doc = newDocument(name, content, 0)
+	doc = newDocument(name, bytes.Clone(content), 0)
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
