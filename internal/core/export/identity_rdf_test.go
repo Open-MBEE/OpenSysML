@@ -1,11 +1,13 @@
 package export_test
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
@@ -607,6 +609,75 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 	if text := string(turtle); !strings.Contains(text, "elmt:ScalarValues__Real") ||
 		strings.Contains(text, "14c0aa22-5489-59b5-b438-ded26e83ba31") {
 		t.Errorf("an edited copy of a library file is not the library, so its ids are encoded names:\n%s", text)
+	}
+}
+
+// A transition is written whole by the behavioral mapping, so its identity
+// annotations go in the body after `then`. The library's one named transition,
+// Actions::AcceptAction::aState::aTransition, keeps its normative id that way
+// in a graph without source text: here a graph of that shape whose transition
+// carries the id the library file gives it.
+func TestBehavioralLibraryMemberKeepsNormativeIDWithoutSourceText(t *testing.T) {
+	const qname = "Actions::AcceptAction::aState::aTransition"
+	want := normative.ElementID(normative.SysML, qname)
+	turtle := idTurtle(t, `package Actions {
+	action def AcceptAction {
+		state aState {
+			state s1;
+			state s2;
+			transition aTransition first s1 then s2;
+		}
+	}
+}
+`)
+	encoded := `sysml:elementId "` + rdf.EncodeElementID(qname) + `" ;`
+	stale := strings.Replace(string(turtle), encoded, `sysml:elementId "`+want+`" ;`, 1)
+	if stale == string(turtle) {
+		t.Fatalf("the transition's id is not where expected:\n%s", turtle)
+	}
+	back := toNotation(t, withoutSourceText(t, []byte(stale)))
+	if !strings.Contains(back, `@IdentityMetadata::ElementId { id = "`+want+`"; }`) {
+		t.Errorf("the transition's normative id was not written into its body:\n%s", back)
+	}
+	keepsIDsWithoutSourceText(t, "Actions.sysml", []byte(stale))
+}
+
+// A user transition's declared id is written into its body too, and a form
+// with no body of its own to hold the annotation is refused rather than written
+// under a new id.
+func TestBehavioralDeclaredIDsWithoutSourceText(t *testing.T) {
+	turtle := idTurtle(t, `package P {
+	state def S {
+		state a;
+		state b;
+		transition t first a then b {
+			@IdentityMetadata::ElementId { id = "t-id"; }
+		}
+	}
+}
+`)
+	back := toNotation(t, withoutSourceText(t, turtle))
+	if !strings.Contains(back, `then b {`) || !strings.Contains(back, `@IdentityMetadata::ElementId { id = "t-id"; }`) {
+		t.Errorf("the transition's declared id was not written into its body:\n%s", back)
+	}
+	keepsIDsWithoutSourceText(t, "m.sysml", turtle)
+
+	turtle = idTurtle(t, `package P {
+	action def A {
+		while true {
+			action x;
+		}
+	}
+}
+`)
+	loop := strings.Replace(string(turtle), `sysml:elementId "P__A___400" ;`, `sysml:elementId "loop-id" ;`, 1)
+	if loop == string(turtle) {
+		t.Fatalf("the loop's id is not where expected:\n%s", turtle)
+	}
+	_, err := export.Convert("m.ttl", withoutSourceText(t, []byte(loop)), export.FormatTurtle, export.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(unsupported.What, "the loop") {
+		t.Fatalf("a loop with a foreign id was not refused: %v", err)
 	}
 }
 
