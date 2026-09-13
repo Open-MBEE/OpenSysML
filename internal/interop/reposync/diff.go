@@ -399,7 +399,7 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		if names := view.props[rdf.SysML+"qualifiedName"]; len(names) > 0 {
 			view.qualifiedName = strings.Trim(names[0], `"`)
 		}
-		view.normative = library.Normative(view.id)
+		view.normative = library.NormativeFor(view.id, view.qualifiedName)
 		view.declared = declaredID(g, view)
 		view.mintable = mintable(view)
 	}

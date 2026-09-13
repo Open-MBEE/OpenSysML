@@ -1111,10 +1111,10 @@ func identityAnnotations(el *element) []string {
 	return out
 }
 
-// normativeID reports whether el carries the id the norm fixes for a
-// standard-library element: implied by the library, so never an annotation.
+// normativeID reports whether el is the standard-library element whose id the
+// norm fixes to el's: implied by the library, so never an annotation.
 func normativeID(el *element) bool {
-	return identity.LibraryCatalog(libs.NewModelIndex()).Normative(el.elementID)
+	return identity.LibraryCatalog(libs.NewModelIndex()).NormativeFor(el.elementID, el.qname)
 }
 
 // head builds the declaration text up to the body or terminator, with the

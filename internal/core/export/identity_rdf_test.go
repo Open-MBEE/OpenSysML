@@ -325,6 +325,29 @@ func TestElementIDDiffersWithoutDeclaredID(t *testing.T) {
 	}
 }
 
+// TestUserElementWithLibraryIDKeepsItWithoutDeclaredID checks a foreign graph's
+// user element that happens to carry a library uuid — Real's, or the one of
+// Real's owning membership — keeps it as an annotation: the id is the norm's
+// only on the library element it names.
+func TestUserElementWithLibraryIDKeepsItWithoutDeclaredID(t *testing.T) {
+	for _, id := range []string{
+		"14c0aa22-5489-59b5-b438-ded26e83ba31", // ScalarValues::Real
+		"ab72a695-5fe9-58a3-9d48-9e9a8711862d", // ScalarValues::Real's owning membership
+	} {
+		turtle := idTurtle(t, `package P {
+	@IdentityMetadata::ProjectRef { projectId = "proj-1"; }
+	part def A {
+		@IdentityMetadata::ElementId { id = "`+id+`"; }
+	}
+}
+`)
+		back := toNotation(t, withoutTriples(t, turtle, "sysx:declaredId"))
+		if !strings.Contains(back, `@IdentityMetadata::ElementId { id = "`+id+`"; }`) {
+			t.Errorf("library uuid %s on P::A was not re-materialized without declaredId:\n%s", id, back)
+		}
+	}
+}
+
 // TestQualifiedNameKeyedGraphStillLinks locks the reader's identity key: a
 // graph whose reference IRIs match only by element id, not byte-for-byte by
 // IRI, still resolves.

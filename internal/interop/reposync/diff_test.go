@@ -725,3 +725,32 @@ func TestNormativeLibraryIDIsNeitherDeclaredNorMinted(t *testing.T) {
 		t.Errorf("declared %v normative %v minted %q; want the norm's id as is", change.Declared, change.Normative, change.MintedID)
 	}
 }
+
+// A user element that carries a library uuid, as a foreign graph may state
+// without declaredId, is not the library element: its id was declared, not fixed
+// by the norm, and stays declared rather than derived on write-back.
+func TestUserElementWithLibraryIDIsDeclaredNotNormative(t *testing.T) {
+	for _, id := range []string{
+		"14c0aa22-5489-59b5-b438-ded26e83ba31", // ScalarValues::Real
+		"ab72a695-5fe9-58a3-9d48-9e9a8711862d", // ScalarValues::Real's owning membership
+	} {
+		local := rdf.NewGraph()
+		subject := rdf.ElementIRIForID(id)
+		local.Add(subject, rdf.IRI(rdf.RDFType), rdf.IRI(rdf.SysML+"PartDefinition"))
+		local.Add(subject, rdf.IRI(rdf.SysML+"qualifiedName"), rdf.String("P::A"))
+		set, err := reposync.Diff(local, rdf.NewGraph(), reposync.Options{
+			MintIDs: true,
+			NewID:   func() (string, error) { return "minted-uuid-1", nil },
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		creates := byKind(set, reposync.KindCreate)
+		if len(creates) != 1 || set.Conflicts() != 0 {
+			t.Fatalf("P::A must be one plain create:\n%s", set.Text())
+		}
+		if change := creates[0]; !change.Declared || change.Normative || change.MintedID != "" {
+			t.Errorf("%s on P::A: declared %v normative %v minted %q; want a declared id", id, change.Declared, change.Normative, change.MintedID)
+		}
+	}
+}
