@@ -1110,13 +1110,6 @@ func (g *StateGraph) endpointVertex(scope *symbols.Scope, qn *ast.QualifiedName)
 	return node
 }
 
-// endpointState is endpointVertex where only a state will do, as for the state a
-// machine or a region starts in.
-func (g *StateGraph) endpointState(scope *symbols.Scope, qn *ast.QualifiedName) *ast.StateNode {
-	state, _ := g.endpointVertex(scope, qn).(*ast.StateNode)
-	return state
-}
-
 // addVertex records the graph node standing for a state, and for the
 // declaration it was built from, which is what an endpoint resolves to.
 func (g *StateGraph) addVertex(state *ast.StateNode) {
