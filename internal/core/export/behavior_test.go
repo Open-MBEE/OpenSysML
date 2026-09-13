@@ -368,6 +368,34 @@ func TestStateBodyFirstThenIsASuccession(t *testing.T) {
 	}
 }
 
+// A chained succession end links every segment: its root is an endpoint too, so
+// a vertex nested anywhere in the machine is linked, not carried as its text.
+func TestChainedSuccessionEndLinksItsRootAsAVertex(t *testing.T) {
+	src := "package P {\n    state def M {\n        entry;\n        then src;\n        state src;\n" +
+		"        state outer {\n            state inner {\n                state deep;\n            }\n        }\n" +
+		"        first src then inner.deep;\n        succession first inner.deep then src;\n    }\n}\n"
+	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if n := strings.Count(string(turtle), "sysml:referent elmt:P__M__outer__inner ;"); n != 2 {
+		t.Errorf("want the root of both chained ends linked to the nested state, found %d:\n%s", n, turtle)
+	}
+	if n := strings.Count(string(turtle), "sysml:targetFeature elmt:P__M__outer__inner__deep ;"); n != 2 {
+		t.Errorf("want both chained ends linked to the deep state, found %d:\n%s", n, turtle)
+	}
+	if strings.Contains(string(turtle), `sysml:referent "`) {
+		t.Errorf("no end segment should be carried as text:\n%s", turtle)
+	}
+	back, err := export.Convert("m.ttl", withoutSourceText(t, turtle), export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if !strings.Contains(string(back), "first inner.deep then src;") || !strings.Contains(string(back), "first src then inner.deep;") {
+		t.Errorf("the chained ends should be written back as chains:\n%s", back)
+	}
+}
+
 // A source end that is only a name is no member of the body: a `then` whose
 // graph names its source so is not folded beside a linked neighbour that merely
 // declares the name, since another member may be what the name reaches. The

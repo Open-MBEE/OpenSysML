@@ -584,6 +584,11 @@ func (c *refCollector) connectorEnd(scope *symbols.Scope, target ast.Node, asEnd
 	switch t := target.(type) {
 	case *ast.QualifiedName:
 		c.addEndpoint(scope, t)
+	case *ast.FeatureReference:
+		// The root of a parsed chain is wrapped as a feature reference.
+		if t != nil {
+			c.addEndpoint(scope, t.Name)
+		}
 	case *ast.FeatureChainExpr:
 		// `c.c1` names c as an endpoint too, then c1 as its member.
 		c.connectorEnd(scope, t.Operand, true)
