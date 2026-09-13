@@ -469,7 +469,7 @@ type ObjectFlow struct {
 // itself owns — which every expression the graph carries is evaluated in.
 // Returns error if graph is malformed (e.g., no initial node, dangling edges).
 func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, error) {
-	graph, members, firstNode, err := collectActionNodes(actionDecl, scope)
+	graph, members, err := collectActionNodes(actionDecl, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -483,22 +483,15 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 
 		switch n := actualMember.(type) {
 		case *ast.InitialNode:
-			// Handle implicit successor from `first X then Y` syntax
-			if n.Successor != nil {
-				sourceNode := ast.Node(n)
-				if named, ok := firstNode[n]; ok {
-					sourceNode = named
-				}
-				targetNode := resolveActionEndpoint(graph, n.Successor, false)
-				if targetNode == nil {
-					return nil, fmt.Errorf("initial node %s successor references undefined target %s", n.Name(), edgeEndName(n.Successor))
-				}
-				graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-					Source: sourceNode,
-					Target: targetNode,
-					Guard:  n.Guard,
-					Decl:   n,
-				})
+			// `first a then b;` is the succession a -> b, as `succession first a then b;` is.
+			if n.Successor == nil {
+				continue
+			}
+			if !annotationsOnly(n.Members) {
+				return nil, fmt.Errorf("action succession has unsupported body")
+			}
+			if err := lowerSuccession(graph, n.First, n.Successor, n.Guard, n); err != nil {
+				return nil, err
 			}
 		case *ast.SuccessionEdge:
 			sourceNode := resolveActionEndpointForEdge(graph, n.Source, n.SourceMember, true)
@@ -594,19 +587,9 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 				}
 				sourceRef := connectorEndReference(n.ConnectorEnds[0])
 				targetRef := connectorEndReference(n.ConnectorEnds[1])
-				sourceNode := resolveActionEndpoint(graph, sourceRef, true)
-				targetNode := resolveActionEndpoint(graph, targetRef, false)
-				if sourceNode == nil {
-					return nil, fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
+				if err := lowerSuccession(graph, sourceRef, targetRef, nil, n); err != nil {
+					return nil, err
 				}
-				if targetNode == nil {
-					return nil, fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
-				}
-				graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-					Source: sourceNode,
-					Target: targetNode,
-					Decl:   n,
-				})
 				continue
 			}
 			if n.Kind != ast.UsageFlow || n.FlowEnds == nil {
@@ -724,13 +707,13 @@ func inheritedNodeLookup(graph *ActionGraph, body *symbols.Scope) nodeLookup {
 	}
 }
 
-// resolveFirstNode reinterprets a `first a …;` whose name is a node the body
-// declares: a is the flow's first node, so the initial node it parsed as is not
-// a node of the graph. Returns the named node each such initial node stands for.
-func resolveFirstNode(graph *ActionGraph) (map[*ast.InitialNode]ast.Node, error) {
+// resolveFirstNode reinterprets a one-ended `first a;` whose name is a node the
+// body declares: a is the flow's first node, so the initial node it parsed as is
+// not a node of the graph.
+func resolveFirstNode(graph *ActionGraph) error {
 	initial, ok := graph.Initial.(*ast.InitialNode)
 	if !ok || initial.Name() == "" {
-		return nil, nil
+		return nil
 	}
 	var named ast.Node
 	for _, node := range graph.Nodes {
@@ -740,18 +723,38 @@ func resolveFirstNode(graph *ActionGraph) (map[*ast.InitialNode]ast.Node, error)
 		}
 	}
 	if named == nil {
-		return nil, nil
+		return nil
 	}
 	if _, isFinal := named.(*ast.FinalNode); isFinal {
 		// A flow cannot start where it ends: naming a final node would retire the
 		// token before any succession out of it is taken.
-		return nil, fmt.Errorf("first names the final node %s, so the action would end before it started", initial.Name())
+		return fmt.Errorf("first names the final node %s, so the action would end before it started", initial.Name())
 	}
 	graph.Initial = named
 	graph.Nodes = slices.DeleteFunc(graph.Nodes, func(node ast.Node) bool {
 		return node == ast.Node(initial)
 	})
-	return map[*ast.InitialNode]ast.Node{initial: named}, nil
+	return nil
+}
+
+// lowerSuccession adds the edge a succession states between the nodes its two
+// ends resolve to.
+func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node) error {
+	sourceNode := resolveActionEndpoint(graph, sourceRef, true)
+	if sourceNode == nil {
+		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
+	}
+	targetNode := resolveActionEndpoint(graph, targetRef, false)
+	if targetNode == nil {
+		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
+	}
+	graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
+		Source: sourceNode,
+		Target: targetNode,
+		Guard:  guard,
+		Decl:   decl,
+	})
+	return nil
 }
 
 // lowerPinBindings lowers a binding to one PinBinding per end that addresses a

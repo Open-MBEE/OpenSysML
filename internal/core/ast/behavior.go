@@ -8,13 +8,13 @@ import "github.com/Open-MBEE/OpenSysML/internal/core/source"
 
 // InitialNode is a `first` member of an action or state body. One-ended
 // (`first start;`, `first a;`) it marks where the flow starts; with a Successor
-// (`first a then b;`) it states the succession a -> b.
+// (`first a then b;`) it states the succession a -> b and declares no node of its own.
 type InitialNode struct {
 	NodeBase
 	// First is the name written after `first`, nil when none was. In an action
 	// body's two-ended form it is a reference to the succession's source.
 	First     *QualifiedName
-	Successor *QualifiedName // optional target for implicit succession (from `first X then Y` syntax)
+	Successor *QualifiedName // the target of `first X then Y`, nil for the one-ended form
 	Guard     Node           // optional guard condition for succession
 	// Members are the members of the body the succession was written with
 	// (`first start then continue { … }`), and HasBody that it was written with
