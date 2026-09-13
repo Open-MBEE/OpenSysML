@@ -14,6 +14,15 @@ The tiers are ordered by what they require of the Go side: tier 1 needs a render
 carried over the wire, tier 2 needs the source-rewriting layer widened, tier 3 needs
 a place to keep layout that is not the model.
 
+**Status.** Tiers 1 and 2 are built: the panel (`editors/vscode/src/diagram.ts`,
+`src/webview/`), the rendering requests (`internal/lsp/render.go`) and the
+authoring request (`internal/lsp/modeledit.go` over `internal/core/edit` and
+`model.Workspace.ApplyEdit`) are what [docs/reference/lsp.md](../../reference/lsp.md)
+and the extension's README describe. Tier 3 is not started; the `DiagramLayout`
+annotations that have since landed give it a place in the model for layout, which
+changes its "layout is not model data" premise below. The rest of this note is the
+design as written before the work, kept for the reasoning behind it.
+
 ## What exists today
 
 - **`internal/core/view`** renders a view of the semantic model into a `Rendering`:
@@ -107,7 +116,9 @@ server and a new extension degrade to today's behavior instead of erroring.
 - `view.Node` and `view.Edge` grow an origin. `Rendering` grows a `JSON()`-shaped
   companion in `internal/core/view` — a plain data type in `view`, marshaled by the
   LSP layer, so `view` keeps no protocol knowledge.
-- `model.Workspace` grows `RenderView(doc, fqn string) (*view.Rendering, error)`
+- `model.Workspace` grows `RenderView(doc, fqn string) (*view.Rendering, *Document, error)`
+  — the document returned is the snapshot the rendering was made from, read under
+  the same lock, so the LSP layer takes version, FQNs and ranges from one revision —
   and `Views(doc string) []ViewInfo`, built on `newResolver` exactly as
   `Session.viewRenderer` builds its own, with `SourceText` reading the workspace's
   content for the document. This is where the REPL and the LSP converge: the REPL's
@@ -170,7 +181,10 @@ visually" true without a graphical editor's bookkeeping.
 
 ### Widening `internal/core/edit`
 
-Three operations are added, in the package's existing style — name the target the
+As built, the operations below carry a few more fields than sketched here
+(`OpAddMember` also takes a multiplicity, a value and specializations;
+`OpAddConnection` a type), and `applyModelEdit`'s refusal names a stable
+`failure` beside the diagnostic. Three operations are added, in the package's existing style — name the target the
 way symbols name it, splice bytes the parse located, re-analyze before returning:
 
 - `OpAddMember{Owner, Kind, Name, Type}` inserts a member into an owner's body:
@@ -196,7 +210,9 @@ Deletion is where a "refuse on new errors" rule is least obviously right: deleti
 part that something connects to *should* be reported. The operation therefore
 carries `Cascade bool`; without it the delete is refused and names the referents,
 with it the referring declarations are deleted in the same operation, and the panel
-asks before setting it.
+asks before setting it. A reference from another document is refused either way,
+as is a rename one writes: the edit rewrites one document, and a `WorkspaceEdit`
+across several is not yet offered.
 
 ### From the diagram to the file
 
@@ -210,8 +226,11 @@ The server translates the operations into `edit` operations, runs them against t
 workspace's current content, and returns the byte diff as a `WorkspaceEdit` — it
 does not write the file. The client applies it with
 `vscode.workspace.applyEdit`, which puts the change in VS Code's undo stack, so a
-diagram action is undone with `ctrl+z` like anything typed. A `version` that no
-longer matches is rejected, and the panel re-requests and retries once.
+diagram action is undone with `ctrl+z` like anything typed. The request names the
+`version` of the rendering the action was taken on, not the buffer's: its targets
+are names the user saw there, and a later version may spell the same names for
+other declarations. A `version` that no longer matches is rejected, and the panel
+redraws and asks the user to repeat the action on what is now shown.
 
 The diagram never mutates itself. It applies the edit, the edit re-triggers
 analysis, analysis emits `renderChanged`, and the panel redraws from the model. One

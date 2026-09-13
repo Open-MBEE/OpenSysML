@@ -1982,6 +1982,30 @@ var ownedMembers = map[string]ownedMember{
 	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView, bodyViewDef}},
 }
 
+// MemberOwner names the body kind that alone offers the member keyword kw
+// introduces ("requirement or case" for `subject`), or "" when every body does.
+func MemberOwner(kw string) string {
+	return ownedMembers[kw].owner
+}
+
+// BodyAdmitsMember reports whether the body of owner — a Definition or Usage;
+// any other node, the document root included, opens a plain namespace body —
+// offers the member keyword kw introduces.
+func BodyAdmitsMember(owner ast.Node, kw string) bool {
+	m, ok := ownedMembers[kw]
+	if !ok {
+		return true
+	}
+	body := bodyOther
+	switch d := owner.(type) {
+	case *ast.Definition:
+		body = defBodyContext(d.Kind)
+	case *ast.Usage:
+		body = usageBodyContext(d.Kind)
+	}
+	return slices.Contains(m.bodies, body)
+}
+
 // parseMisplacedStateSubaction reads an entry/do/exit member outside a state body
 // into one ErrorNode; nil when the cursor is not on one. A state body reads them itself.
 func (p *Parser) parseMisplacedStateSubaction(start int, trivia []ast.Trivia) ast.Node {

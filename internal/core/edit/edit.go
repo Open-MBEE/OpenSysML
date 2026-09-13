@@ -17,7 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// OpKind is which of the two source-preserving changes an Operation makes.
+// OpKind is which source-preserving change an Operation makes.
 type OpKind int
 
 const (
@@ -29,6 +29,8 @@ const (
 	OpAddMember
 	// OpDelete removes a declaration and its owned trivia.
 	OpDelete
+	// OpAddConnection inserts a connector-like usage joining two features.
+	OpAddConnection
 )
 
 // Operation is one change to make to a model's source.
@@ -40,15 +42,21 @@ type Operation struct {
 	Value string
 	// NewName is the new declared name, for OpRename.
 	NewName string
-	// Owner is the namespace receiving an OpAddMember; empty means the root.
+	// Owner is the namespace receiving an OpAddMember or OpAddConnection; empty
+	// means the root.
 	Owner string
-	// Declaration details for OpAddMember.
+	// Declaration details for OpAddMember and OpAddConnection. MemberName is
+	// optional for a connection, which the notation lets be anonymous.
 	MemberKind   string
 	MemberName   string
 	Type         string
 	Multiplicity string
 	Specializes  []string
-	Cascade      bool
+	// From and To are the ends of an OpAddConnection, written as the notation
+	// references features (`a.p`, `A::b`).
+	From    string
+	To      string
+	Cascade bool
 }
 
 // SetValue is an operation setting target's value to the expression value.
@@ -71,6 +79,13 @@ func Delete(target string, cascade bool) Operation {
 	return Operation{Kind: OpDelete, Target: target, Cascade: cascade}
 }
 
+// AddConnection creates an operation inserting into owner a connector-like
+// usage of kind (`connection`, `flow`, `succession`, …) joining from to to.
+// name may be empty for an anonymous connection.
+func AddConnection(owner, kind, from, to, name string) Operation {
+	return Operation{Kind: OpAddConnection, Owner: owner, MemberKind: kind, From: from, To: to, MemberName: name}
+}
+
 // Model is a parsed model to edit: the source that was read, its parse, and the
 // index it was analyzed in.
 type Model struct {
@@ -85,6 +100,9 @@ type Model struct {
 	// against and no document of its own, for analyzing the edited notation.
 	// Nil checks syntax alone.
 	NewIndex func() *symbols.Index
+	// Analysis is the options the edited notation is judged under, the same the
+	// original's SemDiags came from; the zero value is the default mode.
+	Analysis passes.Options
 	// reindex is the one index an Apply call analyzes in, set by Apply.
 	reindex *reindexer
 }
@@ -137,9 +155,6 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 	if len(ops) == 0 {
 		return nil, &Error{Failure: FailureNoOperations, Message: "no edit operations requested"}
 	}
-	if err := duplicateAddNames(ops); err != nil {
-		return nil, err
-	}
 	m.reindex = &reindexer{newIndex: m.NewIndex}
 	if !needsSequential(ops) {
 		return applyBatch(m, ops)
@@ -178,35 +193,17 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 	return &Result{Content: content, Applied: applied}, nil
 }
 
-func duplicateAddNames(ops []Operation) error {
-	seen := make(map[string]int)
-	for i, op := range ops {
-		if op.Kind != OpAddMember {
-			continue
-		}
-		key := op.Owner + "\x00" + op.MemberName
-		if previous, ok := seen[key]; ok {
-			return &Error{
-				Failure:        FailureMemberNameTaken,
-				OperationIndex: i,
-				Message: fmt.Sprintf("%q is declared more than once in owner %q (operations %d and %d)",
-					op.MemberName, op.Owner, previous, i),
-			}
-		}
-		seen[key] = i
-	}
-	return nil
-}
-
+// needsSequential reports whether one operation may see another's work: a name
+// an earlier one declares, renames or removes, or bytes it already rewrote.
+// Values sit apart from one another and move no name, so only a request of
+// nothing but set-value is proven independent.
 func needsSequential(ops []Operation) bool {
-	// This conservative trigger reparses when a later add may target an earlier add.
-	addSeen := false
+	if len(ops) == 1 {
+		return false
+	}
 	for _, op := range ops {
-		if op.Kind == OpAddMember {
-			if addSeen && op.Owner != "" {
-				return true
-			}
-			addSeen = true
+		if op.Kind != OpSetValue {
+			return true
 		}
 	}
 	return false
@@ -252,7 +249,7 @@ func reparseModel(base Model, content []byte) (Model, error) {
 	return Model{
 		Source: sf, Root: root, Index: idx,
 		ParseDiags: p.Diagnostics,
-		NewIndex:   base.NewIndex, reindex: base.reindex,
+		NewIndex:   base.NewIndex, Analysis: base.Analysis, reindex: base.reindex,
 	}, nil
 }
 
@@ -269,6 +266,13 @@ type splice struct {
 func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	if op.Kind == OpAddMember {
 		sp, err := m.addMemberSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddConnection {
+		sp, err := m.addConnectionSplice(i, op)
 		if err != nil {
 			return nil, err
 		}

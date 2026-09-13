@@ -115,7 +115,8 @@
     "check-nodes": "node tools/check-nodes.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json",
-    "package": "npm run typecheck && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
+    "test": "node tools/test.mjs",
+    "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
   },
   "dependencies": {
     "mermaid": "11.16.1",

@@ -1,6 +1,9 @@
 package lexer
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestNameTextQuotesWhatIsNoBasicName(t *testing.T) {
 	for _, tc := range []struct {
@@ -38,6 +41,48 @@ func TestQualifiedNameTextQuotesEachSegmentOnItsOwn(t *testing.T) {
 	} {
 		if got := QualifiedNameText(tc.fqn); got != tc.want {
 			t.Errorf("QualifiedNameText(%q) = %q, want %q", tc.fqn, got, tc.want)
+		}
+	}
+}
+
+func TestQualifiedNameOfQuotesEachNameOnItsOwn(t *testing.T) {
+	for _, tc := range []struct {
+		names []string
+		want  string
+	}{
+		{nil, ""},
+		{[]string{"x::y"}, "'x::y'"},
+		{[]string{"x", "y"}, "x::y"},
+		{[]string{"P", "x::y", "it\\'s"}, "P::'x::y'::'it\\'s'"},
+	} {
+		if got := QualifiedNameOf(tc.names); got != tc.want {
+			t.Errorf("QualifiedNameOf(%q) = %q, want %q", tc.names, got, tc.want)
+		}
+	}
+}
+
+func TestQualifiedNameSegmentsReadsTheNotationBack(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		want []string
+	}{
+		{"x", []string{"x"}},
+		{"x::y", []string{"x", "y"}},
+		{"'x::y'", []string{"x::y"}},
+		{"P::'x::y'::'it\\'s'", []string{"P", "x::y", "it\\'s"}},
+		{"'a b'::c", []string{"a b", "c"}},
+	} {
+		got, ok := QualifiedNameSegments(tc.text)
+		if !ok || !slices.Equal(got, tc.want) {
+			t.Errorf("QualifiedNameSegments(%q) = %q, %v, want %q", tc.text, got, ok, tc.want)
+		}
+		if back := QualifiedNameOf(got); back != tc.text {
+			t.Errorf("QualifiedNameOf(QualifiedNameSegments(%q)) = %q", tc.text, back)
+		}
+	}
+	for _, bad := range []string{"", "x::", "::y", "'x", "''", "a'b", "'x'y", "x::'y"} {
+		if got, ok := QualifiedNameSegments(bad); ok {
+			t.Errorf("QualifiedNameSegments(%q) = %q, want a refusal", bad, got)
 		}
 	}
 }

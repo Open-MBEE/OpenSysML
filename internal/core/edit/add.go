@@ -2,10 +2,12 @@ package edit
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -16,31 +18,117 @@ type memberKind struct {
 	typed      bool
 }
 
+// memberKinds are the kinds an OpAddMember writes by name alone: not connectors
+// (ConnectionKinds) nor connector definitions, which need ends; `fork f;` is neither typed nor a definition.
+// A kind only some bodies offer (`subject`, `actor`) is refused for any other owner.
 var memberKinds = map[string]memberKind{
-	"package":       {languages: map[source.Kind]bool{source.KindSysML: true, source.KindKerML: true}},
-	"part def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"part":          {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"attribute def": {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"attribute":     {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"item def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"item":          {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"port def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"port":          {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"enum def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"calc def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"calc":          {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"class":         {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"struct":        {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"datatype":      {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"classifier":    {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"feature":       {languages: map[source.Kind]bool{source.KindKerML: true}, typed: true},
-	"assoc":         {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"association":   {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"behavior":      {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"function":      {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"predicate":     {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"interaction":   {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"metaclass":     {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
+	"package":          {languages: bothLangs},
+	"part def":         {languages: sysmlOnly, definition: true},
+	"part":             {languages: sysmlOnly, typed: true},
+	"attribute def":    {languages: sysmlOnly, definition: true},
+	"attribute":        {languages: sysmlOnly, typed: true},
+	"item def":         {languages: sysmlOnly, definition: true},
+	"item":             {languages: sysmlOnly, typed: true},
+	"port def":         {languages: sysmlOnly, definition: true},
+	"port":             {languages: sysmlOnly, typed: true},
+	"enum def":         {languages: sysmlOnly, definition: true},
+	"enum":             {languages: sysmlOnly, typed: true},
+	"individual def":   {languages: sysmlOnly, definition: true},
+	"individual":       {languages: sysmlOnly, typed: true},
+	"metadata def":     {languages: sysmlOnly, definition: true},
+	"metadata":         {languages: sysmlOnly, typed: true},
+	"view def":         {languages: sysmlOnly, definition: true},
+	"view":             {languages: sysmlOnly, typed: true},
+	"viewpoint def":    {languages: sysmlOnly, definition: true},
+	"viewpoint":        {languages: sysmlOnly, typed: true},
+	"rendering def":    {languages: sysmlOnly, definition: true},
+	"rendering":        {languages: sysmlOnly, typed: true},
+	"concern def":      {languages: sysmlOnly, definition: true},
+	"concern":          {languages: sysmlOnly, typed: true},
+	"calc def":         {languages: sysmlOnly, definition: true},
+	"calc":             {languages: sysmlOnly, typed: true},
+	"action def":       {languages: sysmlOnly, definition: true},
+	"action":           {languages: sysmlOnly, typed: true},
+	"state def":        {languages: sysmlOnly, definition: true},
+	"state":            {languages: sysmlOnly, typed: true},
+	"occurrence def":   {languages: sysmlOnly, definition: true},
+	"occurrence":       {languages: sysmlOnly, typed: true},
+	"allocation def":   {languages: sysmlOnly, definition: true},
+	"binding def":      {languages: sysmlOnly, definition: true},
+	"constraint def":   {languages: sysmlOnly, definition: true},
+	"constraint":       {languages: sysmlOnly, typed: true},
+	"requirement def":  {languages: sysmlOnly, definition: true},
+	"requirement":      {languages: sysmlOnly, typed: true},
+	"case def":         {languages: sysmlOnly, definition: true},
+	"case":             {languages: sysmlOnly, typed: true},
+	"analysis def":     {languages: sysmlOnly, definition: true},
+	"analysis":         {languages: sysmlOnly, typed: true},
+	"verification def": {languages: sysmlOnly, definition: true},
+	"verification":     {languages: sysmlOnly, typed: true},
+	"use case def":     {languages: sysmlOnly, definition: true},
+	"use case":         {languages: sysmlOnly, typed: true},
+	"subject":          {languages: sysmlOnly, typed: true},
+	"actor":            {languages: sysmlOnly, typed: true},
+	"stakeholder":      {languages: sysmlOnly, typed: true},
+	"objective":        {languages: sysmlOnly, typed: true},
+	"fork":             {languages: sysmlOnly},
+	"join":             {languages: sysmlOnly},
+	"merge":            {languages: sysmlOnly},
+	"decide":           {languages: sysmlOnly},
+	"class":            {languages: kermlOnly, definition: true},
+	"struct":           {languages: kermlOnly, definition: true},
+	"datatype":         {languages: kermlOnly, definition: true},
+	"classifier":       {languages: kermlOnly, definition: true},
+	"feature":          {languages: kermlOnly, typed: true},
+	"step":             {languages: kermlOnly, typed: true},
+	"expr":             {languages: kermlOnly, typed: true},
+	"bool":             {languages: kermlOnly, typed: true},
+	"behavior":         {languages: kermlOnly, definition: true},
+	"function":         {languages: kermlOnly, definition: true},
+	"predicate":        {languages: kermlOnly, definition: true},
+	"metaclass":        {languages: kermlOnly, definition: true},
+}
+
+// MemberKinds lists the member kinds legal in a language, sorted.
+func MemberKinds(lang source.Kind) []string {
+	return legalKinds(lang, func(name string) map[source.Kind]bool { return memberKinds[name].languages },
+		mapKeys(memberKinds))
+}
+
+// MemberKindTyped reports whether an OpAddMember of kind may carry a Type.
+func MemberKindTyped(kind string) bool {
+	return memberKinds[kind].typed
+}
+
+// MemberKindOwnerBound reports whether only some bodies offer a member of kind:
+// `subject` belongs in a requirement or case, `part` anywhere.
+func MemberKindOwnerBound(kind string) bool {
+	return parser.MemberOwner(kind) != ""
+}
+
+// MemberKindAdmittedBy reports whether the body of owner, a declaration an
+// OpAddMember may name, offers a member of kind.
+func MemberKindAdmittedBy(owner ast.Node, kind string) bool {
+	return parser.BodyAdmitsMember(owner, kind)
+}
+
+func legalKinds(lang source.Kind, languages func(string) map[source.Kind]bool, names []string) []string {
+	out := []string{}
+	for _, name := range names {
+		if languages(name)[lang] {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func mapKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
 
 func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
@@ -73,6 +161,13 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message:        fmt.Sprintf("kind %q cannot carry a typing target", op.MemberKind),
 		}
 	}
+	if !kind.typed && !kind.definition && (op.Multiplicity != "" || op.Value != "") {
+		return splice{}, &Error{
+			Failure:        FailureIllegalKind,
+			OperationIndex: i,
+			Message:        fmt.Sprintf("kind %q takes a name alone", op.MemberKind),
+		}
+	}
 	if !kind.definition && len(op.Specializes) > 0 {
 		return splice{}, &Error{
 			Failure:        FailureIllegalKind,
@@ -85,6 +180,14 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		e := err.(*Error)
 		e.OperationIndex = i
 		return splice{}, e
+	}
+	if !parser.BodyAdmitsMember(owner, op.MemberKind) {
+		return splice{}, &Error{
+			Failure:        FailureIllegalKind,
+			OperationIndex: i,
+			Message: fmt.Sprintf("kind %q is only declared in a %s body, which %s does not open",
+				op.MemberKind, parser.MemberOwner(op.MemberKind), ownerName(op.Owner)),
+		}
 	}
 	if ownerScope != nil && len(ownerScope.LookupLocalAll(op.MemberName)) > 0 {
 		return splice{}, &Error{
@@ -103,10 +206,9 @@ func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
 	if fqn == "" {
 		return m.Root, rootScope, nil
 	}
-	syms := m.Index.LookupQualifiedFrom(fqn, fqn)
 	var local *symbols.Symbol
-	for _, sym := range syms {
-		if sym != nil && m.Index.GetFQN(sym) == fqn && sym.DocName == m.Source.Name() {
+	for _, sym := range m.declared(fqn) {
+		if sym.DocName == m.Source.Name() {
 			if local != nil {
 				return nil, nil, &Error{Failure: FailureAmbiguousTarget,
 					Message: fmt.Sprintf("%q names several declarations", fqn)}
@@ -124,15 +226,19 @@ func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
 	}
 	switch local.Decl.(type) {
 	case *ast.Package, *ast.Namespace, *ast.Definition, *ast.Usage:
-		if usage, ok := local.Decl.(*ast.Usage); ok && !usage.HasBody {
-			return nil, nil, &Error{Failure: FailureOwnerNotNamespace,
-				Message: fmt.Sprintf("%q cannot contain members without a body", fqn)}
-		}
 		return local.Decl, local.Scope, nil
 	default:
 		return nil, nil, &Error{Failure: FailureOwnerNotNamespace,
 			Message: fmt.Sprintf("%q cannot contain members", fqn)}
 	}
+}
+
+// ownerName names an add-member owner for a message: the document for "".
+func ownerName(fqn string) string {
+	if fqn == "" {
+		return "the document"
+	}
+	return fmt.Sprintf("%q", fqn)
 }
 
 func writeMember(op Operation, kind memberKind) string {

@@ -151,7 +151,8 @@ func appliedToProto(applied []edit.Applied) []*pb.AppliedEdit {
 }
 
 // editFailures maps every refusal kind to its wire value, so a client acts on
-// the kind rather than on the message text.
+// the kind rather than on the message text. FailureReferencedElsewhere has none:
+// the service edits a sole document, which no other can refer to.
 var editFailures = map[edit.Failure]pb.EditFailure{
 	edit.FailureNone:              pb.EditFailure_EDIT_FAILURE_UNSPECIFIED,
 	edit.FailureNoOperations:      pb.EditFailure_EDIT_FAILURE_NO_OPERATIONS,

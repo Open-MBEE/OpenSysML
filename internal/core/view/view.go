@@ -447,7 +447,7 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 		}
 		return kind, true
 	}
-	return Kind(simpleName(r.fqn(rendering.Rendering))), true
+	return Kind(rendering.Rendering.Name), true
 }
 
 // viewDefinitionKind reports the kind the standard view definition a view
@@ -456,9 +456,8 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 // in turn specializes.
 func (r *Renderer) viewDefinitionKind(view *symbols.Symbol) (Kind, string) {
 	for _, sym := range append([]*symbols.Symbol{view}, r.model.AllSupertypes(view)...) {
-		fqn := r.fqn(sym)
-		if kind, ok := standardKind(standardViewDefinitions, viewDefinitionsPackage, fqn); ok {
-			return kind, "view def " + simpleName(fqn)
+		if kind, ok := standardKind(standardViewDefinitions, viewDefinitionsPackage, r.fqn(sym)); ok {
+			return kind, "view def " + sym.Name
 		}
 	}
 	return "", ""
@@ -491,10 +490,28 @@ func (r *Renderer) fqn(sym *symbols.Symbol) string {
 	return sym.Name
 }
 
-// notationName is a symbol's qualified name as the notation writes it, with the
-// quotes an unrestricted name needs.
+// notationName is a symbol's qualified name as the notation writes it, each
+// segment quoted on its own from the owner chain, since a name may hold `::`.
 func (r *Renderer) notationName(sym *symbols.Symbol) string {
-	return notationName(r.fqn(sym))
+	names := symbols.NameChain(sym)
+	if len(names) == 0 || len(names) == 1 && names[0] == "" {
+		return ""
+	}
+	return lexer.QualifiedNameOf(names)
+}
+
+// localName is a symbol's own name as the notation writes it, empty for an
+// anonymous one.
+func localName(sym *symbols.Symbol) string {
+	return nameText(sym.Name)
+}
+
+// nameText is one name as the notation writes it, empty for no name.
+func nameText(name string) string {
+	if name == "" {
+		return ""
+	}
+	return lexer.NameText(name)
 }
 
 // declKind names an element the way the notation declares it — "part def",
@@ -575,9 +592,8 @@ func simpleName(fqn string) string {
 	return fqn
 }
 
-// notationName writes a qualified name as the notation does, with the one
-// quoting rule the REPL prints names by, so `%render` and `%view` spell the same
-// element identically.
+// notationName writes a reference read as joined qualified text (a `render`
+// target, an accepted signal, a `via` port) as the notation does.
 func notationName(fqn string) string {
 	return lexer.QualifiedNameText(fqn)
 }

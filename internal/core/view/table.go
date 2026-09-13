@@ -35,7 +35,7 @@ func (r *Renderer) tableRows(sym *symbols.Symbol, owner string, seen map[*symbol
 // memberRows writes an element declared in another, named as it is declared
 // rather than by qualified name, and what it declares in turn.
 func (r *Renderer) memberRows(sym *symbols.Symbol, owner string, seen map[*symbols.Symbol]bool, depth int, out *Rendering) {
-	name := notationName(simpleName(r.fqn(sym)))
+	name := localName(sym)
 	out.appendRow([]string{name, declKind(sym), declType(sym), owner}, symbolOrigin(sym))
 	r.memberRowsOf(sym, name, seen, depth, out)
 }

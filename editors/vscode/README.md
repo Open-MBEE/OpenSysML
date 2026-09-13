@@ -52,14 +52,34 @@ Mermaid from the server's rendering and redrawn as the model is typed.
 | **While typing** | A rendering that fails mid-keystroke leaves the last good diagram on screen, dimmed, with the error in the status line: the panel never blanks. What a rendering could not represent is listed under it. |
 | **Cost** | The panel asks for a diagram only while visible, and only once an editing burst settles. Mermaid is bundled into the extension, and the panel's CSP allows the bundled script alone — nothing is fetched from the network. |
 
-It is read-only — Tier 1 of the visual-modeling design: the diagram renders the
-model, and cannot edit it, has no persisted layout, and offers no authoring.
+### Editing from the diagram
+
+The panel's **Add…** menu and a node's right-click menu write to the `.sysml` or
+`.kerml` file; the diagram itself is never edited. Each action is turned into a
+source-preserving edit by the language server and applied to the editor's buffer
+like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it, the file is the only
+source of truth, and the diagram redraws from what the file now says.
+
+| Action | What it writes |
+| --- | --- |
+| **Add…** (palette) | A member — `part`, `port`, `state`, `action`, a `def`, … — into the declaration under the editor's cursor, else the diagram's one root, else a declaration picked from a list; or a connection between two picked nodes. The kinds offered follow the diagram: an interconnection diagram offers parts, ports and connections, a state diagram states and transitions, an action or sequence diagram actions, control nodes and successions, a tree everything the language has. A member kind that takes a type asks for one. A kind only some bodies declare — `subject`, `actor` and `stakeholder` in a requirement or case, `objective` in a case — is offered only while the diagram draws such a declaration, and goes into one of them. |
+| **Add …** (node menu) | The member kinds the node's declaration may hold, into it; or a connection, flow, succession, … from the node to one picked from a list. The connection is written in the nearest declaration that contains both ends, with the ends spelled as paths from it (`tank.fuelOut`). |
+| **Rename…** | The declaration's name, at the declaration and every reference in the file. |
+| **Delete** | The declaration, its own line and the comment block above it. A declaration something still refers to is refused, naming the referents; **Delete all** removes them too. A declaration another file refers to is refused outright, as is renaming one: an edit rewrites one file. |
+
+An edit that would leave the file with an error it did not have — a type that
+does not resolve, a name already taken, a connection end out of scope — is
+refused, and the message names the diagnostic. Nodes the file does not declare
+(library elements, steps a lowering sequenced) offer *Go to declaration* only.
 
 The command exists only when the server advertises
-`experimental: { openSysmlRender: true }`, so an older `sysml-lsp` keeps working
-without it. The requests behind the panel — `opensysml/render`,
-`opensysml/views` and the `opensysml/renderChanged` notification — are documented
-in [docs/reference/lsp.md](../../docs/reference/lsp.md).
+`experimental: { openSysmlRender: true }`, and the editing menus only with
+`openSysmlApplyModelEdit`, so an older `sysml-lsp` keeps working without them.
+The requests behind the panel — `opensysml/render`, `opensysml/views`,
+`opensysml/applyModelEdit` and the `opensysml/renderChanged` notification — are
+documented in [docs/reference/lsp.md](../../docs/reference/lsp.md). Layout is
+not persisted and nodes are not dragged: that is the design's Tier 3, not yet
+built.
 
 ## Rendering documents
 
@@ -104,6 +124,7 @@ go test ./editors/...  # fails if the committed grammars are stale
 ```bash
 npm run watch       # rebuild dist/extension.js and dist/webview.js on change
 npm run typecheck   # tsc --noEmit, extension and webview
+npm test            # unit tests for the edit and menu logic, on node's test runner
 npm run check-nodes # render Mermaid fixtures and verify source-node matching
 ```
 

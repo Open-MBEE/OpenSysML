@@ -90,7 +90,7 @@ package GeomViews {
 // declares exactly one.
 func TestRenderViewRendersTheNamedAndTheSoleView(t *testing.T) {
 	ws := openDoc(t, "kit.sysml", twoViewModel)
-	rendering, err := ws.RenderView("kit.sysml", "KitViews::widgetTable")
+	rendering, _, err := ws.RenderView("kit.sysml", "KitViews::widgetTable")
 	if err != nil {
 		t.Fatalf("render the table view: %v", err)
 	}
@@ -110,7 +110,7 @@ package KitViews {
 	}
 }
 `)
-	rendering, err = sole.RenderView("sole.sysml", "")
+	rendering, _, err = sole.RenderView("sole.sysml", "")
 	if err != nil {
 		t.Fatalf("render the sole view: %v", err)
 	}
@@ -123,7 +123,7 @@ package KitViews {
 // names the candidates, rather than picking one.
 func TestRenderViewReportsAmbiguity(t *testing.T) {
 	ws := openDoc(t, "kit.sysml", twoViewModel)
-	_, err := ws.RenderView("kit.sysml", "")
+	_, _, err := ws.RenderView("kit.sysml", "")
 	if err == nil {
 		t.Fatal("rendering an ambiguous document succeeded")
 	}
@@ -137,7 +137,7 @@ func TestRenderViewReportsAmbiguity(t *testing.T) {
 // A document declaring no view says so, and says what to render instead.
 func TestRenderViewOnADocumentWithNoViews(t *testing.T) {
 	ws := openDoc(t, "plain.sysml", "package Kit {\n\tpart def Widget;\n}\n")
-	_, err := ws.RenderView("plain.sysml", "")
+	_, _, err := ws.RenderView("plain.sysml", "")
 	if !errors.Is(err, ErrNoView) {
 		t.Fatalf("err = %v, want ErrNoView", err)
 	}
@@ -156,7 +156,7 @@ func TestRenderViewPseudoViewRendersWithoutADeclaredView(t *testing.T) {
 	part def Cog;
 }
 `)
-	rendering, err := ws.RenderView("plain.sysml", "#tree")
+	rendering, _, err := ws.RenderView("plain.sysml", "#tree")
 	if err != nil {
 		t.Fatalf("render #tree: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestRenderViewPseudoViewOfANamedElement(t *testing.T) {
 	}
 }
 `)
-	rendering, err := ws.RenderView("states.sysml", "#state:Machines::VehicleStates")
+	rendering, _, err := ws.RenderView("states.sysml", "#state:Machines::VehicleStates")
 	if err != nil {
 		t.Fatalf("render #state: %v", err)
 	}
@@ -222,19 +222,19 @@ func TestRenderViewPseudoViewOfANamedElement(t *testing.T) {
 // does not declare, are refused with a message naming what was asked for.
 func TestRenderViewRefusesUnknownNames(t *testing.T) {
 	ws := openDoc(t, "kit.sysml", twoViewModel)
-	if _, err := ws.RenderView("kit.sysml", "KitViews::goneView"); err == nil ||
+	if _, _, err := ws.RenderView("kit.sysml", "KitViews::goneView"); err == nil ||
 		!strings.Contains(err.Error(), "no view named KitViews::goneView") {
 		t.Errorf("err = %v, want it to say there is no such view", err)
 	}
-	if _, err := ws.RenderView("kit.sysml", "#state:Kit::Nothing"); err == nil ||
+	if _, _, err := ws.RenderView("kit.sysml", "#state:Kit::Nothing"); err == nil ||
 		!strings.Contains(err.Error(), "Kit::Nothing") {
 		t.Errorf("err = %v, want it to name the element that is missing", err)
 	}
-	if _, err := ws.RenderView("kit.sysml", "#not-a-rendering"); err == nil ||
+	if _, _, err := ws.RenderView("kit.sysml", "#not-a-rendering"); err == nil ||
 		!strings.Contains(err.Error(), "#tree") {
 		t.Errorf("err = %v, want it to list the pseudo-views", err)
 	}
-	if _, err := ws.RenderView("gone.sysml", ""); err == nil ||
+	if _, _, err := ws.RenderView("gone.sysml", ""); err == nil ||
 		!strings.Contains(err.Error(), "no such document") {
 		t.Errorf("err = %v, want it to say there is no such document", err)
 	}
@@ -256,7 +256,7 @@ package TextViews {
 	}
 }
 `)
-	_, err := ws.RenderView("textual.sysml", "TextViews::textView")
+	_, _, err := ws.RenderView("textual.sysml", "TextViews::textView")
 	var unsupported *view.UnsupportedKindError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("err = %v, want an *UnsupportedKindError", err)
@@ -286,10 +286,10 @@ func TestShortNamedDeclarationsAreCountedOnce(t *testing.T) {
 	if views := ws.Views("kit.sysml"); len(views) != 1 {
 		t.Fatalf("listed %d views, want 1: %+v", len(views), views)
 	}
-	if _, err := ws.RenderView("kit.sysml", ""); err != nil {
+	if _, _, err := ws.RenderView("kit.sysml", ""); err != nil {
 		t.Fatalf("rendering the document's only view: %v", err)
 	}
-	rendering, err := ws.RenderView("kit.sysml", "#tree")
+	rendering, _, err := ws.RenderView("kit.sysml", "#tree")
 	if err != nil {
 		t.Fatalf("rendering #tree: %v", err)
 	}
