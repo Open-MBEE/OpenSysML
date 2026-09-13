@@ -22,17 +22,17 @@ func TestEnginesListsTheBuild(t *testing.T) {
 
 	out := run(t, binary, "-engines")
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
-	if len(lines) != 6 || !strings.HasPrefix(lines[0], "engine") || !strings.Contains(lines[0], "authority") ||
+	if len(lines) != 7 || !strings.HasPrefix(lines[0], "engine") || !strings.Contains(lines[0], "authority") ||
 		!strings.Contains(lines[0], "answers") || !strings.Contains(lines[0], "status") {
 		t.Fatalf("-engines did not table the engines:\n%s", out)
 	}
-	for i, want := range []string{"check", "explore", "run", "solve", "sweep"} {
+	for i, want := range []string{"check", "explore", "run", "smt", "solve", "sweep"} {
 		fields := strings.Fields(lines[i+1])
 		if len(fields) < 4 || fields[0] != want {
 			t.Errorf("line %d = %q, want engine %s", i+1, lines[i+1], want)
 		}
 	}
-	for _, want := range []string{"bounded", "proved", "observed", "outcomes, holds", "evaluate", "satisfiable", "sweep"} {
+	for _, want := range []string{"bounded", "proved", "observed", "outcomes, holds", "evaluate", "holds", "satisfiable", "sweep"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("-engines is missing %q:\n%s", want, out)
 		}
@@ -51,7 +51,7 @@ func TestEngineRefusesAnUnknownName(t *testing.T) {
 	if got.status != 2 {
 		t.Errorf("exit status = %d, want 2\n%s", got.status, got.output())
 	}
-	for _, want := range []string{`no engine named "bogus"`, "explore, run, solve, sweep", "auto", "all"} {
+	for _, want := range []string{`no engine named "bogus"`, "check, explore, run, smt, solve, sweep", "auto", "all"} {
 		if !strings.Contains(got.stderr, want) {
 			t.Errorf("refusal is missing %q:\n%s", want, got.output())
 		}

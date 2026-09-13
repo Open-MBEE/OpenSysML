@@ -52,11 +52,11 @@ every attribute of the action and of its performing object, the action's own
 when it has none (repeatable)
 .TP
 .BI \-check\-input " value"
-With \-engine smt or \-engine all: leave this feature of the action or its
-performing object free in its declared domain although the model binds it, as
-\-check\-input inletTemp; a name that is not such a feature is refused.
-Without it, every input the model leaves unbound is free and every bound one
-is pinned (repeatable)
+With \-engine smt or \-engine all: leave this feature of the action free in
+its declared domain although the model binds it, as \-check\-input inletTemp;
+a name that is not a feature the action reads is refused. Without it, every
+input the model leaves unbound is free and every bound one is pinned
+(repeatable)
 .TP
 .BI \-check\-property " value"
 With \-engine check or \-engine all: evaluate this constraint or requirement
@@ -126,10 +126,11 @@ Evaluate expression and exit (shorthand)
 Analysis engine every check is put to: auto (default) picks the strongest
 engine covering the question, all puts it to every covering engine in name
 order and composes their answers, or an engine by name (run, explore, check,
-sweep, solve, or tool:<name> from OPENSYSML_TOOLS), whose refusal is then the
-answer; \-engine explore is \-schedule explore, and \-engine check searches
+smt, sweep, solve, or tool:<name> from OPENSYSML_TOOLS), whose refusal is then
+the answer; \-engine explore is \-schedule explore, \-engine check searches
 every schedule of each \-action for a violation, deadlock, failure or
-divergence
+divergence, and \-engine smt decides each \-check\-property over every
+schedule and every value of the action's free inputs through an SMT solver
 .TP
 .B \-engines
 List the analysis engines this build knows \(em name, authority, the questions

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/smt"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
 
@@ -31,8 +30,8 @@ package Gate {
 }
 `
 
-// symbolicSession is a session whose registry holds the smt engine beside the
-// build's, or is skipped (failed under OPENSYSML_REQUIRE_SMT) without a solver.
+// symbolicSession is a session over the build's registry, which holds smt, or is
+// skipped (failed under OPENSYSML_REQUIRE_SMT) without a solver.
 func symbolicSession(t *testing.T, source string) *Session {
 	t.Helper()
 	if _, err := solve.Discover(); err != nil {
@@ -44,15 +43,7 @@ func symbolicSession(t *testing.T, source string) *Session {
 		}
 		t.Skipf("no SMT solver installed: %v", err)
 	}
-	s := loadSource(t, source)
-	engines := analysis.Default()
-	if err := engines.Register(smt.New(nil)); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.SetEngines(engines); err != nil {
-		t.Fatal(err)
-	}
-	return s
+	return loadSource(t, source)
 }
 
 // Under %engine smt the property is proved on the inputs as written; once
