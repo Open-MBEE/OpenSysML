@@ -487,7 +487,8 @@ func (p replayed) describe() string {
 }
 
 // replay runs the behavior afresh under the witness, one step at a time, and
-// compares what the interpreter reaches with what the witness claims.
+// compares what the interpreter reaches with what the witness claims, tracing
+// the run so the witness file records what a replay of it must leave.
 func (r *run) replay(w *Witness, expected outcome) (replayed, error) {
 	ctx, err := r.model.NewContextOn(0, r.budget)
 	if err != nil {
@@ -496,9 +497,12 @@ func (r *run) replay(w *Witness, expected outcome) (replayed, error) {
 	if err := ctx.SetSchedule(w.policy()); err != nil {
 		return replayed{}, err
 	}
+	if ctx.Trace() == nil {
+		ctx.SetTrace(runtime.NewTraceRecorder())
+	}
 	p, err := r.follow(ctx, w, expected)
-	if tr := ctx.Trace(); err == nil && tr != nil {
-		p.trace = tr.String()
+	if err == nil {
+		p.trace = ctx.Trace().String()
 	}
 	return p, err
 }

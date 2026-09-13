@@ -1,7 +1,9 @@
 package smt
 
 import (
+	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -335,5 +337,51 @@ func TestEngineWitnessWithoutInputsReplaysAsBefore(t *testing.T) {
 	}
 	if _, err := runtime.ParseWitness(text); err != nil {
 		t.Errorf("read the witness back: %v", err)
+	}
+}
+
+// TestEngineWrittenWitnessCarriesItsTrace: the witness file the engine writes
+// records the trace its replay left, though the context it replayed in was not
+// tracing, so the file replays as a check's witness does.
+func TestEngineWrittenWitnessCarriesItsTrace(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "written.sysml", freeSrc)
+	q := d.holds(t, "test::A", "test::A::positive")
+	q.Holds.WitnessDir = t.TempDir()
+	result := answer(t, e, d, q, analysis.Budget{Depth: 3})
+	expect(t, result, analysis.ClaimViolated, analysis.Witnessed)
+	if result.Witness.Written == "" {
+		t.Fatal("no witness file was written")
+	}
+	content, err := os.ReadFile(result.Witness.Written)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := runtime.ParseWitness(string(content))
+	if err != nil {
+		t.Fatalf("read the witness back: %v", err)
+	}
+	if w.Trace == "" {
+		t.Fatalf("the written witness carries no trace:\n%s", content)
+	}
+	if w.Property == "" {
+		t.Fatalf("the written witness names no property:\n%s", content)
+	}
+	m, err := d.model.Semantics()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh := func() (*runtime.Context, error) { return runtime.NewContext(m, 10000), nil }
+	positive := lookup(t, d.idx, "test::A::positive")
+	props := []runtime.CheckProperty{{Name: w.Property, Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
+		ok, err := exec.Holds(positive, nil)
+		var violation *runtime.ViolationError
+		if errors.As(err, &violation) {
+			return false, nil
+		}
+		return ok, err
+	}}}
+	if _, err := runtime.ReplayAction(context.Background(), fresh, runtime.ActionStarter(q.Holds.Start), w, props); err != nil {
+		t.Fatalf("replaying the written witness: %v", err)
 	}
 }
