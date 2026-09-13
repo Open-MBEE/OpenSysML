@@ -60,6 +60,16 @@ func TestEndpointNamingNoMemberIsReported(t *testing.T) {
 			state idle;
 			transition first zzz then idle;
 		} }`,
+		"state succession source": `package P { state def M {
+			entry; then idle;
+			state idle;
+			first zzz then idle;
+		} }`,
+		"state succession target": `package P { state def M {
+			entry; then idle;
+			state idle;
+			first idle then zzz;
+		} }`,
 	}
 
 	for name, src := range cases {
@@ -349,10 +359,11 @@ func TestStateSuccessionEndpointSpellingsAcceptVertices(t *testing.T) {
 			state idle;
 			EDGE
 		} }`,
-		"first marker source": `package P { state def M {
-			first marker then other;
+		"keyword-less succession": `package P { state def M {
+			entry; then other;
 			state other;
 			state idle;
+			first other then idle;
 			EDGE
 		} }`,
 	}

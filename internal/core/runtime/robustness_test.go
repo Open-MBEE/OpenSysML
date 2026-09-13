@@ -436,6 +436,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("coordinate_frame_failure_modes", testCoordinateFrameFailureModes)
 	t.Run("object_exhibited_machine_never_settles", testObjectExhibitedMachineNeverSettles)
 	t.Run("object_exhibited_machine_without_an_initial_state", testObjectExhibitedMachineWithoutAnInitialState)
+	t.Run("object_exhibited_machine_whose_only_edge_is_a_first_succession", testObjectExhibitedMachineWhoseOnlyEdgeIsAFirstSuccession)
 	t.Run("object_exhibited_machine_attribute_write_violates_multiplicity", testObjectExhibitedMachineAttributeWriteViolatesMultiplicity)
 	t.Run("object_performed_action_attribute_write_violates_multiplicity", testObjectPerformedActionAttributeWriteViolatesMultiplicity)
 	t.Run("object_performed_action_occurrence_holds_a_non_object", testObjectPerformedActionOccurrenceHoldsANonObject)
@@ -3503,9 +3504,9 @@ func testStateTransitionEndpointInAnotherMachine(t *testing.T) {
 	}
 }
 
-// testStateTransitionEndpointNamingAFirstMarker: a `first m then x` marker is no
-// vertex, so an endpoint naming one is reported by the state transition check and
-// backstopped here with a typed error rather than a panic.
+// testStateTransitionEndpointNamingAFirstMarker: a one-ended `first m;` marker is
+// no vertex, so an endpoint naming one is reported by the state transition check
+// and backstopped here with a typed error rather than a panic.
 func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 	src := `package test {
 		state Machine {
@@ -3513,7 +3514,7 @@ func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 			state init;
 			state busy;
 			state other;
-			first marker then other;
+			first marker;
 			succession first init then busy;
 			transition first busy then marker;
 		}
@@ -12378,6 +12379,29 @@ func testObjectExhibitedMachineWithoutAnInitialState(t *testing.T) {
 			exhibit state modes {
 				state off;
 				state on;
+			}
+		}
+	}`
+	_, _, err := instantiateInSource(t, src, "test::Controller")
+	if err == nil {
+		t.Fatal("expected an error for a machine with no initial state")
+	}
+	if !strings.Contains(err.Error(), "modes") || !strings.Contains(err.Error(), "initial") {
+		t.Errorf("error = %v, want one naming the machine and its missing initial state", err)
+	}
+}
+
+// testObjectExhibitedMachineWhoseOnlyEdgeIsAFirstSuccession: `first b then c;`
+// orders two states and enters neither, so a machine with no entry marker is
+// reported as having no initial state rather than started in c.
+func testObjectExhibitedMachineWhoseOnlyEdgeIsAFirstSuccession(t *testing.T) {
+	src := `
+	package test {
+		part def Controller {
+			exhibit state modes {
+				state b;
+				state c;
+				first b then c;
 			}
 		}
 	}`

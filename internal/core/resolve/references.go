@@ -271,10 +271,13 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 			redefines, others := ast.SplitRedefinitions(end.Relationships)
 			c.relationships(endScope, end, redefines)
 			c.relationships(scope, end, others)
+			// A machine succession/transition end names a vertex like a transition endpoint.
+			asEndpoint := (d.Kind == ast.UsageSuccession || d.Kind == ast.UsageTransition) &&
+				inStateMachine(scope) && !declaresName
 			if !declaresName {
-				c.target(scope, end.Target)
+				c.connectorEnd(scope, end.Target, asEndpoint)
 			}
-			c.target(scope, end.Reference)
+			c.connectorEnd(scope, end.Reference, asEndpoint)
 		}
 		if d.FlowEnds != nil {
 			c.expr(scope, d.FlowEnds.From)
@@ -569,6 +572,16 @@ func (c *refCollector) referenceTarget(scope *symbols.Scope, decl ast.Node, targ
 		return
 	}
 	c.expr(scope, target)
+}
+
+// connectorEnd collects what a connector end names, as a transition endpoint
+// when the connector orders the vertices of a state machine.
+func (c *refCollector) connectorEnd(scope *symbols.Scope, target ast.Node, asEndpoint bool) {
+	if qn, ok := target.(*ast.QualifiedName); ok && asEndpoint {
+		c.addEndpoint(scope, qn)
+		return
+	}
+	c.target(scope, target)
 }
 
 // target collects a node that names something, whether it was parsed as a

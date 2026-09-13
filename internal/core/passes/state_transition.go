@@ -50,6 +50,10 @@ const CodeEntryTransitionShape = "entry-transition-shape"
 // target is a vertex but not a state the body can start in (SysML v2 §7.18.3).
 const CodeEntryTransitionTarget = "entry-transition-target"
 
+// CodeFirstNamesNoTarget marks a one-ended `first <node>;` in a state body, where
+// a succession orders two vertices, `first <source> then <target>` (SysML v2 §7.18.3).
+const CodeFirstNamesNoTarget = "first-names-no-target"
+
 // StateTransitionPass checks that every transition names one source and one
 // target vertex of its own machine (UML 2.5.1 §14.2.3.9), and that a routing
 // pseudostate is left by one (§15.7.18).
@@ -223,8 +227,6 @@ func orderingEndpoints(decl ast.Node) []*ast.QualifiedName {
 		return []*ast.QualifiedName{n.Source, n.Target}
 	case *ast.TransitionEdge:
 		return []*ast.QualifiedName{n.Source, n.Target}
-	case *ast.InitialNode:
-		return []*ast.QualifiedName{n.Successor}
 	case *ast.Usage:
 		ends := make([]*ast.QualifiedName, 0, 2)
 		for _, end := range n.ConnectorEnds {
@@ -276,9 +278,6 @@ func parallelStateOrdering(decl ast.Node) bool {
 	switch n := decl.(type) {
 	case *ast.SuccessionEdge, *ast.TransitionMember, *ast.TransitionEdge:
 		return true
-	case *ast.InitialNode:
-		// `first s1 then s2;` is a succession whose source the marker names.
-		return n.Successor != nil
 	case *ast.Usage:
 		return n.Kind == ast.UsageSuccession || n.Kind == ast.UsageTransition
 	}
@@ -326,10 +325,9 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 			m.markLeft(c.checkEndpoint(m, scope, n.Source, false, nil), n.Source)
 			c.checkEndpoint(m, scope, n.Target, true, nil)
 		case *ast.InitialNode:
-			// The marker's `then` is its one outgoing transition.
-			if n.Successor != nil {
-				c.checkEndpoint(m, scope, n.Successor, true, nil)
-			}
+			// A state body has no token flow for a one-ended `first` to start.
+			c.report(n.Span(), CodeFirstNamesNoTarget, fmt.Sprintf(
+				"`first %s;` names no target: a state body orders two vertices, `first %s then <target>`", n.Name, n.Name))
 		case *ast.PseudostateNode:
 			if routingPseudostate(n.Kind) {
 				m.routing = append(m.routing, n)

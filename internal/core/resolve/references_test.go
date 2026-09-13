@@ -877,12 +877,14 @@ func TestAnInitialReferenceReachesALaterDeclaration(t *testing.T) {
 	}
 }
 
-// A state machine's initial successor is a transition endpoint, reaching a nested
-// state or one in a sibling region; an action body's is an ordinary member name.
+// A state body's `first X then Y;` is a succession whose ends are transition
+// endpoints, reaching a nested state or one in a sibling region; an action
+// body's `first start then Y;` names an ordinary member.
 func TestAnInitialSuccessorInAMachineIsAnEndpoint(t *testing.T) {
 	const src = `package P {
 	state def M {
-		first start then nested;
+		state idle;
+		first idle then nested;
 		state outer {
 			state nested;
 		}
@@ -892,7 +894,8 @@ func TestAnInitialSuccessorInAMachineIsAnEndpoint(t *testing.T) {
 			state a1;
 		}
 		state b {
-			first start then a1;
+			state b1;
+			first b1 then a1;
 		}
 	}
 	action def A {

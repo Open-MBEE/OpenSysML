@@ -918,7 +918,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 
 | written | metaclass | carries |
 |---|---|---|
-| `first x;`, `first x then y { … }` | `sysx:InitialNode` | `sysml:sourceFeature` (the member the body starts at — a reference, not a name it declares), `sysml:targetFeature`, `sysx:guard`, `sysx:hasBody` and the members of its body |
+| `first x;`, `first x then y { … }` in an action body | `sysx:InitialNode` | `sysml:sourceFeature` (the member the body starts at — a reference, not a name it declares), `sysml:targetFeature`, `sysx:guard`, `sysx:hasBody` and the members of its body |
 | `done;` | `sysx:FinalNode` | — |
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
 | `perform a;` | `sysml:PerformActionUsage` | `sysx:expression` (the action performed) |
@@ -927,7 +927,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `terminate;`, `terminate x;` | `sysml:TerminateActionUsage` | `sysx:expression` |
 | `accept sig : Signal;`, `accept when c;` | the usage's own metaclass | `sysml:isAccept`, and `sysx:declaredKeyword "accept"` where the optional `action` was not written |
 | `fork`, `join`, `merge`, `decide` | `sysml:ForkNode`, `JoinNode`, `MergeNode`, `DecisionNode` | `sysml:declaredName` |
-| `succession first a then b;`, `if g then b;`, `else b;` | `sysml:SuccessionAsUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:guard`, `sysx:isElse`, `sysx:declaredKeyword` |
+| `succession first a then b;`, `if g then b;`, `else b;`, and a state body's keyword-less `first a then b;` (a succession between two vertices, no initial node) | `sysml:SuccessionAsUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:guard`, `sysx:isElse`, `sysx:declaredKeyword`; the keyword-less spelling comes back as `succession first a then b;` from the graph alone, the same succession |
 | `public succession S first a if g then b;` (a guarded succession, which is a transition) | `sysml:TransitionUsage` | as a transition, with `sysx:declaredKeyword "succession"` for the keyword written; `sysx:transitionSyntax` is derived from where the AST places the source, not from the words ahead of it, so a visibility or a name does not change it. Written back, a named form always writes `first` (`succession S first a …`, `transition T first a …`), since only a nameless `transition` may state a bare source |
 | `while c { … }`, `loop { … } until c;` | `sysml:WhileLoopActionUsage` | `sysx:whileCondition`, `sysx:untilCondition` |
 | `for x in c { … }` | `sysml:ForLoopActionUsage` | `sysx:loopVariable`, `sysx:collection` |

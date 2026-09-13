@@ -45,10 +45,11 @@ func TestSimpleSelfTransitionThatNeverSettlesIsBounded(t *testing.T) {
 	}
 }
 
-// A `first` marker named as a transition's source is refused when the machine is
-// built: whether it names one edge or a second one is unadjudicated (row ~485).
+// The `start` shot a state inherits is where `first start then off;` starts the
+// machine, not a vertex: a triggered transition leaving it is refused when the
+// machine is built.
 func TestFirstMarkerNamedAsATransitionSourceIsRefused(t *testing.T) {
-	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
 		attribute def StartSignal;
 		state Machine {
 			first start then off;
@@ -65,8 +66,8 @@ func TestFirstMarkerNamedAsATransitionSourceIsRefused(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected building the machine to report the marker source")
 	}
-	if !strings.Contains(err.Error(), "start") {
-		t.Errorf("err = %v; want it to name the endpoint", err)
+	if !strings.Contains(err.Error(), "start") || !strings.Contains(err.Error(), "not a vertex") {
+		t.Errorf("err = %v; want it to name the endpoint as no vertex", err)
 	}
 }
 

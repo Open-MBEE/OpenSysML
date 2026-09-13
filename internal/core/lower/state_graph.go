@@ -597,6 +597,25 @@ func isDoneEndpoint(qn *ast.QualifiedName) bool {
 	return qn != nil && len(qn.Parts) == 1 && qn.Parts[0].Text == ast.DoneFeature
 }
 
+// isStartEndpoint reports whether an endpoint names the start shot every state
+// inherits rather than a vertex of its own: the unqualified `start`.
+func isStartEndpoint(qn *ast.QualifiedName) bool {
+	return qn != nil && len(qn.Parts) == 1 && qn.Parts[0].Text == ast.StartFeature
+}
+
+// startShot reports whether decl, what an endpoint resolved to, is the inherited
+// `start` of the body's state (`States::StateAction::start`) and no vertex of the machine.
+func (g *StateGraph) startShot(qn *ast.QualifiedName, decl ast.Node) bool {
+	if !isStartEndpoint(qn) {
+		return false
+	}
+	if _, ok := g.findVertex(decl); ok {
+		return false
+	}
+	usage, ok := decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageState
+}
+
 // targetVertex is the vertex a transition ends at: the one its endpoint names,
 // or the completion of the body it is written in when that endpoint is `done`
 // and no vertex of the machine is declared under that name.
@@ -1299,9 +1318,9 @@ func isEntrySubaction(member ast.Node) bool {
 }
 
 // startsAt records the state a bare completion transition out of the body's entry
-// action starts the machine in, as `entry; then off;` does, and reports whether
-// it did. guard is the condition a `transition initial if c then off;` chooses
-// it under, nil otherwise.
+// action, or out of the `start` shot its state inherits (`first start then off;`),
+// starts the machine in, as `entry; then off;` does, and reports whether it did.
+// guard is the condition a `transition initial if c then off;` chooses it under.
 func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source, target *ast.QualifiedName) (bool, error) {
 	if source == nil || target == nil {
 		return false, nil
@@ -1311,7 +1330,8 @@ func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source,
 		return false, nil
 	}
 	if !ast.IsEntryAction(ast.EntryActions(body.members), entry) &&
-		!ast.IsEntryAction(ast.StateEntryActions(body.containingState), entry) {
+		!ast.IsEntryAction(ast.StateEntryActions(body.containingState), entry) &&
+		!g.startShot(source, entry) {
 		return false, nil
 	}
 	vertex, err := g.targetVertex(body.scope, target, body.owner)
@@ -1469,22 +1489,13 @@ type transitionBody struct {
 // collectTransitions recursively processes member lists to collect transitions.
 // Handles top-level members and region members.
 func collectTransitions(graph *StateGraph, body transitionBody) error {
-	scope, owner, entryOwner := body.scope, body.owner, body.entryOwner
+	scope, owner := body.scope, body.owner
 
 	for _, member := range body.members {
 		var err error
 		switch n := unwrapMembership(member).(type) {
 		case *ast.Usage:
 			err = collectUsageTransitions(graph, n, body)
-		case *ast.InitialNode:
-			// `initial X then Y` marks Y as the initial state, with no vertex for
-			// the initial node itself.
-			if n.Successor != nil {
-				targetState := graph.endpointState(scope, n.Successor)
-				if targetState != nil {
-					graph.addEntryTransition(entryOwner, &EntryTransition{Decl: n, Target: targetState, Scope: scope})
-				}
-			}
 		case *ast.SuccessionEdge:
 			err = collectSuccessionEdge(graph, n, body)
 		case *ast.TransitionEdge:

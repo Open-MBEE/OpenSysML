@@ -1,0 +1,5 @@
+{
+  "type": "instance",
+  "instantiate": "P::PD",
+  "error": "exhibited state machine m of PD: no initial state found in state machine M"
+}
