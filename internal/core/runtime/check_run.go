@@ -11,14 +11,39 @@ import (
 // the run settles: actions park their tokens, and the clock moves to the earliest
 // wait within the horizon once nothing is left at the instant.
 
-// invocationRun is an invocation driven move by move.
+// invocationRun is an invocation driven move by move. Its executors share one
+// run: one scheduler draws every choice, and one executor completing ends nothing.
 type invocationRun struct {
-	ctx *Context
-	inv *Invocation
+	ctx   *Context
+	inv   *Invocation
+	state *runState
+}
+
+// beginInvocation starts the invocation within one run of its own, so the
+// executors started, their initialization included, drive that run rather
+// than one each. A starter that fails returns its error and a nil run.
+func beginInvocation(ctx *Context, start Starter) (*invocationRun, error) {
+	r := &invocationRun{ctx: ctx}
+	defer r.enter()()
+	inv, err := start(ctx)
+	if err != nil {
+		return nil, err
+	}
+	r.inv = inv
+	return r, nil
+}
+
+// enter brackets one call into the invocation's run, begun at the first.
+func (r *invocationRun) enter() func() {
+	if r.state == nil {
+		r.state = r.ctx.newRunState()
+	}
+	return r.ctx.enterRun(r.state)
 }
 
 // enabledMoves lists the moves of the state: every executor's, in executor order.
 func (r *invocationRun) enabledMoves() []enabledMove {
+	defer r.enter()()
 	var moves []enabledMove
 	for _, exec := range r.inv.executors() {
 		moves = append(moves, exec.enabledMoves()...)
@@ -82,6 +107,7 @@ func (r *invocationRun) stabilize() error {
 // park steps every running action with no move so its tokens park: at their
 // accepts, or on the clock. Under check the step is scripted to select none.
 func (r *invocationRun) park() error {
+	defer r.enter()()
 	for _, exec := range r.inv.executors() {
 		action, isAction := exec.(*ActionExecutor)
 		if !isAction || (action.state != StateRunning && action.state != StateWaiting) {
@@ -149,6 +175,7 @@ func (r *invocationRun) waitsPastHorizon(exec checkedExecutor) bool {
 // drawn as the due order among the executors with a move, the token and picks
 // scripted. It reports the choice points the move drew past its picks.
 func (r *invocationRun) makeMove(m enabledMove) ([]ChoicePoint, error) {
+	defer r.enter()()
 	check := r.ctx.scheduling().check
 	if check == nil {
 		return nil, &CheckMoveError{Move: m.String(), Faced: "the run is not under the check policy"}
@@ -167,6 +194,7 @@ func (r *invocationRun) makeMove(m enabledMove) ([]ChoicePoint, error) {
 
 // step moves one executor one unit: the one the policy draws among those with a move.
 func (r *invocationRun) step(execs []checkedExecutor) error {
+	defer r.enter()()
 	pick, err := r.drawOwner(execs)
 	if err != nil {
 		return err

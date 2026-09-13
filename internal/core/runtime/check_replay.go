@@ -72,16 +72,15 @@ func Replay(
 		ctx.SetTrace(NewTraceRecorder())
 	}
 	r := &Replayed{Ctx: ctx}
-	inv, err := start(ctx)
+	run, err := beginInvocation(ctx, start)
 	if err != nil {
 		r.Err = err
 		return r, r.agree(w, "starting the invocation failed")
 	}
-	if err := inv.started(ctx); err != nil {
+	if err := run.inv.started(ctx); err != nil {
 		return nil, err
 	}
-	r.Inv = inv
-	run := &invocationRun{ctx: ctx, inv: inv}
+	r.Inv = run.inv
 	for {
 		if err := stop.Err(); err != nil {
 			return r, err
