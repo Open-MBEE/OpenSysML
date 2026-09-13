@@ -133,12 +133,13 @@ func TestRenderDocumentUsageAndErrors(t *testing.T) {
 	wants(t, run(t, s, "%render-document Reports::MassReport root=telescope"),
 		"error:", "binds its queries' parameters in the model")
 	wants(t, run(t, s, "%render-document Reports::MassReport svg"),
-		"error:", `"svg" is not a diagram form (mermaid, dot)`)
+		"error:", `"svg" is not a diagram form (mermaid, dot, plantuml)`)
 	wants(t, run(t, s, "%render-document Reports::MassReport dot extra"), renderDocumentUsage)
 }
 
 // TestRenderDocumentDiagramForm writes the document's graph-shaped diagram as
-// Mermaid by default and as DOT when asked; the table stays a pipe table.
+// Mermaid by default and as DOT or PlantUML when asked; the table stays a pipe
+// table.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	s := docRenderSession(t)
 	if res := s.Submit(docDiagramModel); len(errorDiagnostics(res.Diagnostics)) > 0 {
@@ -168,10 +169,22 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	if !strings.Contains(markdown, "```dot\n") {
 		t.Errorf("API rendering does not write DOT:\n%s", markdown)
 	}
+	puml := run(t, s, "%render-document Imaging::ChainReport plantuml")
+	wants(t, puml,
+		"```plantuml\n@startuml\n' Imaging::chainView — interconnection rendering",
+		"<style>\n",
+		"n1 -[thickness=3]- n3 : link\n",
+		"@enduml\n```",
+		"| camera | 2.5 |",
+	)
+	if strings.Contains(puml, "```mermaid") || strings.Contains(puml, "```dot") {
+		t.Errorf("a diagram is in another form under plantuml:\n%s", puml)
+	}
 
 	// A quoted name holding a space is one argument, with or without a form.
 	wants(t, run(t, s, "%render-document Imaging::'Chain Brief'"), "# Chain Brief", "```mermaid\n")
 	wants(t, run(t, s, "%render-document Imaging::'Chain Brief' dot"), "# Chain Brief", "```dot\n")
+	wants(t, run(t, s, "%render-document Imaging::'Chain Brief' plantuml"), "# Chain Brief", "```plantuml\n")
 }
 
 func TestRenderDocumentMarkdownAPI(t *testing.T) {
@@ -190,7 +203,7 @@ func TestRenderDocumentMarkdownAPI(t *testing.T) {
 
 func TestRenderDocumentListedInHelpAndCompletion(t *testing.T) {
 	s := docRenderSession(t)
-	wants(t, run(t, s, "%help"), "%render-document <name> [mermaid|dot]", "Graphviz DOT")
+	wants(t, run(t, s, "%help"), "%render-document <name> [mermaid|dot|plantuml]", "Graphviz DOT", "PlantUML")
 	comp := s.Complete("%render-doc", len("%render-doc"))
 	found := false
 	for _, cand := range comp.Candidates {

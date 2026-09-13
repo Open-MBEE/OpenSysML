@@ -28,7 +28,7 @@ type documentInfo struct {
 
 // renderDocumentParams asks for the Markdown rendering of the document
 // definition Name names. DiagramForm is the source its graph-shaped diagrams
-// are written as, mermaid or dot; empty is mermaid.
+// are written as, mermaid, dot or plantuml; empty is mermaid.
 type renderDocumentParams struct {
 	Name        string `json:"name"`
 	DiagramForm string `json:"diagramForm,omitempty"`

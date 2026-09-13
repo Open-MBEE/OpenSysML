@@ -164,13 +164,13 @@ func TestPaletteFamilyIndex(t *testing.T) {
 		}
 	}
 	// The colour of a family is the palette's colour at the family's index.
-	w := &dotWriter{palette: PaletteOkabeIto}
+	w := &familyFills{palette: PaletteOkabeIto}
 	for i, family := range order[:8] {
-		if got := w.dotFamilyColor(&Node{Kind: family}); got != paletteColors[PaletteOkabeIto][i] {
+		if got := w.color(&Node{Kind: family}); got != paletteColors[PaletteOkabeIto][i] {
 			t.Errorf("okabe-ito colour of %s = %s, want %s", family, got, paletteColors[PaletteOkabeIto][i])
 		}
 	}
-	if def, usage := w.dotFamilyColor(&Node{Kind: "part def"}), w.dotFamilyColor(&Node{Kind: "part"}); def != usage {
+	if def, usage := w.color(&Node{Kind: "part def"}), w.color(&Node{Kind: "part"}); def != usage {
 		t.Errorf("part def is %s and part %s; want one family colour", def, usage)
 	}
 }
@@ -217,16 +217,16 @@ func TestPaletteFillsAreLegible(t *testing.T) {
 	}
 }
 
-// The notice a form that draws no palette writes names the palette and the form
-// that does.
+// The notice a form that draws no palette writes names the palette and the
+// forms that do; a kind supports a palette when one of those forms writes it.
 func TestPaletteNotice(t *testing.T) {
-	want := fmt.Sprintf("palette %s; only the DOT form fills nodes by keyword family", PaletteTolMuted)
+	want := fmt.Sprintf("palette %s; only the DOT and PlantUML forms fill nodes by keyword family", PaletteTolMuted)
 	if got := paletteNotice(PaletteTolMuted); got != want {
 		t.Errorf("paletteNotice = %q, want %q", got, want)
 	}
 	for _, kind := range Kinds() {
-		if kind.SupportsPalette() != kind.SupportsForm(FormDot) {
-			t.Errorf("%s.SupportsPalette() = %v, but SupportsForm(dot) = %v", kind, kind.SupportsPalette(), kind.SupportsForm(FormDot))
+		if want := kind.SupportsForm(FormDot) || kind.SupportsForm(FormPlantUML); kind.SupportsPalette() != want {
+			t.Errorf("%s.SupportsPalette() = %v, want %v", kind, kind.SupportsPalette(), want)
 		}
 	}
 }

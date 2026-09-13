@@ -63,8 +63,8 @@ Renders one view of a document.
 | --- | --- |
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
-| `form` | `mermaid`, `text`, `markdown` or `dot`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed. |
-| `palette` | Optional. A palette the `dot` form fills nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. A `mermaid` artifact notes the palette as not represented; `text` and `markdown` ignore it. |
+| `form` | `mermaid`, `text`, `markdown`, `dot` or `plantuml`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed; `plantuml` writes PlantUML in the Pilot visualizer's B&W style for those kinds and a `sequence`, without needing a PlantUML jar. |
+| `palette` | Optional. A palette the `dot` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. A `mermaid` artifact notes the palette as not represented; `text` and `markdown` ignore it. |
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -72,8 +72,9 @@ several, the request is ambiguous and fails, naming them
 than picking one. If it declares none, the request fails and points at the pseudo-views.
 
 A `form` the rendering kind cannot be written in (Mermaid for a table, Markdown for a
-diagram, DOT for a table or a sequence) is refused, and the reply names the form the kind
-does use. A `form` that is not one of the four is refused, and the reply names all four. A
+diagram, DOT for a table or a sequence, PlantUML for a table) is refused, and the reply names
+the form the kind does use. A `form` that is not one of the five is refused, and the reply names
+all five. A
 `palette` that names none of the eight is refused, and the reply names them
 (`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`).
 
@@ -138,7 +139,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `view` | The view rendered, by qualified name; empty for a pseudo-view. |
 | `kind` | `tree`, `interconnection`, `state`, `action`, `sequence` or `table`. |
 | `stated` | How the kind was decided — the rendering the view names, the standard view definition it specializes, or that no view was declared. Empty when the view took the default. |
-| `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, the text form, or a Markdown table. |
+| `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, a PlantUML diagram, the text form, or a Markdown table. |
 | `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession` or `flow`. |
 | `rows`, `columns` | A table rendering's cells, in place of nodes and edges. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |
@@ -229,11 +230,12 @@ the same pipeline, run against the same workspace the diagnostics are computed f
 
 `name` is the qualified name of a document definition, as `opensysml/documents`
 lists it. An optional `diagramForm`, `"mermaid"` (the default when omitted) or
-`"dot"`, is the form every graph-shaped diagram block of the document is written
-in — a ` ```dot ` fence of Graphviz DOT under `"dot"`, as `sysml -render-document
--diagram-form dot` writes; a table-kind view is a pipe table either way. Any other
-value fails the request with the typed error's message naming the two forms, as
-does `"dot"` on a document holding a `sequence` diagram, which has no DOT form. If the name resolves to nothing, names an element that is not a
+`"dot"` or `"plantuml"`, is the form every graph-shaped diagram block of the document is written
+in — a ` ```dot ` fence of Graphviz DOT under `"dot"`, a ` ```plantuml ` fence under
+`"plantuml"`, as `sysml -render-document -diagram-form dot|plantuml` writes; a table-kind
+view is a pipe table whichever form. Any other value fails the request with the typed
+error's message naming the three forms, as does `"dot"` on a document holding a `sequence`
+diagram, which has no DOT form. If the name resolves to nothing, names an element that is not a
 document, or names a document whose planning or query execution fails, the
 request fails with the typed error's message (for example `Observatory::Subsystem
 is not a document: one is a part def specializing DocumentQueries::Document`)
