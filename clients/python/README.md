@@ -24,8 +24,15 @@ inst = model.instantiate("Demo::Vehicle")
 inst.mass                                          # 1500.0 [kg] — a Quantity
 
 model.verify_satisfaction()                        # every assert satisfy … by …
+model.verify_constraint("Demo::Vehicle::massOK", subject="Demo::sedan", engine="check")
+model.connection.list_engines()                    # what `sysml -engines` prints
 model.save("model.ttl")                            # RDF Turtle (experimental)
 ```
+
+A value arrives as the Python value of its kind — `Quantity`, `complex`, `Array`, `Vector`,
+`VectorQuantity`, `TensorQuantity`, `SetValue`, `MeasurementRef`, `Function`, `Metaobject`,
+`EnumLiteral`, `Undetermined`, `INFINITY` — never a string to parse; every verdict carries a
+`Standing` naming the engine that answered and the strength of its evidence.
 
 Declarations can be authored from notation strings while preserving the
 untouched source:
@@ -245,7 +252,8 @@ A `Diagnostic` has `severity`, `message`, `code` and a location (`file`,
 on `code`, not on the message text: `"syntax"` for a syntax error, a validation
 code such as `"unresolved"` for a finding, `"choice-point"` and
 `"guard-unevaluable"` for a run's notes; `""` when the service assigned none. A service
-that populates `code` advertises `CAPABILITY_DIAGNOSTIC_CODES`; without it every code is `""`.
+that populates `code` advertises `opensysml.capabilities.CAPABILITY_DIAGNOSTIC_CODES`; without
+it every code is `""`.
 
 ```python
 model = opensysml.load("model.sysml")

@@ -177,6 +177,15 @@ of the element's own metaclass (`SysML::Systems::PartUsage`), not the type it
 was cast to. Its features (`declaredName`, `ownedFeature`, ...) are read in the
 model, not carried. A metaobject naming no element is an `Error::Decode`.
 
+A `Value::Undetermined` is a model-level answer the model leaves open — an
+attribute with no value, a count the multiplicity does not fix — as a
+successful answer rather than an error: `reason` says why, `count_lower` and
+`count_upper` bound its count as the model spells them. It is read, never
+sent. `Value::Infinity` is the unbounded `*`, ordered above every finite
+magnitude. An `EnumLiteral` of an enumeration that specializes a scalar type
+(`enum def Level :> Integer { high = 3; }`) carries that scalar as `value`,
+`None` otherwise.
+
 ## Conformance runner
 
 The workspace includes `opensysml-conformance`, which runs the language-neutral

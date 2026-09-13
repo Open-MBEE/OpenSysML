@@ -149,23 +149,23 @@ of the pilot corpora fails `cmd/pilot-diff`, `cmd/pilot-xpect` and the `TestPilo
 with a provenance message naming the drift; that is the gate working, not a regression — re-fetch
 before re-recording anything.
 
-| Gate | Count at `main` @ `180773449` (2026-09-09, Go 1.25.0); the `v0.6.0` figure in brackets where it moved |
+| Gate | Count at `develop` @ `074f9c4b7` (2026-09-13, Go 1.25.0); the `v0.7.0` figure in brackets where it moved |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
-| OMG pilot corpora (ratchet) | 213 files; 6 report a diagnostic, each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
+| OMG pilot corpora (ratchet) | 213 files; 7 report a diagnostic [6], each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
 | Stdlib parser conformance | 100/100 clean — 94 vendored OMG files and 6 non-normative OpenSysML extensions |
-| Execution conformance cases | 770 under `TestExecutionConformance`, all run and pass, none skipped [674: 671 run, 3 skipped] |
-| Known execution-conformance failures | **0** — `known_failures.txt` holds no case: "every derived case passes" [3] |
-| Cases admitting several outcomes | 19 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [0] |
-| Trace partial orders | 5 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [0] |
-| Golden execution traces | 216 `.trace.golden` files: 182 under the default schedule (`TestExecutionTrace`, one per case) and 34 per-policy goldens (`<case>.declared`, `<case>.seed-1`) [140] |
-| Runtime robustness cases | 369 first-level subtests of `TestRuntimeRobustness`; `docs/project/spec-compliance.md` enumerates 337 of them by name and `README.md` still states 336 [336] |
+| Execution conformance cases | 889 under `TestExecutionConformance`, all run and pass, none skipped [770] |
+| Known execution-conformance failures | **0** — `known_failures.txt` holds no case: "every derived case passes" |
+| Cases admitting several outcomes | 25 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [19] |
+| Trace partial orders | 7 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [5] |
+| Golden execution traces | 272 `.trace.golden` files: 228 under the default schedule (`TestExecutionTrace`, one per case) and 44 per-policy goldens (`<case>.declared`, `<case>.seed-1`) [216: 182 and 34] |
+| Runtime robustness cases | 457 first-level subtests of `TestRuntimeRobustness` [369] |
 | gRPC conformance fixtures / robustness cases | 15 / 8 (`TestGRPCConformance`, `TestGRPCRobustness`; the authoring service adds 2 robustness cases of its own) |
-| Golden AST fixtures | 197 (`TestGolden`: 171 SysML, 26 KerML) [195: 169 SysML] |
-| Negative parser subtests | 249 first-level subtests of `TestNegative` (338 across the `TestNegative*` functions, 396 across every `*Negative*` parser test); unchanged |
-| Rejection oracle | 285 self-authored invalid models: 273 both reject by default and 276 when we are asked strictly, 3 the pilot alone by default and none strictly, 9 ours alone (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
+| Golden AST fixtures | 204 (`TestGolden`: 176 SysML, 28 KerML) [197: 171 SysML, 26 KerML] |
+| Negative parser subtests | 252 first-level subtests of `TestNegative` (396 across the `TestNegative*` functions, 454 across every `*Negative*` parser test) [249: 338 and 396] |
+| Rejection oracle | 306 self-authored invalid models: 293 both reject by default and 297 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [285: 273 and 276, 3 the pilot alone] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
 | Validation census | 162 of 217 named constraints reported (156 faithful, 6 approximate), 1 not implemented, 1 deliberate, 53 unknown |
-| RDF corpus round trip | 346 of 346 models stable, none refused |
+| RDF corpus round trip | 353 of 353 models stable, none refused [346] |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
@@ -173,14 +173,14 @@ docs-counts` from the committed baselines; they are not repeated here.
 
 The test-suite figures above are counted from `go test -v` at the commit the table names. The
 other surfaces `releasing.md` allows to repeat them (`README.md`, `docs/project/spec-compliance.md`,
-`docs/project/training-examples.md`) are still typed in by hand, and at this baseline they
-state the `v0.6.0` figures #108 recounted (671 conformance cases, 140 traces, 336 robustness
-cases, 195 golden ASTs, 15,139 tests and subtests) rather than the ones above; `make docs-counts`
+`docs/project/training-examples.md`) are still typed in by hand and were recounted at the same
+commit, so they agree with the table; `make docs-counts`
 generates only the refereed pilot figures and does not check them. Folding the test-suite figures
 into `cmd/doc-counts` so they are generated like the pilot figures and can no longer drift is the
 small open item listed under sequencing, and the recount of those surfaces for the next release belongs to
 the release procedure (`releasing.md`), not to this record. The census, rejection-oracle and RDF
-round-trip rows follow the committed baselines, none of which moved since the tag.
+round-trip rows follow the committed baselines; the census did not move since the tag, the other
+two grew with the corpus and the baseline (bracketed above).
 
 Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
 present. It counts only each package's own tests, which understates a package consumed by others
@@ -508,7 +508,7 @@ drops what those items carry. Every surface says so (`export.ExperimentalNotice`
 it to stable is re-measuring the harness once those land, not a documentation change.
 
 Measured by the per-file ratchet at this baseline (`TestCorpusRoundTrip`,
-`internal/core/export/testdata/corpus_roundtrip_expected.txt`), **all 346 models under
+`internal/core/export/testdata/corpus_roundtrip_expected.txt`), **all 353 models under
 `examples/` convert** (the training corpus, the three pilot corpora and this repository's own
 demos), every one round-tripping `notation → RDF → notation → RDF` byte-identically; there is no
 whitespace-only, graph-diff, unwritable, unparseable or refused verdict left — each file is
@@ -2344,7 +2344,7 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the
   differential's record and constructor coverage both need it; decide N2.2 (the budget) before
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
-- **Track D.** The RDF ratchet is 346/346 with no refusal left; step 6 above is next; **D7** is
+- **Track D.** The RDF ratchet is 353/353 with no refusal left; step 6 above is next; **D7** is
   mechanical now that identity is stable and fits anywhere; the ontology modules (#774 on the
   previous repository) have to be re-proposed against this `main` before **D8**'s profile, which
   only becomes conformant behind D1 and D2; **D12** (the standard library's normative element

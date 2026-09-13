@@ -315,17 +315,7 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		s.verbosity = v
 		return metaOut([]string{fmt.Sprintf("verbosity: %s", v)}, false, nil), true
 	case "%trace":
-		if len(fields) >= 2 {
-			switch fields[1] {
-			case "on":
-				s.setTracing(true)
-			case "off":
-				s.setTracing(false)
-			default:
-				return metaOut([]string{fmt.Sprintf("error: unknown trace setting %q (want on or off)", fields[1])}, false, nil), true
-			}
-		}
-		return metaOut([]string{fmt.Sprintf("trace: %s", onOff(s.trace != nil))}, false, nil), true
+		return metaOut(s.doTrace(fields[1:]), false, nil), true
 	case "%strict":
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
 	case "%schedule":
@@ -365,31 +355,53 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		}
 		return metaOut(s.doView(fields[1])), true
 	case "%render":
-		if len(fields) < 2 || len(fields) > 4 {
-			return metaOut([]string{renderUsage}, false, nil), true
-		}
-		form := view.FormText
-		if len(fields) >= 3 {
-			form = view.Form(fields[2])
-			if !slices.Contains(view.Forms(), form) {
-				return metaOut([]string{fmt.Sprintf("unknown form %q; %s", fields[2], renderUsage)}, false, nil), true
-			}
-		}
-		var palette view.Palette
-		if len(fields) == 4 {
-			if form != view.FormDot {
-				return metaOut([]string{fmt.Sprintf("a palette fills the dot form only, not %s; %s", form, renderUsage)}, false, nil), true
-			}
-			var ok bool
-			if palette, ok = view.ParsePalette(fields[3]); !ok {
-				return metaOut([]string{(&view.UnknownPaletteError{Name: fields[3]}).Error() + "; " + renderUsage}, false, nil), true
-			}
-		}
-		return metaOut(s.doRender(fields[1], form, palette)), true
+		return metaOut(s.metaRender(fields[1:])), true
 	case "%quit", "%exit":
 		return metaOut([]string{"goodbye"}, true, nil), true
 	}
 	return metaResult{}, false
+}
+
+// doTrace answers %trace: an argument switches tracing on or off, and the
+// reply states the setting in force.
+func (s *Session) doTrace(args []string) []string {
+	if len(args) >= 1 {
+		switch args[0] {
+		case "on":
+			s.setTracing(true)
+		case "off":
+			s.setTracing(false)
+		default:
+			return []string{fmt.Sprintf("error: unknown trace setting %q (want on or off)", args[0])}
+		}
+	}
+	return []string{fmt.Sprintf("trace: %s", onOff(s.trace != nil))}
+}
+
+// metaRender reads the %render arguments — the name, an optional form and, for
+// the dot form only, an optional palette — and renders the view they name.
+func (s *Session) metaRender(args []string) ([]string, bool, error) {
+	if len(args) < 1 || len(args) > 3 {
+		return []string{renderUsage}, false, nil
+	}
+	form := view.FormText
+	if len(args) >= 2 {
+		form = view.Form(args[1])
+		if !slices.Contains(view.Forms(), form) {
+			return []string{fmt.Sprintf("unknown form %q; %s", args[1], renderUsage)}, false, nil
+		}
+	}
+	var palette view.Palette
+	if len(args) == 3 {
+		if form != view.FormDot {
+			return []string{fmt.Sprintf("a palette fills the dot form only, not %s; %s", form, renderUsage)}, false, nil
+		}
+		var ok bool
+		if palette, ok = view.ParsePalette(args[2]); !ok {
+			return []string{(&view.UnknownPaletteError{Name: args[2]}).Error() + "; " + renderUsage}, false, nil
+		}
+	}
+	return s.doRender(args[0], form, palette)
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line

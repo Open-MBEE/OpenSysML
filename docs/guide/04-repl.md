@@ -128,8 +128,18 @@ reports this:
 
 ```
 sysml> %load a.sysml b.sysml
-note: P is opened by more than one loaded file; each opening stays a declaration of its own, so a
-member of one is not visible unqualified in the other — qualify it (P::member)
+loaded 2 files:
+  a.sysml
+  b.sysml
+a.sysml:1:9: warning: Duplicate of other owned member name
+package P { part def A; }
+        ^
+b.sysml:1:9: warning: Duplicate of other owned member name
+package P { part def B; }
+        ^
+✓ package P
+✓ package P
+note: P is opened by more than one loaded file; each opening stays a declaration of its own, so a member of one is not visible unqualified in the other — qualify it (P::member)
 ```
 
 Each file keeps its own identity, which is what lets you reload one of them and replace only
@@ -236,9 +246,9 @@ sysml> package Demo {
 sysml> %view Demo::report
 view Demo::report
   exposes
-    Demo::vehicle (partUsage)
+    Demo::vehicle (part)
   nested views
-    Demo::report::detail (viewUsage)
+    Demo::report::detail (view)
   viewpoint conformance
     satisfy structure (from Demo::StructureView): violated
       concern budget: violated
