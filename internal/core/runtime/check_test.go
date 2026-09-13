@@ -39,6 +39,40 @@ func starterOf(sym *symbols.Symbol) Starter {
 	}
 }
 
+// checkStart checks the invocation the starter starts, under the default bounds.
+func checkStart(t *testing.T, m *exploreModel, start Starter, opts CheckOptions, props ...CheckProperty) *CheckReport {
+	t.Helper()
+	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, opts, props)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	return report
+}
+
+// invocationOf starts the actions and the state machines, performed by no object.
+func invocationOf(actions, states []*symbols.Symbol) Starter {
+	return func(ctx *Context) (*Invocation, error) {
+		inv := &Invocation{}
+		for _, sym := range actions {
+			exec, err := ctx.CreateActionExecutor(sym)
+			if err != nil {
+				inv.Release()
+				return nil, err
+			}
+			inv.Actions = append(inv.Actions, exec)
+		}
+		for _, sym := range states {
+			exec, err := ctx.CreateStateExecutor(sym)
+			if err != nil {
+				inv.Release()
+				return nil, err
+			}
+			inv.States = append(inv.States, exec)
+		}
+		return inv, nil
+	}
+}
+
 // action is the one action a single-action invocation runs.
 func (inv *Invocation) action() *ActionExecutor { return inv.Actions[0] }
 

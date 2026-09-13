@@ -258,27 +258,28 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 		ctx.SetTrace(NewTraceRecorder())
 	}
 	c := &checker{
-		ctx:     ctx,
-		budget:  budget,
-		opts:    opts,
-		props:   props,
-		visited: make(map[stateKey]*visitedState),
-		onStack: make(map[stateKey]int),
-		finals:  make(map[string]int),
-		futures: make(map[futureKey]lower.Footprint),
-		budgets: ctx.Budgets(),
+		ctx:            ctx,
+		budget:         budget,
+		opts:           opts,
+		props:          props,
+		visited:        make(map[stateKey]*visitedState),
+		onStack:        make(map[stateKey]int),
+		finals:         make(map[string]int),
+		futures:        make(map[futureKey]lower.Footprint),
+		machineFutures: make(map[*lower.StateGraph]lower.Footprint),
+		budgets:        ctx.Budgets(),
 	}
-	inv, err := start(ctx)
+	run, err := beginInvocation(ctx, start)
 	if err != nil {
 		// Failing to start fails on every schedule: a violation with no move.
 		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err)})
 		return c.result(), nil
 	}
-	if err := inv.started(ctx); err != nil {
+	defer run.inv.Release()
+	if err := run.inv.started(ctx); err != nil {
 		return nil, err
 	}
-	c.inv, c.run = inv, &invocationRun{ctx: ctx, inv: inv}
-	defer inv.Release()
+	c.inv, c.run = run.inv, run
 	if err := c.resolveDiverge(); err != nil {
 		return nil, err
 	}
@@ -305,6 +306,8 @@ type checker struct {
 	onStack map[stateKey]int
 	stack   []*checkFrame
 	futures map[futureKey]lower.Footprint
+	// machineFutures is the footprint of a machine's whole graph, by graph.
+	machineFutures map[*lower.StateGraph]lower.Footprint
 
 	// budgets are the executors' budgets, each a bound on the moves of its kind
 	// along one schedule.

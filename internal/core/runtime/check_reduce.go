@@ -26,17 +26,22 @@ func (m enabledMove) unit() tokenKey {
 }
 
 // footprintOf is the footprint of the move: what advancing the token over its
-// node touches. A move the executor will refuse depends on everything, as does a
-// state machine's move until its footprints are projected.
+// node touches, what a dispatch may fire, or what a do step runs. A move the
+// executor will refuse depends on everything.
 func (c *checker) footprintOf(m enabledMove) lower.Footprint {
 	if m.Fails != nil {
 		return lower.Footprint{Dynamic: true}
 	}
-	exec, isAction := m.Owner.(*ActionExecutor)
-	if !isAction {
-		return lower.Footprint{Dynamic: true}
+	switch exec := m.Owner.(type) {
+	case *ActionExecutor:
+		return c.standing(exec, exec.tokens[exec.tokenIndex(m.Token)])
+	case *StateExecutor:
+		if m.Kind == moveDoStep {
+			return doStepFootprint(exec, m.Node)
+		}
+		return dispatchFootprint(exec)
 	}
-	return c.standing(exec, exec.tokens[exec.tokenIndex(m.Token)])
+	return lower.Footprint{Dynamic: true}
 }
 
 // standing is the footprint of the node the token stands at.
@@ -49,16 +54,118 @@ func (c *checker) standing(exec *ActionExecutor, t Token) lower.Footprint {
 
 // futureOf is the footprint of every move the unit may make from where it
 // stands: for a token, the nodes it can reach in its flow and, when its flow
-// ends, in the flows it returns to.
+// ends, in the flows it returns to; for a machine, its whole graph.
 func (c *checker) futureOf(m enabledMove) lower.Footprint {
 	if m.Fails != nil {
 		return lower.Footprint{Dynamic: true}
 	}
-	exec, isAction := m.Owner.(*ActionExecutor)
-	if !isAction {
-		return lower.Footprint{Dynamic: true}
+	switch exec := m.Owner.(type) {
+	case *ActionExecutor:
+		return c.tokenFuture(exec, exec.tokens[exec.tokenIndex(m.Token)])
+	case *StateExecutor:
+		return c.machineFuture(exec)
 	}
-	return c.tokenFuture(exec, exec.tokens[exec.tokenIndex(m.Token)])
+	return lower.Footprint{Dynamic: true}
+}
+
+// machineStanding is what the machine's next unit may touch: a dispatch out of
+// its configuration, or a step of a do behavior of it; a paused do body depends
+// on everything, as the snapshot cannot capture it.
+func machineStanding(e *StateExecutor) lower.Footprint {
+	fp := dispatchFootprint(e)
+	for _, act := range e.doActions {
+		fp = unionFootprints(fp, doStepFootprint(e, act.state))
+	}
+	return fp
+}
+
+// dispatchFootprint is what dispatching the machine's next event may touch:
+// firing any transition out of the states of its active configuration and those
+// enclosing them, and taking a message off the bus where one of those states
+// accepts, calls or defers one — a machine at rest reads nothing.
+func dispatchFootprint(e *StateExecutor) lower.Footprint {
+	if e.activeConfig == nil {
+		return lower.Footprint{}
+	}
+	var fp lower.Footprint
+	footprints := e.graph.TransitionFootprints()
+	seen := make(map[*ast.StateNode]bool)
+	for _, leaf := range e.activeStates() {
+		for _, state := range e.getParentChain(leaf) {
+			if seen[state] {
+				continue
+			}
+			seen[state] = true
+			for _, trans := range e.graph.Transitions[state] {
+				fp = unionFootprints(fp, footprints[trans])
+				if channel, takes := triggerChannel(trans); takes {
+					fp.Accepts = append(fp.Accepts, channel)
+				}
+			}
+			if len(e.graph.Deferred[state]) > 0 {
+				fp.Accepts = append(fp.Accepts, lower.Channel{})
+			}
+		}
+	}
+	return fp
+}
+
+// triggerChannel is the bus channel a transition's trigger takes its occurrence
+// from, for an accept or call trigger; none for a completion, time or change one.
+func triggerChannel(trans *lower.Transition) (lower.Channel, bool) {
+	switch t := trans.Trigger.(type) {
+	case *ast.AcceptEvent:
+		channel := lower.Channel{Port: trans.Via}
+		if typed := ast.AsQualifiedName(t.SignalType); typed != nil {
+			channel.Signal = lower.FeaturePath(typed)
+		}
+		return channel, true
+	case *ast.CallEvent:
+		return lower.Channel{Port: trans.Via}, true
+	}
+	return lower.Channel{}, false
+}
+
+// doStepFootprint is what one step of the state's do behavior runs: the next
+// behavior pending, or everything for one paused mid-way.
+func doStepFootprint(e *StateExecutor, state ast.Node) lower.Footprint {
+	for _, act := range e.doActions {
+		if act.state != state {
+			continue
+		}
+		if act.run != nil {
+			return lower.Footprint{Dynamic: true}
+		}
+		if len(act.pending) == 0 {
+			return lower.Footprint{}
+		}
+		return e.graph.BehaviorFootprints()[act.pending[0].Node]
+	}
+	return lower.Footprint{}
+}
+
+// machineFuture is the footprint of every move the machine may make from any
+// configuration: its transitions' and its behaviors', with the messages any
+// trigger of it takes; memoized by graph.
+func (c *checker) machineFuture(e *StateExecutor) lower.Footprint {
+	if fp, ok := c.machineFutures[e.graph]; ok {
+		return fp
+	}
+	var future lower.Footprint
+	for trans, fp := range e.graph.TransitionFootprints() {
+		future = unionFootprints(future, fp)
+		if channel, takes := triggerChannel(trans); takes {
+			future.Accepts = append(future.Accepts, channel)
+		}
+	}
+	for _, fp := range e.graph.BehaviorFootprints() {
+		future = unionFootprints(future, fp)
+	}
+	if len(e.graph.Deferred) > 0 {
+		future.Accepts = append(future.Accepts, lower.Channel{})
+	}
+	c.machineFutures[e.graph] = future
+	return future
 }
 
 func (c *checker) tokenFuture(exec *ActionExecutor, t Token) lower.Footprint {
@@ -194,19 +301,24 @@ func newPersistentClosure(c *checker, all []searchMove) *persistentClosure {
 		future:   make(map[tokenKey]lower.Footprint),
 	}
 	for _, exec := range c.inv.executors() {
-		action, isAction := exec.(*ActionExecutor)
-		if !isAction {
+		switch e := exec.(type) {
+		case *ActionExecutor:
+			for _, t := range e.tokens {
+				u := tokenKey{owner: exec, id: t.ID}
+				p.units = append(p.units, u)
+				p.standing[u] = c.standing(e, t)
+				p.future[u] = c.tokenFuture(e, t)
+			}
+		case *StateExecutor:
+			u := tokenKey{owner: exec}
+			p.units = append(p.units, u)
+			p.standing[u] = machineStanding(e)
+			p.future[u] = c.machineFuture(e)
+		default:
 			u := tokenKey{owner: exec}
 			p.units = append(p.units, u)
 			p.standing[u] = lower.Footprint{Dynamic: true}
 			p.future[u] = lower.Footprint{Dynamic: true}
-			continue
-		}
-		for _, t := range action.tokens {
-			u := tokenKey{owner: exec, id: t.ID}
-			p.units = append(p.units, u)
-			p.standing[u] = c.standing(action, t)
-			p.future[u] = c.tokenFuture(action, t)
 		}
 	}
 	for _, m := range all {
