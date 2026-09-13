@@ -239,6 +239,22 @@ func TestDeleteCascadeRefusesForTheDocumentsItMayNotRewrite(t *testing.T) {
 	}
 }
 
+// Without cascade the same delete is refused the same way: the cascade a client
+// could offer instead would be refused for that document too, so the refusal
+// names what blocks it rather than what a cascade would remove.
+func TestDeleteWithoutCascadeRefusesForTheDocumentsItsCascadeMayNotRewrite(t *testing.T) {
+	const src = "package P {\n    part def Base;\n}\n"
+	m := loadEditableWorkspace(t, "p.sysml", src,
+		map[string]string{"q.sysml": "package Q {\n    part b : P::Base;\n}\n"})
+	m.Index.AddDocument("locked.sysml", parseOnly("locked.sysml", "package L {\n    part x = Q::b;\n}\n"))
+	m.Index.ExpandWildcardImports()
+
+	e := addFailure(t, m, Delete("P::Base", false), FailureReferencedElsewhere)
+	if got := strings.Join(e.Referring, ","); got != "L::x (locked.sysml)" {
+		t.Fatalf("referring = %v, want L::x (locked.sysml)", e.Referring)
+	}
+}
+
 // Operations of one request build on each other across documents: the second
 // sees the other document as the first left it.
 func TestOperationsRewriteOtherDocumentsInSequence(t *testing.T) {

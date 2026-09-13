@@ -10,6 +10,7 @@ import {
   fileLabel,
   referrersByFile,
   staleDocuments,
+  unopenedDocuments,
   DOCUMENT_ROOT,
   editParams,
   endpointPath,
@@ -405,6 +406,18 @@ test("staleDocuments names a document the server read from disk that a buffer ha
     ["file:///work/disk.sysml", 1],
   ]);
   assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), ["file:///work/disk.sysml"]);
+});
+
+test("unopenedDocuments lists the documents no buffer holds, whatever version the server gave them", () => {
+  assert.deepEqual(unopenedDocuments(twoFileEdit, (uri) => (uri === carURI ? 3 : undefined)), [
+    fleetURI,
+    "file:///work/disk.sysml",
+  ]);
+  assert.deepEqual(unopenedDocuments({ changes: { [carURI]: [] } }, () => undefined), []);
+});
+
+test("unopenedDocuments is empty once every document the edit names is open", () => {
+  assert.deepEqual(unopenedDocuments(twoFileEdit, () => 1), []);
 });
 
 test("describeStale names the files and says the edit was not applied", () => {

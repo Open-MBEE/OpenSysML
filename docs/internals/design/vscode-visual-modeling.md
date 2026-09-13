@@ -243,8 +243,12 @@ are names the user saw there, and a later version may spell the same names for
 other declarations. A `version` that no longer matches is rejected, and the panel
 redraws and asks the user to repeat the action on what is now shown. Each other
 document's `TextDocumentEdit` carries the version the server computed it against; the
-language client library applies edits without checking that, so the panel does, and
-an edit naming a document that moved on meanwhile is not applied at all.
+language client library applies edits without checking that, so the panel does. A
+document the edit names that no buffer holds is opened first and the edit asked for
+again, so every document it lands on is a versioned buffer; the versions are compared
+and `applyEdit` called in one turn, and VS Code pins each document to the version it
+holds at that call, so an edit naming a document that moved on meanwhile is not
+applied at all.
 
 The diagram never mutates itself. It applies the edit, the edit re-triggers
 analysis, analysis emits `renderChanged`, and the panel redraws from the model. One

@@ -8,12 +8,14 @@ import {
   describeStale,
   editParams,
   endpointPath,
+  fileLabel,
   moveDestinations,
   moveOperation,
   offeredOn,
   ownerOf,
   referrersByFile,
   staleDocuments,
+  unopenedDocuments,
   REDRAWN_MESSAGE,
   Rendering,
   rootOwner,
@@ -37,6 +39,7 @@ import {
   ToWebview,
   VIEWS_METHOD,
   ViewsResult,
+  WorkspaceEdit,
 } from "./protocol";
 
 /** The context key the Open Diagram command is enabled by. */
@@ -599,40 +602,76 @@ class DiagramPanel {
       this.fail("The document is not open, so it cannot be edited.");
       return;
     }
-    let result: ApplyModelEditResult;
-    try {
-      const params = editParams(document.uri.toString(), rendering, operations);
-      result = await client.sendRequest<ApplyModelEditResult>(APPLY_MODEL_EDIT_METHOD, params);
-    } catch (err) {
-      void vscode.window.showErrorMessage(`The edit could not be computed: ${errorMessage(err)}`);
+    let edit = await this.compute(client, document, rendering, operations, action);
+    if (!edit) {
       return;
     }
-    // The names acted on may spell other declarations now: redraw, do not retry.
-    if (result.stale) {
-      this.refresh();
-      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
-      return;
+    // A document the server read from disk is opened first, so the edit is computed
+    // against a buffer, versioned and synced to the server like the others.
+    const unopened = unopenedDocuments(edit, openVersion);
+    if (unopened.length > 0) {
+      try {
+        await Promise.all(unopened.map((uri) => vscode.workspace.openTextDocument(vscode.Uri.parse(uri))));
+      } catch (err) {
+        this.fail(`${unopened.map(fileLabel).join(", ")} could not be opened for the edit: ${errorMessage(err)}`);
+        return;
+      }
+      edit = await this.compute(client, document, rendering, operations, action);
+      if (!edit) {
+        return;
+      }
+      const still = unopenedDocuments(edit, openVersion);
+      if (still.length > 0) {
+        this.fail(`${still.map(fileLabel).join(", ")} is not synced with the language server, so the edit is not applied.`);
+        return;
+      }
     }
-    if (result.refused) {
-      await this.refused(rendering, result, action);
-      return;
-    }
-    if (!result.edit) {
-      this.fail("The language server answered with neither an edit nor a refusal.");
-      return;
-    }
-    // Another document the edit touches may have moved on since the server read it.
-    const stale = staleDocuments(result.edit, openVersion);
+    const converted = await client.protocol2CodeConverter.asWorkspaceEdit(edit);
+    // Checked and applied in one turn: applyEdit pins each document to the version compared here,
+    // and VS Code refuses the edit if any moves on before it lands.
+    const stale = staleDocuments(edit, openVersion);
     if (stale.length > 0) {
       this.output.appendLine(`Model edit not applied: ${describeStale(stale)}`);
       void vscode.window.showWarningMessage(describeStale(stale));
       return;
     }
     // One applyEdit call, so every document changes together and one undo reverts them all.
-    const edit = await client.protocol2CodeConverter.asWorkspaceEdit(result.edit);
-    if (!(await vscode.workspace.applyEdit(edit))) {
+    if (!(await vscode.workspace.applyEdit(converted))) {
       void vscode.window.showErrorMessage("VS Code did not apply the edit.");
     }
+  }
+
+  // compute asks the server for the edit; a stale rendering, a refusal or an error is told and yields nothing.
+  private async compute(
+    client: LanguageClient,
+    document: vscode.TextDocument,
+    rendering: Rendering,
+    operations: ModelEditOperation[],
+    action: EditAction,
+  ): Promise<WorkspaceEdit | undefined> {
+    let result: ApplyModelEditResult;
+    try {
+      const params = editParams(document.uri.toString(), rendering, operations);
+      result = await client.sendRequest<ApplyModelEditResult>(APPLY_MODEL_EDIT_METHOD, params);
+    } catch (err) {
+      void vscode.window.showErrorMessage(`The edit could not be computed: ${errorMessage(err)}`);
+      return undefined;
+    }
+    // The names acted on may spell other declarations now: redraw, do not retry.
+    if (result.stale) {
+      this.refresh();
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return undefined;
+    }
+    if (result.refused) {
+      await this.refused(rendering, result, action);
+      return undefined;
+    }
+    if (!result.edit) {
+      this.fail("The language server answered with neither an edit nor a refusal.");
+      return undefined;
+    }
+    return result.edit;
   }
 
   // A delete refused for references is offered again as a cascade; anything else is just told.

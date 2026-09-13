@@ -228,6 +228,11 @@ export function fileLabel(uri: string): string {
   return decodeURIComponent(path.slice(path.lastIndexOf("/") + 1));
 }
 
+/** unopenedDocuments lists the documents an edit names that no buffer holds. */
+export function unopenedDocuments(edit: WorkspaceEdit, versionOf: (uri: string) => number | undefined): string[] {
+  return (edit.documentChanges ?? []).map((change) => change.textDocument.uri).filter((uri) => versionOf(uri) === undefined);
+}
+
 /**
  * staleDocuments lists the documents an edit was computed against a text of that the
  * client no longer holds: one pinned to a version the buffer has moved past, or one the

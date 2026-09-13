@@ -10,5 +10,6 @@
   the edit cannot follow: one from a bundled library file, or from a document the index holds
   without the workspace holding its source. The VS Code extension applies the edit as one
   `WorkspaceEdit`, so one <kbd>Ctrl</kbd>+<kbd>Z</kbd> reverts every file, lists the referrers
-  of a refused delete by file, and leaves an edit unapplied when another document it names was
-  typed into while it was computed. An edit within one document is unchanged.
+  of a refused delete by file, opens a file the server read from disk before editing it so the
+  edit lands on a versioned buffer, and leaves an edit unapplied when another document it names
+  was typed into while it was computed. An edit within one document is unchanged.
