@@ -359,7 +359,7 @@ func TestInheritedRedefinitionMasksAcrossADiamondWhateverTheGeneralOrder(t *test
 			t.Errorf("D :> %s: RedefinedFeatures(D::z) = %v, want [C::x]", generals, got)
 		}
 		r.ResolveDocument("t.sysml", doc)
-		if got := len(r.Diagnostics); got != 1 {
+		if len(r.Diagnostics) != 1 {
 			t.Errorf("D :> %s: diagnostics = %v, want one unresolved x at w", generals, r.Diagnostics)
 		}
 	}

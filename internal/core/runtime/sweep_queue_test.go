@@ -110,7 +110,7 @@ func TestRunSweepWithTablesRowsInPlanOrderWhateverTheirArrival(t *testing.T) {
 		t.Fatal(err)
 	}
 	run := sweepCalcRun(sym, scope)
-	sequential, err := RunSweepWith(context.Background(), first, "test::Fib", plan, 0, 1, fresh, run)
+	sequential, err := RunSweepWith(context.Background(), SweepWorkers{First: first, Jobs: 1, Fresh: fresh}, "test::Fib", plan, 0, run)
 	if err != nil {
 		t.Fatalf("sweep on one job: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestRunSweepWithTablesRowsInPlanOrderWhateverTheirArrival(t *testing.T) {
 	outOfOrder := false
 	for attempt := 0; attempt < 8; attempt++ {
 		a := arrivalsOf(sequential)
-		parallel, err := RunSweepWith(context.Background(), firstOf(t, fresh), "test::Fib", plan, 0, sweepJobs, fresh, a.recording(run))
+		parallel, err := RunSweepWith(context.Background(), SweepWorkers{First: firstOf(t, fresh), Jobs: sweepJobs, Fresh: fresh}, "test::Fib", plan, 0, a.recording(run))
 		if err != nil {
 			t.Fatalf("sweep on %d jobs: %v", sweepJobs, err)
 		}
@@ -191,7 +191,7 @@ func TestRunSweepWithKeepsEachRowsWritesToItself(t *testing.T) {
 		"tax=4.0 total -> 9.0",
 	}, "\n")
 	for _, jobs := range []int{1, sweepJobs} {
-		table, err := RunSweepWith(context.Background(), firstOf(t, fresh), "test::Bump", plan, 0, jobs, fresh, bumpRun(t, scope))
+		table, err := RunSweepWith(context.Background(), SweepWorkers{First: firstOf(t, fresh), Jobs: jobs, Fresh: fresh}, "test::Bump", plan, 0, bumpRun(t, scope))
 		if err != nil {
 			t.Fatalf("sweep on %d jobs: %v", jobs, err)
 		}
@@ -239,7 +239,7 @@ func TestRunSweepWithStopsAtTheDeadline(t *testing.T) {
 			finished.Add(1)
 			return result, err
 		}
-		table, err := RunSweepWith(stop, firstOf(t, fresh), "test::Fib", plan, 0, jobs, fresh, waiting)
+		table, err := RunSweepWith(stop, SweepWorkers{First: firstOf(t, fresh), Jobs: jobs, Fresh: fresh}, "test::Fib", plan, 0, waiting)
 		cancel()
 		if !errors.Is(err, context.DeadlineExceeded) || len(table.Rows) != 0 || table.Target != "" {
 			t.Fatalf("on %d jobs: table of %d rows and %v, want no table and context.DeadlineExceeded", jobs, len(table.Rows), err)
@@ -254,7 +254,7 @@ func TestRunSweepWithStopsAtTheDeadline(t *testing.T) {
 	stop, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 	defer cancel()
 	ran := 0
-	_, err = RunSweepWith(stop, first, "test::Fib", plan, 0, sweepJobs, fresh, func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
+	_, err = RunSweepWith(stop, SweepWorkers{First: first, Jobs: sweepJobs, Fresh: fresh}, "test::Fib", plan, 0, func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
 		ran++
 		return double(ctx, bindings)
 	})
@@ -280,7 +280,7 @@ func TestRunSweepWithFailsWhenAJobHasNoContext(t *testing.T) {
 		}
 		return sweepCalcRun(sym, scope)(ctx, bindings)
 	}
-	table, err := RunSweepWith(context.Background(), first, "test::Fib", plan, 0, 1, fresh, run)
+	table, err := RunSweepWith(context.Background(), SweepWorkers{First: first, Jobs: 1, Fresh: fresh}, "test::Fib", plan, 0, run)
 	if err != nil || firstRow != first {
 		t.Fatalf("on one job: %v; first row in the context handed in: %v", err, firstRow == first)
 	}
@@ -290,7 +290,7 @@ func TestRunSweepWithFailsWhenAJobHasNoContext(t *testing.T) {
 		}
 	}
 	broken := errors.New("no worker")
-	_, err = RunSweepWith(context.Background(), first, "test::Fib", plan, 0, 1, func(int) (*Context, error) { return nil, broken }, run)
+	_, err = RunSweepWith(context.Background(), SweepWorkers{First: first, Jobs: 1, Fresh: func(int) (*Context, error) { return nil, broken }}, "test::Fib", plan, 0, run)
 	if !errors.Is(err, broken) {
 		t.Fatalf("with no context to build: %v, want the builder's error", err)
 	}

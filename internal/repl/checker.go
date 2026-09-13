@@ -305,7 +305,13 @@ func (s *Session) checkVerdict(name string, policy runtime.SchedulePolicy, kind 
 	model := s.freshModel()
 	selection := s.engine
 	s.state.Unlock()
-	answered, err := s.engines.Check(context.Background(), model, name, policy, kind, ask, run, budget, selection)
+	answered, err := s.engines.Check(context.Background(), analysis.Request{
+		Model:     model,
+		Subject:   name,
+		Schedule:  policy,
+		Budget:    budget,
+		Selection: selection,
+	}, kind, ask, run)
 	s.state.Lock()
 	if err != nil {
 		return standing(checkStoppedVerdict(name, err), &answered)

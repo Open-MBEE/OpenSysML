@@ -1469,68 +1469,16 @@ type transitionBody struct {
 // collectTransitions recursively processes member lists to collect transitions.
 // Handles top-level members and region members.
 func collectTransitions(graph *StateGraph, body transitionBody) error {
-	memberList, scope, owner, entryOwner := body.members, body.scope, body.owner, body.entryOwner
+	scope, owner, entryOwner := body.scope, body.owner, body.entryOwner
 
-	for _, member := range memberList {
-		actualMember := unwrapMembership(member)
-
-		switch n := actualMember.(type) {
-		case *ast.ErrorNode:
-			// Skip error nodes
-			continue
+	for _, member := range body.members {
+		var err error
+		switch n := unwrapMembership(member).(type) {
 		case *ast.Usage:
-			// Handle succession usages: succession statements parsed as Usage with Kind=UsageSuccession
-			if n.Kind == ast.UsageSuccession {
-
-				if len(n.ConnectorEnds) == 2 {
-					// Connector-end targets name the source and target states.
-
-					sourceQName, _ := connectorEndReference(n.ConnectorEnds[0]).(*ast.QualifiedName)
-					targetQName, _ := connectorEndReference(n.ConnectorEnds[1]).(*ast.QualifiedName)
-
-					if sourceQName != nil && targetQName != nil {
-						sourceVertex := graph.endpointVertex(scope, sourceQName)
-						targetVertex, _ := graph.targetVertex(scope, targetQName, owner)
-
-						// `succession first begin then off;` out of a named entry action names the
-						// state the machine starts in, not an edge (SysML 7.19.3).
-						if sourceVertex == nil {
-							starts, err := graph.startsAt(n, nil, body, sourceQName, targetQName)
-							if err != nil {
-								return err
-							}
-							if starts {
-								continue
-							}
-						}
-
-						if sourceVertex != nil && targetVertex != nil {
-							trans := &Transition{
-								Decl:      n,
-								Source:    sourceVertex,
-								Target:    targetVertex,
-								Trigger:   nil, // Completion transition
-								Guard:     nil,
-								Effect:    nil,
-								Scope:     scope,
-								BodyScope: scope,
-							}
-							graph.Transitions[sourceVertex] = append(graph.Transitions[sourceVertex], trans)
-						}
-					}
-				}
-			} else if n.Kind == ast.UsageState {
-				// A state usage carries the transitions its own body declares and
-				// those the definition typing it declares, each lowered in the body
-				// that wrote it and against this usage's own vertices.
-				if err := collectStateTransitions(graph, n, owner); err != nil {
-					return err
-				}
-			}
+			err = collectUsageTransitions(graph, n, body)
 		case *ast.InitialNode:
-			// Handle `initial X then Y` syntax:
-			// This means "initial pseudostate transitions to state Y"
-			// Mark Y as the initial state (no intermediate state for the initial node)
+			// `initial X then Y` marks Y as the initial state, with no vertex for
+			// the initial node itself.
 			if n.Successor != nil {
 				targetState := graph.endpointState(scope, n.Successor)
 				if targetState != nil {
@@ -1538,121 +1486,176 @@ func collectTransitions(graph *StateGraph, body transitionBody) error {
 				}
 			}
 		case *ast.SuccessionEdge:
-			// Handle succession statements: `source then target;`
-			// Create completion transition from source to target
-			sourceVertex := graph.endpointVertex(scope, n.Source)
-			targetVertex, _ := graph.targetVertex(scope, n.Target, owner)
-
-			// `entry; then off;` — a succession out of the body's own entry
-			// subaction names the state it starts in (SysML 7.19.3), the same as
-			// a named entry action with a succession out of it does.
-			if sourceVertex == nil && isEntrySubaction(n.SourceMember) && targetVertex != nil {
-				target, ok := targetVertex.(*ast.StateNode)
-				if !ok {
-					return &EntryTransitionTargetError{Target: targetVertex}
-				}
-				graph.addEntryTransition(entryOwner, &EntryTransition{Decl: n, Target: target, Scope: scope})
-				continue
-			}
-
-			// `succession first start then off;` out of a named entry action says the same.
-			if sourceVertex == nil {
-				starts, err := graph.startsAt(n, nil, body, n.Source, n.Target)
-				if err != nil {
-					return err
-				}
-				if starts {
-					continue
-				}
-			}
-
-			if sourceVertex != nil && targetVertex != nil {
-				trans := &Transition{
-					Decl:      n,
-					Source:    sourceVertex,
-					Target:    targetVertex,
-					Trigger:   nil, // Completion transition
-					Guard:     nil,
-					Effect:    nil,
-					Scope:     scope,
-					BodyScope: scope,
-				}
-				graph.Transitions[sourceVertex] = append(graph.Transitions[sourceVertex], trans)
-			}
+			err = collectSuccessionEdge(graph, n, body)
 		case *ast.TransitionEdge:
 			// Legacy: explicit TransitionEdge nodes (from hand-built tests)
-			trans, err := lowerTransitionEdge(graph, n, owner, scope)
-			if err != nil {
-				return err
+			var trans *Transition
+			if trans, err = lowerTransitionEdge(graph, n, owner, scope); err == nil {
+				graph.Transitions[trans.Source] = append(graph.Transitions[trans.Source], trans)
 			}
-			graph.Transitions[trans.Source] = append(graph.Transitions[trans.Source], trans)
 		case *ast.TransitionMember:
-			// `transition initial then off;` out of the entry action names the
-			// state the machine starts in, not an edge between two vertices.
-			if n.Trigger == nil && len(n.Effect) == 0 {
-				starts, err := graph.startsAt(n, n.Guard, body, n.Source, n.Target)
-				if err != nil {
-					return err
-				}
-				if starts {
-					continue
-				}
-			}
-			// `entry; if c then off;` out of the entry subaction chooses the state the
-			// body starts in by its guard.
-			if n.Source == nil {
-				if source := ast.ImplicitTransitionSource(memberList, n); source != nil && IsEntryTransition(source) {
-					if err := lowerEntryTransition(graph, n, owner, entryOwner, scope); err != nil {
-						return err
-					}
-					continue
-				}
-			}
-			trans, err := lowerTransitionMember(graph, n, memberList, owner, scope)
-			if err != nil {
-				return err
-			}
-			// An endpoint naming no vertex was reported by name resolution.
-			if trans == nil {
-				continue
-			}
-			graph.Transitions[trans.Source] = append(graph.Transitions[trans.Source], trans)
+			err = collectTransitionMember(graph, n, body)
 		case *ast.StateNode:
-			// Recurse into state substates to collect transitions within the state.
-			stateScope := graph.StateScopes[n]
-			if stateScope == nil {
-				stateScope = graph.stateScope(scope, n)
-			}
-			if err := collectTransitions(graph, transitionBody{
-				members:         n.Substates,
-				containingState: n,
-				owner:           graph.completionOwner(n, owner),
-				entryOwner:      graph.entryOwner(n),
-				scope:           stateScope,
-			}); err != nil {
-				return err
-			}
-			// The state's own regions carry successions of their own.
-			for _, region := range n.Regions {
-				if err := collectTransitions(graph, transitionBody{
-					members: []ast.Node{region},
-					owner:   owner,
-					scope:   stateScope,
-				}); err != nil {
-					return err
-				}
-			}
+			err = collectStateNodeTransitions(graph, n, body)
 		case *ast.StateRegion:
 			// Regions are orthogonal: a transition in one names its vertices from
 			// the region's own scope.
-			if err := collectTransitions(graph, transitionBody{
+			err = collectTransitions(graph, transitionBody{
 				members:    n.States,
 				owner:      n,
 				entryOwner: n,
 				scope:      childScope(scope, n),
-			}); err != nil {
+			})
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addCompletion records the completion transition `source then target`
+// declared by decl in scope.
+func (graph *StateGraph) addCompletion(decl, source, target ast.Node, scope *symbols.Scope) {
+	trans := &Transition{
+		Decl:      decl,
+		Source:    source,
+		Target:    target,
+		Trigger:   nil, // Completion transition
+		Guard:     nil,
+		Effect:    nil,
+		Scope:     scope,
+		BodyScope: scope,
+	}
+	graph.Transitions[source] = append(graph.Transitions[source], trans)
+}
+
+// collectUsageTransitions lowers a succession usage as a completion transition
+// and a state usage's own transitions.
+func collectUsageTransitions(graph *StateGraph, n *ast.Usage, body transitionBody) error {
+	scope, owner := body.scope, body.owner
+	switch n.Kind {
+	case ast.UsageSuccession:
+		if len(n.ConnectorEnds) != 2 {
+			return nil
+		}
+		// Connector-end targets name the source and target states.
+		sourceQName, _ := connectorEndReference(n.ConnectorEnds[0]).(*ast.QualifiedName)
+		targetQName, _ := connectorEndReference(n.ConnectorEnds[1]).(*ast.QualifiedName)
+		if sourceQName == nil || targetQName == nil {
+			return nil
+		}
+		sourceVertex := graph.endpointVertex(scope, sourceQName)
+		targetVertex, _ := graph.targetVertex(scope, targetQName, owner)
+
+		// `succession first begin then off;` out of a named entry action names the
+		// state the machine starts in, not an edge (SysML 7.19.3).
+		if sourceVertex == nil {
+			starts, err := graph.startsAt(n, nil, body, sourceQName, targetQName)
+			if err != nil || starts {
 				return err
 			}
+		}
+		if sourceVertex != nil && targetVertex != nil {
+			graph.addCompletion(n, sourceVertex, targetVertex, scope)
+		}
+	case ast.UsageState:
+		// A state usage carries the transitions its own body declares and
+		// those the definition typing it declares, each lowered in the body
+		// that wrote it and against this usage's own vertices.
+		return collectStateTransitions(graph, n, owner)
+	}
+	return nil
+}
+
+// collectSuccessionEdge lowers `source then target;`: a completion transition,
+// or the body's starting state when the source is its entry action.
+func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transitionBody) error {
+	scope, owner, entryOwner := body.scope, body.owner, body.entryOwner
+	sourceVertex := graph.endpointVertex(scope, n.Source)
+	targetVertex, _ := graph.targetVertex(scope, n.Target, owner)
+
+	// `entry; then off;` — a succession out of the body's own entry
+	// subaction names the state it starts in (SysML 7.19.3), the same as
+	// a named entry action with a succession out of it does.
+	if sourceVertex == nil && isEntrySubaction(n.SourceMember) && targetVertex != nil {
+		target, ok := targetVertex.(*ast.StateNode)
+		if !ok {
+			return &EntryTransitionTargetError{Target: targetVertex}
+		}
+		graph.addEntryTransition(entryOwner, &EntryTransition{Decl: n, Target: target, Scope: scope})
+		return nil
+	}
+
+	// `succession first start then off;` out of a named entry action says the same.
+	if sourceVertex == nil {
+		starts, err := graph.startsAt(n, nil, body, n.Source, n.Target)
+		if err != nil || starts {
+			return err
+		}
+	}
+
+	if sourceVertex != nil && targetVertex != nil {
+		graph.addCompletion(n, sourceVertex, targetVertex, scope)
+	}
+	return nil
+}
+
+// collectTransitionMember lowers a transition member: the body's starting
+// state when it leaves the entry action, otherwise an edge between vertices.
+func collectTransitionMember(graph *StateGraph, n *ast.TransitionMember, body transitionBody) error {
+	memberList, scope, owner, entryOwner := body.members, body.scope, body.owner, body.entryOwner
+	// `transition initial then off;` out of the entry action names the
+	// state the machine starts in, not an edge between two vertices.
+	if n.Trigger == nil && len(n.Effect) == 0 {
+		starts, err := graph.startsAt(n, n.Guard, body, n.Source, n.Target)
+		if err != nil || starts {
+			return err
+		}
+	}
+	// `entry; if c then off;` out of the entry subaction chooses the state the
+	// body starts in by its guard.
+	if n.Source == nil {
+		if source := ast.ImplicitTransitionSource(memberList, n); source != nil && IsEntryTransition(source) {
+			return lowerEntryTransition(graph, n, owner, entryOwner, scope)
+		}
+	}
+	trans, err := lowerTransitionMember(graph, n, memberList, owner, scope)
+	if err != nil {
+		return err
+	}
+	// An endpoint naming no vertex was reported by name resolution.
+	if trans == nil {
+		return nil
+	}
+	graph.Transitions[trans.Source] = append(graph.Transitions[trans.Source], trans)
+	return nil
+}
+
+// collectStateNodeTransitions collects the transitions within a state's
+// substates and its own regions.
+func collectStateNodeTransitions(graph *StateGraph, n *ast.StateNode, body transitionBody) error {
+	stateScope := graph.StateScopes[n]
+	if stateScope == nil {
+		stateScope = graph.stateScope(body.scope, n)
+	}
+	if err := collectTransitions(graph, transitionBody{
+		members:         n.Substates,
+		containingState: n,
+		owner:           graph.completionOwner(n, body.owner),
+		entryOwner:      graph.entryOwner(n),
+		scope:           stateScope,
+	}); err != nil {
+		return err
+	}
+	// The state's own regions carry successions of their own.
+	for _, region := range n.Regions {
+		if err := collectTransitions(graph, transitionBody{
+			members: []ast.Node{region},
+			owner:   body.owner,
+			scope:   stateScope,
+		}); err != nil {
+			return err
 		}
 	}
 	return nil

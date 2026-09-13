@@ -1072,52 +1072,58 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 	if stated == "" || stated != a.ctx.declarationDigest(found) {
 		return false
 	}
-	reads := a.prev.bindingReads[sym]
 	rewritten := newBindingReads()
-	if reads != nil {
-		if reads.opaque {
-			return false
-		}
-		for dep, digest := range reads.decls {
-			depFound, err := a.rebind(dep, "a declaration it read")
-			if err != nil || digest != a.ctx.declarationDigest(depFound) {
-				return false
-			}
-			if namespaceObjectUsage(dep) {
-				if _, bound := a.prev.namespaceBindings[dep]; !bound || !a.carryBinding(dep, adopted, carried) {
-					return false
-				}
-			}
-			if ids, occurs := a.prev.occurrences[dep]; occurs && !slices.Equal(a.ctx.occurrences[depFound], ids) {
-				return false
-			}
-			rewritten.decls[depFound] = digest
-		}
-		if reads.census != "" && reads.census != a.ctx.modelUsages().digest {
-			return false
-		}
-		rewritten.census = reads.census
-		for typ, digest := range reads.types {
-			typFound, err := a.rebind(typ, "a type it judged")
-			if err != nil || digest != a.ctx.typeDigest(typFound) {
-				return false
-			}
-			rewritten.types[typFound] = digest
-		}
-		for read, denoted := range reads.names {
-			read, ok := a.rebindNameRead(read)
-			if !ok {
-				return false
-			}
-			if now, ok := a.ctx.replay(read); !ok || now != denoted {
-				return false
-			}
-			rewritten.names[read] = denoted
-		}
+	if reads := a.prev.bindingReads[sym]; reads != nil && !a.carryReads(reads, rewritten, adopted, carried) {
+		return false
 	}
 	a.ctx.namespaceBindings[found] = a.rewrite(val)
 	a.ctx.bindingReads[found] = rewritten
 	carried[sym] = true
+	return true
+}
+
+// carryReads checks that everything a binding read still reads the same here,
+// rewriting each read against this context's symbols; false when any moved.
+func (a *adoption) carryReads(reads, rewritten *bindingReads, adopted map[int64]bool, carried map[*symbols.Symbol]bool) bool {
+	if reads.opaque {
+		return false
+	}
+	for dep, digest := range reads.decls {
+		depFound, err := a.rebind(dep, "a declaration it read")
+		if err != nil || digest != a.ctx.declarationDigest(depFound) {
+			return false
+		}
+		if namespaceObjectUsage(dep) {
+			if _, bound := a.prev.namespaceBindings[dep]; !bound || !a.carryBinding(dep, adopted, carried) {
+				return false
+			}
+		}
+		if ids, occurs := a.prev.occurrences[dep]; occurs && !slices.Equal(a.ctx.occurrences[depFound], ids) {
+			return false
+		}
+		rewritten.decls[depFound] = digest
+	}
+	if reads.census != "" && reads.census != a.ctx.modelUsages().digest {
+		return false
+	}
+	rewritten.census = reads.census
+	for typ, digest := range reads.types {
+		typFound, err := a.rebind(typ, "a type it judged")
+		if err != nil || digest != a.ctx.typeDigest(typFound) {
+			return false
+		}
+		rewritten.types[typFound] = digest
+	}
+	for read, denoted := range reads.names {
+		read, ok := a.rebindNameRead(read)
+		if !ok {
+			return false
+		}
+		if now, ok := a.ctx.replay(read); !ok || now != denoted {
+			return false
+		}
+		rewritten.names[read] = denoted
+	}
 	return true
 }
 

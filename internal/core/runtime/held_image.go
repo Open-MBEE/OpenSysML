@@ -244,29 +244,8 @@ func (t *imaging) close() error {
 	ctx := t.ctx
 	for len(t.queue) > 0 || !t.open {
 		if len(t.queue) == 0 {
-			for sym, ids := range ctx.occurrences {
-				if !t.declaredUnderHeld(sym) {
-					continue
-				}
-				for _, id := range ids {
-					if _, live := ctx.instances[id]; live {
-						t.reach(id)
-					}
-				}
-			}
-			if len(t.queue) > 0 || t.open {
-				continue
-			}
-			t.open = true
-			if !t.carriesBus() {
-				continue
-			}
-			for _, msg := range ctx.messages {
-				if msg.Object == 0 {
-					if err := t.message(msg); err != nil {
-						return &HeldImageError{What: "image messages", Err: err}
-					}
-				}
+			if err := t.widen(); err != nil {
+				return err
 			}
 			continue
 		}
@@ -281,6 +260,37 @@ func (t *imaging) close() error {
 		}
 	}
 	t.finish()
+	return nil
+}
+
+// widen reaches the occurrences declared under what is held once the queue
+// drains; when none are new it opens the image, taking the bus's open messages.
+func (t *imaging) widen() error {
+	ctx := t.ctx
+	for sym, ids := range ctx.occurrences {
+		if !t.declaredUnderHeld(sym) {
+			continue
+		}
+		for _, id := range ids {
+			if _, live := ctx.instances[id]; live {
+				t.reach(id)
+			}
+		}
+	}
+	if len(t.queue) > 0 || t.open {
+		return nil
+	}
+	t.open = true
+	if !t.carriesBus() {
+		return nil
+	}
+	for _, msg := range ctx.messages {
+		if msg.Object == 0 {
+			if err := t.message(msg); err != nil {
+				return &HeldImageError{What: "image messages", Err: err}
+			}
+		}
+	}
 	return nil
 }
 

@@ -272,7 +272,7 @@ func TestChainRedefinitionTargetStartsInTheGenerals(t *testing.T) {
 		if !resolvedFirst {
 			r.ResolveDocument("t.sysml", doc)
 		}
-		if got := len(r.Diagnostics); got != 1 {
+		if len(r.Diagnostics) != 1 {
 			t.Errorf("resolvedFirst=%v: diagnostics = %v, want one unresolved w", resolvedFirst, r.Diagnostics)
 		}
 	}

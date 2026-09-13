@@ -1994,11 +1994,12 @@ class Connection:
     @staticmethod
     def _engine_capabilities(engine):
         """The capabilities an engine selection needs of the service: none for auto."""
-        if not _engine_field(engine):
-            return ()
+        needed = []
+        if _engine_field(engine):
+            needed.append(CAPABILITY_ENGINES)
         if _explore_engine(engine):
-            return (CAPABILITY_ENGINES, CAPABILITY_SCHEDULE_EXPLORE)
-        return (CAPABILITY_ENGINES,)
+            needed.append(CAPABILITY_SCHEDULE_EXPLORE)
+        return tuple(needed)
 
     def _capability_refusal(self, capabilities):
         """Translate a capability-gated UNIMPLEMENTED into the preflight error."""

@@ -173,33 +173,10 @@ func Parse(r io.Reader) (*Document, error) {
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
-			e := &Element{Tag: t.Name.Local, Attrs: make(map[string]string, len(t.Attr))}
+			e := newElement(t)
 			e.Line, _ = dec.InputPos()
-			for _, a := range t.Attr {
-				switch {
-				case a.Name.Space == xmiNamespace && a.Name.Local == "type":
-					e.Type = a.Value
-				case a.Name.Space == xmiNamespace && a.Name.Local == "id":
-					e.ID = a.Value
-				case a.Name.Space == "xmlns" || a.Name.Local == "xmlns":
-				default:
-					e.Attrs[a.Name.Local] = a.Value
-				}
-			}
-			if e.ID != "" {
-				if prior, dup := doc.byID[e.ID]; dup {
-					return nil, fmt.Errorf("xmi: id %s declared twice (%s and %s)", e.ID, prior.Describe(), e.Describe())
-				}
-				doc.byID[e.ID] = e
-			}
-			if len(stack) > 0 {
-				parent := stack[len(stack)-1]
-				e.Parent = parent
-				parent.Children = append(parent.Children, e)
-			} else if doc.Root == nil {
-				doc.Root = e
-			} else {
-				return nil, fmt.Errorf("xmi: second root element %s", e.Describe())
+			if err := doc.place(e, stack); err != nil {
+				return nil, err
 			}
 			stack = append(stack, e)
 		case xml.CharData:
@@ -220,4 +197,43 @@ func Parse(r io.Reader) (*Document, error) {
 		return nil, fmt.Errorf("xmi: document has no root element")
 	}
 	return doc, nil
+}
+
+// newElement reads a start tag: its xmi:type and xmi:id, then the remaining
+// attributes by local name, namespace declarations aside.
+func newElement(t xml.StartElement) *Element {
+	e := &Element{Tag: t.Name.Local, Attrs: make(map[string]string, len(t.Attr))}
+	for _, a := range t.Attr {
+		switch {
+		case a.Name.Space == xmiNamespace && a.Name.Local == "type":
+			e.Type = a.Value
+		case a.Name.Space == xmiNamespace && a.Name.Local == "id":
+			e.ID = a.Value
+		case a.Name.Space == "xmlns" || a.Name.Local == "xmlns":
+		default:
+			e.Attrs[a.Name.Local] = a.Value
+		}
+	}
+	return e
+}
+
+// place indexes e by id and files it under the open element, or as the root.
+func (d *Document) place(e *Element, stack []*Element) error {
+	if e.ID != "" {
+		if prior, dup := d.byID[e.ID]; dup {
+			return fmt.Errorf("xmi: id %s declared twice (%s and %s)", e.ID, prior.Describe(), e.Describe())
+		}
+		d.byID[e.ID] = e
+	}
+	switch {
+	case len(stack) > 0:
+		parent := stack[len(stack)-1]
+		e.Parent = parent
+		parent.Children = append(parent.Children, e)
+	case d.Root == nil:
+		d.Root = e
+	default:
+		return fmt.Errorf("xmi: second root element %s", e.Describe())
+	}
+	return nil
 }

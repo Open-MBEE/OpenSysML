@@ -607,35 +607,8 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		return nil, err
 	}
 	if declared.t == TypeInvalid {
-		if v.Type() == TypeNull {
-			return nil, fc.unsupported(fmt.Sprintf("attribute %s is null and declares no type", s.Name))
-		}
-		declared = binding{t: v.Type(), m: MultAny}
-		if v.Type().Many() {
-			declared.m = MultOne
-		}
-		if u != nil && multStated && !v.Type().Many() {
-			m, err := fc.multOf(u, s.Name)
-			if err != nil {
-				return nil, err
-			}
-			if m.Lower > 1 || m.Upper == 0 {
-				return nil, fc.unsupported(fmt.Sprintf("attribute %s declares no type and a multiplicity one value cannot satisfy", s.Name))
-			}
-		}
-		if u != nil && v.Type().Many() {
-			m, err := fc.multOf(u, s.Name)
-			if err != nil {
-				return nil, err
-			}
-			if multStated {
-				declared.m = m
-			}
-			if m != MultOne {
-				if declared.unique, err = fc.uniqueOf(s.Scope, u, s.Name); err != nil {
-					return nil, err
-				}
-			}
+		if declared, err = fc.inferredBinding(s, u, v, multStated); err != nil {
+			return nil, err
 		}
 	}
 	if declared.t.Scalar() && !v.Type().Scalar() {
@@ -655,6 +628,47 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		return []Stmt{Declare{Name: s.Name, T: declared.t, Init: init}}, nil
 	}
 	return []Stmt{Declare{Name: s.Name, T: declared.t, Range: declared.r, Init: init}}, nil
+}
+
+// inferredBinding types an untyped body-local attribute from its initializer,
+// checking a stated multiplicity against the value's shape.
+func (fc *funcCompiler) inferredBinding(s lower.Declare, u *ast.Usage, v Expr, multStated bool) (binding, error) {
+	if v.Type() == TypeNull {
+		return binding{}, fc.unsupported(fmt.Sprintf("attribute %s is null and declares no type", s.Name))
+	}
+	declared := binding{t: v.Type(), m: MultAny}
+	if v.Type().Many() {
+		declared.m = MultOne
+	}
+	if u == nil {
+		return declared, nil
+	}
+	if !v.Type().Many() {
+		if !multStated {
+			return declared, nil
+		}
+		m, err := fc.multOf(u, s.Name)
+		if err != nil {
+			return binding{}, err
+		}
+		if m.Lower > 1 || m.Upper == 0 {
+			return binding{}, fc.unsupported(fmt.Sprintf("attribute %s declares no type and a multiplicity one value cannot satisfy", s.Name))
+		}
+		return declared, nil
+	}
+	m, err := fc.multOf(u, s.Name)
+	if err != nil {
+		return binding{}, err
+	}
+	if multStated {
+		declared.m = m
+	}
+	if m != MultOne {
+		if declared.unique, err = fc.uniqueOf(s.Scope, u, s.Name); err != nil {
+			return binding{}, err
+		}
+	}
+	return declared, nil
 }
 
 func (fc *funcCompiler) compileLoop(s lower.Loop) (Stmt, error) {

@@ -185,7 +185,7 @@ func TestUserScalarTypeStandsInOnlyWithoutALibrary(t *testing.T) {
 	}
 
 	ctx, shadow := build(t, "")
-	if got := evalBoolIn(t, ctx, shadow, "2 istype Integer"); !got {
+	if !evalBoolIn(t, ctx, shadow, "2 istype Integer") {
 		t.Errorf("without a library, 2 istype Integer = false, want the model's Integer to stand in")
 	}
 	typ, err := ctx.directValueType(shadow, intArg(2))

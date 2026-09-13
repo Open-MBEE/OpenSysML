@@ -494,7 +494,8 @@ class PublicTypesTest {
     assertNotEquals(asUsage, new Value.MetaobjectValue("Demo::Vehicle", "SysML::Systems::PartUsage"));
     assertEquals("SysML::Systems::PartUsage", asUsage.metaclassId());
     // A set holds the element once, however many times it was cast.
-    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(List.of(asUsage, asFeature)));
+    List<Value> cast = List.of(asUsage, asFeature);
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(cast));
     assertThrows(IllegalArgumentException.class, () -> new Value.MetaobjectValue("", "KerML::Feature"));
   }
 
