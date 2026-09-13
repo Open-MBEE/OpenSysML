@@ -36,8 +36,10 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
 
 Every value the API answers with is immutable: `Value` is a sealed interface over
 records (`IntegerValue`, `RealValue`, `ComplexValue`, `QuantityValue`, `ArrayValue`,
-`VectorValue`, `VectorQuantityValue`, `MeasurementRefValue`, `FunctionValue`, `MetaobjectValue`,
-`EnumerationValue`, `InstanceReference`, `Sequence`, `NullValue`, `UnsetValue`, …), and `Symbol`,
+`VectorValue`, `VectorQuantityValue`, `SetValue`, `TensorQuantityValue`, `MeasurementRefValue`,
+`FunctionValue`, `MetaobjectValue`, `EnumerationValue` (whose `EnumLiteral` carries the scalar a
+`high = 3` literal was given as `value()`), `InstanceReference`, `Sequence`, `NullValue`,
+`UnsetValue`, `UndeterminedValue`, `InfinityValue`), and `Symbol`,
 `Diagnostic`, `Instance` and `Instantiation` are records with copied collections.
 No generated protobuf message or builder appears in the public API. A `Diagnostic`
 is `(severity, message, code, span)`; `code()` is the identifier to branch on

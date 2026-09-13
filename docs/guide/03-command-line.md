@@ -314,6 +314,7 @@ $ sysml -analysis An::shipCost analysis.sysml
 ✓ An::shipCost
   total = 12.0
   objective affordable: satisfied
+  standing: value (observed: 1 run under reverse)
 
 $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
     -analysis "An::CostAnalysis(limit = 50.0) An::barge" analysis.sysml; echo "exit=$?"
@@ -324,14 +325,18 @@ $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
 ✗ An::CostAnalysis on object #1 of "An::barge"
   total = 37.0
   objective affordable: not satisfied: total <= limit
+  standing: value (observed: 1 run under reverse)
 ✓ An::CostAnalysis(limit = 50.0) on object #1 of "An::barge"
   total = 37.0
   objective affordable: satisfied
+  standing: value (observed: 1 run under reverse)
 exit=1
 
 $ sysml -analysis An::CostAnalysis analysis.sysml; echo "exit=$?"
 ✓ package An
 sysml: analysis run failed: analysis An::CostAnalysis: s subject is unbound: bind it (`subject s = <element>`) or run it on an object
+  objective affordable: undecided: analysis An::CostAnalysis: s subject is unbound: bind it (`subject s = <element>`) or run it on an object
+  standing: not covered (analysis An::CostAnalysis: s subject is unbound: bind it (`subject s = <element>`) or run it on an object)
 exit=2
 ```
 
@@ -373,6 +378,7 @@ limit | total | verdict                   | time
 30.0  | 37.0  | affordable: not satisfied | 0.416ms
 35.0  | 37.0  | affordable: not satisfied | 0.019ms
 40.0  | 37.0  | affordable: satisfied     | 0.012ms
+  standing: table (observed: 3 rows)
 exit=1
 ```
 
@@ -390,6 +396,7 @@ b                  | result             | time
 8.254725069980449  | 10.254725069980449 | 0.035ms
 0.4281995136143024 | 2.4281995136143024 | 0.001ms
 7.76073049711954   | 9.760730497119539  | 0.000ms
+  standing: table (observed: 3 rows)
 ```
 
 The endpoints and step carry the syntax and the units an argument carries
@@ -470,7 +477,9 @@ $ sysml -satisfy -json checks.sysml; echo "exit=$?"
             "engine": "run",
             "status": "answered"
           }
-        ]
+        ],
+        "workers": 0,
+        "warming": 0
       },
       "results": [
         {
@@ -512,7 +521,9 @@ $ sysml -satisfy -json checks.sysml; echo "exit=$?"
             "engine": "run",
             "status": "answered"
           }
-        ]
+        ],
+        "workers": 0,
+        "warming": 0
       },
       "results": [
         {
@@ -555,8 +566,9 @@ Values produced by a calculation or a state machine appear under `values`. What 
 found appears under `diagnostics`, covering both the warnings of a model that analyses cleanly
 and the errors of one that does not, each with the `file`, `line` and `column` where it
 occurs. Anything that prevented a check from being made appears under `errors`. Each check's
-`plan` says which engines were asked and what each did, and `results` holds one entry per engine
-that answered, with the strength of its evidence, the bounds it ran under and the witness behind
+`plan` says which engines were asked and what each did (and, under `-jobs`, how many `workers`
+it built and the milliseconds of `warming` spent building them), and `results` holds one entry
+per engine that answered, with the strength of its evidence, the bounds it ran under and the witness behind
 a violation ([Analysis engines](../reference/cli.md#analysis-engines)). The whole document goes
 to standard output, so nothing needs to be read from standard error.
 

@@ -160,13 +160,19 @@ collection property.
 | `Array` | `opensysml.Array`: `dimensions` and row-major `elements`, `nested()` unfolds them |
 | `CartesianVectorValue` and the other numeric vectors | `opensysml.Vector`: a tuple of `int`/`float` components, kept apart |
 | `VectorQuantityValue` | `opensysml.VectorQuantity`: a tuple of `Quantity`, one unit per component |
+| `TensorQuantityValue` | `opensysml.TensorQuantity`: `dimensions` and row-major `components`, each a `Quantity`; indexed by one integer per dimension |
+| `Collections::Set` (its `elements`) | `opensysml.SetValue`: unordered, each member once, equal to another set of the same members |
 | `MeasurementUnit` and the other measurement references (`SI::m`, `m / s`, a quantity's `mRef`) | `opensysml.MeasurementRef`: the `Unit` with its reduction, and `unit_id` naming the declaration a named unit is (`SI::metre`), empty for a composed unit |
 | a calc definition, calc usage or `in calc` parameter read as a value | `opensysml.Function`: `calc_id` naming the calc, `self_id` the object it was read off (0 for none) |
+| `x meta T`, the last element of `x.metadata` | `opensysml.Metaobject`: `element_id` and the reflective `metaclass_id` (`SysML::Systems::PartUsage`) |
+| an unbounded multiplicity or count (`*`) | `opensysml.INFINITY`, a singleton |
+| a question the model leaves open (an attribute with no value, the count of a `[1..*]`) | `opensysml.Undetermined`: `reason`, `count_lower`, `count_upper`; refuses `bool()` |
+| a feature an object holds nothing for | `opensysml.UNSET`; `None` stays the model's `null` |
 | `Integer`, `Natural` | `int` |
 | `Boolean` | `bool` |
 | `String` | `str` |
 | usage typed by a definition that reduces to a library scalar (`attribute def Celsius :> Real`) | that scalar (`float`) |
-| usage typed by an `enum def` | `EnumLiteral`, the identity of the literal held |
+| usage typed by an `enum def` | `EnumLiteral`, the identity of the literal held; `value` carries the scalar a literal of an `enum def :> Integer` (or another scalar) was given, `None` otherwise |
 | usage typed by any other definition in the model | that definition's generated class |
 | multiplicity `1`, `1..1`, or undeclared | `X` |
 | multiplicity `0..1` | `X \| None` |
@@ -282,9 +288,16 @@ make python-proto
 - `query.py` — the standard's Query payload, translated and its answers
 - `document.py` — native document queries: typed bindings, typed rows, and
   `model.render_document`'s Markdown
-- `verdict.py` — a verification's answer and what a calculation computed
+- `values.py` — the value kinds the wire carries: `Quantity`, `Array`, `Vector`,
+  `VectorQuantity`, `TensorQuantity`, `SetValue`, `MeasurementRef`, `Function`,
+  `Metaobject`, `Undetermined`, `INFINITY` and `UNSET`
+- `enumeration.py` — `EnumLiteral`, a literal's identity and the scalar it may carry
+- `verdict.py` — a verification's answer and what a calculation, analysis or sweep computed
+- `engines.py` — the engines the service registers (`EngineInfo`) and the `Standing` of an
+  answer: the engine, the strength of its evidence and the bounds it ran under
 - `exploration.py` — every outcome a run under `explore` reached, each with its
   linearization count and a witness, and whether the search completed
+- `edit.py` — the `Editor` that batches value, rename, add and delete operations
 - `errors.py` — the exception hierarchy and the gRPC status translation
 - `capabilities.py` — what the connected service reports it supports
 - `typefacts.py` — a symbol's static type, multiplicity and supertypes
