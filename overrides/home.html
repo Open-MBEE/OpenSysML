@@ -793,7 +793,7 @@ Vehicles::Car::wheels  PartUsage
       tab.addEventListener("click", function () { stop(); show(i, false); });
       tab.addEventListener("keydown", function (event) {
         var targets = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: panes.length - 1 };
-        if (!Object.prototype.hasOwnProperty.call(targets, event.key)) return;
+        if (typeof targets[event.key] !== "number") return;
         event.preventDefault();
         stop();
         show(targets[event.key], true);

@@ -6,7 +6,8 @@ import (
 )
 
 // IdentityOf returns the identity side-table entry of a declaration of the named
-// document; ok is false when it has no qualified name or is not indexed there.
+// document, a bundled library file included; ok is false when it has no
+// qualified name or is not indexed there.
 func (w *Workspace) IdentityOf(name string, sym *symbols.Symbol) (*identity.Info, bool) {
 	if sym == nil || sym.Decl == nil {
 		return nil, false
@@ -14,9 +15,16 @@ func (w *Workspace) IdentityOf(name string, sym *symbols.Symbol) (*identity.Info
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	// The annotation model is keyed by the index's symbol for the same AST node.
+	// A library document is parsed afresh from the bytes the index read, so its
+	// symbols share the index's spans rather than its nodes.
+	same := func(candidate *symbols.Symbol) bool { return candidate.Decl == sym.Decl }
+	if library, ok := w.libraryNameLocked(name); ok {
+		name = library
+		same = func(candidate *symbols.Symbol) bool { return candidate.DeclSpan == sym.DeclSpan }
+	}
 	var indexed *symbols.Symbol
 	walkScope(w.index.DocumentRoot(name), func(candidate *symbols.Symbol) {
-		if indexed == nil && candidate.Decl == sym.Decl && candidate.Name == sym.Name {
+		if indexed == nil && candidate.Name == sym.Name && same(candidate) {
 			indexed = candidate
 		}
 	})

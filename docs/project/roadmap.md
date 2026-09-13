@@ -832,7 +832,7 @@ instead of a graph, reporting what that path keeps that the Turtle one loses or 
 D1 and D2, since the element form inherits their vocabulary; before D9.2 if the branch read is to
 have a choice of representation.
 
-## D12 — the normative element ids of the standard library (targeted at `0.8.0`)
+## D12 — the normative element ids of the standard library (done)
 
 KerML fixes the `elementId` of every **named** standard-library element as a name-based UUID
 (RFC 4122 version 5): the library package's id is `uuid5(NAMESPACE_URL, <prefix> + <escaped
@@ -845,42 +845,50 @@ The pilot's XMI carries exactly these — `ScalarValues::Real` is
 library, so a reference to a library element agrees across tools without either side having
 seen the other's model.
 
-OpenSysML does not compute them. A library element's id today is `rdf.EncodeElementID` over its
-qualified name (`ScalarValues__Real`), the same derivation user elements get when no
+Before this item a library element's id was `rdf.EncodeElementID` over its qualified name
+(`ScalarValues__Real`), the same derivation user elements get when no
 `@IdentityMetadata::ElementId` declares one ([the RDF mapping](../reference/rdf-mapping.md),
-*Element identity*). Nothing is invalid — the encoded id is a legal IRI tail and the alphabet
+*Element identity*). Nothing was invalid — the encoded id is a legal IRI tail and the alphabet
 Flexo's `requireValidId` accepts — but a graph, an API payload or an element-by-element comparison
-that names `Integer`, `kg` or `Performances::Performance` names an element no other tool has,
-and a project on Flexo that types its parts by the library's ids does not resolve against ours.
-The encoded name is also **reversible** (`rdf.DecodeElementID` recovers the qualified name
-exactly) and a version-5 UUID is not, since it is a SHA-1; that is the trade, and the item keeps
-both: the normative UUID becomes the library element's `elementId` and IRI tail, and
-`sysml:qualifiedName` — which reading a graph back already takes the name from — stays the
-readable form.
+that named `Integer`, `kg` or `Performances::Performance` named an element no other tool had,
+and a project on Flexo that types its parts by the library's ids did not resolve against ours.
+The encoded name is **reversible** (`rdf.DecodeElementID` recovers the qualified name exactly)
+and a version-5 UUID is not, since it is a SHA-1; that is the trade, and the item keeps both: the
+normative UUID is the library element's `elementId` and IRI tail, and `sysml:qualifiedName` —
+which reading a graph back already takes the name from — stays the readable form.
 
-Scope, in order:
+What landed:
 
-1. **The derivation.** One function in `internal/core/identity` from a library symbol to its
-   UUID (element and owning membership), with the two prefixes chosen by which half of the
-   bundled library the file belongs to. Gate it against the pilot's own `sysml.library.xmi` at
-   the pinned tag (`scripts/pilot-pin.sh` sparse-checks out the pilot repository by path, so the
-   XMI is one more path, fetched and verified the way the corpora are): every named element and
-   owning membership of the library resolves to the id the XMI carries, asserted, not ratcheted.
+1. **The derivation.** `internal/core/identity/normative` derives the element and owning
+   membership UUIDs from a qualified name, with the pilot's quoting of names; `identity` maps the
+   bundled library's tiers to the two prefixes (kernel libraries to KerML, systems and domain
+   libraries to SysML) and catalogs every named, non-aliased, non-shadowed library symbol once
+   per library index. `TestPilotLibraryXMI` asserts the catalog against the pilot's own
+   `sysml.library.xmi` at the pinned release commit (`scripts/download-pilot-library-xmi.sh`,
+   through the same `scripts/pilot-pin.sh` the corpora use): every id it derives is an element
+   the XMI carries under the same owning membership, and every named XMI element is derived, bar
+   the one payload an `accept` trigger declares inside a transition (`Actions::AcceptAction::
+   aState::aTransition::apayload`), which OpenSysML does not hold as a member of the transition;
+   the test lists it, so deriving it one day fails the gate until the list shrinks. CI downloads
+   the XMI and
+   sets `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`, so the test fails rather than skips there.
    Unnamed and implied library elements are out of scope by design — the norm gives them
    positional ids that depend on each implementation's implied-relationship closure, so they do
    not agree even between the pilot and other conforming tools.
-2. **The consumers.** `rdf.ElementIRI`, `sysml:elementId` and `OwningMembershipIRI` take the
-   normative id for a library element and the encoded name for everything else; the Flexo sync
-   (`-sync-diff` and apply) keys library references by it; `identity.Info` reports which of the
-   three sources an id came from (declared, normative, derived) so the LSP hover and `%info` can
-   say so. User elements are unchanged: `@ElementId` when declared, the encoded name otherwise.
-3. **The ratchets.** Every library reference in a converted graph moves, so `TestCorpusRoundTrip`
-   and the Flexo live-stack expectation are re-adjudicated once, as one movement with one cause,
-   and the mapping page's examples are re-captured from the tool.
+2. **The consumers.** The RDF writer's IRI, `sysml:elementId` and owning-membership IRI take the
+   normative id for a library element and the encoded name for everything else, and the reader
+   does not re-materialize an `@ElementId` for a normative id; the Flexo sync classifies a
+   normative id as neither declared nor mintable; `identity.Info` reports which of the three
+   sources an id came from (declared, normative, derived) and the language, and the LSP hover
+   says so (`Element id \`14c0aa22-…\` (normative, KerML)`) while the minting code action stays
+   off library elements. User elements are unchanged: `@ElementId` when declared, the encoded
+   name otherwise.
+3. **The ratchets.** Neither `TestCorpusRoundTrip` nor the Flexo live-stack expectation moved:
+   the corpora convert user models, whose references reach the library by `sysml:qualifiedName`,
+   not by id, and the interop fixtures own no library element.
 
-After D3's identity work, which it extends, and before D11, whose `api-json` payloads are the
-first surface where a foreign reader would compare our library ids to its own; independent of
-D1, D2 and D7. Targeted at `0.8.0`.
+Extends D3's identity work; D11's `api-json` payloads are the first surface where a foreign
+reader compares our library ids to its own.
 
 ---
 
@@ -2340,9 +2348,8 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   mechanical now that identity is stable and fits anywhere; the ontology modules (#774 on the
   previous repository) have to be re-proposed against this `main` before **D8**'s profile, which
   only becomes conformant behind D1 and D2; **D12** (the standard library's normative element
-  ids) next, targeted at `0.8.0`, since it depends on nothing open and D11 wants it landed first;
-  **D11** (the API element
-  form) after D1, D2 and D12, and before D9.2 if the branch read is to offer it; **D10**
+  ids) is done; **D11** (the API element
+  form) after D1 and D2, and before D9.2 if the branch read is to offer it; **D10**
   (write-through from a view-only project) after D9.1 and D9.2, which it reads and writes through.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
