@@ -11,8 +11,9 @@ import (
 )
 
 // renameSplices are the byte ranges a rename rewrites: the declaration's name
-// token and every reference to it in this source. A rename that would capture or
-// shadow another name is refused.
+// token and every reference to it in this source and in every other document
+// the edit may rewrite. A rename that would capture or shadow another name, or
+// that a document the edit may not rewrite refers to, is refused.
 func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice, error) {
 	ident, ok := symbols.DeclIdent(sym.Decl)
 	if !ok || ident.Name == "" || ident.NameSpan.Len == 0 {
@@ -26,12 +27,16 @@ func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice
 	if err := checkName(i, op.NewName); err != nil {
 		return nil, err
 	}
-	if err := m.refuseReferencedElsewhere(i, op, writesName(sym, ident.Name)); err != nil {
-		return nil, err
-	}
 	r, sem := m.resolver()
-	occurrences := m.renameOccurrences(r, sym, ident)
-	if c := rename.Check(r, sem, sym, ident.Name, op.NewName, occurrences); c != nil {
+	occurrences, elsewhere := m.renameOccurrences(r, sym, ident)
+	if len(elsewhere) > 0 {
+		return nil, referencedElsewhere(i, m.Source.Name(), op.Target, elsewhere)
+	}
+	checked := make([]rename.Occurrence, 0, len(occurrences))
+	for _, occ := range occurrences {
+		checked = append(checked, occ.Occurrence)
+	}
+	if c := rename.Check(r, sem, sym, ident.Name, op.NewName, checked); c != nil {
 		e := &Error{Failure: FailureInvalidName, OperationIndex: i, Message: c.Error()}
 		if c.Site != "" {
 			e.Referring = []string{c.Site}
@@ -41,55 +46,70 @@ func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice
 	out := make([]splice, 0, len(occurrences)+1)
 	out = append(out, splice{span: ident.NameSpan, text: op.NewName, opIndex: i, target: op.Target})
 	for _, occ := range occurrences {
-		out = append(out, splice{span: occ.Span(), text: op.NewName, opIndex: i, target: op.Target})
+		sp := splice{span: occ.Span(), text: op.NewName, opIndex: i, target: op.Target}
+		if occ.doc != m.Source.Name() {
+			sp.doc = occ.doc
+		}
+		out = append(out, sp)
 	}
 	return out, nil
 }
 
-// writesName reports a reference segment written as name and reading sym by it,
-// which renaming that name rewrites; one written as an alias or the short name
-// still resolves and is left alone.
-func writesName(sym *symbols.Symbol, name string) referenceTest {
-	return func(r *resolve.Resolver, ref resolve.Reference, part int) bool {
-		if ref.QN.Parts[part].Text != name {
-			return false
-		}
-		seg, ok := r.PartName(ref.QN, part)
-		return ok && symbols.SameElement(seg, sym)
-	}
+// occurrence is a reference a rename rewrites and the document it is written in.
+type occurrence struct {
+	rename.Occurrence
+	doc string
 }
 
-// renameOccurrences returns every reference spelling sym's declared name, in
-// source order. A reference written with the short name is left alone: the
-// rename does not change the short name. The LSP applies the same rule through
+// renameOccurrences returns every reference spelling sym's declared name in the
+// documents the edit may rewrite, the edited one first and each in source order,
+// and names the declarations of the documents it may not rewrite that spell it.
+// A reference written with the short name is left alone: the rename does not
+// change the short name. The LSP applies the same rule through
 // Workspace.NameReferencesTo.
-func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident ast.Identification) []rename.Occurrence {
-	rootScope := m.Index.DocumentRoot(m.Source.Name())
-	if rootScope == nil {
-		return nil
-	}
-	seen := map[int]bool{}
-	var out []rename.Occurrence
-	for _, ref := range resolve.References(m.Root, rootScope) {
-		if ref.QN == nil {
+func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident ast.Identification) ([]occurrence, []Referrer) {
+	var out []occurrence
+	var elsewhere []Referrer
+	for _, doc := range m.workspaceDocuments() {
+		root, rootScope, ok := m.documentRoot(doc)
+		if !ok {
 			continue
 		}
-		r.ResolveReference(ref)
-		for part, segment := range ref.QN.Parts {
-			if segment.Span == ident.NameSpan || segment.Text != ident.Name ||
-				seen[segment.Span.Offset] {
+		_, rewritable := m.inDocument(doc)
+		seen := map[int]bool{}
+		seenReferrers := map[ast.Node]bool{}
+		var found []occurrence
+		for _, ref := range resolve.References(root, rootScope) {
+			if ref.QN == nil {
 				continue
 			}
-			// A segment written as an alias name reads the alias membership, so
-			// renaming the alias rewrites it and renaming the target does not.
-			seg, ok := r.PartName(ref.QN, part)
-			if !ok || !symbols.SameElement(seg, sym) {
-				continue
+			r.ResolveReference(ref)
+			for part, segment := range ref.QN.Parts {
+				if segment.Span == ident.NameSpan || segment.Text != ident.Name ||
+					seen[segment.Span.Offset] {
+					continue
+				}
+				// A segment written as an alias name reads the alias membership, so
+				// renaming the alias rewrites it and renaming the target does not.
+				seg, ok := r.PartName(ref.QN, part)
+				if !ok || !symbols.SameElement(seg, sym) {
+					continue
+				}
+				seen[segment.Span.Offset] = true
+				if rewritable {
+					found = append(found, occurrence{Occurrence: rename.Occurrence{Ref: ref, Part: part}, doc: doc})
+					continue
+				}
+				referrer, ok := m.referrer(r, doc, ref, segment.Span.Offset)
+				if ok && !seenReferrers[referrer.node] {
+					seenReferrers[referrer.node] = true
+					elsewhere = append(elsewhere, referrer.referrer())
+				}
 			}
-			seen[segment.Span.Offset] = true
-			out = append(out, rename.Occurrence{Ref: ref, Part: part})
 		}
+		sort.Slice(found, func(a, b int) bool { return found[a].Span().Offset < found[b].Span().Offset })
+		out = append(out, found...)
 	}
-	sort.Slice(out, func(a, b int) bool { return out[a].Span().Offset < out[b].Span().Offset })
-	return out
+	sortReferrers(elsewhere)
+	return out, elsewhere
 }

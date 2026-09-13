@@ -56,16 +56,23 @@ Mermaid from the server's rendering and redrawn as the model is typed.
 
 The panel's **Add…** menu and a node's right-click menu write to the `.sysml` or
 `.kerml` file; the diagram itself is never edited. Each action is turned into a
-source-preserving edit by the language server and applied to the editor's buffer
-like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it, the file is the only
-source of truth, and the diagram redraws from what the file now says.
+source-preserving edit by the language server and applied to the editor's buffers
+like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it, the files are the only
+source of truth, and the diagram redraws from what the file now says. A rename or
+delete that reaches into other files of the workspace changes them in the same
+step: one edit, one undo.
 
 | Action | What it writes |
 | --- | --- |
 | **Add…** (palette) | A member — `part`, `port`, `state`, `action`, a `def`, … — into the declaration under the editor's cursor, else the diagram's one root, else a declaration picked from a list; or a connection between two picked nodes. The kinds offered follow the diagram: an interconnection diagram offers parts, ports and connections, a state diagram states and transitions, an action or sequence diagram actions, control nodes and successions, a tree everything the language has. A member kind that takes a type asks for one. A kind only some bodies declare — `subject`, `actor` and `stakeholder` in a requirement or case, `objective` in a case — is offered only while the diagram draws such a declaration, and goes into one of them. |
 | **Add …** (node menu) | The member kinds the node's declaration may hold, into it; or a connection, flow, succession, … from the node to one picked from a list. The connection is written in the nearest declaration that contains both ends, with the ends spelled as paths from it (`tank.fuelOut`). |
-| **Rename…** | The declaration's name, at the declaration and every reference in the file. |
-| **Delete** | The declaration, its own line and the comment block above it. A declaration something still refers to is refused, naming the referents; **Delete all** removes them too. A declaration another file refers to is refused outright, as is renaming one: an edit rewrites one file. |
+| **Rename…** | The declaration's name, at the declaration and every reference that writes it, in this file and in every other file of the workspace. |
+| **Delete** | The declaration, its own line and the comment block above it. A declaration something still refers to is refused, naming the referents by file; **Delete all** removes them too, in whichever files declare them. |
+
+A reference from a file the server cannot rewrite — a bundled library file — refuses
+the rename or delete outright. An edit across files is applied only while every file
+it names is still as the server saw it; a file typed into meanwhile leaves the edit
+unapplied, with a message naming the file, and the action can be taken again.
 
 An edit that would leave the file with an error it did not have — a type that
 does not resolve, a name already taken, a connection end out of scope — is

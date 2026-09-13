@@ -5,10 +5,13 @@ import {
   connectionOwner,
   describeOwner,
   describeRefusal,
+  describeStale,
   editParams,
   endpointPath,
   offeredOn,
   ownerOf,
+  referrersByFile,
+  staleDocuments,
   REDRAWN_MESSAGE,
   Rendering,
   rootOwner,
@@ -591,6 +594,14 @@ class DiagramPanel {
       this.fail("The language server answered with neither an edit nor a refusal.");
       return;
     }
+    // Another document the edit touches may have moved on since the server read it.
+    const stale = staleDocuments(result.edit, openVersion);
+    if (stale.length > 0) {
+      this.output.appendLine(`Model edit not applied: ${describeStale(stale)}`);
+      void vscode.window.showWarningMessage(describeStale(stale));
+      return;
+    }
+    // One applyEdit call, so every document changes together and one undo reverts them all.
     const edit = await client.protocol2CodeConverter.asWorkspaceEdit(result.edit);
     if (!(await vscode.workspace.applyEdit(edit))) {
       void vscode.window.showErrorMessage("VS Code did not apply the edit.");
@@ -603,7 +614,7 @@ class DiagramPanel {
     const message = describeRefusal(refused);
     this.output.appendLine(`Model edit refused:\n${message}`);
     if (action.kind === "delete" && refused.some((refusal) => refusal.failure === "delete-referenced")) {
-      const referring = refused.flatMap((refusal) => refusal.referring ?? []);
+      const referring = referrersByFile(refused, this.docURI.toString());
       const answer = await vscode.window.showWarningMessage(
         `${message}\n\nDelete the referring declarations too?`,
         { modal: true, detail: referring.join("\n") },
@@ -630,6 +641,12 @@ class DiagramPanel {
 /** supportsEdit reports whether the server advertised the model-edit capability. */
 function supportsEdit(client: LanguageClient): boolean {
   return experimental(client)?.[APPLY_MODEL_EDIT_CAPABILITY] === true;
+}
+
+/** openVersion is the version of the open buffer at a URI, or nothing when no buffer holds it. */
+function openVersion(uri: string): number | undefined {
+  const key = vscode.Uri.parse(uri).toString();
+  return vscode.workspace.textDocuments.find((candidate) => candidate.uri.toString() === key)?.version;
 }
 
 /** supportsRender reports whether the server advertised the render capability. */
