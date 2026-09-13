@@ -138,7 +138,7 @@ func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversi
 }
 
 // Edit is one source-preserving change to a model's notation: SetValue, Rename,
-// AddMember or Delete. A type switch over them is exhaustive.
+// AddMember, Delete or Move. A type switch over them is exhaustive.
 type Edit interface {
 	isEdit()
 }
@@ -187,10 +187,20 @@ type Delete struct {
 	Cascade bool
 }
 
+// Move re-parents a declaration into another namespace of the same document,
+// carrying its body and owned trivia and respelling the references it breaks.
+type Move struct {
+	// Target is the declaration to move, by qualified name.
+	Target string
+	// Owner is the namespace to receive it; empty is the document root.
+	Owner string
+}
+
 func (SetValue) isEdit()  { /* marker: closed Edit set */ }
 func (Rename) isEdit()    { /* marker: closed Edit set */ }
 func (AddMember) isEdit() { /* marker: closed Edit set */ }
 func (Delete) isEdit()    { /* marker: closed Edit set */ }
+func (Move) isEdit()      { /* marker: closed Edit set */ }
 
 // EditFailure says why edits were refused.
 type EditFailure int32
@@ -214,6 +224,8 @@ const (
 	EditFailureIllegalKind       EditFailure = EditFailure(pb.EditFailure_EDIT_FAILURE_ILLEGAL_KIND)
 	EditFailureMemberNameTaken   EditFailure = EditFailure(pb.EditFailure_EDIT_FAILURE_MEMBER_NAME_TAKEN)
 	EditFailureDeleteReferenced  EditFailure = EditFailure(pb.EditFailure_EDIT_FAILURE_DELETE_REFERENCED)
+	EditFailureOwnerInsideTarget EditFailure = EditFailure(pb.EditFailure_EDIT_FAILURE_OWNER_INSIDE_TARGET)
+	EditFailureMoveReferenced    EditFailure = EditFailure(pb.EditFailure_EDIT_FAILURE_MOVE_REFERENCED)
 )
 
 // String names the refusal as the wire enum spells it.
@@ -311,6 +323,11 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 		return &pb.EditOperation{Operation: &pb.EditOperation_Delete{Delete: &pb.DeleteEdit{
 			Target:  operation.Target,
 			Cascade: operation.Cascade,
+		}}}, nil
+	case Move:
+		return &pb.EditOperation{Operation: &pb.EditOperation_Move{Move: &pb.MoveEdit{
+			Target: operation.Target,
+			Owner:  operation.Owner,
 		}}}, nil
 	default:
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "unknown edit kind"}

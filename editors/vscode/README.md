@@ -68,6 +68,7 @@ now says.
 | **Add…** (palette) | A member — `part`, `port`, `state`, `action`, a `def`, … — into the declaration under the editor's cursor, else the diagram's one root, else a declaration picked from a list; or a connection between two picked nodes. The kinds offered follow the diagram: an interconnection diagram offers parts, ports and connections, a state diagram states and transitions, an action or sequence diagram actions, control nodes and successions, a tree everything the language has. A member kind that takes a type asks for one. A kind only some bodies declare — `subject`, `actor` and `stakeholder` in a requirement or case, `objective` in a case — is offered only while the diagram draws such a declaration, and goes into one of them. |
 | **Add …** (node menu) | The member kinds the node's declaration may hold, into it; or a connection, flow, succession, … from the node to one picked from a list. The connection is written in the nearest declaration that contains both ends, with the ends spelled as paths from it (`tank.fuelOut`). |
 | **Rename…** | The declaration's name, at the declaration and every reference in the file. |
+| **Move to…** | The declaration — its body, the comment block above it and its own lines — out of its owner and into one picked from a list: the drawn declarations whose body may hold its kind, or the document's top level. References to it and to what it declares are respelled so they still resolve, an import the move leaves dangling or redundant is rewritten or removed, and the destination gets a body if it had none. Moving into itself, into a declaration it holds, or beside a declaration of the same name is refused, as is a declaration another file refers to. |
 | **Delete** | The declaration, its own line and the comment block above it. A declaration something still refers to is refused, naming the referents; **Delete all** removes them too. A declaration another file refers to is refused outright, as is renaming one: an edit rewrites one file. |
 | **Drag a node** | A `metadata Layout about … { x = …; y = …; }` annotation — in the view's body when a view is drawn, inline in the node's declaration when the document is drawn directly — written when the pointer is released: one edit per drag, whatever the distance, so one <kbd>Ctrl</kbd>+<kbd>Z</kbd> puts the node back. An annotation already there is updated in place, keeping its size and collapsed state; the children the model places move with their owner, and those it does not follow it on their own. |
 | **Drag an edge** | A `metadata Route` annotation: drag the handle at the middle of a segment to bend the edge there, drag a waypoint to move it, double-click one to remove it (removing the last removes the annotation). |
@@ -77,8 +78,8 @@ interconnection, state and action — and only for nodes and edges the file
 declares; a sequence diagram's lifelines and a table are not dragged. Positions
 are pixels from the canvas's top-left corner, y downward, as
 [the layout annotations](../../docs/project/diagram-layout-annotations.md) define
-them. Not built: moving a node into another owner, placing an element in another
-file's view, and the `geometry` view kind.
+them. Not built: dragging a node into another owner (**Move to…** does that from
+the menu), placing an element in another file's view, and the `geometry` view kind.
 
 An edit that would leave the file with an error it did not have — a type that
 does not resolve, a name already taken, a connection end out of scope — is

@@ -24,7 +24,7 @@ var htmlClassVocabulary = map[string]bool{
 	"sysml-separator": true, "sysml-list": true, "sysml-item": true,
 	"sysml-definitions": true, "sysml-entry": true, "sysml-term": true, "sysml-description": true,
 	"sysml-diagram": true, "sysml-caption": true, "sysml-link": true, "sysml-ref": true,
-	"mermaid": true, "dot": true,
+	"mermaid": true, "dot": true, "plantuml": true,
 }
 
 // renderFixtureHTML evaluates a fixture document and renders it as HTML.
@@ -195,6 +195,20 @@ func TestHTMLDiagramForm(t *testing.T) {
 	if strings.Contains(got, `class="mermaid"`) {
 		t.Errorf("a diagram is still Mermaid when DOT is asked for:\n%s", got)
 	}
+	plantuml := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{DiagramForm: view.FormPlantUML})
+	for _, want := range []string{
+		`<pre class="plantuml">@startuml` + "\n&#39; Observatory::interconnectView — interconnection rendering",
+		`<pre class="plantuml">@startuml` + "\n&#39; state rendering",
+		"left to right direction\n",
+		`<table class="sysml-table"`,
+	} {
+		if !strings.Contains(plantuml, want) {
+			t.Errorf("PlantUML rendering does not contain %q\n%s", want, plantuml)
+		}
+	}
+	if strings.Contains(plantuml, `class="mermaid"`) || strings.Contains(plantuml, `class="dot"`) {
+		t.Errorf("a diagram is in another form when PlantUML is asked for:\n%s", plantuml)
+	}
 	if !strings.Contains(renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{}), `<pre class="mermaid">`) {
 		t.Error("the default diagram form is not Mermaid")
 	}
@@ -209,7 +223,7 @@ func TestHTMLDiagramForm(t *testing.T) {
 // markup: nothing carries a style attribute, and every class is one the
 // documented vocabulary names.
 func TestHTMLNoInlineStylesOrUnknownClasses(t *testing.T) {
-	for _, opts := range []HTMLOptions{{}, {Fragment: true, TitlePage: true, TOC: true, NumberSections: true}, {DiagramForm: view.FormDot}} {
+	for _, opts := range []HTMLOptions{{}, {Fragment: true, TitlePage: true, TOC: true, NumberSections: true}, {DiagramForm: view.FormDot}, {DiagramForm: view.FormPlantUML}} {
 		got := renderFixtureHTML(t, filepath.Join("testdata", "telescope_report.sysml"),
 			"Observatory::MassReport", opts)
 		if strings.Contains(got, "style=\"") {

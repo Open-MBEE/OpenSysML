@@ -94,9 +94,8 @@ func (m Model) addConnectionSplice(i int, op Operation) (splice, error) {
 			Message:        fmt.Sprintf("%s already declares %q", op.Owner, op.MemberName),
 		}
 	}
-	text := writeConnection(op, kind, lang)
-	span, replacement := m.memberInsertion(owner, text)
-	return splice{span: span, text: replacement, opIndex: i, target: op.Owner}, nil
+	ins := m.memberInsertion(owner, writeConnection(op, kind, lang))
+	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 }
 
 func writeConnection(op Operation, kind connectionKind, lang source.Kind) string {

@@ -32,6 +32,7 @@ const (
 	EditAddMember     = "addMember"
 	EditAddConnection = "addConnection"
 	EditDelete        = "delete"
+	EditMove          = "move"
 	EditSetLayout     = "setLayout"
 	EditSetRoute      = "setRoute"
 	EditSetCanvas     = "setCanvas"
@@ -112,13 +113,33 @@ type modelEditRefusal struct {
 
 // editPalette lists the declarations a diagram of one rendering kind offers to
 // add, in the document's language; Typed are the Members that take a type.
-// Owners lists, for each Member only some bodies offer (`subject`), the nodes
-// whose declaration offers it; a Member absent from Owners goes into any node.
+// Owners lists, for each Member only some bodies offer (`subject`) and for the
+// notation of each drawn declaration that is such a member, the nodes whose
+// declaration offers it; a kind absent from Owners goes into any node.
 type editPalette struct {
 	Members     []string            `json:"members"`
 	Connections []string            `json:"connections"`
 	Typed       []string            `json:"typed"`
 	Owners      map[string][]string `json:"owners,omitempty"`
+}
+
+// declaredNode is a drawn node the document declares, for admission once every
+// confined kind of the rendering is known.
+type declaredNode struct {
+	id   string
+	decl ast.Node
+}
+
+// confine lists kind in Owners when only some bodies offer it, so a move of a
+// node declared with kind learns where it may go.
+func (p *editPalette) confine(kind string) {
+	if _, listed := p.Owners[kind]; listed || !modeledit.MemberKindOwnerBound(kind) {
+		return
+	}
+	if p.Owners == nil {
+		p.Owners = map[string][]string{}
+	}
+	p.Owners[kind] = []string{}
 }
 
 // admit records that the node with id, declared by decl, may own the members
@@ -227,6 +248,8 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 		return out, nil
 	case EditDelete:
 		return modeledit.Delete(op.Target, op.Cascade), nil
+	case EditMove:
+		return modeledit.Move(op.Target, op.Owner), nil
 	case EditSetLayout:
 		layout, err := op.Layout.layout()
 		if err != nil {
@@ -256,7 +279,7 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 		return modeledit.SetCanvas(op.Target, canvas), nil
 	}
 	return modeledit.Operation{}, fmt.Errorf("kind %q is none of %s", op.Kind,
-		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete, EditSetLayout, EditSetRoute, EditSetCanvas}, ", "))
+		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas}, ", "))
 }
 
 // layout reads the wire geometry as the edit layer writes it; nil clears.

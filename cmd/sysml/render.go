@@ -165,6 +165,8 @@ func renderExtension(form view.Form) string {
 		return ".md"
 	case view.FormDot:
 		return ".dot"
+	case view.FormPlantUML:
+		return ".puml"
 	default:
 		return ".txt"
 	}

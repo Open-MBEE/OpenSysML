@@ -22,10 +22,12 @@ and the extension's README describe. Tier 3 is the SVG canvas in
 `src/webview/{layout,canvas}.ts` over the `setLayout`, `setRoute` and `setCanvas`
 operations of `internal/core/edit/layout.go`, writing the `DiagramLayout`
 annotations of [Diagram layout annotations](../../project/diagram-layout-annotations.md);
-its section below is the design as built. Re-parenting by drag and the
-`CustomTextEditorProvider` registration are not built, as the known limitations say.
-The tier 1 and 2 sections are the design as written before the work, kept for the
-reasoning behind it.
+its section below is the design as built. Re-parenting is `edit.OpMove`
+(`internal/core/edit/move.go`), the `move` operation of `applyModelEdit` and the
+node menu's **Move to…**, which offers the drawn declarations whose body admits the
+node's kind; the drag that would issue it, and the `CustomTextEditorProvider`
+registration, are not built, as the known limitations say. The tier 1 and 2
+sections are the design as written before the work, kept for the reasoning behind it.
 
 ## What exists today
 
@@ -320,9 +322,10 @@ and a stale rendering is redrawn rather than written to. Moving a node carries t
 descendants the model places, and the routes between two nodes of the moved
 subtree, in the same request; unplaced descendants follow their owner on their own.
 
-Re-parenting (dragging a part into a different definition) would be a move —
-delete from one body and add to another as one operation, an `OpMove{Target,
-NewOwner}` in `edit` so the two halves cannot come apart — and is not built.
+Re-parenting is a move — delete from one body and add to another as one
+operation, `edit.OpMove{Target, NewOwner}`, so the two halves cannot come apart —
+issued from the node menu's **Move to…**; dragging a part into a different
+definition does not issue it.
 
 ### Rendering surface
 
@@ -365,8 +368,8 @@ save are the text document's.
 - The layout annotations are this project's library. SysML v2 §10.2 leaves how a
   view is drawn to the tool, so nothing here claims to be a normative diagram
   interchange, and no attempt is made to read or write another tool's layout.
-- Re-parenting by drag (an `OpMove`) is not built; a part is moved by editing the
-  text.
+- Re-parenting by drag is not built; a part is moved from the node menu's
+  **Move to…** or by editing the text.
 - The palette writes the notation OpenSysML's writer emits, which is
   spec-conformant but not necessarily byte-identical to what a user would have
   typed. `format` makes it consistent with the file; it does not make it a

@@ -245,6 +245,12 @@ func TestDeleteOnlyMemberRootAndNeighborTrivia(t *testing.T) {
 			target: "P::Gone",
 			want:   "package P {\n    // keep\n    part def Keep;\n\n    // neighbor\n    part def Next;\n}\n",
 		},
+		{
+			name:   "trailing line comment goes with the declaration",
+			src:    "package P {\n    part def Keep;\n    part def Gone; // gone too\n    part def Next; // stays\n}\n",
+			target: "P::Gone",
+			want:   "package P {\n    part def Keep;\n    part def Next; // stays\n}\n",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -265,8 +265,8 @@ func (m Model) insertAnnotation(i int, op Operation, bindings []layoutBinding, s
 		owner = viewSym
 		text = "metadata " + op.Annotation + " about " + notationName(sym)
 	}
-	span, insertion := m.memberInsertion(owner.Decl, text+" "+writeBindings(bindings))
-	return splice{span: span, text: insertion, opIndex: i, target: m.label(op)}
+	ins := m.memberInsertion(owner.Decl, text+" "+writeBindings(bindings))
+	return splice{span: ins.span, text: ins.text, opIndex: i, target: m.label(op)}
 }
 
 // writeBindings spells an annotation body on one line.

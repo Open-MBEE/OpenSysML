@@ -57,6 +57,7 @@ private static final long serialVersionUID = 0L;
     RENAME(2),
     ADD_MEMBER(3),
     DELETE(4),
+    MOVE(5),
     OPERATION_NOT_SET(0);
     private final int value;
     private OperationCase(int value) {
@@ -78,6 +79,7 @@ private static final long serialVersionUID = 0L;
         case 2: return RENAME;
         case 3: return ADD_MEMBER;
         case 4: return DELETE;
+        case 5: return MOVE;
         case 0: return OPERATION_NOT_SET;
         default: return null;
       }
@@ -217,6 +219,37 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.DeleteEdit.getDefaultInstance();
   }
 
+  public static final int MOVE_FIELD_NUMBER = 5;
+  /**
+   * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+   * @return Whether the move field is set.
+   */
+  @java.lang.Override
+  public boolean hasMove() {
+    return operationCase_ == 5;
+  }
+  /**
+   * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+   * @return The move.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.MoveEdit getMove() {
+    if (operationCase_ == 5) {
+       return (org.openmbee.opensysml.proto.MoveEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.MoveEdit.getDefaultInstance();
+  }
+  /**
+   * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.MoveEditOrBuilder getMoveOrBuilder() {
+    if (operationCase_ == 5) {
+       return (org.openmbee.opensysml.proto.MoveEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.MoveEdit.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -243,6 +276,9 @@ private static final long serialVersionUID = 0L;
     if (operationCase_ == 4) {
       output.writeMessage(4, (org.openmbee.opensysml.proto.DeleteEdit) operation_);
     }
+    if (operationCase_ == 5) {
+      output.writeMessage(5, (org.openmbee.opensysml.proto.MoveEdit) operation_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -267,6 +303,10 @@ private static final long serialVersionUID = 0L;
     if (operationCase_ == 4) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(4, (org.openmbee.opensysml.proto.DeleteEdit) operation_);
+    }
+    if (operationCase_ == 5) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(5, (org.openmbee.opensysml.proto.MoveEdit) operation_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -301,6 +341,10 @@ private static final long serialVersionUID = 0L;
         if (!getDelete()
             .equals(other.getDelete())) return false;
         break;
+      case 5:
+        if (!getMove()
+            .equals(other.getMove())) return false;
+        break;
       case 0:
       default:
     }
@@ -331,6 +375,10 @@ private static final long serialVersionUID = 0L;
       case 4:
         hash = (37 * hash) + DELETE_FIELD_NUMBER;
         hash = (53 * hash) + getDelete().hashCode();
+        break;
+      case 5:
+        hash = (37 * hash) + MOVE_FIELD_NUMBER;
+        hash = (53 * hash) + getMove().hashCode();
         break;
       case 0:
       default:
@@ -482,6 +530,9 @@ private static final long serialVersionUID = 0L;
       if (deleteBuilder_ != null) {
         deleteBuilder_.clear();
       }
+      if (moveBuilder_ != null) {
+        moveBuilder_.clear();
+      }
       operationCase_ = 0;
       operation_ = null;
       return this;
@@ -539,6 +590,10 @@ private static final long serialVersionUID = 0L;
           deleteBuilder_ != null) {
         result.operation_ = deleteBuilder_.build();
       }
+      if (operationCase_ == 5 &&
+          moveBuilder_ != null) {
+        result.operation_ = moveBuilder_.build();
+      }
     }
 
     @java.lang.Override
@@ -568,6 +623,10 @@ private static final long serialVersionUID = 0L;
         }
         case DELETE: {
           mergeDelete(other.getDelete());
+          break;
+        }
+        case MOVE: {
+          mergeMove(other.getMove());
           break;
         }
         case OPERATION_NOT_SET: {
@@ -628,6 +687,13 @@ private static final long serialVersionUID = 0L;
               operationCase_ = 4;
               break;
             } // case 34
+            case 42: {
+              input.readMessage(
+                  internalGetMoveFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              operationCase_ = 5;
+              break;
+            } // case 42
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1226,6 +1292,148 @@ private static final long serialVersionUID = 0L;
       operationCase_ = 4;
       onChanged();
       return deleteBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.MoveEdit, org.openmbee.opensysml.proto.MoveEdit.Builder, org.openmbee.opensysml.proto.MoveEditOrBuilder> moveBuilder_;
+    /**
+     * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+     * @return Whether the move field is set.
+     */
+    @java.lang.Override
+    public boolean hasMove() {
+      return operationCase_ == 5;
+    }
+    /**
+     * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+     * @return The move.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.MoveEdit getMove() {
+      if (moveBuilder_ == null) {
+        if (operationCase_ == 5) {
+          return (org.openmbee.opensysml.proto.MoveEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.MoveEdit.getDefaultInstance();
+      } else {
+        if (operationCase_ == 5) {
+          return moveBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.MoveEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+     */
+    public Builder setMove(org.openmbee.opensysml.proto.MoveEdit value) {
+      if (moveBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        operation_ = value;
+        onChanged();
+      } else {
+        moveBuilder_.setMessage(value);
+      }
+      operationCase_ = 5;
+      return this;
+    }
+    /**
+     * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+     */
+    public Builder setMove(
+        org.openmbee.opensysml.proto.MoveEdit.Builder builderForValue) {
+      if (moveBuilder_ == null) {
+        operation_ = builderForValue.build();
+        onChanged();
+      } else {
+        moveBuilder_.setMessage(builderForValue.build());
+      }
+      operationCase_ = 5;
+      return this;
+    }
+    /**
+     * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+     */
+    public Builder mergeMove(org.openmbee.opensysml.proto.MoveEdit value) {
+      if (moveBuilder_ == null) {
+        if (operationCase_ == 5 &&
+            operation_ != org.openmbee.opensysml.proto.MoveEdit.getDefaultInstance()) {
+          operation_ = org.openmbee.opensysml.proto.MoveEdit.newBuilder((org.openmbee.opensysml.proto.MoveEdit) operation_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          operation_ = value;
+        }
+        onChanged();
+      } else {
+        if (operationCase_ == 5) {
+          moveBuilder_.mergeFrom(value);
+        } else {
+          moveBuilder_.setMessage(value);
+        }
+      }
+      operationCase_ = 5;
+      return this;
+    }
+    /**
+     * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+     */
+    public Builder clearMove() {
+      if (moveBuilder_ == null) {
+        if (operationCase_ == 5) {
+          operationCase_ = 0;
+          operation_ = null;
+          onChanged();
+        }
+      } else {
+        if (operationCase_ == 5) {
+          operationCase_ = 0;
+          operation_ = null;
+        }
+        moveBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+     */
+    public org.openmbee.opensysml.proto.MoveEdit.Builder getMoveBuilder() {
+      return internalGetMoveFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.MoveEditOrBuilder getMoveOrBuilder() {
+      if ((operationCase_ == 5) && (moveBuilder_ != null)) {
+        return moveBuilder_.getMessageOrBuilder();
+      } else {
+        if (operationCase_ == 5) {
+          return (org.openmbee.opensysml.proto.MoveEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.MoveEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.MoveEdit move = 5 [json_name = "move"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.MoveEdit, org.openmbee.opensysml.proto.MoveEdit.Builder, org.openmbee.opensysml.proto.MoveEditOrBuilder> 
+        internalGetMoveFieldBuilder() {
+      if (moveBuilder_ == null) {
+        if (!(operationCase_ == 5)) {
+          operation_ = org.openmbee.opensysml.proto.MoveEdit.getDefaultInstance();
+        }
+        moveBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.MoveEdit, org.openmbee.opensysml.proto.MoveEdit.Builder, org.openmbee.opensysml.proto.MoveEditOrBuilder>(
+                (org.openmbee.opensysml.proto.MoveEdit) operation_,
+                getParentForChildren(),
+                isClean());
+        operation_ = null;
+      }
+      operationCase_ = 5;
+      onChanged();
+      return moveBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.EditOperation)
