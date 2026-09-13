@@ -78,6 +78,52 @@ func sameDiagnostic(a, b parser.Diagnostic) bool {
 	return a.Span == b.Span && a.Message == b.Message && a.Code == b.Code
 }
 
+// A document owns its bytes: the buffer a caller passed to Open, Update or
+// SetOnDisk can be overwritten afterwards without the document, or the source
+// its AST spans index into, changing.
+func TestDocumentSnapshotOwnsContent(t *testing.T) {
+	const want = "package P { part def A; }"
+	for _, tc := range []struct {
+		name string
+		set  func(ws *Workspace, name string, buf []byte)
+	}{
+		{"Open", func(ws *Workspace, name string, buf []byte) { ws.Open(name, buf, 1) }},
+		{"Update", func(ws *Workspace, name string, buf []byte) {
+			ws.Open(name, []byte("package Old;"), 1)
+			ws.Update(name, buf, 2)
+		}},
+		{"SetOnDisk", func(ws *Workspace, name string, buf []byte) { ws.SetOnDisk(name, buf) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ws := NewWorkspace()
+			const name = "own.sysml"
+			buf := []byte(want)
+			tc.set(ws, name, buf)
+			snap := ws.Document(name)
+			if snap == nil {
+				t.Fatal("Document = nil")
+			}
+			if sameSlice(snap.Content, buf) || sameSlice(snap.sf.Bytes(), buf) {
+				t.Fatal("document aliases the caller's buffer")
+			}
+			copy(buf, "package Q { part def B; }")
+
+			if got := string(snap.Content); got != want {
+				t.Errorf("Content = %q, want %q", got, want)
+			}
+			if got := string(snap.sf.Bytes()); got != want {
+				t.Errorf("source bytes = %q, want %q", got, want)
+			}
+			if got := snap.sf.Text(snap.AST.Members[0].Span()); got != want {
+				t.Errorf("text of the package member = %q, want %q", got, want)
+			}
+			if _, ok := snap.Scope.LookupLocal("P"); !ok {
+				t.Error("Scope lost P")
+			}
+		})
+	}
+}
+
 // Reading a snapshot, or the current document, races with nothing a reindex
 // does, and every document read is one revision throughout: content, AST and
 // scope never mix. Run with -race.

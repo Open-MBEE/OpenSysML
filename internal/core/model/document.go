@@ -3,6 +3,7 @@
 package model
 
 import (
+	"bytes"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -12,8 +13,9 @@ import (
 )
 
 // Document is the parsed state of one source file. It is immutable once built:
-// newDocument sets every field and nothing writes one afterwards, so a document
-// the workspace hands out is a snapshot that a later update never touches.
+// newDocument owns a copy of the bytes, sets every field and nothing writes one
+// afterwards, so a document the workspace hands out is a snapshot that neither a
+// later update nor the caller's buffer can touch.
 type Document struct {
 	Name             string
 	Content          []byte
@@ -25,8 +27,10 @@ type Document struct {
 	sf               *source.SourceFile
 }
 
-// newDocument parses content and builds the document's local scope tree.
+// newDocument parses a private copy of content and builds the document's local
+// scope tree.
 func newDocument(name string, content []byte, version int) *Document {
+	content = bytes.Clone(content)
 	sf := source.New(name, content)
 	p := parser.New(sf)
 	root := p.ParseFile()
