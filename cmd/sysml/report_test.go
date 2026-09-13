@@ -98,8 +98,8 @@ func TestCheckResultsReportInputsAndWitnessValues(t *testing.T) {
 		Witness     struct {
 			Schedule string `json:"schedule"`
 			Inputs   []struct {
-				Name  string `json:"name"`
-				Value string `json:"value"`
+				Feature string `json:"feature"`
+				Value   string `json:"value"`
 			} `json:"inputs"`
 			Choices []string `json:"choices"`
 			Path    string   `json:"path"`
@@ -117,9 +117,12 @@ func TestCheckResultsReportInputsAndWitnessValues(t *testing.T) {
 	if len(smt.Assumptions) != 1 || smt.Assumptions[0] != "constraint wide" {
 		t.Errorf("assumptions = %v", smt.Assumptions)
 	}
-	if smt.Witness.Schedule != "replay" || len(smt.Witness.Inputs) != 1 || smt.Witness.Inputs[0].Name != "limit" ||
+	if smt.Witness.Schedule != "replay" || len(smt.Witness.Inputs) != 1 || smt.Witness.Inputs[0].Feature != "limit" ||
 		smt.Witness.Inputs[0].Value != "-1" || smt.Witness.Choices == nil || smt.Witness.Path != "/tmp/w.witness" {
 		t.Errorf("witness = %+v", smt.Witness)
+	}
+	if !strings.Contains(string(got), `"witness":{"schedule":"replay","inputs":[{"feature":"limit","value":"-1"}]`) {
+		t.Errorf("a witness input is keyed feature and value: %s", got)
 	}
 	if !strings.Contains(string(got), `"choices":[]`) {
 		t.Errorf("a witness of no choice reports choices as []: %s", got)

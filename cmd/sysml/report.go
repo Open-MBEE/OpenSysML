@@ -263,10 +263,17 @@ type checkWitness struct {
 	Schedule string `json:"schedule"`
 	// Inputs are the values the witness fixes for the free inputs before its first
 	// move, as the notation spells them; absent when it fixes none.
-	Inputs  []namedValue `json:"inputs,omitempty"`
-	Choices []string     `json:"choices"`
+	Inputs  []checkWitnessInput `json:"inputs,omitempty"`
+	Choices []string            `json:"choices"`
 	// Path is the witness file written under -check-witness, empty without one.
 	Path string `json:"path,omitempty"`
+}
+
+// checkWitnessInput is one feature a witness fixes and the value it fixes it at,
+// keyed as the witness file's `input <feature> = <value>` line is.
+type checkWitnessInput struct {
+	Feature string `json:"feature"`
+	Value   string `json:"value"`
 }
 
 // checkBounds converts the bounds an engine took into the reported form; a
@@ -286,7 +293,7 @@ func checkWitnessOf(w *analysis.Witness) *checkWitness {
 	}
 	out := &checkWitness{Schedule: w.Schedule.String(), Choices: choiceStrings(w.Choices), Path: w.Written}
 	for _, in := range w.Inputs {
-		out.Inputs = append(out.Inputs, namedValue{Name: in.Feature, Value: in.Written})
+		out.Inputs = append(out.Inputs, checkWitnessInput{Feature: in.Feature, Value: in.Written})
 	}
 	return out
 }
