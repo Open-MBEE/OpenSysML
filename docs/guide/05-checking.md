@@ -639,9 +639,10 @@ object it is about by the path from the one validated, a collection element by i
 (`wheels[2]`, counted from 1). The object is valid only when every assertion holds *and* every
 object it holds was reached: an assertion that could not be evaluated — a feature no value
 reaches — is reported as undecided with the reason, not as false, and leaves the object undecided
-rather than valid; so does a walk cut short by an object graph that goes on without end. A
-constraint declared without `assert` is a definition to check by name, not an assertion about the
-object, and is not swept. The command line makes the same check with
+rather than valid; so does a walk cut short by an object graph that goes on without end. An
+object no assertion is about decides nothing — `? Demo::crate states no assertion to validate` —
+and is not shown valid either. A constraint declared without `assert` is a definition to check by
+name, not an assertion about the object, and is not swept. The command line makes the same check with
 [`-validate=<object>`](../reference/cli.md#command-reference), and a script with the
 `ValidateInstance` RPC ([from Python or Go](09-clients.md#validating-an-object-as-a-whole)).
 

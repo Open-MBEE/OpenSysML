@@ -68,6 +68,10 @@ var (
 	// request, not the model.
 	ErrNotARequirement = errors.New("not a requirement")
 
+	// ErrNotAnObject is returned when a symbol asked to be validated as an object
+	// has no objects: a package, an attribute, a comment. It reports the request.
+	ErrNotAnObject = errors.New("not an object")
+
 	// ErrNotAnAnalysis is returned when a symbol asked for its objectives or
 	// asked to be run is not a case whose body runs. Like ErrNotAConstraint it
 	// reports the request, not the model.

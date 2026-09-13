@@ -1639,12 +1639,20 @@ Reading the response:
   of its four assertions are false. A summary with `error` is undecided — an assertion that could
   not be evaluated, a feature value that could not be read, or a walk that `bounded` cut short —
   and says which; read `error` first, as for any `Verdict`.
-- An unknown or non-instantiable `symbolId` is answered in-band, as the other verification
-  calls answer it: `error` at the top level with `failureReason`, and no `verdicts` or `summary`:
+- An object no assertion is about decides nothing: `verdicts` is empty and `summary` neither
+  holds nor is a violation — its `error` says the object `states no assertion to validate`, with
+  `failureReason` `FAILURE_REASON_EVALUATION` — so an object is shown valid only by at least one
+  assertion holding.
+- An unknown `symbolId`, or one that has no object to validate — a package, an attribute, an
+  enumeration — is answered in-band, as the other verification calls answer it: `error` at the
+  top level with `failureReason` (`FAILURE_REASON_WRONG_KIND` for a symbol of the wrong kind),
+  and no `verdicts` or `summary`:
 
   ```console
   $ … /ValidateInstance -d '{"modelHash":"6457…5d2c","symbolId":"Fleet::nope"}'
   {"error":"symbol not found: Fleet::nope","failureReason":"FAILURE_REASON_EVALUATION"}
+  $ … /ValidateInstance -d '{"modelHash":"6457…5d2c","symbolId":"Fleet"}'
+  {"error":"not an object: Fleet is a package, which has no object to validate","failureReason":"FAILURE_REASON_WRONG_KIND"}
   ```
 
 A constraint declared without `assert` is not swept — it is what `VerifyConstraint` is for.

@@ -7,7 +7,9 @@
   (`car.wheels[2]`), then one verdict about the object itself. A condition that evaluated false is
   violated; one that could not be evaluated is undecided with the reason, and leaves the object
   not shown valid rather than valid; a walk cut short by an object graph without end is reported
-  bounded and not valid. A constraint declared without `assert` is not swept. The object is named
+  bounded and not valid; an object no assertion is about decides nothing and is not shown valid
+  either. A constraint declared without `assert` is not swept, and a symbol with no object to
+  validate — a package, an attribute — is refused as the wrong kind. The object is named
   as every prompt command names one: by the name it was instantiated under, by id, or by a path
   into what it holds. `-validate` without an object still checks only that the model analyses
   cleanly. Over the wire the response carries each verdict's `instance_path` and a `summary`

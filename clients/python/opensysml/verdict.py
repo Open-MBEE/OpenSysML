@@ -344,7 +344,8 @@ class Validation:
 
     @property
     def valid(self):
-        """Whether every assertion holds and every held object was reached."""
+        """Whether the object is shown valid: at least one assertion, every one
+        holding, and every held object reached."""
         return self.summary is not None and self.summary.holds and not self.summary.error
 
     @property

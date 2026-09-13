@@ -81,6 +81,9 @@ const validationSource = `package Demo {
 
 	part car : Car;
 	part sound : Wheel;
+
+	part def Crate;
+	part crate : Crate;
 }`
 
 const querySource = `package Demo {
@@ -361,6 +364,21 @@ func TestValidateInstanceTakesNoSubject(t *testing.T) {
 	}
 }
 
+func TestValidateInstanceStatingNoAssertionIsNotValid(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, validationSource)
+	validation, err := client.ValidateInstance(context.Background(), model, "Demo::crate")
+	if err != nil {
+		t.Fatalf("ValidateInstance: %v", err)
+	}
+	if len(validation.Verdicts) != 0 || validation.Valid() || validation.Violated() {
+		t.Errorf("verdicts=%+v valid=%v violated=%v, want nothing decided", validation.Verdicts, validation.Valid(), validation.Violated())
+	}
+	if validation.Summary == nil || validation.Summary.Holds || validation.Summary.Error == "" {
+		t.Errorf("summary = %+v, want one that says no assertion was stated", validation.Summary)
+	}
+}
+
 func TestValidateInstanceOfNothingFails(t *testing.T) {
 	client := newClient(t)
 	model := parse(t, client, validationSource)
@@ -371,6 +389,13 @@ func TestValidateInstanceOfNothingFails(t *testing.T) {
 	}
 	if !errors.Is(err, opensysml.ErrFailure) {
 		t.Error("a VerifyError does not match ErrFailure")
+	}
+
+	for _, symbol := range []string{"Demo", "Demo::Car::mass"} {
+		_, err := client.ValidateInstance(context.Background(), model, symbol)
+		if !errors.As(err, &refused) || refused.Reason != opensysml.ReasonWrongKind {
+			t.Errorf("ValidateInstance(%s) = %v, want a VerifyError of the wrong kind", symbol, err)
+		}
 	}
 }
 

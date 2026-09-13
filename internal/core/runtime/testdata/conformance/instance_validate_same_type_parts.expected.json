@@ -9,6 +9,7 @@
       {"kind": "constraint", "assertion": "inv heightPositive", "object": "body", "status": "holds"},
       {"kind": "constraint", "assertion": "assert not constraint", "object": "body", "status": "holds"},
       {"kind": "satisfaction", "assertion": "satisfy rearLoad by rig.rear", "object": "rear", "status": "violated", "error": "evaluated to false"}
-    ]
+    ],
+    "valid": false
   }
 }

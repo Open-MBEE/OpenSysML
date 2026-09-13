@@ -205,9 +205,11 @@ type ExpectedOutcome struct {
 }
 
 // ExpectedValidation is the report of validating an instance as a whole: each
-// verdict in order, whether the walk was bounded, and the unreadable feature values.
+// verdict in order, whether the object is shown valid, whether the walk was
+// bounded, and the unreadable feature values.
 type ExpectedValidation struct {
 	Verdicts []ExpectedObjectVerdict `json:"verdicts"`
+	Valid    *bool                   `json:"valid,omitempty"`
 	Bounded  bool                    `json:"bounded,omitempty"`
 	Unread   []string                `json:"unread,omitempty"`
 }
@@ -1537,6 +1539,9 @@ func validateValidation(t *testing.T, ctx *Context, scope *symbols.Scope, inst *
 	report, err := ctx.ValidateObject(inst, []*symbols.Scope{scope})
 	if err != nil {
 		t.Fatalf("validation: %v", err)
+	}
+	if expected.Valid != nil && report.Valid() != *expected.Valid {
+		t.Errorf("validation: valid = %v, want %v", report.Valid(), *expected.Valid)
 	}
 	if report.Bounded != expected.Bounded {
 		t.Errorf("validation: bounded = %v, want %v", report.Bounded, expected.Bounded)

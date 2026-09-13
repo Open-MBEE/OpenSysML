@@ -396,7 +396,8 @@ fixtures: the execution harness skips them.
        "status": "violated", "error": "evaluated to false"},
       {"kind": "satisfaction", "assertion": "satisfy strongEngine by car.engine", "object": "engine",
        "status": "holds"}
-    ]
+    ],
+    "valid": false
   }
   ```
 
@@ -407,10 +408,13 @@ fixtures: the execution harness skips them.
   verdict is about, one-based for a collection element and omitted for the root.
   `status` is `holds`, `violated` (the condition evaluated to false) or
   `undecided` (it could not be evaluated); `error` is text the verdict's error
-  must carry, matched as a substring. `bounded` states that the walk stopped at
-  its depth bound before reaching every held object and `unread` the text of
-  each feature value it could not read; a report with either is not valid even
-  when every verdict holds. An unasserted named constraint is not swept.
+  must carry, matched as a substring. `valid`, when stated, is whether the object
+  is shown valid: at least one assertion, every one holding, and a complete walk.
+  `bounded` states that the walk stopped at its depth bound before reaching every
+  held object and `unread` the text of each feature value it could not read; a
+  report with either is not valid even when every verdict holds, and so is one
+  with no verdict at all, which decided nothing. An unasserted named constraint
+  is not swept.
 
 ## Diagnostics
 

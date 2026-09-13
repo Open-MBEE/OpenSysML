@@ -88,7 +88,7 @@ func validationSummary(report runtime.ValidationReport, label string) Verdict {
 	var lines []string
 	status := VerdictHolds
 	switch {
-	case total == 0 && !incomplete:
+	case total == 0:
 		lines = append(lines, fmt.Sprintf("? %s states no assertion to validate", label))
 		status = VerdictUnresolved
 	case fails > 0:

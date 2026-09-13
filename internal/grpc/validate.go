@@ -27,7 +27,7 @@ func (s *Service) ValidateInstance(ctx context.Context, req *pb.ValidateInstance
 	if req.SymbolId == "" {
 		return &pb.ValidateInstanceResponse{Error: "symbol_id names no part to validate an object of"}, nil
 	}
-	root, err := v.subject(req.SymbolId)
+	root, err := v.object(req.SymbolId)
 	if err != nil {
 		return &pb.ValidateInstanceResponse{Error: err.Error(), FailureReason: failureReason(err)}, nil
 	}

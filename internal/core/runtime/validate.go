@@ -74,9 +74,10 @@ type ValidationReport struct {
 	Unread []error
 }
 
-// Valid reports whether every assertion holds and every held object was reached.
+// Valid reports whether the object is shown valid: it states at least one assertion,
+// every assertion holds and every held object was reached.
 func (r ValidationReport) Valid() bool {
-	return r.Status() == ValidationHolds && r.Complete()
+	return len(r.Verdicts) > 0 && r.Status() == ValidationHolds && r.Complete()
 }
 
 // Complete reports whether the walk reached every object the root holds.
@@ -129,6 +130,27 @@ type validationWalk struct {
 	bounded bool
 	unread  []error
 	objects []*validatedObject
+}
+
+// RequireObject returns an ErrNotAnObject usage error unless sym has objects to
+// validate: a definition or a usage, not a namespace, and not a data value (an
+// attribute or an enumeration, whose values carry no assertion of their own).
+func RequireObject(sym *symbols.Symbol) error {
+	switch sym.Kind {
+	case symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage,
+		symbols.SymbolEnumerationDef, symbols.SymbolEnumerationUsage,
+		symbols.SymbolConnectorEnd, symbols.SymbolCrossFeature, symbols.SymbolMultiplicity:
+		return notAnObject(sym)
+	}
+	if sym.Kind.IsDefinition() || sym.IsFeature() {
+		return nil
+	}
+	return notAnObject(sym)
+}
+
+func notAnObject(sym *symbols.Symbol) error {
+	kind := sym.Notation()
+	return fmt.Errorf("%w: %s is %s %s, which has no object to validate", ErrNotAnObject, sym.Name, articleFor(kind), kind)
 }
 
 // ValidateObject checks every assertion about root and the objects it holds: asserted

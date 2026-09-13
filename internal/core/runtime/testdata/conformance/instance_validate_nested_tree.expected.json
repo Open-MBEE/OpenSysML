@@ -12,6 +12,7 @@
       {"kind": "constraint", "assertion": "assert constraint pressureOk", "object": "wheels[2]", "status": "violated", "error": "evaluated to false"},
       {"kind": "constraint", "assertion": "assert constraint pressureOk", "object": "wheels[3]", "status": "violated", "error": "evaluated to false"},
       {"kind": "satisfaction", "assertion": "satisfy strongEngine by car.engine", "object": "engine", "status": "holds"}
-    ]
+    ],
+    "valid": false
   }
 }

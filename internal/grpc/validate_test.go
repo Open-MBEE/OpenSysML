@@ -58,6 +58,9 @@ const validateModelSource = `package Demo {
 	part loose : Loose;
 
 	part sound : Wheel;
+
+	part def Crate;
+	part crate : Crate;
 }
 `
 
@@ -202,25 +205,59 @@ func TestValidateInstanceUndecidedIsNotAVerdict(t *testing.T) {
 	}
 }
 
-// TestValidateInstanceRefusesWhatIsNoPart verifies naming nothing or a symbol
-// the model lacks is a failure, not a verdict.
+// TestValidateInstanceStatingNoAssertionDecidesNothing verifies an object no
+// assertion is about is not shown valid: the summary neither holds nor is a
+// violation, and says why.
+func TestValidateInstanceStatingNoAssertionDecidesNothing(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, validateModelSource, "validate-instance")
+
+	resp, err := srv.ValidateInstance(context.Background(), &pb.ValidateInstanceRequest{
+		ModelHash: hash,
+		SymbolId:  "Demo::crate",
+	})
+	if err != nil {
+		t.Fatalf("ValidateInstance: %v", err)
+	}
+	if resp.Error != "" || len(resp.Verdicts) != 0 {
+		t.Fatalf("error=%q verdicts=%v, want an answer with no verdict", resp.Error, resp.Verdicts)
+	}
+	if resp.Summary == nil || resp.Summary.Holds || !strings.Contains(resp.Summary.Error, "states no assertion") {
+		t.Errorf("summary = %v, want undecided for want of an assertion", resp.Summary)
+	}
+	if resp.Summary.FailureReason != pb.FailureReason_FAILURE_REASON_EVALUATION {
+		t.Errorf("summary failure_reason = %v, want EVALUATION", resp.Summary.FailureReason)
+	}
+}
+
+// TestValidateInstanceRefusesWhatIsNoPart verifies naming nothing, a symbol
+// the model lacks, or one that has no object — a package, an attribute — is a
+// failure, not a verdict, and that the last is answered as the wrong kind.
 func TestValidateInstanceRefusesWhatIsNoPart(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, validateModelSource, "validate-instance")
 
-	for name, symbol := range map[string]string{
-		"nothing": "",
-		"unknown": "Demo::nosuch",
+	for name, tc := range map[string]struct {
+		symbol string
+		reason pb.FailureReason
+	}{
+		"nothing":   {"", pb.FailureReason_FAILURE_REASON_UNSPECIFIED},
+		"unknown":   {"Demo::nosuch", pb.FailureReason_FAILURE_REASON_EVALUATION},
+		"package":   {"Demo", pb.FailureReason_FAILURE_REASON_WRONG_KIND},
+		"attribute": {"Demo::Car::mass", pb.FailureReason_FAILURE_REASON_WRONG_KIND},
 	} {
 		resp, err := srv.ValidateInstance(context.Background(), &pb.ValidateInstanceRequest{
 			ModelHash: hash,
-			SymbolId:  symbol,
+			SymbolId:  tc.symbol,
 		})
 		if err != nil {
 			t.Fatalf("ValidateInstance(%s): %v", name, err)
 		}
 		if resp.Error == "" {
 			t.Errorf("ValidateInstance(%s) reported no failure: %v", name, resp)
+		}
+		if resp.FailureReason != tc.reason {
+			t.Errorf("ValidateInstance(%s) failure_reason = %v (%s), want %v", name, resp.FailureReason, resp.Error, tc.reason)
 		}
 		if resp.Summary != nil || len(resp.Verdicts) != 0 {
 			t.Errorf("ValidateInstance(%s) reported verdicts beside its failure", name)

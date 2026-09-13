@@ -93,3 +93,20 @@ func TestValidateUndecidedAssertion(t *testing.T) {
 		t.Errorf("status = %v, want unresolved", got)
 	}
 }
+
+// TestValidateObjectStatingNoAssertion checks that an object no assertion is
+// about is not shown valid: nothing was decided, and the standing says so too.
+func TestValidateObjectStatingNoAssertion(t *testing.T) {
+	s := loadFixture(t, "../core/runtime/testdata/conformance/instance_validate_no_assertion.sysml")
+	run(t, s, "%instantiate test::crate")
+
+	out := run(t, s, "%validate crate")
+	wants(t, out, "? test::crate states no assertion to validate")
+	if strings.Contains(out, "standing: holds") {
+		t.Errorf("an object nothing was decided about is not standing:\n%s", out)
+	}
+	verdicts := s.ValidateObject("crate")
+	if len(verdicts) != 1 || verdicts[0].Status != VerdictUnresolved {
+		t.Errorf("verdicts = %+v, want the summary alone, unresolved", verdicts)
+	}
+}

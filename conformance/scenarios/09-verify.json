@@ -283,6 +283,32 @@
           "summary"
         ]
       }
+    },
+    {
+      "id": "validate_instance/a_symbol_with_no_object_is_the_wrong_kind",
+      "description": "A package has no object to validate: the request is of the wrong kind, answered in band without a summary.",
+      "rpc": "ValidateInstance",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "verification.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo"
+      },
+      "expect": {
+        "response": {
+          "failure_reason": "FAILURE_REASON_WRONG_KIND"
+        },
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "summary"
+        ]
+      }
     }
   ]
 }

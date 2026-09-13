@@ -226,6 +226,9 @@ package Fleet {
         assert constraint massOk { mass < 2000.0 }
     }
     part car : Car;
+
+    part def Crate;
+    part crate : Crate;
 }
 `
 
@@ -255,6 +258,10 @@ func TestValidateObjectThroughCLI(t *testing.T) {
 
 	// An object nobody created decided nothing, so the check failed to run.
 	wantReport(t, check(t, binary, validateModel, "-validate=car"), 2, "car")
+
+	// So did one no assertion is about: nothing was shown, so it is not valid.
+	wantReport(t, check(t, binary, validateModel, "-instantiate", "Fleet::crate", "-validate=crate"), 2,
+		"? Fleet::crate states no assertion to validate")
 
 	got := check(t, binary, validateModel, "-instantiate", "Fleet::car", "-validate=car", "-json")
 	if got.status != 1 {

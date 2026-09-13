@@ -100,10 +100,13 @@ func ValidationAnswer(report runtime.ValidationReport, err error) Answer {
 	return Answer{Reason: ValidationReason(report)}
 }
 
-// ValidationReason says what kept a validation from holding: how many assertions
-// fail, how many are undecided, and whether every held object was reached.
+// ValidationReason says what kept a validation from holding: that the object states
+// no assertion, how many fail, how many are undecided, whether every object was reached.
 func ValidationReason(report runtime.ValidationReport) string {
 	var parts []string
+	if len(report.Verdicts) == 0 {
+		parts = append(parts, "states no assertion to validate")
+	}
 	if n := report.Count(runtime.ValidationViolated); n > 0 {
 		parts = append(parts, fmt.Sprintf("%d of %d assertions fail", n, len(report.Verdicts)))
 	}

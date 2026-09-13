@@ -143,6 +143,8 @@ class TestModelSurfaceIntegration:
                 }
                 part car : Car;
                 part spare : Wheel;
+                part def Crate;
+                part crate : Crate;
             }
         ''')
 
@@ -168,6 +170,19 @@ class TestModelSurfaceIntegration:
         assert [(v.element_id, v.instance_path) for v in spare] == [
             ("Fleet::Wheel::pressureOk", ""),
         ]
+
+        # Nothing was decided about an object no assertion is about, so it
+        # is neither valid nor violated.
+        crate = model.validate_instance("Fleet::crate")
+        assert len(crate) == 0
+        assert not crate.valid
+        assert crate.violated == []
+        assert "states no assertion" in crate.summary.error
+
+        # A package and an attribute have no object to validate.
+        for symbol in ("Fleet", "Fleet::Car::mass"):
+            with pytest.raises(ExecutionError, match="no object to validate"):
+                model.validate_instance(symbol)
 
     def test_validating_an_unknown_object_raises(self):
         with pytest.raises(ExecutionError):

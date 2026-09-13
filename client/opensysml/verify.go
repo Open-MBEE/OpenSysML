@@ -169,8 +169,9 @@ type Validation struct {
 	Diagnostics []Diagnostic
 }
 
-// Valid reports whether the object stands: every assertion held and every held
-// object was reached. An undecided assertion or a bounded walk is not valid.
+// Valid reports whether the object stands: at least one assertion, every one held
+// and every held object reached. An undecided assertion, a bounded walk or an
+// object no assertion is about is not valid.
 func (v *Validation) Valid() bool {
 	return v.Summary != nil && v.Summary.Holds && !v.Summary.Undecided()
 }
