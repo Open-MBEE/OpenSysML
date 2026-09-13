@@ -167,25 +167,11 @@ func (r *Resolver) referencesFeature(scope *symbols.Scope, decl ast.Node, target
 // namesVisibleFeature reports whether a redefinition target owned by decl names
 // a feature the redefinition can see, chain segments included (KerML 8.2.3.5).
 func (r *Resolver) namesVisibleFeature(scope *symbols.Scope, decl ast.Node, target ast.Node) bool {
-	hide := &refFilter{decl: decl, skipBorrowedName: true, redefining: true}
-	chain, ok := target.(*ast.FeatureChainExpr)
-	if !ok {
-		if qn := ast.AsQualifiedName(target); qn != nil {
-			_, resolved := r.resolveQualified(scope, qn, hide)
-			return resolved
-		}
+	if _, chain := target.(*ast.FeatureChainExpr); !chain && ast.AsQualifiedName(target) == nil {
 		return true
 	}
-	cur, ok := r.resolveTarget(scope, chain.Operand, hide.forPrefix())
-	if !ok || chain.Member == nil {
-		return false
-	}
-	for _, part := range chain.Member.Parts {
-		if cur, ok = r.chainMember(cur, part.Text, nil); !ok {
-			return false
-		}
-	}
-	return true
+	_, resolved := r.ResolveRedefinitionTarget(scope, decl, target)
+	return resolved
 }
 
 // visibleMember resolves name as a member of sym, skipping what hide covers, so
@@ -197,18 +183,18 @@ func (r *Resolver) visibleMember(sym *symbols.Symbol, name string, hide *refFilt
 		if !visibleAsInheritedMember(sym, found) {
 			return nil, false
 		}
-		return r.inheritedAsFrom(sym, found, hide.resolvesRedefinition())
+		return r.inheritedAsFrom(sym, found, hide)
 	}
 	if hide.contributedOnly() {
 		// The owner's own declarations are the local bindings already filtered
 		// by the caller, so only contributed ones remain.
-		found, ok := r.lookupContributedMember(sym, name)
+		found, ok := r.lookupContributedMember(sym, name, hide)
 		if !ok {
 			return nil, false
 		}
 		return admits(found)
 	}
-	found, ok := r.lookupMember(sym, name)
+	found, ok := r.lookupMember(sym, name, hide)
 	if !ok {
 		return nil, false
 	}
@@ -218,7 +204,7 @@ func (r *Resolver) visibleMember(sym *symbols.Symbol, name string, hide *refFilt
 	if !hide.hides(found) {
 		return found, true
 	}
-	found, ok = r.lookupContributedMember(sym, name)
+	found, ok = r.lookupContributedMember(sym, name, hide)
 	if !ok {
 		return nil, false
 	}

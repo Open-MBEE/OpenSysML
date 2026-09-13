@@ -35,6 +35,8 @@ type maskChecker interface {
 	InheritanceMaskedRedefining(sym, candidate *symbols.Symbol) bool
 	NamingRedefiner(sym, masked *symbols.Symbol) *symbols.Symbol
 	NamingRedefinerRedefining(sym, masked *symbols.Symbol) *symbols.Symbol
+	OwnRedefinitionMasked(sym, candidate *symbols.Symbol) bool
+	OwnNamingRedefiner(sym, masked *symbols.Symbol) *symbols.Symbol
 }
 
 // elementFilterChecker is the part of the semantic model that decides an element
@@ -87,6 +89,9 @@ type Resolver struct {
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// redefining holds the depth of each redefinition target being resolved,
+	// whose generals are found by resolving the targets of other redefinitions.
+	redefining map[*ast.QualifiedName]int
 	// frames holds, per lookup on the stack, the shallowest depth a guard has
 	// cut a query short for since the lookup began (see leave).
 	frames []int
@@ -257,6 +262,7 @@ func New(idx *symbols.Index) *Resolver {
 		modeMemo:              map[modeMemoKey]resolution{},
 		filtered:              map[filteredMemoKey]resolution{},
 		resolving:             map[ast.Node]int{},
+		redefining:            map[*ast.QualifiedName]int{},
 		featureChains:         map[featureChainKey]resolution{},
 		parts:                 map[*ast.QualifiedName][]*symbols.Symbol{},
 		aliasNames:            map[*ast.QualifiedName][]*symbols.Symbol{},
@@ -404,10 +410,15 @@ func (r *Resolver) Index() *symbols.Index {
 }
 
 // lookupMember resolves name as a member of sym — declared by it or inherited
-// from what it specializes or is typed by — when a semantic model is attached.
-func (r *Resolver) lookupMember(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
-	if r.model == nil || sym == nil {
+// from what it specializes or is typed by — from the semantic model when one
+// is attached, else from the relationships sym declares, where a member hide
+// covers does not stop the walk short of what a general offers.
+func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilter) (*symbols.Symbol, bool) {
+	if sym == nil {
 		return nil, false
+	}
+	if r.model == nil {
+		return r.featureOf(sym, name, newFeatureWalk(hide))
 	}
 	if found, ok := r.lookupMemberOf(sym, name); ok {
 		return found, true
@@ -439,12 +450,23 @@ func (r *Resolver) lookupMemberOf(sym *symbols.Symbol, name string) (*symbols.Sy
 }
 
 // lookupContributedMember resolves name as a member sym inherits or
-// reference-subsets, ignoring the members sym declares itself.
-func (r *Resolver) lookupContributedMember(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
+// reference-subsets, ignoring the members sym declares itself and those hide
+// covers: the first source contributing one the reference may see answers.
+func (r *Resolver) lookupContributedMember(sym *symbols.Symbol, name string, hide *refFilter) (*symbols.Symbol, bool) {
 	if r.model == nil || sym == nil {
 		return nil, false
 	}
-	return r.model.LookupContributedMember(sym, name)
+	all, ok := r.model.(contributedMembersLookuper)
+	if hide == nil || !ok {
+		found, ok := r.model.LookupContributedMember(sym, name)
+		return found, ok && !hide.hides(found)
+	}
+	for _, found := range all.LookupContributedMembers(sym, name) {
+		if !hide.hides(found) {
+			return found, true
+		}
+	}
+	return nil, false
 }
 
 // SetModel attaches a semantic model for inheritance-aware member resolution.
