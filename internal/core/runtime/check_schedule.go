@@ -223,10 +223,10 @@ func (m *checkMove) reported() (alternatives []string, taken int, ok bool) {
 }
 
 // choose resolves a pick among c.Alternatives: a due order by the index the
-// script names, any other choice by the next pick of the script, which must be
-// one of the alternatives, or — the picks consumed — the first alternative,
-// the choice kept for the checker. A pick within a nested step takes the first
-// alternative, as a declared run does.
+// script names, consumed by the one draw a move makes, any other choice by the
+// next pick of the script, which must be one of the alternatives, or — the picks
+// consumed — the first alternative, the choice kept for the checker. A pick
+// within a nested step takes the first alternative, as a declared run does.
 func (r *checkRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 	if r.move != nil && r.move.nested {
 		return 0
@@ -240,7 +240,9 @@ func (r *checkRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 			r.refuse("the run faced " + c.Describe())
 			return 0
 		}
-		return r.script.due
+		due := r.script.due
+		r.script.due = -1
+		return due
 	}
 	if r.picked >= len(r.script.picks) {
 		c.Taken = 0

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -280,5 +281,98 @@ func TestMakeMoveNeedsTheCheckPolicy(t *testing.T) {
 	_, err = a.run.makeMove(a.run.enabledMoves()[0])
 	if !errors.Is(err, ErrCheckRefused) {
 		t.Fatalf("under the declared policy: %v, want %v", err, ErrCheckRefused)
+	}
+}
+
+// A move of an invocation with several executors due draws the due order exactly
+// once, taken at the move's owner; one with a single executor due draws none.
+// The order once drawn, a second draw within the move is a refusal, not a
+// second choice.
+func TestMakeMoveDrawsTheDueOrderOnce(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action worker {
+			out x : Integer = 0;
+			first start;
+			then assign x := 1;
+			then assign x := 2;
+			then done;
+		}
+		state Machine {
+			attribute y : Integer = 0;
+			entry; then a;
+			state a;
+			state b;
+			state c;
+			transition first a do assign y := 1 then b;
+			transition first b do assign y := 2 then c;
+		}
+	}`)
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, checkPolicy(&checkScript{due: -1}))
+	action, err := ctx.CreateActionExecutor(m.action(t, "worker"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	machine, err := ctx.CreateStateExecutor(m.state(t, "Machine"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inv := &Invocation{Actions: []*ActionExecutor{action}, States: []*StateExecutor{machine}}
+	if err := inv.started(ctx); err != nil {
+		t.Fatal(err)
+	}
+	run := &invocationRun{ctx: ctx, inv: inv}
+	dueOrders := func() []ChoiceTaken {
+		var drawn []ChoiceTaken
+		for _, c := range ctx.ChoicesTaken() {
+			if c.Kind == ChoiceDueOrder {
+				drawn = append(drawn, c)
+			}
+		}
+		return drawn
+	}
+	// The machine's moves are taken first, so the two are due together until the
+	// machine rests, and the action alone moves after.
+	moves := 0
+	for {
+		if err := run.stabilize(); err != nil {
+			t.Fatalf("settling after %d moves: %v", moves, err)
+		}
+		if run.terminal() {
+			break
+		}
+		enabled := run.enabledMoves()
+		execs := owners(enabled)
+		move := enabled[len(enabled)-1]
+		before := len(dueOrders())
+		if _, err := run.makeMove(move); err != nil {
+			t.Fatalf("move %d, %s: %v", moves+1, move, err)
+		}
+		moves++
+		drawn := dueOrders()[before:]
+		switch {
+		case len(execs) < 2 && len(drawn) != 0:
+			t.Fatalf("move %d, %s, alone due: drew %v, want no due order", moves, move, drawn)
+		case len(execs) >= 2 && len(drawn) != 1:
+			t.Fatalf("move %d, %s, %d due: drew %v, want one due order", moves, move, len(execs), drawn)
+		case len(execs) >= 2 && (drawn[0].Taken != slices.Index(execs, move.Owner) || !slices.Equal(drawn[0].Among, executorLabels(execs))):
+			t.Fatalf("move %d, %s: drew %s, want the owner among %v", moves, move, drawn[0], executorLabels(execs))
+		}
+	}
+	if moves != 6 {
+		t.Fatalf("made %d moves, want the machine's two dispatches and the action's four steps", moves)
+	}
+	if orders := dueOrders(); len(orders) != 2 {
+		t.Fatalf("drew %d due orders, want the two moves both executors were due for", len(orders))
+	}
+	if x := FormatValue(action.Results()["x"]); x != "2" {
+		t.Fatalf("x = %s, want 2", x)
+	}
+	if y := FormatValue(machine.StateData()["y"]); y != "2" {
+		t.Fatalf("y = %s, want 2", y)
 	}
 }
