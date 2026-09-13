@@ -244,25 +244,20 @@ func qualifiedNameNames(qn *ast.QualifiedName, sym *symbols.Symbol) bool {
 }
 
 // ImplicitEndRedefinitions returns the ends of the connectors its owner
-// specializes that sym redefines by occupying their position, which no clause of
-// its declaration names. The features it redefines are one feature with it, so
-// an object holds one set of values under all their names.
+// specializes that sym redefines by occupying their position, whatever its
+// `:>>` clauses name besides. The features it redefines are one feature with it,
+// so an object holds one set of values under all their names.
 func (m *Model) ImplicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.implicitEndRedefinitions(sym)
 }
 
 // implicitEndRedefinitions returns the features sym implicitly redefines as an
 // end of its owning connector: the end at the same position of each general
-// connector. It returns nothing for a feature that is not an end, or whose
-// declaration redefines something explicitly.
+// connector (KerML 7.4.6, SysML v2 7.13.2). An explicit `:>>` adds to these
+// rather than replacing them. It returns nothing for a feature that is not an end.
 func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	if !declaresEnd(sym) {
 		return nil
-	}
-	for _, rel := range RelationshipsOf(sym) {
-		if rel != nil && rel.Kind == ast.RelRedefines {
-			return nil // explicit redefinition governs
-		}
 	}
 	if sym.OwnerScope == nil {
 		return nil
@@ -322,29 +317,17 @@ func (m *Model) declaredEndCount(sym *symbols.Symbol) int {
 	return len(owned) + len(m.unmaskedEnds(inherited))
 }
 
-// endClaimed reports whether an owned end takes over general end i: by the ends its
-// redefinition clause names, or by position when it has none.
+// endClaimed reports whether an owned end takes over general end i: by position,
+// or by the ends its redefinition clause names.
 func endClaimed(end *symbols.Symbol, i int, owned, general []*symbols.Symbol) bool {
+	if i < len(owned) {
+		return true
+	}
 	if end == nil {
-		return i < len(owned)
+		return false
 	}
-	for j, o := range owned {
-		if o == nil || !declaresRedefinition(o) {
-			if j == i {
-				return true
-			}
-			continue
-		}
+	for _, o := range owned {
 		if slices.Contains(namedEnds(o, general), end) {
-			return true
-		}
-	}
-	return false
-}
-
-func declaresRedefinition(sym *symbols.Symbol) bool {
-	for _, rel := range RelationshipsOf(sym) {
-		if rel != nil && rel.Kind == ast.RelRedefines {
 			return true
 		}
 	}

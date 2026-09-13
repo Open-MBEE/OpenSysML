@@ -429,7 +429,9 @@ func TestControlNodeBaseIsItsControlAction(t *testing.T) {
 
 // A binary base follows the effective ends of a KerML association or connector
 // (KerML 1.1 checkAssociationBinarySpecialization, checkConnectorBinarySpecialization):
-// two owned ends redefining two of a general's three leave it n-ary.
+// two owned ends redefining two of a general's three leave it n-ary, while two
+// owned ends over two binary generals mask both pairs by position and stay binary
+// (an association then reaches BinaryLink through its generals and adds no base).
 func TestKerMLBinaryBaseFollowsEffectiveEnds(t *testing.T) {
 	m, root := buildModelNamed(t, "t.kerml", `package P {
 		class T;
@@ -472,9 +474,9 @@ func TestKerMLBinaryBaseFollowsEffectiveEnds(t *testing.T) {
 		{p.Scope, "Two", []string{"Links::BinaryLink"}},
 		{p.Scope, "TwoOfTwo", []string{"P::Two"}},
 		{p.Scope, "OneOfTwo", []string{"P::Two"}},
-		{p.Scope, "OfA", []string{"P::A", "P::B", "Links::Link"}},
-		{p.Scope, "OfBoth", []string{"P::A", "P::B", "Links::Link"}},
-		{c.Scope, "ofA", []string{"P::A", "P::B", "Links::links"}},
+		{p.Scope, "OfA", []string{"P::A", "P::B"}},
+		{p.Scope, "OfBoth", []string{"P::A", "P::B"}},
+		{c.Scope, "ofA", []string{"P::A", "P::B", "Links::binaryLinks"}},
 		{c.Scope, "three", []string{"P::Three", "Links::links"}},
 		{c.Scope, "twoOfThree", []string{"P::Three", "Links::links"}},
 		{c.Scope, "twoOfInherited", []string{"P::C::three", "Links::links"}},
