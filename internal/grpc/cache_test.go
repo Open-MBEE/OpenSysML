@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"testing"
 
@@ -150,8 +151,8 @@ func TestCachedModelHandsWorkersOn(t *testing.T) {
 	}
 	releaseThird()
 	releaseSecond()
-	if got := len(model.idle); got != 2 {
-		t.Fatalf("%d idle workers after every release, want 2", got)
+	if want := min(2, maxIdleWorkers()); len(model.idle) != want {
+		t.Fatalf("%d idle workers after every release, want %d", len(model.idle), want)
 	}
 
 	// What a request failed to resolve is the request's, not the next holder's.
@@ -187,8 +188,15 @@ func TestCachedModelKeepsABoundedNumberOfIdleWorkers(t *testing.T) {
 		t.Fatalf("%d idle workers after a burst of %d, want the bound %d", got, bound+3, bound)
 	}
 	_, release := model.worker()
-	defer release()
 	if got := len(model.idle); got != bound-1 {
 		t.Fatalf("%d idle workers while a request after the burst holds one, want %d", got, bound-1)
+	}
+
+	// The bound follows the parallelism: a pool filled under a wider one shrinks at the next release.
+	t.Cleanup(func() { runtime.GOMAXPROCS(bound) })
+	runtime.GOMAXPROCS(1)
+	release()
+	if got := len(model.idle); got != 1 {
+		t.Fatalf("%d idle workers after the parallelism fell to 1, want 1", got)
 	}
 }

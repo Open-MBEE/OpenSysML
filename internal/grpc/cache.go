@@ -70,8 +70,10 @@ func (m *CachedModel) worker() (*analysis.Worker, func()) {
 			resolver.Diagnostics = resolver.Diagnostics[:diags]
 		}
 		m.idleMu.Lock()
-		if len(m.idle) < maxIdleWorkers() {
-			m.idle = append(m.idle, w)
+		m.idle = append(m.idle, w)
+		if bound := maxIdleWorkers(); len(m.idle) > bound {
+			clear(m.idle[bound:])
+			m.idle = m.idle[:bound]
 		}
 		m.idleMu.Unlock()
 	}
