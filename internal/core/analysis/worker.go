@@ -123,6 +123,20 @@ func (m *Model) builds() bool {
 	return m != nil && m.Semantics != nil && m.Fresh != nil
 }
 
+// semantics is the model-derived part the plan's first worker holds, built on first use: what
+// an engine outside the process is sent the model from. A surface model that derives none is
+// ErrNoRuntime.
+func (m *Model) semantics() (*runtime.Model, error) {
+	if m == nil || m.Semantics == nil {
+		return nil, ErrNoRuntime
+	}
+	worker, err := m.WorkerAt(0)
+	if err != nil {
+		return nil, err
+	}
+	return worker.Model, nil
+}
+
 // Worker is the plan's first worker, the one every run of a plan under one job is made on.
 func (m *Model) Worker() (*Worker, error) { return m.WorkerAt(0) }
 
@@ -132,7 +146,7 @@ func (m *Model) WorkerAt(job int) (*Worker, error) {
 	if job < 0 {
 		return nil, fmt.Errorf("%w: %d", ErrJob, job)
 	}
-	if !m.builds() {
+	if m == nil || m.Semantics == nil {
 		return nil, ErrNoRuntime
 	}
 	m.mu.Lock()
@@ -171,6 +185,9 @@ func (m *Model) NewContext(budget Budget) (*runtime.Context, error) {
 // NewContextOn builds a run's own context on the plan's worker for job, under the budget as
 // NewContext takes it.
 func (m *Model) NewContextOn(job int, budget Budget) (*runtime.Context, error) {
+	if !m.builds() {
+		return nil, ErrNoRuntime
+	}
 	worker, err := m.WorkerAt(job)
 	if err != nil {
 		return nil, err

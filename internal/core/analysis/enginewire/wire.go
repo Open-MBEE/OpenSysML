@@ -147,6 +147,13 @@ type ConditionSet struct {
 	Name       string      `json:"name"`
 	Features   []FreeInput `json:"features"`
 	Assertions []Condition `json:"assertions"`
+	Pinned     []Pinned    `json:"pinned,omitempty"`
+}
+
+// Pinned is one feature the model fixes, its value as the notation writes it.
+type Pinned struct {
+	Name string `json:"name"`
+	Text string `json:"text"`
 }
 
 // FreeInput is one free feature: its name, declared type, unit and domain.

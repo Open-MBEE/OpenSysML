@@ -225,7 +225,14 @@ func (s *Session) sweep(target string, model *analysis.Model, plan runtime.Sweep
 // selection, ask being the operation made of each; the plan's result answers each
 // in order. The error is a refusal: no solver, or a selected engine that does not solve.
 func (s *Session) solveWith(subject string, queries []*solve.Query, ask analysis.Asking) (analysis.Plan, error) {
-	return s.engines.Solve(context.Background(), subject, queries, ask, s.budgetFor(s.drivenSchedule(), analysis.Satisfiable), s.engine)
+	schedule := s.drivenSchedule()
+	return s.engines.Solve(context.Background(), analysis.Request{
+		Model:     s.freshModel(),
+		Subject:   subject,
+		Schedule:  schedule,
+		Budget:    s.budgetFor(schedule, analysis.Satisfiable),
+		Selection: s.engine,
+	}, queries, ask)
 }
 
 // solveReports renders one report per query from the plan's answers, every report

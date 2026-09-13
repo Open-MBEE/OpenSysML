@@ -474,20 +474,28 @@ func (ctx *Context) performanceParameters(performed, callee *symbols.Symbol) ([]
 // toolInput is one parameter's value as the protocol carries it: a number, truth or string
 // as is, a quantity as the run holds it, its unit spelt by short names (`km/h`).
 func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error) {
+	if v, ok := ToolValueOf(held); ok {
+		return v, nil
+	}
+	return ToolValue{}, &ToolError{Tool: tool, Kind: ToolUnsentInput,
+		Detail: fmt.Sprintf("%s holds %s, which the protocol does not carry", param.Name, describeValue(held))}
+}
+
+// ToolValueOf is a value as the tool protocol carries it; false for one it does not carry.
+func ToolValueOf(held Value) (ToolValue, bool) {
 	switch held.Kind {
 	case ValConst:
 		if held.Const.Kind == semantics.ValInvalid || held.Const.Kind == semantics.ValInfinity {
 			break
 		}
-		return ToolValue{Value: held.Const}, nil
+		return ToolValue{Value: held.Const}, true
 	case ValString:
-		return ToolValue{Text: held.Str()}, nil
+		return ToolValue{Text: held.Str()}, true
 	case ValQuantity:
 		q := held.Quantity()
-		return ToolValue{Value: q.Num, Unit: q.Unit.Product.ShortSpelling().String()}, nil
+		return ToolValue{Value: q.Num, Unit: q.Unit.Product.ShortSpelling().String()}, true
 	}
-	return ToolValue{}, &ToolError{Tool: tool, Kind: ToolUnsentInput,
-		Detail: fmt.Sprintf("%s holds %s, which the protocol does not carry", param.Name, describeValue(held))}
+	return ToolValue{}, false
 }
 
 // Bind reads the tool's outputs, keyed by ToolVariable name, as the values of the call's
