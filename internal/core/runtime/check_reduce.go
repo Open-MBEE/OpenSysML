@@ -44,11 +44,9 @@ func (c *checker) footprintOf(m enabledMove) lower.Footprint {
 	return lower.Footprint{Dynamic: true}
 }
 
-// standing is the footprint of the node the token stands at.
+// standing is the footprint of the node the token stands at; a body paused
+// mid-statement goes on with the rest of that node's, which the node's covers.
 func (c *checker) standing(exec *ActionExecutor, t Token) lower.Footprint {
-	if t.body != nil {
-		return lower.Footprint{Dynamic: true}
-	}
 	return tokenGraphOf(exec, t).Footprints()[t.Location]
 }
 
@@ -73,8 +71,7 @@ func (c *checker) turnFootprint(m enabledMove) lower.Footprint {
 }
 
 // machineStanding is what the machine's next unit may touch: a dispatch out of
-// its configuration, or a step of a do behavior of it; a paused do body depends
-// on everything, as the snapshot cannot capture it.
+// its configuration, or a step of a do behavior of it.
 func machineStanding(e *StateExecutor) lower.Footprint {
 	fp := dispatchFootprint(e)
 	for _, act := range e.doActions {
@@ -130,15 +127,15 @@ func triggerChannel(trans *lower.Transition) (lower.Channel, bool) {
 	return lower.Channel{}, false
 }
 
-// doStepFootprint is what one step of the state's do behavior runs: the next
-// behavior pending, or everything for one paused mid-way.
+// doStepFootprint is what one step of the state's do behavior runs: the rest of
+// the behavior paused mid-way, covered by that behavior's, or the next one pending.
 func doStepFootprint(e *StateExecutor, state ast.Node) lower.Footprint {
 	for _, act := range e.doActions {
 		if act.state != state {
 			continue
 		}
 		if act.run != nil {
-			return lower.Footprint{Dynamic: true}
+			return e.graph.BehaviorFootprints()[act.run.host.behavior.Node]
 		}
 		if len(act.pending) == 0 {
 			return lower.Footprint{}
@@ -172,10 +169,9 @@ func (c *checker) machineFuture(e *StateExecutor) lower.Footprint {
 	return future
 }
 
+// tokenFuture is what the token may still touch: every node reachable from its
+// own, the one it stands at included, and from the nodes its frames stand at.
 func (c *checker) tokenFuture(exec *ActionExecutor, t Token) lower.Footprint {
-	if t.body != nil {
-		return lower.Footprint{Dynamic: true}
-	}
 	future := c.reach(tokenGraphOf(exec, t), t.Location)
 	for frame := t.frame; frame != nil && frame.node != nil; frame = frame.parent {
 		flow := frame.flow

@@ -140,3 +140,111 @@ func TestAStepWaitingOnTheClockPausesInItsFrames(t *testing.T) {
 		}
 	}
 }
+
+// loopWaitModel waits on the clock inside a nested flow a loop's block performs
+// once per element, so a pause holds the loop's iteration and its local.
+const loopWaitModel = `
+	package test {
+		private import SI::*;
+		private import ScalarValues::*;
+		action outer {
+			attribute total : Integer = 0;
+			first start;
+			then action iterate {
+				for i in 1..3 {
+					action tick {
+						first start;
+						then action nap accept after 1 [s];
+						then action add assign total := total + i;
+						then done;
+					}
+				}
+			}
+			then done;
+		}
+	}
+`
+
+// A snapshot of a body paused inside a loop restores the loop to its iteration,
+// as often as asked: the run goes on from the wait to the same end each time, and
+// the restored state spells the same as the one captured.
+func TestASnapshotRestoresABodyPausedInsideALoop(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, loopWaitModel))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action outer not found")
+	}
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence: %v", err)
+	}
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("Advance(1): %v", err)
+	}
+	total := func() int64 {
+		got := exec.Results()["total"]
+		if got.Kind != ValConst {
+			t.Fatalf("total = %v, want a constant", got)
+		}
+		return got.Const.Int
+	}
+	pausedLoop := func() *loopFrame {
+		for _, token := range exec.tokens {
+			if token.body == nil {
+				continue
+			}
+			for _, f := range token.body.cursor {
+				if loop, isLoop := f.(*loopFrame); isLoop {
+					return loop
+				}
+			}
+		}
+		return nil
+	}
+	if got := total(); got != 1 {
+		t.Fatalf("total = %d at t=1, want the first iteration's 1", got)
+	}
+	atSecond := func(loop *loopFrame) bool {
+		return loop != nil && loop.locals["i"].Kind == ValConst && loop.locals["i"].Const.Int == 2
+	}
+	if loop := pausedLoop(); !atSecond(loop) {
+		t.Fatalf("paused loop = %+v, want paused in its second iteration", loop)
+	}
+	spelt := (&Invocation{Actions: []*ActionExecutor{exec}}).canonicalState(nil).text
+	snapshot, err := exec.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	defer snapshot.Release()
+	finish := func(pass string) {
+		if _, err := ctx.Advance(5); err != nil {
+			t.Fatalf("%s: Advance(5): %v", pass, err)
+		}
+		if got := total(); got != 6 {
+			t.Errorf("%s: total = %d, want 6 over three iterations", pass, got)
+		}
+		if exec.State() != StateCompleted {
+			t.Errorf("%s: State() = %v, want Completed", pass, exec.State())
+		}
+		if got := ctx.Clock().Now(); got != 6 {
+			t.Errorf("%s: clock = %v, want 6", pass, got)
+		}
+	}
+	finish("first run")
+	for pass := 1; pass <= 2; pass++ {
+		snapshot.Restore()
+		if got := total(); got != 1 {
+			t.Fatalf("restore %d: total = %d, want 1", pass, got)
+		}
+		if loop := pausedLoop(); !atSecond(loop) {
+			t.Fatalf("restore %d: paused loop = %+v, want the second iteration again", pass, loop)
+		}
+		if got := (&Invocation{Actions: []*ActionExecutor{exec}}).canonicalState(nil).text; got != spelt {
+			t.Fatalf("restore %d: canonical state\n%s\nwant the captured one\n%s", pass, got, spelt)
+		}
+		finish("restore " + string(rune('0'+pass)))
+	}
+}
