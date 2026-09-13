@@ -123,6 +123,7 @@ var (
 	renderView      string
 	renderAllDir    string
 	renderForm      string
+	renderPalette   string
 	renderDoc       string
 	renderDocsDir   string
 	docForm         string
@@ -357,6 +358,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-form is the form -render or -render-all writes; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
+	if renderPalette != "" && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT with; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
 
 	// The default stylesheet is asked for on its own; it needs no model, and
 	// writing it is the whole run, so it cannot stand in for another.
@@ -445,7 +450,7 @@ func runCLI() int {
 		case convertFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():

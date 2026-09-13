@@ -371,10 +371,11 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 	return nil
 }
 
-// newRuntime returns a runtime context under the service's budgets on a worker of the
-// request's own, so requests on one model run beside each other and share nothing mutable.
-func (s *Service) newRuntime(cached *CachedModel) *runtime.Context {
-	return s.newRuntimeOver(cached.worker())
+// newRuntime returns a runtime context under the service's budgets on a worker the request holds
+// alone, so concurrent requests share nothing mutable; the deferred release hands the worker on warm.
+func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, func()) {
+	w, release := cached.worker()
+	return s.newRuntimeOver(w), release
 }
 
 // newRuntimeOver builds a runtime context under the service's budgets on a worker;
@@ -744,7 +745,8 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 		scope = cached.PrimaryRoot()
 	}
 
-	runtimeCtx := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(cached)
+	defer release()
 
 	var self *runtime.Instance
 	if subject != nil {
@@ -807,7 +809,8 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 	sym := syms[0]
 
-	runtimeCtx := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(cached)
+	defer release()
 
 	// Instantiate
 	inst, err := runtimeCtx.Instantiate(sym)
@@ -846,7 +849,8 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 	action := syms[0]
 
-	runtimeCtx := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(cached)
+	defer release()
 
 	// Converted against the model's index, so a quantity input keeps the base
 	// units it is commensurable with instead of binding an unusable value.
@@ -971,7 +975,8 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		return &pb.ExecuteStateResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 
-	runtimeCtx := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(cached)
+	defer release()
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}

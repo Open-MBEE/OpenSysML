@@ -143,7 +143,8 @@ const MermaidScriptURL = "https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/merm
 // carrying their source in the chosen diagram form.
 // Every node keeps its model facts in sysml- classes and data- attributes —
 // content kind, declared name, query, group column, row element and its kind,
-// projected column, value kind, reference target, diagram kind and direction —
+// projected column, value kind, reference target, diagram kind, direction and
+// palette —
 // and every value is escaped so no content can corrupt the structure.
 func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 	if document == nil {
@@ -515,10 +516,10 @@ func (w *htmlWriter) writeDefinitions(node docir.Content, id string) {
 // every other supported kind as its source in the render's diagram form —
 // Mermaid, which a loaded Mermaid script draws, or DOT — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
-	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Direction())
+	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Options())
 }
 
-func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, direction view.Direction) error {
+func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, options view.Options) error {
 	if rendering == nil {
 		return &Error{Kind: ErrorMissingRendering, Content: name}
 	}
@@ -528,14 +529,14 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 	var source string
 	if rendering.Kind != view.KindTable {
 		var err error
-		if source, err = diagramSource(name, rendering, direction, w.form); err != nil {
+		if source, err = diagramSource(name, rendering, options, w.form); err != nil {
 			return err
 		}
 	}
 	w.b.WriteString("<figure class=\"sysml-diagram\"" + attr("id", id) + " data-content=\"diagram\"" +
 		attr(attrName, name) + attr("data-view", rendering.View) +
 		attr("data-diagram-kind", string(rendering.Kind)) +
-		attr("data-direction", string(direction)) + ">\n")
+		attr("data-direction", string(options.Direction)) + attr("data-palette", string(options.Palette)) + ">\n")
 	if rendering.Kind == view.KindTable {
 		w.writeRenderingTable(rendering)
 	} else {

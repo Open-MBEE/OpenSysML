@@ -39,7 +39,11 @@ func runRender(files []string) error {
 	if form == "" {
 		form = defaultRenderForm(rendering.Kind, outputPath, atStdoutTerminal())
 	}
-	artifact, err := rendering.WriteWidth(form, artifactWidth(outputPath, terminalWidth()))
+	options, err := renderOptions(artifactWidth(outputPath, terminalWidth()))
+	if err != nil {
+		return err
+	}
+	artifact, err := rendering.WriteWith(form, options)
 	if err != nil {
 		return err
 	}
@@ -55,6 +59,10 @@ func runRenderAll(files []string) error {
 	}
 	if len(files) == 0 {
 		return errors.New("no model to render; name at least one file before -render-all")
+	}
+	options, err := renderOptions(view.WidthUnbounded)
+	if err != nil {
+		return err
 	}
 	sess, err := loadRenderingModel(files)
 	if err != nil {
@@ -86,7 +94,7 @@ func runRenderAll(files []string) error {
 			writtenForm = rendering.Kind.MachineForm()
 		}
 		reportRenderNoticesFrom(rendering, info.Name)
-		artifact, err := rendering.WriteWidth(writtenForm, view.WidthUnbounded)
+		artifact, err := rendering.WriteWith(writtenForm, options)
 		if err != nil {
 			if errors.Is(err, view.ErrWrongForm) {
 				reportRenderSkip(info.Name, err.Error())
@@ -108,6 +116,20 @@ func runRenderAll(files []string) error {
 		}
 	}
 	return nil
+}
+
+// renderOptions is what -render and -render-all write with: the text width,
+// and the palette -render-palette names, which must be one there is.
+func renderOptions(width int) (view.Options, error) {
+	options := view.Options{Width: width}
+	if renderPalette != "" {
+		palette, ok := view.ParsePalette(renderPalette)
+		if !ok {
+			return view.Options{}, fmt.Errorf("-render-palette: %w", &view.UnknownPaletteError{Name: renderPalette})
+		}
+		options.Palette = palette
+	}
+	return options, nil
 }
 
 // loadRenderingModel loads and reports a model whose stdout is reserved for

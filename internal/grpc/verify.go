@@ -49,6 +49,8 @@ type verifyContext struct {
 	runtime *runtime.Context
 	// engine is the selection the request's questions are put to the engines under.
 	engine analysis.Selection
+	// release gives the runtime's worker back once the request is answered; the RPC defers it.
+	release func()
 }
 
 // newVerifyContext reads the request's engine, looks the model up and builds a
@@ -62,13 +64,14 @@ func (s *Service) newVerifyContext(modelHash, engine string) (*verifyContext, er
 	if !ok {
 		return nil, statusErrorf(connect.CodeNotFound, "model not found: %s", modelHash)
 	}
-	return &verifyContext{service: s, cached: cached, runtime: s.newRuntime(cached), engine: selection}, nil
+	rt, release := s.newRuntime(cached)
+	return &verifyContext{service: s, cached: cached, runtime: rt, engine: selection, release: release}, nil
 }
 
 // on is this request's context over a run's own runtime, so what the run made is
 // read through the context that made it.
 func (v *verifyContext) on(rt *runtime.Context) *verifyContext {
-	return &verifyContext{service: v.service, cached: v.cached, runtime: rt, engine: v.engine}
+	return &verifyContext{service: v.service, cached: v.cached, runtime: rt, engine: v.engine, release: func() {}}
 }
 
 // sem is the semantic model the request's runtime evaluates against.
@@ -182,6 +185,7 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	if err != nil {
 		return nil, err
 	}
+	defer v.release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.VerifyConstraintResponse{Error: err.Error()}, nil
@@ -214,6 +218,7 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	if err != nil {
 		return nil, err
 	}
+	defer v.release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.VerifyRequirementResponse{Error: err.Error()}, nil
@@ -250,6 +255,7 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	if err != nil {
 		return nil, err
 	}
+	defer v.release()
 
 	// Every document of the model states assertions, unless one scope is named.
 	scopes := v.cached.DocumentRoots()
@@ -370,6 +376,7 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 	if err != nil {
 		return nil, err
 	}
+	defer v.release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.EvaluateCalcResponse{Error: err.Error()}, nil

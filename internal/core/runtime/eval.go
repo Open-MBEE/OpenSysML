@@ -1036,20 +1036,20 @@ func (ec *EvalContext) conformDeclared(sym *symbols.Symbol, val Value) (Value, e
 // conformHeld is conformDeclared, judging an undetermined count against the effective
 // multiplicity only when countJudged.
 func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged bool) (Value, error) {
-	what := fmt.Sprintf("feature value %s", ec.ctx.qualifiedSymbolName(sym))
+	what := func() string { return fmt.Sprintf("feature value %s", ec.ctx.qualifiedSymbolName(sym)) }
 	if err := ec.ctx.checkWriteType(sym.OwnerScope, what, ec.ctx.extractType(sym), &val, admitDeclared); err != nil {
 		return Value{}, err
 	}
 	if msg := ec.ctx.declaredUniquenessRefusal(sym, &val); msg != "" {
-		return Value{}, fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+		return Value{}, fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
 	if countJudged {
 		if msg := ec.ctx.declaredCountRefusal(sym, &val); msg != "" {
-			return Value{}, fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+			return Value{}, fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
 		}
 	}
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
-		return Value{}, fmt.Errorf("%s: %w", what, err)
+		return Value{}, fmt.Errorf("%s: %w", what(), err)
 	}
 	return ec.bindVariationOf(sym, ec.ctx.classifiedFrame(sym, ec.ctx.declaredCollection(sym, val)))
 }
@@ -2303,11 +2303,11 @@ func (ctx *Context) comparisonValues(op ast.OperatorKind, left, right Value, spa
 	}
 
 	result, err := constComparison(op, left.Const, right.Const)
-	var mismatch *OperandTypeError
-	if errors.As(err, &mismatch) {
-		mismatch.Span = span
-	}
 	if err != nil {
+		var mismatch *OperandTypeError
+		if errors.As(err, &mismatch) {
+			mismatch.Span = span
+		}
 		return Value{}, err
 	}
 	return boolValue(result), nil

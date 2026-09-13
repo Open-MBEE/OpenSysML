@@ -57,20 +57,54 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 		"// view: Demo::summary\n// kind: tree\n",
 		"// layout: dot\n",
 		`digraph "Demo::summary" {`,
-		`label=<<b>Demo::Vehicle</b><br/><font point-size="10">«part def»</font>>`,
-		`label=<<b>Demo::summary::detail</b><br/><font point-size="10">«view»</font>>`,
-		"[arrowhead=none];",
+		`label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>`,
+		`label=<<b>Demo::summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>`,
+		`"n2" -> "n3" [arrowhead=none];`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("%%render dot is missing %q:\n%s", want, text)
 		}
 	}
-	if strings.Contains(text, "flowchart") {
-		t.Errorf("%%render dot wrote Mermaid:\n%s", text)
+	if strings.Contains(text, "flowchart") || strings.Contains(text, `fillcolor="#`) {
+		t.Errorf("%%render dot wrote Mermaid or a palette:\n%s", text)
 	}
-	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot]")
-	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot]")
-	wants(t, run(t, s, "%help"), "%render <name> [form]", "Graphviz DOT")
+	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot [palette]]")
+	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot [palette]]")
+	wants(t, run(t, s, "%help"), "%render <name> [form [palette]]", "Graphviz DOT")
+}
+
+// The DOT form takes a palette as a third argument and fills the nodes from it;
+// an unknown palette names the known ones, and no other form takes one.
+func TestRenderDotTakesAPalette(t *testing.T) {
+	s := viewSession(t)
+	out, _, err := s.RunMeta("%render Demo::summary dot okabe-ito")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(out, "\n")
+	for _, want := range []string{
+		`digraph "Demo::summary" {`,
+		`"n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("%%render dot okabe-ito is missing %q:\n%s", want, text)
+		}
+	}
+	wants(t, run(t, s, "%render Demo::summary dot rainbow"),
+		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
+		"usage: %render <name> [text|mermaid|markdown|dot [palette]]")
+	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "a palette fills the dot form only, not mermaid")
+	wants(t, run(t, s, "%render Demo::summary dot okabe-ito extra"), "usage: %render <name> [text|mermaid|markdown|dot [palette]]")
+	// The palette completes after the dot form, and after no other.
+	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
+		t.Errorf("completing the palette offered %v", got.Candidates)
+	}
+	if got := s.Complete("%render Demo::summary dot tol-", len("%render Demo::summary dot tol-")); !slices.Equal(got.Candidates, []string{"tol-bright", "tol-light", "tol-muted"}) {
+		t.Errorf("completing tol- offered %v", got.Candidates)
+	}
+	if got := s.Complete("%render Demo::summary mermaid ", len("%render Demo::summary mermaid ")); slices.Contains(got.Candidates, "okabe-ito") {
+		t.Errorf("completing after the mermaid form offered a palette: %v", got.Candidates)
+	}
 }
 
 // A view exposing nothing renders an empty artifact and says so.

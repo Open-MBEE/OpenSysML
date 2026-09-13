@@ -30,11 +30,13 @@ const (
 // renderParams asks for one rendering. View names a view the document declares,
 // or a supported pseudo-view (`#<kind>` or `#<kind>:<fqn>`); empty renders the
 // document's own view. Form is the artifact written, defaulting to the machine
-// form of the rendering's kind.
+// form of the rendering's kind. Palette names the palette the DOT form fills
+// nodes from, by keyword family; empty draws in black and white.
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
 	Form         string                          `json:"form,omitempty"`
+	Palette      string                          `json:"palette,omitempty"`
 }
 
 // renderResult is one rendering: the artifact a client draws, plus the nodes and
@@ -207,7 +209,11 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	artifact, err := rendering.Write(form)
+	colors, err := renderPalette(params.Palette)
+	if err != nil {
+		return nil, err
+	}
+	artifact, err := rendering.WriteWith(form, view.Options{Palette: colors})
 	if err != nil {
 		return nil, err
 	}
@@ -289,6 +295,19 @@ func renderForm(rendering *view.Rendering, asked string) (view.Form, error) {
 		return form, nil
 	}
 	return "", fmt.Errorf("%q is no rendering form: write %q, %q, %q or %q", asked, view.FormMermaid, view.FormText, view.FormMarkdown, view.FormDot)
+}
+
+// renderPalette is the palette a request names, none when it names none, and
+// an error listing the palettes there are when it names something else.
+func renderPalette(asked string) (view.Palette, error) {
+	if asked == "" {
+		return "", nil
+	}
+	palette, ok := view.ParsePalette(asked)
+	if !ok {
+		return "", &view.UnknownPaletteError{Name: asked}
+	}
+	return palette, nil
 }
 
 // originIn is a core origin as a client navigates to it, nil for an element with

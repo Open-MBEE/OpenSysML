@@ -167,6 +167,9 @@ func (m *Model) ElementMetadataOf(sym *symbols.Symbol) []ElementMetadata {
 			Bindings: metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node)),
 		})
 	}
+	if len(out) < 2 {
+		return out
+	}
 	rank := m.documentRanks()
 	sort.SliceStable(out, func(i, j int) bool {
 		if ri, rj := rank[out[i].Doc], rank[out[j].Doc]; ri != rj {
@@ -180,14 +183,17 @@ func (m *Model) ElementMetadataOf(sym *symbols.Symbol) []ElementMetadata {
 // documentRanks orders the documents of the index as Index.Documents lists
 // them; a document the index does not hold sorts after every one it does.
 func (m *Model) documentRanks() map[string]int {
+	if m.docRanks != nil {
+		return m.docRanks
+	}
 	ranks := make(map[string]int)
-	if m.resolver == nil || m.resolver.Index() == nil {
-		return ranks
+	if m.resolver != nil && m.resolver.Index() != nil {
+		docs := m.resolver.Index().Documents()
+		for i, doc := range docs {
+			ranks[doc] = i - len(docs)
+		}
 	}
-	docs := m.resolver.Index().Documents()
-	for i, doc := range docs {
-		ranks[doc] = i - len(docs)
-	}
+	m.docRanks = ranks
 	return ranks
 }
 

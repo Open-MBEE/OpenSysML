@@ -64,6 +64,7 @@ Renders one view of a document.
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
 | `form` | `mermaid`, `text`, `markdown` or `dot`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed. |
+| `palette` | Optional. A palette the `dot` form fills nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. A `mermaid` artifact notes the palette as not represented; `text` and `markdown` ignore it. |
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -72,7 +73,9 @@ than picking one. If it declares none, the request fails and points at the pseud
 
 A `form` the rendering kind cannot be written in (Mermaid for a table, Markdown for a
 diagram, DOT for a table or a sequence) is refused, and the reply names the form the kind
-does use. A `form` that is not one of the four is refused, and the reply names all four.
+does use. A `form` that is not one of the four is refused, and the reply names all four. A
+`palette` that names none of the eight is refused, and the reply names them
+(`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`).
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:

@@ -82,8 +82,8 @@ func (s *Session) view(name string) ([]string, error) {
 // doRender renders a view, reporting a name the session cannot find, an element
 // that is no view, a rendering kind not produced, or a form the kind is not
 // written in, as a line.
-func (s *Session) doRender(name string, form view.Form) ([]string, bool, error) {
-	lines, err := s.renderLines(name, form)
+func (s *Session) doRender(name string, form view.Form, palette view.Palette) ([]string, bool, error) {
+	lines, err := s.renderLines(name, form, palette)
 	if err != nil {
 		return []string{"error: " + err.Error()}, false, nil
 	}
@@ -99,14 +99,25 @@ func renderForms() []string {
 	return out
 }
 
+// renderPalettes are the palettes %render fills the dot form from, as its third
+// argument spells them.
+func renderPalettes() []string {
+	out := make([]string, 0, len(view.Palettes()))
+	for _, palette := range view.Palettes() {
+		out = append(out, string(palette))
+	}
+	return out
+}
+
 // renderLines renders a view in the kind its `render` member states and the form
-// asked for, one line per line of the artifact.
-func (s *Session) renderLines(name string, form view.Form) ([]string, error) {
+// asked for, filled from the palette when one is named, one line per line of
+// the artifact.
+func (s *Session) renderLines(name string, form view.Form, palette view.Palette) ([]string, error) {
 	rendering, err := s.viewRendering(name)
 	if err != nil {
 		return nil, err
 	}
-	artifact, err := rendering.WriteWidth(form, s.renderWidth)
+	artifact, err := rendering.WriteWith(form, view.Options{Palette: palette, Width: s.renderWidth})
 	if err != nil {
 		return nil, err
 	}

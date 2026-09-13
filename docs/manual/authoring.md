@@ -385,6 +385,7 @@ part structure : Diagram {
 	attribute redefines caption = "Telescope part tree, left to right";
 	attribute redefines kind = "tree";
 	attribute redefines direction = "LR";
+	attribute redefines palette = "okabe-ito";
 	ref redefines source = telescope;
 }
 ```
@@ -399,6 +400,16 @@ part structure : Diagram {
   `stateDiagram-v2` `direction` statement, or the Graphviz `rankdir` when the
   document is rendered with DOT diagrams. Stating one on a sequence diagram is
   a typed error.
+- `palette` — `"okabe-ito"`, `"tol-bright"`, `"tol-muted"`, `"tol-light"`,
+  `"brewer-set2"`, `"brewer-dark2"`, `"viridis"` or `"cividis"` — is accepted
+  only by kinds that have a DOT form (tree, interconnection, state, action).
+  When the document is rendered with DOT diagrams, the diagram's nodes are
+  filled by keyword family from that colourblind-safe palette, a `part def`
+  and its `part` usages sharing a hue, with black text kept legible on every
+  fill ([the palettes](../project/view-rendering-forms.md#palettes)); with
+  Mermaid diagrams the palette is noted as not represented, and the HTML
+  figure carries it as `data-palette` either way. Any other name, or a palette
+  on a table or sequence diagram, is a typed error.
 
 A diagram block states *what* is drawn, not the notation it is written in:
 that is a choice made when the document is rendered. By default most kinds

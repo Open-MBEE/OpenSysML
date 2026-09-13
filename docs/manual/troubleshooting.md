@@ -66,6 +66,8 @@ $ echo $?
 | A kind other than `tree`/`interconnection`/`state`/`action`/`table`/`sequence` | `unsupported-diagram-kind` |
 | A direction other than `TB`/`LR`/`RL`/`BT` | `invalid-direction` |
 | A direction on a kind that is not a directed graph (e.g. sequence) | `unsupported-direction` |
+| A palette other than `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` | `invalid-palette` |
+| A palette on a kind with no DOT form (table, sequence) | `unsupported-palette` |
 
 ### Query execution
 

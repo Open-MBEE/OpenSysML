@@ -1252,6 +1252,10 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	paletteText, paletteStated, err := c.optionalText(member, "palette")
+	if err != nil {
+		return Content{}, err
+	}
 	source, err := c.diagramSource(member)
 	if err != nil {
 		return Content{}, err
@@ -1332,6 +1336,29 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			}
 		}
 		reference.direction = direction
+	}
+	if paletteStated {
+		palette, ok := view.ParsePalette(paletteText)
+		if !ok {
+			return Content{}, &Error{
+				Kind:     ErrorInvalidPalette,
+				Document: c.document,
+				Content:  c.contentName(member),
+				Actual:   paletteText,
+				Origin:   provenance.Symbol(member),
+			}
+		}
+		if !reference.kind.SupportsPalette() {
+			return Content{}, &Error{
+				Kind:     ErrorUnsupportedPalette,
+				Document: c.document,
+				Content:  c.contentName(member),
+				Expected: string(reference.kind),
+				Actual:   paletteText,
+				Origin:   provenance.Symbol(member),
+			}
+		}
+		reference.palette = palette
 	}
 	if err := c.rejectQuery(member); err != nil {
 		return Content{}, err
