@@ -189,6 +189,17 @@ func (g *Graph) Subjects() []Term {
 	return out
 }
 
+// Predicates returns every predicate subject states, in insertion order.
+func (g *Graph) Predicates(subject Term) []string {
+	si := g.subjects()[subject]
+	if si == nil {
+		return nil
+	}
+	out := make([]string, len(si.predicates))
+	copy(out, si.predicates)
+	return out
+}
+
 // Objects returns the objects of every (subject, predicate) statement, in
 // insertion order.
 func (g *Graph) Objects(subject Term, predicate string) []Term {

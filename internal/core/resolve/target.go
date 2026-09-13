@@ -296,6 +296,9 @@ type Reference struct {
 	Subsetting ast.Node
 	// Member is the declaration whose text QN is written in, when known.
 	Member ast.Node
+	// Within is set when Member is declared inside an expression body: the
+	// namespace member whose declaration holds the outermost such body.
+	Within ast.Node
 	// Head is set when QN is written in a head relationship of a declaration
 	// with a scope of its own, where the target may resolve ahead of Scope.
 	Head *HeadRelationship

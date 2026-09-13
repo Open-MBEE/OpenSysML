@@ -47,6 +47,9 @@ type element struct {
 	// declaredID marks an id that came from an explicit ElementId annotation,
 	// which the notation must state again: it may equal the derived id.
 	declaredID bool
+	// local marks a declaration inside an expression body: no member of a
+	// namespace, so it has no qualified name and its id is its position.
+	local bool
 	// ProjectRef provenance of a scope root, written back as an annotation.
 	projectID, branch, org string
 	// scope is the qualified name of the namespace this element is declared
@@ -1059,6 +1062,13 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	// follow it, so a parallel state with none has no notation.
 	parallel := d.boolOf(el, rdf.SysML+"isParallel")
 	annotations := d.identityAnnotations(el)
+	if cross := d.ownedCrossFeature(el); cross != nil {
+		about, err := d.crossFeatureAnnotations(cross)
+		if err != nil {
+			return err
+		}
+		annotations = append(annotations, about...)
+	}
 	if len(children) == 0 && len(annotations) == 0 && !d.boolOf(el, rdf.OpenSysML+xHasBody) {
 		if parallel {
 			return d.missing(el, "sysx:"+xHasBody, "a parallel state states its regions in a body")
@@ -1093,14 +1103,62 @@ func (d *decoder) bodyMembers(el *element) ([]*element, error) {
 	return d.positionalSuccessions(children)
 }
 
+// identityAnnotation is one identity annotation the graph states: the metadata
+// type it is declared with and the fields of its body.
+type identityAnnotation struct {
+	metaclass, fields string
+}
+
+// inline writes the annotation in the body of the element it identifies.
+func (a identityAnnotation) inline() string {
+	return "@" + a.metaclass + " { " + a.fields + " }"
+}
+
+// about writes the annotation in the body of the owner of the element it
+// identifies, naming the element as that body looks it up.
+func (a identityAnnotation) about(name string) string {
+	return "metadata : " + a.metaclass + " about " + name + " { " + a.fields + " }"
+}
+
 // identityAnnotations re-materializes the identity the graph states as the
-// annotations the notation declares it with: a ProjectRef on a scope root,
-// and an ElementId wherever the id is explicit or differs from the encoding
-// of the qualified name — a rename must not turn into a new element. The id
-// the norm fixes for a library element is not declared: the notation implies
-// it, while the notation is the library's.
+// annotations the notation declares it with, written in the element's body.
 func (d *decoder) identityAnnotations(el *element) []string {
 	var out []string
+	for _, a := range d.identityOf(el) {
+		out = append(out, a.inline())
+	}
+	return out
+}
+
+// crossFeatureAnnotations writes the identity of a cross feature written in its
+// end's head, which has no place for it, as `about` annotations in the end's body,
+// naming it by its name or, failing that, its short name.
+func (d *decoder) crossFeatureAnnotations(cross *element) ([]string, error) {
+	identity := d.identityOf(cross)
+	if len(identity) == 0 {
+		return nil, nil
+	}
+	name, ok := d.stringOf(cross, rdf.SysML+pDeclaredName)
+	if !ok {
+		name, ok = d.stringOf(cross, rdf.SysML+pDeclaredShortName)
+	}
+	if !ok {
+		return nil, &UnsupportedError{
+			What: fmt.Sprintf("the cross feature <%s>", cross.iri),
+			Note: "its identity is annotated `about` it in the body of the end whose head writes it, and it declares no name for the annotation to say",
+		}
+	}
+	var out []string
+	for _, a := range identity {
+		out = append(out, a.about(nameText(name)))
+	}
+	return out, nil
+}
+
+// identityOf is the identity the notation must declare: a ProjectRef on a scope root,
+// and an ElementId where the id is explicit or not derived; a library's normative id is implied.
+func (d *decoder) identityOf(el *element) []identityAnnotation {
+	var out []identityAnnotation
 	if el.projectID != "" || el.branch != "" || el.org != "" {
 		var fields []string
 		for _, f := range []struct{ name, value string }{
@@ -1110,14 +1168,14 @@ func (d *decoder) identityAnnotations(el *element) []string {
 				fields = append(fields, fmt.Sprintf("%s = %s;", f.name, lexer.StringText(f.value)))
 			}
 		}
-		out = append(out, "@IdentityMetadata::ProjectRef { "+strings.Join(fields, " ")+" }")
+		out = append(out, identityAnnotation{"IdentityMetadata::ProjectRef", strings.Join(fields, " ")})
 	}
-	if el.declaredID || (el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname)) {
+	if el.declaredID || (!el.local && el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname)) {
 		if !d.explicit && NormativeSubject(el.elementID, el.qname) {
 			d.implied++
 			return out
 		}
-		out = append(out, fmt.Sprintf("@IdentityMetadata::ElementId { id = %s; }", lexer.StringText(el.elementID)))
+		out = append(out, identityAnnotation{"IdentityMetadata::ElementId", fmt.Sprintf("id = %s;", lexer.StringText(el.elementID))})
 	}
 	return out
 }
@@ -2391,11 +2449,12 @@ func (d *decoder) ownedCrossFeature(el *element) *element {
 
 // crossFeatureWords writes an end's cross feature after `end`: name, multiplicity
 // and specializations, typing spelled `typed by` since `:` there is the end's own.
+// Its identity goes in the end's body (crossFeatureAnnotations); a body of its own has no place.
 func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
-	if len(cross.children) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) || len(d.identityAnnotations(cross)) > 0 {
+	if len(cross.children) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the cross feature <%s>", cross.iri),
-			Note: "it is written in the head of the end that owns it, which has no place for a body or an identity annotation",
+			Note: "it is written in the head of the end that owns it, which has no place for a body",
 		}
 	}
 	words := d.identWords(cross)

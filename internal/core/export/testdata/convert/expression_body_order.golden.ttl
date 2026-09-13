@@ -145,10 +145,20 @@ expr:Ordered__Mixed___401_pin0
     sysml:type elmt:Ordered__Real .
 
 expr:Ordered__Mixed___401_pm1
-    a sysx:BodyMember ;
+    a sysml:AttributeUsage ;
     sysml:elementId "Ordered__Mixed___401_pm1" ;
     sysx:memberIndex "1"^^xsd:integer ;
-    sysx:sourceText "private attribute k : Real = 1;" .
+    sysml:visibility "private" ;
+    sysml:declaredName "k" ;
+    sysml:type elmt:Ordered__Real ;
+    sysml:value expr:Ordered__Mixed___401_pm1_pvalue ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+expr:Ordered__Mixed___401_pm1_pvalue
+    a sysml:LiteralInteger ;
+    sysx:sourceText "1" ;
+    sysml:elementId "Ordered__Mixed___401_pm1_pvalue" ;
+    sysml:value "1"^^xsd:integer .
 
 expr:Ordered__Mixed___401_pin2
     a sysml:ReferenceUsage ;
@@ -268,7 +278,17 @@ elmt:Ordered__Declares___400_om
     sysml:ownedResultExpression elmt:Ordered__Declares___400 .
 
 expr:Ordered__Declares___400_pm0
-    a sysx:BodyMember ;
+    a sysml:AttributeUsage ;
     sysml:elementId "Ordered__Declares___400_pm0" ;
     sysx:memberIndex "0"^^xsd:integer ;
-    sysx:sourceText "private attribute k : Real = 1;" .
+    sysml:visibility "private" ;
+    sysml:declaredName "k" ;
+    sysml:type elmt:Ordered__Real ;
+    sysml:value expr:Ordered__Declares___400_pm0_pvalue ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+expr:Ordered__Declares___400_pm0_pvalue
+    a sysml:LiteralInteger ;
+    sysx:sourceText "1" ;
+    sysml:elementId "Ordered__Declares___400_pm0_pvalue" ;
+    sysml:value "1"^^xsd:integer .
