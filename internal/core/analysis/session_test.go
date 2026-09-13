@@ -81,7 +81,12 @@ func standinSession(t *testing.T, entry EngineEntry, timeout time.Duration) *ses
 
 // runOnce sends one run to the session and returns its answer.
 func runOnce(ctx context.Context, s *session, sink *progressSink) (json.RawMessage, error) {
-	return s.call(ctx, enginewire.MethodRun, enginewire.RunParams{Question: enginewire.Question{Kind: "holds", Subject: "A"}}, sink)
+	return s.call(ctx, enginewire.MethodRun, enginewire.RunParams{Question: questionA(), Bounds: []enginewire.Bound{}}, sink)
+}
+
+// questionA is a wire question as the host writes one, to a stand-in that reads none of it.
+func questionA() enginewire.Question {
+	return enginewire.Question{Kind: "holds", Subject: "A", Schedule: "fifo", Free: []string{}}
 }
 
 // The handshake takes the description and the session answers covers and run by id.
@@ -91,7 +96,7 @@ func TestSessionHandshakeCoversAndRun(t *testing.T) {
 	if s.described.Name != "standin" || s.described.Protocol != 1 {
 		t.Fatalf("described %+v", s.described)
 	}
-	raw, err := s.call(context.Background(), enginewire.MethodCovers, enginewire.CoversParams{}, nil)
+	raw, err := s.call(context.Background(), enginewire.MethodCovers, enginewire.CoversParams{Question: questionA()}, nil)
 	if err != nil {
 		t.Fatalf("covers: %v", err)
 	}
@@ -420,6 +425,8 @@ func TestEnginePoolHonorsConcurrent(t *testing.T) {
 			switch {
 			case concurrent && started != 1:
 				t.Fatalf("a concurrent entry started %d processes; want one", started)
+			case concurrent && most < 2:
+				t.Fatalf("8 runs on a concurrent process never overlapped; %d open at most", most)
 			case !concurrent && most != 1:
 				t.Fatalf("a nonconcurrent process held %d requests open at once", most)
 			case !concurrent && started < 2:

@@ -1,0 +1,421 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-mbee.github.io/OpenSysML/reference/engine-protocol.schema.json",
+  "title": "OpenSysML external engine protocol, version 1",
+  "description": "Every message the host and an external engine exchange over standard input and output, one JSON-RPC 2.0 object per line. A line the host writes validates against hostMessage; a line the engine writes validates against engineMessage.",
+  "oneOf": [
+    { "$ref": "#/$defs/hostMessage" },
+    { "$ref": "#/$defs/engineMessage" }
+  ],
+  "$defs": {
+    "jsonrpc": { "const": "2.0" },
+    "id": {
+      "description": "A request's number, chosen by the host; the answer repeats it.",
+      "type": "integer",
+      "minimum": 1
+    },
+
+    "hostMessage": {
+      "description": "What the host sends: the describe, covers and run requests, and the cancel notification.",
+      "oneOf": [
+        { "$ref": "#/$defs/describeRequest" },
+        { "$ref": "#/$defs/coversRequest" },
+        { "$ref": "#/$defs/runRequest" },
+        { "$ref": "#/$defs/cancelNotification" }
+      ]
+    },
+    "engineMessage": {
+      "description": "What the engine sends: the progress notification and a response to each request.",
+      "oneOf": [
+        { "$ref": "#/$defs/progressNotification" },
+        { "$ref": "#/$defs/response" }
+      ]
+    },
+
+    "describeRequest": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/jsonrpc" },
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "describe" },
+        "params": { "$ref": "#/$defs/describeParams" }
+      },
+      "required": ["jsonrpc", "id", "method", "params"],
+      "additionalProperties": false
+    },
+    "describeParams": {
+      "type": "object",
+      "properties": {
+        "protocols": {
+          "description": "The protocol versions the host serves.",
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 1
+        }
+      },
+      "required": ["protocols"],
+      "additionalProperties": false
+    },
+    "coversRequest": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/jsonrpc" },
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "covers" },
+        "params": { "$ref": "#/$defs/coversParams" }
+      },
+      "required": ["jsonrpc", "id", "method", "params"],
+      "additionalProperties": false
+    },
+    "coversParams": {
+      "type": "object",
+      "properties": {
+        "question": { "$ref": "#/$defs/question" },
+        "model": { "$ref": "#/$defs/model" }
+      },
+      "required": ["question", "model"],
+      "additionalProperties": false
+    },
+    "runRequest": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/jsonrpc" },
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "run" },
+        "params": { "$ref": "#/$defs/runParams" }
+      },
+      "required": ["jsonrpc", "id", "method", "params"],
+      "additionalProperties": false
+    },
+    "runParams": {
+      "type": "object",
+      "properties": {
+        "question": { "$ref": "#/$defs/question" },
+        "model": { "$ref": "#/$defs/model" },
+        "bounds": {
+          "description": "The bounds the entry declares it takes, fixed at the budget's limits; 0 leaves one open.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/bound" }
+        },
+        "budget": { "$ref": "#/$defs/budget" }
+      },
+      "required": ["question", "model", "bounds", "budget"],
+      "additionalProperties": false
+    },
+    "cancelNotification": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/jsonrpc" },
+        "method": { "const": "cancel" },
+        "params": { "$ref": "#/$defs/cancelParams" }
+      },
+      "required": ["jsonrpc", "method", "params"],
+      "additionalProperties": false
+    },
+    "cancelParams": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+
+    "progressNotification": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/jsonrpc" },
+        "method": { "const": "progress" },
+        "params": { "$ref": "#/$defs/progressParams" }
+      },
+      "required": ["jsonrpc", "method", "params"],
+      "additionalProperties": false
+    },
+    "progressParams": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "runs": { "type": "integer", "minimum": 0 },
+        "depth": { "type": "integer", "minimum": 0 },
+        "steps": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string" }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "response": {
+      "description": "The answer to a request: its id with a result or an error, never both.",
+      "type": "object",
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/jsonrpc" },
+        "id": { "$ref": "#/$defs/id" },
+        "result": {
+          "oneOf": [
+            { "$ref": "#/$defs/description" },
+            { "$ref": "#/$defs/coversResult" },
+            { "$ref": "#/$defs/result" }
+          ]
+        },
+        "error": { "$ref": "#/$defs/error" }
+      },
+      "required": ["jsonrpc", "id"],
+      "oneOf": [
+        { "required": ["result"] },
+        { "required": ["error"] }
+      ],
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": { "enum": ["unsupported", "budget", "internal"] },
+        "message": { "type": "string" }
+      },
+      "required": ["code", "message"],
+      "additionalProperties": false
+    },
+
+    "description": {
+      "description": "The engine's answer to describe, checked field by field against its manifest entry.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "protocol": { "type": "integer", "minimum": 1 },
+        "answers": { "type": "array", "items": { "$ref": "#/$defs/questionKind" }, "minItems": 1 },
+        "subjects": { "type": "array", "items": { "type": "string" } },
+        "bounds": { "type": "array", "items": { "$ref": "#/$defs/boundName" } },
+        "witness": { "$ref": "#/$defs/witnessKind" },
+        "model": { "type": "array", "items": { "$ref": "#/$defs/modelForm" } },
+        "authority": { "$ref": "#/$defs/strength" },
+        "concurrent": { "type": "boolean" }
+      },
+      "required": ["name", "version", "protocol", "answers"],
+      "additionalProperties": false
+    },
+    "coversResult": {
+      "type": "object",
+      "properties": {
+        "covers": { "type": "boolean" },
+        "reason": { "type": "string" }
+      },
+      "required": ["covers"],
+      "additionalProperties": false
+    },
+    "result": {
+      "description": "The engine's answer to run. The strength is what the engine claims; the host decides what stands.",
+      "type": "object",
+      "properties": {
+        "claim": { "$ref": "#/$defs/claim" },
+        "strength": { "$ref": "#/$defs/strength" },
+        "bounds": { "type": "array", "items": { "$ref": "#/$defs/bound" } },
+        "witness": { "$ref": "#/$defs/witness" },
+        "executions": { "type": "array", "items": { "$ref": "#/$defs/witness" } },
+        "reason": { "type": "string" },
+        "values": { "type": "array", "items": { "$ref": "#/$defs/value" } },
+        "elapsed": { "description": "Milliseconds.", "type": "integer", "minimum": 0 }
+      },
+      "required": ["claim", "strength"],
+      "additionalProperties": false
+    },
+    "witness": {
+      "description": "A schedule witness (one schedule, two for sensitive) or an assignment witness (inputs alone).",
+      "type": "object",
+      "properties": {
+        "schedules": {
+          "description": "Schedules in the replay: format, `step N: <token>@<node> first of ...` lines.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "at": {
+          "description": "The move a violation is evaluated at; absent means the schedule's end.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "feature": { "description": "The feature two sensitive schedules diverge on.", "type": "string" },
+        "inputs": { "type": "array", "items": { "$ref": "#/$defs/value" } }
+      },
+      "additionalProperties": false
+    },
+
+    "question": {
+      "type": "object",
+      "properties": {
+        "kind": { "$ref": "#/$defs/questionKind" },
+        "subject": { "description": "The qualified name as the surface spelled it.", "type": "string" },
+        "subjectKind": { "type": "string" },
+        "schedule": { "description": "The scheduling policy as -schedule spells it.", "type": "string" },
+        "free": { "type": "array", "items": { "enum": ["schedule", "inputs"] } },
+        "condition": { "$ref": "#/$defs/condition" },
+        "conditions": { "type": "array", "items": { "$ref": "#/$defs/conditionSet" } },
+        "bindings": { "type": "array", "items": { "$ref": "#/$defs/value" } },
+        "inputs": { "type": "array", "items": { "$ref": "#/$defs/freeInput" } },
+        "sweep": { "$ref": "#/$defs/sweep" }
+      },
+      "required": ["kind", "subject", "schedule", "free"],
+      "additionalProperties": false
+    },
+    "condition": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "text": { "type": "string" }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "conditionSet": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "features": { "type": "array", "items": { "$ref": "#/$defs/freeInput" } },
+        "assertions": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "pinned": { "type": "array", "items": { "$ref": "#/$defs/pinned" } }
+      },
+      "required": ["name", "features", "assertions"],
+      "additionalProperties": false
+    },
+    "pinned": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "text": { "type": "string" }
+      },
+      "required": ["name", "text"],
+      "additionalProperties": false
+    },
+    "freeInput": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "unit": { "type": "string" },
+        "domain": { "type": "string" }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "sweep": {
+      "type": "object",
+      "properties": {
+        "ranges": { "type": "array", "items": { "$ref": "#/$defs/range" } },
+        "sampled": { "type": "boolean" },
+        "samples": { "type": "integer", "minimum": 0 },
+        "seed": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["ranges"],
+      "additionalProperties": false
+    },
+    "range": {
+      "type": "object",
+      "properties": {
+        "parameter": { "type": "string" },
+        "type": { "type": "string" },
+        "unit": { "type": "string" },
+        "from": { "$ref": "#/$defs/scalar" },
+        "to": { "$ref": "#/$defs/scalar" },
+        "step": { "$ref": "#/$defs/scalar" }
+      },
+      "required": ["parameter", "type", "from", "to"],
+      "additionalProperties": false
+    },
+    "value": {
+      "description": "A named value as the tool protocol carries one: a number, a truth or a string, with a unit by its short name.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "$ref": "#/$defs/scalar" },
+        "unit": { "type": "string" }
+      },
+      "required": ["name", "value"],
+      "additionalProperties": false
+    },
+    "scalar": { "type": ["number", "boolean", "string"] },
+    "bound": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "limit": { "type": "integer" },
+        "reached": { "type": "boolean" }
+      },
+      "required": ["name", "limit"],
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "deadline": { "description": "An absolute time, RFC 3339.", "type": "string", "format": "date-time" },
+        "depth": { "type": "integer", "minimum": 0 },
+        "steps": { "type": "integer", "minimum": 0 },
+        "runs": { "type": "integer", "minimum": 0 },
+        "memory": { "type": "integer", "minimum": 0 },
+        "jobs": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "model": {
+      "description": "The model in the forms the entry declared.",
+      "type": "object",
+      "properties": {
+        "sources": { "$ref": "#/$defs/sources" },
+        "graphs": { "$ref": "#/$defs/graphs" }
+      },
+      "additionalProperties": false
+    },
+    "sources": {
+      "type": "object",
+      "properties": {
+        "library": { "description": "The version of the standard library the host embeds.", "type": "string" },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "text": { "type": "string" }
+            },
+            "required": ["path", "text"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["library", "documents"],
+      "additionalProperties": false
+    },
+    "graphs": {
+      "description": "The graphs:<version> form: the lowered graphs of the subject and of every behavior it performs. The forms of actions and states are the export's, documented with the version.",
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer", "minimum": 1 },
+        "subject": { "type": "string" },
+        "actions": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "name": { "type": "string" }, "kind": { "type": "string" } }, "required": ["name", "kind"] }
+        },
+        "states": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "name": { "type": "string" }, "kind": { "type": "string" } }, "required": ["name", "kind"] }
+        }
+      },
+      "required": ["version", "subject"],
+      "additionalProperties": false
+    },
+
+    "questionKind": {
+      "enum": ["evaluate", "outcomes", "holds", "sensitive", "satisfiable", "sweep", "compute"]
+    },
+    "claim": {
+      "enum": ["none", "holds", "violated", "sensitive", "value", "table", "outcomes", "satisfiable", "unsatisfiable", "unbounded"]
+    },
+    "strength": {
+      "enum": ["not covered", "observed", "witnessed", "bounded", "proved"]
+    },
+    "witnessKind": { "enum": ["schedule", "assignment", "none"] },
+    "modelForm": {
+      "description": "sources, rdf or graphs:<version>; the host serves graphs:1 and refuses rdf.",
+      "type": "string",
+      "pattern": "^(sources|rdf|graphs:[1-9][0-9]*)$"
+    },
+    "boundName": { "enum": ["depth", "steps", "runs", "memory"] }
+  }
+}

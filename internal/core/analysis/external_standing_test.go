@@ -34,10 +34,18 @@ func endsAtOne() runtime.CheckProperty {
 func standinRegistry(t *testing.T, result string, witness WitnessKind) *Registry {
 	t.Helper()
 	t.Setenv(engineStandinDescribe, `{"name":"standin","version":"1.0.0","protocol":1,"answers":["holds","sensitive","outcomes","satisfiable"]}`)
+	return standinRegistryEntry(t, result, witness, func(*EngineEntry) {})
+}
+
+// standinRegistryEntry is standinRegistry with the entry edited before registration; the
+// caller sets the describe the edited entry matches.
+func standinRegistryEntry(t *testing.T, result string, witness WitnessKind, edit func(*EngineEntry)) *Registry {
+	t.Helper()
 	t.Setenv(engineStandinResult, result)
 	entry := standinEntry(t)
 	entry.Answers = []Kind{Holds, Sensitive, Outcomes, Satisfiable}
 	entry.Witness = witness
+	edit(&entry)
 	r := Default()
 	if err := r.Register(NewEngine(entry)); err != nil {
 		t.Fatalf("register: %v", err)
@@ -362,6 +370,58 @@ func TestExternalStoodClaimDisagreesWithBuiltIn(t *testing.T) {
 	if len(all.Disagreements) != 1 {
 		t.Fatalf("disagreements %+v, want the stand-in's observed holds against check", all.Disagreements)
 	}
+}
+
+// Under -jobs 8 and all, the plan's standing and every step's result are the same whether the
+// engine declares concurrent true or false; only the timings differ.
+func TestExternalPlanIsTheSameUnderEitherConcurrency(t *testing.T) {
+	f := parseFixture(t)
+	race := f.checked(t, "race")
+	q := checkQuestion(t, f, Holds, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{race.x(3)}})
+	result := `{"claim":"holds","strength":"bounded","bounds":[{"name":"depth","limit":8}],"executions":[{"schedules":` + schedules(raceEndsOne) + `},{"schedules":` + schedules(raceEndsThree) + `}]}`
+	var plans [2]Plan
+	for i, concurrent := range []bool{true, false} {
+		t.Setenv(engineStandinDescribe, `{"name":"standin","version":"1.0.0","protocol":1,"answers":["holds","sensitive","outcomes","satisfiable"]}`)
+		r := standinRegistryEntry(t, result, WitnessSchedule, func(e *EngineEntry) { e.Concurrent = concurrent })
+		plan, err := r.AnswerWith(context.Background(), f.building(), q, Budget{Depth: 8, Jobs: 8}, All())
+		if err != nil {
+			t.Fatalf("concurrent %v: %v", concurrent, err)
+		}
+		plans[i] = plan
+	}
+	if plans[0].Standing() != plans[1].Standing() {
+		t.Fatalf("standing differs by concurrency:\n%s\n%s", plans[0].Standing(), plans[1].Standing())
+	}
+	if len(plans[0].Steps) != len(plans[1].Steps) {
+		t.Fatalf("steps %d and %d", len(plans[0].Steps), len(plans[1].Steps))
+	}
+	observed := false
+	for i := range plans[0].Steps {
+		a, b := plans[0].Steps[i], plans[1].Steps[i]
+		if a.Engine != b.Engine || a.Standing() != b.Standing() {
+			t.Fatalf("step %d differs: %s / %s", i, a.Standing(), b.Standing())
+		}
+		if a.Result != nil && b.Result != nil && !sameAnswer(*a.Result, *b.Result) {
+			t.Fatalf("step %d result differs:\n%+v\n%+v", i, *a.Result, *b.Result)
+		}
+		if a.Engine == "standin" && a.Result != nil && a.Result.Strength == Observed && strings.Contains(a.Result.Reason, "2 executions") {
+			observed = true
+		}
+	}
+	if !observed {
+		t.Fatalf("steps %+v, want the stand-in's holds observed on 2 executions", plans[0].Steps)
+	}
+	if !sameAnswer(plans[0].Result, plans[1].Result) {
+		t.Fatalf("results differ:\n%+v\n%+v", plans[0].Result, plans[1].Result)
+	}
+}
+
+// sameAnswer is whether two results agree on their standing, claim, bounds, witnesses and
+// executions; timings and the evaluations' internal pointers are left out.
+func sameAnswer(a, b Result) bool {
+	return a.Standing() == b.Standing() && a.Claim == b.Claim && a.Bounds.String() == b.Bounds.String() &&
+		fmt.Sprint(a.Witness) == fmt.Sprint(b.Witness) && fmt.Sprint(a.Contrast) == fmt.Sprint(b.Contrast) &&
+		fmt.Sprint(a.Executions) == fmt.Sprint(b.Executions) && len(a.Values) == len(b.Values)
 }
 
 // Outside a plan, a surface's model holds no session: the request is the typed refusal.

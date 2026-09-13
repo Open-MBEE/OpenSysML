@@ -131,8 +131,6 @@ type Question struct {
 	Inputs []FreeInput `json:"inputs,omitempty"`
 	// Sweep is the domain of a sweep question.
 	Sweep *Sweep `json:"sweep,omitempty"`
-	// Bounds are the bounds the question fixes.
-	Bounds []Bound `json:"bounds,omitempty"`
 }
 
 // Condition is one condition by qualified name and as expression text.

@@ -37,9 +37,30 @@ func (e externalEngine) runParams(model *Model, q Question, budget Budget) (engi
 	return enginewire.RunParams{
 		Question: covers.Question,
 		Model:    covers.Model,
-		Bounds:   covers.Question.Bounds,
+		Bounds:   wireBounds(e.entry.Bounds, budget),
 		Budget:   wireBudget(budget),
 	}, nil
+}
+
+// wireBounds fixes the bounds the entry declares it takes at the budget's limits, in the
+// manifest's order; a limit of 0 leaves that bound open.
+func wireBounds(names []string, b Budget) []enginewire.Bound {
+	out := []enginewire.Bound{}
+	for _, name := range names {
+		var limit int64
+		switch name {
+		case "depth":
+			limit = int64(b.Depth)
+		case "steps":
+			limit = int64(b.Steps)
+		case "runs":
+			limit = int64(b.Runs)
+		case "memory":
+			limit = int64(b.Memory)
+		}
+		out = append(out, enginewire.Bound{Name: name, Limit: limit})
+	}
+	return out
 }
 
 // wireBudget is the budget as the protocol carries it.
@@ -73,6 +94,7 @@ func (e externalEngine) wireQuestion(model *Model, q Question) (enginewire.Quest
 			for _, p := range q.Check.Properties {
 				out.Conditions = append(out.Conditions, enginewire.ConditionSet{
 					Name:       p.Name,
+					Features:   []enginewire.FreeInput{},
 					Assertions: []enginewire.Condition{{Name: p.Name}},
 				})
 			}

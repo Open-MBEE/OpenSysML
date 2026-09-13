@@ -37,6 +37,9 @@ const (
 	DelayEnv = "ENGINE_STANDIN_DELAY"
 	// ProgressEnv is how many progress notifications a run sends before it answers.
 	ProgressEnv = "ENGINE_STANDIN_PROGRESS"
+	// WireEnv names a directory; each process writes every line it reads and writes to
+	// `<pid>.wire` there, `< ` before a host's line and `> ` before its own.
+	WireEnv = "ENGINE_STANDIN_WIRE"
 )
 
 // The modes.
@@ -81,6 +84,8 @@ type engine struct {
 	outMu   sync.Mutex
 	record  *os.File
 	recMu   sync.Mutex
+	wire    *os.File
+	wireMu  sync.Mutex
 	cancels sync.Map
 	open    atomic.Int64
 	wg      sync.WaitGroup
@@ -94,6 +99,14 @@ func serve() error {
 			return err
 		}
 		e.record = f
+		defer f.Close()
+	}
+	if dir := os.Getenv(WireEnv); dir != "" {
+		f, err := os.OpenFile(dir+"/"+strconv.Itoa(os.Getpid())+".wire", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304 -- the test names the directory
+		if err != nil {
+			return err
+		}
+		e.wire = f
 		defer f.Close()
 	}
 	e.log("start")
@@ -113,6 +126,7 @@ func serve() error {
 		if len(strings.TrimSpace(string(line))) == 0 {
 			continue
 		}
+		e.tap('<', strings.TrimRight(string(line), "\n"))
 		var msg enginewire.Message
 		if err := json.Unmarshal(line, &msg); err != nil {
 			return fmt.Errorf("host sent a line that is not a message: %v", err)
@@ -315,12 +329,23 @@ func (e *engine) write(msg enginewire.Message) error {
 
 // raw writes one line as it is.
 func (e *engine) raw(line string) error {
+	e.tap('>', line)
 	e.outMu.Lock()
 	defer e.outMu.Unlock()
 	if _, err := e.out.WriteString(line + "\n"); err != nil {
 		return err
 	}
 	return e.out.Flush()
+}
+
+// tap records one line of the wire in the direction given, when a directory is named.
+func (e *engine) tap(direction byte, line string) {
+	if e.wire == nil {
+		return
+	}
+	e.wireMu.Lock()
+	defer e.wireMu.Unlock()
+	fmt.Fprintf(e.wire, "%c %s\n", direction, line)
 }
 
 // log appends one event to the record file, when one is named.
