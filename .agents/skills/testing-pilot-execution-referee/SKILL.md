@@ -63,10 +63,10 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (438 cases, all nineteen default
+Reference values at the current implementation (446 cases, all twenty default
 fixtures):
-`agree 208 · kind-only 1 · order-only 0 · disagree 26 · pilot-unevaluated 124 ·
-pilot-silent 21 · pilot-error 9 · ours-error 9 · ours-undetermined 28 · both-error 12 ·
+`agree 211 · kind-only 1 · order-only 0 · disagree 30 · pilot-unevaluated 124 ·
+pilot-silent 21 · pilot-error 9 · ours-error 10 · ours-undetermined 28 · both-error 12 ·
 nondeterministic 0`.
 Four of the nine `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
 model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural
@@ -74,7 +74,7 @@ value`) and resolves nothing in it afterwards, which is why those cases have a m
 own; two more are the whole of `vast_bounds.cases`, whose bound `[0..9223372036854775807]` the
 pilot rejects the same way. Another is `subsequence-unbound-valid`, where the pilot indexes into the one unevaluated
 usage element (`IndexOutOfBoundsException: toIndex = 2`) and we answer `<undetermined>`.
-Five of the twenty-two `disagree` are in `undetermined_operands`: `size-slots`, where
+Five of the thirty `disagree` are in `undetermined_operands`: `size-slots`, where
 `size(rack.slots)` for a `part slots[3]` is `3` here, since `[3]` fixes the count, and `1`
 from the pilot, which counts the one unevaluated feature-reference operand;
 `includes-subsetter`, where `includes(rack.gear, rack.fixed)` for a `part fixed :> gear` is
@@ -87,14 +87,20 @@ pilot, counting the unevaluated `if`. No such pilot answer is a semantic one. Th
 whose multiplicity leaves the count open (`gear[1..*]`, `loose[0..2]`, `many[10001..*]`,
 `xs : Real[2..4]`), where we answer `<undetermined>` and the pilot leaves the expression
 unevaluated.
-Eight of the other seventeen `disagree` are the `enumeration_classification.cases`
+Eight of the other twenty-five `disagree` are the `enumeration_classification.cases`
 adjudicated ours: the pilot never consults an enumeration's enumerated values
 (`3 istype Level` false) and folds a scalar-valued literal to its Integer
-(`Level::high istype Level` false). Seven more are unrefereeable rather than verdicts against us:
+(`Level::high istype Level` false). Eleven more are unrefereeable rather than verdicts against us:
 `extent-variation-count` and `extent-uninstantiated-count`, where the pilot does
 not evaluate `all T` (KerML 1.0 §8.2.5.8.1 Table 5 marks it not model-level
 evaluable) and `size(all T)` counts the one unevaluated node as `1` whether `T`
-has two variants or no instance;
+has two variants or no instance; the four `extent-namespace-*` disagreements,
+where a package-level `part rims : Rim[2];` denotes two objects here and the
+pilot folds `size` over the unevaluated usage to `1` (`[0..*]` included) and
+`rims.radius` to the one default (one more `ours-error` is the same round's
+`extent-namespace-valued-count-mismatch`, a `[2]` usage given three values the
+pilot counts as `3` and we refuse, in a model of its own so the refusal ends no
+other extent);
 `w6d:complex-is-zero-qualified`, where the pilot answers `false` for
 `isZero(rect(0.0, 0.0))` *and* for `isZero(rect(3.0, 4.0))`, because its
 `re`/`im` have no evaluable body; and the three `w6d:subsetting-*-count`

@@ -70,6 +70,10 @@ func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
 			ErrTypeMismatch, symbolText(sym))
 	}
 	if sym, ok := ec.occurrenceOperand(base); ok {
+		// A collection reads as its objects, which the step after it refuses as several.
+		if ec.ctx.namesObjects(sym) {
+			return ec.ctx.denotedValue(sym)
+		}
 		inst, err := ec.ctx.occurrenceOf(sym)
 		if err != nil {
 			return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)

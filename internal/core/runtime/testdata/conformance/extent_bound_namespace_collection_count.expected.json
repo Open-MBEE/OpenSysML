@@ -1,0 +1,7 @@
+{
+  "type": "calc",
+  "evaluate": "test::count",
+  "libraries": true,
+  "inputs": [],
+  "error": "multiplicity violation"
+}

@@ -350,6 +350,46 @@ func TestSubjectOfADirectlyInstantiatedNestedUsage(t *testing.T) {
 	}
 }
 
+// The objects a namespace-level collection usage denotes occur as one declaration,
+// so a condition their definition declares is about that declaration, not a question
+// between its members; a second usage of the definition is a distinct carrier still.
+func TestSubjectOfANamespaceCollection(t *testing.T) {
+	src := `package test {
+	part def Wheel {
+		attribute value : Real = 1.0;
+		constraint small { value < 10.0 }
+	}
+	part def Bolt {
+		attribute torque : Real = 1.0;
+		constraint tight { torque > 10.0 }
+	}
+	part def Axle {
+		part bolts : Bolt[2];
+	}
+	part wheels : Wheel[2];
+	part bolts : Bolt[2];
+	part axle : Axle;
+}`
+	ctx, pkg := nestedSubjectFixture(t, src)
+	for _, name := range []string{"wheels", "bolts", "axle"} {
+		if _, err := ctx.EvalDeclaredValue(memberPath(t, pkg, name)); err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+	}
+	small := memberPath(t, pkg, "Wheel", "small")
+	if satisfied, err := ctx.EvaluateConstraint(small, small.OwnerScope); err != nil || !satisfied {
+		t.Fatalf("small over wheels: satisfied = %t, err = %v, want one verdict for the declaration", satisfied, err)
+	}
+	tight := memberPath(t, pkg, "Bolt", "tight")
+	_, err := ctx.EvaluateConstraint(tight, tight.OwnerScope)
+	if !errors.Is(err, ErrAmbiguousSubject) {
+		t.Fatalf("tight with two declarations of Bolt: err = %v, want ErrAmbiguousSubject", err)
+	}
+	if n := strings.Count(err.Error(), "Bolt #"); n != 2 {
+		t.Errorf("%q names %d carriers, want one per declaration", err, n)
+	}
+}
+
 // Two objects redefining the same nested feature differently make the subject a
 // question, which is reported rather than answered from either of them.
 func TestNestedSubjectAmbiguous(t *testing.T) {

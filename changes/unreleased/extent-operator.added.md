@@ -24,10 +24,9 @@
   cannot materialize ends it with that usage's error rather than an extent short of it, and one
   making an object on the path together with one that may lead to a `T` is undone and refused
   with `ErrExtentUnavailable` naming it.
-  An extent that a package-level usage of several occurrences (`part wheels : Wheel[2];`) or a
-  package-level port may contribute to is refused with the typed `ErrExtentUnavailable` naming the
-  usage, since the runtime denotes no object of such a usage yet, rather than answered without
-  them. A namespace-level object usage given a value (`ref part car : Car = new Car();`,
+  An extent that a package-level port may contribute to is refused with the typed
+  `ErrExtentUnavailable` naming the usage, since the runtime denotes no object of such a usage,
+  rather than answered without it. A namespace-level object usage given a value (`ref part car : Car = new Car();`,
   `part fleet = new Truck();`, `ref part alias : Car = spare;`) is bound to that value for the run —
   a feature value binds its feature to its expression's result (KerML 1.0 §7.4.11 Feature Values,
   §8.4.4.11) — so `all Car` reaches the object it denotes before any read of it, and the usage

@@ -319,6 +319,10 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
 	t.Run("extent_reaching_a_namespace_collection", testExtentReachingANamespaceCollection)
+	t.Run("namespace_collection_that_cannot_be_constructed", testNamespaceCollectionThatCannotBeConstructed)
+	t.Run("namespace_collection_of_unfixed_count", testNamespaceCollectionOfUnfixedCount)
+	t.Run("chained_write_through_a_namespace_collection", testChainedWriteThroughANamespaceCollection)
+	t.Run("namespace_collection_over_budget", testNamespaceCollectionOverBudget)
 	t.Run("extent_over_an_object_that_cannot_be_read", testExtentOverAnObjectThatCannotBeRead)
 	t.Run("extent_reaching_a_far_usage_that_cannot_be_read", testExtentReachingAFarUsageThatCannotBeRead)
 	t.Run("extent_over_far_usages_under_the_element_budget", testExtentOverFarUsagesUnderTheElementBudget)
@@ -4894,11 +4898,13 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 }
 
 // testExtentReachingANamespaceCollection: a namespace-level usage of several occurrences
-// (`part wheels : Wheel[2]` in a package), or a namespace-level port, denotes no object the run
-// reaches — reading it yields nothing — so an extent it may contribute to is refused rather than
-// answered short, wherever in the model the extent is taken and the usage declared; one it cannot
-// contribute to, one a `[0..*]` usage would hold nothing of, and one a port nested in a part
-// contributes to, are answered.
+// (`part wheels : Wheel[2]` in a package) denotes its lower bound of objects for the run,
+// created once, so an extent counts them, each once, along with the objects nested in them,
+// wherever in the model the extent is taken and the usage declared; a `[0..*]` usage denotes
+// none. Read directly, a usage of exact count is the sequence of its objects on every surface,
+// one of open count undetermined of that count, as a nested collection reads. A namespace-level
+// port denotes no object the run reaches, so an extent it may contribute to is refused rather
+// than answered short, while one a port nested in a part contributes to is answered.
 func testExtentReachingANamespaceCollection(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
 		private import ScalarValues::*;
@@ -4934,31 +4940,47 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	ctx := NewContext(NewModel(model, resolver), 1000)
-	for _, tc := range []struct{ calc, usage, mult string }{
-		{"wheelCount", "wheels", "[2]"},
-		{"hubCount", "hubs", "[1..*]"},
-		{"linkCount", "link", "port"},
-	} {
-		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
-		if !errors.Is(err, ErrExtentUnavailable) {
-			t.Fatalf("%s: err = %v, want %v", tc.calc, err, ErrExtentUnavailable)
-		}
-		for _, want := range []string{tc.usage, tc.mult} {
-			if !strings.Contains(err.Error(), want) {
-				t.Errorf("%s: error = %v, want %q named", tc.calc, err, want)
+	for calc, want := range map[string]string{"wheelCount": "3", "hubCount": "1", "seatCount": "2"} {
+		for attempt := 1; attempt <= 2; attempt++ {
+			got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+			if err != nil || FormatValue(got) != want {
+				t.Errorf("attempt %d: %s = %s, %v; want %s: the two wheels, the hub and its wheel, both packages' seats", attempt, calc, FormatValue(got), err, want)
 			}
 		}
 	}
-	q := resolveSymbol(t, pkg.Scope, "Q")
-	for name, scope := range map[string]*symbols.Scope{"P": pkg.Scope, "Q": q.Scope} {
-		got, err := ctx.InvokeCalc(resolveSymbol(t, scope, "seatCount"), nil, scope)
-		if err != nil || FormatValue(got) != "2" {
-			t.Errorf("%s: size(all Seat) = %s, %v; want 2: both packages' seats, and the wheel collections hold no Seat", name, FormatValue(got), err)
-		}
+	wheels, ok := ctx.liveOccurrences(resolveSymbol(t, pkg.Scope, "wheels"))
+	if !ok || len(wheels) != 2 {
+		t.Fatalf("wheels denotes %d objects, want the two created once", len(wheels))
 	}
-	_, err := ctx.InvokeCalc(resolveSymbol(t, q.Scope, "wheelCount"), nil, q.Scope)
-	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "wheels") {
-		t.Errorf("Q: size(all Wheel) = %v, want the namespace-level wheels collection refused", err)
+	want := fmt.Sprintf("[instance(%d), instance(%d)]", wheels[0].ID, wheels[1].ID)
+	val, err := ctx.EvalDeclaredValue(resolveSymbol(t, pkg.Scope, "wheels"))
+	wantFormatted(t, "declared wheels", val, err, want)
+	val, err = evalIn(t, ctx, pkg.Scope, "wheels")
+	wantFormatted(t, "wheels", val, err, want)
+	val, err = ctx.EvalDeclaredValue(resolveSymbol(t, pkg.Scope, "hubs"))
+	wantUndetermined(t, "declared hubs", val, err, "[1..*]")
+	for src, count := range map[string]string{"hubs": "[1..*]", "size(hubs)": "[1]", "hubs#(1)": "[1]", "hubs.wheel": "[1..*]"} {
+		val, err = evalIn(t, ctx, pkg.Scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	if _, ok := ctx.occurrences[resolveSymbol(t, pkg.Scope, "spares")]; ok {
+		t.Error("spares, a [0..*] usage, denotes objects; want none")
+	}
+	_, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "linkCount"), nil, pkg.Scope)
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
+		t.Errorf("size(all Link) = %v, want %v naming the port link", err, ErrExtentUnavailable)
+	}
+	q := resolveSymbol(t, pkg.Scope, "Q")
+	got, err := ctx.InvokeCalc(resolveSymbol(t, q.Scope, "seatCount"), nil, q.Scope)
+	if err != nil || FormatValue(got) != "2" {
+		t.Errorf("Q: size(all Seat) = %s, %v; want 2: both packages' seats, and the wheel collections hold no Seat", FormatValue(got), err)
+	}
+	got, err = ctx.InvokeCalc(resolveSymbol(t, q.Scope, "wheelCount"), nil, q.Scope)
+	if err != nil || FormatValue(got) != "3" {
+		t.Errorf("Q: size(all Wheel) = %s, %v; want 3: the enclosing package's wheels, once", FormatValue(got), err)
+	}
+	if got := len(ctx.instances); got != 6 {
+		t.Errorf("%d objects stand, want 6: two wheels, a hub and its wheel, two seats", got)
 	}
 	r := resolveSymbol(t, root, "R")
 	_, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
@@ -4982,7 +5004,7 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	}`)
 	r = resolveSymbol(t, root, "R")
 	ctx = NewContext(NewModel(model, resolver), 1000)
-	got, err := ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
+	got, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
 	if err != nil || FormatValue(got) != "1" {
 		t.Errorf("R: size(all Link) = %s, %v; want 1: the rig's port, an optional one holding nothing", FormatValue(got), err)
 	}
@@ -5001,8 +5023,202 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	s = resolveSymbol(t, root, "S")
 	ctx = NewContext(NewModel(model, resolver), 1000)
 	_, err = ctx.InvokeCalc(resolveSymbol(t, s.Scope, "linkCount"), nil, s.Scope)
-	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), "[2]") {
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), "port") {
 		t.Errorf("S: size(all Link) = %v, want the nested package's two-port usage refused", err)
+	}
+}
+
+// testNamespaceCollectionOfUnfixedCount: a namespace-level usage whose multiplicity bound the
+// model does not evaluate (`[2..n]`, `[n]`) fixes no count, so it is never materialized — not
+// as one object, not as its lower bound: an extent that may reach it is refused naming the usage
+// and its bounds, and a model-level read is undetermined of the bounds the declaration does fix.
+func testNamespaceCollectionOfUnfixedCount(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::*;
+		part def Wheel;
+		part def Hub;
+		part def Seat;
+		attribute n : Natural;
+		part wheels : Wheel[2..n];
+		part hubs : Hub[n];
+		part seat : Seat;
+		calc wheelCount { return : Natural = size(all Wheel); }
+		calc hubCount { return : Natural = size(all Hub); }
+		calc seatCount { return : Natural = size(all Seat); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	for calc, want := range map[string]string{"wheelCount": "wheels declares [2..?]", "hubCount": "hubs declares [?..?]"} {
+		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s = %v, want %v naming %q", calc, err, ErrExtentUnavailable, want)
+		}
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "1" {
+		t.Errorf("seatCount = %s, %v; want 1: the usages of unfixed count hold no Seat", FormatValue(got), err)
+	}
+	for src, count := range map[string]string{"wheels": "[2..?]", "size(wheels)": "[1]", "hubs": "[?..?]", "hubs#(1)": "[1]"} {
+		val, err := evalIn(t, ctx, pkg.Scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	val, err := ctx.EvalDeclaredValue(resolveSymbol(t, pkg.Scope, "wheels"))
+	wantUndetermined(t, "declared wheels", val, err, "[2..?]")
+	val, err = evalIn(t, ctx, pkg.Scope, "notEmpty(wheels)")
+	wantFormatted(t, "notEmpty(wheels)", val, err, "true")
+	for _, name := range []string{"wheels", "hubs"} {
+		if _, ok := ctx.occurrences[resolveSymbol(t, pkg.Scope, name)]; ok {
+			t.Errorf("%s, a usage of unfixed count, denotes objects; want none", name)
+		}
+	}
+	if got := len(ctx.instances); got != 1 {
+		t.Errorf("%d objects stand, want 1: the seat alone", got)
+	}
+}
+
+// testNamespaceCollectionThatCannotBeConstructed: a namespace-level usage of several
+// occurrences whose type cannot be constructed — the behavior its definition exhibits fails on
+// entry — is refused with that failure naming the usage, whether read or counted, and leaves no
+// object behind: not a partial extent, not an occurrence for a later read to find.
+func testNamespaceCollectionThatCannotBeConstructed(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Bad {
+			attribute hits : Rational = 0;
+			exhibit state tally {
+				entry; then on;
+				state on { entry action bump { assign hits := 1 / hits; } }
+			}
+		}
+		part wheels : Wheel[2];
+		part bads : Bad[3];
+		calc badCount { return : Natural = size(all Bad); }
+		calc wheelCount { return : Natural = size(all Wheel); }
+		calc firstBad { return : Bad = bads#(1); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	for attempt := 1; attempt <= 2; attempt++ {
+		for _, calc := range []string{"badCount", "firstBad"} {
+			got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+			if !errors.Is(err, ErrDivisionByZero) || !strings.Contains(err.Error(), "bads") {
+				t.Fatalf("attempt %d: %s = %s, %v; want %v naming bads", attempt, calc, FormatValue(got), err, ErrDivisionByZero)
+			}
+		}
+		if _, ok := ctx.occurrences[resolveSymbol(t, pkg.Scope, "bads")]; ok {
+			t.Fatalf("attempt %d: bads denotes objects after a refused construction", attempt)
+		}
+		if got := len(ctx.instances); got != 0 {
+			t.Fatalf("attempt %d: a refused construction left %d objects standing", attempt, got)
+		}
+		if len(ctx.created) != 0 || len(ctx.objectBehaviors) != 0 {
+			t.Fatalf("attempt %d: a refused construction left %d creations and %d behaviors", attempt, len(ctx.created), len(ctx.objectBehaviors))
+		}
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "2" {
+		t.Errorf("size(all Wheel) = %s, %v; want 2: the bads hold no Wheel and are not read", FormatValue(got), err)
+	}
+}
+
+// testChainedWriteThroughANamespaceCollection: a write chained from a namespace-level
+// collection reaches several objects, so it is refused as a write through a nested
+// collection is, and the objects the collection denotes are left as they were —
+// no object is made or replaced for the write; a scalar usage beside it is written.
+func testChainedWriteThroughANamespaceCollection(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		part def Sensor { attribute reading : Real = 0.0; }
+		part sensors : Sensor[2];
+		part probe : Sensor;
+		action def Calibrate { action step { assign sensors.reading := 4.5; } first step; }
+		action def Tune { action step { assign probe.reading := 4.5; } first step; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	sensors := resolveSymbol(t, pkg.Scope, "sensors")
+	before, err := ctx.occurrencesOf(sensors)
+	if err != nil || len(before) != 2 {
+		t.Fatalf("sensors denote %d objects, %v; want 2", len(before), err)
+	}
+	_, err = ctx.ExecuteAction(resolveSymbol(t, pkg.Scope, "Calibrate"))
+	if !errors.Is(err, ErrTypeMismatch) || !strings.Contains(err.Error(), "sensors") {
+		t.Fatalf("assign sensors.reading: %v; want %v naming sensors", err, ErrTypeMismatch)
+	}
+	after, err := ctx.occurrencesOf(sensors)
+	if err != nil || len(after) != 2 || after[0] != before[0] || after[1] != before[1] {
+		t.Fatalf("sensors denote %v, %v after a refused write; want the same two objects", after, err)
+	}
+	if got := len(ctx.instances); got != 2 {
+		t.Fatalf("a refused write left %d objects standing; want the 2 sensors", got)
+	}
+	for _, inst := range after {
+		if val, err := inst.FeatureValues["reading"].ReadValue("reading"); err != nil || FormatValue(val) != "0.0" {
+			t.Errorf("sensor #%d reading = %s, %v after a refused write; want 0.0", inst.ID, FormatValue(val), err)
+		}
+	}
+	if _, err := ctx.ExecuteAction(resolveSymbol(t, pkg.Scope, "Tune")); err != nil {
+		t.Fatalf("assign probe.reading: %v", err)
+	}
+	probe, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "probe"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val, err := probe.FeatureValues["reading"].ReadValue("reading"); err != nil || FormatValue(val) != "4.5" {
+		t.Errorf("probe reading = %s, %v; want 4.5", FormatValue(val), err)
+	}
+}
+
+// testNamespaceCollectionOverBudget: a namespace-level usage of more occurrences than a run
+// may materialize — past the element budget, or past the bound on a collection's lower bound —
+// is refused with the typed limit naming the usage and leaves no partial extent, while an
+// extent it cannot contribute to is answered.
+func testNamespaceCollectionOverBudget(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Seat;
+		part many : Wheel[10000];
+		part seats : Seat[2];
+		calc wheelCount { return : Natural = size(all Wheel); }
+		calc seatCount { return : Natural = size(all Seat); }
+		calc manyCount { return : Natural = size(many); }
+	}
+	package R {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part some : Wheel[5];
+		calc wheelCount { return : Natural = size(all Wheel); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	for _, calc := range []string{"wheelCount", "manyCount"} {
+		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		if !errors.Is(err, ErrMultiplicityViolation) || !strings.Contains(err.Error(), "many") {
+			t.Fatalf("%s = %s, %v; want %v naming many", calc, FormatValue(got), err, ErrMultiplicityViolation)
+		}
+	}
+	if got := len(ctx.instances); got != 0 {
+		t.Fatalf("a refused collection of 10000 left %d objects standing", got)
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "2" {
+		t.Errorf("size(all Seat) = %s, %v; want 2: the wheels hold no Seat and are not read", FormatValue(got), err)
+	}
+	r := resolveSymbol(t, root, "R")
+	ctx = NewContext(NewModel(model, resolver), 1000)
+	ctx.maxElements = 4
+	got, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "wheelCount"), nil, r.Scope)
+	if !errors.Is(err, ErrElementLimitExceeded) || !strings.Contains(err.Error(), "some") {
+		t.Fatalf("R: size(all Wheel) = %s, %v; want %v naming some", FormatValue(got), err, ErrElementLimitExceeded)
+	}
+	if got := len(ctx.instances); got != 0 {
+		t.Errorf("R: a collection past the element budget left %d objects standing", got)
 	}
 }
 
@@ -5043,7 +5259,8 @@ func testExtentOverAnObjectThatCannotBeRead(t *testing.T) {
 }
 
 // testExtentReachingAFarUsageThatCannotBeRead: a namespace usage of another document that cannot
-// be read ends the extent with a typed error naming it; a type it cannot hold is still answered.
+// be read ends the extent with a typed error naming it; a type it cannot hold is still answered,
+// as is one a far document's collection holds.
 func testExtentReachingAFarUsageThatCannotBeRead(t *testing.T) {
 	ctx := contextOverDocs(t, [][2]string{
 		{"model.sysml", `package P {
@@ -5076,7 +5293,6 @@ func testExtentReachingAFarUsageThatCannotBeRead(t *testing.T) {
 	}{
 		{"carCount", ErrTypeMismatch, []string{"usage car", "Far::car"}},
 		{"wheelCount", ErrTypeMismatch, []string{"usage car", "Far::car"}},
-		{"seatCount", ErrExtentUnavailable, []string{"seats", "[2]"}},
 	} {
 		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
 		if !errors.Is(err, tc.want) {
@@ -5088,9 +5304,11 @@ func testExtentReachingAFarUsageThatCannotBeRead(t *testing.T) {
 			}
 		}
 	}
-	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "driverCount"), nil, pkg.Scope)
-	if err != nil || FormatValue(got) != "1" {
-		t.Errorf("size(all Driver) = %s, %v; want 1: the far usages hold no Driver and are not read", FormatValue(got), err)
+	for calc, want := range map[string]string{"driverCount": "1", "seatCount": "2"} {
+		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		if err != nil || FormatValue(got) != want {
+			t.Errorf("%s = %s, %v; want %s: the far car is not read, the far seats collection is counted", calc, FormatValue(got), err, want)
+		}
 	}
 }
 

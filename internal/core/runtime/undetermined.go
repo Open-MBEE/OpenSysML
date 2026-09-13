@@ -472,9 +472,10 @@ func heldCountOf(val *Value) semantics.Range {
 }
 
 // declaredCountRefusal says why the bounds of an undetermined value a standalone
-// feature declares contradict its multiplicity; a determined value's count is read as declared.
+// feature declares contradict its multiplicity; a determined value's count is read as
+// declared, except for an object usage, whose value is the objects it denotes for the run.
 func (ctx *Context) declaredCountRefusal(sym *symbols.Symbol, value *Value) string {
-	if value.Undetermined() == nil {
+	if value.Undetermined() == nil && !namespaceObjectUsage(sym) {
 		return ""
 	}
 	return ctx.featureMultiplicity(sym, nil).HeldViolation(heldCountOf(value))

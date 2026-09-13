@@ -60,9 +60,9 @@ type Context struct {
 	// usage evaluations, action performances — which functions closing over one carry.
 	runs int64
 
-	// occurrences holds the object each usage carrying no value of its own
-	// denotes, so a feature chain through a part reads one occurrence of it.
-	occurrences map[*symbols.Symbol]int64
+	// occurrences holds the objects each usage carrying no value of its own denotes, in
+	// declaration order: one for a usage of one occurrence, its lower bound for a collection.
+	occurrences map[*symbols.Symbol][]int64
 	// namespaceBindings holds the value each namespace-level object usage given a value
 	// denotes, so every read of it reads the one binding rather than evaluating it anew.
 	namespaceBindings map[*symbols.Symbol]Value
@@ -284,7 +284,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxCalcDepth:   DefaultMaxCalcDepth,
 		maxSweepRuns:   DefaultMaxSweepRuns,
 
-		occurrences:       make(map[*symbols.Symbol]int64),
+		occurrences:       make(map[*symbols.Symbol][]int64),
 		namespaceBindings: make(map[*symbols.Symbol]Value),
 		bindingReads:      make(map[*symbols.Symbol]*bindingReads),
 		metadataObjects:   make(map[metadataAnnotation]int64),
