@@ -13,6 +13,12 @@ export const RENDER_CAPABILITY = "openSysmlRender";
 /** The capability the server advertises when it serves document rendering. */
 export const RENDER_DOCUMENT_CAPABILITY = "openSysmlRenderDocument";
 
+/** Turns diagram actions into a WorkspaceEdit; mirrors internal/lsp/modeledit.go. */
+export const APPLY_MODEL_EDIT_METHOD = "opensysml/applyModelEdit";
+
+/** The capability the server advertises when it serves model edits. */
+export const APPLY_MODEL_EDIT_CAPABILITY = "openSysmlApplyModelEdit";
+
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
@@ -57,6 +63,8 @@ export interface RenderNode {
   type: string;
   detail: string;
   parent?: string;
+  /** The qualified name a model edit targets the declaration by; absent for a node with none in this document. */
+  fqn?: string;
   origin?: RenderOrigin;
 }
 
@@ -90,6 +98,58 @@ export interface RenderResult {
   rows?: RenderRow[];
   columns?: string[];
   notices: string[];
+  /** What a diagram of this kind offers to add; absent when the rendering is not editable. */
+  palette?: EditPalette;
+  version: number;
+}
+
+/** The member and connection kinds a rendering's kind offers, in the document's language. */
+export interface EditPalette {
+  members: string[];
+  connections: string[];
+  /** The members that take a type. */
+  typed: string[];
+}
+
+/** One edit.Operation on the wire; `kind` selects which of the other fields are read. */
+export type ModelEditOperation =
+  | { kind: "setValue"; target: string; value: string }
+  | { kind: "rename"; target: string; newName: string }
+  | { kind: "addMember"; owner: string; memberKind: string; name: string; type?: string; multiplicity?: string; value?: string; specializes?: string[] }
+  | { kind: "addConnection"; owner: string; memberKind: string; from: string; to: string; name?: string; type?: string }
+  | { kind: "delete"; target: string; cascade?: boolean };
+
+export interface ApplyModelEditParams {
+  textDocument: { uri: string };
+  version: number;
+  operations: ModelEditOperation[];
+}
+
+/** Why an operation was refused; `operation` is its index, or -1 for the request as a whole. */
+export interface ModelEditRefusal {
+  operation: number;
+  failure: string;
+  message: string;
+  diagnostics?: { range: Range; message: string; severity?: number; code?: string | number; source?: string }[];
+  referring?: string[];
+}
+
+/** A WorkspaceEdit as the protocol writes it; the language client converts it. */
+export interface WorkspaceEdit {
+  changes?: Record<string, TextEdit[]>;
+  documentChanges?: { textDocument: { uri: string; version: number | null }; edits: TextEdit[] }[];
+}
+
+export interface TextEdit {
+  range: Range;
+  newText: string;
+}
+
+/** Exactly one of `edit`, `refused` or `stale`; `version` is the document version answered at. */
+export interface ApplyModelEditResult {
+  edit?: WorkspaceEdit;
+  refused?: ModelEditRefusal[];
+  stale?: boolean;
   version: number;
 }
 
@@ -150,9 +210,17 @@ export type ToWebview =
   | { type: "error"; message: string }
   | { type: "highlight"; id: string | undefined };
 
+/** A diagram action naming nodes by rendering id; the extension asks for the rest. */
+export type EditAction =
+  | { kind: "addMember"; memberKind: string; typed: boolean; owner?: string }
+  | { kind: "addConnection"; connectionKind: string; from?: string; to?: string }
+  | { kind: "rename"; id: string }
+  | { kind: "delete"; id: string };
+
 /** A message the webview sends the extension. */
 export type FromWebview =
   | { type: "ready" }
   | { type: "reveal"; id: string }
   | { type: "pick"; view: string }
+  | { type: "edit"; action: EditAction }
   | { type: "failed"; message: string };

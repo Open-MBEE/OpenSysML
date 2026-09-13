@@ -1,0 +1,359 @@
+package lsp
+
+import (
+	"encoding/json"
+	"sort"
+	"strings"
+	"testing"
+
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
+
+	modeledit "github.com/Open-MBEE/OpenSysML/internal/core/edit"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+)
+
+// editModel is a document with comments and blank lines an edit must not touch.
+const editModel = `package Vehicle {
+	// The connectable units.
+	part def Tank {
+		port fuelOut : FuelPort;
+	}
+	part def Engine {
+		port fuelIn : FuelPort;
+	}
+	port def FuelPort;
+
+	part def Car {
+		part tank : Tank; // holds the fuel
+		part engine : Engine;
+	}
+}
+`
+
+// applyModelEdit is one opensysml/applyModelEdit request, decoded.
+func applyModelEdit(t *testing.T, s *Server, docURI uri.URI, version int, ops ...modelEditOperation) *applyModelEditResult {
+	t.Helper()
+	raw, err := call(t, s, MethodApplyModelEdit, &applyModelEditParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		Version:      version,
+		Operations:   ops,
+	})
+	if err != nil {
+		t.Fatalf("applyModelEdit: %v", err)
+	}
+	var out applyModelEditResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode applyModelEdit result: %v", err)
+	}
+	return &out
+}
+
+// applyWorkspaceEdit applies the edit to content the way a client does: each
+// text edit at its range in the original text, later ranges first.
+func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEdit, docURI uri.URI) string {
+	t.Helper()
+	if edit == nil {
+		t.Fatal("no edit in result")
+	}
+	if len(edit.DocumentChanges) != 1 {
+		t.Fatalf("documentChanges = %d, want 1", len(edit.DocumentChanges))
+	}
+	change := edit.DocumentChanges[0]
+	if change.TextDocument.URI != docURI {
+		t.Errorf("edit uri = %s, want %s", change.TextDocument.URI, docURI)
+	}
+	if change.TextDocument.Version == nil {
+		t.Error("edit names no document version")
+	}
+	edits := append([]protocol.TextEdit(nil), change.Edits...)
+	sort.Slice(edits, func(i, j int) bool {
+		a, b := edits[i].Range.Start, edits[j].Range.Start
+		return a.Line > b.Line || (a.Line == b.Line && a.Character > b.Character)
+	})
+	out := []byte(content)
+	for _, e := range edits {
+		start := positionToOffset([]byte(content), e.Range.Start)
+		end := positionToOffset([]byte(content), e.Range.End)
+		out = append(out[:start], append([]byte(e.NewText), out[end:]...)...)
+	}
+	return string(out)
+}
+
+// golden is what the edit layer itself produces for the operations, which the
+// WorkspaceEdit must reproduce byte for byte.
+func golden(t *testing.T, s *Server, name string, ops ...modelEditOperation) string {
+	t.Helper()
+	converted := make([]modeledit.Operation, 0, len(ops))
+	for _, op := range ops {
+		c, err := op.operation()
+		if err != nil {
+			t.Fatalf("convert %+v: %v", op, err)
+		}
+		converted = append(converted, c)
+	}
+	result, _, ok, err := s.ws.ApplyEdit(name, converted)
+	if !ok || err != nil {
+		t.Fatalf("edit.Apply: ok=%v err=%v", ok, err)
+	}
+	return string(result.Content)
+}
+
+func TestApplyModelEditAddsMemberAsWorkspaceEdit(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	op := modelEditOperation{Kind: EditAddMember, Owner: "Vehicle::Car", MemberKind: "part", Name: "battery", Type: "Tank"}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Stale || out.Refused != nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
+	want := golden(t, s, docURI.Filename(), op)
+	if got != want {
+		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
+	}
+	if !strings.Contains(got, "\t\tpart engine : Engine;\n\t\tpart battery : Tank;\n\t}") {
+		t.Errorf("member not inserted at the end of Car's body:\n%s", got)
+	}
+	if !strings.Contains(got, "// holds the fuel") || !strings.Contains(got, "// The connectable units.") {
+		t.Errorf("comments did not survive:\n%s", got)
+	}
+	if out.Version != 1 {
+		t.Errorf("version = %d, want 1", out.Version)
+	}
+}
+
+func TestApplyModelEditAddsConnection(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	op := modelEditOperation{Kind: EditAddConnection, Owner: "Vehicle::Car", MemberKind: "connection",
+		From: "tank.fuelOut", To: "engine.fuelIn", Name: "fuelLine"}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Edit == nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
+	if want := golden(t, s, docURI.Filename(), op); got != want {
+		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
+	}
+	if !strings.Contains(got, "\t\tconnection fuelLine connect tank.fuelOut to engine.fuelIn;\n") {
+		t.Errorf("connection not written:\n%s", got)
+	}
+}
+
+func TestApplyModelEditRenamesEveryReference(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	op := modelEditOperation{Kind: EditRename, Target: "Vehicle::Tank", NewName: "FuelTank"}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Edit == nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
+	if want := golden(t, s, docURI.Filename(), op); got != want {
+		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
+	}
+	if strings.Contains(got, "Tank;") && !strings.Contains(got, "FuelTank;") {
+		t.Errorf("reference not renamed:\n%s", got)
+	}
+	if n := len(out.Edit.DocumentChanges[0].Edits); n != 2 {
+		t.Errorf("edits = %d, want one per changed line (declaration and usage)", n)
+	}
+}
+
+func TestApplyModelEditDeletes(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	op := modelEditOperation{Kind: EditDelete, Target: "Vehicle::Car::engine"}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Edit == nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
+	if want := golden(t, s, docURI.Filename(), op); got != want {
+		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
+	}
+	if strings.Contains(got, "part engine") {
+		t.Errorf("engine not deleted:\n%s", got)
+	}
+}
+
+// A delete whose target is referenced is refused without cascade and names the
+// referents; with cascade it removes them too.
+func TestApplyModelEditDeleteCascade(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditDelete, Target: "Vehicle::Engine"})
+	if len(out.Refused) != 1 || out.Edit != nil {
+		t.Fatalf("result = %+v, want one refusal", out)
+	}
+	if r := out.Refused[0]; r.Failure != "delete-referenced" || r.Operation != 0 {
+		t.Errorf("refusal = %+v, want delete-referenced of operation 0", r)
+	}
+	out = applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditDelete, Target: "Vehicle::Engine", Cascade: true})
+	if out.Edit == nil {
+		t.Fatalf("cascade result = %+v, want an edit", out)
+	}
+	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
+	if strings.Contains(got, "Engine") {
+		t.Errorf("cascade left a reference:\n%s", got)
+	}
+}
+
+func TestApplyModelEditRejectsStaleVersion(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	out := applyModelEdit(t, s, docURI, 7, modelEditOperation{Kind: EditAddMember, Owner: "Vehicle::Car", MemberKind: "part", Name: "b", Type: "Tank"})
+	if !out.Stale || out.Edit != nil || out.Refused != nil {
+		t.Fatalf("result = %+v, want stale", out)
+	}
+	if out.Version != 1 {
+		t.Errorf("version = %d, want the server's 1 so the client can retry", out.Version)
+	}
+}
+
+// A refused operation is reported with its index and the edit layer's failure
+// name; the request as a whole applies nothing, so an earlier valid operation
+// yields no edit either.
+func TestApplyModelEditRefusalShapeIsAtomic(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	out := applyModelEdit(t, s, docURI, 1,
+		modelEditOperation{Kind: EditAddMember, Owner: "Vehicle::Car", MemberKind: "part", Name: "spare", Type: "Tank"},
+		modelEditOperation{Kind: EditAddMember, Owner: "Vehicle::Nowhere", MemberKind: "part", Name: "x"},
+	)
+	if out.Edit != nil || out.Stale {
+		t.Fatalf("result = %+v, want a refusal", out)
+	}
+	if len(out.Refused) != 1 {
+		t.Fatalf("refused = %+v, want one", out.Refused)
+	}
+	r := out.Refused[0]
+	if r.Operation != 1 || r.Failure != "owner-unknown" || !strings.Contains(r.Message, "Vehicle::Nowhere") {
+		t.Errorf("refusal = %+v", r)
+	}
+	if got := string(s.ws.Document(docURI.Filename()).Content); got != editModel {
+		t.Error("server document changed on a refused request")
+	}
+}
+
+// A member whose type does not resolve is refused with the diagnostic the
+// edited notation would have had, located in the refused text.
+func TestApplyModelEditRefusalCarriesDiagnostics(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	out := applyModelEdit(t, s, docURI, 1,
+		modelEditOperation{Kind: EditAddMember, Owner: "Vehicle::Car", MemberKind: "part", Name: "w", Type: "Wheel"})
+	if len(out.Refused) != 1 {
+		t.Fatalf("result = %+v, want one refusal", out)
+	}
+	r := out.Refused[0]
+	if r.Failure != "result-invalid" || len(r.Diagnostics) == 0 {
+		t.Fatalf("refusal = %+v, want result-invalid with diagnostics", r)
+	}
+	if !strings.Contains(r.Diagnostics[0].Message, "Wheel") {
+		t.Errorf("diagnostic = %q, want it to name Wheel", r.Diagnostics[0].Message)
+	}
+}
+
+func TestApplyModelEditRejectsUnknownKind(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	_, err := call(t, s, MethodApplyModelEdit, &applyModelEditParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		Version:      1,
+		Operations:   []modelEditOperation{{Kind: "explode", Target: "Vehicle"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "explode") {
+		t.Errorf("err = %v, want an invalid-params error naming the kind", err)
+	}
+}
+
+// The server does not write: the edit is the client's to apply, and the server
+// learns of it as it learns of any change.
+func TestApplyModelEditThenChangeRendersNewMember(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditAddMember, Owner: "Vehicle::Car", MemberKind: "part", Name: "battery", Type: "Tank"})
+	applied := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
+	encoded, _ := json.Marshal(map[string]string{"text": applied})
+	sendDidChange(t, s, docURI, 2, []json.RawMessage{encoded})
+	r := render(t, s, docURI, "#interconnection:Vehicle::Car")
+	var names []string
+	for _, n := range r.Nodes {
+		names = append(names, n.Name)
+	}
+	if !contains(names, "battery") {
+		t.Errorf("nodes after the edit = %v, want battery among them", names)
+	}
+	if r.Version != 2 {
+		t.Errorf("render version = %d, want 2", r.Version)
+	}
+}
+
+// Every node built from a declaration of the document carries the qualified
+// name an edit targets it by, and the rendering offers the palette of its kind.
+func TestRenderNodesCarryFQNAndPalette(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	r := render(t, s, docURI, "#interconnection:Vehicle::Car")
+	fqns := map[string]string{}
+	for _, n := range r.Nodes {
+		fqns[n.Name] = n.FQN
+	}
+	for name, want := range map[string]string{"Vehicle::Car": "Vehicle::Car", "tank": "Vehicle::Car::tank", "engine": "Vehicle::Car::engine"} {
+		if fqns[name] != want {
+			t.Errorf("fqn of %s = %q, want %q", name, fqns[name], want)
+		}
+	}
+	if r.Palette == nil {
+		t.Fatal("no palette for an interconnection rendering")
+	}
+	if !contains(r.Palette.Members, "part") || !contains(r.Palette.Members, "port") || contains(r.Palette.Members, "state") {
+		t.Errorf("interconnection members = %v", r.Palette.Members)
+	}
+	if !contains(r.Palette.Connections, "connection") || contains(r.Palette.Connections, "transition") {
+		t.Errorf("interconnection connections = %v", r.Palette.Connections)
+	}
+}
+
+func TestPaletteFollowsRenderingKind(t *testing.T) {
+	for _, tc := range []struct {
+		kind        view.Kind
+		lang        source.Kind
+		member, not string
+		conn        string
+	}{
+		{view.KindState, source.KindSysML, "state", "part", "transition"},
+		{view.KindAction, source.KindSysML, "action", "state", "succession"},
+		{view.KindAction, source.KindKerML, "step", "action", "succession"},
+		{view.KindInterconnection, source.KindKerML, "feature", "part", "connector"},
+		{view.KindTree, source.KindSysML, "requirement def", "", "flow"},
+	} {
+		p := palette(tc.kind, tc.lang)
+		if p == nil {
+			t.Fatalf("%s/%s: no palette", tc.kind, tc.lang)
+		}
+		if !contains(p.Members, tc.member) || (tc.not != "" && contains(p.Members, tc.not)) {
+			t.Errorf("%s/%s members = %v", tc.kind, tc.lang, p.Members)
+		}
+		if !contains(p.Connections, tc.conn) {
+			t.Errorf("%s/%s connections = %v", tc.kind, tc.lang, p.Connections)
+		}
+		for _, typed := range p.Typed {
+			if !contains(p.Members, typed) {
+				t.Errorf("%s/%s typed %q is not a member", tc.kind, tc.lang, typed)
+			}
+		}
+	}
+	// Usages take a type, definitions and control nodes do not.
+	p := palette(view.KindTree, source.KindSysML)
+	if !contains(p.Typed, "part") || contains(p.Typed, "part def") || contains(p.Typed, "fork") {
+		t.Errorf("tree/sysml typed = %v", p.Typed)
+	}
+	if p = palette(view.KindTree, source.KindKerML); !contains(p.Typed, "feature") || contains(p.Typed, "class") {
+		t.Errorf("tree/kerml typed = %v", p.Typed)
+	}
+	if palette(view.KindGeometry, source.KindSysML) != nil {
+		t.Error("an unsupported kind offers a palette")
+	}
+}
+
+func contains(list []string, want string) bool {
+	for _, item := range list {
+		if item == want {
+			return true
+		}
+	}
+	return false
+}

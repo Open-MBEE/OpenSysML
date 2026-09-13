@@ -2,6 +2,7 @@ package edit
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -16,31 +17,84 @@ type memberKind struct {
 	typed      bool
 }
 
+// memberKinds are the declarations an OpAddMember can write. A control node
+// (`fork f;`) is neither typed nor a definition, so it takes a name alone.
 var memberKinds = map[string]memberKind{
-	"package":       {languages: map[source.Kind]bool{source.KindSysML: true, source.KindKerML: true}},
-	"part def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"part":          {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"attribute def": {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"attribute":     {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"item def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"item":          {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"port def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"port":          {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"enum def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"calc def":      {languages: map[source.Kind]bool{source.KindSysML: true}, definition: true},
-	"calc":          {languages: map[source.Kind]bool{source.KindSysML: true}, typed: true},
-	"class":         {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"struct":        {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"datatype":      {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"classifier":    {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"feature":       {languages: map[source.Kind]bool{source.KindKerML: true}, typed: true},
-	"assoc":         {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"association":   {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"behavior":      {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"function":      {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"predicate":     {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"interaction":   {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
-	"metaclass":     {languages: map[source.Kind]bool{source.KindKerML: true}, definition: true},
+	"package":         {languages: bothLangs},
+	"part def":        {languages: sysmlOnly, definition: true},
+	"part":            {languages: sysmlOnly, typed: true},
+	"attribute def":   {languages: sysmlOnly, definition: true},
+	"attribute":       {languages: sysmlOnly, typed: true},
+	"item def":        {languages: sysmlOnly, definition: true},
+	"item":            {languages: sysmlOnly, typed: true},
+	"port def":        {languages: sysmlOnly, definition: true},
+	"port":            {languages: sysmlOnly, typed: true},
+	"enum def":        {languages: sysmlOnly, definition: true},
+	"calc def":        {languages: sysmlOnly, definition: true},
+	"calc":            {languages: sysmlOnly, typed: true},
+	"action def":      {languages: sysmlOnly, definition: true},
+	"action":          {languages: sysmlOnly, typed: true},
+	"state def":       {languages: sysmlOnly, definition: true},
+	"state":           {languages: sysmlOnly, typed: true},
+	"occurrence def":  {languages: sysmlOnly, definition: true},
+	"occurrence":      {languages: sysmlOnly, typed: true},
+	"connection def":  {languages: sysmlOnly, definition: true},
+	"interface def":   {languages: sysmlOnly, definition: true},
+	"flow def":        {languages: sysmlOnly, definition: true},
+	"allocation def":  {languages: sysmlOnly, definition: true},
+	"constraint def":  {languages: sysmlOnly, definition: true},
+	"constraint":      {languages: sysmlOnly, typed: true},
+	"requirement def": {languages: sysmlOnly, definition: true},
+	"requirement":     {languages: sysmlOnly, typed: true},
+	"use case def":    {languages: sysmlOnly, definition: true},
+	"use case":        {languages: sysmlOnly, typed: true},
+	"fork":            {languages: sysmlOnly},
+	"join":            {languages: sysmlOnly},
+	"merge":           {languages: sysmlOnly},
+	"decide":          {languages: sysmlOnly},
+	"class":           {languages: kermlOnly, definition: true},
+	"struct":          {languages: kermlOnly, definition: true},
+	"datatype":        {languages: kermlOnly, definition: true},
+	"classifier":      {languages: kermlOnly, definition: true},
+	"feature":         {languages: kermlOnly, typed: true},
+	"step":            {languages: kermlOnly, typed: true},
+	"assoc":           {languages: kermlOnly, definition: true},
+	"association":     {languages: kermlOnly, definition: true},
+	"behavior":        {languages: kermlOnly, definition: true},
+	"function":        {languages: kermlOnly, definition: true},
+	"predicate":       {languages: kermlOnly, definition: true},
+	"interaction":     {languages: kermlOnly, definition: true},
+	"metaclass":       {languages: kermlOnly, definition: true},
+}
+
+// MemberKinds lists the member kinds legal in a language, sorted.
+func MemberKinds(lang source.Kind) []string {
+	return legalKinds(lang, func(name string) map[source.Kind]bool { return memberKinds[name].languages },
+		mapKeys(memberKinds))
+}
+
+// MemberKindTyped reports whether an OpAddMember of kind may carry a Type.
+func MemberKindTyped(kind string) bool {
+	return memberKinds[kind].typed
+}
+
+func legalKinds(lang source.Kind, languages func(string) map[source.Kind]bool, names []string) []string {
+	out := []string{}
+	for _, name := range names {
+		if languages(name)[lang] {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func mapKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
 
 func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
@@ -71,6 +125,13 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Failure:        FailureIllegalKind,
 			OperationIndex: i,
 			Message:        fmt.Sprintf("kind %q cannot carry a typing target", op.MemberKind),
+		}
+	}
+	if !kind.typed && !kind.definition && (op.Multiplicity != "" || op.Value != "") {
+		return splice{}, &Error{
+			Failure:        FailureIllegalKind,
+			OperationIndex: i,
+			Message:        fmt.Sprintf("kind %q takes a name alone", op.MemberKind),
 		}
 	}
 	if !kind.definition && len(op.Specializes) > 0 {

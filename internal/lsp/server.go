@@ -100,7 +100,7 @@ func (s *Server) Run(ctx context.Context, rwc io.ReadWriteCloser) error {
 // runHandler is the chain a served session reads with: cancellation, async
 // dispatch so one slow request cannot stall the stream, and a reply per request.
 func runHandler(s *Server) jsonrpc2.Handler {
-	serve := s.stdlibHandler(s.renderHandler(s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler))))
+	serve := s.stdlibHandler(s.renderHandler(s.modelEditHandler(s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler)))))
 	// The lifecycle wrapper runs outside AsyncHandler so that shutdown, exit and
 	// the messages after them are ordered as the client sent them.
 	return s.lifecycleHandler(cancelHandler(jsonrpc2.AsyncHandler(jsonrpc2.ReplyHandler(serve))))

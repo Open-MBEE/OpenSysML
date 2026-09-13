@@ -22,7 +22,8 @@ const (
 	FailureNotValued
 	// FailureInvalidValue is a new value that does not parse as an expression.
 	FailureInvalidValue
-	// FailureInvalidName is a new name that does not lex as an identifier.
+	// FailureInvalidName is a new name that does not lex as an identifier, or a
+	// connection end that is not written as a feature reference.
 	FailureInvalidName
 	// FailureNotNamed is a target declaring no name to rewrite.
 	FailureNotNamed

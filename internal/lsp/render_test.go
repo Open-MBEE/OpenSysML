@@ -147,10 +147,10 @@ func call(t *testing.T, s *Server, method string, params any) (json.RawMessage, 
 		raw = encoded
 		return nil
 	}
-	handler := s.renderHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+	handler := s.renderHandler(s.modelEditHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
 		t.Fatalf("%s was not handled: it fell through to the next handler", req.Method())
 		return nil
-	})
+	}))
 	if err := handler(context.Background(), reply, req); err != nil {
 		t.Fatalf("dispatch %s: %v", method, err)
 	}

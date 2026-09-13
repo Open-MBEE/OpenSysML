@@ -2,7 +2,22 @@ import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 import {
+  connectionOwner,
+  describeRefusal,
+  endpointPath,
+  ownerOf,
+  rootOwner,
+  validName,
+  withRetry,
+} from "./edits";
+import {
+  APPLY_MODEL_EDIT_CAPABILITY,
+  APPLY_MODEL_EDIT_METHOD,
+  ApplyModelEditParams,
+  ApplyModelEditResult,
+  EditAction,
   FromWebview,
+  ModelEditOperation,
   PickerEntry,
   RENDER_CAPABILITY,
   RENDER_CHANGED_METHOD,
@@ -279,6 +294,10 @@ class DiagramPanel {
         view: this.selected === "" ? undefined : this.selected,
       });
       this.nodes = result.nodes ?? [];
+      // No palette unless the server also computes the edits it would lead to.
+      if (!supportsEdit(client)) {
+        delete result.palette;
+      }
       this.post({ type: "render", result, selected: this.selected });
       this.highlightActive();
     } catch (err) {
@@ -332,6 +351,9 @@ class DiagramPanel {
       case "reveal":
         void this.revealSource(message.id);
         return;
+      case "edit":
+        void this.edit(message.action);
+        return;
       case "failed":
         this.fail(message.message);
         return;
@@ -356,6 +378,226 @@ class DiagramPanel {
     editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
   }
 
+  // edit applies a diagram action as a workspace edit, so it is undone like typing;
+  // the redraw comes from the server's renderChanged, not from here.
+  private async edit(action: EditAction): Promise<void> {
+    const operations = await this.operationsFor(action);
+    if (!operations) {
+      return;
+    }
+    await this.apply(operations, action);
+  }
+
+  private async operationsFor(action: EditAction): Promise<ModelEditOperation[] | undefined> {
+    switch (action.kind) {
+      case "addMember":
+        return this.addMember(action.memberKind, action.typed, action.owner);
+      case "addConnection":
+        return this.addConnection(action.connectionKind, action.from, action.to);
+      case "rename":
+        return this.rename(action.id);
+      case "delete":
+        return this.delete(action.id, false);
+    }
+  }
+
+  private async addMember(
+    memberKind: string,
+    typed: boolean,
+    at: string | undefined,
+  ): Promise<ModelEditOperation[] | undefined> {
+    const owner = at ? ownerOf(this.node(at), this.nodes) : await this.ownerFromContext();
+    if (!owner?.fqn) {
+      return undefined;
+    }
+    const name = await vscode.window.showInputBox({
+      title: `Add ${memberKind} to ${owner.fqn}`,
+      prompt: "Name of the new declaration",
+      validateInput: validName,
+    });
+    if (name === undefined) {
+      return undefined;
+    }
+    let type: string | undefined;
+    if (typed) {
+      type = await vscode.window.showInputBox({
+        title: `Add ${memberKind} ${name.trim()}`,
+        prompt: "Type, as written from that scope (leave empty for none)",
+      });
+      if (type === undefined) {
+        return undefined;
+      }
+    }
+    return [{ kind: "addMember", owner: owner.fqn, memberKind, name: name.trim(), type: type?.trim() || undefined }];
+  }
+
+  private async addConnection(
+    connectionKind: string,
+    fromID: string | undefined,
+    toID: string | undefined,
+  ): Promise<ModelEditOperation[] | undefined> {
+    const from = fromID ? this.node(fromID) : await this.pickNode(`${connectionKind}: from`, undefined);
+    if (!from) {
+      return undefined;
+    }
+    const to = toID ? this.node(toID) : await this.pickNode(`${connectionKind} from ${from.name}: to`, from);
+    if (!to) {
+      return undefined;
+    }
+    const owner = connectionOwner(from, to, this.nodes);
+    if (!owner?.fqn) {
+      void vscode.window.showErrorMessage(`${from.name} and ${to.name} share no declaration to write the ${connectionKind} in.`);
+      return undefined;
+    }
+    const ends = [endpointPath(from, owner, this.nodes), endpointPath(to, owner, this.nodes)];
+    if (!ends[0] || !ends[1]) {
+      void vscode.window.showErrorMessage(`A ${connectionKind} needs two named features below ${owner.fqn}.`);
+      return undefined;
+    }
+    const name = await vscode.window.showInputBox({
+      title: `Add ${connectionKind} from ${ends[0]} to ${ends[1]}`,
+      prompt: "Name (leave empty for an unnamed connection)",
+      validateInput: (value) => (value.trim() === "" ? undefined : validName(value)),
+    });
+    if (name === undefined) {
+      return undefined;
+    }
+    return [{
+      kind: "addConnection",
+      owner: owner.fqn,
+      memberKind: connectionKind,
+      from: ends[0],
+      to: ends[1],
+      name: name.trim() || undefined,
+    }];
+  }
+
+  private async rename(id: string): Promise<ModelEditOperation[] | undefined> {
+    const node = this.node(id);
+    if (!node?.fqn) {
+      return undefined;
+    }
+    const newName = await vscode.window.showInputBox({
+      title: `Rename ${node.fqn}`,
+      value: node.name,
+      validateInput: validName,
+    });
+    if (newName === undefined || newName.trim() === node.name) {
+      return undefined;
+    }
+    return [{ kind: "rename", target: node.fqn, newName: newName.trim() }];
+  }
+
+  private async delete(id: string, cascade: boolean): Promise<ModelEditOperation[] | undefined> {
+    const node = this.node(id);
+    if (!node?.fqn) {
+      return undefined;
+    }
+    if (!cascade) {
+      const answer = await vscode.window.showWarningMessage(`Delete ${node.fqn}?`, { modal: true }, "Delete");
+      if (answer !== "Delete") {
+        return undefined;
+      }
+    }
+    return [{ kind: "delete", target: node.fqn, cascade: cascade || undefined }];
+  }
+
+  // A palette addition goes into the declaration at the cursor, else the one root, else a pick.
+  private async ownerFromContext(): Promise<RenderNode | undefined> {
+    const editor = vscode.window.visibleTextEditors.find(
+      (candidate) => candidate.document.uri.toString() === this.docURI.toString(),
+    );
+    const atCursor = editor ? ownerOf(this.nodeAt(editor.selection.active), this.nodes) : undefined;
+    return atCursor ?? rootOwner(this.nodes) ?? this.pickNode("Add to", undefined, (node) => Boolean(node.fqn));
+  }
+
+  private async pickNode(
+    title: string,
+    except: RenderNode | undefined,
+    keep: (node: RenderNode) => boolean = (node) => Boolean(node.name) && !node.name.includes("::"),
+  ): Promise<RenderNode | undefined> {
+    const items = this.nodes
+      .filter((node) => node !== except && keep(node))
+      .map((node) => ({ label: node.name, description: node.type ? `${node.kind} : ${node.type}` : node.kind, detail: node.fqn, node }));
+    if (items.length === 0) {
+      void vscode.window.showInformationMessage("The diagram has no node this can apply to.");
+      return undefined;
+    }
+    const picked = await vscode.window.showQuickPick(items, { title, matchOnDetail: true });
+    return picked?.node;
+  }
+
+  private node(id: string): RenderNode | undefined {
+    return this.nodes.find((node) => node.id === id);
+  }
+
+  private async apply(operations: ModelEditOperation[], action: EditAction): Promise<void> {
+    const client = this.client();
+    if (!client || !supportsEdit(client)) {
+      this.fail("The language server does not serve model edits.");
+      return;
+    }
+    const document = vscode.workspace.textDocuments.find(
+      (candidate) => candidate.uri.toString() === this.docURI.toString(),
+    );
+    if (!document) {
+      this.fail("The document is not open, so it cannot be edited.");
+      return;
+    }
+    let result: ApplyModelEditResult;
+    try {
+      result = await withRetry(
+        () => document.version,
+        (version) => {
+          const params: ApplyModelEditParams = { textDocument: { uri: this.docURI.toString() }, version, operations };
+          return client.sendRequest<ApplyModelEditResult>(APPLY_MODEL_EDIT_METHOD, params);
+        },
+      );
+    } catch (err) {
+      void vscode.window.showErrorMessage(`The edit could not be computed: ${errorMessage(err)}`);
+      return;
+    }
+    if (result.stale) {
+      void vscode.window.showWarningMessage("The document changed while the edit was being computed; try again.");
+      return;
+    }
+    if (result.refused) {
+      await this.refused(result, action);
+      return;
+    }
+    if (!result.edit) {
+      this.fail("The language server answered with neither an edit nor a refusal.");
+      return;
+    }
+    const edit = await client.protocol2CodeConverter.asWorkspaceEdit(result.edit);
+    if (!(await vscode.workspace.applyEdit(edit))) {
+      void vscode.window.showErrorMessage("VS Code did not apply the edit.");
+    }
+  }
+
+  // A delete refused for references is offered again as a cascade; anything else is just told.
+  private async refused(result: ApplyModelEditResult, action: EditAction): Promise<void> {
+    const refused = result.refused ?? [];
+    const message = describeRefusal(refused);
+    this.output.appendLine(`Model edit refused:\n${message}`);
+    if (action.kind === "delete" && refused.some((refusal) => refusal.failure === "delete-referenced")) {
+      const referring = refused.flatMap((refusal) => refusal.referring ?? []);
+      const answer = await vscode.window.showWarningMessage(
+        `${message}\n\nDelete the referring declarations too?`,
+        { modal: true, detail: referring.join("\n") },
+        "Delete all",
+      );
+      if (answer === "Delete all") {
+        const operations = await this.delete(action.id, true);
+        if (operations) {
+          await this.apply(operations, { kind: "delete", id: action.id });
+        }
+      }
+      return;
+    }
+    void vscode.window.showErrorMessage(message);
+  }
+
   private post(message: ToWebview): void {
     if (!this.disposed) {
       void this.panel.webview.postMessage(message);
@@ -363,12 +605,18 @@ class DiagramPanel {
   }
 }
 
+/** supportsEdit reports whether the server advertised the model-edit capability. */
+function supportsEdit(client: LanguageClient): boolean {
+  return experimental(client)?.[APPLY_MODEL_EDIT_CAPABILITY] === true;
+}
+
 /** supportsRender reports whether the server advertised the render capability. */
 function supportsRender(client: LanguageClient): boolean {
-  const experimental = client.initializeResult?.capabilities?.experimental as
-    | Record<string, unknown>
-    | undefined;
-  return experimental?.[RENDER_CAPABILITY] === true;
+  return experimental(client)?.[RENDER_CAPABILITY] === true;
+}
+
+function experimental(client: LanguageClient): Record<string, unknown> | undefined {
+  return client.initializeResult?.capabilities?.experimental as Record<string, unknown> | undefined;
 }
 
 function isModel(document: vscode.TextDocument): boolean {
@@ -427,8 +675,17 @@ function html(
       #bar { display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; }
       #view { flex: 1 1 auto; max-width: 30rem; }
       #kind { opacity: 0.8; font-size: 0.9em; }
+      #add { max-width: 14rem; }
       #status { color: var(--vscode-errorForeground); min-height: 1.2em; font-size: 0.9em; white-space: pre-wrap; }
       #diagram { overflow: auto; }
+      #menu { position: fixed; z-index: 10; min-width: 12rem; padding: 0.25rem 0; margin: 0; list-style: none;
+        background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+        color: var(--vscode-menu-foreground, var(--vscode-foreground));
+        border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border)); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
+      #menu li { padding: 0.25rem 1rem; cursor: pointer; white-space: nowrap; }
+      #menu li:hover { background: var(--vscode-menu-selectionBackground); color: var(--vscode-menu-selectionForeground); }
+      #menu li.separator { height: 0; padding: 0; margin: 0.25rem 0; border-top: 1px solid var(--vscode-menu-separatorBackground, var(--vscode-widget-border)); cursor: default; }
+      #menu li.title { opacity: 0.7; cursor: default; font-size: 0.9em; }
       #diagram.stale { opacity: 0.45; }
       #diagram svg { max-width: 100%; height: auto; }
       #diagram g.opensysml-node { cursor: pointer; }
@@ -447,9 +704,11 @@ function html(
       <label for="view">View</label>
       <select id="view"></select>
       <span id="kind"></span>
+      <select id="add" hidden aria-label="Add to the model"></select>
     </div>
     <div id="status"></div>
     <div id="diagram"></div>
+    <ul id="menu" hidden role="menu"></ul>
     <details id="notices" hidden>
       <summary></summary>
       <ul id="notice-list"></ul>

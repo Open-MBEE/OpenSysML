@@ -1,9 +1,9 @@
-// The diagram panel's script: it draws the Mermaid artifact the server produced,
-// reports a node click back, and highlights the node the cursor is in. Mermaid is
-// bundled into this script, so nothing is loaded from the network.
+// The diagram panel's script: draws the server's Mermaid artifact, reports clicks and
+// menu choices back, highlights the cursor's node. Mermaid is bundled; nothing is fetched.
 import mermaid from "mermaid";
 
-import type { FromWebview, PickerEntry, RenderResult, ToWebview } from "../protocol";
+import type { EditPalette, FromWebview, PickerEntry, RenderNode, RenderResult, ToWebview } from "../protocol";
+import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
 import { nodeElement } from "./nodes";
 
 interface WebviewApi {
@@ -24,6 +24,8 @@ const notices = document.getElementById("notices") as HTMLDetailsElement;
 const noticeList = document.getElementById("notice-list") as HTMLElement;
 const undrawable = document.getElementById("undrawable") as HTMLDetailsElement;
 const undrawableList = document.getElementById("undrawable-list") as HTMLElement;
+const adder = document.getElementById("add") as HTMLSelectElement;
+const menu = document.getElementById("menu") as HTMLUListElement;
 
 const documentURI = (JSON.parse(body.dataset.state ?? "{}") as { uri?: string }).uri ?? "";
 const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult };
@@ -50,6 +52,25 @@ picker.addEventListener("change", () => {
   remember();
   vscode.postMessage({ type: "pick", view: selected });
 });
+
+// The list's entries are actions, so the prompt is reselected after one is chosen.
+adder.addEventListener("change", () => {
+  const item = paletteEntries[Number(adder.value)];
+  adder.selectedIndex = 0;
+  if (item?.command) {
+    run(item.command);
+  }
+});
+
+window.addEventListener("click", () => hideMenu());
+window.addEventListener("blur", () => hideMenu());
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    hideMenu();
+  }
+});
+// A right-click off a node offers nothing; the browser's own menu offers less.
+diagram.addEventListener("contextmenu", (event) => event.preventDefault());
 
 window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
   // The extension posts into this frame, so its messages carry the frame's own
@@ -145,6 +166,7 @@ async function draw(result: RenderResult): Promise<void> {
     last = result;
     remember();
     showNotices(result);
+    showPalette(result.palette);
     kindLabel.textContent = describe(result);
   } catch (err) {
     if (generation !== drawn) {
@@ -206,7 +228,84 @@ function markNodes(result: RenderResult): void {
     element.classList.add("opensysml-node");
     element.dataset.opensysmlId = node.id;
     element.addEventListener("click", () => vscode.postMessage({ type: "reveal", id: node.id }));
+    element.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showMenu(node, result.palette, event.clientX, event.clientY);
+    });
   }
+}
+
+let paletteEntries: MenuItem[] = [];
+
+// showPalette fills the toolbar's "Add" list, or hides it for a rendering that is not editable.
+function showPalette(palette: EditPalette | undefined): void {
+  paletteEntries = palette ? paletteItems(palette) : [];
+  adder.replaceChildren();
+  adder.hidden = paletteEntries.length === 0;
+  if (paletteEntries.length === 0) {
+    return;
+  }
+  const prompt = document.createElement("option");
+  prompt.value = "";
+  prompt.textContent = "Add…";
+  adder.append(prompt);
+  paletteEntries.forEach((item, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = item.label;
+    adder.append(option);
+  });
+  adder.selectedIndex = 0;
+}
+
+// showMenu opens a node's context menu where it was clicked, kept on screen.
+function showMenu(node: RenderNode, palette: EditPalette | undefined, x: number, y: number): void {
+  const items = nodeMenu(node, palette);
+  menu.replaceChildren();
+  if (items.length === 0) {
+    hideMenu();
+    return;
+  }
+  for (const item of items) {
+    const entry = document.createElement("li");
+    entry.setAttribute("role", item.separator ? "separator" : "menuitem");
+    if (item.separator) {
+      entry.className = "separator";
+    } else if (item.heading) {
+      entry.className = "title";
+      entry.textContent = item.label;
+    } else {
+      entry.textContent = item.label;
+      const { command } = item;
+      entry.addEventListener("click", (event) => {
+        event.stopPropagation();
+        hideMenu();
+        if (command) {
+          run(command);
+        }
+      });
+    }
+    menu.append(entry);
+  }
+  menu.hidden = false;
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+  menu.style.left = `${Math.max(0, Math.min(x, window.innerWidth - width))}px`;
+  menu.style.top = `${Math.max(0, Math.min(y, window.innerHeight - height))}px`;
+}
+
+function hideMenu(): void {
+  menu.hidden = true;
+}
+
+// run hands a chosen entry to the extension; the panel redraws once the document has changed.
+function run(command: MenuCommand): void {
+  if (command.kind === "reveal") {
+    vscode.postMessage({ type: "reveal", id: command.id });
+    return;
+  }
+  vscode.postMessage({ type: "edit", action: command });
 }
 
 // highlight marks the node the cursor is in, and only that one. The id is kept so

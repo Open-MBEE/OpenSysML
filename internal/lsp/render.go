@@ -10,6 +10,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
@@ -49,11 +50,13 @@ type renderResult struct {
 	Columns  []string      `json:"columns,omitempty"`
 	Notices  []string      `json:"notices"`
 	Canvas   *renderCanvas `json:"canvas,omitempty"`
+	Palette  *editPalette  `json:"palette,omitempty"`
 	Version  int           `json:"version"`
 }
 
 // renderNode is one node of a rendering, with the range of the declaration it
 // was built from when there is one, and its position when a Layout gives one.
+// FQN names that declaration the way opensysml/applyModelEdit targets it.
 type renderNode struct {
 	ID        string        `json:"id"`
 	Kind      string        `json:"kind"`
@@ -61,6 +64,7 @@ type renderNode struct {
 	Type      string        `json:"type"`
 	Detail    string        `json:"detail"`
 	Parent    string        `json:"parent,omitempty"`
+	FQN       string        `json:"fqn,omitempty"`
 	Origin    *renderOrigin `json:"origin,omitempty"`
 	X         *float64      `json:"x,omitempty"`
 	Y         *float64      `json:"y,omitempty"`
@@ -219,6 +223,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		Edges:    make([]renderEdge, 0, len(data.Edges)),
 		Columns:  data.Columns,
 		Notices:  data.Notices,
+		Palette:  palette(data.Kind, source.KindOf(name)),
 		Version:  doc.Version,
 	}
 	if out.Notices == nil {
@@ -240,6 +245,9 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			Detail: node.Detail,
 			Parent: node.Parent,
 			Origin: s.origin(node.Origin),
+		}
+		if node.Origin.Doc == name {
+			n.FQN = nodeFQN(doc.Scope, node.Origin)
 		}
 		if g := node.Geometry; g != nil {
 			x, y := g.X, g.Y

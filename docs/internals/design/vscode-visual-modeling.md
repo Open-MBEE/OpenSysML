@@ -14,6 +14,15 @@ The tiers are ordered by what they require of the Go side: tier 1 needs a render
 carried over the wire, tier 2 needs the source-rewriting layer widened, tier 3 needs
 a place to keep layout that is not the model.
 
+**Status.** Tiers 1 and 2 are built: the panel (`editors/vscode/src/diagram.ts`,
+`src/webview/`), the rendering requests (`internal/lsp/render.go`) and the
+authoring request (`internal/lsp/modeledit.go` over `internal/core/edit` and
+`model.Workspace.ApplyEdit`) are what [docs/reference/lsp.md](../../reference/lsp.md)
+and the extension's README describe. Tier 3 is not started; the `DiagramLayout`
+annotations that have since landed give it a place in the model for layout, which
+changes its "layout is not model data" premise below. The rest of this note is the
+design as written before the work, kept for the reasoning behind it.
+
 ## What exists today
 
 - **`internal/core/view`** renders a view of the semantic model into a `Rendering`:
@@ -170,7 +179,10 @@ visually" true without a graphical editor's bookkeeping.
 
 ### Widening `internal/core/edit`
 
-Three operations are added, in the package's existing style — name the target the
+As built, the operations below carry a few more fields than sketched here
+(`OpAddMember` also takes a multiplicity, a value and specializations;
+`OpAddConnection` a type), and `applyModelEdit`'s refusal names a stable
+`failure` beside the diagnostic. Three operations are added, in the package's existing style — name the target the
 way symbols name it, splice bytes the parse located, re-analyze before returning:
 
 - `OpAddMember{Owner, Kind, Name, Type}` inserts a member into an owner's body:
