@@ -189,12 +189,12 @@ type inputCase struct {
 // Integer below the default, an Integer where Natural proves, an enumeration
 // constructor, and a real.
 func inputCases() []inputCase {
-	real := strings.Replace(freeSrc, "attribute u : Natural;", "attribute u : Real;", 1)
+	realSrc := strings.Replace(freeSrc, "attribute u : Natural;", "attribute u : Real;", 1)
 	return []inputCase{
 		{"integer-input", freeSrc, "test::A", "test::A::positive"},
 		{"integer-where-natural-proves", strings.Replace(freeSrc, "attribute u : Natural;", "attribute u : Integer;", 1), "test::A", "test::A::natural"},
 		{"enumeration-input", freeSrc, "test::A", "test::A::fast"},
-		{"real-input", real, "test::A", "test::A::natural"},
+		{"real-input", realSrc, "test::A", "test::A::natural"},
 	}
 }
 

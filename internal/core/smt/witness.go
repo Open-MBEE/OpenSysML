@@ -27,6 +27,9 @@ func (e *WitnessError) Error() string {
 	return fmt.Sprintf("smt: witness %s: %s", e.Var, e.Reason)
 }
 
+// unassignedReason is the WitnessError reason for a variable the model leaves without a value.
+const unassignedReason = "the model assigns it no value"
+
 // Witness is a run the solver found, decoded as the interpreter's own choices
 // so a replay policy can follow it move for move.
 type Witness struct {
@@ -118,7 +121,7 @@ func (e *Encoding) decodeInputs(m model) ([]runtime.InputTaken, error) {
 		at := e.States[0].value(in.Var)
 		v, ok := m[at.Name]
 		if !ok {
-			return nil, &WitnessError{Var: at.Name, Reason: "the model assigns it no value"}
+			return nil, &WitnessError{Var: at.Name, Reason: unassignedReason}
 		}
 		written, err := v.Written(in.Var)
 		if err != nil {
@@ -274,7 +277,7 @@ func readModel(assignments []solve.Assignment) (model, error) {
 func (m model) value(name string, kind solve.SortKind) (solve.ModelValue, error) {
 	v, ok := m[name]
 	if !ok {
-		return solve.ModelValue{}, &WitnessError{Var: name, Reason: "the model assigns it no value"}
+		return solve.ModelValue{}, &WitnessError{Var: name, Reason: unassignedReason}
 	}
 	if v.Kind != kind {
 		return solve.ModelValue{}, &WitnessError{Var: name, Reason: "the model assigns it a value of another sort"}
@@ -337,7 +340,7 @@ func (e *Encoding) DecodeOutputs(values []solve.Assignment) (map[string]string, 
 		}
 		v, ok := m[out.Var.Name]
 		if !ok {
-			return nil, &WitnessError{Var: out.Var.Name, Reason: "the model assigns it no value"}
+			return nil, &WitnessError{Var: out.Var.Name, Reason: unassignedReason}
 		}
 		text, err := spell(v)
 		if err != nil {

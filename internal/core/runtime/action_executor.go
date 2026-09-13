@@ -338,17 +338,27 @@ func (e *ActionExecutor) Step() error {
 
 	// If no progress and tokens remain, either the action is suspended waiting
 	// for a message, or it is stuck for a reason no message can resolve.
+	stuck, retry := false, false
 	if !progressMade && len(e.tokens) > 0 {
-		if !e.anyTokenWaiting() {
-			return fmt.Errorf("%w: %d token(s) stuck, no progress made",
-				ErrActionDeadlock, len(e.tokens))
+		stuck = !e.anyTokenWaiting()
+		if !stuck {
+			e.state = StateWaiting
+			retry = e.waitsOnClockAlone()
 		}
-		e.state = StateWaiting
-		if e.waitsOnClockAlone() {
-			next, _ := e.NextWait()
-			return fmt.Errorf("%w: %d token(s) wait on the clock, the earliest until t=%s",
-				ErrNothingDue, len(e.visibleWaits()), semantics.FormatReal(next))
-		}
+	}
+	// A replayed move kept for the clock's retry is faced then; a step ending any other way refuses it.
+	schedule.Ended(retry)
+	if refused := e.ctx.scheduling().refusal(); refused != nil {
+		e.endPausedBodies()
+		return refused
+	}
+	if stuck {
+		return fmt.Errorf("%w: %d token(s) stuck, no progress made", ErrActionDeadlock, len(e.tokens))
+	}
+	if retry {
+		next, _ := e.NextWait()
+		return fmt.Errorf("%w: %d token(s) wait on the clock, the earliest until t=%s",
+			ErrNothingDue, len(e.visibleWaits()), semantics.FormatReal(next))
 	}
 
 	// Increment step count
@@ -390,6 +400,17 @@ func (e *ActionExecutor) waitsOnClockAlone() bool {
 			continue
 		}
 		if token.Wait == nil || !token.Wait.Timed || token.Wait.Due <= e.ctx.clock.now {
+			return false
+		}
+	}
+	return len(e.tokens) > 0
+}
+
+// allTokensParked reports whether every token is parked at an accept or paused
+// for work of its own that waits, so a step at this instant moves none.
+func (e *ActionExecutor) allTokensParked() bool {
+	for _, token := range e.tokens {
+		if token.Wait == nil && (token.body == nil || !token.body.paused.onWait) {
 			return false
 		}
 	}

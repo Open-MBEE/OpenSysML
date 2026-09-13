@@ -125,12 +125,13 @@ func (r *invocationRun) stabilize() error {
 }
 
 // park steps every running action with no move so its tokens park: at their
-// accepts, or on the clock. Under check the step is scripted to select none.
+// accepts, or on the clock. Under check the step is scripted to select none. An
+// action whose tokens all stand parked is left as it is: its step is the clock's to retry.
 func (r *invocationRun) park() error {
 	defer r.enter()()
 	for _, exec := range r.inv.executors() {
 		action, isAction := exec.(*ActionExecutor)
-		if !isAction || (action.state != StateRunning && action.state != StateWaiting) {
+		if !isAction || (action.state != StateRunning && action.state != StateWaiting) || action.allTokensParked() {
 			continue
 		}
 		if check := r.ctx.scheduling().check; check != nil {

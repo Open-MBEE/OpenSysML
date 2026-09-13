@@ -274,6 +274,26 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 	}
 }
 
+// A witness explore writes for a step the clock retries replays under -schedule
+// replay:<file>: the token order is drawn at the retry, where both branches are due.
+func TestEngineReplaysAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
+	binary := buildCLI(t)
+	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+		"action_explore_performed_and_accept_due_together.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	witness := filepath.Join(t.TempDir(), "wake.witness")
+	const choices = "step 3: 2@performed first of 2@performed, 3@direct\nstep 4: 2@writeOne first of 2@writeOne, 3@direct\n"
+	if err := os.WriteFile(witness, []byte(choices), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	replayed := check(t, binary, string(model), "-schedule", "replay:"+witness, "-trace", "-action", "test::wake")
+	wantReport(t, replayed, 0, "took 2@performed first", "took 2@writeOne first", "x = 2",
+		"standing: value (observed: 1 run under replay:"+witness+")")
+	rejectReport(t, replayed, "replay refused")
+}
+
 // The bounds are named on the verdict when reached and the check is undecided:
 // exit 2, as an incomplete exploration exits, never a claim of exhaustiveness.
 func TestEngineCheckNamesTheBoundsItHits(t *testing.T) {
