@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -228,6 +229,51 @@ func TestEngineCheckNamesWitnessesForThePerformer(t *testing.T) {
 	wantReport(t, replayed, 0, "took 3@b first", "standing: value (observed: 1 run under replay:"+spare+")")
 }
 
+// One action on two objects run on one clock is one invocation: a feature to check
+// is named on its object, the witnesses bind each object to its path, and a fresh
+// run, numbering its objects otherwise, replays them to the value they record.
+func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := strings.Replace(tankModel, "part tank : Tank;", "part tank : Tank;\n    part spare : Tank;", 1)
+	invocation := []string{"-instantiate", "Plant::tank", "-instantiate", "Plant::spare",
+		"-action", "Plant::Tank::fill Plant::tank", "-action", "Plant::Tank::fill Plant::spare", "-advance", "1"}
+	name := func(n int) string {
+		return filepath.Join(dir, fmt.Sprintf("Plant.Tank.fill@Plant.tank+Plant.Tank.fill@Plant.spare-Plant.spare.level-%d.witness", n))
+	}
+
+	wantReport(t, check(t, binary, model, slices.Concat([]string{"-engine", "check"}, invocation, []string{"-check-diverge", "this.level"})...), 2,
+		"no such feature to check divergence of: this.level: the behaviors perform on different objects, Plant::tank and Plant::spare; name the object's feature, as Plant::tank.level")
+
+	got := check(t, binary, model, slices.Concat([]string{"-engine", "check"}, invocation, []string{"-check-diverge", "Plant::spare.level", "-check-witness", dir})...)
+	wantReport(t, got, 1, "divergent: Plant::spare.level ends as 1 or 2",
+		"Plant::spare.level = 1 (witness "+name(1)+")", "Plant::spare.level = 2 (witness "+name(2)+")", "witness of 3 choices replayed)")
+	// The spare's fill runs first, so its step 3 is the first: `b` first leaves level 1, `a` first 2.
+	for _, c := range []struct {
+		n     int
+		took  string
+		level string
+	}{{1, "3@b", "1"}, {2, "2@a", "2"}} {
+		content, err := os.ReadFile(name(c.n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(string(content), "object #1 = Plant::tank#1\nobject #2 = Plant::spare#1\n"+
+			"t=0.0: action fill of object #2 first of action fill of object #1, action fill of object #2\nstep 3: "+c.took+" first of 2@a, 3@b\n") {
+			t.Errorf("witness %d, spare.level = %s:\n%s", c.n, c.level, content)
+		}
+		// The run makes the spare's performance after the tank's: the spare is object #3 here.
+		replayed := check(t, binary, model, slices.Concat([]string{"-schedule", "replay:" + name(c.n), "-trace"}, invocation)...)
+		wantReport(t, replayed, 0, "materialize: spare #3", "ran action fill of object #3 first)",
+			"standing: value (observed: 1 run under replay:"+name(c.n)+")")
+		_, spareRan, _ := strings.Cut(replayed.output(), "ran action fill of object #3 first)")
+		if !strings.Contains(spareRan, "choice step 3: tokens 2@a, 3@b (unordered; took "+c.took+" first)") ||
+			strings.Count(replayed.output(), "Action completed") != 2 {
+			t.Errorf("witness %d does not replay to spare.level = %s:\n%s", c.n, c.level, replayed.output())
+		}
+	}
+}
+
 // The bounds are named on the verdict when reached and the check is undecided:
 // exit 2, as an incomplete exploration exits, never a claim of exhaustiveness.
 func TestEngineCheckNamesTheBoundsItHits(t *testing.T) {
@@ -446,7 +492,7 @@ func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(string(content), "t=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
+		if !strings.HasPrefix(string(content), "object #1 = Shine::Lamp#1\nt=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
 			!strings.Contains(string(content), "choice at t=3.0: due action peek of object #1, state machine glow of object #1 (unordered; ran "+c.first+" first)") {
 			t.Errorf("witness %d:\n%s", c.n, content)
 		}

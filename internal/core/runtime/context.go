@@ -382,7 +382,7 @@ func (ctx *Context) SetSchedule(policy SchedulePolicy) error {
 	ctx.schedule = policy
 	ctx.replaying = nil
 	if policy.kind == scheduleReplay {
-		ctx.replaying = &replayRun{inputs: slices.Clone(policy.replay.witness.Inputs), choices: slices.Clone(policy.replay.witness.Choices)}
+		ctx.replaying = newReplayRun(policy.replay.witness)
 	}
 	return nil
 }
@@ -407,6 +407,9 @@ func (ctx *Context) schedulerUnder(policy SchedulePolicy) *scheduler {
 	s.explore = ctx.exploring
 	if policy.kind == scheduleReplay && ctx.replaying != nil {
 		s.replay = ctx.replaying
+	}
+	if s.replay != nil {
+		s.replay.ctx = ctx
 	}
 	return s
 }
@@ -640,9 +643,10 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 }
 
 // endedWhole is the refusal of a call-by-call run of its own that ended with
-// witness moves left over; one sharing an enclosing run leaves them to it.
+// witness moves left over; one sharing an enclosing run, or stepped inside one
+// (the clock's advance), leaves them to it.
 func (ctx *Context) endedWhole(run *executorRun) error {
-	if !run.owned {
+	if !run.owned || ctx.run != run.state {
 		return nil
 	}
 	return run.state.scheduler.unfollowed("the run ended")

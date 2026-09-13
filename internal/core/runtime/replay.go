@@ -3,6 +3,8 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -74,6 +76,45 @@ func (e *InputParseError) Error() string {
 
 // Is makes every InputParseError match ErrInvalidInput.
 func (e *InputParseError) Is(target error) bool { return target == ErrInvalidInput }
+
+// ErrInvalidObject is the typed error every unparseable object line wraps.
+var ErrInvalidObject = errors.New("invalid object")
+
+// ObjectParseError reports a line of a witness that names no object, with why.
+type ObjectParseError struct {
+	// Line is the 1-based line of the witness, 0 for a line parsed on its own.
+	Line   int
+	Text   string
+	Reason string
+}
+
+func (e *ObjectParseError) Error() string {
+	if e.Line > 0 {
+		return fmt.Sprintf("%v: line %d %q: %s", ErrInvalidObject, e.Line, e.Text, e.Reason)
+	}
+	return fmt.Sprintf("%v: %q: %s", ErrInvalidObject, e.Text, e.Reason)
+}
+
+// Is makes every ObjectParseError match ErrInvalidObject.
+func (e *ObjectParseError) Is(target error) bool { return target == ErrInvalidObject }
+
+// ErrWitnessObject is the typed error for an object a witness names that the
+// replaying run has no object at the path of.
+var ErrWitnessObject = errors.New("witness object")
+
+// WitnessObjectError reports an object a witness names by path that the run
+// replaying it did not make.
+type WitnessObjectError struct {
+	Object ObjectNamed
+	Reason string
+}
+
+func (e *WitnessObjectError) Error() string {
+	return fmt.Sprintf("%v: %s: %s", ErrWitnessObject, e.Object, e.Reason)
+}
+
+// Is makes every WitnessObjectError match ErrWitnessObject.
+func (e *WitnessObjectError) Is(target error) bool { return target == ErrWitnessObject }
 
 // ErrWitnessInput is the typed error every witness input the run cannot fix wraps.
 var ErrWitnessInput = errors.New("witness input refused")
@@ -147,10 +188,53 @@ func ParseInput(text string) (InputTaken, error) {
 	return InputTaken{Feature: feature, Written: written}, nil
 }
 
-// Witness is one schedule as a witness file holds it: the inputs the run fixes
-// before its first move, the choices that fix the schedule as a replay follows
-// them, and the trace the run leaves, as the trace recorder writes it.
+// ObjectNamed is an object the moves of a witness name by the number its run gave
+// it, bound to its materialization path, `object #2 = Plant::spare#1`, so the run
+// replaying the witness finds the object among its own.
+type ObjectNamed struct {
+	ID   int64
+	Path string
+}
+
+// String spells the binding as a witness lists it and ParseObject reads it back.
+func (o ObjectNamed) String() string {
+	return fmt.Sprintf("%s%d = %s", objectPrefix, o.ID, o.Path)
+}
+
+// Number is how the moves name the object: `object #<id>`.
+func (o ObjectNamed) Number() string { return objectPrefix + strconv.FormatInt(o.ID, 10) }
+
+// objectPrefix opens an object line of a witness, and names an object in a move.
+const objectPrefix = "object #"
+
+// ParseObject reads one object binding as ObjectNamed.String spells it.
+func ParseObject(text string) (ObjectNamed, error) {
+	text = strings.TrimSpace(text)
+	fail := func(reason string) (ObjectNamed, error) {
+		return ObjectNamed{}, &ObjectParseError{Text: text, Reason: reason}
+	}
+	rest, ok := strings.CutPrefix(text, objectPrefix)
+	if !ok {
+		return fail("an object line starts with `object #`: object #<n> = <path>")
+	}
+	digits, path, found := strings.Cut(rest, " = ")
+	id, err := strconv.ParseInt(digits, 10, 64)
+	if !found || err != nil || id < 1 {
+		return fail("an object is numbered from 1 and bound with ` = `: object #<n> = <path>")
+	}
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return fail("the object's path is missing: object #<n> = <path>")
+	}
+	return ObjectNamed{ID: id, Path: path}, nil
+}
+
+// Witness is one schedule as a witness file holds it: the objects its moves name
+// bound to their paths, the inputs the run fixes before its first move, the choices
+// that fix the schedule as a replay follows them, and the trace the run leaves, as
+// the trace recorder writes it.
 type Witness struct {
+	Objects []ObjectNamed
 	Inputs  []InputTaken
 	Choices []ChoiceTaken
 	Trace   string
@@ -168,12 +252,16 @@ const (
 	failsPrefix    = "fails: "
 )
 
-// String renders the witness as a file holds it: its inputs one per line, its
-// choices one per line — or `no choice points` — a blank line, the trace, and
-// after a blank line the claims closing it: `property: <name>` for a property's,
-// `fails: <the failure>` for a schedule ending in a failure, last.
+// String renders the witness as a file holds it: its objects one per line, its
+// inputs one per line, its choices one per line — or `no choice points` — a blank
+// line, the trace, and after a blank line the claims closing it: `property: <name>`
+// for a property's, `fails: <the failure>` for a schedule ending in a failure, last.
 func (w Witness) String() string {
 	var b strings.Builder
+	for _, o := range w.Objects {
+		b.WriteString(o.String())
+		b.WriteByte('\n')
+	}
 	for _, in := range w.Inputs {
 		b.WriteString(in.String())
 		b.WriteByte('\n')
@@ -202,6 +290,34 @@ func (w Witness) String() string {
 // Empty reports whether the witness fixes no input and takes no choice.
 func (w Witness) Empty() bool { return len(w.Inputs) == 0 && len(w.Choices) == 0 }
 
+// objectNumber matches an object a move names by number.
+var objectNumber = regexp.MustCompile(regexp.QuoteMeta(objectPrefix) + `(\d+)`)
+
+// objectsNamed binds every object the choices name by number to its path in this
+// context, in order of first mention, so a witness of them replays in another run.
+func (ctx *Context) objectsNamed(choices []ChoiceTaken) []ObjectNamed {
+	var objects []ObjectNamed
+	seen := make(map[int64]bool)
+	name := func(label string) {
+		for _, m := range objectNumber.FindAllStringSubmatch(label, -1) {
+			id, err := strconv.ParseInt(m[1], 10, 64)
+			if err != nil || seen[id] {
+				continue
+			}
+			seen[id] = true
+			objects = append(objects, ObjectNamed{ID: id, Path: ctx.objectPath(id)})
+		}
+	}
+	for _, c := range choices {
+		name(c.Where)
+		for _, alt := range c.Among {
+			name(alt)
+		}
+		name(c.Took)
+	}
+	return objects
+}
+
 // ReplayPolicy is the `replay` policy over choices held in memory, fixing no
 // input. Its spelling names no file, so it does not read back; write the
 // witness out to name it.
@@ -216,7 +332,7 @@ func ReplayOf(w Witness) SchedulePolicy {
 }
 
 func cloneWitness(w Witness) Witness {
-	w.Inputs, w.Choices = slices.Clone(w.Inputs), slices.Clone(w.Choices)
+	w.Objects, w.Inputs, w.Choices = slices.Clone(w.Objects), slices.Clone(w.Inputs), slices.Clone(w.Choices)
 	return w
 }
 
@@ -259,13 +375,16 @@ type replayScript struct {
 	witness Witness
 }
 
-// ParseChoices reads the choices of a witness header spelling no input: as
-// ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
-// first blank line after it; what follows is ignored.
+// ParseChoices reads the choices of a witness header naming no object and spelling
+// no input: as ChoiceTaken.String spells them, one per line or joined by `; `,
+// ending at the first blank line after it; what follows is ignored.
 func ParseChoices(text string) ([]ChoiceTaken, error) {
 	w, _, err := readHeader(text)
 	if err != nil {
 		return nil, err
+	}
+	if len(w.Objects) > 0 {
+		return nil, &ObjectParseError{Text: w.Objects[0].String(), Reason: "a witness naming objects is read by ParseWitness"}
 	}
 	if len(w.Inputs) > 0 {
 		return nil, &InputParseError{Text: w.Inputs[0].String(), Reason: "a witness with inputs is read by ParseWitness"}
@@ -316,9 +435,10 @@ func (w *Witness) readClaims() {
 	}
 }
 
-// readHeader reads a witness header: input lines as InputTaken.String spells them,
-// then choices as ChoiceTaken.String spells them, one per line or joined by `; `,
-// ending at the first blank line after it. It says whether the text has a header.
+// readHeader reads a witness header: object lines as ObjectNamed.String spells
+// them, input lines as InputTaken.String spells them, then choices as
+// ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
+// first blank line after it. It says whether the text has a header.
 func readHeader(text string) (w Witness, headed bool, err error) {
 	for i, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
@@ -330,6 +450,24 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 		}
 		headed = true
 		if line == "no choice points" {
+			continue
+		}
+		if strings.HasPrefix(line, objectPrefix) {
+			o, err := ParseObject(line)
+			if err == nil && (len(w.Inputs) > 0 || len(w.Choices) > 0) {
+				err = &ObjectParseError{Text: line, Reason: "objects come before the inputs and the moves"}
+			}
+			if err == nil && slices.ContainsFunc(w.Objects, func(seen ObjectNamed) bool { return seen.ID == o.ID }) {
+				err = &ObjectParseError{Text: line, Reason: o.Number() + " is bound twice"}
+			}
+			if err != nil {
+				var parse *ObjectParseError
+				if errors.As(err, &parse) {
+					parse.Line = i + 1
+				}
+				return Witness{}, true, err
+			}
+			w.Objects = append(w.Objects, o)
 			continue
 		}
 		if strings.HasPrefix(line, inputPrefix) {
@@ -599,13 +737,94 @@ func splitLabels(text, sep string) ([]string, bool) {
 	}
 }
 
-// replayRun follows one run's witness: the inputs to fix before its first move,
-// the moves left and the first it refused.
+// replayRun follows one run's witness: the objects its moves name to bind to the
+// run's own, the inputs to fix before its first move, the moves left and the first
+// it refused.
 type replayRun struct {
-	inputs  []InputTaken
-	choices []ChoiceTaken
-	next    int
-	refused error
+	// unbound are the objects the witness names that the run has not made yet;
+	// renumber maps the witness's numbers of those it has to the run's own.
+	unbound  []ObjectNamed
+	renumber map[string]string
+	inputs   []InputTaken
+	choices  []ChoiceTaken
+	next     int
+	refused  error
+	// ctx is the context whose run follows the witness.
+	ctx *Context
+}
+
+func newReplayRun(w Witness) *replayRun {
+	return &replayRun{
+		unbound:  slices.Clone(w.Objects),
+		renumber: make(map[string]string, len(w.Objects)),
+		inputs:   slices.Clone(w.Inputs),
+		choices:  slices.Clone(w.Choices),
+	}
+}
+
+// bind binds the objects the witness names that the run has made by now, at their
+// paths: a run makes an object when it first reaches it, which may be moves in.
+func (r *replayRun) bind() {
+	if r.ctx == nil {
+		return
+	}
+	r.unbound = slices.DeleteFunc(r.unbound, func(o ObjectNamed) bool {
+		inst, err := r.ctx.objectAt(o.Path)
+		if err != nil {
+			return false
+		}
+		r.renumber[o.Number()] = objectPrefix + strconv.FormatInt(inst.ID, 10)
+		return true
+	})
+}
+
+// current is the next move with its objects numbered as this run numbers them, and
+// the first object it names that the run has not made, nil when it names none.
+func (r *replayRun) current() (ChoiceTaken, *ObjectNamed) {
+	r.bind()
+	c := r.choices[r.next]
+	c.Where, c.Took = r.relabel(c.Where), r.relabel(c.Took)
+	c.Among = slices.Clone(c.Among)
+	for i, alt := range c.Among {
+		c.Among[i] = r.relabel(alt)
+	}
+	for i, o := range r.unbound {
+		if c.names(o.Number()) {
+			return c, &r.unbound[i]
+		}
+	}
+	return c, nil
+}
+
+// refuseUnbound refuses the witness at a move naming an object the run has not made.
+func (r *replayRun) refuseUnbound(o ObjectNamed) {
+	if r.refused == nil {
+		_, err := r.ctx.objectAt(o.Path)
+		r.refused = &WitnessObjectError{Object: o, Reason: err.Error()}
+	}
+}
+
+// relabel renumbers the objects a label names to the run's own numbers.
+func (r *replayRun) relabel(label string) string {
+	return objectNumber.ReplaceAllStringFunc(label, func(number string) string {
+		if renumbered, ok := r.renumber[number]; ok {
+			return renumbered
+		}
+		return number
+	})
+}
+
+// names reports whether the choice's place or any alternative spells the object number.
+func (c ChoiceTaken) names(number string) bool {
+	mentions := func(label string) bool {
+		for _, found := range objectNumber.FindAllString(label, -1) {
+			if found == number {
+				return true
+			}
+		}
+		return false
+	}
+	return mentions(c.Where) || mentions(c.Took) || slices.ContainsFunc(c.Among, mentions)
 }
 
 // takeInputs hands the run's witness inputs to the performance beginning it, once.
@@ -683,8 +902,13 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 		able = "able to act: " + strings.Join(m.enabled, ", ")
 	}
 	r.hoistOrder(tokens.step)
-	c := &r.choices[r.next]
+	current, unbound := r.current()
+	c := &current
 	if c.Kind == ChoiceTokenOrder && c.Step == tokens.step {
+		if unbound != nil {
+			r.refuseUnbound(*unbound)
+			return m
+		}
 		for _, alt := range c.Among {
 			if !slices.Contains(m.enabled, alt) {
 				r.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", tokens.step, alt, able))
@@ -769,7 +993,11 @@ func (m *replayMove) reported() (alternatives []string, taken int, ok bool) {
 // must be a choice of the same kind at the same place naming one of them; whereOf
 // is the place as the run reports it once alternative i is taken, nil for c.Where.
 func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
-	w := r.choices[r.next]
+	w, unbound := r.current()
+	if unbound != nil {
+		r.refuseUnbound(*unbound)
+		return 0
+	}
 	alts := strings.Join(c.Alternatives, ", ")
 	taken := slices.Index(c.Alternatives, w.Took)
 	if whereOf != nil && taken >= 0 {
@@ -797,8 +1025,10 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 	return taken
 }
 
-// mark returns what a probe restores: the run's position in the witness.
+// mark returns what a probe restores: the run's position in the witness and the
+// objects it had bound, which the probe's run may have made and unmade.
 func (r *replayRun) mark() func() {
 	next, refused := r.next, r.refused
-	return func() { r.next, r.refused = next, refused }
+	unbound, renumber := slices.Clone(r.unbound), maps.Clone(r.renumber)
+	return func() { r.next, r.refused, r.unbound, r.renumber = next, refused, unbound, renumber }
 }

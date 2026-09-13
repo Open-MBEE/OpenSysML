@@ -111,7 +111,18 @@ func (ctx *Context) Advance(duration float64) (AdvanceReport, error) {
 	}
 	ctx.clock.now = deadline
 	report.To = deadline
-	return report.counting(progress, ctx.run.notes[noted:]), nil
+	return report.counting(progress, ctx.run.notes[noted:]), ctx.advanceEnded()
+}
+
+// advanceEnded is the refusal of an advance of its own that finished every executor
+// on the clock with witness moves left over; nil while one may still move.
+func (ctx *Context) advanceEnded() error {
+	for _, w := range ctx.clock.waiters {
+		if !w.finished() {
+			return nil
+		}
+	}
+	return ctx.endedWhole(&ctx.clockRun)
 }
 
 func (r AdvanceReport) counting(p dueProgress, notes []RunNote) AdvanceReport {

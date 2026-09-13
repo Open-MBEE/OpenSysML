@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -240,7 +239,7 @@ func (p SchedulePolicy) start() *scheduler {
 		// #nosec G404 -- a replayable run needs a stated generator, not a cryptographic one.
 		s.rng = rand.New(s.pcg)
 	case scheduleReplay:
-		s.replay = &replayRun{inputs: slices.Clone(p.replay.witness.Inputs), choices: slices.Clone(p.replay.witness.Choices)}
+		s.replay = newReplayRun(p.replay.witness)
 	case scheduleCheck:
 		s.check = &checkRun{script: p.check}
 	}

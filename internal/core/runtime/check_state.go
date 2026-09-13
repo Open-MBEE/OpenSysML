@@ -13,7 +13,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // The canonical form of a checked run's state is the text of what a future move
@@ -357,7 +356,7 @@ func (s *stateSpeller) objects() {
 			continue
 		}
 		var b strings.Builder
-		fmt.Fprintf(&b, "object %s: %s{%s}", s.paths[id], s.typeName(inst), s.features(inst))
+		fmt.Fprintf(&b, "object %s: %s{%s}", s.paths[id], s.ctx.typeName(inst), s.features(inst))
 		for i, end := range inst.Ends {
 			name := end.Name
 			if name == "" {
@@ -529,12 +528,12 @@ func (s *stateSpeller) message(m Message) string {
 	var b strings.Builder
 	b.WriteString(orAny(m.SignalType))
 	if m.Signal != nil {
-		b.WriteString(" (" + s.symbolName(m.Signal) + ")")
+		b.WriteString(" (" + s.ctx.symbolName(m.Signal) + ")")
 	}
 	if m.EventName != "" || m.Event != nil {
 		name := m.EventName
 		if m.Event != nil {
-			name = s.symbolName(m.Event)
+			name = s.ctx.symbolName(m.Event)
 		}
 		fmt.Fprintf(&b, " from %s", name)
 		if m.EventObject != 0 {
@@ -559,13 +558,6 @@ func (s *stateSpeller) message(m Message) string {
 		fmt.Fprintf(&b, " value %s", s.value(*m.Value))
 	}
 	return b.String()
-}
-
-func (s *stateSpeller) symbolName(sym *symbols.Symbol) string {
-	if fqn := s.ctx.fqnOf(sym); fqn != "" {
-		return fqn
-	}
-	return sym.Name
 }
 
 // values spells a map of named values in name order.
@@ -631,8 +623,8 @@ func (s *stateSpeller) object(id int64) string {
 	return "@" + s.objectPath(id)
 }
 
-// objectPath is the object's materialization path: the holder's path and the feature
-// holding it, indexed within one holding several; a root is its type and creation rank.
+// objectPath is the object's materialization path (see Context.objectPath), the
+// holders on the way mentioned too so their contents follow in the objects section.
 func (s *stateSpeller) objectPath(id int64) string {
 	if path, ok := s.paths[id]; ok {
 		return path
@@ -644,11 +636,11 @@ func (s *stateSpeller) objectPath(id int64) string {
 	var path string
 	owner, feature := inst.Owner()
 	if owner == nil {
-		path = s.rootPath(inst)
+		path = s.ctx.rankedRootPath(inst)
 	} else {
 		path = s.objectPath(owner.ID) + "." + feature
 		if fv := owner.FeatureValues[feature]; fv != nil && !fv.Feature.Scalar() {
-			if i := s.memberIndex(fv.Values, id); i >= 0 {
+			if i := s.ctx.memberIndex(fv.Values, id); i >= 0 {
 				path += "[" + strconv.Itoa(i) + "]"
 			}
 		}
@@ -656,53 +648,6 @@ func (s *stateSpeller) objectPath(id int64) string {
 	s.paths[id] = path
 	s.mentioned = append(s.mentioned, id)
 	return path
-}
-
-// memberIndex is the object's place among the objects a collection holds: its
-// position in a sequence, its creation rank among a set's members; -1 if the
-// collection does not hold it.
-func (s *stateSpeller) memberIndex(collection Value, id int64) int {
-	holds := func(v Value) bool { return v.Kind == ValInstance && v.Instance == id }
-	if collection.Kind != ValSet {
-		return slices.IndexFunc(elementsOf(collection), holds)
-	}
-	members := make(map[int64]bool)
-	for _, element := range elementsOf(collection) {
-		if element.Kind == ValInstance {
-			members[element.Instance] = true
-		}
-	}
-	if !members[id] {
-		return -1
-	}
-	return s.creationRank(id, func(other *Instance) bool { return members[other.ID] })
-}
-
-// creationRank is the object's rank, from 0, among the objects satisfying among,
-// in the order the run made them; -1 if the run made no such object.
-func (s *stateSpeller) creationRank(id int64, among func(*Instance) bool) int {
-	rank := 0
-	for _, created := range s.ctx.created {
-		other, ok := s.ctx.Instance(created)
-		if !ok || !among(other) {
-			continue
-		}
-		if created == id {
-			return rank
-		}
-		rank++
-	}
-	return -1
-}
-
-// rootPath names an object no other holds by its type and its rank, from 1,
-// among the roots of that type, in the order the run made them.
-func (s *stateSpeller) rootPath(inst *Instance) string {
-	roots := func(other *Instance) bool {
-		owner, _ := other.Owner()
-		return owner == nil && other.Type == inst.Type
-	}
-	return fmt.Sprintf("%s#%d", s.typeName(inst), s.creationRank(inst.ID, roots)+1)
 }
 
 // features spells what every feature of inst holds, in name order.
@@ -734,11 +679,4 @@ func (s *stateSpeller) feature(inst *Instance, name string) string {
 		return UnsetText
 	}
 	return s.value(fv.Value)
-}
-
-func (s *stateSpeller) typeName(inst *Instance) string {
-	if inst.Type == nil {
-		return "object"
-	}
-	return s.symbolName(inst.Type)
 }
