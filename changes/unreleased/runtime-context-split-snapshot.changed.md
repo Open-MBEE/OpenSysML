@@ -8,7 +8,8 @@
   action and state executors' `Snapshot`, mark the run's journal between steps and capture the
   executors' tokens, frame tree, configuration, event queue, timers and `do` progress;
   `Restore` rolls the run back to the mark as often as asked, keeping every object's identity,
-  until `Release`. A snapshot asked for inside a step or of a body paused mid-statement is the
-  typed `ErrSnapshotMidRun` or `ErrSnapshotPausedBody`. The conformance suite proves the round
+  until `Release`. A snapshot asked for inside a step is the typed `ErrSnapshotMidRun`; a body
+  paused mid-statement is captured where it paused, and only a portable image (`HeldImage`)
+  refuses it (`ErrSnapshotPausedBody`). The conformance suite proves the round
   trip on every case at every step, and `OPENSYSML_SCHEDULE_SEEDS` widens its scheduling sweep
   to further seeds. No flag, command, RPC, field or line of output changed.

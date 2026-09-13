@@ -24,8 +24,5 @@
   `moves`, `depth`, `boundsHit`, `violations[]`, `divergent[]`, `outcomes[]` and the witness
   paths) on the engine's `results[]` entry. The engine is listed by `-engines` and `%engines`
   at authority *bounded*, `auto` never picks it over `explore`, and it refuses with a typed
-  reason what it does not search: a state machine, a body paused mid-statement (an `accept` or
-  a timed wait inside a block), a state and an action due together, and a `-check-*` flag
-  without `-engine check` or the engine without an action. State machines, `do` interleaving
-  and checking across objects are later stages'; the search itself is single-threaded, `-jobs`
-  dividing only the replay of its witnesses.
+  reason a `-check-*` flag without `-engine check` or the engine without a behavior; the
+  search itself is single-threaded, `-jobs` dividing only the replay of its witnesses.

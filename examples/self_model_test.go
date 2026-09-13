@@ -693,8 +693,11 @@ func TestSelfModelRunStateMatchesImplementation(t *testing.T) {
 	if declared, actual := marks.str("refusesMidStep"), runtime.ErrSnapshotMidRun.Error(); declared != actual {
 		t.Errorf("pipeline.sysml says refusesMidStep = %q, the runtime reports %q", declared, actual)
 	}
-	if declared, actual := marks.str("refusesPausedBody"), runtime.ErrSnapshotPausedBody.Error(); declared != actual {
-		t.Errorf("pipeline.sysml says refusesPausedBody = %q, the runtime reports %q", declared, actual)
+	if declared, actual := marks.str("imageRefusesPausedBody"), runtime.ErrSnapshotPausedBody.Error(); declared != actual {
+		t.Errorf("pipeline.sysml says imageRefusesPausedBody = %q, the runtime reports %q", declared, actual)
+	}
+	if !marks.boolean("capturesPausedBody") {
+		t.Errorf("pipeline.sysml says capturesPausedBody = false; a snapshot of the same context captures a body paused mid-statement")
 	}
 	snapshotType := reflect.TypeOf(runtime.Snapshot{})
 	holdsModel := false
