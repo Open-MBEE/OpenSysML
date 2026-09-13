@@ -265,6 +265,85 @@ func TestRenderOriginsLocateTheDeclaration(t *testing.T) {
 	t.Fatalf("the #tree rendering has no node for cog: %+v", out.Nodes)
 }
 
+// A node carries its declared type as a field of its own, so a client never
+// parses the detail — which holds only the notes — to recover it.
+func TestRenderNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
+	src := "package Kit {\n\tpart def Widget {\n\t\tpart cog : Cog;\n\t\tpart gear;\n\t}\n\tpart def Cog;\n}\n"
+	s, docURI := renderServer(t, "kit.sysml", src)
+	out := render(t, s, docURI, "#tree")
+	want := map[string]renderNode{
+		"Kit::Widget": {Kind: "part def"},
+		"cog":         {Kind: "part", Type: "Cog"},
+		"gear":        {Kind: "part"},
+	}
+	for _, node := range out.Nodes {
+		expected, ok := want[node.Name]
+		if !ok {
+			continue
+		}
+		delete(want, node.Name)
+		if node.Kind != expected.Kind || node.Type != expected.Type || node.Detail != "" {
+			t.Errorf("node %s = kind %q type %q detail %q, want kind %q type %q and no detail",
+				node.Name, node.Kind, node.Type, node.Detail, expected.Kind, expected.Type)
+		}
+	}
+	for name := range want {
+		t.Errorf("the #tree rendering has no node named %s: %+v", name, out.Nodes)
+	}
+	wire, err := json.Marshal(out.Nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{`"type":"Cog"`, `"type":""`, `"detail":""`} {
+		if !strings.Contains(string(wire), field) {
+			t.Errorf("the wire form lacks %s:\n%s", field, wire)
+		}
+	}
+}
+
+// A behavior rendering serves the type of a typed action or state usage the same
+// way, apart from the notes the detail holds.
+func TestRenderBehaviorNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
+	src := "package Ops {\n" +
+		"\taction def Warm;\n" +
+		"\taction run {\n\t\tfirst start;\n\t\taction warm : Warm;\n\t\tsuccession first start then warm;\n\t}\n" +
+		"\tstate def Heating;\n" +
+		"\tstate def Boiler {\n\t\tentry; then idle;\n\t\tstate idle;\n\t\tstate heating : Heating;\n" +
+		"\t\ttransition first idle then heating;\n\t}\n" +
+		"}\n"
+	s, docURI := renderServer(t, "ops.sysml", src)
+	want := map[string]renderNode{
+		"warm":    {Kind: "action", Type: "Warm"},
+		"start":   {Kind: "initial"},
+		"heating": {Kind: "state", Type: "Heating"},
+		"idle":    {Kind: "state", Detail: "initial"},
+	}
+	for view, field := range map[string]string{"#action:Ops::run": `"type":"Warm"`, "#state:Ops::Boiler": `"type":"Heating"`} {
+		out := render(t, s, docURI, view)
+		for _, node := range out.Nodes {
+			expected, ok := want[node.Name]
+			if !ok {
+				continue
+			}
+			delete(want, node.Name)
+			if node.Kind != expected.Kind || node.Type != expected.Type || node.Detail != expected.Detail {
+				t.Errorf("%s: node %s = kind %q type %q detail %q, want kind %q type %q detail %q", view,
+					node.Name, node.Kind, node.Type, node.Detail, expected.Kind, expected.Type, expected.Detail)
+			}
+		}
+		wire, err := json.Marshal(out.Nodes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(wire), field) || !strings.Contains(string(wire), `"type":""`) {
+			t.Errorf("%s: the wire form lacks %s beside an empty type:\n%s", view, field, wire)
+		}
+	}
+	for name := range want {
+		t.Errorf("no behavior rendering has a node named %s", name)
+	}
+}
+
 // A pseudo-view renders a document that declares no view, and says so.
 func TestRenderPseudoViewOfADocumentWithNoViews(t *testing.T) {
 	s, docURI := renderServer(t, "plain.sysml", "package Kit {\n\tpart def Widget {\n\t\tpart cog : Cog;\n\t}\n\tpart def Cog;\n}\n")

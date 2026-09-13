@@ -37,7 +37,7 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 			continue
 		}
 		rendered[sub] = true
-		node := &Node{ID: ids.take(), Kind: declKind(sub), Name: r.notationName(sub), Detail: declType(sub), Origin: symbolOrigin(sub),
+		node := &Node{ID: ids.take(), Kind: declKind(sub), Name: r.notationName(sub), Type: declType(sub), Origin: symbolOrigin(sub),
 			Geometry: r.geometryOf(view, sub, out)}
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
@@ -63,7 +63,7 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*s
 	if !qualified {
 		name = notationName(simpleName(r.fqn(sym)))
 	}
-	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, Detail: declType(sym), Origin: symbolOrigin(sym),
+	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, Type: declType(sym), Origin: symbolOrigin(sym),
 		Geometry: r.geometryOf(view, sym, out)}
 	if seen[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")

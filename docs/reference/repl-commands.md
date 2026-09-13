@@ -301,26 +301,30 @@ sysml> %render Demo::summary
 Demo::summary - tree rendering (the view states no rendering; a tree is the default)
 
 part def Demo::Vehicle
-  attribute mass (Real)
-  part wheel (Wheel)
+  attribute mass : Real
+  part wheel : Wheel
 view Demo::summary::detail
   part def Demo::Wheel
-    attribute diameter (Real)
+    attribute diameter : Real
 
 sysml> %render Demo::summary mermaid
 %% Demo::summary — tree rendering
 flowchart TD
-  n0["part def Demo::Vehicle"]
-  n1["attribute mass (Real)"]
+  n0["Demo::Vehicle<br>«part def»"]
+  n1["mass : Real<br>«attribute»"]
   n0 --- n1
-  n2["part wheel (Wheel)"]
+  n2["wheel : Wheel<br>«part»"]
   n0 --- n2
-  n3["view Demo::summary::detail"]
-  n4["part def Demo::Wheel"]
-  n5["attribute diameter (Real)"]
+  n3["Demo::summary::detail<br>«view»"]
+  n4["Demo::Wheel<br>«part def»"]
+  n5["diameter : Real<br>«attribute»"]
   n4 --- n5
   n3 --- n4
 ```
+
+A diagram node's label leads with the element's name, ` : Type` after it for a typed usage, and
+puts the kind on the next line in guillemets; the text form keeps the keyword first, as the
+notation declares it.
 
 A view that states `render asElementTable;`, or is typed by `StandardViewDefinitions::GridView`,
 renders as rows instead: the exposed elements, the elements declared in them, and the views nested
@@ -363,14 +367,14 @@ sysml> %render Demo::summary dot
 // layout: dot
 digraph "Demo::summary" {
   node [shape=box];
-  "n0" [label="part def Demo::Vehicle"];
-  "n1" [label="attribute mass\nReal"];
+  "n0" [label=<<b>Demo::Vehicle</b><br/><font point-size="10">«part def»</font>>];
+  "n1" [label=<<b>mass : Real</b><br/><font point-size="10">«attribute»</font>>];
   "n0" -> "n1" [arrowhead=none];
-  "n2" [label="part wheel\nWheel"];
+  "n2" [label=<<b>wheel : Wheel</b><br/><font point-size="10">«part»</font>>];
   "n0" -> "n2" [arrowhead=none];
-  "n3" [label="view Demo::summary::detail"];
-  "n4" [label="part def Demo::Wheel"];
-  "n5" [label="attribute diameter\nReal"];
+  "n3" [label=<<b>Demo::summary::detail</b><br/><font point-size="10">«view»</font>>];
+  "n4" [label=<<b>Demo::Wheel</b><br/><font point-size="10">«part def»</font>>];
+  "n5" [label=<<b>diameter : Real</b><br/><font point-size="10">«attribute»</font>>];
   "n4" -> "n5" [arrowhead=none];
   "n3" -> "n4" [arrowhead=none];
 }

@@ -38,7 +38,7 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 					name = notationName(simpleName(r.fqn(participant)))
 				}
 				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name,
-					Detail: declType(participant), Origin: symbolOrigin(participant)}
+					Type: declType(participant), Origin: symbolOrigin(participant)}
 				out.Roots = append(out.Roots, node)
 				lifelines[participant] = node
 			}
@@ -359,7 +359,7 @@ func (r *Renderer) messageLabel(flow *symbols.Symbol) string {
 		return notationName(name)
 	}
 	if declared := declType(flow); declared != "" {
-		return notationName(declared)
+		return declared
 	}
 	if payload := payloadText(flow); payload != "" {
 		return "of " + payload
@@ -381,11 +381,8 @@ func payloadText(flow *symbols.Symbol) string {
 	}
 	text := notationName(name)
 	if decl := usage.FlowEnds.PayloadDecl; decl != nil {
-		for _, rel := range decl.Relationships {
-			if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
-				continue
-			}
-			return text + " : " + notationName(qualifiedText(rel.Target))
+		if typ := typingOf(decl.Relationships); typ != "" {
+			return text + " : " + typ
 		}
 	}
 	return text

@@ -54,6 +54,7 @@ export interface RenderNode {
   id: string;
   kind: string;
   name: string;
+  type: string;
   detail: string;
   parent?: string;
   origin?: RenderOrigin;

@@ -498,13 +498,15 @@ const diagramDocumentModel = `package Imaging {
 `
 
 // TestRenderDocumentDiagramForm writes the document's graph-shaped diagrams
-// as Mermaid when diagramForm is absent and as DOT when it is "dot".
+// as Mermaid when diagramForm is absent and as DOT when it is "dot"; the
+// Mermaid block opens on the frontmatter its two-line cluster title needs.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
 	ws.Open(uri.File("/tmp/imaging.sysml").Filename(), []byte(diagramDocumentModel), 1)
+	mermaidHeader := "---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: 24\n---\n%% Imaging::chainView — interconnection rendering"
 	cases := map[string]struct{ fence, header string }{
-		"":        {"```mermaid\n", "%% Imaging::chainView — interconnection rendering"},
-		"mermaid": {"```mermaid\n", "%% Imaging::chainView — interconnection rendering"},
+		"":        {"```mermaid\n", mermaidHeader},
+		"mermaid": {"```mermaid\n", mermaidHeader},
 		"dot":     {"```dot\n", "// view: Imaging::chainView\n// kind: interconnection\n"},
 	}
 	for form, want := range cases {

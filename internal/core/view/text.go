@@ -86,6 +86,9 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	if node.Name != "" {
 		line += " " + node.Name
 	}
+	if node.Type != "" {
+		line += " : " + node.Type
+	}
 	if node.Detail != "" {
 		line += " (" + node.Detail + ")"
 	}

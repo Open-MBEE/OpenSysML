@@ -1,7 +1,7 @@
 %% VehicleSequenceViews::startVehicleView — sequence rendering (view def SequenceView)
 %% not represented: the flows in perform action startVehicle are its action flow, not interaction messages; they are not shown
 sequenceDiagram
-  participant n0 as part driver (Driver)
-  participant n1 as part vehicle (Vehicle)
+  participant n0 as driver : Driver<br>«part»
+  participant n1 as vehicle : Vehicle<br>«part»
   n0->>n1: of ignitionCmd : IgnitionCmd
   n1->>n0: of es : EngineStatus
