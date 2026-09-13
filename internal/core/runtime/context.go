@@ -201,6 +201,12 @@ type Context struct {
 	// exploring is the exploration run this context's runs take part in, nil
 	// outside Explore (explore.go).
 	exploring *exploreRun
+	// replaying is the witness this context's runs follow in turn under a
+	// `replay` policy (replay.go), nil under any other.
+	replaying *replayRun
+	// choices are the choice points the context's runs resolved, in order: the
+	// witness a replay of them follows.
+	choices []ChoiceTaken
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
@@ -367,12 +373,17 @@ func (ctx *Context) Trace() *TraceRecorder {
 
 // SetSchedule sets the policy the runs started from now on resolve their choice
 // points under; a run already under way keeps the one it started with. An
-// `explore` policy is ErrExploreUndriven: it is driven by Explore.
+// `explore` policy is ErrExploreUndriven: it is driven by Explore. A `replay`
+// policy starts its witness over, which the runs then follow in turn.
 func (ctx *Context) SetSchedule(policy SchedulePolicy) error {
 	if _, explores := policy.Exploration(); explores {
 		return fmt.Errorf("%w: %s replays whole runs from the start, so it is driven by Explore", ErrExploreUndriven, policy)
 	}
 	ctx.schedule = policy
+	ctx.replaying = nil
+	if policy.kind == scheduleReplay {
+		ctx.replaying = &replayRun{inputs: slices.Clone(policy.replay.witness.Inputs), choices: slices.Clone(policy.replay.witness.Choices)}
+	}
 	return nil
 }
 
@@ -380,14 +391,23 @@ func (ctx *Context) SetSchedule(policy SchedulePolicy) error {
 // state installed for a run no bracket began starts over, drawing from it.
 func (ctx *Context) beginExploration(policy SchedulePolicy, run *exploreRun) {
 	ctx.schedule = policy
-	ctx.exploring = run
+	ctx.exploring, ctx.replaying = run, nil
 	ctx.run = ctx.newRunState()
 }
 
 // newScheduler starts the resolutions of one run under the context's policy.
 func (ctx *Context) newScheduler() *scheduler {
-	s := ctx.schedule.start()
+	return ctx.schedulerUnder(ctx.schedule)
+}
+
+// schedulerUnder starts one run's resolutions under policy, drawing from the
+// exploration or the witness the context's runs share.
+func (ctx *Context) schedulerUnder(policy SchedulePolicy) *scheduler {
+	s := policy.start()
 	s.explore = ctx.exploring
+	if policy.kind == scheduleReplay && ctx.replaying != nil {
+		s.replay = ctx.replaying
+	}
 	return s
 }
 

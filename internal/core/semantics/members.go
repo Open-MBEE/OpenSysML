@@ -226,7 +226,8 @@ func (m *Model) LookupContributedMembers(sym *symbols.Symbol, name string) []*sy
 }
 
 // eachContributedMember calls yield with the member each of sym's member
-// sources holds under name, until yield returns false.
+// sources holds under name and passes on to sym, in name-lookup order, until
+// yield returns false. A member a type on the way redefines stops there.
 func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield func(*symbols.Symbol) bool) {
 	if sym == nil || name == "" {
 		return
@@ -234,10 +235,11 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 	if target, ok := m.resolver.ResolveAliasTarget(sym); ok {
 		sym = target
 	}
-	for _, sup := range m.MemberSources(sym) {
+	for _, src := range m.lookupSources(sym) {
+		sup := src.sym
 		if sup.Scope != nil {
 			for _, s := range m.resolver.LocalBindings(sup.Scope, name) {
-				if !yield(s) {
+				if m.inheritedAlong(s, src.via) && !yield(s) {
 					return
 				}
 			}
@@ -245,7 +247,7 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 		}
 		// A cached source with no scope is read from the index.
 		for _, child := range m.resolver.Index().LookupDirectChildrenNamed(sup.Name, name) {
-			if leafName(child.Name) == name && !yield(child) {
+			if leafName(child.Name) == name && m.inheritedAlong(child, src.via) && !yield(child) {
 				return
 			}
 		}

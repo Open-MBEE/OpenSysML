@@ -147,15 +147,31 @@ func ParseInput(text string) (InputTaken, error) {
 	return InputTaken{Feature: feature, Written: written}, nil
 }
 
-// Witness is what a witness file holds: the inputs the run fixes before its first
-// move, then the choices it takes, in order.
+// Witness is one schedule as a witness file holds it: the inputs the run fixes
+// before its first move, the choices that fix the schedule as a replay follows
+// them, and the trace the run leaves, as the trace recorder writes it.
 type Witness struct {
 	Inputs  []InputTaken
 	Choices []ChoiceTaken
+	Trace   string
+	// Property names the property false at the state the schedule reaches, or
+	// whose evaluation there fails as Fails says; empty for a state or a run's failure.
+	Property string
+	// Fails is the deadlock or failure the schedule ends in, as the executor
+	// spells it — or the property's evaluation raised; empty for a state the run goes on from.
+	Fails string
 }
 
-// String is the witness as a file spells it: one input per line, then one choice
-// per line, `no choice points` for a run that took none.
+// The lines closing a witness after its trace: the property it claims, the failure it ends in.
+const (
+	propertyPrefix = "property: "
+	failsPrefix    = "fails: "
+)
+
+// String renders the witness as a file holds it: its inputs one per line, its
+// choices one per line — or `no choice points` — a blank line, the trace, and
+// after a blank line the claims closing it: `property: <name>` for a property's,
+// `fails: <the failure>` for a schedule ending in a failure, last.
 func (w Witness) String() string {
 	var b strings.Builder
 	for _, in := range w.Inputs {
@@ -168,6 +184,17 @@ func (w Witness) String() string {
 	for _, c := range w.Choices {
 		b.WriteString(c.String())
 		b.WriteByte('\n')
+	}
+	b.WriteByte('\n')
+	b.WriteString(w.Trace)
+	if w.Property != "" || w.Fails != "" {
+		b.WriteString("\n")
+	}
+	if w.Property != "" {
+		b.WriteString("\n" + propertyPrefix + w.Property)
+	}
+	if w.Fails != "" {
+		b.WriteString("\n" + failsPrefix + w.Fails)
 	}
 	return b.String()
 }
@@ -189,7 +216,8 @@ func ReplayOf(w Witness) SchedulePolicy {
 }
 
 func cloneWitness(w Witness) Witness {
-	return Witness{Inputs: slices.Clone(w.Inputs), Choices: slices.Clone(w.Choices)}
+	w.Inputs, w.Choices = slices.Clone(w.Inputs), slices.Clone(w.Choices)
+	return w
 }
 
 // Replay returns the choices of a `replay` policy's witness, and whether the policy is one.
@@ -235,7 +263,7 @@ type replayScript struct {
 // ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
 // first blank line after it; what follows is ignored.
 func ParseChoices(text string) ([]ChoiceTaken, error) {
-	w, err := ParseWitness(text)
+	w, _, err := readHeader(text)
 	if err != nil {
 		return nil, err
 	}
@@ -245,21 +273,62 @@ func ParseChoices(text string) ([]ChoiceTaken, error) {
 	return w.Choices, nil
 }
 
-// ParseWitness reads a witness header: input lines as InputTaken.String spells them,
-// then choices as ChoiceTaken.String spells them, one per line or joined by `; `,
-// ending at the first blank line after it; what follows is ignored.
+// ParseWitness reads a witness as Witness.String writes it: the header of input
+// and choice lines, after the blank line ending it the trace, exact, and after a
+// blank line ending that the claims closing it, if any.
 func ParseWitness(text string) (Witness, error) {
-	var w Witness
+	w, _, err := readWitness(text)
+	return w, err
+}
+
+// readWitness reads a witness as ParseWitness does and says whether the text has
+// a header: one of `no choice points` alone spells a run with no choice to make.
+func readWitness(text string) (Witness, bool, error) {
+	w, headed, err := readHeader(text)
+	if err != nil {
+		return Witness{}, headed, err
+	}
+	lines := strings.SplitAfter(text, "\n")
 	begun := false
-	for i, line := range strings.Split(text, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
 			if begun {
+				w.Trace = strings.Join(lines[i+1:], "")
+				w.readClaims()
 				break
 			}
 			continue
 		}
 		begun = true
+	}
+	return w, headed, nil
+}
+
+// readClaims splits the claims closing the witness off its trace.
+func (w *Witness) readClaims() {
+	if trace, claims, found := strings.Cut(w.Trace, "\n\n"+propertyPrefix); found {
+		w.Trace = trace
+		w.Property, w.Fails, _ = strings.Cut(strings.TrimSuffix(claims, "\n"), "\n"+failsPrefix)
+		return
+	}
+	if trace, fails, found := strings.Cut(w.Trace, "\n\n"+failsPrefix); found {
+		w.Trace, w.Fails = trace, strings.TrimSuffix(fails, "\n")
+	}
+}
+
+// readHeader reads a witness header: input lines as InputTaken.String spells them,
+// then choices as ChoiceTaken.String spells them, one per line or joined by `; `,
+// ending at the first blank line after it. It says whether the text has a header.
+func readHeader(text string) (w Witness, headed bool, err error) {
+	for i, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			if headed {
+				break
+			}
+			continue
+		}
+		headed = true
 		if line == "no choice points" {
 			continue
 		}
@@ -273,7 +342,7 @@ func ParseWitness(text string) (Witness, error) {
 				if errors.As(err, &parse) {
 					parse.Line = i + 1
 				}
-				return Witness{}, err
+				return Witness{}, true, err
 			}
 			w.Inputs = append(w.Inputs, in)
 			continue
@@ -285,12 +354,12 @@ func ParseWitness(text string) (Witness, error) {
 				if errors.As(err, &parse) {
 					parse.Line = i + 1
 				}
-				return Witness{}, err
+				return Witness{}, true, err
 			}
 			w.Choices = append(w.Choices, c)
 		}
 	}
-	return w, nil
+	return w, headed, nil
 }
 
 // ParseChoice reads one choice as ChoiceTaken.String spells it: `step N: T first of A, B`,
@@ -557,7 +626,9 @@ type replayMove struct {
 
 // beginStep resolves the step: the witness's move when it is at this step and each
 // of its tokens is able to act, else — with one token at most able to act — that one
-// first and the rest after; two able to act with no move for them is a refusal.
+// first and the rest after; two able to act with no move for them is a refusal. A
+// move for an earlier step is stale only at a choice point: with one token at most
+// able to act it may be a later run's, whose steps count from one again.
 func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	m := &replayMove{run: r, step: tokens.step}
 	var enabled, rest, held []int64
@@ -602,12 +673,12 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 		return m
 	}
 	switch {
+	case len(enabled) < 2:
+		m.order = slices.Concat(enabled, rest, held)
 	case c.Step > 0 && c.Step < tokens.step:
 		r.refuse(fmt.Sprintf("the run is at step %d and step %d had no such move", tokens.step, c.Step))
-	case len(enabled) >= 2:
-		r.refuse(fmt.Sprintf("step %d: the run must pick a token (%s) and the witness names none", tokens.step, able))
 	default:
-		m.order = slices.Concat(enabled, rest, held)
+		r.refuse(fmt.Sprintf("step %d: the run must pick a token (%s) and the witness names none", tokens.step, able))
 	}
 	return m
 }
@@ -675,8 +746,12 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 	if whereOf != nil && taken >= 0 {
 		c.Where = whereOf(taken)
 	}
-	if w.Kind != c.Kind || w.Step != c.Step || w.Where != c.Where {
+	if w.Kind != c.Kind || w.Where != c.Where {
 		r.refuse("the run faced " + c.Describe())
+		return 0
+	}
+	if w.Step != c.Step {
+		r.refuse(fmt.Sprintf("the run is at step %d and step %d had no such move", c.Step, w.Step))
 		return 0
 	}
 	for _, alt := range w.Among {

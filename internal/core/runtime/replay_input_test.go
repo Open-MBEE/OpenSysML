@@ -48,9 +48,10 @@ func TestParseInputReadsEverySpelling(t *testing.T) {
 	}
 }
 
-// A witness header lists its inputs before its moves; a header of inputs alone,
-// of moves alone or of neither reads back, and an input after a move is refused
-// naming its line. ParseChoices reads the moves of a header spelling no input.
+// A witness header lists its inputs before its moves and ends at a blank line,
+// what follows being the trace; a header of inputs alone, of moves alone or of
+// neither reads back, and an input after a move is refused naming its line.
+// ParseChoices reads the moves of a header spelling no input.
 func TestParseWitnessReadsInputsBeforeChoices(t *testing.T) {
 	text := "input n = 5\ninput mode = Mode::Fast\nstep 1: 2@b first of 1@a, 2@b\nstep 2: decision d -> 1->x\n\ninput late = 1\n"
 	w, err := ParseWitness(text)
@@ -60,7 +61,7 @@ func TestParseWitnessReadsInputsBeforeChoices(t *testing.T) {
 	if len(w.Inputs) != 2 || w.Inputs[1].Feature != "mode" || FormatChoices(w.Choices) != "step 1: 2@b first of 1@a, 2@b; step 2: decision d -> 1->x" {
 		t.Fatalf("read %+v", w)
 	}
-	if w.String() != "input n = 5\ninput mode = Mode::Fast\nstep 1: 2@b first of 1@a, 2@b\nstep 2: decision d -> 1->x\n" {
+	if w.Trace != "input late = 1\n" || w.String() != text {
 		t.Errorf("spelt back as\n%s", w)
 	}
 	again, err := ParseWitness(w.String())
@@ -71,7 +72,7 @@ func TestParseWitnessReadsInputsBeforeChoices(t *testing.T) {
 	if err != nil || len(inputsOnly.Inputs) != 1 || len(inputsOnly.Choices) != 0 || inputsOnly.Empty() {
 		t.Errorf("inputs alone read as %+v, %v", inputsOnly, err)
 	}
-	if inputsOnly.String() != "input n = 5\nno choice points\n" {
+	if inputsOnly.String() != "input n = 5\nno choice points\n\n" {
 		t.Errorf("inputs alone spelt as %q", inputsOnly.String())
 	}
 	movesOnly, err := ParseWitness("step 1: 2@b first of 1@a, 2@b\n")

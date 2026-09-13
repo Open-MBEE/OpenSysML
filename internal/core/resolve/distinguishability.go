@@ -173,7 +173,7 @@ func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 // duplicate. See docs/project/spec-compliance.md for the resolution gaps.
 func (r *Resolver) hasUnresolvedRedefinition(sym *symbols.Symbol) bool {
 	for _, rel := range redefinesRelationships(sym.Decl) {
-		if _, ok := r.resolveTarget(sym.OwnerScope, rel.Target, nil); !ok {
+		if _, ok := r.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, rel.Target); !ok {
 			return true
 		}
 	}
@@ -261,24 +261,26 @@ func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol
 
 // removeRedefinedFeatures drops the inherited members that are no longer
 // inherited: one whose redefinitions reach a feature an owned member redefines,
-// and one another inherited member redefines (KerML 7.4.3).
+// and one another inherited member redefines (KerML 7.4.3). An alias goes with
+// the element it names, being another membership of that same element.
 func (r *Resolver) removeRedefinedFeatures(owner *symbols.Symbol, inherited []*symbols.Symbol) []*symbols.Symbol {
 	byOwner := r.redefinedByMembers(owner.Scope)
 	var byInherited map[*symbols.Symbol]bool
 	kept := make([]*symbols.Symbol, 0, len(inherited))
 	for _, sym := range inherited {
-		if len(r.redefinedFeatures(sym)) == 0 {
-			// Nothing redefined: the closure is sym alone, so no map is built.
-			if redefinerOtherThan(byOwner[sym], sym) {
+		element := r.aliasTarget(sym)
+		if len(r.redefinedFeatures(element)) == 0 {
+			// Nothing redefined: the closure is element alone, so no map is built.
+			if redefinerOtherThan(byOwner[element], sym) {
 				continue
 			}
 			kept = append(kept, sym)
 			continue
 		}
 		// What a dropped member redefines still stops being inherited.
-		redefines := r.redefinedClosure(sym)
+		redefines := r.redefinedClosure(element)
 		for target := range redefines {
-			if target != sym {
+			if target != element {
 				if byInherited == nil {
 					byInherited = map[*symbols.Symbol]bool{}
 				}
@@ -291,7 +293,7 @@ func (r *Resolver) removeRedefinedFeatures(owner *symbols.Symbol, inherited []*s
 	}
 	out := make([]*symbols.Symbol, 0, len(kept))
 	for _, sym := range kept {
-		if !byInherited[sym] {
+		if !byInherited[r.aliasTarget(sym)] {
 			out = append(out, sym)
 		}
 	}

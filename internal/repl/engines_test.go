@@ -25,15 +25,16 @@ func TestEnginesListsEveryRegisteredEngine(t *testing.T) {
 	s := loadSource(t, engineCalcSource)
 	out := run(t, s, "%engines")
 	wantsInOrder(t, out, "engine", "authority", "answers", "status",
-		"explore", "run", "solve", "sweep")
+		"check", "explore", "run", "solve", "sweep")
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if len(lines) != 5 {
-		t.Fatalf("expected a header and four engines, got:\n%s", out)
+	if len(lines) != 6 {
+		t.Fatalf("expected a header and five engines, got:\n%s", out)
 	}
-	wants(t, lines[1], "explore", "proved", "outcomes", "ready")
-	wants(t, lines[2], "run", "observed", "evaluate", "ready")
-	wants(t, lines[3], "solve", "proved", "satisfiable")
-	wants(t, lines[4], "sweep", "observed", "sweep", "ready")
+	wants(t, lines[1], "check", "bounded", "outcomes, holds", "ready")
+	wants(t, lines[2], "explore", "proved", "outcomes", "ready")
+	wants(t, lines[3], "run", "observed", "evaluate", "ready")
+	wants(t, lines[4], "solve", "proved", "satisfiable")
+	wants(t, lines[5], "sweep", "observed", "sweep", "ready")
 }
 
 // %engine shows the selection, sets it by name, to auto or to all, and reports a

@@ -194,7 +194,7 @@ func TestRenameCapturingAQualifiedSegmentIsRefused(t *testing.T) {
 // element lacks the rest of the name, as a feature chain's outward-read member is.
 func TestRenameCapturingAQualifierWithoutTheSuffixIsRefused(t *testing.T) {
 	for _, tt := range []struct{ name, q, use string }{
-		{"redefined", "Q :> P::Old", "\t\tpart y :>> Old::x;\n"},
+		{"subsetted", "Q :> P::Old", "\t\tpart y :> Old::x;\n"},
 		{"chain", "Q", "\t\tpart d : P::Old;\n\t\tpart e :> d.Old::x;\n"},
 	} {
 		src := "package P {\n\tpart def Old { part x; }\n\tpart def " + tt.q + " {\n\t\tpart def New;\n" + tt.use + "\t}\n}\n"
@@ -208,6 +208,21 @@ func TestRenameCapturingAQualifierWithoutTheSuffixIsRefused(t *testing.T) {
 		}
 		if len(e.Referring) != 1 || e.Referring[0] != "P::Q" {
 			t.Fatalf("%s: refusal reports referring %v, want [P::Q]", tt.name, e.Referring)
+		}
+	}
+}
+
+// A redefinition's target is read from the owning type's generals and then its
+// enclosing namespace, never the owning type's own members, so a sibling of the
+// redefining feature cannot capture the respelled qualifier.
+func TestRenameQualifierOfARedefinitionIsNotCapturedByASibling(t *testing.T) {
+	const src = "package P {\n\tpart def Old { part x; }\n\tpart def Q :> P::Old {\n\t\tpart def New;\n" +
+		"\t\tpart y :>> Old::x;\n\t}\n}\n"
+	got := renamed(t, "redefinition-qualifier.sysml", src, "P::Old", "New")
+
+	for _, want := range []string{"part def New { part x; }", "part def Q :> P::New {", "part y :>> New::x;"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q:\n%s", want, got)
 		}
 	}
 }

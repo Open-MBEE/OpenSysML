@@ -32,6 +32,39 @@ verdict its body produced (repeatable)
 Invoke this calculation and report what it computed, as \-calc "Fall(3, 4)"
 (repeatable)
 .TP
+.BI \-check\-depth " value"
+With \-engine check or \-engine all: the most moves one schedule may make
+before the search backtracks, named as the depth bound hit (default 10000)
+.TP
+.BI \-check\-diverge " value"
+With \-engine check or \-engine all: report this feature divergent when
+schedules leave it with different final values, as \-check\-diverge x,
+\-check\-diverge step.out for a performed node's output or \-check\-diverge
+this.level for the performing object's, a name nothing holds refused; default
+every attribute of the action and of its performing object, the action's own
+when it has none (repeatable)
+.TP
+.BI \-check\-property " value"
+With \-engine check or \-engine all: evaluate this constraint or requirement
+at every stable state of the action, on the performing object when there is
+one, and report a schedule at which it is false (repeatable)
+.TP
+.BI \-check\-states " value"
+With \-engine check or \-engine all: the most distinct states the search may
+visit, named as the states bound hit; the same figure \-engine all gives an
+exploration as its runs (default 1000000)
+.TP
+.BI \-check\-timeout " value"
+With \-engine check or \-engine all: the time the check's plan may run for, as
+30s or 2m; a search it stops is reported incomplete with the states and depth
+reached, not as a verdict
+.TP
+.BI \-check\-witness " string"
+With \-engine check or \-engine all: write a witness file to this directory
+for each violation and each divergent value \(em the schedule's choices, a
+blank line, then the run's trace \(em which \-schedule replay:<file> and
+%replay follow
+.TP
 .BI \-compile " string"
 Compile this calc def to a native executable named by \-o, as \-compile
 Pkg::Fib
@@ -74,9 +107,11 @@ Evaluate expression and exit (shorthand)
 .BI \-engine " value"
 Analysis engine every check is put to: auto (default) picks the strongest
 engine covering the question, all puts it to every covering engine in name
-order and composes their answers, or an engine by name (run, explore, sweep,
-solve, or tool:<name> from OPENSYSML_TOOLS), whose refusal is then the answer;
-\-engine explore is \-schedule explore
+order and composes their answers, or an engine by name (run, explore, check,
+sweep, solve, or tool:<name> from OPENSYSML_TOOLS), whose refusal is then the
+answer; \-engine explore is \-schedule explore, and \-engine check searches
+every schedule of each \-action for a violation, deadlock, failure or
+divergence
 .TP
 .B \-engines
 List the analysis engines this build knows \(em name, authority, the questions

@@ -27,8 +27,10 @@ commands that share the CLI flags' code (there is no meta-command of that name),
 question is one per element with that element's condition sets as its queries, so the solver is
 found once per element and its absence is reported once, as before. Of the `Budget`, the
 fields whose limits an engine applies in its own unit are applied by it — `Runs` as `explore`'s
-runs, `sweep`'s rows (the limit `Context.RunSweep` now takes in place of the context's) and
-`solve`'s queries (the rest left unasked and the set *not covered*), `Depth` by `explore`,
+runs, `sweep`'s rows (the limit `Context.RunSweep` now takes in place of the context's),
+`solve`'s queries (the rest left unasked and the set *not covered*) and `check`'s distinct
+states (so `-engine all` with `-check-states N` gives `explore` `N` linearizations and `check`
+`N` states, one figure in two units), `Depth` by `explore` and `check`,
 `Solver` by `solve` — and each result names the bound it ran under; `Deadline` is applied by
 `Registry.Answer`, which bounds the plan's context by it so an engine that meets it returns
 `context.DeadlineExceeded` and stops the plan on that step; `Steps` and `Memory` are taken by a
@@ -659,7 +661,7 @@ reached.
 | `-sweep`, `-samples`, `%sweep`, `%samples`, `RunSweep` | `sweep` | nothing; rows run in parallel under `-jobs`; table order unchanged |
 | `%check`, `%explain`, `%solve`, `%configure`, `%optimize`, `OPENSYSML_SMT` | `solve` | nothing; `solve.Discover` becomes the engine's status in `-engines` |
 | Proposed `-check-engine smt` and `-check-*` | `smt` | the flags are `-engine smt` and the shared bounds |
-| Proposed `-check-action`, `-check-state`, `-check-diverge` | `check` | selected by `-engine check` |
+| Proposed `-check-action`, `-check-state`, `-check-diverge` | `check` | selected by `-engine check`, which puts the invocation's `-action` to the checker; `-check-property`, `-check-diverge`, `-check-witness`, `-check-depth`, `-check-states`, `-check-timeout` fill the question and the shared bounds |
 | `ToolExecution` and `ToolVariable`, parsed and unread | `tool:<name>` | new: analysis cases that name a registered tool run it |
 | `Session.mu` held for a whole REPL command | a command lock held for the command and a state lock released while a plan runs on contexts of its own | completion and the session's getters answer during a long exploration, and a `%stop`-style interruption becomes possible; a second command still waits |
 | `runtimeSemantics.mu` in the gRPC service | one resolver and semantic model per worker, a worker per request | concurrent requests on one model no longer serialize |
@@ -921,7 +923,15 @@ behavior unchanged until stage 4.
    domain, a witness the tool does not reproduce fails replay as *not covered* — is the contract
    that engine meets when it registers; nothing here encodes it.
 6. **The model checkers register.** `smt` and `check` land by their own notes' stages, each as
-   an engine from its first stage, with `all` as their referee harness.
+   an engine from its first stage, with `all` as their referee harness. *Implemented:* `check`
+   ([explicit-state design](bounded-model-checking.md), stage 2), registered in `Default()` at
+   authority *bounded*, answering `outcomes` and `holds` over an action's schedules and refusing
+   with a typed reason every other question (a state machine's is an `evaluate`), a body paused
+   mid-statement and a state and an action due together; `auto` never picks it over `explore`,
+   so no existing output moves; every violation
+   and divergent value is *witnessed* only after `runtime.ReplayAction` replayed it on the
+   plan's workers, a disagreement *not covered*; the referee test compares its outcome set with
+   `explore`'s complete table over the conformance corpus.
 
 ## What this does not change
 

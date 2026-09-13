@@ -13,7 +13,7 @@ import (
 func TestW5GFeatureWalkToleratesDeclWithoutScope(t *testing.T) {
 	r := New(symbols.NewIndex())
 	sym := &symbols.Symbol{Name: "X", Decl: &ast.Definition{}}
-	if _, ok := r.featureOf(sym, "anything", map[*symbols.Symbol]bool{}); ok {
+	if _, ok := r.featureOf(sym, "anything", newFeatureWalk(nil)); ok {
 		t.Fatal("a scope-less symbol declares no members to find")
 	}
 }

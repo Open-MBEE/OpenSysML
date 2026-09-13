@@ -111,7 +111,7 @@ func (r *Resolver) pathReaches(scope *symbols.Scope, fqn, name string, call bool
 		if cur == nil || r.AliasNamesNothing(cur) {
 			return false
 		}
-		all := r.membersNamed(scope, r.AliasedElement(cur), seg, false)
+		all := r.membersNamed(scope, r.AliasedElement(cur), seg, false, nil)
 		if len(all) != 1 {
 			return false
 		}
@@ -120,7 +120,7 @@ func (r *Resolver) pathReaches(scope *symbols.Scope, fqn, name string, call bool
 	if cur == nil || r.AliasNamesNothing(cur) {
 		return false
 	}
-	return r.denoted(r.membersNamed(scope, r.AliasedElement(cur), name, false), call)
+	return r.denoted(r.membersNamed(scope, r.AliasedElement(cur), name, false, nil), call)
 }
 
 // denoted reports whether the members a last segment names denote something:
@@ -179,7 +179,7 @@ func (r *Resolver) unquotedMembers(scope *symbols.Scope, owner *symbols.Symbol, 
 	sort.Strings(names)
 	var out []string
 	for _, name := range suggest.Unquoted(segment, names) {
-		if !r.denoted(r.membersNamed(scope, owner, name, global), call) {
+		if !r.denoted(r.membersNamed(scope, owner, name, global, nil), call) {
 			continue
 		}
 		out = append(out, prefix+"::"+suggest.Name(name))

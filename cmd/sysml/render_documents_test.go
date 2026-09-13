@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
 )
 
 // linkedModel declares two documents referencing each other's content, so the
@@ -424,7 +426,7 @@ func TestReplaceFileReplacesExistingTarget(t *testing.T) {
 	if err := os.WriteFile(target, []byte("committed\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := replaceFile(source, target); err != nil {
+	if err := fsutil.Replace(source, target); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(target)
