@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -183,6 +184,21 @@ func TestCheckHorizonLeavesAnActionWaitingPastIt(t *testing.T) {
 	}
 	if late.Verdict != CheckExhaustive || len(late.Finals) != 1 || late.Finals[0].Values["x"] != "1" {
 		t.Fatalf("without a horizon: %s, finals %+v, want x = 1", late.Status(), late.Finals)
+	}
+}
+
+// A horizon the clock cannot run to — no finite instant, or one behind the clock
+// — is refused before the search, not run to forever.
+func TestCheckRefusesAHorizonTheClockCannotReach(t *testing.T) {
+	m := tickerModel(t)
+	sym := m.state(t, "Ticker")
+	for name, at := range map[string]float64{"nan": math.NaN(), "inf": math.Inf(1), "behind": -1} {
+		t.Run(name, func(t *testing.T) {
+			_, err := Check(context.Background(), m.fresh, stateStarterOf(sym, HorizonAt(at)), CheckBudget{}, unreduced(), nil)
+			if !errors.Is(err, ErrNegativeDuration) {
+				t.Fatalf("check to a horizon at %v: %v, want %v", at, err, ErrNegativeDuration)
+			}
+		})
 	}
 }
 

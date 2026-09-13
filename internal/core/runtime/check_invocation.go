@@ -3,9 +3,12 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // Invocation is what one check searches: the behaviors started on one clock, in
@@ -39,6 +42,20 @@ func (h Horizon) Bounded() (at float64, ok bool) { return h.at, h.bounded }
 // Reaches reports whether the instant lies within the horizon.
 func (h Horizon) Reaches(t float64) bool { return !h.bounded || t <= h.at }
 
+// reachable is the refusal of a bounded horizon the clock cannot run to from
+// now: one behind it, or not a finite instant.
+func (h Horizon) reachable(now float64) error {
+	switch {
+	case !h.bounded:
+		return nil
+	case math.IsNaN(h.at) || math.IsInf(h.at, 0):
+		return fmt.Errorf("%w: a horizon at %s is no instant the clock can hold", ErrNegativeDuration, semantics.FormatReal(h.at))
+	case h.at < now:
+		return fmt.Errorf("%w: a horizon at t=%s lies behind the clock at t=%s", ErrNegativeDuration, semantics.FormatReal(h.at), semantics.FormatReal(now))
+	}
+	return nil
+}
+
 // Starter builds and starts the behaviors a check runs, in the context given; a
 // replay starts the same invocation the same way.
 type Starter func(*Context) (*Invocation, error)
@@ -47,10 +64,14 @@ type Starter func(*Context) (*Invocation, error)
 // or one in another context, wraps.
 var ErrNothingStarted = errors.New("the invocation started nothing to check")
 
-// started checks the invocation runs in ctx: at least one behavior, each started there.
+// started checks the invocation runs in ctx: at least one behavior, each started
+// there, and a horizon the clock can run to.
 func (inv *Invocation) started(ctx *Context) error {
 	if len(inv.Actions) == 0 && len(inv.States) == 0 {
 		return ErrNothingStarted
+	}
+	if err := inv.Horizon.reachable(ctx.clock.now); err != nil {
+		return err
 	}
 	for _, exec := range inv.Actions {
 		if exec.ctx != ctx {
