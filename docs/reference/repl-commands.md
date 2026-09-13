@@ -174,6 +174,13 @@ sysml> %action Gate::open
   standing: holds (proved over schedules and inputs: inputs free in their domains: limit : Integer free, assumed constraint wide)
 ```
 
+Each engine reads its own settings: `%check-diverge` and `states=<n>` are the `check`
+engine's, `%check-input`, `%check-assume` and `unroll=<n>` the `smt` engine's, and the rest
+both. A setting made that the engine selected alone does not read is refused when the action
+is checked, naming the setting and the engine that reads it, rather than dropped; under
+`%engine all` any `smt` setting, like a `%check-property`, puts the action to the `check` and
+`smt` engines as a question of what holds.
+
 A check leaves no debugging session behind — `%step` after it reports no active session — and
 changes nothing about the debuggers: `%action` under any other engine (`all` included, until a
 `%check-*` setting is made), `%step` and `%continue` step one run as before, `%schedule explore` and `%engine explore` are refused at the prompt as

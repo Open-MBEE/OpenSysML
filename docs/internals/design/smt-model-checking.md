@@ -611,14 +611,20 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    (`witness.go`), spelled as the notation does — rationals exactly, constructors qualified —
    and replayed with the moves under `replay:`: the witness file opens with `input <feature> =
    <value>` lines ahead of the `choice` lines, `runtime.ReplayOf` fixes them through the path a
-   caller's inputs take (`ActionExecutor.bindInputs`, ahead of the defaults), an input naming a
+   caller's inputs take (`ActionExecutor.bindInputs`, ahead of the defaults, on the action the
+   run begins on alone — a behavior the performing object runs of its own, or a nested step,
+   leaves them), an input naming a
    feature the behavior lacks or that cannot be set is `runtime.WitnessInputError` naming it,
    and a witness whose inputs cannot be set or that does not reach the state it claims is *not
    covered* in the interpreter's favor, as moves are; a file with no `input` line replays as in
    stage 1. `Budget.Unroll` is the loop bound `L` (`analysis.DefaultUnroll`, 4, when zero),
    `-check-unroll` sets it, and `k` is the shared `-check-depth`; `-check-input`,
-   `-check-assume` and `-check-unroll` sit on the `check` engine's flag struct, and
-   `-check-witness` writes an `smt` witness with its inputs as it writes a `check` one.
+   `-check-assume` and `-check-unroll` sit on the `check` engine's flag struct, any of them
+   makes the question `holds` as `-check-property` does (`analysis.CheckKind`), so under
+   `-engine all` it reaches `smt`, and each surface refuses a flag only the engine it left out
+   reads (`-check-diverge`, `-check-states` under `smt` alone; the three above under `check`
+   alone) naming the flag, rather than dropping it; `-check-witness` writes an `smt` witness
+   with its inputs as it writes a `check` one.
    Referee check 4 (`TestRefereeInputs`) explores the layer-4 models with a violated witness's
    inputs pinned and requires the violation reproduced; the corpus cases pin every input, so
    their fourth column is zero. Layer 4 is met; layer 6 gains the enumeration-domain and

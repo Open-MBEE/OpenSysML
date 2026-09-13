@@ -50,8 +50,8 @@ func symbolicSession(t *testing.T, source string) *Session {
 // Under %engine smt the property is proved on the inputs as written, unrolled
 // to the engine's own move bound; once %check-input releases the bound one, it
 // is decided over every value of it, the witness names the value the solver
-// chose and the file opens with it. Under %engine check the same settings are
-// refused, and without the release the same question holds on the inputs as
+// chose and the file opens with it. Under %engine check the release is refused
+// as smt's alone, and without it the same question holds on the inputs as
 // written: each report says why.
 func TestEngineSMTRangesOverAReleasedInput(t *testing.T) {
 	s := symbolicSession(t, gateSource)
@@ -84,7 +84,7 @@ func TestEngineSMTRangesOverAReleasedInput(t *testing.T) {
 	}
 
 	run(t, s, "%engine check")
-	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved, "check cannot leave the inputs free")
+	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved, "%check-input is the smt engine's, which %engine check leaves out")
 	run(t, s, "%check-input off")
 	wantVerdict(t, s.RunAction("Gate::open"), VerdictHolds,
 		"no violation, exhaustive",
@@ -158,4 +158,54 @@ func TestEngineSMTRefusesAnUnknownInput(t *testing.T) {
 	run(t, s, "%check-property Gate::open::positive")
 	run(t, s, "%check-input nothing")
 	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved, "nothing", "no such feature")
+}
+
+// A setting the smt engine alone reads, with no property named, puts the action to
+// smt under %engine all: a released input or an assumption beside check's
+// refusal, the unroll bound beside check's own answer.
+func TestEngineAllPutsSMTOnlySettingsToSMT(t *testing.T) {
+	for _, tc := range []struct {
+		name, setting, plan string
+	}{
+		{"input", "%check-input limit", "all: check refused (check cannot leave the inputs free), smt holds (proved)"},
+		{"assume", "%check-assume Gate::open::wide", "all: check refused (check cannot leave the inputs free), smt holds (proved)"},
+		{"unroll", "%check-bounds unroll=2", "all: check holds (bounded), smt holds (proved)"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := symbolicSession(t, gateSource)
+			run(t, s, "%engine all")
+			run(t, s, tc.setting)
+			v := s.RunAction("Gate::open")
+			wantVerdict(t, v, VerdictHolds, "✓ Action Gate::open: holds", tc.plan)
+			for _, step := range v.Plan.Steps {
+				if step.Engine == analysis.ExploreEngineName {
+					t.Errorf("explore took part in a holds question: %+v", v.Plan.Steps)
+				}
+			}
+		})
+	}
+}
+
+// A setting one engine alone reads is refused under the other engine alone,
+// naming it, rather than dropped from the question.
+func TestEngineRefusesTheOtherEnginesSettings(t *testing.T) {
+	s := loadSource(t, gateSource)
+	run(t, s, "%engine smt")
+	run(t, s, "%check-diverge n")
+	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved,
+		"%check-diverge is the check engine's, which %engine smt leaves out; select it, as %engine check, or every engine, as %engine all")
+	run(t, s, "%check-bounds states=3")
+	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved,
+		"%check-diverge and %check-bounds states are the check engine's, which %engine smt leaves out")
+	run(t, s, "%check-diverge off")
+	run(t, s, "%check-bounds off")
+
+	run(t, s, "%engine check")
+	run(t, s, "%check-input limit")
+	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved,
+		"%check-input is the smt engine's, which %engine check leaves out; select it, as %engine smt, or every engine, as %engine all")
+	run(t, s, "%check-assume Gate::open::wide")
+	run(t, s, "%check-bounds unroll=2")
+	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved,
+		"%check-input, %check-assume and %check-bounds unroll are the smt engine's, which %engine check leaves out")
 }

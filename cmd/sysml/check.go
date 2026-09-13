@@ -161,23 +161,73 @@ func (c *checks) requested() bool {
 		c.sweeping() || c.checker.given()
 }
 
+// explicitOnly names the -check-* flags written that the check engine alone reads.
+func (o *checkerOptions) explicitOnly() []string {
+	var written []string
+	if len(o.diverge) > 0 {
+		written = append(written, "-check-diverge")
+	}
+	if o.states.given {
+		written = append(written, "-check-states")
+	}
+	return written
+}
+
+// symbolicOnly names the -check-* flags written that the smt engine alone reads.
+func (o *checkerOptions) symbolicOnly() []string {
+	var written []string
+	if len(o.inputs) > 0 {
+		written = append(written, "-check-input")
+	}
+	if len(o.assume) > 0 {
+		written = append(written, "-check-assume")
+	}
+	if o.unroll.given {
+		written = append(written, "-check-unroll")
+	}
+	return written
+}
+
 // checkerMisuse reports why the -check-* flags written check nothing under the
 // engine selected, and "" when they check an action: under -engine check or
-// -engine smt always, under -engine all when one of them is written.
+// -engine smt always, each reading the flags it has, under -engine all when one
+// of them is written.
 func (c *checks) checkerMisuse(engine string) string {
 	selection := analysis.ParseSelection(engine)
-	checking := selection == analysis.Only(analysis.CheckEngineName) ||
-		selection == analysis.Only(analysis.SMTEngineName) ||
-		selection.Mode == analysis.SelectAll && c.checker.given()
+	checkOnly, symbolic := selection == analysis.Only(analysis.CheckEngineName), selection == analysis.Only(analysis.SMTEngineName)
+	checking := checkOnly || symbolic || selection.Mode == analysis.SelectAll && c.checker.given()
 	switch {
 	case c.checker.given() && !checking:
 		return "-check-diverge, -check-property, -check-input, -check-assume, -check-witness, -check-depth, -check-states, -check-unroll and -check-timeout are the check and smt engines'; select one, as -engine check or -engine smt, or every engine, as -engine all"
+	case checkOnly && len(c.checker.symbolicOnly()) > 0:
+		return flagMisuse(c.checker.symbolicOnly(), analysis.SMTEngineName, analysis.CheckEngineName)
+	case symbolic && len(c.checker.explicitOnly()) > 0:
+		return flagMisuse(c.checker.explicitOnly(), analysis.CheckEngineName, analysis.SMTEngineName)
 	case c.checker.given() && len(c.actions) == 0:
 		return "the -check-* flags search an action's schedules; name one, as -action <name>"
 	case checking && c.advance.given:
 		return "-advance runs behaviors on one clock, which a search of every schedule of an action does not; drop one of them"
 	}
 	return ""
+}
+
+// flagMisuse spells the flags written that reader alone reads, which -engine
+// selected leaves out.
+func flagMisuse(written []string, reader, selected string) string {
+	verb := "are"
+	if len(written) == 1 {
+		verb = "is"
+	}
+	return fmt.Sprintf("%s %s the %s engine's, which -engine %s leaves out; select it, as -engine %s, or every engine, as -engine all",
+		spelled(written), verb, reader, selected, reader)
+}
+
+// spelled lists names as prose: `a`, `a and b`, `a, b and c`.
+func spelled(names []string) string {
+	if len(names) < 2 {
+		return strings.Join(names, "")
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }
 
 // sweeping reports whether a sweep or a sample of one was asked for.

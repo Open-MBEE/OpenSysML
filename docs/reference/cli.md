@@ -1160,10 +1160,13 @@ The `inputs:` line lists every feature the encoding pinned or freed — `limit =
 `limit : Integer free` ranging — and the standing says which claim was made: *proved over
 schedules: inputs as written* when every input was pinned, *proved over schedules and inputs:
 inputs free in their domains: …* when some ranged, *inputs chosen from their domains* on a
-violation, naming the values the solver picked. `-engine check` and `-engine explore` on the
-same command still find no violation, since they run the inputs as written, and their standing
+violation, naming the values the solver picked. `-engine check` and `-engine explore` without
+the release still find no violation, since they run the inputs as written, and their standing
 says so; under `-engine all` the plan shows `check refused (check cannot leave the inputs
-free)` beside `smt`'s answer whenever an input is free.
+free)` beside `smt`'s answer whenever an input is free. Any of `-check-input`, `-check-assume`
+and `-check-unroll` alone, with no `-check-property`, makes the question one of what holds, so
+under `-engine all` it reaches `smt` (and `check`, which refuses the first two) rather than the
+exploration.
 
 `-check-assume <name>` asserts a constraint or requirement over the initial state, so the
 claim is made only for the inputs it admits; each assumption is listed on an `assumed:` line
@@ -1203,8 +1206,10 @@ does not have is refused naming it.
 `smt`), `-check-unroll` the iterations of one loop unrolled within it (default 4) and
 `-check-timeout` the solver's clock; a bound hit is named in the standing and the claim is
 *bounded*, not *proved*. `-check-input`, `-check-assume` or `-check-unroll` without `-engine smt`
-or `-engine all` is refused before anything runs; `-check-input` naming no feature the action
-reads, and `-check-assume` naming a constraint the translator cannot encode, are refused naming
+or `-engine all` is refused before anything runs, naming the flag as the `smt` engine's, as
+`-check-diverge` or `-check-states` under `-engine smt` alone is refused as the `check`
+engine's — a flag only the engine left out would read is never dropped silently;
+`-check-input` naming no feature the action reads, and `-check-assume` naming a constraint the translator cannot encode, are refused naming
 it before the solver is asked, and the check is *not covered*.
 
 With `-json` the `smt` engine's `results[]` entry carries `inputs[]` — each with its `name`,

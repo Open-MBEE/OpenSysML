@@ -1369,6 +1369,7 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
 	defer ctx.clock.detach(exec)
+	exec.beginsRun = top
 
 	// Bind inputs before initialization so they seed the initial token.
 	if len(inputs) > 0 {
@@ -1509,6 +1510,7 @@ func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self 
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
+	exec.beginsRun = true
 	if len(inputs) > 0 {
 		exec.SetInputs(inputs)
 	}

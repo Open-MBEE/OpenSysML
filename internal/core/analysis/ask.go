@@ -159,9 +159,12 @@ func (r *Registry) Check(ctx context.Context, req Request, kind Kind, free Freed
 	})
 }
 
-// CheckKind is what a check asks: Holds once a property or condition is stated, else Outcomes.
-func CheckKind(check *CheckAsk, holds *HoldsAsk) Kind {
-	if check != nil && len(check.Properties) > 0 || holds != nil && len(holds.Conditions) > 0 {
+// CheckKind is what a check asks: Holds once a property or condition is stated, an
+// input released, an assumption made or the unroll bound set (what a symbolic
+// engine alone answers or reads), else Outcomes.
+func CheckKind(check *CheckAsk, holds *HoldsAsk, unroll int) Kind {
+	if check != nil && len(check.Properties) > 0 || unroll > 0 ||
+		holds != nil && (len(holds.Conditions) > 0 || len(holds.Inputs) > 0 || len(holds.Assume) > 0) {
 		return Holds
 	}
 	return Outcomes

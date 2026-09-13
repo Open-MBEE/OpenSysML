@@ -117,6 +117,21 @@ const inputModel = `package test {
 	}
 }`
 
+// performerInputModel is gate performed by an object whose type performs an
+// action of its own that declares an n too.
+var performerInputModel = strings.TrimSuffix(inputModel, "}") + `
+	action def Warm {
+		in n : Integer = 0;
+		attribute warmed : Integer = 0;
+		first start;
+		action mark { assign warmed := n; }
+		done;
+		succession first start then mark;
+		succession first mark then done;
+	}
+	part def Rig { perform action warm : Warm; }
+}`
+
 // A witness's inputs are fixed before the run's first move, through the path a
 // caller's inputs take: a parameter gets its value, an attribute's default is
 // overridden, and an enumeration value keeps its literal.
@@ -209,6 +224,36 @@ func TestReplayFixesWitnessInputs(t *testing.T) {
 	t.Run("unreadable value", func(t *testing.T) {
 		refused(t, Witness{Inputs: []InputTaken{{Feature: "n", Written: "5 +"}}}, "n", "not an expression")
 		refused(t, Witness{Inputs: []InputTaken{{Feature: "n", Written: "nowhere"}}}, "n", "does not evaluate")
+	})
+	t.Run("a performer's behaviors leave them", func(t *testing.T) {
+		m := parseExploreModel(t, performerInputModel)
+		rigs, slow := m.idx.LookupQualified("test::Rig"), m.idx.LookupQualified("test::Mode::Slow")
+		if len(rigs) != 1 || len(slow) != 1 {
+			t.Fatalf("Rig indexed %d times, Mode::Slow %d", len(rigs), len(slow))
+		}
+		ctx, _ := m.fresh()
+		mustSchedule(t, ctx, ReplayOf(Witness{Inputs: []InputTaken{InputOf("n", intOf(5))}}))
+		rig, err := ctx.Instantiate(rigs[0])
+		if err != nil {
+			t.Fatalf("materializing the performer: %v", err)
+		}
+		warm, ok := rig.Behavior("warm")
+		if !ok || warm.Action == nil {
+			t.Fatalf("the performer runs %v, want the action warm", rig.Behaviors())
+		}
+		if held := warm.Action.Results(); FormatValue(held["n"]) != "0" || FormatValue(held["warmed"]) != "0" {
+			t.Errorf("the performer's behavior took the witness's n: %v", held)
+		}
+		out, err := ctx.ExecuteActionPerformedBy(m.action(t, "gate"), rig, map[string]Value{"mode": NewEnumLiteral(slow[0])})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if FormatValue(out["n"]) != "5" || FormatValue(out["over"]) != "true" || FormatValue(out["fast"]) != "false" {
+			t.Errorf("held %v", out)
+		}
+		if err := ctx.Unfollowed(); err != nil {
+			t.Error(err)
+		}
 	})
 	t.Run("no performance took them", func(t *testing.T) {
 		ctx, _ := m.fresh()

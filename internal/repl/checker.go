@@ -52,6 +52,60 @@ func (c checkSettings) frees() analysis.Freedom {
 	return analysis.FreeNothing
 }
 
+// explicitOnly names the settings made that the check engine alone reads.
+func (c checkSettings) explicitOnly() []string {
+	var made []string
+	if len(c.diverge) > 0 {
+		made = append(made, "%check-diverge")
+	}
+	if c.states > 0 {
+		made = append(made, "%check-bounds states")
+	}
+	return made
+}
+
+// symbolicOnly names the settings made that the smt engine alone reads.
+func (c checkSettings) symbolicOnly() []string {
+	var made []string
+	if len(c.inputs) > 0 {
+		made = append(made, "%check-input")
+	}
+	if len(c.assume) > 0 {
+		made = append(made, "%check-assume")
+	}
+	if c.unroll > 0 {
+		made = append(made, "%check-bounds unroll")
+	}
+	return made
+}
+
+// checkerMisuse reports why a check setting made checks nothing under the engine
+// selected alone, and "" when every setting made reaches an engine that reads it.
+func (s *Session) checkerMisuse() string {
+	switch {
+	case s.checkOnly() && len(s.checker.symbolicOnly()) > 0:
+		return misuseText(s.checker.symbolicOnly(), analysis.SMTEngineName, analysis.CheckEngineName)
+	case s.symbolic() && len(s.checker.explicitOnly()) > 0:
+		return misuseText(s.checker.explicitOnly(), analysis.CheckEngineName, analysis.SMTEngineName)
+	}
+	return ""
+}
+
+// misuseText spells the settings made that reader alone reads, which %engine
+// selected leaves out.
+func misuseText(made []string, reader, selected string) string {
+	return fmt.Sprintf("%s %s the %s engine's, which %%engine %s leaves out; select it, as %%engine %s, or every engine, as %%engine all",
+		spelled(made), plural(len(made), "is", "are"), reader, selected, reader)
+}
+
+// spelled lists names as prose: `a`, `a and b`, `a, b and c`.
+func spelled(names []string) string {
+	if len(names) < 2 {
+		return strings.Join(names, "")
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+}
+
 // checking reports whether the session's selection puts an action to the check
 // engines, which decide its schedules rather than stepping one run: under
 // %engine check or %engine smt always, under %engine all once a check setting is made.
@@ -289,11 +343,14 @@ func (s *Session) doReplay(args []string) []string {
 // checkAction decides every schedule of the action: a violation, a deadlock, a
 // failure or a divergence of the selected features, witnesses replayed and written.
 func (s *Session) checkAction(name string, performer []string) Verdict {
+	if misuse := s.checkerMisuse(); misuse != "" {
+		return unresolvedVerdict(name, misuse)
+	}
 	asks, err := s.checkAsks(name, performer)
 	if err != nil {
 		return unresolvedVerdict(name, err.Error())
 	}
-	kind := analysis.CheckKind(asks.check, asks.holds)
+	kind := analysis.CheckKind(asks.check, asks.holds, s.checker.unroll)
 	if s.symbolic() {
 		kind = analysis.Holds
 	}

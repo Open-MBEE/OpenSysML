@@ -52,7 +52,10 @@ type ActionExecutor struct {
 	// counts those begun. A token a sweep moved is not an arrival until the sweep ends.
 	sweep, sweeps uint64
 	inputs        map[string]Value // Input parameter bindings, applied over attribute defaults
-	pausedAt      string           // Node name RunToCompletion stopped at, empty when it ran to the end
+	// beginsRun marks the performance the caller begins a run on, the one a
+	// replayed witness's inputs are fixed on (see fixWitnessInputs).
+	beginsRun bool
+	pausedAt  string // Node name RunToCompletion stopped at, empty when it ran to the end
 	// released is set once Release has ended the run for good.
 	released bool
 	// pauses counts the body pauses so far, ordering the paused runs' resumption.
@@ -1035,9 +1038,13 @@ func (e *ActionExecutor) bindInputs() error {
 	return nil
 }
 
-// fixWitnessInputs takes the inputs the run's replayed witness fixes, when this
-// performance begins the run, ahead of the caller's inputs and the defaults.
+// fixWitnessInputs takes the inputs the run's replayed witness fixes, when the
+// caller begins the run on this performance, ahead of the caller's inputs and the
+// defaults. A behavior an object runs of its own or a nested step leaves them.
 func (e *ActionExecutor) fixWitnessInputs() error {
+	if !e.beginsRun {
+		return nil
+	}
 	witness := e.ctx.scheduling().witnessInputs()
 	if len(witness) == 0 {
 		return nil
