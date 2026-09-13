@@ -63,6 +63,8 @@ type Encoding struct {
 	releases []string
 	released map[string]bool
 	fresh    int
+	// pair is the two-copy relation, built on first use.
+	pair *Pair
 }
 
 // pin is one feature a node's performance holds, and its declared default.
@@ -132,8 +134,7 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 	e.Query.Sorts = append(e.Query.Sorts, translator.Sorts()...)
 	for i := 0; i <= k; i++ {
 		e.States = append(e.States, newState(e.Sorts, f, i))
-		e.declare(e.States[i].vars(e.Features)...)
-		e.declareFlags(e.States[i])
+		e.declare(e.stateVars(e.States[i])...)
 	}
 	for i := 1; i <= k; i++ {
 		m := newMove(e.Sorts, f, i)
@@ -169,14 +170,16 @@ func (e *Encoding) declare(vars ...*solve.Var) {
 	e.Query.Vars = append(e.Query.Vars, vars...)
 }
 
-// declareFlags declares the state's copies of the flags saying which features
-// hold a value.
-func (e *Encoding) declareFlags(s *State) {
+// stateVars lists every variable of the state: the state vector, the feature
+// copies and the flags saying which features hold a value.
+func (e *Encoding) stateVars(s *State) []*solve.Var {
+	vars := s.vars(e.Features)
 	for _, base := range e.Features {
 		if e.flagged[base.Name] {
-			e.declare(s.has(base))
+			vars = append(vars, s.has(base))
 		}
 	}
+	return vars
 }
 
 // assert adds an assertion about role of the relation.

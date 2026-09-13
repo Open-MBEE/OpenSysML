@@ -354,6 +354,13 @@ func divergenceFile(subject, performer, feature string, n int) string {
 	return fmt.Sprintf("%s-%s-%d.witness", checkedName(subject, performer), fileSegments(feature, "."), n)
 }
 
+// SensitivityFile names one witness of a pair of schedules ending with different
+// values of a feature, `test.race-x-A.witness` and `test.race-x-B.witness`: the
+// checked name, the feature's segments and the copy, `A` or `B`, that ran it.
+func SensitivityFile(subject, performer, feature, copy string) string {
+	return fmt.Sprintf("%s-%s-%s.witness", checkedName(subject, performer), fileSegments(feature, "."), copy)
+}
+
 // checkedName is the subject's segments and, after `@`, the performer's when an
 // object performs it: `Plant.Tank.fill@Plant.tank`, one name per action and object.
 func checkedName(subject, performer string) string {
