@@ -359,42 +359,10 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		return sym, ok
 	}
 	if ref.Chain != nil {
-		var (
-			owner *symbols.Symbol
-			ok    bool
-		)
-		if ref.Redefines {
-			owner, ok = r.redefinedChainOperand(ref.Scope, ref.Chain, ref.Referrer)
-		} else {
-			owner, ok = r.resolveTarget(ref.Scope, ref.Chain.Operand, hide)
-		}
-		if !ok {
-			return nil, false
-		}
-		// A qualified segment the owner has no member for reads outward, as
-		// resolveFeatureChain does.
-		if len(ref.QN.Parts) > 1 {
-			if _, member := r.chainMember(owner, ref.QN.Parts[0].Text, ref.Chain); !member {
-				var outward *symbols.Symbol
-				if r.probe(ref.QN, func() bool {
-					outward, ok = r.resolveQualified(ref.Scope, ref.QN, hide)
-					return ok
-				}) {
-					return outward, true
-				}
-			}
-		}
-		return r.memberChain(owner, ref.QN, ref.Chain)
+		return r.resolveChainSegment(ref, hide)
 	}
 	if ref.Constructed != nil {
-		if ref.QN != nil && len(ref.QN.Parts) > 1 {
-			return r.resolveQualified(ref.Scope, ref.QN, hide)
-		}
-		owner, ok := r.resolveQualified(ref.Scope, ref.Constructed, hide)
-		if !ok {
-			return nil, false
-		}
-		return r.memberChain(owner, ref.QN, nil)
+		return r.resolveConstructedName(ref, hide)
 	}
 	if ref.Redefines {
 		// A subsetting reaches a sibling redefinition first, as resolveRelationships does.
@@ -413,6 +381,50 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		return r.ResolveInvocationName(ref.Scope, ref.QN)
 	}
 	return r.resolveQualified(ref.Scope, ref.QN, hide)
+}
+
+// resolveChainSegment resolves ref as a segment of the feature chain it is
+// written in: a member of the chain's operand, or outward when the operand has none.
+func (r *Resolver) resolveChainSegment(ref Reference, hide *refFilter) (*symbols.Symbol, bool) {
+	var (
+		owner *symbols.Symbol
+		ok    bool
+	)
+	if ref.Redefines {
+		owner, ok = r.redefinedChainOperand(ref.Scope, ref.Chain, ref.Referrer)
+	} else {
+		owner, ok = r.resolveTarget(ref.Scope, ref.Chain.Operand, hide)
+	}
+	if !ok {
+		return nil, false
+	}
+	// A qualified segment the owner has no member for reads outward, as
+	// resolveFeatureChain does.
+	if len(ref.QN.Parts) > 1 {
+		if _, member := r.chainMember(owner, ref.QN.Parts[0].Text, ref.Chain); !member {
+			var outward *symbols.Symbol
+			if r.probe(ref.QN, func() bool {
+				outward, ok = r.resolveQualified(ref.Scope, ref.QN, hide)
+				return ok
+			}) {
+				return outward, true
+			}
+		}
+	}
+	return r.memberChain(owner, ref.QN, ref.Chain)
+}
+
+// resolveConstructedName resolves ref as a member of the constructed owner it
+// is written under, unless it is qualified and so read from ref.Scope.
+func (r *Resolver) resolveConstructedName(ref Reference, hide *refFilter) (*symbols.Symbol, bool) {
+	if ref.QN != nil && len(ref.QN.Parts) > 1 {
+		return r.resolveQualified(ref.Scope, ref.QN, hide)
+	}
+	owner, ok := r.resolveQualified(ref.Scope, ref.Constructed, hide)
+	if !ok {
+		return nil, false
+	}
+	return r.memberChain(owner, ref.QN, nil)
 }
 
 // headScope is the scope ref, written in a head relationship, resolves in as the

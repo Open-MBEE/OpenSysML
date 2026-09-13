@@ -177,7 +177,7 @@ func TestFootprintDependence(t *testing.T) {
 		if got != tc.dependent {
 			t.Errorf("%s ~ %s = %v, want %v (%s)\n%s\n%s", tc.a, tc.b, got, tc.dependent, tc.why, fp(tc.a), fp(tc.b))
 		}
-		if back := fp(tc.b).Dependent(fp(tc.a)); back != got {
+		if fp(tc.b).Dependent(fp(tc.a)) != got {
 			t.Errorf("%s ~ %s is not symmetric", tc.a, tc.b)
 		}
 	}
@@ -538,7 +538,7 @@ func TestFootprintAliasesMeet(t *testing.T) {
 		if got := tc.p.Conflicts(tc.q); got != tc.conflicts {
 			t.Errorf("%v ~ %v = %v, want %v (%s)", tc.p, tc.q, got, tc.conflicts, tc.why)
 		}
-		if back := tc.q.Conflicts(tc.p); back != tc.conflicts {
+		if tc.q.Conflicts(tc.p) != tc.conflicts {
 			t.Errorf("%v ~ %v is not symmetric", tc.p, tc.q)
 		}
 	}
