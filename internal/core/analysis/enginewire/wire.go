@@ -224,8 +224,25 @@ type Result struct {
 	Executions []Witness `json:"executions,omitempty"`
 	Reason     string    `json:"reason,omitempty"`
 	Values     []Value   `json:"values,omitempty"`
+	// Inputs is the engine's account of the initial state it ranged over or pinned; a
+	// witness's inputs stand for it when absent.
+	Inputs []Input `json:"inputs,omitempty"`
+	// Assumptions name the constraints the engine assumed over the initial state.
+	Assumptions []string `json:"assumptions,omitempty"`
 	// Elapsed is the engine's own time in milliseconds.
 	Elapsed int64 `json:"elapsed,omitempty"`
+}
+
+// Input is one feature of the initial state as a result accounts for it: free over its
+// domain or pinned, with the value a witness chose spelled as notation.
+type Input struct {
+	Name     string `json:"name"`
+	Type     string `json:"type,omitempty"`
+	Sort     string `json:"sort,omitempty"`
+	Domain   string `json:"domain,omitempty"`
+	Free     bool   `json:"free,omitempty"`
+	Optional bool   `json:"optional,omitempty"`
+	Value    string `json:"value,omitempty"`
 }
 
 // Witness is one execution or assignment the host checks. A schedule witness has one
@@ -238,7 +255,8 @@ type Witness struct {
 	At *int `json:"at,omitempty"`
 	// Feature is what two schedules of a sensitivity diverge on.
 	Feature string `json:"feature,omitempty"`
-	// Inputs are the values of the free features.
+	// Inputs are the values of the free features: for a schedule, those the run fixes
+	// before its first move; for an assignment, the whole witness.
 	Inputs []Value `json:"inputs,omitempty"`
 }
 

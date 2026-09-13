@@ -10,47 +10,49 @@ import (
 // ScheduleEnd asks ReplaySchedule for the run's end, every move followed.
 const ScheduleEnd = -1
 
-// ReplaySchedule re-runs the schedule the choices fix, start beginning the action in the
-// context fresh makes under the `replay` policy, to the stable state after move at
-// (1-based) or, at ScheduleEnd, until the run completes with every choice followed. A run
-// that cannot follow a choice, completes or fails before the move, or ends with choices left
-// is a ReplayDisagreement; a failure at the move named, or ending the run, is the Replayed's
-// Err, for the caller to judge against the claim.
+// ReplaySchedule re-runs the schedule the witness fixes, start beginning the action in the
+// context fresh makes under the `replay` policy with the witness's inputs fixed first, to
+// the stable state after move at (1-based) or, at ScheduleEnd, until the run completes with
+// every choice followed. A run that cannot follow a choice or fix an input, completes or
+// fails before the move, or ends with choices left is a ReplayDisagreement; a failure at
+// the move named, or ending the run, is the Replayed's Err, for the caller to judge
+// against the claim.
 func ReplaySchedule(
-	stop context.Context, fresh func() (*Context, error), start ActionStarter, choices []ChoiceTaken, at int,
+	stop context.Context, fresh func() (*Context, error), start ActionStarter, w Witness, at int,
 ) (*Replayed, error) {
-	return replaySchedule(stop, fresh, start, choices, at, nil)
+	return replaySchedule(stop, fresh, start, w, at, nil)
 }
 
 // ReplayExecution re-runs the whole schedule as ReplaySchedule does at ScheduleEnd, calling
 // visit at every stable state on the way, settled as a check settles, with the moves made so
 // far. An error visit returns ends the replay with it.
 func ReplayExecution(
-	stop context.Context, fresh func() (*Context, error), start ActionStarter, choices []ChoiceTaken,
+	stop context.Context, fresh func() (*Context, error), start ActionStarter, w Witness,
 	visit func(r *Replayed, moves int) error,
 ) (*Replayed, error) {
-	return replaySchedule(stop, fresh, start, choices, ScheduleEnd, visit)
+	return replaySchedule(stop, fresh, start, w, ScheduleEnd, visit)
 }
 
 // replaySchedule is ReplaySchedule with an optional visitor of every settled state.
 func replaySchedule(
-	stop context.Context, fresh func() (*Context, error), start ActionStarter, choices []ChoiceTaken, at int,
+	stop context.Context, fresh func() (*Context, error), start ActionStarter, w Witness, at int,
 	visit func(r *Replayed, moves int) error,
 ) (*Replayed, error) {
 	if err := stop.Err(); err != nil {
 		return nil, err
 	}
+	choices := w.Choices
 	if at != ScheduleEnd && (at < 0 || at > len(choices)) {
 		return nil, &ReplayDisagreement{
 			Reason:  fmt.Sprintf("the witness names move %d of a schedule of %d moves", at, len(choices)),
-			Witness: spellChoices(choices),
+			Witness: spellWitness(w),
 		}
 	}
 	ctx, err := fresh()
 	if err != nil {
 		return nil, err
 	}
-	if err := ctx.SetSchedule(ReplayPolicy(choices)); err != nil {
+	if err := ctx.SetSchedule(ReplayOf(Witness{Inputs: w.Inputs, Choices: choices})); err != nil {
 		return nil, err
 	}
 	if ctx.Trace() == nil {
@@ -60,7 +62,7 @@ func replaySchedule(
 	exec, err := start(ctx)
 	if err != nil {
 		r.Err = err
-		return r, r.disagreeOnSchedule(choices, "starting the action failed: "+err.Error())
+		return r, r.disagreeOnSchedule(w, "starting the action failed: "+err.Error())
 	}
 	r.Exec = exec
 	for {
@@ -74,11 +76,11 @@ func replaySchedule(
 					return r, err
 				}
 				r.Err = err
-				if errors.Is(err, ErrReplayRefused) {
-					return r, r.disagreeOnSchedule(choices, err.Error())
+				if errors.Is(err, ErrReplayRefused) || errors.Is(err, ErrWitnessInput) {
+					return r, r.disagreeOnSchedule(w, err.Error())
 				}
 				if left := ctx.Unfollowed(); left != nil {
-					return r, r.disagreeOnSchedule(choices, left.Error())
+					return r, r.disagreeOnSchedule(w, left.Error())
 				}
 				return r, nil
 			}
@@ -97,10 +99,10 @@ func replaySchedule(
 		}
 		if exec.State() == StateCompleted {
 			if at != ScheduleEnd {
-				return r, r.disagreeOnSchedule(choices, fmt.Sprintf("the run completed after %d moves, before move %d", taken, at))
+				return r, r.disagreeOnSchedule(w, fmt.Sprintf("the run completed after %d moves, before move %d", taken, at))
 			}
 			if err := ctx.Unfollowed(); err != nil {
-				return r, r.disagreeOnSchedule(choices, err.Error())
+				return r, r.disagreeOnSchedule(w, err.Error())
 			}
 			return r, nil
 		}
@@ -109,30 +111,30 @@ func replaySchedule(
 		if err := exec.advance(); err != nil {
 			r.Err = err
 			switch {
-			case errors.Is(err, ErrReplayRefused):
-				return r, r.disagreeOnSchedule(choices, err.Error())
+			case errors.Is(err, ErrReplayRefused), errors.Is(err, ErrWitnessInput):
+				return r, r.disagreeOnSchedule(w, err.Error())
 			case at != ScheduleEnd:
-				return r, r.disagreeOnSchedule(choices, fmt.Sprintf("the run failed after %d moves, before move %d: %v", taken, at, err))
+				return r, r.disagreeOnSchedule(w, fmt.Sprintf("the run failed after %d moves, before move %d: %v", taken, at, err))
 			}
 			if left := ctx.Unfollowed(); left != nil {
-				return r, r.disagreeOnSchedule(choices, left.Error())
+				return r, r.disagreeOnSchedule(w, left.Error())
 			}
 			return r, nil
 		}
 		if len(ctx.Trace().Entries()) == before && ctx.clock.now == now && exec.State() == StateWaiting {
-			return r, r.disagreeOnSchedule(choices, fmt.Sprintf("the run is stuck after %d moves", taken))
+			return r, r.disagreeOnSchedule(w, fmt.Sprintf("the run is stuck after %d moves", taken))
 		}
 	}
 }
 
-// disagreeOnSchedule is a schedule replay's disagreement, the schedule standing for the witness.
-func (r *Replayed) disagreeOnSchedule(choices []ChoiceTaken, reason string) error {
-	return &ReplayDisagreement{Reason: reason, Witness: spellChoices(choices), Trace: r.Ctx.Trace().String()}
+// disagreeOnSchedule is a schedule replay's disagreement, the witness spelt without its trace.
+func (r *Replayed) disagreeOnSchedule(w Witness, reason string) error {
+	return &ReplayDisagreement{Reason: reason, Witness: spellWitness(w), Trace: r.Ctx.Trace().String()}
 }
 
-// spellChoices spells the schedule as its witness file holds it.
-func spellChoices(choices []ChoiceTaken) string {
-	return Witness{Choices: choices}.String()
+// spellWitness spells the witness's inputs and schedule as its file holds them.
+func spellWitness(w Witness) string {
+	return Witness{Inputs: w.Inputs, Choices: w.Choices}.String()
 }
 
 // Evaluate asks the property of the replayed run's state under a readiness probe, as the check did.

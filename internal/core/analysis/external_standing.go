@@ -78,6 +78,7 @@ func (e externalEngine) stand(ctx context.Context, model *Model, q Question, bud
 		return Result{}, err
 	}
 	result.Values = values
+	result.Inputs, result.Assumptions = hostInputs(answer.Inputs), answer.Assumptions
 	if claim == ClaimNone {
 		result.Reason = reported
 		if answer.Reason != "" {
@@ -109,6 +110,9 @@ func (e externalEngine) stand(ctx context.Context, model *Model, q Question, bud
 	}
 	result.Claim, result.Strength, result.Reason = claim, stood.strength, stood.reason
 	result.Witness, result.Contrast, result.Executions = stood.witness, stood.contrast, stood.executions
+	if len(result.Inputs) == 0 {
+		result.Inputs = stood.inputs
+	}
 	if len(stood.values) > 0 {
 		result.Values = stood.values
 	}
@@ -123,6 +127,7 @@ type standing struct {
 	witness    *Witness
 	contrast   *Witness
 	executions []Witness
+	inputs     []Input
 	values     []Evaluation
 	err        error
 }
@@ -159,6 +164,18 @@ func hostBounds(bounds []enginewire.Bound) Bounds {
 	out := make(Bounds, len(bounds))
 	for i, b := range bounds {
 		out[i] = Bound{Name: b.Name, Limit: b.Limit, Reached: b.Reached}
+	}
+	return out
+}
+
+// hostInputs is the engine's account of the initial state as the framework lists it.
+func hostInputs(inputs []enginewire.Input) []Input {
+	if len(inputs) == 0 {
+		return nil
+	}
+	out := make([]Input, len(inputs))
+	for i, in := range inputs {
+		out[i] = Input{Name: in.Name, Type: in.Type, Sort: in.Sort, Domain: in.Domain, Free: in.Free, Optional: in.Optional, Value: in.Value}
 	}
 	return out
 }
@@ -205,19 +222,22 @@ func hostValue(ctx *runtime.Context, v enginewire.Value) (runtime.Value, error) 
 	return runtime.NewQuantityValue(&runtime.Quantity{Num: tool.Value, Unit: unit}), nil
 }
 
-// ErrWitnessInputs is the typed refusal of a schedule witness carrying inputs.
-var ErrWitnessInputs = errors.New("a schedule witness with inputs is not replayed")
+// ErrInputNotFree is the typed refusal of a witness input the question does not leave free.
+var ErrInputNotFree = errors.New("a witness input the question does not leave free")
 
-// WitnessInputsError names the stage that replays a schedule with inputs.
-type WitnessInputsError struct{ Engine string }
-
-// Error names the engine and the stage.
-func (e *WitnessInputsError) Error() string {
-	return fmt.Sprintf("engine %q gives its schedule inputs, which are replayed with the free-inputs stage of the SMT engine", e.Engine)
+// InputNotFreeError names the input an engine's witness fixed that the question had bound.
+type InputNotFreeError struct {
+	Engine  string
+	Feature string
 }
 
-// Is matches ErrWitnessInputs.
-func (e *WitnessInputsError) Is(target error) bool { return target == ErrWitnessInputs }
+// Error names the engine and the input.
+func (e *InputNotFreeError) Error() string {
+	return fmt.Sprintf("engine %q gives its witness the input %s, which the question does not leave free", e.Engine, e.Feature)
+}
+
+// Is matches ErrInputNotFree.
+func (e *InputNotFreeError) Is(target error) bool { return target == ErrInputNotFree }
 
 // ErrNoReplay is the typed refusal of a witness on a question with no action to replay it on.
 var ErrNoReplay = errors.New("no action to replay the witness on")
@@ -236,28 +256,144 @@ func (e *NoReplayError) Error() string {
 // Is matches ErrNoReplay.
 func (e *NoReplayError) Is(target error) bool { return target == ErrNoReplay }
 
-// replayable is the check ask a schedule witness replays through, or the typed refusal.
-func (e externalEngine) replayable(q Question, w enginewire.Witness) (*CheckAsk, error) {
-	if len(w.Inputs) > 0 {
-		return nil, &WitnessInputsError{Engine: e.Name()}
+// freed is what a question leaves free of the action's initial state: the inputs by name
+// and type as the protocol lists them, and a context of the model to read their values in.
+type freed struct {
+	ctx    *runtime.Context
+	inputs []enginewire.FreeInput
+}
+
+// freeInputs lists the inputs a Holds or Outcomes question leaves free, as the check
+// engine frees them: those the action binds to nothing and those the ask names.
+func freeInputs(model *Model, q Question, budget Budget) (freed, error) {
+	if !q.Free.Has(FreeInputs) || q.Check == nil || q.Check.Start == nil || !model.builds() {
+		return freed{}, nil
 	}
+	ctx, err := model.NewContextOn(0, budget)
+	if err != nil {
+		return freed{}, err
+	}
+	exec, err := q.Check.Start(ctx)
+	if err != nil {
+		return freed{ctx: ctx}, nil
+	}
+	defer exec.Release()
+	named := map[string]bool{}
+	if q.Holds != nil {
+		for _, name := range q.Holds.Inputs {
+			named[name] = true
+		}
+	}
+	held := exec.Held()
+	for _, attr := range held.Unbound() {
+		named[attr.Name] = true
+	}
+	out := freed{ctx: ctx}
+	for _, attr := range held.Features() {
+		if named[attr.Name] {
+			out.inputs = append(out.inputs, enginewire.FreeInput{Name: attr.Name, Type: attr.Type})
+		}
+	}
+	return out, nil
+}
+
+// replay is what a schedule witness replays through: the check ask and the witness's
+// inputs, read against the inputs the question leaves free.
+type replay struct {
+	ask    *CheckAsk
+	free   []enginewire.FreeInput
+	inputs []runtime.InputTaken
+}
+
+// witness is the runtime witness of one schedule of the wire witness.
+func (r replay) witness(choices []runtime.ChoiceTaken) runtime.Witness {
+	return runtime.Witness{Inputs: r.inputs, Choices: choices}
+}
+
+// replayable is the replay of a schedule witness, or the typed refusal: a question that
+// names no action, or an input the witness fixes that the question does not leave free.
+func (e externalEngine) replayable(model *Model, q Question, budget Budget, w enginewire.Witness) (replay, error) {
 	if q.Check == nil || q.Check.Start == nil {
-		return nil, &NoReplayError{Engine: e.Name(), Kind: q.Kind}
+		return replay{}, &NoReplayError{Engine: e.Name(), Kind: q.Kind}
 	}
-	return q.Check, nil
+	out := replay{ask: q.Check}
+	if len(w.Inputs) == 0 {
+		return out, nil
+	}
+	free, err := freeInputs(model, q, budget)
+	if err != nil {
+		return replay{}, err
+	}
+	out.free = free.inputs
+	allowed := make(map[string]bool, len(free.inputs))
+	for _, in := range free.inputs {
+		allowed[in.Name] = true
+	}
+	given := make(map[string]bool, len(w.Inputs))
+	for _, in := range w.Inputs {
+		if !allowed[in.Name] {
+			return replay{}, &InputNotFreeError{Engine: e.Name(), Feature: in.Name}
+		}
+		if given[in.Name] {
+			return replay{}, fmt.Errorf("its witness gives %s twice", in.Name)
+		}
+		given[in.Name] = true
+		taken, err := witnessInput(free.ctx, in)
+		if err != nil {
+			return replay{}, err
+		}
+		out.inputs = append(out.inputs, taken)
+	}
+	return out, nil
+}
+
+// witnessInput reads one input of a witness as the run fixes it: a JSON string is notation
+// text the run evaluates where the action's defaults are, anything else a value, with a
+// unit a quantity.
+func witnessInput(ctx *runtime.Context, in enginewire.Value) (runtime.InputTaken, error) {
+	tool, err := readValue(in)
+	if err != nil {
+		return runtime.InputTaken{}, fmt.Errorf("at its witness %s is %v", in.Name, err)
+	}
+	if tool.Value.Kind == semantics.ValInvalid && tool.Unit == "" {
+		return runtime.InputTaken{Feature: in.Name, Written: tool.Text}, nil
+	}
+	value, err := hostValue(ctx, in)
+	if err != nil {
+		return runtime.InputTaken{}, fmt.Errorf("at its witness %s is %v", in.Name, err)
+	}
+	return runtime.InputOf(in.Name, value), nil
+}
+
+// inputsTaken describes the inputs a replay fixed as the result lists them: each free
+// input with the value the witness chose for it.
+func (r replay) inputsTaken() []Input {
+	if len(r.inputs) == 0 {
+		return nil
+	}
+	chosen := make(map[string]string, len(r.inputs))
+	for _, in := range r.inputs {
+		chosen[in.Feature] = in.Written
+	}
+	out := make([]Input, 0, len(r.free))
+	for _, in := range r.free {
+		out = append(out, Input{Name: in.Name, Type: in.Type, Free: true, Value: chosen[in.Name]})
+	}
+	return out
 }
 
 // replayOne replays one schedule of the witness to the move at, on the plan's worker for
 // job. A schedule that does not parse or replay is the standing's failure; the plan's
 // clock ending is the error.
-func (e externalEngine) replayOne(ctx context.Context, model *Model, budget Budget, ask *CheckAsk, job int, schedule string, at int) (*runtime.Replayed, *Witness, error, error) {
+func (e externalEngine) replayOne(ctx context.Context, model *Model, budget Budget, r replay, job int, schedule string, at int) (*runtime.Replayed, *Witness, error, error) {
 	choices, err := runtime.ParseChoices(schedule)
 	if err != nil {
 		return nil, nil, fmt.Errorf("its witness does not read as a schedule (%v)", err), nil
 	}
 	fresh := func() (*runtime.Context, error) { return model.NewContextOn(job, budget) }
-	replayed, err := runtime.ReplaySchedule(ctx, fresh, ask.Start, choices, at)
-	witness := &Witness{Schedule: runtime.ReplayPolicy(choices), Choices: choices}
+	rw := r.witness(choices)
+	replayed, err := runtime.ReplaySchedule(ctx, fresh, r.ask.Start, rw, at)
+	witness := &Witness{Schedule: runtime.ReplayOf(rw), Inputs: r.inputs, Choices: choices}
 	switch {
 	case err == nil:
 		return replayed, witness, nil, nil
@@ -295,7 +431,7 @@ func holdsAt(ask *CheckAsk, r *runtime.Replayed) (bool, string, error) {
 // standViolation replays the schedule to the move it names and asks the claim there: a
 // violation stands when the run fails or a property evaluates false at that move.
 func (e externalEngine) standViolation(ctx context.Context, model *Model, q Question, budget Budget, w enginewire.Witness) (standing, error) {
-	ask, err := e.replayable(q, w)
+	r, err := e.replayable(model, q, budget, w)
 	if err != nil {
 		return standing{err: err}, nil
 	}
@@ -303,11 +439,11 @@ func (e externalEngine) standViolation(ctx context.Context, model *Model, q Ques
 	if w.At != nil {
 		at = *w.At
 	}
-	replayed, witness, failed, err := e.replayOne(ctx, model, budget, ask, 0, w.Schedules[0], at)
+	replayed, witness, failed, err := e.replayOne(ctx, model, budget, r, 0, w.Schedules[0], at)
 	if err != nil || failed != nil {
 		return standing{err: failed}, err
 	}
-	holds, why, err := holdsAt(ask, replayed)
+	holds, why, err := holdsAt(r.ask, replayed)
 	if err != nil {
 		return standing{}, err
 	}
@@ -316,9 +452,9 @@ func (e externalEngine) standViolation(ctx context.Context, model *Model, q Ques
 		where = fmt.Sprintf("at move %d", at)
 	}
 	if holds {
-		return standing{err: fmt.Errorf("its schedule replays and %s holds %s", propertyNames(ask), where)}, nil
+		return standing{err: fmt.Errorf("its schedule replays and %s holds %s", propertyNames(r.ask), where)}, nil
 	}
-	return standing{strength: Witnessed, reason: fmt.Sprintf("%s (engine %q, replayed): %s", where, e.Name(), why), witness: witness}, nil
+	return standing{strength: Witnessed, reason: fmt.Sprintf("%s (engine %q, replayed): %s", where, e.Name(), why), witness: witness, inputs: r.inputsTaken()}, nil
 }
 
 // propertyNames spells the properties a check asks, `x` and `y`; `every property` for none.
@@ -336,14 +472,14 @@ func propertyNames(ask *CheckAsk) string {
 // standSensitivity replays both schedules to their end and compares the feature's final
 // values: the sensitivity stands when they differ, the second schedule as the contrast.
 func (e externalEngine) standSensitivity(ctx context.Context, model *Model, q Question, budget Budget, w enginewire.Witness) (standing, error) {
-	ask, err := e.replayable(q, w)
+	r, err := e.replayable(model, q, budget, w)
 	if err != nil {
 		return standing{err: err}, nil
 	}
 	values := make([]string, 2)
 	witnesses := make([]*Witness, 2)
 	for i, schedule := range w.Schedules {
-		replayed, witness, failed, err := e.replayOne(ctx, model, budget, ask, 0, schedule, runtime.ScheduleEnd)
+		replayed, witness, failed, err := e.replayOne(ctx, model, budget, r, 0, schedule, runtime.ScheduleEnd)
 		if err != nil {
 			return standing{}, err
 		}
@@ -365,7 +501,7 @@ func (e externalEngine) standSensitivity(ctx context.Context, model *Model, q Qu
 	return standing{
 		strength: Witnessed,
 		reason:   fmt.Sprintf("%s ends as %s or %s (engine %q, both replayed)", w.Feature, values[0], values[1], e.Name()),
-		witness:  witnesses[0], contrast: witnesses[1],
+		witness:  witnesses[0], contrast: witnesses[1], inputs: r.inputsTaken(),
 	}, nil
 }
 
@@ -427,14 +563,13 @@ func (e externalEngine) standExecutions(ctx context.Context, model *Model, q Que
 		}
 		return standing{err: errors.New("no execution to replay")}, nil
 	}
-	ask, err := e.replayable(q, answer.Executions[0])
-	if err != nil {
-		return standing{err: err}, nil
-	}
-	for _, x := range answer.Executions[1:] {
-		if _, err := e.replayable(q, x); err != nil {
+	replays := make([]replay, len(answer.Executions))
+	for i, x := range answer.Executions {
+		r, err := e.replayable(model, q, budget, x)
+		if err != nil {
 			return standing{err: err}, nil
 		}
+		replays[i] = r
 	}
 	expected, err := e.hostValues(model, budget, answer.Values)
 	if err != nil {
@@ -450,7 +585,7 @@ func (e externalEngine) standExecutions(ctx context.Context, model *Model, q Que
 		go func(job int) {
 			defer wg.Done()
 			for i := job; i < len(answer.Executions); i += jobs {
-				witness, fail, err := e.replayExecution(ctx, model, budget, ask, job, claim, answer.Executions[i], expected)
+				witness, fail, err := e.replayExecution(ctx, model, budget, replays[i], job, claim, answer.Executions[i], expected)
 				if witness != nil {
 					witnesses[i] = *witness
 				}
@@ -476,15 +611,15 @@ func (e externalEngine) standExecutions(ctx context.Context, model *Model, q Que
 
 // replayExecution replays one execution to its end, asking the claim at every settled
 // state; a concrete claim is asked of the final values the engine reports.
-func (e externalEngine) replayExecution(ctx context.Context, model *Model, budget Budget, ask *CheckAsk, job int, claim Claim, x enginewire.Witness, expected []Evaluation) (*Witness, error, error) {
+func (e externalEngine) replayExecution(ctx context.Context, model *Model, budget Budget, r replay, job int, claim Claim, x enginewire.Witness, expected []Evaluation) (*Witness, error, error) {
 	choices, err := runtime.ParseChoices(x.Schedules[0])
 	if err != nil {
 		return nil, fmt.Errorf("does not read as a schedule (%v)", err), nil
 	}
 	fresh := func() (*runtime.Context, error) { return model.NewContextOn(job, budget) }
 	var fail error
-	visit := func(r *runtime.Replayed, moves int) error {
-		holds, why, err := holdsAt(ask, r)
+	visit := func(replayed *runtime.Replayed, moves int) error {
+		holds, why, err := holdsAt(r.ask, replayed)
 		if err != nil {
 			return err
 		}
@@ -494,8 +629,9 @@ func (e externalEngine) replayExecution(ctx context.Context, model *Model, budge
 		}
 		return nil
 	}
-	replayed, err := runtime.ReplayExecution(ctx, fresh, ask.Start, choices, visit)
-	witness := &Witness{Schedule: runtime.ReplayPolicy(choices), Choices: choices}
+	rw := r.witness(choices)
+	replayed, err := runtime.ReplayExecution(ctx, fresh, r.ask.Start, rw, visit)
+	witness := &Witness{Schedule: runtime.ReplayOf(rw), Inputs: r.inputs, Choices: choices}
 	switch {
 	case errors.Is(err, errVisitStopped):
 		return witness, fail, nil

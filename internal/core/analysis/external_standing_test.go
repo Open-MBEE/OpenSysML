@@ -175,13 +175,110 @@ func TestExternalWitnessShapeIsChecked(t *testing.T) {
 	}
 }
 
-// Inputs on a schedule witness are refused naming the stage that replays them.
-func TestExternalWitnessInputsAreRefused(t *testing.T) {
+// inputModel leaves n unbound and binds limit; add moves limit up by one.
+const inputModel = `package test {
+	private import ScalarValues::*;
+	action open {
+		attribute n : Natural;
+		attribute limit : Integer = 5;
+		first start;
+		action add { assign limit := limit + 1; }
+		done;
+		succession first start then add;
+		succession first add then done;
+	}
+}`
+
+// inputQuestion asks Holds of open with its inputs free: the unbound n and those named.
+func inputQuestion(t *testing.T, f *fixture, property runtime.CheckProperty, named ...string) Question {
+	t.Helper()
+	a := f.checked(t, "open")
+	q := questionOf(t, "test::open", Holds, &CheckAsk{Start: a.start, Properties: []runtime.CheckProperty{property}})
+	q.Free |= FreeInputs
+	q.Holds = &HoldsAsk{Behavior: a.sym, Start: a.start, Inputs: named}
+	return q
+}
+
+// The inputs of a schedule witness are fixed before the replay's first move, on the
+// features the question leaves free — the unbound and the named — and the result lists
+// them; the engine sees those features listed on the question it was put.
+func TestExternalWitnessInputsAreReplayed(t *testing.T) {
+	f := parseModel(t, inputModel)
+	a := f.checked(t, "open")
+	dir := t.TempDir()
+	t.Setenv(engineStandinWire, dir)
+	violated := func(witness string) string {
+		return `{"claim":"violated","strength":"witnessed","witness":{"schedules":["no choice points"],"inputs":` + witness + `}}`
+	}
+	t.Run("an unbound input", func(t *testing.T) {
+		r := standinRegistry(t, violated(`[{"name":"n","value":7}]`), WitnessSchedule)
+		result := standinAnswers(t, r, f.building(), inputQuestion(t, f, a.atMost("n", 5)), Budget{})
+		if result.Claim != ClaimViolated || result.Strength != Witnessed || !strings.Contains(result.Reason, "`n` evaluates false there") {
+			t.Fatalf("result %+v, want the violation witnessed under n = 7", result)
+		}
+		if len(result.Inputs) != 1 || result.Inputs[0].String() != "n = 7" || result.Inputs[0].Type != "Natural" {
+			t.Fatalf("inputs %v, want n = 7 of type Natural", result.Inputs)
+		}
+		if result.Witness == nil || len(result.Witness.Inputs) != 1 || result.Witness.Inputs[0].String() != "input n = 7" {
+			t.Fatalf("witness %+v, want its input kept", result.Witness)
+		}
+	})
+	t.Run("a named input written as notation", func(t *testing.T) {
+		r := standinRegistry(t, violated(`[{"name":"n","value":1},{"name":"limit","value":"2 * 4"}]`), WitnessSchedule)
+		result := standinAnswers(t, r, f.building(), inputQuestion(t, f, a.atMost("limit", 8), "limit"), Budget{})
+		if result.Claim != ClaimViolated || result.Strength != Witnessed {
+			t.Fatalf("result %+v, want the violation witnessed under limit = 8 + 1", result)
+		}
+		if len(result.Inputs) != 2 || result.Inputs[1].String() != "limit = 2 * 4" {
+			t.Fatalf("inputs %v, want n and limit as the witness spelt them", result.Inputs)
+		}
+	})
+	t.Run("a bound input the question does not free", func(t *testing.T) {
+		r := standinRegistry(t, violated(`[{"name":"limit","value":9}]`), WitnessSchedule)
+		result := standinAnswers(t, r, f.building(), inputQuestion(t, f, a.atMost("limit", 8)), Budget{})
+		notCovered(t, result, "the input limit, which the question does not leave free")
+	})
+	t.Run("an input the run cannot read", func(t *testing.T) {
+		r := standinRegistry(t, violated(`[{"name":"n","value":"nothing"}]`), WitnessSchedule)
+		result := standinAnswers(t, r, f.building(), inputQuestion(t, f, a.atMost("n", 5)), Budget{})
+		notCovered(t, result, "its witness does not replay", "witness input refused: n")
+	})
+	t.Run("an input given twice", func(t *testing.T) {
+		r := standinRegistry(t, violated(`[{"name":"n","value":1},{"name":"n","value":2}]`), WitnessSchedule)
+		notCovered(t, standinAnswers(t, r, f.building(), inputQuestion(t, f, a.atMost("n", 5)), Budget{}), "gives n twice")
+	})
+	listed := 0
+	for _, line := range captured(t, dir) {
+		if line.host && strings.Contains(line.text, `"inputs":[{"name":"n","type":"Natural"}`) {
+			listed++
+		}
+	}
+	if listed == 0 {
+		t.Fatal("no run listed n as a free input of the question")
+	}
+}
+
+// A schedule witness with inputs on a question that leaves no input free is refused
+// naming the input.
+func TestExternalWitnessInputsNeedFreeInputs(t *testing.T) {
 	f := parseFixture(t)
 	race := f.checked(t, "race")
 	r := standinRegistry(t, `{"claim":"violated","strength":"witnessed","witness":{"schedules":`+schedules(raceEndsThree)+`,"inputs":[{"name":"x","value":0}]}}`, WitnessSchedule)
 	result := standinAnswers(t, r, f.building(), checkQuestion(t, f, Holds, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{race.x(2)}}), Budget{})
-	notCovered(t, result, "free-inputs stage")
+	notCovered(t, result, "the input x, which the question does not leave free")
+}
+
+// An engine's own account of the initial state and its assumptions reach the result as
+// the symbolic engine's do.
+func TestExternalResultCarriesInputsAndAssumptions(t *testing.T) {
+	f := parseFixture(t)
+	race := f.checked(t, "race")
+	r := standinRegistry(t, `{"claim":"holds","strength":"bounded","inputs":[{"name":"x","type":"Integer","sort":"Int","domain":">= 0","free":true}],"assumptions":["test::race::positive"]}`, WitnessSchedule)
+	result := standinAnswers(t, r, f.building(), checkQuestion(t, f, Holds, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{race.x(3)}}), Budget{})
+	notCovered(t, result, "engine \"standin\" reports holds, bounded")
+	if len(result.Inputs) != 1 || result.Inputs[0].String() != "x : Integer free in >= 0" || len(result.Assumptions) != 1 || result.Assumptions[0] != "test::race::positive" {
+		t.Fatalf("inputs %v assumptions %v, want the engine's account kept", result.Inputs, result.Assumptions)
+	}
 }
 
 // An entry declaring no witness cannot have its existential claims stood.

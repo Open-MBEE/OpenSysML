@@ -632,7 +632,10 @@ first stage delivers, since it is the gate every external witness passes through
    here: `progress` is printed to standard error by the CLI and REPL — at most one line per
    quarter second per open run, the latest kept for the reason of a run that ends unanswered —
    since nothing on `develop` printed `explore`'s; a schedule witness carrying `inputs` is
-   refused naming the SMT engine's free-inputs stage, which replays them; an entry naming
+   replayed through the same path as the SMT engine's, the inputs fixed before the first move
+   on the features the question leaves free (`question.inputs`), one it does not free being
+   *not covered* naming it, and a result's own `inputs` and `assumptions` are kept as the SMT
+   engine's are; an entry naming
    the `grpc` transport, the `rdf` form or a `module`, or of `policy` or `sampler` kind, is
    parsed and listed `unavailable` with the typed `NotServedError` naming its stage, and one
    naming `admit` is refused as the note says. Still deferred: referee records and `admit`

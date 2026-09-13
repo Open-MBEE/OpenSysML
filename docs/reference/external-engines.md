@@ -223,7 +223,10 @@ action nor a state machine, or one the model does not declare once, is refused w
 `strength` is what the engine *claims*, one of `observed`, `witnessed`, `bounded`, `proved` and
 `not covered`, and must be a pair the framework admits with the claim. `bounds` are the bounds
 taken, each with whether it was `reached`. `witness`, `executions`, `reason`, `values` (`{name,
-value, unit}`, a unit read in the subject's library) and `elapsed` (milliseconds) are optional.
+value, unit}`, a unit read in the subject's library), `inputs` — the engine's account of the
+initial state, `{name, type, sort, domain, free, optional, value}` per feature, as the `smt`
+engine reports what it ranged over or pinned — `assumptions`, the constraints it assumed by
+name, and `elapsed` (milliseconds) are optional.
 
 A **witness** takes the shape the entry's `witness` and the claim fix. A `schedule` witness
 carries `schedules`, each a replay text in the format `-check-witness` writes — `step N:
@@ -232,9 +235,13 @@ carries `schedules`, each a replay text in the format `-check-witness` writes �
 `sensitive` witness carries two schedules and the `feature` they diverge on. An `assignment`
 witness, the shape `satisfiable` takes, is `inputs` alone: `{name, value, unit}` per free
 feature. `executions`, optional on a universal claim, is a list of one-schedule witnesses: the
-concrete executions the engine ran and found the claim holding on. A schedule witness carrying
-`inputs` is refused with a reason naming the free-inputs stage of the SMT engine that replays
-one.
+concrete executions the engine ran and found the claim holding on. A schedule witness may also
+carry `inputs`, `{name, value}` per free feature of the question — those the `question` listed
+under `inputs`: the features the action leaves unbound and those `-check-input` released — with
+the value as JSON or as SysML notation (`"2 * 4"`, `"Mode::Fast"`); the replay fixes them on the
+action as it starts, before its defaults and ahead of the first move, as an `smt` witness's are,
+and the result lists them. An input the question does not leave free, one given twice or one
+the run cannot read is *not covered* naming it.
 
 ## The standing of an answer
 
@@ -269,7 +276,8 @@ stops the plan:
 | the deadline passes and `cancel` is not answered within `OPENSYSML_TOOL_TIMEOUT` | *not covered* `engine "spin-bridge" did not answer cancel within 10s (OPENSYSML_TOOL_TIMEOUT); the process was ended`, with the last `progress` |
 | an `error` answer | *not covered* with its `code` and `message` |
 | a witness that fails replay or evaluation | *not covered* naming the move, the condition or the value ([above](#the-standing-of-an-answer)) |
-| a schedule witness for a question that names no action to replay it on, or one carrying `inputs` | *not covered* `engine "spin-bridge" gives a schedule, and a evaluate question names no action to replay it on`; `engine "spin-bridge" gives its schedule inputs, which are replayed with the free-inputs stage of the SMT engine` |
+| a schedule witness for a question that names no action to replay it on | *not covered* `engine "spin-bridge" gives a schedule, and a evaluate question names no action to replay it on` |
+| a schedule witness whose `inputs` name a feature the question does not leave free, name one twice, or give a value the run cannot read | *not covered* `engine "spin-bridge" gives its witness the input limit, which the question does not leave free`; `engine "spin-bridge" gives limit twice`; `its witness does not replay (… witness input refused: n: "nothing" does not evaluate …)` |
 | a universal claim with no `executions` | *not covered* with the claim kept |
 | an `executions` entry that fails | *not covered* naming it; the rest are not counted |
 

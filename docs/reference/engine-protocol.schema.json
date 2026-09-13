@@ -213,9 +213,26 @@
         "executions": { "type": "array", "items": { "$ref": "#/$defs/witness" } },
         "reason": { "type": "string" },
         "values": { "type": "array", "items": { "$ref": "#/$defs/value" } },
+        "inputs": { "type": "array", "items": { "$ref": "#/$defs/input" } },
+        "assumptions": { "type": "array", "items": { "type": "string" } },
         "elapsed": { "description": "Milliseconds.", "type": "integer", "minimum": 0 }
       },
       "required": ["claim", "strength"],
+      "additionalProperties": false
+    },
+    "input": {
+      "description": "One feature of the initial state as the engine accounts for it: free over its domain or pinned, the value a witness chose spelled as notation.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "sort": { "type": "string" },
+        "domain": { "type": "string" },
+        "free": { "type": "boolean" },
+        "optional": { "type": "boolean" },
+        "value": { "type": "string" }
+      },
+      "required": ["name"],
       "additionalProperties": false
     },
     "witness": {

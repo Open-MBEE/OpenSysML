@@ -87,7 +87,7 @@ func (e externalEngine) Covers(model *Model, q Question) Coverage {
 			return refused(&SubjectError{Engine: e.Name(), Subject: q.Subject, Family: family, Subjects: e.entry.Subjects})
 		}
 	}
-	params, err := e.coversParams(model, q)
+	params, err := e.coversParams(model, q, Budget{})
 	if err != nil {
 		return refused(err)
 	}

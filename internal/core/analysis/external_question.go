@@ -15,8 +15,8 @@ import (
 )
 
 // coversParams is the covers request: the question and the model in the entry's forms.
-func (e externalEngine) coversParams(model *Model, q Question) (enginewire.CoversParams, error) {
-	question, err := e.wireQuestion(model, q)
+func (e externalEngine) coversParams(model *Model, q Question, budget Budget) (enginewire.CoversParams, error) {
+	question, err := e.wireQuestion(model, q, budget)
 	if err != nil {
 		return enginewire.CoversParams{}, err
 	}
@@ -30,7 +30,7 @@ func (e externalEngine) coversParams(model *Model, q Question) (enginewire.Cover
 // runParams is the run request: the covers request's members, the bounds the question fixes
 // and the budget with its deadline as an absolute time.
 func (e externalEngine) runParams(model *Model, q Question, budget Budget) (enginewire.RunParams, error) {
-	covers, err := e.coversParams(model, q)
+	covers, err := e.coversParams(model, q, budget)
 	if err != nil {
 		return enginewire.RunParams{}, err
 	}
@@ -76,9 +76,10 @@ func wireBudget(b Budget) enginewire.Budget {
 }
 
 // wireQuestion is the question as the protocol carries it: its kind, subject as the surface
-// spelled it with the kind of declaration it resolves to, the schedule, what is free, and
-// the ask of its kind by name and text; no closure crosses the wire.
-func (e externalEngine) wireQuestion(model *Model, q Question) (enginewire.Question, error) {
+// spelled it with the kind of declaration it resolves to, the schedule, what is free — the
+// inputs by name and type when they are — and the ask of its kind by name and text; no
+// closure crosses the wire.
+func (e externalEngine) wireQuestion(model *Model, q Question, budget Budget) (enginewire.Question, error) {
 	out := enginewire.Question{
 		Kind:     q.Kind.String(),
 		Subject:  q.Subject,
@@ -88,6 +89,11 @@ func (e externalEngine) wireQuestion(model *Model, q Question) (enginewire.Quest
 	out.SubjectKind = subjectFamily(model, q.Subject)
 	switch q.Kind {
 	case Holds, Outcomes:
+		free, err := freeInputs(model, q, budget)
+		if err != nil {
+			return enginewire.Question{}, err
+		}
+		out.Inputs = free.inputs
 		if q.Check != nil {
 			for _, p := range q.Check.Properties {
 				out.Conditions = append(out.Conditions, enginewire.ConditionSet{

@@ -316,6 +316,7 @@ func TestSchemaMatchesTheWireTypes(t *testing.T) {
 		"budget":         enginewire.Budget{},
 		"model":          enginewire.Model{},
 		"result":         enginewire.Result{},
+		"input":          enginewire.Input{},
 		"witness":        enginewire.Witness{},
 		"error":          enginewire.Error{},
 		"sources":        export.Sources{},

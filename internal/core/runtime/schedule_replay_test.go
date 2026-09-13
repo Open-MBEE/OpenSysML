@@ -49,7 +49,7 @@ func scheduleDisagreement(t *testing.T, err error, want string) {
 func TestReplayScheduleEvaluatesAtTheMoveNamed(t *testing.T) {
 	m, start, schedules := clashSchedules(t)
 	rightFirst := schedules["1"]
-	r, err := ReplaySchedule(context.Background(), m.fresh, start, rightFirst, 1)
+	r, err := ReplaySchedule(context.Background(), m.fresh, start, Witness{Choices: rightFirst}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestReplayScheduleEvaluatesAtTheMoveNamed(t *testing.T) {
 	if holds, err := r.Evaluate(xIsNot("2")); holds || err != nil {
 		t.Fatalf("x != 2 at move 1: %v, %v; want false", holds, err)
 	}
-	end, err := ReplaySchedule(context.Background(), m.fresh, start, rightFirst, ScheduleEnd)
+	end, err := ReplaySchedule(context.Background(), m.fresh, start, Witness{Choices: rightFirst}, ScheduleEnd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestReplayScheduleEvaluatesAtTheMoveNamed(t *testing.T) {
 	if !strings.Contains(end.Outcome(), "x = 1") {
 		t.Fatalf("outcome %q, want x = 1", end.Outcome())
 	}
-	before, err := ReplaySchedule(context.Background(), m.fresh, start, rightFirst, 0)
+	before, err := ReplaySchedule(context.Background(), m.fresh, start, Witness{Choices: rightFirst}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestReplayScheduleEvaluatesAtTheMoveNamed(t *testing.T) {
 func TestReplayExecutionVisitsEverySettledState(t *testing.T) {
 	m, start, schedules := clashSchedules(t)
 	var seen []string
-	r, err := ReplayExecution(context.Background(), m.fresh, start, schedules["1"], func(r *Replayed, moves int) error {
+	r, err := ReplayExecution(context.Background(), m.fresh, start, Witness{Choices: schedules["1"]}, func(r *Replayed, moves int) error {
 		x, err := r.FinalValue("x")
 		if err != nil {
 			return err
@@ -102,7 +102,7 @@ func TestReplayExecutionVisitsEverySettledState(t *testing.T) {
 		t.Fatalf("visited %v, want x = 0 before any move, 2 after the move, 1 at the end", seen)
 	}
 	stopped := errors.New("x = 2 seen")
-	_, err = ReplayExecution(context.Background(), m.fresh, start, schedules["1"], func(r *Replayed, moves int) error {
+	_, err = ReplayExecution(context.Background(), m.fresh, start, Witness{Choices: schedules["1"]}, func(r *Replayed, moves int) error {
 		if holds, err := r.Evaluate(xIsNot("2")); err != nil || !holds {
 			return stopped
 		}
@@ -111,7 +111,7 @@ func TestReplayExecutionVisitsEverySettledState(t *testing.T) {
 	if !errors.Is(err, stopped) {
 		t.Fatalf("replay = %v, want the visit's error", err)
 	}
-	_, err = ReplayExecution(context.Background(), m.fresh, start, schedules["1"], func(r *Replayed, moves int) error {
+	_, err = ReplayExecution(context.Background(), m.fresh, start, Witness{Choices: schedules["1"]}, func(r *Replayed, moves int) error {
 		holds, err := r.Evaluate(xIsNot("1"))
 		if err != nil {
 			return err
@@ -129,7 +129,7 @@ func TestReplayExecutionVisitsEverySettledState(t *testing.T) {
 // A move the schedule does not have is a disagreement before any run.
 func TestReplayScheduleRefusesAMoveBeyondTheSchedule(t *testing.T) {
 	m, start, schedules := clashSchedules(t)
-	_, err := ReplaySchedule(context.Background(), m.fresh, start, schedules["1"], 2)
+	_, err := ReplaySchedule(context.Background(), m.fresh, start, Witness{Choices: schedules["1"]}, 2)
 	scheduleDisagreement(t, err, "move 2 of a schedule of 1 moves")
 }
 
@@ -139,7 +139,7 @@ func TestReplayScheduleReportsARefusedChoice(t *testing.T) {
 	tampered := append([]ChoiceTaken(nil), schedules["1"]...)
 	tampered[0].Took = "9@nowhere"
 	tampered[0].Among = []string{"9@nowhere", tampered[0].Among[1]}
-	_, err := ReplaySchedule(context.Background(), m.fresh, start, tampered, ScheduleEnd)
+	_, err := ReplaySchedule(context.Background(), m.fresh, start, Witness{Choices: tampered}, ScheduleEnd)
 	scheduleDisagreement(t, err, ErrReplayRefused.Error())
 }
 
@@ -148,7 +148,7 @@ func TestReplayScheduleReportsChoicesLeftOver(t *testing.T) {
 	m, start, schedules := clashSchedules(t)
 	long := append(append([]ChoiceTaken(nil), schedules["1"]...), schedules["2"]...)
 	for _, at := range []int{ScheduleEnd, 2} {
-		_, err := ReplaySchedule(context.Background(), m.fresh, start, long, at)
+		_, err := ReplaySchedule(context.Background(), m.fresh, start, Witness{Choices: long}, at)
 		scheduleDisagreement(t, err, "move 2 (step 3: 2@left first of 2@left, 3@right): the run ended")
 	}
 }
@@ -158,7 +158,7 @@ func TestReplayScheduleStopsWhenCancelled(t *testing.T) {
 	m, start, schedules := clashSchedules(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := ReplaySchedule(ctx, m.fresh, start, schedules["1"], ScheduleEnd)
+	_, err := ReplaySchedule(ctx, m.fresh, start, Witness{Choices: schedules["1"]}, ScheduleEnd)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("replay = %v, want the caller's cancellation", err)
 	}
@@ -178,13 +178,33 @@ func TestReplayScheduleReportsADeadlockAsTheRunsError(t *testing.T) {
 			succession first sync then done;
 		}
 	}`)
-	r, err := ReplaySchedule(context.Background(), m.fresh, starterOf(m.action(t, "starve")), nil, ScheduleEnd)
+	r, err := ReplaySchedule(context.Background(), m.fresh, starterOf(m.action(t, "starve")), Witness{}, ScheduleEnd)
 	if err != nil {
 		t.Fatalf("replay: %v, want the deadlock as the run's error", err)
 	}
 	if !errors.Is(r.Err, ErrActionDeadlock) {
 		t.Fatalf("run ended with %v, want a deadlock", r.Err)
 	}
+}
+
+// A witness's inputs are fixed before the replay's first move, so the state evaluated is
+// the one those inputs lead to; an input the action lacks is the witness's disagreement,
+// not a failure of the run for the caller to judge.
+func TestReplayScheduleFixesTheWitnessInputs(t *testing.T) {
+	m := parseExploreModel(t, inputModel)
+	start := starterOf(m.action(t, "gate"))
+	r, err := ReplaySchedule(context.Background(), m.fresh, start,
+		Witness{Inputs: []InputTaken{InputOf("n", intOf(5)), {Feature: "mode", Written: "Mode::Fast"}}}, ScheduleEnd)
+	if err != nil || r.Err != nil {
+		t.Fatalf("replay: %v, %v", err, r.Err)
+	}
+	over, err := r.FinalValue("over")
+	if err != nil || over != "true" {
+		t.Fatalf("over = %q, %v; want true under n = 5", over, err)
+	}
+	_, err = ReplaySchedule(context.Background(), m.fresh, start,
+		Witness{Inputs: []InputTaken{InputOf("nn", intOf(5))}}, ScheduleEnd)
+	scheduleDisagreement(t, err, "declares no such feature")
 }
 
 // Timed waits are settled on the clock as a check settles them: the slow branch writes
@@ -218,7 +238,7 @@ func TestReplayScheduleAdvancesTheClock(t *testing.T) {
 		t.Fatalf("finals %v, want one", report.Finals)
 	}
 	start := starterOf(m.action(t, "timers"))
-	r, err := ReplaySchedule(context.Background(), m.fresh, start, report.Finals[0].Witness.Choices, ScheduleEnd)
+	r, err := ReplaySchedule(context.Background(), m.fresh, start, Witness{Choices: report.Finals[0].Witness.Choices}, ScheduleEnd)
 	if err != nil {
 		t.Fatal(err)
 	}
