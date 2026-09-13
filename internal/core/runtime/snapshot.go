@@ -493,6 +493,8 @@ type stateCapture struct {
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
+	round              []*doAction
+	roundDone          bool
 	machineExited      bool
 	driven             *runState
 	inRun, moved       bool
@@ -538,6 +540,8 @@ func (e *StateExecutor) captureState() stateCapture {
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
+		round:              slices.Clone(e.round),
+		roundDone:          e.roundDone,
 		machineExited:      e.machineExited,
 		driven:             e.driven.state,
 		inRun:              e.inRun,
@@ -591,6 +595,7 @@ func (c stateCapture) restore() {
 		act.act.pending, act.act.run = slices.Clone(act.pending), act.run
 		e.doActions = append(e.doActions, act.act)
 	}
+	e.round, e.roundDone = slices.Clone(c.round), c.roundDone
 	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()

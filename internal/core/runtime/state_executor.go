@@ -69,6 +69,10 @@ type StateExecutor struct {
 	// entered. Concurrently active states interleave one action per round, so this
 	// order — not map iteration order — decides the interleaving.
 	doActions []*doAction
+	// round is the do round under way when the machine runs one unit at a time: the
+	// do actions still to act in it; roundDone marks a round closed, its dispatch owed.
+	round     []*doAction
+	roundDone bool
 	// machineExited prevents a parallel machine's root exit behavior from
 	// running more than once if completion is reported by multiple regions.
 	machineExited bool
@@ -2403,6 +2407,109 @@ func (e *StateExecutor) runDue(progress *dueProgress) (bool, error) {
 	before := *progress
 	err := e.runCounting(true, progress)
 	return progress.events > before.events || progress.doSteps > before.doSteps, err
+}
+
+// runOne runs one atomic unit of the machine's work at the current instant, in
+// runStep's order: one do action of the round under way, then — the round closed —
+// a risen change condition or the next due event, else the next round's first action.
+func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
+	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
+	wasRunning := e.inRun
+	e.inRun = true
+	defer func() { e.inRun = wasRunning }()
+	if e.state == StateSuspended {
+		e.state = StateRunning
+	}
+	if e.state != StateRunning {
+		return false, nil
+	}
+	if !e.roundDone {
+		if stepped, err := e.stepRound(progress); err != nil || stepped {
+			return stepped, err
+		}
+	}
+	e.roundDone = false
+	dispatched, err := e.dispatchOne(progress)
+	if err != nil || dispatched {
+		return dispatched, err
+	}
+	stepped, err := e.stepRound(progress)
+	if err != nil {
+		return false, err
+	}
+	if !stepped {
+		e.roundDone = false
+		e.state = StateSuspended
+	}
+	return stepped, nil
+}
+
+// stepRound runs one do action of the round under way, opening a round of the do
+// actions due when none is; false, the round closed, when nothing is left to act.
+func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
+	if len(e.round) == 0 {
+		for _, act := range e.doActions {
+			if act.due(e.ctx) {
+				e.round = append(e.round, act)
+			}
+		}
+	}
+	e.round = slices.DeleteFunc(e.round, func(act *doAction) bool { return !e.isRunningDoAction(act) })
+	if len(e.round) == 0 {
+		e.roundDone = true
+		return false, nil
+	}
+	next, err := e.chooseDoAction(e.round)
+	if err != nil {
+		return false, err
+	}
+	act := e.round[next]
+	e.round = slices.Delete(e.round, next, next+1)
+	if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
+		return false, err
+	}
+	progress.doSteps++
+	if progress.doSteps >= e.ctx.maxDoSteps {
+		return false, budgetExceeded(ErrDoStepLimitExceeded,
+			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
+				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
+	}
+	if len(e.round) == 0 {
+		e.roundDone = true
+		return true, e.settleDoActions()
+	}
+	return true, nil
+}
+
+// dispatchOne is runStep's dispatch phase: a risen change condition fires, else
+// the next due event is dispatched; false when neither is there.
+func (e *StateExecutor) dispatchOne(progress *dueProgress) (bool, error) {
+	maxStateEvents := e.ctx.maxStateEvents
+	fired, err := e.pollChangeEvents()
+	if err != nil {
+		return false, fmt.Errorf("poll change conditions: %w", err)
+	}
+	if fired {
+		if progress.events >= maxStateEvents {
+			return false, e.eventBudgetExceeded(maxStateEvents)
+		}
+		progress.events++
+		return true, nil
+	}
+	delivered, err := e.deliverPendingSignal()
+	if err != nil || !delivered {
+		return false, err
+	}
+	if progress.events >= maxStateEvents {
+		return false, e.eventBudgetExceeded(maxStateEvents)
+	}
+	progress.events++
+	if err := e.processNextEvent(); err != nil {
+		return false, fmt.Errorf("process event: %w", err)
+	}
+	progress.noteDispatch(*e.lastDispatch)
+	return true, nil
 }
 
 func (e *StateExecutor) finished() bool { return e.state == StateCompleted }

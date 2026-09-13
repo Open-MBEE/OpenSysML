@@ -137,46 +137,69 @@ func (ctx *Context) advanceToNextDue(progress *dueProgress) bool {
 // scheduler — returning true instead of running the driver once the draw falls on it.
 func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, error) {
 	for {
-		due := ctx.dueWaiters(driver, progress, clockWaiter.dueWork)
-		if len(due) == 0 {
-			due = ctx.dueWaiters(driver, progress, clockWaiter.watchesChange)
-		}
-		if len(due) == 0 {
-			return false, nil
-		}
-		pick := 0
-		if len(due) > 1 {
-			alternatives := make([]string, len(due))
-			for i, w := range due {
-				alternatives[i] = w.dueLabel()
-			}
-			choice := ChoicePoint{
-				Kind:         ChoiceDueOrder,
-				Where:        "t=" + semantics.FormatReal(ctx.clock.now),
-				Alternatives: alternatives,
-			}
-			scheduling := ctx.scheduling()
-			pick = scheduling.choose(choice, nil)
-			if err := scheduling.refusal(); err != nil {
-				return false, err
-			}
-			choice.Taken = pick
-			ctx.noteChoice(choice)
-		}
-		w := due[pick]
-		if w == driver {
-			return true, nil
-		}
-		moved, err := ctx.runWaiter(w, progress)
-		if err != nil {
+		ran, yours, err := ctx.stepDue(driver, progress)
+		if err != nil || !ran {
 			return false, err
 		}
-		if moved {
-			progress.unsettle()
-		} else {
-			progress.settle(w)
+		if yours {
+			return true, nil
 		}
 	}
+}
+
+// stepDue draws one of the executors due at the current instant and runs it, unless
+// it is the driver, which is left for the driver itself; ran is false when nothing
+// is due.
+func (ctx *Context) stepDue(driver clockWaiter, progress *dueProgress) (ran, yours bool, err error) {
+	due := ctx.dueWaiters(driver, progress, clockWaiter.dueWork)
+	if len(due) == 0 {
+		due = ctx.dueWaiters(driver, progress, clockWaiter.watchesChange)
+	}
+	if len(due) == 0 {
+		return false, false, nil
+	}
+	pick, err := ctx.drawDueOrder(due)
+	if err != nil {
+		return false, false, err
+	}
+	w := due[pick]
+	if w == driver {
+		return true, true, nil
+	}
+	moved, err := ctx.runWaiter(w, progress)
+	if err != nil {
+		return false, false, err
+	}
+	if moved {
+		progress.unsettle()
+	} else {
+		progress.settle(w)
+	}
+	return true, false, nil
+}
+
+// drawDueOrder resolves which of the executors due runs first: the only one where
+// there is one, else the policy's pick, noted as a due-order choice.
+func (ctx *Context) drawDueOrder(due []clockWaiter) (int, error) {
+	if len(due) < 2 {
+		return 0, nil
+	}
+	choice := ChoicePoint{
+		Kind:         ChoiceDueOrder,
+		Where:        "t=" + semantics.FormatReal(ctx.clock.now),
+		Alternatives: make([]string, len(due)),
+	}
+	for i, w := range due {
+		choice.Alternatives[i] = w.dueLabel()
+	}
+	scheduling := ctx.scheduling()
+	pick := scheduling.choose(choice, nil)
+	if err := scheduling.refusal(); err != nil {
+		return 0, err
+	}
+	choice.Taken = pick
+	ctx.noteChoice(choice)
+	return pick, nil
 }
 
 // runWaiter runs one executor's due work, recording the run when the executor
