@@ -249,6 +249,15 @@ test("moveDestinations keeps a confined notation to the nodes the palette admits
   );
 });
 
+// A rendering may draw a declaration as its own root rather than inside its owner; what
+// the node declares is still not a place to move it to.
+test("moveDestinations excludes what the node declares even when drawn apart from it", () => {
+  const a: RenderNode = { id: "n1", kind: "part def", name: "A", type: "", detail: "", fqn: "P::A", notation: "part def", owners: [{ fqn: "P", feature: false }] };
+  const b: RenderNode = { id: "n2", kind: "part def", name: "B", type: "", detail: "", fqn: "P::A::B", notation: "part def", owners: [{ fqn: "P::A", feature: false }, { fqn: "P", feature: false }] };
+  const c: RenderNode = { id: "n3", kind: "part def", name: "C", type: "", detail: "", fqn: "P::C", notation: "part def", owners: [{ fqn: "P", feature: false }] };
+  assert.deepEqual(moveDestinations(a, { nodes: [a, b, c], version: 1 }), [{ fqn: "P::C", node: c }, { fqn: "" }]);
+});
+
 test("moveDestinations leaves the document out for a top-level declaration", () => {
   const top: RenderNode = { ...carN, owners: undefined };
   assert.deepEqual(moveDestinations(top, { nodes: [top, tankN], version: 1 }), []);

@@ -207,6 +207,39 @@ func TestMoveRemovesImportMadeRedundant(t *testing.T) {
 	}
 }
 
+func TestMoveReadsNameBetweenCarriedImportsItRespells(t *testing.T) {
+	// Both carried imports grow by the package's name; the name between them is
+	// read where it lands, not where the first import's growth would push it.
+	src := "package Spacecraft_Models {\n" +
+		"    package Lib {\n" +
+		"        part def A;\n" +
+		"        part def B;\n" +
+		"    }\n" +
+		"    part def Holder {\n" +
+		"        import Lib::A;\n" +
+		"        part a : A;\n" +
+		"        import Lib::B;\n" +
+		"        part b : B;\n" +
+		"    }\n" +
+		"}\n"
+	got := moveOne(t, "move.sysml", src, "Spacecraft_Models::Holder", "")
+	want := "package Spacecraft_Models {\n" +
+		"    package Lib {\n" +
+		"        part def A;\n" +
+		"        part def B;\n" +
+		"    }\n" +
+		"}\n" +
+		"part def Holder {\n" +
+		"    import Spacecraft_Models::Lib::A;\n" +
+		"    part a : A;\n" +
+		"    import Spacecraft_Models::Lib::B;\n" +
+		"    part b : B;\n" +
+		"}\n"
+	if got != want {
+		t.Fatalf("moved source:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestMoveRespellsImportOfTheTarget(t *testing.T) {
 	src := "package P {\n" +
 		"    package Lib {\n" +

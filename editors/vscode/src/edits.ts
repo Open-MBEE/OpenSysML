@@ -79,7 +79,10 @@ export function moveDestinations(node: RenderNode, rendering: Rendering): Destin
     if (candidate.fqn === undefined || offered.has(candidate.fqn) || !admits(rendering.palette, notation, candidate)) {
       continue;
     }
-    if (ancestors(candidate, rendering.nodes).includes(node)) {
+    if (
+      candidate.owners?.some((owner) => owner.fqn === node.fqn) ||
+      ancestors(candidate, rendering.nodes).includes(node)
+    ) {
       continue;
     }
     offered.add(candidate.fqn);

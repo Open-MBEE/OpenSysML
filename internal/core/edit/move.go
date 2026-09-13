@@ -170,14 +170,16 @@ func (mv *mover) landed(o int) int {
 		if rel < 0 {
 			return -1
 		}
+		shift := 0
 		for _, p := range mv.inner {
 			if rel >= p.start && rel < p.end {
 				return -1
 			}
 			if p.end <= rel {
-				rel += len(p.text) - (p.end - p.start)
+				shift += len(p.text) - (p.end - p.start)
 			}
 		}
+		rel += shift
 		start := mv.ins.span.Offset
 		if mv.remove.End() <= start {
 			start -= mv.remove.Len
