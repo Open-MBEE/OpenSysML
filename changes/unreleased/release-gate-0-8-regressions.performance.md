@@ -2,7 +2,9 @@
   model it holds without rebuilding its resolver and semantic model per request.** A held model
   keeps a pool of idle analysis workers; a request takes one, builds one only when the pool is
   empty, and returns it with the diagnostics it added trimmed away, on the success, error and
-  cancellation paths alike. Two concurrent requests still work on workers of their own. An
+  cancellation paths alike. Two concurrent requests still work on workers of their own, and the
+  pool keeps at most as many workers as the machine can run at once, so a burst of requests does
+  not leave the model holding a worker per request. An
   `Evaluate` that had grown from 10 µs to 3.5 ms is 8 µs, `VerifyConstraint` on a held model is
   ten times faster than in 0.7.0, and the Python client's `Instantiate` on a held model is a
   third faster than 0.7.0 instead of three to eighteen times slower.

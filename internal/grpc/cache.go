@@ -3,6 +3,7 @@ package grpc
 import (
 	"container/list"
 	"fmt"
+	goruntime "runtime"
 	"sync"
 
 	"connectrpc.com/connect"
@@ -44,6 +45,10 @@ type CachedModel struct {
 	idle   []*analysis.Worker
 }
 
+// maxIdleWorkers bounds the warm workers a model keeps: as many as can run at once, so a
+// burst of requests does not leave the model holding a worker per request in the burst.
+var maxIdleWorkers = goruntime.GOMAXPROCS(0)
+
 // worker takes a model-derived runtime part for one request: an idle one, warm from the requests
 // it served, else a new one. It memoizes into plain maps, so a request holds it alone until release.
 func (m *CachedModel) worker() (*analysis.Worker, func()) {
@@ -65,7 +70,9 @@ func (m *CachedModel) worker() (*analysis.Worker, func()) {
 			resolver.Diagnostics = resolver.Diagnostics[:diags]
 		}
 		m.idleMu.Lock()
-		m.idle = append(m.idle, w)
+		if len(m.idle) < maxIdleWorkers {
+			m.idle = append(m.idle, w)
+		}
 		m.idleMu.Unlock()
 	}
 }

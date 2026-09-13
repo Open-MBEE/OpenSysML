@@ -167,3 +167,27 @@ func TestCachedModelHandsWorkersOn(t *testing.T) {
 		t.Fatalf("a worker handed on carries %d diagnostics of an earlier request, want none", got)
 	}
 }
+
+// A burst of requests wider than the machine leaves the model holding no more warm workers
+// than can run at once; the rest are let go with the requests that built them.
+func TestCachedModelKeepsABoundedNumberOfIdleWorkers(t *testing.T) {
+	model := &CachedModel{Documents: []*CachedDocument{{Root: &ast.RootNamespace{}}}, Index: symbols.NewIndex()}
+	model.Index.Freeze()
+
+	releases := make([]func(), 0, maxIdleWorkers+3)
+	for range maxIdleWorkers + 3 {
+		_, release := model.worker()
+		releases = append(releases, release)
+	}
+	for _, release := range releases {
+		release()
+	}
+	if got := len(model.idle); got != maxIdleWorkers {
+		t.Fatalf("%d idle workers after a burst of %d, want the bound %d", got, maxIdleWorkers+3, maxIdleWorkers)
+	}
+	_, release := model.worker()
+	defer release()
+	if got := len(model.idle); got != maxIdleWorkers-1 {
+		t.Fatalf("%d idle workers while a request after the burst holds one, want %d", got, maxIdleWorkers-1)
+	}
+}
