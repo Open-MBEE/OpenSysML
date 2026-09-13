@@ -636,6 +636,29 @@ func (e *Encoding) initial() error {
 			env.has[base.Name] = solve.BoolTerm(false)
 		}
 	}
+	failed, err := e.initialInputs(env)
+	if err != nil {
+		return err
+	}
+	for _, base := range e.Features {
+		if value := env.values[base.Name]; value.Op != solve.OpVar || value.Var != s.value(base) {
+			e.assert(eq(solve.VarTerm(s.value(base)), value), "initial value of "+base.Name)
+		}
+		if !e.flagged[base.Name] {
+			continue
+		}
+		if has := env.has[base.Name]; has.Op != solve.OpVar || has.Var != s.has(base) {
+			e.assert(eq(solve.VarTerm(s.has(base)), has), "initial value of "+base.Name)
+		}
+	}
+	e.assert(eq(solve.VarTerm(s.Failed), or(failed...)), initialState)
+	return nil
+}
+
+// initialInputs writes each held or defaulted input into env and bounds the free
+// ones; the terms returned are the ways a default or domain fails in state 0.
+func (e *Encoding) initialInputs(env *env) ([]*solve.Term, error) {
+	f := e.Flow
 	var failed []*solve.Term
 	for _, in := range e.Inputs {
 		v := in.Var
@@ -653,7 +676,7 @@ func (e *Encoding) initial() error {
 		if in.Value.Kind != runtime.ValInvalid {
 			term, err := e.translator.Literal(v, in.Value)
 			if err != nil {
-				return refusal(f.label(f.Graph.Initial), "value held by "+in.Name, err)
+				return nil, refusal(f.label(f.Graph.Initial), "value held by "+in.Name, err)
 			}
 			value = term
 		} else if expr, ok := e.exprs[in.def]; ok {
@@ -668,19 +691,7 @@ func (e *Encoding) initial() error {
 			failed = append(failed, not(domain))
 		}
 	}
-	for _, base := range e.Features {
-		if value := env.values[base.Name]; value.Op != solve.OpVar || value.Var != s.value(base) {
-			e.assert(eq(solve.VarTerm(s.value(base)), value), "initial value of "+base.Name)
-		}
-		if !e.flagged[base.Name] {
-			continue
-		}
-		if has := env.has[base.Name]; has.Op != solve.OpVar || has.Var != s.has(base) {
-			e.assert(eq(solve.VarTerm(s.has(base)), has), "initial value of "+base.Name)
-		}
-	}
-	e.assert(eq(solve.VarTerm(s.Failed), or(failed...)), initialState)
-	return nil
+	return failed, nil
 }
 
 // translatedName is the name the translator gives the feature name resolves to in scope.
