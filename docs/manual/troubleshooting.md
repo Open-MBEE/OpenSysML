@@ -67,7 +67,7 @@ $ echo $?
 | A direction other than `TB`/`LR`/`RL`/`BT` | `invalid-direction` |
 | A direction on a kind that is not a directed graph (e.g. sequence) | `unsupported-direction` |
 | A palette other than `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` | `invalid-palette` |
-| A palette on a kind with no DOT form (table, sequence) | `unsupported-palette` |
+| A palette on a kind with no DOT or PlantUML form (table) | `unsupported-palette` |
 
 ### Query execution
 

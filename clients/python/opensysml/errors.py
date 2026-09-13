@@ -370,6 +370,14 @@ class DeleteReferencedError(EditError):
     """Raised when a referenced declaration is deleted without cascade."""
 
 
+class OwnerInsideTargetError(EditError):
+    """Raised when a move's new owner is the moved declaration or inside it."""
+
+
+class MoveReferencedError(EditError):
+    """Raised when a move would leave a reference no spelling can restore."""
+
+
 class ServiceError(OpenSysMLError):
     """Raised when the service fails a call, translated from its gRPC status.
 

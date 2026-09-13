@@ -165,7 +165,7 @@ func (e *Error) Error() string {
 	case ErrorInvalidPalette:
 		return fmt.Sprintf("document %s diagram %s palette must be one of %s, got %q", e.Document, e.Content, view.PaletteNames(), e.Actual)
 	case ErrorUnsupportedPalette:
-		return fmt.Sprintf("document %s diagram %s states palette %q, but a %s rendering has no DOT form to fill", e.Document, e.Content, e.Actual, e.Expected)
+		return fmt.Sprintf("document %s diagram %s states palette %q, but a %s rendering has no DOT or PlantUML form to fill", e.Document, e.Content, e.Actual, e.Expected)
 	case ErrorConflictingRuns:
 		return fmt.Sprintf("document %s paragraph %s declares inline runs alongside text or a query", e.Document, e.Content)
 	case ErrorAmbiguousRun:

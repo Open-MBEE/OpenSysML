@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -30,8 +32,8 @@ const (
 // renderParams asks for one rendering. View names a view the document declares,
 // or a supported pseudo-view (`#<kind>` or `#<kind>:<fqn>`); empty renders the
 // document's own view. Form is the artifact written, defaulting to the machine
-// form of the rendering's kind. Palette names the palette the DOT form fills
-// nodes from, by keyword family; empty draws in black and white.
+// form of the rendering's kind. Palette names the palette the DOT and PlantUML
+// forms fill nodes from, by keyword family; empty draws in black and white.
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
@@ -69,6 +71,7 @@ type renderNode struct {
 	Detail    string        `json:"detail"`
 	Parent    string        `json:"parent,omitempty"`
 	FQN       string        `json:"fqn,omitempty"`
+	Notation  string        `json:"notation,omitempty"`
 	Owners    []renderOwner `json:"owners,omitempty"`
 	Origin    *renderOrigin `json:"origin,omitempty"`
 	X         *float64      `json:"x,omitempty"`
@@ -250,6 +253,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
+	var declared []declaredNode
 	for _, node := range data.Nodes {
 		n := renderNode{
 			ID:     node.ID,
@@ -264,9 +268,11 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			if sym := nodeSymbol(doc.Scope, node.Origin); sym != nil {
 				if owners, ok := nodeOwners(sym); ok {
 					n.FQN = notationName(sym)
+					n.Notation = sym.Notation()
 					n.Owners = owners
 					if out.Palette != nil {
-						out.Palette.admit(node.ID, sym.Decl)
+						out.Palette.confine(n.Notation)
+						declared = append(declared, declaredNode{node.ID, sym.Decl})
 					}
 				}
 			}
@@ -280,6 +286,9 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			}
 		}
 		out.Nodes = append(out.Nodes, n)
+	}
+	for _, d := range declared {
+		out.Palette.admit(d.id, d.decl)
 	}
 	for _, edge := range data.Edges {
 		e := renderEdge{
@@ -311,7 +320,11 @@ func renderForm(rendering *view.Rendering, asked string) (view.Form, error) {
 	if slices.Contains(view.Forms(), form) {
 		return form, nil
 	}
-	return "", fmt.Errorf("%q is no rendering form: write %q, %q, %q or %q", asked, view.FormMermaid, view.FormText, view.FormMarkdown, view.FormDot)
+	names := make([]string, 0, len(view.Forms()))
+	for _, form := range view.Forms() {
+		names = append(names, strconv.Quote(string(form)))
+	}
+	return "", fmt.Errorf("%q is no rendering form: write %s or %s", asked, strings.Join(names[:len(names)-1], ", "), names[len(names)-1])
 }
 
 // renderPalette is the palette a request names, none when it names none, and

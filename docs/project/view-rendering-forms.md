@@ -4,11 +4,11 @@
 > [the roadmap](roadmap.md), where each is stated in full; a reader who only wants the design can
 > ignore them.
 
-Status: **`text`, `markdown`, `mermaid` and `dot` implemented** — `dot` is Track W's `W1`, wired
-into every surface `W3` names. `plantuml` (`W2`) is not written. This page records how a view's
-rendering is separated from the forms it is written in, why Graphviz DOT is offered next to
-Mermaid, and what the DOT writer emits — the [DiagramLayout](diagram-layout-annotations.md) geometry
-included.
+Status: **`text`, `markdown`, `mermaid`, `dot` and `plantuml` implemented** — `dot` is Track W's
+`W1` and `plantuml` its `W2`, both wired into every surface `W3` names. This page records how a
+view's rendering is separated from the forms it is written in, why Graphviz DOT and PlantUML are
+offered next to Mermaid, and what the DOT and [PlantUML](#plantuml) writers emit — the
+[DiagramLayout](diagram-layout-annotations.md) geometry included.
 
 ## The rendering and its forms
 
@@ -30,6 +30,7 @@ A **form** is a writer over that tree (`internal/core/view/form.go`):
 | `markdown` | `markdown.go` | `table` | The machine-readable form of a table |
 | `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | The default machine-readable form of the graph-shaped kinds |
 | `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, the alternative to Mermaid |
+| `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
 
 `Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table,
 `mermaid` for everything else — and `Kind.SupportsForm` decides whether a kind can be written in
@@ -147,10 +148,13 @@ The DOT form is drawn in the **Standard B&W style** of the OMG SysML v2 Pilot Im
 PlantUML visualizer, after the `sysmlbw` PlantUML skin by Hisashi Miyashita (Mgnite Inc.) shipped
 with it — `github.com/himi/plantuml`, branch `psysml`,
 `bundles/net.sourceforge.plantuml.lib/skin/sysmlbw.skin` — and the edge rules of the Pilot's
-`org.omg.sysml.plantuml/src/org/omg/sysml/plantuml/SysML2PlantUMLStyle.java`. The skin is
-EPL-2.0; this project reproduces its visual parameters (colours, line widths, font choices) in
-Graphviz's vocabulary, not its text. The Pilot's default is `skin sysmlbw`, `skinparam monochrome
-true` and `hide circle`; the translation is:
+`org.omg.sysml.plantuml/src/org/omg/sysml/plantuml/SysML2PlantUMLStyle.java`. The Pilot source is
+EPL-2.0 (its file header). The skin file carries no licence header of its own; the bundle it ships
+in, `net.sourceforge.plantuml.lib`, is under the Eclipse Public License v1.0 (its `COPYING`), the
+licence the fork's README names for the whole repository. This project reproduces the skin's visual
+parameters (colours, line widths, font choices) in Graphviz's and PlantUML's vocabularies, not its
+text. The Pilot's default is `skin sysmlbw`, `skinparam monochrome true` and `hide circle`; the
+translation to DOT is:
 
 | Skin / Pilot rule | DOT |
 | --- | --- |
@@ -177,7 +181,7 @@ apart either; that is a known limitation, not an approximation.
 
 ### Palettes
 
-A `view.Palette` fills the DOT form's nodes by **keyword family**, the way the Pilot's
+A `view.Palette` fills the DOT and PlantUML forms' nodes by **keyword family**, the way the Pilot's
 `STDCOLOR` mode does, so a `part def` and a `part` share a hue. The empty palette is the B&W
 default above. Every named palette is colourblind-safe:
 
@@ -205,15 +209,18 @@ Brewer (http://colorbrewer.org/), licensed under the Apache License, Version 2.0
   sampled evenly across the families present in the rendering, darkest first.
 - **Definitions and usages.** A definition takes the family colour as `fillcolor`; a usage a tint
   of it, blended 60 % toward white. Both borders are the untinted family colour at `penwidth=1`.
+  The PlantUML form writes the same fill as `#hex` on the element declaration, with the border as
+  `;line:hex`, so the two forms agree on every node's hex (`TestPlantUMLPaletteParityWithDOT`); a
+  sequence participant takes the fill alone, PlantUML accepting no border colour on one.
 - **Contrast.** Text stays black. Every fill — definition or usage — is lightened toward white,
   a hundredth at a time, until black text on it reaches the WCAG 2 level-AA ratio of 4.5:1; a
   colour already legible is unchanged. One function (`paletteFill`) defines the blend, and a test
   asserts the ratio for every colour of every palette at both tints.
 - **What stays black and white.** Pseudo-states, control nodes (fork, join, decision, …) and
   cluster borders keep the B&W rules under every palette; only plain nodes are filled.
-- **Other forms.** Mermaid writes a `%% not represented: palette <name>; only the DOT form fills
-  nodes by keyword family` comment and is not themed; text and Markdown ignore a palette
-  silently. An unknown palette name is a typed `*view.UnknownPaletteError` (wrapping
+- **Other forms.** Mermaid writes a `%% not represented: palette <name>; only the DOT and PlantUML
+  forms fill nodes by keyword family` comment and is not themed; text and Markdown ignore a
+  palette silently. An unknown palette name is a typed `*view.UnknownPaletteError` (wrapping
   `view.ErrUnknownPalette`) naming the palettes there are, on every surface.
 
 The palette API is shaped so a later caller can ask for the colour of category *i* of *n*
@@ -291,16 +298,163 @@ digraph "PlantViews::placedView" {
 The writer is still text over the tree: no Graphviz binary is run to produce, check or test
 the output.
 
+## PlantUML
+
+The `plantuml` form is for toolchains that draw with PlantUML — the OMG Pilot's own visualizer
+among them — and for the one graph-shaped kind DOT has no grammar for, the sequence. It is
+produced by pure text emission over the rendering tree, as the other forms are: **no Java and no
+PlantUML jar** is needed to write it, and nothing in the repository — writer, tests, surfaces, PDF
+backend — runs one. A jar, when present on a developer's machine, checks the goldens by hand
+(`java -jar plantuml.jar -checkonly`) or draws them; it is neither a dependency nor a CI step.
+
+```plantuml
+@startuml
+' VehicleViews::vehicleView — tree rendering
+<style>
+…
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "**Vehicles::Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>
+class "**engine : Engine**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+n0 -- n1
+@enduml
+```
+
+Every file has the same shape, in this order:
+
+1. `@startuml`.
+2. The header comment, `' <view> — <kind> rendering (<stated>)` (`'` opens a PlantUML line
+   comment), then one `' not represented: <notice>` line per notice of the rendering and per loss
+   the writer itself incurs: a reversed direction, and geometry kept as comments.
+3. The [style block](#the-inline-style) and `skinparam wrapWidth 300`, then `hide stereotype`.
+4. The direction statement, when one applies: `top to bottom direction` for `TB`, `left to right
+   direction` for `LR`. PlantUML draws no reversed direction, so `BT` and `RL` write the nearest
+   forward one and a `' not represented: direction RL; …` notice records the loss. The empty
+   direction leaves PlantUML's default. State and action diagrams take the same statements; a
+   sequence ignores direction, as Mermaid does.
+5. The [geometry](#geometry) as comments — `' canvas: unit=px w=800 h=600`, `' layout: <id> x=..
+   y=.. w=.. h=.. collapsed`, `' route: <from>-><to> x,y x,y …` — the very lines the Mermaid form
+   writes as `%%` comments, produced by the same `writeGeometryComments` with the comment prefix
+   as a parameter. PlantUML has no absolute positioning, so a `Layout` or `Route` is carried, not
+   honoured; a notice counts what was kept. **For pinned positions use the `dot` form.**
+6. The diagram body, per kind (below).
+7. `@enduml`.
+
+**Aliases and labels.** Every node is declared as `<grammar> "<label>" as <id> <<stereotypes>>`.
+The rendering's node IDs are `n<i>` (and `empty` for an empty rendering), already word characters,
+so they are the PlantUML aliases unchanged and the mapping is the identity. The label is the
+[name-first lines](#node-labels) of `label.go`, joined with `\n` inside one double-quoted string:
+the name line in creole bold (`**…**`), the keyword line italic at 10 pt
+(`<size:10>//«part»//</size>`), the detail line plain. One helper, `plantumlText`, writes every
+label and edge label so PlantUML shows it as it is: `"`, `\`, `<`, `>` and the creole escape `~`
+become `<U+XXXX>` escapes, as does each character of a run creole would read as markup (`**`,
+`//`, `__`, `--`, `[[`, `]]`), and a newline becomes `\n`. The bare guillemets `«` `»` render as
+themselves in the released jar and are written bare.
+
+**Stereotypes.** Each node carries its keyword as a stereotype, `<<part def>>`, `<<state>>`,
+`<<port>>`, so a style rule can select it, plus one shape stereotype the style block keys on:
+`<<usage>>` on every usage (rounded corners) and `<<package>>` on a package (heavier border); a
+definition and an orthogonal region carry no shape stereotype and keep the element rules. PlantUML
+would print every stereotype as its own `«…»` line above the name, which would put the keyword
+line twice on the node and the shape stereotype beside it, so the file says `hide stereotype`:
+**the label prints the guillemet line, PlantUML does not** — one keyword line, name first, as in
+the Mermaid and DOT forms. The stereotypes still drive the style and the pseudostate shapes. A
+control node's stereotype stands alone (`<<start>>`, `<<fork>>`, …), since PlantUML draws the
+pseudostate shape only when nothing else is attached.
+
+**Per kind:**
+
+- **`tree`** — a class diagram: `hide circle` and `hide empty members` as the Pilot's style does,
+  one `class "…" as n<i> <<kind>>` per node and containment as an undirected edge `parent --
+  child` from each node to each of its children, written right after the child. This is how the
+  Mermaid and DOT trees draw containment — a tree of edges, no nested containers — so the three
+  forms show the same picture and a tree has no blocks. The Pilot's `comp def`/`comp usage`
+  element kinds exist only in the PlantUML fork and are not emitted; every element is a standard
+  `class`.
+- **`interconnection`** — nested `rectangle` blocks: a node with children is `rectangle "…" as
+  n<i> <<kind>> {` … `}`, indented two spaces a level, a leaf a one-line `rectangle`. A port is a
+  nested rectangle inside its owner, not a `portin`/`portout`: the released jar's port grammar
+  belongs to `component` elements, and one grammar for every node keeps the style rules uniform.
+  A connection is the Pilot's heavy undirected connector `a -[thickness=3]- b : label`, a flow a
+  dashed arrow `a -[dashed]-> b : label`.
+- **`state`** — the state grammar with `hide empty description`: `state "…" as n<i> <<state>>`,
+  a body or composite state as `state … {` … `}` holding its substates, the body's start as the
+  `[*]` marker inside its block (`[*] --> n1`, one per start edge, after the substates — the
+  Mermaid writer's `starts` map, reused), and every other edge a transition `a --> b : label`
+  with the trigger/guard/effect text the state writer composes. The rendering's control kinds
+  map to PlantUML's pseudostate stereotypes: `initial` → `<<start>>`, `final` → `<<end>>`,
+  `fork`/`join` → `<<fork>>`/`<<join>>`, `decision`, `choice`, `merge` and `junction` →
+  `<<choice>>` (PlantUML has no round junction), `shallow history`/`deep history` →
+  `<<history>>`/`<<history*>>`. Only the nodes the rendering holds are written; the start
+  pseudostate is the `[*]` marker and no other node is invented. Regions carry `<<region>>`, which
+  the style dashes.
+- **`action`** — **the state grammar, uniformly.** PlantUML's activity grammar is procedural
+  (`start`, `:action;`, `fork`, `if … then … endif`): it draws a program, not a graph, and cannot
+  hold an arbitrary set of action nodes joined by successions and flows — a node with two
+  incoming successions, a flow crossing a fork, a nested body with its own start — without
+  inventing structure the rendering does not have. Rather than write activity syntax where the
+  graph happens to be linear and fall back elsewhere, which would give two grammars for one kind,
+  every action rendering is a state diagram: actions are states, control nodes the pseudostates
+  above, a nested body a composite state with its `[*]` start, a succession a solid `-->`, a flow
+  a dashed `-[dashed]->` labelled as the DOT writer labels it. Every node and edge of every action
+  golden is drawn, nesting included.
+- **`sequence`** — `participant "…" as n<i> <<kind>>` per root in root order, then `a -> b :
+  label` per edge in edge order, `a -> b` for an edge without a label — the same participants and
+  messages `mermaid.go`'s `writeSequenceDiagram` writes. An empty rendering writes one participant
+  carrying `EmptyReason()`. Under a palette a participant is filled like any usage by keyword
+  family (fill only; PlantUML takes no border colour on a participant), so the palette is
+  represented, not noticed.
+
+Hyperlinks are not written: no writer derives a stable URL from `Origin` today, and the PlantUML
+form adds none on its own; `[[url]]` links stay open with the DOT `URL=` attribute.
+
+### The inline style
+
+PlantUML proper does not ship the `sysmlbw` skin — it lives in the fork alone — so every file
+carries the B&W rules itself, in a `<style>` block (PlantUML's CSS-like style language) with the
+one `skinparam` the block cannot express. The translation of the same two sources the
+[DOT style](#style) credits:
+
+| Skin / Pilot rule | PlantUML |
+| --- | --- |
+| `FontName SansSerif`, `FontSize 14`, `FontColor black`, `HorizontalAlignment left`, `BackGroundColor #ffffff` | `root { BackGroundColor white; FontName SansSerif; FontSize 14; FontColor black; LineColor #181818; HorizontalAlignment left }` |
+| `LineColor #181818`, `element { LineThickness 0.5 }`, `Shadowing 0.0` | `element { BackGroundColor white; LineColor #181818; LineThickness 0.5; RoundCorner 0; Shadowing 0.0 }` — shadows are turned off, which DOT could not |
+| `RoundCorner 0` for definitions, `UsageRoundCorner 20` for usages | `RoundCorner 0` on every element; `.usage { RoundCorner 20 }` on the `<<usage>>` shape stereotype, the skin's radius exactly — the fork's `UsageRoundCorner` property does not exist in released PlantUML, so the stereotype rule stands in for it |
+| `stereotype { FontStyle italic }`, `element { title { FontStyle bold } }` | carried by the label, since the stereotype is hidden: the keyword line `//…//` at 10 pt, the name line `**…**` |
+| `stateDiagram { element { title { FontStyle plain } } }` | not followed, as in DOT: a state's name stays bold so the forms read alike |
+| `group { LineThickness 1.0 }`, `package { LineThickness 1.5 }`, `stateDiagram { group { LineThickness 0.5 } }` | `.package { LineThickness 1.5 }` on the `<<package>>` shape stereotype; every other block keeps the element's 0.5; `.region { LineStyle 4 }` dashes an orthogonal region as DOT does |
+| `arrow { FontSize 13; LineThickness 1.0 }` | `arrow { LineColor #181818; LineThickness 1; FontSize 13 }` |
+| note `BackGroundColor #FEFFDD`, 13 pt | `note { BackGroundColor #FEFFDD; FontSize 13 }` — no note is drawn today, the rule is there for one |
+| Pilot `skinparam wrapWidth 300` | `skinparam wrapWidth 300`, the one rule written as a `skinparam`; DOT could not wrap |
+| Pilot `hide circle` | `hide circle` on the class diagram (a tree), where the circle exists |
+| Pilot `-[thickness=3]-` connectors, `-->` flows and successions | `-[thickness=3]-` for `EdgeConnection`; `-->` for a transition or succession; `-[dashed]->` for a flow, as the Pilot's `VAction` dashes flows |
+| initial and final pseudo-states | PlantUML's own `<<start>>`/`<<end>>` dots, filled black by `start, end, activityBar { BackGroundColor black }` (the `element` rule would otherwise leave them and the fork/join bars hollow) |
+
+So the three rules DOT could not honour — the 20-unit usage radius, shadows off and the 300 px
+wrap — PlantUML honours in full; what PlantUML cannot honour and DOT does are absolute
+positions and routes, kept as comments. `skinparam monochrome true` is not written: the rules
+above already draw black and white, and monochrome would grey a palette's fills. Bindings draw at
+connector weight, as in DOT, the rendering having no `EdgeBinding` kind.
+
+A palette fills a node as `#hex;line:hex` after its stereotypes — one mechanism, the element
+declaration, which the released jar honours on `class`, `rectangle`, `state` and `participant`
+alike — with the [palette rules](#palettes) shared with DOT unchanged: same family, same tint, same
+contrast lightening, same hex per node. Pseudostates, control nodes and containers stay B&W under
+every palette, and text stays black.
+
 ## Surfaces
 
-`dot` is accepted wherever a form is chosen:
+`dot` and `plantuml` are accepted wherever a form is chosen:
 
 | Surface | Where | Documentation |
 | --- | --- | --- |
-| CLI | `-render <view> -render-form dot`; `-render-all <dir> -render-form dot` writes `.dot` files; `-render-palette <name>` fills them | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
-| REPL | `%render <view> dot [palette]`; `%help` names it | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
-| LSP | `"form": "dot"` and `"palette": "<name>"` on `opensysml/render` | [`docs/reference/lsp.md`](../reference/lsp.md) |
-| Documents | `-render-document`/`-render-documents … -diagram-form dot`, `%render-document <name> dot`, `"diagramForm": "dot"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` fence in Markdown, `<pre class="dot">` in HTML, the source under a notice in PDF. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation — though it may state a `palette`, as it states a `direction`, which the DOT figure is filled with and the HTML figure carries as `data-palette` | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md) |
+| CLI | `-render <view> -render-form dot\|plantuml`; `-render-all <dir> -render-form dot` writes `.dot` files and `-render-form plantuml` writes `.puml` files; `-render-palette <name>` fills either | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
+| REPL | `%render <view> dot\|plantuml [palette]`; `%help` names them; the form and, after a form that takes one, the palette complete | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
+| LSP | `"form": "dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render` | [`docs/reference/lsp.md`](../reference/lsp.md) |
+| Documents | `-render-document`/`-render-documents … -diagram-form dot\|plantuml`, `%render-document <name> dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown, `<pre class="dot">` or `<pre class="plantuml">` in HTML, the source under a notice in PDF. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation — though it may state a `palette`, as it states a `direction`, which the DOT or PlantUML figure is filled with and the HTML figure carries as `data-palette` | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/grpc`) has no view-render RPC and no
 render-form field — `RenderDocument` alone, to Markdown — so the wire contract carries no form
@@ -330,30 +484,59 @@ and did not change. A view-render RPC added later would take the form as a strin
   tints; the sequential sampling; the unknown-palette error text; the Mermaid notice and the
   silence of the text and Markdown forms; labels holding `&`, `<`, `>`, `"`, `'` and newlines;
   and the `interconnection.okabe-ito`, `state.okabe-ito` and `tree.viridis` goldens.
+- `internal/core/view/plantuml_test.go`: a `*.plantuml.golden` beside every Mermaid golden — the
+  tree, interconnection, state, state-entry, action, typed-action, typed-state, filtered, layout
+  and every `sequence-*` fixture — and `interconnection.okabe-ito.plantuml.golden` beside the DOT
+  one, each walked by an in-test PlantUML syntax check: `@startuml`/`@enduml` bracketing, a
+  closed `<style>` block, balanced braces, every quoted label closed, every alias an arrow names
+  declared (or `[*]`); the wrong-form errors for `table`, `textual` and `geometry`; the unknown
+  palette refused before any output; every direction, the reversed ones noticed; the escaping of
+  `"`, `\`, `<`, `>`, `~`, doubled creole runs and newlines; the geometry comments and their
+  notice; the sequence's participants and messages one for one with Mermaid's; and the palette
+  parity test asserting the same fill hex per node as the DOT form over every golden model and
+  every palette. When `OPENSYSML_PLANTUML_JAR` names a PlantUML jar and `java` is on the `PATH`,
+  every golden is additionally passed through `-checkonly`; the check is silent without them and
+  nothing in `go test` depends on the jar.
 - `internal/core/view/label_test.go`, `render_test.go`: the label lines of a typed usage, an
   untyped usage, a definition, an anonymous node and a node with notes; the text form's
   keyword-leading line; the same `<br>`-joined label in the flowchart, state and sequence
   Mermaid grammars; the escaping of `<`, `>`, `"` and `#` in a Mermaid label.
 - `cmd/sysml/render_test.go`, `internal/repl/view_render_test.go`, `internal/lsp/render_test.go`:
-  the form on each surface, and its refusal for a table or sequence; the palette accepted, noted
-  by Mermaid, and refused by name with the palettes there are.
+  each form on each surface — DOT refused for a table or sequence, PlantUML for a table and
+  written for a sequence; `-render-all` writing `.dot` and `.puml`; the palette accepted on both,
+  noted by Mermaid, and refused by name with the palettes there are.
 - `internal/core/docplan`, `docir`, `docrender`: the `Diagram` block's `palette` accepted,
-  refused when unknown (`invalid-palette`) or stated on a kind with no DOT form
+  refused when unknown (`invalid-palette`) or stated on a kind with no DOT or PlantUML form
   (`unsupported-palette`), carried into the document IR and onto the DOT and HTML figures.
 - `internal/core/docrender`, `docpdf`, `cmd/sysml`, `internal/repl`, `internal/lsp`: the
-  render-time diagram form defaulting to Mermaid, written as a `dot` fence and a
-  `<pre class="dot">` for every graph-shaped block with tables left as tables, refused for an
-  unknown form and for a kind with no DOT form, and kept as source in the PDF without a
-  diagram tool being looked for.
+  render-time diagram form defaulting to Mermaid, written as a `dot` or `plantuml` fence and a
+  `<pre class="dot">` or `<pre class="plantuml">` for every graph-shaped block with tables left
+  as tables, refused for an unknown form and for a kind with no DOT form, and kept as source in
+  the PDF under its own notice without a diagram tool being looked for.
 
 ## Known limitations
 
 - A `Route` is written as the polyline through its waypoints; the writer does not smooth it
   into a curve, and Graphviz draws it as given.
-- The PDF backend does not draw a DOT diagram. It keeps the source readable under a notice,
-  and looks for no Graphviz tool.
+- The PDF backend does not draw a DOT or a PlantUML diagram. It keeps the source readable under
+  a notice, and looks for no Graphviz or PlantUML tool.
 - A `sequence` rendering has no DOT form. DOT has no sequence-diagram vocabulary; the Mermaid
-  `sequenceDiagram` form remains the only machine-readable one.
+  `sequenceDiagram` and PlantUML sequence forms are its machine-readable ones.
+- The PlantUML form cannot pin a position or a route: DiagramLayout geometry is written as
+  comments and a notice counts it; `dot` is the form that honours it.
+- PlantUML draws no reversed direction: `BT` and `RL` read as `TB` and `LR`, and a notice says so.
+- An action rendering is a PlantUML state diagram, not an activity diagram, for the reason the
+  [PlantUML](#plantuml) section gives; a `junction` or `merge` is drawn as PlantUML's `<<choice>>`
+  diamond, PlantUML having no round junction.
+- A port is a nested rectangle inside its owner in the PlantUML interconnection, not a boundary
+  `portin`/`portout`.
+- PlantUML prints no stereotype: `hide stereotype` is written so the label's keyword line is the
+  one guillemet line; the stereotypes drive only the style and the pseudostate shapes.
+- No `[[url]]` hyperlinks are written by the PlantUML form, no writer having a stable URL for a
+  node's `Origin`.
+- Producing PlantUML runs no jar. The goldens are checked by the in-test syntax walk; a jar on
+  the machine is used by hand, or by the optional `-checkonly` check that `OPENSYSML_PLANTUML_JAR`
+  turns on.
 - Node shapes are not yet specialised for action control nodes (fork, join, decision): those
   take the default box with their kind in the label.
 - Graphviz has no corner radius, shadow or text wrapping, so the skin's `UsageRoundCorner 20`,
