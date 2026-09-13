@@ -1,0 +1,11 @@
+TypedViews::boilerView - state rendering (view def StateTransitionView)
+
+state def Typed::Boiler
+  start
+  state idle (initial)
+  state heating : Heating
+
+transitions:
+  start of Typed::Boiler -> idle
+  idle -> heating
+  heating -> idle

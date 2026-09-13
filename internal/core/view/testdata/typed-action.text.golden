@@ -1,0 +1,10 @@
+TypedViews::cycleView - action rendering (view def ActionFlowView)
+
+action Typed::run : Cycle
+  initial start
+  action warm : Warm
+  final done
+
+flow:
+  start -> warm
+  warm -> done

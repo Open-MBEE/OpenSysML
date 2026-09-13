@@ -506,7 +506,22 @@ func declKind(sym *symbols.Symbol) string {
 // declType is the type a usage is declared with, as written ("Engine" of
 // `part engine : Engine`), empty for a declaration stating none.
 func declType(sym *symbols.Symbol) string {
-	for _, rel := range semantics.RelationshipsOf(sym) {
+	return typingOf(semantics.RelationshipsOf(sym))
+}
+
+// nodeType is the type a usage lowered into a behavior graph is declared with
+// ("Provide" of `action provide : Provide`), empty for any other node.
+func nodeType(decl ast.Node) string {
+	if usage, ok := decl.(*ast.Usage); ok {
+		return typingOf(usage.Relationships)
+	}
+	return ""
+}
+
+// typingOf is the target of the first typing among a declaration's
+// relationships, written as the notation does.
+func typingOf(rels []*ast.Relationship) string {
+	for _, rel := range rels {
 		if rel == nil || rel.Target == nil {
 			continue
 		}

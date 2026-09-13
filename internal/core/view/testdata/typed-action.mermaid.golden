@@ -1,0 +1,9 @@
+%% TypedViews::cycleView — action rendering (view def ActionFlowView)
+flowchart TD
+  subgraph n0 ["Typed::run : Cycle<br>«action»"]
+    n1["start<br>«initial»"]
+    n2["warm : Warm<br>«action»"]
+    n3["done<br>«final»"]
+  end
+  n1 --> n2
+  n2 --> n3

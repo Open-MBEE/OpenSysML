@@ -2,7 +2,7 @@
 flowchart TD
   subgraph n0 ["Flows::Drive<br>«action def»"]
     n1["start<br>«initial»"]
-    n2["provide<br>«action»"]
+    n2["provide : Provide<br>«action»"]
     subgraph n3 ["monitor<br>«action»<br>own flow"]
       n5["begin<br>«initial»"]
       n6["record<br>«action»"]

@@ -9,7 +9,7 @@ digraph "FlowViews::driveView" {
     label=<<b>Flows::Drive</b><br/><font point-size="10">«action def»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n1" [shape=circle, label=<<b>start</b><br/><font point-size="10">«initial»</font>>];
-    "n2" [label=<<b>provide</b><br/><font point-size="10">«action»</font>>];
+    "n2" [label=<<b>provide : Provide</b><br/><font point-size="10">«action»</font>>];
     subgraph "cluster_n3" {
       label=<<b>monitor</b><br/><font point-size="10">«action»</font><br/>own flow>;
       "n3" [shape=point, style=invis, width=0, height=0, label=""];

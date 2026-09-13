@@ -2,7 +2,7 @@ FlowViews::driveView - action rendering (render asInterconnectionDiagram, view d
 
 action def Flows::Drive
   initial start
-  action provide
+  action provide : Provide
   action monitor (own flow)
     initial begin
     action record

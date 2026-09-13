@@ -100,6 +100,8 @@ func TestGoldenRenderings(t *testing.T) {
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
+		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
 		{"table", "table.sysml", "TableViews::partsTable", KindTable},
 		{"grid-table", "table.sysml", "TableViews::fleetTable", KindTable},
@@ -319,6 +321,45 @@ func TestActionRenderingComesFromTheLoweredGraph(t *testing.T) {
 	}
 	if guards == 0 || flows == 0 {
 		t.Errorf("edges: %d guarded, %d flows; want at least one of each", guards, flows)
+	}
+}
+
+// A behavior rendering carries the declared type of a typed action or state usage
+// apart from its notes, and every form writes the type after the name.
+func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
+	cases := []struct {
+		view, name, kind, typ, detail string
+	}{
+		{"TypedViews::cycleView", "Typed::run", "action", "Cycle", ""},
+		{"TypedViews::cycleView", "warm", "action", "Warm", ""},
+		{"TypedViews::cycleView", "start", "initial", "", ""},
+		{"TypedViews::boilerView", "heating", "state", "Heating", ""},
+		{"TypedViews::boilerView", "idle", "state", "", "initial"},
+	}
+	for _, tc := range cases {
+		rendering := render(t, "typed-behavior.sysml", tc.view)
+		node := nodeNamed(t, rendering, tc.name)
+		if node.Kind != tc.kind || node.Type != tc.typ || node.Detail != tc.detail {
+			t.Errorf("%s: node %s = kind %q type %q detail %q, want kind %q type %q detail %q",
+				tc.view, tc.name, node.Kind, node.Type, node.Detail, tc.kind, tc.typ, tc.detail)
+		}
+		if tc.typ == "" {
+			continue
+		}
+		head := tc.name + " : " + tc.typ
+		if text := rendering.Text(); !strings.Contains(text, tc.kind+" "+head) {
+			t.Errorf("%s: text lacks %q:\n%s", tc.view, tc.kind+" "+head, text)
+		}
+		if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, head+"<br>«"+tc.kind+"»") {
+			t.Errorf("%s: Mermaid lacks %q:\n%s", tc.view, head+"<br>«"+tc.kind+"»", mermaid)
+		}
+		dot, err := rendering.Write(FormDot)
+		if err != nil {
+			t.Fatalf("%s: DOT: %v", tc.view, err)
+		}
+		if !strings.Contains(dot, "<b>"+head+"</b>") {
+			t.Errorf("%s: DOT lacks a bold %q:\n%s", tc.view, head, dot)
+		}
 	}
 }
 
