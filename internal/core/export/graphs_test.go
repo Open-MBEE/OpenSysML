@@ -238,6 +238,49 @@ func TestGraphsActionCarriesTheLoweredGraph(t *testing.T) {
 	if !strings.Contains(string(data), `"parameters":[{"name":"i","direction":"in"`) {
 		t.Errorf("parameters are not written in the form: %s", data)
 	}
+	assertFootprints(t, run)
+}
+
+// assertFootprints pins that the flow's moves carry the lowering's footprint: the
+// vertex writing `total` says so, and the vertices before the join converge on it.
+func assertFootprints(t *testing.T, run *ActionForm) {
+	t.Helper()
+	join := -1
+	for _, n := range run.Nodes {
+		if n.Kind == "join" {
+			join = n.ID
+		}
+	}
+	writes := func(name string) *NodeForm {
+		for i := range run.Nodes {
+			if run.Nodes[i].Name == name {
+				return &run.Nodes[i]
+			}
+		}
+		t.Fatalf("no vertex named %s", name)
+		return nil
+	}
+	left := writes("left")
+	if left.Footprint == nil {
+		t.Fatalf("left carries no footprint")
+	}
+	if len(left.Footprint.Writes) != 1 || left.Footprint.Writes[0].Name != "total" || left.Footprint.Writes[0].Symbol != "test::run::total" {
+		t.Errorf("left writes %+v, want total resolved to test::run::total", left.Footprint.Writes)
+	}
+	converging := 0
+	for _, n := range run.Nodes {
+		if n.Footprint == nil {
+			continue
+		}
+		for _, c := range n.Footprint.Control {
+			if c == join {
+				converging++
+			}
+		}
+	}
+	if converging == 0 {
+		t.Errorf("no vertex converges on the join %d", join)
+	}
 }
 
 func TestGraphsStateCarriesTheLoweredGraph(t *testing.T) {

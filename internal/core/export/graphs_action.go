@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -57,6 +58,38 @@ type NodeForm struct {
 	// Performs are the qualified names of the behaviors the node performs or is
 	// typed by, as they resolve; each has a graph of its own in the form.
 	Performs []string `json:"performs,omitempty"`
+	// Footprint is what advancing a token through the node may touch, the
+	// independence relation of the model checker; see lower.Footprint.
+	Footprint *FootprintForm `json:"footprint,omitempty"`
+}
+
+// FootprintForm is a lower.Footprint: the places a move reads and writes, the
+// channels it sends on and accepts from, the joins and merges it converges on
+// (by vertex number) and whether its target is dynamic, in which case it
+// depends on every other move.
+type FootprintForm struct {
+	Reads   []PlaceForm   `json:"reads,omitempty"`
+	Writes  []PlaceForm   `json:"writes,omitempty"`
+	Sends   []ChannelForm `json:"sends,omitempty"`
+	Accepts []ChannelForm `json:"accepts,omitempty"`
+	Control []int         `json:"control,omitempty"`
+	Dynamic bool          `json:"dynamic,omitempty"`
+}
+
+// PlaceForm is one feature a move touches: the qualified name of the
+// declaration it resolves to (absent when unresolved), the name it was written
+// under, and whether it is a pin, held per performance.
+type PlaceForm struct {
+	Symbol string `json:"symbol,omitempty"`
+	Name   string `json:"name"`
+	Local  bool   `json:"local,omitempty"`
+}
+
+// ChannelForm is one message a move sends or waits for: the signal type as
+// written (absent for any) and the port it travels through (absent for none).
+type ChannelForm struct {
+	Signal string `json:"signal,omitempty"`
+	Port   string `json:"port,omitempty"`
 }
 
 // EdgeForm is a control flow, guarded when Guard is present; Else marks the
@@ -426,6 +459,9 @@ func (x *graphsExporter) node(graph *lower.ActionGraph, ids *vertexIDs, id int, 
 	if accept, ok := graph.Accepts[node]; ok {
 		nf.Accept = x.accept(scope, accept)
 	}
+	if fp, ok := graph.Footprints()[node]; ok {
+		nf.Footprint = footprintForm(ids, fp)
+	}
 	if sub, ok := graph.Subflows[node]; ok && sub != nil {
 		sf := &SubflowForm{}
 		if sub.Err != nil {
@@ -441,6 +477,58 @@ func (x *graphsExporter) node(graph *lower.ActionGraph, ids *vertexIDs, id int, 
 		nf.Subflow = sf
 	}
 	return nf, nil
+}
+
+// footprintForm writes a footprint with its places, channels and control
+// vertices sorted, since the lowering collects them in no fixed order.
+func footprintForm(ids *vertexIDs, fp lower.Footprint) *FootprintForm {
+	form := &FootprintForm{
+		Reads:   places(fp.Reads),
+		Writes:  places(fp.Writes),
+		Sends:   channels(fp.Sends),
+		Accepts: channels(fp.Accepts),
+		Dynamic: fp.Dynamic,
+	}
+	for _, node := range fp.Control {
+		if id := ids.ref(node); id != nil {
+			form.Control = append(form.Control, *id)
+		}
+	}
+	sort.Ints(form.Control)
+	return form
+}
+
+// places writes the places of a footprint sorted by name, symbol and locality.
+func places(in []lower.Place) []PlaceForm {
+	out := make([]PlaceForm, 0, len(in))
+	for _, p := range in {
+		out = append(out, PlaceForm{Symbol: symbols.FQNOf(p.Sym), Name: p.Name, Local: p.Local})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		if out[i].Symbol != out[j].Symbol {
+			return out[i].Symbol < out[j].Symbol
+		}
+		return !out[i].Local && out[j].Local
+	})
+	return out
+}
+
+// channels writes the channels of a footprint sorted by signal then port.
+func channels(in []lower.Channel) []ChannelForm {
+	out := make([]ChannelForm, 0, len(in))
+	for _, c := range in {
+		out = append(out, ChannelForm{Signal: c.Signal, Port: c.Port})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Signal != out[j].Signal {
+			return out[i].Signal < out[j].Signal
+		}
+		return out[i].Port < out[j].Port
+	})
+	return out
 }
 
 // statements writes a body in order.
