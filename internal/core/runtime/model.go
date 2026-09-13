@@ -64,6 +64,10 @@ type Model struct {
 	// requirements applied as predicates.
 	predicateShapes map[*symbols.Symbol]*calcShape
 
+	// librarySymbols memoizes the library declaration each qualified name denotes;
+	// see librarySymbol.
+	librarySymbols map[string]*symbols.Symbol
+
 	// libraryPerformances memoizes, per model calc, the inherited library function a
 	// call of it applies; nil for a calc that computes on its own.
 	libraryPerformances map[*symbols.Symbol]*libraryPerformance
@@ -135,6 +139,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		writeTargets:        make(map[writeTargetKey]*writeTarget),
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
 		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
+		librarySymbols:      make(map[string]*symbols.Symbol),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
 		invocationTargets:   make(map[invocationKey]*invocationTarget),
 		integerLiterals:     make(map[*ast.LiteralInteger]int64),

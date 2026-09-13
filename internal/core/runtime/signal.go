@@ -202,7 +202,8 @@ func (ctx *Context) SignalMessage(signal *symbols.Symbol, args map[string]Value,
 				ErrSignalArgument, symbolText(signal), name, carriedFeaturesNote(features))
 		}
 		arg := args[name]
-		if err := ctx.checkAdmits(feat, symbolText(signal)+"."+name, &arg, admitWritten); err != nil {
+		what := func() string { return symbolText(signal) + "." + name }
+		if err := ctx.checkAdmits(feat, what, &arg, admitWritten); err != nil {
 			return Message{}, fmt.Errorf("%w: %w", ErrSignalArgument, err)
 		}
 		payload[name] = arg

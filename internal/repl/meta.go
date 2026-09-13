@@ -3459,7 +3459,7 @@ func clockWaitLines(ctx *runtime.Context) []string {
 	}
 	out := []string{"  Waiting on the clock:"}
 	for _, w := range waits {
-		out = append(out, fmt.Sprintf("    t=%s: %s, %s", semantics.FormatReal(w.Due), w.Holder, w.What))
+		out = append(out, fmt.Sprintf("    t=%s: %s, %s", semantics.FormatReal(w.Due), w.Holder(), w.What()))
 	}
 	return out
 }

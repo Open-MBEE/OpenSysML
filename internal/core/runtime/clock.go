@@ -26,8 +26,31 @@ type Clock struct {
 type ClockWait struct {
 	// Due is the instant the wait comes due at, in seconds.
 	Due float64
-	// Holder names the executor waiting, What the wait itself.
-	Holder, What string
+	// holder is the executor waiting, what the wait itself; both are described
+	// only when a view asks, so scheduling on Due does not format labels.
+	holder dueHolder
+	what   fmt.Stringer
+}
+
+// dueHolder is an executor that names itself in a due-order choice.
+type dueHolder interface {
+	dueLabel() string
+}
+
+// Holder names the executor waiting.
+func (w ClockWait) Holder() string {
+	if w.holder == nil {
+		return ""
+	}
+	return w.holder.dueLabel()
+}
+
+// What describes the wait itself.
+func (w ClockWait) What() string {
+	if w.what == nil {
+		return ""
+	}
+	return w.what.String()
 }
 
 // Now returns the current simulation instant, in seconds.

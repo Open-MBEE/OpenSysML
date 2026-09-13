@@ -47,7 +47,7 @@ func (ctx *Context) classifyValueReading(
 	if err != nil && len(declared) == 0 {
 		return semantics.ClassifiesNone, err
 	}
-	known := append(append([]*symbols.Symbol{}, declared...), types...)
+	known := append(append(make([]*symbols.Symbol, 0, len(declared)+len(types)), declared...), types...)
 	verdict := ctx.model.semantics.ClassifiesTypes(known, target)
 	if verdict == semantics.ClassifiesNone && isScalar(value) {
 		// A scalar type beside the value's own (`Cost :> Real` beside Rational) may hold it.
@@ -187,7 +187,7 @@ func (ctx *Context) valueTypes(scope *symbols.Scope, value Value) ([]*symbols.Sy
 // numberTypes adds to a number's scalar type the quantity type it also is: the runtime
 // holds a quantity of dimension one and no unit as the bare number (ToDimensionOneValue).
 func (ctx *Context) numberTypes(value Value, scalar *symbols.Symbol) []*symbols.Symbol {
-	types := []*symbols.Symbol{scalar}
+	types := append(make([]*symbols.Symbol, 0, 2), scalar)
 	if value.Kind != ValConst || (value.Const.Kind != semantics.ValInt && value.Const.Kind != semantics.ValReal) {
 		return types
 	}

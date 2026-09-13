@@ -560,7 +560,7 @@ func (img *HeldImage) clockFree(dst *Context) error {
 	}
 	if waits := dst.clock.armed(); len(waits) > 0 && waits[0].Due < img.clock {
 		return fmt.Errorf("%w: %s of %s is due at t=%v, before the image's t=%v",
-			ErrImageClock, waits[0].What, waits[0].Holder, waits[0].Due, img.clock)
+			ErrImageClock, waits[0].What(), waits[0].Holder(), waits[0].Due, img.clock)
 	}
 	return nil
 }
