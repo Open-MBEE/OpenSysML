@@ -8,9 +8,10 @@ import (
 )
 
 // The `check` policy hands a step exactly the move the model checker selected —
-// one token, and at a decision the branch to take — through the seam every
-// policy resolves choice points by. It has no spelling: the checker constructs
-// it, sets the move before each step and reads back what the step made of it.
+// the executor to move, one token of an action, and the picks resolving the choice
+// points the move draws in order — through the seam every policy resolves choice
+// points by. It has no spelling: the checker constructs it, sets the move before
+// each step and reads back the choices the step drew beyond the picks it was given.
 // A step it selects no token for settles as a replayed step with no witness move
 // does: every token is tried in turn, and none may act.
 
@@ -19,22 +20,14 @@ import (
 var ErrCheckRefused = errors.New("check refused")
 
 // CheckMoveError reports a move the checker selected that the run did not make:
-// the move and what the run faced instead.
+// the move, as the checker spells it, and what the run faced instead.
 type CheckMoveError struct {
-	Token  int64
-	Branch int
-	Faced  string
+	Move  string
+	Faced string
 }
 
 func (e *CheckMoveError) Error() string {
-	move := fmt.Sprintf("token %d", e.Token)
-	if e.Token == 0 {
-		move = "no token"
-	}
-	if e.Branch >= 0 {
-		move += fmt.Sprintf(", branch %d", e.Branch+1)
-	}
-	return fmt.Sprintf("%v: %s: %s", ErrCheckRefused, move, e.Faced)
+	return fmt.Sprintf("%v: %s: %s", ErrCheckRefused, e.Move, e.Faced)
 }
 
 // Is makes every CheckMoveError match ErrCheckRefused.
@@ -42,14 +35,17 @@ func (e *CheckMoveError) Is(target error) bool { return target == ErrCheckRefuse
 
 // checkScript is the move the checker selected for the next step, shared by the
 // policy and the checker: the executor whose step it is, the token to move (0 for
-// none, a settling step) and, when its node is a decision, the index among the
-// holding branches to take; -1 takes the first, so the checker learns how many
-// hold from the choice the step notes. A step of any other executor — a typed
-// action a token performs within its move — runs in declared order.
+// none, a settling step or a state machine's), the index answering the due-order
+// choice the step draws first, when several executors are due, and the picks
+// answering the choice points the move draws after it, in order. A choice past
+// the picks takes its first alternative and is reported back, so the checker
+// learns what else the move could have picked. A step of any other executor — a
+// typed action a token performs within its move — runs in declared order.
 type checkScript struct {
-	owner  *ActionExecutor
-	token  int64
-	branch int
+	owner checkedExecutor
+	token int64
+	due   int
+	picks []int
 }
 
 // checkPolicy is the `check` policy over the given script.
@@ -58,13 +54,14 @@ func checkPolicy(script *checkScript) SchedulePolicy {
 }
 
 // set fixes the move the next step of owner makes.
-func (s *checkScript) set(owner *ActionExecutor, token int64, branch int) {
-	s.owner, s.token, s.branch = owner, token, branch
+func (s *checkScript) set(owner checkedExecutor, token int64, due int, picks []int) {
+	s.owner, s.token, s.due, s.picks = owner, token, due, picks
 }
 
-// settle makes the next step select no token: every token is tried, none may act.
+// settle makes the next step select no token and draw no choice: every token is
+// tried, none may act.
 func (s *checkScript) settle() {
-	s.token, s.branch = 0, -1
+	s.token, s.due, s.picks = 0, -1, nil
 }
 
 // checkRun resolves one run's steps by the checker's script: the first move the
@@ -72,17 +69,39 @@ func (s *checkScript) settle() {
 type checkRun struct {
 	script  *checkScript
 	refused error
-	// decided is the decision the step under way faced, nil for none yet.
-	decided *ChoicePoint
+	// picked counts the picks the move under way consumed; drawn are the choice
+	// points it faced past them, each taken at its first alternative.
+	picked int
+	drawn  []ChoicePoint
 	// move is the step under way, nil between steps.
 	move *checkMove
+}
+
+// begin starts a move: the picks are consumed from the first, nothing is drawn yet.
+func (r *checkRun) begin() {
+	r.picked, r.drawn, r.move = 0, nil, nil
 }
 
 // refuse records the first selected move the run could not make.
 func (r *checkRun) refuse(faced string) {
 	if r.refused == nil {
-		r.refused = &CheckMoveError{Token: r.script.token, Branch: r.script.branch, Faced: faced}
+		r.refused = &CheckMoveError{Move: r.script.String(), Faced: faced}
 	}
+}
+
+// String spells the scripted move: the executor, its token, or none, and its picks.
+func (s *checkScript) String() string {
+	move := "no token"
+	if s.token != 0 {
+		move = fmt.Sprintf("token %d", s.token)
+	}
+	if s.owner != nil {
+		move = s.owner.dueLabel() + ", " + move
+	}
+	for _, pick := range s.picks {
+		move += fmt.Sprintf(", pick %d", pick+1)
+	}
+	return move
 }
 
 // checkMove is one step under check: the tokens tried in order, and those able to
@@ -107,8 +126,6 @@ func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0}
 	if tokens.owner != r.script.owner {
 		m.nested, m.selected = true, false
-	} else {
-		r.decided = nil
 	}
 	r.move = m
 	var enabled, rest, held []int64
@@ -162,9 +179,12 @@ func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 	return m
 }
 
-// nextToken is the token to try next; false once one acted or none is left.
+// nextToken is the token to try next; false once one acted or none is left, which ends the step.
 func (m *checkMove) nextToken() (int64, bool) {
 	if m.moved || m.next >= len(m.order) {
+		if m.run.move == m {
+			m.run.move = nil
+		}
 		return 0, false
 	}
 	id := m.order[m.next]
@@ -202,40 +222,49 @@ func (m *checkMove) reported() (alternatives []string, taken int, ok bool) {
 	return m.enabled, m.taken, true
 }
 
-// choose resolves a pick among c.Alternatives by the selected branch, which must be
-// one of them at a decision (the first when none is selected); any other pick faced
-// is a move the checker did not select. The decision faced is kept for the checker.
-// A pick within a nested step takes the first alternative, as a declared run does.
+// choose resolves a pick among c.Alternatives: a due order by the index the
+// script names, any other choice by the next pick of the script, which must be
+// one of the alternatives, or — the picks consumed — the first alternative,
+// the choice kept for the checker. A pick within a nested step takes the first
+// alternative, as a declared run does.
 func (r *checkRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 	if r.move != nil && r.move.nested {
 		return 0
 	}
 	n := len(c.Alternatives)
-	if c.Kind != ChoiceDecisionBranch {
+	if c.Kind == ChoiceDueOrder {
+		if r.script.due < 0 || r.script.due >= n {
+			if whereOf != nil {
+				c.Where = whereOf(0)
+			}
+			r.refuse("the run faced " + c.Describe())
+			return 0
+		}
+		return r.script.due
+	}
+	if r.picked >= len(r.script.picks) {
+		c.Taken = 0
 		if whereOf != nil {
 			c.Where = whereOf(0)
 		}
-		r.refuse("the run faced " + c.Describe())
+		r.drawn = append(r.drawn, c)
 		return 0
 	}
-	if r.decided != nil {
-		r.refuse(fmt.Sprintf("the run faced %s after %s in one step", c.Describe(), r.decided.Describe()))
+	pick := r.script.picks[r.picked]
+	r.picked++
+	if pick >= n {
+		if whereOf != nil {
+			c.Where = whereOf(0)
+		}
+		r.refuse(fmt.Sprintf("the run faced %s and pick %d is not among them", c.Describe(), pick+1))
 		return 0
 	}
-	pick := 0
-	if r.script.branch >= n {
-		r.refuse(fmt.Sprintf("the run faced %s and branch %d is not among them", c.Describe(), r.script.branch+1))
-	} else if r.script.branch >= 0 {
-		pick = r.script.branch
-	}
-	c.Taken = pick
-	r.decided = &c
 	return pick
 }
 
 // mark returns what a probe restores: whether a move was refused and what the
-// step under way faced.
+// step under way drew.
 func (r *checkRun) mark() func() {
-	refused, decided, move := r.refused, r.decided, r.move
-	return func() { r.refused, r.decided, r.move = refused, decided, move }
+	refused, picked, drawn, move := r.refused, r.picked, len(r.drawn), r.move
+	return func() { r.refused, r.picked, r.drawn, r.move = refused, picked, r.drawn[:drawn], move }
 }

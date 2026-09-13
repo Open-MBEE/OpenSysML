@@ -27,8 +27,12 @@ func (f *fixture) checked(t *testing.T, name string) *checkedAction {
 	return &checkedAction{sym: f.symbol(t, name)}
 }
 
-func (a *checkedAction) start(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
-	return ctx.CreateActionExecutor(a.sym)
+func (a *checkedAction) start(ctx *runtime.Context) (*runtime.Invocation, error) {
+	exec, err := ctx.CreateActionExecutor(a.sym)
+	if err != nil {
+		return nil, err
+	}
+	return &runtime.Invocation{Actions: []*runtime.ActionExecutor{exec}}, nil
 }
 
 // x is the property that the action's x is at most limit.
@@ -39,8 +43,8 @@ func (a *checkedAction) y(limit int64) runtime.CheckProperty { return a.atMost("
 
 // atMost is the property that the action's named integer is at most limit.
 func (a *checkedAction) atMost(name string, limit int64) runtime.CheckProperty {
-	return runtime.CheckProperty{Name: name, Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
-		v, ok := exec.Results()[name]
+	return runtime.CheckProperty{Name: name, Holds: func(_ *runtime.Context, inv *runtime.Invocation) (bool, error) {
+		v, ok := inv.Actions[0].Results()[name]
 		if !ok || v.Kind != runtime.ValConst {
 			return false, errors.New(name + " holds no value")
 		}
@@ -374,11 +378,11 @@ func TestCheckWitnessFilesTellFeaturesApart(t *testing.T) {
 			if w.String() != d.Values[j].Witness.String() {
 				t.Errorf("%s holds another witness than %s = %s", path, d.Feature, d.Values[j].Value)
 			}
-			replayed, err := runtime.ReplayAction(context.Background(), func() (*runtime.Context, error) { return f.context(t), nil }, race.start, w, nil)
+			replayed, err := runtime.Replay(context.Background(), func() (*runtime.Context, error) { return f.context(t), nil }, race.start, w, nil)
 			if err != nil {
 				t.Fatalf("%s: replay: %v", path, err)
 			}
-			if got := replayed.Exec.Results()[d.Feature]; got.Kind != runtime.ValConst || fmt.Sprint(got.Const.Int) != d.Values[j].Value {
+			if got := replayed.Inv.Actions[0].Results()[d.Feature]; got.Kind != runtime.ValConst || fmt.Sprint(got.Const.Int) != d.Values[j].Value {
 				t.Errorf("%s replays to %s = %v, want %s", path, d.Feature, got, d.Values[j].Value)
 			}
 		}
@@ -394,7 +398,7 @@ func TestCheckWitnessThatFailsReplayIsNotCovered(t *testing.T) {
 	var starts sync.Mutex
 	started := 0
 	// The search starts race; every replay after it starts a calc instead, so no witness replays.
-	start := func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
+	start := func(ctx *runtime.Context) (*runtime.Invocation, error) {
 		starts.Lock()
 		n := started
 		started++
@@ -402,7 +406,11 @@ func TestCheckWitnessThatFailsReplayIsNotCovered(t *testing.T) {
 		if n == 0 {
 			return race.start(ctx)
 		}
-		return ctx.CreateActionExecutor(other)
+		exec, err := ctx.CreateActionExecutor(other)
+		if err != nil {
+			return nil, err
+		}
+		return &runtime.Invocation{Actions: []*runtime.ActionExecutor{exec}}, nil
 	}
 	q := checkQuestion(t, f, Holds, &CheckAsk{Start: start, Properties: []runtime.CheckProperty{race.x(2)}})
 	result := answered(t, Default(), f.building(), q, Budget{}).Result
@@ -498,7 +506,7 @@ func TestCheckTakesTheBudgetsDepthAndRuns(t *testing.T) {
 func TestCheckStopsAtThePlansDeadline(t *testing.T) {
 	f := parseFixture(t)
 	race := f.checked(t, "race")
-	slow := runtime.CheckProperty{Name: "slow", Holds: func(*runtime.Context, *runtime.ActionExecutor) (bool, error) {
+	slow := runtime.CheckProperty{Name: "slow", Holds: func(*runtime.Context, *runtime.Invocation) (bool, error) {
 		time.Sleep(20 * time.Millisecond)
 		return true, nil
 	}}
@@ -563,7 +571,8 @@ func TestCheckWitnessesAPropertyThatFailsToEvaluate(t *testing.T) {
 	f := parseFixture(t)
 	race := f.checked(t, "race")
 	offline := errors.New("x is offline")
-	failing := runtime.CheckProperty{Name: "sensor", Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
+	failing := runtime.CheckProperty{Name: "sensor", Holds: func(_ *runtime.Context, inv *runtime.Invocation) (bool, error) {
+		exec := inv.Actions[0]
 		if exec.State() == runtime.StateCompleted && exec.Results()["x"].Const.Int == 2 {
 			return false, offline
 		}
@@ -578,7 +587,8 @@ func TestCheckWitnessesAPropertyThatFailsToEvaluate(t *testing.T) {
 		t.Fatalf("checked %+v, want the sensor's failure as the one violation", c)
 	}
 	var evaluations atomic.Int32
-	flaky := runtime.CheckProperty{Name: "sensor", Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
+	flaky := runtime.CheckProperty{Name: "sensor", Holds: func(_ *runtime.Context, inv *runtime.Invocation) (bool, error) {
+		exec := inv.Actions[0]
 		if exec.State() == runtime.StateCompleted && exec.Results()["x"].Const.Int == 2 && evaluations.Add(1) == 1 {
 			return false, offline
 		}

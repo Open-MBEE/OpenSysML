@@ -147,7 +147,7 @@ func TestCheckReductionRatchet(t *testing.T) {
 func TestCheckReductionKeepsEveryAddressee(t *testing.T) {
 	m := reductionModel(t, "por_address", false)
 	addressed := func(node string) CheckProperty {
-		return CheckProperty{Name: node + " unaddressed", Holds: func(ctx *Context, _ *ActionExecutor) (bool, error) {
+		return CheckProperty{Name: node + " unaddressed", Holds: func(ctx *Context, _ *Invocation) (bool, error) {
 			for _, msg := range ctx.PendingMessages() {
 				if inst, held := ctx.instances[msg.Object]; held && symbolText(inst.Type) == node {
 					return false, nil

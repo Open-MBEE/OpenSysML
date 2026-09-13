@@ -8,9 +8,10 @@ import (
 )
 
 // Static partial-order reduction: from each state the search explores a
-// persistent set of the enabled moves, closed under "a token whose future may
+// persistent set of the enabled moves, closed under "a unit whose future may
 // not commute with a member is a member", less a sleep set of the moves an
 // equivalent predecessor already explored (bounded-model-checking.md, "The algorithm").
+// A unit is what a move advances: an action's token, or a state machine as a whole.
 
 // futureKey identifies what a token may still do: its node in its flow.
 type futureKey struct {
@@ -18,56 +19,71 @@ type futureKey struct {
 	node  ast.Node
 }
 
+// unit is the unit the move advances: its owner's token, the owner itself for a
+// state machine's move.
+func (m enabledMove) unit() tokenKey {
+	return tokenKey{owner: m.Owner, id: m.Token}
+}
+
 // footprintOf is the footprint of the move: what advancing the token over its
-// node touches. A move the executor will refuse depends on everything.
+// node touches. A move the executor will refuse depends on everything, as does a
+// state machine's move until its footprints are projected.
 func (c *checker) footprintOf(m enabledMove) lower.Footprint {
 	if m.Fails != nil {
 		return lower.Footprint{Dynamic: true}
 	}
-	return c.standing(c.exec.tokens[c.exec.tokenIndex(m.Token)])
+	exec, isAction := m.Owner.(*ActionExecutor)
+	if !isAction {
+		return lower.Footprint{Dynamic: true}
+	}
+	return c.standing(exec, exec.tokens[exec.tokenIndex(m.Token)])
 }
 
 // standing is the footprint of the node the token stands at.
-func (c *checker) standing(t Token) lower.Footprint {
+func (c *checker) standing(exec *ActionExecutor, t Token) lower.Footprint {
 	if t.body != nil {
 		return lower.Footprint{Dynamic: true}
 	}
-	return c.tokenGraphOf(t).Footprints()[t.Location]
+	return tokenGraphOf(exec, t).Footprints()[t.Location]
 }
 
-// futureOf is the footprint of every move the token may make from where it
-// stands: the nodes it can reach in its flow and, when its flow ends, in the
-// flows it returns to.
+// futureOf is the footprint of every move the unit may make from where it
+// stands: for a token, the nodes it can reach in its flow and, when its flow
+// ends, in the flows it returns to.
 func (c *checker) futureOf(m enabledMove) lower.Footprint {
 	if m.Fails != nil {
 		return lower.Footprint{Dynamic: true}
 	}
-	return c.tokenFuture(c.exec.tokens[c.exec.tokenIndex(m.Token)])
+	exec, isAction := m.Owner.(*ActionExecutor)
+	if !isAction {
+		return lower.Footprint{Dynamic: true}
+	}
+	return c.tokenFuture(exec, exec.tokens[exec.tokenIndex(m.Token)])
 }
 
-func (c *checker) tokenFuture(t Token) lower.Footprint {
+func (c *checker) tokenFuture(exec *ActionExecutor, t Token) lower.Footprint {
 	if t.body != nil {
 		return lower.Footprint{Dynamic: true}
 	}
-	future := c.reach(c.tokenGraphOf(t), t.Location)
+	future := c.reach(tokenGraphOf(exec, t), t.Location)
 	for frame := t.frame; frame != nil && frame.node != nil; frame = frame.parent {
 		flow := frame.flow
 		if flow == nil && frame.parent != nil {
 			flow = frame.parent.graph
 		}
 		if flow == nil {
-			flow = c.exec.graph
+			flow = exec.graph
 		}
 		future = unionFootprints(future, c.reach(flow, frame.node))
 	}
 	return future
 }
 
-func (c *checker) tokenGraphOf(t Token) *lower.ActionGraph {
+func tokenGraphOf(exec *ActionExecutor, t Token) *lower.ActionGraph {
 	if t.frame != nil && t.frame.graph != nil {
 		return t.frame.graph
 	}
-	return c.exec.graph
+	return exec.graph
 }
 
 // reach is the union of the footprints of every node reachable from node in
@@ -111,16 +127,16 @@ func unionFootprints(f, g lower.Footprint) lower.Footprint {
 }
 
 // dependent reports whether the two moves may not commute: the moves of one
-// token never do, and otherwise their footprints decide.
+// unit never do, and otherwise their footprints decide.
 func dependent(a, b searchMove) bool {
-	return a.Token == b.Token || a.footprint.Dependent(b.footprint)
+	return a.unit() == b.unit() || a.footprint.Dependent(b.footprint)
 }
 
 // persistent selects the moves to explore from a state, less the moves asleep;
 // every move when unreduced or under a property, which reads what no footprint
 // names. The set is grown from the first awake move: a
-// token whose future may not commute with a member's move joins with every move
-// it has; one with none (parked, or waiting at a join) brings in the tokens
+// unit whose future may not commute with a member's move joins with every move
+// it has; one with none (parked, or waiting at a join) brings in the units
 // whose future may let it go on, since a schedule outside the set could
 // otherwise reach its dependent moves.
 func (c *checker) persistent(all, sleep []searchMove) []searchMove {
@@ -135,15 +151,15 @@ func (c *checker) persistent(all, sleep []searchMove) []searchMove {
 		return nil
 	}
 	closure := newPersistentClosure(c, all)
-	closure.include(all[first].Token)
+	closure.include(all[first].unit())
 	for grew := true; grew; {
 		grew = false
-		for _, t := range closure.tokens {
-			if closure.in[t.ID] {
+		for _, u := range closure.units {
+			if closure.in[u] {
 				continue
 			}
-			if closure.futureDependsOnSet(t) {
-				closure.include(t.ID)
+			if closure.futureDependsOnSet(u) {
+				closure.include(u)
 				grew = true
 			}
 		}
@@ -151,70 +167,81 @@ func (c *checker) persistent(all, sleep []searchMove) []searchMove {
 	// In canonical order, awake members only.
 	out := make([]searchMove, 0, len(all))
 	for _, m := range all {
-		if closure.in[m.Token] && awake(m) {
+		if closure.in[m.unit()] && awake(m) {
 			out = append(out, m)
 		}
 	}
 	return out
 }
 
-// persistentClosure is a persistent set under construction: the tokens in it,
-// the moves of the state and the footprints of every token of the state.
+// persistentClosure is a persistent set under construction: the units in it,
+// the moves of the state and the footprints of every unit of the state.
 type persistentClosure struct {
 	c        *checker
 	all      []searchMove
-	tokens   []Token
-	in       map[int64]bool
-	standing map[int64]lower.Footprint
-	future   map[int64]lower.Footprint
+	units    []tokenKey
+	in       map[tokenKey]bool
+	standing map[tokenKey]lower.Footprint
+	future   map[tokenKey]lower.Footprint
 }
 
 func newPersistentClosure(c *checker, all []searchMove) *persistentClosure {
 	p := &persistentClosure{
 		c:        c,
 		all:      all,
-		tokens:   c.exec.tokens,
-		in:       make(map[int64]bool),
-		standing: make(map[int64]lower.Footprint, len(c.exec.tokens)),
-		future:   make(map[int64]lower.Footprint, len(c.exec.tokens)),
+		in:       make(map[tokenKey]bool),
+		standing: make(map[tokenKey]lower.Footprint),
+		future:   make(map[tokenKey]lower.Footprint),
 	}
-	for _, t := range c.exec.tokens {
-		p.standing[t.ID] = c.standing(t)
-		p.future[t.ID] = c.tokenFuture(t)
+	for _, exec := range c.inv.executors() {
+		action, isAction := exec.(*ActionExecutor)
+		if !isAction {
+			u := tokenKey{owner: exec}
+			p.units = append(p.units, u)
+			p.standing[u] = lower.Footprint{Dynamic: true}
+			p.future[u] = lower.Footprint{Dynamic: true}
+			continue
+		}
+		for _, t := range action.tokens {
+			u := tokenKey{owner: exec, id: t.ID}
+			p.units = append(p.units, u)
+			p.standing[u] = c.standing(action, t)
+			p.future[u] = c.tokenFuture(action, t)
+		}
 	}
 	for _, m := range all {
 		if m.Fails != nil {
-			p.standing[m.Token] = lower.Footprint{Dynamic: true}
-			p.future[m.Token] = lower.Footprint{Dynamic: true}
+			p.standing[m.unit()] = lower.Footprint{Dynamic: true}
+			p.future[m.unit()] = lower.Footprint{Dynamic: true}
 		}
 	}
 	return p
 }
 
-// include adds a token: its moves when it has some, else the tokens whose
+// include adds a unit: its moves when it has some, else the units whose
 // future may let it go on.
-func (p *persistentClosure) include(token int64) {
-	if p.in[token] {
+func (p *persistentClosure) include(u tokenKey) {
+	if p.in[u] {
 		return
 	}
-	p.in[token] = true
-	if slices.ContainsFunc(p.all, func(m searchMove) bool { return m.Token == token }) {
+	p.in[u] = true
+	if slices.ContainsFunc(p.all, func(m searchMove) bool { return m.unit() == u }) {
 		return
 	}
-	standing := p.standing[token]
-	for _, t := range p.tokens {
-		if !p.in[t.ID] && p.future[t.ID].Dependent(standing) {
-			p.include(t.ID)
+	standing := p.standing[u]
+	for _, other := range p.units {
+		if !p.in[other] && p.future[other].Dependent(standing) {
+			p.include(other)
 		}
 	}
 }
 
-// futureDependsOnSet reports whether the token's future may not commute with
+// futureDependsOnSet reports whether the unit's future may not commute with
 // a move of the set.
-func (p *persistentClosure) futureDependsOnSet(t Token) bool {
-	future := p.future[t.ID]
+func (p *persistentClosure) futureDependsOnSet(u tokenKey) bool {
+	future := p.future[u]
 	for _, m := range p.all {
-		if p.in[m.Token] && future.Dependent(m.footprint) {
+		if p.in[m.unit()] && future.Dependent(m.footprint) {
 			return true
 		}
 	}

@@ -33,11 +33,9 @@ type CheckExpected struct {
 }
 
 // checkRefusedCases are the action cases with an admissible set the check
-// refuses with a typed reason: a body paused mid-statement, or a state machine's
-// transition due beside the action's token — both later stages' constructs.
+// refuses with a typed reason: a body paused mid-statement.
 var checkRefusedCases = map[string]error{
 	"action_explore_performed_and_accept_due_together": ErrSnapshotPausedBody,
-	"clock_action_state_due_together":                  ErrCheckRefused,
 }
 
 // checkCase is one action conformance case with an admissible set, ready to check and explore.
@@ -136,7 +134,7 @@ func loadCheckExpected(t *testing.T, name string) CheckExpected {
 // check checks the case's action under the default bounds.
 func (c checkCase) check(t *testing.T, opts CheckOptions) (*CheckReport, error) {
 	t.Helper()
-	return CheckAction(context.Background(), c.model.fresh, starterOf(c.sym), CheckBudget{}, opts, nil)
+	return Check(context.Background(), c.model.fresh, starterOf(c.sym), CheckBudget{}, opts, nil)
 }
 
 // checked is check with the report owed.
@@ -262,10 +260,10 @@ func TestCheckWitnessesReplayOverTheConformanceCorpus(t *testing.T) {
 			witnessed := 0
 			for _, final := range report.Finals {
 				r := replayWitness(t, c.model, start, final.Witness, final.Outcome)
-				if r.Exec.State() != StateCompleted {
-					t.Fatalf("%s: replay ends %s, want completed", final.Outcome, r.Exec.State())
+				if r.Inv.action().State() != StateCompleted {
+					t.Fatalf("%s: replay ends %s, want completed", final.Outcome, r.Inv.action().State())
 				}
-				if got := r.Ctx.ActionOutcome(r.Exec.Results()).String(); !strings.HasPrefix(final.Outcome, got) {
+				if got := r.Ctx.ActionOutcome(r.Inv.action().Results()).String(); !strings.HasPrefix(final.Outcome, got) {
 					t.Fatalf("replay reaches %s, want %s", got, final.Outcome)
 				}
 				witnessed++
@@ -288,7 +286,7 @@ func TestCheckWitnessesReplayOverTheConformanceCorpus(t *testing.T) {
 
 // replayedValue is the value a replayed run left the action's feature with.
 func replayedValue(r *Replayed, feature string) string {
-	for _, out := range r.Ctx.ActionOutcome(r.Exec.Results()).RenderedOutputs() {
+	for _, out := range r.Ctx.ActionOutcome(r.Inv.action().Results()).RenderedOutputs() {
 		if out.Name == feature {
 			return out.Text
 		}

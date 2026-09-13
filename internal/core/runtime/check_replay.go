@@ -32,23 +32,23 @@ func (e *ReplayDisagreement) Is(target error) bool { return target == ErrReplayD
 
 // Replayed is a witness re-run to the state it claims.
 type Replayed struct {
-	Ctx  *Context
-	Exec *ActionExecutor
+	Ctx *Context
+	Inv *Invocation
 	// Err is the error the last move raised, nil when the state is one the run went on from.
 	Err error
 }
 
-// ReplayAction re-runs the witness: it starts the action start begins in the
+// Replay re-runs the witness: it starts the invocation start begins in the
 // context fresh makes, under the `replay` policy over the witness's choices, and
-// steps it until its trace equals the witness's, settling as the check did — or,
-// for a witness ending in a failure, until a move raises it. A witness naming a
+// moves it as the check did until its trace equals the witness's — or, for a
+// witness ending in a failure, until a move raises it. A witness naming a
 // property has that property, found among props, evaluated at the state reached:
 // it must be false or fail as the witness says. The run failing to follow a
 // choice, ending, failing otherwise or leaving another trace is a
 // ReplayDisagreement; a caller that goes away mid-run takes the replay with it,
 // its error being stop's.
-func ReplayAction(
-	stop context.Context, fresh func() (*Context, error), start ActionStarter, w Witness, props []CheckProperty,
+func Replay(
+	stop context.Context, fresh func() (*Context, error), start Starter, w Witness, props []CheckProperty,
 ) (*Replayed, error) {
 	if err := stop.Err(); err != nil {
 		return nil, err
@@ -72,23 +72,24 @@ func ReplayAction(
 		ctx.SetTrace(NewTraceRecorder())
 	}
 	r := &Replayed{Ctx: ctx}
-	exec, err := start(ctx)
+	inv, err := start(ctx)
 	if err != nil {
 		r.Err = err
-		return r, r.agree(w, "starting the action failed")
+		return r, r.agree(w, "starting the invocation failed")
 	}
-	r.Exec = exec
+	if err := inv.started(ctx); err != nil {
+		return nil, err
+	}
+	r.Inv = inv
+	run := &invocationRun{ctx: ctx, inv: inv}
 	for {
 		if err := stop.Err(); err != nil {
 			return r, err
 		}
+		if err := run.stabilize(); err != nil {
+			return r.failed(w, property, err)
+		}
 		if (w.Fails == "" || property != nil) && ctx.Trace().String() == w.Trace {
-			if err := r.settle(stop); err != nil {
-				if stop.Err() != nil {
-					return r, err
-				}
-				r.Err = err
-			}
 			if property != nil {
 				return r, r.agreeOnProperty(w, *property)
 			}
@@ -97,39 +98,23 @@ func ReplayAction(
 		if !strings.HasPrefix(w.Trace, ctx.Trace().String()) {
 			return r, r.disagree(w, "the run left another trace")
 		}
-		if exec.State() == StateCompleted {
-			return r, r.disagree(w, "the run completed before reaching the claimed state")
+		if run.terminal() {
+			return r, r.disagree(w, "the run ended before reaching the claimed state")
 		}
-		before := len(ctx.Trace().Entries())
-		if err := exec.advance(); err != nil {
-			r.Err = err
-			if property != nil {
-				return r, r.disagree(w, "the run failed before reaching the claimed state: "+err.Error())
-			}
-			return r, r.agree(w, "the run failed: "+err.Error())
-		}
-		if len(ctx.Trace().Entries()) == before && exec.State() == StateWaiting {
-			return r, r.disagree(w, "the run is stuck before reaching the claimed state")
+		if err := run.step(owners(run.enabledMoves())); err != nil {
+			return r.failed(w, property, err)
 		}
 	}
 }
 
-// settle brings the replayed run to the stable state the check evaluated: complete, or with a move enabled.
-func (r *Replayed) settle(stop context.Context) error {
-	for r.Exec.State() != StateCompleted && len(r.Exec.enabledMoves()) == 0 {
-		if err := stop.Err(); err != nil {
-			return err
-		}
-		before := len(r.Ctx.Trace().Entries())
-		now := r.Ctx.clock.now
-		if err := r.Exec.advance(); err != nil {
-			return err
-		}
-		if len(r.Ctx.Trace().Entries()) == before && r.Ctx.clock.now == now {
-			return r.Exec.deadlockError(nil)
-		}
+// failed ends the replay in the failure a move or the settling raised: the one
+// the witness claims, or a disagreement.
+func (r *Replayed) failed(w Witness, property *CheckProperty, err error) (*Replayed, error) {
+	r.Err = err
+	if property != nil {
+		return r, r.disagree(w, "the run failed before reaching the claimed state: "+err.Error())
 	}
-	return nil
+	return r, r.agree(w, "the run failed: "+err.Error())
 }
 
 // agree checks the run followed its witness whole, left its trace and ended as
@@ -185,26 +170,11 @@ func (r *Replayed) agreeOnProperty(w Witness, p CheckProperty) error {
 // evaluate asks the property of the replayed run under a readiness probe, as the check did.
 func (r *Replayed) evaluate(p CheckProperty) (bool, error) {
 	defer r.Ctx.beginProbe()()
-	return p.Holds(r.Ctx, r.Exec)
+	return p.Holds(r.Ctx, r.Inv)
 }
 
 func (r *Replayed) disagree(w Witness, reason string) error {
 	return &ReplayDisagreement{Reason: reason, Witness: w.Trace, Trace: r.Ctx.Trace().String()}
-}
-
-// advance makes one step of the run under whatever policy it is under, with the
-// clock moved as a check moves it: to the earliest wait when nothing else can act.
-func (e *ActionExecutor) advance() error {
-	err := e.Step()
-	switch {
-	case errors.Is(err, ErrNothingDue):
-		return e.advanceClock()
-	case err == nil && e.state == StateWaiting && e.waitsOnClock(nil):
-		return e.advanceClock()
-	case err == nil && e.state == StateWaiting:
-		return e.deadlockError(nil)
-	}
-	return err
 }
 
 // The lines closing a witness after its trace: the property it claims, the failure it ends in.

@@ -261,11 +261,15 @@ func (s *Session) checkAsk(name string, performer []string) (*analysis.CheckAsk,
 		return nil, nil, err
 	}
 	plan := s.planFresh(performer...)
-	start := func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
-		return freshAction(plan.bind(ctx), sym, performer)
+	start := func(ctx *runtime.Context) (*runtime.Invocation, error) {
+		exec, err := freshAction(plan.bind(ctx), sym, performer)
+		if err != nil {
+			return nil, err
+		}
+		return &runtime.Invocation{Actions: []*runtime.ActionExecutor{exec}}, nil
 	}
 	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
-		exec, err := start(ctx)
+		exec, err := freshAction(plan.bind(ctx), sym, performer)
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
@@ -345,8 +349,8 @@ func (s *Session) checkProperties() ([]runtime.CheckProperty, error) {
 		default:
 			return nil, fmt.Errorf("%q is not a constraint or requirement", name)
 		}
-		properties = append(properties, runtime.CheckProperty{Name: name, Holds: func(ctx *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
-			result, err := check(ctx, sym, scope, exec.Performer())
+		properties = append(properties, runtime.CheckProperty{Name: name, Holds: func(ctx *runtime.Context, inv *runtime.Invocation) (bool, error) {
+			result, err := check(ctx, sym, scope, inv.Performer())
 			if err != nil && !errors.Is(err, runtime.ErrViolated) {
 				return false, err
 			}

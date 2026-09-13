@@ -9,10 +9,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
-// The model checker's view of an action's state: the moves enabled in it and the
-// making of one through the `check` policy, one executor step per edge.
+// The model checker's view of an invocation's state: the moves enabled in it,
+// per executor on the clock, and the making of one through the `check` policy —
+// one action step, one dispatch or one do step per edge.
 
-// moveKind classifies an enabled move by what advancing the token does.
+// moveKind classifies an enabled move by what making it does.
 type moveKind int
 
 const (
@@ -28,6 +29,11 @@ const (
 	moveTrigger
 	// moveDecision follows one holding guard of a decision.
 	moveDecision
+	// moveDispatch dispatches a state machine's next event: a change condition
+	// risen, a signal in flight, or the event due at the head of its queue.
+	moveDispatch
+	// moveDoStep runs one due do behavior of a state machine one unit.
+	moveDoStep
 )
 
 func (k moveKind) String() string {
@@ -44,19 +50,44 @@ func (k moveKind) String() string {
 		return "trigger"
 	case moveDecision:
 		return "decision"
+	case moveDispatch:
+		return "dispatch"
+	case moveDoStep:
+		return "do"
 	}
 	return fmt.Sprintf("moveKind(%d)", int(k))
 }
 
-// enabledMove is one move of a state: one token advancing its node and, at a
-// decision several of whose guards hold, the branch it takes.
+// checkedExecutor is an executor the checker moves: an action or a state machine
+// on the invocation's clock.
+type checkedExecutor interface {
+	clockWaiter
+	// enabledMoves lists the moves of the executor's state, each with the picks
+	// naming it among its siblings.
+	enabledMoves() []enabledMove
+	// stepOne makes one unit of the executor's work under the policy the run is
+	// under: the move the `check` policy scripts, or the one a replay's witness fixes.
+	stepOne() error
+	// incomplete is the deadlock of an executor short of its end with nothing left
+	// to do; nil for one at its end, or a machine at rest in a final configuration.
+	incomplete() error
+}
+
+// enabledMove is one move of a state: one executor acting one unit — a token of
+// an action advancing its node, a state machine dispatching or running one do
+// step — and the picks resolving the choice points the move draws, in order.
 type enabledMove struct {
+	// Owner is the executor that moves.
+	Owner checkedExecutor
+	// Token is the token an action's move advances, 0 for a state machine's.
 	Token int64
-	// Node is where the token sits.
+	// Node is where the token sits, or the state whose do behavior steps; nil for a dispatch.
 	Node ast.Node
-	// Branch indexes the holding branches a decision takes; -1 takes the first and reveals how many hold.
-	Branch int
-	// Label names the move as the trace names the token, "2@left".
+	// Picks resolve the choice points the move draws, in order; a choice past
+	// them takes its first alternative and reveals its siblings.
+	Picks []int
+	// Label names the move as the trace names the token, "2@left", or the
+	// machine's unit, "dispatch go", "do Heating".
 	Label string
 	Kind  moveKind
 	// Fails is the typed error making the move raises, nil for one that advances.
@@ -64,14 +95,25 @@ type enabledMove struct {
 }
 
 func (m enabledMove) String() string {
-	if m.Branch >= 0 {
-		return fmt.Sprintf("%s branch %d", m.Label, m.Branch+1)
+	s := m.Label
+	for _, pick := range m.Picks {
+		s += fmt.Sprintf(" pick %d", pick+1)
 	}
-	return m.Label
+	return s
 }
 
-// enabledMoves lists the moves of the state in token-ID order, each as its first
-// branch: the tokens able to act, and those whose parked wait fails as a typed error.
+// sameUnit reports whether the two are one executor acting one unit, whatever they pick.
+func (m enabledMove) sameUnit(o enabledMove) bool {
+	return m.Owner == o.Owner && m.Token == o.Token && m.Kind == o.Kind && m.Node == o.Node
+}
+
+// same reports whether the two are one move: one unit taking one pick sequence.
+func (m enabledMove) same(o enabledMove) bool {
+	return m.sameUnit(o) && slices.Equal(m.Picks, o.Picks)
+}
+
+// enabledMoves lists the moves of the state in token-ID order, each with no pick
+// yet: the tokens able to act, and those whose parked wait fails as a typed error.
 func (e *ActionExecutor) enabledMoves() []enabledMove {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	if e.state != StateRunning && e.state != StateWaiting {
@@ -90,12 +132,12 @@ func (e *ActionExecutor) enabledMoves() []enabledMove {
 		}
 		t := e.tokens[e.tokenIndex(id)]
 		moves = append(moves, enabledMove{
-			Token:  id,
-			Node:   t.Location,
-			Branch: -1,
-			Label:  tokens.label(id),
-			Kind:   e.moveKindOf(t),
-			Fails:  fails,
+			Owner: e,
+			Token: id,
+			Node:  t.Location,
+			Label: tokens.label(id),
+			Kind:  e.moveKindOf(t),
+			Fails: fails,
 		})
 	}
 	slices.SortFunc(moves, func(a, b enabledMove) int { return cmp.Compare(a.Token, b.Token) })
@@ -123,52 +165,117 @@ func (e *ActionExecutor) moveKindOf(t Token) moveKind {
 	return movePlain
 }
 
-// settle steps a state with no move so its tokens park. Virtual time is captured,
-// not explored: tokens waiting on the clock alone have it advanced to the earliest
-// wait, no move of the checker's; a wait for a message nothing can post is the deadlock.
-func (e *ActionExecutor) settle() error {
-	run := e.ctx.scheduling()
-	if run.check == nil {
-		return &CheckMoveError{Branch: -1, Faced: "the run is not under the check policy"}
-	}
-	run.check.script.set(e, 0, -1)
-	return e.advance()
-}
-
-// makeMove makes the move through the `check` policy as one executor step,
-// reporting how many branches the decision it faced had (0 for none).
-func (e *ActionExecutor) makeMove(m enabledMove) (branches int, err error) {
-	run := e.ctx.scheduling()
-	if run.check == nil {
-		return 0, &CheckMoveError{Token: m.Token, Branch: m.Branch, Faced: "the run is not under the check policy"}
-	}
-	run.check.script.set(e, m.Token, m.Branch)
-	defer run.check.script.settle()
-	err = e.Step()
+// stepOne makes one executor step: the scripted token's move, or — none scripted
+// — a step parking the tokens at their accepts or on the clock. Nothing due is no
+// error: the clock is the checker's to move.
+func (e *ActionExecutor) stepOne() error {
+	err := e.Step()
 	if errors.Is(err, ErrNothingDue) {
-		// The move parked its token on the clock; settling advances it.
-		err = nil
+		return nil
 	}
-	if run.check.decided != nil {
-		branches = len(run.check.decided.Alternatives)
-	}
-	return branches, err
+	return err
 }
 
-// advanceClock moves the clock to the earliest wait as a run does, until a parked
-// token can proceed; a due order among executors is a choice the policy refuses.
-func (e *ActionExecutor) advanceClock() error {
-	defer e.ctx.beginExecutorRun(&e.driven)()
-	if err := e.ctx.driveClock(e.describeWaits(nil)); err != nil {
-		return err
-	}
-	var progress dueProgress
-	moved, err := e.awaitClock(nil, &progress)
-	if err != nil {
-		return err
-	}
-	if !moved {
+// incomplete is the deadlock of an action started and not complete.
+func (e *ActionExecutor) incomplete() error {
+	if e.state == StateRunning || e.state == StateWaiting || e.state == StateSuspended {
 		return e.deadlockError(nil)
 	}
 	return nil
 }
+
+// enabledMoves lists the moves of the machine's state as its next unit of work
+// runs them: the due do behaviors of the round under way, else the dispatch due,
+// else the do behaviors due for a new round.
+func (e *StateExecutor) enabledMoves() []enabledMove {
+	defer e.ctx.beginExecutorRun(&e.driven)()
+	if e.state != StateRunning && e.state != StateSuspended {
+		return nil
+	}
+	if !e.roundDone {
+		if due := e.dueRound(); len(due) > 0 {
+			return e.doMoves(due)
+		}
+	}
+	if moves := e.dispatchMoves(); len(moves) > 0 {
+		return moves
+	}
+	return e.doMoves(e.dueRound())
+}
+
+// dueRound lists the do actions the next do step picks among: the round under
+// way, or a new round of the due ones, those still registered.
+func (e *StateExecutor) dueRound() []*doAction {
+	round := e.round
+	if len(round) == 0 {
+		for _, act := range e.doActions {
+			if act.due(e.ctx) {
+				round = append(round, act)
+			}
+		}
+	}
+	return slices.DeleteFunc(slices.Clone(round), func(act *doAction) bool { return !e.isRunningDoAction(act) })
+}
+
+// doMoves is one do-step move per due do action, picked by its index in the round
+// when the round draws an order.
+func (e *StateExecutor) doMoves(due []*doAction) []enabledMove {
+	moves := make([]enabledMove, 0, len(due))
+	names := e.stateNames(statesOf(due))
+	for i, act := range due {
+		m := enabledMove{Owner: e, Node: act.state, Kind: moveDoStep, Label: "do " + names[i]}
+		if len(due) >= 2 {
+			m.Picks = []int{i}
+		}
+		moves = append(moves, m)
+	}
+	return moves
+}
+
+func statesOf(acts []*doAction) []*ast.StateNode {
+	states := make([]*ast.StateNode, len(acts))
+	for i, act := range acts {
+		states[i] = act.state
+	}
+	return states
+}
+
+// dispatchMoves is the dispatch due, if any: one move when a change condition
+// has risen or a signal is in flight — what is dispatched then follows from the
+// machine — else one per event tied at the head of the queue, picked by its
+// place among them.
+func (e *StateExecutor) dispatchMoves() []enabledMove {
+	if e.changeRisen() || e.hasPendingSignal() {
+		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: "dispatch"}}
+	}
+	if !e.hasDueEvent() {
+		return nil
+	}
+	tied := e.eventQueue.Tied()
+	if len(tied) < 2 {
+		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: "dispatch " + e.eventLabel(e.eventQueue.Peek())}}
+	}
+	moves := make([]enabledMove, 0, len(tied))
+	for i, event := range tied {
+		moves = append(moves, enabledMove{Owner: e, Kind: moveDispatch, Picks: []int{i}, Label: "dispatch " + e.eventLabel(event)})
+	}
+	return moves
+}
+
+// stepOne makes one unit of the machine's work, which its state alone fixes
+// short of the choices the policy resolves; a machine with nothing to do refuses.
+func (e *StateExecutor) stepOne() error {
+	var progress dueProgress
+	moved, err := e.runOne(&progress)
+	if err != nil {
+		return err
+	}
+	if !moved {
+		return &CheckMoveError{Move: e.dueLabel(), Faced: "the machine had nothing to do"}
+	}
+	return nil
+}
+
+// incomplete is nil for a machine: one at rest in a configuration nothing wakes
+// it from is final, not deadlocked.
+func (e *StateExecutor) incomplete() error { return nil }

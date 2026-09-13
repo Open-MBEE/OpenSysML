@@ -25,21 +25,21 @@ const (
 	DefaultCheckStates = 1000000
 )
 
-// CheckAsk is what a check question asks over the schedules of one action: how the
-// action begins, what must hold at every stable state, what may not diverge, and
-// where the witnesses go.
+// CheckAsk is what a check question asks over the schedules of one invocation:
+// how its behaviors begin on one clock, what must hold at every stable state,
+// what may not diverge, and where the witnesses go.
 type CheckAsk struct {
-	// Start begins the action in a context of the check's own; a replay begins it the same way.
-	Start runtime.ActionStarter
-	// Performer names the object Start performs the action on, as the surface
-	// spelled it, so the witnesses of one action on two objects are two sets of
+	// Start begins the invocation in a context of the check's own; a replay begins it the same way.
+	Start runtime.Starter
+	// Performer names the object Start performs the behaviors on, as the surface
+	// spelled it, so the witnesses of one behavior on two objects are two sets of
 	// files; empty when no object performs it.
 	Performer string
 	// Properties are evaluated at every stable state; one false is a violation.
 	Properties []runtime.CheckProperty
 	// Diverge names the features whose final values are compared across the
-	// complete schedules; none compares the action's own attributes, and the
-	// performing object's features when one performs it.
+	// complete schedules; none compares the behaviors' own attributes and final
+	// states, and the performing object's features when one performs them.
 	Diverge []string
 	// WitnessDir is where every violation's and divergent value's witness is
 	// written, a file per witness; empty writes none.
@@ -71,9 +71,10 @@ func (e *ConstructError) Error() string {
 // Is matches ErrConstruct.
 func (e *ConstructError) Is(target error) bool { return target == ErrConstruct }
 
-// checkEngine answers Outcomes and Holds questions over an action by a depth-first
-// search of its schedules, one token advancing one node at a time, under static
-// partial-order reduction; what it finds within its bounds is bounded, never proved.
+// checkEngine answers Outcomes and Holds questions over an invocation by a
+// depth-first search of its schedules, one token, dispatch or do step at a time
+// on one clock, under static partial-order reduction; what it finds within its
+// bounds is bounded, never proved.
 type checkEngine struct{}
 
 // NewCheck returns the check engine.
@@ -93,8 +94,8 @@ func (checkEngine) Describe() Description {
 	}
 }
 
-// Covers takes an Outcomes or Holds question over an action's schedules with its
-// inputs as written; the constructs the search meets and cannot capture are
+// Covers takes an Outcomes or Holds question over an invocation's schedules with
+// its inputs as written; the constructs the search meets and cannot capture are
 // refused as it meets them, as a result not covered naming the construct.
 func (e checkEngine) Covers(_ *Model, q Question) Coverage {
 	if q.Kind != Outcomes && q.Kind != Holds {
@@ -107,7 +108,7 @@ func (e checkEngine) Covers(_ *Model, q Question) Coverage {
 		return refused(&ConstructError{Engine: e.Name(), Construct: "a fixed schedule"})
 	}
 	if q.Check == nil || q.Check.Start == nil {
-		return refused(&MalformedQuestionError{Kind: q.Kind, Missing: "a Check starting an action"})
+		return refused(&MalformedQuestionError{Kind: q.Kind, Missing: "a Check starting an invocation"})
 	}
 	if q.Check.WitnessDir != "" && q.Subject == "" {
 		return refused(&MalformedQuestionError{Kind: q.Kind, Missing: "a Subject to name the witness files after"})
@@ -115,7 +116,7 @@ func (e checkEngine) Covers(_ *Model, q Question) Coverage {
 	return covered
 }
 
-// Run searches the action's schedules under the budget's depth and, as its runs,
+// Run searches the invocation's schedules under the budget's depth and, as its runs,
 // states, in a context of the check's own on the plan's first worker; a violation
 // is witnessed, a divergence is the sensitivity it witnesses, and a clean search is
 // bounded, once every witness has replayed on the plan's workers. The plan's clock
@@ -135,7 +136,7 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	}
 	limits := runtime.CheckBudget{Depth: budget.Depth, States: budget.Runs}
 	options := runtime.CheckOptions{Diverge: q.Check.Diverge, Reduce: true}
-	report, err := runtime.CheckAction(ctx, fresh, q.Check.Start, limits, options, q.Check.Properties)
+	report, err := runtime.Check(ctx, fresh, q.Check.Start, limits, options, q.Check.Properties)
 	result := Result{Question: q, Engine: e.Name()}
 	switch {
 	case errors.Is(err, runtime.ErrSnapshotPausedBody):
@@ -292,7 +293,7 @@ func (e checkEngine) replayOne(ctx context.Context, fresh func() (*runtime.Conte
 			return err
 		}
 	}
-	_, err := runtime.ReplayAction(ctx, fresh, q.Check.Start, w.witness, q.Check.Properties)
+	_, err := runtime.Replay(ctx, fresh, q.Check.Start, w.witness, q.Check.Properties)
 	return err
 }
 
