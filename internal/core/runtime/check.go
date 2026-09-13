@@ -250,15 +250,15 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 		ctx.SetTrace(NewTraceRecorder())
 	}
 	c := &checker{
-		ctx:      ctx,
-		budget:   budget,
-		opts:     opts,
-		props:    props,
-		visited:  make(map[stateKey]*visitedState),
-		onStack:  make(map[stateKey]int),
-		finals:   make(map[string]int),
-		futures:  make(map[futureKey]lower.Footprint),
-		maxSteps: int(ctx.Budgets().MaxActionSteps),
+		ctx:     ctx,
+		budget:  budget,
+		opts:    opts,
+		props:   props,
+		visited: make(map[stateKey]*visitedState),
+		onStack: make(map[stateKey]int),
+		finals:  make(map[string]int),
+		futures: make(map[futureKey]lower.Footprint),
+		budgets: ctx.Budgets(),
 	}
 	inv, err := start(ctx)
 	if err != nil {
@@ -298,8 +298,9 @@ type checker struct {
 	stack   []*checkFrame
 	futures map[futureKey]lower.Footprint
 
-	// maxSteps is the executor's budget of action steps, a bound on the depth.
-	maxSteps int
+	// budgets are the executors' budgets, each a bound on the moves of its kind
+	// along one schedule.
+	budgets  Budgets
 	moves    int
 	maxDepth int
 	bounds   []string
@@ -326,6 +327,8 @@ type checkFrame struct {
 	snap  *Snapshot
 	key   stateKey
 	depth int
+	// spent counts the moves of each kind the schedule to the state made.
+	spent spending
 	// all lists every move enabled in the state; moves the ones the search takes,
 	// in order; next indexes the one to take.
 	all   []searchMove
@@ -337,6 +340,25 @@ type checkFrame struct {
 	full bool
 	// cut is set once the depth bound cut a schedule through the state.
 	cut bool
+}
+
+// spending counts the moves of one schedule by the executor budget each draws on.
+type spending struct {
+	actionSteps, events, doSteps int64
+}
+
+// spend counts the move against its budget and reports the bound it exceeds, if any.
+func (s *spending) spend(kind moveKind, budgets Budgets) (bound string, exceeded bool) {
+	switch kind {
+	case moveDispatch:
+		s.events++
+		return BoundEvents, budgets.MaxStateEvents > 0 && s.events > budgets.MaxStateEvents
+	case moveDoStep:
+		s.doSteps++
+		return BoundDoSteps, budgets.MaxDoSteps > 0 && s.doSteps > budgets.MaxDoSteps
+	}
+	s.actionSteps++
+	return BoundActionSteps, budgets.MaxActionSteps > 0 && s.actionSteps > budgets.MaxActionSteps
 }
 
 // searchMove is an enabled move with what the reduction needs of it: its
@@ -459,8 +481,9 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 		c.cut(f)
 		return nil
 	}
-	if c.maxSteps > 0 && depth > c.maxSteps {
-		c.hit(BoundActionSteps)
+	spent := f.spent
+	if bound, exceeded := spent.spend(m.Kind, c.budgets); exceeded {
+		c.hit(bound)
 		c.cut(f)
 		return nil
 	}
@@ -480,6 +503,9 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 	child, key, err := c.enter(depth, c.childSleep(f, m))
 	if err != nil {
 		return err
+	}
+	if child != nil {
+		child.spent = spent
 	}
 	if seen := c.visited[key]; seen != nil && seen.cut {
 		c.cut(f)
