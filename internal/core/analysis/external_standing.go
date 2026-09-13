@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/enginewire"
@@ -315,9 +316,21 @@ func (e externalEngine) standViolation(ctx context.Context, model *Model, q Ques
 		where = fmt.Sprintf("at move %d", at)
 	}
 	if holds {
-		return standing{err: fmt.Errorf("its schedule replays and every property holds %s", where)}, nil
+		return standing{err: fmt.Errorf("its schedule replays and %s holds %s", propertyNames(ask), where)}, nil
 	}
 	return standing{strength: Witnessed, reason: fmt.Sprintf("%s (engine %q, replayed): %s", where, e.Name(), why), witness: witness}, nil
+}
+
+// propertyNames spells the properties a check asks, `x` and `y`; `every property` for none.
+func propertyNames(ask *CheckAsk) string {
+	if len(ask.Properties) == 0 {
+		return "every property"
+	}
+	names := make([]string, len(ask.Properties))
+	for i, p := range ask.Properties {
+		names[i] = "`" + p.Name + "`"
+	}
+	return strings.Join(names, " and ")
 }
 
 // standSensitivity replays both schedules to their end and compares the feature's final
@@ -410,7 +423,7 @@ func (e externalEngine) standAssignment(q Question, w enginewire.Witness) (stand
 func (e externalEngine) standExecutions(ctx context.Context, model *Model, q Question, budget Budget, claim Claim, answer enginewire.Result) (standing, error) {
 	if len(answer.Executions) == 0 {
 		if claim.Universal() {
-			return standing{err: errors.New("not admitted")}, nil
+			return standing{err: errors.New("no executions to replay, and no referee record admits the engine: admission comes with the referee-record stage")}, nil
 		}
 		return standing{err: errors.New("no execution to replay")}, nil
 	}
