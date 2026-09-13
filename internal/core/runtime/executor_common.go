@@ -1,8 +1,10 @@
 package runtime
 
 import (
+	"cmp"
 	"container/heap"
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -162,6 +164,52 @@ func (q *EventQueue) Pop() Event {
 		return Event{} // Return zero Event if empty
 	}
 	return heap.Pop(&q.events).(Event)
+}
+
+// Tied lists the events the queue leaves unordered at its head, in arrival
+// order: none when the head is a completion event or every event at its instant
+// came from the pool, whose arrival order is fixed; else the time triggers due at
+// that instant and the earliest pool event, when there are two or more of them.
+func (q *EventQueue) Tied() []Event {
+	if len(q.events) == 0 || isCompletionEvent(q.events[0]) {
+		return nil
+	}
+	at := q.events[0].Timestamp
+	var tied []Event
+	var pool *Event
+	for i := range q.events {
+		event := &q.events[i]
+		if event.Timestamp != at {
+			continue
+		}
+		if event.Type == EventTime {
+			tied = append(tied, *event)
+		} else if pool == nil || event.ID < pool.ID {
+			pool = event
+		}
+	}
+	if len(tied) == 0 {
+		return nil
+	}
+	if pool != nil {
+		tied = append(tied, *pool)
+	}
+	if len(tied) < 2 {
+		return nil
+	}
+	slices.SortFunc(tied, func(a, b Event) int { return cmp.Compare(a.ID, b.ID) })
+	return tied
+}
+
+// Take removes and returns the event with the given ID, false when none has it.
+func (q *EventQueue) Take(id int64) (Event, bool) {
+	for i, event := range q.events {
+		if event.ID == id {
+			heap.Remove(&q.events, i)
+			return event, true
+		}
+	}
+	return Event{}, false
 }
 
 // Peek returns the earliest event without removing it.

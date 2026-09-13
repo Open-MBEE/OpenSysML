@@ -16,17 +16,22 @@ import (
 
 // Place is one feature a move reads or writes: the declaration the name resolves to
 // (nil when unresolved) and the name; Local marks a pin, held per performance.
+// State marks the activity of a state, which a transition reads and writes.
 type Place struct {
 	Sym   *symbols.Symbol
 	Name  string
 	Local bool
+	State *ast.StateNode
 }
 
 // Conflicts reports whether the two places may name one value: places resolving
 // to one declaration do under any of its names (a short name, a redefined name),
 // as do same-named places, except two distinct pins, which each performance
-// holds its own of.
+// holds its own of; the activity of a state meets only itself.
 func (p Place) Conflicts(q Place) bool {
+	if p.State != nil || q.State != nil {
+		return p.State == q.State
+	}
 	if p.Sym != nil && q.Sym != nil {
 		if p.Sym == q.Sym {
 			return true
@@ -40,6 +45,9 @@ func (p Place) Conflicts(q Place) bool {
 
 // String renders the place as the name it was written under.
 func (p Place) String() string {
+	if p.State != nil {
+		return "active " + p.Name
+	}
 	if p.Local {
 		return p.Name + " (pin)"
 	}
@@ -65,20 +73,23 @@ func (c Channel) String() string {
 	return text
 }
 
-// Footprint is what one atomic move (one token advancing one node) may touch. Control
-// lists the joins and merges it arrives at; Dynamic marks an unresolved target.
+// Footprint is what one atomic move (one token advancing one node, one transition
+// firing) may touch. Control lists the joins and merges it arrives at; Completion
+// marks a move that may queue a completion event; Dynamic an unresolved target.
 type Footprint struct {
-	Reads   []Place
-	Writes  []Place
-	Sends   []Channel
-	Accepts []Channel
-	Control []ast.Node
-	Dynamic bool
+	Reads      []Place
+	Writes     []Place
+	Sends      []Channel
+	Accepts    []Channel
+	Control    []ast.Node
+	Completion bool
+	Dynamic    bool
 }
 
 // Dependent reports whether the two moves may not commute: a data race, both
 // touching the bus (a send meeting an accept, two accepts competing for one message,
-// two sends ordering it), convergence on one join or merge, or a dynamic target.
+// two sends ordering it), both queuing a completion, convergence on one join or
+// merge, or a dynamic target.
 func (f Footprint) Dependent(g Footprint) bool {
 	if f.Dynamic || g.Dynamic {
 		return true
@@ -87,6 +98,9 @@ func (f Footprint) Dependent(g Footprint) bool {
 		return true
 	}
 	if f.messages() && g.messages() {
+		return true
+	}
+	if f.Completion && g.Completion {
 		return true
 	}
 	for _, node := range f.Control {
@@ -152,6 +166,9 @@ func (f Footprint) String() string {
 		}
 		sort.Strings(names)
 		fmt.Fprintf(&b, "control: %s\n", strings.Join(names, ", "))
+	}
+	if f.Completion {
+		b.WriteString("completion\n")
 	}
 	if f.Dynamic {
 		b.WriteString("dynamic\n")
@@ -286,6 +303,9 @@ func (b *footprintBuilder) address(scope *symbols.Scope, target string, chained 
 
 // declaredByNode reports whether sym is a feature some node of the graph declares.
 func (b *footprintBuilder) declaredByNode(sym *symbols.Symbol) bool {
+	if b.graph == nil {
+		return false
+	}
 	for _, features := range b.graph.Features {
 		for _, f := range features {
 			if f.Node == sym.Decl {
@@ -451,6 +471,9 @@ func (b *footprintBuilder) statement(stmt Statement) {
 		}
 	case Return:
 		b.reads(s.Scope, s.Value)
+		if b.graph == nil {
+			return
+		}
 		for _, f := range b.graph.Features[b.node] {
 			if f.IsResult || f.Direction == ast.DirOut {
 				b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true})
@@ -494,6 +517,7 @@ func (b *footprintBuilder) merge(other Footprint) {
 	b.footprint.Sends = append(b.footprint.Sends, other.Sends...)
 	b.footprint.Accepts = append(b.footprint.Accepts, other.Accepts...)
 	b.footprint.Control = append(b.footprint.Control, other.Control...)
+	b.footprint.Completion = b.footprint.Completion || other.Completion
 	b.footprint.Dynamic = b.footprint.Dynamic || other.Dynamic
 }
 

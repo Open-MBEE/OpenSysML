@@ -89,6 +89,13 @@ type StateGraph struct {
 	// Transitions: source node (StateNode or PseudostateNode) → list of transitions
 	Transitions map[ast.Node][]*Transition
 
+	// TransitionFootprints: transition out of a state → what firing it may touch,
+	// its route through pseudostates followed along every branch (state_footprint.go).
+	TransitionFootprints map[*Transition]Footprint
+
+	// BehaviorFootprints: entry, do or exit behavior (its Node) → what running it touches.
+	BehaviorFootprints map[ast.Node]Footprint
+
 	// CompositeStates: state → regions
 	CompositeStates map[*ast.StateNode][]*ast.StateRegion
 
@@ -317,6 +324,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	}
 
 	graph.ownTransitionEffects()
+	lowerStateFootprints(graph)
 
 	return graph, nil
 }

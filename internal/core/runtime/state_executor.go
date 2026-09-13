@@ -552,7 +552,10 @@ func (e *StateExecutor) processNextEvent() error {
 		return fmt.Errorf("no events to process")
 	}
 
-	event := e.eventQueue.Pop()
+	event, err := e.nextEvent()
+	if err != nil {
+		return err
+	}
 	e.moved = true
 	// The clock never lags a dispatched event: a timer popped ahead of it moves it.
 	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
@@ -565,6 +568,56 @@ func (e *StateExecutor) processNextEvent() error {
 	e.lastDispatch = &dispatch
 	e.recallDeferredEvents()
 	return nil
+}
+
+// nextEvent takes the event to dispatch off the queue: the earliest, unless the
+// queue leaves several unordered at its head, when the policy draws which goes
+// first and the draw is reported; a replay or check refusing the draw takes none.
+func (e *StateExecutor) nextEvent() (Event, error) {
+	tied := e.eventQueue.Tied()
+	if len(tied) < 2 {
+		return e.eventQueue.Pop(), nil
+	}
+	choice := ChoicePoint{
+		Kind:         ChoiceDispatchOrder,
+		Where:        dispatchWhere(tied[0].Timestamp),
+		Alternatives: make([]string, len(tied)),
+		File:         e.stateMachine.DocName,
+		Span:         e.stateMachine.DeclSpan,
+	}
+	for i := range tied {
+		choice.Alternatives[i] = e.eventLabel(tied[i])
+	}
+	scheduling := e.ctx.scheduling()
+	choice.Taken = scheduling.choose(choice, nil)
+	if err := scheduling.refusal(); err != nil {
+		return Event{}, err
+	}
+	e.ctx.noteChoice(choice)
+	event, _ := e.eventQueue.Take(tied[choice.Taken].ID)
+	return event, nil
+}
+
+// dispatchWherePrefix opens where a dispatch order names its instant.
+const dispatchWherePrefix = "events at t="
+
+// dispatchWhere names the instant a dispatch order was drawn at.
+func dispatchWhere(at float64) string {
+	return dispatchWherePrefix + semantics.FormatReal(at)
+}
+
+// eventLabel names a queued event as a dispatch-order choice lists it: a time
+// trigger by its state and the transition's declared position and target, as a
+// transition choice names one; a pool event by what it accepts.
+func (e *StateExecutor) eventLabel(event Event) string {
+	if trans, ok := event.Payload.(*lower.Transition); ok && event.Type == EventTime {
+		transitions := e.graph.Transitions[trans.Source]
+		if pos := slices.Index(transitions, trans); pos >= 0 {
+			return fmt.Sprintf("time %s %s", getNodeName(trans.Source), transitionName(transitions, pos))
+		}
+		return transitionDescription(trans)
+	}
+	return eventName(&event)
 }
 
 // Dispatch is what became of an event a step took off the queue: a transition

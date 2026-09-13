@@ -128,7 +128,8 @@ func readChoices(text string) (choices []ChoiceTaken, headed bool, err error) {
 }
 
 // ParseChoice reads one choice as ChoiceTaken.String spells it: `step N: T first of A, B`,
-// `step N: decision D -> B`, `S -> T`, `W: X first of A, B` (a region order, or due order at `t=…`).
+// `step N: decision D -> B`, `S -> T`, `W: X first of A, B` (a region order, a due
+// order at `t=…`, or a dispatch order among `events at t=…`).
 func ParseChoice(text string) (ChoiceTaken, error) {
 	text = strings.TrimSpace(text)
 	fail := func(reason string) (ChoiceTaken, error) {
@@ -165,8 +166,11 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 			return fail("a step's order names the token first: step <n>: <took> first of …")
 		}
 		c.Kind, c.Where = ChoiceRegionOrder, first
-		if strings.HasPrefix(first, "t=") {
+		switch {
+		case strings.HasPrefix(first, "t="):
 			c.Kind = ChoiceDueOrder
+		case strings.HasPrefix(first, dispatchWherePrefix):
+			c.Kind = ChoiceDispatchOrder
 		}
 		var ok bool
 		if c.Took, mark, after, ok = readLabel(after, markFirstOf); !ok {
@@ -224,7 +228,7 @@ var linePunctuation = []string{markChoices, markFirstOf, markArrow, markList, ma
 
 const (
 	unclosedQuote = "a quoted name needs its closing quote, followed by the line's punctuation"
-	notAChoice    = "not a token order, branch, transition or region order"
+	notAChoice    = "not a token order, branch, transition, region, due or dispatch order"
 )
 
 // choiceLabel spells a name as a choice line carries it.
