@@ -11,9 +11,9 @@ digraph "PlantViews::loopView" {
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>];
-    "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>];
-    "n3" [style="rounded,filled", label=<<b>sensor : Pump</b><br/><font point-size="10"><i>«part»</i></font>>];
+    "n1" [style="rounded,filled", fillcolor="#F5D999", color="#E69F00", penwidth=1, label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>];
+    "n2" [style="rounded,filled", fillcolor="#F5D999", color="#E69F00", penwidth=1, label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>];
+    "n3" [style="rounded,filled", fillcolor="#F5D999", color="#E69F00", penwidth=1, label=<<b>sensor : Pump</b><br/><font point-size="10"><i>«part»</i></font>>];
   }
   "n1" -> "n2" [label="supply", arrowhead=none, penwidth=3];
   "n1" -> "n2" [label="of Water", style=dashed];

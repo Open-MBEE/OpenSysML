@@ -91,14 +91,18 @@ mount segmentControl
 // stated: render asInterconnectionDiagram
 // layout: dot
 digraph "Observatory::interconnectView" {
-  node [shape=box];
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>Observatory::imagingChain</b><br/><font point-size="10">«part»</font>>;
+    label=<<b>Observatory::imagingChain</b><br/><font point-size="10"><i>«part»</i></font>>;
+    color=black;
+    penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label=<<b>camera : Camera</b><br/><font point-size="10">«part»</font>>];
-    "n2" [label=<<b>recorder : Recorder</b><br/><font point-size="10">«part»</font>>];
+    "n1" [style="rounded,filled", label=<<b>camera : Camera</b><br/><font point-size="10"><i>«part»</i></font>>];
+    "n2" [style="rounded,filled", label=<<b>recorder : Recorder</b><br/><font point-size="10"><i>«part»</i></font>>];
   }
-  "n1" -> "n2" [label="link", arrowhead=none];
+  "n1" -> "n2" [label="link", arrowhead=none, penwidth=3];
 }
 ```
 
@@ -110,14 +114,17 @@ digraph "Observatory::interconnectView" {
 // stated: the diagram states kind "state"
 // layout: dot
 digraph {
-  graph [rankdir=LR];
-  node [shape=box];
+  graph [fontname="Helvetica", rankdir=LR];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>Observatory::operatingStates : ObservatoryStates</b><br/><font point-size="10">«state»</font>>;
+    label=<<b>Observatory::operatingStates : ObservatoryStates</b><br/><font point-size="10"><i>«state»</i></font>>;
+    color=black;
+    penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n3" [shape=point, label=""];
-    "n1" [shape=box, style=rounded, label=<<b>idle</b><br/><font point-size="10">«state»</font><br/>initial>];
-    "n2" [shape=box, style=rounded, label=<<b>observing</b><br/><font point-size="10">«state»</font>>];
+    "n3" [shape=point, fillcolor=black, label=""];
+    "n1" [style="rounded,filled", label=<<b>idle</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];
+    "n2" [style="rounded,filled", label=<<b>observing</b><br/><font point-size="10"><i>«state»</i></font>>];
   }
   "n3" -> "n1";
   "n1" -> "n2";

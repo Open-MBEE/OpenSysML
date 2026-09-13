@@ -512,6 +512,54 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	}
 }
 
+// A palette in the request fills the DOT artifact's nodes, is noted as not
+// represented in a Mermaid artifact, and an unknown one is refused by name
+// with the palettes there are.
+func TestRenderFillsFromThePaletteAsked(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormDot),
+		Palette:      string(view.PaletteOkabeIto),
+	})
+	if err != nil {
+		t.Fatalf("render with a palette: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if !strings.Contains(out.Artifact, `fillcolor="#`) || !strings.Contains(out.Artifact, "penwidth=1, label=<") {
+		t.Errorf("the DOT artifact is not filled from the palette:\n%s", out.Artifact)
+	}
+	raw, err = call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormMermaid),
+		Palette:      string(view.PaletteViridis),
+	})
+	if err != nil {
+		t.Fatalf("render Mermaid with a palette: %v", err)
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if !strings.Contains(out.Artifact, "%% not represented: palette viridis; only the DOT form fills nodes by keyword family") {
+		t.Errorf("Mermaid does not note the palette:\n%s", out.Artifact)
+	}
+	_, err = call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormDot),
+		Palette:      "rainbow",
+	})
+	want := `unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %v, want it to refuse the palette by name", err)
+	}
+}
+
 // A view's layout annotations reach the client as geometry on nodes and edges
 // and a canvas on the result; a rendering without any carries none of the fields.
 func TestRenderCarriesLayoutGeometry(t *testing.T) {

@@ -24,9 +24,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
-// renderUsage is how %render is written: a view, and the form to write it in,
-// text when none is named.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot]"
+// renderUsage is how %render is written: a view, the form to write it in, text
+// when none is named, and the palette the DOT form fills nodes from.
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot [palette]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -161,7 +161,7 @@ var metaCommandTable = []metaCommand{
 	{group: groupLibrary, name: "%search", args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{group: groupLibrary, name: "%builtins", desc: "list the library functions this build implements directly"},
 	{group: groupLibrary, name: "%view", args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{group: groupLibrary, name: "%render", args: "<name> [form]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT"},
+	{group: groupLibrary, name: "%render", args: "<name> [form [palette]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT, filled from a named palette"},
 
 	{group: groupRuntime, name: "%instantiate", args: argName, desc: "create an instance of a part def"},
 	{group: groupRuntime, name: "%eval", args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
@@ -359,17 +359,27 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		}
 		return metaOut(s.doView(fields[1])), true
 	case "%render":
-		if len(fields) < 2 || len(fields) > 3 {
+		if len(fields) < 2 || len(fields) > 4 {
 			return metaOut([]string{renderUsage}, false, nil), true
 		}
 		form := view.FormText
-		if len(fields) == 3 {
+		if len(fields) >= 3 {
 			form = view.Form(fields[2])
 			if !slices.Contains(view.Forms(), form) {
 				return metaOut([]string{fmt.Sprintf("unknown form %q; %s", fields[2], renderUsage)}, false, nil), true
 			}
 		}
-		return metaOut(s.doRender(fields[1], form)), true
+		var palette view.Palette
+		if len(fields) == 4 {
+			if form != view.FormDot {
+				return metaOut([]string{fmt.Sprintf("a palette fills the dot form only, not %s; %s", form, renderUsage)}, false, nil), true
+			}
+			var ok bool
+			if palette, ok = view.ParsePalette(fields[3]); !ok {
+				return metaOut([]string{(&view.UnknownPaletteError{Name: fields[3]}).Error() + "; " + renderUsage}, false, nil), true
+			}
+		}
+		return metaOut(s.doRender(fields[1], form, palette)), true
 	case "%quit", "%exit":
 		return metaOut([]string{"goodbye"}, true, nil), true
 	}

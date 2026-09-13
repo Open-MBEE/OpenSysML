@@ -41,7 +41,7 @@ func TestGoldenDOT(t *testing.T) {
 			}
 			checkGolden(t, filepath.Join("testdata", tc.name+".dot.golden"), dot)
 			checkDOTSyntax(t, dot)
-			for _, want := range []string{"// view: " + tc.view, "// kind: " + string(tc.kind), "// layout: dot", "digraph " + dotQuote(tc.view) + " {", "node [shape=box];"} {
+			for _, want := range []string{"// view: " + tc.view, "// kind: " + string(tc.kind), "// layout: dot", "digraph " + dotQuote(tc.view) + " {", "node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];", "edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];"} {
 				if !strings.Contains(dot, want) {
 					t.Errorf("DOT lacks %q:\n%s", want, dot)
 				}
@@ -142,11 +142,11 @@ func TestDOTQuotesEveryIdentifierAndLabel(t *testing.T) {
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
 		`digraph "Odd::view \"quoted\" and \\backslashed" {`,
-		`"a\"b" [label=<<b>say &#34;hi&#34;</b><br/><font point-size="10">«part»</font><br/>C:\path>];`,
+		`"a\"b" [style="rounded,filled", label=<<b>say &#34;hi&#34;</b><br/><font point-size="10"><i>«part»</i></font><br/>C:\path>];`,
 		`subgraph "cluster_c\\d" {`,
-		`label=<<b>plain : A&lt;B&gt; &amp; C</b><br/><font point-size="10">«part»</font>>;`,
-		`"e" [label=<<b>line one<br/>line two</b><br/><font point-size="10">«port»</font>>];`,
-		`"a\"b" -> "e" [label="\"quoted\" \\ <label> & more", arrowhead=none];`,
+		`label=<<b>plain : A&lt;B&gt; &amp; C</b><br/><font point-size="10"><i>«part»</i></font>>;`,
+		`"e" [style="rounded,filled", label=<<b>line one<br/>line two</b><br/><font point-size="10"><i>«port»</i></font>>];`,
+		`"a\"b" -> "e" [label="\"quoted\" \\ <label> & more", arrowhead=none, penwidth=3];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -169,20 +169,20 @@ func TestDOTLabelShape(t *testing.T) {
 		want string
 	}{
 		{"typed usage", &Node{Kind: "part", Name: "pump", Type: "Pump"},
-			`<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>`},
+			`<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>`},
 		{"untyped usage", &Node{Kind: "attribute", Name: "power"},
-			`<<b>power</b><br/><font point-size="10">«attribute»</font>>`},
+			`<<b>power</b><br/><font point-size="10"><i>«attribute»</i></font>>`},
 		{"definition", &Node{Kind: "part def", Name: "Plant::Loop"},
-			`<<b>Plant::Loop</b><br/><font point-size="10">«part def»</font>>`},
+			`<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>`},
 		{"name-less", &Node{Kind: "connect"}, `<<b>connect</b>>`},
 		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, `<<b>part</b>>`},
 		{"name-less with note", &Node{Kind: "connect", Detail: "already shown"}, `<<b>connect</b><br/>already shown>`},
 		{"notes", &Node{Kind: "part", Name: "sensor", Type: "Pump", Detail: "already shown as n1, collapsed"},
-			`<<b>sensor : Pump</b><br/><font point-size="10">«part»</font><br/>already shown as n1, collapsed>`},
+			`<<b>sensor : Pump</b><br/><font point-size="10"><i>«part»</i></font><br/>already shown as n1, collapsed>`},
 		{"state note", &Node{Kind: "state", Name: "off", Detail: "initial"},
-			`<<b>off</b><br/><font point-size="10">«state»</font><br/>initial>`},
+			`<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>`},
 		{"escaped", &Node{Kind: "part", Name: `a<b> & "c"`, Type: "T<U>", Detail: "x > y"},
-			`<<b>a&lt;b&gt; &amp; &#34;c&#34; : T&lt;U&gt;</b><br/><font point-size="10">«part»</font><br/>x &gt; y>`},
+			`<<b>a&lt;b&gt; &amp; &#34;c&#34; : T&lt;U&gt;</b><br/><font point-size="10"><i>«part»</i></font><br/>x &gt; y>`},
 	}
 	for _, tc := range cases {
 		if got := dotLabel(tc.node); got != "label="+tc.want {
@@ -225,23 +225,28 @@ func TestDOTNestedClusters(t *testing.T) {
 // kind: interconnection
 // layout: dot
 digraph "Nested::view" {
-  graph [compound=true];
-  node [shape=box];
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>Outer</b><br/><font point-size="10">«part def»</font>>;
+    label=<<b>Outer</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    color=black;
+    penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     subgraph "cluster_n1" {
-      label=<<b>inner</b><br/><font point-size="10">«part»</font>>;
+      label=<<b>inner</b><br/><font point-size="10"><i>«part»</i></font>>;
+      color=black;
+      penwidth=0.5;
       "n1" [shape=point, style=invis, width=0, height=0, label=""];
-      "n2" [label=<<b>p</b><br/><font point-size="10">«port»</font>>];
-      "n3" [label=<<b>q</b><br/><font point-size="10">«port»</font>>];
+      "n2" [style="rounded,filled", label=<<b>p</b><br/><font point-size="10"><i>«port»</i></font>>];
+      "n3" [style="rounded,filled", label=<<b>q</b><br/><font point-size="10"><i>«port»</i></font>>];
     }
-    "n4" [label=<<b>leaf</b><br/><font point-size="10">«part»</font>>];
+    "n4" [style="rounded,filled", label=<<b>leaf</b><br/><font point-size="10"><i>«part»</i></font>>];
   }
-  "n5" [label=<<b>Other</b><br/><font point-size="10">«part def»</font>>];
-  "n4" -> "n1" [arrowhead=none, lhead="cluster_n1"];
+  "n5" [label=<<b>Other</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n4" -> "n1" [arrowhead=none, penwidth=3, lhead="cluster_n1"];
   "n1" -> "n5" [label="out", style=dashed, ltail="cluster_n1"];
-  "n2" -> "n3" [arrowhead=none];
+  "n2" -> "n3" [arrowhead=none, penwidth=3];
   "n0" -> "n1" [lhead="cluster_n1"];
   "n2" -> "n0";
 }
@@ -259,7 +264,7 @@ digraph "Nested::view" {
 	if strings.Contains(dot, "subgraph") || strings.Contains(dot, "compound") {
 		t.Errorf("tree DOT declares a cluster:\n%s", dot)
 	}
-	for _, want := range []string{`"n0" -> "n1" [arrowhead=none];`, `"n1" -> "n2" [arrowhead=none];`, `"n4" -> "n1" [arrowhead=none];`} {
+	for _, want := range []string{`"n0" -> "n1" [arrowhead=none];`, `"n1" -> "n2" [arrowhead=none];`, `"n4" -> "n1" [arrowhead=none, penwidth=3];`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("tree DOT lacks %q:\n%s", want, dot)
 		}
@@ -270,18 +275,18 @@ digraph "Nested::view" {
 func TestDOTDirections(t *testing.T) {
 	rendering := render(t, "state.sysml", "MachineViews::vehicleStates")
 	for _, direction := range []Direction{DirectionTopBottom, DirectionLeftRight, DirectionRightLeft, DirectionBottomTop} {
-		dot, err := rendering.DOTDirected(direction)
+		dot, err := rendering.DOTWith(Options{Direction: direction})
 		if err != nil {
-			t.Fatalf("DOTDirected(%s): %v", direction, err)
+			t.Fatalf("DOTWith(%s): %v", direction, err)
 		}
 		checkDOTSyntax(t, dot)
-		if want := "  graph [rankdir=" + string(direction) + ", compound=true];\n"; !strings.Contains(dot, want) {
-			t.Errorf("DOTDirected(%s) lacks %q:\n%s", direction, want, dot)
+		if want := "  graph [fontname=\"Helvetica\", rankdir=" + string(direction) + ", compound=true];\n"; !strings.Contains(dot, want) {
+			t.Errorf("DOTWith(%s) lacks %q:\n%s", direction, want, dot)
 		}
 	}
-	dot, err := rendering.DOTDirected("")
+	dot, err := rendering.DOTWith(Options{})
 	if err != nil {
-		t.Fatalf("DOTDirected(\"\"): %v", err)
+		t.Fatalf("DOTWith(Options{}): %v", err)
 	}
 	if strings.Contains(dot, "rankdir") {
 		t.Errorf("no direction still writes a rankdir:\n%s", dot)
@@ -292,7 +297,7 @@ func TestDOTDirections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if strings.Contains(dot, "graph [") {
+	if strings.Contains(dot, "graph [fontname=\"Helvetica\", ") {
 		t.Errorf("plain DOT writes a graph attribute list:\n%s", dot)
 	}
 }
@@ -300,7 +305,7 @@ func TestDOTDirections(t *testing.T) {
 // Every edge kind is drawn in the style parallel to its Mermaid arrow.
 func TestDOTEdgeKinds(t *testing.T) {
 	styles := map[EdgeKind]string{
-		EdgeConnection: `"a" -> "b" [label="k", arrowhead=none];`,
+		EdgeConnection: `"a" -> "b" [label="k", arrowhead=none, penwidth=3];`,
 		EdgeTransition: `"a" -> "b" [label="k"];`,
 		EdgeSuccession: `"a" -> "b" [label="k"];`,
 		EdgeFlow:       `"a" -> "b" [label="k", style=dashed];`,
@@ -355,13 +360,13 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 	for _, root := range rendering.Roots {
 		starts += countKind(root, startKind)
 	}
-	if got := strings.Count(dot, "[shape=point, label=\"\"]"); got != starts || starts == 0 {
+	if got := strings.Count(dot, "[shape=point, fillcolor=black, label=\"\"]"); got != starts || starts == 0 {
 		t.Errorf("DOT draws %d start points, want %d:\n%s", got, starts, dot)
 	}
 	for _, want := range []string{
-		`[shape=box, style=rounded, label=<<b>heating</b><br/><font point-size="10">«state»</font>>];`,
+		`[style="rounded,filled", label=<<b>heating</b><br/><font point-size="10"><i>«state»</i></font>>];`,
 		`subgraph "cluster_n6" {`,
-		`label=<<b>lights</b><br/><font point-size="10">«region»</font>>;`,
+		`label=<<b>lights</b><br/><font point-size="10"><i>«region»</i></font>>;`,
 		`style=dashed;`,
 		`"n12" -> "n1" [label="[cold]"];`,
 		`"n12" -> "n2" [label="[not cold]", lhead="cluster_n2"];`,
@@ -393,9 +398,9 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 		t.Fatalf("DOT: %v", err)
 	}
 	for _, want := range []string{
-		`"a" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10">«final»</font>>];`,
-		`"b" [shape=box, style=rounded, label=<<b>off</b><br/><font point-size="10">«state»</font><br/>initial>];`,
-		`"c" [shape=circle, label=<<b>go</b><br/><font point-size="10">«initial»</font>>];`,
+		`"a" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>];`,
+		`"b" [style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];`,
+		`"c" [shape=circle, label=<<b>go</b><br/><font point-size="10"><i>«initial»</i></font>>];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -432,7 +437,9 @@ func TestDOTEmptyAndNotices(t *testing.T) {
 // not represented: second
 // layout: dot
 digraph "V::empty" {
-  node [shape=box];
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "empty" [shape=plaintext, label="the rendering is empty: nothing the view exposes is shown by an action rendering"];
 }
 `
@@ -466,13 +473,13 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
 		"// canvas: unit=px w=1200 h=800\n// layout: neato\n",
-		"  graph [inputscale=72, dpi=72];\n  node [shape=box];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,800!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"1200,0!\", pin=true];\n  subgraph",
+		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,800!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"1200,0!\", pin=true];\n  subgraph",
 		// pump: top-left (300, 40), no size, so the centre of a 109x37 box fitted
 		// to eleven 14pt glyphs over a 10pt keyword line, stated but not fixed, collapsed.
-		`"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];`,
+		`"n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];`,
 		// tank: top-left (500, 40), 120x60, so centre (560, 70) -> y 730 from a canvas 800 high.
-		`"n2" [label=<<b>tank : Tank</b><br/><font point-size="10">«part»</font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
-		`"n1" -> "n2" [label="supply", arrowhead=none, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];`,
+		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
+		`"n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -487,9 +494,9 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	checkDOTSyntax(t, plain)
 	for _, want := range []string{
 		"// layout: neato\ndigraph",
-		"  graph [inputscale=72, dpi=72];\n",
-		`"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
-		`"n2" [label=<<b>tank : Tank</b><br/><font point-size="10">«part»</font>>];`,
+		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n",
+		`"n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>];`,
 		`pos="60,-45 60,-45 200,-45 200,-45"`,
 	} {
 		if !strings.Contains(plain, want) {
@@ -506,10 +513,10 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	}
 	checkDOTSyntax(t, machine)
 	for _, want := range []string{
-		`"n3" [shape=point, label=""];`,
+		`"n3" [shape=point, fillcolor=black, label=""];`,
 		// off: three lines, 14pt, 10pt and 14pt, so a 75x54 box from its top-left (0, 0).
-		`[shape=box, style=rounded, label=<<b>off</b><br/><font point-size="10">«state»</font><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
-		`[shape=box, style=rounded, label=<<b>on</b><br/><font point-size="10">«state»</font>>, pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
+		`[style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
+		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
 		`"n1" -> "n2" [label="off_on:", pos="50,-10 50,-10 50,-90 50,-90"];`,
 		`"n2" -> "n1" [pos="30,-90 30,-90 30,-10 30,-10"];`,
 	} {
@@ -561,25 +568,30 @@ func TestDOTPinsEveryNode(t *testing.T) {
 // canvas: unit=px w=400 h=300
 // layout: neato -n2
 digraph "Pinned::view" {
-  graph [compound=true, inputscale=72, dpi=72];
-  node [shape=box];
+  graph [fontname="Helvetica", compound=true, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,300!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="400,0!", pin=true];
   subgraph "cluster_n0" {
-    label=<<b>Outer</b><br/><font point-size="10">«part def»</font>>;
+    label=<<b>Outer</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    color=black;
+    penwidth=0.5;
     bb="10,180,210,280";
     comment="collapsed";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="110,230!", pin=true];
-    "n1" [label=<<b>a</b><br/><font point-size="10">«part»</font>>, pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
-    "n2" [label=<<b>b</b><br/><font point-size="10">«part»</font>>, pos="147,251.5!", pin=true, width=0.75, height=0.5138888888888888];
+    "n1" [style="rounded,filled", label=<<b>a</b><br/><font point-size="10"><i>«part»</i></font>>, pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
+    "n2" [style="rounded,filled", label=<<b>b</b><br/><font point-size="10"><i>«part»</i></font>>, pos="147,251.5!", pin=true, width=0.75, height=0.5138888888888888];
   }
   subgraph "cluster_n3" {
-    label=<<b>Other</b><br/><font point-size="10">«part def»</font>>;
+    label=<<b>Other</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    color=black;
+    penwidth=0.5;
     bb="300,45,372,100";
     "n3" [shape=point, style=invis, width=0, height=0, label="", pos="336,72.5!", pin=true];
-    "n4" [label=<<b>p</b><br/><font point-size="10">«port»</font>>, pos="337,71.5!", pin=true, width=0.75, height=0.5138888888888888];
+    "n4" [style="rounded,filled", label=<<b>p</b><br/><font point-size="10"><i>«port»</i></font>>, pos="337,71.5!", pin=true, width=0.75, height=0.5138888888888888];
   }
-  "n1" -> "n2" [arrowhead=none, pos="92,252 92,252 120,252 120,252"];
+  "n1" -> "n2" [arrowhead=none, penwidth=3, pos="92,252 92,252 120,252 120,252"];
   "n2" -> "n3" [style=dashed, lhead="cluster_n3"];
 }
 `
@@ -622,9 +634,9 @@ digraph "Pinned::view" {
 	}
 	for _, want := range []string{
 		"// layout: neato -n2\n",
-		"  graph [inputscale=72, dpi=72];\n  node [shape=box];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,300!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"400,0!\", pin=true];\n  \"n0\"",
-		`"n0" [label=<<b>Outer</b><br/><font point-size="10">«part def»</font>>, pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
-		`"n3" [label=<<b>Other</b><br/><font point-size="10">«part def»</font>>, pos="338,81.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`,
+		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,300!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"400,0!\", pin=true];\n  \"n0\"",
+		`"n0" [label=<<b>Outer</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
+		`"n3" [label=<<b>Other</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="338,81.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("tree DOT lacks %q:\n%s", want, dot)
@@ -646,9 +658,9 @@ digraph "Pinned::view" {
 	}
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
-		`"s" [shape=point, label="", pos="1.8,-1.8!", pin=true];`,
-		`"i" [shape=circle, label=<<b>go</b><br/><font point-size="10">«initial»</font>>, pos="140,-40!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
-		`"f" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10">«final»</font>>, pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
+		`"s" [shape=point, fillcolor=black, label="", pos="1.8,-1.8!", pin=true];`,
+		`"i" [shape=circle, label=<<b>go</b><br/><font point-size="10"><i>«initial»</i></font>>, pos="140,-40!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
+		`"f" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>, pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("pseudo-state DOT lacks %q:\n%s", want, dot)
@@ -688,7 +700,7 @@ digraph "Pinned::view" {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if !strings.Contains(dot, "// canvas: unit=px\n// layout: dot\n") || strings.Contains(dot, "graph [") || strings.Contains(dot, `"canvas:0"`) {
+	if !strings.Contains(dot, "// canvas: unit=px\n// layout: dot\n") || strings.Contains(dot, "graph [fontname=\"Helvetica\", ") || strings.Contains(dot, `"canvas:0"`) {
 		t.Errorf("unit-only canvas DOT:\n%s", dot)
 	}
 	unit.Canvas = &Canvas{Unit: "px", Width: 400, Height: 300, HasSize: true}
@@ -696,7 +708,7 @@ digraph "Pinned::view" {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if !strings.Contains(dot, "// canvas: unit=px w=400 h=300\n// layout: dot\n") || strings.Contains(dot, "graph [") || strings.Contains(dot, `"canvas:0"`) {
+	if !strings.Contains(dot, "// canvas: unit=px w=400 h=300\n// layout: dot\n") || strings.Contains(dot, "graph [fontname=\"Helvetica\", ") || strings.Contains(dot, `"canvas:0"`) {
 		t.Errorf("unpositioned sized-canvas DOT:\n%s", dot)
 	}
 }
@@ -726,7 +738,7 @@ func checkDOTSyntax(t *testing.T, dot string) {
 				t.Fatalf("DOT closes more braces than it opens:\n%s", dot)
 			}
 		case !tok.quoted && tok.text == "digraph":
-		case !tok.quoted && (tok.text == "graph" || tok.text == "node"):
+		case !tok.quoted && (tok.text == "graph" || tok.text == "node" || tok.text == "edge"):
 			i = checkDOTAttributes(t, tokens, i, dot, &clipped)
 		case !tok.quoted && tok.text == "subgraph":
 			if i+1 >= len(tokens) || !tokens[i+1].quoted {
@@ -749,7 +761,7 @@ func checkDOTSyntax(t *testing.T, dot string) {
 		case tok.quoted && i+1 < len(tokens) && tokens[i+1].text == "{":
 			// The digraph's own name.
 		case !tok.quoted && i+2 < len(tokens) && tokens[i+1].text == "=":
-			// A cluster's attribute statement: label, style, bb, comment.
+			// A cluster's attribute statement: label, style, color, penwidth, bb, comment.
 			value := tokens[i+2]
 			if (tok.text == "label" || tok.text == "bb" || tok.text == "comment") && !value.quoted {
 				t.Fatalf("cluster %s is not quoted at token %d:\n%s", tok.text, i, dot)
@@ -817,7 +829,7 @@ func checkDOTAttributes(t *testing.T, tokens []dotToken, i int, dot string, clip
 		if name == "pos" || name == "bb" {
 			checkDOTGeometry(t, name, value.text, dot)
 		}
-		if name == "width" || name == "height" || name == "inputscale" || name == "dpi" {
+		if name == "width" || name == "height" || name == "inputscale" || name == "dpi" || name == "penwidth" || name == "fontsize" {
 			if v, err := strconv.ParseFloat(value.text, 64); err != nil || v < 0 {
 				t.Fatalf("attribute %s=%q is not a non-negative number:\n%s", name, value.text, dot)
 			}
@@ -846,7 +858,7 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 			i += end
 			switch {
 			case tag == "br/":
-			case tag == "b" || strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
+			case tag == "b" || tag == "i" || strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
 				open = append(open, strings.Fields(tag)[0])
 			case strings.HasPrefix(tag, "/"):
 				if len(open) == 0 || open[len(open)-1] != tag[1:] {
