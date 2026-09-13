@@ -132,9 +132,8 @@ type validationWalk struct {
 	objects []*validatedObject
 }
 
-// RequireObject returns an ErrNotAnObject usage error unless sym has objects to
-// validate: a definition or a usage, not a namespace, and not a data value (an
-// attribute or an enumeration, whose values carry no assertion of their own).
+// RequireObject is ErrNotAnObject unless sym has objects to validate: a definition
+// or usage that is neither a namespace nor a data value (attribute, enumeration).
 func RequireObject(sym *symbols.Symbol) error {
 	switch sym.Kind {
 	case symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage,

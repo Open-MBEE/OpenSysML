@@ -205,9 +205,8 @@ func TestValidateInstanceUndecidedIsNotAVerdict(t *testing.T) {
 	}
 }
 
-// TestValidateInstanceStatingNoAssertionDecidesNothing verifies an object no
-// assertion is about is not shown valid: the summary neither holds nor is a
-// violation, and says why.
+// TestValidateInstanceStatingNoAssertionDecidesNothing verifies an object no assertion
+// is about is not shown valid: the summary neither holds nor is a violation, and says why.
 func TestValidateInstanceStatingNoAssertionDecidesNothing(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, validateModelSource, "validate-instance")
@@ -230,9 +229,8 @@ func TestValidateInstanceStatingNoAssertionDecidesNothing(t *testing.T) {
 	}
 }
 
-// TestValidateInstanceRefusesWhatIsNoPart verifies naming nothing, a symbol
-// the model lacks, or one that has no object — a package, an attribute — is a
-// failure, not a verdict, and that the last is answered as the wrong kind.
+// TestValidateInstanceRefusesWhatIsNoPart verifies naming nothing, an unknown symbol or
+// one with no object (a package, an attribute) is a failure, the last of the wrong kind.
 func TestValidateInstanceRefusesWhatIsNoPart(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, validateModelSource, "validate-instance")
