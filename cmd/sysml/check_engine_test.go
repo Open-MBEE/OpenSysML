@@ -113,7 +113,7 @@ func TestEngineCheckWitnessesADivergence(t *testing.T) {
 	agreed := strings.Replace(forkModel, "attribute x : Integer = 0;", "attribute x : Integer = 0;\n        attribute y : Integer = 0;", 1)
 	wantReport(t, check(t, binary, agreed, "-engine", "check", "-action", "Mission::race", "-check-diverge", "y"),
 		0, "✓ Action Mission::race: no violation, exhaustive (11 states, 10 moves, depth 6)",
-		"standing: outcomes (bounded over schedules: 11 states, 10 moves searched)")
+		"standing: holds (bounded over schedules: 11 states, 10 moves searched)")
 	rejects := check(t, binary, agreed, "-engine", "check", "-action", "Mission::race", "-check-diverge", "y")
 	rejectReport(t, rejects, "divergent:")
 
