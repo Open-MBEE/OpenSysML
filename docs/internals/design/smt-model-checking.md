@@ -676,7 +676,10 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    `-check-diverge` absent on a `Sensitive` question, is the `check` engine's — every
    attribute of the action and, with a performer, of the performing object — and since the
    performing object's features are not encoded before stage 6, `smt` refuses each of those
-   per feature as *not covered* naming the construct rather than narrowing the list; the CLI
+   per feature as *not covered* naming the construct rather than narrowing the list — the
+   action's own features on the list are still asked, a sensitivity found among them is the
+   answer, and a negative over a list with a refused feature, or one the solver left
+   undecided, is *not covered* naming it, never a proof over the whole list; the CLI
    and REPL only ask `Sensitive` when the flag names a feature, so no `holds` question gained
    a sensitivity answer and no `-engine smt` or `-engine all` expectation moved. Layer 5:
    `action_fork_branches_write_one_feature` reports `x` sensitive, both witnesses replayed to

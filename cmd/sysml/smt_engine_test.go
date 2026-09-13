@@ -202,6 +202,12 @@ func TestEngineSMTDecidesSensitivity(t *testing.T) {
 	// The performing object's features are not encoded yet: refused by name, not narrowed away.
 	wantReport(t, check(t, binary, straightTankModel, "-engine", "smt", "-instantiate", "Plant::tank", "-action", "Plant::Tank::overfill Plant::tank", "-check-diverge", "this.level"),
 		2, "? Action Plant::Tank::overfill: not covered", "this.level: the performing object's features are encoded by a later stage")
+
+	// Beside a feature the encoding answers, a refused one keeps the question not covered:
+	// a negative over the list would claim the refused feature too.
+	mixed := strings.Replace(straightTankModel, "action overfill {", "action overfill {\n            attribute y : Integer = 0;", 1)
+	wantReport(t, check(t, binary, mixed, "-engine", "smt", "-instantiate", "Plant::tank", "-action", "Plant::Tank::overfill Plant::tank", "-check-diverge", "y", "-check-diverge", "this.level"),
+		2, "? Action Plant::Tank::overfill: not covered", "standing: not covered (this.level: the performing object's features are encoded by a later stage)")
 }
 
 // Under -engine all one Sensitive question reaches check and smt alike, and the

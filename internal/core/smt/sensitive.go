@@ -69,7 +69,8 @@ func (r *run) features() *compared {
 // violation of the conditions asked with it first; then, per feature, the two-copy
 // query, a `sat` replayed twice before it is claimed; then the deadlock and typed-error
 // properties, whose `sat` is that finding; then whether any schedule is cut by the
-// bounds, which tells a bounded negative from a proved one.
+// bounds, which tells a bounded negative from a proved one. An undecided or refused
+// feature does not stop the list, but leaves a negative over it not covered.
 func (r *run) decideSensitive(ctx context.Context) (analysis.Result, error) {
 	if out, err := r.consistent(ctx); out != nil || err != nil {
 		return orEmpty(out), err
@@ -90,13 +91,11 @@ func (r *run) decideSensitive(ctx context.Context) (analysis.Result, error) {
 		return orEmpty(found), err
 	}
 	solved := make([]analysis.Evaluation, 0, len(features.outputs)+len(features.refused))
+	var undecided *analysis.Result
 	for _, out := range features.outputs {
-		pair, answer, err := r.diverging(ctx, out, &rounded)
-		switch {
-		case err != nil:
+		pair, err := r.diverging(ctx, out, &rounded, &undecided)
+		if err != nil {
 			return analysis.Result{}, err
-		case answer != nil:
-			return *answer, nil
 		}
 		solved = append(solved, analysis.Evaluation{Name: out.Name, Solved: pair.result})
 		if pair.Diverging != nil {
@@ -107,6 +106,15 @@ func (r *run) decideSensitive(ctx context.Context) (analysis.Result, error) {
 	found, roundedAfter, err := r.findings(ctx, asks)
 	if found != nil || err != nil {
 		return orEmpty(found), err
+	}
+	if undecided != nil {
+		undecided.Values = solved
+		return *undecided, nil
+	}
+	if len(features.refused) > 0 {
+		out := r.uncovered(refusalReason(features.refused))
+		out.Values = solved
+		return out, nil
 	}
 	if rounded == nil {
 		rounded = roundedAfter
@@ -133,22 +141,27 @@ func (r *run) decideSensitive(ctx context.Context) (analysis.Result, error) {
 // asked is the solver's answer to one feature's two-copy query, decoded on `sat`.
 type asked struct {
 	result *solve.Result
-	// Diverging is nil for an `unsat`.
+	// Diverging is nil for an `unsat` and for an answer that decides nothing.
 	*Diverging
 }
 
 // diverging asks the two-copy query over out: the answer with its pair decoded on
-// `sat`, or the result deciding nothing when the solver did not decide or the model
-// does not decode; the first `unsat` that rounds is noted in rounded.
-func (r *run) diverging(ctx context.Context, out Output, rounded **analysis.Result) (*asked, *analysis.Result, error) {
+// `sat`. The first `unsat` that rounds is noted in rounded; the first answer deciding
+// nothing — the solver did not decide, or the model does not decode — in undecided.
+func (r *run) diverging(ctx context.Context, out Output, rounded, undecided **analysis.Result) (*asked, error) {
 	what := "whether two schedules end with different values of " + out.Name
 	query, err := r.encoding.Sensitivity(out)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	result, err := r.solver.Solve(ctx, query)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	note := func(answer analysis.Result) {
+		if *undecided == nil {
+			*undecided = &answer
+		}
 	}
 	switch result.Status {
 	case solve.StatusUnsat:
@@ -156,21 +169,21 @@ func (r *run) diverging(ctx context.Context, out Output, rounded **analysis.Resu
 			answer := r.rounded(result, what)
 			*rounded = &answer
 		}
-		return &asked{result: result}, nil, nil
+		return &asked{result: result}, nil
 	case solve.StatusSat:
 		pair, err := r.encoding.DecodePair(result, out)
 		if err != nil {
 			var malformed *WitnessError
 			if errors.As(err, &malformed) || errors.Is(err, ErrNoWitness) {
-				answer := r.uncovered("the solver's witness does not decode: " + err.Error())
-				return nil, &answer, nil
+				note(r.uncovered("the solver's witness does not decode: " + err.Error()))
+				return &asked{result: result}, nil
 			}
-			return nil, nil, err
+			return nil, err
 		}
-		return &asked{result: result, Diverging: pair}, nil, nil
+		return &asked{result: result, Diverging: pair}, nil
 	default:
-		answer := r.undecided(result, what)
-		return nil, &answer, nil
+		note(r.undecided(result, what))
+		return &asked{result: result}, nil
 	}
 }
 

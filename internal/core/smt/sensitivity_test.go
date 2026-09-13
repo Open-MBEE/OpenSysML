@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -384,6 +385,36 @@ func TestSensitivityRefusesTheClockAndPausedFlows(t *testing.T) {
 	}
 }
 
+// TestSensitivityRefusesTheListWithANestedFeature: a feature a node's performance
+// holds is refused beside the action's own, which is still asked; the negative over
+// the list is not covered, naming the refused feature, never a proof over both.
+func TestSensitivityRefusesTheListWithANestedFeature(t *testing.T) {
+	const src = `package test {
+    private import ScalarValues::*;
+    action A {
+        attribute y : Integer = 0;
+        first start;
+        action inner { in n : Integer = 1; assign y := n; }
+        done;
+        succession first start then inner;
+        succession first inner then done;
+    }
+}`
+	e := engine(t)
+	d := indexed(t, "nested.sysml", src)
+	result := answer(t, e, d, d.sensitive(t, "test::A", "y", "inner.n"), analysis.Budget{Depth: 4})
+	expect(t, result, analysis.ClaimNone, analysis.NotCovered)
+	if want := "inner.n: " + nestedReason; result.Reason != want {
+		t.Errorf("reason %q, want %q", result.Reason, want)
+	}
+	if len(result.Values) != 2 || result.Values[0].Name != "y" || result.Values[0].Solved == nil || result.Values[0].Solved.Status != solve.StatusUnsat {
+		t.Errorf("the action's feature is not listed as asked: %+v", result.Values)
+	}
+	if len(result.Values) != 2 || result.Values[1].Name != "inner.n" || result.Values[1].Err == nil {
+		t.Errorf("the nested feature is not listed as refused: %+v", result.Values)
+	}
+}
+
 // TestSensitivityRefusesAPairTheInterpreterRefutes: a diverging pair whose value the
 // interpreter does not reproduce is not covered, with the disagreement, and no
 // witness is written; the interpreter's run is the authority.
@@ -434,6 +465,48 @@ func TestSensitivityRefusesAPairTheInterpreterRefutes(t *testing.T) {
 	}
 	if len(files) != 1 {
 		t.Errorf("%d file(s) written, want copy A's alone", len(files))
+	}
+}
+
+// TestSensitivityUndecidedFeatureDoesNotHideALaterOne: a solver that does not decide
+// leftRan's query still gets asked x's, whose pair decides the question; with x not
+// asked, the answer is the undecided query, not covered, never a negative.
+func TestSensitivityUndecidedFeatureDoesNotHideALaterOne(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skipf("no sh to stand in for a solver: %v", err)
+	}
+	const name = "action_fork_branches_write_one_feature"
+	real := requireSolver(t)
+	// The script reads up to check-sat, answers unknown to leftRan's query by the
+	// comment its assertion carries, and hands any other dialogue to the real solver.
+	script := `buf=$(mktemp); trap 'rm -f "$buf"' EXIT
+while IFS= read -r line; do printf '%s\n' "$line" >> "$buf"; case "$line" in *"(check-sat)"*) break;; esac; done
+if grep -q "different values of leftRan" "$buf"; then
+  echo unknown
+  while IFS= read -r line; do case "$line" in *reason-unknown*) echo '(:reason-unknown "declined")';; esac; done
+  exit 0
+fi
+{ cat "$buf"; cat; } | exec "$@"`
+	args := append([]string{"-c", script, "declining", real.Path}, real.Args...)
+	declining := &solve.Solver{Name: "declining", Path: "sh", Args: args, Declared: real.Declared}
+	e := New(func() (*solve.Solver, error) { return declining, nil })
+	d, o := conformance(t, name), oracleOf(t, name)
+	budget := analysis.Budget{Depth: 8}
+
+	q := d.sensitive(t, "test::clash", "leftRan", "x")
+	result := answer(t, e, d, q, budget)
+	expectSensitive(t, d, q, result, "x", o)
+	if len(result.Values) != 2 || result.Values[0].Name != "leftRan" || result.Values[0].Solved == nil || result.Values[0].Solved.Status != solve.StatusUnknown {
+		t.Errorf("the undecided feature is not listed before the sensitive one: %+v", result.Values)
+	}
+
+	result = answer(t, e, d, d.sensitive(t, "test::clash", "leftRan", "rightRan"), budget)
+	expect(t, result, analysis.ClaimNone, analysis.NotCovered)
+	if want := "the solver did not decide whether two schedules end with different values of leftRan: declined"; result.Reason != want {
+		t.Errorf("reason %q, want %q", result.Reason, want)
+	}
+	if len(result.Values) != 2 || result.Values[1].Name != "rightRan" || result.Values[1].Solved == nil || result.Values[1].Solved.Status != solve.StatusUnsat {
+		t.Errorf("the features asked after the undecided one are not listed as solved: %+v", result.Values)
 	}
 }
 
