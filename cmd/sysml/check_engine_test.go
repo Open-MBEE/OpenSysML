@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -415,6 +416,43 @@ func TestEngineCheckSearchesBehaviorsOnOneClock(t *testing.T) {
 	if report.Checks[0].Subject != "Shine::Lamp::peek, Shine::Lamp::glow" || c.Verdict != "divergent" || len(c.Outcomes) != 2 ||
 		!strings.Contains(c.Outcomes[0], `Shine::Lamp::glow finalState = "on"`) || !strings.Contains(c.Outcomes[1], "Shine::Lamp::peek.saw = true") {
 		t.Errorf("the joint outcome is misreported:\n%s", got.stdout)
+	}
+}
+
+// A witness of behaviors on one clock names the tie's due order among them, and
+// -schedule replay:<file> runs the same behaviors under it to the value it records.
+func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
+	binary := buildCLI(t)
+	glow, peek := "Shine::Lamp::glow Shine::Lamp", "Shine::Lamp::peek Shine::Lamp"
+	dir := t.TempDir()
+	name := func(n int) string {
+		return filepath.Join(dir, fmt.Sprintf("Shine.Lamp.peek+Shine.Lamp.glow@Shine.Lamp-Shine.Lamp.peek.saw-%d.witness", n))
+	}
+
+	got := check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "3", "-check-witness", dir)
+	wantReport(t, got, 1, "divergent: Shine::Lamp::peek.saw ends as false or true",
+		"Shine::Lamp::peek.saw = false (witness "+name(1)+")", "Shine::Lamp::peek.saw = true (witness "+name(2)+")",
+		"standing: sensitive (witnessed: 10 states, 9 moves searched, witness of 1 choice replayed)")
+
+	for _, c := range []struct {
+		n     int
+		first string
+		saw   string
+	}{
+		{1, "action peek of object #1", "false"},
+		{2, "state machine glow of object #1", "true"},
+	} {
+		content, err := os.ReadFile(name(c.n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(string(content), "t=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
+			!strings.Contains(string(content), "choice at t=3.0: due action peek of object #1, state machine glow of object #1 (unordered; ran "+c.first+" first)") {
+			t.Errorf("witness %d:\n%s", c.n, content)
+		}
+		replayed := check(t, binary, lampModel, "-schedule", "replay:"+name(c.n), "-trace", "-instantiate", "Shine::Lamp", "-action", peek, "-state", glow, "-advance", "3")
+		wantReport(t, replayed, 0, "ran "+c.first+" first)", "saw = "+c.saw, "Current state: on",
+			"standing: value (observed: 1 run under replay:"+name(c.n)+")")
 	}
 }
 

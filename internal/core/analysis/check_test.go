@@ -451,6 +451,25 @@ func TestCheckWitnessFilesTellFeaturesApart(t *testing.T) {
 	}
 }
 
+// Witness files of several behaviors on one clock join the behaviors' names with
+// `+` and spell a behavior's qualified feature with `.`, so the path reads as the
+// verdict does and no token carries `-`.
+func TestWitnessFilesOfSeveralBehaviors(t *testing.T) {
+	for _, c := range []struct{ subject, performer, feature, want string }{
+		{"Mission::race", "", "x", "Mission.race-x-1.witness"},
+		{"Plant::Tank::fill", "Plant::tank", "this.level", "Plant.Tank.fill@Plant.tank-this.level-1.witness"},
+		{"Shine::Lamp::peek, Shine::Lamp::glow", "Shine::Lamp", "Shine::Lamp::peek.saw", "Shine.Lamp.peek+Shine.Lamp.glow@Shine.Lamp-Shine.Lamp.peek.saw-1.witness"},
+		{"Shine::Lamp::peek, Shine::Lamp::glow", "Shine::Lamp", "Shine::Lamp::glow finalState", "Shine.Lamp.peek+Shine.Lamp.glow@Shine.Lamp-Shine.Lamp.glow%20finalState-1.witness"},
+	} {
+		if got := divergenceFile(c.subject, c.performer, c.feature, 1); got != c.want {
+			t.Errorf("divergenceFile(%q, %q, %q) = %s, want %s", c.subject, c.performer, c.feature, got, c.want)
+		}
+	}
+	if got, want := ViolationFile("Shine::Lamp::peek, Shine::Lamp::glow", "Shine::Lamp", 2), "Shine.Lamp.peek+Shine.Lamp.glow@Shine.Lamp.violation-2.witness"; got != want {
+		t.Errorf("ViolationFile = %s, want %s", got, want)
+	}
+}
+
 // A witness whose replay leaves another state is not covered with the disagreement as its
 // reason — never violated — and under all it yields to explore's complete table.
 func TestCheckWitnessThatFailsReplayIsNotCovered(t *testing.T) {

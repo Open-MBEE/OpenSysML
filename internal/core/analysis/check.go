@@ -334,23 +334,38 @@ func ViolationFile(subject, performer string, n int) string {
 // divergenceFile names the witness of a feature's n-th final value,
 // `test.race-x-1.witness`, `test.race-this.level-2.witness`: the checked name,
 // the feature's segments and the count, told apart by the `-` no token carries.
+// A feature of one behavior of several, `Shine::Lamp::peek.saw`, spells
+// `Shine.Lamp.peek.saw`.
 func divergenceFile(subject, performer, feature string, n int) string {
-	return fmt.Sprintf("%s-%s-%d.witness", checkedName(subject, performer), fileSegments(feature, "."), n)
+	return fmt.Sprintf("%s-%s-%d.witness", checkedName(subject, performer), fileSegments(feature, "::", "."), n)
 }
 
 // checkedName is the subject's segments and, after `@`, the performer's when an
-// object performs it: `Plant.Tank.fill@Plant.tank`, one name per action and object.
+// object performs it: `Plant.Tank.fill@Plant.tank`, one name per behavior and
+// object; several behaviors on one clock are joined by `+`.
 func checkedName(subject, performer string) string {
-	name := fileSegments(subject, "::")
+	behaviors := strings.Split(subject, ", ")
+	for i, behavior := range behaviors {
+		behaviors[i] = fileSegments(behavior, "::")
+	}
+	name := strings.Join(behaviors, "+")
 	if performer != "" {
 		name += "@" + fileSegments(performer, "::")
 	}
 	return name
 }
 
-// fileSegments joins the tokens of a name's segments with `.`, one name per spelling.
-func fileSegments(name, separator string) string {
-	segments := strings.Split(name, separator)
+// fileSegments joins the tokens of a name's segments, split at any of the
+// separators, with `.`, one name per spelling.
+func fileSegments(name string, separators ...string) string {
+	segments := []string{name}
+	for _, separator := range separators {
+		var split []string
+		for _, segment := range segments {
+			split = append(split, strings.Split(segment, separator)...)
+		}
+		segments = split
+	}
 	for i, segment := range segments {
 		segments[i] = fileToken(segment)
 	}
