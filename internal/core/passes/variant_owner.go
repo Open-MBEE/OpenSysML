@@ -18,7 +18,7 @@ func (VariantOwnerPass) Level() PassLevel { return LevelConstraint }
 
 // ElementScoped: a variant gates on its own declaration and on what makes its
 // owner a variation, not on faults elsewhere in the document.
-func (VariantOwnerPass) ElementScoped() {}
+func (VariantOwnerPass) ElementScoped() { /* marker: per-element gating */ }
 
 func (VariantOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {

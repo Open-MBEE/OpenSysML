@@ -491,15 +491,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			if atCurrentTime {
 				return nil
 			}
-			if paused, err := e.ctx.pauseForClock(e, waits); err != nil {
-				return err
-			} else if paused {
-				continue
-			}
-			if err := e.ctx.driveClock(e.describeWaits(nil)); err != nil {
-				return err
-			}
-			moved, err := e.awaitClock(nil, &progress)
+			moved, err := e.moveClockForWaits(waits, &progress)
 			if err != nil {
 				return err
 			}
@@ -517,21 +509,9 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			}
 		}
 
-		if node := e.breakpointHit(); node != "" {
-			e.pausedAt = node
-			e.state = StateSuspended
-			return nil
-		}
-
-		if err := e.chargeActionStep(); err != nil {
-			e.endPausedBodies()
+		if done, err := e.stepOnce(atCurrentTime); err != nil {
 			return err
-		}
-
-		if err := e.Step(); err != nil && !errors.Is(err, ErrNothingDue) {
-			return err
-		}
-		if e.state == StateWaiting && (atCurrentTime || !e.waitsOnClock(nil)) {
+		} else if done {
 			break
 		}
 	}
@@ -540,6 +520,36 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 		return e.deadlockError(nil)
 	}
 	return nil
+}
+
+// stepOnce takes one step of a run, stopping at a breakpoint; true when the
+// run's loop ends here.
+func (e *ActionExecutor) stepOnce(atCurrentTime bool) (bool, error) {
+	if node := e.breakpointHit(); node != "" {
+		e.pausedAt = node
+		e.state = StateSuspended
+		return true, nil
+	}
+	if err := e.chargeActionStep(); err != nil {
+		e.endPausedBodies()
+		return true, err
+	}
+	if err := e.Step(); err != nil && !errors.Is(err, ErrNothingDue) {
+		return true, err
+	}
+	return e.state == StateWaiting && (atCurrentTime || !e.waitsOnClock(nil)), nil
+}
+
+// moveClockForWaits resumes tokens parked on the clock: a body's run pauses
+// instead, otherwise the clock advances to them; false when it cannot move.
+func (e *ActionExecutor) moveClockForWaits(waits func() bool, progress *dueProgress) (bool, error) {
+	if paused, err := e.ctx.pauseForClock(e, waits); err != nil || paused {
+		return paused, err
+	}
+	if err := e.ctx.driveClock(e.describeWaits(nil)); err != nil {
+		return false, err
+	}
+	return e.awaitClock(nil, progress)
 }
 
 // awaitClock runs what is due, then moves the clock to the earliest wait, until a

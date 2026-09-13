@@ -141,7 +141,7 @@ func TestNegativePrefixAlternatives(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sf := source.New(tt.file, []byte(tt.src))
 			p := New(sf)
-			if root := p.ParseFile(); root == nil {
+			if p.ParseFile() == nil {
 				t.Fatal("ParseFile returned nil")
 			}
 			if len(p.Diagnostics) != 1 {
@@ -191,7 +191,7 @@ func TestPrefixAlternativesStillAccepted(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := New(source.New(tt.file, []byte(tt.src)))
-			if root := p.ParseFile(); root == nil {
+			if p.ParseFile() == nil {
 				t.Fatal("ParseFile returned nil")
 			}
 			if len(p.Diagnostics) != 0 {
@@ -224,7 +224,7 @@ func TestNegativeBodyContext(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sf := source.New(tt.name+".sysml", []byte(tt.src))
 			p := New(sf)
-			if root := p.ParseFile(); root == nil {
+			if p.ParseFile() == nil {
 				t.Fatal("ParseFile returned nil")
 			}
 			var found bool

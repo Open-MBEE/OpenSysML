@@ -175,7 +175,7 @@ func (ctx *Context) readUnlessRecursive(inst *Instance, name string, target *sym
 		if !live {
 			continue
 		}
-		if decl := ctx.onPath(made, path); decl != nil {
+		if ctx.onPath(made, path) != nil {
 			recursive = made
 		} else if held[id] && ctx.mayReach(made, target) {
 			reached = made

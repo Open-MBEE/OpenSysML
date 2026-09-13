@@ -371,71 +371,96 @@ func ParseChoice(text string) (ChoiceTaken, error) {
 	}
 	step, rest := 0, text
 	if after, ok := strings.CutPrefix(text, "step "); ok {
-		digits, tail, found := strings.Cut(after, ": ")
+		digits, tail, found := strings.Cut(after, markWhere)
 		n, err := strconv.Atoi(digits)
 		if !found || err != nil || n < 1 {
 			return fail("step needs a positive number and a colon: step <n>: …")
 		}
 		step, rest = n, tail
 	}
-	first, mark, after, ok := readLabel(rest, " first of ", " -> ", ": ")
+	first, mark, after, ok := readLabel(rest, markFirstOf, markArrow, markWhere)
 	if !ok {
 		return fail(unclosedQuote)
 	}
 	switch mark {
-	case " first of ", ": ":
-		c := ChoiceTaken{Kind: ChoiceTokenOrder, Step: step, Took: first}
-		if mark == ": " {
-			if step > 0 {
-				return fail("a step's order names the token first: step <n>: <took> first of …")
-			}
-			c.Kind, c.Where = ChoiceRegionOrder, first
-			if strings.HasPrefix(first, "t=") {
-				c.Kind = ChoiceDueOrder
-			}
-			if c.Took, mark, after, ok = readLabel(after, " first of "); !ok {
-				return fail(unclosedQuote)
-			}
-			if mark == "" {
-				return fail("not a token order, branch, transition or region order")
-			}
-		} else if step == 0 {
-			return fail("an order outside a step needs where it was made: <where>: <took> first of …")
-		}
-		among, ok := splitLabels(after, ", ")
-		if !ok {
-			return fail(unclosedQuote)
-		}
-		c.Among, c.Alternatives, c.Taken = among, len(among), slices.Index(among, c.Took)
-		if c.Taken < 0 {
-			return fail(fmt.Sprintf("%s is not among %s", choiceLabel(c.Took), choiceLabels(among)))
-		}
-		return c, nil
-	case " -> ":
-		took, _, _, ok := readLabel(after)
-		if !ok {
-			return fail(unclosedQuote)
-		}
-		if first == "" || took == "" {
-			return fail("a branch or transition needs both sides of ->")
-		}
-		c := ChoiceTaken{Kind: ChoiceTransition, Where: first, Took: took}
-		if step > 0 {
-			c.Kind, c.Step = ChoiceDecisionBranch, step
-		}
-		return c, nil
+	case markFirstOf, markWhere:
+		return parseOrderChoice(fail, step, first, mark, after)
+	case markArrow:
+		return parseTransitionChoice(fail, step, first, after)
 	}
-	return fail("not a token order, branch, transition or region order")
+	return fail(notAChoice)
+}
+
+// parseOrderChoice reads the order after `<took> first of ` (a step's token order)
+// or `<where>: <took> first of ` (a region or due order) as ParseChoice found it.
+func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, mark, after string) (ChoiceTaken, error) {
+	c := ChoiceTaken{Kind: ChoiceTokenOrder, Step: step, Took: first}
+	if mark == markWhere {
+		if step > 0 {
+			return fail("a step's order names the token first: step <n>: <took> first of …")
+		}
+		c.Kind, c.Where = ChoiceRegionOrder, first
+		if strings.HasPrefix(first, "t=") {
+			c.Kind = ChoiceDueOrder
+		}
+		var ok bool
+		if c.Took, mark, after, ok = readLabel(after, markFirstOf); !ok {
+			return fail(unclosedQuote)
+		}
+		if mark == "" {
+			return fail(notAChoice)
+		}
+	} else if step == 0 {
+		return fail("an order outside a step needs where it was made: <where>: <took> first of …")
+	}
+	among, ok := splitLabels(after, markList)
+	if !ok {
+		return fail(unclosedQuote)
+	}
+	c.Among, c.Alternatives, c.Taken = among, len(among), slices.Index(among, c.Took)
+	if c.Taken < 0 {
+		return fail(fmt.Sprintf("%s is not among %s", choiceLabel(c.Took), choiceLabels(among)))
+	}
+	return c, nil
+}
+
+// parseTransitionChoice reads `<where> -> <took>`: a decision branch inside a step,
+// a transition outside one.
+func parseTransitionChoice(fail func(string) (ChoiceTaken, error), step int, first, after string) (ChoiceTaken, error) {
+	took, _, _, ok := readLabel(after)
+	if !ok {
+		return fail(unclosedQuote)
+	}
+	if first == "" || took == "" {
+		return fail("a branch or transition needs both sides of ->")
+	}
+	c := ChoiceTaken{Kind: ChoiceTransition, Where: first, Took: took}
+	if step > 0 {
+		c.Kind, c.Step = ChoiceDecisionBranch, step
+	}
+	return c, nil
 }
 
 // The names a choice line carries — tokens, branches, states, where the choice was
 // made — are written as they are unless the line's own punctuation occurs in them;
 // then the name is written quoted, 'like this', escaped as an unrestricted name is.
 
-// linePunctuation is what a choice line's grammar reads as structure.
-var linePunctuation = []string{"; ", " first of ", " -> ", ", ", ": "}
+// The marks a choice line's grammar reads as structure.
+const (
+	markChoices = "; "
+	markFirstOf = " first of "
+	markArrow   = " -> "
+	markList    = ", "
+	markWhere   = ": "
+)
 
-const unclosedQuote = "a quoted name needs its closing quote, followed by the line's punctuation"
+// linePunctuation is what a choice line's grammar reads as structure.
+var linePunctuation = []string{markChoices, markFirstOf, markArrow, markList, markWhere}
+
+const (
+	unclosedQuote = "a quoted name needs its closing quote, followed by the line's punctuation"
+	notAChoice    = "not a token order, branch, transition or region order"
+)
 
 // choiceLabel spells a name as a choice line carries it.
 func choiceLabel(name string) string {
@@ -451,7 +476,7 @@ func choiceLabels(names []string) string {
 	for i, name := range names {
 		labels[i] = choiceLabel(name)
 	}
-	return strings.Join(labels, ", ")
+	return strings.Join(labels, markList)
 }
 
 // labelNeedsQuoting reports a name a line could not read back as it is: empty,
@@ -546,11 +571,11 @@ func nameMayBegin(before string) bool {
 func splitChoices(line string) []string {
 	var parts []string
 	for {
-		at, _ := indexMark(line, "; ")
+		at, _ := indexMark(line, markChoices)
 		if at < 0 {
 			return append(parts, line)
 		}
-		parts, line = append(parts, line[:at]), line[at+2:]
+		parts, line = append(parts, line[:at]), line[at+len(markChoices):]
 	}
 }
 

@@ -63,11 +63,9 @@ class ProtosTest {
             .setLiteralId("D::Level::high")
             .setValue(org.openmbee.opensysml.proto.Value.newBuilder())
             .build();
-    assertThrows(
-        TransportException.class,
-        () ->
-            Protos.value(
-                org.openmbee.opensysml.proto.Value.newBuilder().setEnumLiteral(unreadable).build()));
+    var malformed =
+        org.openmbee.opensysml.proto.Value.newBuilder().setEnumLiteral(unreadable).build();
+    assertThrows(TransportException.class, () -> Protos.value(malformed));
   }
 
   @Test

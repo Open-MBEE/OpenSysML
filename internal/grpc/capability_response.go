@@ -76,6 +76,42 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		for _, element := range kind.Sequence.GetElements() {
 			s.filterValueCapabilities(element)
 		}
+	case *pb.Value_Array, *pb.Value_Vector, *pb.Value_VectorQuantity:
+		if !s.capabilities.has(CapabilityStructuredValues) {
+			value.Kind = unsupportedShown(displayValue(value))
+			return
+		}
+		for _, nested := range nestedValues(value) {
+			s.filterValueCapabilities(nested)
+		}
+	case *pb.Value_Set:
+		s.filterSetCapabilities(value)
+	default:
+		s.filterLeafCapabilities(value)
+	}
+}
+
+// filterSetCapabilities replaces a set the client cannot take, or one holding an
+// element it cannot, with the rendering it can.
+func (s *Service) filterSetCapabilities(value *pb.Value) {
+	shown := displayValue(value)
+	if !s.capabilities.has(CapabilitySetValues) {
+		value.Kind = unsupportedShown(shown)
+		return
+	}
+	for _, nested := range nestedValues(value) {
+		s.filterValueCapabilities(nested)
+		if reason, ok := unsupportedReason(nested); ok {
+			value.Kind = unsupportedSet(shown, reason).Kind
+			return
+		}
+	}
+}
+
+// filterLeafCapabilities replaces a value with nothing nested in it that the
+// client's capabilities leave out.
+func (s *Service) filterLeafCapabilities(value *pb.Value) {
+	switch kind := value.GetKind().(type) {
 	case *pb.Value_EnumLiteral:
 		if !s.capabilities.has(CapabilityEnumValues) {
 			value.Kind = &pb.Value_Null{Null: "unsupported: enumeration literal"}
@@ -88,14 +124,6 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		if !s.capabilities.has(CapabilityComplexValues) {
 			value.Kind = &pb.Value_Null{Null: "unsupported: complex number " + runtime.FormatComplex(ProtoToComplex(kind.Complex))}
 		}
-	case *pb.Value_Array, *pb.Value_Vector, *pb.Value_VectorQuantity:
-		if !s.capabilities.has(CapabilityStructuredValues) {
-			value.Kind = unsupportedShown(displayValue(value))
-			return
-		}
-		for _, nested := range nestedValues(value) {
-			s.filterValueCapabilities(nested)
-		}
 	case *pb.Value_MeasurementRef:
 		if !s.capabilities.has(CapabilityMeasurementRefs) {
 			value.Kind = unsupportedShown(displayValue(value))
@@ -107,19 +135,6 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 	case *pb.Value_Infinity:
 		if !s.capabilities.has(CapabilityInfinityValue) {
 			value.Kind = &pb.Value_Null{Null: "unsupported: unbounded value *"}
-		}
-	case *pb.Value_Set:
-		shown := displayValue(value)
-		if !s.capabilities.has(CapabilitySetValues) {
-			value.Kind = unsupportedShown(shown)
-			return
-		}
-		for _, nested := range nestedValues(value) {
-			s.filterValueCapabilities(nested)
-			if reason, ok := unsupportedReason(nested); ok {
-				value.Kind = unsupportedSet(shown, reason).Kind
-				return
-			}
 		}
 	case *pb.Value_TensorQuantity:
 		if !s.capabilities.has(CapabilityTensorValues) {

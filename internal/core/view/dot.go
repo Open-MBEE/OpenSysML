@@ -267,13 +267,13 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	case startKind:
 		attrs = []string{"shape=point", `label=""`}
 	case "initial":
-		attrs = []string{"shape=circle", "label=" + dotLabel(node)}
+		attrs = []string{"shape=circle", dotLabel(node)}
 	case "final":
-		attrs = []string{"shape=doublecircle", "label=" + dotLabel(node)}
+		attrs = []string{"shape=doublecircle", dotLabel(node)}
 	case "state":
-		attrs = []string{"shape=box", "style=rounded", "label=" + dotLabel(node)}
+		attrs = []string{"shape=box", "style=rounded", dotLabel(node)}
 	default:
-		attrs = []string{"label=" + dotLabel(node)}
+		attrs = []string{dotLabel(node)}
 	}
 	if g := node.Geometry; g != nil {
 		width, height := dotBox(node)
@@ -343,8 +343,8 @@ func (w *dotWriter) dotPin(centre Point) string {
 func (w *dotWriter) dotAnchorAttributes(node *Node) []string {
 	attrs := slices.Clone(dotInvisibleAttributes)
 	if node.Geometry != nil {
-		min, max := clusterBox(node)
-		attrs = append(attrs, w.dotPin(Point{X: (min.X + max.X) / 2, Y: (min.Y + max.Y) / 2}))
+		low, high := clusterBox(node)
+		attrs = append(attrs, w.dotPin(Point{X: (low.X + high.X) / 2, Y: (low.Y + high.Y) / 2}))
 	}
 	return attrs
 }
@@ -355,13 +355,13 @@ var dotInvisibleAttributes = []string{"shape=point", "style=invis", "width=0", "
 // dotClusterAttributes is a cluster's attribute statements: its label, a dashed
 // border for an orthogonal region, and its box as `bb` when it has an extent.
 func (w *dotWriter) dotClusterAttributes(node *Node) []string {
-	attrs := []string{"label=" + dotLabel(node)}
+	attrs := []string{dotLabel(node)}
 	if node.Kind == "region" {
 		attrs = append(attrs, "style=dashed")
 	}
 	if g := node.Geometry; g != nil {
-		if min, max := clusterBox(node); min != max {
-			attrs = append(attrs, "bb="+dotQuote(w.dotPoint(Point{X: min.X, Y: max.Y})+","+w.dotPoint(Point{X: max.X, Y: min.Y})))
+		if low, high := clusterBox(node); low != high {
+			attrs = append(attrs, "bb="+dotQuote(w.dotPoint(Point{X: low.X, Y: high.Y})+","+w.dotPoint(Point{X: high.X, Y: low.Y})))
 		}
 		if g.Collapsed {
 			attrs = append(attrs, `comment="collapsed"`)
@@ -376,13 +376,13 @@ const dotClusterMargin = 8
 
 // clusterBox is a positioned cluster's box, top-left to bottom-right: the stated
 // one, or its corner grown round its positioned members (the corner alone with none).
-func clusterBox(node *Node) (min, max Point) {
+func clusterBox(node *Node) (topLeft, bottomRight Point) {
 	g := node.Geometry
-	min = Point{X: g.X, Y: g.Y}
+	topLeft = Point{X: g.X, Y: g.Y}
 	if g.HasSize {
-		return min, Point{X: g.X + g.Width, Y: g.Y + g.Height}
+		return topLeft, Point{X: g.X + g.Width, Y: g.Y + g.Height}
 	}
-	max = min
+	bottomRight = topLeft
 	for _, child := range node.Children {
 		if child.Geometry == nil {
 			continue
@@ -391,15 +391,15 @@ func clusterBox(node *Node) (min, max Point) {
 		if low == high {
 			continue
 		}
-		min = Point{X: math.Min(min.X, low.X-dotClusterMargin), Y: math.Min(min.Y, low.Y-dotClusterMargin)}
-		max = Point{X: math.Max(max.X, high.X+dotClusterMargin), Y: math.Max(max.Y, high.Y+dotClusterMargin)}
+		topLeft = Point{X: math.Min(topLeft.X, low.X-dotClusterMargin), Y: math.Min(topLeft.Y, low.Y-dotClusterMargin)}
+		bottomRight = Point{X: math.Max(bottomRight.X, high.X+dotClusterMargin), Y: math.Max(bottomRight.Y, high.Y+dotClusterMargin)}
 	}
-	return min, max
+	return topLeft, bottomRight
 }
 
 // memberBox is the box a positioned member of a cluster takes up: a cluster's
 // own box, a node's stated or label-fitted box.
-func memberBox(node *Node) (min, max Point) {
+func memberBox(node *Node) (topLeft, bottomRight Point) {
 	if len(node.Children) > 0 {
 		return clusterBox(node)
 	}
@@ -413,7 +413,7 @@ func memberBox(node *Node) (min, max Point) {
 func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	var attrs []string
 	if edge.Label != "" {
-		attrs = append(attrs, "label="+dotQuote(edge.Label))
+		attrs = append(attrs, dotLabelAttribute(dotQuote(edge.Label)))
 	}
 	switch edge.Kind {
 	case EdgeConnection:
@@ -443,10 +443,15 @@ func dotContainmentAttributes() []string {
 	return []string{"arrowhead=none"}
 }
 
-// dotLabel is a node's quoted label: kind and name, then its detail on a
-// second line.
+// dotLabel is a node's label attribute, quoted: kind and name, then its detail
+// on a second line.
 func dotLabel(node *Node) string {
-	return dotQuote(dotLabelText(node))
+	return dotLabelAttribute(dotQuote(dotLabelText(node)))
+}
+
+// dotLabelAttribute is the `label=` attribute holding a quoted label.
+func dotLabelAttribute(quoted string) string {
+	return "label=" + quoted
 }
 
 // dotLabelText is the text of a node's label before quoting.

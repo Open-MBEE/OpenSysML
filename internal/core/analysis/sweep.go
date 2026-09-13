@@ -63,7 +63,7 @@ func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	}
 	fresh := func(job int) (*runtime.Context, error) { return model.NewContextOn(job, budget) }
 	started := time.Now()
-	table, err := runtime.RunSweepWith(ctx, first, q.Subject, q.Sweep.Plan, runs, budget.Jobs, fresh, q.Sweep.Row)
+	table, err := runtime.RunSweepWith(ctx, runtime.SweepWorkers{First: first, Jobs: budget.Jobs, Fresh: fresh}, q.Subject, q.Sweep.Plan, runs, q.Sweep.Row)
 	if err != nil {
 		return Result{}, err
 	}

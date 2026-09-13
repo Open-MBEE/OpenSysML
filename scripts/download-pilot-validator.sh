@@ -26,8 +26,9 @@ pin="$(pilot_pin) $PILOT_ARTIFACT_VERSION $VALIDATOR_COMMIT"
 
 # build_is_complete reports whether $1 holds every artifact of a finished build.
 build_is_complete() {
-	[[ -x "$1/validate-sysml" ]] && [[ -f "$1/$wrapper_jar_rel" ]] &&
-		[[ -f "$1/$pilot_jar_rel" ]] && [[ -d "$1/$library_rel" ]]
+	local dir="$1"
+	[[ -x "$dir/validate-sysml" ]] && [[ -f "$dir/$wrapper_jar_rel" ]] &&
+		[[ -f "$dir/$pilot_jar_rel" ]] && [[ -d "$dir/$library_rel" ]]
 }
 
 pilot_recover_dir "$target"

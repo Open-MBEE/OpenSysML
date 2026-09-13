@@ -689,7 +689,7 @@ func TestSnapshotRestoreForgetsCalcOutputsWorkedOutSince(t *testing.T) {
 		t.Fatalf("output b: %v", err)
 	}
 	snapshot.Restore()
-	if held := ctx.run.calcUsageRuns[reader.activation][calcUsageKey{sym: pair}]; held != run {
+	if ctx.run.calcUsageRuns[reader.activation][calcUsageKey{sym: pair}] != run {
 		t.Fatalf("restore replaced the activation's evaluation of Demo::pair")
 	}
 	if _, held := run.outputs["b"]; held {

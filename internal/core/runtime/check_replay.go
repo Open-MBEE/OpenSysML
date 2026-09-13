@@ -166,15 +166,16 @@ func (r *Replayed) agreeOnProperty(w Witness, p CheckProperty) error {
 		return r.disagree(w, "the run failed where the witness claims a state: "+r.Err.Error())
 	}
 	holds, err := r.evaluate(p)
+	evaluating := "evaluating " + p.Name
 	switch {
 	case err != nil && w.Fails == "":
-		return r.disagree(w, "evaluating "+p.Name+" failed where the witness claims it false: "+err.Error())
+		return r.disagree(w, evaluating+" failed where the witness claims it false: "+err.Error())
 	case err != nil && err.Error() != w.Fails:
-		return r.disagree(w, "evaluating "+p.Name+" failed otherwise than claimed: "+err.Error()+", not "+w.Fails)
+		return r.disagree(w, evaluating+" failed otherwise than claimed: "+err.Error()+", not "+w.Fails)
 	case err != nil:
 		r.Err = err
 	case w.Fails != "":
-		return r.disagree(w, "evaluating "+p.Name+" did not fail as claimed: "+w.Fails)
+		return r.disagree(w, evaluating+" did not fail as claimed: "+w.Fails)
 	case holds:
 		return r.disagree(w, p.Name+" holds at the claimed state")
 	}

@@ -769,20 +769,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// A variation holds the variant it was bound to, and nothing until it is
 	// bound: it classifies its variants abstractly, so it is no object of itself.
 	if ctx.model.semantics.IsVariationFeature(fv.Feature.Symbol) {
-		if fv.Feature.DefaultValue == nil {
-			return nil, fmt.Errorf("%w: %s.%s", ErrVariationUnselected, inst.Type.Name, name)
-		}
-		val, err := ctx.evalFeatureValueDefault(inst, fv, name)
-		if err != nil {
-			return nil, err
-		}
-		bound, err := ctx.bindVariation(fv.Feature, val, inst.ID)
-		if err != nil {
-			return nil, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
-		}
-		fv.Value = bound
-		fv.Materialized = true
-		return fv, nil
+		return inst.materializeVariation(ctx, fv, name)
 	}
 
 	// A bound value supplies the feature's own features, so a body restating one
@@ -808,24 +795,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// The feature holds what the default states, once that conforms to the
 	// feature's multiplicity and type.
 	if ctx.valueBinds(fv.Feature) {
-		val, err := ctx.deriveFeatureValue(inst, fv, name)
-		if err != nil {
-			return nil, err
-		}
-		if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
-			return nil, err
-		}
-		if val, err = ctx.admitted(fv.Feature, val, admitDeclared); err != nil {
-			return nil, err
-		}
-		ctx.noteProbeWrite(fv)
-		if fv.Feature.Scalar() {
-			fv.Value = val
-		} else {
-			fv.Values = val
-		}
-		fv.Materialized = true
-		return fv, nil
+		return inst.materializeDerived(ctx, fv, name)
 	}
 
 	// A collection an optional feature subsets fills its objects: it is read first.
@@ -854,98 +824,153 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 
 	// Lazy instantiation: a composite feature holds objects of its own.
 	if composite := ctx.CompositeTypeOf(fv.Feature); composite != nil {
-		mult := fv.Feature.Multiplicity
-		// A model-level read makes up no collection whose count the model leaves open;
-		// a body binding a feature of the one object an optional scalar holds fixes it at one.
-		_, exact := mult.Exactly()
-		if open != nil && !exact && !(fv.Feature.Scalar() && ctx.bodyBindsAFeature(fv.Feature)) {
-			release := ctx.elementScope()
-			contributed, atLeast, err := ctx.openSubsettingContributions(inst, name)
-			release()
-			if err != nil {
-				return nil, err
-			}
-			if held := int64(len(contributed)); atLeast > held || mult.MayAdmitMore(held) {
-				open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
-				return fv, nil
-			}
-		}
-
-		if !mult.Upper.Known || !mult.Lower.Known {
-			return nil, fmt.Errorf("cannot materialize feature %q with unknown multiplicity", name)
-		}
-
-		if !mult.Upper.Infinite && mult.Upper.Value == 1 {
-			// Scalar: instantiate one, held by this feature before its behaviors
-			// start, so one addressing it back reads the object held here.
-			mark := len(ctx.created)
-			childInst, err := ctx.materialize(composite, 0, inst, name)
-			if err != nil {
-				ctx.abandonInstancesSince(mark)
-				return nil, err
-			}
-			fv.Value = Value{Kind: ValInstance, Instance: childInst.ID}
-			fv.Materialized = true
-			if err := ctx.startClassifierBehaviors(childInst, mark); err != nil {
-				return nil, err
-			}
-		} else {
-			// Subsetting features' objects are members; optional subsetters with room, then
-			// anonymous objects, make up the lower bound. A failed read leaves nothing behind.
-			release := ctx.elementScope()
-			contributed, err := ctx.subsettingContributions(inst, name)
-			if err != nil {
-				release()
-				return nil, err
-			}
-
-			count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("feature %q", name))
-			if err != nil {
-				release()
-				return nil, err
-			}
-
-			// The whole collection is held before any of its objects starts, so a
-			// behavior reading the feature back reads the objects held in it.
-			if err := ctx.chargeElements(int64(count)); err != nil {
-				release()
-				return nil, err
-			}
-			mark := len(ctx.created)
-			children, unfill, err := ctx.fillOptionalSubsetters(inst, name, count)
-			fail := func(err error) (*FeatureValue, error) {
-				fv.Values, fv.Materialized = Value{}, false
-				ctx.abandonInstancesSince(mark)
-				unfill()
-				release()
-				return nil, err
-			}
-			if err != nil {
-				return fail(err)
-			}
-			made, err := ctx.materializeMembers(composite, count-len(children), inst, name)
-			if err != nil {
-				return fail(err)
-			}
-			children = append(children, made...)
-			seq := NewSequence()
-			for _, val := range contributed {
-				seq.Append(val)
-			}
-			for _, child := range children {
-				seq.Append(Value{Kind: ValInstance, Instance: child.ID})
-			}
-			fv.Values = ctx.collectionOf(fv.Feature, seq.Elements())
-			fv.Materialized = true
-			fv.Assumed = mult.AdmitsMore(int64(seq.Size()))
-			if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
-				return fail(err)
-			}
-		}
-		fv.Materialized = true
+		return inst.materializeComposite(ctx, fv, name, open, composite)
 	}
 
 	return fv, nil
+}
+
+// materializeVariation binds a variation to the variant its default selects.
+func (inst *Instance) materializeVariation(ctx *Context, fv *FeatureValue, name string) (*FeatureValue, error) {
+	if fv.Feature.DefaultValue == nil {
+		return nil, fmt.Errorf("%w: %s.%s", ErrVariationUnselected, inst.Type.Name, name)
+	}
+	val, err := ctx.evalFeatureValueDefault(inst, fv, name)
+	if err != nil {
+		return nil, err
+	}
+	bound, err := ctx.bindVariation(fv.Feature, val, inst.ID)
+	if err != nil {
+		return nil, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
+	}
+	fv.Value = bound
+	fv.Materialized = true
+	return fv, nil
+}
+
+// materializeDerived evaluates a default against this instance and holds what
+// it states once that conforms to the feature's multiplicity and type.
+func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name string) (*FeatureValue, error) {
+	val, err := ctx.deriveFeatureValue(inst, fv, name)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
+		return nil, err
+	}
+	if val, err = ctx.admitted(fv.Feature, val, admitDeclared); err != nil {
+		return nil, err
+	}
+	ctx.noteProbeWrite(fv)
+	if fv.Feature.Scalar() {
+		fv.Value = val
+	} else {
+		fv.Values = val
+	}
+	fv.Materialized = true
+	return fv, nil
+}
+
+// materializeComposite instantiates the objects a composite feature holds: one
+// for a scalar, otherwise the members making up the collection's lower bound.
+func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name string, open *openPopulation, composite *symbols.Symbol) (*FeatureValue, error) {
+	mult := fv.Feature.Multiplicity
+	// A model-level read makes up no collection whose count the model leaves open;
+	// a body binding a feature of the one object an optional scalar holds fixes it at one.
+	_, exact := mult.Exactly()
+	if open != nil && !exact && !(fv.Feature.Scalar() && ctx.bodyBindsAFeature(fv.Feature)) {
+		release := ctx.elementScope()
+		contributed, atLeast, err := ctx.openSubsettingContributions(inst, name)
+		release()
+		if err != nil {
+			return nil, err
+		}
+		if held := int64(len(contributed)); atLeast > held || mult.MayAdmitMore(held) {
+			open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
+			return fv, nil
+		}
+	}
+
+	if !mult.Upper.Known || !mult.Lower.Known {
+		return nil, fmt.Errorf("cannot materialize feature %q with unknown multiplicity", name)
+	}
+
+	if !mult.Upper.Infinite && mult.Upper.Value == 1 {
+		// Scalar: instantiate one, held by this feature before its behaviors
+		// start, so one addressing it back reads the object held here.
+		mark := len(ctx.created)
+		childInst, err := ctx.materialize(composite, 0, inst, name)
+		if err != nil {
+			ctx.abandonInstancesSince(mark)
+			return nil, err
+		}
+		fv.Value = Value{Kind: ValInstance, Instance: childInst.ID}
+		fv.Materialized = true
+		if err := ctx.startClassifierBehaviors(childInst, mark); err != nil {
+			return nil, err
+		}
+	} else if err := inst.materializeCompositeCollection(ctx, fv, name, composite); err != nil {
+		return nil, err
+	}
+	fv.Materialized = true
+	return fv, nil
+}
+
+// materializeCompositeCollection fills a composite collection: subsetting
+// features' objects are members; optional subsetters with room, then anonymous
+// objects, make up the lower bound. A failed read leaves nothing behind.
+func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureValue, name string, composite *symbols.Symbol) error {
+	mult := fv.Feature.Multiplicity
+	release := ctx.elementScope()
+	contributed, err := ctx.subsettingContributions(inst, name)
+	if err != nil {
+		release()
+		return err
+	}
+
+	count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("feature %q", name))
+	if err != nil {
+		release()
+		return err
+	}
+
+	// The whole collection is held before any of its objects starts, so a
+	// behavior reading the feature back reads the objects held in it.
+	if err := ctx.chargeElements(int64(count)); err != nil {
+		release()
+		return err
+	}
+	mark := len(ctx.created)
+	children, unfill, err := ctx.fillOptionalSubsetters(inst, name, count)
+	fail := func(err error) error {
+		fv.Values, fv.Materialized = Value{}, false
+		ctx.abandonInstancesSince(mark)
+		unfill()
+		release()
+		return err
+	}
+	if err != nil {
+		return fail(err)
+	}
+	made, err := ctx.materializeMembers(composite, count-len(children), inst, name)
+	if err != nil {
+		return fail(err)
+	}
+	children = append(children, made...)
+	seq := NewSequence()
+	for _, val := range contributed {
+		seq.Append(val)
+	}
+	for _, child := range children {
+		seq.Append(Value{Kind: ValInstance, Instance: child.ID})
+	}
+	fv.Values = ctx.collectionOf(fv.Feature, seq.Elements())
+	fv.Materialized = true
+	fv.Assumed = mult.AdmitsMore(int64(seq.Size()))
+	if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
+		return fail(err)
+	}
+	return nil
 }
 
 // lowerBoundCount is how many anonymous objects fill a collection to its lower bound

@@ -26,6 +26,10 @@ VERDICT_FAIL = "fail"
 VERDICT_INCONCLUSIVE = "inconclusive"
 VERDICT_ERROR = "error"
 
+# Properties reading the standing of the engine that answered a request.
+_STRENGTH = property(lambda self: self.standing.strength, doc="Strength of the evidence.")
+_BOUNDS = property(lambda self: list(self.standing.bounds), doc="Bounds the engine ran under.")
+
 
 class VerificationVerdict:
     """What the body of a verification case answered when it ran.
@@ -310,8 +314,8 @@ class CalcResult:
         self.standing = standing or Standing()
 
     engine = property(lambda self: self.standing.engine, doc="Name of the engine that answered.")
-    strength = property(lambda self: self.standing.strength, doc="Strength of the evidence.")
-    bounds = property(lambda self: list(self.standing.bounds), doc="Bounds the engine ran under.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
 
     def __str__(self):
         if self.outputs:
@@ -417,8 +421,8 @@ class AnalysisResult:
         self.standing = standing or Standing()
 
     engine = property(lambda self: self.standing.engine, doc="Name of the engine that ran the case.")
-    strength = property(lambda self: self.standing.strength, doc="Strength of the evidence.")
-    bounds = property(lambda self: list(self.standing.bounds), doc="Bounds the engine ran under.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
 
     @property
     def selected(self):
@@ -538,8 +542,8 @@ class SweepTable:
         self.standing = standing or Standing()
 
     engine = property(lambda self: self.standing.engine, doc="Name of the engine that ran the table.")
-    strength = property(lambda self: self.standing.strength, doc="Strength of the evidence.")
-    bounds = property(lambda self: list(self.standing.bounds), doc="Bounds the engine ran under.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
 
     @property
     def failures(self):

@@ -212,7 +212,7 @@ func (r *Registry) answer(ctx context.Context, held *Model, q Question, budget B
 func (r *Registry) answerAll(ctx context.Context, model *Model, q Question, budget Budget, plan Plan, candidates []Engine) (Plan, error) {
 	jobs := max(min(budget.Jobs, len(candidates)), 1)
 	budget.Jobs = max(budget.Jobs/jobs, 1)
-	c := &allCoordinator{ctx: ctx, model: model, q: q, budget: budget, started: time.Now(), fault: len(candidates)}
+	c := &allCoordinator{model: model, q: q, budget: budget, started: time.Now(), fault: len(candidates)}
 	c.runs = make([]allRun, len(candidates))
 	for i, e := range candidates {
 		c.runs[i].engine = e
@@ -222,11 +222,11 @@ func (r *Registry) answerAll(ctx context.Context, model *Model, q Question, budg
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			c.work()
+			c.work(ctx)
 		}()
 	}
 	wg.Wait()
-	return c.assemble(plan)
+	return c.assemble(ctx, plan)
 }
 
 // allRun is one engine's part in a plan under all: its step once made, and the cancellation
@@ -240,7 +240,6 @@ type allRun struct {
 
 // allCoordinator hands the engines out in name order and keeps what each made of the plan.
 type allCoordinator struct {
-	ctx     context.Context
 	model   *Model
 	q       Question
 	budget  Budget
@@ -255,13 +254,13 @@ type allCoordinator struct {
 }
 
 // work is one job: it consults engines as the coordinator hands them out until none is left.
-func (c *allCoordinator) work() {
+func (c *allCoordinator) work(ctx context.Context) {
 	for {
 		i, ok := c.take()
 		if !ok {
 			return
 		}
-		c.consult(i)
+		c.consult(ctx, i)
 	}
 }
 
@@ -280,9 +279,9 @@ func (c *allCoordinator) take() (int, bool) {
 
 // consult puts the question to engine i: cancelled when the plan's context is done, refused
 // when it does not cover the question, else run on a fleet of its own.
-func (c *allCoordinator) consult(i int) {
+func (c *allCoordinator) consult(ctx context.Context, i int) {
 	e := c.runs[i].engine
-	if err := c.ctx.Err(); err != nil {
+	if err := ctx.Err(); err != nil {
 		c.record(i, cancelled(e, err, c.budget, c.started))
 		return
 	}
@@ -290,7 +289,7 @@ func (c *allCoordinator) consult(i int) {
 		c.record(i, Step{Engine: e.Name(), Refusal: coverage.Refusal})
 		return
 	}
-	runCtx, cancel := context.WithCancel(c.ctx)
+	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	fleet := c.model.plan()
 	c.mu.Lock()
@@ -303,7 +302,7 @@ func (c *allCoordinator) consult(i int) {
 	switch {
 	case err == nil:
 		c.record(i, Step{Engine: e.Name(), Result: &result})
-	case c.ctx.Err() != nil:
+	case ctx.Err() != nil:
 		c.record(i, cancelled(e, err, c.budget, c.started))
 	case runCtx.Err() != nil:
 		// The plan stopped at a fault before this engine, so its run was dropped.
@@ -339,7 +338,7 @@ func (c *allCoordinator) faulted(i int, err error) {
 
 // assemble is the plan in name order: up to the first fault, which fails it; else every
 // step, the finished results composed, only a plan no engine finished failing with the deadline.
-func (c *allCoordinator) assemble(plan Plan) (Plan, error) {
+func (c *allCoordinator) assemble(ctx context.Context, plan Plan) (Plan, error) {
 	runs := c.runs
 	if c.fault < len(runs) {
 		runs = runs[:c.fault+1]
@@ -365,8 +364,8 @@ func (c *allCoordinator) assemble(plan Plan) (Plan, error) {
 		return plan, runs[c.fault].step.Err
 	}
 	if len(finished) == 0 {
-		if last == nil && c.ctx.Err() != nil {
-			return plan, c.ctx.Err()
+		if last == nil && ctx.Err() != nil {
+			return plan, ctx.Err()
 		}
 		plan.Result = uncovered(c.q, plan.Steps, last)
 		return plan, nil
