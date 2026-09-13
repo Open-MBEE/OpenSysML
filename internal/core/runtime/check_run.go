@@ -146,10 +146,13 @@ func (r *invocationRun) park() error {
 }
 
 // advanceClock moves the clock to the earliest wait ahead within the horizon,
-// false when none is.
+// else to the horizon itself as an Advance ends there; false once at neither.
 func (r *invocationRun) advanceClock() bool {
 	next, ok := r.ctx.clock.NextDue()
-	if !ok || next <= r.ctx.clock.now || !r.inv.Horizon.Reaches(next) {
+	if !ok || !r.inv.Horizon.Reaches(next) {
+		next, ok = r.inv.Horizon.Bounded()
+	}
+	if !ok || next <= r.ctx.clock.now {
 		return false
 	}
 	r.ctx.clock.now = next

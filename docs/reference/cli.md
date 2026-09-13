@@ -1218,8 +1218,9 @@ horizon. With `-advance D` the behaviors named are **one invocation on one clock
 one verdict named for them all (`Behaviors Shine::Lamp::peek, Shine::Lamp::glow`), the machines
 of the objects they materialize on that clock beside them: an action's wait and a machine's
 timer due at one instant are a choice the search draws, so what the action reads of the machine
-may diverge. The search stops at the horizon — the verdict reads `exhaustive up to t=D`, a wait
-past it left unreached — and a machine resting where nothing wakes it is a complete schedule,
+may diverge. The search runs the clock to the horizon as `-advance` alone does, so a property
+is evaluated there — the verdict reads `exhaustive up to t=D`, a wait past it left unreached —
+and a machine resting where nothing wakes it is a complete schedule,
 not a deadlock; its `outcome:` line names its `finalState` and the states it visited under its
 name. Without `-advance` each behavior named is its own search. A body paused mid-statement — an
 action performing another that waits inside its body, a `do` behavior waiting at an `accept` —

@@ -164,12 +164,83 @@ func TestCheckHorizonLeavesAnActionWaitingPastIt(t *testing.T) {
 		t.Fatalf("to t=5: finals %+v, want x still 0", early.Finals)
 	}
 
+	// The run ends at the horizon as an Advance does, not at the last wait it
+	// reached: a property false at t=5 alone is violated there.
+	before := CheckProperty{Name: "before the horizon", Holds: func(ctx *Context, _ *Invocation) (bool, error) {
+		return ctx.Clock().Now() < 5, nil
+	}}
+	atHorizon, err := Check(context.Background(), m.fresh, startTo(HorizonAt(5)), CheckBudget{}, unreduced(), []CheckProperty{before})
+	if err != nil {
+		t.Fatalf("check t < 5 to t=5: %v", err)
+	}
+	if atHorizon.Verdict != CheckViolation || len(atHorizon.Violations) != 1 || atHorizon.Violations[0].Name != "before the horizon" {
+		t.Fatalf("t < 5 to t=5: %s, want the property violated at the horizon", atHorizon.Status())
+	}
+
 	late, err := Check(context.Background(), m.fresh, startTo(Horizon{}), CheckBudget{}, unreduced(), nil)
 	if err != nil {
 		t.Fatalf("check without a horizon: %v", err)
 	}
 	if late.Verdict != CheckExhaustive || len(late.Finals) != 1 || late.Finals[0].Values["x"] != "1" {
 		t.Fatalf("without a horizon: %s, finals %+v, want x = 1", late.Status(), late.Finals)
+	}
+}
+
+// A token parked on a message is not deadlocked while another of its action
+// waits on the clock past the horizon: the sender the horizon leaves unreached
+// may be what feeds it, as it is here; without a horizon the action completes.
+func TestCheckHorizonLeavesAnAcceptFedPastIt(t *testing.T) {
+	m := parseLibraryModel(t, `
+		package test {
+			private import SI::*;
+			private import ScalarValues::*;
+			action def Relay {
+				attribute out got : Integer = 0;
+				first start;
+				fork split;
+				action listen accept n : Integer;
+				action sender { action wait accept after 10 [s]; then send 7 to listen; }
+				join sync;
+				action record assign got := n;
+				done;
+				succession first start then split;
+				succession first split then listen;
+				succession first split then sender;
+				succession first listen then sync;
+				succession first sender then sync;
+				succession first sync then record;
+				succession first record then done;
+			}
+		}
+	`)
+	sym := m.action(t, "Relay")
+	startTo := func(horizon Horizon) Starter {
+		return func(ctx *Context) (*Invocation, error) {
+			exec, err := ctx.CreateActionExecutor(sym)
+			if err != nil {
+				return nil, err
+			}
+			return &Invocation{Actions: []*ActionExecutor{exec}, Horizon: horizon}, nil
+		}
+	}
+
+	early, err := Check(context.Background(), m.fresh, startTo(HorizonAt(5)), CheckBudget{}, unreduced(), nil)
+	if err != nil {
+		t.Fatalf("check to t=5: %v", err)
+	}
+	if early.Verdict != CheckExhaustive || len(early.Violations) != 0 {
+		t.Fatalf("to t=5: %s, want exhaustive with the accept still parked", early.Status())
+	}
+	if len(early.Finals) != 1 || early.Finals[0].Values["got"] != "0" {
+		t.Fatalf("to t=5: finals %+v, want got still 0", early.Finals)
+	}
+
+	late, err := Check(context.Background(), m.fresh, startTo(Horizon{}), CheckBudget{}, unreduced(), nil)
+	if err != nil {
+		t.Fatalf("check without a horizon: %v", err)
+	}
+	if late.Verdict != CheckExhaustive || len(late.Finals) != 1 || late.Finals[0].Values["got"] != "7" {
+		t.Fatalf("without a horizon: %s, finals %+v, want got = 7", late.Status(), late.Finals)
 	}
 }
 

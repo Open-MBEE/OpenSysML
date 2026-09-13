@@ -599,8 +599,8 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    snapshot of the same context captures it, the canonical form spells it and the eight
    paused-body cases and `clock_action_state_due_together` are checked like any other; a
    portable `HeldImage` alone still refuses it. A machine resting where nothing wakes it is a
-   final state, not a deadlock; a wait past the horizon is left unreached and the verdict reads
-   `exhaustive up to t=D`.
+   final state, not a deadlock; the clock runs to the horizon as an `Advance` ends there, a wait
+   past it is left unreached and the verdict reads `exhaustive up to t=D`.
    A witness is the same choice sequence, its moves labelled by executor, replayed by
    `runtime.Replay` over the invocation; `explore` referees `check` over every state and clock
    case of the corpus. Surface: `-engine check` with `-state` and `-advance` beside `-action`,
