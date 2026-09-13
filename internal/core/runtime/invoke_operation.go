@@ -49,7 +49,7 @@ func (ctx *Context) InvokeOperation(inst *Instance, name string, args map[string
 		if err != nil {
 			return nil, fmt.Errorf("invoke %s on object #%d: %w", name, inst.ID, err)
 		}
-		result, err := ctx.invokeCalcNamedShapeOn(shape, inputs, declScope(sym), inst)
+		result, err := ctx.invokeCalcNamedShapeOn(shape, inputs, DeclScope(sym), inst)
 		if err != nil {
 			return nil, fmt.Errorf("invoke %s on object #%d: %w", name, inst.ID, err)
 		}
@@ -62,7 +62,7 @@ func (ctx *Context) InvokeOperation(inst *Instance, name string, args map[string
 		}
 		return map[string]Value{key: result}, nil
 	case isConstraintSymbol(sym):
-		holds, err := ctx.evaluateConstraintInvocation(sym, declScope(sym), inst, inputs)
+		holds, err := ctx.evaluateConstraintInvocation(sym, DeclScope(sym), inst, inputs)
 		if err != nil {
 			return nil, fmt.Errorf("invoke %s on object #%d: %w", name, inst.ID, err)
 		}

@@ -42,6 +42,11 @@ gRPC server port. The default is 50051.
 Print the address to dial on stdout, as one line, once the listener is bound;
 with \-port 0 this is how a client learns the port the kernel chose
 .TP
+.BI \-serve\-external\-engines " string"
+Comma\-separated names of the OPENSYSML_ENGINES manifest engines this service
+runs for its clients, or all; without it they are listed by ListEngines but a
+request naming one is refused, since it would run a program on the server
+.TP
 .BI \-tls\-cert " string"
 TLS certificate file for the main server
 .TP

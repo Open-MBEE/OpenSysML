@@ -255,7 +255,13 @@ naming one is its typed refusal until the wire gains that request. Every `Verdic
 `Calculation` and `Analysis` carries a `Standing` — the `Engine` that answered, the `Strength` of
 its evidence and the `Bounds` it ran under, each `Reached` or not — which is what the `standing:`
 line under a REPL verdict prints. A service that does not advertise `engines` refuses a named
-engine with `CodeUnimplemented` before anything is sent.
+engine with `CodeUnimplemented` before anything is sent. The
+[external engines](../reference/external-engines.md) of the service's `OPENSYSML_ENGINES` are
+among those `ListEngines` names, but naming one is refused with `CodeFailedPrecondition`
+(`engine 'spin-bridge' is not served by this service`) and `EngineAuto` and `EngineAll` pass over
+it until the service is started with `-serve-external-engines <name>,…` or
+`-serve-external-engines all` — a grant of command execution to every client, which is why it is
+the operator's to give and not the client's to ask for.
 
 `Dial("host:50051")` is the other constructor, for a shared `sysml-grpc` that someone else runs.
 This package never spawns a service of its own, because a private child would only be serving the

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/enginewire"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
@@ -36,6 +37,73 @@ func TestEnginesListsEveryRegisteredEngine(t *testing.T) {
 	wants(t, lines[4], "smt", "proved", "holds")
 	wants(t, lines[5], "solve", "proved", "satisfiable")
 	wants(t, lines[6], "sweep", "observed", "sweep", "ready")
+}
+
+// manifestEngine stands in for an engine registered from a manifest: it counts the probes
+// made of it and reports its origin as -engines prints it.
+type manifestEngine struct{ probed *int }
+
+func (manifestEngine) Name() string { return "standin" }
+
+func (manifestEngine) Describe() analysis.Description {
+	return analysis.Description{Questions: []analysis.Kind{analysis.Holds}, Authority: analysis.Bounded, Process: "/opt/standin/bin/standin"}
+}
+
+func (manifestEngine) Covers(*analysis.Model, analysis.Question) analysis.Coverage {
+	return analysis.Coverage{Covered: true}
+}
+
+func (manifestEngine) Run(context.Context, *analysis.Model, analysis.Question, analysis.Budget) (analysis.Result, error) {
+	return analysis.Result{}, errors.New("not run by this test")
+}
+
+func (manifestEngine) Process() (string, error) {
+	return "standin 1.0.0 at /opt/standin/bin/standin", nil
+}
+
+func (e manifestEngine) Probe() (string, error) {
+	*e.probed++
+	return "standin 1.0.0 at /opt/standin/bin/standin; describe agrees", nil
+}
+
+func (manifestEngine) Origin() analysis.Origin {
+	return analysis.Origin{Kind: analysis.KindEngine, Version: "1.0.0", File: "/etc/opensysml/engines/standin.json",
+		Command: "/opt/standin/bin/standin", Transport: analysis.TransportStdio, Protocol: 1}
+}
+
+// %engines lists a manifest engine with its kind, protocol and origin without probing it;
+// %engines probe probes each external engine once; any other argument is refused.
+func TestEnginesListsManifestEnginesAndProbesOnRequest(t *testing.T) {
+	s := loadSource(t, engineCalcSource)
+	probed := 0
+	engines := analysis.Default()
+	if err := engines.Register(manifestEngine{probed: &probed}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if err := s.SetEngines(engines); err != nil {
+		t.Fatalf("SetEngines: %v", err)
+	}
+
+	out := run(t, s, "%engines")
+	wantsInOrder(t, out, "engine", "kind", "protocol", "authority", "answers", "status",
+		"check    built-in  -", "standin  engine    stdio/1   bounded    holds", "ready (standin 1.0.0 at /opt/standin/bin/standin)",
+		"standin 1.0.0: engine from /etc/opensysml/engines/standin.json, runs /opt/standin/bin/standin, not admitted")
+	rejects(t, out, "describe agrees")
+	if probed != 0 {
+		t.Fatalf("%%engines probed %d times", probed)
+	}
+
+	out = run(t, s, "%engines probe")
+	wants(t, out, "ready (standin 1.0.0 at /opt/standin/bin/standin; describe agrees)")
+	if probed != 1 {
+		t.Fatalf("%%engines probe probed %d times, want once", probed)
+	}
+
+	out = run(t, s, "%engines all")
+	wants(t, out, "error: %engines takes `probe` or nothing, not \"all\"")
+	if !errors.Is(&EnginesArgumentError{Args: []string{"all"}}, ErrEnginesArgument) {
+		t.Fatal("EnginesArgumentError does not match ErrEnginesArgument")
+	}
 }
 
 // %engine shows the selection, sets it by name, to auto or to all, and reports a
@@ -241,5 +309,67 @@ func TestActionDebuggerPutsToolComputationsToTheEngines(t *testing.T) {
 	wants(t, out, "error: failed to create executor:", "run does not answer compute questions")
 	if ran != 1 {
 		t.Fatalf("the tool ran %d times under the run engine alone, want once in all", ran)
+	}
+}
+
+// reportingEngine stands in for an external engine: it reports progress through the plan's
+// reporter before answering, and records whether the plan installed one.
+type reportingEngine struct{ reported *bool }
+
+func (reportingEngine) Name() string { return "reporting" }
+
+func (reportingEngine) Describe() analysis.Description {
+	return analysis.Description{Questions: []analysis.Kind{analysis.Compute}, Authority: analysis.Observed}
+}
+
+func (reportingEngine) Covers(*analysis.Model, analysis.Question) analysis.Coverage {
+	return analysis.Coverage{Covered: true}
+}
+
+func (e reportingEngine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question, _ analysis.Budget) (analysis.Result, error) {
+	if report := analysis.ReporterFrom(ctx); report != nil {
+		*e.reported = true
+		report(analysis.ProgressReport{Engine: "reporting", Progress: enginewire.ProgressParams{Runs: 3, Depth: 2, Text: "unrolling"}})
+	}
+	k := q.Compute.Call.Inputs[0].Value.Value.Real
+	value := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 2 * k}}
+	return analysis.Result{Claim: analysis.ClaimValue, Strength: analysis.Observed,
+		Values: []analysis.Evaluation{{Name: "y", Value: value}}}, nil
+}
+
+// A session given a progress writer runs its plans under a reporter that prints what an
+// engine reports, one line naming the engine; without one the plans carry no reporter.
+func TestProgressIsPrintedWhereTheSessionSays(t *testing.T) {
+	s := loadSource(t, toolActionSource)
+	reported := false
+	engines := analysis.Default()
+	if err := engines.Register(reportingEngine{reported: &reported}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if err := s.SetEngines(engines); err != nil {
+		t.Fatalf("SetEngines: %v", err)
+	}
+	run(t, s, "%engine reporting")
+
+	wants(t, run(t, s, "%action Tools::Doubling"), "✓ Started action executor")
+	if reported {
+		t.Fatal("a session printing no progress installed a reporter")
+	}
+
+	var progress strings.Builder
+	s.SetProgress(&progress)
+	wants(t, run(t, s, "%action Tools::Doubling"), "✓ Started action executor")
+	if !reported {
+		t.Fatal("the plan ran without the session's reporter")
+	}
+	if got := progress.String(); got != "engine reporting: runs 3, depth 2: unrolling\n" {
+		t.Fatalf("progress printed %q", got)
+	}
+
+	s.SetProgress(nil)
+	reported = false
+	wants(t, run(t, s, "%action Tools::Doubling"), "✓ Started action executor")
+	if reported {
+		t.Fatal("SetProgress(nil) left the reporter installed")
 	}
 }

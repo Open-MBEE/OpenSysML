@@ -106,6 +106,14 @@ class EngineInfo:
         process_found: Where that process was found, empty when it was not
         ready: Whether it can run here
         unavailable: Why it cannot, when it cannot
+        kind: ``built-in``, ``tool`` or ``engine`` (one registered from a manifest)
+        protocol: How it is spoken to: ``-`` for a built-in engine, ``object`` for a tool,
+            ``<transport>/<protocol>`` such as ``stdio/1`` for an engine entry
+        source: The manifest file an external engine was read from, empty for a built-in one
+        command: The resolved command of an external engine, empty for a built-in one
+        version: The version its manifest declares, empty for a built-in one
+        served: Whether this service runs it; an external engine is listed unserved until
+            the service is started with ``-serve-external-engines``
     """
 
     name: str
@@ -116,6 +124,12 @@ class EngineInfo:
     process_found: str = ""
     ready: bool = True
     unavailable: str = ""
+    kind: str = ""
+    protocol: str = ""
+    source: str = ""
+    command: str = ""
+    version: str = ""
+    served: bool = False
 
     @classmethod
     def of(cls, pb):
@@ -129,12 +143,21 @@ class EngineInfo:
             process_found=pb.process_found,
             ready=pb.ready,
             unavailable=pb.unavailable,
+            kind=pb.kind,
+            protocol=pb.protocol,
+            source=pb.source,
+            command=pb.command,
+            version=pb.version,
+            served=pb.served,
         )
 
     def explain(self):
-        """One line naming the engine, its authority, its questions and its status."""
+        """One line naming the engine, its kind, its authority, its questions and its status."""
         status = "ready" if self.ready else f"unavailable: {self.unavailable}"
-        return f"{self.name}: {self.authority}, answers {', '.join(self.answers)}; {status}"
+        if self.kind == "engine" and not self.served:
+            status += "; not served by this service"
+        kind = f" ({self.kind}, {self.protocol})" if self.kind == "engine" else ""
+        return f"{self.name}{kind}: {self.authority}, answers {', '.join(self.answers)}; {status}"
 
     def __str__(self):
         return self.explain()

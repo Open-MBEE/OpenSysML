@@ -148,7 +148,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%schedule", args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%budget", desc: "show the bounds one run may spend, and the variable raising each"},
 	{name: "%jobs", args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
-	{name: "%engines", desc: "list the analysis engines, with the authority of each, the questions it answers and whether it can run"},
+	{name: "%engines", args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
 	{name: "%engine", args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
 	{name: "%check-diverge", args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
 	{name: "%check-property", args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
@@ -325,7 +325,7 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 	case "%jobs":
 		return metaOut(s.doJobs(fields[1:]), false, nil), true
 	case "%engines":
-		return metaOut(s.doEngines(), false, nil), true
+		return metaOut(s.doEngines(fields[1:]), false, nil), true
 	case "%engine":
 		return metaOut(s.doEngine(fields[1:]), false, nil), true
 	case "%check-diverge":

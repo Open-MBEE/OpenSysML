@@ -781,7 +781,7 @@ func TestHoldAsReportsAnUndeterminedValueType(t *testing.T) {
 	seq.Append(Value{Kind: ValInstance, Instance: unknown})
 	writes, journals := len(ctx.journalWrites), ctx.journals
 
-	err = ctx.holdAs(declScope(owner), "subject binding", ctx.boundMemberDecl(owner, []*symbols.Symbol{pair}), NewSequenceValue(seq), pair)
+	err = ctx.holdAs(DeclScope(owner), "subject binding", ctx.boundMemberDecl(owner, []*symbols.Symbol{pair}), NewSequenceValue(seq), pair)
 	if !errors.Is(err, ErrUndeterminedValueType) {
 		t.Fatalf("error = %v, want ErrUndeterminedValueType", err)
 	}

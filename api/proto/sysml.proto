@@ -64,7 +64,10 @@ service SysMLService {
   // the REPL's %engines do: each with the questions it answers, the strongest
   // evidence it can produce and whether it can run. Reported as the "engines"
   // capability, which also names the `engine` request fields and the `engine`,
-  // `strength` and `bounds` response fields of the verification RPCs.
+  // `strength` and `bounds` response fields of the verification RPCs. The
+  // engines registered from manifests are listed with their origin and whether
+  // this service serves them; the "engines_external" capability is advertised
+  // only when it was started to serve them.
   rpc ListEngines(ListEnginesRequest) returns (ListEnginesResponse);
 
   // Run a SysML v2 API & Services Query over a parsed model: scope/select/where
@@ -446,10 +449,28 @@ message EngineInfo {
   // `process_found` says where it was found when it was.
   string process = 5;
   string process_found = 6;
-  // True when the engine can run: it needs no process, or its process was found.
+  // True when the engine can run: it is served, and it needs no process or its
+  // process was found.
   bool ready = 7;
   // Why the engine cannot run, empty when it can.
   string unavailable = 8;
+  // Where the engine comes from: "built-in" for the build's own, else the kind
+  // of the manifest entry that registered it: "tool", "engine", "policy" or
+  // "sampler". The fields below are empty for a built-in engine.
+  string kind = 9;
+  // How the engine is spoken to: "-" for one built in, "object" for a tool's
+  // one JSON object each way, "<transport>/<protocol>" for an engine entry.
+  string protocol = 10;
+  // The manifest entry the engine was registered from, the command it resolved
+  // to and the version the entry declares.
+  string source = 11;
+  string command = 12;
+  string version = 13;
+  // True when this service runs the engine for a request that reaches it. A
+  // manifest engine is listed but not served until the service is started with
+  // -serve-external-engines naming it; a request naming one that is not served
+  // is FAILED_PRECONDITION.
+  bool served = 14;
 }
 
 // ListEnginesResponse lists the engines in name order.
@@ -1228,6 +1249,11 @@ message ServerInfoResponse {
   //                  `bounds` it ran under. Without it a service drops the
   //                  request field and answers under "auto", so a client must
   //                  not send one.
+  //   "engines_external" - the service was started with -serve-external-engines
+  //                  and runs the OPENSYSML_ENGINES manifest engines it names;
+  //                  ListEngines reports which with `served`. Without it every
+  //                  manifest engine is listed but a request naming one is
+  //                  refused with FAILED_PRECONDITION.
   repeated string capabilities = 2;
 }
 

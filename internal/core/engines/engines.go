@@ -15,10 +15,11 @@ func Default() *analysis.Registry {
 	return r
 }
 
-// DefaultFromEnv returns the build's registry with one `tool:<name>` engine per entry of
-// the manifest OPENSYSML_TOOLS names; a manifest that cannot be read is a ManifestError.
-func DefaultFromEnv() (*analysis.Registry, error) {
-	r, err := analysis.DefaultFromEnv()
+// DefaultFromEnv returns the build's registry with every entry of the manifests
+// OPENSYSML_TOOLS and OPENSYSML_ENGINES name, as analysis.DefaultFromEnv reads them; a
+// manifest that cannot be read, or lies under one of the workspaces, is a ManifestError.
+func DefaultFromEnv(workspaces ...string) (*analysis.Registry, error) {
+	r, err := analysis.DefaultFromEnv(workspaces...)
 	if err != nil {
 		return nil, err
 	}

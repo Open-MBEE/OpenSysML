@@ -135,10 +135,10 @@ func (ctx *Context) objectBindings(typeSym *symbols.Symbol) []lower.Binding {
 	chain := ctx.model.semantics.AllSupertypes(typeSym)
 	for i := len(chain) - 1; i >= 0; i-- {
 		if chain[i] != nil {
-			bindings = append(bindings, lower.ToBindings(chain[i].Decl, declScope(chain[i]))...)
+			bindings = append(bindings, lower.ToBindings(chain[i].Decl, DeclScope(chain[i]))...)
 		}
 	}
-	bindings = append(bindings, lower.ToBindings(typeSym.Decl, declScope(typeSym))...)
+	bindings = append(bindings, lower.ToBindings(typeSym.Decl, DeclScope(typeSym))...)
 	ctx.model.bindingIR[typeSym] = bindings
 	return bindings
 }

@@ -457,7 +457,8 @@ func (r *Registry) candidates(kind Kind, selection Selection) ([]Engine, error) 
 	return engines, nil
 }
 
-// declaring is every engine declaring the kind, in name order.
+// declaring is every served engine declaring the kind, in name order; a withheld
+// engine is listed, not consulted.
 func (r *Registry) declaring(kind Kind) []Engine {
 	return r.forKind(kind).declaring
 }
@@ -468,8 +469,8 @@ func (r *Registry) ranked(kind Kind) []Engine {
 	return r.forKind(kind).ranked
 }
 
-// forKind is the engines declaring the kind, computed once per kind; Register drops the
-// memo. Callers read the slices and never write them.
+// forKind is the served engines declaring the kind, a withheld one listed but never
+// consulted, computed once per kind; Register drops the memo. Callers never write the slices.
 func (r *Registry) forKind(kind Kind) kindEngines {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -478,6 +479,9 @@ func (r *Registry) forKind(kind Kind) kindEngines {
 	}
 	var declaring []Engine
 	for _, e := range r.Engines() {
+		if _, withheld := e.(Withheld); withheld {
+			continue
+		}
 		if e.Describe().Answers(kind) {
 			declaring = append(declaring, e)
 		}

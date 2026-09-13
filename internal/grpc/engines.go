@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -14,6 +15,10 @@ import (
 // fields of their responses and of every Verdict.
 const CapabilityEngines = "engines"
 
+// CapabilityEnginesExternal says the service was started with -serve-external-engines and
+// runs the manifest engines it names; ListEngines reports which with `served`.
+const CapabilityEnginesExternal = "engines_external"
+
 // engineSelection reads a request's engine field. Empty is auto; anything else
 // needs the engines capability and must name an engine, "auto" or "all".
 func (s *Service) engineSelection(spelling string) (analysis.Selection, error) {
@@ -24,6 +29,9 @@ func (s *Service) engineSelection(spelling string) (analysis.Selection, error) {
 		return analysis.Selection{}, err
 	}
 	selection, err := s.engines.Select(spelling)
+	if errors.Is(err, analysis.ErrEngineWithheld) {
+		return analysis.Selection{}, statusError(connect.CodeFailedPrecondition, err.Error())
+	}
 	if err != nil {
 		return analysis.Selection{}, statusError(connect.CodeInvalidArgument, err.Error())
 	}
@@ -52,6 +60,12 @@ func (s *Service) ListEngines(_ context.Context, _ *pb.ListEnginesRequest) (*pb.
 			Process:      l.Description.Process,
 			ProcessFound: l.Status.Process,
 			Ready:        l.Ready(),
+			Kind:         l.Origin.KindText(),
+			Protocol:     l.Origin.ProtocolText(),
+			Source:       l.Origin.File,
+			Command:      l.Origin.Command,
+			Version:      l.Origin.Version,
+			Served:       l.Served(),
 		}
 		for _, kind := range l.Questions {
 			info.Answers = append(info.Answers, kind.String())

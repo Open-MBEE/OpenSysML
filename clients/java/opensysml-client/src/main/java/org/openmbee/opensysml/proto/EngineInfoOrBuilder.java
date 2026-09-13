@@ -174,7 +174,8 @@ public interface EngineInfoOrBuilder extends
 
   /**
    * <pre>
-   * True when the engine can run: it needs no process, or its process was found.
+   * True when the engine can run: it is served, and it needs no process or its
+   * process was found.
    * </pre>
    *
    * <code>bool ready = 7 [json_name = "ready"];</code>
@@ -201,4 +202,109 @@ public interface EngineInfoOrBuilder extends
    */
   com.google.protobuf.ByteString
       getUnavailableBytes();
+
+  /**
+   * <pre>
+   * Where the engine comes from: "built-in" for the build's own, else the kind
+   * of the manifest entry that registered it: "tool", "engine", "policy" or
+   * "sampler". The fields below are empty for a built-in engine.
+   * </pre>
+   *
+   * <code>string kind = 9 [json_name = "kind"];</code>
+   * @return The kind.
+   */
+  java.lang.String getKind();
+  /**
+   * <pre>
+   * Where the engine comes from: "built-in" for the build's own, else the kind
+   * of the manifest entry that registered it: "tool", "engine", "policy" or
+   * "sampler". The fields below are empty for a built-in engine.
+   * </pre>
+   *
+   * <code>string kind = 9 [json_name = "kind"];</code>
+   * @return The bytes for kind.
+   */
+  com.google.protobuf.ByteString
+      getKindBytes();
+
+  /**
+   * <pre>
+   * How the engine is spoken to: "-" for one built in, "object" for a tool's
+   * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+   * </pre>
+   *
+   * <code>string protocol = 10 [json_name = "protocol"];</code>
+   * @return The protocol.
+   */
+  java.lang.String getProtocol();
+  /**
+   * <pre>
+   * How the engine is spoken to: "-" for one built in, "object" for a tool's
+   * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+   * </pre>
+   *
+   * <code>string protocol = 10 [json_name = "protocol"];</code>
+   * @return The bytes for protocol.
+   */
+  com.google.protobuf.ByteString
+      getProtocolBytes();
+
+  /**
+   * <pre>
+   * The manifest entry the engine was registered from, the command it resolved
+   * to and the version the entry declares.
+   * </pre>
+   *
+   * <code>string source = 11 [json_name = "source"];</code>
+   * @return The source.
+   */
+  java.lang.String getSource();
+  /**
+   * <pre>
+   * The manifest entry the engine was registered from, the command it resolved
+   * to and the version the entry declares.
+   * </pre>
+   *
+   * <code>string source = 11 [json_name = "source"];</code>
+   * @return The bytes for source.
+   */
+  com.google.protobuf.ByteString
+      getSourceBytes();
+
+  /**
+   * <code>string command = 12 [json_name = "command"];</code>
+   * @return The command.
+   */
+  java.lang.String getCommand();
+  /**
+   * <code>string command = 12 [json_name = "command"];</code>
+   * @return The bytes for command.
+   */
+  com.google.protobuf.ByteString
+      getCommandBytes();
+
+  /**
+   * <code>string version = 13 [json_name = "version"];</code>
+   * @return The version.
+   */
+  java.lang.String getVersion();
+  /**
+   * <code>string version = 13 [json_name = "version"];</code>
+   * @return The bytes for version.
+   */
+  com.google.protobuf.ByteString
+      getVersionBytes();
+
+  /**
+   * <pre>
+   * True when this service runs the engine for a request that reaches it. A
+   * manifest engine is listed but not served until the service is started with
+   * -serve-external-engines naming it; a request naming one that is not served
+   * is FAILED_PRECONDITION.
+   * </pre>
+   *
+   * <code>bool served = 14 [json_name = "served"];</code>
+   * @return The served.
+   */
+  boolean getServed();
 }

@@ -399,7 +399,7 @@ func (ctx *Context) objectConnections(typeSym *symbols.Symbol) []lower.Connectio
 	}
 	conns := []lower.Connection{}
 	for _, decl := range append([]*symbols.Symbol{typeSym}, ctx.model.semantics.AllSupertypes(typeSym)...) {
-		conns = append(conns, lower.ToObjectConnections(decl.Decl, declScope(decl))...)
+		conns = append(conns, lower.ToObjectConnections(decl.Decl, DeclScope(decl))...)
 	}
 	ctx.model.objectConns[typeSym] = conns
 	return conns

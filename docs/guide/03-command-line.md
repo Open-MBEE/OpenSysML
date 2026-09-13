@@ -97,7 +97,12 @@ every schedule of an action for a violation, and `-engine smt` decides a propert
 schedule and every value of the inputs the model leaves unbound — or that `-check-input` frees —
 with an SMT solver, so its *proved* stands for any input in its declared domain where a run's
 *observed* stands for the inputs as written
-([Deciding a property over the inputs](../reference/cli.md#deciding-a-property-over-the-inputs)). `-jobs <n>` (or
+([Deciding a property over the inputs](../reference/cli.md#deciding-a-property-over-the-inputs)).
+A model checker or a simulator installed beside OpenSysML joins them through one JSON file in
+the directory `OPENSYSML_ENGINES` names; `-engines` lists it without starting it,
+`-engines -probe` starts it once to check that it describes itself as its file does, and
+`-engine <name>` puts a check to it — its witness replayed by the interpreter before the
+verdict stands ([External engines](../reference/external-engines.md)). `-jobs <n>` (or
 `OPENSYSML_JOBS`) lets `n` runs of one check go at once — an exploration's linearizations, a sweep's rows, the
 engines `all` consults — without changing what is reported: the result is the same at any count
 ([Running in parallel](../reference/cli.md#running-in-parallel)).

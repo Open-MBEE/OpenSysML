@@ -57,7 +57,7 @@ func (ctx *Context) calcOutputs(chain []*symbols.Symbol, aliases *map[string]str
 			}
 			// An output written as a redefinition names the one it overrides.
 			name, _ := ast.EffectiveName(usage)
-			sym := memberSymbol(declScope(link), usage)
+			sym := memberSymbol(DeclScope(link), usage)
 			out := calcOutput{Name: name, Value: usage.Value, Owner: link, IsResult: usage.IsResult,
 				IsInitial: usage.Value != nil && usage.ValueIsInitial, Decl: ctx.calcMemberDeclOf(link, sym, name)}
 			if usage.Direction == ast.DirInOut {
@@ -306,7 +306,7 @@ func (ctx *Context) calcMemberNames(shape *calcShape) map[*symbols.Symbol]string
 			} else if usage, ok := member.(*ast.Usage); ok {
 				name, _ = ast.EffectiveName(usage)
 			}
-			sym := memberSymbol(declScope(link), member)
+			sym := memberSymbol(DeclScope(link), member)
 			if name == "" || sym == nil {
 				continue
 			}
