@@ -3,6 +3,8 @@ package symbols
 import (
 	"fmt"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
 func TestScopeMemberNamesInOrder(t *testing.T) {
@@ -75,7 +77,7 @@ func TestScopeLookupPromotesAtThreshold(t *testing.T) {
 			if len(got) != 2 || got[0] != first || got[1] != second {
 				t.Fatalf("LookupLocalAll(target) = %v, want [%p %p]", got, first, second)
 			}
-			if count > memberIndexThreshold && s.memberIndex.Load() == nil {
+			if count > memberIndexThreshold && s.builtNameIndex() == nil {
 				t.Fatal("LookupLocalAll did not build the large-scope index")
 			}
 		})
@@ -117,11 +119,11 @@ func TestScopeMemberNamesLargeScopeBuildsIndex(t *testing.T) {
 	for _, name := range names {
 		large.Define(name, &Symbol{Name: name})
 	}
-	if large.memberIndex.Load() != nil {
+	if large.builtNameIndex() != nil {
 		t.Fatal("large scope unexpectedly had an index before MemberNames")
 	}
 	largeNames := large.MemberNames()
-	if large.memberIndex.Load() == nil {
+	if large.builtNameIndex() == nil {
 		t.Fatal("large MemberNames did not build the lookup index")
 	}
 	if len(largeNames) < len(smallNames) {
@@ -220,13 +222,108 @@ func TestScopeForEachMemberUsesEntryLengthWhileDefining(t *testing.T) {
 
 func TestNewScopeHasNoMemberIndex(t *testing.T) {
 	s := NewScope(nil, nil)
-	if s.memberIndex.Load() != nil {
+	if s.builtNameIndex() != nil {
 		t.Fatal("empty scope has a member index")
 	}
 	if got := s.LookupLocalAll("missing"); got != nil {
 		t.Fatalf("LookupLocalAll(missing) = %v, want nil", got)
 	}
-	if s.memberIndex.Load() != nil {
+	if s.builtNameIndex() != nil {
 		t.Fatal("empty scope built a member index")
 	}
+}
+
+func TestScopeMemberDeclaringAtEitherSideOfThreshold(t *testing.T) {
+	for _, count := range []int{memberIndexThreshold, memberIndexThreshold + 1} {
+		t.Run(fmt.Sprintf("members=%d", count), func(t *testing.T) {
+			s := NewScope(nil, nil)
+			decl := &ast.Package{}
+			first := &Symbol{Name: "first", Decl: decl}
+			second := &Symbol{Name: "second", Decl: decl}
+			anonymous := &Symbol{Decl: &ast.Package{}}
+			s.Define("first", first)
+			s.DefineAnonymous(anonymous)
+			s.Define("second", second)
+			for i := 3; i < count; i++ {
+				s.Define(fmt.Sprintf("member%d", i), &Symbol{Name: fmt.Sprintf("member%d", i), Decl: &ast.Package{}})
+			}
+
+			if got := s.MemberDeclaring(decl); got != first {
+				t.Fatalf("MemberDeclaring(shared decl) = %v, want the first registration %p", got, first)
+			}
+			if got := s.MemberDeclaring(anonymous.Decl); got != anonymous {
+				t.Fatalf("MemberDeclaring(anonymous decl) = %v, want %p", got, anonymous)
+			}
+			if got := s.MemberDeclaring(&ast.Package{}); got != nil {
+				t.Fatalf("MemberDeclaring(unknown decl) = %v, want nil", got)
+			}
+			if (s.builtDeclIndex() != nil) != (count > memberIndexThreshold) {
+				t.Fatalf("declaration index built = %v for %d members", s.builtDeclIndex() != nil, count)
+			}
+		})
+	}
+}
+
+func TestScopeMemberDeclaringSeesMembersDefinedAfterIndexing(t *testing.T) {
+	s := NewScope(nil, nil)
+	for i := 0; i <= memberIndexThreshold; i++ {
+		s.Define(fmt.Sprintf("member%d", i), &Symbol{Name: fmt.Sprintf("member%d", i), Decl: &ast.Package{}})
+	}
+	if s.MemberDeclaring(&ast.Package{}) != nil || s.builtDeclIndex() == nil {
+		t.Fatal("large scope did not build its declaration index on lookup")
+	}
+
+	named := &Symbol{Name: "late", Decl: &ast.Package{}}
+	s.Define("late", named)
+	if got := s.MemberDeclaring(named.Decl); got != named {
+		t.Fatalf("MemberDeclaring after Define = %v, want %p", got, named)
+	}
+	anonymous := &Symbol{Decl: &ast.Package{}}
+	s.DefineAnonymous(anonymous)
+	if got := s.MemberDeclaring(anonymous.Decl); got != anonymous {
+		t.Fatalf("MemberDeclaring after DefineAnonymous = %v, want %p", got, anonymous)
+	}
+}
+
+func TestScopeForEachAnonymousMemberVisitsInOrderAndStops(t *testing.T) {
+	s := NewScope(nil, nil)
+	first, second := &Symbol{}, &Symbol{}
+	s.DefineAnonymous(first)
+	s.Define("named", &Symbol{Name: "named"})
+	s.DefineAnonymous(second)
+
+	var got []*Symbol
+	s.ForEachAnonymousMember(func(sym *Symbol) bool {
+		got = append(got, sym)
+		return true
+	})
+	if len(got) != 2 || got[0] != first || got[1] != second {
+		t.Fatalf("ForEachAnonymousMember visited %v, want [%p %p]", got, first, second)
+	}
+	count := 0
+	s.ForEachAnonymousMember(func(*Symbol) bool {
+		count++
+		return false
+	})
+	if count != 1 {
+		t.Fatalf("ForEachAnonymousMember visited %d symbols after stop, want 1", count)
+	}
+	var nilScope *Scope
+	nilScope.ForEachAnonymousMember(func(*Symbol) bool { t.Fatal("visited a member of a nil scope"); return false })
+}
+
+// builtNameIndex is the name index if built, nil otherwise.
+func (s *Scope) builtNameIndex() map[string][]int32 {
+	if indexes := s.indexes.Load(); indexes != nil {
+		return indexes.byName
+	}
+	return nil
+}
+
+// builtDeclIndex is the declaration index if built, nil otherwise.
+func (s *Scope) builtDeclIndex() map[ast.Node]*Symbol {
+	if indexes := s.indexes.Load(); indexes != nil {
+		return indexes.byDecl
+	}
+	return nil
 }
