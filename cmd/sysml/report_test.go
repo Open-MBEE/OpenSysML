@@ -69,6 +69,7 @@ func TestCheckResultsReportInputsAndWitnessValues(t *testing.T) {
 				{Name: "n", Type: "Integer", Value: "1"},
 				{Name: "limit", Type: "Integer", Free: true, Value: "-1"},
 				{Name: "u", Type: "Natural", Domain: ">= 0", Free: true},
+				{Name: "z", Type: "Integer", Free: true, Optional: true, Value: "null"},
 			},
 			Assumptions: []string{"constraint wide"},
 			Witness:     &analysis.Witness{Schedule: runtime.ReplayOf(witness), Inputs: witness.Inputs, Written: "/tmp/w.witness"},
@@ -88,11 +89,12 @@ func TestCheckResultsReportInputsAndWitnessValues(t *testing.T) {
 	var results []struct {
 		Engine string `json:"engine"`
 		Inputs []struct {
-			Name   string `json:"name"`
-			Type   string `json:"type"`
-			Domain string `json:"domain"`
-			Free   bool   `json:"free"`
-			Value  string `json:"value"`
+			Name     string `json:"name"`
+			Type     string `json:"type"`
+			Domain   string `json:"domain"`
+			Free     bool   `json:"free"`
+			Optional bool   `json:"optional"`
+			Value    string `json:"value"`
 		} `json:"inputs"`
 		Assumptions []string `json:"assumptions"`
 		Witness     struct {
@@ -109,10 +111,17 @@ func TestCheckResultsReportInputsAndWitnessValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	smt := results[0]
-	if len(smt.Inputs) != 3 || smt.Inputs[0].Free || smt.Inputs[0].Value != "1" ||
-		!smt.Inputs[1].Free || smt.Inputs[1].Value != "-1" || smt.Inputs[1].Type != "Integer" ||
-		smt.Inputs[2].Domain != ">= 0" || smt.Inputs[2].Value != "" {
+	if len(smt.Inputs) != 4 || smt.Inputs[0].Free || smt.Inputs[0].Value != "1" ||
+		!smt.Inputs[1].Free || smt.Inputs[1].Optional || smt.Inputs[1].Value != "-1" || smt.Inputs[1].Type != "Integer" ||
+		smt.Inputs[2].Domain != ">= 0" || smt.Inputs[2].Value != "" ||
+		!smt.Inputs[3].Optional || smt.Inputs[3].Value != "null" {
 		t.Errorf("inputs = %+v", smt.Inputs)
+	}
+	if !strings.Contains(string(got), `{"name":"z","type":"Integer","free":true,"optional":true,"value":"null"}`) {
+		t.Errorf("an optional input reports optional, and its absence as null: %s", got)
+	}
+	if strings.Contains(string(got), `"optional":false`) {
+		t.Errorf("optional is emitted rather than omitted for a mandatory input: %s", got)
 	}
 	if len(smt.Assumptions) != 1 || smt.Assumptions[0] != "constraint wide" {
 		t.Errorf("assumptions = %v", smt.Assumptions)

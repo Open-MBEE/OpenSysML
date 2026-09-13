@@ -684,8 +684,8 @@ is.
 
 A witness the `smt` engine writes opens with the values it chose for the action's free inputs,
 one `input <feature> = <value>` line each — `input limit = -1`, `input mode =
-Modes::Mode::fast` for an enumeration, `input rate = 1/3` for a real — ahead of its choice
-lines. The replay pins each named feature at that value before the run starts, as an argument
+Modes::Mode::fast` for an enumeration, `input rate = 1/3` for a real, `input limit = null` for
+a feature declared `[0..1]` the solver left without a value — ahead of its choice lines. The replay pins each named feature at that value before the run starts, as an argument
 the invocation passes is pinned and before any default the model gives it, then follows the
 moves; a file without input lines is the format it always was and replays as before. An input
 line naming a feature the action does not have, or one it cannot set, is refused naming the

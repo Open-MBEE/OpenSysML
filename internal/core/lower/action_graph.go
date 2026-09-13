@@ -381,6 +381,9 @@ type Attribute struct {
 	// Scope is the scope the declaration was written in, in which its default
 	// resolves; nil where the owner's own scope resolves it.
 	Scope *symbols.Scope
+	// Optional reports an effective multiplicity with lower bound 0 (`x : Integer[0..1]`):
+	// the feature may hold no value at all. The run resolves it, as it does Scope.
+	Optional bool
 }
 
 // TypeText spells the type a usage declares with `:` as the notation writes it

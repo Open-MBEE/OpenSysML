@@ -192,6 +192,9 @@ type checkInput struct {
 	// when the declared type alone bounds it.
 	Domain string `json:"domain,omitempty"`
 	Free   bool   `json:"free"`
+	// Optional marks a free feature whose multiplicity admits no value, so the
+	// engine ranged over its absence too; a witness spells that `null`.
+	Optional bool `json:"optional,omitempty"`
 	// Value is the value the feature is pinned at, empty for a free one.
 	Value string `json:"value,omitempty"`
 }
@@ -203,7 +206,7 @@ func checkInputs(inputs []analysis.Input) []checkInput {
 	}
 	out := make([]checkInput, 0, len(inputs))
 	for _, in := range inputs {
-		out = append(out, checkInput{Name: in.Name, Type: in.Type, Domain: in.Domain, Free: in.Free, Value: in.Value})
+		out = append(out, checkInput{Name: in.Name, Type: in.Type, Domain: in.Domain, Free: in.Free, Optional: in.Optional, Value: in.Value})
 	}
 	return out
 }

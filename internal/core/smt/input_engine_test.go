@@ -385,3 +385,131 @@ func TestEngineWrittenWitnessCarriesItsTrace(t *testing.T) {
 		t.Fatalf("replaying the written witness: %v", err)
 	}
 }
+
+// optionalSrc: x may hold no value, inherited from Base with its multiplicity;
+// z is the action's own optional attribute. `either` holds for every Integer x
+// but not where x is absent; `unread` never reads x or z; `body` reads x in the
+// body, so an absent x fails the run.
+const optionalSrc = `package test {
+	private import ScalarValues::*;
+	action def Base {
+		in x : Integer[0..1];
+	}
+	action def A :> Base {
+		attribute z : Natural[0..1];
+		attribute y : Integer = 1;
+		requirement either { require x >= 0 or x < 0; }
+		requirement unread { require y > 0; }
+		requirement body { require y > 0 or y <= 0; }
+		first start;
+		action set { assign y := y + 1; }
+		done;
+		succession first start then set;
+		succession first set then done;
+	}
+	action def B {
+		in x : Integer[0..1];
+		attribute y : Integer = 1;
+		requirement body { require y > 0 or y <= 0; }
+		first start;
+		action set { assign y := x + 1; }
+		done;
+		succession first start then set;
+		succession first set then done;
+	}
+}`
+
+// TestEngineRangesOverAnOptionalInputsAbsence: a free input whose multiplicity
+// admits no value ranges over its absence too: a requirement true of every
+// value yet undefined without one is violated, the witness fixing the input at
+// null and replaying to the failure it claims; one that never reads it is
+// proved, the report saying the input may be absent; a body reading an absent
+// input fails as the interpreter's does.
+func TestEngineRangesOverAnOptionalInputsAbsence(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "optional.sysml", optionalSrc)
+
+	either := answer(t, e, d, d.holds(t, "test::A", "test::A::either"), analysis.Budget{Depth: 3})
+	expect(t, either, analysis.ClaimViolated, analysis.Witnessed)
+	if x := witnessInput(t, either, "x"); x.Written != "null" {
+		t.Errorf("witness x = %q, want null: the requirement is undefined for an absent x alone", x.Written)
+	}
+	if in := resultInput(t, either, "x"); !in.Free || !in.Optional || in.Value != "null" || in.String() != "x = null" {
+		t.Errorf("x listed as %+v (%s), want free, optional, chosen absent", in, in)
+	}
+	if !strings.Contains(either.Reason, "null") {
+		t.Errorf("the violation %q does not say the interpreter read null", either.Reason)
+	}
+
+	unread := answer(t, e, d, d.holds(t, "test::A", "test::A::unread"), analysis.Budget{Depth: 3})
+	expect(t, unread, analysis.ClaimHolds, analysis.Proved)
+	if in := resultInput(t, unread, "x"); !in.Free || !in.Optional || in.String() != "x : Integer free or absent" {
+		t.Errorf("x listed as %+v (%s), want `x : Integer free or absent`", in, in)
+	}
+	if in := resultInput(t, unread, "z"); !in.Free || !in.Optional || in.String() != "z : Natural free in >= 0 or absent" {
+		t.Errorf("z listed as %+v (%s), want `z : Natural free in >= 0 or absent`", in, in)
+	}
+	if in := resultInput(t, unread, "y"); in.Free || in.Optional || in.Value != "1" {
+		t.Errorf("y listed as %+v, want pinned at 1", in)
+	}
+
+	body := answer(t, e, d, d.holds(t, "test::B", "test::B::body"), analysis.Budget{Depth: 3})
+	expect(t, body, analysis.ClaimViolated, analysis.Witnessed)
+	if x := witnessInput(t, body, "x"); x.Written != "null" {
+		t.Errorf("witness x = %q, want null: the body fails for an absent x alone", x.Written)
+	}
+	if !strings.HasPrefix(body.Reason, "at step 2:") {
+		t.Errorf("the failure is reported as %q, want the body's step 2", body.Reason)
+	}
+}
+
+// TestEngineWitnessWithAnAbsentInputReplays: a witness fixing an optional input
+// at null, written and read back, starts the interpreter with the feature held
+// empty, as a run given no value for it is; the same line on a feature that
+// must hold a value is refused at the start.
+func TestEngineWitnessWithAnAbsentInputReplays(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "absent.sysml", optionalSrc)
+	q := d.holds(t, "test::B", "test::B::body")
+	q.Holds.WitnessDir = t.TempDir()
+	result := answer(t, e, d, q, analysis.Budget{Depth: 3})
+	expect(t, result, analysis.ClaimViolated, analysis.Witnessed)
+	content, err := os.ReadFile(result.Witness.Written)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(content), "input x = null\n") {
+		t.Fatalf("the written witness does not open with `input x = null`:\n%s", content)
+	}
+	w, err := runtime.ParseWitness(string(content))
+	if err != nil {
+		t.Fatalf("read the witness back: %v", err)
+	}
+	m, err := d.model.Semantics()
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := func(w runtime.Witness) (*runtime.ActionExecutor, error) {
+		ctx := runtime.NewContext(m, 10000)
+		if err := ctx.SetSchedule(runtime.ReplayOf(w)); err != nil {
+			return nil, err
+		}
+		return ctx.CreateActionExecutor(lookup(t, d.idx, "test::B"))
+	}
+	exec, err := start(w)
+	if err != nil {
+		t.Fatalf("start under the witness: %v", err)
+	}
+	defer exec.Release()
+	if x, ok := exec.Data()["x"]; !ok || x.Kind != runtime.ValNull {
+		t.Errorf("x held as %v, want null", x)
+	}
+	if err := exec.RunToCompletion(); err == nil || !strings.Contains(err.Error(), "null") {
+		t.Errorf("the run under an absent x: %v, want the body failing to add to null", err)
+	}
+
+	w.Inputs = []runtime.InputTaken{{Feature: "y", Written: "null"}}
+	if _, err := start(w); err == nil || !strings.Contains(err.Error(), "multiplicity") {
+		t.Errorf("fixing y, which must hold a value, at null: %v, want a multiplicity refusal", err)
+	}
+}

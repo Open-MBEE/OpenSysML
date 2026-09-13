@@ -105,6 +105,16 @@ func (e *Encoding) decodeInputs(m model) ([]runtime.InputTaken, error) {
 		if !in.Free {
 			continue
 		}
+		if in.Optional {
+			present, err := m.boolean(e.States[0].has(in.Var).Name)
+			if err != nil {
+				return nil, err
+			}
+			if !present {
+				inputs = append(inputs, runtime.InputTaken{Feature: in.Name, Written: absentInput})
+				continue
+			}
+		}
 		at := e.States[0].value(in.Var)
 		v, ok := m[at.Name]
 		if !ok {

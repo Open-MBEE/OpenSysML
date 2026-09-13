@@ -365,7 +365,7 @@ func (r *run) inputs(witness []runtime.InputTaken) []analysis.Input {
 	}
 	inputs := make([]analysis.Input, 0, len(r.encoding.Inputs))
 	for _, in := range r.encoding.Inputs {
-		out := analysis.Input{Name: in.Name, Type: in.Type, Sort: in.Var.Sort.Name, Domain: in.Domain, Free: in.Free}
+		out := analysis.Input{Name: in.Name, Type: in.Type, Sort: in.Var.Sort.Name, Domain: in.Domain, Free: in.Free, Optional: in.Optional}
 		switch {
 		case in.Free:
 			out.Value = chosen[in.Name]

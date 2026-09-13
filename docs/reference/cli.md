@@ -1210,8 +1210,9 @@ $ sysml -engine smt -action Gate::open -check-property Gate::open::positive \
 
 A **witness** of the solver's opens with the input values it chose, one `input <feature> =
 <value>` line per free input — an enumeration value spelled as its qualified constructor, a
-real as the exact rational the solver returned — ahead of the choice lines `check` writes, so a
-witness without inputs is the format it always was:
+real as the exact rational the solver returned, `null` for a feature declared `[0..1]` the
+solver left without a value — ahead of the choice lines `check` writes, so a witness without
+inputs is the format it always was:
 
 ```
 input limit = -1
@@ -1237,7 +1238,8 @@ engine's — a flag only the engine left out would read is never dropped silentl
 it before the solver is asked, and the check is *not covered*.
 
 With `-json` the `smt` engine's `results[]` entry carries `inputs[]` — each with its `name`,
-`type`, `domain`, whether it was `free` and, when pinned, its `value` — and `assumptions[]`,
+`type`, `domain`, whether it was `free`, whether it is `optional` (declared `[0..1]`, so the
+solver ranged over its absence too) and, when pinned or chosen, its `value` — and `assumptions[]`,
 and its `witness` carries `inputs[]` (each `feature` and `value`) beside `schedule` and
 `choices`, with the `path` of the file `-check-witness` wrote.
 

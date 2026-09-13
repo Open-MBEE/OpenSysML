@@ -216,6 +216,9 @@ func (e *Encoding) collectFeatures() error {
 		switch {
 		case free && v.Sort.Kind == solve.SortString:
 			return noDomain(attr, errors.New("a string ranges over no domain the solver decides"))
+		case free && attr.Optional:
+			e.flagged[v.Name] = true
+			in.Optional = true
 		case free:
 		case attr.Value == nil:
 			e.flagged[v.Name] = true
@@ -620,8 +623,16 @@ func (e *Encoding) initial() error {
 		e.assert(not(solve.VarTerm(s.Overflow)), initialState)
 	}
 	env := e.environment(s)
+	open := make(map[string]bool, len(e.Inputs))
+	for _, in := range e.Inputs {
+		if in.Optional {
+			open[in.Var.Name] = true
+		}
+	}
 	for _, base := range e.Features {
-		if e.flagged[base.Name] {
+		// A flagged feature starts absent, but an optional free input's presence is
+		// the solver's to choose: its state-0 flag stays open.
+		if e.flagged[base.Name] && !open[base.Name] {
 			env.has[base.Name] = solve.BoolTerm(false)
 		}
 	}
@@ -661,8 +672,11 @@ func (e *Encoding) initial() error {
 		if value := env.values[base.Name]; value.Op != solve.OpVar || value.Var != s.value(base) {
 			e.assert(eq(solve.VarTerm(s.value(base)), value), "initial value of "+base.Name)
 		}
-		if e.flagged[base.Name] {
-			e.assert(eq(solve.VarTerm(s.has(base)), env.has[base.Name]), "initial value of "+base.Name)
+		if !e.flagged[base.Name] {
+			continue
+		}
+		if has := env.has[base.Name]; has.Op != solve.OpVar || has.Var != s.has(base) {
+			e.assert(eq(solve.VarTerm(s.has(base)), has), "initial value of "+base.Name)
 		}
 	}
 	e.assert(eq(solve.VarTerm(s.Failed), or(failed...)), initialState)

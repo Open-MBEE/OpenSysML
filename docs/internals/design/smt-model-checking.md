@@ -181,8 +181,12 @@ with no default, a feature the user names as an input (`-check-input inletTemp`)
 domain is its sort, narrowed by the declared type (`Natural ≥ 0`, an enumeration's constructors,
 a `Real` in a quantity type) and by any constraint on the performing object the user asks to
 assume (`-check-assume Vehicle::EnvelopeLimits`, translated like any condition and asserted over
-`s_0`). Everything about `x` that the model says is in the query; nothing the model does not say
-is.
+`s_0`). A free feature whose multiplicity admits no value (`x : Integer[0..1]`) may also be
+absent, and the state the interpreter reaches with it absent — the feature reads as the empty
+sequence, which fails a comparison — is among the states the query ranges over: its presence
+is a variable of `s_0` too, and a condition reading it while absent is undefined there, as a
+read of a feature no move has written is. Everything about `x` that the model says is in the
+query; nothing the model does not say is.
 
 ### Properties
 
@@ -588,7 +592,14 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    `-check-input` names, is a variable of `s_0` ranging over its sort narrowed by the declared
    type: `Boolean`; `Integer` within the interpreter's `int64`, since a value beyond it has
    nothing to replay; `Natural` as `Integer ≥ 0`; `Real`, `Rational` and a quantity type over
-   them as the solver's reals; an enumeration or variation as its constructors. A declared type
+   them as the solver's reals; an enumeration or variation as its constructors. A free feature
+   whose effective multiplicity has lower bound zero (`lower.Attribute.Optional`, which the run
+   resolves as it does the feature's scope) is also flagged, its presence in `s_0` the solver's
+   to choose; a condition reading it while absent is undefined there, so a requirement true of
+   every value yet undefined without one is *violated*, and the witness spells the absence
+   `input x = null`, which the replay fixes the feature at and the run reads as the interpreter
+   reads a feature nothing supplied. Such an input is reported *free … or absent*
+   (`analysis.Input.Optional`, `optional` in `-json`). A declared type
    the translator gives no sort — `String`, a collection, an object-valued feature, a type
    without a translation — is `analysis.DomainError` naming the feature and the type, before any
    query, and the verdict is *not covered*; a released name that is no feature of the action, or

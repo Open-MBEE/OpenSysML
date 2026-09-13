@@ -26,6 +26,9 @@ type Input struct {
 	Free bool
 	// Released reports whether the model binds the feature and the question freed it.
 	Released bool
+	// Optional reports a free feature whose multiplicity admits no value: state 0
+	// ranges over its absence too, which a witness spells `null`.
+	Optional bool
 	// Domain spells what narrows the sort (`>= 0`, `{Fast, Slow}`); "" when the sort alone is the domain.
 	Domain string
 	// Value is the value the performance holds at its start, ValInvalid when it holds none.
@@ -33,6 +36,10 @@ type Input struct {
 
 	def ast.Node // the default the model wrote, nil without one
 }
+
+// absentInput is how a witness spells an optional input the solver left without
+// a value: the notation's `null`, which a replay fixes the feature at.
+const absentInput = "null"
 
 // frees decides whether a held feature is free in state 0: released by the
 // question, or an input the performance holds no value for.

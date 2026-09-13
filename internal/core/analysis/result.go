@@ -246,6 +246,9 @@ type Input struct {
 	Domain string
 	// Free reports whether the engine ranged over the domain; false pins Value.
 	Free bool
+	// Optional reports a free input whose multiplicity admits no value (`[0..1]`):
+	// the engine ranged over its absence too, which a witness spells `null`.
+	Optional bool
 	// Value is the value pinned, or the one a witness chose for a free input,
 	// spelled as the witness file's input line spells it; "" for a free input
 	// of a claim with no witness, or a pinned one held without a value.
@@ -253,11 +256,13 @@ type Input struct {
 }
 
 // String spells the input as a report lists it: `x : Integer free`,
-// `n : Natural free in >= 0`, `mode = Mode::Fast`.
+// `n : Natural free in >= 0`, `x : Integer free or absent`, `mode = Mode::Fast`.
 func (in Input) String() string {
 	switch {
 	case in.Free && in.Value != "":
 		return in.Name + " = " + in.Value + in.domainText(" (free in ", ")")
+	case in.Free && in.Optional:
+		return in.Name + in.typeText() + " free" + in.domainText(" in ", "") + " or absent"
 	case in.Free:
 		return in.Name + in.typeText() + " free" + in.domainText(" in ", "")
 	case in.Value != "":

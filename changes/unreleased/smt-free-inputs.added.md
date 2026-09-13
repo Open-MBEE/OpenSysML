@@ -2,7 +2,9 @@
   smt`.** A feature the model leaves unbound — an `in` parameter with no argument, an attribute
   with no default — is now a free variable of the initial state, ranging over its declared type
   (`Boolean`, `Integer`, `Natural` as `>= 0`, `Real` and a quantity over one, an enumeration's or
-  variation point's constructors); a feature the model binds stays pinned as before, and a
+  variation point's constructors), and over its absence too when its multiplicity admits none
+  (`x : Integer[0..1]`, reported *free … or absent*, a witness spelling it `input x = null`); a
+  feature the model binds stays pinned as before, and a
   declared type the encoding cannot narrow (`String`, a collection, an object-valued feature) is
   *not covered* naming it, before any query. `-check-input <feature>` (`%check-input`) leaves a
   bound feature free in its domain; `-check-assume <constraint>` (`%check-assume`) asserts a
@@ -13,7 +15,7 @@
   file opens with `input <feature> = <value>` lines ahead of the choice lines, and `-schedule
   replay:<file>` fixes them as the action starts before following the moves — a file without
   input lines replays as before, and one naming a feature the action lacks is refused naming it.
-  `-json` results gain `inputs` (name, type, domain, `free`, value) and `assumptions`, and a
+  `-json` results gain `inputs` (name, type, domain, `free`, `optional`, value) and `assumptions`, and a
   witness its `inputs`. `-check-unroll <n>` (`%check-bounds unroll=`, `Budget.Unroll`) bounds the
   loop unrolling (default 4); `-check-depth` is the move bound under `smt` too (default 40). The
   `smt` engine joins the build's registry at authority *proved*, listed by `-engines`,

@@ -221,13 +221,14 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			if features[i].Value == nil && features[i].Node == ast.Node(usage) {
 				features[i].Value, features[i].Scope = e.ctx.model.semantics.ParameterDefault(member)
 			}
+			features[i].Optional = e.ctx.admitsNoValue(member)
 			continue
 		}
 		declared[name] = len(features)
 		value, scope := e.ctx.model.semantics.ParameterDefault(member)
 		features = append(features, lower.Attribute{
 			Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: lower.TypeText(usage),
-			Value: value, Node: usage, Scope: scope,
+			Value: value, Node: usage, Scope: scope, Optional: e.ctx.admitsNoValue(member),
 		})
 	}
 	return features
@@ -2444,6 +2445,8 @@ func (h Held) Value(name string) (Value, bool) {
 
 // Unbound lists the inputs the performance holds no value for: the features it
 // reads rather than writes back, declared with no default and bound by nothing.
+// One marked Optional may also hold no value at all, which the run reads as the
+// empty sequence, so absence is among the states it ranges over.
 func (h Held) Unbound() []lower.Attribute {
 	var unbound []lower.Attribute
 	for _, attr := range h.features {
