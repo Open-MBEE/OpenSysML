@@ -335,11 +335,12 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-states", "0", "-action", "Mission::race"),
 		2, `-check-states takes a bound of at least one, not "0"`)
 
-	// A flag one engine alone reads is refused under the other engine alone, not dropped.
-	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-check-diverge", "x", "-action", "Mission::race"),
-		2, "-check-diverge is the check engine's, which -engine smt leaves out; select it, as -engine check, or every engine, as -engine all")
+	// A flag one engine alone reads is refused under the other engine alone, not dropped;
+	// -check-diverge both engines read, so only -check-states is named.
+	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-check-states", "3", "-action", "Mission::race"),
+		2, "-check-states is the check engine's, which -engine smt leaves out; select it, as -engine check, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-check-diverge", "x", "-check-states", "3", "-action", "Mission::race"),
-		2, "-check-diverge and -check-states are the check engine's, which -engine smt leaves out")
+		2, "-check-states is the check engine's, which -engine smt leaves out")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-input", "x", "-action", "Mission::race"),
 		2, "-check-input is the smt engine's, which -engine check leaves out; select it, as -engine smt, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-input", "x", "-check-assume", "Mission::x", "-check-unroll", "2", "-action", "Mission::race"),
