@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"html"
 	"math"
 	"slices"
 	"strings"
@@ -292,10 +293,13 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 }
 
 // Graphviz's defaults a label-fitted box is estimated with: 14pt text at 0.6em
-// a glyph and 1.2em a line, a 0.11in by 0.055in margin, a 0.75in by 0.5in node.
+// a glyph (0.66em in bold) and 1.2em a line, a 0.11in by 0.055in margin, a
+// 0.75in by 0.5in node.
 const (
-	dotGlyphWidth   = 8.4
-	dotLineHeight   = 16.8
+	dotFontSize     = 14
+	dotGlyphEm      = 0.6
+	dotBoldGlyphEm  = 0.66
+	dotLineEm       = 1.2
 	dotMarginWidth  = 7.92
 	dotMarginHeight = 3.96
 	dotNodeWidth    = 54
@@ -312,9 +316,9 @@ func dotBox(node *Node) (width, height float64) {
 	if node.Kind == startKind {
 		return dotPointSize, dotPointSize
 	}
-	lines, longest := dotLabelExtent(node)
-	width = math.Ceil(float64(longest)*dotGlyphWidth + 2*dotMarginWidth)
-	height = math.Ceil(float64(lines)*dotLineHeight + 2*dotMarginHeight)
+	width, height = dotLabelExtent(node)
+	width = math.Ceil(width + 2*dotMarginWidth)
+	height = math.Ceil(height + 2*dotMarginHeight)
 	if node.Kind == "initial" || node.Kind == "final" {
 		side := math.Max(dotNodeHeight, math.Ceil(math.Hypot(width, height)))
 		return side, side
@@ -322,14 +326,21 @@ func dotBox(node *Node) (width, height float64) {
 	return math.Max(dotNodeWidth, width), math.Max(dotNodeHeight, height)
 }
 
-// dotLabelExtent is the line count of a node's label and the glyphs on its
-// longest line.
-func dotLabelExtent(node *Node) (lines, longest int) {
-	for _, line := range strings.Split(dotLabelText(node), "\n") {
-		lines++
-		longest = max(longest, utf8.RuneCountInString(line))
+// dotLabelExtent is a label's text extent in points: its widest line by its
+// lines' summed heights, the head in bold glyphs and the keyword line at 10pt.
+func dotLabelExtent(node *Node) (width, height float64) {
+	for i, line := range labelLines(node) {
+		size, glyph := float64(dotFontSize), dotGlyphEm
+		switch {
+		case i == 0:
+			glyph = dotBoldGlyphEm
+		case i == 1 && node.Name != "":
+			size = dotKeywordPointSize
+		}
+		width = math.Max(width, float64(utf8.RuneCountInString(line))*size*glyph)
+		height += size * dotLineEm
 	}
-	return lines, longest
+	return width, height
 }
 
 // dotPin pins a node at a pixel point: `pos="x,y!"` and `pin=true`.
@@ -443,27 +454,33 @@ func dotContainmentAttributes() []string {
 	return []string{"arrowhead=none"}
 }
 
-// dotLabel is a node's label attribute, quoted: kind and name, then its detail
-// on a second line.
+// dotKeywordPointSize is the font size of the guillemet keyword line, under the
+// 14pt Graphviz draws the rest of a label in.
+const dotKeywordPointSize = 10
+
+// dotLabel is a node's label attribute, an HTML-like label for nodes and clusters
+// alike: the head in bold, the keyword line smaller, then the notes, one line each.
 func dotLabel(node *Node) string {
-	return dotLabelAttribute(dotQuote(dotLabelText(node)))
-}
-
-// dotLabelAttribute is the `label=` attribute holding a quoted label.
-func dotLabelAttribute(quoted string) string {
-	return "label=" + quoted
-}
-
-// dotLabelText is the text of a node's label before quoting.
-func dotLabelText(node *Node) string {
-	head := node.Kind
+	lines := labelLines(node)
+	parts := []string{"<b>" + dotEscape(lines[0]) + "</b>"}
+	for _, line := range lines[1:] {
+		parts = append(parts, dotEscape(line))
+	}
 	if node.Name != "" {
-		head += " " + node.Name
+		parts[1] = fmt.Sprintf(`<font point-size="%d">%s</font>`, dotKeywordPointSize, parts[1])
 	}
-	if node.Detail == "" {
-		return head
-	}
-	return head + "\n" + node.Detail
+	return dotLabelAttribute("<" + strings.Join(parts, "<br/>") + ">")
+}
+
+// dotLabelAttribute is the `label=` attribute holding a quoted or HTML-like label.
+func dotLabelAttribute(label string) string {
+	return "label=" + label
+}
+
+// dotEscape writes text as HTML-like label content: `&`, `<`, `>`, `"` and `'`
+// become entities so no name reads as markup, and a newline becomes `<br/>`.
+func dotEscape(text string) string {
+	return strings.ReplaceAll(html.EscapeString(text), "\n", "<br/>")
 }
 
 // dotQuote writes text as a double-quoted DOT string; every ID and label goes

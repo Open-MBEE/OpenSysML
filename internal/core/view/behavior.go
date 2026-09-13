@@ -41,7 +41,7 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 // nested nodes, the start of each body with the entry transitions out of it, and
 // its transitions as edges.
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
-	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Detail: declType(machine),
+	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Type: declType(machine),
 		Origin: symbolOrigin(machine), Geometry: r.geometryOf(view, machine, out)}
 	doc := machine.DocName
 	nodes := map[ast.Node]*Node{}
@@ -182,7 +182,8 @@ func (r *Renderer) regionNode(region *ast.StateRegion, doc string, ids *nodeIDs)
 // stateNode renders one state with what the machine says about it: whether its
 // body unconditionally starts in it, whether entering it completes, what it runs.
 func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, doc string, ids *nodeIDs) *Node {
-	node := &Node{ID: ids.take(), Kind: "state", Name: notationName(state.Name), Origin: nodeOrigin(doc, state)}
+	node := &Node{ID: ids.take(), Kind: "state", Name: notationName(state.Name), Type: nodeType(graph.DeclOf(state)),
+		Origin: nodeOrigin(doc, state)}
 	var detail []string
 	if graph.UnconditionalStart(bodyOwning(graph, state)) == state {
 		detail = append(detail, "initial")
@@ -351,7 +352,7 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 				declKind(elem), r.notationName(elem)))
 			continue
 		}
-		subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem),
+		subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: declType(elem),
 			scope: declScope(elem), doc: elem.DocName, view: view, elem: elem}
 		node, ok := r.actionNode(subject, ids, out, map[ast.Node]bool{}, 0)
 		if ok {
@@ -366,6 +367,7 @@ type actionSubject struct {
 	decl  ast.Node
 	kind  string
 	name  string
+	typ   string
 	scope *symbols.Scope
 	doc   string
 	// view is the view the action is drawn in, nil outside any view; elem is
@@ -390,17 +392,18 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to an action graph: %v", kind, name, err))
 		return nil, false
 	}
-	root := &Node{ID: ids.take(), Kind: kind, Name: name, Origin: nodeOrigin(doc, decl),
+	root := &Node{ID: ids.take(), Kind: kind, Name: name, Type: subject.typ, Origin: nodeOrigin(doc, decl),
 		Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: notationName(behaviorNodeName(node)),
-			Origin: nodeOrigin(doc, node), Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
+			Type: nodeType(node), Origin: nodeOrigin(doc, node),
+			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
 		nodes[node] = child
 		root.Children = append(root.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
-			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name,
+			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name, typ: child.Type,
 				scope: actionScope(scope, nested), doc: doc, view: subject.view, elem: subject.elem}
 			sub, ok := r.actionNode(nestedSubject, ids, out, lowered, depth+1)
 			if ok {

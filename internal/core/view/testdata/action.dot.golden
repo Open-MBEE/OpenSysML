@@ -6,22 +6,22 @@ digraph "FlowViews::driveView" {
   graph [compound=true];
   node [shape=box];
   subgraph "cluster_n0" {
-    label="action def Flows::Drive";
+    label=<<b>Flows::Drive</b><br/><font point-size="10">«action def»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [shape=circle, label="initial start"];
-    "n2" [label="action provide"];
+    "n1" [shape=circle, label=<<b>start</b><br/><font point-size="10">«initial»</font>>];
+    "n2" [label=<<b>provide : Provide</b><br/><font point-size="10">«action»</font>>];
     subgraph "cluster_n3" {
-      label="action monitor\nown flow";
+      label=<<b>monitor</b><br/><font point-size="10">«action»</font><br/>own flow>;
       "n3" [shape=point, style=invis, width=0, height=0, label=""];
-      "n5" [shape=circle, label="initial begin"];
-      "n6" [label="action record"];
+      "n5" [shape=circle, label=<<b>begin</b><br/><font point-size="10">«initial»</font>>];
+      "n6" [label=<<b>record</b><br/><font point-size="10">«action»</font>>];
     }
-    "n7" [label="action tally"];
-    "n8" [label="fork split"];
-    "n9" [label="join sync"];
-    "n10" [shape=doublecircle, label="final done"];
-    "n11" [label="action park"];
-    "n12" [label="decision check"];
+    "n7" [label=<<b>tally</b><br/><font point-size="10">«action»</font>>];
+    "n8" [label=<<b>split</b><br/><font point-size="10">«fork»</font>>];
+    "n9" [label=<<b>sync</b><br/><font point-size="10">«join»</font>>];
+    "n10" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10">«final»</font>>];
+    "n11" [label=<<b>park</b><br/><font point-size="10">«action»</font>>];
+    "n12" [label=<<b>check</b><br/><font point-size="10">«decision»</font>>];
   }
   "n5" -> "n6";
   "n1" -> "n8";

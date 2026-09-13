@@ -3,9 +3,9 @@
 // layout: dot
 digraph "FilteredViews::safetyView" {
   node [shape=box];
-  "n0" [label="part def Systems::Radio"];
-  "n1" [label="part def Systems::Airbag"];
-  "n2" [label="part def Systems::Braking::Brake"];
-  "n3" [label="part pad"];
+  "n0" [label=<<b>Systems::Radio</b><br/><font point-size="10">«part def»</font>>];
+  "n1" [label=<<b>Systems::Airbag</b><br/><font point-size="10">«part def»</font>>];
+  "n2" [label=<<b>Systems::Braking::Brake</b><br/><font point-size="10">«part def»</font>>];
+  "n3" [label=<<b>pad</b><br/><font point-size="10">«part»</font>>];
   "n2" -> "n3" [arrowhead=none];
 }

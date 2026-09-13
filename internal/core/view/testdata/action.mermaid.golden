@@ -1,18 +1,24 @@
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 48
+---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 flowchart TD
-  subgraph n0 ["action def Flows::Drive"]
-    n1["initial start"]
-    n2["action provide"]
-    subgraph n3 ["action monitor (own flow)"]
-      n5["initial begin"]
-      n6["action record"]
+  subgraph n0 ["Flows::Drive<br>«action def»"]
+    n1["start<br>«initial»"]
+    n2["provide : Provide<br>«action»"]
+    subgraph n3 ["monitor<br>«action»<br>own flow"]
+      n5["begin<br>«initial»"]
+      n6["record<br>«action»"]
     end
-    n7["action tally"]
-    n8["fork split"]
-    n9["join sync"]
-    n10["final done"]
-    n11["action park"]
-    n12["decision check"]
+    n7["tally<br>«action»"]
+    n8["split<br>«fork»"]
+    n9["sync<br>«join»"]
+    n10["done<br>«final»"]
+    n11["park<br>«action»"]
+    n12["check<br>«decision»"]
   end
   n5 --> n6
   n1 --> n8

@@ -1,8 +1,8 @@
 %% SequenceViews::pubSubView — sequence rendering (view def SequenceView)
 sequenceDiagram
-  participant n0 as part producer
-  participant n1 as part server
-  participant n2 as part consumer
+  participant n0 as producer<br>«part»
+  participant n1 as server<br>«part»
+  participant n2 as consumer<br>«part»
   n2->>n1: subscribe_message
   n0->>n1: publish_message
   n1->>n2: deliver_message

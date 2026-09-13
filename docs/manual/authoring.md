@@ -408,11 +408,17 @@ render as a fenced ` ```mermaid ` block:
 *Imaging chain interconnection*
 
 ```mermaid
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["part Observatory::imagingChain"]
-    n1["part camera (Camera)"]
-    n2["part recorder (Recorder)"]
+  subgraph n0 ["Observatory::imagingChain<br>«part»"]
+    n1["camera : Camera<br>«part»"]
+    n2["recorder : Recorder<br>«part»"]
   end
   n1 ---|"link"| n2
 ```
@@ -436,10 +442,10 @@ digraph "Observatory::interconnectView" {
   graph [rankdir=LR];
   node [shape=box];
   subgraph "cluster_n0" {
-    label="part Observatory::imagingChain";
+    label=<<b>Observatory::imagingChain</b><br/><font point-size="10">«part»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label="part camera\nCamera"];
-    "n2" [label="part recorder\nRecorder"];
+    "n1" [label=<<b>camera : Camera</b><br/><font point-size="10">«part»</font>>];
+    "n2" [label=<<b>recorder : Recorder</b><br/><font point-size="10">«part»</font>>];
   }
   "n1" -> "n2" [label="link", arrowhead=none];
 }

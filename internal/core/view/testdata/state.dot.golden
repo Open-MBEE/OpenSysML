@@ -6,16 +6,16 @@ digraph "MachineViews::vehicleStates" {
   graph [compound=true];
   node [shape=box];
   subgraph "cluster_n0" {
-    label="state def Machines::VehicleStates";
+    label=<<b>Machines::VehicleStates</b><br/><font point-size="10">«state def»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n5" [shape=point, label=""];
-    "n1" [shape=box, style=rounded, label="state off\ninitial"];
+    "n1" [shape=box, style=rounded, label=<<b>off</b><br/><font point-size="10">«state»</font><br/>initial>];
     subgraph "cluster_n2" {
-      label="state operating";
+      label=<<b>operating</b><br/><font point-size="10">«state»</font>>;
       "n2" [shape=point, style=invis, width=0, height=0, label=""];
       "n6" [shape=point, label=""];
-      "n3" [shape=box, style=rounded, label="state idle\ninitial"];
-      "n4" [shape=box, style=rounded, label="state moving"];
+      "n3" [shape=box, style=rounded, label=<<b>idle</b><br/><font point-size="10">«state»</font><br/>initial>];
+      "n4" [shape=box, style=rounded, label=<<b>moving</b><br/><font point-size="10">«state»</font>>];
     }
   }
   "n5" -> "n1";
