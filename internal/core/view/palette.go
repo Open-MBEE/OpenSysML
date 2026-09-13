@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 )
 
-// Palette names the set of fill colours the DOT form colours nodes with, one
-// per keyword family (part, item, port, …, see paletteFamilies). The empty
+// Palette names the set of fill colours the DOT and PlantUML forms colour nodes
+// with, one per keyword family (part, item, port, …, see paletteFamilies). The empty
 // Palette is the black-and-white default; every named one is colourblind-safe.
 type Palette string
 
@@ -92,12 +93,70 @@ func (p Palette) check() error {
 // paletteNotice is the notice a form that draws no palette writes for one asked
 // for, so the request is not dropped silently.
 func paletteNotice(palette Palette) string {
-	return fmt.Sprintf("palette %s; only the DOT form fills nodes by keyword family", palette)
+	return fmt.Sprintf("palette %s; only the DOT and PlantUML forms fill nodes by keyword family", palette)
 }
 
-// SupportsPalette reports whether a rendering of the kind is drawn as a graph
-// of nodes a palette can fill: the kinds the DOT form is written for.
-func (k Kind) SupportsPalette() bool { return k.SupportsForm(FormDot) }
+// paletteForms are the forms that fill nodes from a palette.
+var paletteForms = []Form{FormDot, FormPlantUML}
+
+// SupportsPalette reports whether a rendering of the kind is drawn as nodes a
+// palette can fill: the kinds a form that fills nodes is written for.
+func (k Kind) SupportsPalette() bool {
+	return slices.ContainsFunc(paletteForms, k.SupportsForm)
+}
+
+// TakesPalette reports whether the form fills nodes from a palette.
+func (f Form) TakesPalette() bool { return slices.Contains(paletteForms, f) }
+
+// controlKinds are the kinds drawn as control and pseudo-state nodes: they
+// keep the black-and-white rules and a square shape under every palette.
+var controlKinds = map[string]bool{startKind: true, "initial": true, "final": true, "fork": true, "join": true,
+	"merge": true, "decision": true, "choice": true, "junction": true, "shallow history": true, "deep history": true}
+
+// familyFills is how a form that fills nodes colours them from a palette, the
+// same for every such form so a node takes one fill whichever is written.
+type familyFills struct {
+	palette  Palette  // the fills, by keyword family; empty is black and white
+	tree     bool     // containment is drawn as edges, so a node with children is filled too
+	families []string // the keyword families of the nodes filled, in palette order
+}
+
+// filled reports whether a node takes a family colour under a palette: a
+// plain node (a container keeps its black border) that is no control node.
+func (f *familyFills) filled(node *Node) bool {
+	return f.palette != "" && !controlKinds[node.Kind] && (len(node.Children) == 0 || f.tree)
+}
+
+// collect records the keyword families of the nodes under node that a palette
+// fills, in palette order, so a sequential palette spans those present.
+func (f *familyFills) collect(node *Node) {
+	if f.filled(node) {
+		family := paletteFamily(node.Kind)
+		if !slices.Contains(f.families, family) {
+			f.families = append(f.families, family)
+			slices.SortFunc(f.families, func(a, b string) int { return familyRank(a) - familyRank(b) })
+		}
+	}
+	for _, child := range node.Children {
+		f.collect(child)
+	}
+}
+
+// color is the palette colour of a node's keyword family: a qualitative
+// palette's colour at the family's fixed rank, a sequential palette's at the
+// family's place among those present.
+func (f *familyFills) color(node *Node) string {
+	family := paletteFamily(node.Kind)
+	if f.palette.Sequential() {
+		return f.palette.Color(slices.Index(f.families, family), len(f.families))
+	}
+	return f.palette.Color(familyRank(family), len(paletteFamilies)+1)
+}
+
+// fill is the fill a filled node takes: its family colour, tinted for a usage.
+func (f *familyFills) fill(node *Node) string {
+	return paletteFill(f.color(node), !isDefinitionKind(node.Kind))
+}
 
 // The palettes' colours as their authors publish them, `#RRGGBB`. The
 // qualitative sets are in their published order; the sequential ramps are

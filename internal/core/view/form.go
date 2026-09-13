@@ -9,7 +9,7 @@ import (
 // Form is a written form of a rendering: the human-readable text every kind has,
 // the machine-readable form of the kind — a Mermaid diagram for the
 // graph-shaped kinds, a Markdown table for the tabular one — and the Graphviz
-// DOT form a graph-shaped kind can be asked for instead.
+// DOT and PlantUML forms a graph-shaped kind can be asked for instead.
 type Form string
 
 const (
@@ -21,15 +21,17 @@ const (
 	FormMarkdown Form = "markdown"
 	// FormDot is a Graphviz DOT digraph of a graph-shaped rendering.
 	FormDot Form = "dot"
+	// FormPlantUML is a PlantUML diagram of a graph-shaped or sequence rendering.
+	FormPlantUML Form = "plantuml"
 )
 
 // Forms are the forms a rendering can be asked for, in the order they are
 // offered.
-func Forms() []Form { return []Form{FormText, FormMermaid, FormMarkdown, FormDot} }
+func Forms() []Form { return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML} }
 
 // DiagramForms are the forms a document render writes its graph-shaped
 // diagrams as; a table-kind view is written as a table whichever is chosen.
-func DiagramForms() []Form { return []Form{FormMermaid, FormDot} }
+func DiagramForms() []Form { return []Form{FormMermaid, FormDot, FormPlantUML} }
 
 // FormNames spells the forms as a list, for help and error text.
 func FormNames(forms []Form) string {
@@ -61,8 +63,9 @@ func (k Kind) MachineForm() Form {
 }
 
 // SupportsForm reports whether renderings of the kind are written in form:
-// every kind has the text form and its machine form, and the kinds drawn as a
-// graph of nodes and edges have the DOT form as well.
+// every kind has the text form and its machine form, the kinds drawn as a
+// graph of nodes and edges have the DOT and PlantUML forms as well, and a
+// sequence has PlantUML's sequence grammar.
 func (k Kind) SupportsForm(form Form) bool {
 	switch form {
 	case FormText:
@@ -72,6 +75,11 @@ func (k Kind) SupportsForm(form Form) bool {
 	case FormDot:
 		switch k {
 		case KindTree, KindInterconnection, KindState, KindAction:
+			return true
+		}
+	case FormPlantUML:
+		switch k {
+		case KindTree, KindInterconnection, KindState, KindAction, KindSequence:
 			return true
 		}
 	}
@@ -124,14 +132,14 @@ func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 
 // Options are what a rendering is written with beside its form. Each form
 // takes the ones that apply to it: the text form its Width, the Mermaid form
-// its Direction, the DOT form its Direction and Palette. A form ignores the
-// rest, the Mermaid form saying so of a Palette in a comment.
+// its Direction, the DOT and PlantUML forms their Direction and Palette. A form
+// ignores the rest, the Mermaid form saying so of a Palette in a comment.
 type Options struct {
 	// Direction is the flow direction a graph-shaped form is drawn in; empty
 	// leaves each kind's default.
 	Direction Direction
-	// Palette is the palette the DOT form fills nodes from, by keyword family;
-	// empty draws in black and white.
+	// Palette is the palette the DOT and PlantUML forms fill nodes from, by
+	// keyword family; empty draws in black and white.
 	Palette Palette
 	// Width is the width the text form is written to fit; WidthUnbounded
 	// writes every column as wide as its widest cell.
@@ -151,7 +159,7 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 	switch form {
 	case FormText:
 		return r.TextWidth(options.Width), nil
-	case FormMermaid, FormMarkdown, FormDot:
+	case FormMermaid, FormMarkdown, FormDot, FormPlantUML:
 		if !r.Kind.SupportsForm(form) {
 			return "", &WrongFormError{Form: form, Kind: r.Kind, View: r.View}
 		}
@@ -160,6 +168,8 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 			return r.Markdown(), nil
 		case FormDot:
 			return r.DOTWith(options)
+		case FormPlantUML:
+			return r.PlantUMLWith(options)
 		}
 		return r.MermaidWith(options), nil
 	}

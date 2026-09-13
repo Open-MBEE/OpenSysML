@@ -138,6 +138,68 @@ func TestRenderDotForm(t *testing.T) {
 	}
 }
 
+// The PlantUML form is asked for by name, writes a class diagram of the same
+// rendering into a .puml file, takes a palette with the DOT form's fills, and
+// is refused for a table with the forms a table has.
+func TestRenderPlantUMLForm(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "plantuml")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "**Demo::Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	if strings.Contains(got.stdout, "flowchart") || strings.Contains(got.stdout, "digraph") {
+		t.Errorf("the PlantUML form is another form:\n%s", got.stdout)
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	got = runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "plantuml", "-render-palette", "okabe-ito")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{
+		"wrote " + filepath.Join(dir, "Demo.treeView.puml") + " (plantuml, ",
+		"wrote " + filepath.Join(dir, "Demo.stateView.puml") + " (plantuml, ",
+		"Demo::tableView: skipped:",
+		"not written as plantuml; ask for text or markdown",
+	} {
+		if !strings.Contains(got.stderr, want) {
+			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
+		}
+	}
+	state, err := os.ReadFile(filepath.Join(dir, "Demo.stateView.puml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"' Demo::stateView — state rendering", `as n0 <<state def>> {`, "  [*] --> n1\n}"} {
+		if !strings.Contains(string(state), want) {
+			t.Errorf("state artifact is missing %q:\n%s", want, state)
+		}
+	}
+	tree, err := os.ReadFile(filepath.Join(dir, "Demo.treeView.puml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(tree), "#E69F00;line:E69F00") {
+		t.Errorf("-render-all did not fill from the palette:\n%s", tree)
+	}
+
+	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "plantuml")
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as plantuml; ask for text or markdown") {
+		t.Errorf("PlantUML of a table = %d\n%s", table.status, table.output())
+	}
+
+	unknown := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "plantuml", "-render-palette", "rainbow")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-palette: unknown palette "rainbow"`) || unknown.stdout != "" {
+		t.Errorf("an unknown palette = %d\n%s", unknown.status, unknown.output())
+	}
+}
+
 // -render-palette fills the DOT form's nodes from a named palette, is noted as
 // not represented by the Mermaid form, and is refused with the palettes there
 // are when it names none of them.
@@ -155,7 +217,7 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	mermaid := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "mermaid", "-render-palette", "viridis")
-	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "%% not represented: palette viridis; only the DOT form fills nodes by keyword family") {
+	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
 		t.Errorf("Mermaid with a palette = %d\n%s", mermaid.status, mermaid.output())
 	}
 	if strings.Contains(mermaid.stdout, "fillcolor") || strings.Contains(mermaid.stdout, "style n0") {
@@ -171,7 +233,7 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	alone := runStreams(t, binary, renderModel, "-render-palette", "okabe-ito")
-	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT with") {
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT or PlantUML with") {
 		t.Errorf("a palette without a view = %d\n%s", alone.status, alone.output())
 	}
 

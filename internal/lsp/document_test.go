@@ -498,16 +498,17 @@ const diagramDocumentModel = `package Imaging {
 `
 
 // TestRenderDocumentDiagramForm writes the document's graph-shaped diagrams
-// as Mermaid when diagramForm is absent and as DOT when it is "dot"; the
+// as Mermaid when diagramForm is absent and as DOT or PlantUML when named; the
 // Mermaid block opens on the frontmatter its two-line cluster title needs.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
 	ws.Open(uri.File("/tmp/imaging.sysml").Filename(), []byte(diagramDocumentModel), 1)
 	mermaidHeader := "---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: 24\n---\n%% Imaging::chainView — interconnection rendering"
 	cases := map[string]struct{ fence, header string }{
-		"":        {"```mermaid\n", mermaidHeader},
-		"mermaid": {"```mermaid\n", mermaidHeader},
-		"dot":     {"```dot\n", "// view: Imaging::chainView\n// kind: interconnection\n"},
+		"":         {"```mermaid\n", mermaidHeader},
+		"mermaid":  {"```mermaid\n", mermaidHeader},
+		"dot":      {"```dot\n", "// view: Imaging::chainView\n// kind: interconnection\n"},
+		"plantuml": {"```plantuml\n", "@startuml\n' Imaging::chainView — interconnection rendering"},
 	}
 	for form, want := range cases {
 		res, err := s.RenderDocument(&renderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: form})
@@ -520,17 +521,22 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		if strings.Count(res.Markdown, "```") != 2 {
 			t.Errorf("diagramForm %q: want exactly one fenced block:\n%s", form, res.Markdown)
 		}
+		if form == "plantuml" && (!strings.Contains(res.Markdown, "n1 -[thickness=3]- n2 : link\n") || !strings.Contains(res.Markdown, "@enduml\n```")) {
+			t.Errorf("diagramForm %q: not a PlantUML interconnection:\n%s", form, res.Markdown)
+		}
 	}
 	if _, err := s.RenderDocument(&renderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: "svg"}); err == nil ||
-		!strings.Contains(err.Error(), `no diagram form is named "svg"`) {
-		t.Fatalf("err = %v, want an unknown-form error", err)
+		!strings.Contains(err.Error(), `no diagram form is named "svg"`) || !strings.Contains(err.Error(), "mermaid, dot, plantuml") {
+		t.Fatalf("err = %v, want an unknown-form error naming the forms", err)
 	}
-	res, err := s.RenderDocument(&renderDocumentParams{Name: "Observatory::MassReport", DiagramForm: "dot"})
-	if err != nil {
-		t.Fatalf("table-only document as dot: %v", err)
-	}
-	if !strings.Contains(res.Markdown, "| name | mass |") || strings.Contains(res.Markdown, "```") {
-		t.Errorf("a table is not a table under dot:\n%s", res.Markdown)
+	for _, form := range []string{"dot", "plantuml"} {
+		res, err := s.RenderDocument(&renderDocumentParams{Name: "Observatory::MassReport", DiagramForm: form})
+		if err != nil {
+			t.Fatalf("table-only document as %s: %v", form, err)
+		}
+		if !strings.Contains(res.Markdown, "| name | mass |") || strings.Contains(res.Markdown, "```") {
+			t.Errorf("a table is not a table under %s:\n%s", form, res.Markdown)
+		}
 	}
 }
 

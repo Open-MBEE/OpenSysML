@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -30,8 +32,8 @@ const (
 // renderParams asks for one rendering. View names a view the document declares,
 // or a supported pseudo-view (`#<kind>` or `#<kind>:<fqn>`); empty renders the
 // document's own view. Form is the artifact written, defaulting to the machine
-// form of the rendering's kind. Palette names the palette the DOT form fills
-// nodes from, by keyword family; empty draws in black and white.
+// form of the rendering's kind. Palette names the palette the DOT and PlantUML
+// forms fill nodes from, by keyword family; empty draws in black and white.
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
@@ -311,7 +313,11 @@ func renderForm(rendering *view.Rendering, asked string) (view.Form, error) {
 	if slices.Contains(view.Forms(), form) {
 		return form, nil
 	}
-	return "", fmt.Errorf("%q is no rendering form: write %q, %q, %q or %q", asked, view.FormMermaid, view.FormText, view.FormMarkdown, view.FormDot)
+	names := make([]string, 0, len(view.Forms()))
+	for _, form := range view.Forms() {
+		names = append(names, strconv.Quote(string(form)))
+	}
+	return "", fmt.Errorf("%q is no rendering form: write %s or %s", asked, strings.Join(names[:len(names)-1], ", "), names[len(names)-1])
 }
 
 // renderPalette is the palette a request names, none when it names none, and
