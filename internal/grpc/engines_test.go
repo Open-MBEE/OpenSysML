@@ -36,6 +36,7 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		{"check", "bounded", []string{"outcomes", "holds"}},
 		{"explore", "proved", []string{"outcomes"}},
 		{"run", "observed", []string{"evaluate"}},
+		{"smt", "proved", []string{"holds"}},
 		{"solve", "proved", []string{"satisfiable"}},
 		{"sweep", "observed", []string{"sweep"}},
 	}
@@ -47,16 +48,17 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		if got.Name != w.name || got.Authority != w.authority || strings.Join(got.Answers, ",") != strings.Join(w.answers, ",") {
 			t.Errorf("engine %d = %v, want %s %s %v", i, got, w.name, w.authority, w.answers)
 		}
-		if got.Name != "solve" && (!got.Ready || got.Process != "" || got.Unavailable != "") {
+		if got.Name != "solve" && got.Name != "smt" && (!got.Ready || got.Process != "" || got.Unavailable != "") {
 			t.Errorf("in-process engine %s = %v, want ready with no process", got.Name, got)
 		}
 	}
-	solve := resp.Engines[3]
-	if solve.Process == "" || solve.Ready == (solve.Unavailable != "") {
-		t.Errorf("solve = %v, want a process and ready or a reason", solve)
-	}
-	if solve.Ready && solve.ProcessFound == "" {
-		t.Errorf("solve is ready but names no found process: %v", solve)
+	for _, external := range []*pb.EngineInfo{resp.Engines[3], resp.Engines[4]} {
+		if external.Process == "" || external.Ready == (external.Unavailable != "") {
+			t.Errorf("%s = %v, want a process and ready or a reason", external.Name, external)
+		}
+		if external.Ready && external.ProcessFound == "" {
+			t.Errorf("%s is ready but names no found process: %v", external.Name, external)
+		}
 	}
 }
 

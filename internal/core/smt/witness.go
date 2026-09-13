@@ -36,10 +36,19 @@ type Witness struct {
 	// Steps is how many moves the run makes before Mark, its stutters excluded:
 	// the interpreter's steps that reach the state Mark names.
 	Steps int
+	// Inputs are the values the solver chose for the free inputs in state 0, spelt
+	// as the notation reads them back, in the order the performance holds them.
+	Inputs []runtime.InputTaken
 	// Choices are the choice points the interpreter faces on the run, in the
 	// order it notes them: at each step the branch a decision took, then the
 	// token stepped, each only where the interpreter has several to pick from.
 	Choices []runtime.ChoiceTaken
+}
+
+// policy is the replay schedule that fixes the witness's inputs before the first
+// move and follows its choices.
+func (w *Witness) policy() runtime.SchedulePolicy {
+	return runtime.ReplayOf(runtime.Witness{Inputs: w.Inputs, Choices: w.Choices})
 }
 
 // Decode reads a model of a Violation or Failure query back as the run it
@@ -60,6 +69,9 @@ func (e *Encoding) Decode(result *solve.Result) (*Witness, error) {
 		return nil, &WitnessError{Var: MarkVar, Reason: fmt.Sprintf("%d is not a state of %d moves", mark, e.Moves)}
 	}
 	w := &Witness{Mark: mark}
+	if w.Inputs, err = e.decodeInputs(m); err != nil {
+		return nil, err
+	}
 	for i := 1; i <= mark; i++ {
 		choice, err := m.datatype(e.Choices[i-1].Choice.Name)
 		if err != nil {
@@ -83,6 +95,38 @@ func (e *Encoding) Decode(result *solve.Result) (*Witness, error) {
 		w.Steps = i
 	}
 	return w, nil
+}
+
+// decodeInputs reads the value state 0 gives each free input: what a replay fixes
+// the feature at, through the path a caller's inputs take, before the first move.
+func (e *Encoding) decodeInputs(m model) ([]runtime.InputTaken, error) {
+	var inputs []runtime.InputTaken
+	for _, in := range e.Inputs {
+		if !in.Free {
+			continue
+		}
+		if in.Optional {
+			present, err := m.boolean(e.States[0].has(in.Var).Name)
+			if err != nil {
+				return nil, err
+			}
+			if !present {
+				inputs = append(inputs, runtime.InputTaken{Feature: in.Name, Written: absentInput})
+				continue
+			}
+		}
+		at := e.States[0].value(in.Var)
+		v, ok := m[at.Name]
+		if !ok {
+			return nil, &WitnessError{Var: at.Name, Reason: "the model assigns it no value"}
+		}
+		written, err := v.Written(in.Var)
+		if err != nil {
+			return nil, &WitnessError{Var: at.Name, Reason: err.Error()}
+		}
+		inputs = append(inputs, runtime.InputTaken{Feature: in.Name, Written: written})
+	}
+	return inputs, nil
 }
 
 // decodeMove is what the interpreter notes at step i when the token in slot t

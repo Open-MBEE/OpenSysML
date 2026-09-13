@@ -155,9 +155,9 @@ func TestImplicitEndRedefinitionOfInterfaceUsage(t *testing.T) {
 	}
 }
 
-// TestExplicitEndRedefinitionGoverns covers that an end declaring `:>>` keeps
-// redefining what it names, whatever its position.
-func TestExplicitEndRedefinitionGoverns(t *testing.T) {
+// TestExplicitEndRedefinitionAddsToPositional covers that an end declaring `:>>`
+// redefines what it names and, as every end does, the general end at its position.
+func TestExplicitEndRedefinitionAddsToPositional(t *testing.T) {
 	m, root := buildModel(t, `package P {
 		connection def Seat { end [1] part bead; end [1] part rim; }
 		part w {
@@ -172,13 +172,17 @@ func TestExplicitEndRedefinitionGoverns(t *testing.T) {
 	seat := nested(t, p.Scope, "Seat")
 	conn := connector(t, nested(t, p.Scope, "w").Scope)
 
-	if supers := m.DirectSupertypes(nested(t, conn.Scope, "second")); len(supers) != 1 ||
-		supers[0] != nested(t, seat.Scope, "rim") {
-		t.Fatalf("DirectSupertypes(second) = %v, want [Seat::rim]", supers)
+	bead, rim := nested(t, seat.Scope, "bead"), nested(t, seat.Scope, "rim")
+	if supers := m.DirectSupertypes(nested(t, conn.Scope, "second")); len(supers) != 2 ||
+		supers[0] != rim || supers[1] != bead {
+		t.Fatalf("DirectSupertypes(second) = %v, want [Seat::rim Seat::bead]", supers)
 	}
-	if supers := m.DirectSupertypes(nested(t, conn.Scope, "first")); len(supers) != 1 ||
-		supers[0] != nested(t, seat.Scope, "bead") {
-		t.Fatalf("DirectSupertypes(first) = %v, want [Seat::bead]", supers)
+	if supers := m.DirectSupertypes(nested(t, conn.Scope, "first")); len(supers) != 2 ||
+		supers[0] != bead || supers[1] != rim {
+		t.Fatalf("DirectSupertypes(first) = %v, want [Seat::bead Seat::rim]", supers)
+	}
+	if n := m.ConnectorEndCount(conn); n != 2 {
+		t.Fatalf("ConnectorEndCount = %d, want 2", n)
 	}
 }
 
@@ -480,9 +484,9 @@ func TestEndsInheritedThroughDiamondCountOnce(t *testing.T) {
 	}
 }
 
-// An owned end claims what it redefines: the ends its `:>>` clauses name, or the
-// positional end when it names nothing — so naming an end of one general leaves
-// the other general's end at that position effective.
+// An owned end claims the end at its position in every general as well as the
+// ends its `:>>` clauses name — so naming an end of one general still masks the
+// other general's end at that position, and only a third owned end adds arity.
 func TestEndsClaimedAcrossSeveralGenerals(t *testing.T) {
 	m, root := buildModel(t, `package P {
 		part def T;
@@ -498,18 +502,27 @@ func TestEndsClaimedAcrossSeveralGenerals(t *testing.T) {
 			end [1] part e2 : T :>> A::a2, B::b2;
 		}
 		connection def Swapped :> A { end [1] part f1 : T :>> A::a2; end [1] part f2 : T :>> A::a1; }
+		connection def Third :> A { end [1] part g1 : T :>> A::a1; end [1] part g2 : T :>> A::a2; end [1] part g3 : T; }
 	}`)
 	p := sym(t, root, "P")
-	b := nested(t, p.Scope, "B")
+	ty, a, b := nested(t, p.Scope, "T"), nested(t, p.Scope, "A"), nested(t, p.Scope, "B")
 	oneSide := nested(t, p.Scope, "OneSide")
-	if ends := m.endsOf(oneSide); len(ends) != 4 ||
-		ends[0] != nested(t, oneSide.Scope, "c1") || ends[1] != nested(t, oneSide.Scope, "c2") ||
-		ends[2] != nested(t, b.Scope, "b1") || ends[3] != nested(t, b.Scope, "b2") {
-		t.Errorf("endsOf(OneSide) = %v, want [c1 c2 B::b1 B::b2]", ends)
+	if ends := m.endsOf(oneSide); len(ends) != 2 ||
+		ends[0] != nested(t, oneSide.Scope, "c1") || ends[1] != nested(t, oneSide.Scope, "c2") {
+		t.Errorf("endsOf(OneSide) = %v, want [c1 c2]", ends)
 	}
-	for _, name := range []string{"Positional", "BothSides", "Swapped"} {
-		if n := m.ConnectorEndCount(nested(t, p.Scope, name)); n != 2 {
-			t.Errorf("ConnectorEndCount(%s) = %d, want 2", name, n)
+	if supers := m.DirectSupertypes(nested(t, oneSide.Scope, "c1")); len(supers) != 3 ||
+		supers[0] != ty || supers[1] != nested(t, a.Scope, "a1") || supers[2] != nested(t, b.Scope, "b1") {
+		t.Errorf("DirectSupertypes(c1) = %v, want [T A::a1 B::b1]", supers)
+	}
+	swapped := nested(t, p.Scope, "Swapped")
+	if supers := m.DirectSupertypes(nested(t, swapped.Scope, "f1")); len(supers) != 3 ||
+		supers[0] != ty || supers[1] != nested(t, a.Scope, "a2") || supers[2] != nested(t, a.Scope, "a1") {
+		t.Errorf("DirectSupertypes(f1) = %v, want [T A::a2 A::a1]", supers)
+	}
+	for name, want := range map[string]int{"Positional": 2, "BothSides": 2, "Swapped": 2, "Third": 3} {
+		if n := m.ConnectorEndCount(nested(t, p.Scope, name)); n != want {
+			t.Errorf("ConnectorEndCount(%s) = %d, want %d", name, n, want)
 		}
 	}
 }

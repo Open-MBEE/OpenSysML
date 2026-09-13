@@ -32,9 +32,16 @@ verdict its body produced (repeatable)
 Invoke this calculation and report what it computed, as \-calc "Fall(3, 4)"
 (repeatable)
 .TP
+.BI \-check\-assume " value"
+With \-engine smt or \-engine all: assume this constraint or requirement over
+the initial state of the action, as \-check\-assume Plant::EnvelopeLimits; a
+set no initial state satisfies is reported not covered, never proved
+(repeatable)
+.TP
 .BI \-check\-depth " value"
-With \-engine check or \-engine all: the most moves one schedule may make
-before the search backtracks, named as the depth bound hit (default 10000)
+With \-engine check, \-engine smt or \-engine all: the most moves one schedule
+may make before the search backtracks, or the moves the smt engine unrolls the
+action to, named as the depth bound hit (default 10000 for check, 40 for smt)
 .TP
 .BI \-check\-diverge " value"
 With \-engine check or \-engine all: report this feature divergent when
@@ -43,6 +50,13 @@ schedules leave it with different final values, as \-check\-diverge x,
 this.level for the performing object's, a name nothing holds refused; default
 every attribute of the action and of its performing object, the action's own
 when it has none (repeatable)
+.TP
+.BI \-check\-input " value"
+With \-engine smt or \-engine all: leave this feature of the action free in
+its declared domain although the model binds it, as \-check\-input inletTemp;
+a name that is not a feature the action reads is refused. Without it, every
+input the model leaves unbound is free and every bound one is pinned
+(repeatable)
 .TP
 .BI \-check\-property " value"
 With \-engine check or \-engine all: evaluate this constraint or requirement
@@ -55,15 +69,19 @@ visit, named as the states bound hit; the same figure \-engine all gives an
 exploration as its runs (default 1000000)
 .TP
 .BI \-check\-timeout " value"
-With \-engine check or \-engine all: the time the check's plan may run for, as
-30s or 2m; a search it stops is reported incomplete with the states and depth
-reached, not as a verdict
+With \-engine check, \-engine smt or \-engine all: the time the check's plan
+may run for, as 30s or 2m; a search it stops is reported incomplete with the
+states and depth reached, not as a verdict
+.TP
+.BI \-check\-unroll " value"
+With \-engine smt or \-engine all: the most iterations of one loop the smt
+engine unrolls before it stops, named as the unroll bound hit (default 4)
 .TP
 .BI \-check\-witness " string"
-With \-engine check or \-engine all: write a witness file to this directory
-for each violation and each divergent value \(em the schedule's choices, a
-blank line, then the run's trace \(em which \-schedule replay:<file> and
-%replay follow
+With \-engine check, \-engine smt or \-engine all: write a witness file to
+this directory for each violation and each divergent value \(em the inputs the
+solver chose, the schedule's choices, a blank line, then the run's trace \(em
+which \-schedule replay:<file> and %replay follow
 .TP
 .BI \-compile " string"
 Compile this calc def to a native executable named by \-o, as \-compile
@@ -108,10 +126,12 @@ Evaluate expression and exit (shorthand)
 Analysis engine every check is put to: auto (default) picks the strongest
 engine covering the question, all puts it to every covering engine in name
 order and composes their answers, or an engine by name (run, explore, check,
-sweep, solve, tool:<name> from OPENSYSML_TOOLS, or an external engine from
-OPENSYSML_ENGINES), whose refusal is then the answer; \-engine explore is
-\-schedule explore, and \-engine check searches every schedule of each
-\-action for a violation, deadlock, failure or divergence
+smt, sweep, solve, tool:<name> from OPENSYSML_TOOLS, or an external engine
+from OPENSYSML_ENGINES), whose refusal is then the answer; \-engine explore is
+\-schedule explore, \-engine check searches every schedule of each \-action
+for a violation, deadlock, failure or divergence, and \-engine smt decides
+each \-check\-property over every schedule and every value of the action's
+free inputs through an SMT solver
 .TP
 .B \-engines
 List the analysis engines this build knows \(em name, kind (built\-in, tool,

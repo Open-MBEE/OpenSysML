@@ -146,16 +146,50 @@ func (r *Registry) Explore(ctx context.Context, req Request, run Linearization) 
 	})
 }
 
-// Check puts an action's schedules to the registry: kind is Holds when ask states
-// properties, else Outcomes; run performs the action once for an engine that
-// explores it beside the check under the request's schedule, each in a context its model makes.
-func (r *Registry) Check(ctx context.Context, req Request, kind Kind, ask *CheckAsk, run Linearization) (Plan, error) {
+// Check puts an action's schedules to the registry as a question of kind, free being
+// what the asker leaves open beside them: check is the explicit-state search's ask,
+// holds the symbolic one, and run performs the action once for an engine exploring it.
+// A Holds question over a start leaving an input unbound has the inputs free too.
+func (r *Registry) Check(ctx context.Context, req Request, kind Kind, free Freedom, check *CheckAsk, holds *HoldsAsk, run Linearization) (Plan, error) {
+	if kind == Holds && leavesInputsUnbound(req, holds) {
+		free |= FreeInputs
+	}
 	return r.ask(ctx, req, Question{
 		Kind:      kind,
-		Free:      FreeSchedule,
+		Free:      FreeSchedule | free,
 		Linearize: run,
-		Check:     ask,
+		Check:     check,
+		Holds:     holds,
 	})
+}
+
+// leavesInputsUnbound starts the action once in a context of the model's own to see
+// whether it holds an input no value; a start that fails is the engines' to report.
+func leavesInputsUnbound(req Request, holds *HoldsAsk) bool {
+	if holds == nil || holds.Start == nil || !req.Model.builds() {
+		return false
+	}
+	ctx, err := req.Model.NewContextOn(0, req.Budget)
+	if err != nil {
+		return false
+	}
+	exec, err := holds.Start(ctx)
+	if err != nil {
+		return false
+	}
+	defer exec.Release()
+	return len(exec.Held().Unbound()) > 0
+}
+
+// CheckKind is what a check asks: Holds once a property or condition is stated, an
+// input released, an assumption made or the unroll bound set (what a symbolic
+// engine alone answers or reads), else Outcomes.
+func CheckKind(check *CheckAsk, holds *HoldsAsk, unroll int) Kind {
+	if check != nil && len(check.Properties) > 0 || unroll > 0 ||
+		holds != nil && (len(holds.Conditions) > 0 || len(holds.Inputs) > 0 || len(holds.Assume) > 0) {
+		return Holds
+	}
+	return Outcomes
 }
 
 // Sweep puts a domain to the registry: row runs the subject once per row of the

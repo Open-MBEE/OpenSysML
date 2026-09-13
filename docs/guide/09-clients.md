@@ -249,7 +249,9 @@ Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen 
 `opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `Calculate` — `EvaluateCalc`
 with options — takes `opensysml.CalcEngine(...)` beside `opensysml.CalcArguments(...)`, `opensysml.EngineAll`
 asks every engine that covers the question and `opensysml.EngineAuto` — the default — leaves the
-choice to the service. `ListEngines` names the engines the service registers. Every `Verdict`,
+choice to the service. `ListEngines` names the engines the service registers — the `check` and
+`smt` model checkers among them, though no request yet asks the `holds` question they answer, so
+naming one is its typed refusal until the wire gains that request. Every `Verdict`,
 `Calculation` and `Analysis` carries a `Standing` — the `Engine` that answered, the `Strength` of
 its evidence and the `Bounds` it ran under, each `Reached` or not — which is what the `standing:`
 line under a REPL verdict prints. A service that does not advertise `engines` refuses a named

@@ -52,7 +52,10 @@ type ActionExecutor struct {
 	// counts those begun. A token a sweep moved is not an arrival until the sweep ends.
 	sweep, sweeps uint64
 	inputs        map[string]Value // Input parameter bindings, applied over attribute defaults
-	pausedAt      string           // Node name RunToCompletion stopped at, empty when it ran to the end
+	// beginsRun marks the performance the caller begins a run on, the one a
+	// replayed witness's inputs are fixed on (see fixWitnessInputs).
+	beginsRun bool
+	pausedAt  string // Node name RunToCompletion stopped at, empty when it ran to the end
 	// released is set once Release has ended the run for good.
 	released bool
 	// pauses counts the body pauses so far, ordering the paused runs' resumption.
@@ -218,11 +221,15 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			if features[i].Value == nil && features[i].Node == ast.Node(usage) {
 				features[i].Value, features[i].Scope = e.ctx.model.semantics.ParameterDefault(member)
 			}
+			features[i].Optional = e.ctx.admitsNoValue(member)
 			continue
 		}
 		declared[name] = len(features)
 		value, scope := e.ctx.model.semantics.ParameterDefault(member)
-		features = append(features, lower.Attribute{Name: name, Value: value, Node: usage, Scope: scope})
+		features = append(features, lower.Attribute{
+			Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: lower.TypeText(usage),
+			Value: value, Node: usage, Scope: scope, Optional: e.ctx.admitsNoValue(member),
+		})
 	}
 	return features
 }
@@ -1017,6 +1024,9 @@ func (e *ActionExecutor) completeWithoutFlow() error {
 // bindInputs writes the supplied inputs into the performance, then the
 // attributes it declares: a default written in terms of an input reads it.
 func (e *ActionExecutor) bindInputs() error {
+	if err := e.fixWitnessInputs(); err != nil {
+		return err
+	}
 	if err := e.checkInputNames(); err != nil {
 		return err
 	}
@@ -1026,6 +1036,51 @@ func (e *ActionExecutor) bindInputs() error {
 	if err := e.initializeAttributes(); err != nil {
 		return fmt.Errorf("initialize attributes: %w", err)
 	}
+	return nil
+}
+
+// fixWitnessInputs takes the inputs the run's replayed witness fixes, when the
+// caller begins the run on this performance, ahead of the caller's inputs and the
+// defaults. A behavior an object runs of its own or a nested step leaves them.
+func (e *ActionExecutor) fixWitnessInputs() error {
+	if !e.beginsRun {
+		return nil
+	}
+	witness := e.ctx.scheduling().witnessInputs()
+	if len(witness) == 0 {
+		return nil
+	}
+	ec := e.evalContextFor(e.root, e.graph.Scope)
+	defer ec.beginStep()()
+	inputs := maps.Clone(e.inputs)
+	if inputs == nil {
+		inputs = make(map[string]Value, len(witness))
+	}
+	for _, in := range witness {
+		dir, declared := e.parameterDirection(in.Feature)
+		switch {
+		case dir == ast.DirOut:
+			return &WitnessInputError{Feature: in.Feature,
+				Reason: fmt.Sprintf("action %s writes it back rather than reading it", symbolText(e.action))}
+		case !declared && !e.declaresAttribute(in.Feature):
+			return &WitnessInputError{Feature: in.Feature,
+				Reason: fmt.Sprintf("action %s declares no such feature", symbolText(e.action))}
+		}
+		value := in.Value
+		if value.Kind == ValInvalid {
+			expr, ok := parseOneExpression("<witness>", in.Written)
+			if !ok {
+				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q is not an expression the notation reads", in.Written)}
+			}
+			evaluated, err := ec.Eval(expr)
+			if err != nil {
+				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q does not evaluate: %v", in.Written, err)}
+			}
+			value = evaluated
+		}
+		inputs[in.Feature] = value
+	}
+	e.inputs = inputs
 	return nil
 }
 
@@ -2386,6 +2441,23 @@ func (h Held) Features() []lower.Attribute {
 func (h Held) Value(name string) (Value, bool) {
 	v, ok := h.data[canonical(h.aliases, name)]
 	return v, ok
+}
+
+// Unbound lists the inputs the performance holds no value for: the features it
+// reads rather than writes back, declared with no default and bound by nothing.
+// One marked Optional may also hold no value at all, which the run reads as the
+// empty sequence, so absence is among the states it ranges over.
+func (h Held) Unbound() []lower.Attribute {
+	var unbound []lower.Attribute
+	for _, attr := range h.features {
+		if attr.Output() || attr.Value != nil {
+			continue
+		}
+		if _, bound := h.Value(attr.Name); !bound {
+			unbound = append(unbound, attr)
+		}
+	}
+	return unbound
 }
 
 // SetBreakpoint adds a breakpoint at the given node name.

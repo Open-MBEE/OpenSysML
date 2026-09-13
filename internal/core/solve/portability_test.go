@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"sort"
 	"strings"
@@ -277,6 +278,58 @@ func portabilityCases() []portabilityCase {
 			return nil
 		},
 	}, {
+		feature: "a free input ranging over an enumeration's datatype (its domain enumerated)",
+		needs:   []Capability{CapModels, CapIncremental, CapDatatypes, CapNonStandardLogic},
+		run: func(t *testing.T, solver *Solver) error {
+			q, mode := freeInputQuery()
+			result, err := solver.Enumerate(context.Background(), q, []*Var{mode}, 10)
+			if err != nil {
+				return err
+			}
+			if result.Status != StatusSat || result.Truncated {
+				return fmt.Errorf("answered %s (truncated %t), want every constructor but the excluded one", result.Status, result.Truncated)
+			}
+			// The domain is the constructor set: excluding one leaves the other two.
+			if len(result.Solutions) != 2 {
+				return fmt.Errorf("reported %d values, want 2", len(result.Solutions))
+			}
+			for _, solution := range result.Solutions {
+				at, err := DecodeValue(solution[0])
+				if err != nil || at.Kind != SortDatatype || at.Text == "test::Mode::Fast" {
+					return fmt.Errorf("the input read back as %s (%v), want a constructor other than Fast", solution[0].Raw, err)
+				}
+			}
+			return nil
+		},
+	}, {
+		feature: "a free real-sorted input within the int64 range of an integer one, read back exactly",
+		needs:   []Capability{CapModels},
+		run: func(t *testing.T, solver *Solver) error {
+			q, _ := freeInputQuery()
+			result, err := solver.Solve(context.Background(), q)
+			if err != nil {
+				return err
+			}
+			if result.Status != StatusSat {
+				return fmt.Errorf("answered %s (reason %q), want sat", result.Status, result.Reason)
+			}
+			for _, a := range result.Model {
+				if a.Var.Name != "rate@0" {
+					continue
+				}
+				at, err := DecodeValue(a)
+				if err != nil || at.Kind != SortReal {
+					return fmt.Errorf("the real read back as %s: %v", a.Raw, err)
+				}
+				// The domain is -1 < rate < 0: a negative rational the notation can spell.
+				if at.Number.Sign() >= 0 || at.Number.Cmp(big.NewRat(-1, 1)) <= 0 {
+					return fmt.Errorf("assigned rate = %s, want a value in (-1, 0)", at.Number.RatString())
+				}
+				return nil
+			}
+			return fmt.Errorf("the model assigns no rate: %+v", result.Model)
+		},
+	}, {
 		feature: "objective optimization (minimize with :opt.priority)",
 		needs:   []Capability{CapModels, CapOptimization, CapOptimizationPriority},
 		run: func(t *testing.T, solver *Solver) error {
@@ -299,6 +352,33 @@ func portabilityCases() []portabilityCase {
 			return nil
 		},
 	}}
+}
+
+// freeInputQuery is a hand-assembled query of the shape an encoding of free inputs
+// emits in its initial state: an integer input kept within int64 and its declared
+// `>= 0`, a real input under a strict bound, and an enumeration input ranging over
+// the constructors of a datatype the model declares, one of them excluded.
+func freeInputQuery() (*Query, *Var) {
+	modes := Sort{Kind: SortDatatype, Name: "test::Mode", Origin: "test::Mode",
+		Values: []string{"test::Mode::Fast", "test::Mode::Slow", "test::Mode::Idle"}}
+	count := &Var{Name: "count@0", Sort: Int}
+	rate := &Var{Name: "rate@0", Sort: Real}
+	mode := &Var{Name: "mode@0", Sort: modes}
+	from := Provenance{Kind: "action", Element: "start", Condition: "initial state", Role: RoleTransition}
+	q := &Query{
+		Kind:    "action",
+		Element: "start",
+		Sorts:   []Sort{modes},
+		Vars:    []*Var{count, rate, mode},
+		Assertions: []Assertion{
+			{Term: Int64(VarTerm(count)), From: from},
+			{Term: Binary(OpGe, Bool, VarTerm(count), IntTerm(0)), From: from},
+			{Term: Binary(OpLt, Bool, VarTerm(rate), RealTerm(big.NewRat(0, 1))), From: from},
+			{Term: Binary(OpGt, Bool, VarTerm(rate), RealTerm(big.NewRat(-1, 1))), From: from},
+			{Term: Binary(OpNe, Bool, VarTerm(mode), ValueTerm(modes, "test::Mode::Fast")), From: from},
+		},
+	}
+	return q, mode
 }
 
 // wantSat asks for a verdict of sat with the named variable assigned in the

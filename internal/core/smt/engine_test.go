@@ -61,7 +61,7 @@ func (d *document) holds(t *testing.T, fqn, condition string) analysis.Question 
 		},
 	}
 	if condition != "" {
-		ask.Condition = lookup(t, d.idx, condition)
+		ask.Conditions = []*symbols.Symbol{lookup(t, d.idx, condition)}
 	}
 	return analysis.Question{Kind: analysis.Holds, Subject: fqn, Free: analysis.FreeSchedule, Holds: ask}
 }
@@ -117,9 +117,9 @@ func TestEngineDescribesItself(t *testing.T) {
 	var _ analysis.External = e
 }
 
-// TestEngineRefusesWhatItDoesNotAnswer: another kind, free inputs, a fixed schedule
-// and a Holds question without its ask are each refused with the typed reason, and a
-// solver's absence is the typed absence, from Process and from Covers alike.
+// TestEngineRefusesWhatItDoesNotAnswer: another kind, a fixed schedule and a Holds
+// question without its ask are each refused with the typed reason, free inputs are
+// covered, and a solver's absence is the typed absence, from Process and from Covers alike.
 func TestEngineRefusesWhatItDoesNotAnswer(t *testing.T) {
 	d := indexed(t, "refuse.sysml", conditionsSrc)
 	e := New(func() (*solve.Solver, error) { return &solve.Solver{Name: "z3", Path: "/bin/z3"}, nil })
@@ -130,7 +130,6 @@ func TestEngineRefusesWhatItDoesNotAnswer(t *testing.T) {
 		want error
 	}{
 		{"kind", analysis.Question{Kind: analysis.Outcomes, Free: analysis.FreeSchedule}, analysis.ErrNotAsked},
-		{"inputs", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule | analysis.FreeInputs, Holds: ok.Holds}, analysis.ErrFreedom},
 		{"schedule", analysis.Question{Kind: analysis.Holds, Holds: ok.Holds}, ErrScheduleFixed},
 		{"ask", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule}, analysis.ErrMalformedQuestion},
 		{"behavior", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{Start: ok.Holds.Start}}, analysis.ErrMalformedQuestion},
@@ -149,6 +148,11 @@ func TestEngineRefusesWhatItDoesNotAnswer(t *testing.T) {
 	}
 	if coverage := e.Covers(d.model, ok); !coverage.Covered {
 		t.Fatalf("a Holds question with the schedule free is refused: %v", coverage.Refusal)
+	}
+	free := ok
+	free.Free = analysis.FreeSchedule | analysis.FreeInputs
+	if coverage := e.Covers(d.model, free); !coverage.Covered {
+		t.Fatalf("a Holds question with the inputs free is refused: %v", coverage.Refusal)
 	}
 	if name, err := e.Process(); err != nil || name != "z3 at /bin/z3" {
 		t.Fatalf("process %q, %v", name, err)
@@ -351,8 +355,8 @@ func TestEngineStartsFromTheValuesHeld(t *testing.T) {
 	behavior := lookup(t, d.idx, "test::A")
 	twenty := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 20}}
 	supplied := analysis.Question{Kind: analysis.Holds, Subject: "test::A", Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{
-		Behavior:  behavior,
-		Condition: lookup(t, d.idx, "test::A::small"),
+		Behavior:   behavior,
+		Conditions: []*symbols.Symbol{lookup(t, d.idx, "test::A::small")},
 		Start: func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
 			return ctx.CreateActionExecutorWithInputs(behavior, nil, map[string]runtime.Value{"x": twenty})
 		},
@@ -401,6 +405,62 @@ func TestEngineDoesNotProveOverRoundedArithmetic(t *testing.T) {
 	var violation *runtime.ViolationError
 	if len(violated.Values) != 1 || !errors.As(violated.Values[0].Err, &violation) {
 		t.Fatalf("the interpreter's violation is not reported: %+v", violated.Values)
+	}
+}
+
+// TestEngineFilesNoWitnessTheInterpreterRefutes: a witness the replay does not
+// reproduce leaves the question not covered, reported but written to no file.
+func TestEngineFilesNoWitnessTheInterpreterRefutes(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "refuted.sysml", freeSrc)
+	q := d.holds(t, "test::A", "test::A::positive")
+	q.Holds.WitnessDir = t.TempDir()
+	solver, err := e.discover()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &run{engine: e, model: d.model, q: q, budget: analysis.Budget{Depth: 3}, solver: solver,
+		timeout: solve.DefaultTimeout, moves: 3, unroll: DefaultUnroll, started: time.Now()}
+	if refusal, err := r.encode(); err != nil || refusal != nil {
+		t.Fatalf("encode: %v %v", refusal, err)
+	}
+	result, err := solver.Solve(context.Background(), r.encoding.Violation(r.property))
+	if err != nil || result.Status != solve.StatusSat {
+		t.Fatalf("the violation query answered %v, %v", result.Status, err)
+	}
+	// The solver's n violates x + n > 0; a witness claiming so at n = 5 is refuted.
+	var moved bool
+	for _, in := range r.encoding.Inputs {
+		if in.Name != "n" {
+			continue
+		}
+		at := r.encoding.States[0].value(in.Var).Name
+		for i := range result.Model {
+			if result.Model[i].Var.Name == at {
+				result.Model[i].Value, result.Model[i].Raw, moved = "5", "5", true
+			}
+		}
+	}
+	if !moved {
+		t.Fatal("the model assigns the input n no value")
+	}
+	out, err := r.witnessed(result, outcomeViolation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect(t, out, analysis.ClaimNone, analysis.NotCovered)
+	if !strings.Contains(out.Reason, "the solver claims a violation") || !strings.Contains(out.Reason, "the interpreter") {
+		t.Errorf("reason %q does not report the disagreement", out.Reason)
+	}
+	if out.Witness == nil || out.Witness.Written != "" {
+		t.Errorf("witness %+v, want the refuted witness reported with no file", out.Witness)
+	}
+	files, err := os.ReadDir(q.Holds.WitnessDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 0 {
+		t.Errorf("%d file(s) written for a witness the interpreter refutes", len(files))
 	}
 }
 

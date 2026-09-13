@@ -55,20 +55,34 @@ func TestCheckSettingsShowSetAndClear(t *testing.T) {
 	wants(t, run(t, s, "%check-witness "+t.TempDir()), "check-witness: "+s.CheckWitnessDir())
 	wants(t, run(t, s, "%check-witness off"), "check-witness: off")
 
-	wants(t, run(t, s, "%check-bounds"), "check-bounds: depth=10000 (default), states=1000000 (default), timeout=off")
-	wants(t, run(t, s, "%check-bounds depth=3 timeout=2s"), "check-bounds: depth=3, states=1000000 (default), timeout=2s")
-	if depth, states, timeout := s.CheckBounds(); depth != 3 || states != 0 || timeout != 2*time.Second {
-		t.Errorf("CheckBounds() = %d, %d, %s", depth, states, timeout)
+	wants(t, run(t, s, "%check-input"), "check-input: off (only the inputs the model leaves unbound)")
+	wants(t, run(t, s, "%check-input leftCount"), "check-input: leftCount")
+	if got := strings.Join(s.CheckInputs(), ","); got != "leftCount" {
+		t.Errorf("CheckInputs() = %q", got)
 	}
-	for _, bad := range []string{"depth", "depth=0", "states=x", "timeout=-1s", "width=4"} {
+	wants(t, run(t, s, "%check-input off"), "check-input: off (only the inputs the model leaves unbound)")
+
+	wants(t, run(t, s, "%check-assume"), "check-assume: off (none)")
+	wants(t, run(t, s, "%check-assume Plant::Tank::low"), "check-assume: Plant::Tank::low")
+	if got := strings.Join(s.CheckAssume(), ","); got != "Plant::Tank::low" {
+		t.Errorf("CheckAssume() = %q", got)
+	}
+	wants(t, run(t, s, "%check-assume off"), "check-assume: off (none)")
+
+	wants(t, run(t, s, "%check-bounds"), "check-bounds: depth=10000 (default), states=1000000 (default), unroll=4 (default), timeout=off")
+	wants(t, run(t, s, "%check-bounds depth=3 unroll=2 timeout=2s"), "check-bounds: depth=3, states=1000000 (default), unroll=2, timeout=2s")
+	if depth, states, unroll, timeout := s.CheckBounds(); depth != 3 || states != 0 || unroll != 2 || timeout != 2*time.Second {
+		t.Errorf("CheckBounds() = %d, %d, %d, %s", depth, states, unroll, timeout)
+	}
+	for _, bad := range []string{"depth", "depth=0", "states=x", "unroll=0", "timeout=-1s", "width=4"} {
 		out := run(t, s, "%check-bounds "+bad)
 		rejects(t, out, "check-bounds: ")
 		if !strings.HasPrefix(out, "error: ") && !strings.HasPrefix(out, "usage: ") {
 			t.Errorf("%%check-bounds %s: %q", bad, out)
 		}
 	}
-	wants(t, run(t, s, "%check-bounds"), "check-bounds: depth=3, states=1000000 (default), timeout=2s")
-	wants(t, run(t, s, "%check-bounds off"), "check-bounds: depth=10000 (default), states=1000000 (default), timeout=off")
+	wants(t, run(t, s, "%check-bounds"), "check-bounds: depth=3, states=1000000 (default), unroll=2, timeout=2s")
+	wants(t, run(t, s, "%check-bounds off"), "check-bounds: depth=10000 (default), states=1000000 (default), unroll=4 (default), timeout=off")
 }
 
 // Under %engine check, %action searches the schedules instead of stepping one:

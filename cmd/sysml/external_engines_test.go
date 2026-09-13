@@ -186,8 +186,8 @@ func TestExternalWitnessedViolationFailsTheCheck(t *testing.T) {
 
 	got := check(t, binary, tankModel, "-engine", "all", "-instantiate", "Plant::tank",
 		"-action", "Plant::Tank::fill Plant::tank", "-check-property", "Plant::Tank::low")
-	wantReport(t, got, 1, "✗ Action Plant::Tank::fill: violated (witnessed)",
-		`at its end (engine "alpha", replayed): `+"`Plant::Tank::low` evaluates false there",
+	wantReport(t, got, 1, `✗ Action Plant::Tank::fill: at its end (engine "alpha", replayed): `+
+		"`Plant::Tank::low` evaluates false there",
 		"witness: step 3: 2@a first of 2@a, 3@b",
 		"standing: violated (witnessed: witness of 1 choice replayed); all: alpha violated (witnessed), beta violated (witnessed), check violated (witnessed)")
 	rejectReport(t, got, "could not be checked")

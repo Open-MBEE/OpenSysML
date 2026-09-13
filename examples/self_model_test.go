@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
@@ -300,14 +301,14 @@ func TestSelfModelBudgetsMatchImplementation(t *testing.T) {
 
 // TestSelfModelAnalysisFrameworkMatchesImplementation instantiates the modelled
 // analysis framework and compares it with internal/core/analysis: the engines the
-// default registry holds and what each declares, the question kinds, the
+// build's registry (engines.Default) holds and what each declares, the question kinds, the
 // evidence scale, the selections, the budget and the jobs setting.
 func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
 	idx, ctx := analyseSelfModel(t)
 	framework := instantiateSelfModel(t, idx, ctx, "pipeline.sysml", "OpenSysMLPipeline", "AnalysisFramework")
 	parts := framework.parts()
 
-	engines := analysis.Default().Engines()
+	engines := engineset.Default().Engines()
 	var names []string
 	for _, e := range engines {
 		names = append(names, e.Name())
@@ -546,10 +547,10 @@ func TestSelfModelWorkersAreIsolated(t *testing.T) {
 // TestSelfModelQuestionFlowFollowsDispatcher runs the modelled question flow
 // as the dispatcher behaves: the engines consulted are the ones declaring the
 // question's kind — the flow's default `candidates` is the count every kind but
-// outcomes has in the default registry — and every one of them lands in the plan
-// as a step under `all`, while `auto` stops at the first that concludes.
+// outcomes and holds has in the build's registry — and every one of them lands in
+// the plan as a step under `all`, while `auto` stops at the first that concludes.
 func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
-	engines := analysis.Default().Engines()
+	engines := engineset.Default().Engines()
 	declaring := map[analysis.Kind]int{}
 	for _, e := range engines {
 		for _, kind := range e.Describe().Questions {
@@ -558,7 +559,7 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 	}
 	flow := selfModelFlow(t, "AnswerQuestion", nil)
 	for kind, count := range declaring {
-		if kind == analysis.Outcomes {
+		if kind == analysis.Outcomes || kind == analysis.Holds {
 			continue
 		}
 		if declared := flow.integer("candidates"); declared != count {
@@ -567,6 +568,9 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 	}
 	if declaring[analysis.Outcomes] != 2 {
 		t.Errorf("%d default engines declare outcomes, the model states two (explore over check)", declaring[analysis.Outcomes])
+	}
+	if declaring[analysis.Holds] != 2 {
+		t.Errorf("%d default engines declare holds, the model states two (smt over check)", declaring[analysis.Holds])
 	}
 
 	cases := []struct {

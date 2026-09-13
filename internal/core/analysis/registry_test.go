@@ -113,7 +113,9 @@ func TestRegistriesDoNotSeeEachOther(t *testing.T) {
 	}
 }
 
-func TestDefaultHoldsTheBuildsEngines(t *testing.T) {
+// Default holds the framework's own engines; the build's registry, with smt
+// beside them, is composed in internal/core/engines.
+func TestDefaultHoldsTheFrameworksEngines(t *testing.T) {
 	want := []string{CheckEngineName, ExploreEngineName, RunEngineName, SolveEngineName, SweepEngineName}
 	got := names(Default())
 	if len(got) != len(want) {
@@ -129,8 +131,8 @@ func TestDefaultHoldsTheBuildsEngines(t *testing.T) {
 	}
 }
 
-// The default registry puts a holds question to check alone, which refuses one
-// starting no action; the plan is then not covered, naming that refusal.
+// The framework's registry puts a holds question to check alone, which refuses
+// one starting no action; the plan is then not covered, naming that refusal.
 func TestDefaultPutsHoldsToCheckAlone(t *testing.T) {
 	plan, err := Default().Answer(context.Background(), &Model{}, Question{Kind: Holds, Free: FreeSchedule, Holds: &HoldsAsk{}}, Budget{})
 	if err != nil {

@@ -110,7 +110,7 @@ package OpenSysMLInvariants {
         subject framework : AnalysisFramework;
         require constraint {
             framework.registry.perOwner and framework.registry.refusesDuplicateNames
-                and framework.registry.engineCount == 5
+                and framework.registry.engineCount == 6
                 and framework.dispatch.strongestFirst and framework.dispatch.advancesOnNotCovered
                 and framework.dispatch.stopsOnFault and framework.dispatch.recordsEveryStep
                 and framework.dispatch.defaultSelection == "auto"
@@ -140,7 +140,7 @@ package OpenSysMLInvariants {
             framework.resultIndependentOfJobs
                 and framework.workers.onePerJob and framework.workers.ownsRuntimeModel
                 and framework.workers.sharesFrozenIndex and framework.workers.freshContextPerRun
-                and framework.budget.fieldCount == 7 and framework.budget.defaultJobsIsCpuCount
+                and framework.budget.fieldCount == 8 and framework.budget.defaultJobsIsCpuCount
                 and framework.budget.rejectsNonPositiveJobs
         }
     }

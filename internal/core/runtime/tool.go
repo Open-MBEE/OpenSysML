@@ -636,7 +636,7 @@ func (ctx *Context) UnitOf(scope *symbols.Scope, text string) (semantics.Unit, e
 	if unit, ok := ctx.model.toolUnits[key]; ok {
 		return unit, nil
 	}
-	expr, ok := parseToolUnit(text)
+	expr, ok := parseOneExpression("<tool>", text)
 	if !ok {
 		return semantics.Unit{}, fmt.Errorf("%q is not a unit expression", text)
 	}
@@ -647,7 +647,7 @@ func (ctx *Context) UnitOf(scope *symbols.Scope, text string) (semantics.Unit, e
 	}
 	if errors.Is(err, semantics.ErrNotAUnit) {
 		if si := ctx.librarySymbol(fqnSIPackage); si != nil && si.Scope != nil {
-			expr, _ = parseToolUnit(text)
+			expr, _ = parseOneExpression("<tool>", text)
 			if inSI, siErr := ctx.model.semantics.UnitOfExpr(si.Scope, expr); siErr == nil {
 				unit, err = inSI, nil
 			}
@@ -660,9 +660,9 @@ func (ctx *Context) UnitOf(scope *symbols.Scope, text string) (semantics.Unit, e
 	return unit, nil
 }
 
-// parseToolUnit parses text as exactly one expression; false for anything else.
-func parseToolUnit(text string) (ast.Node, bool) {
-	p := parser.New(source.New("<tool>", []byte(text)))
+// parseOneExpression parses text, read from origin, as exactly one expression; false for anything else.
+func parseOneExpression(origin, text string) (ast.Node, bool) {
+	p := parser.New(source.New(origin, []byte(text)))
 	expr := p.ParseExpression()
 	return expr, expr != nil && len(p.Diagnostics) == 0 && p.Offset() == len(text)
 }

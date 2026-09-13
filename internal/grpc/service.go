@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -301,7 +302,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 	if err != nil {
 		return nil, err
 	}
-	registry, err := analysis.DefaultFromEnv()
+	registry, err := engineset.DefaultFromEnv()
 	if err != nil {
 		return nil, err
 	}
