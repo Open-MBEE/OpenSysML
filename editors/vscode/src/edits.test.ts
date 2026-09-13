@@ -4,7 +4,9 @@ import { test } from "node:test";
 import {
   ancestors,
   connectionOwner,
+  describeOwner,
   describeRefusal,
+  DOCUMENT_ROOT,
   editParams,
   endpointPath,
   offeredOn,
@@ -62,9 +64,39 @@ test("connectionOwner is the container when one end contains the other", () => {
   assert.equal(connectionOwner(fuelOut, tank, nodes), tank);
 });
 
-test("connectionOwner is nothing for unrelated roots", () => {
+test("connectionOwner is nothing for unrelated roots the document does not declare", () => {
   const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike" };
   assert.equal(connectionOwner(car, other, [...nodes, other]), undefined);
+});
+
+// The tree rendering of
+//   part pump { port outlet; } part tank { port inlet; }
+const pump: RenderNode = { id: "r1", kind: "part", name: "pump", type: "", detail: "", fqn: "pump" };
+const outlet: RenderNode = { id: "r2", kind: "port", name: "outlet", type: "", detail: "", parent: "r1", fqn: "pump::outlet" };
+const topTank: RenderNode = { id: "r3", kind: "part", name: "tank", type: "", detail: "", fqn: "tank" };
+const inlet: RenderNode = { id: "r4", kind: "port", name: "inlet", type: "", detail: "", parent: "r3", fqn: "tank::inlet" };
+const topLevelNodes = [pump, outlet, topTank, inlet];
+
+test("connectionOwner is the document root for two top-level declarations", () => {
+  assert.equal(connectionOwner(pump, topTank, topLevelNodes), DOCUMENT_ROOT);
+  assert.equal(connectionOwner(outlet, inlet, topLevelNodes), DOCUMENT_ROOT);
+  assert.equal(connectionOwner(outlet, topTank, topLevelNodes), DOCUMENT_ROOT);
+});
+
+test("connectionOwner prefers a declared common ancestor to the document root", () => {
+  assert.equal(connectionOwner(outlet, pump, topLevelNodes), pump);
+});
+
+test("connectionOwner is nothing when a root is not declared by the document", () => {
+  const library: RenderNode = { id: "r5", kind: "part", name: "lib", type: "", detail: "" };
+  assert.equal(connectionOwner(pump, library, [...topLevelNodes, library]), undefined);
+  assert.equal(connectionOwner(pump, car, [...topLevelNodes, car]), undefined);
+});
+
+test("DOCUMENT_ROOT is named by the empty owner and described as the document", () => {
+  assert.equal(DOCUMENT_ROOT.fqn ?? "", "");
+  assert.equal(describeOwner(DOCUMENT_ROOT), "the document");
+  assert.equal(describeOwner(car), "Vehicle::Car");
 });
 
 test("endpointPath spells the feature chain below the owner", () => {
@@ -76,6 +108,16 @@ test("endpointPath spells the feature chain below the owner", () => {
 test("endpointPath refuses the owner itself and a node outside it", () => {
   assert.equal(endpointPath(car, car, nodes), undefined);
   assert.equal(endpointPath(fuelIn, tank, nodes), undefined);
+});
+
+test("endpointPath from the document root spells the whole chain", () => {
+  assert.equal(endpointPath(outlet, DOCUMENT_ROOT, topLevelNodes), "pump.outlet");
+  assert.equal(endpointPath(topTank, DOCUMENT_ROOT, topLevelNodes), "tank");
+});
+
+test("endpointPath from the document root refuses a chain the document does not declare", () => {
+  assert.equal(endpointPath(fuelOut, DOCUMENT_ROOT, nodes), undefined);
+  assert.equal(endpointPath(DOCUMENT_ROOT, DOCUMENT_ROOT, topLevelNodes), undefined);
 });
 
 test("endpointPath refuses a step that has no name", () => {

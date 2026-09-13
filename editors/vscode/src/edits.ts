@@ -1,12 +1,13 @@
 // How a diagram action becomes an opensysml/applyModelEdit request: owner,
 // endpoint spelling, the version it is pinned to and refusal wording. No VS
 // Code here, so it is unit-tested.
-import type { ApplyModelEditParams, ModelEditOperation, ModelEditRefusal, RenderNode } from "./protocol";
+import type { ApplyModelEditParams, EditPalette, ModelEditOperation, ModelEditRefusal, RenderNode } from "./protocol";
 
-/** Rendering is the diagram an action is taken on: its nodes and the document version they draw. */
+/** Rendering is the diagram an action is taken on: its nodes, what they offer to add, and the document version they draw. */
 export interface Rendering {
   nodes: RenderNode[];
   version: number;
+  palette?: EditPalette;
 }
 
 /** A node's ancestors, nearest first, ending at a root. */
@@ -39,26 +40,45 @@ export function rootOwner(nodes: RenderNode[]): RenderNode | undefined {
   return roots.length === 1 ? roots[0] : undefined;
 }
 
-/** connectionOwner is the nearest declared common ancestor of two nodes, either included. */
-export function connectionOwner(from: RenderNode, to: RenderNode, nodes: RenderNode[]): RenderNode | undefined {
-  const fromChain = [from, ...ancestors(from, nodes)];
-  const toChain = new Set([to, ...ancestors(to, nodes)].map((node) => node.id));
-  return fromChain.find((node) => node.fqn && toChain.has(node.id));
+/** DOCUMENT_ROOT stands for the document itself, which owns its top-level declarations; an edit names it by the empty owner. */
+export const DOCUMENT_ROOT: RenderNode = { id: "", kind: "document", name: "", type: "", detail: "", fqn: "" };
+
+/** topLevel: a root node the document declares directly, so its qualified name is one segment. */
+function topLevel(node: RenderNode): boolean {
+  return !node.parent && Boolean(node.fqn) && !node.fqn?.includes("::");
 }
 
-/** endpointPath spells a node from owner's scope (`tank.fuelOut`); undefined when it cannot be. */
-export function endpointPath(node: RenderNode, owner: RenderNode, nodes: RenderNode[]): string | undefined {
-  const steps: string[] = [];
-  for (const step of [node, ...ancestors(node, nodes)]) {
-    if (step.id === owner.id) {
-      return steps.length === 0 ? undefined : steps.reverse().join(".");
-    }
-    if (!step.name || step.name.includes("::")) {
-      return undefined;
-    }
-    steps.push(step.name);
+/**
+ * connectionOwner is the nearest declared common ancestor of two nodes, either included;
+ * DOCUMENT_ROOT when they share none but both descend from top-level declarations.
+ */
+export function connectionOwner(from: RenderNode, to: RenderNode, nodes: RenderNode[]): RenderNode | undefined {
+  const fromChain = [from, ...ancestors(from, nodes)];
+  const toChain = [to, ...ancestors(to, nodes)];
+  const toIDs = new Set(toChain.map((node) => node.id));
+  const common = fromChain.find((node) => node.fqn && toIDs.has(node.id));
+  if (common) {
+    return common;
   }
-  return undefined;
+  return topLevel(fromChain[fromChain.length - 1]) && topLevel(toChain[toChain.length - 1]) ? DOCUMENT_ROOT : undefined;
+}
+
+/** describeOwner names an owner for a message: its qualified name, or the document for DOCUMENT_ROOT. */
+export function describeOwner(owner: RenderNode): string {
+  return owner === DOCUMENT_ROOT ? "the document" : owner.fqn ?? owner.name;
+}
+
+/** endpointPath spells a node from owner's scope (`tank.fuelOut`; from DOCUMENT_ROOT, `car.tank.fuelOut`); undefined when it cannot be. */
+export function endpointPath(node: RenderNode, owner: RenderNode, nodes: RenderNode[]): string | undefined {
+  const chain = [node, ...ancestors(node, nodes)];
+  const below = owner === DOCUMENT_ROOT
+    ? (topLevel(chain[chain.length - 1]) ? chain.length : -1)
+    : chain.findIndex((step) => step.id === owner.id);
+  if (below <= 0) {
+    return undefined;
+  }
+  const steps = chain.slice(0, below).map((step) => step.name);
+  return steps.every((name) => name && !name.includes("::")) ? steps.reverse().join(".") : undefined;
 }
 
 /** What the user is told when an action names a rendering that has been replaced. */
