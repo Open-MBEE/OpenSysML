@@ -20,21 +20,15 @@ const DefaultMoves = 40
 // Engine is the `smt` analysis engine over the solver discover finds.
 type Engine struct {
 	discover func() (*solve.Solver, error)
-	unroll   int
 }
 
 // New returns the engine over the solver discover finds, nil discovering as
-// solve.Discover does, unrolling body loops DefaultUnroll times.
+// solve.Discover does.
 func New(discover func() (*solve.Solver, error)) *Engine {
 	if discover == nil {
 		discover = solve.Discover
 	}
-	return &Engine{discover: discover, unroll: DefaultUnroll}
-}
-
-// Unrolling returns the engine with body loops unrolled n times, n at least 1.
-func (e *Engine) Unrolling(n int) *Engine {
-	return &Engine{discover: e.discover, unroll: max(n, 1)}
+	return &Engine{discover: discover}
 }
 
 // Name is `smt`.
@@ -114,6 +108,7 @@ type run struct {
 	solver   *solve.Solver
 	timeout  time.Duration
 	moves    int
+	unroll   int
 	encoding *Encoding
 	property *Property
 	deadlock *Property
@@ -121,8 +116,9 @@ type run struct {
 	timedOut bool
 }
 
-// Run encodes the flow for Budget.Depth moves (DefaultMoves when none) and asks, in order, for a
-// violation, a failure and a deadlock; a `sat` is replayed before it is claimed.
+// Run encodes the flow for Budget.Depth moves (DefaultMoves when none), body loops unrolled
+// Budget.Unroll times (DefaultUnroll when none), and asks, in order, for a violation, a
+// failure and a deadlock; a `sat` is replayed before it is claimed.
 func (e *Engine) Run(ctx context.Context, model *analysis.Model, q analysis.Question, budget analysis.Budget) (analysis.Result, error) {
 	if coverage := e.Covers(model, q); !coverage.Covered {
 		return analysis.Result{}, coverage.Refusal
@@ -134,12 +130,15 @@ func (e *Engine) Run(ctx context.Context, model *analysis.Model, q analysis.Ques
 	if budget.Solver > 0 {
 		solver.Timeout = budget.Solver
 	}
-	r := &run{engine: e, model: model, q: q, budget: budget, solver: solver, timeout: solver.Timeout, moves: budget.Depth, started: time.Now()}
+	r := &run{engine: e, model: model, q: q, budget: budget, solver: solver, timeout: solver.Timeout, moves: budget.Depth, unroll: budget.Unroll, started: time.Now()}
 	if r.timeout <= 0 {
 		r.timeout = solve.DefaultTimeout
 	}
 	if r.moves <= 0 {
 		r.moves = DefaultMoves
+	}
+	if r.unroll <= 0 {
+		r.unroll = DefaultUnroll
 	}
 	if !modelBuilds(model) {
 		return analysis.Result{}, &analysis.NoRuntimeError{Engine: e.Name()}
@@ -170,7 +169,7 @@ func (r *run) encode() (refusal error, err error) {
 		return nil, err
 	}
 	defer exec.Release()
-	encoding, err := Encode(ctx, r.q.Holds.Behavior, exec.Graph(), exec.Held(), r.moves, r.engine.unroll)
+	encoding, err := Encode(ctx, r.q.Holds.Behavior, exec.Graph(), exec.Held(), r.moves, r.unroll)
 	if err != nil {
 		return refusalOf(err)
 	}
@@ -309,7 +308,7 @@ func (r *run) result() analysis.Result {
 	if r.encoding != nil {
 		result.Bounds = r.bounds(Cut{})
 	} else {
-		result.Bounds = analysis.Bounds{{Name: "moves", Limit: int64(r.moves)}, {Name: "unroll", Limit: int64(r.engine.unroll)},
+		result.Bounds = analysis.Bounds{{Name: "moves", Limit: int64(r.moves)}, {Name: "unroll", Limit: int64(r.unroll)},
 			{Name: "solver", Limit: r.timeout.Milliseconds()}}
 	}
 	return result

@@ -382,7 +382,7 @@ func (ctx *Context) SetSchedule(policy SchedulePolicy) error {
 	ctx.schedule = policy
 	ctx.replaying = nil
 	if policy.kind == scheduleReplay {
-		ctx.replaying = &replayRun{choices: slices.Clone(policy.replay.choices)}
+		ctx.replaying = &replayRun{inputs: slices.Clone(policy.replay.witness.Inputs), choices: slices.Clone(policy.replay.witness.Choices)}
 	}
 	return nil
 }

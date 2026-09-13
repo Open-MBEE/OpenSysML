@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -367,12 +368,47 @@ type Accept struct {
 // (`attribute h : LengthValue = 500.0 [m];`), whose Value resolves in the
 // graph's own scope.
 type Attribute struct {
-	Name  string
+	Name string
+	// Direction is the parameter direction written, DirNone for a plain attribute.
+	Direction ast.FeatureDirection
+	IsResult  bool // a `return` parameter, what the behavior yields
+	// Type is the declared type as written (`Natural`, `Vehicle::Mode`), "" without one.
+	Type  string
 	Value ast.Node
 	Node  ast.Node // the declaration itself, for diagnostics
 	// Scope is the scope the declaration was written in, in which its default
 	// resolves; nil where the owner's own scope resolves it.
 	Scope *symbols.Scope
+}
+
+// TypeText spells the type a usage declares with `:` as the notation writes it
+// (each segment quoted when it must be), or "" without one.
+func TypeText(u *ast.Usage) string {
+	for _, rel := range u.Relationships {
+		if rel == nil || rel.Kind != ast.RelTyping {
+			continue
+		}
+		qn, ok := rel.Target.(*ast.QualifiedName)
+		if !ok || len(qn.Parts) == 0 {
+			continue
+		}
+		segments := make([]string, 0, len(qn.Parts))
+		for _, part := range qn.Parts {
+			segments = append(segments, lexer.NameText(part.Text))
+		}
+		text := strings.Join(segments, "::")
+		if qn.Global {
+			text = "$::" + text
+		}
+		return text
+	}
+	return ""
+}
+
+// Output reports whether the feature is written back rather than read: an `out`
+// or `return` parameter, which no caller and no witness may fix.
+func (a Attribute) Output() bool {
+	return a.Direction == ast.DirOut || a.IsResult
 }
 
 // Feature is one parameter or attribute an action node declares itself. Value
@@ -1112,7 +1148,7 @@ func lowerAttributes(members []ast.Node) []Attribute {
 		if name == "" {
 			continue
 		}
-		attrs = append(attrs, Attribute{Name: name, Value: usage.Value, Node: usage})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Node: usage})
 	}
 	return attrs
 }

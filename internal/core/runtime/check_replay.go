@@ -39,7 +39,7 @@ type Replayed struct {
 }
 
 // ReplayAction re-runs the witness: it starts the action start begins in the
-// context fresh makes, under the `replay` policy over the witness's choices, and
+// context fresh makes, under the `replay` policy over the witness (its inputs pinned), and
 // steps it until its trace equals the witness's, settling as the check did — or,
 // for a witness ending in a failure, until a move raises it. A witness naming a
 // property has that property, found among props, evaluated at the state reached:
@@ -65,7 +65,7 @@ func ReplayAction(
 	if err != nil {
 		return nil, err
 	}
-	if err := ctx.SetSchedule(ReplayPolicy(w.Choices)); err != nil {
+	if err := ctx.SetSchedule(ReplayOf(w)); err != nil {
 		return nil, err
 	}
 	if ctx.Trace() == nil {
@@ -204,73 +204,4 @@ func (e *ActionExecutor) advance() error {
 		return e.deadlockError(nil)
 	}
 	return err
-}
-
-// The lines closing a witness after its trace: the property it claims, the failure it ends in.
-const (
-	propertyPrefix = "property: "
-	failsPrefix    = "fails: "
-)
-
-// String renders the witness as a file holds it: its choices one per line — or
-// `no choice points` — a blank line, the trace, and after a blank line the
-// claims closing it: `property: <name>` for a property's, `fails: <the
-// failure>` for a schedule ending in a failure, last.
-func (w Witness) String() string {
-	var b strings.Builder
-	if len(w.Choices) == 0 {
-		b.WriteString("no choice points\n")
-	}
-	for _, c := range w.Choices {
-		b.WriteString(c.String())
-		b.WriteByte('\n')
-	}
-	b.WriteByte('\n')
-	b.WriteString(w.Trace)
-	if w.Property != "" || w.Fails != "" {
-		b.WriteString("\n")
-	}
-	if w.Property != "" {
-		b.WriteString("\n" + propertyPrefix + w.Property)
-	}
-	if w.Fails != "" {
-		b.WriteString("\n" + failsPrefix + w.Fails)
-	}
-	return b.String()
-}
-
-// ParseWitness reads a witness as Witness.String writes it: the choices
-// ParseChoices reads, after the blank line ending them the trace, exact, and
-// after a blank line ending that the claims closing it, if any.
-func ParseWitness(text string) (Witness, error) {
-	choices, err := ParseChoices(text)
-	if err != nil {
-		return Witness{}, err
-	}
-	lines := strings.SplitAfter(text, "\n")
-	begun := false
-	for i, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			if begun {
-				w := Witness{Choices: choices, Trace: strings.Join(lines[i+1:], "")}
-				w.readClaims()
-				return w, nil
-			}
-			continue
-		}
-		begun = true
-	}
-	return Witness{Choices: choices}, nil
-}
-
-// readClaims splits the claims closing the witness off its trace.
-func (w *Witness) readClaims() {
-	if trace, claims, found := strings.Cut(w.Trace, "\n\n"+propertyPrefix); found {
-		w.Trace = trace
-		w.Property, w.Fails, _ = strings.Cut(strings.TrimSuffix(claims, "\n"), "\n"+failsPrefix)
-		return
-	}
-	if trace, fails, found := strings.Cut(w.Trace, "\n\n"+failsPrefix); found {
-		w.Trace, w.Fails = trace, strings.TrimSuffix(fails, "\n")
-	}
 }
