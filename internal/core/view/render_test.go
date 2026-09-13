@@ -369,10 +369,11 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	rendering := render(t, "typings.sysml", "SpelledViews::rigView")
 	cases := map[string]string{
-		"plug": "~Link",
-		"rail": "'Frame *rail*'",
-		"base": "Mount, Cart",
-		"root": "$::Spelled::Mount",
+		"plug":     "~Link",
+		"rail":     "'Frame *rail*'",
+		"base":     "Mount, Cart",
+		"root":     "$::Spelled::Mount",
+		"mirrored": "~rail.'Frame *rail*'",
 	}
 	for name, want := range cases {
 		if node := nodeNamed(t, rendering, name); node.Type != want {
@@ -380,11 +381,30 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 		}
 	}
 	text := rendering.Text()
-	for _, want := range []string{"port plug : ~Link", "part rail : 'Frame *rail*'", "part base : Mount, Cart", "part root : $::Spelled::Mount"} {
+	for _, want := range []string{
+		"port plug : ~Link", "part rail : 'Frame *rail*'", "part base : Mount, Cart",
+		"part root : $::Spelled::Mount", "port mirrored : ~rail.'Frame *rail*'",
+	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
 		}
 	}
+	// An anonymous connection or message is labeled by its type, spelled once.
+	if got := edgeLabels(render(t, "typings.sysml", "SpelledViews::rigConnections")); !got["Bolt, Weld"] {
+		t.Errorf("connection edge labels %v lack %q", sortedKeys(got), "Bolt, Weld")
+	}
+	if got := edgeLabels(render(t, "typings.sysml", "SpelledViews::exchangeView")); !got["$::Spelled::Note"] {
+		t.Errorf("message edge labels %v lack %q", sortedKeys(got), "$::Spelled::Note")
+	}
+}
+
+// edgeLabels is the set of labels the edges of a rendering carry.
+func edgeLabels(rendering *Rendering) map[string]bool {
+	labels := map[string]bool{}
+	for _, edge := range rendering.Edges {
+		labels[edge.Label] = true
+	}
+	return labels
 }
 
 // A node performing statements rather than a flow of its own is rendered as the

@@ -359,7 +359,7 @@ func (r *Renderer) messageLabel(flow *symbols.Symbol) string {
 		return notationName(name)
 	}
 	if declared := declType(flow); declared != "" {
-		return notationName(declared)
+		return declared
 	}
 	if payload := payloadText(flow); payload != "" {
 		return "of " + payload

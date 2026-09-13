@@ -542,6 +542,9 @@ func typingOf(rels []*ast.Relationship) string {
 // referenceText spells a name reference as written: a `$::` root, `::` between
 // members, `.` along a feature chain, and each segment quoted as needed.
 func referenceText(node ast.Node) string {
+	if chain, ok := node.(*ast.FeatureChainExpr); ok {
+		return referenceText(chain.Operand) + "." + referenceText(chain.Member)
+	}
 	qn := ast.AsQualifiedName(node)
 	if qn == nil {
 		return ""

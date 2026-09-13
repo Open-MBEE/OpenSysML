@@ -197,7 +197,7 @@ func (r *Renderer) connectorLabel(connector *symbols.Symbol) string {
 		return notationName(name)
 	}
 	if declared := declType(connector); declared != "" {
-		return notationName(declared)
+		return declared
 	}
 	if payload := flowPayload(connector); payload != "" {
 		return "of " + notationName(payload)
