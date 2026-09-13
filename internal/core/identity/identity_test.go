@@ -365,18 +365,16 @@ func TestLibraryCatalogNamesEveryNormativeIDAndIsSharedByOverlays(t *testing.T) 
 	if !ok || om != el {
 		t.Fatalf("Real's owning membership by id: %+v, %v", om, ok)
 	}
-	if !catalog.NormativeFor(el.ID, el.FQN) || !catalog.NormativeFor(el.OwningMembershipID, "") || catalog.NormativeFor(rdf.EncodeElementID("ScalarValues::Real"), el.FQN) {
-		t.Fatal("NormativeFor should know both ids of a library element and no derived one")
+	derived := rdf.EncodeElementID("ScalarValues::Real")
+	if _, ok := catalog.Element(derived); ok {
+		t.Fatal("a derived id is not a normative one")
 	}
-	if catalog.NormativeFor(el.ID, "P::A") || catalog.NormativeFor(el.OwningMembershipID, "P::A") || catalog.NormativeFor(el.ID, "") {
-		t.Fatal("a subject that is not the library element must not take its id for the norm's")
-	}
-	if !catalog.NormativeFor(el.ID, "ScalarValues::@7") || catalog.NormativeFor(el.ID, "P::@7") || catalog.NormativeFor(el.ID, "ScalarValues::@x") || catalog.NormativeFor(el.ID, "ScalarValues::@7::@1") {
-		t.Fatal("only a position under the library owner may stand for the element's name")
+	if _, ok := catalog.OwningMembership(derived); ok {
+		t.Fatal("a derived id is not a normative membership either")
 	}
 	edges, ok := catalog.Element("6749b419-719a-51d9-8e13-d993bb953e80")
-	if !ok || edges.FQN != "ShapeItems::RectangularPyramid::base::edges" || !catalog.NormativeFor(edges.ID, "ShapeItems::RectangularPyramid::@1::@3") || catalog.NormativeFor(edges.ID, "@0::RectangularPyramid::@1::@3") {
-		t.Fatalf("%+v: an effectively named member is addressed by position under positional owners, within its package", edges)
+	if !ok || edges.FQN != "ShapeItems::RectangularPyramid::base::edges" {
+		t.Fatalf("%+v: an effectively named member is catalogued under its effective name", edges)
 	}
 	res := resolve.New(idx)
 	model := semantics.NewModel(res)

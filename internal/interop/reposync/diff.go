@@ -5,8 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -350,7 +349,6 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 	}
 	views := map[string]*subjectView{}
 	uncarried := map[string]int{}
-	library := identity.LibraryCatalog(libs.NewModelIndex())
 	for _, triple := range g.Triples() {
 		if !triple.Subject.IsIRI() {
 			continue
@@ -399,7 +397,7 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		if names := view.props[rdf.SysML+"qualifiedName"]; len(names) > 0 {
 			view.qualifiedName = strings.Trim(names[0], `"`)
 		}
-		view.normative = library.NormativeFor(view.id, view.qualifiedName)
+		view.normative = export.NormativeSubject(view.id, view.qualifiedName)
 		view.declared = declaredID(g, view)
 		view.mintable = mintable(view)
 	}

@@ -1,7 +1,6 @@
 package identity
 
 import (
-	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
@@ -97,50 +96,6 @@ func (c *Catalog) Element(id string) (*LibraryElement, bool) {
 func (c *Catalog) OwningMembership(id string) (*LibraryElement, bool) {
 	el, ok := c.memberships[id]
 	return el, ok
-}
-
-// NormativeFor reports whether id is the id the norm fixes for the subject a
-// graph names qualifiedName: the library element so named (by name, or by
-// position in the same library owner), or its owning membership, which names
-// nothing. A user element carrying a library uuid is not the library element.
-func (c *Catalog) NormativeFor(id, qualifiedName string) bool {
-	if el, ok := c.elements[id]; ok {
-		return sameLibraryMember(el.FQN, qualifiedName)
-	}
-	_, om := c.memberships[id]
-	return om && qualifiedName == ""
-}
-
-// sameLibraryMember reports whether qualifiedName addresses the library element
-// fqn names: the same library package, then each segment by name or by position
-// (`@n`), as a graph names an effectively named member and what it owns.
-func sameLibraryMember(fqn, qualifiedName string) bool {
-	if fqn == qualifiedName {
-		return true
-	}
-	names, segments := strings.Split(fqn, "::"), strings.Split(qualifiedName, "::")
-	if len(names) != len(segments) || names[0] != segments[0] {
-		return false
-	}
-	for i := 1; i < len(names); i++ {
-		if names[i] != segments[i] && !positional(segments[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// positional reports whether name addresses an unnamed member by its position.
-func positional(name string) bool {
-	if len(name) < 2 || name[0] != '@' {
-		return false
-	}
-	for _, c := range name[1:] {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return true
 }
 
 // Elements lists the catalogued elements in library walk order.

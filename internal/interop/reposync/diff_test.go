@@ -730,14 +730,15 @@ func TestNormativeLibraryIDIsNeitherDeclaredNorMinted(t *testing.T) {
 // without declaredId, is not the library element: its id was declared, not fixed
 // by the norm, and stays declared rather than derived on write-back.
 func TestUserElementWithLibraryIDIsDeclaredNotNormative(t *testing.T) {
-	for _, id := range []string{
-		"14c0aa22-5489-59b5-b438-ded26e83ba31", // ScalarValues::Real
-		"ab72a695-5fe9-58a3-9d48-9e9a8711862d", // ScalarValues::Real's owning membership
+	for _, c := range []struct{ id, qname string }{
+		{"14c0aa22-5489-59b5-b438-ded26e83ba31", "P::A"},             // ScalarValues::Real
+		{"ab72a695-5fe9-58a3-9d48-9e9a8711862d", "P::A"},             // ScalarValues::Real's owning membership
+		{"14c0aa22-5489-59b5-b438-ded26e83ba31", "ScalarValues::@8"}, // a position, not Real's name
 	} {
 		local := rdf.NewGraph()
-		subject := rdf.ElementIRIForID(id)
+		subject := rdf.ElementIRIForID(c.id)
 		local.Add(subject, rdf.IRI(rdf.RDFType), rdf.IRI(rdf.SysML+"PartDefinition"))
-		local.Add(subject, rdf.IRI(rdf.SysML+"qualifiedName"), rdf.String("P::A"))
+		local.Add(subject, rdf.IRI(rdf.SysML+"qualifiedName"), rdf.String(c.qname))
 		set, err := reposync.Diff(local, rdf.NewGraph(), reposync.Options{
 			MintIDs: true,
 			NewID:   func() (string, error) { return "minted-uuid-1", nil },
@@ -747,10 +748,10 @@ func TestUserElementWithLibraryIDIsDeclaredNotNormative(t *testing.T) {
 		}
 		creates := byKind(set, reposync.KindCreate)
 		if len(creates) != 1 || set.Conflicts() != 0 {
-			t.Fatalf("P::A must be one plain create:\n%s", set.Text())
+			t.Fatalf("%s must be one plain create:\n%s", c.qname, set.Text())
 		}
 		if change := creates[0]; !change.Declared || change.Normative || change.MintedID != "" {
-			t.Errorf("%s on P::A: declared %v normative %v minted %q; want a declared id", id, change.Declared, change.Normative, change.MintedID)
+			t.Errorf("%s on %s: declared %v normative %v minted %q; want a declared id", c.id, c.qname, change.Declared, change.Normative, change.MintedID)
 		}
 	}
 }

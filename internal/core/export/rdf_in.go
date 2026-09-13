@@ -11,9 +11,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf/ontology"
@@ -1114,7 +1112,7 @@ func identityAnnotations(el *element) []string {
 // normativeID reports whether el is the standard-library element whose id the
 // norm fixes to el's: implied by the library, so never an annotation.
 func normativeID(el *element) bool {
-	return identity.LibraryCatalog(libs.NewModelIndex()).NormativeFor(el.elementID, el.qname)
+	return NormativeSubject(el.elementID, el.qname)
 }
 
 // head builds the declaration text up to the body or terminator, with the

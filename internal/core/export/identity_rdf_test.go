@@ -610,6 +610,46 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 	}
 }
 
+// A library uuid is the norm's only on the subject named as the library element
+// is: by its effective name, or by the position the encoder writes it at.
+func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
+	const (
+		real           = "14c0aa22-5489-59b5-b438-ded26e83ba31" // ScalarValues::Real
+		realMembership = "ab72a695-5fe9-58a3-9d48-9e9a8711862d"
+		edges          = "1c6076b4-48fa-5c5f-81f2-7c850aee33b1" // ShapeItems::Polyhedron::edges, written as @3
+		pyramidEdges   = "6749b419-719a-51d9-8e13-d993bb953e80" // ShapeItems::RectangularPyramid::base::edges
+	)
+	cases := []struct {
+		id, qname string
+		want      bool
+	}{
+		{real, "ScalarValues::Real", true},
+		{realMembership, "", true},
+		{realMembership, "P::A", false},
+		{realMembership, "ScalarValues::Real", false},
+		{real, "P::A", false},
+		{real, "", false},
+		{real, "ScalarValues::@7", false},
+		{real, "ScalarValues::@8", false},
+		{rdf.EncodeElementID("ScalarValues::Real"), "ScalarValues::Real", false},
+		{edges, "ShapeItems::Polyhedron::@3", true},
+		{edges, "ShapeItems::Polyhedron::edges", true},
+		{edges, "ShapeItems::Polyhedron::@2", false},
+		{edges, "ShapeItems::Polyhedron::@4", false},
+		{edges, "P::Polyhedron::@3", false},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::@3::@0", true},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::base::edges", true},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::@1::@3", false},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::@3::@1", false},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::base::@0", false},
+	}
+	for _, c := range cases {
+		if got := export.NormativeSubject(c.id, c.qname); got != c.want {
+			t.Errorf("NormativeSubject(%s, %q) = %v, want %v", c.id, c.qname, got, c.want)
+		}
+	}
+}
+
 // A redefining feature without a name of its own takes the redefined one, so
 // the norm fixes an id for it while the graph names it by position. Neither
 // side may mistake that id for a declared one.
