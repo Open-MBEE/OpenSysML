@@ -193,12 +193,15 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 	return &Result{Content: content, Applied: applied}, nil
 }
 
-// needsSequential reports whether a later operation may look up a name an
-// earlier one declares, renames or removes. Only setting a value leaves every
-// name where it was, so a batch is proven independent only when nothing before
-// its last operation does more than that.
+// needsSequential reports whether one operation may see another's work: a name
+// an earlier one declares, renames or removes, or bytes it already rewrote.
+// Values sit apart from one another and move no name, so only a request of
+// nothing but set-value is proven independent.
 func needsSequential(ops []Operation) bool {
-	for _, op := range ops[:len(ops)-1] {
+	if len(ops) == 1 {
+		return false
+	}
+	for _, op := range ops {
 		if op.Kind != OpSetValue {
 			return true
 		}

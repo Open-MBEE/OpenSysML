@@ -8,6 +8,7 @@ import {
   editParams,
   endpointPath,
   offeredOn,
+  oneName,
   ownerOf,
   REDRAWN_MESSAGE,
   Rendering,
@@ -539,7 +540,7 @@ class DiagramPanel {
     rendering: Rendering,
     title: string,
     except: RenderNode | undefined,
-    keep: (node: RenderNode) => boolean = (node) => Boolean(node.name) && !node.name.includes("::"),
+    keep: (node: RenderNode) => boolean = (node) => oneName(node.name),
   ): Promise<RenderNode | undefined> {
     const items = rendering.nodes
       .filter((node) => node !== except && keep(node))

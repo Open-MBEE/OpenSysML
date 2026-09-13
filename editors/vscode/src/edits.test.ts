@@ -9,7 +9,9 @@ import {
   DOCUMENT_ROOT,
   editParams,
   endpointPath,
+  nameSegments,
   offeredOn,
+  oneName,
   ownerOf,
   rootOwner,
   validName,
@@ -124,6 +126,50 @@ test("endpointPath refuses a step that has no name", () => {
   const anonymous: RenderNode = { id: "n8", kind: "part", name: "", type: "T", detail: "", parent: "n1", fqn: "Vehicle::Car::part1" };
   const inner: RenderNode = { id: "n9", kind: "port", name: "p", type: "", detail: "", parent: "n8" };
   assert.equal(endpointPath(inner, car, [...nodes, anonymous, inner]), undefined);
+});
+
+test("nameSegments splits at :: outside quotes only", () => {
+  assert.deepEqual(nameSegments("Vehicle::Car"), ["Vehicle", "Car"]);
+  assert.deepEqual(nameSegments("'P::Q'::tank"), ["'P::Q'", "tank"]);
+  assert.deepEqual(nameSegments("'fuel::out'"), ["'fuel::out'"]);
+  assert.deepEqual(nameSegments("'it\\'s::x'"), ["'it\\'s::x'"]);
+  assert.deepEqual(nameSegments(""), [""]);
+});
+
+test("oneName accepts a bare or quoted name and refuses a qualified or empty one", () => {
+  assert.equal(oneName("tank"), true);
+  assert.equal(oneName("'a b'"), true);
+  assert.equal(oneName("'fuel::out'"), true);
+  assert.equal(oneName("Vehicle::Car"), false);
+  assert.equal(oneName("'P::Q'::tank"), false);
+  assert.equal(oneName(""), false);
+});
+
+// The tree rendering of
+//   part 'x::y' { port 'fuel::out'; } part def 'Top Def' { port in1; }
+// The server writes each node's name as the notation does, quoted when it must be.
+const quotedPart: RenderNode = { id: "q1", kind: "part", name: "'x::y'", type: "", detail: "", fqn: "x::y" };
+const quotedPort: RenderNode = { id: "q2", kind: "port", name: "'fuel::out'", type: "", detail: "", parent: "q1", fqn: "x::y::fuel::out" };
+const quotedDef: RenderNode = { id: "q3", kind: "part def", name: "'Top Def'", type: "", detail: "", fqn: "Top Def" };
+const quotedIn: RenderNode = { id: "q4", kind: "port", name: "in1", type: "", detail: "", parent: "q3", fqn: "Top Def::in1" };
+const quotedNodes = [quotedPart, quotedPort, quotedDef, quotedIn];
+
+test("endpointPath keeps a quoted name holding :: as one step", () => {
+  assert.equal(endpointPath(quotedPort, quotedPart, quotedNodes), "'fuel::out'");
+  assert.equal(endpointPath(quotedPort, DOCUMENT_ROOT, quotedNodes), "'x::y'.'fuel::out'");
+  assert.equal(endpointPath(quotedIn, DOCUMENT_ROOT, quotedNodes), "'Top Def'.in1");
+});
+
+test("connectionOwner takes a quoted top-level name holding :: as the document's", () => {
+  assert.equal(connectionOwner(quotedPort, quotedIn, quotedNodes), DOCUMENT_ROOT);
+  assert.equal(connectionOwner(quotedPart, quotedDef, quotedNodes), DOCUMENT_ROOT);
+});
+
+test("endpointPath still refuses a root drawn under a qualified name", () => {
+  const nested: RenderNode = { id: "q5", kind: "part", name: "'P::Q'::tank", type: "", detail: "", fqn: "P::Q::tank" };
+  const port: RenderNode = { id: "q6", kind: "port", name: "p", type: "", detail: "", parent: "q5", fqn: "P::Q::tank::p" };
+  assert.equal(endpointPath(port, DOCUMENT_ROOT, [nested, port]), undefined);
+  assert.equal(connectionOwner(port, quotedIn, [nested, port, ...quotedNodes]), undefined);
 });
 
 test("editParams asks for the version the rendering drew, not the buffer's", () => {

@@ -43,9 +43,35 @@ export function rootOwner(nodes: RenderNode[]): RenderNode | undefined {
 /** DOCUMENT_ROOT stands for the document itself, which owns its top-level declarations; an edit names it by the empty owner. */
 export const DOCUMENT_ROOT: RenderNode = { id: "", kind: "document", name: "", type: "", detail: "", fqn: "" };
 
-/** topLevel: a root node the document declares directly, so its qualified name is one segment. */
+/** nameSegments splits a qualified name at `::` outside quotes: `'P::Q'::x` is two segments. */
+export function nameSegments(text: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted && c === "\\") {
+      i++;
+    } else if (c === "'") {
+      quoted = !quoted;
+    } else if (!quoted && text.startsWith("::", i)) {
+      out.push(text.slice(start, i));
+      start = i + 2;
+      i++;
+    }
+  }
+  out.push(text.slice(start));
+  return out;
+}
+
+/** oneName: text spells a single name, bare or quoted, not a qualified one. */
+export function oneName(text: string): boolean {
+  return text !== "" && nameSegments(text).length === 1;
+}
+
+/** topLevel: a root node the document declares directly, so it is drawn under its own name. */
 function topLevel(node: RenderNode): boolean {
-  return !node.parent && Boolean(node.fqn) && !node.fqn?.includes("::");
+  return !node.parent && Boolean(node.fqn) && oneName(node.name);
 }
 
 /**
@@ -78,7 +104,7 @@ export function endpointPath(node: RenderNode, owner: RenderNode, nodes: RenderN
     return undefined;
   }
   const steps = chain.slice(0, below).map((step) => step.name);
-  return steps.every((name) => name && !name.includes("::")) ? steps.reverse().join(".") : undefined;
+  return steps.every(oneName) ? steps.reverse().join(".") : undefined;
 }
 
 /** What the user is told when an action names a rendering that has been replaced. */

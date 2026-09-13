@@ -406,6 +406,19 @@ func TestOrderedOperationsSeeEarlierResults(t *testing.T) {
 	}
 }
 
+// A value set and then deleted with its declaration is one request in order,
+// not two edits of the same bytes.
+func TestOrderedOperationsMayRewriteTheSameBytes(t *testing.T) {
+	m := loadContent(t, "ordered.sysml", "package P {\n    attribute n = 1;\n    attribute k = 2;\n}\n")
+	res, err := Apply(m, []Operation{SetValue("P::n", "3"), Delete("P::n", false)})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if got, want := string(res.Content), "package P {\n    attribute k = 2;\n}\n"; got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+}
+
 // An operation naming what an earlier one removed is refused, not resolved
 // against the original text.
 func TestOrderedOperationsDoNotSeeRemovedNames(t *testing.T) {
