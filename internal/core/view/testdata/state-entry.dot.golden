@@ -6,35 +6,35 @@ digraph "MachineViews::thermostat" {
   graph [compound=true];
   node [shape=box];
   subgraph "cluster_n0" {
-    label="state def Machines::Thermostat";
+    label=<<b>Machines::Thermostat</b><br/><font point-size="10">«state def»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n12" [shape=point, label=""];
-    "n1" [shape=box, style=rounded, label="state heating"];
+    "n1" [shape=box, style=rounded, label=<<b>heating</b><br/><font point-size="10">«state»</font>>];
     subgraph "cluster_n2" {
-      label="state idle";
+      label=<<b>idle</b><br/><font point-size="10">«state»</font>>;
       "n2" [shape=point, style=invis, width=0, height=0, label=""];
       "n13" [shape=point, label=""];
-      "n3" [shape=box, style=rounded, label="state drying"];
-      "n4" [shape=box, style=rounded, label="state resting"];
+      "n3" [shape=box, style=rounded, label=<<b>drying</b><br/><font point-size="10">«state»</font>>];
+      "n4" [shape=box, style=rounded, label=<<b>resting</b><br/><font point-size="10">«state»</font>>];
     }
     subgraph "cluster_n5" {
-      label="state monitoring";
+      label=<<b>monitoring</b><br/><font point-size="10">«state»</font>>;
       "n5" [shape=point, style=invis, width=0, height=0, label=""];
       subgraph "cluster_n6" {
-        label="region lights";
+        label=<<b>lights</b><br/><font point-size="10">«region»</font>>;
         style=dashed;
         "n6" [shape=point, style=invis, width=0, height=0, label=""];
         "n14" [shape=point, label=""];
-        "n8" [shape=box, style=rounded, label="state lit"];
-        "n9" [shape=box, style=rounded, label="state unlit"];
+        "n8" [shape=box, style=rounded, label=<<b>lit</b><br/><font point-size="10">«state»</font>>];
+        "n9" [shape=box, style=rounded, label=<<b>unlit</b><br/><font point-size="10">«state»</font>>];
       }
       subgraph "cluster_n7" {
-        label="region fans";
+        label=<<b>fans</b><br/><font point-size="10">«region»</font>>;
         style=dashed;
         "n7" [shape=point, style=invis, width=0, height=0, label=""];
         "n15" [shape=point, label=""];
-        "n10" [shape=box, style=rounded, label="state off\ninitial"];
-        "n11" [shape=box, style=rounded, label="state on"];
+        "n10" [shape=box, style=rounded, label=<<b>off</b><br/><font point-size="10">«state»</font><br/>initial>];
+        "n11" [shape=box, style=rounded, label=<<b>on</b><br/><font point-size="10">«state»</font>>];
       }
     }
   }

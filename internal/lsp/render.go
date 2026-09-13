@@ -58,6 +58,7 @@ type renderNode struct {
 	ID        string        `json:"id"`
 	Kind      string        `json:"kind"`
 	Name      string        `json:"name"`
+	Type      string        `json:"type"`
 	Detail    string        `json:"detail"`
 	Parent    string        `json:"parent,omitempty"`
 	Origin    *renderOrigin `json:"origin,omitempty"`
@@ -235,6 +236,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			ID:     node.ID,
 			Kind:   node.Kind,
 			Name:   node.Name,
+			Type:   node.Type,
 			Detail: node.Detail,
 			Parent: node.Parent,
 			Origin: s.origin(node.Origin),

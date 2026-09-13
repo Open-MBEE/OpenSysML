@@ -456,8 +456,45 @@ The forms a kind can be written in:
 | `markdown` | `table` | A pipe table, the machine-readable form of a table |
 | `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
 
+A node's label follows the graphical notation's header: the element's name leads, with ` : Type`
+after it for a typed usage, the kind follows on its own line in guillemets, and any note (`initial`,
+`already shown`, `own flow`) comes after that. An anonymous element leads with its kind and has no
+keyword line. The text form keeps the notation's keyword-leading declaration order instead. One node
+in each form:
+
+| Form | `part pump : Pump` |
+| --- | --- |
+| `text` | `part pump : Pump` (a note in parentheses after it: `part sensor : Pump (already shown)`) |
+| `mermaid` | `n1["pump : Pump<br>«part»"]` — a flowchart node, a `state "…" as n1` and a `participant n1 as …` all break at `<br>` |
+| `dot` | `"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>];` — an HTML-like label, the name in bold and the keyword line at 10pt |
+
+A Mermaid flowchart reserves the height of one line for a `subgraph` title, so a flowchart
+whose cluster title spans more — an interconnection or action rendering with a container —
+opens on a YAML frontmatter block that claims the rest as the title's bottom margin, 24px per
+extra line:
+
+```
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["Plant::Loop<br>«part def»"]
+  …
+```
+
+The block travels with the text into every consumer (`-render`, `-render-all`, `%render`,
+`opensysml/render`, the Mermaid fences of a document in Markdown, HTML and PDF), and Mermaid
+10.5 and later reads it. A flowchart with no such cluster, a `tree` rendering (its containment
+is edges), a `state` and a `sequence` diagram have no frontmatter.
+
 `dot` writes a `digraph` with one `// view:`, `// kind:` and `// layout:` header comment line and
 one `// not represented:` line per notice, the same header Mermaid writes as `%%` comments.
+Node and cluster labels are HTML-like strings (`label=<…>`) with `&`, `<`, `>` and `"` in a name
+written as entities; edge labels, identifiers and geometry stay double-quoted strings.
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
 or succession is a solid arrow. Producing DOT needs no Graphviz installation; laying it out does,
@@ -495,7 +532,7 @@ first applies). See
 
 ```bash
 sysml model.sysml -render Views::vehicleView -render-form text
-# part engine (Engine) at (120, 80) size 200×90
+# part engine : Engine at (120, 80) size 200×90
 ```
 
 `-render-documents <dir>` renders every document definition the loaded model declares into the

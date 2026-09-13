@@ -121,19 +121,19 @@ func TestDOTFormSupport(t *testing.T) {
 	}
 }
 
-// Every identifier and label is written quoted, with the quotes and
-// backslashes it carries escaped, so a name holding either is still one ID.
+// Every identifier and edge label is quoted with its quotes and backslashes
+// escaped; a node or cluster label is an HTML string with markup as entities.
 func TestDOTQuotesEveryIdentifierAndLabel(t *testing.T) {
 	rendering := &Rendering{
 		View: `Odd::view "quoted" and \backslashed`,
 		Kind: KindInterconnection,
 		Roots: []*Node{
 			{ID: `a"b`, Kind: "part", Name: `say "hi"`, Detail: `C:\path`},
-			{ID: `c\d`, Kind: "part", Name: "plain", Children: []*Node{
+			{ID: `c\d`, Kind: "part", Name: "plain", Type: "A<B> & C", Children: []*Node{
 				{ID: "e", Kind: "port", Name: "line one\nline two"},
 			}},
 		},
-		Edges: []Edge{{From: `a"b`, To: "e", Label: `"quoted" \ label`, Kind: EdgeConnection}},
+		Edges: []Edge{{From: `a"b`, To: "e", Label: `"quoted" \ <label> & more`, Kind: EdgeConnection}},
 	}
 	dot, err := rendering.DOT()
 	if err != nil {
@@ -142,10 +142,11 @@ func TestDOTQuotesEveryIdentifierAndLabel(t *testing.T) {
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
 		`digraph "Odd::view \"quoted\" and \\backslashed" {`,
-		`"a\"b" [label="part say \"hi\"\nC:\\path"];`,
+		`"a\"b" [label=<<b>say &#34;hi&#34;</b><br/><font point-size="10">«part»</font><br/>C:\path>];`,
 		`subgraph "cluster_c\\d" {`,
-		`"e" [label="port line one\nline two"];`,
-		`"a\"b" -> "e" [label="\"quoted\" \\ label", arrowhead=none];`,
+		`label=<<b>plain : A&lt;B&gt; &amp; C</b><br/><font point-size="10">«part»</font>>;`,
+		`"e" [label=<<b>line one<br/>line two</b><br/><font point-size="10">«port»</font>>];`,
+		`"a\"b" -> "e" [label="\"quoted\" \\ <label> & more", arrowhead=none];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -153,6 +154,40 @@ func TestDOTQuotesEveryIdentifierAndLabel(t *testing.T) {
 	}
 	if got := dotQuote(`a"b\c` + "\n"); got != `"a\"b\\c\n"` {
 		t.Errorf("dotQuote = %s", got)
+	}
+	if got := dotEscape(`<a> & "b"` + "\nc"); got != `&lt;a&gt; &amp; &#34;b&#34;<br/>c` {
+		t.Errorf("dotEscape = %s", got)
+	}
+}
+
+// A label is the bold name (` : Type` for a typed usage), the kind in
+// guillemets at 10pt, then the notes; a nameless node leads with its kind.
+func TestDOTLabelShape(t *testing.T) {
+	cases := []struct {
+		name string
+		node *Node
+		want string
+	}{
+		{"typed usage", &Node{Kind: "part", Name: "pump", Type: "Pump"},
+			`<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>`},
+		{"untyped usage", &Node{Kind: "attribute", Name: "power"},
+			`<<b>power</b><br/><font point-size="10">«attribute»</font>>`},
+		{"definition", &Node{Kind: "part def", Name: "Plant::Loop"},
+			`<<b>Plant::Loop</b><br/><font point-size="10">«part def»</font>>`},
+		{"name-less", &Node{Kind: "connect"}, `<<b>connect</b>>`},
+		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, `<<b>part</b>>`},
+		{"name-less with note", &Node{Kind: "connect", Detail: "already shown"}, `<<b>connect</b><br/>already shown>`},
+		{"notes", &Node{Kind: "part", Name: "sensor", Type: "Pump", Detail: "already shown as n1, collapsed"},
+			`<<b>sensor : Pump</b><br/><font point-size="10">«part»</font><br/>already shown as n1, collapsed>`},
+		{"state note", &Node{Kind: "state", Name: "off", Detail: "initial"},
+			`<<b>off</b><br/><font point-size="10">«state»</font><br/>initial>`},
+		{"escaped", &Node{Kind: "part", Name: `a<b> & "c"`, Type: "T<U>", Detail: "x > y"},
+			`<<b>a&lt;b&gt; &amp; &#34;c&#34; : T&lt;U&gt;</b><br/><font point-size="10">«part»</font><br/>x &gt; y>`},
+	}
+	for _, tc := range cases {
+		if got := dotLabel(tc.node); got != "label="+tc.want {
+			t.Errorf("%s: dotLabel = %s, want %s", tc.name, got, tc.want)
+		}
 	}
 }
 
@@ -193,17 +228,17 @@ digraph "Nested::view" {
   graph [compound=true];
   node [shape=box];
   subgraph "cluster_n0" {
-    label="part def Outer";
+    label=<<b>Outer</b><br/><font point-size="10">«part def»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     subgraph "cluster_n1" {
-      label="part inner";
+      label=<<b>inner</b><br/><font point-size="10">«part»</font>>;
       "n1" [shape=point, style=invis, width=0, height=0, label=""];
-      "n2" [label="port p"];
-      "n3" [label="port q"];
+      "n2" [label=<<b>p</b><br/><font point-size="10">«port»</font>>];
+      "n3" [label=<<b>q</b><br/><font point-size="10">«port»</font>>];
     }
-    "n4" [label="part leaf"];
+    "n4" [label=<<b>leaf</b><br/><font point-size="10">«part»</font>>];
   }
-  "n5" [label="part def Other"];
+  "n5" [label=<<b>Other</b><br/><font point-size="10">«part def»</font>>];
   "n4" -> "n1" [arrowhead=none, lhead="cluster_n1"];
   "n1" -> "n5" [label="out", style=dashed, ltail="cluster_n1"];
   "n2" -> "n3" [arrowhead=none];
@@ -324,9 +359,9 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 		t.Errorf("DOT draws %d start points, want %d:\n%s", got, starts, dot)
 	}
 	for _, want := range []string{
-		`[shape=box, style=rounded, label="state heating"];`,
+		`[shape=box, style=rounded, label=<<b>heating</b><br/><font point-size="10">«state»</font>>];`,
 		`subgraph "cluster_n6" {`,
-		`label="region lights";`,
+		`label=<<b>lights</b><br/><font point-size="10">«region»</font>>;`,
 		`style=dashed;`,
 		`"n12" -> "n1" [label="[cold]"];`,
 		`"n12" -> "n2" [label="[not cold]", lhead="cluster_n2"];`,
@@ -349,15 +384,19 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 			t.Errorf("Mermaid drops the transition label %q", edge.Label)
 		}
 	}
-	// An action's initial and final nodes are circles; a state's detail is its
-	// second line.
+	// An action's initial and final nodes are circles; a state's detail is the
+	// line after its keyword.
 	final := &Rendering{View: "V", Kind: KindAction, Roots: []*Node{
 		{ID: "a", Kind: "final", Name: "done"}, {ID: "b", Kind: "state", Name: "off", Detail: "initial"}, {ID: "c", Kind: "initial", Name: "go"}}}
 	dot, err = final.DOT()
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	for _, want := range []string{`"a" [shape=doublecircle, label="final done"];`, `"b" [shape=box, style=rounded, label="state off\ninitial"];`, `"c" [shape=circle, label="initial go"];`} {
+	for _, want := range []string{
+		`"a" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10">«final»</font>>];`,
+		`"b" [shape=box, style=rounded, label=<<b>off</b><br/><font point-size="10">«state»</font><br/>initial>];`,
+		`"c" [shape=circle, label=<<b>go</b><br/><font point-size="10">«initial»</font>>];`,
+	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}
@@ -428,11 +467,11 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// canvas: unit=px w=1200 h=800\n// layout: neato\n",
 		"  graph [inputscale=72, dpi=72];\n  node [shape=box];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,800!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"1200,0!\", pin=true];\n  subgraph",
-		// pump: top-left (300, 40), no size, so the centre of a 92x42 box fitted
-		// to two lines of nine glyphs, stated but not fixed, collapsed.
-		`"n1" [label="part pump\nPump", pos="346,739!", pin=true, width=1.2777777777777777, height=0.5833333333333334, comment="collapsed"];`,
+		// pump: top-left (300, 40), no size, so the centre of a 109x37 box fitted
+		// to eleven 14pt glyphs over a 10pt keyword line, stated but not fixed, collapsed.
+		`"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];`,
 		// tank: top-left (500, 40), 120x60, so centre (560, 70) -> y 730 from a canvas 800 high.
-		`"n2" [label="part tank\nTank", pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
+		`"n2" [label=<<b>tank : Tank</b><br/><font point-size="10">«part»</font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
 		`"n1" -> "n2" [label="supply", arrowhead=none, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -449,8 +488,8 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// layout: neato\ndigraph",
 		"  graph [inputscale=72, dpi=72];\n",
-		`"n1" [label="part pump\nPump", pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
-		`"n2" [label="part tank\nTank"];`,
+		`"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n2" [label=<<b>tank : Tank</b><br/><font point-size="10">«part»</font>>];`,
 		`pos="60,-45 60,-45 200,-45 200,-45"`,
 	} {
 		if !strings.Contains(plain, want) {
@@ -468,8 +507,9 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	checkDOTSyntax(t, machine)
 	for _, want := range []string{
 		`"n3" [shape=point, label=""];`,
-		`[shape=box, style=rounded, label="state off\ninitial", pos="46,-21!", pin=true, width=1.2777777777777777, height=0.5833333333333334];`,
-		`[shape=box, style=rounded, label="state on", pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
+		// off: three lines, 14pt, 10pt and 14pt, so a 75x54 box from its top-left (0, 0).
+		`[shape=box, style=rounded, label=<<b>off</b><br/><font point-size="10">«state»</font><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
+		`[shape=box, style=rounded, label=<<b>on</b><br/><font point-size="10">«state»</font>>, pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
 		`"n1" -> "n2" [label="off_on:", pos="50,-10 50,-10 50,-90 50,-90"];`,
 		`"n2" -> "n1" [pos="30,-90 30,-90 30,-10 30,-10"];`,
 	} {
@@ -526,18 +566,18 @@ digraph "Pinned::view" {
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,300!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="400,0!", pin=true];
   subgraph "cluster_n0" {
-    label="part def Outer";
+    label=<<b>Outer</b><br/><font point-size="10">«part def»</font>>;
     bb="10,180,210,280";
     comment="collapsed";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="110,230!", pin=true];
-    "n1" [label="part a", pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
-    "n2" [label="part b", pos="153.5,252!", pin=true, width=0.9305555555555556, height=0.5];
+    "n1" [label=<<b>a</b><br/><font point-size="10">«part»</font>>, pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
+    "n2" [label=<<b>b</b><br/><font point-size="10">«part»</font>>, pos="147,251.5!", pin=true, width=0.75, height=0.5138888888888888];
   }
   subgraph "cluster_n3" {
-    label="part def Other";
-    bb="300,46,385,100";
-    "n3" [shape=point, style=invis, width=0, height=0, label="", pos="342.5,73!", pin=true];
-    "n4" [label="port p", pos="343.5,72!", pin=true, width=0.9305555555555556, height=0.5];
+    label=<<b>Other</b><br/><font point-size="10">«part def»</font>>;
+    bb="300,45,372,100";
+    "n3" [shape=point, style=invis, width=0, height=0, label="", pos="336,72.5!", pin=true];
+    "n4" [label=<<b>p</b><br/><font point-size="10">«port»</font>>, pos="337,71.5!", pin=true, width=0.75, height=0.5138888888888888];
   }
   "n1" -> "n2" [arrowhead=none, pos="92,252 92,252 120,252 120,252"];
   "n2" -> "n3" [style=dashed, lhead="cluster_n3"];
@@ -583,8 +623,8 @@ digraph "Pinned::view" {
 	for _, want := range []string{
 		"// layout: neato -n2\n",
 		"  graph [inputscale=72, dpi=72];\n  node [shape=box];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,300!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"400,0!\", pin=true];\n  \"n0\"",
-		`"n0" [label="part def Outer", pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
-		`"n3" [label="part def Other", pos="367,82!", pin=true, width=1.8611111111111112, height=0.5];`,
+		`"n0" [label=<<b>Outer</b><br/><font point-size="10">«part def»</font>>, pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
+		`"n3" [label=<<b>Other</b><br/><font point-size="10">«part def»</font>>, pos="338,81.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("tree DOT lacks %q:\n%s", want, dot)
@@ -607,8 +647,8 @@ digraph "Pinned::view" {
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
 		`"s" [shape=point, label="", pos="1.8,-1.8!", pin=true];`,
-		`"i" [shape=circle, label="initial go", pos="152,-52!", pin=true, width=1.4444444444444444, height=1.4444444444444444];`,
-		`"f" [shape=doublecircle, label="final done", pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
+		`"i" [shape=circle, label=<<b>go</b><br/><font point-size="10">«initial»</font>>, pos="140,-40!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
+		`"f" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10">«final»</font>>, pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("pseudo-state DOT lacks %q:\n%s", want, dot)
@@ -623,7 +663,7 @@ digraph "Pinned::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	for _, want := range []string{"// canvas: unit=mm w=0 h=0\n", `"canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,0!", pin=true];`, `"canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="0,0!", pin=true];`, `pos="60.5,-36!"`} {
+	for _, want := range []string{"// canvas: unit=mm w=0 h=0\n", `"canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,0!", pin=true];`, `"canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="0,0!", pin=true];`, `pos="54,-36.5!"`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("zero-canvas DOT lacks %q:\n%s", want, dot)
 		}
@@ -714,6 +754,12 @@ func checkDOTSyntax(t *testing.T, dot string) {
 			if (tok.text == "label" || tok.text == "bb" || tok.text == "comment") && !value.quoted {
 				t.Fatalf("cluster %s is not quoted at token %d:\n%s", tok.text, i, dot)
 			}
+			if value.html {
+				if tok.text != "label" {
+					t.Fatalf("cluster %s is an HTML string, which only a label may be:\n%s", tok.text, dot)
+				}
+				checkDOTHTMLLabel(t, value.text, dot)
+			}
 			if tok.text == "bb" {
 				checkDOTGeometry(t, "bb", value.text, dot)
 			}
@@ -759,6 +805,12 @@ func checkDOTAttributes(t *testing.T, tokens []dotToken, i int, dot string, clip
 		if (name == "label" || name == "lhead" || name == "ltail" || name == "pos" || name == "bb" || name == "comment") && !value.quoted {
 			t.Fatalf("attribute %s has a bare value %q:\n%s", name, value.text, dot)
 		}
+		if value.html {
+			if name != "label" {
+				t.Fatalf("attribute %s is an HTML string, which only a label may be:\n%s", name, dot)
+			}
+			checkDOTHTMLLabel(t, value.text, dot)
+		}
 		if name == "lhead" || name == "ltail" {
 			*clipped = append(*clipped, value.text)
 		}
@@ -776,6 +828,51 @@ func checkDOTAttributes(t *testing.T, tokens []dotToken, i int, dot string, clip
 		t.Fatalf("attribute list never closes:\n%s", dot)
 	}
 	return i
+}
+
+// checkDOTHTMLLabel checks an HTML-like label as Graphviz reads it: only the
+// tags the writer uses, properly nested, and no bare `<`, `>` or `&` in the text.
+func checkDOTHTMLLabel(t *testing.T, label, dot string) {
+	t.Helper()
+	var open []string
+	for i := 0; i < len(label); i++ {
+		switch label[i] {
+		case '<':
+			end := strings.IndexByte(label[i:], '>')
+			if end < 0 {
+				t.Fatalf("HTML label %q: tag never closes:\n%s", label, dot)
+			}
+			tag := label[i+1 : i+end]
+			i += end
+			switch {
+			case tag == "br/":
+			case tag == "b" || strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
+				open = append(open, strings.Fields(tag)[0])
+			case strings.HasPrefix(tag, "/"):
+				if len(open) == 0 || open[len(open)-1] != tag[1:] {
+					t.Fatalf("HTML label %q: </%s> closes nothing open:\n%s", label, tag[1:], dot)
+				}
+				open = open[:len(open)-1]
+			default:
+				t.Fatalf("HTML label %q: unexpected tag <%s>:\n%s", label, tag, dot)
+			}
+		case '>':
+			t.Fatalf("HTML label %q: bare > at %d:\n%s", label, i, dot)
+		case '&':
+			end := strings.IndexByte(label[i:], ';')
+			if end < 0 {
+				t.Fatalf("HTML label %q: bare & at %d:\n%s", label, i, dot)
+			}
+			entity := label[i+1 : i+end]
+			if entity != "amp" && entity != "lt" && entity != "gt" && entity != "quot" && (!strings.HasPrefix(entity, "#") || len(entity) < 2) {
+				t.Fatalf("HTML label %q: unknown entity &%s;:\n%s", label, entity, dot)
+			}
+			i += end
+		}
+	}
+	if len(open) > 0 {
+		t.Fatalf("HTML label %q leaves <%s> open:\n%s", label, open[len(open)-1], dot)
+	}
 }
 
 // checkDOTGeometry checks a geometry attribute's value as Graphviz reads it: a
@@ -812,10 +909,11 @@ func checkDOTGeometry(t *testing.T, name, value, dot string) {
 }
 
 // dotToken is one token of a DOT text: a quoted string with its escapes
-// resolved, or a bare word or punctuation.
+// resolved, an HTML string with its markup kept, or a bare word or punctuation.
 type dotToken struct {
 	text   string
-	quoted bool
+	quoted bool // a quoted or HTML string, which DOT reads as one ID
+	html   bool // an HTML string, `<...>`
 }
 
 // tokenizeDOT splits DOT into tokens, dropping `//` comments.
@@ -849,6 +947,22 @@ func tokenizeDOT(dot string) ([]dotToken, error) {
 				return nil, errors.New("unterminated quoted string")
 			}
 			tokens = append(tokens, dotToken{text: b.String(), quoted: true})
+		case c == '<':
+			// An HTML string runs to the `>` that balances its opening `<`.
+			start, depth := i, 0
+			for ; i < len(dot); i++ {
+				if dot[i] == '<' {
+					depth++
+				} else if dot[i] == '>' {
+					if depth--; depth == 0 {
+						break
+					}
+				}
+			}
+			if i >= len(dot) {
+				return nil, errors.New("unterminated HTML string")
+			}
+			tokens = append(tokens, dotToken{text: dot[start+1 : i], quoted: true, html: true})
 		case c == '-' && i+1 < len(dot) && dot[i+1] == '>':
 			tokens = append(tokens, dotToken{text: "->"})
 			i++

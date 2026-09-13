@@ -126,8 +126,8 @@ state views, Markdown for the tables. Override the destination with
 ```
 %% OpenSysMLViews::tierStates — state rendering (view def StateTransitionView)
 stateDiagram-v2
-  state "state def OpenSysMLBehavior::TierProgression" as n0 {
-    state "state syntaxTier (initial)" as n1
+  state "OpenSysMLBehavior::TierProgression<br>«state def»" as n0 {
+    state "syntaxTier<br>«state»<br>initial" as n1
     ...
     [*] --> n1
   }

@@ -1,16 +1,16 @@
 %% VehicleViews::vehicleView — tree rendering
 flowchart TD
-  n0["part def Vehicles::Vehicle"]
-  n1["part engine (Engine)"]
+  n0["Vehicles::Vehicle<br>«part def»"]
+  n1["engine : Engine<br>«part»"]
   n0 --- n1
-  n2["part wheels (Wheel)"]
+  n2["wheels : Wheel<br>«part»"]
   n0 --- n2
   n3["connect"]
   n0 --- n3
-  n4["view VehicleViews::vehicleView::engineSubview"]
-  n5["part def Vehicles::Engine"]
-  n6["attribute power"]
+  n4["VehicleViews::vehicleView::engineSubview<br>«view»"]
+  n5["Vehicles::Engine<br>«part def»"]
+  n6["power<br>«attribute»"]
   n5 --- n6
-  n7["part cylinder (Cylinder)"]
+  n7["cylinder : Cylinder<br>«part»"]
   n5 --- n7
   n4 --- n5

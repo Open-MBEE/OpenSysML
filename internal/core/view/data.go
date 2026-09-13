@@ -30,6 +30,7 @@ type NodeData struct {
 	ID     string
 	Kind   string
 	Name   string
+	Type   string
 	Detail string
 	// Parent is the ID of the node this one is nested in, "" for a root.
 	Parent string
@@ -88,7 +89,7 @@ func appendNodeData(out []NodeData, node *Node, parent string) []NodeData {
 		return out
 	}
 	out = append(out, NodeData{
-		ID: node.ID, Kind: node.Kind, Name: node.Name, Detail: node.Detail, Parent: parent, Origin: node.Origin,
+		ID: node.ID, Kind: node.Kind, Name: node.Name, Type: node.Type, Detail: node.Detail, Parent: parent, Origin: node.Origin,
 		Geometry: node.Geometry,
 	})
 	for _, child := range node.Children {

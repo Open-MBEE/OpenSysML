@@ -93,10 +93,10 @@ mount segmentControl
 digraph "Observatory::interconnectView" {
   node [shape=box];
   subgraph "cluster_n0" {
-    label="part Observatory::imagingChain";
+    label=<<b>Observatory::imagingChain</b><br/><font point-size="10">«part»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label="part camera\nCamera"];
-    "n2" [label="part recorder\nRecorder"];
+    "n1" [label=<<b>camera : Camera</b><br/><font point-size="10">«part»</font>>];
+    "n2" [label=<<b>recorder : Recorder</b><br/><font point-size="10">«part»</font>>];
   }
   "n1" -> "n2" [label="link", arrowhead=none];
 }
@@ -113,11 +113,11 @@ digraph {
   graph [rankdir=LR];
   node [shape=box];
   subgraph "cluster_n0" {
-    label="state Observatory::operatingStates\nObservatoryStates";
+    label=<<b>Observatory::operatingStates : ObservatoryStates</b><br/><font point-size="10">«state»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n3" [shape=point, label=""];
-    "n1" [shape=box, style=rounded, label="state idle\ninitial"];
-    "n2" [shape=box, style=rounded, label="state observing"];
+    "n1" [shape=box, style=rounded, label=<<b>idle</b><br/><font point-size="10">«state»</font><br/>initial>];
+    "n2" [shape=box, style=rounded, label=<<b>observing</b><br/><font point-size="10">«state»</font>>];
   }
   "n3" -> "n1";
   "n1" -> "n2";
