@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -537,18 +538,22 @@ func TestIdentityAboutFormOnLibraryElementValidatesInTheAnnotatingDocument(t *te
 	w8dWantLines(t, src, "identity-unscoped-id", 2)
 }
 
-func TestIdentityCollisionWithLibraryDescendantUnderAboutFormProjectRef(t *testing.T) {
-	derived := rdf.EncodeElementID("ScalarValues::Boolean")
-	src := `package Meta {
+// libraryCollisionSrc declares id for a user element in the project ScalarValues is bound to.
+func libraryCollisionSrc(id string) string {
+	return `package Meta {
 	metadata pref : IdentityMetadata::ProjectRef about ScalarValues { projectId = "proj-1"; }
 }
 package P {
 	@IdentityMetadata::ProjectRef { projectId = "proj-1"; }
 	part def A {
-		@IdentityMetadata::ElementId { id = "` + derived + `"; }
+		@IdentityMetadata::ElementId { id = "` + id + `"; }
 	}
 }
 `
+}
+
+func TestIdentityCollisionWithLibraryDescendantUnderAboutFormProjectRef(t *testing.T) {
+	src := libraryCollisionSrc(normative.ElementID(normative.KerML, "ScalarValues::Boolean"))
 	diags := only(w8dDiags(t, src), "identity-duplicate-id")
 	if len(diags) != 1 {
 		t.Fatalf("got %d duplicate-id diagnostics, want 1 at the workspace annotation: %v", len(diags), diags)
@@ -557,4 +562,12 @@ package P {
 		t.Fatalf("diagnostic must name both elements: %q", diags[0].Message)
 	}
 	w8dWantLines(t, src, "identity-duplicate-id", 7)
+}
+
+// The encoded name is no library element's id any more, so declaring it collides with nothing.
+func TestIdentityEncodedLibraryNameIsFreeUnderAboutFormProjectRef(t *testing.T) {
+	src := libraryCollisionSrc(rdf.EncodeElementID("ScalarValues::Boolean"))
+	if diags := only(w8dDiags(t, src), "identity-duplicate-id"); len(diags) != 0 {
+		t.Fatalf("got duplicate-id diagnostics %v, want none", diags)
+	}
 }

@@ -2,11 +2,13 @@ package lsp
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -33,7 +35,7 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 			}
 			rng := spanToRange(content, span)
 			return &protocol.Hover{
-				Contents: s.hoverContents(signature, s.symbolDocComments(target)),
+				Contents: s.hoverContents(signature, s.symbolDocComments(target), s.identityLine(target.DocName, target)),
 				Range:    &rng,
 			}, nil
 		}
@@ -63,9 +65,23 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 
 	rng := spanToRange(content, sym.DeclSpan)
 	return &protocol.Hover{
-		Contents: s.hoverContents(signature, comments),
+		Contents: s.hoverContents(signature, comments, s.identityLine(name, sym)),
 		Range:    &rng,
 	}, nil
+}
+
+// identityLine states a declared or normative element id; a derived id is the
+// encoded name and goes unsaid.
+func (s *Server) identityLine(doc string, sym *symbols.Symbol) string {
+	info, ok := s.ws.IdentityOf(doc, sym)
+	if !ok || info.Source == identity.SourceDerived {
+		return ""
+	}
+	provenance := info.Source.String()
+	if info.Normative() {
+		provenance += ", " + info.Language.String()
+	}
+	return fmt.Sprintf("Element id `%s` (%s)", info.EffectiveID, provenance)
 }
 
 // ambiguousCallHover lists the overloads a call's arguments leave tied when the
@@ -87,7 +103,7 @@ func (s *Server) ambiguousCallHover(doc string, content []byte, ref resolve.Refe
 	}
 	rng := spanToRange(content, last.Span)
 	return &protocol.Hover{
-		Contents: s.hoverContents(strings.Join(lines, "\n"), []string{"Ambiguous call: the arguments fit each of these overloads equally."}),
+		Contents: s.hoverContents(strings.Join(lines, "\n"), []string{"Ambiguous call: the arguments fit each of these overloads equally."}, ""),
 		Range:    &rng,
 	}
 }
@@ -107,8 +123,8 @@ func (s *Server) symbolDocComments(sym *symbols.Symbol) []string {
 }
 
 // hoverContents renders the hover as Markdown when the client supports it,
-// plain text otherwise.
-func (s *Server) hoverContents(signature string, comments []string) protocol.MarkupContent {
+// plain text otherwise; identity, when there is one to state, closes it.
+func (s *Server) hoverContents(signature string, comments []string, elementID string) protocol.MarkupContent {
 	if s.wantsMarkdownHover() {
 		var b strings.Builder
 		b.WriteString("```sysml\n")
@@ -118,12 +134,19 @@ func (s *Server) hoverContents(signature string, comments []string) protocol.Mar
 			b.WriteString("\n\n")
 			b.WriteString(prose)
 		}
+		if elementID != "" {
+			b.WriteString("\n\n")
+			b.WriteString(elementID)
+		}
 		return protocol.MarkupContent{Kind: protocol.Markdown, Value: b.String()}
 	}
 
 	value := signature
 	if doc := strings.Join(comments, "\n"); doc != "" {
 		value += "\n\n" + doc
+	}
+	if elementID != "" {
+		value += "\n\n" + strings.ReplaceAll(elementID, "`", "")
 	}
 	return protocol.MarkupContent{Kind: protocol.PlainText, Value: value}
 }
