@@ -45,8 +45,8 @@ func TestTransitionFootprintsProjectGuardEffectAndActivity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
 	}
-	go_ := graph.TransitionFootprints[transitionOut(t, graph, "idle", 0)]
-	stop := graph.TransitionFootprints[transitionOut(t, graph, "idle", 1)]
+	go_ := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
+	stop := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 1)]
 	if !hasPlace(go_.Reads, "y") || !hasPlace(go_.Reads, "idle") {
 		t.Fatalf("Go reads %v, want the guard's y and the source's activity", placeNames(go_.Reads))
 	}
@@ -102,9 +102,9 @@ func TestTransitionFootprintsKeepRegionsApart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
 	}
-	left := graph.TransitionFootprints[transitionOut(t, graph, "l1", 0)]
-	right := graph.TransitionFootprints[transitionOut(t, graph, "r1", 0)]
-	quit := graph.TransitionFootprints[transitionOut(t, graph, "both", 0)]
+	left := graph.TransitionFootprints()[transitionOut(t, graph, "l1", 0)]
+	right := graph.TransitionFootprints()[transitionOut(t, graph, "r1", 0)]
+	quit := graph.TransitionFootprints()[transitionOut(t, graph, "both", 0)]
 	if left.Dependent(right) {
 		t.Fatalf("region-local transitions must be independent:\nleft:\n%s\nright:\n%s", left, right)
 	}
@@ -143,7 +143,7 @@ func TestTransitionFootprintsFollowChoiceBranchesAndCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
 	}
-	fp := graph.TransitionFootprints[transitionOut(t, graph, "idle", 0)]
+	fp := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
 	for _, name := range []string{"k", "p", "q", "high", "low", "idle"} {
 		if !hasPlace(fp.Writes, name) {
 			t.Fatalf("writes %v, want %s", placeNames(fp.Writes), name)
@@ -158,7 +158,7 @@ func TestTransitionFootprintsFollowChoiceBranchesAndCompletion(t *testing.T) {
 	// A pseudostate's branches are segments of the transitions into it, not moves.
 	pick := graph.Pseudostates[0]
 	for _, branch := range graph.Transitions[pick] {
-		if _, has := graph.TransitionFootprints[branch]; has {
+		if _, has := graph.TransitionFootprints()[branch]; has {
 			t.Fatal("a branch out of a pseudostate has no footprint of its own")
 		}
 	}
@@ -195,13 +195,13 @@ func TestBehaviorFootprintsCoverEveryBehavior(t *testing.T) {
 	}
 	s := stateNamed(graph, "s")
 	behaviors := graph.Behaviors[s]
-	do := graph.BehaviorFootprints[behaviors.Do[0].Node]
+	do := graph.BehaviorFootprints()[behaviors.Do[0].Node]
 	if !hasPlace(do.Writes, "m") || !hasPlace(do.Reads, "n") || !hasPlace(do.Reads, "s") {
 		t.Fatalf("do footprint reads %v writes %v, want n and s's activity read, m written",
 			placeNames(do.Reads), placeNames(do.Writes))
 	}
 	for _, behavior := range append(behaviors.Entry, behaviors.Exit...) {
-		if _, has := graph.BehaviorFootprints[behavior.Node]; !has {
+		if _, has := graph.BehaviorFootprints()[behavior.Node]; !has {
 			t.Fatalf("behavior %v has no footprint", behavior.Node)
 		}
 	}

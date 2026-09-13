@@ -183,18 +183,35 @@ func controlNodeName(node ast.Node) string {
 	return fmt.Sprintf("%T", node)
 }
 
-// lowerFootprints computes the footprint of every node of the graph once its
-// nodes, edges, bodies, flows and bindings are lowered.
-func lowerFootprints(graph *ActionGraph) {
-	graph.Footprints = make(map[ast.Node]Footprint, len(graph.Nodes))
-	for _, node := range graph.Nodes {
-		graph.Footprints[node] = footprintOf(graph, node)
-	}
+// Footprints is node → what advancing a token through the node may read, write,
+// send, accept and converge on, for the model checker's independence relation.
+// It is computed from the lowered graph on first use and shared by every caller.
+func (g *ActionGraph) Footprints() map[ast.Node]Footprint {
+	g.footprintsOnce.Do(func() {
+		g.footprints = make(map[ast.Node]Footprint, len(g.Nodes))
+		declared := declaredFeatures(g)
+		for _, node := range g.Nodes {
+			g.footprints[node] = footprintOf(g, node, declared)
+		}
+	})
+	return g.footprints
 }
 
-// footprintOf projects the footprint of one node from the graph's side tables.
-func footprintOf(graph *ActionGraph, node ast.Node) Footprint {
-	b := &footprintBuilder{graph: graph, node: node, scope: nodeScopeOf(graph, node)}
+// declaredFeatures is the set of declarations the graph's nodes hold as their own features.
+func declaredFeatures(graph *ActionGraph) map[ast.Node]bool {
+	declared := make(map[ast.Node]bool)
+	for _, features := range graph.Features {
+		for _, f := range features {
+			declared[f.Node] = true
+		}
+	}
+	return declared
+}
+
+// footprintOf projects the footprint of one node from the graph's side tables;
+// declared is declaredFeatures(graph).
+func footprintOf(graph *ActionGraph, node ast.Node, declared map[ast.Node]bool) Footprint {
+	b := &footprintBuilder{graph: graph, node: node, scope: nodeScopeOf(graph, node), declared: declared}
 	if nodePerformsAction(node) {
 		// The performed action runs in an executor of its own; what it touches is its.
 		b.footprint.Dynamic = true
@@ -234,6 +251,7 @@ type footprintBuilder struct {
 	graph     *ActionGraph
 	node      ast.Node
 	scope     *symbols.Scope
+	declared  map[ast.Node]bool
 	footprint Footprint
 }
 
@@ -303,17 +321,7 @@ func (b *footprintBuilder) address(scope *symbols.Scope, target string, chained 
 
 // declaredByNode reports whether sym is a feature some node of the graph declares.
 func (b *footprintBuilder) declaredByNode(sym *symbols.Symbol) bool {
-	if b.graph == nil {
-		return false
-	}
-	for _, features := range b.graph.Features {
-		for _, f := range features {
-			if f.Node == sym.Decl {
-				return true
-			}
-		}
-	}
-	return false
+	return b.declared[sym.Decl]
 }
 
 // reads adds every feature an expression reads. A chain from a computed base, an
@@ -495,10 +503,7 @@ func (b *footprintBuilder) block(block Block) {
 		return
 	}
 	for _, node := range block.Graph.Nodes {
-		nested, ok := block.Graph.Footprints[node]
-		if !ok {
-			nested = footprintOf(block.Graph, node)
-		}
+		nested := block.Graph.Footprints()[node]
 		if !block.Graph.StatementRuns[node] {
 			// A nested action or a perform inside a block runs a behavior of its own.
 			nested.Dynamic = true

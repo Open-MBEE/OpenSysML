@@ -1536,6 +1536,14 @@ func (idx *Index) FQNs() []string {
 	return out
 }
 
+// Registered calls fn with every registered fully-qualified name and the
+// symbols under it, in name order.
+func (idx *Index) Registered(fn func(fqn string, syms []*Symbol)) {
+	for _, fqn := range idx.FQNs() {
+		fn(fqn, idx.fqn.at(fqn))
+	}
+}
+
 // FQNsEndingIn returns up to limit registered fully-qualified names whose last
 // segment is name, in name order. Used to suggest a candidate for a reference
 // whose qualifying namespace is not loaded.

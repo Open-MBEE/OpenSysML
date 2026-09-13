@@ -409,12 +409,18 @@ func (ctx *Context) librarySymbol(fqn string) *symbols.Symbol {
 	if ctx == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return nil
 	}
+	if sym, ok := ctx.model.librarySymbols[fqn]; ok {
+		return sym
+	}
+	var found *symbols.Symbol
 	for _, sym := range ctx.model.resolver.Index().LookupQualified(fqn) {
 		if ctx.libraryDeclared(sym) {
-			return sym
+			found = sym
+			break
 		}
 	}
-	return nil
+	ctx.model.librarySymbols[fqn] = found
+	return found
 }
 
 // written is the function's name as a model writes it, which it reports itself by.

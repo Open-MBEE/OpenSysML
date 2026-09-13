@@ -36,7 +36,7 @@ func scopedActionGraph(t *testing.T, src, name string) *ActionGraph {
 func footprintNamed(t *testing.T, graph *ActionGraph, name string) Footprint {
 	t.Helper()
 	node := namedActionNode(t, graph, name)
-	fp, ok := graph.Footprints[node]
+	fp, ok := graph.Footprints()[node]
 	if !ok {
 		t.Fatalf("node %s has no footprint", name)
 	}
@@ -84,7 +84,7 @@ func TestFootprintsCoverEveryNode(t *testing.T) {
 	`, "Clash")
 
 	for _, node := range graph.Nodes {
-		if _, ok := graph.Footprints[node]; !ok {
+		if _, ok := graph.Footprints()[node]; !ok {
 			t.Errorf("node %s has no footprint", getNodeName(node))
 		}
 	}
@@ -374,7 +374,7 @@ func TestFootprintDynamicTargets(t *testing.T) {
 	if sub == nil || sub.Graph == nil {
 		t.Fatal("nested subflow missing")
 	}
-	inner := sub.Graph.Footprints[namedActionNode(t, sub.Graph, "inner")]
+	inner := sub.Graph.Footprints()[namedActionNode(t, sub.Graph, "inner")]
 	if !hasPlace(inner.Writes, "x") {
 		t.Errorf("inner footprint:\n%s\nwant a write of x", inner)
 	}
@@ -615,5 +615,41 @@ func TestFootprintAddressReads(t *testing.T) {
 	}
 	if !aim.Dependent(peek) {
 		t.Error("redirecting the chain commutes with reading through it")
+	}
+}
+
+// Lowering leaves footprints unprojected; the first call projects them once
+// and every caller, concurrent or later, shares that one projection.
+func TestFootprintsAreProjectedOnceOnFirstUse(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		action def Once {
+			attribute x : Integer = 0;
+			first start;
+			action step { assign x := x + 1; }
+			done;
+			succession first start then step;
+			succession first step then done;
+		}
+	`, "Once")
+	if graph.footprints != nil {
+		t.Fatal("ToActionGraph projected footprints eagerly")
+	}
+
+	results := make(chan map[ast.Node]Footprint, 8)
+	for i := 0; i < cap(results); i++ {
+		go func() { results <- graph.Footprints() }()
+	}
+	first := <-results
+	for i := 1; i < cap(results); i++ {
+		if got := <-results; len(got) != len(first) {
+			t.Fatalf("concurrent Footprints disagree: %d vs %d entries", len(got), len(first))
+		}
+	}
+	if len(first) != len(graph.Nodes) {
+		t.Fatalf("Footprints has %d entries for %d nodes", len(first), len(graph.Nodes))
+	}
+	step := footprintNamed(t, graph, "step")
+	if got := placeNames(step.Writes); strings.Join(got, ",") != "x" {
+		t.Errorf("step writes = %v, want [x]", got)
 	}
 }

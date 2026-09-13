@@ -338,12 +338,25 @@ func (m *Model) isKerMLDoc(sym *symbols.Symbol) bool {
 	return m.resolver.Index().DocumentKind(sym.DocName) == source.KindKerML
 }
 
-// implicitBases returns the stdlib definitions sym is implicitly typed by, or
-// nil when sym is not a declaration of a kind with a known base.
+// implicitBases returns the stdlib definitions sym is implicitly typed by, or nil when sym
+// is not a declaration of a kind with a known base; memoized once the chains it reads settle.
 func (m *Model) implicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return nil
 	}
+	if cached, ok := m.implicitBase[sym]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	out := m.computeImplicitBases(sym)
+	if m.resolver.Leave() {
+		m.implicitBase[sym] = out
+	}
+	return out
+}
+
+// computeImplicitBases derives implicitBases' answer.
+func (m *Model) computeImplicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	// A conjugated type takes its supertypes from what it conjugates rather than
 	// from an implicit specialization of its kind's base (KerML §8.3.3.1.1).
 	if declaresConjugation(sym) {
@@ -563,7 +576,7 @@ func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, base := range append(m.implicitBases(sym), m.implicitBaseUsage(sym), m.implicitKerMLFeatureBase(sym)) {
+	for _, base := range slices.Concat(m.implicitBases(sym), []*symbols.Symbol{m.implicitBaseUsage(sym), m.implicitKerMLFeatureBase(sym)}) {
 		if base != nil && base != sym {
 			out = append(out, base)
 		}

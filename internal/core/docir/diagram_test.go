@@ -60,8 +60,11 @@ func TestEvaluateDiagramFromDeclaredView(t *testing.T) {
 	if diagram.Caption() != "Imaging chain" {
 		t.Fatalf("caption = %q", diagram.Caption())
 	}
-	if diagram.Direction() != "" {
-		t.Fatalf("direction = %q", diagram.Direction())
+	if diagram.Direction() != "" || diagram.Palette() != "" {
+		t.Fatalf("direction = %q, palette = %q", diagram.Direction(), diagram.Palette())
+	}
+	if options := diagram.Options(); options != (view.Options{}) {
+		t.Fatalf("options = %+v", options)
 	}
 	rendering := diagram.Rendering()
 	if rendering == nil {
@@ -118,5 +121,28 @@ func TestDiagramRenderingIsDefensivelyCopied(t *testing.T) {
 	}
 	if len(second.Notices) != 0 {
 		t.Fatalf("notices mutated: %v", second.Notices)
+	}
+}
+
+func TestEvaluateDiagramCarriesThePalette(t *testing.T) {
+	fixture := loadEvaluationFixture(t, diagramDocument(`
+		part states : Diagram {
+			attribute redefines kind = "state";
+			attribute redefines direction = "LR";
+			attribute redefines palette = "tol-muted";
+			ref redefines source = ObservatoryStates;
+		}
+	`))
+	document := fixture.mustEvaluate(t, "Report")
+	diagram := document.Content()[0]
+	if diagram.Palette() != view.PaletteTolMuted {
+		t.Fatalf("palette = %q", diagram.Palette())
+	}
+	want := view.Options{Direction: view.DirectionLeftRight, Palette: view.PaletteTolMuted}
+	if diagram.Options() != want {
+		t.Fatalf("options = %+v, want %+v", diagram.Options(), want)
+	}
+	if clone := cloneContent([]Content{diagram})[0]; clone.Options() != want {
+		t.Fatalf("cloned options = %+v", clone.Options())
 	}
 }

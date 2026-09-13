@@ -123,7 +123,7 @@ func TestMarkdownTelescopeReportDotGolden(t *testing.T) {
 		"```dot\n// view: Observatory::interconnectView\n// kind: interconnection\n",
 		"// layout: dot\ndigraph \"Observatory::interconnectView\" {\n",
 		"```dot\n// kind: state\n",
-		"// layout: dot\ndigraph {\n  graph [rankdir=LR];\n",
+		"// layout: dot\ndigraph {\n  graph [fontname=\"Helvetica\", rankdir=LR];\n",
 		"| name | mass |\n| --- | --- |\n",
 	} {
 		if !strings.Contains(got, want) {

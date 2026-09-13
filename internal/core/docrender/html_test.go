@@ -185,7 +185,7 @@ func TestHTMLDiagramForm(t *testing.T) {
 		`<pre class="dot">// view: Observatory::interconnectView` + "\n// kind: interconnection\n",
 		"// layout: dot\ndigraph &#34;Observatory::interconnectView&#34; {\n",
 		`<pre class="dot">// kind: state` + "\n",
-		"// layout: dot\ndigraph {\n  graph [rankdir=LR];\n",
+		"// layout: dot\ndigraph {\n  graph [fontname=&#34;Helvetica&#34;, rankdir=LR];\n",
 		`<table class="sysml-table"`,
 	} {
 		if !strings.Contains(got, want) {

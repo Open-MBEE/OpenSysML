@@ -459,23 +459,38 @@ func (r *Registry) candidates(kind Kind, selection Selection) ([]Engine, error) 
 
 // declaring is every engine declaring the kind, in name order.
 func (r *Registry) declaring(kind Kind) []Engine {
-	var engines []Engine
-	for _, e := range r.Engines() {
-		if e.Describe().Answers(kind) {
-			engines = append(engines, e)
-		}
-	}
-	return engines
+	return r.forKind(kind).declaring
 }
 
 // ranked is every engine declaring the kind, strongest authority first and
 // name order within one authority.
 func (r *Registry) ranked(kind Kind) []Engine {
-	engines := r.declaring(kind)
-	sort.SliceStable(engines, func(i, j int) bool {
-		return engines[i].Describe().Authority > engines[j].Describe().Authority
+	return r.forKind(kind).ranked
+}
+
+// forKind is the engines declaring the kind, computed once per kind; Register drops the
+// memo. Callers read the slices and never write them.
+func (r *Registry) forKind(kind Kind) kindEngines {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if engines, ok := r.byKind[kind]; ok {
+		return engines
+	}
+	var declaring []Engine
+	for _, e := range r.Engines() {
+		if e.Describe().Answers(kind) {
+			declaring = append(declaring, e)
+		}
+	}
+	ranked := append([]Engine(nil), declaring...)
+	sort.SliceStable(ranked, func(i, j int) bool {
+		return ranked[i].Describe().Authority > ranked[j].Describe().Authority
 	})
-	return engines
+	if r.byKind == nil {
+		r.byKind = make(map[Kind]kindEngines)
+	}
+	r.byKind[kind] = kindEngines{declaring: declaring, ranked: ranked}
+	return r.byKind[kind]
 }
 
 // refusalReason names every refusal, in plan order.

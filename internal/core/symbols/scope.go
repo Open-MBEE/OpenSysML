@@ -12,17 +12,24 @@ import (
 // its parent and child scopes.
 type Scope struct {
 	parent           *Scope
-	owner            *Symbol                            // the symbol that owns this scope (for inheritance lookup)
-	node             ast.Node                           // the owning declaration node
-	names            []string                           // named members in declaration order
-	syms             []*Symbol                          // named members in declaration order
-	members          []*Symbol                          // all registrations in declaration order
-	memberIndex      atomic.Pointer[map[string][]int32] // lazily built lookup index for larger scopes
-	anonymousMembers []*Symbol                          // anonymous symbols (no name)
+	owner            *Symbol                      // the symbol that owns this scope (for inheritance lookup)
+	node             ast.Node                     // the owning declaration node
+	names            []string                     // named members in declaration order
+	syms             []*Symbol                    // named members in declaration order
+	members          []*Symbol                    // all registrations in declaration order
+	indexes          atomic.Pointer[scopeIndexes] // lazily built lookup indexes for larger scopes
+	anonymousMembers []*Symbol                    // anonymous symbols (no name)
 	children         []*Scope
 	childIndex       atomic.Pointer[map[ast.Node]*Scope] // lazily built node -> child scope index for larger scopes
 	bodyLocal        bool                                // declarations live only inside the owning body
 	docName          string                              // document this scope tree belongs to (stamped by SetDocName)
+}
+
+// scopeIndexes holds the lookup maps a larger scope builds on demand; a nil map is
+// not built yet. The record is replaced whole on each build, never mutated in place.
+type scopeIndexes struct {
+	byName map[string][]int32   // member name -> positions in syms
+	byDecl map[ast.Node]*Symbol // declaration -> the member registered first for it
 }
 
 const memberIndexThreshold = 12
@@ -115,13 +122,14 @@ func (s *Scope) Define(name string, sym *Symbol) {
 	s.names = append(s.names, name)
 	s.syms = append(s.syms, sym)
 	s.members = append(s.members, sym)
-	s.memberIndex.Store(nil)
+	s.indexes.Store(nil)
 }
 
 // DefineAnonymous adds an anonymous symbol (without name) to this scope.
 func (s *Scope) DefineAnonymous(sym *Symbol) {
 	s.anonymousMembers = append(s.anonymousMembers, sym)
 	s.members = append(s.members, sym)
+	s.indexes.Store(nil)
 }
 
 // HasAnonymousMembers reports whether any member is declared without a name.
@@ -136,6 +144,19 @@ func (s *Scope) AnonymousMembers() []*Symbol {
 	out := make([]*Symbol, len(s.anonymousMembers))
 	copy(out, s.anonymousMembers)
 	return out
+}
+
+// ForEachAnonymousMember visits the members declared without a name in
+// declaration order, without copying them.
+func (s *Scope) ForEachAnonymousMember(yield func(*Symbol) bool) {
+	if s == nil || yield == nil {
+		return
+	}
+	for _, sym := range s.anonymousMembers {
+		if !yield(sym) {
+			return
+		}
+	}
 }
 
 // LookupLocal returns the first symbol defined under name in this scope only.
@@ -209,8 +230,7 @@ func (s *Scope) LookupLocalAll(name string) []*Symbol {
 		}
 		return out
 	}
-	index := s.loadMemberIndex()
-	indices := (*index)[name]
+	indices := s.loadMemberIndex()[name]
 	if len(indices) == 0 {
 		return nil
 	}
@@ -225,18 +245,26 @@ func (s *Scope) LookupLocalAll(name string) []*Symbol {
 	return out
 }
 
-func (s *Scope) loadMemberIndex() *map[string][]int32 {
-	if index := s.memberIndex.Load(); index != nil {
-		return index
+// loadMemberIndex returns the name -> positions index, building it on first use
+// after a change and keeping whatever other index the scope already built.
+func (s *Scope) loadMemberIndex() map[string][]int32 {
+	for {
+		current := s.indexes.Load()
+		if current != nil && current.byName != nil {
+			return current.byName
+		}
+		built := make(map[string][]int32)
+		for i, name := range s.names {
+			built[name] = append(built[name], memberIndexOf(i))
+		}
+		next := &scopeIndexes{byName: built}
+		if current != nil {
+			next.byDecl = current.byDecl
+		}
+		if s.indexes.CompareAndSwap(current, next) {
+			return built
+		}
 	}
-	built := make(map[string][]int32)
-	for i, name := range s.names {
-		built[name] = append(built[name], memberIndexOf(i))
-	}
-	if s.memberIndex.CompareAndSwap(nil, &built) {
-		return &built
-	}
-	return s.memberIndex.Load()
 }
 
 func memberIndexOf(i int) int32 {
@@ -255,7 +283,7 @@ func (s *Scope) MemberNames() []string {
 	if len(s.names) > memberIndexThreshold {
 		index := s.loadMemberIndex()
 		for i, name := range s.names {
-			indices := (*index)[name]
+			indices := index[name]
 			if len(indices) > 0 && int(indices[0]) == i {
 				out = append(out, name)
 			}
@@ -285,6 +313,33 @@ func (s *Scope) MemberDeclaring(decl ast.Node) *Symbol {
 	}
 	sym, _ := memberDeclaring(s, decl)
 	return sym
+}
+
+// loadDeclIndex returns the decl -> member index, building it on first use after
+// a change. The first registration of a declaration wins, as in a scan.
+func (s *Scope) loadDeclIndex() map[ast.Node]*Symbol {
+	for {
+		current := s.indexes.Load()
+		if current != nil && current.byDecl != nil {
+			return current.byDecl
+		}
+		built := make(map[ast.Node]*Symbol, len(s.members))
+		for _, sym := range s.members {
+			if sym.Decl == nil {
+				continue
+			}
+			if _, ok := built[sym.Decl]; !ok {
+				built[sym.Decl] = sym
+			}
+		}
+		next := &scopeIndexes{byDecl: built}
+		if current != nil {
+			next.byName = current.byName
+		}
+		if s.indexes.CompareAndSwap(current, next) {
+			return built
+		}
+	}
 }
 
 // AllMembers returns named and anonymous symbol registrations in declaration order.

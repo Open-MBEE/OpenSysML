@@ -12,29 +12,46 @@ import (
 // A route through a choice or junction is followed along every branch, so the
 // footprint covers whichever branch fires.
 
-// lowerStateFootprints computes the footprint of every transition out of a state
-// and of every entry, do and exit behavior, once the graph is lowered.
-func lowerStateFootprints(graph *StateGraph) {
-	graph.BehaviorFootprints = make(map[ast.Node]Footprint)
-	for _, behaviors := range graph.Behaviors {
-		if behaviors == nil {
-			continue
-		}
-		for _, group := range [][]StateBehavior{behaviors.Entry, behaviors.Do, behaviors.Exit} {
-			for _, behavior := range group {
-				graph.BehaviorFootprints[behavior.Node] = behaviorFootprint(graph, behavior)
+// TransitionFootprints is transition out of a state → what firing it may touch,
+// its route through pseudostates followed along every branch. It is computed
+// from the lowered graph on first use and shared by every caller.
+func (g *StateGraph) TransitionFootprints() map[*Transition]Footprint {
+	g.lowerFootprints()
+	return g.transitionFootprints
+}
+
+// BehaviorFootprints is entry, do or exit behavior (its Node) → what running it
+// touches, computed on first use as TransitionFootprints is.
+func (g *StateGraph) BehaviorFootprints() map[ast.Node]Footprint {
+	g.lowerFootprints()
+	return g.behaviorFootprints
+}
+
+// lowerFootprints computes both footprint tables once; the behaviors' first,
+// since a transition's footprint folds in the behaviors of the states it crosses.
+func (g *StateGraph) lowerFootprints() {
+	g.footprintsOnce.Do(func() {
+		g.behaviorFootprints = make(map[ast.Node]Footprint)
+		for _, behaviors := range g.Behaviors {
+			if behaviors == nil {
+				continue
+			}
+			for _, group := range [][]StateBehavior{behaviors.Entry, behaviors.Do, behaviors.Exit} {
+				for _, behavior := range group {
+					g.behaviorFootprints[behavior.Node] = behaviorFootprint(g, behavior)
+				}
 			}
 		}
-	}
-	graph.TransitionFootprints = make(map[*Transition]Footprint)
-	for source, transitions := range graph.Transitions {
-		if _, isState := source.(*ast.StateNode); !isState {
-			continue
+		g.transitionFootprints = make(map[*Transition]Footprint)
+		for source, transitions := range g.Transitions {
+			if _, isState := source.(*ast.StateNode); !isState {
+				continue
+			}
+			for _, trans := range transitions {
+				g.transitionFootprints[trans] = transitionFootprint(g, trans)
+			}
 		}
-		for _, trans := range transitions {
-			graph.TransitionFootprints[trans] = transitionFootprint(graph, trans)
-		}
-	}
+	})
 }
 
 // behaviorFootprint is what running the behavior's statements touches, and the
@@ -170,7 +187,7 @@ func (b *stateFootprintBuilder) exits(state *ast.StateNode) {
 	b.write(b.graph.activity(state))
 	if behaviors := b.graph.Behaviors[state]; behaviors != nil {
 		for _, behavior := range behaviors.Exit {
-			b.merge(b.graph.BehaviorFootprints[behavior.Node])
+			b.merge(b.graph.behaviorFootprints[behavior.Node])
 		}
 	}
 	for _, child := range b.graph.children(state) {
@@ -185,7 +202,7 @@ func (b *stateFootprintBuilder) enters(state *ast.StateNode) {
 	b.write(b.graph.activity(state))
 	if behaviors := b.graph.Behaviors[state]; behaviors != nil {
 		for _, behavior := range behaviors.Entry {
-			b.merge(b.graph.BehaviorFootprints[behavior.Node])
+			b.merge(b.graph.behaviorFootprints[behavior.Node])
 		}
 	}
 	if b.graph.Completes(state) {

@@ -90,8 +90,72 @@ package Demo {
 	}
 }
 
-// Each request selects the overloads its expressions invoke on its own semantic model,
-// and every request selects alike.
+// A worker handed on from request to request keeps what it resolved of the model and nothing
+// of the requests' expressions: unique expressions, resolved or not, do not grow its memo.
+func TestWorkerHandedOnDoesNotRetainRequestExpressions(t *testing.T) {
+	const model = `
+package Demo {
+  calc def Twice { in x : ScalarValues::Real; return : ScalarValues::Real = x * 2.0; }
+  part def Vehicle {
+    attribute mass = 1500.0;
+    part engine { attribute power = 100.0; }
+  }
+  part sedan : Vehicle {
+    attribute :>> mass = 1200.0;
+  }
+}
+`
+	srv := mustNewService(t, 10)
+	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source:      &pb.ParseFileRequest_Content{Content: model},
+		ContentHash: "evaluate-worker-retention",
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	cached, ok := srv.cache.Get(parseResp.ModelHash)
+	if !ok {
+		t.Fatal("parsed model not cached")
+	}
+	evaluate := func(expr string) string {
+		resp, err := srv.Evaluate(context.Background(), &pb.EvaluateRequest{
+			ModelHash: parseResp.ModelHash, Expression: expr, SubjectSymbolId: "Demo::sedan",
+		})
+		if err != nil {
+			t.Fatalf("Evaluate(%q): %v", expr, err)
+		}
+		return resp.GetError()
+	}
+	// Sequential requests hold the one worker in turn, so its memo is what they all left.
+	memoSize := func() (int, int, int) {
+		w, release := cached.worker()
+		defer release()
+		if got := len(cached.idle); got != 0 {
+			t.Fatalf("%d workers idle while the requests' worker is held, want the one worker handed on", got)
+		}
+		return w.Model.Resolver().MemoSize(), w.Model.Semantics().MemoSize(), len(w.Model.Resolver().Diagnostics)
+	}
+	if msg := evaluate("Twice(mass) + engine.power + Demo::sedan::mass + 1.0"); msg != "" {
+		t.Fatalf("Evaluate: %s", msg)
+	}
+	before, beforeSel, beforeDiags := memoSize()
+	for i := 0; i < 50; i++ {
+		if msg := evaluate(fmt.Sprintf("Twice(mass) + engine.power + Demo::sedan::mass + %d.0", i)); msg != "" {
+			t.Fatalf("Evaluate %d: %s", i, msg)
+		}
+		if evaluate(fmt.Sprintf("nosuch%d(1.0) + masss%d", i, i)) == "" {
+			t.Fatalf("expression %d: unresolved names evaluated", i)
+		}
+	}
+	if got, gotSel, gotDiags := memoSize(); got != before || gotSel != beforeSel || gotDiags != beforeDiags {
+		t.Fatalf("the worker handed on grew from %d+%d resolutions and selections with %d diagnostics to %d+%d with %d over 100 unique expressions",
+			before, beforeSel, beforeDiags, got, gotSel, gotDiags)
+	}
+}
+
+// Each request selects the overloads its expressions invoke on the semantic model of the
+// worker it holds, every request selects alike, and a selection the model's own declarations
+// made stays on the worker for the next request while the request's expression leaves nothing.
 func TestEvaluateSelectsInvocationsOnEachWorker(t *testing.T) {
 	const model = `
 package Demo {
@@ -131,10 +195,20 @@ package Demo {
 		t.Fatalf("doubled on a second request = %v, want 3000", got)
 	}
 
-	// The selection lives on the worker that made it, which the request built.
-	rt := srv.newRuntime(cached)
-	if got := rt.Semantics().MemoSize(); got != 0 {
-		t.Fatalf("a request's worker starts with %d selections, want none", got)
+	// The selection lives on the worker that made it, which the requests held in turn and
+	// gave back warm: the next request finds Twice(mass) already selected.
+	worker, err := cached.Semantics()
+	if err != nil {
+		t.Fatalf("Semantics: %v", err)
+	}
+	if got := worker.Semantics().MemoSize(); got != 0 {
+		t.Fatalf("a new worker starts with %d selections, want none", got)
+	}
+	rt, release := srv.newRuntime(cached)
+	defer release()
+	warm := rt.Semantics().MemoSize()
+	if warm == 0 {
+		t.Fatal("the requests' worker was not handed on: it holds no selection")
 	}
 	doubled := cached.Index.LookupQualified("Demo::Vehicle::doubled")
 	if len(doubled) != 1 {
@@ -143,7 +217,7 @@ package Demo {
 	if _, err := rt.EvalDeclaredValue(doubled[0]); err != nil {
 		t.Fatalf("doubled on the worker: %v", err)
 	}
-	if rt.Semantics().MemoSize() == 0 {
-		t.Fatal("evaluating doubled selected no invocation, or the selection was not kept on the worker")
+	if got := rt.Semantics().MemoSize(); got != warm {
+		t.Fatalf("evaluating doubled on the warm worker selected %d more invocations, want its selection kept", got-warm)
 	}
 }

@@ -580,20 +580,21 @@ func (ctx *Context) optionalValueless(sym *symbols.Symbol) bool {
 // checkDefault reports a value the feature does not admit: a count outside its
 // multiplicity (1..1 when none is declared) or an element outside its type.
 func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, val *Value, how admission) error {
-	return ctx.checkAdmits(fv.Feature, fmt.Sprintf("feature value %s.%s", inst.Type.Name, name), val, how)
+	what := func() string { return fmt.Sprintf("feature value %s.%s", inst.Type.Name, name) }
+	return ctx.checkAdmits(fv.Feature, what, val, how)
 }
 
 // checkAdmits reports a value the feature does not admit, by count, by type
-// or by uniqueness, naming the value as what.
-func (ctx *Context) checkAdmits(feat *EffectiveFeature, what string, val *Value, how admission) error {
+// or by uniqueness, naming the value as what spells it.
+func (ctx *Context) checkAdmits(feat *EffectiveFeature, what func() string, val *Value, how admission) error {
 	if msg := feat.Multiplicity.HeldViolation(heldCountOf(val)); msg != "" {
-		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+		return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
 	}
 	if err := ctx.checkWriteType(feat.DeclScope(), what, feat.Type, val, how); err != nil {
 		return err
 	}
 	if msg := ctx.uniquenessRefusal(feat.Unique, feat.HoldsSet, val); msg != "" {
-		return fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
 	return nil
 }

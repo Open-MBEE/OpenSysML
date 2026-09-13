@@ -36,7 +36,7 @@ package Demo {
 
 	var last *runtime.Context
 	for i := 0; i < 3; i++ {
-		ctx := srv.newRuntime(cached)
+		ctx, _ := srv.newRuntime(cached)
 		if last != nil && (ctx.Semantics() == last.Semantics() || ctx.Resolver() == last.Resolver()) {
 			t.Fatalf("runtime %d: shares its resolver or semantic model with the one before", i)
 		}

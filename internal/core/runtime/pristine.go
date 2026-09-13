@@ -49,7 +49,7 @@ func (ctx *Context) pristine(inst *Instance, seen map[int64]bool) error {
 		// is due at another instant than a fresh declaration's would be.
 		if waits := b.armedWaits(); len(waits) > 0 && ctx.clock.now != 0 {
 			return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("runs %s %s, which waits on the clock (%s) with the clock at t=%s, not at zero",
-				b.Kind, name, waits[0].What, semantics.FormatReal(ctx.clock.now))}
+				b.Kind, name, waits[0].What(), semantics.FormatReal(ctx.clock.now))}
 		}
 		// A message addressed to no object in particular is open to this one's executions.
 		for _, msg := range ctx.messages {

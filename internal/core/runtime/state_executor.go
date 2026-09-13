@@ -2370,22 +2370,27 @@ func (e *StateExecutor) armed(ofRun func(*doRun) []ClockWait) []ClockWait {
 		if !ok {
 			continue
 		}
-		waits = append(waits, ClockWait{
-			Due:    event.Timestamp,
-			Holder: e.dueLabel(),
-			What:   fmt.Sprintf("%s -> %s", triggerName(trans.Trigger), getNodeName(trans.Target)),
-		})
+		waits = append(waits, ClockWait{Due: event.Timestamp, holder: e, what: transitionWait{trans}})
 	}
 	for _, act := range e.doActions {
 		if act.run == nil {
 			continue
 		}
 		for _, wait := range ofRun(act.run) {
-			waits = append(waits, ClockWait{Due: wait.Due, Holder: e.dueLabel(), What: wait.What})
+			waits = append(waits, ClockWait{Due: wait.Due, holder: e, what: wait.what})
 		}
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
+}
+
+// transitionWait describes a timed transition armed on the clock.
+type transitionWait struct {
+	trans *lower.Transition
+}
+
+func (w transitionWait) String() string {
+	return fmt.Sprintf("%s -> %s", triggerName(w.trans.Trigger), getNodeName(w.trans.Target))
 }
 
 // dueWork reports an event due, a signal in flight this machine takes, or a do
