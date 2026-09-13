@@ -3,6 +3,8 @@ package edit
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 func addFailure(t *testing.T, m Model, op Operation, want Failure) *Error {
@@ -255,6 +257,70 @@ func TestAddMemberDuplicateRootNamesRefuse(t *testing.T) {
 	}
 	if !strings.Contains(e.Message, "Vehicle") {
 		t.Fatalf("message %q does not mention duplicate name", e.Message)
+	}
+}
+
+// memberKindTypes pairs each typed usage kind with a definition kind it may be
+// typed by. SysML usages are typed by their own `def`.
+var memberKindTypes = map[string]string{
+	"feature": "class", "step": "behavior", "expr": "function", "bool": "predicate",
+}
+
+// TestEveryMemberKindWrites drives each registered kind through the parser and
+// the analyzer: a definition or control node by name alone, a usage typed by
+// its definition. A connector definition is written but wants its ends, so the
+// analyzer's verdict, not a rejection of the kind, is what refuses it.
+func TestEveryMemberKindWrites(t *testing.T) {
+	wantsEnds := map[string]bool{
+		"connection def": true, "interface def": true, "flow def": true, "assoc": true, "interaction": true,
+	}
+	for name, lang := range map[string]source.Kind{"kinds.sysml": source.KindSysML, "kinds.kerml": source.KindKerML} {
+		kinds := MemberKinds(lang)
+		if len(kinds) < 15 {
+			t.Fatalf("%s offers only %v", name, kinds)
+		}
+		for _, kind := range kinds {
+			t.Run(name+"/"+kind, func(t *testing.T) {
+				src := "package P {\n    action def A {\n        action a0;\n    }\n}\n"
+				if lang == source.KindKerML {
+					src = "package P {\n    behavior A {\n        step s0;\n    }\n}\n"
+				}
+				op := AddMember("P", kind, "added")
+				switch {
+				case memberKinds[kind].typed:
+					typeKind := memberKindTypes[kind]
+					if typeKind == "" {
+						typeKind = kind + " def"
+					}
+					src = strings.Replace(src, "package P {\n", "package P {\n    "+typeKind+" T;\n", 1)
+					op.Type = "T"
+				case !memberKinds[kind].definition && kind != "package":
+					op.Owner = "P::A"
+				}
+				m := loadContent(t, name, src)
+				requireClean(t, m)
+				res, err := Apply(m, []Operation{op})
+				if wantsEnds[kind] {
+					e := editError(t, err)
+					if e.Failure != FailureResultInvalid || !strings.Contains(e.Message, "two related elements") {
+						t.Fatalf("refusal = %s (%s), want the analyzer asking for ends", e.Failure, e.Message)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("Apply: %v", err)
+				}
+				got := string(res.Content)
+				want := kind + " added"
+				if op.Type != "" {
+					want += " : T"
+				}
+				if !strings.Contains(got, want+";") {
+					t.Fatalf("content lacks %q:\n%s", want, got)
+				}
+				requireClean(t, loadContent(t, name, got))
+			})
+		}
 	}
 }
 

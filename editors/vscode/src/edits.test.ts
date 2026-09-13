@@ -5,13 +5,13 @@ import {
   ancestors,
   connectionOwner,
   describeRefusal,
+  editParams,
   endpointPath,
   ownerOf,
   rootOwner,
   validName,
-  withRetry,
 } from "./edits";
-import type { ApplyModelEditResult, RenderNode } from "./protocol";
+import type { ModelEditOperation, RenderNode } from "./protocol";
 
 // The interconnection rendering of
 //   package Vehicle { part def Car { part tank { port fuelOut; } part engine { port fuelIn; } } }
@@ -83,47 +83,10 @@ test("endpointPath refuses a step that has no name", () => {
   assert.equal(endpointPath(inner, car, [...nodes, anonymous, inner]), undefined);
 });
 
-test("withRetry returns the first answer when the version agreed", async () => {
-  const versions: number[] = [];
-  const result = await withRetry(
-    () => 3,
-    async (version) => {
-      versions.push(version);
-      return { edit: {}, version: 3 };
-    },
-  );
-  assert.deepEqual(result, { edit: {}, version: 3 });
-  assert.deepEqual(versions, [3]);
-});
-
-test("withRetry asks once more at the buffer's version as it is then, not the server's", async () => {
-  // The buffer is at 8 while the server still holds 7: the retry re-reads the
-  // buffer, which by then may have moved on again.
-  const versions: number[] = [];
-  const buffer = [8, 9];
-  const answers: ApplyModelEditResult[] = [{ stale: true, version: 7 }, { edit: {}, version: 9 }];
-  const result = await withRetry(
-    () => buffer.shift()!,
-    async (version) => {
-      versions.push(version);
-      return answers.shift()!;
-    },
-  );
-  assert.deepEqual(result, { edit: {}, version: 9 });
-  assert.deepEqual(versions, [8, 9]);
-});
-
-test("withRetry gives up after a second stale answer", async () => {
-  let calls = 0;
-  const result = await withRetry(
-    () => 3,
-    async () => {
-      calls++;
-      return { stale: true, version: 4 + calls };
-    },
-  );
-  assert.equal(result.stale, true);
-  assert.equal(calls, 2);
+test("editParams asks for the version the rendering drew, not the buffer's", () => {
+  const operations: ModelEditOperation[] = [{ kind: "delete", target: tank.fqn! }];
+  const params = editParams("file:///vehicle.sysml", { nodes, version: 3 }, operations);
+  assert.deepEqual(params, { textDocument: { uri: "file:///vehicle.sysml" }, version: 3, operations });
 });
 
 test("describeRefusal quotes the message, diagnostics and referrers", () => {
@@ -165,4 +128,22 @@ test("validName says what is wrong", () => {
   assert.match(validName("front wheel") ?? "", /identifier/);
   assert.match(validName("1st") ?? "", /identifier/);
   assert.match(validName("a::b") ?? "", /identifier/);
+});
+
+// The scanner follows the lexer's UNRESTRICTED_NAME: a backslash escapes one
+// of b t n f r " ' \, so a quote after a backslash does not end the name.
+test("validName reads escapes in quoted names as the lexer does", () => {
+  assert.equal(validName("'it\\'s'"), undefined);
+  assert.equal(validName("'tab\\there'"), undefined);
+  assert.equal(validName("'back\\\\slash'"), undefined);
+  assert.equal(validName("'say \\\"hi\\\"'"), undefined);
+  assert.equal(validName("'\\''"), undefined);
+  assert.match(validName("'it's'") ?? "", /closing quote/);
+  assert.match(validName("'open") ?? "", /closing quote/);
+  assert.match(validName("'two\nlines'") ?? "", /closing quote/);
+  assert.match(validName("'ends in backslash\\'") ?? "", /closing quote/);
+  assert.match(validName("'bad \\q escape'") ?? "", /backslash/);
+  assert.match(validName("'trailing\\") ?? "", /backslash/);
+  assert.match(validName("''") ?? "", /between the quotes/);
+  assert.match(validName("'a' b") ?? "", /closing quote/);
 });

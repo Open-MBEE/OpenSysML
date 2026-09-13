@@ -4,16 +4,16 @@ import type { LanguageClient } from "vscode-languageclient/node";
 import {
   connectionOwner,
   describeRefusal,
+  editParams,
   endpointPath,
   ownerOf,
+  Rendering,
   rootOwner,
   validName,
-  withRetry,
 } from "./edits";
 import {
   APPLY_MODEL_EDIT_CAPABILITY,
   APPLY_MODEL_EDIT_METHOD,
-  ApplyModelEditParams,
   ApplyModelEditResult,
   EditAction,
   FromWebview,
@@ -181,7 +181,7 @@ export class DiagramPanels implements vscode.Disposable {
 class DiagramPanel {
   private readonly disposables: vscode.Disposable[] = [];
   private selected: string;
-  private nodes: RenderNode[] = [];
+  private rendering: Rendering = { nodes: [], version: 0 };
   private pending = false;
   private again = false;
   private disposed = false;
@@ -293,7 +293,7 @@ class DiagramPanel {
         textDocument,
         view: this.selected === "" ? undefined : this.selected,
       });
-      this.nodes = result.nodes ?? [];
+      this.rendering = { nodes: result.nodes ?? [], version: result.version };
       // No palette unless the server also computes the edits it would lead to.
       if (!supportsEdit(client)) {
         delete result.palette;
@@ -307,7 +307,7 @@ class DiagramPanel {
 
   /** highlightAt marks the node whose declaration contains the cursor. */
   highlightAt(at: vscode.Position): void {
-    this.post({ type: "highlight", id: this.nodeAt(at)?.id });
+    this.post({ type: "highlight", id: this.nodeAt(this.rendering, at)?.id });
   }
 
   private highlightActive(): void {
@@ -320,10 +320,10 @@ class DiagramPanel {
   }
 
   // nodeAt is the innermost located node whose declaration contains at.
-  private nodeAt(at: vscode.Position): RenderNode | undefined {
+  private nodeAt(rendering: Rendering, at: vscode.Position): RenderNode | undefined {
     let found: RenderNode | undefined;
     let foundRange: vscode.Range | undefined;
-    for (const node of this.nodes) {
+    for (const node of rendering.nodes) {
       if (!node.origin || vscode.Uri.parse(node.origin.uri).toString() !== this.docURI.toString()) {
         continue;
       }
@@ -362,7 +362,7 @@ class DiagramPanel {
 
   // revealSource opens the declaration a node was built from.
   private async revealSource(id: string): Promise<void> {
-    const origin = this.nodes.find((node) => node.id === id)?.origin;
+    const origin = this.node(this.rendering, id)?.origin;
     if (!origin) {
       return;
     }
@@ -379,34 +379,37 @@ class DiagramPanel {
   }
 
   // edit applies a diagram action as a workspace edit, so it is undone like typing;
-  // the redraw comes from the server's renderChanged, not from here.
+  // the redraw comes from the server's renderChanged, not from here. The action is
+  // read from the rendering it was taken on, even if the panel redraws meanwhile.
   private async edit(action: EditAction): Promise<void> {
-    const operations = await this.operationsFor(action);
+    const rendering = this.rendering;
+    const operations = await this.operationsFor(rendering, action);
     if (!operations) {
       return;
     }
-    await this.apply(operations, action);
+    await this.apply(rendering, operations, action);
   }
 
-  private async operationsFor(action: EditAction): Promise<ModelEditOperation[] | undefined> {
+  private async operationsFor(rendering: Rendering, action: EditAction): Promise<ModelEditOperation[] | undefined> {
     switch (action.kind) {
       case "addMember":
-        return this.addMember(action.memberKind, action.typed, action.owner);
+        return this.addMember(rendering, action.memberKind, action.typed, action.owner);
       case "addConnection":
-        return this.addConnection(action.connectionKind, action.from, action.to);
+        return this.addConnection(rendering, action.connectionKind, action.from, action.to);
       case "rename":
-        return this.rename(action.id);
+        return this.rename(rendering, action.id);
       case "delete":
-        return this.delete(action.id, false);
+        return this.delete(rendering, action.id, false);
     }
   }
 
   private async addMember(
+    rendering: Rendering,
     memberKind: string,
     typed: boolean,
     at: string | undefined,
   ): Promise<ModelEditOperation[] | undefined> {
-    const owner = at ? ownerOf(this.node(at), this.nodes) : await this.ownerFromContext();
+    const owner = at ? ownerOf(this.node(rendering, at), rendering.nodes) : await this.ownerFromContext(rendering);
     if (!owner?.fqn) {
       return undefined;
     }
@@ -432,24 +435,25 @@ class DiagramPanel {
   }
 
   private async addConnection(
+    rendering: Rendering,
     connectionKind: string,
     fromID: string | undefined,
     toID: string | undefined,
   ): Promise<ModelEditOperation[] | undefined> {
-    const from = fromID ? this.node(fromID) : await this.pickNode(`${connectionKind}: from`, undefined);
+    const from = fromID ? this.node(rendering, fromID) : await this.pickNode(rendering, `${connectionKind}: from`, undefined);
     if (!from) {
       return undefined;
     }
-    const to = toID ? this.node(toID) : await this.pickNode(`${connectionKind} from ${from.name}: to`, from);
+    const to = toID ? this.node(rendering, toID) : await this.pickNode(rendering, `${connectionKind} from ${from.name}: to`, from);
     if (!to) {
       return undefined;
     }
-    const owner = connectionOwner(from, to, this.nodes);
+    const owner = connectionOwner(from, to, rendering.nodes);
     if (!owner?.fqn) {
       void vscode.window.showErrorMessage(`${from.name} and ${to.name} share no declaration to write the ${connectionKind} in.`);
       return undefined;
     }
-    const ends = [endpointPath(from, owner, this.nodes), endpointPath(to, owner, this.nodes)];
+    const ends = [endpointPath(from, owner, rendering.nodes), endpointPath(to, owner, rendering.nodes)];
     if (!ends[0] || !ends[1]) {
       void vscode.window.showErrorMessage(`A ${connectionKind} needs two named features below ${owner.fqn}.`);
       return undefined;
@@ -472,8 +476,8 @@ class DiagramPanel {
     }];
   }
 
-  private async rename(id: string): Promise<ModelEditOperation[] | undefined> {
-    const node = this.node(id);
+  private async rename(rendering: Rendering, id: string): Promise<ModelEditOperation[] | undefined> {
+    const node = this.node(rendering, id);
     if (!node?.fqn) {
       return undefined;
     }
@@ -488,8 +492,8 @@ class DiagramPanel {
     return [{ kind: "rename", target: node.fqn, newName: newName.trim() }];
   }
 
-  private async delete(id: string, cascade: boolean): Promise<ModelEditOperation[] | undefined> {
-    const node = this.node(id);
+  private async delete(rendering: Rendering, id: string, cascade: boolean): Promise<ModelEditOperation[] | undefined> {
+    const node = this.node(rendering, id);
     if (!node?.fqn) {
       return undefined;
     }
@@ -503,20 +507,21 @@ class DiagramPanel {
   }
 
   // A palette addition goes into the declaration at the cursor, else the one root, else a pick.
-  private async ownerFromContext(): Promise<RenderNode | undefined> {
+  private async ownerFromContext(rendering: Rendering): Promise<RenderNode | undefined> {
     const editor = vscode.window.visibleTextEditors.find(
       (candidate) => candidate.document.uri.toString() === this.docURI.toString(),
     );
-    const atCursor = editor ? ownerOf(this.nodeAt(editor.selection.active), this.nodes) : undefined;
-    return atCursor ?? rootOwner(this.nodes) ?? this.pickNode("Add to", undefined, (node) => Boolean(node.fqn));
+    const atCursor = editor ? ownerOf(this.nodeAt(rendering, editor.selection.active), rendering.nodes) : undefined;
+    return atCursor ?? rootOwner(rendering.nodes) ?? this.pickNode(rendering, "Add to", undefined, (node) => Boolean(node.fqn));
   }
 
   private async pickNode(
+    rendering: Rendering,
     title: string,
     except: RenderNode | undefined,
     keep: (node: RenderNode) => boolean = (node) => Boolean(node.name) && !node.name.includes("::"),
   ): Promise<RenderNode | undefined> {
-    const items = this.nodes
+    const items = rendering.nodes
       .filter((node) => node !== except && keep(node))
       .map((node) => ({ label: node.name, description: node.type ? `${node.kind} : ${node.type}` : node.kind, detail: node.fqn, node }));
     if (items.length === 0) {
@@ -527,11 +532,11 @@ class DiagramPanel {
     return picked?.node;
   }
 
-  private node(id: string): RenderNode | undefined {
-    return this.nodes.find((node) => node.id === id);
+  private node(rendering: Rendering, id: string): RenderNode | undefined {
+    return rendering.nodes.find((node) => node.id === id);
   }
 
-  private async apply(operations: ModelEditOperation[], action: EditAction): Promise<void> {
+  private async apply(rendering: Rendering, operations: ModelEditOperation[], action: EditAction): Promise<void> {
     const client = this.client();
     if (!client || !supportsEdit(client)) {
       this.fail("The language server does not serve model edits.");
@@ -546,23 +551,20 @@ class DiagramPanel {
     }
     let result: ApplyModelEditResult;
     try {
-      result = await withRetry(
-        () => document.version,
-        (version) => {
-          const params: ApplyModelEditParams = { textDocument: { uri: this.docURI.toString() }, version, operations };
-          return client.sendRequest<ApplyModelEditResult>(APPLY_MODEL_EDIT_METHOD, params);
-        },
-      );
+      const params = editParams(document.uri.toString(), rendering, operations);
+      result = await client.sendRequest<ApplyModelEditResult>(APPLY_MODEL_EDIT_METHOD, params);
     } catch (err) {
       void vscode.window.showErrorMessage(`The edit could not be computed: ${errorMessage(err)}`);
       return;
     }
+    // The names acted on may spell other declarations now: redraw, do not retry.
     if (result.stale) {
-      void vscode.window.showWarningMessage("The document changed while the edit was being computed; try again.");
+      this.refresh();
+      void vscode.window.showWarningMessage("The document changed after the diagram was drawn; it is redrawn now, so repeat the action on it.");
       return;
     }
     if (result.refused) {
-      await this.refused(result, action);
+      await this.refused(rendering, result, action);
       return;
     }
     if (!result.edit) {
@@ -576,7 +578,7 @@ class DiagramPanel {
   }
 
   // A delete refused for references is offered again as a cascade; anything else is just told.
-  private async refused(result: ApplyModelEditResult, action: EditAction): Promise<void> {
+  private async refused(rendering: Rendering, result: ApplyModelEditResult, action: EditAction): Promise<void> {
     const refused = result.refused ?? [];
     const message = describeRefusal(refused);
     this.output.appendLine(`Model edit refused:\n${message}`);
@@ -588,9 +590,9 @@ class DiagramPanel {
         "Delete all",
       );
       if (answer === "Delete all") {
-        const operations = await this.delete(action.id, true);
+        const operations = await this.delete(rendering, action.id, true);
         if (operations) {
-          await this.apply(operations, { kind: "delete", id: action.id });
+          await this.apply(rendering, operations, { kind: "delete", id: action.id });
         }
       }
       return;

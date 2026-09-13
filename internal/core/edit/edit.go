@@ -221,15 +221,14 @@ func duplicateAddNames(ops []Operation) error {
 	return nil
 }
 
+// needsSequential reports whether a later operation may look up a name an
+// earlier one declares, renames or removes. Only setting a value leaves every
+// name where it was, so a batch is proven independent only when nothing before
+// its last operation does more than that.
 func needsSequential(ops []Operation) bool {
-	// This conservative trigger reparses when a later add may target an earlier add.
-	addSeen := false
-	for _, op := range ops {
-		if op.adds() {
-			if addSeen && op.Owner != "" {
-				return true
-			}
-			addSeen = true
+	for _, op := range ops[:len(ops)-1] {
+		if op.Kind != OpSetValue {
+			return true
 		}
 	}
 	return false

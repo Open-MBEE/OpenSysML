@@ -59,7 +59,7 @@ type modelEditOperation struct {
 
 // applyModelEditResult is exactly one of: an edit to apply, the refusals that
 // kept the model as it was, or a stale version. Version is the document version
-// the answer was made at, which a stale client retries with.
+// the answer was made at, which tells a stale client how far behind it was.
 type applyModelEditResult struct {
 	Edit    *protocol.WorkspaceEdit `json:"edit,omitempty"`
 	Refused []modelEditRefusal      `json:"refused,omitempty"`

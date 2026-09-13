@@ -224,8 +224,11 @@ The server translates the operations into `edit` operations, runs them against t
 workspace's current content, and returns the byte diff as a `WorkspaceEdit` — it
 does not write the file. The client applies it with
 `vscode.workspace.applyEdit`, which puts the change in VS Code's undo stack, so a
-diagram action is undone with `ctrl+z` like anything typed. A `version` that no
-longer matches is rejected, and the panel re-requests and retries once.
+diagram action is undone with `ctrl+z` like anything typed. The request names the
+`version` of the rendering the action was taken on, not the buffer's: its targets
+are names the user saw there, and a later version may spell the same names for
+other declarations. A `version` that no longer matches is rejected, and the panel
+redraws and asks the user to repeat the action on what is now shown.
 
 The diagram never mutates itself. It applies the edit, the edit re-triggers
 analysis, analysis emits `renderChanged`, and the panel redraws from the model. One

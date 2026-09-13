@@ -305,7 +305,7 @@ from the operation it asked for.
 | Field | Meaning |
 | --- | --- |
 | `textDocument.uri` | The document to edit. It must be one the session holds. |
-| `version` | The version of the document the client is showing. The edit is computed against exactly that text; any other version is answered `stale` (below). |
+| `version` | The version of the document the operations were read from — for a diagram action, the `version` of the rendering it was taken on. The edit is computed against exactly that text; any other version is answered `stale` (below). |
 | `operations` | Applied together, in order, as one edit: either every operation is written or none is. |
 
 The operations are the source-preserving edits the service's
@@ -318,7 +318,7 @@ operation and its fields beside it:
 | `rename` | `target`, `newName` | A new name at the declaration and at every reference in the document. |
 | `addMember` | `owner`, `memberKind`, `name`, `type?`, `multiplicity?`, `value?`, `specializes?` | A member at the end of the owner's body, indented like its neighbors; an owner declared without a body gets one. `memberKind` is a keyword the language declares members with (`part`, `port def`, `state`, `fork`, KerML `feature`); `type` is legal only for a usage, `specializes` only for a definition. |
 | `addConnection` | `owner`, `memberKind`, `from`, `to`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from` and `to` written as they resolve from the owner's scope (`tank.fuelOut`). |
-| `delete` | `target`, `cascade?` | The declaration and the trivia that belongs to it — its own line and the comment block above it. Refused when something else still refers to it unless `cascade` is set, in which case the referring declarations go too. |
+| `delete` | `target`, `cascade?` | The declaration and the trivia that belongs to it — its own line and the comment block above it. Refused when something else still refers to it unless `cascade` is set, in which case the referring declarations go too — and whatever refers to those, until nothing left behind refers to anything removed. |
 
 `target` and `owner` are qualified names, as `nodes[].fqn` in a rendering gives
 them. The result is one of three shapes:
@@ -344,7 +344,7 @@ them. The result is one of three shapes:
 | `version` | The document version the answer is about. |
 | `edit` | A `WorkspaceEdit` with one versioned `TextDocumentEdit` on the document, whose edits, applied to the version named, produce the text the operations ask for. Every byte outside the edited spans is unchanged: comments, blank lines and indentation survive. |
 | `refused` | Why nothing was written. `operation` is the index of the operation at fault, or `-1` when the request as a whole was; `failure` is a stable name (`unknown-target`, `invalid-name`, `owner-unknown`, `illegal-kind`, `member-name-taken`, `rename-referenced`, `delete-referenced`, `result-invalid`, …); `message` says it in words. `diagnostics` carries the errors the edited text would have had, located in that text; `referring` names the declarations that still refer to a target whose delete was refused, or the reference a rename would capture. |
-| `stale` | The client's `version` is not the document's; nothing was computed. The client re-reads the version it holds and asks once more. |
+| `stale` | The client's `version` is not the document's; nothing was computed. The operations may name declarations that version no longer has, or namesakes that replaced them, so a client does not resend them at the newer version: it shows the newer text or rendering and lets the action be taken again. |
 
 An edit is refused, rather than written, whenever the edited document would
 parse or analyze with an error the original did not have. The check is the same

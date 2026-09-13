@@ -203,7 +203,51 @@ func TestApplyModelEditRejectsStaleVersion(t *testing.T) {
 		t.Fatalf("result = %+v, want stale", out)
 	}
 	if out.Version != 1 {
-		t.Errorf("version = %d, want the server's 1 so the client can retry", out.Version)
+		t.Errorf("version = %d, want the server's 1", out.Version)
+	}
+}
+
+// A client pins an action to the version of the rendering it was taken on. When
+// the document has since replaced the target with a namesake, the request is
+// stale and nothing is written; only an action taken on the redrawn diagram is.
+func TestApplyModelEditPinnedToRenderingRejectsNamesakeReplacement(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	drawn := render(t, s, docURI, "#interconnection:Vehicle::Car")
+	if drawn.Version != 1 {
+		t.Fatalf("render version = %d, want 1", drawn.Version)
+	}
+	var target string
+	for _, n := range drawn.Nodes {
+		if n.Name == "tank" {
+			target = n.FQN
+		}
+	}
+	if target == "" {
+		t.Fatal("rendering has no tank node")
+	}
+
+	replaced := strings.Replace(editModel, "part tank : Tank; // holds the fuel", "part tank : Engine;", 1)
+	encoded, _ := json.Marshal(map[string]string{"text": replaced})
+	sendDidChange(t, s, docURI, 2, []json.RawMessage{encoded})
+
+	out := applyModelEdit(t, s, docURI, drawn.Version, modelEditOperation{Kind: EditDelete, Target: target})
+	if !out.Stale || out.Edit != nil || out.Refused != nil {
+		t.Fatalf("result at the rendering's version = %+v, want stale", out)
+	}
+	if got := string(s.ws.Document(docURI.Filename()).Content); got != replaced {
+		t.Error("server document changed on a stale request")
+	}
+
+	redrawn := render(t, s, docURI, "#interconnection:Vehicle::Car")
+	if redrawn.Version != 2 {
+		t.Fatalf("redrawn version = %d, want 2", redrawn.Version)
+	}
+	out = applyModelEdit(t, s, docURI, redrawn.Version, modelEditOperation{Kind: EditDelete, Target: target})
+	if out.Stale || out.Refused != nil || out.Edit == nil {
+		t.Fatalf("result at the redrawn version = %+v, want an edit", out)
+	}
+	if got := applyWorkspaceEdit(t, replaced, out.Edit, docURI); strings.Contains(got, "part tank") {
+		t.Errorf("the redrawn action left tank in place:\n%s", got)
 	}
 }
 

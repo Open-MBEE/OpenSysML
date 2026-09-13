@@ -15,10 +15,10 @@ func (m Model) deleteSplices(i int, op Operation) ([]splice, error) {
 	if err != nil {
 		return nil, err
 	}
-	referrers := m.referringSymbols(sym)
-	if len(referrers) > 0 && !op.Cascade {
-		referring := make([]string, 0, len(referrers))
-		for _, referrer := range referrers {
+	targets := m.cascadeTargets(sym)
+	if len(targets) > 1 && !op.Cascade {
+		referring := make([]string, 0, len(targets)-1)
+		for _, referrer := range targets[1:] {
 			referring = append(referring, m.Index.GetFQN(referrer))
 		}
 		return nil, &Error{
@@ -28,10 +28,6 @@ func (m Model) deleteSplices(i int, op Operation) ([]splice, error) {
 			Message: op.Target + " is referenced by " + strings.Join(referring, ", ") +
 				"; delete it with cascade to remove those declarations",
 		}
-	}
-	targets := []*symbols.Symbol{sym}
-	if op.Cascade {
-		targets = append(targets, referrers...)
 	}
 	out := make([]splice, 0, len(targets))
 	for _, target := range targets {
@@ -43,10 +39,66 @@ func (m Model) deleteSplices(i int, op Operation) ([]splice, error) {
 	return out, nil
 }
 
-func (m Model) referringSymbols(target *symbols.Symbol) []*symbols.Symbol {
+// cascadeTargets is sym followed by every declaration removing it would leave
+// dangling: referrers of sym or of anything it contains, then their referrers,
+// until none remain. A declaration nested in another target is left to it.
+func (m Model) cascadeTargets(sym *symbols.Symbol) []*symbols.Symbol {
+	targets := []*symbols.Symbol{sym}
+	seen := map[string]bool{m.Index.GetFQN(sym): true}
+	for frontier := targets; len(frontier) > 0; {
+		var next []*symbols.Symbol
+		for _, referrer := range m.referringSymbols(targets, frontier) {
+			fqn := m.Index.GetFQN(referrer)
+			if !seen[fqn] {
+				seen[fqn] = true
+				next = append(next, referrer)
+			}
+		}
+		targets = append(targets, next...)
+		frontier = next
+	}
+	return withoutNested(targets)
+}
+
+// withoutNested drops every symbol declared inside another's span.
+func withoutNested(syms []*symbols.Symbol) []*symbols.Symbol {
+	out := make([]*symbols.Symbol, 0, len(syms))
+	for _, sym := range syms {
+		nested := false
+		for _, other := range syms {
+			if !symbols.SameElement(sym, other) && declaredWithin(sym, other) {
+				nested = true
+				break
+			}
+		}
+		if !nested {
+			out = append(out, sym)
+		}
+	}
+	return out
+}
+
+// declaredWithin reports whether sym's declaration lies inside outer's.
+func declaredWithin(sym, outer *symbols.Symbol) bool {
+	return sym.DocName == outer.DocName && outer.DeclSpan.Len > 0 &&
+		outer.DeclSpan.Offset <= sym.DeclSpan.Offset &&
+		outer.DeclSpan.End() >= sym.DeclSpan.End()
+}
+
+// referringSymbols returns the declarations outside every target that refer to
+// one of frontier or to a declaration inside one, sorted by qualified name.
+func (m Model) referringSymbols(targets, frontier []*symbols.Symbol) []*symbols.Symbol {
 	rootScope := m.Index.DocumentRoot(m.Source.Name())
 	if rootScope == nil {
 		return nil
+	}
+	within := func(sym *symbols.Symbol, set []*symbols.Symbol) bool {
+		for _, member := range set {
+			if symbols.SameElement(sym, member) || declaredWithin(sym, member) {
+				return true
+			}
+		}
+		return false
 	}
 	r, _ := m.resolver()
 	seen := map[string]bool{}
@@ -58,16 +110,11 @@ func (m Model) referringSymbols(target *symbols.Symbol) []*symbols.Symbol {
 		r.ResolveReference(ref)
 		for i, part := range ref.QN.Parts {
 			seg, ok := r.PartSymbol(ref.QN, i)
-			if !ok || !symbols.SameElement(seg, target) ||
-				part.Span == target.NameSpan {
+			if !ok || part.Span == seg.NameSpan || !within(seg, frontier) {
 				continue
 			}
-			referrer := m.symbolContaining(part.Span.Offset, target)
-			if referrer == nil || symbols.SameElement(referrer, target) {
-				continue
-			}
-			if target.DeclSpan.Offset <= referrer.DeclSpan.Offset &&
-				target.DeclSpan.End() >= referrer.DeclSpan.End() {
+			referrer := m.symbolContaining(part.Span.Offset)
+			if referrer == nil || within(referrer, targets) {
 				continue
 			}
 			fqn := m.Index.GetFQN(referrer)
@@ -83,12 +130,13 @@ func (m Model) referringSymbols(target *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-func (m Model) symbolContaining(offset int, target *symbols.Symbol) *symbols.Symbol {
+// symbolContaining is the innermost declaration of this document whose span
+// covers offset.
+func (m Model) symbolContaining(offset int) *symbols.Symbol {
 	var found *symbols.Symbol
 	for _, fqn := range m.Index.FQNs() {
 		for _, candidate := range m.Index.LookupQualified(fqn) {
-			if candidate == nil || candidate.DocName != m.Source.Name() ||
-				symbols.SameElement(candidate, target) {
+			if candidate == nil || candidate.DocName != m.Source.Name() {
 				continue
 			}
 			span := candidate.DeclSpan

@@ -21,6 +21,72 @@ func TestDeleteReferencedRefusesAndCascadeRemovesReferrers(t *testing.T) {
 	}
 }
 
+// A cascade removes referrers of referrers too, so the model left behind
+// declares nothing that has lost its target.
+func TestDeleteCascadeIsTransitive(t *testing.T) {
+	src := "package P {\n" +
+		"    part def Base;\n" +
+		"    part x : Base;\n" +
+		"    part y : Base;\n" +
+		"    connection c connect x to y;\n" +
+		"    part z = c;\n" +
+		"    part def Keep;\n" +
+		"    part k : Keep;\n" +
+		"}\n"
+	m := loadContent(t, "delete.sysml", src)
+	requireClean(t, m)
+
+	e := addFailure(t, m, Delete("P::Base", false), FailureDeleteReferenced)
+	want := []string{"P::x", "P::y", "P::c", "P::z"}
+	if strings.Join(e.Referring, ",") != strings.Join(want, ",") {
+		t.Fatalf("referrers = %v, want %v", e.Referring, want)
+	}
+
+	res, err := Apply(m, []Operation{Delete("P::Base", true)})
+	if err != nil {
+		t.Fatalf("cascade delete: %v", err)
+	}
+	got := string(res.Content)
+	if got != "package P {\n    part def Keep;\n    part k : Keep;\n}\n" {
+		t.Fatalf("cascade left dangling declarations:\n%s", got)
+	}
+	requireClean(t, loadContent(t, "delete.sysml", got))
+}
+
+// Deleting a declaration takes its members with it, so what refers to a member
+// is a referrer too, and a referrer nested in the target is not spliced twice.
+func TestDeleteCascadeFollowsMembersOfTheTarget(t *testing.T) {
+	src := "package P {\n" +
+		"    part def Base {\n" +
+		"        part def Inner;\n" +
+		"        part self : Base;\n" +
+		"    }\n" +
+		"    part b : Base;\n" +
+		"    part def Other {\n" +
+		"        part i : Base::Inner;\n" +
+		"    }\n" +
+		"    part def Keep;\n" +
+		"}\n"
+	m := loadContent(t, "delete.sysml", src)
+	requireClean(t, m)
+
+	e := addFailure(t, m, Delete("P::Base", false), FailureDeleteReferenced)
+	want := []string{"P::Other::i", "P::b"}
+	if strings.Join(e.Referring, ",") != strings.Join(want, ",") {
+		t.Fatalf("referrers = %v, want %v", e.Referring, want)
+	}
+
+	res, err := Apply(m, []Operation{Delete("P::Base", true)})
+	if err != nil {
+		t.Fatalf("cascade delete: %v", err)
+	}
+	got := string(res.Content)
+	if got != "package P {\n    part def Other {\n    }\n    part def Keep;\n}\n" {
+		t.Fatalf("cascade result:\n%s", got)
+	}
+	requireClean(t, loadContent(t, "delete.sysml", got))
+}
+
 func TestDeleteOnlyMemberRootAndNeighborTrivia(t *testing.T) {
 	tests := []struct {
 		name, src, target, want string
