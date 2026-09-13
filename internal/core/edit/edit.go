@@ -211,12 +211,16 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 	current := m
 	content := append([]byte(nil), m.Source.Bytes()...)
 	applied := make([]Applied, 0, len(ops))
+	ops = append([]Operation(nil), ops...)
 	for i, op := range ops {
 		splices, err := current.splicesFor(i, op)
 		if err != nil {
 			return nil, err
 		}
 		if err := checkOverlap(splices); err != nil {
+			return nil, err
+		}
+		if err := current.rebaseDeclarations(ops[i+1:], i+1, splices); err != nil {
 			return nil, err
 		}
 		next := current.splice(splices)
@@ -232,6 +236,9 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 		content = next
 		current, err = reparseModel(m, content)
 		if err != nil {
+			return nil, err
+		}
+		if err := current.relocateDeclarations(ops[i+1:], i+1); err != nil {
 			return nil, err
 		}
 	}
@@ -391,6 +398,52 @@ func (m Model) splice(splices []splice) []byte {
 		out = edited
 	}
 	return out
+}
+
+// rebaseDeclarations moves the start of each later operation's Declaration,
+// numbered from first, past the bytes splices insert or remove before it. A
+// declaration a replacement covers is gone, so the operation is refused.
+func (m Model) rebaseDeclarations(later []Operation, first int, splices []splice) error {
+	for j := range later {
+		decl := later[j].Declaration
+		if decl.Len == 0 {
+			continue
+		}
+		shift := 0
+		for _, sp := range splices {
+			switch {
+			case sp.span.End() <= decl.Offset:
+				shift += len(sp.text) - sp.span.Len
+			case sp.span.Offset <= decl.Offset:
+				return m.declarationGone(first+j, decl)
+			}
+		}
+		later[j].Declaration.Offset += shift
+	}
+	return nil
+}
+
+// relocateDeclarations reads each later operation's Declaration afresh from the
+// reparsed source, where its extent may have changed but its start has not.
+func (m Model) relocateDeclarations(later []Operation, first int) error {
+	root := m.Index.DocumentRoot(m.Source.Name())
+	for j := range later {
+		decl := later[j].Declaration
+		if decl.Len == 0 {
+			continue
+		}
+		sym := root.DeclaredFrom(decl.Offset)
+		if sym == nil {
+			return m.declarationGone(first+j, decl)
+		}
+		later[j].Declaration = sym.DeclSpan
+	}
+	return nil
+}
+
+func (m Model) declarationGone(i int, decl source.Span) error {
+	return &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+		Message: fmt.Sprintf("an earlier operation rewrote the declaration at %s; nothing is declared there now", m.at(decl))}
 }
 
 // checkOverlap refuses edits covering the same non-empty source bytes.

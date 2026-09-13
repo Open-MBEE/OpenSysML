@@ -334,7 +334,10 @@ is the edge's `fqn`. A `setLayout` or `setRoute` may give `declaration`, the nod
 edge's `declaration` range, in place of `target` — one or the other, not both — for an
 element no qualified name reaches; such an annotation goes inline, and is refused as
 `not-named` with a `view`, whose body could not name what it is about. No other operation
-takes a `declaration`. The three layout operations write into the document alone — the
+takes a `declaration`. Every `declaration` of a request is a range of the version the request
+names: when an earlier operation of the same request moves or lengthens the declaration, the
+later one still reaches it, and is refused as `unknown-target` only when the earlier one
+rewrote the declaration itself. The three layout operations write into the document alone — the
 target of an inline annotation, or the view whose body states a view-local one, must be
 declared in it, though such a view may place an element another document declares —
 and are refused as `not-a-view` when `view` or a canvas `target` is not a view, `not-exposed`

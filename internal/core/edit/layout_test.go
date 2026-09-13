@@ -265,6 +265,69 @@ func TestSetRouteAtOfConnectionInUnnamedPart(t *testing.T) {
 	}
 }
 
+// applyOps applies ops to content as one request and returns the notation.
+func applyOps(t *testing.T, content string, ops ...Operation) string {
+	t.Helper()
+	res, err := Apply(loadContent(t, "plant.sysml", content), ops)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	return string(res.Content)
+}
+
+// One drag places an unnamed part and steers the connection inside it; whichever
+// is written first moves or resizes the other's declaration before it is found.
+func TestLayoutBatchFollowsDeclarationsAnEarlierOperationMoved(t *testing.T) {
+	part := declaredAt(t, unnamedModel, "part : Pump {")
+	line := declaredAt(t, unnamedModel, "connection line connect a to b;")
+	route := &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}
+	want := strings.Replace(unnamedModel,
+		"        part : Pump { part a; part b; connection line connect a to b; }\n",
+		"        part : Pump { part a; part b; connection line connect a to b {\n            @DiagramLayout::Route { points = (1, 2); }\n        } \n            @DiagramLayout::Layout { x = 7; y = 8; }\n        }\n", 1)
+
+	got := applyOps(t, unnamedModel, SetLayoutAt(part, "", at(7, 8)), SetRouteAt(line, "", route))
+	if got != want {
+		t.Fatalf("part then connection:\n--- want\n%s\n--- got\n%s", want, got)
+	}
+	got = applyOps(t, unnamedModel, SetRouteAt(line, "", route), SetLayoutAt(part, "", at(7, 8)))
+	if got != want {
+		t.Fatalf("connection then part:\n--- want\n%s\n--- got\n%s", want, got)
+	}
+
+	// A Layout ahead of the connection lengthens in place, moving the connection.
+	placed := strings.Replace(unnamedModel,
+		"part : Pump { part a; part b; connection line connect a to b; }",
+		"part : Pump { @DiagramLayout::Layout { x = 7; y = 8; } part a; part b; connection line connect a to b { @DiagramLayout::Route { points = (1, 2); } } }", 1)
+	part = declaredAt(t, placed, "part : Pump {")
+	line = declaredAt(t, placed, "connection line connect a to b {")
+	steered := &semantics.Route{Points: []semantics.Waypoint{{X: 3, Y: 4}, {X: 5, Y: 6}}}
+	want = strings.Replace(strings.Replace(placed, "x = 7;", "x = 700;", 1), "points = (1, 2);", "points = (3, 4, 5, 6);", 1)
+	got = applyOps(t, placed, SetLayoutAt(part, "", at(700, 8)), SetRouteAt(line, "", steered))
+	if got != want {
+		t.Fatalf("part then connection, in place:\n--- want\n%s\n--- got\n%s", want, got)
+	}
+	got = applyOps(t, placed, SetRouteAt(line, "", steered), SetLayoutAt(part, "", at(700, 8)))
+	if got != want {
+		t.Fatalf("connection then part, in place:\n--- want\n%s\n--- got\n%s", want, got)
+	}
+
+	// A named transition gaining a body moves the unnamed one after it.
+	unnamed := declaredAt(t, unnamedModel, "transition first on then off;")
+	got = applyOps(t, unnamedModel, SetRoute("Plant::Motor::t", "", route), SetRouteAt(unnamed, "", steered))
+	want = strings.Replace(unnamedModel,
+		"        transition t first off then on;\n        transition first on then off;\n",
+		"        transition t first off then on {\n            @DiagramLayout::Route { points = (1, 2); }\n        }\n        transition first on then off {\n            @DiagramLayout::Route { points = (3, 4, 5, 6); }\n        }\n", 1)
+	if got != want {
+		t.Fatalf("named then unnamed transition:\n--- want\n%s\n--- got\n%s", want, got)
+	}
+
+	// A declaration an earlier operation removed is not found again.
+	_, err := Apply(loadContent(t, "plant.sysml", placed), []Operation{Delete("Plant::Loop", true), SetRouteAt(line, "", nil)})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget || e.OperationIndex != 1 {
+		t.Fatalf("route of a deleted declaration: got %v", err)
+	}
+}
+
 func TestDeclarationRefusals(t *testing.T) {
 	m := loadContent(t, "plant.sysml", plantModel)
 	nowhere := source.Span{Offset: 3, Len: 4}

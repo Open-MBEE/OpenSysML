@@ -22,12 +22,28 @@ func (s *Scope) Members() []*Symbol {
 // in this scope or one nested in it, or nil. An anonymous declaration is found
 // as a named one is, so an edit can reach an element no qualified name does.
 func (s *Scope) DeclaredAt(span source.Span) *Symbol {
-	if s == nil || span.Len <= 0 {
+	if span.Len <= 0 {
+		return nil
+	}
+	return s.declared(span, func(decl source.Span) bool { return decl == span })
+}
+
+// DeclaredFrom returns the symbol whose declaration was parsed starting at
+// offset, in this scope or one nested in it, or nil. It relocates a declaration
+// whose extent an edit changed but whose start it left in place.
+func (s *Scope) DeclaredFrom(offset int) *Symbol {
+	return s.declared(source.Span{Offset: offset, Len: 1}, func(decl source.Span) bool { return decl.Offset == offset })
+}
+
+// declared finds the member of this scope tree whose DeclSpan satisfies match,
+// descending only into children whose node covers span.
+func (s *Scope) declared(span source.Span, match func(source.Span) bool) *Symbol {
+	if s == nil {
 		return nil
 	}
 	var found *Symbol
 	s.ForEachMember(func(sym *Symbol) bool {
-		if sym.DeclSpan == span {
+		if match(sym.DeclSpan) {
 			found = sym
 			return false
 		}
@@ -42,7 +58,7 @@ func (s *Scope) DeclaredAt(span source.Span) *Symbol {
 				continue
 			}
 		}
-		if sym := child.DeclaredAt(span); sym != nil {
+		if sym := child.declared(span, match); sym != nil {
 			return sym
 		}
 	}

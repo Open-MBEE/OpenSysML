@@ -796,6 +796,47 @@ package PlantViews {
 	}
 }
 
+// One request routes two unnamed transitions: the body the first gains moves the
+// second's declaration, which is still found where the rendering placed it.
+func TestApplyModelEditRoutesTwoUnnamedEdgesInOneRequest(t *testing.T) {
+	const machine = `package Plant {
+	state def Motor {
+		state off;
+		state on;
+		transition first off then on;
+		transition first on then off;
+	}
+}
+
+package PlantViews {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+
+	view motorView : StateTransitionView {
+		expose Plant::Motor;
+	}
+}
+`
+	s, docURI := renderServer(t, "plant.sysml", machine)
+	drawn := render(t, s, docURI, "PlantViews::motorView")
+	if len(drawn.Edges) != 2 || drawn.Edges[0].Declaration == nil || drawn.Edges[1].Declaration == nil {
+		t.Fatalf("edges = %+v, want two unnamed transitions with declaration ranges", drawn.Edges)
+	}
+	out := applyModelEdit(t, s, docURI, drawn.Version,
+		modelEditOperation{Kind: EditSetRoute, Declaration: drawn.Edges[0].Declaration, Route: []renderPoint{{X: 1, Y: 2}}},
+		modelEditOperation{Kind: EditSetRoute, Declaration: drawn.Edges[1].Declaration, Route: []renderPoint{{X: 3, Y: 4}, {X: 5, Y: 6}}})
+	applied, redrawn := redraw(t, s, docURI, machine, out, 2, drawn.View)
+	want := strings.Replace(machine,
+		"\t\ttransition first off then on;\n\t\ttransition first on then off;\n",
+		"\t\ttransition first off then on {\n\t\t\t@DiagramLayout::Route { points = (1, 2); }\n\t\t}\n\t\ttransition first on then off {\n\t\t\t@DiagramLayout::Route { points = (3, 4, 5, 6); }\n\t\t}\n", 1)
+	if applied != want {
+		t.Errorf("document after both routes:\n--- want\n%s\n--- got\n%s", want, applied)
+	}
+	if len(redrawn.Edges) != 2 || len(redrawn.Edges[0].Route) != 1 || len(redrawn.Edges[1].Route) != 2 {
+		t.Errorf("redrawn edges = %+v, want routes of one and two points", redrawn.Edges)
+	}
+}
+
 // A layout the view cannot show is refused with the edit layer's failure name
 // and nothing is written; an empty route clears like an absent one, so there is
 // nothing to clear here; a payload that is not a layout is invalid params.
