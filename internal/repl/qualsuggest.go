@@ -17,6 +17,12 @@ const qualifiedScan = 200
 // nearest scope first (session before library, a package's member before one
 // nested in another element, shallower before deeper) and capped at suggest.Limit.
 func (s *Session) qualifiedSuggestions(idx *symbols.Index, name string) []string {
+	return s.qualifiedNamesOf(idx, name, writableName)
+}
+
+// qualifiedNamesOf is qualifiedSuggestions restricted to the registered names
+// admit accepts.
+func (s *Session) qualifiedNamesOf(idx *symbols.Index, name string, admit func(fqn string) bool) []string {
 	if idx == nil || name == "" {
 		return nil
 	}
@@ -29,7 +35,7 @@ func (s *Session) qualifiedSuggestions(idx *symbols.Index, name string) []string
 	var cands []candidate
 	add := func(fqn string) {
 		sym := idx.Declaring(fqn)
-		if sym == nil || !writableName(fqn) {
+		if sym == nil || !admit(fqn) {
 			return
 		}
 		cands = append(cands, candidate{

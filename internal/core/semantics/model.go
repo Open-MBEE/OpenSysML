@@ -38,6 +38,7 @@ type Model struct {
 	referenced    map[*symbols.Symbol]*symbols.Symbol
 	resolvingRef  map[*symbols.Symbol]bool
 	memberSources map[*symbols.Symbol][]*symbols.Symbol
+	lookupOrder   map[*symbols.Symbol][]lookupSource    // name-lookup order
 	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
 	primTypes     map[*symbols.Symbol]PrimType
 	scalars       map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
@@ -50,6 +51,10 @@ type Model struct {
 	typingArgs map[*ast.InvocationExpr]bool
 	composed   map[composedKey][]*symbols.Symbol
 	ends       map[*symbols.Symbol][]connectorEnd
+	// subtracting memoizes whether a type reaches a difference (see cast.go).
+	subtracting map[*symbols.Symbol]bool
+	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
+	implicitBase map[*symbols.Symbol][]*symbols.Symbol
 
 	superEdgeCache map[*symbols.Symbol][]superEdge      // generalization edges with conjugation
 	conjSupers     map[*symbols.Symbol][]conjugatedType // supertypes with conjugation parity
@@ -57,10 +62,12 @@ type Model struct {
 	unitTerms    map[*symbols.Symbol]UnitTerm // measurement units reduced to base units
 	reducingUnit map[*symbols.Symbol]bool     // units being reduced, to detect a cycle
 
-	dimensions   map[*symbols.Symbol]dimensionResult // units to the dimension they measure in
-	dimensioning map[*symbols.Symbol]bool            // units whose dimension is being derived, to detect a cycle
-	libSymbols   map[string]*symbols.Symbol          // library elements resolved by qualified name
-	baseUnits    map[*symbols.Symbol]*symbols.Symbol // base quantities to SI::si's base units, nil until read
+	dimensions    map[*symbols.Symbol]dimensionResult // units to the dimension they measure in
+	dimensioning  map[*symbols.Symbol]bool            // units whose dimension is being derived, to detect a cycle
+	libSymbols    map[string]*symbols.Symbol          // library elements resolved by qualified name
+	baseUnits     map[*symbols.Symbol]*symbols.Symbol // base quantities to SI::si's base units, nil until read
+	coherentUnits map[string][]coherentUnit           // declared coherent units by reduced factors, nil until indexed
+	docRanks      map[string]int                      // documents ranked in index order, nil until read
 
 	// Element-filter evaluation: conditions compiled once per expression, their
 	// verdicts memoized per candidate, and the metadata annotating each candidate
@@ -76,13 +83,22 @@ type Model struct {
 	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
+	// layoutSites memoizes the DiagramLayout annotations of each element, and
+	// declSymbols the symbol each declaration under a scope registers (layout.go).
+	layoutSites map[*symbols.Symbol][]*LayoutSite
+	declSymbols map[*symbols.Scope]map[ast.Node]*symbols.Symbol
 
 	// Redefinition masking (see masking.go): the features each declaration
 	// redefines, and the elements each type does not inherit because of them.
 	redefined map[*symbols.Symbol][]*symbols.Symbol
-	redefMask map[*symbols.Symbol]map[*symbols.Symbol]bool
+	// computingRedefined holds the resolver depth of each RedefinedFeatures call on
+	// the stack, so a re-entrant query is cut short rather than memoized empty.
+	computingRedefined map[*symbols.Symbol]int
+	redefMask          map[*symbols.Symbol]map[*symbols.Symbol]bool
 	// redefMaskInherited is the same mask counting inherited redefinitions only.
-	redefMaskInherited         map[*symbols.Symbol]map[*symbols.Symbol]bool
+	redefMaskInherited map[*symbols.Symbol]map[*symbols.Symbol]bool
+	// redefMaskOwn is the same mask counting the type's own redefinitions only.
+	redefMaskOwn               map[*symbols.Symbol]map[*symbols.Symbol]bool
 	redefClosure               map[*symbols.Symbol]map[*symbols.Symbol]bool
 	computingRedefClosure      map[*symbols.Symbol]bool
 	computingRedefinedFeatures int
@@ -119,6 +135,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		referenced:        make(map[*symbols.Symbol]*symbols.Symbol),
 		resolvingRef:      make(map[*symbols.Symbol]bool),
 		memberSources:     make(map[*symbols.Symbol][]*symbols.Symbol),
+		lookupOrder:       make(map[*symbols.Symbol][]lookupSource),
 		contributed:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		primTypes:         make(map[*symbols.Symbol]PrimType),
 		params:            make(map[*symbols.Symbol]behaviorParameters),
@@ -126,6 +143,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		typingArgs:        make(map[*ast.InvocationExpr]bool),
 		composed:          make(map[composedKey][]*symbols.Symbol),
 		ends:              make(map[*symbols.Symbol][]connectorEnd),
+		subtracting:       make(map[*symbols.Symbol]bool),
+		implicitBase:      make(map[*symbols.Symbol][]*symbols.Symbol),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
 		conjSupers:     make(map[*symbols.Symbol][]conjugatedType),
@@ -140,10 +159,14 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		filterVerdicts: make(map[filterKey]filterVerdict),
 		filterTypes:    make(map[string]*symbols.Symbol),
 		annotations:    make(map[*symbols.Symbol][]annotation),
+		layoutSites:    make(map[*symbols.Symbol][]*LayoutSite),
+		declSymbols:    make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
 
 		redefined:             make(map[*symbols.Symbol][]*symbols.Symbol),
+		computingRedefined:    make(map[*symbols.Symbol]int),
 		redefMask:             make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		redefMaskInherited:    make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
+		redefMaskOwn:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		computingRedefClosure: make(map[*symbols.Symbol]bool),
 		unique:                make(map[*symbols.Symbol]bool),
@@ -283,7 +306,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		if !isQN {
 			// A chain target (`subsets b.f`) generalizes to the chain's final feature.
 			if fc, isChain := targetNode.(*ast.FeatureChainExpr); isChain {
-				target, ok := m.resolver.ResolveTarget(sym.OwnerScope, fc)
+				target, ok := m.chainTarget(sym, rel.Kind, fc)
 				if ok && target != nil && target != sym && !seen[target] {
 					seen[target] = true
 					out = append(out, target)
@@ -300,10 +323,9 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		} else {
 			continue
 		}
-		// Same-named subsettings and redefinitions target the inherited feature,
-		// not the binding that resolves first in the owner's scope.
-		if len(qn.Parts) == 1 && (rel.Kind == ast.RelRedefines ||
-			(rel.Kind == ast.RelSubsets && !subsetsSibling(sym, target))) {
+		// A same-named subsetting targets the inherited feature, not the binding
+		// that resolves first in the owner's scope.
+		if len(qn.Parts) == 1 && rel.Kind == ast.RelSubsets && !subsetsSibling(sym, target) {
 			if redefined := m.inheritedFeature(sym, qn); redefined != nil {
 				target = redefined
 			} else if target == sym {
@@ -448,6 +470,16 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, redefined)
 	}
 
+	// A declaration in a metadata body redefines the metadata type's feature of
+	// its name (KerML 7.4.7), whose members its own body then redefines in turn.
+	for _, redefined := range m.implicitMetadataBodyRedefinitions(sym) {
+		if redefined == nil || redefined == sym || seen[redefined] {
+			continue
+		}
+		seen[redefined] = true
+		out = append(out, redefined)
+	}
+
 	// A declaration keeps its kind's bases whatever else it declares; implicitBases
 	// suppresses one only when a declared chain already reaches it. A metadata
 	// keyword supplies the kind itself, so its baseType stands in.
@@ -547,11 +579,7 @@ func (m *Model) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship) *
 	)
 	switch node := node.(type) {
 	case *ast.FeatureChainExpr:
-		if rel.Kind.ReferenceSubsets() {
-			target, ok = m.resolver.ResolveReferenceTarget(sym.OwnerScope, sym.Decl, node)
-		} else {
-			target, ok = m.resolver.ResolveTarget(sym.OwnerScope, node)
-		}
+		target, ok = m.chainTarget(sym, rel.Kind, node)
 	case *ast.QualifiedName:
 		target, ok = m.generalizationTarget(sym, rel.Kind, node)
 	}
@@ -562,6 +590,18 @@ func (m *Model) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship) *
 		return resolved
 	}
 	return nil
+}
+
+// chainTarget resolves a chain target (`subsets b.f`) to its final feature, as
+// the document walk reads it for a relationship of kind owned by sym.
+func (m *Model) chainTarget(sym *symbols.Symbol, kind ast.RelationshipKind, fc *ast.FeatureChainExpr) (*symbols.Symbol, bool) {
+	switch {
+	case kind == ast.RelRedefines:
+		return m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, fc)
+	case kind.ReferenceSubsets():
+		return m.resolver.ResolveReferenceTarget(sym.OwnerScope, sym.Decl, fc)
+	}
+	return m.resolver.ResolveTarget(sym.OwnerScope, fc)
 }
 
 // subsetsSibling reports whether sym's subsetting resolved to another member of

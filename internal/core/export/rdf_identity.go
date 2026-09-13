@@ -9,14 +9,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // elementIdentity is one element's effective repository identity, in the
 // encoder's terms: keyed by the qualified name the encoder computes.
 type elementIdentity struct {
 	id       string
+	source   identity.Source
 	declared bool
 	scope    *identity.Scope
+	// membership is the normative id of the owning membership, for a library element.
+	membership string
 }
 
 // identityFacts is the identity side table of one document translated for the
@@ -35,11 +40,23 @@ type identityFacts struct {
 	qualified bool
 }
 
-// analyzeDocument indexes one parsed document over the standard library and
-// resolves every name it writes, so the encoder can ask where each one leads.
-func analyzeDocument(name string, root *ast.RootNamespace) (*resolve.Resolver, *semantics.Model) {
+// analyzeDocument indexes one parsed document over the standard library and resolves
+// every name it writes; a library file (named, or a byte-identical copy) takes the bundled one's place.
+func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*resolve.Resolver, *semantics.Model) {
+	name := file.Name()
 	idx := libs.NewModelIndex()
+	digest := symbols.TextDigest(file.Bytes())
+	if library == "" {
+		library, _, _ = idx.LibraryDocumentByDigest(digest)
+	}
+	tier := idx.DocumentLibraryTier(library)
+	if tier.Library() {
+		idx.RemoveDocument(library)
+	}
 	idx.AddDocument(name, root)
+	if tier.Library() {
+		idx.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: tier, Digest: digest})
+	}
 	res := resolve.New(idx)
 	model := semantics.NewModel(res)
 	res.SetModel(model)
@@ -80,9 +97,11 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 			scopeKeys[info.Scope.Key()] = true
 		}
 		el := elementIdentity{
-			id:       info.EffectiveID,
-			declared: info.Declared,
-			scope:    info.Scope,
+			id:         info.EffectiveID,
+			source:     info.Source,
+			declared:   info.Declared,
+			scope:      info.Scope,
+			membership: info.OwningMembershipID(),
 		}
 		facts.byFQN[info.FQN] = el
 		facts.byNode[sym.Decl] = el
@@ -142,13 +161,22 @@ func (f *identityFacts) subjectForNode(node ast.Node, fqn string) rdf.Term {
 // the encoder's name, which positions an unnamed element the table cannot.
 func (f *identityFacts) subjectOf(el elementIdentity, fqn string) rdf.Term {
 	id := el.id
-	if !el.declared || id == "" {
+	if el.source == identity.SourceDerived || id == "" {
 		id = rdf.EncodeElementID(fqn)
 	}
 	if f.qualified && el.scope != nil {
 		return rdf.ScopedElementIRIForID(rdf.ScopeQualifier(el.scope.Org, el.scope.ProjectID), id)
 	}
 	return rdf.ElementIRIForID(id)
+}
+
+// owningMembershipOf is the IRI of the membership owning the member declared at
+// node: the id the norm fixes for a library element, else derived from the member's.
+func (f *identityFacts) owningMembershipOf(node ast.Node, member rdf.Term) rdf.Term {
+	if el, ok := f.byNode[node]; ok && el.membership != "" {
+		return rdf.ElementIRIForID(el.membership)
+	}
+	return rdf.OwningMembershipIRIOf(member)
 }
 
 // declaredIDAt reports whether the declaration's id came from an explicit

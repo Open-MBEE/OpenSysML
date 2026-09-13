@@ -209,6 +209,10 @@ func (m *Model) ExprResultType(scope *symbols.Scope, node ast.Node) *symbols.Sym
 			// `x as T` results in T (KerML checkCastExpressionResultSpecialization).
 			return m.namedType(scope, n.TypeRef)
 		}
+		if types := m.extentTypes(scope, n); len(types) > 0 {
+			// `all T` results in instances of T (KerML 1.0 §7.4.9.2, BaseFunctions::'all').
+			return types[0]
+		}
 		if unit := m.MeasurementRefExprType(scope, n); unit != nil {
 			return unit
 		}
@@ -667,6 +671,11 @@ func (m *Model) measurementReference(scope *symbols.Scope, unit ast.Node) *symbo
 // coordinate frame by a unit the frame MeasurementRefCalculations compose.
 func (m *Model) operatorConformance(scope *symbols.Scope, e *ast.OperatorExpr, want *symbols.Symbol, byUnit bool) Conformance {
 	switch e.Operator {
+	case ast.OpAll:
+		// `all T` holds instances of T (KerML 1.0 §7.4.9.2): judged as the collection it is.
+		if c, ok := m.collectionConformance(scope, e, want, byUnit); ok {
+			return c
+		}
 	case ast.OpConditional, ast.OpNullCoalesce:
 		c := m.typeConformance(m.libSymbol(fqnAnything), want)
 		if c.Known && !c.Holds {
@@ -911,13 +920,25 @@ func (m *Model) measurementRefExpr(scope *symbols.Scope, e *ast.OperatorExpr) (*
 	return unit, term, true
 }
 
+// measurementRefNamed reduces the unit a name refers to; false, with none of
+// unitTermOfName's diagnosis, when it is not a unit's, as most operands probed are not.
+func (m *Model) measurementRefNamed(scope *symbols.Scope, qn *ast.QualifiedName) (UnitTerm, bool) {
+	sym, ok := m.unitSymbolNamed(scope, qn)
+	if !ok || m.IsMeasurementScale(sym) || !m.IsMeasurementUnit(sym) {
+		return UnitTerm{}, false
+	}
+	term, err := m.UnitTermOf(sym)
+	return term, err == nil
+}
+
 // measurementRefOperand reduces a unit's name, `*`/`/` of two such, or `**` of one
 // by a number; a number itself (`1 * 1`) is none, though unit notation reads `1`.
 func (m *Model) measurementRefOperand(scope *symbols.Scope, node ast.Node) (UnitTerm, bool) {
 	switch n := node.(type) {
-	case *ast.FeatureReference, *ast.QualifiedName:
-		term, err := m.UnitTermOfExpr(scope, n)
-		return term, err == nil
+	case *ast.FeatureReference:
+		return m.measurementRefNamed(scope, n.Name)
+	case *ast.QualifiedName:
+		return m.measurementRefNamed(scope, n)
 	case *ast.OperatorExpr:
 		if len(n.Operands) != 2 {
 			return UnitTerm{}, false

@@ -72,7 +72,7 @@ func (ctx *Context) connectorBaseOf(feat *EffectiveFeature) *symbols.Symbol {
 // they are answered from the ends the usage attaches: `source` and `target` for
 // a binary connector, `participant` for any other arity.
 func (ctx *Context) connectorEndFeatures(typeSym *symbols.Symbol, declared map[string]bool) []EffectiveFeature {
-	ends := ctx.model.ConnectorEndAttachments(typeSym)
+	ends := ctx.model.semantics.ConnectorEndAttachments(typeSym)
 	if len(ends) == 0 {
 		return nil
 	}
@@ -109,7 +109,7 @@ func (ctx *Context) materializeConnector(owner *Instance, connSym, base *symbols
 // message, and keep never sees it. Once kept, the older behaviors it woke answer;
 // one of them failing is reported as its own, with the connector kept.
 func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbols.Symbol, id int64, keep func(*Instance)) error {
-	ends := ctx.model.ConnectorEndAttachments(connSym)
+	ends := ctx.model.semantics.ConnectorEndAttachments(connSym)
 	if len(ends) == 0 {
 		return fmt.Errorf("%w: %s declares no end to attach", ErrConnectorEnd, connectorName(connSym))
 	}
@@ -469,7 +469,7 @@ func (ctx *Context) anonymousConnectors(typeSym *symbols.Symbol) []*symbols.Symb
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, decl := range append([]*symbols.Symbol{typeSym}, ctx.model.AllSupertypes(typeSym)...) {
+	for _, decl := range append([]*symbols.Symbol{typeSym}, ctx.model.semantics.AllSupertypes(typeSym)...) {
 		// A library supertype states the metamodel frame every element
 		// specializes, not the model's own connections.
 		if decl != typeSym && ctx.libraryDeclared(decl) {
@@ -486,7 +486,7 @@ func (ctx *Context) anonymousConnectors(typeSym *symbols.Symbol) []*symbols.Symb
 			// A succession or transition carries ends too, and relates its ends in
 			// time rather than joining them, so it is no connector to materialize.
 			sym := anonymousConnectorSymbol(decl, usage)
-			if !ctx.model.IsConnectorUsage(sym) {
+			if !ctx.model.semantics.IsConnectorUsage(sym) {
 				continue
 			}
 			out = append(out, sym)

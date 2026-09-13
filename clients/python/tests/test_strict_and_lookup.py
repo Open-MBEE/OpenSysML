@@ -4,10 +4,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from opensysml.capabilities import CAPABILITY_QUERY, ServerInfo
 from opensysml.connection import Connection
 from opensysml.errors import ModelError, SymbolNotFoundError
 from opensysml.model import Model
 from opensysml.proto import sysml_pb2
+from opensysml.query import QueryElement
 
 
 def _response(diagnostics=(), children=()):
@@ -41,10 +43,20 @@ def _child(name, fqn=None):
 
 
 def _model_with_children(*children, diagnostics=()):
+    """A model over a service that answers an unknown id with None, as the real one does."""
     client = Mock()
-    client.get_symbol.side_effect = lambda model_hash, symbol_id: next(
-        child for child in children if child.id == symbol_id
+    client.server_info.return_value = ServerInfo(
+        version="test", capabilities=frozenset({CAPABILITY_QUERY}),
+        answered=True, origin="test",
     )
+    client.get_symbol.side_effect = lambda model_hash, symbol_id: next(
+        (child for child in children if child.id == symbol_id), None
+    )
+    client.query.side_effect = lambda model_hash, select=None, where=None: [
+        QueryElement(id=child.id, type=child.kind, properties={"name": child.name})
+        for child in children
+        if where is None or child.name == where["value"]
+    ]
     return Model(_response(diagnostics, children), client)
 
 

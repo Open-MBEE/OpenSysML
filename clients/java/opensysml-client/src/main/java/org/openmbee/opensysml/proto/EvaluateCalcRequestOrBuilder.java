@@ -90,4 +90,24 @@ public interface EvaluateCalcRequestOrBuilder extends
    */
   org.openmbee.opensysml.proto.ValueOrBuilder getArgumentsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * The engine the calculation is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 4 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  java.lang.String getEngine();
+  /**
+   * <pre>
+   * The engine the calculation is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 4 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  com.google.protobuf.ByteString
+      getEngineBytes();
 }

@@ -7,13 +7,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
-// analyzeSrc returns every diagnostic src produces.
+// analyzeSrc returns every diagnostic src produces, the parser's included.
 func analyzeSrc(t *testing.T, src string) []Diagnostic {
 	t.Helper()
-	root := parser.New(source.New("<t>", []byte(src))).ParseFile()
-	idx := newTestIndex()
-	idx.AddDocument("<t>", root)
-	return Analyze("<t>", root, nil, idx)
+	root, parseDiags, idx := analyzeInputs(t, "<t>", src)
+	return Analyze("<t>", root, parseDiags, idx)
 }
 
 // importVisibilityDiags returns the import-visibility findings of src.
@@ -56,6 +54,23 @@ func TestImportVisibilityIndicatorRequired(t *testing.T) {
 	}
 }
 
+// The parser itself carries the finding, as a warning on the `import` keyword,
+// so a direct parser consumer sees it before any pass runs.
+func TestImportVisibilityIsAParserWarning(t *testing.T) {
+	src := "package Q {\n\timport P::*;\n}"
+	p := parser.New(source.New("<t>", []byte(src)))
+	p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse errors = %v, want none: the bare form still reads", p.Diagnostics)
+	}
+	if len(p.Warnings) != 1 || p.Warnings[0].Code != CodeImportVisibility {
+		t.Fatalf("parse warnings = %v, want one %s", p.Warnings, CodeImportVisibility)
+	}
+	if got := src[p.Warnings[0].Span.Offset:p.Warnings[0].Span.End()]; got != "import" {
+		t.Errorf("span covers %q, want \"import\"", got)
+	}
+}
+
 // The finding is an error spanning the `import` keyword: ImportPrefix makes the
 // indicator mandatory, so the reference rejects the bare form too (D2).
 func TestImportVisibilityErrorsOnTheKeyword(t *testing.T) {
@@ -81,12 +96,10 @@ func TestImportVisibilityErrorsOnTheKeyword(t *testing.T) {
 // an unresolved target.
 func TestImportVisibilityChangesSeverityOnly(t *testing.T) {
 	src := "package Lib { part def Widget; }\npackage App { import Lib::*; part w : Widget; import Nowhere::*; }"
-	root := parser.New(source.New("<t>", []byte(src))).ParseFile()
-	idx := newTestIndex()
-	idx.AddDocument("<t>", root)
+	root, parseDiags, idx := analyzeInputs(t, "<t>", src)
 
 	var errored bool
-	for _, d := range (ImportVisibilityPass{}).Run(NewContext("<t>", idx, nil), "<t>", root) {
+	for _, d := range (GrammarViolationPass{}).Run(NewContext("<t>", idx, parseDiags), "<t>", root) {
 		if d.Code == "import-visibility" && d.Severity == SeverityError {
 			errored = true
 		}

@@ -19,16 +19,18 @@ const (
 
 // collectionSource is what the elements of a collection function's result are: an
 // expression in its scope — the result of the body applied, or the collection kept —
-// or the result parameter of the function applied by name.
+// the result parameter of the function applied by name, or the type an extent is of.
 type collectionSource struct {
 	scope  *symbols.Scope
 	node   ast.Node
 	result *symbols.Symbol
+	extent *symbols.Symbol
 }
 
-// CollectionResultTypes is the types every element of a collection value — `xs.{…}` or a call
-// of a ControlFunctions collection function — has, and whether its arguments decide the value
-// rather than the declared result alone; nil types where they are unknown or say nothing.
+// CollectionResultTypes is the types every element of a collection value — `xs.{…}`, a call
+// of a ControlFunctions collection function or an extent `all T` — has, and whether its
+// arguments decide the value rather than the declared result alone; nil types where they are
+// unknown or say nothing.
 func (m *Model) CollectionResultTypes(scope *symbols.Scope, node ast.Node) ([]*symbols.Symbol, bool) {
 	if m == nil || m.resolver == nil || node == nil {
 		return nil, false
@@ -40,20 +42,22 @@ func (m *Model) CollectionResultTypes(scope *symbols.Scope, node ast.Node) ([]*s
 	return m.sourcesTypes(srcs), true
 }
 
-// CollectionValues is how many values a collection value — `xs.{…}`, `xs.?{…}` or a call of a
-// ControlFunctions collection function — holds, where the value is one and its size is known.
+// CollectionValues is how many values a collection value — `xs.{…}`, `xs.?{…}`, a call of a
+// ControlFunctions collection function or an extent `all T` — holds, where the value is one
+// and its size is known.
 func (m *Model) CollectionValues(scope *symbols.Scope, node ast.Node) (Range, bool) {
 	if m == nil || m.resolver == nil || node == nil {
 		return Range{}, false
 	}
-	if _, ok := m.collectionOf(scope, node); !ok {
+	if _, ok := m.collectionOf(scope, node); !ok && !IsExtentExpr(node) {
 		return Range{}, false
 	}
 	return m.valuesHeldBy(scope, node)
 }
 
 // sourcesOf is the sources typing a collection value: `xs.{…}` by its body, `xs.?{…}` by xs, a
-// collection function call by its arguments; not ok for any other value.
+// collection function call by its arguments, an extent by the type it names; not ok for any
+// other value.
 func (m *Model) sourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSource, bool) {
 	switch n := node.(type) {
 	case *ast.CollectExpr:
@@ -62,6 +66,13 @@ func (m *Model) sourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSour
 		return m.keptSources(scope, n.Operand)
 	case *ast.InvocationExpr:
 		return m.invocationSources(scope, n, m.invocationCallee(scope, n))
+	case *ast.OperatorExpr:
+		if IsExtentExpr(n) {
+			if sym := m.ExtentType(scope, n); sym != nil {
+				return []collectionSource{{extent: sym}}, true
+			}
+			return nil, false
+		}
 	}
 	return nil, false
 }
@@ -78,7 +89,7 @@ func (m *Model) heldSourcesOf(scope *symbols.Scope, node ast.Node) ([]collection
 	}
 	held := make([]collectionSource, 0, len(srcs))
 	for _, src := range srcs {
-		if src.result != nil && m.resultHoldsNothing(src.result) || src.result == nil && m.holdsNothing(src.scope, src.node) {
+		if src.result != nil && m.resultHoldsNothing(src.result) || src.node != nil && m.holdsNothing(src.scope, src.node) {
 			continue
 		}
 		held = append(held, src)
@@ -190,14 +201,31 @@ func (m *Model) holdsNothing(scope *symbols.Scope, collection ast.Node) bool {
 	return ok && !r.Upper.Infinite && r.Upper.Value == 0
 }
 
+// ValuesHeldBy is how many values an expression holds wherever it is evaluated, as far as the
+// declarations it reads fix that: see valuesHeldBy. Not ok where they leave it open.
+func (m *Model) ValuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) {
+	if m == nil || m.resolver == nil || node == nil {
+		return Range{}, false
+	}
+	return m.valuesHeldBy(scope, node)
+}
+
 // valuesHeldBy is how many values a collection expression holds: `()` none, a literal one, a
 // sequence the sum over its elements, a feature or chain the multiplicity governing it, a chain
 // holding through each value of its operand the values of its last feature, a collection
-// operation what it maps to, keeps or reduces; not ok where unknown.
+// operation what it maps to, keeps or reduces, an extent any number, a conditional what either
+// branch holds; not ok where unknown.
 func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) {
 	switch n := node.(type) {
 	case *ast.NullExpr:
 		return CountRange(0), true
+	case *ast.OperatorExpr:
+		if IsExtentExpr(n) {
+			return ExtentRange(), true
+		}
+		if n.Operator == ast.OpConditional && len(n.Operands) == 3 {
+			return m.valuesHeldByEither(scope, n.Operands[1], n.Operands[2])
+		}
 	case *ast.CollectExpr:
 		return m.valuesMappedBy(scope, n.Operand, n.Body)
 	case *ast.SelectExpr:
@@ -230,6 +258,20 @@ func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) 
 		return mulRanges(through, last), true
 	}
 	return Range{}, false
+}
+
+// valuesHeldByEither is how many values one of two branches holds: the fewest of either to the
+// most of either; not ok where either is unknown.
+func (m *Model) valuesHeldByEither(scope *symbols.Scope, a, b ast.Node) (Range, bool) {
+	ra, ok := m.valuesHeldBy(scope, a)
+	if !ok {
+		return Range{}, false
+	}
+	rb, ok := m.valuesHeldBy(scope, b)
+	if !ok {
+		return Range{}, false
+	}
+	return ra.Covering(rb), true
 }
 
 // valuesHeldByCall is how many values a call holds: collect what it maps to, select/reject up to
@@ -357,19 +399,45 @@ func (r Range) Plus(o Range) Range {
 // addRanges is the values two collections hold together; a bound summing past int64 exceeds
 // every multiplicity bound, so it is unbounded.
 func addRanges(a, b Range) Range {
-	return Range{Lower: addBounds(a.Lower, b.Lower), Upper: addBounds(a.Upper, b.Upper)}
+	return Range{Lower: addBounds(atLeast(a.Lower), atLeast(b.Lower)), Upper: addBounds(a.Upper, b.Upper)}
+}
+
+// atLeast is the fewest values a lower bound certainly admits: none where it is not evaluable.
+func atLeast(lower Bound) Bound {
+	if !lower.Known {
+		return Bound{Known: true}
+	}
+	return lower
+}
+
+// Times is the values held through each value of r, each holding o: the product of their bounds.
+func (r Range) Times(o Range) Range {
+	return mulRanges(r, o)
+}
+
+// Covering is the least range admitting every count either range admits: the lesser lower
+// bound and the greater upper bound, the upper unknown where either is not evaluable.
+func (r Range) Covering(o Range) Range {
+	covering := Range{Lower: lesserBound(atLeast(r.Lower), atLeast(o.Lower))}
+	if r.Upper.Known && o.Upper.Known {
+		covering.Upper = greaterBound(r.Upper, o.Upper)
+	}
+	return covering
 }
 
 // mulRanges is the values held through each value of a, each holding b; a bound multiplying
 // past int64 exceeds every multiplicity bound, so it is unbounded.
 func mulRanges(a, b Range) Range {
-	return Range{Lower: mulBounds(a.Lower, b.Lower), Upper: mulBounds(a.Upper, b.Upper)}
+	return Range{Lower: mulBounds(atLeast(a.Lower), atLeast(b.Lower)), Upper: mulBounds(a.Upper, b.Upper)}
 }
 
 var unbounded = Bound{Infinite: true, Known: true}
 
-// addBounds is a + b, unbounded past where int64 reaches.
+// addBounds is a + b: unknown where either is, unbounded past where int64 reaches.
 func addBounds(a, b Bound) Bound {
+	if !a.Known || !b.Known {
+		return Bound{}
+	}
 	if a.Infinite || b.Infinite || a.Value > math.MaxInt64-b.Value {
 		return unbounded
 	}
@@ -396,10 +464,14 @@ func maxBound(a, b Bound) Bound {
 	return b
 }
 
-// mulBounds is a × b, none through none, unbounded past where int64 reaches.
+// mulBounds is a × b: none through none, else unknown where either is, unbounded past
+// where int64 reaches.
 func mulBounds(a, b Bound) Bound {
-	if (!a.Infinite && a.Value == 0) || (!b.Infinite && b.Value == 0) {
+	if (a.Known && !a.Infinite && a.Value == 0) || (b.Known && !b.Infinite && b.Value == 0) {
 		return Bound{Known: true}
+	}
+	if !a.Known || !b.Known {
+		return Bound{}
 	}
 	if a.Infinite || b.Infinite || a.Value > math.MaxInt64/b.Value {
 		return unbounded
@@ -580,6 +652,10 @@ func (m *Model) sourcesElements(srcs []collectionSource) []CollectionElement {
 			out = append(out, CollectionElement{Types: informativeTypes(m.featureResultTypes(src.result))})
 			continue
 		}
+		if src.extent != nil {
+			out = append(out, CollectionElement{Types: informativeTypes(m.instanceTypes(src.extent))})
+			continue
+		}
 		out = append(out, m.elementsOf(src.scope, src.node)...)
 	}
 	return out
@@ -720,8 +796,17 @@ func (m *Model) sourcesConformance(srcs []collectionSource, want *symbols.Symbol
 		func(scope *symbols.Scope, node ast.Node) Conformance {
 			return m.elementConformance(scope, node, want, byUnit)
 		},
-		func(result *symbols.Symbol) Conformance { return m.featureConformance(result, want) })
+		func(result *symbols.Symbol) Conformance { return m.featureConformance(result, want) },
+		func(extent *symbols.Symbol) Conformance { return m.instanceConformance(extent, want) })
 	return decided(everyHolds(judged))
+}
+
+// instanceConformance judges an instance of sym: a value of the feature, else one of the classifier.
+func (m *Model) instanceConformance(sym, want *symbols.Symbol) Conformance {
+	if sym.IsFeature() {
+		return m.featureConformance(sym, want)
+	}
+	return m.typeConformance(sym, want)
 }
 
 // collectionCastConformance judges a collection value cast to T by the elements it holds: sound
@@ -738,17 +823,29 @@ func (m *Model) collectionCastConformance(scope *symbols.Scope, operand ast.Node
 		func(scope *symbols.Scope, node ast.Node) Conformance { return m.castConformance(scope, node, target) },
 		func(result *symbols.Symbol) Conformance {
 			return m.castTypesConformance(m.featureResultTypes(result), target)
+		},
+		func(extent *symbols.Symbol) Conformance {
+			return m.castTypesConformance(m.instanceTypes(extent), target)
 		})
 	return decided(anyHolds(judged))
 }
 
-// judgeSources judges each element of every source: a result parameter as the feature, an
-// expression by itself, a sequence `(a, b)` element by element, one holding nothing not at all.
-func (m *Model) judgeSources(srcs []collectionSource, byNode func(*symbols.Scope, ast.Node) Conformance, byResult func(*symbols.Symbol) Conformance) []Conformance {
+// judgeSources judges each element of every source: a result parameter as the feature, an extent
+// as an instance of its type, an expression by itself, a sequence `(a, b)` element by element,
+// one holding nothing not at all.
+func (m *Model) judgeSources(
+	srcs []collectionSource,
+	byNode func(*symbols.Scope, ast.Node) Conformance,
+	byResult, byExtent func(*symbols.Symbol) Conformance,
+) []Conformance {
 	var out []Conformance
 	for _, src := range srcs {
 		if src.result != nil {
 			out = append(out, byResult(src.result))
+			continue
+		}
+		if src.extent != nil {
+			out = append(out, byExtent(src.extent))
 			continue
 		}
 		out = append(out, m.elementJudgements(src.scope, src.node, byNode)...)

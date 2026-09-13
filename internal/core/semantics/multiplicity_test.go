@@ -281,3 +281,39 @@ func TestMultiplicityOfANonUsage(t *testing.T) {
 		}
 	}
 }
+
+// Counts derived from a range with a bound that is not evaluable keep what the other
+// bounds fix: a sum or product is at least what the evaluable lower bounds give and
+// admits an unknown upper count; an unknown upper bound may admit more values.
+func TestRangesWithUnknownBounds(t *testing.T) {
+	known := func(n int64) Bound { return Bound{Value: n, Known: true} }
+	unknown := Range{}
+	oneToUnknown := Range{Lower: known(1)}
+	two := CountRange(2)
+	for name, tc := range map[string]struct{ got, want Range }{
+		"[?..?] + [2]":        {unknown.Plus(two), Range{Lower: known(2)}},
+		"[1..?] + [1..?]":     {oneToUnknown.Plus(oneToUnknown), Range{Lower: known(2)}},
+		"[?..?] × [1]":        {unknown.Times(CountRange(1)), Range{Lower: known(0)}},
+		"[?..?] × [0]":        {unknown.Times(CountRange(0)), CountRange(0)},
+		"[2] × [1..?]":        {two.Times(oneToUnknown), Range{Lower: known(2)}},
+		"[?..?] covering [2]": {unknown.Covering(two), Range{Lower: known(0)}},
+		"[1..?] covering [2]": {oneToUnknown.Covering(two), Range{Lower: known(1)}},
+		"[2] covering [0..3]": {two.Covering(Range{Lower: known(0), Upper: known(3)}), Range{Lower: known(0), Upper: known(3)}},
+		"[2] + [3]":           {two.Plus(CountRange(3)), CountRange(5)},
+		"[1] × [2]":           {AssumedRange().Times(two), CountRange(2)},
+		"[0..*] × [2]":        {Range{Lower: known(0), Upper: unbounded}.Times(two), Range{Lower: known(0), Upper: unbounded}},
+	} {
+		if tc.got != tc.want {
+			t.Errorf("%s = %s (%+v), want %s", name, tc.got.Text(), tc.got, tc.want.Text())
+		}
+	}
+	if unknown.AdmitsMore(0) || !unknown.MayAdmitMore(0) {
+		t.Error("[?..?] certainly admits more than 0 values, or may not: want neither")
+	}
+	if !two.AdmitsMore(1) || two.MayAdmitMore(2) {
+		t.Error("[2] does not admit a second value, or may admit a third: want neither")
+	}
+	if _, exact := unknown.Exactly(); exact {
+		t.Error("[?..?] reported an exact count")
+	}
+}

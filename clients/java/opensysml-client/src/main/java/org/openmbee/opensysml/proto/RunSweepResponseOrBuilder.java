@@ -212,4 +212,64 @@ public interface RunSweepResponseOrBuilder extends
    */
   org.openmbee.opensysml.proto.InstanceOrBuilder getInstancesOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * The engine that ran the table, the strength of its evidence and the bounds
+   * it ran under, as Verdict carries them; each row's verdicts carry the same.
+   * Empty when no run was made. Reported as the "engines" capability.
+   * </pre>
+   *
+   * <code>string engine = 9 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  java.lang.String getEngine();
+  /**
+   * <pre>
+   * The engine that ran the table, the strength of its evidence and the bounds
+   * it ran under, as Verdict carries them; each row's verdicts carry the same.
+   * Empty when no run was made. Reported as the "engines" capability.
+   * </pre>
+   *
+   * <code>string engine = 9 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  com.google.protobuf.ByteString
+      getEngineBytes();
+
+  /**
+   * <code>string strength = 10 [json_name = "strength"];</code>
+   * @return The strength.
+   */
+  java.lang.String getStrength();
+  /**
+   * <code>string strength = 10 [json_name = "strength"];</code>
+   * @return The bytes for strength.
+   */
+  com.google.protobuf.ByteString
+      getStrengthBytes();
+
+  /**
+   * <code>repeated .sysml.Bound bounds = 11 [json_name = "bounds"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.Bound> 
+      getBoundsList();
+  /**
+   * <code>repeated .sysml.Bound bounds = 11 [json_name = "bounds"];</code>
+   */
+  org.openmbee.opensysml.proto.Bound getBounds(int index);
+  /**
+   * <code>repeated .sysml.Bound bounds = 11 [json_name = "bounds"];</code>
+   */
+  int getBoundsCount();
+  /**
+   * <code>repeated .sysml.Bound bounds = 11 [json_name = "bounds"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.BoundOrBuilder> 
+      getBoundsOrBuilderList();
+  /**
+   * <code>repeated .sysml.Bound bounds = 11 [json_name = "bounds"];</code>
+   */
+  org.openmbee.opensysml.proto.BoundOrBuilder getBoundsOrBuilder(
+      int index);
 }

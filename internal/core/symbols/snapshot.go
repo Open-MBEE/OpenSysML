@@ -129,12 +129,12 @@ func (idx *Index) collectFromTables(e *snapshotEncoder) {
 		}
 	}
 	for _, m := range idx.reexported.own {
-		for s := range m {
+		for _, s := range m {
 			e.collectSymbol(s)
 		}
 	}
 	for _, m := range idx.hidden.own {
-		for s := range m {
+		for _, s := range m {
 			e.collectSymbol(s)
 		}
 	}
@@ -416,12 +416,12 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// reexported, hidden
-	for _, table := range []*layer[string, map[*Symbol]bool]{idx.reexported, idx.hidden} {
+	for _, table := range []*layer[string, symbolSet]{idx.reexported, idx.hidden} {
 		keys = sortedKeys(table.own)
 		e.w.Len(len(keys))
 		for _, k := range keys {
 			e.w.String(k)
-			e.symbols(sortedSymbols(e, table.own[k]))
+			e.symbols(table.own[k])
 		}
 	}
 
@@ -494,7 +494,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
-		e.strings(sortedKeys(idx.bySegment.own[k]))
+		e.strings(idx.bySegment.own[k])
 	}
 
 	// lastTargets
@@ -787,13 +787,12 @@ func stringTable[V any](d *sectionReader, gen *indexGeneration, value func() V) 
 	return &layer[string, V]{own: m, gen: gen}
 }
 
-func (d *sectionReader) symbolSet() map[*Symbol]bool {
-	n := d.r.Len()
-	m := make(map[*Symbol]bool, n)
-	for i := 0; i < n; i++ {
-		m[d.sym()] = true
+func (d *sectionReader) symbolSet() symbolSet {
+	set := make(symbolSet, d.r.Len())
+	for i := range set {
+		set[i] = d.sym()
 	}
-	return m
+	return set
 }
 
 // libraryTier reads a tier, refusing one this build does not know.
@@ -910,14 +909,7 @@ func (d *sectionReader) readTables() *Index {
 	idx.librarySyms = &layer[*Symbol, LibraryTier]{own: librarySyms, gen: gen}
 
 	idx.children = stringTable(d, gen, d.strings)
-	idx.bySegment = stringTable(d, gen, func() map[string]bool {
-		n := d.r.Len()
-		m := make(map[string]bool, n)
-		for i := 0; i < n; i++ {
-			m[d.r.String()] = true
-		}
-		return m
-	})
+	idx.bySegment = stringTable(d, gen, d.strings)
 	idx.lastTargets = stringTable(d, gen, func() []resolvedImport {
 		out := make([]resolvedImport, d.r.Len())
 		for i := range out {

@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "instantiate": "test::Probe",
+  "slots": {
+    "fromInteger": {"type": "String", "value": "integer"},
+    "fromString": {"type": "String", "value": "string"},
+    "fromSequence": {"type": "String", "value": "integer"},
+    "fromMixed": {"error": "ambiguous invocation: label denotes test::A::label, test::B::label"},
+    "settled": {"type": "Integer", "value": 1},
+    "stillTied": {"error": "ambiguous invocation: pick denotes test::C::pick, test::D::pick"}
+  }
+}

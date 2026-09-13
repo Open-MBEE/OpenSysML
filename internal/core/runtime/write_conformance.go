@@ -18,6 +18,8 @@ type writeTarget struct {
 	mult     semantics.Range
 	unique   bool // holds no two equal values (KerML isUnique, the default)
 	holdsSet bool // values form a set, which drops repeats itself
+	// multStated: mult is declared rather than the assumed 1..1.
+	multStated bool
 }
 
 // admission is how an object written to a feature answers to the feature's type: a declared value
@@ -40,22 +42,26 @@ type writeTargetKey struct {
 // statement was written in, memoized per scope and name. A name declaring no
 // feature there — a value the body merely holds — states nothing to conform to.
 func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarget, bool) {
-	if ctx.resolver == nil || scope == nil || name == "" {
+	if ctx.model.resolver == nil || scope == nil || name == "" {
 		return nil, false
 	}
 	key := writeTargetKey{scope: scope, name: name}
-	if cached, ok := ctx.writeTargets[key]; ok {
+	if cached, ok := ctx.model.writeTargets[key]; ok {
 		return cached, cached != nil
 	}
 	var target *writeTarget
-	if sym, ok := ctx.resolver.LookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
-		mult, _ := ctx.extractMultiplicity(sym)
+	if sym, ok := ctx.lookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
+		mult, stated := ctx.statedMultiplicity(sym)
+		if !stated {
+			mult = semantics.AssumedRange()
+		}
 		target = ctx.newWriteTarget(sym, name, mult)
+		target.multStated = stated
 	}
-	if ctx.writeTargets == nil {
-		ctx.writeTargets = make(map[writeTargetKey]*writeTarget)
+	if ctx.model.writeTargets == nil {
+		ctx.model.writeTargets = make(map[writeTargetKey]*writeTarget)
 	}
-	ctx.writeTargets[key] = target
+	ctx.model.writeTargets[key] = target
 	return target, target != nil
 }
 
@@ -65,7 +71,7 @@ func (ctx *Context) newWriteTarget(sym *symbols.Symbol, name string, mult semant
 		name:     name,
 		typ:      ctx.extractType(sym),
 		mult:     mult,
-		unique:   ctx.model.IsUnique(sym),
+		unique:   ctx.model.semantics.IsUnique(sym),
 		holdsSet: ctx.holdsSet(sym, ctx.findOwnerType(sym), mult),
 	}
 }
@@ -76,18 +82,35 @@ func (ctx *Context) newWriteTarget(sym *symbols.Symbol, name string, mult semant
 // values of that feature and answer to its type and its multiplicity — the rule
 // binding an initial value (passes.checkBoundValue, Context.checkDefaultCount),
 // applied where a write replaces them.
-func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeTarget, value Value) error {
+func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeTarget, value *Value) error {
 	if target == nil {
 		return nil
 	}
-	if msg := ctx.writeCountRefusal(target, &value); msg != "" {
-		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+	return ctx.checkTarget(scope, what, target, value, admitWritten, true)
+}
+
+// checkTarget reports a value the target does not admit: by count when countJudged,
+// then by type under the given admission, then by uniqueness.
+func (ctx *Context) checkTarget(scope *symbols.Scope, what string, target *writeTarget, value *Value, how admission, countJudged bool) error {
+	return ctx.checkTargetAs(scope, func() string { return what }, target, value, how, countJudged)
+}
+
+// checkTargetAs is checkTarget naming the write only when it is refused, so a
+// conformant write on a hot path does not pay for its description.
+func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged bool) error {
+	if countJudged {
+		if msg := ctx.writeCountRefusal(target, value); msg != "" {
+			return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
+		}
 	}
-	if err := ctx.checkWriteType(scope, what, target.typ, value, admitWritten); err != nil {
+	if refusal, refused := ctx.writeTypeRefusal(scope, target.typ, value, how); refused {
+		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)
+	}
+	if err := ctx.holdForDeclared(value, target.typ); err != nil {
 		return err
 	}
-	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, &value); msg != "" {
-		return fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
+		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
 	return nil
 }
@@ -95,37 +118,48 @@ func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeT
 // writeCountRefusal says why the number of values written is outside the
 // target's multiplicity, or is empty where the count is admitted.
 func (ctx *Context) writeCountRefusal(target *writeTarget, value *Value) string {
-	return target.mult.CountViolation(elementCount(value))
+	return target.mult.HeldViolation(heldCountOf(value))
 }
 
 // checkBodyWrite checks a write of a value a behavior body itself holds - a
 // block-local, a parameter, an output - against the declaration of the name it
 // writes, before that value is stored.
-func (ctx *Context) checkBodyWrite(host stmtHost, s lower.Assign, value Value) error {
+func (ctx *Context) checkBodyWrite(host stmtHost, s lower.Assign, value *Value) error {
 	return ctx.checkNamedWrite(s.Scope, host.describe(), s.Target, value)
 }
 
 // checkNamedWrite checks a write of a name resolved in scope, for a path that
 // stores the value itself rather than reaching Instance.SetFeatureValue.
-func (ctx *Context) checkNamedWrite(scope *symbols.Scope, where, name string, value Value) error {
-	return ctx.checkBoundName(scope, fmt.Sprintf("%s: assignment to %s", where, name), name, value)
-}
-
-// checkBoundName checks a value bound to the feature name declares in scope,
-// described by what: an assignment, or a binding that gives a value to an
-// output the run time computes.
-func (ctx *Context) checkBoundName(scope *symbols.Scope, what, name string, value Value) error {
+func (ctx *Context) checkNamedWrite(scope *symbols.Scope, where, name string, value *Value) error {
 	target, ok := ctx.writeTargetIn(scope, name)
 	if !ok {
 		return nil
 	}
-	return ctx.checkWrite(scope, what, target, value)
+	what := func() string { return fmt.Sprintf("%s: assignment to %s", where, name) }
+	return ctx.checkTargetAs(scope, what, target, value, admitWritten, true)
+}
+
+// checkBodyDeclaration checks the initial value a body-local declaration binds against
+// the declared multiplicity, type and uniqueness, as a namespace-level declaration is
+// checked (KerML 1.0 §7.3.4: the values of a feature are instances of its types).
+// A name declaring no feature holds anything; a declaration stating no multiplicity
+// holds the count its initializer has and, as a namespace-level one, is judged for
+// uniqueness only where it declares more than one value.
+func (ctx *Context) checkBodyDeclaration(scope *symbols.Scope, where, name string, value *Value) error {
+	target, ok := ctx.writeTargetIn(scope, name)
+	if !ok {
+		return nil
+	}
+	declared := *target
+	declared.unique = target.unique && multiValued(target.mult)
+	what := func() string { return fmt.Sprintf("%s: declaration of %s", where, name) }
+	return ctx.checkTargetAs(scope, what, &declared, value, admitDeclared, target.multStated)
 }
 
 // storeBodyValue writes a value into the behavior's own data once it conforms
 // to the declaration of the name written.
 func storeBodyValue(ctx *Context, host stmtHost, env *stmtEnv, name string, value Value, s lower.Assign) error {
-	if err := ctx.checkBodyWrite(host, s, value); err != nil {
+	if err := ctx.checkBodyWrite(host, s, &value); err != nil {
 		return err
 	}
 	env.data.set(name, value)
@@ -134,12 +168,88 @@ func storeBodyValue(ctx *Context, host stmtHost, env *stmtEnv, name string, valu
 
 // checkWriteType reports an element of a written value that no feature of the
 // declared type could hold. A target declaring no type holds anything, and a
-// value whose type the run time cannot name is not judged here.
-func (ctx *Context) checkWriteType(scope *symbols.Scope, what string, declared *symbols.Symbol, value Value, how admission) error {
-	if refusal, refused := ctx.writeTypeRefusal(scope, declared, &value, how); refused {
-		return fmt.Errorf("%s: %w: %s", what, ErrTypeMismatch, refusal)
+// value whose type the run time cannot name is not judged here. A quantity the
+// feature holds is spelt in the coherent unit its declared type prefers.
+func (ctx *Context) checkWriteType(scope *symbols.Scope, what func() string, declared *symbols.Symbol, value *Value, how admission) error {
+	if refusal, refused := ctx.writeTypeRefusal(scope, declared, value, how); refused {
+		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)
+	}
+	return ctx.holdForDeclared(value, declared)
+}
+
+// holdForDeclared shapes an admitted value as the declared type holds it: quantities in
+// its preferred unit, scalars an enumeration admits as the enumerated value they equal.
+func (ctx *Context) holdForDeclared(value *Value, declared *symbols.Symbol) error {
+	ctx.spellForDeclared(value, declared)
+	return ctx.holdAsEnumerated(value, declared)
+}
+
+// holdAsEnumerated stores a scalar admitted by an enumeration-typed feature as the
+// enumerated value it equals, so what the feature holds is of the enumeration.
+func (ctx *Context) holdAsEnumerated(value *Value, declared *symbols.Symbol) error {
+	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef {
+		return nil
+	}
+	switch value.Kind {
+	case ValSequence, ValSet:
+		elements := append([]Value(nil), elementsOf(*value)...)
+		changed := false
+		for i := range elements {
+			enumerated, found, err := ctx.asEnumerated(elements[i], declared)
+			if err != nil {
+				return err
+			}
+			changed = changed || found && enumerated.EnumerationLiteral() != elements[i].EnumerationLiteral()
+			elements[i] = enumerated
+		}
+		if !changed {
+			return nil
+		}
+		if value.Kind == ValSequence {
+			*value = sequenceOf(elements)
+			return nil
+		}
+		*value = ctx.setOf(elements)
+	default:
+		enumerated, found, err := ctx.asEnumerated(*value, declared)
+		if err != nil || !found {
+			return err
+		}
+		*value = enumerated
 	}
 	return nil
+}
+
+// spellForDeclared re-spells the quantities a value holds by the coherent unit
+// the declared type's measurement reference prefers, leaving the magnitude as is.
+func (ctx *Context) spellForDeclared(value *Value, declared *symbols.Symbol) {
+	if declared == nil || ctx.model.semantics == nil {
+		return
+	}
+	switch value.Kind {
+	case ValQuantity:
+		if q := value.Quantity(); q != nil {
+			if spelt := ctx.model.semantics.CoherentSpelling(*q, declared); spelt.Unit.Text != q.Unit.Text {
+				*value = NewQuantityValue(&spelt)
+			}
+		}
+	case ValSequence, ValSet:
+		elements := append([]Value(nil), elementsOf(*value)...)
+		spelt := false
+		for i := range elements {
+			before := elements[i].Quantity()
+			ctx.spellForDeclared(&elements[i], declared)
+			spelt = spelt || elements[i].Quantity() != before
+		}
+		if !spelt {
+			return
+		}
+		if value.Kind == ValSequence {
+			*value = sequenceOf(elements)
+			return
+		}
+		*value = ctx.setOf(elements)
+	}
 }
 
 // writeTypeRefusal says why the first element no feature of the declared type
@@ -185,6 +295,13 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		// Holds no value to type; how many values a feature may hold is the
 		// multiplicity's to decide.
 		return true, "", nil
+	case ValUndetermined:
+		// Whatever values the model leaves it, they are of the type its feature declares.
+		if ctx.openValueMayBe(*value, declared) {
+			return true, "", nil
+		}
+		return false, fmt.Sprintf("cannot write %s to a feature typed by %s",
+			ctx.describeOpenOperand(*value), symbolText(declared)), nil
 	case ValQuantity:
 		return ctx.quantityConforms(*value, declared)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
@@ -238,15 +355,15 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 	if err != nil {
 		return false, "", err
 	}
-	if !ctx.model.Conforms(direct, declared) {
+	if !ctx.modelConforms(direct, declared) {
 		base, err := ctx.structuredBaseType(value)
 		if err != nil {
 			return false, "", err
 		}
-		if !ctx.model.Conforms(declared, base) {
+		if !ctx.modelConforms(declared, base) {
 			return false, "", nil
 		}
-		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.model.Conforms(declared, scalar) {
+		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.modelConforms(declared, scalar) {
 			return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it is a %s, which holds one scalar",
 				FormatValue(value), describeValue(value), symbolText(declared), symbolText(scalar)), nil
 		}
@@ -285,7 +402,7 @@ func (ctx *Context) shapeRefusal(value Value, declared *symbols.Symbol) string {
 		return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it declares %s",
 			FormatValue(value), describeValue(value), symbolText(declared), declares)
 	}
-	for _, member := range ctx.model.MembersOfIncludingRedefined(declared) {
+	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(declared) {
 		if !semantics.IsShapeFeature(member) {
 			continue
 		}
@@ -294,7 +411,7 @@ func (ctx *Context) shapeRefusal(value Value, declared *symbols.Symbol) string {
 			continue
 		}
 		if feature == arrayDimensionsFeature {
-			if mult, stated := ctx.model.MultiplicityOf(member); stated && mult.CountViolation(int64(len(dims))) != "" {
+			if mult, stated := ctx.model.semantics.MultiplicityOf(member); stated && mult.CountViolation(int64(len(dims))) != "" {
 				return refuse(fmt.Sprintf("%s : Positive%s, got %d dimension(s)", member.Name, mult.Text(), len(dims)))
 			}
 		}
@@ -346,7 +463,7 @@ func (ctx *Context) constantIntegers(member, owner *symbols.Symbol) ([]int64, bo
 	}
 	out := make([]int64, 0, len(elements))
 	for _, e := range elements {
-		c, ok := ctx.model.Eval(e)
+		c, ok := ctx.model.semantics.Eval(e)
 		if !ok {
 			return nil, false
 		}
@@ -442,14 +559,14 @@ func equalInt64s(a, b []int64) bool {
 // target declaring a quantity value type by the dimension that type's mRef
 // fixes. A target fixing no dimension, and a unit fixing none, are not judged.
 func (ctx *Context) quantityConforms(value Value, declared *symbols.Symbol) (bool, string, error) {
-	if prim := ctx.model.PrimTypeOf(declared); prim != semantics.PrimUnknown {
+	if prim := ctx.model.semantics.PrimTypeOf(declared); prim != semantics.PrimUnknown {
 		return semantics.PrimConforms(semantics.PrimRational, prim), "", nil
 	}
-	want, ok := ctx.model.DimensionOfType(declared)
+	want, ok := ctx.model.semantics.DimensionOfType(declared)
 	if !ok || value.Quantity() == nil {
 		return true, "", nil
 	}
-	got, ok := ctx.model.DimensionOfUnit(value.Quantity().Unit.Term)
+	got, ok := ctx.model.semantics.DimensionOfUnit(value.Quantity().Unit.Term)
 	if !ok || want.Term.Commensurable(got.Term) {
 		return true, "", nil
 	}

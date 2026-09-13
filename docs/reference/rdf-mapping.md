@@ -157,6 +157,69 @@ id's stability.
 A `@IdentityMetadata::ProjectRef` annotation on a scope root is written as
 provenance triples on that root: `sysx:projectId`, `sysx:branch`, `sysx:org`.
 
+#### Normative library identity
+
+A named element of the KerML or SysML standard library has a third kind of id,
+sitting between declared and derived: the **normative** id the OMG
+specifications fix for it, which the pilot implementation and every conforming
+API server carry. Converting a bundled library file (or a model that owns a
+copy of one) writes that id, so `ScalarValues::Real` is the same subject here as
+it is in the pilot's `sysml.library.xmi`:
+
+```turtle
+<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> a sysml:Package ;
+    sysml:qualifiedName "ScalarValues" ;
+    sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d" ;
+    sysx:isStandardLibraryPackage "true"^^xsd:boolean ;
+    sysml:ownedMembership elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d .
+<urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> a sysml:DataType ;
+    sysml:qualifiedName "ScalarValues::Real" ;
+    sysml:elementId "14c0aa22-5489-59b5-b438-ded26e83ba31" ;
+    sysml:owningMembership elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d .
+```
+
+(A local name that starts with a digit is written as a full IRI rather than an
+`elmt:` prefixed name, so a UUID reads either way depending on its first hex
+digit.)
+
+The id is a version-5 UUID (`internal/core/identity/normative`): the library
+package's is `uuid5(URL namespace, prefix + name)` with the prefix
+`https://www.omg.org/spec/KerML/` for the kernel libraries and
+`https://www.omg.org/spec/SysML/` for the systems and domain libraries; a named
+member's is `uuid5(package id, qualified name)` and its owning membership's is
+`uuid5(package id, qualified name + "/owningMembership")`, both with the names
+quoted the way the pilot quotes them. Which bundled files are which library
+follows the stdlib tiers (`symbols.LibraryTier`), so a file OpenSysML adds under
+`internal/core/libs/stdlib` that is not part of either specification keeps
+derived ids. So does an unnamed, aliased or shadowed library element: nothing
+is guessed.
+
+A normative id is not a declared one. `sysx:declaredId` is not written for it,
+and reading the graph back leaves it implied — no `@ElementId` annotation —
+while the notation that comes back is, byte for byte, the bundled library file,
+which derives the same id again on its own. Notation that is not that file (the
+graph's source text was stripped, or stale for some element) cannot imply the
+id, so the reader writes it as an `@IdentityMetadata::ElementId` annotation
+instead and the id survives a further hop through notation as a declared one.
+The reader recognises a normative id only on the subject whose
+`sysml:qualifiedName` is the library element's (its effective name, or the exact
+positional name the writer gives an effectively named member); a user element
+that happens to carry a library UUID without `sysx:declaredId` keeps it as a
+declared id, as any other foreign id. An explicit `@IdentityMetadata::ElementId`
+still wins over the normative id when a library element carries one.
+
+A graph whose every root is a library package under its normative id and name is
+a version of that bundled library file, and the reader reads the notation it
+writes back *in that file's place*: in the file's grammar (KerML for a `.kerml`
+library) when the roots record none, and with the file's own declarations
+standing in for the bundled ones when a name is checked to reach the element
+the graph links. That is what lets a chain reach a feature the library only
+implies — `aState.aTransition.accepter.acceptedMessage` in `Actions.sysml`
+reads `accepter` off the `TransitionAction` every transition inherits — and
+lets a KerML library read back without its source text at all. The target
+still has to be the graph's exact element; a spelling that reaches anything
+else is refused as before.
+
 A document holding **more than one project scope** qualifies each element's IRI
 with its scope's provenance (`elmt:<encoded-org>.<encoded-project>:<id>`), so an
 id repeated across scopes stays two subjects; two scopes whose elements would
@@ -210,7 +273,16 @@ triples come); a set of classes with no such member is refused, naming the subje
   `timeslice` states (`OccurrenceUsage::portionKind` implies it), so it is
   written back by the portion kind and refused without one, SysML having no
   `portion` prefix and `composite` dropping the fact. The other flags are
-  spelled alike in both grammars
+  spelled alike in both grammars. `isIndividual` is written for a definition as
+  for a usage (`OccurrenceDefinition::isIndividual`, SysML v2 §8.3.9.11): an
+  `individual part def`, `individual item def`, `individual occurrence def`, …
+  carries it and reads back with its `individual` modifier, and so does an
+  `individual def`, whose kind keyword states the fact and is written back
+  alone rather than doubled as a modifier. As with `sysml:EnumerationDefinition`
+  and `isVariation`, the metaclass `sysml:IndividualDefinition` states the fact
+  on its own: a graph typed so but carrying no flag — the shape earlier
+  releases wrote — reads back as `individual def` and gains the flag on its
+  next hop, after which it is stable
 - `sysml:portionKind`, `"snapshot"` or `"timeslice"`, for a usage declared as a
   portion (`snapshot :>> start`, `timeslice occurrence t`); the two are the
   metamodel's `OccurrenceUsage::portionKind`, so no flag spells them. Such a
@@ -228,7 +300,16 @@ triples come); a set of classes with no such member is refused, naming the subje
   carries the name itself,
   without the quotes an unrestricted name is written with; a target that is an
   expression rather than a name (a feature chain, say) is carried as the text it
-  was written as, typed `sysx:Expression` to tell the two apart. Reading a graph
+  was written as, typed `sysx:Expression` to tell the two apart. These
+  properties are written in one canonical order whatever order the clauses were
+  spelled in — `type`, `specializes`, `subsets`, `redefines`, `references`,
+  `crosses`, `disjointFrom`, `intersects`, `differences`, `inverseOf`, `unions`,
+  `chains`, `includes`, `via`, `annotatedElement`, `subject`, `featuringType`
+  (`internal/core/export/kinds.go` `relationshipOrder`, the same order the
+  clauses are written back in) — with the targets of one property in the order
+  they were written; so `attribute :>> num : Real;` and `attribute : Real
+  redefines num;` give byte-identical Turtle, and a `.ttl` kept under version
+  control does not churn with the spelling of a head. Reading a graph
   back, a literal that is neither — a number, a boolean, a language-tagged
   string, an empty or broken qualified name — is refused rather than written
   into the notation as it stands. A feature
@@ -469,7 +550,9 @@ elmt:Demo__Vehicle
 - A membership's id is the member's id with `_om` appended, which no element id
   can be: an `_` in an element id starts either `__` for `::` or a hex escape.
   It is minted by `rdf.OwningMembershipID`, so it is deterministic and reverses
-  to the member's qualified name.
+  to the member's qualified name. A member with a
+  [normative id](#normative-library-identity) has a normative membership id
+  too, and that is written instead.
 - A **type owning a feature** — a usage or a state inside a definition — mints a
   `sysml:FeatureMembership` instead, and adds `sysml:ownedMemberFeature` and
   `sysml:owningType` on it and `sysml:ownedFeature` and
@@ -852,7 +935,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `state s { … }`, `state s parallel { … }`, `entry; then s; state s;` | `sysml:StateUsage` | `sysml:declaredName`, `sysx:declaredKeyword`, `sysml:isParallel`, its members |
 | `entry`/`do`/`exit`, `entry do { … }` (whatever separates the `do` from the body) | `sysml:StateSubactionMembership` | `sysx:subactionKind`, `sysx:declaredKeyword`, its actions |
 | `defer sig, other;` | `sysx:DeferMember` | `sysx:deferredEvent` per event |
-| `choice`, `junction`, `fork`, `join`, `entry point`, `exit point`, `shallow`/`deep history` | `sysx:Pseudostate` | `sysx:pseudostateKind`, `sysx:declaredKeyword` |
+| `choice`, `junction`, `fork`, `join`, `shallow`/`deep history` | `sysx:Pseudostate` | `sysx:pseudostateKind`, `sysx:declaredKeyword` |
 | `transition [n] [first] s [accept t] [if g] [do e] then t;`, `… then t { … }` | `sysml:TransitionUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:trigger`, `sysx:triggerKeyword`, `sysx:guard`, `sysx:transitionSyntax`, its effect and body as members, linked by `sysx:effectMember` and `sysx:bodyMember`, with `sysx:bracedEffect` on every transition written with `do` (true for its braces, so an empty `do { }` survives) and `sysx:hasBody` for a trailing body; a graph with members linked by neither owns an effect alone, `sysx:hasBody` its braces |
 
 A state's members are held in the AST in one bucket per kind (entry, do, exit,
@@ -954,6 +1037,14 @@ notation offers a choice and the model does not:
   element, so no spelling is recorded and the writer uses one form. This differs
   from `sysx:declaredKeyword`, which is kept where the notation's synonyms name
   *different* declarations (`datatype` and `attribute`).
+- The clauses of a head come back in the canonical order of [What each element
+  carries](#what-each-element-carries) — typing first, then `specializes`,
+  `subsets`, `redefines`, `references`, and so on — however they were written
+  (`snapshot s :> context : Ctx` comes back as `snapshot s : Ctx subsets
+  context`). The order of the clauses states nothing about the model, and the
+  graph does not record it: the properties are the same set either way, and
+  the writer emits them in the canonical order, so a spelling could only be
+  restored from the source text, which is what `sysx:sourceText` is for.
 - The modifiers of a usage are written in the grammar's order (`end #derive r1
   : R;`, `end ref cause : S[*];`), and a multiplicity goes with the typing
   clause it qualifies, or with the name when there is none (`composite
@@ -1158,7 +1249,13 @@ own — `sysml:declaredName`, its specializations, `sysml:lowerBound`/`upperBoun
 and `sysml:value` with its `default`/`:=` operator (`require #Goal constraint braked [1] = true;`) — and
 `subject s : X;` as the `sysml:SubjectMembership` it declares. The `assert` prefixing a named usage
 (`assert constraint c : C`) is carried as `sysx:declaredPrefix`. The conditions
-themselves are notation, with the limits stated above. An `assume`/`require`
+themselves are notation, with the limits stated above. The keyword-less condition
+that closes a body is written bare, as a [result expression](#result-expressions)
+is, because a name alone before a `;` (`ready;`) declares a kind-less feature rather
+than referring to one — so `require constraint { ready }`, `assert constraint { not x }`
+and `inv { a and b }` come back from the graph alone with the reference their
+`sysml:FeatureReferenceExpression` states; a condition others follow keeps its `;`
+(`condition_references` fixture, `condition_references_test.go`). An `assume`/`require`
 member's `sysx:declaredKeyword`, when present, is `constraint`; any other value
 is reported rather than the member written in a form the keyword did not state.
 A member is written in one of these forms, so a graph stating an inline

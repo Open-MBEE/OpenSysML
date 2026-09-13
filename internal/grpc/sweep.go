@@ -2,10 +2,12 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -15,18 +17,21 @@ import (
 const sweepResultName = "result"
 
 // RunSweep runs one analysis case or calc once per row of a parameter sweep, as
-// the CLI's -sweep and the REPL's %sweep do: every row is an ordinary run with
-// the swept parameters bound to that row's values. A run that failed is that
-// row's error; only a plan that no run follows from fails the table.
+// the CLI's -sweep and the REPL's %sweep do: every row is an ordinary run, in a
+// context of its own, with the swept parameters bound to that row's values. A
+// run that failed is that row's error; only a plan that no run follows from
+// fails the table. The request's subject and arguments are read once on the
+// request's runtime, which answers one that cannot be read, and again in every
+// row's, which is what the row's run binds.
 func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.RunSweepResponse, error) {
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
+	defer v.release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.RunSweepResponse{Error: err.Error()}, nil
@@ -37,8 +42,8 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		return sweepFailure(fmt.Errorf("%w: %s is a verification case, which a sweep does not run; run it with RunAnalysis",
 			runtime.ErrNotAnAnalysis, req.SymbolId)), nil
 	}
-	analysis := runtime.IsRunnableCaseSymbol(sym)
-	if !analysis {
+	isCase := runtime.IsRunnableCaseSymbol(sym)
+	if !isCase {
 		switch sym.Kind {
 		case symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		default:
@@ -49,8 +54,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 			return sweepFailure(fmt.Errorf("%s is a calc, which has no subject", req.SymbolId)), nil
 		}
 	}
-	subject, err := v.subject(req.SubjectSymbolId)
-	if err != nil {
+	if _, err := v.subject(req.SubjectSymbolId); err != nil {
 		return &pb.RunSweepResponse{Error: err.Error()}, nil
 	}
 
@@ -73,7 +77,19 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	}
 
 	scope := v.declaringScope(sym)
-	run := func(bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+		row := v.on(rt)
+		subject, err := row.subject(req.SubjectSymbolId)
+		if err != nil {
+			return runtime.SweepRunResult{}, err
+		}
+		positional, named, resp, err := row.sweepArguments(req)
+		if err != nil {
+			return runtime.SweepRunResult{}, err
+		}
+		if resp != nil {
+			return runtime.SweepRunResult{}, errors.New(resp.Error)
+		}
 		bound := make(map[string]runtime.Value, len(named)+len(bindings))
 		for name, value := range named {
 			bound[name] = value
@@ -81,8 +97,8 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		for _, b := range bindings {
 			bound[b.Param] = b.Value
 		}
-		if !analysis {
-			value, err := v.runtime.InvokeCalcWith(sym, positional, bound, scope)
+		if !isCase {
+			value, err := rt.InvokeCalcWith(sym, positional, bound, scope)
 			if err != nil {
 				return runtime.SweepRunResult{}, err
 			}
@@ -91,7 +107,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 			}, nil
 		}
 		args := runtime.AnalysisArgs{Subject: subject, Positional: positional, Named: bound}
-		result, err := v.runtime.RunAnalysis(sym, args, scope, nil)
+		result, err := rt.RunAnalysis(sym, args, scope, nil)
 		// The case reports the subject it ran on: the one supplied, or the one
 		// the usage or the enclosing case bound.
 		return runtime.SweepRunResult{
@@ -102,15 +118,25 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		}, err
 	}
 
-	table, err := v.runtime.RunSweep(ctx, req.SymbolId, plan, run)
+	schedule := v.runtime.Schedule()
+	answered, err := s.engines.Sweep(ctx, analysis.Request{
+		Model:     s.model(v.cached),
+		Subject:   req.SymbolId,
+		Schedule:  schedule,
+		Budget:    analysis.BudgetOf(s.budgets, schedule, analysis.Sweep, s.jobs),
+		Selection: v.engine,
+	}, plan, run)
 	if err != nil {
 		// A caller that went away is the call failing, not a table reporting it.
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return sweepFailure(err), nil
+		failed := sweepFailure(err)
+		st := s.standingOf(answered)
+		failed.Engine, failed.Strength, failed.Bounds = st.engine, st.strength, st.bounds
+		return failed, nil
 	}
-	return v.sweepResponse(table), nil
+	return v.sweepResponse(answered.Result.Table(), s.standingOf(answered)), nil
 }
 
 // sweepArguments reads the arguments every row of the sweep binds, the named
@@ -194,7 +220,7 @@ func (v *verifyContext) sweepValue(val *pb.Value, what string) (runtime.Value, *
 	if err := v.service.requireValueCapabilities(val); err != nil {
 		return runtime.Value{}, nil, err
 	}
-	out, err := ProtoToRuntimeValue(v.runtime, val, v.cached.Index, v.sem)
+	out, err := ProtoToRuntimeValue(v.runtime, val, v.cached.Index, v.sem())
 	if err != nil {
 		return runtime.Value{}, &pb.RunSweepResponse{
 			Error:         fmt.Sprintf("sweep %s could not be read: %v", what, err),
@@ -209,24 +235,31 @@ func sweepFailure(err error) *pb.RunSweepResponse {
 	return &pb.RunSweepResponse{Error: err.Error(), FailureReason: failureReason(err)}
 }
 
-// sweepResponse spells a table on the wire: one row per run, in the order the
-// runs were made.
-func (v *verifyContext) sweepResponse(table runtime.SweepTable) *pb.RunSweepResponse {
+// sweepResponse spells a table on the wire: one row per run, in plan order, under
+// the standing of the plan that ran it. A row's values and objects are read through
+// the row's own context, the one that produced them, and the contexts number their
+// objects alike, so each row's are renumbered after the rows before it: the table
+// then names every object once, and a row's references resolve to that row's objects.
+func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb.RunSweepResponse {
 	resp := &pb.RunSweepResponse{
 		Parameters: table.Params,
 		Sampled:    table.Sampled,
 		Seed:       table.Seed,
 		Rows:       make([]*pb.SweepRow, 0, len(table.Rows)),
+		Engine:     st.engine,
+		Strength:   st.strength,
+		Bounds:     st.bounds,
 	}
-	seen := make(map[int64]bool)
+	var ids rowIDs
 	evaluations := v.service.capabilities.has(CapabilityCaseEvaluations)
 	for i := range table.Rows {
 		row := &table.Rows[i]
+		in := v.on(row.Context)
 		out := &pb.SweepRow{ElapsedMicros: row.Elapsed.Microseconds()}
 		for _, binding := range row.Bindings {
 			out.Inputs = append(out.Inputs, &pb.CalcOutput{
 				Name:  binding.Param,
-				Value: v.service.valueToProto(v.runtime, binding.Value, v.cached.Index),
+				Value: in.service.valueToProto(in.runtime, binding.Value, in.cached.Index),
 			})
 		}
 		if row.Err != nil {
@@ -241,32 +274,82 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable) *pb.RunSweepResp
 		for _, output := range row.Outputs {
 			out.Outputs = append(out.Outputs, &pb.CalcOutput{
 				Name:  output.Name,
-				Value: v.service.valueToProto(v.runtime, output.Value, v.cached.Index),
+				Value: in.service.valueToProto(in.runtime, output.Value, in.cached.Index),
 			})
 		}
 		for j := range row.Verdicts {
-			out.Verdicts = append(out.Verdicts, v.analysisVerdict(&row.Verdicts[j], row.Subject))
+			out.Verdicts = append(out.Verdicts, st.stamp(in.analysisVerdict(&row.Verdicts[j], row.Subject)))
 		}
 		var reported []runtime.AnalysisEvaluation
 		if evaluations {
 			reported = row.Evaluations
-			out.Evaluations = v.caseEvaluations(reported)
+			out.Evaluations = in.caseEvaluations(reported)
 		}
-		resp.Instances = appendInstances(resp.Instances, seen, v.instanceGraphs(v.runRoots(row.Subject, row.Outputs, reported)))
+		graph := in.instanceGraphs(in.runRoots(row.Subject, row.Outputs, reported))
+		ids.row(out, graph)
+		resp.Instances = append(resp.Instances, graph...)
 		resp.Rows = append(resp.Rows, out)
 	}
 	return resp
 }
 
-// appendInstances adds the objects of one run to the table's, each once, so
-// every row's verdict resolves against the same graph.
-func appendInstances(all []*pb.Instance, seen map[int64]bool, graph []*pb.Instance) []*pb.Instance {
-	for _, inst := range graph {
-		if seen[inst.Id] {
-			continue
-		}
-		seen[inst.Id] = true
-		all = append(all, inst)
+// rowIDs numbers a table's objects across its rows: each row's ids, which its own
+// context counted from 1, are shifted past the greatest id a row before it took.
+type rowIDs struct {
+	shift, last int64
+}
+
+// row renumbers every object reference a row and its graph make, then moves the
+// shift past them for the row after.
+func (r *rowIDs) row(out *pb.SweepRow, graph []*pb.Instance) {
+	for _, in := range out.Inputs {
+		r.value(in.Value)
 	}
-	return all
+	for _, output := range out.Outputs {
+		r.value(output.Value)
+	}
+	for _, verdict := range out.Verdicts {
+		r.id(&verdict.InstanceId)
+	}
+	for _, e := range out.Evaluations {
+		for _, arg := range e.Arguments {
+			r.value(arg)
+		}
+		r.value(e.Result)
+	}
+	for _, inst := range graph {
+		r.id(&inst.Id)
+		for _, fv := range inst.FeatureValues {
+			r.value(fv.Value)
+			for _, v := range fv.Values {
+				r.value(v)
+			}
+		}
+	}
+	r.shift = r.last
+}
+
+// id shifts one reference; 0 names no object and stays so.
+func (r *rowIDs) id(id *int64) {
+	if *id == 0 {
+		return
+	}
+	*id += r.shift
+	r.last = max(r.last, *id)
+}
+
+// value shifts the references a value makes: an object, a function's object, and
+// those of every element it holds.
+func (r *rowIDs) value(v *pb.Value) {
+	switch k := v.GetKind().(type) {
+	case *pb.Value_InstanceId:
+		r.id(&k.InstanceId)
+	case *pb.Value_Function:
+		if k.Function != nil {
+			r.id(&k.Function.SelfId)
+		}
+	}
+	for _, nested := range nestedValues(v) {
+		r.value(nested)
+	}
 }

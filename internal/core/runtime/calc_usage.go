@@ -57,7 +57,7 @@ func (ctx *Context) calcOutputs(chain []*symbols.Symbol, aliases *map[string]str
 			}
 			// An output written as a redefinition names the one it overrides.
 			name, _ := ast.EffectiveName(usage)
-			sym := memberSymbol(declScope(link), usage)
+			sym := memberSymbol(DeclScope(link), usage)
 			out := calcOutput{Name: name, Value: usage.Value, Owner: link, IsResult: usage.IsResult,
 				IsInitial: usage.Value != nil && usage.ValueIsInitial, Decl: ctx.calcMemberDeclOf(link, sym, name)}
 			if usage.Direction == ast.DirInOut {
@@ -285,7 +285,7 @@ func (ctx *Context) isOrSpecializes(sym, general *symbols.Symbol) bool {
 	if sym == general {
 		return true
 	}
-	for _, source := range ctx.model.MemberSources(sym) {
+	for _, source := range ctx.model.semantics.MemberSources(sym) {
 		if source == general {
 			return true
 		}
@@ -306,7 +306,7 @@ func (ctx *Context) calcMemberNames(shape *calcShape) map[*symbols.Symbol]string
 			} else if usage, ok := member.(*ast.Usage); ok {
 				name, _ = ast.EffectiveName(usage)
 			}
-			sym := memberSymbol(declScope(link), member)
+			sym := memberSymbol(DeclScope(link), member)
 			if name == "" || sym == nil {
 				continue
 			}
@@ -612,10 +612,10 @@ func (shape *calcShape) reads(sym *symbols.Symbol) bool {
 // bodyUsageSymbol resolves the usage a body-local declaration declares, in the
 // scope the declaration was written in.
 func (ctx *Context) bodyUsageSymbol(stmt lower.DeclareUsage) (*symbols.Symbol, error) {
-	if ctx.resolver == nil {
+	if ctx.model.resolver == nil {
 		return nil, fmt.Errorf("%w: calc usage %s needs a resolved model", ErrNotACalcUsage, stmt.Name)
 	}
-	sym, ok := ctx.resolver.LookupName(stmt.Scope, stmt.Name)
+	sym, ok := ctx.lookupName(stmt.Scope, stmt.Name)
 	if !ok || !isCalcUsageSymbol(sym) {
 		return nil, fmt.Errorf(
 			"%w: calc usage %s is declared in this body but is not resolved to one",
@@ -749,7 +749,7 @@ func declaredWithin(sym, behavior *symbols.Symbol) bool {
 // inherits no parameters, no outputs and no body from it, so reading an output
 // of it would report a missing feature rather than the specialization error.
 func (ctx *Context) checkCalcTyping(sym *symbols.Symbol) error {
-	for _, super := range ctx.model.DirectSupertypes(sym) {
+	for _, super := range ctx.model.semantics.DirectSupertypes(sym) {
 		if super == nil || isCalcSymbol(super) {
 			continue
 		}
@@ -1000,14 +1000,14 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 // declares under name, read over this run's environment so its bindings see the
 // values the body holds; false when the body declares no such usage.
 func (run *calcRun) nestedUsage(ctx *Context, name string) (*calcRun, bool, error) {
-	if _, isOutput := run.shape.output(name); isOutput || ctx.resolver == nil {
+	if _, isOutput := run.shape.output(name); isOutput || ctx.model.resolver == nil {
 		return nil, false, nil
 	}
 	if !run.shape.declaresUsage(name) {
 		return nil, false, nil
 	}
 	scope := ctx.calcScope(run.shape.BodyOwner, run.shape.Sym, run.scope)
-	sym, ok := ctx.resolver.LookupName(scope, name)
+	sym, ok := ctx.lookupName(scope, name)
 	if !ok || !isCalcUsageSymbol(sym) {
 		return nil, false, nil
 	}
@@ -1024,13 +1024,13 @@ func (run *calcRun) nestedUsage(ctx *Context, name string) (*calcRun, bool, erro
 // masks the declaration.
 func (ec *EvalContext) calcUsageOperand(operand ast.Node) (*symbols.Symbol, bool) {
 	ref, ok := operand.(*ast.FeatureReference)
-	if !ok || ref.Name == nil || len(ref.Name.Parts) == 0 || ec.ctx.resolver == nil {
+	if !ok || ref.Name == nil || len(ref.Name.Parts) == 0 || ec.ctx.model.resolver == nil {
 		return nil, false
 	}
 	if len(ref.Name.Parts) == 1 && ec.namesValue(ref.Name.Parts[0].Text) {
 		return nil, false
 	}
-	sym, ok := ec.ctx.resolver.ResolveQualified(ec.scope, ref.Name)
+	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
 	if !ok || !isCalcUsageSymbol(sym) {
 		return nil, false
 	}
@@ -1047,12 +1047,12 @@ func (ec *EvalContext) namesValue(name string) bool {
 	return valued
 }
 
-// occurrenceOperand reports whether the operand of a feature chain names one
-// occurrence — a part or item — that no local binding or valued feature, and no
-// feature value of the object being evaluated, already answers with.
+// occurrenceOperand reports whether the operand of a feature chain names occurrences of
+// its own — a part or item, or a namespace's collection of them — that no local binding
+// or valued feature, and no feature value of the object being evaluated, already answers with.
 func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, bool) {
 	ref, ok := operand.(*ast.FeatureReference)
-	if !ok || ref.Name == nil || len(ref.Name.Parts) == 0 || ec.ctx.resolver == nil {
+	if !ok || ref.Name == nil || len(ref.Name.Parts) == 0 || ec.ctx.model.resolver == nil {
 		return nil, false
 	}
 	if len(ref.Name.Parts) == 1 {
@@ -1066,8 +1066,8 @@ func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, boo
 			}
 		}
 	}
-	sym, ok := ec.ctx.resolver.ResolveQualified(ec.scope, ref.Name)
-	if !ok || !ec.ctx.namesOneObject(sym) {
+	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
+	if !ok || !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
 		return nil, false
 	}
 	return sym, true

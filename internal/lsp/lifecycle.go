@@ -49,6 +49,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 			Experimental: map[string]any{
 				"openSysmlRender":         true,
 				"openSysmlRenderDocument": true,
+				"openSysmlApplyModelEdit": true,
 				"openSysmlStdlibContent":  true,
 			},
 			// Folders added mid-session are only indexed if the client reports them.

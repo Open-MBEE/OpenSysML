@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -43,13 +44,17 @@ func kindSamples() map[ValueKind][2]Value {
 		}}
 	}
 	return map[ValueKind][2]Value{
-		ValConst:       {integerValue(1), integerValue(2)},
-		ValNull:        {{Kind: ValNull}, {Kind: ValNull}},
-		ValString:      {NewStringValue("a"), NewStringValue("b")},
-		ValInstance:    {{Kind: ValInstance, Instance: 1}, {Kind: ValInstance, Instance: 2}},
-		ValSequence:    {seqOf(1, 2), seqOf(2, 1)},
-		ValSet:         {setOf(1, 2), setOf(1, 3)},
-		ValExpr:        {NewExprValue(&ast.LiteralInteger{Value: "1"}, nil), NewExprValue(&ast.LiteralInteger{Value: "2"}, nil)},
+		ValConst:    {integerValue(1), integerValue(2)},
+		ValNull:     {{Kind: ValNull}, {Kind: ValNull}},
+		ValString:   {NewStringValue("a"), NewStringValue("b")},
+		ValInstance: {{Kind: ValInstance, Instance: 1}, {Kind: ValInstance, Instance: 2}},
+		ValSequence: {seqOf(1, 2), seqOf(2, 1)},
+		ValSet:      {setOf(1, 2), setOf(1, 3)},
+		ValExpr:     {NewExprValue(&ast.LiteralInteger{Value: "1"}, nil), NewExprValue(&ast.LiteralInteger{Value: "2"}, nil)},
+		ValUndetermined: {
+			NewUndeterminedValue("a has no value in the model", semantics.CountRange(1)),
+			NewUndeterminedValue("b has no value in the model", semantics.Range{Lower: semantics.Bound{Known: true}, Upper: semantics.Bound{Known: true, Infinite: true}}),
+		},
 		ValQuantity:    {NewQuantityValue(&Quantity{Num: integerValue(1).Const, Unit: metre}), NewQuantityValue(&Quantity{Num: integerValue(2).Const, Unit: metre})},
 		ValVariant:     {NewVariantValue(symA, 0), NewVariantValue(symB, 0)},
 		ValEnumLiteral: {NewEnumLiteral(symA), NewEnumLiteral(symB)},
@@ -66,6 +71,7 @@ func kindSamples() map[ValueKind][2]Value {
 		},
 		ValMeasurementRef:  {NewMeasurementRefValue(metre), NewMeasurementRefValue(second)},
 		ValFunction:        {functionOf("a", symA), functionOf("b", symB)},
+		ValMetaobject:      {NewMetaobject(symA, symB), NewMetaobject(symB, symA)},
 		ValCoordinateFrame: {NewCoordinateFrameValue(spatial), NewCoordinateFrameValue(temporal)},
 		ValCoordinateTransformation: {
 			NewCoordinateTransformationValue(placementOf(spatial, temporal, 1)),
@@ -103,10 +109,12 @@ func TestFunctionValueIdentity(t *testing.T) {
 }
 
 // TestEveryValueKindIsDispatched walks every ValueKind through the surfaces that
-// switch on it — its name, its renderings, its description, equality and set
-// keying — so a new kind cannot fall through to a fallback arm unnoticed.
+// switch on it — its name, its renderings, its description, equality, set
+// keying and carrying — so a new kind cannot fall through to a fallback arm unnoticed.
 func TestEveryValueKindIsDispatched(t *testing.T) {
 	samples := kindSamples()
+	_, row, _, _ := carryContexts(t)
+	same := func(id int64) (*Instance, error) { return &Instance{ID: id}, nil }
 	for kind := ValInvalid + 1; kind < valueKindCount; kind++ {
 		pair, ok := samples[kind]
 		if !ok {
@@ -131,6 +139,10 @@ func TestEveryValueKindIsDispatched(t *testing.T) {
 		if s := describeOperand(a); s == "a value" {
 			t.Errorf("%s: describeOperand falls back to %q", name, s)
 		}
+		var notPortable *NotPortableError
+		if _, err := row.Carry(a, same); errors.As(err, &notPortable) && notPortable.Reason == unknownKindReason {
+			t.Errorf("%s: Carry falls back to %q", name, err)
+		}
 		// An expression is a deferred body, not a value with an equality.
 		if kind != ValExpr && !valueEqual(a, a) {
 			t.Errorf("%s: valueEqual(a, a) is false", name)
@@ -148,5 +160,24 @@ func TestEveryValueKindIsDispatched(t *testing.T) {
 		if valueKeyFunc(a) == valueKeyFunc(b) {
 			t.Errorf("%s: valueKeyFunc does not tell %s from %s", name, FormatValue(a), FormatValue(b))
 		}
+	}
+}
+
+// TestMetaobjectSetOrderIsElementIdentity: a set orders metaobjects as valueEqual
+// identifies them, by element, so one element under two metaclasses holds one place.
+func TestMetaobjectSetOrderIsElementIdentity(t *testing.T) {
+	element, other := &symbols.Symbol{Name: "x"}, &symbols.Symbol{Name: "y"}
+	typeClass, featureClass := &symbols.Symbol{Name: "Type"}, &symbols.Symbol{Name: "Feature"}
+	asType, asFeature := NewMetaobject(element, typeClass), NewMetaobject(element, featureClass)
+	if !valueEqual(asType, asFeature) || canonicalCompare(asType, asFeature) != 0 {
+		t.Fatalf("compare = %d for equal metaobjects %s and %s, want 0",
+			canonicalCompare(asType, asFeature), FormatValue(asType), FormatValue(asFeature))
+	}
+	if set := setOf([]Value{asType, asFeature}).Set(); set.Size() != 1 {
+		t.Errorf("set of one element's metaobjects has %d members, want 1", set.Size())
+	}
+	different := NewMetaobject(other, typeClass)
+	if c := canonicalCompare(asType, different); c == 0 || c != -canonicalCompare(different, asType) {
+		t.Errorf("compare = %d and %d for distinct elements, want opposite and non-zero", c, canonicalCompare(different, asType))
 	}
 }

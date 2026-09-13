@@ -16,15 +16,17 @@ func (r *Resolver) unresolvedFixes(scope *symbols.Scope, name string, at ast.Nod
 	if span.Len == 0 {
 		return nil
 	}
-	cands := r.suggestFor(scope, name, at)
+	s := r.suggestionFor(scope, name, at)
+	cands := append(append([]string{}, s.unquoted...), s.spellings...)
 	var fixes []quickfix.Fix
 	for _, cand := range cands {
 		if cand == name {
 			continue
 		}
+		written := suggest.Notation(cand)
 		fixes = append(fixes, quickfix.Fix{
-			Title:     "Change '" + name + "' to '" + cand + "'",
-			Edits:     []quickfix.Edit{quickfix.Replace(span, cand)},
+			Title:     "Change " + titled(name) + " to " + titled(written),
+			Edits:     []quickfix.Edit{quickfix.Replace(span, written)},
 			Preferred: len(cands) == 1,
 		})
 		if fix, ok := r.importFix(scope, name, cand); ok {
@@ -32,6 +34,15 @@ func (r *Resolver) unresolvedFixes(scope *symbols.Scope, name string, at ast.Nod
 		}
 	}
 	return fixes
+}
+
+// titled sets a spelling off in a fix title: in single quotes, unless it is
+// written with quotes of its own.
+func titled(spelling string) string {
+	if strings.Contains(spelling, "'") {
+		return spelling
+	}
+	return "'" + spelling + "'"
 }
 
 // importFix imports the namespace declaring cand, offered only where cand is the

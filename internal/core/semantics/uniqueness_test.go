@@ -139,11 +139,63 @@ func TestUniquenessConformanceUsesEffectiveUniqueness(t *testing.T) {
 	}
 }
 
+// TestIsUniqueInheritsIntoMetadataBody: a metadata body declaration redefines the
+// metadata type's feature of its name (KerML 7.4.7), and so takes its uniqueness.
+func TestIsUniqueInheritsIntoMetadataBody(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		metadata def M {
+			attribute repeats : ScalarValues::Real[0..*] ordered nonunique;
+			attribute fresh : ScalarValues::Real[0..*] ordered;
+		}
+		part def A {
+			metadata inline : M { repeats = (1, 1); fresh = (1, 2); }
+		}
+		metadata elsewhere : M about A { repeats = (2, 2); fresh = (3, 4); }
+	}`)
+	p := sym(t, root, "P").Scope
+	for _, usage := range []*symbols.Symbol{nested(t, p, "A", "inline"), nested(t, p, "elsewhere")} {
+		if m.IsUnique(nested(t, usage.Scope, "repeats")) {
+			t.Errorf("IsUnique(%s::repeats) = true, want false through M::repeats", usage.Name)
+		}
+		if !m.IsUnique(nested(t, usage.Scope, "fresh")) {
+			t.Errorf("IsUnique(%s::fresh) = false, want true through M::fresh", usage.Name)
+		}
+	}
+}
+
 // TestIsUniqueTerminatesOnRedefinitionCycle covers that a redefinition chain
-// closing on itself contributes nothing and does not recurse forever.
+// closing on itself contributes nothing and does not recurse forever. The
+// chain runs through a specialization cycle, since a redefinition names an
+// inherited feature and never a sibling (KerML 8.2.3.5.2).
 func TestIsUniqueTerminatesOnRedefinitionCycle(t *testing.T) {
 	m, root := buildModel(t, `package P {
-		part def A;
+		part def A :> B {
+			part x :>> y;
+			part z :>> w;
+		}
+		part def B :> A {
+			part y :>> x;
+			part w :>> z nonunique;
+		}
+	}`)
+	p := sym(t, root, "P").Scope
+	a, b := nested(t, p, "A"), nested(t, p, "B")
+	if !m.IsUnique(nested(t, a.Scope, "x")) || !m.IsUnique(nested(t, b.Scope, "y")) {
+		t.Errorf("a cycle of unstated redefinitions should stay unique by default")
+	}
+	if m.IsUnique(nested(t, a.Scope, "z")) {
+		t.Errorf("IsUnique(z) = true, want false through the nonunique w it redefines")
+	}
+	if m.IsUnique(nested(t, b.Scope, "w")) {
+		t.Errorf("IsUnique(w) = true, want false as declared")
+	}
+}
+
+// TestIsUniqueOnUnresolvedSiblingRedefinitions covers that redefinitions naming
+// siblings of the redefining feature stay unresolved, so each feature keeps its
+// own declared uniqueness.
+func TestIsUniqueOnUnresolvedSiblingRedefinitions(t *testing.T) {
+	m, root := buildModel(t, `package P {
 		part def H {
 			part x :>> y;
 			part y :>> x;
@@ -152,11 +204,10 @@ func TestIsUniqueTerminatesOnRedefinitionCycle(t *testing.T) {
 		}
 	}`)
 	h := nested(t, sym(t, root, "P").Scope, "H")
-	if !m.IsUnique(nested(t, h.Scope, "x")) || !m.IsUnique(nested(t, h.Scope, "y")) {
-		t.Errorf("a cycle of unstated redefinitions should stay unique by default")
-	}
-	if m.IsUnique(nested(t, h.Scope, "z")) {
-		t.Errorf("IsUnique(z) = true, want false through the nonunique w it redefines")
+	for _, name := range []string{"x", "y", "z"} {
+		if !m.IsUnique(nested(t, h.Scope, name)) {
+			t.Errorf("IsUnique(%s) = false, want true: its redefinition target is unresolved", name)
+		}
 	}
 	if m.IsUnique(nested(t, h.Scope, "w")) {
 		t.Errorf("IsUnique(w) = true, want false as declared")

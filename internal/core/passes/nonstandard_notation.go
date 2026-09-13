@@ -72,6 +72,9 @@ type notationWalker struct {
 	// inActionBody records that the body being walked admits ActionBodyItem
 	// members (SysML.xtext:1367).
 	inActionBody bool
+	// inViewDefBody records that the body being walked is a ViewDefinitionBody
+	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
+	inViewDefBody bool
 	// parsedClean records that the document parsed without an error, which a
 	// finding needs when recovery can shape the tree it reads (see initialNode).
 	parsedClean bool
@@ -129,6 +132,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.requirementConstraint(n)
 			w.walkDeclaration(n.Members, n)
 		case *ast.Import:
+			w.expose(n)
 			w.walk(n.Body)
 		// An alias and a named multiplicity are the remaining members that parse
 		// with a keyword for a name; the rest do not parse at all, so no span reaches here.
@@ -158,6 +162,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 		case *ast.DecisionNode:
 			w.walkActionBody(n.Members)
 		case *ast.TransitionMember:
+			w.transition(n)
 			w.walkActionBody(n.Effect)
 			w.walkActionBody(n.Members)
 		case *ast.SuccessionEdge:
@@ -184,11 +189,12 @@ func (w *notationWalker) walk(members []ast.Node) {
 // walkDeclaration walks the body of a declaration under the body kind that
 // declaration opens.
 func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Node) {
-	requirement, action := w.inRequirementBody, w.inActionBody
+	requirement, action, viewDef := w.inRequirementBody, w.inActionBody, w.inViewDefBody
 	w.inRequirementBody = isRequirementBodyDeclaration(declaration)
 	w.inActionBody = admitsActionBodyItems(declaration)
+	w.inViewDefBody = isViewDefinition(declaration)
 	w.walk(members)
-	w.inRequirementBody, w.inActionBody = requirement, action
+	w.inRequirementBody, w.inActionBody, w.inViewDefBody = requirement, action, viewDef
 }
 
 // walkActionBody walks the body of an action node, which is an ActionBody
@@ -197,10 +203,15 @@ func (w *notationWalker) walkActionBody(members []ast.Node) {
 	if len(members) == 0 {
 		return
 	}
-	action := w.inActionBody
-	w.inActionBody = true
+	action, viewDef := w.inActionBody, w.inViewDefBody
+	w.inActionBody, w.inViewDefBody = true, false
 	w.walk(members)
-	w.inActionBody = action
+	w.inActionBody, w.inViewDefBody = action, viewDef
+}
+
+func isViewDefinition(node ast.Node) bool {
+	def, ok := node.(*ast.Definition)
+	return ok && def.Kind == ast.DefView
 }
 
 func isRequirementBodyDeclaration(node ast.Node) bool {
@@ -275,6 +286,26 @@ func (w *notationWalker) requirementConstraint(n *ast.Usage) {
 	}
 	w.extension(keywordSpan(n, keyword), fmt.Sprintf("`%s` outside a requirement body", keyword),
 		"only a requirement, concern, viewpoint or objective body admits it")
+}
+
+// expose reports an `expose` in a view def body: Expose is a ViewBodyItem alone
+// (SysML.xtext), and every other body rejects it in the parser.
+func (w *notationWalker) expose(n *ast.Import) {
+	if !w.inViewDefBody || !n.IsExpose {
+		return
+	}
+	w.extension(keywordSpan(n, "expose"), "`expose` in a view def body",
+		"only a view usage body admits Expose; a view def body states what it renders and filters")
+}
+
+// transition reports a `transition` in an action body: only `succession … if …`
+// is standard there (SysML.xtext GuardedSuccession); TransitionUsageMember is a StateBodyItem.
+func (w *notationWalker) transition(n *ast.TransitionMember) {
+	if !w.inActionBody || n.IsSuccession {
+		return
+	}
+	w.extension(keywordSpan(n, "transition"), "`transition` in an action body",
+		"only a state body admits TransitionUsageMember; an action body writes a guarded `succession … if … then …`")
 }
 
 // stateNode descends into the members of a state.

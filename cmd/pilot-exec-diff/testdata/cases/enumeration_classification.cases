@@ -1,0 +1,32 @@
+model: cmd/pilot-exec-diff/testdata/models/enumeration_classification.sysml
+
+# An enumeration's enumerated values are the only instances of it (SysML v2
+# §8.3.7), so membership in a scalar-valued enumeration is decided by equality
+# with them for `istype`, `@` and `as`, while `hastype` reads the value's own
+# type alone (KerML 1.0 §7.4.9.2): a bare 3 is an Integer and no Level, a Level
+# literal — written, held or cast to — is a Level and no Integer. A plain
+# enumeration classifies by identity with its literals; `5 as Even` stays
+# undecided. Each case reads a model-level attribute bound to the expression.
+three-istype-level ::  :: Enums::threeIsLevel
+two-istype-level ::  :: Enums::twoIsLevel
+three-at-level ::  :: Enums::threeAtLevel
+three-hastype-level ::  :: Enums::threeHasLevel
+three-hastype-integer ::  :: Enums::threeHasInteger
+three-as-level ::  :: Enums::threeAsLevel
+two-as-level ::  :: Enums::twoAsLevel
+cast-hastype-level ::  :: Enums::castHasLevel
+high-istype-level ::  :: Enums::highIsLevel
+high-hastype-level ::  :: Enums::highHasLevel
+high-hastype-integer ::  :: Enums::highHasInteger
+high-istype-integer ::  :: Enums::highIsInteger
+high-eq-three ::  :: Enums::highEqThree
+high-plus-one ::  :: Enums::highPlusOne
+lvl-hastype-level ::  :: Enums::lvlHasLevel
+lvl-hastype-integer ::  :: Enums::lvlHasInteger
+held-hastype-level ::  :: Enums::heldHasLevel
+red-istype-color ::  :: Enums::redIsColor
+red-hastype-color ::  :: Enums::redHasColor
+c-hastype-color ::  :: Enums::cHasColor
+three-istype-color ::  :: Enums::threeIsColor
+red-istype-level ::  :: Enums::redIsLevel
+five-as-even ::  :: Enums::fiveAsEven

@@ -12,8 +12,10 @@ import (
 
 	"github.com/chzyer/readline"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
@@ -111,6 +113,10 @@ var (
 	quietMode       bool
 	traceMode       bool
 	schedule        schedulePolicy
+	listEngines     bool
+	probeEngines    bool
+	engine          engineSelection
+	jobsFlag        jobsSetting
 	convertFormat   string
 	queryText       string
 	outputPath      string
@@ -119,9 +125,11 @@ var (
 	renderView      string
 	renderAllDir    string
 	renderForm      string
+	renderPalette   string
 	renderDoc       string
 	renderDocsDir   string
 	docForm         string
+	diagramForm     string
 	pdfEngine       string
 	pdfTitlePage    bool
 	pdfTOC          bool
@@ -150,6 +158,48 @@ var (
 // budgets holds the run bounds the environment resolves to, read once at startup.
 var budgets = runtime.DefaultBudgets()
 
+// engines holds the registry the environment resolves to: the build's engines, one
+// `tool:<name>` per entry of OPENSYSML_TOOLS and one engine per entry of OPENSYSML_ENGINES.
+var engines = engineset.Default()
+
+// resolveEngines reads the manifests into engines; a manifest that cannot be read, or
+// that lies under the working directory the models are read from, is reported at startup
+// like a bad run bound.
+func resolveEngines() error {
+	var workspaces []string
+	if cwd, err := os.Getwd(); err == nil {
+		workspaces = append(workspaces, cwd)
+	}
+	registry, err := engineset.DefaultFromEnv(workspaces...)
+	if err != nil {
+		return err
+	}
+	engines = registry
+	return nil
+}
+
+// jobs is how many runs of one plan go concurrently: -jobs when given, else
+// OPENSYSML_JOBS, else one per CPU; read once at startup.
+var jobs = analysis.DefaultJobs()
+
+// jobsSetting is -jobs as written, rejected where it is parsed so a value below one is
+// reported at startup rather than at the first check.
+type jobsSetting struct {
+	value int
+	text  string
+}
+
+func (j *jobsSetting) String() string { return j.text }
+
+func (j *jobsSetting) Set(value string) error {
+	n, err := analysis.ParseJobs("-jobs", value)
+	if err != nil {
+		return err
+	}
+	j.value, j.text = n, value
+	return nil
+}
+
 // schedulePolicy is -schedule as written: the policy every run resolves its
 // choice points under, rejected where it is parsed so a misspelling is reported
 // at startup rather than run under the default.
@@ -169,6 +219,23 @@ func (s *schedulePolicy) Set(value string) error {
 	return nil
 }
 
+// engineSelection is -engine as written: the engine every question is put to,
+// rejected where it is parsed so a name no engine is registered under is
+// reported at startup rather than at the first check.
+type engineSelection struct {
+	text string
+}
+
+func (e *engineSelection) String() string { return e.text }
+
+func (e *engineSelection) Set(value string) error {
+	if _, err := engines.Select(value); err != nil {
+		return err
+	}
+	e.text = value
+	return nil
+}
+
 // stringSlice is a custom flag type for multiple values
 type stringSlice []string
 
@@ -183,6 +250,15 @@ func (s *stringSlice) Set(value string) error {
 
 func main() {
 	os.Exit(runCLI())
+}
+
+// resolveJobs is the jobs the run goes under: -jobs when given, else what
+// OPENSYSML_JOBS holds, reported when that is not a positive integer.
+func resolveJobs() (int, error) {
+	if flagGiven("jobs") {
+		return jobsFlag.value, nil
+	}
+	return analysis.JobsFromEnv()
 }
 
 // flagGiven reports whether the run named this flag, which an empty value
@@ -215,6 +291,11 @@ func runCLI() int {
 	// Usage shown over a misuse goes on the stream the error naming it goes on.
 	flag.Usage = func() { printUsage(flag.CommandLine.Output()) }
 
+	// The tool manifest is read before the flags, since -engine is checked against its engines.
+	if err := resolveEngines(); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
 	registerFlags(flag.CommandLine)
 	if err := flag.CommandLine.Parse(permuteArgs(flag.CommandLine, os.Args[1:])); err != nil {
 		// flag.CommandLine exits on error; unreachable unless that changes.
@@ -255,6 +336,21 @@ func runCLI() int {
 		return 0
 	}
 
+	// The engines a build knows are a property of the build, like its version, so
+	// they are listed without a model and the run ends there.
+	if listEngines {
+		if probeEngines {
+			writeLines(os.Stdout, analysis.Lines(engines.Probed()))
+		} else {
+			writeLines(os.Stdout, analysis.Lines(engines.Listings()))
+		}
+		return exitHolds
+	}
+	if probeEngines {
+		fmt.Fprintln(os.Stderr, "sysml: -probe goes with -engines; it starts each external engine once to check it against its manifest")
+		return 2
+	}
+
 	// A mode asked for with an empty value is a misuse, not an absent flag: it
 	// would otherwise silently run the REPL instead of the query.
 	if flagGiven("query") && queryText == "" {
@@ -277,6 +373,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-form is the form -render or -render-all writes; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
+	if renderPalette != "" && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT or PlantUML with; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
 
 	// The default stylesheet is asked for on its own; it needs no model, and
 	// writing it is the whole run, so it cannot stand in for another.
@@ -290,7 +390,7 @@ func runCLI() int {
 			queryText != "" || len(evalExprs) > 0 || modelChecks.requested():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
-		case docForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlPageFlagsGiven():
+		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlPageFlagsGiven():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet itself; the document and stylesheet options shape a rendered document, not the sheet")
 			return 2
 		case fromFormat != "" || strictMode || syncBase != "" || syncState != "" ||
@@ -305,8 +405,8 @@ func runCLI() int {
 	}
 
 	if renderDoc == "" && renderDocsDir == "" &&
-		(docForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlFlagsGiven()) {
-		fmt.Fprintln(os.Stderr, "sysml: -doc-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
+		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlFlagsGiven()) {
+		fmt.Fprintln(os.Stderr, "sysml: -doc-form, -diagram-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
 		return 2
 	}
 
@@ -365,7 +465,7 @@ func runCLI() int {
 		case convertFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || docForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():
@@ -508,6 +608,11 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		return 2
 	}
+	jobs, err = resolveJobs()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
 
 	// Checking mode: load, check what was named, and exit on the verdict.
 	if modelChecks.requested() {
@@ -532,6 +637,11 @@ func newSession() *repl.Session {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
+	if err := sess.SetEngines(engines); err != nil {
+		// Unreachable: the manifest was read in main before any session exists.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
 	switch {
 	case debugMode:
 		sess.SetVerbosity(repl.VerbosityDebug)
@@ -539,7 +649,20 @@ func newSession() *repl.Session {
 		sess.SetVerbosity(repl.VerbosityQuiet)
 	}
 	sess.SetTracing(traceMode)
+	if !quietMode {
+		sess.SetProgress(os.Stderr)
+	}
 	if err := sess.SetSchedule(schedule.value); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetEngine(engine.text); err != nil {
+		// Unreachable: the selection was validated against the same engines when parsed.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetJobs(jobs); err != nil {
+		// Unreachable: jobs were validated in main before any session exists.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}

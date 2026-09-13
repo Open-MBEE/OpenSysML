@@ -109,6 +109,37 @@ func TestAssignOfAnUnknownTypeStaysSilent(t *testing.T) {
 	}`)
 }
 
+// TestBodyLocalDeclarationSplitsWithTheRunTime: a body-local declaration's
+// literal initializer is the checker's to refuse, one read from a parameter
+// the run time's (KerML 1.0 §7.3.4).
+func TestBodyLocalDeclarationSplitsWithTheRunTime(t *testing.T) {
+	wantOneDiag(t, `package P {
+		calc def Overfull {
+			in n : ScalarValues::Integer;
+			attribute xs : ScalarValues::Integer[2] = (1, 2, 3);
+			return : ScalarValues::Integer = n;
+		}
+	}`, "3 value(s) bound to a feature with multiplicity upper bound 2")
+	wantOneDiag(t, `package P {
+		enum def Level :> ScalarValues::Integer { low = 1; high = 3; }
+		calc def Constant {
+			in n : ScalarValues::Integer;
+			attribute l : Level = 2;
+			return : ScalarValues::Integer = n;
+		}
+	}`, "cannot bind 2 (an Integer) to a feature typed by Level")
+	wantNoDiags(t, `package P {
+		enum def Level :> ScalarValues::Integer { low = 1; high = 3; }
+		calc def Decided {
+			in n : ScalarValues::Integer;
+			attribute l : Level = n;
+			attribute xs : ScalarValues::Integer[2] = (n, n + 1, n + 2);
+			attribute ys : ScalarValues::Integer[*] = (n, n + 1, n);
+			return : ScalarValues::Integer = l + SequenceFunctions::size(xs) + SequenceFunctions::size(ys);
+		}
+	}`)
+}
+
 // TestAssignMustSatisfyMultiplicity: the written collection answers to the
 // target's multiplicity, by the rule an initial value answers to.
 func TestAssignMustSatisfyMultiplicity(t *testing.T) {

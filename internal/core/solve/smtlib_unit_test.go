@@ -127,8 +127,8 @@ func TestTermConstructorsFold(t *testing.T) {
 	if got := Or(); got.Op != OpBool || got.Bool {
 		t.Error("an empty disjunction is not false")
 	}
-	real := RealTerm(big.NewRat(1, 2))
-	if ToReal(real) != real {
+	realTerm := RealTerm(big.NewRat(1, 2))
+	if ToReal(realTerm) != realTerm {
 		t.Error("widening a real does not leave it alone")
 	}
 	if got := ToReal(IntTerm(3)); got.Op != OpReal || got.Real.Cmp(big.NewRat(3, 1)) != 0 {

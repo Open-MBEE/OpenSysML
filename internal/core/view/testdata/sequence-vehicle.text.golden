@@ -1,7 +1,7 @@
 VehicleSequenceViews::startVehicleView - sequence rendering (view def SequenceView)
 
-part driver (Driver)
-part vehicle (Vehicle)
+part driver : Driver
+part vehicle : Vehicle
 
 messages:
   driver => vehicle: of ignitionCmd : IgnitionCmd

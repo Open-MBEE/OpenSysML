@@ -26,6 +26,7 @@ var bucketNames = []string{
 	"pilot-silent",
 	"pilot-error",
 	"ours-error",
+	"ours-undetermined",
 	"both-error",
 	"nondeterministic",
 }

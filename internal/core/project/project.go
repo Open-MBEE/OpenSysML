@@ -145,14 +145,14 @@ func ModelFiles(dir string) ([]string, error) {
 // subdirectories, symlinked ones included. visited holds the resolved
 // directories already walked, which is what keeps a link cycle finite.
 func walk(dir string, visited map[string]bool, out *[]string) error {
-	real, err := filepath.EvalSymlinks(dir)
+	resolved, err := filepath.EvalSymlinks(dir)
 	if err != nil {
 		return err
 	}
-	if visited[real] {
+	if visited[resolved] {
 		return nil
 	}
-	visited[real] = true
+	visited[resolved] = true
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err

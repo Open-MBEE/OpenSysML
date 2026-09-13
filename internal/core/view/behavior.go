@@ -17,7 +17,9 @@ const maxBehaviorDepth = 8
 // renderStates renders the states and transitions of the exposed behaviors, from
 // the lowered StateGraph of each. An exposed element that is no state machine is
 // reported, and a machine that does not lower is reported with the reason.
-func (r *Renderer) renderStates(exposed []*symbols.Symbol, out *Rendering) {
+// States and transitions are placed by the Layout and Route annotations
+// positioning their declarations in view, nil for a rendering outside any view.
+func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	for _, elem := range exposed {
 		if elem.Kind != symbols.SymbolStateDef && elem.Kind != symbols.SymbolStateUsage {
@@ -25,37 +27,41 @@ func (r *Renderer) renderStates(exposed []*symbols.Symbol, out *Rendering) {
 				declKind(elem), r.notationName(elem)))
 			continue
 		}
-		graph, err := lower.ToStateGraph(elem.Decl, declScope(elem))
+		graph, err := lower.ToStateGraphWithEndpoints(elem.Decl, declScope(elem), lower.NewLibraryStateTypes(r.resolver))
 		if err != nil {
 			out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to a state graph: %v",
 				declKind(elem), r.notationName(elem), err))
 			continue
 		}
-		out.Roots = append(out.Roots, r.stateMachineNode(elem, graph, ids, out))
+		out.Roots = append(out.Roots, r.stateMachineNode(view, elem, graph, ids, out))
 	}
 }
 
 // stateMachineNode renders one lowered state machine: its regions and states as
 // nested nodes, the start of each body with the entry transitions out of it, and
 // its transitions as edges.
-func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
-	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Detail: declType(machine),
-		Origin: symbolOrigin(machine)}
+func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
+	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Type: declType(machine),
+		Origin: symbolOrigin(machine), Geometry: r.geometryOf(view, machine, out)}
 	doc := machine.DocName
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
+	place := func(node *Node, decl ast.Node) *Node {
+		node.Geometry = r.declaredGeometryOf(view, machine, decl, out)
+		return node
+	}
 
 	// Regions first: a state of an orthogonal region is nested in that region,
 	// and the region order is the order the machine enters and exits them in.
 	for _, region := range graph.TopRegions {
-		regions[region] = r.regionNode(region, doc, ids)
+		regions[region] = place(r.regionNode(region, doc, ids), region)
 		root.Children = append(root.Children, regions[region])
 	}
 	for _, state := range graph.States {
-		node := r.stateNode(state, graph, doc, ids)
+		node := place(r.stateNode(state, graph, doc, ids), graph.DeclOf(state))
 		nodes[state] = node
 		for _, region := range graph.CompositeStates[state] {
-			regions[region] = r.regionNode(region, doc, ids)
+			regions[region] = place(r.regionNode(region, doc, ids), region)
 			node.Children = append(node.Children, regions[region])
 		}
 	}
@@ -70,8 +76,8 @@ func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateG
 		parent.Children = append(parent.Children, nodes[state])
 	}
 	for _, pseudo := range graph.Pseudostates {
-		node := &Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: notationName(pseudo.Name),
-			Origin: nodeOrigin(doc, pseudo)}
+		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: nameText(pseudo.Name),
+			Origin: nodeOrigin(doc, pseudo)}, pseudo)
 		nodes[pseudo] = node
 		parent := root
 		if owner := graph.PseudostateOwner[pseudo]; owner != nil && nodes[owner] != nil {
@@ -93,24 +99,7 @@ func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateG
 		}
 	}
 	for _, body := range bodies {
-		entries := graph.StartOf(body.owner)
-		if len(entries) == 0 {
-			continue
-		}
-		start := &Node{ID: ids.take(), Kind: startKind}
-		body.node.Children = append([]*Node{start}, body.node.Children...)
-		for _, entry := range entries {
-			target, ok := nodes[entry.Target]
-			if !ok {
-				out.Notices = append(out.Notices, fmt.Sprintf("entry transition to %s of %s leaves the machine's own states; no edge is drawn",
-					behaviorNodeName(entry.Target), r.notationName(machine)))
-				continue
-			}
-			out.Edges = append(out.Edges, Edge{
-				From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
-				Origin: nodeOrigin(doc, entry.Decl),
-			})
-		}
+		r.entryEdges(view, machine, graph, body, nodes, ids, out)
 	}
 
 	sources := make([]ast.Node, 0, len(graph.States)+len(graph.Pseudostates))
@@ -121,23 +110,56 @@ func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateG
 		sources = append(sources, pseudo)
 	}
 	for _, src := range sources {
-		for _, transition := range graph.Transitions[src] {
-			target, ok := nodes[transition.Target]
-			if !ok {
-				out.Notices = append(out.Notices, fmt.Sprintf("transition %s of %s leaves the machine's own states; no edge is drawn",
-					transitionName(transition), r.notationName(machine)))
-				continue
-			}
-			out.Edges = append(out.Edges, Edge{
-				From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition), Kind: EdgeTransition,
-				Origin: nodeOrigin(doc, transition.Decl),
-			})
-		}
+		r.transitionEdges(view, machine, graph, src, nodes, out)
 	}
 	if len(root.Children) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no states")
 	}
 	return root
+}
+
+// entryEdges gives a body that says where it starts a start node, and one edge
+// per entry transition, in the order the guards are tried in.
+func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateGraph, body stateBody,
+	nodes map[ast.Node]*Node, ids *nodeIDs, out *Rendering) {
+	entries := graph.StartOf(body.owner)
+	if len(entries) == 0 {
+		return
+	}
+	doc := machine.DocName
+	start := &Node{ID: ids.take(), Kind: startKind}
+	body.node.Children = append([]*Node{start}, body.node.Children...)
+	for _, entry := range entries {
+		target, ok := nodes[entry.Target]
+		if !ok {
+			out.Notices = append(out.Notices, fmt.Sprintf("entry transition to %s of %s leaves the machine's own states; no edge is drawn",
+				behaviorNodeName(entry.Target), r.notationName(machine)))
+			continue
+		}
+		out.Edges = append(out.Edges, Edge{
+			From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
+			Origin: nodeOrigin(doc, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
+		})
+	}
+}
+
+// transitionEdges adds an edge for each transition leaving src, reporting one
+// whose target the machine's own states do not include.
+func (r *Renderer) transitionEdges(view, machine *symbols.Symbol, graph *lower.StateGraph, src ast.Node,
+	nodes map[ast.Node]*Node, out *Rendering) {
+	doc := machine.DocName
+	for _, transition := range graph.Transitions[src] {
+		target, ok := nodes[transition.Target]
+		if !ok {
+			out.Notices = append(out.Notices, fmt.Sprintf("transition %s of %s leaves the machine's own states; no edge is drawn",
+				transitionName(transition), r.notationName(machine)))
+			continue
+		}
+		out.Edges = append(out.Edges, Edge{
+			From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition), Kind: EdgeTransition,
+			Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
+		})
+	}
 }
 
 // startKind is the Kind of the node a body's entry transitions leave, which a
@@ -154,13 +176,14 @@ type stateBody struct {
 // regionNode renders one orthogonal region, which holds the states declared in
 // it.
 func (r *Renderer) regionNode(region *ast.StateRegion, doc string, ids *nodeIDs) *Node {
-	return &Node{ID: ids.take(), Kind: "region", Name: notationName(region.Name), Origin: nodeOrigin(doc, region)}
+	return &Node{ID: ids.take(), Kind: "region", Name: nameText(region.Name), Origin: nodeOrigin(doc, region)}
 }
 
 // stateNode renders one state with what the machine says about it: whether its
 // body unconditionally starts in it, whether entering it completes, what it runs.
 func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, doc string, ids *nodeIDs) *Node {
-	node := &Node{ID: ids.take(), Kind: "state", Name: notationName(state.Name), Origin: nodeOrigin(doc, state)}
+	node := &Node{ID: ids.take(), Kind: "state", Name: nameText(state.Name), Type: nodeType(graph.DeclOf(state)),
+		Origin: nodeOrigin(doc, state)}
 	var detail []string
 	if graph.UnconditionalStart(bodyOwning(graph, state)) == state {
 		detail = append(detail, "initial")
@@ -203,7 +226,7 @@ func bodyOwning(graph *lower.StateGraph, state *ast.StateNode) ast.Node {
 func (r *Renderer) transitionLabel(doc string, transition *lower.Transition) string {
 	var parts []string
 	if transition.Name != "" {
-		parts = append(parts, notationName(transition.Name)+":")
+		parts = append(parts, nameText(transition.Name)+":")
 	}
 	if trigger := r.triggerLabel(doc, transition.Trigger); trigger != "" {
 		parts = append(parts, trigger)
@@ -236,7 +259,7 @@ func (r *Renderer) guardLabel(doc string, guard ast.Node) string {
 // it was written between.
 func transitionName(transition *lower.Transition) string {
 	if transition.Name != "" {
-		return notationName(transition.Name)
+		return nameText(transition.Name)
 	}
 	return fmt.Sprintf("first %s then %s", behaviorNodeName(transition.Source), behaviorNodeName(transition.Target))
 }
@@ -247,7 +270,7 @@ func behaviorNames(behaviors []lower.StateBehavior) string {
 	names := make([]string, 0, len(behaviors))
 	for _, behavior := range behaviors {
 		if behavior.Name != "" {
-			names = append(names, notationName(behavior.Name))
+			names = append(names, nameText(behavior.Name))
 			continue
 		}
 		names = append(names, "effect")
@@ -318,8 +341,10 @@ func collapseSpace(text string) string {
 }
 
 // renderActions renders the nodes and successions of the exposed behaviors, from
-// the lowered ActionGraph of each.
-func (r *Renderer) renderActions(exposed []*symbols.Symbol, out *Rendering) {
+// the lowered ActionGraph of each. Nodes and edges are placed by the Layout and
+// Route annotations positioning their declarations in view, nil for a rendering
+// outside any view.
+func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	for _, elem := range exposed {
 		if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {
@@ -327,8 +352,8 @@ func (r *Renderer) renderActions(exposed []*symbols.Symbol, out *Rendering) {
 				declKind(elem), r.notationName(elem)))
 			continue
 		}
-		subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem),
-			scope: declScope(elem), doc: elem.DocName}
+		subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: declType(elem),
+			scope: declScope(elem), doc: elem.DocName, view: view, elem: elem}
 		node, ok := r.actionNode(subject, ids, out, map[ast.Node]bool{}, 0)
 		if ok {
 			out.Roots = append(out.Roots, node)
@@ -342,8 +367,13 @@ type actionSubject struct {
 	decl  ast.Node
 	kind  string
 	name  string
+	typ   string
 	scope *symbols.Scope
 	doc   string
+	// view is the view the action is drawn in, nil outside any view; elem is
+	// the exposed action the subject is rendered under.
+	view *symbols.Symbol
+	elem *symbols.Symbol
 }
 
 // actionNode renders one lowered action: its nodes as nested nodes, its
@@ -362,17 +392,19 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to an action graph: %v", kind, name, err))
 		return nil, false
 	}
-	root := &Node{ID: ids.take(), Kind: kind, Name: name, Origin: nodeOrigin(doc, decl)}
+	root := &Node{ID: ids.take(), Kind: kind, Name: name, Type: subject.typ, Origin: nodeOrigin(doc, decl),
+		Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
-		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: notationName(behaviorNodeName(node)),
-			Origin: nodeOrigin(doc, node)}
+		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
+			Type: nodeType(node), Origin: nodeOrigin(doc, node),
+			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
 		nodes[node] = child
 		root.Children = append(root.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
-			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name,
-				scope: actionScope(scope, nested), doc: doc}
+			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name, typ: child.Type,
+				scope: actionScope(scope, nested), doc: doc, view: subject.view, elem: subject.elem}
 			sub, ok := r.actionNode(nestedSubject, ids, out, lowered, depth+1)
 			if ok {
 				child.Children, child.Detail = sub.Children, detailWith(child.Detail, "own flow")
@@ -386,7 +418,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 			to, ok := nodes[edge.Target]
 			if !ok {
 				out.Notices = append(out.Notices, fmt.Sprintf("succession from %s in %s leaves the action's own nodes; no edge is drawn",
-					notationName(behaviorNodeName(src)), name))
+					nameText(behaviorNodeName(src)), name))
 				continue
 			}
 			label := ""
@@ -398,17 +430,17 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				}
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label, Kind: EdgeSuccession,
-				Origin: nodeOrigin(doc, edge.Decl)})
+				Origin: nodeOrigin(doc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
 			to, ok := nodes[flow.Target]
 			if !ok {
 				out.Notices = append(out.Notices, fmt.Sprintf("flow from %s in %s leaves the action's own nodes; no edge is drawn",
-					notationName(behaviorNodeName(src)), name))
+					nameText(behaviorNodeName(src)), name))
 				continue
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: flowLabel(flow), Kind: EdgeFlow,
-				Origin: nodeOrigin(doc, flow.Decl)})
+				Origin: nodeOrigin(doc, flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
 		}
 	}
 	if len(root.Children) == 0 {
@@ -425,7 +457,7 @@ func flowLabel(flow lower.ObjectFlow) string {
 		label = strings.TrimPrefix(label+" to "+flow.TargetPin, " to ")
 	}
 	if flow.Name != "" {
-		return notationName(flow.Name) + ": " + label
+		return nameText(flow.Name) + ": " + label
 	}
 	return label
 }

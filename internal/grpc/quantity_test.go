@@ -100,12 +100,18 @@ func TestQuantityCrossesTheWire(t *testing.T) {
 		// A prefixed unit reduces to its base unit and a scale: kg is 1000 grams.
 		{expr: "5.0 [SI::kg]", unit: "SI::kg", real: 5.0, reduction: "1000/1·SI::gram", wantScaled: true},
 		{expr: "3 [SI::m]", unit: "SI::m", intVal: 3, isInt: true, reduction: "SI::metre"},
-		{expr: "10.0 [SI::m] / 2.0 [SI::s]", unit: "SI::m/SI::s", real: 5.0, reduction: "SI::metre·SI::second^-1"},
+		{expr: "10.0 [SI::m] / 2.0 [SI::s]", unit: "SI::'m/s'", real: 5.0, reduction: "SI::metre·SI::second^-1"},
 		{expr: "5.4 [SI::km/SI::h]", unit: "SI::km/SI::h", real: 5.4, reduction: "5/18·SI::metre·SI::second^-1", wantScaled: true},
 		// Grouping the notation needs survives, so the text reads back as the unit written.
 		{expr: "3.0 [SI::m/(SI::s*SI::kg)]", unit: "SI::m/(SI::s*SI::kg)", real: 3.0, reduction: "1/1000·SI::gram^-1·SI::metre·SI::second^-1", wantScaled: true},
 		{expr: "4.0 [(SI::m*SI::s)**2]", unit: "(SI::m*SI::s)**2", real: 4.0, reduction: "SI::metre^2·SI::second^2"},
 		{expr: "8.0 [(SI::m**2)**3]", unit: "(SI::m**2)**3", real: 8.0, reduction: "SI::metre^6"},
+		// A point on a measurement scale carries the scale by name and as its one
+		// factor: a point reduces to no unit, so the scale itself is the reduction.
+		{expr: "26.85 [SI::'°C_abs']", unit: "'°C_abs'", real: 26.85, reduction: "SI::degree celsius (absolute temperature scale)"},
+		{expr: "26.85 [SI::'°C_abs'] + 10.0 [SI::'°C']", unit: "'°C_abs'", real: 36.85, reduction: "SI::degree celsius (absolute temperature scale)"},
+		{expr: "30.0 [SI::'°C_abs'] - 20.0 [SI::'°C_abs']", unit: "'°C'", real: 10.0, reduction: "SI::kelvin"},
+		{expr: "5.0 [Time::UTC] + 3.0 [SI::s]", unit: "UTC", real: 8.0, reduction: "Time::Coordinated Universal Time"},
 	}
 
 	for _, tc := range tests {
@@ -150,6 +156,8 @@ func TestQuantityRoundTrip(t *testing.T) {
 		"8.0 [(SI::m**2)**3]",
 		"6.0 [SI::m/SI::s/SI::kg]",
 		"2.0 [SI::'m/s²'] * 3.0 [SI::s]",
+		"26.85 [SI::'°C_abs']",
+		"5.0 [Time::UTC] + 3.0 [SI::s]",
 	} {
 		t.Run(expr, func(t *testing.T) {
 			sent := mustEvaluateQuantity(t, srv, modelHash, expr)
@@ -177,6 +185,44 @@ func TestQuantityRoundTrip(t *testing.T) {
 				t.Error("round-tripped quantity is not commensurable with the one sent")
 			}
 		})
+	}
+}
+
+// TestSetOfPointsReadForARuntime: a set read for a runtime judges membership as
+// the runtime does, so a point and the magnitude it equals are one element sent
+// twice; with no runtime the two spellings stay apart.
+func TestSetOfPointsReadForARuntime(t *testing.T) {
+	srv, modelHash, idx, sem := mustQuantityModel(t)
+	cached, ok := srv.cache.Get(modelHash)
+	if !ok {
+		t.Fatal("parsed model is not cached")
+	}
+	kelvin := mustEvaluateQuantity(t, srv, modelHash, "293.15 [SI::K]")
+	celsius := mustEvaluateQuantity(t, srv, modelHash, "20.0 [SI::'°C_abs']")
+	sent := setOf(
+		&pb.Value{Kind: &pb.Value_Quantity{Quantity: kelvin}},
+		&pb.Value{Kind: &pb.Value_Quantity{Quantity: celsius}},
+	)
+
+	rt, _ := srv.newRuntime(cached)
+	if _, err := ProtoToRuntimeValue(rt, sent, idx, sem); !errors.Is(err, ErrSetElementRepeated) {
+		t.Errorf("ProtoToRuntimeValue({293.15 K, 20.0 °C_abs}) = %v, want %v", err, ErrSetElementRepeated)
+	}
+	points, err := ProtoToRuntimeValue(rt, setOf(&pb.Value{Kind: &pb.Value_Quantity{Quantity: celsius}}), idx, sem)
+	if err != nil || points.Kind != runtime.ValSet {
+		t.Fatalf("ProtoToRuntimeValue({20.0 °C_abs}) = %s, %v, want a set", runtime.FormatValue(points), err)
+	}
+	inKelvin, err := ProtoToValueIn(&pb.Value{Kind: &pb.Value_Quantity{Quantity: kelvin}}, idx, sem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !points.Set().Contains(inKelvin) {
+		t.Errorf("{20.0 °C_abs} read for a runtime does not hold 293.15 K")
+	}
+
+	val, err := ProtoToValueIn(sent, idx, sem)
+	if err != nil || val.Kind != runtime.ValSet || val.Set().Size() != 2 {
+		t.Errorf("ProtoToValueIn({293.15 K, 20.0 °C_abs}) = %s, %v, want two members judged with no runtime", runtime.FormatValue(val), err)
 	}
 }
 
@@ -309,6 +355,30 @@ func TestQuantityOverSomethingThatIsNotAUnit(t *testing.T) {
 	if _, err := ProtoToQuantity(unnamed, idx, sem); !errors.Is(err, ErrUnknownBaseUnit) {
 		t.Errorf("over an unnamed factor: err = %v, want ErrUnknownBaseUnit", err)
 	}
+
+	// A measurement scale is the whole reduction of a point on it, never a factor
+	// beside a unit or under a power.
+	scaleTimesUnit := &pb.Quantity{
+		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 1},
+		Unit:      "'°C_abs'*s",
+		UnitTerm: &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{
+			{UnitId: "SI::degree celsius (absolute temperature scale)", Exponent: 1},
+			{UnitId: "SI::second", Exponent: 1},
+		}},
+	}
+	if _, err := ProtoToQuantity(scaleTimesUnit, idx, sem); !errors.Is(err, ErrScaleNotAFactor) {
+		t.Errorf("over a scale times a unit: err = %v, want ErrScaleNotAFactor", err)
+	}
+	scaleSquared := &pb.Quantity{
+		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 1},
+		Unit:      "'°C_abs'**2",
+		UnitTerm: &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{
+			{UnitId: "SI::degree celsius (absolute temperature scale)", Exponent: 2},
+		}},
+	}
+	if _, err := ProtoToQuantity(scaleSquared, idx, sem); !errors.Is(err, ErrScaleNotAFactor) {
+		t.Errorf("over a scale squared: err = %v, want ErrScaleNotAFactor", err)
+	}
 }
 
 // TestQuantityFeatureValuesAndNestedQuantities drives Instantiate: every quantity feature value
@@ -329,7 +399,7 @@ func TestQuantityFeatureValuesAndNestedQuantities(t *testing.T) {
 
 	for name, want := range map[string]string{
 		"m":            "5 [SI::kg] = 1000/1·SI::gram",
-		"derivedSpeed": "5 [SI::m/SI::s] = SI::metre·SI::second^-1",
+		"derivedSpeed": "5 [SI::'m/s'] = SI::metre·SI::second^-1",
 		"writtenSpeed": "5.4 [SI::km/SI::h] = 5/18·SI::metre·SI::second^-1",
 		"count":        "3 [SI::m] = SI::metre",
 	} {
@@ -448,57 +518,58 @@ package Imperial {
 	}
 
 	speed := mustEvaluateQuantity(t, srv, hash, "3.0 [SI::m] / 1.0 [SI::s]")
-	if speed.GetUnit() != "SI::m/SI::s" {
-		t.Fatalf("speed crosses the wire in %q, want SI::m/SI::s", speed.GetUnit())
+	if speed.GetUnit() != "SI::'m/s'" {
+		t.Fatalf("speed crosses the wire in %q, want SI::'m/s'", speed.GetUnit())
 	}
 	dist := evaluate("Q::Dist", speed, mustEvaluateQuantity(t, srv, hash, "2.0 [SI::s]"))
 	if got := describeQuantity(dist); got != "6 [SI::m] = SI::metre" {
 		t.Errorf("m/s * s over the wire = %s, want 6 [SI::m] = SI::metre", got)
 	}
 
-	// A scaled named unit stays the unit it was written in, as it does locally.
+	// A scaled named unit composed folds its scale into the magnitude, as it does
+	// locally: two kilometres squared are four million square metres.
 	byHand := &pb.Quantity{
 		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 2},
 		Unit:      "SI::km",
 		UnitTerm:  mustEvaluateQuantity(t, srv, hash, "1.0 [SI::km]").GetUnitTerm(),
 	}
 	area := evaluate("Q::Area", byHand, byHand)
-	if got := describeQuantity(area); got != "4 [SI::km**2] = 1e+06/1·SI::metre^2" {
-		t.Errorf("km * km over the wire = %s, want 4 [SI::km**2] = 1e+06/1·SI::metre^2", got)
+	if got := describeQuantity(area); got != "4e+06 [SI::'m²'] = SI::metre^2" {
+		t.Errorf("km * km over the wire = %s, want 4e+06 [SI::'m²'] = SI::metre^2", got)
 	}
 
-	// A unit whose name the notation quotes stays one unit when composed: `'A/m'`
-	// times `m` is `'A/m'*m`, not the quotient `A/m*m`.
+	// A unit whose name the notation quotes is one unit when composed: `'A/m'`
+	// times `m` reduces to the ampere, and squared to a base-unit product.
 	density := mustEvaluateQuantity(t, srv, hash, "2.0 [SI::'A/m']")
 	if density.GetUnit() != "SI::'A/m'" {
 		t.Fatalf("a quoted unit crosses the wire in %q, want SI::'A/m'", density.GetUnit())
 	}
-	if got := describeQuantity(evaluate("Q::Area", density, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::m]"))); got != "6 [SI::'A/m'*SI::m] = SI::ampere" {
-		t.Errorf("'A/m' * m over the wire = %s, want 6 [SI::'A/m'*SI::m] = SI::ampere", got)
+	if got := describeQuantity(evaluate("Q::Area", density, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::m]"))); got != "6 [SI::A] = SI::ampere" {
+		t.Errorf("'A/m' * m over the wire = %s, want 6 [SI::A] = SI::ampere", got)
 	}
-	if got := describeQuantity(evaluate("Q::Area", density, density)); got != "4 [SI::'A/m'**2] = SI::ampere^2·SI::metre^-2" {
-		t.Errorf("'A/m' * 'A/m' over the wire = %s, want 4 [SI::'A/m'**2] = SI::ampere^2·SI::metre^-2", got)
+	if got := describeQuantity(evaluate("Q::Area", density, density)); got != "4 [A**2/m**2] = SI::ampere^2·SI::metre^-2" {
+		t.Errorf("'A/m' * 'A/m' over the wire = %s, want 4 [A**2/m**2] = SI::ampere^2·SI::metre^-2", got)
 	}
 
 	// A unit named through an alias is the unit the alias stands for: SI::'m/s²'
-	// merges with SI::'m⋅s⁻²' and composes with SI::s, keeping the spelling sent.
+	// reduces as SI::'m⋅s⁻²' does and composes with SI::s to a coherent speed.
 	accel := mustEvaluateQuantity(t, srv, hash, "2.0 [SI::'m/s²']")
 	if accel.GetUnit() != "SI::'m/s²'" {
 		t.Fatalf("an aliased unit crosses the wire in %q, want SI::'m/s²'", accel.GetUnit())
 	}
-	if got := describeQuantity(evaluate("Q::Area", accel, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::'m⋅s⁻²']"))); got != "6 [SI::'m/s²'**2] = SI::metre^2·SI::second^-4" {
-		t.Errorf("'m/s²' * 'm⋅s⁻²' over the wire = %s, want 6 [SI::'m/s²'**2] = SI::metre^2·SI::second^-4", got)
+	if got := describeQuantity(evaluate("Q::Area", accel, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::'m⋅s⁻²']"))); got != "6 [m**2/s**4] = SI::metre^2·SI::second^-4" {
+		t.Errorf("'m/s²' * 'm⋅s⁻²' over the wire = %s, want 6 [m**2/s**4] = SI::metre^2·SI::second^-4", got)
 	}
-	if got := describeQuantity(evaluate("Q::Dist", accel, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::s]"))); got != "6 [SI::'m/s²'*SI::s] = SI::metre·SI::second^-1" {
-		t.Errorf("'m/s²' * s over the wire = %s, want 6 [SI::'m/s²'*SI::s] = SI::metre·SI::second^-1", got)
+	if got := describeQuantity(evaluate("Q::Dist", accel, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::s]"))); got != "6 [SI::'m/s'] = SI::metre·SI::second^-1" {
+		t.Errorf("'m/s²' * s over the wire = %s, want 6 [SI::'m/s'] = SI::metre·SI::second^-1", got)
 	}
 	shortAlias := &pb.Quantity{
 		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 2},
 		Unit:      "'m/s²'*s",
 		UnitTerm:  speed.GetUnitTerm(),
 	}
-	if got := describeQuantity(evaluate("Q::Dist", shortAlias, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::s]"))); got != "6 ['m/s²'*s**2] = SI::metre" {
-		t.Errorf("short 'm/s²'*s over the wire * s = %s, want 6 ['m/s²'*s**2] = SI::metre", got)
+	if got := describeQuantity(evaluate("Q::Dist", shortAlias, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::s]"))); got != "6 [SI::m] = SI::metre" {
+		t.Errorf("short 'm/s²'*s over the wire * s = %s, want 6 [SI::m] = SI::metre", got)
 	}
 
 	// Unit text that is no unit expression is one opaque unit: still a quantity
@@ -531,8 +602,8 @@ package Imperial {
 		t.Fatalf("a quantity written under an import crosses the wire in %q, want m", metre.GetUnit())
 	}
 	got = describeQuantity(evaluate("Q::Area", metre, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::m]")))
-	if got != "6 [m**2] = SI::metre^2" {
-		t.Errorf("m * SI::m over the wire = %s, want 6 [m**2] = SI::metre^2", got)
+	if got != "6 [SI::'m²'] = SI::metre^2" {
+		t.Errorf("m * SI::m over the wire = %s, want 6 [SI::'m²'] = SI::metre^2", got)
 	}
 
 	// A short name the model does not declare, or declares as a unit the
@@ -565,7 +636,7 @@ package Imperial {
 
 	// A derived unit the model declares outside its base unit's namespace keeps
 	// its identity when written short: `cable` is Nautical::cable, the one unit of
-	// that name whose reduction is the one sent, so it merges with itself.
+	// that name whose reduction is the one sent, so squared it folds to an area.
 	fathom := evaluate("Nautical::Fathom")
 	if fathom.GetUnit() != "fathom" {
 		t.Fatalf("a custom unit written under its package crosses the wire in %q, want fathom", fathom.GetUnit())
@@ -582,8 +653,8 @@ package Imperial {
 		t.Fatalf("a custom unit written under its package crosses the wire in %q, want cable", cable.GetUnit())
 	}
 	got = describeQuantity(evaluate("Q::Area", cable, inFull("Nautical::cable", cable.GetUnitTerm())))
-	if got != "2 [cable**2] = 33445.0944/1·SI::metre^2" {
-		t.Errorf("cable * Nautical::cable over the wire = %s, want 2 [cable**2] = 33445.0944/1·SI::metre^2", got)
+	if got != "66890.1888 [SI::'m²'] = SI::metre^2" {
+		t.Errorf("cable * Nautical::cable over the wire = %s, want 66890.1888 [SI::'m²'] = SI::metre^2", got)
 	}
 	// Two packages declaring one short name for the same unit is an ambiguity the
 	// reduction cannot settle: the text stays opaque rather than picked at random.
@@ -593,19 +664,20 @@ package Imperial {
 	}
 	// One short name written twice may name two units, each read where the
 	// reduction puts it: `cable*cable` over both cables is Nautical::cable times
-	// Imperial::cable, and each cancels against its own unit written in full.
+	// Imperial::cable, folding to the area their two lengths span; dividing by
+	// either cable written in full leaves the other's length.
 	imperialCable := evaluate("Imperial::Cable")
 	cables := evaluate("Q::Area", cable, imperialCable)
-	if cables.GetUnit() != "cable*cable" {
-		t.Fatalf("two cables cross the wire in %q, want cable*cable", cables.GetUnit())
+	if got := describeQuantity(cables); got != "33891.028992 [SI::'m²'] = SI::metre^2" {
+		t.Fatalf("two cables cross the wire as %s, want 33891.028992 [SI::'m²'] = SI::metre^2", got)
 	}
 	for _, tc := range []struct {
 		by   string
 		term *pb.UnitTerm
 		want string
 	}{
-		{"Nautical::cable", cable.GetUnitTerm(), "0.5 [cable] = 33891.028992/182.88·SI::metre"},
-		{"Imperial::cable", imperialCable.GetUnitTerm(), "0.5 [cable] = 33891.028992/185.3184·SI::metre"},
+		{"Nautical::cable", cable.GetUnitTerm(), "92.6592 [SI::m] = SI::metre"},
+		{"Imperial::cable", imperialCable.GetUnitTerm(), "91.44 [SI::m] = SI::metre"},
 	} {
 		got = describeQuantity(evaluate("Q::Per", cables, inFull(tc.by, tc.term)))
 		if got != tc.want {
@@ -626,7 +698,7 @@ package Imperial {
 		want string
 	}{
 		{"speed times seconds", "Q::Dist", []*pb.Quantity{unnamed(speed.GetUnitTerm()), second}, "2 [SI::metre] = SI::metre"},
-		{"speed times a metre", "Q::Area", []*pb.Quantity{unnamed(speed.GetUnitTerm()), metre}, "4 [m**2/SI::second] = SI::metre^2·SI::second^-1"},
+		{"speed times a metre", "Q::Area", []*pb.Quantity{unnamed(speed.GetUnitTerm()), metre}, "4 [SI::'m²⋅s⁻¹'] = SI::metre^2·SI::second^-1"},
 		{"kilometres times a metre", "Q::Area", []*pb.Quantity{unnamed(byHand.GetUnitTerm()), metre}, "4 ['1000·metre'*m] = 1000/1·SI::metre^2"},
 		{"kilometres alone", "Q::Area", []*pb.Quantity{unnamed(byHand.GetUnitTerm()), unnamed(byHand.GetUnitTerm())}, "4 ['1000·metre'**2] = 1e+06/1·SI::metre^2"},
 	} {
@@ -647,7 +719,7 @@ package Imperial {
 	if err != nil || resp.Error != "" {
 		t.Fatalf("EvaluateCalc Q::Area over nameless hundredths: %v %q", err, resp.GetError())
 	}
-	if real, ok := resp.Result.GetKind().(*pb.Value_RealValue); !ok || real.RealValue != 0.0004 {
+	if realVal, ok := resp.Result.GetKind().(*pb.Value_RealValue); !ok || realVal.RealValue != 0.0004 {
 		t.Errorf("a nameless hundredth squared = %v, want the number 0.0004", resp.Result)
 	}
 }
@@ -866,6 +938,65 @@ func TestQuantityFromWireRejectsUnitTextItsReductionContradicts(t *testing.T) {
 					tc.unit, describeUnitTerm(tc.term), err)
 			}
 		})
+	}
+
+	// A measurement scale is read from the text as a unit is, so a qualified name
+	// of one scale over the reduction of another, of a unit, or of a scale composed
+	// with a unit, contradicts it as unit text does.
+	celsius := mustEvaluateQuantity(t, srv, hash, "20.0 [SI::'°C_abs']").GetUnitTerm()
+	kelvin := mustEvaluateQuantity(t, srv, hash, "1.0 [SI::K]").GetUnitTerm()
+	for _, tc := range []struct {
+		name string
+		unit string
+		term *pb.UnitTerm
+	}{
+		{"another scale", "Time::UTC", celsius},
+		{"a unit over a scale", "SI::K", celsius},
+		{"a scale over a unit", "SI::'°C_abs'", kelvin},
+		{"a scale composed with a unit", "SI::'°C_abs'*SI::s", celsius},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pq := &pb.Quantity{
+				Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 20},
+				Unit:      tc.unit,
+				UnitTerm:  tc.term,
+			}
+			if _, err := ProtoToQuantity(pq, idx, sem); !errors.Is(err, ErrUnitTextMismatch) {
+				t.Errorf("ProtoToQuantity(%s over %s) err = %v, want ErrUnitTextMismatch",
+					tc.unit, describeUnitTerm(tc.term), err)
+			}
+		})
+	}
+	for _, unit := range []string{"SI::'°C_abs'", "'°C_abs'"} {
+		point, err := ProtoToQuantity(&pb.Quantity{
+			Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 20},
+			Unit:      unit,
+			UnitTerm:  celsius,
+		}, idx, sem)
+		if err != nil {
+			t.Fatalf("ProtoToQuantity(%s over its scale): %v", unit, err)
+		}
+		if got := point.Quantity().Unit.Product.Powers; len(got) != 1 || got[0].Unit == nil || !sem.IsMeasurementScale(got[0].Unit) {
+			t.Errorf("%s over its scale read as %v, want the scale by declaration", unit, point.Quantity().Unit.Product)
+		}
+	}
+	// A short name of a scale the reduction contradicts is opaque, as a unit's is:
+	// it was not certainly that scale.
+	for _, tc := range []struct {
+		unit string
+		term *pb.UnitTerm
+	}{{"UTC", celsius}, {"'°C_abs'", kelvin}} {
+		val, err := ProtoToQuantity(&pb.Quantity{
+			Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 20},
+			Unit:      tc.unit,
+			UnitTerm:  tc.term,
+		}, idx, sem)
+		if err != nil {
+			t.Fatalf("ProtoToQuantity(%s over %s): %v", tc.unit, describeUnitTerm(tc.term), err)
+		}
+		if got := val.Quantity().Unit.Product.Powers; len(got) != 1 || got[0].Unit != nil {
+			t.Errorf("%s over %s read as %v, want one opaque unit", tc.unit, describeUnitTerm(tc.term), val.Quantity().Unit.Product)
+		}
 	}
 
 	// The same text over the reduction it does have is read, in either factor order.

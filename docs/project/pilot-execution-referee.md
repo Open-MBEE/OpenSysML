@@ -10,10 +10,10 @@ The answer is narrow, and deliberately stated as such. The pinned artifact evalu
 machines, and has no notion of a step, a token or a trace. Three of the four behavior areas
 are therefore **out of its reach**, and no amount of harness work changes that.
 
-Pin: tag `2026-07`, artifact `jupyter-sysml-kernel 0.61.0` (`scripts/pilot-pin.sh`). Every
+Pin: tag `2026-08`, artifact `jupyter-sysml-kernel 0.62.0` (`scripts/pilot-pin.sh`). Every
 command below was run against the shaded jar that `scripts/download-pilot-validator.sh`
 unpacks, at
-`build/pilot-validator/target/sysml-download/sysml/jupyter-sysml-kernel-0.61.0-all.jar`.
+`build/pilot-validator/target/sysml-download/sysml/jupyter-sysml-kernel-0.62.0-all.jar`.
 
 ## Capability map
 
@@ -32,7 +32,7 @@ unpacks, at
 The magics in the pinned jar:
 
 ```
-$ unzip -Z1 build/pilot-validator/.../jupyter-sysml-kernel-0.61.0-all.jar \
+$ unzip -Z1 build/pilot-validator/.../jupyter-sysml-kernel-0.62.0-all.jar \
     | grep -i 'jupyter/kernel/magic/[A-Za-z]*\.class'
 org/omg/sysml/jupyter/kernel/magic/Load.class
 org/omg/sysml/jupyter/kernel/magic/Projects.class
@@ -199,6 +199,11 @@ No compliance row's status flag is changed on the strength of this work.
   (`1 / 0` produces no lines and no diagnostic), so it cannot distinguish "no value" from
   "declined to evaluate". Those cases bucket `pilot-silent` rather than being read as agreement
   with our empty sequence or as our error.
+- **An undetermined answer is its own bucket.** A model-level read the model leaves open — a
+  feature with no value, a `[1..*]` count — is `<undetermined>` on our side, a value and not an
+  error; the pilot has no such answer, so those cases bucket `ours-undetermined` whatever the
+  pilot printed, and the pilot's line is recorded for adjudication rather than read as a
+  disagreement.
 - **Collection order** is compared as order; a same-multiset/different-order result is its own
   bucket, so a real ordering difference is never hidden by sorting.
 - **Scalar vs one-element sequence is unobservable.** We print `[2]` where the pilot prints a
@@ -211,18 +216,368 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 185 committed cases, the original 32, the 62 the
+prints the current ones. State of the 446 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
-`tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`
-and the 27 of `scalar_classification.cases`:
+`tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
+the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
+`enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 13 of
+`extent_expressions.cases`, the 1 of `extent_count_mismatch.cases`, the 166 of
+`undetermined_operands.cases`, the 4 of `unknown_bounds.cases`, the 2 of `vast_bounds.cases` and
+the 4 of `body_local_conformance.cases`:
 
 ```
-agree: 101 · kind-only: 1 · order-only: 0 · disagree: 5
-pilot-unevaluated: 59 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
-nondeterministic: 0
+agree: 211 · kind-only: 1 · order-only: 0 · disagree: 30
+pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 9 · ours-error: 10 · ours-undetermined: 28
+both-error: 12 · nondeterministic: 0
 ```
+
+The first six `extent_expressions.cases` probe `all T` (KerML 1.0 §7.4.9.2, §8.2.5.8.1
+`ExtentExpression`, `BaseFunctions::'all'`), added with the evaluation they were meant to referee
+and could not: the pilot does not evaluate the operator, as Table 5 of §8.2.5.8.1 foretells by
+marking `all` not model-level evaluable. The four extents — `all Size`
+over an enumeration, `all Wheel` and `all Car` over definitions a package-level `part car : Car`
+instantiates, `all Boat` over one nothing instantiates — come back as the unevaluated
+`OperatorExpression all` and land in `pilot-unevaluated`, where we answer the three literals, the
+two wheels `car` holds, `car`, and the empty sequence. The two counts are the `disagree` cases
+`extent-variation-count` and `extent-uninstantiated-count`: `size(all Gearbox)` over a variation
+with two variants and `size(all Boat)` over a definition with no instance both answer `1` from the
+pilot, against our `2` and `0`. The `1` is the size of the one unevaluated node `size` was handed,
+not a count of instances — no reading of the extent gives a type with no instances the same size
+as one with two — so neither is a verdict against us. The extent is taken over the whole loaded
+model — every document's namespace-level object usages, the standard library's included — and
+not over the namespaces enclosing the expression, which leaves these six where they were: the
+referee's model is one package in one document, the library declares no `Wheel`, `Car` or `Boat`,
+and the pilot returns the same unevaluated node whatever the extent's reach. The extent semantics
+are self-assessed in the extent row of [spec-compliance.md](spec-compliance.md).
+
+The other seven `extent_expressions.cases` and the one `extent_count_mismatch.cases` referee what
+a namespace-level object usage of several occurrences denotes (KerML 1.0 §7.3.4.3 Multiplicities —
+a feature of multiplicity `[2]` has exactly two values): `part rims : Rim[2];` in a package, read
+through `size(all Rim)`, `size(rims)`, `rims#(1).radius` and `rims.radius`, beside `part hubs :
+Hub[1..*];`, `part spares : Spare[0..*];`, a valued `part rods : Rod[2] = (new Rod(), new Rod());`
+and, in a model of its own, a `part uneven : Rod[2]` whose value yields three — of its own because
+the extent is taken over the whole loaded model, so a usage whose value the runtime refuses to bind
+ends every `all T` that may reach it, `size(all Rim)` included, with that typed error. We answer `2`, `2`, `2.0`, `[2.0, 2.0]`, `1`, `0`, `2` and the typed
+`ErrMultiplicityViolation`, the usage's lower bound of objects materialized once for the run, in
+declaration order. The pilot materializes no object, so every one of its answers is a fold over
+the unevaluated usage element rather than a count of instances, and no bucket here is a verdict:
+`extent-namespace-collection-count`, `-collection-read` and `-lower-bound-zero` are `disagree`
+because `size` over the one unevaluated node is `1` whether the usage is `[2]` or `[0..*]` — the
+same fold as `extent-uninstantiated-count` and `size-slots` — and `extent-namespace-lower-bound-one`
+agrees only because a `[1..*]` usage's lower bound happens to be that `1`; `-collection-index`
+agrees because the pilot folds `rims#(1).radius` to `Rim::radius`'s default `2.0` as it folds any
+chain through a usage, and `-collection-chain` is `disagree` because it folds `rims.radius` to the
+same one `2.0` where two rims give two; `-valued-collection` agrees because a constructor
+expression per value is countable without an object (`size` of the two `new Rod()` is `2` on both
+sides); and `-valued-count-mismatch` is `ours-error`, the pilot answering `3` for a `[2]` feature
+given three values where the runtime refuses the binding as the multiplicity violation it is
+(§7.3.4.3). Read the eight with the six before them: the pilot evaluates neither `all` nor a
+namespace usage's objects, so the semantics stay self-assessed in the extent row of
+[spec-compliance.md](spec-compliance.md).
+
+The run is deterministic: two runs into separate output directories differ only in the pilot's
+element UUIDs, and agree line for line once those are stripped.
+
+The fourteen `metadata_access.cases` referee `x.metadata` and the `meta` cast, added with the
+evaluation they referee, and all fourteen agree. They were run *before* the runtime changed, to
+settle what `.metadata` answers: KerML 1.0 §8.3.4.8.15 states that the result of a
+MetadataAccessExpression is the metadata annotations of the referenced element followed by one
+reflective metaobject of the element's own metaclass, and the pilot (`0.61.0`) reads it the same
+way — `seatBelt.metadata->size()` on a part annotated once is `2` and `chassis.metadata->size()`
+on a part nothing annotates is `1`, where the runtime then answered `1` and `0` (the two
+`disagree` of that run; every `meta` case was `ours-error`, the operator refused). The pilot and
+the spec text agree, so the runtime now appends the reflective metaobject and the two committed
+`.metadata` conformance fixtures moved with it: `metadata_access_annotations` expects the
+two annotation objects then `meta(test::seatBelt : SysML::Systems::PartUsage)` (and the metaobject
+alone for the element nothing annotates, where it expected `()`), and
+`metadata_access_textual_order` expects its four annotations then the metaobject. The `meta`
+cases fix the cast as `x.metadata as T` (§7.4.9.2): `(seatBelt meta KerML::Feature)->size()` is
+`1` (the metaobject alone — a `Safety` annotation is not a `Feature`), `(seatBelt meta
+Safety)->size()` `1` with `.level` `4`, `(chassis meta SysML::PartDefinition)->size()` `0` for a
+part usage and `(chassis meta SysML::PartUsage)->size()` `1`; the reflective features read
+alike on both sides — `.name` `"seatBelt"`, `.declaredName` `"chassis"`, `.qualifiedName`
+`"Meta::chassis"`, `.ownedFeature->size()` `2` (the nested part and the attribute),
+`(Vehicle meta SysML::PartDefinition).declaredName` `"Vehicle"`, `.isAbstract` `false` — and
+`(chassis meta KerML::Feature) === (chassis meta KerML::Type)` is `true` on both, so a
+metaobject's identity is the element's whatever metaclass it is cast to. Each case reads a
+model-level attribute bound to the expression because the pilot resolves no library name
+(`KerML::Feature`, `SysML::PartUsage`) inside a bare `%eval`.
+
+Five more `metadata_access.cases` referee `Element::documentation`, declared
+`Documentation[0..*]` in `KerML.kerml`, so a documentation comment reads back as a metaobject
+whose own `Comment::body` and `Comment::locale` are the strings. Three agree:
+`(Wheel meta KerML::Element).documentation->size()` is `1` for a part definition with one
+`doc` comment and `0` for one without, and `.documentation.owner.declaredName` is `"Wheel"`.
+`.documentation.body` is the one new `disagree`, and it is a rendering artefact of the pilot,
+not a semantic difference: the pilot prints `LiteralString Turns.  (<uuid>)`, a body with a
+trailing space before its two-space id separator, which normalizes to `Turns. ` against the
+runtime's `"Turns."`: the pilot keeps the blank before `*/`, the runtime reads the body the way
+`Element::documentation` and LSP hover always have (`lexer.CommentBody`, delimiters and
+margin off), so the runtime's answer stands and the referee's normalizer is left honest rather
+than taught to trim. `.documentation.qualifiedName` is `pilot-silent`: the pilot prints nothing
+for it, and the runtime answers `()`, which is what `Element::qualifiedName` derives to for an
+element that declares no name (KerML 1.0 §8.3.2.1 Elements — a `doc` comment names nothing);
+the empty pilot line and the empty sequence are the same reading, but the referee cannot tell
+the pilot's "no value" from "declined", so the bucket is left as measured.
+
+Five more `metadata_access.cases` referee the two KerML declarations a SysML model holds that
+are neither types nor features — a `dependency` and a textual representation (`rep … language
+"Java" /* … */`) — which `.metadata` classifies as `KerML::Dependency` and
+`KerML::TextualRepresentation`. Four agree: `relies.metadata->size()` is `1` (the metaobject
+alone) and `(relies meta KerML::Dependency)->size()` `1`, `.client.declaredName` is
+`"seatBelt"` (`Dependency::client` redefines `Relationship::source`, the `from` side), and
+`chassis::asJava.metadata->size()` is `1`. `.representedElement.declaredName` is the ninth
+`disagree`, adjudicated ours: `KerML.kerml` declares `TextualRepresentation::representedElement :
+Element[1..1] subsets owner redefines annotatedElement` (KerML 1.0 §8.3.2.2.12, the element the
+representation is of, always its owner), so the runtime answers `"chassis"`, the owning part;
+the pilot answers `"asJava"`, the representation's own name — it reads `representedElement` as
+the representation itself, while its `.owner.declaredName` is `"chassis"` and its
+`.documentation.annotatedElement` prints nothing, so its `annotatedElement` redefinitions do
+not derive to the owner the library says they subset. The case reads `.representedElement`
+rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
+viable alternative at input 'language'`), which would fail the whole model.
+
+The 166 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+(`attribute u;`, no type, no value; beside it `s : String`, `b : Boolean`, `r : Real`,
+`xs : Real[2..4]`, `ss : String[2..*]`, `bs : Boolean[2]` and `os : Real[0..4]`, typed and
+valueless) and over usages whose multiplicity leaves the count open (`slots[3]`, `gear[1..*]`,
+`loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear`, `vacant[0]` and `tagged :> gear`,
+redefining the `tag` of `D` its default `"d"` gives; in `store`, `sub[10001..*] :> base[0..*]`,
+`three[3..*] :> cap[0..3]`, and `inner[2]` and `outer[5..*]` both subsetting `pool[0..*]`), added
+with the undetermined result they referee. Of the first 37, fifteen agree: the Boolean forms a constant operand fixes answer on both sides whichever
+operand is the constant — `false and (u > 3)`, `true or (u == 1)` and `false implies (u == 1)`
+never read the second operand, and `(u > 3) and false`, `(u == 1) or true` and `(u == 1) implies
+true` answer `false`, `true`, `true` on both sides (see *Boolean folding on the second operand*
+below) — as do `includes((1, u + 1), 1)` `true` and `excludes((1, u + 1), 1)` `false`, decided by
+the known element; `size(u)` `1`, `size((1, u))` `2` and `notEmpty(u)` `true`, decided by the
+assumed `[1]` of an unbound feature (KerML 1.1 §7.3.4.1); `size(rack.lone)` `1`; `size(Mode::ON)`
+`1`; and `notEmpty(rack.gear)` `true` and `isEmpty(rack.gear)` `false`, decided by the lower bound
+`1`. Six are `pilot-unevaluated`: `u`, `u + 5`, `(u + 5) * 2`, `u > 3`, `if u > 0 ? 1 else 2` and
+`(10, 20, 30)#(u)` come back as `AttributeUsage u`, `OperatorExpression +`/`*`/`>`/`if` and
+`IndexExpression #` — the pilot does not evaluate a reference to a feature with no value, and
+leaves every expression over it unevaluated — where we answer `<undetermined>`. Three are
+`pilot-silent`: `-u`, `rack.slots#(2)` and `rack.gear#(7)` draw no line at all; we answer
+`<undetermined>`, the instance `slots` holds at position 2, and `<undetermined>`. The one
+`disagree` is `size(rack.slots)`: `3` here, since `[3]` fixes the count, `1` from the pilot,
+which counts the one unevaluated `PartUsage slots` — a count of the operand expression, not of
+the feature's values.
+
+Twelve are `ours-undetermined`, and the pilot's lines for them are not answers but artifacts
+of the same non-evaluation: wherever the unevaluated `AttributeUsage u` reaches an operator that
+does evaluate, the pilot compares the usage *element* — `u == 5` is `false`, `not (u == 5)`
+`true`, `(u > 3) and true` `false` (the unevaluated `u > 3` is not the literal `true`), `(u == 1)
+or false` `false`, `(u == 1) implies false` `true`, `includes((1, 2), u + 1)` `false` and
+`excludes((1, 2), u + 1)` `true`; and where a `[1..*]` or `[0..2]` usage is counted it counts the
+one unevaluated `PartUsage` — `size(rack.gear)` `1`, `size(rack.loose)` `1`, `size((rack.gear,
+rack.loose))` `2`, `isEmpty(rack.loose)` `false`, `notEmpty(rack.loose)` `true`. The pilot
+materializes nothing, so these are evidence that no definite answer exists, not a source for the
+numbers: `gear[1..*]` has at least one value and `loose[0..2]` may be empty, and the model fixes
+nothing further, so each is `<undetermined>` here (adjudicated in
+[spec-compliance.md](spec-compliance.md), *Expression evaluation*, and
+[docs/reference/repl-commands.md](../reference/repl-commands.md)).
+
+The next eight probe what an open collection still decides. `many[10001..*]` has a lower bound
+too large to materialize into objects, which is never attempted at model level: `size(rack.many)`
+is `ours-undetermined` (the pilot's `1` is again the count of the unevaluated `PartUsage`) and
+`notEmpty(rack.many)` agrees on `true`. `fixed :> gear` is a value `gear` certainly holds:
+`includes(rack.gear, rack.fixed)` answers `true` here and is the second `disagree`, the pilot
+answering `false` by comparing the two unevaluated `PartUsage` elements, which are distinct
+elements whatever values they hold — an artifact of non-evaluation like `size(rack.slots)`, not a
+verdict; `includes(rack.gear, rack.lone)` is `ours-undetermined`, `lone` being neither certainly
+held nor excluded. The quantifiers decide from the elements a collection certainly holds and the
+pilot agrees on all three decided forms: `(1, u)->exists{in x; x == 1}` is `true` on the witness
+`1`, `(1, u)->forAll{in x; x > 2}` is `false` on the counterexample `1`, `anyTrue((true, u == 1))`
+is `true`; `(1, u)->exists{in x; x == 2}` is `ours-undetermined`, since `u` may be `2`.
+
+The next six probe what the elements two sequences certainly hold decide, and the pilot agrees
+on every decided form: `includes((1), (2, u))` is `false`, the determined `(1)` lacking the `2`
+the second certainly holds, and `excludes((1), (1, u))` is `false`, both certainly holding `1`;
+`select` and `collect` over `(1, u)` apply their body to the `1` and keep what it yields, so
+`includes((1, u)->select{in x; x == 1}, 1)` and `includes((1, u)->collect{in x; x + 1}, 2)` are
+`true`, while `size((1, u)->select{in x; x == 1})` is `ours-undetermined` — the selection holds
+the `1` and possibly `u`, one or two values (the pilot's `1` is once more a count over the
+unevaluated usage). `()#(u)` is `pilot-unevaluated` (`IndexExpression #`); here it is the index
+error `()#(1)` is, since no index reaches into a sequence certainly empty.
+
+The last eight probe the counts an open value still fixes. A mapping counts what its body
+yields per element the collection may hold beyond those it certainly does, so a body of fixed
+count keeps the collection's own bounds: `size((1, u)->collect{in x; x + 1})` is `2` and agrees
+(the pilot mapping both elements, the second to an unevaluated `u + 1`), while `size(rack.loose->collect{in x;
+x})` is `ours-undetermined`, `[0..2]` like `loose` itself. `vacant[0]` declares a feature that
+holds nothing, a count the model fixes: `rack.vacant` reads as the empty sequence
+(`pilot-unevaluated`, the pilot returning the `PartUsage`), and `size(rack.vacant)` `0` and
+`isEmpty(rack.vacant)` `true` are two more `disagree`, the pilot's `1` and `false` counting the
+unevaluated usage as before. A conditional over an open test holds as many values as its
+branches declare: `size(if u > 0 ? 1 else 2)` is `1` and agrees, `size(if u > 0 ? (1, 2) else
+(3, 4))` is `2` and the last `disagree` (the pilot's `1` counts the unevaluated `if`), and
+`size(if u > 0 ? (1, 2) else 3)` is `ours-undetermined`, the branches fixing `[1..2]` between
+them.
+
+The last eight probe what a determined operand alone decides. `??` over an operand that may
+be empty yields either that operand, then holding at least one value, or the fallback, so its
+count covers both: `size(u ?? 3)` is `1` and `notEmpty(rack.loose ?? 3)` is `true`, and both
+agree (the pilot's `1` is once more the count of the unevaluated usage, its `true` the
+non-emptiness of that one element). A test that does not depend on the element decides a
+quantifier over a collection certainly holding one: `rack.gear->exists{in x; true}` is `true`
+and `rack.gear->forAll{in x; false}` is `false`, and both agree; `rack.loose->exists{in x;
+true}` is `ours-undetermined`, `loose` possibly holding nothing, where the pilot's `true`
+quantifies over the unevaluated `PartUsage`. A zero divisor fails a division whatever the open
+operand holds: `u / 0` and `u % 0` are the `division by zero` error here and
+`pilot-unevaluated` (`OperatorExpression /`, `%`), as is `u / 2`, which stays `<undetermined>`.
+
+The last twelve probe the positions a library function checks before it reads its open
+operand. A determined position that names no place in any value the operand may hold fails
+the function: `Substring(s, 0, 2)`, `includingAt(xs, 1.0, 0)`, `subsequence(xs, 0, 1)` and
+`excludingAt(xs, 0)` are the index error here, as are `includingAt(xs, 1.0, 6)`,
+`subsequence(xs, 2, 5)` and `excludingAt(xs, 5)`, positions past the most `xs : Real[2..4]`
+admits. The pilot leaves the four zero-index forms unevaluated (`pilot-unevaluated`, the
+`InvocationExpression` or the unevaluated `AttributeUsage xs`) and throws
+`IndexOutOfBoundsException` for the three past-the-end forms (`both-error`) — by indexing into
+the one unevaluated usage element, so `subsequence(xs, 1, 2)` throws too (`pilot-error`,
+`toIndex = 2` over a one-element list) where it is `<undetermined>` here, as are
+`Substring(s, 1, 2)` and `includingAt(xs, 1.0, 1)` (`pilot-unevaluated`) and
+`excludingAt(xs, 1)` (`pilot-silent`), positions every value of the operand admits.
+`Substring(s, 3, 2)` selects nothing whatever `s` holds and is `""` (`pilot-unevaluated`).
+
+The next four probe the domain a scalar numeric function's parameter puts on a determined
+argument before the open one is read, all four `pilot-unevaluated` (the `InvocationExpression`
+itself): `IntegerFunctions::max(1.5, u)` is the type mismatch a Real is against an Integer
+parameter, `RationalFunctions::rat(u, 0)` the `division by zero` a zero denominator is
+whatever the numerator, `RationalFunctions::gcd(1.5, u)` the domain error a fraction is; and
+`IntegerFunctions::max(1, u)`, whose determined argument conforms, is `<undetermined>`.
+
+The next five probe a filter whose test does not depend on the element over a collection
+the model leaves open: the test decides as a whole for the values the collection may hold beyond
+those it certainly does. `notEmpty(rack.gear->select{in x; true})` is `true` and
+`isEmpty(rack.gear->reject{in x; true})` is `true`, and both agree (the pilot filtering the one
+unevaluated `PartUsage`); `xs->reject{in x; true}` is the empty sequence here and
+`pilot-silent`; `size(xs->select{in x; true})` is `ours-undetermined` of `[2..4]`, the count of
+`xs` itself; and `xs->select{in x; 1 / 0 > 0}` is the `division by zero` error here, the test
+failing on any element, and `pilot-silent`.
+
+The next nineteen probe an open operand whose feature declares a type: an operator or library
+function that admits no value of that type is the type mismatch it is for a determined value of
+it, before anything is left open. `s - 1`, `s > 1`, `if s ? 1 else 2`, `(10, 20, 30)#(s)`,
+`s < r`, `b - 1`, `StringFunctions::Length(r)` and `RealFunctions::'-'(s, 1)` are that error
+here and `pilot-unevaluated` (the pilot returning the expression itself), `-s` is that error
+and `pilot-silent`; `not s` and `s and true` are the two `ours-error`, where the pilot answers
+`true` and `false` by comparing the unevaluated `AttributeUsage s` to a Boolean literal — the
+artifact of non-evaluation seen above, not a reading of `s` as a Boolean. Operations the type
+admits stay `<undetermined>` and `pilot-unevaluated`: `s + "a"`, `s < "a"`, `r - 1`,
+`if b ? 1 else 2`, `(10, 20, 30)#(r)`, and `not b` (`ours-undetermined`, the pilot's `true`
+once more comparing the usage element). The constant operand still folds whatever the first
+declares: `false and s` and `b and false` are `false` on both sides.
+
+Thirteen probe a feature chain through a collection the model leaves open, which
+reads the members of the values it certainly holds. `rack.fixed.tag` is `"d"`, the default
+`D` declares, and `rack.tagged.tag` `"x"`, the redefinition, both agreeing. `rack.gear.tag`
+is `<undetermined>` of `[2..*]` here, holding those two and the `tag` of whatever else `gear`
+holds; the pilot answers the one default `"d"`, reading the declaration's default through the
+one unevaluated `PartUsage gear` as if it were `gear`'s single value, so its every answer over
+the chain is that of the sequence `("d")`: `includes(rack.gear.tag, "d")` `true` and
+`excludes(rack.gear.tag, "d")` `false` agree, decided here by the default `fixed` certainly
+contributes; `includes(rack.gear.tag, "x")` is `true` here on `tagged` and `rack.gear.tag->exists{in
+x; x == "x"}` `true` on the same witness, two more `disagree` against the pilot's `false` — it
+never sees the subsetter, as `includes(rack.gear, rack.fixed)` showed; and
+`includes(rack.gear.tag, "zz")` and `size(rack.gear.tag)` are `ours-undetermined` against the
+pilot's `false` and `1`, `gear` possibly holding a `D` tagged `"zz"`. `rack.gear.tag->forAll{in
+x; x == "d"}` is `false` on the counterexample `tagged` and agrees. `rack.gear.mass` and
+`rack.loose.tag`, members no value fixes, are `<undetermined>` (`pilot-unevaluated`), and
+`rack.gear.nope` is the unresolved member on both sides (`both-error`).
+
+The next five probe the named conditional `ControlFunctions::'if'`, which checks that an open
+test may be Boolean before it stays open, as the `if ? else` operator does: `'if'(r, 1, 2)`
+and `'if'(s, 1, 2)` are the type mismatch here, `'if'(bs, 1, 2)` the multiplicity violation a
+`Boolean[2]` test is against the one-valued parameter, and `'if'(b, 1, 2)` and `'if'(u, 1, 2)`
+stay `<undetermined>`; all five are `pilot-unevaluated` (the `InvocationExpression if`).
+
+The next twenty probe an open operand that certainly holds several values, which is no scalar:
+the operators and functions taking exactly one value refuse it as they refuse a determined
+sequence. `xs + 1`, `xs > 1`, `(10, 20)#(xs)`, `ss + "a"` and `if bs ? 1 else 2` are the type
+mismatch here and `pilot-unevaluated`, `-xs` that error and `pilot-silent`; `bs and true` and
+`not bs` are two more `ours-error`, the pilot's `false` and `true` comparing the unevaluated
+`AttributeUsage bs` to a literal as with `s`. The library forms `RealFunctions::'+'(xs, 1.0)`,
+`RealFunctions::abs(xs)`, `StringFunctions::Length(ss)` and `StringFunctions::Substring(ss, 1,
+1)` are the multiplicity violation their one-valued parameter states, all `pilot-unevaluated`.
+What takes a collection or compares whole values still takes it: `SequenceFunctions::head(xs)`
+and `xs ?? 3` are `<undetermined>` and `pilot-unevaluated`, and `xs == 1.0`, `size(xs)` and
+`includes(xs, 1.0)` are `ours-undetermined` against the pilot's `false`, `1` and `false` over
+the one unevaluated usage. An operand that may hold a single value is still a scalar the
+operation may take: `os + 1` and `(10, 20)#(os)` are `<undetermined>` and `pilot-unevaluated`,
+`-os` `<undetermined>` and `pilot-silent`.
+
+Ten probe a model-level read of a collection whose subsetters the model leaves open,
+which reads them as it reads the collection: an open subsetter is not made up to its lower
+bound, and contributes the fewest values it holds rather than made-up members. `store.base`,
+`store.sub` and `store.base.mass` are `<undetermined>` of `[10001..*]` here without an object
+made, and `pilot-unevaluated`; `notEmpty(store.base)` is `true` from that bound and agrees,
+`size(store.base)` is `ours-undetermined` against the pilot's count of the one unevaluated
+usage. `three[3..*]` fills `cap[0..3]` to its upper bound, so `size(store.cap)` is `3` here,
+another `disagree` against the pilot's `1`, while `store.cap` itself stays `<undetermined>`
+(`pilot-unevaluated`), its members unknown. `pool` certainly holds the two objects of
+`inner[2]` and at least the five of `outer[5..*]`: `notEmpty(store.pool)` is `true` and agrees,
+`includes(store.pool, store.inner#(1))` is `true` here and the last `disagree` (the pilot's
+`false` compares unevaluated usages, as with `rack.fixed`), and `store.pool#(1)` is
+`<undetermined>` and `pilot-unevaluated`, membership fixing no position.
+
+The 4 `unknown_bounds.cases` probe usages whose bounds name a feature the model gives no
+value: `a : Real[n]` and `an : Real[1..n]` over a valueless `n : Natural`. The pilot rejects
+the model itself — `Must have a Natural value` on both declarations — and then resolves no name
+in it, so all four are `pilot-error` (they are kept to their own model so the rejection reaches
+no other case). A bound the model does not evaluate fixes no count either, so `a`, `size(a)`
+and `isEmpty(a)` are `<undetermined>` here, of the bounds the declaration does fix, and
+`notEmpty(an)` is `true` from the lower bound `1`; an object-level read of such a usage is the
+`unknown multiplicity` error it always was.
+
+Of the eleven positional cases, nine agree: a sequence fixes each position up to its first
+element of open count, so `(10, u, 30)#(1)` and `#(3)` are `10` and `30` on both sides, as are
+`head`, `last`, `last(tail(…))`, `subsequence((10, u, 30), 2, 3)#(2)`, `excludingAt((10, u, 30),
+2)#(2)` and `includingAt((10, u, 30), 20, 2)#(4)` over it, and `(10, xs, 30)#(1)` is `10` though
+`xs : Real[2..4]` leaves every later position open; the pilot leaves `(10, u, 30)#(2)`
+unevaluated where we answer `<undetermined>` of `[1]`, and is silent on `(10, u, 30)#(4)` where
+we report the index outside `1..3`.
+
+The 2 `vast_bounds.cases` probe `includingAt` over a usage whose upper bound is the largest
+count the runtime represents, `vast : Real[0..9223372036854775807]`, at that bound and at `1`.
+The pilot rejects the bound itself and then resolves no name in the model (`Couldn't resolve
+reference to Element 'V'`), so both are `pilot-error` and self-assessed, kept to a model of
+their own so the rejection reaches no other case; here both insertions are `<undetermined>`,
+the insertion index checked against the bound plus one without overflowing it.
+
+**Boolean folding on the second operand.** The conditional `and`, `or` and `implies` live in
+`ControlFunctions.kerml` of the Kernel Function Library (`BaseFunctions` declares none of them;
+`BooleanFunctions` holds the eager `&`, `|` and `xor`), each as `in firstValue : Boolean[1]; in
+expr secondValue[0..1] { return : Boolean[1]; }` — the second operand is an expression the
+function evaluates only when the first does not settle the answer (the package's own doc: "one
+or more operands are expressions whose evaluation is determined by another operand"), which is
+the short-circuit the first three cases pin. The library text says nothing about a first operand
+that is not a Boolean value, which is the case here, so the question is what the function's
+*value* is when `firstValue` is unknown. `x and false` is `false` whether `x` is `true` (the
+second operand is evaluated and is `false`) or `false` (the first settles it); `x or true` is
+`true` either way; `x implies true` is `true` either way. A result every assignment of the
+unknown yields is determined, so we answer it, and the pilot answers the same three values. The
+alternative reading — that the library's laziness makes a determined first operand a
+precondition, so every form over an unknown first operand is `<undetermined>` — is defensible
+from the declaration alone and would move `and-second-false`, `or-second-true` and
+`implies-second-true` from `agree` to `ours-undetermined`; it is not taken. The forms the unknown
+decides — `and true`, `or false`, `implies false` — stay `<undetermined>`.
+
+**Open cardinality at model level.** A `FeatureReferenceExpression` evaluates to the values of
+the feature on a target (KerML 1.1 §7.4.9), and a multiplicity bounds how many values a feature
+has on each instance of its featuring type (§7.3.4.1, §7.4.12); at model level there is no
+target, so a valueless `gear[1..*]` or `loose[0..2]` states bounds and no count. Three other
+readings have each been the behaviour at some point and are not taken: (1) the read is an
+error (`ErrNoValue`) — that is the instance-level contract for a *required* value that is
+missing, and a model that declares `loose[0..2]` is missing nothing; (2) the minimum is
+materialized, so `size(rack.gear)` is `1` and `rack.gear#(7)` is out of range — that is what
+`%instantiate` does to build an object, a definite population the model does not assert; (3) a
+valueless `[0..n]` usage reads as the empty sequence — the same minimum-population rule spelled
+for the lower bound `0`, which makes `isEmpty(rack.loose)` `true` where the model allows two
+values. Reading (2) and (3) remain the documented object-level contract; only the model-level
+read changed. The pilot supports the adjudication by declining to answer any of these rather
+than by supplying the numbers.
 
 The twelve `tensor_quantities.cases` probe `TensorCalculations` over a 2×2 stress tensor built
 by `TensorCalculations::'['` on a model-declared `TensorMeasurementReference`, added with the
@@ -266,8 +621,11 @@ Integer` `true`, and `()` answers `@ Integer` `false` (and `istype Integer` `tru
 value and its `AtFunction` any, and both sides agree on all of them.
 A feature declared `Integer[0..1]` with no value is not probed: the pilot evaluates the bare
 feature reference to the feature itself, one element whose type is `Integer`, and answers `none @
-Integer` `true` and `none @ String` `false`, where the runtime holds the empty collection and
-answers `@` `false` — pinned by `conformance/value_classification_shared_rule.sysml`. `x @
+Integer` `true` and `none @ String` `false`, where the runtime at model level answers `none istype
+Integer` `true` (every value the feature could hold is an `Integer`) and `none @ Integer`
+`<undetermined>` (the model fixes no count, so whether any value is present is open), and on an
+instantiated object holds the empty collection and answers `@` `false` — pinned by
+`conformance/value_classification_shared_rule.sysml`. `x @
 Safety` with a metadata type keeps the metadata reading, which the pilot does not share (its `@`
 classifies the value alone, so it answers `false`); no committed case probes it, since the corpus
 was written model-level and the annotation forms are pinned by the runtime conformance fixtures
@@ -303,6 +661,41 @@ hastype Integer` `true`. The values of a feature are instances of all its types 
 Feature, `type`), so the feature's typing is a type its value is of and the verdict stays ours;
 no evaluation produces a value whose own type is `Natural`, which is why `hastype Natural` is false
 on both sides and why a bare `7 istype Natural` is false on both (`w6d:istype-int-natural`).
+
+The 23 `enumeration_classification.cases` referee classification against an enumeration, added
+with the rule they referee: an enumeration's enumerated values are the only instances of it
+(SysML v2 §8.3.7 EnumerationDefinition: "An EnumerationDefinition is an AttributeDefinition all
+of whose instances are given by an explicit list of enumeratedValues"), so whether a value is of
+`enum def Level :> Integer { low = 1; high = 3; }` is decided by equality with the enumerated
+values where the shared classification rule (`classifyValue`) would otherwise leave a scalar
+against a narrower type undecided — `3 istype Level` is `true`, `2 istype Level` `false`, `3 as
+Level` the value `Level::high` (printed `3`), `2 as Level` `()`, and `held : Level = three` is
+admitted while `= 2` is the write-conformance refusal. `hastype` keeps reading the value's own
+type alone (KerML 1.0 §7.4.9.2, "directly"): a bare `3` is an `Integer` and no `Level`, and a
+`Level` literal — written `Level::high`, held by `lvl : Level`, or produced by `3 as Level` — is a
+`Level` and not directly an `Integer`, which is only a supertype. A plain `enum def Color { red;
+green; blue; }` classifies by identity with its literals, and `5 as Even` on a plain subtype
+stays undecided. Twelve agree, eight disagree and three are `pilot-silent`, per case:
+
+| Case | Pilot | Ours | Read |
+|---|---|---|---|
+| `two-istype-level`, `three-hastype-level`, `three-hastype-integer`, `high-istype-integer`, `high-eq-three`, `high-plus-one`, `cast-hastype-level`, `red-istype-color`, `red-hastype-color`, `c-hastype-color`, `three-istype-color`, `red-istype-level` | as ours | `false`, `false`, `true`, `true`, `true`, `4`, `true`, `true`, `true`, `true`, `false`, `false` | **Agree.** A bare `3` is directly an `Integer` and no `Level`; a `Level` literal is an `Integer` by specialization and equals and computes as its value; `(3 as Level) hastype Level` is `true` on both sides; a plain enumeration's literal is of its enumeration alone and a scalar is of no plain enumeration |
+| `three-istype-level`, `three-at-level` | `false` | `true` | **Ours.** The pilot's `IsTypeFunction`/`AtFunction` compare the literal's type (`Integer`) against `Level` by specialization alone and never consult the enumerated values, so they answer `false` for a value §8.3.7 makes an instance of `Level`. The same evaluator answers `two-istype-level` `false` for the right reason and the wrong one at once; the two verdicts cannot both come from the extent |
+| `high-istype-level`, `high-hastype-level`, `high-hastype-integer`, `lvl-hastype-level`, `lvl-hastype-integer`, `held-hastype-level` | `false`, `false`, `true`, `false`, `true`, `false` | `true`, `true`, `false`, `true`, `false`, `true` | **Ours.** The pilot folds a scalar-valued enumeration literal to the `LiteralInteger 3` it is assigned and classifies that — so `Level::high istype Level` is `false` from the pilot, which no reading of §8.3.7 (the enumerated values are the instances) or of `hastype` (KerML 1.0 §7.4.9.2) allows, and contradicts its own `cast-hastype-level` and `red-hastype-color` answers. The runtime keeps the literal's identity on its scalar value (`runtime.Value.EnumerationLiteral`), so a literal is directly of its enumeration and only indirectly an `Integer` |
+| `three-as-level`, `two-as-level`, `five-as-even` | no output | `3`, `()`, `ErrUndecidedClassification` | **Unrefereeable.** As for `cast_expressions.cases`, a cast draws no output from the pilot, so its reading is unobservable; ours follows the `istype` verdicts above, and `5 as Even` keeps the undecided refusal the plain-subtype row pins |
+
+The 24 `literal_types.cases` all agree, and they pin the rule the runtime's two typing paths now
+share: a literal's own type is its `ScalarValues` definition, found in the library and not by its
+simple name in the evaluating scope. `scalar_classification.cases` could not see the difference
+because its model imports `ScalarValues::*`. In a package that imports nothing from
+`ScalarValues`, `2 istype ScalarValues::Integer` and `2.5 istype ScalarValues::Real` are `true`
+(the direct-type path once failed both, unable to determine the direct type `"Integer"`), `2
+istype ScalarValues::Real` is `true` and `2 hastype ScalarValues::Real` and `2 istype
+ScalarValues::Natural` are `false`; `2.5` `hastype ScalarValues::Rational` and not `Real`, as the
+paragraph above states. Beside a model's own `attribute def Integer` (and `Real`, `Boolean`,
+`String`), the written `istype Integer` still resolves to the type the scope sees, so `2 istype
+Integer` and `2 hastype Integer` are `false` while `2 istype ScalarValues::Integer` is `true` —
+where the direct-type path once took the model's `Integer` for the literal's type.
 
 The three `contextual_names.cases` all agree, and they were added with the parser fix they
 referee: `chain` is the feature chain modifier only when a name follows it, so `attribute chain =
@@ -369,17 +762,18 @@ result expression and does not check what the result parameter is typed by, so i
 different from it, and the case stays as written because it probes exactly that.
 
 The one `kind-only` is `2 ** 40` (above). The `pilot-error`, `pilot-unevaluated` and `pilot-silent`
-buckets — 26 cases, more than a quarter of the corpus — are the pilot's limits rather than
+buckets — 71 cases, a third of the corpus — are the pilot's limits rather than
 disagreements, which is the central finding of this page restated as a count.
 
-The first `disagree` is `w6d:complex-is-zero-qualified`: the pilot answers `false` for
+Of the five `disagree` outside `enumeration_classification.cases` and `extent_expressions.cases`,
+the first is `w6d:complex-is-zero-qualified`: the pilot answers `false` for
 `ComplexFunctions::isZero(rect(0.0, 0.0))` where we answer `true`. It is not a value verdict against
 us — the pilot's `re`/`im` have no evaluable body, and the same run answers `false` for
 `isZero(rect(3.0, 4.0))` too, so its result folds against unevaluated operands rather than deciding
 zero. Read it as unrefereeable, and see the `ComplexFunctions` row of
 [spec-compliance.md](spec-compliance.md) for the adjudication.
 
-The other three are the subsetting-membership cases added with the fix they were meant to
+The remaining three are the subsetting-membership cases added with the fix they were meant to
 referee, and they are unrefereeable in the same way. `w6d:subsetting-defaulted-count` asks
 `size(subsystem)` of a `part subsystem : Sub[*] default null;` that `part a : Sub :> subsystem;`
 and `part b : Sub :> subsystem;` subset: we answer `2`, the pilot `0`. Its `0` is the folded
@@ -407,10 +801,11 @@ require a numeric value — the unqualified name now selects the `ComplexFunctio
 argument fits (the `ComplexFunctions` row of [spec-compliance.md](spec-compliance.md)). The pilot
 answers the unevaluated `InvocationExpression` for both, so it referees neither.
 
-The two remaining `ours-error` cases are adjudicated divergences:
+The five remaining `ours-error` cases are adjudicated divergences:
 
 | Case | Ours | Read |
 |---|---|---|
+| `body-local-level-refused`, `body-local-count-refused`, `body-local-repeat-refused` | `declaration of l: type mismatch: cannot write 2 (an Integer) to a feature typed by Level`, `declaration of xs: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2`, `declaration of xs: uniqueness violation: 1 (an Integer) is written at positions 1 and 3 of a unique feature` | **Deliberately ours.** `attribute l : Level = n;`, `attribute xs : Integer[2] = (n, n + 1, n + 2);` and `attribute xs : Integer[*] = (n, n + 1, n);` are declarations local to a calc body, and the values of a feature are instances of its types (KerML 1.0 §7.3.4), within its multiplicity (§7.4.12) and, unless `nonunique`, without repeats (§7.3.4.2) — the rule a parameter, a `return` and a namespace-level declaration answer to, now applied to the body-local declaration when its initial value is bound (the feature-write and uniqueness rows of [spec-compliance.md](spec-compliance.md)). The pilot checks nothing when it binds a body-local value: it answers `2`, `3` and `3`, the unchecked initializers carried through `l + 0` and `size(xs)`, so it neither confirms nor refutes the refusal and only the accepted `body-local-level-accepted` (`BodyOnly(3)` = `3`) can `agree`, as it does. |
 | `w6d:held-undeclared-multi` | `multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1` | **Deliberately ours.** `attribute xs = (1.0, 2.0)` declares no multiplicity, so the assumed `1..1` makes the default a violation (KerML 1.0 §7.4.5, and the multiplicity row of [spec-compliance.md](spec-compliance.md)); the pilot returns both values. An adjudicated divergence, not a defect |
 | `intdiv` | `integer_quotient.sysml:6:42: error: cannot bind Rational value to a feature typed by Integer` | **Deliberately ours.** `calc def IntDiv { return : Integer = 7 / 2; }` binds a `Rational` — what `IntegerFunctions::'/'` returns, KerML 1.0 §9.4.11.1 — to an `Integer` result parameter, and a feature's values must be instances of its types (§8.3.3.3.4, §7.4.9; the feature-write conformance row of [spec-compliance.md](spec-compliance.md)). The pilot answers `3.5`, checking nothing against the parameter's type. Stricter than the reference, not a defect in either |
 

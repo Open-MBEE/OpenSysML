@@ -63,7 +63,7 @@ func (m *Model) foldQuantityOperator(scope *symbols.Scope, e *ast.OperatorExpr) 
 			return Quantity{}, false
 		}
 		operand, ok := m.EvalQuantity(scope, e.Operands[0])
-		if !ok {
+		if !ok || m.onScale(operand) {
 			return Quantity{}, false
 		}
 		result, err := QuantityUnary(e.Operator, operand)
@@ -89,11 +89,18 @@ func (m *Model) foldQuantityOperator(scope *symbols.Scope, e *ast.OperatorExpr) 
 		return Quantity{}, false
 	}
 	right, ok := m.EvalQuantity(scope, e.Operands[1])
-	if !ok {
+	if !ok || m.onScale(left) || m.onScale(right) {
 		return Quantity{}, false
 	}
 	result, err := QuantityBinary(e.Operator, left, right)
 	return result, err == nil
+}
+
+// onScale reports a point on a measurement scale, which no fold decides: its
+// anchor is a value only the runtime reads, and the runtime rules on the operators.
+func (m *Model) onScale(q Quantity) bool {
+	_, ok := m.MeasurementScaleOf(q.Unit.Term)
+	return ok
 }
 
 // QuantityUnary applies a unary operator to a quantity, keeping its unit.

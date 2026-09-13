@@ -23,7 +23,7 @@
 ### Reference facts (verified — do not re-derive)
 - **Runtime execution APIs** on `internal/core/runtime/context.go`: `ExecuteAction` (`:310`), `ExecuteState` (`:337`), `CreateActionExecutor` (`:379`), `CreateStateExecutor` (`:395`), `InvokeCalc` (`:228`), `EvaluateConstraint` (`:81`), `EvaluateRequirement` (`:148`).
 - **Executors:** `ActionExecutor` (`internal/core/runtime/action_executor.go`): `Step()` (`:66`), `RunToCompletion()` (`:136`), `Tokens()` (`:670`), `SetBreakpoint()` (`:687`), `SetTrace()`. `StateExecutor` (`internal/core/runtime/state_executor.go`): `ProcessNextEvent()` (`:543`), `CurrentState()` (`:502`), `SetTrace()`.
-- **Oracle:** OMG SysML-v2 Pilot Implementation (2026-05, commit `4c289b926`) is the behavioral-semantics reference, over the SysML v2 metamodel and the bundled KerML semantic library (`internal/core/libs/stdlib/`); see the spec-alignment paragraph in `docs/internals/architecture.md`, which states when UML 2.5.1 is a fallback at all. Later phase records in this note predate that rule and still say "UML/KerML".
+- **Oracle:** OMG SysML-v2 Pilot Implementation (2026-05, commit `4c289b926`) is the behavioral-semantics reference, over the SysML v2 metamodel and the bundled KerML semantic library (`internal/core/libs/stdlib/`); see the spec-alignment paragraph in `docs/internals/architecture.md`, which states when UML 2.5.1 is a fallback at all.
 - **Conformance gate:** `internal/core/runtime/conformance_test.go` runs `.sysml` + `.expected.json` pairs from `internal/core/runtime/testdata/conformance/`. Known failures in `known_failures.txt`.
 - **Trace gate:** `internal/core/runtime/trace_test.go` compares executor output against `.trace.golden` files.
 
@@ -63,7 +63,7 @@
 **Objective:** Make behavioral compliance auditable and align docs with measured reality — the behavioral analog of `docs/grammar/PRODUCTION_MAP.md` + parser-plan Phase 6.
 
 ### Task B6.1 — Behavioral semantics map
-- **File:** `docs/BEHAVIOR_SEMANTICS_MAP.md`. Table: `UML/KerML semantic rule -> implementation (file:func) -> conformance case(s) -> status (faithful/approximate/todo)`.
+- **File:** `docs/BEHAVIOR_SEMANTICS_MAP.md`. Table: `SysML v2/KerML semantic rule -> implementation (file:func) -> conformance case(s) -> status (faithful/approximate/todo)`.
 - Cover: token-flow (initial/final/fork/join/merge/decision/object-flow), run-to-completion, hierarchical entry/exit via LCA, time/change events, guard evaluation, calc/constraint/requirement evaluation.
 - Cross-reference `docs/grammar/PRODUCTION_MAP.md` behavioral rows (noted "approximate" there).
 - **Acceptance:** every executor node type and evaluation path appears with a status and at least one conformance case (or a filed follow-up for `todo`).
@@ -194,7 +194,7 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 - internal/core/parser/negative_test.go: added behavioral negative cases
 
 **Key decisions:**
-- Focused on parseable constructs (not UML activity diagram nodes like fork/join/decision - not implemented yet)
+- Focused on parseable constructs (not the control nodes fork/join/decide - not implemented yet)
 - Each fixture includes at least one general member (attribute/part) in behavioral body to test Phase B2 fallback
 - Simplified to valid syntax after discovering control-flow keywords unimplemented
 
@@ -310,7 +310,7 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 **Implementation:**
 
 1. **BEHAVIOR_SEMANTICS_MAP.md** (created):
-   - Comprehensive table: UML/KerML semantic rule → implementation (file:func) → test case → status
+   - Comprehensive table: SysML v2/KerML semantic rule → implementation (file:func) → test case → status
    - Coverage: calc (6/6 faithful), constraint (3/5 faithful), requirement (1/5 faithful), action (9/12 faithful), state (9/13 faithful), evaluation (4/7 faithful)
    - Status legend: ✅ Faithful / ⚠️ Approximate / ❌ Not Yet Implemented / 🚧 Known Failure
    - Overall: ~70% faithful implementation across all behavioral constructs

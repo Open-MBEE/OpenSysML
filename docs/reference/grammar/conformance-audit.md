@@ -9,7 +9,7 @@ against the pinned OMG grammars, and states the resulting policy for each.
 ## Ground truth
 
 The grammars are the ones at the pin in `scripts/pilot-pin.sh`
-(`PILOT_TAG=2026-07`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
+(`PILOT_TAG=2026-08`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
 from a sparse clone rather than vendored:
 
 - `org.omg.kerml.xtext/src/org/omg/kerml/xtext/KerML.xtext` — cited as `KerML.xtext`
@@ -109,7 +109,6 @@ one state substate per region, `entry; then <state>;`, a transition targeting
 |-----------|------------------------|
 | `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind |
 | `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same |
-| `entry point <name>;`, `exit point <name>;` | `entry`/`exit` are literals only as state subaction kinds (`:1777`, `:1793`); no `point` literal exists |
 | `defer <event> [, <event>]*;` | no `defer` literal; `StatePerformance::deferrable` has the semantics but no notation |
 
 Two further findings are about position rather than spelling: the construct is

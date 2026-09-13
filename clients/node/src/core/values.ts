@@ -4,9 +4,11 @@
 import { create } from "@bufbuild/protobuf";
 import type {
   Array as ArrayMessage,
+  Bound,
   EnumLiteral,
   Function as FunctionMessage,
   MeasurementRef,
+  Metaobject as MetaobjectMessage,
   Quantity,
   TensorQuantity,
   UnitTerm,
@@ -23,6 +25,7 @@ import {
   FailureReason,
   FunctionSchema,
   MeasurementRefSchema,
+  MetaobjectSchema,
   QuantitySchema,
   TensorQuantitySchema,
   UnitFactorSchema,
@@ -62,6 +65,8 @@ export interface EnumValue {
   name: string;
   literalId: string;
   enumerationId: string;
+  /** The scalar the literal equals when its enumeration specializes a scalar type (`high = 3`). */
+  value?: SysMLValue;
 }
 
 /** A magnitude in a unit as written, with the unit's reduction when the service reports one. */
@@ -95,6 +100,22 @@ export interface FunctionValue {
 }
 
 /**
+ * An element of the model held as an instance of its reflective metaclass: what
+ * `x meta KerML::Feature`, or the last element of `x.metadata`, evaluates to.
+ * `elementId` is the FQN of the element reflected on, which is its identity;
+ * `metaclassId` is the FQN of the element's own metaclass
+ * (`SysML::Systems::PartUsage`), not the type it was cast to. The service always
+ * sends it; one sent to the service may leave it empty to have the model's used,
+ * but one naming a metaclass that is not the element's is refused. The
+ * metaobject's features (`declaredName`, `ownedFeature`, ...) are read in the
+ * model, not carried.
+ */
+export interface MetaobjectValue {
+  elementId: string;
+  metaclassId: string;
+}
+
+/**
  * A multidimensional array: `dimensions` gives the extent of each dimension and
  * `elements` the elements flattened row-major, the last dimension varying
  * fastest. A rank-0 array holds one element; an element may itself be an array.
@@ -115,8 +136,19 @@ export interface TensorQuantityValue {
 }
 
 /**
+ * A model-level result the model leaves open (an unbound feature, an unfixed count):
+ * `reason` says why, `countLower`/`countUpper` bound its count as `MultiplicityInfo` spells them.
+ */
+export interface UndeterminedValue {
+  reason: string;
+  countLower: string;
+  countUpper: string;
+}
+
+/**
  * A value the service computed. `absent` is the case a service sent no value at
- * all for, which is distinct from `unset` — a feature that exists and has none.
+ * all for, which is distinct from `unset` — a feature that exists and has none —
+ * and from `undetermined`, a model-level answer the model leaves open.
  * A `vector` is one value of numeric components, never a sequence of numbers,
  * and a `vectorQuantity` carries one quantity per component, each with its own unit.
  * A `set` is a unique, unordered collection — a `Collections::Set`'s elements —
@@ -141,8 +173,10 @@ export type SysMLValue =
   | { kind: "vectorQuantity"; components: QuantityValue[] }
   | { kind: "set"; elements: SysMLValue[] }
   | ({ kind: "tensorQuantity" } & TensorQuantityValue)
+  | ({ kind: "metaobject" } & MetaobjectValue)
   | { kind: "null"; reason: string }
   | { kind: "unset" }
+  | ({ kind: "undetermined" } & UndeterminedValue)
   | { kind: "infinity" }
   | { kind: "absent" };
 
@@ -159,14 +193,43 @@ export interface VerdictSubject {
   instanceTypeId?: string;
 }
 
+/** One limit an engine ran under, and whether the run stopped at it. */
+export interface VerdictBound {
+  /** The bound's name as the budget spells it: "runs", "depth", "steps", "solver". */
+  name: string;
+  limit: bigint;
+  /** True when the run stopped at the limit, which lowers the verdict's strength. */
+  reached: boolean;
+}
+
+/**
+ * What a verdict rests on: the engine that answered, the strength of its
+ * evidence and the bounds it ran under. Empty from a service without the
+ * `engines` capability, or for a verdict decided before any engine was asked.
+ */
+export interface VerdictStanding {
+  /** The engine as `ListEngines` names it. */
+  engine: string;
+  /** "not covered", "observed", "witnessed", "bounded" or "proved". */
+  strength: string;
+  bounds: VerdictBound[];
+}
+
 /**
  * One verification's answer. `undecided` is the service reporting it could not
- * answer, which a `holds: false` alone does not distinguish.
+ * answer, which a `holds: false` alone does not distinguish. Every arm carries
+ * the `standing` its evidence rests on.
  */
 export type SysMLVerdict =
-  | { kind: "holds"; subject: VerdictSubject }
-  | { kind: "fails"; subject: VerdictSubject; condition: string }
-  | { kind: "undecided"; subject: VerdictSubject; error: string; cause: FailureCause };
+  | { kind: "holds"; subject: VerdictSubject; standing: VerdictStanding }
+  | { kind: "fails"; subject: VerdictSubject; condition: string; standing: VerdictStanding }
+  | {
+      kind: "undecided";
+      subject: VerdictSubject;
+      error: string;
+      cause: FailureCause;
+      standing: VerdictStanding;
+    };
 
 /**
  * Decodes a `sysml.Value` into the union.
@@ -175,8 +238,9 @@ export type SysMLVerdict =
  *   whose elements do not fill its dimensions, a vector with a component that
  *   is not a number, a vector quantity with no components, a set listing a
  *   member twice, a tensor quantity whose components do not fill its
- *   dimensions, a quantity (alone or as a component) with no magnitude, or a
- *   measurement reference naming no unit or a unit without its reduction.
+ *   dimensions, a quantity (alone or as a component) with no magnitude, a
+ *   measurement reference naming no unit or a unit without its reduction, or a
+ *   metaobject naming no element.
  */
 export function decodeValue(value: Value | undefined): SysMLValue {
   if (value === undefined) {
@@ -216,10 +280,19 @@ export function decodeValue(value: Value | undefined): SysMLValue {
       return { kind: "set", elements: decodeSet(kind.value) };
     case "tensorQuantity":
       return { kind: "tensorQuantity", ...decodeTensorQuantity(kind.value) };
+    case "metaobject":
+      return { kind: "metaobject", ...decodeMetaobject(kind.value) };
     case "null":
       return { kind: "null", reason: kind.value };
     case "unset":
       return { kind: "unset" };
+    case "undetermined":
+      return {
+        kind: "undetermined",
+        reason: kind.value.reason,
+        countLower: kind.value.count?.lower ?? "",
+        countUpper: kind.value.count?.upper ?? "",
+      };
     case "infinity":
       // Only an asserted arm carries the unbounded value.
       if (!kind.value) {
@@ -271,7 +344,7 @@ export function encodeValue(value: SysMLValue): Value {
       return create(ValueSchema, { kind: { case: "function", value: encodeFunction(value) } });
     case "enum":
       return create(ValueSchema, {
-        kind: { case: "enumLiteral", value: create(EnumLiteralSchema, value.value) },
+        kind: { case: "enumLiteral", value: encodeEnumLiteral(value.value) },
       });
     case "array":
       checkShape("an array", value.dimensions, value.elements.length);
@@ -321,10 +394,14 @@ export function encodeValue(value: SysMLValue): Value {
           }),
         },
       });
+    case "metaobject":
+      return create(ValueSchema, { kind: { case: "metaobject", value: encodeMetaobject(value) } });
     case "null":
       return create(ValueSchema, { kind: { case: "null", value: value.reason } });
     case "unset":
       return create(ValueSchema, { kind: { case: "unset", value: true } });
+    case "undetermined":
+      throw new MalformedValueError("an undetermined result is something to read, not to send");
     case "infinity":
       return create(ValueSchema, { kind: { case: "infinity", value: true } });
     case "absent":
@@ -341,17 +418,32 @@ export function decodeVerdict(verdict: Verdict): SysMLVerdict {
     ...(verdict.instanceId === 0n ? {} : { instanceId: verdict.instanceId }),
     ...(verdict.instanceTypeId === "" ? {} : { instanceTypeId: verdict.instanceTypeId }),
   };
+  const standing = decodeStanding(verdict);
   if (verdict.error !== "") {
     return {
       kind: "undecided",
       subject,
       error: verdict.error,
       cause: failureCause(verdict.failureReason),
+      standing,
     };
   }
   return verdict.holds
-    ? { kind: "holds", subject }
-    : { kind: "fails", subject, condition: verdict.condition };
+    ? { kind: "holds", subject, standing }
+    : { kind: "fails", subject, condition: verdict.condition, standing };
+}
+
+/** Reads the standing fields the `engines` capability adds to a verdict. */
+export function decodeStanding(verdict: {
+  engine: string;
+  strength: string;
+  bounds: Bound[];
+}): VerdictStanding {
+  return {
+    engine: verdict.engine,
+    strength: verdict.strength,
+    bounds: verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached })),
+  };
 }
 
 /** Names the enum the service reports for a failure it could not answer through. */
@@ -405,10 +497,14 @@ export function formatValue(value: SysMLValue): string {
       return `{${value.elements.map(formatValue).join(", ")}}`;
     case "tensorQuantity":
       return formatTensorQuantity(value);
+    case "metaobject":
+      return `meta(${value.elementId} : ${value.metaclassId})`;
     case "null":
       return value.reason === "" ? "null" : `null (${value.reason})`;
     case "unset":
       return "unset";
+    case "undetermined":
+      return "<undetermined>";
     case "infinity":
       return "*";
     case "absent":
@@ -509,6 +605,20 @@ function encodeFunction(fn: FunctionValue): FunctionMessage {
     throw new MalformedValueError("a function names no calc");
   }
   return create(FunctionSchema, { calcId: fn.calcId, selfId: fn.selfId ?? 0n });
+}
+
+function decodeMetaobject(meta: MetaobjectMessage): MetaobjectValue {
+  if (meta.elementId === "") {
+    throw new MalformedValueError("a metaobject names no element");
+  }
+  return { elementId: meta.elementId, metaclassId: meta.metaclassId };
+}
+
+function encodeMetaobject(meta: MetaobjectValue): MetaobjectMessage {
+  if (meta.elementId === "") {
+    throw new MalformedValueError("a metaobject names no element");
+  }
+  return create(MetaobjectSchema, { elementId: meta.elementId, metaclassId: meta.metaclassId });
 }
 
 function encodeUnitTerm(term: UnitFactorization): UnitTerm {
@@ -640,6 +750,16 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
         b.kind === "tensorQuantity" &&
         dimensionsEqual(a.dimensions, b.dimensions) &&
         componentsEqual(a.components, b.components)
+      );
+    case "metaobject":
+      // The element is the identity, whatever type each side was cast to.
+      return b.kind === "metaobject" && a.elementId === b.elementId;
+    case "undetermined":
+      return (
+        b.kind === "undetermined" &&
+        a.reason === b.reason &&
+        a.countLower === b.countLower &&
+        a.countUpper === b.countUpper
       );
     case "infinity":
     case "null":
@@ -865,9 +985,26 @@ function decodeUnitTerm(term: UnitTerm): UnitFactorization {
 }
 
 function decodeEnumLiteral(literal: EnumLiteral): EnumValue {
-  return {
+  const decoded: EnumValue = {
     name: literal.name,
     literalId: literal.literalId,
     enumerationId: literal.enumerationId,
   };
+  if (literal.value !== undefined) {
+    const scalar = decodeValue(literal.value);
+    if (scalar.kind === "absent") {
+      throw new MalformedValueError("an enumeration literal's value, when present, states a scalar");
+    }
+    decoded.value = scalar;
+  }
+  return decoded;
+}
+
+function encodeEnumLiteral(literal: EnumValue): EnumLiteral {
+  return create(EnumLiteralSchema, {
+    name: literal.name,
+    literalId: literal.literalId,
+    enumerationId: literal.enumerationId,
+    value: literal.value === undefined ? undefined : encodeValue(literal.value),
+  });
 }

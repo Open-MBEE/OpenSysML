@@ -32,7 +32,7 @@ func TestIntegerArithmeticReportsOverflow(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, tc.model)
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			got, err := ctx.InvokeCalc(resolveSymbol(t, root, tc.calc), tc.args, root)
 			if !errors.Is(err, semantics.ErrArithmeticOverflow) {
 				t.Fatalf("%s%v = %+v, %v; want ErrArithmeticOverflow", tc.name, tc.args, got, err)
@@ -45,7 +45,7 @@ func TestIntegerArithmeticReportsOverflow(t *testing.T) {
 // so a literal sum outside the Integer range is reported the same way.
 func TestFoldedIntegerArithmeticReportsOverflow(t *testing.T) {
 	model, resolver, _ := parseAndBuildModel(t, sumModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	for _, src := range []string{
 		"9223372036854775807 + 1",
@@ -63,7 +63,7 @@ func TestFoldedIntegerArithmeticReportsOverflow(t *testing.T) {
 // error, not the nearest value or an infinity.
 func TestLiteralOutsideItsRangeIsReported(t *testing.T) {
 	model, resolver, _ := parseAndBuildModel(t, sumModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	for _, src := range []string{
 		"9223372036854775808",
@@ -83,7 +83,7 @@ func TestLiteralOutsideItsRangeIsReported(t *testing.T) {
 // its magnitude written alone is not.
 func TestLeastIntegerLiteralIsRead(t *testing.T) {
 	model, resolver, _ := parseAndBuildModel(t, sumModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	got, err := evalLiteral(t, ctx, "-9223372036854775808")
 	if err != nil {
@@ -99,7 +99,7 @@ func TestLeastIntegerLiteralIsRead(t *testing.T) {
 // answers the Real the negated magnitude rounds to.
 func TestNegatingTheLeastIntegerIsReported(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, sumModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	sum := resolveSymbol(t, root, "sum")
 
 	got, err := evalLiteral(t, ctx, "-(-9223372036854775808)")
@@ -125,7 +125,7 @@ func TestNegatingTheLeastIntegerIsReported(t *testing.T) {
 // rather than answered as an infinity.
 func TestRealArithmeticReportsNonFiniteResult(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, productModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	product := resolveSymbol(t, root, "product")
 
 	args := []Value{constReal(math.MaxFloat64), constReal(2)}

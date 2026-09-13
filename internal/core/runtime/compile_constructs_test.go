@@ -79,9 +79,9 @@ func buildCompiledFixture(path string, src []byte) *compiledFixture {
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
 	f := &compiledFixture{root: idx.DocumentRoot(path)}
-	f.compiled = NewContext(model, resolver, differentialMaxSteps)
+	f.compiled = NewContext(NewModel(model, resolver), differentialMaxSteps)
 	f.compiled.SetCalcCompile(true)
-	f.reference = NewContext(model, resolver, differentialMaxSteps)
+	f.reference = NewContext(NewModel(model, resolver), differentialMaxSteps)
 	f.reference.SetCalcCompile(false)
 	return f
 }

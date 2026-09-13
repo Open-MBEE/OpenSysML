@@ -496,8 +496,8 @@ func isMarker(decl ast.Node) bool {
 	return false
 }
 
-// routingPseudostate reports whether a pseudostate only routes onward. History,
-// entry and exit points are excluded: what they reach needs no transition.
+// routingPseudostate reports whether a pseudostate only routes onward. History
+// is excluded: what it reaches needs no transition.
 func routingPseudostate(kind ast.PseudostateKind) bool {
 	switch kind {
 	case ast.PseudostateChoice, ast.PseudostateJunction, ast.PseudostateFork, ast.PseudostateJoin:

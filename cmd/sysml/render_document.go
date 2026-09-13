@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 	"github.com/Open-MBEE/OpenSysML/internal/docpdf"
+	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -41,7 +43,7 @@ func runRenderDocument(files []string) error {
 		}
 		return writeArtifact(rendered, formHTML)
 	}
-	markdown, err := sess.RenderDocumentMarkdown(renderDoc)
+	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions())
 	if err != nil {
 		return err
 	}
@@ -93,7 +95,7 @@ func runRenderDocuments(files []string) error {
 			return err
 		}
 	} else {
-		documents, err = sess.RenderDocumentSetMarkdown()
+		documents, err = sess.RenderDocumentSetMarkdown(markdownOptions())
 		if err != nil {
 			return err
 		}
@@ -119,7 +121,21 @@ func documentOptions() docrender.HTMLOptions {
 		TOC:                 pdfTOC,
 		NumberSections:      pdfNumbering,
 		MermaidScript:       mermaidScriptURL(),
+		DiagramForm:         view.Form(diagramForm),
 	}
+}
+
+// markdownOptions carries the flags shaping a Markdown document.
+func markdownOptions() docrender.MarkdownOptions {
+	return docrender.MarkdownOptions{DiagramForm: view.Form(diagramForm)}
+}
+
+// checkDiagramForm rejects a -diagram-form value naming no diagram form.
+func checkDiagramForm() error {
+	if diagramForm == "" || slices.Contains(view.DiagramForms(), view.Form(diagramForm)) {
+		return nil
+	}
+	return fmt.Errorf("unknown diagram form %q; -diagram-form takes %s", diagramForm, view.FormNames(view.DiagramForms()))
 }
 
 // The -html-mermaid value naming the pinned CDN release.
@@ -343,7 +359,7 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 			}
 			switch {
 			case committed[i] && backups[i] != "":
-				_ = replaceFile(backups[i], targets[i])
+				_ = fsutil.Replace(backups[i], targets[i])
 			case committed[i]:
 				_ = os.Remove(targets[i])
 			case backups[i] != "":
@@ -378,7 +394,7 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 		if direct[i] {
 			continue
 		}
-		if err := replaceFile(staged[i], targets[i]); err != nil {
+		if err := fsutil.Replace(staged[i], targets[i]); err != nil {
 			rollback()
 			return fmt.Errorf("write %s: %w", targets[i], err)
 		}
@@ -516,19 +532,6 @@ func restoreBackup(target, backup string, movedAside bool) {
 	_ = os.Remove(backup)
 }
 
-// replaceFile renames source over target, atomically where the platform
-// allows; Windows refuses a rename over an existing file, so it retries
-// after removing the target, keeping the target until the retry begins.
-func replaceFile(source, target string) error {
-	if err := os.Rename(source, target); err == nil {
-		return nil
-	}
-	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return os.Rename(source, target)
-}
-
 // backUp preserves an existing destination so a failed commit can restore
 // it: a hard link keeps the destination itself in place through the commit,
 // falling back to a set-aside rename where the filesystem has no hard links.
@@ -587,17 +590,26 @@ func checkTheme() error {
 }
 
 // checkMermaidScript rejects an -html-mermaid value that is neither cdn nor a
-// URL a page can load a script from.
+// URL a page can load a script from, or a script for diagrams not Mermaid.
 func checkMermaidScript() error {
-	if htmlMermaid == "" || htmlMermaid == mermaidCDN || isWebURL(htmlMermaid) {
+	if htmlMermaid == "" {
 		return nil
 	}
-	return fmt.Errorf("-html-mermaid takes %s or the URL of a Mermaid script; %q is neither", mermaidCDN, htmlMermaid)
+	if htmlMermaid != mermaidCDN && !isWebURL(htmlMermaid) {
+		return fmt.Errorf("-html-mermaid takes %s or the URL of a Mermaid script; %q is neither", mermaidCDN, htmlMermaid)
+	}
+	if form := view.Form(diagramForm); form != "" && form != view.FormMermaid {
+		return fmt.Errorf("-html-mermaid loads a script that draws Mermaid diagrams, which -diagram-form %s does not write", diagramForm)
+	}
+	return nil
 }
 
 // documentSetForm resolves -doc-form for -render-documents, which writes a
 // linked set of files rather than one artifact.
 func documentSetForm() (string, error) {
+	if err := checkDiagramForm(); err != nil {
+		return "", err
+	}
 	switch form := docFormOrDefault(); form {
 	case docFormMarkdown:
 		if htmlFlagsGiven() {
@@ -651,6 +663,9 @@ func unknownDocumentForm(form string) error {
 // documentForm resolves -doc-form and checks the flag combination: the PDF
 // options apply to PDF output, and a PDF is written to a file, not stdout.
 func documentForm() (string, error) {
+	if err := checkDiagramForm(); err != nil {
+		return "", err
+	}
 	switch form := docFormOrDefault(); form {
 	case docFormMarkdown:
 		if htmlFlagsGiven() {

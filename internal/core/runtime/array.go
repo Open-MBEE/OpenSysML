@@ -242,6 +242,7 @@ const (
 	vectorQuantityTypeFQN       = "Quantities::VectorQuantityValue"
 	scalarValueTypeFQN          = "ScalarValues::ScalarValue"
 	positiveTypeFQN             = "ScalarValues::Positive"
+	scalarValuesPackageFQN      = "ScalarValues"
 )
 
 // structuredFeature reads a library feature of an array, vector, vector, tensor
@@ -310,7 +311,7 @@ func (ctx *Context) arrayFeatureOf(member *symbols.Symbol) (string, bool) {
 	if name, ok := names[member]; ok {
 		return name, true
 	}
-	for _, redefined := range ctx.model.AllRedefinedFeatures(member) {
+	for _, redefined := range ctx.model.semantics.AllRedefinedFeatures(member) {
 		if name, ok := names[redefined]; ok {
 			return name, true
 		}
@@ -321,7 +322,7 @@ func (ctx *Context) arrayFeatureOf(member *symbols.Symbol) (string, bool) {
 // arrayFeatureNamed is the Collections::Array feature the member of typ named
 // name is or redefines, and that member; false for another member, or none.
 func (ctx *Context) arrayFeatureNamed(typ *symbols.Symbol, name string) (string, *symbols.Symbol, bool) {
-	member, ok := ctx.model.LookupMember(typ, name)
+	member, ok := ctx.model.semantics.LookupMember(typ, name)
 	if !ok || member == nil {
 		return "", nil, false
 	}
@@ -354,23 +355,23 @@ func (ctx *Context) structuredMember(val Value, base string, member, owner *symb
 // arrayFeatureSymbols maps each declaration of a Collections::Array feature (and
 // those it redefines, `OrderedCollection::elements` included) to its name. Memoized.
 func (ctx *Context) arrayFeatureSymbols() map[*symbols.Symbol]string {
-	if ctx.arrayFeatures != nil {
-		return ctx.arrayFeatures
+	if ctx.model.arrayFeatures != nil {
+		return ctx.model.arrayFeatures
 	}
 	names := make(map[*symbols.Symbol]string)
 	if arraySym := ctx.librarySymbol(arrayTypeFQN); arraySym != nil {
 		for _, name := range arrayFeatureNames {
-			feat, ok := ctx.model.LookupMember(arraySym, name)
+			feat, ok := ctx.model.semantics.LookupMember(arraySym, name)
 			if !ok || feat == nil {
 				continue
 			}
 			names[feat] = name
-			for _, redefined := range ctx.model.AllRedefinedFeatures(feat) {
+			for _, redefined := range ctx.model.semantics.AllRedefinedFeatures(feat) {
 				names[redefined] = name
 			}
 		}
 	}
-	ctx.arrayFeatures = names
+	ctx.model.arrayFeatures = names
 	return names
 }
 
@@ -479,7 +480,7 @@ func (ctx *Context) arrayOfObject(inst *Instance) (Value, bool, error) {
 	if arraySym == nil || inst == nil || inst.Type == nil {
 		return Value{}, false, nil
 	}
-	if !ctx.model.Conforms(ctx.objectType(inst), arraySym) || !ctx.shapeHoldsValue(inst.Type) {
+	if !ctx.modelConforms(ctx.objectType(inst), arraySym) || !ctx.shapeHoldsValue(inst.Type) {
 		return Value{}, false, nil
 	}
 	dims, dimsStated, err := ctx.objectArrayFeature(inst, arrayDimensionsFeature)
@@ -499,7 +500,7 @@ func (ctx *Context) arrayOfObject(inst *Instance) (Value, bool, error) {
 		return Value{}, true, err
 	}
 	if !dimsStated {
-		if fixed, ok := ctx.model.FixedDimensions(ctx.objectType(inst)); ok {
+		if fixed, ok := ctx.model.semantics.FixedDimensions(ctx.objectType(inst)); ok {
 			dimensions = fixed
 		}
 	}
@@ -516,7 +517,7 @@ func (ctx *Context) arrayOfObject(inst *Instance) (Value, bool, error) {
 func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, error) {
 	vectorSym := ctx.librarySymbol(numericalVectorTypeFQN)
 	typ := ctx.objectType(inst)
-	if vectorSym == nil || !ctx.model.Conforms(typ, vectorSym) {
+	if vectorSym == nil || !ctx.modelConforms(typ, vectorSym) {
 		return array, true, nil
 	}
 	a := array.Array()
@@ -528,7 +529,7 @@ func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, er
 		)
 	}
 	quantitySym := ctx.librarySymbol(vectorQuantityTypeFQN)
-	if a.Rank() == 0 || (quantitySym != nil && ctx.model.Conforms(typ, quantitySym)) {
+	if a.Rank() == 0 || (quantitySym != nil && ctx.modelConforms(typ, quantitySym)) {
 		return array, true, nil
 	}
 	components := make([]semantics.Value, len(a.Elements))
@@ -578,7 +579,7 @@ func (ctx *Context) objectType(inst *Instance) *symbols.Symbol {
 func (ctx *Context) declaredArrayValue(sym *symbols.Symbol) (Value, bool, error) {
 	arraySym := ctx.librarySymbol(arrayTypeFQN)
 	typ := ctx.extractType(sym)
-	if arraySym == nil || typ == nil || !ctx.model.Conforms(typ, arraySym) || !ctx.namesOneObject(sym) {
+	if arraySym == nil || typ == nil || !ctx.modelConforms(typ, arraySym) || !ctx.namesOneObject(sym) {
 		return Value{}, false, nil
 	}
 	inst, err := ctx.occurrenceOf(sym)
@@ -655,7 +656,7 @@ func valueHash(v Value) uint64 {
 }
 
 // structuredKey is the content hash a structured value's valueKey carries.
-func structuredKey(v Value) uint64 {
+func (ctx *Context) structuredKey(v Value) uint64 {
 	h := fnv.New64a()
 	write := func(k valueKey) {
 		// #nosec G104 -- hash.Hash.Write is documented never to return an error.
@@ -667,7 +668,7 @@ func structuredKey(v Value) uint64 {
 			write(valueKeyFunc(integerValue(d)))
 		}
 		for _, e := range v.Array().Elements {
-			write(valueKeyFunc(e))
+			write(ctx.valueKey(e))
 		}
 	case ValVector:
 		for _, e := range v.Vector().Elements {
@@ -676,7 +677,7 @@ func structuredKey(v Value) uint64 {
 	case ValVectorQuantity:
 		vq := v.VectorQuantity()
 		for i := range vq.Num {
-			write(valueKeyFunc(NewQuantityValue(vq.component(i))))
+			write(ctx.valueKey(NewQuantityValue(vq.component(i))))
 		}
 	case ValTensorQuantity:
 		tq := v.TensorQuantity()
@@ -684,7 +685,7 @@ func structuredKey(v Value) uint64 {
 			write(valueKeyFunc(integerValue(d)))
 		}
 		for _, component := range tq.components() {
-			write(valueKeyFunc(component))
+			write(ctx.valueKey(component))
 		}
 	}
 	return h.Sum64()

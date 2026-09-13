@@ -27,9 +27,18 @@ func quantityResult(q semantics.Quantity, err error) (Value, error) {
 	return NewQuantityValue(&q), nil
 }
 
+// coherentResult is quantityResult over a quantity whose unit an operation
+// composed, re-expressed in the coherent unit the library declares for its dimension.
+func (ctx *Context) coherentResult(q semantics.Quantity, err error) (Value, error) {
+	if err == nil && ctx != nil {
+		q, err = ctx.model.semantics.CoherentQuantity(q, nil)
+	}
+	return quantityResult(q, err)
+}
+
 // composedQuantity is a result in the canonical form of its composed unit (`m**2`, `m`).
-func composedQuantity(num semantics.Value, product semantics.UnitProduct, term semantics.UnitTerm) (Value, error) {
-	return quantityResult(semantics.ComposedQuantity(num, product, term))
+func (ctx *Context) composedQuantity(num semantics.Value, product semantics.UnitProduct, term semantics.UnitTerm) (Value, error) {
+	return ctx.coherentResult(semantics.ComposedQuantity(num, product, term))
 }
 
 // evalIndexExpr evaluates `magnitude [unit]`, the quantity expression: a
@@ -47,7 +56,7 @@ func (ec *EvalContext) evalIndexExpr(n *ast.IndexExpr) (Value, error) {
 	} else if ok {
 		return ec.framedQuantity(n, frame)
 	}
-	term, err := ec.ctx.model.UnitTermOfExpr(ec.scope, n.Index)
+	term, err := ec.ctx.model.semantics.UnitTermOfExpr(ec.scope, n.Index)
 	if err != nil {
 		return Value{}, ec.notAQuantityError(n, err)
 	}
@@ -60,7 +69,7 @@ func (ec *EvalContext) evalIndexExpr(n *ast.IndexExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: magnitude of a quantity is %s, want a number or a vector", ErrNotAQuantity, magnitude.Kind)
 	}
 
-	product, err := ec.ctx.model.UnitProductOfExpr(ec.scope, n.Index)
+	product, err := ec.ctx.model.semantics.UnitProductOfExpr(ec.scope, n.Index)
 	if err != nil {
 		return Value{}, fmt.Errorf("%w: %w", ErrNotAQuantity, err)
 	}
@@ -97,16 +106,16 @@ func (ec *EvalContext) declaredCollection(operand ast.Node) (string, bool) {
 	case *ast.FeatureReference:
 		qn = node.Name
 	}
-	if qn == nil || ec.ctx.resolver == nil {
+	if qn == nil || ec.ctx.model.resolver == nil {
 		return "", false
 	}
-	sym, ok := ec.ctx.resolver.ResolveQualified(ec.scope, qn)
+	sym, ok := ec.ctx.resolveQualified(ec.scope, qn)
 	if !ok || sym == nil || !semantics.IsShapeFeature(sym) {
 		return "", false
 	}
 	if typ := ec.ctx.extractType(sym); typ != nil {
 		for _, lib := range []struct{ fqn, what string }{{vectorTypeFQN, "a vector"}, {arrayTypeFQN, "an array"}} {
-			if libSym := ec.ctx.librarySymbol(lib.fqn); libSym != nil && ec.ctx.model.Conforms(typ, libSym) {
+			if libSym := ec.ctx.librarySymbol(lib.fqn); libSym != nil && ec.ctx.modelConforms(typ, libSym) {
 				return lib.what, true
 			}
 		}
@@ -152,31 +161,38 @@ func quantityOperands(left, right Value) (*Quantity, *Quantity, bool) {
 	return lq, rq, true
 }
 
-// addQuantities evaluates a sum or difference of quantities, in the unit of the
-// left operand (a bare number where that is one).
-func addQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
-	return quantityResult(semantics.AddQuantities(op, *left, *right))
+// scaleQuantities evaluates a product or quotient of quantities, whose unit is
+// the product or quotient of theirs — `10 [m] / 2 [s]` is `5 ['m/s']`. A point
+// on a scale has no multiple and is no unit factor, so it is refused.
+func (ctx *Context) scaleQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
+	if err := ctx.refusePoints(operatorText(op), scaleNotAFactor, left, right); err != nil {
+		return Value{}, err
+	}
+	return ctx.coherentResult(semantics.ScaleQuantities(op, *left, *right))
 }
 
-// scaleQuantities evaluates a product or quotient of quantities, whose unit is
-// the product or quotient of theirs — `10 [m] / 2 [s]` is `5 [m/s]`.
-func scaleQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
-	return quantityResult(semantics.ScaleQuantities(op, *left, *right))
-}
+// scaleNotAFactor is why a point enters no product, quotient, power or root.
+const scaleNotAFactor = "a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first"
 
 // powQuantity raises a quantity to a constant exponent, its unit included.
-func powQuantity(base *Quantity, exponent semantics.Value) (Value, error) {
+func (ctx *Context) powQuantity(base *Quantity, exponent semantics.Value) (Value, error) {
 	if !exponent.IsNumeric() {
 		return Value{}, fmt.Errorf("%w: exponent of a quantity is not a number", ErrTypeMismatch)
 	}
-	return quantityResult(semantics.PowQuantity(*base, exponent))
+	if err := ctx.refusePoints(operatorText(ast.OpPow), scaleNotAFactor, base); err != nil {
+		return Value{}, err
+	}
+	return ctx.coherentResult(semantics.PowQuantity(*base, exponent))
 }
 
 // sqrtQuantity is the square root of a quantity, `9 [m**2]` giving `3.0 [m]`;
 // a unit with a base unit at an odd power has no root, so `sqrt(9 [m])` is rejected.
 // A root the named units cannot spell at whole powers (`km*m`) is taken over the
 // base units instead, unless a dimension-one unit (`rad`, `°`) would be lost there.
-func sqrtQuantity(q *Quantity) (Value, error) {
+func (ctx *Context) sqrtQuantity(q *Quantity) (Value, error) {
+	if err := ctx.refusePoints("sqrt", scaleNotAFactor, q); err != nil {
+		return Value{}, err
+	}
 	for _, f := range q.Unit.Term.Factors {
 		if math.Mod(f.Exponent, 2) != 0 {
 			return Value{}, fmt.Errorf("%w: %s (%s) raises %s to the odd power %g",
@@ -203,32 +219,5 @@ func sqrtQuantity(q *Quantity) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return composedQuantity(num, root, term.Pow(0.5))
-}
-
-// compareQuantities orders two quantities, converting the right one into the
-// left one's unit.
-func compareQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
-	result, err := semantics.CompareQuantities(op, *left, *right)
-	if err != nil {
-		return Value{}, err
-	}
-	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: result}}, nil
-}
-
-// equalQuantities compares two quantities for equality, in the left one's unit.
-// Incommensurable units are an error rather than an inequality: they measure
-// different things, so neither `==` nor `!=` is an answer about them.
-func equalQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
-	equal, err := semantics.EqualQuantities(op, *left, *right)
-	if err != nil {
-		return Value{}, err
-	}
-	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: equal}}, nil
-}
-
-// negateQuantity negates a quantity's magnitude, keeping its unit and the
-// magnitude's kind.
-func negateQuantity(q *Quantity) (Value, error) {
-	return quantityResult(semantics.NegateQuantity(*q))
+	return ctx.composedQuantity(num, root, term.Pow(0.5))
 }

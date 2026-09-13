@@ -11,7 +11,7 @@ func TestInstantiate_SimplePartDef(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	wheelSym := resolveSymbol(t, root, "Wheel")
 
@@ -54,7 +54,7 @@ func TestInstantiate_UnboundedDefaultIsNotAScalar(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Car"))
 	if err != nil {
@@ -75,7 +75,7 @@ func TestInstantiate_UnboundedDefaultIsNotAScalar(t *testing.T) {
 func TestInstantiate_IDAllocation(t *testing.T) {
 	src := `part def A {}`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	aSym := resolveSymbol(t, root, "A")
 
@@ -95,7 +95,7 @@ func TestGetFeatureValue_LazyComposite(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	carSym := resolveSymbol(t, root, "Car")
 	inst, err := ctx.Instantiate(carSym)
@@ -146,7 +146,7 @@ func TestMultiValuedDefaultMaterializes(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Rig"))
 	if err != nil {
@@ -259,7 +259,7 @@ func TestNestedUsageBodyOverridesItsType(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	car, err := ctx.Instantiate(resolveSymbol(t, root, "Car"))
 	if err != nil {
@@ -283,7 +283,7 @@ func TestCompositeTypeOfIgnoresDefaultedFeature(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	features := ctx.FeaturesOf(resolveSymbol(t, root, "Gauge"))
 	for i := range features {
@@ -310,7 +310,7 @@ func TestUntypedNestedPartMaterializes(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	car, err := ctx.Instantiate(resolveSymbol(t, root, "Car"))
 	if err != nil {
@@ -339,7 +339,7 @@ func TestBodyGovernsAnInheritedValue(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	band, err := ctx.Instantiate(resolveSymbol(t, root, "Band"))
 	if err != nil {
@@ -375,7 +375,7 @@ func TestRenamedRedefinitionBodyGovernsAnInheritedValue(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	band, err := ctx.Instantiate(resolveSymbol(t, root, "Band"))
 	if err != nil {
@@ -407,7 +407,7 @@ func TestConditionsDoNotReadAGovernedOverValue(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	features := ctx.conditionFeatures(resolveSymbol(t, root, "Band"))
 	if got, ok := features["cost"]; !ok || got.expr != nil {
@@ -447,7 +447,7 @@ func TestNullDefaultHoldsNoElements(t *testing.T) {
 			attribute nothing[0..*] = null;
 		}
 	`)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Rig"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)

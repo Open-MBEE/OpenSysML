@@ -93,11 +93,21 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 			} else if paused {
 				continue
 			}
+			if err := e.ctx.driveClock(e.describeWaits(perf)); err != nil {
+				return err
+			}
 			moved, err := e.awaitClock(perf, &progress)
 			if err != nil {
 				return err
 			}
 			if moved {
+				continue
+			}
+		} else if len(e.waitingTokens(perf)) > 0 && !e.canProceed(perf) {
+			awaitsMessage := func() bool { return len(e.waitingTokens(perf)) > 0 && !e.canProceed(perf) }
+			if paused, err := e.ctx.pauseForMessage(nil, awaitsMessage); err != nil {
+				return err
+			} else if paused {
 				continue
 			}
 		}
@@ -254,7 +264,7 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 // checkResultParameters refuses an action, or a node of its flow, declaring a
 // `return` parameter — only a function or expression owns one.
 func (e *ActionExecutor) checkResultParameters() error {
-	for _, param := range e.ctx.model.BehaviorParametersOf(e.action) {
+	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
 		if param.IsResult {
 			return fmt.Errorf("%w: action %s declares `return %s`; write `out %s`",
 				ErrActionResultParameter, symbolText(e.action), param.Symbol.Name, param.Symbol.Name)

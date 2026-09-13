@@ -2,14 +2,22 @@
 
 import difflib
 
+from opensysml.capabilities import CAPABILITY_QUERY
 from opensysml.symbol import Symbol
 from opensysml.conversion import FORMAT_SYSML, FORMAT_TURTLE, format_of_path
 from opensysml.diagnostic import Diagnostic
 from opensysml.edit import Editor
 from opensysml.errors import ModelError, SymbolNotFoundError
+from opensysml.query import TYPE_PRIMITIVE_CONSTRAINT
 
 #: Severity the service reports for a diagnostic that makes a model unusable.
 _SEVERITY_ERROR = "error"
+
+#: Query properties: an element's id, its effective name (what ``Symbol.name``
+#: reports) and the id of the element owning it.
+_PROPERTY_ID = "@id"
+_PROPERTY_NAME = "name"
+_PROPERTY_OWNER = "owner"
 
 
 class Model:
@@ -309,39 +317,30 @@ class Model:
         return self.connection.render_document(self._hash, document_id)
 
     def find(self, name):
-        """Find symbol by short name or fully-qualified name (breadth-first).
+        """Find symbol by short name or fully-qualified name.
 
         A symbol's own ``id`` is accepted as well as its short name, so the
         identifier a symbol reports can be round-tripped back into ``find``.
+        Several symbols may share a short name; the outermost wins, and among
+        those the one declared first. A name declared in the model wins over a
+        library symbol whose id it is, as ``Base`` is both a library package and
+        a common name. Lookups are answered from the service's index, in one or
+        two round trips whatever the size of the model.
 
         Args:
             name (str): Short name ("Vehicle") or FQN ("Demo::Vehicle")
 
         Returns:
-            Symbol or None: First matching symbol, or None if not found. Use
+            Symbol or None: The matching symbol, or None if not found. Use
             ``model[name]`` where a missing symbol is a failure, so it is
             reported as one instead of as an AttributeError on None.
         """
-        def matches(symbol):
-            return symbol.name == name or symbol.id == name
-
-        # Check root first
-        if matches(self.root):
+        if self.root.name == name or self.root.id == name:
             return self.root
+        if "::" in name:
+            return self._symbol_by_id(name) or self._symbol_named(name)
+        return self._symbol_named(name) or self._symbol_by_id(name)
 
-        # Breadth-first search
-        queue = [self.root]
-        while queue:
-            current = queue.pop(0)
-
-            # Check each child
-            for child in current.children():
-                if matches(child):
-                    return child
-                queue.append(child)
-
-        return None
-    
     def get(self, fqn):
         """Get symbol by fully-qualified name (e.g., "Demo::Vehicle").
 
@@ -353,16 +352,107 @@ class Model:
         """
         if self.root.id == fqn:
             return self.root
+        return self._symbol_by_id(fqn)
 
-        queue = [self.root]
-        while queue:
-            current = queue.pop(0)
-            for child in current.children():
-                if child.id == fqn:
-                    return child
-                queue.append(child)
+    def _symbol_by_id(self, fqn):
+        """The symbol whose id is ``fqn``, fetched in one call, or None.
 
+        The service resolves a qualified name the way the notation does, through
+        imports and aliases, so it may answer with a symbol of another id. Only
+        the symbol that carries this id is what an id lookup names.
+        """
+        info = self._client.get_symbol(self._hash, fqn)
+        if info is None or info.id != fqn:
+            return None
+        return Symbol(info, self._client, self._hash)
+
+    def _symbol_named(self, name):
+        """The outermost, first-declared symbol whose short name is ``name``.
+
+        A service that can query answers which elements carry a name in one
+        call. Without that the tree is walked symbol by symbol. An erroring
+        model may hold a name the query cannot see (one taken from an
+        unresolved redefinition) at any depth, so there the tree is walked as
+        far down as the query's best answer, which the walk itself reaches.
+        """
+        if not self._client.server_info().has(CAPABILITY_QUERY):
+            return self._walk_to(name)
+        named = self._query(_PROPERTY_NAME, name, select=[_PROPERTY_OWNER])
+        ids = [element.id for element in named]
+        if len(ids) > 1 or (ids and not self.ok):
+            depth = self._depths(named)
+            ids.sort(key=depth.__getitem__)
+        if not self.ok:
+            symbol = self._walk_to(name, depth[ids[0]] if ids else None)
+            if symbol is not None:
+                return symbol
+        for fqn in ids:
+            symbol = self._symbol_by_id(fqn)
+            if symbol is not None:
+                return symbol
         return None
+
+    def _query(self, prop, value, select):
+        """The elements whose ``prop`` is ``value`` (any of them, given a list)."""
+        return self._client.query(
+            self._hash,
+            select=select,
+            where={
+                "@type": TYPE_PRIMITIVE_CONSTRAINT,
+                "operator": "=",
+                "property": prop,
+                "value": value,
+            },
+        )
+
+    def _depths(self, elements):
+        """The nesting depth below the root of each of ``elements``, by id.
+
+        Depth is counted up the owner chain rather than from the id's ``::``
+        segments, which a quoted name may contain itself. Each hop up costs one
+        call, so callers ask only when the answer decides the lookup. A chain
+        that ends short of the root, as under a file's unnamed root every chain
+        does, ends one level below it.
+        """
+        owner = {self.root.id: ""}
+        owner.update((element.id, element.get(_PROPERTY_OWNER, "")) for element in elements)
+        unknown = {fqn for fqn in owner.values() if fqn and fqn not in owner}
+        while unknown:
+            for element in self._query(_PROPERTY_ID, sorted(unknown), select=[_PROPERTY_OWNER]):
+                owner[element.id] = element.get(_PROPERTY_OWNER, "")
+            for fqn in unknown:
+                owner.setdefault(fqn, "")
+            unknown = {fqn for fqn in owner.values() if fqn and fqn not in owner}
+
+        def depth(fqn):
+            hops = 0
+            while owner.get(fqn):
+                fqn = owner[fqn]
+                hops += 1
+            return hops if fqn == self.root.id else hops + 1
+
+        return {element.id: depth(element.id) for element in elements}
+
+    def _walk_to(self, name, depth=None):
+        """The first symbol named ``name`` in breadth-first order, or None.
+
+        ``depth`` bounds the walk to the symbols that many levels below the root.
+        """
+        return next((s for s in self._walk(depth) if s.name == name), None)
+
+    def _walk(self, depth=None):
+        """Every symbol below the root, breadth-first, one call per symbol.
+
+        ``depth`` bounds the walk to the symbols that many levels below the root.
+        """
+        queue = [(self.root, 0)]
+        while queue:
+            current, level = queue.pop(0)
+            if depth is not None and level >= depth:
+                continue
+            for child in current.children():
+                yield child
+                queue.append((child, level + 1))
 
     def eval(self, expression, context_symbol_id=None, subject=None):
         """Evaluate a SysML expression against this model.
@@ -526,13 +616,16 @@ class Model:
             state_machine_symbol_id, self._hash, events=events, schedule=schedule
         )
 
-    def verify_constraint(self, symbol_id, subject=None):
+    def verify_constraint(self, symbol_id, subject=None, engine=None):
         """Ask whether one of this model's constraints holds.
 
         Args:
             symbol_id (str): FQN of the constraint definition or usage
             subject (str, optional): FQN of a part/usage to instantiate and
                 evaluate against, so the verdict is about concrete values
+            engine (str, optional): The engine to ask: ``"auto"`` (the
+                default), ``"all"``, or one by name, as
+                :meth:`~opensysml.Connection.verify_constraint` takes it
 
         Returns:
             Verdict: The answer; false is the model's answer, not an exception
@@ -543,16 +636,18 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_constraint(
-            symbol_id, self._hash, subject_symbol_id=subject
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
         )
 
-    def verify_requirement(self, symbol_id, subject=None):
+    def verify_requirement(self, symbol_id, subject=None, engine=None):
         """Ask whether one of this model's requirements is satisfied.
 
         Args:
             symbol_id (str): FQN of the requirement definition or usage
             subject (str, optional): FQN of a part/usage to instantiate and
                 evaluate against
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             Verdict: The answer
@@ -563,10 +658,10 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_requirement(
-            symbol_id, self._hash, subject_symbol_id=subject
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
         )
 
-    def verify_satisfaction(self, symbol_id=None):
+    def verify_satisfaction(self, symbol_id=None, engine=None):
         """Ask whether this model's satisfaction assertions hold.
 
         This is the scriptable form of "does this model satisfy its
@@ -577,6 +672,8 @@ class Model:
             symbol_id (str, optional): FQN limiting evaluation to the assertions
                 stated within that element, or to that element itself when it is
                 a named satisfaction assertion
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             list[Verdict]: One verdict per assertion, in declaration order. An
@@ -587,7 +684,7 @@ class Model:
                 satisfaction assertion
             ExecutionError: If the request could not be answered at all
         """
-        return self._client.verify_satisfaction(self._hash, symbol_id=symbol_id)
+        return self._client.verify_satisfaction(self._hash, symbol_id=symbol_id, engine=engine)
 
     def satisfied(self, symbol_id=None):
         """Whether every satisfaction assertion evaluated holds.
@@ -605,12 +702,14 @@ class Model:
         """
         return all(v.holds for v in self.verify_satisfaction(symbol_id))
 
-    def calc(self, symbol_id, arguments=None):
+    def calc(self, symbol_id, arguments=None, engine=None):
         """Invoke one of this model's calculations.
 
         Args:
             symbol_id (str): FQN of the calc definition or usage
             arguments (list, optional): Positional arguments, as Python values
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             CalcResult: The value returned, or the outputs a calc usage computed
@@ -619,10 +718,10 @@ class Model:
             WrongKindError: If symbol_id names an element that is not a calc
             ExecutionError: If the calculation could not be evaluated
         """
-        return self._client.calc(symbol_id, self._hash, arguments=arguments)
+        return self._client.calc(symbol_id, self._hash, arguments=arguments, engine=engine)
 
     def run_analysis(self, symbol_id, subject=None, arguments=None,
-                     named_arguments=None, schedule=None):
+                     named_arguments=None, schedule=None, engine=None):
         """Run one of this model's analysis cases.
 
         Args:
@@ -636,21 +735,25 @@ class Model:
                 performs resolve their choice points under, as for
                 :meth:`execute_action`; ``"explore"`` belongs to
                 :meth:`explore_analysis`
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`; ``"explore"`` belongs to
+                :meth:`explore_analysis`
 
         Returns:
             AnalysisResult: The outputs the case computed and the verdict of
                 its objective and assertions
 
         Raises:
-            ValueError: If the schedule explores
+            ValueError: If the schedule or the engine explores
             WrongKindError: If symbol_id names an element that is not an
                 analysis case
             ExecutionError: If the case could not run
-            InvalidRequestError: If the schedule names no policy
+            InvalidRequestError: If the schedule names no policy, or the
+                engine names none the service registers
         """
         return self._client.run_analysis(
             symbol_id, self._hash, subject=subject, arguments=arguments,
-            named_arguments=named_arguments, schedule=schedule,
+            named_arguments=named_arguments, schedule=schedule, engine=engine,
         )
 
     def explore_analysis(self, symbol_id, subject=None, arguments=None,
@@ -685,7 +788,7 @@ class Model:
         )
 
     def run_sweep(self, symbol_id, ranges, subject=None, arguments=None,
-                  named_arguments=None, samples=0, seed=0):
+                  named_arguments=None, samples=0, seed=0, engine=None):
         """Run one of this model's analysis cases or calcs once per swept row.
 
         Args:
@@ -697,6 +800,8 @@ class Model:
             named_arguments (dict, optional): Arguments by name every row binds
             samples (int, optional): Rows to draw rather than step through
             seed (int, optional): Seed the draws are taken from
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             SweepTable: One row per run, in the order the runs were made
@@ -708,7 +813,7 @@ class Model:
         return self._client.run_sweep(
             symbol_id, self._hash, ranges, subject=subject,
             arguments=arguments, named_arguments=named_arguments,
-            samples=samples, seed=seed,
+            samples=samples, seed=seed, engine=engine,
         )
 
     def __getitem__(self, name):
@@ -743,16 +848,19 @@ class Model:
         Both short names and FQNs are candidates, since either is accepted by a
         lookup and either may have been mistyped.
         """
+        if self._client.server_info().has(CAPABILITY_QUERY):
+            declared = [
+                (element.id, element.get(_PROPERTY_NAME, ""))
+                for element in self._client.query(self._hash, select=[_PROPERTY_NAME])
+            ]
+        else:
+            declared = [(child.id, child.name) for child in self._walk()]
         candidates = []
-        queue = [self.root]
-        while queue:
-            current = queue.pop(0)
-            for child in current.children():
-                if child.name:
-                    candidates.append(child.name)
-                if child.id and child.id != child.name:
-                    candidates.append(child.id)
-                queue.append(child)
+        for fqn, short_name in declared:
+            if short_name:
+                candidates.append(short_name)
+            if fqn and fqn != short_name:
+                candidates.append(fqn)
         return difflib.get_close_matches(name, candidates, n=3)
 
     def __str__(self):

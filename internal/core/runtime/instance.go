@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -82,6 +83,9 @@ type FeatureValue struct {
 	Materialized   bool  // lazy flag: has this feature value been instantiated?
 	Written        bool  // a run assigned this value, so no default derives it again
 	BindingDerived bool  // value came from binding propagation rather than a write
+	// Assumed marks a value fixed by nothing but the feature's multiplicity: its
+	// minimum materialized, or contributions short of its maximum.
+	Assumed bool
 	// dependents are the derived values that read this one, to unmaterialize when
 	// it changes; nil until one does (see dependents.go).
 	dependents []*FeatureValue
@@ -111,7 +115,7 @@ func (s *FeatureValue) ReadValue(name string) (Value, error) {
 		return value, nil
 	}
 	if lower := s.Feature.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 {
-		return collectionOf(s.Feature, nil), nil
+		return (*Context)(nil).collectionOf(s.Feature, nil), nil
 	}
 	return Value{}, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, name)
 }
@@ -139,7 +143,7 @@ func (ctx *Context) shapeHoldsValue(typ *symbols.Symbol) bool {
 	if len(features) == 0 {
 		return false
 	}
-	if !ctx.model.ValueHeld(typ) {
+	if !ctx.model.semantics.ValueHeld(typ) {
 		return true
 	}
 	for _, feat := range features {
@@ -185,7 +189,14 @@ func (ctx *Context) Instantiate(sym *symbols.Symbol) (*Instance, error) {
 	inst.explicit = true
 	prior, hadPrior := ctx.occurrences[sym]
 	if ctx.registersOccurrence(sym) {
-		ctx.occurrences[sym] = inst.ID
+		ctx.noteProbeUndo(func() {
+			if hadPrior {
+				ctx.occurrences[sym] = prior
+			} else {
+				delete(ctx.occurrences, sym)
+			}
+		})
+		ctx.occurrences[sym] = []int64{inst.ID}
 	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
 		if hadPrior {
@@ -232,11 +243,11 @@ func (ctx *Context) newFeatureValue(inst *Instance, feat *EffectiveFeature) *Fea
 // default is folded eagerly, any other default is left for GetFeatureValue to evaluate and report.
 func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *EffectiveFeature) {
 	*fv = FeatureValue{Feature: feat}
-	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.IsVariationFeature(feat.Symbol) &&
+	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.semantics.IsVariationFeature(feat.Symbol) &&
 		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) {
-		if semVal, ok := ctx.model.Eval(feat.DefaultValue); ok {
+		if semVal, ok := ctx.model.semantics.Eval(feat.DefaultValue); ok {
 			val := Value{Kind: ValConst, Const: semVal}
-			if ctx.checkDefault(inst, fv, feat.Name, val, admitDeclared) == nil {
+			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
 				fv.Value = val
 				fv.Materialized = true
 			}
@@ -294,7 +305,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	if _, taken := ctx.instances[id]; taken || id <= 0 {
 		id = ctx.allocateID()
 	}
-	ctx.ids.atLeast(id + 1)
+	ctx.claimID(id)
 
 	// Get effective features
 	features := ctx.FeaturesOf(sym)
@@ -337,10 +348,8 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 // declared in a package names one occurrence, so reading its features twice
 // reads the same object.
 func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
-	if id, ok := ctx.occurrences[sym]; ok {
-		if inst, ok := ctx.instances[id]; ok {
-			return inst, nil
-		}
+	if live, ok := ctx.liveOccurrences(sym); ok && len(live) == 1 {
+		return live[0], nil
 	}
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
@@ -350,20 +359,126 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		ctx.abandonInstancesSince(mark)
 		return nil, err
 	}
-	ctx.occurrences[sym] = inst.ID
+	ctx.occurrences[sym] = []int64{inst.ID}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
 		return nil, err
 	}
 	return inst, nil
 }
 
-// OccurrenceUsage is the qualified name of the declared usage inst is the
+// occurrencesOf returns the objects a namespace-level usage of several occurrences denotes,
+// materializing its lower bound once, in declaration order, as a nested collection's is.
+func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
+	if live, ok := ctx.liveOccurrences(sym); ok {
+		return live, nil
+	}
+	count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)), 0, symbolText(sym))
+	if err != nil {
+		return nil, err
+	}
+	// The whole collection is recorded before any of its objects starts, so a behavior
+	// reading the usage back reads the objects it denotes; a failure leaves none behind.
+	release := ctx.elementScope()
+	if err := ctx.chargeElements(int64(count)); err != nil {
+		release()
+		return nil, err
+	}
+	mark := len(ctx.created)
+	members, err := ctx.materializeMembers(sym, count, nil, "")
+	if err != nil {
+		ctx.abandonInstancesSince(mark)
+		release()
+		return nil, err
+	}
+	ids := make([]int64, len(members))
+	for i, inst := range members {
+		ids[i] = inst.ID
+	}
+	ctx.occurrences[sym] = ids
+	if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+		release()
+		return nil, err
+	}
+	return members, nil
+}
+
+// denotedObjects is the objects a namespace usage carrying no value denotes for the run: one
+// occurrence, its lower bound of several, none when it admits none; a port denotes no object.
+func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
+	switch {
+	case ctx.namesOneObject(sym):
+		inst, err := ctx.occurrenceOf(sym)
+		if err != nil {
+			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		}
+		return []*Instance{inst}, nil
+	case ctx.namesObjects(sym):
+		members, err := ctx.occurrencesOf(sym)
+		if err != nil {
+			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		}
+		return members, nil
+	case ctx.optionalValueless(sym):
+		return nil, nil
+	}
+	return nil, ctx.undenotedUsage(sym)
+}
+
+// denotedValue is what a usage carrying no value reads as: its object, the collection of its
+// objects, or undetermined of its count where that admits more than the lower bound it holds.
+func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
+	if !ctx.namesObjects(sym) {
+		inst, err := ctx.occurrenceOf(sym)
+		if err != nil {
+			return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		}
+		return ctx.objectValue(inst)
+	}
+	members, err := ctx.occurrencesOf(sym)
+	if err != nil {
+		return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+	}
+	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(int64(len(members))) {
+		spelled := ctx.qualifiedSymbolName(sym)
+		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
+	}
+	elements := make([]Value, 0, len(members))
+	for _, inst := range members {
+		val, err := ctx.objectValue(inst)
+		if err != nil {
+			return Value{}, err
+		}
+		elements = append(elements, val)
+	}
+	return ctx.declaredCollection(sym, sequenceOf(elements)), nil
+}
+
+// liveOccurrences is the objects recorded as what sym denotes, while every one of them lives.
+func (ctx *Context) liveOccurrences(sym *symbols.Symbol) ([]*Instance, bool) {
+	ids, ok := ctx.occurrences[sym]
+	if !ok {
+		return nil, false
+	}
+	out := make([]*Instance, 0, len(ids))
+	for _, id := range ids {
+		inst, live := ctx.instances[id]
+		if !live {
+			return nil, false
+		}
+		out = append(out, inst)
+	}
+	return out, true
+}
+
+// denotesOccurrence reports whether inst is one of the objects its usage denotes.
+func (ctx *Context) denotesOccurrence(inst *Instance) bool {
+	return slices.Contains(ctx.occurrences[inst.Type], inst.ID)
+}
+
+// OccurrenceUsage is the qualified name of the declared usage inst is an
 // occurrence of, or "" for an object materialized any other way.
 func (ctx *Context) OccurrenceUsage(inst *Instance) string {
-	if inst == nil {
-		return ""
-	}
-	if id, ok := ctx.occurrences[inst.Type]; !ok || id != inst.ID {
+	if inst == nil || !ctx.denotesOccurrence(inst) {
 		return ""
 	}
 	return ctx.qualifiedSymbolName(inst.Type)
@@ -397,10 +512,23 @@ func (ctx *Context) namesOneObject(sym *symbols.Symbol) bool {
 	}
 	// A variation classifies its variants abstractly, so it is no object of
 	// itself: it holds nothing until it is bound to one.
-	if ctx.model.IsVariationFeature(sym) {
+	if ctx.model.semantics.IsVariationFeature(sym) {
 		return false
 	}
 	return isOccurrenceUsage(sym) || ctx.namesStructuredValue(sym)
+}
+
+// namesObjects reports whether a usage denotes several objects of its own: an occurrence
+// usage a namespace declares of a collection multiplicity whose bounds the model fixes.
+func (ctx *Context) namesObjects(sym *symbols.Symbol) bool {
+	if sym == nil || sym.OwnerScope == nil || !namespaceScope(sym.OwnerScope) || !isOccurrenceUsage(sym) {
+		return false
+	}
+	if ctx.occursOnce(sym) || ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) {
+		return false
+	}
+	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
+	return mult.Lower.Known && mult.Upper.Known
 }
 
 // registersOccurrence reports whether an object materialized for a usage is the one a
@@ -421,17 +549,17 @@ func (ctx *Context) namesStructuredValue(sym *symbols.Symbol) bool {
 		return false
 	}
 	typ := ctx.extractType(sym)
-	if typ == nil || ctx.model.PrimTypeOf(typ) != semantics.PrimUnknown {
+	if typ == nil || ctx.model.semantics.PrimTypeOf(typ) != semantics.PrimUnknown {
 		return false
 	}
 	return ctx.shapeHoldsValue(sym)
 }
 
-// occursOnce reports whether a usage names at most one occurrence; several
-// occurrences are a collection rather than one object to read features from.
+// occursOnce reports whether a usage names at most one occurrence; several occurrences, or
+// a count the model does not fix, are a collection rather than one object to read features from.
 func (ctx *Context) occursOnce(sym *symbols.Symbol) bool {
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
-	return !mult.Upper.Infinite && mult.Upper.Value <= 1
+	return mult.Upper.Known && !mult.Upper.Infinite && mult.Upper.Value <= 1
 }
 
 // optionalValueless reports whether a usage or subject declares no value and a
@@ -445,27 +573,34 @@ func (ctx *Context) optionalValueless(sym *symbols.Symbol) bool {
 	if ctx.extractDefaultValue(sym) != nil {
 		return false
 	}
+	return ctx.admitsNoValue(sym)
+}
+
+// admitsNoValue reports whether the feature's effective multiplicity has a lower
+// bound of zero, so that holding no value at all is within it.
+func (ctx *Context) admitsNoValue(sym *symbols.Symbol) bool {
 	lower := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)).Lower
 	return lower.Known && !lower.Infinite && lower.Value == 0
 }
 
 // checkDefault reports a value the feature does not admit: a count outside its
 // multiplicity (1..1 when none is declared) or an element outside its type.
-func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, val Value, how admission) error {
-	return ctx.checkAdmits(fv.Feature, fmt.Sprintf("feature value %s.%s", inst.Type.Name, name), val, how)
+func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, val *Value, how admission) error {
+	what := func() string { return fmt.Sprintf("feature value %s.%s", inst.Type.Name, name) }
+	return ctx.checkAdmits(fv.Feature, what, val, how)
 }
 
 // checkAdmits reports a value the feature does not admit, by count, by type
-// or by uniqueness, naming the value as what.
-func (ctx *Context) checkAdmits(feat *EffectiveFeature, what string, val Value, how admission) error {
-	if msg := feat.Multiplicity.CountViolation(elementCount(&val)); msg != "" {
-		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+// or by uniqueness, naming the value as what spells it.
+func (ctx *Context) checkAdmits(feat *EffectiveFeature, what func() string, val *Value, how admission) error {
+	if msg := feat.Multiplicity.HeldViolation(heldCountOf(val)); msg != "" {
+		return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
 	}
 	if err := ctx.checkWriteType(feat.DeclScope(), what, feat.Type, val, how); err != nil {
 		return err
 	}
-	if msg := ctx.uniquenessRefusal(feat.Unique, feat.HoldsSet, &val); msg != "" {
-		return fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+	if msg := ctx.uniquenessRefusal(feat.Unique, feat.HoldsSet, val); msg != "" {
+		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
 	return nil
 }
@@ -489,7 +624,7 @@ func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (
 		if err := ctx.chargeElements(int64(len(elements))); err != nil {
 			return Value{}, err
 		}
-		val = collectionOf(feat, elements)
+		val = ctx.collectionOf(feat, elements)
 	} else if feat.Scalar() {
 		val = soleElement(val)
 	}
@@ -508,6 +643,26 @@ func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (
 // so a caller can tell it from any other failure to evaluate, whatever the
 // expression it surfaced through.
 func (inst *Instance) GetFeatureValue(ctx *Context, name string) (*FeatureValue, error) {
+	return inst.getFeatureValue(ctx, name, nil)
+}
+
+// openPopulation is where a read that stops short of making up a collection's lower bound
+// leaves what it certainly holds: its subsetters' values, and the fewest an open one holds.
+type openPopulation struct {
+	Stopped     bool
+	Contributed []Value
+	AtLeast     int64
+}
+
+// openFeatureValue is GetFeatureValue for a model-level read: a collection whose count
+// the model leaves open is not made up to its lower bound, and open reports that.
+func (inst *Instance) openFeatureValue(ctx *Context, name string) (*FeatureValue, *openPopulation, error) {
+	open := &openPopulation{}
+	fv, err := inst.getFeatureValue(ctx, name, open)
+	return fv, open, err
+}
+
+func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopulation) (*FeatureValue, error) {
 	if err := ctx.checkNotDestroyed(inst); err != nil {
 		return nil, err
 	}
@@ -515,7 +670,7 @@ func (inst *Instance) GetFeatureValue(ctx *Context, name string) (*FeatureValue,
 		// Naming no feature value of the object is no materialization of one.
 		return nil, fmt.Errorf("%w: feature %q not found in instance %d (type %s)", ErrNoSuchFeature, name, inst.ID, inst.Type.Name)
 	}
-	fv, err := inst.materializeFeatureValue(ctx, name)
+	fv, err := inst.materializeFeatureValue(ctx, name, open)
 	if err != nil {
 		return nil, &FeatureValueError{Err: err}
 	}
@@ -536,7 +691,7 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 	}
 	// Checked before the write, so a value the feature does not admit leaves it
 	// holding what it held.
-	if err := ctx.checkDefault(inst, fv, name, value, admitWritten); err != nil {
+	if err := ctx.checkDefault(inst, fv, name, &value, admitWritten); err != nil {
 		return err
 	}
 	value, err := ctx.admitted(fv.Feature, value, admitWritten)
@@ -553,19 +708,19 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 		fv.Value = Value{}
 	}
 	fv.Materialized, fv.Written = true, true
-	fv.BindingDerived = false
+	fv.BindingDerived, fv.Assumed = false, false
 	ctx.afterWrite(fv, before)
 	return nil
 }
 
 // materializeFeatureValue is GetFeatureValue's materialization: the feature value's value, evaluated and
 // checked against the multiplicity governing its feature the first time it is read.
-func (inst *Instance) materializeFeatureValue(ctx *Context, name string) (*FeatureValue, error) {
+func (inst *Instance) materializeFeatureValue(ctx *Context, name string, open *openPopulation) (*FeatureValue, error) {
 	defer ctx.beginRun()()
 
 	fv := inst.FeatureValues[name]
 	before := ctx.beforeWrite(fv)
-	err := inst.materializeBoundOrIntrinsic(ctx, fv, name)
+	err := inst.materializeBoundOrIntrinsic(ctx, fv, name, open)
 	ctx.afterWrite(fv, before)
 	if err != nil {
 		return nil, err
@@ -576,13 +731,13 @@ func (inst *Instance) materializeFeatureValue(ctx *Context, name string) (*Featu
 
 // materializeBoundOrIntrinsic gives fv the value a binding determines, else the one
 // its feature states, once.
-func (inst *Instance) materializeBoundOrIntrinsic(ctx *Context, fv *FeatureValue, name string) error {
+func (inst *Instance) materializeBoundOrIntrinsic(ctx *Context, fv *FeatureValue, name string, open *openPopulation) error {
 	if val, found, err := ctx.resolveBindingValue(inst, name); err != nil {
 		return err
 	} else if found {
 		return ctx.assignBindingValue(inst, fv, name, val)
 	} else if !fv.Materialized {
-		_, err := inst.materializeFeatureValueIntrinsic(ctx, name)
+		_, err := inst.materializeIntrinsicValue(ctx, name, open)
 		return err
 	}
 	return nil
@@ -591,9 +746,13 @@ func (inst *Instance) materializeBoundOrIntrinsic(ctx *Context, fv *FeatureValue
 // materializeFeatureValueIntrinsic evaluates a feature without following
 // binding connectors; binding resolution calls it to inspect an endpoint.
 func (inst *Instance) materializeFeatureValueIntrinsic(ctx *Context, name string) (*FeatureValue, error) {
+	return inst.materializeIntrinsicValue(ctx, name, nil)
+}
+
+func (inst *Instance) materializeIntrinsicValue(ctx *Context, name string, open *openPopulation) (*FeatureValue, error) {
 	fv := inst.FeatureValues[name]
 	before := ctx.beforeWrite(fv)
-	_, err := inst.materializeIntrinsic(ctx, fv, name)
+	_, err := inst.materializeIntrinsic(ctx, fv, name, open)
 	ctx.afterWrite(fv, before)
 	if err != nil {
 		return nil, err
@@ -602,8 +761,9 @@ func (inst *Instance) materializeFeatureValueIntrinsic(ctx *Context, name string
 }
 
 // materializeIntrinsic evaluates fv from what the model states of its feature: a
-// variation, a default, the members subsetting it, or the objects it holds.
-func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name string) (*FeatureValue, error) {
+// variation, a default, the members subsetting it, or the objects it holds. A non-nil
+// open stops the read short of making up an open collection's lower bound.
+func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
 	ctx.noteProbeWrite(fv)
 
 	// A feature listing this one as a value, on this object or an owner reaching it by a
@@ -615,21 +775,8 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 
 	// A variation holds the variant it was bound to, and nothing until it is
 	// bound: it classifies its variants abstractly, so it is no object of itself.
-	if ctx.model.IsVariationFeature(fv.Feature.Symbol) {
-		if fv.Feature.DefaultValue == nil {
-			return nil, fmt.Errorf("%w: %s.%s", ErrVariationUnselected, inst.Type.Name, name)
-		}
-		val, err := ctx.evalFeatureValueDefault(inst, fv, name)
-		if err != nil {
-			return nil, err
-		}
-		bound, err := ctx.bindVariation(fv.Feature, val, inst.ID)
-		if err != nil {
-			return nil, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
-		}
-		fv.Value = bound
-		fv.Materialized = true
-		return fv, nil
+	if ctx.model.semantics.IsVariationFeature(fv.Feature.Symbol) {
+		return inst.materializeVariation(ctx, fv, name)
 	}
 
 	// A bound value supplies the feature's own features, so a body restating one
@@ -655,24 +802,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// The feature holds what the default states, once that conforms to the
 	// feature's multiplicity and type.
 	if ctx.valueBinds(fv.Feature) {
-		val, err := ctx.deriveFeatureValue(inst, fv, name)
-		if err != nil {
-			return nil, err
-		}
-		if err := ctx.checkDefault(inst, fv, name, val, admitDeclared); err != nil {
-			return nil, err
-		}
-		if val, err = ctx.admitted(fv.Feature, val, admitDeclared); err != nil {
-			return nil, err
-		}
-		ctx.noteProbeWrite(fv)
-		if fv.Feature.Scalar() {
-			fv.Value = val
-		} else {
-			fv.Values = val
-		}
-		fv.Materialized = true
-		return fv, nil
+		return inst.materializeDerived(ctx, fv, name)
 	}
 
 	// A collection an optional feature subsets fills its objects: it is read first.
@@ -686,13 +816,13 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// An abstract feature has no values of its own (KerML 1.0 §7.3.3.1) and an
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
-	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (ctx.model.IsConnectorUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
+	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (ctx.model.semantics.IsConnectorUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
 		return inst.holdContributions(ctx, fv, name)
 	}
 
 	// A connector holds the features it connects at its ends rather than objects
 	// of its own, so it is materialized from what the `connect` clause names.
-	if ctx.model.IsConnectorUsage(fv.Feature.Symbol) {
+	if ctx.model.semantics.IsConnectorUsage(fv.Feature.Symbol) {
 		if err := ctx.materializeConnectorFeatureValue(inst, fv, name); err != nil {
 			return nil, err
 		}
@@ -701,89 +831,183 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 
 	// Lazy instantiation: a composite feature holds objects of its own.
 	if composite := ctx.CompositeTypeOf(fv.Feature); composite != nil {
-		// Check multiplicity (C2 + C1)
-		mult := fv.Feature.Multiplicity
-		if !mult.Upper.Known || !mult.Lower.Known {
-			return nil, fmt.Errorf("cannot materialize feature %q with unknown multiplicity", name)
-		}
-
-		if !mult.Upper.Infinite && mult.Upper.Value == 1 {
-			// Scalar: instantiate one, held by this feature before its behaviors
-			// start, so one addressing it back reads the object held here.
-			mark := len(ctx.created)
-			childInst, err := ctx.materialize(composite, 0, inst, name)
-			if err != nil {
-				ctx.abandonInstancesSince(mark)
-				return nil, err
-			}
-			fv.Value = Value{Kind: ValInstance, Instance: childInst.ID}
-			fv.Materialized = true
-			if err := ctx.startClassifierBehaviors(childInst, mark); err != nil {
-				return nil, err
-			}
-		} else {
-			// Guard against infinite/huge lower bound (C3)
-			if mult.Lower.Infinite || mult.Lower.Value > maxMaterializedLowerBound {
-				return nil, fmt.Errorf("%w: lower bound too large or infinite for feature %q", ErrMultiplicityViolation, name)
-			}
-
-			// Subsetting features' objects are members; optional subsetters with room, then
-			// anonymous objects, make up the lower bound. A failed read leaves nothing behind.
-			release := ctx.elementScope()
-			contributed, err := ctx.subsettingContributions(inst, name)
-			if err != nil {
-				release()
-				return nil, err
-			}
-
-			count := int(mult.Lower.Value) - len(contributed)
-			if count < 0 {
-				count = 0
-			}
-
-			// The whole collection is held before any of its objects starts, so a
-			// behavior reading the feature back reads the objects held in it.
-			if err := ctx.chargeElements(int64(count)); err != nil {
-				release()
-				return nil, err
-			}
-			mark := len(ctx.created)
-			children, unfill, err := ctx.fillOptionalSubsetters(inst, name, count)
-			fail := func(err error) (*FeatureValue, error) {
-				fv.Values, fv.Materialized = Value{}, false
-				ctx.abandonInstancesSince(mark)
-				unfill()
-				release()
-				return nil, err
-			}
-			if err != nil {
-				return fail(err)
-			}
-			seq := NewSequence()
-			for _, val := range contributed {
-				seq.Append(val)
-			}
-			for _, child := range children {
-				seq.Append(Value{Kind: ValInstance, Instance: child.ID})
-			}
-			for i := len(children); i < count; i++ {
-				childInst, err := ctx.materialize(composite, 0, inst, name)
-				if err != nil {
-					return fail(err)
-				}
-				seq.Append(Value{Kind: ValInstance, Instance: childInst.ID})
-				children = append(children, childInst)
-			}
-			fv.Values = collectionOf(fv.Feature, seq.Elements())
-			fv.Materialized = true
-			if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
-				return fail(err)
-			}
-		}
-		fv.Materialized = true
+		return inst.materializeComposite(ctx, fv, name, open, composite)
 	}
 
 	return fv, nil
+}
+
+// materializeVariation binds a variation to the variant its default selects.
+func (inst *Instance) materializeVariation(ctx *Context, fv *FeatureValue, name string) (*FeatureValue, error) {
+	if fv.Feature.DefaultValue == nil {
+		return nil, fmt.Errorf("%w: %s.%s", ErrVariationUnselected, inst.Type.Name, name)
+	}
+	val, err := ctx.evalFeatureValueDefault(inst, fv, name)
+	if err != nil {
+		return nil, err
+	}
+	bound, err := ctx.bindVariation(fv.Feature, val, inst.ID)
+	if err != nil {
+		return nil, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
+	}
+	fv.Value = bound
+	fv.Materialized = true
+	return fv, nil
+}
+
+// materializeDerived evaluates a default against this instance and holds what
+// it states once that conforms to the feature's multiplicity and type.
+func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name string) (*FeatureValue, error) {
+	val, err := ctx.deriveFeatureValue(inst, fv, name)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
+		return nil, err
+	}
+	if val, err = ctx.admitted(fv.Feature, val, admitDeclared); err != nil {
+		return nil, err
+	}
+	ctx.noteProbeWrite(fv)
+	if fv.Feature.Scalar() {
+		fv.Value = val
+	} else {
+		fv.Values = val
+	}
+	fv.Materialized = true
+	return fv, nil
+}
+
+// materializeComposite instantiates the objects a composite feature holds: one
+// for a scalar, otherwise the members making up the collection's lower bound.
+func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name string, open *openPopulation, composite *symbols.Symbol) (*FeatureValue, error) {
+	mult := fv.Feature.Multiplicity
+	// A model-level read makes up no collection whose count the model leaves open;
+	// a body binding a feature of the one object an optional scalar holds fixes it at one.
+	_, exact := mult.Exactly()
+	if open != nil && !exact && !(fv.Feature.Scalar() && ctx.bodyBindsAFeature(fv.Feature)) {
+		release := ctx.elementScope()
+		contributed, atLeast, err := ctx.openSubsettingContributions(inst, name)
+		release()
+		if err != nil {
+			return nil, err
+		}
+		if held := int64(len(contributed)); atLeast > held || mult.MayAdmitMore(held) {
+			open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
+			return fv, nil
+		}
+	}
+
+	if !mult.Upper.Known || !mult.Lower.Known {
+		return nil, fmt.Errorf("cannot materialize feature %q with unknown multiplicity", name)
+	}
+
+	if !mult.Upper.Infinite && mult.Upper.Value == 1 {
+		// Scalar: instantiate one, held by this feature before its behaviors
+		// start, so one addressing it back reads the object held here.
+		mark := len(ctx.created)
+		childInst, err := ctx.materialize(composite, 0, inst, name)
+		if err != nil {
+			ctx.abandonInstancesSince(mark)
+			return nil, err
+		}
+		fv.Value = Value{Kind: ValInstance, Instance: childInst.ID}
+		fv.Materialized = true
+		if err := ctx.startClassifierBehaviors(childInst, mark); err != nil {
+			return nil, err
+		}
+	} else if err := inst.materializeCompositeCollection(ctx, fv, name, composite); err != nil {
+		return nil, err
+	}
+	fv.Materialized = true
+	return fv, nil
+}
+
+// materializeCompositeCollection fills a composite collection: subsetting
+// features' objects are members; optional subsetters with room, then anonymous
+// objects, make up the lower bound. A failed read leaves nothing behind.
+func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureValue, name string, composite *symbols.Symbol) error {
+	mult := fv.Feature.Multiplicity
+	release := ctx.elementScope()
+	contributed, err := ctx.subsettingContributions(inst, name)
+	if err != nil {
+		release()
+		return err
+	}
+
+	count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("feature %q", name))
+	if err != nil {
+		release()
+		return err
+	}
+
+	// The whole collection is held before any of its objects starts, so a
+	// behavior reading the feature back reads the objects held in it.
+	if err := ctx.chargeElements(int64(count)); err != nil {
+		release()
+		return err
+	}
+	mark := len(ctx.created)
+	children, unfill, err := ctx.fillOptionalSubsetters(inst, name, count)
+	fail := func(err error) error {
+		fv.Values, fv.Materialized = Value{}, false
+		ctx.abandonInstancesSince(mark)
+		unfill()
+		release()
+		return err
+	}
+	if err != nil {
+		return fail(err)
+	}
+	made, err := ctx.materializeMembers(composite, count-len(children), inst, name)
+	if err != nil {
+		return fail(err)
+	}
+	children = append(children, made...)
+	seq := NewSequence()
+	for _, val := range contributed {
+		seq.Append(val)
+	}
+	for _, child := range children {
+		seq.Append(Value{Kind: ValInstance, Instance: child.ID})
+	}
+	fv.Values = ctx.collectionOf(fv.Feature, seq.Elements())
+	fv.Materialized = true
+	fv.Assumed = mult.AdmitsMore(int64(seq.Size()))
+	if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
+		return fail(err)
+	}
+	return nil
+}
+
+// lowerBoundCount is how many anonymous objects fill a collection to its lower bound
+// beyond the held objects already counted; a bound too large to materialize is refused.
+func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string) (int, error) {
+	if !mult.Upper.Known || !mult.Lower.Known {
+		return 0, fmt.Errorf("cannot materialize %s with unknown multiplicity", what)
+	}
+	if mult.Lower.Infinite || mult.Lower.Value > maxMaterializedLowerBound {
+		return 0, fmt.Errorf("%w: lower bound too large or infinite for %s", ErrMultiplicityViolation, what)
+	}
+	count := int(mult.Lower.Value) - held
+	if count < 0 {
+		count = 0
+	}
+	return count, nil
+}
+
+// materializeMembers makes count objects of sym in order, the members a collection
+// is filled with; the caller abandons what a failed one leaves behind.
+func (ctx *Context) materializeMembers(sym *symbols.Symbol, count int, owner *Instance, feature string) ([]*Instance, error) {
+	members := make([]*Instance, 0, count)
+	for i := 0; i < count; i++ {
+		inst, err := ctx.materialize(sym, 0, owner, feature)
+		if err != nil {
+			return nil, err
+		}
+		members = append(members, inst)
+	}
+	return members, nil
 }
 
 // HoldsOnlyContributions reports whether a feature of known multiplicity
@@ -811,7 +1035,7 @@ func (inst *Instance) holdContributions(ctx *Context, fv *FeatureValue, name str
 // once they conform to its multiplicity and type and are classified as its values.
 func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name string, contributed []Value) (*FeatureValue, error) {
 	val := sequenceOf(contributed)
-	if err := ctx.checkDefault(inst, fv, name, val, admitDeclared); err != nil {
+	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
 		return nil, err
 	}
 	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
@@ -826,6 +1050,7 @@ func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name strin
 		fv.Values = val
 	}
 	fv.Materialized = true
+	fv.Assumed = !symbols.IsAbstract(fv.Feature.Symbol) && fv.Feature.Multiplicity.AdmitsMore(int64(len(contributed)))
 	return fv, nil
 }
 
@@ -841,7 +1066,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	}
 	// A variation is materialized from the variant it is bound to, never from
 	// itself: it is an abstract classifier of its variants.
-	if ctx.model.IsVariationFeature(feat.Symbol) {
+	if ctx.model.semantics.IsVariationFeature(feat.Symbol) {
 		return nil
 	}
 	// A subject is a reference usage (SysML.xtext SubjectUsage): it holds what
@@ -990,7 +1215,7 @@ func (ctx *Context) bindsAFeature(sym *symbols.Symbol) bool {
 	}
 	for _, member := range sym.Scope.AllMembers() {
 		usage, ok := member.Decl.(*ast.Usage)
-		if !ok || !holdsRecordField(member) || ctx.model.FrameFeature(member) {
+		if !ok || !holdsRecordField(member) || ctx.model.semantics.FrameFeature(member) {
 			continue
 		}
 		if usage.Value != nil {

@@ -87,7 +87,7 @@
     },
     "keywords-contextual": {
       "name": "keyword.other.contextual.source.sysml",
-      "match": "\\b(?:junction|history|shallow|choice|chain|defer|point|deep|done)\\b"
+      "match": "\\b(?:junction|history|shallow|choice|chain|defer|deep|done)\\b"
     },
     "keywords-control": {
       "name": "keyword.control.source.sysml",

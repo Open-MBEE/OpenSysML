@@ -1,0 +1,6 @@
+do: watching
+stmt action body
+enter action node: state behavior poll
+exit: watching
+enter: finished
+transition: watching -> finished (event: time)

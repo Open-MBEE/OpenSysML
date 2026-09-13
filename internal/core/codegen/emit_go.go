@@ -477,7 +477,7 @@ func (e *goEmitter) block(stmts []Stmt) {
 func (e *goEmitter) stmt(s Stmt) {
 	switch s := s.(type) {
 	case Declare:
-		e.linef("var %s %s = %s", goLocal(s.Name), goType(s.T), e.declInit(s))
+		e.linef("var %s %s = %s", goLocal(s.Name), goType(s.T), goNarrowed(e.declInit(s), s.Range))
 		e.linef("_ = %s", goLocal(s.Name))
 	case Assign:
 		e.linef(goAssign, goLocal(s.Name), goNarrowed(e.expr(s.Value), s.Range))

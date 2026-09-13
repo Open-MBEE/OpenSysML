@@ -6,21 +6,24 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Context carries runtime execution state. One per workspace session.
+// Context is the run-derived state of one execution over a Model: the objects
+// it created, their values and lifetimes, the messages in flight, the clock, the
+// executors' progress. A snapshot captures it; the Model it runs over is shared
+// with every other run of the same model and is not part of it.
 type Context struct {
-	model    *semantics.Model
-	resolver *resolve.Resolver
+	// model is the model-derived part every context over one model shares.
+	model *Model
 	// ids hands out instance identities. Contexts holding the same objects share
 	// one sequence, so no two of them name different objects alike.
-	ids       *idSequence
+	ids *idSequence
+	// took is one past the highest identity this context took from ids (see idMark).
+	took      *idMark
 	maxSteps  int64
 	instances map[int64]*Instance
 	created   []int64
@@ -38,66 +41,13 @@ type Context struct {
 	// what its memory grows with, unlike a step.
 	maxElements int64
 
-	features map[*symbols.Symbol][]EffectiveFeature
-
-	// arrayFeatures memoizes the declarations of Collections::Array's features
-	// by name; see arrayFeatureSymbols.
-	arrayFeatures map[*symbols.Symbol]string
-
-	// frameFeatures memoizes the declarations of the MeasurementReferences features
-	// a coordinate frame, scale or transformation is read by; see frameFeatureSymbols.
-	frameFeatures map[*symbols.Symbol]string
 	// framesReading holds the frame each object being read is (nil for a
 	// transformation), so `target = that` finds it and a cycle is reported.
 	framesReading map[int64]*CoordinateFrame
 
-	// denotedFeatures memoizes, per type, the name of its feature each declared
-	// feature symbol denotes on an object of that type: itself or a redefinition.
-	denotedFeatures map[*symbols.Symbol]map[*symbols.Symbol]string
-
-	// holders memoizes, per type, the features whose stated value lists each
-	// named feature of the type.
-	holders map[*symbols.Symbol]map[string][]string
-
-	// returnedParams memoizes, per calc shape, the parameters its result passes on;
-	// returnedStack is the shapes under analysis, returnedProvisional those awaiting
-	// the root of their call cycle.
-	returnedParams      map[*calcShape]*returnedAnalysis
-	returnedStack       []*returnedAnalysis
-	returnedProvisional []*returnedAnalysis
-
-	// redefined memoizes, per feature of a type, the features it redefines
-	// transitively; callers read the shared slice and never append to it.
-	redefined map[featureOfType][]*symbols.Symbol
-
-	// writeTargets memoizes the declaration an assignment's target names, per
-	// scope the statement was written in: what a value written must conform to.
-	writeTargets map[writeTargetKey]*writeTarget
-
-	// calcShapes memoizes resolved calc invocation interfaces (parameters,
-	// defaults, result expression) per calc symbol.
-	calcShapes map[*symbols.Symbol]*calcShape
-
-	// predicateShapes memoizes the invocation interfaces of constraints and
-	// requirements applied as predicates.
-	predicateShapes map[*symbols.Symbol]*calcShape
-
 	// evaluations is the log of the case run under way (evaluation_log.go), nil
 	// outside one.
 	evaluations *evaluationLog
-
-	// libraryPerformances memoizes, per model calc, the inherited library function a
-	// call of it applies; nil for a calc that computes on its own.
-	libraryPerformances map[*symbols.Symbol]*libraryPerformance
-
-	// invocationTargets memoizes what each invocation expression denotes in the
-	// scope it is evaluated in; the model does not change under one context.
-	invocationTargets map[invocationKey]*invocationTarget
-
-	// integerLiterals and realLiterals memoize the value each numeric literal
-	// node spells, so a literal in a recursion is parsed once per context.
-	integerLiterals map[*ast.LiteralInteger]int64
-	realLiterals    map[*ast.LiteralReal]float64
 
 	// calcUsageRunning holds the calc usages whose bodies are running, so a body
 	// reading its own usage is a recursion rather than a nested evaluation.
@@ -110,19 +60,25 @@ type Context struct {
 	// usage evaluations, action performances — which functions closing over one carry.
 	runs int64
 
-	// occurrences holds the object each usage carrying no value of its own
-	// denotes, so a feature chain through a part reads one occurrence of it.
-	occurrences map[*symbols.Symbol]int64
+	// occurrences holds the objects each usage carrying no value of its own denotes, in
+	// declaration order: one for a usage of one occurrence, its lower bound for a collection.
+	occurrences map[*symbols.Symbol][]int64
+	// namespaceBindings holds the value each namespace-level object usage given a value
+	// denotes, so every read of it reads the one binding rather than evaluating it anew.
+	namespaceBindings map[*symbols.Symbol]Value
+	// bindingStack holds the namespace-level usages whose values are being evaluated, innermost
+	// last, so a value reaching back to its own usage is a cycle, and an extent finds no object of it yet.
+	bindingStack []*symbols.Symbol
+	// bindingReads holds, per bound usage, the declarations its value read to arrive at the binding,
+	// so a re-analysis carries the binding only while every one of them still reads the same.
+	bindingReads map[*symbols.Symbol]*bindingReads
 	// metadataObjects holds the object each metadata annotation denotes, so
 	// reading `.metadata` twice reads one object per annotation. The annotation
 	// is named by the element it annotates and its place among that element's
 	// annotations, so a reanalysis can rebind it.
 	metadataObjects map[metadataAnnotation]int64
-	// behaving memoizes runsBehaviors per type; the model is fixed for the context's life.
-	behaving map[*symbols.Symbol]bool
-	// behavingFeatures memoizes behavingParts and redefGroups redefinitionGroups, per type.
-	behavingFeatures map[*symbols.Symbol][]int
-	redefGroups      map[*symbols.Symbol][][]string
+	// tools runs the external tool a ToolExecution names; nil refuses every such action.
+	tools ToolRunner
 
 	// variantObjects holds the object a variant stands for per owner that
 	// selected it, so repeated reads of one selection read the same object.
@@ -137,23 +93,10 @@ type Context struct {
 	// so a connector reached from its own end is reported as a cycle.
 	materializingConnectors map[connectorRef]bool
 
-	// objectConns memoizes the connections declared by each type an object is
-	// of, which a behavior that object performs routes over.
-	objectConns map[*symbols.Symbol][]lower.Connection
-
-	// objectBindings memoizes binding connectors declared by each materialized
-	// object type, including bindings inherited from its supertypes.
-	bindingIR map[*symbols.Symbol][]lower.Binding
-
 	// resolvingBindings guards binding endpoint resolution for one instance
 	// feature, so a valueless binding cycle is reported rather than recursed.
 	resolvingBindings map[featureValueRef]bool
 	bindingOwners     map[featureValueRef]*ast.Usage
-	bindingFeatures   map[*symbols.Symbol]map[string][]lower.Binding
-
-	// classifierBehaviors memoizes the behaviors each type binds to its objects:
-	// the machines it exhibits and the actions it performs.
-	classifierBehaviors map[*symbols.Symbol][]classifierBehaviorDecl
 
 	// pendingBehaviors are the object behaviors attached but not yet run, drained
 	// by the outermost materialization so a start reached from inside a running
@@ -187,6 +130,9 @@ type Context struct {
 	// pausable is the body run on the stack a breakpoint or a wait on the clock
 	// pauses (action_body_run.go), nil while none is.
 	pausable *bodyRun
+	// clockHeldBy names the behavior on the stack that must end at the instant it
+	// runs at, so no wait on the clock under it may advance the clock; "" for none.
+	clockHeldBy string
 	// idleBody is the body coroutine no step's work is on, kept for the next step
 	// until the outermost run leaves; bodyCoroutinesMade counts the ones made.
 	idleBody           *bodyCoroutine
@@ -234,6 +180,9 @@ type Context struct {
 	// the identities it keeps for connectors not yet materialized — run in reverse
 	// as each is undone; see noteProbeUndo.
 	journalUndos []func()
+	// snapshots are the live snapshots of this context, oldest first (snapshot.go);
+	// each is a journal under way.
+	snapshots []*Snapshot
 	// deriving are the `=` values being derived, innermost last; every feature
 	// value read while one is records it as a dependent (see dependents.go).
 	deriving []derivation
@@ -252,10 +201,19 @@ type Context struct {
 	// exploring is the exploration run this context's runs take part in, nil
 	// outside Explore (explore.go).
 	exploring *exploreRun
+	// replaying is the witness this context's runs follow in turn under a
+	// `replay` policy (replay.go), nil under any other.
+	replaying *replayRun
+	// choices are the choice points the context's runs resolved, in order: the
+	// witness a replay of them follows.
+	choices []ChoiceTaken
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
 	messages []Message
+	// mail, while a state's do behavior runs, is where its accepts look in place
+	// of the bus: the message its machine dispatched to it, none between dispatches.
+	mail *[]Message
 
 	// clock is the simulation time every executor of this context shares, and
 	// clockRun the run an advance of it draws its due-order choices from.
@@ -272,16 +230,6 @@ type Context struct {
 	// readingSubsetted holds the optional features whose subsetted collections are
 	// being read ahead of them, so two subsetting each other do not recurse.
 	readingSubsetted map[featureValueRef]bool
-
-	// sources holds the text of the files the model was read from, by name, so an
-	// error about a declaration can say where it was written. A file no caller
-	// registered is reported by name and byte offset instead.
-	sources map[string]*source.SourceFile
-
-	// scopes holds the scope trees the caller resolves references in; declared
-	// maps each declaration node to the symbol they declare for it, built on first use.
-	scopes   []*symbols.Scope
-	declared map[ast.Node]*symbols.Symbol
 }
 
 // featureValueRef identifies one feature value of one instance.
@@ -309,41 +257,30 @@ type connectorRef struct {
 	connector *symbols.Symbol
 }
 
-// NewContext creates a runtime context backed by the given semantic model.
+// NewContext creates a run's context over the model-derived part model.
 // maxSteps sets the runaway guard (step counter limit); the executor bounds take
 // their defaults, which SetBudgets replaces.
 // It panics if maxSteps <= 0: the limit is a programmer-supplied invariant, not
 // user input, so callers must pass a positive value.
-func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int64) *Context {
+func NewContext(model *Model, maxSteps int64) *Context {
 	if maxSteps <= 0 {
 		panic(fmt.Sprintf("runtime: maxSteps must be > 0, got %d", maxSteps))
 	}
-	if model != nil {
-		// Calls the model selects on its own (document queries, signal payloads) then
-		// pick the overload the checker's argument typing picks.
-		model.SetArgumentTyper(passes.NewArgumentTyper(resolver, model))
+	if model == nil {
+		panic("runtime: NewContext needs a Model")
 	}
-	return &Context{
-		model:               model,
-		resolver:            resolver,
-		ids:                 &idSequence{next: 1}, // IDs start at 1 (0 = invalid)
-		maxSteps:            maxSteps,
-		instances:           make(map[int64]*Instance),
-		lives:               make(map[int64]life),
-		features:            make(map[*symbols.Symbol][]EffectiveFeature),
-		denotedFeatures:     make(map[*symbols.Symbol]map[*symbols.Symbol]string),
-		holders:             make(map[*symbols.Symbol]map[string][]string),
-		returnedParams:      make(map[*calcShape]*returnedAnalysis),
-		calcShapes:          make(map[*symbols.Symbol]*calcShape),
-		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
-		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
+	ctx := &Context{
+		model:     model,
+		maxSteps:  maxSteps,
+		instances: make(map[int64]*Instance),
+		lives:     make(map[int64]life),
 
-		invocationTargets: make(map[invocationKey]*invocationTarget),
-		integerLiterals:   make(map[*ast.LiteralInteger]int64),
-		realLiterals:      make(map[*ast.LiteralReal]float64),
-		compileCalcs:      CalcCompileFromEnv(),
+		compileCalcs: CalcCompileFromEnv(),
 
-		run:              &runState{calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun)},
+		run: &runState{
+			calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
+			extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
+		},
 		calcUsageRunning: make(map[calcUsageKey]*calcShape),
 
 		maxActionSteps: DefaultMaxActionSteps,
@@ -353,66 +290,34 @@ func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int
 		maxCalcDepth:   DefaultMaxCalcDepth,
 		maxSweepRuns:   DefaultMaxSweepRuns,
 
-		occurrences:      make(map[*symbols.Symbol]int64),
-		metadataObjects:  make(map[metadataAnnotation]int64),
-		behaving:         make(map[*symbols.Symbol]bool),
-		behavingFeatures: make(map[*symbols.Symbol][]int),
-		redefGroups:      make(map[*symbols.Symbol][][]string),
-		variantObjects:   make(map[variantObject]int64),
-		selectedVariants: make(map[variantSelection]string),
+		occurrences:       make(map[*symbols.Symbol][]int64),
+		namespaceBindings: make(map[*symbols.Symbol]Value),
+		bindingReads:      make(map[*symbols.Symbol]*bindingReads),
+		metadataObjects:   make(map[metadataAnnotation]int64),
+		variantObjects:    make(map[variantObject]int64),
+		selectedVariants:  make(map[variantSelection]string),
 
 		materializingConnectors: make(map[connectorRef]bool),
-		objectConns:             make(map[*symbols.Symbol][]lower.Connection),
-		bindingIR:               make(map[*symbols.Symbol][]lower.Binding),
-		classifierBehaviors:     make(map[*symbols.Symbol][]classifierBehaviorDecl),
 		derivingFeatureValues:   make(map[featureValueRef]bool),
 		resolvingBindings:       make(map[featureValueRef]bool),
 		bindingOwners:           make(map[featureValueRef]*ast.Usage),
-		bindingFeatures:         make(map[*symbols.Symbol]map[string][]lower.Binding),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
-		redefined:               make(map[featureOfType][]*symbols.Symbol),
-		sources:                 make(map[string]*source.SourceFile),
 	}
+	ctx.took = &idMark{high: 1}
+	ctx.ids = newIDSequence(ctx.took)
+	return ctx
 }
 
-// RegisterSource gives the context the text of a file the model was read from,
-// so an error about a declaration in it reports a line and column.
-func (ctx *Context) RegisterSource(sf *source.SourceFile) {
-	if sf == nil {
-		return
-	}
-	ctx.sources[sf.Name()] = sf
+// Model returns the model-derived part this context runs over.
+func (ctx *Context) Model() *Model {
+	return ctx.model
 }
 
-// RegisterScope gives the context a scope tree the caller resolves references
-// in, so a declaration carried over by Adopt is rebound to the symbol that tree
-// declares for it rather than to the index's own.
-func (ctx *Context) RegisterScope(scope *symbols.Scope) {
-	if scope == nil {
-		return
-	}
-	ctx.scopes = append(ctx.scopes, scope)
-	ctx.declared = nil
-}
-
-// declaredSymbol is the symbol a registered scope tree declares for the
-// declaration sym stands for, or sym itself when none does (a library declaration,
-// or a context resolving in the index's tree alone).
+// declaredSymbol is the symbol a scope tree registered with the model declares
+// for the declaration sym stands for, or sym itself when none does.
 func (ctx *Context) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil || sym.Decl == nil || len(ctx.scopes) == 0 {
-		return sym
-	}
-	if ctx.declared == nil {
-		ctx.declared = make(map[ast.Node]*symbols.Symbol)
-		for _, scope := range ctx.scopes {
-			collectDeclared(scope, ctx.declared)
-		}
-	}
-	if local, ok := ctx.declared[sym.Decl]; ok {
-		return local
-	}
-	return sym
+	return ctx.model.declaredSymbol(sym)
 }
 
 // collectDeclared records the symbol declared by each node under scope.
@@ -436,7 +341,7 @@ func (ctx *Context) sourceLocation(file string, span source.Span) string {
 	if file == "" {
 		return ""
 	}
-	sf, ok := ctx.sources[file]
+	sf, ok := ctx.model.sources[file]
 	if !ok || span.End() > sf.Len() {
 		if span.Len == 0 && span.Offset == 0 {
 			return file
@@ -468,12 +373,17 @@ func (ctx *Context) Trace() *TraceRecorder {
 
 // SetSchedule sets the policy the runs started from now on resolve their choice
 // points under; a run already under way keeps the one it started with. An
-// `explore` policy is ErrExploreUndriven: it is driven by Explore.
+// `explore` policy is ErrExploreUndriven: it is driven by Explore. A `replay`
+// policy starts its witness over, which the runs then follow in turn.
 func (ctx *Context) SetSchedule(policy SchedulePolicy) error {
 	if _, explores := policy.Exploration(); explores {
 		return fmt.Errorf("%w: %s replays whole runs from the start, so it is driven by Explore", ErrExploreUndriven, policy)
 	}
 	ctx.schedule = policy
+	ctx.replaying = nil
+	if policy.kind == scheduleReplay {
+		ctx.replaying = &replayRun{inputs: slices.Clone(policy.replay.witness.Inputs), choices: slices.Clone(policy.replay.witness.Choices)}
+	}
 	return nil
 }
 
@@ -481,14 +391,23 @@ func (ctx *Context) SetSchedule(policy SchedulePolicy) error {
 // state installed for a run no bracket began starts over, drawing from it.
 func (ctx *Context) beginExploration(policy SchedulePolicy, run *exploreRun) {
 	ctx.schedule = policy
-	ctx.exploring = run
+	ctx.exploring, ctx.replaying = run, nil
 	ctx.run = ctx.newRunState()
 }
 
 // newScheduler starts the resolutions of one run under the context's policy.
 func (ctx *Context) newScheduler() *scheduler {
-	s := ctx.schedule.start()
+	return ctx.schedulerUnder(ctx.schedule)
+}
+
+// schedulerUnder starts one run's resolutions under policy, drawing from the
+// exploration or the witness the context's runs share.
+func (ctx *Context) schedulerUnder(policy SchedulePolicy) *scheduler {
+	s := policy.start()
 	s.explore = ctx.exploring
+	if policy.kind == scheduleReplay && ctx.replaying != nil {
+		s.replay = ctx.replaying
+	}
 	return s
 }
 
@@ -506,16 +425,16 @@ func (ctx *Context) scheduling() *scheduler {
 	return ctx.run.scheduler
 }
 
-// Model returns the semantic model this context operates over.
-func (ctx *Context) Model() *semantics.Model {
-	return ctx.model
+// Semantics returns the semantic model this context operates over.
+func (ctx *Context) Semantics() *semantics.Model {
+	return ctx.model.semantics
 }
 
 // conforms is the model's conformance across scope trees: the index and a
 // document each build a symbol of their own for one declaration, so a symbol
 // conforms to another declared by the same node as it or one of its supertypes.
 func (ctx *Context) conforms(a, b *symbols.Symbol) bool {
-	if ctx.model.Conforms(a, b) {
+	if ctx.modelConforms(a, b) {
 		return true
 	}
 	if a == nil || b == nil || b.Decl == nil {
@@ -524,7 +443,7 @@ func (ctx *Context) conforms(a, b *symbols.Symbol) bool {
 	if a.Decl == b.Decl {
 		return true
 	}
-	for _, sup := range ctx.model.AllSupertypes(a) {
+	for _, sup := range ctx.model.semantics.AllSupertypes(a) {
 		if sup != nil && sup.Decl == b.Decl {
 			return true
 		}
@@ -534,7 +453,7 @@ func (ctx *Context) conforms(a, b *symbols.Symbol) bool {
 
 // Resolver returns the name resolver this context resolves references with.
 func (ctx *Context) Resolver() *resolve.Resolver {
-	return ctx.resolver
+	return ctx.model.resolver
 }
 
 // SourceLocation renders where a span in a file was written, as `file:line:col`,
@@ -544,14 +463,36 @@ func (ctx *Context) SourceLocation(file string, span source.Span) string {
 }
 
 // idSequence hands out instance identities, one per object over the contexts
-// sharing it.
+// sharing it. Of each it keeps only its mark, so a context dropped is not kept alive.
 type idSequence struct {
-	next int64
+	next  int64
+	marks []*idMark
 }
 
-func (s *idSequence) take() int64 {
+// idMark is one past the highest identity a context took from its sequence and
+// has not rolled back; it outlives the context, so what a dropped one took stays taken.
+type idMark struct {
+	high int64
+}
+
+// newIDSequence starts the identities of one context at 1; 0 is no identity.
+func newIDSequence(mark *idMark) *idSequence {
+	return &idSequence{next: 1, marks: []*idMark{mark}}
+}
+
+// share hands the sequence to ctx as well, raised past what ctx handed out so far.
+func (s *idSequence) share(ctx *Context) {
+	s.atLeast(ctx.ids.next)
+	ctx.ids.marks = slices.DeleteFunc(ctx.ids.marks, func(m *idMark) bool { return m == ctx.took })
+	s.marks = append(s.marks, ctx.took)
+	ctx.ids = s
+}
+
+// take hands out the next identity to the context marked by mark.
+func (s *idSequence) take(mark *idMark) int64 {
 	id := s.next
 	s.next++
+	mark.high = s.next
 	return id
 }
 
@@ -562,11 +503,19 @@ func (s *idSequence) atLeast(id int64) {
 	}
 }
 
-// release hands out id next again, once every identity taken from it on is
-// abandoned: what a probe made and undid never happened.
-func (s *idSequence) release(id int64) {
-	if id < s.next {
-		s.next = id
+// release hands out id next again once ctx, rolling back, holds no identity from id
+// on — but never one another context sharing the sequence took.
+func (s *idSequence) release(ctx *Context, id int64) {
+	if ctx.holdsIdentityFrom(id) {
+		return
+	}
+	ctx.took.high = min(ctx.took.high, id)
+	next := id
+	for _, mark := range s.marks {
+		next = max(next, mark.high)
+	}
+	if next < s.next {
+		s.next = next
 	}
 }
 
@@ -591,9 +540,29 @@ func (ctx *Context) holdsIdentityFrom(id int64) bool {
 	return false
 }
 
+// heldIdentities are the identities ctx holds: its objects' and those set aside
+// for connectors not materialized again.
+func (ctx *Context) heldIdentities() map[int64]bool {
+	held := make(map[int64]bool, len(ctx.instances))
+	for id, inst := range ctx.instances {
+		held[id] = true
+		for _, kept := range inst.KeptConnectorIDs() {
+			held[kept] = true
+		}
+	}
+	return held
+}
+
 // allocateID returns the next instance ID and increments the counter.
 func (ctx *Context) allocateID() int64 {
-	return ctx.ids.take()
+	return ctx.ids.take(ctx.took)
+}
+
+// claimID counts id as taken by this context: an identity an object was made or
+// adopted under rather than handed out here.
+func (ctx *Context) claimID(id int64) {
+	ctx.ids.atLeast(id + 1)
+	ctx.took.high = max(ctx.took.high, id+1)
 }
 
 // runState is what one run keeps of itself: the budget it spent, what it noted
@@ -607,13 +576,17 @@ type runState struct {
 	// calcUsageRuns holds, per activation under way, the evaluation of each calc
 	// usage read in it, so its outputs answer from one run of the body (calc_usage.go).
 	calcUsageRuns map[int64]map[calcUsageKey]*calcRun
+	// extentCandidates holds, per type an extent was taken of, the namespace usages
+	// that may hold one (extent.go).
+	extentCandidates map[*symbols.Symbol]*extentCandidates
 }
 
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
 	return &runState{
-		scheduler:     ctx.newScheduler(),
-		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
+		scheduler:        ctx.newScheduler(),
+		calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
+		extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
 	}
 }
 
@@ -646,9 +619,11 @@ func (ctx *Context) beginRun() func() {
 }
 
 // executorRun is a run driven call by call: its state, nil until its first call
-// begins it, which every later call resumes.
+// begins it, which every later call resumes; owned when that state is its own
+// rather than an enclosing run's.
 type executorRun struct {
 	state *runState
+	owned bool
 }
 
 // beginExecutorRun brackets one call into a call-by-call driven executor: the run's
@@ -658,10 +633,19 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 		if ctx.runDepth > 0 {
 			run.state = ctx.run
 		} else {
-			run.state = ctx.newRunState()
+			run.state, run.owned = ctx.newRunState(), true
 		}
 	}
 	return ctx.enterRun(run.state)
+}
+
+// endedWhole is the refusal of a call-by-call run of its own that ended with
+// witness moves left over; one sharing an enclosing run leaves them to it.
+func (ctx *Context) endedWhole(run *executorRun) error {
+	if !run.owned {
+		return nil
+	}
+	return run.state.scheduler.unfollowed("the run ended")
 }
 
 // previewExecutorRun installs, for a preview of a call into a call-by-call driven
@@ -712,8 +696,8 @@ func (ctx *Context) beginProbe() func() {
 		rollback()
 		endBoundary()
 		restoreSchedule()
-		if ctx.ids == ids && !ctx.holdsIdentityFrom(nextID) {
-			ids.release(nextID)
+		if ctx.ids == ids {
+			ids.release(ctx, nextID)
 		}
 		ctx.probes--
 		ctx.leaveRun()
@@ -743,30 +727,17 @@ func (ctx *Context) beginRunBoundary() func() {
 // and behaviors attached are journaled until commit keeps them or rollback
 // restores them. A commit inside an enclosing journal leaves the entries to it.
 func (ctx *Context) beginJournal() (commit, rollback func()) {
-	mark, undoMark := len(ctx.journalWrites), len(ctx.journalUndos)
-	created, attached := len(ctx.created), len(ctx.objectBehaviors)
-	messages := slices.Clone(ctx.messages)
-	restoreClock := ctx.clock.snapshot()
+	mark := ctx.markJournal()
 	ctx.journals++
 	commit = func() {
 		ctx.journals--
 		if ctx.journals == 0 {
-			ctx.journalWrites, ctx.journalUndos = ctx.journalWrites[:mark], ctx.journalUndos[:undoMark]
+			ctx.journalWrites, ctx.journalUndos = ctx.journalWrites[:mark.writes], ctx.journalUndos[:mark.undos]
 		}
 	}
 	rollback = func() {
 		ctx.journals--
-		for i := len(ctx.journalWrites) - 1; i >= mark; i-- {
-			*ctx.journalWrites[i].fv = ctx.journalWrites[i].prior
-		}
-		ctx.journalWrites = ctx.journalWrites[:mark]
-		for i := len(ctx.journalUndos) - 1; i >= undoMark; i-- {
-			ctx.journalUndos[i]()
-		}
-		ctx.journalUndos = ctx.journalUndos[:undoMark]
-		ctx.messages = messages
-		ctx.abandonCreationSince(created, attached)
-		restoreClock()
+		ctx.rollbackJournal(mark)
 	}
 	return commit, rollback
 }
@@ -1224,7 +1195,7 @@ type scopedMember struct {
 // library's supertype contributes as a model's does.
 func (ctx *Context) chainMembers(sym *symbols.Symbol, scope *symbols.Scope) []scopedMember {
 	var out []scopedMember
-	supers := ctx.model.MemberSources(sym)
+	supers := ctx.model.semantics.MemberSources(sym)
 	for i := len(supers) - 1; i >= 0; i-- {
 		link := supers[i]
 		if link == nil || ctx.frameDeclared(link) {
@@ -1371,14 +1342,14 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 // performAction runs action to completion, performed by self, and returns the
 // executor that ran it, whose root performance holds what it produced.
 func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	return ctx.performActionFrom(action, self, inputs, (*ActionExecutor).initialize)
+	return ctx.performActionFrom(action, action, self, inputs, (*ActionExecutor).initialize)
 }
 
-// performActionStep runs action as a step of an enclosing behavior. A step
-// stating no flow performs none: it takes its inputs, binds its computed
-// outputs and ends at once, as an object performing such an action does.
-func (ctx *Context) performActionStep(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	return ctx.performActionFrom(action, self, inputs, func(exec *ActionExecutor) error {
+// performActionStep runs action as a step of an enclosing behavior, the step as named
+// being performed. A step stating no flow performs none: it takes its inputs, binds
+// its computed outputs and ends at once, as an object performing such an action does.
+func (ctx *Context) performActionStep(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+	return ctx.performActionFrom(performed, action, self, inputs, func(exec *ActionExecutor) error {
 		if !exec.hasFlow() {
 			return exec.completeWithoutFlow()
 		}
@@ -1386,33 +1357,62 @@ func (ctx *Context) performActionStep(action *symbols.Symbol, self *Instance, in
 	})
 }
 
-// performActionFrom creates the executor for action, seeds its inputs, starts
-// it with start, and runs it to completion; the clock drives it no further.
-func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+// performActionFrom creates the executor for a performance of performed running
+// action, seeds its inputs, starts it with start, and runs it to completion; the
+// clock drives it no further.
+func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
-	exec, err := newActionExecutor(ctx, action, self)
+	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
 	defer ctx.clock.detach(exec)
+	exec.beginsRun = top
 
 	// Bind inputs before initialization so they seed the initial token.
 	if len(inputs) > 0 {
 		exec.SetInputs(inputs)
 	}
 
-	if err := start(exec); err != nil {
-		return nil, fmt.Errorf("initialize action: %w", err)
+	if err := ctx.startAction(exec, start); err != nil {
+		return nil, err
 	}
-	if exec.state == StateCompleted {
-		return exec, nil
+	if exec.state != StateCompleted {
+		if err := exec.RunToCompletion(); err != nil {
+			return nil, fmt.Errorf("execute action: %w", err)
+		}
 	}
-
-	if err := exec.RunToCompletion(); err != nil {
+	if err := ctx.followedWhole(top); err != nil {
 		return nil, fmt.Errorf("execute action: %w", err)
 	}
 	return exec, nil
+}
+
+// followedWhole is the refusal of a top-level run that ended with witness moves
+// left over; a nested run leaves what is left to the run enclosing it.
+func (ctx *Context) followedWhole(top bool) error {
+	if !top {
+		return nil
+	}
+	return ctx.Unfollowed()
+}
+
+// startAction begins an executor however its action is performed: one a ToolExecution
+// annotates, on the action as named or a type of it, is performed by its tool, which
+// completes it; any other is begun by begin. Every way of starting an action passes through here.
+func (ctx *Context) startAction(exec *ActionExecutor, begin func(*ActionExecutor) error) error {
+	if exec.tool != nil {
+		if err := exec.performByTool(exec.tool); err != nil {
+			return fmt.Errorf("perform action by tool: %w", err)
+		}
+		return nil
+	}
+	if err := begin(exec); err != nil {
+		return fmt.Errorf("initialize action: %w", err)
+	}
+	return nil
 }
 
 // ExecuteState executes a state machine, processing events until completion or suspension.
@@ -1459,6 +1459,7 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 // performState runs a state machine performed by self to completion or
 // suspension, the events injected before it runs, and returns its executor.
 func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, events []string) (*StateExecutor, error) {
+	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
 	// Create executor
@@ -1482,6 +1483,9 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	if err := exec.RunToCompletion(); err != nil {
 		return nil, err
 	}
+	if err := ctx.followedWhole(top); err != nil {
+		return nil, err
+	}
 	return exec, nil
 }
 
@@ -1492,17 +1496,28 @@ func (ctx *Context) CreateActionExecutor(action *symbols.Symbol) (*ActionExecuto
 }
 
 // CreateActionExecutorFor creates an action executor for an action performed by
-// self, without starting execution.
+// self, without starting execution. An action a ToolExecution annotates has no flow to
+// step: its tool is invoked once and the executor returned completed with its outputs.
 func (ctx *Context) CreateActionExecutorFor(action *symbols.Symbol, self *Instance) (*ActionExecutor, error) {
+	return ctx.CreateActionExecutorWithInputs(action, self, nil)
+}
+
+// CreateActionExecutorWithInputs creates an action executor for an action
+// performed by self with its inputs bound ahead of its defaults, without
+// starting execution.
+func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
 	exec, err := newActionExecutor(ctx, action, self)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
+	exec.beginsRun = true
+	if len(inputs) > 0 {
+		exec.SetInputs(inputs)
+	}
 
-	// Initialize (spawns initial token)
-	if err := exec.initialize(); err != nil {
+	if err := ctx.startAction(exec, (*ActionExecutor).initialize); err != nil {
 		exec.Release()
-		return nil, fmt.Errorf("initialize action: %w", err)
+		return nil, err
 	}
 
 	return exec, nil

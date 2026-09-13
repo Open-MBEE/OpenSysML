@@ -649,7 +649,7 @@ func escapingSeqs(s Stmt) []Var {
 func (e *cEmitter) stmt(s Stmt) {
 	switch s := s.(type) {
 	case Declare:
-		e.linef("%s %s = %s;", cType(s.T), cLocal(s.Name), e.declInit(s))
+		e.linef("%s %s = %s;", cType(s.T), cLocal(s.Name), cNarrowed(e.declInit(s), s.Range))
 	case Assign:
 		e.linef(cAssign, cLocal(s.Name), cNarrowed(e.expr(s.Value), s.Range))
 	case If:

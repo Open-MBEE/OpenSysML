@@ -1,0 +1,6 @@
+{
+	"libraries": true,
+	"type": "constraint",
+	"evaluate": "test::refused",
+	"error": "feature value test::refused::x: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1"
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
 // completionLimit bounds a completion answer: the library registers tens of
@@ -29,10 +30,9 @@ type Completion struct {
 // commands where a command is being typed, file paths where %load and %save
 // take one, and otherwise the names the session and the library declare.
 func (s *Session) Complete(line string, pos int) Completion {
-	// Held because completing builds the library index, and readline asks from
-	// its input goroutine while the loop may be evaluating the previous line.
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// Reads beside a running command: readline asks from its input goroutine
+	// while the loop may be evaluating the previous line.
+	defer s.reading()()
 
 	if pos < 0 || pos > len(line) {
 		pos = len(line)
@@ -49,10 +49,15 @@ func (s *Session) Complete(line string, pos int) Completion {
 		word := lastField(head)
 		return completion(word, pathCompletions(word))
 	}
-	// %render takes the form after the view name, which is no name to look up.
+	// %render takes the form after the view name, which is no name to look up,
+	// and a palette after a form that fills nodes.
 	if command == "%render" && atSecondArgument(head) {
 		word := lastField(head)
 		return completion(word, matchingPrefix(renderForms(), word))
+	}
+	if command == "%render" && atPaletteArgument(head) {
+		word := lastField(head)
+		return completion(word, matchingPrefix(renderPalettes(), word))
 	}
 	if atObjectArgument(head) {
 		word := objectWord(head)
@@ -106,6 +111,13 @@ func sharedPrefix(candidates []string) string {
 // space ('My View') is one argument, and one still being typed is not yet past.
 func atSecondArgument(head string) bool {
 	return !inUnfinishedName(head) && argumentIndex(head) == 2
+}
+
+// atPaletteArgument reports whether the word being typed is %render's third
+// argument after a form that takes a palette: the palette to fill from.
+func atPaletteArgument(head string) bool {
+	args := typedArgs(head)
+	return !inUnfinishedName(head) && argumentIndex(head) == 3 && len(args) > 2 && view.Form(args[2]).TakesPalette()
 }
 
 // atObjectArgument reports whether the word being typed is an argument the
@@ -460,7 +472,7 @@ func (s *Session) objectTypeOf(feat *runtime.EffectiveFeature) *symbols.Symbol {
 	if typ := s.rtCtx.CompositeTypeOf(feat); typ != nil {
 		return typ
 	}
-	if s.rtCtx.Model().IsConnectorUsage(feat.Symbol) {
+	if s.rtCtx.Semantics().IsConnectorUsage(feat.Symbol) {
 		return feat.Symbol
 	}
 	return nil

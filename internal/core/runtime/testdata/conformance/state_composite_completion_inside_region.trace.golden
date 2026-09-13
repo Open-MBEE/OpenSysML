@@ -1,0 +1,27 @@
+exit: wait
+enter: done
+transition: wait -> done (event: accept Go)
+exit: done
+exit: inner (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "/inner;" -> "/inner;"
+    eval operator + -> "/inner;"
+enter: done
+transition: done -> done
+exit: done
+exit: done
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "/inner;"
+      eval literal "/outer;" -> "/outer;"
+    eval operator + -> "/inner;/outer;"
+enter: next (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "/inner;/outer;"
+      eval literal "next;" -> "next;"
+    eval operator + -> "/inner;/outer;next;"
+transition: outer -> next

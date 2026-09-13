@@ -25,18 +25,41 @@ func elementNamed(t *testing.T, graph *rdf.Graph, qn string) rdf.Term {
 	return found[0]
 }
 
-// chainTargets is the sysml:targetFeature of every chain written as text under owner.
-func chainTargets(t *testing.T, graph *rdf.Graph, owner, text string) []rdf.Term {
+// ownedIDs is the id of owner and of every element owned under it, transitively.
+func ownedIDs(graph *rdf.Graph, owner rdf.Term) map[string]bool {
+	ids := map[string]bool{rdf.LocalName(owner.Value): true}
+	for {
+		grew := false
+		for _, triple := range graph.Triples() {
+			if triple.Predicate.Value != rdf.SysML+"owner" || !ids[rdf.LocalName(triple.Object.Value)] {
+				continue
+			}
+			if id := rdf.LocalName(triple.Subject.Value); !ids[id] {
+				ids[id], grew = true, true
+			}
+		}
+		if !grew {
+			return ids
+		}
+	}
+}
+
+// chainTargets is the sysml:targetFeature of every chain written as text under
+// owner: expression nodes extend the id of the element that owns them.
+func chainTargets(t *testing.T, graph *rdf.Graph, owner rdf.Term, text string) []rdf.Term {
 	t.Helper()
+	owned := ownedIDs(graph, owner)
 	var targets []rdf.Term
 	for _, triple := range graph.Triples() {
 		if triple.Predicate.Value != rdf.OpenSysML+"sourceText" || !triple.Object.IsLiteral() || triple.Object.Value != text {
 			continue
 		}
-		if !strings.HasPrefix(triple.Subject.Value, "urn:opensysml:expr:"+owner+"_") {
-			continue
+		for id := range owned {
+			if strings.HasPrefix(triple.Subject.Value, rdf.Expression+id+"_p") {
+				targets = append(targets, graph.Objects(triple.Subject, rdf.SysML+"targetFeature")...)
+				break
+			}
 		}
-		targets = append(targets, graph.Objects(triple.Subject, rdf.SysML+"targetFeature")...)
 	}
 	if len(targets) == 0 {
 		t.Fatalf("no chain %q written under %s", text, owner)
@@ -44,8 +67,10 @@ func chainTargets(t *testing.T, graph *rdf.Graph, owner, text string) []rdf.Term
 	return targets
 }
 
-// `faces.edges` and `faces::edges` both bind to the anonymous member of `faces`
-// named by its redefinition, so the encoder writes one IRI for both spellings.
+// Polyhedron's chain `faces.edges` binds to the anonymous member of `faces` named
+// by its redefinition. The redefinition `faces::edges` inside `ff :> faces` starts
+// at ff's generals instead: Polygon inherits Path's `:>> faces`, whose `edges` is
+// the library's StructuredSpaceObject::faces::edges, outside this graph.
 func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
 	path := filepath.Join("..", "libs", "stdlib", "Domain Libraries", "Geometry", "ShapeItems.sysml")
 	src, err := os.ReadFile(path)
@@ -62,7 +87,7 @@ func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
 	}
 
 	polygonEdges := elementNamed(t, graph, "ShapeItems::Polygon::@1")
-	facesEdges := chainTargets(t, graph, "ShapeItems__Polyhedron", "faces.edges")
+	facesEdges := chainTargets(t, graph, elementNamed(t, graph, "ShapeItems::Polyhedron"), "faces.edges")
 	if len(facesEdges) != 1 || !facesEdges[0].IsIRI() {
 		t.Fatalf("Polyhedron's faces.edges names %v, want one IRI", facesEdges)
 	}
@@ -73,16 +98,16 @@ func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
 	for _, usage := range []string{"ff", "rf"} {
 		member := elementNamed(t, graph, "ShapeItems::CuboidOrTriangularPrism::"+usage+"::@0")
 		got := graph.Objects(member, rdf.SysML+"redefines")
-		if len(got) != 2 || got[0] != polygonEdges || got[1] != facesEdges[0] {
-			t.Errorf("%s's `:>> Polygon::edges, faces::edges` redefines %v, want Polygon's edges and the member faces.edges binds to", usage, got)
+		if len(got) != 2 || got[0] != polygonEdges || got[1] != rdf.String("faces::edges") {
+			t.Errorf("%s's `:>> Polygon::edges, faces::edges` redefines %v, want Polygon's edges and the library's faces::edges as text", usage, got)
 		}
 	}
 	for owner, texts := range map[string][]string{
-		"ShapeItems__Pyramid":        {"base.edges", "wall#(i).edges"},
-		"ShapeItems__ConeOrCylinder": {"base.edges"},
+		"ShapeItems::Pyramid":        {"base.edges", "wall#(i).edges"},
+		"ShapeItems::ConeOrCylinder": {"base.edges"},
 	} {
 		for _, text := range texts {
-			for _, target := range chainTargets(t, graph, owner, text) {
+			for _, target := range chainTargets(t, graph, elementNamed(t, graph, owner), text) {
 				if !target.IsIRI() {
 					t.Errorf("%s's %s names %s, want an element of the graph", owner, text, target)
 				}

@@ -854,8 +854,8 @@ func TestEvalResolvesImportedUnitsUnqualified(t *testing.T) {
 
 // An attribute shaped as a Collections::Array by its own dimensions and elements
 // binds no value expression, yet names one Array value; its derived features
-// read out of that value, and a valueless attribute of another type still
-// reports that it holds none.
+// read out of that value, and a valueless attribute of another type reads
+// undetermined, as any model-level feature nothing values does.
 func TestEvalArrayShapedByItsFeatures(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(`package Grid {
@@ -871,7 +871,7 @@ func TestEvalArrayShapedByItsFeatures(t *testing.T) {
 	wants(t, run(t, s, "%eval Grid::cells.rank"), "= 2")
 	wants(t, run(t, s, "%eval Grid::cells.flattenedSize"), "= 6")
 	wants(t, run(t, s, "%eval CollectionFunctions::'array#'(Grid::cells, (2, 1))"), "= 4")
-	wants(t, run(t, s, "%eval Grid::bare"), "has no value to evaluate")
+	wants(t, run(t, s, "%eval Grid::bare"), "= "+runtime.UndeterminedText)
 }
 
 // A require/assume constraint binding a value reads that value, as a constraint
@@ -914,12 +914,12 @@ func TestPromptScopeIsTheLastNamespaceDeclared(t *testing.T) {
 // spaces — a quantity, a parenthesized expression, a nested call — survives.
 func TestCalcParsesExpressionArguments(t *testing.T) {
 	s := quantitySession(t)
-	wants(t, run(t, s, "%calc Fall -15.0 [m/s] 8.5 [s]"), "✓ Fall(-15.0 [m/s], 8.5 [s])", "= -127.5 [m]")
+	wants(t, run(t, s, "%calc Fall -15.0 [m/s] 8.5 [s]"), "✓ Fall(-15.0 [m/s], 8.5 [s])", "= -127.5 [SI::m]")
 	// The same invocation written the way the notation writes one.
-	wants(t, run(t, s, "%calc Fall(-15.0 [m/s], 8.5 [s])"), "= -127.5 [m]")
+	wants(t, run(t, s, "%calc Fall(-15.0 [m/s], 8.5 [s])"), "= -127.5 [SI::m]")
 	// A parenthesized subexpression, and a call standing as an argument.
-	wants(t, run(t, s, "%calc Fall (-5.0 [m/s] - 10.0 [m/s]) 8.5 [s]"), "= -127.5 [m]")
-	wants(t, run(t, s, "%calc Fall -15.0 [m/s] (4.0 [s] + 4.5 [s])"), "= -127.5 [m]")
+	wants(t, run(t, s, "%calc Fall (-5.0 [m/s] - 10.0 [m/s]) 8.5 [s]"), "= -127.5 [SI::m]")
+	wants(t, run(t, s, "%calc Fall -15.0 [m/s] (4.0 [s] + 4.5 [s])"), "= -127.5 [SI::m]")
 	// Named arguments are a different production; the limitation is reported.
 	wants(t, run(t, s, "%calc Fall v0=-15.0 [m/s] tb=8.5 [s]"), "named arguments are not supported")
 }
@@ -977,7 +977,7 @@ func TestFormatValueQuantityUsesRealFormatting(t *testing.T) {
 	wants(t, run(t, s, "%eval -15.200531548598184 [m/s]"), "= -15.200531548598184 [m/s]")
 	wants(t, run(t, s, "%eval 32.99999999999993 [s]"), "= 32.99999999999993 [s]")
 	// A whole magnitude keeps its ".0", as a bare Real does.
-	wants(t, run(t, s, "%eval 2.0 [m] * 3.0 [m]"), "= 6.0 [m**2]")
+	wants(t, run(t, s, "%eval 2.0 [m] * 3.0 [m]"), "= 6.0 [SI::'m²']")
 	// A magnitude below what two decimals can show reads as itself, not as zero.
 	wants(t, run(t, s, "%eval 0.0001 [m]"), "= 0.0001 [m]")
 }
@@ -1039,6 +1039,19 @@ func TestStateDebuggerRoutesForThePerformingObject(t *testing.T) {
 
 	wants(t, run(t, s, "%state VariantRouting::Router::Route VariantRouting::beta"), "✓ Started state machine executor")
 	wants(t, run(t, s, "%advance 1"), "Current state: diverted")
+}
+
+// A machine redefining isRunToCompletion away from the library default is
+// refused where every lowering error surfaces, and leaves no debugging session.
+func TestStateDebuggerRefusesRunToCompletionRedefinition(t *testing.T) {
+	s := loadFixture(t, "testdata/state_run_to_completion.sysml")
+	out := run(t, s, "%state Refused::Machine")
+	wants(t, out, "error: failed to create executor:", "lower state machine: unsupported state machine content:",
+		"the state definition Machine redefines isRunToCompletion = false, which the runtime cannot honor:",
+		"every state machine runs to completion (Occurrences::Occurrence::isRunToCompletion default true)")
+	if s.stateExec != nil {
+		t.Fatal("a refused machine left a state debugging session")
+	}
 }
 
 // A behavior performed by nothing routes over its own connections only, and an

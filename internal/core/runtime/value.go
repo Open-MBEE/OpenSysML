@@ -36,6 +36,8 @@ const (
 	ValCoordinateFrame          // a VectorMeasurementReference: a frame's axes, or a measurement scale's one
 	ValCoordinateTransformation // a CoordinateTransformation: a placement of one frame in another
 	ValFunction                 // a calc as a value: its lowered shape closed over the environment it was read in
+	ValMetaobject               // an element of the model as an instance of its reflective metaclass (`x meta T`)
+	ValUndetermined             // a model-level result the model does not determine; see Undetermined
 
 	// valueKindCount bounds the kinds; TestEveryValueKindIsDispatched walks them.
 	valueKindCount
@@ -43,6 +45,9 @@ const (
 
 // unknownText stands for a value or reference that is absent where a name is rendered.
 const unknownText = "<unknown>"
+
+// unnamedText stands for an element that declares no name where a name is rendered.
+const unnamedText = "<unnamed>"
 
 // FormatValue renders a value with the notation used by user-facing runtime
 // results and diagnostics.
@@ -106,6 +111,10 @@ func FormatValue(v Value) string {
 		return "<expression>"
 	case ValFunction:
 		return v.FunctionName()
+	case ValMetaobject:
+		return v.MetaobjectText()
+	case ValUndetermined:
+		return UndeterminedText
 	default:
 		return unknownText
 	}
@@ -171,6 +180,10 @@ func (k ValueKind) String() string {
 		return "coordinate transformation"
 	case ValFunction:
 		return "function"
+	case ValMetaobject:
+		return "metaobject"
+	case ValUndetermined:
+		return "undetermined"
 	default:
 		return "invalid"
 	}
@@ -186,9 +199,85 @@ type Value struct {
 	// ref holds the kind-specific payload of the remaining kinds: a string
 	// (ValString), *Sequence, *Set, *exprValue (ValExpr), *Quantity, a complex128
 	// (ValComplex), *Array, *Vector, *VectorQuantity, *MeasurementRef, *TensorQuantity,
-	// *functionValue (ValFunction), or the *symbols.Symbol of a variant (ValVariant) or
-	// enumeration literal (ValEnumLiteral).
+	// *functionValue (ValFunction), *metaobjectValue (ValMetaobject), *Undetermined, or
+	// the *symbols.Symbol of a variant (ValVariant) or enumeration literal (ValEnumLiteral).
+	// A scalar that is the value of an enumeration literal holds an *enumerated wrapping its payload.
 	ref any
+}
+
+// enumerated is the payload of a scalar evaluated from a scalar-valued enumeration
+// literal, which is of its enumeration; a scalar written bare carries none.
+type enumerated struct {
+	literal *symbols.Symbol
+	payload any
+}
+
+// payload is the kind-specific payload, unwrapped from an enumerated scalar.
+func (v Value) payload() any {
+	if e, ok := v.ref.(*enumerated); ok {
+		return e.payload
+	}
+	return v.ref
+}
+
+// metaobjectValue is an element viewed as an instance of its reflective
+// metaclass. Its identity is the element's: the metaclass only says what it is.
+type metaobjectValue struct {
+	element   *symbols.Symbol
+	metaclass *symbols.Symbol
+}
+
+// NewMetaobject is the value `x meta T` yields for the element x names: that
+// element as an instance of metaclass, the reflective metaclass of its declaration.
+func NewMetaobject(element, metaclass *symbols.Symbol) Value {
+	return Value{Kind: ValMetaobject, ref: &metaobjectValue{element: element, metaclass: metaclass}}
+}
+
+// MetaobjectElement is the element a ValMetaobject denotes; nil for every other kind.
+func (v Value) MetaobjectElement() *symbols.Symbol {
+	if m, ok := v.ref.(*metaobjectValue); ok && v.Kind == ValMetaobject {
+		return m.element
+	}
+	return nil
+}
+
+// MetaobjectClass is the reflective metaclass a ValMetaobject is an instance of;
+// nil for every other kind.
+func (v Value) MetaobjectClass() *symbols.Symbol {
+	if m, ok := v.ref.(*metaobjectValue); ok && v.Kind == ValMetaobject {
+		return m.metaclass
+	}
+	return nil
+}
+
+// MetaobjectText renders a metaobject as the element it denotes and the
+// metaclass it is an instance of: `meta(Pkg::x : KerML::Feature)`.
+func (v Value) MetaobjectText() string {
+	element, metaclass := v.MetaobjectElement(), v.MetaobjectClass()
+	if element == nil {
+		return "<unknown metaobject>"
+	}
+	return fmt.Sprintf("meta(%s : %s)", symbolQualifiedText(element), symbolQualifiedText(metaclass))
+}
+
+// symbolQualifiedText is a symbol's qualified name in its scope tree, else its own
+// name, else unknownText. An unnamed symbol is `<unnamed>` under its owner's name.
+func symbolQualifiedText(sym *symbols.Symbol) string {
+	if sym == nil {
+		return unknownText
+	}
+	if sym.Name == "" {
+		if sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil {
+			if owner := symbols.FQNOf(sym.OwnerScope.Owner()); owner != "" {
+				return owner + "::" + unnamedText
+			}
+		}
+		return unnamedText
+	}
+	if fqn := symbols.FQNOf(sym); fqn != "" {
+		return fqn
+	}
+	return sym.Name
 }
 
 // NewComplex is the value of one complex number. One with a zero imaginary part
@@ -243,6 +332,43 @@ func NewEnumLiteral(sym *symbols.Symbol) Value {
 	return Value{Kind: ValEnumLiteral, ref: sym}
 }
 
+// ofLiteral is v as the value of a scalar-valued enumeration literal: equal to
+// and computing as the scalar, and of the literal's enumeration.
+func (v Value) ofLiteral(sym *symbols.Symbol) Value {
+	if !isScalar(v) {
+		return v
+	}
+	v.ref = &enumerated{literal: sym, payload: v.payload()}
+	return v
+}
+
+// EnumeratedValue is scalar as the value of the enumeration literal sym: what
+// `high = 3` evaluates to, rebuilt from a wire form that carries both.
+func EnumeratedValue(sym *symbols.Symbol, scalar Value) Value {
+	return scalar.ofLiteral(sym)
+}
+
+// Scalar is v shorn of any enumeration literal identity: the bare scalar a
+// scalar-valued literal equals, or v itself for any other value.
+func (v Value) Scalar() Value {
+	if e, ok := v.ref.(*enumerated); ok {
+		v.ref = e.payload
+	}
+	return v
+}
+
+// EnumerationLiteral is the literal a value is: a ValEnumLiteral itself, or
+// the literal a scalar was evaluated from. Nil for a value that is no literal.
+func (v Value) EnumerationLiteral() *symbols.Symbol {
+	if v.Kind == ValEnumLiteral {
+		return v.Literal()
+	}
+	if e, ok := v.ref.(*enumerated); ok {
+		return e.literal
+	}
+	return nil
+}
+
 // Str is the text of a ValString; "" for every other kind.
 // isBool reports whether v is a boolean constant.
 func (v Value) isBool() bool {
@@ -253,7 +379,7 @@ func (v Value) Str() string {
 	if v.Kind != ValString {
 		return ""
 	}
-	s, _ := v.ref.(string)
+	s, _ := v.payload().(string)
 	return s
 }
 
@@ -389,7 +515,7 @@ func (v Value) Complex() complex128 {
 	if v.Kind != ValComplex {
 		return 0
 	}
-	z, _ := v.ref.(complex128)
+	z, _ := v.payload().(complex128)
 	return z
 }
 
@@ -495,21 +621,28 @@ func (s *Sequence) Elements() []Value {
 // enumerate alike, whatever order their elements were added in.
 type Set struct {
 	elements map[valueKey][]Value
-	order    []Value // insertion order, the tie-break canonical order falls back to
-	sorted   []Value // canonical order, built on the first read after an Add
+	order    []Value  // insertion order, the tie-break canonical order falls back to
+	sorted   []Value  // canonical order, built on the first read after an Add
+	ctx      *Context // judges membership; nil compares values with no context
 }
 
-// NewSet creates an empty Set.
+// NewSet creates an empty Set whose membership needs no context.
 func NewSet() *Set {
-	return &Set{elements: make(map[valueKey][]Value)}
+	return NewSetIn(nil)
+}
+
+// NewSetIn creates an empty Set judging membership in ctx: a point on a scale is
+// the member its magnitude on the reference is. A nil ctx judges with no context.
+func NewSetIn(ctx *Context) *Set {
+	return &Set{elements: make(map[valueKey][]Value), ctx: ctx}
 }
 
 // Add inserts a value into the set (deduplicates by exact value equality).
 func (s *Set) Add(val Value) {
-	key := valueKeyFunc(val)
+	key := s.ctx.valueKey(val)
 	bucket := s.elements[key]
 	for _, elem := range bucket {
-		if valueEqual(elem, val) {
+		if s.ctx.valueEqual(elem, val) {
 			return
 		}
 	}
@@ -520,8 +653,8 @@ func (s *Set) Add(val Value) {
 
 // Contains checks if the value is in the set.
 func (s *Set) Contains(val Value) bool {
-	for _, elem := range s.elements[valueKeyFunc(val)] {
-		if valueEqual(elem, val) {
+	for _, elem := range s.elements[s.ctx.valueKey(val)] {
+		if s.ctx.valueEqual(elem, val) {
 			return true
 		}
 	}
@@ -540,30 +673,69 @@ func (s *Set) Size() int {
 func (s *Set) Elements() []Value {
 	if s.sorted == nil && len(s.order) > 0 {
 		s.sorted = append([]Value(nil), s.order...)
-		sort.SliceStable(s.sorted, func(i, j int) bool { return canonicalLess(s.sorted[i], s.sorted[j]) })
+		sort.SliceStable(s.sorted, func(i, j int) bool { return s.ctx.canonicalCompare(s.sorted[i], s.sorted[j]) < 0 })
 	}
 	return append([]Value(nil), s.sorted...)
 }
 
 // Equal holds when the sets have the same members, in whatever order.
 func (s *Set) Equal(other *Set) bool {
+	if s == nil {
+		return other.Size() == 0
+	}
+	return s.ctx.setsEqual(s, other)
+}
+
+// setsEqual holds when the sets have the same members in the context. A set
+// bucketed under another context may store two elements the context makes one,
+// so members are counted as the context tells them apart, not as stored.
+func (ctx *Context) setsEqual(s, other *Set) bool {
 	if s == nil || other == nil {
 		return s.Size() == 0 && other.Size() == 0
 	}
-	if s.Size() != other.Size() {
-		return false
+	if s.ctx == ctx && other.ctx == ctx {
+		return s.Size() == other.Size() && ctx.membersWithin(s, other)
 	}
+	return ctx.membersWithin(s, other) && ctx.membersWithin(other, s)
+}
+
+// membersWithin holds when every member of s is one of other in the context.
+func (ctx *Context) membersWithin(s, other *Set) bool {
 	for _, elem := range s.order {
-		if !other.Contains(elem) {
+		if !ctx.contains(other, elem) {
 			return false
 		}
 	}
 	return true
 }
 
-// setOf builds a set value holding the distinct elements.
+// contains is Set.Contains judged in the context rather than the set's own.
+// A set bucketed under another context is scanned, since its keys may differ.
+func (ctx *Context) contains(s *Set, val Value) bool {
+	if s.ctx != ctx {
+		for _, elem := range s.order {
+			if ctx.valueEqual(elem, val) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, elem := range s.elements[ctx.valueKey(val)] {
+		if ctx.valueEqual(elem, val) {
+			return true
+		}
+	}
+	return false
+}
+
+// setOf builds a set value holding the distinct elements, judged with no context.
 func setOf(elements []Value) Value {
-	set := NewSet()
+	return (*Context)(nil).setOf(elements)
+}
+
+// setOf builds a set value holding the elements distinct in the context.
+func (ctx *Context) setOf(elements []Value) Value {
+	set := NewSetIn(ctx)
 	for _, elem := range elements {
 		set.Add(elem)
 	}

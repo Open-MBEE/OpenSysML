@@ -74,6 +74,12 @@ REPL's `%view` command prints, using Mermaid, and redraws as you edit the model.
   the network.
 
 The panel is read-only: it renders the model, and editing the diagram does not change the model.
+Where a diagram's boxes go is Mermaid's decision, unless the model states it: a view whose body
+places its elements with the bundled `DiagramLayout` library (`metadata Layout about engine { x =
+120; y = 80; }`, and `Route` for an edge's waypoints) has that geometry on every node and edge the
+server sends (`x`, `y`, `width`, `height`, `route`), and in the Mermaid source as `%% layout:`
+comments, so a client that lays out its own diagram can honor it; see
+[Diagram layout annotations](../project/diagram-layout-annotations.md).
 It is only available when the connected server provides the render methods
 ([LSP extensions](../reference/lsp.md)), so an older `sysml-lsp` does not offer the command.
 
@@ -146,7 +152,11 @@ LSP client; only the syntax highlighting is specific to VS Code.
   `IdentityMetadata::ElementId`, UUID v4, inline in its body or standalone at
   the end of the file) and bind an unbound root namespace to a project
   (`IdentityMetadata::ProjectRef` with a placeholder `projectId` to fill in), see
-  [element identity](../project/element-identity-annotations.md)
+  [element identity](../project/element-identity-annotations.md). A named
+  standard-library element already carries the normative id the specification
+  fixes for it — hover states it as `(normative, KerML)` or `(normative, SysML)` —
+  so the minting action is not offered on one; see
+  [normative library identity](../reference/rdf-mapping.md#normative-library-identity)
 
 **Not implemented:** semantic token deltas (`semanticTokens/full/delta`; the server keeps no
 previous result to diff against, so clients re-request the full set), signature help, code lens

@@ -1,0 +1,18 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go", "args": null},
+    {"signal": "Finish", "args": null},
+    {"signal": "Back", "args": null},
+    {"signal": "Next", "args": null},
+    {"signal": "Leave", "args": null},
+    {"signal": "Back", "args": null},
+    {"signal": "Stop", "args": null}
+  ],
+  "finalState": "done",
+  "stateVisits": ["start", "outer", "first", "done", "away", "outer", "first", "second", "away", "outer", "second", "done"],
+  "outputs": {
+    "completions": {"type": "Integer", "value": 1}
+  }
+}

@@ -31,6 +31,28 @@ func TestStrictConformanceDecidesTheExitStatus(t *testing.T) {
 	rejectReport(t, strict, "warning:")
 }
 
+// Every state-body notation outside StateBodyItem (SysML.xtext) is a
+// nonstandard-notation warning by default and an error under -strict.
+func TestStateBodyExtensionsAreReportedByDefault(t *testing.T) {
+	binary := buildCLI(t)
+	const corpus = "../pilot-reject/testdata/negative/extensions/"
+	for _, tc := range []struct{ file, notation string }{
+		{"x02-choice-pseudostate.sysml", "`choice <name>;`"},
+		{"x03-junction-pseudostate.sysml", "`junction <name>;`"},
+		{"x05-defer-member.sysml", "`defer <event>;`"},
+		{"x06-history-member.sysml", "`history <name>;`"},
+	} {
+		want := tc.notation + " is an OpenSysML extension with no SysML v2 production"
+		got := checkPaths(t, binary, "-validate", corpus+tc.file)
+		wantReport(t, got, got.status, "warning: "+want)
+		rejectReport(t, got, "error: "+want)
+
+		strict := checkPaths(t, binary, "-validate", "-strict", corpus+tc.file)
+		wantReport(t, strict, 2, "error: "+want)
+		rejectReport(t, strict, "warning: "+want)
+	}
+}
+
 // A model in standard notation is unaffected, so -strict is a check and not a
 // second dialect.
 func TestStrictConformanceLeavesStandardNotationAlone(t *testing.T) {

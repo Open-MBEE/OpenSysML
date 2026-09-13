@@ -71,8 +71,8 @@ func (ec *EvalContext) castEntries(
 // its values where their own content does not state their type (KerML 1.0 §7.3.4.1).
 func (ec *EvalContext) declaredOperandTypes(operand ast.Node) []*symbols.Symbol {
 	// An enumeration literal is of its enumeration however its value is written.
-	if sym, ok := ec.ctx.resolver.ResolveTarget(ec.scope, operand); ok && sym != nil {
-		if canonical, aliased := ec.ctx.resolver.ResolveAliasTarget(sym); aliased {
+	if sym, ok := ec.ctx.resolveTarget(ec.scope, operand); ok && sym != nil {
+		if canonical, aliased := ec.ctx.resolveAliasTarget(sym); aliased {
 			sym = canonical
 		}
 		if enum := semantics.EnumerationOwning(sym); enum != nil {
@@ -80,7 +80,7 @@ func (ec *EvalContext) declaredOperandTypes(operand ast.Node) []*symbols.Symbol 
 		}
 	}
 	var declared []*symbols.Symbol
-	for _, typ := range ec.ctx.model.ExprResultTypes(ec.scope, operand) {
+	for _, typ := range ec.ctx.model.semantics.ExprResultTypes(ec.scope, operand) {
 		// A feature typed Anything states nothing about the values it holds.
 		if typ != nil && !semantics.IsAnything(typ) {
 			declared = append(declared, typ)
@@ -95,13 +95,15 @@ func (ec *EvalContext) castValue(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
 ) (Value, error) {
 	switch value.Kind {
+	case ValUndetermined:
+		return castUndetermined(value, ec.undeterminedClassification(declared, target)), nil
 	case ValNull, ValInvalid:
 		return sequenceOf(nil), nil
 	case ValSequence, ValSet:
 		elements := elementsOf(value)
 		kept := make([]Value, 0, len(elements))
 		for _, element := range elements {
-			keep, err := ec.castKeeps(element, target, declared)
+			element, keep, err := ec.castKept(element, target, declared)
 			if err != nil {
 				return Value{}, err
 			}
@@ -110,7 +112,7 @@ func (ec *EvalContext) castValue(
 			}
 		}
 		if value.Kind == ValSet {
-			set := NewSet()
+			set := NewSetIn(ec.ctx)
 			for _, element := range kept {
 				set.Add(element)
 			}
@@ -121,14 +123,30 @@ func (ec *EvalContext) castValue(
 		}
 		return ec.sequenceFrom(kept, value)
 	}
-	keep, err := ec.castKeeps(value, target, declared)
+	kept, keep, err := ec.castKept(value, target, declared)
 	if err != nil {
 		return Value{}, err
 	}
 	if !keep {
 		return ec.sequenceFrom(nil, value)
 	}
-	return value, nil
+	return kept, nil
+}
+
+// castKept is the value a cast keeps: the value itself, or the enumerated value it
+// equals when target is an enumeration (`3 as Level` is `Level::high`).
+func (ec *EvalContext) castKept(
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
+) (Value, bool, error) {
+	keep, err := ec.castKeeps(value, target, declared)
+	if err != nil || !keep {
+		return value, keep, err
+	}
+	enumerated, found, err := ec.ctx.asEnumerated(value, target)
+	if err != nil || !found {
+		return value, true, err
+	}
+	return enumerated, true, nil
 }
 
 // castKeeps reports whether target classifies one value, by the shared classification;
@@ -147,6 +165,49 @@ func (ec *EvalContext) castKeeps(
 		return false, nil
 	}
 	return false, ec.undecidedCast(value, target)
+}
+
+// castUndetermined is `as` over values the model leaves open: all of them when
+// their declared types conform to target, none when those exclude it, else some.
+func castUndetermined(value Value, verdict semantics.TypeClassification) Value {
+	switch verdict {
+	case semantics.ClassifiesAll:
+		return value
+	case semantics.ClassifiesNone:
+		return sequenceOf(nil)
+	}
+	count := countOf(value)
+	count.Lower = semantics.Bound{Known: true}
+	return undeterminedOf(count, value)
+}
+
+// undeterminedClassification is how target classifies values the model leaves
+// open: by the types their operand declares, undecided where it declares none.
+func (ec *EvalContext) undeterminedClassification(
+	declared []*symbols.Symbol, target *symbols.Symbol,
+) semantics.TypeClassification {
+	if len(declared) == 0 {
+		return semantics.ClassifiesSome
+	}
+	return ec.ctx.model.semantics.ClassifiesTypes(declared, target)
+}
+
+// classifyUndetermined answers `istype`, `hastype` and `@` over values the model
+// leaves open by what their declared types and count settle; the rest stays open.
+func classifyUndetermined(op ast.OperatorKind, value Value, verdict semantics.TypeClassification) Value {
+	lower := countOf(value).Lower
+	nonEmpty := lower.Known && lower.Value > 0
+	switch verdict {
+	case semantics.ClassifiesNone:
+		if op == ast.OpAt || nonEmpty {
+			return boolValue(false)
+		}
+	case semantics.ClassifiesAll:
+		if op == ast.OpIsType || (op == ast.OpAt && nonEmpty) {
+			return boolValue(true)
+		}
+	}
+	return undeterminedOf(semantics.CountRange(1), value)
 }
 
 // undecidedCast reports a cast whose verdict the value does not settle, so the

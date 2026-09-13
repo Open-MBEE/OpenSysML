@@ -8,18 +8,19 @@
       "signal": "Second"
     }
   ],
-  "finalState": "done+done",
+  "finalState": "done",
   "stateVisits": [
     "busy",
     "lstart",
     "rstart",
+    "done",
     "done",
     "done"
   ],
   "outputs": {
     "log": {
       "type": "String",
-      "value": "l;r;"
+      "value": "l;r;busy;"
     }
   },
   "trace": true

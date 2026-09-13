@@ -113,7 +113,7 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 	if !ok {
 		name = "<converted>"
 	}
-	names, _, err := chooseNames(name, text, first.wanted, nil)
+	names, _, err := chooseNames(name, first.library, text, first.wanted, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 		if text, _, err = d.notation(); err != nil {
 			return nil, err
 		}
-		revised, changed, err := chooseNames(name, text, d.wanted, names)
+		revised, changed, err := chooseNames(name, d.library, text, d.wanted, names)
 		if err != nil {
 			return nil, err
 		}
@@ -158,6 +158,7 @@ func (d *decoder) notation() ([]byte, []*element, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	d.library = libraryDocument(roots)
 	d.nl = d.newline()
 	text, err := d.render(roots)
 	if err != nil {
@@ -585,6 +586,13 @@ type decoder struct {
 	// folded maps a succession written as the `then` ahead of its target to
 	// that target, whose notation states it.
 	folded map[*element]*element
+	// implied counts the normative ids this pass left to the library text to
+	// derive; explicit, once set, writes them as annotations instead.
+	implied  int
+	explicit bool
+	// library is the bundled library document the graph is a version of, if any;
+	// its notation is read in that document's place.
+	library string
 	// written records where each element landed in this pass's notation, the
 	// members of one ahead of it.
 	written []writing
@@ -1037,9 +1045,9 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	if err := d.unwrittenPrefix(el); err != nil {
 		return err
 	}
-	if annotationMetaclasses[el.metaclass] || d.isResultExpression(el) {
+	if annotationMetaclasses[el.metaclass] || d.isResultExpression(el) || d.isTrailingCondition(el) {
 		// A comment, doc or rep declaration ends with its comment body, and a
-		// result expression is bare: neither takes a terminator.
+		// result expression or trailing condition is bare: none takes a terminator.
 		b.WriteString(d.nl)
 		return nil
 	}
@@ -1050,7 +1058,7 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	// `parallel` marks a state's substates orthogonal, and only a body may
 	// follow it, so a parallel state with none has no notation.
 	parallel := d.boolOf(el, rdf.SysML+"isParallel")
-	annotations := identityAnnotations(el)
+	annotations := d.identityAnnotations(el)
 	if len(children) == 0 && len(annotations) == 0 && !d.boolOf(el, rdf.OpenSysML+xHasBody) {
 		if parallel {
 			return d.missing(el, "sysx:"+xHasBody, "a parallel state states its regions in a body")
@@ -1088,8 +1096,10 @@ func (d *decoder) bodyMembers(el *element) ([]*element, error) {
 // identityAnnotations re-materializes the identity the graph states as the
 // annotations the notation declares it with: a ProjectRef on a scope root,
 // and an ElementId wherever the id is explicit or differs from the encoding
-// of the qualified name — a rename must not turn into a new element.
-func identityAnnotations(el *element) []string {
+// of the qualified name — a rename must not turn into a new element. The id
+// the norm fixes for a library element is not declared: the notation implies
+// it, while the notation is the library's.
+func (d *decoder) identityAnnotations(el *element) []string {
 	var out []string
 	if el.projectID != "" || el.branch != "" || el.org != "" {
 		var fields []string
@@ -1103,6 +1113,10 @@ func identityAnnotations(el *element) []string {
 		out = append(out, "@IdentityMetadata::ProjectRef { "+strings.Join(fields, " ")+" }")
 	}
 	if el.declaredID || (el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname)) {
+		if !d.explicit && NormativeSubject(el.elementID, el.qname) {
+			d.implied++
+			return out
+		}
 		out = append(out, fmt.Sprintf("@IdentityMetadata::ElementId { id = %s; }", lexer.StringText(el.elementID)))
 	}
 	return out
@@ -1287,6 +1301,12 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "variation")
 	}
+	keyword := d.keywordOr(el, definitionKeyword(kind))
+	// `individual def` states isIndividual by its kind keyword; writing the
+	// modifier as well would declare it twice (SysML.xtext OccurrenceDefinitionPrefix).
+	if d.boolOf(el, rdf.SysML+"isIndividual") && keyword != "individual" {
+		words = append(words, "individual")
+	}
 	if d.boolOf(el, rdf.SysML+"isConstant") {
 		words = append(words, constantKeyword(d.kerml(el)))
 	}
@@ -1300,7 +1320,7 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 		return "", err
 	}
 	words = append(words, prefixes...)
-	words = append(words, d.keywordOr(el, definitionKeyword(kind)))
+	words = append(words, keyword)
 	if d.boolOf(el, rdf.SysML+"isAll") {
 		words = append(words, "all")
 	}
@@ -1461,7 +1481,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		if negated {
 			words = append(words, "not")
 		}
-	case negated:
+	case negated && keyword != "inv":
 		return "", d.missing(el, "sysx:"+xDeclaredPrefix, "the `not` of a negated declaration qualifies the prefix keyword it follows")
 	}
 	keywordAt := len(words)
@@ -1477,6 +1497,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		keywordAt = len(words)
 		if keyword != "" {
 			words = append(words, keyword)
+		}
+		// `inv false c { … }` negates an invariant after its keyword (KerML.xtext Invariant).
+		if negated && !hasPrefix && keyword == "inv" {
+			words = append(words, "false")
 		}
 	}
 	// `chain` qualifies the kind keyword it follows, unlike the modifiers above.
@@ -1821,6 +1845,22 @@ func (d *decoder) isResultExpression(el *element) bool {
 	return owned && d.metaclass(rdf.IRI(m.iri)) == mResultExpressionMembership
 }
 
+// isTrailingCondition reports whether el is the keyword-less condition closing its body,
+// written bare as its result expression: a lone name with `;` would declare a feature.
+func (d *decoder) isTrailingCondition(el *element) bool {
+	if el.metaclass != mConstraint || el.owner == nil {
+		return false
+	}
+	if _, ok := d.stringOf(el, rdf.OpenSysML+xCondition); !ok {
+		return false
+	}
+	if _, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
+		return false
+	}
+	members := d.bodyChildren(el.owner)
+	return len(members) > 0 && members[len(members)-1] == el
+}
+
 // acceptParam returns the synthetic parameter of an accept shorthand, whose
 // notation belongs in its parent's declaration head.
 func (d *decoder) acceptParam(el *element) *element {
@@ -2095,13 +2135,16 @@ func (d *decoder) keywordTyped(el *element, keyword, portion string, event bool)
 }
 
 // kerml reports whether el is written under KerML's grammar: the one its root
-// records, or SysML for a root recording none, which is how candidateName reads it.
+// records, else the library document's, else SysML — as candidateName reads it.
 func (d *decoder) kerml(el *element) bool {
 	root := el
 	for root.owner != nil {
 		root = root.owner
 	}
-	language, _ := d.stringOf(root, rdf.OpenSysML+xSourceLanguage)
+	language, ok := d.stringOf(root, rdf.OpenSysML+xSourceLanguage)
+	if _, hasText := d.graph.Lexical(rdf.IRI(root.iri), rdf.OpenSysML+xSourceText); !ok && !hasText {
+		language = d.libraryLanguage()
+	}
 	return language == "kerml"
 }
 
@@ -2349,7 +2392,7 @@ func (d *decoder) ownedCrossFeature(el *element) *element {
 // crossFeatureWords writes an end's cross feature after `end`: name, multiplicity
 // and specializations, typing spelled `typed by` since `:` there is the end's own.
 func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
-	if len(cross.children) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) || len(identityAnnotations(cross)) > 0 {
+	if len(cross.children) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) || len(d.identityAnnotations(cross)) > 0 {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the cross feature <%s>", cross.iri),
 			Note: "it is written in the head of the end that owns it, which has no place for a body or an identity annotation",

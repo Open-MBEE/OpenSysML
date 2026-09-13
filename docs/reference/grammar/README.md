@@ -44,8 +44,6 @@ They are a documented extension, not OMG notation, and using one produces a
 | `history <name>;` | shallow history (UML `H`) | UML `shallowHistory` pseudostate |
 | `shallow history <name>;` | shallow history, spelled out | UML `shallowHistory` pseudostate |
 | `deep history <name>;` | deep history (UML `H*`) | UML `deepHistory` pseudostate |
-| `entry point <name>;` | entry point | UML `entryPoint` pseudostate |
-| `exit point <name>;` | exit point | UML `exitPoint` pseudostate |
 | `defer <event> [, <event>]*;` | events the state retains while active | KerML `StatePerformances::StatePerformance::deferrable: Transfer[0..*] subsets acceptable` — "transfers … can be considered for acceptance more than once"; dispatch order is `Occurrences::Occurrence::incomingTransferSort`, defaulting to `earlierFirstIncomingTransferSort` |
 
 The action-level `fork` and `join` control nodes are SysML v2's `Actions::ForkAction`
@@ -63,10 +61,6 @@ Notes:
   `initial`, `junction` or `shallow` is a reserved word. None of them appears as a literal
   in the pinned grammars, so they remain ordinary names and are recognized only in the
   positions where the notation above needs them.
-- `point` is **not** reserved either. It is recognized only after `entry`
-  or `exit`, and only when a pseudostate name and `;` follow, because models
-  routinely declare features named `point`. `entry <action>` keeps its OMG
-  meaning.
 - `on` and `var` are **not** reserved, for the same reason and on the
   pilot implementation's authority: `on` is not a literal in any of its grammars,
   and `var` appears only in `KerML.xtext`'s `BasicFeaturePrefix` (`isVariable ?= 'var'`).
@@ -75,9 +69,26 @@ Notes:
   kind keyword (`var feature x`, `var attribute total : Integer;`) still marks a
   variable feature. `var` without a kind keyword is not supported and is
   reported. See [pilot-differential.md](../../project/pilot-differential.md).
+- A `choice` reads its outgoing guards on arrival, after the effect of the transition
+  into it has run, so `transition first idle do assign x := 1 then pick; transition first
+  pick if x == 1 then seen;` reaches `seen`; several holding is a reported choice point,
+  none holding is a runtime error naming the choice. A `junction` reads its guards before the
+  transition into it fires, so its branch cannot depend on that transition's effect, and a
+  junction with no holding guard leaves the transition not enabled. On a chain, each
+  pseudostate follows its own rule at the point the route reaches it.
+- A `history` (shallow or deep) with no recorded configuration takes its own outgoing
+  transition when it has one and otherwise performs the owning state's ordinary entry — its
+  `entry; then <state>;` — as a first entry would; an owner with neither is a runtime error. A
+  region left through `done` records no history, so a history into it is such an entry.
 - A deferred event is parsed exactly like a transition trigger, so both a signal
   name (`defer Ping;`) and a call event (`defer setSpeed(value);`) are accepted.
   Time and change events cannot be deferred; lowering reports them.
+- While a state that defers an event is active, the event is held back from every transition
+  except one whose source is that state or nested in it: a transition in an enclosing state or
+  in a sibling orthogonal region waits until the deferring state is exited, and the event is
+  then dispatched, in its arrival order, to the configuration that exit leaves. When two
+  regions each hold a deferring state, the event fires only if every deferring state has such
+  a nested transition; otherwise it is deferred.
 - `defer` is only meaningful inside a state. One written in the machine's own body is
   reported by `lower.ToStateGraph`.
 - A transition without a source part (`accept go then s;`, `if c then s;`, `then s;`,
@@ -103,7 +114,7 @@ Notes:
 
 Grammar conformance is validated by parsing **OMG's own files**:
 
-1. **Stdlib conformance gate** - all 98 bundled library files (94 OMG standard library files and 4 OpenSysML extensions) must parse with zero diagnostics
+1. **Stdlib conformance gate** - all 100 bundled library files (94 OMG standard library files and 6 OpenSysML extensions) must parse with zero diagnostics
    - See: `internal/core/libs/stdlib_conformance_test.go`
    - These files are the **source of truth** for correct parsing
 

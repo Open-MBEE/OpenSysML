@@ -61,6 +61,15 @@ func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
 	case *ast.Usage:
 		behavior.Name, _ = ast.EffectiveName(node)
 		switch {
+		case node.Kind == ast.UsageAction && node.HasBody && performsAction(node) && declaresOnlyFeatures(node.Members):
+			// The body binds the pins of the action performed: the usage is the one
+			// node of the behavior's flow, performed as a node of an action body is.
+			behavior.Body = []Statement{Block{
+				Node:  node,
+				Scope: scope,
+				Graph: lowerBlockFlow([]ast.Node{node}, scope, false),
+				Own:   true,
+			}}
 		case node.Kind == ast.UsageAction && node.HasBody && performsAction(node):
 			// Which of the two the behavior performs would be a silent pick.
 			behavior.Body = []Statement{Unsupported{
@@ -71,7 +80,7 @@ func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
 		case node.Kind == ast.UsageAction && node.HasBody:
 			// The body is a namespace of its own, so its locals are declared in the
 			// block's frame rather than in the state machine's data.
-			behavior.Body = []Statement{lowerBlock(node, node.Members, childScope(scope, node))}
+			behavior.Body = []Statement{lowerBehaviorBody(node, childScope(scope, node))}
 		default:
 			behavior.Body = []Statement{Effect{Kind: EffectPerform, Node: node, Scope: scope}}
 		}
@@ -83,6 +92,26 @@ func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
 	}
 	behavior.Nodes = blockNodesOf(behavior.Body, nil)
 	return behavior
+}
+
+// lowerBehaviorBody lowers an inline action body of a behavior. A body stating
+// successions or control nodes is the token flow a standalone action's body is
+// (ToActionGraph), starting at its one unpreceded node where no `first` says;
+// one stating none runs its statements in declaration order.
+func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope) Statement {
+	if !statesOwnFlow(node.Members) {
+		return lowerBlock(node, node.Members, scope)
+	}
+	graph, err := ToActionGraph(node, scope)
+	if err != nil {
+		return Unsupported{
+			Description: "the flow the body states: " + err.Error(),
+			Node:        node,
+			Scope:       scope,
+		}
+	}
+	StartFlow(graph)
+	return Block{Node: node, Scope: scope, Graph: graph, Own: true, Stated: true}
 }
 
 // lowerActionExecution lowers the step form of a behavior: an expression whose
@@ -97,6 +126,21 @@ func lowerActionExecution(node *ast.ActionExecutionNode, scope *symbols.Scope) [
 		// A step stating neither states no behavior, which executes as nothing.
 		return []Statement{}
 	}
+}
+
+// declaresOnlyFeatures reports whether a body declares parameters and attributes
+// alone (`inout n = ticks;`), stating no step of its own.
+func declaresOnlyFeatures(members []ast.Node) bool {
+	for _, member := range members {
+		actual := unwrapMembership(member)
+		if actual == nil || statesNoStep(actual) {
+			continue
+		}
+		if m, ok := actual.(*ast.Usage); !ok || !DeclaresNodeFeature(m) {
+			return false
+		}
+	}
+	return true
 }
 
 // performsAction reports whether a nested action usage names the action it

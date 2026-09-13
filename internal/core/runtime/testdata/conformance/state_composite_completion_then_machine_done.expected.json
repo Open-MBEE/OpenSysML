@@ -1,0 +1,18 @@
+{
+  "type": "state",
+  "finalState": "done",
+  "stateVisits": [
+    "s1",
+    "s11",
+    "done",
+    "s2",
+    "done"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "s1;s11;/s11;/s1;s2;/s2;"
+    }
+  },
+  "trace": true
+}

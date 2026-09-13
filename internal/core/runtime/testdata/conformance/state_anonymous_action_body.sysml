@@ -2,7 +2,8 @@ package Test {
     // Entry, do and exit behaviors written as anonymous inline action bodies.
     // Each digit records one statement, so the number shows the ordering: entry
     // loop (3, 2, 1), the do body (8), the nested entry (7) that the region's
-    // initial transition reaches one step later, then the exit body (9).
+    // initial transition reaches one step later, then the exit body (9) once
+    // the region has reached `done` as well as the do body having ended.
     state def Bodies {
         attribute log : Integer = 0;
 
@@ -30,12 +31,13 @@ package Test {
                 }
 
                 succession first nstart then nested;
+                succession first nested then done;
             }
         }
 
-        state done;
+        state finished;
 
         succession first start then working;
-        succession first working then done;
+        succession first working then finished;
     }
 }

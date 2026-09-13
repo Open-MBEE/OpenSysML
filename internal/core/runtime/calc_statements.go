@@ -134,7 +134,7 @@ func (h *calcStmtHost) effect(s lower.Effect) error {
 	if h.perfs == nil || s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%w: a calculation cannot state '%s'", ErrCalcSideEffect, s.Kind)
 	}
-	inv, ok := performedInvocation(s.Node)
+	inv, ok := performedInvocation(s)
 	if !ok {
 		return fmt.Errorf("%s: 'perform' names no action to perform", h.describe())
 	}
@@ -207,7 +207,7 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 		return true, nil
 	}
 	if h.declaredOutput(name) || h.env.data.has(name) {
-		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, value); err != nil {
+		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
 			return true, err
 		}
 		h.env.data.set(name, value)

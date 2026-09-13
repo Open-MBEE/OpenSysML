@@ -32,6 +32,8 @@ export const CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes";
 export const CAPABILITY_SET_VALUES = "set_values";
 /** A tensor quantity of any rank as `Value.tensor_quantity`, rather than an unsupported null. */
 export const CAPABILITY_TENSOR_VALUES = "tensor_values";
+/** An element reflected on (`x meta T`, the last of `x.metadata`) as `Value.metaobject`, rather than an unsupported null. */
+export const CAPABILITY_METAOBJECT_VALUES = "metaobject_values";
 /** `finalTime` on an execution response: the run's simulation clock when it ended, in seconds. */
 export const CAPABILITY_FINAL_TIME = "final_time";
 /** `ParseFileRequest.language`, which declares the language of inline content. */
@@ -54,6 +56,10 @@ export const CAPABILITY_APPLY_EDITS = "apply_edits";
 export const CAPABILITY_SCHEDULE = "schedule";
 /** The `explore` scheduling policy, answering with every `outcomes` entry and an `exploration` status. Not used by this version; see the README. */
 export const CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore";
+/** The `ListEngines` RPC, the `engine` field selecting an analysis engine, and `engine`, `strength` and `bounds` on the answers. Not used by this version; see the README. */
+export const CAPABILITY_ENGINES = "engines";
+/** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */
+export const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value";
 
 /**
  * Orders capability names by code unit, the order the service reports them in.

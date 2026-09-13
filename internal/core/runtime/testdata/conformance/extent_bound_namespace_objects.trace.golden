@@ -1,0 +1,52 @@
+enter calc test::extents
+  stmt return
+          enter calc SequenceFunctions::size
+materialize: Car #1
+              eval construct Car -> instance#1
+materialize: Truck #2
+              eval construct Truck -> instance#2
+materialize: spare #3
+              eval feature spare -> instance#3
+            eval operator all -> (instance#1, instance#2, instance#3)
+            bind seq = (instance#1, instance#2, instance#3) [argument]
+          exit calc SequenceFunctions::size -> 3
+        eval invoke size -> 3
+        eval literal 3 -> 3
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval operator all -> (instance#2)
+            bind seq = (instance#2) [argument]
+          exit calc SequenceFunctions::size -> 1
+        eval invoke size -> 1
+        eval literal 1 -> 1
+      eval operator == -> true
+        eval feature car -> instance#1
+        eval feature car -> instance#1
+      eval operator === -> true
+        eval feature fleet -> instance#2
+        eval feature fleet -> instance#2
+      eval operator === -> true
+        eval feature alias -> instance#3
+        eval feature spare -> instance#3
+      eval operator === -> true
+        enter calc SequenceFunctions::includes
+          eval operator all -> (instance#1, instance#2, instance#3)
+          eval feature car -> instance#1
+          bind seq1 = (instance#1, instance#2, instance#3) [argument]
+          bind seq2 = instance#1 [argument]
+        exit calc SequenceFunctions::includes -> true
+      eval invoke includes -> true
+        enter calc SequenceFunctions::includes
+          eval operator all -> (instance#2)
+          eval feature fleet -> instance#2
+          bind seq1 = (instance#2) [argument]
+          bind seq2 = instance#2 [argument]
+        exit calc SequenceFunctions::includes -> true
+      eval invoke includes -> true
+          eval operator all -> (instance#1, instance#2, instance#3)
+          eval literal 3 -> 3
+        eval index -> instance#3
+        eval feature spare -> instance#3
+      eval operator === -> true
+    eval sequence of 8 -> (true, true, true, true, true, true, true, true)
+exit calc test::extents -> (true, true, true, true, true, true, true, true)

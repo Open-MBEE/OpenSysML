@@ -59,15 +59,28 @@ func (w *Workspace) Views(doc string) []ViewInfo {
 }
 
 // RenderView renders a view of a document. fqn names a declared view or a
-// pseudo-view (`#<kind>[:<fqn>]`); "" renders the document's own view.
-func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, error) {
+// pseudo-view (`#<kind>[:<fqn>]`); "" renders the document's own view. The
+// document returned is the one the rendering was made from, read under the same
+// lock, so its version, content and scope are the rendering's.
+func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Document, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	renderer := w.rendererLocked(doc)
-	if renderer == nil {
-		return nil, fmt.Errorf("%s: no such document", doc)
+	d := w.docs[doc]
+	if d == nil {
+		return nil, nil, fmt.Errorf("%s: no such document", doc)
 	}
+	rendering, err := w.renderViewLocked(d, fqn)
+	if err != nil {
+		return nil, nil, err
+	}
+	return rendering, d, nil
+}
+
+// renderViewLocked renders fqn of the held document d under the read lock.
+func (w *Workspace) renderViewLocked(d *Document, fqn string) (*view.Rendering, error) {
+	doc := d.Name
+	renderer := w.rendererLocked(doc)
 	if strings.HasPrefix(fqn, view.PseudoViewPrefix) {
 		return w.renderPseudoLocked(doc, fqn, renderer)
 	}

@@ -26,8 +26,31 @@ type Clock struct {
 type ClockWait struct {
 	// Due is the instant the wait comes due at, in seconds.
 	Due float64
-	// Holder names the executor waiting, What the wait itself.
-	Holder, What string
+	// holder is the executor waiting, what the wait itself; both are described
+	// only when a view asks, so scheduling on Due does not format labels.
+	holder dueHolder
+	what   fmt.Stringer
+}
+
+// dueHolder is an executor that names itself in a due-order choice.
+type dueHolder interface {
+	dueLabel() string
+}
+
+// Holder names the executor waiting.
+func (w ClockWait) Holder() string {
+	if w.holder == nil {
+		return ""
+	}
+	return w.holder.dueLabel()
+}
+
+// What describes the wait itself.
+func (w ClockWait) What() string {
+	if w.what == nil {
+		return ""
+	}
+	return w.what.String()
 }
 
 // Now returns the current simulation instant, in seconds.
@@ -48,6 +71,26 @@ func (c *Clock) Waits() []ClockWait {
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
+}
+
+// armed lists every wait on the clock, due or not, by due instant and, at one
+// instant, by the executors' creation order.
+func (c *Clock) armed() []ClockWait {
+	var waits []ClockWait
+	for _, w := range c.waiters {
+		waits = append(waits, w.armedWaits()...)
+	}
+	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
+	return waits
+}
+
+// notYetDue keeps the waits, given earliest first, for instants past now.
+func notYetDue(waits []ClockWait, now float64) []ClockWait {
+	i := slices.IndexFunc(waits, func(w ClockWait) bool { return w.Due > now })
+	if i < 0 {
+		return nil
+	}
+	return waits[i:]
 }
 
 // NextDue returns the earliest instant a wait comes due at past the current
@@ -77,13 +120,6 @@ func (c *Clock) detach(w clockWaiter) {
 // forgetFinished drops the executors the clock has nothing left to drive.
 func (c *Clock) forgetFinished() {
 	c.waiters = slices.DeleteFunc(c.waiters, clockWaiter.finished)
-}
-
-// snapshot returns what restores the clock to its current state, for a probe
-// whose preview created executors or moved time.
-func (c *Clock) snapshot() func() {
-	now, waiters := c.now, slices.Clone(c.waiters)
-	return func() { c.now, c.waiters = now, waiters }
 }
 
 // Clock returns the simulation clock every executor of this context shares.
@@ -148,7 +184,7 @@ func (ctx *Context) timeMagnitude(val Value, what string) (float64, error) {
 // judgeTimeTriggerType refuses, before evaluating it, the trigger argument
 // validation refuses; one the declarations leave open is left to its value.
 func (ctx *Context) judgeTimeTriggerType(scope *symbols.Scope, t *ast.TimeEvent) error {
-	c := ctx.model.TimeEventConforms(scope, t)
+	c := ctx.model.semantics.TimeEventConforms(scope, t)
 	if !c.Known || c.Holds {
 		return nil
 	}
@@ -181,15 +217,15 @@ func (ctx *Context) durationInClockUnits(q *Quantity, what string) (float64, err
 // clockUnit is the second as the Quantities and Units library reduces it, so a
 // duration converts by the same reduction every other quantity uses.
 func (ctx *Context) clockUnit() (Unit, error) {
-	if ctx.resolver == nil || ctx.resolver.Index() == nil {
+	if ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return Unit{}, fmt.Errorf("%w: no library to reduce %s in", semantics.ErrNotAUnit, secondFQN)
 	}
-	matches := ctx.resolver.Index().LookupQualified(secondFQN)
+	matches := ctx.model.resolver.Index().LookupQualified(secondFQN)
 	if len(matches) != 1 {
 		return Unit{}, fmt.Errorf("%w: %s names %d elements, so no clock unit is determined",
 			semantics.ErrNotAUnit, secondFQN, len(matches))
 	}
-	term, err := ctx.model.UnitTermOf(matches[0])
+	term, err := ctx.model.semantics.UnitTermOf(matches[0])
 	if err != nil {
 		return Unit{}, err
 	}

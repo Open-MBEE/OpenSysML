@@ -249,27 +249,27 @@ func (k *lineKeys) of(lines []string, size int) []int {
 // trimCommon strips the shared prefix and suffix and reports the byte range of
 // old that remains and the text replacing it. The range never splits a rune or
 // a CRLF: a position between its CR and LF is not addressable in the protocol.
-func trimCommon(old, new string) (start, end int, text string, changed bool) {
-	if old == new {
+func trimCommon(old, updated string) (start, end int, text string, changed bool) {
+	if old == updated {
 		return 0, 0, "", false
 	}
 	start = 0
-	for start < len(old) && start < len(new) && old[start] == new[start] {
+	for start < len(old) && start < len(updated) && old[start] == updated[start] {
 		start++
 	}
-	for start > 0 && (splits(old, start) || splits(new, start)) {
+	for start > 0 && (splits(old, start) || splits(updated, start)) {
 		start--
 	}
-	end, newEnd := len(old), len(new)
-	for end > start && newEnd > start && old[end-1] == new[newEnd-1] {
+	end, newEnd := len(old), len(updated)
+	for end > start && newEnd > start && old[end-1] == updated[newEnd-1] {
 		end--
 		newEnd--
 	}
-	for splits(old, end) || splits(new, newEnd) {
+	for splits(old, end) || splits(updated, newEnd) {
 		end++
 		newEnd++
 	}
-	return start, end, new[start:newEnd], true
+	return start, end, updated[start:newEnd], true
 }
 
 // splits reports whether cutting s at i lands inside a rune or between a CR and its LF.

@@ -191,7 +191,7 @@ func (ctx *Context) ExhibitsState(member, sym *symbols.Symbol) bool {
 func (ctx *Context) behaviorKinds(chain []*symbols.Symbol) []*symbols.Symbol {
 	var kinds []*symbols.Symbol
 	for _, sym := range chain {
-		for _, sup := range ctx.model.AllSupertypes(sym) {
+		for _, sup := range ctx.model.semantics.AllSupertypes(sym) {
 			if !slices.Contains(chain, sup) && !slices.Contains(kinds, sup) {
 				kinds = append(kinds, sup)
 			}
@@ -223,11 +223,11 @@ func (ctx *Context) classifierBehaviorsOf(typeSym *symbols.Symbol) []classifierB
 	if typeSym == nil {
 		return nil
 	}
-	if cached, ok := ctx.classifierBehaviors[typeSym]; ok {
+	if cached, ok := ctx.model.classifierBehaviors[typeSym]; ok {
 		return cached
 	}
 	var out []classifierBehaviorDecl
-	for _, member := range ctx.model.MembersOf(typeSym) {
+	for _, member := range ctx.model.semantics.MembersOf(typeSym) {
 		if member.Decl == nil {
 			continue
 		}
@@ -235,7 +235,7 @@ func (ctx *Context) classifierBehaviorsOf(typeSym *symbols.Symbol) []classifierB
 			out = append(out, classifierBehaviorDecl{behavior: behavior, member: member})
 		}
 	}
-	ctx.classifierBehaviors[typeSym] = out
+	ctx.model.classifierBehaviors[typeSym] = out
 	return out
 }
 
@@ -297,14 +297,19 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 	if len(abandoned) == 0 {
 		return
 	}
-	for sym, id := range ctx.occurrences {
-		if _, live := ctx.instances[id]; !live {
+	for sym := range ctx.occurrences {
+		if _, live := ctx.liveOccurrences(sym); !live {
 			delete(ctx.occurrences, sym)
 		}
 	}
 	for annotation, id := range ctx.metadataObjects {
 		if _, live := ctx.instances[id]; !live {
 			delete(ctx.metadataObjects, annotation)
+		}
+	}
+	for sym, val := range ctx.namespaceBindings {
+		if namesAbandonedValue(val, abandoned) {
+			ctx.unbindNamespace(sym)
 		}
 	}
 	ctx.forgetLives(abandoned)
@@ -362,6 +367,20 @@ func namesAbandoned(fv *FeatureValue, abandoned map[int64]bool) bool {
 	return false
 }
 
+// namesAbandonedValue reports whether a value, or an element of a collection, names an
+// abandoned object.
+func namesAbandonedValue(val Value, abandoned map[int64]bool) bool {
+	if namesAbandonedObject(val, abandoned) {
+		return true
+	}
+	for _, elem := range elementsOf(val) {
+		if namesAbandonedObject(elem, abandoned) {
+			return true
+		}
+	}
+	return false
+}
+
 // namesAbandonedObject reports whether a value is, or a variant standing for, an
 // object that is gone, or an array, vector or tensor keeping one or an array holding one.
 func namesAbandonedObject(val Value, abandoned map[int64]bool) bool {
@@ -407,8 +426,10 @@ func (ctx *Context) restartClassifierBehaviors(objects []*Instance) error {
 }
 
 // startBehaviorsOfAll attaches the behaviors of every object before running any
-// of them, so their starts are one collective run.
+// of them, so their starts are one collective run: the behaviors share it rather
+// than each owning one, and witness moves they leave are for the runs after.
 func (ctx *Context) startBehaviorsOfAll(objects []*Instance) error {
+	defer ctx.beginRun()()
 	defer ctx.holdDrivenWork()()
 	ctx.behaviorRunDepth++
 	for _, inst := range objects {
@@ -453,17 +474,17 @@ func (ctx *Context) materializeBehavingParts(inst *Instance) error {
 // behavingParts returns the positions in FeaturesOf(typeSym) of the required
 // composite parts whose objects run behaviors, memoized per type.
 func (ctx *Context) behavingParts(typeSym *symbols.Symbol) []int {
-	if parts, ok := ctx.behavingFeatures[typeSym]; ok {
+	if parts, ok := ctx.model.behavingFeatures[typeSym]; ok {
 		return parts
 	}
 	features := ctx.FeaturesOf(typeSym)
 	parts := []int{}
 	for i := range features {
-		if !ctx.model.IsConnectorUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
+		if !ctx.model.semantics.IsConnectorUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
 			parts = append(parts, i)
 		}
 	}
-	ctx.behavingFeatures[typeSym] = parts
+	ctx.model.behavingFeatures[typeSym] = parts
 	return parts
 }
 
@@ -493,7 +514,7 @@ func (ctx *Context) requiredPartType(feat *EffectiveFeature) *symbols.Symbol {
 // it would run does not count. A type on the path being decided answers false: a
 // composition cycle has no finite object, so nothing is lost by cutting it.
 func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols.Symbol]bool) bool {
-	if known, ok := ctx.behaving[typeSym]; ok {
+	if known, ok := ctx.model.behaving[typeSym]; ok {
 		return known
 	}
 	if visiting[typeSym] {
@@ -507,14 +528,14 @@ func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols
 		if runs {
 			break
 		}
-		if ctx.model.IsConnectorUsage(features[i].Symbol) {
+		if ctx.model.semantics.IsConnectorUsage(features[i].Symbol) {
 			continue
 		}
 		if composite := ctx.requiredPartType(&features[i]); composite != nil && ctx.runsBehaviors(composite, visiting) {
 			runs = true
 		}
 	}
-	ctx.behaving[typeSym] = runs
+	ctx.model.behaving[typeSym] = runs
 	return runs
 }
 
@@ -545,7 +566,8 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 }
 
 // holdDrivenWork marks, at an outermost start, the behaviors already holding
-// work: a driver put it in flight, so the start leaves it to that driver.
+// work: a driver put it in flight, so the start leaves it to that driver. Once
+// the start returns, the behaviors it attached are as their start left them.
 func (ctx *Context) holdDrivenWork() func() {
 	if ctx.behaviorRunDepth > 0 || ctx.heldBehaviors != nil {
 		return func() { /* an outer start already holds them */ }
@@ -559,7 +581,49 @@ func (ctx *Context) holdDrivenWork() func() {
 	}
 	ctx.behaviorRunDepth--
 	ctx.heldBehaviors = held
-	return func() { ctx.heldBehaviors = nil }
+	attached := len(ctx.objectBehaviors)
+	return func() {
+		ctx.heldBehaviors = nil
+		for _, behavior := range ctx.objectBehaviors[min(attached, len(ctx.objectBehaviors)):] {
+			behavior.settle()
+		}
+	}
+}
+
+// settle records the execution as its start left it: what it does from here on
+// is a move, and an object whose executions are all unmoved is pristine.
+func (b *ObjectBehavior) settle() {
+	switch {
+	case b.State != nil:
+		b.State.moved = false
+	case b.Action != nil:
+		b.Action.moved = false
+	}
+}
+
+// Moved reports whether the execution has left the state its start put it in.
+func (b *ObjectBehavior) Moved() bool {
+	switch {
+	case b.State != nil:
+		return b.State.moved
+	case b.Action != nil:
+		return b.Action.moved
+	default:
+		return false
+	}
+}
+
+// armedWaits lists the waits on the clock that hold the execution, due or not, those
+// of the actions its paused work performs included.
+func (b *ObjectBehavior) armedWaits() []ClockWait {
+	switch {
+	case b.State != nil:
+		return b.State.visibleArmedWaits()
+	case b.Action != nil:
+		return b.Action.visibleArmedWaits()
+	default:
+		return nil
+	}
 }
 
 // runAttachedBehaviors runs everything attached, at the outermost start: a start
@@ -606,14 +670,14 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	ctx.pendingBehaviors = behaviorsExcept(ctx.pendingBehaviors, dropped)
 }
 
-// leaveClock withdraws the behavior's execution from the clock, so a behavior
-// dropped from its object is never driven again.
+// leaveClock releases the behavior's execution, ending the work it left paused
+// and withdrawing it from the clock, so a behavior dropped from its object is never driven again.
 func (b *ObjectBehavior) leaveClock() {
 	switch {
 	case b.State != nil:
-		b.State.ctx.clock.detach(b.State)
+		b.State.Release()
 	case b.Action != nil:
-		b.Action.ctx.clock.detach(b.Action)
+		b.Action.Release()
 	}
 }
 
@@ -696,33 +760,19 @@ func (b *ObjectBehavior) hasPendingWork() bool {
 // type binds, seeded with the values the binding declaration supplies, and
 // initializes it so its start is reported where every other behavior's is.
 func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, error) {
-	chain, err := ctx.classifierBehaviorChain(decl)
+	behavior, occurrence, err := ctx.bindClassifierBehavior(inst, decl)
 	if err != nil {
 		return nil, err
 	}
-	sym := chain[len(chain)-1]
+	sym := behavior.Symbol
 
 	arguments, err := ctx.classifierBehaviorArguments(inst, decl)
 	if err != nil {
 		return nil, err
 	}
 
-	behavior := &ObjectBehavior{
-		Name:     decl.behavior.Name,
-		Kind:     decl.behavior.Kind,
-		Symbol:   sym,
-		Object:   inst,
-		member:   decl.member,
-		bindings: chain,
-		kinds:    ctx.behaviorKinds(chain),
-	}
-
 	switch decl.behavior.Kind {
 	case lower.ExhibitedState:
-		occurrence, err := ctx.performanceOccurrence(inst, decl, sym, ErrStatePerformanceOccurrence)
-		if err != nil {
-			return nil, err
-		}
 		exec, err := newStateExecutorForOccurrence(ctx, sym, inst, occurrence)
 		if err != nil {
 			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
@@ -736,11 +786,7 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 		}
 		behavior.State = exec
 	case lower.PerformedAction:
-		occurrence, err := ctx.performanceOccurrence(inst, decl, sym, ErrActionPerformanceOccurrence)
-		if err != nil {
-			return nil, err
-		}
-		exec, err := newActionExecutorForOccurrence(ctx, sym, inst, occurrence)
+		exec, err := newActionExecutorOf(ctx, decl.member, sym, inst, occurrence)
 		if err != nil {
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
@@ -749,11 +795,11 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 		}
 		// An action stating no flow performs no step; the object still performs it,
 		// completed at once, rather than failing to be created.
-		start := exec.completeWithoutFlow
+		begin := (*ActionExecutor).completeWithoutFlow
 		if exec.hasFlow() {
-			start = exec.initialize
+			begin = (*ActionExecutor).initialize
 		}
-		if err := start(); err != nil {
+		if err := ctx.startAction(exec, begin); err != nil {
 			exec.Release()
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
@@ -762,6 +808,38 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedClassifierBehavior, decl.behavior.Kind)
 	}
 	return behavior, nil
+}
+
+// bindClassifierBehavior is the object's binding of one behavior its type declares,
+// its execution still to be made, and the performance occurrence the binding holds.
+func (ctx *Context) bindClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, *Instance, error) {
+	chain, err := ctx.classifierBehaviorChain(decl)
+	if err != nil {
+		return nil, nil, err
+	}
+	sym := chain[len(chain)-1]
+	behavior := &ObjectBehavior{
+		Name:     decl.behavior.Name,
+		Kind:     decl.behavior.Kind,
+		Symbol:   sym,
+		Object:   inst,
+		member:   decl.member,
+		bindings: chain,
+		kinds:    ctx.behaviorKinds(chain),
+	}
+	var occurrence *Instance
+	switch decl.behavior.Kind {
+	case lower.ExhibitedState:
+		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrStatePerformanceOccurrence)
+	case lower.PerformedAction:
+		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrActionPerformanceOccurrence)
+	default:
+		return nil, nil, fmt.Errorf("%w: %s", ErrUnsupportedClassifierBehavior, decl.behavior.Kind)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return behavior, occurrence, nil
 }
 
 // performanceOccurrence returns the performance occurrence the binding
@@ -883,14 +961,14 @@ func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*sym
 // reference-subsets, the type it states, or — for `exhibit m;`, whose name is
 // the state usage declared elsewhere — that usage.
 func (ctx *Context) namedBehavior(sym *symbols.Symbol) *symbols.Symbol {
-	if ref := ctx.model.ReferencedFeature(sym); ref != nil {
+	if ref := ctx.model.semantics.ReferencedFeature(sym); ref != nil {
 		return ref
 	}
 	if typ := ctx.extractType(sym); typ != nil {
 		return typ
 	}
 	if sym.Name != "" && sym.OwnerScope != nil {
-		if named, ok := ctx.resolver.LookupNameExcluding(sym.OwnerScope, sym.Name, sym.Decl); ok {
+		if named, ok := ctx.lookupNameExcluding(sym.OwnerScope, sym.Name, sym); ok {
 			return named
 		}
 	}
@@ -903,9 +981,9 @@ func (ctx *Context) classifierBehaviorArguments(inst *Instance, decl classifierB
 	if len(decl.behavior.Arguments) == 0 {
 		return nil, nil
 	}
-	scope := declScope(decl.member)
+	scope := DeclScope(decl.member)
 	if scope == nil {
-		scope = declScope(inst.Type)
+		scope = DeclScope(inst.Type)
 	}
 	args := make(map[string]Value, len(decl.behavior.Arguments))
 	for _, arg := range decl.behavior.Arguments {
@@ -923,7 +1001,7 @@ func (ctx *Context) classifierBehaviorArguments(inst *Instance, decl classifierB
 // argumentParameter names the behavior parameter an argument binds: the feature
 // its declaration redefines (`in <a> :>> x = 4` binds x), else its own name.
 func (ctx *Context) argumentParameter(scope *symbols.Scope, arg lower.Attribute) string {
-	for _, redefined := range ctx.model.RedefinedFeatures(memberSymbol(scope, arg.Node)) {
+	for _, redefined := range ctx.model.semantics.RedefinedFeatures(memberSymbol(scope, arg.Node)) {
 		if redefined.Name != "" {
 			return redefined.Name
 		}
@@ -993,10 +1071,10 @@ func assignPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, 
 // written, denotes a feature of the object performing the behavior under any of
 // its types: the performer is not a namespace the body's names are looked up in.
 func namesPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, name string) bool {
-	if ctx == nil || ctx.resolver == nil || self == nil || scope == nil {
+	if ctx == nil || ctx.model.resolver == nil || self == nil || scope == nil {
 		return false
 	}
-	sym, ok := ctx.resolver.LookupName(scope, name)
+	sym, ok := ctx.lookupName(scope, name)
 	if !ok || sym == nil {
 		return false
 	}
@@ -1021,7 +1099,7 @@ func (ctx *Context) typeHoldsFeature(typeSym, feature *symbols.Symbol) bool {
 	if owner == typeSym {
 		return true
 	}
-	for _, super := range ctx.model.AllSupertypes(typeSym) {
+	for _, super := range ctx.model.semantics.AllSupertypes(typeSym) {
 		if super == owner {
 			return true
 		}

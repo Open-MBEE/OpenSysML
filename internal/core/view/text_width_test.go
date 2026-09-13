@@ -68,18 +68,18 @@ func TestTextIsTheUnboundedWidth(t *testing.T) {
 	}
 }
 
-// TestWriteWidthNarrowsTheTextFormAlone leaves the Markdown table as it is: a
+// TestWriteWithWidthNarrowsTheTextFormAlone leaves the Markdown table as it is: a
 // file a tool reads is no terminal.
-func TestWriteWidthNarrowsTheTextFormAlone(t *testing.T) {
+func TestWriteWithWidthNarrowsTheTextFormAlone(t *testing.T) {
 	rendering := render(t, "table.sysml", "TableViews::fleetTable")
-	narrow, err := rendering.WriteWidth(FormMarkdown, 20)
+	narrow, err := rendering.WriteWith(FormMarkdown, Options{Width: 20})
 	if err != nil {
 		t.Fatalf("write Markdown: %v", err)
 	}
 	if narrow != rendering.Markdown() {
 		t.Errorf("a width narrowed the Markdown table:\n%s", narrow)
 	}
-	text, err := rendering.WriteWidth(FormText, 48)
+	text, err := rendering.WriteWith(FormText, Options{Width: 48})
 	if err != nil {
 		t.Fatalf("write text: %v", err)
 	}

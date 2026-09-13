@@ -212,4 +212,98 @@ public interface VerdictOrBuilder extends
    */
   com.google.protobuf.ByteString
       getRequirementIdBytes();
+
+  /**
+   * <pre>
+   * The engine whose answer this verdict is, as ListEngines names it; empty
+   * for a verdict decided before any engine was asked. Reported as the
+   * "engines" capability, with `strength` and `bounds`.
+   * </pre>
+   *
+   * <code>string engine = 11 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  java.lang.String getEngine();
+  /**
+   * <pre>
+   * The engine whose answer this verdict is, as ListEngines names it; empty
+   * for a verdict decided before any engine was asked. Reported as the
+   * "engines" capability, with `strength` and `bounds`.
+   * </pre>
+   *
+   * <code>string engine = 11 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  com.google.protobuf.ByteString
+      getEngineBytes();
+
+  /**
+   * <pre>
+   * The strength of the evidence behind the verdict: "observed" for one run,
+   * "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+   * search within the bounds, "proved" for every case, "not covered" when no
+   * engine decided it.
+   * </pre>
+   *
+   * <code>string strength = 12 [json_name = "strength"];</code>
+   * @return The strength.
+   */
+  java.lang.String getStrength();
+  /**
+   * <pre>
+   * The strength of the evidence behind the verdict: "observed" for one run,
+   * "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+   * search within the bounds, "proved" for every case, "not covered" when no
+   * engine decided it.
+   * </pre>
+   *
+   * <code>string strength = 12 [json_name = "strength"];</code>
+   * @return The bytes for strength.
+   */
+  com.google.protobuf.ByteString
+      getStrengthBytes();
+
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.Bound> 
+      getBoundsList();
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  org.openmbee.opensysml.proto.Bound getBounds(int index);
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  int getBoundsCount();
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.BoundOrBuilder> 
+      getBoundsOrBuilderList();
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  org.openmbee.opensysml.proto.BoundOrBuilder getBoundsOrBuilder(
+      int index);
 }

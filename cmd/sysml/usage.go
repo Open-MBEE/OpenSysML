@@ -57,6 +57,35 @@ func doc() usage.Doc {
 			},
 			Paragraphs: []string{"Each check flag may be repeated."},
 		}, {
+			Title: "Analysis engines",
+			Examples: []usage.Example{
+				usage.Ex("sysml -engines", "List engines, kind and status; nothing runs"),
+				usage.Ex("sysml -engines -probe", "Also start each external engine once"),
+				usage.Ex("sysml -engine explore -action Drive m.sysml", "The same as -schedule explore"),
+				usage.Ex("sysml -engine all -requirement R m.sysml", "Every engine that covers the question"),
+				usage.Ex("sysml -engine run -json -constraint C m.sysml", "One engine; the plan in the report"),
+			},
+			Paragraphs: []string{
+				"Every check is a question put to an analysis engine: run executes the " +
+					"model once under -schedule, explore runs every linearization, sweep " +
+					"runs the rows of -sweep, and solve puts condition sets to an SMT " +
+					"solver. -engine auto (the default) picks the engine of highest " +
+					"authority that covers the question and falls back to the next when " +
+					"it refuses or covers nothing; -engine <name> puts the question to " +
+					"that engine alone, and its refusal is the answer; -engine all puts " +
+					"it to every engine that covers it, one after another in name order, " +
+					"and composes their answers: a witnessed violation stands over any " +
+					"universal claim, and a contradiction is reported as a disagreement " +
+					"decided in the interpreter's favor.",
+				"Every verdict is followed by its standing: the claim, the strength of " +
+					"the evidence — observed (one run), witnessed (a replayed execution), " +
+					"bounded (every case within a budget), proved (every case) — and what " +
+					"earned it, as `holds (observed: 1 run under reverse)`. A budget the " +
+					"engine reached lowers the strength and is named. Under -json each " +
+					"check carries the plan and one results[] entry per engine that " +
+					"answered, with its engine, claim, strength, bounds and witness.",
+			},
+		}, {
 			Title: "Sweeping and sampling a parameter",
 			Examples: []usage.Example{
 				usage.Ex(`sysml -calc Twice -sweep "n=1..8:2" m.sysml`, "One run per range value"),
@@ -162,6 +191,10 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView", "ASCII text at a terminal"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form markdown", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -o view.mmd", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
+				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
 			},
 			Paragraphs: []string{
@@ -169,7 +202,16 @@ func doc() usage.Doc {
 					"containment tree where it states none. It is tool-defined " +
 					"output: SysML v2 specifies the notation, not how a tool draws " +
 					"it. Notices — an empty view, an element the rendering cannot " +
-					"represent — go on stderr.",
+					"represent — go on stderr. Every file named is loaded as one " +
+					"model, so a view may expose elements a sibling file declares. " +
+					"A graph-shaped rendering is written as a Mermaid diagram by " +
+					"default, as Graphviz DOT with -render-form dot and as PlantUML with " +
+					"-render-form plantuml, which also writes a sequence rendering; neither " +
+					"Graphviz nor PlantUML is needed to write them. Both are drawn in the " +
+					"black-and-white style of the SysML v2 Pilot visualizer; -render-palette " +
+					"fills their nodes by keyword family from a colourblind-safe palette " +
+					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
+					"viridis or cividis), keeping black text legible on every fill.",
 			},
 		}, {
 			Title: "Rendering a document",
@@ -182,6 +224,8 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render-documents site -doc-form html -html-css theme.css", ""),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-theme report -o report.html", "a bundled theme"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-mermaid cdn -o report.html", "diagrams drawn in the browser"),
+				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form dot -o report.md", "diagrams as Graphviz DOT"),
+				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form plantuml -o report.md", "diagrams as PlantUML"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form pdf "+
 					"-pdf-engine pandoc -doc-title-page -doc-toc -doc-number-sections -o report.pdf", ""),
 				usage.Ex("sysml -html-default-css -o sysml-document.css", "the default stylesheet"),
@@ -190,7 +234,11 @@ func doc() usage.Doc {
 			Paragraphs: []string{
 				"A document is a part def specializing DocumentQueries::Document. Its " +
 					"queries are bound in the model and run against it, and the " +
-					"result is written as CommonMark-compatible Markdown.",
+					"result is written as CommonMark-compatible Markdown. Its diagram " +
+					"blocks are Mermaid source; -diagram-form dot or plantuml writes every " +
+					"graph-shaped one as Graphviz DOT or PlantUML instead, in Markdown and HTML " +
+					"alike, while a table-kind view stays a table. Neither Graphviz nor " +
+					"PlantUML is needed to write it.",
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
 					"own CSS overrides without !important.",
@@ -205,9 +253,9 @@ func doc() usage.Doc {
 					"your own stylesheets, -html-no-default-css drops the default one, " +
 					"-html-fragment writes the document element alone to embed in a " +
 					"page of yours, and -html-default-css writes the default sheet out " +
-					"— or, with -html-theme, a theme's whole sheet — to start from. Diagrams are written as Mermaid source; -html-mermaid " +
+					"— or, with -html-theme, a theme's whole sheet — to start from. -html-mermaid " +
 					"cdn has the page load a pinned Mermaid release from jsDelivr so a " +
-					"browser draws them, or names a URL of your own to load it from.",
+					"browser draws the Mermaid diagrams, or names a URL of your own to load it from.",
 			},
 		}, {
 			Title: "Flag order",
@@ -253,7 +301,7 @@ func doc() usage.Doc {
 		}, {
 			Title:      "Environment",
 			ManOnly:    true,
-			Items:      append(usage.BudgetEnvironment(), solverEnvironment()...),
+			Items:      append(append(append(usage.BudgetEnvironment(), usage.JobsEnvironment()...), usage.ToolEnvironment()...), solverEnvironment()...),
 			Paragraphs: []string{usage.LegacyPrefixNote, usage.BudgetScopeNote},
 		}, {
 			Title:   "Files",
@@ -298,19 +346,25 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&quietMode, "quiet", false, "Report errors only, suppressing warnings")
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning")
 	fs.BoolVar(&traceMode, "trace", false, "Report each execution step: expression evaluation, calc invocation, action tokens, state transitions")
-	fs.Var(&schedule, "schedule", "Scheduling policy every run resolves its choice points under (concurrent tokens, overlapping guards, competing transitions): declared, reverse (default), seed:<n> for a reproducible pseudo-random order, or explore[:runs=N,depth=D] to run every linearization within the budget and table the distinct outcomes")
+	fs.Var(&schedule, "schedule", "Scheduling policy every run resolves its choice points under (concurrent tokens, overlapping guards, competing transitions): declared, reverse (default), seed:<n> for a reproducible pseudo-random order, explore[:runs=N,depth=D] to run every linearization within the budget and table the distinct outcomes, or replay:<file> to follow a witness file's choice lines move for move, then reverse")
+	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows — name, kind (built-in, tool, engine, policy, sampler), protocol, authority, the questions each answers and whether its process is found — with the manifest entry and resolved command of each external one, spawning nothing, and exit")
+	fs.BoolVar(&probeEngines, "probe", false, "With -engines, also start each external engine once, check its describe against its manifest entry field by field and report the outcome as its status")
+	fs.Var(&engine, "engine", "Analysis engine every check is put to: auto (default) picks the strongest engine covering the question, all puts it to every covering engine in name order and composes their answers, or an engine by name (run, explore, check, smt, sweep, solve, tool:<name> from OPENSYSML_TOOLS, or an external engine from OPENSYSML_ENGINES), whose refusal is then the answer; -engine explore is -schedule explore, -engine check searches every schedule of each -action for a violation, deadlock, failure or divergence, and -engine smt decides each -check-property over every schedule and every value of the action's free inputs through an SMT solver")
+	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently — the linearizations of an exploration, the engines -engine all consults — each on a worker of its own over the shared model; the result is the same at any count. Default OPENSYSML_JOBS, else the number of CPUs")
 	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
 	fs.StringVar(&queryText, "query", "", "Evaluate OSLC Query text against the model instead of running the REPL")
 	fs.StringVar(&outputPath, "output", "", "Write conversion output to this file (default: stdout)")
 	fs.StringVar(&outputPath, "o", "", "Write conversion output to this file (shorthand)")
-	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi/mdzip for a SysML v1 model to migrate (experimental; default: from the input's extension)")
+	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi/uml/mdzip for a SysML v1 model to migrate (experimental; default: from the input's extension)")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi: write the element-by-element migration report to this file (JSON when it ends in .json, text otherwise)")
-	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states")
+	fs.StringVar(&renderView, "render", "", "Render this view of the model (every file named, loaded as one) instead of running it, in the form its render member states")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered Markdown")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition as linked Markdown into this directory")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid or markdown (default: destination-dependent for -render, each kind's machine form for -render-all)")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml (default: destination-dependent for -render, each kind's machine form for -render-all)")
+	fs.StringVar(&renderPalette, "render-palette", "", "Palette the DOT or PlantUML form of -render or -render-all fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis (default: black and white)")
 	fs.StringVar(&docForm, "doc-form", "", "Form -render-document and -render-documents write: markdown (default), html or pdf, which drives an external converter")
+	fs.StringVar(&diagramForm, "diagram-form", "", "Form the graph-shaped diagrams of -render-document and -render-documents are written in: mermaid (default), dot or plantuml; a table-kind view is a table either way")
 	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
 	fs.BoolVar(&pdfTitlePage, "pdf-title-page", false, "Put the document title on a page of its own (-doc-form pdf)")
 	fs.BoolVar(&pdfTOC, "pdf-toc", false, "Write a table of contents ahead of the content (-doc-form pdf)")
@@ -346,6 +400,16 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.advance, "advance", "Simulated time units to run the -action and -state behaviors for, on one shared clock (default: a state machine takes only its initial transition; an action runs to completion)")
+	fs.Var(&modelChecks.checker.diverge, "check-diverge", "With -engine check or -engine all: report this feature divergent when schedules leave it with different final values, as -check-diverge x, -check-diverge step.out for a performed node's output or -check-diverge this.level for the performing object's, a name nothing holds refused; default every attribute of the action and of its performing object, the action's own when it has none (repeatable)")
+	fs.Var(&modelChecks.checker.properties, "check-property", "With -engine check or -engine all: evaluate this constraint or requirement at every stable state of the action, on the performing object when there is one, and report a schedule at which it is false (repeatable)")
+	fs.Var(&modelChecks.checker.inputs, "check-input", "With -engine smt or -engine all: leave this feature of the action free in its declared domain although the model binds it, as -check-input inletTemp; a name that is not a feature the action reads is refused. Without it, every input the model leaves unbound is free and every bound one is pinned (repeatable)")
+	fs.Var(&modelChecks.checker.assume, "check-assume", "With -engine smt or -engine all: assume this constraint or requirement over the initial state of the action, as -check-assume Plant::EnvelopeLimits; a set no initial state satisfies is reported not covered, never proved (repeatable)")
+	fs.StringVar(&modelChecks.checker.witness, "check-witness", "", "With -engine check, -engine smt or -engine all: write a witness file to this directory for each violation and each divergent value — the inputs the solver chose, the schedule's choices, a blank line, then the run's trace — which -schedule replay:<file> and %replay follow")
+	modelChecks.checker.depth.flag, modelChecks.checker.states.flag, modelChecks.checker.unroll.flag = "check-depth", "check-states", "check-unroll"
+	fs.Var(&modelChecks.checker.depth, "check-depth", "With -engine check, -engine smt or -engine all: the most moves one schedule may make before the search backtracks, or the moves the smt engine unrolls the action to, named as the depth bound hit (default 10000 for check, 40 for smt)")
+	fs.Var(&modelChecks.checker.states, "check-states", "With -engine check or -engine all: the most distinct states the search may visit, named as the states bound hit; the same figure -engine all gives an exploration as its runs (default 1000000)")
+	fs.Var(&modelChecks.checker.unroll, "check-unroll", "With -engine smt or -engine all: the most iterations of one loop the smt engine unrolls before it stops, named as the unroll bound hit (default 4)")
+	fs.Var(&modelChecks.checker.timeout, "check-timeout", "With -engine check, -engine smt or -engine all: the time the check's plan may run for, as 30s or 2m; a search it stops is reported incomplete with the states and depth reached, not as a verdict")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
 	fs.StringVar(&compileTarget, "target", "c", "Backend -compile generates code for: c (default) or go")

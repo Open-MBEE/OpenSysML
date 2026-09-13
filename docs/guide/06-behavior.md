@@ -45,22 +45,33 @@ sysml> %continue
 A machine completes when a transition reaches `done`, the terminal state the standard
 library provides for every state machine. Entering it runs the exit actions, and then the
 machine reports itself completed. With orthogonal regions, each region has its own `done`,
-and the machine completes only once every region has reached it.
+and the machine completes only once every region has reached it. A `done` written inside a
+composite state's body ends that state, not the machine: the composite *completes*, and its
+transitions with no trigger (`transition first outer then next;`) fire, exactly as a plain
+state's do when its `do` behavior ends. A completed composite with no such transition stays
+active, and the machine runs on until its own top-level regions reach `done`. Only the Kernel
+Semantic Library's run-to-completion defaults are implemented: a machine that redefines
+`isRunToCompletion` or `runToCompletionScope` away from them is refused when it is lowered,
+naming the feature and the value written, rather than run as if the default held.
 
 ```sysml
 sysml> state TrafficLight {
-  ...>     entry; then start;
-  ...>     state start;
+  ...>     entry; then idle;
+  ...>     state idle;
   ...>     state green;
   ...>     accept after 25 [SI::s] then yellow;
   ...>     state yellow;
   ...>     accept after 5 [SI::s] then red;
   ...>     state red;
   ...>     accept after 30 [SI::s] then done;
-  ...>     succession first start then green;
+  ...>     succession first idle then green;
   ...> }
 ✓ state TrafficLight
 ```
+
+(The first state is not named `start`: every state inherits `start` and `done` from the
+library's `StateAction`, so declaring a state of that name is reported as a duplicate of the
+inherited member.)
 
 A transition written without `transition … first`, as the three `accept after … then …`
 lines above are, leaves the state declared right before it in the same body (SysML v2
@@ -74,7 +85,7 @@ written first in a body, or after a member that is not a state, it is reported.
 ```sysml
 sysml> %state TrafficLight
 ✓ Started state machine executor for "TrafficLight"
-  Current state: start
+  Current state: idle
   Time: 0.0
   Events: 1
 
@@ -85,18 +96,22 @@ sysml> %advance 25
   Current state: yellow
   Last event at: 25.0
   Remaining events: 1
+  Waiting on the clock:
+    t=30.0: state machine TrafficLight, time -> red
 
 sysml> %current
 Current state: yellow
 Time: 25.0
 Last event at: 25.0
-Execution state: Running
+Execution state: Suspended
 
 sysml> %advance 5
 ✓ Advanced to 30.0 (1 event(s) processed)
   Current state: red
   Last event at: 30.0
   Remaining events: 1
+  Waiting on the clock:
+    t=60.0: state machine TrafficLight, time -> done
 
 sysml> %advance 30
 ✓ Advanced to 60.0 (1 event(s) processed)
@@ -108,8 +123,8 @@ sysml> %advance 30
 ```
 
 **Choosing the starting state.** Written right after the body's entry action, the shorthand
-is an *entry transition* instead: it names the state the body starts in. `entry; then start;`
-above always starts in `start`; with a guard, `entry; if cold then heating; if not cold then
+is an *entry transition* instead: it names the state the body starts in. `entry; then idle;`
+above always starts in `idle`; with a guard, `entry; if cold then heating; if not cold then
 idle;`, the alternatives are tried in the order written each time the body is entered — when
 the machine starts, and again whenever a transition enters the composite state whose body it
 is — and the first whose guard holds is entered. An unguarded `then s;` among them is the
@@ -167,9 +182,11 @@ sysml> %state bulb
   Time: 0.0
   Events: 0
 
+Use %events to see queue, %current for state, %advance <time> to step
+
 sysml> %send go
 ✓ Sent go to object #1 of "Lamps::bulb"
-  Accepted by state machine "Lamp" in state off
+  Accepted by state machine "Lamp" in state off: transition off_on fires on it
 
 Use %step or %advance <time> to dispatch it
 
@@ -186,7 +203,9 @@ sysml> %advance 1
 
 sysml> %send Dim(level=3+4)
 ✓ Sent Dim(level=7) to object #1 of "Lamps::bulb"
-  Accepted by state machine "Lamp" in state on
+  Accepted by state machine "Lamp" in state on: transition on_dim fires on it
+
+Use %step or %advance <time> to dispatch it
 
 sysml> %step
 ✓ Event dispatched
@@ -248,6 +267,8 @@ sysml> %action Timed::pinger
   State: Running
   Tokens: 1
 
+Use %step to advance, %tokens to inspect, %continue to run to completion
+
 sysml> %step
 ✓ Step complete
   State: Running
@@ -263,6 +284,8 @@ sysml> %state Timed::listener
   Current state: idle
   Time: 0.0
   Events: 0
+
+Use %events to see queue, %current for state, %advance <time> to step
 
 sysml> %advance 2
 ✓ Advanced to 2.0 (0 event(s) processed)
@@ -302,6 +325,88 @@ is listed under `Waiting on the clock`; an advance with nothing waiting just mov
 `%continue` runs an action to completion on its own, moving the clock to each of its waits as it
 reaches them, and moving with it every other behavior of the same runtime that comes due.
 
+**What a state's behaviors may do.** A state's `entry`, `do` and `exit` behaviors are actions,
+and their bodies may hold whatever an action body holds: a flow of nodes joined by successions
+(`first start; then …` or, with one node no succession leads to, the flow starts there),
+forks, joins and decisions, timed and signal accepts, sends, nested action nodes with flows of
+their own, and typed usages with pin bindings (`do action poll : Poll { inout n = ticks; }`). A
+body stating no flow still runs its statements in declaration order. The three behaviors differ
+in *when* they run: entry and exit are performed whole at the instant the state is entered or
+left (as is a transition's `do` effect), so a body of theirs that waits on the clock is refused
+with `state behavior waits for the clock`; the `do` behavior runs while the state is active,
+one action per round, and may wait. An `accept after` in a do body parks it on the shared clock
+and `%advance` moves it; an `accept Sig` parks it until a matching signal is sent — `%send Sig`
+takes it though no transition fires on it, reporting that the do behavior goes on. A do behavior
+performs once — when its body ends, the state has completed and a completion transition out of
+it, if any, fires — and leaving the state for any other reason abandons what is left of it: its
+waits leave the clock, nothing after the wait runs, and an `inout` pin writes its value back to
+the bound attribute only when the performance ends (an `inout` pin valued by an enumeration
+literal or another constant, `inout mode = Mode::idle`, starts from that value and writes back
+nowhere). `Poll` below counts once at `t=3.0`, the
+state is left at `t=10.0`, and `ticks` reads `1`:
+
+```sysml
+sysml> package Watch {
+  ...>     private import ScalarValues::*;
+  ...>     action def Poll {
+  ...>         inout n : Integer;
+  ...>         action wait accept after 3 [SI::s];
+  ...>         then assign n := n + 1;
+  ...>     }
+  ...>     part def Watcher {
+  ...>         attribute ticks : Integer = 0;
+  ...>         exhibit state m {
+  ...>             entry; then watching;
+  ...>             state watching { do action poll : Poll { inout n = ticks; } }
+  ...>             transition first watching accept after 10 [SI::s] then finished;
+  ...>             state finished;
+  ...>         }
+  ...>     }
+  ...>     part w : Watcher;
+  ...> }
+✓ package Watch
+
+sysml> %instantiate Watch::w
+✓ Created instance of Watch::w
+  ID: 1
+  Use %features Watch::w to inspect
+
+sysml> %state Watch::w
+✓ Debugging state machine "m" exhibited by object #1 of "Watch::w"
+  Current state: watching
+  Time: 0.0
+  Events: 1
+
+Use %events to see queue, %current for state, %advance <time> to step
+
+sysml> %advance 20
+✓ Advanced to 20.0 (1 event(s) processed)
+  Current state: finished
+  Last event at: 10.0
+  Remaining events: 0
+  Do behavior actions run: 1
+
+sysml> %features Watch::w
+Instance: Watch::w (ID: 1)
+Features:
+  ticks = 1
+…
+Behaviors:
+  m: exhibited state machine, current state finished
+…
+```
+
+(The `…` stand for the library-declared features of the part and of the machine — `subparts`,
+`isSolid`, `transitions`, … — which `%features` lists after the model's own; see [your first
+model](02-first-model.md#at-the-prompt).)
+
+Had the poll waited `30 [SI::s]` instead, the exit at `t=10.0` would have cancelled it and
+`ticks` would still read `0`. When the states of two orthogonal regions both have a do action
+due at one instant, which acts first in the round is a choice point (`choice do round at t=2.0:
+states left, right react`), explored like any other ([below](#when-a-model-has-more-than-one-valid-run)).
+A do body that binds an `in` pin to nothing, or to a feature the state does not declare, is
+refused when the behavior starts, naming the pin.
+
 **Action debugging commands:**
 - `%action <name> [<object>]` — Start an action debugging session, optionally performed by an instantiated object
 - `%step` — Advance all tokens one step; a token waiting only on the clock is reported with the `%advance` that would move it
@@ -333,12 +438,18 @@ instruction. The KerML Kernel Semantic Library orders three things and nothing e
 - **Send before accept.** A message is accepted after it was sent, so an `accept` that waits for a
   `send` in another branch follows that send.
 - **Ancestor priority.** When a substate's transition and its enclosing state's are both enabled
-  by one event, the innermost fires — UML/SysML order, not a pick.
+  by one event, the innermost fires — SysML v2/KerML order, not a pick. A deferred event (the
+  `defer <event>;` extension) is ordered the same way: while a state that defers it is active,
+  the event reaches only a transition whose source is that state or one nested in it; a
+  transition in an enclosing state or a sibling region waits until the deferring state is
+  exited, and the event is then dispatched, ahead of later arrivals.
 
 Everything else two performances could do in either order, they may: which of two fork branches
 steps first (*token interleaving*), which of two holding guards a decision follows (*overlapping
 guards*), which of two transitions out of one state fires on one event (*competing transitions*),
-which of two orthogonal regions reacts first to an event both accept (*region order*), whose
+which of two orthogonal regions reacts first to an event both accept (*region order*), which
+of two holding guards a `choice` pseudostate follows — its guards are read on arrival, after the
+transition into it has run its effect (*choice branch*) —, whose
 value stands when two branches assign one feature in one step (*same-step writes*), and which of
 two executors due at one instant of the shared clock — an action token and a state transition,
 two state machines, two actions — runs first (*due order*). A model with
@@ -571,6 +682,49 @@ sysml> %schedule explore
 error: explore replays a behavior from the start once per linearization, which %action and %state, stepping one run, cannot do: run `sysml -schedule explore -action <name>` (or -state, -analysis, -calc), or a request with schedule "explore"
 ```
 
+### Running one witness again
+
+A witness column is a run you can run again. `replay:<file>` reads a file of choice lines — each
+spelled as the table spells them, one per line or joined by `; `, ending at the first blank line
+(a trace body written after it is ignored, so a file the model checkers write serves as it
+stands) — and resolves the run's choice points in that order, then falls back to `reverse` once
+the file's moves are spent. Save the `x = 1` witness above to `x1.trace` and the run reproduces
+that row:
+
+```console
+$ sysml -schedule replay:x1.trace -action test::race action_explore_three_writers.sysml
+✓ package test
+✓ Started action executor for "test::race"
+…
+  Results:
+    aRan = true
+    bRan = true
+    cRan = true
+    x = 1
+  standing: value (observed: 1 run under replay:x1.trace)
+```
+
+A replay follows its witness or says which move it could not follow, rather than quietly running
+another linearization: a move whose pick is not among the alternatives the run offered, one
+whose step the run has already passed, or one left over when the run ends, is `replay refused:
+move <n> (<the choice>): <what the run faced instead>`, and the check it was part of is *not
+covered*. A file that spells no choice (a pick not among its own alternatives, a line in no
+known form, nothing at all) is refused as the policy is parsed, before anything runs; a header
+of `no choice points`, as the checker writes for a run that met none, follows the one run there
+is.
+
+A witness the `smt` engine writes opens with the values it chose for the action's free inputs,
+one `input <feature> = <value>` line each — `input limit = -1`, `input mode =
+Modes::Mode::fast` for an enumeration, `input rate = 1/3` for a real, `input limit = null` for
+a feature declared `[0..1]` the solver left without a value — ahead of its choice lines. The replay pins each named feature at that value before the run starts, as an argument
+the invocation passes is pinned and before any default the model gives it, then follows the
+moves; a file without input lines is the format it always was and replays as before. An input
+line naming a feature the action does not have, or one it cannot set, is refused naming the
+feature, and the check it was part of is *not covered*. The policy is accepted
+wherever a policy is — `-schedule`, `%schedule` (the debuggers step one run, which is what a
+replay is), a conformance case's `schedule` pin — except over the wire, where a request carries
+no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.
+
 ### Writing a test that admits several outcomes
 
 A conformance case (see the
@@ -685,6 +839,8 @@ sysml> %state Monitor
   Time: 0.0
   Events: 1
 
+Use %events to see queue, %current for state, %advance <time> to step
+
 sysml> %step
 ✓ Event dispatched
   Current state: awake
@@ -695,8 +851,10 @@ sysml> %features Monitor
 Instance: Monitor (ID: 1)
 Features:
   count = 11
+…
 Behaviors:
   modes: exhibited state machine, current state awake
+…
   bumpBy: action, not running
 ```
 
@@ -789,8 +947,10 @@ sysml> %features Monitor
 Instance: Monitor (ID: 1)
 Features:
   count = 15
+…
 Behaviors:
   modes: exhibited state machine, current state awake
+…
   bumpBy: action, not running
 ```
 
@@ -1051,6 +1211,31 @@ are written. Several ranges run their cartesian product, a failed run is a row o
 than the end of it, and [reference/repl-commands.md](../reference/repl-commands.md) states each
 refusal. Sampling is uniform over the range — the bundled library defines no probability
 distribution, so a distribution asked for by name is refused naming what is missing.
+
+Every row is a run of its own: it gets a fresh context, instantiates the case's subject there,
+and no row sees a value another row wrote. The arguments are evaluated once, at the prompt, and
+their values carried into every row — `%sweep An::Price(base = ship.cost) n=1..4` reads
+`ship.cost` as the session holds it, a run's writes included, not as the declaration would make
+it; an argument naming an object binds, in each row, the object the row makes for it under the
+rule below, so a row's writes through it stay in the row. Rows run `%jobs` at a time and the
+table comes out in range order whatever order they finish in, so the table is the same at any
+count — only the `time` column, which is each row's own wall time, varies. A sweep on an object
+the session holds, as `An::ship` above, runs each row on a fresh `An::Ship` made from the same
+declaration, not on the held object, and the held object is untouched afterwards. That stands
+for the held object exactly while it is as its declaration made it — an object reached through a
+feature of another, `fleet.flagship`, is made again by instantiating `fleet`'s declaration and
+walking to its `flagship` — and while every behavior its type exhibits or performs is still as
+its start left it, as it is fresh from `%instantiate`. Once the object is not as its declaration
+made it — named by `#<id>`, a feature of it written by a run, its state machine moved by a
+`%send` or an `%advance`, its performed action gone past a wait — each row runs instead on a
+copy of it: an image of the held object and everything it holds, taken once when the sweep
+begins and made afresh in every row's context under the same identities, so a row reads the
+written feature, the current state and the parked action as the session holds them, writes only
+its own copy, and the held object is untouched afterwards. An object destroyed, or one whose
+state no copy can carry — a body paused mid-statement, such as a `do action` waiting at an `accept` — is
+refused naming the reason rather than run on shared state; `%instantiate` it afresh and sweep
+that. An argument naming a held object is carried the same way, the row's own copy bound in
+place of it, and refused the same way when no copy can be made.
 
 ### Trade studies
 

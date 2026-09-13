@@ -71,10 +71,7 @@ func (r *Resolver) redefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 func (r *Resolver) explicitRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for _, rel := range redefinesRelationships(sym.Decl) {
-		// Redefinitions search features of the owner's generals; hide only the
-		// declaration's own binding so a same-named target reaches that feature.
-		hide := &refFilter{decl: sym.Decl, skipBorrowedName: true, redefining: true}
-		if found, ok := r.resolveTarget(sym.OwnerScope, rel.Target, hide); ok && found != sym {
+		if found, ok := r.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, rel.Target); ok && found != sym {
 			out = append(out, found)
 		}
 	}
@@ -93,7 +90,7 @@ func (r *Resolver) nestedMember(sym *symbols.Symbol, name string, hide *refFilte
 			continue
 		}
 		seen[cur] = true
-		if member, ok := r.lookupMember(cur, name); ok && !hide.hides(member) {
+		if member, ok := r.lookupMember(cur, name, hide); ok && !hide.hides(member) {
 			return member, true
 		}
 		var members []*symbols.Symbol

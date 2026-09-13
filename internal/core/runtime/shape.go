@@ -55,12 +55,13 @@ func (f *EffectiveFeature) DeclScope() *symbols.Scope {
 	return f.Symbol.OwnerScope
 }
 
-// declScope returns the scope a declaration's body was written in: the scope the
+// DeclScope returns the scope a declaration's body was written in: the scope the
 // declaration owns, in which its own members are visible to each other, falling
 // back to the scope it was declared in when it owns none. It is the scope an
 // expression written among its members resolves its names against — an
-// attribute default, a guard, an assignment in a nested action body.
-func declScope(sym *symbols.Symbol) *symbols.Scope {
+// attribute default, a guard, an assignment in a nested action body — and the
+// scope the runtime lowers the declaration in.
+func DeclScope(sym *symbols.Symbol) *symbols.Scope {
 	if sym == nil {
 		return nil
 	}
@@ -78,12 +79,12 @@ func (ctx *Context) FeaturesOf(typeSym *symbols.Symbol) []EffectiveFeature {
 	}
 
 	// Memoization
-	if cached, ok := ctx.features[typeSym]; ok {
+	if cached, ok := ctx.model.features[typeSym]; ok {
 		return cached
 	}
 
 	features := ctx.buildFeatures(typeSym)
-	ctx.features[typeSym] = features
+	ctx.model.features[typeSym] = features
 	return features
 }
 
@@ -91,7 +92,7 @@ func (ctx *Context) FeaturesOf(typeSym *symbols.Symbol) []EffectiveFeature {
 func (ctx *Context) buildFeatures(typeSym *symbols.Symbol) []EffectiveFeature {
 	// Redefined features stay in the shape: a redefinition shares its target's
 	// feature value, which both names read (see subsetting_test.go).
-	shape := ctx.model.ShapeFeatures(typeSym)
+	shape := ctx.model.semantics.ShapeFeatures(typeSym)
 	result := make([]EffectiveFeature, 0, len(shape))
 	seenNames := make(map[string]bool, len(shape))
 	for _, f := range shape {
@@ -119,7 +120,7 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 		DefaultValue: defaultVal,
 		DefaultDecl:  defaultDecl,
 		HoldsSet:     ctx.holdsSet(memberSym, typeSym, mult),
-		Unique:       ctx.model.IsUnique(memberSym),
+		Unique:       ctx.model.semantics.IsUnique(memberSym),
 	}
 }
 
@@ -128,8 +129,8 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 func (ctx *Context) parameterFeatures(typeSym *symbols.Symbol) []EffectiveFeature {
 	var order []string
 	byName := make(map[string]*symbols.Symbol)
-	for _, member := range ctx.model.MembersOfIncludingRedefined(typeSym) {
-		if member.Name == "" || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.FrameFeature(member) {
+	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(typeSym) {
+		if member.Name == "" || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
 			continue
 		}
 		if _, seen := byName[member.Name]; !seen {
@@ -157,7 +158,7 @@ func (ctx *Context) extractType(featureSym *symbols.Symbol) *symbols.Symbol {
 	if typ := ctx.declaredType(featureSym); typ != nil {
 		return typ
 	}
-	for _, sup := range ctx.model.AllSupertypes(featureSym) {
+	for _, sup := range ctx.model.semantics.AllSupertypes(featureSym) {
 		if typ := ctx.declaredType(sup); typ != nil {
 			return typ
 		}
@@ -177,7 +178,7 @@ func (ctx *Context) declaredType(featureSym *symbols.Symbol) *symbols.Symbol {
 				target = fr.Name
 			}
 			if qn, ok := target.(*ast.QualifiedName); ok {
-				if resolved, ok := ctx.resolver.ResolveQualified(featureSym.OwnerScope, qn); ok {
+				if resolved, ok := ctx.resolveQualified(featureSym.OwnerScope, qn); ok {
 					return resolved
 				}
 			}
@@ -189,8 +190,8 @@ func (ctx *Context) declaredType(featureSym *symbols.Symbol) *symbols.Symbol {
 // extractMultiplicity returns the multiplicity governing a feature. stated is
 // false when it declares none and the assumed 1..1 governs it instead.
 func (ctx *Context) extractMultiplicity(featureSym *symbols.Symbol) (r semantics.Range, stated bool) {
-	_, stated = ctx.model.MultiplicityOf(featureSym)
-	return ctx.model.EffectiveMultiplicityOf(featureSym), stated
+	_, stated = ctx.model.semantics.MultiplicityOf(featureSym)
+	return ctx.model.semantics.EffectiveMultiplicityOf(featureSym), stated
 }
 
 // extractDefaultValue returns the default-value expression for a feature (nil if none).
@@ -214,45 +215,63 @@ func (ctx *Context) featureMultiplicity(sym, owner *symbols.Symbol) semantics.Ra
 	if stated {
 		return mult
 	}
-	if inherited, ok := ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true}); ok {
+	if inherited, ok, _ := ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true}); ok {
 		return inherited
 	}
 	return mult
 }
 
-// inheritedMultiplicity intersects the multiplicities a feature declaring none redefines —
-// and, if abstract, subsets (KerML 1.0 §8.4.4.12.1); path ends cycles, not shared ancestors.
-func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool) (semantics.Range, bool) {
-	var mult semantics.Range
-	found := false
-	kinds := []ast.RelationshipKind{ast.RelRedefines}
-	if symbols.IsAbstract(sym) {
-		kinds = append(kinds, ast.RelSubsets)
+// statedMultiplicity is the multiplicity a feature states, itself or as inherited from the
+// declarations it redefines or, abstract, subsets; a parameter stating none holds the assumed
+// one value (KerML 1.0 §7.4.5), and stated is false only for a non-parameter none on that walk bounds.
+func (ctx *Context) statedMultiplicity(sym *symbols.Symbol) (semantics.Range, bool) {
+	if mult, stated := ctx.extractMultiplicity(sym); stated {
+		return mult, true
 	}
-	for _, kind := range kinds {
-		for _, general := range ctx.relatedFeatures(sym, owner, kind) {
-			if path[general] {
-				continue
-			}
-			generalMult, stated := ctx.model.MultiplicityOf(general)
-			if !stated {
-				path[general] = true
-				inherited, ok := ctx.inheritedMultiplicity(general, owner, path)
-				delete(path, general)
-				if ok {
-					generalMult = inherited
-				} else {
-					generalMult = semantics.AssumedRange()
-				}
-			}
-			if found {
-				mult = mult.Intersect(generalMult)
+	var mult semantics.Range
+	stated := false
+	if owner := ctx.findOwnerType(sym); owner != nil {
+		mult, _, stated = ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true})
+	}
+	if !stated && semantics.IsParameter(sym) {
+		return semantics.AssumedRange(), true
+	}
+	return mult, stated
+}
+
+// inheritedMultiplicity intersects the multiplicities a feature declaring none redefines,
+// by name or as a parameter at the same position, and, if abstract, subsets (KerML 1.0 §8.4.4.12.1);
+// path ends cycles, not shared ancestors. stated reports a general on the walk stating one.
+func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool) (mult semantics.Range, found, stated bool) {
+	generals := append(ctx.relatedFeatures(sym, owner, ast.RelRedefines),
+		ctx.model.semantics.ImplicitParameterRedefinitions(sym)...)
+	if symbols.IsAbstract(sym) {
+		generals = append(generals, ctx.relatedFeatures(sym, owner, ast.RelSubsets)...)
+	}
+	for _, general := range generals {
+		if path[general] {
+			continue
+		}
+		generalMult, generalStated := ctx.model.semantics.MultiplicityOf(general)
+		if !generalStated {
+			path[general] = true
+			inherited, ok, inheritedStated := ctx.inheritedMultiplicity(general, owner, path)
+			delete(path, general)
+			generalStated = inheritedStated
+			if ok {
+				generalMult = inherited
 			} else {
-				mult, found = generalMult, true
+				generalMult = semantics.AssumedRange()
 			}
 		}
+		stated = stated || generalStated
+		if found {
+			mult = mult.Intersect(generalMult)
+		} else {
+			mult, found = generalMult, true
+		}
 	}
-	return mult, found
+	return mult, found, stated
 }
 
 // redefinedDefault returns the value a feature takes from the feature it
@@ -264,7 +283,7 @@ func (ctx *Context) redefinedDefault(sym, owner *symbols.Symbol) (ast.Node, *sym
 		cur := queue[0]
 		queue = queue[1:]
 		targets := ctx.relatedFeatures(cur, owner, ast.RelRedefines)
-		targets = append(targets, ctx.model.ImplicitParameterRedefinitions(cur)...)
+		targets = append(targets, ctx.model.semantics.ImplicitParameterRedefinitions(cur)...)
 		for _, redefined := range targets {
 			if seen[redefined] {
 				continue

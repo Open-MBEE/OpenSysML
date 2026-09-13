@@ -2,6 +2,7 @@ package repl
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -11,26 +12,26 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
-// renderDocumentUsage is what %render-document accepts: a document's name.
-const renderDocumentUsage = "usage: %render-document <name>"
+// renderDocumentUsage is what %render-document accepts: a document's name,
+// then optionally the form its graph-shaped diagrams are written in.
+const renderDocumentUsage = "usage: %render-document <name> [mermaid|dot|plantuml]"
 
 // RenderDocumentMarkdown compiles the named document definition, evaluates its
 // queries against the session's model, and renders the result as Markdown. A
 // document binds its queries' parameters in the model, so the invocation is
 // the document's name alone.
-func (s *Session) RenderDocumentMarkdown(invocation string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.renderDocumentMarkdown(invocation)
+func (s *Session) RenderDocumentMarkdown(invocation string, opts docrender.MarkdownOptions) (string, error) {
+	defer s.enter()()
+	return s.renderDocumentMarkdown(invocation, opts)
 }
 
 // RenderDocumentHTML compiles the named document definition, evaluates its
 // queries against the session's model, and renders the result as HTML.
 func (s *Session) RenderDocumentHTML(invocation string, opts docrender.HTMLOptions) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	document, err := s.evaluateDocument(invocation)
 	if err != nil {
 		return "", err
@@ -38,12 +39,12 @@ func (s *Session) RenderDocumentHTML(invocation string, opts docrender.HTMLOptio
 	return docrender.HTML(document, opts)
 }
 
-func (s *Session) renderDocumentMarkdown(invocation string) (string, error) {
+func (s *Session) renderDocumentMarkdown(invocation string, opts docrender.MarkdownOptions) (string, error) {
 	document, err := s.evaluateDocument(invocation)
 	if err != nil {
 		return "", err
 	}
-	return docrender.Markdown(document)
+	return docrender.Markdown(document, opts)
 }
 
 // evaluateDocument compiles the named document and evaluates it against the
@@ -66,7 +67,7 @@ func (s *Session) evaluateDocument(invocation string) (*docir.Document, error) {
 		return nil, fmt.Errorf("runtime init: %w", err)
 	}
 	idx := s.browseIndex()
-	sem, resolver := ctx.Model(), ctx.Resolver()
+	sem, resolver := ctx.Semantics(), ctx.Resolver()
 	if !docplan.IsDocumentDefinition(idx, sem, sym) {
 		return nil, fmt.Errorf("%s is not a document: one is a part def specializing DocumentQueries::Document", notationName(fqn))
 	}
@@ -92,8 +93,9 @@ type RenderedDocument struct {
 // RenderDocumentSetMarkdown compiles every document definition the session's
 // model declares, evaluates them together, and renders each as Markdown with
 // its deterministic file name, so cross-document references link on disk.
-func (s *Session) RenderDocumentSetMarkdown() ([]RenderedDocument, error) {
-	return s.renderDocumentSet(docrender.DocumentFileName, docrender.Markdown)
+func (s *Session) RenderDocumentSetMarkdown(opts docrender.MarkdownOptions) ([]RenderedDocument, error) {
+	return s.renderDocumentSet(docrender.DocumentFileName,
+		func(document *docir.Document) (string, error) { return docrender.Markdown(document, opts) })
 }
 
 // RenderDocumentSetHTML renders the same set as linked HTML files, each
@@ -109,14 +111,13 @@ func (s *Session) renderDocumentSet(
 	fileName func(string) string,
 	render func(*docir.Document) (string, error),
 ) ([]RenderedDocument, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
 		return nil, fmt.Errorf("runtime init: %w", err)
 	}
 	idx := s.browseIndex()
-	sem, resolver := ctx.Model(), ctx.Resolver()
+	sem, resolver := ctx.Semantics(), ctx.Resolver()
 	syms := s.symbolsInLoadOrder(func(scope *symbols.Scope) []*symbols.Symbol {
 		return model.DeclaredDocumentDefinitions(idx, sem, scope)
 	})
@@ -167,12 +168,22 @@ func (s *Session) renderDocumentSet(
 }
 
 // doRenderDocument carries out %render-document, printing the rendered
-// Markdown or reporting a document that could not be rendered.
+// Markdown or reporting a document that could not be rendered. A second
+// word names the form its graph-shaped diagrams are written in.
 func (s *Session) doRenderDocument(invocation string) ([]string, bool, error) {
-	if strings.TrimSpace(invocation) == "" {
+	fields := splitQueryArgs(strings.TrimSpace(invocation))
+	if len(fields) == 0 || len(fields) > 2 {
 		return []string{renderDocumentUsage}, false, nil
 	}
-	markdown, err := s.renderDocumentMarkdown(invocation)
+	var opts docrender.MarkdownOptions
+	if len(fields) == 2 {
+		opts.DiagramForm = view.Form(fields[1])
+		if !slices.Contains(view.DiagramForms(), opts.DiagramForm) {
+			return []string{errPrefix + fmt.Sprintf("%q is not a diagram form (%s); a document binds its queries' parameters in the model",
+				fields[1], view.FormNames(view.DiagramForms()))}, false, nil
+		}
+	}
+	markdown, err := s.renderDocumentMarkdown(fields[0], opts)
 	if err != nil {
 		return []string{errPrefix + err.Error()}, false, nil
 	}

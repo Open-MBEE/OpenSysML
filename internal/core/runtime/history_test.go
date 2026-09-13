@@ -29,7 +29,7 @@ func transitionBetween(t *testing.T, exec *StateExecutor, source, target string)
 
 func fire(t *testing.T, exec *StateExecutor, source, target string) {
 	t.Helper()
-	fired, err := exec.fireTransition(transitionBetween(t, exec, source, target))
+	fired, err := exec.resolveAndFire(nil, transitionBetween(t, exec, source, target))
 	if err != nil {
 		t.Fatalf("fire %s -> %s: %v", source, target, err)
 	}
@@ -210,7 +210,12 @@ func advanceRegion(t *testing.T, exec *StateExecutor, regionName, source, target
 		if region.Name != regionName {
 			continue
 		}
-		fired, err := exec.fireTransitionInRegion(region, transitionBetween(t, exec, source, target))
+		trans := transitionBetween(t, exec, source, target)
+		route, err := exec.resolveRoute(trans)
+		if err != nil {
+			t.Fatalf("advance region %s: %v", regionName, err)
+		}
+		fired, err := exec.fireTransitionInRegion(region, trans, route)
 		if err != nil {
 			t.Fatalf("advance region %s: %v", regionName, err)
 		}
@@ -405,4 +410,115 @@ func TestExitingNestedRegionsKeepsSiblingRegions(t *testing.T) {
 	if active["innerA"] || active["innerB"] {
 		t.Errorf("active configuration = %v, want the left nested regions to be gone", active)
 	}
+}
+
+// A history of a completed configuration is empty: a region left at `done` is
+// default-entered beside the sibling it restores, and a body left at `done` whole.
+func TestHistoryOverACompletedConfigurationIsADefaultEntry(t *testing.T) {
+	t.Run("completed_region_beside_a_running_one", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			state Machine {
+				entry; then outer;
+				state outer parallel {
+					state left {
+						entry; then lstart;
+						state lstart;
+						transition first lstart accept LeftDone then done;
+					}
+					state right {
+						entry; then rstart;
+						state rstart;
+						state rwork {
+							entry; then rinner;
+							state rinner;
+							state rdeep;
+						}
+						transition first rstart accept RightWork then rwork;
+						transition first rinner accept RightDeep then rdeep;
+					}
+					deep history h;
+				}
+				state away;
+				transition first outer accept Out then away;
+				transition first away accept Back then h;
+			}
+		}`)
+		for _, signal := range []string{"LeftDone", "RightWork", "RightDeep", "Out"} {
+			exec.SendSignal(signal, nil)
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("run: %v", err)
+		}
+		mark := len(exec.stateVisits)
+		exec.SendSignal("Back", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("history entry: %v", err)
+		}
+		assertVisits(t, visitsAfter(exec, mark), "outer", "lstart", "rwork", "rdeep")
+		if exec.state == StateCompleted {
+			t.Errorf("machine state = %v, want it still running", exec.state)
+		}
+	})
+
+	t.Run("body_left_at_done", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			state Machine {
+				entry; then outer;
+				state outer {
+					entry; then a;
+					state a;
+					state b;
+					history h;
+					transition first a accept Finish then done;
+				}
+				state away;
+				transition first outer then away;
+				transition first away accept Back then h;
+				transition first b accept Stop then done;
+			}
+		}`)
+		exec.SendSignal("Finish", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("run: %v", err)
+		}
+		mark := len(exec.stateVisits)
+		exec.SendSignal("Back", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("history entry: %v", err)
+		}
+		assertVisits(t, visitsAfter(exec, mark), "outer", "a")
+		if exec.state == StateCompleted {
+			t.Errorf("machine state = %v, want it still running", exec.state)
+		}
+	})
+
+	t.Run("body_left_at_done_takes_the_history_default", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			state Machine {
+				entry; then outer;
+				state outer {
+					entry; then a;
+					state a;
+					state b;
+					history h;
+					transition first h then b;
+					transition first a accept Finish then done;
+				}
+				state away;
+				transition first outer then away;
+				transition first away accept Back then h;
+				transition first b accept Stop then done;
+			}
+		}`)
+		exec.SendSignal("Finish", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("run: %v", err)
+		}
+		mark := len(exec.stateVisits)
+		exec.SendSignal("Back", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("history entry: %v", err)
+		}
+		assertVisits(t, visitsAfter(exec, mark), "outer", "b")
+	})
 }

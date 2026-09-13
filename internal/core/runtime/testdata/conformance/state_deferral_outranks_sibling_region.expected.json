@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Ping", "args": null},
+    {"signal": "Go", "args": null}
+  ],
+  "finalState": "open+pinged",
+  "stateVisits": ["waiting", "idle", "open", "pinged"],
+  "outputs": {}
+}

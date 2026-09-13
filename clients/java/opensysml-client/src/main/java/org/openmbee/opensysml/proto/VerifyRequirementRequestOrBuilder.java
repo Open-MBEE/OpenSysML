@@ -61,4 +61,24 @@ public interface VerifyRequirementRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSubjectSymbolIdBytes();
+
+  /**
+   * <pre>
+   * The engine the question is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 4 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  java.lang.String getEngine();
+  /**
+   * <pre>
+   * The engine the question is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 4 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  com.google.protobuf.ByteString
+      getEngineBytes();
 }

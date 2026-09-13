@@ -3,6 +3,9 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // enumerationBodyDiags returns the enumeration-body-member findings of src.
@@ -113,6 +116,19 @@ func TestEnumerationBodyAdmitsValuesAndAnnotations(t *testing.T) {
 		if diags := only(analyzeSrc(t, src), code); len(diags) != 0 {
 			t.Fatalf("legal model reported %s: %v", code, diags)
 		}
+	}
+}
+
+// The parser itself carries the finding as a warning on the member, so a direct
+// parser consumer sees it before any pass runs; the analysis escalates it.
+func TestEnumerationBodyMemberIsAParserWarning(t *testing.T) {
+	p := parser.New(source.New("<t>", []byte("package P { enum def E { part def Q; a; } }")))
+	p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse errors = %v, want none: the member still reads", p.Diagnostics)
+	}
+	if len(p.Warnings) != 1 || p.Warnings[0].Code != CodeEnumerationBodyMember {
+		t.Fatalf("parse warnings = %v, want one %s", p.Warnings, CodeEnumerationBodyMember)
 	}
 }
 

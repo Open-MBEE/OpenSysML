@@ -8,13 +8,28 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 )
+
+// availableService is a service that supplies the capability: the default one, except
+// that engines_external is what starting with -serve-external-engines grants.
+func availableService(t *testing.T, capability string) *Service {
+	t.Helper()
+	if capability != CapabilityEnginesExternal {
+		return mustNewService(t, 10)
+	}
+	srv, err := NewService(10, "test", ServeExternalEngines(analysis.ServeAll))
+	if err != nil {
+		t.Fatalf("NewService serving all: %v", err)
+	}
+	return srv
+}
 
 func TestCapabilityAvailabilityDrivesAdvertisementAndRefusal(t *testing.T) {
 	ctx := context.Background()
 	for _, capability := range Capabilities() {
 		t.Run(capability, func(t *testing.T) {
-			available := mustNewService(t, 10)
+			available := availableService(t, capability)
 			t.Cleanup(available.Close)
 			info, err := available.GetServerInfo(ctx, &pb.ServerInfoRequest{})
 			if err != nil {

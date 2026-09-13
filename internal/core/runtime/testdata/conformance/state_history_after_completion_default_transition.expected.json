@@ -1,0 +1,15 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go", "args": null},
+    {"signal": "Leave", "args": null},
+    {"signal": "Back", "args": null},
+    {"signal": "Finish", "args": null},
+    {"signal": "Back", "args": null},
+    {"signal": "Stop", "args": null},
+    {"signal": "Back", "args": null}
+  ],
+  "finalState": "second",
+  "stateVisits": ["start", "outer", "first", "away", "outer", "first", "done", "away", "outer", "second", "done", "away", "outer", "second"]
+}

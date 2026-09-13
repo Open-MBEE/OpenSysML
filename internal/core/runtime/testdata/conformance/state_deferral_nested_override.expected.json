@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Continue", "args": null},
+    {"signal": "Finish", "args": null}
+  ],
+  "finalState": "done",
+  "stateVisits": ["outer", "inner", "seen", "done"],
+  "outputs": {}
+}

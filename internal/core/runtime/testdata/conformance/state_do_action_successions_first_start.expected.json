@@ -1,0 +1,9 @@
+{
+    "type": "state",
+    "trace": true,
+    "finalState": "done",
+    "stateVisits": ["working", "done"],
+    "outputs": {
+        "seq": { "type": "Integer", "value": 12 }
+    }
+}

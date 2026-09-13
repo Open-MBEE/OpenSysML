@@ -175,7 +175,7 @@ func TestAggregationsWithQuantityIdentity(t *testing.T) {
 		{"NumericalFunctions::sum0((1.0 [m], 2.0 [m]), 0.0 [m])", "3.0 [m]"},
 		{"NumericalFunctions::sum0((), 0.0 [m])", "0.0 [m]"},
 		{"NumericalFunctions::sum0((), 0 [m])", "0 [m]"},
-		{"NumericalFunctions::product1((2.0 [m], 3.0 [m]), 1.0 [m])", "6.0 [m**2]"},
+		{"NumericalFunctions::product1((2.0 [m], 3.0 [m]), 1.0 [m])", "6.0 [SI::'m²']"},
 		{"NumericalFunctions::product1((), 1.0 [m])", "1.0 [m]"},
 	} {
 		t.Run(tc.expr, func(t *testing.T) {

@@ -22,7 +22,7 @@ func conditionFixture(t *testing.T, src string) (*Context, *symbols.Scope) {
 	idx.AddDocument("test.sysml", file)
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 	return ctx, idx.DocumentRoot("test.sysml").Children()[0]
 }
 
@@ -115,6 +115,31 @@ func TestRequirementConditionWithoutValueIsNotUnresolved(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "actualVerticalSpeed") {
 		t.Errorf("err = %v, want the feature named", err)
+	}
+}
+
+// A constraint checked at model level over a feature the model leaves open is not
+// decided: ErrNoValue naming the feature, never a verdict; a constant operand still decides.
+func TestConstraintOverUndeterminedOperandIsNotDecided(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			attribute u : Real;
+			constraint big { u > 3.0 }
+			constraint fixed { (u > 3.0) or true }
+		}
+	`
+	ctx, pkg := conditionFixture(t, src)
+	_, err := ctx.EvaluateConstraint(requirementNamed(t, pkg, "big"), pkg)
+	if !errors.Is(err, ErrNoValue) {
+		t.Fatalf("big: err = %v, want ErrNoValue", err)
+	}
+	if !strings.Contains(err.Error(), "u has no value in the model") {
+		t.Errorf("big: err = %v, want the open feature named", err)
+	}
+	holds, err := ctx.EvaluateConstraint(requirementNamed(t, pkg, "fixed"), pkg)
+	if err != nil || !holds {
+		t.Errorf("fixed = %v, %v; want true without error", holds, err)
 	}
 }
 
@@ -228,6 +253,41 @@ func TestNegatedNestedConstraintIsInverted(t *testing.T) {
 		var violation *ViolationError
 		if !want && errors.As(err, &violation) && violation.Condition != "not a > 100" {
 			t.Errorf("%s: condition = %q, want %q", name, violation.Condition, "not a > 100")
+		}
+	}
+}
+
+// `inv false c { … }` asserts its body is false (KerML.xtext Invariant,
+// isNegated ?= 'false'); `inv true` and a bare `inv` assert it holds.
+func TestNegatedInvariantIsInverted(t *testing.T) {
+	src := `
+		package test {
+			part def Rig {
+				attribute a = 1.0;
+				inv false overdrawn { a > 100 }
+				inv true positive { a > 100 }
+				inv bounded { a > 100 }
+			}
+		}
+	`
+	ctx, pkg := conditionFixture(t, src)
+	rig := requirementNamed(t, pkg, "Rig")
+	inst, err := ctx.Instantiate(rig)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	for name, want := range map[string]bool{"overdrawn": true, "positive": false, "bounded": false} {
+		feat := featureNamed(ctx, rig, name)
+		if feat == nil || feat.Symbol == nil {
+			t.Fatalf("%s: invariant not found", name)
+		}
+		satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), inst)
+		if err != nil && !errors.Is(err, ErrViolated) {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		if satisfied != want {
+			t.Errorf("%s: satisfied = %v, want %v", name, satisfied, want)
 		}
 	}
 }

@@ -64,6 +64,7 @@ func TestSweepOverIntegersRunsEveryValue(t *testing.T) {
 		"2 | 4      | <time>",
 		"3 | 6      | <time>",
 		"4 | 8      | <time>",
+		"  standing: table (observed: 4 rows)",
 	}, "\n")
 	if got != want {
 		t.Errorf("table is\n%s\nwant\n%s", got, want)
@@ -83,6 +84,7 @@ func TestSweepSeveralRangesRunTheirProduct(t *testing.T) {
 		"1 | 12 | 13     | <time>",
 		"2 | 10 | 12     | <time>",
 		"2 | 12 | 14     | <time>",
+		"  standing: table (observed: 4 rows)",
 	}, "\n")
 	if got != want {
 		t.Errorf("table is\n%s\nwant\n%s", got, want)
@@ -102,6 +104,7 @@ func TestSweepAnalysisCaseOnItsSubject(t *testing.T) {
 		"0.0 | 5.0   | obj: satisfied     | <time>",
 		"0.5 | 7.5   | obj: satisfied     | <time>",
 		"1.0 | 10.0  | obj: not satisfied | <time>",
+		"  standing: table (observed: 3 rows)",
 	}, "\n")
 	if got != want {
 		t.Errorf("table is\n%s\nwant\n%s", got, want)
@@ -139,6 +142,7 @@ func TestSweepEndpointsCarryUnits(t *testing.T) {
 		"0.0  | 0.0    | <time>",
 		"5.0  | 10.0   | <time>",
 		"10.0 | 20.0   | <time>",
+		"  standing: table (observed: 3 rows)",
 	}, "\n")
 	if got != want {
 		t.Errorf("table is\n%s\nwant\n%s", got, want)
@@ -176,6 +180,7 @@ func TestSamplesTableIsPinned(t *testing.T) {
 		"972 | 1944   | <time>",
 		"719 | 1438   | <time>",
 		"345 | 690    | <time>",
+		"  standing: table (observed: 4 rows)",
 	}, "\n")
 	if got != want {
 		t.Errorf("table is\n%s\nwant\n%s", got, want)
@@ -354,6 +359,7 @@ func TestSweepOverAnUnrestrictedParameterName(t *testing.T) {
 		"1           | 2      | <time>",
 		"2           | 4      | <time>",
 		"3           | 6      | <time>",
+		"  standing: table (observed: 3 rows)",
 	}, "\n")
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)

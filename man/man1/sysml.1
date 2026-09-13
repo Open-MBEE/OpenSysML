@@ -32,6 +32,57 @@ verdict its body produced (repeatable)
 Invoke this calculation and report what it computed, as \-calc "Fall(3, 4)"
 (repeatable)
 .TP
+.BI \-check\-assume " value"
+With \-engine smt or \-engine all: assume this constraint or requirement over
+the initial state of the action, as \-check\-assume Plant::EnvelopeLimits; a
+set no initial state satisfies is reported not covered, never proved
+(repeatable)
+.TP
+.BI \-check\-depth " value"
+With \-engine check, \-engine smt or \-engine all: the most moves one schedule
+may make before the search backtracks, or the moves the smt engine unrolls the
+action to, named as the depth bound hit (default 10000 for check, 40 for smt)
+.TP
+.BI \-check\-diverge " value"
+With \-engine check or \-engine all: report this feature divergent when
+schedules leave it with different final values, as \-check\-diverge x,
+\-check\-diverge step.out for a performed node's output or \-check\-diverge
+this.level for the performing object's, a name nothing holds refused; default
+every attribute of the action and of its performing object, the action's own
+when it has none (repeatable)
+.TP
+.BI \-check\-input " value"
+With \-engine smt or \-engine all: leave this feature of the action free in
+its declared domain although the model binds it, as \-check\-input inletTemp;
+a name that is not a feature the action reads is refused. Without it, every
+input the model leaves unbound is free and every bound one is pinned
+(repeatable)
+.TP
+.BI \-check\-property " value"
+With \-engine check or \-engine all: evaluate this constraint or requirement
+at every stable state of the action, on the performing object when there is
+one, and report a schedule at which it is false (repeatable)
+.TP
+.BI \-check\-states " value"
+With \-engine check or \-engine all: the most distinct states the search may
+visit, named as the states bound hit; the same figure \-engine all gives an
+exploration as its runs (default 1000000)
+.TP
+.BI \-check\-timeout " value"
+With \-engine check, \-engine smt or \-engine all: the time the check's plan
+may run for, as 30s or 2m; a search it stops is reported incomplete with the
+states and depth reached, not as a verdict
+.TP
+.BI \-check\-unroll " value"
+With \-engine smt or \-engine all: the most iterations of one loop the smt
+engine unrolls before it stops, named as the unroll bound hit (default 4)
+.TP
+.BI \-check\-witness " string"
+With \-engine check, \-engine smt or \-engine all: write a witness file to
+this directory for each violation and each divergent value \(em the inputs the
+solver chose, the schedule's choices, a blank line, then the run's trace \(em
+which \-schedule replay:<file> and %replay follow
+.TP
 .BI \-compile " string"
 Compile this calc def to a native executable named by \-o, as \-compile
 Pkg::Fib
@@ -50,6 +101,11 @@ Write a CPU profile of the run to this file, for go tool pprof
 Report every diagnostic over the whole session buffer, with the pass that
 produced it
 .TP
+.BI \-diagram\-form " string"
+Form the graph\-shaped diagrams of \-render\-document and \-render\-documents
+are written in: mermaid (default), dot or plantuml; a table\-kind view is a
+table either way
+.TP
 .BI \-doc\-form " string"
 Form \-render\-document and \-render\-documents write: markdown (default),
 html or pdf, which drives an external converter
@@ -66,12 +122,30 @@ Write a table of contents ahead of the content (\-doc\-form html or pdf)
 .BI \-e " value"
 Evaluate expression and exit (shorthand)
 .TP
+.BI \-engine " value"
+Analysis engine every check is put to: auto (default) picks the strongest
+engine covering the question, all puts it to every covering engine in name
+order and composes their answers, or an engine by name (run, explore, check,
+smt, sweep, solve, tool:<name> from OPENSYSML_TOOLS, or an external engine
+from OPENSYSML_ENGINES), whose refusal is then the answer; \-engine explore is
+\-schedule explore, \-engine check searches every schedule of each \-action
+for a violation, deadlock, failure or divergence, and \-engine smt decides
+each \-check\-property over every schedule and every value of the action's
+free inputs through an SMT solver
+.TP
+.B \-engines
+List the analysis engines this build knows \(em name, kind (built\-in, tool,
+engine, policy, sampler), protocol, authority, the questions each answers and
+whether its process is found \(em with the manifest entry and resolved command
+of each external one, spawning nothing, and exit
+.TP
 .BI \-eval " value"
 Evaluate expression and exit (can be specified multiple times)
 .TP
 .BI \-from " string"
-Input format for \-convert: sysml, kerml, ttl, turtle, rdf, or xmi/mdzip for a
-SysML v1 model to migrate (experimental; default: from the input's extension)
+Input format for \-convert: sysml, kerml, ttl, turtle, rdf, or xmi/uml/mdzip
+for a SysML v1 model to migrate (experimental; default: from the input's
+extension)
 .TP
 .B \-h
 Show this help (shorthand)
@@ -108,6 +182,12 @@ default, modern, print or report (default: the default stylesheet alone)
 Create an object of this definition before the checks, so a verdict is about
 it (repeatable)
 .TP
+.BI \-jobs " value"
+Runs of one check that may go concurrently \(em the linearizations of an
+exploration, the engines \-engine all consults \(em each on a worker of its
+own over the shared model; the result is the same at any count. Default
+OPENSYSML_JOBS, else the number of CPUs
+.TP
 .B \-json
 Report checks as one JSON document rather than as lines
 .TP
@@ -143,6 +223,10 @@ Put the document title on a page of its own (\-doc\-form pdf)
 .B \-pdf\-toc
 Write a table of contents ahead of the content (\-doc\-form pdf)
 .TP
+.B \-probe
+With \-engines, also start each external engine once, check its describe
+against its manifest entry field by field and report the outcome as its status
+.TP
 .BI \-query " string"
 Evaluate OSLC Query text against the model instead of running the REPL
 .TP
@@ -150,8 +234,8 @@ Evaluate OSLC Query text against the model instead of running the REPL
 Report errors only, suppressing warnings
 .TP
 .BI \-render " string"
-Render this view of the model instead of running it, in the form its render
-member states
+Render this view of the model (every file named, loaded as one) instead of
+running it, in the form its render member states
 .TP
 .BI \-render\-all " string"
 Render every declared view into this directory
@@ -164,9 +248,14 @@ Markdown
 Render every document definition as linked Markdown into this directory
 .TP
 .BI \-render\-form " string"
-Form \-render or \-render\-all writes: text, mermaid or markdown (default:
-destination\-dependent for \-render, each kind's machine form for
-\-render\-all)
+Form \-render or \-render\-all writes: text, mermaid, markdown, dot or
+plantuml (default: destination\-dependent for \-render, each kind's machine
+form for \-render\-all)
+.TP
+.BI \-render\-palette " string"
+Palette the DOT or PlantUML form of \-render or \-render\-all fills nodes
+from, by keyword family: okabe\-ito, tol\-bright, tol\-muted, tol\-light,
+brewer\-set2, brewer\-dark2, viridis or cividis (default: black and white)
 .TP
 .BI \-requirement " value"
 Evaluate this requirement and exit, reporting beside its verdict the verdict
@@ -188,9 +277,10 @@ verification case verifying the requirement (repeatable). The default is [].
 .BI \-schedule " value"
 Scheduling policy every run resolves its choice points under (concurrent
 tokens, overlapping guards, competing transitions): declared, reverse
-(default), seed:<n> for a reproducible pseudo\-random order, or
+(default), seed:<n> for a reproducible pseudo\-random order,
 explore[:runs=N,depth=D] to run every linearization within the budget and
-table the distinct outcomes
+table the distinct outcomes, or replay:<file> to follow a witness file's
+choice lines move for move, then reverse
 .TP
 .BI \-seed " value"
 Seed \-samples draws from, so the same seed draws the same table
@@ -312,6 +402,40 @@ sysml \-satisfy \-json model.sysml
 .RE
 .PP
 Each check flag may be repeated.
+.SH ANALYSIS ENGINES
+.RS 2
+.nf
+# List engines, kind and status; nothing runs
+sysml \-engines
+# Also start each external engine once
+sysml \-engines \-probe
+# The same as \-schedule explore
+sysml \-engine explore \-action Drive m.sysml
+# Every engine that covers the question
+sysml \-engine all \-requirement R m.sysml
+# One engine; the plan in the report
+sysml \-engine run \-json \-constraint C m.sysml
+.fi
+.RE
+.PP
+Every check is a question put to an analysis engine: run executes the model
+once under \-schedule, explore runs every linearization, sweep runs the rows
+of \-sweep, and solve puts condition sets to an SMT solver. \-engine auto (the
+default) picks the engine of highest authority that covers the question and
+falls back to the next when it refuses or covers nothing; \-engine <name> puts
+the question to that engine alone, and its refusal is the answer; \-engine all
+puts it to every engine that covers it, one after another in name order, and
+composes their answers: a witnessed violation stands over any universal claim,
+and a contradiction is reported as a disagreement decided in the interpreter's
+favor.
+.PP
+Every verdict is followed by its standing: the claim, the strength of the
+evidence \(em observed (one run), witnessed (a replayed execution), bounded
+(every case within a budget), proved (every case) \(em and what earned it, as
+`holds (observed: 1 run under reverse)`. A budget the engine reached lowers
+the strength and is named. Under \-json each check carries the plan and one
+results[] entry per engine that answered, with its engine, claim, strength,
+bounds and witness.
 .SH SWEEPING AND SAMPLING A PARAMETER
 .RS 2
 .nf
@@ -440,6 +564,13 @@ the resulting commit; the token comes from FLEXO_INTEROP_TOKEN.
 sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render Views::vehicleView \-render\-form markdown
 sysml model.sysml \-render Views::vehicleView \-o view.mmd
+sysml model.sysml \-render Views::vehicleView \-render\-form dot
+sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
+    \-render\-palette okabe\-ito
+sysml model.sysml \-render Views::vehicleView \-render\-form plantuml \-o \e
+    view.puml
+# several files, loaded as one model
+sysml types.sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render\-all rendered
 .fi
 .RE
@@ -447,7 +578,16 @@ sysml model.sysml \-render\-all rendered
 The rendering is the one the view's render member states, and a containment
 tree where it states none. It is tool\-defined output: SysML v2 specifies the
 notation, not how a tool draws it. Notices \(em an empty view, an element the
-rendering cannot represent \(em go on stderr.
+rendering cannot represent \(em go on stderr. Every file named is loaded as
+one model, so a view may expose elements a sibling file declares. A
+graph\-shaped rendering is written as a Mermaid diagram by default, as
+Graphviz DOT with \-render\-form dot and as PlantUML with \-render\-form
+plantuml, which also writes a sequence rendering; neither Graphviz nor
+PlantUML is needed to write them. Both are drawn in the black\-and\-white
+style of the SysML v2 Pilot visualizer; \-render\-palette fills their nodes by
+keyword family from a colourblind\-safe palette (okabe\-ito, tol\-bright,
+tol\-muted, tol\-light, brewer\-set2, brewer\-dark2, viridis or cividis),
+keeping black text legible on every fill.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf
@@ -468,6 +608,12 @@ sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
 # diagrams drawn in the browser
 sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
     \-html\-mermaid cdn \-o report.html
+# diagrams as Graphviz DOT
+sysml model.sysml \-render\-document Reports::MassReport \-diagram\-form \e
+    dot \-o report.md
+# diagrams as PlantUML
+sysml model.sysml \-render\-document Reports::MassReport \-diagram\-form \e
+    plantuml \-o report.md
 sysml model.sysml \-render\-document Reports::MassReport \-doc\-form pdf \e
     \-pdf\-engine pandoc \-doc\-title\-page \-doc\-toc \-doc\-number\-sections \e
     \-o report.pdf
@@ -480,7 +626,10 @@ sysml \-html\-default\-css \-html\-theme modern \-o modern.css
 .PP
 A document is a part def specializing DocumentQueries::Document. Its queries
 are bound in the model and run against it, and the result is written as
-CommonMark\-compatible Markdown.
+CommonMark\-compatible Markdown. Its diagram blocks are Mermaid source;
+\-diagram\-form dot or plantuml writes every graph\-shaped one as Graphviz DOT
+or PlantUML instead, in Markdown and HTML alike, while a table\-kind view
+stays a table. Neither Graphviz nor PlantUML is needed to write it.
 .PP
 \-doc\-form html writes semantic HTML instead, carrying each element's
 identity and kind, styled by a stylesheet in a cascade layer your own CSS
@@ -497,10 +646,9 @@ picks one of the bundled looks (default, modern, print, report), \-html\-css
 adds your own stylesheets, \-html\-no\-default\-css drops the default one,
 \-html\-fragment writes the document element alone to embed in a page of
 yours, and \-html\-default\-css writes the default sheet out \(em or, with
-\-html\-theme, a theme's whole sheet \(em to start from. Diagrams are written
-as Mermaid source; \-html\-mermaid cdn has the page load a pinned Mermaid
-release from jsDelivr so a browser draws them, or names a URL of your own to
-load it from.
+\-html\-theme, a theme's whole sheet \(em to start from. \-html\-mermaid cdn
+has the page load a pinned Mermaid release from jsDelivr so a browser draws
+the Mermaid diagrams, or names a URL of your own to load it from.
 .SH FLAG ORDER
 Flags may be written before or after the model they apply to. A file named
 like a flag is read as a file after \-\-, which ends the flags: sysml \-trace
@@ -571,6 +719,22 @@ recursion spends. Default 10000, ceiling 25000.
 .B OPENSYSML_MAX_SWEEP_RUNS
 Runs one parameter sweep or sample may make, each a whole analysis or calc run
 of its own with its own budgets. Default 1000.
+.TP
+.B OPENSYSML_JOBS
+Runs of one check that may go concurrently \(em the linearizations of an
+exploration, the engines \-engine all consults \(em each on a worker of its
+own over the shared model; \-jobs and %jobs override it. Default the number of
+CPUs.
+.TP
+.B OPENSYSML_TOOLS
+Directory of the tool manifest: one JSON file per external tool (toolName,
+version, executable, variables), each registered as the engine tool:<name>
+that performs actions annotated ToolExecution with that toolName. Unset
+registers no tool, and such an action is refused.
+.TP
+.B OPENSYSML_TOOL_TIMEOUT
+How long one tool invocation may take, as a Go duration. Default 10s, after
+which the performance fails.
 .TP
 .B OPENSYSML_SMT
 Executable the %check, %explain, %solve, %configure and %optimize commands

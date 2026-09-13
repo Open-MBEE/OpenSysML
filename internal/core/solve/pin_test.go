@@ -350,3 +350,45 @@ func TestPinRefusesACoordinateFrame(t *testing.T) {
 		}
 	}
 }
+
+// TestPinnedScalarValuedLiteralIsItsIdentity: a literal of an enumeration that
+// specializes Integer fixes a datatype variable by the literal it is, while the
+// scalar it equals still fixes an Integer feature holding it.
+func TestPinnedScalarValuedLiteralIsItsIdentity(t *testing.T) {
+	ctx, idx := fixture(t, "levels.sysml", `
+package test {
+	private import ScalarValues::*;
+	enum def Level :> Integer { low = 1; high = 3; }
+	part def Rover {
+		attribute level : Level = Level::high;
+		attribute cast : Level[0..1] = 3 as Level;
+		attribute n : Integer = Level::high;
+		assert constraint highIsHigh { level == Level::high and cast == Level::high and n >= 3 }
+	}
+}`)
+	rover := symbolNamed(t, idx, "test::Rover")
+	pins, unfixed := Fixed(ctx, rover, nil)
+	if len(unfixed) != 0 {
+		t.Fatalf("declared values could not be read: %+v", unfixed)
+	}
+	sym := symbolNamed(t, idx, "test::Rover::highIsHigh")
+	q, err := ConstraintWith(ctx, sym, sym.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate with fixed values: %v", err)
+	}
+	script := Script(q)
+	for _, want := range []string{
+		"(assert (= |test::Rover::level| |test::Level::high|))",
+		"(assert (= |test::Rover::cast| |test::Level::high|))",
+		"(assert (= |test::Rover::n| 3))",
+	} {
+		if !strings.Contains(script, want) {
+			t.Errorf("the script lacks %s:\n%s", want, script)
+		}
+	}
+	for _, p := range q.Pinned {
+		if p.Var.Name != "test::Rover::n" && p.Value != "Level::high" {
+			t.Errorf("%s was fixed to %q, want the literal Level::high", p.Var.Name, p.Value)
+		}
+	}
+}

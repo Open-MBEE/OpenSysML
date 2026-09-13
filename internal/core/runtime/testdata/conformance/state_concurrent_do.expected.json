@@ -1,7 +1,22 @@
 {
     "type": "state",
-    "finalState": "ldone+rdone",
-    "outputs": {
-        "seq": { "type": "Integer", "value": 124356 }
-    }
+    "outcomes": [
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 124356 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 142356 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 124536 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 142536 } }
+        }
+    ],
+    "admissible": "Do behaviors of sibling regions active at one instant: each proceeds, in which order is open"
 }

@@ -105,10 +105,10 @@ func TestToStateGraph_DeferInMachineBodyIsReported(t *testing.T) {
 	}
 }
 
-// History, entry and exit point pseudostates written in the textual notation
-// reach the graph with the kind their keyword names and with the composite
-// state that declares them as their owner.
-func TestToStateGraph_HistoryAndPointNotation(t *testing.T) {
+// History pseudostates written in the textual notation reach the graph with
+// the kind their keyword names and with the composite state that declares them
+// as their owner.
+func TestToStateGraph_HistoryNotation(t *testing.T) {
 	graph, err := ToStateGraph(stateUsageIn(t, `
 		package test {
 			state Machine {
@@ -119,8 +119,6 @@ func TestToStateGraph_HistoryAndPointNotation(t *testing.T) {
 					history resume;
 					deep history resumeDeep;
 					shallow history resumeShallow;
-					entry point into;
-					exit point outOf;
 				}
 				succession first start then outer;
 			}
@@ -134,8 +132,6 @@ func TestToStateGraph_HistoryAndPointNotation(t *testing.T) {
 		"resume":        ast.PseudostateShallowHistory,
 		"resumeDeep":    ast.PseudostateDeepHistory,
 		"resumeShallow": ast.PseudostateShallowHistory,
-		"into":          ast.PseudostateEntry,
-		"outOf":         ast.PseudostateExit,
 	}
 	for name, kind := range want {
 		ps := pseudostateNamed(graph, name)

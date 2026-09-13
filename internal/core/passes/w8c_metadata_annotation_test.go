@@ -132,6 +132,28 @@ func TestMetadataBodyValueMustBeModelLevelEvaluable(t *testing.T) {
 	}
 }
 
+// An extent `all T` is decided by a run, never by the model (KerML §8.2.5.8.1
+// Table 5), so a metadata value cannot state one, whatever type it names.
+func TestMetadataBodyValueRejectsAnExtent(t *testing.T) {
+	src := `package P {
+		metadata def A { feature x; feature y; }
+		datatype Color { feature red : Color; }
+		feature a {
+			@A {
+				x = all Color;
+				y = (all A) == null;
+			}
+		}
+	}`
+	found := findingsWithCode(metadataDiags(t, src), "metadata-value-not-evaluable")
+	if len(found) != 2 {
+		t.Fatalf("want both extent values reported, got %v", found)
+	}
+	if found[0].Text != "= all Color" || found[1].Text != "= (all A) == null" {
+		t.Errorf("reported %q and %q, want the two extent bindings", found[0].Text, found[1].Text)
+	}
+}
+
 func TestNestedMetadataBodyValueUsesBindingSpan(t *testing.T) {
 	src := `package P {
 		metadata def A {

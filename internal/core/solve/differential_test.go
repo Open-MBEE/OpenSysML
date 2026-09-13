@@ -455,7 +455,7 @@ func newNodeValues(ctx *runtime.Context, el diffElement, self *runtime.Instance)
 func varNameOfReference(ctx *runtime.Context, subject Subject, node ast.Node, scope *symbols.Scope) (string, bool) {
 	t := &translator{
 		ctx:       ctx,
-		model:     ctx.Model(),
+		model:     ctx.Semantics(),
 		subject:   subject,
 		features:  effectiveFeatures(ctx, subject.Symbol),
 		vars:      map[string]*Var{},

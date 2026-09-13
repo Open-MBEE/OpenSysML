@@ -24,7 +24,8 @@ from opensysml.typefacts import (
 )
 from opensysml.capabilities import MissingCapabilityError, ServerInfo
 from opensysml.values import (
-    UNSET, Array, Function, InstanceRef, MeasurementRef, SetValue, TensorQuantity, UnsetType,
+    UNSET, Array, Function, InstanceRef, MeasurementRef, Metaobject, SetValue, TensorQuantity,
+    Undetermined, UnsetType,
     Vector, VectorQuantity,
 )
 from opensysml.verdict import (
@@ -32,6 +33,7 @@ from opensysml.verdict import (
     VerificationVerdict,
 )
 from opensysml.exploration import Exploration, Outcome
+from opensysml.engines import Bound, EngineInfo, Standing
 from opensysml.query import QueryElement, QueryError
 from opensysml.document import (
     DocumentQueryError, DocumentQueryResult, DocumentRow, ElementRef, INFINITY,
@@ -60,8 +62,8 @@ __all__ = [
     "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
     "ServerInfo",
-    "UNSET", "UnsetType",
-    "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "SetValue",
+    "UNSET", "UnsetType", "Undetermined",
+    "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Metaobject", "SetValue",
     "TensorQuantity", "InstanceRef",
     "Conversion", "FORMAT_SYSML", "FORMAT_TURTLE", "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
@@ -69,6 +71,7 @@ __all__ = [
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "VerificationVerdict",
     "Exploration", "Outcome",
+    "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
     "DocumentQueryError", "DocumentQueryResult", "DocumentRow", "ElementRef",
     "INFINITY",

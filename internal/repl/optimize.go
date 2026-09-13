@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
@@ -13,8 +14,7 @@ import (
 // admit, over the conditions the case requires or assumes. Experimental: SysML v2
 // defines no solving, and the runtime evaluator remains normative.
 func (s *Session) OptimizeSolve(name string) []SolveReport {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.optimizeSolve(name)
 }
 
@@ -30,25 +30,29 @@ func (s *Session) optimizeSolve(name string) []SolveReport {
 	if err != nil {
 		return []SolveReport{unavailableReport(name, err.Error())}
 	}
-	solver, err := solve.Discover()
-	if err != nil {
-		return []SolveReport{unavailableReport(name, err.Error())}
-	}
-	return []SolveReport{s.optimizeQuery(name, solver, query)}
+	plan, err := s.solveWith(name, []*solve.Query{query}, optimizeExact)
+	return solveReports(name, []*solve.Query{query}, plan, err, optimizeQueryReport)
 }
 
-// optimizeQuery asks the solver for the query's optima and renders them, or says
-// why there is no optimum to render.
-func (s *Session) optimizeQuery(name string, solver *solve.Solver, q *solve.Query) SolveReport {
-	// An optimum over conditions the evaluator rounds is a claim about exact
-	// reals, not about the evaluator's arithmetic, so none is reported.
+// optimizeExact asks the solver for the query's optima, withholding a query the evaluator
+// rounds: its optimum would be about exact reals, not the evaluator's arithmetic.
+func optimizeExact(solver *solve.Solver, ctx context.Context, q *solve.Query) (*solve.Result, error) {
 	if q.Rounded() {
+		return nil, nil
+	}
+	return solver.Optimize(ctx, q)
+}
+
+// optimizeQueryReport renders the query's optima, or says why there is no
+// optimum to render.
+func optimizeQueryReport(name string, q *solve.Query, optimized analysis.Evaluation) SolveReport {
+	result, err := optimized.Solved, optimized.Err
+	if result == nil && err == nil {
 		return SolveReport{Subject: name, Status: SolveUnknown, Lines: []string{
 			fmt.Sprintf("? %s is undecided, so no optimum was reported", solveSubject(q)),
 			"  " + roundedClaim,
 		}}
 	}
-	result, err := solver.Optimize(context.Background(), q)
 	if err != nil {
 		return unavailableReport(name, err.Error())
 	}

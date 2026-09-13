@@ -11,10 +11,13 @@ import (
 // clockWaiter is an executor the shared clock drives: it registers its waits on
 // the clock and is run when work of its is due at the current instant.
 type clockWaiter interface {
-	// dueLabel names the executor in a due-order choice; clockWaits lists its
-	// waits on the clock, in due order.
+	// dueLabel names the executor in a due-order choice; clockWaits lists its waits on
+	// the clock not yet due, armedWaits every one, due or not, in due order, and
+	// visibleArmedWaits those and the waits of the executors its paused work performs.
 	dueLabel() string
 	clockWaits() []ClockWait
+	armedWaits() []ClockWait
+	visibleArmedWaits() []ClockWait
 	// dueWork reports work runnable at the current instant; watchesChange a change
 	// condition the executor polls once the definite work has settled.
 	dueWork() bool
@@ -26,6 +29,8 @@ type clockWaiter interface {
 	// run of it already on the stack, which drives the clock itself.
 	finished() bool
 	running() bool
+	// Release withdraws the executor from the clock for good.
+	Release()
 }
 
 // dueProgress counts what one drive of the clock did, in the units the budgets
@@ -52,9 +57,11 @@ func (p *dueProgress) unsettle() {
 	clear(p.settled)
 }
 
-// noteDispatch records a dispatched signal that fired nothing.
+// noteDispatch records a dispatched signal nothing took: no transition fired on
+// it and no do behavior went on with it. The do behaviors resumed count as do steps.
 func (p *dueProgress) noteDispatch(d Dispatch) {
-	if _, isSignal := d.Event.Payload.(Message); isSignal && !d.Fired {
+	p.doSteps += int64(len(d.Resumed))
+	if _, isSignal := d.Event.Payload.(Message); isSignal && !d.Fired && len(d.Resumed) == 0 {
 		p.dropped = append(p.dropped, d)
 	}
 }
@@ -67,7 +74,7 @@ type AdvanceReport struct {
 	// actions run and the action steps taken along the way.
 	Events, DoSteps, Steps int64
 	// Dropped are the signals dispatched along the way that no transition
-	// consumed: deferred by the active state, or dropped.
+	// consumed and no do behavior went on with: deferred by the active state, or dropped.
 	Dropped []Dispatch
 	// Notes are what the advance noted: the choice points it drew and the
 	// guards it could not evaluate, in order.
@@ -139,8 +146,6 @@ func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, err
 		}
 		pick := 0
 		if len(due) > 1 {
-			scheduling := ctx.scheduling()
-			pick = scheduling.pickDue(len(due))
 			alternatives := make([]string, len(due))
 			for i, w := range due {
 				alternatives[i] = w.dueLabel()
@@ -149,9 +154,13 @@ func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, err
 				Kind:         ChoiceDueOrder,
 				Where:        "t=" + semantics.FormatReal(ctx.clock.now),
 				Alternatives: alternatives,
-				Taken:        pick,
 			}
-			scheduling.describe(choice)
+			scheduling := ctx.scheduling()
+			pick = scheduling.choose(choice, nil)
+			if err := scheduling.refusal(); err != nil {
+				return false, err
+			}
+			choice.Taken = pick
 			ctx.noteChoice(choice)
 		}
 		w := due[pick]

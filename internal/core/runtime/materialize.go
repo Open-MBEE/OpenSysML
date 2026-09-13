@@ -119,8 +119,8 @@ func holdsVerdict(feat *EffectiveFeature) bool {
 	}
 }
 
-// heldInstances returns the objects a feature value holds, whether it carries one value
-// or a collection of them.
+// heldInstances returns the objects a feature value holds, one or a collection of them;
+// an object standing for an unset value-typed feature reads as unset and is left out.
 func heldInstances(ctx *Context, fv *FeatureValue) []*Instance {
 	held := fv.HeldValue()
 	values := []Value{held}
@@ -134,7 +134,7 @@ func heldInstances(ctx *Context, fv *FeatureValue) []*Instance {
 	var out []*Instance
 	for _, val := range values {
 		id, ok := val.Object()
-		if !ok {
+		if !ok || ctx.HoldsNoValue(val) {
 			continue
 		}
 		if nested, ok := ctx.Instance(id); ok {

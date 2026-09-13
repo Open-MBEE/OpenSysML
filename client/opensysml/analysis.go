@@ -25,6 +25,9 @@ type Analysis struct {
 	// Instances are the objects the run reported: those reachable from the
 	// subject, including it, and those the outputs and evaluations refer to.
 	Instances []*Instance
+	// Standing is how strongly the run's answer stands: the engine that
+	// answered, the strength of its evidence and the bounds it ran under.
+	Standing Standing
 	// Diagnostics the run reported.
 	Diagnostics []Diagnostic
 }
@@ -123,6 +126,7 @@ type analysisOptions struct {
 	positional      []Value
 	named           []namedArgument
 	schedule        string
+	engine          string
 }
 
 type namedArgument struct {
@@ -197,6 +201,7 @@ func (c *client) RunAnalysis(
 func analysisFromProto(resp *pb.RunAnalysisResponse, diagnostics []Diagnostic) *Analysis {
 	out := &Analysis{
 		Instances:     instancesFromProto(resp.Instances),
+		Standing:      standingFromProto(resp.Engine, resp.Strength, resp.Bounds),
 		Diagnostics:   diagnostics,
 		Verifications: verificationVerdictsFromProto(resp.VerificationVerdicts),
 		Evaluations:   evaluationsFromProto(resp.Evaluations),
@@ -252,11 +257,15 @@ func (c *client) analysisRequest(ctx context.Context, hash, symbolID string, opt
 	if err := requireSchedule(); err != nil {
 		return nil, err
 	}
+	if err := c.requireEngine(ctx, options.engine); err != nil {
+		return nil, err
+	}
 	req := &pb.RunAnalysisRequest{
 		ModelHash:       hash,
 		SymbolId:        symbolID,
 		SubjectSymbolId: options.subjectSymbolID,
 		Schedule:        options.schedule,
+		Engine:          engineField(options.engine),
 	}
 	for _, argument := range options.positional {
 		sent, err := valueToProto(argument)

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
 
@@ -41,7 +42,7 @@ func TestRenderDocumentMarkdownReadsLibraryDocumentation(t *testing.T) {
 			t.Fatalf("model did not analyse cleanly: %v", d)
 		}
 	}
-	markdown, err := ws.RenderDocumentMarkdown("LibraryDocs::PartNotes")
+	markdown, err := ws.RenderDocumentMarkdown("LibraryDocs::PartNotes", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("RenderDocumentMarkdown: %v", err)
 	}

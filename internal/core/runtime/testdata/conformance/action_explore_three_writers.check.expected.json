@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"x": ["1", "2", "3"]},
+	"agreed": {"aRan": "true", "bRan": "true", "cRan": "true"}
+}

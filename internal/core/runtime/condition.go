@@ -86,6 +86,7 @@ type scopedExpr struct {
 	expr  ast.Node
 	scope *symbols.Scope
 	decl  *symbols.Symbol // feature the expression was written on
+	held  *symbols.Symbol // effective declaration holding the value, decl or one redefining it
 
 	// env is the environment the expression's names resolve in when it is a
 	// named constraint's parameter value; nil for a feature read in place.
@@ -134,7 +135,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 // appendResultConflict appends the marker for a second owned or inherited result
 // expression of sym, which no body of the runtime's choosing may stand in for.
 func (ctx *Context) appendResultConflict(out []Condition, sym *symbols.Symbol, required bool) []Condition {
-	conflict := ctx.model.ResultExpressionConflict(sym)
+	conflict := ctx.model.semantics.ResultExpressionConflict(sym)
 	if conflict == nil {
 		return out
 	}
@@ -160,7 +161,7 @@ func (ctx *Context) namedConstraintOf(member scopedMember) *symbols.Symbol {
 
 // effectiveMembers is the set of members sym has: MembersOf as a set.
 func (ctx *Context) effectiveMembers(sym *symbols.Symbol) map[*symbols.Symbol]bool {
-	members := ctx.model.MembersOf(sym)
+	members := ctx.model.semantics.MembersOf(sym)
 	set := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		set[member] = true
@@ -380,14 +381,14 @@ func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, r
 // member decl reference-subsets, and returns nil when the reference names
 // anything else or does not resolve.
 func (ctx *Context) referencedRequirement(scope *symbols.Scope, decl ast.Node, ref ast.Node) *symbols.Symbol {
-	if ctx.resolver == nil {
+	if ctx.model.resolver == nil {
 		return nil
 	}
-	sym, ok := ctx.resolver.ResolveReferenceTarget(scope, decl, ref)
+	sym, ok := ctx.resolveReferenceTarget(scope, decl, ref)
 	if !ok || sym == nil {
 		return nil
 	}
-	if canonical, ok := ctx.resolver.ResolveAliasTarget(sym); ok {
+	if canonical, ok := ctx.resolveAliasTarget(sym); ok {
 		sym = canonical
 	}
 	if RequireRequirement(sym) != nil && RequireConstraint(sym) != nil {
@@ -414,6 +415,10 @@ type conditionCheck struct {
 	// bindings are the values the element binds by name (subject, actor), and, for a
 	// check within a case run, the run's, owned by the case; the zero frame binds nothing.
 	bindings frame
+
+	// frames are the frames a check within a behavior run reads, innermost last:
+	// the performance's own values and those around it. Empty outside a run.
+	frames []frame
 
 	// negated inverts the verdict: the element asserts that its required
 	// conditions do not all hold (`assert not …`, Invariant::isNegated).
@@ -455,7 +460,7 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	required := false
 	for _, cond := range conds {
 		required = required || cond.Required
-		holds, err := ctx.conditionHolds(activation, cond, features, self, check.bindings)
+		holds, err := ctx.conditionHolds(activation, cond, features, self, check.frames, check.bindings)
 		if err != nil {
 			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 		}
@@ -492,7 +497,7 @@ func (ctx *Context) conditionSubject(sym *symbols.Symbol, self *Instance) (carri
 	roots := []*Instance{self}
 	if self == nil {
 		roots = ctx.rootInstances()
-	} else if ctx.model.Conforms(self.Type, owner) {
+	} else if ctx.modelConforms(self.Type, owner) {
 		return carrier{instance: self, root: self}, nil
 	}
 	carriers := ctx.carriersUnder(roots, owner)
@@ -549,23 +554,25 @@ func nestedFeature(sym *symbols.Symbol) bool {
 // readThrough reports whether inst is the object a value expression materialized
 // to read a declaration through, which is an occurrence of nothing.
 func (ctx *Context) readThrough(inst *Instance) bool {
-	if inst.explicit {
-		return false
-	}
-	id, ok := ctx.occurrences[inst.Type]
-	return ok && id == inst.ID
+	return !inst.explicit && ctx.denotesOccurrence(inst)
 }
 
 // rootInstances returns the objects this runtime holds that stand on their own,
 // in identity order: an object a feature value holds is reached through its holder, and one
 // materialized to read a nested declaration through is an occurrence of nothing,
 // while an object a caller asked for is a root whatever it materializes. One
-// declaration materialized twice is one object here, the latest.
+// declaration stands as the objects it denotes, every one of them where it denotes
+// several, and otherwise as one object, the latest materialized of it.
 func (ctx *Context) rootInstances() []*Instance {
 	held := ctx.heldObjectIDs()
+	denoted := make(map[*symbols.Symbol][]*Instance)
 	latest := make(map[*symbols.Symbol]*Instance, len(ctx.instances))
 	for _, inst := range ctx.instances {
 		if inst == nil || held[inst.ID] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
+			continue
+		}
+		if ctx.denotesOccurrence(inst) {
+			denoted[inst.Type] = append(denoted[inst.Type], inst)
 			continue
 		}
 		if kept, ok := latest[inst.Type]; ok && kept.ID > inst.ID {
@@ -573,9 +580,14 @@ func (ctx *Context) rootInstances() []*Instance {
 		}
 		latest[inst.Type] = inst
 	}
-	out := make([]*Instance, 0, len(latest))
-	for _, inst := range latest {
-		out = append(out, inst)
+	var out []*Instance
+	for sym, inst := range latest {
+		if _, ok := denoted[sym]; !ok {
+			out = append(out, inst)
+		}
+	}
+	for _, insts := range denoted {
+		out = append(out, insts...)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
@@ -616,7 +628,7 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 		}
 		seen[inst.ID] = true
 		occurrence := carrierOccurrence{through: through, decl: inst.Type}
-		if ctx.model.Conforms(inst.Type, owner) && !declared[occurrence] {
+		if ctx.modelConforms(inst.Type, owner) && !declared[occurrence] {
 			declared[occurrence] = true
 			out = append(out, carrier{instance: inst, root: root, features: features})
 		}
@@ -633,10 +645,19 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 		}
 	}
 	for _, root := range roots {
-		descend(root, root, strconv.FormatInt(root.ID, 10), nil)
+		descend(root, root, ctx.rootPath(root), nil)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].instance.ID < out[j].instance.ID })
 	return out
+}
+
+// rootPath is the path a subject search starts a root at: the objects one usage denotes share
+// its name, as objects a multiplicity repeated do, while any other root is its own.
+func (ctx *Context) rootPath(root *Instance) string {
+	if ctx.denotesOccurrence(root) {
+		return strconv.Quote(ctx.qualifiedSymbolName(root.Type))
+	}
+	return strconv.FormatInt(root.ID, 10)
 }
 
 // carrier is an object a search reached: the object the search started from and
@@ -666,17 +687,41 @@ type heldObject struct {
 
 // nestedObjects returns the objects the object-valued features of inst hold,
 // materializing a lazy one as reading its feature value does. A feature value that cannot be read
-// yields no object: one that is not there is no subject either. The names a redefinition
-// chain gives one feature value hold its objects once, under the first.
+// yields no object: one that is not there is no subject either.
 func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
+	out, _ := ctx.heldObjectsOf(inst, nil, false)
+	return out
+}
+
+// heldObjectsOf is nestedObjects reading a feature as `through` reads it (every one, when nil),
+// taking what a feature it leaves unread already holds; a failed read is skipped or, where every
+// object counts, is the error.
+func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, ObjectFeature) (*FeatureValue, error), everyObject bool) ([]heldObject, error) {
 	var out []heldObject
 	read := map[*FeatureValue]bool{}
 	for _, of := range ctx.FeaturesOfObject(inst) {
 		if of.Name == "" || !holdsObjects(of.Feature) {
 			continue
 		}
-		fv, err := inst.GetFeatureValue(ctx, of.Name)
-		if err != nil || fv == nil || read[fv] {
+		var fv *FeatureValue
+		var err error
+		if through == nil {
+			fv, err = inst.GetFeatureValue(ctx, of.Name)
+		} else {
+			fv, err = through(inst, of)
+		}
+		if err != nil {
+			if everyObject {
+				return nil, fmt.Errorf("feature %s: %w", of.Name, err)
+			}
+			continue
+		}
+		if fv == nil {
+			if fv = inst.FeatureValues[of.Name]; fv == nil || !fv.Materialized {
+				continue
+			}
+		}
+		if read[fv] {
 			continue
 		}
 		read[fv] = true
@@ -686,16 +731,21 @@ func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
 			}
 		}
 	}
-	return out
+	return out, nil
 }
 
 // holdsObjects reports whether a feature holds objects rather than values: a
 // nested part has features and conditions of its own, an attribute has neither.
 func holdsObjects(feat *EffectiveFeature) bool {
-	if feat.Symbol == nil {
+	return objectFeature(feat.Symbol)
+}
+
+// objectFeature reports whether sym declares a feature whose values are objects.
+func objectFeature(sym *symbols.Symbol) bool {
+	if sym == nil {
 		return false
 	}
-	usage, ok := feat.Symbol.Decl.(*ast.Usage)
+	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok {
 		return false
 	}
@@ -800,7 +850,7 @@ func (ctx *Context) definitionOf(sym *symbols.Symbol) *symbols.Symbol {
 	if _, ok := sym.Decl.(*ast.Definition); ok {
 		return sym
 	}
-	for _, super := range ctx.model.AllSupertypes(sym) {
+	for _, super := range ctx.model.semantics.AllSupertypes(sym) {
 		if _, ok := super.Decl.(*ast.Definition); ok {
 			return super
 		}
@@ -810,14 +860,14 @@ func (ctx *Context) definitionOf(sym *symbols.Symbol) *symbols.Symbol {
 
 // conditionHolds evaluates one condition: an expression, or a group that holds
 // when all of its conditions hold. Its negation, if any, is applied last.
-func (ctx *Context) conditionHolds(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, bindings frame) (bool, error) {
+func (ctx *Context) conditionHolds(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame) (bool, error) {
 	for _, constraint := range cond.Constraints {
 		features, bindings = ctx.constraintScope(features, bindings, constraint)
 	}
 	holds := true
 	if cond.Group != nil {
 		for _, sub := range cond.Group {
-			subHolds, err := ctx.conditionHolds(activation, sub, features, self, bindings)
+			subHolds, err := ctx.conditionHolds(activation, sub, features, self, frames, bindings)
 			if err != nil {
 				return false, err
 			}
@@ -827,12 +877,18 @@ func (ctx *Context) conditionHolds(activation int64, cond Condition, features ma
 		ec := NewEvalContextIn(ctx, cond.Scope, self)
 		ec.activation = activation
 		ec.features = features
+		for _, f := range frames {
+			ec.pushFrame(f)
+		}
 		if bindings.vars != nil {
 			ec.pushFrame(bindings)
 		}
 		result, err := ec.Eval(cond.Expr)
 		if err != nil {
 			return false, err
+		}
+		if u := result.Undetermined(); u != nil {
+			return false, fmt.Errorf("%w: condition is undetermined: %s", ErrNoValue, u.Reason())
 		}
 		if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
 			return false, fmt.Errorf("condition must evaluate to boolean, got %v", result.Kind)
@@ -884,7 +940,7 @@ func (ctx *Context) conditionFeatures(sym *symbols.Symbol) map[string]scopedExpr
 			// uninitialized rather than the value materializing replaces.
 			expr = nil
 		}
-		out[feat.Name] = scopedExpr{expr: expr, scope: feat.DefaultScope(), decl: feat.DefaultDecl}
+		out[feat.Name] = scopedExpr{expr: expr, scope: feat.DefaultScope(), decl: feat.DefaultDecl, held: feat.Symbol}
 	}
 	for i := range features {
 		add(&features[i])

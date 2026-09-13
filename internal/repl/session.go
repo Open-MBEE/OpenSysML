@@ -9,7 +9,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -73,11 +75,12 @@ type snippet struct {
 
 // Session accumulates submissions into a single implicit <repl> document.
 type Session struct {
-	// mu serializes the session's exported entry points, which a frontend may
-	// call from more than one goroutine: readline answers Tab from its own input
-	// goroutine while the loop is still evaluating the previous line. Exported
-	// methods take it; lower-case helpers assume the caller holds it.
-	mu sync.Mutex
+	// mu serializes commands; state guards the session for readers beside one
+	// (Complete answers Tab while a line evaluates). Exported commands take both,
+	// readers take state alone, and a plan on its own contexts releases state
+	// while it runs (exploreVerdict). Lower-case helpers assume the caller holds both.
+	mu    sync.Mutex
+	state sync.Mutex
 
 	ws       *model.Workspace
 	snippets []snippet
@@ -132,6 +135,19 @@ type Session struct {
 
 	// schedule is the policy runs started from here on resolve choice points under.
 	schedule runtime.SchedulePolicy
+
+	// jobs is how many runs of one plan go concurrently.
+	jobs int
+
+	// engines answers every check, run, exploration, sweep and solve the session
+	// makes, dispatching each to the engine that covers it.
+	engines *analysis.Registry
+	// engine is the selection every question is put to the engines under.
+	engine analysis.Selection
+	// checker is what the check engine is asked beside an action, and its bounds.
+	checker checkSettings
+	// progress prints what external engines report while a plan runs; nil prints none.
+	progress *progressPrinter
 
 	verbosity Verbosity
 
@@ -257,8 +273,27 @@ func NewSession() *Session {
 		ws:        model.NewWorkspace(),
 		instances: make(map[string]*runtime.Instance),
 		budgets:   runtime.DefaultBudgets(),
+		jobs:      analysis.DefaultJobs(),
+		engines:   engines.Default(),
 		verbosity: VerbosityNormal,
 	}
+}
+
+// enter takes the session for one command; the function returned leaves it.
+func (s *Session) enter() func() {
+	s.mu.Lock()
+	s.state.Lock()
+	return func() {
+		s.state.Unlock()
+		s.mu.Unlock()
+	}
+}
+
+// reading takes the session's state to read it beside a running command; the
+// function returned lets it go.
+func (s *Session) reading() func() {
+	s.state.Lock()
+	return s.state.Unlock
 }
 
 // SetBudgets sets the bounds for runtime contexts created from here on, dropping
@@ -269,8 +304,7 @@ func (s *Session) SetBudgets(budgets runtime.Budgets) error {
 	if err := budgets.Validate(); err != nil {
 		return err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	s.budgets = budgets
 	s.rtCtx, s.replaced = nil, nil
 	if n := s.heldObjects(); n > 0 {
@@ -299,15 +333,13 @@ func (s *Session) endDebugSessions(cause string) {
 
 // Budgets returns the bounds this session gives its runtime contexts.
 func (s *Session) Budgets() runtime.Budgets {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.reading()()
 	return s.budgets
 }
 
 // List returns a one-line summary per surviving snippet.
 func (s *Session) List() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.list()
 }
 
@@ -580,16 +612,16 @@ func (s *Session) joined() string {
 // second result reports whether any snippet of that language survives.
 func (s *Session) joinedFor(name string) (string, bool) {
 	parts := make([]string, len(s.snippets))
-	any := false
+	found := false
 	for i, sn := range s.snippets {
 		if sn.open || parseDocName(sn.origin) != name {
 			parts[i] = maskedText(sn.src)
 			continue
 		}
-		any = true
+		found = true
 		parts[i] = sn.src
 	}
-	return strings.Join(parts, "\n"), any
+	return strings.Join(parts, "\n"), found
 }
 
 // text is the buffer as it was submitted, masking nothing: what %save writes
@@ -725,8 +757,7 @@ func intersects(names []string, set map[string]bool) bool {
 // the buffer instead, since it would otherwise absorb the next submission. A
 // later redeclaration of the same name replaces the prior snippet (see accept).
 func (s *Session) Submit(src string) Result {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.submitAll([]string{src})
 }
 
@@ -739,8 +770,7 @@ type SourceFile struct {
 
 // SubmitAll accumulates every src as one submission, from no file in particular.
 func (s *Session) SubmitAll(srcs []string) Result {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.submitAll(srcs)
 }
 
@@ -763,8 +793,7 @@ func (s *Session) submit(origin, src string) Result {
 // against the others no matter which order they arrive in. This is what makes
 // loading a multi-file project order-independent.
 func (s *Session) SubmitFiles(files []SourceFile) Result {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.submitFiles(files)
 }
 
@@ -808,7 +837,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	over := s.recordCarryover()
 	sysml, _ := s.joinedFor(docName)
 	s.ws.Open(docName, []byte(sysml), s.version)
-	if kerml, any := s.joinedFor(kermlDocName); any {
+	if kerml, found := s.joinedFor(kermlDocName); found {
 		s.ws.Open(kermlDocName, []byte(kerml), s.version)
 	} else {
 		s.ws.Remove(kermlDocName)
@@ -1070,8 +1099,7 @@ func supersededBy(gone []string, fqn string) (string, bool) {
 // Clear resets the session, dropping all accumulated declarations. It returns
 // the notices for what the reset took with it.
 func (s *Session) Clear() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.clear()
 }
 
@@ -1129,47 +1157,49 @@ func (s *Session) getOrCreateRuntime() (*runtime.Context, error) {
 	ctx.AdoptIdentities(s.replaced)
 	s.rtCtx = ctx
 	s.rtCtx.SetTrace(s.trace)
+	s.attachTools(s.rtCtx)
 	return s.rtCtx, nil
 }
 
 // newRuntime builds a context over the session's declarations, under its budgets
 // and the policy its own runs are driven by. Nothing the session holds is in it.
 func (s *Session) newRuntime() (*runtime.Context, error) {
-	model, resolver, err := s.semanticModel()
+	model, err := s.runtimeModel()
 	if err != nil {
 		return nil, err
 	}
-	return s.newRuntimeOver(model, resolver)
+	return s.newRuntimeOver(model)
 }
 
-// semanticModel is the model and resolver a context over the session's
-// declarations runs on; the model memoizes, so contexts of one exploration share it.
-func (s *Session) semanticModel() (*semantics.Model, *resolve.Resolver, error) {
+// runtimeModel is the model-derived part a context over the session's declarations
+// runs on; it memoizes, so contexts of one exploration share it.
+func (s *Session) runtimeModel() (*runtime.Model, error) {
 	// Falls back to the library index so a library symbol can be evaluated or
 	// instantiated before the session declares anything.
 	idx := s.browseIndex()
 	if idx == nil {
-		return nil, nil, fmt.Errorf("no document loaded")
+		return nil, fmt.Errorf("no document loaded")
 	}
 	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-	model.SetSourceText(s.sessionSourceText())
-	return model, resolver, nil
-}
-
-// newRuntimeOver builds a context over model under the session's budgets and the
-// policy its own runs are driven by. Nothing the session holds is in it.
-func (s *Session) newRuntimeOver(model *semantics.Model, resolver *resolve.Resolver) (*runtime.Context, error) {
-	ctx := runtime.NewContext(model, resolver, s.budgets.MaxSteps)
-	if err := ctx.SetBudgets(s.budgets); err != nil {
-		return nil, err
-	}
+	sem := semantics.NewModel(resolver)
+	sem.SetSourceText(s.sessionSourceText())
+	model := runtime.NewModel(sem, resolver)
 	// Give the runtime the buffer's text, so an error about a declaration reports
 	// the line it was submitted on rather than a byte offset, and the buffer's
 	// scope tree, so a carried object is rebound to the symbols the prompt reaches.
 	for _, doc := range s.sessionDocs() {
-		ctx.RegisterSource(source.New(doc.Name, doc.Content))
-		ctx.RegisterScope(doc.Scope)
+		model.RegisterSource(source.New(doc.Name, doc.Content))
+		model.RegisterScope(doc.Scope)
+	}
+	return model, nil
+}
+
+// newRuntimeOver builds a context over model under the session's budgets and the
+// policy its own runs are driven by. Nothing the session holds is in it.
+func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error) {
+	ctx := runtime.NewContext(model, s.budgets.MaxSteps)
+	if err := ctx.SetBudgets(s.budgets); err != nil {
+		return nil, err
 	}
 	if err := ctx.SetSchedule(s.drivenSchedule()); err != nil {
 		return nil, err

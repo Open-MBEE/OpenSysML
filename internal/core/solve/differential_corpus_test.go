@@ -94,7 +94,7 @@ func hostsOf(ctx *runtime.Context, root *symbols.Scope, host *symbols.Symbol) []
 			if sym == host || sym.Name == "" || definitionKind(sym.Kind) || abstract(sym) {
 				continue
 			}
-			if ctx.Model().Conforms(sym, host) {
+			if ctx.Semantics().Conforms(sym, host) {
 				out = append(out, sym)
 			}
 		}
@@ -134,7 +134,7 @@ func used(ctx *runtime.Context, root *symbols.Scope, def *symbols.Symbol) bool {
 			if sym == def || definitionKind(sym.Kind) || elementKind(sym) == "" {
 				continue
 			}
-			if ctx.Model().Conforms(sym, def) {
+			if ctx.Semantics().Conforms(sym, def) {
 				found = true
 			}
 		}
@@ -231,8 +231,8 @@ func modelOf(t *testing.T, path string, src []byte, libraries bool) (*runtime.Co
 		idx.ExpandWildcardImports()
 	}
 	resolver := resolve.New(idx)
-	ctx := runtime.NewContext(semantics.NewModel(resolver), resolver, 10000)
-	ctx.RegisterSource(sf)
+	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx.Model().RegisterSource(sf)
 	return ctx, idx
 }
 
@@ -303,7 +303,7 @@ func TestDifferentialStandardLibrary(t *testing.T) {
 	parseLibraries(t, idx)
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := runtime.NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 10000)
 
 	for _, doc := range libraryDocuments(idx) {
 		gate.summary.files++

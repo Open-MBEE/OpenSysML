@@ -105,12 +105,16 @@ func main() {
 
 	// Create gRPC service (cache is internal to the service)
 	unavailable := unavailableCapabilitiesForTesting()
+	var serving []sysmlgrpc.Option
+	if names := splitNames(opts.serveExternal); len(names) > 0 {
+		serving = append(serving, sysmlgrpc.ServeExternalEngines(names...))
+	}
 	var svc *sysmlgrpc.Service
 	if len(unavailable) == 0 {
-		svc, err = sysmlgrpc.NewService(opts.cacheSize, Version)
+		svc, err = sysmlgrpc.NewService(opts.cacheSize, Version, serving...)
 	} else {
 		svc, err = sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(
-			opts.cacheSize, Version, unavailable)
+			opts.cacheSize, Version, unavailable, serving...)
 	}
 	if err != nil {
 		slog.Error("Invalid service configuration", "error", err)

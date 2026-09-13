@@ -54,6 +54,9 @@ func Equal(a, b Value) bool {
 	case EnumLiteral:
 		y, ok := b.(EnumLiteral)
 		return ok && x.LiteralID == y.LiteralID
+	case Metaobject:
+		y, ok := b.(Metaobject)
+		return ok && x.ElementID == y.ElementID
 	default:
 		return a == b
 	}

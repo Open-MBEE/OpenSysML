@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "instantiate": "test::Rocket",
+  "libraries": true,
+  "slots": {
+    "mass": {"type": "Unset"},
+    "engine": {"type": "Instance"},
+    "engine.mass": {"type": "Unset"},
+    "engine.frequency": {"type": "Unset"}
+  },
+  "materialization": {}
+}

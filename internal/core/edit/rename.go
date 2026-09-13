@@ -26,6 +26,9 @@ func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice
 	if err := checkName(i, op.NewName); err != nil {
 		return nil, err
 	}
+	if err := m.refuseReferencedElsewhere(i, op, writesName(sym, ident.Name)); err != nil {
+		return nil, err
+	}
 	r, sem := m.resolver()
 	occurrences := m.renameOccurrences(r, sym, ident)
 	if c := rename.Check(r, sem, sym, ident.Name, op.NewName, occurrences); c != nil {
@@ -41,6 +44,19 @@ func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice
 		out = append(out, splice{span: occ.Span(), text: op.NewName, opIndex: i, target: op.Target})
 	}
 	return out, nil
+}
+
+// writesName reports a reference segment written as name and reading sym by it,
+// which renaming that name rewrites; one written as an alias or the short name
+// still resolves and is left alone.
+func writesName(sym *symbols.Symbol, name string) referenceTest {
+	return func(r *resolve.Resolver, ref resolve.Reference, part int) bool {
+		if ref.QN.Parts[part].Text != name {
+			return false
+		}
+		seg, ok := r.PartName(ref.QN, part)
+		return ok && symbols.SameElement(seg, sym)
+	}
 }
 
 // renameOccurrences returns every reference spelling sym's declared name, in

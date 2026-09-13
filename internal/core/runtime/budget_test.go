@@ -225,7 +225,7 @@ func TestBudgetsFromEnv(t *testing.T) {
 // holding a non-positive bound rather than running under it.
 func TestSetBudgets(t *testing.T) {
 	model, resolver, _ := parseAndBuildModel(t, `part def Simple {}`)
-	ctx := NewContext(model, resolver, DefaultMaxSteps)
+	ctx := NewContext(NewModel(model, resolver), DefaultMaxSteps)
 	if got := ctx.Budgets(); got != DefaultBudgets() {
 		t.Errorf("a new context runs under %+v, want the defaults %+v", got, DefaultBudgets())
 	}
@@ -261,7 +261,7 @@ func TestSetBudgets(t *testing.T) {
 func TestStepLimitErrorNamesEffectiveBudgetAndVariable(t *testing.T) {
 	src := `part def Simple {}`
 	model, resolver, _ := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 3)
+	ctx := NewContext(NewModel(model, resolver), 3)
 
 	// The bound is per run, so the evaluations have to spend one run's budget
 	// rather than a run each.
@@ -448,7 +448,7 @@ func TestStepBudgetIsPerRun(t *testing.T) {
 	t.Run("each_run_starts_fresh", func(t *testing.T) {
 		src := `part def Simple {}`
 		model, resolver, _ := parseAndBuildModel(t, src)
-		ctx := NewContext(model, resolver, 4)
+		ctx := NewContext(NewModel(model, resolver), 4)
 
 		// Far more evaluations than the budget, but one per run.
 		for i := 0; i < 100; i++ {
@@ -486,7 +486,7 @@ func TestStepBudgetIsPerRun(t *testing.T) {
 	t.Run("nested_run_shares_the_budget", func(t *testing.T) {
 		src := `part def Simple {}`
 		model, resolver, _ := parseAndBuildModel(t, src)
-		ctx := NewContext(model, resolver, 100)
+		ctx := NewContext(NewModel(model, resolver), 100)
 
 		// Standing in for an action invoked from an expression: the inner run must
 		// not hand the outer one a fresh allowance.

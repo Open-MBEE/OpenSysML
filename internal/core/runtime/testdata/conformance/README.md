@@ -181,6 +181,7 @@ request field):
 | `reverse` | The default: tokens in reverse spawn order, the first holding guard, the first enabled transition, regions in declaration order, the executor started last first |
 | `declared` | Tokens in spawn order, the first holding guard, the first enabled transition, regions in declaration order, the executor started first first |
 | `seed:<n>` | Every resolution drawn from a pseudo-random sequence the non-negative integer `n` fixes; the same seed replays the same run |
+| `replay:<file>` | The choice lines of a witness (as an `outcomes` entry's `witness` spells them, one per line up to the first blank line) followed move for move, then `reverse`; a move the run cannot make is a typed `replay refused` error naming it |
 
 Which of two same-step writes to one feature stands follows from the token order
 the policy chose; a write conflict is reported, not resolved on its own.
@@ -207,6 +208,36 @@ A case with an admissible set also owns a `<case>.<policy>.trace.golden` for
 each sweep policy (`declared`, `seed-1` — a colon is not a portable file-name
 character), recording the linearization that policy takes; `-update-traces`
 regenerates them beside the default golden.
+
+### Checking Every Schedule (`.check.expected.json`)
+
+An action case with an admissible set also owns a `<case>.check.expected.json`:
+what the explicit-state checker (`runtime.CheckAction`, the `check` engine)
+finds when it searches every schedule of the action, derived from the library
+text as the admissible set was:
+
+```json
+{
+	"verdict": "divergent",
+	"divergent": {"x": ["1", "2"]},
+	"agreed": {"leftRan": "true", "rightRan": "true"}
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `verdict` | `no violation, exhaustive`, `no violation within bounds`, `violation` or `divergent`, as the check reports it |
+| `divergent` | Every feature whose final value the schedule decides, with every value it takes, in canonical order; a feature the check finds divergent and this does not list fails the case |
+| `agreed` | Features every schedule leaves with one value, and that value, checked at every final state |
+
+`TestCheckConformanceOracles` checks each case reduced and unreduced against
+this file; `TestCheckAgreesWithExploreOverTheConformanceCorpus` compares the
+final states the check reaches with the complete table `explore` tabled, and
+`TestCheckWitnessesReplayOverTheConformanceCorpus` replays every witness the
+check writes. A case the check refuses with a typed reason — a body paused
+mid-statement, a state and an action due together — is listed in
+`check_corpus_test.go` and owns no expectation. These files are not execution
+fixtures: the execution harness skips them.
 
 ### For Calculations (`InvokeCalc`)
 
@@ -347,6 +378,11 @@ regenerates them beside the default golden.
 - `error`: text the instantiation must fail with, for a case whose contract is a
   diagnostic — a declaration valuing one feature under two of its names. Set it
   instead of `slots`.
+- `materialization`: what reading every feature value of the instance, and of
+  the objects those hold, reports — the check `-instantiate` makes over an
+  object. `errors` lists the text of each error in order (matched as a
+  substring) and `bounded` whether the walk left nesting unchecked; `{}` states
+  a clean, complete read. Omit it for a case whose contract is its slots alone.
 
 ## Diagnostics
 
@@ -369,6 +405,17 @@ Loads the standard library into the case's index, for a case whose model names
 library elements the runtime resolves — the measurement unit of a quantity
 expression (`1.5 [m/s]`) is one. Omit it otherwise: a case that needs no library
 is indexed from its own source alone.
+
+## Further Documents
+
+```json
+{"documents": ["extent_across_documents.depot.sysml"]}
+```
+
+Indexes the listed `.sysml` files of this directory beside the case's own, each
+as a document of its own name, for a case whose contract spans documents — an
+extent reaching a usage another file declares. A listed file belongs to the case
+that lists it and is no case itself; name it `<case>.<part>.sysml`.
 
 ## Value Format
 
@@ -410,6 +457,9 @@ Supported types:
   declaring it qualifies it (`{"type": "EnumLiteral", "value": "Color::red"}`)
 - `Function`: the qualified name of the calc a function value is a value of
   (`{"type": "Function", "value": "test::Sq"}`)
+- `Metaobject`: the reflective metaobject of an element, optionally pinned to the
+  text it prints as, the element's qualified name and its metaclass
+  (`{"type": "Metaobject", "value": "meta(test::seatBelt : SysML::Systems::PartUsage)"}`)
 
 In place of a value, `error` states the text producing that value must fail with,
 for a slot or result whose contract is a diagnostic (`{"error": "not a

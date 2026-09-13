@@ -44,8 +44,8 @@ func registerConversionFunctions() {
 
 	registerLibraryFunction("RationalFunctions::floor", []string{"x"}, floorToInteger)
 	registerLibraryFunction("RationalFunctions::round", []string{"x"}, roundToInteger)
-	registerLibraryFunction("RationalFunctions::gcd", []string{"x", "y"}, rationalGCD)
-	registerLibraryFunction("RationalFunctions::rat", []string{"numer", "denum"}, integersToRational)
+	registerLibraryFunction("RationalFunctions::gcd", []string{"x", "y"}, rationalGCD, wholeDomain, wholeDomain)
+	registerLibraryFunction("RationalFunctions::rat", []string{"numer", "denum"}, integersToRational, integerDomain, denominatorDomain)
 	registerLibraryFunction("RationalFunctions::numer", []string{"rat"}, rationalNumerator)
 	registerLibraryFunction("RationalFunctions::denom", []string{"rat"}, rationalDenominator)
 }
@@ -239,14 +239,8 @@ func realZero(name string, _ *Context, args []Value) (Value, error) {
 // whole values as a non-negative Integer; gcd(0, 0) is 0. A Rational with a
 // fractional part has no Integer divisor to answer with.
 func rationalGCD(args []semantics.Value) (semantics.Value, error) {
-	x, okX := wholeInteger(args[0])
-	y, okY := wholeInteger(args[1])
-	if !okX || !okY {
-		return semantics.Value{}, fmt.Errorf(
-			"%w: gcd is defined over whole values, got %s and %s",
-			semantics.ErrArithmeticDomain, semantics.FormatConst(args[0]), semantics.FormatConst(args[1]),
-		)
-	}
+	x, _ := wholeInteger(args[0])
+	y, _ := wholeInteger(args[1])
 	// Exact over any whole operand, so MinInt64 and whole Reals past the Integer
 	// range are divisors like any other; only the result must be an Integer.
 	gcd := new(big.Int).GCD(nil, nil, x.Abs(x), y.Abs(y))
@@ -257,21 +251,30 @@ func rationalGCD(args []semantics.Value) (semantics.Value, error) {
 	return semantics.Value{Kind: semantics.ValInt, Int: gcd.Int64()}, nil
 }
 
+// wholeDomain is the domain of gcd's parameters: any Integer, or a Real with no
+// fractional part.
+func wholeDomain(v semantics.Value) error {
+	if _, ok := wholeInteger(v); !ok {
+		return fmt.Errorf("%w: gcd is defined over whole values, got %s", semantics.ErrArithmeticDomain, semantics.FormatConst(v))
+	}
+	return nil
+}
+
+// denominatorDomain is the domain of rat's denum: an Integer other than zero.
+func denominatorDomain(v semantics.Value) error {
+	if err := integerDomain(v); err != nil {
+		return err
+	}
+	if v.Int == 0 {
+		return ErrDivisionByZero
+	}
+	return nil
+}
+
 // integersToRational is RationalFunctions::rat: numer/denum rounded once to the
-// float64 a Rational is here, exactly as `/` computes it, zero denum included.
+// float64 a Rational is here, exactly as `/` computes it.
 func integersToRational(args []semantics.Value) (semantics.Value, error) {
-	numer, err := asInteger(args[0])
-	if err != nil {
-		return semantics.Value{}, err
-	}
-	denum, err := asInteger(args[1])
-	if err != nil {
-		return semantics.Value{}, err
-	}
-	q, ok := semantics.IntQuotient(numer, denum)
-	if !ok {
-		return semantics.Value{}, ErrDivisionByZero
-	}
+	q, _ := semantics.IntQuotient(args[0].Int, args[1].Int)
 	return semantics.Value{Kind: semantics.ValReal, Real: q}, nil
 }
 

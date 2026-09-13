@@ -1,0 +1,27 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Probe",
+  "slots": {
+    "hardness": {"type": "Quantity", "value": 7, "unit": "mohs"},
+    "sameHardness": {"type": "Boolean", "value": true},
+    "harder": {"type": "Boolean", "value": true},
+    "stillHardness": {"type": "Quantity", "value": 7, "unit": "mohs"},
+    "scaledHardness": {"error": "operation is not defined on a point of a measurement scale: operator '*' on a point of the ordinal scale test::mohs: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first"},
+    "summedHardness": {"error": "operation is not defined on a point of a measurement scale: operator '+' on a point of the ordinal scale test::mohs: two points have no sum"},
+    "offsetHardness": {"error": "operation is not defined on a point of a measurement scale: operator '+' on a point of the ordinal scale test::mohs: only an IntervalScale relates its points by differences in its unit"},
+    "hardnessSpread": {"error": "operation is not defined on a point of a measurement scale: operator '-' on a point of the ordinal scale test::mohs: only an IntervalScale relates its points by differences in its unit"},
+    "hardnessInKelvin": {"error": "operation is not defined on a point of a measurement scale: comparison with another reference on a point of the ordinal scale test::mohs: only an IntervalScale relates its points by differences in its unit"},
+    "negatedHardness": {"error": "operation is not defined on a point of a measurement scale: negation on a point of the ordinal scale test::mohs: a point has no negative; negate a difference between points instead"},
+    "heading": {"type": "Quantity", "value": 1.0, "unit": "compass"},
+    "turned": {"error": "operation is not defined on a point of a measurement scale: operator '+' on a point of the cyclic ratio scale test::compass: only an IntervalScale relates its points by differences in its unit"},
+    "turnedTwice": {"error": "operation is not defined on a point of a measurement scale: operator '*' on a point of the cyclic ratio scale test::compass: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first"},
+    "headingSpread": {"error": "operation is not defined on a point of a measurement scale: operator '-' on a point of the cyclic ratio scale test::compass: only an IntervalScale relates its points by differences in its unit"},
+    "headingBelow": {"type": "Boolean", "value": true},
+    "level": {"type": "Quantity", "value": 30.0, "unit": "decibel"},
+    "louder": {"error": "operation is not defined on a point of a measurement scale: operator '+' on a point of the logarithmic scale test::decibel: only an IntervalScale relates its points by differences in its unit"},
+    "doubledLevel": {"error": "operation is not defined on a point of a measurement scale: operator '*' on a point of the logarithmic scale test::decibel: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first"},
+    "levelSpread": {"error": "operation is not defined on a point of a measurement scale: operator '-' on a point of the logarithmic scale test::decibel: only an IntervalScale relates its points by differences in its unit"},
+    "levelAgainstWatts": {"error": "operation is not defined on a point of a measurement scale: comparison with another reference on a point of the logarithmic scale test::decibel: only an IntervalScale relates its points by differences in its unit"}
+  }
+}

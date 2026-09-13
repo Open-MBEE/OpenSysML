@@ -1,0 +1,14 @@
+do: watching
+stmt action body
+enter action node: state behavior poll
+    eval literal 3 -> 3
+  eval index -> 3 [s]
+do: watching
+  stmt assign ticks
+      eval feature ticks -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+leave action node: state behavior poll
+exit: watching
+enter: finished
+transition: watching -> finished (event: time)

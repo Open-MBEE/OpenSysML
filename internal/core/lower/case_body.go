@@ -77,13 +77,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope) []Statemen
 		}
 		return append(append(locals, unsupported), results...)
 	}
-	// A flow no `first` starts begins at its one unpreceded step; where none is
-	// found the graph keeps no start, and running it reports why.
-	if graph.Initial == nil {
-		if start, err := CaseFlowStart(graph); err == nil {
-			graph.Initial = start
-		}
-	}
+	StartFlow(graph)
 	flow := Block{Node: owner, Scope: scope, Graph: graph, Own: true, Stated: true}
 	return append(append(locals, flow), results...)
 }
@@ -96,9 +90,21 @@ func stepName(node ast.Node) string {
 	return "an unnamed step"
 }
 
-// CaseFlowStart finds the step a case body's flow starts at where no `first` or
-// start node states one: the single step no succession leads to. Two such steps
-// leave the start unstated, and none is a cycle; either is reported.
+// StartFlow gives a flow performed whole — a case body's, a state behavior's, an
+// action's — that no `first` starts its one unpreceded step to begin at; where
+// none is found the graph keeps no start, and running it reports why.
+func StartFlow(graph *ActionGraph) {
+	if graph.Initial != nil {
+		return
+	}
+	if start, err := CaseFlowStart(graph); err == nil {
+		graph.Initial = start
+	}
+}
+
+// CaseFlowStart finds the step a flow starts at where no `first` or start node
+// states one: the single step no succession leads to. Two such steps leave the
+// start unstated, and none is a cycle; either is reported.
 func CaseFlowStart(graph *ActionGraph) (ast.Node, error) {
 	preceded := make(map[ast.Node]bool, len(graph.Nodes))
 	for _, edges := range graph.Edges {

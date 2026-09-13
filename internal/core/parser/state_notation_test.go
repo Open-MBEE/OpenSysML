@@ -56,9 +56,9 @@ func unwrapAll(nodes []ast.Node) []ast.Node {
 	return out
 }
 
-// The history and entry/exit point keywords each produce the pseudostate kind
-// they name, with `history` on its own meaning shallow history.
-func TestHistoryAndPointPseudostateParsing(t *testing.T) {
+// The history keywords each produce the pseudostate kind they name, with
+// `history` on its own meaning shallow history.
+func TestHistoryPseudostateParsing(t *testing.T) {
 	members := stateDefMembers(t, `
 package Test {
 	state def Controller {
@@ -66,8 +66,6 @@ package Test {
 		history resume;
 		shallow history resumeShallow;
 		deep history resumeDeep;
-		entry point into;
-		exit point outOf;
 	}
 }`)
 
@@ -82,8 +80,6 @@ package Test {
 		"resume":        ast.PseudostateShallowHistory,
 		"resumeShallow": ast.PseudostateShallowHistory,
 		"resumeDeep":    ast.PseudostateDeepHistory,
-		"into":          ast.PseudostateEntry,
-		"outOf":         ast.PseudostateExit,
 	}
 	for name, kind := range want {
 		if got[name] != kind {
@@ -130,39 +126,6 @@ package Test {
 	}
 	if len(defers[1].Triggers) != 1 {
 		t.Errorf("expected the second defer to carry 1 event, got %d", len(defers[1].Triggers))
-	}
-}
-
-// `point` is matched contextually rather than reserved, so a feature may still
-// be named `point` in the same state that declares an entry point.
-func TestPointIsNotReserved(t *testing.T) {
-	members := stateDefMembers(t, `
-package Test {
-	state def Controller {
-		attribute point : Integer;
-		entry point into;
-	}
-}`)
-
-	var attributes int
-	var points int
-	for _, member := range members {
-		switch n := member.(type) {
-		case *ast.Usage:
-			if n.Kind == ast.UsageAttribute && n.Ident.Name == "point" {
-				attributes++
-			}
-		case *ast.PseudostateNode:
-			if n.Kind == ast.PseudostateEntry && n.Name == "into" {
-				points++
-			}
-		}
-	}
-	if attributes != 1 {
-		t.Errorf("expected the attribute named point to survive, got %d", attributes)
-	}
-	if points != 1 {
-		t.Errorf("expected 1 entry point pseudostate, got %d", points)
 	}
 }
 

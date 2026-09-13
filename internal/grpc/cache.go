@@ -3,15 +3,18 @@ package grpc
 import (
 	"container/list"
 	"fmt"
+	goruntime "runtime"
 	"sync"
 
 	"connectrpc.com/connect"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -37,39 +40,55 @@ type CachedModel struct {
 	symCtxOnce sync.Once
 	symCtx     *SymbolContext
 
-	rtSemOnce sync.Once
-	rtSem     *runtimeSemantics
+	// idle are the workers requests have given back, warm with what they resolved.
+	idleMu sync.Mutex
+	idle   []*analysis.Worker
 }
 
-// runtimeSemantics is the resolver and semantic model the runtime RPCs over one
-// cached model evaluate against. Both memoize into plain maps, so the holder of
-// the lock has exclusive use of them for the length of its request.
-type runtimeSemantics struct {
-	mu       sync.Mutex
-	Resolver *resolve.Resolver
-	Model    *semantics.Model
-}
+// maxIdleWorkers bounds the warm workers a model keeps: as many as can run at once, so a
+// burst of requests does not leave the model holding a worker per request in the burst.
+func maxIdleWorkers() int { return goruntime.GOMAXPROCS(0) }
 
-// RuntimeSemantics locks and returns the model's shared runtime resolver and
-// semantic model, built on first use, with the function releasing them.
-func (m *CachedModel) RuntimeSemantics() (*runtimeSemantics, func()) {
-	m.rtSemOnce.Do(func() {
-		resolver := resolve.New(m.Index)
-		sem := semantics.NewModel(resolver)
-		sem.SetSourceText(cachedSourceText(m))
-		m.rtSem = &runtimeSemantics{Resolver: resolver, Model: sem}
-	})
-	rs := m.rtSem
-	rs.mu.Lock()
-	// A name a request fails to resolve is that request's error, not a model
-	// diagnostic: drop what it appended so the shared list does not grow.
-	diags := len(rs.Resolver.Diagnostics)
-	return rs, func() {
-		if len(rs.Resolver.Diagnostics) > diags {
-			rs.Resolver.Diagnostics = rs.Resolver.Diagnostics[:diags]
-		}
-		rs.mu.Unlock()
+// worker takes a model-derived runtime part for one request: an idle one, warm from the requests
+// it served, else a new one. It memoizes into plain maps, so a request holds it alone until release.
+func (m *CachedModel) worker() (*analysis.Worker, func()) {
+	m.idleMu.Lock()
+	var w *analysis.Worker
+	if n := len(m.idle); n > 0 {
+		w, m.idle = m.idle[n-1], m.idle[:n-1]
 	}
+	m.idleMu.Unlock()
+	if w == nil {
+		model, _ := m.Semantics()
+		w = &analysis.Worker{Model: model}
+	}
+	// A name a request fails to resolve is the request's error, not the model's: drop it on release.
+	resolver := w.Model.Resolver()
+	diags := len(resolver.Diagnostics)
+	return w, func() {
+		if len(resolver.Diagnostics) > diags {
+			resolver.Diagnostics = resolver.Diagnostics[:diags]
+		}
+		m.idleMu.Lock()
+		m.idle = append(m.idle, w)
+		if bound := maxIdleWorkers(); len(m.idle) > bound {
+			clear(m.idle[bound:])
+			m.idle = m.idle[:bound]
+		}
+		m.idleMu.Unlock()
+	}
+}
+
+// Semantics is the model-derived runtime part as an analysis.Model builds one.
+func (m *CachedModel) Semantics() (*runtime.Model, error) {
+	resolver := resolve.New(m.Index)
+	sem := semantics.NewModel(resolver)
+	sem.SetSourceText(cachedSourceText(m))
+	model := runtime.NewModel(sem, resolver)
+	for _, doc := range m.Documents {
+		model.RegisterSource(doc.Source)
+	}
+	return model, nil
 }
 
 // Primary is the document a model is named by: the only one of a single-document

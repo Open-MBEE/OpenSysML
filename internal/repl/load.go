@@ -16,8 +16,7 @@ import (
 // loaded after it makes. Diagnostics name the file they belong to and count
 // lines from its start.
 func (s *Session) LoadPaths(paths []string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.loadPaths(paths)
 }
 
@@ -42,8 +41,7 @@ type LoadReport struct {
 // LoadPathsReport loads model files as LoadPaths does, reporting what the
 // analysis found apart from what the load declared.
 func (s *Session) LoadPathsReport(paths []string) (LoadReport, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.loadPathsReport(paths)
 }
 

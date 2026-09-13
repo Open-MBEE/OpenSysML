@@ -82,8 +82,11 @@ whose calc does not specialize `Sq` (`cannot bind the function value … to a pa
 but the operand of `Domain` or `Range`, and `Range(Sample(NumericalFunctions::abs, null))` where an
 `Integer[0..*]` is declared (the compiler fixes a null domain's element type from the sampled
 function alone, and a function declared over any `NumericalValue` gives Real; the interpreter,
-which types nothing, computes `[]`). The refusal names the calc and
-the construct (`codegen.UnsupportedError`, `errors.Is(err, codegen.ErrUnsupported)`).
+which types nothing, computes `[]`), and a `meta` cast (`x meta KerML::Feature`), whose result
+reflects a model element as a metaobject that a native program has no representation of (refused
+as *a meta cast, whose metaobject reflects a model element and has no native representation*;
+metaobjects stay interpreter-only). The refusal names the calc and the construct
+(`codegen.UnsupportedError`, `errors.Is(err, codegen.ErrUnsupported)`).
 
 ## Semantics the generated code preserves
 
@@ -334,11 +337,18 @@ sysml system.sysml -compile Vehicle::Sim -o sim         # a part, action, state 
 | `document def`, `view def` | the `docplan` and its `queryplan` programs emitted as code over the compiled structs; output is Markdown or the `docir` tree; PDF remains the external converter's job |
 | Library functions (OMG `RealFunctions`, `TrigFunctions`, `CollectionFunctions`; OpenSysML `OpenSysMLMathFunctions`) | a precompiled runtime (`libm` / Go `math`) with the interpreter's domain and arity errors, not re-lowered per model |
 | `metadata`, `IdentityMetadata` | constant tables, so a compiled program still reports identities and tags |
-| Extension notations (`defer`, `choice`, `junction`, `history`, `entry`/`exit point`) | already lowered into the `StateGraph`; compile as any other vertex or edge. `-strict` gates them before codegen, as today |
+| Extension notations (`defer`, `choice`, `junction`, `history`) | already lowered into the `StateGraph`; compile as any other vertex or edge. `-strict` gates them before codegen, as today |
 
 Interpreter-only, refused by the compiler with a named error: SMT-backed satisfiability
-(`internal/core/solve`), REPL introspection and `%trace`, instance adoption across edits, and
-the step budget.
+(`internal/core/solve`), REPL introspection and `%trace`, instance adoption across edits, the
+step budget, and the extent operator `all T` (KerML 1.0 §7.4.9.2, `BaseFunctions::'all'`). The
+interpreter answers `all T` with the extent of the run it is evaluated in — the objects the run
+has materialized and the usages typed by `T` its context reaches, a variation's variants, an
+enumeration's literals — because objects materialize lazily and no run holds the instances the
+spec's Object semantics describe in the abstract. A compiled program has no run to consult: its
+structs are the values its statements build, so the compiler refuses `all` with a typed
+`UnsupportedError` (`operator 'all'`) rather than answering a smaller extent than the
+interpreter would (`internal/repl/compile_test.go` `Refused::Extent`).
 
 ### Phases
 
@@ -411,6 +421,10 @@ A stable C API (`sysml_new`, `sysml_set`, `sysml_send`, `sysml_step`, `sysml_get
 `sysml_free`) and `-compile -lib` producing a static library and header; a Go package wrapping
 it so the REPL and gRPC service can run a compiled model in place of the interpreter when a
 model is compilable. Exit: the Python and Node clients run the same scenario against both.
+The embedded restriction of this API — no allocation, no callbacks, a fixed step — and the
+freestanding C profile a flight target needs, which this backend's GNU-C prelude does not meet,
+are designed in [embedded-target.md](../internals/design/embedded-target.md) as a second emitter
+over the same IR.
 
 ### Cross-cutting work, folded into the phase that first needs it
 

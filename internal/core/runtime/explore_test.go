@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -39,8 +41,22 @@ func parseExploreModel(t *testing.T, text string) *exploreModel {
 	return &exploreModel{idx: idx, model: semantics.NewModel(resolver), resolver: resolver, path: path}
 }
 
+// parseLibraryModel is parseExploreModel over the standard libraries, for models using them.
+func parseLibraryModel(t *testing.T, text string) *exploreModel {
+	t.Helper()
+	if err := primeLibraryCache(); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "explore.sysml")
+	idx := libs.NewModelIndex()
+	idx.AddDocument(path, parseAndBuild(t, text))
+	idx.ExpandWildcardImports()
+	resolver := resolve.New(idx)
+	return &exploreModel{idx: idx, model: semantics.NewModel(resolver), resolver: resolver, path: path}
+}
+
 func (m *exploreModel) fresh() (*Context, error) {
-	return NewContext(m.model, m.resolver, 10000), nil
+	return NewContext(NewModel(m.model, m.resolver), 10000), nil
 }
 
 func (m *exploreModel) action(t *testing.T, name string) *symbols.Symbol {
@@ -61,7 +77,7 @@ func (m *exploreModel) exploreAction(t *testing.T, spelling, name string) *Explo
 		t.Fatalf("policy %s: %v", spelling, err)
 	}
 	sym := m.action(t, name)
-	result, err := Explore(policy, m.fresh, func(ctx *Context) (Outcome, error) {
+	result, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
 		outputs, err := ctx.ExecuteAction(sym)
 		if err != nil {
 			return Outcome{}, err
@@ -287,7 +303,7 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 	sym := m.state(t, "Machine")
-	x, err := Explore(policy, m.fresh, func(ctx *Context) (Outcome, error) {
+	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
 			return Outcome{}, err
@@ -313,6 +329,103 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 	}
 	if w := x.Outcomes[1].Witness; len(w) != 1 || w[0].Kind != ChoiceTransition || !strings.HasSuffix(w[0].Took, "->right") {
 		t.Fatalf("witness of right %v, want the transition choice into right", w)
+	}
+}
+
+// A choice whose branches are enabled only by the incoming transition's effect is
+// a choice point resolved as the choice is reached: exploration enumerates both
+// branches, each witness naming the choice and the branch taken, and a seed that
+// drew a branch draws it again; the run whose effect is not run first — a
+// junction's static reading — would find neither branch enabled.
+func TestExploreDynamicChoiceBranches(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			choice pick;
+			state left;
+			state right;
+			transition first idle accept go do assign level := 8 then pick;
+			transition first pick if level > 5 then left;
+			transition first pick if level > 7 then right;
+		}
+	}`)
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sym := m.state(t, "Machine")
+	run := func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	x, err := Explore(context.Background(), policy, m.fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	}
+	want := []string{"finalState left; visits idle, left; level = 8", "finalState right; visits idle, right; level = 8"}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	w := x.Outcomes[1].Witness
+	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "choice pick" || !strings.HasSuffix(w[0].Took, "->right") {
+		t.Fatalf("witness of right %v, want the branch of choice pick into right", w)
+	}
+
+	under := func(spelling string) (Outcome, ChoicePoint) {
+		t.Helper()
+		fixed, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ctx.SetSchedule(fixed); err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		notes := ctx.Notes()
+		if len(notes) != 1 {
+			t.Fatalf("%s: notes %v, want the one choice at pick", spelling, notes)
+		}
+		choice, ok := notes[0].(ChoicePoint)
+		if !ok || choice.Kind != ChoiceTransition || choice.Where != "choice pick" {
+			t.Fatalf("%s: note %v, want the branch choice at pick", spelling, notes[0])
+		}
+		return outcome, choice
+	}
+	reached := make(map[int]bool)
+	for _, spelling := range []string{"seed:1", "seed:2", "seed:3", "seed:6"} {
+		outcome, choice := under(spelling)
+		if got := outcome.String(); got != want[choice.Taken] {
+			t.Fatalf("%s: outcome %q after taking %s, want %q", spelling, got, choice.Alternatives[choice.Taken], want[choice.Taken])
+		}
+		if again, _ := under(spelling); again.String() != outcome.String() {
+			t.Fatalf("%s: outcome %q, then %q; want the seed to replay its run", spelling, outcome, again)
+		}
+		reached[choice.Taken] = true
+	}
+	if len(reached) != 2 {
+		t.Fatalf("seeds reached only %v, want both branches of pick", reached)
 	}
 }
 
@@ -388,7 +501,7 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 	if err != nil {
 		t.Fatal(err)
 	}
-	x, err := Explore(policy, m.fresh, run)
+	x, err := Explore(context.Background(), policy, m.fresh, run)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -482,7 +595,7 @@ func TestExploreDueOrder(t *testing.T) {
 	for i, name := range names {
 		syms[i] = namedOrFoundSymbol(t, idx, "test::"+name, root, ast.DefState, ast.UsageState)
 	}
-	fresh := func() (*Context, error) { return NewContext(model, resolver, 10000), nil }
+	fresh := func() (*Context, error) { return NewContext(NewModel(model, resolver), 10000), nil }
 	run := func(ctx *Context) (Outcome, error) {
 		execs := make([]*StateExecutor, len(syms))
 		for i, sym := range syms {
@@ -501,7 +614,7 @@ func TestExploreDueOrder(t *testing.T) {
 		}
 		return ctx.ActionOutcome(outputs), nil
 	}
-	x, err := Explore(mustPolicy(t, "explore"), fresh, run)
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), fresh, run)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -555,7 +668,7 @@ func TestExplorePausedBodyDueIsAMove(t *testing.T) {
 	idx, model, _ := buildRuntimeWithLibraries(t, path, parseAndBuild(t, string(text)))
 	resolver := resolve.New(idx)
 	sym := namedOrFoundSymbol(t, idx, "test::wake", idx.DocumentRoot(path), ast.DefAction, ast.UsageAction)
-	fresh := func() (*Context, error) { return NewContext(model, resolver, 10000), nil }
+	fresh := func() (*Context, error) { return NewContext(NewModel(model, resolver), 10000), nil }
 	run := func(ctx *Context) (Outcome, error) {
 		outputs, err := ctx.ExecuteAction(sym)
 		if err != nil {
@@ -563,7 +676,7 @@ func TestExplorePausedBodyDueIsAMove(t *testing.T) {
 		}
 		return ctx.ActionOutcome(outputs), nil
 	}
-	x, err := Explore(mustPolicy(t, "explore"), fresh, run)
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), fresh, run)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -603,7 +716,7 @@ func TestExplorePausedBodyDueIsAMove(t *testing.T) {
 
 func TestExploreRejectsOtherPolicies(t *testing.T) {
 	m := parseExploreModel(t, threeWritersModel)
-	_, err := Explore(DefaultSchedulePolicy, m.fresh, func(*Context) (Outcome, error) { return Outcome{}, nil })
+	_, err := Explore(context.Background(), DefaultSchedulePolicy, m.fresh, func(*Context) (Outcome, error) { return Outcome{}, nil })
 	if !errors.Is(err, ErrNotExploring) {
 		t.Fatalf("Explore under %s: %v, want ErrNotExploring", DefaultSchedulePolicy, err)
 	}
@@ -611,6 +724,37 @@ func TestExploreRejectsOtherPolicies(t *testing.T) {
 	policy, _ := ParseSchedulePolicy("explore")
 	if err := ctx.SetSchedule(policy); !errors.Is(err, ErrExploreUndriven) {
 		t.Fatalf("SetSchedule(explore): %v, want ErrExploreUndriven", err)
+	}
+}
+
+// A caller that goes away between runs ends the exploration with its error
+// before the next context is built; no partial outcome set is reported.
+func TestExploreStopsWhenTheCallerGoesAway(t *testing.T) {
+	m := parseExploreModel(t, threeWritersModel)
+	sym := m.action(t, "race")
+	stop, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runs, built := 0, 0
+	fresh := func() (*Context, error) {
+		built++
+		return m.fresh()
+	}
+	x, err := Explore(stop, mustPolicy(t, "explore"), fresh, func(ctx *Context) (Outcome, error) {
+		runs++
+		if runs == 2 {
+			cancel()
+		}
+		outputs, err := ctx.ExecuteAction(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(outputs), nil
+	})
+	if !errors.Is(err, context.Canceled) || x != nil {
+		t.Fatalf("Explore after cancel: %v, %v; want context.Canceled and no exploration", x, err)
+	}
+	if runs != 2 || built != 2 {
+		t.Fatalf("%d runs of %d contexts, want 2 of 2: no third context built", runs, built)
 	}
 }
 
@@ -674,7 +818,7 @@ func TestExploreRunsShareNoState(t *testing.T) {
 	fleet := oneSymbol(t, m.idx, "test::Fleet")
 	stateSym := oneSymbol(t, m.idx, "test::Fleet::run")
 	var contexts int
-	x, err := Explore(policy, func() (*Context, error) {
+	x, err := Explore(context.Background(), policy, func() (*Context, error) {
 		contexts++
 		return m.fresh()
 	}, func(ctx *Context) (Outcome, error) {
@@ -759,7 +903,7 @@ func exploreFleet(t *testing.T, m *exploreModel) (*Exploration, []int64) {
 	fleet := oneSymbol(t, m.idx, "test::Fleet")
 	stateSym := oneSymbol(t, m.idx, "test::Fleet::run")
 	var leadIDs []int64
-	x, err := Explore(policy, m.fresh, func(ctx *Context) (Outcome, error) {
+	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
 		self, err := ctx.Instantiate(fleet)
 		if err != nil {
 			return Outcome{}, err
@@ -869,7 +1013,7 @@ func TestExploreSiblingRegionOrderNamesTypedRegions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	x, err := Explore(policy, m.fresh, func(ctx *Context) (Outcome, error) {
+	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
 			return Outcome{}, err

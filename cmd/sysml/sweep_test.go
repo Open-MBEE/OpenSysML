@@ -411,3 +411,71 @@ func TestSweepUnrestrictedParameterThroughCLI(t *testing.T) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
 	}
 }
+
+// heldBehaviourModel declares held objects whose types run a behaviour — a beacon
+// exhibiting a state machine, a tug performing an action parked at a wait on the
+// clock — and a case reading its subject.
+const heldBehaviourModel = `package Held {
+    private import ScalarValues::*;
+    private import SI::*;
+    attribute def Lit;
+    part def Ship { attribute cost : Real = 5.0; }
+    part def Beacon :> Ship {
+        exhibit state blinking {
+            entry; then off;
+            state off;
+            transition first off accept Lit do assign cost := cost + 10.0 then on;
+            state on;
+        }
+    }
+    part beacon : Beacon;
+    part def Tug :> Ship {
+        perform action tow {
+            first start;
+            then action wait accept after 2 [s];
+            then action pull { assign cost := cost + 1.0; }
+            then done;
+        }
+    }
+    part tug : Tug;
+    analysis def Quote {
+        subject s : Ship;
+        in tax : Real;
+        out total : Real = s.cost * (1.0 + tax);
+    }
+}
+`
+
+// TestSweepOverAnInstantiatedObjectRunningABehaviourThroughCLI checks that
+// -instantiate followed by -sweep over the object, whose type exhibits a state
+// machine or performs an action, prints on -jobs 1 and on -jobs 8 the table the
+// sequential form printed before rows ran in contexts of their own.
+func TestSweepOverAnInstantiatedObjectRunningABehaviourThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+	want := strings.Join([]string{
+		"tax | total | time",
+		"-+-+-",
+		"0.0 | 5.0 | <time>",
+		"0.25 | 6.25 | <time>",
+		"0.5 | 7.5 | <time>",
+	}, "\n")
+	for _, object := range []string{"Held::beacon", "Held::tug"} {
+		t.Run(object, func(t *testing.T) {
+			var tables []string
+			for _, jobs := range []string{"1", "8"} {
+				got := check(t, binary, heldBehaviourModel, "-jobs", jobs,
+					"-instantiate", object, "-analysis", "Held::Quote "+object, "-sweep", "tax=0.0..0.5:0.25")
+				if got.status != 0 {
+					t.Fatalf("-jobs %s: exit status = %d, want 0\n%s", jobs, got.status, got.output())
+				}
+				tables = append(tables, cellPadding.ReplaceAllString(sweepTable(got.output()), " |"))
+			}
+			if !strings.Contains(tables[0], want) {
+				t.Errorf("report is\n%s\nwant it to carry\n%s", tables[0], want)
+			}
+			if tables[0] != tables[1] {
+				t.Errorf("-jobs 1 reported\n%s\n-jobs 8 reported\n%s", tables[0], tables[1])
+			}
+		})
+	}
+}

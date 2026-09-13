@@ -38,7 +38,7 @@ func (ConstraintPass) Run(ctx *Context, name string, root *ast.RootNamespace) []
 		seen:     make(map[*symbols.Symbol]bool),
 	}
 	cc.walk(rootScope)
-	return append(cc.diags, checkExposeOwners(root, root.Members)...)
+	return cc.diags
 }
 
 type constraintChecker struct {
@@ -93,7 +93,6 @@ func (cc *constraintChecker) check(sym *symbols.Symbol) {
 	cc.checkSubsettingFeaturingTypes(sym)
 	cc.checkUnnamedRedefinitionValue(sym)
 	cc.checkFeatureValueOverriding(sym)
-	cc.checkVariantOutsideVariation(sym)
 	cc.checkViewSatisfyTarget(sym)
 	cc.checkAtMostOneMember(sym)
 	cc.checkReturnParameterOwner(sym)
@@ -153,29 +152,6 @@ func (cc *constraintChecker) checkViewSatisfyTarget(sym *symbols.Symbol) {
 			ref, target.Kind.String()),
 		Code:   "view-satisfy-viewpoint",
 		Source: "constraint",
-	})
-}
-
-// checkVariantOutsideVariation reports a `variant` whose owner is not a
-// variation: it offers no choice to anything (SysML v2 §7.20 VariantMembership).
-// Pilot SysMLValidator (2026-07) validateVariantMembershipOwningNamespace. An
-// enumeration body admits no `variant` keyword: its values are variants already.
-func (cc *constraintChecker) checkVariantOutsideVariation(sym *symbols.Symbol) {
-	if !semantics.DeclaresVariant(sym) {
-		return
-	}
-	msg := msgVariantOutsideVariation
-	if owner := semantics.EnumerationDefinitionOwning(sym); owner != nil {
-		msg = fmt.Sprintf("`variant` is not written in enumeration definition %s: every enumerated value of an enumeration definition is already a variant; drop the keyword", w8dSymbolName(owner))
-	} else if cc.model.VariationPointOwning(sym) != nil {
-		return
-	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityError,
-		Span:     sym.Decl.Span(),
-		Message:  msg,
-		Code:     "variant-outside-variation",
-		Source:   "constraint",
 	})
 }
 

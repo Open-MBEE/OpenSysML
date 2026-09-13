@@ -22,7 +22,7 @@ func TestRenderDefaultsToATree(t *testing.T) {
 		"Demo::summary - tree rendering",
 		"the view states no rendering",
 		"part def Demo::Vehicle",
-		"part Demo::v (Vehicle)",
+		"part Demo::v : Vehicle",
 		"view Demo::summary::detail",
 		"part def Demo::Wheel",
 	} {
@@ -41,6 +41,109 @@ func TestRenderWritesMermaidWhenAskedFor(t *testing.T) {
 	text := strings.Join(out, "\n")
 	if !strings.HasPrefix(text, "%% Demo::summary") || !strings.Contains(text, "flowchart TD") {
 		t.Errorf("%%render mermaid = %q, want a Mermaid flowchart", text)
+	}
+}
+
+// The DOT form is asked for by name, is the same rendering as a digraph, and is
+// offered by the usage and help text.
+func TestRenderWritesDotWhenAskedFor(t *testing.T) {
+	s := viewSession(t)
+	out, _, err := s.RunMeta("%render Demo::summary dot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(out, "\n")
+	for _, want := range []string{
+		"// view: Demo::summary\n// kind: tree\n",
+		"// layout: dot\n",
+		`digraph "Demo::summary" {`,
+		`label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>`,
+		`label=<<b>Demo::summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>`,
+		`"n2" -> "n3" [arrowhead=none];`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("%%render dot is missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "flowchart") || strings.Contains(text, `fillcolor="#`) {
+		t.Errorf("%%render dot wrote Mermaid or a palette:\n%s", text)
+	}
+	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette]]")
+	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot|plantuml [palette]]")
+	wants(t, run(t, s, "%help"), "%render <name> [form [palette]]", "Graphviz DOT", "PlantUML")
+}
+
+// The PlantUML form is asked for by name, is the same rendering in PlantUML
+// grammar, takes a palette as the dot form does, and completes with it.
+func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
+	s := viewSession(t)
+	out, _, err := s.RunMeta("%render Demo::summary plantuml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(out, "\n")
+	for _, want := range []string{
+		"@startuml\n' Demo::summary — tree rendering",
+		"<style>\n",
+		"hide circle\n",
+		`class "**Demo::Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>`,
+		"n2 -- n3\n",
+		"@enduml",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("%%render plantuml is missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "flowchart") || strings.Contains(text, "digraph") || strings.Contains(text, ">> #") {
+		t.Errorf("%%render plantuml wrote another form or a palette:\n%s", text)
+	}
+	out, _, err = s.RunMeta("%render Demo::summary plantuml okabe-ito")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := strings.Join(out, "\n"); !strings.Contains(text, ` as n0 <<part def>> #E69F00`) {
+		t.Errorf("%%render plantuml okabe-ito did not fill the definition:\n%s", text)
+	}
+	wants(t, run(t, s, "%render Demo::summary plantuml rainbow"), `unknown palette "rainbow"`, "usage: %render")
+	if got := s.Complete("%render Demo::summary plantuml ", len("%render Demo::summary plantuml ")); !slices.Contains(got.Candidates, "okabe-ito") {
+		t.Errorf("completing the palette after plantuml offered %v", got.Candidates)
+	}
+	if got := s.Complete("%render Demo::summary pl", len("%render Demo::summary pl")); !slices.Equal(got.Candidates, []string{"plantuml"}) {
+		t.Errorf("completing the form offered %v", got.Candidates)
+	}
+}
+
+// The DOT form takes a palette as a third argument and fills the nodes from it;
+// an unknown palette names the known ones, and no other form takes one.
+func TestRenderDotTakesAPalette(t *testing.T) {
+	s := viewSession(t)
+	out, _, err := s.RunMeta("%render Demo::summary dot okabe-ito")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(out, "\n")
+	for _, want := range []string{
+		`digraph "Demo::summary" {`,
+		`"n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("%%render dot okabe-ito is missing %q:\n%s", want, text)
+		}
+	}
+	wants(t, run(t, s, "%render Demo::summary dot rainbow"),
+		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
+		"usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette]]")
+	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "a palette fills the dot and plantuml forms only, not mermaid")
+	wants(t, run(t, s, "%render Demo::summary dot okabe-ito extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette]]")
+	// The palette completes after the dot form, and after no other.
+	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
+		t.Errorf("completing the palette offered %v", got.Candidates)
+	}
+	if got := s.Complete("%render Demo::summary dot tol-", len("%render Demo::summary dot tol-")); !slices.Equal(got.Candidates, []string{"tol-bright", "tol-light", "tol-muted"}) {
+		t.Errorf("completing tol- offered %v", got.Candidates)
+	}
+	if got := s.Complete("%render Demo::summary mermaid ", len("%render Demo::summary mermaid ")); slices.Contains(got.Candidates, "okabe-ito") {
+		t.Errorf("completing after the mermaid form offered a palette: %v", got.Candidates)
 	}
 }
 
@@ -280,7 +383,7 @@ func TestViewsListsSessionViewsInDeclarationOrder(t *testing.T) {
 
 func TestRenderMisuseShowsUsage(t *testing.T) {
 	s := viewSession(t)
-	for _, line := range []string{"%render", "%render Demo::summary dot"} {
+	for _, line := range []string{"%render", "%render Demo::summary svg"} {
 		out, _, err := s.RunMeta(line)
 		if err != nil {
 			t.Fatal(err)

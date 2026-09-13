@@ -15,7 +15,7 @@ const quotientModel = `calc def quotient { in a : Integer; in b : Integer; retur
 // Rational for every sign combination, exact or not, never truncated.
 func TestWholeNumberQuotientIsRational(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, quotientModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	quotient := resolveSymbol(t, root, "quotient")
 
 	cases := []struct {
@@ -46,7 +46,7 @@ func TestWholeNumberQuotientIsRational(t *testing.T) {
 // exact rationals rounded once, not through pre-rounded float64 operands.
 func TestQuotientBeyondFloatExactRangeRoundsOnce(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, quotientModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	quotient := resolveSymbol(t, root, "quotient")
 
 	cases := []struct {
@@ -74,7 +74,7 @@ func TestQuotientBeyondFloatExactRangeRoundsOnce(t *testing.T) {
 // what a zero divisor is — an error, not an infinity.
 func TestWholeNumberDivisionByZeroIsReported(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, quotientModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	quotient := resolveSymbol(t, root, "quotient")
 
 	got, err := ctx.InvokeCalc(quotient, []Value{constInt(7), constInt(0)}, root)
@@ -88,7 +88,7 @@ func TestWholeNumberDivisionByZeroIsReported(t *testing.T) {
 func TestRemainderStaysInteger(t *testing.T) {
 	const remainderModel = `calc def remainder { in a : Integer; in b : Integer; return : Integer = a % b; }`
 	model, resolver, root := parseAndBuildModel(t, remainderModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	remainder := resolveSymbol(t, root, "remainder")
 
 	cases := []struct {

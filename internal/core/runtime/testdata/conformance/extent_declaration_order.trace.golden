@@ -1,0 +1,10 @@
+enter calc test::cylindersOffered
+  stmt declare sizes
+    eval operator all -> (Size::small, Size::medium, Size::large)
+  stmt return
+materialize: fourCyl #1
+materialize: sixCyl #2
+materialize: eightCyl #3
+      eval operator all -> (fourCyl, sixCyl, eightCyl)
+    eval chain cylinders -> (4, 6, 8)
+exit calc test::cylindersOffered -> (4, 6, 8)

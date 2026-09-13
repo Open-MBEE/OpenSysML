@@ -682,6 +682,40 @@ func TestCollectionValues(t *testing.T) {
 	}
 }
 
+// ValuesHeldBy sizes any expression the declarations fix: a conditional holds what either
+// branch may, from the fewest of either to the most; an operator says nothing.
+func TestValuesHeldByConditional(t *testing.T) {
+	m, s := collectionModel(t, `
+		attribute flag : Boolean;
+		part two : C[2];
+		part maybe : C[0..1];
+		attribute same = if flag ? 1 else 2;
+		attribute differ = if flag ? two else maybe;
+		attribute nested = if flag ? (if flag ? 1 else ()) else (1, 2);
+		attribute oneOpen = if flag ? cs else 1;
+		attribute computed = if flag ? 1 + 1 else 2;
+		attribute plain = 1 + 1;`)
+	for name, want := range map[string]string{
+		"same": "[1]", "differ": "[0..2]", "nested": "[0..2]", "oneOpen": "[0..*]",
+	} {
+		r, ok := m.ValuesHeldBy(s, valueOf(t, s, name))
+		if !ok || r.Text() != want {
+			t.Errorf("%s: %s %v, want %s", name, r.Text(), ok, want)
+		}
+	}
+	for _, name := range []string{"computed", "plain"} {
+		if r, ok := m.ValuesHeldBy(s, valueOf(t, s, name)); ok {
+			t.Errorf("%s: sized %s; an operator fixes no count", name, r.Text())
+		}
+	}
+	if got := CountRange(2).Covering(CountRange(0)).Text(); got != "[0..2]" {
+		t.Errorf("[2] covering [0] is %s", got)
+	}
+	if got := CountRange(1).Covering(Range{Lower: CountRange(0).Lower, Upper: unbounded}).Text(); got != "[0..*]" {
+		t.Errorf("[1] covering [0..*] is %s", got)
+	}
+}
+
 // `xs.?{…}` is select written out: its elements are the collection's, so a binding or an
 // argument is judged by them as `xs->select {…}` is, and a sequence written out is typed by
 // what its elements share rather than the Anything the sequence itself is.

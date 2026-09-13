@@ -47,12 +47,15 @@ func (ctx *Context) classifyValueReading(
 	if err != nil && len(declared) == 0 {
 		return semantics.ClassifiesNone, err
 	}
-	known := append(append([]*symbols.Symbol{}, declared...), types...)
-	verdict := ctx.model.ClassifiesTypes(known, target)
+	known := append(append(make([]*symbols.Symbol, 0, len(declared)+len(types)), declared...), types...)
+	verdict := ctx.model.semantics.ClassifiesTypes(known, target)
 	if verdict == semantics.ClassifiesNone && isScalar(value) {
 		// A scalar type beside the value's own (`Cost :> Real` beside Rational) may hold it.
 		if decided, ok := ctx.representationClassifies(value, target); ok {
-			return decided, nil
+			if decided != semantics.ClassifiesSome {
+				return decided, nil
+			}
+			verdict = semantics.ClassifiesSome
 		}
 	}
 	if verdict != semantics.ClassifiesSome {
@@ -66,14 +69,19 @@ func (ctx *Context) classifyValueReading(
 
 // classifyNarrower decides a target narrower than every type the value is of, which only
 // the value itself can: a scalar by its representation, a quantity by its dimension, a
-// structured value by its shape and units; an object or enumeration literal is of the
-// types it carries and no narrower; `5` against `Even` stays undecided.
+// structured value by its shape and units, an enumeration by its enumerated values; an
+// object or enumeration literal is of the types it carries and no narrower; `5` against
+// `Even` stays undecided.
 func (ctx *Context) classifyNarrower(
 	scope *symbols.Scope, value Value, target *symbols.Symbol,
 ) (semantics.TypeClassification, error) {
 	if isScalar(value) {
-		if decided, ok := ctx.representationClassifies(value, target); ok {
+		if decided, ok := ctx.representationClassifies(value, target); ok && decided != semantics.ClassifiesSome {
 			return decided, nil
+		}
+		if target.Kind == symbols.SymbolEnumerationDef {
+			_, member, err := ctx.enumeratedValue(value, target)
+			return classifiesIf(member), err
 		}
 		return semantics.ClassifiesSome, nil
 	}
@@ -87,10 +95,43 @@ func (ctx *Context) classifyNarrower(
 			return semantics.ClassifiesNone, err
 		}
 		return classifiesIf(keep), nil
-	case ValEnumLiteral, ValVariant, ValInstance:
+	case ValEnumLiteral:
+		if target.Kind == symbols.SymbolEnumerationDef {
+			_, member, err := ctx.enumeratedValue(value, target)
+			return classifiesIf(member), err
+		}
+		return semantics.ClassifiesNone, nil
+	case ValVariant, ValInstance, ValMetaobject:
 		return semantics.ClassifiesNone, nil
 	}
 	return semantics.ClassifiesSome, nil
+}
+
+// enumeratedValue is the enumeration's literal value equal to value, if any: the enumerated
+// values are an enumeration's only instances (SysML v2 §8.3.7 EnumerationDefinition).
+func (ctx *Context) enumeratedValue(value Value, enum *symbols.Symbol) (Value, bool, error) {
+	for _, literal := range ctx.model.semantics.EnumeratedValuesOf(enum) {
+		enumerated, err := NewEvalContext(ctx, DeclScope(literal)).enumLiteralValue(literal)
+		if err != nil {
+			return Value{}, false, err
+		}
+		if ctx.valueEqual(value, enumerated) {
+			return enumerated, true, nil
+		}
+	}
+	return Value{}, false, nil
+}
+
+// asEnumerated holds a bare scalar as the enumerated value it equals when declared by an
+// enumeration, and any other value as it is; false when no enumerated value equals it.
+func (ctx *Context) asEnumerated(value Value, declared *symbols.Symbol) (Value, bool, error) {
+	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef || !isScalar(value) {
+		return value, true, nil
+	}
+	if literal := value.EnumerationLiteral(); literal != nil && semantics.EnumerationOwning(literal) == declared {
+		return value, true, nil
+	}
+	return ctx.enumeratedValue(value, declared)
 }
 
 // isScalar reports a value whose representation states a ScalarValues type.
@@ -115,7 +156,7 @@ func classifiesIf(yes bool) semantics.TypeClassification {
 func (ctx *Context) valueTypes(scope *symbols.Scope, value Value) ([]*symbols.Symbol, error) {
 	switch value.Kind {
 	case ValExpr:
-		if typ := ctx.model.ExprResultType(value.exprScope(scope), value.Expr()); typ != nil {
+		if typ := ctx.model.semantics.ExprResultType(value.exprScope(scope), value.Expr()); typ != nil {
 			return []*symbols.Symbol{typ}, nil
 		}
 		evaluation, err := ctx.loadedLibraryType(evaluationTypeFQN)
@@ -130,6 +171,12 @@ func (ctx *Context) valueTypes(scope *symbols.Scope, value Value) ([]*symbols.Sy
 		}
 		return []*symbols.Symbol{quantity}, nil
 	}
+	// A scalar-valued literal's own type is its enumeration (SysML v2 §8.3.7 EnumerationDefinition).
+	if literal := value.EnumerationLiteral(); literal != nil && isScalar(value) {
+		if enum := semantics.EnumerationOwning(literal); enum != nil {
+			return []*symbols.Symbol{enum}, nil
+		}
+	}
 	// The library symbol answers ahead of any same-named declaration in scope.
 	if scalar := ctx.scalarLibraryType(value); scalar != nil {
 		return ctx.numberTypes(value, scalar), nil
@@ -140,7 +187,7 @@ func (ctx *Context) valueTypes(scope *symbols.Scope, value Value) ([]*symbols.Sy
 // numberTypes adds to a number's scalar type the quantity type it also is: the runtime
 // holds a quantity of dimension one and no unit as the bare number (ToDimensionOneValue).
 func (ctx *Context) numberTypes(value Value, scalar *symbols.Symbol) []*symbols.Symbol {
-	types := []*symbols.Symbol{scalar}
+	types := append(make([]*symbols.Symbol, 0, 2), scalar)
 	if value.Kind != ValConst || (value.Const.Kind != semantics.ValInt && value.Const.Kind != semantics.ValReal) {
 		return types
 	}
@@ -157,7 +204,7 @@ func (ctx *Context) scalarLibraryType(value Value) *symbols.Symbol {
 	if prim == semantics.PrimUnknown {
 		return nil
 	}
-	return ctx.model.ScalarSymbol(prim)
+	return ctx.librarySymbol(semantics.ScalarFQN(prim))
 }
 
 // representationClassifies reads a scalar target narrower than a scalar's types off its
@@ -168,7 +215,7 @@ func (ctx *Context) scalarLibraryType(value Value) *symbols.Symbol {
 // the Natural and Positive bounds (§9.3.2.2.4, §9.3.2.2.7) exclude the value. False
 // second for a target above no scalar.
 func (ctx *Context) representationClassifies(value Value, target *symbols.Symbol) (semantics.TypeClassification, bool) {
-	prim := ctx.model.PrimTypeOf(target)
+	prim := ctx.model.semantics.PrimTypeOf(target)
 	if prim == semantics.PrimUnknown {
 		return semantics.ClassifiesNone, false
 	}
@@ -188,7 +235,7 @@ func (ctx *Context) representationClassifies(value Value, target *symbols.Symbol
 	case !semantics.PrimConforms(got, prim):
 		return semantics.ClassifiesNone, true
 	}
-	if _, exact := ctx.model.ScalarLatticeElement(target); exact {
+	if _, exact := ctx.model.semantics.ScalarLatticeElement(target); exact {
 		return semantics.ClassifiesAll, true
 	}
 	return semantics.ClassifiesSome, true
@@ -246,18 +293,18 @@ func realRepresentationPrim(x float64) semantics.PrimType {
 // quantity's dimension: one the target fixes and the unit is commensurable with holds
 // it, an incommensurable one does not, and a type fixing no dimension stays undecided.
 func (ctx *Context) quantityClassifies(value Value, target *symbols.Symbol) semantics.TypeClassification {
-	want, ok := ctx.model.DimensionOfType(target)
+	want, ok := ctx.model.semantics.DimensionOfType(target)
 	if !ok || value.Quantity() == nil {
 		return semantics.ClassifiesSome
 	}
-	got, ok := ctx.model.DimensionOfUnit(value.Quantity().Unit.Term)
+	got, ok := ctx.model.semantics.DimensionOfUnit(value.Quantity().Unit.Term)
 	if !ok {
 		return semantics.ClassifiesSome
 	}
 	if !want.Term.Commensurable(got.Term) {
 		return semantics.ClassifiesNone
 	}
-	if !ctx.model.FixesMeasurementReference(target) {
+	if !ctx.model.semantics.FixesMeasurementReference(target) {
 		return semantics.ClassifiesSome
 	}
 	return semantics.ClassifiesAll
@@ -269,9 +316,9 @@ func (ctx *Context) classifyComposed(
 	scope *symbols.Scope, value Value, target *symbols.Symbol, declared []*symbols.Symbol,
 	reading map[*symbols.Symbol]bool,
 ) (semantics.TypeClassification, bool, error) {
-	unions := ctx.model.UnioningTypes(target)
-	intersects := ctx.model.IntersectingTypes(target)
-	differences := ctx.model.DifferencingTypes(target)
+	unions := ctx.model.semantics.UnioningTypes(target)
+	intersects := ctx.model.semantics.IntersectingTypes(target)
+	differences := ctx.model.semantics.DifferencingTypes(target)
 	if len(unions)+len(intersects)+len(differences) == 0 || reading[target] {
 		return semantics.ClassifiesNone, false, nil
 	}

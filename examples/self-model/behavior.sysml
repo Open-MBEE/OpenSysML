@@ -1,5 +1,6 @@
 // How the pipeline behaves: one analysis run, the tier gating that decides how
-// far it gets, and the two execution engines the runtime drives.
+// far it gets, the two execution engines the runtime drives, and the analysis
+// framework that turns a question into a plan.
 package OpenSysMLBehavior {
     private import ScalarValues::*;
     private import OpenSysMLArtifacts::*;
@@ -311,5 +312,304 @@ package OpenSysMLBehavior {
         in attribute rounds : Integer;
         in attribute tokensPerRound : Integer;
         return attribute steps : Integer = rounds * tokensPerRound;
+    }
+
+    // One question answered: the selection decides which engines are consulted,
+    // coverage is asked before any work, and every step lands in the plan.
+    action def AnswerQuestion {
+        attribute selectsAuto : Boolean = true;
+        attribute selectsAll : Boolean = false;
+        // The engines declaring the question's kind: one for every kind but outcomes and
+        // holds in the default registry, whose count per kind Dispatcher.candidatesPerKind states.
+        attribute candidates : Integer = 1;
+        attribute enginesLeft : Integer = 0;
+        attribute steps : Integer = 0;
+        // The candidates asked first that do not cover the question; the rest do.
+        attribute refusing : Integer = 0;
+        attribute concluded : Boolean = true;
+        attribute faulted : Boolean = false;
+
+        in item question : AnalysisQuestion;
+        out item plan : AnalysisPlan;
+        out item result : AnalysisResult;
+
+        first start;
+
+        action rankByAuthority { assign enginesLeft := candidates; }
+        action listByName { assign enginesLeft := candidates; }
+        action pickNamed { assign enginesLeft := 1; }
+        action askCoverage { assign enginesLeft := enginesLeft - 1; }
+        action recordRefusal {
+            assign steps := steps + 1;
+            assign refusing := refusing - 1;
+        }
+        action runEngine;
+        action recordResult { assign steps := steps + 1; }
+        action nextEngine;
+        action compose;
+        action recordFault { assign steps := steps + 1; }
+
+        succession first start then selectionGate;
+
+        // Auto ranks the engines declaring the kind strongest first; all consults
+        // each of them in name order; a name consults exactly one.
+        decide selectionGate;
+        if selectsAuto then rankByAuthority;
+        if selectsAll and not selectsAuto then listByName;
+        else pickNamed;
+
+        succession first rankByAuthority then askCoverage;
+        succession first listByName then askCoverage;
+        succession first pickNamed then askCoverage;
+        succession first askCoverage then coverageGate;
+
+        decide coverageGate;
+        if refusing > 0 then recordRefusal;
+        else runEngine;
+
+        succession first runEngine then faultGate;
+
+        decide faultGate;
+        if faulted then recordFault;
+        else recordResult;
+
+        succession first recordFault then done;
+        succession first recordResult then standingGate;
+        succession first recordRefusal then refusalGate;
+
+        // A refusal is a step and no answer: the next candidate is asked whatever the
+        // selection.
+        decide refusalGate;
+        if enginesLeft > 0 then askNext;
+        else composePlan;
+
+        // Auto stops at the first answer that is a claim and moves on from one that is
+        // not; all goes on to every engine and composes at the end; a name is done.
+        decide standingGate;
+        if enginesLeft > 0 and (selectsAll or (selectsAuto and not concluded)) then askNext;
+        else composePlan;
+
+        merge askNext;
+        merge composePlan;
+        succession first askNext then nextEngine;
+        succession first composePlan then compose;
+        succession first nextEngine then askCoverage;
+        succession first compose then done;
+    }
+
+    // One run of the explore engine: a queue of schedule prefixes worked by a fleet of
+    // workers, each run on a context of its own, until the queue empties or a budget cuts.
+    action def ExploreOutcomes {
+        attribute jobs : Integer = 1;
+        attribute runsLeft : Integer = 1024;
+        attribute depth : Integer = 64;
+        attribute queued : Integer = 1;
+        // The choice tree: a chain of choices of so many alternatives each, the next
+        // below alternative `below` of the one above; choicesAhead are unmet yet.
+        attribute choicesAhead : Integer = 0;
+        attribute alternatives : Integer = 2;
+        attribute below : Integer = 1;
+        // The prefix in hand: the choice it ends at (0: the empty prefix) and the
+        // alternative it takes there; the run records down to choice `reached`, and
+        // `open` while the next choice lies below the alternative its record ends at.
+        attribute choice : Integer = 0;
+        attribute taken : Integer = 0;
+        attribute reached : Integer = 0;
+        attribute open : Boolean = true;
+        // What the run leaves to explore: the second alternative of each choice it met
+        // and the next alternative of the choice its prefix ended at.
+        attribute unexplored : Integer = 0;
+        attribute runsHit : Boolean = false;
+        attribute depthHit : Boolean = false;
+        attribute complete : Boolean = true;
+
+        in item question : AnalysisQuestion;
+        out item result : AnalysisResult;
+
+        first start;
+
+        action warmWorker;
+        action takePrefix {
+            assign queued := queued - 1;
+            assign reached := choice;
+            assign open := choice == 0 or taken == below;
+        }
+        action freshContext;
+        action runLinearization { assign runsLeft := runsLeft - 1; }
+        action meetChoice {
+            assign reached := reached + 1;
+            assign unexplored := unexplored + 1;
+            assign choicesAhead := choicesAhead - 1;
+            assign open := below == 1;
+        }
+        action passBeyond {
+            assign depthHit := true;
+            assign choicesAhead := 0;
+        }
+        action runLeaf;
+        action leaveNext { assign unexplored := unexplored + 1; }
+        action queueChoices {
+            assign queued := queued + unexplored;
+            assign unexplored := 0;
+        }
+        action dropBeyond {
+            assign queued := runsLeft;
+            assign unexplored := 0;
+            assign runsHit := true;
+        }
+        action stepDown {
+            assign choice := reached;
+            assign taken := 2;
+        }
+        action stepAlong { assign taken := taken + 1; }
+        action stepUp {
+            assign choice := choice - 1;
+            assign taken := below + 1;
+        }
+        action sortOutcomes { assign complete := not runsHit and not depthHit; }
+        action claimProved;
+        action claimObserved;
+
+        succession first start then warmWorker;
+        succession first warmWorker then takePrefix;
+        succession first takePrefix then freshContext;
+        succession first freshContext then runLinearization;
+        succession first runLinearization then descend;
+
+        // The run takes the first alternative of every choice it meets on the way down:
+        // within the depth bound each leaves its second alternative, beyond it none.
+        merge descend;
+        succession first descend then choiceGate;
+
+        decide choiceGate;
+        if choicesAhead > 0 and open and reached < depth then meetChoice;
+        if choicesAhead > 0 and open and reached >= depth then passBeyond;
+        else runLeaf;
+
+        succession first meetChoice then descend;
+        succession first passBeyond then runMade;
+        succession first runLeaf then runMade;
+
+        // The choice the prefix ended at is the run's to advance: it leaves the next
+        // alternative while one is untried.
+        merge runMade;
+        succession first runMade then nextGate;
+
+        decide nextGate;
+        if choice > 0 and taken < alternatives then leaveNext;
+        else cutGate;
+
+        succession first leaveNext then cutGate;
+
+        // The plan never outgrows the run budget: what a run leaves goes on the queue up to
+        // the runs left, the rest is dropped and the runs bound is hit.
+        merge cutGate;
+        succession first cutGate then capGate;
+
+        decide capGate;
+        if queued + unexplored > runsLeft then dropBeyond;
+        else queueChoices;
+
+        succession first dropBeyond then queueMade;
+        succession first queueChoices then queueMade;
+
+        // The queue starts with the empty prefix and grows by what each run leaves
+        // within the budget; exploration ends when it drains.
+        merge queueMade;
+        succession first queueMade then queueGate;
+
+        decide queueGate;
+        if queued == 0 then sortOutcomes;
+        else headGate;
+
+        // What a run leaves goes right after it in plan order, deepest first: the deepest
+        // choice just met, else the next alternative here, else the one left above.
+        decide headGate;
+        if reached > choice then stepDown;
+        if reached == choice and choice > 0 and taken < alternatives then stepAlong;
+        else stepUp;
+
+        succession first stepDown then takePrefix;
+        succession first stepAlong then takePrefix;
+        succession first stepUp then takePrefix;
+
+        succession first sortOutcomes then completionGate;
+
+        // Every prefix visited within the bounds is a proof over every schedule; a
+        // bound reached is the concrete runs that were made and no more.
+        decide completionGate;
+        if complete then claimProved;
+        else claimObserved;
+
+        succession first claimProved then done;
+        succession first claimObserved then done;
+    }
+
+    // The evidence scale as a ladder: a result only ever moves up it, and a
+    // universal claim with a bound reached comes back down to bounded.
+    state def EvidenceLadder {
+        attribute refused : Boolean = false;
+        attribute concrete : Boolean = true;
+        attribute existential : Boolean = false;
+        attribute boundReached : Boolean = false;
+        attribute exhaustive : Boolean = false;
+
+        entry; then asked;
+
+        state asked;
+        state notCovered;
+        state observed;
+        state witnessed;
+        state bounded;
+        state proved;
+
+        transition first asked if refused then notCovered;
+        transition first asked if not refused and concrete and not existential then observed;
+        transition first asked if not refused and existential then witnessed;
+        transition first asked if not refused and not concrete and boundReached then bounded;
+        transition first asked if not refused and not concrete and not boundReached and exhaustive then proved;
+    }
+
+    // A plan's fleet: a worker is built for a job on first use and kept for every later
+    // run under that job; each run gets a fresh context on its worker.
+    state def WorkerLifecycle {
+        attribute built : Boolean = false;
+        attribute runsPending : Integer = 1;
+
+        entry; then idle;
+
+        state idle;
+        state warming;
+        state ready;
+        state running;
+        state released;
+
+        transition first idle if not built then warming;
+        transition first idle if built then ready;
+        transition first warming then ready;
+        transition first ready if runsPending > 0 then running;
+        transition first running do assign runsPending := runsPending - 1 then ready;
+        transition first ready if runsPending <= 0 then released;
+    }
+
+    // A snapshot is a mark between steps: restore brings the run back to it as often as
+    // asked until release, and a mark asked for mid-step or over a paused body is refused.
+    state def SnapshotLifecycle {
+        attribute betweenSteps : Boolean = true;
+        attribute bodyPaused : Boolean = false;
+
+        entry; then running;
+
+        state running;
+        state marked;
+        state refusedMidStep;
+        state refusedPausedBody;
+        state released;
+
+        transition first running if betweenSteps and not bodyPaused then marked;
+        transition first running if not betweenSteps then refusedMidStep;
+        transition first running if betweenSteps and bodyPaused then refusedPausedBody;
+        transition first marked then running;
+        transition first marked then released;
     }
 }

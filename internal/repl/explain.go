@@ -1,10 +1,10 @@
 package repl
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
 
@@ -12,8 +12,7 @@ import (
 // constraint, requirement or satisfaction. Experimental: SysML v2 defines no
 // solving, and the runtime evaluator remains normative.
 func (s *Session) ExplainSolve(name string) []SolveReport {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.explainSolve(name)
 }
 
@@ -22,21 +21,14 @@ func (s *Session) explainSolve(name string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	solver, err := solve.Discover()
-	if err != nil {
-		return []SolveReport{unavailableReport(name, err.Error())}
-	}
-	reports := make([]SolveReport, 0, len(queries))
-	for _, q := range queries {
-		reports = append(reports, s.explainQuery(name, solver, q))
-	}
-	return reports
+	plan, err := s.solveWith(name, queries, (*solve.Solver).Explain)
+	return solveReports(name, queries, plan, err, explainQueryReport)
 }
 
-// explainQuery asks the solver about one query and renders the conflict it
-// reports, or says why there is none to render.
-func (s *Session) explainQuery(name string, solver *solve.Solver, q *solve.Query) SolveReport {
-	result, err := solver.Explain(context.Background(), q)
+// explainQueryReport renders the conflict the solver reports about one query,
+// or says why there is none to render.
+func explainQueryReport(name string, q *solve.Query, explained analysis.Evaluation) SolveReport {
+	result, err := explained.Solved, explained.Err
 	if err != nil {
 		return unavailableReport(name, err.Error())
 	}

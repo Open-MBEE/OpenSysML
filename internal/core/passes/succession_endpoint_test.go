@@ -297,13 +297,11 @@ func TestActionEndpointPassAcceptsLoweredNodes(t *testing.T) {
 
 func TestStateSuccessionEndpointSpellingsAcceptVertices(t *testing.T) {
 	targets := map[string]string{
-		"choice":      `choice pick;`,
-		"junction":    `junction pick;`,
-		"fork":        `fork pick;`,
-		"join":        `join pick;`,
-		"entry point": `entry point pick;`,
-		"exit point":  `exit point pick;`,
-		"nested":      `state outer { state pick; }`,
+		"choice":   `choice pick;`,
+		"junction": `junction pick;`,
+		"fork":     `fork pick;`,
+		"join":     `join pick;`,
+		"nested":   `state outer { state pick; }`,
 	}
 	for _, spelling := range []string{"succession first idle then pick;", "then pick;"} {
 		for name, declaration := range targets {

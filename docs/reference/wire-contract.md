@@ -192,10 +192,10 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: eighteen arms, exactly one present
+## `Value`: nineteen arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of eighteen
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of nineteen
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
@@ -210,7 +210,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `sequence` | object | `{"result":{"sequence":{"elements":[{"stringValue":"nav"},{"stringValue":"sci"}]}}}` | Ordered collection; `elements` are `Value`s |
 | `null` | string | `{"result":{"null":""}}` | The SysML `null`, or an unsupported value (non-empty string) |
 | `quantity` | object | `{"result":{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{…}}}}` | Magnitude with a unit |
-| `enumLiteral` | object | `{"result":{"enumLiteral":{"literalId":"Rover::Mode::idle","enumerationId":"Rover::Mode","name":"Mode::idle"}}}` | Enumeration literal |
+| `enumLiteral` | object | `{"result":{"enumLiteral":{"literalId":"Rover::Mode::idle","enumerationId":"Rover::Mode","name":"Mode::idle"}}}` | Enumeration literal; a scalar-valued one (`high = 3`) also carries `value` |
 | `unset` | boolean | `{"result":{"unset":true}}` | A feature that exists and has no value |
 | `complex` | object | `{"result":{"complex":{"real":1.5,"imaginary":-2}}}` | Complex number |
 | `array` | object | `{"result":{"array":{"dimensions":["2","3"],"elements":[{"intValue":"1"},…,{"intValue":"6"}]}}}` | Multi-dimensional array; `elements` are `Value`s in row-major order |
@@ -221,12 +221,15 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `function` | object | `{"result":{"function":{"calcId":"F::Sq"}}}` | A calc held as a value: the calc it names and, when it was read off an object, that object |
 | `set` | object | `{"result":{"set":{"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"}]}}}` | Unordered collection without duplicates; `elements` are `Value`s, listed in canonical order |
 | `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
+| `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on and the metaclass that classifies it |
+| `undetermined` | object | `{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}` | A model-level result the model leaves open: a read of a feature with no value, or of one whose count is not fixed, or an operation over such a read. `count` bounds the values it would hold |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/structured.sysml` (`S::grid`, `S::v`, `S::d`), `measurementRef` against
 `conformance/fixtures/measurement_ref.sysml` (`M::u`), `function` against
 `conformance/fixtures/function.sysml` (`F::pick`), `set` and `tensorQuantity` against
-`conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`); the rest against the model below, with requests of the form
+`conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`), `metaobject` against
+`conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`); the rest against the model below, with requests of the form
 `{"modelHash":"59c4…a654","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
 `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
@@ -277,7 +280,8 @@ decode(v):
   null         → if v.null == "" then the language's null, else an error naming v.null
   unset        → the language's "unset" sentinel, distinct from null and from false
   quantity     → see below
-  enumLiteral  → identity is literalId; enumerationId is its type; name is for display
+  enumLiteral  → identity is literalId; enumerationId is its type; name is for display;
+                 value, when present, is the scalar Value the literal equals
   complex      → complex(v.complex.real or 0, v.complex.imaginary or 0)
   array        → shape v.array.dimensions (parse each as int64); elements := map decode over
                  v.array.elements; require len(elements) == product(dimensions), else an error
@@ -300,6 +304,12 @@ decode(v):
   tensorQuantity → shape v.tensorQuantity.dimensions (parse each as int64, every one positive);
                  components := map the quantity rule over v.tensorQuantity.components;
                  require len(components) == product(dimensions), else an error
+  metaobject   → element := v.metaobject.elementId, require it non-empty, else an error;
+                 metaclass := v.metaobject.metaclassId; the element is the identity
+  undetermined → the language's "undetermined" sentinel carrying v.undetermined.reason (a
+                 string) and v.undetermined.count (lower and upper as strings, upper "*"
+                 when unbounded); distinct from unset, from null and from false. Never
+                 send it: a request carrying one is answered with INVALID_ARGUMENT
   anything else → an error: a newer service than this decoder
 ```
 
@@ -359,17 +369,19 @@ engine held a value it has no wire representation for, and the string says what 
 Python client raises `UnsupportedValueError(text)` for that case rather than returning `None`,
 and a hand-written client should not silently equate the two either.
 
-**`unset`, and the three ways to have no value.** Three different things look like "nothing"
-and a client must keep them apart:
+**`unset`, `undetermined`, and the four ways to have no value.** Four different things look
+like "nothing" and a client must keep them apart:
 
 | Shape | Meaning |
 |---|---|
 | `result` key **absent** from the response | The call produced no value: it failed (`error` is present), or the method has no result for this input |
-| `{"result":{"unset":true}}` | The call produced a value, and it is *unset*: the feature exists and nothing has been assigned to it |
+| `{"result":{"unset":true}}` | The call produced a value, and it is *unset*: the feature exists on an object and nothing has been assigned to it |
+| `{"result":{"undetermined":{…}}}` | The call produced a value, and it is *undetermined*: the model alone was asked and fixes no answer |
 | `{"result":{"null":""}}` | The call produced the SysML `null` |
 
 Here is a definition with an attribute that has a type and no value, from
-`conformance/fixtures/unset.sysml` (`attribute d : Real;` beside `attribute k : Real = 2.0;`):
+`conformance/fixtures/unset.sysml` (`attribute d : Real;` beside `attribute k : Real = 2.0;`),
+read on an instantiated object and then at model level:
 
 ```console
 $ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"d","subjectSymbolId":"P::Q"}'
@@ -377,11 +389,34 @@ $ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae
 
 $ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"d + 1.0","subjectSymbolId":"P::Q"}'
 {"error":"evaluation failed: type mismatch: operator '+' is not defined for an instance and a Real"}
+
+$ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"P::Q::d"}'
+{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}
+
+$ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"P::Q::d + 1.0"}'
+{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}
+
+$ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"(P::Q::d > 1.0) and false"}'
+{"result":{"boolValue":false}}
 ```
 
 `unset` is written `true` whenever the arm is present; it is never `false`. Reading it as a
 boolean and testing it for truth is therefore a bug waiting for the arm to be absent: the
 question is "is the `unset` key present", never "is `unset` true".
+
+`undetermined` is the engine declining to invent an answer the model does not give: with a
+`subjectSymbolId` the feature is read on the object standing for the subject, and a required
+value that object lacks is `unset`; without one the model alone is asked, `d` is a feature no
+object holds, and what it would hold is not determined. An operation over an undetermined
+operand is undetermined too unless another operand fixes the result (`x and false`,
+`x or true`, `x implies true`, `includes((1, x), 1)`), so a client reads it as a result, not
+as a failure. `count` is the multiplicity the values conform to — `[1]` for a bare attribute,
+`{"lower":"1","upper":"*"}` for a `[1..*]` part — and lets a client answer what the bounds
+fix (a `[1..*]` feature is not empty) without asking again. The bundled clients decode it to
+`Undetermined` (Go, Java, Rust), `opensysml.Undetermined` (Python, which refuses `bool()` on
+it) and `UndeterminedValue` (Node), each printing as `<undetermined>`; none accepts one as an
+input. A service that does not advertise `undetermined_value` sends the arm as an unsupported
+`null` naming it.
 
 **`quantity`.** A magnitude with a unit:
 
@@ -405,6 +440,14 @@ display label. Compare literals by `literalId`. `name` is what the model author 
 reference site relative to a scope (`Mode::idle` here, but `idle` or `Rover::Mode::idle` from
 another scope for the same literal), so two equal literals can carry different `name`s and two
 literals of different enumerations can carry the same one.
+
+A literal of an enumeration that specializes a scalar type (`enum def Level :> Integer { low = 1;
+high = 3; }`) is still a literal on the wire — `Level::high`, a feature `l : Level = Level::high`
+and a successful `3 as Level` all arrive as `enumLiteral` — and additionally carries `value`, the
+scalar `Value` it equals: `{"enumLiteral":{"literalId":"D::Level::high","enumerationId":"D::Level",
+"name":"Level::high","value":{"intValue":"3"}}}`. `value` is absent for a literal that is only its
+identity (`Mode::idle`). A client that computes with the scalar reads `value`; one that only
+compares identity ignores it. A bare `3` that no enumeration value holds stays `intValue`.
 
 **`complex`.** `real` and `imaginary`, both doubles, **either omitted when zero**:
 `rect(0.0, 2.0)` is `{"result":{"complex":{"imaginary":2}}}`. Read each with a default of 0.
@@ -571,13 +614,58 @@ $ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::cube#(2, 1, 2)"}
 - The unit is per component, as in `vectorQuantity`; a component without its `unitTerm` is
   refused by the rule under `quantity`.
 
+**`metaobject`.** An element of the model held as a value — what `x meta T` yields when the
+element `x` names is an instance of the metaclass `T`, and the last member of `x.metadata`
+after the element's metadata annotations — travels as the element it reflects on and the
+metaclass that classifies it, not as the metaclass it was cast to and not as its features:
+
+```console
+$ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"(Meta::seatBelt meta KerML::Feature)#(1)"}'
+{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}
+
+$ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::everything"}'
+{"result":{"sequence":{"elements":[{"instanceId":"1"},{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}]}}}
+
+$ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinition"}'
+{"result":{"sequence":{}}}
+```
+
+- `elementId` is the fully qualified name of the element, and is the identity a client keeps
+  to send the same metaobject back. It is never empty: a `metaobject` with no `elementId` is
+  malformed, and a decoder refuses it rather than reading it as "no element".
+- `metaclassId` is the fully qualified name of the reflective metaclass that classifies the
+  element — a part usage is a `SysML::Systems::PartUsage` however it was cast — so a client
+  learns what the element is, not what the model asked for. A cast to a metaclass the element
+  is not an instance of is the empty sequence (`Meta::notADefinition` above), never a
+  `metaobject` under that metaclass.
+- Two metaobjects are the same metaobject when their `elementId`s are equal; the engine's
+  `===` and `==` say the same, whatever metaclass either was cast to. `metaclassId` does not
+  enter the comparison, and cannot differ for one element.
+- The element's reflective features (`declaredName`, `qualifiedName`, `ownedFeature`, …) are
+  not on the wire. They are read from the model, so a client that needs one evaluates it —
+  `(Meta::seatBelt meta KerML::Feature)#(1).qualifiedName` is `{"stringValue":"Meta::seatBelt"}` —
+  and a feature the engine does not derive is an evaluation failure naming the feature, not a
+  guess.
+- A metaobject of an anonymous element — one with no qualified name to send, such as an
+  unnamed part among a type's `ownedFeature` — is the unsupported null
+  `{"null":"unsupported: metaobject of an element with no qualified name"}`, under the `null`
+  arm's rule. A named element nested in an anonymous one keeps its name (`Mid::inner`).
+- An `element_id` sent that two declarations of the model share (the same qualified name in two
+  documents) identifies neither and is refused in band as ambiguous, never bound to whichever the
+  index lists first.
+- The arm is gated by the `metaobject_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
+  A service without it sends every metaobject, at any depth, as
+  `{"null":"unsupported: metaobject Meta::seatBelt : SysML::Systems::PartUsage"}` and refuses a
+  request carrying one.
+
 ### What a client must not do
 
 - **Do not compare enum literals by `name`.** Compare `literalId`.
 - **Do not read `intValue` (or `intMagnitude`, `id`, `instanceId`) as a double.** Above 2^53 the
   digits are gone and nothing tells you.
 - **Do not read `unset` as a boolean.** Its presence is the fact; a missing `result` is a
-  different fact (no value), and `{"null":""}` a third (the null value).
+  different fact (no value), `{"null":""}` a third (the null value), and `undetermined` a
+  fourth (the model fixes no answer).
 - **Do not treat a non-empty `null` string as null.** It names a value that could not be sent.
 - **Do not keep an `instanceId` past the response it arrived in**, or use one to index a
   different response's `instances`.
@@ -599,6 +687,9 @@ $ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::cube#(2, 1, 2)"}
   significant, and a `set` sent back may list them in any order — but never twice.
 - **Do not index a `tensorQuantity` before checking `len(components) == product(dimensions)`**,
   and do not read a rank-one tensor as a `vectorQuantity`.
+- **Do not read a `metaobject` as the element's values, or compare two by `metaclassId`.** It
+  is the element itself, identified by `elementId`; its features live in the model and are
+  evaluated there, and the metaclass says what the element is, not which cast produced it.
 
 ## Three places a failure can be
 
@@ -898,7 +989,9 @@ HTTP/1.1 400 Bad Request
 
 A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, a negative or
 non-decimal seed — is `INVALID_ARGUMENT` before the model is looked up, so a mistyped policy
-never runs anything under the default. The field is advertised as the `schedule` capability: a
+never runs anything under the default. So is `"replay:<file>"`, which `sysml -schedule` accepts:
+it follows a witness file of the caller's, which a request does not carry, and the service reads
+no file of its own on a client's word. The field is advertised as the `schedule` capability: a
 service withholding it refuses a non-empty `schedule` with `UNIMPLEMENTED`, and a service that
 predates the field would drop it and run under the default, which is why every client this
 repository ships checks the advertised list before sending one. `ExecuteState` and `RunAnalysis`
@@ -1144,6 +1237,27 @@ A service without `set_values` refuses a `set` argument and one without `tensor_
 tensor it cannot send as the non-empty `null` arm (`{"null":"unsupported: set Set{1, 2, 3}"}`),
 the rule under `null`.
 
+A `metaobject` argument binds a parameter typed by a metaclass to the element its `elementId`
+names, resolved against the model; the element's reflective features are then read there,
+so only the identity crosses. `metaclassId` may be omitted — the service derives it — but
+one that is present must be the metaclass that classifies the element: a name that is empty
+or names nothing, or a metaclass the element is not an instance of, is an in-body failure,
+at any depth, rather than a binding to a guess:
+
+```console
+$ … /EvaluateCalc -d '{"modelHash":"07a0…b5ca","symbolId":"Meta::nameOf","arguments":[{"metaobject":{"elementId":"Meta::seatBelt"}}]}'
+{"result":{"stringValue":"seatBelt"}}
+
+$ … /EvaluateCalc -d '{"modelHash":"07a0…b5ca","symbolId":"Meta::nameOf","arguments":[{"metaobject":{"elementId":"Meta::nobody"}}]}'
+{"error":"calc argument could not be read: metaobject names no element of this model: Meta::nobody","failureReason":"FAILURE_REASON_EVALUATION"}
+
+$ … /EvaluateCalc -d '{"modelHash":"07a0…b5ca","symbolId":"Meta::nameOf","arguments":[{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartDefinition"}}]}'
+{"error":"calc argument could not be read: metaclass_id is not the element's metaclass: Meta::seatBelt is classified by SysML::Systems::PartUsage, not SysML::Systems::PartDefinition","failureReason":"FAILURE_REASON_EVALUATION"}
+```
+
+A service without `metaobject_values` refuses a `metaobject` argument — nested anywhere in
+the argument — with the `unimplemented` Connect error naming the capability.
+
 A calc *usage* whose output features are evaluated from its own members (no `arguments`)
 answers them as `outputs`, a list of `{"name":…,"value":<Value>}` in declaration order, in
 place of `result`; a client reads whichever of the two is present. A symbol that is not a calc
@@ -1314,7 +1428,11 @@ which reports the verdict of its body.
 
 `instances` carries every object a row's verdict or evaluation is about, each once over the whole
 table, so a verdict's `instanceId` and an evaluation's `arguments` resolve there as they do in a
-`RunAnalysis` response — a client can read what made a row fail.
+`RunAnalysis` response — a client can read what made a row fail. Each row runs in a context of
+its own, so the objects of one row are not those of another even when they are of the same
+declaration: a row's objects are numbered after the rows before it (the first row's from `1`, as a
+`RunAnalysis` response numbers them), and a row's references resolve to the objects that row made,
+holding what that row's run left in them.
 
 A run that fails is a row of its own, carrying `error` and `failureReason` in place of its
 `outputs`, and the runs after it are still made. The row keeps what the run decided before
@@ -1473,6 +1591,70 @@ $ … /VerifySatisfaction -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::analy
 (`instances` holds `"id":"1"` and `"id":"2"`, both `Demo::sedan` with the feature values shown
 for the `massLight` example.) Each assertion instantiated its own `sedan`, hence two ids; the
 second verdict has no `holds` and no `error`, so it is a real *false*.
+
+### `ListEngines`, the `engine` field and the standing of an answer
+
+Every verification, analysis and sweep request is a question put to an analysis engine, and a
+service advertising the `engines` capability reports which engine answered and how strongly.
+The transcripts above omit these fields for brevity; a service with the capability adds them.
+
+`ListEngines` takes an empty request and returns the engines of the build in name order, each
+an `EngineInfo`: `name`; `authority`, the strongest evidence the engine can produce, spelled as
+`strength` is; `answers`, the question kinds it covers; `bounds`, the budget bounds it takes;
+`process` and `processFound` for an engine that needs an external process, where it was found;
+`ready`, and `unavailable` with the reason when it is not; `kind`, `built-in` for the build's
+own engines or the manifest entry kind (`tool`, `engine`, `policy`, `sampler`, `module`) that
+registered it; `protocol`, how it is spoken to (`-`, `object` for a tool's one JSON object each
+way, `stdio/1` for an external engine); `source`, `command` and `version` for a manifest
+entry, its file, the program it runs and the version the manifest states; and `served`, whether
+this service runs the engine when a request names it. An external engine of
+`OPENSYSML_ENGINES` is listed with `served` false and `ready` false until the service is started
+with `-serve-external-engines <name>,…` or `-serve-external-engines all`, which also advertises
+the `engines_external` capability; `unavailable` stays empty, since nothing is wrong with the
+engine — the service declines to run a program for its clients until told to
+([External engines](external-engines.md#listing-probing-selecting)).
+
+```console
+$ … /ListEngines -d '{}'
+{"engines":[
+  {"name":"explore","authority":"proved","answers":["outcomes"],"bounds":["runs","depth"],"ready":true,"kind":"built-in","protocol":"-","served":true},
+  {"name":"run","authority":"observed","answers":["evaluate"],"bounds":["steps","elements"],"ready":true,"kind":"built-in","protocol":"-","served":true},
+  {"name":"solve","authority":"proved","answers":["satisfiable"],"bounds":["runs","solver"],"process":"z3","processFound":"/usr/bin/z3","ready":true,"kind":"built-in","protocol":"-","served":true},
+  {"name":"spin-bridge","authority":"bounded","answers":["holds","outcomes"],"bounds":["depth","steps","runs"],"process":"/opt/spin-bridge/bin/spin-bridge","processFound":"/opt/spin-bridge/bin/spin-bridge","kind":"engine","protocol":"stdio/1","source":"/etc/opensysml/engines/spin-bridge.json","command":"/opt/spin-bridge/bin/spin-bridge","version":"1.4.0"},
+  {"name":"sweep","authority":"observed","answers":["sweep"],"bounds":["runs"],"ready":true,"kind":"built-in","protocol":"-","served":true}]}
+```
+
+The `engine` field on `VerifyConstraintRequest`, `VerifyRequirementRequest`,
+`VerifySatisfactionRequest`, `EvaluateCalcRequest`, `RunAnalysisRequest` and `RunSweepRequest`
+selects: unset or `"auto"` puts the question to the engine of highest authority covering it,
+advancing past one that refuses; a name puts it to that engine alone, whose refusal is then the
+answer (`VerifyConstraint` with `"engine":"explore"` returns a verdict whose `error` is the
+refusal); `"all"` puts it to every covering engine, one after another in name order, and
+composes their answers. `"engine":"explore"` on `RunAnalysisRequest` asks what
+`"schedule":"explore"` asks, and the response answers alike. A name no engine is registered
+under is the `invalid_argument` Connect error; the name of an external engine the service lists
+but does not serve is the `failed_precondition` error `engine 'spin-bridge' is not served by
+this service`, and `auto` and `all` pass over it. Send the field only to a service advertising
+`engines`: one without the capability does not read it and answers under `auto`.
+
+Every `Verdict`, and `EvaluateCalcResponse`, `RunAnalysisResponse` and `RunSweepResponse`,
+carry the standing of the answer: `engine`, the engine whose answer it is; `strength`, one of
+`"not covered"`, `"observed"`, `"witnessed"`, `"bounded"` and `"proved"`; and `bounds`, one
+`Bound` per limit the engine ran under — `name`, `limit` and `reached`, true when the run
+stopped at the limit, which is what lowers the strength. An answer decided before any engine
+was asked (a failure classified before the run) carries none of the three.
+
+```console
+$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
+{"verdict":{"kind":"constraint", …, "condition":"mass < 100.0","engine":"run","strength":"witnessed",
+  "bounds":[{"name":"steps","limit":"10000000"},{"name":"elements","limit":"1000000"}]}, "instances":[…]}
+```
+
+`limit` is an `int64`, so it arrives as a string in JSON, and `reached` is omitted when false
+(the default-omission rule). The other fields keep their meaning: `holds`, `error` and
+`condition` are read exactly as before, and the standing says how much the answer is worth.
+The Python client reads them as `Verdict.engine`, `Verdict.strength` and `Verdict.bounds`
+and lists engines with `Connection.list_engines()`.
 
 ## Queries
 

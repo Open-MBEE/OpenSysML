@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
 // MaterializationErrors reads the feature values a caller would otherwise leave lazy, so
@@ -93,6 +95,49 @@ func TestMaterializationErrorsReportsARedefinedFeatureValueOnce(t *testing.T) {
 	}
 	if !errors.Is(errs[0], ErrMultiplicityViolation) {
 		t.Errorf("err = %v, want ErrMultiplicityViolation", errs[0])
+	}
+}
+
+// An unset quantity attribute reads as unset, so the walk does not evaluate what its
+// value type derives from the value it lacks; a default that genuinely fails is still reported.
+func TestMaterializationErrorsPassOverAnUnsetQuantity(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ISQ::*;
+			private import ScalarValues::Real;
+			part def Engine {
+				attribute mass :> ISQ::mass;
+				attribute wrong : Real[3] = 1.0;
+			}
+			part def Holder { part engine : Engine; }
+		}
+	`))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Holder", ast.DefPart)
+	if sym == nil {
+		t.Fatal("Holder part def not found")
+	}
+	inst, err := ctx.Instantiate(sym)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+
+	errs, bounded := ctx.MaterializationErrors(inst)
+	if bounded {
+		t.Error("bounded = true, want a small object read in full")
+	}
+	if len(errs) != 1 || !errors.Is(errs[0], ErrMultiplicityViolation) || !containsError(errs, "Engine.wrong") {
+		t.Fatalf("MaterializationErrors = %v, want only the multiplicity violation of Engine.wrong", errs)
+	}
+	engines := heldInstances(ctx, inst.FeatureValues["engine"])
+	if len(engines) != 1 {
+		t.Fatalf("engine holds %d objects, want 1", len(engines))
+	}
+	fv, err := engines[0].GetFeatureValue(ctx, "mass")
+	if err != nil {
+		t.Fatalf("engine.mass: %v", err)
+	}
+	if !ctx.HoldsNoValue(fv.HeldValue()) {
+		t.Errorf("engine.mass holds %v, want %s", fv.HeldValue(), UnsetText)
 	}
 }
 

@@ -1,0 +1,15 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="PrefixAlternatives" library=false standard=false
+      (Membership visibility="default"
+        (Usage kind="class" name="A" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="c" ref=false direction="none" composite=true derived=false ordered=false nonunique=false keyword="feature"))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="p" ref=false direction="none" composite=true derived=false ordered=false nonunique=false keyword="feature"))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="i" ref=false direction="in" composite=false derived=false ordered=false nonunique=false keyword="feature"))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="io" ref=false direction="inout" composite=false derived=false ordered=false nonunique=false keyword="feature"))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="k" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature")))))))

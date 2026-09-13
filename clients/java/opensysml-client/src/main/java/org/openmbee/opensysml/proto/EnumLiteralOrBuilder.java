@@ -69,4 +69,34 @@ public interface EnumLiteralOrBuilder extends
    */
   com.google.protobuf.ByteString
       getNameBytes();
+
+  /**
+   * <pre>
+   * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+   * literal that is only its identity. Identity stays `literal_id`.
+   * </pre>
+   *
+   * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+   * @return Whether the value field is set.
+   */
+  boolean hasValue();
+  /**
+   * <pre>
+   * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+   * literal that is only its identity. Identity stays `literal_id`.
+   * </pre>
+   *
+   * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+   * @return The value.
+   */
+  org.openmbee.opensysml.proto.Value getValue();
+  /**
+   * <pre>
+   * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+   * literal that is only its identity. Identity stays `literal_id`.
+   * </pre>
+   *
+   * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+   */
+  org.openmbee.opensysml.proto.ValueOrBuilder getValueOrBuilder();
 }

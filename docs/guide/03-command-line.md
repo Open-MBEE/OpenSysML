@@ -76,13 +76,36 @@ $ sysml -instantiate MyModel::cold -constraint MyModel::cold::inRange checks.sys
   ID: 1
   Use %features MyModel::cold to inspect
 ✓ Constraint MyModel::cold::inRange passed (on MyModel::cold ID: 1)
+  standing: holds (observed: 1 run under reverse)
 
 $ sysml -satisfy checks.sysml
 ✓ package MyModel
 ✓ satisfy healthy by cold holds (on MyModel::cold ID: 1)
+  standing: holds (observed: 1 run under reverse)
 ✗ satisfy healthy by hot fails (on MyModel::hot ID: 2)
   Required condition evaluated to false: sensor.reading <= sensor.threshold
+  standing: violated (witnessed: 1 run under reverse)
 ```
+
+The `standing:` line under each verdict says what the verdict rests on: the claim, the strength
+of the evidence and what earned it. One run under the default schedule is *observed* evidence
+that a condition holds, and a run that shows it false is a *witnessed* violation. Every check is
+a question put to an analysis engine — `run` here; `-engines` lists them and `-engine` picks
+one, or `all` to have every engine that covers the question answer it and compare their
+answers ([Analysis engines](../reference/cli.md#analysis-engines)). `-engine check` searches
+every schedule of an action for a violation, and `-engine smt` decides a property over every
+schedule and every value of the inputs the model leaves unbound — or that `-check-input` frees —
+with an SMT solver, so its *proved* stands for any input in its declared domain where a run's
+*observed* stands for the inputs as written
+([Deciding a property over the inputs](../reference/cli.md#deciding-a-property-over-the-inputs)).
+A model checker or a simulator installed beside OpenSysML joins them through one JSON file in
+the directory `OPENSYSML_ENGINES` names; `-engines` lists it without starting it,
+`-engines -probe` starts it once to check that it describes itself as its file does, and
+`-engine <name>` puts a check to it — its witness replayed by the interpreter before the
+verdict stands ([External engines](../reference/external-engines.md)). `-jobs <n>` (or
+`OPENSYSML_JOBS`) lets `n` runs of one check go at once — an exploration's linearizations, a sweep's rows, the
+engines `all` consults — without changing what is reported: the result is the same at any count
+([Running in parallel](../reference/cli.md#running-in-parallel)).
 
 Every check flag is listed in
 [reference/cli.md § Command Reference](../reference/cli.md#command-reference). You can check
@@ -108,6 +131,7 @@ $ sysml -constraint MyModel::hot::inRange -instantiate MyModel::hot checks.sysml
   Use %features MyModel::hot to inspect
 ✗ Constraint MyModel::hot::inRange failed (on MyModel::hot ID: 1)
   Assertion evaluated to false: reading <= threshold
+  standing: violated (witnessed: 1 run under reverse)
 exit=1
 
 $ sysml -constraint MyModel::nosuch checks.sysml; echo "exit=$?"
@@ -119,6 +143,7 @@ $ sysml -requirement MyModel::healthy checks.sysml; echo "exit=$?"
 ✓ package MyModel
 ? Requirement MyModel::healthy could not be evaluated
   Error: requirement healthy: sensor subject is unbound: bind it (`subject sensor = <element>`), check it on an object, or assert `satisfy healthy by <element>`
+  standing: not covered (requirement healthy: sensor subject is unbound: bind it (`subject sensor = <element>`), check it on an object, or assert `satisfy healthy by <element>`)
 exit=2
 ```
 
@@ -174,7 +199,7 @@ a declaration in another resolves correctly.
 ## Strict conformance
 
 OpenSysML accepts several notations of its own that no SysML v2 production admits: `defer`, and
-the `choice`, `junction`, `history` and `entry`/`exit point` pseudostates. These are reported as
+the `choice`, `junction` and `history` pseudostates. These are reported as
 warnings, so a model that uses them still analyses cleanly. `-strict` promotes those warnings
 to errors, which turns the run into a test of whether the file is conforming SysML v2.
 
@@ -235,6 +260,7 @@ $ sysml -calc "MyModel::Margin(20.0, 100.0)" checks.sysml
 ✓ package MyModel
 ✓ MyModel::Margin(20.0, 100.0)
   = 80.0
+  standing: value (observed: 1 run under reverse)
 
 $ sysml -action MyModel::calibrate checks.sysml
 ✓ package MyModel
@@ -245,6 +271,7 @@ $ sysml -action MyModel::calibrate checks.sysml
   Final state: Completed
   Results:
     offset = 1.5
+  standing: value (observed: 1 run under reverse)
 
 $ sysml -state MyModel::Monitor -advance 15 checks.sysml
 ✓ package MyModel
@@ -256,6 +283,7 @@ $ sysml -state MyModel::Monitor -advance 15 checks.sysml
   Current state: running
   Last event at: 10.0
   Remaining events: 0
+  standing: value (observed: 1 run under reverse)
 ```
 
 An analysis case is a calculation performed as an action, so `-analysis` runs it the way
@@ -291,6 +319,7 @@ $ sysml -analysis An::shipCost analysis.sysml
 ✓ An::shipCost
   total = 12.0
   objective affordable: satisfied
+  standing: value (observed: 1 run under reverse)
 
 $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
     -analysis "An::CostAnalysis(limit = 50.0) An::barge" analysis.sysml; echo "exit=$?"
@@ -301,14 +330,18 @@ $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
 ✗ An::CostAnalysis on object #1 of "An::barge"
   total = 37.0
   objective affordable: not satisfied: total <= limit
+  standing: value (observed: 1 run under reverse)
 ✓ An::CostAnalysis(limit = 50.0) on object #1 of "An::barge"
   total = 37.0
   objective affordable: satisfied
+  standing: value (observed: 1 run under reverse)
 exit=1
 
 $ sysml -analysis An::CostAnalysis analysis.sysml; echo "exit=$?"
 ✓ package An
 sysml: analysis run failed: analysis An::CostAnalysis: s subject is unbound: bind it (`subject s = <element>`) or run it on an object
+  objective affordable: undecided: analysis An::CostAnalysis: s subject is unbound: bind it (`subject s = <element>`) or run it on an object
+  standing: not covered (analysis An::CostAnalysis: s subject is unbound: bind it (`subject s = <element>`) or run it on an object)
 exit=2
 ```
 
@@ -350,6 +383,7 @@ limit | total | verdict                   | time
 30.0  | 37.0  | affordable: not satisfied | 0.416ms
 35.0  | 37.0  | affordable: not satisfied | 0.019ms
 40.0  | 37.0  | affordable: satisfied     | 0.012ms
+  standing: table (observed: 3 rows)
 exit=1
 ```
 
@@ -367,6 +401,7 @@ b                  | result             | time
 8.254725069980449  | 10.254725069980449 | 0.035ms
 0.4281995136143024 | 2.4281995136143024 | 0.001ms
 7.76073049711954   | 9.760730497119539  | 0.000ms
+  standing: table (observed: 3 rows)
 ```
 
 The endpoints and step carry the syntax and the units an argument carries
@@ -435,7 +470,42 @@ $ sysml -satisfy -json checks.sysml; echo "exit=$?"
       "status": "holds",
       "values": null,
       "lines": [
-        "✓ satisfy healthy by cold holds (on MyModel::cold ID: 1)"
+        "✓ satisfy healthy by cold holds (on MyModel::cold ID: 1)",
+        "  standing: holds (observed: 1 run under reverse)"
+      ],
+      "rows": null,
+      "plan": {
+        "engine": "auto",
+        "standing": "holds (observed: 1 run under reverse)",
+        "steps": [
+          {
+            "engine": "run",
+            "status": "answered"
+          }
+        ],
+        "workers": 0,
+        "warming": 0
+      },
+      "results": [
+        {
+          "engine": "run",
+          "claim": "holds",
+          "strength": "observed",
+          "bounds": [
+            {
+              "name": "steps",
+              "limit": 10000000,
+              "reached": false
+            },
+            {
+              "name": "elements",
+              "limit": 1000000,
+              "reached": false
+            }
+          ],
+          "witness": null,
+          "standing": "holds (observed: 1 run under reverse)"
+        }
       ]
     },
     {
@@ -444,7 +514,46 @@ $ sysml -satisfy -json checks.sysml; echo "exit=$?"
       "values": null,
       "lines": [
         "✗ satisfy healthy by hot fails (on MyModel::hot ID: 2)",
-        "  Required condition evaluated to false: sensor.reading \u003c= sensor.threshold"
+        "  Required condition evaluated to false: sensor.reading \u003c= sensor.threshold",
+        "  standing: violated (witnessed: 1 run under reverse)"
+      ],
+      "rows": null,
+      "plan": {
+        "engine": "auto",
+        "standing": "violated (witnessed: 1 run under reverse)",
+        "steps": [
+          {
+            "engine": "run",
+            "status": "answered"
+          }
+        ],
+        "workers": 0,
+        "warming": 0
+      },
+      "results": [
+        {
+          "engine": "run",
+          "claim": "violated",
+          "strength": "witnessed",
+          "bounds": [
+            {
+              "name": "steps",
+              "limit": 10000000,
+              "reached": false
+            },
+            {
+              "name": "elements",
+              "limit": 1000000,
+              "reached": false
+            }
+          ],
+          "witness": {
+            "schedule": "reverse",
+            "choices": []
+          },
+          "reason": "satisfaction satisfy healthy by hot: require condition evaluated to false: sensor.reading \u003c= sensor.threshold",
+          "standing": "violated (witnessed: 1 run under reverse)"
+        }
       ]
     }
   ],
@@ -461,8 +570,12 @@ exit=1
 Values produced by a calculation or a state machine appear under `values`. What analysis
 found appears under `diagnostics`, covering both the warnings of a model that analyses cleanly
 and the errors of one that does not, each with the `file`, `line` and `column` where it
-occurs. Anything that prevented a check from being made appears under `errors`. The whole
-document goes to standard output, so nothing needs to be read from standard error.
+occurs. Anything that prevented a check from being made appears under `errors`. Each check's
+`plan` says which engines were asked and what each did (and, under `-jobs`, how many `workers`
+it built and the milliseconds of `warming` spent building them), and `results` holds one entry
+per engine that answered, with the strength of its evidence, the bounds it ran under and the witness behind
+a violation ([Analysis engines](../reference/cli.md#analysis-engines)). The whole document goes
+to standard output, so nothing needs to be read from standard error.
 
 ## Running from a script
 

@@ -37,6 +37,7 @@ private static final long serialVersionUID = 0L;
     modelHash_ = "";
     symbolId_ = "";
     arguments_ = java.util.Collections.emptyList();
+    engine_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -204,6 +205,53 @@ private static final long serialVersionUID = 0L;
     return arguments_.get(index);
   }
 
+  public static final int ENGINE_FIELD_NUMBER = 4;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object engine_ = "";
+  /**
+   * <pre>
+   * The engine the calculation is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 4 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  @java.lang.Override
+  public java.lang.String getEngine() {
+    java.lang.Object ref = engine_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      engine_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The engine the calculation is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 4 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getEngineBytes() {
+    java.lang.Object ref = engine_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      engine_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -227,6 +275,9 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < arguments_.size(); i++) {
       output.writeMessage(3, arguments_.get(i));
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(engine_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 4, engine_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -245,6 +296,9 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < arguments_.size(); i++) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(3, arguments_.get(i));
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(engine_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, engine_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -267,6 +321,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getSymbolId())) return false;
     if (!getArgumentsList()
         .equals(other.getArgumentsList())) return false;
+    if (!getEngine()
+        .equals(other.getEngine())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -286,6 +342,8 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + ARGUMENTS_FIELD_NUMBER;
       hash = (53 * hash) + getArgumentsList().hashCode();
     }
+    hash = (37 * hash) + ENGINE_FIELD_NUMBER;
+    hash = (53 * hash) + getEngine().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -432,6 +490,7 @@ private static final long serialVersionUID = 0L;
         argumentsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000004);
+      engine_ = "";
       return this;
     }
 
@@ -484,6 +543,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.symbolId_ = symbolId_;
       }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.engine_ = engine_;
+      }
     }
 
     @java.lang.Override
@@ -534,6 +596,11 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (!other.getEngine().isEmpty()) {
+        engine_ = other.engine_;
+        bitField0_ |= 0x00000008;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -583,6 +650,11 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 26
+            case 34: {
+              engine_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1092,6 +1164,98 @@ private static final long serialVersionUID = 0L;
         arguments_ = null;
       }
       return argumentsBuilder_;
+    }
+
+    private java.lang.Object engine_ = "";
+    /**
+     * <pre>
+     * The engine the calculation is put to; see VerifyConstraintRequest.engine.
+     * </pre>
+     *
+     * <code>string engine = 4 [json_name = "engine"];</code>
+     * @return The engine.
+     */
+    public java.lang.String getEngine() {
+      java.lang.Object ref = engine_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        engine_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The engine the calculation is put to; see VerifyConstraintRequest.engine.
+     * </pre>
+     *
+     * <code>string engine = 4 [json_name = "engine"];</code>
+     * @return The bytes for engine.
+     */
+    public com.google.protobuf.ByteString
+        getEngineBytes() {
+      java.lang.Object ref = engine_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        engine_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The engine the calculation is put to; see VerifyConstraintRequest.engine.
+     * </pre>
+     *
+     * <code>string engine = 4 [json_name = "engine"];</code>
+     * @param value The engine to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEngine(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      engine_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine the calculation is put to; see VerifyConstraintRequest.engine.
+     * </pre>
+     *
+     * <code>string engine = 4 [json_name = "engine"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEngine() {
+      engine_ = getDefaultInstance().getEngine();
+      bitField0_ = (bitField0_ & ~0x00000008);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine the calculation is put to; see VerifyConstraintRequest.engine.
+     * </pre>
+     *
+     * <code>string engine = 4 [json_name = "engine"];</code>
+     * @param value The bytes for engine to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEngineBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      engine_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.EvaluateCalcRequest)

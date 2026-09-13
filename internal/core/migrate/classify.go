@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
@@ -57,13 +58,8 @@ func (c category) keyword() string {
 	return ""
 }
 
-// requirementStereotypes are the SysML requirement stereotype and the
-// specialized requirement kinds MagicDraw's SysML customization adds.
-var requirementStereotypes = []string{
-	"Requirement", "AbstractRequirement", "extendedRequirement", "functionalRequirement",
-	"performanceRequirement", "physicalRequirement", "interfaceRequirement", "designConstraint",
-	"usabilityRequirement", "businessRequirement",
-}
+// requirementStereotypes are the SysML profile's requirement stereotypes.
+var requirementStereotypes = []string{"Requirement", "AbstractRequirement"}
 
 // scalarValues maps the v1 primitive value type names to the ScalarValues
 // library types they correspond to.
@@ -79,39 +75,42 @@ var scalarValues = map[string]string{
 	"Rational":         "Rational",
 }
 
-// libraryRoots are the names of the profile and library packages a Cameo export
-// carries alongside the user's model.
+// libraryRoots are the names of the SysML and UML profile and model library
+// packages an export carries alongside the user's model.
 var libraryRoots = map[string]bool{
-	"SysML":                             true,
-	"UML Standard Profile":              true,
-	"MD Customization for SysML":        true,
-	"MD Customization for Requirements": true,
-	"QUDV":                              true,
-	"ISO-80000":                         true,
-	"SI Definitions":                    true,
-	"SIDefinitions":                     true,
-	"SI Value Type Library":             true,
-	"SI Specializations":                true,
-	"MagicDraw Profile":                 true,
-	"PrimitiveTypes":                    true,
-	"PrimitiveValueTypes":               true,
-	"Libraries":                         true,
-}
-
-// standardStereotypeNamespaces are the XML namespaces of the profiles whose
-// stereotypes the mapping reads: OMG SysML and UML standard profiles, the
-// MagicDraw profile and customizations, and Papyrus' SysML serialization.
-var standardStereotypeNamespaces = []string{
-	"omg.org/spec/SysML", "omg.org/spec/UML/", "magicdraw.com/spec/", "eclipse.org/papyrus/",
+	"SysML":                true,
+	"StandardProfile":      true,
+	"UML Standard Profile": true,
+	"QUDV":                 true,
+	"ISO-80000":            true,
+	"SI Definitions":       true,
+	"SIDefinitions":        true,
+	"PrimitiveTypes":       true,
+	"PrimitiveValueTypes":  true,
+	"Libraries":            true,
 }
 
 // isStandard reports whether s comes from a standard profile rather than a
 // user's own, whose same-named stereotypes carry no SysML meaning.
 func isStandard(s *xmi.Stereotype) bool {
-	for _, ns := range standardStereotypeNamespaces {
-		if strings.Contains(s.Namespace, ns) {
-			return true
-		}
+	return isStandardNamespace(s.Namespace)
+}
+
+// isStandardNamespace matches, by host and path, the OMG SysML and UML profiles,
+// Eclipse UML2's UML standard profile and Papyrus' SysML profile; nothing else.
+func isStandardNamespace(ns string) bool {
+	u, err := url.Parse(ns)
+	if err != nil {
+		return false
+	}
+	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
+	path := u.Path
+	switch {
+	case host == "omg.org" || strings.HasSuffix(host, ".omg.org"):
+		return strings.HasPrefix(path, "/spec/SysML/") || strings.HasPrefix(path, "/spec/UML/")
+	case host == "eclipse.org" || strings.HasSuffix(host, ".eclipse.org"):
+		return (strings.HasPrefix(path, "/uml2/") && strings.Contains(path, "/UML/Profile/Standard")) ||
+			strings.HasPrefix(strings.ToLower(path), "/papyrus/sysml/")
 	}
 	return false
 }
@@ -172,7 +171,7 @@ func primitiveLibraryHref(href string) bool {
 	if i := strings.IndexByte(href, '#'); i >= 0 {
 		path = href[:i]
 	}
-	for _, lib := range []string{"PrimitiveTypes", "PrimitiveValueTypes", "/spec/UML/", "/spec/SysML/", "MD_customization_for_SysML"} {
+	for _, lib := range []string{"PrimitiveTypes", "PrimitiveValueTypes", "/spec/UML/", "/spec/SysML/"} {
 		if strings.Contains(path, lib) {
 			return true
 		}
@@ -282,15 +281,8 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 // kindOf names the v1 element as its author saw it: its classifying
 // stereotype in guillemets, else its UML metaclass.
 func kindOf(e *xmi.Element) string {
-	for _, s := range e.Stereotypes {
-		if isStandard(s) {
-			switch s.Name {
-			case "PartProperty", "ValueProperty", "ReferenceProperty", "SharedProperty", "ConstraintProperty", "ConstraintParameter":
-				// MagicDraw's property customizations restate what the type says.
-				continue
-			}
-		}
-		return "«" + s.Name + "»" + " " + e.Type
+	if len(e.Stereotypes) > 0 {
+		return "«" + e.Stereotypes[0].Name + "»" + " " + e.Type
 	}
 	return e.Type
 }

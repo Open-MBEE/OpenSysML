@@ -1,0 +1,22 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "outputs": {
+    "accepted": {"type": "Integer", "value": 3},
+    "heldAs": {"type": "Integer", "value": 3},
+    "heldIsHigh": {"type": "Boolean", "value": true},
+    "untypedIsHigh": {"type": "Boolean", "value": false},
+    "untyped": {"type": "Integer", "value": 2},
+    "unstated": {"type": "Integer", "value": 3},
+    "inBlockAccepted": {"type": "Integer", "value": 3},
+    "inCollectionAccepted": {"type": "Integer", "value": 2}
+  },
+  "reads": {
+    "test::refused": {"error": "calc test::BodyOnly: calculation body: declaration of l: type mismatch: cannot write 2 (an Integer) to a feature typed by Level"},
+    "test::tooMany": {"error": "calc test::TwoOf: calculation body: declaration of xs: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2"},
+    "test::repeated": {"error": "calc test::Distinct: calculation body: declaration of xs: uniqueness violation: 1 (an Integer) is written at positions 1 and 3 of a unique feature"},
+    "test::inBlockRefused": {"error": "calc test::InBlock: calculation body: declaration of l: type mismatch: cannot write 2 (an Integer) to a feature typed by Level"},
+    "test::inCollectionRefused": {"error": "calc test::InCollection: evaluating the returned expression: feature value l: type mismatch: cannot write 2 (an Integer) to a feature typed by Level"}
+  }
+}

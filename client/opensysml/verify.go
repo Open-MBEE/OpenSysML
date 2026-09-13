@@ -57,6 +57,9 @@ type Verdict struct {
 	// Verifications are the body verdicts of that requirement's verification
 	// cases, reported beside this verdict rather than instead of it.
 	Verifications []VerificationVerdict
+	// Standing is how strongly the verdict stands: the engine that answered, the
+	// strength of its evidence and the bounds it ran under.
+	Standing Standing
 }
 
 // VerdictKind is the verdict a run of a verification case's body produced, one
@@ -147,6 +150,9 @@ type Calculation struct {
 	// Outputs are a calc usage's output features in declaration order, empty for
 	// an invocation with arguments.
 	Outputs []CalcOutput
+	// Standing is how strongly the calculation stands: the engine that answered,
+	// the strength of its evidence and the bounds it ran under.
+	Standing Standing
 	// Diagnostics the calculation reported.
 	Diagnostics []Diagnostic
 }
@@ -162,6 +168,7 @@ type VerifyOption func(*verifyOptions)
 
 type verifyOptions struct {
 	subjectSymbolID string
+	engine          string
 }
 
 // Against names a part or usage to instantiate and verify against, so the
@@ -181,10 +188,15 @@ func (c *client) VerifyConstraint(
 	if err != nil {
 		return nil, err
 	}
+	options, err := c.verifyOptions(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.verifyConstraint(ctx, &pb.VerifyConstraintRequest{
 		ModelHash:       hash,
 		SymbolId:        symbolID,
-		SubjectSymbolId: verifySubject(opts),
+		SubjectSymbolId: options.subjectSymbolID,
+		Engine:          engineField(options.engine),
 	})
 	if err != nil {
 		return nil, err
@@ -203,10 +215,15 @@ func (c *client) VerifyRequirement(
 	if err != nil {
 		return nil, err
 	}
+	options, err := c.verifyOptions(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.verifyRequirement(ctx, &pb.VerifyRequirementRequest{
 		ModelHash:       hash,
 		SymbolId:        symbolID,
-		SubjectSymbolId: verifySubject(opts),
+		SubjectSymbolId: options.subjectSymbolID,
+		Engine:          engineField(options.engine),
 	})
 	if err != nil {
 		return nil, err
@@ -220,14 +237,27 @@ func (c *client) VerifyRequirement(
 	return out, nil
 }
 
-func (c *client) VerifySatisfaction(ctx context.Context, model *Model, symbolID string) (*Satisfaction, error) {
+func (c *client) VerifySatisfaction(
+	ctx context.Context, model *Model, symbolID string, opts ...VerifyOption,
+) (*Satisfaction, error) {
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	options, err := c.verifyOptions(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	if options.subjectSymbolID != "" {
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "VerifySatisfaction takes no subject: the assertions name their own",
+		}
+	}
 	resp, err := c.caller.verifySatisfaction(ctx, &pb.VerifySatisfactionRequest{
 		ModelHash: hash,
 		SymbolId:  symbolID,
+		Engine:    engineField(options.engine),
 	})
 	if err != nil {
 		return nil, err
@@ -259,15 +289,64 @@ func (c *client) EvaluateCalc(
 	symbolID string,
 	arguments ...Value,
 ) (*Calculation, error) {
+	return c.calculate(ctx, "EvaluateCalc", model, symbolID, calcOptions{arguments: arguments})
+}
+
+// CalcOption configures Calculate.
+type CalcOption func(*calcOptions)
+
+type calcOptions struct {
+	arguments []Value
+	engine    string
+}
+
+// CalcArguments bind the calculation's inputs in declaration order, after any
+// given earlier; none evaluates a calc usage from its own members.
+func CalcArguments(values ...Value) CalcOption {
+	return func(o *calcOptions) { o.arguments = append(o.arguments, values...) }
+}
+
+// CalcEngine names the engine that answers the calculation, as `sysml -engine`
+// spells it: an engine's name, EngineAuto or EngineAll. Requires the engines
+// capability, checked before anything is sent.
+func CalcEngine(engine string) CalcOption {
+	return func(o *calcOptions) { o.engine = engine }
+}
+
+func (c *client) Calculate(
+	ctx context.Context,
+	model *Model,
+	symbolID string,
+	opts ...CalcOption,
+) (*Calculation, error) {
+	var options calcOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+	return c.calculate(ctx, "Calculate", model, symbolID, options)
+}
+
+// calculate evaluates the calculation for the method named op, whose name a
+// failure carries.
+func (c *client) calculate(
+	ctx context.Context,
+	op string,
+	model *Model,
+	symbolID string,
+	options calcOptions,
+) (*Calculation, error) {
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.requireValueCapabilities(ctx, arguments...); err != nil {
+	if err := c.requireValueCapabilities(ctx, options.arguments...); err != nil {
 		return nil, err
 	}
-	req := &pb.EvaluateCalcRequest{ModelHash: hash, SymbolId: symbolID}
-	for _, argument := range arguments {
+	if err := c.requireEngine(ctx, options.engine); err != nil {
+		return nil, err
+	}
+	req := &pb.EvaluateCalcRequest{ModelHash: hash, SymbolId: symbolID, Engine: engineField(options.engine)}
+	for _, argument := range options.arguments {
 		sent, err := valueToProto(argument)
 		if err != nil {
 			return nil, err
@@ -281,24 +360,32 @@ func (c *client) EvaluateCalc(
 	diagnostics := diagnosticsFromProto(resp.Diagnostics)
 	if resp.Error != "" {
 		return nil, &VerifyError{
-			FailureError: FailureError{Op: "EvaluateCalc", Message: resp.Error, Diagnostics: diagnostics},
+			FailureError: FailureError{Op: op, Message: resp.Error, Diagnostics: diagnostics},
 			Reason:       Reason(resp.FailureReason),
 		}
 	}
-	out := &Calculation{Result: valueFromProto(resp.Result), Diagnostics: diagnostics}
+	out := &Calculation{
+		Result:      valueFromProto(resp.Result),
+		Standing:    standingFromProto(resp.Engine, resp.Strength, resp.Bounds),
+		Diagnostics: diagnostics,
+	}
 	for _, output := range resp.Outputs {
 		out.Outputs = append(out.Outputs, CalcOutput{Name: output.Name, Value: valueFromProto(output.Value)})
 	}
 	return out, nil
 }
 
-// verifySubject is the subject the options name, empty for none.
-func verifySubject(opts []VerifyOption) string {
+// verifyOptions reads the options and checks the engine they name against the
+// capability it needs.
+func (c *client) verifyOptions(ctx context.Context, opts []VerifyOption) (verifyOptions, error) {
 	var options verifyOptions
 	for _, opt := range opts {
 		opt(&options)
 	}
-	return options.subjectSymbolID
+	if err := c.requireEngine(ctx, options.engine); err != nil {
+		return verifyOptions{}, err
+	}
+	return options, nil
 }
 
 // verification builds the answer a constraint or requirement verification gives.
@@ -341,6 +428,7 @@ func verdictFromProto(verdict *pb.Verdict) *Verdict {
 		Error:          verdict.Error,
 		Reason:         Reason(verdict.FailureReason),
 		RequirementID:  verdict.RequirementId,
+		Standing:       standingFromProto(verdict.Engine, verdict.Strength, verdict.Bounds),
 	}
 }
 

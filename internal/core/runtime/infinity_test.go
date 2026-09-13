@@ -36,7 +36,7 @@ func declaredExpr(t *testing.T, src, expr string) (*Context, *symbols.Scope, ast
 	if !ok {
 		t.Fatalf("result declares %T, want a usage", sym.Decl)
 	}
-	return NewContext(model, resolver, 10000), pkg.Scope, decl.Value
+	return NewContext(NewModel(model, resolver), 10000), pkg.Scope, decl.Value
 }
 
 // TestInfinityValue evaluates `*`: its own scalar value, printed as written.

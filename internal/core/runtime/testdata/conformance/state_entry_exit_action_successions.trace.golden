@@ -1,0 +1,36 @@
+exit: start
+enter: working (entry action)
+stmt action body
+enter action node: state behavior prep
+  stmt assign seq
+        eval feature seq -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+  stmt assign seq
+        eval feature seq -> 1
+        eval literal 10 -> 10
+      eval operator * -> 10
+      eval literal 2 -> 2
+    eval operator + -> 12
+leave action node: state behavior prep
+transition: start -> working
+exit: working (exit action)
+stmt action body
+enter action node: state behavior wrap
+  stmt assign seq
+        eval feature seq -> 12
+        eval literal 10 -> 10
+      eval operator * -> 120
+      eval literal 3 -> 3
+    eval operator + -> 123
+  stmt assign seq
+        eval feature seq -> 123
+        eval literal 10 -> 10
+      eval operator * -> 1230
+      eval literal 4 -> 4
+    eval operator + -> 1234
+leave action node: state behavior wrap
+enter: done
+transition: working -> done

@@ -217,11 +217,11 @@ func sharedFrame(name string, v, w vectorOperand) (*CoordinateFrame, error) {
 
 // scaledFrame is the frame a vector over frame is over once scaled by x: the frame
 // itself for a number, else the frame composed with x's unit (`CoordinateFrame*`, `/`).
-func scaledFrame(name string, op ast.OperatorKind, frame *CoordinateFrame, x *Quantity) (*CoordinateFrame, error) {
+func (ctx *Context) scaledFrame(name string, op ast.OperatorKind, frame *CoordinateFrame, x *Quantity) (*CoordinateFrame, error) {
 	if frame == nil || x.Unit.None() {
 		return frame, nil
 	}
-	composed, _, err := composeFrame(op, NewCoordinateFrameValue(frame), measurementRefOf(x.Unit))
+	composed, _, err := ctx.composeFrame(op, NewCoordinateFrameValue(frame), measurementRefOf(x.Unit))
 	if err != nil {
 		return nil, functionError(name, err)
 	}
@@ -393,7 +393,7 @@ func (ctx *Context) combineVectors(name string, op ast.OperatorKind, v, w vector
 	}
 	axes := make([]Value, v.dimension())
 	for i := range axes {
-		axis, err := addQuantities(op, v.axis(i), w.axis(i))
+		axis, err := ctx.addQuantities(op, v.axis(i), w.axis(i))
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}
@@ -475,7 +475,7 @@ func (ctx *Context) negateVector(name string, v vectorOperand) (Value, error) {
 	}
 	axes := make([]Value, v.dimension())
 	for i := range axes {
-		axis, err := negateQuantity(v.axis(i))
+		axis, err := ctx.negateQuantity(v.axis(i))
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}
@@ -569,7 +569,7 @@ func (ctx *Context) scaleVectorQuantity(name string, op ast.OperatorKind, x *Qua
 	if v.dimension() == 0 && !x.Unit.None() {
 		return Value{}, functionError(name, errEmptyVectorQuantity())
 	}
-	frame, err := scaledFrame(name, op, v.frame, x)
+	frame, err := ctx.scaledFrame(name, op, v.frame, x)
 	if err != nil {
 		return Value{}, err
 	}
@@ -579,7 +579,7 @@ func (ctx *Context) scaleVectorQuantity(name string, op ast.OperatorKind, x *Qua
 		if op == ast.OpDiv {
 			left, right = v.axis(i), x
 		}
-		axis, err := scaleQuantities(op, left, right)
+		axis, err := ctx.scaleQuantities(op, left, right)
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}
@@ -659,7 +659,7 @@ func vectorScalarQuantityDiv(name string, ctx *Context, args []Value) (Value, er
 // elements' kind: two Integer vectors have an Integer inner product. Vector
 // quantities give the magnitude the library declares (Number), in the product of
 // their first axes' units.
-func vectorInner(name string, _ *Context, args []Value) (Value, error) {
+func vectorInner(name string, ctx *Context, args []Value) (Value, error) {
 	v, err := readVector(name, `"v"`, args[0])
 	if err != nil {
 		return Value{}, err
@@ -669,7 +669,7 @@ func vectorInner(name string, _ *Context, args []Value) (Value, error) {
 		return Value{}, err
 	}
 	if v.hasUnits() || w.hasUnits() {
-		return innerQuantity(name, v, w)
+		return ctx.innerQuantity(name, v, w)
 	}
 	products, err := combineElements(name, ast.OpMul, v.num, w.num)
 	if err != nil {
@@ -693,7 +693,7 @@ func vectorInner(name string, _ *Context, args []Value) (Value, error) {
 // innerQuantity is the inner product over quantity axes: the axis products summed
 // in the unit the first composes, and that sum's magnitude, as the library declares
 // the result a Number.
-func innerQuantity(name string, v, w vectorOperand) (Value, error) {
+func (ctx *Context) innerQuantity(name string, v, w vectorOperand) (Value, error) {
 	if v.dimension() != w.dimension() {
 		return Value{}, dimensionMismatch(name, v, w)
 	}
@@ -705,7 +705,11 @@ func innerQuantity(name string, v, w vectorOperand) (Value, error) {
 	}
 	var sum *Quantity
 	for i := 0; i < v.dimension(); i++ {
-		product, err := scaleQuantities(ast.OpMul, v.axis(i), w.axis(i))
+		// The unit is dropped, so the products stay in the unit the axes compose.
+		if err := ctx.refusePoints(name, scaleNotAFactor, v.axis(i), w.axis(i)); err != nil {
+			return Value{}, functionError(name, err)
+		}
+		product, err := quantityResult(semantics.ScaleQuantities(ast.OpMul, *v.axis(i), *w.axis(i)))
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}
@@ -714,7 +718,7 @@ func innerQuantity(name string, v, w vectorOperand) (Value, error) {
 			sum = term
 			continue
 		}
-		added, err := addQuantities(ast.OpAdd, sum, term)
+		added, err := ctx.addQuantities(ast.OpAdd, sum, term)
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}
@@ -723,12 +727,31 @@ func innerQuantity(name string, v, w vectorOperand) (Value, error) {
 	return Value{Kind: ValConst, Const: sum.Num}, nil
 }
 
+// refusePointAxes refuses what over vectors whose axes are points on a scale:
+// such coordinates have no length or direction, only differences between them.
+func (ctx *Context) refusePointAxes(name, what string, vectors ...vectorOperand) error {
+	for _, v := range vectors {
+		if !v.hasUnits() {
+			continue
+		}
+		for i := 0; i < v.dimension(); i++ {
+			if err := ctx.refusePoints(name, what+" of a vector of points is undefined; take differences between points first", v.axis(i)); err != nil {
+				return functionError(name, err)
+			}
+		}
+	}
+	return nil
+}
+
 // vectorNorm is the norm (magnitude) of a vector, the square root of its inner
 // product with itself; the library declares it a Number, so a vector quantity's is
 // the magnitude in the unit of its first axis.
-func vectorNorm(name string, _ *Context, args []Value) (Value, error) {
+func vectorNorm(name string, ctx *Context, args []Value) (Value, error) {
 	v, err := readVector(name, `"v"`, args[0])
 	if err != nil {
+		return Value{}, err
+	}
+	if err := ctx.refusePointAxes(name, "a norm", v); err != nil {
 		return Value{}, err
 	}
 	reals, err := v.reals(name)
@@ -752,13 +775,16 @@ func euclideanNorm(elements []float64) float64 {
 // arccos(inner(v, w) / (norm(v) * norm(w))). A zero vector points nowhere, so
 // there is no angle to it. The ratio cancels any units, so a vector quantity's
 // angle is that of its magnitudes.
-func vectorAngle(name string, _ *Context, args []Value) (Value, error) {
+func vectorAngle(name string, ctx *Context, args []Value) (Value, error) {
 	vOperand, err := readVector(name, `"v"`, args[0])
 	if err != nil {
 		return Value{}, err
 	}
 	wOperand, err := readVector(name, `"w"`, args[1])
 	if err != nil {
+		return Value{}, err
+	}
+	if err := ctx.refusePointAxes(name, "an angle", vOperand, wOperand); err != nil {
 		return Value{}, err
 	}
 	if vOperand.dimension() != wOperand.dimension() {

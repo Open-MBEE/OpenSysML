@@ -66,17 +66,47 @@ Features:
   wheels = [Instance(ID: 2), Instance(ID: 3), Instance(ID: 4), Instance(ID: 5)]
     diameter = 16.0
     width = 7.5
+    ownedPorts = []
+    performedActions = []
+    ownedActions = []
+    exhibitedStates = []
+    ownedStates = []
+    shape = []
+    envelopingShapes = []
+    boundingShapes = []
+    voids = []
+    isSolid = true
+    subitems = []
+    subparts = []
+    checkedConstraints = []
     diameter = 16.0
     width = 7.5
-    diameter = 16.0
-    width = 7.5
-    diameter = 16.0
-    width = 7.5
+…
+  ownedPorts = []
+  performedActions = []
+  ownedActions = []
+  exhibitedStates = []
+  ownedStates = []
+  shape = []
+  envelopingShapes = []
+  boundingShapes = []
+  voids = []
+  isSolid = true
+  subitems = []
+  subparts = []
+  checkedConstraints = []
 
 sysml> %instances
 Instances:
   Vehicle (ID: 1)
 ```
+
+After the features the model declares come the ones every part carries from the standard
+library — `ownedPorts`, `subparts`, `isSolid` and the rest that `Parts::Part` and
+`Items::Item` declare — with their defaults; each wheel lists them too (the `…` above stands
+for the three wheels that repeat the first). A listing this size is bounded: `%features
+Vehicle depth 0` names the composite features without expanding them, and `%features Vehicle
+all` reads the whole tree out ([the REPL command reference](../reference/repl-commands.md)).
 
 ### Evaluate Expressions
 
@@ -142,13 +172,16 @@ Features:
   sensors = [Instance(ID: 2), Instance(ID: 3), Instance(ID: 4)]
     reading = 0.0
     threshold = 100.0
-    reading = 0.0
-    threshold = 100.0
-    reading = 0.0
-    threshold = 100.0
+    ownedPorts = []
+…
+    checkedConstraints = []
+  ownedPorts = []
+…
+  checkedConstraints = []
 ```
 
-A composite feature lists the features of each of its objects beneath it, in order.
+A composite feature lists the features of each of its objects beneath it, in order — the
+model's own first, then the library's, as above.
 
 ---
 

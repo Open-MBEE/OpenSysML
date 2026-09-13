@@ -41,6 +41,9 @@ public final class Capabilities {
   /** A valueless feature of a value type is reported as unset. */
   public static final String UNSET_VALUE = "unset_value";
 
+  /** A model-level result the model leaves open travels as itself rather than as an unsupported null. */
+  public static final String UNDETERMINED_VALUE = "undetermined_value";
+
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
 
@@ -64,6 +67,9 @@ public final class Capabilities {
 
   /** A tensor of quantities of any rank travels as itself rather than as an unsupported null. */
   public static final String TENSOR_VALUES = "tensor_values";
+
+  /** An element reflected on ({@code x meta T}) travels as a metaobject rather than as an unsupported null. */
+  public static final String METAOBJECT_VALUES = "metaobject_values";
 
   /** The {@code ApplyEdits} RPC edits a parsed model's own source. */
   public static final String APPLY_EDITS = "apply_edits";
@@ -91,6 +97,9 @@ public final class Capabilities {
 
   /** The execution responses report {@code final_time}, the run's simulation clock when it ended, in seconds. */
   public static final String FINAL_TIME = "final_time";
+
+  /** {@code ListEngines}, the {@code engine} field selecting an analysis engine, and {@code engine}, {@code strength} and {@code bounds} on the answers. */
+  public static final String ENGINES = "engines";
 
   private final String serviceVersion;
   private final Set<String> names;

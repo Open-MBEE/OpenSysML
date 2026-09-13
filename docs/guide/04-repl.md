@@ -128,8 +128,18 @@ reports this:
 
 ```
 sysml> %load a.sysml b.sysml
-note: P is opened by more than one loaded file; each opening stays a declaration of its own, so a
-member of one is not visible unqualified in the other — qualify it (P::member)
+loaded 2 files:
+  a.sysml
+  b.sysml
+a.sysml:1:9: warning: Duplicate of other owned member name
+package P { part def A; }
+        ^
+b.sysml:1:9: warning: Duplicate of other owned member name
+package P { part def B; }
+        ^
+✓ package P
+✓ package P
+note: P is opened by more than one loaded file; each opening stays a declaration of its own, so a member of one is not visible unqualified in the other — qualify it (P::member)
 ```
 
 Each file keeps its own identity, which is what lets you reload one of them and replace only
@@ -152,6 +162,19 @@ sysml> %search Vehicle
 sysml> %builtins
 sysml> %view Demo::summary
 ```
+
+`%engines` lists the analysis engines the build answers checks with — `run` for one execution,
+`explore` for every linearization, `sweep` for a table, `solve` for the SMT solver, one
+`tool:<name>` per external tool the manifest directory `OPENSYSML_TOOLS` names and one engine
+per file of `OPENSYSML_ENGINES`, each with the strongest evidence it can produce and whether
+its process was found — and `%engine` picks the one the checks that follow are put to
+(`%engine solve`, `%engine spin-bridge` for an external engine, `%engine all` for every engine
+that covers the question, `%engine auto` for the default). Listing starts nothing; `%engines
+probe` starts each external engine once to check that it describes itself as its manifest does.
+Every verdict is followed by its `standing:` line, saying which engine answered and how strong
+the evidence is; an external engine's is the strength the interpreter's replay of its witness
+earned, whatever the engine claimed ([Analysis engines](../reference/cli.md#analysis-engines),
+[External engines](../reference/external-engines.md)).
 
 `%view <name>` reports the elements a view exposes, the views nested inside it, and whether it
 conforms to the viewpoints it satisfies. Conformance checking is read-only and reported in
@@ -223,9 +246,9 @@ sysml> package Demo {
 sysml> %view Demo::report
 view Demo::report
   exposes
-    Demo::vehicle (partUsage)
+    Demo::vehicle (part)
   nested views
-    Demo::report::detail (viewUsage)
+    Demo::report::detail (view)
   viewpoint conformance
     satisfy structure (from Demo::StructureView): violated
       concern budget: violated
@@ -250,11 +273,11 @@ sysml> %render Demo::summary
 Demo::summary - tree rendering (the view states no rendering; a tree is the default)
 
 part def Demo::Vehicle
-  attribute mass (Real)
-  part wheel (Wheel)
+  attribute mass : Real
+  part wheel : Wheel
 view Demo::summary::detail
   part def Demo::Wheel
-    attribute diameter (Real)
+    attribute diameter : Real
 ```
 
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
@@ -262,8 +285,11 @@ exposed elements, what they declare, and the views nested inside the rendered vi
 
 `%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, and
 `%render <name> markdown` writes a table as a Markdown table. Either can be pasted straight
-into a Markdown document or an editor. If you ask for a form the rendering kind does not
-support, the REPL tells you which form it does support. State and action renderings read the
+into a Markdown document or an editor. A diagram node is labelled the way the graphical notation
+heads a compartment — the name first, `wheel : Wheel`, then the kind in guillemets, `«part»`, on
+the next line — while the text form above keeps the keyword leading, as the notation declares it.
+If you ask for a form the rendering kind does not support, the REPL tells you which form it does
+support. State and action renderings read the
 lowered graphs the runtime executes, so the picture reflects what actually runs. The rendering
 itself is specific to this implementation, because SysML v2 §10.2 specifies the notation rather
 than how a tool draws it.
@@ -344,6 +370,7 @@ completes them: `#` offers the ids there are, `car.` the objects `car` holds.
 | which values are best for an analysis case's objectives (experimental, needs [z3](01-install.md#installing-a-solver-optional)) | `%optimize` | [reference](../reference/repl-commands.md) |
 | what a behavior does, step by step | `%action`, `%state`, `%step`, `%tokens`, `%advance` | [6](06-behavior.md) |
 | whether a result depends on the order the run happened to take, and how to replay another | `%schedule`, `%trace` | [6](06-behavior.md#when-a-model-has-more-than-one-valid-run) |
+| which engine answered a check, how strong its evidence is, and which engines the build has | `%engines`, `%engine` | [reference](../reference/cli.md#analysis-engines) |
 | where a run stopped and why | `%trace`, `%budget`, `%verbosity` | [10](10-troubleshooting.md) |
 | whether what is typed is conforming SysML v2 | `%strict` | [3](03-command-line.md#strict-conformance) |
 

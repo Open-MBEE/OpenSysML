@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Go", "args": null},
+    {"signal": "Back", "args": null},
+    {"signal": "Next", "args": null},
+    {"signal": "Leave", "args": null},
+    {"signal": "Back", "args": null},
+    {"signal": "Finish", "args": null}
+  ],
+  "finalState": "done",
+  "stateVisits": ["start", "away", "outer", "middle", "inner", "innerTwo", "away", "outer", "middle", "innerTwo", "done"],
+  "outputs": {}
+}

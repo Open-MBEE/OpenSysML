@@ -3,12 +3,12 @@ package AnonymousAssertions {
     constraint def MassConstraint {
         in attribute total : MassValue;
         in attribute limit : MassValue;
-        total <= limit;
+        total <= limit
     }
     constraint massConstraint : MassConstraint {
         in attribute total : MassValue;
         in attribute limit : MassValue;
-        total <= limit;
+        total <= limit
     }
     part def Vehicle {
         attribute mass : MassValue;
@@ -18,7 +18,7 @@ package AnonymousAssertions {
             in limit = maxMass;
         }
         assert constraint {
-            mass <= maxMass;
+            mass <= maxMass
         }
         assert not constraint tooHeavy : MassConstraint {
             in total = mass;

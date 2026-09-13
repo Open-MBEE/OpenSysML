@@ -136,6 +136,11 @@ func (a *ConnectAdapter) RunSweep(ctx context.Context, req *connect.Request[pb.R
 	return connectCall(ctx, req, a.svc.RunSweep)
 }
 
+// ListEngines lists the analysis engines this build registers.
+func (a *ConnectAdapter) ListEngines(ctx context.Context, req *connect.Request[pb.ListEnginesRequest]) (*connect.Response[pb.ListEnginesResponse], error) {
+	return connectCall(ctx, req, a.svc.ListEngines)
+}
+
 // Query evaluates a SysML v2 API & Services Query over a parsed model.
 func (a *ConnectAdapter) Query(ctx context.Context, req *connect.Request[pb.QueryRequest]) (*connect.Response[pb.QueryResponse], error) {
 	return connectCall(ctx, req, a.svc.Query)

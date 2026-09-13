@@ -59,8 +59,8 @@ func binding(parameter string, values ...*pb.DocumentValue) *pb.DocumentQueryBin
 
 // protoMagnitude reads a quantity's magnitude whichever arm carries it.
 func protoMagnitude(q *pb.Quantity) float64 {
-	if real, ok := q.GetMagnitude().(*pb.Quantity_RealMagnitude); ok {
-		return real.RealMagnitude
+	if realMag, ok := q.GetMagnitude().(*pb.Quantity_RealMagnitude); ok {
+		return realMag.RealMagnitude
 	}
 	return float64(q.GetIntMagnitude())
 }

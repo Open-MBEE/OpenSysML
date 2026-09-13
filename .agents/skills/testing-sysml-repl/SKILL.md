@@ -5,6 +5,131 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Action checker and witness replay
+
+- Low-level runtime conformance fixtures may omit scalar imports because their
+  harness builds a runtime directly. Before using one through the validating CLI
+  or `%load`, make a scratch copy with `private import ScalarValues::*;` inside
+  its package if needed. Do not edit the original fixture to make a demo pass.
+- `action_fork_branches_write_one_feature.sysml` has action `test::clash`;
+  `action_join_waits_for_slowest_branch.sysml` has `test::gather`. With imports
+  complete, the former checks divergent `x=1,2` and the latter agrees on
+  `arrived=3; seen=3`. Generate witnesses in a fresh scratch directory.
+- A witness has choice lines, a blank line, then the trace. Compare the entire
+  suffix to ordinary `-trace -schedule replay:<file>` output after removing
+  `[trace] ` prefixes. Test both syntax-invalid witnesses and a syntactically
+  valid header naming a token absent from the run.
+- `%replay` does not switch the analysis engine: use `%engine auto` before
+  `%action`/`%step`/`%continue` to step rather than search again.
+  `-engine check file.sysml` alone preselects the engine in an interactive
+  session; missing-action validation is reached when a check is requested.
+- For a CLI reduction comparison, `por_independent_branches.sysml` needs
+  `-schedule explore:runs=10000` to finish its 2520 linearizations; the default
+  1024-run exploration stops incomplete. Compare outcome values as well as
+  counts, and inspect the JSON `exploration.complete` field.
+- State-only conformance cases under this action-only checker are refused at
+  the engine/question boundary. That is not proof of reaching the lower-level
+  paused-body snapshot refusal; distinguish those two kinds of coverage.
+
+### Devin Secrets Needed
+
+None for local checker and witness replay testing.
+
+## Choice-pseudostate scheduling across driver surfaces
+
+For a library-backed CLI fixture, import `ScalarValues::*` and `SI::*`; use
+`accept after 1 [s]`, not the unitless trigger accepted by some isolated runtime
+test fixtures. A timer lets identical models run in REPL and CLI without signal
+injection flags. Put `do assign x := 8` on the incoming transition and two guards
+`x > 5` and `x > 7` after `choice pick;` to distinguish dynamic choice guards
+from pre-effect evaluation.
+
+Use `%trace on`, `%state P::Machine`, `%advance 1`, `%current`. `%schedule
+explore` may explicitly refuse at the prompt: use CLI `-schedule explore
+-state P::Machine -advance 1 -trace model.sysml` for the outcome/witness table.
+Copy `choice pick -> 2->right` into a witness file and select it via `%schedule
+replay:<file>` before a fresh `%state`. Default policy is named `reverse`,
+but a choice's default branch is still the first enabled declared branch.
+
+Make replay rejection load-bearing: declare a third, disabled branch and replay
+its exact label while two other branches stay enabled. Check both the absence of
+successful branch execution and `is not enabled`; some driver paths may fail to
+surface scheduler refusal. Repeat in a fresh CLI process, check its exit status,
+and compare a signal-driven `%send Go` / `%step` to timer-driven `%advance`.
+Also put a disabled branch *before* two enabled branches to verify witness
+labels keep original declaration positions (`2->left`, `3->right`).
+The text trace alone does not prove ChoicePoint File/Span or Go error identity.
+
+### Devin Secrets Needed
+
+None for local choice-pseudostate CLI/REPL testing.
+
+## Model-level uncertainty versus object-level empty values
+
+Use `cmd/pilot-exec-diff/testdata/models/undetermined_operands.sysml` to
+contrast model and object evaluation without inventing a fixture. Before
+instantiation, `%eval U::u` and
+`%eval SequenceFunctions::size(T::rack.gear)` answer `<undetermined>`,
+while `(U::u > 3) and false` answers `false` and the size of `T::rack.slots`
+is `3`. Use fully qualified operands/functions when the file has multiple
+packages.
+
+After `%instantiate T::rack`, `%eval T::rack.loose` answers `[]`, not
+`<unset>`: an optional multi-valued part is an empty sequence. Pin the
+object explicitly with `%eval in T::rack : SequenceFunctions::size(loose)`
+to observe `0`. `%features T::rack` prints many inherited nested features;
+capture a short `%eval` result separately so it is not scrolled off-screen.
+
+The Python `Model.eval("U::u")` result is `opensysml.Undetermined`, distinct
+from `UNSET` and `None`; `bool()` must raise TypeError. Check the advertised
+`undetermined_value` capability and raw `Value.undetermined` count bounds
+for `U::u` (`1..1`), `T::rack.gear` (`1..*`), and `T::rack.loose` (`0..2`)
+to distinguish typed transport from a string-only rendering.
+
+## Error-model lookup order and bounded walking
+
+Use real-service fixtures that distinguish an empty Query from an incomplete
+Query. `package Demo { attribute :>> mass; part def Part { attribute mass; } }`
+has an unresolved outer `Demo::mass` with SymbolInfo name `mass`, while the
+effective-name Query sees only `Demo::Part::mass`. Lookup must agree with an
+independent BFS and select the outer symbol despite the nonempty Query.
+
+Also test the inclusive depth boundary: declare `part def First { attribute
+:>> mass; }` before `part def Second { attribute mass; }` in Demo. The hidden
+`Demo::First::mass` must win over the visible, same-depth `Demo::Second::mass`.
+Inspect `model.root.id`: a real file root can be `""`, adding a BFS level not
+represented by a nonempty owner ID. Do not infer tree depth from ID separators.
+
+Count real GetSymbol requests with a transparent delegating observer on
+`Connection._service`. Take counts before independent BFS warms child caches.
+When comparing many lookups, create a fresh `Model(model._pb, connection)` for
+each cold lookup. In a bounded-walk fixture, place hundreds of descendants
+below the best candidate; assert that no descendant IDs are fetched, rather
+than judging boundedness only from wall-clock timing. Clean shared names can
+need owner Query requests; a unique name is the one-Query/one-GetSymbol control.
+
+An equivalence corpus should separately report erroring files, not simply a
+total lookup count. Files from a multi-file example loaded individually may
+provide useful real unresolved-reference cases. Preserve their diagnostics
+instead of silently skipping them.
+
+## Unicode unit expressions in a GUI terminal
+
+Synthetic keyboard typing can corrupt middle dots and superscript minus signs
+in unit names before the REPL receives them. Use a UTF-8 clipboard instead:
+`printf '%s\n' "<command>" | xclip -selection primary`, then middle-click the
+xterm. Compare exact-input CLI results before treating a GUI parse failure as
+a product bug. If xclip is absent and system installs are unavailable,
+`apt-get download xclip` and `dpkg-deb -x <deb> <scratch-dir>` provide a local
+binary without changing the system. Maximize the active window with
+`wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz`; shell startup may
+overwrite xterm's requested title, so title-based matching can fail.
+
+Coherent-quantity probes should distinguish named-unit selection from fallback:
+an untyped inverse second may remain `1/s` because Hz and Bq measure different
+kinds; an unlisted dimension stays a base-unit product. Include both prefixed
+and unprefixed inputs to check the magnitude, not just the displayed unit.
+
 ## Exploration scheduling
 
 Use `internal/core/runtime/testdata/conformance/action_explore_three_writers.sysml`

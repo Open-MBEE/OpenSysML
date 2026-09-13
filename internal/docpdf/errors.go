@@ -18,7 +18,7 @@ const (
 	ErrorToolFailed ErrorKind = "tool-failed"
 	// ErrorNoPDF reports a converter that succeeded without producing a PDF.
 	ErrorNoPDF ErrorKind = "no-pdf"
-	// ErrorUnclosedFence reports a Mermaid fence the Markdown never closes.
+	// ErrorUnclosedFence reports a diagram fence the Markdown never closes.
 	ErrorUnclosedFence ErrorKind = "unclosed-fence"
 	// ErrorDanglingCaption reports a caption marker not followed by a
 	// fully-emphasized caption line.
@@ -73,7 +73,7 @@ func (e *Error) Error() string {
 	case ErrorNoPDF:
 		return fmt.Sprintf("%s reported success but wrote no PDF", e.Tool)
 	case ErrorUnclosedFence:
-		return "the document's Markdown opens a Mermaid fence it never closes"
+		return "the document's Markdown opens a diagram fence it never closes"
 	case ErrorDanglingCaption:
 		return "the document's Markdown has a caption marker without a caption line after it"
 	default:

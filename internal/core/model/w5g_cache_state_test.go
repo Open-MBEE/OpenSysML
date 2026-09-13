@@ -34,13 +34,15 @@ func diagnosticsColdAndWarm(t *testing.T, name, src string) (cold, warm []string
 // A redefinition whose target lives beyond the first cached library parent —
 // on a grandparent the walk only reaches by following the restored symbol's
 // own specialization edges — resolves the same on a cold cache and a warm one.
-// One case per chain the deleted hardcoded parent map used to fake.
+// One case per chain the deleted hardcoded parent map used to fake. A flow
+// definition specializes Flows::Message only once it has two ends; with none it
+// is a Flows::MessageAction, which has no sourceEvent or payloadNum.
 func TestW5GRedefinitionThroughCachedLibraryChainIsCacheStateIndependent(t *testing.T) {
 	cases := []struct{ name, member string }{
 		{"Parts::Part to Items::Item", "part def P { item :>> shape; }"},
 		{"Items::Item to Occurrences::Occurrence", "item def I { ref :>> localClock; }"},
-		{"Flows::Flow to Flows::Message", "flow def F { ref :>> sourceEvent; }"},
-		{"Flows::Message to Transfers::Transfer", "flow def F2 { attribute :>> payloadNum; }"},
+		{"Flows::flows to Flows::Message", "flow f { in ref :>> sourceEvent; }"},
+		{"Flows::Message to Transfers::Transfer", "flow def F2 { end a; end b; ref :>> payloadNum; }"},
 		{"Connections::Connection to Links::Link", "connection def C { ref :>> participant; }"},
 		{"Links::Link to Occurrences::Occurrence", "connection def C2 { ref :>> suboccurrences; }"},
 	}

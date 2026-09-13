@@ -71,7 +71,7 @@ func qualifiedImportRuntime(t *testing.T) (*Context, *symbols.Scope, []string) {
 	t.Helper()
 	file := parseAndBuild(t, qualifiedImportModel)
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
-	ctx.resolver.ResolveDocument("<test>", file)
+	ctx.model.resolver.ResolveDocument("<test>", file)
 	root := idx.DocumentRoot("<test>")
 	probes, ok := root.LookupLocal("probes")
 	if !ok || probes.Decl == nil {
@@ -79,7 +79,7 @@ func qualifiedImportRuntime(t *testing.T) (*Context, *symbols.Scope, []string) {
 	}
 	within := probes.Decl.Span()
 	var checked []string
-	for _, d := range ctx.resolver.Diagnostics {
+	for _, d := range ctx.model.resolver.Diagnostics {
 		if d.Span.Offset >= within.Offset && d.Span.End() <= within.End() {
 			checked = append(checked, d.Message)
 		}
@@ -257,15 +257,13 @@ func TestQualifiedNameThroughImportKeepsTypedErrors(t *testing.T) {
 // TestLibraryQuantityThroughFacadeResolves reaches a library quantity through
 // the ISQ and SI façades, which re-export the ISQ part packages: the name
 // resolves to the declaration its home package answers with, so the evaluator
-// answers with that declaration — a valueless `[*]` quantity, read as empty —
-// rather than a missing member.
+// answers with that declaration — a valueless `[*]` quantity, undetermined at
+// model level — rather than a missing member.
 func TestLibraryQuantityThroughFacadeResolves(t *testing.T) {
 	ctx, root, _ := qualifiedImportRuntime(t)
 	for _, src := range []string{"ISQSpaceTime::speed", "ISQ::speed", "SI::speed"} {
 		val, err := evalIn(t, ctx, root, src)
-		if err != nil || elementCount(&val) != 0 {
-			t.Errorf("%s = (%s, %v), want the empty sequence the valueless [*] quantity holds", src, FormatValue(val), err)
-		}
+		wantUndetermined(t, src, val, err, "[0..*]")
 	}
 	val, err := evalIn(t, ctx, root, "TrigFunctions::pi")
 	if err != nil || !strings.HasPrefix(FormatValue(val), "3.14159") {
@@ -282,7 +280,7 @@ func TestQualifiedNameEvaluatedInSeveralScopes(t *testing.T) {
 		package Two { package A { attribute x = 2; } }
 	`)
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
-	ctx.resolver.ResolveDocument("<test>", file)
+	ctx.model.resolver.ResolveDocument("<test>", file)
 	root := idx.DocumentRoot("<test>")
 	scopes := map[string]*symbols.Scope{}
 	for _, name := range []string{"One", "Two"} {
@@ -306,7 +304,7 @@ func TestQualifiedNameEvaluatedInSeveralScopes(t *testing.T) {
 			}
 		}
 	}
-	if n := len(ctx.resolver.Diagnostics); n != 0 {
-		t.Errorf("evaluation reported %d resolver diagnostics: %v", n, ctx.resolver.Diagnostics)
+	if n := len(ctx.model.resolver.Diagnostics); n != 0 {
+		t.Errorf("evaluation reported %d resolver diagnostics: %v", n, ctx.model.resolver.Diagnostics)
 	}
 }

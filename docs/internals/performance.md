@@ -3,7 +3,9 @@
 How to profile `sysml`, what a large model costs today, and what the measurements
 say about where the remaining cost is. Figures below were taken on an
 `Intel Xeon Platinum 8559C`, Go 1.25, `GOMAXPROCS=8`; treat them as
-ratios rather than absolutes.
+ratios rather than absolutes. Each release is measured against the one before it
+in a record under `docs/project/`; the latest is
+[release 0.8.0 against release 0.7.0](../project/performance-release-0.8-vs-0.7.0.md).
 
 ## Profiling a run
 

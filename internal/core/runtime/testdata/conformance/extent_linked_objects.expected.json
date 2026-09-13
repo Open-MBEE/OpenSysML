@@ -1,0 +1,15 @@
+{
+  "type": "action",
+  "evaluate": "test::link",
+  "libraries": true,
+  "outputs": {
+    "chained": {"type": "Sequence", "elements": [
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true}
+    ]}
+  }
+}

@@ -45,10 +45,10 @@ func predicateKind(sym *symbols.Symbol) string {
 // predicateShapeOf is the memoized invocation interface of the predicate sym:
 // its parameters, the subject first; its conditions stand for a body.
 func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
-	if cached, ok := ctx.predicateShapes[sym]; ok {
+	if cached, ok := ctx.model.predicateShapes[sym]; ok {
 		return cached
 	}
-	supers := ctx.model.MemberSources(sym)
+	supers := ctx.model.semantics.MemberSources(sym)
 	chain := make([]*symbols.Symbol, 0, len(supers)+1)
 	for i := len(supers) - 1; i >= 0; i-- {
 		if supers[i] != nil && isPredicateDecl(supers[i].Decl) && !ctx.frameDeclared(supers[i]) {
@@ -59,7 +59,7 @@ func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
 	name := ctx.qualifiedSymbolName(sym)
 	if sym.Name == "" {
 		// An anonymous usage answers to the name it redefines (`objective : MinimizeObjective;`).
-		name += ctx.model.EffectiveNameOf(sym)
+		name += ctx.model.semantics.EffectiveNameOf(sym)
 	}
 	shape := &calcShape{Sym: sym, Name: name, Kind: predicateKind(sym), Label: predicateKind(sym) + " " + name}
 	shape.Params = ctx.calcParameters(chain, &shape.Aliases)
@@ -67,7 +67,7 @@ func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
 	for i, param := range shape.Params {
 		shape.ParamNames[i] = param.Name
 	}
-	ctx.predicateShapes[sym] = shape
+	ctx.model.predicateShapes[sym] = shape
 	return shape
 }
 
@@ -114,7 +114,7 @@ func (ec *EvalContext) invokePredicate(sym *symbols.Symbol, args calcArgs) (Valu
 		sym:      sym,
 		kind:     shape.Kind,
 		what:     "require condition",
-		element:  ctx.model.EffectiveNameOf(sym),
+		element:  ctx.model.semantics.EffectiveNameOf(sym),
 		self:     ec.self,
 		bindings: env,
 		negated:  NegatedDecl(sym),

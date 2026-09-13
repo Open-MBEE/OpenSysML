@@ -1,0 +1,48 @@
+@startuml
+' OrderingViews::deadlockView — sequence rendering (view def SequenceView)
+' not represented: successions form a cycle (answering, heard to sent); the messages are shown in declaration order
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+participant "**near**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>>
+participant "**far**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+n0 -> n1 : ask
+n1 -> n0 : reply
+@enduml

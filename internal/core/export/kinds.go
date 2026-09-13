@@ -314,8 +314,8 @@ func init() {
 	}
 }
 
-// relationshipOrder is the order relationships are written back into a
-// declaration head; typing comes first because it is the ':' clause.
+// relationshipOrder is the canonical order of a head's relationships, in the
+// graph and in the notation written back; typing comes first as the ':' clause.
 var relationshipOrder = []ast.RelationshipKind{
 	ast.RelTyping,
 	ast.RelSpecializes,

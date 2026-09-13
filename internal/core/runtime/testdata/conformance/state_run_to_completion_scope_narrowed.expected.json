@@ -1,0 +1,5 @@
+{
+  "type": "instance",
+  "instantiate": "test::ctl",
+  "error": "exhibited state machine mode of ctl: lower state machine: unsupported state machine content: the state idle redefines runToCompletionScope = self, narrowing the scope to that state, which the runtime cannot honor: the whole state machine is the run-to-completion scope (Occurrences::Occurrence::runToCompletionScope default self)"
+}

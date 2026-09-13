@@ -564,6 +564,142 @@
           "result"
         ]
       }
+    },
+    {
+      "id": "evaluate_calc/a_metaobject_argument_names_the_element_it_reflects",
+      "description": "A metaobject sent back is bound to the element its element_id names, so identity against a metaobject the calc computes itself holds whatever metaclass either was cast to.",
+      "rpc": "EvaluateCalc",
+      "requires_capabilities": [
+        "metaobject_values"
+      ],
+      "model": {
+        "fixture": "metaobject.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Meta::sameElement",
+        "arguments": [
+          {
+            "metaobject": {
+              "element_id": "Meta::seatBelt",
+              "metaclass_id": "SysML::Systems::PartUsage"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "bool_value": true
+          }
+        },
+        "absent": [
+          "error"
+        ]
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "metaobject_values"
+      }
+    },
+    {
+      "id": "evaluate_calc/a_metaobject_argument_reads_its_reflective_features",
+      "description": "The reflective features of a metaobject argument are read from the receiving model, so only the element's identity crosses the wire.",
+      "rpc": "EvaluateCalc",
+      "requires_capabilities": [
+        "metaobject_values"
+      ],
+      "model": {
+        "fixture": "metaobject.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Meta::nameOf",
+        "arguments": [
+          {
+            "metaobject": {
+              "element_id": "Meta::seatBelt"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "string_value": "seatBelt"
+          }
+        },
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
+      "id": "evaluate_calc/a_metaobject_naming_no_element_of_the_model_fails_in_band",
+      "description": "A metaobject whose element_id names nothing in the model cannot be bound; the calc reports the failure rather than binding a guess.",
+      "rpc": "EvaluateCalc",
+      "requires_capabilities": [
+        "metaobject_values"
+      ],
+      "model": {
+        "fixture": "metaobject.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Meta::nameOf",
+        "arguments": [
+          {
+            "metaobject": {
+              "element_id": "Meta::nobody"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains": {
+          "error": "Meta::nobody"
+        },
+        "response": {
+          "failure_reason": "FAILURE_REASON_EVALUATION"
+        },
+        "absent": [
+          "result"
+        ]
+      }
+    },
+    {
+      "id": "evaluate_calc/a_metaobject_under_a_metaclass_that_does_not_classify_its_element_fails_in_band",
+      "description": "element_id is the identity and metaclass_id must agree with the model; a metaclass the element is not an instance of is refused rather than trusted.",
+      "rpc": "EvaluateCalc",
+      "requires_capabilities": [
+        "metaobject_values"
+      ],
+      "model": {
+        "fixture": "metaobject.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Meta::nameOf",
+        "arguments": [
+          {
+            "metaobject": {
+              "element_id": "Meta::seatBelt",
+              "metaclass_id": "SysML::Systems::PartDefinition"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains": {
+          "error": "SysML::Systems::PartDefinition"
+        },
+        "response": {
+          "failure_reason": "FAILURE_REASON_EVALUATION"
+        },
+        "absent": [
+          "result"
+        ]
+      }
     }
   ]
 }

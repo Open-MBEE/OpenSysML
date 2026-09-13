@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // registerNamedOperatorBuiltins adds the function-call forms of the operators
@@ -57,12 +59,35 @@ func (ec *EvalContext) evalDeferred(op string, val Value) (Value, error) {
 	return ec.applyBody(val)
 }
 
+// deferredCount is how many values evalDeferred would yield for val, as far as the
+// declarations fix that without evaluating it: `[0..*]` where they leave it open.
+func (ec *EvalContext) deferredCount(val Value) semantics.Range {
+	if val.Kind != ValExpr {
+		return countOf(val)
+	}
+	env := val.exprEnv(ec)
+	body, ok := val.Expr().(*ast.BodyExpr)
+	if !ok {
+		return ec.declaredCount(env.scope, val.Expr())
+	}
+	if body.Result == nil || env.scope == nil {
+		return openRange()
+	}
+	return ec.declaredCount(symbols.BodyExprScope(env.scope, body), body.Result)
+}
+
 // builtinControlIf is ControlFunctions::'if'(test, thenValue, elseValue): the
 // selected branch alone is evaluated, and an omitted branch is null.
 func builtinControlIf(ec *EvalContext, args []Value) (Value, error) {
 	const op = "ControlFunctions::'if'"
 	if err := checkArity(op, args, 3); err != nil {
 		return Value{}, err
+	}
+	if args[0].Kind == ValUndetermined {
+		if err := ec.ctx.openBoolOperand("test of "+op, args[0]); err != nil {
+			return Value{}, err
+		}
+		return undeterminedOf(ec.deferredCount(args[1]).Covering(ec.deferredCount(args[2])), args[0]), nil
 	}
 	held, err := boolOperand("test of "+op, args[0])
 	if err != nil {
@@ -82,7 +107,8 @@ func builtinControlNullCoalesce(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	return coalesceNull(args[0], func() (Value, error) { return ec.evalDeferred(op, args[1]) })
+	second := func() (Value, error) { return ec.evalDeferred(op, args[1]) }
+	return coalesceNull(args[0], second, ec.deferredCount(args[1]))
 }
 
 // builtinControlLogical is ControlFunctions::'and', 'or' or 'implies': the
@@ -95,26 +121,28 @@ func builtinControlLogical(op ast.OperatorKind) builtinFunc {
 		if err := checkArity(name, args, 2); err != nil {
 			return Value{}, err
 		}
-		l, err := boolOperand("firstValue of "+name, args[0])
-		if err != nil {
-			return Value{}, err
-		}
-		if decided, result := shortCircuit(op, l); decided {
-			return boolValue(result), nil
+		if args[0].Kind == ValUndetermined {
+			if err := ec.ctx.openBoolOperand("firstValue of "+name, args[0]); err != nil {
+				return Value{}, err
+			}
+		} else {
+			l, err := boolOperand("firstValue of "+name, args[0])
+			if err != nil {
+				return Value{}, err
+			}
+			if decided, result := shortCircuit(op, l); decided {
+				return boolValue(result), nil
+			}
 		}
 		if args[1].Kind == ValNull {
-			return Value{}, fmt.Errorf("%w: %s(%t) is decided by secondValue, which was not given; the result is Boolean[1]",
-				ErrMultiplicityViolation, name, l)
+			return Value{}, fmt.Errorf("%w: %s(%s) is decided by secondValue, which was not given; the result is Boolean[1]",
+				ErrMultiplicityViolation, name, FormatValue(args[0]))
 		}
 		second, err := ec.evalDeferred(name, args[1])
 		if err != nil {
 			return Value{}, err
 		}
-		r, err := boolOperand("secondValue of "+name, second)
-		if err != nil {
-			return Value{}, err
-		}
-		return combineBooleans(op, l, r)
+		return ec.ctx.combineBooleanValues(op, args[0], second)
 	}
 }
 
@@ -130,19 +158,19 @@ func builtinSequenceConcat(ec *EvalContext, args []Value) (Value, error) {
 // builtinNumericalSum0 is NumericalFunctions::sum0(collection, zero):
 // `collection->reduce '+' ?? zero`, so an empty collection is the zero given.
 func builtinNumericalSum0(ec *EvalContext, args []Value) (Value, error) {
-	return aggregateWithIdentity("NumericalFunctions::sum0", "zero", args, ast.OpAdd)
+	return ec.ctx.aggregateWithIdentity("NumericalFunctions::sum0", "zero", args, ast.OpAdd)
 }
 
 // builtinNumericalProduct1 is NumericalFunctions::product1(collection, one):
 // `collection->reduce '*' ?? one`.
 func builtinNumericalProduct1(ec *EvalContext, args []Value) (Value, error) {
-	return aggregateWithIdentity("NumericalFunctions::product1", "one", args, ast.OpMul)
+	return ec.ctx.aggregateWithIdentity("NumericalFunctions::product1", "one", args, ast.OpMul)
 }
 
 // aggregateWithIdentity folds a collection under op from its first element, and
 // answers the identity given for an empty one. The library asserts the identity
 // is one (`inv { isZero(zero) }`), so another value is reported.
-func aggregateWithIdentity(op, param string, args []Value, operator ast.OperatorKind) (Value, error) {
+func (ctx *Context) aggregateWithIdentity(op, param string, args []Value, operator ast.OperatorKind) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
@@ -158,7 +186,7 @@ func aggregateWithIdentity(op, param string, args []Value, operator ast.Operator
 	if len(elementsOf(args[0])) == 0 {
 		return identity, nil
 	}
-	return aggregate(op, args[:1], operator, false)
+	return ctx.aggregate(op, args[:1], operator, false)
 }
 
 // isIdentityElement reports whether val is the additive (0) or multiplicative

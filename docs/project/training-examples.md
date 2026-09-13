@@ -12,7 +12,7 @@ Defects found in OMG material *outside* this corpus — a wrong declaration in a
 specification library rather than a model using it — are recorded in
 [omg-issues.md](omg-issues.md), so there is one place to look for both.
 
-These training examples are from the official OMG pilot implementation and are not vendored here. Run `./scripts/download-training-examples.sh` to fetch the pinned (`2026-07`) copy into `examples/sysml-v2-training/`; the tests that read it skip while it is absent.
+These training examples are from the official OMG pilot implementation and are not vendored here. Run `./scripts/download-training-examples.sh` to fetch the pinned (`2026-08`) copy into `examples/sysml-v2-training/`; the tests that read it skip while it is absent.
 
 CI is not allowed that skip. `.github/workflows/pr.yml` runs the download script before the
 suite and exports `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, under which a missing or empty
@@ -603,7 +603,7 @@ one cache directory and fails if any file's diagnostics differ between the two.
 
 ## Conclusion
 
-**Implementation Status**: Core behavioral semantics complete (671/671 execution conformance cases passing).
+**Implementation Status**: Core behavioral semantics complete (889/889 execution conformance cases passing).
 
 **Training Example Status**: 100/100 clean. The last two files were false positives of ours, not
 OMG bugs: `start` and `done` are declared by `Items::Item` and redefined by `Parts::Part`, and every

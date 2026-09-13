@@ -15,10 +15,10 @@ const (
 // holdsSet reports whether a multi-valued feature of typeSym holds a set rather
 // than a sequence (semantics.Model.HoldsSet); a single-valued feature holds neither.
 func (ctx *Context) holdsSet(feat, typeSym *symbols.Symbol, mult semantics.Range) bool {
-	if feat == nil || ctx.model == nil || !mult.Upper.Infinite && mult.Upper.Value <= 1 {
+	if feat == nil || ctx.model.semantics == nil || !mult.Upper.Infinite && mult.Upper.Value <= 1 {
 		return false
 	}
-	return ctx.model.HoldsSet(feat, typeSym)
+	return ctx.model.semantics.HoldsSet(feat, typeSym)
 }
 
 // specializes reports whether sym is general, or has it among its supertypes.
@@ -29,7 +29,7 @@ func (ctx *Context) specializes(sym, general *symbols.Symbol) bool {
 	if sym == general {
 		return true
 	}
-	for _, sup := range ctx.model.AllSupertypes(sym) {
+	for _, sup := range ctx.model.semantics.AllSupertypes(sym) {
 		if sup == general {
 			return true
 		}
@@ -38,9 +38,9 @@ func (ctx *Context) specializes(sym, general *symbols.Symbol) bool {
 }
 
 // collectionOf is the collection a multi-valued feature holds the elements as.
-func collectionOf(feat *EffectiveFeature, elements []Value) Value {
+func (ctx *Context) collectionOf(feat *EffectiveFeature, elements []Value) Value {
 	if feat.HoldsSet {
-		return setOf(elements)
+		return ctx.setOf(elements)
 	}
 	return sequenceOf(elements)
 }
@@ -57,7 +57,7 @@ func (ctx *Context) declaredCollection(sym *symbols.Symbol, val Value) Value {
 		return val
 	}
 	if holds := ctx.holdsSet(sym, ctx.findOwnerType(sym), mult); holds != (val.Kind == ValSet) {
-		return collectionOf(&EffectiveFeature{HoldsSet: holds}, elementsOf(val))
+		return ctx.collectionOf(&EffectiveFeature{HoldsSet: holds}, elementsOf(val))
 	}
 	return val
 }

@@ -203,7 +203,7 @@ func TestDeclaredReaderAgreesWithTheRun(t *testing.T) {
 	pkg, _ := root.LookupLocal("DerivedRepro")
 	rocket := symbolAt(t, resolver, pkg.Scope, "rocket")
 
-	ctx := NewContext(model, resolver, DefaultMaxSteps)
+	ctx := NewContext(NewModel(model, resolver), DefaultMaxSteps)
 	inst, err := ctx.Instantiate(rocket)
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)

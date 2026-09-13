@@ -1,0 +1,821 @@
+package runtime
+
+import (
+	"errors"
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+)
+
+// The `replay:<file>` policy fixes a witness's input lines before the run's first move, follows
+// its choice lines move for move, then behaves as `reverse`; a move the run cannot make where
+// the witness makes it is refused, naming the move, as is an input the run cannot fix.
+
+// ErrReplayRefused is the typed error every refused replay move wraps.
+var ErrReplayRefused = errors.New("replay refused")
+
+// ReplayError reports a witness move the run could not follow: which move, the
+// move itself, and what the run faced instead.
+type ReplayError struct {
+	// Move is the 1-based position of the move in the witness.
+	Move   int
+	Choice ChoiceTaken
+	Faced  string
+}
+
+func (e *ReplayError) Error() string {
+	return fmt.Sprintf("%v: move %d (%s): %s", ErrReplayRefused, e.Move, e.Choice, e.Faced)
+}
+
+// Is makes every ReplayError match ErrReplayRefused.
+func (e *ReplayError) Is(target error) bool { return target == ErrReplayRefused }
+
+// ErrInvalidChoice is the typed error every unparseable choice line wraps.
+var ErrInvalidChoice = errors.New("invalid choice")
+
+// ChoiceParseError reports a line of a witness that spells no choice, with why.
+type ChoiceParseError struct {
+	// Line is the 1-based line of the witness, 0 for a line parsed on its own.
+	Line   int
+	Text   string
+	Reason string
+}
+
+func (e *ChoiceParseError) Error() string {
+	if e.Line > 0 {
+		return fmt.Sprintf("%v: line %d %q: %s", ErrInvalidChoice, e.Line, e.Text, e.Reason)
+	}
+	return fmt.Sprintf("%v: %q: %s", ErrInvalidChoice, e.Text, e.Reason)
+}
+
+// Is makes every ChoiceParseError match ErrInvalidChoice.
+func (e *ChoiceParseError) Is(target error) bool { return target == ErrInvalidChoice }
+
+// ErrInvalidInput is the typed error every unparseable input line wraps.
+var ErrInvalidInput = errors.New("invalid input")
+
+// InputParseError reports a line of a witness that spells no input, with why.
+type InputParseError struct {
+	// Line is the 1-based line of the witness, 0 for a line parsed on its own.
+	Line   int
+	Text   string
+	Reason string
+}
+
+func (e *InputParseError) Error() string {
+	if e.Line > 0 {
+		return fmt.Sprintf("%v: line %d %q: %s", ErrInvalidInput, e.Line, e.Text, e.Reason)
+	}
+	return fmt.Sprintf("%v: %q: %s", ErrInvalidInput, e.Text, e.Reason)
+}
+
+// Is makes every InputParseError match ErrInvalidInput.
+func (e *InputParseError) Is(target error) bool { return target == ErrInvalidInput }
+
+// ErrWitnessInput is the typed error every witness input the run cannot fix wraps.
+var ErrWitnessInput = errors.New("witness input refused")
+
+// WitnessInputError reports a witness input the run could not fix before its
+// first move: the feature named, and why.
+type WitnessInputError struct {
+	Feature string
+	Reason  string
+}
+
+func (e *WitnessInputError) Error() string {
+	return fmt.Sprintf("%v: %s: %s", ErrWitnessInput, e.Feature, e.Reason)
+}
+
+// Is makes every WitnessInputError match ErrWitnessInput.
+func (e *WitnessInputError) Is(target error) bool { return target == ErrWitnessInput }
+
+// InputTaken is one input a witness fixes before the run's first move: a feature of
+// the action or its performer and its value, spelt `input <feature> = <value>`.
+type InputTaken struct {
+	Feature string
+	// Value is the value, when the witness was made in memory; ValInvalid for one
+	// read from a file, whose Written is evaluated where the action's defaults are.
+	Value Value
+	// Written is the value as the notation spells it: what a witness file holds.
+	Written string
+}
+
+// InputOf is the input fixing feature at value, spelt as the value formats.
+func InputOf(feature string, value Value) InputTaken {
+	return InputTaken{Feature: feature, Value: value, Written: FormatValue(value)}
+}
+
+// String spells the input as a witness lists it and ParseInput reads it back.
+func (in InputTaken) String() string {
+	feature := in.Feature
+	if labelNeedsQuoting(feature) || strings.ContainsAny(feature, " \t") {
+		feature = lexer.UnrestrictedNameText(feature)
+	}
+	return inputPrefix + feature + " = " + in.Written
+}
+
+// inputPrefix opens an input line of a witness.
+const inputPrefix = "input "
+
+// ParseInput reads one input as InputTaken.String spells it: `input <feature> = <value>`,
+// the value any expression the notation reads, evaluated when the run begins.
+func ParseInput(text string) (InputTaken, error) {
+	text = strings.TrimSpace(text)
+	fail := func(reason string) (InputTaken, error) {
+		return InputTaken{}, &InputParseError{Text: text, Reason: reason}
+	}
+	rest, ok := strings.CutPrefix(text, inputPrefix)
+	if !ok {
+		return fail("an input line starts with `input `: input <feature> = <value>")
+	}
+	feature, mark, written, ok := readLabel(rest, " = ")
+	written = strings.TrimSpace(written)
+	quoted := strings.HasPrefix(rest, "'")
+	switch {
+	case !ok:
+		return fail("the feature's quoted name is left open")
+	case mark == "":
+		return fail("an input needs ` = ` between the feature and its value: input <feature> = <value>")
+	case feature == "" || !quoted && strings.ContainsAny(feature, " \t"):
+		return fail("an input names one feature of the action or its performer before ` = `")
+	case written == "":
+		return fail("an input needs a value after ` = `")
+	}
+	return InputTaken{Feature: feature, Written: written}, nil
+}
+
+// Witness is one schedule as a witness file holds it: the inputs the run fixes
+// before its first move, the choices that fix the schedule as a replay follows
+// them, and the trace the run leaves, as the trace recorder writes it.
+type Witness struct {
+	Inputs  []InputTaken
+	Choices []ChoiceTaken
+	Trace   string
+	// Property names the property false at the state the schedule reaches, or
+	// whose evaluation there fails as Fails says; empty for a state or a run's failure.
+	Property string
+	// Fails is the deadlock or failure the schedule ends in, as the executor
+	// spells it — or the property's evaluation raised; empty for a state the run goes on from.
+	Fails string
+}
+
+// The lines closing a witness after its trace: the property it claims, the failure it ends in.
+const (
+	propertyPrefix = "property: "
+	failsPrefix    = "fails: "
+)
+
+// String renders the witness as a file holds it: its inputs one per line, its
+// choices one per line — or `no choice points` — a blank line, the trace, and
+// after a blank line the claims closing it: `property: <name>` for a property's,
+// `fails: <the failure>` for a schedule ending in a failure, last.
+func (w Witness) String() string {
+	var b strings.Builder
+	for _, in := range w.Inputs {
+		b.WriteString(in.String())
+		b.WriteByte('\n')
+	}
+	if len(w.Choices) == 0 {
+		b.WriteString("no choice points\n")
+	}
+	for _, c := range w.Choices {
+		b.WriteString(c.String())
+		b.WriteByte('\n')
+	}
+	b.WriteByte('\n')
+	b.WriteString(w.Trace)
+	if w.Property != "" || w.Fails != "" {
+		b.WriteString("\n")
+	}
+	if w.Property != "" {
+		b.WriteString("\n" + propertyPrefix + w.Property)
+	}
+	if w.Fails != "" {
+		b.WriteString("\n" + failsPrefix + w.Fails)
+	}
+	return b.String()
+}
+
+// Empty reports whether the witness fixes no input and takes no choice.
+func (w Witness) Empty() bool { return len(w.Inputs) == 0 && len(w.Choices) == 0 }
+
+// ReplayPolicy is the `replay` policy over choices held in memory, fixing no
+// input. Its spelling names no file, so it does not read back; write the
+// witness out to name it.
+func ReplayPolicy(choices []ChoiceTaken) SchedulePolicy {
+	return ReplayOf(Witness{Choices: choices})
+}
+
+// ReplayOf is the `replay` policy over a witness held in memory: its inputs are
+// fixed before the first move of the run, its choices followed move for move.
+func ReplayOf(w Witness) SchedulePolicy {
+	return SchedulePolicy{kind: scheduleReplay, replay: &replayScript{witness: cloneWitness(w)}}
+}
+
+func cloneWitness(w Witness) Witness {
+	w.Inputs, w.Choices = slices.Clone(w.Inputs), slices.Clone(w.Choices)
+	return w
+}
+
+// Replay returns the choices of a `replay` policy's witness, and whether the policy is one.
+func (p SchedulePolicy) Replay() ([]ChoiceTaken, bool) {
+	if p.kind != scheduleReplay {
+		return nil, false
+	}
+	return slices.Clone(p.replay.witness.Choices), true
+}
+
+// Witness returns the witness a `replay` policy follows, and whether the policy is one.
+func (p SchedulePolicy) Witness() (Witness, bool) {
+	if p.kind != scheduleReplay {
+		return Witness{}, false
+	}
+	return cloneWitness(p.replay.witness), true
+}
+
+// Unfollowed is the first witness move the last run under a `replay` policy could
+// not make — one refused, or one left over when the run ended — as a ReplayError;
+// nil when the run followed its witness whole or ran under another policy.
+func (ctx *Context) Unfollowed() error {
+	return ctx.run.scheduler.unfollowed("the run ended")
+}
+
+// Choice is the choice point as a witness lists it: what ChoiceTaken.String spells
+// and ParseChoice reads back.
+func (c ChoicePoint) Choice() ChoiceTaken {
+	taken := ChoiceTaken{Kind: c.Kind, Step: c.Step, Where: c.Where, Alternatives: len(c.Alternatives), Taken: c.Taken, Among: slices.Clone(c.Alternatives)}
+	if c.Taken >= 0 && c.Taken < len(c.Alternatives) {
+		taken.Took = c.Alternatives[c.Taken]
+	}
+	return taken
+}
+
+// replayScript is the witness a replay policy follows and the file it was read from.
+type replayScript struct {
+	file    string
+	witness Witness
+}
+
+// ParseChoices reads the choices of a witness header spelling no input: as
+// ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
+// first blank line after it; what follows is ignored.
+func ParseChoices(text string) ([]ChoiceTaken, error) {
+	w, _, err := readHeader(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(w.Inputs) > 0 {
+		return nil, &InputParseError{Text: w.Inputs[0].String(), Reason: "a witness with inputs is read by ParseWitness"}
+	}
+	return w.Choices, nil
+}
+
+// ParseWitness reads a witness as Witness.String writes it: the header of input
+// and choice lines, after the blank line ending it the trace, exact, and after a
+// blank line ending that the claims closing it, if any.
+func ParseWitness(text string) (Witness, error) {
+	w, _, err := readWitness(text)
+	return w, err
+}
+
+// readWitness reads a witness as ParseWitness does and says whether the text has
+// a header: one of `no choice points` alone spells a run with no choice to make.
+func readWitness(text string) (Witness, bool, error) {
+	w, headed, err := readHeader(text)
+	if err != nil {
+		return Witness{}, headed, err
+	}
+	lines := strings.SplitAfter(text, "\n")
+	begun := false
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			if begun {
+				w.Trace = strings.Join(lines[i+1:], "")
+				w.readClaims()
+				break
+			}
+			continue
+		}
+		begun = true
+	}
+	return w, headed, nil
+}
+
+// readClaims splits the claims closing the witness off its trace.
+func (w *Witness) readClaims() {
+	if trace, claims, found := strings.Cut(w.Trace, "\n\n"+propertyPrefix); found {
+		w.Trace = trace
+		w.Property, w.Fails, _ = strings.Cut(strings.TrimSuffix(claims, "\n"), "\n"+failsPrefix)
+		return
+	}
+	if trace, fails, found := strings.Cut(w.Trace, "\n\n"+failsPrefix); found {
+		w.Trace, w.Fails = trace, strings.TrimSuffix(fails, "\n")
+	}
+}
+
+// readHeader reads a witness header: input lines as InputTaken.String spells them,
+// then choices as ChoiceTaken.String spells them, one per line or joined by `; `,
+// ending at the first blank line after it. It says whether the text has a header.
+func readHeader(text string) (w Witness, headed bool, err error) {
+	for i, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			if headed {
+				break
+			}
+			continue
+		}
+		headed = true
+		if line == "no choice points" {
+			continue
+		}
+		if strings.HasPrefix(line, inputPrefix) {
+			in, err := ParseInput(line)
+			if err == nil && len(w.Choices) > 0 {
+				err = &InputParseError{Text: line, Reason: "inputs come before the moves"}
+			}
+			if err != nil {
+				var parse *InputParseError
+				if errors.As(err, &parse) {
+					parse.Line = i + 1
+				}
+				return Witness{}, true, err
+			}
+			w.Inputs = append(w.Inputs, in)
+			continue
+		}
+		for _, part := range splitChoices(line) {
+			c, err := ParseChoice(part)
+			if err != nil {
+				var parse *ChoiceParseError
+				if errors.As(err, &parse) {
+					parse.Line = i + 1
+				}
+				return Witness{}, true, err
+			}
+			w.Choices = append(w.Choices, c)
+		}
+	}
+	return w, headed, nil
+}
+
+// ParseChoice reads one choice as ChoiceTaken.String spells it: `step N: T first of A, B`,
+// `step N: decision D -> B`, `S -> T`, `W: X first of A, B` (a region order, or due order at `t=…`).
+func ParseChoice(text string) (ChoiceTaken, error) {
+	text = strings.TrimSpace(text)
+	fail := func(reason string) (ChoiceTaken, error) {
+		return ChoiceTaken{}, &ChoiceParseError{Text: text, Reason: reason}
+	}
+	step, rest := 0, text
+	if after, ok := strings.CutPrefix(text, "step "); ok {
+		digits, tail, found := strings.Cut(after, markWhere)
+		n, err := strconv.Atoi(digits)
+		if !found || err != nil || n < 1 {
+			return fail("step needs a positive number and a colon: step <n>: …")
+		}
+		step, rest = n, tail
+	}
+	first, mark, after, ok := readLabel(rest, markFirstOf, markArrow, markWhere)
+	if !ok {
+		return fail(unclosedQuote)
+	}
+	switch mark {
+	case markFirstOf, markWhere:
+		return parseOrderChoice(fail, step, first, mark, after)
+	case markArrow:
+		return parseTransitionChoice(fail, step, first, after)
+	}
+	return fail(notAChoice)
+}
+
+// parseOrderChoice reads the order after `<took> first of ` (a step's token order)
+// or `<where>: <took> first of ` (a region or due order) as ParseChoice found it.
+func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, mark, after string) (ChoiceTaken, error) {
+	c := ChoiceTaken{Kind: ChoiceTokenOrder, Step: step, Took: first}
+	if mark == markWhere {
+		if step > 0 {
+			return fail("a step's order names the token first: step <n>: <took> first of …")
+		}
+		c.Kind, c.Where = ChoiceRegionOrder, first
+		if strings.HasPrefix(first, "t=") {
+			c.Kind = ChoiceDueOrder
+		}
+		var ok bool
+		if c.Took, mark, after, ok = readLabel(after, markFirstOf); !ok {
+			return fail(unclosedQuote)
+		}
+		if mark == "" {
+			return fail(notAChoice)
+		}
+	} else if step == 0 {
+		return fail("an order outside a step needs where it was made: <where>: <took> first of …")
+	}
+	among, ok := splitLabels(after, markList)
+	if !ok {
+		return fail(unclosedQuote)
+	}
+	c.Among, c.Alternatives, c.Taken = among, len(among), slices.Index(among, c.Took)
+	if c.Taken < 0 {
+		return fail(fmt.Sprintf("%s is not among %s", choiceLabel(c.Took), choiceLabels(among)))
+	}
+	return c, nil
+}
+
+// parseTransitionChoice reads `<where> -> <took>`: a decision branch inside a step,
+// a transition outside one.
+func parseTransitionChoice(fail func(string) (ChoiceTaken, error), step int, first, after string) (ChoiceTaken, error) {
+	took, _, _, ok := readLabel(after)
+	if !ok {
+		return fail(unclosedQuote)
+	}
+	if first == "" || took == "" {
+		return fail("a branch or transition needs both sides of ->")
+	}
+	c := ChoiceTaken{Kind: ChoiceTransition, Where: first, Took: took}
+	if step > 0 {
+		c.Kind, c.Step = ChoiceDecisionBranch, step
+	}
+	return c, nil
+}
+
+// The names a choice line carries — tokens, branches, states, where the choice was
+// made — are written as they are unless the line's own punctuation occurs in them;
+// then the name is written quoted, 'like this', escaped as an unrestricted name is.
+
+// The marks a choice line's grammar reads as structure.
+const (
+	markChoices = "; "
+	markFirstOf = " first of "
+	markArrow   = " -> "
+	markList    = ", "
+	markWhere   = ": "
+)
+
+// linePunctuation is what a choice line's grammar reads as structure.
+var linePunctuation = []string{markChoices, markFirstOf, markArrow, markList, markWhere}
+
+const (
+	unclosedQuote = "a quoted name needs its closing quote, followed by the line's punctuation"
+	notAChoice    = "not a token order, branch, transition or region order"
+)
+
+// choiceLabel spells a name as a choice line carries it.
+func choiceLabel(name string) string {
+	if labelNeedsQuoting(name) {
+		return lexer.UnrestrictedNameText(name)
+	}
+	return name
+}
+
+// choiceLabels spells a list of names as a choice line carries them.
+func choiceLabels(names []string) string {
+	labels := make([]string, len(names))
+	for i, name := range names {
+		labels[i] = choiceLabel(name)
+	}
+	return strings.Join(labels, markList)
+}
+
+// labelNeedsQuoting reports a name a line could not read back as it is: empty,
+// punctuated like the line, quote-led, step-led, or with whitespace to lose.
+func labelNeedsQuoting(name string) bool {
+	if name == "" || name[0] == '\'' || strings.HasPrefix(name, "step ") || strings.TrimSpace(name) != name {
+		return true
+	}
+	for _, mark := range linePunctuation {
+		if strings.Contains(name, mark) {
+			return true
+		}
+	}
+	return strings.ContainsAny(name, "\n\r")
+}
+
+// readLabel reads the name text starts with — a quoted one to its closing quote, a
+// plain one to the first of the marks — with the mark that ended it ("" at the end of
+// text) and what follows the mark; false for a quote left open or not followed by a mark.
+func readLabel(text string, marks ...string) (name, mark, after string, ok bool) {
+	if !strings.HasPrefix(text, "'") {
+		at, mark := indexMark(text, marks...)
+		if at < 0 {
+			return text, "", "", true
+		}
+		return text[:at], mark, text[at+len(mark):], true
+	}
+	end := closingQuote(text, 0)
+	if end < 0 {
+		return "", "", "", false
+	}
+	name, after = lexer.StringValue(text[:end+1]), text[end+1:]
+	if after == "" {
+		return name, "", "", true
+	}
+	for _, m := range marks {
+		if rest, found := strings.CutPrefix(after, m); found {
+			return name, m, rest, true
+		}
+	}
+	return "", "", "", false
+}
+
+// closingQuote is the index of the quote closing the name opened at text[open],
+// past its backslash escapes; -1 when the name is left open.
+func closingQuote(text string, open int) int {
+	for i := open + 1; i < len(text); i++ {
+		switch text[i] {
+		case '\\':
+			i++
+		case '\'':
+			return i
+		}
+	}
+	return -1
+}
+
+// indexMark is where the first of the marks occurs in text outside its quoted names,
+// with the mark; -1 when none does. A quote opens a name only where a name may begin.
+func indexMark(text string, marks ...string) (int, string) {
+	for i := 0; i < len(text); i++ {
+		if text[i] == '\'' && nameMayBegin(text[:i]) {
+			if i = closingQuote(text, i); i < 0 {
+				return -1, ""
+			}
+			continue
+		}
+		for _, m := range marks {
+			if strings.HasPrefix(text[i:], m) {
+				return i, m
+			}
+		}
+	}
+	return -1, ""
+}
+
+// nameMayBegin reports whether a name may begin after before: at the start of the
+// text or right after the line's punctuation.
+func nameMayBegin(before string) bool {
+	if before == "" {
+		return true
+	}
+	for _, mark := range linePunctuation {
+		if strings.HasSuffix(before, mark) {
+			return true
+		}
+	}
+	return false
+}
+
+// splitChoices splits a line into the choices it joins by `; `, outside quoted names.
+func splitChoices(line string) []string {
+	var parts []string
+	for {
+		at, _ := indexMark(line, markChoices)
+		if at < 0 {
+			return append(parts, line)
+		}
+		parts, line = append(parts, line[:at]), line[at+len(markChoices):]
+	}
+}
+
+// splitLabels reads the names text lists separated by sep; false for a quote left open.
+func splitLabels(text, sep string) ([]string, bool) {
+	var names []string
+	for {
+		name, mark, after, ok := readLabel(text, sep)
+		if !ok {
+			return nil, false
+		}
+		names = append(names, name)
+		if mark == "" {
+			return names, true
+		}
+		text = after
+	}
+}
+
+// replayRun follows one run's witness: the inputs to fix before its first move,
+// the moves left and the first it refused.
+type replayRun struct {
+	inputs  []InputTaken
+	choices []ChoiceTaken
+	next    int
+	refused error
+}
+
+// takeInputs hands the run's witness inputs to the performance beginning it, once.
+func (r *replayRun) takeInputs() []InputTaken {
+	inputs := r.inputs
+	r.inputs = nil
+	return inputs
+}
+
+// following reports whether moves are left to follow and none was refused.
+func (r *replayRun) following() bool {
+	return r.refused == nil && r.next < len(r.choices)
+}
+
+// refuse records the first move the run could not follow, with what it faced.
+func (r *replayRun) refuse(faced string) {
+	if r.refused == nil {
+		r.refused = &ReplayError{Move: r.next + 1, Choice: r.choices[r.next], Faced: faced}
+	}
+}
+
+// unfollowed is the refusal of a run that ended with moves left, or that began no
+// performance to fix its inputs on; nil otherwise.
+func (r *replayRun) unfollowed(how string) error {
+	if r.refused == nil && len(r.inputs) > 0 {
+		r.refused = &WitnessInputError{Feature: r.inputs[0].Feature, Reason: how + " with no action performance begun to fix it on"}
+	}
+	if r.following() {
+		r.refuse(how)
+	}
+	return r.refused
+}
+
+// replayMove is one step under replay: the token the witness moves, or with no
+// move at this step the tokens tried as an exploring step tries them.
+type replayMove struct {
+	run    *replayRun
+	step   int
+	order  []int64
+	next   int
+	moved  bool
+	choice *ChoiceTaken
+	// enabled labels the tokens able to act, sorted by ID; taken indexes the one moved.
+	enabled []string
+	taken   int
+	// kept names a token of the witness's move present but not yet able to act: the move waits for the clock's retry.
+	kept string
+}
+
+// beginStep resolves the step by the witness's move at it: taken when each token named is able to act, kept for
+// the clock's retry when one at most is and the rest are present but parked or held; a token absent is refused.
+func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
+	m := &replayMove{run: r, step: tokens.step}
+	var enabled, rest, held []int64
+	for _, id := range tokens.ids {
+		switch {
+		case tokens.held[id]:
+			held = append(held, id)
+		case tokens.enabled(id):
+			enabled = append(enabled, id)
+		default:
+			rest = append(rest, id)
+		}
+	}
+	slices.Sort(enabled)
+	slices.Sort(rest)
+	slices.Sort(held)
+	m.enabled = make([]string, len(enabled))
+	for i, id := range enabled {
+		m.enabled[i] = tokens.label(id)
+	}
+	able := m.able()
+	r.hoistOrder(tokens.step)
+	c := &r.choices[r.next]
+	if c.Kind == ChoiceTokenOrder && c.Step == tokens.step {
+		for _, alt := range c.Among {
+			switch {
+			case slices.Contains(m.enabled, alt):
+			case len(enabled) < 2 && slices.ContainsFunc(tokens.ids, func(id int64) bool { return tokens.label(id) == alt }):
+				if m.kept == "" {
+					m.kept = alt
+				}
+			default:
+				r.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", tokens.step, alt, able))
+				return m
+			}
+		}
+		if m.kept != "" {
+			m.order = slices.Concat(enabled, rest, held)
+			return m
+		}
+		m.taken = slices.Index(m.enabled, c.Took)
+		if m.taken < 0 {
+			r.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", tokens.step, c.Took, able))
+			return m
+		}
+		r.next++
+		m.choice = c
+		m.order = []int64{enabled[m.taken]}
+		return m
+	}
+	switch {
+	case len(enabled) < 2:
+		m.order = slices.Concat(enabled, rest, held)
+	case c.Step > 0 && c.Step < tokens.step:
+		r.refuse(fmt.Sprintf("the run is at step %d and step %d had no such move", tokens.step, c.Step))
+	default:
+		r.refuse(fmt.Sprintf("step %d: the run must pick a token (%s) and the witness names none", tokens.step, able))
+	}
+	return m
+}
+
+// hoistOrder moves the step's token order, which a run notes after the choices
+// the token's move made, ahead of them: it is resolved first when replaying.
+func (r *replayRun) hoistOrder(step int) {
+	for j := r.next; j < len(r.choices); j++ {
+		c := r.choices[j]
+		if c.Step != step {
+			return
+		}
+		if c.Kind == ChoiceTokenOrder {
+			copy(r.choices[r.next+1:j+1], r.choices[r.next:j])
+			r.choices[r.next] = c
+			return
+		}
+	}
+}
+
+// able spells the tokens able to act, as a refusal names them.
+func (m *replayMove) able() string {
+	if len(m.enabled) == 0 {
+		return "none is able to act"
+	}
+	return "able to act: " + strings.Join(m.enabled, ", ")
+}
+
+// ended settles a kept move: the clock retrying the step faces it then; a step ending any other way refuses it.
+func (m *replayMove) ended(retry bool) {
+	if m.kept != "" && !retry {
+		m.run.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", m.step, m.kept, m.able()))
+	}
+}
+
+// nextToken is the token to try next; false once one acted or none is left.
+func (m *replayMove) nextToken() (int64, bool) {
+	if m.moved || m.next >= len(m.order) {
+		return 0, false
+	}
+	id := m.order[m.next]
+	m.next++
+	return id, true
+}
+
+// acted ends the step when the token acted; the witness's token not acting is a
+// move the run could not make.
+func (m *replayMove) acted(acted bool) {
+	if acted {
+		m.moved = true
+		return
+	}
+	if m.choice != nil {
+		m.run.refuse(fmt.Sprintf("step %d: %s did not act", m.step, m.choice.Took))
+	}
+}
+
+// reported is the token-order choice the step notes: the witness's when it names
+// several, else the tokens able to act when several were and the one moved.
+func (m *replayMove) reported() (alternatives []string, taken int, ok bool) {
+	if !m.moved {
+		return nil, 0, false
+	}
+	if m.choice != nil && len(m.choice.Among) >= 2 {
+		return m.choice.Among, m.choice.Taken, true
+	}
+	if len(m.enabled) >= 2 {
+		return m.enabled, m.taken, true
+	}
+	return nil, 0, false
+}
+
+// choose resolves a pick among c.Alternatives by the witness's next move, which
+// must be a choice of the same kind at the same place naming one of them; whereOf
+// is the place as the run reports it once alternative i is taken, nil for c.Where.
+func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
+	w := r.choices[r.next]
+	alts := strings.Join(c.Alternatives, ", ")
+	taken := slices.Index(c.Alternatives, w.Took)
+	if whereOf != nil && taken >= 0 {
+		c.Where = whereOf(taken)
+	}
+	if w.Kind != c.Kind || w.Where != c.Where {
+		r.refuse("the run faced " + c.Describe())
+		return 0
+	}
+	if w.Step != c.Step {
+		r.refuse(fmt.Sprintf("the run is at step %d and step %d had no such move", c.Step, w.Step))
+		return 0
+	}
+	for _, alt := range w.Among {
+		if !slices.Contains(c.Alternatives, alt) {
+			r.refuse(fmt.Sprintf("%s is not enabled (enabled: %s)", alt, alts))
+			return 0
+		}
+	}
+	if taken < 0 {
+		r.refuse(fmt.Sprintf("%s is not enabled (enabled: %s)", w.Took, alts))
+		return 0
+	}
+	r.next++
+	return taken
+}
+
+// mark returns what a probe restores: the run's position in the witness.
+func (r *replayRun) mark() func() {
+	next, refused := r.next, r.refused
+	return func() { r.next, r.refused = next, refused }
+}

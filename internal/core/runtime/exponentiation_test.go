@@ -44,7 +44,7 @@ func TestExponentiationRuntimeMatchesFolding(t *testing.T) {
 	}
 
 	model, resolver, root := parseAndBuildModel(t, powerModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	power := resolveSymbol(t, root, "power")
 
 	for _, tc := range cases {
@@ -85,7 +85,7 @@ func TestExponentiationErrorsAtEvaluation(t *testing.T) {
 	}
 
 	model, resolver, root := parseAndBuildModel(t, powerModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	power := resolveSymbol(t, root, "power")
 
 	for _, tc := range cases {

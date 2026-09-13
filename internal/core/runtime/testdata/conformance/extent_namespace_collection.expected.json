@@ -1,0 +1,23 @@
+{
+  "type": "calc",
+  "evaluate": "test::extents",
+  "libraries": true,
+  "trace": true,
+  "inputs": [],
+  "result": {"type": "Sequence", "elements": [
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true}
+  ]}
+}

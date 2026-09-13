@@ -1,0 +1,44 @@
+exit: start
+enter: away
+transition: start -> away
+exit: away
+enter: outer
+enter: first
+transition: away -> outer
+exit: first
+enter: second
+  eval feature departures -> 0
+  eval literal 0 -> 0
+eval operator == -> true
+  eval feature departures -> 0
+  eval literal 0 -> 0
+eval operator > -> false
+transition: first -> second
+  eval feature departures -> 0
+  eval literal 0 -> 0
+eval operator == -> true
+exit: second
+exit: outer
+stmt assign departures
+    eval feature departures -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+enter: away
+transition: second -> away
+exit: away
+enter: outer
+enter: second
+  eval feature departures -> 1
+  eval literal 0 -> 0
+eval operator == -> false
+  eval feature departures -> 1
+  eval literal 0 -> 0
+eval operator > -> true
+transition: away -> second
+  eval feature departures -> 1
+  eval literal 0 -> 0
+eval operator > -> true
+exit: second
+exit: outer
+enter: done
+transition: second -> done

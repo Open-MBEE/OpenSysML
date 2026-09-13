@@ -21,8 +21,7 @@ const runQueryUsage = "usage: %run-query <name> [<parameter>=<expression> ...]"
 // parameters and executes it. invocation is what `%run-query` takes: a name
 // followed by `<parameter>=<expression>` bindings.
 func (s *Session) RunDocumentQuery(invocation string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	fields := splitQueryArgs(strings.TrimSpace(invocation))
 	if len(fields) == 0 {
 		return s.withTrace(unresolvedVerdict(invocation, "a document query to run must be named"))
@@ -158,7 +157,7 @@ func (s *Session) runDocumentQuery(name string, args []string) ([]string, []Name
 		return nil, nil, fmt.Errorf("runtime init: %w", err)
 	}
 	idx := s.browseIndex()
-	model, resolver := ctx.Model(), ctx.Resolver()
+	model, resolver := ctx.Semantics(), ctx.Resolver()
 	if !queryplan.IsQueryDefinition(idx, model, sym) {
 		return nil, nil, fmt.Errorf("%s is not a document query: one is a calc def specializing DocumentQueries::Query", notationName(fqn))
 	}
@@ -235,6 +234,9 @@ func (s *Session) bindingValues(ctx *runtime.Context, param, expr string) ([]que
 // queryValues converts an evaluated prompt value into query binding values. A
 // collection binds its elements in order; a null binds nothing.
 func queryValues(value runtime.Value) ([]queryexec.Value, error) {
+	if lit := value.EnumerationLiteral(); lit != nil {
+		return []queryexec.Value{queryexec.ElementValue(lit)}, nil
+	}
 	switch value.Kind {
 	case runtime.ValConst:
 		switch value.Const.Kind {
@@ -250,8 +252,6 @@ func queryValues(value runtime.Value) ([]queryexec.Value, error) {
 		return []queryexec.Value{queryexec.StringValue(value.Str())}, nil
 	case runtime.ValNull:
 		return nil, nil
-	case runtime.ValEnumLiteral:
-		return []queryexec.Value{queryexec.ElementValue(value.Literal())}, nil
 	case runtime.ValSequence:
 		if value.Sequence() == nil {
 			return nil, nil
@@ -369,8 +369,8 @@ func formatQueryValue(value queryexec.Value) string {
 	if integer, ok := value.Integer(); ok {
 		return strconv.FormatInt(integer, 10)
 	}
-	if real, ok := value.Real(); ok {
-		return semantics.FormatReal(real)
+	if realVal, ok := value.Real(); ok {
+		return semantics.FormatReal(realVal)
 	}
 	if boolean, ok := value.Boolean(); ok {
 		return strconv.FormatBool(boolean)

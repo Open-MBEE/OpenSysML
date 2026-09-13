@@ -120,6 +120,13 @@ CAPABILITY_SET_VALUES = "set_values"
 #: it with ``UNIMPLEMENTED``.
 CAPABILITY_TENSOR_VALUES = "tensor_values"
 
+#: An element reflected on as an instance of its metaclass — ``x meta T``, the
+#: last element of ``x.metadata`` — as ``Value.metaobject``, named by the element
+#: and its metaclass and read as :class:`~opensysml.values.Metaobject`. Without
+#: it the service sends an unsupported null naming the element, which is an
+#: error, and refuses one sent to it with ``UNIMPLEMENTED``.
+CAPABILITY_METAOBJECT_VALUES = "metaobject_values"
+
 #: What the body of a verification case answered, as the
 #: ``verification_verdicts`` of a requirement, satisfaction or analysis
 #: response, read as :class:`~opensysml.verdict.VerificationVerdict`. Without it
@@ -161,6 +168,18 @@ CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore"
 #: :meth:`~opensysml.connection.Connection.execute_state`. Without it the
 #: field is 0 whatever the run waited on.
 CAPABILITY_FINAL_TIME = "final_time"
+
+#: The analysis engines: ``ListEngines``, the ``engine`` field selecting one
+#: (``auto``, ``all`` or a name) on the verification, calc, analysis and sweep
+#: requests, and ``engine``, ``strength`` and ``bounds`` on their responses,
+#: read as :class:`~opensysml.engines.Standing`. Without it the service would
+#: run every request under ``auto`` and report no standing, so the client
+#: refuses to send a selection.
+CAPABILITY_ENGINES = "engines"
+
+#: A model-level result the model leaves open as ``Value.undetermined``, read as an
+#: :class:`opensysml.Undetermined`; without it such a result crosses as an unsupported null.
+CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 
 
 @dataclass(frozen=True)

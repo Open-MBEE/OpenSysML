@@ -1,0 +1,30 @@
+exit: s11 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "s1;s11;"
+      eval literal "/s11;" -> "/s11;"
+    eval operator + -> "s1;s11;/s11;"
+enter: done
+transition: s11 -> done
+exit: done
+exit: s1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "s1;s11;/s11;"
+      eval literal "/s1;" -> "/s1;"
+    eval operator + -> "s1;s11;/s11;/s1;"
+enter: s2 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "s1;s11;/s11;/s1;"
+      eval literal "s2;" -> "s2;"
+    eval operator + -> "s1;s11;/s11;/s1;s2;"
+transition: done -> s2
+exit: s2 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "s1;s11;/s11;/s1;s2;"
+      eval literal "/s2;" -> "/s2;"
+    eval operator + -> "s1;s11;/s11;/s1;s2;/s2;"
+enter: done
+transition: s2 -> done

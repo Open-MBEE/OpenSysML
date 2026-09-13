@@ -15,7 +15,9 @@ const msgW9CBoundFeatureTypes = "Bound features should have conforming types"
 // of unrelated types cannot be satisfied. Besides `bind a = b` it judges the
 // bindings the language implies: a function's result expression to its result
 // parameter, a subject's value or the subject of a `satisfy … by` to the subject
-// it fills, and a nested requirement's subject to its owner's.
+// it fills, and a nested requirement's subject to its owner's. The binding an
+// operator or invocation argument implies is judged by the type checker, which
+// knows the parameter it fills (w9c_argument_bindings.go).
 type W9CBoundFeatureTypesPass struct{}
 
 func (W9CBoundFeatureTypesPass) Level() PassLevel { return LevelType }
@@ -225,13 +227,18 @@ func (c *w9cBindingChecker) valueConforms(scope *symbols.Scope, value ast.Node, 
 }
 
 func (c *w9cBindingChecker) report(span source.Span) {
-	c.diags = append(c.diags, Diagnostic{
+	c.diags = append(c.diags, w9cDiagnostic(span))
+}
+
+// w9cDiagnostic is the warning that two bound features have non-conforming types, at span.
+func w9cDiagnostic(span source.Span) Diagnostic {
+	return Diagnostic{
 		Severity: SeverityWarning,
 		Span:     span,
 		Message:  msgW9CBoundFeatureTypes,
 		Code:     "bound-feature-types",
 		Source:   "type",
-	})
+	}
 }
 
 // bindingEnds resolves the two features a `bind a = b;` names.

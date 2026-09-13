@@ -148,10 +148,9 @@ part def Car {
 }
 part car : Car;`
 
-// Before an object exists, a feature the declarations give no value to reads as
-// unset in its declaration scope, however many values it may hold: it resolves,
-// so it is never reported as an unresolved name.
-func TestEvalInDeclarationScopeReadsValuelessFeaturesAsUnset(t *testing.T) {
+// Before an object exists, a valueless feature is undetermined in its declaration
+// scope: neither an unresolved name nor the `<unset>` an object holding nothing reads.
+func TestEvalInDeclarationScopeReadsValuelessFeaturesAsUndetermined(t *testing.T) {
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(multiValuedModel).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
@@ -162,38 +161,41 @@ func TestEvalInDeclarationScopeReadsValuelessFeaturesAsUnset(t *testing.T) {
 
 	for _, expr := range []string{"wheels", "wheels.radius", "tags", "unsetMass"} {
 		got := run(t, s, "%eval in car : "+expr)
-		wants(t, got, "✓ "+expr+" (in car)", "= "+runtime.UnsetText)
-		rejects(t, got, "unresolved reference", "error")
+		wants(t, got, "✓ "+expr+" (in car)", "= "+runtime.UndeterminedText)
+		rejects(t, got, "unresolved reference", "error", "= "+runtime.UnsetText)
 	}
 	// The type's own scope answers the same way as the usage's.
-	wants(t, run(t, s, "%eval in Car : wheels"), "= "+runtime.UnsetText)
+	wants(t, run(t, s, "%eval in Car : wheels"), "= "+runtime.UndeterminedText)
 	// A name nothing declares is still the unresolved name it is.
 	wants(t, run(t, s, "%eval in car : nonexistent"), "unresolved reference: nonexistent")
 }
 
-// Only a bare read of a valueless feature is unset. An operation over one has no
-// result, and a feature whose value depends on one cannot be computed: both are
-// the evaluation failures they are, naming the feature that has no value.
-func TestEvalInDeclarationScopeDoesNotReadCompoundFailuresAsUnset(t *testing.T) {
+// An operation over a valueless feature, and a feature whose value depends on one,
+// are as undetermined as the feature: a result, not an evaluation failure.
+func TestEvalInDeclarationScopeCompoundsOverValuelessFeaturesAreUndetermined(t *testing.T) {
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(multiValuedModel).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
 	}
-	for _, expr := range []string{"unsetMass + 1.0", "mass + unsetMass", "wheels.radius * 2.0", "doubled", "-unsetMass"} {
+	for _, expr := range []string{"unsetMass + 1.0", "mass + unsetMass", "wheels.radius#(1) * 2.0", "doubled", "-unsetMass"} {
 		got := run(t, s, "%eval in car : "+expr)
-		wants(t, got, "error", "no value for feature")
-		rejects(t, got, "✓", "= "+runtime.UnsetText, "unresolved reference")
+		wants(t, got, "✓ "+expr+" (in car)", "= "+runtime.UndeterminedText)
+		rejects(t, got, "error", "no value for feature", "= "+runtime.UnsetText, "unresolved reference")
 	}
+	// A chain over the four wheels holds four values, which no scalar operator takes.
+	got := run(t, s, "%eval in car : wheels.radius * 2.0")
+	wants(t, got, "type mismatch", "an undetermined Real sequence and a Real")
+	rejects(t, got, "no value for feature", "= "+runtime.UndeterminedText)
 	for _, expr := range []string{"car::unsetMass + 1.0", "car::doubled"} {
 		got := run(t, s, "%eval "+expr)
-		rejects(t, got, "✓", "= "+runtime.UnsetText, "has no value to evaluate")
+		wants(t, got, "✓ "+expr, "= "+runtime.UndeterminedText)
+		rejects(t, got, "error", "= "+runtime.UnsetText, "has no value to evaluate")
 	}
 }
 
-// A feature whose own default fails is that failure, and a chain through it to a
-// member it does not have is unresolved, even when the feature the default could
-// not read happens to share the link's name: neither is unset.
-func TestEvalInDeclarationScopeChainIsNotUnsetForALinkOfAnotherName(t *testing.T) {
+// A feature whose default reads a valueless feature is undetermined; a chain to a
+// member it lacks is unresolved even when the unread feature shares the link's name.
+func TestEvalInDeclarationScopeChainIsUnresolvedForALinkOfAnotherName(t *testing.T) {
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(`private import ScalarValues::*;
 package Defaults {
@@ -205,17 +207,18 @@ part car : Car;`).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
 	}
 	got := run(t, s, "%eval in car : a")
-	wants(t, got, "error", "no value for feature b")
-	rejects(t, got, "✓", "= "+runtime.UnsetText)
+	wants(t, got, "✓ a (in car)", "= "+runtime.UndeterminedText)
+	rejects(t, got, "error", "no value for feature", "= "+runtime.UnsetText)
 	got = run(t, s, "%eval in car : a.b")
 	wants(t, got, "error", "unresolved reference: a has no member b")
-	rejects(t, got, "✓", "= "+runtime.UnsetText)
-	rejects(t, run(t, s, "%eval car::a.b"), "✓", "= "+runtime.UnsetText, "has no value to evaluate")
+	rejects(t, got, "✓", "= "+runtime.UndeterminedText)
+	got = run(t, s, "%eval car::a.b")
+	wants(t, got, "unresolved reference: a has no member b")
+	rejects(t, got, "✓", "= "+runtime.UndeterminedText, "has no value to evaluate")
 }
 
-// A chain from a valueless operand is unset only when every link names a member
-// of what precedes it: a member nothing declares, or a member of a scalar, is
-// the unresolved reference it is, whether or not the operand has a value.
+// A chain from a valueless operand is undetermined only when every link names a member
+// of what precedes it; a member nothing declares is unresolved whatever the operand holds.
 func TestEvalInDeclarationScopeChainOverValuelessOperandStillResolvesItsMembers(t *testing.T) {
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(multiValuedModel).Diagnostics); len(errs) > 0 {
@@ -229,20 +232,20 @@ func TestEvalInDeclarationScopeChainOverValuelessOperandStillResolvesItsMembers(
 	} {
 		got := run(t, s, "%eval in car : "+c.expr)
 		wants(t, got, "error", "unresolved reference: "+c.member)
-		rejects(t, got, "✓", "= "+runtime.UnsetText)
+		rejects(t, got, "✓", "= "+runtime.UndeterminedText)
 		got = run(t, s, "%eval car::"+c.expr)
 		wants(t, got, "unresolved reference: "+c.member)
-		rejects(t, got, "✓", "= "+runtime.UnsetText, "has no value to evaluate")
+		rejects(t, got, "✓", "= "+runtime.UndeterminedText, "has no value to evaluate")
 	}
-	// The valid chain over the same operand is still unset, not unresolved.
-	wants(t, run(t, s, "%eval in car : wheels.radius"), "✓ wheels.radius (in car)", "= "+runtime.UnsetText)
+	// The valid chain over the same operand is still undetermined, not unresolved.
+	wants(t, run(t, s, "%eval in car : wheels.radius"), "✓ wheels.radius (in car)", "= "+runtime.UndeterminedText)
 }
 
 // A KerML type declaration — a class, struct, behavior or datatype — is a type,
 // not a feature: reading one in declaration scope is the error a definition
-// gets, never unset. A function is the one type that is a value: reading it
-// denotes the function itself.
-func TestEvalInDeclarationScopeDoesNotReadTypeDeclarationsAsUnset(t *testing.T) {
+// gets, never undetermined. A function is the one type that is a value: reading
+// it denotes the function itself.
+func TestEvalInDeclarationScopeDoesNotReadTypeDeclarationsAsUndetermined(t *testing.T) {
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(`private import ScalarValues::*;
 package K {
@@ -259,12 +262,12 @@ package K {
 	for _, name := range []string{"Vehicle", "Frame", "Drive", "Mass", "Car"} {
 		got := run(t, s, "%eval in K::car : "+name)
 		wants(t, got, "error", "cannot evaluate definition "+name)
-		rejects(t, got, "✓", "= "+runtime.UnsetText, "unresolved reference", "no value")
+		rejects(t, got, "✓", "= "+runtime.UndeterminedText, "unresolved reference", "no value")
 	}
 	got := run(t, s, "%eval in K::car : Twice")
 	wants(t, got, "✓ Twice (in K::car)", "= K::Twice")
-	rejects(t, got, "error", "= "+runtime.UnsetText)
-	wants(t, run(t, s, "%eval in K::car : unsetMass"), "✓ unsetMass (in K::car)", "= "+runtime.UnsetText)
+	rejects(t, got, "error", "= "+runtime.UndeterminedText)
+	wants(t, run(t, s, "%eval in K::car : unsetMass"), "✓ unsetMass (in K::car)", "= "+runtime.UndeterminedText)
 }
 
 // Once the object exists, the same features read the values it holds.
@@ -282,7 +285,7 @@ func TestEvalInObjectReadsMultiValuedFeatures(t *testing.T) {
 }
 
 // A qualified name the prompt reaches through a usage resolves whether or not
-// the feature holds a value, so a valueless one is reported as such.
+// the feature holds a value, so a valueless one is undetermined, not unresolved.
 func TestEvalQualifiedValuelessFeatureIsNotUnresolved(t *testing.T) {
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(multiValuedModel).Diagnostics); len(errs) > 0 {
@@ -291,8 +294,8 @@ func TestEvalQualifiedValuelessFeatureIsNotUnresolved(t *testing.T) {
 	wants(t, run(t, s, "%eval car::mass"), "= 1500.0")
 	for _, expr := range []string{"car::wheels", "car::unsetMass"} {
 		got := run(t, s, "%eval "+expr)
-		wants(t, got, "has no value to evaluate")
-		rejects(t, got, "unresolved reference")
+		wants(t, got, "✓ "+expr, "= "+runtime.UndeterminedText)
+		rejects(t, got, "unresolved reference", "has no value to evaluate")
 	}
 	wants(t, run(t, s, "%eval car::nonexistent"), "unresolved reference")
 }

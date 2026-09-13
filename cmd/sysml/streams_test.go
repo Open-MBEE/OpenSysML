@@ -284,8 +284,19 @@ func runWith(t *testing.T, binary, stdin, model string, args ...string) runOutco
 	if err := os.WriteFile(path, []byte(model), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	return runBinary(t, binary, stdin, append(args, path))
+}
 
-	cmd := exec.Command(binary, append(args, path)...)
+// runFiles runs the binary over model files already on disk, named after the
+// flags, with nothing on stdin.
+func runFiles(t *testing.T, binary string, files []string, args ...string) runOutcome {
+	t.Helper()
+	return runBinary(t, binary, "", append(args, files...))
+}
+
+func runBinary(t *testing.T, binary, stdin string, args []string) runOutcome {
+	t.Helper()
+	cmd := exec.Command(binary, args...)
 	cmd.Stdin = strings.NewReader(stdin)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr

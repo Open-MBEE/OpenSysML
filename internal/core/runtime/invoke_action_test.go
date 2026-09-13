@@ -21,7 +21,7 @@ func loadAction(t *testing.T, src, actionName string) (*Context, *symbols.Symbol
 	idx := symbols.NewIndex()
 	idx.AddDocument(path, file)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 100000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 100000)
 
 	sym := findSymbolOfKind(idx.DocumentRoot(path), actionName, symbols.SymbolActionDef, symbols.SymbolActionUsage)
 	if sym == nil {
@@ -60,7 +60,7 @@ func loadState(t *testing.T, src, stateName string) (*Context, *symbols.Symbol) 
 	idx := symbols.NewIndex()
 	idx.AddDocument(path, file)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 100000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 100000)
 
 	sym := findSymbolOfKind(idx.DocumentRoot(path), stateName, symbols.SymbolStateDef, symbols.SymbolStateUsage)
 	if sym == nil {

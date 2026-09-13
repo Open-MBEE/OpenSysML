@@ -9,7 +9,7 @@ func registerUnevaluableDeclarations() {
 		registerUnevaluable("BaseFunctions::"+op, []declaredParam{optionalParam("seq"), param("type")}, typeArgument)
 	}
 	registerUnevaluable("BaseFunctions::all", nil,
-		"'all' needs the extent of a type, which the runtime does not enumerate")
+		"the function form takes a type, which the runtime evaluates only in the operator notation `all T`")
 	registerUnevaluable("BaseFunctions::as", []declaredParam{optionalParam("seq")},
 		"a cast needs the runtime type of a value, which values do not carry yet")
 	registerUnevaluable("BaseFunctions::meta", []declaredParam{optionalParam("seq")},

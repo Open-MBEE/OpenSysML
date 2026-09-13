@@ -23,6 +23,10 @@ type Client interface {
 	// ServerInfo reports the implementation's version and capabilities.
 	ServerInfo(ctx context.Context) (*ServerInfo, error)
 
+	// ListEngines lists the analysis engines the service answers with, in name
+	// order, as `sysml -engines` does. Requires the engines capability.
+	ListEngines(ctx context.Context) ([]EngineInfo, error)
+
 	// ParseFile parses the model file at path. Diagnostics, including syntax
 	// errors, arrive on the returned Model; only an unreadable path or an
 	// invalid request fails the call.
@@ -64,9 +68,10 @@ type Client interface {
 	// requires the complex_values capability, an Array, Vector or
 	// VectorQuantity input the structured_values one, a MeasurementRef input
 	// the measurement_refs one, a Function input the function_values one, a Set
-	// input the set_values one and a TensorQuantity input the tensor_values one,
-	// checked before anything is sent. WithSchedule selects the scheduling
-	// policy, which requires the schedule capability, checked the same way.
+	// input the set_values one, a TensorQuantity input the tensor_values one and
+	// a Metaobject input the metaobject_values one, checked before anything is
+	// sent. WithSchedule selects the scheduling policy, which requires the
+	// schedule capability, checked the same way.
 	ExecuteAction(ctx context.Context, model *Model, actionSymbolID string, inputs map[string]Value, opts ...ExecuteOption) (*ActionRun, error)
 
 	// ExecuteState runs the named state machine, feeding it the events in
@@ -88,34 +93,48 @@ type Client interface {
 	ExploreAnalysis(ctx context.Context, model *Model, symbolID string, opts ...AnalysisOption) (*Exploration, error)
 
 	// VerifyConstraint evaluates the named constraint, optionally Against a
-	// part to instantiate and check. Requires the verification capability.
+	// part to instantiate and check, WithEngine naming the engine that answers.
+	// Requires the verification capability, and engines for a named engine,
+	// checked before anything is sent.
 	VerifyConstraint(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Verification, error)
 
 	// VerifyRequirement evaluates the named requirement, optionally Against a
-	// part to instantiate and check. Requires the verification capability.
+	// part to instantiate and check, WithEngine naming the engine that answers.
+	// Requires the verification capability, and engines for a named engine,
+	// checked before anything is sent.
 	VerifyRequirement(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Verification, error)
 
 	// VerifySatisfaction evaluates the satisfaction assertions the model
-	// states — every one, or those of the symbol named. Requires the
-	// verification capability.
-	VerifySatisfaction(ctx context.Context, model *Model, symbolID string) (*Satisfaction, error)
+	// states — every one, or those of the symbol named — WithEngine naming the
+	// engine that answers; the assertions name their own subjects, so Against
+	// is an invalid argument. Requires the verification capability, and engines
+	// for a named engine, checked before anything is sent.
+	VerifySatisfaction(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Satisfaction, error)
 
 	// EvaluateCalc invokes the named calculation with positional arguments, or,
 	// given none, evaluates a calc usage from its own members. Requires the
 	// verification capability, and the complex_values, structured_values,
-	// measurement_refs, function_values, set_values or tensor_values capability
-	// for a Complex, a structured, a MeasurementRef, a Function, a Set or a
-	// TensorQuantity argument, checked before anything is sent.
+	// measurement_refs, function_values, set_values, tensor_values or
+	// metaobject_values capability for a Complex, a structured, a
+	// MeasurementRef, a Function, a Set, a TensorQuantity or a Metaobject
+	// argument, checked before anything is sent.
 	EvaluateCalc(ctx context.Context, model *Model, symbolID string, arguments ...Value) (*Calculation, error)
+
+	// Calculate is EvaluateCalc with options: CalcArguments bind the inputs and
+	// CalcEngine names the engine that answers. Requires what EvaluateCalc
+	// requires, and the engines capability for a named engine, checked before
+	// anything is sent.
+	Calculate(ctx context.Context, model *Model, symbolID string, opts ...CalcOption) (*Calculation, error)
 
 	// RunAnalysis runs the named analysis case — a definition or a usage — and
 	// reports its outputs with the verdict of its objective and of each
 	// assertion in its body. Positional arguments bind its inputs in
 	// declaration order; Against names its subject and Binding a parameter by
-	// name; Schedule selects the scheduling policy. Requires the verification
-	// capability, the complex_values or structured_values capability for a
-	// Complex or a structured argument and the schedule capability for a
-	// policy, checked before anything is sent.
+	// name; Schedule selects the scheduling policy and Engine the engine that
+	// answers. Requires the verification capability, the complex_values or
+	// structured_values capability for a Complex or a structured argument, the
+	// schedule capability for a policy and engines for a named engine, checked
+	// before anything is sent.
 	RunAnalysis(ctx context.Context, model *Model, symbolID string, opts ...AnalysisOption) (*Analysis, error)
 
 	// Query selects the model's elements the query matches, in declaration
@@ -237,6 +256,7 @@ func WithSubject(symbolID string) EvaluateOption {
 // one service implementation.
 type caller interface {
 	serverInfo(ctx context.Context) (*pb.ServerInfoResponse, error)
+	listEngines(ctx context.Context, req *pb.ListEnginesRequest) (*pb.ListEnginesResponse, error)
 	parseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.ParseFileResponse, error)
 	parseSources(ctx context.Context, req *pb.ParseSourcesRequest) (*pb.ParseSourcesResponse, error)
 	getSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error)
@@ -525,8 +545,8 @@ func (c *client) call(model *Model) (string, error) {
 // the service lacks — a Complex without complex_values, an Array, Vector or
 // VectorQuantity without structured_values, a MeasurementRef without
 // measurement_refs, a Function without function_values, a Set without
-// set_values, a TensorQuantity without tensor_values — which would read it as
-// null rather than refuse it.
+// set_values, a TensorQuantity without tensor_values, a Metaobject without
+// metaobject_values — which would read it as null rather than refuse it.
 func (c *client) requireValueCapabilities(ctx context.Context, values ...Value) error {
 	var needed []string
 	if slices.ContainsFunc(values, carriesComplex) {
@@ -546,6 +566,9 @@ func (c *client) requireValueCapabilities(ctx context.Context, values ...Value) 
 	}
 	if slices.ContainsFunc(values, carriesTensor) {
 		needed = append(needed, CapabilityTensorValues)
+	}
+	if slices.ContainsFunc(values, carriesMetaobject) {
+		needed = append(needed, CapabilityMetaobjectValues)
 	}
 	if len(needed) == 0 {
 		return nil
@@ -640,6 +663,15 @@ func carriesTensor(value Value) bool {
 		return true
 	}
 	return slices.ContainsFunc(nestedValues(value), carriesTensor)
+}
+
+// carriesMetaobject reports whether a value, or any value nested in it, is a
+// Metaobject.
+func carriesMetaobject(value Value) bool {
+	if _, ok := value.(Metaobject); ok {
+		return true
+	}
+	return slices.ContainsFunc(nestedValues(value), carriesMetaobject)
 }
 
 // nestedValues are the values a value holds: a sequence's or a set's elements,

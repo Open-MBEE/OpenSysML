@@ -1,0 +1,108 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Flows" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="A"))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="B"))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Machine"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="n" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="state" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="prep" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                    (InitialNode name="start" successor="")
+                    (Membership visibility="default"
+                      (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=A
+                          (*ast.QualifiedName))))
+                    (SuccessionEdge source="start" target="a")
+                    (Membership visibility="default"
+                      (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=B
+                          (*ast.QualifiedName))))
+                    (SuccessionEdge source="a" target="b")
+                    (FinalNode)
+                    (SuccessionEdge source="b" target="@done"))))
+              (DoMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="ops" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="do"
+                    (Membership visibility="default"
+                      (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=A
+                          (*ast.QualifiedName))))
+                    (Membership visibility="default"
+                      (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=B
+                          (*ast.QualifiedName))))
+                    (InitialNode name="a" successor="b"))))
+              (ExitMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="wrap" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="exit"
+                    (InitialNode name="start" successor="")
+                    (ForkNode name="split")
+                    (SuccessionEdge source="start" target="split")
+                    (Membership visibility="default"
+                      (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=A
+                          (*ast.QualifiedName))))
+                    (Membership visibility="default"
+                      (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=B
+                          (*ast.QualifiedName))))
+                    (JoinNode name="sync")
+                    (DecisionNode name="check")
+                    (ControlFlowEdge source="check" target="c" else=false
+                      (OperatorExpr operator=">"
+                        (FeatureReference name="n")
+                        (LiteralInteger value="0")))
+                    (ControlFlowEdge source="check" target="done" else=true)
+                    (Membership visibility="default"
+                      (Usage kind="action" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=B
+                          (*ast.QualifiedName))))
+                    (Membership visibility="default"
+                      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (ConnectorEnd target="split"
+                          (*ast.QualifiedName))
+                        (ConnectorEnd target="a"
+                          (*ast.QualifiedName))))
+                    (Membership visibility="default"
+                      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (ConnectorEnd target="split"
+                          (*ast.QualifiedName))
+                        (ConnectorEnd target="b"
+                          (*ast.QualifiedName))))
+                    (Membership visibility="default"
+                      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (ConnectorEnd target="a"
+                          (*ast.QualifiedName))
+                        (ConnectorEnd target="sync"
+                          (*ast.QualifiedName))))
+                    (Membership visibility="default"
+                      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (ConnectorEnd target="b"
+                          (*ast.QualifiedName))
+                        (ConnectorEnd target="sync"
+                          (*ast.QualifiedName))))
+                    (Membership visibility="default"
+                      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (ConnectorEnd target="sync"
+                          (*ast.QualifiedName))
+                        (ConnectorEnd target="check"
+                          (*ast.QualifiedName))))
+                    (Membership visibility="default"
+                      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (ConnectorEnd target="c"
+                          (*ast.QualifiedName))
+                        (ConnectorEnd target="done"
+                          (*ast.QualifiedName)))))))))
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="s")
+          (TransitionMember source="s" target="done"))))))

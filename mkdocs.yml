@@ -125,6 +125,7 @@ exclude_docs: |
   project/performance-profile-2026-09.md
   project/performance-release-0.5-vs-0.4.3.md
   project/performance-release-0.6-vs-0.4.2.md
+  project/performance-release-0.8-vs-0.7.0.md
   project/native-compilation.md
   project/releasing.md
   project/macos-distribution.md
@@ -135,16 +136,20 @@ exclude_docs: |
   project/pilot-xpect.md
   project/pilot-rejection.md
   project/pilot-execution-referee.md
+  project/pssm-referee.md
   project/behavior-semantic-oracle.md
   project/grammar-coverage.md
   project/validation-constraints.md
   project/element-identity-annotations.md
+  project/diagram-layout-annotations.md
   project/html-document-backend.md
+  project/view-rendering-forms.md
   project/adjudications.md
   project/element-scoped-tier-gating.md
   project/lossless-library-records.md
   project/errata-overlay.md
   project/oosem-library.md
+  project/mosa-library.md
 
 nav:
   - Documentation: README.md
@@ -178,6 +183,7 @@ nav:
       - REPL commands: reference/repl-commands.md
       - OSLC Query text: reference/oslc-query.md
       - Environment variables: reference/environment.md
+      - External engines: reference/external-engines.md
       - Language server: reference/lsp.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md

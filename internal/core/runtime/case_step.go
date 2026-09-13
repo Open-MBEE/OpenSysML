@@ -14,8 +14,9 @@ func isCaseStep(node ast.Node) bool {
 	return ok && lower.IsCaseNode(usage)
 }
 
-// caseStepSymbol resolves the case a nested usage node declares, in the body that declares it.
-func caseStepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbols.Scope, error) {
+// stepSymbol resolves the symbol a nested usage node declares and the body declaring
+// it; nil when the node declares none.
+func stepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbols.Scope) {
 	scope := nodeScope(flow, node)
 	declaring := scope.Parent()
 	if declaring == nil {
@@ -26,6 +27,12 @@ func caseStepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *s
 		sym = memberSymbol(flow.Scope, node)
 		declaring = flow.Scope
 	}
+	return sym, declaring
+}
+
+// caseStepSymbol resolves the case a nested usage node declares, in the body that declares it.
+func caseStepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbols.Scope, error) {
+	sym, declaring := stepSymbol(flow, node)
 	if sym == nil || !isCalcUsageSymbol(sym) {
 		return nil, nil, fmt.Errorf("%w: %s is not resolved to a case", ErrNotACalcUsage, nodeDescription(node))
 	}

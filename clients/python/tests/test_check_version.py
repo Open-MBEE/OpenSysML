@@ -72,7 +72,8 @@ def test_main_fails_on_a_tag_for_another_version(capsys):
     assert check_version.main(["--tag", "opensysml-v0.0.0-not-declared"]) == 1
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "error:" in captured.err and "declares" in captured.err
+    assert "error:" in captured.err
+    assert "declares" in captured.err
 
 
 def test_main_reads_the_tag_from_circle_tag(monkeypatch, capsys):

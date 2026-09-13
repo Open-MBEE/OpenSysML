@@ -194,7 +194,7 @@ func TestRenameCapturingAQualifiedSegmentIsRefused(t *testing.T) {
 // element lacks the rest of the name, as a feature chain's outward-read member is.
 func TestRenameCapturingAQualifierWithoutTheSuffixIsRefused(t *testing.T) {
 	for _, tt := range []struct{ name, q, use string }{
-		{"redefined", "Q :> P::Old", "\t\tpart y :>> Old::x;\n"},
+		{"subsetted", "Q :> P::Old", "\t\tpart y :> Old::x;\n"},
 		{"chain", "Q", "\t\tpart d : P::Old;\n\t\tpart e :> d.Old::x;\n"},
 	} {
 		src := "package P {\n\tpart def Old { part x; }\n\tpart def " + tt.q + " {\n\t\tpart def New;\n" + tt.use + "\t}\n}\n"
@@ -208,6 +208,21 @@ func TestRenameCapturingAQualifierWithoutTheSuffixIsRefused(t *testing.T) {
 		}
 		if len(e.Referring) != 1 || e.Referring[0] != "P::Q" {
 			t.Fatalf("%s: refusal reports referring %v, want [P::Q]", tt.name, e.Referring)
+		}
+	}
+}
+
+// A redefinition's target is read from the owning type's generals and then its
+// enclosing namespace, never the owning type's own members, so a sibling of the
+// redefining feature cannot capture the respelled qualifier.
+func TestRenameQualifierOfARedefinitionIsNotCapturedByASibling(t *testing.T) {
+	const src = "package P {\n\tpart def Old { part x; }\n\tpart def Q :> P::Old {\n\t\tpart def New;\n" +
+		"\t\tpart y :>> Old::x;\n\t}\n}\n"
+	got := renamed(t, "redefinition-qualifier.sysml", src, "P::Old", "New")
+
+	for _, want := range []string{"part def New { part x; }", "part def Q :> P::New {", "part y :>> New::x;"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q:\n%s", want, got)
 		}
 	}
 }
@@ -397,5 +412,60 @@ func TestRenameSeesUnnamedTransitionBodyDeclarations(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q:\n%s", want, got)
 		}
+	}
+}
+
+// A name another workspace document writes is not renamed: an edit rewrites
+// one document, so the reference there would break. One written there by the
+// short name, or through an alias, still resolves afterwards and does not refuse.
+func TestRenameRefusesWhenAnotherDocumentWritesTheName(t *testing.T) {
+	const src = "package P {\n    part def <O> Old;\n    part def Keep;\n}\n"
+	m := loadWorkspace(t, "p.sysml", src, map[string]string{
+		"q.sysml": "package Q {\n    private import P::Old;\n    part a : P::Old;\n}\n",
+		"r.sysml": "package R {\n    alias Alt for P::Old;\n    part s : P::O;\n    part t : Alt;\n}\n",
+	})
+	requireClean(t, m)
+	res, err := Apply(m, []Operation{Rename("P::Old", "Fresh")})
+	if res != nil {
+		t.Fatalf("refused rename returned content:\n%s", res.Content)
+	}
+	e := editError(t, err)
+	if e.Failure != FailureReferencedElsewhere {
+		t.Fatalf("failure = %s, want %s", e.Failure, FailureReferencedElsewhere)
+	}
+	want := []string{"Q::a (q.sysml)", "import P::Old in Q (q.sysml)", "R::Alt (r.sysml)"}
+	if strings.Join(e.Referring, ",") != strings.Join(want, ",") {
+		t.Fatalf("referrers = %v, want %v", e.Referring, want)
+	}
+
+	got := applyOne(t, m, Rename("P::Keep", "Kept"))
+	if !strings.Contains(string(got.Content), "part def Kept;") {
+		t.Fatalf("rename of an unreferenced name refused:\n%s", got.Content)
+	}
+}
+
+// A name holding `::` and a nested name spelling the same joined text are two
+// targets: the notation tells them apart, quoted against qualified.
+func TestTargetsSpellNamesHoldingTheSeparatorApart(t *testing.T) {
+	const src = "part def 'x::y';\npackage x {\n\tpart def y;\n}\n"
+	got := renamed(t, "separator.sysml", src, "'x::y'", "Whole")
+	if !strings.HasPrefix(got, "part def Whole;\npackage x {\n\tpart def y;") {
+		t.Fatalf("renaming 'x::y' rewrote the wrong declaration:\n%s", got)
+	}
+	got = renamed(t, "separator.sysml", src, "x::y", "Nested")
+	if !strings.HasPrefix(got, "part def 'x::y';\npackage x {\n\tpart def Nested;") {
+		t.Fatalf("renaming x::y rewrote the wrong declaration:\n%s", got)
+	}
+	m := loadContent(t, "separator.sysml", src)
+	res := applyOne(t, m, AddMember("x", "part def", "Inner"))
+	if !strings.Contains(string(res.Content), "package x {\n\tpart def y;\n\tpart def Inner;\n}") {
+		t.Fatalf("adding to x missed the package:\n%s", res.Content)
+	}
+	res = applyOne(t, m, AddMember("'x::y'", "attribute", "n"))
+	if got := string(res.Content); !strings.HasPrefix(got, "part def 'x::y' {") || !strings.Contains(got, "package x {\n\tpart def y;\n}") {
+		t.Fatalf("adding to 'x::y' missed the definition:\n%s", got)
+	}
+	if _, err := Apply(m, []Operation{Delete("x::", false)}); editError(t, err).Failure != FailureUnknownTarget {
+		t.Fatalf("a malformed target was not unknown: %v", err)
 	}
 }

@@ -146,10 +146,14 @@ func TestNegative(t *testing.T) {
 		{"deep_without_history", "state s { deep resume; }"},
 		{"shallow_without_history", "state s { shallow resume; }"},
 		{"history_no_semicolon", "state s { history resume state t; }"},
-		// `entry point ;` is not malformed: `point` is not reserved, so it is an
-		// entry action referencing a feature named `point`. Dropping the ';' too
-		// leaves a pseudostate declaration that is missing its name.
-		{"entry_point_no_name", "state s { entry point }"},
+		// `entry point;` is not malformed: `point` is not reserved, so it is an
+		// entry action referencing a feature named `point`. Dropping the ';' is.
+		{"entry_reference_no_semicolon_brace", "state s { entry point }"},
+		// There is no entry or exit point pseudostate: `entry point x;` is an entry
+		// action referencing `point`, followed by a stray name.
+		{"entry_point_pseudostate", "state s { entry point x; }"},
+		{"exit_point_pseudostate", "state s { exit point x; }"},
+		{"entry_point_pseudostate_in_def", "state def S { entry point into; exit point outOf; }"},
 		{"entry_reference_no_semicolon", "state s { entry warmUp state t; }"},
 		{"exit_reference_no_semicolon", "state s { exit coolDown state t; }"},
 		{"do_reference_dangling_chain", "state s { do warmUp.; }"},

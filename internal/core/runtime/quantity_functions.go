@@ -162,11 +162,11 @@ func angleArgument(ctx *Context, val Value) (semantics.Value, bool) {
 // isAngleUnit reports whether the product is one angular-measure unit (rad, °),
 // as the model classifies it; `rad**2` or an unresolved unit is not an angle.
 func isAngleUnit(ctx *Context, product semantics.UnitProduct) bool {
-	if ctx == nil || ctx.model == nil || len(product.Powers) != 1 {
+	if ctx == nil || ctx.model.semantics == nil || len(product.Powers) != 1 {
 		return false
 	}
 	f := product.Powers[0]
-	return f.Exponent == 1 && ctx.model.IsAngularMeasureUnit(f.Unit)
+	return f.Exponent == 1 && ctx.model.semantics.IsAngularMeasureUnit(f.Unit)
 }
 
 // quantityArg reads a ScalarQuantityValue argument: a quantity, or a number,
@@ -211,14 +211,15 @@ func quantityMagnitudeUnary(apply func([]semantics.Value) (semantics.Value, erro
 // quantityAdditive is '+' or '-': the binary operator, or with y omitted the
 // unary one.
 func quantityAdditive(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		x, err := quantityArg(name, "x", args[0])
 		if err != nil {
 			return Value{}, err
 		}
 		if argumentOmitted(args[1]) {
 			if op == ast.OpSub {
-				return negateQuantity(x)
+				val, err := ctx.negateQuantity(x)
+				return val, functionError(name, err)
 			}
 			return inUnit(x.Num, x.Unit)
 		}
@@ -226,25 +227,25 @@ func quantityAdditive(op ast.OperatorKind) libraryApply {
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := addQuantities(op, x, y)
+		val, err := ctx.addQuantities(op, x, y)
 		return val, functionError(name, err)
 	}
 }
 
 // quantityMultiplicative is '*' or '/', composing the operands' units.
 func quantityMultiplicative(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		x, y, err := quantityArgs(name, args)
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := scaleQuantities(op, x, y)
+		val, err := ctx.scaleQuantities(op, x, y)
 		return val, functionError(name, err)
 	}
 }
 
 // quantityPower is '**' and '^': the quantity raised to a Real exponent.
-func quantityPower(name string, _ *Context, args []Value) (Value, error) {
+func quantityPower(name string, ctx *Context, args []Value) (Value, error) {
 	x, err := quantityArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -253,29 +254,29 @@ func quantityPower(name string, _ *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	val, err := powQuantity(x, y)
+	val, err := ctx.powQuantity(x, y)
 	return val, functionError(name, err)
 }
 
 // quantityComparison is one of the four orderings, in the left operand's unit.
 func quantityComparison(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		x, y, err := quantityArgs(name, args)
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := compareQuantities(op, x, y)
+		val, err := ctx.compareQuantities(op, x, y)
 		return val, functionError(name, err)
 	}
 }
 
 // quantityEquality is '==', in the left operand's unit.
-func quantityEquality(name string, _ *Context, args []Value) (Value, error) {
+func quantityEquality(name string, ctx *Context, args []Value) (Value, error) {
 	x, y, err := quantityArgs(name, args)
 	if err != nil {
 		return Value{}, err
 	}
-	val, err := equalQuantities(ast.OpEq, x, y)
+	val, err := ctx.equalQuantities(ast.OpEq, x, y)
 	return val, functionError(name, err)
 }
 
@@ -283,15 +284,17 @@ func quantityEquality(name string, _ *Context, args []Value) (Value, error) {
 // `max(1 [m], 200 [cm])` being `200 [cm]`, and the first where the two are equal.
 // Its result names a unit, so unlike a comparison a bare zero adopts none here.
 func quantityExtremum(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		x, y, err := quantityArgs(name, args)
 		if err != nil {
 			return Value{}, err
 		}
-		if _, err := y.ConvertTo(x.Unit); err != nil {
-			return Value{}, fmt.Errorf("function %s: %w", name, err)
+		if isBareZero(*x) || isBareZero(*y) {
+			if _, err := y.ConvertTo(x.Unit); err != nil {
+				return Value{}, fmt.Errorf("function %s: %w", name, err)
+			}
 		}
-		yWins, err := compareQuantities(op, y, x)
+		yWins, err := ctx.compareQuantities(op, y, x)
 		if err != nil {
 			return Value{}, fmt.Errorf("function %s: %w", name, err)
 		}
@@ -303,12 +306,12 @@ func quantityExtremum(op ast.OperatorKind) libraryApply {
 }
 
 // quantitySqrt is sqrt: the root of the magnitude in the root of the unit.
-func quantitySqrt(name string, _ *Context, args []Value) (Value, error) {
+func quantitySqrt(name string, ctx *Context, args []Value) (Value, error) {
 	x, err := quantityArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
 	}
-	val, err := sqrtQuantity(x)
+	val, err := ctx.sqrtQuantity(x)
 	return val, functionError(name, err)
 }
 
@@ -364,8 +367,8 @@ func toDimensionOneValue(name string, _ *Context, args []Value) (Value, error) {
 // quantityAggregate is sum or product over quantities, folded in the first element's
 // unit; an empty collection has no unit, so it is the dimensionless 0 or 1.
 func quantityAggregate(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
-		return aggregate(name, args, op, false)
+	return func(name string, ctx *Context, args []Value) (Value, error) {
+		return ctx.aggregate(name, args, op, false)
 	}
 }
 

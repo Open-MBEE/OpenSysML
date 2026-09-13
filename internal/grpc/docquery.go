@@ -94,7 +94,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if err != nil {
 		return nil, documentStatus(err)
 	}
-	markdown, err := docrender.Markdown(document)
+	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{})
 	if err != nil {
 		return nil, documentStatus(err)
 	}
@@ -221,8 +221,8 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 		integer, _ := value.Integer()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: integer}}
 	case queryexec.ValueReal:
-		real, _ := value.Real()
-		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: real}}
+		realVal, _ := value.Real()
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: realVal}}
 	case queryexec.ValueBoolean:
 		boolean, _ := value.Boolean()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_BoolValue{BoolValue: boolean}}

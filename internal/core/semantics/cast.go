@@ -104,7 +104,7 @@ func (m *Model) classifiesComposed(
 func (m *Model) excludes(
 	types []*symbols.Symbol, target *symbols.Symbol, reading map[*symbols.Symbol]bool,
 ) bool {
-	if m == nil || target == nil || reading[target] {
+	if m == nil || target == nil || reading[target] || !m.subtracts(target) {
 		return false
 	}
 	if reading == nil {
@@ -133,6 +133,37 @@ func (m *Model) excludes(
 		}
 	}
 	return len(unions) > 0
+}
+
+// subtracts reports whether target, or a supertype, intersection or union operand excludes
+// reads through, is a difference subtracting a type; memoized once the closure is settled.
+func (m *Model) subtracts(target *symbols.Symbol) bool {
+	if cached, ok := m.subtracting[target]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	visited := map[*symbols.Symbol]bool{target: true}
+	queue := []*symbols.Symbol{target}
+	found, provisional := false, false
+	for len(queue) > 0 && !found {
+		cur := queue[0]
+		queue = queue[1:]
+		found = len(m.DifferencingTypes(cur)) > 1
+		supers := m.DirectSupertypes(cur)
+		provisional = provisional || m.supersUnstable(cur)
+		for _, group := range [][]*symbols.Symbol{supers, m.IntersectingTypes(cur), m.UnioningTypes(cur)} {
+			for _, next := range group {
+				if next != nil && !visited[next] {
+					visited[next] = true
+					queue = append(queue, next)
+				}
+			}
+		}
+	}
+	if m.resolver.Leave() && !provisional {
+		m.subtracting[target] = found
+	}
+	return found
 }
 
 // classifiesEach classifies types by each of a composition's operands in order.

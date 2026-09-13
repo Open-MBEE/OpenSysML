@@ -3,6 +3,8 @@ package repl
 import (
 	"regexp"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
 // measurementRefSession declares a part measured in kilometres whose unit
@@ -139,8 +141,8 @@ func TestFeaturesOfModelOwnedLibraryRecords(t *testing.T) {
 	wants(t, run(t, s, "%eval QuantityCalculations::ConvertQuantity(2 [Lab::furlong], m)"), "= 402.336 [m]")
 	wants(t, run(t, s, "%eval Lab::deep.conv.prefix.conversionFactor"), "= 1000.0")
 	wants(t, run(t, s, "%eval Lab::deep.conv.conversionFactor"), "= 1000.0")
-	wants(t, run(t, s, "%eval Lab::bare.conv"), "= []")
-	wants(t, run(t, s, "%eval Lab::hollow.conv"), "= []")
+	wants(t, run(t, s, "%eval Lab::bare.conv"), "= "+runtime.UndeterminedText)
+	wants(t, run(t, s, "%eval Lab::hollow.conv"), "= "+runtime.UndeterminedText)
 	wants(t, run(t, s, "%eval Lab::stressRef.isBound"), "= false")
 	run(t, s, "%instantiate Lab::stressRef")
 	wantsInOrder(t, run(t, s, "%features Lab::stressRef"), "mRefs = [Pa, Pa]", "dimensions = [2]", "isBound = false")

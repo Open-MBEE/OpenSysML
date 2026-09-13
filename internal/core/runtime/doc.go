@@ -3,9 +3,9 @@
 //
 // # Usage Example
 //
-//	// Create runtime context
-//	model := semantics.NewModel(resolver)
-//	ctx := runtime.NewContext(model, resolver, runtime.DefaultMaxSteps)
+//	// Create the model-derived part once, then a runtime context over it
+//	model := runtime.NewModel(semantics.NewModel(resolver), resolver)
+//	ctx := runtime.NewContext(model, runtime.DefaultMaxSteps)
 //
 //	// Instantiate a part
 //	partSym := resolveSymbol(root, "MyCar")

@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"lefts": ["0", "1", "2"], "rights": ["0", "1", "2"]},
+	"agreed": {"passes": "2"}
+}

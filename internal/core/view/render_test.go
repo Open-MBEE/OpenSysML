@@ -22,25 +22,36 @@ var update = flag.Bool("update", false, "rewrite the golden artifacts in testdat
 // REPL and the CLI do, and returns a renderer over it.
 func loadFixture(t *testing.T, file string) (*Renderer, *symbols.Index) {
 	t.Helper()
-	path := filepath.Join("testdata", file)
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	sf := source.New(file, content)
-	p := parser.New(sf)
-	root := p.ParseFile()
-	for _, diag := range p.Diagnostics {
-		t.Fatalf("%s: parse diagnostic: %v", file, diag)
-	}
+	return loadFixtures(t, file)
+}
+
+// loadFixtures loads several testdata files as separate documents of one model.
+func loadFixtures(t *testing.T, files ...string) (*Renderer, *symbols.Index) {
+	t.Helper()
 	idx := libs.NewModelIndex()
-	idx.AddDocument(file, root)
+	sources := make(map[string]*source.SourceFile, len(files))
+	for _, file := range files {
+		path := filepath.Join("testdata", file)
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		sf := source.New(file, content)
+		p := parser.New(sf)
+		root := p.ParseFile()
+		for _, diag := range p.Diagnostics {
+			t.Fatalf("%s: parse diagnostic: %v", file, diag)
+		}
+		idx.AddDocument(file, root)
+		sources[file] = sf
+	}
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	sem := semantics.NewModel(resolver)
 	resolver.SetModel(sem)
 	text := func(doc string, span source.Span) string {
-		if doc != file {
+		sf, ok := sources[doc]
+		if !ok {
 			return ""
 		}
 		return sf.Text(span)
@@ -61,10 +72,16 @@ func lookup(t *testing.T, idx *symbols.Index, fqn string) *symbols.Symbol {
 // render is the rendering of one view of a fixture, which must render.
 func render(t *testing.T, file, view string) *Rendering {
 	t.Helper()
-	r, idx := loadFixture(t, file)
+	return renderIn(t, view, file)
+}
+
+// renderIn renders view from a model of several fixture documents.
+func renderIn(t *testing.T, view string, files ...string) *Rendering {
+	t.Helper()
+	r, idx := loadFixtures(t, files...)
 	rendering, err := r.Render(lookup(t, idx, view))
 	if err != nil {
-		t.Fatalf("render %s of %s: %v", view, file, err)
+		t.Fatalf("render %s of %s: %v", view, files, err)
 	}
 	return rendering
 }
@@ -83,6 +100,8 @@ func TestGoldenRenderings(t *testing.T) {
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
+		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
 		{"table", "table.sysml", "TableViews::partsTable", KindTable},
 		{"grid-table", "table.sysml", "TableViews::fleetTable", KindTable},
@@ -175,6 +194,24 @@ func TestStateRenderingComesFromTheLoweredGraph(t *testing.T) {
 	}
 	if !strings.Contains(rendering.Mermaid(), "stateDiagram-v2") {
 		t.Errorf("Mermaid is no state diagram:\n%s", rendering.Mermaid())
+	}
+}
+
+// A machine the runtime refuses is refused by the state rendering too, its
+// redefinitions resolved as the runtime resolves them: an alias of the
+// library's run-to-completion feature is reported, not drawn as if it ran.
+func TestStateRenderingRefusesWhatTheRuntimeRefuses(t *testing.T) {
+	rendering := render(t, "state-refused.sysml", "MachineViews::relaxedStates")
+	if len(rendering.Roots) != 0 {
+		t.Fatalf("roots = %v, want none: the machine does not lower", rendering.Roots)
+	}
+	if len(rendering.Notices) != 1 {
+		t.Fatalf("notices = %v, want one refusing the machine", rendering.Notices)
+	}
+	for _, want := range []string{"Machines::Relaxed does not lower to a state graph", "isRunToCompletion", "= false"} {
+		if !strings.Contains(rendering.Notices[0], want) {
+			t.Errorf("notice = %q, want %q named", rendering.Notices[0], want)
+		}
 	}
 }
 
@@ -285,6 +322,89 @@ func TestActionRenderingComesFromTheLoweredGraph(t *testing.T) {
 	if guards == 0 || flows == 0 {
 		t.Errorf("edges: %d guarded, %d flows; want at least one of each", guards, flows)
 	}
+}
+
+// A behavior rendering carries the declared type of a typed action or state usage
+// apart from its notes, and every form writes the type after the name.
+func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
+	cases := []struct {
+		view, name, kind, typ, detail string
+	}{
+		{"TypedViews::cycleView", "Typed::run", "action", "Cycle", ""},
+		{"TypedViews::cycleView", "warm", "action", "Warm", ""},
+		{"TypedViews::cycleView", "start", "initial", "", ""},
+		{"TypedViews::boilerView", "heating", "state", "Heating", ""},
+		{"TypedViews::boilerView", "idle", "state", "", "initial"},
+	}
+	for _, tc := range cases {
+		rendering := render(t, "typed-behavior.sysml", tc.view)
+		node := nodeNamed(t, rendering, tc.name)
+		if node.Kind != tc.kind || node.Type != tc.typ || node.Detail != tc.detail {
+			t.Errorf("%s: node %s = kind %q type %q detail %q, want kind %q type %q detail %q",
+				tc.view, tc.name, node.Kind, node.Type, node.Detail, tc.kind, tc.typ, tc.detail)
+		}
+		if tc.typ == "" {
+			continue
+		}
+		head := tc.name + " : " + tc.typ
+		if text := rendering.Text(); !strings.Contains(text, tc.kind+" "+head) {
+			t.Errorf("%s: text lacks %q:\n%s", tc.view, tc.kind+" "+head, text)
+		}
+		if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, head+"<br>«"+tc.kind+"»") {
+			t.Errorf("%s: Mermaid lacks %q:\n%s", tc.view, head+"<br>«"+tc.kind+"»", mermaid)
+		}
+		dot, err := rendering.Write(FormDot)
+		if err != nil {
+			t.Fatalf("%s: DOT: %v", tc.view, err)
+		}
+		if !strings.Contains(dot, "<b>"+head+"</b>") {
+			t.Errorf("%s: DOT lacks a bold %q:\n%s", tc.view, head, dot)
+		}
+	}
+}
+
+// A declared type is spelled as the notation does: a conjugated port typing
+// keeps its `~`, a name that is not a basic one its quotes, a global name its
+// `$::` root, and a usage typed by several types lists them all.
+func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
+	rendering := render(t, "typings.sysml", "SpelledViews::rigView")
+	cases := map[string]string{
+		"plug":     "~Link",
+		"rail":     "'Frame *rail*'",
+		"base":     "Mount, Cart",
+		"root":     "$::Spelled::Mount",
+		"mirrored": "~rail.'Frame *rail*'",
+	}
+	for name, want := range cases {
+		if node := nodeNamed(t, rendering, name); node.Type != want {
+			t.Errorf("node %s: type %q, want %q", name, node.Type, want)
+		}
+	}
+	text := rendering.Text()
+	for _, want := range []string{
+		"port plug : ~Link", "part rail : 'Frame *rail*'", "part base : Mount, Cart",
+		"part root : $::Spelled::Mount", "port mirrored : ~rail.'Frame *rail*'",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text lacks %q:\n%s", want, text)
+		}
+	}
+	// An anonymous connection or message is labeled by its type, spelled once.
+	if got := edgeLabels(render(t, "typings.sysml", "SpelledViews::rigConnections")); !got["Bolt, Weld"] {
+		t.Errorf("connection edge labels %v lack %q", sortedKeys(got), "Bolt, Weld")
+	}
+	if got := edgeLabels(render(t, "typings.sysml", "SpelledViews::exchangeView")); !got["$::Spelled::Note"] {
+		t.Errorf("message edge labels %v lack %q", sortedKeys(got), "$::Spelled::Note")
+	}
+}
+
+// edgeLabels is the set of labels the edges of a rendering carry.
+func edgeLabels(rendering *Rendering) map[string]bool {
+	labels := map[string]bool{}
+	for _, edge := range rendering.Edges {
+		labels[edge.Label] = true
+	}
+	return labels
 }
 
 // A node performing statements rather than a flow of its own is rendered as the
@@ -482,7 +602,8 @@ func TestRenderingReportsWhatItCannotRepresent(t *testing.T) {
 	}
 }
 
-// A Mermaid label carries no character that would break the diagram.
+// A Mermaid label carries no character that would break the diagram: the only
+// markup in it is the `<br>` between its lines.
 func TestMermaidLabelsAreEscaped(t *testing.T) {
 	mermaid := render(t, "action.sysml", "FlowViews::driveView").Mermaid()
 	for _, line := range strings.Split(mermaid, "\n") {
@@ -491,10 +612,14 @@ func TestMermaidLabelsAreEscaped(t *testing.T) {
 		}
 		if i := strings.Index(line, "[\""); i >= 0 {
 			label := line[i+2 : strings.LastIndex(line, "\"")]
-			if strings.ContainsAny(label, "\"<>") {
+			if strings.ContainsAny(strings.ReplaceAll(label, "<br>", ""), "\"<>") {
 				t.Errorf("unescaped label %q in %q", label, line)
 			}
 		}
+	}
+	node := &Node{Kind: "part", Name: `a<b> "c" #d`, Type: "T<U>", Detail: "x; y"}
+	if got, want := mermaidLabel(node), "a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>«part»<br>x#59; y"; got != want {
+		t.Errorf("mermaidLabel = %q, want %q", got, want)
 	}
 }
 

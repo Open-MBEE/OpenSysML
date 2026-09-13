@@ -13,8 +13,7 @@ import (
 func DefaultRegistry() *Registry {
 	reg := NewRegistry()
 	reg.Register(SyntaxPass{})
-	reg.Register(ImportVisibilityPass{})
-	reg.Register(EnumerationBodyPass{})
+	reg.Register(GrammarViolationPass{})
 	reg.Register(NonstandardNotationPass{})
 	reg.Register(NameResolutionPass{})
 	reg.Register(StateTransitionPass{})
@@ -27,6 +26,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(RedefinitionDirectionPass{})
 	reg.Register(ElementFilterPass{})
 	reg.Register(ConstraintPass{})
+	reg.Register(VariantOwnerPass{})
 	reg.Register(DocumentQueryPass{})
 	reg.Register(DocumentPlanPass{})
 	reg.Register(TypeRelationshipsPass{})
@@ -57,6 +57,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(W8DViewRenderingPass{})
 	reg.Register(W8DMetadataUsagePass{})
 	reg.Register(IdentityMetadataPass{})
+	reg.Register(DiagramLayoutPass{})
 	reg.Register(RedefinitionConformancePass{})
 	reg.Register(W9CShortNameDistinguishabilityPass{})
 	reg.Register(W9CUserStandardLibraryPass{})
@@ -66,6 +67,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(W11AKerMLSpecializationPass{})
 	reg.Register(ControlNodeSuccessionPass{})
 	reg.Register(OOSEMMethodPass{})
+	reg.Register(MOSAPass{})
 	return reg
 }
 

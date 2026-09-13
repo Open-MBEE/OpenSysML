@@ -15,10 +15,11 @@ var extensionInventory = []string{
 	"state def S { history h; }",
 	"state def S { shallow history h; }",
 	"state def S { deep history h; }",
-	"state def S { entry point p; }",
-	"state def S { exit point p; }",
 	"state def S { state a { defer e; } }",
 	"part def P { part a; first a; }",
+	"package P { view def V { expose P::*; } }",
+	"action def A { action x; action y; transition first x then y; }",
+	"part def P { require constraint { true } }",
 }
 
 // notationDiags runs the pass over a document in the named mode.

@@ -5,7 +5,23 @@ replaces, what it drops) is explained in [guide chapter 4](../guide/04-repl.md).
 
 Every command that takes a `<name>` accepts the quoted spelling the notation uses, including a
 quoted segment containing a space and a quoted segment in the middle of a chain:
-`%instantiate 'My Pkg'::Car`, `%features Top::'My Pkg'::Car`.
+`%instantiate 'My Pkg'::Car`, `%features Top::'My Pkg'::Car`. A name holding a character no
+basic name can — `'SA-506'`, `'HLR-R001'`, `'My Pkg'` — is typed with its quotes. A command
+reading a `<name>` alone also finds the declaration under the bare spelling, but an `<object>`
+reference and an expression read only the identifier it starts with: `T::SA-506` is `T::SA`
+followed by `-506`, and where an expression is expected, the subtraction `T::SA - 506`. When
+that identifier names nothing but is the start of a declared name that does need quotes, every
+command's failure says so, offering the quoted spelling:
+
+```
+sysml> %instantiate T::SA
+error: unresolved reference: T::SA — did you mean T::'SA-506'? Names containing '-' must be quoted.
+```
+
+The offer is drawn from what is declared — a name in scope, or one of the kinds the command acts
+on, whose unquoted spelling starts with what was typed — never from the rest of the text; the
+characters named are the ones those declarations hold (`Names containing ' ' or '-' must be
+quoted.`), and a plain misspelling is still offered its nearest declared name.
 
 Every command that takes an `<object>` — `%features`, `%invoke`, `%eval in`, and the object
 `%action` and `%state` are performed by or attached to — reads one
@@ -24,26 +40,36 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%query <oslc-query>` | Identify model elements using OSLC Query text |
 | `%verbosity [level]` | Show or set output level: `quiet` (errors only), `normal`, `debug` (every diagnostic over the whole buffer) |
 | `%trace [on\|off]` | Show or set execution tracing: each evaluation, calc invocation, action step and state transition, and each `choice` the executor made among alternatives the library leaves unordered — several steppable tokens, several holding decision guards, several enabled transitions out of one state for one event, several regions of one parallel state reacting to one event, two tokens writing one feature in one step, two executors due at one instant of the clock — naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). `%step`, `%continue` and `%advance` end with a count of the choices they made and of the guards they could not evaluate (`1 choice point; 1 guard not evaluable`) whether or not tracing is on |
-| `%schedule [<policy>]` | Show or set the scheduling policy the executors resolve their [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order) or `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, so the same seed replays the same run). Applies to runs started from then on — `%action`, `%state`, `%analysis`; a calc's body performs nothing, so `%calc` has no choice to make — while a debugging session already under way keeps the policy it started with; every choice point a run reaches is reported and the `took …` of each `choice` line is what the policy took. A spelling naming no policy (an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, a malformed `explore:` option) is refused and the policy is left as it was. `explore[:runs=N,depth=D]` is refused at the prompt too, as a typed error saying why: it replays a behavior from the start once per linearization, which `%action` and `%state`, stepping one run, cannot do — run `sysml -schedule explore -action <name>` (or `-state`, `-analysis`, `-calc`) for the outcome table ([Exploring every linearization](cli.md#exploring-every-linearization)), or send a request with that `schedule` over the wire |
+| `%schedule [<policy>]` | Show or set the scheduling policy the executors resolve their [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, so the same seed replays the same run) or `replay:<file>` (the choice lines of a witness, followed move for move and then `reverse` — a header of `no choice points` follows the one run there is; a move the run cannot make is a `replay refused` error naming it — [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Applies to runs started from then on — `%action`, `%state`, `%analysis`; a calc's body performs nothing, so `%calc` has no choice to make — while a debugging session already under way keeps the policy it started with; every choice point a run reaches is reported and the `took …` of each `choice` line is what the policy took. A spelling naming no policy (an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, a malformed `explore:` option, `replay:` without a readable file of choice lines, one that is empty or has a line spelling no choice) is refused and the policy is left as it was. `explore[:runs=N,depth=D]` is refused at the prompt too, as a typed error saying why: it replays a behavior from the start once per linearization, which `%action` and `%state`, stepping one run, cannot do — run `sysml -schedule explore -action <name>` (or `-state`, `-analysis`, `-calc`) for the outcome table ([Exploring every linearization](cli.md#exploring-every-linearization)), or send a request with that `schedule` over the wire |
 | `%strict [on\|off]` | Show or set strict conformance: report notation no SysML v2 production admits as an error, and reprint the session's diagnostics under the new mode ([Strict conformance](../guide/03-command-line.md#strict-conformance)) |
 | `%budget` | Show the five bounds one run may spend, each with the variable that raises it |
+| `%jobs [<n>]` | Show or set how many runs of one check asked from then on may go concurrently — the linearizations a check explores under `%schedule explore`, the engines `%engine all` consults — the rows of a `%sweep` or `%samples` — each on a worker of its own over the session's model; `OPENSYSML_JOBS`, else one per CPU, until set. The result of a check is the same at any count. The count bounds a plan's runs, not the session: the held context, its objects and a debugging session under way are untouched by setting it. A value that is not a positive integer is refused and the count left as it was ([Running in parallel](cli.md#running-in-parallel)) |
+| `%engines [probe]` | List the analysis engines of the build in name order — the kind of each, the protocol it is spoken by, the authority it carries, the question kinds it answers and its status (`ready`, `ready (z3 at …)` for one whose process was found, `unavailable: <why>`), then one line per manifest entry naming its file and command — as the CLI's [`-engines`](cli.md#analysis-engines) does, starting nothing. `%engines probe` also starts each [external engine](external-engines.md) once, checks its `describe` against its manifest entry field by field and reports the outcome as its status, as `-engines -probe` does; any other argument is refused |
+| `%engine [<name>\|auto\|all]` | Show or set the analysis engine every question asked from then on — `%constraint`, `%requirement`, `%satisfy`, `%calc`, `%analysis`, `%sweep`, `%samples`, `%check` and the other solver commands — is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name puts it to that engine alone, whose refusal is then the verdict; `all` puts it to every covering engine, one after another in name order, and composes their answers, naming a disagreement in the interpreter's favor. Every verdict is followed by a `standing:` line — the claim, the strength of the evidence (*not covered*, *observed*, *witnessed*, *bounded*, *proved*) and what earned it — and under `all` each engine's part. A name no engine is registered under is refused and the selection left as it was. `explore` is refused at the prompt as `%schedule explore` is, since the debuggers step one run; the `%action` and `%state` debuggers keep the schedule `%schedule` set whatever the engine ([Analysis engines](cli.md#analysis-engines)). `%engine check` is the one selection that changes what `%action` does by itself: it puts the action to the `check` engine, which searches every schedule for a violation, a deadlock, a failure or a divergence and prints the verdict, instead of starting a debugging session; `%engine all` does the same, the exploration beside the checker, once a `%check-*` setting is made ([Checking every schedule](#checking-every-schedule-of-an-action)) |
+| `%check-property [<name>...\|off]` | Show or set the constraints and requirements the `check` engine evaluates at every stable state of a checked action, on its performing object where there is one; `off` (the default) names none |
+| `%check-diverge [<feature>...\|off]` | Show or set the features whose final values the `check` engine compares across schedules — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's, a name nothing holds refused; `off` (the default) compares every attribute of the action and of its performing object; an action run without one is compared on its own attributes only |
+| `%check-input [<feature>...\|off]` | Show or set the features of a checked action the `smt` engine leaves free in their declared type's domain although the model binds them — a default, a value the performing object holds; `off` (the default) frees only the inputs the model leaves unbound and pins every bound one at its value. A name that is not a feature the action reads is refused naming it when the action is checked. The CLI's [`-check-input`](cli.md#deciding-a-property-over-the-inputs) |
+| `%check-assume [<name>...\|off]` | Show or set the constraints and requirements the `smt` engine asserts over the initial state of a checked action, so its claim ranges over the inputs they admit; `off` (the default) assumes none. A set no initial state satisfies is reported *not covered*, never *proved*. The CLI's [`-check-assume`](cli.md#deciding-a-property-over-the-inputs) |
+| `%check-witness [<dir>\|off]` | Show or set the directory the `check` and `smt` engines write a witness file into for each violation and each divergent value, created if absent; `off` (the default) writes none, and the verdict names each divergent value and violation without a path. A witness of the `smt` engine's opens with the input values the solver chose, one `input <feature> = <value>` line each, ahead of the choice lines |
+| `%check-bounds [depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] \| off` | Show or set the bounds the `check` and `smt` engines search within: `depth` is the most moves of one schedule (default 10 000 under `check`, 40 under `smt`, where it is the moves the action is unrolled to), `states` the most distinct states (default 1 000 000), `unroll` the most iterations of one loop the `smt` engine unrolls (default 4), `timeout` the wall clock the check may run for (unbounded by default); each takes a positive integer or a duration such as `30s` (a zero or a negative one is refused and the bounds left as they were), the ones not named keep their values, and `off` restores every default. The CLI's [`-check-depth`, `-check-states`, `-check-unroll`, `-check-timeout`](cli.md#command-reference) |
+| `%replay <witness>` | Install the schedule a witness file fixes, as `%schedule replay:<file>` does, so the next `%action` or `%state` starts the run the witness records — its `input` lines pinned before the run starts — and `%step`/`%continue` step it, each choice taken as the witness took it; the debugger refuses where a run departs from its witness, and an input line naming a feature the action does not have is refused naming it. A file that is not a witness is refused and the schedule left as it was |
 | **Library Discovery** | |
 | `%search <substring>` | List the declared and library symbols whose qualified name contains the substring, with the kind of each |
 | `%builtins` | List the library functions the runtime implements directly (`sqrt`, `abs`, `max`, `floor`, `x->isEmpty()`, `x->sum()` …), each with the package an `import` must name for its bare name to resolve; the qualified name (`RealFunctions::sqrt(2.0)`) resolves anywhere |
 | `%view <name>` | Show what a view exposes: its own `expose` relationships plus the protected ones of the views it specializes, the views nested in it (each with its own exposed set), and its conformance to every viewpoint it satisfies. Conformance is a verdict of `conforms`, `violated` or `unevaluable` per viewpoint and per framed concern, with the reason, the exposed element a concern's condition failed for, and `(from <view>)` where the `satisfy` is inherited. Asking about an element that is not a view says so |
-| `%render <name> [form]` | Render a view's exposed set in the kind its `render` member states: a containment tree with nested views as subtrees, an interconnection diagram of the exposed parts and the connections between them, a state machine's states and transitions, an action's nodes and successions, or a table of the exposed elements and what they declare. A view with no `render` member renders as a tree. Output is indented text by default, or the machine-readable form of the kind: a [Mermaid](#rendering-a-view) diagram with `mermaid`, a Markdown table with `markdown`. Asking for a form the kind cannot be written in tells you which form it uses. Read-only: it creates no object and leaves a `%action`/`%state` debugging session running. A view that exposes nothing renders empty and says so; a rendering kind this build does not produce is reported by kind and view rather than rendered as something else; an element the rendering cannot represent is reported, not dropped |
+| `%render <name> [form [palette]]` | Render a view's exposed set in the kind its `render` member states: a containment tree with nested views as subtrees, an interconnection diagram of the exposed parts and the connections between them, a state machine's states and transitions, an action's nodes and successions, or a table of the exposed elements and what they declare. A view with no `render` member renders as a tree. Output is indented text by default, or the machine-readable form of the kind: a [Mermaid](#rendering-a-view) diagram with `mermaid`, a Markdown table with `markdown`; `dot` writes a graph-shaped kind as Graphviz DOT instead of Mermaid, in the Pilot visualizer's Standard B&W style, `plantuml` writes it — a sequence included — as PlantUML in the same style, and `dot <palette>` or `plantuml <palette>` fills the nodes by keyword family from `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; an unknown palette is refused with the names there are. Asking for a form the kind cannot be written in tells you which form it uses. Read-only: it creates no object and leaves a `%action`/`%state` debugging session running. A view that exposes nothing renders empty and says so; a rendering kind this build does not produce is reported by kind and view rather than rendered as something else; an element the rendering cannot represent is reported, not dropped |
 | **Instantiation & Inspection** | |
 | `%instantiate <name>` | Create an object of a part definition and start the behaviors its type exhibits or performs. Each object runs its own machine, initialized after its feature values are built and run until it is quiescent. A second `%instantiate` of the same name creates a new object, and the name then refers to that one. A later submission keeps the object's identity but restarts its behaviors from their initial states, and says so |
 | `%features <object> [all\|depth <n>] [json]` | Show what an object holds for each feature of its type. The object is named, addressed by id, or reached by a path: `%features car`, `%features #3`, `%features car.fl.hub`, `%features car.wheels[2]`. A feature with no value reads `<unset>`. States and actions hold no value, so they are listed after the values under a `Behaviors:` heading with what the object is doing with each: the current active state of a machine it exhibits (the state `%current` reports), the execution state of an action it performs, `not running` for a state or action it neither exhibits nor performs, or, for a named transition, the step it declares (`toggle: transition, modes.closed → modes.opened`). A behavior a redefinition renamed (`exhibit state fancyModes :>> modes`) is one execution under two names, and both rows report it. The values a running behavior owns — the attributes of the machine's own occurrence, an action's parameters and outputs — are listed under its row (`modes: exhibited state machine, current state running` followed by `count = 1`), apart from the performer's own values, and are bounded like any nested object. Reading a feature value builds the objects it holds, so the listing is bounded by default — 200 lines, nesting 8 deep — and a listing cut short says which form shows the rest. `all` lifts both bounds and reads the whole tree out; `depth <n>` bounds nesting at `n` levels and lifts the size bound, naming what it did not expand (`machine : Machine (not expanded: depth 1)`). `json` writes the object and everything reachable from it as one document in the shape the API's `Instantiate` returns (`instance`, `instances`, `diagnostics`), bounded by default at 1000 objects, with a graph cut short reported as a `warning` diagnostic. `all`/`depth` and `json` combine (`%features ctx all json`); `all` and `depth` together, a missing or negative depth, and an unknown word are errors naming the usage |
 | `%instances` | List all created objects: the named ones, and the ones a second `%instantiate` of their name displaced, which stay reachable by id (`#3 (ID: 3, displaced from Demo::car)`) |
-| `%eval <expr>` | Evaluate expression, in the last namespace the session declared; a library function is reached by its bare name only where that namespace imports its package, as the checker resolves it, and by its qualified name anywhere |
-| `%eval in <name> : <expr>` | Evaluate expression in the named element's own namespace, or, when the name is an [object reference](#object-references) (`car`, `#3`, `car.fl`), on that object, so that a feature reads the value it holds after its behaviors ran (`%eval in #1 : recv.got`, `%eval in ctx.recv : got`). In the declaration's own namespace a feature the declarations give no value to — a multi-valued `part wheels : Wheel[4]` or an attribute with no default, and a chain through one such as `wheels.radius` — reads `<unset>`, as it does on an object; an expression over such a feature (`unsetMass + 1`) fails, naming the feature that has no value, and `unresolved reference` is reserved for a name nothing declares. The separator is the first `:` outside a quoted name that is not part of a `::`, so `%eval in Demo : Vehicle::mass` works |
+| `%eval <expr>` | Evaluate expression, in the last namespace the session declared; a library function is reached by its bare name only where that namespace imports its package, as the checker resolves it, and by its qualified name anywhere. The read is model-level, over what the declarations state: a feature the model leaves open — one with no value, or one whose count `[1..*]`/`[0..2]` the model does not fix — is the value `<undetermined>`, as is any expression whose answer depends on it, while what the model fixes still answers (`(u > 3) and false` is `false`, `size(slots)` of a `part slots[3]` is `3`). `<undetermined>` is a value, not an error; see `%eval in` for the object-level reading |
+| `%eval in <name> : <expr>` | Evaluate expression in the named element's own namespace, or, when the name is an [object reference](#object-references) (`car`, `#3`, `car.fl`), on that object, so that a feature reads the value it holds after its behaviors ran (`%eval in #1 : recv.got`, `%eval in ctx.recv : got`). In the declaration's own namespace the read is model-level: a feature the declarations give no value to — a multi-valued `part wheels : Wheel[4]` or an attribute with no default, and a chain through one such as `wheels.radius` — reads `<undetermined>`, and so does an expression over it (`unsetMass + 1`) unless a constant operand fixes the answer (`(unsetMass > 1) and false` is `false`); a feature whose count the model leaves open (`[1..*]`, `[0..2]`) has an `<undetermined>` `size`, while what its bounds fix answers (`notEmpty` of a `[1..*]` is `true`). On an object the same feature reads `<unset>`, an expression over it fails naming the feature that has no value, and multiplicity minimums are materialized. `unresolved reference` is reserved for a name nothing declares. The separator is the first `:` outside a quoted name that is not part of a `::`, so `%eval in Demo : Vehicle::mass` works |
 | **Behavioral Execution** | |
 | `%calc <name> [args...]` | Invoke calculation with arguments |
 | `%analysis <name>[(<args>)] [<object>]` | Run an analysis or verification case — a calculation performed as an action — and print its `out` and `return` values with their units, then the verdict of its `objective` and of each `assert constraint` in its body: `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason the condition could not be evaluated. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`), reading the case's subject, parameters and steps' outputs; one binding none checks the case's result, the library's default for it (`Cases::Case::obj`), and is `undecided` naming the type when that result is not of the subject's type. Arguments in parentheses bind the case's `in` parameters, positionally (`%analysis An::Case(3.0)`) or by name (`%analysis An::Case(limit = 3.0)`), evaluated at the prompt like `%calc`'s; an [object reference](#object-references) after them is the case's `subject` (`%analysis An::CostAnalysis An::barge`). A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one, as `%requirement` refuses an unbound subject. A usage nested in a part runs as a feature of the object the session holds for that part (`%instantiate An::holder`, then `%analysis An::Holder::inner`). The body's `action` steps, sequenced by `then` or by declaration order, run as an action does, later steps reading earlier steps' outputs; a step that fails, a body that deadlocks or exhausts the step budget, a case that runs itself, and an `in` parameter with no argument and no default are errors naming the case; a case recursing without bound through a nested `analysis` step reports the depth limit on one line, its repeated frames collapsed to a count as `%calc`'s are. `%calc` refuses an analysis case and says to run it this way. A `verification def` or `verification` usage runs the same way and reports in addition the `VerdictKind` its body produced: `pass`/`fail` from the library's own `VerificationCases::PassIf` calculation, a `VerdictKind` literal the body bound, `inconclusive` for a body producing no verdict value, or `error` with the reason a body's run could not be carried out; each nested verification step is reported on its own line, marked `(subcase)`, the library stating no roll-up. A `TradeStudies::TradeStudy` runs the same way — the library's own expressions apply the case's `evaluationFunction` to each alternative the subject lists, in subject order, and `selectOne` returns the first scoring the objective's `best` — and the report adds each evaluation the run made of the case's own calc as a value, with `[selected]` on the alternative returned and `[tied]` on a later one scoring the same; an evaluation that fails is listed with its error and leaves the objective `undecided`, a subject listing no alternative or redeclared `[1]` and bound to several is a `multiplicity violation` ([Trade studies](../guide/06-behavior.md#trade-studies)) |
 | `%run-query <name> [<p>=<expr>...]` | Execute a document query (a `calc def` specializing `DocumentQueries::Query`) and print its rows and projected cells. A projection lists declared property names and may add computed columns: `Column(name = "<column>", expression = <expr>)` entries evaluated once per row over the row element's features, with arithmetic (`+`, `-`, `*`, `/`), string concatenation and `??` defaults for absent values. A column expression that fails (including a reference that resolves to no value and has no `??` default) fails the query with a typed error rather than producing an empty cell. Each binding is written as `<parameter>=<expression>`; a name binds the element it refers to, anything else is evaluated as an expression. A parameter left unbound takes its declared default (`in root : Element = telescope;`, `in pattern : String default "m";`) under the same rule: a name binds the element it refers to, anything else is evaluated once in the query that declared it, and a redefining parameter's default replaces the inherited one. Named query invocation and relationship traversal (`RelatedElements` over specialization, subsetting, redefinition, typing, connection, allocation, satisfaction and verification edges, outgoing or incoming) are supported. See the [query cookbook](../manual/query-cookbook.md) |
-| `%render-document <name>` | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model and print the rendered Markdown. A document binds its queries' parameters in the model, so the name is the whole invocation. The output is deterministic CommonMark: the title and sections as ATX headings; paragraphs from text runs (`Span` runs with a `plain`/`emphasis`/`strong`/`code` style, `Link` runs to a URL, `Ref` runs linking to another content block's anchor, and query-produced values styled through nested `SpanColumn`/`LinkColumn` column runs); GitHub-flavored pipe tables with the projected column names (one subtable per group value when the table has a `groupBy` column); bullet and numbered lists; diagram blocks as fenced ` ```mermaid ` blocks rendered through the view engine (a table-kind view as a pipe table), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown metacharacters in content are escaped. Markdown is the only form the REPL writes; the CLI's `-doc-form html` renders the same document tree as semantic HTML ([Rendering a document as HTML](cli.md#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown to PDF ([Rendering a document as PDF](cli.md#rendering-a-document-as-pdf)). See the [document generation manual](../manual/README.md) |
-| `%sweep <name>[(<args>)] [<object>] <parameter>=<from>..<to>[:<step>] ...` | Run an analysis case or a calc once per value of a range and print the runs as a table: one row per run, carrying the values bound for it, the run's `out`/`return` values, the verdict of its `objective` where it has one, and the wall time of that run. The invocation is written as `%analysis`/`%calc` writes it — arguments in parentheses, an [object reference](#object-references) after them as the case's `subject` — and each range that follows names a parameter the case declares and the arguments do not bind. Endpoints and step are expressions evaluated at the prompt, units included (`speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']`), converted to the unit `<from>` carries; `<to>` is included where the step lands on it. The values are produced in the parameter's declared type, not the literals' — a `Real` or `Rational` parameter swept over `1..4:1` is bound to `1.0`, `2.0`, `3.0`, `4.0` and shown so; an `Integer`, `Natural` or `Positive` parameter swept over `1.0..3.0:1.0` to `1`, `2`, `3`, and an endpoint or step of it that is no Integer, or below what a `Natural` or `Positive` holds, is refused naming the parameter and its type before any run; an `attribute def` specializing a scalar takes that scalar's values; a quantity-typed parameter is typed through its `num` (`Number` in the library, so its magnitudes are read as written; `Integer` where a model redefines it so, a `Natural` or `Positive` one refusing a magnitude below what it holds and one holding no number refusing the range) and takes the unit `<from>` carries; a `Number`-typed parameter and one declaring no type take the range as written — Integers between Integer literals, reals otherwise — and an untyped one is noted under the table; a `Boolean`, `String`, enumeration or non-scalar parameter refuses a range naming its type. A range between whole numbers with no `:<step>` steps by one, up or down as its endpoints direct; a range with a fractional endpoint and no step is refused. A range read as reals takes an Integer endpoint or step only where a Real holds it without rounding, and steps only where the reals tell its rows apart, so a range whose rows would repeat one value is refused rather than run. Several ranges run their cartesian product, the first written varying slowest, and rows come out in that order. A run that fails is a row numbering its typed error, printed in full under the table, rather than an abort of the table. A parameter whose name needs the quotes of an unrestricted name is swept under that name, quotes included (`'launch mass'=1..3`). A step of zero, a step whose sign never reaches `<to>`, an endpoint that is no number or is not finite, incompatible units, an undeclared parameter, the case's subject, one the arguments already bind — by name or by holding the position it is bound from — and a plan asking for more runs than `OPENSYSML_MAX_SWEEP_RUNS` allows are errors naming what was asked for. A trade study's rows carry an `evaluations` column, each run's evaluations of its alternatives with the one selected marked, a failed row keeping the ones it made. Same tables as the CLI's [`-sweep`](cli.md#sweeping-a-parameter) |
+| `%render-document <name> [mermaid\|dot\|plantuml]` | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model and print the rendered Markdown. A document binds its queries' parameters in the model, so the name is the whole invocation apart from the optional diagram form: `mermaid` (the default), `dot` or `plantuml`, the form every graph-shaped diagram block of the document is written in. The output is deterministic CommonMark: the title and sections as ATX headings; paragraphs from text runs (`Span` runs with a `plain`/`emphasis`/`strong`/`code` style, `Link` runs to a URL, `Ref` runs linking to another content block's anchor, and query-produced values styled through nested `SpanColumn`/`LinkColumn` column runs); GitHub-flavored pipe tables with the projected column names (one subtable per group value when the table has a `groupBy` column); bullet and numbered lists; diagram blocks as fenced ` ```mermaid ` blocks rendered through the view engine (` ```dot ` blocks of Graphviz DOT with the `dot` form, ` ```plantuml ` blocks with `plantuml`; a table-kind view as a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown metacharacters in content are escaped. Markdown is the only form the REPL writes; the CLI's `-doc-form html` renders the same document tree as semantic HTML ([Rendering a document as HTML](cli.md#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown to PDF ([Rendering a document as PDF](cli.md#rendering-a-document-as-pdf)). See the [document generation manual](../manual/README.md) |
+| `%sweep <name>[(<args>)] [<object>] <parameter>=<from>..<to>[:<step>] ...` | Run an analysis case or a calc once per value of a range and print the runs as a table: one row per run, carrying the values bound for it, the run's `out`/`return` values, the verdict of its `objective` where it has one, and the wall time of that run. The invocation is written as `%analysis`/`%calc` writes it — arguments in parentheses, an [object reference](#object-references) after them as the case's `subject` — and each range that follows names a parameter the case declares and the arguments do not bind. Endpoints and step are expressions evaluated at the prompt, units included (`speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']`), converted to the unit `<from>` carries; `<to>` is included where the step lands on it. The values are produced in the parameter's declared type, not the literals' — a `Real` or `Rational` parameter swept over `1..4:1` is bound to `1.0`, `2.0`, `3.0`, `4.0` and shown so; an `Integer`, `Natural` or `Positive` parameter swept over `1.0..3.0:1.0` to `1`, `2`, `3`, and an endpoint or step of it that is no Integer, or below what a `Natural` or `Positive` holds, is refused naming the parameter and its type before any run; an `attribute def` specializing a scalar takes that scalar's values; a quantity-typed parameter is typed through its `num` (`Number` in the library, so its magnitudes are read as written; `Integer` where a model redefines it so, a `Natural` or `Positive` one refusing a magnitude below what it holds and one holding no number refusing the range) and takes the unit `<from>` carries; a `Number`-typed parameter and one declaring no type take the range as written — Integers between Integer literals, reals otherwise — and an untyped one is noted under the table; a `Boolean`, `String`, enumeration or non-scalar parameter refuses a range naming its type. A range between whole numbers with no `:<step>` steps by one, up or down as its endpoints direct; a range with a fractional endpoint and no step is refused. A range read as reals takes an Integer endpoint or step only where a Real holds it without rounding, and steps only where the reals tell its rows apart, so a range whose rows would repeat one value is refused rather than run. Several ranges run their cartesian product, the first written varying slowest, and rows come out in that order. A run that fails is a row numbering its typed error, printed in full under the table, rather than an abort of the table. A parameter whose name needs the quotes of an unrestricted name is swept under that name, quotes included (`'launch mass'=1..3`). A step of zero, a step whose sign never reaches `<to>`, an endpoint that is no number or is not finite, incompatible units, an undeclared parameter, the case's subject, one the arguments already bind — by name or by holding the position it is bound from — and a plan asking for more runs than `OPENSYSML_MAX_SWEEP_RUNS` allows are errors naming what was asked for. A trade study's rows carry an `evaluations` column, each run's evaluations of its alternatives with the one selected marked, a failed row keeping the ones it made. Each row is a run in a context of its own — the subject and the `self` of a nested case instantiated there, the arguments evaluated once at the prompt (a held feature a run wrote reads as written) and their values carried in, an argument naming a held object bound to the object the row makes for it — so no row sees another's writes; rows run `%jobs` at a time, and the table is in range order whatever order they finish in, the `time` column alone varying with the count. A sweep on an object the session holds runs each row on an object of its own that is the held object as the sweep found it, and leaves the held object as it was: a fresh object of the held object's declaration (one reached through a feature of another, `fleet.flagship`, on the like of `fleet` walked to its `flagship`) while the object is as the declaration made it, the behaviors its type exhibits or performs still as their start left them — as one fresh from `%instantiate` is; otherwise — named by `#<id>`, a feature of it written by a run, a signal sent to it, its state machine moved or its performed action past a wait — a copy from one image of the held object and what it holds, taken as the sweep begins and made in each row's context under the same identities, executors and posted signals included. One destroyed, or in a state no copy carries (a body paused mid-statement, a debugger inside a step), is refused naming the reason, never swept on shared state; an argument naming a held object binds the row's copy of it, and is refused naming the argument when no copy can be made or its value is bound to the run that made it. Same tables as the CLI's [`-sweep`](cli.md#sweeping-a-parameter) |
 | `%samples <n> <seed> <name>[(<args>)] [<object>] <parameter>=<from>..<to> ...` | Draw `n` values for each range instead of running every value of it, uniformly over `[<from>, <to>]` for a parameter taking Integers and `[<from>, <to>)` for one taking reals — the parameter's type decides, so an `Integer` parameter sampled over `1.0..4.0` draws the Integers 1 to 4 and a `Real` parameter sampled over `1..4` draws reals in `[1, 4)` — and print the rows in draw order with the seed in the table header. The generator is `math/rand/v2`'s `PCG` seeded from `<seed>`, so the same seed draws the same values on every platform; a sampled range needs no step and stating one is refused. Sampling is uniform because the bundled standard library states no probability distribution — a range written as a named distribution (`n=normal(1.0, 0.2)`) is an error naming what is missing rather than an approximation |
 | `%constraint <name>` | Evaluate constraint (assert/assume) |
 | `%invoke <object> <op> [<p>=<expr>]` | Invoke an operation of an object's type (an action it owns), performed by that object, given as an [object reference](#object-references) (`%invoke car start`, `%invoke #3 start`, `%invoke car.engine start`), with each argument written as `<parameter>=<expression>`. Assignments in the body write that object's feature values; declared outputs are reported. Not yet supported: an operation given as a `calc` or `constraint`, and positional arguments |
@@ -55,7 +81,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%configure <name> [<variation>=<variant>...] [all [<count>]]` | **Experimental.** Ask which variants a constraint, requirement or satisfaction assertion permits. With no argument, one consistent selection is synthesised. With `<variation>=<variant>`, the chosen selection is checked and the conflict is named when it is not consistent. With `all`, the consistent selections are enumerated up to `OPENSYSML_SMT_MAX_CONFIGURATIONS` (`all <count>` for a smaller bound), and the report says whether the list is complete or was cut short, either at the bound or because the solver stopped deciding or ran out of time; the selections found so far are still reported. An element that reads no variation point is an error pointing at `%check`. Same solver requirements as `%check` |
 | `%optimize <name>` | **Experimental.** Ask the solver for the best values an `analysis def` (or an analysis usage) admits. Each `objective` is improved as the trade-study definition typing it says (`TradeStudies::MinimizeObjective` or `MaximizeObjective`), over the value its redefinition of the library's `eval` calculation returns (`subject :>> selectedAlternative; in calc :>> eval { expression }`), within the conditions the case requires or assumes and the ones the objective states itself. An objective that instead gives the library's bound `best` a value of its own (`attribute :>> best = expression;`, the spelling earlier releases read) is a validation error, and `%optimize` refuses it pointing at the `eval` spelling. Several objectives are improved lexicographically in declaration order, inherited ones first; an objective restating an inherited one (by name or `:>>`) stands in its place with the value stated there. Prints each optimum with its declared unit and the assignment that attains it. An objective that improves without limit, or a bound no assignment attains, is reported as such and never as a number, and every optimum is verified before it is reported. **Needs `z3`**: optimization is a z3 extension, and a backend without it (cvc5) is an error rather than a plain satisfiability check presented as an optimum. Otherwise the same solver requirements as `%check`. `%optimize` answers a different question from running the case: it finds the best *values* the case's conditions admit over a continuous domain, where `%analysis` executes what the model says over the alternatives it lists. A `TradeStudies::TradeStudy` whose objective applies the case's `evaluationFunction` to listed alternatives is therefore refused, pointing at `%analysis`/`-analysis`/`RunAnalysis`, which evaluate every alternative and report the one selected ([Trade studies](../guide/06-behavior.md#trade-studies)) |
 | **Action debugging** ([guide chapter 6](../guide/06-behavior.md)) | |
-| `%action <name> [<object>]` | Start an action debugging session, optionally performed by an instantiated object, given as an [object reference](#object-references) (`%action tally car`, `%action tally #3`) |
+| `%action <name> [<object>]` | Start an action debugging session, optionally performed by an instantiated object, given as an [object reference](#object-references) (`%action tally car`, `%action tally #3`). Under `%engine check`, or `%engine all` with a `%check-*` setting made, the action is checked instead of stepped ([Checking every schedule](#checking-every-schedule-of-an-action)) |
 | `%step` | Advance one token step; a token waiting only on the clock (`accept after`, `accept at`) is not stepped, and the report names the `%advance` that would move it |
 | `%continue` | Run the action to completion |
 | `%tokens` | Show the active tokens |
@@ -63,18 +89,106 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%stop` | Stop the current debugging session |
 | **State machine debugging** ([guide chapter 6](../guide/06-behavior.md)) | |
 | `%state <name> [<object>]` | Debug the machine an object exhibits (`%state <object>` after `%instantiate` attaches to that object's own running machine, whether the object is named, `#3`, or `car.controller`), or start a state machine — named, or the object of one the session holds (`%state #2`, `%state monitor.modes`), which exhibits none and so runs afresh — optionally performed by an instantiated object, given as an [object reference](#object-references). `%state <machine> <object>` first looks at what the object already runs: naming a machine it exhibits — one that *is* or is *typed by* `<machine>` (`%state Rover::modes rover`) — attaches to that running machine too, with a note saying so, rather than performing it a second time against the same feature values, so the object never runs two of them; only a machine the object does not exhibit is started as a detached performance, and the report says that too. Naming an exhibited machine alone (`%state Rover::modes`, or its short name `modes`) attaches to the running machine of the one held object exhibiting it — the object `%instances` and `%features` show. Held objects are the ones the session has built: a nested part counts once something has reached it (`%features driver`), and `%state` builds none itself. When no held object exhibits it, or several do, `%state` refuses and names the objects (or, with none held, the types exhibiting it), so that you name one with `%state <object>` or `%state <machine> <object>`; it never guesses, and never performs a machine a type exhibits detached from any object. The machine is addressed by any binding on the way to its body — the exhibited usage, a usage it references, or the definition typing it — so `%state Blink` finds the object exhibiting `spare : Blink`. A machine no type exhibits (a `state def` alone) is started as a detached performance, as there is no object's performance of it to attach to. A definition the object exhibits as the body of several usages names no one machine, so `%state` refuses and names the exhibited usages to name instead. `%step`, `%advance`, `%current` and `%events` then drive that object's machine, and `%features` shows what it wrote |
-| `%send <signal>[(<p>=<expr>, ...)] [to <object>]` | Send a signal to an object's machine through the runtime's own message bus, as `send <signal>(...) to <object>` from an action would; the object is an [object reference](#object-references) (`to bulb`, `to #1`, `to rack.lamp`). `<signal>` is a definition the model declares (an `attribute def`, `item def` or other signal-like definition; qualified names allowed), or a bare name an active `accept` matches by name when no declaration types it. Each argument is written `<parameter>=<expression>` as for `%invoke`, evaluated at the prompt, and must name a feature the signal carries with a value that feature admits (its type and multiplicity, checked before anything is sent); a feature left out is left unset. Without `to`, the target is the object whose machine the current `%state` session is debugging, and with no session the command says so rather than guessing. The signal is refused, with the machine's current state, when no machine of the object accepts it there, or when the guard of every transition it triggers is false — decided as the dispatch would decide it, the payload bound, so a guard that reads it is honoured; a guard that cannot be evaluated is an error. A signal the current state defers rather than accepts is sent and reported as deferred: the step dispatching it holds it (`%events` lists it as held) until the machine reaches a state that accepts it, when it is recalled and fires. Otherwise it is in flight (shown by `%events`) until `%step` or `%advance` dispatches it, and the transition it triggers fires as it would for a send from an action; should the state or the data a guard reads change before the dispatch, the step that drops the signal says so. An object running several machines is sent the signal as a whole: `%send` reports each machine that would fire on or defer it, a machine whose guards would drop it leaves it in flight for a sibling that would not, and the report says when the machine being debugged is such a one |
+| `%send <signal>[(<p>=<expr>, ...)] [to <object>]` | Send a signal to an object's machine through the runtime's own message bus, as `send <signal>(...) to <object>` from an action would; the object is an [object reference](#object-references) (`to bulb`, `to #1`, `to rack.lamp`). `<signal>` is a definition the model declares (an `attribute def`, `item def` or other signal-like definition; qualified names allowed), or a bare name an active `accept` matches by name when no declaration types it. Each argument is written `<parameter>=<expression>` as for `%invoke`, evaluated at the prompt, and must name a feature the signal carries with a value that feature admits (its type and multiplicity, checked before anything is sent); a feature left out is left unset. Without `to`, the target is the object whose machine the current `%state` session is debugging, and with no session the command says so rather than guessing. The signal is refused, with the machine's current state, when no machine of the object accepts it there, or when the guard of every transition it triggers is false — decided as the dispatch would decide it, the payload bound, so a guard that reads it is honoured; a guard that cannot be evaluated is an error. A signal the current state defers rather than accepts is sent and reported as deferred: the step dispatching it holds it (`%events` lists it as held) until the machine reaches a state that accepts it, when it is recalled and fires. A signal an active state's do behavior is parked at an `accept` for is sent too, though no transition fires on it, reported as `the do behavior of state <s> goes on from its accept`; the step dispatching it lets the behavior go on. Otherwise it is in flight (shown by `%events`) until `%step` or `%advance` dispatches it, and the transition it triggers fires as it would for a send from an action; should the state or the data a guard reads change before the dispatch, the step that drops the signal says so. An object running several machines is sent the signal as a whole: `%send` reports each machine that would fire on or defer it, a machine whose guards would drop it leaves it in flight for a sibling that would not, and the report says when the machine being debugged is such a one |
 | `%events` | Show the event queue and the signals in flight |
 | `%current` | Show the current state and configuration |
-| `%advance <time>` | Advance the runtime's simulation clock by `<time>` seconds (`SI::s`), running every state event, action token, change-condition poll and do behavior that comes due, in due order. The clock is the session's, not one debugger's: an `%action` parked at `accept after` and a `%state` machine both move, and the report covers each. Two executors due at the same instant run in the order the scheduling policy picks — the one started last first under the default `reverse` — and the pick is a choice point ([Choice points](../guide/06-behavior.md)) |
+| `%advance <time>` | Advance the runtime's simulation clock by `<time>` seconds (`SI::s`), running every state event, action token, change-condition poll and do behavior that comes due, in due order. The clock is the session's, not one debugger's: an `%action` parked at `accept after` and a `%state` machine both move, and the report covers each. A state's do behavior whose action body waits (`do action poll { action wait accept after 3 [SI::s]; then … }`) is parked on the clock too, listed under `Waiting on the clock` and resumed when its instant comes; a transition that leaves the state first ends it, its wait leaving the clock. Two executors due at the same instant run in the order the scheduling policy picks — the one started last first under the default `reverse` — and the pick is a choice point, as is which of two regions' do behaviors due together acts first in a round ([Choice points](../guide/06-behavior.md)) |
 | **Control** | |
 | `%quit` | Exit the REPL |
-| `Tab` | Complete meta commands, symbol names (after `%print`, `%instantiate`, `%features` …; a name that needs quoting is offered in quotes, `Q::'the ra` completing to `Q::'the rack'`), object references where a command takes one (`#` offers the ids there are; `car.` offers the object-holding features of `car` — the same ones a path may pass through — a multi-valued one as `car.wheels[1]`, `car.wheels[2]` …; completing reads and materializes nothing, so a part no command has reached yet is offered by type, and only the elements reading it would hold: those the features subsetting it contribute, then anonymous ones up to its lower bound — so an optional part (`spare : Wheel[0..1]`) or an abstract one, which hold only what subsets them, is offered only once something does), the form after `%render <name>`, and file paths after `%load` and `%save` |
+| `Tab` | Complete meta commands, symbol names (after `%print`, `%instantiate`, `%features` …; a name that needs quoting is offered in quotes, `Q::'the ra` completing to `Q::'the rack'`), object references where a command takes one (`#` offers the ids there are; `car.` offers the object-holding features of `car` — the same ones a path may pass through — a multi-valued one as `car.wheels[1]`, `car.wheels[2]` …; completing reads and materializes nothing, so a part no command has reached yet is offered by type, and only the elements reading it would hold: those the features subsetting it contribute, then anonymous ones up to its lower bound — so an optional part (`spare : Wheel[0..1]`) or an abstract one, which hold only what subsets them, is offered only once something does), the form after `%render <name>` and the palette after `%render <name> dot`, and file paths after `%load` and `%save` |
 | `Ctrl-D` | Exit REPL |
 
 The five solving commands (`%check`, `%explain`, `%solve`, `%configure`, `%optimize`) follow the
 design of the `ConstraintSolverService` in OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf)
-(Apache 2.0); see [Acknowledgements](../../README.md#acknowledgements).
+(Apache 2.0); see [Acknowledgements](../../README.md#acknowledgements). `%check` asks a solver
+whether an assertion *can* be satisfied; it is not the `check` engine, which `%engine check`
+selects and the next section describes.
+
+## Checking every schedule of an action
+
+The `%action` debugger steps one run under the schedule `%schedule` set; `%engine check` puts
+the action to the explicit-state model checker instead, which searches every schedule the
+library leaves open and reports the first violation, deadlock or failure it reaches or the
+features whose final value the schedule decides — the CLI's
+[`-engine check`](cli.md#checking-every-schedule-of-an-action), with the same verdicts and
+the same bounds. `%check-property`, `%check-diverge`, `%check-input`, `%check-assume`,
+`%check-witness` and `%check-bounds` hold the settings the CLI's `-check-*` flags carry, each
+shown with no argument and kept for the session, and `%replay` steps the run a witness records.
+Under `%engine all`, `%action` searches once any of them is set — the checker beside the
+exploration, `states=<n>` being the one figure each bounds in its own unit — and steps again
+once every one is `off`:
+
+```text
+sysml> %engine check
+engine: check
+sysml> %check-witness witnesses
+check-witness: witnesses
+sysml> %check-bounds depth=3
+check-bounds: depth=3, states=1000000 (default), timeout=off
+sysml> %action Mission::race
+? Action Mission::race: no violation within bounds (5 states, 4 moves, depth 3; bounds hit: depth)
+  standing: outcomes (bounded over schedules: 5 states, 4 moves searched, depth=3 (reached))
+sysml> %check-bounds off
+check-bounds: depth=10000 (default), states=1000000 (default), timeout=off
+sysml> %action Mission::race
+✗ Action Mission::race: divergent (11 states, 10 moves, depth 6)
+  divergent: x ends as 1 or 2
+    x = 1 (witness witnesses/Mission.race-x-1.witness)
+    x = 2 (witness witnesses/Mission.race-x-2.witness)
+  outcome: leftRan = true; rightRan = true; x = 1
+  outcome: leftRan = true; rightRan = true; x = 2
+  standing: sensitive (witnessed: 11 states, 10 moves searched, witness of 1 choice replayed)
+sysml> %engine auto
+engine: auto
+sysml> %replay witnesses/Mission.race-x-1.witness
+schedule: replay:witnesses/Mission.race-x-1.witness
+Use %action or %state to start the run the witness records, then %step or %continue
+sysml> %action Mission::race
+✓ Started action executor for "Mission::race"
+```
+
+`%engine smt` puts the action to the symbolic engine instead, which
+decides the `%check-property` constraints over every schedule and every value of the free
+inputs with an SMT solver — the CLI's
+[`-engine smt`](cli.md#deciding-a-property-over-the-inputs): `%check-input` frees a feature the
+model binds, `%check-assume` narrows the initial states the claim ranges over, and a violation's
+witness names the values the solver chose and replays through `%replay` with them pinned:
+
+```text
+sysml> %engine smt
+engine: smt
+sysml> %check-property Gate::open::positive
+check-property: Gate::open::positive
+sysml> %check-input limit
+check-input: limit
+sysml> %action Gate::open
+✗ Action Gate::open: at step 0: requirement positive: require condition evaluated to false: n + limit > 0
+  inputs: n = 1, limit = -1
+  standing: violated (witnessed: witness of 1 input replayed, inputs chosen from their domains: limit = -1)
+sysml> %check-assume Gate::open::wide
+check-assume: Gate::open::wide
+sysml> %action Gate::open
+✓ Action Gate::open: holds
+  inputs: n = 1, limit : Integer free
+  assumed: constraint wide
+  standing: holds (proved over schedules and inputs: inputs free in their domains: limit : Integer free, assumed constraint wide)
+```
+
+Each engine reads its own settings: `%check-diverge` and `states=<n>` are the `check`
+engine's, `%check-input`, `%check-assume` and `unroll=<n>` the `smt` engine's, and the rest
+both. A setting made that the engine selected alone does not read is refused when the action
+is checked, naming the setting and the engine that reads it, rather than dropped; under
+`%engine all` any `smt` setting, like a `%check-property`, puts the action to the `check` and
+`smt` engines as a question of what holds.
+
+A check leaves no debugging session behind — `%step` after it reports no active session — and
+changes nothing about the debuggers: `%action` under any other engine (`all` included, until a
+`%check-*` setting is made), `%step` and `%continue` step one run as before, `%schedule explore` and `%engine explore` are refused at the prompt as
+they were, and a declaration unrelated to a running debugger still leaves it running. `%replay` under
+`%engine check` says so: `%action` would search again, so it names `%engine auto` as the
+selection under which the next `%action` steps the replayed run. The unsupported constructs
+(a state machine, a body paused mid-statement, a state and an action due together) are refused
+with the construct named, as `? … could not be checked`.
 
 ## Object references
 
@@ -115,11 +229,16 @@ sysml> %features Wheel
 error: no instance of "Demo::Wheel" (use %instantiate first)
 sysml> %features car.spare
 error: spare of Demo::car could not be materialized: multiplicity violation …
+sysml> %features T::SA-506
+error: "T::SA-506" is not an object reference: "-506" cannot follow SA: segments are separated by . or :: — did you mean T::'SA-506'? Names containing '-' must be quoted.
 ```
 
-The last two are typed errors: a name nothing was instantiated under, and a segment whose feature
-value the runtime could not materialize, which keeps the runtime's reason as its cause and is
-recorded among the session's materialization failures like any other command's.
+The `Wheel` and `car.spare` failures are typed errors: a name nothing was instantiated under, and a
+segment whose feature value the runtime could not materialize, which keeps the runtime's reason as
+its cause and is recorded among the session's materialization failures like any other command's.
+The last is a reference the notation could not read to its end — a segment is an identifier or a
+quoted name, so a bare `SA-506` stops at `SA` — and, as for a `<name>`, the failure offers the quoted
+declaration the segments read so far are the start of, when there is one.
 
 A name nothing was instantiated under says what to instantiate when related objects exist. A usage
 whose definition alone has an object (`%instantiate Rover` when `%state … rover` wanted the usage) is
@@ -219,26 +338,30 @@ sysml> %render Demo::summary
 Demo::summary - tree rendering (the view states no rendering; a tree is the default)
 
 part def Demo::Vehicle
-  attribute mass (Real)
-  part wheel (Wheel)
+  attribute mass : Real
+  part wheel : Wheel
 view Demo::summary::detail
   part def Demo::Wheel
-    attribute diameter (Real)
+    attribute diameter : Real
 
 sysml> %render Demo::summary mermaid
 %% Demo::summary — tree rendering
 flowchart TD
-  n0["part def Demo::Vehicle"]
-  n1["attribute mass (Real)"]
+  n0["Demo::Vehicle<br>«part def»"]
+  n1["mass : Real<br>«attribute»"]
   n0 --- n1
-  n2["part wheel (Wheel)"]
+  n2["wheel : Wheel<br>«part»"]
   n0 --- n2
-  n3["view Demo::summary::detail"]
-  n4["part def Demo::Wheel"]
-  n5["attribute diameter (Real)"]
+  n3["Demo::summary::detail<br>«view»"]
+  n4["Demo::Wheel<br>«part def»"]
+  n5["diameter : Real<br>«attribute»"]
   n4 --- n5
   n3 --- n4
 ```
+
+A diagram node's label leads with the element's name, ` : Type` after it for a typed usage, and
+puts the kind on the next line in guillemets; the text form keeps the keyword first, as the
+notation declares it.
 
 A view that states `render asElementTable;`, or is typed by `StandardViewDefinitions::GridView`,
 renders as rows instead: the exposed elements, the elements declared in them, and the views nested
@@ -269,5 +392,83 @@ it renders as-is in Markdown, documentation sites and editors without a separate
 has a dedicated state diagram grammar. A table is a Markdown table, since Mermaid has no grammar
 for tables. A state rendering reads the lowered state graph and an action rendering reads the
 lowered action graph, so what is drawn is what the runtime executes.
+
+Graphviz DOT is the alternative to Mermaid for the `tree`, `interconnection`, `state` and
+`action` kinds, for a toolchain that lays diagrams out with Graphviz; writing it needs no
+Graphviz installation:
+
+```text
+sysml> %render Demo::summary dot
+// view: Demo::summary
+// kind: tree
+// layout: dot
+digraph "Demo::summary" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n1" [style="rounded,filled", label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+  "n0" -> "n1" [arrowhead=none];
+  "n2" [style="rounded,filled", label=<<b>wheel : Wheel</b><br/><font point-size="10"><i>«part»</i></font>>];
+  "n0" -> "n2" [arrowhead=none];
+  "n3" [style="rounded,filled", label=<<b>Demo::summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>];
+  "n4" [label=<<b>Demo::Wheel</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n5" [style="rounded,filled", label=<<b>diameter : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+  "n4" -> "n5" [arrowhead=none];
+  "n3" -> "n4" [arrowhead=none];
+}
+```
+
+The drawing is the Standard B&W style of the SysML v2 Pilot visualizer — white fills, thin
+`#181818` lines, square definitions and rounded usages, a bold name over an italic keyword line
+([the translation](../project/view-rendering-forms.md#style)). A palette name after `dot` fills
+the nodes by keyword family, a `part def` and its `part` usages sharing a hue, with black text
+kept legible on every fill:
+
+```text
+sysml> %render Demo::summary dot okabe-ito
+…
+  "n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n1" [style="rounded,filled", fillcolor="#F9F4B3", color="#F0E442", penwidth=1, label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+…
+```
+
+The palettes are `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`,
+`brewer-dark2`, `viridis` and `cividis` ([their sources](../project/view-rendering-forms.md#palettes));
+any other name is refused with that list. A palette is a `dot` or `plantuml` matter:
+`%render <name> mermaid` has no place for one, and a `Diagram` block of a document states its own
+([`palette`](../manual/authoring.md#diagrams)).
+
+A `sequence` or `table` view has no DOT form, and asking for one tells you which form the kind
+uses.
+
+PlantUML is the other alternative, for a PlantUML toolchain — the OMG Pilot's own visualizer
+draws with PlantUML — and the one that also writes a `sequence` view. It carries the same B&W
+style inline as a `<style>` block, so the file stands alone; writing it needs no Java and no
+PlantUML jar:
+
+```text
+sysml> %render Demo::summary plantuml
+@startuml
+' Demo::summary — tree rendering
+<style>
+…
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "**Demo::Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>
+class "**mass : Real**\n<size:10>//«attribute»//</size>" as n1 <<attribute>> <<usage>>
+n0 -- n1
+…
+@enduml
+```
+
+A palette name after `plantuml` fills the same nodes with the same colours DOT would
+(`%render Demo::summary plantuml okabe-ito`), a sequence's participants included. A `table`
+view has no PlantUML form. PlantUML pins no positions, so a view's `DiagramLayout` geometry
+rides along as `'` comments; `dot` is the form that honours it
+([the PlantUML form](../project/view-rendering-forms.md#plantuml)).
 
 To render a view outside the prompt, use [`sysml -render`](cli.md#rendering-a-view).

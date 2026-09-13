@@ -1,0 +1,14 @@
+{
+  "type": "calc",
+  "evaluate": "fleet::extents",
+  "libraries": true,
+  "documents": ["extent_across_documents.depot.sysml"],
+  "trace": true,
+  "inputs": [],
+  "result": {"type": "Sequence", "elements": [
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true},
+    {"type": "Boolean", "value": true}
+  ]}
+}

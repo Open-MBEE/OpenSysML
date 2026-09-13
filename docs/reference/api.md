@@ -39,6 +39,15 @@ some order is an `Outcome` whose `Error` is set, not a failure of the call. The 
 refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
 `schedule_explore` capability alongside `schedule`.
 
+`ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
+`VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take `WithEngine(name)` and
+`RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
+options, its arguments under `CalcArguments`) takes `CalcEngine(name)`, to put the question to one engine,
+`EngineAll` to ask every engine that covers it, or `EngineAuto` (the default) to leave the choice
+to the service; a name the service does not register is `CodeInvalidArgument`, and a named engine
+needs the `engines` capability. `Verdict`, `Calculation` and `Analysis` each carry a `Standing`:
+the `Engine` that answered, the `Strength` of its evidence and the `Bounds` it ran under.
+
 ```go
 exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
 for _, outcome := range exploration.Outcomes {
@@ -429,19 +438,37 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   value and `DefaultSchedulePolicy` are `reverse`, what every run did before policies were
   selectable; every `.expected.json` and `.trace.golden` recorded under it still holds
   - `ParseSchedulePolicy(spelling string) (SchedulePolicy, error)` — Read `declared`, `reverse`,
-    `seed:<n>` (n a non-negative decimal integer) or `explore[:runs=<n>,depth=<d>]` (n at least 1,
+    `seed:<n>` (n a non-negative decimal integer), `explore[:runs=<n>,depth=<d>]` (n at least 1,
     d at least 0, in either order, each at most once; `DefaultExploreBudget`, 1024 runs and 64
-    choice points deep, for one not given); the empty spelling is the default. Any other
+    choice points deep, for one not given) or `replay:<file>` (a file of choice lines, read here
+    with `ParseChoices`); the empty spelling is the default. Any other
     spelling — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`,
-    `explore:` with nothing after the colon, `explore:runs=0` — is a `*SchedulePolicyError`
+    `explore:` with nothing after the colon, `explore:runs=0`, `replay:` without a file, a file
+    that cannot be read, is empty or has a line spelling no choice (a header of `no choice
+    points` alone is a witness of a run with none) — is a `*SchedulePolicyError`
     (`Spelling`, `Reason`) matching `ErrInvalidSchedulePolicy` under `errors.Is`, so every surface
     refuses it before anything runs
   - `ExplorePolicy(budget ExploreBudget) (SchedulePolicy, error)` — The `explore` policy with the
     budget given, refusing one outside the bounds above
   - `Exploration() (ExploreBudget, bool)` — The budget when the policy is `explore`
+  - `ReplayPolicy(choices []ChoiceTaken) SchedulePolicy` — The `replay` policy over a witness held
+    in memory, spelled `replay`; `Replay() ([]ChoiceTaken, bool)` reads a replay policy's choices
+    back
+  - `ReplaySpelling(spelling string) bool` — Whether a spelling asks for a replay, for a surface
+    with no files of the caller's to refuse before parsing
+  - `ParseChoices(text string) ([]ChoiceTaken, error)` — Read a witness header: choices as
+    `ChoiceTaken.String` spells them, one per line or joined by `; `, up to the first blank line
+    after them (what follows, such as a trace body, is ignored); a line spelling no choice is a
+    `*ChoiceParseError` (`Line`, `Text`, `Reason`)
   - `String() string` — The spelling `ParseSchedulePolicy` reads the policy back from
   - `IsDefault() bool` — Whether the policy is `reverse`
   - `SchedulePolicyNames` — The accepted spellings, for usage text
+  - `replay:<file>` follows the witness move for move — each choice point the run reaches takes
+    the file's next line, which must name that step and pick among the alternatives the run
+    offers — and resolves the rest as `reverse` once the lines are spent. A run that could not
+    follow a line, or ended with lines left over, keeps it: `Context.Unfollowed() error` is the
+    `*ReplayError` (`Move`, `Choice`, `Faced`; `errors.Is(err, ErrReplayRefused)`) the run also
+    fails with, nil when the witness was followed whole or the policy was another
   - `declared` steps tokens in the order they were spawned and takes the first holding guard
     and first enabled transition in declaration order; `seed:<n>` draws every resolution from
     a pseudo-random sequence the seed fixes, the same on every platform, so one seed replays
@@ -449,16 +476,17 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     choice point takes, never whether it is reported: the `Taken` of each `ChoicePoint` is what
     the policy took
 
-- **`Explore(policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
+- **`Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
   — Run a behavior under `explore` once per linearization within the budget: each run starts
   from the `Context` `fresh` builds over the model and lowering they all share, records the
   alternative taken at every choice point, and the next run replays that prefix up to its
   frontier and takes the first untried alternative there, depth-first over the tree of choice
   sequences. `run` performs one run and answers its `Outcome`; an error it returns is the
   `Outcome.Err` of an outcome of its own, so a run some orders fail is reported rather than
-  ending the search. A policy other than `explore` is `ErrNotExploring`; a replay that does not
-  meet the choice points its prefix recorded is `ErrExplorationDiverged`, since the model's runs
-  are then not a function of their choices
+  ending the search. A `stop` that ends between runs ends the exploration with its error before
+  the next context is built. A policy other than `explore` is `ErrNotExploring`; a replay that
+  does not meet the choice points its prefix recorded is `ErrExplorationDiverged`, since the
+  model's runs are then not a function of their choices
   - **`Outcome`** — What one run came to, in the observables a conformance case compares:
     `Outputs`, and for a state machine `FinalState` and `StateVisits`; `Err` for a run that
     failed. `String()` renders it in a fixed order; `Explore` tells outcomes apart by a stricter
@@ -480,11 +508,14 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
 
 **Behavioral Execution (Tier 5):**
 
-- **`Token`** — Control token for action execution, carrying no values of its own
+- **`Token`** — Control token for action execution, carrying no values of its own. A token is
+  the executor's record of where a performance is along the successions of the lowered graph;
+  the ordering it realizes is KerML's `HappensBefore`, not a Petri-net or fUML semantics
   - `ID int64` — Unique token ID
   - `Location ast.Node` — Current node (InitialNode, ActionExecutionNode, etc.)
 
-- **`ActionExecutor`** — Petri-net token-flow execution engine
+- **`ActionExecutor`** — Succession-ordered action execution engine (a token queue over the
+  lowered `ActionGraph`)
   - `Step() error` — Advance all tokens one step; a breakpoint met inside a token's body
     ends the step there, with no other token stepped, and the next step steps the other
     tokens before resuming the paused one
@@ -542,10 +573,13 @@ Registered KerML builtins:
 
 Tier 1-3 (Instances & Expressions):
 ```go
+// The model-derived part (memoized shapes, targets, literals) is built once and
+// shared by every context over it; a context is one run's own state.
+shared := runtime.NewModel(model, resolver)
 // Honour the OPENSYSML_MAX_* budgets instead of the defaults with:
 //   budgets, err := runtime.BudgetsFromEnv()
 //   err = ctx.SetBudgets(budgets)
-ctx := runtime.NewContext(model, resolver, runtime.DefaultMaxSteps)
+ctx := runtime.NewContext(shared, runtime.DefaultMaxSteps)
 inst, _ := ctx.Instantiate(wheelSym)
 fv, _ := inst.GetFeatureValue(ctx, "diameter")
 result, _ := ctx.InvokeCalc(addSym, []Value{v1, v2}, scope)
@@ -566,8 +600,8 @@ results, err = ctx.ExecuteAction(myActionSym) // the same run on every call
 
 // Or every run: one fresh context per linearization over the shared model
 explore, _ := runtime.ParseSchedulePolicy("explore:runs=64")
-exploration, err := runtime.Explore(explore,
-    func() (*runtime.Context, error) { return runtime.NewContext(model, resolver, runtime.DefaultMaxSteps), nil },
+exploration, err := runtime.Explore(context.Background(), explore,
+    func() (*runtime.Context, error) { return runtime.NewContext(shared, runtime.DefaultMaxSteps), nil },
     func(c *runtime.Context) (runtime.Outcome, error) {
         outputs, err := c.ExecuteAction(myActionSym)
         return c.ActionOutcome(outputs), err
@@ -1029,7 +1063,7 @@ import (
     "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
-rtCtx := runtime.NewContext(model, resolver, runtime.DefaultMaxSteps)
+rtCtx := runtime.NewContext(runtime.NewModel(model, resolver), runtime.DefaultMaxSteps)
 inst, _ := rtCtx.Instantiate(wheelSym)
 diameter, _ := inst.GetFeatureValue(rtCtx, "diameter")
 fmt.Println(diameter.Value) // Value{Kind: ValConst, Real: 16.0}
@@ -1094,4 +1128,4 @@ Test fixtures in `testdata/*.sysml`.
 - **[ARCHITECTURE.md](../internals/architecture.md)** — System architecture and design decisions
 - **[the guide](../guide/)** — Getting started guide
 - **[Wire contract](wire-contract.md)** — Connect + JSON field by field, for a client with no generated library
-- **[OMG SysML v2.1 Beta 1 Spec](https://www.omg.org/spec/SysML/2.0)** — Language specification (2026-07 release)
+- **[OMG SysML v2.1 Beta 1 Spec](https://www.omg.org/spec/SysML/2.0)** — Language specification (2026-08 release)

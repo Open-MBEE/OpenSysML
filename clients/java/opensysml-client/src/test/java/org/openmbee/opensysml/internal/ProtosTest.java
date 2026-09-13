@@ -32,6 +32,43 @@ import org.junit.jupiter.api.Test;
 class ProtosTest {
 
   @Test
+  void aScalarValuedEnumLiteralKeepsTheScalarItEquals() {
+    var high =
+        org.openmbee.opensysml.proto.EnumLiteral.newBuilder()
+            .setLiteralId("D::Level::high")
+            .setEnumerationId("D::Level")
+            .setName("Level::high")
+            .setValue(org.openmbee.opensysml.proto.Value.newBuilder().setIntValue(3))
+            .build();
+    var red =
+        org.openmbee.opensysml.proto.EnumLiteral.newBuilder()
+            .setLiteralId("D::Color::red")
+            .setEnumerationId("D::Color")
+            .setName("Color::red")
+            .build();
+    assertEquals(
+        Optional.of(
+            new Value.EnumerationValue(
+                new org.openmbee.opensysml.EnumLiteral(
+                    "D::Level::high", "D::Level", "Level::high", Optional.of(new Value.IntegerValue(3))))),
+        Protos.value(org.openmbee.opensysml.proto.Value.newBuilder().setEnumLiteral(high).build()));
+    assertEquals(
+        Optional.of(
+            new Value.EnumerationValue(
+                new org.openmbee.opensysml.EnumLiteral("D::Color::red", "D::Color", "Color::red"))),
+        Protos.value(org.openmbee.opensysml.proto.Value.newBuilder().setEnumLiteral(red).build()));
+    // A scalar that is present but of no known kind is malformed, not absent.
+    var unreadable =
+        org.openmbee.opensysml.proto.EnumLiteral.newBuilder()
+            .setLiteralId("D::Level::high")
+            .setValue(org.openmbee.opensysml.proto.Value.newBuilder())
+            .build();
+    var malformed =
+        org.openmbee.opensysml.proto.Value.newBuilder().setEnumLiteral(unreadable).build();
+    assertThrows(TransportException.class, () -> Protos.value(malformed));
+  }
+
+  @Test
   void aValueOfNoKindIsAbsentRatherThanGuessed() {
     assertEquals(Optional.empty(), Protos.value(org.openmbee.opensysml.proto.Value.getDefaultInstance()));
   }
@@ -513,6 +550,54 @@ class ProtosTest {
         IllegalArgumentException.class, () -> new Value.FunctionValue("", Optional.empty()));
   }
 
+  private static org.openmbee.opensysml.proto.Value metaobject(
+      String elementId, String metaclassId) {
+    return org.openmbee.opensysml.proto.Value.newBuilder()
+        .setMetaobject(
+            org.openmbee.opensysml.proto.Metaobject.newBuilder()
+                .setElementId(elementId)
+                .setMetaclassId(metaclassId))
+        .build();
+  }
+
+  @Test
+  void aMetaobjectIsTheElementItReflectsOnUnderItsOwnMetaclass() {
+    Value seatBelt =
+        Protos.value(metaobject("Demo::seatBelt", "SysML::Systems::PartUsage")).orElseThrow();
+    assertEquals(new Value.MetaobjectValue("Demo::seatBelt", "SysML::Systems::PartUsage"), seatBelt);
+    assertEquals(
+        "SysML::Systems::PartUsage", ((Value.MetaobjectValue) seatBelt).metaclassId());
+
+    // The element is the identity: the type it was cast to does not distinguish two reads.
+    Value asFeature = Protos.value(metaobject("Demo::seatBelt", "KerML::Feature")).orElseThrow();
+    assertEquals(seatBelt, asFeature);
+    assertEquals(seatBelt.hashCode(), asFeature.hashCode());
+    assertTrue(seatBelt.sameValue(asFeature));
+    assertNotEquals(
+        seatBelt, Protos.value(metaobject("Demo::Vehicle", "SysML::Systems::PartUsage")).orElseThrow());
+    assertFalse(seatBelt.sameValue(new Value.StringValue("Demo::seatBelt")));
+    org.openmbee.opensysml.proto.Value twice =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setSet(
+                ValueSet.newBuilder()
+                    .addElements(metaobject("Demo::seatBelt", "KerML::Feature"))
+                    .addElements(metaobject("Demo::seatBelt", "KerML::Type")))
+            .build();
+    assertThrows(TransportException.class, () -> Protos.value(twice));
+
+    // Naming no element is malformed at any depth, on the wire and in the record.
+    org.openmbee.opensysml.proto.Value noElement = metaobject("", "KerML::Feature");
+    TransportException nothing =
+        assertThrows(TransportException.class, () -> Protos.value(noElement));
+    assertTrue(nothing.getMessage().contains("names no element"), nothing.getMessage());
+    org.openmbee.opensysml.proto.Value nested =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setSequence(ValueSequence.newBuilder().addElements(metaobject("", "")))
+            .build();
+    assertThrows(TransportException.class, () -> Protos.value(nested));
+    assertThrows(IllegalArgumentException.class, () -> new Value.MetaobjectValue("", ""));
+  }
+
   @Test
   void aQuantityWithoutAMagnitudeIsRefusedRatherThanReadAsZero() {
     org.openmbee.opensysml.proto.Quantity noMagnitude =
@@ -659,6 +744,32 @@ class ProtosTest {
     assertEquals(List.of(), mass.values());
     assertTrue(mass.materialized());
     assertEquals(Optional.empty(), mass.error());
+  }
+
+  @Test
+  void anUndeterminedResultKeepsItsReasonAndCountAndIsNotUnset() {
+    org.openmbee.opensysml.proto.Value open =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setUndetermined(
+                org.openmbee.opensysml.proto.Undetermined.newBuilder()
+                    .setReason("u has no value in the model")
+                    .setCount(
+                        org.openmbee.opensysml.proto.MultiplicityInfo.newBuilder()
+                            .setLower("1")
+                            .setUpper("*")))
+            .build();
+    Value want = new Value.UndeterminedValue("u has no value in the model", "1", "*");
+    assertEquals(Optional.of(want), Protos.value(open));
+    assertFalse(want.sameValue(new Value.UnsetValue()));
+    assertFalse(want.sameValue(new Value.NullValue()));
+
+    org.openmbee.opensysml.proto.Value uncounted =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setUndetermined(
+                org.openmbee.opensysml.proto.Undetermined.newBuilder().setReason("x"))
+            .build();
+    assertEquals(
+        Optional.of(new Value.UndeterminedValue("x", "", "")), Protos.value(uncounted));
   }
 
   @Test

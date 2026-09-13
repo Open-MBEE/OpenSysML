@@ -196,6 +196,37 @@ func TestRenderDocumentHTMLMermaid(t *testing.T) {
 		2, "not the sheet")
 }
 
+// TestRenderDocumentHTMLDiagramForm checks -diagram-form reaches the HTML
+// backend: DOT or PlantUML on request, Mermaid otherwise, the table a table
+// either way.
+func TestRenderDocumentHTMLDiagramForm(t *testing.T) {
+	binary := buildCLI(t)
+	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	dot := runCommand(t, exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
+		"-doc-form", "html", "-diagram-form", "dot"))
+	wantReport(t, dot, 0,
+		`<pre class="dot">// view: Observatory::interconnectView`,
+		"digraph &#34;Observatory::interconnectView&#34; {",
+		`<table class="sysml-table"`)
+	if strings.Contains(dot.stdout, `class="mermaid"`) {
+		t.Errorf("a diagram is still Mermaid under -diagram-form dot:\n%s", dot.stdout)
+	}
+	puml := runCommand(t, exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
+		"-doc-form", "html", "-diagram-form", "plantuml"))
+	wantReport(t, puml, 0,
+		`<pre class="plantuml">@startuml`+"\n&#39; Observatory::interconnectView — interconnection rendering",
+		"&lt;style&gt;",
+		"@enduml</pre>",
+		`<table class="sysml-table"`)
+	if strings.Contains(puml.stdout, `class="mermaid"`) || strings.Contains(puml.stdout, `class="dot"`) {
+		t.Errorf("a diagram is in another form under -diagram-form plantuml:\n%s", puml.stdout)
+	}
+	wantReport(t, runCommand(t, exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-doc-form", "html")),
+		0, `<pre class="mermaid">`)
+	wantReport(t, runCommand(t, exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
+		"-doc-form", "html", "-diagram-form", "svg")), 2, `unknown diagram form "svg"`)
+}
+
 // TestRenderDocumentHTMLTheme checks -html-theme layers a bundled theme over
 // the default sheet on a page, in a set's shared sheet and in the sheet
 // -html-default-css writes, and refuses what it cannot style.

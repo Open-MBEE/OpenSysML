@@ -473,7 +473,7 @@ func TestViewReportsAFailedCheckThatCarriesNoError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report, err := ctx.Model().ViewConformance(sym, falseWithoutError{})
+	report, err := ctx.Semantics().ViewConformance(sym, falseWithoutError{})
 	if err != nil {
 		t.Fatal(err)
 	}

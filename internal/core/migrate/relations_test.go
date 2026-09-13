@@ -343,7 +343,7 @@ func TestShadowedReferencesAreGlobal(t *testing.T) {
 	}
 }
 
-// TestUnwritableFeaturePartsAreDroppedWithNotes covers three Cameo shapes that
+// TestUnwritableFeaturePartsAreDroppedWithNotes covers three v1 shapes that
 // have no v2 spelling: an anonymous property whose type is not migrated, a
 // multiplicity whose bounds are strings, a non-finite real, and a default
 // on a reference. Each is written validly and every loss is reported.
@@ -441,7 +441,7 @@ func TestClashingSiblingNamesAreDistinguished(t *testing.T) {
 	}
 }
 
-// TestConnectionEndYieldsItsNameToAMember covers Cameo's association block whose
+// TestConnectionEndYieldsItsNameToAMember covers a v1 association block whose
 // participant property is named like the member end it stands for: the end,
 // declared in another class, takes a distinct name inside the connection def.
 func TestConnectionEndYieldsItsNameToAMember(t *testing.T) {

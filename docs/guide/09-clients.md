@@ -228,13 +228,14 @@ go get github.com/Open-MBEE/OpenSysML@latest
 Nothing else needs installing: the SysML standard library is embedded in the module and no
 operation shells out. Every RPC the service offers is a method (`ParseFiles` for a model made of
 several documents, `ExecuteAction` and `ExecuteState`, `VerifyConstraint`, `VerifyRequirement`,
-`VerifySatisfaction`, `EvaluateCalc`, `RunAnalysis`, `Query`, `RunDocumentQuery`, `RenderDocument`,
-`Convert` and `ApplyEdits`), and queries and edits are built from typed values rather than a string dialect, so
+`VerifySatisfaction`, `EvaluateCalc`, `RunAnalysis`, `ListEngines`, `Query`, `RunDocumentQuery`,
+`RenderDocument`, `Convert` and `ApplyEdits`), and queries and edits are built from typed values rather than a string dialect, so
 an unsupported operator is a compile error rather than a refused call.
 
 A run with [more than one valid order](06-behavior.md#when-a-model-has-more-than-one-valid-run)
 is scheduled by the same spellings `sysml -schedule` takes: `ExecuteAction` and `ExecuteState` take
-`opensysml.WithSchedule("declared")` (`"reverse"`, the default, or `"seed:<n>"`), `RunAnalysis`
+`opensysml.WithSchedule("declared")` (`"reverse"`, the default, or `"seed:<n>"`; `"replay:<file>"` is
+refused with `INVALID_ARGUMENT`, a request carrying no file of the caller's), `RunAnalysis`
 takes `opensysml.Schedule(...)`, and `ExploreAction`, `ExploreState` and `ExploreAnalysis` run
 every linearization under `"explore"` — the default when no policy is given — or
 `"explore:runs=N,depth=D"`, answering an `*Exploration` (`Outcomes`, each with `Linearizations`,
@@ -242,6 +243,25 @@ every linearization under `"explore"` — the default when no policy is given �
 `ExecuteAction`, or a one-run policy to `ExploreAction`, is refused with `CodeInvalidArgument`
 before anything is sent; a service that does not advertise `schedule` or `schedule_explore`
 refuses with `CodeUnimplemented`.
+
+Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen the same way
+`sysml -engine` chooses it: `VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take
+`opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `Calculate` — `EvaluateCalc`
+with options — takes `opensysml.CalcEngine(...)` beside `opensysml.CalcArguments(...)`, `opensysml.EngineAll`
+asks every engine that covers the question and `opensysml.EngineAuto` — the default — leaves the
+choice to the service. `ListEngines` names the engines the service registers — the `check` and
+`smt` model checkers among them, though no request yet asks the `holds` question they answer, so
+naming one is its typed refusal until the wire gains that request. Every `Verdict`,
+`Calculation` and `Analysis` carries a `Standing` — the `Engine` that answered, the `Strength` of
+its evidence and the `Bounds` it ran under, each `Reached` or not — which is what the `standing:`
+line under a REPL verdict prints. A service that does not advertise `engines` refuses a named
+engine with `CodeUnimplemented` before anything is sent. The
+[external engines](../reference/external-engines.md) of the service's `OPENSYSML_ENGINES` are
+among those `ListEngines` names, but naming one is refused with `CodeFailedPrecondition`
+(`engine 'spin-bridge' is not served by this service`) and `EngineAuto` and `EngineAll` pass over
+it until the service is started with `-serve-external-engines <name>,…` or
+`-serve-external-engines all` — a grant of command execution to every client, which is why it is
+the operator's to give and not the client's to ask for.
 
 `Dial("host:50051")` is the other constructor, for a shared `sysml-grpc` that someone else runs.
 This package never spawns a service of its own, because a private child would only be serving the
@@ -349,6 +369,22 @@ Evaluation is a method on the model, like every other operation, so a script nev
 the model hash back to the connection. `model.eval(expr, context_symbol_id=…)` resolves the
 expression's names in that element's scope.
 
+It evaluates at model level, over what the declarations state. An expression whose answer
+the model leaves open — it reads an attribute with no value, or the count of a `[1..*]` or
+`[0..2]` feature — is not an error but an `opensysml.Undetermined`, which prints as
+`<undetermined>`, carries the `reason` and the `count_lower`/`count_upper` bounds of what
+it stands for, and refuses `bool()` with a `TypeError` so a script cannot mistake it for
+`False`. What the model does fix still answers: `(u > 3) and false` is `False`. It is neither
+`opensysml.UNSET` (a feature an *object* holds nothing for) nor `None` (the model's `null`):
+
+```python
+u = model.eval("T::u")                           # attribute u; with no value
+isinstance(u, opensysml.Undetermined)            # True
+str(u), u.reason                                 # ('<undetermined>', 'T::u has no value in the model')
+model.eval("(T::u > 3) and false")               # False
+model.eval("SequenceFunctions::size(T::rack.gear)")   # Undetermined, gear is [1..*]
+```
+
 ### Requiring a usable model
 
 A model with syntax errors still parses to a `Model`, because the service reports what it
@@ -362,6 +398,16 @@ model.errors                   # only the error-severity diagnostics
 model.raise_for_errors()       # raises ModelError, or returns the model
 
 model = opensysml.load("model.sysml", strict=True)   # raises instead of returning
+```
+
+A `Diagnostic` carries `severity`, `message`, `code` and its location. Branch on `code`, not on
+the message text: `"syntax"` for a syntax error, a validation code such as `"unresolved"` or
+`"feature-value-overriding"` for a finding, `"choice-point"` and `"guard-unevaluable"` for a
+run's notes, and `""` when the service assigned none — every code from a service that does not
+advertise `diagnostic_codes`:
+
+```python
+unresolved = [d for d in model.diagnostics if d.code == "unresolved"]
 ```
 
 `strict=True` is available on `opensysml.load`, `Connection.load` and
@@ -414,6 +460,14 @@ model["Vehcile"]                  # SymbolNotFoundError: ... did you mean 'Vehic
 
 The subscript accepts a short name or a fully-qualified name. `model.get("Demo::Vehicle")` looks a
 symbol up by fully-qualified name only and returns `None` if it finds nothing.
+
+All four lookups ask the service's symbol index rather than walking the tree: a qualified name is
+one `GetSymbol`, a short name one query and one fetch, so neither grows with the model. The index
+covers the standard library too, so `model.get("ScalarValues::Real")` or
+`model.get("ISQBase::mass")` answers a `Symbol` even though the library is not part of the
+tree, while a short name (`model.find("Real")`) is still looked for in the model's own
+declarations only. Where a model declares a package spelled like a library one, the model's
+wins.
 
 A symbol also carries its static type facts, as the service resolved them:
 
@@ -481,6 +535,44 @@ failed to evaluate.
 `eval` returns a single value, so a result the wire format cannot represent raises
 `UnsupportedValueError` rather than being reported per entry.
 
+#### Every value the wire carries
+
+A feature value, an evaluation, an argument and an output travel as one of the value kinds the
+[wire contract](../reference/wire-contract.md) fixes, and each arrives as a Python value of its
+own, never as a string to parse or a `dict` to unpick. A quantity (`3 [SI::kg]`) is an
+`opensysml.Quantity` with its `Unit`, and the others each have a class in `opensysml`:
+
+```python
+model.eval("3.0 + 4.0 * ComplexFunctions::i")   # (3+4j), a complex
+model.eval("Demo::grid")                         # Array(dimensions=(2, 3), elements=(1, 2, 3, 4, 5, 6))
+model.eval("Demo::grid").nested()                # [[1, 2, 3], [4, 5, 6]]
+model.eval("Demo::vec")                          # Vector(components=(3.0, 4.0))
+model.eval("Demo::vq")                           # VectorQuantity(components=(Quantity(3.0, m), Quantity(4.0, m)))
+model.eval("Demo::plane")                        # TensorQuantity(dimensions=(2, 2), components=(...)), plane[1, 1]
+model.eval("Demo::s.elements")                   # SetValue(elements=(1, 2, 3)), == SetValue((3, 2, 1))
+model.eval("SI::m")                              # MeasurementRef(unit=Unit(text='m', ...), unit_id='SI::metre')
+model.eval("Demo::Sq")                           # Function(calc_id='Demo::Sq', self_id=0), a calc as a value
+model.eval("Demo::seatBelt meta KerML::Feature") # [Metaobject(element_id='Demo::seatBelt', metaclass_id='SysML::Systems::PartUsage')]
+model.eval("Demo::lvl")                          # EnumLiteral(literal_id='Demo::Level::high', ..., value=3)
+model.eval("Demo::inf") is opensysml.INFINITY    # True, for an unbounded `*`
+```
+
+An enumeration literal is always an `EnumLiteral`, equal to another by the literal's identity
+(`literal_id`); a literal of an `enum def` that specializes a scalar (`enum def Level :>
+Integer { high = 3; }`) also carries that scalar as `value`, and `3 as Demo::Level` answers the
+same literal rather than the integer `3`. A `SetValue` is unordered and holds each member once;
+a `TensorQuantity` is indexed by one integer per dimension. A `Function` is passed back as an
+argument where a calc takes a calc (`model.calc("Demo::apply", arguments=[opensysml.Function("Demo::Sq"), 3.0])`).
+A `Metaobject` is what `x meta T` and the last element of `x.metadata` evaluate to: the element's
+identity and its reflective metaclass, whose features (`.name`, `.qualifiedName`) evaluate
+through it. Each kind is capability-negotiated (`complex_values`, `structured_values`,
+`measurement_refs`, `function_values`, `set_values`, `tensor_values`, `metaobject_values`,
+`infinity_value`, `undetermined_value`, `enum_values`): a value a service predating one
+cannot send arrives as `UnsupportedValueError` (in place, for a feature value or an output;
+raised, from `eval`), and sending such a value as an argument to that service is refused
+before anything goes over the wire, so a script can check
+`Connection.server_info().capabilities` before relying on one.
+
 Instances are capability-negotiated the same way as conversion: a service that does not report
 the `feature_values` capability (every release before 0.1.0) raises `MissingCapabilityError`
 naming the required upgrade, rather than returning an object whose values all appear to be
@@ -502,7 +594,7 @@ machine's time-triggered transition — on a simulation clock of its own that st
 service that predates the `final_time` capability).
 
 Both take a `schedule=` — `"declared"`, `"reverse"` (the default) or `"seed:<n>"`, the spellings
-`sysml -schedule` takes — for a run with [more than one valid
+`sysml -schedule` takes, less `"replay:<file>"`, which the service refuses — for a run with [more than one valid
 order](06-behavior.md#when-a-model-has-more-than-one-valid-run); `run_analysis` takes the same.
 The `explore` policy answers every outcome rather than one run's, so it has methods of its own:
 
@@ -536,9 +628,9 @@ model = opensysml.load("lander.sysml", strict=True)
 
 for verdict in model.verify_satisfaction():        # every assert satisfy … by …
     print(verdict)
-# ✓ satisfy touchdown by slowLander holds (on Landing::slowLander ID: 1)
+# ✓ satisfy touchdown by slowLander holds (on Landing::slowLander ID: 1) — observed by run
 # ✗ satisfy touchdown by fastLander fails (on Landing::fastLander ID: 2): condition
-#   evaluated to false: lander.verticalSpeed <= maxVerticalSpeed
+#   evaluated to false: lander.verticalSpeed <= maxVerticalSpeed — witnessed by run
 
 model.satisfied()                                  # False — one assertion fails
 model.verify_satisfaction("Landing::analysisContext")   # only what that element asserts
@@ -600,7 +692,8 @@ computed over the run of the case body, `"inconclusive"` a body that produced no
 `"error"` one whose run could not be carried out, with `detail` carrying the reason. `subcase` is
 true for a case another case performed as a step. `run_analysis` accepts a verification case and
 reports the same list, and `verify_satisfaction`'s verdicts carry it too. A service that does not
-advertise `verification_verdicts` (`opensysml.CAPABILITY_VERIFICATION_VERDICTS`) reports none.
+advertise `verification_verdicts` (`opensysml.capabilities.CAPABILITY_VERIFICATION_VERDICTS`)
+reports none.
 
 A request that cannot be answered at all, such as one naming an unknown symbol or a subject that
 cannot be instantiated, raises `ExecutionError` from the call itself rather than returning a
@@ -668,7 +761,7 @@ evaluation the run made of its `evaluationFunction` — one per alternative the 
 subject order, as a `CaseEvaluation` carrying the alternative it scored (an `Instance`), the
 result or the error, and whether it was the one selected (`selected`) or scored the same without
 being (`tied`); `run.selected` is the selected ones. A service that does not advertise
-`case_evaluations` (`opensysml.CAPABILITY_CASE_EVALUATIONS`) reports none:
+`case_evaluations` (`opensysml.capabilities.CAPABILITY_CASE_EVALUATIONS`) reports none:
 
 ```python
 run = model.run_analysis("Trade::lightest")
@@ -715,6 +808,48 @@ Verification is capability-negotiated the same way as conversion: against a serv
 not report the `verification` capability, these calls raise `MissingCapabilityError` naming the
 required upgrade rather than failing on an unimplemented method.
 
+#### Choosing the engine, and reading the standing of an answer
+
+Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen as `sysml -engine`
+chooses it: `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`,
+`run_analysis` and `run_sweep` take `engine=` — `"auto"` (the default, the service picks),
+`"all"` (every engine that covers the question, composed) or one by name; `explore_analysis`
+takes a `schedule=` instead and leaves the engine to the service. A
+name the service does not register raises `InvalidRequestError` listing the ones it does, and
+an engine that does not cover the question answers a verdict with `error` set (`check does not
+answer evaluate questions`) rather than a false one. `Connection.list_engines()` reports the
+engines, as `sysml -engines` does:
+
+```python
+for engine in model.connection.list_engines():
+    print(engine)
+# check: bounded, answers outcomes, holds; ready
+# explore: proved, answers outcomes; ready
+# run: observed, answers evaluate; ready
+# solve: proved, answers satisfiable; ready
+# sweep: observed, answers sweep; ready
+```
+
+An `EngineInfo` carries the `name` that `engine=` selects, the `authority` it may claim, the
+question kinds it `answers`, the `bounds` it runs under, the external `process` it needs (the
+`solve` engine's SMT solver) and whether it is `ready` here, with `unavailable` saying why not.
+
+Every `Verdict`, `CalcResult` and `AnalysisResult` carries a `Standing` — the `engine` that
+answered, the `strength` of its evidence (`observed`, `witnessed`, `bounded`, `proved`) and the
+`bounds` it ran under, each marked `reached` when the engine stopped at it — which is what the
+`standing:` line under a REPL verdict prints. `explain()` ends with it:
+
+```python
+verdict = model.verify_constraint("Demo::Vehicle::massOK", subject="Demo::sedan")
+verdict.standing            # Standing(engine='run', strength='observed', bounds=(...))
+verdict.engine, verdict.strength, verdict.bounds
+str(verdict.standing)       # 'observed by run'
+verdict.explain()           # '✓ constraint Demo::Vehicle::massOK holds (on Demo::sedan ID: 1) — observed by run'
+```
+
+A service that does not advertise `engines` raises `MissingCapabilityError` for a named engine
+and for `list_engines()`, and reports no standing (`standing.reported` is `False`).
+
 ### Errors
 
 Every failure a caller can act on is an `OpenSysMLError`. The service's gRPC status codes are
@@ -734,11 +869,15 @@ OpenSysMLError
 │   ├── ServiceTimeoutError    deadline exceeded or cancelled (also TimeoutError)
 │   └── UnsupportedOperationError  the service does not implement the call
 ├── ExecutionError             eval/instantiate/execute/verify failed (also RuntimeError)
-│   └── WrongKindError         the call named an element of another kind than it asks about
+│   ├── WrongKindError         the call named an element of another kind than it asks about
+│   └── AnalysisRunError       an analysis failed part way; `result` keeps what it computed
 ├── ModelError                 strict load of a model with error diagnostics
 ├── SymbolNotFoundError        model["Nope"] (also KeyError)
 ├── FeatureValueError          a feature value could not be evaluated
 ├── ConversionError            the model could not be written in that format
+├── EditError                  an edit was refused; see "Editing a model" for the subclasses
+├── QueryError                 a standard Query payload the standard does not describe
+├── DocumentQueryError         a document-query binding of a type the wire cannot carry
 ├── UnsupportedValueError      a value the wire format cannot represent
 ├── TypeMismatchError          a feature value contradicts its generated view
 ├── InstanceTypeError          a typed view was given an instance of another type
@@ -1042,8 +1181,9 @@ in `clients/node`. `loads` and `load` are the one-shot forms; `connect()` keeps 
 a service and its parse cache) open across several models. Both a connection and a model are
 async-disposable, so `await using` closes them, and `close()` is the explicit form. Values arrive as
 discriminated unions to switch on (`value.kind === "quantity"`), integers as `bigint` so an `int64`
-is never rounded, and `unset` (a feature the model never gives a value) is distinct from `absent`
-(a field the answer did not carry).
+is never rounded, `unset` (a feature an object holds nothing for) is distinct from `absent`
+(a field the answer did not carry), and `undetermined` is a model-level answer the model
+leaves open, with its `reason` and count bounds.
 
 The same package runs in a browser, from a second entry point that spawns nothing:
 

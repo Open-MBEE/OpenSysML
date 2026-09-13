@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -36,6 +37,9 @@ func TestQualifiedRedefinitionReportsOneUnresolvedDiagnostic(t *testing.T) {
 	}
 }
 
+// A qualified redefinition target never starts at a sibling of the redefining
+// feature (KerML 8.2.3.5.2): the general D subsets has no nope, and the outer
+// C has none either, so the one diagnostic is the unresolved target itself.
 func TestQualifiedRedefinitionFallbackDoesNotReportSpeculativeFailure(t *testing.T) {
 	r := resolveVisibilityDoc(t, `package P {
 		feature C { feature c1; }
@@ -44,8 +48,8 @@ func TestQualifiedRedefinitionFallbackDoesNotReportSpeculativeFailure(t *testing
 			feature d redefines C::nope;
 		}
 	}`)
-	if len(r.Diagnostics) != 0 {
-		t.Fatalf("fallback resolution reported speculative diagnostics: %v", r.Diagnostics)
+	if len(r.Diagnostics) != 1 || !strings.HasPrefix(r.Diagnostics[0].Message, "unresolved reference: C::nope") {
+		t.Fatalf("diagnostics = %v, want one unresolved C::nope", r.Diagnostics)
 	}
 }
 

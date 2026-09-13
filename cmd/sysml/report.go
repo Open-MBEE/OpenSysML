@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -117,6 +119,308 @@ type checkResult struct {
 	// order, and Exploration how it ended; only a run under `explore` has them.
 	Outcomes    []checkOutcome    `json:"outcomes,omitempty"`
 	Exploration *checkExploration `json:"exploration,omitempty"`
+	// Plan is how the engines answered and Results what each answered, one entry
+	// per engine that ran (empty when every engine refused); only a check put to
+	// the engines has them.
+	Plan    *checkPlan      `json:"plan,omitempty"`
+	Results []checkResultOf `json:"results,omitzero"`
+}
+
+// checkPlan is how a check was answered in the JSON report: the selection made,
+// every engine consulted in order, the standing that stood, the disagreements resolved
+// and what the plan's workers cost.
+type checkPlan struct {
+	// Engine is the selection: auto, all, or the engine named.
+	Engine   string      `json:"engine"`
+	Standing string      `json:"standing"`
+	Steps    []checkStep `json:"steps"`
+	// Disagreements are the contradictions all resolved, each in the interpreter's favor.
+	Disagreements []checkDisagreement `json:"disagreements,omitempty"`
+	// Workers is how many workers the plan built for its engines' runs, and Warming the
+	// wall time in milliseconds building them took; the human-readable report omits both.
+	Workers int     `json:"workers"`
+	Warming float64 `json:"warming"`
+}
+
+// checkStep is one engine's part in the plan.
+type checkStep struct {
+	Engine string `json:"engine"`
+	// Status is answered, refused, failed or cancelled.
+	Status string `json:"status"`
+	// Detail is the refusal or the fault, empty for an engine that answered.
+	Detail string `json:"detail,omitempty"`
+	// Bounds is the bound a cancelled engine reached.
+	Bounds []checkBound `json:"bounds,omitempty"`
+}
+
+// checkDisagreement is one contradiction the composition under all resolved.
+type checkDisagreement struct {
+	Stands  string `json:"stands"`
+	Demoted string `json:"demoted"`
+	// Claim and Strength are what the demoted engine answered before it was demoted.
+	Claim    string `json:"claim"`
+	Strength string `json:"strength"`
+	Reason   string `json:"reason"`
+}
+
+// checkResultOf is what one engine answered, as the JSON report spells it.
+type checkResultOf struct {
+	Engine   string       `json:"engine"`
+	Claim    string       `json:"claim"`
+	Strength string       `json:"strength"`
+	Bounds   []checkBound `json:"bounds"`
+	// Witness is the execution the interpreter replays to exhibit the claim; `null` without one.
+	Witness *checkWitness `json:"witness"`
+	// Reason is why nothing is claimed, empty for a covered result.
+	Reason   string `json:"reason,omitempty"`
+	Standing string `json:"standing"`
+	// Inputs are the features of the initial state the engine quantified over or
+	// pinned, each with its domain, and Assumptions the constraints it assumed over
+	// them; only a symbolic engine reports either.
+	Inputs      []checkInput `json:"inputs,omitempty"`
+	Assumptions []string     `json:"assumptions,omitempty"`
+	// Check is the search the check engine made; only its results have one.
+	Check *checkSearch `json:"check,omitempty"`
+}
+
+// checkInput is one feature of the initial state as an engine took it: free in
+// its domain, or pinned at the value the model or the caller fixed.
+type checkInput struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+	// Domain is the set of values the engine let the feature range over, empty
+	// when the declared type alone bounds it.
+	Domain string `json:"domain,omitempty"`
+	Free   bool   `json:"free"`
+	// Optional marks a free feature whose multiplicity admits no value, so the
+	// engine ranged over its absence too; a witness spells that `null`.
+	Optional bool `json:"optional,omitempty"`
+	// Value is the value the feature is pinned at, empty for a free one.
+	Value string `json:"value,omitempty"`
+}
+
+// checkInputs converts the inputs an engine reported into the reported form.
+func checkInputs(inputs []analysis.Input) []checkInput {
+	if len(inputs) == 0 {
+		return nil
+	}
+	out := make([]checkInput, 0, len(inputs))
+	for _, in := range inputs {
+		out = append(out, checkInput{Name: in.Name, Type: in.Type, Domain: in.Domain, Free: in.Free, Optional: in.Optional, Value: in.Value})
+	}
+	return out
+}
+
+// checkSearch is how the check engine's search ended in the JSON report: its
+// verdict, what it searched, the bounds it hit, and what it found.
+type checkSearch struct {
+	Verdict string `json:"verdict"`
+	States  int    `json:"states"`
+	Moves   int    `json:"moves"`
+	Depth   int    `json:"depth"`
+	// BoundsHit names the bounds the search hit, `[]` when it was exhaustive.
+	BoundsHit  []string         `json:"boundsHit"`
+	Violations []checkViolation `json:"violations"`
+	Divergent  []checkDivergent `json:"divergent"`
+	// Outcomes are the distinct final outcomes complete schedules reached.
+	Outcomes []string `json:"outcomes"`
+}
+
+// checkViolation is one violation the search found, with the schedule reaching it.
+type checkViolation struct {
+	Kind string `json:"kind"`
+	// Name is the property violated, empty for a deadlock or a failure.
+	Name string `json:"name,omitempty"`
+	// Error is the deadlock or failure as reported, empty for a property.
+	Error string `json:"error,omitempty"`
+	Depth int    `json:"depth"`
+	// Witness is the choices that fix the schedule, and Path where the witness file
+	// was written, empty without a directory.
+	Witness []string `json:"witness"`
+	Path    string   `json:"path,omitempty"`
+}
+
+// checkDivergent is one feature the schedule decides the final value of.
+type checkDivergent struct {
+	Feature string                `json:"feature"`
+	Values  []checkDivergentValue `json:"values"`
+}
+
+// checkDivergentValue is one final value of a divergent feature and a schedule reaching it.
+type checkDivergentValue struct {
+	Value   string   `json:"value"`
+	Witness []string `json:"witness"`
+	Path    string   `json:"path,omitempty"`
+}
+
+// checkBound is one limit an engine took, and whether it reached it.
+type checkBound struct {
+	Name    string `json:"name"`
+	Limit   int64  `json:"limit"`
+	Reached bool   `json:"reached"`
+}
+
+// checkWitness is a replayable execution: the policy it ran under, the input
+// values it starts from and its choices.
+type checkWitness struct {
+	Schedule string `json:"schedule"`
+	// Inputs are the values the witness fixes for the free inputs before its first
+	// move, as the notation spells them; absent when it fixes none.
+	Inputs  []checkWitnessInput `json:"inputs,omitempty"`
+	Choices []string            `json:"choices"`
+	// Path is the witness file written under -check-witness, empty without one.
+	Path string `json:"path,omitempty"`
+}
+
+// checkWitnessInput is one feature a witness fixes and the value it fixes it at,
+// keyed as the witness file's `input <feature> = <value>` line is.
+type checkWitnessInput struct {
+	Feature string `json:"feature"`
+	Value   string `json:"value"`
+}
+
+// checkBounds converts the bounds an engine took into the reported form; a
+// result's bounds are always present, `[]` for an engine that took none.
+func checkBounds(bounds analysis.Bounds) []checkBound {
+	out := make([]checkBound, 0, len(bounds))
+	for _, b := range bounds {
+		out = append(out, checkBound{Name: b.Name, Limit: b.Limit, Reached: b.Reached})
+	}
+	return out
+}
+
+// checkWitnessOf converts a result's witness into the reported form.
+func checkWitnessOf(w *analysis.Witness) *checkWitness {
+	if w == nil {
+		return nil
+	}
+	out := &checkWitness{Schedule: w.Schedule.String(), Choices: choiceStrings(w.Choices), Path: w.Written}
+	for _, in := range w.Inputs {
+		out.Inputs = append(out.Inputs, checkWitnessInput{Feature: in.Feature, Value: in.Written})
+	}
+	return out
+}
+
+// checkPlanOf converts the plan that answered a check into the reported form.
+func checkPlanOf(plan *analysis.Plan) *checkPlan {
+	if plan == nil {
+		return nil
+	}
+	out := &checkPlan{
+		Engine:   plan.Selection.String(),
+		Standing: plan.Standing(),
+		Steps:    make([]checkStep, 0, len(plan.Steps)),
+		Workers:  plan.Workers,
+		Warming:  float64(plan.Warming.Nanoseconds()) / 1e6,
+	}
+	for _, step := range plan.Steps {
+		s := checkStep{Engine: step.Engine}
+		switch {
+		case step.Refusal != nil:
+			s.Status, s.Detail = "refused", step.Refusal.Error()
+		case step.Cancelled:
+			s.Status = "cancelled"
+			if len(step.Bounds) > 0 {
+				s.Bounds = checkBounds(step.Bounds)
+			}
+		case step.Err != nil:
+			s.Status, s.Detail = "failed", step.Err.Error()
+		default:
+			s.Status = "answered"
+		}
+		out.Steps = append(out.Steps, s)
+	}
+	for _, d := range plan.Disagreements {
+		out.Disagreements = append(out.Disagreements, checkDisagreement{
+			Stands:   d.Stands,
+			Demoted:  d.Demoted,
+			Claim:    d.Claimed.Claim.String(),
+			Strength: d.Claimed.Strength.String(),
+			Reason:   d.Reason,
+		})
+	}
+	return out
+}
+
+// checkResultsOf converts what each engine of a plan answered into the reported form.
+func checkResultsOf(plan *analysis.Plan) []checkResultOf {
+	if plan == nil {
+		return nil
+	}
+	results := plan.Results()
+	out := make([]checkResultOf, 0, len(results))
+	for _, r := range results {
+		out = append(out, checkResultOf{
+			Engine:      r.Engine,
+			Claim:       r.Claim.String(),
+			Strength:    r.Strength.String(),
+			Bounds:      checkBounds(r.Bounds),
+			Witness:     checkWitnessOf(r.Witness),
+			Reason:      r.Reason,
+			Standing:    r.Standing(),
+			Inputs:      checkInputs(r.Inputs),
+			Assumptions: r.Assumptions,
+			Check:       checkSearchOf(r.Check()),
+		})
+	}
+	return out
+}
+
+// checkSearchOf converts a check engine's search into the reported form.
+func checkSearchOf(checked *analysis.Checked) *checkSearch {
+	if checked == nil || checked.Report == nil {
+		return nil
+	}
+	report := checked.Report
+	out := &checkSearch{
+		Verdict:    report.Verdict.String(),
+		States:     report.States,
+		Moves:      report.Moves,
+		Depth:      report.MaxDepth,
+		BoundsHit:  append([]string{}, report.BoundsHit...),
+		Violations: make([]checkViolation, 0, len(report.Violations)),
+		Divergent:  make([]checkDivergent, 0, len(report.Divergent)),
+		Outcomes:   make([]string, 0, len(report.Finals)),
+	}
+	for i, v := range report.Violations {
+		violation := checkViolation{Kind: v.Kind.String(), Name: v.Name, Depth: v.Depth, Witness: choiceStrings(v.Witness.Choices), Path: pathAt(checked.Violations, i)}
+		if v.Err != nil {
+			violation.Error = v.Err.Error()
+		}
+		out.Violations = append(out.Violations, violation)
+	}
+	for i, d := range report.Divergent {
+		var paths []string
+		if i < len(checked.Divergent) {
+			paths = checked.Divergent[i]
+		}
+		divergent := checkDivergent{Feature: d.Feature, Values: make([]checkDivergentValue, 0, len(d.Values))}
+		for j, value := range d.Values {
+			divergent.Values = append(divergent.Values, checkDivergentValue{Value: value.Value, Witness: choiceStrings(value.Witness.Choices), Path: pathAt(paths, j)})
+		}
+		out.Divergent = append(out.Divergent, divergent)
+	}
+	for _, final := range report.Finals {
+		out.Outcomes = append(out.Outcomes, final.Outcome)
+	}
+	return out
+}
+
+// choiceStrings spells a schedule's choices, `[]` for a run facing none.
+func choiceStrings(choices []runtime.ChoiceTaken) []string {
+	out := make([]string, 0, len(choices))
+	for _, c := range choices {
+		out = append(out, c.String())
+	}
+	return out
+}
+
+// pathAt is the i'th witness path, "" when none was written.
+func pathAt(paths []string, i int) string {
+	if i < len(paths) {
+		return paths[i]
+	}
+	return ""
 }
 
 // checkOutcome is one distinct outcome of an exploration in the JSON report.
@@ -370,6 +674,8 @@ func (r *reporter) finish() int {
 			Rows:          checkRows(v.Rows),
 			Outcomes:      checkOutcomes(v.Outcomes),
 			Exploration:   checkExplorationOf(v.Exploration),
+			Plan:          checkPlanOf(v.Plan),
+			Results:       checkResultsOf(v.Plan),
 		})
 	}
 	out, err := json.MarshalIndent(r.report, "", "  ")

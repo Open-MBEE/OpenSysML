@@ -1,5 +1,6 @@
 // A transition into a parallel state whose every region starts in `done`
-// completes the machine, running the machine's own exit behavior once.
+// completes that state on entry; its completion transition then completes the
+// machine, running the machine's own exit behavior once.
 package test {
     private import ScalarValues::*;
     attribute def Go;
@@ -21,5 +22,6 @@ package test {
                 entry; then done;
             }
         }
+        transition first outer then done;
     }
 }

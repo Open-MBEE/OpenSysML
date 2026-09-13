@@ -72,6 +72,8 @@ private static final long serialVersionUID = 0L;
     FUNCTION(17),
     SET(18),
     TENSOR_QUANTITY(19),
+    METAOBJECT(20),
+    UNDETERMINED(21),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -108,6 +110,8 @@ private static final long serialVersionUID = 0L;
         case 17: return FUNCTION;
         case 18: return SET;
         case 19: return TENSOR_QUANTITY;
+        case 20: return METAOBJECT;
+        case 21: return UNDETERMINED;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -844,6 +848,95 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance();
   }
 
+  public static final int METAOBJECT_FIELD_NUMBER = 20;
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   * @return Whether the metaobject field is set.
+   */
+  @java.lang.Override
+  public boolean hasMetaobject() {
+    return kindCase_ == 20;
+  }
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   * @return The metaobject.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Metaobject getMetaobject() {
+    if (kindCase_ == 20) {
+       return (org.openmbee.opensysml.proto.Metaobject) kind_;
+    }
+    return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.MetaobjectOrBuilder getMetaobjectOrBuilder() {
+    if (kindCase_ == 20) {
+       return (org.openmbee.opensysml.proto.Metaobject) kind_;
+    }
+    return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+  }
+
+  public static final int UNDETERMINED_FIELD_NUMBER = 21;
+  /**
+   * <pre>
+   * A result the model leaves open: not an error, but no definite answer.
+   * A value the server sends, never one it accepts.
+   * </pre>
+   *
+   * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+   * @return Whether the undetermined field is set.
+   */
+  @java.lang.Override
+  public boolean hasUndetermined() {
+    return kindCase_ == 21;
+  }
+  /**
+   * <pre>
+   * A result the model leaves open: not an error, but no definite answer.
+   * A value the server sends, never one it accepts.
+   * </pre>
+   *
+   * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+   * @return The undetermined.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Undetermined getUndetermined() {
+    if (kindCase_ == 21) {
+       return (org.openmbee.opensysml.proto.Undetermined) kind_;
+    }
+    return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * A result the model leaves open: not an error, but no definite answer.
+   * A value the server sends, never one it accepts.
+   * </pre>
+   *
+   * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.UndeterminedOrBuilder getUndeterminedOrBuilder() {
+    if (kindCase_ == 21) {
+       return (org.openmbee.opensysml.proto.Undetermined) kind_;
+    }
+    return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -920,6 +1013,12 @@ private static final long serialVersionUID = 0L;
     }
     if (kindCase_ == 19) {
       output.writeMessage(19, (org.openmbee.opensysml.proto.TensorQuantity) kind_);
+    }
+    if (kindCase_ == 20) {
+      output.writeMessage(20, (org.openmbee.opensysml.proto.Metaobject) kind_);
+    }
+    if (kindCase_ == 21) {
+      output.writeMessage(21, (org.openmbee.opensysml.proto.Undetermined) kind_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1009,6 +1108,14 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 19) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(19, (org.openmbee.opensysml.proto.TensorQuantity) kind_);
+    }
+    if (kindCase_ == 20) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(20, (org.openmbee.opensysml.proto.Metaobject) kind_);
+    }
+    if (kindCase_ == 21) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(21, (org.openmbee.opensysml.proto.Undetermined) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -1103,6 +1210,14 @@ private static final long serialVersionUID = 0L;
       case 19:
         if (!getTensorQuantity()
             .equals(other.getTensorQuantity())) return false;
+        break;
+      case 20:
+        if (!getMetaobject()
+            .equals(other.getMetaobject())) return false;
+        break;
+      case 21:
+        if (!getUndetermined()
+            .equals(other.getUndetermined())) return false;
         break;
       case 0:
       default:
@@ -1200,6 +1315,14 @@ private static final long serialVersionUID = 0L;
       case 19:
         hash = (37 * hash) + TENSOR_QUANTITY_FIELD_NUMBER;
         hash = (53 * hash) + getTensorQuantity().hashCode();
+        break;
+      case 20:
+        hash = (37 * hash) + METAOBJECT_FIELD_NUMBER;
+        hash = (53 * hash) + getMetaobject().hashCode();
+        break;
+      case 21:
+        hash = (37 * hash) + UNDETERMINED_FIELD_NUMBER;
+        hash = (53 * hash) + getUndetermined().hashCode();
         break;
       case 0:
       default:
@@ -1372,6 +1495,12 @@ private static final long serialVersionUID = 0L;
       if (tensorQuantityBuilder_ != null) {
         tensorQuantityBuilder_.clear();
       }
+      if (metaobjectBuilder_ != null) {
+        metaobjectBuilder_.clear();
+      }
+      if (undeterminedBuilder_ != null) {
+        undeterminedBuilder_.clear();
+      }
       kindCase_ = 0;
       kind_ = null;
       return this;
@@ -1456,6 +1585,14 @@ private static final long serialVersionUID = 0L;
       if (kindCase_ == 19 &&
           tensorQuantityBuilder_ != null) {
         result.kind_ = tensorQuantityBuilder_.build();
+      }
+      if (kindCase_ == 20 &&
+          metaobjectBuilder_ != null) {
+        result.kind_ = metaobjectBuilder_.build();
+      }
+      if (kindCase_ == 21 &&
+          undeterminedBuilder_ != null) {
+        result.kind_ = undeterminedBuilder_.build();
       }
     }
 
@@ -1550,6 +1687,14 @@ private static final long serialVersionUID = 0L;
         }
         case TENSOR_QUANTITY: {
           mergeTensorQuantity(other.getTensorQuantity());
+          break;
+        }
+        case METAOBJECT: {
+          mergeMetaobject(other.getMetaobject());
+          break;
+        }
+        case UNDETERMINED: {
+          mergeUndetermined(other.getUndetermined());
           break;
         }
         case KIND_NOT_SET: {
@@ -1701,6 +1846,20 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 19;
               break;
             } // case 154
+            case 162: {
+              input.readMessage(
+                  internalGetMetaobjectFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 20;
+              break;
+            } // case 162
+            case 170: {
+              input.readMessage(
+                  internalGetUndeterminedFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 21;
+              break;
+            } // case 170
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -4139,6 +4298,371 @@ private static final long serialVersionUID = 0L;
       kindCase_ = 19;
       onChanged();
       return tensorQuantityBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Metaobject, org.openmbee.opensysml.proto.Metaobject.Builder, org.openmbee.opensysml.proto.MetaobjectOrBuilder> metaobjectBuilder_;
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     * @return Whether the metaobject field is set.
+     */
+    @java.lang.Override
+    public boolean hasMetaobject() {
+      return kindCase_ == 20;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     * @return The metaobject.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.Metaobject getMetaobject() {
+      if (metaobjectBuilder_ == null) {
+        if (kindCase_ == 20) {
+          return (org.openmbee.opensysml.proto.Metaobject) kind_;
+        }
+        return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+      } else {
+        if (kindCase_ == 20) {
+          return metaobjectBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public Builder setMetaobject(org.openmbee.opensysml.proto.Metaobject value) {
+      if (metaobjectBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        metaobjectBuilder_.setMessage(value);
+      }
+      kindCase_ = 20;
+      return this;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public Builder setMetaobject(
+        org.openmbee.opensysml.proto.Metaobject.Builder builderForValue) {
+      if (metaobjectBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        metaobjectBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 20;
+      return this;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public Builder mergeMetaobject(org.openmbee.opensysml.proto.Metaobject value) {
+      if (metaobjectBuilder_ == null) {
+        if (kindCase_ == 20 &&
+            kind_ != org.openmbee.opensysml.proto.Metaobject.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.Metaobject.newBuilder((org.openmbee.opensysml.proto.Metaobject) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 20) {
+          metaobjectBuilder_.mergeFrom(value);
+        } else {
+          metaobjectBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 20;
+      return this;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public Builder clearMetaobject() {
+      if (metaobjectBuilder_ == null) {
+        if (kindCase_ == 20) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 20) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        metaobjectBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public org.openmbee.opensysml.proto.Metaobject.Builder getMetaobjectBuilder() {
+      return internalGetMetaobjectFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.MetaobjectOrBuilder getMetaobjectOrBuilder() {
+      if ((kindCase_ == 20) && (metaobjectBuilder_ != null)) {
+        return metaobjectBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 20) {
+          return (org.openmbee.opensysml.proto.Metaobject) kind_;
+        }
+        return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Metaobject, org.openmbee.opensysml.proto.Metaobject.Builder, org.openmbee.opensysml.proto.MetaobjectOrBuilder> 
+        internalGetMetaobjectFieldBuilder() {
+      if (metaobjectBuilder_ == null) {
+        if (!(kindCase_ == 20)) {
+          kind_ = org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+        }
+        metaobjectBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.Metaobject, org.openmbee.opensysml.proto.Metaobject.Builder, org.openmbee.opensysml.proto.MetaobjectOrBuilder>(
+                (org.openmbee.opensysml.proto.Metaobject) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 20;
+      onChanged();
+      return metaobjectBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Undetermined, org.openmbee.opensysml.proto.Undetermined.Builder, org.openmbee.opensysml.proto.UndeterminedOrBuilder> undeterminedBuilder_;
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+     * @return Whether the undetermined field is set.
+     */
+    @java.lang.Override
+    public boolean hasUndetermined() {
+      return kindCase_ == 21;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+     * @return The undetermined.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.Undetermined getUndetermined() {
+      if (undeterminedBuilder_ == null) {
+        if (kindCase_ == 21) {
+          return (org.openmbee.opensysml.proto.Undetermined) kind_;
+        }
+        return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+      } else {
+        if (kindCase_ == 21) {
+          return undeterminedBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+     */
+    public Builder setUndetermined(org.openmbee.opensysml.proto.Undetermined value) {
+      if (undeterminedBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        undeterminedBuilder_.setMessage(value);
+      }
+      kindCase_ = 21;
+      return this;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+     */
+    public Builder setUndetermined(
+        org.openmbee.opensysml.proto.Undetermined.Builder builderForValue) {
+      if (undeterminedBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        undeterminedBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 21;
+      return this;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+     */
+    public Builder mergeUndetermined(org.openmbee.opensysml.proto.Undetermined value) {
+      if (undeterminedBuilder_ == null) {
+        if (kindCase_ == 21 &&
+            kind_ != org.openmbee.opensysml.proto.Undetermined.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.Undetermined.newBuilder((org.openmbee.opensysml.proto.Undetermined) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 21) {
+          undeterminedBuilder_.mergeFrom(value);
+        } else {
+          undeterminedBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 21;
+      return this;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+     */
+    public Builder clearUndetermined() {
+      if (undeterminedBuilder_ == null) {
+        if (kindCase_ == 21) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 21) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        undeterminedBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+     */
+    public org.openmbee.opensysml.proto.Undetermined.Builder getUndeterminedBuilder() {
+      return internalGetUndeterminedFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.UndeterminedOrBuilder getUndeterminedOrBuilder() {
+      if ((kindCase_ == 21) && (undeterminedBuilder_ != null)) {
+        return undeterminedBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 21) {
+          return (org.openmbee.opensysml.proto.Undetermined) kind_;
+        }
+        return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * A result the model leaves open: not an error, but no definite answer.
+     * A value the server sends, never one it accepts.
+     * </pre>
+     *
+     * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Undetermined, org.openmbee.opensysml.proto.Undetermined.Builder, org.openmbee.opensysml.proto.UndeterminedOrBuilder> 
+        internalGetUndeterminedFieldBuilder() {
+      if (undeterminedBuilder_ == null) {
+        if (!(kindCase_ == 21)) {
+          kind_ = org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
+        }
+        undeterminedBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.Undetermined, org.openmbee.opensysml.proto.Undetermined.Builder, org.openmbee.opensysml.proto.UndeterminedOrBuilder>(
+                (org.openmbee.opensysml.proto.Undetermined) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 21;
+      onChanged();
+      return undeterminedBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Value)

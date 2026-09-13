@@ -31,10 +31,11 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | Parse one document | `ParseFile`, `ParseSource` |
 | Parse a model of several documents | `ParseFiles`, `ParseDocuments` |
 | Read the model | `LookupSymbol`, `Diagnostics` |
-| Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `RunAnalysis` |
+| Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `Calculate`, `RunAnalysis` |
 | Run behavior | `ExecuteAction`, `ExecuteState` |
 | Run every linearization of it | `ExploreAction`, `ExploreState`, `ExploreAnalysis` |
 | Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` |
+| Choose who answers | `ListEngines`, `WithEngine`, `Engine`, `CalcEngine` |
 | Search it | `Query`, `QueryOSLC` |
 | Report on it | `RunDocumentQuery`, `RenderDocument` |
 | Write it out | `Convert`, `ConvertFile`, `ConvertSource` |
@@ -108,6 +109,24 @@ for _, outcome := range exploration.Outcomes {
 	fmt.Println(outcome.Outputs["winner"], outcome.Linearizations, outcome.Witness)
 }
 fmt.Println(exploration.Status()) // complete (6 runs)
+```
+
+Every verdict, calculation and analysis carries its `Standing`: the analysis
+engine that answered (`run`, `explore`, `sweep` or `solve`), the `Strength` of
+its evidence (`observed`, `witnessed`, `bounded`, `proved`, or `not covered`)
+and the `Bounds` it ran under, each marked `Reached` when hitting it is what
+stopped the run. `ListEngines` names the engines a service registers with the
+strongest strength each may claim and the question kinds it answers;
+`WithEngine` (`Engine` for an analysis, `CalcEngine` for a calculation put
+through `Calculate`) puts the question to one of them by name, to `EngineAll` for every engine that covers it, or to `EngineAuto` — the
+default — for the service's own choice. A named engine that refuses the
+question is the answer, not a fallback, and an engine the service does not
+register is refused with `CodeInvalidArgument`.
+
+```go
+verification, err := client.VerifyConstraint(ctx, model, "Demo::Vehicle::massLight",
+	opensysml.Against("Demo::sedan"), opensysml.WithEngine("run"))
+fmt.Println(verification.Verdict.Standing.Engine, verification.Verdict.Standing.Strength) // run observed
 ```
 
 An action or state machine runs on a simulation clock that starts at 0 and
@@ -253,18 +272,22 @@ answering implementation supports, and `ServerInfo.Has` checks one. A request
 that asks for an unavailable capability is refused with `CodeUnimplemented`;
 capabilities that describe response population instead omit the fields they
 name. Check the list first for an operation-specific error (the `Capability*`
-constants name the known ones). Six capabilities are checked for you: a `Complex`
+constants name the known ones). Seven capabilities are checked for you: a `Complex`
 among `ExecuteAction` inputs or `EvaluateCalc`/`RunAnalysis` arguments needs
 `complex_values`, an `Array`, `Vector` or `VectorQuantity` needs
 `structured_values`, a `MeasurementRef` needs `measurement_refs`, a `Function`
 (a calc held as a value, sent back to bind a calc-typed parameter) needs
-`function_values`, a `Set` needs `set_values` and a `TensorQuantity` needs
-`tensor_values` — each at the top level or nested in a sequence, set or array; a
+`function_values`, a `Set` needs `set_values`, a `TensorQuantity` needs
+`tensor_values` and a `Metaobject` (an element reflected on as an instance of
+its metaclass, what `x meta T` evaluates to) needs `metaobject_values` — each at
+the top level or nested in a sequence, set or array; a
 service without them would read the value as null, so the client refuses with
 `CodeUnimplemented` before sending anything. A scheduling policy is checked the
 same way: `WithSchedule`/`Schedule` need `schedule`, and the `Explore*` calls
 `schedule_explore` besides, since a service without them would run under the
-default, or run once, rather than refuse.
+default, or run once, rather than refuse. So is an engine: `WithEngine`,
+`Engine` and `CalcEngine` naming anything but `EngineAuto` need `engines`, since a service without it
+would answer with whichever engine it chose.
 
 A `Set` arrives with its elements in the service's canonical order — Booleans,
 then numbers, strings, quantities, enumeration literals and objects, each class
@@ -281,7 +304,12 @@ whole ratio), and one without a `Term` in its unit as written. A
 `TensorQuantity` carries its dimensions and one `Quantity` per
 component in row-major order, at any rank; one whose dimensions are not all
 positive, or whose components do not fill them, is refused with
-`CodeInvalidArgument` before it is sent.
+`CodeInvalidArgument` before it is sent. A `Metaobject` carries the FQN of the
+element it reflects on, which is its identity, and of that element's own
+reflective metaclass (`SysML::Systems::PartUsage`, never the type it was cast
+to); its features are read in the model rather than carried, and one you send
+may leave the metaclass empty to have the model's used, but one naming a
+metaclass that is not the element's is refused by the service.
 
 ## Stability
 

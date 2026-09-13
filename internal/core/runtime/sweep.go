@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -115,10 +114,10 @@ type SweepRunResult struct {
 	Evaluations []AnalysisEvaluation
 }
 
-// SweepRun makes one run of a sweep with the parameters bound as the row states.
-// An error is that row's failure, not the table's; what the run produced before
-// failing may be returned beside it.
-type SweepRun func(bindings []SweepBinding) (SweepRunResult, error)
+// SweepRun makes one run of a sweep in ctx, the row's own context, with the
+// parameters bound as the row states. An error is that row's failure, not the
+// table's; what the run produced before failing may be returned beside it.
+type SweepRun func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error)
 
 // SweepRow is one run of a sweep: what it was given, what it produced, how long
 // it took, and what stopped it when it failed.
@@ -131,6 +130,9 @@ type SweepRow struct {
 	Evaluations []AnalysisEvaluation
 	Elapsed     time.Duration
 	Err         error
+	// Context is the context the run was made in, which its outputs, subject and
+	// evaluations are read through: no other context knows the objects they name.
+	Context *Context
 }
 
 // SweepTable is every run of one sweep, in the order they were made: a swept
@@ -146,6 +148,23 @@ type SweepTable struct {
 	Rows    []SweepRow
 }
 
+// NewSweepTable is the table of a plan before any row is run: the target, the
+// parameters and their types in plan order, and how the rows are drawn.
+func NewSweepTable(target string, plan SweepPlan) SweepTable {
+	table := SweepTable{
+		Target:  target,
+		Params:  make([]string, 0, len(plan.Ranges)),
+		Types:   make([]SweepType, 0, len(plan.Ranges)),
+		Sampled: plan.Sampled,
+		Seed:    plan.Seed,
+	}
+	for _, r := range plan.Ranges {
+		table.Params = append(table.Params, r.Param)
+		table.Types = append(table.Types, r.Type)
+	}
+	return table
+}
+
 // sampleStream separates the generator's two seed words, so one seed still
 // selects one whole PCG state.
 const sampleStream uint64 = 0x9E3779B97F4A7C15
@@ -158,49 +177,33 @@ func NewSampleSource(seed uint64) *rand.Rand {
 	return rand.New(rand.NewPCG(seed, seed^sampleStream))
 }
 
-// RunSweep makes one run per row of the plan and reports the table. A run that
-// failed is that row's typed error; the table is completed either way. The plan
-// itself is refused before any run is made, and a caller that goes away between
-// runs takes the rest of the table with it.
-func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan, run SweepRun) (SweepTable, error) {
-	rows, err := ctx.sweepBindings(plan)
-	if err != nil {
-		return SweepTable{}, err
-	}
-	table := SweepTable{
-		Target:  target,
-		Params:  make([]string, 0, len(plan.Ranges)),
-		Types:   make([]SweepType, 0, len(plan.Ranges)),
-		Sampled: plan.Sampled,
-		Seed:    plan.Seed,
-		Rows:    make([]SweepRow, 0, len(rows)),
-	}
-	for _, r := range plan.Ranges {
-		table.Params = append(table.Params, r.Param)
-		table.Types = append(table.Types, r.Type)
-	}
-	for _, bindings := range rows {
-		if err := stop.Err(); err != nil {
-			return SweepTable{}, err
-		}
-		row := SweepRow{Bindings: bindings}
-		started := time.Now()
-		result, err := run(bindings)
-		row.Elapsed = time.Since(started)
-		row.Err = err
-		row.Outputs, row.Verdicts = result.Outputs, result.Verdicts
-		row.Subject, row.Evaluations = result.Subject, result.Evaluations
-		table.Rows = append(table.Rows, row)
-	}
-	return table, nil
+// runSweepRow makes one run of a sweep in ctx and tables it: the run's outputs
+// and error, how long it took, and the context they are read through.
+func runSweepRow(ctx *Context, bindings []SweepBinding, run SweepRun) SweepRow {
+	row := SweepRow{Bindings: bindings, Context: ctx}
+	started := time.Now()
+	result, err := run(ctx, bindings)
+	row.Elapsed = time.Since(started)
+	row.Err = err
+	row.Outputs, row.Verdicts = result.Outputs, result.Verdicts
+	row.Subject, row.Evaluations = result.Subject, result.Evaluations
+	return row
 }
 
-// SweepRunBudget is the number of runs one sweep may ask for.
+// SweepRunBudget is the number of runs one sweep may ask for when none is stated.
 func (ctx *Context) SweepRunBudget() int64 { return ctx.maxSweepRuns }
 
+// sweepRunLimit is the rows a sweep may make: runs when stated, else the context's.
+func (ctx *Context) sweepRunLimit(runs int64) int64 {
+	if runs > 0 {
+		return runs
+	}
+	return ctx.maxSweepRuns
+}
+
 // sweepBindings is every row of a plan, in the order it is run: the cartesian
-// product of the swept ranges, or one row per draw of a sampled one.
-func (ctx *Context) sweepBindings(plan SweepPlan) ([][]SweepBinding, error) {
+// product of the swept ranges, or one row per draw of a sampled one, at most limit.
+func (ctx *Context) sweepBindings(plan SweepPlan, limit int64) ([][]SweepBinding, error) {
 	if len(plan.Ranges) == 0 {
 		return nil, fmt.Errorf("%w: name a range as <parameter>=<from>..<to>", ErrSweepEmpty)
 	}
@@ -215,24 +218,24 @@ func (ctx *Context) sweepBindings(plan SweepPlan) ([][]SweepBinding, error) {
 		seen[r.Param] = true
 	}
 	if plan.Sampled {
-		return ctx.sampledBindings(plan)
+		return ctx.sampledBindings(plan, limit)
 	}
-	return ctx.sweptBindings(plan)
+	return ctx.sweptBindings(plan, limit)
 }
 
 // sweptBindings enumerates each range and takes the cartesian product, the
 // first parameter varying slowest so the rows read in the order given.
-func (ctx *Context) sweptBindings(plan SweepPlan) ([][]SweepBinding, error) {
+func (ctx *Context) sweptBindings(plan SweepPlan, limit int64) ([][]SweepBinding, error) {
 	columns := make([][]Value, len(plan.Ranges))
 	total := int64(1)
 	for i, r := range plan.Ranges {
-		values, err := r.enumerate(ctx)
+		values, err := r.enumerate(ctx, limit)
 		if err != nil {
 			return nil, err
 		}
 		columns[i] = values
-		if total > ctx.maxSweepRuns/int64(len(values)) {
-			return nil, ctx.sweepBudgetError()
+		if total > limit/int64(len(values)) {
+			return nil, ctx.sweepBudgetError(limit)
 		}
 		total *= int64(len(values))
 	}
@@ -261,12 +264,12 @@ func (ctx *Context) sweptBindings(plan SweepPlan) ([][]SweepBinding, error) {
 
 // sampledBindings draws one value per parameter per row, the parameters in the
 // order they were given, so the draws pair up into rows rather than multiplying.
-func (ctx *Context) sampledBindings(plan SweepPlan) ([][]SweepBinding, error) {
+func (ctx *Context) sampledBindings(plan SweepPlan, limit int64) ([][]SweepBinding, error) {
 	if plan.Samples <= 0 {
 		return nil, fmt.Errorf("%w: draw at least one sample, got %d", ErrSweepSamples, plan.Samples)
 	}
-	if plan.Samples > ctx.maxSweepRuns {
-		return nil, ctx.sweepBudgetError()
+	if plan.Samples > limit {
+		return nil, ctx.sweepBudgetError(limit)
 	}
 	prepared := make([]sweepBounds, len(plan.Ranges))
 	for i, r := range plan.Ranges {
@@ -294,10 +297,17 @@ func (ctx *Context) sampledBindings(plan SweepPlan) ([][]SweepBinding, error) {
 	return rows, nil
 }
 
-// sweepBudgetError is the refusal of a plan asking for more runs than allowed.
-func (ctx *Context) sweepBudgetError() error {
-	return fmt.Errorf("%w: at most %d run(s) per sweep (raise %s)",
-		ErrSweepBudget, ctx.maxSweepRuns, MaxSweepRunsEnvVar)
+// sweepBudgetError is the refusal of a plan asking for more runs than limit allows.
+func (ctx *Context) sweepBudgetError(limit int64) error {
+	return fmt.Errorf("%w: at most %d run(s) per sweep%s", ErrSweepBudget, limit, ctx.raiseSweepRuns(limit))
+}
+
+// raiseSweepRuns names the variable that raises limit, when limit is the context's own.
+func (ctx *Context) raiseSweepRuns(limit int64) string {
+	if limit != ctx.maxSweepRuns {
+		return ""
+	}
+	return " (raise " + MaxSweepRunsEnvVar + ")"
 }
 
 // sweepBounds is a range as arithmetic reads it: magnitudes in its first
@@ -576,14 +586,14 @@ func (t SweepType) admitMagnitude(ctx *Context, param, what string, value Value)
 		return nil
 	}
 	magnitude := constValue(q.Num)
-	prim := ctx.model.PrimTypeOf(t.num)
+	prim := ctx.model.semantics.PrimTypeOf(t.num)
 	refusal := fmt.Errorf("%w: %s is %s, which num : %s of %s : %s cannot hold",
 		ErrSweepRange, what, describeValue(magnitude), ctx.numTypeText(t.num, prim), param, symbolText(t.Declared()))
 	if !prim.IsNumeric() {
 		return refusal
 	}
-	for _, typ := range ctx.model.FeatureTypes(t.num) {
-		verdict, err := ctx.classifyValue(declScope(t.decl.Owner), magnitude, typ, nil, byAnyType)
+	for _, typ := range ctx.model.semantics.FeatureTypes(t.num) {
+		verdict, err := ctx.classifyValue(DeclScope(t.decl.Owner), magnitude, typ, nil, byAnyType)
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrSweepRange, err)
 		}
@@ -599,7 +609,7 @@ func (ctx *Context) numTypeText(num *symbols.Symbol, prim semantics.PrimType) st
 	if prim != semantics.PrimUnknown {
 		return prim.String()
 	}
-	if types := ctx.model.FeatureTypes(num); len(types) > 0 {
+	if types := ctx.model.semantics.FeatureTypes(num); len(types) > 0 {
 		return symbolText(types[0])
 	}
 	return unknownText
@@ -678,16 +688,15 @@ func exactScaled(n, mul, div int64) (int64, bool) {
 // enumerate is every value of a swept range, from its start towards its end,
 // including the end where a step lands on it. Values are computed from the
 // start rather than accumulated, so a real step does not drift.
-func (r SweepRange) enumerate(ctx *Context) ([]Value, error) {
+func (r SweepRange) enumerate(ctx *Context, limit int64) ([]Value, error) {
 	bounds, err := r.bounds(ctx)
 	if err != nil {
 		return nil, err
 	}
-	limit := ctx.maxSweepRuns
 	count := bounds.count()
 	if count > unsignedInt(limit) {
-		return nil, fmt.Errorf("%w: %s=%s..%s takes %d run(s), at most %d allowed (raise %s)",
-			ErrSweepBudget, r.Param, FormatValue(r.From), FormatValue(r.To), count, limit, MaxSweepRunsEnvVar)
+		return nil, fmt.Errorf("%w: %s=%s..%s takes %d run(s), at most %d allowed%s",
+			ErrSweepBudget, r.Param, FormatValue(r.From), FormatValue(r.To), count, limit, ctx.raiseSweepRuns(limit))
 	}
 	values := make([]Value, 0, count)
 	for i := int64(0); i < signedInt(count); i++ {
@@ -915,13 +924,13 @@ func (ctx *Context) sweepTypeOf(decl calcMemberDecl) SweepType {
 		t.Untyped = true
 		return t
 	}
-	prim := ctx.model.PrimTypeOf(typ)
+	prim := ctx.model.semantics.PrimTypeOf(typ)
 	if prim == semantics.PrimUnknown {
 		num, ok := ctx.quantityNumber(typ)
 		if !ok {
 			return t
 		}
-		typ, prim = num, ctx.model.PrimTypeOf(num)
+		typ, prim = num, ctx.model.semantics.PrimTypeOf(num)
 		t.num = num
 	}
 	t.Numbers = sweepNumbersOf(prim)
@@ -944,17 +953,17 @@ func sweepNumbersOf(prim semantics.PrimType) SweepNumbers {
 // positiveScalar reports a type that is, or specializes, ScalarValues::Positive.
 func (ctx *Context) positiveScalar(typ *symbols.Symbol) bool {
 	positive := ctx.librarySymbol("ScalarValues::Positive")
-	return positive != nil && ctx.model.Conforms(typ, positive)
+	return positive != nil && ctx.modelConforms(typ, positive)
 }
 
 // quantityNumber is the feature holding a scalar quantity type's magnitude, the
 // `num` a quantity value's number is bound to; false for any other type.
 func (ctx *Context) quantityNumber(typ *symbols.Symbol) (*symbols.Symbol, bool) {
 	scalar := ctx.librarySymbol(scalarQuantityTypeFQN)
-	if scalar == nil || !ctx.model.Conforms(typ, scalar) {
+	if scalar == nil || !ctx.modelConforms(typ, scalar) {
 		return nil, false
 	}
-	num, ok := ctx.model.LookupMember(typ, vectorQuantityNumFeature)
+	num, ok := ctx.model.semantics.LookupMember(typ, vectorQuantityNumFeature)
 	if !ok || num == nil {
 		return nil, false
 	}

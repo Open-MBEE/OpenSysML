@@ -1,0 +1,20 @@
+{
+  "type": "instance",
+  "instantiate": "test::sensor",
+  "libraries": true,
+  "slots": {
+    "colors": {"type": "Sequence", "elements": [
+      {"type": "EnumLiteral", "value": "Color::red"},
+      {"type": "EnumLiteral", "value": "Color::green"},
+      {"type": "EnumLiteral", "value": "Color::blue"}
+    ]},
+    "colorCount": {"type": "Integer", "value": 3},
+    "levels": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 5},
+      {"type": "Integer", "value": 10}
+    ]},
+    "levelSum": {"type": "Integer", "value": 16},
+    "topLevel": {"type": "Integer", "value": 10}
+  }
+}

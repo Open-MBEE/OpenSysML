@@ -75,7 +75,7 @@ package test {
 	if !ok {
 		t.Fatalf("result declares %T, want a usage", sym.Decl)
 	}
-	ctx := NewContext(model, resolver, maxSteps)
+	ctx := NewContext(NewModel(model, resolver), maxSteps)
 	return NewEvalContext(ctx, scope), decl.Value
 }
 
@@ -431,7 +431,7 @@ package test {
 	if !ok {
 		t.Fatalf("result declares %T, want a usage", sym.Decl)
 	}
-	ec := NewEvalContext(NewContext(model, resolver, 10000), pkg.Scope)
+	ec := NewEvalContext(NewContext(NewModel(model, resolver), 10000), pkg.Scope)
 	got, err := ec.Eval(decl.Value)
 	if !errors.Is(err, ErrReceiverWithNamedArgs) {
 		t.Fatalf("factor->scale(n = 1) = (%v, %v), want %v", got, err, ErrReceiverWithNamedArgs)

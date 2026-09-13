@@ -61,6 +61,7 @@ jobs:
           ./scripts/download-training-examples.sh
           ./scripts/download-pilot-corpora.sh
           ./scripts/download-pilot-xpect.sh
+          ./scripts/download-pssm-suite.sh
 
       # Each oracle's -check re-runs the comparison and diffs the fresh report
       # against its committed baseline, ignoring only the recording date. The
@@ -79,6 +80,13 @@ jobs:
       - name: Rejection oracle reproduces its baseline
         if: ${{ !cancelled() }}
         run: go run ./cmd/pilot-reject -check
+
+      # Bucket counts only: a pass is never evidence of SysML v2 conformance.
+      - name: PSSM referee reproduces its baseline counts
+        if: ${{ !cancelled() }}
+        env:
+          OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+        run: go run ./cmd/pssm-referee -check
 
       # The census baseline lists the constraint names the pinned jar's validator
       # classes declare; only here is the jar present to compare against.

@@ -6,42 +6,24 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
-// warningCodes parses input and returns the codes of the warnings it produced,
+// parseWarnings parses input as the named source and returns its warnings,
 // failing the test if the parse is ill-formed.
-func warningCodes(t *testing.T, input string) []string {
-	return warningCodesIn(t, "modifier_kind.sysml", input)
-}
-
-// warningCodesIn parses input as the named source, so a case can state which
-// language reserves the words it writes.
-func warningCodesIn(t *testing.T, name, input string) []string {
+func parseWarnings(t *testing.T, name, input string) []Diagnostic {
 	t.Helper()
 	p := New(source.New(name, []byte(input)))
 	p.ParseFile()
 	for _, d := range p.Diagnostics {
 		t.Errorf("parse error in %q: %s", input, d.Message)
 	}
-	var codes []string
-	for _, w := range p.Warnings {
-		codes = append(codes, w.Code)
-	}
-	return codes
+	return p.Warnings
 }
 
-func hasCode(codes []string, code string) bool {
-	for _, c := range codes {
-		if c == code {
-			return true
-		}
-	}
-	return false
-}
-
-// `individual part : Vehicle` reads `part` as the kind, leaving the usage unnamed;
-// the parser keeps the kind and reports the ambiguity for every such modifier.
-func TestAmbiguousModifierKindWarns(t *testing.T) {
-	ambiguous := []string{
+// A modifier, a kind keyword and no name is an anonymous usage of that kind
+// (SysML.xtext Usage: UsageDeclaration? UsageCompletion); the pilot accepts it silently.
+func TestAnonymousModifiedUsagesDoNotWarn(t *testing.T) {
+	for _, input := range []string{
 		"individual part : Vehicle;",
+		"individual part : 'Gus Grissom' :> crew;",
 		"individual item : Integer;",
 		"individual occurrence;",
 		"ref item : Integer;",
@@ -49,20 +31,6 @@ func TestAmbiguousModifierKindWarns(t *testing.T) {
 		"snapshot part : Vehicle;",
 		"timeslice item : Integer;",
 		"action def A { in individual part : Vehicle; }",
-	}
-	for _, input := range ambiguous {
-		t.Run(input, func(t *testing.T) {
-			if codes := warningCodes(t, input); !hasCode(codes, codeAmbiguousModifierKind) {
-				t.Errorf("no %s warning, warnings = %v", codeAmbiguousModifierKind, codes)
-			}
-		})
-	}
-}
-
-// A named declaration is unambiguous, and so is a modifier with no kind keyword
-// after it, whether or not it declares a name.
-func TestUnambiguousModifiedUsagesDoNotWarn(t *testing.T) {
-	unambiguous := []string{
 		"individual part ip : Vehicle;",
 		"individual ip : Vehicle;",
 		"individual 'part' : Vehicle;",
@@ -73,11 +41,10 @@ func TestUnambiguousModifiedUsagesDoNotWarn(t *testing.T) {
 		"snapshot part sp : Vehicle;",
 		"part : Vehicle;",
 		"timeslice item ts : Integer;",
-	}
-	for _, input := range unambiguous {
+	} {
 		t.Run(input, func(t *testing.T) {
-			if codes := warningCodes(t, input); hasCode(codes, codeAmbiguousModifierKind) {
-				t.Errorf("unexpected %s warning, warnings = %v", codeAmbiguousModifierKind, codes)
+			if ws := parseWarnings(t, "modifier_kind.sysml", input); len(ws) != 0 {
+				t.Errorf("unexpected warnings %v", ws)
 			}
 		})
 	}
@@ -89,8 +56,8 @@ func TestUnambiguousModifiedUsagesDoNotWarn(t *testing.T) {
 func TestFrameAndRenderNameKerMLFeatures(t *testing.T) {
 	for _, input := range []string{"feature frame : SpatialFrame[1];", "feature render : Rendering;"} {
 		t.Run(input, func(t *testing.T) {
-			if codes := warningCodesIn(t, "modifier_kind.kerml", input); hasCode(codes, codeAmbiguousModifierKind) {
-				t.Errorf("unexpected %s warning, warnings = %v", codeAmbiguousModifierKind, codes)
+			if ws := parseWarnings(t, "modifier_kind.kerml", input); len(ws) != 0 {
+				t.Errorf("unexpected warnings %v", ws)
 			}
 		})
 	}

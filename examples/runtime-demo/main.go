@@ -39,8 +39,8 @@ func demo1_ExpressionEval() {
 		attribute comparison = 10 > 5;
 	`
 
-	model, resolver, root := parseModel(code)
-	ctx := runtime.NewContext(model, resolver, runtime.DefaultMaxSteps)
+	model, root := parseModel(code)
+	ctx := runtime.NewContext(model, runtime.DefaultMaxSteps)
 
 	// Evaluate sum
 	sumSym, _ := root.LookupLocal("sum")
@@ -90,8 +90,8 @@ func demo2_PartInstantiation() {
 		}
 	`
 
-	model, resolver, root := parseModel(code)
-	ctx := runtime.NewContext(model, resolver, runtime.DefaultMaxSteps)
+	model, root := parseModel(code)
+	ctx := runtime.NewContext(model, runtime.DefaultMaxSteps)
 
 	// Instantiate Wheel
 	wheelSym, _ := root.LookupLocal("Wheel")
@@ -145,8 +145,8 @@ func demo3_NestedParts() {
 		}
 	`
 
-	model, resolver, root := parseModel(code)
-	ctx := runtime.NewContext(model, resolver, runtime.DefaultMaxSteps)
+	model, root := parseModel(code)
+	ctx := runtime.NewContext(model, runtime.DefaultMaxSteps)
 
 	// Instantiate Vehicle
 	vehicleSym, _ := root.LookupLocal("Vehicle")
@@ -186,7 +186,7 @@ func demo3_NestedParts() {
 }
 
 // Helper: parse model and build semantic index
-func parseModel(code string) (*semantics.Model, *resolve.Resolver, *symbols.Scope) {
+func parseModel(code string) (*runtime.Model, *symbols.Scope) {
 	src := source.New("demo.sysml", []byte(code))
 	p := parser.New(src)
 	root := p.ParseFile()
@@ -208,7 +208,7 @@ func parseModel(code string) (*semantics.Model, *resolve.Resolver, *symbols.Scop
 	}
 
 	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
+	model := runtime.NewModel(semantics.NewModel(resolver), resolver)
 
-	return model, resolver, rootScope
+	return model, rootScope
 }

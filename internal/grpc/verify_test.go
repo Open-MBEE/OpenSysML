@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"sync"
@@ -487,6 +488,23 @@ func TestEvaluateCalcUsageReportsItsOutputs(t *testing.T) {
 	}
 }
 
+// A calc usage evaluated from its members is one run under the registry like any
+// other evaluation, so a caller already gone fails the call unperformed.
+func TestEvaluateCalcUsageCanceledCallerFailsTheCall(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, `package Demo {
+	calc def Two { in n; out a = n + 1; }
+	calc c : Two { in n = 5; }
+}
+`, "verify-calc-usage-canceled")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	resp, err := srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: hash, SymbolId: "Demo::c"})
+	if !errors.Is(err, context.Canceled) || resp != nil {
+		t.Fatalf("EvaluateCalc for a gone caller: %v, %v; want context.Canceled and no response", err, resp)
+	}
+}
+
 // TestEvaluateCalcUnknownSymbol verifies an unknown name is reported in the
 // response rather than as a transport failure.
 func TestEvaluateCalcUnknownSymbol(t *testing.T) {
@@ -599,8 +617,8 @@ func TestVerdictFalseCarriesNoFailureReason(t *testing.T) {
 }
 
 // TestVerifyConstraintConcurrentRequestsShareTheModel verifies concurrent
-// requests over one model answer alike, including ones that name an unknown
-// symbol, whose resolution errors must not leak into the shared resolver.
+// requests over one model answer alike, each on a worker of its own, including
+// ones that name an unknown symbol, whose resolution errors are that request's.
 func TestVerifyConstraintConcurrentRequestsShareTheModel(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, verifyModelSource, "verify-concurrent")
@@ -634,9 +652,8 @@ func TestVerifyConstraintConcurrentRequestsShareTheModel(t *testing.T) {
 		t.Error(e)
 	}
 	cached, _ := srv.cache.Get(hash)
-	rs, release := cached.RuntimeSemantics()
-	defer release()
-	if n := len(rs.Resolver.Diagnostics); n != 0 {
-		t.Errorf("shared resolver kept %d request diagnostics", n)
+	model, _ := cached.Semantics()
+	if resolver := model.Resolver(); len(resolver.Diagnostics) != 0 || resolver.MemoSize() != 0 {
+		t.Errorf("a worker built after the requests carries %d diagnostics and %d resolutions of theirs", len(resolver.Diagnostics), resolver.MemoSize())
 	}
 }

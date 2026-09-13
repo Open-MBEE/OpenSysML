@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -22,17 +21,7 @@ func runPassesGolden(t *testing.T, name string) {
 		t.Fatalf("read fixture: %v", err)
 	}
 	sf := source.New(name+".sysml", data)
-	p := parser.New(sf)
-	root := p.ParseFile()
-
-	parseDiags := make([]Diagnostic, 0, len(p.Diagnostics))
-	for _, d := range p.Diagnostics {
-		parseDiags = append(parseDiags, Diagnostic{
-			Severity: SeverityError, Span: d.Span, Message: d.Message,
-			Code: "syntax", Source: "syntax",
-		})
-	}
-	idx := newTestIndexFromDoc(name+".sysml", root)
+	root, parseDiags, idx := analyzeInputs(t, name+".sysml", string(data))
 	diags := Analyze(name+".sysml", root, parseDiags, idx)
 
 	var b strings.Builder

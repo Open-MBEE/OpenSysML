@@ -266,6 +266,9 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 	if rt != nil && rt.HoldsNoValue(val) {
 		return &pb.Value{Kind: &pb.Value_Unset{Unset: true}}
 	}
+	if val.EnumerationLiteral() != nil {
+		return enumLiteralValueToProto(val, idx)
+	}
 	switch val.Kind {
 	case runtime.ValConst:
 		// Map semantics.Value to protobuf based on type
@@ -312,11 +315,7 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 		}
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: pq}}
 	case runtime.ValEnumLiteral:
-		lit := enumLiteralToProto(val, idx)
-		if lit == nil {
-			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: unresolved enumeration literal"}}
-		}
-		return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: lit}}
+		return enumLiteralValueToProto(val, idx)
 	case runtime.ValComplex:
 		return &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(val.Complex())}}
 	case runtime.ValArray:
@@ -342,11 +341,29 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: tensor quantity with a non-numeric component"}}
 		}
 		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: ptq}}
+	case runtime.ValMetaobject:
+		meta := metaobjectToProto(val, idx)
+		if meta == nil {
+			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: metaobject of an element with no qualified name"}}
+		}
+		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: meta}}
+	case runtime.ValUndetermined:
+		return &pb.Value{Kind: &pb.Value_Undetermined{Undetermined: undeterminedToProto(val.Undetermined())}}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
 		// No wire arm carries a frame's axes or a transformation's placement.
 		return &pb.Value{Kind: unsupportedShown(val)}
 	default:
 		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported"}}
+	}
+}
+
+// undeterminedToProto carries why a model-level result is open and how many
+// values it would hold, the count's bounds as MultiplicityInfo spells them.
+func undeterminedToProto(u *runtime.Undetermined) *pb.Undetermined {
+	count := u.Count()
+	return &pb.Undetermined{
+		Reason: u.Reason(),
+		Count:  &pb.MultiplicityInfo{Lower: boundText(count.Lower), Upper: boundText(count.Upper)},
 	}
 }
 
@@ -363,18 +380,48 @@ func functionToProto(val runtime.Value, idx *symbols.Index) *pb.Function {
 	return fn
 }
 
+// enumLiteralValueToProto sends a value that is an enumeration literal — its
+// identity alone, or a scalar the literal equals — through the enum_literal arm.
+func enumLiteralValueToProto(val runtime.Value, idx *symbols.Index) *pb.Value {
+	lit := enumLiteralToProto(val, idx)
+	if lit == nil {
+		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: unresolved enumeration literal"}}
+	}
+	return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: lit}}
+}
+
+// metaobjectToProto names a metaobject by the element it reflects, which is its
+// identity, and by that element's own metaclass. Nil when either is unnamed: an
+// anonymous element has no qualified name a receiver could bind.
+func metaobjectToProto(val runtime.Value, idx *symbols.Index) *pb.Metaobject {
+	element, metaclass := val.MetaobjectElement(), val.MetaobjectClass()
+	if element == nil || metaclass == nil || element.Name == "" || metaclass.Name == "" {
+		return nil
+	}
+	elementID, metaclassID := element.Name, metaclass.Name
+	if idx != nil {
+		elementID, metaclassID = idx.GetFQN(element), idx.GetFQN(metaclass)
+	}
+	return &pb.Metaobject{ElementId: elementID, MetaclassId: metaclassID}
+}
+
 // enumLiteralToProto names a literal by the declaration it is, which is its
-// identity, and by the enumeration declaring it. Nil for an unresolved literal.
+// identity, and by the enumeration declaring it, carrying the scalar a valued
+// literal equals. Nil for an unresolved literal.
 func enumLiteralToProto(val runtime.Value, idx *symbols.Index) *pb.EnumLiteral {
-	if val.Literal() == nil {
+	sym := val.EnumerationLiteral()
+	if sym == nil {
 		return nil
 	}
 	lit := &pb.EnumLiteral{
-		LiteralId: idx.GetFQN(val.Literal()),
-		Name:      val.LiteralText(),
+		LiteralId: idx.GetFQN(sym),
+		Name:      runtime.NewEnumLiteral(sym).LiteralText(),
 	}
-	if enum := semantics.EnumerationOwning(val.Literal()); enum != nil {
+	if enum := semantics.EnumerationOwning(sym); enum != nil {
 		lit.EnumerationId = idx.GetFQN(enum)
+	}
+	if val.Kind != runtime.ValEnumLiteral {
+		lit.Value = ValueToProto(val.Scalar(), idx)
 	}
 	return lit
 }
@@ -536,6 +583,10 @@ var (
 	// measurement unit, which nothing is measured in.
 	ErrNotAMeasurementUnit = errors.New("not a measurement unit")
 
+	// ErrScaleNotAFactor reports a reduction composing a measurement scale with
+	// other factors, a scale or a power: a point on a scale is no unit to compose.
+	ErrScaleNotAFactor = errors.New("measurement scale is not a unit factor")
+
 	// ErrUnitScaleUnusable reports a unit reduction whose scale is zero, undefined
 	// or not finite, which no magnitude can be converted through.
 	ErrUnitScaleUnusable = errors.New("unit scale is not a usable ratio")
@@ -554,6 +605,9 @@ var (
 	// ErrUnsetNotAccepted reports the unset arm arriving as an input. It reports
 	// that a feature value holds no value, which is something to read, not to supply.
 	ErrUnsetNotAccepted = errors.New("unset is not a value a caller can supply")
+	// ErrUndeterminedNotAccepted reports the undetermined arm arriving as an input.
+	// It reports that the model fixes no answer, which is something to read, not to supply.
+	ErrUndeterminedNotAccepted = errors.New("undetermined is not a value a caller can supply")
 
 	// ErrInfinityNotAsserted reports the infinity arm arriving as false. The arm
 	// is the unbounded value itself, so false states no value at all.
@@ -598,6 +652,18 @@ var (
 	// ErrFunctionUnbound reports a Function naming no calc of the model read as
 	// a function, or an object the runtime does not hold.
 	ErrFunctionUnbound = errors.New("function names no calc of this model")
+
+	// ErrMetaobjectUnbound reports a Metaobject naming no element of the model,
+	// or one no reflective metaclass of the model's libraries classifies.
+	ErrMetaobjectUnbound = errors.New("metaobject names no element of this model")
+
+	// ErrMetaobjectAmbiguous reports a Metaobject whose element_id names more than
+	// one element of the model, so it identifies none of them.
+	ErrMetaobjectAmbiguous = errors.New("metaobject names more than one element of this model")
+
+	// ErrMetaclassMismatch reports a Metaobject sent with a metaclass_id other
+	// than the one the model classifies its element by.
+	ErrMetaclassMismatch = errors.New("metaclass_id is not the element's metaclass")
 
 	// ErrSetElementRepeated reports a set sent with an element twice, which a
 	// set holds once; a sender meaning both meant a sequence.
@@ -648,6 +714,15 @@ func ValueCarriesMeasurementRef(pv *pb.Value) bool {
 func ValueCarriesFunction(pv *pb.Value) bool {
 	return valueCarries(pv, func(v *pb.Value) bool {
 		_, ok := v.GetKind().(*pb.Value_Function)
+		return ok
+	})
+}
+
+// ValueCarriesMetaobject reports whether a value, or any value nested in it, is
+// a Metaobject: the kind metaobject_values governs.
+func ValueCarriesMetaobject(pv *pb.Value) bool {
+	return valueCarries(pv, func(v *pb.Value) bool {
+		_, ok := v.GetKind().(*pb.Value_Metaobject)
 		return ok
 	})
 }
@@ -729,12 +804,16 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 	switch k := pv.GetKind().(type) {
 	case *pb.Value_Unset:
 		return runtime.Value{}, ErrUnsetNotAccepted
+	case *pb.Value_Undetermined:
+		return runtime.Value{}, ErrUndeterminedNotAccepted
 	case *pb.Value_Quantity:
 		return ProtoToQuantity(k.Quantity, idx, sem)
 	case *pb.Value_EnumLiteral:
-		return enumLiteralFromProto(k.EnumLiteral, idx)
+		return enumLiteralFromProto(rt, k.EnumLiteral, idx, sem)
 	case *pb.Value_Function:
 		return functionFromProto(rt, k.Function, idx)
+	case *pb.Value_Metaobject:
+		return metaobjectFromProto(k.Metaobject, idx, sem)
 	case *pb.Value_Sequence:
 		seq := runtime.NewSequence()
 		if k.Sequence != nil {
@@ -798,10 +877,42 @@ func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index)
 	return runtime.Value{}, fmt.Errorf("%w: %s is not a calc", ErrFunctionUnbound, fn.GetCalcId())
 }
 
+// metaobjectFromProto binds a metaobject to the one element its element_id
+// names, reflected on as the metaclass the model classifies it by. A name two
+// declarations share identifies neither, and a metaclass_id naming another
+// metaclass is refused rather than read as a cast.
+func metaobjectFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+	if meta == nil || meta.GetElementId() == "" {
+		return runtime.Value{}, fmt.Errorf("%w: element_id is empty", ErrMetaobjectUnbound)
+	}
+	if idx == nil || sem == nil {
+		return runtime.Value{}, fmt.Errorf("%w: metaobject %s: no model to resolve it against", ErrMetaobjectUnbound, meta.GetElementId())
+	}
+	var element, metaclass *symbols.Symbol
+	for _, sym := range idx.LookupQualified(meta.GetElementId()) {
+		mc := sem.MetaclassOf(sym)
+		if mc == nil || sym == element {
+			continue
+		}
+		if element != nil {
+			return runtime.Value{}, fmt.Errorf("%w: %s", ErrMetaobjectAmbiguous, meta.GetElementId())
+		}
+		element, metaclass = sym, mc
+	}
+	if element == nil {
+		return runtime.Value{}, fmt.Errorf("%w: %s", ErrMetaobjectUnbound, meta.GetElementId())
+	}
+	if meta.GetMetaclassId() != "" && meta.GetMetaclassId() != idx.GetFQN(metaclass) {
+		return runtime.Value{}, fmt.Errorf("%w: %s is classified by %s, not %s",
+			ErrMetaclassMismatch, meta.GetElementId(), idx.GetFQN(metaclass), meta.GetMetaclassId())
+	}
+	return runtime.NewMetaobject(element, metaclass), nil
+}
+
 // protoToSet rebuilds a set from elements sent in any order, refusing one sent
 // twice rather than reading the two as one.
 func protoToSet(rt *runtime.Context, ps *pb.ValueSet, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
-	set := runtime.NewSet()
+	set := runtime.NewSetIn(rt)
 	for i, elem := range ps.GetElements() {
 		val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
 		if err != nil {
@@ -1083,7 +1194,7 @@ func unitProductOfText(text string, term semantics.UnitTerm, idx *symbols.Index,
 		if len(matches) != 1 {
 			return nil, false
 		}
-		return sem.MeasurementUnitOf(matches[0])
+		return measurementRefOf(matches[0], sem)
 	}
 	var short []*ast.QualifiedName
 	product, err := sem.UnitProductOfExprBy(expr, func(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
@@ -1185,6 +1296,10 @@ func partialUnitProduct(
 			unread = append(unread, i)
 			continue
 		}
+		// A scale composed with anything is text no reduction is; nothing of it is read.
+		if sem.IsMeasurementScale(f.Unit) {
+			return opaque
+		}
 		factor, err := sem.UnitTermOf(f.Unit)
 		if err != nil {
 			return opaque
@@ -1250,17 +1365,38 @@ func shortUnitReadings(names []*ast.QualifiedName, idx *symbols.Index, sem *sema
 	return readings
 }
 
-// unitsNamed lists, once each in qualified-name order, the units under a short name.
+// unitsNamed lists, once each in qualified-name order, the units and measurement
+// scales under a short name.
 func unitsNamed(name string, idx *symbols.Index, sem *semantics.Model) []*symbols.Symbol {
 	var units []*symbols.Symbol
 	for _, fqn := range idx.FQNsEndingIn(name, math.MaxInt) {
 		for _, sym := range idx.LookupQualified(fqn) {
-			if unit, ok := sem.MeasurementUnitOf(sym); ok && !slices.Contains(units, unit) {
+			if unit, ok := measurementRefOf(sym, sem); ok && !slices.Contains(units, unit) {
 				units = append(units, unit)
 			}
 		}
 	}
 	return units
+}
+
+// measurementRefOf is the measurement unit or scale sym names; false for anything else.
+func measurementRefOf(sym *symbols.Symbol, sem *semantics.Model) (*symbols.Symbol, bool) {
+	if unit, ok := sem.MeasurementUnitOf(sym); ok {
+		return unit, true
+	}
+	if sem.IsMeasurementScale(sym) {
+		return sym, true
+	}
+	return nil, false
+}
+
+// termOfMeasurementRef reduces a unit to base units, and a measurement scale to
+// itself: a point on it is commensurable with nothing but another point on it.
+func termOfMeasurementRef(sym *symbols.Symbol, sem *semantics.Model) (semantics.UnitTerm, error) {
+	if sem.IsMeasurementScale(sym) {
+		return semantics.UnitTerm{Scale: semantics.UnitScale(1), Factors: []semantics.UnitFactor{{Unit: sym, Exponent: 1}}}, nil
+	}
+	return sem.UnitTermOf(sym)
 }
 
 // impliedTerm reduces a product of resolved units; false if one is unresolved or unreducible.
@@ -1270,7 +1406,7 @@ func impliedTerm(product semantics.UnitProduct, sem *semantics.Model) (semantics
 		if f.Unit == nil {
 			return semantics.UnitTerm{}, false
 		}
-		factor, err := sem.UnitTermOf(f.Unit)
+		factor, err := termOfMeasurementRef(f.Unit, sem)
 		if err != nil {
 			return semantics.UnitTerm{}, false
 		}
@@ -1347,6 +1483,7 @@ func protoToUnitTerm(pt *pb.UnitTerm, idx *symbols.Index, sem *semantics.Model) 
 		return semantics.UnitTerm{}, fmt.Errorf("%w: %g/%g", ErrUnitScaleUnusable, scale.Num, scale.Den)
 	}
 	term := semantics.UnitTerm{Scale: scale}
+	var pointOn *symbols.Symbol
 	for _, f := range pt.GetFactors() {
 		// An empty name is a lookup of the document root, so it is rejected here
 		// rather than resolved to a symbol that measures nothing.
@@ -1359,7 +1496,11 @@ func protoToUnitTerm(pt *pb.UnitTerm, idx *symbols.Index, sem *semantics.Model) 
 		}
 		unit, ok := sem.MeasurementUnitOf(matches[0])
 		if !ok {
-			return semantics.UnitTerm{}, fmt.Errorf("%w: %s", ErrNotAMeasurementUnit, f.GetUnitId())
+			// A point on a measurement scale reduces to the scale alone.
+			if !sem.IsMeasurementScale(matches[0]) {
+				return semantics.UnitTerm{}, fmt.Errorf("%w: %s", ErrNotAMeasurementUnit, f.GetUnitId())
+			}
+			unit, pointOn = matches[0], matches[0]
 		}
 		term.Factors = append(term.Factors, semantics.UnitFactor{
 			Unit:     unit,
@@ -1374,6 +1515,11 @@ func protoToUnitTerm(pt *pb.UnitTerm, idx *symbols.Index, sem *semantics.Model) 
 			return semantics.UnitTerm{}, fmt.Errorf("%w: %s**%g", ErrUnitExponentUnusable, symbols.FQNOf(f.Unit), f.Exponent)
 		}
 	}
+	if pointOn != nil {
+		if _, ok := sem.MeasurementScaleOf(term); !ok {
+			return semantics.UnitTerm{}, fmt.Errorf("%w: %s in %s", ErrScaleNotAFactor, symbols.FQNOf(pointOn), term)
+		}
+	}
 	return term, nil
 }
 
@@ -1382,7 +1528,9 @@ func finite(x float64) bool { return !math.IsNaN(x) && !math.IsInf(x, 0) }
 
 // enumLiteralFromProto resolves a literal against the model, since a literal is
 // the declaration it names: one the model does not declare has no identity here.
-func enumLiteralFromProto(lit *pb.EnumLiteral, idx *symbols.Index) (runtime.Value, error) {
+// The model says what a valued literal equals; the wire's value is consulted
+// only when no runtime is at hand to evaluate the declaration.
+func enumLiteralFromProto(rt *runtime.Context, lit *pb.EnumLiteral, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
 	if lit == nil || lit.GetLiteralId() == "" {
 		return runtime.Value{}, fmt.Errorf("enumeration literal: literal_id names no declaration")
 	}
@@ -1390,9 +1538,21 @@ func enumLiteralFromProto(lit *pb.EnumLiteral, idx *symbols.Index) (runtime.Valu
 		return runtime.Value{}, fmt.Errorf("enumeration literal %s: no model to resolve it against", lit.GetLiteralId())
 	}
 	for _, sym := range idx.LookupQualified(lit.GetLiteralId()) {
-		if semantics.EnumerationOwning(sym) != nil {
+		if semantics.EnumerationOwning(sym) == nil {
+			continue
+		}
+		if rt != nil {
+			val, _, err := rt.EnumerationLiteralValue(sym)
+			return val, err
+		}
+		if lit.GetValue() == nil {
 			return runtime.NewEnumLiteral(sym), nil
 		}
+		scalar, err := ProtoToValueIn(lit.GetValue(), idx, sem)
+		if err != nil {
+			return runtime.Value{}, fmt.Errorf("enumeration literal %s: %w", lit.GetLiteralId(), err)
+		}
+		return runtime.EnumeratedValue(sym, scalar), nil
 	}
 	return runtime.Value{}, fmt.Errorf("%s is not an enumeration literal of this model", lit.GetLiteralId())
 }

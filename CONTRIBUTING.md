@@ -199,6 +199,12 @@ The repository follows git-flow with two long-lived branches:
 - [ ] Changelog fragments folded in (`python3 scripts/changelog.py release X.Y.Z`)
 - [ ] Version tag follows semver (`vX.Y.Z`)
 - [ ] Version bump (patch or minor) justified against [§ Versioning](#versioning)
+- [ ] The first release carrying the analysis engines' `-json` additions — the `plan` and
+      `results[]` keys of each check and the standing line ending its `lines` — decides whether
+      they are patch (new keys beside the existing ones, no existing key changed: the rule's
+      "new wire fields are patch material") or minor (the rule's "the shape of a `-json` report"
+      changing so that a consumer validating the report against a closed schema fails), and
+      records the decision here
 - [ ] Release notes prepared
 
 ### Versioning

@@ -28,7 +28,7 @@ func (f *deprecatedFlag) Set(string) error { return errors.New(f.instead) }
 // otherwise; the model itself is a positional argument, as it is for every other
 // mode of the command, and a lone "-" names standard input.
 //
-// A SysML v1 model (-from xmi, or a .xmi/.mdzip file) is migrated to v2 on the
+// A SysML v1 model (-from xmi, or a .xmi/.uml/.mdzip file) is migrated to v2 on the
 // way in; see writeMigrationReport for where its report goes.
 func runConvert(files []string) error {
 	to, err := parseTargetFormat(convertFormat)
@@ -58,7 +58,7 @@ func runConvert(files []string) error {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
 	if migrationReport != "" && from != export.FormatXMI {
-		return fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.mdzip file", from)
+		return fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
 	}
 	if migrationReport != "" && outputPath != "" && samePath(migrationReport, outputPath) {
 		return fmt.Errorf("-migration-report and -o both name %s; the report would be replaced by the model", outputPath)

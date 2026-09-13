@@ -183,6 +183,11 @@ library package DocumentQueries {
 		attribute kind : String[0..1];
 		/* direction: "TB", "LR", "RL" or "BT", for kinds drawn as graphs. */
 		attribute direction : String[0..1];
+		/* palette: "okabe-ito", "tol-bright", "tol-muted", "tol-light",
+		 * "brewer-set2", "brewer-dark2", "viridis" or "cividis"; fills the
+		 * nodes of a DOT or PlantUML diagram by keyword family, black and white
+		 * when absent. */
+		attribute palette : String[0..1];
 		ref source : Element[0..1];
 	}
 }

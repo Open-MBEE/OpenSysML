@@ -1,13 +1,16 @@
 package test {
 	// A guard that does not evaluate to a Boolean is reported rather than treated
-	// as either verdict: `bool guard[*]` admits no other value.
+	// as either verdict: `bool guard[*]` admits no other value. The guard names an
+	// untyped feature, so only the executor can see the value it holds.
 	action seq {
-		attribute x : Integer = 1;
-		attribute y : Integer = 0;
+		attribute x;
+		attribute y = 0;
 
-		action s1 assign x := 7;
-		action s2 assign y := 9;
+		action s0 assign x := 7;
+		action s1 assign y := 9;
+		action s2 assign y := 1;
 
-		first s1 if x + 1 then s2;
+		first s0 then s1;
+		succession first s1 if x then s2;
 	}
 }

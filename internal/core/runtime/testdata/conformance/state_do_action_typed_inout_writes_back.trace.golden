@@ -1,0 +1,18 @@
+do: watching
+stmt action body
+  stmt node poll
+    eval feature ticks -> 5
+step 1: token 1@wait
+      eval literal 3 -> 3
+    eval index -> 3 [s]
+do: watching
+step 2: token 1@count
+    stmt assign n
+        eval feature n -> 5
+        eval literal 1 -> 1
+      eval operator + -> 6
+step 3: token 1@done
+step 4: no active tokens
+exit: watching
+enter: finished
+transition: watching -> finished

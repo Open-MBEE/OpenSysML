@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
 )
 
 // linkedModel declares two documents referencing each other's content, so the
@@ -90,6 +92,56 @@ func TestRenderDocumentsFlag(t *testing.T) {
 			t.Errorf("%s differs between runs", name)
 		}
 	}
+}
+
+// TestRenderDocumentsDiagramForm checks -diagram-form applies to every
+// document of a set, in Markdown and in HTML.
+func TestRenderDocumentsDiagramForm(t *testing.T) {
+	binary := buildCLI(t)
+	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.dot.golden.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", dir, "-diagram-form", "dot")); got.status != 0 {
+		t.Fatalf("exit = %d\n%s", got.status, got.output())
+	}
+	report, err := os.ReadFile(filepath.Join(dir, "Observatory-MassReport.md"))
+	if err != nil {
+		t.Fatalf("read report: %v", err)
+	}
+	if string(report) != string(golden) {
+		t.Errorf("set member differs from the DOT golden:\n%s", report)
+	}
+
+	site := filepath.Join(t.TempDir(), "site")
+	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", site, "-doc-form", "html", "-diagram-form", "dot")); got.status != 0 {
+		t.Fatalf("exit = %d\n%s", got.status, got.output())
+	}
+	page, err := os.ReadFile(filepath.Join(site, "Observatory-MassReport.html"))
+	if err != nil {
+		t.Fatalf("read page: %v", err)
+	}
+	if !strings.Contains(string(page), `<pre class="dot">`) || strings.Contains(string(page), `class="mermaid"`) {
+		t.Errorf("page does not write its diagrams as DOT:\n%s", page)
+	}
+
+	puml := filepath.Join(t.TempDir(), "puml")
+	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", puml, "-doc-form", "html", "-diagram-form", "plantuml")); got.status != 0 {
+		t.Fatalf("exit = %d\n%s", got.status, got.output())
+	}
+	page, err = os.ReadFile(filepath.Join(puml, "Observatory-MassReport.html"))
+	if err != nil {
+		t.Fatalf("read page: %v", err)
+	}
+	if !strings.Contains(string(page), `<pre class="plantuml">@startuml`) || strings.Contains(string(page), `class="mermaid"`) {
+		t.Errorf("page does not write its diagrams as PlantUML:\n%s", page)
+	}
+
+	wantReport(t, runCommand(t, exec.Command(binary, fixture, "-render-documents", filepath.Join(t.TempDir(), "x"), "-diagram-form", "svg")),
+		2, `unknown diagram form "svg"`)
 }
 
 // TestRenderDocumentsAcrossFiles checks documents declared in different model
@@ -281,16 +333,16 @@ func TestRenderDocumentsRejectsDanglingAliasedTargets(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatal(err)
 	}
-	real := filepath.Join(t.TempDir(), "real")
-	if err := os.MkdirAll(real, 0o750); err != nil {
+	realDir := filepath.Join(t.TempDir(), "real")
+	if err := os.MkdirAll(realDir, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	alias := filepath.Join(t.TempDir(), "alias")
-	if err := os.Symlink(real, alias); err != nil {
+	if err := os.Symlink(realDir, alias); err != nil {
 		t.Fatal(err)
 	}
 	pairs := map[string]string{
-		"Reports-MainReport.md": filepath.Join(real, "shared.md"),
+		"Reports-MainReport.md": filepath.Join(realDir, "shared.md"),
 		"Reports-Appendix.md":   filepath.Join(alias, "shared.md"),
 	}
 	for name, target := range pairs {
@@ -303,7 +355,7 @@ func TestRenderDocumentsRejectsDanglingAliasedTargets(t *testing.T) {
 	if got.status != 2 || !strings.Contains(got.stderr, "both resolve to") {
 		t.Fatalf("exit = %d stderr = %q", got.status, got.stderr)
 	}
-	if _, err := os.Stat(filepath.Join(real, "shared.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(realDir, "shared.md")); !os.IsNotExist(err) {
 		t.Errorf("a rejected set wrote the shared file: %v", err)
 	}
 }
@@ -386,7 +438,7 @@ func TestReplaceFileReplacesExistingTarget(t *testing.T) {
 	if err := os.WriteFile(target, []byte("committed\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := replaceFile(source, target); err != nil {
+	if err := fsutil.Replace(source, target); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(target)

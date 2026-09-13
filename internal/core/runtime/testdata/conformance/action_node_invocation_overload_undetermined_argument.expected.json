@@ -1,0 +1,11 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::outer",
+	"outputs": {
+		"chosen": {"type": "Integer", "value": 2},
+		"call.x": {"type": "Real", "value": 1.5},
+		"call.y": {"type": "Integer", "value": 2},
+		"call.code": {"type": "Integer", "value": 2}
+	}
+}

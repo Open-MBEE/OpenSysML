@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -193,6 +195,28 @@ func TestAnUnknownScheduleIsInvalidArgument(t *testing.T) {
 					t.Errorf("%s schedule %q: message %q does not name the spelling", name, spelling, err.Error())
 				}
 			}
+		}
+	}
+}
+
+// A replay names a file of the caller's, which no request carries: the spelling
+// is INVALID_ARGUMENT without the service reading any file of its own.
+func TestAReplayScheduleIsInvalidArgument(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, scheduleModel, "schedule-replay")
+	witness := filepath.Join(t.TempDir(), "witness.trace")
+	if err := os.WriteFile(witness, []byte("step 3: tokens 2@left, 3@right (unordered; took 2@left first)\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, spelling := range []string{"replay", "replay:", "replay:" + witness, "replay:/etc/hostname"} {
+		_, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: "Sched::tally", Schedule: spelling})
+		if connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Errorf("schedule %q: status %s, want INVALID_ARGUMENT: %v", spelling, connect.CodeOf(err), err)
+			continue
+		}
+		if !strings.Contains(err.Error(), spelling) || !strings.Contains(err.Error(), "does not carry") {
+			t.Errorf("schedule %q: message %q does not say a request carries no file", spelling, err.Error())
 		}
 	}
 }

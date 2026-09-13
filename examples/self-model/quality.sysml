@@ -71,7 +71,7 @@ package OpenSysMLInvariants {
         doc /* Every bundled standard library file parses clean. */
         subject stdlib : StandardLibrary;
         require constraint {
-            stdlib.bundledFileCount == 98
+            stdlib.bundledFileCount == 100
         }
     }
 
@@ -100,6 +100,59 @@ package OpenSysMLInvariants {
         subject exporter : Exporter;
         require constraint {
             exporter.roundTrips
+        }
+    }
+
+    #Invariant requirement def OneAnalysisContract {
+        doc /* Every question a surface asks goes through one contract: a registry the
+             * owner holds, engines that declare what they answer and refuse before any
+             * work, and dispatch that records every engine consulted in the plan. */
+        subject framework : AnalysisFramework;
+        require constraint {
+            framework.registry.perOwner and framework.registry.refusesDuplicateNames
+                and framework.registry.engineCount == 6
+                and framework.dispatch.strongestFirst and framework.dispatch.advancesOnNotCovered
+                and framework.dispatch.stopsOnFault and framework.dispatch.recordsEveryStep
+                and framework.dispatch.defaultSelection == "auto"
+        }
+    }
+
+    #Invariant requirement def HonestEvidence {
+        doc /* An answer's strength never exceeds its engine's authority, an existential
+             * claim is only ever witnessed, and a witness stands over the universal
+             * claim it refutes. */
+        subject framework : AnalysisFramework;
+        require constraint {
+            framework.evidence.strengthCount == 5 and framework.evidence.claimCount == 10
+                and framework.evidence.existentialsAreWitnessed and framework.evidence.overclaimIsFault
+                and framework.dispatch.witnessRefutesUniversal
+                and framework.run.authority == "observed" and framework.sweep.authority == "observed"
+                and framework.explore.authority == "proved" and framework.solve.authority == "proved"
+        }
+    }
+
+    #Invariant requirement def IsolatedParallelRuns {
+        doc /* Runs go concurrently on workers that share the frozen index and nothing
+             * mutable: each worker has model-derived state of its own, each run a fresh
+             * context, and the result of a check is the same at any job count. */
+        subject framework : AnalysisFramework;
+        require constraint {
+            framework.resultIndependentOfJobs
+                and framework.workers.onePerJob and framework.workers.ownsRuntimeModel
+                and framework.workers.sharesFrozenIndex and framework.workers.freshContextPerRun
+                and framework.budget.fieldCount == 8 and framework.budget.defaultJobsIsCpuCount
+                and framework.budget.rejectsNonPositiveJobs
+        }
+    }
+
+    #Invariant requirement def SnapshotsAreRunState {
+        doc /* A snapshot captures what a run has made between two steps and no part of
+             * the model it runs over; one asked for mid-step is refused, not approximated. */
+        subject runtime : Runtime;
+        require constraint {
+            runtime.splitsModelFromRun
+                and runtime.marks.capturesRunState and runtime.marks.excludesModelState
+                and runtime.exploration.independentOfJobs and runtime.exploration.freshContextPerRun
         }
     }
 
@@ -143,6 +196,22 @@ package OpenSysMLInvariants {
 
     requirement exportRoundTrips : RoundTrippableExport {
         subject exporter = opensysml.exporter;
+    }
+
+    requirement questionsHaveOneContract : OneAnalysisContract {
+        subject framework = opensysml.pipeline.engines;
+    }
+
+    requirement evidenceIsHonest : HonestEvidence {
+        subject framework = opensysml.pipeline.engines;
+    }
+
+    requirement runsAreIsolated : IsolatedParallelRuns {
+        subject framework = opensysml.pipeline.engines;
+    }
+
+    requirement snapshotsAreRunState : SnapshotsAreRunState {
+        subject runtime = opensysml.pipeline.runtime;
     }
 
     concern def KeystrokeLatency {
@@ -221,6 +290,26 @@ package OpenSysMLGates {
         return attribute verdict : VerdictKind;
     }
 
+    verification def AnalysisGate {
+        doc /* go test -race ./internal/core/analysis */
+        subject framework : AnalysisFramework;
+        objective {
+            verify questionsHaveOneContract;
+            verify evidenceIsHonest;
+            verify runsAreIsolated;
+        }
+        return attribute verdict : VerdictKind;
+    }
+
+    verification def RunStateGate {
+        doc /* go test -run 'TestSnapshot|TestExploreWith' ./internal/core/runtime */
+        subject runtime : Runtime;
+        objective {
+            verify snapshotsAreRunState;
+        }
+        return attribute verdict : VerdictKind;
+    }
+
     verification parserGate : ParserGate {
         subject parser = opensysml.pipeline.parser;
     }
@@ -243,6 +332,14 @@ package OpenSysMLGates {
 
     verification exportGate : ExportGate {
         subject exporter = opensysml.exporter;
+    }
+
+    verification analysisGate : AnalysisGate {
+        subject framework = opensysml.pipeline.engines;
+    }
+
+    verification runStateGate : RunStateGate {
+        subject runtime = opensysml.pipeline.runtime;
     }
 
     // The contributor's loop, and who takes part in it.
@@ -305,6 +402,7 @@ package OpenSysMLCodebase {
     allocate opensysml.pipeline.passes to tree.core;
     allocate opensysml.pipeline.lowering to tree.core;
     allocate opensysml.pipeline.runtime to tree.core;
+    allocate opensysml.pipeline.engines to tree.core;
     allocate opensysml.pipeline.runtime.evaluator.compiled to tree.core;
     allocate opensysml.pipeline.stdlib to tree.core;
     allocate opensysml.pipeline.stdlib.encoding to tree.core;

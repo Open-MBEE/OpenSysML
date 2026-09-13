@@ -52,7 +52,7 @@ func (ctx *Context) featureDenoting(inst *Instance, sym *symbols.Symbol) (string
 
 // denotedFeature names the feature of typ that sym denotes on an object of typ.
 func (ctx *Context) denotedFeature(typ, sym *symbols.Symbol) (string, bool) {
-	index, ok := ctx.denotedFeatures[typ]
+	index, ok := ctx.model.denotedFeatures[typ]
 	if !ok {
 		index = make(map[*symbols.Symbol]string)
 		for _, feat := range ctx.FeaturesOf(typ) {
@@ -68,7 +68,7 @@ func (ctx *Context) denotedFeature(typ, sym *symbols.Symbol) (string, bool) {
 				}
 			}
 		}
-		ctx.denotedFeatures[typ] = index
+		ctx.model.denotedFeatures[typ] = index
 	}
 	name, ok := index[sym]
 	return name, ok

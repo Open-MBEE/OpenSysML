@@ -49,13 +49,6 @@ func TestBundledPayloadParsesCleanly(t *testing.T) {
 	t.Logf("Validated %d files, skipped %d (parser feature coverage pending)", parsed, skipped)
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func TestBundledScalarValuesHasMembers(t *testing.T) {
 	src := &embedSource{}
 	data, err := src.Read("Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml")

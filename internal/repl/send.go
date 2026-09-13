@@ -208,11 +208,22 @@ func (d machineDecision) text() string {
 	if d.decision.Deferred {
 		return fmt.Sprintf("Deferred by %s, to be dispatched once it leaves", where)
 	}
-	return fmt.Sprintf("Accepted by %s: %s fires on it", where, strings.Join(d.decision.Fires, " and "))
+	resumes := ""
+	if len(d.decision.Resumes) > 0 {
+		resumes = fmt.Sprintf("the %s goes on from its accept", strings.Join(d.decision.Resumes, " and the "))
+	}
+	if len(d.decision.Fires) == 0 {
+		return fmt.Sprintf("Accepted by %s: %s", where, resumes)
+	}
+	if resumes != "" {
+		resumes = ", and " + resumes
+	}
+	return fmt.Sprintf("Accepted by %s: %s fires on it%s", where, strings.Join(d.decision.Fires, " and "), resumes)
 }
 
 // decideMachines decides the message with each machine as its dispatch would,
-// keeping the machines that would fire a transition on it or defer it.
+// keeping the machines that would fire a transition on it, defer it, or let a do
+// behavior go on with it.
 func decideMachines(machines []*runtime.StateExecutor, msg runtime.Message) ([]machineDecision, error) {
 	var out []machineDecision
 	for _, m := range machines {
@@ -344,20 +355,32 @@ func acceptingMachines(machines []*runtime.StateExecutor, msg runtime.Message) (
 	return out, nil
 }
 
-// droppedSignalNote says what became of a signal the last step dispatched and no
-// transition fired on; "" when one did, or when the step dispatched no signal.
-func droppedSignalNote(exec *runtime.StateExecutor) string {
+// dispatchedEventNote says what the last step's dispatch did beyond firing a
+// transition: the do behaviors it let go on, or what became of a signal no
+// transition fired on; "" when the step dispatched nothing else worth noting.
+func dispatchedEventNote(exec *runtime.StateExecutor) string {
 	d, ok := exec.LastDispatch()
 	if !ok {
 		return ""
 	}
-	return droppedDispatchNote(d)
+	if len(d.Resumed) > 0 {
+		resumed := "letting the " + strings.Join(d.Resumed, " and the ") + " go on from its accept"
+		if d.Fired {
+			return " and " + resumed
+		}
+		return ", " + resumed
+	}
+	if note := droppedDispatchNote(d); note != "" {
+		return ", but " + note
+	}
+	return ""
 }
 
-// droppedDispatchNote is droppedSignalNote for one dispatch.
+// droppedDispatchNote says what became of a signal a dispatch fired no transition
+// on and let no do behavior go on with; "" for any other dispatch.
 func droppedDispatchNote(d runtime.Dispatch) string {
 	msg, isSignal := d.Event.Payload.(runtime.Message)
-	if !isSignal || d.Fired {
+	if !isSignal || d.Fired || len(d.Resumed) > 0 {
 		return ""
 	}
 	if d.Deferred {

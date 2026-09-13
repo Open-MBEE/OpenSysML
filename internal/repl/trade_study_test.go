@@ -59,6 +59,7 @@ func TestAnalysisOfATradeStudyReportsEachAlternative(t *testing.T) {
 		"  objective tradeStudyObjective: satisfied",
 		"  evaluationFunction(Trade::strong (object #1)) = 0.0 [selected]",
 		"  evaluationFunction(Trade::light (object #2)) = -5.0",
+		"  standing: value (observed: 1 run under reverse)",
 	}, "\n")
 	if got != want {
 		t.Errorf("report is\n%s\nwant\n%s", got, want)
@@ -115,6 +116,7 @@ func TestSweepOfATradeStudyReportsEachRunsEvaluations(t *testing.T) {
 		"0.0         | Trade::light (object #2)  | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = -30.0; evaluationFunction(Trade::light (object #2)) = -10.0 [selected] | <time>",
 		"0.1         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 0.0 [selected]; evaluationFunction(Trade::light (object #2)) = -5.0    | <time>",
 		"0.2         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 30.0 [selected]; evaluationFunction(Trade::light (object #2)) = 0.0    | <time>",
+		"  standing: table (observed: 3 rows)",
 	}, "\n")
 	if got != want {
 		t.Errorf("table is\n%s\nwant\n%s", got, want)

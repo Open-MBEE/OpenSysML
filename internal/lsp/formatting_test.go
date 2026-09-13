@@ -652,8 +652,8 @@ func TestRangeFormattingUnknownDocument(t *testing.T) {
 // A formatter that declines with ErrNotIdempotent leaves the document alone,
 // for both requests, while any other failure is reported.
 func TestFormattingHonoursNotIdempotentGuard(t *testing.T) {
-	real := formatSource
-	t.Cleanup(func() { formatSource = real })
+	saved := formatSource
+	t.Cleanup(func() { formatSource = saved })
 
 	formatSource = func(name string, src []byte, opts format.Options) ([]byte, error) {
 		return src, format.ErrNotIdempotent

@@ -1,0 +1,6 @@
+{
+	"libraries": true,
+	"type": "constraint",
+	"evaluate": "test::refused",
+	"error": "feature value test::TwoOf::xs: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2"
+}

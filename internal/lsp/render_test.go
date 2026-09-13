@@ -147,10 +147,10 @@ func call(t *testing.T, s *Server, method string, params any) (json.RawMessage, 
 		raw = encoded
 		return nil
 	}
-	handler := s.renderHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+	handler := s.renderHandler(s.modelEditHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
 		t.Fatalf("%s was not handled: it fell through to the next handler", req.Method())
 		return nil
-	})
+	}))
 	if err := handler(context.Background(), reply, req); err != nil {
 		t.Fatalf("dispatch %s: %v", method, err)
 	}
@@ -263,6 +263,85 @@ func TestRenderOriginsLocateTheDeclaration(t *testing.T) {
 		return
 	}
 	t.Fatalf("the #tree rendering has no node for cog: %+v", out.Nodes)
+}
+
+// A node carries its declared type as a field of its own, so a client never
+// parses the detail — which holds only the notes — to recover it.
+func TestRenderNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
+	src := "package Kit {\n\tpart def Widget {\n\t\tpart cog : Cog;\n\t\tpart gear;\n\t}\n\tpart def Cog;\n}\n"
+	s, docURI := renderServer(t, "kit.sysml", src)
+	out := render(t, s, docURI, "#tree")
+	want := map[string]renderNode{
+		"Kit::Widget": {Kind: "part def"},
+		"cog":         {Kind: "part", Type: "Cog"},
+		"gear":        {Kind: "part"},
+	}
+	for _, node := range out.Nodes {
+		expected, ok := want[node.Name]
+		if !ok {
+			continue
+		}
+		delete(want, node.Name)
+		if node.Kind != expected.Kind || node.Type != expected.Type || node.Detail != "" {
+			t.Errorf("node %s = kind %q type %q detail %q, want kind %q type %q and no detail",
+				node.Name, node.Kind, node.Type, node.Detail, expected.Kind, expected.Type)
+		}
+	}
+	for name := range want {
+		t.Errorf("the #tree rendering has no node named %s: %+v", name, out.Nodes)
+	}
+	wire, err := json.Marshal(out.Nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{`"type":"Cog"`, `"type":""`, `"detail":""`} {
+		if !strings.Contains(string(wire), field) {
+			t.Errorf("the wire form lacks %s:\n%s", field, wire)
+		}
+	}
+}
+
+// A behavior rendering serves the type of a typed action or state usage the same
+// way, apart from the notes the detail holds.
+func TestRenderBehaviorNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
+	src := "package Ops {\n" +
+		"\taction def Warm;\n" +
+		"\taction run {\n\t\tfirst start;\n\t\taction warm : Warm;\n\t\tsuccession first start then warm;\n\t}\n" +
+		"\tstate def Heating;\n" +
+		"\tstate def Boiler {\n\t\tentry; then idle;\n\t\tstate idle;\n\t\tstate heating : Heating;\n" +
+		"\t\ttransition first idle then heating;\n\t}\n" +
+		"}\n"
+	s, docURI := renderServer(t, "ops.sysml", src)
+	want := map[string]renderNode{
+		"warm":    {Kind: "action", Type: "Warm"},
+		"start":   {Kind: "initial"},
+		"heating": {Kind: "state", Type: "Heating"},
+		"idle":    {Kind: "state", Detail: "initial"},
+	}
+	for view, field := range map[string]string{"#action:Ops::run": `"type":"Warm"`, "#state:Ops::Boiler": `"type":"Heating"`} {
+		out := render(t, s, docURI, view)
+		for _, node := range out.Nodes {
+			expected, ok := want[node.Name]
+			if !ok {
+				continue
+			}
+			delete(want, node.Name)
+			if node.Kind != expected.Kind || node.Type != expected.Type || node.Detail != expected.Detail {
+				t.Errorf("%s: node %s = kind %q type %q detail %q, want kind %q type %q detail %q", view,
+					node.Name, node.Kind, node.Type, node.Detail, expected.Kind, expected.Type, expected.Detail)
+			}
+		}
+		wire, err := json.Marshal(out.Nodes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(wire), field) || !strings.Contains(string(wire), `"type":""`) {
+			t.Errorf("%s: the wire form lacks %s beside an empty type:\n%s", view, field, wire)
+		}
+	}
+	for name := range want {
+		t.Errorf("no behavior rendering has a node named %s", name)
+	}
 }
 
 // A pseudo-view renders a document that declares no view, and says so.
@@ -387,8 +466,257 @@ func TestRenderHonorsTheFormAsked(t *testing.T) {
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         "png",
-	}); err == nil || !strings.Contains(err.Error(), "no rendering form") {
-		t.Errorf("err = %v, want it to refuse the form", err)
+	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) {
+		t.Errorf("err = %v, want it to refuse the form and offer dot and plantuml", err)
+	}
+}
+
+// The DOT form is honored for a graph-shaped view, is the same rendering as a
+// digraph, and is refused for a kind that has none with the forms it has.
+func TestRenderWritesDotWhenAskedFor(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	for _, name := range []string{"KitViews::widgetTree", "KitViews::widgetParts", "KitViews::widgetStates", "KitViews::widgetActions"} {
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         name,
+			Form:         string(view.FormDot),
+		})
+		if err != nil {
+			t.Fatalf("%s as dot: %v", name, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		if out.Form != string(view.FormDot) {
+			t.Errorf("%s: form = %q, want %q", name, out.Form, view.FormDot)
+		}
+		for _, want := range []string{"// view: " + name, "// layout: dot", "digraph \"" + name + "\" {"} {
+			if !strings.Contains(out.Artifact, want) {
+				t.Errorf("%s: artifact is missing %q:\n%s", name, want, out.Artifact)
+			}
+		}
+		if len(out.Nodes) == 0 {
+			t.Errorf("%s: the DOT result carries no nodes", name)
+		}
+	}
+	for _, name := range []string{"KitViews::widgetTable", "KitViews::widgetSequence"} {
+		_, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         name,
+			Form:         string(view.FormDot),
+		})
+		if err == nil || !strings.Contains(err.Error(), "not written as dot") {
+			t.Errorf("%s as dot: err = %v, want the form refused", name, err)
+		}
+	}
+}
+
+// The PlantUML form is honored for every graph-shaped view, the sequence
+// included, and is refused for a table with the forms it has.
+func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	for _, name := range []string{"KitViews::widgetTree", "KitViews::widgetParts", "KitViews::widgetStates", "KitViews::widgetActions", "KitViews::widgetSequence"} {
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         name,
+			Form:         string(view.FormPlantUML),
+		})
+		if err != nil {
+			t.Fatalf("%s as plantuml: %v", name, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		if out.Form != string(view.FormPlantUML) {
+			t.Errorf("%s: form = %q, want %q", name, out.Form, view.FormPlantUML)
+		}
+		for _, want := range []string{"@startuml\n' " + name + " — ", "<style>\n", "</style>\n", "\n@enduml\n"} {
+			if !strings.Contains(out.Artifact, want) {
+				t.Errorf("%s: artifact is missing %q:\n%s", name, want, out.Artifact)
+			}
+		}
+		if len(out.Nodes) == 0 {
+			t.Errorf("%s: the PlantUML result carries no nodes", name)
+		}
+	}
+	_, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTable",
+		Form:         string(view.FormPlantUML),
+	})
+	if err == nil || !strings.Contains(err.Error(), "not written as plantuml") {
+		t.Errorf("table as plantuml: err = %v, want the form refused", err)
+	}
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormPlantUML),
+		Palette:      string(view.PaletteOkabeIto),
+	})
+	if err != nil {
+		t.Fatalf("render plantuml with a palette: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if !strings.Contains(out.Artifact, ">> #") {
+		t.Errorf("the PlantUML artifact is not filled from the palette:\n%s", out.Artifact)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormPlantUML),
+		Palette:      "rainbow",
+	}); err == nil || !strings.Contains(err.Error(), `unknown palette "rainbow"`) {
+		t.Errorf("err = %v, want it to refuse the palette by name", err)
+	}
+}
+
+// A palette in the request fills the DOT artifact's nodes, is noted as not
+// represented in a Mermaid artifact, and an unknown one is refused by name
+// with the palettes there are.
+func TestRenderFillsFromThePaletteAsked(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormDot),
+		Palette:      string(view.PaletteOkabeIto),
+	})
+	if err != nil {
+		t.Fatalf("render with a palette: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if !strings.Contains(out.Artifact, `fillcolor="#`) || !strings.Contains(out.Artifact, "penwidth=1, label=<") {
+		t.Errorf("the DOT artifact is not filled from the palette:\n%s", out.Artifact)
+	}
+	raw, err = call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormMermaid),
+		Palette:      string(view.PaletteViridis),
+	})
+	if err != nil {
+		t.Fatalf("render Mermaid with a palette: %v", err)
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if !strings.Contains(out.Artifact, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
+		t.Errorf("Mermaid does not note the palette:\n%s", out.Artifact)
+	}
+	_, err = call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		Form:         string(view.FormDot),
+		Palette:      "rainbow",
+	})
+	want := `unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %v, want it to refuse the palette by name", err)
+	}
+}
+
+// A view's layout annotations reach the client as geometry on nodes and edges
+// and a canvas on the result; a rendering without any carries none of the fields.
+func TestRenderCarriesLayoutGeometry(t *testing.T) {
+	const src = `package Kit {
+	private import DiagramLayout::*;
+	part def Widget {
+		part cog : Cog;
+		part gear : Cog { @Layout { x = 5; y = 6; } }
+		connection mesh : Mesh connect cog to gear;
+	}
+	part def Cog;
+	connection def Mesh;
+}
+
+package KitViews {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	private import DiagramLayout::*;
+
+	view placed : InterconnectionView {
+		expose Kit::Widget;
+		@Canvas { unit = "px"; width = 640; height = 0; }
+		metadata Layout about Kit::Widget::cog { x = 10; y = 20; width = 90; height = 40; collapsed = true; }
+		metadata Route about Kit::Widget::mesh { points = (1, 2, 3, 4); }
+	}
+}
+`
+	s, docURI := renderServer(t, "kit.sysml", src)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::placed",
+	})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var out struct {
+		Nodes  []map[string]json.RawMessage `json:"nodes"`
+		Edges  []map[string]json.RawMessage `json:"edges"`
+		Canvas map[string]json.RawMessage   `json:"canvas"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if got := fmt.Sprintf("%s|%s|%s", out.Canvas["unit"], out.Canvas["width"], out.Canvas["height"]); got != `"px"|640|0` {
+		t.Errorf("canvas = %s, want unit px, width 640 and the explicit height 0", got)
+	}
+	nodeBy := func(name string) map[string]json.RawMessage {
+		for _, n := range out.Nodes {
+			if string(n["name"]) == fmt.Sprintf("%q", name) {
+				return n
+			}
+		}
+		t.Fatalf("no node named %s in %v", name, out.Nodes)
+		return nil
+	}
+	cog := nodeBy("cog")
+	if got := fmt.Sprintf("%s %s %s %s %s", cog["x"], cog["y"], cog["width"], cog["height"], cog["collapsed"]); got != "10 20 90 40 true" {
+		t.Errorf("cog geometry = %q, want the view-local Layout", got)
+	}
+	gear := nodeBy("gear")
+	if got := fmt.Sprintf("%s %s %s %s %s", gear["x"], gear["y"], gear["width"], gear["height"], gear["collapsed"]); got != "5 6   " {
+		t.Errorf("gear geometry = %q, want the inline Layout with no size and no collapsed field", got)
+	}
+	for _, n := range out.Nodes {
+		if name := string(n["name"]); name == `"cog"` || name == `"gear"` {
+			continue
+		}
+		for _, field := range []string{"x", "y", "width", "height", "collapsed"} {
+			if _, ok := n[field]; ok {
+				t.Errorf("unplaced node %s carries %q", n["name"], field)
+			}
+		}
+	}
+	if len(out.Edges) != 1 {
+		t.Fatalf("edges = %v, want the one connection", out.Edges)
+	}
+	if got := string(out.Edges[0]["route"]); got != `[{"x":1,"y":2},{"x":3,"y":4}]` {
+		t.Errorf("route = %s, want the connector's Route waypoints", got)
+	}
+
+	s, docURI = renderServer(t, "plain.sysml", renderModel)
+	plain := render(t, s, docURI, "KitViews::widgetParts")
+	if plain.Canvas != nil {
+		t.Errorf("a view without a Canvas carries %+v", plain.Canvas)
+	}
+	for _, n := range plain.Nodes {
+		if n.X != nil || n.Y != nil || n.Width != nil || n.Height != nil || n.Collapsed {
+			t.Errorf("unannotated node %+v carries geometry", n)
+		}
+	}
+	for _, e := range plain.Edges {
+		if e.Route != nil {
+			t.Errorf("unannotated edge %+v carries a route", e)
+		}
 	}
 }
 
@@ -474,5 +802,49 @@ func TestInitializeAdvertisesTheRenderCapability(t *testing.T) {
 	}
 	if experimental["openSysmlRender"] != true {
 		t.Errorf("openSysmlRender = %#v, want true", experimental["openSysmlRender"])
+	}
+}
+
+// A rendering's version, node names, FQNs and ranges all describe one document
+// snapshot, however the document changes while renders are in flight: a node
+// built from one revision is never named through the scope of another.
+func TestRenderSnapshotsOneDocumentRevision(t *testing.T) {
+	// Both names are five letters, so the declarations share a span across
+	// revisions and a scope of the wrong revision would still find a symbol.
+	revisions := []string{"package P {\n    part def Alpha;\n}\n", "package P {\n    part def Bravo;\n}\n"}
+	s, docURI := renderServer(t, "flip.sysml", revisions[0])
+	name := docURI.Filename()
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for version := 2; ; version++ {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			s.ws.Update(name, []byte(revisions[(version-1)%2]), version)
+		}
+	}()
+	defer func() { close(stop); <-done }()
+
+	params := &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "#tree"}
+	for i := 0; i < 300; i++ {
+		out, err := s.Render(params)
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		declared := []string{"Alpha", "Bravo"}[(out.Version-1)%2]
+		other := []string{"Bravo", "Alpha"}[(out.Version-1)%2]
+		for _, n := range out.Nodes {
+			if strings.Contains(n.Name, other) || strings.Contains(n.FQN, other) {
+				t.Fatalf("version %d declares %s, rendering has node %q with fqn %q", out.Version, declared, n.Name, n.FQN)
+			}
+			if strings.Contains(n.Name, declared) && n.FQN != "P::"+declared {
+				t.Fatalf("version %d node %q has fqn %q, want %q", out.Version, n.Name, n.FQN, "P::"+declared)
+			}
+		}
 	}
 }

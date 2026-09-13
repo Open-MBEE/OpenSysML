@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "instantiate": "test::rig",
+  "libraries": true,
+  "slots": {
+    "wheelCount": {"type": "Integer", "value": 1},
+    "forkCount": {"type": "Integer", "value": 1}
+  },
+  "constraints": {
+    "tineFound": true
+  }
+}

@@ -243,11 +243,11 @@ func (lx *Lexer) scanBlockComment(start int) Token {
 	return Token{Kind: RegularComment, Span: lx.span(start), Unterminated: !closed}
 }
 
-// scanQuoted scans a quoted literal delimited by quote (' or "), honoring the
-// backslash escape set. On success emits kind; on unterminated (newline/EOF
-// before closing quote) emits Error covering what was consumed.
+// scanQuoted scans a quoted literal delimited by quote (' or "), flagging escapes
+// outside the terminal's set; unterminated (newline/EOF) emits Error over what was read.
 func (lx *Lexer) scanQuoted(start int, quote byte, kind Kind) Token {
 	lx.pos++ // opening quote
+	badEscape := false
 	for lx.pos < len(lx.src) {
 		c := lx.src[lx.pos]
 		switch {
@@ -255,11 +255,14 @@ func (lx *Lexer) scanQuoted(start int, quote byte, kind Kind) Token {
 			// escape: consume backslash + next char if present
 			lx.pos++
 			if lx.pos < len(lx.src) {
+				if !IsEscapeChar(lx.src[lx.pos]) {
+					badEscape = true
+				}
 				lx.pos++
 			}
 		case c == quote:
 			lx.pos++ // closing quote
-			return Token{Kind: kind, Span: lx.span(start)}
+			return Token{Kind: kind, Span: lx.span(start), BadEscape: badEscape}
 		case c == '\n' || c == '\r':
 			// unterminated on this line
 			return Token{Kind: Error, Span: lx.span(start)}

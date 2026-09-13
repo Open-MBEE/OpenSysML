@@ -29,7 +29,7 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", "part def Demo::Vehicle"} {
+	for _, want := range []string{"flowchart TD", `"Demo::Vehicle<br>«part def»"`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -89,6 +89,233 @@ func TestRenderOfATabularView(t *testing.T) {
 	}
 }
 
+// The DOT form is asked for by name, writes a digraph of the same rendering
+// into a .dot file, and is refused for a table with the forms a table has.
+func TestRenderDotForm(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>`, `"n0" -> "n1" [arrowhead=none];`} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	if strings.Contains(got.stdout, "flowchart") {
+		t.Errorf("the DOT form is Mermaid:\n%s", got.stdout)
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	got = runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "dot")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{
+		"wrote " + filepath.Join(dir, "Demo.treeView.dot") + " (dot, ",
+		"wrote " + filepath.Join(dir, "Demo.stateView.dot") + " (dot, ",
+		"Demo::tableView: skipped:",
+		"not written as dot; ask for text or markdown",
+	} {
+		if !strings.Contains(got.stderr, want) {
+			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
+		}
+	}
+	state, err := os.ReadFile(filepath.Join(dir, "Demo.stateView.dot"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`digraph "Demo::stateView" {`, "shape=point", `style="rounded,filled"`} {
+		if !strings.Contains(string(state), want) {
+			t.Errorf("state artifact is missing %q:\n%s", want, state)
+		}
+	}
+
+	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "dot")
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as dot; ask for text or markdown") {
+		t.Errorf("DOT of a table = %d\n%s", table.status, table.output())
+	}
+}
+
+// The PlantUML form is asked for by name, writes a class diagram of the same
+// rendering into a .puml file, takes a palette with the DOT form's fills, and
+// is refused for a table with the forms a table has.
+func TestRenderPlantUMLForm(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "plantuml")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "**Demo::Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	if strings.Contains(got.stdout, "flowchart") || strings.Contains(got.stdout, "digraph") {
+		t.Errorf("the PlantUML form is another form:\n%s", got.stdout)
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	got = runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "plantuml", "-render-palette", "okabe-ito")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{
+		"wrote " + filepath.Join(dir, "Demo.treeView.puml") + " (plantuml, ",
+		"wrote " + filepath.Join(dir, "Demo.stateView.puml") + " (plantuml, ",
+		"Demo::tableView: skipped:",
+		"not written as plantuml; ask for text or markdown",
+	} {
+		if !strings.Contains(got.stderr, want) {
+			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
+		}
+	}
+	state, err := os.ReadFile(filepath.Join(dir, "Demo.stateView.puml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"' Demo::stateView — state rendering", `as n0 <<state def>> {`, "  [*] --> n1\n}"} {
+		if !strings.Contains(string(state), want) {
+			t.Errorf("state artifact is missing %q:\n%s", want, state)
+		}
+	}
+	tree, err := os.ReadFile(filepath.Join(dir, "Demo.treeView.puml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(tree), "#E69F00;line:E69F00") {
+		t.Errorf("-render-all did not fill from the palette:\n%s", tree)
+	}
+
+	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "plantuml")
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as plantuml; ask for text or markdown") {
+		t.Errorf("PlantUML of a table = %d\n%s", table.status, table.output())
+	}
+
+	unknown := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "plantuml", "-render-palette", "rainbow")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-palette: unknown palette "rainbow"`) || unknown.stdout != "" {
+		t.Errorf("an unknown palette = %d\n%s", unknown.status, unknown.output())
+	}
+}
+
+// -render-palette fills the DOT form's nodes from a named palette, is noted as
+// not represented by the Mermaid form, and is refused with the palettes there
+// are when it names none of them.
+func TestRenderPalette(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "okabe-ito")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{`digraph "Demo::overview" {`, `fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Demo::Vehicle</b>`} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+
+	mermaid := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "mermaid", "-render-palette", "viridis")
+	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
+		t.Errorf("Mermaid with a palette = %d\n%s", mermaid.status, mermaid.output())
+	}
+	if strings.Contains(mermaid.stdout, "fillcolor") || strings.Contains(mermaid.stdout, "style n0") {
+		t.Errorf("Mermaid is themed by the palette:\n%s", mermaid.stdout)
+	}
+
+	unknown := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "rainbow")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-palette: unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`) {
+		t.Errorf("an unknown palette = %d\n%s", unknown.status, unknown.output())
+	}
+	if unknown.stdout != "" {
+		t.Errorf("an unknown palette wrote an artifact:\n%s", unknown.stdout)
+	}
+
+	alone := runStreams(t, binary, renderModel, "-render-palette", "okabe-ito")
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT or PlantUML with") {
+		t.Errorf("a palette without a view = %d\n%s", alone.status, alone.output())
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	all := runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "dot", "-render-palette", "tol-bright")
+	if all.status != exitHolds {
+		t.Fatalf("-render-all exit status = %d, want %d\n%s", all.status, exitHolds, all.output())
+	}
+	tree, err := os.ReadFile(filepath.Join(dir, "Demo.treeView.dot"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(tree), `fillcolor="#`) {
+		t.Errorf("-render-all did not fill from the palette:\n%s", tree)
+	}
+}
+
+// TestRenderSeveralFiles checks that a view declared in one file renders the
+// elements its sibling files declare, loaded as one model, on stdout and into
+// -o in the form -render-form names.
+func TestRenderSeveralFiles(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	types := writeModel(t, dir, "types.sysml", `package Types {
+    part def Wheel;
+    part def Vehicle { part wheel : Wheel; }
+}
+`)
+	diagrams := writeModel(t, dir, "diagrams.sysml", `package Diagrams {
+    private import Types::*;
+    view overview { expose Types::Vehicle; }
+    view parts { expose Types::*; render Views::asElementTable; }
+}
+`)
+
+	got := runFiles(t, binary, []string{types, diagrams}, "-render", "Diagrams::overview")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"flowchart TD", `"Types::Vehicle<br>«part def»"`, "wheel"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	for _, want := range []string{"package Types", "package Diagrams"} {
+		if !strings.Contains(got.stderr, want) {
+			t.Errorf("stderr does not say the load declared %q:\n%s", want, got.stderr)
+		}
+	}
+
+	out := filepath.Join(dir, "parts.md")
+	got = runFiles(t, binary, []string{diagrams, types}, "-render", "Diagrams::parts", "-render-form", "markdown", "-o", out)
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	if got.stdout != "" {
+		t.Errorf("stdout is not empty with -o:\n%s", got.stdout)
+	}
+	if !strings.Contains(got.stderr, "wrote "+out) {
+		t.Errorf("stderr should name the file written, got:\n%s", got.stderr)
+	}
+	written, err := os.ReadFile(out) // #nosec G304 -- the test wrote this path.
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"| Element | Kind | Type | Declared in |", "| Types::Vehicle | part def |", "| Types::Wheel | part def |"} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("the table is missing %q:\n%s", want, written)
+		}
+	}
+
+	got = runFiles(t, binary, []string{types, diagrams}, "-render", "#tree", "-render-form", "text")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"Types", "Diagrams"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("#tree over two files is missing %q:\n%s", want, got.stdout)
+		}
+	}
+}
+
 func TestRenderReportsWhatItCouldNotDo(t *testing.T) {
 	binary := buildCLI(t)
 
@@ -114,9 +341,9 @@ func TestRenderReportsWhatItCouldNotDo(t *testing.T) {
 		stderr: []string{"sysml: "},
 	}, {
 		name:   "a form that is not a form is reported",
-		args:   []string{"-render", "Demo::overview", "-render-form", "dot"},
+		args:   []string{"-render", "Demo::overview", "-render-form", "svg"},
 		status: exitUnevaluable,
-		stderr: []string{"unknown rendering form \"dot\""},
+		stderr: []string{"unknown rendering form \"svg\"", "text, mermaid, markdown, dot"},
 	}, {
 		name:   "a form without a view to render is reported",
 		args:   []string{"-render-form", "text"},

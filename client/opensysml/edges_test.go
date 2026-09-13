@@ -41,8 +41,8 @@ func TestRealsInRangeStillEvaluate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}
-	real, ok := value.(opensysml.Real)
-	if !ok || math.IsInf(float64(real), 0) {
+	realVal, ok := value.(opensysml.Real)
+	if !ok || math.IsInf(float64(realVal), 0) {
 		t.Fatalf("value = %#v, want a finite Real", value)
 	}
 }

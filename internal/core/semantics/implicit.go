@@ -82,7 +82,7 @@ var implicitDefinitionBases = map[ast.DefinitionKind]string{
 	ast.DefRendering:   renderingFQN,
 	ast.DefConcern:     concernCheckFQN,
 	ast.DefConnection:  "Connections::Connection",
-	ast.DefFlow:        "Flows::Flow",
+	ast.DefFlow:        "Flows::MessageAction",
 	ast.DefPort:        "Ports::Port",
 	ast.DefInterface:   "Interfaces::Interface",
 	ast.DefAllocation:  "Allocations::Allocation",
@@ -246,8 +246,8 @@ func (m *Model) kindBaseFQNs(sym *symbols.Symbol, isKerML bool) []string {
 
 // kindBaseFQN returns the base a declaration of sym's kind specializes for the
 // kind itself; kindBaseFQNs adds the further bases a kind with two facets has.
-// A KerML association is binary by its effective ends, a SysML connection or
-// interface by its owned ones (KerML 1.1 §7.4.8, SysML v2 §7.13.2).
+// A KerML association is binary by its effective ends, a SysML connection,
+// interface or flow by its owned ones (KerML 1.1 §7.4.8, SysML v2 §7.13.2, §7.14.2).
 func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 	if sym == nil {
 		return "", false
@@ -296,6 +296,8 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 				return "Connections::BinaryConnection", true
 			case ast.DefInterface:
 				return "Interfaces::BinaryInterface", true
+			case ast.DefFlow:
+				return "Flows::Message", true
 			}
 		}
 		fqn, ok := implicitDefinitionBases[d.Kind]
@@ -336,12 +338,25 @@ func (m *Model) isKerMLDoc(sym *symbols.Symbol) bool {
 	return m.resolver.Index().DocumentKind(sym.DocName) == source.KindKerML
 }
 
-// implicitBases returns the stdlib definitions sym is implicitly typed by, or
-// nil when sym is not a declaration of a kind with a known base.
+// implicitBases returns the stdlib definitions sym is implicitly typed by, or nil when sym
+// is not a declaration of a kind with a known base; memoized once the chains it reads settle.
 func (m *Model) implicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return nil
 	}
+	if cached, ok := m.implicitBase[sym]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	out := m.computeImplicitBases(sym)
+	if m.resolver.Leave() {
+		m.implicitBase[sym] = out
+	}
+	return out
+}
+
+// computeImplicitBases derives implicitBases' answer.
+func (m *Model) computeImplicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	// A conjugated type takes its supertypes from what it conjugates rather than
 	// from an implicit specialization of its kind's base (KerML §8.3.3.1.1).
 	if declaresConjugation(sym) {
@@ -561,7 +576,7 @@ func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, base := range append(m.implicitBases(sym), m.implicitBaseUsage(sym), m.implicitKerMLFeatureBase(sym)) {
+	for _, base := range slices.Concat(m.implicitBases(sym), []*symbols.Symbol{m.implicitBaseUsage(sym), m.implicitKerMLFeatureBase(sym)}) {
 		if base != nil && base != sym {
 			out = append(out, base)
 		}

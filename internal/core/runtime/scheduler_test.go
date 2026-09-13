@@ -512,7 +512,7 @@ func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
 				if choice.Kind != ChoiceTransition {
 					t.Fatalf("%s %s: choice %d is %v, want a transition choice", tc.name, policy, i, choice)
 				}
-				if want := draws.pick(2); choice.Taken != want {
+				if want := draw(draws, 2); choice.Taken != want {
 					t.Errorf("%s %s: choice %d took %d, the seed's draw is %d (%v)",
 						tc.name, policy, i, choice.Taken, want, choice)
 				}
@@ -595,7 +595,7 @@ func TestOutrankedChoiceDrawsNothing(t *testing.T) {
 				if choice.Kind != ChoiceTransition {
 					t.Fatalf("%s %s: choice %d is %v, want a transition choice", tc.name, policy, i, choice)
 				}
-				if want := draws.pick(2); choice.Taken != want {
+				if want := draw(draws, 2); choice.Taken != want {
 					t.Errorf("%s %s: choice %d took %d, the seed's draw is %d (%v)",
 						tc.name, policy, i, choice.Taken, want, choice)
 				}
@@ -604,14 +604,19 @@ func TestOutrankedChoiceDrawsNothing(t *testing.T) {
 	}
 }
 
+// draw is one pick among n alternatives, as a transition choice makes it.
+func draw(s *scheduler, n int) int {
+	return s.choose(ChoicePoint{Kind: ChoiceTransition, Alternatives: make([]string, n)}, nil)
+}
+
 // A guard probe previews the run under the seed's generator and hands it back
 // untouched, so probing does not shift the choices the run goes on to make.
 func TestProbeLeavesTheSeededSequenceInPlace(t *testing.T) {
 	s := mustPolicy(t, "seed:7").start()
 	restore := s.mark()
-	drawn := s.pick(1000)
+	drawn := draw(s, 1000)
 	restore()
-	if again := s.pick(1000); again != drawn {
+	if again := draw(s, 1000); again != drawn {
 		t.Errorf("after a probe drew %d the run drew %d; the probe consumed the sequence", drawn, again)
 	}
 }

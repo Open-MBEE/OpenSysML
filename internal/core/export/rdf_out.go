@@ -180,7 +180,7 @@ func (e *UnsupportedError) Error() string {
 // it was written as alongside its structural triples, so the conversion needs
 // the bytes as well as the tree.
 func ToRDF(file *source.SourceFile, root *ast.RootNamespace) (*rdf.Graph, error) {
-	e, err := encodeDocument(file, root)
+	e, err := encodeDocument(file, root, "")
 	if err != nil {
 		return nil, err
 	}
@@ -188,12 +188,12 @@ func ToRDF(file *source.SourceFile, root *ast.RootNamespace) (*rdf.Graph, error)
 }
 
 // encodeDocument converts a parsed document, returning the encoder that holds
-// the graph and where in file each element was written.
-func encodeDocument(file *source.SourceFile, root *ast.RootNamespace) (*encoder, error) {
+// the graph and where in file each element was written; library is as for analyzeDocument.
+func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*encoder, error) {
 	if file == nil || root == nil {
 		return nil, &UnsupportedError{What: "an empty document", Note: "nothing to convert"}
 	}
-	e, err := newEncoder(file, root)
+	e, err := newEncoder(file, root, library)
 	if err != nil {
 		return nil, err
 	}
@@ -245,8 +245,8 @@ func (e *encoder) sourceText() {
 
 // newEncoder resolves a parsed document, builds its identity side table and
 // records each member's qualified name, so references can be told from names.
-func newEncoder(file *source.SourceFile, root *ast.RootNamespace) (*encoder, error) {
-	res, model := analyzeDocument(file.Name(), root)
+func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string) (*encoder, error) {
+	res, model := analyzeDocument(file, root, library)
 	ids, err := documentIdentity(file.Name(), res, model)
 	if err != nil {
 		return nil, err
@@ -604,7 +604,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 			e.graph.Add(subject, e.sysml(pOwningNamespace), ownerTerm)
 		}
 		_, crossing := node.(*ast.CrossFeatureMember)
-		membership = e.owningMembership(subject, ownerTerm, fqn, ast.IsExpression(node), e.variantMember(node, ownerTerm), crossing || h.typeFeature)
+		membership = e.owningMembership(node, subject, ownerTerm, fqn, ast.IsExpression(node), e.variantMember(node, ownerTerm), crossing || h.typeFeature)
 	}
 	if keyword := visibilityKeyword(visibility); keyword != "" {
 		// The membership states the visibility a member is declared with; a
@@ -674,6 +674,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isAll", n.IsAll},
 			{"isConstant", n.IsConstant},
 			{"isEvent", n.IsEvent},
+			{"isIndividual", n.IsIndividual},
 			{"isParallel", n.IsParallel},
 		})
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Members); err != nil {
@@ -949,7 +950,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 // which a ResultExpressionMembership owns; variant a usage a VariantMembership
 // owns; plain a feature its type owns through a plain OwningMembership rather
 // than a FeatureMembership: an end's cross feature, or a KerML `member` feature.
-func (e *encoder) owningMembership(member, owner rdf.Term, memberFQN string, result, variant, plain bool) rdf.Term {
+func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, memberFQN string, result, variant, plain bool) rdf.Term {
 	ownerClass, memberClass := e.metaclassOf(owner), e.metaclassOf(member)
 	// A metadata usage annotates its owner through an OwningMembership whatever
 	// the owner is, a relationship included (SysML.xtext PrefixMetadataMember).
@@ -976,7 +977,7 @@ func (e *encoder) owningMembership(member, owner rdf.Term, memberFQN string, res
 	// the API's payloads carry for it; anything else, a metadata usage included,
 	// through an OwningMembership.
 	feature := ontology.IsAncestorOrSelf(memberClass, "Feature") && isType(ownerClass) && !metadata
-	membership := rdf.OwningMembershipIRIOf(member)
+	membership := e.ids.owningMembershipOf(node, member)
 	// The membership shares the element namespace, so its IRI is reserved too.
 	if prior, taken := e.claim(membership.Value, memberFQN+"'s owning membership"); taken && e.idErr == nil {
 		e.idErr = &UnsupportedError{
@@ -1423,23 +1424,24 @@ func withoutComments(text string) string {
 	return kept.String()
 }
 
+// relationships writes a head's clauses in relationshipOrder, not the order the
+// notation spelled them in, so the Turtle is the same for every spelling.
 func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Relationship) {
-	for _, rel := range rels {
-		if rel == nil || rel.Target == nil {
-			continue
+	for _, kind := range relationshipOrder {
+		property := relationshipProperty[kind]
+		for _, rel := range rels {
+			if rel == nil || rel.Target == nil || rel.Kind != kind {
+				continue
+			}
+			// A name is mapped as a reference, which links it when this document
+			// declares it; a feature chain or other expression is not a name, so it
+			// is carried as the text it was written as.
+			if name, ok := rel.Target.(*ast.QualifiedName); ok {
+				e.graph.Add(subject, e.sysml(property), e.reference(name))
+				continue
+			}
+			e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression))
 		}
-		property, ok := relationshipProperty[rel.Kind]
-		if !ok {
-			continue
-		}
-		// A name is mapped as a reference, which links it when this document
-		// declares it; a feature chain or other expression is not a name, so it
-		// is carried as the text it was written as.
-		if name, ok := rel.Target.(*ast.QualifiedName); ok {
-			e.graph.Add(subject, e.sysml(property), e.reference(name))
-			continue
-		}
-		e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression))
 	}
 }
 

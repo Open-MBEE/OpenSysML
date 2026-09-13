@@ -1,0 +1,106 @@
+enter calc test::extents
+  stmt return
+          enter calc SequenceFunctions::size
+materialize: wheels #1
+materialize: wheels #2
+materialize: spare #3
+            eval operator all -> (instance#1, instance#2, instance#3)
+            bind seq = (instance#1, instance#2, instance#3) [argument]
+          exit calc SequenceFunctions::size -> 3
+        eval invoke size -> 3
+        eval literal 3 -> 3
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+materialize: links #4
+materialize: links #5
+materialize: links #6
+            eval operator all -> (instance#4, instance#5, instance#6)
+            bind seq = (instance#4, instance#5, instance#6) [argument]
+          exit calc SequenceFunctions::size -> 3
+        eval invoke size -> 3
+        eval literal 3 -> 3
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+materialize: hubs #7
+            eval operator all -> (instance#7)
+            bind seq = (instance#7) [argument]
+          exit calc SequenceFunctions::size -> 1
+        eval invoke size -> 1
+        eval literal 1 -> 1
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval feature wheels -> (instance#1, instance#2)
+            bind seq = (instance#1, instance#2) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval feature links -> (instance#4, instance#5, instance#6)
+            bind seq = (instance#4, instance#5, instance#6) [argument]
+          exit calc SequenceFunctions::size -> 3
+        eval invoke size -> 3
+        eval literal 3 -> 3
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval feature spares -> ()
+            bind seq = () [argument]
+          exit calc SequenceFunctions::size -> 0
+        eval invoke size -> 0
+        eval literal 0 -> 0
+      eval operator == -> true
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+          eval operator all -> (instance#1, instance#2, instance#3)
+          eval literal 1 -> 1
+        eval index -> instance#1
+      eval operator === -> true
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 2 -> 2
+        eval index -> instance#2
+          eval operator all -> (instance#1, instance#2, instance#3)
+          eval literal 2 -> 2
+        eval index -> instance#2
+      eval operator === -> true
+        eval feature spare -> instance#3
+          eval operator all -> (instance#1, instance#2, instance#3)
+          eval literal 3 -> 3
+        eval index -> instance#3
+      eval operator === -> true
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+      eval operator === -> true
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 2 -> 2
+        eval index -> instance#2
+      eval operator !== -> true
+        enter calc SequenceFunctions::includes
+          eval operator all -> (instance#4, instance#5, instance#6)
+            eval feature links -> (instance#4, instance#5, instance#6)
+            eval literal 3 -> 3
+          eval index -> instance#6
+          bind seq1 = (instance#4, instance#5, instance#6) [argument]
+          bind seq2 = instance#6 [argument]
+        exit calc SequenceFunctions::includes -> true
+      eval invoke includes -> true
+        eval chain radius -> (1.0, 1.0)
+          eval literal 1.0 -> 1.0
+          eval literal 1.0 -> 1.0
+        eval sequence of 2 -> (1.0, 1.0)
+      eval operator == -> true
+            eval feature wheels -> (instance#1, instance#2)
+            eval literal 2 -> 2
+          eval index -> instance#2
+        eval chain radius -> 1.0
+        eval literal 1.0 -> 1.0
+      eval operator == -> true
+    eval sequence of 14 -> (true, true, true, true, true, true, true, true, true, true, true, true, true, true)
+exit calc test::extents -> (true, true, true, true, true, true, true, true, true, true, true, true, true, true)

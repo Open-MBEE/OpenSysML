@@ -7,6 +7,1336 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
+## 0.8.0 — 2026-09-13
+
+### Added
+
+- **Every verdict now states its standing, and the analysis engines can be listed and chosen.**
+  Each verdict the CLI, the REPL and `-json` report is followed by a `standing:` line — the
+  claim, the strength of the evidence behind it (*not covered*, *observed*, *witnessed*,
+  *bounded*, *proved*) and what earned it, such as `holds (observed: 1 run under reverse)` or
+  `outcomes (observed: 1 linearization, inputs as written, runs=1 (reached))`; a budget the
+  engine reached is named and lowers the strength, never a proof. `sysml -engines` and `%engines`
+  table the engines of the build with the authority each carries, the questions it answers and
+  whether its process was found (`solve` reports the solver it discovered); `-engine
+  <name>|auto|all` and `%engine` select the engine every check is put to: `auto` (the default)
+  is the dispatch every check had, a name puts the question to that engine alone with its refusal
+  as the verdict, and `all` puts it to every covering engine in name order and composes their
+  answers — a witnessed violation stands over any universal claim, a universal claim an execution
+  refutes is a disagreement resolved in the interpreter's favor with the refuted result demoted to
+  *not covered*, and an engine cancelled by the plan's deadline is kept in the plan with the bound
+  it reached. `-engine explore` is `-schedule explore`. `-json` checks gain `plan` (the selection,
+  the composed standing, each engine consulted and its status, the disagreements) and
+  `results[]` (one entry per engine that answered: `engine`, `claim`, `strength`, `bounds`,
+  `witness`, `standing`) beside the keys they always carried. The service adds `ListEngines`, an
+  `engine` field on the verification, calculation, analysis and sweep requests (unset meaning
+  `auto`) and `engine`, `strength` and `bounds` on their responses and on every `Verdict`,
+  advertised as the `engines` capability; the Python client takes `engine=` on its verification
+  and analysis calls, reads `Verdict.engine`, `.strength` and `.bounds`, and lists engines with
+  `Connection.list_engines()`; the Go client takes `WithEngine`/`Engine`, gains `Calculate` — `EvaluateCalc` with
+  options — taking `CalcArguments` and `CalcEngine`, reads the `Standing` of
+  every verdict, calculation and analysis, and lists engines with `Client.ListEngines`. No
+  existing flag, command, RPC, field or key changed its meaning.
+
+- **External analysis engines over standard input.** A directory named by `OPENSYSML_ENGINES`
+  holds one JSON file per engine — `kind: engine`, its `name`, `version`, `command`, the
+  question kinds it `answers`, the declaration kinds it takes as `subjects`, the `model` forms
+  it reads, its `bounds`, the `witness` kind it gives, its `authority` and whether it is
+  `concurrent` — and each registers under its name beside `run`, `explore`, `check`, `sweep`
+  and `solve`. A plan that reaches the engine starts its command once, hands it the model as
+  `sources` (the documents) or `graphs:1` (a new versioned export of the lowered action and
+  state graphs — guards, triggers, effects, pseudostate edges, footprints — byte-stable across
+  runs and `-jobs` counts), and speaks JSON-RPC lines to it: `describe`, checked against the
+  manifest field by field; `covers`; `run`; `cancel`; and `progress` notifications the CLI and
+  REPL print to standard error, coalesced to a few a second. The message set is published as
+  `docs/reference/engine-protocol.schema.json`. Nothing an engine claims is trusted: a
+  `violated` stands as *witnessed* only when its schedule replays under `replay:` and the
+  condition is false at the move it names, `sensitive` needs two replaying schedules that end
+  the named feature differently, `satisfiable` needs an assignment the evaluator confirms, a
+  universal `holds` is *observed* over the `executions` that replay and otherwise *not covered*
+  with the claim kept in the reason; `admit` is refused until referee records exist. Every
+  failure — a program that does not start, a `describe` that disagrees with the manifest, a
+  broken protocol line, an error the engine reports, an exit mid-run, a cancel unanswered by the
+  deadline — is a typed *not covered* answer naming it, with the engine's standard error, and
+  `auto` advances past it. `sysml -engines` and `%engines` list external engines with their
+  kind, protocol and status without starting them; `-engines -probe` and `%engines probe` start
+  each once to check its `describe`; `-engine <name>` and `-engine all` reach them like any
+  engine. `ListEngines` gains `kind`, `protocol`, `source`, `command`, `version` and `served`,
+  and `sysml-grpc` lists external engines but refuses to run them (`failed_precondition`) until
+  started with `-serve-external-engines <names|all>`, which advertises `engines_external`.
+  `policy`, `sampler` and `module` entries, the `grpc` transport and the `rdf` model form are
+  parsed and listed `unavailable` with a reason naming the stage that serves them.
+- **`OPENSYSML_TOOL_MAX_OUTPUT`** (default `64M`) bounds what one external process may write
+  before it is cut off — a tool's one reply and its standard error, an external engine's one
+  protocol line and its standard error — and a tool's relative `executable` path is confined to
+  its manifest directory as an engine's `command` is.
+
+- **A design note for the analysis framework**
+  (`docs/internals/design/analysis-framework.md`). It proposes one engine contract that the
+  interpreter, the `explore` scheduling policy, the parameter sweep, the SMT constraint solver,
+  the proposed model checkers and external analysis tools (`AnalysisTooling::ToolExecution`)
+  register against; one scale for the strength of an answer — proved, bounded, witnessed,
+  observed, not covered — under which a faster engine's observation never outranks a slower
+  engine's proof; dispatch by question with explicit fallback and a referee mode that runs every
+  covering engine; and runs isolated over shared immutable model state so sweep rows, explored
+  linearizations and solver queries can run in parallel with results identical to the sequential
+  ones. Every existing flag, command, RPC and field keeps its meaning. Nothing is implemented;
+  the note exists to be reviewed before code is written.
+
+- **A sweep over a held object runs on the object as the session holds it, behaviors included.**
+  `%sweep` on an object from `%instantiate`, `-instantiate` followed by `-sweep`, and the gRPC
+  sweep over such a subject now run when the object's type exhibits a state machine or performs
+  an action, where they were refused before. The runtime records whether each execution has
+  moved since its start — a token stepped, a body statement run, an accept or wait consumed, a
+  transition fired, a timer or change trigger taken, a feature written — and a held object whose
+  executions are all unmoved sweeps from its declaration in every row's context, printing the
+  table the sequential form printed. A held object that has moved, been written, been sent a
+  signal not yet dispatched, waits on a clock that has moved, runs a behavior while a signal
+  open to any taker is in flight, or is named by `#<id>` is swept from one image of it and everything
+  it holds, taken when the sweep begins and made afresh in each row's context under the same
+  identities, with the executors' state and the posted signals: every row starts where the held
+  object stands, no row sees another's writes, and the held object is byte for byte as it was
+  afterwards. An object the image cannot carry — a destroyed one, a body paused mid-statement, a
+  debugger inside a step, a value bound to the run that made it — is refused naming the reason
+  before any row runs, never swept on the session's state.
+
+- **Analysis runs in parallel under `-jobs`, with the same answer whatever the count.**
+  `sysml -jobs <n>`, `%jobs <n>` in the REPL and `OPENSYSML_JOBS` (default one per CPU; the
+  flag overrides the environment) set how many runs of one check go at once, each on a worker
+  of its own — a resolver and semantic model per job over the one loaded model, so no run sees
+  another's memo. `-schedule explore` runs its linearizations on a work queue of prefixes
+  ordered as the sequential exploration would take them, and reports the outcome table, each
+  outcome's witness, the run count and the budget hit `-jobs 1` reports, byte for byte: a
+  `runs` budget is a cut in that order, at most `n` runs beyond it are ever started (so an
+  exploration performs at most `runs + n` executions), and a run that fails is an outcome of
+  the table, as under one job.
+  `-engine all` puts the question to its covering engines at once and composes their answers in
+  name order; a fault or deadline stops the engines after it, each kept in the plan with the
+  bound it reached, and a run serving a universal claim is not cancelled by a witness. A count
+  below one, or one that is no integer, is refused before anything runs. `-json` checks carry
+  `workers` and `warming` (the milliseconds spent building them) under `plan`; the
+  human-readable report does not print them. The gRPC service takes its count from
+  `OPENSYSML_JOBS`; no request field changed.
+
+- **Actions annotated `ToolExecution` run through an external tool.** A directory named by
+  `OPENSYSML_TOOLS` holds one JSON file per tool — its `toolName`, `version`, `executable` and the
+  `variables` it accepts — and each registers a `tool:<name>` engine that `sysml -engines`,
+  `%engines` and `ListEngines` list with its process status like `solve`. A performance of an
+  action carrying `AnalysisTooling::ToolExecution` starts the tool once, writes one JSON request
+  (`toolName`, `uri`, `inputs` keyed by `ToolVariable` name with value and unit) to its standard
+  input, reads one JSON reply from its standard output and binds the `outputs` to the action's
+  parameters converted to their declared units; the body is never run. A tool with no entry is
+  refused with `tool 'ModelCenter' is not registered; set OPENSYSML_TOOLS`; a non-zero exit,
+  malformed or missing output, an unknown output, a unit the model does not declare or the
+  timeout `OPENSYSML_TOOL_TIMEOUT` (default `10s`) fails the performance with a typed error, and
+  no value is ever invented. A tool's answer stands at strength *observed*; equal inputs
+  answered differently are noted as a divergence of the run.
+
+- **Non-conforming operator and invocation arguments warn `Bound features should have conforming
+  types`, as the reference does.** Each argument of an operator or invocation expression is bound to
+  the parameter it fills (KerML 1.1 §8.3.4.8.3), and the type checker now judges that implied binding
+  with the rule an explicit `bind` gets: an argument whose static type conforms neither to nor from
+  the selected function's parameter type — `rearWheel + 1` with `rearWheel : Wheel`, `sum(robots.mass)`
+  passing `MassValue`s to `RealFunctions::sum` — draws the warning, at the argument of an invocation
+  and at the whole operator expression, where the reference puts it. Positional, named and receiver
+  arguments are judged alike, through feature chains and nested invocations. Nothing is reported where
+  either side is unknown — an unresolved or ambiguous callee, an untyped, unbound or collection-valued
+  argument, a parameter typed by a `Collection` or `Element` — or where a precise type error already
+  covers the argument, and a conforming argument (`Integer` into `Real`, `MassValue` into
+  `ScalarQuantityValue`) stays silent. The pilot Xpect `warnings` kind agrees 113 of 113, and the two
+  reference-only rows on `examples/disposal-team-demo/team.sysml:29` are agreed.
+
+- **A design note for bringing your own engine**
+  (`docs/internals/design/bring-your-own-engines.md`). It proposes how a user adds to the analysis
+  framework without changing OpenSysML: an engine of their own that answers questions about a
+  model, a scheduling policy or sampler of their own inside a built-in engine, or a tool of their
+  own, registered from a manifest the environment names and run as a process speaking a JSON-RPC
+  message set on standard input, as a WebAssembly module, or as Go over the public
+  `client/opensysml` package. Every external witness is checked by the interpreter before it
+  counts — a schedule replayed and the claim evaluated at the move it names, an assignment
+  evaluated; an external universal claim is *observed* only over executions the interpreter
+  replayed and is otherwise *not covered* with
+  the claim kept, until the site admits a strength against a referee record earned on a corpus
+  under `-engine all`; and nothing a model, a workspace or a remote client can cause an
+  executable to run. Nothing is implemented; the note exists to
+  be reviewed before code is written.
+
+- **`-engine check` searches every schedule of an action.** The `check` engine is an
+  explicit-state model checker over the action `-action`/`%action` names: it takes the run one
+  move at a time — one token advancing one node, a body being one move — snapshots the executor
+  before each choice and backtracks to take every other, so every schedule the library admits is
+  visited and no other, and reports what it finds: a constraint or requirement named with
+  `-check-property <name>` (`%check-property`) that is `false` at a stable state, a deadlock or
+  a typed error a body raises, each as a *violation* on the schedule that reaches it; a feature
+  that ends with different final values on different schedules as *divergent* with every value
+  it takes (`-check-diverge <feature>`, `%check-diverge`; by default every attribute of the
+  action and of its performing object, an action run without one on its own attributes);
+  otherwise `no violation, exhaustive` when the search finished, or `no violation within bounds`
+  naming every bound it reached — `-check-depth` (moves along one schedule, 10 000),
+  `-check-states` (distinct states, 1 000 000), `-check-timeout` (the plan's clock; a search it
+  stops is reported `incomplete: time`, not as a verdict) and the executor's own budgets, set
+  in the REPL with `%check-bounds`. Two moves whose statically computed footprints are
+  independent are searched in one order only, and a state already visited is not searched
+  again. `-check-witness <dir>` writes one file per violation and divergent value, named for
+  the action and the object performing it — the schedule's choice lines, a blank line, then
+  the run's trace — and each is reported
+  *witnessed* only after the interpreter replayed it to the state it claims; `-schedule
+  replay:<file>` and `%replay <witness>` step that run under the ordinary debugger. The CLI
+  exits `1` on a violation or a divergence, `0` on an exhaustive clean search and `2` on a
+  bounded, cancelled or refused one; `-json` carries a `check` object (`verdict`, `states`,
+  `moves`, `depth`, `boundsHit`, `violations[]`, `divergent[]`, `outcomes[]` and the witness
+  paths) on the engine's `results[]` entry. The engine is listed by `-engines` and `%engines`
+  at authority *bounded*, `auto` never picks it over `explore`, and it refuses with a typed
+  reason what it does not search: a state machine, a body paused mid-statement (an `accept` or
+  a timed wait inside a block), a state and an action due together, and a `-check-*` flag
+  without `-engine check` or the engine without an action. State machines, `do` interleaving
+  and checking across objects are later stages'; the search itself is single-threaded, `-jobs`
+  dividing only the replay of its witnesses.
+
+- **Function values compile natively.** `sysml -compile` (C and Go) now accepts a calc that
+  takes an `in calc` parameter, a calc def, a calc usage with an unsupplied input or a compiled
+  library function (`RealFunctions::sqrt`, `floor`) passed for one, `f(a)` and `f(v = a)` in the
+  body — positionally, by name, passed on to another calc and through recursion — and
+  `SampledFunctions::Sample(f, xs)` bound to a `SampledFunction` attribute or read by `Domain` and
+  `Range`. The compiler fixes each function value at compile time and compiles the callee once
+  per distinct binding, so `f(a)` is a direct call and computes, prints and fails exactly as the
+  interpreter's invocation does (`Apply(Recip, 0.0)` divides by zero, `Sample` reports its first
+  failing element, a null domain — a literal `null` included — samples to `[]`, and a parameter
+  typed by a calc, `in calc f : Sq`, takes only a function value whose calc conforms to `Sq`).
+  What a compile-time value cannot express keeps
+  a typed refusal naming the construct: a function value returned, stored, compared, chosen by an
+  `if` at run time or handed to a value parameter, a calc owned by a part or declared in a
+  behavior body (its value closes over that object or run), an entry calc's own `in calc`
+  parameter (a program cannot take one on its command line), a control operation such as
+  `collect` passed as a function, and a `SampledFunction` used as anything but the operand of
+  `Domain` or `Range`. `docs/project/native-compilation.md` states the representation and its
+  trade-off.
+
+- **The VS Code diagram panel edits the model.** An **Add…** menu on the panel and a right-click
+  menu on every node the file declares add a member (`part`, `port`, `state`, `action`, a `def`, …),
+  add a connection, flow, succession or transition between two nodes, rename a declaration, or
+  delete one — with a confirmation, and a second one before a delete cascades to the declarations
+  that refer to it. The kinds offered follow the diagram: an interconnection diagram offers parts,
+  ports and connections, a state diagram states and transitions, an action or sequence diagram
+  actions, control nodes and successions, a tree every kind the language has — `subject`, `actor`
+  and `stakeholder` only on a requirement or case, `objective` only on a case. Every action is a
+  source-preserving edit of the `.sysml` or `.kerml` file, applied to the editor's buffer like typed
+  text: <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it, comments and layout outside the edited lines are
+  untouched, and the diagram redraws from what the file now says. An edit that would leave the file
+  with an error it did not have is refused and the message names the diagnostic. Layout is not
+  persisted and nodes are not dragged.
+- **`opensysml/applyModelEdit` LSP request.** Turns a list of model operations (`setValue`,
+  `rename`, `addMember`, `addConnection`, `delete`) on a document at a stated version into a
+  versioned `WorkspaceEdit` the client applies itself, so the change lands in the editor's own undo
+  history and the server learns of it through `textDocument/didChange`. A version that no longer
+  matches is answered `stale`; an edit the re-analysis refuses is answered with the operation at
+  fault, a stable failure name, the diagnostics the edited text would have had and the declarations
+  still referring to a target. A delete or rename that another document of the workspace refers to
+  is refused as `referenced-elsewhere` rather than applied to the one document the edit rewrites. The server advertises it as `experimental.openSysmlApplyModelEdit`.
+  `opensysml/render` now gives each node its qualified name (`fqn`) for the request to target, the
+  namespaces declaring it (`owners`) so a connection between nodes a view draws apart still goes into
+  the declaration they share, and a `palette` naming the member and connection kinds a diagram of that kind offers and, for a member
+  only some bodies declare, the nodes it may go into.
+- **Source-preserving connection edits.** `internal/core/edit` gains `OpAddConnection`, which writes
+  a `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML:
+  `connector`, `binding`, `flow`, `succession`) into an owner's body with its ends spelled as they
+  resolve from that scope, and refuses a kind the language does not have, a type on a kind that takes
+  none, an end that does not resolve, or a name already taken.
+
+- **A model can say where a view draws its elements, and every rendering carries it.** The
+  bundled `DiagramLayout` library declares `Layout` (`x`, `y`, optional `width`, `height`,
+  `collapsed`), `Route` (an edge's waypoints, flattened `x0, y0, x1, y1, …`) and `Canvas` (a view's
+  `unit`, `width`, `height`), in pixels from the top-left corner. A `metadata Layout about <element>
+  { … }` stated in a view's body places the element in that view; an `@Layout { … }` inside the
+  element's own body is what every view that does not place it falls back to. The geometry rides
+  the rendering tree (`Node.Geometry`, `Edge.Route`, `Rendering.Canvas`) in the tree,
+  interconnection, state and action renderings; Mermaid keeps it as `%% layout:`, `%% route:` and
+  `%% canvas:` comments after the header, the text form appends `at (x, y)`, `size w×h`, `collapsed`
+  and `via (x, y) …`, and `opensysml/render` adds optional `x`, `y`, `width`, `height`, `collapsed`,
+  `route` and `canvas` fields. A model without layout annotations renders byte-for-byte as before.
+- **Validation of layout annotations.** `-validate` and the REPL warn about a `Layout` or `Route`
+  on an element the rendering draws no node or edge for, and about a second position for one
+  element in one view (the first applies); a `Route` with an odd number of values, a non-constant
+  binding, a `Canvas` binding only one of `width` and `height`, and a `Canvas` stated outside the
+  body of the view it sizes are errors.
+
+- **DOT diagrams can be filled from a named colourblind-safe palette.** `-render-palette <name>`
+  on `-render` and `-render-all`, `%render <name> dot <name>` (completed with <kbd>Tab</kbd>), a
+  `palette` field on `opensysml/render`, and a `palette` attribute on a document's `Diagram` block
+  fill the DOT form's nodes by keyword family — a `part def` and its `part` usages share a hue, a
+  `port` takes the next, and so on through item, port, attribute, action, state, requirement,
+  constraint, connection, interface, use case, case, allocation, analysis, verification, enum,
+  occurrence and flow. The palettes are `okabe-ito` (Okabe & Ito), `tol-bright`, `tol-muted` and
+  `tol-light` (Paul Tol), `brewer-set2` and `brewer-dark2` (ColorBrewer), and the sequential
+  `viridis` and `cividis` (matplotlib), which are sampled evenly across the families a diagram
+  draws. A definition is filled with the family colour and a usage with a lighter tint of it, both
+  bordered in the colour; every fill is lightened until black text on it reads at the WCAG 2 AA
+  ratio of 4.5:1, and pseudo-states, control nodes and cluster borders stay black and white. The
+  palette applies to the DOT form alone: a Mermaid artifact notes it as `%% not represented:`,
+  the text and Markdown forms ignore it, and an HTML document figure carries it as `data-palette`.
+  A name that is no palette is refused on every surface with the names there are (`invalid-palette`
+  in a document plan, `unsupported-palette` on a table or sequence diagram). The default, with no
+  palette named, is the black-and-white style.
+
+- **The DOT render form draws in the SysML v2 Pilot visualizer's Standard B&W style.** A
+  `-render-form dot`, `%render <name> dot`, `opensysml/render` or document DOT artifact is now
+  drawn as the OMG SysML v2 Pilot Implementation's PlantUML visualizer draws it, after the
+  `sysmlbw` PlantUML skin by Hisashi Miyashita (Mgnite Inc.) shipped with the Pilot: Helvetica
+  text, white fills, thin `#181818` lines (`penwidth=0.5` on nodes, `1` on edges, edge text at
+  13 pt), a definition square and a usage `rounded`, the name in bold over the `«keyword»` line in
+  italics, clusters unfilled with black borders (`1.5` for a package, `0.5` for an element or a
+  region), a connection at `penwidth=3`, and an unnamed initial or final pseudo-state as the
+  filled black UML dot. The `graph`, `node` and `edge` defaults open every digraph and a node
+  lists only what it deviates in. Nothing else moved: node IDs, label text and escaping, `pos`
+  splines, cluster anchors, `lhead`/`ltail`, the header comments and the order of nodes and edges
+  are as before, so a diagram laid out from the old text lays out the same. Producing DOT still
+  needs no Graphviz installation. The translation, what the skin says that Graphviz cannot draw,
+  and the provenance are recorded in `docs/project/view-rendering-forms.md`.
+
+- **A view renders as Graphviz DOT with the new `dot` form.** `sysml -render <view> -render-form
+  dot` (and `.dot` files under `-render-all -render-form dot`), `%render <view> dot` at the
+  prompt, and `"form": "dot"` on the editor's `opensysml/render` request write a tree,
+  interconnection, state or action rendering as a `digraph` for the `dot` engine — containment
+  as `subgraph "cluster_…"`, the flow direction as `rankdir`, states as rounded boxes with
+  `point`/`doublecircle` pseudo-states and trigger/guard/effect labels, and edges styled as the
+  Mermaid form styles them — with `// view:`, `// kind:` and `// layout: dot` header comments and
+  one `// not represented:` line per notice. Producing DOT needs no Graphviz installation; it is
+  written for Graphviz toolchains and for layouts of graphs larger than Mermaid draws. Mermaid
+  stays the default machine-readable form. A `sequence` or `table` view has no DOT form and is
+  refused the way a wrong form always was.
+- **A document renders its diagrams as DOT on request.** `sysml -render-document … -diagram-form
+  dot` (and `-render-documents`), `%render-document <name> dot` at the prompt, and
+  `"diagramForm": "dot"` on `opensysml/renderDocument` write every graph-shaped `Diagram` block
+  of the document as a fenced ` ```dot ` block in Markdown and as `<pre class="dot">` in HTML;
+  the PDF backend keeps the source under a notice that it does not draw DOT, looking for no
+  Graphviz tool. Mermaid stays the default, and a table-kind block is a table either way. The
+  form is a choice of the render, not of the model: a `Diagram` block states what is drawn, and
+  no attribute names the notation. An unknown form, or `dot` on a document holding a `sequence`
+  diagram, is a typed error.
+- **The DOT form draws a view where the model places it.** A rendering's `DiagramLayout` geometry
+  is written as Graphviz reads it: a positioned node is pinned at the centre of its box
+  (`pos="x,y!"`, `pin=true`, one pixel to one point with y measured up from the canvas's bottom
+  edge), a stated size is `width`/`height` in inches with `fixedsize=true` and an unstated one is
+  fitted to the label so the box's corner stays put, a collapsed node keeps `comment="collapsed"`,
+  a positioned cluster states its `bb` and pins its anchor at the centre, a `Route` is the edge's
+  `pos` spline through its waypoints (a route of one waypoint is noticed, not drawn), and a sized
+  `Canvas` is a `// canvas:` header line and an invisible point pinned at each corner, so the
+  drawing's bounding box is the canvas. The `// layout:` header names the engine that honours
+  the file: `neato -n2` when every node is placed and any edge routed, `neato -n` when every
+  node is placed and none routed, `neato` when some nodes are, `dot` when none — so `neato -n2
+  -Tsvg view.dot` draws the view as laid out, and a route written under an engine that redraws
+  it is noticed. A model without layout annotations writes the same DOT as before, and no
+  Graphviz binary is run to produce it.
+
+- **A design note for an embedded target at NASA's highest software class**
+  (`docs/internals/design/embedded-target.md`). It proposes how a state machine, an action and
+  the calcs they reach compile to C that runs under an RTOS in a form Class A software assurance
+  can accept: a closed, serializable behavior IR whose written semantics, not the interpreter,
+  is the requirement basis; a freestanding ISO C profile over static tables — no allocation, no
+  recursion, a static bound on every loop, no compiler extensions or non-local exits, one
+  decision per branch so structural coverage is measurable — with a small prelude verified once;
+  a static refusal of every model with an admissible scheduling choice or an unbounded resource;
+  the IR, trace map, resource report and budget file as reproducible configuration items; a
+  fixed-step host interface designed with the planned C ABI and proved under Zephyr on QEMU and
+  as an F´ component; and the evidence a tool qualification argument consumes. Nothing is
+  implemented; the note exists to be reviewed before code is written.
+
+- **The extent operator `all T` evaluates.** `all T` (KerML `ExtentExpression`,
+  `BaseFunctions::'all'`) answers the instances of the named type as an ordered sequence in
+  declaration order, and the typer gives it the static type `T[0..*]`, judging it element by
+  element as it does any collection where a collection binds (`attribute xs : Boolean[*] = all
+  Flags;`), while a condition `all T` is refused for any `T`, Boolean-typed included, as the
+  sequence it is rather than the one Boolean a condition needs — as is an extent given to a Boolean
+  operator (`not all Flags`, `all Flags and true`) — and `all Car as String` warns
+  that the cast selects nothing. Because objects materialize
+  lazily, the extent is the run's: for a variation definition or usage it is the variants it
+  declares (`all engineChoice` in the trade-off pilot model now yields the engine alternatives,
+  and its trade study proceeds to evaluation instead of stopping at the operator); for an ordinary
+  definition it is every object the run has materialized or the current context reaches that the
+  definition classifies, nested usages included; for an enumeration it is the declared literals.
+  Any other data type, scalar (`all Integer`, `all String`) or structured (`all Point`), is
+  refused with the typed `ErrUnboundedExtent`, since a run creates no data values to enumerate; an
+  operand that is not a type (a package, a relationship, a comment, or no name at all) with
+  `ErrTypeMismatch`, and a name that resolves to nothing with `ErrUnresolvedType`. Only nested
+  usages whose type may hold an object of the type are materialized for its extent, and of those
+  every one but a usage that would create another object of a declaration already on the path,
+  settled by its value's possible types where they agree and else by what reading it makes, a
+  read making one undone (so a composition recursing through one declaration ends, while each
+  object a run linked to another of its declaration still has its own nested usages read and a
+  value choosing at run time between recursing and not contributes what it chose); one the extent
+  cannot materialize ends it with that usage's error rather than an extent short of it, and one
+  making an object on the path together with one that may lead to a `T` is undone and refused
+  with `ErrExtentUnavailable` naming it.
+  An extent that a package-level port may contribute to is refused with the typed
+  `ErrExtentUnavailable` naming the usage, since the runtime denotes no object of such a usage,
+  rather than answered without it. A namespace-level object usage given a value (`ref part car : Car = new Car();`,
+  `part fleet = new Truck();`, `ref part alias : Car = spare;`) is bound to that value for the run —
+  a feature value binds its feature to its expression's result (KerML 1.0 §7.4.11 Feature Values,
+  §8.4.4.11) — so `all Car` reaches the object it denotes before any read of it, and the usage
+  denotes that one object on every read; it used to be evaluated anew on each read, so `car` read
+  twice was two `Car`s. A `default` or initial (`:=`) value at namespace level is held for the run
+  the same way, there being no other individual for it to be realized on; a `default` nested in a
+  definition is still what each object built from it reads at construction. A usage bound to an
+  extent of its own type (`ref part cars : Car[*] = all Car;`) stands for no object while it is
+  being bound, and one whose value depends on it for none yet, so the extent binds to the objects
+  there are; a value reaching back to its own usage is refused as a cyclic feature value. A binding
+  refused after constructing objects (`ref part car : Car = new Boat();`) leaves none of them
+  behind, however often the usage is read. `all T`
+  is never model-level evaluable, so a `filter` or metadata value built on it is diagnosed. The
+  native compiler keeps refusing `all` with a typed `UnsupportedError` (`operator
+  'all'`), since a compiled program has no run whose extent it could report.
+
+- **The `meta` cast evaluates.** `x meta T` (KerML 1.0 §7.4.9.2 MetaCastExpression) is now a
+  value rather than the refusal `unsupported operator: 'meta'`: as the shorthand for
+  `x.metadata as T` it answers, of the element `x` names, the metadata annotations whose type
+  conforms to `T` in model order, then the element's reflective metaobject when its own metaclass
+  conforms to `T` (§8.3.4.8.15), and `()` when neither does (`seatBelt meta SysML::PartDefinition`
+  for a part usage). The metaobject is a value of its own kind: the element together with the
+  reflective metaclass that classifies it, equal to and identical with every other metaobject of
+  the same element whatever it was cast to, and rendered `meta(Pkg::x : SysML::Systems::PartUsage)`
+  in the REPL and in traces. The metaclass's features read off it through ordinary member access —
+  `declaredName`, `name`, `qualifiedName`, `shortName`, `documentation`, `isAbstract`, `isComposite`,
+  `isDerived`, `isEnd`, `isOrdered`, `isUnique`, `isVariable`, `isConstant`, `isPortion`,
+  `isSufficient`, the element-valued `owner`, `ownedMember`, `ownedFeature`, `type` and
+  `documentation` (metaobjects in turn, `definition` for a SysML usage; a `doc` comment's own
+  `body` and `locale` are its strings), `direction` (a `FeatureDirectionKind` literal), a
+  dependency's `client` and `supplier`, and a textual representation's `language`, `body` and
+  `representedElement` (its owner) — each shaped by the feature's declared multiplicity; a feature the metaclass declares but the
+  runtime does not derive (`ownedRelationship`, …) is a typed error naming the feature and the
+  element, and a name the metaclass does not declare is the ordinary missing-member error.
+  `sysml -compile` refuses a `meta` cast by name, a metaobject having no native representation;
+  `@@`, `@` and the static reading of `meta` in a `SemanticMetadata::baseType` are unchanged.
+- **`x.metadata` ends with the element's reflective metaobject.** A MetadataAccessExpression
+  yields the referenced element's metadata annotations followed by one metaobject of the
+  element's own metaclass (KerML 1.0 §8.3.4.8.15), so `seatBelt.metadata->size()` on a part
+  annotated once is `2` and the metadata of an element nothing annotates is that metaobject
+  alone rather than `()`. The pilot evaluator answers the same counts; the two conformance
+  fixtures and the pilot referee record moved with it.
+- **Metaobjects cross the gRPC boundary.** `Value.metaobject` carries `element_id`, the
+  qualified name of the element (its identity), and `metaclass_id`, the qualified name of the
+  metaclass that classifies it, in both directions of `Evaluate`, `EvaluateCalc`, `ExecuteAction`
+  and `RunAnalysis`; a metaobject sent as an argument is rebound to the named model's element,
+  `metaclass_id` resolved when omitted and refused in band when it names another metaclass, and
+  one naming no element is refused in band rather than read as null. The service advertises the
+  `metaobject_values` capability; without it a metaobject in a response is an unsupported null and
+  one in a request is `UNIMPLEMENTED`. The Go, Python, Node, Java and Rust clients read the arm as
+  a typed value equal by element (`opensysml.Metaobject`, `{ kind: "metaobject" }`,
+  `Value.MetaobjectValue`, `Value::Metaobject`), reject an empty `element_id`, and refuse to send
+  one to a service lacking the capability; the conformance suite pins the arm over gRPC, Connect
+  protobuf and Connect JSON.
+
+- **A `MOSA` library for the Modular Open Systems Approach** (`OpenSysML Libraries/MOSA.sysml`, non-normative), named as 10 U.S.C. § 4401 names its concepts: `MajorSystemPlatform`, `MajorSystemComponent`, `ModularSystem` and `ModularSystemInterface` with their `#majorSystemPlatform`, `#majorSystemComponent`, `#modularSystem` and `#modularSystemInterface` keywords (`#keyInterface` is the practitioner's alias, a specialization of the statutory keyword); `Standard`/`ConsensusStandard` with a `#conformance` connection whose ends are `#conformant` and `#conformsTo`; `DataRights`, `Proprietary` and `InterfaceControl` metadata; `MOSAObjective`, `ModularityRequirement` and `InterfaceRequirement`; `MOSAConformance` over the guidebook's assessment criteria and `MOSAPackage` over its five pillars; viewpoints and view definitions for the modular decomposition, the modular interfaces, the standards, the proprietary elements, the data rights, the requirements and the conformance; and document queries (`InterfaceRegister`, `StandardsRegister`, `DataRightsRegister`, `ProprietaryRegister`, each walking `depth` ownership levels below `root`, sixteen by default) with an `InterfaceControlDocument` to specialize. `ParametersOfInterestMetadata`, `RequirementDerivation` and `ModelingMetadata` are re-exported. The worked example is `examples/mosa-demo/`; the design is `docs/project/mosa-library.md`.
+- **MOSA openness checks** (`mosa-interface-no-standard`, `mosa-interface-no-control`, `mosa-interface-not-traced`, `mosa-component-no-data-rights`, `mosa-proprietary-no-rationale`, `mosa-boundary-not-designated`): constraint-tier warnings that a modular system interface conforms to a standard or is marked proprietary, is controlled, and satisfies an interface requirement, that a major system component or modular system records its data rights, that a proprietary element states its rationale, and that a connector between two distinct components is designated a modular system interface — each rule waits until the model states the kind of fact it looks for, and a model that never touches `MOSA` gets no finding.
+
+- **A namespace-level object usage of several occurrences denotes its objects.** `part wheels :
+  Wheel[2];`, `item links : Link[3];` or `part hubs : Hub[1..*];` declared in a package with no
+  value now denotes its lower bound of objects for the run (KerML 1.0 §7.3.4.3 Multiplicities — a
+  feature of multiplicity `[2]` has exactly two values), created once in declaration order and
+  reused on every read, through the same materializer that fills a collection nested in an object;
+  a `[0..*]` usage still denotes none. `all Wheel` counts them beside the `[1]` usages, a usage of
+  exact count reads as the sequence (or set) of those objects, and `wheels#(1)`, `wheels.radius`
+  and `size(wheels)` read them, in the REPL and over gRPC alike, while a usage of open count read
+  directly (`hubs`, `size(hubs)`) stays undetermined of that count, as a nested collection of open
+  count does, and one whose bound the model does not evaluate (`part wheels : Wheel[2..n];`)
+  fixes no count, so it denotes nothing and an extent that may reach it is refused with
+  `ErrExtentUnavailable` naming the usage and its bounds; the trace names each member after its
+  usage (`wheels #1`, `wheels #2`). It used to denote nothing, so `all Wheel` was refused with
+  `ErrExtentUnavailable` and `wheels.radius` was undetermined. A valued usage (`part wheels :
+  Wheel[2] = (new Wheel(), new Wheel());`) is bound to its value instead, and a value whose count
+  breaks the declared multiplicity is refused with `ErrMultiplicityViolation` naming the usage. A
+  member that cannot be constructed, a lower bound over the materialized-collection cap
+  (`part many : Wheel[10000];`) or over the element budget is that typed error naming the usage
+  and leaves no object, behavior or record behind. A write chained from the usage (`assign
+  wheels.radius := 2.0;`) reaches several objects and is refused with `ErrTypeMismatch`, as a write
+  through a nested collection is, leaving the objects as they were. A constraint or requirement the
+  definition declares (`constraint small` in `part def Wheel`) takes the members as one declaration
+  when it looks for its subject, as it takes the members of a nested collection, so it is decided
+  once rather than refused as ambiguous between them; a second usage of the definition remains a
+  distinct carrier. A port at namespace level still denotes no object and keeps its
+  `ErrExtentUnavailable` refusal.
+
+- **Named standard-library elements carry the normative element ids the KerML and SysML
+  specifications fix for them.** `ScalarValues::Real` is `14c0aa22-5489-59b5-b438-ded26e83ba31`
+  here as it is in the pilot implementation and on every conforming SysML v2 API server, instead
+  of the encoded name `ScalarValues__Real`, so a graph, a Flexo project or an element-by-element
+  comparison that names a library element names the same element on both sides. The id is the
+  name-based UUID (`uuid5`) the norm prescribes: the library package's over the OMG specification
+  URL and its name, a named member's over the package id and its qualified name, and the owning
+  membership's over the same with `/owningMembership` appended. The RDF mapping writes the
+  normative id as the IRI tail, `sysml:elementId` and owning-membership IRI of every named element
+  of the bundled library and reads it back without inventing an `@IdentityMetadata::ElementId`
+  for it; the Flexo sync treats it as neither declared nor mintable; the LSP hover states it with
+  its source and language (`Element id `14c0aa22-…` (normative, KerML)`), and the code action that
+  mints an id is no longer offered on a library element. A declared `@ElementId` still wins, and a
+  user element without one keeps its encoded name. Unnamed, aliased and shadowed library elements
+  keep derived ids, since the norm gives them none that agrees across implementations.
+  `TestPilotLibraryXMI` asserts every derived id and owning membership against the pilot's
+  `sysml.library.xmi` at the pinned release (`./scripts/download-pilot-library-xmi.sh`), and CI
+  requires the download.
+
+- **Sweep rows run in parallel under `-jobs`, each in a context of its own, with the same table
+  whatever the count.** `-sweep`/`-samples`, `%sweep`/`%samples` and the `RunSweep` RPC run
+  their rows `-jobs` (`%jobs`, `OPENSYSML_JOBS`) at a time. Every row is a run of its own: it
+  instantiates the case's subject and the `self` of a nested case in a fresh context over the
+  plan's worker and carries the arguments' values in — evaluated once at the prompt, so a held
+  feature a run wrote reads as written, an argument naming a held object bound to the object
+  the row makes for it — so a case that writes a feature of its subject writes its own row's
+  object and no row sees another's; the table comes out in range order whatever order the rows
+  finish in, so the rows, their outputs, verdicts, evaluations and errors are those of
+  `-jobs 1`, only each row's `time` and the report's `workers`/`warming` varying with the
+  count; the RPC's response numbers every row's objects apart in its `instances` table. A
+  `%sweep` on an object the session holds runs each row on a fresh object of the held object's
+  declaration (one reached through a feature of another on the like of its root, walked along
+  the same path) and leaves the held object as it was, which stands for it while it is as the
+  declaration made it; an object named by `#<id>`, one a run has written a feature of or
+  destroyed, or one running a behavior its type exhibits or performs — one fresh from
+  `%instantiate` included, for now — is refused naming the reason rather than swept on the
+  session's context, as is an argument naming such an object or holding a value bound to the
+  run that made it, and the session's readers are no longer held up while the rows run. A
+  deadline met mid-sweep starts no further row, discards the rows in flight and reports the
+  deadline and no table, as one job does when it meets the deadline between two rows.
+
+- **A view renders as PlantUML with the new `plantuml` form.** `sysml -render <view> -render-form
+  plantuml` (and `.puml` files under `-render-all -render-form plantuml`), `%render <view>
+  plantuml [palette]` at the prompt, and `"form": "plantuml"` on the editor's `opensysml/render`
+  request write a tree, interconnection, state, action or sequence rendering as an `@startuml` …
+  `@enduml` file in the Standard B&W style of the OMG SysML v2 Pilot Implementation's visualizer,
+  the style carried inline as a `<style>` block so the file stands alone: a tree as a class diagram,
+  an interconnection as nested `rectangle` blocks with the Pilot's heavy undirected connectors and
+  dashed flows, a state or action rendering as the `state` grammar with composite states, `[*]`
+  starts and PlantUML's pseudostate stereotypes, and a sequence — the one kind DOT does not write —
+  as participants and messages. Labels lead with the name in bold over an italic `«keyword»` line,
+  the keyword doubling as a stereotype the style selects definitions and usages by; the header,
+  notices and DiagramLayout geometry are `'` comments, with a notice that PlantUML pins no position
+  (the `dot` form does). The named palettes fill the nodes with the same colours the DOT form
+  uses, a sequence's participants included. Producing PlantUML needs no Java and no PlantUML jar;
+  nothing runs one. Mermaid stays the default machine-readable form, and a `table` view has no
+  PlantUML form.
+- **A document renders its diagrams as PlantUML on request.** `sysml -render-document …
+  -diagram-form plantuml` (and `-render-documents`), `%render-document <name> plantuml` at the
+  prompt, and `"diagramForm": "plantuml"` on `opensysml/renderDocument` write every graph-shaped
+  `Diagram` block as a fenced ` ```plantuml ` block in Markdown and as `<pre class="plantuml">` in
+  HTML; the PDF backend keeps the source under a notice that it does not draw PlantUML, looking
+  for no PlantUML tool. A table-kind block is a table whichever form. A `Diagram` block's `palette`
+  is now accepted on a sequence diagram too, since the PlantUML form fills its participants; a
+  palette on a table remains a typed error.
+
+- **The OMG PSSM state-machine test suite runs as an advisory referee.**
+  `cmd/pssm-referee` downloads nothing itself: `./scripts/download-pssm-suite.sh` fetches the
+  pinned `PSSM_TestSuite.xmi` (OMG `ptc/18-11-06`, 103 tests) over HTTPS, checks its sha256 and
+  places it under the ignored `build/pssm/`; nothing from the suite is committed. The referee
+  reads the suite's XMI, classifies every test — standard notation, this project's `fork`/`join`/
+  history/`defer` extensions, the terminate gap, or no SysML v2 spelling — translates each
+  expressible test into textual notation in memory by the construct table of the precise-semantics
+  alignment note (every `trace("…")` appends to a `String` attribute `log`), runs it under the
+  runtime's own state-machine driver with the `explore` schedule, and compares the set of `log`
+  values reachable against the suite's expected traces in both directions. Each test is filed as
+  `pass`, `fail`, `not-expressible`, `terminate-gap` or `differs-by-design` (the last only through
+  a committed table mapping the test to a note row that differs by design, never inferred from a
+  failure); a typed runtime error or an exhausted budget is a `fail` that names it. `-jobs`
+  explores in parallel with byte-identical output, `-filter` selects tests, `-keep` writes the
+  translated models for debugging, `-json` prints the full report, `-update` records the baseline
+  and `-check` fails when the bucket counts move. `docs/project/pssm-referee.md` records the pin,
+  the licence reading, the construct mapping as implemented, the counts with the date and
+  `develop` commit they were measured on, and every test's bucket and reason; the pull-request
+  workflow provisions the suite and gates on the counts. A pass checks that the runtime reproduces
+  UML behavior where the model has a defensible SysML v2 mapping and is never evidence of SysML v2
+  conformance. The state-machine driver the conformance tests used (`PerformState`, `Explore`,
+  `QueuedEvent`) is now exported by `internal/core/runtime` so both harnesses share it; no
+  runtime behavior changed.
+
+- **A runtime showcase under `examples/runtime-showcase/` shows what only running a model
+  answers.** Four small models — a recursive mass rollup over a materialized launch vehicle, a
+  delta-v budget whose rocket equation carries units through to an analysis objective and a
+  requirement, a reliability product asserted of two missions, and a mission action branching
+  on its remaining budget beside a clocked state machine — each pair a construct that validates
+  clean with one that fails at runtime with the reason named: an inherited attribute no usage
+  values, a result computed in the wrong dimension, a name that resolves to a valueless library
+  quantity, an action with three steps and no succession between them. The README reproduces
+  every run command by command, and does the same for the published Apollo 11 model at a pinned
+  revision, where the same four defects stop the model's own calculations and the instantiation
+  of its mission. The project README and the landing page lead with the runtime — what it
+  materializes, computes, performs and decides — and open on that showcase; the landing page's
+  terminal gains an *Analysis* pane and a *Found at runtime* pane ahead of the REPL one.
+
+- **The SMT model checker decides properties over free inputs, and is reachable as `-engine
+  smt`.** A feature the model leaves unbound — an `in` parameter with no argument, an attribute
+  with no default — is now a free variable of the initial state, ranging over its declared type
+  (`Boolean`, `Integer`, `Natural` as `>= 0`, `Real` and a quantity over one, an enumeration's or
+  variation point's constructors), and over its absence too when its multiplicity admits none
+  (`x : Integer[0..1]`, reported *free … or absent*, a witness spelling it `input x = null`); a
+  feature the model binds stays pinned as before, and a
+  declared type the encoding cannot narrow (`String`, a collection, an object-valued feature) is
+  *not covered* naming it, before any query. `-check-input <feature>` (`%check-input`) leaves a
+  bound feature free in its domain; `-check-assume <constraint>` (`%check-assume`) asserts a
+  constraint or requirement over the initial state, one no initial state satisfies being *not
+  covered: assumptions admit no initial state*, never *proved*. A proof now reads *proved over
+  schedules and inputs: inputs free in their domains* and lists each free input and assumption; a
+  violation's witness names the values the solver chose (`inputs chosen from their domains`), its
+  file opens with `input <feature> = <value>` lines ahead of the choice lines, and `-schedule
+  replay:<file>` fixes them as the action starts before following the moves — a file without
+  input lines replays as before, and one naming a feature the action lacks is refused naming it.
+  `-json` results gain `inputs` (name, type, domain, `free`, `optional`, value) and `assumptions`, and a
+  witness its `inputs`. `-check-unroll <n>` (`%check-bounds unroll=`, `Budget.Unroll`) bounds the
+  loop unrolling (default 4); `-check-depth` is the move bound under `smt` too (default 40). The
+  `smt` engine joins the build's registry at authority *proved*, listed by `-engines`,
+  `%engines` and `ListEngines` with its solver as its status; `-engine smt` and `%engine smt`
+  reach it, `-engine all` with `-check-input` shows `check` refusing the free inputs beside its
+  answer, and since no check is asked as `holds` under `auto`, no existing verdict, plan line or
+  golden changes.
+
+- **An SMT model checker for actions on concrete inputs.** `internal/core/smt` encodes the
+  lowered action graph — straight-line bodies, fork, join, merge, decisions, body loops unrolled
+  to a bound, pins and object flows — as a transition relation over `k` moves and asks an SMT
+  solver whether any schedule violates a requirement or constraint, or deadlocks. `unsat` is
+  *proved* when every schedule finishes within the bounds and *bounded* otherwise; a `sat` model
+  is decoded to the interpreter's choice lines and replayed through it, and is *violated* only
+  when the replay reaches the state the solver described; `unknown`, a timeout, a body the
+  encoding cannot express (clock, messages, nested flows, object-valued assignments, calc
+  invocation, nonlinear arithmetic) and a replay that disagrees are *not covered* with the
+  reason. The `smt` engine implements the analysis `Engine` contract over the solver
+  `OPENSYSML_SMT`, `z3` or `cvc5` names, with `k` from `Budget.Depth`, the solver time from
+  `Budget.Solver` and an unroll bound of its own (4), and is refereed against `explore` over the
+  conformance corpus: outcome sets must agree, every witness must replay, and a proof must agree
+  with exhaustive exploration. It is not yet registered with the default engines, so no verdict,
+  golden or exploration changes; `-engine smt` follows.
+- **`replay:<file>` scheduling policy.** A file of choice lines — as `explore`'s witness column
+  spells them, one per line up to the first blank line, or `no choice points` alone for a run
+  that met none — is followed move for move, then the run continues as `reverse`. A move the run cannot make (a pick not offered, a step already passed,
+  a line left over at the end) fails the run with `replay refused: move <n> (<choice>): <what
+  the run faced>` rather than running another linearization. Accepted by `sysml -schedule`,
+  `%schedule` and a conformance case's `schedule` pin; over the wire, where a request carries no
+  file of the caller's, the spelling is `INVALID_ARGUMENT`.
+
+### Changed
+
+- **Every analysis question now goes through one framework.** `internal/core/analysis` holds
+  the engine contract the analysis framework design note fixes — `Question`, `Engine`, `Result`,
+  `Claim`, `Strength`, `Bounds`, `Budget` — a registry whose duplicate registrations and missing
+  engines are typed errors, and `auto` dispatch that consults the engines covering a question
+  strongest first, records each refusal and each run-time *not covered* answer in its plan, and
+  stops on a run's error. The interpreter (`run`), `explore`, the parameter sweep (`sweep`) and
+  the SMT solver (`solve`) register as engines over the code that already existed, and the REPL
+  session and the gRPC service put every constraint, requirement and satisfaction check, calc,
+  analysis and verification run, action and state execution, exploration, sweep and `%check`,
+  `%explain`, `%solve`, `%configure` and `%optimize` query to their registry. No flag, command,
+  RPC, field or line of output changed; the framework's own surface — engine listing and
+  selection, the standing line on verdicts, parallel runs — is still to come. `runtime.Explore`
+  takes the caller's `context.Context` as `RunSweep` does, so a `RunAnalysis` request cancelled
+  mid-exploration ends it before the next linearization instead of running every remaining one.
+
+- **Each analysis plan runs on a resolver and semantic model of its own.** The analysis
+  framework builds one `analysis.Worker` per plan over the shared frozen index and every
+  context a run owns on it, so two plans on one model in one process share nothing that
+  memoizes; the result carries how many workers a plan built and how long that took, printed
+  nowhere yet. A run-owned context takes the budget's `Steps` as `OPENSYSML_MAX_STEPS` and
+  `Memory` as `OPENSYSML_MAX_ELEMENTS` at construction and leaves every other bound at the
+  context's own; a zero field is the context's own too. The gRPC service builds a worker per
+  request instead of serializing every runtime request on a model behind one shared pair, and
+  the REPL session answers completion and its getters while an exploration runs on contexts of
+  its own — a second command still waits. No flag, command, RPC, field or line of output
+  changed.
+
+- **The bounded model checker's independence relation counts message order.** The design note
+  (`docs/internals/design/bounded-model-checking.md`) now declares any two sends, and any two
+  accepts, dependent whatever their receivers: the bus is one context-wide list in arrival
+  order and an accept takes the oldest match, so neither pair reaches the same captured state
+  in both orders.
+
+- **gRPC: a scalar-valued enumeration literal is an `enum_literal` on the wire.** `Level::high`
+  from `enum def Level :> Integer { low = 1; high = 3; }`, a feature `l : Level = Level::high`
+  and a successful `3 as Level` used to go out as `int_value: 3`, indistinguishable from a bare
+  `3`; they now go out as `enum_literal`, like a plain enumeration's literal. The `EnumLiteral`
+  message gains an optional `value` field (additive, so existing decoders keep working) that
+  carries the scalar the literal equals, unset for a literal that is only its identity. The
+  Go, Python, Node, Java and Rust clients expose it as an optional `value` on their enumeration
+  literal type, keeping the literal's identity in `literal_id` alone. A bare `3` that no
+  enumeration value holds stays `int_value`.
+
+- **The documentation describes action execution in KerML's terms.** The action executor is a succession-ordered scheduler over the lowered `ActionGraph`; "token" names its bookkeeping for where each performance is, not a Petri-net or fUML semantics, and the API reference, architecture, roadmap and self-model say so. The composite-state conflict rule (the innermost enabled transition wins) is cited to KerML `StatePerformances::StatePerformance::acceptable` rather than to UML.
+
+- **The landing page's hero terminal is a carousel of what the toolchain does.** Where the page showed one REPL transcript, it now cycles through six panes — the REPL, rendering a document from the model, checking a model, running a state machine, the model as RDF with a query, and the Python client — each with a link into the guide or manual. The panes are tabs of one fixed size: each prints itself as it comes up — commands typed, output by the line, the pane following the tail until the reader scrolls it — then holds for a few seconds before the next. Wide or tall transcripts scroll behind hidden scrollbars and the link floats over the pane. Rotation pauses while hovered or focused, honours `prefers-reduced-motion` (no printing, no rotation), and panes can be chosen with the mouse or the arrow, Home and End keys.
+
+- **The extent `all T` is taken over the whole model, not the namespaces enclosing the
+  expression.** The roots of `all T` are every object the run holds and every namespace-level
+  object usage of every document of the loaded model that may hold a `T` — an imported package's,
+  an unrelated un-imported package's and the standard library's alike, so `size(all Car)` in a
+  package importing `Gaps` counts `Gaps::car` as `Gaps` itself does, and `all Clock` answers
+  `Time::universalClock` — materialized as the extent is taken, in document-name then declaration
+  order, the order `.metadata` gives cross-file annotations. The extent is of the type (KerML 1.0
+  §7.3.2.1, §7.4.9.2), not of what the expression's namespace sees, so what it used to answer from
+  a sibling package's expression is now what it answers from anywhere. A usage nested in a
+  definition nothing instantiates still contributes no object, the library's `[0..*]` collections
+  (`Parts::parts`, `Items::items`) neither count nor refuse, a namespace-level collection or port
+  that may hold a `T` still refuses the extent with `ErrExtentUnavailable` naming it, and a usage of
+  another document that cannot be read ends the extent with that usage's error naming it. The
+  model's namespace usages are enumerated once per model and judged once per run and type, and a
+  binding to an extent is read again when a re-analysis adds or removes such a usage in any
+  document.
+
+- **Diagram node labels lead with the element's name.** Every Mermaid and DOT node written by
+  the view engine — `-render`, `-render-all`, `%render`, `opensysml/render` and a document's
+  diagram blocks — now heads its label the way the graphical notation heads a compartment: the
+  name on the first line, with ` : Type` after it for a typed usage (`pump : Pump`), the kind on
+  the next line in guillemets (`«part»`, `«part def»`), and any note (`initial`, `already shown`,
+  `own flow`) after that; an anonymous element leads with its kind alone. Mermaid breaks the
+  lines with `<br>` in the flowchart, `stateDiagram-v2` and `sequenceDiagram` grammars alike, and
+  DOT writes an HTML-like label (`label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>`)
+  with the name in bold and the keyword line smaller, for clusters as for nodes, escaping `&`,
+  `<`, `>` and `"` in a name. The text form keeps the keyword first, as the notation declares it,
+  but writes the type after a colon — `part pump : Pump` instead of `part pump (Pump)`. Edge
+  labels, sequence messages, geometry comments and notices are unchanged. The `opensysml/render`
+  result carries a node's declared type in its own `type` field; `detail` holds the notes alone.
+  A declared type is spelled as written: a conjugated port type keeps its `~`, a global name its
+  `$::`, a name that is not a basic one its quotes, and a usage typed by several types lists them
+  all (`base : Mount, Cart`). A Mermaid flowchart reserves one line of height for a `subgraph`
+  title, so an interconnection or action rendering whose cluster title spans more opens on a YAML
+  frontmatter block (`config: flowchart: subGraphTitleMargin: bottom: <n>`, 24px per extra line)
+  that keeps the title clear of the first child; a flowchart without such a cluster, a tree, a
+  state and a sequence diagram carry none.
+
+- **SysML v1 migration reads the open model formats, tool-neutrally.** `-convert` from `xmi`
+  takes OMG XMI 2.5.1 with UML 2.5 and the OMG SysML 1.x profile, Eclipse UML2 `.uml` files as
+  Papyrus writes them (`uml` is the new `-from` synonym; `.uml` is recognized by extension), and
+  a zip archive holding the XMI, a `.mdzip` project among them. Only the OMG and Papyrus
+  namespaces of the SysML profile classify elements — matched by host and path, so a lookalike
+  namespace elsewhere does not — and a tool's own customization stereotypes over SysML are
+  preserved as applied-stereotype comments like any other custom profile rather than
+  special-cased. The canonical fixture and its goldens are a vendor-neutral XMI export.
+
+- **The pinned OMG pilot implementation is now release `2026-08` (`jupyter-sysml-kernel` 0.62.0)**,
+  with the reference validators, the vendored standard library, the pinned corpora, grammars and
+  Xpect suites, and every oracle baseline re-recorded at that pin. The grammars, the standard
+  library and the validation-constraint set are unchanged from `2026-07`; what moved is the
+  pilot's own behavior: it now reports a type's `disjoint` clauses (the six `kerml-examples`
+  diagnostics it alone used to raise are gone), and its new Xpect assertion that a feature may
+  not own two `crosses` clauses is met. The validator build passes the pin to Maven, so the
+  wrapper no longer has to be re-pinned for a pilot release it does not yet default to, and it
+  stamps `build/pilot-validator` with the pin it was built from so a later re-pin rebuilds a
+  stale or incomplete validator instead of reporting it already built. The rebuild is staged
+  beside the installed copy and swapped in only once complete, with the previous copy kept until
+  the new one is in place, so a failed or interrupted run keeps the previous validator usable;
+  the SysML, KerML and evaluator builds always go through that check before compiling against
+  the jar.
+- **The Xpect scope oracle narrows a scope to the inherited members only for a redefinition.**
+  A `subsets` clause whose target is spelled differently from the declaring feature's own name
+  was being treated as a redefinition, which restricted the names the scope check expected at
+  that target to the inherited members alone.
+
+- **The runtime's `Context` is split into a shared `Model` and a run's own state, and a run
+  can be snapshotted and restored.** `runtime.Model` holds what the runtime derives from the
+  model alone — the semantic model, the resolver, the memoized calc shapes, write and
+  invocation targets, literal caches, compiled calc closures and effective features — and is
+  built once per analysis worker; `runtime.NewContext(model, maxSteps)` allocates only what a
+  run mutates (objects, lifetimes, variants, the message bus, the clock, the scheduler, the
+  trace), so a fresh context rebuilds none of the model's tables. `Context.Snapshot`, and the
+  action and state executors' `Snapshot`, mark the run's journal between steps and capture the
+  executors' tokens, frame tree, configuration, event queue, timers and `do` progress;
+  `Restore` rolls the run back to the mark as often as asked, keeping every object's identity,
+  until `Release`. A snapshot asked for inside a step or of a body paused mid-statement is the
+  typed `ErrSnapshotMidRun` or `ErrSnapshotPausedBody`. The conformance suite proves the round
+  trip on every case at every step, and `OPENSYSML_SCHEDULE_SEEDS` widens its scheduling sweep
+  to further seeds. No flag, command, RPC, field or line of output changed.
+
+- **The architecture self-model now describes the analysis framework.** `examples/self-model`
+  gains `AnalysisFramework` — the seven question kinds and three freedoms, the five-step
+  evidence scale and ten claims, the per-owner engine registry, the dispatcher with its `auto`,
+  `all` and named selections, the seven-field plan budget with `OPENSYSML_JOBS`, the worker
+  fleet, and the four engines this build registers with what each answers, what bounds it and
+  the strongest evidence it can produce — wired into `AnalysisPipeline` and asked from the REPL,
+  the service and the command line through the `%engine`/`%jobs`/`%engines` commands, the
+  `engine` field, `ListEngines` and the `engines` capability, and the `-engine`/`-jobs`/`-engines`
+  flags. The runtime's split of model-derived from run-derived state is modelled with the snapshot
+  store and the exploration queue it makes possible. Five behaviors join the model — one question
+  answered, a behavior's outcomes explored over a fleet of workers, the evidence ladder, a worker's
+  life in a plan and a snapshot as a mark between steps — with four invariants over them
+  (`questionsHaveOneContract`, `evidenceIsHonest`, `runsAreIsolated`, `snapshotsAreRunState`), the
+  gates that verify them, eight views and an architecture-document section with an engine table
+  generated from the model. `go test ./examples/` holds every new fact to `internal/core/analysis`
+  and the runtime — engine names and descriptions, kinds, strengths, claims, budget fields, the jobs
+  variable and its parsing, the selections, the exploration defaults, the snapshot refusals and the
+  surfaces' commands, flags, field, RPC and capability — and exercises worker isolation: two jobs of
+  one plan get runtime models of their own, two runs on one worker get contexts of their own.
+
+- **A deferred event outranks a transition in an enclosing state or a sibling region.** While a
+  state that defers an event is active, the event is held back from every enabled transition
+  except one whose source is that state or a state nested in it; a transition in an enclosing
+  state or in a sibling orthogonal region waits until the deferring state is exited, and the
+  event is then dispatched, ahead of later arrivals, to the configuration that exit leaves. Only
+  a nested transition overrides the deferral and consumes the event, and with two regions each
+  deferring it, the event fires only if every deferring state has such a nested transition.
+  Before, a sibling region's transition fired on the event and the deferral was never
+  consulted. The outcome is determined by the configuration and is not a choice point.
+- **A history with nothing to restore performs the owning state's ordinary entry.** A `history`
+  or `deep history` that has no recorded configuration and no outgoing default transition now
+  enters the owning state as a first entry would, through its `entry; then …;`, instead of
+  failing the run; a region left through `done` records no history and is re-entered the same
+  way. An owner with neither a default transition nor an entry transition fails with the typed
+  `ErrHistoryWithoutEntry` naming the history.
+- **A composite state's completion fires the composite's own completion transitions; the machine
+  ends only when its top-level regions complete.** `then done;` inside a composite state's body
+  now ends that state: once its do behavior and every region have ended, its transitions with no
+  trigger are queued as completion events at the current instant, ordered as a plain state's are,
+  so `state outer { … then done; } transition first outer then next;` enters `next`. Before, a
+  nested `done` completed the whole machine and the composite's completion transition never
+  fired. A completed composite with no enabled completion transition stays active and the
+  machine runs on until its own top-level regions reach `done`.
+- **A `choice` reads its guards after the incoming transition's effect; a `junction` before.**
+  A route through a choice is now resolved on arrival: the states every branch leaves are
+  exited, the effects into the choice run, and only then are its guards read, so `transition
+  first idle do assign x := 1 then pick; transition first pick if x == 1 then seen;` reaches
+  `seen`. Several enabled branches are the existing transition choice point, which `explore`
+  enumerates and `seed:<n>` replays; no enabled branch fails the run with the typed
+  `ErrChoiceWithoutBranch` naming the choice. A junction's guards are still read before the
+  transition fires, so a junction with no holding guard leaves the transition not enabled, and on
+  a chain each pseudostate follows its own rule at the point the route reaches it.
+
+- **An unnamed transition is an anonymous member of its state.** `transition first off then
+  on { … }` had a scope for its body but no symbol, and one with no body had neither, so nothing
+  that walks a state's members by declaration — a `Route` annotation in the body among them —
+  could find it, while the same transition named `t` was found. Every transition is now
+  registered as a named one is, an unnamed one under no name, so it resolves nothing new and is
+  listed and annotated as the state's own feature (SysML v2 §7.19.2).
+
+- **An untyped parameter of a collection-operation body is typed by the collection's elements.** A body applied by `collect`, `select`, `reject`, `selectOne`, `forAll`, `exists`, `reduce`, `minimize` or `maximize` — in the `xs.{…}`, `xs.?{…}`, `xs->f {…}`, `f(xs, {…})` and `f(mapper = {…}, collection = xs)` notations alike — binds its parameter to each element of the collection (KerML 1.1 §8.3.4.8), so a parameter declaring no type now takes the element type(s) the collection is statically known to hold, as do a reducer's second parameter and the parameter of a body nested in another's. A reducer's first parameter holds the reducer's own result from the second fold on, so it takes the element type(s) only where that result, typed under the assumption, conforms to them (`cs->reduce {in a; in b; a}`); `cs->reduce {in a; in b; a.mass}` leaves `a` untyped as before, its `a.mass` refused rather than passed to fail at run time. `xs->collect {in x; x.mass}` and `xs.{in x; x.mass}` are typed `MassValue` as their `in x : C` forms are, `x.mass` is checked against `C`, and `x.nosuch` is reported as an unresolved member where it was passed over before. A body over a collection whose elements cannot be typed keeps its parameter untyped and its result the library's `Anything`. Runtime results are unchanged.
+
+### Removed
+
+- **The `entry point <name>;` and `exit point <name>;` pseudostates are gone.** They were UML's entry and exit points, an OpenSysML extension with no SysML v2 production and no KerML performance, and they added nothing a conforming model cannot write: a transition may target a nested state directly. `entry <action>` and `exit <action>` keep their OMG meaning, `point` is an ordinary name everywhere, and a former `entry point x;` is now diagnosed as an entry action followed by a stray name. The `history`, `shallow history` and `deep history` pseudostates stay, warned as non-standard notation as before.
+
+### Fixed
+
+- **The analysis `Budget`'s `Runs` bounds a sweep's rows and a solver's queries, as it does an
+  exploration's runs.** `Context.RunSweep` takes the row limit it runs under (the context's
+  `OPENSYSML_MAX_SWEEP_RUNS` when none is stated), the `sweep` engine passes the budget's, and the
+  `solve` engine asks no more queries than the budget's runs, leaving the set *not covered* with
+  the `runs` bound reached when some went unasked. `BudgetOf` fills `Runs` in the unit of the
+  question's kind, so a sweep or solver query under an exploring schedule is no longer handed
+  the schedule's exploration runs as its bound. `Registry.Answer` bounds a plan's context by the
+  budget's `Deadline`, so an engine that meets it returns `context.DeadlineExceeded` and stops the
+  plan on that step. No flag, command, RPC, field or line of output changed.
+
+- **A declaration local to a behavior body answers to its declared type, multiplicity and
+  uniqueness when its initial value is bound**, as a parameter, a `return` and a namespace-level
+  declaration already do (KerML 1.0 §7.3.4, "the values of a feature are instances of its types").
+  With `enum def Level :> Integer { low = 1; high = 3; }`,
+  `calc def BodyOnly { in n : Integer; attribute l : Level = n; return : Integer = l + 0; }`
+  answered `BodyOnly(2)` with `2`; it is now the write's `type mismatch: cannot write 2 (an Integer)
+  to a feature typed by Level`, and `BodyOnly(3)` holds `l` as `Level::high`. A local stating a
+  multiplicity (`attribute xs : Integer[2] = (n, n + 1, n + 2);`) is a `multiplicity violation`
+  where its value's count falls outside it, a unique multi-valued local (`Integer[*] = (n, n + 1, n)`)
+  a `uniqueness violation`; one stating no multiplicity keeps the count it is given and one declaring
+  no type holds anything. The rule holds in a calc, action or constraint body, an `if` or loop block
+  and a collection-expression body, and on the compiled tier, which checks a scalar or collection
+  local the same way and declines to compile an enumeration-typed one rather than answer differently.
+
+- **A replay refused at a choice pseudostate leaves the machine as the occurrence found it.**
+  A choice's branch is drawn after the compound transition has left the states every branch
+  leaves and run the incoming segments' effects, so a replay whose witness named a branch the
+  choice does not enable was refused with those exits and effects standing. The refusal now
+  undoes the move whole: the exits, their effects, the incoming effects, the trace and the
+  run's notes are restored and a do behavior an undone exit abandoned stays paused where it
+  was — no branch is taken and no choice recorded, as a refused transition or decision move
+  changes nothing. An exploration's witness over such a choice replays to its outcome.
+
+- **The runtime builds again, and a choice pseudostate follows the scheduling policy.** A
+  choice with several enabled branches resolved its pick through two scheduler methods the
+  replay policy had replaced, so `internal/core/runtime` no longer compiled. The choice now
+  goes through the scheduler's one `choose` entry like every other choice point, so a seeded,
+  explored or replayed run resolves a choice pseudostate the same way it resolves a state's
+  competing transitions — and a witness naming a branch the choice's guards do not enable is
+  refused as `replay refused: ... is not enabled` instead of silently taking the first branch.
+
+- **A connector end that redefines an end by name also redefines the end at its own position.**
+  `connection def Link :> BinaryConnection { end source : Foo :>> BinaryLinkObject::source; end
+  target : Foo :>> BinaryLinkObject::target; }` has two ends again, not four: an explicit `:>>` on
+  an end adds to the positional redefinition of each general connector's end (KerML 7.4.6,
+  SysML v2 7.13.2) instead of suppressing it, as it does in the pilot implementation. Such a
+  declaration, and the usages typed by it, are no longer reported as specializing a binary link
+  with more than two ends; a genuine third end still is.
+
+- **A constraint body whose condition is a bare feature reference comes back from its RDF
+  graph alone.** `require constraint { ready }`, `assert constraint { ready }`, a bare
+  `constraint { ready }`, a named `require constraint <'R-1'> ok { ready }` and KerML's
+  `inv { ready }` are carried as a `sysml:FeatureReferenceExpression` with its `sysml:referent`,
+  but the notation written from a graph with no `sysx:sourceText` closed the condition with a
+  `;` — and `ready;` declares a feature named `ready` rather than referring to one, so
+  `sysml -convert sysml -from ttl` refused the model (`the notation written for it does not
+  read back as a reference`). The condition that closes a constraint body is now written bare,
+  as a calculation's result expression is, for every condition shape (`not x`, `a and b`, a
+  comparison); a condition that others follow keeps its `;`. The rebuilt notation validates
+  as the original does and a second Turtle hop states the same triples, so
+  `examples/phase-c-behavioral-bodies.sysml` now converts from its structure alone. The
+  `.canonical.golden.sysml` fixtures under `internal/core/export/testdata/convert/` lose the `;`
+  after their trailing conditions accordingly.
+
+- **Classification against an enumeration is decided by its enumerated values.** An
+  enumeration's enumerated values are the only instances it has (SysML v2 §8.3.7
+  EnumerationDefinition), so with `enum def Level :> Integer { low = 1; high = 3; }` the shared
+  classification rule behind `istype`, `@`, `as` and feature writes now answers `3 istype Level`
+  `true`, `2 istype Level` `false`, `3 as Level` the value `Level::high`, `2 as Level` `()`, admits
+  `attribute l : Level = 3;` and refuses `= 2` — statically where the value is constant
+  (`cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1,
+  Level::high = 3`), with the write-conformance error at run time otherwise — where every one of
+  them was `ErrUndecidedClassification` before. `hastype` still reads the value's own type alone
+  (KerML 1.0 §7.4.9.2): a bare `3` is an `Integer` and no `Level`, while a `Level` literal —
+  written, held by a `Level` feature or produced by `3 as Level` — is a `Level` and not directly
+  an `Integer`; a scalar-valued literal keeps that identity on the scalar it evaluates to, so
+  `Level::high hastype Level` is `true` (it was `false`), `Level::high == 3` still holds, and the
+  literal's own features and metadata are read from it (`Level::high.n`, `Level::high @ Hot`)
+  where a chain through it used to fail as a chain through a constant, while `===` tells it from
+  the bare `3` and from another enumeration's literal of that value; a
+  literal of another enumeration cast or written to `Level` takes the equal `Level` literal's
+  identity, as does a scalar bound to an enumeration-typed calculation parameter or result
+  (`calc def asLevel { in n : Integer; return : Level = n; }`, so `asLevel(3) hastype Level`).
+  Unnamed enumerated values (`enum def Size :> Real { = 60.0; }`) count, and an
+  enumeration with none refuses every constant. A
+  plain `enum def Color { red; green; blue; }` classifies by identity with its literals, and a
+  user-defined subtype such as `Even :> Integer` stays undecided against a bare `5`.
+
+- **`Model.find` on a model with errors keeps preferring the outermost symbol of a shared short
+  name.** A feature whose name comes from an unresolved redefinition has no effective name for the
+  service's `Query` to see, so the index alone could answer with a deeper symbol of the same name
+  when such an outer one existed. The tree is now walked breadth-first, down to the depth of the
+  index's best answer, before that answer is accepted; a model without errors is still one query
+  and one fetch.
+
+- **Prefix alternatives the grammar makes exclusive are syntax errors.** `composite portion` or a repeated `composite` in KerML (`BasicFeaturePrefix`), `abstract variation` in either order on a SysML definition (`BasicDefinitionPrefix`) or usage (`RefPrefix`), a repeated direction (`in out`; `FeatureDirection` is read once and `inout` is the single keyword) and a usage-only prefix on a definition (`ref`, `constant`, `const`, `derived` or a direction: `DefinitionPrefix` and KerML `TypePrefix` admit only `abstract`, or `variation` in SysML) each draw one diagnostic on the offending keyword, naming the alternative already written; a single-occurrence prefix written twice (`ref ref`, `constant constant`, `derived derived`, `ordered ordered`, `nonunique nonunique`, `end end`) reports the repeat the same way; a cross feature's prefix (`end in out x : T item e;`) is checked the same way, and `variation` in a `.kerml` file is a syntax error naming the SysML spelling. The KerML spelling of the constant prefix is `const`; `constant feature n;` in a `.kerml` file is now a syntax error naming the spelling, like the other SysML-only keywords, instead of the constraint-tier `Must be owned by an occurrence type`.
+- **A string or unrestricted-name escape outside the terminal's set is a lexical error.** `"bad \q escape"` reports `invalid escape '\q'` spanning the backslash and the character after it (`KerMLExpressions.xtext STRING_VALUE` admits `\b \t \n \f \r \" \' \\` only); the token still reads so the declaration around it parses.
+- **A bare `#` is a syntax error.** `# part def D;` and `# namespace N;` report `expected a metadata feature name after '#'` at the `#` (`PrefixMetadataAnnotation`, `PrefixMetadataMember` name a metaclass) instead of reading the keyword as the name and reporting an unresolved reference later; `#$:: part def D;` reports the same at `#$::`, since the global prefix also needs a name after it.
+- **A signed multiplicity bound is a syntax error.** `[-1]` reports at the `-` that a bound is a literal or a feature name (`MultiplicityExpressionMember`), the verdict the pinned pilot gives; arithmetic bounds such as `[0..n+1]` remain an accepted extension.
+- **Every state-body extension warns by default.** `defer`, `history`, `choice` and `junction` members in a state body, none of them a `StateBodyItem`, draw the `nonstandard-notation` warning in default mode and an error under `-strict`, consistently across the four keywords.
+- **Body-context legality is a syntax-tier finding.** A `transition` in a part, package or other non-state body is a parser error naming the state body that admits it (`TransitionUsageMember` is a `StateBodyItem` only); `expose` outside a view body is a parser error, and in a `view def` body — the extension OpenSysML resolves — a `nonstandard-notation` warning; `require` outside a requirement body warns in default mode and is an error under `-strict`; a `variant` outside a variation is reported by an element-scoped constraint pass, since the grammar admits `VariantUsageMember` in any definition body and only `validateVariationMembershipOwningNamespace` rejects it. An unrelated syntax error elsewhere in the file no longer hides any of these.
+- **The parser reports its own grammar findings.** An `import` without a visibility indicator and a non-enumeration member in an `enum def` body join a reserved word written as a name (`part def part;`, `alias part for D;`) as parser warnings of `parser.New(sf).ParseFile()` itself — recoverable findings the analysis escalates to syntax-tier errors without gating later tiers — so a direct parser consumer and the LSP see them without running any pass; `constant` in a `.kerml` file is a parser error.
+- **`inv false` parses and is negated.** `inv false v { … }` and `inv true v { … }` read as KerML `Invariant` (`'inv' ( 'true' | isNegated ?= 'false' )?`), `false` recording the negation the runtime evaluates and the RDF export round-trips, where the truth keyword used to be rejected as a reserved word in name position.
+- **A missing `;` is reported where it belongs.** When the next token starts a later line or closes the body, `missing ';' at end of declaration` sits on the declaration's last token, with the insertion quick fix; on the same line the unexpected token is still named.
+- **`individual part : 'Gus Grissom' :> crew;` no longer warns.** A modifier followed by a kind keyword and no name declares an anonymous usage of that kind, the form the Apollo 11 model uses throughout; the `ambiguous-modifier-kind` warning that misread it was a false positive and is removed.
+
+- **An `individual` definition keeps its modifier through the RDF mapping.** The definition
+  exporter now writes `sysml:isIndividual` for an `individual part def`, `individual item def`,
+  `individual occurrence def` and every other definition kind the modifier may prefix — the same
+  property a usage already carried — and the importer writes the modifier back from it, so a
+  `.ttl` stripped of its `sysx:sourceText` no longer comes back as a plain `part def` with
+  `An individual must be typed by one individual definition.` on each usage typed by it. An
+  `individual def` carries the flag too and reads back by its keyword alone; a definition without
+  the modifier still carries no flag.
+
+- **A library graph stripped of its source text converts back to notation whole.** Reading
+  a `.ttl` of a bundled library file without `sysx:sourceText` failed on `Actions.sysml` at
+  `aState.aTransition.accepter.acceptedMessage`: `accepter` is a feature every transition
+  inherits from `Actions::TransitionAction`, and the reader checked the spelling against the
+  bundled library rather than the notation it was rebuilding, so no spelling reached the
+  graph's element. A graph whose roots are library packages under their normative ids is now
+  read in that library file's place — its own declarations stand in for the bundled ones and
+  a `.kerml` library is read in KerML's grammar when the roots record none — so the chain
+  resolves and fifteen more KerML library files (`Clocks`, `Performances`,
+  `ControlFunctions`, …) read back without source text. The target still has to be the
+  graph's exact element.
+
+- **A literal's direct type is its `ScalarValues` definition, read from the library and not from
+  the evaluating scope.** `directValueType` answers an integer with `ScalarValues::Integer`, a
+  finite real with `ScalarValues::Rational` (KerML 1.0 §8.4.4.9.2), a Boolean, string or complex
+  with its library type, found by qualified name the way `*` is found as `Positive`, where it
+  resolved the bare simple name in scope — undetermined in a scope importing nothing from
+  `ScalarValues`, and a model's own `attribute def Integer` where one was declared. A written
+  `istype Integer` still resolves to the type the scope sees, so `2 istype Integer` beside such a
+  declaration is `false` and `2 istype ScalarValues::Integer` `true`, as the pilot answers. A model
+  built with no library document at all keeps its same-named types as the stand-in; with any
+  library present, a scalar whose `ScalarValues` definition is missing has no determinable type.
+
+- **Arithmetic, comparison and aggregation over a quantity on a measurement scale agree with
+  `ConvertQuantity`.** A magnitude on an `IntervalScale` such as `SI::'°C_abs'` or `Time::UTC`
+  is a point on an affine scale, and the operators treated the scale as a ratio unit: `300.0 [K]
+  == ConvertQuantity(300.0 [K], SI::'°C_abs')`, `300.0 [K] < 30.0 [SI::'°C_abs']`, `warm + 10.0
+  [SI::'°C']` and `5.0 [Time::UTC] + 3.0 [s]` were `incommensurable units`, while `2 * warm`,
+  `warm * 2.0 [s]` (a `['°C_abs'*s]` unit) and `5.0 [Time::UTC] + 3.0 [Time::UTC]` computed
+  meaningless points. A point now moves by a difference in a commensurable ratio unit
+  (`36.85 ['°C_abs']`, `8.0 [UTC]`), two points subtract to a difference in the scale's declared
+  `unit` (`warm - 10.0 [SI::'°C_abs']` is `16.85 ['°C']`, `5.0 [Time::UTC] - 3.0 [Time::UTC]` is
+  `2.0 [s]`), `==`, `!=`, `<`, `<=`, `>`, `>=`, `min` and `max` carry the right operand onto the
+  left operand's reference through the scale's anchor before comparing, and set membership and
+  collection equality equate `293.15 [K]` with `20.0 [SI::'°C_abs']`.
+- **Operations a point on a scale does not define are typed errors.** `point + point`,
+  `k * point`, `point * q`, `point / q`, `q / point`, `magnitude - point`, `point ** n`,
+  `sqrt(point)`, `-point` and `sum`/`product` over points are `ErrScalePoint` naming the scale
+  and the operation, and a point on an `OrdinalScale`, `CyclicRatioScale` or
+  `LogarithmicScale` refuses interval arithmetic instead of behaving as a ratio unit. A
+  measurement scale is no longer accepted as a factor of a unit term, on the wire included, and
+  the static dimension check warns about a refused operation a literal makes certain while
+  accepting `point + difference`.
+
+- **`elem.metadata` answers annotations in textual order.** An inline `@` annotation and a `metadata … about elem` usage declared elsewhere now take their places by source position (across files, in document order) instead of every inline annotation preceding every `about` one, so `elem.metadata#(1)` is the annotation written first. Element filters are unaffected: they never depended on the order.
+
+- **An ordering operator over a value the Kernel Function Library declares no ordering for is
+  reported as a type mismatch, not as "operands must be constants".** `Color::red < Color::blue`
+  over `enum def Color { red; green; blue; }` was refused with `comparison operands must be
+  constants, got enumeration literal and enumeration literal`, though both operands are constants;
+  the refusal stands — `DataFunctions::'<'` and `ScalarFunctions::'<'` are abstract and only the
+  numeric libraries and `StringFunctions` declare an ordering — but it now says so: `type mismatch:
+  operator '<' is not defined for the enumeration literal Color::red and the enumeration literal
+  Color::blue; DataFunctions::'<' is abstract and no library function declares '<' for the
+  enumeration Color, which is no ScalarValue`. Every ordering operator (`<`, `>`, `<=`, `>=`) over a
+  Boolean, a part or metadata instance, a function value, a sequence, a set, null or a measurement
+  reference reports the same way, naming the operator, both operand types and the library function
+  that would have to declare it, on the operator, its `'<'(x, y)` library form, `->minimize`/
+  `->maximize`, and in the compiled calc tier, which no longer orders a Boolean as a number. An
+  enumeration specializing `Integer`, Strings and quantities order as before.
+
+- **A computed quantity is reported in the coherent unit of its dimension, not in the expression it was composed by.** A product, quotient, power or root of quantities kept the units it was built from — `9.80665 [SI::'m⋅s⁻²'] * 311 [SI::s]` read `3049.86815 [SI::'m⋅s⁻²'*SI::s]`, `10 [SI::N] / 2 [SI::kg]` read `5.0 [SI::N/SI::kg]`, and `(mu / 6563 [SI::km]) ^ (1/2)` (`mu` in a model-declared `Orbit::'m³⋅s⁻²'`) read `246443.54… [Orbit::'m³⋅s⁻²'**0.5/SI::km**0.5]`. The result is now reduced through the library's `MeasurementReferences` data — a unit's `unitPowerFactors`, its `unitConversion` and the prefixes, so a `DerivedUnit` a model declares reduces like `SI`'s own — to a power vector over the base units and a scale, the scale is folded into the magnitude by the exact factor, and the unit is spelt by the measurement unit the library declares for that dimension: `3049.86815 [SI::'m/s']`, `5.0 [SI::'m⋅s⁻²']`, `7793.229127559948 [SI::'m/s']` — the same value the expression over `6563000 [SI::m]` gives. The library's coherent unit is preferred to a synonym the model declares, the declared type of the feature or parameter the value is bound to chooses between same-dimension units that measure different kinds (`EnergyValue` takes `SI::J`, `TorqueValue` `SI::'N⋅m'`), and a product no library unit measures stays over its base units. A quantity written as one named unit is kept as written, a dimension-one result is still a number, a product holding a dimension-one unit such as `rad` keeps it, and a power whose exponent is not a number is still the error it was. The rule lives once in the quantity layer, so `-calc`, `-eval`, `-analysis`, `-requirement`, `-satisfy`, `-instantiate`, the REPL, traces, queries, aggregates, vector and tensor scaling, `QuantityCalculations` and the gRPC `unit` field all report the one spelling; a value written to a feature typed by a quantity kind is judged by its reduced dimension as before, so `[SI::N/SI::kg]` is admitted to an `AccelerationValue` and a speed written to one is refused with the same `type mismatch`.
+
+- **An unresolved name that is the unquoted start of a declared name says so, on every
+  surface.** Names such as `'SA-506'` or `'HLR-R001'` hold characters no basic name can, so typed
+  bare they read as an identifier followed by something else — `T::SA-506` is `T::SA` and `-506`,
+  the subtraction `T::SA - 506` where an expression is expected. The failure used to stop at
+  `unresolved reference: T::SA`, or at `"-506" cannot follow SA` for an object reference; it now
+  offers the quoted declaration and states the rule: `unresolved reference: T::SA — did you mean
+  T::'SA-506'? Names containing '-' must be quoted.` The offer comes from the declarations in
+  scope (and, at the prompt, of the kinds the command acts on) whose unquoted spelling starts with
+  the identifier read, never from the rest of the text; the characters named are the ones those
+  declarations hold. The hint reaches the analysis diagnostics and their quick fixes, expression
+  evaluation (`-e`, `%eval`, `%calc` arguments), every meta-command and command-line flag that
+  resolves a name (`%instantiate`, `-instantiate`, `%state`, `-requirement`, …) and the object
+  references `%features` and its kin read. Parsing is unchanged: `SA-506` is still a subtraction
+  wherever an expression is valid.
+- **`%instantiate` echoes a spelling `%features` can read.** Its `Use %features … to inspect` line
+  used to repeat the name as typed, which for a bare `T::SA-506` names nothing; it now writes the
+  declaration's own notation (`T::'SA-506'`) whenever the typed spelling would not read as an
+  object reference.
+
+- **A redefinition's target is resolved from the owning type's generals and then the enclosing
+  namespace, never from the owning type's own scope (KerML 8.2.3.5.2).** `attribute z :>> x;`
+  used to bind a sibling `x`, a member the owning type imported (`private import Lib::*;`) or an
+  alias it declared (`alias y for x;`), and `:>> C::nope` or `:>> w.x` started at a sibling `C` or
+  `w`; the pinned OMG pilot leaves all of these unresolved, and so does OpenSysML now, so the
+  downstream reports those bindings drew (a featuring-type conflict, a conformance error) no
+  longer appear. A target the generals lack is still found in the enclosing namespace and
+  outward, as before.
+  The general-type search itself is completed so that no case the pilot accepts moved: a
+  member a general acquires through its `public import`, the `source`/`target` ends of a
+  redefined flow or transfer, a namesake reached through the type of a redefined feature, a
+  nested metadata body at any depth, and a qualified chain through an inherited feature all
+  resolve from the generals. The standard library snapshot is regenerated: a flow definition
+  now specializes `Flows::MessageAction` (`Flows::Message` when it declares two ends) rather
+  than `Flows::Flow`, `Flows::Flow::source`/`target` no longer list themselves as their own
+  generals, and `ShapeItems::CuboidOrTriangularPrism::ff`/`rf`'s `faces::edges` binds through
+  `Polygon`'s inherited `faces`, as the pilot binds it.
+
+- **`sysml -render <view>` accepts several model files, loaded as one model.** It used to stop
+  at the second file with `-render renders a view of one model; unexpected extra argument`, so
+  a view that exposed elements a sibling file declares could only be rendered with `-render-all`
+  or from the REPL. Every file named on the command line is now loaded together, as `-render-all`
+  and `-render-document` already loaded theirs; `-render-form` and `-o` apply as before, and the
+  `#tree` pseudo-view renders every file loaded. A single file renders exactly as it did.
+
+- **A witness `explore` writes for a step the clock retries replays under `replay:`.** When a
+  step leaves every remaining token waiting on the clock, the executor advances it and retries
+  the step, and an exploring run draws its token order at the retry, where the tokens are due
+  together. Replay consumed the order's move on the first pass, found the token not yet due
+  unable to act and refused the exploration's own witness (`step 3: 3@direct is not able to
+  act (able to act: 2@performed)`). A token-order move is now kept for the retry while at most
+  one token is able to act and every alternative it names is a token present in the step,
+  parked or held; the one able to act moves, and the move is taken at the retry. A move naming
+  a token absent from the step is refused at once as before, and one kept for a retry that
+  never comes — the step ending in progress, a message wait or a deadlock — is refused with the
+  same message. The `-schedule replay:` flag, `%replay` and the checker's replay of a witness
+  share the fix; what `explore` records, the witness format and the step numbering are unchanged.
+
+- **A state machine redefining `isRunToCompletion` or `runToCompletionScope` away from the
+  Kernel Semantic Library default is refused instead of run under the default.** The runtime
+  implements only the defaults (`isRunToCompletion = true`, the whole machine as the scope) and
+  never read a model's redefinition, so `attribute :>> isRunToCompletion = false` or a
+  `runToCompletionScope` narrowed to a substate executed silently as if the default held.
+  Lowering now refuses such a machine with the typed `lower.RunToCompletionRedefinition`, an
+  `ErrUnsupportedStateContent` naming the feature, the declaring body and the value written —
+  on the executed machine, on a state definition it specializes, on a substate and on an
+  orthogonal region's substate alike — and refuses a value it cannot read as the default, saying
+  the default cannot be verified. A redefinition restating the default (`= true`, `= self` on the
+  machine) runs unchanged, and so does a machine restating it over the redefinition it inherits
+  from a specialized definition: only the redefinition a body makes effective is judged. The
+  target is resolved as a symbol, so an alias of the library feature is refused too, while a
+  model's own feature declared under the library's name is an ordinary attribute. Every
+  surface that starts a machine — the REPL's `%state`, an object exhibiting it, the analysis
+  engines — reports the refusal through the lowering error it already shows, and a state
+  rendering reports it as a machine that does not lower. Neither a non-run-to-completion
+  scheduling nor a narrowed scope is implemented.
+
+- **`x as T`, `x istype T`, `x hastype T`, `x @ T` and a feature's type judge a scalar by one rule.** A value is of the type its representation states and of that type's supertypes, never of a narrower one by the number it holds: `4.0 istype Integer` is `false` and `4.0 as Integer` is now empty (it kept `4.0`), `6 / 3` is a `Rational` and no `Integer`, and `hastype` names the value's own type alone. A feature write follows the same rule, so `attribute whole : Integer = 4 / 2` and an `Integer` parameter fed a whole `Real` are refused — the quotient by the checker where it is written, the `Real` at evaluation — where they were held by magnitude before; convert with `RationalFunctions::ToInteger`, `RealFunctions::ToInteger` or `IntegerFunctions::ToNatural`, or declare the feature `Rational` or `Real`. `Natural` and `Positive` mark no evaluated value, so `7 as Natural` on a bare integer is reported as undecided like `5 as Even`, while their bounds still refuse `-1` and `0` and a value read from a feature declared `Natural` is kept. A Complex is a `Complex` on the real axis or off it, so `rect(2.0, 0.0)` is no longer held by a `Real` or `Integer` feature; `re` yields the `Real`.
+
+- **The self-model's question and exploration flows follow the dispatcher and the explorer.**
+  `AnswerQuestion` gives `all` a branch of its own that consults the engines declaring the
+  question's kind in name order, as `Registry.Answer` does, where before it shared `auto`'s
+  authority ranking; the three selections join before the coverage check, and the plan advances
+  only while candidates remain — the engines declaring the kind (`candidates`, one per kind in the
+  default registry, where every engine declares a kind of its own), not the whole registry, with
+  every engine consulted — answering, refusing or faulting — landing in the plan as a step
+  (`steps`), and a refusal (`refusing`, the candidates asked first that do not cover the
+  question) moving on to the next candidate whatever the selection, as `Registry.answer` does.
+  `ExploreOutcomes` charges a run to the budget for every linearization it commits and works the
+  queue it drains — the empty prefix to start, then the prefixes each run leaves unexplored: the
+  choice tree is modelled as a chain of choices (`choicesAhead`) of so many alternatives each
+  (`alternatives`), the next below one alternative of the one above (`below`, the first by
+  default), and the prefix in hand as the choice it ends at and the alternative it takes there
+  (`choice`, `taken`); a run takes the first alternative of every choice it meets on its way down
+  and leaves the second of each, and the next alternative of the choice its prefix ended at — one
+  prefix per choice it owns, as `exploreRun.unexplored` does, not every alternative at once — and
+  the next run takes the prefix queued deepest, so two binary choices met by the first run take
+  three runs, not four, and a later run advances a four-way choice to its third alternative rather
+  than finding three prefixes queued; what a run leaves goes on the queue only up to the runs left,
+  the plan never outgrowing the run budget, the rest dropped and the runs bound marked hit
+  (`runsHit`), as `exploreQueue.insert` does; a choice met beyond the depth bound (`depth`, 64 by
+  default) takes its first alternative and marks that bound hit — so the queue always drains, a
+  finite choice tree within the bounds proves, a tree either bound cut observes, and neither flow
+  depends on a fixed decision any more. Both flows now run under
+  `go test ./examples/`, through several candidate counts, selections, faults and choice trees.
+  The pilot differential baseline is re-recorded from one validator run over the current
+  `examples` tree — 370 files, 337 fully agreeing, 671 pilot-only, 707 pilot diagnostics — so its
+  per-file rows and provenance digest measure the same inputs again; the record and the generated
+  figures follow.
+
+- **A semantic metadata definition inherits its supertype's `baseType`.** `metadata def <k> K :> M;` where `M` is a `SemanticMetadata` binding `baseType` now classifies a `#k` element as `M` does — the annotated usage subsets `M`'s base and a `#k` definition specializes its type — where before only a definition's own binding was read and `#k` added nothing. An own `:>> baseType = …` still takes precedence, including when it names nothing resolvable or its conditional branch is not taken: the inherited binding is replaced, not fallen back on.
+
+- **A rendering quotes a name holding `::` whole.** A view drew a declaration whose unrestricted
+  name holds the qualified-name separator by splitting the joined qualified name at `::`: `port
+  'fuel::out'` was labeled `'out'` and a top-level `part 'x::y'` was written `x::y`, as if it were
+  `y` in `x`. The tree, interconnection, sequence and table renderings, the REPL's `%render` and
+  `%view`, the `opensysml/render` LSP result and the VS Code diagram now spell each segment from the
+  declaration's owner chain, so `'x::y'` and `'fuel::out'` are one name each, and a connection
+  added from the diagram between such ports names the port that is there. The qualified name a
+  rendering hands a client to edit by, and the one `opensysml/applyModelEdit` reads, quote each name
+  on its own too, so a top-level `part def 'x::y'` and a `part def y` in `package x` are two
+  targets rather than one.
+
+- A `[0..*]` feature holding one value now denotes that value wherever one value is
+  taken — an operator operand, a `[1]` parameter of a user calc or library function, a
+  cast or `istype`/`hastype` operand — since a feature's values are a sequence its
+  multiplicity constrains (KerML §7.3.4.1, §7.4.12). `SampledFunctions::SamplePair`
+  arithmetic and `interpolateLinear` on the library's own examples evaluate, as does
+  `q.zs + 1.0` with `zs : Real[0..*] = (2.5)`; a collection of several values is refused
+  as before, and multiplicity checks are unchanged.
+
+- **An inline `entry`, `do` or `exit action` body of a state that states successions now
+  executes.** A body such as `do action ops { first start; then action a : A; then action b : B;
+  then done; }` or `do action ops { action a : A; action b : B; first a then b; }` was rejected
+  at instantiation with `statement not executable: … *ast.InitialNode in a body is not
+  executable`, while the same body as a standalone `action def` ran. The body is now lowered to
+  the same token flow a standalone action's body is and runs through the action executor, so
+  successions, `first … then …`, guards, forks, joins, `then done` and action nodes with a flow
+  of their own behave as they do in an action, and the attributes the body declares are the
+  performance's own; a dangling or unstartable succession, or the body or a node of it declaring `return`, is
+  reported as a typed error before any node runs. A body stating no flow still runs its
+  statements in declaration order.
+
+- **A state's `do` behavior may be a full action: one that waits on the clock or for a
+  signal, and a typed usage with pin bindings.** `do action poll { action wait accept after
+  3 [SI::s]; then action count assign ticks := ticks + 1; }` was refused at instantiation with
+  `statement not executable: … action usage "wait" in a body is not executable`, and `do action
+  poll : Poll { inout n = ticks; }` with `performing an action and stating a body of its own in a
+  body is not executable`, although both validate clean. A do body's flow now starts at its one
+  node no succession leads to where no `first` says (two such nodes or a cycle are still reported,
+  naming them), and the body runs as one performance that may pause: an `accept after`/`accept at`
+  parks it on the shared clock — `%advance`/`-advance` move it and list it under `Waiting on the
+  clock` — and an `accept Sig` parks it until a matching signal is sent (`%send Sig` takes it,
+  reporting `the do behavior of state <s> goes on from its accept`, rather than refusing it because
+  no transition fires; a signal sent from a sibling object wakes it too), while the machine's
+  transitions and its other regions' do behaviors go on around it. `%send`'s preview and the
+  dispatch select the signal's takers by one rule: the transition chosen for a state is drawn once,
+  before the takers are settled, and where it leaves the state whose do behavior is parked for the
+  signal it is the only taker there, while a transition between that state's own substates, or
+  one in a sibling region, shares the one dispatch with the do behavior; the step reports `Event dispatched,
+  letting the do behavior of state <s> go on from its accept`, and such a signal is neither deferred
+  nor counted as dropped. A nested action node stating its flow in declaration order starts at its one
+  unpreceded node as the body does, rather than being reported as a flow without a start. Leaving the state ends the
+  performance: its wait leaves the clock, nothing after the wait runs, and a signal sent later
+  wakes nothing. A typed usage whose body declares only the pins of the action it performs
+  performs that action, an `inout` pin bound to a feature (`inout n = ticks`) writing back when the
+  performance ends and not when the state's exit abandons it, and one valued by an enumeration
+  literal or another name no enclosing feature answers (`inout mode = Mode::idle`) starting from
+  that value and writing nowhere, rather than being refused as an output bound to no feature; an
+  `in` pin nothing binds, or one
+  bound to a feature the state does not declare, is a typed error naming the pin. Which of two
+  regions' do behaviors due at one instant acts first in a round is a choice point (`choice do
+  round at t=2.0: states lwork, rwork react`), explored and seeded as the other choice points are.
+  An `entry` or `exit` body, or a transition effect, whose flow waits on the clock is refused with
+  `state behavior waits for the clock` — those behaviors are performed whole at the instant they
+  are triggered.
+
+- **A bare feature reference or feature chain is typed statically by the feature it names.**
+  The checker reads a name's effective scalar type — declared, given by its value (a
+  non-default one beside no generalization, as KerML 1.1 §8.3.3.3 has a value type a feature;
+  a `default =` fixes none), or reached through the features it redefines or subsets and the
+  types it inherits, an alias followed to its target — so `while total { … }` over `total : Integer`, `-s` over `s : String` and
+  `s == 1` are judged before execution as a literal of that type would be; the executor's own
+  check now stands only for a condition whose type is genuinely unknown. The pilot corpora
+  move by four diagnostics, all on `kerml-examples/Simple Tests/Expressions.kerml` and each
+  adjudicated in `docs/project/pilot-differential.md`.
+- **A computed value is judged against a scalar-typed feature.** An invocation's result and an
+  operator expression's are checked against the feature they are bound to by the same
+  classification the runtime's write conformance applies, so `attribute s : String = GetReal()`
+  and `attribute s : String = a + 1.0` are reported statically and the two verdicts cannot
+  disagree; numeric results still conform along the lattice, and a behavior declaring no result
+  leaves the binding to the runtime. A call's result is typed by its declaration whether or not
+  its input signature can be determined, so a result-only or parameterless behavior types its
+  value too.
+- **An argument of statically unknown type keeps every overload applicable.** A call such an
+  argument leaves open selects only where one candidate remains or the known arguments prove a
+  unique winner; otherwise the `invocation-ambiguous` warning `call of abs is undetermined
+  between …` names the candidates left open, and the runtime settles the call — a calc's or a
+  nested action's — by the values it is given: a scalar as the literal spelling it would be, so
+  a positive value selects a `Natural` overload as `pick(1)` does, an object by every type it is
+  classified by, an argument a candidate takes as an `expr` left unevaluated; it reports
+  `ambiguous invocation` when they tie still. A tie no value could break — the tied candidates
+  type the unknown argument alike — stays the `ambiguous` error. A settled action node holds
+  the pins of the action performed alone and is read as a value by its result, not by a pin
+  another candidate declares. The first visible candidate is no longer chosen silently. A
+  called name is resolved as KerML 1.1 §8.2.3.5 resolves any name — an owned declaration hides
+  an imported one, a nested namespace's import stands ahead of an enclosing declaration — with
+  no rule of its own for library functions.
+
+- **The Turtle a model converts to no longer depends on the order its heads spell their clauses.** The RDF mapping wrote a declaration's `sysml:type`, `sysml:subsets`, `sysml:redefines` and the other relationship properties in the order the clauses appeared in the notation, so converting a model to Turtle, back to notation (which writes the clauses in one order) and to Turtle again gave the same triples in a different order, and a `.ttl` kept under version control churned with the spelling of a head. Every head's relationships are now written in one canonical order (`type`, `specializes`, `subsets`, `redefines`, `references`, …; see `docs/reference/rdf-mapping.md`), the same order the notation is written back in, so the second hop is byte-identical once source text is stripped.
+
+- **A model-level expression over a feature the model leaves open is `<undetermined>`, not an
+  error and not a made-up number.** Evaluated at model level (`-e`, `%eval`, gRPC `Evaluate`),
+  a reference to an attribute with no value (`attribute u;`) failed the whole expression with
+  `no value for feature u`, even where the other operand fixed the answer, and a feature whose
+  count the model does not fix was counted at its minimum, so `size(gear)` for a `part gear[1..*]`
+  was `1` and `isEmpty(loose)` for a `part loose[0..2]` was `true`. Such a read is now the value
+  `<undetermined>`, which every expression over it carries (`u + 5`, `u > 3`, `-u`,
+  `if u > 0 ? 1 else 2`, `(10, 20, 30)#(u)`, `size(gear)`, `isEmpty(loose)`, `gear#(7)`), while
+  what the model fixes still answers: KerML's conditional `and`, `or` and `implies`
+  (`ControlFunctions`) decide on a constant second operand as they already did on the first, so
+  `(u > 3) and false` is `false`, `(u == 1) or true` and `(u == 1) implies true` are `true`;
+  `notEmpty(gear)` is `true` since `[1..*]` guarantees an element; `size(slots)` of a `part
+  slots[3]` is `3`; `includes((1, u + 1), 1)` is `true`; a one-valued feature and an enum literal
+  keep their definite counts. The result is a first-class value: the CLI and REPL print
+  `<undetermined>`, gRPC `Evaluate` carries it as the new `Value.undetermined` arm (its `reason`
+  and count bounds) under the `undetermined_value` capability, falling back to an unsupported
+  null for a client that does not know the arm, and the Go, Python (`opensysml.Undetermined`,
+  whose `bool()` raises), Node, Rust and Java clients decode it. An undetermined constraint or
+  requirement condition is still not a verdict: it is reported as `no value`, naming the open
+  feature. Nothing changes on an object: a feature it holds nothing for reads `<unset>`, a
+  required value that is missing is still `no value for feature`, and `%instantiate` still
+  materializes multiplicity minimums. An unresolved name is still `unresolved reference`.
+  A model-level read never builds an open collection up to its lower bound: `part many[10001..*]`
+  reads `<undetermined>` rather than failing with a multiplicity violation, the values that
+  features subsetting the collection contribute are what it certainly holds (`includes(gear,
+  fixed)` is `true` for `part fixed :> gear`), and `forAll`, `exists`, `allTrue` and `anyTrue`
+  decide from those certain elements (`(1, u)->exists{in x; x == 1}` is `true`,
+  `(1, u)->forAll{in x; x > 2}` is `false`) before answering `<undetermined>`. `select`, `reject`,
+  `selectOne` and `collect` likewise apply their body to the certain elements and keep what
+  results (`includes((1, u)->select{in x; x == 1}, 1)` is `true`), `includes` and `excludes`
+  decide from the certain elements of both sequences (`includes((1), (2, u))` and
+  `excludes((1), (1, u))` are `false`), and indexing a certainly empty sequence by an open index
+  (`()#(u)`) is the index error `()#(1)` is. Such a read holds nothing, so it is not charged to
+  the element budget. An undetermined value keeps the count the model fixes for it: `collect`
+  over an open collection counts what its body yields per element the collection may hold, so
+  `size((1, u)->collect{in x; x + 1})` is `2`; a conditional over an open test holds the count
+  its branches declare, so `size(if u > 0 ? 1 else 2)` is `1` and `if b ? (1, 2) else 3` holds
+  `[1..2]` values; and a feature declared `[0]` reads as the empty sequence, its count being
+  fixed. `??` over an open operand that may be empty holds either that operand, then nonempty,
+  or the fallback, so `rack.loose ?? 3` holds `[1..2]` values and `size(u ?? 3)` is `1`. A test
+  that does not depend on the element decides a quantifier over a collection certainly holding
+  one, so `gear->exists{in x; true}` is `true` and `gear->forAll{in x; false}` is `false`. A
+  determined operand that alone fails an operation still fails it: `u / 0` and `u % 0` are
+  `division by zero`, in the operator and the `RealFunctions::'/'` forms alike, and a determined
+  position no value of an open operand admits fails `Substring`, `includingAt`, `subsequence`
+  and `excludingAt` (`Substring(s, 0, 2)`, `excludingAt(xs, 5)` for `xs : Real[2..4]`) as
+  `index out of range`, where a position every value admits leaves the result `<undetermined>`.
+  A sequence fixes each position up to its first element of open count, so `(10, u, 30)#(1)`
+  is `10` and `#(3)` `30` while `#(2)` stays `<undetermined>` and `#(4)` is `index out of range`,
+  as `head`, `last`, `tail`, `subsequence`, `excludingAt` and `includingAt` read them; an
+  insertion index is checked against the upper bound plus one without overflowing it, so
+  `includingAt` at a bound of `9223372036854775807` is `<undetermined>`, not rejected.
+  A multiplicity bound the model does not evaluate (`a : Real[n]` over a valueless `n`) fixes no
+  count either: such a read is `<undetermined>` of the bounds the declaration does fix rather
+  than the `cannot materialize … with unknown multiplicity` error, which stays the object-level
+  answer. An open value is judged by the type its feature declares, so an operator or library
+  function that admits no value of that type is the `type mismatch` it is for a determined
+  value (`s - 1`, `not s`, `s > 1`, `if s ? 1 else 2`, `(10, 20, 30)#(s)`,
+  `RealFunctions::sqrt(s)` for `s : String`; `b - 1` for `b : Boolean`;
+  `StringFunctions::Length(r)` for `r : Real`), while one it admits stays `<undetermined>`
+  (`s + "a"`, `r - 1`, `not b`) and a constant operand still folds (`false and s`). A feature
+  chain through an open collection reads the members of the values it certainly holds, so
+  `includes(gear.tag, "x")` is `true` for a `part tagged :> gear { attribute :>> tag = "x"; }`
+  and `gear.tag->exists{in x; x == "x"}` decides on it. An open operand that certainly holds
+  several values (`xs : Real[2..4]`) is no scalar: `xs + 1`, `xs > 1`, `-xs` and `(10, 20)#(xs)`
+  are the `type mismatch` a sequence is, and a one-valued library or calc parameter
+  (`RealFunctions::abs(xs)`, `StringFunctions::Length(ss)`) the `multiplicity violation`, while
+  one that may hold a single value (`os : Real[0..4]`) stays `<undetermined>`; the named
+  `ControlFunctions::'if'` checks its open test as the operator form does, so `'if'(r, 1, 2)`
+  for `r : Real` is a `type mismatch`. A subsetter whose own count is open is read as the
+  collection it fills is, never built up to its lower bound: `part sub[10001..*] :> base` leaves
+  `base` `<undetermined>` holding at least `10001` values and no made-up object.
+- **A calc-typed parameter whose value names a calc (`in calc f = twice;`) applies that calc when
+  called by its qualified name.** `Apply::f(3.0)` outside a run of `Apply` failed with `calc
+  Apply::f has no return expression`; it now applies `twice` as the bare `f(3.0)` does, and a run
+  that bound `f` still applies the binding.
+
+- **A multi-valued feature not declared `nonunique` refuses a repeated value.** KerML defaults `isUnique` to true, so `Collections::OrderedSet`/`OrderedMap` elements, `attribute xs : Integer[*] ordered` and a plain `Integer[*]` alike hold no two equal values; `OrderedSet { :>> elements = (1, 1, 2); }` was read as three elements. A repeat the checker can decide from a literal is a `type.expr` error (`1 (an Integer) is written at positions 1 and 2 of a unique feature`); one that appears only when the model runs — through a feature, a body-local declaration's initializer, an `assign`, a binding, a calc argument or result, a compiled calc in Go or C — is the typed `ErrUniquenessViolation`, reported after multiplicity and type, leaving the feature's prior value in place. Nothing is deduplicated. Equality is the runtime's own, so `2 [kg]` repeats `2000 [g]` and an enumeration literal repeats itself. `nonunique` opts out; a feature held as a `Collections::Set` or `Map` keeps set semantics. A redefinition stating neither `ordered` nor `nonunique` takes the uniqueness of what it redefines, so `:>> num = (0, 0, 1)` and `:>> mRefs = (mm, mm, mm)` over the library's `nonunique` tensor features stay legal; the `Collections` redefinitions whose notes say "unique by default" are read as unique, recorded as a library erratum. A `nonunique` redefinition is judged against its target's effective uniqueness, so redefining a feature that itself inherits `nonunique` is legal.
+
+- **An unset quantity attribute no longer fails `-instantiate`.** A part whose quantity
+  attribute nothing values (`attribute mass :> ISQ::mass;`) made the materialization check
+  evaluate the derived `dimensions` of the `MassValue` it does not hold and report
+  `feature value MassValue.dimensions: no value for feature mRef` with exit status `2`, once
+  per unset quantity of any ISQ kind. The check now descends only into objects a feature value
+  holds, not into the object standing for an unset one, so such a model is reported clean and
+  exits `0` while `%features` lists the attribute `<unset>` as before. A bound quantity still
+  derives its `dimensions`, and a default that genuinely fails beside or beneath an unset
+  quantity is still reported.
+
+### Performance
+
+- **The Python client answers `Model.find`, `Model.get`, `model[name]` and `name in model` from
+  the service's index instead of walking the symbol tree one RPC at a time.** A qualified name
+  is one `GetSymbol` call; a short name is one `Query` on the effective `name` followed by one
+  fetch, so a lookup costs the same on a model of ten symbols and one of ten thousand, where the
+  walk took tens of milliseconds. What is found is unchanged: the outermost symbol of a shared
+  short name, and among those the one declared first. A library symbol is now reachable by its
+  qualified name too (`model.get("ISQBase::mass")`), with a name declared in the model winning over
+  a library package of the same spelling. A service without the `query` capability is still
+  walked. `import opensysml` no longer loads the HTTP stack, which only a release download
+  needs; `opensysml.binary.fetch` imports it when one happens.
+
+- **The gRPC service answers `Evaluate`, `Instantiate`, `VerifyConstraint` and `Sweep` on a
+  model it holds without rebuilding its resolver and semantic model per request.** A held model
+  keeps a pool of idle analysis workers; a request takes one, builds one only when the pool is
+  empty, and returns it with the diagnostics it added trimmed away, on the success, error and
+  cancellation paths alike. Two concurrent requests still work on workers of their own, and the
+  pool keeps at most as many workers as the machine can run at once, so a burst of requests does
+  not leave the model holding a worker per request. An
+  `Evaluate` that had grown from 10 µs to 3.5 ms is 8 µs, `VerifyConstraint` on a held model is
+  ten times faster than in 0.7.0, and the Python client's `Instantiate` on a held model is a
+  third faster than 0.7.0 instead of three to eighteen times slower.
+- **Writing a scalar to a typed feature no longer walks the type's difference closure or formats
+  its own refusal message on every write.** Whether a type's closure subtracts anything is
+  memoized per type, a write's description is built only when the write is refused, a timed
+  wait formats its holder and subject only when a caller asks, and the library symbol a
+  qualified name denotes is looked up once. The messages a refused write or a wait report are
+  unchanged. A feature write is 11 times faster than it had become and a fifth faster than in
+  0.7.0; the REPL's interpreted `SumTo(1000000)` and `Collatz(27)` calcs, action loops and
+  assignment loops are back at 0.7.0's speed.
+- **Lowering an action no longer computes every node's static read/write footprint up front.**
+  The footprints exist for the model checker's independence relation, which is their only
+  reader; they are projected once on first use and share one scan of the graph's declared
+  features. Lowering a 1 000-step action chain takes 8 ms instead of 23 ms, as in 0.7.0.
+- **Loading and validating a model asks the semantic model fewer repeated questions.** The
+  library base a declaration's kind implies, the index order of a document's annotations and
+  the engines an analysis kind dispatches to are computed once; probing whether an operand
+  names a unit builds no diagnosis for the operands that do not; a scope indexes its members by
+  declaration as well as by name; and the did-you-mean table takes the index's registered names
+  directly. Diagnostics are unchanged. Loading a 4 000-element model in the REPL is within a
+  tenth of 0.7.0's time instead of a quarter slower, and a whole-file `Analyze` is within noise
+  of 0.7.0 instead of half again slower.
+
+- Expanding a model's wildcard imports of large library packages (`import ISQ::*`,
+  `import SI::*`) is about 30% faster and allocates about a quarter less: the symbol
+  index keeps its re-export and hidden marks and its per-segment name table as small
+  sorted slices rather than one map per name, reuses a re-export claim's writable
+  record instead of looking it up again, passes an unfiltered import's inherited routes
+  on without copying them, and no longer notes a parent namespace's change twice per
+  re-exported member. Semantics are unchanged; the embedded standard-library snapshot
+  is regenerated for the new table layout. `BenchmarkExpandModelImports` in
+  `internal/core/libs` measures the cost.
+
 ## 0.7.0 — 2026-09-10
 
 ### Added

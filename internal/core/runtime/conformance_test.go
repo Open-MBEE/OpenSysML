@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,6 +96,10 @@ type ExpectedOutcome struct {
 	// whose model names library elements the runtime resolves — the measurement
 	// unit of a quantity expression is one.
 	Libraries bool `json:"libraries,omitempty"`
+	// Documents are further source files of this directory indexed with the
+	// case's own, before it, for a case whose model spans documents — an extent
+	// reaching a usage another file declares. Each must parse clean.
+	Documents []string `json:"documents,omitempty"`
 
 	// Outcomes are the complete results the case admits, in place of the single
 	// outputs/finalState/stateVisits, for a model whose library semantics leave
@@ -191,6 +196,16 @@ type ExpectedOutcome struct {
 	// exhibits or performs them, one entry per object whose performance the case
 	// states.
 	Objects []ObjectRun `json:"objects,omitempty"`
+	// Materialization states what reading every feature value of the instance,
+	// and of the objects those hold, reports — the check `-instantiate` makes.
+	Materialization *ExpectedMaterialization `json:"materialization,omitempty"`
+}
+
+// ExpectedMaterialization is the report of reading an instance's feature values in full:
+// the errors in order, each matched as a substring, and whether the walk was bounded.
+type ExpectedMaterialization struct {
+	Errors  []string `json:"errors,omitempty"`
+	Bounded bool     `json:"bounded,omitempty"`
 }
 
 // ObjectRun is the performance a case expects of one materialized object's
@@ -231,7 +246,7 @@ func TestExecutionConformance(t *testing.T) {
 
 	testCount := 0
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") {
+		if entry.IsDir() || !isConformanceCase(entry.Name()) {
 			continue
 		}
 
@@ -255,8 +270,32 @@ func TestExecutionConformance(t *testing.T) {
 	}
 }
 
-// sweepPolicies are the non-default policies the whole suite runs under.
+// sweepPolicies are the non-default policies the whole suite always runs under.
 var sweepPolicies = []string{"declared", "seed:1"}
+
+// seedSweepEnv names the seeds the suite runs under besides seed:1, as a
+// comma-separated list of non-negative integers; unset, the sweep is seed:1 alone.
+const seedSweepEnv = "OPENSYSML_SCHEDULE_SEEDS"
+
+// sweepPoliciesWithSeeds is the sweep widened by the seeds seedSweepEnv names.
+func sweepPoliciesWithSeeds(t *testing.T) []string {
+	policies := slices.Clone(sweepPolicies)
+	spelled := os.Getenv(seedSweepEnv)
+	if spelled == "" {
+		return policies
+	}
+	for _, field := range strings.Split(spelled, ",") {
+		seed, err := strconv.ParseUint(strings.TrimSpace(field), 10, 64)
+		if err != nil {
+			t.Fatalf("%s=%q: %q is not a seed: %v", seedSweepEnv, spelled, field, err)
+		}
+		policy := fmt.Sprintf("seed:%d", seed)
+		if !slices.Contains(policies, policy) {
+			policies = append(policies, policy)
+		}
+	}
+	return policies
+}
 
 // TestExecutionConformanceUnderPolicies runs the whole suite under each
 // non-default policy. A case pinning no policy was recorded under the default,
@@ -264,6 +303,7 @@ var sweepPolicies = []string{"declared", "seed:1"}
 // pinning a scheduling artefact and is reported, never skipped. A pinned case
 // runs under its own policy: pinning `reverse` says its result is one
 // linearization, kept until its admissible set is derived or the bug fixed.
+// OPENSYSML_SCHEDULE_SEEDS widens the sweep to further seeds.
 func TestExecutionConformanceUnderPolicies(t *testing.T) {
 	conformanceDir := filepath.Join("testdata", "conformance")
 	knownFailures := loadKnownFailures(t, conformanceDir)
@@ -272,14 +312,14 @@ func TestExecutionConformanceUnderPolicies(t *testing.T) {
 		t.Fatalf("failed to read conformance directory: %v", err)
 	}
 
-	for _, spelling := range sweepPolicies {
+	for _, spelling := range sweepPoliciesWithSeeds(t) {
 		policy, err := ParseSchedulePolicy(spelling)
 		if err != nil {
 			t.Fatalf("sweep policy: %v", err)
 		}
 		t.Run(spelling, func(t *testing.T) {
 			for _, entry := range entries {
-				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") {
+				if entry.IsDir() || !isConformanceCase(entry.Name()) {
 					continue
 				}
 				caseName := strings.TrimSuffix(entry.Name(), ".expected.json")
@@ -293,6 +333,12 @@ func TestExecutionConformanceUnderPolicies(t *testing.T) {
 			}
 		})
 	}
+}
+
+// isConformanceCase tells a case's `.expected.json` from the `.check.expected.json`
+// beside it, which states what a check of every schedule finds (check_corpus_test.go).
+func isConformanceCase(fileName string) bool {
+	return strings.HasSuffix(fileName, ".expected.json") && !strings.HasSuffix(fileName, ".check.expected.json")
 }
 
 // loadKnownFailures reads known_failures.txt and returns set of case names to skip
@@ -348,21 +394,16 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	}
 
 	// Parse and build model
-	p := parser.New(source.New(sysmlPath, sysmlData))
+	src := source.New(sysmlPath, sysmlData)
+	p := parser.New(src)
 	file := p.ParseFile()
 	checkDiagnostics(t, p.Diagnostics, expected.Diagnostics)
 
-	idx := symbols.NewIndex()
-	if expected.Libraries {
-		idx = libs.NewModelIndex()
-	}
-	idx.AddDocument(sysmlPath, file)
-	if expected.Libraries {
-		idx.ExpandWildcardImports()
-	}
+	idx, sources := indexCaseDocuments(t, conformanceDir, src, file, expected)
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	fresh := func() *Context { return NewContext(model, resolver, 10000) }
+	model.SetSourceText(source.TextOf(sources, nil))
+	fresh := func() *Context { return NewContext(NewModel(model, resolver), 10000) }
 	ctx := fresh()
 	if err := ctx.SetSchedule(casePolicy(t, expected, policy)); err != nil {
 		t.Fatalf("schedule: %v", err)
@@ -399,6 +440,35 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	}
 }
 
+// indexCaseDocuments indexes a case's model — the standard library when it asks for one, the
+// further documents it lists, then its own file — and returns the sources indexed by path.
+func indexCaseDocuments(t *testing.T, conformanceDir string, src *source.SourceFile, file *ast.RootNamespace, expected ExpectedOutcome) (*symbols.Index, map[string]*source.SourceFile) {
+	t.Helper()
+	idx := symbols.NewIndex()
+	if expected.Libraries {
+		idx = libs.NewModelIndex()
+	}
+	sources := map[string]*source.SourceFile{src.Name(): src}
+	for _, name := range expected.Documents {
+		path := filepath.Join(conformanceDir, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("failed to read document %s: %v", path, err)
+		}
+		doc := source.New(path, data)
+		p := parser.New(doc)
+		parsed := p.ParseFile()
+		checkDiagnostics(t, p.Diagnostics, nil)
+		idx.AddDocument(path, parsed)
+		sources[path] = doc
+	}
+	idx.AddDocument(src.Name(), file)
+	if expected.Libraries {
+		idx.ExpandWildcardImports()
+	}
+	return idx, sources
+}
+
 // casePolicy is the policy a case runs under: the one it pins, else the one the
 // harness asked for. A pin that names no policy is a schema error.
 func casePolicy(t *testing.T, expected ExpectedOutcome, policy SchedulePolicy) SchedulePolicy {
@@ -427,7 +497,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	if err != nil {
 		t.Fatalf("exploreBudget: %v", err)
 	}
-	exploration, err := Explore(policy, func() (*Context, error) { return fresh(), nil }, conformanceRun(t, idx, path, expected))
+	exploration, err := Explore(context.Background(), policy, func() (*Context, error) { return fresh(), nil }, conformanceRun(t, idx, path, expected))
 	if err != nil {
 		t.Fatalf("explore: %v", err)
 	}
@@ -482,16 +552,10 @@ func conformanceRun(t *testing.T, idx *symbols.Index, path string, expected Expe
 		}
 	case "state":
 		stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)
+		events := queuedEvents(t, expected.Events)
 		return func(ctx *Context) (Outcome, error) {
-			exec, err := newStateExecutor(ctx, stateSym, nil)
+			exec, err := ctx.PerformState(stateSym, nil, events)
 			if err != nil {
-				return Outcome{}, err
-			}
-			if err := exec.initialize(); err != nil {
-				return Outcome{}, err
-			}
-			injectEvents(t, exec, expected.Events)
-			if err := exec.RunToCompletion(); err != nil {
 				return Outcome{}, err
 			}
 			return exec.Outcome(), nil
@@ -819,29 +883,32 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 	}
 }
 
-// injectEvents queues the events a case declares onto an executor, for the
-// conformance and trace harnesses to drive the same performance.
-func injectEvents(t *testing.T, exec *StateExecutor, events []ExpectedEvent) {
+// queuedEvents converts the events a case declares into the events the runtime
+// queues, so the conformance, trace and snapshot harnesses drive one performance.
+func queuedEvents(t *testing.T, events []ExpectedEvent) []QueuedEvent {
 	t.Helper()
+	queued := make([]QueuedEvent, 0, len(events))
 	for _, event := range events {
 		args := make(map[string]Value, len(event.Args))
 		for name, val := range event.Args {
 			args[name] = expectedToRuntimeValue(t, val)
 		}
-		switch {
-		case event.Call != "" && event.Signal != "":
-			t.Fatalf("event declares both signal %q and call %q", event.Signal, event.Call)
-		case event.Value != nil && (event.Call != "" || len(args) > 0):
-			t.Fatalf("event %s%s carries a bare value beside its arguments", event.Signal, event.Call)
-		case event.Call != "":
-			exec.InvokeOperation(event.Call, args)
-		case event.Value != nil:
+		q := QueuedEvent{Signal: event.Signal, Call: event.Call, Args: args}
+		if event.Value != nil {
 			value := expectedToRuntimeValue(t, *event.Value)
-			exec.enqueueSignal(Message{SignalType: event.Signal, Value: &value})
-		case event.Signal != "":
-			exec.SendSignal(event.Signal, args)
-		default:
-			t.Fatalf("event declares neither a signal nor a call")
+			q.Value = &value
+		}
+		queued = append(queued, q)
+	}
+	return queued
+}
+
+// injectEvents queues the events a case declares onto an executor.
+func injectEvents(t *testing.T, exec *StateExecutor, events []ExpectedEvent) {
+	t.Helper()
+	for _, event := range queuedEvents(t, events) {
+		if err := exec.Enqueue(event); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
@@ -849,23 +916,11 @@ func injectEvents(t *testing.T, exec *StateExecutor, events []ExpectedEvent) {
 // runOneStatePerformance runs one performance of a state machine, by self or by
 // no object, and validates it against the outcome expected of that performance.
 func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol, self *Instance, expected ExpectedOutcome) {
-	// Create executor manually to inject events
-	exec, err := newStateExecutor(ctx, stateSym, self)
+	// The executor's own loop drives the run: a harness-local copy drifts from
+	// the semantics under test.
+	exec, err := ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
 	if err != nil {
-		t.Fatalf("create state executor: %v", err)
-	}
-
-	// Initialize (enters initial state)
-	if err := exec.initialize(); err != nil {
-		t.Fatalf("initialize state machine: %v", err)
-	}
-
-	injectEvents(t, exec, expected.Events)
-
-	// Process events until completion or suspension, through the executor's own
-	// loop: a harness-local copy drifts from the semantics under test.
-	if err := exec.RunToCompletion(); err != nil {
-		t.Fatalf("run state machine: %v", err)
+		t.Fatalf("state machine: %v", err)
 	}
 
 	validateStateOutcome(t, ctx, exec, AdmittedOutcome{
@@ -1411,6 +1466,7 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, expe
 
 	validateIdentity(t, ctx, inst, expected)
 	validateObjectRuns(t, ctx, typeSym, inst, expected)
+	validateMaterialization(t, ctx, inst, expected.Materialization)
 
 	for name, wantSatisfied := range expected.Constraints {
 		feat := featureNamed(ctx, typeSym, name)
@@ -1426,6 +1482,26 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, expe
 		if satisfied != wantSatisfied {
 			t.Errorf("constraint %q: satisfied = %v, want %v", name, satisfied, wantSatisfied)
 		}
+	}
+}
+
+// validateMaterialization checks what reading every feature value of the
+// instance reports against what the case states, when it states it.
+func validateMaterialization(t *testing.T, ctx *Context, inst *Instance, expected *ExpectedMaterialization) {
+	t.Helper()
+	if expected == nil {
+		return
+	}
+	errs, bounded := ctx.MaterializationErrors(inst)
+	if bounded != expected.Bounded {
+		t.Errorf("materialization: bounded = %v, want %v", bounded, expected.Bounded)
+	}
+	if len(errs) != len(expected.Errors) {
+		t.Errorf("materialization: %d error(s) %v, want %d %v", len(errs), errs, len(expected.Errors), expected.Errors)
+		return
+	}
+	for i, want := range expected.Errors {
+		requireError(t, fmt.Sprintf("materialization error %d", i+1), errs[i], want)
 	}
 }
 
@@ -1782,6 +1858,8 @@ func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 		t.Fatalf("a %s is declared by the model, so it cannot be built from a case value", ev.Type)
 	case "Function":
 		t.Fatalf("a function is a calc the model declares, so it cannot be built from a case value")
+	case "Metaobject":
+		t.Fatalf("a metaobject denotes an element the model declares, so it cannot be built from a case value")
 	case "Complex":
 		v, ok := ev.Value.(float64)
 		if !ok || ev.Im == nil {
@@ -1992,6 +2070,14 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		}
 		if want := expected.Value.(string); actual.FunctionName() != want {
 			t.Errorf("%s: function = %q, want %q", name, actual.FunctionName(), want)
+		}
+	case "Metaobject":
+		if actual.Kind != ValMetaobject || actual.MetaobjectElement() == nil {
+			t.Errorf("%s: type = %v, want Metaobject", name, actual.Kind)
+			return
+		}
+		if want, pinned := expected.Value.(string); pinned && actual.MetaobjectText() != want {
+			t.Errorf("%s: metaobject = %q, want %q", name, actual.MetaobjectText(), want)
 		}
 	case "CoordinateFrame":
 		actual = denotedObjectValue(t, ctx, name, actual)

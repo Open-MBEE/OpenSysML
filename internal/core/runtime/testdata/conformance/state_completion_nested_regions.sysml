@@ -1,6 +1,7 @@
-// The orthogonal regions of a composite state complete like the machine's own:
-// the machine stays active while one of `busy`'s regions still runs, and
-// completes once both reach `done`.
+// The orthogonal regions of a composite state complete the state, not the
+// machine: `busy` stays active while one of its regions still runs, and once
+// both reach `done` its own completion transition fires, exiting `busy` and
+// completing the machine through its `done`.
 package test {
     attribute def First;
     attribute def Second;
@@ -10,6 +11,7 @@ package test {
 
         entry; then busy;
         state busy parallel {
+            exit action { assign log := log + "busy;"; }
             state left {
                 entry; then lstart;
                 state lstart {
@@ -25,5 +27,6 @@ package test {
                 transition first rstart accept Second then done;
             }
         }
+        transition first busy then done;
     }
 }

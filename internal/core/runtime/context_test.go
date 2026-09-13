@@ -13,7 +13,7 @@ func TestContextIDAllocation(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 100000)
+	ctx := NewContext(NewModel(model, resolver), 100000)
 
 	id1 := ctx.allocateID()
 	id2 := ctx.allocateID()
@@ -30,7 +30,7 @@ func TestContextStepCounter(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 10)
+	ctx := NewContext(NewModel(model, resolver), 10)
 
 	for i := 0; i < 10; i++ {
 		if err := ctx.incrementStep(); err != nil {
@@ -48,7 +48,7 @@ func TestContext_ExecuteAction(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 100000)
+	ctx := NewContext(NewModel(model, resolver), 100000)
 
 	// Create simple action: initial → action(x=42) → final
 	initial := &ast.InitialNode{Name: "start"}
@@ -106,7 +106,7 @@ func TestContext_ExecuteAction_InvalidSymbol(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 100000)
+	ctx := NewContext(NewModel(model, resolver), 100000)
 
 	// Pass non-action symbol
 	notAction := &symbols.Symbol{
@@ -125,7 +125,7 @@ func TestContext_ExecuteState(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 100000)
+	ctx := NewContext(NewModel(model, resolver), 100000)
 
 	// Create simple state machine: idle →[after 5]→ done (final)
 	idle := &ast.StateNode{
@@ -169,7 +169,7 @@ func TestContext_ExecuteState_InvalidSymbol(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 100000)
+	ctx := NewContext(NewModel(model, resolver), 100000)
 
 	// Pass non-state symbol
 	notState := &symbols.Symbol{
@@ -190,7 +190,7 @@ func TestContext_Integration_ActionWithinState(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 100000)
+	ctx := NewContext(NewModel(model, resolver), 100000)
 
 	// Create a simple action: compute = 10 + 20
 	initial := &ast.InitialNode{

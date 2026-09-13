@@ -470,7 +470,7 @@ func testUnattachableConnectorAbandonsWhatItsEndsMaterialized(t *testing.T) {
 		}
 	`)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	inst, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "Sys"))
 	if err != nil {
 		t.Fatalf("Instantiate Sys: %v", err)
@@ -531,7 +531,7 @@ func testUnattachableConnectorTouchesNoOtherObject(t *testing.T) {
 		}
 	`)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	good, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "good"))
 	if err != nil {
 		t.Fatalf("occurrenceOf good: %v", err)
@@ -604,7 +604,7 @@ func testConnectorWhoseStartFailsLeavesNoTrace(t *testing.T) {
 		}
 	`)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	good, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "good"))
 	if err != nil {
 		t.Fatalf("occurrenceOf good: %v", err)
@@ -682,7 +682,7 @@ func testConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
 		}
 	`)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	good, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "good"))
 	if err != nil {
 		t.Fatalf("occurrenceOf good: %v", err)
@@ -782,7 +782,7 @@ func testUnattachableConnectorEndsRunNothingEarly(t *testing.T) {
 		}
 	`)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	good, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "good"))
 	if err != nil {
 		t.Fatalf("occurrenceOf good: %v", err)

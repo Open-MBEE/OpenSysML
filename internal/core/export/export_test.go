@@ -1,8 +1,10 @@
 package export_test
 
 import (
+	"bytes"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -145,11 +147,42 @@ func structuralRoundTrip(t *testing.T, name string, first []byte) []byte {
 	if err != nil {
 		t.Fatalf("to turtle again from the mapping alone: %v", err)
 	}
-	if lost, gained := tripleSetDiff(t, withoutSourceText(t, first), withoutSourceText(t, again)); len(lost)+len(gained) > 0 {
-		t.Errorf("the mapping alone changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
-			fromGraph, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
-	}
+	requireSameGraphBytes(t, fromGraph, first, again)
 	return fromGraph
+}
+
+// requireSameGraphBytes requires two hops' Turtle, source text stripped, to be
+// the same triple set and then the same bytes; notation is the second hop's input.
+func requireSameGraphBytes(t *testing.T, notation, first, second []byte) {
+	t.Helper()
+	first, second = withoutSourceText(t, first), withoutSourceText(t, second)
+	if lost, gained := tripleSetDiff(t, first, second); len(lost)+len(gained) > 0 {
+		t.Errorf("the mapping alone changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
+			notation, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
+		return
+	}
+	if !bytes.Equal(first, second) {
+		t.Errorf("the same graph was written in a different order\n--- notation ---\n%s\n--- first difference ---\n%s",
+			notation, firstLineDifference(first, second))
+	}
+}
+
+// firstLineDifference reports the first line two documents disagree on.
+func firstLineDifference(first, second []byte) string {
+	a, b := strings.Split(string(first), "\n"), strings.Split(string(second), "\n")
+	for i := 0; i < len(a) || i < len(b); i++ {
+		var left, right string
+		if i < len(a) {
+			left = a[i]
+		}
+		if i < len(b) {
+			right = b[i]
+		}
+		if left != right {
+			return fmt.Sprintf("line %d:\n- %s\n+ %s", i+1, left, right)
+		}
+	}
+	return ""
 }
 
 // withoutSourceText strips the triples that carry notation rather than structure.
@@ -605,6 +638,7 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 		"end_prefix_metadata.sysml",
 		"nested_namespace_import.sysml",
 		"quoted_succession_ends.sysml",
+		"individual_definitions.sysml",
 	}
 	for _, fixture := range fixtures {
 		path := filepath.Join("testdata", "convert", fixture)
@@ -626,12 +660,39 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			if lost, gained := tripleSetDiff(t, withoutSourceText(t, first), withoutSourceText(t, second)); len(lost)+len(gained) > 0 {
-				t.Errorf("the second hop changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
-					back, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
-			}
+			requireSameGraphBytes(t, back, first, second)
 		})
 	}
+}
+
+// TestIndividualDefinitionWithoutItsFlagReadsAsIndividual covers a graph typed
+// sysml:IndividualDefinition that carries no sysml:isIndividual, the shape
+// earlier releases wrote: the metaclass states the fact, so it reads back as
+// `individual def` and its next hop is the graph an `individual def` writes today.
+func TestIndividualDefinitionWithoutItsFlagReadsAsIndividual(t *testing.T) {
+	src := `package P {
+    individual def Eagle;
+}`
+	first, err := export.Convert("legacy.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if !strings.Contains(string(first), "sysml:isIndividual") {
+		t.Fatalf("an individual def should carry sysml:isIndividual\n%s", first)
+	}
+	legacy := withoutTriples(t, withoutTriples(t, first, "sysx:sourceText"), "sysml:isIndividual")
+	back, err := export.Convert("legacy.ttl", legacy, export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if !strings.Contains(string(back), "individual def Eagle;") {
+		t.Errorf("an IndividualDefinition without its flag should still read as individual\n%s", back)
+	}
+	second, err := export.Convert("legacy.sysml", back, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle again: %v", err)
+	}
+	requireSameGraphBytes(t, back, first, second)
 }
 
 // tripleSetDiff parses two Turtle documents and returns the triples only the
@@ -827,29 +888,44 @@ func TestRequirementConditionsSurviveRDF(t *testing.T) {
 // typing, multiplicity, value, specializations — which the graph must carry
 // without the source text, prefixed or not.
 func TestRequirementConditionDeclarationsSurviveRDF(t *testing.T) {
-	for _, member := range []string{
-		"assume constraint c : Light;",
-		"require #Goal constraint d[1] = true;",
-		"assume #Goal constraint f : Light subsets Light[0..1] {\n            true;\n        }",
-		"assume constraint c references Light;",
-		"assume #Goal constraint c references Light;",
-		"require #Goal constraint c references Light;",
-		"require constraint references Light;",
-		"require Light subsets Light[1];",
-		"require Light {\n        }",
+	// back is the spelling the mapping alone writes where it differs from the
+	// one written: a body's trailing condition is its result expression, bare.
+	for _, member := range []struct{ written, back string }{
+		{written: "assume constraint c : Light;"},
+		{written: "require #Goal constraint d[1] = true;"},
+		{
+			written: "assume #Goal constraint f : Light subsets Light[0..1] {\n            true;\n        }",
+			back:    "assume #Goal constraint f : Light subsets Light[0..1] {\n            true\n        }",
+		},
+		{written: "assume constraint c references Light;"},
+		{written: "assume #Goal constraint c references Light;"},
+		{written: "require #Goal constraint c references Light;"},
+		{written: "require constraint references Light;"},
+		{written: "require Light subsets Light[1];"},
+		{written: "require Light {\n        }"},
 	} {
-		src := "package P {\n\tattribute mass;\n\tconstraint def Light;\n\tmetadata def Goal;\n\trequirement r {\n\t\t" + member + "\n\t}\n}"
+		src := "package P {\n\tattribute mass;\n\tconstraint def Light;\n\tmetadata def Goal;\n\trequirement r {\n\t\t" + member.written + "\n\t}\n}"
 		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
 		if err != nil {
-			t.Fatalf("%s: to turtle: %v", member, err)
+			t.Fatalf("%s: to turtle: %v", member.written, err)
 		}
-		for _, graph := range [][]byte{turtle, withoutTriples(t, turtle, "sysx:sourceText")} {
-			back, err := export.Convert("m.ttl", graph, export.FormatTurtle, export.FormatSysML)
+		structural := member.back
+		if structural == "" {
+			structural = member.written
+		}
+		for _, hop := range []struct {
+			graph []byte
+			want  string
+		}{
+			{turtle, member.written},
+			{withoutTriples(t, turtle, "sysx:sourceText"), structural},
+		} {
+			back, err := export.Convert("m.ttl", hop.graph, export.FormatTurtle, export.FormatSysML)
 			if err != nil {
-				t.Fatalf("%s: back to notation: %v", member, err)
+				t.Fatalf("%s: back to notation: %v", member.written, err)
 			}
-			if !strings.Contains(string(back), member) {
-				t.Errorf("the requirement member %q was rewritten:\n%s", member, back)
+			if !strings.Contains(string(back), hop.want) {
+				t.Errorf("the requirement member %q was rewritten:\n%s", hop.want, back)
 			}
 		}
 	}
@@ -1062,8 +1138,8 @@ func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 		{written: "use case def U {\n        objective #Safety o : Goal;\n    }"},
 		{written: "use case def U {\n        #Safety include Ride;\n    }"},
 		{written: "use case def U {\n        #Safety include use case ride : Ride;\n    }"},
-		{written: "requirement def R {\n        assume #Reviewed constraint {\n            true;\n        }\n    }"},
-		{written: "requirement def R {\n        require #Safety constraint {\n            true;\n        }\n    }"},
+		{written: "requirement def R {\n        assume #Reviewed constraint {\n            true\n        }\n    }"},
+		{written: "requirement def R {\n        require #Safety constraint {\n            true\n        }\n    }"},
 		{written: "part def Q {\n        #Safety assert constraint ok : Stopped;\n    }"},
 		{written: "part def Q {\n        #Safety assert not constraint bad : Stopped;\n    }"},
 		{written: "part def Q {\n        ref #Safety assert not constraint bad : Stopped;\n    }"},
@@ -1138,6 +1214,45 @@ func TestVarPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 			}
 			if string(again) != string(turtle) {
 				t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
+			}
+		})
+	}
+}
+
+// A negated invariant (KerML.xtext Invariant, isNegated ?= 'false') comes back
+// from the graph as `inv false`; `inv true` is the default and comes back bare.
+func TestNegatedInvariantComesBackFromTheGraphAlone(t *testing.T) {
+	for head, back := range map[string]string{
+		"inv false w {": "inv false w {",
+		"inv true v {":  "inv v {",
+		"inv u {":       "inv u {",
+	} {
+		t.Run(head, func(t *testing.T) {
+			src := "package P {\n    class C {\n        " + head + " 1 > 2 }\n    }\n}\n"
+			structural := func(turtle []byte) []byte {
+				return withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+			}
+			turtle, err := export.Convert("m.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			if err != nil {
+				t.Fatalf("to turtle: %v", err)
+			}
+			if got := strings.Count(string(turtle), "sysml:isNegated"); got != strings.Count(head, "false") {
+				t.Fatalf("isNegated written %d times for %q:\n%s", got, head, turtle)
+			}
+			notation, err := export.Convert("m.ttl", structural(turtle), export.FormatTurtle, export.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if !strings.Contains(string(notation), back) {
+				t.Fatalf("the head should come back as `%s`:\n%s", back, notation)
+			}
+			again, err := export.Convert("m.kerml", notation, export.FormatSysML, export.FormatTurtle)
+			if err != nil {
+				t.Fatalf("to turtle again: %v", err)
+			}
+			first, second := structural(turtle), structural(again)
+			if string(second) != string(first) {
+				t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", first, second)
 			}
 		})
 	}
@@ -1734,7 +1849,7 @@ func TestPrefixOnAVerbatimHeadIsWrittenOrReported(t *testing.T) {
 		"#$::P::Safety connect x to y;",
 		"#Safety connect x to y {\n\t\t\t#Audit part p;\n\t\t}",
 		"connect x to y {\n\t\t\t#Safety part p;\n\t\t}",
-		"transition t first x if xs#(1) > 0 then y;",
+		"state s {\n\t\t\ttransition t first x if xs#(1) > 0 then y;\n\t\t}",
 	}
 	for _, head := range heads {
 		src := "package P {\n\tmetadata def Safety;\n\tmetadata def Audit;\n\tattribute xs : Integer[*];\n\tpart def A {\n\t\tport x;\n\t\tport y;\n\t}\n\tpart a : A {\n\t\t" + head + "\n\t}\n}"
@@ -2840,6 +2955,7 @@ func TestFormatDetection(t *testing.T) {
 		"model.ttl":        export.FormatTurtle,
 		"dir/model.turtle": export.FormatTurtle,
 		"Model.xmi":        export.FormatXMI,
+		"Model.uml":        export.FormatXMI,
 		"Model.mdzip":      export.FormatXMI,
 	}
 	for path, want := range cases {
@@ -2857,7 +2973,7 @@ func TestFormatDetection(t *testing.T) {
 	if _, err := export.FormatOfPath("model"); err == nil {
 		t.Error("expected an error for a missing extension")
 	}
-	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "xmi", "mdzip"} {
+	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "xmi", "uml", "mdzip"} {
 		if _, err := export.ParseFormat(name); err != nil {
 			t.Errorf("ParseFormat(%q): %v", name, err)
 		}
@@ -2874,7 +2990,7 @@ func TestFormatDetection(t *testing.T) {
 // migrates to notation and to Turtle, the report comes back from Migrate, and
 // nothing writes XMI.
 func TestConvertFromXMI(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "migrate", "testdata", "cameo", "vehicle.xmi"))
+	data, err := os.ReadFile(filepath.Join("..", "migrate", "testdata", "xmi", "vehicle.xmi"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3230,12 +3346,12 @@ func TestWriteFileFallsBackWhenTheDirectoryIsClosed(t *testing.T) {
 // rather than replacing the link with a regular file.
 func TestWriteFileWritesThroughSymlink(t *testing.T) {
 	dir := t.TempDir()
-	real := filepath.Join(dir, "real.sysml")
+	target := filepath.Join(dir, "real.sysml")
 	link := filepath.Join(dir, "link.sysml")
-	if err := os.WriteFile(real, []byte("package P;\n"), 0o644); err != nil {
+	if err := os.WriteFile(target, []byte("package P;\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(real, link); err != nil {
+	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
 	replaced, err := export.WriteFile(link, []byte("package Q;\n"))
@@ -3245,7 +3361,7 @@ func TestWriteFileWritesThroughSymlink(t *testing.T) {
 	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
 		t.Errorf("the symlink was replaced by a regular file (%v)", err)
 	}
-	data, err := os.ReadFile(real)
+	data, err := os.ReadFile(target)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,0 +1,29 @@
+enter calc fleet::extents
+  stmt return
+          enter calc SequenceFunctions::size
+materialize: van #1
+materialize: coupe #2
+materialize: sedan #3
+            eval operator all -> (instance#1, instance#2, instance#3)
+            bind seq = (instance#1, instance#2, instance#3) [argument]
+          exit calc SequenceFunctions::size -> 3
+        eval invoke size -> 3
+        eval literal 3 -> 3
+      eval operator == -> true
+          eval operator all -> (instance#1, instance#2, instance#3)
+          eval literal 1 -> 1
+        eval index -> instance#1
+        eval feature depot::van -> instance#1
+      eval operator === -> true
+          eval operator all -> (instance#1, instance#2, instance#3)
+          eval literal 2 -> 2
+        eval index -> instance#2
+        eval feature coupe -> instance#2
+      eval operator === -> true
+          eval operator all -> (instance#1, instance#2, instance#3)
+          eval literal 3 -> 3
+        eval index -> instance#3
+        eval feature sedan -> instance#3
+      eval operator === -> true
+    eval sequence of 4 -> (true, true, true, true)
+exit calc fleet::extents -> (true, true, true, true)

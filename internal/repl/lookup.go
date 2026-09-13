@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -122,19 +123,27 @@ func (s *Session) owningInstance(fqn string) (*runtime.Instance, string) {
 // segments walked through that instance's feature values, since a nested part is an
 // object of its own. The second result is the found object's label, for reporting.
 func (s *Session) objectNamed(fqn string) (*runtime.Instance, string) {
-	if fqn == "" {
+	root, key, rest := s.heldRoot(fqn)
+	if root == nil {
 		return nil, ""
+	}
+	return s.walkFeatureValues(root, s.declaredName(key), rest)
+}
+
+// heldRoot finds the object a fully-qualified name is reached from: the one held under
+// its longest instantiated prefix, that prefix, and the feature names left to walk.
+func (s *Session) heldRoot(fqn string) (*runtime.Instance, string, []string) {
+	if fqn == "" {
+		return nil, "", nil
 	}
 	segments := strings.Split(fqn, "::")
 	for i := len(segments); i > 0; i-- {
 		key := strings.Join(segments[:i], "::")
-		inst, ok := s.instances[key]
-		if !ok {
-			continue
+		if inst, ok := s.instances[key]; ok {
+			return inst, key, segments[i:]
 		}
-		return s.walkFeatureValues(inst, s.declaredName(key), segments[i:])
 	}
-	return nil, ""
+	return nil, "", nil
 }
 
 // featureChainSymbol resolves a qualified name whose later segments are members
@@ -152,7 +161,7 @@ func (s *Session) featureChainSymbol(name string) (*symbols.Symbol, string) {
 	if idx == nil || err != nil {
 		return nil, ""
 	}
-	model := ctx.Model()
+	model := ctx.Semantics()
 	// The longest prefix a declaration answers to is the chain's root, so a
 	// nested feature is preferred over the type it happens to share a name with.
 	for i := len(segments) - 1; i > 0; i-- {
@@ -224,7 +233,7 @@ func (s *Session) carrierInstances(sym *symbols.Symbol) []string {
 	if err != nil {
 		return nil
 	}
-	model := ctx.Model()
+	model := ctx.Semantics()
 	var names []string
 	// A feature is read from the outermost object carrying it; its own nested
 	// objects are of other types and are not searched again.
@@ -368,6 +377,20 @@ func (s *Session) heldByID(id int64) (found, keeper *runtime.Instance) {
 	return found, keeper
 }
 
+// heldLabel is the label the session reaches the held object with id by, false
+// for an object it holds nowhere.
+func (s *Session) heldLabel(id int64) (string, bool) {
+	var label string
+	found := false
+	s.walkHeldObjects(s.rtCtx, func(cur carrier) bool {
+		if cur.inst.ID == id {
+			label, found = cur.name, true
+		}
+		return !found
+	})
+	return label, found
+}
+
 // heldIDs lists the ids of the objects the session holds, ascending, the
 // connectors a carry-over set aside included.
 func (s *Session) heldIDs() []int64 {
@@ -500,15 +523,20 @@ func (s *Session) walkFeatureValues(inst *runtime.Instance, label string, names 
 	if err != nil {
 		return nil, ""
 	}
-	path := make([]objectSegment, 0, len(names))
-	for _, name := range names {
-		path = append(path, objectSegment{text: lexer.NameText(name), name: name})
-	}
-	inst, label, err = s.walkObjectPath(ctx, inst, label, path)
+	inst, label, err = s.walkObjectPath(ctx, inst, label, pathSegments(names))
 	if err != nil {
 		return nil, ""
 	}
 	return inst, label
+}
+
+// pathSegments spells feature names as the segments of a path walked through them.
+func pathSegments(names []string) []objectSegment {
+	path := make([]objectSegment, 0, len(names))
+	for _, name := range names {
+		path = append(path, objectSegment{text: lexer.NameText(name), name: name})
+	}
+	return path
 }
 
 // An object reference is how every command that takes an object names one:
@@ -549,10 +577,15 @@ type objectRef struct {
 type ObjectRefError struct {
 	Ref    string
 	Detail string
+	// Named is the `::`-joined run of names read before a character no unquoted
+	// name holds stopped the text: `T::SA` in `T::SA-506`.
+	Named string
+	// Hint is what Named may have meant, appended to the report.
+	Hint string
 }
 
 func (e *ObjectRefError) Error() string {
-	return fmt.Sprintf("%q is not an object reference: %s", e.Ref, e.Detail)
+	return fmt.Sprintf("%q is not an object reference: %s%s", e.Ref, e.Detail, e.Hint)
 }
 
 // UnknownObjectIDError reports an id no object of the session has, with the
@@ -659,7 +692,7 @@ func (s *Session) notInstantiated(sym *symbols.Symbol, fqn string) error {
 	if err != nil {
 		return e
 	}
-	model := ctx.Model()
+	model := ctx.Semantics()
 	var definition *symbols.Symbol
 	switch sym.Decl.(type) {
 	case *ast.Usage:
@@ -793,13 +826,30 @@ func parseObjectRef(text string) (objectRef, error) {
 		}
 		sep, next, ok := cutSeparator(after)
 		if !ok {
-			return ref, &ObjectRefError{Ref: text, Detail: fmt.Sprintf("%q cannot follow %s: segments are separated by . or ::", after, seg.text)}
+			err := &ObjectRefError{Ref: text, Detail: fmt.Sprintf("%q cannot follow %s: segments are separated by . or ::", after, seg.text)}
+			if ref.id == 0 {
+				err.Named = declaredRun(ref.segments)
+			}
+			return ref, err
 		}
 		if next == "" {
 			return ref, &ObjectRefError{Ref: text, Detail: fmt.Sprintf("it ends in %q with no feature after it", sep)}
 		}
 		rest, dotted = next, sep == "."
 	}
+}
+
+// declaredRun is the `::`-joined registered names of segments that may all name
+// a declaration — none reached through `.` or an index — or "" when one is not.
+func declaredRun(segments []objectSegment) string {
+	names := make([]string, len(segments))
+	for i, seg := range segments {
+		if seg.dotted || seg.index > 0 {
+			return ""
+		}
+		names[i] = seg.name
+	}
+	return strings.Join(names, "::")
 }
 
 // cutSeparator splits the segment separator text starts with from what follows.
@@ -860,18 +910,18 @@ func scanObjectSegment(ref, rest string) (objectSegment, string, error) {
 	if !strings.HasPrefix(rest, "[") {
 		return seg, rest, nil
 	}
-	close := strings.IndexByte(rest, ']')
-	if close < 0 {
+	closeAt := strings.IndexByte(rest, ']')
+	if closeAt < 0 {
 		return seg, "", &ObjectRefError{Ref: ref, Detail: fmt.Sprintf("the index after %s is not closed with ]", seg.text)}
 	}
-	digits := rest[1:close]
+	digits := rest[1:closeAt]
 	index, err := strconv.Atoi(digits)
 	if digits == "" || leadingDigits(digits) != digits || err != nil || index < 1 {
 		return seg, "", &ObjectRefError{Ref: ref, Detail: fmt.Sprintf("%s[%s] is not an index: elements are counted from 1", seg.text, digits)}
 	}
 	seg.index = index
-	seg.text += rest[:close+1]
-	return seg, rest[close+1:], nil
+	seg.text += rest[:closeAt+1]
+	return seg, rest[closeAt+1:], nil
 }
 
 // resolveObject is the one path every object-taking command resolves its
@@ -880,6 +930,10 @@ func scanObjectSegment(ref, rest string) (objectSegment, string, error) {
 func (s *Session) resolveObject(text string) (*runtime.Instance, string, error) {
 	ref, err := parseObjectRef(text)
 	if err != nil {
+		var bad *ObjectRefError
+		if errors.As(err, &bad) && bad.Named != "" {
+			bad.Hint = suggest.Hint("", bad.Named, nil, s.unquotedNames(bad.Named, nil))
+		}
 		return nil, "", err
 	}
 	if ref.id > 0 {

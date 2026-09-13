@@ -1,0 +1,11 @@
+{
+  "type": "calc",
+  "libraries": true,
+  "trace": true,
+  "evaluate": "test::cylindersOffered",
+  "result": {"type": "Sequence", "elements": [
+    {"type": "Integer", "value": 4},
+    {"type": "Integer", "value": 6},
+    {"type": "Integer", "value": 8}
+  ]}
+}

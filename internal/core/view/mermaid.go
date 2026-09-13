@@ -5,26 +5,31 @@ import (
 	"strings"
 )
 
-// Mermaid is the machine-readable form of a rendering. Mermaid was chosen over
-// DOT because a Mermaid diagram renders where the models are read — in Markdown
-// documentation, in the repository's own docs, and in the editors that host the
-// language server — without a Graphviz installation, and because it has a
-// state-diagram grammar the state rendering maps onto directly.
+// Mermaid is the default machine-readable form of a rendering: a Mermaid
+// diagram renders where the models are read — in Markdown documentation, in
+// the repository's own docs, and in the editors that host the language server —
+// without a Graphviz installation, and it has a state-diagram grammar the state
+// rendering maps onto directly. Graphviz DOT, written by DOT, is the alternative
+// for Graphviz toolchains and for renderings that will carry exact positions;
+// PlantUML, written by PlantUML, for PlantUML toolchains.
 //
 // A graph-shaped rendering is a `flowchart`; a state rendering is a
 // `stateDiagram-v2` and a sequence rendering a `sequenceDiagram`. What the
 // rendering could not represent is written as comments, so no notice is lost in
 // the machine-readable form either.
 func (r *Rendering) Mermaid() string {
-	return r.MermaidDirected("")
+	return r.MermaidWith(Options{})
 }
 
-// MermaidDirected is the Mermaid form drawn in the stated direction: a
-// flowchart flows that way, and a state diagram states it as a `direction`
-// statement. The empty direction keeps each kind's default, and a kind no
-// direction applies to ignores it.
-func (r *Rendering) MermaidDirected(direction Direction) string {
+// MermaidWith is the Mermaid form written with options. It is drawn in the
+// stated direction: a flowchart flows that way, and a state diagram states it
+// as a `direction` statement. The empty direction keeps each kind's default,
+// and a kind no direction applies to ignores it. A palette is not drawn,
+// Mermaid having no fill per node kind, and is noted as not represented.
+func (r *Rendering) MermaidWith(options Options) string {
+	direction := options.Direction
 	var b strings.Builder
+	r.writeFlowchartFrontmatter(&b)
 	if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)
 	} else {
@@ -37,6 +42,10 @@ func (r *Rendering) MermaidDirected(direction Direction) string {
 	for _, notice := range r.Notices {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
 	}
+	if options.Palette != "" {
+		fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette))
+	}
+	r.writeGeometryComments(&b, "%%")
 	switch r.Kind {
 	case KindState:
 		r.writeStateDiagram(&b, direction)
@@ -47,6 +56,87 @@ func (r *Rendering) MermaidDirected(direction Direction) string {
 	}
 	r.writeFlowchart(&b, direction)
 	return b.String()
+}
+
+// writeGeometryComments writes the canvas, node placements and edge routes as
+// comments opened by prefix (`%%` in Mermaid, `'` in PlantUML), which those
+// forms lay out without: the geometry stays readable in the file rather than
+// being dropped.
+func (r *Rendering) writeGeometryComments(b *strings.Builder, prefix string) {
+	if c := r.Canvas; c != nil {
+		b.WriteString(prefix + " canvas:")
+		if c.Unit != "" {
+			b.WriteString(" unit=" + c.Unit)
+		}
+		if c.HasSize {
+			fmt.Fprintf(b, " w=%s h=%s", formatCoord(c.Width), formatCoord(c.Height))
+		}
+		b.WriteString("\n")
+	}
+	for _, root := range r.Roots {
+		writeLayoutComments(b, prefix, root)
+	}
+	for _, edge := range r.Edges {
+		if len(edge.Route) == 0 {
+			continue
+		}
+		fmt.Fprintf(b, "%s route: %s->%s", prefix, edge.From, edge.To)
+		for _, p := range edge.Route {
+			fmt.Fprintf(b, " %s,%s", formatCoord(p.X), formatCoord(p.Y))
+		}
+		b.WriteString("\n")
+	}
+}
+
+// writeLayoutComments writes the placement of node and of the nodes under it,
+// as comments opened by prefix.
+func writeLayoutComments(b *strings.Builder, prefix string, node *Node) {
+	if g := node.Geometry; g != nil {
+		fmt.Fprintf(b, "%s layout: %s x=%s y=%s", prefix, node.ID, formatCoord(g.X), formatCoord(g.Y))
+		if g.HasSize {
+			fmt.Fprintf(b, " w=%s h=%s", formatCoord(g.Width), formatCoord(g.Height))
+		}
+		if g.Collapsed {
+			b.WriteString(" collapsed")
+		}
+		b.WriteString("\n")
+	}
+	for _, child := range node.Children {
+		writeLayoutComments(b, prefix, child)
+	}
+}
+
+// mermaidTitleLine is the height in pixels of one line of a subgraph title.
+const mermaidTitleLine = 24
+
+// writeFlowchartFrontmatter reserves, as a subgraph title's bottom margin, the
+// height Mermaid leaves out for a title beyond its first line; none is needed otherwise.
+func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder) {
+	switch r.Kind {
+	case KindTree, KindState, KindSequence:
+		return
+	}
+	extra := 0
+	for _, root := range r.Roots {
+		extra = max(extra, clusterTitleExtraLines(root))
+	}
+	if extra == 0 {
+		return
+	}
+	fmt.Fprintf(b, "---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n", extra*mermaidTitleLine)
+}
+
+// clusterTitleExtraLines is the most lines beyond the first spanned by the
+// title of node or of a cluster under it.
+func clusterTitleExtraLines(node *Node) int {
+	if len(node.Children) == 0 {
+		return 0
+	}
+	extra := len(labelLines(node)) - 1
+	for _, child := range node.Children {
+		extra = max(extra, clusterTitleExtraLines(child))
+	}
+	return extra
 }
 
 // writeFlowchart writes the tree, interconnection and action renderings as a
@@ -83,18 +173,18 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction) {
 func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidText(mermaidLabel(node)))
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidLabel(node))
 		return
 	}
 	if containment {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidText(mermaidLabel(node)))
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidLabel(node))
 		for _, child := range node.Children {
 			writeFlowchartNode(b, child, depth, containment)
 			fmt.Fprintf(b, "%s%s --- %s\n", indent, node.ID, child.ID)
 		}
 		return
 	}
-	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, mermaidText(mermaidLabel(node)))
+	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, mermaidLabel(node))
 	for _, child := range node.Children {
 		writeFlowchartNode(b, child, depth+1, containment)
 	}
@@ -167,7 +257,7 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder) {
 		return
 	}
 	for _, node := range r.Roots {
-		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, mermaidText(mermaidLabel(node)))
+		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, mermaidLabel(node))
 	}
 	for _, edge := range r.Edges {
 		// The colon is part of the message syntax; only the text after it is left
@@ -185,10 +275,10 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder) {
 func writeStateNode(b *strings.Builder, node *Node, depth int, starts map[string][]Edge) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, mermaidText(mermaidLabel(node)), node.ID)
+		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, mermaidLabel(node), node.ID)
 		return
 	}
-	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, mermaidText(mermaidLabel(node)), node.ID)
+	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, mermaidLabel(node), node.ID)
 	for _, child := range node.Children {
 		if child.Kind != startKind {
 			writeStateNode(b, child, depth+1, starts)
@@ -202,17 +292,14 @@ func writeStateNode(b *strings.Builder, node *Node, depth int, starts map[string
 	fmt.Fprintf(b, "%s}\n", indent)
 }
 
-// mermaidLabel is the text a node carries in a diagram: its kind, its name, and
-// what else the rendering said about it.
+// mermaidLabel is a node's label ready to embed: its lines escaped and joined
+// with `<br>`, which flowcharts, state diagrams and sequence diagrams all break at.
 func mermaidLabel(node *Node) string {
-	label := node.Kind
-	if node.Name != "" {
-		label += " " + node.Name
+	lines := labelLines(node)
+	for i, line := range lines {
+		lines[i] = mermaidText(line)
 	}
-	if node.Detail != "" {
-		label += " (" + node.Detail + ")"
-	}
-	return label
+	return strings.Join(lines, "<br>")
 }
 
 // mermaidArrow is how an edge of each kind is drawn in a flowchart.

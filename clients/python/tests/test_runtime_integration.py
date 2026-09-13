@@ -270,6 +270,36 @@ class TestRuntimeIntegration:
         assert q.d is UNSET
         assert q.k == 2.0
 
+    def test_an_unbound_feature_evaluates_undetermined_not_as_an_error(self):
+        """The service says it sends the undetermined arm, and does."""
+        from opensysml.capabilities import CAPABILITY_UNDETERMINED_VALUE
+        from opensysml.values import UNSET, Undetermined
+
+        assert self.conn.server_info().has(CAPABILITY_UNDETERMINED_VALUE)
+
+        src = '''
+        package P {
+            private import ScalarValues::*;
+            part def D;
+            attribute u;
+            part gear[1..*] : D;
+        }
+        '''
+        model = self.conn.load_from_content(src)
+
+        got = self.conn.eval("P::u + 5", model.hash)
+        assert isinstance(got, Undetermined)
+        assert got is not UNSET
+        assert got.reason == "P::u has no value in the model"
+        assert (got.count_lower, got.count_upper) == ("1", "1")
+        assert str(got) == "<undetermined>"
+
+        open_count = self.conn.eval("P::gear", model.hash)
+        assert isinstance(open_count, Undetermined)
+        assert (open_count.count_lower, open_count.count_upper) == ("1", "*")
+
+        assert self.conn.eval("(P::u > 3) and false", model.hash) is False
+
     def test_symbol_attributes_and_parts(self):
         """Symbol filtering works against the kinds the service really emits."""
         src = '''

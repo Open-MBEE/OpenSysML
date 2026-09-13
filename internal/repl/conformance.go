@@ -8,8 +8,7 @@ import (
 
 // ConformanceMode reports the strictness the session judges notation at.
 func (s *Session) ConformanceMode() conformance.Mode {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.reading()()
 	return s.ws.ConformanceMode()
 }
 
@@ -17,8 +16,7 @@ func (s *Session) ConformanceMode() conformance.Mode {
 // notation no SysML v2 production admits is a warning or an error. It takes
 // effect at once — the buffer is re-analyzed on the next request.
 func (s *Session) SetConformanceMode(mode conformance.Mode) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	s.ws.SetConformanceMode(mode)
 }
 

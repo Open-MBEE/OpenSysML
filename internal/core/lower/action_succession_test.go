@@ -170,6 +170,39 @@ func TestToActionGraph_ExplicitSuccessionUnsupportedMultiplicity(t *testing.T) {
 	}
 }
 
+// A succession body holding only annotations declares nothing the flow depends
+// on, so it lowers; one declaring a feature does not.
+func TestToActionGraph_ExplicitSuccessionBody(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action seq {
+			action alpha;
+			action beta;
+			succession first alpha then beta { @Layout { x = 1; } doc /* routed */ }
+		}
+	`)
+	alpha := nodeNamed(t, graph, "alpha")
+	if edges := graph.Edges[alpha]; len(edges) != 1 || edges[0].Target != nodeNamed(t, graph, "beta") {
+		t.Fatalf("alpha edges = %v, want [beta]", edges)
+	}
+
+	p := parser.New(source.New("test.sysml", []byte(`
+		action seq {
+			action alpha;
+			action beta;
+			succession first alpha then beta { attribute weight : Integer; }
+		}
+	`)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	action := root.Members[0].(*ast.Membership).Member.(*ast.Usage)
+	_, err := ToActionGraph(action, nil)
+	if err == nil || !strings.Contains(err.Error(), "action succession has unsupported body") {
+		t.Fatalf("error = %v, want an explicit succession body diagnostic", err)
+	}
+}
+
 func namedActionNode(t *testing.T, graph *ActionGraph, name string) ast.Node {
 	t.Helper()
 	for _, node := range graph.Nodes {
@@ -179,4 +212,36 @@ func namedActionNode(t *testing.T, graph *ActionGraph, name string) ast.Node {
 	}
 	t.Fatalf("node %s not found in graph", name)
 	return nil
+}
+
+// StartFlow gives an action performed whole its one unpreceded step to start at,
+// keeps an explicit start, and leaves an ambiguous or cyclic flow without one.
+func TestStartFlow(t *testing.T) {
+	for _, tc := range []struct {
+		name, body, start string
+	}{
+		{"one unpreceded step", `action alpha; then action beta;`, "alpha"},
+		{"explicit first", `action alpha; action beta; first beta then alpha;`, "beta"},
+		{"explicit start node", `first start; then action alpha; action beta;`, "start"},
+		{"two unpreceded steps", `action alpha; action beta; action gamma; succession first alpha then gamma; succession first beta then gamma;`, ""},
+		{"a cycle", `action alpha; action beta; succession first alpha then beta; succession first beta then alpha;`, ""},
+	} {
+		graph := actionGraphFor(t, `action seq { `+tc.body+` }`)
+		StartFlow(graph)
+		if tc.start == "" {
+			if graph.Initial != nil {
+				t.Errorf("%s: initial node = %v, want none", tc.name, graph.Initial)
+			}
+			continue
+		}
+		if tc.start == "start" {
+			if _, ok := graph.Initial.(*ast.InitialNode); !ok {
+				t.Errorf("%s: initial node = %T, want the start node", tc.name, graph.Initial)
+			}
+			continue
+		}
+		if graph.Initial != nodeNamed(t, graph, tc.start) {
+			t.Errorf("%s: initial node = %v, want %s", tc.name, graph.Initial, tc.start)
+		}
+	}
 }

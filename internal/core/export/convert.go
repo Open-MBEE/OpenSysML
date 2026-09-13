@@ -31,7 +31,8 @@
 //
 // # XMI input
 //
-// SysML v1 in Cameo/MagicDraw XMI or .mdzip is migrated to v2 notation by
+// SysML v1 as UML XMI (OMG XMI 2.5.1, the Eclipse UML2 .uml serialization
+// Papyrus writes, or a .mdzip archive holding it) is migrated to v2 notation by
 // internal/core/migrate, then takes the notation path. XMI is never written.
 //
 // # RDF back to notation
@@ -66,8 +67,8 @@ const (
 	FormatSysML Format = iota
 	// FormatTurtle is RDF in Turtle syntax.
 	FormatTurtle
-	// FormatXMI is SysML v1 as UML XMI 2.5.1, or a Cameo .mdzip archive holding
-	// it. It is an input format only.
+	// FormatXMI is SysML v1 as UML XMI 2.5.1, the OMG SysML profile applied, or
+	// a .mdzip archive holding it. It is an input format only.
 	FormatXMI
 )
 
@@ -95,11 +96,12 @@ var formatNames = map[string]Format{
 	"turtle": FormatTurtle,
 	"rdf":    FormatTurtle,
 	"xmi":    FormatXMI,
+	"uml":    FormatXMI,
 	"mdzip":  FormatXMI,
 }
 
 // FormatList is the wording every surface lists the format names in.
-const FormatList = "sysml, kerml, ttl, turtle, rdf, or xmi/mdzip (input only)"
+const FormatList = "sysml, kerml, ttl, turtle, rdf, or xmi/uml/mdzip (input only)"
 
 // FormatNames returns every name ParseFormat accepts, sorted.
 func FormatNames() []string {
@@ -174,7 +176,7 @@ func FormatOfPath(path string) (Format, error) {
 		return FormatSysML, nil
 	case ".ttl", ".turtle":
 		return FormatTurtle, nil
-	case ".xmi", ".mdzip":
+	case ".xmi", ".uml", ".mdzip":
 		return FormatXMI, nil
 	case "":
 		return 0, &UnknownFormatError{Path: path, NoExtension: true}

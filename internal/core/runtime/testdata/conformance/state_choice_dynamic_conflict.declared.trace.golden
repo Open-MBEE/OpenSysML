@@ -1,0 +1,11 @@
+exit: idle
+stmt assign level
+  eval literal 8 -> 8
+  eval feature level -> 8
+  eval literal 5 -> 5
+eval operator > -> true
+choice choice pick: transitions 1->low, 2->high (unordered; took 1->low)
+enter: low (entry action)
+stmt assign route
+  eval literal 1 -> 1
+transition: idle -> low (event: accept Go)

@@ -340,7 +340,7 @@ func TestConvertTolerantWritesNotationAnyway(t *testing.T) {
 // with from_format xmi, and a .xmi file whose format is inferred.
 func TestConvertMigratesXMI(t *testing.T) {
 	srv := mustNewService(t, 10)
-	path := filepath.Join("..", "core", "migrate", "testdata", "cameo", "vehicle.xmi")
+	path := filepath.Join("..", "core", "migrate", "testdata", "xmi", "vehicle.xmi")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

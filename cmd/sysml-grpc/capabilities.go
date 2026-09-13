@@ -8,11 +8,16 @@ import (
 const testWithholdCapabilitiesEnv = "OPENSYSML_TEST_WITHHOLD_CAPABILITIES"
 
 func unavailableCapabilitiesForTesting() []string {
-	var capabilities []string
-	for _, capability := range strings.Split(os.Getenv(testWithholdCapabilitiesEnv), ",") {
-		if capability = strings.TrimSpace(capability); capability != "" {
-			capabilities = append(capabilities, capability)
+	return splitNames(os.Getenv(testWithholdCapabilitiesEnv))
+}
+
+// splitNames reads a comma-separated list, dropping blanks.
+func splitNames(list string) []string {
+	var names []string
+	for _, name := range strings.Split(list, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
 		}
 	}
-	return capabilities
+	return names
 }

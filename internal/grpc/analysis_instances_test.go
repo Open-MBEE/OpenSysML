@@ -132,7 +132,7 @@ func TestRunAnalysisReportsNestedObjects(t *testing.T) {
 }
 
 // TestRunSweepReportsNestedObjects verifies the same for every row of a sweep,
-// whose instance table is shared by the rows.
+// whose instance table carries every row's objects.
 func TestRunSweepReportsNestedObjects(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, nestedObjectsModelSource, "nested-objects-sweep")

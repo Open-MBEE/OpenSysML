@@ -34,8 +34,7 @@ func (s *Session) doView(name string) ([]string, bool, error) {
 // conforms to the viewpoints it satisfies. A view exposing nothing says so; an
 // element that is no view is semantics.ErrNotAView.
 func (s *Session) View(name string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.view(name)
 }
 
@@ -48,7 +47,7 @@ func (s *Session) view(name string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 	}
-	model := ctx.Model()
+	model := ctx.Semantics()
 	exposed, err := model.ExposedElements(sym)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", notationName(fqn), err)
@@ -83,8 +82,8 @@ func (s *Session) view(name string) ([]string, error) {
 // doRender renders a view, reporting a name the session cannot find, an element
 // that is no view, a rendering kind not produced, or a form the kind is not
 // written in, as a line.
-func (s *Session) doRender(name string, form view.Form) ([]string, bool, error) {
-	lines, err := s.renderLines(name, form)
+func (s *Session) doRender(name string, form view.Form, palette view.Palette) ([]string, bool, error) {
+	lines, err := s.renderLines(name, form, palette)
 	if err != nil {
 		return []string{"error: " + err.Error()}, false, nil
 	}
@@ -100,14 +99,25 @@ func renderForms() []string {
 	return out
 }
 
+// renderPalettes are the palettes %render fills the dot form from, as its third
+// argument spells them.
+func renderPalettes() []string {
+	out := make([]string, 0, len(view.Palettes()))
+	for _, palette := range view.Palettes() {
+		out = append(out, string(palette))
+	}
+	return out
+}
+
 // renderLines renders a view in the kind its `render` member states and the form
-// asked for, one line per line of the artifact.
-func (s *Session) renderLines(name string, form view.Form) ([]string, error) {
+// asked for, filled from the palette when one is named, one line per line of
+// the artifact.
+func (s *Session) renderLines(name string, form view.Form, palette view.Palette) ([]string, error) {
 	rendering, err := s.viewRendering(name)
 	if err != nil {
 		return nil, err
 	}
-	artifact, err := rendering.WriteWidth(form, s.renderWidth)
+	artifact, err := rendering.WriteWith(form, view.Options{Palette: palette, Width: s.renderWidth})
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +128,7 @@ func (s *Session) renderLines(name string, form view.Form) ([]string, error) {
 // frontend sets it from the terminal; view.WidthUnbounded, the default, writes
 // every column as wide as its widest cell.
 func (s *Session) SetRenderWidth(width int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	s.renderWidth = width
 }
 
@@ -127,8 +136,7 @@ func (s *Session) SetRenderWidth(width int) {
 // symbols and creates nothing in it: no object, no runtime, no change to a
 // debugging session in progress.
 func (s *Session) ViewRendering(name string) (*view.Rendering, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.viewRendering(name)
 }
 
@@ -182,8 +190,7 @@ func (s *Session) renderPseudoView(spec string) (*view.Rendering, error) {
 // Views lists every view the session declares, in document then declaration
 // order.
 func (s *Session) Views() ([]model.ViewInfo, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	renderer, err := s.viewRenderer()
 	if err != nil {
 		return nil, err
@@ -337,7 +344,7 @@ func (e concernEvaluator) EvaluateConcern(concern, element *symbols.Symbol) (boo
 		Subject:    element,
 		SubjectRef: e.session.viewElementName(element),
 	}
-	if requirement := e.ctx.Model().FramedConcernTarget(concern); requirement != nil {
+	if requirement := e.ctx.Semantics().FramedConcernTarget(concern); requirement != nil {
 		// Named only when it resolved, so a reference naming nothing is reported
 		// as unresolved rather than as this concern's own conditions.
 		assertion.Requirement = requirement
@@ -396,14 +403,15 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 		return nil, fmt.Errorf("no document loaded")
 	}
 	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-	model.SetSourceText(r.session.sessionSourceText())
-	ctx := runtime.NewContext(model, resolver, r.session.budgets.MaxSteps)
+	sem := semantics.NewModel(resolver)
+	sem.SetSourceText(r.session.sessionSourceText())
+	model := runtime.NewModel(sem, resolver)
+	for _, doc := range r.session.sessionDocs() {
+		model.RegisterSource(source.New(doc.Name, doc.Content))
+	}
+	ctx := runtime.NewContext(model, r.session.budgets.MaxSteps)
 	if err := ctx.SetBudgets(r.session.budgets); err != nil {
 		return nil, err
-	}
-	for _, doc := range r.session.sessionDocs() {
-		ctx.RegisterSource(source.New(doc.Name, doc.Content))
 	}
 	// Recorded like the session's own evaluation, so a trace does not depend on
 	// which objects the report had to materialize.

@@ -109,9 +109,14 @@ match value {
     Value::VectorQuantity(q) => (),    // q.components(): one Quantity per component; q.unit() when shared
     Value::MeasurementRef(m) => (),    // a bare unit: m.unit, m.unit_term, m.unit_id when it names a declaration
     Value::Function(f) => (),          // a calc held as a value: f.calc_id, f.self_id when read off an object
-    Value::EnumLiteral(l) => (),       // literal_id, enumeration_id, name
+    Value::Set(s) => (),               // a Collections::Set's elements: each once, unordered
+    Value::TensorQuantity(t) => (),    // t.dimensions(), t.components() row-major, t.get(&[i, j, k])
+    Value::Metaobject(m) => (),        // x meta KerML::Feature: m.element_id, m.metaclass_id
+    Value::EnumLiteral(l) => (),       // literal_id, enumeration_id, name; value: the scalar a `high = 3` literal carries
     Value::Null => (),                 // evaluated, no value
     Value::Unset => (),                // a materialized feature with no value
+    Value::Undetermined(u) => (),      // left open by the model: u.reason, u.count_lower, u.count_upper
+    Value::Infinity => (),             // the unbounded `*`
 }
 ```
 
@@ -169,10 +174,11 @@ release means upgrading the crate.
 
 Deliberately out of scope: generated model-ergonomics types beyond the domain
 objects above, the edit API, RDF conversion and the verification helpers. The
-service still serves them, but this crate has no generic RPC escape hatch:
-`Connection` exposes only the calls above, and `opensysml::wire` gives the message
-types for reading a field off an answer, not a way to make a call the typed surface
-omits. Reach those RPCs from the Go or Python client until a v2 wraps them here.
+service still serves them, and `Connection::call` is the escape hatch: it sends one
+method's request message from `opensysml::wire` and decodes the response without
+the ergonomic layer, so an RPC the typed API does not wrap — `RunAnalysis`,
+`RunSweep` — can still be made. In-band `error` fields are the caller's to read,
+and `Capabilities::has` gates the response fields the same way.
 
 ## Conformance
 

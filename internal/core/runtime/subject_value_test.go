@@ -30,7 +30,7 @@ func TestRequirementSubjectDeclarationValue(t *testing.T) {
 	idx := symbols.NewIndex()
 	idx.AddDocument("test.sysml", file)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
 
 	for _, tt := range []struct {
@@ -98,7 +98,7 @@ func nestedSubjectFixture(t *testing.T, src string) (*Context, *symbols.Scope) {
 	if len(root.Children()) == 0 {
 		t.Fatal("no package indexed")
 	}
-	return NewContext(semantics.NewModel(resolver), resolver, 100000), root.Children()[0]
+	return NewContext(NewModel(semantics.NewModel(resolver), resolver), 100000), root.Children()[0]
 }
 
 // memberPath looks a member up along a path of names, as `Leaf::small` is.
@@ -347,6 +347,46 @@ func TestSubjectOfADirectlyInstantiatedNestedUsage(t *testing.T) {
 	}
 	if satisfied {
 		t.Error("satisfied = true, want the object's 99.0 to violate it")
+	}
+}
+
+// The objects a namespace-level collection usage denotes occur as one declaration,
+// so a condition their definition declares is about that declaration, not a question
+// between its members; a second usage of the definition is a distinct carrier still.
+func TestSubjectOfANamespaceCollection(t *testing.T) {
+	src := `package test {
+	part def Wheel {
+		attribute value : Real = 1.0;
+		constraint small { value < 10.0 }
+	}
+	part def Bolt {
+		attribute torque : Real = 1.0;
+		constraint tight { torque > 10.0 }
+	}
+	part def Axle {
+		part bolts : Bolt[2];
+	}
+	part wheels : Wheel[2];
+	part bolts : Bolt[2];
+	part axle : Axle;
+}`
+	ctx, pkg := nestedSubjectFixture(t, src)
+	for _, name := range []string{"wheels", "bolts", "axle"} {
+		if _, err := ctx.EvalDeclaredValue(memberPath(t, pkg, name)); err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+	}
+	small := memberPath(t, pkg, "Wheel", "small")
+	if satisfied, err := ctx.EvaluateConstraint(small, small.OwnerScope); err != nil || !satisfied {
+		t.Fatalf("small over wheels: satisfied = %t, err = %v, want one verdict for the declaration", satisfied, err)
+	}
+	tight := memberPath(t, pkg, "Bolt", "tight")
+	_, err := ctx.EvaluateConstraint(tight, tight.OwnerScope)
+	if !errors.Is(err, ErrAmbiguousSubject) {
+		t.Fatalf("tight with two declarations of Bolt: err = %v, want ErrAmbiguousSubject", err)
+	}
+	if n := strings.Count(err.Error(), "Bolt #"); n != 2 {
+		t.Errorf("%q names %d carriers, want one per declaration", err, n)
 	}
 }
 

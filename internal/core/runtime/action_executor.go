@@ -19,13 +19,21 @@ import (
 // than one succession, which the token semantics do not resolve.
 var ErrAmbiguousSuccession = errors.New("more than one succession is enabled")
 
+// actionLabelPrefix opens the text naming an action in diagnostics and choices.
+const actionLabelPrefix = "action "
+
 // ActionExecutor executes action bodies using token-flow semantics.
 type ActionExecutor struct {
 	// performances holds the action's own performance, root, and runs its nodes' as
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
 	performances
-	action *symbols.Symbol
+	// action states the body performed; performed is the action as named, a usage
+	// stating no body of its own or the action itself, whose metadata binds the performance.
+	action, performed *symbols.Symbol
+	// tool is the ToolExecution annotating performed, whose tool performs the action in
+	// place of its body; nil for an action performed by its body.
+	tool *toolExecution
 	// occurrence is the action performance materialized for a performed usage. It
 	// holds what the action's own features hold, and data mirrors it.
 	occurrence *Instance
@@ -44,7 +52,10 @@ type ActionExecutor struct {
 	// counts those begun. A token a sweep moved is not an arrival until the sweep ends.
 	sweep, sweeps uint64
 	inputs        map[string]Value // Input parameter bindings, applied over attribute defaults
-	pausedAt      string           // Node name RunToCompletion stopped at, empty when it ran to the end
+	// beginsRun marks the performance the caller begins a run on, the one a
+	// replayed witness's inputs are fixed on (see fixWitnessInputs).
+	beginsRun bool
+	pausedAt  string // Node name RunToCompletion stopped at, empty when it ran to the end
 	// released is set once Release has ended the run for good.
 	released bool
 	// pauses counts the body pauses so far, ordering the paused runs' resumption.
@@ -61,6 +72,9 @@ type ActionExecutor struct {
 	stepsSpent int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
+	// moved is set once a token acted — a failed step included — or the body wrote a
+	// feature, and cleared when the start that attached the execution to its object settles.
+	moved bool
 	// awaiting is the subflow whose parked tokens a run waits on the clock for,
 	// nil for the action's own.
 	awaiting *actionFrame
@@ -103,15 +117,14 @@ func (e *ActionExecutor) SetInputs(inputs map[string]Value) {
 // newActionExecutor creates an action executor. self is the object performing
 // the action, nil for an action no object performs.
 func newActionExecutor(ctx *Context, action *symbols.Symbol, self *Instance) (*ActionExecutor, error) {
-	return newActionExecutorForOccurrence(ctx, action, self, nil)
+	return newActionExecutorOf(ctx, action, action, self, nil)
 }
 
-// newActionExecutorForOccurrence creates an executor whose action's own features
-// are held by the given performance occurrence, nil for an action performed
-// through no usage of an object.
-func newActionExecutorForOccurrence(
+// newActionExecutorOf creates an executor performing performed, the action as named, by
+// running action's body; occurrence holds the performance's own features, nil without one.
+func newActionExecutorOf(
 	ctx *Context,
-	action *symbols.Symbol,
+	performed, action *symbols.Symbol,
 	self *Instance,
 	occurrence *Instance,
 ) (*ActionExecutor, error) {
@@ -122,20 +135,33 @@ func newActionExecutorForOccurrence(
 		return nil, err
 	}
 
-	// A usage stating no body of its own performs the body of the action it
-	// names — the definition typing it — as a classifier behavior binding does.
-	action = ctx.actionBodySymbol(action)
-
-	// Lower AST to execution graph, in the scope the action's body was written
-	// in, so that everything the graph carries is evaluated where it was declared.
-	graph, err := lower.ToActionGraph(action.Decl, declScope(action))
+	// A usage stating no body of its own performs the body of the action it names — the
+	// definition typing it — as a classifier behavior binding does; under a tool, none.
+	action, tool, err := ctx.performanceBody(performed, action)
 	if err != nil {
-		return nil, fmt.Errorf("lower action graph: %w", err)
+		return nil, err
 	}
+	graph, err := lowerPerformance(action, tool)
+	if err != nil {
+		return nil, err
+	}
+	return newActionExecutorOn(ctx, performed, action, tool, graph, self, occurrence), nil
+}
 
+// newActionExecutorOn is an execution of graph, the lowering of action, ready to
+// begin at its root and attached to ctx's clock.
+func newActionExecutorOn(
+	ctx *Context,
+	performed, action *symbols.Symbol,
+	tool *toolExecution,
+	graph *lower.ActionGraph,
+	self, occurrence *Instance,
+) *ActionExecutor {
 	exec := &ActionExecutor{
 		performances: performances{ctx: ctx, self: self},
 		action:       action,
+		performed:    performed,
+		tool:         tool,
 		occurrence:   occurrence,
 		graph:        graph,
 		tokens:       make([]Token, 0),
@@ -149,8 +175,25 @@ func newActionExecutorForOccurrence(
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
 	ctx.clock.attach(exec)
+	return exec
+}
 
-	return exec, nil
+// lowerPerformance lowers what a performance of action runs, in the scope it was written
+// in: its token flow, or under a tool only its own interface, the body never running.
+func lowerPerformance(action *symbols.Symbol, tool *toolExecution) (*lower.ActionGraph, error) {
+	if tool != nil {
+		graph, err := lower.ToActionInterface(action.Decl, DeclScope(action))
+		if err != nil {
+			return nil, fmt.Errorf("lower action interface: %w", err)
+		}
+		return graph, nil
+	}
+	graph, err := lower.ToActionGraph(action.Decl, DeclScope(action))
+	if err != nil {
+		return nil, fmt.Errorf("lower action graph: %w", err)
+	}
+	lower.StartFlow(graph)
+	return graph, nil
 }
 
 // performanceFeatures lists the graph's attributes, then the inherited ones none
@@ -162,7 +205,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 	for i, attr := range features {
 		declared[attr.Name] = i
 	}
-	for _, member := range e.ctx.model.MembersOf(e.action) {
+	for _, member := range e.ctx.model.semantics.MembersOf(e.action) {
 		usage, ok := member.Decl.(*ast.Usage)
 		if !ok || !lower.DeclaresNodeFeature(usage) || e.ctx.libraryDeclared(member) {
 			continue
@@ -176,13 +219,17 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		}
 		if i, ok := declared[name]; ok {
 			if features[i].Value == nil && features[i].Node == ast.Node(usage) {
-				features[i].Value, features[i].Scope = e.ctx.model.ParameterDefault(member)
+				features[i].Value, features[i].Scope = e.ctx.model.semantics.ParameterDefault(member)
 			}
+			features[i].Optional = e.ctx.admitsNoValue(member)
 			continue
 		}
 		declared[name] = len(features)
-		value, scope := e.ctx.model.ParameterDefault(member)
-		features = append(features, lower.Attribute{Name: name, Value: value, Node: usage, Scope: scope})
+		value, scope := e.ctx.model.semantics.ParameterDefault(member)
+		features = append(features, lower.Attribute{
+			Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: lower.TypeText(usage),
+			Value: value, Node: usage, Scope: scope, Optional: e.ctx.admitsNoValue(member),
+		})
 	}
 	return features
 }
@@ -253,7 +300,7 @@ func (e *ActionExecutor) Step() error {
 	// does not hold the rest back. An exploring step picks among every token able
 	// to act, paused work that can go on among them.
 	var paused []int64
-	eligible := func(t Token) bool { return !t.drivenByBody() && (t.body == nil || t.resumable()) }
+	eligible := oneMoveEligible
 	if !e.ctx.scheduling().oneMove() {
 		paused = e.pausedTokens()
 		eligible = func(t Token) bool { return !t.drivenByBody() && t.body == nil }
@@ -265,11 +312,18 @@ func (e *ActionExecutor) Step() error {
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 
 	schedule := e.scheduleTokens(&order, eligible)
-	err := e.stepTokens(schedule, paused, &order)
-	// What the tokens wrote and the order they took are facts of the step whether
-	// or not it failed.
+	acted, err := e.stepTokens(schedule, paused, &order)
+	if refused := e.ctx.scheduling().refusal(); refused != nil {
+		err = refused
+	}
+	// What the tokens wrote, the order they took and that they acted are facts of
+	// the step whether or not it failed.
 	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order, schedule)
+	if acted {
+		e.moved = true
+	}
+	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore)
 	if err != nil {
 		e.endPausedBodies()
 		return err
@@ -277,42 +331,34 @@ func (e *ActionExecutor) Step() error {
 
 	// A step a breakpoint ends leaves every other token where it was, yet the run
 	// went on.
-	progressMade := e.state == StateSuspended
-
-	// Progress indicators:
-	// 1. Token count changed (fork/join/final consumed/created tokens)
-	if len(e.tokens) != tokenCountBefore {
+	if e.state == StateSuspended {
 		progressMade = true
-	}
-
-	// 2. At least one token moved to different location
-	if !progressMade && len(e.tokens) > 0 {
-		for i := 0; i < len(e.tokens) && i < len(tokenLocationsBefore); i++ {
-			if e.tokens[i].Location != tokenLocationsBefore[i] {
-				progressMade = true
-				break
-			}
-		}
-	}
-
-	// 3. All tokens consumed (completion)
-	if len(e.tokens) == 0 {
-		progressMade = true
+		e.moved = true
 	}
 
 	// If no progress and tokens remain, either the action is suspended waiting
 	// for a message, or it is stuck for a reason no message can resolve.
+	stuck, retry := false, false
 	if !progressMade && len(e.tokens) > 0 {
-		if !e.anyTokenWaiting() {
-			return fmt.Errorf("%w: %d token(s) stuck, no progress made",
-				ErrActionDeadlock, len(e.tokens))
+		stuck = !e.anyTokenWaiting()
+		if !stuck {
+			e.state = StateWaiting
+			retry = e.waitsOnClockAlone()
 		}
-		e.state = StateWaiting
-		if e.waitsOnClockAlone() {
-			next, _ := e.NextWait()
-			return fmt.Errorf("%w: %d token(s) wait on the clock, the earliest until t=%s",
-				ErrNothingDue, len(e.visibleWaits()), semantics.FormatReal(next))
-		}
+	}
+	// A replayed move kept for the clock's retry is faced then; a step ending any other way refuses it.
+	schedule.Ended(retry)
+	if refused := e.ctx.scheduling().refusal(); refused != nil {
+		e.endPausedBodies()
+		return refused
+	}
+	if stuck {
+		return fmt.Errorf("%w: %d token(s) stuck, no progress made", ErrActionDeadlock, len(e.tokens))
+	}
+	if retry {
+		next, _ := e.NextWait()
+		return fmt.Errorf("%w: %d token(s) wait on the clock, the earliest until t=%s",
+			ErrNothingDue, len(e.visibleWaits()), semantics.FormatReal(next))
 	}
 
 	// Increment step count
@@ -323,7 +369,24 @@ func (e *ActionExecutor) Step() error {
 		e.trace().RecordActionStep(e.stepCount, e.tokens)
 	}
 
+	if e.state == StateCompleted {
+		return e.ctx.endedWhole(&e.driven)
+	}
 	return nil
+}
+
+// tokensProgressed reports whether the tokens got anywhere since the count and locations
+// given: one created or consumed, one at another node, or all consumed.
+func (e *ActionExecutor) tokensProgressed(countBefore int, locationsBefore []ast.Node) bool {
+	if len(e.tokens) != countBefore || len(e.tokens) == 0 {
+		return true
+	}
+	for i := 0; i < len(e.tokens) && i < len(locationsBefore); i++ {
+		if e.tokens[i].Location != locationsBefore[i] {
+			return true
+		}
+	}
+	return false
 }
 
 // waitsOnClockAlone reports whether every remaining token is parked on the clock
@@ -372,6 +435,16 @@ func (e *ActionExecutor) waitingTokens(perf *actionFrame) []Token {
 // waiting in perf's flow (the action's for nil), and any token of it blocked for
 // another reason alongside them.
 func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
+	where := actionLabelPrefix + symbolText(e.action)
+	if perf != nil {
+		where = perf.describe()
+	}
+	return fmt.Errorf("%w in %s: nothing can post the awaited message (%s)",
+		ErrAcceptDeadlock, where, e.describeWaits(perf))
+}
+
+// describeWaits lists what the parked tokens of perf's flow (the action's for nil) wait for.
+func (e *ActionExecutor) describeWaits(perf *actionFrame) string {
 	waiting := e.waitingTokens(perf)
 	descriptions := make([]string, 0, len(waiting))
 	for _, token := range waiting {
@@ -381,12 +454,7 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 		descriptions = append(descriptions,
 			fmt.Sprintf("%d token(s) blocked for another reason", blocked))
 	}
-	where := "action " + e.action.Name
-	if perf != nil {
-		where = perf.describe()
-	}
-	return fmt.Errorf("%w in %s: nothing can post the awaited message (%s)",
-		ErrAcceptDeadlock, where, strings.Join(descriptions, "; "))
+	return strings.Join(descriptions, "; ")
 }
 
 // RunToCompletion executes until StateCompleted, a breakpoint, or error.
@@ -429,6 +497,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 	// suspension and then posted the awaited message resumes it here.
 	var progress dueProgress
 	waits := func() bool { return e.state == StateWaiting && e.waitsOnClock(nil) && !e.canProceed(nil) }
+	awaitsMessage := func() bool { return e.state == StateWaiting && !e.canProceed(nil) }
 	for e.state == StateRunning || e.state == StateWaiting {
 		// Tokens parked on the clock alone: advancing it is what moves them; a run
 		// performing this action for a body pauses that body's run instead.
@@ -436,12 +505,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			if atCurrentTime {
 				return nil
 			}
-			if paused, err := e.ctx.pauseForClock(e, waits); err != nil {
-				return err
-			} else if paused {
-				continue
-			}
-			moved, err := e.awaitClock(nil, &progress)
+			moved, err := e.moveClockForWaits(waits, &progress)
 			if err != nil {
 				return err
 			}
@@ -449,23 +513,19 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 				continue
 			}
 			break
+		} else if !atCurrentTime && awaitsMessage() {
+			// Tokens parked for a message: a do behavior pauses until one is in
+			// flight or its state is left; any other run deadlocks below.
+			if paused, err := e.ctx.pauseForMessage(e, awaitsMessage); err != nil {
+				return err
+			} else if paused {
+				continue
+			}
 		}
 
-		if node := e.breakpointHit(); node != "" {
-			e.pausedAt = node
-			e.state = StateSuspended
-			return nil
-		}
-
-		if err := e.chargeActionStep(); err != nil {
-			e.endPausedBodies()
+		if done, err := e.stepOnce(atCurrentTime); err != nil {
 			return err
-		}
-
-		if err := e.Step(); err != nil && !errors.Is(err, ErrNothingDue) {
-			return err
-		}
-		if e.state == StateWaiting && (atCurrentTime || !e.waitsOnClock(nil)) {
+		} else if done {
 			break
 		}
 	}
@@ -474,6 +534,36 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 		return e.deadlockError(nil)
 	}
 	return nil
+}
+
+// stepOnce takes one step of a run, stopping at a breakpoint; true when the
+// run's loop ends here.
+func (e *ActionExecutor) stepOnce(atCurrentTime bool) (bool, error) {
+	if node := e.breakpointHit(); node != "" {
+		e.pausedAt = node
+		e.state = StateSuspended
+		return true, nil
+	}
+	if err := e.chargeActionStep(); err != nil {
+		e.endPausedBodies()
+		return true, err
+	}
+	if err := e.Step(); err != nil && !errors.Is(err, ErrNothingDue) {
+		return true, err
+	}
+	return e.state == StateWaiting && (atCurrentTime || !e.waitsOnClock(nil)), nil
+}
+
+// moveClockForWaits resumes tokens parked on the clock: a body's run pauses
+// instead, otherwise the clock advances to them; false when it cannot move.
+func (e *ActionExecutor) moveClockForWaits(waits func() bool, progress *dueProgress) (bool, error) {
+	if paused, err := e.ctx.pauseForClock(e, waits); err != nil || paused {
+		return paused, err
+	}
+	if err := e.ctx.driveClock(e.describeWaits(nil)); err != nil {
+		return false, err
+	}
+	return e.awaitClock(nil, progress)
 }
 
 // awaitClock runs what is due, then moves the clock to the earliest wait, until a
@@ -582,6 +672,43 @@ func (e *ActionExecutor) HasPendingSignal() bool {
 // hasPendingSignal reports whether a message in flight would let a parked token
 // of perf's flow (of the whole action for nil) proceed, without consuming it.
 func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
+	pending := e.ctx.acceptable()
+	return e.parkedAcceptTakes(perf, func(matches func(Message) bool, failed *error) bool {
+		for _, msg := range pending {
+			// A port that fails to resolve counts as pending: the step this
+			// provokes surfaces the failure.
+			if matches(msg) || *failed != nil {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+// acceptsMessage reports whether a token parked at a signal accept, or an action
+// performed for a paused token, would take m; a port failing to resolve is the error.
+func (e *ActionExecutor) acceptsMessage(m Message) (bool, error) {
+	var err error
+	if e.parkedAcceptTakes(nil, func(matches func(Message) bool, failed *error) bool {
+		accepted := matches(m)
+		err = *failed
+		return accepted || err != nil
+	}) {
+		return err == nil, err
+	}
+	for _, token := range e.tokens {
+		if held, ok := token.heldWaiter().(messageAcceptor); ok {
+			if accepted, err := held.acceptsMessage(m); err != nil || accepted {
+				return accepted, err
+			}
+		}
+	}
+	return false, nil
+}
+
+// parkedAcceptTakes calls takes with the predicate of each signal accept a token of
+// perf's flow (of the whole action for nil) is parked at, until one reports true.
+func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(matches func(Message) bool, failed *error) bool) bool {
 	for _, token := range e.tokens {
 		if token.Wait == nil || token.Wait.Timed || !token.inFlowOf(perf) {
 			continue
@@ -594,13 +721,8 @@ func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
 		if !isAccept || accept.Trigger != nil {
 			continue
 		}
-		matches, failed := e.acceptMatch(token.frame, accept, usage)
-		for _, msg := range e.ctx.PendingMessages() {
-			// A port that fails to resolve counts as pending: the step this
-			// provokes surfaces the failure.
-			if matches(msg) || *failed != nil {
-				return true
-			}
+		if takes(e.acceptMatch(token.frame, accept, usage)) {
+			return true
 		}
 	}
 	return false
@@ -843,12 +965,13 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 				ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
 		}
 		value = fv.HeldValue()
-	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, "action "+symbolText(e.action), name, value); err != nil {
+	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, actionLabelPrefix+symbolText(e.action), name, &value); err != nil {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		return err
 	}
 	e.root.data[e.root.key(name)] = value
+	e.moved = true
 	return nil
 }
 
@@ -869,9 +992,28 @@ func (e *ActionExecutor) setFrameFeatures(frame *actionFrame, values map[string]
 }
 
 // hasFlow reports whether the action states a flow to start: an action with no
-// initial node has no step to perform.
+// step performs none, while one whose steps give no start fails to initialize.
 func (e *ActionExecutor) hasFlow() bool {
-	return e.graph != nil && e.graph.Initial != nil
+	return e.graph != nil && (e.graph.Initial != nil || statesSteps(e.graph))
+}
+
+// statesSteps reports whether the graph has a step to perform, a final node aside.
+func statesSteps(graph *lower.ActionGraph) bool {
+	for _, node := range graph.Nodes {
+		if _, final := node.(*ast.FinalNode); !final {
+			return true
+		}
+	}
+	return false
+}
+
+// noFlowStart says why a flow that states steps has no step to start at.
+func noFlowStart(graph *lower.ActionGraph) string {
+	if !statesSteps(graph) {
+		return ""
+	}
+	_, err := lower.CaseFlowStart(graph)
+	return ": " + err.Error()
 }
 
 // completeWithoutFlow completes an action stating no flow: it performs no step,
@@ -892,6 +1034,9 @@ func (e *ActionExecutor) completeWithoutFlow() error {
 // bindInputs writes the supplied inputs into the performance, then the
 // attributes it declares: a default written in terms of an input reads it.
 func (e *ActionExecutor) bindInputs() error {
+	if err := e.fixWitnessInputs(); err != nil {
+		return err
+	}
 	if err := e.checkInputNames(); err != nil {
 		return err
 	}
@@ -901,6 +1046,51 @@ func (e *ActionExecutor) bindInputs() error {
 	if err := e.initializeAttributes(); err != nil {
 		return fmt.Errorf("initialize attributes: %w", err)
 	}
+	return nil
+}
+
+// fixWitnessInputs takes the inputs the run's replayed witness fixes, when the
+// caller begins the run on this performance, ahead of the caller's inputs and the
+// defaults. A behavior an object runs of its own or a nested step leaves them.
+func (e *ActionExecutor) fixWitnessInputs() error {
+	if !e.beginsRun {
+		return nil
+	}
+	witness := e.ctx.scheduling().witnessInputs()
+	if len(witness) == 0 {
+		return nil
+	}
+	ec := e.evalContextFor(e.root, e.graph.Scope)
+	defer ec.beginStep()()
+	inputs := maps.Clone(e.inputs)
+	if inputs == nil {
+		inputs = make(map[string]Value, len(witness))
+	}
+	for _, in := range witness {
+		dir, declared := e.parameterDirection(in.Feature)
+		switch {
+		case dir == ast.DirOut:
+			return &WitnessInputError{Feature: in.Feature,
+				Reason: fmt.Sprintf("action %s writes it back rather than reading it", symbolText(e.action))}
+		case !declared && !e.declaresAttribute(in.Feature):
+			return &WitnessInputError{Feature: in.Feature,
+				Reason: fmt.Sprintf("action %s declares no such feature", symbolText(e.action))}
+		}
+		value := in.Value
+		if value.Kind == ValInvalid {
+			expr, ok := parseOneExpression("<witness>", in.Written)
+			if !ok {
+				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q is not an expression the notation reads", in.Written)}
+			}
+			evaluated, err := ec.Eval(expr)
+			if err != nil {
+				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q does not evaluate: %v", in.Written, err)}
+			}
+			value = evaluated
+		}
+		inputs[in.Feature] = value
+	}
+	e.inputs = inputs
 	return nil
 }
 
@@ -949,10 +1139,9 @@ func (e *ActionExecutor) checkInputNames() error {
 func (e *ActionExecutor) initialize() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
-	// Use initial node from graph
 	if e.graph.Initial == nil {
-		return fmt.Errorf("%w: no initial node found in action %s",
-			ErrInvalidActionFlow, e.action.Name)
+		return fmt.Errorf("%w: no initial node found in action %s%s",
+			ErrInvalidActionFlow, e.action.Name, noFlowStart(e.graph))
 	}
 
 	// A nested node's own flow is validated here, not at construction, so a
@@ -1260,7 +1449,17 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 // scheduleTokens hands the step the tokens it may move, those eligible now, in
 // the order the run's scheduling policy has it try them.
 func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) bool) *tokenSchedule {
+	return e.ctx.scheduling().scheduleStep(e.stepCandidates(order, eligible))
+}
+
+// oneMoveEligible is the eligibility of a step moving one token: a token not
+// driven by a body, whose own paused work, if any, would go on.
+func oneMoveEligible(t Token) bool { return !t.drivenByBody() && (t.body == nil || t.resumable()) }
+
+// stepCandidates lists the tokens a step may move, as the policy is handed them.
+func (e *ActionExecutor) stepCandidates(order *stepOrder, eligible func(Token) bool) stepTokens {
 	tokens := stepTokens{
+		owner:  e,
 		step:   e.stepCount + 1,
 		ids:    make([]int64, 0, len(e.tokens)),
 		parked: make(map[int64]bool),
@@ -1279,7 +1478,7 @@ func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) b
 			}
 		}
 	}
-	return e.ctx.scheduling().scheduleStep(tokens)
+	return tokens
 }
 
 // fused reports whether the token at index i collapses into a synchronization
@@ -1290,23 +1489,40 @@ func (e *ActionExecutor) fused(i int) bool {
 }
 
 // enabled reports whether the token would act were it stepped now: it is still
-// eligible, and an accept it sits at has a message in flight to take.
+// eligible, and an accept it sits at is answered — or fails, which stepping it
+// raises as the typed error — under a readiness probe that leaves the run as it was.
 func (e *ActionExecutor) enabled(id int64, eligible func(Token) bool) bool {
+	ready, _ := e.readiness(id, eligible)
+	return ready
+}
+
+// readiness is enabled along with the typed error a failing accept would raise.
+func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready bool, fails error) {
 	i := e.tokenIndex(id)
 	if i < 0 || e.moving(e.tokens[i]) || !eligible(e.tokens[i]) {
-		return false
+		return false, nil
 	}
 	t := e.tokens[i]
-	if _, waitsForMessage := e.messageAccept(t); !waitsForMessage {
-		return true
+	usage, ok := t.Location.(*ast.Usage)
+	if !ok || t.body != nil {
+		return true, nil
 	}
-	pending := e.ctx.PendingMessages()
-	if len(pending) == 0 {
-		return false
+	accept, isAccept := e.graphOf(t.frame).Accepts[usage]
+	if !isAccept {
+		return true, nil
 	}
-	// Matching may materialize a port; as a probe, the check leaves the run as it was.
 	defer e.ctx.beginProbe()()
-	return e.offeredMessage(t, pending)
+	if accept.Trigger != nil {
+		// triggerHolds may park the token's copy; the probe asks, it does not park.
+		holds, err := e.triggerHolds(&t, accept)
+		return holds || err != nil, err
+	}
+	pending := e.ctx.acceptable()
+	if len(pending) == 0 {
+		return false, nil
+	}
+	matches, failed := e.acceptMatch(t.frame, accept, usage)
+	return slices.ContainsFunc(pending, matches) || *failed != nil, *failed
 }
 
 // tokenLabel names a token as the trace does, by ID and node.
@@ -1328,8 +1544,9 @@ func (e *ActionExecutor) parked(t Token, order *stepOrder) bool {
 }
 
 // stepTokens gives each scheduled token its step, then the tokens whose paused
-// work a sweep resumes last; a breakpoint on the way ends the sweep.
-func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) error {
+// work a sweep resumes last; a breakpoint on the way ends the sweep. It reports
+// whether any token acted, one whose step failed among them.
+func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) (acted bool, err error) {
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		if e.state == StateSuspended {
 			break
@@ -1340,10 +1557,11 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 			schedule.Acted(id, false)
 			continue
 		}
-		acted, err := e.stepTokenNoting(i, order)
-		schedule.Acted(id, acted)
+		did, err := e.stepTokenNoting(i, order)
+		schedule.Acted(id, did)
+		acted = acted || did
 		if err != nil {
-			return err
+			return acted, err
 		}
 	}
 	for _, id := range paused {
@@ -1351,12 +1569,14 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 			break
 		}
 		if i := e.tokenIndex(id); i >= 0 {
-			if _, err := e.stepTokenNoting(i, order); err != nil {
-				return err
+			did, err := e.stepTokenNoting(i, order)
+			acted = acted || did
+			if err != nil {
+				return acted, err
 			}
 		}
 	}
-	return nil
+	return acted, nil
 }
 
 // stepInitialNode advances token from initial node to successors.
@@ -1593,7 +1813,11 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		}
 	}
 	if len(holding) > 0 {
-		pick := e.ctx.scheduling().pick(len(holding))
+		choice, pick := e.chooseBranch(token.frame, decisionNode, successors, holding)
+		// A refused replay move leaves the token at the decision: no branch is taken.
+		if refused := e.ctx.scheduling().refusal(); refused != nil {
+			return refused
+		}
 		// A branch picked past the first was only probed; its guard's final reading
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 {
@@ -1606,7 +1830,9 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 					ErrNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
 			}
 		}
-		e.noteDecisionBranches(token.frame, decisionNode, successors, holding, pick)
+		if choice != nil {
+			e.ctx.noteChoice(*choice)
+		}
 		token.travel(successors[holding[pick]], e.sweep)
 		return nil
 	}
@@ -1702,7 +1928,10 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	if isAccept && accept.Trigger != nil {
 		// A trigger waits for time to pass or for a condition to hold rather
 		// than for a message, so it is answered here and not from the queue.
-		ready, err := e.triggerHolds(token, accept)
+		ready, err := e.triggerReady(token, accept)
+		if ready || err != nil {
+			ready, err = e.triggerHolds(token, accept)
+		}
 		if err != nil {
 			return err
 		}
@@ -1725,7 +1954,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 			want = lower.FeaturePath(accept.SubsetsEvent)
 		}
 		matches, failed := e.acceptMatch(token.frame, accept, usage)
-		msg, taken := e.ctx.TakeMessage(matches)
+		msg, taken := e.ctx.takeAcceptable(matches)
 		if *failed != nil {
 			return *failed
 		}
@@ -1837,6 +2066,16 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 	return nil
 }
 
+// triggerReady probes a change event's condition first: a test finding it not
+// holding is no move and leaves no trace. A time event parks visibly, so it is not probed.
+func (e *ActionExecutor) triggerReady(token *Token, accept lower.Accept) (bool, error) {
+	if _, changes := accept.Trigger.(*ast.ChangeEvent); !changes {
+		return true, nil
+	}
+	defer e.ctx.beginProbe()()
+	return e.triggerHolds(token, accept)
+}
+
 // triggerHolds reports whether the time or change event an accept waits for has
 // happened. A change event holds when its condition does, which every step
 // re-evaluates in the action's scope with its feature values over it — the same
@@ -1933,18 +2172,24 @@ func (e *ActionExecutor) TimeWaits() []string {
 	}
 	for _, held := range e.heldWaiters() {
 		for _, wait := range held.clockWaits() {
-			out = append(out, wait.What)
+			out = append(out, wait.What())
 		}
 	}
 	return out
 }
 
-// visibleWaits lists, in due order, the waits on the clock that hold this
+// visibleWaits lists, in due order, the waits on the clock not yet due that hold this
 // action: its own, and those of the actions the paused work of its tokens performs.
 func (e *ActionExecutor) visibleWaits() []ClockWait {
-	waits := e.clockWaits()
+	return notYetDue(e.visibleArmedWaits(), e.ctx.clock.now)
+}
+
+// visibleArmedWaits lists, due or not, the waits that hold this action, earliest first:
+// its own and, through the paused work of its tokens, those of the actions it performs.
+func (e *ActionExecutor) visibleArmedWaits() []ClockWait {
+	waits := e.armedWaits()
 	for _, held := range e.heldWaiters() {
-		waits = append(waits, held.clockWaits()...)
+		waits = append(waits, held.visibleArmedWaits()...)
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
@@ -1965,17 +2210,21 @@ func (e *ActionExecutor) heldWaiters() []clockWaiter {
 
 // dueLabel names the executor in a due-order choice.
 func (e *ActionExecutor) dueLabel() string {
-	return "action " + symbolText(e.action) + performerSuffix(e.self)
+	return actionLabelPrefix + symbolText(e.action) + performerSuffix(e.self)
 }
 
 // clockWaits lists the tokens parked on the clock for an instant it has not
 // reached; an action performed for a paused body lists its own.
 func (e *ActionExecutor) clockWaits() []ClockWait {
+	return notYetDue(e.armedWaits(), e.ctx.clock.now)
+}
+
+// armedWaits lists the tokens parked on the clock, due or not, earliest first; an
+// action performed for a paused body lists its own to the clock.
+func (e *ActionExecutor) armedWaits() []ClockWait {
 	var waits []ClockWait
 	for _, token := range e.timeWaits(nil) {
-		if token.Wait.Due > e.ctx.clock.now {
-			waits = append(waits, ClockWait{Due: token.Wait.Due, Holder: e.dueLabel(), What: token.Wait.String()})
-		}
+		waits = append(waits, ClockWait{Due: token.Wait.Due, holder: e, what: token.Wait})
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
@@ -2175,6 +2424,52 @@ func (e *ActionExecutor) Data() map[string]Value {
 	return e.root.data
 }
 
+// Held is a copy of what a performance holds at one moment: the features it
+// holds, and their values looked up under the names the performance keys them by.
+type Held struct {
+	features []lower.Attribute
+	data     map[string]Value
+	aliases  map[string]string
+}
+
+// Held copies what the action's own performance holds now.
+func (e *ActionExecutor) Held() Held {
+	return Held{
+		features: slices.Clone(e.features),
+		data:     maps.Clone(e.root.data),
+		aliases:  maps.Clone(e.root.aliases),
+	}
+}
+
+// Features are the attributes and parameters the performance holds, the graph's
+// own then the inherited ones it does not redefine, as the run initializes them.
+func (h Held) Features() []lower.Attribute {
+	return h.features
+}
+
+// Value is the value held under name: its redefinition's when name is redefined.
+func (h Held) Value(name string) (Value, bool) {
+	v, ok := h.data[canonical(h.aliases, name)]
+	return v, ok
+}
+
+// Unbound lists the inputs the performance holds no value for: the features it
+// reads rather than writes back, declared with no default and bound by nothing.
+// One marked Optional may also hold no value at all, which the run reads as the
+// empty sequence, so absence is among the states it ranges over.
+func (h Held) Unbound() []lower.Attribute {
+	var unbound []lower.Attribute
+	for _, attr := range h.features {
+		if attr.Output() || attr.Value != nil {
+			continue
+		}
+		if _, bound := h.Value(attr.Name); !bound {
+			unbound = append(unbound, attr)
+		}
+	}
+	return unbound
+}
+
 // SetBreakpoint adds a breakpoint at the given node name.
 func (e *ActionExecutor) SetBreakpoint(nodeName string) {
 	e.breakpoints[nodeName] = true
@@ -2201,4 +2496,15 @@ func (e *ActionExecutor) SetTrace(trace *TraceRecorder) {
 // ActionSymbol returns the action being executed.
 func (e *ActionExecutor) ActionSymbol() *symbols.Symbol {
 	return e.action
+}
+
+// Graph is the lowered flow the run performs, the one every step of it consumes.
+func (e *ActionExecutor) Graph() *lower.ActionGraph {
+	return e.graph
+}
+
+// Performer returns the object performing the action, nil for an action
+// performed outside any object.
+func (e *ActionExecutor) Performer() *Instance {
+	return e.self
 }

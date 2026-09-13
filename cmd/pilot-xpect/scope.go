@@ -72,7 +72,7 @@ func scopeRow(ws *model.Workspace, main string, a assertion, src squeezed, libra
 	// Whether a fixture sees the library's implicit members is its own
 	// declaration: only a resource set loading /library has them in scope.
 	opts := model.VisibleNamesOptions{
-		Redefinition: ref.Redefines,
+		Redefinition: narrowsToInherited(ref),
 		LibraryRoots: libraryRoots,
 	}
 	d := scopeDiffOf(ws, scope, ws.VisibleNames(scope, opts), want, a.Names)
@@ -107,6 +107,12 @@ func scopeRow(ws *model.Workspace, main string, a assertion, src squeezed, libra
 			len(d.otherPath), sample(d.otherPath))
 	}
 	return r
+}
+
+// narrowsToInherited reports whether the pilot scopes the anchor to inherited
+// members only: a redefinition does, a subsetting may name any accessible feature.
+func narrowsToInherited(ref resolve.Reference) bool {
+	return ref.Redefines && ref.Subsetting == nil
 }
 
 // scopeAnchor locates the position a scope assertion is taken at. The `at` text
@@ -213,14 +219,14 @@ func notImplicit(names []string) []string {
 // sample renders at most the first five names of a class, so a row stays
 // readable when a declared list runs to hundreds of names.
 func sample(names []string) string {
-	const max = 5
+	const limit = 5
 	if len(names) == 0 {
 		return "none"
 	}
-	if len(names) <= max {
+	if len(names) <= limit {
 		return strings.Join(names, ", ")
 	}
-	return strings.Join(names[:max], ", ") + ", …"
+	return strings.Join(names[:limit], ", ") + ", …"
 }
 
 // reachableAs reports whether a declared path we do not offer names an element

@@ -232,6 +232,70 @@ func TestLaterGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 	}
 }
 
+// A choice's later guard is read the same way: once a branch holds, one that
+// cannot be evaluated is noted and not taken; a first one still fails the run.
+func TestLaterChoiceGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Router {
+			attribute level : Integer = 0;
+			attribute route : Integer = 0;
+			entry; then idle;
+			state idle;
+			choice pick;
+			state low { entry { assign route := 1; } }
+			state high { entry { assign route := 2; } }
+			transition first idle accept Go do assign level := 8 then pick;
+			transition first pick if level > 5 then low;
+			transition first pick if 1 / (level - 8) > 0 then high;
+		}
+		state Broken {
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			choice pick;
+			state low;
+			state high;
+			transition first idle accept Go do assign level := 8 then pick;
+			transition first pick if 1 / (level - 8) > 0 then high;
+			transition first pick if level > 5 then low;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	root := idx.DocumentRoot("<test>")
+	router := findSymbolByName(root, "Router", ast.DefState)
+	broken := findSymbolByName(root, "Broken", ast.DefState)
+	if router == nil || broken == nil {
+		t.Fatal("machines not found")
+	}
+
+	values, visited, err := ctx.ExecuteStateWithEvents(router, []string{"Go"})
+	if err != nil {
+		t.Fatalf("router: %v", err)
+	}
+	if strings.Join(visited, ",") != "idle,low" || FormatTraceValue(values["route"]) != "1" {
+		t.Fatalf("visited %v with route %s, want idle then low by the first holding branch", visited, FormatTraceValue(values["route"]))
+	}
+	if got := ctx.Choices(); len(got) != 0 {
+		t.Fatalf("an unevaluable choice guard was reported as a choice: %v", got)
+	}
+	got := ctx.UnevaluableGuards()
+	if len(got) != 1 || got[0].Where != "choice pick" || got[0].Alternative != "2->high" ||
+		!strings.Contains(got[0].Reason, "division by zero") || got[0].Step != 0 {
+		t.Fatalf("unevaluable guards = %+v, want the second branch out of pick", got)
+	}
+	if file, span := got[0].Location(); file != "<test>" || span.Len == 0 {
+		t.Errorf("location = %q %v, want the guard's span in the test file", file, span)
+	}
+
+	if _, _, err := ctx.ExecuteStateWithEvents(broken, []string{"Go"}); err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("broken: err = %v, want the first guard's evaluation error", err)
+	}
+	if got := ctx.UnevaluableGuards(); len(got) != 0 {
+		t.Fatalf("the first guard's failure was noted rather than raised: %v", got)
+	}
+}
+
 // A guard read only to report a choice is previewed: what evaluating it costs
 // and does is undone, so the run spends and traces exactly what first-match did.
 func TestLaterGuardIsProbedWithoutCost(t *testing.T) {

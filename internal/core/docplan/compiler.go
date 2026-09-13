@@ -1252,6 +1252,10 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	paletteText, paletteStated, err := c.optionalText(member, "palette")
+	if err != nil {
+		return Content{}, err
+	}
 	source, err := c.diagramSource(member)
 	if err != nil {
 		return Content{}, err
@@ -1332,6 +1336,29 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			}
 		}
 		reference.direction = direction
+	}
+	if paletteStated {
+		palette, ok := view.ParsePalette(paletteText)
+		if !ok {
+			return Content{}, &Error{
+				Kind:     ErrorInvalidPalette,
+				Document: c.document,
+				Content:  c.contentName(member),
+				Actual:   paletteText,
+				Origin:   provenance.Symbol(member),
+			}
+		}
+		if !reference.kind.SupportsPalette() {
+			return Content{}, &Error{
+				Kind:     ErrorUnsupportedPalette,
+				Document: c.document,
+				Content:  c.contentName(member),
+				Expected: string(reference.kind),
+				Actual:   paletteText,
+				Origin:   provenance.Symbol(member),
+			}
+		}
+		reference.palette = palette
 	}
 	if err := c.rejectQuery(member); err != nil {
 		return Content{}, err
@@ -1762,11 +1789,11 @@ func (c *compiler) bindingValue(
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
 	case *ast.LiteralReal:
-		real, err := strconv.ParseFloat(expression.Value, 64)
+		realVal, err := strconv.ParseFloat(expression.Value, 64)
 		if err != nil {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
-		return BindingValue{kind: BindingReal, real: real, origin: origin}, nil
+		return BindingValue{kind: BindingReal, real: realVal, origin: origin}, nil
 	case *ast.LiteralBool:
 		return BindingValue{kind: BindingBoolean, boolean: expression.Value, origin: origin}, nil
 	case *ast.OperatorExpr:
@@ -1800,11 +1827,11 @@ func (c *compiler) signedBinding(
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
 	case *ast.LiteralReal:
-		real, err := strconv.ParseFloat(sign+operand.Value, 64)
+		realVal, err := strconv.ParseFloat(sign+operand.Value, 64)
 		if err != nil {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
-		return BindingValue{kind: BindingReal, real: real, origin: origin}, nil
+		return BindingValue{kind: BindingReal, real: realVal, origin: origin}, nil
 	default:
 		return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 	}

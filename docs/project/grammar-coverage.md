@@ -67,17 +67,17 @@ production-level bucket a weak instrument.
 So the measurement is refined one level down, to **forms**: each literal-bearing alternative
 and optional group inside a production, taken together with the literals every path through
 that production needs anyway. `Disjoining` is evidence because `disjoint A from B;` occurs in
-the stdlib, but its *named* form (`disjoining D disjoint A from B;`) is a form nobody has fed
-us.
+the stdlib; its *named* form (`disjoining D disjoint A from B;`) counts only once a fixture
+writes it (`internal/core/parser/testdata/parse/kerml_disjoining_member.kerml`).
 
 | Grammar | Forms | unseen |
 |---|---:|---:|
-| `KerML.xtext` | 273 | 4 |
+| `KerML.xtext` | 273 | 3 |
 | `KerMLExpressions.xtext` | 71 | 1 |
 | `SysML.xtext` | 463 | 0 |
-| **total** | **807** | **5** |
+| **total** | **807** | **4** |
 
-**802 of 807 forms have evidence; 5 do not.** Those five are the answer to "where are we
+**803 of 807 forms have evidence; 4 do not.** Those four are the answer to "where are we
 untested?", and they are adjudicated below.
 
 ---
@@ -113,7 +113,7 @@ own name, rather than as a clause of a declaration.
 
 | Form | Grammar | Status here |
 |---|---|---|
-| `disjoining D disjoint A from B;` | `KerML.xtext:426` `Disjoining`, optional `'disjoining' Identification?` | not parsed. The literal does now occur in a fixture — as an *attribute name* in `w7c_kerml_only_words_name_sysml_usages.sysml`, which is keyword-as-name coverage, not `Disjoining` coverage: the form stays unseen, and it is a good example of literal search crediting a spelling for the wrong reason |
+| `disjoining D disjoint A from B;` | `KerML.xtext:426` `Disjoining`, optional `'disjoining' Identification?` | parsed as a member of its own (`parseMember`, `internal/core/parser/namespace.go`), fixture `kerml_disjoining_member.kerml`; no longer unseen |
 | `conjugation Cj conjugate C ~ A.b;` | `KerML.xtext:408` `Conjugation`, the `OwnedFeatureChain` alternative | not parsed |
 | `redefinition R redefinition g :>> f;` | `KerML.xtext:712` `Redefinition`, the `':>>'` alternative | not parsed |
 

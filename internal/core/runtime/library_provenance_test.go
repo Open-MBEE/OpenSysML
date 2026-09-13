@@ -19,7 +19,7 @@ func contextOverLibrary(t *testing.T, libSrc, src string) (*Context, *symbols.In
 	idx.MarkLibrary("frame.sysml")
 	idx.AddDocument("<test>", parser.New(source.New("<test>", []byte(src))).ParseFile())
 	resolver := resolve.New(idx)
-	return NewContext(semantics.NewModel(resolver), resolver, 10000), idx
+	return NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000), idx
 }
 
 // featureNames is the names of a shape's effective features, in order.

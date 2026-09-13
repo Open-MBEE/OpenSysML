@@ -144,11 +144,11 @@ func linkAt(text string, i int) (label, href string, next int, ok bool) {
 		return label, dest, end + 2 + after + 1, true
 	}
 	if strings.HasPrefix(rest, "#") {
-		close := strings.IndexByte(rest, ')')
-		if close < 0 {
+		closeAt := strings.IndexByte(rest, ')')
+		if closeAt < 0 {
 			return "", "", 0, false
 		}
-		return label, rest[:close], end + 2 + close + 1, true
+		return label, rest[:closeAt], end + 2 + closeAt + 1, true
 	}
 	return "", "", 0, false
 }

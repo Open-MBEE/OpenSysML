@@ -432,7 +432,7 @@ func TestIndexesOutsideIntAreRefused(t *testing.T) {
 	if err != nil {
 		t.Fatalf("back to notation with the largest index: %v", err)
 	}
-	if real, rover := strings.Index(string(back), "attribute def Real;"), strings.Index(string(back), "part rover"); real < rover {
+	if realDef, rover := strings.Index(string(back), "attribute def Real;"), strings.Index(string(back), "part rover"); realDef < rover {
 		t.Errorf("attribute def Real at index %s should be written after every other member:\n%s", largest, back)
 	}
 	for _, index := range []string{largest + "0", "-1"} {

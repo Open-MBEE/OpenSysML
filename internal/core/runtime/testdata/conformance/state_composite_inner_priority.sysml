@@ -1,6 +1,7 @@
 // Both the substate and the composite state enclosing it react to Abort: the
 // innermost enabled transition wins, so Step1 moves to Step2 and Working is not
-// left (UML 14.2.3.9.6 conflict resolution by nesting depth).
+// left (KerML StatePerformances::StatePerformance::acceptable, the isDispatch
+// invariant: an enclosing state accepts a transfer only if no substate did).
 package Test {
 	state Machine {
 		attribute log : Integer = 0;

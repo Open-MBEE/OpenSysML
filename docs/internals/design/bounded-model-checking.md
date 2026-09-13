@@ -85,31 +85,49 @@ scheduler has a choice:
 |-----------|----------------------|-------------------------------|
 | Token list | `ActionExecutor.tokens` (`[]Token`: id, location, wait, frame, paused body) | The multiset of (location, frame, wait) — the id is scheduling detail and is dropped from the canonical form |
 | Performance frames | `actionFrame` tree under `performances.root`: `data`, `locals`, `live`, `subactions`, `pending`, `nested`, `ended`, `began` | Every frame reachable from a token or from the root, with its held values and delivery queues |
-| Merge and breakpoint bookkeeping | `ActionExecutor.mergeVisited`, `firedBreakpoints` | `mergeVisited` (it decides whether a merge admits a token); breakpoints are disabled during exploration and not captured |
+| Merge and breakpoint bookkeeping | each token's `Via` and `moved` (the succession it arrived over and the sweep that moved it), `ActionExecutor.sweep`, `firedBreakpoints` | The arrivals (they decide whether a merge admits a token); breakpoints are disabled during exploration and not captured |
 | Object values | `Context.instances` → `Instance.FeatureValues`, connector ends, classifiers | Every object the behavior reads or writes, the performing object included |
 | Messages in flight | `Context.messages` (the message bus `send` posts to and `accept` consumes from, oldest first) | The bus contents in arrival order |
 | State configuration | `StateExecutor.activeConfig`, `stateStack`, `history`, `stateAttrs`, `stateData` | All of it |
 | Event queue | `StateExecutor.eventQueue` (a heap ordered by timestamp, completion first, then arrival), `deferred`, `timerScheduled`, `changeFired`, `changeWaits` | The queue as a sequence in dispatch order; the latches |
 | `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each |
-| Virtual time | `StateExecutor.currentTime` | Captured, not explored |
+| Virtual time | `Context.clock` (`now` and the waiters on it), shared by every executor of the context | Captured, not explored |
 
-Not captured: `Context` memo tables (`calcShapes`, `writeTargets`, `invocationTargets`, literal
-caches, compiled calc closures), the lowered graphs, the symbol tables. These are functions of
-the model, not of the run, and are shared by every explored state. The `Context` must therefore
-be split, at least conceptually, into the **model-derived** part that is shared and the
-**run-derived** part (`instances`, `created`, `lives`, `occurrences`, `variantObjects`,
-`selectedVariants`, `calcUsageRuns`, `activations`, the id sequence) that is part of a state.
-This split is the single largest change the checker needs, and it is a refactoring the executor
-benefits from on its own: today the two are interleaved in one struct.
+Not captured: the memo tables (`calcShapes`, `writeTargets`, `invocationTargets`, literal
+caches, compiled calc closures, effective features), the lowered graphs, the symbol tables.
+These are functions of the model, not of the run, and are shared by every explored state. The
+`Context` is therefore split into the **model-derived** part, `runtime.Model`, that is shared
+and the **run-derived** part, `runtime.Context`, that is a state (`instances`, `created`,
+`lives`, `occurrences`, `variantObjects`, `selectedVariants`, the runs' `calcUsageRuns`,
+`activations`, the id sequence, the bus, the clock, the scheduler, the trace). A `Model` is
+built once per analysis worker — it memoizes into plain maps as the resolver does, so it is
+shared exactly as far as the resolver is — and `NewContext(model, maxSteps)` allocates the
+run-derived part alone. This split was the single largest change the checker needed, and the
+executor benefits from it on its own: a fresh run no longer rebuilds what the model fixed.
 
-The `Context` already journals feature-value writes and object-identity changes while a probe
-or transaction is under way (`beginJournal`, `journalWrites`, `journalUndos`), and rolls them
-back on failure. That is an undo log for one component of the state. The checker generalizes it
-rather than adding a second mechanism: a **snapshot** is a journal mark taken at a choice point,
-extended to cover the token list, the frame tree, the message bus and the state-executor fields
-above, and **restore** is a rollback to that mark. An undo log suits depth-first exploration —
-only the path from the root to the current state is live, and backtracking one move undoes one
-move's writes — and avoids copying the object graph at every choice point.
+The `Context` already journaled feature-value writes and object-identity changes while a probe
+or transaction was under way (`beginJournal`, `journalWrites`, `journalUndos`), and rolled them
+back on failure. That was an undo log for one component of the state. The checker generalizes it
+rather than adding a second mechanism: a **snapshot** (`Context.Snapshot`, and the executors'
+`Snapshot` that add their own state) is a journal mark taken between steps, extended to cover the
+token list, the frame tree, the message bus and the state-executor fields above, and **restore**
+(`Snapshot.Restore`) is a rollback to that mark, repeatable until `Release`; `beginJournal` and
+`beginProbe` take the same mark and roll back the same way. Restoring
+puts values back into the maps and frames the run already holds, so every object keeps its
+identity and every alias into it stays valid; a usage re-instantiated since denotes again the
+object it denoted at the mark; an open calc usage evaluation keeps the outputs it had worked out
+at the mark and no more; what the run made after the mark is abandoned and the identities
+it took are handed out again — never one another context sharing the identity sequence (a REPL
+re-analysis adopts the replaced context's, `AdoptIdentities`) took since, whether or not that
+context is still around, since identities are monotone across contexts and no part of the
+canonical state. The sequence remembers of each context only how far it took, so a replaced
+context is collected. An undo log suits depth-first exploration — only
+the path from the root to the current state is live, and backtracking one move undoes one move's
+writes — and avoids copying the object graph at every choice point. A snapshot is taken between
+steps, never from inside one (`ErrSnapshotMidRun`), and cannot capture a body paused
+mid-statement — a token or a `do` behavior suspended in its coroutine on a wait
+(`ErrSnapshotPausedBody`); stage 3's `do` interleaving is where those waits become explicit
+state.
 
 ### The atomic step
 
@@ -203,6 +221,20 @@ At each state the checker enumerates the **enabled moves**:
   candidates that order dropped, and the replay scheduler honours it. Without this split the
   checker could not claim to find a divergence two regions produce, and the verdict would have
   to exclude it.
+- **Choice pseudostates**: a compound transition through a `choice` has one move per branch
+  whose guard holds *after* the effects of the segments into the choice have run — the guards
+  are read against the state those effects leave (`state_route.go:resolveChoice`), so a branch
+  an incoming effect enables is a move and one it disables is not. Several enabled is the
+  executor's `ChoiceTransition` at `choice <name>` today, the first in declaration order under
+  `reverse` and `declared`, a seeded draw under `seed:<n>`, every branch under `explore`. A
+  junction contributes no move: its branch is settled before the transition fires, from the
+  state the dispatch starts in, and is part of the transition's enabledness (a junction with no
+  enabled branch means the transition is not enabled).
+- **Not moves**: deferral is determined by the configuration — a state that defers the
+  occurrence holds it back from every transition not nested in it, and the occurrence is either
+  consumed by a nested transition or deferred (`deferralOutranks`) — and a composite state's
+  completion is a completion event queued at the current instant as a leaf's is, ordered by the
+  same `eventHeap` rule. Both are read from the state, not drawn.
 
 ### The properties
 
@@ -242,7 +274,8 @@ footprint(node) = {
   reads:    features the body's expressions read, by resolved declaration,
             and features the guards of the node's outgoing successions read
   writes:   Assign.Target / AssignTarget.Steps[last], bind ends, out pins delivered
-  sends:    Send targets (port or receiver), by resolved feature
+  sends:    Send targets (port or receiver), by resolved feature; every feature
+            the address leads through is read (`hub.dest.inPort` reads hub and dest)
   accepts:  Accept.SignalType / ViaPort, and the features an accept's trigger
             condition reads
   control:  the join/merge nodes the token's successions reach; for a transition,
@@ -265,13 +298,21 @@ and declares `a` and `b` **dependent** when any of these hold:
 - `writes(a) ∩ (reads(b) ∪ writes(b)) ≠ ∅`, or symmetrically — a data race.
 - `sends(a)` may deliver what `accepts(b)` waits for — a message the order of moves can make
   available or not.
+- Both moves send, or both accept, whatever their receivers or signal types — the bus is one
+  context-wide list in arrival order (`Context.messages`), so two sends leave it in the order
+  they ran and two accepts each take the oldest match from a list the other has changed;
+  neither pair reaches the same captured state in both orders. Sends to distinct receivers
+  are no exception: the captured bus keeps their order, and an accept whose match is by signal
+  type alone can observe it.
 - `control(a) ∩ control(b) ≠ ∅` — both tokens converge on one join or merge, whose behavior
   depends on arrival count and order (`stepJoinNode`, `stepMergeNode`).
 - Either footprint contains a **dynamic** target the static analysis cannot resolve: a chained
   assignment whose `Base` is an expression (`assign pick.target.mark := …` where `pick` is an
   object-valued pin), a `send` through a `via` path routed by connections, a feature read
-  through a variant selection. Such a move is dependent on every other move. This is the
-  soundness clause: the reduction never assumes independence it cannot prove.
+  through a variant selection, a constructor `new T(…)` (the object it materializes joins
+  `all T` and starts `T`'s classifier behaviors, effects no feature names). Such a move is
+  dependent on every other move. This is the soundness clause: the reduction never assumes
+  independence it cannot prove.
 
 Two moves in different `actionFrame`s that read and write only their own frame's `data` are
 independent by construction; this is the common case for fork branches that compute into their
@@ -309,7 +350,11 @@ frame path), frames in root-first order with values rendered through the same ca
 formatter the trace recorder uses (`RecordActionStep` sorts by id for the same reason), objects
 by materialization path rather than by `Instance.ID`, the event queue in dispatch order. Ids
 handed out by `idSequence` and `nextTokenID` are excluded: two states that differ only in the
-numbers the run happened to assign are one state.
+numbers the run happened to assign are one state. The set also remembers the shallowest
+depth each state was searched from and whether the depth bound cut a schedule below it: a
+state first reached the long way round, with little depth left, is searched again when a
+shorter schedule reaches it, so the bound cuts what lies beyond it, never what a shorter
+schedule reaches within it.
 
 ## Bounds
 
@@ -320,8 +365,16 @@ The checker stops a branch when any of these is reached, records which, and neve
 |-------|---------|------|----------------|
 | Depth | 10 000 moves | `-check-depth N` | Moves along one schedule; a merge-loop or re-arming timer is cut here |
 | States | 1 000 000 | `-check-states N` | Distinct states visited across the whole exploration |
-| Time | 60 s wall clock | `-check-timeout D` | The exploration as a whole |
+| Time | none | `-check-timeout D` | The plan as a whole, as the framework's `Deadline` |
 | Executor budgets | as today | `OPENSYSML_MAX_ACTION_STEPS` etc. | Per schedule, unchanged; hitting one is a bound, not an error |
+
+Under the [analysis framework](analysis-framework.md) the bounds are the shared `Budget`: depth
+is `Budget.Depth`, states is `Budget.Runs` — the framework says the unit of `Runs` is the
+engine's, and the checker's unit is distinct states, so under `-engine all` the one figure is
+`explore`'s linearizations and `check`'s states at once — and the timeout is the plan's
+`Deadline`, which the framework rules a cancellation and not a verdict: a search the clock stops
+is reported incomplete, naming `time` and the states and depth it reached, and the plan stops on
+that step. An exhausted executor budget names itself (`actionSteps`, `steps`, `elements`, …).
 
 A branch cut by a bound is reported as **incomplete**, distinctly from a deadlock or a violation.
 The overall verdict is one of:
@@ -365,34 +418,44 @@ constructor-succeeds/`initialize()`-errors contract and the error-timing tests a
 
 ## User surface
 
-Command line, alongside the check flags in [the CLI reference](../../reference/cli.md):
+The checker is the `check` engine of the [analysis framework](analysis-framework.md), and its
+selection is the framework's: `-engine check` puts every `-action` of the invocation to it, so
+the proposed `-check-action` and `-check-state` flags of earlier drafts do not exist — the
+behavior to check is named as it is run. Command line, alongside the check flags in
+[the CLI reference](../../reference/cli.md#checking-every-schedule-of-an-action):
 
 ```
-sysml model.sysml -instantiate Fleet::truck \
-    -check-action "Fleet::Truck::dispatch truck" \
-    -requirement Fleet::NeverOverloaded \
-    -check-diverge load
+sysml model.sysml -engine check -instantiate Fleet::truck \
+    -action "Fleet::Truck::dispatch truck" \
+    -check-property Fleet::NeverOverloaded \
+    -check-diverge this.load
 ```
 
 | Flag | Meaning |
 |------|---------|
-| `-check-action "<name> [object]"` | Explore the schedules of an action, as `-action` runs one |
-| `-check-state "<name> [object]"` | Explore the schedules of a state machine, as `-state` runs one, for the `-advance` horizon |
-| `-check-diverge <feature>` | Report divergence of this feature; repeatable; absent, every feature of the behavior and the object |
-| `-check-depth`, `-check-states`, `-check-timeout` | The bounds |
+| `-engine check` with `-action "<name> [object]"` | Explore the schedules of the action `-action` would run once; with `-state`, the state machine is refused by name (stage 3) |
+| `-check-property <name>` | Evaluate this constraint or requirement at every stable state, on the performing object where there is one; repeatable |
+| `-check-diverge <feature>` | Report divergence of this feature (`x`, `step.out` for a performed node's output, or `this.level` for the performing object's; a name nothing holds is refused; a schedule leaving it unset ends as `<unset>`); repeatable; absent, every attribute of the action and, with a performer, every attribute of the object — with no performer there is no object, so the action's own attributes only |
+| `-check-depth N`, `-check-states N`, `-check-timeout D` | The bounds, onto `Budget.Depth`, `Budget.Runs` and `Budget.Deadline` |
 | `-check-witness <dir>` | Write each violation's and each divergent value's witness schedule as a trace file |
 
-The properties are the existing `-requirement`, `-constraint` and `-satisfy` flags: with a
-`-check-*` flag present they are evaluated at every explored state rather than once. `-json`
-applies, with `verdict`, `bounds_hit`, `states`, `violations[]`, `divergent[]` and the witness
-paths.
+The properties are named by `-check-property` rather than by `-requirement`/`-constraint`,
+because those flags ask an `evaluate` question of the object, which is `run`'s to answer once
+and `check`'s to refuse by name. `-json` carries the checker's answer inside the framework's `results[]`
+entry for the engine, with nothing on the wire: beside `claim`, `bounds` (every bound and
+whether it was reached) and `witness` (the replayed schedule), the entry gains a `check` object
+with `verdict`, `states`, `moves`, `depth`, `boundsHit`, `violations[]`, `divergent[]` (each
+feature's values, each with its witness choices and file `path`) and `outcomes[]`.
 
-REPL: `%check-action`, `%check-state` with the same arguments, and `%replay <witness>` which
-installs the replay scheduler and then behaves as `%step`/`%continue` do, so a witness can be
-walked with breakpoints in the debugger. The LSP surfaces nothing in the first stages; a code action
-"check this action" is a natural later addition.
+REPL: `%engine check` selects the engine for `%action` from then on, `%check-property`,
+`%check-diverge`, `%check-witness` and `%check-bounds` hold the settings the flags carry, and
+`%replay <witness>` installs the replay scheduler and then behaves as `%step`/`%continue` do,
+so a witness can be walked with breakpoints in the debugger. The LSP surfaces nothing in the
+first stages; a code action "check this action" is a natural later addition.
 
-Exit status follows the CLI's existing convention: a violation is a failed check.
+Exit status follows the CLI's existing convention: a violation or a divergence is a failed check
+(status 1); an exhaustive clean search passes (0); a search cut by a bound, stopped by the
+clock or refused is undecided (2).
 
 ## Test contract
 
@@ -441,11 +504,63 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    reproduces every golden. Seeded-random scheduler wired into the conformance harness as an
    opt-in sweep. Test layers 1 and 2. This is the refactoring stage; it is the largest and the
    one whose review matters most, because everything after it depends on the state being
-   capturable in one place.
+   capturable in one place. *Implemented:* the seam and the `explore` and `seed:<n>` policies
+   ([scheduling](scheduling.md)), with `seed:1` in every conformance run and
+   `OPENSYSML_SCHEDULE_SEEDS` widening the sweep on demand; `runtime.Model` holding the
+   model-derived part once per worker and `runtime.Context` the run-derived part, with
+   `analysis.Worker` owning the model and `Model.NewContext` building only a run; and
+   `Snapshot`/`Restore`/`Release` over the journal capturing the context's objects, lifetimes,
+   variants, occurrences, bus, clock, id sequence, activation and run counters, trace, run
+   ledgers and scheduler state, the action executor's tokens, frame tree, merge and breakpoint
+   bookkeeping and step counters, and the state executor's configuration, stack, history, state
+   values, event queue, deferred events, timers, change triggers, `do` progress and virtual
+   time — everything layer 2 needs, which the round-trip and restore-twice tests over every
+   conformance case prove. Not captured: a body coroutine paused mid-statement
+   (`ErrSnapshotPausedBody`), which the eight conformance cases whose default run pauses one
+   pin. Stages 2 and 3 add no capture for the executors' present state; they add the choice
+   points (one token, one dispatch), the canonical form over a snapshot, and, for `do`
+   interleaving, the explicit representation of a body's wait that removes the paused-body
+   limit.
 2. **Actions, static reduction.** Snapshot/restore for the action executor's state; DFS with
    persistent sets and a visited set; footprints in the lowering layer; `-check-action`,
    `-check-diverge`, bounds, witnesses in trace format; `%check-action`, `%replay`. Test layers
-   3–8 for actions.
+   3–8 for actions. *Implemented:* `runtime.CheckAction` — a DFS over the action executor on
+   stage 1's snapshots, one token advancing one node the atomic step (a body one step, so a
+   body that pauses mid-statement stays refused as `ErrSnapshotPausedBody`), enumerating the
+   moves of "The choice points / Action" through the scheduler seam as a `check` policy that
+   takes exactly the move the search names, so a move is the `ChoiceTaken` `explore` records
+   for the same step and a witness is a choice sequence; persistent sets with a sleep set over
+   `lower.Footprints` — reads including outgoing-succession guards and a parked accept's
+   condition, writes, sends, accepts, joins and merges reached, a dynamic target dependent on
+   everything — computed once per node beside `Bodies`, and switched off while a property is
+   given, since a property reads what no footprint names; the visited set keyed by the canonical
+   state of "Visited states", every live root object named by its materialization path; the
+   bounds above; properties at every stable state and at completion, deadlocks and typed
+   failures as violations with a witness; divergence of the named features (a name nothing
+   holds refused — a `node.path` resolved through the lowered flows of the nodes it names,
+   so a misspelt path is refused before the search, whether or not a schedule completes; a
+   path under a call tied on its arguments' types is answered by the performances and refused
+   when no state held it — a feature a schedule leaves unset spelt `<unset>`), or of the action's and
+   performer's attributes; witnesses as the choice lines, a blank line and the trace — a
+   property's ending in `property: <name>`, a deadlock's or failure's in `fails: <the error>`,
+   after a blank line, so a failing move leaving no trace is still the move a replay must
+   make and raise, and a property is evaluated again at the replayed state — read back by the one
+   `ParseChoices`/`ReplayPolicy` the SMT stage shares. The framework's `check`
+   engine answers `outcomes` and `holds` at authority *bounded* — exhaustive is `Bounded`,
+   never `Proved` — with every violation and divergent value *witnessed* only after
+   `ReplayAction` re-ran it to the state it claims, a disagreement *not covered*; `explore`
+   beside it is the referee over the conformance corpus. Surface: `-engine check` with
+   `-action`, `-check-property`, `-check-diverge`, `-check-witness`, `-check-depth`,
+   `-check-states`, `-check-timeout`; `%engine check`, `%check-property`, `%check-diverge`,
+   `%check-witness`, `%check-bounds`, `%replay`. Test layers 3–8 for actions: the
+   `.check.expected.json` oracles beside every conformance case that leaves an order open,
+   reduced against unreduced final states over the dependence corpus, the state-count ratchet,
+   the depth and time bounds, corpus-wide witness replay, the robustness failures as violations
+   and an unresolved `via` port as its routing error. Known limitations: the search is
+   single-threaded — one executor state per stack frame and one visited set — so `Jobs` buys
+   nothing inside a check, though replay verification runs on the plan's workers; a state
+   machine (its question is an `evaluate`), a state and an action due together and the eight
+   paused-body cases are refused with a typed reason, for stage 3.
 3. **State machines and time ties.** Snapshot/restore for the state executor; dispatch-order
    choice points; `do` interleaving; `-check-state`. Test layers 3–8 for states.
 4. **Dynamic reduction.** Concrete footprint instrumentation; DPOR backtrack points; the
@@ -468,6 +583,11 @@ where most systems models live (a state machine per component) and should follow
   not make the pick faithful. The row gains a pointer to the divergence report.
 - The SMT layer. Scheduling and value nondeterminism remain separate questions with separate
   tools here; composing them is [its own note](smt-model-checking.md).
+
+Under the [analysis framework](analysis-framework.md) this checker is the `check` engine,
+selected by `-engine check`; its verdicts are *bounded* within the state and depth budgets it
+names and *witnessed* for a violation it replays, and `explore` beside it under `-engine all`
+is its referee.
 
 ## Alternatives considered
 

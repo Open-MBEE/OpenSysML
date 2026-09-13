@@ -120,9 +120,16 @@ func valueFromProto(value *pb.Value) Value {
 			LiteralID:     kind.EnumLiteral.GetLiteralId(),
 			EnumerationID: kind.EnumLiteral.GetEnumerationId(),
 			Name:          kind.EnumLiteral.GetName(),
+			Value:         valueFromProto(kind.EnumLiteral.GetValue()),
 		}
 	case *pb.Value_Unset:
 		return Unset{}
+	case *pb.Value_Undetermined:
+		return Undetermined{
+			Reason:     kind.Undetermined.GetReason(),
+			CountLower: kind.Undetermined.GetCount().GetLower(),
+			CountUpper: kind.Undetermined.GetCount().GetUpper(),
+		}
 	case *pb.Value_Array:
 		if err := sysmlgrpc.CheckArrayShape(kind.Array.GetDimensions(), len(kind.Array.GetElements())); err != nil {
 			return Null("unsupported: " + err.Error())
@@ -198,6 +205,11 @@ func valueFromProto(value *pb.Value) Value {
 			out.Components = append(out.Components, quantity)
 		}
 		return out
+	case *pb.Value_Metaobject:
+		if kind.Metaobject.GetElementId() == "" {
+			return Null("unsupported: metaobject naming no element")
+		}
+		return Metaobject{ElementID: kind.Metaobject.GetElementId(), MetaclassID: kind.Metaobject.GetMetaclassId()}
 	default:
 		// A newer service's arm parses as an unknown field: no kind at all.
 		return Null("unsupported: a value arm this client does not know")
@@ -242,10 +254,15 @@ func valueToProto(value Value) (*pb.Value, error) {
 		}
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: sent}}, nil
 	case EnumLiteral:
+		scalar, err := valueToProto(v.Value)
+		if err != nil {
+			return nil, err
+		}
 		return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: &pb.EnumLiteral{
 			LiteralId:     v.LiteralID,
 			EnumerationId: v.EnumerationID,
 			Name:          v.Name,
+			Value:         scalar,
 		}}}, nil
 	case Array:
 		array := &pb.Array{
@@ -323,10 +340,20 @@ func valueToProto(value Value) (*pb.Value, error) {
 			tq.Components = append(tq.Components, sent)
 		}
 		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: tq}}, nil
+	case Metaobject:
+		if v.ElementID == "" {
+			return nil, &StatusError{Code: CodeInvalidArgument, Message: "a metaobject names no element"}
+		}
+		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: &pb.Metaobject{ElementId: v.ElementID, MetaclassId: v.MetaclassID}}}, nil
 	case Unset:
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
 			Message: "unset is not a value a caller can supply",
+		}
+	case Undetermined:
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "undetermined is not a value a caller can supply",
 		}
 	default:
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "unknown value kind"}

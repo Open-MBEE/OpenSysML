@@ -34,12 +34,15 @@ const (
 	CapabilityFunctionValues       = sysmlgrpc.CapabilityFunctionValues
 	CapabilitySetValues            = sysmlgrpc.CapabilitySetValues
 	CapabilityTensorValues         = sysmlgrpc.CapabilityTensorValues
+	CapabilityMetaobjectValues     = sysmlgrpc.CapabilityMetaobjectValues
 	CapabilityDiagnosticCodes      = sysmlgrpc.CapabilityDiagnosticCodes
 	CapabilitySchedule             = sysmlgrpc.CapabilitySchedule
 	CapabilityScheduleExplore      = sysmlgrpc.CapabilityScheduleExplore
 	CapabilityVerificationVerdicts = sysmlgrpc.CapabilityVerificationVerdicts
 	CapabilityCaseEvaluations      = sysmlgrpc.CapabilityCaseEvaluations
 	CapabilityFinalTime            = sysmlgrpc.CapabilityFinalTime
+	CapabilityEngines              = sysmlgrpc.CapabilityEngines
+	CapabilityUndeterminedValue    = sysmlgrpc.CapabilityUndeterminedValue
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

@@ -271,13 +271,13 @@ Parse + model all behavioral bodies with unified fallback grammar:
 
 **Package:** `internal/core/runtime`  
 **Status:** Complete. Conformance gate: every case passing (calc/constraint/requirement/satisfy/action/state all functional); count in [the measured counts](../project/spec-compliance.md).  
-**Spec Alignment:** The governing reference is the SysML v2 metamodel or the bundled KerML semantic library (`internal/core/libs/stdlib/`); UML 2.5.1 is a fallback only where the SysML v2 notation has no production for a concept *and* the KerML library no performance for it (state-body `fork`/`join`, history, entry/exit points, regions). Token flow is succession-ordered: a succession is a KerML `HappensBefore` link (`Occurrences.kerml`), which orders occurrences in time and carries no values — a `SuccessionFlow` is the form that carries a payload (`KerML.kerml`: `Succession specializes Connector`, `SuccessionFlow specializes Succession, Flow`). State machine execution is `Occurrences::Occurrence::isRunToCompletion` over its `runToCompletionScope` ("determines whether transition performances might happen during state entry performances within the run to completion scope"), with event dispatch `isDispatch` / `dispatchScope`. See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for the detailed compliance mapping, and [the pilot differential](../project/pilot-differential.md) for what is checked against the reference implementation.
+**Spec Alignment:** The governing reference is the SysML v2 metamodel or the bundled KerML semantic library (`internal/core/libs/stdlib/`); UML 2.5.1 is a fallback only where the SysML v2 notation has no production for a concept *and* the KerML library no performance for it (state-body `fork`/`join`, history, regions). The runtime is not a UML or fUML activity engine: "token" names the executor's bookkeeping for where each performance is along the successions of the lowered graph, an implementation device, not the semantic model. What the tokens realize is succession order: a succession is a KerML `HappensBefore` link (`Occurrences.kerml`), which orders occurrences in time and carries no values — a `SuccessionFlow` is the form that carries a payload (`KerML.kerml`: `Succession specializes Connector`, `SuccessionFlow specializes Succession, Flow`). State machine execution is `Occurrences::Occurrence::isRunToCompletion` over its `runToCompletionScope` ("determines whether transition performances might happen during state entry performances within the run to completion scope"), with event dispatch `isDispatch` / `dispatchScope`. See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for the detailed compliance mapping, and [the pilot differential](../project/pilot-differential.md) for what is checked against the reference implementation.
 
 **Architecture:**
 
-1. **ActionExecutor** — Petri-net token-flow execution
+1. **ActionExecutor** — succession-ordered action execution, scheduled as a token queue over the lowered `ActionGraph`
    - Token-based control flow (initial → action → final, first/done keywords)
-   - Fork/Join for parallelism, Decision/Merge for branching
+   - `fork`/`join` for parallelism, `decide`/`merge` for branching (`Actions::ForkAction`, `JoinAction`, `DecisionAction`, `MergeAction`)
    - Nested action invocation with attribute initialization
    - Send statement for message passing
    - ObjectFlow for pin-to-pin data routing
@@ -304,7 +304,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 3. **Scheduler and choice points** — one resolution rule for what the library leaves unordered ([design note](design/scheduling.md))
    - Six `ChoiceKind`s (`choice.go`): token order within a step, decision branch, same-step write order, transition, region order, due order; each site resolves through the run's `scheduler` and then records a `ChoicePoint`, an informational `RunNote` (diagnostic code `choice-point`) that never alters the run
    - Every decision guard is evaluated so a second holding one is seen; a later guard that cannot be evaluated is an `UnevaluableGuard` note (`guard-unevaluable`), not a failure
-   - `SchedulePolicy` (`scheduler.go`): `reverse` (default and zero value — exactly what every run did before policies existed), `declared`, `seed:<n>` (a PCG generator the run consumes, replayed by the seed), `explore[:runs=N,depth=D]`
+   - `SchedulePolicy` (`scheduler.go`): `reverse` (default and zero value — exactly what every run did before policies existed), `declared`, `seed:<n>` (a PCG generator the run consumes, replayed by the seed), `replay:<file>` (a witness's choice lines followed move for move, then `reverse`; a move the run cannot make is a typed `ReplayError`, `replay.go`), `explore[:runs=N,depth=D]`
    - `Explore` (`explore.go`) replays whole runs from a fresh `Context` each, a recorded choice prefix then the first untried alternative, depth-first within `ExploreBudget` (default 1024 runs, 64 choice points); reports distinct outcomes by `Outcome.identity` with linearization counts and a witness, and `incomplete` when a bound stopped it
    - The scheduler lives in the run's `runState` beside the budget and notes; a run driven call by call (`beginExecutorRun`) keeps its own across interleaved runs, and a probe (`beginProbe`) restores the scheduler's position and notes nothing
 
@@ -346,6 +346,15 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - Analysis case: subject → calc chain → result values
 - Verification case: evaluate requirements → pass/fail
 - Entry points: REPL/LSP commands (`%run`, `%verify`)
+- Design: [the analysis framework](design/analysis-framework.md) — registered engines behind
+  one contract, one scale for the strength of an answer, parallel isolated runs; and
+  [bring your own engine](design/bring-your-own-engines.md) — how a user's engine, strategy
+  or tool registers and what its answers are worth
+- Landed: `internal/core/analysis` — the contract (`Question`, `Engine`, `Result`, `Claim`,
+  `Strength`, `Budget`), a per-owner `Registry` with `auto` dispatch, and the `run`, `explore`,
+  `sweep` and `solve` engines as adapters over the runtime and `internal/core/solve`; the REPL
+  session and the gRPC service ask every check, run, exploration, sweep and solver question
+  through it with no change to what they print or return
 
 ---
 
@@ -493,7 +502,7 @@ See [the guide](../guide/) for VS Code configuration.
 - `%constraint <name>` — Evaluate constraint, check assert/assume satisfaction
 - `%requirement <name>` — Evaluate requirement, validate subject/require/actor conditions
 - `%satisfy [name]` — Evaluate satisfaction assertions, with the requirement's subject bound to the object `by` names
-- `%schedule [policy]` — Show or set the policy the next run resolves its choice points under (`reverse`, `declared`, `seed:<n>`); `explore` is refused, since a debugging session steps one run
+- `%schedule [policy]` — Show or set the policy the next run resolves its choice points under (`reverse`, `declared`, `seed:<n>`, `replay:<file>`); `explore` is refused, since a debugging session steps one run
 
 **Action debugging:**
 - `%action <name> [<object>]` — Start debugging action execution, optionally performed by an instantiated object
@@ -649,7 +658,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 
 **Behavioral fixtures:**
 - `action_control_flow.sysml`, `action_if_branch_body.sysml`, `action_mixed_params.sysml`, `action_send_port.sysml`
-- `state.sysml`, `state_full.sysml`, `state_transition_variants.sysml`, `state_call_trigger.sysml`, `state_def_region_pseudostate.sysml`, `state_defer.sysml`, `state_fork_join.sysml`, `state_history_entry_exit.sysml`, `state_timed_triggers.sysml`
+- `state.sysml`, `state_full.sysml`, `state_transition_variants.sysml`, `state_call_trigger.sysml`, `state_def_region_pseudostate.sysml`, `state_defer.sysml`, `state_fork_join.sysml`, `state_history.sysml`, `state_timed_triggers.sysml`
 - `calc.sysml`, `calc_defaults_and_invocation.sysml`, `calc_return.sysml`, `calc_return_parameter.sysml`
 - `constraint_assert_assume.sysml`
 - `requirement.sysml`, `requirement_members.sysml`
@@ -665,7 +674,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 **Coverage (by fixture prefix, all passing; counts in [the measured counts](../project/spec-compliance.md)):**
 - Calc: parameter binding, return values, defaults, inherited parameters, unary operators, type coercion, qualified names, body-local usages, statement bodies, nested and from-constraint invocation
 - Action: token flow, outputs, nested invocation, send/accept, port communication, `perform` reference and shorthand, accept...then, flows, loops and decisions
-- State: simple, do behavior, concurrent do, transition effect, choice/junction/fork-join pseudostates, orthogonal regions and region pseudostates, shallow/deep history, entry/exit points, deferred/undeferred events, call and timed triggers, signal discrimination/unmatched, self signal
+- State: simple, do behavior, concurrent do, transition effect, choice/junction/fork-join pseudostates, orthogonal regions and region pseudostates, shallow/deep history, deferred/undeferred events, call and timed triggers, signal discrimination/unmatched, self signal
 - Requirement: require/subject/actor/assume satisfaction, nested
 - Instance: derived feature values, constraint binding, inherited constraints, nested usage bodies
 - Unit and quantity evaluation
@@ -744,13 +753,13 @@ Every behavioral feature must have:
 - Status: ✅ Faithful / ⚠️ Approximate / ❌ Not Yet Implemented / ⛔ Deliberate Divergence / 🚧 Known Failure
 
 <!-- doc-counts:begin refereed-figures -->
-**Measured against the pinned reference** (`PILOT_TAG=2026-07`, artifact `0.61.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
+**Measured against the pinned reference** (`PILOT_TAG=2026-08`, artifact `0.62.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
 
-- **Corpus agreement:** 337 of 370 files agree diagnostic-by-diagnostic; 28 diagnostics are ours alone and 600 the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential](../project/pilot-differential.md), `go run ./cmd/pilot-diff`).
-- **Declared-diagnostic silence:** of the 511 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 244 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run ./cmd/pilot-xpect`).
+- **Corpus agreement:** 345 of 375 files agree diagnostic-by-diagnostic; 38 diagnostics are ours alone and 1109 the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential](../project/pilot-differential.md), `go run ./cmd/pilot-diff`).
+- **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
-- **Permissiveness gaps:** of 285 invalid models we wrote ourselves, the reference rejects 3 that we accept by default, and 273 both reject; 3 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 3 defect(s) in the published reference material — 1 with a specification-derived correction, 2 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `internal/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 338 of 370 files agreeing, 27 diagnostics ours alone and 600 the reference's alone, 0 declared rows we are silent on, and 0 of 285 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Permissiveness gaps:** of 306 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 293 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run ./cmd/pilot-reject`).
+- **Declared errata:** the registry declares 3 defect(s) in the published reference material — 1 with a specification-derived correction, 2 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `internal/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 346 of 375 files agreeing, 37 diagnostics ours alone and 1109 the reference's alone, 0 declared rows we are silent on, and 0 of 306 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](../project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.
@@ -758,7 +767,7 @@ What these numbers cannot show: the OMG corpora are demonstrations rather than a
 **Row bookkeeping:** the ✅/⚠️/❌/⛔ status of each tracked rule stays in [spec compliance](../project/spec-compliance.md) as a census of our own row list, counted when the documentation site is built rather than committed. It moves when rows are rewritten and does not move when an oracle does, so it is not the progress measure.
 <!-- doc-counts:end refereed-figures -->
 
-Calc/constraint/requirement functional. Action/state executor infrastructure complete (fork/join/decision, TimeEvent/ChangeEvent, guards, hierarchy, orthogonal regions all tested); every conformance case passes. Fork/join, shallow/deep history, entry/exit points and deferred events are implemented and reachable from source text — see docs/project/spec-compliance.md and docs/reference/grammar/README.md.
+Calc/constraint/requirement functional. Action/state executor infrastructure complete (fork/join/decision, TimeEvent/ChangeEvent, guards, hierarchy, orthogonal regions all tested); every conformance case passes. Fork/join, shallow/deep history and deferred events are implemented and reachable from source text — see docs/project/spec-compliance.md and docs/reference/grammar/README.md.
 
 ---
 
@@ -796,8 +805,8 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for full contribution guidelines.
 
 ## References
 
-- **OMG SysML v2.1 Beta 1 Spec:** [https://www.omg.org/spec/SysML/2.0](https://www.omg.org/spec/SysML/2.0) (2026-07 release)
-- **Pilot Implementation:** [SysML-v2-Pilot-Implementation 2026-07](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-07)
+- **OMG SysML v2.1 Beta 1 Spec:** [https://www.omg.org/spec/SysML/2.0](https://www.omg.org/spec/SysML/2.0) (2026-08 release)
+- **Pilot Implementation:** [SysML-v2-Pilot-Implementation 2026-08](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-08)
 - **Pilot Xtext Grammar:** `SysML.xtext` + `KerMLExpressions` (OMG reference implementation)
 - **Metamodel:** OMG SysML v2 metamodel (semantic foundation)
 - **Precedents:** gopls (Go LSP), rust-analyzer (Rust LSP), IPython/Jupyter (REPL design)

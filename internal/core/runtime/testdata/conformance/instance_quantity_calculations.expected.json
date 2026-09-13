@@ -4,10 +4,10 @@
   "instantiate": "test::Plot",
   "slots": {
     "side": {"type": "Quantity", "value": 3, "unit": "m"},
-    "area": {"type": "Quantity", "value": 9, "unit": "m**2"},
-    "areaByPower": {"type": "Quantity", "value": 9, "unit": "m**2"},
+    "area": {"type": "Quantity", "value": 9, "unit": "SI::'m²'"},
+    "areaByPower": {"type": "Quantity", "value": 9, "unit": "SI::'m²'"},
     "root": {"type": "Quantity", "value": 3.0, "unit": "m"},
-    "back": {"type": "Quantity", "value": 3.0, "unit": "m"},
+    "back": {"type": "Quantity", "value": 3.0, "unit": "SI::m"},
     "depth": {"type": "Quantity", "value": 4, "unit": "m"},
     "perimeter": {"type": "Quantity", "value": 12, "unit": "m"},
     "longest": {"type": "Quantity", "value": 400, "unit": "cm"},

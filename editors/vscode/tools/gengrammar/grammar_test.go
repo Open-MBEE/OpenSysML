@@ -119,7 +119,7 @@ func TestContextualWordsAreLanguageSpecific(t *testing.T) {
 // A word cannot be reserved and contextual at once: were one to be added to
 // lexer.Keywords(), generation must fail rather than reserve it quietly.
 func TestRenderRejectsAReservedContextualWord(t *testing.T) {
-	if err := checkUnreserved(lexer.ContextualWords(source.KindUnknown), map[string]bool{"point": true}); err == nil {
+	if err := checkUnreserved(lexer.ContextualWords(source.KindUnknown), map[string]bool{"defer": true}); err == nil {
 		t.Error("checkUnreserved accepted a contextual word the lexer reserves, want an error")
 	}
 }

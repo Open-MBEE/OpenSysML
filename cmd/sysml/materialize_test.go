@@ -39,6 +39,19 @@ func TestCheckReportsMaterializationDiagnostics(t *testing.T) {
 			want:   []string{"✓ Created instance of M::craft", "no errors"},
 		},
 		{
+			name: "a quantity attribute nothing values holds no value and is reported clean",
+			model: `package M {
+    private import ISQ::*;
+    part def Engine { attribute mass :> ISQ::mass; }
+    part def Craft { part engine : Engine; }
+    part craft : Craft;
+}
+`,
+			object: "M::craft",
+			status: 0,
+			want:   []string{"✓ Created instance of M::craft", "no errors"},
+		},
+		{
 			name: "a default of fewer values than the declared lower bound is reported",
 			model: `package M {
     private import ScalarValues::Real;

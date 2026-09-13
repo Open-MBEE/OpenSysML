@@ -103,6 +103,7 @@ $ sysml rover.sysml -render-document Hello::RoverReport
 
 The rover's top-level parts, from the model:
 
+<!-- caption -->
 *Top-level parts*
 
 | name |

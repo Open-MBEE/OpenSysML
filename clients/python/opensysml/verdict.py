@@ -8,6 +8,7 @@ units, an exhausted step budget) is not an answer, and is reported as
 :attr:`Verdict.error`, or raised by :meth:`Verdict.raise_for_error`.
 """
 
+from opensysml.engines import Standing
 from opensysml.errors import ExecutionError
 
 #: Verdict kinds, as the service reports them.
@@ -24,6 +25,10 @@ VERDICT_PASS = "pass"
 VERDICT_FAIL = "fail"
 VERDICT_INCONCLUSIVE = "inconclusive"
 VERDICT_ERROR = "error"
+
+# Properties reading the standing of the engine that answered a request.
+_STRENGTH = property(lambda self: self.standing.strength, doc="Strength of the evidence.")
+_BOUNDS = property(lambda self: list(self.standing.bounds), doc="Bounds the engine ran under.")
 
 
 class VerificationVerdict:
@@ -140,6 +145,9 @@ class Verdict:
             answered, beside this verdict rather than instead of it. Empty when
             the model states none, when the requirement is named by no FQN, or
             when the service predates ``verification_verdicts``
+        standing (Standing): The engine that answered, the strength of its
+            evidence and the bounds it ran under; unreported when the service
+            predates ``engines``
     """
 
     def __init__(self, pb_verdict, instances=None, diagnostics=None, verifications=None):
@@ -147,6 +155,22 @@ class Verdict:
         self.instances = list(instances or [])
         self.diagnostics = list(diagnostics or [])
         self.verifications = list(verifications or [])
+        self.standing = Standing.of(pb_verdict)
+
+    @property
+    def engine(self):
+        """Name of the engine that answered; empty when unreported."""
+        return self.standing.engine
+
+    @property
+    def strength(self):
+        """Strength of the evidence the answer rests on; empty when unreported."""
+        return self.standing.strength
+
+    @property
+    def bounds(self):
+        """The bounds the engine ran under, each marked when it stopped at it."""
+        return list(self.standing.bounds)
 
     @property
     def kind(self):
@@ -229,7 +253,13 @@ class Verdict:
         return f"{self.kind} {element}"
 
     def explain(self):
-        """One line saying what the verdict is and why."""
+        """One line saying what the verdict is and why, then its standing when reported."""
+        line = self._answer()
+        if self.standing.reported:
+            line += f" \u2014 {self.standing}"
+        return line
+
+    def _answer(self):
         subject = ""
         if self.instance_id:
             subject = f" (on {self.instance_type_id or 'instance'} ID: {self.instance_id})"
@@ -272,12 +302,20 @@ class CalcResult:
             answer
         outputs (dict): Output features a calc usage computed
         diagnostics (list[Diagnostic]): Diagnostics the service reported
+        standing (Standing): The engine that answered, the strength of its
+            evidence and the bounds it ran under; unreported when the service
+            predates ``engines``
     """
 
-    def __init__(self, value, outputs, diagnostics=None):
+    def __init__(self, value, outputs, diagnostics=None, standing=None):
         self.value = value
         self.outputs = dict(outputs or {})
         self.diagnostics = list(diagnostics or [])
+        self.standing = standing or Standing()
+
+    engine = property(lambda self: self.standing.engine, doc="Name of the engine that answered.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
 
     def __str__(self):
         if self.outputs:
@@ -367,16 +405,24 @@ class AnalysisResult:
             of the case's calcs as a value — a trade study's evaluation of each
             alternative, in subject order; empty for a case making none, or for
             a service without the ``case_evaluations`` capability
+        standing (Standing): The engine that ran the case, the strength of its
+            evidence and the bounds it ran under; unreported when the service
+            predates ``engines``
     """
 
     def __init__(self, outputs, verdicts, instances=None, diagnostics=None, verifications=None,
-                 evaluations=None):
+                 evaluations=None, standing=None):
         self.outputs = dict(outputs or {})
         self.verdicts = list(verdicts or [])
         self.instances = list(instances or [])
         self.diagnostics = list(diagnostics or [])
         self.verifications = list(verifications or [])
         self.evaluations = list(evaluations or [])
+        self.standing = standing or Standing()
+
+    engine = property(lambda self: self.standing.engine, doc="Name of the engine that ran the case.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
 
     @property
     def selected(self):
@@ -480,16 +526,24 @@ class SweepTable:
         instances (list[Instance]): The subjects the runs were about and the
             objects reachable from them; empty when no run bound a subject
         diagnostics (list[Diagnostic]): Diagnostics the service reported
+        standing (Standing): The engine that ran the table, the strength of its
+            evidence and the bounds it ran under; unreported when the service
+            predates ``engines``
     """
 
     def __init__(self, rows, parameters, sampled=False, seed=0,
-                 instances=None, diagnostics=None):
+                 instances=None, diagnostics=None, standing=None):
         self.rows = list(rows or [])
         self.parameters = list(parameters or [])
         self.sampled = sampled
         self.seed = seed
         self.instances = list(instances or [])
         self.diagnostics = list(diagnostics or [])
+        self.standing = standing or Standing()
+
+    engine = property(lambda self: self.standing.engine, doc="Name of the engine that ran the table.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
 
     @property
     def failures(self):

@@ -1,0 +1,27 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="History" library=false standard=false
+      (Membership visibility="default"
+        (Usage kind="state" name="Controller" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="start")
+          (SubstateMember name="start")
+          (Membership visibility="default"
+            (Usage kind="state" name="outer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (SubstateMember name="first")
+              (SubstateMember name="second")
+              (PseudostateNode kind="shallow history" name="resume")
+              (PseudostateNode kind="deep history" name="resumeDeep")))
+          (SubstateMember name="away")
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="start"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="first"
+                (*ast.QualifiedName))))
+          (TransitionMember source="first" target="second"
+            (FeatureReference name="Next"))
+          (TransitionMember source="second" target="away"
+            (FeatureReference name="Leave"))
+          (TransitionMember source="away" target="resume"
+            (FeatureReference name="Back")))))))

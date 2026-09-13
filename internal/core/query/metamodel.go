@@ -71,11 +71,7 @@ func MetamodelTypeNameOf(sym *symbols.Symbol) string {
 	case symbols.SymbolMultiplicity:
 		return semantics.MultiplicityMetaclassName(sym)
 	case symbols.SymbolConnectorEnd:
-		if sym.OwnerScope != nil {
-			if usage, ok := sym.OwnerScope.Node().(*ast.Usage); ok && usage.Kind == ast.UsageInterface {
-				return "PortUsage"
-			}
-		}
+		return semantics.ConnectorEndMetaclassName(sym)
 	case symbols.SymbolKerMLType:
 		switch decl := sym.Decl.(type) {
 		case *ast.Definition:

@@ -1,0 +1,7 @@
+model: cmd/pilot-exec-diff/testdata/models/extent_count_mismatch.sysml
+
+# A valued `[2]` usage whose value yields three is refused with the multiplicity violation it is
+# (KerML 1.0 §7.3.4.3). It has a model of its own: an extent is taken over the whole loaded model,
+# so a usage the runtime refuses to bind ends every `all T` that may reach it, and the extent
+# cases of `extent_expressions.cases` must not share a model with it.
+extent-namespace-valued-count-mismatch ::  :: Mismatch::unevenCount

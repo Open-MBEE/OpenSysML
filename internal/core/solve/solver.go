@@ -153,7 +153,8 @@ type Result struct {
 	Optima []Optimum
 
 	// Core holds the conflicting assertions for a query Explain found unsat, and
-	// is nil for every other verdict and for a plain Solve.
+	// is nil for every other verdict; a plain Solve leaves it nil unless its
+	// caller attaches the core an Explain of the same query found.
 	Core *Core
 
 	// Elapsed is how long the solver took, for an Explain every round of

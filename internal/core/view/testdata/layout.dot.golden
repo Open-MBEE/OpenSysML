@@ -1,0 +1,22 @@
+// view: PlantViews::placedView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// not represented: 1 route(s) written as pos; neato redraws every edge, only neato -n2 keeps them
+// canvas: unit=px w=1200 h=800
+// layout: neato
+digraph "PlantViews::placedView" {
+  graph [fontname="Helvetica", inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
+  subgraph "cluster_n0" {
+    label=<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
+    "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+  }
+  "n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
+}

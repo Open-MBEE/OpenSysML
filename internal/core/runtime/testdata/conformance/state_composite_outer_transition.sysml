@@ -1,6 +1,7 @@
 // A transition whose source is a composite state is enabled while any of its
 // substates is active: the event is handled by the composite state, not by the
-// substate it was offered to first (UML 14.2.3.9.6, SysML 7.19.4).
+// substate it was offered to first (SysML v2 7.19.4; KerML
+// StatePerformances::StatePerformance::acceptable over allSubstatePerformances).
 package Test {
 	state Machine {
 		attribute log : Integer = 0;

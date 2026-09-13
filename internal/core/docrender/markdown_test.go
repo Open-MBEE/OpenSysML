@@ -17,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
 var update = flag.Bool("update", false, "rewrite golden Markdown files")
@@ -24,7 +25,7 @@ var update = flag.Bool("update", false, "rewrite golden Markdown files")
 // renderFixtureDocument evaluates a fixture document and renders it as Markdown.
 func renderFixtureDocument(t *testing.T, path, name string) string {
 	t.Helper()
-	markdown, err := Markdown(fixtureDocument(t, path, name))
+	markdown, err := Markdown(fixtureDocument(t, path, name), MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("render document %s: %v", name, err)
 	}
@@ -92,6 +93,129 @@ func TestMarkdownTelescopeReportGolden(t *testing.T) {
 	}
 	if got != string(want) {
 		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+}
+
+// TestMarkdownTelescopeReportDotGolden locks the report with DOT diagrams: the
+// fences change, the table and every other block match the Mermaid golden.
+func TestMarkdownTelescopeReportDotGolden(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	got, err := Markdown(fixtureDocument(t, path, "Observatory::MassReport"),
+		MarkdownOptions{DiagramForm: view.FormDot})
+	if err != nil {
+		t.Fatalf("render document as DOT: %v", err)
+	}
+	golden := filepath.Join("testdata", "telescope_report.dot.golden.md")
+	if *update {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+		return
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read golden (run with -update to create): %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+	for _, want := range []string{
+		"```dot\n// view: Observatory::interconnectView\n// kind: interconnection\n",
+		"// layout: dot\ndigraph \"Observatory::interconnectView\" {\n",
+		"```dot\n// kind: state\n",
+		"// layout: dot\ndigraph {\n  graph [fontname=\"Helvetica\", rankdir=LR];\n",
+		"| name | mass |\n| --- | --- |\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering does not contain %q\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "```mermaid") {
+		t.Errorf("a diagram is still Mermaid under -diagram-form dot:\n%s", got)
+	}
+	mermaid := renderFixtureDocument(t, path, "Observatory::MassReport")
+	strip := func(markdown string) string {
+		var kept []string
+		for _, block := range strings.Split(markdown, "\n\n") {
+			if !strings.HasPrefix(block, "```") {
+				kept = append(kept, block)
+			}
+		}
+		return strings.Join(kept, "\n\n")
+	}
+	if strip(got) != strip(mermaid) {
+		t.Errorf("the diagram form changed a block that is not a diagram:\n%s", got)
+	}
+}
+
+// TestMarkdownTelescopeReportPlantUMLGolden locks the report with PlantUML
+// diagrams: the fences change, every other block matches the Mermaid golden.
+func TestMarkdownTelescopeReportPlantUMLGolden(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	got, err := Markdown(fixtureDocument(t, path, "Observatory::MassReport"),
+		MarkdownOptions{DiagramForm: view.FormPlantUML})
+	if err != nil {
+		t.Fatalf("render document as PlantUML: %v", err)
+	}
+	golden := filepath.Join("testdata", "telescope_report.plantuml.golden.md")
+	if *update {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+		return
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read golden (run with -update to create): %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+	for _, want := range []string{
+		"```plantuml\n@startuml\n' Observatory::interconnectView — interconnection rendering",
+		"```plantuml\n@startuml\n' state rendering (the diagram states kind \"state\")\n",
+		"left to right direction\n",
+		"@enduml\n```\n",
+		"| name | mass |\n| --- | --- |\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering does not contain %q\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "```mermaid") || strings.Contains(got, "```dot") {
+		t.Errorf("a diagram is in another form under -diagram-form plantuml:\n%s", got)
+	}
+	mermaid := renderFixtureDocument(t, path, "Observatory::MassReport")
+	strip := func(markdown string) string {
+		var kept []string
+		for _, block := range strings.Split(markdown, "\n\n") {
+			if !strings.HasPrefix(block, "```") {
+				kept = append(kept, block)
+			}
+		}
+		return strings.Join(kept, "\n\n")
+	}
+	if strip(got) != strip(mermaid) {
+		t.Errorf("the diagram form changed a block that is not a diagram:\n%s", got)
+	}
+}
+
+// TestMarkdownDiagramFormIsChecked rejects a form that is not a diagram form
+// before any content is rendered, and takes each diagram form by name.
+func TestMarkdownDiagramFormIsChecked(t *testing.T) {
+	document := fixtureDocument(t, filepath.Join("testdata", "telescope_report.sysml"), "Observatory::MassReport")
+	_, err := Markdown(document, MarkdownOptions{DiagramForm: "svg"})
+	var typed *Error
+	if !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm || typed.DiagramForm != "svg" {
+		t.Fatalf("error = %v, want %s for svg", err, ErrorUnknownForm)
+	}
+	if !strings.Contains(err.Error(), "mermaid, dot") {
+		t.Errorf("message = %q", err)
+	}
+	for _, form := range view.DiagramForms() {
+		if _, err := Markdown(document, MarkdownOptions{DiagramForm: form}); err != nil {
+			t.Errorf("%s: %v", form, err)
+		}
 	}
 }
 
@@ -216,6 +340,24 @@ func TestMarkdownDefaultedQueryParameters(t *testing.T) {
 	}
 }
 
+// TestMarkdownMOSARegisterDepth renders a MOSA register over an interface nested
+// seventeen levels below root: the default depth omits it, a bound depth reaches it.
+func TestMarkdownMOSARegisterDepth(t *testing.T) {
+	got := renderFixtureDocument(t,
+		filepath.Join("testdata", "mosa_registers.sysml"),
+		"Registers::RegisterReport")
+	defaulted, deepened, ok := strings.Cut(got, "*Twenty levels*")
+	if !ok {
+		t.Fatalf("rendered Markdown lacks the second table:\n%s", got)
+	}
+	if !strings.Contains(defaulted, "| shallow |") || strings.Contains(defaulted, "| deep |") {
+		t.Errorf("default depth should list shallow and omit deep:\n%s", defaulted)
+	}
+	if !strings.Contains(deepened, "| shallow |") || !strings.Contains(deepened, "| deep |") {
+		t.Errorf("depth 20 should list both interfaces:\n%s", deepened)
+	}
+}
+
 // TestMarkdownEscaping checks the escaping contract on raw content: table
 // cells and prose with every metacharacter class render without opening
 // Markdown or HTML structure.
@@ -267,7 +409,7 @@ func TestMarkdownEscaping(t *testing.T) {
 
 // TestMarkdownNilDocument checks the typed error for a missing document.
 func TestMarkdownNilDocument(t *testing.T) {
-	_, err := Markdown(nil)
+	_, err := Markdown(nil, MarkdownOptions{})
 	var typed *Error
 	if !errors.As(err, &typed) || typed.Kind != ErrorNilDocument {
 		t.Fatalf("Markdown(nil) error = %v, want %s", err, ErrorNilDocument)

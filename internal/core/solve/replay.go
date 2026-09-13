@@ -1,11 +1,9 @@
 package solve
 
 import (
-	"bufio"
 	"fmt"
 	"math"
 	"math/big"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -82,13 +80,39 @@ type replayValue struct {
 // arithmetic on the witness, reporting ok=false with why when the evaluator
 // does not confirm what the solver answered.
 func replayWitness(q *Query, model []Assignment) (bool, string) {
-	env := make(map[string]replayValue, len(model))
+	values := make(map[string]ModelValue, len(model))
 	for _, a := range model {
-		val, err := witnessValue(a)
+		value, err := DecodeValue(a)
 		if err != nil {
 			return false, fmt.Sprintf("the evaluator cannot hold the value the solver chose for %s: %v", a.Var.Name, err)
 		}
-		env[a.Var.Name] = val
+		values[a.Var.Name] = value
+	}
+	return q.Confirm(values)
+}
+
+// Confirm re-runs the query's assertions through the evaluator's own arithmetic on
+// values of its variables by name, as a solver's model is confirmed before `sat` is
+// claimed: ok=false with why when a variable has no value, a value the evaluator
+// cannot hold, or an assertion that does not evaluate to true.
+func (q *Query) Confirm(values map[string]ModelValue) (bool, string) {
+	env := make(map[string]replayValue, len(values))
+	for _, v := range q.Vars {
+		value, ok := values[v.Name]
+		if !ok {
+			return false, fmt.Sprintf("the witness gives %s no value", v.Name)
+		}
+		if value.Kind != v.Sort.Kind {
+			return false, fmt.Sprintf("the witness gives %s no value of sort %s", v.Name, v.Sort.Name)
+		}
+		if value.Kind == SortDatatype && !contains(v.Sort.Values, value.Text) {
+			return false, fmt.Sprintf("the witness gives %s %s, not a value of %s", v.Name, value.Text, v.Sort.Name)
+		}
+		val, err := evaluatorValue(value)
+		if err != nil {
+			return false, fmt.Sprintf("the evaluator cannot hold the value the solver chose for %s: %v", v.Name, err)
+		}
+		env[v.Name] = val
 	}
 	for _, assertion := range q.Assertions {
 		val, err := replayTerm(assertion.Term, env)
@@ -108,50 +132,30 @@ func replayWitness(q *Query, model []Assignment) (bool, string) {
 	return true, ""
 }
 
-// witnessValue reads one assignment back into the evaluator's representation,
+// evaluatorValue holds one model value in the evaluator's representation,
 // reporting a value the evaluator cannot hold — an Integer outside int64, a
 // Real with no finite float64 — as an error.
-func witnessValue(a Assignment) (replayValue, error) {
-	value, err := readSexpr(bufio.NewReader(strings.NewReader(a.Raw)))
-	if err != nil {
-		return replayValue{}, fmt.Errorf("unreadable value %s", a.Raw)
-	}
-	switch a.Var.Sort.Kind {
+func evaluatorValue(value ModelValue) (replayValue, error) {
+	switch value.Kind {
 	case SortBool:
-		if !value.IsList && (value.Atom == "true" || value.Atom == "false") {
-			return replayValue{kind: SortBool, b: value.Atom == "true"}, nil
-		}
-	case SortString:
-		if !value.IsList && value.Quoted {
-			return replayValue{kind: SortString, s: value.Atom}, nil
-		}
-	case SortDatatype:
-		if !value.IsList {
-			return replayValue{kind: SortDatatype, s: smtName(value.Atom)}, nil
-		}
+		return replayValue{kind: SortBool, b: value.Bool}, nil
+	case SortString, SortDatatype:
+		return replayValue{kind: value.Kind, s: value.Text}, nil
 	case SortInt:
-		rat, ok := ratOfSexpr(value)
-		if !ok || !rat.IsInt() {
-			return replayValue{}, fmt.Errorf("no integer in %s", a.Raw)
+		if !value.Number.Num().IsInt64() {
+			return replayValue{}, fmt.Errorf("%s is outside the Integer range", value.Number.Num().String())
 		}
-		if !rat.Num().IsInt64() {
-			return replayValue{}, fmt.Errorf("%s is outside the Integer range", rat.Num().String())
-		}
-		return replayValue{kind: SortInt, i: rat.Num().Int64()}, nil
+		return replayValue{kind: SortInt, i: value.Number.Num().Int64()}, nil
 	case SortReal:
-		rat, ok := ratOfSexpr(value)
-		if !ok {
-			return replayValue{}, fmt.Errorf("no rational in %s", a.Raw)
-		}
 		// The evaluator holds the nearest float64, which is where a witness
 		// only the exact encoding can hold is caught by the replay.
-		f, _ := rat.Float64()
+		f, _ := value.Number.Float64()
 		if math.IsInf(f, 0) || math.IsNaN(f) {
-			return replayValue{}, fmt.Errorf("%s is outside the Real range", a.Value)
+			return replayValue{}, fmt.Errorf("%s is outside the Real range", value.Number.FloatString(6))
 		}
 		return replayValue{kind: SortReal, f: f}, nil
 	}
-	return replayValue{}, fmt.Errorf("unreadable value %s", a.Raw)
+	return replayValue{}, fmt.Errorf("a value of no sort")
 }
 
 // replayTerm evaluates a term as the runtime evaluator computes it: int64 and
@@ -245,8 +249,65 @@ func replayTerm(t *Term, env map[string]replayValue) (replayValue, error) {
 		// float64(int64) is the widening the evaluator applies where a real
 		// meets an integer, which rounds beyond 2^53.
 		return replayValue{kind: SortReal, f: float64(val.i)}, nil
+	case OpInt64:
+		exact, err := exactInt(t.Args[0], env)
+		if err != nil {
+			return replayValue{}, err
+		}
+		return replayValue{kind: SortBool, b: exact.IsInt64()}, nil
 	}
 	return replayValue{}, fmt.Errorf("the replay does not define this term")
+}
+
+// exactInt computes an integer term without bounds, deciding the range an
+// OpInt64 asks about where the evaluator's own int64 arithmetic would overflow.
+func exactInt(t *Term, env map[string]replayValue) (*big.Int, error) {
+	switch t.Op {
+	case OpAdd, OpSub, OpMul, OpIntDiv:
+		left, err := exactInt(t.Args[0], env)
+		if err != nil {
+			return nil, err
+		}
+		right, err := exactInt(t.Args[1], env)
+		if err != nil {
+			return nil, err
+		}
+		switch t.Op {
+		case OpAdd:
+			return new(big.Int).Add(left, right), nil
+		case OpSub:
+			return new(big.Int).Sub(left, right), nil
+		case OpMul:
+			return new(big.Int).Mul(left, right), nil
+		}
+		if right.Sign() == 0 {
+			return nil, fmt.Errorf("division by zero")
+		}
+		return new(big.Int).Div(left, right), nil
+	case OpNeg:
+		arg, err := exactInt(t.Args[0], env)
+		if err != nil {
+			return nil, err
+		}
+		return new(big.Int).Neg(arg), nil
+	case OpIte:
+		cond, err := replayBool(t.Args[0], env)
+		if err != nil {
+			return nil, err
+		}
+		if cond {
+			return exactInt(t.Args[1], env)
+		}
+		return exactInt(t.Args[2], env)
+	}
+	val, err := replayTerm(t, env)
+	if err != nil {
+		return nil, err
+	}
+	if val.kind != SortInt {
+		return nil, fmt.Errorf("an integer operand yielded none")
+	}
+	return big.NewInt(val.i), nil
 }
 
 // replayBool evaluates a term that must yield a boolean.

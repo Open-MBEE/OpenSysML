@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Orbit",
+  "slots": {
+    "speed": {"type": "Quantity", "value": 3049.86815, "unit": "SI::'m/s'"},
+    "perMass": {"type": "Quantity", "value": 5.0, "unit": "SI::'m⋅s⁻²'"},
+    "orbitalKm": {"type": "Quantity", "value": 7793.229127559948, "unit": "SI::'m/s'"},
+    "orbitalM": {"type": "Quantity", "value": 7793.229127559948, "unit": "SI::'m/s'"},
+    "perLightMass": {"type": "Quantity", "value": 5.0, "unit": "SI::'m⋅s⁻²'"},
+    "work": {"type": "Quantity", "value": 2.0, "unit": "SI::J"},
+    "torque": {"type": "Quantity", "value": 6, "unit": "SI::'N⋅m'"},
+    "ratio": {"type": "Real", "value": 1.0},
+    "halfTorque": {"type": "Quantity", "value": 3, "unit": "SI::'N⋅m'"},
+    "unlisted": {"type": "Quantity", "value": 6, "unit": "K*kg"},
+    "swept": {"type": "Quantity", "value": 6, "unit": "m*rad"},
+    "unknownPower": {"error": "type mismatch: exponent of a quantity is a quantity"}
+  }
+}

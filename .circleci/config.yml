@@ -92,6 +92,34 @@ commands:
           paths:
             - examples/pilot-corpora
 
+      # The PSSM test suite, one pinned file, gated the same way by internal/pssm.
+      - restore_cache:
+          keys:
+            - pssm-suite-v1-{{ checksum "scripts/download-pssm-suite.sh" }}-{{ checksum "scripts/pssm-pin.sh" }}
+
+      - run:
+          name: Download the OMG PSSM test suite
+          command: ./scripts/download-pssm-suite.sh
+
+      - save_cache:
+          key: pssm-suite-v1-{{ checksum "scripts/download-pssm-suite.sh" }}-{{ checksum "scripts/pssm-pin.sh" }}
+          paths:
+            - build/pssm
+
+      # The pilot's XMI of the standard library, gated by internal/core/identity.
+      - restore_cache:
+          keys:
+            - pilot-library-xmi-v1-{{ checksum "scripts/download-pilot-library-xmi.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Download the pilot library XMI
+          command: ./scripts/download-pilot-library-xmi.sh
+
+      - save_cache:
+          key: pilot-library-xmi-v1-{{ checksum "scripts/download-pilot-library-xmi.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/pilot-library-xmi
+
       - run:
           name: Verify the OMG pilot corpora
           command: |
@@ -249,6 +277,8 @@ jobs:
             # GitHub Actions PR workflow already does.
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+            OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             # Same for the solver installed above: absent means failure, not skip.
             OPENSYSML_REQUIRE_SMT: "1"
 
@@ -271,6 +301,8 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+            OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             OPENSYSML_REQUIRE_SMT: "1"
 
       - persist_to_workspace:
@@ -307,6 +339,20 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
 
+      # The normative-identity gate alone, for the same reason.
+      - run:
+          name: Run pilot library identity gate
+          command: |
+            set -o pipefail
+            go test -count=1 -v ./internal/core/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
+            grep -E 'pilot library XMI: [0-9]+ derived' pilot-library-xmi-gate.log
+            if grep -qE '^\s*--- SKIP' pilot-library-xmi-gate.log; then
+              echo "error: the pilot library identity gate skipped" >&2
+              exit 1
+            fi
+          environment:
+            OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
+
       # The RDF round-trip ratchet over every example alone, so its per-verdict
       # counts are legible in the log and a skip cannot hide behind a green suite.
       - run:
@@ -322,6 +368,21 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+
+      # The PSSM suite gates alone, then the referee's bucket-count check
+      # (never pass/fail; see docs/project/pssm-referee.md).
+      - run:
+          name: Run PSSM suite gates
+          command: |
+            set -o pipefail
+            go test -count=1 -v ./internal/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
+            if grep -qE '^\s*--- SKIP' pssm-gate.log; then
+              echo "error: the PSSM suite gate skipped" >&2
+              exit 1
+            fi
+            go run ./cmd/pssm-referee -check
+          environment:
+            OPENSYSML_REQUIRE_PSSM_SUITE: "1"
 
       # Re-run the differential gate alone so its summary counts, which make
       # coverage drift reviewable, are visible rather than buried in the suite.

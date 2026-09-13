@@ -1,0 +1,58 @@
+enter calc test::extents
+  stmt return
+          enter calc SequenceFunctions::size
+materialize: Wheel #1
+                eval construct Wheel -> instance#1
+materialize: Wheel #2
+                eval construct Wheel -> instance#2
+              eval sequence of 2 -> (instance#1, instance#2)
+              eval feature wheels -> (instance#1, instance#2)
+            eval operator all -> (instance#1, instance#2)
+            bind seq = (instance#1, instance#2) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval feature wheels -> (instance#1, instance#2)
+            bind seq = (instance#1, instance#2) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+          eval operator all -> (instance#1, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+      eval operator === -> true
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 2 -> 2
+        eval index -> instance#2
+          eval operator all -> (instance#1, instance#2)
+          eval literal 2 -> 2
+        eval index -> instance#2
+      eval operator === -> true
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+      eval operator === -> true
+          eval feature front -> (instance#1, instance#2)
+          eval literal 2 -> 2
+        eval index -> instance#2
+          eval feature wheels -> (instance#1, instance#2)
+          eval literal 2 -> 2
+        eval index -> instance#2
+      eval operator === -> true
+          eval feature wheels -> (instance#1, instance#2)
+        eval chain radius -> (1.0, 1.0)
+          eval literal 1.0 -> 1.0
+          eval literal 1.0 -> 1.0
+        eval sequence of 2 -> (1.0, 1.0)
+      eval operator == -> true
+    eval sequence of 7 -> (true, true, true, true, true, true, true)
+exit calc test::extents -> (true, true, true, true, true, true, true)

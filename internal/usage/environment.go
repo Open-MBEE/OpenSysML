@@ -15,6 +15,14 @@ func BudgetEnvironment() []Item {
 	}
 }
 
+// JobsEnvironment describes the setting the binaries that answer analysis questions
+// read for how many runs of one plan go concurrently.
+func JobsEnvironment() []Item {
+	return []Item{
+		{"OPENSYSML_JOBS", "Runs of one check that may go concurrently — the linearizations of an exploration, the engines -engine all consults — each on a worker of its own over the shared model; -jobs and %jobs override it. Default the number of CPUs."},
+	}
+}
+
 // LegacyPrefixNote states how the superseded variable names are still read, and
 // belongs with any list of them.
 const LegacyPrefixNote = "Each variable above also answers to its legacy " +
@@ -29,3 +37,12 @@ const BudgetScopeNote = "A budget bounds one run — one evaluation, one " +
 	"instantiation, one calc invocation, one action, one state machine — not a " +
 	"whole session, so a long session of small operations never exhausts one. A " +
 	"run started inside another shares the outer run's budget."
+
+// ToolEnvironment describes the tool manifest and its timeout, which every binary that
+// performs actions annotated ToolExecution reads.
+func ToolEnvironment() []Item {
+	return []Item{
+		{"OPENSYSML_TOOLS", "Directory of the tool manifest: one JSON file per external tool (toolName, version, executable, variables), each registered as the engine tool:<name> that performs actions annotated ToolExecution with that toolName. Unset registers no tool, and such an action is refused."},
+		{"OPENSYSML_TOOL_TIMEOUT", "How long one tool invocation may take, as a Go duration. Default 10s, after which the performance fails."},
+	}
+}

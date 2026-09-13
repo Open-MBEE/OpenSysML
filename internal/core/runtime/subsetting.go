@@ -29,7 +29,7 @@ func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.Relatio
 	var features []*symbols.Symbol
 	for _, rel := range relationshipsOfKind(sym, kind) {
 		qn := ast.AsQualifiedName(rel.Target)
-		resolved := ctx.model.RelationshipTarget(sym, rel)
+		resolved := ctx.model.semantics.RelationshipTarget(sym, rel)
 		if resolved != nil && resolved != sym {
 			if ctx.isFeatureOf(owner, resolved, sym) {
 				features = append(features, resolved)
@@ -48,7 +48,7 @@ func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.Relatio
 		if len(qn.Parts) != 1 {
 			continue
 		}
-		if member, found := ctx.model.LookupMember(owner, qn.Parts[0].Text); found && member != nil && member != sym {
+		if member, found := ctx.model.semantics.LookupMember(owner, qn.Parts[0].Text); found && member != nil && member != sym {
 			features = append(features, member)
 		}
 	}
@@ -58,7 +58,7 @@ func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.Relatio
 // redefinesTransitively reports whether sym redefines feature, directly or through
 // the features those redefine.
 func (ctx *Context) redefinesTransitively(sym, feature *symbols.Symbol) bool {
-	for _, redefined := range ctx.model.AllRedefinedFeatures(sym) {
+	for _, redefined := range ctx.model.semantics.AllRedefinedFeatures(sym) {
 		if redefined == feature {
 			return true
 		}
@@ -71,7 +71,7 @@ func (ctx *Context) inheritsDeclaration(owner, feature *symbols.Symbol) bool {
 	if feature.OwnerScope == nil {
 		return false
 	}
-	for _, src := range ctx.model.MemberSources(owner) {
+	for _, src := range ctx.model.semantics.MemberSources(owner) {
 		if src.Scope == feature.OwnerScope {
 			return true
 		}
@@ -86,11 +86,11 @@ func (ctx *Context) ownDeclarationNamed(owner, sym *symbols.Symbol, names ...str
 		if name == "" {
 			continue
 		}
-		member, found := ctx.model.LookupMember(owner, name)
+		member, found := ctx.model.semantics.LookupMember(owner, name)
 		if !found || member == nil || member == sym {
 			continue
 		}
-		if contributed, ok := ctx.model.LookupContributedMember(owner, name); ok && contributed == member {
+		if contributed, ok := ctx.model.semantics.LookupContributedMember(owner, name); ok && contributed == member {
 			continue
 		}
 		return member, true
@@ -120,10 +120,10 @@ func (ctx *Context) isFeatureOf(owner, feature, masking *symbols.Symbol) bool {
 	carries := func(member *symbols.Symbol, ok bool) bool {
 		return ok && (member == feature || member == masking)
 	}
-	if carries(ctx.model.LookupMember(owner, feature.Name)) {
+	if carries(ctx.model.semantics.LookupMember(owner, feature.Name)) {
 		return true
 	}
-	return carries(ctx.model.LookupContributedMember(owner, feature.Name))
+	return carries(ctx.model.semantics.LookupContributedMember(owner, feature.Name))
 }
 
 // relatedFeatureNames is relatedFeatures by name.
@@ -174,7 +174,7 @@ func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.S
 // which is the order the features are computed in. The answer is memoized per
 // type; callers read it and never write it.
 func (ctx *Context) redefinitionGroups(typ *symbols.Symbol) [][]string {
-	if groups, ok := ctx.redefGroups[typ]; ok {
+	if groups, ok := ctx.model.redefGroups[typ]; ok {
 		return groups
 	}
 	features := ctx.FeaturesOf(typ)
@@ -222,7 +222,7 @@ func (ctx *Context) redefinitionGroups(typ *symbols.Symbol) [][]string {
 		index[root] = len(groups)
 		groups = append(groups, []string{feat.Name})
 	}
-	ctx.redefGroups[typ] = groups
+	ctx.model.redefGroups[typ] = groups
 	return groups
 }
 
@@ -295,11 +295,11 @@ func (ctx *Context) redefinedNames(sym, owner *symbols.Symbol) []string {
 // through a redefinition of a redefinition, in breadth-first order.
 func (ctx *Context) redefinedFeatures(sym, owner *symbols.Symbol) []*symbols.Symbol {
 	key := featureOfType{feature: sym, owner: owner}
-	if features, ok := ctx.redefined[key]; ok {
+	if features, ok := ctx.model.redefined[key]; ok {
 		return features
 	}
 	features := ctx.collectRedefinedFeatures(sym, owner)
-	ctx.redefined[key] = features
+	ctx.model.redefined[key] = features
 	return features
 }
 
@@ -314,8 +314,8 @@ func (ctx *Context) collectRedefinedFeatures(sym, owner *symbols.Symbol) []*symb
 		// the one its owner inherits, without naming it: the two names read one
 		// feature value as an explicit redefinition's do.
 		redefines := append(ctx.relatedFeatures(cur, owner, ast.RelRedefines),
-			ctx.model.ImplicitEndRedefinitions(cur)...)
-		redefines = append(redefines, ctx.model.ImplicitRoleRedefinitions(cur)...)
+			ctx.model.semantics.ImplicitEndRedefinitions(cur)...)
+		redefines = append(redefines, ctx.model.semantics.ImplicitRoleRedefinitions(cur)...)
 		for _, redefined := range redefines {
 			if seen[redefined] {
 				continue
@@ -369,20 +369,17 @@ func (ctx *Context) SubsettingFeatures(inst *Instance, typ *symbols.Symbol, name
 // feature materializes it, so a cycle between subsetting features is reported as
 // ErrCyclicFeatureValue rather than recursing until the step budget runs out.
 func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Value, error) {
-	key := featureValueRef{instance: inst.ID, feature: name}
-	if ctx.collectingSubsets[key] {
-		return nil, fmt.Errorf("%w: %s.%s subsets itself", ErrCyclicFeatureValue, inst.Type.Name, name)
-	}
-	ctx.collectingSubsets[key] = true
-	defer delete(ctx.collectingSubsets, key)
-
 	var values []Value
-	for _, feat := range ctx.subsettingFeaturesOf(inst, name) {
+	err := ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
 		sub, err := inst.GetFeatureValue(ctx, feat.Name)
 		if err != nil {
-			return nil, fmt.Errorf("subsetting feature %s of %s: %w", feat.Name, name, err)
+			return err
 		}
 		values = append(values, elementsOf(sub.HeldValue())...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	if err := ctx.chargeElements(int64(len(values))); err != nil {
 		return nil, err
@@ -390,12 +387,63 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 	return values, nil
 }
 
+// openSubsettingContributions is subsettingContributions for a model-level read: an open
+// subsetter is not made up, contributing what it certainly holds and its fewest as atLeast.
+func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (values []Value, atLeast int64, err error) {
+	err = ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
+		sub, open, err := inst.openFeatureValue(ctx, feat.Name)
+		if err != nil {
+			return err
+		}
+		if !open.Stopped {
+			values = append(values, elementsOf(sub.HeldValue())...)
+			return nil
+		}
+		values = append(values, open.Contributed...)
+		atLeast = max(atLeast, open.AtLeast, fewestOf(feat.Multiplicity))
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := ctx.chargeElements(int64(len(values))); err != nil {
+		return nil, 0, err
+	}
+	return values, atLeast, nil
+}
+
+// eachSubsetterOf reads each feature subsetting the named feature of inst through
+// read, in declaration order; a cycle between subsetting features is an error.
+func (ctx *Context) eachSubsetterOf(inst *Instance, name string, read func(feat *EffectiveFeature) error) error {
+	key := featureValueRef{instance: inst.ID, feature: name}
+	if ctx.collectingSubsets[key] {
+		return fmt.Errorf("%w: %s.%s subsets itself", ErrCyclicFeatureValue, inst.Type.Name, name)
+	}
+	ctx.collectingSubsets[key] = true
+	defer delete(ctx.collectingSubsets, key)
+
+	for _, feat := range ctx.subsettingFeaturesOf(inst, name) {
+		if err := read(&feat); err != nil {
+			return fmt.Errorf("subsetting feature %s of %s: %w", feat.Name, name, err)
+		}
+	}
+	return nil
+}
+
+// fewestOf is the fewest values a feature of multiplicity mult holds.
+func fewestOf(mult semantics.Range) int64 {
+	if mult.Lower.Known && !mult.Lower.Infinite {
+		return mult.Lower.Value
+	}
+	return 0
+}
+
 // fillsFromSubsetted reports whether feat may hold objects a collection it
 // subsets makes up: it is optional, holds objects, and states no value.
 func (ctx *Context) fillsFromSubsetted(feat *EffectiveFeature) bool {
 	lower := feat.Multiplicity.Lower
 	return lower.Known && !lower.Infinite && lower.Value == 0 &&
-		!ctx.model.IsConnectorUsage(feat.Symbol) && ctx.CompositeTypeOf(feat) != nil
+		!ctx.model.semantics.IsConnectorUsage(feat.Symbol) && ctx.CompositeTypeOf(feat) != nil
 }
 
 // materializeSubsettedCollections reads the collections an optional feature subsets before the
@@ -474,7 +522,7 @@ func (ctx *Context) fillOptionalSubsetters(inst *Instance, name string, n int) (
 		if fill.fv.Feature.Scalar() {
 			fill.fv.Value = fill.held[0]
 		} else {
-			fill.fv.Values = collectionOf(fill.fv.Feature, fill.held)
+			fill.fv.Values = ctx.collectionOf(fill.fv.Feature, fill.held)
 		}
 		fill.fv.Materialized = true
 		ctx.invalidateDependents(fill.fv)

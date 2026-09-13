@@ -4,6 +4,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 )
 
 // Every exported entry point holds the session lock, so a frontend calling them
@@ -29,8 +31,8 @@ func TestExportedEntryPointsSerialize(t *testing.T) {
 		func(s *Session) { s.EvalExpr("1 + 1") },
 		func(s *Session) { s.View("Vehicle") },
 		func(s *Session) { s.RunDocumentQuery("Vehicle") },
-		func(s *Session) { s.RenderDocumentMarkdown("Vehicle") },
-		func(s *Session) { s.RenderDocumentSetMarkdown() },
+		func(s *Session) { s.RenderDocumentMarkdown("Vehicle", docrender.MarkdownOptions{}) },
+		func(s *Session) { s.RenderDocumentSetMarkdown(docrender.MarkdownOptions{}) },
 		func(s *Session) { s.Complete("%instantiate Veh", len("%instantiate Veh")) },
 		func(s *Session) { s.Complete("Add", 3) },
 		func(s *Session) { s.RunMeta("%features Vehicle") },

@@ -1,0 +1,20 @@
+// view: PlantViews::loopView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// layout: dot
+digraph "PlantViews::loopView" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [style="rounded,filled", fillcolor="#F5D999", color="#E69F00", penwidth=1, label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>];
+    "n2" [style="rounded,filled", fillcolor="#F5D999", color="#E69F00", penwidth=1, label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>];
+    "n3" [style="rounded,filled", fillcolor="#F5D999", color="#E69F00", penwidth=1, label=<<b>sensor : Pump</b><br/><font point-size="10"><i>«part»</i></font>>];
+  }
+  "n1" -> "n2" [label="supply", arrowhead=none, penwidth=3];
+  "n1" -> "n2" [label="of Water", style=dashed];
+}

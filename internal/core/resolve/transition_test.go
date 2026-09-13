@@ -44,7 +44,7 @@ func transitionTargetIn(t *testing.T, root *ast.RootNamespace) *ast.QualifiedNam
 
 // A transition endpoint naming a vertex of its machine resolves, whether the
 // vertex is a sibling, a nested state, a state of a sibling orthogonal region,
-// or an entry/exit point of a composite state.
+// or a history pseudostate of a composite state.
 func TestResolveEndpointsThatNameVertices(t *testing.T) {
 	cases := map[string]string{
 		"sibling": `
@@ -92,19 +92,18 @@ func TestResolveEndpointsThatNameVertices(t *testing.T) {
 				transition first running::left::lidle then running::right::ridle;
 			}
 		`,
-		"entry and exit point": `
+		"history of a composite state": `
 			state def M {
 				entry; then idle;
 				state idle;
 				state comp {
-					entry point into;
-					exit point outOf;
+					history resume;
 					entry; then working;
 					state working;
 				}
 				state done;
-				transition first idle then comp::into;
-				transition first comp::outOf then done;
+				transition first idle then comp::resume;
+				transition first comp::working then done;
 			}
 		`,
 		"sourceless accept then": `

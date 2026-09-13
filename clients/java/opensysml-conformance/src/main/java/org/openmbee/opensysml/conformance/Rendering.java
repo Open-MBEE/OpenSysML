@@ -14,6 +14,7 @@ import org.openmbee.opensysml.proto.Specialization;
 import org.openmbee.opensysml.proto.SymbolInfo;
 import org.openmbee.opensysml.proto.TensorQuantity;
 import org.openmbee.opensysml.proto.TypeInfo;
+import org.openmbee.opensysml.proto.Undetermined;
 import org.openmbee.opensysml.proto.UnitFactor;
 import org.openmbee.opensysml.proto.UnitTerm;
 import org.openmbee.opensysml.proto.ValueSequence;
@@ -61,6 +62,14 @@ final class Rendering {
       builder.setNull("");
     } else if (value instanceof Value.UnsetValue) {
       builder.setUnset(true);
+    } else if (value instanceof Value.UndeterminedValue undetermined) {
+      builder.setUndetermined(
+          Undetermined.newBuilder()
+              .setReason(undetermined.reason())
+              .setCount(
+                  MultiplicityInfo.newBuilder()
+                      .setLower(undetermined.countLower())
+                      .setUpper(undetermined.countUpper())));
     } else if (value instanceof Value.InfinityValue) {
       builder.setInfinity(true);
     } else if (value instanceof Value.QuantityValue quantity) {
@@ -103,6 +112,11 @@ final class Rendering {
           TensorQuantity.newBuilder().addAllDimensions(tensor.dimensions());
       tensor.components().forEach(component -> components.addComponents(quantity(component)));
       builder.setTensorQuantity(components);
+    } else if (value instanceof Value.MetaobjectValue metaobject) {
+      builder.setMetaobject(
+          org.openmbee.opensysml.proto.Metaobject.newBuilder()
+              .setElementId(metaobject.elementId())
+              .setMetaclassId(metaobject.metaclassId()));
     } else {
       throw new IllegalStateException("no rendering for " + value.getClass());
     }

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -58,7 +59,7 @@ func (ctx *Context) ShapesOfType(sym *symbols.Symbol) *Shapes {
 // shapes for. They were recorded outwards, so reading them back names the one
 // that changed rather than one that only holds it.
 func (ctx *Context) Changed(shapes *Shapes) (string, bool) {
-	if shapes == nil || ctx.resolver == nil || ctx.resolver.Index() == nil {
+	if shapes == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return "", false
 	}
 	for i := len(shapes.types) - 1; i >= 0; i-- {
@@ -73,7 +74,7 @@ func (ctx *Context) Changed(shapes *Shapes) (string, bool) {
 // resolvesTo reports whether some declaration of the qualified name still has
 // the recorded shape.
 func (ctx *Context) resolvesTo(fqn, digest string) bool {
-	for _, cand := range ctx.resolver.Index().LookupQualified(fqn) {
+	for _, cand := range ctx.model.resolver.Index().LookupQualified(fqn) {
 		if ctx.ShapeDigest(cand) == digest {
 			return true
 		}
@@ -191,7 +192,7 @@ func (ctx *Context) derivedFeatureValue(s *FeatureValue) bool {
 	if s.Written || s.Feature == nil || !ctx.valueBinds(s.Feature) {
 		return false
 	}
-	return !ctx.model.IsVariationFeature(s.Feature.Symbol)
+	return !ctx.model.semantics.IsVariationFeature(s.Feature.Symbol)
 }
 
 // collectedFeatureValue reports whether the feature value holds values copied out of the features
@@ -223,7 +224,7 @@ func carriedObject(v Value) (int64, bool) {
 // connectorFeatureValue reports whether the feature value holds the object of a connector, whose
 // ends a new context attaches again rather than keeping what they read before.
 func (ctx *Context) connectorFeatureValue(s *FeatureValue) bool {
-	return s.Feature != nil && ctx.model.IsConnectorUsage(s.Feature.Symbol)
+	return s.Feature != nil && ctx.model.semantics.IsConnectorUsage(s.Feature.Symbol)
 }
 
 // HoldsObject reports whether the value is, or carries, an object of this context:
@@ -331,7 +332,7 @@ func (ctx *Context) writeShape(b *strings.Builder, sym *symbols.Symbol, open map
 	for i := range features {
 		feat := &features[i]
 		fmt.Fprintf(b, "%s:%s..%s", feat.Name, bound(feat.Multiplicity.Lower), bound(feat.Multiplicity.Upper))
-		if ctx.model.IsVariationFeature(feat.Symbol) {
+		if ctx.model.semantics.IsVariationFeature(feat.Symbol) {
 			b.WriteString("|variation")
 		}
 		if feat.DefaultValue != nil {
@@ -398,7 +399,7 @@ func (ctx *Context) declText(owner *symbols.Symbol, span source.Span) string {
 // textIn renders the text the named document wrote at the given span, falling
 // back to the span for a document whose text this context was not given.
 func (ctx *Context) textIn(file string, span source.Span) string {
-	if sf, ok := ctx.sources[file]; ok && span.End() <= sf.Len() {
+	if sf, ok := ctx.model.sources[file]; ok && span.End() <= sf.Len() {
 		return strings.Join(strings.Fields(sf.Text(span)), " ")
 	}
 	return fmt.Sprintf("%s#%d+%d", file, span.Offset, span.Len)
@@ -410,14 +411,14 @@ func (ctx *Context) libraryShapeIdentity(sym *symbols.Symbol) (string, bool) {
 	if !ctx.libraryTier(sym).Library() {
 		return "", false
 	}
-	return ctx.resolver.Index().LibraryIdentity()
+	return ctx.model.resolver.Index().LibraryIdentity()
 }
 
 func (ctx *Context) fqnOf(sym *symbols.Symbol) string {
-	if sym == nil || ctx.resolver == nil {
+	if sym == nil || ctx.model.resolver == nil {
 		return ""
 	}
-	idx := ctx.resolver.Index()
+	idx := ctx.model.resolver.Index()
 	if idx == nil {
 		return ""
 	}
@@ -633,6 +634,10 @@ func (a *adoption) planValue(owner string, val Value) error {
 			err = &AdoptError{Type: owner, Reason: "it holds an expression that was never evaluated"}
 			return
 		}
+		if v.Kind == ValUndetermined {
+			err = &AdoptError{Type: owner, Reason: "it holds a value the model does not determine"}
+			return
+		}
 		// A function value denotes its calc by name, so it is rebound as a variant is;
 		// the object it closes over is carried with it.
 		if v.Kind == ValFunction {
@@ -643,6 +648,11 @@ func (a *adoption) planValue(owner string, val Value) error {
 		if v.Kind == ValVariant {
 			if _, rebindErr := a.rebind(v.Variant(), "a variant it selected"); rebindErr != nil {
 				err = rebindErr
+				return
+			}
+		}
+		if v.Kind == ValMetaobject {
+			if err = a.planMetaobject(v); err != nil {
 				return
 			}
 		}
@@ -723,7 +733,7 @@ func (a *adoption) planUnit(unit Unit) error {
 			if err != nil {
 				return err
 			}
-			if reduces, err = a.ctx.model.UnitTermOf(found); err != nil {
+			if reduces, err = a.ctx.model.semantics.UnitTermOf(found); err != nil {
 				return &AdoptError{Type: a.ctx.fqnOf(found), Reason: what + " no longer reduces: " + err.Error()}
 			}
 		case power.Reduces != nil:
@@ -816,7 +826,7 @@ func (a *adoption) rebind(sym *symbols.Symbol, what string) (*symbols.Symbol, er
 	if fqn == "" {
 		return nil, &AdoptError{Reason: what + " has no qualified name"}
 	}
-	idx := a.ctx.resolver.Index()
+	idx := a.ctx.model.resolver.Index()
 	var found *symbols.Symbol
 	for _, cand := range idx.LookupQualified(fqn) {
 		if cand.Kind != sym.Kind {
@@ -842,8 +852,7 @@ func (ctx *Context) AdoptIdentities(prev *Context) {
 	if prev == nil || prev == ctx || prev.ids == nil || prev.ids == ctx.ids {
 		return
 	}
-	prev.ids.atLeast(ctx.ids.next)
-	ctx.ids = prev.ids
+	prev.ids.share(ctx)
 }
 
 // commit moves the planned objects into this context, rebinding what each of
@@ -902,7 +911,7 @@ func (a *adoption) commit() {
 		// under the identities they had, which name the same connectors.
 		plan.obj.keepAnonymous(a.ctx, a.prev, prevTypes)
 		a.ctx.registerInstance(plan.obj)
-		a.ctx.ids.atLeast(id + 1)
+		a.ctx.claimID(id)
 	}
 	a.beginLives()
 	a.carryDerived(adopted)
@@ -994,16 +1003,16 @@ func (a *adoption) abandon() {
 // declaration no longer has is dropped, so it is derived again rather than kept
 // wrong.
 func (a *adoption) carryDerived(adopted map[int64]bool) {
-	for sym, id := range a.prev.occurrences {
-		if !adopted[id] {
+	for sym, ids := range a.prev.occurrences {
+		if slices.ContainsFunc(ids, func(id int64) bool { return !adopted[id] }) {
 			continue
 		}
 		if found, ok := a.rebound[sym]; ok {
-			a.ctx.occurrences[found] = id
+			a.ctx.occurrences[found] = ids
 			continue
 		}
 		if found, err := a.rebind(sym, "a usage of it"); err == nil {
-			a.ctx.occurrences[found] = id
+			a.ctx.occurrences[found] = ids
 		}
 	}
 	for key, id := range a.prev.metadataObjects {
@@ -1041,6 +1050,146 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 			a.ctx.selectedVariants[key] = variant
 		}
 	}
+	carried := make(map[*symbols.Symbol]bool)
+	for sym := range a.prev.namespaceBindings {
+		a.carryBinding(sym, adopted, carried)
+	}
+}
+
+// carryBinding carries a usage's binding only while everything its value read still reads as
+// it did — declarations, names, type hierarchies — bound dependencies first; else it is read again.
+func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, carried map[*symbols.Symbol]bool) bool {
+	if done, ok := carried[sym]; ok {
+		return done
+	}
+	carried[sym] = false
+	val := a.prev.namespaceBindings[sym]
+	found, err := a.rebind(sym, "a usage of it")
+	if err != nil || !a.allAdopted(val, adopted) {
+		return false
+	}
+	stated := a.prev.declarationDigest(sym)
+	if stated == "" || stated != a.ctx.declarationDigest(found) {
+		return false
+	}
+	rewritten := newBindingReads()
+	if reads := a.prev.bindingReads[sym]; reads != nil && !a.carryReads(reads, rewritten, adopted, carried) {
+		return false
+	}
+	a.ctx.namespaceBindings[found] = a.rewrite(val)
+	a.ctx.bindingReads[found] = rewritten
+	carried[sym] = true
+	return true
+}
+
+// carryReads checks that everything a binding read still reads the same here,
+// rewriting each read against this context's symbols; false when any moved.
+func (a *adoption) carryReads(reads, rewritten *bindingReads, adopted map[int64]bool, carried map[*symbols.Symbol]bool) bool {
+	if reads.opaque {
+		return false
+	}
+	for dep, digest := range reads.decls {
+		depFound, err := a.rebind(dep, "a declaration it read")
+		if err != nil || digest != a.ctx.declarationDigest(depFound) {
+			return false
+		}
+		if namespaceObjectUsage(dep) {
+			if _, bound := a.prev.namespaceBindings[dep]; !bound || !a.carryBinding(dep, adopted, carried) {
+				return false
+			}
+		}
+		if ids, occurs := a.prev.occurrences[dep]; occurs && !slices.Equal(a.ctx.occurrences[depFound], ids) {
+			return false
+		}
+		rewritten.decls[depFound] = digest
+	}
+	if reads.census != "" && reads.census != a.ctx.modelUsages().digest {
+		return false
+	}
+	rewritten.census = reads.census
+	for typ, digest := range reads.types {
+		typFound, err := a.rebind(typ, "a type it judged")
+		if err != nil || digest != a.ctx.typeDigest(typFound) {
+			return false
+		}
+		rewritten.types[typFound] = digest
+	}
+	for read, denoted := range reads.names {
+		read, ok := a.rebindNameRead(read)
+		if !ok {
+			return false
+		}
+		if now, ok := a.ctx.replay(read); !ok || now != denoted {
+			return false
+		}
+		rewritten.names[read] = denoted
+	}
+	return true
+}
+
+// allAdopted reports whether every object a value carries — an element of a collection, the one
+// an array, vector, frame or transformation was read from, a function's self — is here: carried
+// over now, or by an earlier carry-over from the same previous context.
+func (a *adoption) allAdopted(val Value, adopted map[int64]bool) bool {
+	all := true
+	a.prev.walkValue(val, func(v Value) {
+		if id, ok := carriedObject(v); ok && !adopted[id] && !a.carriedEarlier(id) {
+			all = false
+		}
+		if self := v.FunctionSelf(); self != nil && !adopted[self.ID] && !a.carriedEarlier(self.ID) {
+			all = false
+		}
+	})
+	return all
+}
+
+// carriedEarlier reports whether this context already holds the previous context's object id —
+// the very object, not another one that took the identity.
+func (a *adoption) carriedEarlier(id int64) bool {
+	was, ok := a.prev.instances[id]
+	if !ok {
+		return false
+	}
+	now, ok := a.ctx.instances[id]
+	return ok && now == was
+}
+
+// rebindNameRead names a lookup's scope and hidden declaration in this context.
+func (a *adoption) rebindNameRead(read nameRead) (nameRead, bool) {
+	if read.scope.owner != nil {
+		owner, err := a.rebind(read.scope.owner, "a namespace it looked a name up in")
+		if err != nil {
+			return read, false
+		}
+		read.scope.owner = owner
+	}
+	if read.excluding != nil {
+		excluding, err := a.rebind(read.excluding, "a declaration it looked a name up around")
+		if err != nil {
+			return read, false
+		}
+		read.excluding = excluding
+	}
+	return read, true
+}
+
+// declarationDigest is the text of a symbol's declaration, as its document states it, and
+// what this context resolves it to.
+func (ctx *Context) declarationDigest(sym *symbols.Symbol) string {
+	if sym == nil || sym.DocName == "" {
+		return ""
+	}
+	return ctx.textIn(sym.DocName, sym.DeclSpan) + "\n" + ctx.typeDigest(sym)
+}
+
+// planMetaobject rebinds the element a metaobject denotes and the metaclass it
+// is an instance of, both named by qualified name.
+func (a *adoption) planMetaobject(v Value) error {
+	if _, err := a.rebind(v.MetaobjectElement(), "an element a metaobject denotes"); err != nil {
+		return err
+	}
+	_, err := a.rebind(v.MetaobjectClass(), "the metaclass of a metaobject")
+	return err
 }
 
 // rewrite returns the value as this context holds it: the same value with every
@@ -1053,6 +1202,13 @@ func (a *adoption) rewrite(val Value) Value {
 			return NewVariantValue(found, val.Instance)
 		}
 		return val
+	case ValMetaobject:
+		element, elementOK := a.rebound[val.MetaobjectElement()]
+		metaclass, metaclassOK := a.rebound[val.MetaobjectClass()]
+		if !elementOK || !metaclassOK {
+			return val
+		}
+		return NewMetaobject(element, metaclass)
 	case ValFunction:
 		found, ok := a.rebound[val.Function()]
 		if !ok {
@@ -1081,7 +1237,7 @@ func (a *adoption) rewrite(val Value) Value {
 		if val.Set() == nil {
 			return val
 		}
-		set := NewSet()
+		set := NewSetIn(a.ctx)
 		for _, elem := range val.Set().Elements() {
 			set.Add(a.rewrite(elem))
 		}

@@ -10,7 +10,8 @@ import (
 // Value is one evaluated SysML value. It is a sealed sum: the concrete types
 // are Int, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
 // Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef,
-// Function, Set and TensorQuantity, and a type switch over them is exhaustive.
+// Function, Set, TensorQuantity, Metaobject and Undetermined, and a type switch over
+// them is exhaustive.
 type Value interface {
 	isValue()
 }
@@ -52,6 +53,16 @@ type Null string
 // Unset is a valueless feature of a value type: materialized, holding no
 // value. It is reported, never accepted.
 type Unset struct{}
+
+// Undetermined is a model-level result the model leaves open (an unbound
+// feature, an unfixed count): a successful answer, reported, never accepted.
+type Undetermined struct {
+	// Reason says why the model fixes no answer: "u has no value in the model".
+	Reason string
+	// CountLower and CountUpper bound how many values the result would hold, as
+	// MultiplicityInfo spells them: "1"/"1" for a scalar, "1"/"*" for a [1..*] feature.
+	CountLower, CountUpper string
+}
 
 // Quantity is a magnitude and the measurement unit it is expressed in, exactly
 // as written: 5.4 [km/h] arrives as 5.4 km/h, not converted to base units.
@@ -119,6 +130,10 @@ type EnumLiteral struct {
 	EnumerationID string
 	// Name is the literal as a reader writes it ("Color::red").
 	Name string
+	// Value is the scalar the literal equals — Int(3) for `high = 3` of an
+	// enumeration specializing Integer — or nil for a literal that is only its
+	// identity. It describes the literal and is no part of its identity.
+	Value Value
 }
 
 // Array is a Collections::Array: its elements in row-major order under its
@@ -285,6 +300,24 @@ func (f Function) String() string {
 	return f.CalcID
 }
 
+// Metaobject is an element of the model held as an instance of its reflective
+// metaclass: what `x meta KerML::Feature`, or the last element of `x.metadata`,
+// evaluates to. Identity is the element: two metaobjects are the same exactly
+// when ElementID is. Its features are read in the model, not carried.
+type Metaobject struct {
+	// ElementID is the FQN of the element reflected on ("Vehicle::seatBelt").
+	ElementID string
+	// MetaclassID is the FQN of the element's own reflective metaclass
+	// ("SysML::Systems::PartUsage"), not the type it was cast to. The service
+	// always reports it; a caller may leave it empty to have the model's used.
+	MetaclassID string
+}
+
+// String is the metaobject as the REPL shows it: the element and its metaclass.
+func (m Metaobject) String() string {
+	return "meta(" + m.ElementID + " : " + m.MetaclassID + ")"
+}
+
 // String is the literal as a reader writes it, the Name the service reported.
 func (e EnumLiteral) String() string {
 	return e.Name
@@ -302,6 +335,11 @@ func (n Null) String() string {
 // String reports a materialized feature holding no value.
 func (Unset) String() string {
 	return "unset"
+}
+
+// String reports a result the model leaves open, as every other surface spells it.
+func (Undetermined) String() string {
+	return runtime.UndeterminedText
 }
 
 func (Int) isValue()            { /* marker: closed Value set */ }
@@ -322,6 +360,8 @@ func (MeasurementRef) isValue() { /* marker: closed Value set */ }
 func (Function) isValue()       { /* marker: closed Value set */ }
 func (Set) isValue()            { /* marker: closed Value set */ }
 func (TensorQuantity) isValue() { /* marker: closed Value set */ }
+func (Metaobject) isValue()     { /* marker: closed Value set */ }
+func (Undetermined) isValue()   { /* marker: closed Value set */ }
 
 func (Int) isNumber()  { /* marker: closed Number set */ }
 func (Real) isNumber() { /* marker: closed Number set */ }

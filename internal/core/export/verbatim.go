@@ -3,9 +3,11 @@ package export
 import (
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // Source text is printed only while it states what the graph states: the
@@ -13,6 +15,8 @@ import (
 
 // render prints the roots from source text where it agrees with the graph and
 // canonically where it does not; every pass demotes more text or is the last.
+// A normative id is left implied only while the notation reads as the library
+// document that implies it; otherwise the pass is redone with the ids written.
 func (d *decoder) render(roots []*element) (string, error) {
 	for {
 		d.printed = map[*element]bool{}
@@ -20,6 +24,7 @@ func (d *decoder) render(roots []*element) (string, error) {
 		d.prefixed = map[*element]bool{}
 		d.usedExpr = map[string]bool{}
 		d.written = nil
+		d.implied = 0
 		if err := d.resolveExpressions(); err != nil {
 			return "", err
 		}
@@ -28,6 +33,10 @@ func (d *decoder) render(roots []*element) (string, error) {
 			if err := d.print(&b, root, 0); err != nil {
 				return "", err
 			}
+		}
+		if d.implied > 0 && !libraryText(b.String()) {
+			d.explicit = true
+			continue
 		}
 		if len(d.printed)+len(d.usedExpr) == 0 {
 			return b.String(), nil
@@ -38,6 +47,13 @@ func (d *decoder) render(roots []*element) (string, error) {
 			return b.String(), nil
 		}
 	}
+}
+
+// libraryText reports whether notation is, byte for byte, a bundled library
+// document: the only text that derives the norm's ids on its own.
+func libraryText(notation string) bool {
+	_, _, library := libs.NewModelIndex().LibraryDocumentByDigest(symbols.TextDigest([]byte(notation)))
+	return library
 }
 
 // verbatim returns the source text an element is printed as, if it carries
@@ -78,7 +94,7 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 		d.demoteAll()
 		return
 	}
-	check, err := encodeDocument(file, root)
+	check, err := encodeDocument(file, root, d.library)
 	if err != nil {
 		d.demoteAll()
 		return
@@ -114,7 +130,9 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 // their text was written in; a root with text recording none was read as a
 // buffer with no extension, and the candidate is named so it reads the same
 // way. Roots recording different grammars cannot be read as one document; one
-// with neither text nor grammar was added to the graph and says nothing.
+// with neither text nor grammar was added to the graph and says nothing, and a
+// graph whose roots all say nothing is read in the grammar of the library
+// document it is a version of, if it is one.
 func (d *decoder) candidateName(roots []*element) (string, bool) {
 	language, seen := "", false
 	for _, root := range roots {
@@ -127,10 +145,22 @@ func (d *decoder) candidateName(roots []*element) (string, bool) {
 		}
 		language, seen = recorded, true
 	}
+	if !seen {
+		language = d.libraryLanguage()
+	}
 	if language == "" {
 		return "<converted>", true
 	}
 	return "<converted>." + language, true
+}
+
+// libraryLanguage is the grammar the library document the graph is a version of
+// is written in, as languageName records it; "" for a graph that is no library.
+func (d *decoder) libraryLanguage() string {
+	if d.library == "" {
+		return ""
+	}
+	return languageName(source.KindOf(d.library))
 }
 
 // demoteAll demotes every verbatim text and expression printed in this pass.

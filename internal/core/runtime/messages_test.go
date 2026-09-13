@@ -134,6 +134,9 @@ func TestMutualRecursionNamesTheFrameItCollapsed(t *testing.T) {
 func TestOperandTypeErrorMessage(t *testing.T) {
 	err := &OperandTypeError{Op: "+", Left: "an Integer", Right: "a string"}
 	assertMessage(t, err, "type mismatch: operator '+' is not defined for an Integer and a string")
+	err = &OperandTypeError{Op: "<", Left: "the enumeration literal Color::red", Right: "the enumeration literal Color::blue",
+		Library: "DataFunctions::'<' is abstract and no library function declares '<' for the enumeration Color, which is no ScalarValue"}
+	assertMessage(t, err, "type mismatch: operator '<' is not defined for the enumeration literal Color::red and the enumeration literal Color::blue; DataFunctions::'<' is abstract and no library function declares '<' for the enumeration Color, which is no ScalarValue")
 }
 
 // assertMessage asserts err reads exactly want and names no Go type.

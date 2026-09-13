@@ -63,8 +63,11 @@ func (d *calcMemberDecl) check(ctx *Context, value *Value, what func() string) e
 	if d.Target.mult.AtMostOne() {
 		*value = soleElement(*value)
 	}
-	if refusal, refused := ctx.writeTypeRefusal(declScope(d.Owner), d.Target.typ, value, admitWritten); refused {
+	if refusal, refused := ctx.writeTypeRefusal(DeclScope(d.Owner), d.Target.typ, value, admitWritten); refused {
 		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)
+	}
+	if err := ctx.holdForDeclared(value, d.Target.typ); err != nil {
+		return fmt.Errorf("%s: %w", what(), err)
 	}
 	if msg := ctx.uniquenessRefusal(d.Target.unique, d.Target.holdsSet, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
@@ -205,7 +208,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	if sym == nil || sym.Decl == nil {
 		return nil, fmt.Errorf("%w: invalid symbol", ErrNotACalc)
 	}
-	if cached, ok := ctx.calcShapes[sym]; ok {
+	if cached, ok := ctx.model.calcShapes[sym]; ok {
 		return cached, nil
 	}
 
@@ -218,7 +221,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	// Most general first, so an inherited parameter keeps the position it has in
 	// the calc that declares it and a redeclaration refines it in place.
 	chain := ctx.calcChain(sym)
-	if conflict := ctx.model.ResultExpressionConflict(sym); conflict != nil {
+	if conflict := ctx.model.semantics.ResultExpressionConflict(sym); conflict != nil {
 		if conflict.Stated > 1 {
 			return nil, fmt.Errorf("%w: %s states %d result expressions",
 				ErrConflictingResultExpressions, label, conflict.Stated)
@@ -265,7 +268,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", ErrNoResultExpression, label, unboundResultHint(chain))
 	}
 
-	ctx.calcShapes[sym] = shape
+	ctx.model.calcShapes[sym] = shape
 	return shape, nil
 }
 
@@ -273,7 +276,7 @@ func calcBindings(chain []*symbols.Symbol) []lower.Binding {
 	var out []lower.Binding
 	for _, link := range chain {
 		if link != nil {
-			out = append(out, lower.ToBindings(link.Decl, declScope(link))...)
+			out = append(out, lower.ToBindings(link.Decl, DeclScope(link))...)
 		}
 	}
 	return out
@@ -299,7 +302,7 @@ func resultBindingExpr(bindings []lower.Binding) ast.Node {
 // it references), most general first, then sym. Non-calc links and the library's
 // frame contribute nothing; a domain library's calc contributes as a model's does.
 func (ctx *Context) calcChain(sym *symbols.Symbol) []*symbols.Symbol {
-	supers := ctx.model.MemberSources(sym)
+	supers := ctx.model.semantics.MemberSources(sym)
 	chain := make([]*symbols.Symbol, 0, len(supers)+1)
 	for i := len(supers) - 1; i >= 0; i-- {
 		if supers[i] != nil && isCalcDecl(supers[i].Decl) && !ctx.frameDeclared(supers[i]) {
@@ -332,7 +335,7 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 			if usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut {
 				continue
 			}
-			sym := memberSymbol(declScope(link), usage)
+			sym := memberSymbol(DeclScope(link), usage)
 			param := calcParameter{
 				Name: name, Default: usage.Value, Owner: link,
 				Decl: ctx.calcMemberDeclOf(link, sym, name), IsCalc: isCalcUsageSymbol(sym),
@@ -363,7 +366,7 @@ func (ctx *Context) redeclaredIndex(index map[string]int, sym *symbols.Symbol, n
 	if at, seen := index[name]; seen {
 		return at, true
 	}
-	for _, redefined := range ctx.model.RedefinedFeatures(sym) {
+	for _, redefined := range ctx.model.semantics.RedefinedFeatures(sym) {
 		if at, seen := index[redefined.Name]; seen {
 			return at, true
 		}
@@ -406,14 +409,14 @@ func unboundResultHint(chain []*symbols.Symbol) string {
 		}
 		name, _ := ast.EffectiveName(result)
 		who, trailing, expr := "the result parameter", "of the body", "<expr>"
-		typ := usageTypeText(result)
+		typ := lower.TypeText(result)
 		if name != "" {
 			spelled := lexer.NameText(name)
 			who = "result parameter " + spelled
 			if sibling := valuedMemberNamed(members, name, result); sibling != nil {
 				trailing, expr = "`"+spelled+"`", spelled
 				if typ == "" {
-					typ = usageTypeText(sibling)
+					typ = lower.TypeText(sibling)
 				}
 			}
 		}
@@ -449,30 +452,6 @@ func valuedMemberNamed(members []ast.Node, name string, except *ast.Usage) *ast.
 		}
 	}
 	return nil
-}
-
-// usageTypeText spells the type a usage declares with `:` as the notation
-// writes it (each segment quoted when it must be), or "" without one.
-func usageTypeText(u *ast.Usage) string {
-	for _, rel := range u.Relationships {
-		if rel == nil || rel.Kind != ast.RelTyping {
-			continue
-		}
-		qn, ok := rel.Target.(*ast.QualifiedName)
-		if !ok || len(qn.Parts) == 0 {
-			continue
-		}
-		segments := make([]string, 0, len(qn.Parts))
-		for _, part := range qn.Parts {
-			segments = append(segments, lexer.NameText(part.Text))
-		}
-		text := strings.Join(segments, "::")
-		if qn.Global {
-			text = "$::" + text
-		}
-		return text
-	}
-	return ""
 }
 
 // calcArgs are the arguments of one calc invocation. The notation keeps the two
@@ -579,7 +558,7 @@ func (ctx *Context) invokeBuiltinValues(sym *symbols.Symbol, fn builtinFunc, arg
 		func(bound []Value) (Value, error) {
 			ec := NewEvalContextIn(ctx, ctx.calcScope(sym, nil, callerScope), self)
 			ec.entered = entered
-			return fn(ec, bound)
+			return applyBuiltinArgs(ec, name, fn, bound)
 		},
 	)
 }
@@ -980,14 +959,14 @@ type libraryPerformance struct {
 // sym applies: the nearest one sym specializes, when neither sym nor a model calc
 // between them states a computation of its own; nil otherwise.
 func (ctx *Context) libraryCalcPerformed(sym *symbols.Symbol) *libraryPerformance {
-	if sym == nil || ctx.model == nil || ctx.libraryDeclared(sym) {
+	if sym == nil || ctx.model.semantics == nil || ctx.libraryDeclared(sym) {
 		return nil
 	}
-	if cached, ok := ctx.libraryPerformances[sym]; ok {
+	if cached, ok := ctx.model.libraryPerformances[sym]; ok {
 		return cached
 	}
 	perf := ctx.resolveLibraryPerformance(sym)
-	ctx.libraryPerformances[sym] = perf
+	ctx.model.libraryPerformances[sym] = perf
 	return perf
 }
 
@@ -1010,7 +989,7 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 	}
 	perf.signature = &calcShape{Sym: sym, Name: ctx.qualifiedSymbolName(sym)}
 	perf.signature.Kind, perf.signature.Label = calcKindLabel(sym, perf.signature.Name)
-	for _, p := range ctx.model.BehaviorParametersOf(sym) {
+	for _, p := range ctx.model.semantics.BehaviorParametersOf(sym) {
 		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
 			continue
 		}
@@ -1030,7 +1009,7 @@ func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols
 	if effective, _ := ast.EffectiveName(sym.Decl.(*ast.Usage)); effective != "" {
 		param.Name = effective
 	}
-	for _, link := range ctx.model.ParameterRedefinitionChain(sym) {
+	for _, link := range ctx.model.semantics.ParameterRedefinitionChain(sym) {
 		owner := link.OwnerScope.Owner()
 		param.Decl = param.Decl.redeclaring(ctx.calcMemberDeclFor(owner, link, param.Name))
 		if at := indexOfSymbol(libInputs, link); at >= 0 {
@@ -1049,7 +1028,7 @@ func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols
 // implementedLibraryCalc returns the nearest library calc sym specializes that
 // this runtime implements, or nil when none is.
 func (ctx *Context) implementedLibraryCalc(sym *symbols.Symbol) *symbols.Symbol {
-	for _, super := range ctx.model.AllSupertypes(sym) {
+	for _, super := range ctx.model.semantics.AllSupertypes(sym) {
 		if super == nil || !isCalcDecl(super.Decl) || !ctx.libraryDeclared(super) {
 			continue
 		}
@@ -1083,7 +1062,7 @@ func (ctx *Context) ownedInputSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 		if !ok || (usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut) {
 			continue
 		}
-		if found := memberSymbol(declScope(sym), usage); found != nil {
+		if found := memberSymbol(DeclScope(sym), usage); found != nil {
 			inputs = append(inputs, found)
 		}
 	}
@@ -1292,8 +1271,8 @@ func (ctx *Context) qualifiedSymbolName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""
 	}
-	if ctx.resolver != nil {
-		if idx := ctx.resolver.Index(); idx != nil {
+	if ctx.model.resolver != nil {
+		if idx := ctx.model.resolver.Index(); idx != nil {
 			if fqn := idx.GetFQN(sym); fqn != "" {
 				return fqn
 			}

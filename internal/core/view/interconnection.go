@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -12,17 +13,17 @@ import (
 // nested in them as nested nodes, and the connections between them as edges.
 // The connections are the connector usages the model holds, resolved through the
 // same connector-end information an object of a connector is materialized from —
-// never re-derived from the source text.
-func (r *Renderer) renderInterconnection(exposed []*symbols.Symbol, out *Rendering) {
-	ids := &nodeIDs{}
-	nodes := map[*symbols.Symbol]*Node{}
-	var connectors []*symbols.Symbol
+// never re-derived from the source text. Nodes and edges are placed by the
+// Layout and Route annotations positioning their elements in view, nil for a
+// rendering outside any view.
+func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
+	w := &featureWalk{r: r, view: view, ids: &nodeIDs{}, nodes: map[*symbols.Symbol]*Node{}, out: out}
 	for _, elem := range exposed {
 		switch {
 		case r.model.IsConnectorUsage(elem), isFlowUsage(elem):
-			connectors = append(connectors, elem)
+			w.connectors = append(w.connectors, elem)
 		case featureLike(elem):
-			out.Roots = append(out.Roots, r.featureNode(elem, ids, nodes, &connectors, map[*symbols.Symbol]bool{}, 0, true))
+			out.Roots = append(out.Roots, w.featureNode(elem, map[*symbols.Symbol]bool{}, 0, true))
 		default:
 			out.Notices = append(out.Notices, fmt.Sprintf(
 				"%s %s has no place in an interconnection rendering; it is not shown",
@@ -30,30 +31,42 @@ func (r *Renderer) renderInterconnection(exposed []*symbols.Symbol, out *Renderi
 		}
 	}
 	seen := map[*symbols.Symbol]bool{}
-	for _, connector := range connectors {
+	for _, connector := range w.connectors {
 		if seen[connector] {
 			continue
 		}
 		seen[connector] = true
-		r.connectionEdges(connector, nodes, out)
+		r.connectionEdges(view, connector, w.nodes, out)
 	}
+}
+
+// featureWalk is one interconnection rendering's walk over the exposed features:
+// the nodes rendered so far and the connectors collected along the way.
+type featureWalk struct {
+	r          *Renderer
+	view       *symbols.Symbol
+	ids        *nodeIDs
+	nodes      map[*symbols.Symbol]*Node
+	connectors []*symbols.Symbol
+	out        *Rendering
 }
 
 // featureNode renders one exposed feature and the features nested in it,
 // collecting the connectors declared along the way, which join the nodes it
 // renders.
-func (r *Renderer) featureNode(sym *symbols.Symbol, ids *nodeIDs, nodes map[*symbols.Symbol]*Node,
-	connectors *[]*symbols.Symbol, seen map[*symbols.Symbol]bool, depth int, qualified bool) *Node {
+func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int, qualified bool) *Node {
+	r := w.r
 	name := r.notationName(sym)
 	if !qualified {
-		name = notationName(simpleName(r.fqn(sym)))
+		name = localName(sym)
 	}
-	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, Detail: declType(sym), Origin: symbolOrigin(sym)}
-	if existing, ok := nodes[sym]; ok {
+	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, Type: declType(sym), Origin: symbolOrigin(sym),
+		Geometry: r.geometryOf(w.view, sym, w.out)}
+	if existing, ok := w.nodes[sym]; ok {
 		node.Detail = detailWith(node.Detail, "already shown as "+existing.ID)
 		return node
 	}
-	nodes[sym] = node
+	w.nodes[sym] = node
 	if seen[sym] || depth >= maxTreeDepth {
 		return node
 	}
@@ -61,9 +74,9 @@ func (r *Renderer) featureNode(sym *symbols.Symbol, ids *nodeIDs, nodes map[*sym
 	for _, member := range containedMembers(sym) {
 		switch {
 		case r.model.IsConnectorUsage(member), isFlowUsage(member):
-			*connectors = append(*connectors, member)
+			w.connectors = append(w.connectors, member)
 		case featureLike(member):
-			node.Children = append(node.Children, r.featureNode(member, ids, nodes, connectors, seen, depth+1, false))
+			node.Children = append(node.Children, w.featureNode(member, seen, depth+1, false))
 		}
 	}
 	return node
@@ -73,7 +86,7 @@ func (r *Renderer) featureNode(sym *symbols.Symbol, ids *nodeIDs, nodes map[*sym
 // connector joins its two ends; a multi-end connector makes every end reachable
 // from every other, so each pair is an edge. An end attaching to something the
 // view does not expose is reported rather than dropped.
-func (r *Renderer) connectionEdges(connector *symbols.Symbol, nodes map[*symbols.Symbol]*Node, out *Rendering) {
+func (r *Renderer) connectionEdges(view, connector *symbols.Symbol, nodes map[*symbols.Symbol]*Node, out *Rendering) {
 	label := r.connectorLabel(connector)
 	ends, kind := r.connectorEnds(connector)
 	if len(ends) < 2 {
@@ -91,10 +104,12 @@ func (r *Renderer) connectionEdges(connector *symbols.Symbol, nodes map[*symbols
 		}
 		resolved = append(resolved, node)
 	}
+	route := r.routeOf(view, connector, out)
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{
 				From: resolved[i].ID, To: resolved[j].ID, Label: label, Kind: kind, Origin: symbolOrigin(connector),
+				Route: slices.Clone(route),
 			})
 		}
 	}
@@ -178,11 +193,11 @@ func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 // connectorLabel names a connection on an edge: its own name, else the type it
 // is declared with, else the keyword that declared it.
 func (r *Renderer) connectorLabel(connector *symbols.Symbol) string {
-	if name := simpleName(r.fqn(connector)); name != "" && !connector.EffectiveName() {
-		return notationName(name)
+	if connector.Name != "" && !connector.EffectiveName() {
+		return localName(connector)
 	}
 	if declared := declType(connector); declared != "" {
-		return notationName(declared)
+		return declared
 	}
 	if payload := flowPayload(connector); payload != "" {
 		return "of " + notationName(payload)

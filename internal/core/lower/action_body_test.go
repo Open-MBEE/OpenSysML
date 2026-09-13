@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -384,6 +385,16 @@ func blockOwnedBy(t *testing.T, body Block, name string) Block {
 
 func actionGraphFor(t *testing.T, src string) *ActionGraph {
 	t.Helper()
+	graph, err := ToActionGraph(actionUsageOf(t, src), nil)
+	if err != nil {
+		t.Fatalf("ToActionGraph: %v", err)
+	}
+	return graph
+}
+
+// actionUsageOf parses src and returns the first action usage it declares.
+func actionUsageOf(t *testing.T, src string) *ast.Usage {
+	t.Helper()
 	p := parser.New(source.New("test.sysml", []byte(src)))
 	root := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
@@ -399,14 +410,35 @@ func actionGraphFor(t *testing.T, src string) *ActionGraph {
 		if !ok || usage.Kind != ast.UsageAction {
 			continue
 		}
-		graph, err := ToActionGraph(usage, nil)
-		if err != nil {
-			t.Fatalf("ToActionGraph: %v", err)
-		}
-		return graph
+		return usage
 	}
 	t.Fatal("no action usage found")
 	return nil
+}
+
+// An action's interface lowers whatever its body states, as the attributes alone and no
+// flow, for a performance an external tool makes in the body's place.
+func TestActionInterfaceLowering_IgnoresTheBody(t *testing.T) {
+	usage := actionUsageOf(t, `
+		action test {
+			in x : Integer;
+			out y : Integer;
+			assign y := x;
+		}
+	`)
+	if _, err := ToActionGraph(usage, nil); !errors.Is(err, ErrStatementOutsideFlow) {
+		t.Fatalf("ToActionGraph error = %v, want %v", err, ErrStatementOutsideFlow)
+	}
+	graph, err := ToActionInterface(usage, nil)
+	if err != nil {
+		t.Fatalf("ToActionInterface: %v", err)
+	}
+	if len(graph.Attributes) != 2 || graph.Attributes[0].Name != "x" || graph.Attributes[1].Name != "y" {
+		t.Errorf("attributes = %#v, want x and y", graph.Attributes)
+	}
+	if len(graph.Nodes) != 0 || graph.Initial != nil || len(graph.Bodies) != 0 {
+		t.Errorf("interface carries a flow: nodes %v, initial %v, bodies %v", graph.Nodes, graph.Initial, graph.Bodies)
+	}
 }
 
 func nodeNamed(t *testing.T, graph *ActionGraph, name string) ast.Node {

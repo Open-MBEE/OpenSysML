@@ -425,5 +425,62 @@ public interface ValueOrBuilder extends
    */
   org.openmbee.opensysml.proto.TensorQuantityOrBuilder getTensorQuantityOrBuilder();
 
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   * @return Whether the metaobject field is set.
+   */
+  boolean hasMetaobject();
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   * @return The metaobject.
+   */
+  org.openmbee.opensysml.proto.Metaobject getMetaobject();
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   */
+  org.openmbee.opensysml.proto.MetaobjectOrBuilder getMetaobjectOrBuilder();
+
+  /**
+   * <pre>
+   * A result the model leaves open: not an error, but no definite answer.
+   * A value the server sends, never one it accepts.
+   * </pre>
+   *
+   * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+   * @return Whether the undetermined field is set.
+   */
+  boolean hasUndetermined();
+  /**
+   * <pre>
+   * A result the model leaves open: not an error, but no definite answer.
+   * A value the server sends, never one it accepts.
+   * </pre>
+   *
+   * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+   * @return The undetermined.
+   */
+  org.openmbee.opensysml.proto.Undetermined getUndetermined();
+  /**
+   * <pre>
+   * A result the model leaves open: not an error, but no definite answer.
+   * A value the server sends, never one it accepts.
+   * </pre>
+   *
+   * <code>.sysml.Undetermined undetermined = 21 [json_name = "undetermined"];</code>
+   */
+  org.openmbee.opensysml.proto.UndeterminedOrBuilder getUndeterminedOrBuilder();
+
   org.openmbee.opensysml.proto.Value.KindCase getKindCase();
 }

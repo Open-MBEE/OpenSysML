@@ -86,8 +86,8 @@ func TestProtoToValue_RejectsUnset(t *testing.T) {
 }
 
 // A calc answers with the same spelling as every other RPC: a result or output
-// that holds no value is sent unset rather than as an object reference.
-func TestEvaluateCalc_UnsetOutputIsSentUnset(t *testing.T) {
+// the model gives no value is sent undetermined rather than as an object reference.
+func TestEvaluateCalc_ValuelessOutputIsSentUndetermined(t *testing.T) {
 	srv := mustNewService(t, 10)
 	source := `package Demo {
 	private import ScalarValues::*;
@@ -116,9 +116,9 @@ func TestEvaluateCalc_UnsetOutputIsSentUnset(t *testing.T) {
 	if len(resp.Outputs) != 1 {
 		t.Fatalf("got %d outputs, want r: %v", len(resp.Outputs), resp.Outputs)
 	}
-	if _, ok := resp.Outputs[0].GetValue().GetKind().(*pb.Value_Unset); !ok {
+	if _, ok := resp.Outputs[0].GetValue().GetKind().(*pb.Value_Undetermined); !ok {
 		kind, value := describeValue(resp.Outputs[0].GetValue())
-		t.Errorf("output r: %s %v, want unset", kind, value)
+		t.Errorf("output r: %s %v, want undetermined", kind, value)
 	}
 
 	invoked, err := srv.EvaluateCalc(context.Background(), &pb.EvaluateCalcRequest{
@@ -131,9 +131,9 @@ func TestEvaluateCalc_UnsetOutputIsSentUnset(t *testing.T) {
 	if invoked.Error != "" {
 		t.Fatalf("EvaluateCalc of the definition reported %q", invoked.Error)
 	}
-	if _, ok := invoked.GetResult().GetKind().(*pb.Value_Unset); !ok {
+	if _, ok := invoked.GetResult().GetKind().(*pb.Value_Undetermined); !ok {
 		kind, value := describeValue(invoked.GetResult())
-		t.Errorf("result: %s %v, want unset", kind, value)
+		t.Errorf("result: %s %v, want undetermined", kind, value)
 	}
 }
 

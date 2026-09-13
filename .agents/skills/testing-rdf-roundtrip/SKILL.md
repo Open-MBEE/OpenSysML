@@ -5,6 +5,29 @@ description: How to end-to-end test the `internal/core/export` RDF mapping (`sys
 
 # Testing the SysML ↔ RDF Turtle round trip (`internal/core/export`)
 
+## Normative library identity checks
+
+- For CLI export, copy a bundled library file byte-for-byte. `analyzeDocument`
+  recognizes its digest and preserves its library tier; editing or reformatting the
+  copy defeats that recognition. `ScalarValues.kerml` is a compact fixture.
+- Assert library UUIDs as RDF terms, not with a prefix-dependent grep: Turtle may
+  print numeric-leading UUIDs as full `<urn:sysmlv2:element:...>` IRIs.
+- The outermost package has no owner or owning membership in this mapping. Check
+  the package element ID and a child datatype's owning membership; do not demand
+  the root package's membership UUID in a standalone document.
+- External library type references remain qualified-name literals, e.g.
+  `sysml:type "ScalarValues::Real"`; this is not an encoded element identity.
+- Test both source-backed and source-text-stripped imports. Normative IDs must
+  not become ElementId annotations; a user-declared `abc-123` must remain an
+  annotation. A declaration without an enclosing ProjectRef can still exercise
+  conversion and hover, but the validating workspace/REPL reports a scope error.
+- **The editor has a different boundary:** an editable file-URI copy remains a
+  user document and offers minting. To test normative library hover/actions in
+  VS Code, use Go to Definition from a reference to open the bundled read-only
+  `sysml-stdlib:` document, not the disk copy used for CLI conversion.
+- `%info` is not a REPL command. `%search` reports names and kinds, not identity;
+  do not claim it verifies normative UUIDs.
+
 The mapping is reachable from the CLI:
 
 ```bash

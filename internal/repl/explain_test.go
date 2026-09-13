@@ -26,6 +26,7 @@ func TestExplainReportsTheConflictingConditions(t *testing.T) {
 		"  Every condition below is needed: dropping any one leaves the rest satisfiable.",
 		"  1. required condition: `i > 8` — constraint Contradictory, at <repl>:10:29",
 		"  2. required condition: `i < 3` — constraint Contradictory, at <repl>:11:29",
+		"  standing: unsatisfiable (SOLVER)",
 	}, "\n")
 	if got != want {
 		t.Errorf("%%explain printed:\n%s\nwant:\n%s", got, want)
@@ -103,6 +104,7 @@ func TestExplainReportsNoConflictWhenSatisfiable(t *testing.T) {
 	want := strings.Join([]string{
 		"✓ Constraint Satisfiable is satisfiable, so no conditions conflict (SOLVER)",
 		"  Use %check Satisfiable for a satisfying assignment.",
+		"  standing: satisfiable (SOLVER)",
 	}, "\n")
 	if got != want {
 		t.Errorf("%%explain printed:\n%s\nwant:\n%s", got, want)

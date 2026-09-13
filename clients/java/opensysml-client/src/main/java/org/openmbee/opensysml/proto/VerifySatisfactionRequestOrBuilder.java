@@ -45,4 +45,24 @@ public interface VerifySatisfactionRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSymbolIdBytes();
+
+  /**
+   * <pre>
+   * The engine every assertion is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 3 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  java.lang.String getEngine();
+  /**
+   * <pre>
+   * The engine every assertion is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 3 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  com.google.protobuf.ByteString
+      getEngineBytes();
 }

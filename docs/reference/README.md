@@ -8,6 +8,9 @@ reading order.
 - **[REPL commands](repl-commands.md)** — every `%` command and its arguments
 - **[LSP extensions](lsp.md)** — the custom render requests `sysml-lsp` serves to a diagram client
 - **[Environment variables](environment.md)** — the resource limits for a single run, and paths
+- **[External engines](external-engines.md)** — the `OPENSYSML_ENGINES` manifest entry, the
+  protocol an engine speaks over its standard input and its JSON Schema, the `sources` and
+  `graphs:1` model forms, what stands of an engine's answer and how each failure is reported
 - **[Client libraries](clients.md)** — the five ways to reach the engine from a program, what each
   covers, and how to choose between them
 - **[Go packages](api.md)** — `client/opensysml` and the packages behind it, type by type
@@ -21,7 +24,7 @@ reading order.
   C or shell client with no generated library: the session, every `Value` arm, errors, answers
 - **[RDF mapping](rdf-mapping.md)** — which triples a model becomes, what is not mapped, and
   why the mapping is experimental
-- **[SysML v1 migration](sysml-v1-migration.md)** — reading Cameo/MagicDraw XMI and `.mdzip`, what
+- **[SysML v1 migration](sysml-v1-migration.md)** — reading OMG UML/SysML XMI, Eclipse `.uml` and `.mdzip`, what
   each v1 construct becomes, and the migration report
 - **[OSLC Query text](oslc-query.md)** — element-identification query syntax and semantics
 - **[Grammar](grammar/README.md)** — how each grammar production maps to the parser

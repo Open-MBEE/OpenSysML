@@ -514,16 +514,16 @@ func (d *decoder) expressionNodeText(node rdf.Term, in *element) (string, error)
 }
 
 // expressionOperand writes an expression node where the notation must bind at
-// least as tightly as min, enclosed in parentheses where its form binds less.
-func (d *decoder) expressionOperand(node rdf.Term, in *element, min int) (string, error) {
-	if min == bindConditional {
+// least as tightly as floor, enclosed in parentheses where its form binds less.
+func (d *decoder) expressionOperand(node rdf.Term, in *element, floor int) (string, error) {
+	if floor == bindConditional {
 		return d.expressionNodeText(node, in)
 	}
 	form, err := d.operandForm(node, in)
 	if err != nil {
 		return "", err
 	}
-	return form.at(min), nil
+	return form.at(floor), nil
 }
 
 // operandForm is an expression node as notation, kept or rebuilt, with how
@@ -915,27 +915,27 @@ func (d *decoder) expressionOperands(node rdf.Term, in *element) ([]operand, err
 }
 
 // expressionArguments writes the operands in order, each where it must bind at
-// least as tightly as min.
-func (d *decoder) expressionArguments(node rdf.Term, in *element, min int) ([]string, error) {
+// least as tightly as floor.
+func (d *decoder) expressionArguments(node rdf.Term, in *element, floor int) ([]string, error) {
 	args, err := d.expressionOperands(node, in)
 	if err != nil {
 		return nil, err
 	}
-	return splitOperands(args, min), nil
+	return splitOperands(args, floor), nil
 }
 
-// splitOperands writes each operand where it must bind at least as tightly as min.
-func splitOperands(args []operand, min int) []string {
+// splitOperands writes each operand where it must bind at least as tightly as floor.
+func splitOperands(args []operand, floor int) []string {
 	out := make([]string, 0, len(args))
 	for _, arg := range args {
-		out = append(out, arg.at(min))
+		out = append(out, arg.at(floor))
 	}
 	return out
 }
 
-// joinOperands writes the operands comma-separated, each at min.
-func joinOperands(args []operand, min int) string {
-	return strings.Join(splitOperands(args, min), ", ")
+// joinOperands writes the operands comma-separated, each at floor.
+func joinOperands(args []operand, floor int) string {
+	return strings.Join(splitOperands(args, floor), ", ")
 }
 
 // expressionReference names the element an expression property points at.

@@ -6,16 +6,21 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	goruntime "runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
 
 	"go.lsp.dev/protocol"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
@@ -31,8 +36,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 	"github.com/Open-MBEE/OpenSysML/internal/docpdf"
+	service "github.com/Open-MBEE/OpenSysML/internal/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/lsp"
+	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
 const selfModelDir = "self-model"
@@ -107,6 +114,10 @@ func TestSelfModelInvariantsHold(t *testing.T) {
 			"snapshotIsDerived",
 			"evaluatorIsReference",
 			"exportRoundTrips",
+			"questionsHaveOneContract",
+			"evidenceIsHonest",
+			"runsAreIsolated",
+			"snapshotsAreRunState",
 		},
 		"identity.sysml/OpenSysMLIdentity": {
 			"identityRoundTrips",
@@ -288,6 +299,472 @@ func TestSelfModelBudgetsMatchImplementation(t *testing.T) {
 	}
 }
 
+// TestSelfModelAnalysisFrameworkMatchesImplementation instantiates the modelled
+// analysis framework and compares it with internal/core/analysis: the engines the
+// build's registry (engines.Default) holds and what each declares, the question kinds, the
+// evidence scale, the selections, the budget and the jobs setting.
+func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
+	idx, ctx := analyseSelfModel(t)
+	framework := instantiateSelfModel(t, idx, ctx, "pipeline.sysml", "OpenSysMLPipeline", "AnalysisFramework")
+	parts := framework.parts()
+
+	engines := engineset.Default().Engines()
+	var names []string
+	for _, e := range engines {
+		names = append(names, e.Name())
+	}
+	registry := parts["registry"]
+	if declared := registry.integer("engineCount"); declared != len(engines) {
+		t.Errorf("pipeline.sysml says engineCount = %d, the default registry holds %d", declared, len(engines))
+	}
+	if declared, actual := registry.str("engineNames"), strings.Join(names, ", "); declared != actual {
+		t.Errorf("pipeline.sysml says engineNames = %q, the default registry lists %q", declared, actual)
+	}
+	duplicate := analysis.NewRegistry()
+	if err := duplicate.Register(engines[0]); err != nil {
+		t.Fatalf("register %s once: %v", engines[0].Name(), err)
+	}
+	if err := duplicate.Register(engines[0]); (err != nil) != registry.boolean("refusesDuplicateNames") {
+		t.Errorf("pipeline.sysml says refusesDuplicateNames = %v, registering twice gave %v", registry.boolean("refusesDuplicateNames"), err)
+	}
+
+	// Each modelled engine against what the registered one describes.
+	declared := map[string]*modelInstance{}
+	for _, part := range parts {
+		if part.has("engineName") {
+			declared[part.str("engineName")] = part
+		}
+	}
+	for _, e := range engines {
+		part, ok := declared[e.Name()]
+		if !ok {
+			t.Errorf("the default registry holds %s, which AnalysisFramework does not model", e.Name())
+			continue
+		}
+		delete(declared, e.Name())
+		desc := e.Describe()
+		var kinds []string
+		for _, k := range desc.Questions {
+			kinds = append(kinds, k.String())
+		}
+		facts := []struct {
+			attribute string
+			got, want any
+		}{
+			{"answers", part.str("answers"), strings.Join(kinds, ", ")},
+			{"bounds", part.str("bounds"), strings.Join(desc.Bounds, ", ")},
+			{"authority", part.str("authority"), desc.Authority.String()},
+			{"replays", part.boolean("replays"), desc.Replays},
+			{"needsProcess", part.boolean("needsProcess"), desc.Process != ""},
+		}
+		for _, fact := range facts {
+			if fact.got != fact.want {
+				t.Errorf("pipeline.sysml models %s.%s = %v, the engine declares %v", e.Name(), fact.attribute, fact.got, fact.want)
+			}
+		}
+	}
+	for name := range declared {
+		t.Errorf("AnalysisFramework models engine %s, which the default registry does not hold", name)
+	}
+
+	// The question kinds and freedoms, in declaration order.
+	questions := parts["questions"]
+	var kinds []string
+	for k := analysis.Evaluate; k.String() != "unknown"; k++ {
+		kinds = append(kinds, k.String())
+	}
+	if declared, actual := questions.str("kinds"), strings.Join(kinds, ", "); declared != actual {
+		t.Errorf("pipeline.sysml says kinds = %q, analysis.Kind spells %q", declared, actual)
+	}
+	if declared := questions.integer("kindCount"); declared != len(kinds) {
+		t.Errorf("pipeline.sysml says kindCount = %d, analysis.Kind has %d", declared, len(kinds))
+	}
+	freedoms := []string{analysis.FreeNothing.String(), analysis.FreeSchedule.String(), analysis.FreeInputs.String()}
+	if declared, actual := questions.str("freedoms"), strings.Join(freedoms, ", "); declared != actual {
+		t.Errorf("pipeline.sysml says freedoms = %q, analysis.Freedom spells %q", declared, actual)
+	}
+
+	// The evidence scale: every strength and claim, weakest first.
+	evidence := parts["evidence"]
+	var strengths []string
+	for s := analysis.NotCovered; s.String() != "unknown"; s++ {
+		strengths = append(strengths, s.String())
+	}
+	if declared, actual := evidence.str("strengths"), strings.Join(strengths, ", "); declared != actual {
+		t.Errorf("pipeline.sysml says strengths = %q, analysis.Strength spells %q", declared, actual)
+	}
+	if declared := evidence.integer("strengthCount"); declared != len(strengths) {
+		t.Errorf("pipeline.sysml says strengthCount = %d, analysis.Strength has %d", declared, len(strengths))
+	}
+	var claims []string
+	for c := analysis.ClaimNone; c.String() != "unknown"; c++ {
+		claims = append(claims, c.String())
+	}
+	if declared, actual := evidence.str("claims"), strings.Join(claims, ", "); declared != actual {
+		t.Errorf("pipeline.sysml says claims = %q, analysis.Claim spells %q", declared, actual)
+	}
+	if declared := evidence.integer("claimCount"); declared != len(claims) {
+		t.Errorf("pipeline.sysml says claimCount = %d, analysis.Claim has %d", declared, len(claims))
+	}
+
+	// The selections a question can be put with, and the default.
+	dispatch := parts["dispatch"]
+	if declared, actual := dispatch.str("defaultSelection"), analysis.ParseSelection("").String(); declared != actual {
+		t.Errorf("pipeline.sysml says defaultSelection = %q, an unset selection is %q", declared, actual)
+	}
+	selections := []string{analysis.Auto().String(), analysis.All().String(), "<engine>"}
+	if declared, actual := dispatch.str("selections"), strings.Join(selections, ", "); declared != actual {
+		t.Errorf("pipeline.sysml says selections = %q, the implementation spells %q", declared, actual)
+	}
+	if named := analysis.ParseSelection(names[0]); named.Mode != analysis.SelectNamed || named.String() != names[0] {
+		t.Errorf("a selection naming %s parses as %+v", names[0], named)
+	}
+	// The candidates each kind of question has in the default registry, in name order.
+	declaring := map[analysis.Kind]int{}
+	for _, e := range engines {
+		for _, kind := range e.Describe().Questions {
+			declaring[kind]++
+		}
+	}
+	var perKind []string
+	for k := analysis.Evaluate; k.String() != "unknown"; k++ {
+		if declaring[k] > 0 {
+			perKind = append(perKind, k.String()+": "+strconv.Itoa(declaring[k]))
+		}
+	}
+	sort.Strings(perKind)
+	if declared, actual := dispatch.str("candidatesPerKind"), strings.Join(perKind, ", "); declared != actual {
+		t.Errorf("pipeline.sysml says candidatesPerKind = %q, the default registry has %q", declared, actual)
+	}
+
+	// The budget's fields and the jobs setting behind one of them.
+	budget := parts["budget"]
+	budgetType := reflect.TypeOf(analysis.Budget{})
+	var fields []string
+	for i := 0; i < budgetType.NumField(); i++ {
+		fields = append(fields, budgetType.Field(i).Name)
+	}
+	if declared, actual := budget.str("fields"), strings.Join(fields, ", "); declared != actual {
+		t.Errorf("pipeline.sysml says fields = %q, analysis.Budget has %q", declared, actual)
+	}
+	if declared := budget.integer("fieldCount"); declared != len(fields) {
+		t.Errorf("pipeline.sysml says fieldCount = %d, analysis.Budget has %d", declared, len(fields))
+	}
+	if declared := budget.str("jobsEnvVar"); declared != analysis.JobsEnvVar {
+		t.Errorf("pipeline.sysml says jobsEnvVar = %q, analysis reads %q", declared, analysis.JobsEnvVar)
+	}
+	if declared, actual := budget.boolean("defaultJobsIsCpuCount"), analysis.DefaultJobs() == goruntime.NumCPU(); declared != actual {
+		t.Errorf("pipeline.sysml says defaultJobsIsCpuCount = %v, DefaultJobs is the CPU count: %v", declared, actual)
+	}
+	rejects := true
+	for _, text := range []string{"0", "-1", "two", ""} {
+		if _, err := analysis.ParseJobs(analysis.JobsEnvVar, text); err == nil {
+			rejects = false
+		}
+	}
+	if _, err := analysis.ParseJobs(analysis.JobsEnvVar, "2"); err != nil {
+		t.Errorf("ParseJobs rejects 2: %v", err)
+	}
+	if declared := budget.boolean("rejectsNonPositiveJobs"); declared != rejects {
+		t.Errorf("pipeline.sysml says rejectsNonPositiveJobs = %v, ParseJobs rejects them: %v", declared, rejects)
+	}
+
+	// The jobs flag and command the budget names, against the surfaces that define them.
+	if !strings.Contains(readGoPackage(t, filepath.Join("..", "cmd", "sysml")), `"`+strings.TrimPrefix(budget.str("jobsFlag"), "-")+`"`) {
+		t.Errorf("pipeline.sysml says jobsFlag = %q, cmd/sysml defines no such flag", budget.str("jobsFlag"))
+	}
+	if !strings.Contains(readGoPackage(t, filepath.Join("..", "internal", "repl")), `"`+budget.str("jobsCommand")+`"`) {
+		t.Errorf("pipeline.sysml says jobsCommand = %q, internal/repl defines no such command", budget.str("jobsCommand"))
+	}
+}
+
+// TestSelfModelWorkersAreIsolated exercises what the modelled worker fleet
+// claims: two jobs of one plan get runtime models of their own over the same
+// index, and two runs on one worker get contexts of their own.
+func TestSelfModelWorkersAreIsolated(t *testing.T) {
+	idx, ctx := analyseSelfModel(t)
+	framework := instantiateSelfModel(t, idx, ctx, "pipeline.sysml", "OpenSysMLPipeline", "AnalysisFramework")
+	workers := framework.parts()["workers"]
+	for _, claim := range []string{"onePerJob", "ownsRuntimeModel", "sharesFrozenIndex", "freshContextPerRun", "builtOnFirstUse"} {
+		if !workers.boolean(claim) {
+			t.Errorf("pipeline.sysml says WorkerFleet.%s is false; this test holds the implementation to it", claim)
+		}
+	}
+
+	built := 0
+	model := &analysis.Model{
+		Semantics: func() (*runtime.Model, error) {
+			built++
+			resolver := resolve.New(idx)
+			return runtime.NewModel(semantics.NewModel(resolver), resolver), nil
+		},
+		Fresh: func(w *analysis.Worker) (*runtime.Context, error) {
+			return runtime.NewContext(w.Model, 1000), nil
+		},
+	}
+	if built != 0 {
+		t.Fatalf("a worker was built before any run asked for one")
+	}
+	first, err := model.WorkerAt(0)
+	if err != nil {
+		t.Fatalf("worker 0: %v", err)
+	}
+	second, err := model.WorkerAt(1)
+	if err != nil {
+		t.Fatalf("worker 1: %v", err)
+	}
+	if first.Model == second.Model {
+		t.Error("two jobs of one plan share a runtime model; the model says each worker owns its own")
+	}
+	if again, _ := model.WorkerAt(0); again != first {
+		t.Error("a job's worker is rebuilt on a later run; the model says it is built on first use and kept")
+	}
+	if built != 2 {
+		t.Errorf("two jobs built %d runtime models, the model says one per job", built)
+	}
+
+	runA, err := model.NewContextOn(0, analysis.Budget{})
+	if err != nil {
+		t.Fatalf("first run on worker 0: %v", err)
+	}
+	runB, err := model.NewContextOn(0, analysis.Budget{})
+	if err != nil {
+		t.Fatalf("second run on worker 0: %v", err)
+	}
+	if runA == runB {
+		t.Error("two runs on one worker share a context; the model says each run gets a fresh one")
+	}
+	if runA.Model() != first.Model || runB.Model() != first.Model {
+		t.Error("a run's context is not over its worker's runtime model")
+	}
+	if budgeted, err := model.NewContextOn(1, analysis.Budget{Steps: 7, Memory: 11}); err != nil {
+		t.Fatalf("budgeted run on worker 1: %v", err)
+	} else if limits := budgeted.Budgets(); limits.MaxSteps != 7 || limits.MaxElements != 11 {
+		t.Errorf("a run under Budget{Steps: 7, Memory: 11} has MaxSteps %d, MaxElements %d", limits.MaxSteps, limits.MaxElements)
+	}
+}
+
+// TestSelfModelQuestionFlowFollowsDispatcher runs the modelled question flow
+// as the dispatcher behaves: the engines consulted are the ones declaring the
+// question's kind — the flow's default `candidates` is the count every kind but
+// outcomes and holds has in the build's registry — and every one of them lands in
+// the plan as a step under `all`, while `auto` stops at the first that concludes.
+func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
+	engines := engineset.Default().Engines()
+	declaring := map[analysis.Kind]int{}
+	for _, e := range engines {
+		for _, kind := range e.Describe().Questions {
+			declaring[kind]++
+		}
+	}
+	flow := selfModelFlow(t, "AnswerQuestion", nil)
+	for kind, count := range declaring {
+		if kind == analysis.Outcomes || kind == analysis.Holds {
+			continue
+		}
+		if declared := flow.integer("candidates"); declared != count {
+			t.Errorf("behavior.sysml says AnswerQuestion.candidates = %d, %d default engines declare %s", declared, count, kind)
+		}
+	}
+	if declaring[analysis.Outcomes] != 2 {
+		t.Errorf("%d default engines declare outcomes, the model states two (explore over check)", declaring[analysis.Outcomes])
+	}
+	if declaring[analysis.Holds] != 2 {
+		t.Errorf("%d default engines declare holds, the model states two (smt over check)", declaring[analysis.Holds])
+	}
+
+	cases := []struct {
+		name        string
+		initial     map[string]string
+		steps, left int
+	}{
+		{"auto over one candidate", nil, 1, 0},
+		{"all over one candidate", map[string]string{"selectsAuto": "false", "selectsAll": "true"}, 1, 0},
+		{"all over three candidates", map[string]string{"selectsAuto": "false", "selectsAll": "true", "candidates": "3"}, 3, 0},
+		{"auto over three candidates, none concluding", map[string]string{"candidates": "3", "concluded": "false"}, 3, 0},
+		{"auto over three candidates, the first concluding", map[string]string{"candidates": "3"}, 1, 2},
+		{"a name beside three candidates", map[string]string{"selectsAuto": "false", "candidates": "3"}, 1, 0},
+		{"one candidate refusing", map[string]string{"refusing": "1"}, 1, 0},
+		{"auto over three candidates, all refusing", map[string]string{"candidates": "3", "refusing": "3"}, 3, 0},
+		{"auto over three candidates, the first refusing, the second concluding", map[string]string{"candidates": "3", "refusing": "1"}, 2, 1},
+		{"all over three candidates, the first refusing", map[string]string{"selectsAuto": "false", "selectsAll": "true", "candidates": "3", "refusing": "1"}, 3, 0},
+		{"a name refusing beside three candidates", map[string]string{"selectsAuto": "false", "candidates": "3", "refusing": "1"}, 1, 0},
+		{"one candidate faulting", map[string]string{"faulted": "true"}, 1, 0},
+		{"auto over three candidates, the first faulting", map[string]string{"candidates": "3", "faulted": "true"}, 1, 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			flow := selfModelFlow(t, "AnswerQuestion", tc.initial)
+			if got := flow.integer("steps"); got != tc.steps {
+				t.Errorf("the plan recorded %d steps, want %d", got, tc.steps)
+			}
+			if got := flow.integer("enginesLeft"); got != tc.left {
+				t.Errorf("the flow composed with %d candidates unconsulted, want %d", got, tc.left)
+			}
+		})
+	}
+}
+
+// TestSelfModelExplorationFlowDrainsQueue runs the modelled exploration as the
+// explorer behaves: a run takes the first alternative of every choice it meets
+// on the way down, queues the next alternative of every choice it owns and no
+// more — up to the runs left, the plan never outgrowing the run budget, the
+// rest dropped and the runs bound hit — and the next run takes the prefix
+// queued deepest, so the queue always drains, and a finite choice tree within
+// the bounds proves while a tree either bound cut observes. The choice tree
+// is a chain, each choice below alternative `below` of the one above: 1 has
+// the first run meet them all, 2 has each run meet one. The prefix in hand
+// when the exploration ends is the last run's: the choice it ended at and the
+// alternative it took there.
+func TestSelfModelExplorationFlowDrainsQueue(t *testing.T) {
+	cases := []struct {
+		name      string
+		initial   map[string]string
+		runs      int
+		at, taken int
+		runsHit   bool
+		depthHit  bool
+	}{
+		{"one schedule", nil, 1, 0, 0, false, false},
+		{"one binary choice, then leaves", map[string]string{"runsLeft": "3", "choicesAhead": "1"}, 2, 1, 2, false, false},
+		{"one choice of four, then leaves", map[string]string{"runsLeft": "8", "choicesAhead": "1", "alternatives": "4"}, 4, 1, 4, false, false},
+		{"two binary choices met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2"}, 3, 1, 2, false, false},
+		{"two choices of three met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3"}, 5, 1, 3, false, false},
+		{"a choice below the alternative a choice left", map[string]string{"runsLeft": "8", "choicesAhead": "2", "below": "2"}, 3, 2, 2, false, false},
+		{"a choice below the last alternative of a choice of three", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3", "below": "3"}, 5, 2, 3, false, false},
+		{"three choices of three, each below the second alternative of the one above", map[string]string{"runsLeft": "64", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 7, 1, 3, false, false},
+		{"three alternatives under a budget of three runs, exactly", map[string]string{"runsLeft": "3", "choicesAhead": "1", "alternatives": "3"}, 3, 1, 3, false, false},
+		{"three alternatives under a budget of two runs", map[string]string{"runsLeft": "2", "choicesAhead": "1", "alternatives": "3"}, 2, 1, 2, true, false},
+		{"four alternatives under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "1", "alternatives": "4"}, 3, 1, 3, true, false},
+		{"two choices of three met by the first run under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "2", "alternatives": "3"}, 3, 2, 3, true, false},
+		{"three choices of three, each below the second alternative, under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 3, 2, 2, true, false},
+		{"two choices met by the first run under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "depth": "1"}, 2, 1, 2, false, true},
+		{"a choice below the second alternative of another under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "below": "2", "depth": "1"}, 2, 1, 2, false, true},
+		{"a choice of three below the second alternative of another under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3", "below": "2", "depth": "1"}, 3, 1, 3, false, true},
+		{"a choice of three under a depth bound of one and a budget of two runs", map[string]string{"runsLeft": "2", "choicesAhead": "2", "alternatives": "3", "depth": "1"}, 2, 1, 2, true, true},
+		{"a choice under a depth bound of zero", map[string]string{"runsLeft": "8", "choicesAhead": "1", "depth": "0"}, 1, 0, 0, false, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			flow := selfModelFlow(t, "ExploreOutcomes", tc.initial)
+			budget := runtime.DefaultExploreBudget.Runs
+			if given, ok := tc.initial["runsLeft"]; ok {
+				budget, _ = strconv.Atoi(given)
+			}
+			if runs := budget - flow.integer("runsLeft"); runs != tc.runs {
+				t.Errorf("exploration made %d runs, want %d", runs, tc.runs)
+			}
+			if got := flow.integer("queued"); got != 0 {
+				t.Errorf("exploration ended with %d prefixes queued", got)
+			}
+			if got := flow.integer("unexplored"); got != 0 {
+				t.Errorf("exploration ended with %d prefixes discovered and not queued", got)
+			}
+			if at, taken := flow.integer("choice"), flow.integer("taken"); at != tc.at || taken != tc.taken {
+				t.Errorf("the last run took alternative %d of choice %d, want %d of %d", taken, at, tc.taken, tc.at)
+			}
+			if got := flow.boolean("runsHit"); got != tc.runsHit {
+				t.Errorf("exploration ended runsHit = %v, want %v", got, tc.runsHit)
+			}
+			if got := flow.boolean("depthHit"); got != tc.depthHit {
+				t.Errorf("exploration ended depthHit = %v, want %v", got, tc.depthHit)
+			}
+			if got, want := flow.boolean("complete"), !tc.runsHit && !tc.depthHit; got != want {
+				t.Errorf("exploration ended complete = %v, want %v", got, want)
+			}
+			if _, ok := tc.initial["depth"]; !ok {
+				if got, want := flow.integer("depth"), runtime.DefaultExploreBudget.Depth; got != want {
+					t.Errorf("ExploreOutcomes explores to depth %d by default, the runtime to %d", got, want)
+				}
+			}
+		})
+	}
+}
+
+// TestSelfModelRunStateMatchesImplementation compares the modelled snapshot
+// store and exploration queue with the runtime: the two asks a snapshot refuses
+// and the default exploration bounds.
+func TestSelfModelRunStateMatchesImplementation(t *testing.T) {
+	idx, ctx := analyseSelfModel(t)
+	runtimeModel := instantiateSelfModel(t, idx, ctx, "pipeline.sysml", "OpenSysMLPipeline", "Runtime")
+	parts := runtimeModel.parts()
+
+	marks := parts["marks"]
+	if declared, actual := marks.str("refusesMidStep"), runtime.ErrSnapshotMidRun.Error(); declared != actual {
+		t.Errorf("pipeline.sysml says refusesMidStep = %q, the runtime reports %q", declared, actual)
+	}
+	if declared, actual := marks.str("refusesPausedBody"), runtime.ErrSnapshotPausedBody.Error(); declared != actual {
+		t.Errorf("pipeline.sysml says refusesPausedBody = %q, the runtime reports %q", declared, actual)
+	}
+	snapshotType := reflect.TypeOf(runtime.Snapshot{})
+	holdsModel := false
+	for i := 0; i < snapshotType.NumField(); i++ {
+		if snapshotType.Field(i).Type == reflect.TypeOf((*runtime.Model)(nil)) {
+			holdsModel = true
+		}
+	}
+	if declared := marks.boolean("excludesModelState"); declared != !holdsModel {
+		t.Errorf("pipeline.sysml says excludesModelState = %v, runtime.Snapshot holds a *runtime.Model: %v", declared, holdsModel)
+	}
+
+	exploration := parts["exploration"]
+	if declared, actual := exploration.integer("defaultRuns"), runtime.DefaultExploreBudget.Runs; declared != actual {
+		t.Errorf("pipeline.sysml says defaultRuns = %d, the runtime explores %d by default", declared, actual)
+	}
+	if declared, actual := exploration.integer("defaultDepth"), runtime.DefaultExploreBudget.Depth; declared != actual {
+		t.Errorf("pipeline.sysml says defaultDepth = %d, the runtime explores to depth %d by default", declared, actual)
+	}
+}
+
+// TestSelfModelAskingSurfacesMatchImplementation compares each surface that
+// asks questions with the engine selector, jobs setting and engine listing it
+// defines: the REPL's commands, the command line's flags, and the service's
+// request field, variable, RPC and capability.
+func TestSelfModelAskingSurfacesMatchImplementation(t *testing.T) {
+	idx, ctx := analyseSelfModel(t)
+
+	repl := instantiateSelfModel(t, idx, ctx, "surfaces.sysml", "OpenSysMLSurfaces", "Repl")
+	replSource := readGoPackage(t, filepath.Join("..", repl.str("goPackage")))
+	for _, attribute := range []string{"engineSelector", "jobsSetting", "engineListing"} {
+		command := repl.str(attribute)
+		if !strings.HasPrefix(command, "%") || !strings.Contains(replSource, `{name: "`+command+`"`) {
+			t.Errorf("surfaces.sysml says Repl.%s = %q, %s defines no such meta command", attribute, command, repl.str("goPackage"))
+		}
+	}
+
+	cli := instantiateSelfModel(t, idx, ctx, "surfaces.sysml", "OpenSysMLSurfaces", "CommandLine")
+	cliSource := readGoPackage(t, filepath.Join("..", cli.str("entrypoint")))
+	for _, attribute := range []string{"engineSelector", "jobsSetting", "engineListing"} {
+		flag := cli.str(attribute)
+		pattern := regexp.MustCompile(`\w+\.\w*Var\(&\w+, "` + regexp.QuoteMeta(strings.TrimPrefix(flag, "-")) + `"`)
+		if !strings.HasPrefix(flag, "-") || !pattern.MatchString(cliSource) {
+			t.Errorf("surfaces.sysml says CommandLine.%s = %q, %s defines no such flag", attribute, flag, cli.str("entrypoint"))
+		}
+	}
+
+	svc := instantiateSelfModel(t, idx, ctx, "surfaces.sysml", "OpenSysMLSurfaces", "ModelService")
+	if declared, actual := svc.str("enginesCapability"), service.CapabilityEngines; declared != actual {
+		t.Errorf("surfaces.sysml says enginesCapability = %q, the service names it %q", declared, actual)
+	}
+	if declared, actual := svc.str("jobsSetting"), analysis.JobsEnvVar; declared != actual {
+		t.Errorf("surfaces.sysml says the service's jobs are set by %q, it reads %q", declared, actual)
+	}
+	listed := false
+	for _, method := range pb.SysMLService_ServiceDesc.Methods {
+		listed = listed || method.MethodName == svc.str("engineListing")
+	}
+	if !listed {
+		t.Errorf("surfaces.sysml says the service lists engines by %q, the schema declares no such RPC", svc.str("engineListing"))
+	}
+	request := pb.File_sysml_proto.Messages().ByName("RunAnalysisRequest")
+	if request == nil {
+		t.Fatal("the schema declares no RunAnalysisRequest")
+	}
+	if field := svc.str("engineSelector"); request.Fields().ByName(protoreflect.Name(field)) == nil {
+		t.Errorf("surfaces.sysml says the service selects engines by the %q field, RunAnalysisRequest has none", field)
+	}
+}
+
 // TestSelfModelLibraryMatchesImplementation compares the modelled library with libs:
 // the override variable, the snapshot decoding, its Make targets and the CI check.
 func TestSelfModelLibraryMatchesImplementation(t *testing.T) {
@@ -337,22 +814,22 @@ func TestSelfModelLibraryMatchesImplementation(t *testing.T) {
 }
 
 // TestSelfModelEvaluatorMatchesImplementation checks the evaluator's memoization
-// claim against runtime.Context, which must key a side table by syntax node.
+// claim against runtime.Model, which must key a side table by syntax node.
 func TestSelfModelEvaluatorMatchesImplementation(t *testing.T) {
 	idx, ctx := analyseSelfModel(t)
 	evaluator := instantiateSelfModel(t, idx, ctx, "pipeline.sysml", "OpenSysMLPipeline", "Evaluator")
 
 	node := reflect.TypeOf((*ast.Node)(nil)).Elem()
 	keyedByNode := false
-	contextType := reflect.TypeOf(runtime.Context{})
-	for i := 0; i < contextType.NumField(); i++ {
-		field := contextType.Field(i).Type
+	modelType := reflect.TypeOf(runtime.Model{})
+	for i := 0; i < modelType.NumField(); i++ {
+		field := modelType.Field(i).Type
 		if field.Kind() == reflect.Map && field.Key().Implements(node) {
 			keyedByNode = true
 		}
 	}
 	if keyedByNode != evaluator.boolean("memoized") {
-		t.Errorf("pipeline.sysml says the evaluator is memoized = %t, runtime.Context keyed a side table by syntax node: %t",
+		t.Errorf("pipeline.sysml says the evaluator is memoized = %t, runtime.Model keyed a side table by syntax node: %t",
 			evaluator.boolean("memoized"), keyedByNode)
 	}
 }
@@ -735,7 +1212,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		ws.Open(name, content, 1)
 	}
 
-	markdown, err := ws.RenderDocumentMarkdown("OpenSysMLDocument::ArchitectureDocument")
+	markdown, err := ws.RenderDocumentMarkdown("OpenSysMLDocument::ArchitectureDocument", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("render the architecture document: %v", err)
 	}
@@ -756,6 +1233,14 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		"OpenSysMLViews::libraryLoadFlow",
 		"[snapshotCurrent]",
 		"OpenSysMLViews::budgetExhaustion",
+		"| explore | outcomes | runs, depth | proved | true | false | runtime.ExploreWith |",
+		"| solve | satisfiable | runs, solver | proved | true | true | internal/core/solve |",
+		"OpenSysMLViews::analysisFramework",
+		"OpenSysMLViews::questionFlow",
+		"OpenSysMLViews::exploreFlow",
+		"OpenSysMLViews::evidenceLadder",
+		"OpenSysMLViews::workerLifecycle",
+		"OpenSysMLViews::snapshotLifecycle",
 		"OpenSysMLViews::editorPipeline",
 		"OpenSysMLViews::identityRoundTrip",
 		"OpenSysMLViews::syncFlow",
@@ -791,7 +1276,7 @@ func analyseSelfModel(t *testing.T) (*symbols.Index, *runtime.Context) {
 		idx.AddDocument(name, parser.New(source.New(name, content)).ParseFile())
 	}
 	resolver := resolve.New(idx)
-	return idx, runtime.NewContext(semantics.NewModel(resolver), resolver, 100000)
+	return idx, runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 100000)
 }
 
 // modelInstance is an instantiated definition of the self-model, read by feature.
@@ -948,6 +1433,99 @@ func declaredString(text, attribute string) (string, bool) {
 		return "", false
 	}
 	return match[1], true
+}
+
+// flowResult is what one run of a self-model action ended with, by attribute.
+type flowResult struct {
+	t      *testing.T
+	name   string
+	values map[string]string
+}
+
+// selfModelFlow runs an action of behavior.sysml to completion in a REPL session
+// over the whole self-model and returns the values it ended with. The initial
+// values name attributes of the action whose declared `= <literal>` is replaced
+// before the run, which is how one flow is put through several cases.
+func selfModelFlow(t *testing.T, action string, initial map[string]string) *flowResult {
+	t.Helper()
+
+	var files []repl.SourceFile
+	for _, name := range selfModelFiles(t) {
+		text := readModelFile(t, name)
+		if name == "behavior.sysml" {
+			text = withInitialValues(t, text, action, initial)
+		}
+		files = append(files, repl.SourceFile{Name: name, Text: text})
+	}
+	session := repl.NewSession()
+	session.SubmitFiles(files)
+	if session.HasErrors() {
+		t.Fatalf("the self-model with %s's initial values %v does not analyse:\n%s", action, initial, strings.Join(session.DiagnosticLines(), "\n"))
+	}
+
+	name := "OpenSysMLBehavior::" + action
+	verdict := session.RunAction(name)
+	if verdict.Status != repl.VerdictHolds {
+		t.Fatalf("%s with initial values %v did not complete:\n%s", name, initial, strings.Join(verdict.Lines, "\n"))
+	}
+	values := map[string]string{}
+	for _, v := range verdict.Values {
+		values[v.Name] = v.Value
+	}
+	return &flowResult{t: t, name: name, values: values}
+}
+
+// withInitialValues replaces the declared initial value of each named attribute
+// within one action def of the model text, failing on an attribute it does not declare.
+func withInitialValues(t *testing.T, text, action string, initial map[string]string) string {
+	t.Helper()
+
+	start := strings.Index(text, "action def "+action+" {")
+	if start < 0 {
+		t.Fatalf("behavior.sysml declares no action def %s", action)
+	}
+	end := start + strings.Index(text[start:], "\n    }\n")
+	body := text[start:end]
+	for attribute, value := range initial {
+		declaration := regexp.MustCompile(`(attribute ` + attribute + ` : \w+ = )[^;]+;`)
+		if !declaration.MatchString(body) {
+			t.Fatalf("%s declares no attribute %s with an initial value", action, attribute)
+		}
+		body = declaration.ReplaceAllString(body, "${1}"+value+";")
+	}
+	return text[:start] + body + text[end:]
+}
+
+// integer reads an Integer attribute the run ended with.
+func (r *flowResult) integer(attribute string) int {
+	r.t.Helper()
+
+	value, err := strconv.Atoi(r.value(attribute))
+	if err != nil {
+		r.t.Fatalf("%s ended with %s = %q, not an integer", r.name, attribute, r.value(attribute))
+	}
+	return value
+}
+
+// boolean reads a Boolean attribute the run ended with.
+func (r *flowResult) boolean(attribute string) bool {
+	r.t.Helper()
+
+	value, err := strconv.ParseBool(r.value(attribute))
+	if err != nil {
+		r.t.Fatalf("%s ended with %s = %q, not a boolean", r.name, attribute, r.value(attribute))
+	}
+	return value
+}
+
+func (r *flowResult) value(attribute string) string {
+	r.t.Helper()
+
+	value, ok := r.values[attribute]
+	if !ok {
+		r.t.Fatalf("%s ended without a value for %s; it has %v", r.name, attribute, r.values)
+	}
+	return value
 }
 
 // packageScope returns the scope of a top-level package of one document.

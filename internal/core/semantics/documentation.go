@@ -33,14 +33,23 @@ func (m *Model) DocumentationOf(sym *symbols.Symbol) []string {
 	var bodies []string
 	for _, doc := range m.documentationSymbols(sym) {
 		decl, ok := doc.Decl.(*ast.Documentation)
-		if !ok || decl.BodySpan.Len == 0 {
+		if !ok {
 			continue
 		}
-		if body := lexer.CommentBody(m.sourceText(doc.DocName, decl.BodySpan)); body != "" {
+		if body := m.commentBody(doc, decl.BodySpan); body != "" {
 			bodies = append(bodies, body)
 		}
 	}
 	return bodies
+}
+
+// commentBody is Comment::body of the comment or documentation sym declares:
+// the prose of its comment token, "" when the notation cannot be read.
+func (m *Model) commentBody(sym *symbols.Symbol, span source.Span) string {
+	if m.sourceText == nil || span.Len == 0 {
+		return ""
+	}
+	return lexer.CommentBody(m.sourceText(sym.DocName, span))
 }
 
 // documentationSymbols lists the `doc` members sym declares, in order, each once.

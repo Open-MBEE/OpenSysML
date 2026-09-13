@@ -586,6 +586,41 @@ fixture `state_choice_change_transition_conflict`, golden; `TestChangeTransition
 `TestChangeTransitionChoiceUnderHierarchyAndRegions` for the nested-wins and parallel-region
 shapes).
 
+### Two branches of a choice enabled by the data the incoming effect wrote: exactly one is taken, which one is open
+
+Fixture: `state_choice_dynamic_conflict` (golden, explored).
+
+```
+idle ─ accept Go { level := 8 } → pick ─ if level > 5 → low  { route := 1 }
+                                       ─ if level > 7 → high { route := 2 }
+```
+
+Derived constraints:
+
+- A choice is a `DecisionPerformance` reached through the segment into it: the segment's
+  effect happens before what the segment leads to (`TransitionPerformances.kerml`,
+  `succession [*] effect then [1] transitionLink.laterOccurrence`), so the guards the decision
+  reads are read against `level = 8`, not against the `level = 0` the machine held when Go
+  arrived. UML says the same in words: a choice vertex's guards are evaluated dynamically, after
+  the incoming transition's behavior has run, where a junction's are evaluated statically with
+  the compound transition's enabledness (UML 2.5.1 §14.2.3.7, `choice` and `junction`).
+- `DecisionPerformance::outgoingHBLink: HappensBefore[1]` (`ControlPerformances.kerml`): exactly one
+  branch follows, so the machine ends in `low` or `high`, never at `pick` and never in both.
+- Both guards hold for `level = 8`, so both branches are enabled once the effect has run; had the
+  guards been read before it, neither would hold and the transition would have no branch.
+
+Open: which enabled branch is taken. Nothing in the library or the specification ranks two
+branches of one choice whose guards both hold.
+
+Pinned outcome: the admissible set `{route = 1 in low, route = 2 in high}`, stated as `outcomes`
+citing this section; exploration reaches each once (2 runs, 2 outcomes, complete). The executor
+exits `idle`, runs the incoming effect, reads the branches in declaration order, takes the first
+enabled one and records the choice at the choice vertex (`choice choice pick: transitions 1->low,
+2->high (unordered; took 1->low)`); the golden pins that linearization, `seed:1` the other one. As
+for a transition conflict, branches after the first enabled one are read in a preview that is
+undone. A choice with no enabled branch and no unguarded one fails the run at that instant with a
+typed error naming the choice (`TestRuntimeRobustness/state_choice_without_an_enabled_branch`).
+
 ### Transitions in sibling regions enabled by one event: each fires, in which order is open
 
 Fixture: `state_explore_region_order` (golden, explored).
@@ -628,6 +663,44 @@ occurrence in place of the signal — one write of `temp` raises `temp > 20` in 
 that dispatches it draws the region order the same way (`choice on change: states a1, b1 react
 (unordered; took a1 first)`), and no order between the two raised conditions is derivable from the
 library either.
+
+### Do behaviors of sibling regions active at one instant: each proceeds, in which order is open
+
+Fixtures: `state_concurrent_do` (golden, explored), `state_concurrent_do_action_bodies_timed`
+(golden, explored).
+
+```
+Interleave parallel { left:  lwork { do { seq := seq*10+1; seq := seq*10+2; seq := seq*10+3 } }
+                      right: rwork { do { seq := seq*10+4; seq := seq*10+5; seq := seq*10+6 } } }
+```
+
+Derived constraints:
+
+- A state's do behavior is a performance nested in the state performance, after its entry and
+  before its exit (`StatePerformances.kerml` `StatePerformance`: `succession [1] entry then [*]
+  middle; succession [*] middle then [1] exit`), so each region's do behavior runs while its state
+  is active and the statements of one body keep their declared order (`1 < 2 < 3`, `4 < 5 < 6`).
+- The regions of a parallel state are concurrent substate performances; no succession joins a step
+  of one region's do behavior to a step of the other's, so the library orders nothing between them.
+  The executor shares the machine one action at a time — each behavior with an action due performs
+  one before any performs its next — and which of the due behaviors acts first in a round is a
+  tool-defined order.
+- Every statement writes `seq`, so the digits record the interleaving: in `state_concurrent_do`,
+  `left` enters its working state one step before `right` (`1` is alone in its round), the next two
+  rounds each have both due, and `right`'s last statement is alone again (`6` last).
+
+Open: which region's do behavior acts first in each round both are due in. Two rounds of two
+orders reach four values of `seq`.
+
+Pinned outcome: the admissible set `{124356, 142356, 124536, 142536}`, stated as `outcomes` citing
+this section. The order is a choice point under every policy, reported as `choice do round at
+t=0.0: states lwork, rwork react (unordered; took lwork first)`: `declared` and `reverse` take the
+order the states were entered in — a tool-defined order — and the default golden pins that
+linearization (`124356`); `seed:<n>` draws the order; `explore` varies it and must reach all four
+values and no other. `state_concurrent_do_action_bodies_timed` is the shape with action bodies
+that wait on the clock: both behaviors pause at an `accept after 2 [s]` and are due again in the
+round at `t=2.0`, where the order of the two counts is open (`1324` entering order, `3124` the
+other), while the counts at `t=4.0` and `t=5.0` are alone in their rounds.
 
 ### A merge is re-entered on every traversal of a loop
 

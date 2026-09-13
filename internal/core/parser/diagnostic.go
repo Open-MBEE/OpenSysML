@@ -23,19 +23,20 @@ type Diagnostic struct {
 // same syntax error words it the same way.
 const (
 	msgExpectedActionBrace  = "expected '}' after action expression"
-	msgExpectedReturnEnd    = "expected '{' or ';' after return parameter"
 	msgExpectedBodyClose    = "expected '}' to close body"
-	msgExpectedBraceOrSemi  = "expected '{' or ';'"
 	msgExpectedBodyMember   = "expected a body member"
 	msgExpectedCloseParen   = "expected ')'"
 	msgExpectedShortName    = "expected short name after '<'"
 	msgExpectedCloseAngle   = "expected '>'"
 	msgExpectedLocaleString = "expected locale string"
+	msgImportVisibility     = "import without a visibility indicator: SysML v2 requires public, private or protected before 'import'"
 )
 
 // Warning codes.
 const (
 	codeReservedKeywordName = "reserved-keyword-name"
-	// codeAmbiguousModifierKind marks `<modifier> <kind>` with no name after it.
-	codeAmbiguousModifierKind = "ambiguous-modifier-kind"
+	// codeImportVisibility marks an `import` written without ImportPrefix's indicator.
+	codeImportVisibility = "import-visibility"
+	// codeEnumerationBodyMember marks a member EnumerationBody does not admit.
+	codeEnumerationBodyMember = "enumeration-body-member"
 )

@@ -96,6 +96,13 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "metaobject_values" - a Value carries an element reflected on as an
+   * instance of its metaclass (`x meta T`, the last element
+   * of `x.metadata`) as metaobject, named by the element and
+   * its metaclass, rather than reporting it as an unsupported
+   * null, and one is accepted as an action input or calc
+   * argument; without it, one is refused with UNIMPLEMENTED
+   * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -121,6 +128,19 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "engines"      - the ListEngines RPC lists the analysis engines; the
+   * verification and sweep requests take an `engine`, the
+   * engine the question is put to, unset meaning "auto"; and
+   * their responses and every Verdict report the `engine` that
+   * answered with the `strength` of its evidence and the
+   * `bounds` it ran under. Without it a service drops the
+   * request field and answers under "auto", so a client must
+   * not send one.
+   * "engines_external" - the service was started with -serve-external-engines
+   * and runs the OPENSYSML_ENGINES manifest engines it names;
+   * ListEngines reports which with `served`. Without it every
+   * manifest engine is listed but a request naming one is
+   * refused with FAILED_PRECONDITION.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -190,6 +210,13 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "metaobject_values" - a Value carries an element reflected on as an
+   * instance of its metaclass (`x meta T`, the last element
+   * of `x.metadata`) as metaobject, named by the element and
+   * its metaclass, rather than reporting it as an unsupported
+   * null, and one is accepted as an action input or calc
+   * argument; without it, one is refused with UNIMPLEMENTED
+   * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -215,6 +242,19 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "engines"      - the ListEngines RPC lists the analysis engines; the
+   * verification and sweep requests take an `engine`, the
+   * engine the question is put to, unset meaning "auto"; and
+   * their responses and every Verdict report the `engine` that
+   * answered with the `strength` of its evidence and the
+   * `bounds` it ran under. Without it a service drops the
+   * request field and answers under "auto", so a client must
+   * not send one.
+   * "engines_external" - the service was started with -serve-external-engines
+   * and runs the OPENSYSML_ENGINES manifest engines it names;
+   * ListEngines reports which with `served`. Without it every
+   * manifest engine is listed but a request naming one is
+   * refused with FAILED_PRECONDITION.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -283,6 +323,13 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "metaobject_values" - a Value carries an element reflected on as an
+   * instance of its metaclass (`x meta T`, the last element
+   * of `x.metadata`) as metaobject, named by the element and
+   * its metaclass, rather than reporting it as an unsupported
+   * null, and one is accepted as an action input or calc
+   * argument; without it, one is refused with UNIMPLEMENTED
+   * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -308,6 +355,19 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "engines"      - the ListEngines RPC lists the analysis engines; the
+   * verification and sweep requests take an `engine`, the
+   * engine the question is put to, unset meaning "auto"; and
+   * their responses and every Verdict report the `engine` that
+   * answered with the `strength` of its evidence and the
+   * `bounds` it ran under. Without it a service drops the
+   * request field and answers under "auto", so a client must
+   * not send one.
+   * "engines_external" - the service was started with -serve-external-engines
+   * and runs the OPENSYSML_ENGINES manifest engines it names;
+   * ListEngines reports which with `served`. Without it every
+   * manifest engine is listed but a request naming one is
+   * refused with FAILED_PRECONDITION.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -377,6 +437,13 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "metaobject_values" - a Value carries an element reflected on as an
+   * instance of its metaclass (`x meta T`, the last element
+   * of `x.metadata`) as metaobject, named by the element and
+   * its metaclass, rather than reporting it as an unsupported
+   * null, and one is accepted as an action input or calc
+   * argument; without it, one is refused with UNIMPLEMENTED
+   * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -402,6 +469,19 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "engines"      - the ListEngines RPC lists the analysis engines; the
+   * verification and sweep requests take an `engine`, the
+   * engine the question is put to, unset meaning "auto"; and
+   * their responses and every Verdict report the `engine` that
+   * answered with the `strength` of its evidence and the
+   * `bounds` it ran under. Without it a service drops the
+   * request field and answers under "auto", so a client must
+   * not send one.
+   * "engines_external" - the service was started with -serve-external-engines
+   * and runs the OPENSYSML_ENGINES manifest engines it names;
+   * ListEngines reports which with `served`. Without it every
+   * manifest engine is listed but a request naming one is
+   * refused with FAILED_PRECONDITION.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>

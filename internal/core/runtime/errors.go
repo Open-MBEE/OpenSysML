@@ -113,6 +113,14 @@ var (
 	// resolvable type.
 	ErrUnresolvedType = errors.New("unresolved type")
 
+	// ErrUnboundedExtent is returned when `all T` names a type whose instances no
+	// run enumerates: a data type that is not an enumeration (`all Integer`, `all Point`).
+	ErrUnboundedExtent = errors.New("unbounded extent")
+
+	// ErrExtentUnavailable is returned when `all T` would have to count objects the run cannot
+	// denote (a namespace-level usage of several occurrences) or cannot make without recursing.
+	ErrExtentUnavailable = errors.New("extent unavailable")
+
 	// ErrUndeterminedValueType is returned when a value classification has no
 	// direct runtime type to compare.
 	ErrUndeterminedValueType = errors.New("value type cannot be determined")
@@ -205,6 +213,17 @@ var (
 	// (`entry; if c then s;`) all have false guards, so it has no state to start in.
 	ErrNoEntryTransitionHolds = errors.New("no entry transition holds")
 
+	// ErrHistoryWithoutEntry is returned when a transition reaches a history
+	// pseudostate that has nothing to restore and nothing to enter instead: its
+	// owner was never left, the history has no default transition, and the owner
+	// declares no entry transition of its own.
+	ErrHistoryWithoutEntry = errors.New("history has no configuration to restore and no entry to fall back on")
+
+	// ErrChoiceWithoutBranch is returned when a compound transition reaches a
+	// choice pseudostate none of whose outgoing guards holds against the data as
+	// the segments into it left it.
+	ErrChoiceWithoutBranch = errors.New("choice has no enabled outgoing transition")
+
 	// ErrStatePerformanceOccurrence is returned when an exhibited machine cannot
 	// read or write the occurrence of its state usage.
 	ErrStatePerformanceOccurrence = errors.New("state performance occurrence unavailable")
@@ -216,6 +235,11 @@ var (
 	// ErrDoStepLimitExceeded is returned when a state do behavior exceeds its
 	// action-step budget.
 	ErrDoStepLimitExceeded = errors.New("state do-step limit exceeded")
+
+	// ErrStateBehaviorWaits is returned when an entry or exit behavior, or a
+	// transition effect, waits for the clock: those are performed whole at the
+	// instant they are triggered, and only a do behavior pauses on the clock.
+	ErrStateBehaviorWaits = errors.New("state behavior waits for the clock")
 
 	// ErrActionArity is returned when an action invocation passes more
 	// positional arguments than the action declares input parameters.
@@ -276,6 +300,10 @@ var (
 	// ErrUnitRoot is returned when the root of a quantity is taken whose unit
 	// has none: `sqrt(9 [m])`, since no unit squares to a metre.
 	ErrUnitRoot = errors.New("unit has no root")
+
+	// ErrScalePoint is returned when an operation is asked of a point on a
+	// measurement scale that has no meaning for a point (its multiple, the sum of two).
+	ErrScalePoint = errors.New("operation is not defined on a point of a measurement scale")
 
 	// ErrNotASatisfaction is returned when a satisfaction assertion is asked of
 	// an element that states none.
@@ -451,6 +479,19 @@ func (e *NoValueError) Error() string {
 
 func (e *NoValueError) Unwrap() error { return ErrNoValue }
 
+// CyclicBindingError reports a namespace-level usage whose value reaches back to the usage
+// itself while it is being bound, naming that usage.
+type CyclicBindingError struct {
+	Usage  *symbols.Symbol
+	Stated string
+}
+
+func (e *CyclicBindingError) Error() string {
+	return fmt.Sprintf("%v: %s", ErrCyclicFeatureValue, e.Stated)
+}
+
+func (e *CyclicBindingError) Unwrap() error { return ErrCyclicFeatureValue }
+
 // UnboundSubjectError reports a check whose subject nothing supplied, naming
 // the subject and how a caller supplies one.
 type UnboundSubjectError struct {
@@ -505,14 +546,19 @@ func (e *FeatureValueError) Unwrap() []error { return []error{ErrFeatureValueMat
 // defined for, naming the operator and both operands and carrying the span of
 // the expression so a surface holding the source can point at it.
 type OperandTypeError struct {
-	Op    string      // the operator, as written
-	Left  string      // description of the left operand's type
-	Right string      // description of the right operand's type
-	Span  source.Span // span of the operator expression
+	Op      string      // the operator, as written
+	Left    string      // description of the left operand's type
+	Right   string      // description of the right operand's type
+	Library string      // the library function that would have to declare it, if any
+	Span    source.Span // span of the operator expression
 }
 
 func (e *OperandTypeError) Error() string {
-	return fmt.Sprintf("%v: operator '%s' is not defined for %s and %s", ErrTypeMismatch, e.Op, e.Left, e.Right)
+	msg := fmt.Sprintf("%v: operator '%s' is not defined for %s and %s", ErrTypeMismatch, e.Op, e.Left, e.Right)
+	if e.Library != "" {
+		msg += "; " + e.Library
+	}
+	return msg
 }
 
 func (e *OperandTypeError) Unwrap() error { return ErrTypeMismatch }

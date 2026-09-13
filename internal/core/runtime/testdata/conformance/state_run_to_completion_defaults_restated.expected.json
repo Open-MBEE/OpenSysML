@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "evaluate": "test::Machine",
+  "events": [{"signal": "Go"}],
+  "finalState": "done",
+  "stateVisits": ["idle", "done"],
+  "outputs": {
+    "hits": {"type": "Integer", "value": 1}
+  }
+}

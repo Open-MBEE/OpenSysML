@@ -95,6 +95,10 @@ func (p *inprocess) serverInfo(ctx context.Context) (*pb.ServerInfoResponse, err
 	return answer(ctx, &pb.ServerInfoRequest{}, p.svc.GetServerInfo)
 }
 
+func (p *inprocess) listEngines(ctx context.Context, req *pb.ListEnginesRequest) (*pb.ListEnginesResponse, error) {
+	return answer(ctx, req, p.svc.ListEngines)
+}
+
 func (p *inprocess) parseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.ParseFileResponse, error) {
 	return answer(ctx, req, p.svc.ParseFile)
 }

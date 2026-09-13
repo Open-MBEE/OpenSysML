@@ -12,8 +12,7 @@ import (
 // CompileCalc compiles the named calc def and every calc it invokes to the
 // codegen IR. The error names the construct that kept a calc from compiling.
 func (s *Session) CompileCalc(name string) (*codegen.Program, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
 	if err != nil {
 		return nil, err

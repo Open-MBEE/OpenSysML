@@ -135,6 +135,9 @@ type Token struct {
 	// file without finding its closing "*/", so everything after the opener —
 	// possibly the rest of the document — is inside it.
 	Unterminated bool
+	// BadEscape marks a string or unrestricted name spelling a backslash escape
+	// outside the set its terminal admits; InvalidEscapes locates them.
+	BadEscape bool
 }
 
 // IsTrivia reports whether the token is hidden trivia (skipped by the parser).

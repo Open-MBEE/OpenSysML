@@ -212,9 +212,18 @@ func (ctx *Context) note(n RunNote) {
 		return
 	}
 	ctx.run.notes = append(ctx.run.notes, n)
+	if c, ok := n.(ChoicePoint); ok {
+		ctx.choices = append(ctx.choices, c.Choice())
+	}
 	if ctx.trace != nil {
 		ctx.trace.RecordNote(n)
 	}
+}
+
+// ChoicesTaken returns the choices every run of the context took, in order, as
+// a witness lists them: what a `replay` policy over them follows run by run.
+func (ctx *Context) ChoicesTaken() []ChoiceTaken {
+	return slices.Clone(ctx.choices)
 }
 
 // Notes returns what the latest run noted about itself, in order: its choice

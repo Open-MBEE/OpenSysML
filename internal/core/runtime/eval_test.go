@@ -71,7 +71,7 @@ func TestEval_Literals(t *testing.T) {
 		t.Run(tt.src, func(t *testing.T) {
 			// Wrap expression in attribute default
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 
 			// Extract expression from attribute value
 			attrSym := resolveSymbol(t, root, "test")
@@ -93,7 +93,7 @@ func TestEval_Literals(t *testing.T) {
 func TestEval_Arithmetic(t *testing.T) {
 	src := `attribute test = 1 + 2;`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	attrSym := resolveSymbol(t, root, "test")
 	attrDecl := attrSym.Decl.(*ast.Usage)
@@ -113,7 +113,7 @@ func TestEval_SequenceExpr(t *testing.T) {
 	// Test (1, 2, 3) sequence construction
 	src := `attribute test = (1, 2, 3);`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	attrSym := resolveSymbol(t, root, "test")
 	attrDecl := attrSym.Decl.(*ast.Usage)
@@ -143,7 +143,7 @@ func TestEval_StepLimit(t *testing.T) {
 	// (Step counter already wired in Context.incrementStep + eval.go)
 	src := `part def Simple {}`
 	model, resolver, _ := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 5) // very low limit
+	ctx := NewContext(NewModel(model, resolver), 5) // very low limit
 
 	// The budget bounds one run, so the literals are evaluated within one rather
 	// than starting a run each.
@@ -178,7 +178,7 @@ func TestEval_QualifiedNameLookup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, tt.src)
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 
 			testSym := resolveSymbol(t, root, "test")
 			testDecl := testSym.Decl.(*ast.Usage)
@@ -211,7 +211,7 @@ func TestEval_EqualityConst(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			attrSym := resolveSymbol(t, root, "test")
 			attrDecl := attrSym.Decl.(*ast.Usage)
 			result, err := ctx.Eval(attrDecl.Value)
@@ -240,7 +240,7 @@ func TestEval_EqualityString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			attrSym := resolveSymbol(t, root, "test")
 			attrDecl := attrSym.Decl.(*ast.Usage)
 			result, err := ctx.Eval(attrDecl.Value)
@@ -274,7 +274,7 @@ func TestEval_EqualityNull(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			attrSym := resolveSymbol(t, root, "test")
 			attrDecl := attrSym.Decl.(*ast.Usage)
 			result, err := ctx.Eval(attrDecl.Value)
@@ -304,7 +304,7 @@ func TestEval_EqualityCrossKind(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			attrSym := resolveSymbol(t, root, "test")
 			attrDecl := attrSym.Decl.(*ast.Usage)
 			result, err := ctx.Eval(attrDecl.Value)
@@ -334,7 +334,7 @@ func TestEval_LogicalAnd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			attrSym := resolveSymbol(t, root, "test")
 			attrDecl := attrSym.Decl.(*ast.Usage)
 			result, err := ctx.Eval(attrDecl.Value)
@@ -364,7 +364,7 @@ func TestEval_LogicalOr(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			attrSym := resolveSymbol(t, root, "test")
 			attrDecl := attrSym.Decl.(*ast.Usage)
 			result, err := ctx.Eval(attrDecl.Value)
@@ -393,7 +393,7 @@ func TestEval_LogicalNot(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			attrSym := resolveSymbol(t, root, "test")
 			attrDecl := attrSym.Decl.(*ast.Usage)
 			result, err := ctx.Eval(attrDecl.Value)
@@ -422,7 +422,7 @@ func TestEval_NegationArithmetic(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			attrSym := resolveSymbol(t, root, "test")
 			attrDecl := attrSym.Decl.(*ast.Usage)
 			result, err := ctx.Eval(attrDecl.Value)
@@ -450,7 +450,7 @@ func TestEval_NegationArithmeticReal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 			attrSym := resolveSymbol(t, root, "test")
 			attrDecl := attrSym.Decl.(*ast.Usage)
 			result, err := ctx.Eval(attrDecl.Value)
@@ -489,7 +489,7 @@ func TestEval_Track1Integration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, tt.src)
-			ctx := NewContext(model, resolver, 1000)
+			ctx := NewContext(NewModel(model, resolver), 1000)
 
 			testSym := resolveSymbol(t, root, "test")
 			testDecl := testSym.Decl.(*ast.Usage)
@@ -531,7 +531,7 @@ attribute test = %s;
 func evalEnumExpr(t *testing.T, expr string) (Value, error) {
 	t.Helper()
 	model, resolver, root := parseAndBuildModel(t, fmt.Sprintf(enumSource, expr))
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	testSym := resolveSymbol(t, root, "test")
 	return ctx.Eval(testSym.Decl.(*ast.Usage).Value)
 }
@@ -618,7 +618,7 @@ func TestEval_EnumerationLiteralOwnAttributes(t *testing.T) {
 func TestEval_EnumerationLiteralReadTwiceIsOneObject(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t,
 		fmt.Sprintf(enumSource, "D::Level::high.n == D::Level::high.n"))
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	testSym := resolveSymbol(t, root, "test")
 	val, err := ctx.Eval(testSym.Decl.(*ast.Usage).Value)
 	if err != nil {

@@ -108,7 +108,11 @@ func (c *calcCompiler) compileStatement(stmt lower.Statement, layout *frameLayou
 		if err != nil {
 			return nil, false, err
 		}
-		return declareStmt(s.Name, layout.declare(s.Name), value.expr()), false, nil
+		check, ok := c.localCheckFor(s)
+		if !ok {
+			return nil, false, ineligible(fmt.Sprintf("local %q declares a type outside the scalar lattice", s.Name))
+		}
+		return declareStmt(s, layout.declare(s.Name), value.expr(), check), false, nil
 	case lower.Return:
 		if s.Value == nil {
 			return nil, false, ineligible("return without a value")
@@ -195,13 +199,33 @@ func sequenceStmt(stmts []compiledStmt) compiledStmt {
 	}
 }
 
-// declareStmt evaluates a local's initializer into its slot, wording a failure
-// as the evaluator's declaration does.
-func declareStmt(name string, slot int, value compiledExpr) compiledStmt {
+// localCheckFor decides the declaration of a body-local for scalars; a local
+// declaring no feature holds anything.
+func (c *calcCompiler) localCheckFor(s lower.Declare) (*scalarCheck, bool) {
+	target, ok := c.ctx.writeTargetIn(s.Scope, s.Name)
+	if !ok {
+		return nil, true
+	}
+	check, ok := c.scalarCheckFor(&calcMemberDecl{Target: target, Owner: c.shape.BodyOwner, multStated: target.multStated})
+	if !ok {
+		return nil, false
+	}
+	return &check, true
+}
+
+// declareStmt evaluates a local's initializer into its slot and holds it to the
+// local's declaration, wording a failure as the evaluator's declaration does.
+func declareStmt(s lower.Declare, slot int, value compiledExpr, check *scalarCheck) compiledStmt {
 	return func(ctx *Context, frame []scalar) (scalar, bool, error) {
 		v, err := value(ctx, frame)
 		if err != nil {
-			return scalar{}, false, fmt.Errorf("eval declaration %s: %w", name, err)
+			return scalar{}, false, fmt.Errorf("eval declaration %s: %w", s.Name, err)
+		}
+		if check != nil && !check.accepts(v) {
+			boxed := v.boxed()
+			if err := ctx.checkBodyDeclaration(s.Scope, calcBodyDescription, s.Name, &boxed); err != nil {
+				return scalar{}, false, err
+			}
 		}
 		frame[slot] = v
 		return scalar{}, false, nil

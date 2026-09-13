@@ -3,7 +3,7 @@ package Constraints {
     constraint def MassLimit {
         in m : Mass;
         in limit : Mass;
-        m < limit;
+        m < limit
     }
     calc def Margin {
         in m : Mass;
@@ -18,26 +18,26 @@ package Constraints {
         assert constraint massOK : MassLimit;
         assert not constraint massBad : MassLimit;
         assert constraint {
-            mass > 0;
+            mass > 0
         }
         constraint bounds {
             mass > 0;
             mass != 0;
             not (mass > 1000);
             assert constraint inner {
-                mass < 1000;
+                mass < 1000
             }
         }
         requirement lightEnough {
             subject r : Rover;
             assume constraint {
-                r.mass > 0;
+                r.mass > 0
             }
             require constraint {
-                r.mass < 100;
+                r.mass < 100
             }
             require constraint {
-                r.mass < 200;
+                r.mass < 200
             }
             require MassLimit;
             assume MassLimit {

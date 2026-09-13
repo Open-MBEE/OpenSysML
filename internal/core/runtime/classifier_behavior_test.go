@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestInstantiateStartsExhibitedStateMachine(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
 	if err != nil {
@@ -62,7 +63,7 @@ func TestExhibitedMachinesOfTwoObjectsAreIndependent(t *testing.T) {
 		attribute def Toggle;
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	sym := resolveSymbol(t, root, "Light")
 
 	first, err := ctx.Instantiate(sym)
@@ -109,7 +110,7 @@ func TestExhibitedMachineWritesItsObjectsFeatureValues(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Counter"))
 	if err != nil {
@@ -141,7 +142,7 @@ func TestExhibitedMachineWritesItsOwnOccurrence(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Counter"))
 	if err != nil {
@@ -195,7 +196,7 @@ func TestBehaviorNamedFollowsRedefinition(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "FancyLamp"))
 	if err != nil {
@@ -262,7 +263,7 @@ func TestBehaviorNamedFollowsRedefinitionByAClassifier(t *testing.T) {
 				part room : Room;
 			`
 			model, resolver, root := parseAndBuildModel(t, src)
-			ctx := NewContext(model, resolver, 10000)
+			ctx := NewContext(NewModel(model, resolver), 10000)
 
 			room, err := ctx.Instantiate(resolveSymbol(t, root, "room"))
 			if err != nil {
@@ -323,7 +324,7 @@ func TestPerformedActionWritesItsOwnOccurrence(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Counter"))
 	if err != nil {
@@ -370,7 +371,7 @@ func TestDirectlyExecutedActionKeepsItsFeaturesLocal(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	exec, err := newActionExecutor(ctx, resolveSymbol(t, root, "Bump"), nil)
 	if err != nil {
@@ -406,7 +407,7 @@ func TestExhibitedMachineNormalizesItsManyValuedAttribute(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Log"))
 	if err != nil {
@@ -454,7 +455,7 @@ const invokeFixture = `
 // and writes that object's feature values and answers its declared outputs.
 func TestInvokeOperationPerformedByTheObject(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, invokeFixture)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Tank"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
@@ -520,7 +521,7 @@ func TestInvokeOperationPerformedByTheObject(t *testing.T) {
 func TestInvokeOperationCountsItsOwnCostAgainstBudget(t *testing.T) {
 	newInvocation := func(maxSteps int64) (*Context, *Instance) {
 		model, resolver, root := parseAndBuildModel(t, invokeFixture)
-		ctx := NewContext(model, resolver, maxSteps)
+		ctx := NewContext(NewModel(model, resolver), maxSteps)
 		inst, err := ctx.Instantiate(resolveSymbol(t, root, "Tank"))
 		if err != nil {
 			t.Fatalf("Instantiate: %v", err)
@@ -716,7 +717,7 @@ func TestCalcInvocationExpressionSeesPerformingObject(t *testing.T) {
 // Every path %invoke cannot run reports a typed error naming what it was asked.
 func TestInvokeOperationFailureModes(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, invokeFixture)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Tank"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
@@ -756,7 +757,7 @@ func TestPerformedActionWithoutAFlowStillMaterializes(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Camera"))
 	if err != nil {
@@ -783,7 +784,7 @@ func TestPerformedActionDeclaringAnOutputDefaultStarts(t *testing.T) {
 			part def Counter { perform action tick { ` + body + ` } }
 		`
 		model, resolver, root := parseAndBuildLibraryModel(t, src)
-		ctx := NewContext(model, resolver, 10000)
+		ctx := NewContext(NewModel(model, resolver), 10000)
 		inst, err := ctx.Instantiate(resolveSymbol(t, root, "Counter"))
 		if err != nil {
 			t.Errorf("%s: Instantiate: %v", name, err)
@@ -808,7 +809,7 @@ func TestPerformedActionOutputDefaultKeepsTheReferencedFlow(t *testing.T) {
 		}
 		part def Counter { perform action report : Report { out total = 7; } }
 	`)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Counter"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
@@ -850,7 +851,7 @@ func TestWritingOneValueToAManyValuedFeatureHoldsACollection(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Log"))
 	if err != nil {
@@ -877,7 +878,7 @@ func TestExhibitedMachineNamingNoBodyIsReported(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	_, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
 	if err == nil {
@@ -910,7 +911,7 @@ func TestExhibitsStateResolvesTheBodyABindingRuns(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	lamp := resolveSymbol(t, root, "Lamp")
 	member := func(name string) *symbols.Symbol {
 		sym, ok := lamp.Scope.LookupLocal(name)
@@ -979,7 +980,7 @@ func TestExhibitsStateThroughTheTypeOfABodyStatingUsage(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	lamp := resolveSymbol(t, root, "Lamp")
 	tuned, ok := lamp.Scope.LookupLocal("tuned")
 	if !ok {
@@ -1030,7 +1031,7 @@ func TestOperationOutputNamedLikeAFeatureAnswersTheCaller(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Gauge"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
@@ -1088,7 +1089,7 @@ func TestPerformedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
 
 	// Materialized alone, the waiter parks at the accept: nothing has sent it a
 	// message yet, which is quiescence for an object rather than a deadlock.
-	alone := NewContext(model, resolver, 10000)
+	alone := NewContext(NewModel(model, resolver), 10000)
 	waiter, err := alone.Instantiate(resolveSymbol(t, pkg.Scope, "Waiter"))
 	if err != nil {
 		t.Fatalf("Instantiate Waiter: %v", err)
@@ -1106,7 +1107,7 @@ func TestPerformedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
 
 	// Materialized beside a sender, the message wakes the parked action, which
 	// then writes its own object's feature value.
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	pair, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "Pair"))
 	if err != nil {
 		t.Fatalf("Instantiate Pair: %v", err)
@@ -1117,6 +1118,88 @@ func TestPerformedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
 	instanceAtPath(t, ctx, pair, "s")
 	if got := featureInt(t, ctx, nested, "woken"); got != 1 {
 		t.Errorf("woken = %d, want 1 once the sibling's message arrived", got)
+	}
+}
+
+// An object whose exhibited machine has a do behavior parked at an accept is woken
+// by the message a sibling sends: the message is work of that object, which
+// dispatching it to the do behavior takes off the bus.
+func TestStateDoBehaviorAwaitingAMessageIsWokenByASibling(t *testing.T) {
+	src := `
+		package test {
+			part def Waiter {
+				attribute woken: Integer = 0;
+				exhibit state waiting {
+					entry; then active;
+					state active {
+						do action await {
+							first start;
+							then action heard accept g : Integer;
+							then action mark assign woken := 1;
+							then done;
+						}
+					}
+				}
+			}
+
+			part def Sender {
+				exhibit state sending {
+					entry; then sent;
+					state sent { entry send 5 to w; }
+				}
+			}
+
+			part def Pair {
+				part w : Waiter;
+				part s : Sender;
+			}
+		}
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	pkg := resolveSymbol(t, root, "test")
+
+	alone := NewContext(NewModel(model, resolver), 10000)
+	waiter, err := alone.Instantiate(resolveSymbol(t, pkg.Scope, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	behavior, ok := waiter.ExhibitedState()
+	if !ok {
+		t.Fatalf("object exhibits no machine, behaviors: %v", waiter.Behaviors())
+	}
+	if behavior.hasPendingWork() {
+		t.Error("a do behavior parked at its accept is not work while no message is in flight")
+	}
+	if got := featureInt(t, alone, waiter, "woken"); got != 0 {
+		t.Errorf("woken = %d before any message, want 0", got)
+	}
+	five := integerValue(5)
+	alone.PostMessage(Message{SignalType: "Integer", Value: &five})
+	if !behavior.hasPendingWork() {
+		t.Fatal("the message in flight is work of the object whose do behavior is parked at an accept for it")
+	}
+	if err := alone.drainObjectBehaviors(); err != nil {
+		t.Fatalf("run the object's behaviors: %v", err)
+	}
+	if got := featureInt(t, alone, waiter, "woken"); got != 1 {
+		t.Errorf("woken = %d, want 1 once the do behavior went on from its accept", got)
+	}
+	if left := alone.PendingMessages(); len(left) != 0 {
+		t.Errorf("%d messages left in flight, want the one taken by the do behavior", len(left))
+	}
+
+	ctx := NewContext(NewModel(model, resolver), 10000)
+	pair, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "Pair"))
+	if err != nil {
+		t.Fatalf("Instantiate Pair: %v", err)
+	}
+	nested := instanceAtPath(t, ctx, pair, "w")
+	instanceAtPath(t, ctx, pair, "s")
+	if got := featureInt(t, ctx, nested, "woken"); got != 1 {
+		t.Errorf("woken = %d, want 1 once the sibling's message arrived", got)
+	}
+	if left := ctx.PendingMessages(); len(left) != 0 {
+		t.Errorf("%d messages left in flight, want the sibling's taken by the do behavior", len(left))
 	}
 }
 
@@ -1134,7 +1217,7 @@ func TestFailedMaterializationLeavesNoBehaviorBehind(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	broken, err := ctx.Instantiate(resolveSymbol(t, root, "Broken"))
 	if err == nil {
@@ -1184,7 +1267,7 @@ func TestObjectExhibitsAMachineTypedByTheLibraryStateAction(t *testing.T) {
 			}`
 			model, resolver, root := parseAndBuildLibraryModel(t, src)
 			pkg := resolveSymbol(t, root, "test")
-			ctx := NewContext(model, resolver, 10000)
+			ctx := NewContext(NewModel(model, resolver), 10000)
 
 			inst, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "Mission"))
 			if err != nil {
@@ -1240,7 +1323,7 @@ func TestFailedMaterializationLeavesNoNeighbourBehind(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	if _, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "bad")); err == nil {
 		t.Fatal("expected the machine with no initial state to fail materialization")
@@ -1289,7 +1372,7 @@ func TestMutuallyAddressedObjectsAreMaterializedOnce(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	pair, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "Pair"))
 	if err != nil {
@@ -1349,7 +1432,7 @@ func TestFailedNestedStartFailsTheHolder(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	sym := resolveSymbol(t, pkg.Scope, "group")
 	if _, err := ctx.Instantiate(sym); err == nil {
@@ -1389,7 +1472,7 @@ func TestOptionalBehavingPartIsNotCreatedWithItsHolder(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "holder"))
 	if err != nil {
@@ -1424,7 +1507,7 @@ func TestOptionalBehavingPartIsNotCreatedWithItsHolder(t *testing.T) {
 	`
 	model, resolver, root = parseAndBuildModel(t, src)
 	pkg = resolveSymbol(t, root, "test")
-	ctx = NewContext(model, resolver, 10000)
+	ctx = NewContext(NewModel(model, resolver), 10000)
 	if _, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "holder")); !errors.Is(err, ErrMultiplicityViolation) {
 		t.Errorf("creating a holder of an unbounded required part: got %v, want ErrMultiplicityViolation", err)
 	}
@@ -1442,7 +1525,7 @@ func TestOptionalBehavingPartIsNotCreatedWithItsHolder(t *testing.T) {
 	`
 	model, resolver, root = parseAndBuildModel(t, src)
 	pkg = resolveSymbol(t, root, "test")
-	ctx = NewContext(model, resolver, 10000)
+	ctx = NewContext(NewModel(model, resolver), 10000)
 	if _, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "holder")); err == nil || !strings.Contains(err.Error(), "unknown multiplicity") {
 		t.Errorf("creating a holder of a required part of unknown upper bound: got %v, want an unknown-multiplicity error", err)
 	}
@@ -1468,7 +1551,7 @@ func TestStartupNamingItsOwnUsageReachesTheObjectCreated(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	sym := resolveSymbol(t, pkg.Scope, "counter")
 
 	first, err := ctx.Instantiate(sym)
@@ -1478,16 +1561,16 @@ func TestStartupNamingItsOwnUsageReachesTheObjectCreated(t *testing.T) {
 	if got := len(ctx.instances); got != 2 {
 		t.Errorf("%d objects materialized, want the counter and its state performance", got)
 	}
-	if id := ctx.occurrences[sym]; id != first.ID {
-		t.Errorf("counter denotes object %d, want the one created, %d", id, first.ID)
+	if ids := ctx.occurrences[sym]; !slices.Equal(ids, []int64{first.ID}) {
+		t.Errorf("counter denotes objects %v, want the one created, %d", ids, first.ID)
 	}
 
 	second, err := ctx.Instantiate(sym)
 	if err != nil {
 		t.Fatalf("Instantiate counter again: %v", err)
 	}
-	if id := ctx.occurrences[sym]; id != second.ID {
-		t.Errorf("counter denotes object %d after a second creation, want %d", id, second.ID)
+	if ids := ctx.occurrences[sym]; !slices.Equal(ids, []int64{second.ID}) {
+		t.Errorf("counter denotes objects %v after a second creation, want %d", ids, second.ID)
 	}
 	if _, held := ctx.Instance(first.ID); !held {
 		t.Error("the first object is gone after a second creation")
@@ -1507,12 +1590,13 @@ func TestMessageLeftForACompletedMachineDoesNotBlockANewObject(t *testing.T) {
 					accept Ping then working;
 					succession first inner then done;
 				}
+				succession first working then done;
 			}
 		}
 		attribute def Ping;
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	sym := resolveSymbol(t, root, "Chirp")
 
 	first, err := ctx.Instantiate(sym)
@@ -1576,7 +1660,7 @@ func TestPerformedActionDecidesOnItsOwnWrite(t *testing.T) {
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Watchdog"))
 	if err != nil {

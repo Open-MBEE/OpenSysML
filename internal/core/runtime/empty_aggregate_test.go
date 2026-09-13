@@ -11,6 +11,8 @@ import (
 
 // emptyAggregateModel declares collections of every kind an aggregate is taken
 // over, each without a member, so that what an empty aggregate yields is read.
+// They are read on the instantiated rig: at model level a valueless `[*]`
+// collection is undetermined, on an object it is empty.
 const emptyAggregateModel = `
 	package test {
 		public import ScalarValues::*;
@@ -55,6 +57,9 @@ func emptyAggregateContext(t *testing.T) (*Context, *symbols.Scope) {
 	if !ok || pkg.Scope == nil {
 		t.Fatal("test package not indexed")
 	}
+	if _, err := ctx.Instantiate(lookupOne(t, idx, "test::rig")); err != nil {
+		t.Fatalf("Instantiate rig: %v", err)
+	}
 	return ctx, pkg.Scope
 }
 
@@ -95,7 +100,7 @@ func TestEmptyQuantityAggregateKeepsTheDeclaredKind(t *testing.T) {
 		{"500 [g] + sum(rig.masses)", "500.0 [g]"},
 		{"rig.total", "10 [kg]"},
 		{"rig.grams", "500.0 [g]"},
-		{"rig.area", "0 [m**2]"},
+		{"rig.area", "0 [SI::'m²']"},
 		{"rig.mapped", "0 [kg]"},
 		{"rig.mappedTotal", "10 [kg]"},
 		{"rig.inverted", "10 [kg]"},
@@ -159,8 +164,8 @@ func TestEmptiedQuantityCollectionKeepsItsKind(t *testing.T) {
 // so a sum over it there is still a zero of that kind.
 func TestAdoptKeepsTheKindOfAWrittenEmptyQuantityCollection(t *testing.T) {
 	prev, scope := emptyAggregateContext(t)
-	prev.RegisterSource(source.New("<test>", []byte(emptyAggregateModel)))
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "test::Rig"))
+	prev.Model().RegisterSource(source.New("<test>", []byte(emptyAggregateModel)))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "test::Rig"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -177,7 +182,7 @@ func TestAdoptKeepsTheKindOfAWrittenEmptyQuantityCollection(t *testing.T) {
 	shapes := prev.ShapesOf(obj)
 
 	ctx, scope := emptyAggregateContext(t)
-	ctx.RegisterSource(source.New("<test>", []byte(emptyAggregateModel)))
+	ctx.Model().RegisterSource(source.New("<test>", []byte(emptyAggregateModel)))
 	if _, err := ctx.Adopt(prev, shapes, obj); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}

@@ -1,0 +1,19 @@
+exit: idle
+stmt assign x
+  eval literal 1 -> 1
+  eval feature x -> 1
+  eval literal 1 -> 1
+eval operator == -> true
+  eval feature x -> 1
+  eval literal 2 -> 2
+eval operator == -> false
+  eval feature x -> 1
+  eval literal 1 -> 1
+eval operator == -> true
+stmt assign x
+  eval literal 2 -> 2
+enter: seen
+transition: idle -> seen
+exit: seen
+enter: done
+transition: seen -> done

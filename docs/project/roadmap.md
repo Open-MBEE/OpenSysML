@@ -9,9 +9,10 @@ item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
-> `D3.4`, `D7`, `D8`, `D9`, `D10`) that other records, the known-violations inventory and the ontology
-> package's README cross-reference; `L` names the library items, `N` the native compilation
-> track, `R` the release follow-through, `F` the executor defects the conformance gate carried as
+> `D3.4`, `D7`, `D8`, `D9`, `D10`, `D11`, `D12`) that other records, the known-violations inventory
+> and the ontology package's README cross-reference; `L` names the library items, `N` the native
+> compilation track, `R` the release follow-through, `W` the diagram output formats a view
+> rendering is written in, `F` the executor defects the conformance gate carried as
 > known failures (closed), `S` the multiple-valid-executions work the executor needed before
 > Track E (landed), `E` the behavior-execution semantics the runtime does not yet have, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
@@ -74,7 +75,7 @@ because each retires or narrows a roadmap line.
 - *Queries, documents and migration.* Queries project `shortName`, `declaredShortName` and
   `documentation`, read quantity-valued and derived attribute values, and documents render query
   rows as prose; `-html-mermaid` and `-html-theme` for the HTML backend; SysML v1 models exported
-  from Cameo/MagicDraw migrate to v2 (experimental).
+  as OMG XMI migrate to v2 (experimental).
 - *Release.* Windows releases ship an installer and the Scoop, winget and MSYS2 manifests are
   maintained as templates (R4); the Linux `amd64` binaries are static and no longer require glibc
   2.34; pull requests run one CI (GitHub Actions) and CircleCI runs on `main` and tags; the
@@ -148,23 +149,23 @@ of the pilot corpora fails `cmd/pilot-diff`, `cmd/pilot-xpect` and the `TestPilo
 with a provenance message naming the drift; that is the gate working, not a regression — re-fetch
 before re-recording anything.
 
-| Gate | Count at `main` @ `180773449` (2026-09-09, Go 1.25.0); the `v0.6.0` figure in brackets where it moved |
+| Gate | Count at `develop` @ `074f9c4b7` (2026-09-13, Go 1.25.0); the `v0.7.0` figure in brackets where it moved |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
-| OMG pilot corpora (ratchet) | 213 files; 6 report a diagnostic, each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 98/98 clean — 94 vendored OMG files and 4 non-normative OpenSysML extensions |
-| Execution conformance cases | 770 under `TestExecutionConformance`, all run and pass, none skipped [674: 671 run, 3 skipped] |
-| Known execution-conformance failures | **0** — `known_failures.txt` holds no case: "every derived case passes" [3] |
-| Cases admitting several outcomes | 19 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [0] |
-| Trace partial orders | 5 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [0] |
-| Golden execution traces | 216 `.trace.golden` files: 182 under the default schedule (`TestExecutionTrace`, one per case) and 34 per-policy goldens (`<case>.declared`, `<case>.seed-1`) [140] |
-| Runtime robustness cases | 369 first-level subtests of `TestRuntimeRobustness`; `docs/project/spec-compliance.md` enumerates 337 of them by name and `README.md` still states 336 [336] |
+| OMG pilot corpora (ratchet) | 213 files; 7 report a diagnostic [6], each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
+| Stdlib parser conformance | 100/100 clean — 94 vendored OMG files and 6 non-normative OpenSysML extensions |
+| Execution conformance cases | 889 under `TestExecutionConformance`, all run and pass, none skipped [770] |
+| Known execution-conformance failures | **0** — `known_failures.txt` holds no case: "every derived case passes" |
+| Cases admitting several outcomes | 25 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [19] |
+| Trace partial orders | 7 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [5] |
+| Golden execution traces | 272 `.trace.golden` files: 228 under the default schedule (`TestExecutionTrace`, one per case) and 44 per-policy goldens (`<case>.declared`, `<case>.seed-1`) [216: 182 and 34] |
+| Runtime robustness cases | 457 first-level subtests of `TestRuntimeRobustness` [369] |
 | gRPC conformance fixtures / robustness cases | 15 / 8 (`TestGRPCConformance`, `TestGRPCRobustness`; the authoring service adds 2 robustness cases of its own) |
-| Golden AST fixtures | 197 (`TestGolden`: 171 SysML, 26 KerML) [195: 169 SysML] |
-| Negative parser subtests | 249 first-level subtests of `TestNegative` (338 across the `TestNegative*` functions, 396 across every `*Negative*` parser test); unchanged |
-| Rejection oracle | 285 self-authored invalid models: 273 both reject by default and 276 when we are asked strictly, 3 the pilot alone by default and none strictly, 9 ours alone (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
+| Golden AST fixtures | 204 (`TestGolden`: 176 SysML, 28 KerML) [197: 171 SysML, 26 KerML] |
+| Negative parser subtests | 252 first-level subtests of `TestNegative` (396 across the `TestNegative*` functions, 454 across every `*Negative*` parser test) [249: 338 and 396] |
+| Rejection oracle | 306 self-authored invalid models: 293 both reject by default and 297 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [285: 273 and 276, 3 the pilot alone] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
 | Validation census | 162 of 217 named constraints reported (156 faithful, 6 approximate), 1 not implemented, 1 deliberate, 53 unknown |
-| RDF corpus round trip | 346 of 346 models stable, none refused |
+| RDF corpus round trip | 353 of 353 models stable, none refused [346] |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
@@ -172,14 +173,14 @@ docs-counts` from the committed baselines; they are not repeated here.
 
 The test-suite figures above are counted from `go test -v` at the commit the table names. The
 other surfaces `releasing.md` allows to repeat them (`README.md`, `docs/project/spec-compliance.md`,
-`docs/project/training-examples.md`) are still typed in by hand, and at this baseline they
-state the `v0.6.0` figures #108 recounted (671 conformance cases, 140 traces, 336 robustness
-cases, 195 golden ASTs, 15,139 tests and subtests) rather than the ones above; `make docs-counts`
+`docs/project/training-examples.md`) are still typed in by hand and were recounted at the same
+commit, so they agree with the table; `make docs-counts`
 generates only the refereed pilot figures and does not check them. Folding the test-suite figures
 into `cmd/doc-counts` so they are generated like the pilot figures and can no longer drift is the
 small open item listed under sequencing, and the recount of those surfaces for the next release belongs to
 the release procedure (`releasing.md`), not to this record. The census, rejection-oracle and RDF
-round-trip rows follow the committed baselines, none of which moved since the tag.
+round-trip rows follow the committed baselines; the census did not move since the tag, the other
+two grew with the corpus and the baseline (bracketed above).
 
 Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
 present. It counts only each package's own tests, which understates a package consumed by others
@@ -507,7 +508,7 @@ drops what those items carry. Every surface says so (`export.ExperimentalNotice`
 it to stable is re-measuring the harness once those land, not a documentation change.
 
 Measured by the per-file ratchet at this baseline (`TestCorpusRoundTrip`,
-`internal/core/export/testdata/corpus_roundtrip_expected.txt`), **all 346 models under
+`internal/core/export/testdata/corpus_roundtrip_expected.txt`), **all 353 models under
 `examples/` convert** (the training corpus, the three pilot corpora and this repository's own
 demos), every one round-tripping `notation → RDF → notation → RDF` byte-identically; there is no
 whitespace-only, graph-diff, unwritable, unparseable or refused verdict left — each file is
@@ -831,6 +832,64 @@ instead of a graph, reporting what that path keeps that the Turtle one loses or 
 D1 and D2, since the element form inherits their vocabulary; before D9.2 if the branch read is to
 have a choice of representation.
 
+## D12 — the normative element ids of the standard library (done)
+
+KerML fixes the `elementId` of every **named** standard-library element as a name-based UUID
+(RFC 4122 version 5): the library package's id is `uuid5(NAMESPACE_URL, <prefix> + <escaped
+name>)` with the prefix `https://www.omg.org/spec/KerML/` or `https://www.omg.org/spec/SysML/`
+for the KerML and SysML halves of the library, a named descendant's id is `uuid5(<package id>,
+<qualified name>)`, and its owning membership's is the same with `/owningMembership` appended.
+The pilot's XMI carries exactly these — `ScalarValues::Real` is
+`14c0aa22-5489-59b5-b438-ded26e83ba31` under `ScalarValues`'s
+`40bb440c-5036-58e1-8675-5afccb8b8f1d` — and so does every SysML v2 API server that serves the
+library, so a reference to a library element agrees across tools without either side having
+seen the other's model.
+
+Before this item a library element's id was `rdf.EncodeElementID` over its qualified name
+(`ScalarValues__Real`), the same derivation user elements get when no
+`@IdentityMetadata::ElementId` declares one ([the RDF mapping](../reference/rdf-mapping.md),
+*Element identity*). Nothing was invalid — the encoded id is a legal IRI tail and the alphabet
+Flexo's `requireValidId` accepts — but a graph, an API payload or an element-by-element comparison
+that named `Integer`, `kg` or `Performances::Performance` named an element no other tool had,
+and a project on Flexo that types its parts by the library's ids did not resolve against ours.
+The encoded name is **reversible** (`rdf.DecodeElementID` recovers the qualified name exactly)
+and a version-5 UUID is not, since it is a SHA-1; that is the trade, and the item keeps both: the
+normative UUID is the library element's `elementId` and IRI tail, and `sysml:qualifiedName` —
+which reading a graph back already takes the name from — stays the readable form.
+
+What landed:
+
+1. **The derivation.** `internal/core/identity/normative` derives the element and owning
+   membership UUIDs from a qualified name, with the pilot's quoting of names; `identity` maps the
+   bundled library's tiers to the two prefixes (kernel libraries to KerML, systems and domain
+   libraries to SysML) and catalogs every named, non-aliased, non-shadowed library symbol once
+   per library index. `TestPilotLibraryXMI` asserts the catalog against the pilot's own
+   `sysml.library.xmi` at the pinned release commit (`scripts/download-pilot-library-xmi.sh`,
+   through the same `scripts/pilot-pin.sh` the corpora use): every id it derives is an element
+   the XMI carries under the same owning membership, and every named XMI element is derived, bar
+   the one payload an `accept` trigger declares inside a transition (`Actions::AcceptAction::
+   aState::aTransition::apayload`), which OpenSysML does not hold as a member of the transition;
+   the test lists it, so deriving it one day fails the gate until the list shrinks. CI downloads
+   the XMI and
+   sets `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`, so the test fails rather than skips there.
+   Unnamed and implied library elements are out of scope by design — the norm gives them
+   positional ids that depend on each implementation's implied-relationship closure, so they do
+   not agree even between the pilot and other conforming tools.
+2. **The consumers.** The RDF writer's IRI, `sysml:elementId` and owning-membership IRI take the
+   normative id for a library element and the encoded name for everything else, and the reader
+   does not re-materialize an `@ElementId` for a normative id; the Flexo sync classifies a
+   normative id as neither declared nor mintable; `identity.Info` reports which of the three
+   sources an id came from (declared, normative, derived) and the language, and the LSP hover
+   says so (`Element id \`14c0aa22-…\` (normative, KerML)`) while the minting code action stays
+   off library elements. User elements are unchanged: `@ElementId` when declared, the encoded
+   name otherwise.
+3. **The ratchets.** Neither `TestCorpusRoundTrip` nor the Flexo live-stack expectation moved:
+   the corpora convert user models, whose references reach the library by `sysml:qualifiedName`,
+   not by id, and the interop fixtures own no library element.
+
+Extends D3's identity work; D11's `api-json` payloads are the first surface where a foreign
+reader compares our library ids to its own.
+
 ---
 
 # Track F — the executor defects the conformance gate carried (closed)
@@ -1005,7 +1064,9 @@ shared simulation clock (`Context.Clock()`, `Context.Advance`, `accept after`/`a
 token in an action body, `due order` as a choice point), so every E item is written against a
 named scheduling policy and a shared clock, not an implicit order. Each item below ends with
 what would move it forward; until that happens, the honest status is the "not supported" bullet
-or the refusal.
+or the refusal. E8–E10 are the three findings about the runtime's own conformance in
+`docs/internals/design/precise-semantics-alignment.md` that concern state machines: E8 is open,
+E9 and E10 landed with the change set that decided the note's open decisions.
 
 Two things about the list's own terms. First, four of the seven items — interruptible regions,
 expansion regions, streaming pins, protocol state machines — are UML 2.5.1 concepts that SysML v2
@@ -1303,6 +1364,104 @@ expression yielding no object. `spec-compliance.md`: the Known Limitations bulle
 supported" bullet both leave. **Prioritize when** the object-model item lands, since without it
 there is no second object to address.
 
+## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions
+
+**Today.** `Kernel Semantic Library/Occurrences.kerml` declares, on every `Occurrence`,
+`isRunToCompletion: Boolean [1] default true` — "determines whether transition performances might
+happen during state entry performances within the run to completion scope" — and
+`runToCompletionScope: Occurrence [1] default self`, and `StatePerformances.kerml` redefines both
+on `StatePerformance` (`default this.isRunToCompletion`, `default this.runToCompletionScope`) with
+the invariant that under `isRunToCompletion` every `TransitionPerformance` within the scope
+precedes or follows the state's `entry`. The runtime implements the defaults and only the
+defaults: `runtime/state_executor.go` `runStep` → `processNextEvent` dispatches one occurrence
+per step and `enterStateInto` runs a state's entry behavior and its regions' initial entries to
+the end before the step returns, so no transition fires during an entry; the scope is always the
+whole machine, since `run` is one loop over one `eventQueue`. A model that redefines either
+feature to anything else — narrowing the scope to one composite, or switching run-to-completion
+off so that a transition may fire while a sibling's entry is still performing — is refused when
+the machine is lowered: `lower/run_to_completion.go` `refuseRunToCompletionRedefinitions` judges
+the redefinition each body makes effective (its own, or the one it inherits from a specialized
+definition, the target resolved to its library symbol so an alias is caught) and returns the typed
+`lower.RunToCompletionRedefinition`, an `ErrUnsupportedStateContent` naming the feature, the
+declaring state and the value written, for `false`, for a scope other than the machine itself, and
+for a value it cannot verify restates the default. A redefinition restating the default (`= true`,
+`= self` on the machine) runs. Before that, such a model was run under the defaults with no
+diagnostic. The lowered `StateGraph` still carries neither feature; the precise-semantics
+alignment note records the refusal, and the remaining gap, against its SM1 row.
+
+**Target.** The two declarations above, read from the model. `isRunToCompletion = false` on a
+scope means the library no longer orders transition performances within that scope against
+entry performances, so the executor may — and under `explore` must — interleave a dispatch with
+an ongoing entry there; `runToCompletionScope` names the occurrence within which the ordering
+holds, so a scope narrower than the machine leaves transitions outside it free to fire while a
+state inside it is entering. A redefinition that names no occurrence, or a scope that is not an
+ancestor of the redefining state, is a typed error.
+
+**Work.** Lower both features per state into the `StateGraph` (the value expression, or the
+inherited default), resolved through the same redefinition walk `lower/state_graph.go` uses for
+entry transitions; give the state executor a per-scope step boundary in place of the single
+`runStep` one — a dispatch that arrives while an entry is performing is held at the boundary of
+the innermost enclosing scope with `isRunToCompletion` true, and taken as a move where it is
+false — and record the interleaving as a choice point (`scheduling.md`) so `explore` enumerates
+it and `seed:<n>` replays it. The default configuration must run every existing fixture and
+trace golden unchanged. Independent of E1–E7; touches the loop E1 and E2 also edit.
+
+**Proof.** The refusal is pinned: conformance `state_run_to_completion_redefined_false`,
+`_scope_narrowed`, `_inherited_redefinition`, `_region_redefinition`, `_unverified` and
+`_alias_redefinition` expect the typed error, `_defaults_restated` and `_default_restored` run,
+`robustness_test.go` `run_to_completion_*` match it with `errors.As`, and
+the state rendering (`view/render_test.go`) and the REPL's `%state` (`repl/runtime_commands_test.go`)
+show the same message. The implementation adds:
+conformance for a redefinition to `false` on a composite whose entry sends a signal the composite
+itself accepts, pinning that the transition fires during the entry where the default holds it
+until after; a narrowed scope with a sibling region's transition firing during the scoped state's
+entry; the default unchanged. A trace golden for the interleaving order. Robustness: a scope that
+is not an ancestor. `spec-compliance.md`: the run-to-completion row gains the two features with
+file:function in place of the refusal; the alignment note's SM1 row and its finding move to
+agreement. **Prioritize when** a user model redefines either feature — none in the corpora does
+today — or when the model checker's stage 3 needs the interleaving as a move.
+
+## E9 — a composite state's completion fires its own completion transition (landed)
+
+**Landed** with the state-machine rules of `docs/internals/design/precise-semantics-alignment.md`
+(SM11). Before, a `then done;` in a composite state's body ended the whole machine
+(`completeIfDone` → `machineComplete`) and a nil-trigger transition out of that composite was
+never scheduled, so `state outer { … then done; } transition first outer then next;` never
+reached `next`. `States.sysml` binds `done` to the `StatePerformance::endShot` of the state whose
+body names it, and `TransitionPerformances.kerml` places a transition's effect and target after
+its source's performance, so the machine's end there had no basis in the library. Now `done` in a
+composite's body lowers to that composite's own completion vertex
+(`lower/state_graph.go:completionOwner`); once its do behavior and every region have ended the
+composite completes and `scheduleCompletedComposites` → `scheduleCompletionTransitions` queues its
+nil-trigger transitions as completion events at the current instant, ordered as a leaf's are; and
+`machineComplete` ends the machine only when its top-level regions are all at `done`. A completed
+composite with no enabled completion transition stays completed and active — both PSSM
+(§8.5.9, the completion event is lost) and SysML v2 §7.18.3 ("does not necessarily terminate
+immediately") agree that nothing ends there, and neither says more. Pinned by
+`state_outer_completion_to_next`, `state_composite_completion_then_machine_done`,
+`state_composite_completion_nested`, `state_composite_completion_inside_region`,
+`state_completion_nested_regions` and `state_entry_transition_nested_done` (each rewritten with a
+completion transition out of the composite), their `_stay_active` siblings, and the unit tests in
+`state_completion_test.go`; `spec-compliance.md`'s completion rows carry the rule.
+
+## E10 — a choice's guards are read after the incoming effect; a junction's before (landed)
+
+**Landed** with the same change set (SM30). `pseudostates.md` had always described a choice as a
+dynamic branch whose guards are read when it is entered, while `resolveRoute` picked the branch
+for choice and junction alike before the incoming transition's effect ran, and a code comment
+called the two indistinguishable for a guard over state data. Now a route is settled before firing
+only up to the first choice — junctions along it statically, as before, a junction with no
+enabled branch still meaning the transition is not enabled — and firing exits the states every
+branch of the choice leaves, runs the effects into it and only then reads its guards
+(`state_route.go:travel` → `resolveChoice`); several enabled is the existing `ChoiceTransition`
+point at `choice <name>`, enumerated by `explore`; none enabled is the typed
+`ErrChoiceWithoutBranch`. On a chain each pseudostate follows its own rule at the point the route
+reaches it. Pinned by `state_choice_after_incoming_effect` (`assign x := 1 then pick; … if x == 1
+then seen` reaches `seen`), `state_choice_dynamic_conflict`, the three
+`state_pseudostate_chain_*` fixtures, `TestExploreDynamicChoiceBranches` and
+`robustness_test.go:state_choice_without_an_enabled_branch`; every other `state_choice_*` fixture
+kept its outcome.
+
 ---
 
 # Track X — expression forms the evaluator did not reach
@@ -1529,8 +1688,9 @@ calcs, constraints, requirements, actions, state machines and, since 0.6.0, an *
 expect from "SysML v2 execution" hangs off that keystone, and since the tag four of the five
 landed on `main`: verification verdicts (A6, #117), parameter sweeps (A3, #118), the trade study
 (A2, #133) and the shared clock (A5, #136). What is open in the track is A4, the state-space
-runner, which A5 unblocked. Every item below is self-assessed (the pilot executes none of this);
-A4 is not started, and no surface claims to integrate a `StateSpaceRepresentation`.
+runner, which A5 unblocked, and A7, one verdict for every assertion an object carries. Every item
+below is self-assessed (the pilot executes none of this); neither is started, and no surface
+claims to integrate a `StateSpaceRepresentation` or to validate an object as a whole.
 
 ## A1 — an analysis case runs (landed)
 
@@ -1654,6 +1814,47 @@ unchanged. Over gRPC the verdicts are `verification_verdicts` fields under the
 `-json` reports them under `verifications`; the Go and Python clients expose them as
 `Verifications`/`verifications`. What it leaves, by design: a case performed as a step of another
 is reported on its own, marked as a subcase, since the library states no roll-up.
+
+## A7 — an object validates as a whole: every assertion it carries, in one verdict
+
+An object is checked today one assertion at a time. `-instantiate car -constraint C`,
+`%constraint C`, `%requirement R`, `%satisfy` and the `VerifyConstraint`/`VerifyRequirement`/
+`VerifySatisfaction` RPCs each name the element to judge, and the runtime finds the object that
+carries it (`Context.conditionSubject`, `carriersUnder`): the constraint's or requirement's
+conditions are then read from that object's feature values — `car`'s 1800 kg, not `Vehicle`'s
+default — and structural conformance (multiplicity, type, uniqueness, binding conflicts) is
+refused at materialization and on every write (`checkAdmits`, `write_conformance.go`). What no
+surface offers is the question a modeler asks first: *is this object valid?* — every `assert
+constraint` declared on the object's type or on any part nested under it, every requirement usage
+it or its parts carry, and every `satisfy` assertion whose subject lies in the tree, judged on the
+object that carries each and reported together. `-validate` is not that: it reports only that the
+model analysed cleanly and that the objects `-instantiate` asked for could be built, and the CLI
+reference says so. Reaching the whole set today means knowing every assertion's name, one command
+each, and `%constraint C` refuses when two nested parts both carry `C` ("check it on one of
+them"), so a `part wheels : Wheel[4]` with an asserted constraint cannot be judged on all four in
+one step at all.
+
+The semantics are already the runtime's. An `assert constraint` is KerML's `Invariant`
+(`AssertConstraintUsage`, SysML v2 §8.3.19.2; `Invariant::isNegated`, §8.3.21.10): a Boolean
+expression that must be true of every instance of its featuring type, negated by `assert not`,
+which is exactly what `CheckConstraintOn` evaluates for one carrier; requirements and `satisfy`
+assertions have `CheckRequirementOn` and `CheckSatisfactionOn` likewise. A7 is the sweep over
+them: walk the object's part tree (the composite features `Instantiate` materialized, collections
+included), collect on each object the invariants and requirement usages its type declares or
+inherits and the `satisfy` assertions whose subject it is, evaluate each on that object, and
+report one verdict per (assertion, carrier) — `holds`, `violated` with the condition, or
+`undecided` with the reason, each with the object's path (`car.wheels[2]`) — beside one overall
+verdict, `valid` only when every line holds. Surfaces: `-validate <object>` (the flag already
+exists; given an object reference it does this and keeps its present meaning bare), `%validate
+<object>`, a `ValidateInstance` RPC under its own capability, `-json` under `validation`, and the
+Go and Python clients. Unasserted constraints (`constraint c { … }` with no `assert`) are declared,
+not asserted, and are left out — they are what `%constraint` is for — and the verification-case
+verdicts A6 reports beside a requirement are reported beside it here too. The pilot cannot referee
+any of this, so the evidence is the conformance fixtures: one object with asserted constraints at
+three depths and a collection part, a violated nested assertion, an ambiguous-by-name pair that
+this sweep disambiguates by carrier, and a `satisfy` whose subject is a nested part. Depends on
+nothing open; Q2's population (`all T`) would let the same sweep run over every object of a type
+rather than one tree, and should share the carrier walk rather than add one.
 
 ---
 
@@ -1870,6 +2071,105 @@ showing it unset. Small; after B2, and it belongs with Q1's page that says which
 
 ---
 
+# Track W — diagram output formats
+
+A view's rendering is a `view.Rendering` — typed nodes (`part def`, `state`, `fork`,
+`decision`, a lifeline), edges with labels, notices for what was not represented — and a
+**form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1 and W2 landed,
+`dot` and `plantuml`, chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
+panel makes, and the document renderer, which embeds the Mermaid form in HTML and rasterizes it
+through `mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
+state rendering from the lowered `StateGraph` (regions, entry transitions, triggers, guards,
+effects), the action rendering from the `ActionGraph`, the sequence rendering as lifelines and
+ordered messages — so what is missing is not a diagram kind but the **formats** a rendering can
+be written in, and the fidelity the one machine form allows.
+
+Mermaid was chosen because it draws where the models are read, with no installation. The cost
+is what its grammars cannot say: a `flowchart` has no fork or join bar, no swimlane, no pin, and
+names a decision only by the diamond shape the writer does not yet ask for; `stateDiagram-v2` has
+no history pseudostate, no entry/exit/do compartments and no orthogonal-region separator beyond
+`--`; `sequenceDiagram` has no found or lost message and no timing. Every one of those is a
+notice in the rendering today rather than a drawing. Graphviz DOT and PlantUML both draw them,
+both lay out large graphs Mermaid cannot, and both are what the documentation and publishing
+pipelines this project is meant to feed already consume.
+
+## W1 — a `dot` form
+
+**Landed** — see [view rendering forms](view-rendering-forms.md). A DOT writer over `Rendering`
+(`internal/core/view/dot.go`): a rendering is a `digraph`, a node with children a `subgraph
+"cluster_*"` (a tree keeps containment as edges, as its Mermaid form does), direction maps onto
+`rankdir`, the `EdgeKind` styles parallel the Mermaid arrows, and a state rendering draws its
+states as rounded boxes with `point`/`circle`/`doublecircle` pseudo-states. Every identifier and
+label is quoted through one helper; a `// layout:` header names the engine the file is written
+for. The DiagramLayout geometry the rendering carries is written as Graphviz reads it — a
+positioned node pinned with `pos="x,y!"` at its centre and sized in inches, a route as a `pos`
+spline, the canvas as the graph's `size`, y flipped from the library's y-down pixels — and the
+header then names `neato` (`neato -n` when every node is placed, `-n2` when every edge is
+routed too). The goldens beside every
+`*.mermaid.golden` are checked by an in-test DOT syntax walker rather than by running `dot
+-Tsvg`, so no Graphviz installation is involved anywhere.
+
+Still open from the original sketch, each a writer change and nothing else: the shape per action
+node kind (`diamond` for a decision, a filled bar for fork and join), `record` or HTML-like labels
+for a part with its compartments, `note` for a notice, and `URL=`/`tooltip=` from the origin every
+node carries so an SVG rendered from the DOT links back to the declaration the way the LSP panel
+does. The node and edge attribute lists are each written by one method (`dotNodeAttributes`,
+`dotEdgeAttributes`), where the position and the route already join the label and style.
+
+## W2 — a `plantuml` form
+
+**Landed** — see [view rendering forms](view-rendering-forms.md#plantuml). A PlantUML writer over
+`Rendering` (`internal/core/view/plantuml.go`), one grammar per kind: a tree is a class diagram
+with containment as edges (as its Mermaid and DOT forms draw it), an interconnection nested
+`rectangle` blocks with the Pilot's `-[thickness=3]-` connectors and dashed flows, a state
+rendering the `state` grammar with composite states, `[*]` starts and PlantUML's pseudostate
+stereotypes, and a sequence — the kind DOT has no grammar for — `participant`s and `->` messages
+one for one with the Mermaid form. The action rendering takes the **state grammar too**, not the
+activity syntax the sketch named: activity syntax is procedural and cannot hold an arbitrary
+graph of successions and flows without inventing structure, so one grammar draws every action
+golden losslessly, control nodes as pseudostates and flows dashed. Every file carries the Pilot's
+Standard B&W style inline in a `<style>` block — the released PlantUML does not ship the
+`sysmlbw` skin — honouring the three rules DOT could not (the usage corner radius, shadows off,
+`wrapWidth 300`); the named palettes fill nodes with the same hex per node as the DOT form;
+DiagramLayout geometry is kept as `'` comments (PlantUML pins no position — `dot` does), through
+the geometry-comment helpers the Mermaid form shares. Goldens beside every `*.mermaid.golden` are
+walked by an in-test PlantUML syntax check; a PlantUML jar is never needed — `OPENSYSML_PLANTUML_JAR`
+turns on an extra `-checkonly` pass when one is at hand.
+
+Still open from the sketch, each a writer change: `[H]`/`[H*]` history where the rendering
+produces a history pseudostate (today drawn by stereotype), `state X : entry / …` compartments,
+notes for notices, and `[[url]]` hyperlinks from the origin — to land with the DOT `URL=` once a
+writer has a stable URL for an `Origin`.
+
+## W3 — the forms where renderings surface
+
+`dot` and `plantuml` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
+`-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
+it can draw in-process, and offers the others as *save as*), and the document renderer. **For
+`dot` this landed** with W1 and **for `plantuml` with W2**: `-render-form dot|plantuml`
+(`-render-all` writes `.dot` and `.puml` files), `%render <name> dot|plantuml [palette]`,
+`"form"` on `opensysml/render`, and `-diagram-form dot|plantuml` on `-render-document`
+(`%render-document <name> dot|plantuml`, `diagramForm` on `opensysml/renderDocument`), which
+writes every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown and
+`<pre class="dot">` or `<pre class="plantuml">` in HTML — a render-time choice, not a model
+attribute; the PDF backend keeps a DOT or PlantUML block as source under a notice and looks for
+no Graphviz or PlantUML tool. The form lists in the CLI help and man pages, the REPL's completion
+and the LSP's errors derive from `Forms()`, so the form reached every one. The gRPC
+surface has no view-render RPC — only `RenderDocument`, to Markdown — so
+the wire contract did not change; if one is added later it takes the form as a string the same
+way `-render-form` does.
+
+Still open: rasterizing a DOT or PlantUML block for PDF through `dot` or the PlantUML
+jar as Mermaid is rasterized through `mmdc` today — optional tools, located by environment
+variable, skipping the tests with the reason when absent, as the PDF toolchain is handled now —
+and the VS Code panel's *save as* for the non-Mermaid forms.
+
+W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 followed
+over the same node kinds and the sequence; W3 landed with each. Independent of every other track:
+nothing here touched the rendering model, only writers over it.
+
+---
+
 # Track M — an embedded, RTOS-compatible target
 
 The question was whether OpenSysML models could run on a microcontroller under an RTOS, and what
@@ -1882,7 +2182,11 @@ behavior IR**, an **AOT C backend** that emits static tables and no allocation, 
 typed, naming the construct — for any model the target cannot bound. What the runtime can promise
 is *bounded and reproducible* execution; hard real-time guarantees (WCET) are properties of the
 target, the compiler and the RTOS configuration, and the documentation must say so rather than
-imply them.
+imply them. The design record for the track at the highest software class —
+[docs/internals/design/embedded-target.md](../internals/design/embedded-target.md) — fixes the
+freestanding C profile M2 emits, makes the IR's written semantics rather than the interpreter the
+requirement basis, turns every admissible scheduling choice into a static refusal, lists the
+artifacts under configuration control and restates M1–M6 as stages with exit criteria.
 
 ## M1 — a closed behavior IR
 
@@ -1896,8 +2200,8 @@ This item gates everything else in the track.
 
 ## M2 — a state and action C backend over static tables
 
-From M1: state and transition tables, a static Petri-net-style scheduler for the action graph
-(token counts per place, no dynamic node creation), fixed-size event queues sized from the model,
+From M1: state and transition tables, a static succession scheduler for the action graph
+(a token count per node, no dynamic node creation), fixed-size event queues sized from the model,
 static port/connection routing, expression evaluation through N2's C emitter, and no `malloc`
 after initialization. A model that cannot be bounded — unbounded multiplicity, recursion the
 compiler cannot bound, `all T`, dynamic `new` — is refused by name. Differential against the
@@ -1986,7 +2290,8 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   adjudication file, and a standalone RDF expression-tree round trip).
 - **Track L** — L7, gated on X2's chain-read half alone: `Sample` runs and a domain library's calc
   executes from its text; `interpolateLinear` does not.
-- **Track A** — A4, the state-space runner, unblocked by A5 and not started.
+- **Track A** — A4, the state-space runner, unblocked by A5 and not started; A7, one verdict for
+  every assertion an object carries, depending on nothing open and not started.
 - **Track Q** — Q3, unblocked by A5, still behind Q2's population; Q1 and Q2 unchanged.
 - **Track E** — deferred to the release after the one that ships F and S; next once that release
   is tagged.
@@ -2058,11 +2363,12 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the
   differential's record and constructor coverage both need it; decide N2.2 (the budget) before
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
-- **Track D.** The RDF ratchet is 346/346 with no refusal left; step 6 above is next; **D7** is
+- **Track D.** The RDF ratchet is 353/353 with no refusal left; step 6 above is next; **D7** is
   mechanical now that identity is stable and fits anywhere; the ontology modules (#774 on the
   previous repository) have to be re-proposed against this `main` before **D8**'s profile, which
-  only becomes conformant behind D1 and D2; **D11** (the API element
-  form) likewise after D1 and D2, and before D9.2 if the branch read is to offer it; **D10**
+  only becomes conformant behind D1 and D2; **D12** (the standard library's normative element
+  ids) is done; **D11** (the API element
+  form) after D1 and D2, and before D9.2 if the branch read is to offer it; **D10**
   (write-through from a view-only project) after D9.1 and D9.2, which it reads and writes through.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
@@ -2078,10 +2384,15 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   harness halves (normalization and adjudication in the pilot differential, a standalone RDF
   expression-tree round trip) so every later X item is measured; X7's RDF literal form and native
   layout for sets and tensors last, when something needs them.
-- **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); only A4 is left — step 7 above.
+- **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A4 is step 7 above; A7 (an
+  object validated as a whole) depends on nothing open, so it can run beside any step, and its
+  carrier walk is what Q2's population should reuse when Q2 is taken.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
   reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
   negative case first, each change moving its row.
 - **Track B.** B1, B2, then B3; step 1 above has landed, so nothing holds B1 or B2 back; B4's file
   and HTTP providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
+- **Track W.** W1 (`dot`) has landed with its share of W3; W2 (`plantuml`) next, with the rest
+  of W3 — DOT and PlantUML rasterized for PDF — alongside; targeted at `0.8.0`, and independent
+  of every other track, so it can run beside any step above.
 - **Track Q, I, M.** Entirely given by the cross-cutting order above.

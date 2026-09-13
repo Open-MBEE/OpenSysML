@@ -8,8 +8,10 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -36,6 +38,11 @@ type ActionGraph struct {
 
 	// Bodies: node → the statements that node executes, in declaration order
 	Bodies map[ast.Node][]Statement
+
+	// footprints: node → what advancing a token through the node may read, write,
+	// send, accept and converge on; computed on the first call of Footprints.
+	footprints     map[ast.Node]Footprint
+	footprintsOnce sync.Once
 
 	// Features: node → the parameters and attributes the node declares itself,
 	// in declaration order; each performance of the node holds its own values.
@@ -363,12 +370,50 @@ type Accept struct {
 // (`attribute h : LengthValue = 500.0 [m];`), whose Value resolves in the
 // graph's own scope.
 type Attribute struct {
-	Name  string
+	Name string
+	// Direction is the parameter direction written, DirNone for a plain attribute.
+	Direction ast.FeatureDirection
+	IsResult  bool // a `return` parameter, what the behavior yields
+	// Type is the declared type as written (`Natural`, `Vehicle::Mode`), "" without one.
+	Type  string
 	Value ast.Node
 	Node  ast.Node // the declaration itself, for diagnostics
 	// Scope is the scope the declaration was written in, in which its default
 	// resolves; nil where the owner's own scope resolves it.
 	Scope *symbols.Scope
+	// Optional reports an effective multiplicity with lower bound 0 (`x : Integer[0..1]`):
+	// the feature may hold no value at all. The run resolves it, as it does Scope.
+	Optional bool
+}
+
+// TypeText spells the type a usage declares with `:` as the notation writes it
+// (each segment quoted when it must be), or "" without one.
+func TypeText(u *ast.Usage) string {
+	for _, rel := range u.Relationships {
+		if rel == nil || rel.Kind != ast.RelTyping {
+			continue
+		}
+		qn, ok := rel.Target.(*ast.QualifiedName)
+		if !ok || len(qn.Parts) == 0 {
+			continue
+		}
+		segments := make([]string, 0, len(qn.Parts))
+		for _, part := range qn.Parts {
+			segments = append(segments, lexer.NameText(part.Text))
+		}
+		text := strings.Join(segments, "::")
+		if qn.Global {
+			text = "$::" + text
+		}
+		return text
+	}
+	return ""
+}
+
+// Output reports whether the feature is written back rather than read: an `out`
+// or `return` parameter, which no caller and no witness may fix.
+func (a Attribute) Output() bool {
+	return a.Direction == ast.DirOut || a.IsResult
 }
 
 // Feature is one parameter or attribute an action node declares itself. Value
@@ -400,6 +445,9 @@ type PinBinding struct {
 	OtherFeature string
 	Scope        *symbols.Scope // the scope the binding was written in
 	Decl         *ast.Usage
+	// FromValue marks the binding a pin's own value states (`inout n = ticks;`): the
+	// value is the pin's initial value alone when no feature around the node holds it.
+	FromValue bool
 }
 
 // ObjectFlow represents a data flow edge between pins.
@@ -536,7 +584,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 				if n.Multiplicity != nil {
 					return nil, fmt.Errorf("action succession has unsupported multiplicity")
 				}
-				if n.HasBody || len(n.Members) != 0 {
+				if !annotationsOnly(n.Members) {
 					return nil, fmt.Errorf("action succession has unsupported body")
 				}
 				for i, end := range n.ConnectorEnds {
@@ -816,7 +864,9 @@ func nodeAnswering(nodes []ast.Node, name string) ast.Node {
 	return nil
 }
 
-// lowerFeatures records the parameters and attributes a node declares itself.
+// lowerFeatures records the parameters and attributes a node declares itself. An
+// `inout` pin valued by a feature name is bound to that feature, as a feature value
+// binds the feature to its result, so what the node leaves in the pin writes back.
 func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	if graph.Features == nil {
 		graph.Features = make(map[ast.Node][]Feature)
@@ -840,8 +890,26 @@ func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 			Node:      m,
 			Scope:     scope,
 		})
+		if binding, ok := inoutValueBinding(node, m, name, scope); ok {
+			graph.Bindings = append(graph.Bindings, binding)
+		}
 	}
 	graph.Features[node] = features
+}
+
+// inoutValueBinding lowers the value of a node's `inout` pin that names a feature
+// (`inout n = ticks;`) to the binding between the two it states; a value that is
+// an expression of another kind is the pin's initial value alone. Which of the two
+// a name is (`ticks`, or the literal `Mode::idle`) is settled where the node performs.
+func inoutValueBinding(node, pin *ast.Usage, name string, scope *symbols.Scope) (PinBinding, bool) {
+	if pin.Direction != ast.DirInOut || pin.Value == nil || len(endSegments(pin.Value)) == 0 {
+		return PinBinding{}, false
+	}
+	binding := PinBinding{Node: node, Pin: name, Other: pin.Value, Scope: scope, Decl: pin, FromValue: true}
+	if chain, feature, ok := assignTarget(pin.Value); ok {
+		binding.OtherChain, binding.OtherFeature = chain, feature
+	}
+	return binding, true
 }
 
 // DeclaresNodeFeature reports whether an action member is a parameter or attribute.
@@ -1084,7 +1152,7 @@ func lowerAttributes(members []ast.Node) []Attribute {
 		if name == "" {
 			continue
 		}
-		attrs = append(attrs, Attribute{Name: name, Value: usage.Value, Node: usage})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Node: usage})
 	}
 	return attrs
 }
@@ -1149,6 +1217,23 @@ func typingTarget(usage *ast.Usage) *ast.QualifiedName {
 }
 
 // unwrapMembership extracts the actual member from a Membership wrapper.
+// annotationsOnly reports whether a body declares nothing but annotations —
+// metadata, comments, documentation — and so nothing the flow depends on.
+func annotationsOnly(members []ast.Node) bool {
+	for _, member := range members {
+		switch n := unwrapMembership(member).(type) {
+		case *ast.PrefixMetadata, *ast.Comment, *ast.Documentation:
+		case *ast.Usage:
+			if n.Kind != ast.UsageMetadata {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func unwrapMembership(node ast.Node) ast.Node {
 	if membership, ok := node.(*ast.Membership); ok {
 		return membership.Member

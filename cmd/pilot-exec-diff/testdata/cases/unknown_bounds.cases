@@ -1,0 +1,15 @@
+model: cmd/pilot-exec-diff/testdata/models/unknown_bounds.sysml
+
+# Model-level evaluation over usages whose multiplicity bounds name a feature the
+# model gives no value. The pilot rejects the model itself ("Must have a Natural
+# value" on both bounds) and then resolves no name in it ("Couldn't resolve reference
+# to Element 'K'"), so every case here is a pilot error, kept to a model of its own so
+# the rejection reaches no other case; ours answers <undetermined> of the bounds the
+# declaration does fix.
+
+# A multiplicity bound the model does not evaluate fixes no count: the read is open
+# of the bounds it does fix, and a nonzero lower bound still answers notEmpty.
+unknown-bound-ref :: K :: a
+size-unknown-bound :: K :: SequenceFunctions::size(a)
+notempty-unknown-upper :: K :: SequenceFunctions::notEmpty(an)
+isempty-unknown-bound :: K :: SequenceFunctions::isEmpty(a)

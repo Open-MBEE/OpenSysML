@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -40,26 +41,47 @@ func failureReason(err error) pb.FailureReason {
 }
 
 // verifyContext is everything a verification RPC needs from a cached model: the
-// runtime it evaluates in and the index its names resolve against.
+// runtime it evaluates in, on a worker of the request's own, and the index its names
+// resolve against.
 type verifyContext struct {
 	service *Service
 	cached  *CachedModel
 	runtime *runtime.Context
-	sem     *semantics.Model
-	// sems is the shared semantics runtime was built over, held for the request.
-	sems *runtimeSemantics
+	// engine is the selection the request's questions are put to the engines under.
+	engine analysis.Selection
+	// release gives the runtime's worker back once the request is answered; the RPC defers it.
+	release func()
 }
 
-// newVerifyContext looks the model up and builds a runtime over it, the same way
-// every other runtime RPC in this service does; the caller defers release.
-func (s *Service) newVerifyContext(modelHash string) (*verifyContext, func(), error) {
+// newVerifyContext reads the request's engine, looks the model up and builds a
+// runtime over it, the same way every other runtime RPC in this service does.
+func (s *Service) newVerifyContext(modelHash, engine string) (*verifyContext, error) {
+	selection, err := s.engineSelection(engine)
+	if err != nil {
+		return nil, err
+	}
 	cached, ok := s.cache.Get(modelHash)
 	if !ok {
-		return nil, nil, statusErrorf(connect.CodeNotFound, "model not found: %s", modelHash)
+		return nil, statusErrorf(connect.CodeNotFound, "model not found: %s", modelHash)
 	}
-	rs, release := cached.RuntimeSemantics()
-	return &verifyContext{service: s, cached: cached, runtime: s.newRuntimeOver(rs), sem: rs.Model, sems: rs}, release, nil
+	rt, release := s.newRuntime(cached)
+	return &verifyContext{service: s, cached: cached, runtime: rt, engine: selection, release: release}, nil
 }
+
+// on is this request's context over a run's own runtime, so what the run made is
+// read through the context that made it.
+func (v *verifyContext) on(rt *runtime.Context) *verifyContext {
+	return &verifyContext{service: v.service, cached: v.cached, runtime: rt, engine: v.engine, release: releaseNothing}
+}
+
+// releaseNothing stands in for release on a context over a run's own runtime,
+// which borrowed no worker and so has nothing to give back.
+func releaseNothing() {
+	// The parent context releases the worker it borrowed; this one holds none.
+}
+
+// sem is the semantic model the request's runtime evaluates against.
+func (v *verifyContext) sem() *semantics.Model { return v.runtime.Semantics() }
 
 // lookup resolves an FQN to the symbol it names.
 func (v *verifyContext) lookup(symbolID string) (*symbols.Symbol, error) {
@@ -115,13 +137,14 @@ func namedFQN(idx *symbols.Index, sym *symbols.Symbol) string {
 
 // verdict builds the answer to one verification. A condition that evaluated to
 // false is the model's answer, reported as holds=false with the condition named;
-// any other error is a failure to evaluate, reported in Verdict.error.
-func (v *verifyContext) verdict(kind string, sym *symbols.Symbol, element string, inst *runtime.Instance, holds bool, err error) *pb.Verdict {
-	out := &pb.Verdict{
+// any other error is a failure to evaluate, reported in Verdict.error. The plan
+// is how the engines answered, whose standing the verdict carries.
+func (v *verifyContext) verdict(kind string, sym *symbols.Symbol, element string, inst *runtime.Instance, holds bool, err error, plan analysis.Plan) *pb.Verdict {
+	out := v.service.standingOf(plan).stamp(&pb.Verdict{
 		Kind:    kind,
 		Element: element,
 		Holds:   holds && err == nil,
-	}
+	})
 	if sym != nil {
 		out.ElementId = namedFQN(v.cached.Index, sym)
 		if out.Element == "" {
@@ -164,11 +187,11 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
+	defer v.release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.VerifyConstraintResponse{Error: err.Error()}, nil
@@ -178,10 +201,15 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 		return &pb.VerifyConstraintResponse{Error: err.Error()}, nil
 	}
 
-	result, evalErr := v.runtime.CheckConstraintOn(sym, v.declaringScope(sym), inst)
+	result, plan, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
+		return rt.CheckConstraintOn(sym, v.declaringScope(sym), inst)
+	})
+	if err := callerGone(ctx, evalErr); err != nil {
+		return nil, err
+	}
 	subject := subjectOf(result, inst)
 	return &pb.VerifyConstraintResponse{
-		Verdict:   v.verdict(verdictConstraint, sym, "", subject, result.Holds, evalErr),
+		Verdict:   v.verdict(verdictConstraint, sym, "", subject, result.Holds, evalErr, plan),
 		Instances: v.instanceGraph(subject),
 	}, nil
 }
@@ -192,11 +220,11 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
+	defer v.release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.VerifyRequirementResponse{Error: err.Error()}, nil
@@ -206,10 +234,15 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 		return &pb.VerifyRequirementResponse{Error: err.Error()}, nil
 	}
 
-	result, evalErr := v.runtime.CheckRequirementOn(sym, v.declaringScope(sym), inst)
+	result, plan, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
+		return rt.CheckRequirementOn(sym, v.declaringScope(sym), inst)
+	})
+	if err := callerGone(ctx, evalErr); err != nil {
+		return nil, err
+	}
 	subject := subjectOf(result, inst)
 	return &pb.VerifyRequirementResponse{
-		Verdict:   v.verdict(verdictRequirement, sym, "", subject, result.Holds, evalErr),
+		Verdict:   v.verdict(verdictRequirement, sym, "", subject, result.Holds, evalErr, plan),
 		Instances: v.instanceGraph(subject),
 		// Beside the satisfaction verdict: what the cases verifying this
 		// requirement answered when their bodies ran.
@@ -224,11 +257,11 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
+	defer v.release()
 
 	// Every document of the model states assertions, unless one scope is named.
 	scopes := v.cached.DocumentRoots()
@@ -239,7 +272,10 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 		}
 		// A named `satisfy requirement r by p` is itself one assertion.
 		if a, aerr := v.runtime.SatisfyAssertionOf(sym); aerr == nil {
-			verdict, instances := v.satisfyVerdict(a)
+			verdict, instances, err := v.satisfyVerdict(ctx, a)
+			if err != nil {
+				return nil, err
+			}
 			return &pb.VerifySatisfactionResponse{
 				Verdicts:             []*pb.Verdict{verdict},
 				Instances:            instances,
@@ -264,7 +300,10 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	verified := map[*symbols.Symbol]bool{}
 	for _, scope := range scopes {
 		for _, a := range v.runtime.SatisfyAssertionsIn(scope) {
-			verdict, instances := v.satisfyVerdict(a)
+			verdict, instances, err := v.satisfyVerdict(ctx, a)
+			if err != nil {
+				return nil, err
+			}
 			resp.Verdicts = append(resp.Verdicts, verdict)
 			if req := a.AssertedRequirement(); req != nil && !verified[req] {
 				verified[req] = true
@@ -284,8 +323,9 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 }
 
 // satisfyVerdict evaluates one assertion against an object of its subject, built
-// for this call so the verdict is about the values that subject holds.
-func (v *verifyContext) satisfyVerdict(a *runtime.SatisfyAssertion) (*pb.Verdict, []*pb.Instance) {
+// for this call so the verdict is about the values that subject holds. The error
+// is the caller's own, having gone away before the check.
+func (v *verifyContext) satisfyVerdict(ctx context.Context, a *runtime.SatisfyAssertion) (*pb.Verdict, []*pb.Instance, error) {
 	var subject *runtime.Instance
 	if a.Subject != nil {
 		// Created here rather than inside the evaluation so that the object the
@@ -294,17 +334,22 @@ func (v *verifyContext) satisfyVerdict(a *runtime.SatisfyAssertion) (*pb.Verdict
 		if err != nil {
 			// The assertion cannot be evaluated without the object it is about,
 			// which is a failure to evaluate rather than a verdict of false.
-			verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), nil, false, err)
+			verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), nil, false, err, analysis.Plan{})
 			v.associateRequirement(verdict, a)
-			return verdict, nil
+			return verdict, nil, nil
 		}
 		subject = inst
 	}
-	result, err := v.runtime.CheckSatisfactionOn(a, subject)
+	result, plan, err := v.check(ctx, a.Text(), func(rt *runtime.Context) (runtime.CheckResult, error) {
+		return rt.CheckSatisfactionOn(a, subject)
+	})
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, nil, gone
+	}
 	subject = subjectOf(result, subject)
-	verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err)
+	verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err, plan)
 	v.associateRequirement(verdict, a)
-	return verdict, v.instanceGraph(subject)
+	return verdict, v.instanceGraph(subject), nil
 }
 
 // associateRequirement names on a satisfaction verdict the requirement it
@@ -333,26 +378,29 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
+	defer v.release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.EvaluateCalcResponse{Error: err.Error()}, nil
 	}
 
 	if len(req.Arguments) == 0 {
-		outputs, handled, cerr := v.calcUsageOutputs(sym)
+		outputs, handled, plan, cerr := v.calcUsageOutputs(ctx, req.SymbolId, sym)
+		if gone := callerGone(ctx, cerr); gone != nil {
+			return nil, gone
+		}
 		if cerr != nil {
-			return &pb.EvaluateCalcResponse{
+			return calcResponse(&pb.EvaluateCalcResponse{
 				Error:         cerr.Error(),
 				FailureReason: failureReason(cerr),
-			}, nil
+			}, v.service.standingOf(plan)), nil
 		}
 		if handled {
-			return &pb.EvaluateCalcResponse{Outputs: outputs}, nil
+			return calcResponse(&pb.EvaluateCalcResponse{Outputs: outputs}, v.service.standingOf(plan)), nil
 		}
 	}
 
@@ -363,7 +411,7 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 		if err := s.requireValueCapabilities(arg); err != nil {
 			return nil, err
 		}
-		val, cerr := ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem)
+		val, cerr := ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem())
 		if cerr != nil {
 			return &pb.EvaluateCalcResponse{
 				Error:         fmt.Sprintf("calc argument could not be read: %v", cerr),
@@ -373,30 +421,48 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 		args = append(args, val)
 	}
 
-	result, err := v.runtime.InvokeCalc(sym, args, v.declaringScope(sym))
+	result, plan, err := perform(ctx, v, req.SymbolId, func(rt *runtime.Context) (runtime.Value, error) {
+		return rt.InvokeCalc(sym, args, v.declaringScope(sym))
+	}, func(result runtime.Value, err error) analysis.Answer {
+		return analysis.ValuesAnswer([]analysis.Evaluation{{Name: sweepResultName, Value: result}}, err)
+	})
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, gone
+	}
+	st := v.service.standingOf(plan)
 	if err != nil {
-		return &pb.EvaluateCalcResponse{
+		return calcResponse(&pb.EvaluateCalcResponse{
 			Error:         fmt.Sprintf("calc invocation failed: %v", err),
 			FailureReason: failureReason(err),
-		}, nil
+		}, st), nil
 	}
-	return &pb.EvaluateCalcResponse{Result: v.service.valueToProto(v.runtime, result, v.cached.Index)}, nil
+	return calcResponse(&pb.EvaluateCalcResponse{Result: v.service.valueToProto(v.runtime, result, v.cached.Index)}, st), nil
+}
+
+// calcResponse writes on a calc's response the standing of the plan that answered it.
+func calcResponse(resp *pb.EvaluateCalcResponse, st standing) *pb.EvaluateCalcResponse {
+	resp.Engine, resp.Strength, resp.Bounds = st.engine, st.strength, st.bounds
+	return resp
 }
 
 // calcUsageOutputs evaluates a calc usage from its own member values. It reports
 // handled=false when sym is not a calc usage, or is one computing no output
 // features, so those are invoked as calculations instead.
-func (v *verifyContext) calcUsageOutputs(sym *symbols.Symbol) ([]*pb.CalcOutput, bool, error) {
+func (v *verifyContext) calcUsageOutputs(ctx context.Context, subject string, sym *symbols.Symbol) ([]*pb.CalcOutput, bool, analysis.Plan, error) {
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || usage.Kind != ast.UsageCalc {
-		return nil, false, nil
+		return nil, false, analysis.Plan{}, nil
 	}
-	outputs, err := v.runtime.CalcUsageOutputs(sym, sym.OwnerScope, nil)
+	outputs, plan, err := perform(ctx, v, subject, func(rt *runtime.Context) ([]runtime.CalcOutputValue, error) {
+		return rt.CalcUsageOutputs(sym, sym.OwnerScope, nil)
+	}, func(outputs []runtime.CalcOutputValue, err error) analysis.Answer {
+		return analysis.ValuesAnswer(analysis.OutputValues(outputs), err)
+	})
 	if err != nil {
-		return nil, true, fmt.Errorf("calc usage evaluation failed: %w", err)
+		return nil, true, plan, fmt.Errorf("calc usage evaluation failed: %w", err)
 	}
 	if len(outputs) == 0 {
-		return nil, false, nil
+		return nil, false, plan, nil
 	}
 	pbOutputs := make([]*pb.CalcOutput, 0, len(outputs))
 	for _, out := range outputs {
@@ -405,7 +471,7 @@ func (v *verifyContext) calcUsageOutputs(sym *symbols.Symbol) ([]*pb.CalcOutput,
 			Value: v.service.valueToProto(v.runtime, out.Value, v.cached.Index),
 		})
 	}
-	return pbOutputs, true, nil
+	return pbOutputs, true, plan, nil
 }
 
 // requirementVerifications are the body verdicts of the verification cases of

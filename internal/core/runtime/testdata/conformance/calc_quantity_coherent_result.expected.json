@@ -1,0 +1,13 @@
+{
+  "type": "calcUsage",
+  "libraries": true,
+  "evaluate": "test::flight",
+  "outputs": {
+    "burn": {"type": "Quantity", "value": 3049.86815, "unit": "SI::'m/s'"},
+    "orbitKm": {"type": "Quantity", "value": 7793.229127559948, "unit": "SI::'m/s'"},
+    "orbitM": {"type": "Quantity", "value": 7793.229127559948, "unit": "SI::'m/s'"},
+    "thrust": {"type": "Quantity", "value": 5.0, "unit": "SI::'m⋅s⁻²'"},
+    "lightThrust": {"type": "Quantity", "value": 5.0, "unit": "SI::'m⋅s⁻²'"},
+    "same": {"type": "Boolean", "value": true}
+  }
+}

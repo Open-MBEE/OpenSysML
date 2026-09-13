@@ -39,7 +39,7 @@ func wantNamedInt(t *testing.T, what string, got Value, err error, want int64) {
 // parameter over the calc's lexical scope — however the frames are stored.
 func TestSimpleNameShadowingOrder(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, nameOrderModel)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	pkg, _ := root.LookupLocal("test")
 	scope := pkg.Scope
 
@@ -63,7 +63,7 @@ func TestSimpleNameShadowingOrder(t *testing.T) {
 // element's own features, which mask the scope's member.
 func TestSimpleNameFallbackOrder(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, nameOrderModel)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	pkg, _ := root.LookupLocal("test")
 	scope := pkg.Scope
 	shape, err := ctx.calcShapeOf(findSymbolByName(scope, "Named", ast.DefCalc))

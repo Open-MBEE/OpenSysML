@@ -58,6 +58,7 @@ var compiledCases = []compiledCase{
 	{"OrderArgs", []string{"0", "9223372036854775807"}}, {"OrderArgs", []string{"3", "9223372036854775807"}},
 	{"Nat", []string{"5"}}, {"Nat", []string{"0"}}, {"Nat", []string{"-1"}},
 	{"Pos", []string{"2"}}, {"Pos", []string{"1"}}, {"Pos", []string{"0"}},
+	{"PosLoc", []string{"2"}}, {"PosLoc", []string{"1"}},
 	{"One", []string{"21"}},
 	{"Collide", []string{"1"}},
 	{"Lib::Sqrt", []string{"2.0"}}, {"Lib::Sqrt", []string{"0.0"}}, {"Lib::Sqrt", []string{"-1.0"}},
@@ -113,6 +114,9 @@ var compiledCases = []compiledCase{
 	{"Seq::M2", []string{"(1,2)"}}, {"Seq::M2", []string{"(1)"}}, {"Seq::M2", []string{"null"}}, {"Seq::M2", []string{"(1,2,3,4)"}},
 	{"Seq::Ret2", []string{"(1,2)"}}, {"Seq::Ret2", []string{"(1)"}}, {"Seq::Ret2", []string{"null"}},
 	{"Seq::Ass", []string{"(1,2)"}}, {"Seq::Ass", []string{"(1,2,3)"}}, {"Seq::Ass", []string{"null"}},
+	{"Seq::LocM1", []string{"(1)"}}, {"Seq::LocM1", []string{"(1,2)"}}, {"Seq::LocM1", []string{"null"}},
+	{"Seq::LocN", []string{"(1,2)"}}, {"Seq::LocN", []string{"(1,-2)"}}, {"Seq::LocN", []string{"null"}},
+	{"Seq::LocAny2", []string{"(1,2)"}}, {"Seq::LocAny2", []string{"(1)"}}, {"Seq::LocAny2", []string{"(1,2,3)"}},
 	{"Seq::Ret1", []string{"(1)"}}, {"Seq::Ret1", []string{"(1,2)"}}, {"Seq::Ret1", []string{"null"}},
 	{"Seq::RetN", []string{"(1,2)"}}, {"Seq::RetN", []string{"(-1,2)"}}, {"Seq::RetN", []string{"null"}},
 	{"Seq::Coal", []string{"(1,2)"}}, {"Seq::Coal", []string{"null"}}, {"Seq::Coal", []string{"(3)"}}, {"Seq::Coal", []string{"()"}},
@@ -244,7 +248,18 @@ func interpreted(t *testing.T, s *Session, c compiledCase) (value, failure strin
 		}
 		t.Fatalf("%s%v: no value in %q", c.calc, c.args, v.Lines)
 	}
-	return "", failureClass(c.calc, strings.Join(v.Lines, "\n"))
+	return "", failureClass(c.calc, strings.Join(verdictLines(v), "\n"))
+}
+
+// verdictLines is the verdict without its standing line, which no compiled program prints.
+func verdictLines(v Verdict) []string {
+	var lines []string
+	for _, line := range v.Lines {
+		if !strings.HasPrefix(line, standingPrefix) {
+			lines = append(lines, line)
+		}
+	}
+	return lines
 }
 
 // compiledRun answers a case with the executable: the value, or the failure.
@@ -466,6 +481,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"Narrowed", "a Real bound to x, which is Integer"},
 		{"RecordParam", "type Refused::Point is not Integer, Real or Boolean"},
 		{"EnumParam", "type Refused::Color is not Integer, Real or Boolean"},
+		{"Extent", "operator 'all'"},
 		{"RealIntIdentity", "'===' between Real and Integer"},
 		{"SelectNonBoolean", "select whose body yields Integer, not a Boolean"},
 		{"CollectNull", "collect whose body yields null"},
@@ -500,8 +516,10 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"SetParam", "type Collections::Set is not Integer, Real or Boolean"},
 		{"SetElements", "type Collections::Set is not Integer, Real or Boolean"},
 		{"SetLocal", "type Collections::Set is not Integer, Real or Boolean"},
+		{"SubsetLocal", "attribute ys redefines or subsets a feature, inheriting a shape it does not state"},
 		{"TensorParam", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
 		{"TensorBuilt", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
+		{"MetaCast", "a `meta` cast, whose metaobject reflects a model element and has no native representation"},
 	} {
 		_, err := s.CompileCalc("Refused::" + tc.calc)
 		if err == nil {

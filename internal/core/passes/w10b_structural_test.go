@@ -5,6 +5,10 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // A second entry/do/exit action, a second return parameter and a composite
@@ -116,8 +120,8 @@ func TestW10BPortEventOccurrenceIsReferential(t *testing.T) {
 
 func TestW10BRedefinedPortMayNotOwnCompositeUsages(t *testing.T) {
 	const src = `package P {
-		part holder {
-			port base;
+		part def Holder { port base; }
+		part holder : Holder {
 			port redefines base {
 				part child;
 			}
@@ -133,6 +137,29 @@ func TestW10BRedefinedPortMayNotOwnCompositeUsages(t *testing.T) {
 	if !found {
 		t.Fatal("a redefined port with a composite nested part must be reported")
 	}
+}
+
+// A redefinition names a feature of the owner's generals, never a sibling
+// (KerML 8.2.3.5.2), so the port here redefines nothing and the name-resolution
+// tier reports it; the type tier does not run behind that error.
+func TestW10BSiblingRedefinitionIsUnresolved(t *testing.T) {
+	const src = `package P {
+		part holder {
+			port base;
+			port redefines base {
+				part child;
+			}
+		}
+	}`
+	root := parser.New(source.New("<t>", []byte(src))).ParseFile()
+	idx := symbols.NewIndex()
+	idx.AddDocument("<t>", root)
+	for _, d := range Analyze("<t>", root, nil, idx) {
+		if strings.HasPrefix(d.Message, "unresolved reference: base") {
+			return
+		}
+	}
+	t.Error("a redefinition of a sibling must be reported unresolved")
 }
 
 // A variant port under a port owner has no owning type, so it must be referential;

@@ -176,14 +176,20 @@ type Node struct {
 	// Name is the element's name: qualified for a node the view exposes, simple
 	// for one nested in it. It is empty for an anonymous element.
 	Name string
-	// Detail is what else the kind carries, such as a state's "initial" or the
-	// type of a usage. It is empty when there is nothing to add.
+	// Type is the declared type of a typed usage, as the notation writes it
+	// after the colon. It is empty for a definition or an untyped usage.
+	Type string
+	// Detail is what else the rendering says about the node, such as a state's
+	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
 	// Children are the nodes nested in this one.
 	Children []*Node
 	// Origin is where the element was declared, the zero Origin for one with no
 	// locatable declaration.
 	Origin Origin
+	// Geometry is where the element is drawn, from the Layout annotation that
+	// positions it in this view; nil leaves the placement to the writer.
+	Geometry *Geometry
 }
 
 // Edge joins two nodes of a rendering.
@@ -198,6 +204,9 @@ type Edge struct {
 	// Origin is where the connection, transition, succession or flow was
 	// declared, the zero Origin for one with no locatable declaration.
 	Origin Origin
+	// Route is the waypoints the edge follows, from the Route annotation of the
+	// element it was declared as; empty leaves the routing to the writer.
+	Route []Point
 }
 
 // Rendering is what a view renders to: the nodes and edges of one artifact,
@@ -224,11 +233,17 @@ type Rendering struct {
 	Rows [][]string
 	// RowOrigins is where each row's element was declared, one entry per row.
 	RowOrigins []Origin
+	// Canvas is the drawing surface the view states, nil for a view stating
+	// none.
+	Canvas *Canvas
 	// Notices are what the rendering could not represent, reported rather than
 	// dropped: an exposed element with no place in this kind of rendering, a
 	// connection to something the view does not expose, a behavior that does not
 	// lower.
 	Notices []string
+
+	// drawn collects the elements drawn while rendering, nil when no one asked.
+	drawn *Drawn
 }
 
 // Empty reports whether the rendering has nothing to show.
@@ -241,6 +256,11 @@ func (r *Rendering) Empty() bool {
 // recognized kind this package does not produce is an *UnsupportedKindError —
 // never another kind's rendering.
 func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
+	return r.render(view, nil)
+}
+
+// render is Render, collecting what is drawn into drawn when it is not nil.
+func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error) {
 	kind, stated, err := r.KindOf(view)
 	if err != nil {
 		return nil, err
@@ -249,16 +269,16 @@ func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated}
+	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, drawn: drawn}
 	switch kind {
 	case KindTree:
 		r.renderTree(view, exposed, out)
 	case KindInterconnection:
-		r.renderInterconnection(exposed, out)
+		r.renderInterconnection(view, exposed, out)
 	case KindState:
-		r.renderStates(exposed, out)
+		r.renderStates(view, exposed, out)
 	case KindAction:
-		r.renderActions(exposed, out)
+		r.renderActions(view, exposed, out)
 	case KindTable:
 		r.renderTable(view, exposed, out)
 	case KindSequence:
@@ -266,6 +286,11 @@ func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
 	default:
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
+	}
+	switch kind {
+	case KindTree, KindInterconnection, KindState, KindAction:
+		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
+		out.Canvas = r.canvasOf(view, out)
 	}
 	return out, nil
 }
@@ -281,11 +306,11 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	case KindTree:
 		r.renderTree(nil, exposed, out)
 	case KindInterconnection:
-		r.renderInterconnection(exposed, out)
+		r.renderInterconnection(nil, exposed, out)
 	case KindState:
-		r.renderStates(exposed, out)
+		r.renderStates(nil, exposed, out)
 	case KindAction:
-		r.renderActions(exposed, out)
+		r.renderActions(nil, exposed, out)
 	case KindTable:
 		r.renderTable(nil, exposed, out)
 	case KindSequence:
@@ -422,7 +447,7 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 		}
 		return kind, true
 	}
-	return Kind(simpleName(r.fqn(rendering.Rendering))), true
+	return Kind(rendering.Rendering.Name), true
 }
 
 // viewDefinitionKind reports the kind the standard view definition a view
@@ -431,9 +456,8 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 // in turn specializes.
 func (r *Renderer) viewDefinitionKind(view *symbols.Symbol) (Kind, string) {
 	for _, sym := range append([]*symbols.Symbol{view}, r.model.AllSupertypes(view)...) {
-		fqn := r.fqn(sym)
-		if kind, ok := standardKind(standardViewDefinitions, viewDefinitionsPackage, fqn); ok {
-			return kind, "view def " + simpleName(fqn)
+		if kind, ok := standardKind(standardViewDefinitions, viewDefinitionsPackage, r.fqn(sym)); ok {
+			return kind, "view def " + sym.Name
 		}
 	}
 	return "", ""
@@ -466,10 +490,28 @@ func (r *Renderer) fqn(sym *symbols.Symbol) string {
 	return sym.Name
 }
 
-// notationName is a symbol's qualified name as the notation writes it, with the
-// quotes an unrestricted name needs.
+// notationName is a symbol's qualified name as the notation writes it, each
+// segment quoted on its own from the owner chain, since a name may hold `::`.
 func (r *Renderer) notationName(sym *symbols.Symbol) string {
-	return notationName(r.fqn(sym))
+	names := symbols.NameChain(sym)
+	if len(names) == 0 || len(names) == 1 && names[0] == "" {
+		return ""
+	}
+	return lexer.QualifiedNameOf(names)
+}
+
+// localName is a symbol's own name as the notation writes it, empty for an
+// anonymous one.
+func localName(sym *symbols.Symbol) string {
+	return nameText(sym.Name)
+}
+
+// nameText is one name as the notation writes it, empty for no name.
+func nameText(name string) string {
+	if name == "" {
+		return ""
+	}
+	return lexer.NameText(name)
 }
 
 // declKind names an element the way the notation declares it — "part def",
@@ -479,17 +521,66 @@ func declKind(sym *symbols.Symbol) string {
 }
 
 // declType is the type a usage is declared with, as written ("Engine" of
-// `part engine : Engine`), empty for a declaration stating none.
+// `part engine : Engine`, "~Port" of `port p : ~Port`, "A, B" of
+// `feature f typed by A, B`), empty for a declaration stating none.
 func declType(sym *symbols.Symbol) string {
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil {
-			continue
-		}
-		if rel.Kind == ast.RelTyping {
-			return qualifiedText(rel.Target)
-		}
+	return typingOf(semantics.RelationshipsOf(sym))
+}
+
+// nodeType is the type a usage lowered into a behavior graph is declared with
+// ("Provide" of `action provide : Provide`), empty for any other node.
+func nodeType(decl ast.Node) string {
+	if usage, ok := decl.(*ast.Usage); ok {
+		return typingOf(usage.Relationships)
 	}
 	return ""
+}
+
+// typingOf spells a declaration's typings as the notation does: every typing in
+// declaration order, a conjugated one behind its `~`, each name quoted as needed.
+func typingOf(rels []*ast.Relationship) string {
+	var types []string
+	for _, rel := range rels {
+		if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
+			continue
+		}
+		text := referenceText(rel.Target)
+		if text == "" {
+			continue
+		}
+		if rel.Conjugated {
+			text = "~" + text
+		}
+		types = append(types, text)
+	}
+	return strings.Join(types, ", ")
+}
+
+// referenceText spells a name reference as written: a `$::` root, `::` between
+// members, `.` along a feature chain, and each segment quoted as needed.
+func referenceText(node ast.Node) string {
+	if chain, ok := node.(*ast.FeatureChainExpr); ok {
+		return referenceText(chain.Operand) + "." + referenceText(chain.Member)
+	}
+	qn := ast.AsQualifiedName(node)
+	if qn == nil {
+		return ""
+	}
+	var sb strings.Builder
+	if qn.Global {
+		sb.WriteString("$::")
+	}
+	for i, part := range qn.Parts {
+		switch {
+		case i == 0:
+		case part.Chained:
+			sb.WriteString(".")
+		default:
+			sb.WriteString("::")
+		}
+		sb.WriteString(lexer.NameText(part.Text))
+	}
+	return sb.String()
 }
 
 // simpleName is the last segment of a qualified name, which is what a nested
@@ -501,9 +592,8 @@ func simpleName(fqn string) string {
 	return fqn
 }
 
-// notationName writes a qualified name as the notation does, with the one
-// quoting rule the REPL prints names by, so `%render` and `%view` spell the same
-// element identically.
+// notationName writes a reference read as joined qualified text (a `render`
+// target, an accepted signal, a `via` port) as the notation does.
 func notationName(fqn string) string {
 	return lexer.QualifiedNameText(fqn)
 }

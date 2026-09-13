@@ -16,6 +16,9 @@ const (
 	kindInfinity = "infinity"
 	kindSequence = "sequence"
 	kindQuantity = "quantity"
+	// kindUndetermined is our `<undetermined>`: a model-level result the model
+	// leaves open, answered as such rather than evaluated or errored.
+	kindUndetermined = "undetermined"
 )
 
 var (
@@ -135,6 +138,9 @@ func parseOurValue(text string) (normalized, bool) {
 	}
 	if text == "true" || text == "false" {
 		return normalized{Kind: kindBool, Value: text}, true
+	}
+	if text == "<undetermined>" {
+		return normalized{Kind: kindUndetermined}, true
 	}
 	if quantity.MatchString(text) {
 		return normalized{Kind: kindQuantity, Value: text}, true
@@ -343,6 +349,8 @@ func bucketResults(pilot, ours sideResult) string {
 		return "pilot-error"
 	case ours.Error:
 		return "ours-error"
+	case ours.Value.Kind == kindUndetermined:
+		return "ours-undetermined"
 	case pilot.Value.Kind == "" && ours.Value.Kind == "":
 		return "agree"
 	case pilot.Value.Kind == "" || ours.Value.Kind == "":
@@ -358,6 +366,9 @@ func normalizedText(value normalized) string {
 	}
 	if value.Unevaluated {
 		return "pilot-unevaluated"
+	}
+	if value.Kind == kindUndetermined {
+		return kindUndetermined
 	}
 	if value.Kind == kindSequence {
 		parts := make([]string, len(value.Elements))

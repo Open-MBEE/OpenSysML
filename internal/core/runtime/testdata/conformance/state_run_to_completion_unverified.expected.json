@@ -1,0 +1,5 @@
+{
+  "type": "instance",
+  "instantiate": "test::ctl",
+  "error": "exhibited state machine mode of ctl: lower state machine: unsupported state machine content: the state usage mode redefines isRunToCompletion = strict or true, which the runtime cannot verify restates the library default: every state machine runs to completion (Occurrences::Occurrence::isRunToCompletion default true)"
+}

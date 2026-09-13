@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
@@ -23,9 +24,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
-// renderUsage is how %render is written: a view, and the form to write it in,
-// text when none is named.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown]"
+// renderUsage is how %render is written: a view, the form to write it in, text
+// when none is named, and the palette the DOT and PlantUML forms fill nodes from.
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -146,13 +147,23 @@ var metaCommandTable = []metaCommand{
 	{name: "%strict", args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
 	{name: "%schedule", args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%budget", desc: "show the bounds one run may spend, and the variable raising each"},
+	{name: "%jobs", args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
+	{name: "%engines", args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
+	{name: "%engine", args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
+	{name: "%check-diverge", args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
+	{name: "%check-property", args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
+	{name: "%check-input", args: "[<feature>...|off]", desc: "show or set the features the smt engine leaves free in their declared domains although the model binds them; off frees only the inputs the model leaves unbound"},
+	{name: "%check-assume", args: "[<name>...|off]", desc: "show or set the constraints and requirements the smt engine assumes over the initial state of an action"},
+	{name: "%check-witness", args: "[<dir>|off]", desc: "show or set the directory the check and smt engines write a witness to for each violation and divergent value"},
+	{name: "%check-bounds", args: "[depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check and smt engines search within: the moves of one schedule, the distinct states, the iterations of a loop the smt engine unrolls, and the clock; off restores their defaults"},
+	{name: "%replay", args: "<witness>", desc: "install the schedule a witness file fixes, so the next %action or %state steps the run it records"},
 	{name: "%quit", desc: "exit the REPL"},
 	{name: "%exit", desc: "exit the REPL", alias: true},
 
 	{group: groupLibrary, name: "%search", args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{group: groupLibrary, name: "%builtins", desc: "list the library functions this build implements directly"},
 	{group: groupLibrary, name: "%view", args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{group: groupLibrary, name: "%render", args: "<name> [form]", desc: "render a view as the rendering it states — as text, or as a Mermaid diagram or a Markdown table"},
+	{group: groupLibrary, name: "%render", args: "<name> [form [palette]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette"},
 
 	{group: groupRuntime, name: "%instantiate", args: argName, desc: "create an instance of a part def"},
 	{group: groupRuntime, name: "%eval", args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
@@ -165,7 +176,7 @@ var metaCommandTable = []metaCommand{
 	{group: groupBehavioral, name: cmdSweep, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
 	{group: groupBehavioral, name: cmdSamples, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{group: groupBehavioral, name: cmdRunQuery, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
-	{group: groupBehavioral, name: cmdRenderDocument, args: argName, desc: "compile a document definition, run its queries and print the rendered Markdown"},
+	{group: groupBehavioral, name: cmdRenderDocument, args: "<name> [mermaid|dot|plantuml]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT or PlantUML"},
 	{group: groupBehavioral, name: "%constraint", args: argName, desc: "evaluate a constraint definition"},
 	{group: groupBehavioral, name: "%requirement", args: argName, desc: "evaluate a requirement definition"},
 	{group: groupBehavioral, name: "%satisfy", args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
@@ -228,8 +239,7 @@ func metaCommands() []string {
 // RunMeta executes a meta-command (e.g., %eval, %load) and returns the output lines,
 // a quit flag, and any error encountered.
 func (s *Session) RunMeta(line string) (out []string, quit bool, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	out, quit, err = s.runMeta(line)
 	return append(s.drainTrace(), out...), quit, err
 }
@@ -305,23 +315,33 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		s.verbosity = v
 		return metaOut([]string{fmt.Sprintf("verbosity: %s", v)}, false, nil), true
 	case "%trace":
-		if len(fields) >= 2 {
-			switch fields[1] {
-			case "on":
-				s.setTracing(true)
-			case "off":
-				s.setTracing(false)
-			default:
-				return metaOut([]string{fmt.Sprintf("error: unknown trace setting %q (want on or off)", fields[1])}, false, nil), true
-			}
-		}
-		return metaOut([]string{fmt.Sprintf("trace: %s", onOff(s.trace != nil))}, false, nil), true
+		return metaOut(s.doTrace(fields[1:]), false, nil), true
 	case "%strict":
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
 	case "%schedule":
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
+	case "%jobs":
+		return metaOut(s.doJobs(fields[1:]), false, nil), true
+	case "%engines":
+		return metaOut(s.doEngines(fields[1:]), false, nil), true
+	case "%engine":
+		return metaOut(s.doEngine(fields[1:]), false, nil), true
+	case "%check-diverge":
+		return metaOut(s.doCheckDiverge(fields[1:]), false, nil), true
+	case "%check-property":
+		return metaOut(s.doCheckProperty(fields[1:]), false, nil), true
+	case "%check-input":
+		return metaOut(s.doCheckInput(fields[1:]), false, nil), true
+	case "%check-assume":
+		return metaOut(s.doCheckAssume(fields[1:]), false, nil), true
+	case "%check-witness":
+		return metaOut(s.doCheckWitness(fields[1:]), false, nil), true
+	case "%check-bounds":
+		return metaOut(s.doCheckBounds(fields[1:]), false, nil), true
+	case "%replay":
+		return metaOut(s.doReplay(fields[1:]), false, nil), true
 	case "%search":
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %search <substring>"}, false, nil), true
@@ -335,21 +355,53 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		}
 		return metaOut(s.doView(fields[1])), true
 	case "%render":
-		if len(fields) < 2 || len(fields) > 3 {
-			return metaOut([]string{renderUsage}, false, nil), true
-		}
-		form := view.FormText
-		if len(fields) == 3 {
-			form = view.Form(fields[2])
-			if !slices.Contains(view.Forms(), form) {
-				return metaOut([]string{fmt.Sprintf("unknown form %q; %s", fields[2], renderUsage)}, false, nil), true
-			}
-		}
-		return metaOut(s.doRender(fields[1], form)), true
+		return metaOut(s.metaRender(fields[1:])), true
 	case "%quit", "%exit":
 		return metaOut([]string{"goodbye"}, true, nil), true
 	}
 	return metaResult{}, false
+}
+
+// doTrace answers %trace: an argument switches tracing on or off, and the
+// reply states the setting in force.
+func (s *Session) doTrace(args []string) []string {
+	if len(args) >= 1 {
+		switch args[0] {
+		case "on":
+			s.setTracing(true)
+		case "off":
+			s.setTracing(false)
+		default:
+			return []string{fmt.Sprintf("error: unknown trace setting %q (want on or off)", args[0])}
+		}
+	}
+	return []string{fmt.Sprintf("trace: %s", onOff(s.trace != nil))}
+}
+
+// metaRender reads the %render arguments — the name, an optional form and, for
+// a form that fills nodes, an optional palette — and renders the view they name.
+func (s *Session) metaRender(args []string) ([]string, bool, error) {
+	if len(args) < 1 || len(args) > 3 {
+		return []string{renderUsage}, false, nil
+	}
+	form := view.FormText
+	if len(args) >= 2 {
+		form = view.Form(args[1])
+		if !slices.Contains(view.Forms(), form) {
+			return []string{fmt.Sprintf("unknown form %q; %s", args[1], renderUsage)}, false, nil
+		}
+	}
+	var palette view.Palette
+	if len(args) == 3 {
+		if !form.TakesPalette() {
+			return []string{fmt.Sprintf("a palette fills the dot and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
+		}
+		var ok bool
+		if palette, ok = view.ParsePalette(args[2]); !ok {
+			return []string{(&view.UnknownPaletteError{Name: args[2]}).Error() + "; " + renderUsage}, false, nil
+		}
+	}
+	return s.doRender(args[0], form, palette)
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line
@@ -647,17 +699,7 @@ func (s *Session) evalIn(name, expr string) ([]string, error) {
 	}
 	val, err := ctx.EvalWithScope(node, scope)
 	if err != nil {
-		// A feature the declarations give no value to reads as unset, as it does
-		// on an object; an operation over one fails, and a name nothing declares
-		// is an error.
-		var noValue *runtime.NoValueError
-		if !errors.As(err, &noValue) || !readsFeature(node, noValue.Ref) {
-			return nil, evalError(expr, err, len(exprPrefix))
-		}
-		return []string{
-			fmt.Sprintf("✓ %s (in %s)", expr, declarationNotation(sym)),
-			fmt.Sprintf("  = %s", runtime.UnsetText),
-		}, nil
+		return nil, evalError(expr, err, len(exprPrefix))
 	}
 	return []string{
 		fmt.Sprintf("✓ %s (in %s)", expr, declarationNotation(sym)),
@@ -868,13 +910,7 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 	// features and the units its imports bring in.
 	val, err := ctx.EvalWithScope(evalUsage.Value, s.promptScope())
 	if err != nil {
-		// A name the lookup missed but the expression reached resolved after
-		// all; finding no value there is not the unresolved name the lookup saw.
-		var noValue *runtime.NoValueError
 		if lookupErr != nil {
-			if errors.As(err, &noValue) && readsFeature(evalUsage.Value, noValue.Ref) {
-				return nil, fmt.Errorf("%q has no value to evaluate", expr)
-			}
 			return nil, lookupErr
 		}
 		return nil, evalError(expr, err, len(tempSrc)-len(expr)-1)
@@ -894,22 +930,6 @@ func declaresValue(sym *symbols.Symbol) bool {
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && usage.Value != nil
-}
-
-// readsFeature reports whether an expression is a bare read (a name or a chain
-// of names) with ref as one of its own links, not a name read inside a default.
-func readsFeature(node ast.Node, ref *ast.QualifiedName) bool {
-	if ref == nil {
-		return false
-	}
-	switch n := node.(type) {
-	case *ast.FeatureReference:
-		return n.Name == ref
-	case *ast.FeatureChainExpr:
-		return n.Member == ref || readsFeature(n.Operand, ref)
-	default:
-		return false
-	}
 }
 
 // exprPrefix wraps an expression as a declaration of its own, so parsing it
@@ -1029,9 +1049,8 @@ func mismatchInExpr(expr string, operand *runtime.OperandTypeError, base int) bo
 // emptyRuntime is a context over an empty model, which answers an expression of
 // literals alone and nothing a session declares.
 func emptyRuntime(budgets runtime.Budgets) (*runtime.Context, error) {
-	emptyIdx := libs.NewModelIndex()
-	emptyModel := semantics.NewModel(resolve.New(emptyIdx))
-	ctx := runtime.NewContext(emptyModel, resolve.New(emptyIdx), budgets.MaxSteps)
+	resolver := resolve.New(libs.NewModelIndex())
+	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), budgets.MaxSteps)
 	if err := ctx.SetBudgets(budgets); err != nil {
 		return nil, err
 	}
@@ -1698,30 +1717,41 @@ func formatValue(ctx *runtime.Context, val runtime.Value) string {
 // so it is evaluated as a usage and every output feature it computes is listed
 // from that one run (SysML 7.17).
 func (s *Session) doCalc(calcName, argText string) ([]string, bool, error) {
-	return errorLines(s.evalCalc(calcName, argText))
+	return s.calcVerdict(calcName, argText).Lines, false, nil
 }
 
-// evalCalc carries out %calc, reporting what stopped an evaluation as an error
-// rather than as a line of output, so a caller outside the prompt — the command
-// line — can tell an evaluated calculation from one that could not be run.
-func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, error) {
+// calcVerdict carries out %calc: what the calculation computed with its standing,
+// or, for one that could not be run, what stopped it, as the prompt reports any
+// command it could not carry out.
+func (s *Session) calcVerdict(calcName, argText string) Verdict {
+	lines, values, plan, err := s.evalCalc(calcName, argText)
+	if err != nil {
+		return standing(unresolvedVerdict(calcName, err.Error()), plan)
+	}
+	return standing(Verdict{Subject: calcName, Status: VerdictHolds, Lines: lines, Values: values}, plan)
+}
+
+// evalCalc evaluates a calc at the prompt, reporting what stopped an evaluation
+// as an error rather than as a line of output, so a caller outside the prompt —
+// the command line — can tell an evaluated calculation from one that could not be run.
+func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, *analysis.Plan, error) {
 	sym, err := s.calcSymbol(calcName)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	lines, outputs, err := s.evalCalcIn(ctx, sym, calcName, argText)
+	lines, outputs, plan, err := s.evalCalcIn(s.dispatched(), ctx, sym, calcName, argText)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, plan, err
 	}
 	values := make([]NamedValue, 0, len(outputs))
 	for _, out := range outputs {
 		values = append(values, NamedValue{Name: out.Name, Value: formatValue(ctx, out.Value)})
 	}
-	return lines, values, nil
+	return lines, values, plan, nil
 }
 
 // calcSymbol resolves the calc %calc names. It is resolved before the runtime is
@@ -1738,18 +1768,19 @@ func (s *Session) calcSymbol(calcName string) (*symbols.Symbol, error) {
 	return sym, nil
 }
 
-// evalCalcIn evaluates a calc in ctx: a calc usage's outputs from its own member
-// values when it is called without arguments, else the value it returns for them.
-func (s *Session) evalCalcIn(ctx *runtime.Context, sym *symbols.Symbol, calcName, argText string) ([]string, []runtime.CalcOutputValue, error) {
+// evalCalcIn evaluates a calc in ctx as x makes runs: a calc usage's outputs from
+// its own member values when it is called without arguments, else the value it
+// returns for them. The plan is how the engines answered, nil for a direct run.
+func (s *Session) evalCalcIn(x execution, ctx *runtime.Context, sym *symbols.Symbol, calcName, argText string) ([]string, []runtime.CalcOutputValue, *analysis.Plan, error) {
 	if strings.TrimSpace(argText) == "" {
-		if lines, outputs, handled, err := s.calcUsageOutputs(ctx, sym, calcName); handled {
-			return lines, outputs, err
+		if lines, outputs, plan, handled, err := s.calcUsageOutputs(x, ctx, sym, calcName); handled {
+			return lines, outputs, plan, err
 		}
 	}
 
 	exprs, err := s.argExprs(argText)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Arguments are evaluated where the prompt evaluates any expression, so a
@@ -1760,50 +1791,58 @@ func (s *Session) evalCalcIn(ctx *runtime.Context, sym *symbols.Symbol, calcName
 	for i, arg := range exprs {
 		val, err := ctx.EvalWithScope(arg.expr, scope)
 		if err != nil {
-			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
+			return nil, nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
 		}
 		argValues[i] = val
 		argTexts[i] = arg.text
 	}
 
-	result, err := ctx.InvokeCalc(sym, argValues, scope)
+	result, plan, err := evaluate(x, calcName, ctx, func(ctx *runtime.Context) (runtime.Value, error) {
+		return ctx.InvokeCalc(sym, argValues, scope)
+	}, func(result runtime.Value, err error) analysis.Answer {
+		return analysis.ValuesAnswer([]analysis.Evaluation{{Name: calcResultName, Value: result}}, err)
+	})
 	if err != nil {
 		// A name of another kind is a wrong argument, so it is reported as
 		// itself rather than as a calculation that failed.
 		if errors.Is(err, runtime.ErrNotACalc) {
-			return nil, nil, err
+			return nil, nil, plan, err
 		}
-		return nil, nil, fmt.Errorf("calc invocation failed: %w", err)
+		return nil, nil, plan, fmt.Errorf("calc invocation failed: %w", err)
 	}
 
 	return []string{
 		fmt.Sprintf("✓ %s(%s)", calcName, strings.Join(argTexts, ", ")),
 		fmt.Sprintf("  = %s", formatValue(ctx, result)),
-	}, []runtime.CalcOutputValue{{Name: calcResultName, Value: result}}, nil
+	}, []runtime.CalcOutputValue{{Name: calcResultName, Value: result}}, plan, nil
 }
 
 // calcUsageOutputs lists the outputs of a calc usage evaluated from its own
 // member values. It reports handled=false when the name is not a calc usage, or
 // is one that computes no output features, so those keep being invoked as
 // calculations with an empty argument list.
-func (s *Session) calcUsageOutputs(ctx *runtime.Context, sym *symbols.Symbol, calcName string) ([]string, []runtime.CalcOutputValue, bool, error) {
+func (s *Session) calcUsageOutputs(x execution, ctx *runtime.Context, sym *symbols.Symbol, calcName string) ([]string, []runtime.CalcOutputValue, *analysis.Plan, bool, error) {
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || usage.Kind != ast.UsageCalc {
-		return nil, nil, false, nil
+		return nil, nil, nil, false, nil
 	}
-	outputs, err := ctx.CalcUsageOutputs(sym, sym.OwnerScope, nil)
+	outputs, plan, err := evaluate(x, calcName, ctx, func(ctx *runtime.Context) ([]runtime.CalcOutputValue, error) {
+		return ctx.CalcUsageOutputs(sym, sym.OwnerScope, nil)
+	}, func(outputs []runtime.CalcOutputValue, err error) analysis.Answer {
+		return analysis.ValuesAnswer(analysis.OutputValues(outputs), err)
+	})
 	if err != nil {
-		return nil, nil, true, fmt.Errorf("calc usage evaluation failed: %w", err)
+		return nil, nil, plan, true, fmt.Errorf("calc usage evaluation failed: %w", err)
 	}
 	if len(outputs) == 0 {
-		return nil, nil, false, nil
+		return nil, nil, nil, false, nil
 	}
 	lines := make([]string, 0, len(outputs)+1)
 	lines = append(lines, fmt.Sprintf("✓ %s", calcName))
 	for _, out := range outputs {
 		lines = append(lines, fmt.Sprintf("  %s = %s", out.Name, formatValue(ctx, out.Value)))
 	}
-	return lines, outputs, true, nil
+	return lines, outputs, plan, true, nil
 }
 
 // splitCalcArgs splits `%calc`'s tail into the calc's name and its argument
@@ -2149,23 +2188,31 @@ func (s *Session) satisfyVerdict(ctx *runtime.Context, a *runtime.SatisfyAsserti
 			subject, owner = inst, s.keepSubject(a, inst)
 		}
 	}
-	result, err := ctx.CheckSatisfactionOn(a, subject)
+	result, plan, err := s.check(satisfyText(a), ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+		return ctx.CheckSatisfactionOn(a, subject)
+	})
 	subject, owner = s.reportedSubject(result, subject, owner)
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.
 	req := a.AssertedRequirement()
+	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req)
+	return standing(verdict, plan)
+}
+
+// satisfactionVerdict reports what checking a satisfaction assertion decided.
+func satisfactionVerdict(a *runtime.SatisfyAssertion, result runtime.CheckResult, err error, subject *runtime.Instance, owner string) Verdict {
 	if unevaluable(err) {
-		return s.withVerifications(unevaluableVerdict(satisfyText(a), satisfyText(a), err, subject, owner), ctx, req)
+		return unevaluableVerdict(satisfyText(a), satisfyText(a), err, subject, owner)
 	}
 	if err != nil || !result.Holds {
-		return s.withVerifications(Verdict{Subject: satisfyText(a), Status: VerdictFails, Lines: []string{
+		return Verdict{Subject: satisfyText(a), Status: VerdictFails, Lines: []string{
 			fmt.Sprintf("✗ %s fails%s", satisfyText(a), onInstance(subject, owner)),
 			"  " + verdictDetail("Required condition", err),
-		}}, ctx, req)
+		}}
 	}
-	return s.withVerifications(Verdict{Subject: satisfyText(a), Status: VerdictHolds, Lines: []string{
+	return Verdict{Subject: satisfyText(a), Status: VerdictHolds, Lines: []string{
 		fmt.Sprintf("✓ %s holds%s", satisfyText(a), onInstance(subject, owner)),
-	}}, ctx, req)
+	}}
 }
 
 // subjectInstance returns the object the session has already created for an
@@ -2258,6 +2305,9 @@ func (s *Session) performingObject(args []string) (*runtime.Instance, string, er
 
 // doAction starts an action executor debugging session.
 func (s *Session) doAction(name string, performer []string) ([]string, bool, error) {
+	if s.checking() {
+		return s.checkAction(name, performer).Lines, false, nil
+	}
 	lines, err := s.startAction(name, performer)
 	if err != nil {
 		if errors.Is(err, errRuntimeInit) {
@@ -2365,7 +2415,7 @@ func (s *Session) doStep() ([]string, bool, error) {
 	}
 
 	if exec.State() == runtime.StateCompleted {
-		out = append(out, "", "✓ Action completed")
+		out = append(out, "", actionCompletedText)
 		out = append(out, renderResults(s.actionExec.contextOf(), exec.Results())...)
 	}
 
@@ -2409,7 +2459,7 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 
 	// Display results
 	out := []string{
-		"✓ Action completed",
+		actionCompletedText,
 		fmt.Sprintf("  Final state: %s", exec.State()),
 	}
 	out = append(out, s.noteSummary(exec.Notes(), noted)...)
@@ -2616,8 +2666,8 @@ func (s *Session) startStateMachine(name string, performer []string) ([]string, 
 	if len(performer) == 0 {
 		switch exhibitors := s.exhibitorsOf(ctx, sym); len(exhibitors) {
 		case 0:
-			if types := s.exhibitingTypes(ctx, sym); len(types) > 0 {
-				return nil, s.exhibitorsError(name, types, nil)
+			if types := exhibitingTypes(ctx, s.exhibitEntries(ctx), sym); len(types) > 0 {
+				return nil, exhibitorsError(name, types, nil)
 			}
 		case 1:
 			ex := exhibitors[0]
@@ -2626,7 +2676,7 @@ func (s *Session) startStateMachine(name string, performer []string) ([]string, 
 			}
 			return s.attachExhibitedMachine(ctx, name, ex.name, ex.inst, ex.machines[0]), nil
 		default:
-			return nil, s.exhibitorsError(name, nil, exhibitors)
+			return nil, exhibitorsError(name, nil, exhibitors)
 		}
 	}
 
@@ -2784,11 +2834,11 @@ func (s *Session) exhibitorsOf(ctx *runtime.Context, sym *symbols.Symbol) []exhi
 	return found
 }
 
-// exhibitingTypes finds the types of the session's documents declaring an exhibit
-// of sym's machine (the usage itself, or one typed by or naming it), in declaration order.
-func (s *Session) exhibitingTypes(ctx *runtime.Context, sym *symbols.Symbol) []*symbols.Symbol {
+// exhibitingTypes finds the types among entries declaring an exhibit of sym's
+// machine (the usage itself, or one typed by or naming it), in declaration order.
+func exhibitingTypes(ctx *runtime.Context, entries []exhibitEntry, sym *symbols.Symbol) []*symbols.Symbol {
 	var types []*symbols.Symbol
-	for _, e := range s.exhibitEntries(ctx) {
+	for _, e := range entries {
 		// One mention per type: the entries of a type are contiguous.
 		if len(types) > 0 && types[len(types)-1] == e.owner {
 			continue
@@ -2818,7 +2868,13 @@ func (s *Session) exhibitEntries(ctx *runtime.Context) []exhibitEntry {
 	if s.exhibits != nil && s.exhibits.ctx == ctx {
 		return s.exhibits.entries
 	}
-	idx := &exhibitIndex{ctx: ctx}
+	s.exhibits = &exhibitIndex{ctx: ctx, entries: collectExhibits(s.docScopes())}
+	return s.exhibits.entries
+}
+
+// collectExhibits lists the exhibited-state declarations under scopes in declaration order.
+func collectExhibits(scopes []*symbols.Scope) []exhibitEntry {
+	var entries []exhibitEntry
 	var collect func(scope *symbols.Scope)
 	collect = func(scope *symbols.Scope) {
 		if scope == nil {
@@ -2828,7 +2884,7 @@ func (s *Session) exhibitEntries(ctx *runtime.Context) []exhibitEntry {
 			scope.ForEachMember(func(member *symbols.Symbol) bool {
 				if member.Name != "" && member.Decl != nil {
 					if b, ok := lower.ClassifierBehaviorOf(member.Decl); ok && b.Kind == lower.ExhibitedState {
-						idx.entries = append(idx.entries, exhibitEntry{owner: owner, member: member})
+						entries = append(entries, exhibitEntry{owner: owner, member: member})
 					}
 				}
 				return true
@@ -2838,16 +2894,15 @@ func (s *Session) exhibitEntries(ctx *runtime.Context) []exhibitEntry {
 			collect(child)
 		}
 	}
-	for _, scope := range s.docScopes() {
+	for _, scope := range scopes {
 		collect(scope)
 	}
-	s.exhibits = idx
-	return idx.entries
+	return entries
 }
 
 // exhibitorsError reports sym's machine as one `%state <machine>` alone cannot
 // attach to, naming the types declaring an exhibit of it and the objects exhibiting it.
-func (s *Session) exhibitorsError(name string, types []*symbols.Symbol, exhibitors []exhibitor) error {
+func exhibitorsError(name string, types []*symbols.Symbol, exhibitors []exhibitor) error {
 	e := &ExhibitorsError{Machine: name}
 	for _, typ := range types {
 		e.Types = append(e.Types, declarationNotation(typ))
@@ -2939,10 +2994,7 @@ func (s *Session) stateStep(exec *runtime.StateExecutor) (string, error) {
 		if err := exec.ProcessNextEvent(); err != nil {
 			return "", fmt.Errorf("event processing failed: %w", err)
 		}
-		if note := droppedSignalNote(exec); note != "" {
-			return "Event dispatched, but " + note, nil
-		}
-		return "Event dispatched", nil
+		return "Event dispatched" + dispatchedEventNote(exec), nil
 	}
 	if exec.HasPendingDoWork() {
 		ran, err := exec.RunDoRound()
@@ -3040,7 +3092,14 @@ func (s *Session) evalArguments(ctx *runtime.Context, parsed []argument) (map[st
 	if len(parsed) == 0 {
 		return nil, nil
 	}
-	scope := s.promptScope()
+	return evalArgumentsIn(ctx, s.promptScope(), parsed)
+}
+
+// evalArgumentsIn evaluates parsed arguments in ctx under scope, binding each to its parameter.
+func evalArgumentsIn(ctx *runtime.Context, scope *symbols.Scope, parsed []argument) (map[string]runtime.Value, error) {
+	if len(parsed) == 0 {
+		return nil, nil
+	}
 	bound := make(map[string]runtime.Value, len(parsed))
 	for _, arg := range parsed {
 		value, err := ctx.EvalWithScope(arg.node, scope)
@@ -3250,13 +3309,15 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 		out = append(out, "", stateCompletedText)
 	}
 	if action != nil && action.State() == runtime.StateCompleted {
-		out = append(out, "", "✓ Action completed")
+		out = append(out, "", actionCompletedText)
 		out = append(out, renderResults(s.actionExec.contextOf(), action.Results())...)
 	}
 	return out, nil
 }
 
 const stateCompletedText = "✓ State machine completed (a transition reached `done`)"
+
+const actionCompletedText = "✓ Action completed"
 
 // distinctContexts returns the contexts given, dropping none and repeats.
 func distinctContexts(contexts ...*runtime.Context) []*runtime.Context {
@@ -3426,7 +3487,7 @@ func clockWaitLines(ctx *runtime.Context) []string {
 	}
 	out := []string{"  Waiting on the clock:"}
 	for _, w := range waits {
-		out = append(out, fmt.Sprintf("    t=%s: %s, %s", semantics.FormatReal(w.Due), w.Holder, w.What))
+		out = append(out, fmt.Sprintf("    t=%s: %s, %s", semantics.FormatReal(w.Due), w.Holder(), w.What()))
 	}
 	return out
 }

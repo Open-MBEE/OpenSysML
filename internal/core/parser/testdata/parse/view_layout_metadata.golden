@@ -1,0 +1,101 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="VehicleLayout" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="DiagramLayout" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="Views" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Engine"
+          (Membership visibility="default"
+            (PrefixMetadata type="Layout"
+              (Membership visibility="default"
+                (Usage kind="attribute" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="0")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="y" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="0")))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Wheel"))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Vehicle"
+          (Membership visibility="default"
+            (Usage kind="part" name="engine" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Engine
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="wheel" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Wheel
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="4"))))
+          (Membership visibility="default"
+            (Usage kind="connection" name="drive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="engine"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="wheel"
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Usage kind="view" name="vehicleView" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Expose visibility="protected" all=true kind=membership recursive=true imported="Vehicle" filtered=false)
+          (Membership visibility="default"
+            (Usage kind="render" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="references" target=asInterconnectionDiagram
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (PrefixMetadata type="Canvas"
+              (Membership visibility="default"
+                (Usage kind="attribute" name="unit" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralString value="\"px\"")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="width" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="1200")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="height" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="800")))))
+          (Membership visibility="default"
+            (Usage kind="metadata" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Layout
+                (*ast.QualifiedName))
+              (Relationship kind="about" target=Vehicle::engine
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="120")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="y" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="80")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="width" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="200")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="height" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="90")))))
+          (Membership visibility="default"
+            (Usage kind="metadata" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Layout
+                (*ast.QualifiedName))
+              (Relationship kind="about" target=Vehicle::wheel
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="480")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="y" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="80")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="collapsed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralBool value=true)))))
+          (Membership visibility="default"
+            (Usage kind="metadata" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Route
+                (*ast.QualifiedName))
+              (Relationship kind="about" target=Vehicle::drive
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="points" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (SequenceExpr
+                    (LiteralInteger value="320")
+                    (LiteralInteger value="125")
+                    (LiteralInteger value="400")
+                    (LiteralInteger value="125")
+                    (LiteralInteger value="480")
+                    (LiteralInteger value="125")))))))))))

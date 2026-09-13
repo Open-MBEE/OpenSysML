@@ -1,11 +1,11 @@
 package repl
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -61,6 +61,8 @@ type SolveReport struct {
 	Lines   []string
 	// Solver names the solver that answered, empty when none did.
 	Solver string
+	// Plan is how the engines answered; nil for a report made before any was asked.
+	Plan *analysis.Plan
 }
 
 // Satisfiable reports whether the solver found the conditions satisfiable.
@@ -69,8 +71,7 @@ func (r SolveReport) Satisfiable() bool { return r.Status == SolveSat }
 // CheckSolve asks a solver whether the named constraint, requirement or
 // satisfaction can be satisfied at all. Experimental: SysML v2 defines no solving.
 func (s *Session) CheckSolve(name string) []SolveReport {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.checkSolve(name)
 }
 
@@ -79,20 +80,13 @@ func (s *Session) checkSolve(name string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	solver, err := solve.Discover()
-	if err != nil {
-		return []SolveReport{unavailableReport(name, err.Error())}
-	}
-	reports := make([]SolveReport, 0, len(queries))
-	for _, q := range queries {
-		reports = append(reports, s.solveQuery(name, solver, q))
-	}
-	return reports
+	plan, err := s.solveWith(name, queries, (*solve.Solver).Solve)
+	return solveReports(name, queries, plan, err, solveQueryReport)
 }
 
-// solveQuery asks the solver about one query and renders its answer.
-func (s *Session) solveQuery(name string, solver *solve.Solver, q *solve.Query) SolveReport {
-	result, err := solver.Solve(context.Background(), q)
+// solveQueryReport renders the solver's answer about one query.
+func solveQueryReport(name string, q *solve.Query, solved analysis.Evaluation) SolveReport {
+	result, err := solved.Solved, solved.Err
 	if err != nil {
 		return unavailableReport(name, err.Error())
 	}

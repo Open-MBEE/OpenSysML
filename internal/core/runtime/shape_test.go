@@ -18,7 +18,7 @@ func TestFeaturesOf(t *testing.T) {
 		}
 	`
 	model, resolver, rootScope := parseAndBuildModel(t, code)
-	ctx := NewContext(model, resolver, testMaxSteps)
+	ctx := NewContext(NewModel(model, resolver), testMaxSteps)
 
 	derivedSym := resolveSymbol(t, rootScope, "Derived")
 	features := ctx.FeaturesOf(derivedSym)
@@ -56,7 +56,7 @@ func TestFeaturesOf_Redefinition(t *testing.T) {
 		}
 	`
 	model, resolver, rootScope := parseAndBuildModel(t, code)
-	ctx := NewContext(model, resolver, testMaxSteps)
+	ctx := NewContext(NewModel(model, resolver), testMaxSteps)
 
 	derivedSym := resolveSymbol(t, rootScope, "Derived")
 	features := ctx.FeaturesOf(derivedSym)
@@ -87,7 +87,7 @@ func TestFeaturesOf_TypeInheritedThroughRedefinition(t *testing.T) {
 		part def Band :> Ring { attribute bandCost :>> ringCost; }
 	`
 	model, resolver, rootScope := parseAndBuildModel(t, code)
-	ctx := NewContext(model, resolver, testMaxSteps)
+	ctx := NewContext(NewModel(model, resolver), testMaxSteps)
 
 	features := ctx.FeaturesOf(resolveSymbol(t, rootScope, "Band"))
 	if len(features) == 0 || features[0].Name != "bandCost" {
@@ -105,7 +105,7 @@ func TestFeaturesOf_Multiplicity(t *testing.T) {
 		}
 	`
 	model, resolver, rootScope := parseAndBuildModel(t, code)
-	ctx := NewContext(model, resolver, testMaxSteps)
+	ctx := NewContext(NewModel(model, resolver), testMaxSteps)
 
 	thingSym := resolveSymbol(t, rootScope, "Thing")
 	features := ctx.FeaturesOf(thingSym)
@@ -130,7 +130,7 @@ func TestFeaturesOf_DefaultValue(t *testing.T) {
 		}
 	`
 	model, resolver, rootScope := parseAndBuildModel(t, code)
-	ctx := NewContext(model, resolver, testMaxSteps)
+	ctx := NewContext(NewModel(model, resolver), testMaxSteps)
 
 	thingSym := resolveSymbol(t, rootScope, "Thing")
 	features := ctx.FeaturesOf(thingSym)

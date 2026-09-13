@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"trace": true,
+	"finalState": "done",
+	"stateVisits": ["idle", "seen", "done"],
+	"outputs": {
+		"x": {"type": "Integer", "value": 1},
+		"y": {"type": "Integer", "value": 11}
+	}
+}

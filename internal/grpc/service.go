@@ -10,13 +10,14 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -152,6 +153,15 @@ const CapabilityScheduleExplore = "schedule_explore"
 // when it ended. Without it the field is 0 whatever the run waited on.
 const CapabilityFinalTime = "final_time"
 
+// CapabilityMetaobjectValues names the capability of carrying an element
+// reflected on as an instance of its metaclass (`x meta T`, the last element of
+// `x.metadata`) as Value.metaobject, rather than as an unsupported null.
+const CapabilityMetaobjectValues = "metaobject_values"
+
+// CapabilityUndeterminedValue names the capability of carrying a result the model
+// leaves open as Value.undetermined rather than as an unsupported null.
+const CapabilityUndeterminedValue = "undetermined_value"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -164,7 +174,10 @@ var capabilities = []string{
 	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilitySetValues,
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
 	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
-	CapabilityScheduleExplore, CapabilityFinalTime,
+	CapabilityScheduleExplore, CapabilityFinalTime, CapabilityEngines,
+	CapabilityMetaobjectValues,
+	CapabilityUndeterminedValue,
+	CapabilityEnginesExternal,
 }
 
 type capabilityAvailability struct {
@@ -184,6 +197,9 @@ func newCapabilityAvailability(withheld []string) (capabilityAvailability, error
 	}
 	return capabilityAvailability{available: available}, nil
 }
+
+// withhold drops a capability the service turns out not to supply.
+func (a capabilityAvailability) withhold(capability string) { delete(a.available, capability) }
 
 func (a capabilityAvailability) has(capability string) bool {
 	_, ok := a.available[capability]
@@ -218,34 +234,59 @@ type Service struct {
 	// budgets bounds every runtime context the service creates, read once from
 	// the environment at construction.
 	budgets runtime.Budgets
+	// jobs is how many runs of one plan go concurrently, OPENSYSML_JOBS read once at
+	// construction; no request sets it.
+	jobs int
+	// engines answers every analysis question the runtime RPCs put, under auto.
+	engines *analysis.Registry
 	// version is the build version GetServerInfo reports, informational only.
 	version string
 	// capabilities decides both what this service reports and what it supplies.
 	capabilities capabilityAvailability
 }
 
+// Option adjusts how NewService builds a service.
+type Option func(*serviceOptions)
+
+type serviceOptions struct {
+	unavailable []string
+	serve       []string
+}
+
+// ServeExternalEngines names the manifest engines the service runs, as
+// -serve-external-engines does; `all` names every one. Without it every manifest
+// engine is listed but not served.
+func ServeExternalEngines(names ...string) Option {
+	return func(o *serviceOptions) { o.serve = append(o.serve, names...) }
+}
+
 // NewService creates a gRPC service with specified cache size, reporting
 // version as its build version. It returns an error if cacheSize is not
-// positive, if a budget variable holds anything but a positive integer, or if
-// the prewarm setting is not a non-negative integer. It does not load the
+// positive, if a budget variable or OPENSYSML_JOBS holds anything but a positive
+// integer, if the prewarm setting is not a non-negative integer, or if a manifest
+// or a name given to ServeExternalEngines is wrong. It does not load the
 // standard library: call Prewarm to have that happen in the background, ahead of
 // the requests that need it.
-func NewService(cacheSize int, version string) (*Service, error) {
-	return newService(cacheSize, version, nil)
+func NewService(cacheSize int, version string, opts ...Option) (*Service, error) {
+	return newService(cacheSize, version, opts)
 }
 
 // NewServiceWithUnavailableCapabilitiesForTesting creates a service that
 // deliberately lacks named capabilities for conformance testing.
-func NewServiceWithUnavailableCapabilitiesForTesting(cacheSize int, version string, unavailable []string) (*Service, error) {
-	return newService(cacheSize, version, unavailable)
+func NewServiceWithUnavailableCapabilitiesForTesting(cacheSize int, version string, unavailable []string, opts ...Option) (*Service, error) {
+	return newService(cacheSize, version, append(opts, func(o *serviceOptions) { o.unavailable = unavailable }))
 }
 
-func newService(cacheSize int, version string, unavailable []string) (*Service, error) {
+func newService(cacheSize int, version string, opts []Option) (*Service, error) {
+	var options serviceOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 	cache, err := NewCache(cacheSize)
 	if err != nil {
 		return nil, err
 	}
-	availability, err := newCapabilityAvailability(unavailable)
+	availability, err := newCapabilityAvailability(options.unavailable)
 	if err != nil {
 		return nil, err
 	}
@@ -253,15 +294,32 @@ func newService(cacheSize int, version string, unavailable []string) (*Service, 
 	if err != nil {
 		return nil, err
 	}
+	jobs, err := analysis.JobsFromEnv()
+	if err != nil {
+		return nil, err
+	}
 	prewarm, err := indexPrewarmFromEnv()
 	if err != nil {
 		return nil, err
+	}
+	registry, err := engineset.DefaultFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	engines, err := registry.Serving(options.serve)
+	if err != nil {
+		return nil, err
+	}
+	if len(options.serve) == 0 {
+		availability.withhold(CapabilityEnginesExternal)
 	}
 	return &Service{
 		cache:        cache,
 		libIndexes:   newLibraryBase(buildLibraryIndex),
 		prewarm:      prewarm > 0,
 		budgets:      budgets,
+		jobs:         jobs,
+		engines:      engines,
 		version:      version,
 		capabilities: availability,
 	}, nil
@@ -335,28 +393,41 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if ValueCarriesTensor(pv) {
-		return s.requireCapability(CapabilityTensorValues)
+		if err := s.requireCapability(CapabilityTensorValues); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesMetaobject(pv) {
+		return s.requireCapability(CapabilityMetaobjectValues)
 	}
 	return nil
 }
 
-// newRuntime returns a runtime context under the service's budgets over the
-// model's shared semantics, held for the request; the caller defers release.
-// The context itself is the request's own: the objects it creates are not shared.
-func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, *semantics.Model, func()) {
-	rs, release := cached.RuntimeSemantics()
-	return s.newRuntimeOver(rs), rs.Model, release
+// newRuntime returns a runtime context under the service's budgets on a worker the request holds
+// alone, so concurrent requests share nothing mutable; the deferred release hands the worker on warm.
+func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, func()) {
+	w, release := cached.worker()
+	return s.newRuntimeOver(w), release
 }
 
-// newRuntimeOver builds a fresh runtime context under the service's budgets over
-// semantics the caller holds; every explored run gets one of its own.
-func (s *Service) newRuntimeOver(rs *runtimeSemantics) *runtime.Context {
-	ctx := runtime.NewContext(rs.Model, rs.Resolver, s.budgets.MaxSteps)
+// newRuntimeOver builds a runtime context under the service's budgets on a worker;
+// every explored run gets one of its own.
+func (s *Service) newRuntimeOver(w *analysis.Worker) *runtime.Context {
+	ctx := runtime.NewContext(w.Model, s.budgets.MaxSteps)
 	if err := ctx.SetBudgets(s.budgets); err != nil {
 		// Unreachable: NewService validated these budgets.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
 	}
 	return ctx
+}
+
+// model is the cached model as the engines reach it: a worker per plan over the shared
+// index, a context per run under the service's budgets.
+func (s *Service) model(cached *CachedModel) *analysis.Model {
+	return &analysis.Model{
+		Semantics: cached.Semantics,
+		Fresh:     func(w *analysis.Worker) (*runtime.Context, error) { return s.newRuntimeOver(w), nil },
+	}
 }
 
 // schedulePolicy reads a request's schedule field. Empty is the default policy;
@@ -368,6 +439,10 @@ func (s *Service) schedulePolicy(spelling string) (runtime.SchedulePolicy, error
 	}
 	if err := s.requireCapability(CapabilitySchedule); err != nil {
 		return runtime.SchedulePolicy{}, err
+	}
+	if runtime.ReplaySpelling(spelling) {
+		return runtime.SchedulePolicy{}, statusError(connect.CodeInvalidArgument,
+			fmt.Sprintf("invalid scheduling policy %q: a replay follows a witness file of the caller's, which a request does not carry", spelling))
 	}
 	policy, err := runtime.ParseSchedulePolicy(spelling)
 	if err != nil {
@@ -702,8 +777,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 		scope = cached.PrimaryRoot()
 	}
 
-	// Create runtime context
-	runtimeCtx, _, release := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(cached)
 	defer release()
 
 	var self *runtime.Instance
@@ -717,8 +791,8 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 		self = inst
 	}
 
-	// The expression is the request's, not the model's: the shared resolver
-	// must not keep what it memoizes about its nodes.
+	// The expression is the request's, not the model's: the worker keeps what it
+	// resolved of the model, not what it memoized about the expression's nodes.
 	evalCtx := runtime.NewEvalContextIn(runtimeCtx, scope, self)
 	var result runtime.Value
 	var err error
@@ -767,8 +841,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 	sym := syms[0]
 
-	// Create runtime context
-	runtimeCtx, _, release := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(cached)
 	defer release()
 
 	// Instantiate
@@ -808,10 +881,8 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 	action := syms[0]
 
-	// Create runtime context
-	rs, release := cached.RuntimeSemantics()
+	runtimeCtx, release := s.newRuntime(cached)
 	defer release()
-	runtimeCtx := s.newRuntimeOver(rs)
 
 	// Converted against the model's index, so a quantity input keeps the base
 	// units it is commensurable with instead of binding an unusable value.
@@ -824,7 +895,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, nil, err
 			}
-			val, cerr := ProtoToRuntimeValue(ctx, pv, cached.Index, rs.Model)
+			val, cerr := ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Semantics())
 			if cerr != nil {
 				return nil, &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),
@@ -842,31 +913,36 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	if _, explores := schedule.Exploration(); explores {
 		// Inputs are read again on each run's own context, so an object among them
 		// belongs to the run that binds it.
-		outcomes, status, err := s.explore(schedule, cached, rs, func(ctx *runtime.Context) (runtime.Outcome, error) {
-			inputs, resp, err := readInputs(ctx)
+		x, err := s.explore(ctx, req.ActionSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
+			inputs, resp, err := readInputs(rt)
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
 			if resp != nil {
 				return runtime.Outcome{}, errors.New(resp.Error)
 			}
-			outputs, err := ctx.ExecuteActionWithInputs(action, inputs)
+			outputs, err := rt.ExecuteActionWithInputs(action, inputs)
 			if err != nil {
 				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
 			}
-			return ctx.ActionOutcome(outputs), nil
+			return rt.ActionOutcome(outputs), nil
 		})
 		if err != nil {
 			return nil, err
 		}
-		return &pb.ExecuteActionResponse{Outcomes: outcomes, Exploration: status}, nil
+		return &pb.ExecuteActionResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
 
 	// Execute action with the supplied inputs
-	outputs, err := runtimeCtx.ExecuteActionWithInputs(action, inputs)
+	outputs, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (map[string]runtime.Value, error) {
+		return rt.ExecuteActionWithInputs(action, inputs)
+	}, heldAnswer)
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, gone
+	}
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
@@ -922,19 +998,16 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	stateMachine := syms[0]
 
 	if _, explores := schedule.Exploration(); explores {
-		rs, release := cached.RuntimeSemantics()
-		defer release()
-		outcomes, status, err := s.explore(schedule, cached, rs, func(ctx *runtime.Context) (runtime.Outcome, error) {
-			return ctx.StateOutcomeWithEvents(stateMachine, req.Events)
+		x, err := s.explore(ctx, req.StateMachineSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
+			return rt.StateOutcomeWithEvents(stateMachine, req.Events)
 		})
 		if err != nil {
 			return nil, err
 		}
-		return &pb.ExecuteStateResponse{Outcomes: outcomes, Exploration: status}, nil
+		return &pb.ExecuteStateResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 
-	// Create runtime context
-	runtimeCtx, _, release := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(cached)
 	defer release()
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
@@ -942,7 +1015,14 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.
-	finalContext, statesVisited, err := runtimeCtx.ExecuteStateWithEvents(stateMachine, req.Events)
+	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.StateMachineSymbolId, func(rt *runtime.Context) (stateRun, error) {
+		final, visited, err := rt.ExecuteStateWithEvents(stateMachine, req.Events)
+		return stateRun{final: final, visited: visited}, err
+	}, func(ran stateRun, err error) analysis.Answer { return heldAnswer(ran.final, err) })
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, gone
+	}
+	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
 	if err != nil {
 		return &pb.ExecuteStateResponse{
