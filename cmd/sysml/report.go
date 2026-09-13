@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -173,6 +174,50 @@ type checkResultOf struct {
 	// Reason is why nothing is claimed, empty for a covered result.
 	Reason   string `json:"reason,omitempty"`
 	Standing string `json:"standing"`
+	// Check is the search the check engine made; only its results have one.
+	Check *checkSearch `json:"check,omitempty"`
+}
+
+// checkSearch is how the check engine's search ended in the JSON report: its
+// verdict, what it searched, the bounds it hit, and what it found.
+type checkSearch struct {
+	Verdict string `json:"verdict"`
+	States  int    `json:"states"`
+	Moves   int    `json:"moves"`
+	Depth   int    `json:"depth"`
+	// BoundsHit names the bounds the search hit, `[]` when it was exhaustive.
+	BoundsHit  []string         `json:"boundsHit"`
+	Violations []checkViolation `json:"violations"`
+	Divergent  []checkDivergent `json:"divergent"`
+	// Outcomes are the distinct final outcomes complete schedules reached.
+	Outcomes []string `json:"outcomes"`
+}
+
+// checkViolation is one violation the search found, with the schedule reaching it.
+type checkViolation struct {
+	Kind string `json:"kind"`
+	// Name is the property violated, empty for a deadlock or a failure.
+	Name string `json:"name,omitempty"`
+	// Error is the deadlock or failure as reported, empty for a property.
+	Error string `json:"error,omitempty"`
+	Depth int    `json:"depth"`
+	// Witness is the choices that fix the schedule, and Path where the witness file
+	// was written, empty without a directory.
+	Witness []string `json:"witness"`
+	Path    string   `json:"path,omitempty"`
+}
+
+// checkDivergent is one feature the schedule decides the final value of.
+type checkDivergent struct {
+	Feature string                `json:"feature"`
+	Values  []checkDivergentValue `json:"values"`
+}
+
+// checkDivergentValue is one final value of a divergent feature and a schedule reaching it.
+type checkDivergentValue struct {
+	Value   string   `json:"value"`
+	Witness []string `json:"witness"`
+	Path    string   `json:"path,omitempty"`
 }
 
 // checkBound is one limit an engine took, and whether it reached it.
@@ -267,9 +312,67 @@ func checkResultsOf(plan *analysis.Plan) []checkResultOf {
 			Witness:  checkWitnessOf(r.Witness),
 			Reason:   r.Reason,
 			Standing: r.Standing(),
+			Check:    checkSearchOf(r.Check()),
 		})
 	}
 	return out
+}
+
+// checkSearchOf converts a check engine's search into the reported form.
+func checkSearchOf(checked *analysis.Checked) *checkSearch {
+	if checked == nil || checked.Report == nil {
+		return nil
+	}
+	report := checked.Report
+	out := &checkSearch{
+		Verdict:    report.Verdict.String(),
+		States:     report.States,
+		Moves:      report.Moves,
+		Depth:      report.MaxDepth,
+		BoundsHit:  append([]string{}, report.BoundsHit...),
+		Violations: make([]checkViolation, 0, len(report.Violations)),
+		Divergent:  make([]checkDivergent, 0, len(report.Divergent)),
+		Outcomes:   make([]string, 0, len(report.Finals)),
+	}
+	for i, v := range report.Violations {
+		violation := checkViolation{Kind: v.Kind.String(), Name: v.Name, Depth: v.Depth, Witness: choiceStrings(v.Witness.Choices), Path: pathAt(checked.Violations, i)}
+		if v.Err != nil {
+			violation.Error = v.Err.Error()
+		}
+		out.Violations = append(out.Violations, violation)
+	}
+	for i, d := range report.Divergent {
+		var paths []string
+		if i < len(checked.Divergent) {
+			paths = checked.Divergent[i]
+		}
+		divergent := checkDivergent{Feature: d.Feature, Values: make([]checkDivergentValue, 0, len(d.Values))}
+		for j, value := range d.Values {
+			divergent.Values = append(divergent.Values, checkDivergentValue{Value: value.Value, Witness: choiceStrings(value.Witness.Choices), Path: pathAt(paths, j)})
+		}
+		out.Divergent = append(out.Divergent, divergent)
+	}
+	for _, final := range report.Finals {
+		out.Outcomes = append(out.Outcomes, final.Outcome)
+	}
+	return out
+}
+
+// choiceStrings spells a schedule's choices, `[]` for a run facing none.
+func choiceStrings(choices []runtime.ChoiceTaken) []string {
+	out := make([]string, 0, len(choices))
+	for _, c := range choices {
+		out = append(out, c.String())
+	}
+	return out
+}
+
+// pathAt is the i'th witness path, "" when none was written.
+func pathAt(paths []string, i int) string {
+	if i < len(paths) {
+		return paths[i]
+	}
+	return ""
 }
 
 // checkOutcome is one distinct outcome of an exploration in the JSON report.

@@ -93,17 +93,22 @@ type replayScript struct {
 // ParseChoices reads a witness header: choices as ChoiceTaken.String spells them, one
 // per line or joined by `; `, ending at the first blank line after it; what follows is ignored.
 func ParseChoices(text string) ([]ChoiceTaken, error) {
-	var choices []ChoiceTaken
-	begun := false
+	choices, _, err := readChoices(text)
+	return choices, err
+}
+
+// readChoices reads a witness header as ParseChoices does and says whether the text
+// has one: a header of `no choice points` alone spells a run with no choice to make.
+func readChoices(text string) (choices []ChoiceTaken, headed bool, err error) {
 	for i, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
-			if begun {
+			if headed {
 				break
 			}
 			continue
 		}
-		begun = true
+		headed = true
 		if line == "no choice points" {
 			continue
 		}
@@ -114,12 +119,12 @@ func ParseChoices(text string) ([]ChoiceTaken, error) {
 				if errors.As(err, &parse) {
 					parse.Line = i + 1
 				}
-				return nil, err
+				return nil, true, err
 			}
 			choices = append(choices, c)
 		}
 	}
-	return choices, nil
+	return choices, headed, nil
 }
 
 // ParseChoice reads one choice as ChoiceTaken.String spells it: `step N: T first of A, B`,
@@ -373,7 +378,9 @@ type replayMove struct {
 
 // beginStep resolves the step: the witness's move when it is at this step and each
 // of its tokens is able to act, else — with one token at most able to act — that one
-// first and the rest after; two able to act with no move for them is a refusal.
+// first and the rest after; two able to act with no move for them is a refusal. A
+// move for an earlier step is stale only at a choice point: with one token at most
+// able to act it may be a later run's, whose steps count from one again.
 func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	m := &replayMove{run: r, step: tokens.step}
 	var enabled, rest, held []int64
@@ -418,12 +425,12 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 		return m
 	}
 	switch {
+	case len(enabled) < 2:
+		m.order = slices.Concat(enabled, rest, held)
 	case c.Step > 0 && c.Step < tokens.step:
 		r.refuse(fmt.Sprintf("the run is at step %d and step %d had no such move", tokens.step, c.Step))
-	case len(enabled) >= 2:
-		r.refuse(fmt.Sprintf("step %d: the run must pick a token (%s) and the witness names none", tokens.step, able))
 	default:
-		m.order = slices.Concat(enabled, rest, held)
+		r.refuse(fmt.Sprintf("step %d: the run must pick a token (%s) and the witness names none", tokens.step, able))
 	}
 	return m
 }
@@ -491,8 +498,12 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 	if whereOf != nil && taken >= 0 {
 		c.Where = whereOf(taken)
 	}
-	if w.Kind != c.Kind || w.Step != c.Step || w.Where != c.Where {
+	if w.Kind != c.Kind || w.Where != c.Where {
 		r.refuse("the run faced " + c.Describe())
+		return 0
+	}
+	if w.Step != c.Step {
+		r.refuse(fmt.Sprintf("the run is at step %d and step %d had no such move", c.Step, w.Step))
 		return 0
 	}
 	for _, alt := range w.Among {

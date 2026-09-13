@@ -3,6 +3,7 @@ package semantics
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -315,14 +316,51 @@ func TestRedefinitionMasksTheNameOnlyAtItsOwnLevel(t *testing.T) {
 }
 
 // Masking is keyed by element, not by visibility: the member view drops what a
-// redefinition masks whatever the redefined membership's visibility is, and the
-// visibility filter is the caller's (KerML 8.2.3.5 composes with 7.4.7).
+// redefinition masks whatever the inherited membership's visibility is, and the
+// visibility filter is the caller's (KerML 8.2.3.5 composes with 7.4.7). A
+// private member is not inherited at all, so a redefinition cannot name it.
 func TestMaskingIsIndependentOfTheRedefinedMembershipVisibility(t *testing.T) {
-	for _, vis := range []string{"", "protected ", "private "} {
+	for _, vis := range []string{"", "protected "} {
 		m, root := buildModel(t,
 			"part def A { "+vis+"part a; } part def B specializes A { part b redefines a; }")
 		if names := visibleNames(m, sym(t, root, "B")); names["a"] != 0 {
 			t.Fatalf("%q member still visible in B: %v", vis, names)
+		}
+	}
+	m, root := buildModel(t,
+		"part def A { private part a; } part def B specializes A { part b redefines a; }")
+	b := nested(t, sym(t, root, "B").Scope, "b")
+	if got := m.RedefinedFeatures(b); len(got) != 0 {
+		t.Fatalf("private `a` is not inherited, yet b redefines %v", got)
+	}
+}
+
+// A feature one general redefines is masked whichever general is listed first
+// (KerML 8.3.3.1.10); the type's own redefinition of it still names it.
+func TestInheritedRedefinitionMasksAcrossADiamondWhateverTheGeneralOrder(t *testing.T) {
+	for _, generals := range []string{"A, B", "B, A"} {
+		src := `package P {
+			part def C { attribute x; }
+			part def A :> C { attribute y :>> x; }
+			part def B :> C;
+			part def D :> ` + generals + ` { attribute z :>> x; attribute w = x; }
+		}`
+		m, root, r, doc := buildUnresolvedModel(t, "t.sysml", source.KindSysML, src)
+		p := sym(t, root, "P")
+		cx := nested(t, p.Scope, "C", "x")
+		d := nested(t, p.Scope, "D")
+		if got, ok := m.LookupMember(d, "x"); ok {
+			t.Errorf("D :> %s: LookupMember(D, x) = %v, want masked", generals, got)
+		}
+		if names := visibleNames(m, d); names["x"] != 0 {
+			t.Errorf("D :> %s: x still visible in D: %v", generals, names)
+		}
+		if got := m.RedefinedFeatures(nested(t, d.Scope, "z")); len(got) != 1 || got[0] != cx {
+			t.Errorf("D :> %s: RedefinedFeatures(D::z) = %v, want [C::x]", generals, got)
+		}
+		r.ResolveDocument("t.sysml", doc)
+		if got := len(r.Diagnostics); got != 1 {
+			t.Errorf("D :> %s: diagnostics = %v, want one unresolved x at w", generals, r.Diagnostics)
 		}
 	}
 }

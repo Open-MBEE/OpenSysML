@@ -143,6 +143,8 @@ type Session struct {
 	engines *analysis.Registry
 	// engine is the selection every question is put to the engines under.
 	engine analysis.Selection
+	// checker is what the check engine is asked beside an action, and its bounds.
+	checker checkSettings
 
 	verbosity Verbosity
 

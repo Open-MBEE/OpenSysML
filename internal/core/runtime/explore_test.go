@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -36,6 +37,20 @@ func parseExploreModel(t *testing.T, text string) *exploreModel {
 	}
 	idx := symbols.NewIndex()
 	idx.AddDocument(path, file)
+	resolver := resolve.New(idx)
+	return &exploreModel{idx: idx, model: semantics.NewModel(resolver), resolver: resolver, path: path}
+}
+
+// parseLibraryModel is parseExploreModel over the standard libraries, for models using them.
+func parseLibraryModel(t *testing.T, text string) *exploreModel {
+	t.Helper()
+	if err := primeLibraryCache(); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "explore.sysml")
+	idx := libs.NewModelIndex()
+	idx.AddDocument(path, parseAndBuild(t, text))
+	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	return &exploreModel{idx: idx, model: semantics.NewModel(resolver), resolver: resolver, path: path}
 }

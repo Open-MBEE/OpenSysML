@@ -278,6 +278,15 @@ func (s *Scope) MemberNames() []string {
 	return out
 }
 
+// MemberDeclaring returns the member of s that decl declared, or nil.
+func (s *Scope) MemberDeclaring(decl ast.Node) *Symbol {
+	if s == nil || decl == nil {
+		return nil
+	}
+	sym, _ := memberDeclaring(s, decl)
+	return sym
+}
+
 // AllMembers returns named and anonymous symbol registrations in declaration order.
 func (s *Scope) AllMembers() []*Symbol {
 	var all []*Symbol

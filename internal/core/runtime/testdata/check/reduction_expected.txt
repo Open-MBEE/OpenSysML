@@ -1,0 +1,14 @@
+# Reduced states, reduced moves, unreduced states, unreduced moves per model of
+# the reduction corpus. Regenerate with -update-check-reduction and adjudicate
+# every movement: a reduced count rising loses reduction, one falling must keep
+# TestCheckReductionIsSound passing.
+76	87	76	87	por_shared_write
+28	34	28	41	por_guard_read
+19	18	20	20	por_trigger_read
+26	34	29	44	por_send_accept
+40	42	43	63	por_join
+18	21	18	21	por_dynamic_target
+24	40	85	220	por_independent_branches
+44	78	123	306	por_alias
+18	19	19	22	por_address
+19	21	19	22	por_constructor

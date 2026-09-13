@@ -527,12 +527,29 @@ func (c *refCollector) relationships(scope *symbols.Scope, decl ast.Node, rels [
 			continue
 		}
 		if rel.Kind == ast.RelRedefines {
-			if qn, ok := target.(*ast.QualifiedName); ok {
-				c.addRedefinition(scope, decl, qn)
-				continue
-			}
+			c.redefinitionTarget(scope, decl, target)
+			continue
 		}
 		c.target(scope, target)
+	}
+}
+
+// redefinitionTarget collects a redefinition's target; a chain's leading name
+// and its member segments are both read as the redefinition rule reads them.
+func (c *refCollector) redefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) {
+	if fr, ok := target.(*ast.FeatureReference); ok {
+		target = fr.Name
+	}
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		c.addRedefinition(scope, decl, target)
+	case *ast.FeatureChainExpr:
+		c.redefinitionTarget(scope, decl, target.Operand)
+		if target.Member != nil {
+			c.push(Reference{Scope: scope, QN: target.Member, Referrer: decl, Chain: target, Redefines: true})
+		}
+	default:
+		c.expr(scope, target)
 	}
 }
 

@@ -89,8 +89,9 @@ func TestParseChoicesStopsAtBlankLine(t *testing.T) {
 }
 
 // `replay:<file>` reads the file when the policy is parsed: a missing file, an
-// unreadable line, a file naming no move or no file at all is a typed policy
-// error; the policy spells its file back and hands out its witness.
+// unreadable line, an empty file or no file at all is a typed policy error; a
+// header of `no choice points` is the witness of a run with none and is followed;
+// the policy spells its file back and hands out its witness.
 func TestParseReplayPolicy(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "witness.txt")
@@ -122,12 +123,16 @@ func TestParseReplayPolicy(t *testing.T) {
 	if err := os.WriteFile(empty, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	moveless := filepath.Join(dir, "moveless.txt")
-	if err := os.WriteFile(moveless, []byte("no choice points\n\n[trace] step 1\n"), 0o600); err != nil {
+	blank := filepath.Join(dir, "blank.txt")
+	if err := os.WriteFile(blank, []byte("\n\n\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	traceOnly := filepath.Join(dir, "trace-only.txt")
+	if err := os.WriteFile(traceOnly, []byte("[trace] step 1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	spellings := []string{"replay", "replay:", "replay:" + filepath.Join(dir, "missing.txt"), "replay:" + bad,
-		"replay:" + empty, "replay:" + moveless}
+		"replay:" + empty, "replay:" + blank, "replay:" + traceOnly}
 	for _, spelling := range spellings {
 		_, err := ParseSchedulePolicy(spelling)
 		var typed *SchedulePolicyError
@@ -138,13 +143,27 @@ func TestParseReplayPolicy(t *testing.T) {
 	if _, err := ParseSchedulePolicy("replay:" + bad); err == nil || !strings.Contains(err.Error(), "line 2") {
 		t.Errorf("an unreadable witness line is not named: %v", err)
 	}
-	for _, file := range []string{empty, moveless} {
+	for _, file := range []string{empty, blank} {
 		if _, err := ParseSchedulePolicy("replay:" + file); err == nil || !strings.Contains(err.Error(), "names no move to follow") {
 			t.Errorf("%s: a witness naming no move is not refused as such: %v", file, err)
 		}
 	}
+	if _, err := ParseSchedulePolicy("replay:" + traceOnly); err == nil || !strings.Contains(err.Error(), "line 1") {
+		t.Errorf("a trace with no header is not refused at its first line: %v", err)
+	}
 	if choices, err := ParseChoices("no choice points\n"); err != nil || len(choices) != 0 {
 		t.Errorf("ParseChoices(no choice points) = %v, %v; want no choices and no error", choices, err)
+	}
+	moveless := filepath.Join(dir, "moveless.txt")
+	if err := os.WriteFile(moveless, []byte("no choice points\n\n[trace] step 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	policy, err = ParseSchedulePolicy("replay:" + moveless)
+	if err != nil {
+		t.Fatalf("a witness of no choice points is refused: %v", err)
+	}
+	if choices, ok := policy.Replay(); !ok || len(choices) != 0 || policy.String() != "replay:"+moveless {
+		t.Errorf("replay of no choice points = %v, %v, %q; want an empty witness spelling its file", choices, ok, policy)
 	}
 	if got := SchedulePolicyNames[len(SchedulePolicyNames)-1]; got != "replay:<file>" {
 		t.Errorf("SchedulePolicyNames ends with %q", got)

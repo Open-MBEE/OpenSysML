@@ -678,7 +678,9 @@ another linearization: a move whose pick is not among the alternatives the run o
 whose step the run has already passed, or one left over when the run ends, is `replay refused:
 move <n> (<the choice>): <what the run faced instead>`, and the check it was part of is *not
 covered*. A file that spells no choice (a pick not among its own alternatives, a line in no
-known form) is refused as the policy is parsed, before anything runs. The policy is accepted
+known form, nothing at all) is refused as the policy is parsed, before anything runs; a header
+of `no choice points`, as the checker writes for a run that met none, follows the one run there
+is. The policy is accepted
 wherever a policy is — `-schedule`, `%schedule` (the debuggers step one run, which is what a
 replay is), a conformance case's `schedule` pin — except over the wire, where a request carries
 no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.

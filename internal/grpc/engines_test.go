@@ -24,6 +24,7 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		name, authority string
 		answers         []string
 	}{
+		{"check", "bounded", []string{"outcomes", "holds"}},
 		{"explore", "proved", []string{"outcomes"}},
 		{"run", "observed", []string{"evaluate"}},
 		{"solve", "proved", []string{"satisfiable"}},
@@ -41,7 +42,7 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 			t.Errorf("in-process engine %s = %v, want ready with no process", got.Name, got)
 		}
 	}
-	solve := resp.Engines[2]
+	solve := resp.Engines[3]
 	if solve.Process == "" || solve.Ready == (solve.Unavailable != "") {
 		t.Errorf("solve = %v, want a process and ready or a reason", solve)
 	}

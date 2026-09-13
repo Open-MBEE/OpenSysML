@@ -52,6 +52,7 @@ type runCapture struct {
 	run                *runState
 	trace              *TraceRecorder
 	traced             traceCapture
+	choices            []ChoiceTaken
 	evaluations        *evaluationLog
 	pendingBehaviors   []*ObjectBehavior
 	heldBehaviors      mapState[*ObjectBehavior, bool]
@@ -248,6 +249,7 @@ func (ctx *Context) captureRun() runCapture {
 		run:                ctx.run,
 		trace:              ctx.trace,
 		traced:             captureTrace(ctx.trace),
+		choices:            ctx.choices,
 		evaluations:        ctx.evaluations,
 		pendingBehaviors:   slices.Clone(ctx.pendingBehaviors),
 		heldBehaviors:      captureMap(ctx.heldBehaviors),
@@ -268,6 +270,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.run = c.run
 	ctx.trace = c.trace
 	c.traced.restore(c.trace)
+	ctx.choices = c.choices
 	ctx.evaluations = c.evaluations
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()

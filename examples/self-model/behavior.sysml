@@ -319,8 +319,8 @@ package OpenSysMLBehavior {
     action def AnswerQuestion {
         attribute selectsAuto : Boolean = true;
         attribute selectsAll : Boolean = false;
-        // The engines declaring the question's kind: one in the default registry,
-        // where every engine declares a kind of its own.
+        // The engines declaring the question's kind: one for every kind but outcomes
+        // in the default registry, whose count per kind Dispatcher.candidatesPerKind states.
         attribute candidates : Integer = 1;
         attribute enginesLeft : Integer = 0;
         attribute steps : Integer = 0;

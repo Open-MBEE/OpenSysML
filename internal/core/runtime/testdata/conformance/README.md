@@ -209,6 +209,36 @@ each sweep policy (`declared`, `seed-1` — a colon is not a portable file-name
 character), recording the linearization that policy takes; `-update-traces`
 regenerates them beside the default golden.
 
+### Checking Every Schedule (`.check.expected.json`)
+
+An action case with an admissible set also owns a `<case>.check.expected.json`:
+what the explicit-state checker (`runtime.CheckAction`, the `check` engine)
+finds when it searches every schedule of the action, derived from the library
+text as the admissible set was:
+
+```json
+{
+	"verdict": "divergent",
+	"divergent": {"x": ["1", "2"]},
+	"agreed": {"leftRan": "true", "rightRan": "true"}
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `verdict` | `no violation, exhaustive`, `no violation within bounds`, `violation` or `divergent`, as the check reports it |
+| `divergent` | Every feature whose final value the schedule decides, with every value it takes, in canonical order; a feature the check finds divergent and this does not list fails the case |
+| `agreed` | Features every schedule leaves with one value, and that value, checked at every final state |
+
+`TestCheckConformanceOracles` checks each case reduced and unreduced against
+this file; `TestCheckAgreesWithExploreOverTheConformanceCorpus` compares the
+final states the check reaches with the complete table `explore` tabled, and
+`TestCheckWitnessesReplayOverTheConformanceCorpus` replays every witness the
+check writes. A case the check refuses with a typed reason — a body paused
+mid-statement, a state and an action due together — is listed in
+`check_corpus_test.go` and owns no expectation. These files are not execution
+fixtures: the execution harness skips them.
+
 ### For Calculations (`InvokeCalc`)
 
 ```json

@@ -498,38 +498,40 @@ func (f *actionFrame) lexicalFrames() []frame {
 // flow's nodes, those its bodies' blocks declare, and those of the action it performed.
 func (f *actionFrame) nodesNamed(name string) []ast.Node {
 	var named []ast.Node
-	add := func(node ast.Node) {
+	switch {
+	case f.graph != nil:
+		named = flowNodesNamed(f.graph, name)
+	case f.flow != nil:
+		named = usagesNamed(f.flow.BlockNodes[f.node], name)
+	default:
+		named = usagesNamed(f.nodes, name)
+	}
+	if f.performs != nil {
+		named = append(named, flowNodesNamed(f.performs, name)...)
+	}
+	return named
+}
+
+// flowNodesNamed returns the nodes of graph named name: its own, then those the
+// blocks of its statement nodes declare.
+func flowNodesNamed(graph *lower.ActionGraph, name string) []ast.Node {
+	named := usagesNamed(graph.Nodes, name)
+	for _, node := range graph.Nodes {
+		if _, isUsage := node.(*ast.Usage); isUsage {
+			continue
+		}
+		named = append(named, usagesNamed(graph.BlockNodes[node], name)...)
+	}
+	return named
+}
+
+// usagesNamed returns the usages among nodes named name.
+func usagesNamed(nodes []ast.Node, name string) []ast.Node {
+	var named []ast.Node
+	for _, node := range nodes {
 		if _, isUsage := node.(*ast.Usage); isUsage && slices.Contains(ActionNodeNames(node), name) {
 			named = append(named, node)
 		}
-	}
-	inFlow := func(graph *lower.ActionGraph) {
-		for _, node := range graph.Nodes {
-			add(node)
-		}
-		for _, node := range graph.Nodes {
-			if _, isUsage := node.(*ast.Usage); isUsage {
-				continue
-			}
-			for _, declared := range graph.BlockNodes[node] {
-				add(declared)
-			}
-		}
-	}
-	switch {
-	case f.graph != nil:
-		inFlow(f.graph)
-	case f.flow != nil:
-		for _, node := range f.flow.BlockNodes[f.node] {
-			add(node)
-		}
-	default:
-		for _, node := range f.nodes {
-			add(node)
-		}
-	}
-	if f.performs != nil {
-		inFlow(f.performs)
 	}
 	return named
 }
@@ -788,6 +790,13 @@ func (f *actionFrame) collect(prefix string, into map[string]Value) {
 	for name, value := range f.data {
 		into[prefix+name] = value
 	}
+	for name, sub := range f.latestSubactions() {
+		sub.collect(prefix+name+".", into)
+	}
+}
+
+// latestSubactions is the latest performance of each named node under f, by name.
+func (f *actionFrame) latestSubactions() map[string]*actionFrame {
 	latest := make(map[string]*actionFrame)
 	for node, sub := range f.subactions {
 		name := ActionNodeName(node)
@@ -798,8 +807,35 @@ func (f *actionFrame) collect(prefix string, into map[string]Value) {
 			latest[name] = sub
 		}
 	}
-	for name, sub := range latest {
-		sub.collect(prefix+name+".", into)
+	return latest
+}
+
+// ownFeatures is every feature the performance itself holds, valued or not,
+// under the name collect gives its value.
+func (f *actionFrame) ownFeatures() map[string]bool {
+	own := make(map[string]bool, len(f.features)+len(f.data))
+	for name := range f.features {
+		own[f.key(name)] = true
+	}
+	for name := range f.data {
+		own[name] = true
+	}
+	return own
+}
+
+// owns reports whether name, under any name it is held by, is a feature the performance itself holds.
+func (f *actionFrame) owns(name string) bool {
+	return f.ownFeatures()[f.key(name)]
+}
+
+// heldFeatures marks, under prefix, every feature the performance and the
+// latest performances under it hold, as collect names their values.
+func (f *actionFrame) heldFeatures(prefix string, into map[string]bool) {
+	for name := range f.ownFeatures() {
+		into[prefix+name] = true
+	}
+	for name, sub := range f.latestSubactions() {
+		sub.heldFeatures(prefix+name+".", into)
 	}
 }
 

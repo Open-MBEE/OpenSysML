@@ -819,8 +819,7 @@ func (m *materializing) runState(run imagedRun) *runState {
 		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 	}
 	if run.scheduled {
-		state.scheduler = run.policy.start()
-		state.scheduler.explore = m.dst.exploring
+		state.scheduler = m.dst.schedulerUnder(run.policy)
 		if run.generator != nil && state.scheduler.pcg != nil {
 			*state.scheduler.pcg = *run.generator
 		}

@@ -59,15 +59,17 @@ func (r *Resolver) walkQualified(scope *symbols.Scope, qn *ast.QualifiedName, hi
 	}
 	cur = r.resolvedPart(qn, 0, cur)
 
-	return r.walkQualifiedTail(scope, qn, cur, 1)
+	return r.walkQualifiedTail(scope, qn, cur, 1, hide)
 }
 
-// walkQualifiedTail resolves qn's segments from start beneath cur. Several
-// members under the last segment are ambiguous unless an invocation calls them.
-func (r *Resolver) walkQualifiedTail(scope *symbols.Scope, qn *ast.QualifiedName, cur *symbols.Symbol, start int) resolution {
+// walkQualifiedTail resolves qn's segments from start beneath cur, each hiding
+// what hide covers among the members it reaches. Several members under the
+// last segment are ambiguous unless an invocation calls them.
+func (r *Resolver) walkQualifiedTail(scope *symbols.Scope, qn *ast.QualifiedName, cur *symbols.Symbol, start int, hide *refFilter) resolution {
+	hide = hide.forTail()
 	last := len(qn.Parts) - 1
 	for i := start; i <= last; i++ {
-		all, ok := r.qualifiedSegment(scope, qn, cur, i)
+		all, ok := r.qualifiedSegment(scope, qn, cur, i, hide)
 		if !ok {
 			return resolution{nil, false}
 		}
@@ -86,8 +88,8 @@ func (r *Resolver) walkQualifiedTail(scope *symbols.Scope, qn *ast.QualifiedName
 
 // qualifiedSegment returns the members of cur that qn's segment i names, in
 // lookup order, or reports the name unresolved when the segment reaches none.
-func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName, cur *symbols.Symbol, i int) ([]*symbols.Symbol, bool) {
-	all := r.membersNamed(scope, cur, qn.Parts[i].Text, qn.Global)
+func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName, cur *symbols.Symbol, i int, hide *refFilter) ([]*symbols.Symbol, bool) {
+	all := r.membersNamed(scope, cur, qn.Parts[i].Text, qn.Global, hide)
 	if len(all) == 0 {
 		r.unresolvedMember(scope, qn, cur, i)
 		return nil, false
@@ -96,23 +98,24 @@ func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName,
 }
 
 // membersNamed returns the members of cur a segment spelled name reaches from
-// scope (global: a `$::`-rooted name), in lookup order; it records nothing.
-func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name string, global bool) []*symbols.Symbol {
+// scope (global: a `$::`-rooted name), less those hide covers, in lookup
+// order; it records nothing.
+func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name string, global bool, hide *refFilter) []*symbols.Symbol {
 	from := r.ReferringNamespaceFQN(scope)
 	var all []*symbols.Symbol
 
 	// Try local scope lookup first if available. A segment names a member of
 	// the namespace the walk has reached, so it reaches only the visible ones.
 	if cur.Scope != nil {
-		all = r.namedThroughNamespaces(r.LocalBindings(cur.Scope, name))
+		all = hide.without(r.namedThroughNamespaces(r.LocalBindings(cur.Scope, name)))
 	}
 
 	// A member cur inherits hides one its imports surface (KerML 8.3.3.1.4);
 	// what cur's features redefine is not inherited (KerML 8.3.3.3.6).
 	if len(all) == 0 {
-		if sym, ok := r.lookupContributedMember(cur, name); ok &&
+		if sym, ok := r.lookupContributedMember(cur, name, hide); ok &&
 			visibleAsInheritedMember(cur, sym) && r.namedThroughNamespace(sym) {
-			if sym, ok = r.inheritedAs(cur, sym); ok {
+			if sym, ok = r.inheritedAsFrom(cur, sym, hide); ok {
 				all = []*symbols.Symbol{sym}
 			}
 		}
@@ -120,7 +123,7 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 
 	if len(all) == 0 && cur.Scope != nil {
 		if sym, ok := r.lookupImportedMember(cur, cur.Scope, scope, name); ok &&
-			r.namedThroughNamespace(sym) {
+			r.namedThroughNamespace(sym) && !hide.hides(sym) {
 			all = []*symbols.Symbol{sym}
 		}
 	}
@@ -137,9 +140,12 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 		}
 		candidates := r.namedThroughNamespaces(
 			r.admittedUnder(r.documentOf(scope), from, memberFQN, found))
-		switch {
+		switch visible := hide.without(candidates); {
+		case len(visible) > 0:
+			return visible
 		case len(candidates) > 0:
-			return candidates
+			// Only what the reference must not see is declared here; a general may
+			// still contribute the name.
 		case len(found) > 0:
 			// Every candidate the name reaches is filtered out, so it is not a
 			// member of the namespace it appears under (KerML 8.2.4) and no
@@ -159,8 +165,8 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 	// declares: `engine::'4cylEngine'` reaches the variants of the type
 	// `engine` is typed by.
 	if len(all) == 0 {
-		if sym, ok := r.lookupMember(cur, name); ok && r.namedThroughNamespace(sym) {
-			if sym, ok = r.inheritedAs(cur, sym); ok {
+		if sym, ok := r.lookupMember(cur, name, hide); ok && r.namedThroughNamespace(sym) && !hide.hides(sym) {
+			if sym, ok = r.inheritedAsFrom(cur, sym, hide); ok {
 				all = []*symbols.Symbol{sym}
 			}
 		}

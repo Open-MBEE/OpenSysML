@@ -40,12 +40,17 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%query <oslc-query>` | Identify model elements using OSLC Query text |
 | `%verbosity [level]` | Show or set output level: `quiet` (errors only), `normal`, `debug` (every diagnostic over the whole buffer) |
 | `%trace [on\|off]` | Show or set execution tracing: each evaluation, calc invocation, action step and state transition, and each `choice` the executor made among alternatives the library leaves unordered — several steppable tokens, several holding decision guards, several enabled transitions out of one state for one event, several regions of one parallel state reacting to one event, two tokens writing one feature in one step, two executors due at one instant of the clock — naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). `%step`, `%continue` and `%advance` end with a count of the choices they made and of the guards they could not evaluate (`1 choice point; 1 guard not evaluable`) whether or not tracing is on |
-| `%schedule [<policy>]` | Show or set the scheduling policy the executors resolve their [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, so the same seed replays the same run) or `replay:<file>` (the choice lines of a witness, followed move for move and then `reverse`; a move the run cannot make is a `replay refused` error naming it — [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Applies to runs started from then on — `%action`, `%state`, `%analysis`; a calc's body performs nothing, so `%calc` has no choice to make — while a debugging session already under way keeps the policy it started with; every choice point a run reaches is reported and the `took …` of each `choice` line is what the policy took. A spelling naming no policy (an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, a malformed `explore:` option, `replay:` without a readable file of choice lines) is refused and the policy is left as it was. `explore[:runs=N,depth=D]` is refused at the prompt too, as a typed error saying why: it replays a behavior from the start once per linearization, which `%action` and `%state`, stepping one run, cannot do — run `sysml -schedule explore -action <name>` (or `-state`, `-analysis`, `-calc`) for the outcome table ([Exploring every linearization](cli.md#exploring-every-linearization)), or send a request with that `schedule` over the wire |
+| `%schedule [<policy>]` | Show or set the scheduling policy the executors resolve their [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, so the same seed replays the same run) or `replay:<file>` (the choice lines of a witness, followed move for move and then `reverse` — a header of `no choice points` follows the one run there is; a move the run cannot make is a `replay refused` error naming it — [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Applies to runs started from then on — `%action`, `%state`, `%analysis`; a calc's body performs nothing, so `%calc` has no choice to make — while a debugging session already under way keeps the policy it started with; every choice point a run reaches is reported and the `took …` of each `choice` line is what the policy took. A spelling naming no policy (an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, a malformed `explore:` option, `replay:` without a readable file of choice lines, one that is empty or has a line spelling no choice) is refused and the policy is left as it was. `explore[:runs=N,depth=D]` is refused at the prompt too, as a typed error saying why: it replays a behavior from the start once per linearization, which `%action` and `%state`, stepping one run, cannot do — run `sysml -schedule explore -action <name>` (or `-state`, `-analysis`, `-calc`) for the outcome table ([Exploring every linearization](cli.md#exploring-every-linearization)), or send a request with that `schedule` over the wire |
 | `%strict [on\|off]` | Show or set strict conformance: report notation no SysML v2 production admits as an error, and reprint the session's diagnostics under the new mode ([Strict conformance](../guide/03-command-line.md#strict-conformance)) |
 | `%budget` | Show the five bounds one run may spend, each with the variable that raises it |
 | `%jobs [<n>]` | Show or set how many runs of one check asked from then on may go concurrently — the linearizations a check explores under `%schedule explore`, the engines `%engine all` consults — the rows of a `%sweep` or `%samples` — each on a worker of its own over the session's model; `OPENSYSML_JOBS`, else one per CPU, until set. The result of a check is the same at any count. The count bounds a plan's runs, not the session: the held context, its objects and a debugging session under way are untouched by setting it. A value that is not a positive integer is refused and the count left as it was ([Running in parallel](cli.md#running-in-parallel)) |
 | `%engines` | List the analysis engines of the build in name order — the authority each carries, the question kinds it answers and its status (`ready`, `ready (z3 at …)` for one whose process was found, `unavailable: <why>`), as the CLI's [`-engines`](cli.md#analysis-engines) does |
-| `%engine [<name>\|auto\|all]` | Show or set the analysis engine every question asked from then on — `%constraint`, `%requirement`, `%satisfy`, `%calc`, `%analysis`, `%sweep`, `%samples`, `%check` and the other solver commands — is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name puts it to that engine alone, whose refusal is then the verdict; `all` puts it to every covering engine, one after another in name order, and composes their answers, naming a disagreement in the interpreter's favor. Every verdict is followed by a `standing:` line — the claim, the strength of the evidence (*not covered*, *observed*, *witnessed*, *bounded*, *proved*) and what earned it — and under `all` each engine's part. A name no engine is registered under is refused and the selection left as it was. `explore` is refused at the prompt as `%schedule explore` is, since the debuggers step one run; the `%action` and `%state` debuggers keep the schedule `%schedule` set whatever the engine ([Analysis engines](cli.md#analysis-engines)) |
+| `%engine [<name>\|auto\|all]` | Show or set the analysis engine every question asked from then on — `%constraint`, `%requirement`, `%satisfy`, `%calc`, `%analysis`, `%sweep`, `%samples`, `%check` and the other solver commands — is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name puts it to that engine alone, whose refusal is then the verdict; `all` puts it to every covering engine, one after another in name order, and composes their answers, naming a disagreement in the interpreter's favor. Every verdict is followed by a `standing:` line — the claim, the strength of the evidence (*not covered*, *observed*, *witnessed*, *bounded*, *proved*) and what earned it — and under `all` each engine's part. A name no engine is registered under is refused and the selection left as it was. `explore` is refused at the prompt as `%schedule explore` is, since the debuggers step one run; the `%action` and `%state` debuggers keep the schedule `%schedule` set whatever the engine ([Analysis engines](cli.md#analysis-engines)). `%engine check` is the one selection that changes what `%action` does by itself: it puts the action to the `check` engine, which searches every schedule for a violation, a deadlock, a failure or a divergence and prints the verdict, instead of starting a debugging session; `%engine all` does the same, the exploration beside the checker, once a `%check-*` setting is made ([Checking every schedule](#checking-every-schedule-of-an-action)) |
+| `%check-property [<name>...\|off]` | Show or set the constraints and requirements the `check` engine evaluates at every stable state of a checked action, on its performing object where there is one; `off` (the default) names none |
+| `%check-diverge [<feature>...\|off]` | Show or set the features whose final values the `check` engine compares across schedules — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's, a name nothing holds refused; `off` (the default) compares every attribute of the action and of its performing object; an action run without one is compared on its own attributes only |
+| `%check-witness [<dir>\|off]` | Show or set the directory the `check` engine writes a witness file into for each violation and each divergent value, created if absent; `off` (the default) writes none, and the verdict names each divergent value and violation without a path |
+| `%check-bounds [depth=<n>] [states=<n>] [timeout=<duration>] \| off` | Show or set the bounds the `check` engine searches within: `depth` is the most moves of one schedule (default 10 000), `states` the most distinct states (default 1 000 000), `timeout` the wall clock the check may run for (unbounded by default); each takes a positive integer or a duration such as `30s` (a zero or a negative one is refused and the bounds left as they were), the ones not named keep their values, and `off` restores every default. The CLI's [`-check-depth`, `-check-states`, `-check-timeout`](cli.md#command-reference) |
+| `%replay <witness>` | Install the schedule a witness file fixes, as `%schedule replay:<file>` does, so the next `%action` or `%state` starts the run the witness records and `%step`/`%continue` step it, each choice taken as the witness took it; the debugger refuses where a run departs from its witness. A file that is not a witness is refused and the schedule left as it was |
 | **Library Discovery** | |
 | `%search <substring>` | List the declared and library symbols whose qualified name contains the substring, with the kind of each |
 | `%builtins` | List the library functions the runtime implements directly (`sqrt`, `abs`, `max`, `floor`, `x->isEmpty()`, `x->sum()` …), each with the package an `import` must name for its bare name to resolve; the qualified name (`RealFunctions::sqrt(2.0)`) resolves anywhere |
@@ -74,7 +79,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%configure <name> [<variation>=<variant>...] [all [<count>]]` | **Experimental.** Ask which variants a constraint, requirement or satisfaction assertion permits. With no argument, one consistent selection is synthesised. With `<variation>=<variant>`, the chosen selection is checked and the conflict is named when it is not consistent. With `all`, the consistent selections are enumerated up to `OPENSYSML_SMT_MAX_CONFIGURATIONS` (`all <count>` for a smaller bound), and the report says whether the list is complete or was cut short, either at the bound or because the solver stopped deciding or ran out of time; the selections found so far are still reported. An element that reads no variation point is an error pointing at `%check`. Same solver requirements as `%check` |
 | `%optimize <name>` | **Experimental.** Ask the solver for the best values an `analysis def` (or an analysis usage) admits. Each `objective` is improved as the trade-study definition typing it says (`TradeStudies::MinimizeObjective` or `MaximizeObjective`), over the value its redefinition of the library's `eval` calculation returns (`subject :>> selectedAlternative; in calc :>> eval { expression }`), within the conditions the case requires or assumes and the ones the objective states itself. An objective that instead gives the library's bound `best` a value of its own (`attribute :>> best = expression;`, the spelling earlier releases read) is a validation error, and `%optimize` refuses it pointing at the `eval` spelling. Several objectives are improved lexicographically in declaration order, inherited ones first; an objective restating an inherited one (by name or `:>>`) stands in its place with the value stated there. Prints each optimum with its declared unit and the assignment that attains it. An objective that improves without limit, or a bound no assignment attains, is reported as such and never as a number, and every optimum is verified before it is reported. **Needs `z3`**: optimization is a z3 extension, and a backend without it (cvc5) is an error rather than a plain satisfiability check presented as an optimum. Otherwise the same solver requirements as `%check`. `%optimize` answers a different question from running the case: it finds the best *values* the case's conditions admit over a continuous domain, where `%analysis` executes what the model says over the alternatives it lists. A `TradeStudies::TradeStudy` whose objective applies the case's `evaluationFunction` to listed alternatives is therefore refused, pointing at `%analysis`/`-analysis`/`RunAnalysis`, which evaluate every alternative and report the one selected ([Trade studies](../guide/06-behavior.md#trade-studies)) |
 | **Action debugging** ([guide chapter 6](../guide/06-behavior.md)) | |
-| `%action <name> [<object>]` | Start an action debugging session, optionally performed by an instantiated object, given as an [object reference](#object-references) (`%action tally car`, `%action tally #3`) |
+| `%action <name> [<object>]` | Start an action debugging session, optionally performed by an instantiated object, given as an [object reference](#object-references) (`%action tally car`, `%action tally #3`). Under `%engine check`, or `%engine all` with a `%check-*` setting made, the action is checked instead of stepped ([Checking every schedule](#checking-every-schedule-of-an-action)) |
 | `%step` | Advance one token step; a token waiting only on the clock (`accept after`, `accept at`) is not stepped, and the report names the `%advance` that would move it |
 | `%continue` | Run the action to completion |
 | `%tokens` | Show the active tokens |
@@ -93,7 +98,60 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 
 The five solving commands (`%check`, `%explain`, `%solve`, `%configure`, `%optimize`) follow the
 design of the `ConstraintSolverService` in OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf)
-(Apache 2.0); see [Acknowledgements](../../README.md#acknowledgements).
+(Apache 2.0); see [Acknowledgements](../../README.md#acknowledgements). `%check` asks a solver
+whether an assertion *can* be satisfied; it is not the `check` engine, which `%engine check`
+selects and the next section describes.
+
+## Checking every schedule of an action
+
+The `%action` debugger steps one run under the schedule `%schedule` set; `%engine check` puts
+the action to the explicit-state model checker instead, which searches every schedule the
+library leaves open and reports the first violation, deadlock or failure it reaches or the
+features whose final value the schedule decides — the CLI's
+[`-engine check`](cli.md#checking-every-schedule-of-an-action), with the same verdicts and
+the same bounds. `%check-property`, `%check-diverge`, `%check-witness` and `%check-bounds`
+hold the settings the CLI's `-check-*` flags carry, each shown with no argument and kept for
+the session, and `%replay` steps the run a witness records. Under `%engine all`, `%action`
+searches once any of the four is set — the checker beside the exploration, `states=<n>` being
+the one figure each bounds in its own unit — and steps again once every one is `off`:
+
+```text
+sysml> %engine check
+engine: check
+sysml> %check-witness witnesses
+check-witness: witnesses
+sysml> %check-bounds depth=3
+check-bounds: depth=3, states=1000000 (default), timeout=off
+sysml> %action Mission::race
+? Action Mission::race: no violation within bounds (5 states, 4 moves, depth 3; bounds hit: depth)
+  standing: outcomes (bounded over schedules: 5 states, 4 moves searched, depth=3 (reached))
+sysml> %check-bounds off
+check-bounds: depth=10000 (default), states=1000000 (default), timeout=off
+sysml> %action Mission::race
+✗ Action Mission::race: divergent (11 states, 10 moves, depth 6)
+  divergent: x ends as 1 or 2
+    x = 1 (witness witnesses/Mission.race-x-1.witness)
+    x = 2 (witness witnesses/Mission.race-x-2.witness)
+  outcome: leftRan = true; rightRan = true; x = 1
+  outcome: leftRan = true; rightRan = true; x = 2
+  standing: sensitive (witnessed: 11 states, 10 moves searched, witness of 1 choice replayed)
+sysml> %engine auto
+engine: auto
+sysml> %replay witnesses/Mission.race-x-1.witness
+schedule: replay:witnesses/Mission.race-x-1.witness
+Use %action or %state to start the run the witness records, then %step or %continue
+sysml> %action Mission::race
+✓ Started action executor for "Mission::race"
+```
+
+A check leaves no debugging session behind — `%step` after it reports no active session — and
+changes nothing about the debuggers: `%action` under any other engine (`all` included, until a
+`%check-*` setting is made), `%step` and `%continue` step one run as before, `%schedule explore` and `%engine explore` are refused at the prompt as
+they were, and a declaration unrelated to a running debugger still leaves it running. `%replay` under
+`%engine check` says so: `%action` would search again, so it names `%engine auto` as the
+selection under which the next `%action` steps the replayed run. The unsupported constructs
+(a state machine, a body paused mid-statement, a state and an action due together) are refused
+with the construct named, as `? … could not be checked`.
 
 ## Object references
 

@@ -22,17 +22,17 @@ func TestEnginesListsTheBuild(t *testing.T) {
 
 	out := run(t, binary, "-engines")
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
-	if len(lines) != 5 || !strings.HasPrefix(lines[0], "engine") || !strings.Contains(lines[0], "authority") ||
+	if len(lines) != 6 || !strings.HasPrefix(lines[0], "engine") || !strings.Contains(lines[0], "authority") ||
 		!strings.Contains(lines[0], "answers") || !strings.Contains(lines[0], "status") {
 		t.Fatalf("-engines did not table the engines:\n%s", out)
 	}
-	for i, want := range []string{"explore", "run", "solve", "sweep"} {
+	for i, want := range []string{"check", "explore", "run", "solve", "sweep"} {
 		fields := strings.Fields(lines[i+1])
 		if len(fields) < 4 || fields[0] != want {
 			t.Errorf("line %d = %q, want engine %s", i+1, lines[i+1], want)
 		}
 	}
-	for _, want := range []string{"proved", "observed", "outcomes", "evaluate", "satisfiable", "sweep"} {
+	for _, want := range []string{"bounded", "proved", "observed", "outcomes, holds", "evaluate", "satisfiable", "sweep"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("-engines is missing %q:\n%s", want, out)
 		}
