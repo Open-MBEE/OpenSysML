@@ -48,6 +48,12 @@ const (
 	// FailureReferencedElsewhere is a delete or rename of a declaration that
 	// another document refers to, which an edit of this one cannot follow.
 	FailureReferencedElsewhere
+	// FailureOwnerInsideTarget is a move whose new owner is the target itself or
+	// a declaration inside it.
+	FailureOwnerInsideTarget
+	// FailureMoveReferenced is a move leaving a reference no spelling can make
+	// reach what it reached before.
+	FailureMoveReferenced
 )
 
 var failureNames = map[Failure]string{
@@ -68,6 +74,8 @@ var failureNames = map[Failure]string{
 	FailureMemberNameTaken:     "member-name-taken",
 	FailureDeleteReferenced:    "delete-referenced",
 	FailureReferencedElsewhere: "referenced-elsewhere",
+	FailureOwnerInsideTarget:   "owner-inside-target",
+	FailureMoveReferenced:      "move-referenced",
 }
 
 // String returns the lowercase name of the failure, or "unknown".
@@ -90,8 +98,8 @@ type Error struct {
 	// Diagnosed is the source the Diagnostics' spans are offsets into: the new
 	// value's text, or the edited notation. A refusal still returns no model.
 	Diagnosed *source.SourceFile
-	// Referring names the declarations referring to a target whose delete or
-	// rename was refused, each qualified by its document when that is another.
+	// Referring names the declarations referring to a target whose delete,
+	// rename or move was refused, each qualified by its document when that is another.
 	Referring []string
 }
 

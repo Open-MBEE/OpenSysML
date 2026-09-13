@@ -1,0 +1,20 @@
+step 1: token 1@f
+step 2: token 2@a, token 3@b
+stmt assign total
+    eval feature total -> 0
+    eval literal 10 -> 10
+  eval operator + -> 10
+stmt assign total
+    eval feature total -> 10
+    eval literal 1 -> 1
+  eval operator + -> 11
+choice step 3: writes total := 11 by token 2, total := 10 by token 3 (unordered; total := 11 by token 2 stood)
+choice step 3: tokens 2@a, 3@b (unordered; took 3@b first)
+step 3: token 2@j, token 3@j
+step 4: token 4@c
+stmt assign total
+    eval feature total -> 11
+    eval literal 100 -> 100
+  eval operator + -> 111
+step 5: token 4@done
+step 6: no active tokens

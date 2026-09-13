@@ -6,12 +6,14 @@ import "github.com/Open-MBEE/OpenSysML/internal/core/source"
 // These nodes implement the Node interface and populate Usage.Members
 // for action and state usages (UsageAction, UsageState).
 
-// InitialNode is the entry point for action execution.
+// InitialNode is a `first` member of an action body. One-ended (`first start;`,
+// `first a;`) it marks where the flow starts; with a Successor (`first a then b;`)
+// it states the succession a -> b and declares no node of its own.
 type InitialNode struct {
 	NodeBase
-	Name      string         // optional identifier for edge referencing
+	Name      string         // the node named after `first`
 	NameSpan  source.Span    // span of Name, empty when none is written
-	Successor *QualifiedName // optional target for implicit succession (from `first X then Y` syntax)
+	Successor *QualifiedName // the target of `first X then Y`, nil for the one-ended form
 	Guard     Node           // optional guard condition for succession
 	// Members are the members of the body the succession was written with
 	// (`first start then continue { … }`), and HasBody that it was written with

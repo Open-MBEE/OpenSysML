@@ -47,7 +47,7 @@ func TestShortNamedReferenceAnswersToItsShortNameOnly(t *testing.T) {
 		src = "action photo { action d; perform action <s> " + rel + " takePhoto; first d then takePhoto; }"
 		root := parser.New(source.New("test.sysml", []byte(src))).ParseFile()
 		usage := root.Members[0].(*ast.Membership).Member.(*ast.Usage)
-		if _, err := ToActionGraph(usage, nil); err == nil || !strings.Contains(err.Error(), `undefined target "takePhoto"`) {
+		if _, err := ToActionGraph(usage, nil); err == nil || !strings.Contains(err.Error(), `undefined target node "takePhoto"`) {
 			t.Errorf("ToActionGraph(%s) error = %v; want takePhoto undefined inside the graph", src, err)
 		}
 	}
