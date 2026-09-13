@@ -1,6 +1,8 @@
 package export_test
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
@@ -110,6 +112,53 @@ func TestCrossFeaturesComeBackFromTheGraphAlone(t *testing.T) {
 	}
 	if string(out) != kerml {
 		t.Errorf("KerML cross features were not rebuilt from the graph:\n--- want ---\n%s--- got ---\n%s", kerml, out)
+	}
+}
+
+const crossFeatureWithID = `package Crossing {
+    @IdentityMetadata::ProjectRef { projectId = "proj-1"; }
+    part def A;
+    part def B;
+    connection def C {
+        end x1[0..1] typed by A item x : B {
+            metadata : IdentityMetadata::ElementId about x1 { id = "stable-x1"; }
+        }
+        end plain : A[3];
+    }
+}
+`
+
+// A cross feature's declared id is written as an `about` annotation in the body
+// of the end that owns it, the head having no place for one, from the graph alone.
+func TestCrossFeatureIDComesBackFromTheGraphAlone(t *testing.T) {
+	turtle := idTurtle(t, crossFeatureWithID)
+	g, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantType(t, g, "urn:sysmlv2:element:stable-x1", "ReferenceUsage")
+	if back := toNotation(t, withoutSourceText(t, turtle)); back != crossFeatureWithID {
+		t.Errorf("the cross feature's id was not rebuilt from the graph:\n--- want ---\n%s--- got ---\n%s", crossFeatureWithID, back)
+	}
+}
+
+// A cross feature the graph gives a body has no notation: the head of its end
+// holds no body, so the conversion is refused rather than dropping it.
+func TestCrossFeatureWithABodyIsRefused(t *testing.T) {
+	stripped := string(withoutSourceText(t, idTurtle(t, crossFeatureWithID)))
+	const head = "    sysml:declaredName \"x1\" ;\n"
+	if !strings.Contains(stripped, head) {
+		t.Fatalf("the graph does not declare the cross feature:\n%s", stripped)
+	}
+	withBody := strings.Replace(stripped, head, head+"    sysx:hasBody \"true\"^^xsd:boolean ;\n", 1)
+	_, err := export.Convert("m.ttl", []byte(withBody), export.FormatTurtle, export.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("error is %T, want *export.UnsupportedError: %v", err, err)
+	}
+	if !strings.Contains(err.Error(), "the cross feature <urn:sysmlv2:element:stable-x1>") ||
+		!strings.Contains(err.Error(), "no place for a body") {
+		t.Errorf("the refusal does not name the cross feature and what it cannot hold: %v", err)
 	}
 }
 

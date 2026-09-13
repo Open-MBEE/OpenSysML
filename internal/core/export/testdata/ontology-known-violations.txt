@@ -31,6 +31,7 @@ domain-mismatch FeatureChainExpression upperBound     # MultiplicityRange_upperB
 domain-mismatch TransitionUsage sourceFeature    # Connector_sourceFeature: a transition's ends are written on the transition, not on a Connector
 domain-mismatch TransitionUsage targetFeature    # Connector_targetFeature: a transition's ends are written on the transition, not on a Connector
 domain-mismatch Import importedNamespace         # NamespaceImport_importedNamespace: the import is typed sysml:Import, not NamespaceImport (D7)
+domain-mismatch AttributeUsage visibility        # Membership_visibility: a declaration inside an expression body has no membership, so its visibility is written on the declaration
 
 # 2. Object properties carrying a name as a literal where the ontology's range is
 # an element (D7). D3.1 gives references stable IRIs to point at; emitting them is
@@ -66,7 +67,6 @@ unknown-class urn:opensysml:sysml:FinalNode -                # an action's final
 unknown-class urn:opensysml:sysml:IfBranch -                 # an if/else branch, standardly an IfActionUsage's then/else parameter
 unknown-class urn:opensysml:sysml:MultiplicityDeclaration -  # a named multiplicity, standardly a MultiplicityRange
 unknown-class urn:opensysml:sysml:Pseudostate -              # a state machine pseudostate, standardly a StateUsage or TransitionUsage shape
-unknown-class urn:opensysml:sysml:BodyMember -               # a declaration inside an expression body, standardly a Feature the Expression owns
 
 # 5. Properties written in the SysML namespace that no metaclass declares. Every
 # one of these is either a relationship the metamodel reifies as an element

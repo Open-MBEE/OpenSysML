@@ -376,7 +376,12 @@ triples come); a set of classes with no such member is refused, naming the subje
   annotations, carrying its name, its `sysml:lowerBound`/`sysml:upperBound` and
   its specializations. Its bounds are never the end's:
   `end [0..*] item x : A[1];` states `[0..*]` on the cross feature and `[1]` on
-  the end, and the decoder writes each back where it was declared.
+  the end, and the decoder writes each back where it was declared. The head has
+  no place for the cross feature's own body, so an id the cross feature must
+  declare is written back as an `about` annotation in the end's body
+  (`end x1 [1] item y : B { metadata : IdentityMetadata::ElementId about x1 { id = "…"; } }`),
+  the one place the grammar offers; a graph that gives the cross feature a body
+  of its own or members is reported as unsupported, naming it.
 
 The `sysx:` properties:
 
@@ -395,7 +400,7 @@ The `sysx:` properties:
 | `sysx:sourceMember`, `sysx:targetMember` | The member a succession sequences from or to where the notation names no end (`then b;`, or a `then` beside an unnamed member), or where the name the notation supplies for an end links no element (a `then` after `action redefines walk;` whose `walk` is inherited). The end is the element itself rather than only a name, so a same-named member elsewhere cannot be mistaken for it. |
 | `sysx:condition` | The condition a condition member states, as its notation. |
 | `sysx:resultExpression` | The expression an expression body (`{ in y : Real; y + x }`) ends in, after its parameters. The bare expression a calculation or case body computes is not an extension: it is the Expression its `sysml:ResultExpressionMembership` owns. See [Result expressions](#result-expressions). |
-| `sysx:bodyParameter`, `sysx:bodyMember` | The `in` parameters an expression body declares, each a node carrying its name, type, bounds and value, and the other declarations it makes ahead of its result: a `doc` as a `sysml:Documentation` node, anything else as notation. Both share one `sysx:memberIndex` sequence, the order they were written in. |
+| `sysx:bodyParameter`, `sysx:bodyMember` | The `in` parameters an expression body declares, each a node carrying its name, type, bounds and value, and the other declarations it makes ahead of its result, each a node typed by its own metaclass and carrying what a member declaration carries. Both share one `sysx:memberIndex` sequence, the order they were written in. |
 | `sysx:declaredId` | The element's id came from an explicit `@IdentityMetadata::ElementId` annotation, see [Element identity](#element-identity). |
 | `sysx:projectId`, `sysx:branch`, `sysx:org` | The `@IdentityMetadata::ProjectRef` provenance of a scope root, see [Element identity](#element-identity). |
 | `sysx:isKindImplicit` | The declaration wrote no kind keyword (`in x : Real;`), which takes its kind from its owner. Without it the canonical keyword would come back written out, declaring what the author did not. A kind named in a comment in the head (`in /* attribute */ x : Real;`) is trivia, not a keyword the declaration wrote. |
@@ -405,7 +410,7 @@ Metaclass names with no counterpart in the OMG vocabulary are typed in the
 `sysx:` namespace rather than `sysml:`, so a consumer can tell them from the
 standard metaclasses: `sysx:Alias`, `sysx:FilterMember`,
 `sysx:MultiplicityDeclaration`, `sysx:ConstraintMember`, `sysx:AssumeMember`,
-`sysx:RequireMember`, `sysx:BodyMember`, and the
+`sysx:RequireMember`, and the
 behavioral ones listed under [Behavior](#behavior).
 
 Comments, documentation and textual representations convert as their own
@@ -792,6 +797,14 @@ The rules the tree follows:
 - **A feature reference links to the element** it names (`sysml:referent`) when
   that element is in the graph, and carries its name as a literal when it
   resolves outside it, the same rule the declaration-head relationships follow.
+  An invocation links the function it names the same way (`sysml:function`),
+  beside the feature chain it is applied to (`sysml:operand`, for
+  `s.reading->twice()` or `s.signal.condition()`) and its arguments, named or
+  positional; a constructor states `sysx:isConstructor`. Written back, the
+  function is spelled by the reference rule under [Limitations](#limitations),
+  so an invocation whose function the graph neither links nor names, or that
+  no spelling reaches from where it is written, is reported rather than
+  misspelled.
 - **A node carries `sysml:elementId`**, the id its own IRI ends in, so it can be
   read and queried by that id like an element. It is still not a model element:
   it has no `sysml:qualifiedName` and no ownership properties, it is reached only
@@ -829,10 +842,17 @@ The rules the tree follows:
   Documentation opening a body (`{ doc /* … */ in y : Real; y }`)
   is a `sysml:Documentation` node with its `sysml:body`. Any other declaration a
   body makes ahead of its result (`{ in y : Real; private attribute k : Real = 2; y * k }`)
-  is a `sysx:BodyMember` carrying its notation; a graph that states one without its
-  `sysx:sourceText` is reported, naming the member, as is a parameter with no
-  `sysml:declaredName`. Parameters and declarations share one `sysx:memberIndex`
-  sequence, so a parameter written after a declaration comes back after it.
+  is a `sysx:bodyMember` node of its own, typed by its metaclass and carrying
+  what the same declaration carries as a namespace member — name, keyword,
+  flags, visibility, typing and the other relationships, bounds, value, and a
+  body of its own, whose declarations nest the same way. It is local to the
+  expression: it has no `sysml:qualifiedName`, no owning namespace and no
+  membership, and is reached only from the body that holds it. A declaration
+  the body cannot hold — one with a `#M` or `@M` annotation of its own, an end
+  with a cross feature, or one whose graph declares an id — is reported, naming
+  it, as is a parameter with no `sysml:declaredName`. Parameters and
+  declarations share one `sysx:memberIndex` sequence, so a parameter written
+  after a declaration comes back after it.
 - **Older graphs still read.** A position holding a plain literal
   (`sysml:value "1200.0"`), which is what releases before this wrote, is read as
   that notation, and a `sysx:bodyParameter` holding a bare name literal is read
