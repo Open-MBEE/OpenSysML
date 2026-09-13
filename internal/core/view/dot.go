@@ -48,6 +48,9 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	if !r.Kind.SupportsForm(FormDot) {
 		return "", &WrongFormError{Form: FormDot, Kind: r.Kind, View: r.View}
 	}
+	if err := options.Palette.check(); err != nil {
+		return "", err
+	}
 	direction := options.Direction
 	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		palette: options.Palette}

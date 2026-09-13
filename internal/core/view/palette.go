@@ -77,6 +77,18 @@ func (e *UnknownPaletteError) Error() string {
 
 func (e *UnknownPaletteError) Unwrap() error { return ErrUnknownPalette }
 
+// check is the UnknownPaletteError of a Palette value no registry entry has;
+// the empty palette and every registered one pass.
+func (p Palette) check() error {
+	if p == "" {
+		return nil
+	}
+	if _, ok := ParsePalette(string(p)); !ok {
+		return &UnknownPaletteError{Name: string(p)}
+	}
+	return nil
+}
+
 // paletteNotice is the notice a form that draws no palette writes for one asked
 // for, so the request is not dropped silently.
 func paletteNotice(palette Palette) string {

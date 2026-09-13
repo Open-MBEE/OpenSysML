@@ -1,6 +1,7 @@
 package view
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -292,6 +293,23 @@ func TestDOTSequentialPaletteSpansFamiliesPresent(t *testing.T) {
 	}
 	if port := paletteColors[PaletteOkabeIto][2]; !strings.Contains(fixed, `color="`+port+`"`) {
 		t.Errorf("a lone port is not the port family's colour %s:\n%s", port, fixed)
+	}
+}
+
+// A Palette value no registry entry has is refused at the DOT boundary as the
+// UnknownPaletteError every surface raises, with no artifact written.
+func TestDOTRefusesAnUnregisteredPalette(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindTree, Roots: []*Node{{ID: "n0", Kind: "part def", Name: "Def"}}}
+	dot, err := rendering.DOTWith(Options{Palette: Palette("rainbow")})
+	var unknown *UnknownPaletteError
+	if !errors.As(err, &unknown) || unknown.Name != "rainbow" {
+		t.Fatalf("DOTWith(rainbow) = %q, %v; want an UnknownPaletteError naming rainbow", dot, err)
+	}
+	if dot != "" {
+		t.Errorf("DOTWith(rainbow) wrote %q beside the error", dot)
+	}
+	if _, err := rendering.WriteWith(FormDot, Options{Palette: Palette("rainbow")}); !errors.Is(err, ErrUnknownPalette) {
+		t.Errorf("WriteWith(dot, rainbow) = %v, want ErrUnknownPalette", err)
 	}
 }
 
