@@ -140,6 +140,42 @@ func TestApplyModelEditAddsConnection(t *testing.T) {
 	}
 }
 
+// A connection between ports whose names hold `::` is spelled from the names
+// the rendering itself hands the client, as the client does: the owner is the
+// parent's fqn, each endpoint the node's own name.
+func TestApplyModelEditConnectsRenderedNamesHoldingTheSeparator(t *testing.T) {
+	const src = "part 'x::y' {\n    port 'fuel::out';\n    port sink;\n}\n"
+	s, docURI := renderServer(t, "sep.sysml", src)
+	res := render(t, s, docURI, "#tree")
+	var owner renderNode
+	ports := map[string]renderNode{}
+	for _, n := range res.Nodes {
+		switch n.Kind {
+		case "part":
+			owner = n
+		case "port":
+			ports[n.Name] = n
+		}
+	}
+	if owner.Name != "'x::y'" || owner.FQN != "x::y" {
+		t.Fatalf("part rendered as %+v, want name 'x::y' and fqn x::y", owner)
+	}
+	from, ok := ports["'fuel::out'"]
+	if !ok || from.Parent != owner.ID {
+		t.Fatalf("ports rendered as %v, want 'fuel::out' under the part", ports)
+	}
+	op := modelEditOperation{Kind: EditAddConnection, Owner: owner.FQN, MemberKind: "connection",
+		From: from.Name, To: ports["sink"].Name, Name: "'fuel::line'"}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Edit == nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	got := applyWorkspaceEdit(t, src, out.Edit, docURI)
+	if !strings.Contains(got, "    connection 'fuel::line' connect 'fuel::out' to sink;\n") {
+		t.Errorf("connection not written:\n%s", got)
+	}
+}
+
 func TestApplyModelEditRenamesEveryReference(t *testing.T) {
 	s, docURI := renderServer(t, "vehicle.sysml", editModel)
 	op := modelEditOperation{Kind: EditRename, Target: "Vehicle::Tank", NewName: "FuelTank"}
