@@ -299,9 +299,9 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, forkModel, "-check-depth", "3", "-action", "Mission::race"),
-		2, "-check-diverge, -check-property, -check-witness, -check-depth, -check-states and -check-timeout are the check engine's; select it, as -engine check, or every engine, as -engine all")
+		2, "-check-diverge, -check-property, -check-input, -check-assume, -check-witness, -check-depth, -check-states, -check-unroll and -check-timeout are the check and smt engines'; select one, as -engine check or -engine smt, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "explore", "-check-depth", "3", "-action", "Mission::race"),
-		2, "select it, as -engine check, or every engine, as -engine all")
+		2, "select one, as -engine check or -engine smt, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-depth", "3"),
 		2, "the -check-* flags search an action's schedules; name one, as -action <name>")
 	wantReport(t, check(t, binary, forkModel, "-engine", "all", "-check-depth", "3"),
@@ -314,6 +314,16 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 		2, `-check-depth takes a bound of at least one, not "x"`)
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-states", "0", "-action", "Mission::race"),
 		2, `-check-states takes a bound of at least one, not "0"`)
+
+	// A flag one engine alone reads is refused under the other engine alone, not dropped.
+	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-check-diverge", "x", "-action", "Mission::race"),
+		2, "-check-diverge is the check engine's, which -engine smt leaves out; select it, as -engine check, or every engine, as -engine all")
+	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-check-diverge", "x", "-check-states", "3", "-action", "Mission::race"),
+		2, "-check-diverge and -check-states are the check engine's, which -engine smt leaves out")
+	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-input", "x", "-action", "Mission::race"),
+		2, "-check-input is the smt engine's, which -engine check leaves out; select it, as -engine smt, or every engine, as -engine all")
+	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-input", "x", "-check-assume", "Mission::x", "-check-unroll", "2", "-action", "Mission::race"),
+		2, "-check-input, -check-assume and -check-unroll are the smt engine's, which -engine check leaves out")
 
 	// A state machine is not an action's schedules: the named engine's refusal is the answer.
 	wantReport(t, check(t, binary, forkModel+lampModel, "-engine", "check", "-action", "Mission::race", "-state", "Shine::Lamp"),

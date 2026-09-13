@@ -118,19 +118,6 @@ func (v Violation) String() string {
 	return fmt.Sprintf("failure after %d moves: %v", v.Depth, v.Err)
 }
 
-// Witness is one schedule: the choices that fix it, as a replay follows them,
-// and the trace the run leaves, as the trace recorder writes it.
-type Witness struct {
-	Choices []ChoiceTaken
-	Trace   string
-	// Property names the property false at the state the schedule reaches, or
-	// whose evaluation there fails as Fails says; empty for a state or a run's failure.
-	Property string
-	// Fails is the deadlock or failure the schedule ends in, as the executor
-	// spells it — or the property's evaluation raised; empty for a state the run goes on from.
-	Fails string
-}
-
 // DivergentValue is one final value of a divergent feature and a schedule reaching it.
 type DivergentValue struct {
 	Value   string

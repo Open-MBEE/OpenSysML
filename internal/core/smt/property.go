@@ -3,6 +3,7 @@ package smt
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
@@ -19,6 +20,8 @@ const (
 	PropertyRequirement
 	// PropertyConstraint asks that a constraint's conditions hold at every move boundary.
 	PropertyConstraint
+	// PropertyConditions asks that requirements and constraints together hold at every move boundary.
+	PropertyConditions
 )
 
 func (k PropertyKind) String() string {
@@ -29,6 +32,8 @@ func (k PropertyKind) String() string {
 		return "requirement"
 	case PropertyConstraint:
 		return "constraint"
+	case PropertyConditions:
+		return "conditions"
 	}
 	return fmt.Sprintf("property(%d)", int(k))
 }
@@ -37,8 +42,9 @@ func (k PropertyKind) String() string {
 // interpreter reaches: after move 0 (the initial state) through move k.
 type Property struct {
 	Kind PropertyKind
-	// Condition is the requirement or constraint asked about; nil for deadlock freedom.
-	Condition *symbols.Symbol
+	// Conditions are the requirements and constraints asked about, in the order
+	// named; none for deadlock freedom. Several hold together, as one property.
+	Conditions []*symbols.Symbol
 	// Name is the property as a verdict names it.
 	Name string
 	// Violated[i] holds when state i violates the property: a required
@@ -64,39 +70,88 @@ func (e *Encoding) Deadlock() *Property {
 	return p
 }
 
-// Condition is the property that sym's requirement or constraint (inherited conditions included)
-// holds at every state; one reading a feature the action does not carry is refused.
-func (e *Encoding) Condition(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (*Property, error) {
-	if sym == nil {
+// Conditions is the property that every one of syms' requirements and constraints
+// (inherited conditions included) holds at every state: a state violating any
+// violates it, one where any cannot be evaluated leaves it undefined; one reading
+// a feature the action does not carry is refused. An empty set is refused as no condition.
+func (e *Encoding) Conditions(ctx *runtime.Context, syms []*symbols.Symbol, scope *symbols.Scope) (*Property, error) {
+	if len(syms) == 0 {
 		return nil, fmt.Errorf("%w: no condition named", runtime.ErrNoConditions)
+	}
+	p := &Property{Violated: make([]*solve.Term, e.Moves+1), Undefined: make([]*solve.Term, e.Moves+1)}
+	for i := range p.Violated {
+		p.Violated[i], p.Undefined[i] = solve.BoolTerm(false), solve.BoolTerm(false)
+	}
+	var names []string
+	for i, sym := range syms {
+		kind, expr, err := e.condition(ctx, sym, scope)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case i == 0:
+			p.Kind = kind
+		case p.Kind != kind:
+			p.Kind = PropertyConditions
+		}
+		p.Conditions = append(p.Conditions, sym)
+		names = append(names, kind.String()+" "+sym.Name)
+		for s := 0; s <= e.Moves; s++ {
+			value, defined := e.environment(e.States[s]).evaluate(expr)
+			p.Violated[s] = or(p.Violated[s], and(defined, not(value)))
+			p.Undefined[s] = or(p.Undefined[s], not(defined))
+		}
+	}
+	p.Name = strings.Join(names, " and ")
+	return p, nil
+}
+
+// Assume asserts sym's requirement or constraint over state 0 alone, narrowing the
+// initial states the queries range over; it is translated and refused as a property is.
+func (e *Encoding) Assume(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) error {
+	kind, expr, err := e.condition(ctx, sym, scope)
+	if err != nil {
+		return err
+	}
+	name := kind.String() + " " + sym.Name
+	value, defined := e.environment(e.States[0]).evaluate(expr)
+	e.assert(and(defined, value), "assumed "+name)
+	e.Assumptions = append(e.Assumptions, name)
+	return nil
+}
+
+// condition translates sym's conditions (inherited ones included) over the
+// encoding's features, telling a requirement from a constraint.
+func (e *Encoding) condition(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (PropertyKind, *solve.Expression, error) {
+	if sym == nil {
+		return 0, nil, fmt.Errorf("%w: no condition named", runtime.ErrNoConditions)
 	}
 	kind := PropertyConstraint
 	if err := runtime.RequireConstraint(sym); err != nil {
 		if runtime.RequireRequirement(sym) != nil {
-			return nil, err
+			return 0, nil, err
 		}
 		kind = PropertyRequirement
 	}
 	subject := solve.Subject{Kind: kind.String(), Name: sym.Name, Symbol: sym, Negated: runtime.NegatedDecl(sym)}
 	translator, err := solve.NewTranslator(ctx, subject)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 	expr, err := translator.Conditions(ctx.ConditionsOf(sym, scope))
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 	if err := e.adopt(translator, expr, kind.String()+" "+sym.Name); err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	p := &Property{Kind: kind, Condition: sym, Name: kind.String() + " " + sym.Name,
-		Violated: make([]*solve.Term, e.Moves+1), Undefined: make([]*solve.Term, e.Moves+1)}
-	for i := 0; i <= e.Moves; i++ {
-		value, defined := e.environment(e.States[i]).evaluate(expr)
-		p.Violated[i] = and(defined, not(value))
-		p.Undefined[i] = not(defined)
-	}
-	return p, nil
+	return kind, expr, nil
+}
+
+// Consistency is satisfiable exactly when some initial state meets the
+// assumptions; unsat, the assumptions admit none and every query is vacuous.
+func (e *Encoding) Consistency() *solve.Query {
+	return e.query(solve.BoolTerm(true), "an initial state under the assumptions")
 }
 
 // adopt rewrites a property's reads to the encoding's features and declares the

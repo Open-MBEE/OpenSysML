@@ -128,7 +128,7 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 	for _, k := range []int{6, 7} {
 		t.Run(fmt.Sprintf("k=%d", k), func(t *testing.T) {
 			ctx, action, graph, held := loweredAction(t, src, "test::clash")
-			enc, err := Encode(ctx, action, graph, held, k, DefaultUnroll)
+			enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
 			if err != nil {
 				t.Fatalf("encode: %v", err)
 			}
@@ -152,7 +152,7 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 		})
 	}
 	ctx, action, graph, held := loweredAction(t, src, "test::clash")
-	enc, err := Encode(ctx, action, graph, held, 5, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, held, nil, 5, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -200,7 +200,7 @@ func TestEncodePinsAndObjectFlows(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.file, func(t *testing.T) {
 			ctx, action, graph, held := loweredConformanceAction(t, c.file, c.fqn)
-			enc, err := Encode(ctx, action, graph, held, k, DefaultUnroll)
+			enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
 			if err != nil {
 				t.Fatalf("encode: %v", err)
 			}
@@ -288,7 +288,7 @@ func TestEncodeInlineExpressionFeedsFlow(t *testing.T) {
 	}
 
 	graph, held := started(t, ctx, action)
-	enc, err := Encode(ctx, action, graph, held, k, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}

@@ -152,8 +152,10 @@ var metaCommandTable = []metaCommand{
 	{name: "%engine", args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
 	{name: "%check-diverge", args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
 	{name: "%check-property", args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
-	{name: "%check-witness", args: "[<dir>|off]", desc: "show or set the directory the check engine writes a witness to for each violation and divergent value"},
-	{name: "%check-bounds", args: "[depth=<n>] [states=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check engine searches within: the moves of one schedule, the distinct states, and the clock; off restores its defaults"},
+	{name: "%check-input", args: "[<feature>...|off]", desc: "show or set the features the smt engine leaves free in their declared domains although the model binds them; off frees only the inputs the model leaves unbound"},
+	{name: "%check-assume", args: "[<name>...|off]", desc: "show or set the constraints and requirements the smt engine assumes over the initial state of an action"},
+	{name: "%check-witness", args: "[<dir>|off]", desc: "show or set the directory the check and smt engines write a witness to for each violation and divergent value"},
+	{name: "%check-bounds", args: "[depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check and smt engines search within: the moves of one schedule, the distinct states, the iterations of a loop the smt engine unrolls, and the clock; off restores their defaults"},
 	{name: "%replay", args: "<witness>", desc: "install the schedule a witness file fixes, so the next %action or %state steps the run it records"},
 	{name: "%quit", desc: "exit the REPL"},
 	{name: "%exit", desc: "exit the REPL", alias: true},
@@ -340,6 +342,10 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doCheckDiverge(fields[1:]), false, nil), true
 	case "%check-property":
 		return metaOut(s.doCheckProperty(fields[1:]), false, nil), true
+	case "%check-input":
+		return metaOut(s.doCheckInput(fields[1:]), false, nil), true
+	case "%check-assume":
+		return metaOut(s.doCheckAssume(fields[1:]), false, nil), true
 	case "%check-witness":
 		return metaOut(s.doCheckWitness(fields[1:]), false, nil), true
 	case "%check-bounds":

@@ -574,6 +574,18 @@ package OpenSysMLPipeline {
         attribute :>> adapts = "internal/core/solve";
     }
 
+    // One action's every schedule and every input value in its declared domain, as one
+    // relation an SMT solver decides; registered whether or not one is found.
+    part def SmtEngine :> AnalysisEngine {
+        attribute :>> engineName = "smt";
+        attribute :>> answers = "holds";
+        attribute :>> bounds = "moves, unroll, slots, solver";
+        attribute :>> authority = "proved";
+        attribute :>> replays = true;
+        attribute :>> needsProcess = true;
+        attribute :>> adapts = "internal/core/smt";
+    }
+
     // What can be asked of a subject, and what a question may leave free.
     part def QuestionKinds {
         attribute kinds : String = "evaluate, outcomes, holds, sensitive, satisfiable, sweep, compute";
@@ -592,11 +604,12 @@ package OpenSysMLPipeline {
         attribute overclaimIsFault : Boolean = true;
     }
 
-    // The engines one binary knows, held by their owner rather than in a global.
+    // The engines one binary knows, held by their owner rather than in a global: the
+    // framework's own and, assembled by internal/core/engines, those of other packages.
     part def EngineRegistry :> CodeUnit {
         attribute :>> goPackage = "internal/core/analysis";
-        attribute engineCount : Integer = 5;
-        attribute engineNames : String = "check, explore, run, solve, sweep";
+        attribute engineCount : Integer = 6;
+        attribute engineNames : String = "check, explore, run, smt, solve, sweep";
         attribute perOwner : Boolean = true;
         attribute refusesDuplicateNames : Boolean = true;
         attribute listsInNameOrder : Boolean = true;
@@ -609,8 +622,9 @@ package OpenSysMLPipeline {
         attribute selections : String = "auto, all, <engine>";
         attribute defaultSelection : String = "auto";
         attribute strongestFirst : Boolean = true;
-        // The default engines declaring each kind: outcomes has two, explore ranked over check.
-        attribute candidatesPerKind : String = "evaluate: 1, holds: 1, outcomes: 2, satisfiable: 1, sweep: 1";
+        // The default engines declaring each kind: outcomes has two, explore ranked over
+        // check, and holds two, smt ranked over check.
+        attribute candidatesPerKind : String = "evaluate: 1, holds: 2, outcomes: 2, satisfiable: 1, sweep: 1";
         attribute advancesOnNotCovered : Boolean = true;
         attribute stopsOnFault : Boolean = true;
         attribute recordsEveryStep : Boolean = true;
@@ -622,8 +636,8 @@ package OpenSysMLPipeline {
     // The budget one plan runs under: jobs is the width of the fleet, the rest
     // bound one run in the engine's own unit.
     part def PlanBudget {
-        attribute fields : String = "Deadline, Jobs, Runs, Depth, Steps, Solver, Memory";
-        attribute fieldCount : Integer = 7;
+        attribute fields : String = "Deadline, Jobs, Runs, Depth, Unroll, Steps, Solver, Memory";
+        attribute fieldCount : Integer = 8;
         attribute jobsEnvVar : String = "OPENSYSML_JOBS";
         attribute jobsFlag : String = "-jobs";
         attribute jobsCommand : String = "%jobs";
@@ -661,6 +675,7 @@ package OpenSysMLPipeline {
         part check : CheckEngine;
         part sweep : SweepEngine;
         part solve : SolveEngine;
+        part smt : SmtEngine;
 
         in item question : AnalysisQuestion;
         in item trace : ExecutionTrace;

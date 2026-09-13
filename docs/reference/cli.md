@@ -234,15 +234,18 @@ written in, so the verdicts are about that object:
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
-| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the choice lines of a witness, one per line up to the first blank line, followed move for move and then `reverse` — a header of `no choice points`, as the checker writes for a run that met none, follows the one run there is; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>` and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read, is empty or has a line spelling no choice — is refused before anything runs |
+| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the `input <feature> = <value>` lines of a witness, which pin those features before the run starts, then its choice lines, one per line up to the first blank line, followed move for move and then `reverse` — a header of `no choice points`, as the checker writes for a run that met none, follows the one run there is; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>`, an input line naming a feature the action does not have is refused naming it, and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read, is empty or has a line spelling no choice — is refused before anything runs |
 | `-check-property <name>` | With `-engine check` or `-engine all`: a constraint or requirement the checker evaluates at every stable state of each `-action`, on the performing object where there is one, reporting a schedule at which it is false; repeatable. See [Checking every schedule of an action](#checking-every-schedule-of-an-action) |
 | `-check-diverge <feature>` | With `-engine check` or `-engine all`: a feature the checker reports divergent when schedules leave it with different final values — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's; repeatable; a name nothing holds is refused. A feature a schedule leaves unset ends as `<unset>`. Absent, every attribute of the action and of the performing object; an action run without one has no object, so its own attributes only |
-| `-check-witness <dir>` | With `-engine check` or `-engine all`: write a witness file into this directory for each violation and each divergent value — the schedule's choice lines, a blank line, then the run's trace, and for a deadlock or a failure a blank line and `fails: <the error>` last — which `-schedule replay:<file>` and `%replay` follow. The directory is created if absent |
-| `-check-depth <n>` | With `-engine check` or `-engine all`: the most moves one schedule may make before the search backtracks (default 10 000), named as the `depth` bound when it is hit; a positive integer |
+| `-check-input <feature>` | With `-engine smt` or `-engine all`: a feature of the action the solver leaves free in its declared type's domain although the model binds it — a default, a value the performing object holds — as `-check-input inletTemp`; repeatable. A name that is not a feature the action reads is refused naming it. Without the flag every input the model leaves unbound is free and every bound one is pinned at its value. See [Deciding a property over the inputs](#deciding-a-property-over-the-inputs) |
+| `-check-assume <name>` | With `-engine smt` or `-engine all`: a constraint or requirement asserted over the initial state of the action, as `-check-assume Plant::EnvelopeLimits`; repeatable. One the translator cannot encode is refused naming the construct; a set no initial state satisfies is reported *not covered*, never *proved* |
+| `-check-witness <dir>` | With `-engine check`, `-engine smt` or `-engine all`: write a witness file into this directory for each violation and each divergent value — the inputs the solver chose (`input <feature> = <value>`, one per line), the schedule's choice lines, a blank line, then the run's trace, and for a deadlock or a failure a blank line and `fails: <the error>` last — which `-schedule replay:<file>` and `%replay` follow. The directory is created if absent |
+| `-check-depth <n>` | With `-engine check`, `-engine smt` or `-engine all`: the most moves one schedule may make before the search backtracks (default 10 000), or the moves the `smt` engine unrolls the action to (default 40), named as the `depth` bound when it is hit; a positive integer |
+| `-check-unroll <n>` | With `-engine smt` or `-engine all`: the most iterations of one loop the `smt` engine unrolls before it stops (default 4), named as the `unroll` bound when it is hit; a positive integer |
 | `-check-states <n>` | With `-engine check` or `-engine all`: the most distinct states the search may visit (default 1 000 000), named as the `states` bound when it is hit; a positive integer. It is the shared `runs` budget in the checker's unit, so under `-engine all` the one figure is also an exploration's linearizations |
-| `-check-timeout <duration>` | With `-engine check` or `-engine all`: the wall clock the check's plan may run for, as `30s` or `2m`; a search the clock stops is reported `incomplete: time` with the states and depth it reached, not as a verdict, and exits 2. Unbounded by default |
+| `-check-timeout <duration>` | With `-engine check`, `-engine smt` or `-engine all`: the wall clock the check's plan may run for, as `30s` or `2m`; a search the clock stops is reported `incomplete: time` with the states and depth it reached, not as a verdict, and exits 2. Unbounded by default |
 | `-engines` | Lists the analysis engines this build knows — name, authority, the question kinds each answers and its status — and exits, without a model. See [Analysis engines](#analysis-engines) |
-| `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name (`run`, `explore`, `check`, `sweep`, `solve`) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action)). See [Analysis engines](#analysis-engines) |
+| `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name (`run`, `explore`, `check`, `smt`, `sweep`, `solve`) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action)); `-engine smt` decides a `-check-property` over every schedule and every value of the free inputs with an SMT solver ([Deciding a property over the inputs](#deciding-a-property-over-the-inputs)). See [Analysis engines](#analysis-engines) |
 | `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
@@ -942,6 +945,7 @@ engine   authority  answers          status
 check    bounded    outcomes, holds  ready
 explore  proved     outcomes         ready
 run      observed   evaluate         ready
+smt      proved     holds            ready (z3 at /usr/bin/z3)
 solve    proved     satisfiable      ready (z3 at /usr/bin/z3)
 sweep    observed   sweep            ready
 ```
@@ -988,7 +992,7 @@ finished earned. A name no engine is registered under is refused before anything
 
 ```bash
 $ sysml -engine bogus -constraint Rover::MassBudget model.sysml
-invalid value "bogus" for flag -engine: analysis: no engine named "bogus"; the engines are check, explore, run, solve, sweep, or auto, or all
+invalid value "bogus" for flag -engine: analysis: no engine named "bogus"; the engines are check, explore, run, smt, solve, sweep, or auto, or all
 ```
 
 With `-json` each check carries how it was answered beside the fields it always carried. `plan`
@@ -1142,6 +1146,108 @@ With `-json` the check's `results[]` entry for the `check` engine carries, besid
 `boundsHit[]`, `violations[]` (each with its `kind`, `detail`, `witness` choices and file
 `path`), `divergent[]` (each `feature` with its `values[]`, each with `value`, `witness` and
 `path`) and `outcomes[]`.
+
+### Deciding a property over the inputs
+
+The `smt` engine answers the same `-check-property` question symbolically: it encodes the
+action's schedules as a relation over its states, hands the property to an SMT solver (z3 or
+cvc5, found on `PATH`) and decides it for **every schedule and every value of the free
+inputs**, not for the one value each input was written with. A feature the model binds — an
+attribute with a default, a value the performing object holds, an argument the invocation
+passes — is pinned at that value, as `check` and `explore` run it; a feature the model leaves
+unbound, or one `-check-input` names, ranges over the domain of its declared type: `Boolean`;
+`Integer`, within the interpreter's 64-bit range; `Natural` as an integer that is not negative;
+`Real`, `Rational` and a quantity type over them as the solver's reals; an enumeration or a
+variation as its constructors. A declared type the encoding cannot narrow to a domain —
+`String`, a collection, an object-valued feature, a type with no translation — is reported *not
+covered* naming the feature and the type before the solver is asked, never left as a silent
+unconstrained variable. The design is in [SMT model
+checking](../internals/design/smt-model-checking.md).
+
+```bash
+$ sysml -engine smt -action Gate::open -check-property Gate::open::positive gate.sysml
+✓ package Gate
+✓ Action Gate::open: holds
+  inputs: n = 1, limit = 5
+  standing: holds (proved over schedules: inputs as written)
+$ sysml -engine smt -action Gate::open -check-property Gate::open::positive \
+    -check-input limit -check-witness witnesses gate.sysml; echo $?
+✓ package Gate
+✗ Action Gate::open: at step 0: requirement positive: require condition evaluated to false: n + limit > 0
+  inputs: n = 1, limit = -1
+  witness: witnesses/Gate.open.violation-1.witness
+  standing: violated (witnessed: witness of 1 input replayed, inputs chosen from their domains: limit = -1)
+1
+```
+
+The `inputs:` line lists every feature the encoding pinned or freed — `limit = 5` pinned,
+`limit : Integer free` ranging — and the standing says which claim was made: *proved over
+schedules: inputs as written* when every input was pinned, *proved over schedules and inputs:
+inputs free in their domains: …* when some ranged, *inputs chosen from their domains* on a
+violation, naming the values the solver picked. `-engine check` and `-engine explore` without
+the release still find no violation, since they run the inputs as written, and their standing
+says so; under `-engine all` the plan shows `check refused (check cannot leave the inputs
+free)` beside `smt`'s answer whenever an input is free. Any of `-check-input`, `-check-assume`
+and `-check-unroll` alone, with no `-check-property`, makes the question one of what holds, so
+under `-engine all` it reaches `smt` (and `check`, which refuses the first two) rather than the
+exploration.
+
+`-check-assume <name>` asserts a constraint or requirement over the initial state, so the
+claim is made only for the inputs it admits; each assumption is listed on an `assumed:` line
+and in the standing. A set no initial state satisfies is reported *not covered* with
+`assumptions admit no initial state` as its reason — there is nothing to prove over — never
+*proved*:
+
+```bash
+$ sysml -engine smt -action Gate::open -check-property Gate::open::positive \
+    -check-input limit -check-assume Gate::open::wide gate.sysml
+✓ package Gate
+✓ Action Gate::open: holds
+  inputs: n = 1, limit : Integer free
+  assumed: constraint wide
+  standing: holds (proved over schedules and inputs: inputs free in their domains: limit : Integer free, assumed constraint wide)
+```
+
+A **witness** of the solver's opens with the input values it chose, one `input <feature> =
+<value>` line per free input — an enumeration value spelled as its qualified constructor, a
+real as the exact rational the solver returned, `null` for a feature declared `[0..1]` the
+solver left without a value — ahead of the choice lines `check` writes, so a witness without
+inputs is the format it always was:
+
+```
+input limit = -1
+no choice points
+
+…
+```
+
+`-schedule replay:<file>` pins those features before the run starts, as an argument the
+invocation passes is pinned, then follows the moves; every solver witness is replayed this way
+before it is reported, and one whose inputs cannot be set, or that does not reach the state it
+claims, is *not covered* in the interpreter's favor. An input line naming a feature the action
+does not have is refused naming it.
+
+**Bounds.** `-check-depth` is the number of moves the action is unrolled to (default 40 under
+`smt`), `-check-unroll` the iterations of one loop unrolled within it (default 4) and
+`-check-timeout` the solver's clock; a bound hit is named in the standing and the claim is
+*bounded*, not *proved*. `-check-input`, `-check-assume` or `-check-unroll` without `-engine smt`
+or `-engine all` is refused before anything runs, naming the flag as the `smt` engine's, as
+`-check-diverge` or `-check-states` under `-engine smt` alone is refused as the `check`
+engine's — a flag only the engine left out would read is never dropped silently;
+`-check-input` naming no feature the action reads, and `-check-assume` naming a constraint the translator cannot encode, are refused naming
+it before the solver is asked, and the check is *not covered*.
+
+With `-json` the `smt` engine's `results[]` entry carries `inputs[]` — each with its `name`,
+`type`, `domain`, whether it was `free`, whether it is `optional` (declared `[0..1]`, so the
+solver ranged over its absence too) and, when pinned or chosen, its `value` — and `assumptions[]`,
+and its `witness` carries `inputs[]` (each `feature` and `value`) beside `schedule` and
+`choices`, with the `path` of the file `-check-witness` wrote.
+
+The `smt` engine is registered at authority *proved*, so `-engines` lists it with its solver
+(`ready (z3 at /usr/bin/z3)`) or the solver's absence, and a check put to it without a solver is
+*not covered: no solver*. `auto` never asks a `holds` question today — a property is checked
+only under `-engine check`, `-engine smt` or `-engine all` — so no plan line of an invocation
+without `-engine` goes through the solver.
 
 ## Output Format
 

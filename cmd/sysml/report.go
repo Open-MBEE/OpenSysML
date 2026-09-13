@@ -174,8 +174,41 @@ type checkResultOf struct {
 	// Reason is why nothing is claimed, empty for a covered result.
 	Reason   string `json:"reason,omitempty"`
 	Standing string `json:"standing"`
+	// Inputs are the features of the initial state the engine quantified over or
+	// pinned, each with its domain, and Assumptions the constraints it assumed over
+	// them; only a symbolic engine reports either.
+	Inputs      []checkInput `json:"inputs,omitempty"`
+	Assumptions []string     `json:"assumptions,omitempty"`
 	// Check is the search the check engine made; only its results have one.
 	Check *checkSearch `json:"check,omitempty"`
+}
+
+// checkInput is one feature of the initial state as an engine took it: free in
+// its domain, or pinned at the value the model or the caller fixed.
+type checkInput struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+	// Domain is the set of values the engine let the feature range over, empty
+	// when the declared type alone bounds it.
+	Domain string `json:"domain,omitempty"`
+	Free   bool   `json:"free"`
+	// Optional marks a free feature whose multiplicity admits no value, so the
+	// engine ranged over its absence too; a witness spells that `null`.
+	Optional bool `json:"optional,omitempty"`
+	// Value is the value the feature is pinned at, empty for a free one.
+	Value string `json:"value,omitempty"`
+}
+
+// checkInputs converts the inputs an engine reported into the reported form.
+func checkInputs(inputs []analysis.Input) []checkInput {
+	if len(inputs) == 0 {
+		return nil
+	}
+	out := make([]checkInput, 0, len(inputs))
+	for _, in := range inputs {
+		out = append(out, checkInput{Name: in.Name, Type: in.Type, Domain: in.Domain, Free: in.Free, Optional: in.Optional, Value: in.Value})
+	}
+	return out
 }
 
 // checkSearch is how the check engine's search ended in the JSON report: its
@@ -227,10 +260,23 @@ type checkBound struct {
 	Reached bool   `json:"reached"`
 }
 
-// checkWitness is a replayable execution: the policy it ran under and its choices.
+// checkWitness is a replayable execution: the policy it ran under, the input
+// values it starts from and its choices.
 type checkWitness struct {
-	Schedule string   `json:"schedule"`
-	Choices  []string `json:"choices"`
+	Schedule string `json:"schedule"`
+	// Inputs are the values the witness fixes for the free inputs before its first
+	// move, as the notation spells them; absent when it fixes none.
+	Inputs  []checkWitnessInput `json:"inputs,omitempty"`
+	Choices []string            `json:"choices"`
+	// Path is the witness file written under -check-witness, empty without one.
+	Path string `json:"path,omitempty"`
+}
+
+// checkWitnessInput is one feature a witness fixes and the value it fixes it at,
+// keyed as the witness file's `input <feature> = <value>` line is.
+type checkWitnessInput struct {
+	Feature string `json:"feature"`
+	Value   string `json:"value"`
 }
 
 // checkBounds converts the bounds an engine took into the reported form; a
@@ -248,11 +294,11 @@ func checkWitnessOf(w *analysis.Witness) *checkWitness {
 	if w == nil {
 		return nil
 	}
-	choices := make([]string, 0, len(w.Choices))
-	for _, c := range w.Choices {
-		choices = append(choices, c.String())
+	out := &checkWitness{Schedule: w.Schedule.String(), Choices: choiceStrings(w.Choices), Path: w.Written}
+	for _, in := range w.Inputs {
+		out.Inputs = append(out.Inputs, checkWitnessInput{Feature: in.Feature, Value: in.Written})
 	}
-	return &checkWitness{Schedule: w.Schedule.String(), Choices: choices}
+	return out
 }
 
 // checkPlanOf converts the plan that answered a check into the reported form.
@@ -305,14 +351,16 @@ func checkResultsOf(plan *analysis.Plan) []checkResultOf {
 	out := make([]checkResultOf, 0, len(results))
 	for _, r := range results {
 		out = append(out, checkResultOf{
-			Engine:   r.Engine,
-			Claim:    r.Claim.String(),
-			Strength: r.Strength.String(),
-			Bounds:   checkBounds(r.Bounds),
-			Witness:  checkWitnessOf(r.Witness),
-			Reason:   r.Reason,
-			Standing: r.Standing(),
-			Check:    checkSearchOf(r.Check()),
+			Engine:      r.Engine,
+			Claim:       r.Claim.String(),
+			Strength:    r.Strength.String(),
+			Bounds:      checkBounds(r.Bounds),
+			Witness:     checkWitnessOf(r.Witness),
+			Reason:      r.Reason,
+			Standing:    r.Standing(),
+			Inputs:      checkInputs(r.Inputs),
+			Assumptions: r.Assumptions,
+			Check:       checkSearchOf(r.Check()),
 		})
 	}
 	return out

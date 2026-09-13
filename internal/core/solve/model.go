@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 )
 
@@ -36,7 +37,13 @@ func DecodeValue(a Assignment) (ModelValue, error) {
 	if err != nil {
 		return ModelValue{}, fmt.Errorf("unreadable value %s", a.Raw)
 	}
-	kind := a.Var.Sort.Kind
+	return decodeSexpr(a.Var, value)
+}
+
+// decodeSexpr reads a solver value of the variable's sort exactly.
+func decodeSexpr(v *Var, value sexpr) (ModelValue, error) {
+	raw := value.String()
+	kind := v.Sort.Kind
 	switch kind {
 	case SortBool:
 		if !value.IsList && (value.Atom == "true" || value.Atom == "false") {
@@ -51,24 +58,55 @@ func DecodeValue(a Assignment) (ModelValue, error) {
 			break
 		}
 		name := smtName(value.Atom)
-		if !contains(a.Var.Sort.Values, name) {
-			return ModelValue{}, fmt.Errorf("%s is not a value of %s", name, a.Var.Sort.Name)
+		if !contains(v.Sort.Values, name) {
+			return ModelValue{}, fmt.Errorf("%s is not a value of %s", name, v.Sort.Name)
 		}
 		return ModelValue{Kind: kind, Text: name}, nil
 	case SortInt:
 		rat, ok := ratOfSexpr(value)
 		if !ok || !rat.IsInt() {
-			return ModelValue{}, fmt.Errorf("no integer in %s", a.Raw)
+			return ModelValue{}, fmt.Errorf("no integer in %s", raw)
 		}
 		return ModelValue{Kind: kind, Number: rat}, nil
 	case SortReal:
 		rat, ok := ratOfSexpr(value)
 		if !ok {
-			return ModelValue{}, fmt.Errorf("no rational in %s", a.Raw)
+			return ModelValue{}, fmt.Errorf("no rational in %s", raw)
 		}
 		return ModelValue{Kind: kind, Number: rat}, nil
 	}
-	return ModelValue{}, fmt.Errorf("unreadable value %s", a.Raw)
+	return ModelValue{}, fmt.Errorf("unreadable value %s", raw)
+}
+
+// Render writes the value as the notation does for the variable: a quantity with
+// its unit, an enumeration or variant by name, a number, a boolean or a string.
+func (v ModelValue) Render(variable *Var) string {
+	switch v.Kind {
+	case SortBool:
+		return strconv.FormatBool(v.Bool)
+	case SortString:
+		return `"` + v.Text + `"`
+	case SortDatatype:
+		return v.Text
+	case SortInt:
+		return v.Number.Num().String()
+	case SortReal:
+		return withUnit(renderRat(v.Number), variable.Unit, variable.Dimension)
+	}
+	return ""
+}
+
+// Written is the value as an expression the notation reads back to it, exact,
+// for a witness to fix the variable's feature at. A magnitude in base units no
+// unit names has no such spelling.
+func (v ModelValue) Written(variable *Var) (string, error) {
+	if v.Kind == SortReal && variable.Unit == "" && variable.Dimension != "" {
+		return "", fmt.Errorf("its magnitude is in the base units of %s, which no unit names", variable.Dimension)
+	}
+	if text := v.Render(variable); text != "" {
+		return text, nil
+	}
+	return "", fmt.Errorf("a value of no sort")
 }
 
 // Literal is the term denoting a decoded value, which is what denies a model in
@@ -96,44 +134,11 @@ func (v ModelValue) Literal(sort Sort) (*Term, error) {
 // the solver's S-expression for a value the notation cannot write.
 func assign(v *Var, value sexpr) Assignment {
 	raw := value.String()
-	text, ok := renderValue(v, value)
-	if !ok {
+	decoded, err := decodeSexpr(v, value)
+	if err != nil {
 		return Assignment{Var: v, Value: raw, Raw: raw}
 	}
-	return Assignment{Var: v, Value: text, Raw: raw, Rendered: true}
-}
-
-// renderValue writes a value as the notation does: a quantity with its unit, an
-// enumeration or variant by name, a number, a boolean or a string.
-func renderValue(v *Var, value sexpr) (string, bool) {
-	switch v.Sort.Kind {
-	case SortBool:
-		if !value.IsList && (value.Atom == "true" || value.Atom == "false") {
-			return value.Atom, true
-		}
-	case SortString:
-		if !value.IsList && value.Quoted {
-			return `"` + value.Atom + `"`, true
-		}
-	case SortDatatype:
-		if !value.IsList {
-			name := smtName(value.Atom)
-			for _, candidate := range v.Sort.Values {
-				if candidate == name {
-					return name, true
-				}
-			}
-		}
-	case SortInt:
-		if rat, ok := ratOfSexpr(value); ok && rat.IsInt() {
-			return rat.Num().String(), true
-		}
-	case SortReal:
-		if rat, ok := ratOfSexpr(value); ok {
-			return withUnit(renderRat(rat), v.Unit, v.Dimension), true
-		}
-	}
-	return "", false
+	return Assignment{Var: v, Value: decoded.Render(v), Raw: raw, Rendered: true}
 }
 
 // withUnit writes a magnitude in the base units it is expressed in, as a quantity

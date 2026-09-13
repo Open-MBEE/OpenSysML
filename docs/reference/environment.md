@@ -15,7 +15,7 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_MAX_SWEEP_RUNS` | `1000` | Runs one parameter sweep or sample may make (`-sweep`/`-samples`, `%sweep`/`%samples`, `RunSweep`), each a whole analysis or calc run with the budgets above of its own |
 | `OPENSYSML_JOBS` | the number of CPUs | Runs of one check that may go concurrently (`-jobs`, `%jobs`; the gRPC service reads it at startup), each on a worker of its own over the shared model. Bounds how many runs go at once, not the work or memory of any one of them: a fleet of `n` workers may hold `n` times `OPENSYSML_MAX_ELEMENTS`. The result of a check does not depend on it |
 | `OPENSYSML_CALC_COMPILE` | unset (on) | Set to `0`, `false`, `off` or `no` to run every `calc` on the reference evaluator, instead of compiling a pure scalar body to a closure fast path on its first invocation; results, errors and step counts are the same either way, so this is a bisecting aid |
-| `OPENSYSML_SMT` | unset (look for `z3`, then `cvc5`, on `PATH`) | Executable `%check`, `%explain`, `%solve`, `%configure` and `%optimize` drive as their SMT solver, speaking SMT-LIB2 on standard input (experimental); `%optimize` needs `z3` in particular, as `(minimize …)`/`(maximize …)` is a z3 extension cvc5 does not implement |
+| `OPENSYSML_SMT` | unset (look for `z3`, then `cvc5`, on `PATH`) | Executable the `smt` and `solve` engines (`-engine smt`, `%engine smt`) and `%check`, `%explain`, `%solve`, `%configure` and `%optimize` drive as their SMT solver, speaking SMT-LIB2 on standard input (experimental); `%optimize` needs `z3` in particular, as `(minimize …)`/`(maximize …)` is a z3 extension cvc5 does not implement |
 | `OPENSYSML_SMT_TIMEOUT` | `10s` | How long one solver query may take, as a Go duration (`5s`, `500ms`), after which the verdict is `unknown` |
 | `OPENSYSML_SMT_CORE_BUDGET` | `30s` | How long `%explain` may spend reducing an unsat core to a minimal one, as a Go duration; past it the solver's own core is reported, said not to be necessarily minimal |
 | `OPENSYSML_SMT_MAX_CONFIGURATIONS` | `32` | How many variant selections `%configure … all` may report before saying the enumeration was cut short at the bound |
@@ -33,7 +33,8 @@ prints a one-time deprecation warning to standard error that names the
 `OPENSYSML_` form to switch to.
 
 The three `OPENSYSML_SMT*` variables belong to the experimental solving extension
-(`%check`/`%explain`), which needs an external z3 or cvc5. Installing one is covered in
+(`%check`/`%explain`) and the `smt` model checker, which need an external z3 or cvc5; `-engines`
+reports which solver each of the `smt` and `solve` engines found, or that none was. Installing one is covered in
 [1. Install: installing a solver](../guide/01-install.md#installing-a-solver-optional); the
 extension follows the design of OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf)
 (see [Acknowledgements](../../README.md#acknowledgements)).
@@ -77,12 +78,14 @@ before the process is started. Unknown keys are refused.
 
 ```bash
 $ OPENSYSML_TOOLS=~/tools sysml -engines
-engine            authority  answers      status
-explore           proved     outcomes     ready
-run               observed   evaluate     ready
-solve             proved     satisfiable  ready (z3 at /usr/bin/z3)
-sweep             observed   sweep        ready
-tool:ModelCenter  observed   compute      ready (ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)
+engine            authority  answers          status
+check             bounded    outcomes, holds  ready
+explore           proved     outcomes         ready
+run               observed   evaluate         ready
+smt               proved     holds            ready (z3 at /usr/bin/z3)
+solve             proved     satisfiable      ready (z3 at /usr/bin/z3)
+sweep             observed   sweep            ready
+tool:ModelCenter  observed   compute          ready (ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)
 ```
 
 **Protocol.** Each performance of the annotated action starts the executable once, with no
