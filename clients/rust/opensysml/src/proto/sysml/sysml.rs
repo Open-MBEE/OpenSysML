@@ -5,7 +5,8 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Verdict {
     /// What was verified: "constraint", "requirement" or "satisfy"; for a check
-    /// an analysis case run made, "objective" or "assertion".
+    /// an analysis case run made, "objective" or "assertion"; for the summary
+    /// of a ValidateInstance, "object".
     #[prost(string, tag="1")]
     pub kind: ::prost::alloc::string::String,
     /// FQN of the element verified; empty for an anonymous satisfy assertion or
@@ -61,6 +62,12 @@ pub struct Verdict {
     /// The bounds the engine ran under, each marked when it stopped the run.
     #[prost(message, repeated, tag="13")]
     pub bounds: ::prost::alloc::vec::Vec<Bound>,
+    /// For a verdict ValidateInstance reports: the path from the validated object
+    /// to the object this verdict is about, as the REPL spells it ("engine",
+    /// "wheels\[2\]", "engine.injector"). Empty for the validated object itself,
+    /// and for every other RPC.
+    #[prost(string, tag="14")]
+    pub instance_path: ::prost::alloc::string::String,
 }
 /// Bound is one limit an engine ran under, as its plan names it: a count, or
 /// milliseconds for a time, and whether the run stopped at it.
@@ -209,6 +216,56 @@ pub struct VerifySatisfactionResponse {
     /// assertion of that requirement carries as its own requirement_id.
     #[prost(message, repeated, tag="6")]
     pub verification_verdicts: ::prost::alloc::vec::Vec<VerificationVerdict>,
+}
+/// ValidateInstanceRequest asks for every assertion about an object of a part,
+/// as %validate does: the object is built for the call.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ValidateInstanceRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// FQN of the part or usage an object of which is validated.
+    #[prost(string, tag="2")]
+    pub symbol_id: ::prost::alloc::string::String,
+    /// The engine the validation is put to; see VerifyConstraintRequest.engine.
+    #[prost(string, tag="3")]
+    pub engine: ::prost::alloc::string::String,
+}
+/// ValidateInstanceResponse carries one verdict per assertion, in the order the
+/// objects were reached from the validated one, and the verdict about the object
+/// as a whole. An object no assertion is about has an empty list and a summary
+/// that decides nothing.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ValidateInstanceResponse {
+    /// One per assertion: kind "constraint", "requirement" or "satisfy", about the
+    /// object `instance_id` names, reached along `instance_path`.
+    #[prost(message, repeated, tag="1")]
+    pub verdicts: ::prost::alloc::vec::Vec<Verdict>,
+    /// The object as a whole, kind "object": holds when every assertion holds and
+    /// every held object was reached. With `error` empty, false is the model's
+    /// answer, some assertion failing; with `error` set, nothing was decided, an
+    /// assertion being undecided or nesting left unreached.
+    #[prost(message, optional, tag="2")]
+    pub summary: ::core::option::Option<Verdict>,
+    /// Every object reached, the validated one first, so a client can read the
+    /// feature values behind each verdict.
+    #[prost(message, repeated, tag="3")]
+    pub instances: ::prost::alloc::vec::Vec<Instance>,
+    #[prost(string, tag="4")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="5")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// What kind of failure `error` reports.
+    #[prost(enumeration="FailureReason", tag="6")]
+    pub failure_reason: i32,
+    /// What the body of every verification case verifying a requirement a verdict
+    /// is about answered, once per requirement; each names its requirement, which
+    /// the requirement and satisfy verdicts carry as their requirement_id.
+    #[prost(message, repeated, tag="7")]
+    pub verification_verdicts: ::prost::alloc::vec::Vec<VerificationVerdict>,
+    /// True when nesting deeper than the validation descends, or past its budget,
+    /// was left unvalidated; the summary then decides nothing.
+    #[prost(bool, tag="8")]
+    pub bounded: bool,
 }
 /// EvaluateCalcRequest invokes a calculation, as %calc does. Arguments are bound
 /// positionally; a calc usage named with no arguments binds its inputs from its

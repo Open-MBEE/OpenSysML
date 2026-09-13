@@ -70,6 +70,9 @@ const (
 	// SysMLServiceVerifySatisfactionProcedure is the fully-qualified name of the SysMLService's
 	// VerifySatisfaction RPC.
 	SysMLServiceVerifySatisfactionProcedure = "/sysml.SysMLService/VerifySatisfaction"
+	// SysMLServiceValidateInstanceProcedure is the fully-qualified name of the SysMLService's
+	// ValidateInstance RPC.
+	SysMLServiceValidateInstanceProcedure = "/sysml.SysMLService/ValidateInstance"
 	// SysMLServiceEvaluateCalcProcedure is the fully-qualified name of the SysMLService's EvaluateCalc
 	// RPC.
 	SysMLServiceEvaluateCalcProcedure = "/sysml.SysMLService/EvaluateCalc"
@@ -130,6 +133,13 @@ type SysMLServiceClient interface {
 	VerifyConstraint(context.Context, *connect.Request[proto.VerifyConstraintRequest]) (*connect.Response[proto.VerifyConstraintResponse], error)
 	VerifyRequirement(context.Context, *connect.Request[proto.VerifyRequirementRequest]) (*connect.Response[proto.VerifyRequirementResponse], error)
 	VerifySatisfaction(context.Context, *connect.Request[proto.VerifySatisfactionRequest]) (*connect.Response[proto.VerifySatisfactionResponse], error)
+	// Validate an object as a whole, as the REPL's %validate and the CLI's
+	// -validate=<object> do: every assertion about an object of the named part
+	// and about the objects it holds — the asserted constraints of their types,
+	// the requirements they carry and the satisfactions they are the subject of —
+	// each answered on the concrete object it is about. Reported as the
+	// "verification" capability.
+	ValidateInstance(context.Context, *connect.Request[proto.ValidateInstanceRequest]) (*connect.Response[proto.ValidateInstanceResponse], error)
 	EvaluateCalc(context.Context, *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error)
 	RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
@@ -254,6 +264,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("VerifySatisfaction")),
 			connect.WithClientOptions(opts...),
 		),
+		validateInstance: connect.NewClient[proto.ValidateInstanceRequest, proto.ValidateInstanceResponse](
+			httpClient,
+			baseURL+SysMLServiceValidateInstanceProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("ValidateInstance")),
+			connect.WithClientOptions(opts...),
+		),
 		evaluateCalc: connect.NewClient[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse](
 			httpClient,
 			baseURL+SysMLServiceEvaluateCalcProcedure,
@@ -315,6 +331,7 @@ type sysMLServiceClient struct {
 	verifyConstraint   *connect.Client[proto.VerifyConstraintRequest, proto.VerifyConstraintResponse]
 	verifyRequirement  *connect.Client[proto.VerifyRequirementRequest, proto.VerifyRequirementResponse]
 	verifySatisfaction *connect.Client[proto.VerifySatisfactionRequest, proto.VerifySatisfactionResponse]
+	validateInstance   *connect.Client[proto.ValidateInstanceRequest, proto.ValidateInstanceResponse]
 	evaluateCalc       *connect.Client[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse]
 	runAnalysis        *connect.Client[proto.RunAnalysisRequest, proto.RunAnalysisResponse]
 	runSweep           *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
@@ -394,6 +411,11 @@ func (c *sysMLServiceClient) VerifySatisfaction(ctx context.Context, req *connec
 	return c.verifySatisfaction.CallUnary(ctx, req)
 }
 
+// ValidateInstance calls sysml.SysMLService.ValidateInstance.
+func (c *sysMLServiceClient) ValidateInstance(ctx context.Context, req *connect.Request[proto.ValidateInstanceRequest]) (*connect.Response[proto.ValidateInstanceResponse], error) {
+	return c.validateInstance.CallUnary(ctx, req)
+}
+
 // EvaluateCalc calls sysml.SysMLService.EvaluateCalc.
 func (c *sysMLServiceClient) EvaluateCalc(ctx context.Context, req *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error) {
 	return c.evaluateCalc.CallUnary(ctx, req)
@@ -468,6 +490,13 @@ type SysMLServiceHandler interface {
 	VerifyConstraint(context.Context, *connect.Request[proto.VerifyConstraintRequest]) (*connect.Response[proto.VerifyConstraintResponse], error)
 	VerifyRequirement(context.Context, *connect.Request[proto.VerifyRequirementRequest]) (*connect.Response[proto.VerifyRequirementResponse], error)
 	VerifySatisfaction(context.Context, *connect.Request[proto.VerifySatisfactionRequest]) (*connect.Response[proto.VerifySatisfactionResponse], error)
+	// Validate an object as a whole, as the REPL's %validate and the CLI's
+	// -validate=<object> do: every assertion about an object of the named part
+	// and about the objects it holds — the asserted constraints of their types,
+	// the requirements they carry and the satisfactions they are the subject of —
+	// each answered on the concrete object it is about. Reported as the
+	// "verification" capability.
+	ValidateInstance(context.Context, *connect.Request[proto.ValidateInstanceRequest]) (*connect.Response[proto.ValidateInstanceResponse], error)
 	EvaluateCalc(context.Context, *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error)
 	RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
@@ -588,6 +617,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("VerifySatisfaction")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceValidateInstanceHandler := connect.NewUnaryHandler(
+		SysMLServiceValidateInstanceProcedure,
+		svc.ValidateInstance,
+		connect.WithSchema(sysMLServiceMethods.ByName("ValidateInstance")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceEvaluateCalcHandler := connect.NewUnaryHandler(
 		SysMLServiceEvaluateCalcProcedure,
 		svc.EvaluateCalc,
@@ -660,6 +695,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceVerifyRequirementHandler.ServeHTTP(w, r)
 		case SysMLServiceVerifySatisfactionProcedure:
 			sysMLServiceVerifySatisfactionHandler.ServeHTTP(w, r)
+		case SysMLServiceValidateInstanceProcedure:
+			sysMLServiceValidateInstanceHandler.ServeHTTP(w, r)
 		case SysMLServiceEvaluateCalcProcedure:
 			sysMLServiceEvaluateCalcHandler.ServeHTTP(w, r)
 		case SysMLServiceRunAnalysisProcedure:
@@ -737,6 +774,10 @@ func (UnimplementedSysMLServiceHandler) VerifyRequirement(context.Context, *conn
 
 func (UnimplementedSysMLServiceHandler) VerifySatisfaction(context.Context, *connect.Request[proto.VerifySatisfactionRequest]) (*connect.Response[proto.VerifySatisfactionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.VerifySatisfaction is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) ValidateInstance(context.Context, *connect.Request[proto.ValidateInstanceRequest]) (*connect.Response[proto.ValidateInstanceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.ValidateInstance is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) EvaluateCalc(context.Context, *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error) {

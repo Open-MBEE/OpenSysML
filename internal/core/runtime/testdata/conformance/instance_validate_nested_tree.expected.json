@@ -1,0 +1,17 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::car",
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint massOk", "status": "holds"},
+      {"kind": "requirement", "assertion": "requirement lightEnough", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint", "object": "engine", "status": "violated", "error": "evaluated to false"},
+      {"kind": "constraint", "assertion": "assert constraint ratePositive", "object": "engine.injector", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint pressureOk", "object": "wheels[1]", "status": "violated", "error": "evaluated to false"},
+      {"kind": "constraint", "assertion": "assert constraint pressureOk", "object": "wheels[2]", "status": "violated", "error": "evaluated to false"},
+      {"kind": "constraint", "assertion": "assert constraint pressureOk", "object": "wheels[3]", "status": "violated", "error": "evaluated to false"},
+      {"kind": "satisfaction", "assertion": "satisfy strongEngine by car.engine", "object": "engine", "status": "holds"}
+    ]
+  }
+}

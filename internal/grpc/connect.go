@@ -121,6 +121,11 @@ func (a *ConnectAdapter) VerifySatisfaction(ctx context.Context, req *connect.Re
 	return connectCall(ctx, req, a.svc.VerifySatisfaction)
 }
 
+// ValidateInstance checks every assertion about an object and the objects it holds.
+func (a *ConnectAdapter) ValidateInstance(ctx context.Context, req *connect.Request[pb.ValidateInstanceRequest]) (*connect.Response[pb.ValidateInstanceResponse], error) {
+	return connectCall(ctx, req, a.svc.ValidateInstance)
+}
+
 // EvaluateCalc evaluates a calculation with the arguments given.
 func (a *ConnectAdapter) EvaluateCalc(ctx context.Context, req *connect.Request[pb.EvaluateCalcRequest]) (*connect.Response[pb.EvaluateCalcResponse], error) {
 	return connectCall(ctx, req, a.svc.EvaluateCalc)

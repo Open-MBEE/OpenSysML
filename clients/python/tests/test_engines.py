@@ -57,6 +57,9 @@ def stub_answering():
     stub.VerifySatisfaction.return_value = sysml_pb2.VerifySatisfactionResponse(
         verdicts=[sysml_pb2.Verdict(kind="satisfy", element="satisfy r by p", holds=True, **STANDING)]
     )
+    stub.ValidateInstance.return_value = sysml_pb2.ValidateInstanceResponse(
+        summary=sysml_pb2.Verdict(kind="object", element_id="M::p", holds=True, **STANDING)
+    )
     stub.EvaluateCalc.return_value = sysml_pb2.EvaluateCalcResponse(
         result=sysml_pb2.Value(int_value=3), **STANDING
     )
@@ -73,6 +76,7 @@ def ask_everything(conn, **kwargs):
         conn.verify_constraint("M::c", "hash", **kwargs),
         conn.verify_requirement("M::r", "hash", **kwargs),
         conn.verify_satisfaction("hash", **kwargs)[0],
+        conn.validate_instance("M::p", "hash", **kwargs),
         conn.calc("M::k", "hash", arguments=[1], **kwargs),
         conn.run_analysis("M::a", "hash", **kwargs),
         conn.run_sweep("M::k", "hash", {"n": (1, 2)}, **kwargs),
@@ -117,7 +121,7 @@ def test_an_engine_is_carried_on_every_question():
     ask_everything(conn, engine="all")
     for call in (
         stub.VerifyConstraint, stub.VerifyRequirement, stub.VerifySatisfaction,
-        stub.EvaluateCalc, stub.RunAnalysis, stub.RunSweep,
+        stub.ValidateInstance, stub.EvaluateCalc, stub.RunAnalysis, stub.RunSweep,
     ):
         assert call.call_args.args[0].engine == "all"
 
@@ -128,7 +132,10 @@ def test_auto_and_no_engine_send_an_empty_field():
     conn = make_connection(stub, OLD)
     ask_everything(conn)
     ask_everything(conn, engine="auto")
-    for call in (stub.VerifyConstraint, stub.EvaluateCalc, stub.RunAnalysis, stub.RunSweep):
+    for call in (
+        stub.VerifyConstraint, stub.ValidateInstance, stub.EvaluateCalc, stub.RunAnalysis,
+        stub.RunSweep,
+    ):
         assert all(c.args[0].engine == "" for c in call.call_args_list)
 
 
@@ -140,6 +147,7 @@ def test_an_engine_is_not_sent_to_a_service_without_the_capability():
         lambda: conn.verify_constraint("M::c", "hash", engine="run"),
         lambda: conn.verify_requirement("M::r", "hash", engine="run"),
         lambda: conn.verify_satisfaction("hash", engine="run"),
+        lambda: conn.validate_instance("M::p", "hash", engine="run"),
         lambda: conn.calc("M::k", "hash", engine="run"),
         lambda: conn.run_analysis("M::a", "hash", engine="run"),
         lambda: conn.run_sweep("M::k", "hash", {"n": (1, 2)}, engine="run"),
@@ -149,7 +157,7 @@ def test_an_engine_is_not_sent_to_a_service_without_the_capability():
         assert excinfo.value.capability == CAPABILITY_ENGINES
     for call in (
         stub.VerifyConstraint, stub.VerifyRequirement, stub.VerifySatisfaction,
-        stub.EvaluateCalc, stub.RunAnalysis, stub.RunSweep,
+        stub.ValidateInstance, stub.EvaluateCalc, stub.RunAnalysis, stub.RunSweep,
     ):
         call.assert_not_called()
 
@@ -169,10 +177,12 @@ def test_the_explore_engine_is_the_exploring_schedule():
 def test_every_answer_carries_its_standing():
     stub = stub_answering()
     conn = make_connection(stub, CURRENT)
-    constraint, requirement, satisfy, calc, analysis, sweep = ask_everything(conn, engine="run")
+    constraint, requirement, satisfy, validation, calc, analysis, sweep = ask_everything(
+        conn, engine="run"
+    )
 
     want = Standing(engine="run", strength="observed", bounds=(Bound("steps", 10_000_000),))
-    for answer in (constraint, requirement, satisfy, calc, analysis):
+    for answer in (constraint, requirement, satisfy, validation, calc, analysis):
         assert answer.standing == want
         assert (answer.engine, answer.strength, answer.bounds) == ("run", "observed", [Bound("steps", 10_000_000)])
     assert sweep.standing == Standing(engine="sweep", strength="observed")

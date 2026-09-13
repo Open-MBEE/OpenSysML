@@ -201,6 +201,88 @@
           "verdicts": 2
         }
       }
+    },
+    {
+      "id": "validate_instance/every_assertion_about_the_object_gets_a_verdict",
+      "description": "The sedan carries two requirements and is the subject of two satisfaction assertions, one of each failing; the object's own verdict is false without being an error.",
+      "rpc": "ValidateInstance",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "verification.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::sedan"
+      },
+      "expect": {
+        "counts": {
+          "verdicts": 4
+        },
+        "response": {
+          "verdicts": [
+            {
+              "kind": "requirement",
+              "element_id": "Demo::Vehicle::lightEnough",
+              "holds": true
+            },
+            {
+              "kind": "requirement",
+              "element_id": "Demo::Vehicle::tiny",
+              "holds": false
+            },
+            {
+              "kind": "satisfy",
+              "requirement_id": "Demo::massLimit",
+              "holds": true
+            },
+            {
+              "kind": "satisfy",
+              "requirement_id": "Demo::massTiny",
+              "holds": false
+            }
+          ],
+          "summary": {
+            "kind": "object",
+            "element_id": "Demo::sedan",
+            "holds": false
+          },
+          "bounded": false
+        },
+        "non_empty": [
+          "verdicts.1.condition",
+          "instances"
+        ],
+        "absent": [
+          "error",
+          "summary.error",
+          "verdicts.1.error",
+          "verdicts.0.instance_path"
+        ]
+      }
+    },
+    {
+      "id": "validate_instance/an_unknown_symbol_is_reported_in_band",
+      "rpc": "ValidateInstance",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "verification.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::nosuch"
+      },
+      "expect": {
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "summary"
+        ]
+      }
     }
   ]
 }

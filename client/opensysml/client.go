@@ -111,6 +111,15 @@ type Client interface {
 	// for a named engine, checked before anything is sent.
 	VerifySatisfaction(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Satisfaction, error)
 
+	// ValidateInstance instantiates the part or usage named and checks every
+	// assertion about the object and the objects it holds — asserted constraints
+	// and invariants, the requirements carried, and the satisfaction assertions
+	// whose subjects are inside it — WithEngine naming the engine that answers;
+	// the symbol named is the object validated, so Against is an invalid
+	// argument. Requires the verification capability, and engines for a named
+	// engine, checked before anything is sent.
+	ValidateInstance(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Validation, error)
+
 	// EvaluateCalc invokes the named calculation with positional arguments, or,
 	// given none, evaluates a calc usage from its own members. Requires the
 	// verification capability, and the complex_values, structured_values,
@@ -268,6 +277,7 @@ type caller interface {
 	verifyConstraint(ctx context.Context, req *pb.VerifyConstraintRequest) (*pb.VerifyConstraintResponse, error)
 	verifyRequirement(ctx context.Context, req *pb.VerifyRequirementRequest) (*pb.VerifyRequirementResponse, error)
 	verifySatisfaction(ctx context.Context, req *pb.VerifySatisfactionRequest) (*pb.VerifySatisfactionResponse, error)
+	validateInstance(ctx context.Context, req *pb.ValidateInstanceRequest) (*pb.ValidateInstanceResponse, error)
 	evaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest) (*pb.EvaluateCalcResponse, error)
 	runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*pb.RunAnalysisResponse, error)
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)

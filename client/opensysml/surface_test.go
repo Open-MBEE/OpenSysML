@@ -59,6 +59,30 @@ const verificationSource = `package Demo {
 	}
 }`
 
+const validationSource = `package Demo {
+	part def Engine {
+		attribute power = 300.0;
+		assert constraint { power < 200.0 }
+	}
+
+	part def Wheel {
+		attribute pressure default = 32.0;
+		assert constraint pressureOk { pressure >= 30.0 }
+	}
+
+	part def Car {
+		attribute mass = 1500.0;
+		part engine : Engine;
+		part wheels : Wheel[2] {
+			attribute :>> pressure = 20.0;
+		}
+		assert constraint massOk { mass < 2000.0 }
+	}
+
+	part car : Car;
+	part sound : Wheel;
+}`
+
 const querySource = `package Demo {
 	abstract part def Vehicle {
 		attribute mass;
@@ -286,6 +310,67 @@ func TestVerifySatisfactionAnswersEveryAssertion(t *testing.T) {
 	}
 	if !satisfaction.Holds() {
 		t.Errorf("verdicts = %+v, want all holding", satisfaction.Verdicts)
+	}
+}
+
+func TestValidateInstanceAnswersEveryAssertionOnEveryObject(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, validationSource)
+	validation, err := client.ValidateInstance(context.Background(), model, "Demo::car")
+	if err != nil {
+		t.Fatalf("ValidateInstance: %v", err)
+	}
+	if validation.Valid() || !validation.Violated() {
+		t.Errorf("valid=%v violated=%v, want a violated object", validation.Valid(), validation.Violated())
+	}
+	if validation.Summary == nil || validation.Summary.Kind != "object" || validation.Summary.Holds {
+		t.Errorf("summary = %+v, want an object verdict of false", validation.Summary)
+	}
+	paths := map[string]bool{}
+	for _, verdict := range validation.Verdicts {
+		paths[verdict.InstancePath] = true
+	}
+	for _, path := range []string{"", "engine", "wheels[1]", "wheels[2]"} {
+		if !paths[path] {
+			t.Errorf("no verdict about the object at %q; verdicts = %+v", path, validation.Verdicts)
+		}
+	}
+	if validation.Bounded {
+		t.Error("a finite object tree was reported bounded")
+	}
+	if len(validation.Instances) == 0 {
+		t.Error("no instance graph returned for the object")
+	}
+
+	sound, err := client.ValidateInstance(context.Background(), model, "Demo::sound")
+	if err != nil {
+		t.Fatalf("ValidateInstance: %v", err)
+	}
+	if !sound.Valid() || sound.Violated() {
+		t.Errorf("verdicts = %+v, want a valid object", sound.Verdicts)
+	}
+}
+
+func TestValidateInstanceTakesNoSubject(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, validationSource)
+	_, err := client.ValidateInstance(context.Background(), model, "Demo::car", opensysml.Against("Demo::sound"))
+	var status *opensysml.StatusError
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Fatalf("err = %v, want an invalid argument", err)
+	}
+}
+
+func TestValidateInstanceOfNothingFails(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, validationSource)
+	_, err := client.ValidateInstance(context.Background(), model, "Demo::nosuch")
+	var refused *opensysml.VerifyError
+	if !errors.As(err, &refused) {
+		t.Fatalf("err = %v, want a VerifyError", err)
+	}
+	if !errors.Is(err, opensysml.ErrFailure) {
+		t.Error("a VerifyError does not match ErrFailure")
 	}
 }
 
@@ -620,6 +705,10 @@ func TestEveryOperationIsRefusedAfterClose(t *testing.T) {
 		},
 		"VerifySatisfaction": func() error {
 			_, err := client.VerifySatisfaction(ctx, model, "Demo::analysis")
+			return err
+		},
+		"ValidateInstance": func() error {
+			_, err := client.ValidateInstance(ctx, model, "Demo::sedan")
 			return err
 		},
 		"EvaluateCalc": func() error {

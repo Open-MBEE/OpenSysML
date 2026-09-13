@@ -125,3 +125,50 @@ class TestModelSurfaceIntegration:
 
     def test_an_element_stating_no_assertion_still_answers_with_none(self):
         assert self.model.verify_satisfaction("Demo::Vehicle") == []
+
+    def test_validating_an_object_answers_every_assertion_in_its_tree(self):
+        model = self.conn.load_from_content('''
+            package Fleet {
+                part def Wheel {
+                    attribute pressure default = 32.0;
+                    assert constraint pressureOk { pressure >= 30.0 }
+                }
+                part def Car {
+                    attribute mass = 1500.0;
+                    part wheels : Wheel[2] {
+                        attribute :>> pressure = 20.0;
+                    }
+                    assert constraint massOk { mass < 2000.0 }
+                    requirement light { require constraint { mass < 1000.0 } }
+                }
+                part car : Car;
+                part spare : Wheel;
+            }
+        ''')
+
+        validation = model.validate_instance("Fleet::car")
+        assert not validation
+        assert validation.summary.kind == "object"
+        assert validation.summary.element_id == "Fleet::car"
+        assert validation.bounded is False
+        assert validation.undecided == []
+        answered = sorted(
+            (v.element_id, v.instance_path, v.holds) for v in validation
+        )
+        assert answered == [
+            ("Fleet::Car::light", "", False),
+            ("Fleet::Car::massOk", "", True),
+            ("Fleet::Wheel::pressureOk", "wheels[1]", False),
+            ("Fleet::Wheel::pressureOk", "wheels[2]", False),
+        ]
+        assert len(validation.violated) == 3
+
+        spare = model.validate_instance("Fleet::spare")
+        assert spare.valid
+        assert [(v.element_id, v.instance_path) for v in spare] == [
+            ("Fleet::Wheel::pressureOk", ""),
+        ]
+
+    def test_validating_an_unknown_object_raises(self):
+        with pytest.raises(ExecutionError):
+            self.model.validate_instance("Demo::Nope")

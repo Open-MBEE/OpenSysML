@@ -183,6 +183,17 @@ func (r *remote) verifySatisfaction(
 	return resp.Msg, nil
 }
 
+func (r *remote) validateInstance(
+	ctx context.Context,
+	req *pb.ValidateInstanceRequest,
+) (*pb.ValidateInstanceResponse, error) {
+	resp, err := r.rpc.ValidateInstance(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) evaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest) (*pb.EvaluateCalcResponse, error) {
 	resp, err := r.rpc.EvaluateCalc(ctx, connect.NewRequest(req))
 	if err != nil {

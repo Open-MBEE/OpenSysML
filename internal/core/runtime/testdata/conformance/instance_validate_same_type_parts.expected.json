@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::rig",
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint loadOk", "object": "front", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint loadOk", "object": "rear", "status": "violated", "error": "evaluated to false"},
+      {"kind": "constraint", "assertion": "inv heightPositive", "object": "body", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert not constraint", "object": "body", "status": "holds"},
+      {"kind": "satisfaction", "assertion": "satisfy rearLoad by rig.rear", "object": "rear", "status": "violated", "error": "evaluated to false"}
+    ]
+  }
+}

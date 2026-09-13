@@ -180,6 +180,7 @@ var metaCommandTable = []metaCommand{
 	{group: groupBehavioral, name: "%constraint", args: argName, desc: "evaluate a constraint definition"},
 	{group: groupBehavioral, name: "%requirement", args: argName, desc: "evaluate a requirement definition"},
 	{group: groupBehavioral, name: "%satisfy", args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
+	{group: groupBehavioral, name: "%validate", args: "<object>", desc: "check every assertion about an object and the objects it holds: the asserted constraints of their types, the requirements they carry and the satisfactions they are subject of; an object is named, #<id>, or a path such as car.engine"},
 	{group: groupBehavioral, name: "%check", args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
 	{group: groupBehavioral, name: "%explain", args: argName, desc: "ask an SMT solver which conditions of an unsatisfiable element conflict (experimental)"},
 	{group: groupBehavioral, name: "%solve", args: argName, desc: "ask an SMT solver for values satisfying an element, keeping what is already fixed (experimental)"},
@@ -473,6 +474,11 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 		return metaOut(s.doRequirement(fields[1])), true
 	case "%satisfy":
 		return metaOut(s.doSatisfy(fields[1:])), true
+	case "%validate":
+		if len(fields) != 2 {
+			return metaOut([]string{"usage: %validate <object>"}, false, nil), true
+		}
+		return metaOut(s.doValidate(fields[1])), true
 	case "%check":
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %check <name>"}, false, nil), true
@@ -2171,6 +2177,14 @@ func (s *Session) doSatisfy(args []string) ([]string, bool, error) {
 	}
 	var out []string
 	for _, v := range s.satisfyVerdicts(name) {
+		out = append(out, v.Lines...)
+	}
+	return out, false, nil
+}
+
+func (s *Session) doValidate(ref string) ([]string, bool, error) {
+	var out []string
+	for _, v := range s.validateObject(ref) {
 		out = append(out, v.Lines...)
 	}
 	return out, false, nil

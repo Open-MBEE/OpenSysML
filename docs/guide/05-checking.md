@@ -584,6 +584,67 @@ sysml> %requirement SafetyReq
   standing: holds (observed: 1 run under reverse)
 ```
 
+**An object as a whole:**
+
+`%constraint` and `%requirement` answer one named condition. `%validate <object>` answers every
+assertion about an object the session holds and the objects it holds in turn — each `assert
+constraint` the carrier's type declares or inherits, each requirement usage it carries, and each
+`satisfy` assertion whose subject is in the tree — one verdict per assertion per object, then
+one about the object itself. The object is an [object reference](04-repl.md#addressing-an-object):
+the name it was instantiated under, an id, or a path into what it holds.
+
+```sysml
+sysml> package Fleet {
+  ...>     part def Wheel {
+  ...>         attribute pressure default = 32.0;
+  ...>         assert constraint pressureOk { pressure >= 30.0 }
+  ...>     }
+  ...>     part def Car {
+  ...>         attribute mass = 1500.0;
+  ...>         part wheels : Wheel[2] {
+  ...>             attribute :>> pressure = 20.0;
+  ...>         }
+  ...>         assert constraint massOk { mass < 2000.0 }
+  ...>         requirement light { require constraint { mass < 1000.0 } }
+  ...>     }
+  ...>     part car : Car;
+  ...> }
+✓ package Fleet
+
+sysml> %instantiate Fleet::car
+✓ Created instance of Fleet::car
+  ID: 1
+  Use %features Fleet::car to inspect
+
+sysml> %validate car
+✓ assert constraint massOk holds (on Fleet::car ID: 1)
+✗ requirement light fails (on Fleet::car ID: 1)
+  Required condition evaluated to false: mass < 1000.0
+✗ assert constraint pressureOk fails (on Fleet::car.wheels[1] ID: 2)
+  Assertion evaluated to false: pressure >= 30.0
+✗ assert constraint pressureOk fails (on Fleet::car.wheels[2] ID: 3)
+  Assertion evaluated to false: pressure >= 30.0
+✗ Fleet::car is not valid: 3 of 4 assertions fail
+  standing: violated (witnessed: 1 run under reverse)
+
+sysml> %validate car.wheels[1]
+✗ assert constraint pressureOk fails (on Fleet::car.wheels[1] ID: 2)
+  Assertion evaluated to false: pressure >= 30.0
+✗ Fleet::car.wheels[1] is not valid: 1 of 1 assertion fails
+  standing: violated (witnessed: 1 run under reverse)
+```
+
+The verdicts come root first, then each held object as the walk reaches it, and each names the
+object it is about by the path from the one validated, a collection element by its position
+(`wheels[2]`, counted from 1). The object is valid only when every assertion holds *and* every
+object it holds was reached: an assertion that could not be evaluated — a feature no value
+reaches — is reported as undecided with the reason, not as false, and leaves the object undecided
+rather than valid; so does a walk cut short by an object graph that goes on without end. A
+constraint declared without `assert` is a definition to check by name, not an assertion about the
+object, and is not swept. The command line makes the same check with
+[`-validate=<object>`](../reference/cli.md#command-reference), and a script with the
+`ValidateInstance` RPC ([from Python or Go](09-clients.md#validating-an-object-as-a-whole)).
+
 For more examples, see
 [examples/repl-behavioral-demo.sysml](../../examples/repl-behavioral-demo.sysml), and the
 [expressions demo](../../examples/EXPRESSIONS-DEMO.md) for casts, `*`, `.metadata`, function

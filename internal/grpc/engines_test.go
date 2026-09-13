@@ -119,6 +119,10 @@ func engineCalls(ctx context.Context, srv *Service, hash, engine string) map[str
 			_, err := srv.VerifySatisfaction(ctx, &pb.VerifySatisfactionRequest{ModelHash: hash, Engine: engine})
 			return err
 		},
+		"ValidateInstance": func() error {
+			_, err := srv.ValidateInstance(ctx, &pb.ValidateInstanceRequest{ModelHash: hash, SymbolId: "Demo::sedan", Engine: engine})
+			return err
+		},
 		"EvaluateCalc": func() error {
 			_, err := srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: hash, SymbolId: "Demo::add", Arguments: []*pb.Value{intProto(1), intProto(2)}, Engine: engine})
 			return err

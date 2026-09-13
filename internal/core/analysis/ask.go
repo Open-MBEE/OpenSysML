@@ -3,7 +3,9 @@ package analysis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
@@ -80,6 +82,38 @@ func CheckAnswer(result runtime.CheckResult, err error) Answer {
 		return Answer{Claim: ClaimHolds}
 	}
 	return Answer{Claim: ClaimViolated}
+}
+
+// ValidationAnswer is what validating an object established: a violated assertion
+// is a violation, every assertion holding on every object reached is holding, and
+// an undecided assertion or an unreached object claims nothing.
+func ValidationAnswer(report runtime.ValidationReport, err error) Answer {
+	if err != nil {
+		return Answer{Err: err}
+	}
+	switch {
+	case report.Status() == runtime.ValidationViolated:
+		return Answer{Claim: ClaimViolated, Reason: ValidationReason(report)}
+	case report.Valid():
+		return Answer{Claim: ClaimHolds}
+	}
+	return Answer{Reason: ValidationReason(report)}
+}
+
+// ValidationReason says what kept a validation from holding: how many assertions
+// fail, how many are undecided, and whether every held object was reached.
+func ValidationReason(report runtime.ValidationReport) string {
+	var parts []string
+	if n := report.Count(runtime.ValidationViolated); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d of %d assertions fail", n, len(report.Verdicts)))
+	}
+	if n := report.Count(runtime.ValidationUndecided); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d undecided", n))
+	}
+	if !report.Complete() {
+		parts = append(parts, "not every held object was reached")
+	}
+	return strings.Join(parts, ", ")
 }
 
 // ValuesAnswer is what a run producing values established: the values, or
