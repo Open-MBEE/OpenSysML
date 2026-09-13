@@ -22,6 +22,7 @@ type options struct {
 	corsOrigins    string
 	tlsCert        string
 	tlsKey         string
+	serveExternal  string
 }
 
 // registerFlags declares the command's flags on fs, so a run, the help and the
@@ -46,6 +47,10 @@ func registerFlags(fs *flag.FlagSet) *options {
 	fs.StringVar(&o.corsOrigins, "cors-allowed-origins", "", "Comma-separated exact origins allowed for browser CORS")
 	fs.StringVar(&o.tlsCert, "tls-cert", "", "TLS certificate file for the main server")
 	fs.StringVar(&o.tlsKey, "tls-key", "", "TLS private key file for the main server")
+	fs.StringVar(&o.serveExternal, "serve-external-engines", "",
+		"Comma-separated names of the OPENSYSML_ENGINES manifest engines this service runs "+
+			"for its clients, or all; without it they are listed by ListEngines but a request "+
+			"naming one is refused, since it would run a program on the server")
 	return &o
 }
 

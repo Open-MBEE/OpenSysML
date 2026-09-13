@@ -117,9 +117,9 @@ func TestManifestDirectoryMustBeReadable(t *testing.T) {
 }
 
 // Unset, the environment adds no tool and the default engines are the build's.
-func TestToolsFromEnvUnsetIsNoTool(t *testing.T) {
+func TestExternalsFromEnvUnsetIsNoTool(t *testing.T) {
 	t.Setenv(ToolsEnv, "")
-	tools, err := ToolsFromEnv()
+	tools, err := ExternalsFromEnv()
 	if err != nil || len(tools) != 0 {
 		t.Fatalf("tools %v, %v; want none", tools, err)
 	}
@@ -134,7 +134,7 @@ func TestToolsFromEnvUnsetIsNoTool(t *testing.T) {
 
 // Every manifest entry is an engine tool:<name>, listed in name order among the build's
 // engines with its process status, and the one engine answering compute.
-func TestToolsFromEnvRegisterEachEntry(t *testing.T) {
+func TestExternalsFromEnvRegisterEachEntry(t *testing.T) {
 	present := standin(t)
 	absent := filepath.Join(t.TempDir(), "none")
 	r := toolRegistry(t, manifestDir(t,

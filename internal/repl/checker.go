@@ -470,9 +470,10 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 	model := s.freshModel()
 	selection := s.engine
 	subject, label := inv.subject(), inv.label()
+	ctx := s.planContext()
 	free := s.checker.frees()
 	s.state.Unlock()
-	answered, err := s.engines.Check(context.Background(), analysis.Request{
+	answered, err := s.engines.Check(ctx, analysis.Request{
 		Model:     model,
 		Subject:   subject,
 		Schedule:  policy,
@@ -485,9 +486,6 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 	}
 	if x := answered.Result.Exploration(); x != nil {
 		return standing(explorationVerdict(subject, x), &answered)
-	}
-	if answered.Result.Check() == nil && answered.Result.Engine == analysis.SMTEngineName {
-		return standing(decidedVerdict(subject, answered.Result), &answered)
 	}
 	return standing(checkedVerdict(subject, label, answered.Result), &answered)
 }
@@ -586,10 +584,14 @@ func checkStoppedVerdict(subject, label string, err error) Verdict {
 }
 
 // checkedVerdict reports what the check engine found: a violation or a divergence
-// fails the check, an exhaustive clean search holds, a bounded one is undecided.
+// fails the check, an exhaustive clean search holds, a bounded one is undecided. An
+// answer with no search report is the symbolic engine's or an external one's claim.
 func checkedVerdict(subject, label string, result analysis.Result) Verdict {
 	checked := result.Check()
 	if checked == nil {
+		if result.Covered() || result.Engine == analysis.SMTEngineName {
+			return decidedVerdict(subject, result)
+		}
 		return Verdict{Subject: subject, Status: VerdictUnresolved, Lines: []string{
 			fmt.Sprintf("? %s could not be checked", label),
 			"  " + result.Reason,
@@ -630,16 +632,16 @@ func checkedVerdict(subject, label string, result analysis.Result) Verdict {
 	return v
 }
 
-// decidedVerdict reports what the symbolic engine decided about the action: a
-// violation fails, a proof holds, and a bounded or uncovered answer is undecided;
-// the inputs it ranged over or a witness chose, and its assumptions, follow.
+// decidedVerdict reports an answer carrying no check report, the symbolic engine's or an
+// external one's: a violation or a divergence fails, a proof holds, a bounded or uncovered
+// answer is undecided; the inputs, assumptions and witnesses it rests on follow.
 func decidedVerdict(name string, result analysis.Result) Verdict {
 	v := Verdict{Subject: name}
 	switch {
 	case !result.Covered():
 		v.Status = VerdictUnresolved
 		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: not covered", name), "  "+result.Reason)
-	case result.Claim == analysis.ClaimViolated:
+	case result.Claim == analysis.ClaimViolated, result.Claim == analysis.ClaimSensitive:
 		v.Status = VerdictFails
 		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: %s", name, result.Reason))
 	case result.Strength == analysis.Proved:
@@ -655,8 +657,11 @@ func decidedVerdict(name string, result analysis.Result) Verdict {
 	if len(result.Assumptions) > 0 {
 		v.Lines = append(v.Lines, "  assumed: "+strings.Join(result.Assumptions, ", "))
 	}
-	if w := result.Witness; w != nil && w.Written != "" {
-		v.Lines = append(v.Lines, "  witness: "+w.Written)
+	if w := result.Witness; w != nil {
+		v.Lines = append(v.Lines, "  witness: "+witnessLine(w))
+	}
+	if result.Contrast != nil {
+		v.Lines = append(v.Lines, "  contrast: "+witnessLine(result.Contrast))
 	}
 	return v
 }
@@ -668,6 +673,22 @@ func inputLines(inputs []analysis.Input) string {
 		parts = append(parts, in.String())
 	}
 	return strings.Join(parts, ", ")
+}
+
+// witnessLine spells a witness: the file it was written to, else its choices as one
+// schedule, "no choices" for an empty one.
+func witnessLine(w *analysis.Witness) string {
+	if w.Written != "" {
+		return w.Written
+	}
+	if len(w.Choices) == 0 {
+		return "no choices"
+	}
+	parts := make([]string, len(w.Choices))
+	for i, c := range w.Choices {
+		parts[i] = c.String()
+	}
+	return strings.Join(parts, "; ")
 }
 
 // witnessPath spells where the i'th witness was written, "" when none was.

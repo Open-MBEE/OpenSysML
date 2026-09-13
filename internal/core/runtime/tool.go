@@ -474,20 +474,28 @@ func (ctx *Context) performanceParameters(performed, callee *symbols.Symbol) ([]
 // toolInput is one parameter's value as the protocol carries it: a number, truth or string
 // as is, a quantity as the run holds it, its unit spelt by short names (`km/h`).
 func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error) {
+	if v, ok := ToolValueOf(held); ok {
+		return v, nil
+	}
+	return ToolValue{}, &ToolError{Tool: tool, Kind: ToolUnsentInput,
+		Detail: fmt.Sprintf("%s holds %s, which the protocol does not carry", param.Name, describeValue(held))}
+}
+
+// ToolValueOf is a value as the tool protocol carries it; false for one it does not carry.
+func ToolValueOf(held Value) (ToolValue, bool) {
 	switch held.Kind {
 	case ValConst:
 		if held.Const.Kind == semantics.ValInvalid || held.Const.Kind == semantics.ValInfinity {
 			break
 		}
-		return ToolValue{Value: held.Const}, nil
+		return ToolValue{Value: held.Const}, true
 	case ValString:
-		return ToolValue{Text: held.Str()}, nil
+		return ToolValue{Text: held.Str()}, true
 	case ValQuantity:
 		q := held.Quantity()
-		return ToolValue{Value: q.Num, Unit: q.Unit.Product.ShortSpelling().String()}, nil
+		return ToolValue{Value: q.Num, Unit: q.Unit.Product.ShortSpelling().String()}, true
 	}
-	return ToolValue{}, &ToolError{Tool: tool, Kind: ToolUnsentInput,
-		Detail: fmt.Sprintf("%s holds %s, which the protocol does not carry", param.Name, describeValue(held))}
+	return ToolValue{}, false
 }
 
 // Bind reads the tool's outputs, keyed by ToolVariable name, as the values of the call's
@@ -618,19 +626,29 @@ type toolUnitKey struct {
 // SI package so a tool's `m/s**2` reads whatever the model imports; the reading is
 // memoized per scope since resolution memoizes per parsed name.
 func (e *ActionExecutor) toolUnit(text string) (semantics.Unit, error) {
-	key := toolUnitKey{scope: e.root.scope, text: text}
-	if unit, ok := e.ctx.model.toolUnits[key]; ok {
+	return e.ctx.UnitOf(e.root.scope, text)
+}
+
+// UnitOf reads a unit spelled as expression text in scope, else in the library's SI
+// package, which a nil scope reads alone; the reading is memoized per scope.
+func (ctx *Context) UnitOf(scope *symbols.Scope, text string) (semantics.Unit, error) {
+	key := toolUnitKey{scope: scope, text: text}
+	if unit, ok := ctx.model.toolUnits[key]; ok {
 		return unit, nil
 	}
 	expr, ok := parseOneExpression("<tool>", text)
 	if !ok {
 		return semantics.Unit{}, fmt.Errorf("%q is not a unit expression", text)
 	}
-	unit, err := e.ctx.model.semantics.UnitOfExpr(e.root.scope, expr)
+	var unit semantics.Unit
+	err := fmt.Errorf("%w: no scope reads %s", semantics.ErrNotAUnit, text)
+	if scope != nil {
+		unit, err = ctx.model.semantics.UnitOfExpr(scope, expr)
+	}
 	if errors.Is(err, semantics.ErrNotAUnit) {
-		if si := e.ctx.librarySymbol(fqnSIPackage); si != nil && si.Scope != nil {
+		if si := ctx.librarySymbol(fqnSIPackage); si != nil && si.Scope != nil {
 			expr, _ = parseOneExpression("<tool>", text)
-			if inSI, siErr := e.ctx.model.semantics.UnitOfExpr(si.Scope, expr); siErr == nil {
+			if inSI, siErr := ctx.model.semantics.UnitOfExpr(si.Scope, expr); siErr == nil {
 				unit, err = inSI, nil
 			}
 		}
@@ -638,7 +656,7 @@ func (e *ActionExecutor) toolUnit(text string) (semantics.Unit, error) {
 	if err != nil {
 		return semantics.Unit{}, fmt.Errorf("%q is not a unit: %w", text, err)
 	}
-	e.ctx.model.toolUnits[key] = unit
+	ctx.model.toolUnits[key] = unit
 	return unit, nil
 }
 

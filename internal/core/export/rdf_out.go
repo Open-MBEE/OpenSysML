@@ -180,7 +180,7 @@ func (e *UnsupportedError) Error() string {
 // it was written as alongside its structural triples, so the conversion needs
 // the bytes as well as the tree.
 func ToRDF(file *source.SourceFile, root *ast.RootNamespace) (*rdf.Graph, error) {
-	e, err := encodeDocument(file, root)
+	e, err := encodeDocument(file, root, "")
 	if err != nil {
 		return nil, err
 	}
@@ -188,12 +188,12 @@ func ToRDF(file *source.SourceFile, root *ast.RootNamespace) (*rdf.Graph, error)
 }
 
 // encodeDocument converts a parsed document, returning the encoder that holds
-// the graph and where in file each element was written.
-func encodeDocument(file *source.SourceFile, root *ast.RootNamespace) (*encoder, error) {
+// the graph and where in file each element was written; library is as for analyzeDocument.
+func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*encoder, error) {
 	if file == nil || root == nil {
 		return nil, &UnsupportedError{What: "an empty document", Note: "nothing to convert"}
 	}
-	e, err := newEncoder(file, root)
+	e, err := newEncoder(file, root, library)
 	if err != nil {
 		return nil, err
 	}
@@ -245,8 +245,8 @@ func (e *encoder) sourceText() {
 
 // newEncoder resolves a parsed document, builds its identity side table and
 // records each member's qualified name, so references can be told from names.
-func newEncoder(file *source.SourceFile, root *ast.RootNamespace) (*encoder, error) {
-	res, model := analyzeDocument(file, root)
+func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string) (*encoder, error) {
+	res, model := analyzeDocument(file, root, library)
 	ids, err := documentIdentity(file.Name(), res, model)
 	if err != nil {
 		return nil, err

@@ -114,6 +114,7 @@ var (
 	traceMode       bool
 	schedule        schedulePolicy
 	listEngines     bool
+	probeEngines    bool
 	engine          engineSelection
 	jobsFlag        jobsSetting
 	convertFormat   string
@@ -157,14 +158,19 @@ var (
 // budgets holds the run bounds the environment resolves to, read once at startup.
 var budgets = runtime.DefaultBudgets()
 
-// engines holds the registry the environment resolves to: the build's engines and one
-// `tool:<name>` per entry of the manifest OPENSYSML_TOOLS names, read once at startup.
+// engines holds the registry the environment resolves to: the build's engines, one
+// `tool:<name>` per entry of OPENSYSML_TOOLS and one engine per entry of OPENSYSML_ENGINES.
 var engines = engineset.Default()
 
-// resolveEngines reads the tool manifest into engines; a manifest that cannot be read is
-// reported at startup like a bad run bound.
+// resolveEngines reads the manifests into engines; a manifest that cannot be read, or
+// that lies under the working directory the models are read from, is reported at startup
+// like a bad run bound.
 func resolveEngines() error {
-	registry, err := engineset.DefaultFromEnv()
+	var workspaces []string
+	if cwd, err := os.Getwd(); err == nil {
+		workspaces = append(workspaces, cwd)
+	}
+	registry, err := engineset.DefaultFromEnv(workspaces...)
 	if err != nil {
 		return err
 	}
@@ -333,8 +339,16 @@ func runCLI() int {
 	// The engines a build knows are a property of the build, like its version, so
 	// they are listed without a model and the run ends there.
 	if listEngines {
-		writeLines(os.Stdout, analysis.Lines(engines.Listings()))
+		if probeEngines {
+			writeLines(os.Stdout, analysis.Lines(engines.Probed()))
+		} else {
+			writeLines(os.Stdout, analysis.Lines(engines.Listings()))
+		}
 		return exitHolds
+	}
+	if probeEngines {
+		fmt.Fprintln(os.Stderr, "sysml: -probe goes with -engines; it starts each external engine once to check it against its manifest")
+		return 2
 	}
 
 	// A mode asked for with an empty value is a misuse, not an absent flag: it
@@ -635,6 +649,9 @@ func newSession() *repl.Session {
 		sess.SetVerbosity(repl.VerbosityQuiet)
 	}
 	sess.SetTracing(traceMode)
+	if !quietMode {
+		sess.SetProgress(os.Stderr)
+	}
 	if err := sess.SetSchedule(schedule.value); err != nil {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)

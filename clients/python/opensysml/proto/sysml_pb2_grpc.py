@@ -280,7 +280,10 @@ class SysMLServiceServicer:
         the REPL's %engines do: each with the questions it answers, the strongest
         evidence it can produce and whether it can run. Reported as the "engines"
         capability, which also names the `engine` request fields and the `engine`,
-        `strength` and `bounds` response fields of the verification RPCs.
+        `strength` and `bounds` response fields of the verification RPCs. The
+        engines registered from manifests are listed with their origin and whether
+        this service serves them; the "engines_external" capability is advertised
+        only when it was started to serve them.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

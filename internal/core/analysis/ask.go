@@ -202,14 +202,15 @@ func (r *Registry) Sweep(ctx context.Context, req Request, plan runtime.SweepPla
 	})
 }
 
-// Solve puts an element's condition sets to the registry under the selection, ask being
-// the operation made of each; the plan's result holds the answers in order, and the
-// error is an absent solver.
-func (r *Registry) Solve(ctx context.Context, subject string, queries []*solve.Query, ask Asking, budget Budget, selection Selection) (Plan, error) {
-	return refusedOr(r.AnswerWith(ctx, nil, Question{
+// Solve puts an element's condition sets to the registry under the request's selection,
+// ask being the operation made of each; the request's model is what an engine outside the
+// process is sent, nil when there is none. The plan's result holds the answers in order, and
+// the error is an absent solver.
+func (r *Registry) Solve(ctx context.Context, req Request, queries []*solve.Query, ask Asking) (Plan, error) {
+	return refusedOr(r.AnswerWith(ctx, req.Model, Question{
 		Kind:    Satisfiable,
-		Subject: subject,
+		Subject: req.Subject,
 		Free:    FreeInputs,
 		Solve:   &SolveAsk{Queries: queries, Ask: ask},
-	}, budget, selection))
+	}, req.Budget, req.Selection))
 }

@@ -211,8 +211,9 @@ in both directions, `jsonrpc` member included.
 What the host reads is bounded, because the process is not this repository's. One line longer
 than `OPENSYSML_TOOL_MAX_OUTPUT` (new, default 64 MiB; it bounds a tool's single answer under
 the tool protocol too) is a protocol break: the session ends and the result is *not covered* naming
-the size. A `witness` is written to disk only after the line that carried it passed that bound,
-so the host's disk use per result is bounded by the same number. `progress` notifications are
+the size; so is more than that written to standard error, which the process is ended for. A
+`witness` is written to disk only after the line that carried it passed that bound, so the
+host's disk use per result is bounded by the same number. `progress` notifications are
 read as they arrive and coalesced: the coordinator keeps the latest per `run` and prints at the
 rate it prints its own progress, so an engine that sends one per state costs the pipe, not the
 report. The `memory` budget is passed to the engine as a number to honor and is not enforced by
@@ -294,7 +295,7 @@ engine would answer differently) from a reason particular to one engine (*not co
 |---------|--------|
 | the process does not start, or `describe` disagrees with the manifest | `Covers` refuses: *not covered: engine 'spin-bridge' at /opt/… did not start (exit 127)*; `-engines -probe` reports the same; plain `-engines`, which spawns nothing, shows only what the file can tell |
 | `covers: false` | *not covered* with the engine's reason, in the plan; `auto` advances |
-| a line that is not JSON, a missing `jsonrpc` or `id`, a field of the wrong type, a line over `OPENSYSML_TOOL_MAX_OUTPUT`, a witness of the wrong kind for the question, a result whose `claim` and `strength` are not a pair the framework admits | *not covered: engine 'spin-bridge' broke protocol: …*, the session ended; `auto` advances |
+| a line that is not JSON, a missing `jsonrpc` or `id`, a field of the wrong type, an `error` code outside the three, a line or standard error over `OPENSYSML_TOOL_MAX_OUTPUT`, a witness of the wrong kind for the question, a result whose `claim` and `strength` are not a pair the framework admits | *not covered: engine 'spin-bridge' broke protocol: …*, the session ended; `auto` advances |
 | the process exits during a `run`, or the deadline passes without an answer to `cancel` | *not covered* with the exit status or the bound; `auto` advances |
 | an `error` answer | *not covered* with its `code` and `message` |
 | a witness that fails replay or evaluation | *not covered: engine 'spin-bridge' reports a violation; its witness does not replay (move 3, 2@vent is not enabled)*, *… reports a violation at move 5; its schedule replays and `maxPressure` holds there*, *… reports sensitive; both schedules replay and `x` is 1 under each*, or *… reports satisfiable; at its assignment `x > 3` evaluates false* — the framework's rule, never *violated*, *sensitive* or *satisfiable* |
@@ -606,6 +607,41 @@ first stage delivers, since it is the gate every external witness passes through
    with the claim kept (`admit` is refused until the next stage); the stand-in engine and its
    tests; `-engines`, `-engines -probe`, `%engines` and `ListEngines` listing external engines,
    the service refusing to run them until `-serve-external-engines`; the reference pages.
+   *Implemented:* `internal/core/analysis` reads both directories through one
+   `manifest.go` (`EntryKind` distinguishing `tool`, `engine`, `policy` and `sampler`;
+   `ManifestsFromEnv` reading `OPENSYSML_TOOLS` then `OPENSYSML_ENGINES`, `ExternalsFromEnv`
+   registering every entry of both), the `engine` entry in `engine_entry.go`
+   with the security rules of this note (`confinedPath` for `command`, and for a tool's
+   `executable` when it is a relative path; a directory under a workspace not read; duplicate
+   names refused across both directories), the session in `session.go` (one process per plan,
+   `describe` checked field by field, `covers`, `run`, `cancel`, coalesced `progress` through
+   `analysis.Reporter` at `ProgressInterval`, ids matched, the failure table of `external.go`
+   and `external_standing.go`), the wire types in `enginewire` with the schema at
+   `docs/reference/engine-protocol.schema.json`, and the bounded process I/O of `process.go`
+   shared with the tool engine (`OPENSYSML_TOOL_MAX_OUTPUT`, default 64 MiB, one message and
+   the captured standard error). `graphs:1` is `export.GraphsOf` over the lowered
+   `ActionGraph` and `StateGraph`, the footprints that `lower.Footprints` computes included;
+   `sources` is `export.SourcesOf`. Standing is the framework's: a `violated` schedule replays
+   through `runtime.ReplaySchedule` under the `replay:` policy as the `check` engine's witnesses
+   do, and the condition is evaluated at the move named, `sensitive` needs two replaying
+   schedules that end the feature differently, `satisfiable` an assignment the solver query's
+   `Confirm` accepts against the semantic model, `executions` replayed for *observed*;
+   every other universal claim is *not covered* with the claim kept. Surfaces: `-engines`
+   spawns nothing, `-engines -probe` and `%engines probe` start each engine once,
+   `ListEngines` gains `kind`, `protocol`, `source`, `command`, `version` and `served`, and
+   `sysml-grpc -serve-external-engines <names|all>` advertises `engines_external`. Decided
+   here: `progress` is printed to standard error by the CLI and REPL — at most one line per
+   quarter second per open run, the latest kept for the reason of a run that ends unanswered —
+   since nothing on `develop` printed `explore`'s; a schedule witness carrying `inputs` is
+   replayed through the same path as the SMT engine's, the inputs fixed before the first move
+   on the features the question leaves free (`question.inputs`), one it does not free being
+   *not covered* naming it, and a result's own `inputs` and `assumptions` are kept as the SMT
+   engine's are; an entry naming
+   the `grpc` transport, the `rdf` form or a `module`, or of `policy` or `sampler` kind, is
+   parsed and listed `unavailable` with the typed `NotServedError` naming its stage, and one
+   naming `admit` is refused as the note says. Still deferred: referee records and `admit`
+   (stage 2); `policy` and `sampler` strategies and the `rdf` form (stage 3); in-process Go
+   (stage 4); WebAssembly (stage 5); the `grpc` transport.
 2. **Referee records.** `-referee <engine> <dir>`, the record format and its placement and
    permission rules, `admit` honored against a matching record, the standing line naming it,
    the disagreement tests.

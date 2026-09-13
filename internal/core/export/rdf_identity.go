@@ -40,15 +40,22 @@ type identityFacts struct {
 	qualified bool
 }
 
-// analyzeDocument indexes one parsed document over the standard library and
-// resolves every name it writes; a byte-identical copy of a library file is that file.
-func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace) (*resolve.Resolver, *semantics.Model) {
+// analyzeDocument indexes one parsed document over the standard library and resolves
+// every name it writes; a library file (named, or a byte-identical copy) takes the bundled one's place.
+func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*resolve.Resolver, *semantics.Model) {
 	name := file.Name()
 	idx := libs.NewModelIndex()
-	_, doc, library := idx.LibraryDocumentByDigest(symbols.TextDigest(file.Bytes()))
+	digest := symbols.TextDigest(file.Bytes())
+	if library == "" {
+		library, _, _ = idx.LibraryDocumentByDigest(digest)
+	}
+	tier := idx.DocumentLibraryTier(library)
+	if tier.Library() {
+		idx.RemoveDocument(library)
+	}
 	idx.AddDocument(name, root)
-	if library {
-		idx.MarkLibraryDocument(name, doc)
+	if tier.Library() {
+		idx.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: tier, Digest: digest})
 	}
 	res := resolve.New(idx)
 	model := semantics.NewModel(res)

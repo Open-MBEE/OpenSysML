@@ -80,13 +80,39 @@ type replayValue struct {
 // arithmetic on the witness, reporting ok=false with why when the evaluator
 // does not confirm what the solver answered.
 func replayWitness(q *Query, model []Assignment) (bool, string) {
-	env := make(map[string]replayValue, len(model))
+	values := make(map[string]ModelValue, len(model))
 	for _, a := range model {
-		val, err := witnessValue(a)
+		value, err := DecodeValue(a)
 		if err != nil {
 			return false, fmt.Sprintf("the evaluator cannot hold the value the solver chose for %s: %v", a.Var.Name, err)
 		}
-		env[a.Var.Name] = val
+		values[a.Var.Name] = value
+	}
+	return q.Confirm(values)
+}
+
+// Confirm re-runs the query's assertions through the evaluator's own arithmetic on
+// values of its variables by name, as a solver's model is confirmed before `sat` is
+// claimed: ok=false with why when a variable has no value, a value the evaluator
+// cannot hold, or an assertion that does not evaluate to true.
+func (q *Query) Confirm(values map[string]ModelValue) (bool, string) {
+	env := make(map[string]replayValue, len(values))
+	for _, v := range q.Vars {
+		value, ok := values[v.Name]
+		if !ok {
+			return false, fmt.Sprintf("the witness gives %s no value", v.Name)
+		}
+		if value.Kind != v.Sort.Kind {
+			return false, fmt.Sprintf("the witness gives %s no value of sort %s", v.Name, v.Sort.Name)
+		}
+		if value.Kind == SortDatatype && !contains(v.Sort.Values, value.Text) {
+			return false, fmt.Sprintf("the witness gives %s %s, not a value of %s", v.Name, value.Text, v.Sort.Name)
+		}
+		val, err := evaluatorValue(value)
+		if err != nil {
+			return false, fmt.Sprintf("the evaluator cannot hold the value the solver chose for %s: %v", v.Name, err)
+		}
+		env[v.Name] = val
 	}
 	for _, assertion := range q.Assertions {
 		val, err := replayTerm(assertion.Term, env)
@@ -106,14 +132,10 @@ func replayWitness(q *Query, model []Assignment) (bool, string) {
 	return true, ""
 }
 
-// witnessValue reads one assignment back into the evaluator's representation,
+// evaluatorValue holds one model value in the evaluator's representation,
 // reporting a value the evaluator cannot hold — an Integer outside int64, a
 // Real with no finite float64 — as an error.
-func witnessValue(a Assignment) (replayValue, error) {
-	value, err := DecodeValue(a)
-	if err != nil {
-		return replayValue{}, err
-	}
+func evaluatorValue(value ModelValue) (replayValue, error) {
 	switch value.Kind {
 	case SortBool:
 		return replayValue{kind: SortBool, b: value.Bool}, nil
@@ -129,11 +151,11 @@ func witnessValue(a Assignment) (replayValue, error) {
 		// only the exact encoding can hold is caught by the replay.
 		f, _ := value.Number.Float64()
 		if math.IsInf(f, 0) || math.IsNaN(f) {
-			return replayValue{}, fmt.Errorf("%s is outside the Real range", a.Value)
+			return replayValue{}, fmt.Errorf("%s is outside the Real range", value.Number.FloatString(6))
 		}
 		return replayValue{kind: SortReal, f: f}, nil
 	}
-	return replayValue{}, fmt.Errorf("unreadable value %s", a.Raw)
+	return replayValue{}, fmt.Errorf("a value of no sort")
 }
 
 // replayTerm evaluates a term as the runtime evaluator computes it: int64 and

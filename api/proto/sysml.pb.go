@@ -1912,10 +1912,28 @@ type EngineInfo struct {
 	// `process_found` says where it was found when it was.
 	Process      string `protobuf:"bytes,5,opt,name=process,proto3" json:"process,omitempty"`
 	ProcessFound string `protobuf:"bytes,6,opt,name=process_found,json=processFound,proto3" json:"process_found,omitempty"`
-	// True when the engine can run: it needs no process, or its process was found.
+	// True when the engine can run: it is served, and it needs no process or its
+	// process was found.
 	Ready bool `protobuf:"varint,7,opt,name=ready,proto3" json:"ready,omitempty"`
 	// Why the engine cannot run, empty when it can.
-	Unavailable   string `protobuf:"bytes,8,opt,name=unavailable,proto3" json:"unavailable,omitempty"`
+	Unavailable string `protobuf:"bytes,8,opt,name=unavailable,proto3" json:"unavailable,omitempty"`
+	// Where the engine comes from: "built-in" for the build's own, else the kind
+	// of the manifest entry that registered it: "tool", "engine", "policy" or
+	// "sampler". The fields below are empty for a built-in engine.
+	Kind string `protobuf:"bytes,9,opt,name=kind,proto3" json:"kind,omitempty"`
+	// How the engine is spoken to: "-" for one built in, "object" for a tool's
+	// one JSON object each way, "<transport>/<protocol>" for an engine entry.
+	Protocol string `protobuf:"bytes,10,opt,name=protocol,proto3" json:"protocol,omitempty"`
+	// The manifest entry the engine was registered from, the command it resolved
+	// to and the version the entry declares.
+	Source  string `protobuf:"bytes,11,opt,name=source,proto3" json:"source,omitempty"`
+	Command string `protobuf:"bytes,12,opt,name=command,proto3" json:"command,omitempty"`
+	Version string `protobuf:"bytes,13,opt,name=version,proto3" json:"version,omitempty"`
+	// True when this service runs the engine for a request that reaches it. A
+	// manifest engine is listed but not served until the service is started with
+	// -serve-external-engines naming it; a request naming one that is not served
+	// is FAILED_PRECONDITION.
+	Served        bool `protobuf:"varint,14,opt,name=served,proto3" json:"served,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2004,6 +2022,48 @@ func (x *EngineInfo) GetUnavailable() string {
 		return x.Unavailable
 	}
 	return ""
+}
+
+func (x *EngineInfo) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *EngineInfo) GetProtocol() string {
+	if x != nil {
+		return x.Protocol
+	}
+	return ""
+}
+
+func (x *EngineInfo) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *EngineInfo) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+func (x *EngineInfo) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *EngineInfo) GetServed() bool {
+	if x != nil {
+		return x.Served
+	}
+	return false
 }
 
 // ListEnginesResponse lists the engines in name order.
@@ -6306,6 +6366,11 @@ type ServerInfoResponse struct {
 	//	               `bounds` it ran under. Without it a service drops the
 	//	               request field and answers under "auto", so a client must
 	//	               not send one.
+	//	"engines_external" - the service was started with -serve-external-engines
+	//	               and runs the OPENSYSML_ENGINES manifest engines it names;
+	//	               ListEngines reports which with `served`. Without it every
+	//	               manifest engine is listed but a request naming one is
+	//	               refused with FAILED_PRECONDITION.
 	Capabilities  []string `protobuf:"bytes,2,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -7997,7 +8062,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\vruns_budget\x18\x04 \x01(\x05R\n" +
 	"runsBudget\x12!\n" +
 	"\fdepth_budget\x18\x05 \x01(\x05R\vdepthBudget\"\x14\n" +
-	"\x12ListEnginesRequest\"\xe7\x01\n" +
+	"\x12ListEnginesRequest\"\xfb\x02\n" +
 	"\n" +
 	"EngineInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
@@ -8007,7 +8072,14 @@ const file_sysml_proto_rawDesc = "" +
 	"\aprocess\x18\x05 \x01(\tR\aprocess\x12#\n" +
 	"\rprocess_found\x18\x06 \x01(\tR\fprocessFound\x12\x14\n" +
 	"\x05ready\x18\a \x01(\bR\x05ready\x12 \n" +
-	"\vunavailable\x18\b \x01(\tR\vunavailable\"B\n" +
+	"\vunavailable\x18\b \x01(\tR\vunavailable\x12\x12\n" +
+	"\x04kind\x18\t \x01(\tR\x04kind\x12\x1a\n" +
+	"\bprotocol\x18\n" +
+	" \x01(\tR\bprotocol\x12\x16\n" +
+	"\x06source\x18\v \x01(\tR\x06source\x12\x18\n" +
+	"\acommand\x18\f \x01(\tR\acommand\x12\x18\n" +
+	"\aversion\x18\r \x01(\tR\aversion\x12\x16\n" +
+	"\x06served\x18\x0e \x01(\bR\x06served\"B\n" +
 	"\x13ListEnginesResponse\x12+\n" +
 	"\aengines\x18\x01 \x03(\v2\x11.sysml.EngineInfoR\aengines\"\xc9\x01\n" +
 	"\x10ParseFileRequest\x12\x1d\n" +

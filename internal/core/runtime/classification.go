@@ -111,7 +111,7 @@ func (ctx *Context) classifyNarrower(
 // values are an enumeration's only instances (SysML v2 §8.3.7 EnumerationDefinition).
 func (ctx *Context) enumeratedValue(value Value, enum *symbols.Symbol) (Value, bool, error) {
 	for _, literal := range ctx.model.semantics.EnumeratedValuesOf(enum) {
-		enumerated, err := NewEvalContext(ctx, declScope(literal)).enumLiteralValue(literal)
+		enumerated, err := NewEvalContext(ctx, DeclScope(literal)).enumLiteralValue(literal)
 		if err != nil {
 			return Value{}, false, err
 		}

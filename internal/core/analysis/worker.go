@@ -35,14 +35,30 @@ func (e *NoRuntimeError) Error() string {
 // Is matches ErrNoRuntime.
 func (e *NoRuntimeError) Is(target error) bool { return target == ErrNoRuntime }
 
-// plan is the model as one plan holds it: the same surface and tool runner, workers of the
-// plan's own.
+// plan is the model as one plan holds it: the same surface, tool runner and engine sessions,
+// workers of the plan's own. A surface's model gets sessions of the plan's own.
 func (m *Model) plan() *Model {
 	if m == nil {
 		return nil
 	}
-	return &Model{Context: m.Context, Semantics: m.Semantics, Fresh: m.Fresh, tools: m.tools}
+	sessions := m.sessions
+	if sessions == nil {
+		sessions = &sessionPlan{}
+	}
+	return &Model{Context: m.Context, Semantics: m.Semantics, Fresh: m.Fresh, tools: m.tools, sessions: sessions}
 }
+
+// engineSessions is the plan's pool of an external engine's processes, made by make on the
+// plan's first request to it; refused on a surface's model, which holds no plan.
+func (m *Model) engineSessions(name string, make func() *enginePool) (*enginePool, error) {
+	if m == nil || m.sessions == nil {
+		return nil, &SessionEndedError{Engine: name, Err: errNoPlan}
+	}
+	return m.sessions.pool(name, make)
+}
+
+// errNoPlan is the refusal of a request to an engine outside a plan.
+var errNoPlan = errors.New("no plan holds the model")
 
 // ErrJob is the typed error for a run asking for a worker at a negative job index.
 var ErrJob = errors.New("job index must not be negative")
@@ -85,7 +101,13 @@ func (m *Model) attach(ctx *runtime.Context) {
 
 // release gives every surface context its own tool runner back when the plan ends.
 func (m *Model) release() {
-	if m == nil || m.tools == nil {
+	if m == nil {
+		return
+	}
+	if m.sessions != nil {
+		m.sessions.close()
+	}
+	if m.tools == nil {
 		return
 	}
 	m.tools.mu.Lock()
@@ -101,6 +123,30 @@ func (m *Model) builds() bool {
 	return m != nil && m.Semantics != nil && m.Fresh != nil
 }
 
+// semantics is the model-derived part the plan's first worker holds, built on first use, or
+// the one a held context runs over: what an engine outside the process is sent the model
+// from. A surface model that neither derives nor holds one is ErrNoRuntime.
+func (m *Model) semantics() (*runtime.Model, error) {
+	if m == nil || (m.Semantics == nil && !m.holds()) {
+		return nil, ErrNoRuntime
+	}
+	if m.Semantics == nil {
+		ctx, err := m.Context()
+		if err != nil {
+			return nil, err
+		}
+		if ctx == nil || ctx.Model() == nil {
+			return nil, ErrNoRuntime
+		}
+		return ctx.Model(), nil
+	}
+	worker, err := m.WorkerAt(0)
+	if err != nil {
+		return nil, err
+	}
+	return worker.Model, nil
+}
+
 // Worker is the plan's first worker, the one every run of a plan under one job is made on.
 func (m *Model) Worker() (*Worker, error) { return m.WorkerAt(0) }
 
@@ -110,7 +156,7 @@ func (m *Model) WorkerAt(job int) (*Worker, error) {
 	if job < 0 {
 		return nil, fmt.Errorf("%w: %d", ErrJob, job)
 	}
-	if !m.builds() {
+	if m == nil || m.Semantics == nil {
 		return nil, ErrNoRuntime
 	}
 	m.mu.Lock()
@@ -149,6 +195,9 @@ func (m *Model) NewContext(budget Budget) (*runtime.Context, error) {
 // NewContextOn builds a run's own context on the plan's worker for job, under the budget as
 // NewContext takes it.
 func (m *Model) NewContextOn(job int, budget Budget) (*runtime.Context, error) {
+	if !m.builds() {
+		return nil, ErrNoRuntime
+	}
 	worker, err := m.WorkerAt(job)
 	if err != nil {
 		return nil, err

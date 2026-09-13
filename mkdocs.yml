@@ -183,6 +183,7 @@ nav:
       - REPL commands: reference/repl-commands.md
       - OSLC Query text: reference/oslc-query.md
       - Environment variables: reference/environment.md
+      - External engines: reference/external-engines.md
       - Language server: reference/lsp.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md

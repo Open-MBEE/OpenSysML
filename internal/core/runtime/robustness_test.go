@@ -5705,7 +5705,7 @@ func testSendAddressedToAnObjectThatCannotBeBuilt(t *testing.T) {
 			part alpha : Node;
 		}
 	`))
-	scope := declScope(oneSymbol(t, idx, "test::Node::listen"))
+	scope := DeclScope(oneSymbol(t, idx, "test::Node::listen"))
 
 	ctx.maxSteps = 0
 	send := lower.Send{Target: "alpha.inPort", TargetPath: true, Scope: scope}
