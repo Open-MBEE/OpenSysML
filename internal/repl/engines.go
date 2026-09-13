@@ -1,7 +1,6 @@
 package repl
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -48,7 +47,7 @@ func (s *Session) setEngine(selection analysis.Selection) error {
 // debuggers step — the runner that puts its tool-computed actions to the engines selected.
 func (s *Session) attachTools(ctx *runtime.Context) {
 	schedule := s.drivenSchedule()
-	ctx.SetToolRunner(s.engines.ToolRunner(context.Background(), ctx, s.budgetFor(schedule, analysis.Compute), s.engine))
+	ctx.SetToolRunner(s.engines.ToolRunner(s.planContext(), ctx, s.budgetFor(schedule, analysis.Compute), s.engine))
 }
 
 // SetEngines replaces the registry the session's questions are put to, keeping the
@@ -159,7 +158,7 @@ func evaluate[T any](x execution, subject string, ctx *runtime.Context, call fun
 	}
 	s := x.s
 	schedule := s.drivenSchedule()
-	out, plan, err := analysis.Perform(context.Background(), s.engines, analysis.Request{
+	out, plan, err := analysis.Perform(s.planContext(), s.engines, analysis.Request{
 		Model:     analysis.Held(ctx),
 		Subject:   subject,
 		Schedule:  schedule,
@@ -224,7 +223,7 @@ func (x execution) runVerification(subject string, ctx *runtime.Context, call fu
 // explore puts a behavior's outcomes to the engines under selection: run performs
 // it once per linearization, each in a context of the plan's own over model.
 func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selection analysis.Selection, model *analysis.Model, run analysis.Linearization) (analysis.Plan, error) {
-	return s.engines.Explore(context.Background(), analysis.Request{
+	return s.engines.Explore(s.planContext(), analysis.Request{
 		Model:     model,
 		Subject:   subject,
 		Schedule:  policy,
@@ -237,7 +236,7 @@ func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selecti
 // target once per row of the plan, each in a context of the plan's own over model.
 func (s *Session) sweep(target string, model *analysis.Model, plan runtime.SweepPlan, row runtime.SweepRun) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
-	return s.engines.Sweep(context.Background(), analysis.Request{
+	return s.engines.Sweep(s.planContext(), analysis.Request{
 		Model:     model,
 		Subject:   target,
 		Schedule:  schedule,
@@ -251,7 +250,7 @@ func (s *Session) sweep(target string, model *analysis.Model, plan runtime.Sweep
 // in order. The error is a refusal: no solver, or a selected engine that does not solve.
 func (s *Session) solveWith(subject string, queries []*solve.Query, ask analysis.Asking) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
-	return s.engines.Solve(context.Background(), analysis.Request{
+	return s.engines.Solve(s.planContext(), analysis.Request{
 		Model:     s.freshModel(),
 		Subject:   subject,
 		Schedule:  schedule,

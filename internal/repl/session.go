@@ -145,6 +145,8 @@ type Session struct {
 	engine analysis.Selection
 	// checker is what the check engine is asked beside an action, and its bounds.
 	checker checkSettings
+	// progress prints what external engines report while a plan runs; nil prints none.
+	progress *progressPrinter
 
 	verbosity Verbosity
 

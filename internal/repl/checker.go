@@ -304,8 +304,9 @@ func (s *Session) checkBudget(policy runtime.SchedulePolicy, kind analysis.Kind)
 func (s *Session) checkVerdict(name string, policy runtime.SchedulePolicy, kind analysis.Kind, ask *analysis.CheckAsk, run analysis.Linearization, budget analysis.Budget) Verdict {
 	model := s.freshModel()
 	selection := s.engine
+	ctx := s.planContext()
 	s.state.Unlock()
-	answered, err := s.engines.Check(context.Background(), analysis.Request{
+	answered, err := s.engines.Check(ctx, analysis.Request{
 		Model:     model,
 		Subject:   name,
 		Schedule:  policy,

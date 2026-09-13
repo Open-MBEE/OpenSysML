@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/enginewire"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
@@ -307,5 +308,67 @@ func TestActionDebuggerPutsToolComputationsToTheEngines(t *testing.T) {
 	wants(t, out, "error: failed to create executor:", "run does not answer compute questions")
 	if ran != 1 {
 		t.Fatalf("the tool ran %d times under the run engine alone, want once in all", ran)
+	}
+}
+
+// reportingEngine stands in for an external engine: it reports progress through the plan's
+// reporter before answering, and records whether the plan installed one.
+type reportingEngine struct{ reported *bool }
+
+func (reportingEngine) Name() string { return "reporting" }
+
+func (reportingEngine) Describe() analysis.Description {
+	return analysis.Description{Questions: []analysis.Kind{analysis.Compute}, Authority: analysis.Observed}
+}
+
+func (reportingEngine) Covers(*analysis.Model, analysis.Question) analysis.Coverage {
+	return analysis.Coverage{Covered: true}
+}
+
+func (e reportingEngine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question, _ analysis.Budget) (analysis.Result, error) {
+	if report := analysis.ReporterFrom(ctx); report != nil {
+		*e.reported = true
+		report(analysis.ProgressReport{Engine: "reporting", Progress: enginewire.ProgressParams{Runs: 3, Depth: 2, Text: "unrolling"}})
+	}
+	k := q.Compute.Call.Inputs[0].Value.Value.Real
+	value := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 2 * k}}
+	return analysis.Result{Claim: analysis.ClaimValue, Strength: analysis.Observed,
+		Values: []analysis.Evaluation{{Name: "y", Value: value}}}, nil
+}
+
+// A session given a progress writer runs its plans under a reporter that prints what an
+// engine reports, one line naming the engine; without one the plans carry no reporter.
+func TestProgressIsPrintedWhereTheSessionSays(t *testing.T) {
+	s := loadSource(t, toolActionSource)
+	reported := false
+	engines := analysis.Default()
+	if err := engines.Register(reportingEngine{reported: &reported}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if err := s.SetEngines(engines); err != nil {
+		t.Fatalf("SetEngines: %v", err)
+	}
+	run(t, s, "%engine reporting")
+
+	wants(t, run(t, s, "%action Tools::Doubling"), "✓ Started action executor")
+	if reported {
+		t.Fatal("a session printing no progress installed a reporter")
+	}
+
+	var progress strings.Builder
+	s.SetProgress(&progress)
+	wants(t, run(t, s, "%action Tools::Doubling"), "✓ Started action executor")
+	if !reported {
+		t.Fatal("the plan ran without the session's reporter")
+	}
+	if got := progress.String(); got != "engine reporting: runs 3, depth 2: unrolling\n" {
+		t.Fatalf("progress printed %q", got)
+	}
+
+	s.SetProgress(nil)
+	reported = false
+	wants(t, run(t, s, "%action Tools::Doubling"), "✓ Started action executor")
+	if reported {
+		t.Fatal("SetProgress(nil) left the reporter installed")
 	}
 }

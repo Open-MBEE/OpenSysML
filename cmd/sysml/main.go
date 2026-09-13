@@ -648,6 +648,9 @@ func newSession() *repl.Session {
 		sess.SetVerbosity(repl.VerbosityQuiet)
 	}
 	sess.SetTracing(traceMode)
+	if !quietMode {
+		sess.SetProgress(os.Stderr)
+	}
 	if err := sess.SetSchedule(schedule.value); err != nil {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)

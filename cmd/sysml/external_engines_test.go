@@ -141,3 +141,57 @@ func TestEnginesUnderTheWorkspaceIsNotRead(t *testing.T) {
 		t.Fatalf("-engines under the workspace: %v\n%s", err, out)
 	}
 }
+
+// raceModel is an action with a schedule choice, so a question about it under -schedule
+// explore is one an external engine answering outcomes covers.
+const raceModel = `package Mission {
+    private import ScalarValues::*;
+    action race {
+        attribute x : Integer = 0;
+        first start;
+        fork split;
+        action left { assign x := 1; }
+        action right { assign x := 2; }
+        join sync;
+        done;
+        succession first start then split;
+        succession first split then left;
+        succession first split then right;
+        succession first left then sync;
+        succession first right then sync;
+        succession first sync then done;
+    }
+}
+`
+
+// TestProgressGoesToStandardError checks that what an external engine reports while it runs is
+// printed to standard error, one line naming the engine per coalesced report, and that -quiet
+// prints none; the verdict itself is on standard output either way.
+func TestProgressGoesToStandardError(t *testing.T) {
+	binary := buildCLI(t)
+	dir, _ := recordingManifest(t)
+	entry := `{"kind":"engine","name":"alpha","version":"1.0.0","command":["alpha.sh"],"protocol":1,` +
+		`"answers":["holds","outcomes"],"model":["sources"],"witness":"schedule","authority":"bounded"}`
+	if err := os.WriteFile(filepath.Join(dir, "alpha.json"), []byte(entry), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\n" +
+		`ENGINE_STANDIN_DESCRIBE='{"name":"alpha","version":"1.0.0","protocol":1,"answers":["holds","outcomes"]}' ` +
+		"exec " + engineStandin(t) + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "alpha.sh"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ENGINE_STANDIN_PROGRESS", "5")
+
+	got := check(t, binary, raceModel, "-action", "Mission::race", "-schedule", "explore", "-engine", "alpha")
+	wantReport(t, got, 2, "? Action Mission::race could not be checked", `engine "alpha" reports no claim`)
+	if !strings.Contains(got.stderr, "engine alpha: runs 5, depth 5\n") || strings.Contains(got.stdout, "engine alpha: runs") {
+		t.Errorf("progress is not on standard error alone:\nstdout:\n%s\nstderr:\n%s", got.stdout, got.stderr)
+	}
+
+	got = check(t, binary, raceModel, "-quiet", "-action", "Mission::race", "-schedule", "explore", "-engine", "alpha")
+	wantReport(t, got, 2, `engine "alpha" reports no claim`)
+	if strings.Contains(got.output(), "engine alpha: runs") {
+		t.Errorf("-quiet printed progress:\n%s", got.output())
+	}
+}
