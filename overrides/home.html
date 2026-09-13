@@ -766,7 +766,7 @@ Vehicles::Car::wheels  PartUsage
         tab.tabIndex = active ? 0 : -1;
         if (active && focus) tab.focus();
       });
-      if (title) title.textContent = panes[current].getAttribute("data-title") || "";
+      if (title) title.textContent = panes[current].dataset.title || "";
       printers[current].run(function () { schedule(DWELL); });
     }
 
@@ -792,11 +792,11 @@ Vehicles::Car::wheels  PartUsage
     tabs.forEach(function (tab, i) {
       tab.addEventListener("click", function () { stop(); show(i, false); });
       tab.addEventListener("keydown", function (event) {
-        var step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-        if (step === 0 && event.key !== "Home" && event.key !== "End") return;
+        var targets = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: panes.length - 1 };
+        if (!Object.prototype.hasOwnProperty.call(targets, event.key)) return;
         event.preventDefault();
         stop();
-        show(event.key === "Home" ? 0 : event.key === "End" ? panes.length - 1 : i + step, true);
+        show(targets[event.key], true);
       });
     });
 

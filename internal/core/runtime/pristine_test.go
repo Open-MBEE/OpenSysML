@@ -454,7 +454,7 @@ func TestStateChangeTransitionFailingRecordsTheMove(t *testing.T) {
 	if !fired || !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("PollChangeEvents = %v, %v; want fired with ErrUnresolvedReference from the effect", fired, err)
 	}
-	if got := activeLeaf(exec); got == "idle" {
+	if activeLeaf(exec) == "idle" {
 		t.Fatal("the machine is still at idle after the transition left it")
 	}
 	if !exec.moved {

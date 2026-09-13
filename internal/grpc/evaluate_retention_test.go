@@ -143,7 +143,7 @@ package Demo {
 	if _, err := rt.EvalDeclaredValue(doubled[0]); err != nil {
 		t.Fatalf("doubled on the worker: %v", err)
 	}
-	if got := rt.Semantics().MemoSize(); got == 0 {
+	if rt.Semantics().MemoSize() == 0 {
 		t.Fatal("evaluating doubled selected no invocation, or the selection was not kept on the worker")
 	}
 }

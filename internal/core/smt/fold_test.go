@@ -77,22 +77,22 @@ func TestFoldDecidesLiteralOperands(t *testing.T) {
 // TestFoldLeavesOverflowingLiterals: a sum or difference outside int64 is left
 // to the solver's unbounded integers rather than wrapped.
 func TestFoldLeavesOverflowingLiterals(t *testing.T) {
-	max, min := solve.IntTerm(math.MaxInt64), solve.IntTerm(math.MinInt64)
+	largest, smallest := solve.IntTerm(math.MaxInt64), solve.IntTerm(math.MinInt64)
 	one := solve.IntTerm(1)
 	for _, c := range []struct {
 		name string
 		got  *solve.Term
 	}{
-		{"max plus one", add(max, one)},
-		{"min minus one", sub(min, one)},
-		{"zero minus min", sub(solve.IntTerm(0), min)},
-		{"min plus min", add(min, min)},
+		{"max plus one", add(largest, one)},
+		{"min minus one", sub(smallest, one)},
+		{"zero minus min", sub(solve.IntTerm(0), smallest)},
+		{"min plus min", add(smallest, smallest)},
 	} {
 		if c.got.Op == solve.OpInt {
 			t.Errorf("%s folded to %d", c.name, c.got.Int)
 		}
 	}
-	if got := add(max, solve.IntTerm(-1)); got.Op != solve.OpInt || got.Int != math.MaxInt64-1 {
+	if got := add(largest, solve.IntTerm(-1)); got.Op != solve.OpInt || got.Int != math.MaxInt64-1 {
 		t.Errorf("max minus one: %s", render(got))
 	}
 }

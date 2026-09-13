@@ -460,7 +460,7 @@ func TestEnumLiteralCarriesItsScalar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("valueToProto(high) = %v", err)
 	}
-	if got := sent.GetEnumLiteral().GetValue().GetIntValue(); got != 3 {
+	if sent.GetEnumLiteral().GetValue().GetIntValue() != 3 {
 		t.Errorf("sent value = %v, want int_value 3", sent.GetEnumLiteral().GetValue())
 	}
 	if got := valueFromProto(sent); !reflect.DeepEqual(got, high) {

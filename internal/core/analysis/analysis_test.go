@@ -141,6 +141,16 @@ func policy(t *testing.T, spelling string) runtime.SchedulePolicy {
 	return p
 }
 
+// request is a question's setting under auto with no budget.
+func request(model *Model, subject string, schedule runtime.SchedulePolicy) Request {
+	return Request{Model: model, Subject: subject, Schedule: schedule, Selection: Auto()}
+}
+
+// selected is Drive::Once held in ctx, under the default schedule and selection.
+func selected(ctx *runtime.Context, selection Selection) Request {
+	return Request{Model: Held(ctx), Subject: "Drive::Once", Schedule: runtime.DefaultSchedulePolicy, Selection: selection}
+}
+
 // answered dispatches q under auto and fails the test on a fault.
 func answered(t *testing.T, r *Registry, model *Model, q Question, budget Budget) Plan {
 	t.Helper()

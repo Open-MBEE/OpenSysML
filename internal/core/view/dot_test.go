@@ -61,7 +61,7 @@ func TestDOTFormSupport(t *testing.T) {
 		if got := kind.SupportsForm(FormDot); got != want {
 			t.Errorf("%s.SupportsForm(dot) = %v, want %v", kind, got, want)
 		}
-		if got := kind.SupportsForm(kind.MachineForm()); !got {
+		if !kind.SupportsForm(kind.MachineForm()) {
 			t.Errorf("%s does not support its machine form", kind)
 		}
 		if !kind.SupportsForm(FormText) {

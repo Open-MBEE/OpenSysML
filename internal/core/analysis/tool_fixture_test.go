@@ -282,7 +282,7 @@ func (p *pilot) action(t *testing.T, name string) *symbols.Symbol {
 func (p *pilot) perform(t *testing.T, r *Registry, ctx *runtime.Context, name string) (map[string]runtime.Value, Plan, error) {
 	t.Helper()
 	action := p.action(t, name)
-	return Perform(context.Background(), r, Held(ctx), "Drive::"+name, runtime.DefaultSchedulePolicy, Budget{}, Auto(),
+	return Perform(context.Background(), r, request(Held(ctx), "Drive::"+name, runtime.DefaultSchedulePolicy),
 		func(rctx *runtime.Context) (map[string]runtime.Value, error) { return rctx.ExecuteAction(action) },
 		func(out map[string]runtime.Value, err error) Answer {
 			if err != nil {
@@ -487,7 +487,7 @@ func TestPilotFixtureSweepsThroughTheToolOnEveryJob(t *testing.T) {
 	}
 	sweep := func(r *Registry) runtime.SweepTable {
 		t.Helper()
-		answered, err := r.Sweep(context.Background(), p.building(), "Drive::Swept", runtime.DefaultSchedulePolicy, plan, row, Budget{Jobs: 8}, Auto())
+		answered, err := r.Sweep(context.Background(), Request{Model: p.building(), Subject: "Drive::Swept", Schedule: runtime.DefaultSchedulePolicy, Budget: Budget{Jobs: 8}, Selection: Auto()}, plan, row)
 		if err != nil {
 			t.Fatalf("sweep: %v", err)
 		}
@@ -610,14 +610,14 @@ func TestPilotFixtureReportsANonDeterministicTool(t *testing.T) {
 	// Under explore each linearization is a run of its own; the tool's answers are
 	// observed as distinct outcomes, never reconciled.
 	once := p.action(t, "Once")
-	plan, err := r.Explore(context.Background(), p.building(), "Drive::Once", policy(t, "explore:runs=2"),
+	plan, err := r.Explore(context.Background(), request(p.building(), "Drive::Once", policy(t, "explore:runs=2")),
 		func(rctx *runtime.Context) (runtime.Outcome, error) {
 			outputs, err := rctx.ExecuteAction(once)
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
 			return rctx.ActionOutcome(outputs), nil
-		}, Budget{}, Auto())
+		})
 	if err != nil {
 		t.Fatalf("explore: %v", err)
 	}
@@ -648,14 +648,14 @@ func TestToolEngineDispatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("select: %v", err)
 	}
-	_, plan, err := Perform(context.Background(), r, Held(p.context()), "Drive::Once", runtime.DefaultSchedulePolicy, Budget{}, named, call, answer)
+	_, plan, err := Perform(context.Background(), r, selected(p.context(), named), call, answer)
 	var refused *RefusedError
 	if !errors.As(err, &refused) || len(plan.Steps) != 1 || plan.Steps[0].Engine != "tool:ModelCenter" || !errors.Is(plan.Steps[0].Refusal, ErrNotAsked) {
 		t.Fatalf("named tool: %v, plan %+v; want its refusal to stop the plan", err, plan.Steps)
 	}
 
 	t.Setenv(standinMode, "exit")
-	_, plan, err = Perform(context.Background(), r, Held(p.context()), "Drive::Once", runtime.DefaultSchedulePolicy, Budget{}, Auto(), call, answer)
+	_, plan, err = Perform(context.Background(), r, selected(p.context(), Auto()), call, answer)
 	if !errors.Is(err, runtime.ErrTool) {
 		t.Fatalf("auto: %v, want the tool's fault", err)
 	}
@@ -679,7 +679,7 @@ func TestToolEngineDispatchKeepsTheSelection(t *testing.T) {
 	}
 	want := map[string]string{"a": "3.0 [SI::'m⋅s⁻²']", "v": "12.0 [SI::'m/s']", "x": "110.0 [SI::m]"}
 
-	out, plan, err := Perform(context.Background(), r, Held(p.context()), "Drive::Once", runtime.DefaultSchedulePolicy, Budget{}, All(), call, answer)
+	out, plan, err := Perform(context.Background(), r, selected(p.context(), All()), call, answer)
 	if err != nil {
 		t.Fatalf("all: %v, plan %+v", err, plan.Steps)
 	}
@@ -689,7 +689,7 @@ func TestToolEngineDispatchKeepsTheSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("select: %v", err)
 	}
-	out, plan, err = Perform(context.Background(), r, Held(p.context()), "Drive::Once", runtime.DefaultSchedulePolicy, Budget{}, run, call, answer)
+	out, plan, err = Perform(context.Background(), r, selected(p.context(), run), call, answer)
 	if err == nil || !errors.Is(err, ErrNotAsked) || len(out) != 0 {
 		t.Fatalf("run alone: %v, outputs %v; want the run engine's refusal of the computation", err, out)
 	}

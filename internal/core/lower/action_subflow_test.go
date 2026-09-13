@@ -74,7 +74,7 @@ func TestActionNodeSubflowStartsAtItsOneUnprecededStep(t *testing.T) {
 	`)
 
 	sub := subflowOf(t, graph, "leg")
-	if a := nodeNamed(t, sub, "a"); sub.Initial != a {
+	if sub.Initial != nodeNamed(t, sub, "a") {
 		t.Errorf("subflow initial = %v, want a", sub.Initial)
 	}
 }

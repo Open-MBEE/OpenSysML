@@ -22,7 +22,13 @@ type explored struct {
 // workers; a failed run is an outcome, a diverging replay an error. An outcome's values
 // and notes are spelled from its witness run's context, which the outcome keeps.
 func (s *Service) explore(ctx context.Context, subject string, policy runtime.SchedulePolicy, selection analysis.Selection, cached *CachedModel, run func(*runtime.Context) (runtime.Outcome, error)) (explored, error) {
-	plan, err := s.engines.Explore(ctx, s.model(cached), subject, policy, run, analysis.BudgetOf(s.budgets, policy, analysis.Outcomes, s.jobs), selection)
+	plan, err := s.engines.Explore(ctx, analysis.Request{
+		Model:     s.model(cached),
+		Subject:   subject,
+		Schedule:  policy,
+		Budget:    analysis.BudgetOf(s.budgets, policy, analysis.Outcomes, s.jobs),
+		Selection: selection,
+	}, run)
 	if err != nil {
 		// A caller that went away is the call failing, not a precondition unmet.
 		if ctx.Err() != nil {

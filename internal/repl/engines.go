@@ -134,7 +134,13 @@ func evaluate[T any](x execution, subject string, ctx *runtime.Context, call fun
 	}
 	s := x.s
 	schedule := s.drivenSchedule()
-	out, plan, err := analysis.Perform(context.Background(), s.engines, analysis.Held(ctx), subject, schedule, s.budgetFor(schedule, analysis.Evaluate), s.engine, call, answer)
+	out, plan, err := analysis.Perform(context.Background(), s.engines, analysis.Request{
+		Model:     analysis.Held(ctx),
+		Subject:   subject,
+		Schedule:  schedule,
+		Budget:    s.budgetFor(schedule, analysis.Evaluate),
+		Selection: s.engine,
+	}, call, answer)
 	return out, &plan, err
 }
 
@@ -193,14 +199,26 @@ func (x execution) runVerification(subject string, ctx *runtime.Context, call fu
 // explore puts a behavior's outcomes to the engines under selection: run performs
 // it once per linearization, each in a context of the plan's own over model.
 func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selection analysis.Selection, model *analysis.Model, run analysis.Linearization) (analysis.Plan, error) {
-	return s.engines.Explore(context.Background(), model, subject, policy, run, s.budgetFor(policy, analysis.Outcomes), selection)
+	return s.engines.Explore(context.Background(), analysis.Request{
+		Model:     model,
+		Subject:   subject,
+		Schedule:  policy,
+		Budget:    s.budgetFor(policy, analysis.Outcomes),
+		Selection: selection,
+	}, run)
 }
 
 // sweep puts a domain to the engines under the session's selection: row runs the
 // target once per row of the plan, each in a context of the plan's own over model.
 func (s *Session) sweep(target string, model *analysis.Model, plan runtime.SweepPlan, row runtime.SweepRun) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
-	return s.engines.Sweep(context.Background(), model, target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep), s.engine)
+	return s.engines.Sweep(context.Background(), analysis.Request{
+		Model:     model,
+		Subject:   target,
+		Schedule:  schedule,
+		Budget:    s.budgetFor(schedule, analysis.Sweep),
+		Selection: s.engine,
+	}, plan, row)
 }
 
 // solveWith puts an element's condition sets to the engines under the session's
