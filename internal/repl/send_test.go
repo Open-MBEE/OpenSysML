@@ -534,10 +534,13 @@ func TestSendReachesAPerformedActionParkedAtItsAccept(t *testing.T) {
 	s := performedSession(t)
 	wants(t, run(t, s, "%send Halt to Q::pd"),
 		`error: object #1 of "Q::pd" accepts no signal Halt now: performed action "main" waiting at accept g of type Go`)
+	// With no session open, nothing drives the runtime, and the report says what to open.
 	wants(t, run(t, s, "%send Go(n=7) to Q::pd"),
 		`✓ Sent Go(n=7) to object #1 of "Q::pd"`,
-		`Accepted by performed action "main" waiting at accept g`)
+		`Accepted by performed action "main" waiting at accept g`,
+		"Open a %state or %action session, then %advance <time> dispatches it")
 	wants(t, run(t, s, "%eval Q::pd.main.total"), "= 0")
+	wants(t, run(t, s, "%advance 1"), "error: no active debugging session")
 
 	// The object's behaviors run when the clock advances, from any session.
 	run(t, s, "%instantiate Q::other")
@@ -575,7 +578,8 @@ func TestSendToAnObjectRunningAMachineAndAnAction(t *testing.T) {
 	wants(t, run(t, s, "%state Q::both"), `✓ Debugging state machine "idle"`, "Current state: a")
 
 	out := run(t, s, "%send Go(n=3)")
-	wants(t, out, `✓ Sent Go(n=3) to object #1 of "Q::both"`, `Accepted by performed action "main" waiting at accept g`)
+	wants(t, out, `✓ Sent Go(n=3) to object #1 of "Q::both"`, `Accepted by performed action "main" waiting at accept g`,
+		"Use %advance <time> to dispatch it")
 	rejects(t, out, "Use %step", "Accepted by state machine")
 	wants(t, run(t, s, "%send Halt"),
 		`Accepted by state machine "Idle" in state a: transition a_b fires on it`,

@@ -949,11 +949,32 @@ sysml> %instantiate Q::pd
 sysml> %send Go(n=7) to Q::pd
 ✓ Sent Go(n=7) to object #1 of "Q::pd"
   Accepted by performed action "main" waiting at accept g
+
+Open a %state or %action session, then %advance <time> dispatches it
+
+sysml> %action Q::Main
+✓ Started action executor for "Q::Main"
+  State: Running
+  Tokens: 1
+
+sysml> %advance 0
+✓ Advanced to 0.0 (0 event(s) processed)
+  Action state: Waiting
+  Tokens: 1
+  Action steps taken: 5
+
+sysml> %eval Q::pd.main.total
+✓ Q::pd.main.total
+  = 7
 ```
 
-The message is in flight until the object's behaviors next run: the next `%advance` of any
-debugging session of the runtime moves the action past its accept, after which `%eval
-Q::pd.main.total` reads `7`. An object performing an action nothing is parked at for the signal
+The message is in flight until the object's behaviors next run, and only a debugging session
+drives the runtime: `%advance` of any session of it — here a standalone `%action Q::Main`, which
+performs on behalf of no object and so takes nothing addressed to `pd`; a `%state` on a sibling
+object would do as well — moves the action past its accept, after which `%eval Q::pd.main.total`
+reads `7`. With no session open, `%send` says so; with one open that is not what takes the signal,
+it says `Use %advance <time> to dispatch it`, as a `%step` of that session dispatches only what
+that session's own behavior accepts. An object performing an action nothing is parked at for the signal
 is refused up front, with the action's standing (`performed action "main" waiting at accept g of
 type Go`, or `completed`), as a machine in a state accepting nothing is; an object that neither
 exhibits a machine nor performs an action is refused too. With an `%action Main Q::pd` session

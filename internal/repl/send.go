@@ -248,14 +248,15 @@ func (s *Session) sendSignal(text string) ([]string, error) {
 	for _, a := range acceptances {
 		out = append(out, "  "+a.text())
 	}
-	out = append(out, s.dispatchHint(accepting, acceptances)...)
+	out = append(out, s.dispatchHint(ctx, accepting, acceptances)...)
 	return out, nil
 }
 
-// dispatchHint says how the debugged behavior relates to the signal just sent:
-// that a step of it dispatches it, or that the machine leaves it to a sibling
-// because its own guards would drop it.
-func (s *Session) dispatchHint(accepting []signalReceiver, acceptances []acceptance) []string {
+// dispatchHint says what dispatches the signal just sent: a step of the debugged
+// behavior taking it, an advance of a session driving the runtime it is in flight
+// on, or a session to open when none does; a debugged machine whose guards would
+// drop it is said to leave it to a sibling.
+func (s *Session) dispatchHint(ctx *runtime.Context, accepting []signalReceiver, acceptances []acceptance) []string {
 	debugged := s.debuggedReceivers()
 	if slices.ContainsFunc(acceptances, func(a acceptance) bool { return slices.ContainsFunc(debugged, a.receiver.sameExecution) }) {
 		return []string{"", "Use %step or %advance <time> to dispatch it"}
@@ -265,7 +266,10 @@ func (s *Session) dispatchHint(accepting []signalReceiver, acceptances []accepta
 			return []string{fmt.Sprintf("  %s would fire nothing on it, so a step of it leaves it to the machine above", r.status())}
 		}
 	}
-	return nil
+	if slices.Contains(distinctContexts(s.stateExec.contextOf(), s.actionExec.contextOf()), ctx) {
+		return []string{"", "Use %advance <time> to dispatch it"}
+	}
+	return []string{"", "Open a %state or %action session, then %advance <time> dispatches it"}
 }
 
 // debuggedReceivers are the behaviors the open debugging sessions step.
