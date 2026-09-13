@@ -87,6 +87,34 @@ func TestDeleteCascadeFollowsMembersOfTheTarget(t *testing.T) {
 	requireClean(t, loadContent(t, "delete.sysml", got))
 }
 
+// Referrers are told apart by declaration, not by qualified name, so a cascade
+// removes every one of several same-named referrers rather than the first only.
+func TestDeleteCascadeRemovesEverySameNamedReferrer(t *testing.T) {
+	src := "package P {\n" +
+		"    part def Base;\n" +
+		"    part f : Base;\n" +
+		"    part f : Base;\n" +
+		"    part def Keep;\n" +
+		"}\n"
+	m := loadContent(t, "delete.sysml", src)
+	requireClean(t, m)
+
+	e := addFailure(t, m, Delete("P::Base", false), FailureDeleteReferenced)
+	if want := []string{"P::f", "P::f"}; strings.Join(e.Referring, ",") != strings.Join(want, ",") {
+		t.Fatalf("referrers = %v, want %v", e.Referring, want)
+	}
+
+	res, err := Apply(m, []Operation{Delete("P::Base", true)})
+	if err != nil {
+		t.Fatalf("cascade delete: %v", err)
+	}
+	got := string(res.Content)
+	if got != "package P {\n    part def Keep;\n}\n" {
+		t.Fatalf("cascade left a same-named referrer:\n%s", got)
+	}
+	requireClean(t, loadContent(t, "delete.sysml", got))
+}
+
 func TestDeleteOnlyMemberRootAndNeighborTrivia(t *testing.T) {
 	tests := []struct {
 		name, src, target, want string

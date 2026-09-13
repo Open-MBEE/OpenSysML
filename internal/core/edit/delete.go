@@ -44,13 +44,13 @@ func (m Model) deleteSplices(i int, op Operation) ([]splice, error) {
 // until none remain. A declaration nested in another target is left to it.
 func (m Model) cascadeTargets(sym *symbols.Symbol) []*symbols.Symbol {
 	targets := []*symbols.Symbol{sym}
-	seen := map[string]bool{m.Index.GetFQN(sym): true}
+	seen := map[symbols.ElementKey]bool{symbols.KeyOf(sym): true}
 	for frontier := targets; len(frontier) > 0; {
 		var next []*symbols.Symbol
 		for _, referrer := range m.referringSymbols(targets, frontier) {
-			fqn := m.Index.GetFQN(referrer)
-			if !seen[fqn] {
-				seen[fqn] = true
+			key := symbols.KeyOf(referrer)
+			if !seen[key] {
+				seen[key] = true
 				next = append(next, referrer)
 			}
 		}
@@ -86,7 +86,8 @@ func declaredWithin(sym, outer *symbols.Symbol) bool {
 }
 
 // referringSymbols returns the declarations outside every target that refer to
-// one of frontier or to a declaration inside one, sorted by qualified name.
+// one of frontier or to a declaration inside one, sorted by qualified name then
+// position; same-named declarations are distinct referrers.
 func (m Model) referringSymbols(targets, frontier []*symbols.Symbol) []*symbols.Symbol {
 	rootScope := m.Index.DocumentRoot(m.Source.Name())
 	if rootScope == nil {
@@ -101,7 +102,7 @@ func (m Model) referringSymbols(targets, frontier []*symbols.Symbol) []*symbols.
 		return false
 	}
 	r, _ := m.resolver()
-	seen := map[string]bool{}
+	seen := map[symbols.ElementKey]bool{}
 	var out []*symbols.Symbol
 	for _, ref := range resolve.References(m.Root, rootScope) {
 		if ref.QN == nil {
@@ -117,15 +118,19 @@ func (m Model) referringSymbols(targets, frontier []*symbols.Symbol) []*symbols.
 			if referrer == nil || within(referrer, targets) {
 				continue
 			}
-			fqn := m.Index.GetFQN(referrer)
-			if fqn != "" && !seen[fqn] {
-				seen[fqn] = true
+			key := symbols.KeyOf(referrer)
+			if m.Index.GetFQN(referrer) != "" && !seen[key] {
+				seen[key] = true
 				out = append(out, referrer)
 			}
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {
-		return m.Index.GetFQN(out[i]) < m.Index.GetFQN(out[j])
+		a, b := m.Index.GetFQN(out[i]), m.Index.GetFQN(out[j])
+		if a != b {
+			return a < b
+		}
+		return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset
 	})
 	return out
 }
