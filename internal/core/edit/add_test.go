@@ -160,8 +160,8 @@ func TestAddMemberRefusals(t *testing.T) {
 		},
 		{
 			name: "owner is not namespace",
-			m:    loadContent(t, "add.sysml", "part x;\n"),
-			op:   AddMember("x", "part", "y"),
+			m:    loadContent(t, "add.sysml", "part def X;\nalias Y for X;\n"),
+			op:   AddMember("Y", "part", "y"),
 			want: FailureOwnerNotNamespace,
 		},
 		{
@@ -317,6 +317,18 @@ func TestAddMemberIndentationAndRootEOF(t *testing.T) {
 			src:  "part def P;\n",
 			want: "part def P {\n    part x;\n}\n",
 			op:   AddMember("P", "part", "x"),
+		},
+		{
+			name: "bodyless typed usage owner",
+			src:  "part def Tank;\npart def Car {\n    part tank : Tank;\n}\n",
+			want: "part def Tank;\npart def Car {\n    part tank : Tank {\n        port p;\n    }\n}\n",
+			op:   AddMember("Car::tank", "port", "p"),
+		},
+		{
+			name: "bodyless valued usage owner",
+			src:  "part def Car {\n    attribute mass = 1200;\n}\n",
+			want: "part def Car {\n    attribute mass = 1200 {\n        attribute unit;\n    }\n}\n",
+			op:   AddMember("Car::mass", "attribute", "unit"),
 		},
 		{
 			name: "root with newline",

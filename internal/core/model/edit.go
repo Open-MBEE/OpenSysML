@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -32,13 +33,29 @@ func (w *Workspace) ApplyEdit(name string, ops []edit.Operation) (result *edit.R
 
 // siblingIndexLocked builds an index holding the libraries and every workspace
 // document but name, so the edited notation resolves what the original did.
-// Nil when the workspace's index has no library base to overlay.
+// Over a shared library base it overlays that; over a caller-built index it
+// re-indexes the caller's other documents, library marks and languages included.
 func (w *Workspace) siblingIndexLocked(name string) func() *symbols.Index {
-	if w.libBase == nil {
-		return nil
-	}
 	return func() *symbols.Index {
-		idx := symbols.NewOverlay(w.libBase)
+		var idx *symbols.Index
+		if w.libBase != nil {
+			idx = symbols.NewOverlay(w.libBase)
+		} else {
+			idx = symbols.NewIndex()
+			for _, other := range w.index.Documents() {
+				if other == name || w.docs[other] != nil {
+					continue
+				}
+				root, ok := w.index.DocumentRoot(other).Node().(*ast.RootNamespace)
+				if !ok {
+					continue
+				}
+				idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
+				if lib := w.index.LibraryDocumentOf(other); lib.Tier.Library() {
+					idx.MarkLibraryDocument(other, lib)
+				}
+			}
+		}
 		for other, doc := range w.docs {
 			if other != name {
 				idx.AddDocument(other, doc.AST)

@@ -10,6 +10,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
@@ -193,17 +194,15 @@ func (s *Server) Views(params *viewsParams) *viewsResult {
 }
 
 // Render answers opensysml/render: the rendering of the view or element asked
-// for, in the form asked for, at the version of the document it was made from.
+// for, in the form asked for, at the version of the document it was made from:
+// version, node FQNs and ranges all come from that one document snapshot.
 func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	name := uriToName(params.TextDocument.URI)
-	doc := s.ws.Document(name)
-	if doc == nil {
-		return nil, fmt.Errorf("%s: no such document", name)
-	}
-	rendering, err := s.ws.RenderView(name, params.View)
+	rendering, doc, err := s.ws.RenderView(name, params.View)
 	if err != nil {
 		return nil, err
 	}
+	origin := func(o view.Origin) *renderOrigin { return s.originIn(doc, o) }
 	form, err := renderForm(rendering, params.Form)
 	if err != nil {
 		return nil, err
@@ -244,7 +243,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			Type:   node.Type,
 			Detail: node.Detail,
 			Parent: node.Parent,
-			Origin: s.origin(node.Origin),
+			Origin: origin(node.Origin),
 		}
 		if node.Origin.Doc == name {
 			n.FQN = nodeFQN(doc.Scope, node.Origin)
@@ -265,7 +264,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			To:     edge.To,
 			Label:  edge.Label,
 			Kind:   edge.Kind.String(),
-			Origin: s.origin(edge.Origin),
+			Origin: origin(edge.Origin),
 		}
 		for _, p := range edge.Route {
 			e.Route = append(e.Route, renderPoint{X: p.X, Y: p.Y})
@@ -273,7 +272,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		out.Edges = append(out.Edges, e)
 	}
 	for _, row := range data.Rows {
-		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: s.origin(row.Origin)})
+		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
 	}
 	return out, nil
 }
@@ -292,15 +291,19 @@ func renderForm(rendering *view.Rendering, asked string) (view.Form, error) {
 	return "", fmt.Errorf("%q is no rendering form: write %q, %q, %q or %q", asked, view.FormMermaid, view.FormText, view.FormMarkdown, view.FormDot)
 }
 
-// origin is a core origin as a client navigates to it, nil for an element with
+// originIn is a core origin as a client navigates to it, nil for an element with
 // no locatable declaration and for one declared in a document the session does
-// not hold. A standard library declaration is located in its sysml-stdlib
-// document.
-func (s *Server) origin(o view.Origin) *renderOrigin {
+// not hold. An origin in rendered, the document snapshot the rendering was made
+// from, is placed in that snapshot's text; a standard library declaration is
+// located in its sysml-stdlib document.
+func (s *Server) originIn(rendered *model.Document, o view.Origin) *renderOrigin {
 	if !o.Located() {
 		return nil
 	}
-	doc := s.document(o.Doc)
+	doc := rendered
+	if o.Doc != rendered.Name {
+		doc = s.document(o.Doc)
+	}
 	if doc == nil {
 		return nil
 	}

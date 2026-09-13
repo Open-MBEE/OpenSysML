@@ -54,7 +54,7 @@ export function endpointPath(node: RenderNode, owner: RenderNode, nodes: RenderN
   return undefined;
 }
 
-/** withRetry re-sends once at the server's version when the client's was stale. */
+/** withRetry re-sends once, at the buffer's version as it is then, when the server found the first stale. */
 export async function withRetry(
   version: () => number,
   request: (version: number) => Promise<ApplyModelEditResult>,
@@ -63,7 +63,7 @@ export async function withRetry(
   if (!first.stale) {
     return first;
   }
-  return request(first.version);
+  return request(version());
 }
 
 /** describeRefusal is the one-line message a refused request is reported with. */

@@ -185,10 +185,6 @@ func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
 	}
 	switch local.Decl.(type) {
 	case *ast.Package, *ast.Namespace, *ast.Definition, *ast.Usage:
-		if usage, ok := local.Decl.(*ast.Usage); ok && !usage.HasBody {
-			return nil, nil, &Error{Failure: FailureOwnerNotNamespace,
-				Message: fmt.Sprintf("%q cannot contain members without a body", fqn)}
-		}
 		return local.Decl, local.Scope, nil
 	default:
 		return nil, nil, &Error{Failure: FailureOwnerNotNamespace,

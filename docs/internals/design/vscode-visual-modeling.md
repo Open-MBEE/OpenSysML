@@ -116,7 +116,9 @@ server and a new extension degrade to today's behavior instead of erroring.
 - `view.Node` and `view.Edge` grow an origin. `Rendering` grows a `JSON()`-shaped
   companion in `internal/core/view` — a plain data type in `view`, marshaled by the
   LSP layer, so `view` keeps no protocol knowledge.
-- `model.Workspace` grows `RenderView(doc, fqn string) (*view.Rendering, error)`
+- `model.Workspace` grows `RenderView(doc, fqn string) (*view.Rendering, *Document, error)`
+  — the document returned is the snapshot the rendering was made from, read under
+  the same lock, so the LSP layer takes version, FQNs and ranges from one revision —
   and `Views(doc string) []ViewInfo`, built on `newResolver` exactly as
   `Session.viewRenderer` builds its own, with `SourceText` reading the workspace's
   content for the document. This is where the REPL and the LSP converge: the REPL's

@@ -693,3 +693,47 @@ func TestInitializeAdvertisesTheRenderCapability(t *testing.T) {
 		t.Errorf("openSysmlRender = %#v, want true", experimental["openSysmlRender"])
 	}
 }
+
+// A rendering's version, node names, FQNs and ranges all describe one document
+// snapshot, however the document changes while renders are in flight: a node
+// built from one revision is never named through the scope of another.
+func TestRenderSnapshotsOneDocumentRevision(t *testing.T) {
+	// Both names are five letters, so the declarations share a span across
+	// revisions and a scope of the wrong revision would still find a symbol.
+	revisions := []string{"package P {\n    part def Alpha;\n}\n", "package P {\n    part def Bravo;\n}\n"}
+	s, docURI := renderServer(t, "flip.sysml", revisions[0])
+	name := docURI.Filename()
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for version := 2; ; version++ {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			s.ws.Update(name, []byte(revisions[(version-1)%2]), version)
+		}
+	}()
+	defer func() { close(stop); <-done }()
+
+	params := &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "#tree"}
+	for i := 0; i < 300; i++ {
+		out, err := s.Render(params)
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		declared := []string{"Alpha", "Bravo"}[(out.Version-1)%2]
+		other := []string{"Bravo", "Alpha"}[(out.Version-1)%2]
+		for _, n := range out.Nodes {
+			if strings.Contains(n.Name, other) || strings.Contains(n.FQN, other) {
+				t.Fatalf("version %d declares %s, rendering has node %q with fqn %q", out.Version, declared, n.Name, n.FQN)
+			}
+			if strings.Contains(n.Name, declared) && n.FQN != "P::"+declared {
+				t.Fatalf("version %d node %q has fqn %q, want %q", out.Version, n.Name, n.FQN, "P::"+declared)
+			}
+		}
+	}
+}

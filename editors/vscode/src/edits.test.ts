@@ -96,18 +96,21 @@ test("withRetry returns the first answer when the version agreed", async () => {
   assert.deepEqual(versions, [3]);
 });
 
-test("withRetry asks once more at the server's version", async () => {
+test("withRetry asks once more at the buffer's version as it is then, not the server's", async () => {
+  // The buffer is at 8 while the server still holds 7: the retry re-reads the
+  // buffer, which by then may have moved on again.
   const versions: number[] = [];
-  const answers: ApplyModelEditResult[] = [{ stale: true, version: 5 }, { edit: {}, version: 5 }];
+  const buffer = [8, 9];
+  const answers: ApplyModelEditResult[] = [{ stale: true, version: 7 }, { edit: {}, version: 9 }];
   const result = await withRetry(
-    () => 3,
+    () => buffer.shift()!,
     async (version) => {
       versions.push(version);
       return answers.shift()!;
     },
   );
-  assert.deepEqual(result, { edit: {}, version: 5 });
-  assert.deepEqual(versions, [3, 5]);
+  assert.deepEqual(result, { edit: {}, version: 9 });
+  assert.deepEqual(versions, [8, 9]);
 });
 
 test("withRetry gives up after a second stale answer", async () => {
