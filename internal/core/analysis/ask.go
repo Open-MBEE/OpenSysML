@@ -149,7 +149,11 @@ func (r *Registry) Explore(ctx context.Context, req Request, run Linearization) 
 // Check puts an action's schedules to the registry as a question of kind, free being
 // what the asker leaves open beside them: check is the explicit-state search's ask,
 // holds the symbolic one, and run performs the action once for an engine exploring it.
+// A Holds question over a start leaving an input unbound has the inputs free too.
 func (r *Registry) Check(ctx context.Context, req Request, kind Kind, free Freedom, check *CheckAsk, holds *HoldsAsk, run Linearization) (Plan, error) {
+	if kind == Holds && leavesInputsUnbound(req, holds) {
+		free |= FreeInputs
+	}
 	return r.ask(ctx, req, Question{
 		Kind:      kind,
 		Free:      FreeSchedule | free,
@@ -157,6 +161,24 @@ func (r *Registry) Check(ctx context.Context, req Request, kind Kind, free Freed
 		Check:     check,
 		Holds:     holds,
 	})
+}
+
+// leavesInputsUnbound starts the action once in a context of the model's own to see
+// whether it holds an input no value; a start that fails is the engines' to report.
+func leavesInputsUnbound(req Request, holds *HoldsAsk) bool {
+	if holds == nil || holds.Start == nil || !req.Model.builds() {
+		return false
+	}
+	ctx, err := req.Model.NewContextOn(0, req.Budget)
+	if err != nil {
+		return false
+	}
+	exec, err := holds.Start(ctx)
+	if err != nil {
+		return false
+	}
+	defer exec.Release()
+	return len(exec.Held().Unbound()) > 0
 }
 
 // CheckKind is what a check asks: Holds once a property or condition is stated, an

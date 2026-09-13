@@ -35,16 +35,12 @@ type Input struct {
 }
 
 // frees decides whether a held feature is free in state 0: released by the
-// question, or read rather than written back and bound by nothing.
+// question, or an input the performance holds no value for.
 func (e *Encoding) frees(attr lower.Attribute) (free, released bool) {
 	if e.released[attr.Name] {
 		return true, true
 	}
-	if attr.Output() || attr.Value != nil {
-		return false, false
-	}
-	_, bound := e.held.Value(attr.Name)
-	return !bound, false
+	return e.unbound[attr.Name], false
 }
 
 // noDomain is the refusal for a free input the encoding cannot range over, with

@@ -939,8 +939,10 @@ behavior unchanged until stage 4.
    schedule free and the inputs free or as written: an input the model binds is pinned, one it
    leaves unbound or `-check-input` releases ranges over its declared type's domain, and
    `-check-assume` asserts constraints over the initial state, both carried by the question
-   (`HoldsAsk.Inputs`, `HoldsAsk.Assume`, `FreeInputs`) while which inputs are unbound is what
-   the engine finds and reports (`Result.Inputs`, `Result.Assumptions`). Its standing spells the
+   (`HoldsAsk.Inputs`, `HoldsAsk.Assume`, `FreeInputs`); a `holds` question whose start leaves
+   an input unbound carries `FreeInputs` too (`Registry.Check`), so `check` refuses it, while
+   the inputs' domains are what the engine finds and reports (`Result.Inputs`,
+   `Result.Assumptions`). Its standing spells the
    difference this section draws — *inputs free in their domains: …* and *inputs chosen from
    their domains: …* against `explore`'s and `check`'s *inputs as written* — and its witnesses
    carry the chosen inputs, fixed through the same start path a caller's take before the moves

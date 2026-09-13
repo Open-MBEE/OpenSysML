@@ -2442,6 +2442,21 @@ func (h Held) Value(name string) (Value, bool) {
 	return v, ok
 }
 
+// Unbound lists the inputs the performance holds no value for: the features it
+// reads rather than writes back, declared with no default and bound by nothing.
+func (h Held) Unbound() []lower.Attribute {
+	var unbound []lower.Attribute
+	for _, attr := range h.features {
+		if attr.Output() || attr.Value != nil {
+			continue
+		}
+		if _, bound := h.Value(attr.Name); !bound {
+			unbound = append(unbound, attr)
+		}
+	}
+	return unbound
+}
+
 // SetBreakpoint adds a breakpoint at the given node name.
 func (e *ActionExecutor) SetBreakpoint(nodeName string) {
 	e.breakpoints[nodeName] = true

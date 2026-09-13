@@ -599,11 +599,16 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    refuses refusing the question before any query; the first query asks whether the assumptions
    admit an initial state at all, and an assumption set that admits none is *not covered:
    assumptions admit no initial state* — never *proved*, since `unsat` over no initial state
-   establishes nothing about the model. The question carries what the asker fixes or frees:
+   establishes nothing about the model; when that query rounds in floating point
+   (`Query.Rounded`) its `unsat` decides nothing either way and is *not covered* naming the
+   rounding, as a rounded property's is. The question carries what the asker fixes or frees:
    `HoldsAsk.Inputs` (the releases) and `HoldsAsk.Assume`, with `FreeInputs` set when either is
-   given; which inputs the model leaves unbound is what the engine finds, reported per input in
-   `Result.Inputs` (name, type, domain, free or its value) with `Result.Assumptions`, and the
-   answered question's `Free` gains `FreeInputs` when any input ranged, so the standing reads
+   given, and `Registry.Check` sets `FreeInputs` on a `holds` question too when starting the
+   action leaves an input unbound (`runtime.Held.Unbound`), so `check` refuses it rather than
+   evaluating a value it does not have and `-engine all` shows the refusal beside `smt`'s
+   answer; which inputs are unbound and their domains is what the engine finds, reported per
+   input in `Result.Inputs` (name, type, domain, free or its value) with `Result.Assumptions`,
+   and the answered question's `Free` gains `FreeInputs` when any input ranged, so the standing reads
    *proved over schedules and inputs: inputs free in their domains: …, assumed …* for a proof
    and *inputs chosen from their domains: …* for a witness, against `explore`'s and `check`'s
    *inputs as written*. `-json` carries `inputs` and `assumptions` on the result and the chosen

@@ -131,6 +131,37 @@ func TestEngineAllShowsCheckRefusingFreeInputs(t *testing.T) {
 	}
 }
 
+// An input the model leaves unbound frees the inputs without a release: under
+// %engine all, check refuses the question instead of failing on the value it does
+// not have, and smt's proof over the input's domain stands as the verdict.
+func TestEngineAllLeavesUnboundInputsToSMT(t *testing.T) {
+	s := symbolicSession(t, `
+package Gate {
+	private import ScalarValues::*;
+	action def open {
+		attribute n : Natural;
+		attribute limit : Integer = 5;
+		requirement natural { require constraint { n >= 0 } }
+		first start;
+		action add { assign limit := limit + 1; }
+		done;
+		succession first start then add;
+		succession first add then done;
+	}
+}
+`)
+	run(t, s, "%engine all")
+	run(t, s, "%check-property Gate::open::natural")
+	v := s.RunAction("Gate::open")
+	wantVerdict(t, v, VerdictHolds,
+		"✓ Action Gate::open: holds",
+		"inputs: n : Natural free in >= 0, limit = 5",
+		"standing: holds (proved over schedules and inputs: inputs free in their domains: n : Natural free in >= 0); all: check refused (check cannot leave the inputs free), smt holds (proved)")
+	if len(v.Plan.Disagreements) != 0 {
+		t.Errorf("disagreements %+v, want none: check answered nothing", v.Plan.Disagreements)
+	}
+}
+
 // planBound is the named bound of the one result the verdict's plan answered with.
 func planBound(t *testing.T, v Verdict, name string) analysis.Bound {
 	t.Helper()

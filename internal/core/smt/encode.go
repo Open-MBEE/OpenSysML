@@ -55,8 +55,10 @@ type Encoding struct {
 	pending map[string]*solve.Var
 	// results are the features an inline expression node writes its value to.
 	results map[ast.Node]*solve.Var
-	// held are the values the performance holds at its start, ahead of its defaults.
-	held runtime.Held
+	// held are the values the performance holds at its start, ahead of its defaults;
+	// unbound indexes the inputs it holds none for.
+	held    runtime.Held
+	unbound map[string]bool
 	// releases names the bound features the question leaves free; released indexes them.
 	releases []string
 	released map[string]bool
@@ -91,6 +93,10 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 	for _, release := range releases {
 		released[release] = true
 	}
+	unbound := make(map[string]bool)
+	for _, attr := range held.Unbound() {
+		unbound[attr.Name] = true
+	}
 	translator, err := solve.NewTranslator(ctx, solve.Subject{Kind: "action", Name: name, Symbol: action})
 	if err != nil {
 		return nil, err
@@ -111,6 +117,7 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 		pending:    make(map[string]*solve.Var),
 		results:    make(map[ast.Node]*solve.Var),
 		held:       held,
+		unbound:    unbound,
 		releases:   releases,
 		released:   released,
 		Query:      &solve.Query{Kind: "action", Element: name},

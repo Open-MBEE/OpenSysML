@@ -160,6 +160,38 @@ func TestEngineAssumesOverTheInitialState(t *testing.T) {
 	}
 }
 
+// TestEngineDoesNotCallRoundedAssumptionsContradictory: assumptions no exact
+// initial state satisfies, over arithmetic the interpreter rounds, may still
+// admit one in float64, so the answer names the rounding, not a contradiction.
+func TestEngineDoesNotCallRoundedAssumptionsContradictory(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "rounded_assume.sysml", `package test {
+	private import ScalarValues::*;
+	action def R {
+		attribute x : Real;
+		constraint tenth { x == 0.1 }
+		constraint inexact { x + 0.2 != 0.3 }
+		constraint small { x < 10.0 }
+		first start;
+		done;
+		succession first start then done;
+	}
+}`)
+	q := d.holds(t, "test::R", "test::R::small")
+	q.Holds.Assume = []*symbols.Symbol{lookup(t, d.idx, "test::R::tenth"), lookup(t, d.idx, "test::R::inexact")}
+	result := answer(t, e, d, q, analysis.Budget{Depth: 3})
+	expect(t, result, analysis.ClaimNone, analysis.NotCovered)
+	if result.Reason == NoInitialState || !strings.Contains(result.Reason, "assumptions admit an initial state rounds in floating point") {
+		t.Errorf("reason %q, want the rounding named", result.Reason)
+	}
+	if len(result.Values) != 1 || result.Values[0].Solved == nil || result.Values[0].Solved.Status != solve.StatusUnsat {
+		t.Errorf("the undeciding unsat is not reported: %+v", result.Values)
+	}
+	if len(result.Assumptions) != 2 {
+		t.Errorf("assumptions %v, want both listed", result.Assumptions)
+	}
+}
+
 // TestEngineReleasesABoundInput: naming a bound feature drops its binding, so
 // the requirement the default satisfied is violated at a value the witness names.
 func TestEngineReleasesABoundInput(t *testing.T) {

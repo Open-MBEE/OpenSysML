@@ -241,6 +241,59 @@ func TestCheckHoldsOrWitnessesAProperty(t *testing.T) {
 	}
 }
 
+// A Holds question over an action the model leaves an input of unbound carries the
+// inputs free, so check refuses it rather than evaluating a value it does not have;
+// with every input bound the question reaches check as put.
+func TestCheckPutsUnboundInputsFree(t *testing.T) {
+	f := parseModel(t, `package test {
+	private import ScalarValues::*;
+	action open {
+		attribute n : Natural;
+		attribute limit : Integer = 5;
+		first start;
+		action add { assign limit := limit + 1; }
+		done;
+		succession first start then add;
+		succession first add then done;
+	}
+	action bound {
+		attribute limit : Integer = 5;
+		first start;
+		action add { assign limit := limit + 1; }
+		done;
+		succession first start then add;
+		succession first add then done;
+	}
+}`)
+	for _, tc := range []struct {
+		action string
+		free   bool
+	}{{"open", true}, {"bound", false}} {
+		a := f.checked(t, tc.action)
+		ask := &CheckAsk{Start: a.start, Properties: []runtime.CheckProperty{a.atMost("limit", 10)}}
+		plan, err := Default().Check(context.Background(), request(f.building(), "test::"+tc.action, policy(t, "explore")), Holds, FreeNothing, ask, &HoldsAsk{Behavior: a.sym, Start: a.start}, nil)
+		if errors.Is(err, ErrFreedom) != tc.free || err != nil && !tc.free {
+			t.Fatalf("%s: %v, want refused for free inputs %v", tc.action, err, tc.free)
+		}
+		if plan.Question.Free.Has(FreeInputs) != tc.free {
+			t.Errorf("%s: question free %v, want inputs free %v", tc.action, plan.Question.Free, tc.free)
+		}
+		if len(plan.Steps) != 1 || plan.Steps[0].Engine != CheckEngineName {
+			t.Fatalf("%s: steps %+v, want check alone", tc.action, plan.Steps)
+		}
+		step := plan.Steps[0]
+		if tc.free {
+			if !errors.Is(step.Refusal, ErrFreedom) || plan.Result.Strength != NotCovered {
+				t.Errorf("%s: step %+v result %+v, want check refusing the free inputs", tc.action, step, plan.Result)
+			}
+			continue
+		}
+		if step.Refusal != nil || plan.Result.Claim != ClaimHolds || plan.Result.Strength != Bounded {
+			t.Errorf("%s: step %+v result %+v, want check holding bounded", tc.action, step, plan.Result)
+		}
+	}
+}
+
 // With a directory named, every violation and divergent value is written as a witness file
 // the shared parser reads back to the choices the check took.
 func TestCheckWritesEveryWitness(t *testing.T) {

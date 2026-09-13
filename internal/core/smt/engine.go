@@ -238,15 +238,20 @@ const NoInitialState = "assumptions admit no initial state"
 // decide asks the queries in order, stopping at the first `sat` whose witness
 // replays or at the first answer that decides nothing. An `unsat` over arithmetic
 // the interpreter rounds refutes nothing, so once every query is `unsat` it
-// leaves the question not covered rather than held.
+// leaves the question not covered rather than held, and assumptions no exact
+// initial state satisfies are contradictory only when nothing in them rounds.
 func (r *run) decide(ctx context.Context) (analysis.Result, error) {
 	if len(r.encoding.Assumptions) > 0 {
-		result, err := r.solver.Solve(ctx, r.encoding.Consistency())
+		consistency := r.encoding.Consistency()
+		result, err := r.solver.Solve(ctx, consistency)
 		if err != nil {
 			return analysis.Result{}, err
 		}
 		switch result.Status {
 		case solve.StatusUnsat:
+			if consistency.Rounded() {
+				return r.rounded(result, "whether the assumptions admit an initial state"), nil
+			}
 			return r.uncovered(NoInitialState), nil
 		case solve.StatusSat:
 		default:
