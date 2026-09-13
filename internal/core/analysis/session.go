@@ -962,13 +962,6 @@ func (p *enginePool) close() {
 	wg.Wait()
 }
 
-// processes counts the sessions the pool has started for the plan.
-func (p *enginePool) processes() int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return len(p.all)
-}
-
 // sessionPlan holds one plan's pools, one per external engine, shared by every fleet of the
 // plan and closed with it.
 type sessionPlan struct {

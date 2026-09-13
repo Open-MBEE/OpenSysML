@@ -5,7 +5,7 @@ import warnings
 
 from . import sysml_pb2 as sysml__pb2
 
-GRPC_GENERATED_VERSION = '1.83.0'
+GRPC_GENERATED_VERSION = '1.83.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -280,7 +280,10 @@ class SysMLServiceServicer:
         the REPL's %engines do: each with the questions it answers, the strongest
         evidence it can produce and whether it can run. Reported as the "engines"
         capability, which also names the `engine` request fields and the `engine`,
-        `strength` and `bounds` response fields of the verification RPCs.
+        `strength` and `bounds` response fields of the verification RPCs. The
+        engines registered from manifests are listed with their origin and whether
+        this service serves them; the "engines_external" capability is advertised
+        only when it serves at least one.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

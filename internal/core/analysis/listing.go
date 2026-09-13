@@ -11,6 +11,9 @@ type Listing struct {
 	Status
 	Description
 	Origin
+	// Withheld is the typed reason the registry lists the engine but does not run it; nil
+	// when it is served.
+	Withheld error
 }
 
 // Origin is where an engine comes from: the build for one built in, otherwise the manifest
@@ -34,6 +37,13 @@ type Manifested interface {
 	Origin() Origin
 }
 
+// Prober is an engine that can start its process once to check it against its manifest,
+// as -engines -probe asks; Probe answers as Process does, after the handshake.
+type Prober interface {
+	External
+	Probe() (string, error)
+}
+
 // KindText names the origin's kind as a listing prints it: `built-in` for the build's own.
 func (o Origin) KindText() string {
 	if o.Kind == "" {
@@ -42,26 +52,66 @@ func (o Origin) KindText() string {
 	return string(o.Kind)
 }
 
-// Listings lists every engine in name order with its description, status and origin.
+// ProtocolText names how the engine is spoken to: `-` for one built in, `object` for a tool's
+// one JSON object each way, `<transport>/<protocol>` for an engine entry.
+func (o Origin) ProtocolText() string {
+	switch {
+	case o.Kind == "":
+		return "-"
+	case o.Kind == KindTool:
+		return "object"
+	}
+	return fmt.Sprintf("%s/%d", o.Transport, o.Protocol)
+}
+
+// Listings lists every engine in name order with its description, status and origin;
+// no process is started.
 func (r *Registry) Listings() []Listing {
+	return r.listings(func(e External) (string, error) { return e.Process() })
+}
+
+// Probed lists as Listings does, but starts each external engine's process once and checks
+// its handshake against its manifest, reporting the outcome as the status.
+func (r *Registry) Probed() []Listing {
+	return r.listings(func(e External) (string, error) {
+		if p, ok := e.(Prober); ok {
+			return p.Probe()
+		}
+		return e.Process()
+	})
+}
+
+func (r *Registry) listings(status func(External) (string, error)) []Listing {
 	engines := r.Engines()
-	statuses := r.Statuses()
 	listings := make([]Listing, len(engines))
 	for i, e := range engines {
-		listings[i] = Listing{Status: statuses[i], Description: e.Describe()}
+		listings[i] = Listing{Status: Status{Engine: e.Name()}, Description: e.Describe()}
+		if external, ok := e.(External); ok {
+			listings[i].Status.Process, listings[i].Status.Err = status(external)
+		}
 		if m, ok := e.(Manifested); ok {
 			listings[i].Origin = m.Origin()
+		}
+		if w, ok := e.(Withheld); ok {
+			listings[i].Withheld = w.Withheld()
 		}
 	}
 	return listings
 }
 
-// Ready reports whether the engine can run: it needs no process, or its process is found.
-func (l Listing) Ready() bool { return l.Status.Err == nil }
+// Served reports whether the registry runs the engine when a question reaches it.
+func (l Listing) Served() bool { return l.Withheld == nil }
 
-// StatusText is the engine's state in a word: `ready`, `ready (z3 at /usr/bin/z3)`, or
-// `unavailable: <why>`.
+// Ready reports whether the engine can run: it is served, and it needs no process or its
+// process is found.
+func (l Listing) Ready() bool { return l.Served() && l.Status.Err == nil }
+
+// StatusText is the engine's state in a word: `ready`, `ready (z3 at /usr/bin/z3)`,
+// `unavailable: <why>` or `withheld: <why>`.
 func (l Listing) StatusText() string {
+	if l.Withheld != nil {
+		return "withheld: " + l.Withheld.Error()
+	}
 	if l.Status.Err != nil {
 		return "unavailable: " + l.Status.Err.Error()
 	}
@@ -80,11 +130,38 @@ func (l Listing) Kinds() string {
 	return strings.Join(kinds, ", ")
 }
 
-// Lines tables listings as a report prints them: name, kind, authority, kinds, status.
+// OriginText is the manifest entry's source line, empty for a built-in engine:
+// `spin-bridge 1.4.0: engine from /etc/opensysml/engines/spin-bridge.json, runs
+// /opt/spin-bridge/bin/spin-bridge, not admitted`.
+func (l Listing) OriginText() string {
+	if l.Kind == "" {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(l.Engine)
+	if l.Version != "" {
+		b.WriteString(" " + l.Version)
+	}
+	fmt.Fprintf(&b, ": %s from %s", l.Kind, l.File)
+	if l.Command != "" {
+		b.WriteString(", runs " + l.Command)
+	}
+	if l.Kind == KindEngine {
+		b.WriteString(", not admitted")
+	}
+	return b.String()
+}
+
+// Lines tables listings as a report prints them — name, kind, protocol, authority, kinds,
+// status — then one source line per manifest entry.
 func Lines(listings []Listing) []string {
-	rows := [][]string{{"engine", "kind", "authority", "answers", "status"}}
+	rows := [][]string{{"engine", "kind", "protocol", "authority", "answers", "status"}}
+	var origins []string
 	for _, l := range listings {
-		rows = append(rows, []string{l.Engine, l.KindText(), l.Authority.String(), l.Kinds(), l.StatusText()})
+		rows = append(rows, []string{l.Engine, l.KindText(), l.ProtocolText(), l.Authority.String(), l.Kinds(), l.StatusText()})
+		if origin := l.OriginText(); origin != "" {
+			origins = append(origins, origin)
+		}
 	}
 	widths := make([]int, len(rows[0]))
 	for _, row := range rows {
@@ -104,5 +181,5 @@ func Lines(listings []Listing) []string {
 		}
 		lines[i] = strings.TrimRight(strings.Join(cells, "  "), " ")
 	}
-	return lines
+	return append(lines, origins...)
 }

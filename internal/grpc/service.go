@@ -176,6 +176,7 @@ var capabilities = []string{
 	CapabilityScheduleExplore, CapabilityFinalTime, CapabilityEngines,
 	CapabilityMetaobjectValues,
 	CapabilityUndeterminedValue,
+	CapabilityEnginesExternal,
 }
 
 type capabilityAvailability struct {
@@ -195,6 +196,9 @@ func newCapabilityAvailability(withheld []string) (capabilityAvailability, error
 	}
 	return capabilityAvailability{available: available}, nil
 }
+
+// withhold drops a capability the service turns out not to supply.
+func (a capabilityAvailability) withhold(capability string) { delete(a.available, capability) }
 
 func (a capabilityAvailability) has(capability string) bool {
 	_, ok := a.available[capability]
@@ -240,28 +244,48 @@ type Service struct {
 	capabilities capabilityAvailability
 }
 
+// Option adjusts how NewService builds a service.
+type Option func(*serviceOptions)
+
+type serviceOptions struct {
+	unavailable []string
+	serve       []string
+}
+
+// ServeExternalEngines names the manifest engines the service runs, as
+// -serve-external-engines does; `all` names every one. Without it every manifest
+// engine is listed but not served.
+func ServeExternalEngines(names ...string) Option {
+	return func(o *serviceOptions) { o.serve = append(o.serve, names...) }
+}
+
 // NewService creates a gRPC service with specified cache size, reporting
 // version as its build version. It returns an error if cacheSize is not
 // positive, if a budget variable or OPENSYSML_JOBS holds anything but a positive
-// integer, or if the prewarm setting is not a non-negative integer. It does not load the
+// integer, if the prewarm setting is not a non-negative integer, or if a manifest
+// or a name given to ServeExternalEngines is wrong. It does not load the
 // standard library: call Prewarm to have that happen in the background, ahead of
 // the requests that need it.
-func NewService(cacheSize int, version string) (*Service, error) {
-	return newService(cacheSize, version, nil)
+func NewService(cacheSize int, version string, opts ...Option) (*Service, error) {
+	return newService(cacheSize, version, opts)
 }
 
 // NewServiceWithUnavailableCapabilitiesForTesting creates a service that
 // deliberately lacks named capabilities for conformance testing.
-func NewServiceWithUnavailableCapabilitiesForTesting(cacheSize int, version string, unavailable []string) (*Service, error) {
-	return newService(cacheSize, version, unavailable)
+func NewServiceWithUnavailableCapabilitiesForTesting(cacheSize int, version string, unavailable []string, opts ...Option) (*Service, error) {
+	return newService(cacheSize, version, append(opts, func(o *serviceOptions) { o.unavailable = unavailable }))
 }
 
-func newService(cacheSize int, version string, unavailable []string) (*Service, error) {
+func newService(cacheSize int, version string, opts []Option) (*Service, error) {
+	var options serviceOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 	cache, err := NewCache(cacheSize)
 	if err != nil {
 		return nil, err
 	}
-	availability, err := newCapabilityAvailability(unavailable)
+	availability, err := newCapabilityAvailability(options.unavailable)
 	if err != nil {
 		return nil, err
 	}
@@ -277,9 +301,16 @@ func newService(cacheSize int, version string, unavailable []string) (*Service, 
 	if err != nil {
 		return nil, err
 	}
-	engines, err := analysis.DefaultFromEnv()
+	registry, err := analysis.DefaultFromEnv()
 	if err != nil {
 		return nil, err
+	}
+	engines, err := registry.Serving(options.serve)
+	if err != nil {
+		return nil, err
+	}
+	if len(options.serve) == 0 {
+		availability.withhold(CapabilityEnginesExternal)
 	}
 	return &Service{
 		cache:        cache,

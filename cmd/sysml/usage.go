@@ -59,7 +59,8 @@ func doc() usage.Doc {
 		}, {
 			Title: "Analysis engines",
 			Examples: []usage.Example{
-				usage.Ex("sysml -engines", "List the engines, their authority and status"),
+				usage.Ex("sysml -engines", "List engines, kind and status; nothing runs"),
+				usage.Ex("sysml -engines -probe", "Also start each external engine once"),
 				usage.Ex("sysml -engine explore -action Drive m.sysml", "The same as -schedule explore"),
 				usage.Ex("sysml -engine all -requirement R m.sysml", "Every engine that covers the question"),
 				usage.Ex("sysml -engine run -json -constraint C m.sysml", "One engine; the plan in the report"),
@@ -338,8 +339,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning")
 	fs.BoolVar(&traceMode, "trace", false, "Report each execution step: expression evaluation, calc invocation, action tokens, state transitions")
 	fs.Var(&schedule, "schedule", "Scheduling policy every run resolves its choice points under (concurrent tokens, overlapping guards, competing transitions): declared, reverse (default), seed:<n> for a reproducible pseudo-random order, explore[:runs=N,depth=D] to run every linearization within the budget and table the distinct outcomes, or replay:<file> to follow a witness file's choice lines move for move, then reverse")
-	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows — name, authority, the questions each answers and whether its process is found — and exit")
-	fs.Var(&engine, "engine", "Analysis engine every check is put to: auto (default) picks the strongest engine covering the question, all puts it to every covering engine in name order and composes their answers, or an engine by name (run, explore, check, sweep, solve, or tool:<name> from OPENSYSML_TOOLS), whose refusal is then the answer; -engine explore is -schedule explore, and -engine check searches every schedule of each -action for a violation, deadlock, failure or divergence")
+	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows — name, kind (built-in, tool, engine, policy, sampler), protocol, authority, the questions each answers and whether its process is found — with the manifest entry and resolved command of each external one, spawning nothing, and exit")
+	fs.BoolVar(&probeEngines, "probe", false, "With -engines, also start each external engine once, check its describe against its manifest entry field by field and report the outcome as its status")
+	fs.Var(&engine, "engine", "Analysis engine every check is put to: auto (default) picks the strongest engine covering the question, all puts it to every covering engine in name order and composes their answers, or an engine by name (run, explore, check, sweep, solve, tool:<name> from OPENSYSML_TOOLS, or an external engine from OPENSYSML_ENGINES), whose refusal is then the answer; -engine explore is -schedule explore, and -engine check searches every schedule of each -action for a violation, deadlock, failure or divergence")
 	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently — the linearizations of an exploration, the engines -engine all consults — each on a worker of its own over the shared model; the result is the same at any count. Default OPENSYSML_JOBS, else the number of CPUs")
 	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
 	fs.StringVar(&queryText, "query", "", "Evaluate OSLC Query text against the model instead of running the REPL")

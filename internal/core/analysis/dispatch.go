@@ -457,10 +457,14 @@ func (r *Registry) candidates(kind Kind, selection Selection) ([]Engine, error) 
 	return engines, nil
 }
 
-// declaring is every engine declaring the kind, in name order.
+// declaring is every served engine declaring the kind, in name order; a withheld
+// engine is listed, not consulted.
 func (r *Registry) declaring(kind Kind) []Engine {
 	var engines []Engine
 	for _, e := range r.Engines() {
+		if _, withheld := e.(Withheld); withheld {
+			continue
+		}
 		if e.Describe().Answers(kind) {
 			engines = append(engines, e)
 		}

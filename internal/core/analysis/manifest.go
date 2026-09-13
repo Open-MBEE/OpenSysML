@@ -328,18 +328,32 @@ func decodeOne(data []byte, v any) error {
 	return nil
 }
 
-// ToolsFromEnv reads the manifest OPENSYSML_TOOLS names as engines, one per tool entry;
-// none when it is unset. A manifest that cannot be read is a ManifestError.
-func ToolsFromEnv(workspaces ...string) ([]External, error) {
-	m, err := manifestFromEnv(ToolsEnv, workspaces)
-	if err != nil || m == nil {
+// ExternalsFromEnv reads both manifests the environment names as engines: one `tool:<name>`
+// per tool entry and one engine per engine, policy or sampler entry, in manifest then entry
+// order, each whether or not its program is found or this build serves it; none when both
+// are unset. A manifest that cannot be read is a ManifestError.
+func ExternalsFromEnv(workspaces ...string) ([]External, error) {
+	manifests, err := ManifestsFromEnv(workspaces...)
+	if err != nil {
 		return nil, err
 	}
-	tools := make([]External, len(m.Tools))
-	for i, entry := range m.Tools {
-		tools[i] = NewTool(entry)
+	var externals []External
+	for _, m := range manifests {
+		externals = append(externals, m.Externals()...)
 	}
-	return tools, nil
+	return externals, nil
+}
+
+// Externals is the manifest's entries as engines: its tools, then its engines.
+func (m *Manifest) Externals() []External {
+	externals := make([]External, 0, len(m.Tools)+len(m.Engines))
+	for _, entry := range m.Tools {
+		externals = append(externals, NewTool(entry))
+	}
+	for _, entry := range m.Engines {
+		externals = append(externals, NewEngine(entry))
+	}
+	return externals
 }
 
 // ManifestsFromEnv reads both manifest directories the environment names, OPENSYSML_TOOLS

@@ -867,7 +867,7 @@ behavior unchanged until stage 4.
    `CONTRIBUTING.md`, undecided here; no version was bumped. Running `all` concurrently, `-jobs`
    and `%jobs` remain with the parallel-runs stage.
 5. **Tools.** The manifest, the `tool:<name>` engine and its protocol, the `AnalysisAnnotation`
-   fixture and the stand-in. *Implemented:* `analysis.LoadManifest` and `ToolsFromEnv` read
+   fixture and the stand-in. *Implemented:* `analysis.LoadManifest` and `ExternalsFromEnv` read
    the manifest — one JSON file per tool under `OPENSYSML_TOOLS`, `{"toolName", "version",
    "executable", "variables": […]}`, JSON being the format the repository already reads for
    conformance expectations and writes for `-json` — and `DefaultFromEnv` registers each entry

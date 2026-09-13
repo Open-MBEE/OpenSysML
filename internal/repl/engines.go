@@ -2,7 +2,9 @@ package repl
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -94,10 +96,33 @@ func (s *Session) doEngine(args []string) []string {
 	return []string{fmt.Sprintf("engine: %s", s.engine)}
 }
 
-// doEngines lists the registered engines.
-func (s *Session) doEngines() []string {
-	return analysis.Lines(s.engines.Listings())
+// doEngines lists the registered engines; `probe` starts each external one once and
+// reports its handshake against its manifest.
+func (s *Session) doEngines(args []string) []string {
+	switch {
+	case len(args) == 0:
+		return analysis.Lines(s.engines.Listings())
+	case len(args) == 1 && args[0] == "probe":
+		return analysis.Lines(s.engines.Probed())
+	}
+	return []string{errPrefix + (&EnginesArgumentError{Args: args}).Error()}
 }
+
+// ErrEnginesArgument is the typed error for a %engines argument other than `probe`.
+var ErrEnginesArgument = errors.New("%engines takes `probe` or nothing")
+
+// EnginesArgumentError reports what %engines was given instead.
+type EnginesArgumentError struct {
+	Args []string
+}
+
+// Error names the arguments.
+func (e *EnginesArgumentError) Error() string {
+	return fmt.Sprintf("%%engines takes `probe` or nothing, not %q", strings.Join(e.Args, " "))
+}
+
+// Is matches ErrEnginesArgument.
+func (e *EnginesArgumentError) Is(target error) bool { return target == ErrEnginesArgument }
 
 // standingPrefix opens the line that follows a verdict with its standing.
 const standingPrefix = "  standing: "

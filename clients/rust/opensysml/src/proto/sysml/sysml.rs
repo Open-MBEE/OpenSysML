@@ -462,12 +462,37 @@ pub struct EngineInfo {
     pub process: ::prost::alloc::string::String,
     #[prost(string, tag="6")]
     pub process_found: ::prost::alloc::string::String,
-    /// True when the engine can run: it needs no process, or its process was found.
+    /// True when the engine can run: it is served, and it needs no process or its
+    /// process was found.
     #[prost(bool, tag="7")]
     pub ready: bool,
     /// Why the engine cannot run, empty when it can.
     #[prost(string, tag="8")]
     pub unavailable: ::prost::alloc::string::String,
+    /// Where the engine comes from: "built-in" for the build's own, else the kind
+    /// of the manifest entry that registered it: "tool", "engine", "policy" or
+    /// "sampler". Reported as the "engines_external" capability with the fields
+    /// below, which are empty for a built-in engine.
+    #[prost(string, tag="9")]
+    pub kind: ::prost::alloc::string::String,
+    /// How the engine is spoken to: "-" for one built in, "object" for a tool's
+    /// one JSON object each way, "<transport>/<protocol>" for an engine entry.
+    #[prost(string, tag="10")]
+    pub protocol: ::prost::alloc::string::String,
+    /// The manifest entry the engine was registered from, the command it resolved
+    /// to and the version the entry declares.
+    #[prost(string, tag="11")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(string, tag="12")]
+    pub command: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
+    pub version: ::prost::alloc::string::String,
+    /// True when this service runs the engine for a request that reaches it. A
+    /// manifest engine is listed but not served until the service is started with
+    /// -serve-external-engines naming it; a request naming one that is not served
+    /// is FAILED_PRECONDITION.
+    #[prost(bool, tag="14")]
+    pub served: bool,
 }
 /// ListEnginesResponse lists the engines in name order.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1511,6 +1536,11 @@ pub struct ServerInfoResponse {
     ///                   `bounds` it ran under. Without it a service drops the
     ///                   request field and answers under "auto", so a client must
     ///                   not send one.
+    ///    "engines_external" - the service runs at least one engine registered from
+    ///                   an OPENSYSML_ENGINES manifest, having been started with
+    ///                   -serve-external-engines; ListEngines reports which with
+    ///                   `served`. Without it every manifest engine is listed but
+    ///                   refused with FAILED_PRECONDITION.
     #[prost(string, repeated, tag="2")]
     pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

@@ -358,7 +358,7 @@ class ListEnginesRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class EngineInfo(_message.Message):
-    __slots__ = ("name", "authority", "answers", "bounds", "process", "process_found", "ready", "unavailable")
+    __slots__ = ("name", "authority", "answers", "bounds", "process", "process_found", "ready", "unavailable", "kind", "protocol", "source", "command", "version", "served")
     NAME_FIELD_NUMBER: _ClassVar[int]
     AUTHORITY_FIELD_NUMBER: _ClassVar[int]
     ANSWERS_FIELD_NUMBER: _ClassVar[int]
@@ -367,6 +367,12 @@ class EngineInfo(_message.Message):
     PROCESS_FOUND_FIELD_NUMBER: _ClassVar[int]
     READY_FIELD_NUMBER: _ClassVar[int]
     UNAVAILABLE_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    PROTOCOL_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    COMMAND_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    SERVED_FIELD_NUMBER: _ClassVar[int]
     name: str
     authority: str
     answers: _containers.RepeatedScalarFieldContainer[str]
@@ -375,7 +381,13 @@ class EngineInfo(_message.Message):
     process_found: str
     ready: bool
     unavailable: str
-    def __init__(self, name: _Optional[str] = ..., authority: _Optional[str] = ..., answers: _Optional[_Iterable[str]] = ..., bounds: _Optional[_Iterable[str]] = ..., process: _Optional[str] = ..., process_found: _Optional[str] = ..., ready: _Optional[bool] = ..., unavailable: _Optional[str] = ...) -> None: ...
+    kind: str
+    protocol: str
+    source: str
+    command: str
+    version: str
+    served: bool
+    def __init__(self, name: _Optional[str] = ..., authority: _Optional[str] = ..., answers: _Optional[_Iterable[str]] = ..., bounds: _Optional[_Iterable[str]] = ..., process: _Optional[str] = ..., process_found: _Optional[str] = ..., ready: _Optional[bool] = ..., unavailable: _Optional[str] = ..., kind: _Optional[str] = ..., protocol: _Optional[str] = ..., source: _Optional[str] = ..., command: _Optional[str] = ..., version: _Optional[str] = ..., served: _Optional[bool] = ...) -> None: ...
 
 class ListEnginesResponse(_message.Message):
     __slots__ = ("engines",)

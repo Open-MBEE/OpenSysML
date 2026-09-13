@@ -2,12 +2,21 @@ package grpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -248,5 +257,155 @@ func TestEngineExploreIsScheduleExplore(t *testing.T) {
 	_, err := without.RunAnalysis(context.Background(), &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "Race::raced", Engine: "explore"})
 	if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), CapabilityScheduleExplore) {
 		t.Errorf("engine explore without %s: %v, want UNIMPLEMENTED naming it", CapabilityScheduleExplore, err)
+	}
+}
+
+var (
+	standinOnce sync.Once
+	standinPath string
+	standinErr  error
+)
+
+// engineStandin builds the analysis package's stand-in engine once per test binary.
+func engineStandin(t *testing.T) string {
+	t.Helper()
+	standinOnce.Do(func() {
+		dir, err := os.MkdirTemp("", "enginestandin")
+		if err != nil {
+			standinErr = err
+			return
+		}
+		standinPath = filepath.Join(dir, "enginestandin")
+		build := exec.Command("go", gobuild.Args(standinPath)...)
+		build.Dir = filepath.Join("..", "core", "analysis", "testdata", "enginestandin")
+		if out, err := build.CombinedOutput(); err != nil {
+			standinErr = fmt.Errorf("go build: %v\n%s", err, out)
+		}
+	})
+	if standinErr != nil {
+		t.Fatalf("building the stand-in engine: %v", standinErr)
+	}
+	return standinPath
+}
+
+// standinManifest points OPENSYSML_ENGINES at a manifest registering the stand-in as `standin`.
+func standinManifest(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	entry := `{"kind":"engine","name":"standin","version":"1.0.0","command":["` + engineStandin(t) + `"],` +
+		`"protocol":1,"answers":["holds"],"model":["sources"],"witness":"schedule","authority":"bounded"}`
+	file := filepath.Join(dir, "standin.json")
+	if err := os.WriteFile(file, []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(analysis.ToolsEnv, "")
+	t.Setenv(analysis.EnginesEnv, dir)
+	return file
+}
+
+// standinInfo is the stand-in's entry in ListEngines.
+func standinInfo(t *testing.T, srv *Service) *pb.EngineInfo {
+	t.Helper()
+	resp, err := srv.ListEngines(context.Background(), &pb.ListEnginesRequest{})
+	if err != nil {
+		t.Fatalf("ListEngines: %v", err)
+	}
+	for _, e := range resp.Engines {
+		if e.Name == "standin" {
+			return e
+		}
+	}
+	t.Fatalf("standin is not listed in %v", resp.Engines)
+	return nil
+}
+
+// A service started without -serve-external-engines lists a manifest engine with its
+// origin and served false, refuses a request naming it with FAILED_PRECONDITION, keeps auto
+// away from it and does not advertise engines_external.
+func TestManifestEnginesAreListedButNotServedByDefault(t *testing.T) {
+	ctx := context.Background()
+	file := standinManifest(t)
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+
+	info := standinInfo(t, srv)
+	if info.Served || info.Ready || info.Kind != "engine" || info.Protocol != "stdio/1" || info.Source != file ||
+		info.Command != engineStandin(t) || info.Version != "1.0.0" || info.Authority != "bounded" ||
+		strings.Join(info.Answers, ",") != "holds" || info.Unavailable != "" {
+		t.Errorf("standin = %v, want its origin, not served and not ready with no fault", info)
+	}
+	resp, err := srv.ListEngines(ctx, &pb.ListEnginesRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range resp.Engines {
+		if e.Name != "standin" && (e.Kind != "built-in" || e.Protocol != "-" || e.Source != "" || !e.Served) {
+			t.Errorf("built-in %s = %v, want kind built-in, no protocol or source, served", e.Name, e)
+		}
+	}
+
+	server, err := srv.GetServerInfo(ctx, &pb.ServerInfoRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(server.Capabilities, CapabilityEnginesExternal) {
+		t.Errorf("a service serving no manifest engine advertises %s", CapabilityEnginesExternal)
+	}
+
+	hash := mustVerifyModel(t, srv, verifyModelSource, "engines-withheld-standin")
+	for name, call := range engineCalls(ctx, srv, hash, "standin") {
+		err := call()
+		if connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), "engine 'standin' is not served by this service") {
+			t.Errorf("%s with engine standin: %v, want FAILED_PRECONDITION naming the withholding", name, err)
+		}
+	}
+	verdict, err := srv.VerifyConstraint(ctx, &pb.VerifyConstraintRequest{ModelHash: hash, SymbolId: "Demo::Vehicle::massPositive", Engine: "all"})
+	if err != nil || verdict.Verdict == nil || verdict.Verdict.Engine != "run" {
+		t.Errorf("engine all = %v %v, want the built-ins alone consulted", err, verdict)
+	}
+}
+
+// Started with -serve-external-engines naming it, the service lists the engine served,
+// advertises engines_external and puts a request naming it to the engine; a name that is not a
+// manifest engine fails construction.
+func TestServeExternalEnginesRunsTheNamedManifestEngines(t *testing.T) {
+	ctx := context.Background()
+	standinManifest(t)
+	srv, err := NewService(10, "test", ServeExternalEngines("standin"))
+	if err != nil {
+		t.Fatalf("NewService serving standin: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	if info := standinInfo(t, srv); !info.Served || !info.Ready || info.Unavailable != "" {
+		t.Errorf("standin = %v, want served and ready", info)
+	}
+	server, err := srv.GetServerInfo(ctx, &pb.ServerInfoRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(server.Capabilities, CapabilityEnginesExternal) {
+		t.Errorf("a service serving standin does not advertise %s", CapabilityEnginesExternal)
+	}
+
+	hash := mustVerifyModel(t, srv, verifyModelSource, "engines-served-standin")
+	resp, err := srv.VerifyConstraint(ctx, &pb.VerifyConstraintRequest{ModelHash: hash, SymbolId: "Demo::Vehicle::massPositive", Engine: "standin"})
+	if err != nil || resp.Verdict == nil {
+		t.Fatalf("VerifyConstraint engine standin: %v %v", err, resp)
+	}
+	if v := resp.Verdict; v.Holds || v.Strength != "not covered" || !strings.Contains(v.Error, "standin does not answer evaluate questions") {
+		t.Errorf("verdict = %v, want the stand-in's own refusal of an evaluate question", v)
+	}
+
+	if _, err := NewService(10, "test", ServeExternalEngines("run")); !errors.Is(err, analysis.ErrNotExternal) {
+		t.Errorf("NewService serving run: %v, want the typed refusal of a built-in", err)
+	}
+	all, err := NewService(10, "test", ServeExternalEngines(analysis.ServeAll))
+	if err != nil {
+		t.Fatalf("NewService serving all: %v", err)
+	}
+	t.Cleanup(all.Close)
+	if info := standinInfo(t, all); !info.Served {
+		t.Errorf("standin under all = %v, want served", info)
 	}
 }

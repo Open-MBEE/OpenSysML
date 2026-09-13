@@ -42,6 +42,11 @@ private static final long serialVersionUID = 0L;
     process_ = "";
     processFound_ = "";
     unavailable_ = "";
+    kind_ = "";
+    protocol_ = "";
+    source_ = "";
+    command_ = "";
+    version_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -355,7 +360,8 @@ private static final long serialVersionUID = 0L;
   private boolean ready_ = false;
   /**
    * <pre>
-   * True when the engine can run: it needs no process, or its process was found.
+   * True when the engine can run: it is served, and it needs no process or its
+   * process was found.
    * </pre>
    *
    * <code>bool ready = 7 [json_name = "ready"];</code>
@@ -413,6 +419,253 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int KIND_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object kind_ = "";
+  /**
+   * <pre>
+   * Where the engine comes from: "built-in" for the build's own, else the kind
+   * of the manifest entry that registered it: "tool", "engine", "policy" or
+   * "sampler". Reported as the "engines_external" capability with the fields
+   * below, which are empty for a built-in engine.
+   * </pre>
+   *
+   * <code>string kind = 9 [json_name = "kind"];</code>
+   * @return The kind.
+   */
+  @java.lang.Override
+  public java.lang.String getKind() {
+    java.lang.Object ref = kind_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      kind_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Where the engine comes from: "built-in" for the build's own, else the kind
+   * of the manifest entry that registered it: "tool", "engine", "policy" or
+   * "sampler". Reported as the "engines_external" capability with the fields
+   * below, which are empty for a built-in engine.
+   * </pre>
+   *
+   * <code>string kind = 9 [json_name = "kind"];</code>
+   * @return The bytes for kind.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getKindBytes() {
+    java.lang.Object ref = kind_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      kind_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PROTOCOL_FIELD_NUMBER = 10;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object protocol_ = "";
+  /**
+   * <pre>
+   * How the engine is spoken to: "-" for one built in, "object" for a tool's
+   * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+   * </pre>
+   *
+   * <code>string protocol = 10 [json_name = "protocol"];</code>
+   * @return The protocol.
+   */
+  @java.lang.Override
+  public java.lang.String getProtocol() {
+    java.lang.Object ref = protocol_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      protocol_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * How the engine is spoken to: "-" for one built in, "object" for a tool's
+   * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+   * </pre>
+   *
+   * <code>string protocol = 10 [json_name = "protocol"];</code>
+   * @return The bytes for protocol.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getProtocolBytes() {
+    java.lang.Object ref = protocol_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      protocol_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SOURCE_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object source_ = "";
+  /**
+   * <pre>
+   * The manifest entry the engine was registered from, the command it resolved
+   * to and the version the entry declares.
+   * </pre>
+   *
+   * <code>string source = 11 [json_name = "source"];</code>
+   * @return The source.
+   */
+  @java.lang.Override
+  public java.lang.String getSource() {
+    java.lang.Object ref = source_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      source_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The manifest entry the engine was registered from, the command it resolved
+   * to and the version the entry declares.
+   * </pre>
+   *
+   * <code>string source = 11 [json_name = "source"];</code>
+   * @return The bytes for source.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSourceBytes() {
+    java.lang.Object ref = source_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      source_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int COMMAND_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object command_ = "";
+  /**
+   * <code>string command = 12 [json_name = "command"];</code>
+   * @return The command.
+   */
+  @java.lang.Override
+  public java.lang.String getCommand() {
+    java.lang.Object ref = command_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      command_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string command = 12 [json_name = "command"];</code>
+   * @return The bytes for command.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCommandBytes() {
+    java.lang.Object ref = command_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      command_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int VERSION_FIELD_NUMBER = 13;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object version_ = "";
+  /**
+   * <code>string version = 13 [json_name = "version"];</code>
+   * @return The version.
+   */
+  @java.lang.Override
+  public java.lang.String getVersion() {
+    java.lang.Object ref = version_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      version_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string version = 13 [json_name = "version"];</code>
+   * @return The bytes for version.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getVersionBytes() {
+    java.lang.Object ref = version_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      version_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SERVED_FIELD_NUMBER = 14;
+  private boolean served_ = false;
+  /**
+   * <pre>
+   * True when this service runs the engine for a request that reaches it. A
+   * manifest engine is listed but not served until the service is started with
+   * -serve-external-engines naming it; a request naming one that is not served
+   * is FAILED_PRECONDITION.
+   * </pre>
+   *
+   * <code>bool served = 14 [json_name = "served"];</code>
+   * @return The served.
+   */
+  @java.lang.Override
+  public boolean getServed() {
+    return served_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -450,6 +703,24 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(unavailable_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 8, unavailable_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(kind_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, kind_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(protocol_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 10, protocol_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(source_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, source_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(command_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, command_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(version_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 13, version_);
+    }
+    if (served_ != false) {
+      output.writeBool(14, served_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -495,6 +766,25 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(unavailable_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(8, unavailable_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(kind_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, kind_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(protocol_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(10, protocol_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(source_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, source_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(command_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, command_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(version_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(13, version_);
+    }
+    if (served_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(14, served_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -526,6 +816,18 @@ private static final long serialVersionUID = 0L;
         != other.getReady()) return false;
     if (!getUnavailable()
         .equals(other.getUnavailable())) return false;
+    if (!getKind()
+        .equals(other.getKind())) return false;
+    if (!getProtocol()
+        .equals(other.getProtocol())) return false;
+    if (!getSource()
+        .equals(other.getSource())) return false;
+    if (!getCommand()
+        .equals(other.getCommand())) return false;
+    if (!getVersion()
+        .equals(other.getVersion())) return false;
+    if (getServed()
+        != other.getServed()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -558,6 +860,19 @@ private static final long serialVersionUID = 0L;
         getReady());
     hash = (37 * hash) + UNAVAILABLE_FIELD_NUMBER;
     hash = (53 * hash) + getUnavailable().hashCode();
+    hash = (37 * hash) + KIND_FIELD_NUMBER;
+    hash = (53 * hash) + getKind().hashCode();
+    hash = (37 * hash) + PROTOCOL_FIELD_NUMBER;
+    hash = (53 * hash) + getProtocol().hashCode();
+    hash = (37 * hash) + SOURCE_FIELD_NUMBER;
+    hash = (53 * hash) + getSource().hashCode();
+    hash = (37 * hash) + COMMAND_FIELD_NUMBER;
+    hash = (53 * hash) + getCommand().hashCode();
+    hash = (37 * hash) + VERSION_FIELD_NUMBER;
+    hash = (53 * hash) + getVersion().hashCode();
+    hash = (37 * hash) + SERVED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getServed());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -704,6 +1019,12 @@ private static final long serialVersionUID = 0L;
       processFound_ = "";
       ready_ = false;
       unavailable_ = "";
+      kind_ = "";
+      protocol_ = "";
+      source_ = "";
+      command_ = "";
+      version_ = "";
+      served_ = false;
       return this;
     }
 
@@ -762,6 +1083,24 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000080) != 0)) {
         result.unavailable_ = unavailable_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.kind_ = kind_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.protocol_ = protocol_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.source_ = source_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.command_ = command_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.version_ = version_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.served_ = served_;
       }
     }
 
@@ -824,6 +1163,34 @@ private static final long serialVersionUID = 0L;
         unavailable_ = other.unavailable_;
         bitField0_ |= 0x00000080;
         onChanged();
+      }
+      if (!other.getKind().isEmpty()) {
+        kind_ = other.kind_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (!other.getProtocol().isEmpty()) {
+        protocol_ = other.protocol_;
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
+      if (!other.getSource().isEmpty()) {
+        source_ = other.source_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (!other.getCommand().isEmpty()) {
+        command_ = other.command_;
+        bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      if (!other.getVersion().isEmpty()) {
+        version_ = other.version_;
+        bitField0_ |= 0x00001000;
+        onChanged();
+      }
+      if (other.getServed() != false) {
+        setServed(other.getServed());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -893,6 +1260,36 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000080;
               break;
             } // case 66
+            case 74: {
+              kind_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 82: {
+              protocol_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
+            case 90: {
+              source_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
+            case 98: {
+              command_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
+            case 106: {
+              version_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 106
+            case 112: {
+              served_ = input.readBool();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 112
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1574,7 +1971,8 @@ private static final long serialVersionUID = 0L;
     private boolean ready_ ;
     /**
      * <pre>
-     * True when the engine can run: it needs no process, or its process was found.
+     * True when the engine can run: it is served, and it needs no process or its
+     * process was found.
      * </pre>
      *
      * <code>bool ready = 7 [json_name = "ready"];</code>
@@ -1586,7 +1984,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * True when the engine can run: it needs no process, or its process was found.
+     * True when the engine can run: it is served, and it needs no process or its
+     * process was found.
      * </pre>
      *
      * <code>bool ready = 7 [json_name = "ready"];</code>
@@ -1602,7 +2001,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * True when the engine can run: it needs no process, or its process was found.
+     * True when the engine can run: it is served, and it needs no process or its
+     * process was found.
      * </pre>
      *
      * <code>bool ready = 7 [json_name = "ready"];</code>
@@ -1703,6 +2103,504 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       unavailable_ = value;
       bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object kind_ = "";
+    /**
+     * <pre>
+     * Where the engine comes from: "built-in" for the build's own, else the kind
+     * of the manifest entry that registered it: "tool", "engine", "policy" or
+     * "sampler". Reported as the "engines_external" capability with the fields
+     * below, which are empty for a built-in engine.
+     * </pre>
+     *
+     * <code>string kind = 9 [json_name = "kind"];</code>
+     * @return The kind.
+     */
+    public java.lang.String getKind() {
+      java.lang.Object ref = kind_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        kind_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Where the engine comes from: "built-in" for the build's own, else the kind
+     * of the manifest entry that registered it: "tool", "engine", "policy" or
+     * "sampler". Reported as the "engines_external" capability with the fields
+     * below, which are empty for a built-in engine.
+     * </pre>
+     *
+     * <code>string kind = 9 [json_name = "kind"];</code>
+     * @return The bytes for kind.
+     */
+    public com.google.protobuf.ByteString
+        getKindBytes() {
+      java.lang.Object ref = kind_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        kind_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Where the engine comes from: "built-in" for the build's own, else the kind
+     * of the manifest entry that registered it: "tool", "engine", "policy" or
+     * "sampler". Reported as the "engines_external" capability with the fields
+     * below, which are empty for a built-in engine.
+     * </pre>
+     *
+     * <code>string kind = 9 [json_name = "kind"];</code>
+     * @param value The kind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKind(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      kind_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Where the engine comes from: "built-in" for the build's own, else the kind
+     * of the manifest entry that registered it: "tool", "engine", "policy" or
+     * "sampler". Reported as the "engines_external" capability with the fields
+     * below, which are empty for a built-in engine.
+     * </pre>
+     *
+     * <code>string kind = 9 [json_name = "kind"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearKind() {
+      kind_ = getDefaultInstance().getKind();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Where the engine comes from: "built-in" for the build's own, else the kind
+     * of the manifest entry that registered it: "tool", "engine", "policy" or
+     * "sampler". Reported as the "engines_external" capability with the fields
+     * below, which are empty for a built-in engine.
+     * </pre>
+     *
+     * <code>string kind = 9 [json_name = "kind"];</code>
+     * @param value The bytes for kind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKindBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      kind_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object protocol_ = "";
+    /**
+     * <pre>
+     * How the engine is spoken to: "-" for one built in, "object" for a tool's
+     * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+     * </pre>
+     *
+     * <code>string protocol = 10 [json_name = "protocol"];</code>
+     * @return The protocol.
+     */
+    public java.lang.String getProtocol() {
+      java.lang.Object ref = protocol_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        protocol_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * How the engine is spoken to: "-" for one built in, "object" for a tool's
+     * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+     * </pre>
+     *
+     * <code>string protocol = 10 [json_name = "protocol"];</code>
+     * @return The bytes for protocol.
+     */
+    public com.google.protobuf.ByteString
+        getProtocolBytes() {
+      java.lang.Object ref = protocol_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        protocol_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * How the engine is spoken to: "-" for one built in, "object" for a tool's
+     * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+     * </pre>
+     *
+     * <code>string protocol = 10 [json_name = "protocol"];</code>
+     * @param value The protocol to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProtocol(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      protocol_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How the engine is spoken to: "-" for one built in, "object" for a tool's
+     * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+     * </pre>
+     *
+     * <code>string protocol = 10 [json_name = "protocol"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProtocol() {
+      protocol_ = getDefaultInstance().getProtocol();
+      bitField0_ = (bitField0_ & ~0x00000200);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How the engine is spoken to: "-" for one built in, "object" for a tool's
+     * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+     * </pre>
+     *
+     * <code>string protocol = 10 [json_name = "protocol"];</code>
+     * @param value The bytes for protocol to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProtocolBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      protocol_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object source_ = "";
+    /**
+     * <pre>
+     * The manifest entry the engine was registered from, the command it resolved
+     * to and the version the entry declares.
+     * </pre>
+     *
+     * <code>string source = 11 [json_name = "source"];</code>
+     * @return The source.
+     */
+    public java.lang.String getSource() {
+      java.lang.Object ref = source_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        source_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The manifest entry the engine was registered from, the command it resolved
+     * to and the version the entry declares.
+     * </pre>
+     *
+     * <code>string source = 11 [json_name = "source"];</code>
+     * @return The bytes for source.
+     */
+    public com.google.protobuf.ByteString
+        getSourceBytes() {
+      java.lang.Object ref = source_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        source_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The manifest entry the engine was registered from, the command it resolved
+     * to and the version the entry declares.
+     * </pre>
+     *
+     * <code>string source = 11 [json_name = "source"];</code>
+     * @param value The source to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSource(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      source_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The manifest entry the engine was registered from, the command it resolved
+     * to and the version the entry declares.
+     * </pre>
+     *
+     * <code>string source = 11 [json_name = "source"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSource() {
+      source_ = getDefaultInstance().getSource();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The manifest entry the engine was registered from, the command it resolved
+     * to and the version the entry declares.
+     * </pre>
+     *
+     * <code>string source = 11 [json_name = "source"];</code>
+     * @param value The bytes for source to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSourceBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      source_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object command_ = "";
+    /**
+     * <code>string command = 12 [json_name = "command"];</code>
+     * @return The command.
+     */
+    public java.lang.String getCommand() {
+      java.lang.Object ref = command_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        command_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string command = 12 [json_name = "command"];</code>
+     * @return The bytes for command.
+     */
+    public com.google.protobuf.ByteString
+        getCommandBytes() {
+      java.lang.Object ref = command_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        command_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string command = 12 [json_name = "command"];</code>
+     * @param value The command to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCommand(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      command_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string command = 12 [json_name = "command"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCommand() {
+      command_ = getDefaultInstance().getCommand();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string command = 12 [json_name = "command"];</code>
+     * @param value The bytes for command to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCommandBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      command_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object version_ = "";
+    /**
+     * <code>string version = 13 [json_name = "version"];</code>
+     * @return The version.
+     */
+    public java.lang.String getVersion() {
+      java.lang.Object ref = version_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        version_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string version = 13 [json_name = "version"];</code>
+     * @return The bytes for version.
+     */
+    public com.google.protobuf.ByteString
+        getVersionBytes() {
+      java.lang.Object ref = version_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        version_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string version = 13 [json_name = "version"];</code>
+     * @param value The version to set.
+     * @return This builder for chaining.
+     */
+    public Builder setVersion(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      version_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string version = 13 [json_name = "version"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearVersion() {
+      version_ = getDefaultInstance().getVersion();
+      bitField0_ = (bitField0_ & ~0x00001000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string version = 13 [json_name = "version"];</code>
+     * @param value The bytes for version to set.
+     * @return This builder for chaining.
+     */
+    public Builder setVersionBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      version_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+
+    private boolean served_ ;
+    /**
+     * <pre>
+     * True when this service runs the engine for a request that reaches it. A
+     * manifest engine is listed but not served until the service is started with
+     * -serve-external-engines naming it; a request naming one that is not served
+     * is FAILED_PRECONDITION.
+     * </pre>
+     *
+     * <code>bool served = 14 [json_name = "served"];</code>
+     * @return The served.
+     */
+    @java.lang.Override
+    public boolean getServed() {
+      return served_;
+    }
+    /**
+     * <pre>
+     * True when this service runs the engine for a request that reaches it. A
+     * manifest engine is listed but not served until the service is started with
+     * -serve-external-engines naming it; a request naming one that is not served
+     * is FAILED_PRECONDITION.
+     * </pre>
+     *
+     * <code>bool served = 14 [json_name = "served"];</code>
+     * @param value The served to set.
+     * @return This builder for chaining.
+     */
+    public Builder setServed(boolean value) {
+
+      served_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when this service runs the engine for a request that reaches it. A
+     * manifest engine is listed but not served until the service is started with
+     * -serve-external-engines naming it; a request naming one that is not served
+     * is FAILED_PRECONDITION.
+     * </pre>
+     *
+     * <code>bool served = 14 [json_name = "served"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearServed() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      served_ = false;
       onChanged();
       return this;
     }

@@ -75,13 +75,18 @@ func Explores(selection Selection, schedule runtime.SchedulePolicy) (runtime.Sch
 	return schedule, false
 }
 
-// Select parses a selection and checks that a named engine is registered, so a
-// misspelling is refused where it is written rather than run as a refusal.
+// Select parses a selection and checks that a named engine is registered and served, so a
+// misspelling or a withheld engine is refused where it is written rather than run as a
+// refusal.
 func (r *Registry) Select(text string) (Selection, error) {
 	selection := ParseSelection(text)
 	if selection.Mode == SelectNamed {
-		if _, ok := r.engines[selection.Engine]; !ok {
+		e, ok := r.engines[selection.Engine]
+		if !ok {
 			return selection, &UnknownEngineError{Name: selection.Engine, Known: r.Names()}
+		}
+		if w, withheld := e.(Withheld); withheld {
+			return selection, w.Withheld()
 		}
 	}
 	return selection, nil

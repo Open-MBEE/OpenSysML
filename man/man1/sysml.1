@@ -108,14 +108,16 @@ Evaluate expression and exit (shorthand)
 Analysis engine every check is put to: auto (default) picks the strongest
 engine covering the question, all puts it to every covering engine in name
 order and composes their answers, or an engine by name (run, explore, check,
-sweep, solve, or tool:<name> from OPENSYSML_TOOLS), whose refusal is then the
-answer; \-engine explore is \-schedule explore, and \-engine check searches
-every schedule of each \-action for a violation, deadlock, failure or
-divergence
+sweep, solve, tool:<name> from OPENSYSML_TOOLS, or an external engine from
+OPENSYSML_ENGINES), whose refusal is then the answer; \-engine explore is
+\-schedule explore, and \-engine check searches every schedule of each
+\-action for a violation, deadlock, failure or divergence
 .TP
 .B \-engines
-List the analysis engines this build knows \(em name, authority, the questions
-each answers and whether its process is found \(em and exit
+List the analysis engines this build knows \(em name, kind (built\-in, tool,
+engine, policy, sampler), protocol, authority, the questions each answers and
+whether its process is found \(em with the manifest entry and resolved command
+of each external one, spawning nothing, and exit
 .TP
 .BI \-eval " value"
 Evaluate expression and exit (can be specified multiple times)
@@ -200,6 +202,10 @@ Put the document title on a page of its own (\-doc\-form pdf)
 .TP
 .B \-pdf\-toc
 Write a table of contents ahead of the content (\-doc\-form pdf)
+.TP
+.B \-probe
+With \-engines, also start each external engine once, check its describe
+against its manifest entry field by field and report the outcome as its status
 .TP
 .BI \-query " string"
 Evaluate OSLC Query text against the model instead of running the REPL
@@ -374,8 +380,10 @@ Each check flag may be repeated.
 .SH ANALYSIS ENGINES
 .RS 2
 .nf
-# List the engines, their authority and status
+# List engines, kind and status; nothing runs
 sysml \-engines
+# Also start each external engine once
+sysml \-engines \-probe
 # The same as \-schedule explore
 sysml \-engine explore \-action Drive m.sysml
 # Every engine that covers the question

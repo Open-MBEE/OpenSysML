@@ -141,7 +141,10 @@ type SysMLServiceClient interface {
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
 	// capability, which also names the `engine` request fields and the `engine`,
-	// `strength` and `bounds` response fields of the verification RPCs.
+	// `strength` and `bounds` response fields of the verification RPCs. The
+	// engines registered from manifests are listed with their origin and whether
+	// this service serves them; the "engines_external" capability is advertised
+	// only when it serves at least one.
 	ListEngines(context.Context, *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
@@ -476,7 +479,10 @@ type SysMLServiceHandler interface {
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
 	// capability, which also names the `engine` request fields and the `engine`,
-	// `strength` and `bounds` response fields of the verification RPCs.
+	// `strength` and `bounds` response fields of the verification RPCs. The
+	// engines registered from manifests are listed with their origin and whether
+	// this service serves them; the "engines_external" capability is advertised
+	// only when it serves at least one.
 	ListEngines(context.Context, *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
