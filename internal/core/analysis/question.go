@@ -145,16 +145,16 @@ type SolveAsk struct {
 	Ask     Asking
 }
 
-// HoldsAsk is the behavior a Holds question is about, the condition asked to
+// HoldsAsk is the behavior a Holds question is about, the conditions asked to
 // hold over its schedules, and how one run of it begins in a fresh context.
 type HoldsAsk struct {
 	// Behavior is the action definition or usage whose schedules are asked about.
 	Behavior *symbols.Symbol
 	// Scope is the scope Behavior's body resolves in; Behavior's own when nil.
 	Scope *symbols.Scope
-	// Condition is the requirement or constraint asked to hold at every move;
-	// nil asks only that no schedule deadlocks.
-	Condition *symbols.Symbol
+	// Conditions are the requirements and constraints asked to hold at every
+	// move, each as `-check-property` names it; none asks only that no schedule deadlocks.
+	Conditions []*symbols.Symbol
 	// Start begins one run of Behavior in a fresh context, as an explored run is
 	// begun: the executor made, on the object performing it when there is one.
 	Start Start
@@ -163,6 +163,11 @@ type HoldsAsk struct {
 	Inputs []string
 	// Assume are the constraints or requirements assumed over the initial state.
 	Assume []*symbols.Symbol
+	// Performer names the object performing Behavior, "" when the action runs on
+	// its own; a witness file is named after the subject and it.
+	Performer string
+	// WitnessDir is where a violation's witness is written, "" for nowhere.
+	WitnessDir string
 }
 
 // Start begins one run of a behavior in the given context and returns the executor

@@ -35,24 +35,27 @@ type checks struct {
 	checker      checkerOptions
 }
 
-// checkerOptions are the -check-* flags: what the check engine is asked beside
-// -engine check -action, and the bounds its search runs under.
+// checkerOptions are the -check-* flags: what the check and smt engines are asked
+// beside -engine check -action or -engine smt -action, and the bounds they run under.
 type checkerOptions struct {
 	diverge    stringSlice
 	properties stringSlice
+	inputs     stringSlice
+	assume     stringSlice
 	witness    string
 	depth      positiveCount
 	states     positiveCount
+	unroll     positiveCount
 	timeout    checkTimeout
 }
 
 // given reports whether any -check-* flag was written.
 func (o *checkerOptions) given() bool {
-	return len(o.diverge) > 0 || len(o.properties) > 0 || o.witness != "" ||
-		o.depth.given || o.states.given || o.timeout.given
+	return len(o.diverge) > 0 || len(o.properties) > 0 || len(o.inputs) > 0 || len(o.assume) > 0 ||
+		o.witness != "" || o.depth.given || o.states.given || o.unroll.given || o.timeout.given
 }
 
-// positiveCount is a -check-depth or -check-states value as written: a bound of
+// positiveCount is a -check-depth, -check-states or -check-unroll value as written: a bound of
 // at least one, parsed where a bad value is reported in the caller's own form.
 type positiveCount struct {
 	flag  string
@@ -159,15 +162,16 @@ func (c *checks) requested() bool {
 }
 
 // checkerMisuse reports why the -check-* flags written check nothing under the
-// engine selected, and "" when they check an action: under -engine check always,
-// under -engine all when one of them is written.
+// engine selected, and "" when they check an action: under -engine check or
+// -engine smt always, under -engine all when one of them is written.
 func (c *checks) checkerMisuse(engine string) string {
 	selection := analysis.ParseSelection(engine)
 	checking := selection == analysis.Only(analysis.CheckEngineName) ||
+		selection == analysis.Only(analysis.SMTEngineName) ||
 		selection.Mode == analysis.SelectAll && c.checker.given()
 	switch {
 	case c.checker.given() && !checking:
-		return "-check-diverge, -check-property, -check-witness, -check-depth, -check-states and -check-timeout are the check engine's; select it, as -engine check, or every engine, as -engine all"
+		return "-check-diverge, -check-property, -check-input, -check-assume, -check-witness, -check-depth, -check-states, -check-unroll and -check-timeout are the check and smt engines'; select one, as -engine check or -engine smt, or every engine, as -engine all"
 	case c.checker.given() && len(c.actions) == 0:
 		return "the -check-* flags search an action's schedules; name one, as -action <name>"
 	case checking && c.advance.given:
@@ -304,8 +308,10 @@ func runChecks(files []string, exprs []string, c checks) int {
 	sess := newSession()
 	sess.SetCheckDiverge(c.checker.diverge)
 	sess.SetCheckProperties(c.checker.properties)
+	sess.SetCheckInputs(c.checker.inputs)
+	sess.SetCheckAssume(c.checker.assume)
 	sess.SetCheckWitnessDir(c.checker.witness)
-	sess.SetCheckBounds(c.checker.depth.value, c.checker.states.value, c.checker.timeout.value)
+	sess.SetCheckBounds(c.checker.depth.value, c.checker.states.value, c.checker.unroll.value, c.checker.timeout.value)
 
 	// A checked model may be named as a directory or a glob as well as by file, so
 	// the paths are expanded to the files they stand for before loading.

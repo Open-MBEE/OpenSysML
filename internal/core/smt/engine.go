@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
@@ -12,7 +13,7 @@ import (
 )
 
 // EngineName is the name the engine registers under.
-const EngineName = "smt"
+const EngineName = analysis.SMTEngineName
 
 // DefaultMoves is the move bound k when the budget names no depth.
 const DefaultMoves = 40
@@ -177,11 +178,11 @@ func (r *run) encode() (refusal error, err error) {
 	}
 	r.encoding = encoding
 	r.deadlock = encoding.Deadlock()
-	if r.q.Holds.Condition == nil {
+	if len(r.q.Holds.Conditions) == 0 {
 		r.property = r.deadlock
 		return nil, nil
 	}
-	property, err := encoding.Condition(ctx, r.q.Holds.Condition, r.q.Holds.Scope)
+	property, err := encoding.Conditions(ctx, r.q.Holds.Conditions, r.q.Holds.Scope)
 	if err != nil {
 		return refusalOf(err)
 	}
@@ -425,6 +426,9 @@ func (r *run) witnessed(result *solve.Result, expected outcome) (analysis.Result
 		return analysis.Result{}, err
 	}
 	witness := &analysis.Witness{Schedule: w.policy(), Inputs: w.Inputs, Choices: w.Choices}
+	if witness.Written, err = r.write(w, replayed); err != nil {
+		return analysis.Result{}, err
+	}
 	if replayed.disagreement != "" {
 		out := r.uncovered(replayed.disagreement)
 		out.Witness = witness
@@ -439,12 +443,36 @@ func (r *run) witnessed(result *solve.Result, expected outcome) (analysis.Result
 	return out, nil
 }
 
+// write writes the witness as a file the replay policy reads, when the question
+// names a directory: its inputs and choices, the trace the replay left, and the
+// property or failure it claims. It returns the path, "" when none was written.
+func (r *run) write(w *Witness, p replayed) (string, error) {
+	if r.q.Holds.WitnessDir == "" {
+		return "", nil
+	}
+	file := runtime.Witness{Inputs: w.Inputs, Choices: w.Choices, Trace: p.trace}
+	var violation *runtime.ViolationError
+	switch {
+	case errors.As(p.err, &violation):
+		file.Property = violation.Element
+	case p.err != nil:
+		file.Fails = p.err.Error()
+	}
+	path := filepath.Join(r.q.Holds.WitnessDir, analysis.ViolationFile(r.q.Subject, r.q.Holds.Performer, 1))
+	if err := analysis.WriteWitness(path, file.String()); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
 // replayed is what the interpreter did under a witness: the outcome it reached,
-// the error that is that outcome, and the disagreement when it reached another.
+// the error that is that outcome, the trace it left, and the disagreement when
+// it reached another outcome.
 type replayed struct {
 	outcome      outcome
 	step         int
 	err          error
+	trace        string
 	disagreement string
 }
 
@@ -463,6 +491,16 @@ func (r *run) replay(w *Witness, expected outcome) (replayed, error) {
 	if err := ctx.SetSchedule(w.policy()); err != nil {
 		return replayed{}, err
 	}
+	p, err := r.follow(ctx, w, expected)
+	if tr := ctx.Trace(); err == nil && tr != nil {
+		p.trace = tr.String()
+	}
+	return p, err
+}
+
+// follow steps the behavior in ctx under the witness's schedule up to the state
+// it marks, judging each step against the outcome claimed.
+func (r *run) follow(ctx *runtime.Context, w *Witness, expected outcome) (replayed, error) {
 	claim := fmt.Sprintf("the solver claims %v at move %d", expected, w.Mark)
 	disagree := func(format string, args ...any) (replayed, error) {
 		return replayed{disagreement: claim + "; " + fmt.Sprintf(format, args...)}, nil
@@ -495,11 +533,11 @@ func (r *run) replay(w *Witness, expected outcome) (replayed, error) {
 				return r.reached(ctx, limit, expected, step, err, disagree)
 			}
 		}
-		if r.property.Condition != nil {
-			if ok, err := exec.Holds(r.property.Condition, r.q.Holds.Scope); err != nil {
+		for _, condition := range r.property.Conditions {
+			if ok, err := exec.Holds(condition, r.q.Holds.Scope); err != nil {
 				return r.reached(ctx, limit, expected, step, err, disagree)
 			} else if !ok {
-				return disagree("the interpreter reports %s neither holding nor violated at step %d", r.property.Name, step)
+				return disagree("the interpreter reports %s neither holding nor violated at step %d", condition.Name, step)
 			}
 		}
 		if step >= limit {

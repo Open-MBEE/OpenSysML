@@ -61,7 +61,7 @@ func (d *document) holds(t *testing.T, fqn, condition string) analysis.Question 
 		},
 	}
 	if condition != "" {
-		ask.Condition = lookup(t, d.idx, condition)
+		ask.Conditions = []*symbols.Symbol{lookup(t, d.idx, condition)}
 	}
 	return analysis.Question{Kind: analysis.Holds, Subject: fqn, Free: analysis.FreeSchedule, Holds: ask}
 }
@@ -355,8 +355,8 @@ func TestEngineStartsFromTheValuesHeld(t *testing.T) {
 	behavior := lookup(t, d.idx, "test::A")
 	twenty := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 20}}
 	supplied := analysis.Question{Kind: analysis.Holds, Subject: "test::A", Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{
-		Behavior:  behavior,
-		Condition: lookup(t, d.idx, "test::A::small"),
+		Behavior:   behavior,
+		Conditions: []*symbols.Symbol{lookup(t, d.idx, "test::A::small")},
 		Start: func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
 			return ctx.CreateActionExecutorWithInputs(behavior, nil, map[string]runtime.Value{"x": twenty})
 		},

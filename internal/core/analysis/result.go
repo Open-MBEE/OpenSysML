@@ -226,6 +226,8 @@ type Witness struct {
 	Schedule runtime.SchedulePolicy
 	Inputs   []runtime.InputTaken
 	Choices  []runtime.ChoiceTaken
+	// Written is the file the witness was written to, "" when none was asked for.
+	Written string
 }
 
 // Input is one feature of the behavior or its performer an engine ranged over or
@@ -348,6 +350,10 @@ func (r Result) Table() runtime.SweepTable {
 	return table
 }
 
+// DefaultUnroll is how many iterations of a body loop a symbolic engine unrolls
+// when Budget.Unroll is zero.
+const DefaultUnroll = 4
+
 // Budget is what a run may spend; a zero field is the engine's own default. Runs, Depth and
 // Solver are applied by the engines in their own units, Deadline by Registry.Answer to the
 // plan's context; Steps and Memory name the context's.
@@ -363,7 +369,7 @@ type Budget struct {
 	// Depth is how many moves one run may resolve.
 	Depth int
 	// Unroll is how many iterations of a body loop a symbolic engine unrolls; zero is
-	// the engine's default.
+	// DefaultUnroll.
 	Unroll int
 	// Steps is the step budget of one run, as OPENSYSML_MAX_STEPS names it.
 	Steps int

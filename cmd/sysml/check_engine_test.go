@@ -299,9 +299,9 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, forkModel, "-check-depth", "3", "-action", "Mission::race"),
-		2, "-check-diverge, -check-property, -check-witness, -check-depth, -check-states and -check-timeout are the check engine's; select it, as -engine check, or every engine, as -engine all")
+		2, "-check-diverge, -check-property, -check-input, -check-assume, -check-witness, -check-depth, -check-states, -check-unroll and -check-timeout are the check and smt engines'; select one, as -engine check or -engine smt, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "explore", "-check-depth", "3", "-action", "Mission::race"),
-		2, "select it, as -engine check, or every engine, as -engine all")
+		2, "select one, as -engine check or -engine smt, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-depth", "3"),
 		2, "the -check-* flags search an action's schedules; name one, as -action <name>")
 	wantReport(t, check(t, binary, forkModel, "-engine", "all", "-check-depth", "3"),

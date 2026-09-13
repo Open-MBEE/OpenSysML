@@ -76,7 +76,7 @@ func TestConditionPropertiesFollowTheRun(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			p, err := enc.Condition(ctx, lookup(t, idx, c.name), nil)
+			p, err := enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, c.name)}, nil)
 			if err != nil {
 				t.Fatalf("property: %v", err)
 			}
@@ -135,7 +135,7 @@ func TestConditionReadingNoValueIsUndefined(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
-	p, err := enc.Condition(ctx, lookup(t, idx, "test::A::positive"), nil)
+	p, err := enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::A::positive")}, nil)
 	if err != nil {
 		t.Fatalf("property: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestConditionOverAnObjectIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
-	_, err = enc.Condition(ctx, lookup(t, idx, "test::p::positive"), nil)
+	_, err = enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::p::positive")}, nil)
 	var unsupported *UnsupportedError
 	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
 		t.Fatalf("condition over an object: %v, want an UnsupportedError", err)

@@ -10,6 +10,10 @@ type Registry struct {
 	engines map[string]Engine
 }
 
+// SMTEngineName is the name of the symbolic engine over an SMT solver, which
+// lives outside this package and is registered by the surfaces that hold both.
+const SMTEngineName = "smt"
+
 // NewRegistry returns an empty registry.
 func NewRegistry() *Registry {
 	return &Registry{engines: make(map[string]Engine)}

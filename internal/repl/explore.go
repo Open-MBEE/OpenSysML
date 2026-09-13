@@ -486,12 +486,12 @@ func completedActionOutcome(ctx *runtime.Context, exec *runtime.ActionExecutor, 
 // performer names when it names one; the check engine searches the same schedules
 // beside the exploration where the selection consults it.
 func (s *Session) exploreAction(name string, performer []string) Verdict {
-	ask, run, err := s.checkAsk(name, performer)
+	asks, err := s.actionAsks(name, performer)
 	if err != nil {
 		return unresolvedVerdict(name, err.Error())
 	}
 	policy, _ := s.exploring()
-	return s.checkVerdict(name, policy, analysis.Outcomes, ask, run, s.checkBudget(policy, analysis.Outcomes))
+	return s.checkVerdict(name, policy, analysis.Outcomes, asks, s.checkBudget(policy, analysis.Outcomes))
 }
 
 // exploreStateMachine explores a machine started and, when duration is given,

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // inputsSrc: n is bound by no default, x by one; the requirement holds at the
@@ -86,14 +87,14 @@ func TestFreeInputRangesOverItsDomain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
-	positive, err := enc.Condition(ctx, lookup(t, idx, "test::A::positive"), nil)
+	positive, err := enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::A::positive")}, nil)
 	if err != nil {
 		t.Fatalf("positive: %v", err)
 	}
 	if got := solveStatus(t, solver, enc.Violation(positive)); got != solve.StatusSat {
 		t.Errorf("positive over a free n: %v, want sat (n = -1 violates)", got)
 	}
-	natural, err := enc.Condition(ctx, lookup(t, idx, "test::A::natural"), nil)
+	natural, err := enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::A::natural")}, nil)
 	if err != nil {
 		t.Fatalf("natural: %v", err)
 	}
@@ -103,7 +104,7 @@ func TestFreeInputRangesOverItsDomain(t *testing.T) {
 	if got := solveStatus(t, solver, enc.Failure(natural)); got != solve.StatusUnsat {
 		t.Errorf("failure reading a free Natural: %v, want unsat (it has a value)", got)
 	}
-	fast, err := enc.Condition(ctx, lookup(t, idx, "test::A::fast"), nil)
+	fast, err := enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::A::fast")}, nil)
 	if err != nil {
 		t.Fatalf("fast: %v", err)
 	}
@@ -117,7 +118,7 @@ func TestFreeInputRangesOverItsDomain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
-	natural, err = enc.Condition(ctx, lookup(t, idx, "test::A::natural"), nil)
+	natural, err = enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::A::natural")}, nil)
 	if err != nil {
 		t.Fatalf("natural: %v", err)
 	}
@@ -138,7 +139,7 @@ func TestReleasingABoundInputDropsItsBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
-	positive, err := enc.Condition(ctx, lookup(t, idx, "test::A::positive"), nil)
+	positive, err := enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::A::positive")}, nil)
 	if err != nil {
 		t.Fatalf("positive: %v", err)
 	}
@@ -152,7 +153,7 @@ func TestReleasingABoundInputDropsItsBinding(t *testing.T) {
 	if in := inputByName(t, released, "x"); !in.Free || !in.Released {
 		t.Errorf("x released: free=%v released=%v, want both", in.Free, in.Released)
 	}
-	positive, err = released.Condition(ctx, lookup(t, idx, "test::A::positive"), nil)
+	positive, err = released.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::A::positive")}, nil)
 	if err != nil {
 		t.Fatalf("positive: %v", err)
 	}
