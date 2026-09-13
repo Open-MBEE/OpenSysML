@@ -1,7 +1,14 @@
 // How a diagram action becomes an opensysml/applyModelEdit request: owner,
 // endpoint spelling, the version it is pinned to and refusal wording. No VS
 // Code here, so it is unit-tested.
-import type { ApplyModelEditParams, EditPalette, ModelEditOperation, ModelEditRefusal, RenderNode } from "./protocol";
+import type {
+  ApplyModelEditParams,
+  EditPalette,
+  ModelEditOperation,
+  ModelEditRefusal,
+  RenderNode,
+  RenderOwner,
+} from "./protocol";
 
 /** Rendering is the diagram an action is taken on: its nodes, what they offer to add, and the document version they draw. */
 export interface Rendering {
@@ -41,7 +48,12 @@ export function rootOwner(nodes: RenderNode[]): RenderNode | undefined {
 }
 
 /** DOCUMENT_ROOT stands for the document itself, which owns its top-level declarations; an edit names it by the empty owner. */
-export const DOCUMENT_ROOT: RenderNode = { id: "", kind: "document", name: "", type: "", detail: "", fqn: "" };
+export const DOCUMENT_ROOT: RenderOwner = { fqn: "", feature: false };
+
+/** ownersOf: the namespaces declaring node, nearest first, the document last; undefined for a node the document does not declare. */
+export function ownersOf(node: RenderNode): RenderOwner[] | undefined {
+  return node.fqn === undefined ? undefined : [...(node.owners ?? []), DOCUMENT_ROOT];
+}
 
 /** nameSegments splits a qualified name at `::` outside quotes: `'P::Q'::x` is two segments. */
 export function nameSegments(text: string): string[] {
@@ -64,47 +76,44 @@ export function nameSegments(text: string): string[] {
   return out;
 }
 
-/** oneName: text spells a single name, bare or quoted, not a qualified one. */
-export function oneName(text: string): boolean {
-  return text !== "" && nameSegments(text).length === 1;
-}
-
-/** topLevel: a root node the document declares directly, so it is drawn under its own name. */
-function topLevel(node: RenderNode): boolean {
-  return !node.parent && Boolean(node.fqn) && oneName(node.name);
-}
-
 /**
- * connectionOwner is the nearest declared common ancestor of two nodes, either included;
- * DOCUMENT_ROOT when they share none but both descend from top-level declarations.
+ * connectionOwner is the nearest namespace declaring both nodes, drawn or not, down to
+ * the document itself; undefined when either is not declared in the document.
  */
-export function connectionOwner(from: RenderNode, to: RenderNode, nodes: RenderNode[]): RenderNode | undefined {
-  const fromChain = [from, ...ancestors(from, nodes)];
-  const toChain = [to, ...ancestors(to, nodes)];
-  const toIDs = new Set(toChain.map((node) => node.id));
-  const common = fromChain.find((node) => node.fqn && toIDs.has(node.id));
-  if (common) {
-    return common;
+export function connectionOwner(from: RenderNode, to: RenderNode): RenderOwner | undefined {
+  const fromOwners = ownersOf(from);
+  const toOwners = ownersOf(to);
+  if (!fromOwners || !toOwners) {
+    return undefined;
   }
-  return topLevel(fromChain[fromChain.length - 1]) && topLevel(toChain[toChain.length - 1]) ? DOCUMENT_ROOT : undefined;
+  const shared = new Set(toOwners.map((owner) => owner.fqn));
+  return fromOwners.find((owner) => shared.has(owner.fqn));
 }
 
 /** describeOwner names an owner for a message: its qualified name, or the document for DOCUMENT_ROOT. */
-export function describeOwner(owner: RenderNode): string {
-  return owner === DOCUMENT_ROOT ? "the document" : owner.fqn ?? owner.name;
+export function describeOwner(owner: RenderOwner): string {
+  return owner.fqn === "" ? "the document" : owner.fqn;
 }
 
-/** endpointPath spells a node from owner's scope (`tank.fuelOut`; from DOCUMENT_ROOT, `car.tank.fuelOut`); undefined when it cannot be. */
-export function endpointPath(node: RenderNode, owner: RenderNode, nodes: RenderNode[]): string | undefined {
-  const chain = [node, ...ancestors(node, nodes)];
-  const below = owner === DOCUMENT_ROOT
-    ? (topLevel(chain[chain.length - 1]) ? chain.length : -1)
-    : chain.findIndex((step) => step.id === owner.id);
-  if (below <= 0) {
+/** localName is the last name of a qualified one, as the notation spells it: `'fuel::out'` of `'x::y'::'fuel::out'`. */
+function localName(fqn: string): string {
+  const segments = nameSegments(fqn);
+  return segments[segments.length - 1];
+}
+
+/**
+ * endpointPath spells a node from owner's scope, chaining through a feature by `.` and
+ * into any other namespace by `::` (`tank.fuelOut`; from the document, `Car::tank.fuelOut`);
+ * undefined for the owner itself and for a node outside it.
+ */
+export function endpointPath(node: RenderNode, owner: RenderOwner): string | undefined {
+  const owners = ownersOf(node);
+  const below = owners?.findIndex((step) => step.fqn === owner.fqn) ?? -1;
+  if (!owners || below < 0 || node.fqn === undefined) {
     return undefined;
   }
-  const steps = chain.slice(0, below).map((step) => step.name);
-  return steps.every(oneName) ? steps.reverse().join(".") : undefined;
+  const steps: RenderOwner[] = [{ fqn: node.fqn, feature: false }, ...owners.slice(0, below)].reverse();
+  return steps.map((step, i) => (i === 0 ? "" : steps[i - 1].feature ? "." : "::") + localName(step.fqn)).join("");
 }
 
 /** What the user is told when an action names a rendering that has been replaced. */

@@ -69,13 +69,13 @@ func (m Model) symbolDeletion(r *resolve.Resolver, doc string, sym *symbols.Symb
 		return deletion{}, false
 	}
 	span := symbolSpan(sym)
-	name := m.Index.GetFQN(sym)
+	name := notationName(sym)
 	if sym.Name == "" {
 		name = anonymousName(sym)
 		if doc == m.Source.Name() {
 			name = m.heading(span)
 		}
-		name += " in " + m.namespaceName(r, doc, sym.OwnerScope)
+		name += " in " + m.namespaceName(doc, sym.OwnerScope)
 	}
 	return deletion{node: sym.Decl, span: span, sym: sym, name: name}, true
 }
@@ -216,10 +216,10 @@ func (m Model) referrer(r *resolve.Resolver, doc string, ref resolve.Reference, 
 	switch member := ref.Member.(type) {
 	case *ast.Import:
 		return deletion{node: member, span: member.Span(),
-			name: importName(member) + " in " + m.namespaceName(r, doc, ref.Scope)}, true
+			name: importName(member) + " in " + m.namespaceName(doc, ref.Scope)}, true
 	case *ast.FilterMember:
 		return deletion{node: member, span: member.Span(),
-			name: "the filter in " + m.namespaceName(r, doc, ref.Scope)}, true
+			name: "the filter in " + m.namespaceName(doc, ref.Scope)}, true
 	}
 	return m.symbolDeletion(r, doc, m.symbolContaining(doc, offset))
 }
@@ -264,9 +264,11 @@ func (m Model) heading(span source.Span) string {
 
 // namespaceName names the namespace declaring scope's members: its qualified
 // name, or the document for the root.
-func (m Model) namespaceName(r *resolve.Resolver, doc string, scope *symbols.Scope) string {
-	if fqn := r.ReferringNamespaceFQN(scope); fqn != "" {
-		return fqn
+func (m Model) namespaceName(doc string, scope *symbols.Scope) string {
+	for s := scope; s != nil; s = s.Parent() {
+		if owner := s.Owner(); owner != nil && owner.Name != "" {
+			return notationName(owner)
+		}
 	}
 	return docLabel(doc)
 }

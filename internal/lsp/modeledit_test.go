@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"encoding/json"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -157,12 +158,15 @@ func TestApplyModelEditConnectsRenderedNamesHoldingTheSeparator(t *testing.T) {
 			ports[n.Name] = n
 		}
 	}
-	if owner.Name != "'x::y'" || owner.FQN != "x::y" {
-		t.Fatalf("part rendered as %+v, want name 'x::y' and fqn x::y", owner)
+	if owner.Name != "'x::y'" || owner.FQN != "'x::y'" || len(owner.Owners) != 0 {
+		t.Fatalf("part rendered as %+v, want name and fqn 'x::y' with no owner", owner)
 	}
 	from, ok := ports["'fuel::out'"]
-	if !ok || from.Parent != owner.ID {
+	if !ok || from.Parent != owner.ID || from.FQN != "'x::y'::'fuel::out'" {
 		t.Fatalf("ports rendered as %v, want 'fuel::out' under the part", ports)
+	}
+	if want := []renderOwner{{FQN: "'x::y'", Feature: true}}; !reflect.DeepEqual(from.Owners, want) {
+		t.Fatalf("port owners = %+v, want %+v", from.Owners, want)
 	}
 	op := modelEditOperation{Kind: EditAddConnection, Owner: owner.FQN, MemberKind: "connection",
 		From: from.Name, To: ports["sink"].Name, Name: "'fuel::line'"}
@@ -173,6 +177,72 @@ func TestApplyModelEditConnectsRenderedNamesHoldingTheSeparator(t *testing.T) {
 	got := applyWorkspaceEdit(t, src, out.Edit, docURI)
 	if !strings.Contains(got, "    connection 'fuel::line' connect 'fuel::out' to sink;\n") {
 		t.Errorf("connection not written:\n%s", got)
+	}
+}
+
+// A name holding `::` and a nested name spelling the same joined text are two
+// nodes with two fqns, each of which targets its own declaration.
+func TestRenderTellsNamesHoldingTheSeparatorFromNestedOnes(t *testing.T) {
+	const src = "part def 'x::y';\npackage x {\n    part def y;\n}\n"
+	s, docURI := renderServer(t, "collide.sysml", src)
+	res := render(t, s, docURI, "#tree")
+	fqns := map[string]renderNode{}
+	for _, n := range res.Nodes {
+		fqns[n.FQN] = n
+	}
+	whole, nested := fqns["'x::y'"], fqns["x::y"]
+	if whole.Name != "'x::y'" || len(whole.Owners) != 0 || nested.Name != "x::y" ||
+		!reflect.DeepEqual(nested.Owners, []renderOwner{{FQN: "x"}}) {
+		t.Fatalf("nodes rendered as %+v, want 'x::y' and x::y apart", res.Nodes)
+	}
+	for _, tc := range []struct{ node, want string }{{whole.FQN, "part def Whole;\npackage x {\n    part def y;"}, {nested.FQN, "part def 'x::y';\npackage x {\n    part def Nested;"}} {
+		newName := "Whole"
+		if tc.node == nested.FQN {
+			newName = "Nested"
+		}
+		out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditRename, Target: tc.node, NewName: newName})
+		if out.Edit == nil {
+			t.Fatalf("rename %s: result = %+v, want an edit", tc.node, out)
+		}
+		if got := applyWorkspaceEdit(t, src, out.Edit, docURI); !strings.HasPrefix(got, tc.want) {
+			t.Errorf("rename %s wrote:\n%s\nwant a prefix of:\n%s", tc.node, got, tc.want)
+		}
+	}
+}
+
+// A view exposing two features apart from the declaration holding them draws
+// them as roots; their owners still name that declaration, so a connection
+// between them is written there, spelled from its scope.
+func TestRenderOwnersReachTheDeclarationTheViewLeavesOut(t *testing.T) {
+	const src = "package Vehicle {\n    part def Car {\n        part tank { port fuelOut; }\n        part engine { port fuelIn; }\n    }\n    package Views {\n        view ports {\n            expose Vehicle::Car::tank;\n            expose Vehicle::Car::engine;\n        }\n    }\n}\n"
+	s, docURI := renderServer(t, "siblings.sysml", src)
+	res := render(t, s, docURI, "Vehicle::Views::ports")
+	fqns := map[string]renderNode{}
+	for _, n := range res.Nodes {
+		fqns[n.FQN] = n
+	}
+	fuelOut, fuelIn := fqns["Vehicle::Car::tank::fuelOut"], fqns["Vehicle::Car::engine::fuelIn"]
+	if fuelOut.ID == "" || fuelIn.ID == "" || fqns["Vehicle::Car"].ID != "" {
+		t.Fatalf("nodes rendered as %+v, want the ports without Car", res.Nodes)
+	}
+	if fqns[fuelOut.Owners[0].FQN].Parent != "" {
+		t.Fatalf("tank rendered as %+v, want a root", fqns[fuelOut.Owners[0].FQN])
+	}
+	want := []renderOwner{{FQN: "Vehicle::Car::tank", Feature: true}, {FQN: "Vehicle::Car"}, {FQN: "Vehicle"}}
+	if !reflect.DeepEqual(fuelOut.Owners, want) {
+		t.Fatalf("fuelOut owners = %+v, want %+v", fuelOut.Owners, want)
+	}
+	if fuelIn.Owners[1] != want[1] {
+		t.Fatalf("fuelIn owners = %+v, want Car second", fuelIn.Owners)
+	}
+	op := modelEditOperation{Kind: EditAddConnection, Owner: want[1].FQN, MemberKind: "connection",
+		From: "tank.fuelOut", To: "engine.fuelIn", Name: "fuelLine"}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Edit == nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	if got := applyWorkspaceEdit(t, src, out.Edit, docURI); !strings.Contains(got, "        part engine { port fuelIn; }\n        connection fuelLine connect tank.fuelOut to engine.fuelIn;\n    }\n") {
+		t.Errorf("connection not written in Car:\n%s", got)
 	}
 }
 

@@ -11,20 +11,25 @@ import {
   endpointPath,
   nameSegments,
   offeredOn,
-  oneName,
   ownerOf,
+  ownersOf,
   rootOwner,
   validName,
 } from "./edits";
-import type { ModelEditOperation, RenderNode } from "./protocol";
+import type { ModelEditOperation, RenderNode, RenderOwner } from "./protocol";
 
 // The interconnection rendering of
 //   package Vehicle { part def Car { part tank { port fuelOut; } part engine { port fuelIn; } } }
-const car: RenderNode = { id: "n1", kind: "part def", name: "Vehicle::Car", type: "", detail: "", fqn: "Vehicle::Car" };
-const tank: RenderNode = { id: "n2", kind: "part", name: "tank", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::tank" };
-const fuelOut: RenderNode = { id: "n3", kind: "port", name: "fuelOut", type: "", detail: "", parent: "n2", fqn: "Vehicle::Car::tank::fuelOut" };
-const engine: RenderNode = { id: "n4", kind: "part", name: "engine", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::engine" };
-const fuelIn: RenderNode = { id: "n5", kind: "port", name: "fuelIn", type: "", detail: "", parent: "n4", fqn: "Vehicle::Car::engine::fuelIn" };
+// Each declared node carries the namespaces declaring it, nearest first, whether drawn or not.
+const vehicle: RenderOwner = { fqn: "Vehicle", feature: false };
+const carOwner: RenderOwner = { fqn: "Vehicle::Car", feature: false };
+const tankOwner: RenderOwner = { fqn: "Vehicle::Car::tank", feature: true };
+const engineOwner: RenderOwner = { fqn: "Vehicle::Car::engine", feature: true };
+const car: RenderNode = { id: "n1", kind: "part def", name: "Vehicle::Car", type: "", detail: "", fqn: "Vehicle::Car", owners: [vehicle] };
+const tank: RenderNode = { id: "n2", kind: "part", name: "tank", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::tank", owners: [carOwner, vehicle] };
+const fuelOut: RenderNode = { id: "n3", kind: "port", name: "fuelOut", type: "", detail: "", parent: "n2", fqn: "Vehicle::Car::tank::fuelOut", owners: [tankOwner, carOwner, vehicle] };
+const engine: RenderNode = { id: "n4", kind: "part", name: "engine", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::engine", owners: [carOwner, vehicle] };
+const fuelIn: RenderNode = { id: "n5", kind: "port", name: "fuelIn", type: "", detail: "", parent: "n4", fqn: "Vehicle::Car::engine::fuelIn", owners: [engineOwner, carOwner, vehicle] };
 // A node drawn from a library the document does not declare: no fqn.
 const imported: RenderNode = { id: "n6", kind: "part", name: "wheel", type: "Wheel", detail: "", parent: "n1" };
 const nodes = [car, tank, fuelOut, engine, fuelIn, imported];
@@ -51,81 +56,105 @@ test("ownerOf climbs past a node the document does not declare", () => {
 
 test("rootOwner is the single declared root, or nothing", () => {
   assert.equal(rootOwner(nodes), car);
-  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike" };
+  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike", owners: [vehicle] };
   assert.equal(rootOwner([...nodes, other]), undefined);
   assert.equal(rootOwner([imported]), undefined);
 });
 
-test("connectionOwner is the nearest common ancestor", () => {
-  assert.equal(connectionOwner(fuelOut, fuelIn, nodes), car);
-  assert.equal(connectionOwner(tank, engine, nodes), car);
+test("ownersOf ends at the document, and is nothing for a node the document does not declare", () => {
+  assert.deepEqual(ownersOf(fuelOut), [tankOwner, carOwner, vehicle, DOCUMENT_ROOT]);
+  assert.deepEqual(ownersOf({ ...car, owners: undefined }), [DOCUMENT_ROOT]);
+  assert.equal(ownersOf(imported), undefined);
 });
 
-test("connectionOwner is the container when one end contains the other", () => {
-  assert.equal(connectionOwner(tank, fuelOut, nodes), tank);
-  assert.equal(connectionOwner(fuelOut, tank, nodes), tank);
+test("connectionOwner is the nearest namespace declaring both ends", () => {
+  assert.deepEqual(connectionOwner(fuelOut, fuelIn), carOwner);
+  assert.deepEqual(connectionOwner(tank, engine), carOwner);
 });
 
-test("connectionOwner is nothing for unrelated roots the document does not declare", () => {
-  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike" };
-  assert.equal(connectionOwner(car, other, [...nodes, other]), undefined);
+test("connectionOwner is the namespace declaring the container when one end contains the other", () => {
+  assert.deepEqual(connectionOwner(tank, fuelOut), carOwner);
+  assert.deepEqual(connectionOwner(fuelOut, tank), carOwner);
+  assert.equal(endpointPath(tank, carOwner), "tank");
+  assert.equal(endpointPath(fuelOut, carOwner), "tank.fuelOut");
+});
+
+test("connectionOwner reaches the package two roots are declared in", () => {
+  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike", owners: [vehicle] };
+  assert.deepEqual(connectionOwner(car, other), vehicle);
+});
+
+test("connectionOwner is nothing when an end is not declared by the document", () => {
+  assert.equal(connectionOwner(fuelOut, imported), undefined);
+  assert.equal(connectionOwner(imported, fuelOut), undefined);
+});
+
+// The interconnection rendering of a view exposing Vehicle::Car::tank and
+// Vehicle::Car::engine: both are drawn as roots, Car is not drawn at all, yet
+// their owners still name it.
+const exposedTank: RenderNode = { ...tank, id: "e1", parent: undefined };
+const exposedFuelOut: RenderNode = { ...fuelOut, id: "e2", parent: "e1" };
+const exposedEngine: RenderNode = { ...engine, id: "e3", parent: undefined };
+const exposedFuelIn: RenderNode = { ...fuelIn, id: "e4", parent: "e3" };
+
+test("connectionOwner finds the declaration exposed siblings share even when it is not drawn", () => {
+  assert.deepEqual(connectionOwner(exposedFuelOut, exposedFuelIn), carOwner);
+  assert.deepEqual(connectionOwner(exposedTank, exposedEngine), carOwner);
+  assert.equal(endpointPath(exposedFuelOut, carOwner), "tank.fuelOut");
+  assert.equal(endpointPath(exposedEngine, carOwner), "engine");
 });
 
 // The tree rendering of
 //   part pump { port outlet; } part tank { port inlet; }
+const pumpOwner: RenderOwner = { fqn: "pump", feature: true };
+const topTankOwner: RenderOwner = { fqn: "tank", feature: true };
 const pump: RenderNode = { id: "r1", kind: "part", name: "pump", type: "", detail: "", fqn: "pump" };
-const outlet: RenderNode = { id: "r2", kind: "port", name: "outlet", type: "", detail: "", parent: "r1", fqn: "pump::outlet" };
+const outlet: RenderNode = { id: "r2", kind: "port", name: "outlet", type: "", detail: "", parent: "r1", fqn: "pump::outlet", owners: [pumpOwner] };
 const topTank: RenderNode = { id: "r3", kind: "part", name: "tank", type: "", detail: "", fqn: "tank" };
-const inlet: RenderNode = { id: "r4", kind: "port", name: "inlet", type: "", detail: "", parent: "r3", fqn: "tank::inlet" };
-const topLevelNodes = [pump, outlet, topTank, inlet];
+const inlet: RenderNode = { id: "r4", kind: "port", name: "inlet", type: "", detail: "", parent: "r3", fqn: "tank::inlet", owners: [topTankOwner] };
 
 test("connectionOwner is the document root for two top-level declarations", () => {
-  assert.equal(connectionOwner(pump, topTank, topLevelNodes), DOCUMENT_ROOT);
-  assert.equal(connectionOwner(outlet, inlet, topLevelNodes), DOCUMENT_ROOT);
-  assert.equal(connectionOwner(outlet, topTank, topLevelNodes), DOCUMENT_ROOT);
+  assert.deepEqual(connectionOwner(pump, topTank), DOCUMENT_ROOT);
+  assert.deepEqual(connectionOwner(outlet, inlet), DOCUMENT_ROOT);
+  assert.deepEqual(connectionOwner(outlet, topTank), DOCUMENT_ROOT);
 });
 
-test("connectionOwner prefers a declared common ancestor to the document root", () => {
-  assert.equal(connectionOwner(outlet, pump, topLevelNodes), pump);
+test("connectionOwner prefers a declared common owner to the document root", () => {
+  assert.deepEqual(connectionOwner(outlet, { ...inlet, owners: [pumpOwner] }), pumpOwner);
+  assert.deepEqual(connectionOwner(outlet, pump), DOCUMENT_ROOT);
 });
 
 test("connectionOwner is nothing when a root is not declared by the document", () => {
   const library: RenderNode = { id: "r5", kind: "part", name: "lib", type: "", detail: "" };
-  assert.equal(connectionOwner(pump, library, [...topLevelNodes, library]), undefined);
-  assert.equal(connectionOwner(pump, car, [...topLevelNodes, car]), undefined);
+  assert.equal(connectionOwner(pump, library), undefined);
 });
 
 test("DOCUMENT_ROOT is named by the empty owner and described as the document", () => {
-  assert.equal(DOCUMENT_ROOT.fqn ?? "", "");
+  assert.equal(DOCUMENT_ROOT.fqn, "");
   assert.equal(describeOwner(DOCUMENT_ROOT), "the document");
-  assert.equal(describeOwner(car), "Vehicle::Car");
+  assert.equal(describeOwner(carOwner), "Vehicle::Car");
 });
 
 test("endpointPath spells the feature chain below the owner", () => {
-  assert.equal(endpointPath(fuelOut, car, nodes), "tank.fuelOut");
-  assert.equal(endpointPath(tank, car, nodes), "tank");
-  assert.equal(endpointPath(fuelOut, tank, nodes), "fuelOut");
+  assert.equal(endpointPath(fuelOut, carOwner), "tank.fuelOut");
+  assert.equal(endpointPath(tank, carOwner), "tank");
+  assert.equal(endpointPath(fuelOut, tankOwner), "fuelOut");
 });
 
 test("endpointPath refuses the owner itself and a node outside it", () => {
-  assert.equal(endpointPath(car, car, nodes), undefined);
-  assert.equal(endpointPath(fuelIn, tank, nodes), undefined);
+  assert.equal(endpointPath(car, carOwner), undefined);
+  assert.equal(endpointPath(fuelIn, tankOwner), undefined);
+  assert.equal(endpointPath(imported, carOwner), undefined);
 });
 
 test("endpointPath from the document root spells the whole chain", () => {
-  assert.equal(endpointPath(outlet, DOCUMENT_ROOT, topLevelNodes), "pump.outlet");
-  assert.equal(endpointPath(topTank, DOCUMENT_ROOT, topLevelNodes), "tank");
+  assert.equal(endpointPath(outlet, DOCUMENT_ROOT), "pump.outlet");
+  assert.equal(endpointPath(topTank, DOCUMENT_ROOT), "tank");
 });
 
-test("endpointPath from the document root refuses a chain the document does not declare", () => {
-  assert.equal(endpointPath(fuelOut, DOCUMENT_ROOT, nodes), undefined);
-  assert.equal(endpointPath(DOCUMENT_ROOT, DOCUMENT_ROOT, topLevelNodes), undefined);
-});
-
-test("endpointPath refuses a step that has no name", () => {
-  const anonymous: RenderNode = { id: "n8", kind: "part", name: "", type: "T", detail: "", parent: "n1", fqn: "Vehicle::Car::part1" };
-  const inner: RenderNode = { id: "n9", kind: "port", name: "p", type: "", detail: "", parent: "n8" };
-  assert.equal(endpointPath(inner, car, [...nodes, anonymous, inner]), undefined);
+test("endpointPath steps into a namespace that is not a feature by ::", () => {
+  assert.equal(endpointPath(fuelOut, DOCUMENT_ROOT), "Vehicle::Car::tank.fuelOut");
+  assert.equal(endpointPath(fuelOut, vehicle), "Car::tank.fuelOut");
 });
 
 test("nameSegments splits at :: outside quotes only", () => {
@@ -136,40 +165,32 @@ test("nameSegments splits at :: outside quotes only", () => {
   assert.deepEqual(nameSegments(""), [""]);
 });
 
-test("oneName accepts a bare or quoted name and refuses a qualified or empty one", () => {
-  assert.equal(oneName("tank"), true);
-  assert.equal(oneName("'a b'"), true);
-  assert.equal(oneName("'fuel::out'"), true);
-  assert.equal(oneName("Vehicle::Car"), false);
-  assert.equal(oneName("'P::Q'::tank"), false);
-  assert.equal(oneName(""), false);
-});
-
 // The tree rendering of
-//   part 'x::y' { port 'fuel::out'; } part def 'Top Def' { port in1; }
-// The server writes each node's name as the notation does, quoted when it must be.
-const quotedPart: RenderNode = { id: "q1", kind: "part", name: "'x::y'", type: "", detail: "", fqn: "x::y" };
-const quotedPort: RenderNode = { id: "q2", kind: "port", name: "'fuel::out'", type: "", detail: "", parent: "q1", fqn: "x::y::fuel::out" };
-const quotedDef: RenderNode = { id: "q3", kind: "part def", name: "'Top Def'", type: "", detail: "", fqn: "Top Def" };
-const quotedIn: RenderNode = { id: "q4", kind: "port", name: "in1", type: "", detail: "", parent: "q3", fqn: "Top Def::in1" };
-const quotedNodes = [quotedPart, quotedPort, quotedDef, quotedIn];
+//   part 'x::y' { port 'fuel::out'; } part def 'Top Def' { port in1; } package x { part y; }
+// The server quotes each name of an fqn on its own, so 'x::y' and x::y stay apart.
+const quotedPartOwner: RenderOwner = { fqn: "'x::y'", feature: true };
+const quotedDefOwner: RenderOwner = { fqn: "'Top Def'", feature: false };
+const quotedPart: RenderNode = { id: "q1", kind: "part", name: "'x::y'", type: "", detail: "", fqn: "'x::y'" };
+const quotedPort: RenderNode = { id: "q2", kind: "port", name: "'fuel::out'", type: "", detail: "", parent: "q1", fqn: "'x::y'::'fuel::out'", owners: [quotedPartOwner] };
+const quotedDef: RenderNode = { id: "q3", kind: "part def", name: "'Top Def'", type: "", detail: "", fqn: "'Top Def'" };
+const quotedIn: RenderNode = { id: "q4", kind: "port", name: "in1", type: "", detail: "", parent: "q3", fqn: "'Top Def'::in1", owners: [quotedDefOwner] };
+const nestedY: RenderNode = { id: "q6", kind: "part", name: "y", type: "", detail: "", parent: "q5", fqn: "x::y", owners: [{ fqn: "x", feature: false }] };
 
 test("endpointPath keeps a quoted name holding :: as one step", () => {
-  assert.equal(endpointPath(quotedPort, quotedPart, quotedNodes), "'fuel::out'");
-  assert.equal(endpointPath(quotedPort, DOCUMENT_ROOT, quotedNodes), "'x::y'.'fuel::out'");
-  assert.equal(endpointPath(quotedIn, DOCUMENT_ROOT, quotedNodes), "'Top Def'.in1");
+  assert.equal(endpointPath(quotedPort, quotedPartOwner), "'fuel::out'");
+  assert.equal(endpointPath(quotedPort, DOCUMENT_ROOT), "'x::y'.'fuel::out'");
+  assert.equal(endpointPath(quotedIn, DOCUMENT_ROOT), "'Top Def'::in1");
+  assert.equal(endpointPath(nestedY, DOCUMENT_ROOT), "x::y");
 });
 
 test("connectionOwner takes a quoted top-level name holding :: as the document's", () => {
-  assert.equal(connectionOwner(quotedPort, quotedIn, quotedNodes), DOCUMENT_ROOT);
-  assert.equal(connectionOwner(quotedPart, quotedDef, quotedNodes), DOCUMENT_ROOT);
+  assert.deepEqual(connectionOwner(quotedPort, quotedIn), DOCUMENT_ROOT);
+  assert.deepEqual(connectionOwner(quotedPart, quotedDef), DOCUMENT_ROOT);
 });
 
-test("endpointPath still refuses a root drawn under a qualified name", () => {
-  const nested: RenderNode = { id: "q5", kind: "part", name: "'P::Q'::tank", type: "", detail: "", fqn: "P::Q::tank" };
-  const port: RenderNode = { id: "q6", kind: "port", name: "p", type: "", detail: "", parent: "q5", fqn: "P::Q::tank::p" };
-  assert.equal(endpointPath(port, DOCUMENT_ROOT, [nested, port]), undefined);
-  assert.equal(connectionOwner(port, quotedIn, [nested, port, ...quotedNodes]), undefined);
+test("connectionOwner tells 'x::y' from x::y", () => {
+  assert.deepEqual(connectionOwner(quotedPort, nestedY), DOCUMENT_ROOT);
+  assert.deepEqual(connectionOwner(quotedPort, { ...quotedPort, id: "q7", name: "sink", fqn: "'x::y'::sink" }), quotedPartOwner);
 });
 
 test("editParams asks for the version the rendering drew, not the buffer's", () => {

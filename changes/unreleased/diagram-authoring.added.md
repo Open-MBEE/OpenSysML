@@ -19,8 +19,9 @@
   fault, a stable failure name, the diagnostics the edited text would have had and the declarations
   still referring to a target. A delete or rename that another document of the workspace refers to
   is refused as `referenced-elsewhere` rather than applied to the one document the edit rewrites. The server advertises it as `experimental.openSysmlApplyModelEdit`.
-  `opensysml/render` now gives each node its qualified name (`fqn`) for the request to target, and a
-  `palette` naming the member and connection kinds a diagram of that kind offers and, for a member
+  `opensysml/render` now gives each node its qualified name (`fqn`) for the request to target, the
+  namespaces declaring it (`owners`) so a connection between nodes a view draws apart still goes into
+  the declaration they share, and a `palette` naming the member and connection kinds a diagram of that kind offers and, for a member
   only some bodies declare, the nodes it may go into.
 - **Source-preserving connection edits.** `internal/core/edit` gains `OpAddConnection`, which writes
   a `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML:

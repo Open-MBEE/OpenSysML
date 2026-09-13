@@ -13,6 +13,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/core/edit"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -308,6 +309,26 @@ func palette(kind view.Kind, lang source.Kind) *editPalette {
 		p.Owners[kind] = []string{}
 	}
 	return p
+}
+
+// nodeOwners lists the namespaces declaring sym, nearest first, as an edit names
+// them; false when an unnamed one intervenes, which no qualified name reaches.
+func nodeOwners(sym *symbols.Symbol) ([]renderOwner, bool) {
+	owners := []renderOwner{}
+	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
+		owner := scope.Owner()
+		if owner.Name == "" {
+			return nil, false
+		}
+		owners = append(owners, renderOwner{FQN: notationName(owner), Feature: owner.IsFeature()})
+	}
+	return owners, true
+}
+
+// notationName spells sym's qualified name as the notation does, each name
+// quoted on its own, which is how opensysml/applyModelEdit reads a target.
+func notationName(sym *symbols.Symbol) string {
+	return lexer.QualifiedNameOf(symbols.NameChain(sym))
 }
 
 // nodeSymbol is the declaration a rendering node was built from, as an edit

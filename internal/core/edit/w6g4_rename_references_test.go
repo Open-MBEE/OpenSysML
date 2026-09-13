@@ -443,3 +443,29 @@ func TestRenameRefusesWhenAnotherDocumentWritesTheName(t *testing.T) {
 		t.Fatalf("rename of an unreferenced name refused:\n%s", got.Content)
 	}
 }
+
+// A name holding `::` and a nested name spelling the same joined text are two
+// targets: the notation tells them apart, quoted against qualified.
+func TestTargetsSpellNamesHoldingTheSeparatorApart(t *testing.T) {
+	const src = "part def 'x::y';\npackage x {\n\tpart def y;\n}\n"
+	got := renamed(t, "separator.sysml", src, "'x::y'", "Whole")
+	if !strings.HasPrefix(got, "part def Whole;\npackage x {\n\tpart def y;") {
+		t.Fatalf("renaming 'x::y' rewrote the wrong declaration:\n%s", got)
+	}
+	got = renamed(t, "separator.sysml", src, "x::y", "Nested")
+	if !strings.HasPrefix(got, "part def 'x::y';\npackage x {\n\tpart def Nested;") {
+		t.Fatalf("renaming x::y rewrote the wrong declaration:\n%s", got)
+	}
+	m := loadContent(t, "separator.sysml", src)
+	res := applyOne(t, m, AddMember("x", "part def", "Inner"))
+	if !strings.Contains(string(res.Content), "package x {\n\tpart def y;\n\tpart def Inner;\n}") {
+		t.Fatalf("adding to x missed the package:\n%s", res.Content)
+	}
+	res = applyOne(t, m, AddMember("'x::y'", "attribute", "n"))
+	if got := string(res.Content); !strings.HasPrefix(got, "part def 'x::y' {") || !strings.Contains(got, "package x {\n\tpart def y;\n}") {
+		t.Fatalf("adding to 'x::y' missed the definition:\n%s", got)
+	}
+	if _, err := Apply(m, []Operation{Delete("x::", false)}); editError(t, err).Failure != FailureUnknownTarget {
+		t.Fatalf("a malformed target was not unknown: %v", err)
+	}
+}

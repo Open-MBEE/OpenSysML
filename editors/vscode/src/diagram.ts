@@ -8,7 +8,6 @@ import {
   editParams,
   endpointPath,
   offeredOn,
-  oneName,
   ownerOf,
   REDRAWN_MESSAGE,
   Rendering,
@@ -460,12 +459,12 @@ class DiagramPanel {
     if (!to) {
       return undefined;
     }
-    const owner = connectionOwner(from, to, rendering.nodes);
+    const owner = connectionOwner(from, to);
     if (!owner) {
-      void vscode.window.showErrorMessage(`${from.name} and ${to.name} share no declaration to write the ${connectionKind} in.`);
+      void vscode.window.showErrorMessage(`${from.name} and ${to.name} are not both declared in this document, so no ${connectionKind} can join them here.`);
       return undefined;
     }
-    const ends = [endpointPath(from, owner, rendering.nodes), endpointPath(to, owner, rendering.nodes)];
+    const ends = [endpointPath(from, owner), endpointPath(to, owner)];
     if (!ends[0] || !ends[1]) {
       void vscode.window.showErrorMessage(`A ${connectionKind} needs two named features below ${describeOwner(owner)}.`);
       return undefined;
@@ -480,7 +479,7 @@ class DiagramPanel {
     }
     return [{
       kind: "addConnection",
-      owner: owner.fqn ?? "",
+      owner: owner.fqn,
       memberKind: connectionKind,
       from: ends[0],
       to: ends[1],
@@ -540,7 +539,7 @@ class DiagramPanel {
     rendering: Rendering,
     title: string,
     except: RenderNode | undefined,
-    keep: (node: RenderNode) => boolean = (node) => oneName(node.name),
+    keep: (node: RenderNode) => boolean = (node) => node.fqn !== undefined,
   ): Promise<RenderNode | undefined> {
     const items = rendering.nodes
       .filter((node) => node !== except && keep(node))

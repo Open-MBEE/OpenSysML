@@ -14,7 +14,6 @@ package view
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -494,23 +493,11 @@ func (r *Renderer) fqn(sym *symbols.Symbol) string {
 // notationName is a symbol's qualified name as the notation writes it, each
 // segment quoted on its own from the owner chain, since a name may hold `::`.
 func (r *Renderer) notationName(sym *symbols.Symbol) string {
-	if sym == nil {
+	names := symbols.NameChain(sym)
+	if len(names) == 0 || len(names) == 1 && names[0] == "" {
 		return ""
 	}
-	segments := []string{sym.Name}
-	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
-		if owner := scope.Owner(); owner.Name != "" {
-			segments = append(segments, owner.Name)
-		}
-	}
-	if len(segments) == 1 && segments[0] == "" {
-		return ""
-	}
-	slices.Reverse(segments)
-	for i, segment := range segments {
-		segments[i] = lexer.NameText(segment)
-	}
-	return strings.Join(segments, "::")
+	return lexer.QualifiedNameOf(names)
 }
 
 // localName is a symbol's own name as the notation writes it, empty for an

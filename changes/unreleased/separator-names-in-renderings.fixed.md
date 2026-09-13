@@ -4,4 +4,7 @@
   `y` in `x`. The tree, interconnection, sequence and table renderings, the REPL's `%render` and
   `%view`, the `opensysml/render` LSP result and the VS Code diagram now spell each segment from the
   declaration's owner chain, so `'x::y'` and `'fuel::out'` are one name each, and a connection
-  added from the diagram between such ports names the port that is there.
+  added from the diagram between such ports names the port that is there. The qualified name a
+  rendering hands a client to edit by, and the one `opensysml/applyModelEdit` reads, quote each name
+  on its own too, so a top-level `part def 'x::y'` and a `part def y` in `package x` are two
+  targets rather than one.

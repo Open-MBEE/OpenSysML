@@ -12,7 +12,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
@@ -60,7 +59,8 @@ type renderResult struct {
 
 // renderNode is one node of a rendering, with the range of the declaration it
 // was built from when there is one, and its position when a Layout gives one.
-// FQN names that declaration the way opensysml/applyModelEdit targets it.
+// FQN names that declaration the way opensysml/applyModelEdit targets it, and
+// Owners the namespaces declaring it, nearest first, drawn or not.
 type renderNode struct {
 	ID        string        `json:"id"`
 	Kind      string        `json:"kind"`
@@ -69,12 +69,20 @@ type renderNode struct {
 	Detail    string        `json:"detail"`
 	Parent    string        `json:"parent,omitempty"`
 	FQN       string        `json:"fqn,omitempty"`
+	Owners    []renderOwner `json:"owners,omitempty"`
 	Origin    *renderOrigin `json:"origin,omitempty"`
 	X         *float64      `json:"x,omitempty"`
 	Y         *float64      `json:"y,omitempty"`
 	Width     *float64      `json:"width,omitempty"`
 	Height    *float64      `json:"height,omitempty"`
 	Collapsed bool          `json:"collapsed,omitempty"`
+}
+
+// renderOwner is a namespace declaring a node: its qualified name, and whether
+// it is a feature, which an end path chains through with `.` rather than `::`.
+type renderOwner struct {
+	FQN     string `json:"fqn"`
+	Feature bool   `json:"feature"`
 }
 
 // renderEdge is one edge of a rendering, located at the connector, transition,
@@ -254,9 +262,12 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		}
 		if node.Origin.Doc == name {
 			if sym := nodeSymbol(doc.Scope, node.Origin); sym != nil {
-				n.FQN = symbols.FQNOf(sym)
-				if out.Palette != nil {
-					out.Palette.admit(node.ID, sym.Decl)
+				if owners, ok := nodeOwners(sym); ok {
+					n.FQN = notationName(sym)
+					n.Owners = owners
+					if out.Palette != nil {
+						out.Palette.admit(node.ID, sym.Decl)
+					}
 				}
 			}
 		}

@@ -65,7 +65,15 @@ export interface RenderNode {
   parent?: string;
   /** The qualified name a model edit targets the declaration by; absent for a node with none in this document. */
   fqn?: string;
+  /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
+  owners?: RenderOwner[];
   origin?: RenderOrigin;
+}
+
+/** RenderOwner is a namespace declaring a node: its qualified name, and whether it is a feature an end path chains through with `.`. */
+export interface RenderOwner {
+  fqn: string;
+  feature: boolean;
 }
 
 export interface RenderEdge {

@@ -206,10 +206,9 @@ func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
 	if fqn == "" {
 		return m.Root, rootScope, nil
 	}
-	syms := m.Index.LookupQualifiedFrom(fqn, fqn)
 	var local *symbols.Symbol
-	for _, sym := range syms {
-		if sym != nil && m.Index.GetFQN(sym) == fqn && sym.DocName == m.Source.Name() {
+	for _, sym := range m.declared(fqn) {
+		if sym.DocName == m.Source.Name() {
 			if local != nil {
 				return nil, nil, &Error{Failure: FailureAmbiguousTarget,
 					Message: fmt.Sprintf("%q names several declarations", fqn)}
