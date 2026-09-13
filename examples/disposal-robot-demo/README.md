@@ -122,11 +122,17 @@ the model into a directory.
 ```
 
 ```
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
 %% RobotViews::interfaces — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["part def Robot::Platform"]
-    n3["part battery (Battery)"]
-    n5["part mobility (Mobility)"]
+  subgraph n0 ["Robot::Platform<br>«part def»"]
+    n3["battery : Battery<br>«part»"]
+    n5["mobility : Mobility<br>«part»"]
     …
   end
   n3 ---|"drivePower"| n5

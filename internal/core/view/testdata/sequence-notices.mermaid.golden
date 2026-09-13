@@ -4,7 +4,7 @@
 %% not represented: message pending states no source and target; no message is drawn
 %% not represented: message adrift attaches to monitor.tapped, which is on no lifeline the rendering shows; no message is drawn
 sequenceDiagram
-  participant n0 as part caller
-  participant n1 as part callee
+  participant n0 as caller<br>«part»
+  participant n1 as callee<br>«part»
   n0->>n0: echo
   n0->>n1: of Ping

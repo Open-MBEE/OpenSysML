@@ -5,11 +5,11 @@
 digraph "PlantViews::loopView" {
   node [shape=box];
   subgraph "cluster_n0" {
-    label="part def Plant::Loop";
+    label=<<b>Plant::Loop</b><br/><font point-size="10">«part def»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label="part pump\nPump"];
-    "n2" [label="part tank\nTank"];
-    "n3" [label="part sensor\nPump"];
+    "n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>];
+    "n2" [label=<<b>tank : Tank</b><br/><font point-size="10">«part»</font>>];
+    "n3" [label=<<b>sensor : Pump</b><br/><font point-size="10">«part»</font>>];
   }
   "n1" -> "n2" [label="supply", arrowhead=none];
   "n1" -> "n2" [label="of Water", style=dashed];

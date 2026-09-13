@@ -96,12 +96,13 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
   "kind": "tree",
   "stated": "",
   "form": "mermaid",
-  "artifact": "%% KitViews::widgetTree — tree rendering\nflowchart TD\n  n0[\"part def Kit::Widget\"]\n  n1[\"part cog (Cog)\"]\n  n0 --- n1\n  …",
+  "artifact": "%% KitViews::widgetTree — tree rendering\nflowchart TD\n  n0[\"Kit::Widget<br>«part def»\"]\n  n1[\"cog : Cog<br>«part»\"]\n  n0 --- n1\n  …",
   "nodes": [
     {
       "id": "n0",
       "kind": "part def",
       "name": "Kit::Widget",
+      "type": "",
       "detail": "",
       "origin": {
         "uri": "file:///tmp/kit.sysml",
@@ -113,7 +114,8 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
       "id": "n1",
       "kind": "part",
       "name": "cog",
-      "detail": "Cog",
+      "type": "Cog",
+      "detail": "",
       "parent": "n0",
       "origin": { "uri": "file:///tmp/kit.sysml", "range": { "…": "…" } }
     }
@@ -130,7 +132,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `kind` | `tree`, `interconnection`, `state`, `action`, `sequence` or `table`. |
 | `stated` | How the kind was decided — the rendering the view names, the standard view definition it specializes, or that no view was declared. Empty when the view took the default. |
 | `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, the text form, or a Markdown table. |
-| `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession` or `flow`. |
+| `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession` or `flow`. |
 | `rows`, `columns` | A table rendering's cells, in place of nodes and edges. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |
 | `notices` | What the rendering could not represent, as the text form reports it. |
@@ -295,7 +297,7 @@ editor: send `initialize`, then `textDocument/didOpen`, then:
 ← { "view": "", "kind": "tree",
     "stated": "no view declared; rendering /tmp/kit.sysml directly",
     "form": "mermaid",
-    "artifact": "%%  — tree rendering (no view declared; …)\nflowchart TD\n  n0[\"part def Kit::Widget\"]\n…",
+    "artifact": "%%  — tree rendering (no view declared; …)\nflowchart TD\n  n0[\"Kit::Widget<br>«part def»\"]\n…",
     "nodes": [ … ], "edges": [ … ], "notices": [], "version": 1 }
 ```
 
