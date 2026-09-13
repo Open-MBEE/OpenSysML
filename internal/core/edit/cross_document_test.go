@@ -239,9 +239,8 @@ func TestDeleteCascadeRefusesForTheDocumentsItMayNotRewrite(t *testing.T) {
 	}
 }
 
-// Without cascade the same delete is refused the same way: the cascade a client
-// could offer instead would be refused for that document too, so the refusal
-// names what blocks it rather than what a cascade would remove.
+// Without cascade the refusal is the same: the cascade a client could offer
+// instead would be refused for that document too, so it names what blocks it.
 func TestDeleteWithoutCascadeRefusesForTheDocumentsItsCascadeMayNotRewrite(t *testing.T) {
 	const src = "package P {\n    part def Base;\n}\n"
 	m := loadEditableWorkspace(t, "p.sysml", src,
