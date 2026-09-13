@@ -65,6 +65,7 @@ func replaySchedule(
 		return r, r.disagreeOnSchedule(w, "starting the invocation failed: "+err.Error())
 	}
 	if err := run.inv.started(ctx); err != nil {
+		run.inv.Release()
 		return nil, err
 	}
 	r.Inv = run.inv

@@ -79,6 +79,7 @@ func Replay(
 		return r, r.agree(w, "starting the invocation failed")
 	}
 	if err := run.inv.started(ctx); err != nil {
+		run.inv.Release()
 		return nil, err
 	}
 	r.Inv = run.inv

@@ -194,9 +194,31 @@ func TestCheckRefusesAHorizonTheClockCannotReach(t *testing.T) {
 	sym := m.state(t, "Ticker")
 	for name, at := range map[string]float64{"nan": math.NaN(), "inf": math.Inf(1), "behind": -1} {
 		t.Run(name, func(t *testing.T) {
-			_, err := Check(context.Background(), m.fresh, stateStarterOf(sym, HorizonAt(at)), CheckBudget{}, unreduced(), nil)
+			start := stateStarterOf(sym, HorizonAt(at))
+			_, err := Check(context.Background(), m.fresh, start, CheckBudget{}, unreduced(), nil)
 			if !errors.Is(err, ErrNegativeDuration) {
 				t.Fatalf("check to a horizon at %v: %v, want %v", at, err, ErrNegativeDuration)
+			}
+			// A refused replay leaves the started machine off the clock of the context it keeps.
+			var kept *Context
+			fresh := func() (*Context, error) {
+				ctx, err := m.fresh()
+				kept = ctx
+				return ctx, err
+			}
+			replayed, err := Replay(context.Background(), fresh, start, Witness{}, nil)
+			if replayed != nil || !errors.Is(err, ErrNegativeDuration) {
+				t.Fatalf("replay to a horizon at %v: %v, %v, want no run and %v", at, replayed, err, ErrNegativeDuration)
+			}
+			if n := len(kept.clock.waiters); n != 0 {
+				t.Fatalf("replay to a horizon at %v left %d waiter(s) on the clock", at, n)
+			}
+			scheduled, err := ReplaySchedule(context.Background(), fresh, start, Witness{}, ScheduleEnd)
+			if scheduled != nil || !errors.Is(err, ErrNegativeDuration) {
+				t.Fatalf("schedule replay to a horizon at %v: %v, %v, want no run and %v", at, scheduled, err, ErrNegativeDuration)
+			}
+			if n := len(kept.clock.waiters); n != 0 {
+				t.Fatalf("schedule replay to a horizon at %v left %d waiter(s) on the clock", at, n)
 			}
 		})
 	}
