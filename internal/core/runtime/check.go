@@ -12,6 +12,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -201,7 +202,10 @@ type CheckReport struct {
 	// executor's budgets by name (ExecutorBounds); none when exhaustive.
 	BoundsHit []string
 	// Limits are the executor's budgets the search ran under.
-	Limits     Budgets
+	Limits Budgets
+	// Horizon is the instant the search stopped the clock at, 0 for none: no
+	// schedule was followed past it, and a state there is final.
+	Horizon    float64
 	Violations []Violation
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
@@ -210,7 +214,11 @@ type CheckReport struct {
 
 // Status renders how the check ended for a report.
 func (r *CheckReport) Status() string {
-	s := fmt.Sprintf("%s (%d states, %d moves, depth %d", r.Verdict, r.States, r.Moves, r.MaxDepth)
+	s := r.Verdict.String()
+	if r.Horizon > 0 {
+		s += " up to t=" + semantics.FormatReal(r.Horizon)
+	}
+	s += fmt.Sprintf(" (%d states, %d moves, depth %d", r.States, r.Moves, r.MaxDepth)
 	if len(r.BoundsHit) > 0 {
 		s += "; bounds hit: " + strings.Join(r.BoundsHit, ", ")
 	}
@@ -1051,6 +1059,7 @@ func (c *checker) result() *CheckReport {
 		MaxDepth:   c.maxDepth,
 		BoundsHit:  c.bounds,
 		Limits:     c.ctx.Budgets(),
+		Horizon:    c.horizon(),
 		Violations: c.violations,
 		Finals:     slices.Clone(c.results),
 	}
@@ -1067,6 +1076,13 @@ func (c *checker) result() *CheckReport {
 		r.Verdict = CheckExhaustive
 	}
 	return r
+}
+
+func (c *checker) horizon() float64 {
+	if c.inv == nil {
+		return 0
+	}
+	return c.inv.Horizon
 }
 
 // divergences finds the features the finals disagree on, each value with the

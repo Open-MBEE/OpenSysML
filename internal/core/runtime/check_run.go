@@ -111,7 +111,8 @@ func (r *invocationRun) advanceClock() bool {
 
 // terminal reports whether the settled state is one the run ends in: no move,
 // nothing due within the horizon, and every started action complete — a machine
-// resting in a configuration nothing wakes it from is final.
+// resting in a configuration nothing wakes it from is final, and so is an
+// executor waiting on the clock past the horizon.
 func (r *invocationRun) terminal() bool {
 	return len(r.enabledMoves()) == 0 && r.deadlock() == nil
 }
@@ -120,11 +121,28 @@ func (r *invocationRun) terminal() bool {
 // terminal, else the first incomplete executor's deadlock.
 func (r *invocationRun) deadlock() error {
 	for _, exec := range r.inv.executors() {
+		if r.waitsPastHorizon(exec) {
+			continue
+		}
 		if err := exec.incomplete(); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// waitsPastHorizon reports whether the executor has a wait on the clock the
+// horizon keeps the run from reaching.
+func (r *invocationRun) waitsPastHorizon(exec checkedExecutor) bool {
+	if r.inv.Horizon <= 0 {
+		return false
+	}
+	for _, w := range exec.clockWaits() {
+		if w.Due > r.inv.Horizon {
+			return true
+		}
+	}
+	return false
 }
 
 // makeMove makes the move under the `check` policy as one atomic unit: the owner
