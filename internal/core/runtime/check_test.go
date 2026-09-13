@@ -536,12 +536,12 @@ func TestCheckReleasesItsExecutorHoweverTheSearchEnds(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			var started *ActionExecutor
 			start := func(ctx *Context) (*Invocation, error) {
-				exec, err := ctx.CreateActionExecutor(c.sym)
+				inv, err := c.start(ctx)
 				if err != nil {
 					return nil, err
 				}
-				started = exec
-				return &Invocation{Actions: []*ActionExecutor{exec}}, nil
+				started = inv.action()
+				return inv, nil
 			}
 			_, err := Check(context.Background(), c.model.fresh, start, CheckBudget{}, reduced(), nil)
 			if !errors.Is(err, want[c.name]) {

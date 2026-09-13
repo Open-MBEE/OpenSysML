@@ -32,24 +32,25 @@ type CheckExpected struct {
 	Agreed map[string]string `json:"agreed,omitempty"`
 }
 
-// checkRefusedCases are the action cases with an admissible set the check
-// refuses with a typed reason: a body paused mid-statement.
+// checkRefusedCases are the cases with an admissible set the check refuses with
+// a typed reason: a body paused mid-statement.
 var checkRefusedCases = map[string]error{
 	"action_explore_performed_and_accept_due_together": ErrSnapshotPausedBody,
+	"state_concurrent_do_action_bodies_timed":          ErrSnapshotPausedBody,
 }
 
-// checkCase is one action conformance case with an admissible set, ready to check and explore.
+// checkCase is one action or state conformance case with an admissible set, ready to check and explore.
 type checkCase struct {
 	name     string
 	expected ExpectedOutcome
 	model    *exploreModel
-	sym      *symbols.Symbol
+	start    Starter
 	run      func(*Context) (Outcome, error)
 }
 
-// checkCorpus loads every action case of the conformance corpus whose oracle
-// entry leaves an ordering open — those with an admissible set — and every one
-// with a check expectation beside it.
+// checkCorpus loads every action and state case of the conformance corpus whose
+// oracle entry leaves an ordering open — those with an admissible set — and
+// every one with a check expectation beside it.
 func checkCorpus(t *testing.T) []checkCase {
 	t.Helper()
 	dir := filepath.Join("testdata", "conformance")
@@ -75,7 +76,7 @@ func checkCorpus(t *testing.T) []checkCase {
 		if err := json.Unmarshal(data, &expected); err != nil {
 			t.Fatalf("%s: %v", entry.Name(), err)
 		}
-		if expected.Type != "action" || (len(expected.Outcomes) == 0 && !hasCheckExpected(name)) {
+		if (expected.Type != "action" && expected.Type != "state") || (len(expected.Outcomes) == 0 && !hasCheckExpected(name)) {
 			continue
 		}
 		path := filepath.Join(dir, name+".sysml")
@@ -98,13 +99,37 @@ func checkCorpus(t *testing.T) []checkCase {
 		sem := semantics.NewModel(resolver)
 		sem.SetSourceText(source.TextOf(map[string]*source.SourceFile{path: src}, nil))
 		model := &exploreModel{idx: idx, model: sem, resolver: resolver, path: path}
-		sym := namedOrFoundSymbol(t, idx, expected.Evaluate, idx.DocumentRoot(path), ast.DefAction, ast.UsageAction)
-		cases = append(cases, checkCase{name: name, expected: expected, model: model, sym: sym, run: conformanceRun(t, idx, path, expected)})
+		cases = append(cases, checkCase{name: name, expected: expected, model: model, start: conformanceStarter(t, idx, path, expected), run: conformanceRun(t, idx, path, expected)})
 	}
 	if len(cases) == 0 {
-		t.Fatal("no action case with an admissible set")
+		t.Fatal("no action or state case with an admissible set")
 	}
 	return cases
+}
+
+// conformanceStarter starts the case's behavior as conformanceRun runs it: the
+// action, or the state machine with the case's events queued.
+func conformanceStarter(t *testing.T, idx *symbols.Index, path string, expected ExpectedOutcome) Starter {
+	t.Helper()
+	rootScope := idx.DocumentRoot(path)
+	if expected.Type == "action" {
+		return starterOf(namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefAction, ast.UsageAction))
+	}
+	stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)
+	events := queuedEvents(t, expected.Events)
+	return func(ctx *Context) (*Invocation, error) {
+		exec, err := ctx.CreateStateExecutor(stateSym)
+		if err != nil {
+			return nil, err
+		}
+		for _, event := range events {
+			if err := exec.Enqueue(event); err != nil {
+				exec.Release()
+				return nil, err
+			}
+		}
+		return &Invocation{States: []*StateExecutor{exec}}, nil
+	}
 }
 
 func hasCheckExpected(name string) bool {
@@ -134,7 +159,7 @@ func loadCheckExpected(t *testing.T, name string) CheckExpected {
 // check checks the case's action under the default bounds.
 func (c checkCase) check(t *testing.T, opts CheckOptions) (*CheckReport, error) {
 	t.Helper()
-	return Check(context.Background(), c.model.fresh, starterOf(c.sym), CheckBudget{}, opts, nil)
+	return Check(context.Background(), c.model.fresh, c.start, CheckBudget{}, opts, nil)
 }
 
 // checked is check with the report owed.
@@ -256,21 +281,20 @@ func TestCheckWitnessesReplayOverTheConformanceCorpus(t *testing.T) {
 		}
 		t.Run(c.name, func(t *testing.T) {
 			report := c.checked(t, reduced())
-			start := starterOf(c.sym)
 			witnessed := 0
 			for _, final := range report.Finals {
-				r := replayWitness(t, c.model, start, final.Witness, final.Outcome)
-				if r.Inv.action().State() != StateCompleted {
-					t.Fatalf("%s: replay ends %s, want completed", final.Outcome, r.Inv.action().State())
+				r := replayWitness(t, c.model, c.start, final.Witness, final.Outcome)
+				if !r.Inv.Completed() {
+					t.Fatalf("%s: replay ends incomplete", final.Outcome)
 				}
-				if got := r.Ctx.ActionOutcome(r.Inv.action().Results()).String(); !strings.HasPrefix(final.Outcome, got) {
+				if got := r.Inv.Outcome().String(); !strings.HasPrefix(final.Outcome, got) {
 					t.Fatalf("replay reaches %s, want %s", got, final.Outcome)
 				}
 				witnessed++
 			}
 			for _, d := range report.Divergent {
 				for _, v := range d.Values {
-					r := replayWitness(t, c.model, start, v.Witness, d.Feature+" = "+v.Value)
+					r := replayWitness(t, c.model, c.start, v.Witness, d.Feature+" = "+v.Value)
 					if got := replayedValue(r, d.Feature); got != v.Value {
 						t.Fatalf("replay leaves %s = %s, want %s", d.Feature, got, v.Value)
 					}
@@ -284,9 +308,14 @@ func TestCheckWitnessesReplayOverTheConformanceCorpus(t *testing.T) {
 	}
 }
 
-// replayedValue is the value a replayed run left the action's feature with.
+// replayedValue is the value a replayed run left the invocation's feature with;
+// a machine's `finalState` is its final state.
 func replayedValue(r *Replayed, feature string) string {
-	for _, out := range r.Ctx.ActionOutcome(r.Inv.action().Results()).RenderedOutputs() {
+	outcome := r.Inv.Outcome()
+	if feature == "finalState" {
+		return outcome.FinalState
+	}
+	for _, out := range outcome.RenderedOutputs() {
 		if out.Name == feature {
 			return out.Text
 		}
