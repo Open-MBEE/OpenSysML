@@ -647,6 +647,19 @@ func TestExpressionBodyDeclarationIDsAreRefused(t *testing.T) {
 	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "the body member <urn:opensysml:expr:Bodies__Scaled___401_pm1>: it declares an id of its own") {
 		t.Fatalf("want an UnsupportedError for a body declaration with an id, got %v", err)
 	}
+
+	// An annotation in the body is written without a body of its own, and an id
+	// it declares is refused the same way rather than dropped.
+	turtle = string(withoutTriples(t, convertFixture(t, "result_expressions"), "sysx:sourceText"))
+	const doc = `sysml:elementId "Results__Documented___401_pm0" ;`
+	if !strings.Contains(turtle, doc) {
+		t.Fatalf("the body documentation's id is not where expected:\n%s", turtle)
+	}
+	turtle = strings.Replace(turtle, doc, doc+"\n    sysx:declaredId \"true\"^^xsd:boolean ;", 1)
+	_, err = export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "the body member <urn:opensysml:expr:Results__Documented___401_pm0>: it declares an id of its own") {
+		t.Fatalf("want an UnsupportedError for a body documentation with an id, got %v", err)
+	}
 }
 
 // A graph written before parameters became nodes states each one as a name

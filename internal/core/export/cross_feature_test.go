@@ -142,6 +142,28 @@ func TestCrossFeatureIDComesBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
+// A cross feature declaring only a short name is annotated `about` that short
+// name, which the end's body looks up as it does a name.
+func TestShortNamedCrossFeatureIDComesBackFromTheGraphAlone(t *testing.T) {
+	const src = `package Crossing {
+    part def A;
+    part def B;
+    connection def C {
+        end <x1>[0..1] typed by A item x : B {
+            metadata : IdentityMetadata::ElementId about x1 { id = "stable-x1"; }
+        }
+    }
+}
+`
+	turtle := idTurtle(t, src)
+	if !strings.Contains(string(turtle), "sysml:declaredShortName \"x1\"") || strings.Contains(string(turtle), "sysml:declaredName \"x1\"") {
+		t.Fatalf("the cross feature is not declared by short name alone:\n%s", turtle)
+	}
+	if back := toNotation(t, withoutSourceText(t, turtle)); back != src {
+		t.Errorf("the short-named cross feature's id was not rebuilt from the graph:\n--- want ---\n%s--- got ---\n%s", src, back)
+	}
+}
+
 // A cross feature the graph gives a body has no notation: the head of its end
 // holds no body, so the conversion is refused rather than dropping it.
 func TestCrossFeatureWithABodyIsRefused(t *testing.T) {

@@ -806,14 +806,14 @@ func (d *decoder) bodyMemberText(member rdf.Term, in *element) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if annotationMetaclasses[el.metaclass] {
-		return head, nil
-	}
 	if el.declaredID {
 		return "", &UnsupportedError{
 			What: fmt.Sprintf("the body member <%s>", member.Value),
 			Note: "it declares an id of its own, and an annotation is not mapped inside an expression body; " + rdfLimitationsNote,
 		}
+	}
+	if annotationMetaclasses[el.metaclass] {
+		return head, nil
 	}
 	members, err := d.bodyDeclarationsText(member, in)
 	if err != nil {

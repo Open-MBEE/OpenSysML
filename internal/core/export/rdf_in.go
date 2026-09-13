@@ -1131,13 +1131,17 @@ func (d *decoder) identityAnnotations(el *element) []string {
 }
 
 // crossFeatureAnnotations writes the identity of a cross feature written in its
-// end's head, which has no place for it, as `about` annotations in the end's body.
+// end's head, which has no place for it, as `about` annotations in the end's body,
+// naming it by its name or, failing that, its short name.
 func (d *decoder) crossFeatureAnnotations(cross *element) ([]string, error) {
 	identity := d.identityOf(cross)
 	if len(identity) == 0 {
 		return nil, nil
 	}
 	name, ok := d.stringOf(cross, rdf.SysML+pDeclaredName)
+	if !ok {
+		name, ok = d.stringOf(cross, rdf.SysML+pDeclaredShortName)
+	}
 	if !ok {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the cross feature <%s>", cross.iri),

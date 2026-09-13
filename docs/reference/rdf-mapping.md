@@ -380,8 +380,10 @@ triples come); a set of classes with no such member is refused, naming the subje
   no place for the cross feature's own body, so an id the cross feature must
   declare is written back as an `about` annotation in the end's body
   (`end x1 [1] item y : B { metadata : IdentityMetadata::ElementId about x1 { id = "…"; } }`),
-  the one place the grammar offers; a graph that gives the cross feature a body
-  of its own or members is reported as unsupported, naming it.
+  the one place the grammar offers, naming the cross feature by its name or,
+  failing that, its short name; a graph that gives the cross feature a body of
+  its own or members, or an id but no name to say, is reported as unsupported,
+  naming it.
 
 The `sysx:` properties:
 
