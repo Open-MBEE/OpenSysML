@@ -19,7 +19,10 @@ const CLASSIFIER_KINDS = new Set([
   "assoc struct", "behavior", "function", "predicate", "metaclass", "type",
 ]);
 
-/** drawCanvas is the SVG of a layout: nodes in tree order under their owners, then edges, then handles. */
+/**
+ * drawCanvas is the SVG of a layout: nodes in tree order under their owners, then
+ * edges, then handles. An edge with an end under a collapsed owner is not drawn.
+ */
 export function drawCanvas(layout: CanvasLayout): SVGSVGElement {
   const svg = element("svg", {
     xmlns: SVG,
@@ -38,6 +41,9 @@ export function drawCanvas(layout: CanvasLayout): SVGSVGElement {
   const edges = element("g", { class: "edges" });
   const handles = element("g", { class: "handles" });
   for (const edge of layout.edges) {
+    if (edge.hidden) {
+      continue;
+    }
     edges.append(drawEdge(edge));
     if (steerable(layout, edge)) {
       handles.append(drawHandles(edge));
@@ -94,13 +100,13 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
     });
     group.append(text);
   }
-  if (entry.node.collapsed && entry.children.length > 0) {
+  if (entry.collapsed && entry.children.length > 0) {
     const mark = element("text", { x: String(box.x + box.width - LABEL_PAD_X), y: String(box.y + LABEL_PAD_Y + LINE_HEIGHT * 0.8), class: "collapsed", "text-anchor": "end" });
     mark.textContent = "+";
     group.append(mark);
   }
   parent.append(group);
-  if (!entry.node.collapsed) {
+  if (!entry.collapsed) {
     for (const child of entry.children) {
       drawNode(parent, child, layout);
     }
@@ -144,7 +150,7 @@ function shape(entry: PlacedNode): SVGElement {
       const definition = entry.node.kind.endsWith(" def") || CLASSIFIER_KINDS.has(entry.node.kind);
       const attrs: Record<string, string> = {
         x: String(x), y: String(y), width: String(width), height: String(height),
-        class: `shape${entry.children.length > 0 && !entry.node.collapsed ? " container" : ""}`,
+        class: `shape${entry.children.length > 0 && !entry.collapsed ? " container" : ""}`,
       };
       if (!definition) {
         attrs.rx = String(CORNER);

@@ -73,6 +73,28 @@ test("drawCanvas draws edges with the arrowhead their kind takes and handles on 
   assert.deepEqual(segments, ["0", "1"]);
 });
 
+test("drawCanvas leaves out the edges and handles at nodes a collapsed owner hides", () => {
+  const svg = drawCanvas(layoutCanvas({
+    ...result,
+    nodes: [
+      node("a", "tank", { x: 10, y: 20, collapsed: true }),
+      node("b", "valve", { parent: "a" }),
+      node("e", "gauge", { parent: "b" }),
+      node("c", "pump"),
+    ],
+    edges: [
+      { from: "b", to: "e", label: "", kind: "connection", fqn: "M::be", route: [{ x: 50, y: 50 }] },
+      { from: "b", to: "c", label: "", kind: "connection", fqn: "M::bc", route: [{ x: 300, y: 300 }] },
+      { from: "a", to: "c", label: "", kind: "connection", fqn: "M::ac" },
+    ],
+  }));
+  assert.deepEqual([...svg.querySelectorAll("g.opensysml-node")].map((group) => group.getAttribute("data-opensysml-id")), ["a", "c"]);
+  assert.equal(svg.querySelector('g[data-opensysml-id="a"] text.collapsed')?.textContent, "+");
+  // Neither the edge inside the collapsed owner nor the one crossing its border is drawn; the owner's own is.
+  assert.deepEqual([...svg.querySelectorAll("g.opensysml-edge")].map((edge) => edge.getAttribute("data-edge")), ["2"]);
+  assert.deepEqual([...svg.querySelectorAll("g.edge-handles")].map((group) => group.getAttribute("data-edge")), ["2"]);
+});
+
 test("drawCanvas draws a sequence's lifelines", () => {
   const svg = drawCanvas(layoutCanvas({
     ...result,

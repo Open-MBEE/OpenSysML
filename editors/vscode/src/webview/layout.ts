@@ -30,6 +30,10 @@ export interface PlacedNode {
   shape: Shape;
   /** The model, or a gesture in progress, states where the node goes. */
   pinned: boolean;
+  /** The node is drawn without its children. */
+  collapsed: boolean;
+  /** An owner is collapsed, so the node is not drawn, nor any edge at it. */
+  hidden: boolean;
   children: PlacedNode[];
   parent?: PlacedNode;
   /** In a sequence, the y the node's lifeline runs down to from its box. */
@@ -46,6 +50,8 @@ export interface PlacedEdge {
   route: RenderPoint[];
   /** Where the label sits, on the polyline's midpoint. */
   label: RenderPoint;
+  /** An end is under a collapsed owner, so the edge is not drawn. */
+  hidden: boolean;
 }
 
 export interface CanvasLayout {
@@ -115,6 +121,8 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}): C
       lines: labelLines(node),
       shape: shapeOf(node.kind),
       pinned: false,
+      collapsed: false,
+      hidden: false,
       children: [],
     };
     placed.set(node.id, entry);
@@ -139,12 +147,7 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}): C
     const { x, y, width, height, collapsed } = entry.node;
     return x !== undefined && y !== undefined ? { x, y, width, height, collapsed } : undefined;
   };
-  const sizes = new Map<PlacedNode, { width: number; height: number }>();
-  for (const root of roots) {
-    measure(root, geometry, sizes);
-  }
-  const grid = gridOf(roots, sizes, { x: MARGIN, y: MARGIN });
-  roots.forEach((root, i) => place(root, grid[i], geometry, sizes));
+  placeGrid(roots, { x: MARGIN, y: MARGIN }, geometry);
 
   let width = MARGIN;
   let height = MARGIN;
@@ -154,6 +157,9 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}): C
   }
   const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes));
   for (const edge of edges) {
+    if (edge.hidden) {
+      continue;
+    }
     for (const point of edge.points) {
       width = Math.max(width, point.x);
       height = Math.max(height, point.y);
@@ -191,7 +197,7 @@ function layoutSequence(result: RenderResult, roots: PlacedNode[], placed: Map<s
     const points = edge.from === edge.to
       ? [{ x: fromX, y }, { x: fromX + SELF_MESSAGE_REACH, y }, { x: fromX + SELF_MESSAGE_REACH, y: y + MESSAGE_GAP / 2 }, { x: fromX, y: y + MESSAGE_GAP / 2 }]
       : [{ x: fromX, y }, { x: toX, y }];
-    return { edge, index, points, route: [], label: midpoint(points) };
+    return { edge, index, points, route: [], label: midpoint(points), hidden: false };
   });
   return {
     roots,
@@ -208,63 +214,88 @@ function headHeight(roots: PlacedNode[]): number {
   return roots.reduce((max, root) => Math.max(max, labelSize(root.lines).height), 0);
 }
 
-// measure is the size a node takes when nothing places it wider: the model's
-// size when stated, else its label around the grid of its children.
-function measure(
-  entry: PlacedNode,
-  geometry: (entry: PlacedNode) => LayoutGeometry | undefined,
-  sizes: Map<PlacedNode, { width: number; height: number }>,
-): { width: number; height: number } {
-  const stated = geometry(entry);
-  const shown = shownChildren(entry, stated);
-  for (const child of shown) {
-    measure(child, geometry, sizes);
-  }
-  let size: { width: number; height: number };
-  if (stated?.width !== undefined && stated.height !== undefined) {
-    size = { width: stated.width, height: stated.height };
-  } else {
-    size = symbolSize(entry.shape) ?? labelSize(entry.lines);
-    if (shown.length > 0) {
-      const grid = gridOf(shown, sizes, { x: 0, y: 0 });
-      const extent = gridExtent(grid, shown, sizes);
-      size = {
-        width: Math.max(size.width, extent.width + 2 * CONTAINER_PAD),
-        height: size.height + extent.height + CONTAINER_PAD,
-      };
-    }
-  }
-  sizes.set(entry, size);
-  return size;
+type Geometry = (entry: PlacedNode) => LayoutGeometry | undefined;
+
+// placeGrid puts entries in a near-square grid from origin, in order, each column
+// as wide and each row as tall as its widest and tallest entry. An unsized box's
+// extent depends on where it stands (a child the model put beyond it is so much
+// further out), so columns are settled left to right and rows top to bottom, each
+// entry's extent taken once its slot is known. A pinned entry keeps its slot
+// empty, so its siblings do not shift when it moves.
+function placeGrid(entries: PlacedNode[], origin: RenderPoint, geometry: Geometry): void {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(entries.length)));
+  spread(lanes(entries, columns, true), origin.x, (entry, x) => placeAcross(entry, x, geometry));
+  spread(lanes(entries, columns, false), origin.y, (entry, y) => placeDown(entry, y, geometry));
 }
 
-// place puts a node at the model's position or its slot, then its children in
-// the grid below its label; a box the model does not size grows to hold a child
-// the model put beyond it.
-function place(
-  entry: PlacedNode,
-  slot: RenderPoint,
-  geometry: (entry: PlacedNode) => LayoutGeometry | undefined,
-  sizes: Map<PlacedNode, { width: number; height: number }>,
-): void {
+// lanes groups a grid's entries by column, or by row.
+function lanes(entries: PlacedNode[], columns: number, byColumn: boolean): PlacedNode[][] {
+  const out: PlacedNode[][] = [];
+  entries.forEach((entry, i) => {
+    const lane = byColumn ? i % columns : Math.floor(i / columns);
+    (out[lane] ??= []).push(entry);
+  });
+  return out;
+}
+
+// spread lays lanes out one after another from start, GAP apart, each as far
+// as its longest entry reaches once placed at the lane's offset.
+function spread(lanes: PlacedNode[][], start: number, placeAt: (entry: PlacedNode, at: number) => number): void {
+  let at = start;
+  for (const lane of lanes) {
+    let extent = 0;
+    for (const entry of lane) {
+      extent = Math.max(extent, placeAt(entry, at));
+    }
+    at += extent + GAP;
+  }
+}
+
+// placeAcross settles a node's x and width: the model's x, else the slot's; the
+// model's width, else its label's, widened to hold every child shown. The columns
+// of its children are settled first, from inside its padding.
+function placeAcross(entry: PlacedNode, slot: number, geometry: Geometry): number {
   const stated = geometry(entry);
-  const size = sizes.get(entry) ?? { width: MIN_WIDTH, height: MIN_HEIGHT };
   entry.pinned = stated !== undefined;
-  entry.box = { x: stated?.x ?? slot.x, y: stated?.y ?? slot.y, width: size.width, height: size.height };
+  entry.collapsed = stated?.collapsed === true;
+  if (entry.collapsed) {
+    hide(entry.children);
+  }
+  entry.box.x = stated?.x ?? slot;
   const shown = shownChildren(entry, stated);
-  if (shown.length === 0) {
-    return;
-  }
-  const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
-  const grid = gridOf(shown, sizes, { x: entry.box.x + CONTAINER_PAD, y: entry.box.y + header.height });
-  shown.forEach((child, i) => place(child, grid[i], geometry, sizes));
+  const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
+  spread(lanes(shown, columns, true), entry.box.x + CONTAINER_PAD, (child, x) => placeAcross(child, x, geometry));
   if (stated?.width !== undefined && stated.height !== undefined) {
-    return;
+    entry.box.width = stated.width;
+    return entry.box.width;
   }
+  let width = (symbolSize(entry.shape) ?? labelSize(entry.lines)).width;
   for (const child of shown) {
-    entry.box.width = Math.max(entry.box.width, child.box.x + child.box.width + CONTAINER_PAD - entry.box.x);
-    entry.box.height = Math.max(entry.box.height, child.box.y + child.box.height + CONTAINER_PAD - entry.box.y);
+    width = Math.max(width, child.box.x + child.box.width + CONTAINER_PAD - entry.box.x);
   }
+  entry.box.width = width;
+  return width;
+}
+
+// placeDown settles a node's y and height as placeAcross does its x and width;
+// the rows of its children start below its label.
+function placeDown(entry: PlacedNode, slot: number, geometry: Geometry): number {
+  const stated = geometry(entry);
+  entry.box.y = stated?.y ?? slot;
+  const shown = shownChildren(entry, stated);
+  const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
+  const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
+  spread(lanes(shown, columns, false), entry.box.y + header.height, (child, y) => placeDown(child, y, geometry));
+  if (stated?.width !== undefined && stated.height !== undefined) {
+    entry.box.height = stated.height;
+    return entry.box.height;
+  }
+  let height = header.height;
+  for (const child of shown) {
+    height = Math.max(height, child.box.y + child.box.height + CONTAINER_PAD - entry.box.y);
+  }
+  entry.box.height = height;
+  return height;
 }
 
 // shownChildren is the children drawn inside a node: none when it is collapsed.
@@ -272,53 +303,12 @@ function shownChildren(entry: PlacedNode, stated: LayoutGeometry | undefined): P
   return stated?.collapsed ? [] : entry.children;
 }
 
-// gridOf assigns every entry a slot in a near-square grid from origin, in order,
-// each column as wide and each row as tall as its widest and tallest entry. A
-// pinned entry keeps its slot empty, so its siblings do not shift when it moves.
-function gridOf(
-  entries: PlacedNode[],
-  sizes: Map<PlacedNode, { width: number; height: number }>,
-  origin: RenderPoint,
-): RenderPoint[] {
-  const columns = Math.max(1, Math.ceil(Math.sqrt(entries.length)));
-  const columnWidths: number[] = [];
-  const rowHeights: number[] = [];
-  entries.forEach((entry, i) => {
-    const size = sizes.get(entry) ?? { width: MIN_WIDTH, height: MIN_HEIGHT };
-    const column = i % columns;
-    const row = Math.floor(i / columns);
-    columnWidths[column] = Math.max(columnWidths[column] ?? 0, size.width);
-    rowHeights[row] = Math.max(rowHeights[row] ?? 0, size.height);
-  });
-  const columnOffsets = offsets(columnWidths, origin.x);
-  const rowOffsets = offsets(rowHeights, origin.y);
-  return entries.map((_, i) => ({ x: columnOffsets[i % columns], y: rowOffsets[Math.floor(i / columns)] }));
-}
-
-function offsets(extents: number[], start: number): number[] {
-  const out: number[] = [];
-  let at = start;
-  for (const extent of extents) {
-    out.push(at);
-    at += extent + GAP;
+// hide marks a collapsed node's subtree as not drawn.
+function hide(entries: PlacedNode[]): void {
+  for (const entry of entries) {
+    entry.hidden = true;
+    hide(entry.children);
   }
-  return out;
-}
-
-// gridExtent is the size a grid of slots spans from its origin.
-function gridExtent(
-  grid: RenderPoint[],
-  entries: PlacedNode[],
-  sizes: Map<PlacedNode, { width: number; height: number }>,
-): { width: number; height: number } {
-  let width = 0;
-  let height = 0;
-  entries.forEach((entry, i) => {
-    const size = sizes.get(entry) ?? { width: MIN_WIDTH, height: MIN_HEIGHT };
-    width = Math.max(width, grid[i].x + size.width);
-    height = Math.max(height, grid[i].y + size.height);
-  });
-  return { width, height };
 }
 
 /** labelLines is a node's label as the graphical notation orders it: head, «kind», detail. */
@@ -400,8 +390,10 @@ function routeEdge(
   routes: Map<number, RenderPoint[] | undefined> | undefined,
 ): PlacedEdge {
   const route = (routes?.has(index) ? routes.get(index) : edge.route) ?? [];
-  const from = placed.get(edge.from)?.box ?? { x: 0, y: 0, width: 0, height: 0 };
-  const to = placed.get(edge.to)?.box ?? { x: 0, y: 0, width: 0, height: 0 };
+  const source = placed.get(edge.from);
+  const target = placed.get(edge.to);
+  const from = source?.box ?? { x: 0, y: 0, width: 0, height: 0 };
+  const to = target?.box ?? { x: 0, y: 0, width: 0, height: 0 };
   let inner = route;
   if (route.length === 0 && edge.from === edge.to) {
     inner = [
@@ -412,7 +404,7 @@ function routeEdge(
   const start = anchor(from, inner[0] ?? center(to));
   const end = anchor(to, inner[inner.length - 1] ?? center(from));
   const points = [start, ...inner, end];
-  return { edge, index, points, route, label: midpoint(points) };
+  return { edge, index, points, route, label: midpoint(points), hidden: source?.hidden === true || target?.hidden === true };
 }
 
 function center(box: Box): RenderPoint {

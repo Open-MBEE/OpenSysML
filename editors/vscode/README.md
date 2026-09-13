@@ -52,7 +52,7 @@ SVG from the server's rendering and redrawn as the model is typed.
 | **Navigation** | Click a node to open the declaration it was built from; moving the cursor in the editor highlights the node whose declaration contains it. A node built from a standard library declaration opens the bundled library file, read-only. |
 | **While typing** | A rendering that fails mid-keystroke leaves the last good diagram on screen, dimmed, with the error in the status line: the panel never blanks. What a rendering could not represent is listed under it. |
 | **Cost** | The panel asks for a diagram only while visible, and only once an editing burst settles. The panel draws its own SVG, and its CSP allows the bundled script alone — nothing is fetched from the network. |
-| **Export** | `SysML: Export Diagram` saves the server's machine form of the diagram — Mermaid (`.mmd`) for a diagram, with the model's positions as `%% layout:` comments, Markdown for a table — for the view the document's panel shows, else the document itself. |
+| **Export** | `SysML: Export Diagram` saves the server's machine form of the diagram — Mermaid (`.mmd`) for a diagram, with the model's positions as `%% layout:` comments, Markdown for a table — for the view the document's panel shows; with no panel, the document's one drawable view, its model tree when it declares none, or the view picked from a list when it declares several. |
 
 ### Editing from the diagram
 

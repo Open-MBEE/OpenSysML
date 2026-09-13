@@ -36,21 +36,13 @@ import {
   VIEWS_METHOD,
   ViewsResult,
 } from "./protocol";
+import { declaredViewEntries, DEFAULT_PSEUDO_VIEW, impliedView, pseudoViewEntries } from "./views";
 
 /** The context key the Open Diagram command is enabled by. */
 const SUPPORTED_KEY = "opensysml.renderSupported";
 
 /** The type a restored panel is revived under. */
 const PANEL_TYPE = "opensysml.diagram";
-
-const PSEUDO_VIEW_LABELS: Record<string, string> = {
-  tree: "Model tree",
-  interconnection: "Interconnections",
-  state: "State machines",
-  action: "Action flows",
-  table: "Element table",
-  sequence: "Message sequence",
-};
 
 // The file an exported rendering is saved as, by the form the server wrote.
 const EXPORT_FORMS: Record<string, { extension: string; filter: string }> = {
@@ -59,19 +51,22 @@ const EXPORT_FORMS: Record<string, { extension: string; filter: string }> = {
   text: { extension: ".txt", filter: "Text" },
 };
 
-// This is the historical set for servers that predate the pseudoViews field; do not grow it.
-const HISTORICAL_PSEUDO_VIEWS = ["#tree", "#interconnection", "#state", "#action", "#table"];
+/** The views of a document, as the picker offers them: declared first, then the pseudo-views. */
+interface ViewListing {
+  declared: PickerEntry[];
+  pseudo: PickerEntry[];
+}
 
-// Pseudo-views are always offered because a document being written usually declares no view.
-function pseudoViewEntries(specs: string[] | undefined): PickerEntry[] {
-  return (specs ?? HISTORICAL_PSEUDO_VIEWS).map((value) => {
-    const kind = value.startsWith("#") ? value.slice(1) : value;
-    return {
-      value,
-      label: `${PSEUDO_VIEW_LABELS[kind] ?? kind} (no view declared)`,
-      supported: true,
-    };
-  });
+// listViews asks the server for a document's views. A failure is logged and yields
+// no declared views: the listing is a picker's content, not the diagram.
+async function listViews(client: LanguageClient, uri: string, output: vscode.OutputChannel): Promise<ViewListing> {
+  let listing: ViewsResult | undefined;
+  try {
+    listing = await client.sendRequest<ViewsResult>(VIEWS_METHOD, { textDocument: { uri } });
+  } catch (err) {
+    output.appendLine(`Listing the views of ${vscode.Uri.parse(uri).fsPath} failed: ${errorMessage(err)}`);
+  }
+  return { declared: declaredViewEntries(listing), pseudo: pseudoViewEntries(listing?.pseudoViews) };
 }
 
 /**
@@ -185,7 +180,8 @@ export class DiagramPanels implements vscode.Disposable {
   /**
    * export writes the machine form of the active document's diagram — Mermaid
    * for a diagram, Markdown for a table — to a file the user picks: the view
-   * its panel shows when one is open, else the document's own.
+   * its panel shows when one is open, else the one the document implies, else
+   * the one the user picks.
    */
   private async export(client: LanguageClient): Promise<void> {
     const editor = vscode.window.activeTextEditor;
@@ -193,12 +189,16 @@ export class DiagramPanels implements vscode.Disposable {
       void vscode.window.showInformationMessage("Open a .sysml or .kerml file to export a diagram of it.");
       return;
     }
-    const view = this.panels.get(editor.document.uri.toString())?.selectedView();
+    const uri = editor.document.uri.toString();
+    const view = this.panels.get(uri)?.selectedView() ?? await this.exportedView(client, uri);
+    if (view === undefined) {
+      return;
+    }
     let result: RenderResult;
     try {
       result = await client.sendRequest<RenderResult>(RENDER_METHOD, {
-        textDocument: { uri: editor.document.uri.toString() },
-        view: view === undefined || view === "" ? undefined : view,
+        textDocument: { uri },
+        view: view === "" ? undefined : view,
       });
     } catch (err) {
       void vscode.window.showErrorMessage(`Rendering ${basename(editor.document.uri)} failed: ${errorMessage(err)}`);
@@ -215,6 +215,20 @@ export class DiagramPanels implements vscode.Disposable {
     }
     await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(result.artifact));
     this.output.appendLine(`Exported ${result.form} of ${basename(editor.document.uri)} to ${target.fsPath}`);
+  }
+
+  // exportedView is the view to export when no panel shows one: the document's
+  // sole drawable view, the model tree when it has none, or the user's pick among
+  // several. Undefined when the user picks none.
+  private async exportedView(client: LanguageClient, uri: string): Promise<string | undefined> {
+    const { declared, pseudo } = await listViews(client, uri, this.output);
+    const implied = impliedView(declared);
+    if (implied !== undefined) {
+      return implied;
+    }
+    const items = [...declared.filter((entry) => entry.supported), ...pseudo].map((entry) => ({ label: entry.label, entry }));
+    const picked = await vscode.window.showQuickPick(items, { title: `Export which view of ${basename(vscode.Uri.parse(uri))}?`, matchOnDetail: true });
+    return picked?.entry.value;
   }
 
   // adopt takes ownership of a panel, whether it was just created or restored.
@@ -319,30 +333,15 @@ class DiagramPanel {
 
   private async render(client: LanguageClient): Promise<void> {
     const textDocument = { uri: this.docURI.toString() };
-    let listing: ViewsResult | undefined;
-    let views: PickerEntry[] = [];
-    try {
-      listing = await client.sendRequest<ViewsResult>(VIEWS_METHOD, { textDocument });
-      views = (listing?.views ?? []).map((info) => ({
-        value: info.name,
-        label: `${info.name} — ${info.kind}`,
-        supported: info.supported,
-        reason: info.reason,
-      }));
-    } catch (err) {
-      // The listing is the picker's content, not the diagram: a failure there
-      // must not cost the render.
-      this.output.appendLine(`Listing the views of ${this.docURI.fsPath} failed: ${errorMessage(err)}`);
-      views = [];
-    }
+    const { declared, pseudo } = await listViews(client, textDocument.uri, this.output);
     // A document declaring no drawable view is rendered as its model tree, so
     // the panel shows the model being written rather than nothing.
-    if (this.selected === "" && !views.some((entry) => entry.supported)) {
-      this.selected = "#tree";
+    if (this.selected === "" && !declared.some((entry) => entry.supported)) {
+      this.selected = DEFAULT_PSEUDO_VIEW;
     }
     this.post({
       type: "views",
-      views: [...views, ...pseudoViewEntries(listing?.pseudoViews)],
+      views: [...declared, ...pseudo],
       selected: this.selected,
     });
     try {
@@ -462,7 +461,8 @@ class DiagramPanel {
   }
 
   // place writes where a drag left nodes and edges into the model as one edit, so
-  // the whole gesture is one undo step. A stale version is redrawn, not applied.
+  // the whole gesture is one undo step. The canvas shows the drag's outcome until the
+  // model changes; whenever it does not, it is redrawn from the model as it stands.
   private async place(nodes: NodePlacement[], edges: EdgePlacement[], version: number): Promise<void> {
     const rendering = this.rendering;
     if (!offeredOn(rendering, version)) {
@@ -471,11 +471,9 @@ class DiagramPanel {
       return;
     }
     const operations = placementOperations(rendering, nodes, edges);
-    if (!operations || operations.length === 0) {
+    if (!operations || operations.length === 0 || !(await this.apply(rendering, operations, { kind: "place" }))) {
       this.refresh();
-      return;
     }
-    await this.apply(rendering, operations, { kind: "place" });
   }
 
   private async operationsFor(rendering: Rendering, action: EditAction): Promise<ModelEditOperation[] | undefined> {
@@ -637,18 +635,20 @@ class DiagramPanel {
     return rendering.nodes.find((node) => node.id === id);
   }
 
-  private async apply(rendering: Rendering, operations: ModelEditOperation[], action: AppliedAction): Promise<void> {
+  // apply has the server compute the operations' edit and applies it; it reports
+  // whether the document changed.
+  private async apply(rendering: Rendering, operations: ModelEditOperation[], action: AppliedAction): Promise<boolean> {
     const client = this.client();
     if (!client || !supportsEdit(client)) {
       this.fail("The language server does not serve model edits.");
-      return;
+      return false;
     }
     const document = vscode.workspace.textDocuments.find(
       (candidate) => candidate.uri.toString() === this.docURI.toString(),
     );
     if (!document) {
       this.fail("The document is not open, so it cannot be edited.");
-      return;
+      return false;
     }
     let result: ApplyModelEditResult;
     try {
@@ -656,37 +656,35 @@ class DiagramPanel {
       result = await client.sendRequest<ApplyModelEditResult>(APPLY_MODEL_EDIT_METHOD, params);
     } catch (err) {
       void vscode.window.showErrorMessage(`The edit could not be computed: ${errorMessage(err)}`);
-      return;
+      return false;
     }
     // The names acted on may spell other declarations now: redraw, do not retry.
     if (result.stale) {
       this.refresh();
       void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
-      return;
+      return false;
     }
     if (result.refused) {
-      await this.refused(rendering, result, action);
-      return;
+      return this.refused(rendering, result, action);
     }
     if (!result.edit) {
       this.fail("The language server answered with neither an edit nor a refusal.");
-      return;
+      return false;
     }
     const edit = await client.protocol2CodeConverter.asWorkspaceEdit(result.edit);
     if (!(await vscode.workspace.applyEdit(edit))) {
       void vscode.window.showErrorMessage("VS Code did not apply the edit.");
+      return false;
     }
+    return true;
   }
 
-  // A delete refused for references is offered again as a cascade; anything else is
-  // just told, and a refused placement is redrawn so the canvas shows the model again.
-  private async refused(rendering: Rendering, result: ApplyModelEditResult, action: AppliedAction): Promise<void> {
+  // A delete refused for references is offered again as a cascade, and applied if
+  // taken up; anything else is just told.
+  private async refused(rendering: Rendering, result: ApplyModelEditResult, action: AppliedAction): Promise<boolean> {
     const refused = result.refused ?? [];
     const message = describeRefusal(refused);
     this.output.appendLine(`Model edit refused:\n${message}`);
-    if (action.kind === "place") {
-      this.refresh();
-    }
     if (action.kind === "delete" && refused.some((refusal) => refusal.failure === "delete-referenced")) {
       const referring = refused.flatMap((refusal) => refusal.referring ?? []);
       const answer = await vscode.window.showWarningMessage(
@@ -697,12 +695,13 @@ class DiagramPanel {
       if (answer === "Delete all") {
         const operations = await this.delete(rendering, action.id, true);
         if (operations) {
-          await this.apply(rendering, operations, { kind: "delete", id: action.id });
+          return this.apply(rendering, operations, { kind: "delete", id: action.id });
         }
       }
-      return;
+      return false;
     }
     void vscode.window.showErrorMessage(message);
+    return false;
   }
 
   private post(message: ToWebview): void {

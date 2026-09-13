@@ -105,10 +105,56 @@ test("layoutCanvas grows an unsized owner to hold a child the model put beyond i
   assert.ok(a.box.y + a.box.height >= 400 + 40 + 16);
 });
 
+test("layoutCanvas moves a root's siblings past an owner grown around a placed child", () => {
+  const layout = layoutCanvas(rendering([
+    node("a", "a"),
+    node("b", "b", { parent: "a", x: 500, y: 400 }),
+    node("c", "c"),
+  ]));
+  const a = layout.nodes.get("a")!;
+  const c = layout.nodes.get("c")!;
+  assert.equal(a.box.x + a.box.width, 500 + 96 + 16);
+  assert.equal(c.box.x, a.box.x + a.box.width + GAP);
+  assert.equal(c.pinned, false);
+});
+
+test("layoutCanvas moves nested siblings past a container grown around a placed grandchild", () => {
+  const layout = layoutCanvas(rendering([
+    node("root", "root"),
+    node("a", "a", { parent: "root" }),
+    node("b", "b", { parent: "a", x: 300, y: 300 }),
+    node("c", "c", { parent: "root" }),
+    node("d", "d", { parent: "root" }),
+    node("e", "e", { parent: "root" }),
+  ]));
+  const root = layout.nodes.get("root")!;
+  const a = layout.nodes.get("a")!;
+  const c = layout.nodes.get("c")!;
+  const d = layout.nodes.get("d")!;
+  assert.deepEqual([a.box.x + a.box.width, a.box.y + a.box.height], [300 + 96 + 16, 300 + 52 + 16]);
+  // Four children take two columns and two rows: a's column is as wide as a, its row as tall.
+  assert.equal(c.box.x, a.box.x + a.box.width + GAP);
+  assert.equal(d.box.y, a.box.y + a.box.height + GAP);
+  assert.ok(root.box.x + root.box.width >= c.box.x + c.box.width + 16);
+  assert.ok(root.box.y + root.box.height >= d.box.y + d.box.height + 16);
+});
+
 test("layoutCanvas hides the children of a collapsed node", () => {
-  const layout = layoutCanvas(rendering([node("a", "a", { x: 10, y: 10, collapsed: true }), node("b", "b", { parent: "a" })]));
+  const layout = layoutCanvas(rendering(
+    [node("a", "a", { x: 10, y: 10, collapsed: true }), node("b", "b", { parent: "a" }), node("c", "c", { parent: "b" }), node("d", "d", { x: 200, y: 5 })],
+    [
+      { from: "b", to: "c", label: "", kind: "connection", route: [{ x: 900, y: 900 }] },
+      { from: "c", to: "d", label: "", kind: "connection" },
+      { from: "a", to: "d", label: "", kind: "connection" },
+    ],
+  ));
   const a = layout.nodes.get("a")!;
   assert.deepEqual(a.box, { x: 10, y: 10, width: 96, height: 52 });
+  assert.equal(a.collapsed, true);
+  assert.deepEqual(["b", "c"].map((id) => layout.nodes.get(id)!.hidden), [true, true]);
+  assert.equal(layout.nodes.get("d")!.hidden, false);
+  // An edge at a hidden node is hidden with it, its route not counted toward the canvas.
+  assert.deepEqual(layout.edges.map((edge) => edge.hidden), [true, true, false]);
   assert.equal(layout.height, 10 + 52 + MARGIN);
 });
 
