@@ -195,14 +195,18 @@ derived ids. So does an unnamed, aliased or shadowed library element: nothing
 is guessed.
 
 A normative id is not a declared one. `sysx:declaredId` is not written for it,
-and reading the graph back does not re-materialize an `@ElementId` annotation
-for it, since the library text derives the same id again on its own. The
-reader recognises a normative id only on the subject whose `sysml:qualifiedName`
-is the library element's (its effective name, or the exact positional name the
-writer gives an effectively named member); a user element that happens to carry a
-library UUID without `sysx:declaredId` keeps it as a declared id, as any other
-foreign id. An explicit `@IdentityMetadata::ElementId` still wins over the
-normative id when a library element carries one.
+and reading the graph back leaves it implied — no `@ElementId` annotation —
+while the notation that comes back is, byte for byte, the bundled library file,
+which derives the same id again on its own. Notation that is not that file (the
+graph's source text was stripped, or stale for some element) cannot imply the
+id, so the reader writes it as an `@IdentityMetadata::ElementId` annotation
+instead and the id survives a further hop through notation as a declared one.
+The reader recognises a normative id only on the subject whose
+`sysml:qualifiedName` is the library element's (its effective name, or the exact
+positional name the writer gives an effectively named member); a user element
+that happens to carry a library UUID without `sysx:declaredId` keeps it as a
+declared id, as any other foreign id. An explicit `@IdentityMetadata::ElementId`
+still wins over the normative id when a library element carries one.
 
 A document holding **more than one project scope** qualifies each element's IRI
 with its scope's provenance (`elmt:<encoded-org>.<encoded-project>:<id>`), so an

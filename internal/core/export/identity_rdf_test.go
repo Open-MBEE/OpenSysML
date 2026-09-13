@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -595,10 +596,9 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 	if string(second) != text {
 		t.Errorf("second hop is not idempotent:\n%s", second)
 	}
-	// Read back from the mapping alone, the ids the norm implies stay implied.
-	if back := toNotation(t, withoutSourceText(t, turtle)); strings.Contains(back, "ElementId") {
-		t.Errorf("the ids the norm implies came back as declared annotations:\n%s", back)
-	}
+	// Read back from the mapping alone, the notation is not the library file,
+	// so it has to state the ids the library text would have implied.
+	keepsIDsWithoutSourceText(t, name, turtle)
 	edited := append([]byte("// not the library\n"), src...)
 	turtle, err = export.Convert(name, edited, export.FormatSysML, export.FormatTurtle)
 	if err != nil {
@@ -608,6 +608,46 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 		strings.Contains(text, "14c0aa22-5489-59b5-b438-ded26e83ba31") {
 		t.Errorf("an edited copy of a library file is not the library, so its ids are encoded names:\n%s", text)
 	}
+}
+
+// keepsIDsWithoutSourceText asserts a graph stripped of its source text comes
+// back as notation whose own conversion, read as a file of the same grammar
+// that is not the library's, states every element's id again.
+func keepsIDsWithoutSourceText(t *testing.T, name string, turtle []byte) {
+	t.Helper()
+	back := toNotation(t, withoutSourceText(t, turtle))
+	again, err := export.Convert("copy"+filepath.Ext(name), []byte(back), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("rebuilt notation to turtle: %v\n%s", err, back)
+	}
+	want, got := elementIDs(t, turtle), elementIDs(t, again)
+	for qname, id := range want {
+		if got[qname] != id {
+			t.Errorf("%s: id %q came back as %q", qname, id, got[qname])
+		}
+	}
+	if t.Failed() {
+		t.Logf("rebuilt notation:\n%s", back)
+	}
+}
+
+// elementIDs maps each named subject's qualified name to its element id.
+func elementIDs(t *testing.T, turtle []byte) map[string]string {
+	t.Helper()
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	out := map[string]string{}
+	for _, subject := range graph.Subjects() {
+		qname, ok := graph.Object(subject, rdf.SysML+"qualifiedName")
+		if !ok {
+			continue
+		}
+		id, _ := graph.Object(subject, rdf.SysML+"elementId")
+		out[qname.Value] = id.Value
+	}
+	return out
 }
 
 // A library uuid is the norm's only on the subject named as the library element
@@ -676,7 +716,5 @@ func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
 	if graph.HasProperty(subject, rdf.OpenSysML+"declaredId") {
 		t.Errorf("the norm's id is stated as declared")
 	}
-	if back := toNotation(t, withoutSourceText(t, turtle)); strings.Contains(back, "ElementId") {
-		t.Errorf("the ids the norm implies came back as declared annotations:\n%s", back)
-	}
+	keepsIDsWithoutSourceText(t, name, turtle)
 }
