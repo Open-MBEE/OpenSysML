@@ -20,6 +20,10 @@ type kindEngines struct {
 	declaring, ranked []Engine
 }
 
+// SMTEngineName is the name of the symbolic engine over an SMT solver, which lives
+// in package smt and joins the build's registry through package engines.
+const SMTEngineName = "smt"
+
 // NewRegistry returns an empty registry.
 func NewRegistry() *Registry {
 	return &Registry{engines: make(map[string]Engine)}
@@ -72,8 +76,9 @@ func (r *Registry) Statuses() []Status {
 	return statuses
 }
 
-// Default returns a registry of every engine the build knows: run, explore, check, sweep
+// Default returns a registry of the framework's own engines: run, explore, check, sweep
 // and solve. Solve registers whether or not a solver is found and refuses through Covers.
+// The build's registry, which adds the engines of other packages, is engines.Default.
 func Default() *Registry {
 	r := NewRegistry()
 	// The five names are distinct constants, so none of these registrations can be refused.

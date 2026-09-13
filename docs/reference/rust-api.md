@@ -109,9 +109,14 @@ match value {
     Value::VectorQuantity(q) => (),    // q.components(): one Quantity per component; q.unit() when shared
     Value::MeasurementRef(m) => (),    // a bare unit: m.unit, m.unit_term, m.unit_id when it names a declaration
     Value::Function(f) => (),          // a calc held as a value: f.calc_id, f.self_id when read off an object
-    Value::EnumLiteral(l) => (),       // literal_id, enumeration_id, name
+    Value::Set(s) => (),               // a Collections::Set's elements: each once, unordered
+    Value::TensorQuantity(t) => (),    // t.dimensions(), t.components() row-major, t.get(&[i, j, k])
+    Value::Metaobject(m) => (),        // x meta KerML::Feature: m.element_id, m.metaclass_id
+    Value::EnumLiteral(l) => (),       // literal_id, enumeration_id, name; value: the scalar a `high = 3` literal carries
     Value::Null => (),                 // evaluated, no value
     Value::Unset => (),                // a materialized feature with no value
+    Value::Undetermined(u) => (),      // left open by the model: u.reason, u.count_lower, u.count_upper
+    Value::Infinity => (),             // the unbounded `*`
 }
 ```
 

@@ -573,6 +573,12 @@ func (ctx *Context) optionalValueless(sym *symbols.Symbol) bool {
 	if ctx.extractDefaultValue(sym) != nil {
 		return false
 	}
+	return ctx.admitsNoValue(sym)
+}
+
+// admitsNoValue reports whether the feature's effective multiplicity has a lower
+// bound of zero, so that holding no value at all is within it.
+func (ctx *Context) admitsNoValue(sym *symbols.Symbol) bool {
 	lower := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)).Lower
 	return lower.Known && !lower.Infinite && lower.Value == 0
 }

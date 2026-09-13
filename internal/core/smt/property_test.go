@@ -62,7 +62,7 @@ const conditionsSrc = `package test {
 func TestConditionPropertiesFollowTheRun(t *testing.T) {
 	solver := requireSolver(t)
 	ctx, idx, action, graph, held := loweredWithIndex(t, "conditions.sysml", conditionsSrc, "test::A")
-	enc, err := Encode(ctx, action, graph, held, 4, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, held, nil, 4, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestConditionPropertiesFollowTheRun(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			p, err := enc.Condition(ctx, lookup(t, idx, c.name), nil)
+			p, err := enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, c.name)}, nil)
 			if err != nil {
 				t.Fatalf("property: %v", err)
 			}
@@ -104,7 +104,7 @@ func TestConditionPropertiesFollowTheRun(t *testing.T) {
 	if got := solveStatus(t, solver, enc.Uncertainty()); got != solve.StatusUnsat {
 		t.Errorf("uncertainty at k=4: %v, want unsat (every run ends in 4 moves)", got)
 	}
-	short, err := Encode(ctx, action, graph, held, 2, DefaultUnroll)
+	short, err := Encode(ctx, action, graph, held, nil, 2, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -114,13 +114,14 @@ func TestConditionPropertiesFollowTheRun(t *testing.T) {
 }
 
 // TestConditionReadingNoValueIsUndefined: a condition over a feature no state
-// has given a value is not violated but undecidable, which is a failure.
+// has given a value is not violated but undecidable, which is a failure. An
+// output is written back rather than read, so it is no free input.
 func TestConditionReadingNoValueIsUndefined(t *testing.T) {
 	solver := requireSolver(t)
 	src := `package test {
 	private import ScalarValues::*;
 	action def A {
-		attribute x : Integer;
+		out x : Integer;
 		requirement positive { require x > 0; }
 		first start;
 		action set { assign x := 3; }
@@ -130,11 +131,11 @@ func TestConditionReadingNoValueIsUndefined(t *testing.T) {
 	}
 }`
 	ctx, idx, action, graph, held := loweredWithIndex(t, "undefined.sysml", src, "test::A")
-	enc, err := Encode(ctx, action, graph, held, 3, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, held, nil, 3, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
-	p, err := enc.Condition(ctx, lookup(t, idx, "test::A::positive"), nil)
+	p, err := enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::A::positive")}, nil)
 	if err != nil {
 		t.Fatalf("property: %v", err)
 	}
@@ -166,11 +167,11 @@ func TestConditionOverAnObjectIsRefused(t *testing.T) {
 	}
 }`
 	ctx, idx, action, graph, held := loweredWithIndex(t, "object.sysml", src, "test::A")
-	enc, err := Encode(ctx, action, graph, held, 2, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, held, nil, 2, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
-	_, err = enc.Condition(ctx, lookup(t, idx, "test::p::positive"), nil)
+	_, err = enc.Conditions(ctx, []*symbols.Symbol{lookup(t, idx, "test::p::positive")}, nil)
 	var unsupported *UnsupportedError
 	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
 		t.Fatalf("condition over an object: %v, want an UnsupportedError", err)
@@ -197,7 +198,7 @@ func TestDeadlockProperty(t *testing.T) {
 	}
 }`
 	ctx, action, graph, held := loweredAction(t, stuck, "test::stuck")
-	enc, err := Encode(ctx, action, graph, held, 4, DefaultUnroll)
+	enc, err := Encode(ctx, action, graph, held, nil, 4, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -230,7 +231,7 @@ func TestDeadlockProperty(t *testing.T) {
 	}
 }`
 	ctx, action, graph, held = loweredAction(t, free, "test::free")
-	enc, err = Encode(ctx, action, graph, held, 6, DefaultUnroll)
+	enc, err = Encode(ctx, action, graph, held, nil, 6, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -241,7 +242,7 @@ func TestDeadlockProperty(t *testing.T) {
 	if got := solveStatus(t, solver, enc.Uncertainty()); got != solve.StatusUnsat {
 		t.Errorf("uncertainty at k=6: %v, want unsat", got)
 	}
-	short, err := Encode(ctx, action, graph, held, 5, DefaultUnroll)
+	short, err := Encode(ctx, action, graph, held, nil, 5, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}

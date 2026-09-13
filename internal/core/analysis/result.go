@@ -220,10 +220,69 @@ func (b Bounds) String() string {
 }
 
 // Witness is an execution the interpreter replays to exhibit a claim: the
-// policy it ran under and the choices it took.
+// policy it ran under, the inputs it fixed before its first move and the
+// choices it took.
 type Witness struct {
 	Schedule runtime.SchedulePolicy
+	Inputs   []runtime.InputTaken
 	Choices  []runtime.ChoiceTaken
+	// Written is the file the witness was written to, "" when none was asked for.
+	Written string
+}
+
+// Input is one feature of the behavior or its performer an engine ranged over or
+// pinned in the initial state: free in the domain its declared type narrows the
+// sort to, or fixed at the value the model binds it to.
+type Input struct {
+	// Name is the feature as the performance holds it.
+	Name string
+	// Type is the declared type, as written; "" when the feature declares none.
+	Type string
+	// Sort is the solver sort the feature's values range over (Int, Real, Bool, an
+	// enumeration's datatype).
+	Sort string
+	// Domain says what the sort is narrowed to (`>= 0`, the constructors, an
+	// interval); "" when the sort alone is the domain.
+	Domain string
+	// Free reports whether the engine ranged over the domain; false pins Value.
+	Free bool
+	// Optional reports a free input whose multiplicity admits no value (`[0..1]`):
+	// the engine ranged over its absence too, which a witness spells `null`.
+	Optional bool
+	// Value is the value pinned, or the one a witness chose for a free input,
+	// spelled as the witness file's input line spells it; "" for a free input
+	// of a claim with no witness, or a pinned one held without a value.
+	Value string
+}
+
+// String spells the input as a report lists it: `x : Integer free`,
+// `n : Natural free in >= 0`, `x : Integer free or absent`, `mode = Mode::Fast`.
+func (in Input) String() string {
+	switch {
+	case in.Free && in.Value != "":
+		return in.Name + " = " + in.Value + in.domainText(" (free in ", ")")
+	case in.Free && in.Optional:
+		return in.Name + in.typeText() + " free" + in.domainText(" in ", "") + " or absent"
+	case in.Free:
+		return in.Name + in.typeText() + " free" + in.domainText(" in ", "")
+	case in.Value != "":
+		return in.Name + " = " + in.Value
+	}
+	return in.Name + in.typeText() + " pinned"
+}
+
+func (in Input) typeText() string {
+	if in.Type == "" {
+		return ""
+	}
+	return " : " + in.Type
+}
+
+func (in Input) domainText(open, close string) string {
+	if in.Domain == "" {
+		return ""
+	}
+	return open + in.Domain + close
 }
 
 // Evaluation is one thing the question asked for, as the engine established it: exactly
@@ -258,6 +317,11 @@ type Result struct {
 	Bounds Bounds
 	// Witness is a schedule the interpreter replays, when the claim has one.
 	Witness *Witness
+	// Inputs are the features of the initial state a symbolic engine ranged over
+	// or pinned, each with its domain and, for a witness, its value.
+	Inputs []Input
+	// Assumptions name the constraints assumed over the initial state.
+	Assumptions []string
 	// Reason says why, when nothing is claimed: the construct, the unknown,
 	// the budget, the disagreement.
 	Reason string
@@ -291,6 +355,10 @@ func (r Result) Table() runtime.SweepTable {
 	return table
 }
 
+// DefaultUnroll is how many iterations of a body loop a symbolic engine unrolls
+// when Budget.Unroll is zero.
+const DefaultUnroll = 4
+
 // Budget is what a run may spend; a zero field is the engine's own default. Runs, Depth and
 // Solver are applied by the engines in their own units, Deadline by Registry.Answer to the
 // plan's context; Steps and Memory name the context's.
@@ -305,6 +373,9 @@ type Budget struct {
 	Runs int
 	// Depth is how many moves one run may resolve.
 	Depth int
+	// Unroll is how many iterations of a body loop a symbolic engine unrolls; zero is
+	// DefaultUnroll.
+	Unroll int
 	// Steps is the step budget of one run, as OPENSYSML_MAX_STEPS names it.
 	Steps int
 	// Solver is the time one query may take, as OPENSYSML_SMT_TIMEOUT names it.

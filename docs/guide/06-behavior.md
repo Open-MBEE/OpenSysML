@@ -49,22 +49,29 @@ and the machine completes only once every region has reached it. A `done` writte
 composite state's body ends that state, not the machine: the composite *completes*, and its
 transitions with no trigger (`transition first outer then next;`) fire, exactly as a plain
 state's do when its `do` behavior ends. A completed composite with no such transition stays
-active, and the machine runs on until its own top-level regions reach `done`.
+active, and the machine runs on until its own top-level regions reach `done`. Only the Kernel
+Semantic Library's run-to-completion defaults are implemented: a machine that redefines
+`isRunToCompletion` or `runToCompletionScope` away from them is refused when it is lowered,
+naming the feature and the value written, rather than run as if the default held.
 
 ```sysml
 sysml> state TrafficLight {
-  ...>     entry; then start;
-  ...>     state start;
+  ...>     entry; then idle;
+  ...>     state idle;
   ...>     state green;
   ...>     accept after 25 [SI::s] then yellow;
   ...>     state yellow;
   ...>     accept after 5 [SI::s] then red;
   ...>     state red;
   ...>     accept after 30 [SI::s] then done;
-  ...>     succession first start then green;
+  ...>     succession first idle then green;
   ...> }
 ✓ state TrafficLight
 ```
+
+(The first state is not named `start`: every state inherits `start` and `done` from the
+library's `StateAction`, so declaring a state of that name is reported as a duplicate of the
+inherited member.)
 
 A transition written without `transition … first`, as the three `accept after … then …`
 lines above are, leaves the state declared right before it in the same body (SysML v2
@@ -78,7 +85,7 @@ written first in a body, or after a member that is not a state, it is reported.
 ```sysml
 sysml> %state TrafficLight
 ✓ Started state machine executor for "TrafficLight"
-  Current state: start
+  Current state: idle
   Time: 0.0
   Events: 1
 
@@ -89,18 +96,22 @@ sysml> %advance 25
   Current state: yellow
   Last event at: 25.0
   Remaining events: 1
+  Waiting on the clock:
+    t=30.0: state machine TrafficLight, time -> red
 
 sysml> %current
 Current state: yellow
 Time: 25.0
 Last event at: 25.0
-Execution state: Running
+Execution state: Suspended
 
 sysml> %advance 5
 ✓ Advanced to 30.0 (1 event(s) processed)
   Current state: red
   Last event at: 30.0
   Remaining events: 1
+  Waiting on the clock:
+    t=60.0: state machine TrafficLight, time -> done
 
 sysml> %advance 30
 ✓ Advanced to 60.0 (1 event(s) processed)
@@ -112,8 +123,8 @@ sysml> %advance 30
 ```
 
 **Choosing the starting state.** Written right after the body's entry action, the shorthand
-is an *entry transition* instead: it names the state the body starts in. `entry; then start;`
-above always starts in `start`; with a guard, `entry; if cold then heating; if not cold then
+is an *entry transition* instead: it names the state the body starts in. `entry; then idle;`
+above always starts in `idle`; with a guard, `entry; if cold then heating; if not cold then
 idle;`, the alternatives are tried in the order written each time the body is entered — when
 the machine starts, and again whenever a transition enters the composite state whose body it
 is — and the first whose guard holds is entered. An unguarded `then s;` among them is the
@@ -171,9 +182,11 @@ sysml> %state bulb
   Time: 0.0
   Events: 0
 
+Use %events to see queue, %current for state, %advance <time> to step
+
 sysml> %send go
 ✓ Sent go to object #1 of "Lamps::bulb"
-  Accepted by state machine "Lamp" in state off
+  Accepted by state machine "Lamp" in state off: transition off_on fires on it
 
 Use %step or %advance <time> to dispatch it
 
@@ -190,7 +203,9 @@ sysml> %advance 1
 
 sysml> %send Dim(level=3+4)
 ✓ Sent Dim(level=7) to object #1 of "Lamps::bulb"
-  Accepted by state machine "Lamp" in state on
+  Accepted by state machine "Lamp" in state on: transition on_dim fires on it
+
+Use %step or %advance <time> to dispatch it
 
 sysml> %step
 ✓ Event dispatched
@@ -252,6 +267,8 @@ sysml> %action Timed::pinger
   State: Running
   Tokens: 1
 
+Use %step to advance, %tokens to inspect, %continue to run to completion
+
 sysml> %step
 ✓ Step complete
   State: Running
@@ -267,6 +284,8 @@ sysml> %state Timed::listener
   Current state: idle
   Time: 0.0
   Events: 0
+
+Use %events to see queue, %current for state, %advance <time> to step
 
 sysml> %advance 2
 ✓ Advanced to 2.0 (0 event(s) processed)
@@ -358,6 +377,8 @@ sysml> %state Watch::w
   Time: 0.0
   Events: 1
 
+Use %events to see queue, %current for state, %advance <time> to step
+
 sysml> %advance 20
 ✓ Advanced to 20.0 (1 event(s) processed)
   Current state: finished
@@ -369,9 +390,15 @@ sysml> %features Watch::w
 Instance: Watch::w (ID: 1)
 Features:
   ticks = 1
+…
 Behaviors:
   m: exhibited state machine, current state finished
+…
 ```
+
+(The `…` stand for the library-declared features of the part and of the machine — `subparts`,
+`isSolid`, `transitions`, … — which `%features` lists after the model's own; see [your first
+model](02-first-model.md#at-the-prompt).)
 
 Had the poll waited `30 [SI::s]` instead, the exit at `t=10.0` would have cancelled it and
 `ticks` would still read `0`. When the states of two orthogonal regions both have a do action
@@ -411,7 +438,11 @@ instruction. The KerML Kernel Semantic Library orders three things and nothing e
 - **Send before accept.** A message is accepted after it was sent, so an `accept` that waits for a
   `send` in another branch follows that send.
 - **Ancestor priority.** When a substate's transition and its enclosing state's are both enabled
-  by one event, the innermost fires — SysML v2/KerML order, not a pick.
+  by one event, the innermost fires — SysML v2/KerML order, not a pick. A deferred event (the
+  `defer <event>;` extension) is ordered the same way: while a state that defers it is active,
+  the event reaches only a transition whose source is that state or one nested in it; a
+  transition in an enclosing state or a sibling region waits until the deferring state is
+  exited, and the event is then dispatched, ahead of later arrivals.
 
 Everything else two performances could do in either order, they may: which of two fork branches
 steps first (*token interleaving*), which of two holding guards a decision follows (*overlapping
@@ -680,7 +711,16 @@ move <n> (<the choice>): <what the run faced instead>`, and the check it was par
 covered*. A file that spells no choice (a pick not among its own alternatives, a line in no
 known form, nothing at all) is refused as the policy is parsed, before anything runs; a header
 of `no choice points`, as the checker writes for a run that met none, follows the one run there
-is. The policy is accepted
+is.
+
+A witness the `smt` engine writes opens with the values it chose for the action's free inputs,
+one `input <feature> = <value>` line each — `input limit = -1`, `input mode =
+Modes::Mode::fast` for an enumeration, `input rate = 1/3` for a real, `input limit = null` for
+a feature declared `[0..1]` the solver left without a value — ahead of its choice lines. The replay pins each named feature at that value before the run starts, as an argument
+the invocation passes is pinned and before any default the model gives it, then follows the
+moves; a file without input lines is the format it always was and replays as before. An input
+line naming a feature the action does not have, or one it cannot set, is refused naming the
+feature, and the check it was part of is *not covered*. The policy is accepted
 wherever a policy is — `-schedule`, `%schedule` (the debuggers step one run, which is what a
 replay is), a conformance case's `schedule` pin — except over the wire, where a request carries
 no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.
@@ -799,6 +839,8 @@ sysml> %state Monitor
   Time: 0.0
   Events: 1
 
+Use %events to see queue, %current for state, %advance <time> to step
+
 sysml> %step
 ✓ Event dispatched
   Current state: awake
@@ -809,8 +851,10 @@ sysml> %features Monitor
 Instance: Monitor (ID: 1)
 Features:
   count = 11
+…
 Behaviors:
   modes: exhibited state machine, current state awake
+…
   bumpBy: action, not running
 ```
 
@@ -903,8 +947,10 @@ sysml> %features Monitor
 Instance: Monitor (ID: 1)
 Features:
   count = 15
+…
 Behaviors:
   modes: exhibited state machine, current state awake
+…
   bumpBy: action, not running
 ```
 

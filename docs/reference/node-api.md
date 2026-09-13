@@ -92,6 +92,7 @@ than a message with optional fields:
 switch (value.kind) {
   case "int":      value.value;                  // bigint, never lossy
   case "real":     value.value;                  // number
+  case "complex":  value.value.real; value.value.imaginary;  // one value, not two floats
   case "boolean":
   case "string":   value.value;
   case "quantity": value.magnitude; value.unit;
@@ -99,23 +100,30 @@ switch (value.kind) {
   case "array":    value.dimensions; value.elements;   // row-major SysMLValue[]
   case "vector":   value.components;             // Magnitude[]: int | real, kept apart
   case "vectorQuantity": value.components;       // QuantityValue[], one unit each
+  case "set":      value.elements;               // SysMLValue[], each once, unordered
+  case "tensorQuantity": value.dimensions; value.components;  // any rank, row-major QuantityValue[]
   case "function": value.calcId; value.selfId;  // a calc held as a value; selfId when read off an object
-  case "enum":     value.value.name;             // and its literal/enumeration ids
+  case "metaobject": value.elementId; value.metaclassId;  // x meta KerML::Feature: the element reflected on
+  case "enum":     value.value.name; value.value.value;  // literal/enumeration ids, and a `high = 3` literal's scalar
   case "instance": value.id;                     // an object in the same tree
   case "sequence": value.elements;               // SysMLValue[]
+  case "undetermined": value.reason; value.countLower; value.countUpper;  // left open by the model
+  case "infinity": break;                        // the unbounded `*`
   case "null":     value.reason;                 // evaluated, no value
   case "unset":    break;                        // declared, never given one
   case "absent":   break;                        // the service sent no value at all
 }
 ```
 
-`unset` and `absent` are distinct on purpose: the first is a feature the model
-leaves without a value, the second a field the answer did not carry. `SysMLVerdict`
+`unset`, `undetermined` and `absent` are distinct on purpose: the first is a feature the
+model leaves without a value, the second an answer the model leaves open (read, never sent),
+the third a field the answer did not carry. `SysMLVerdict`
 (`holds` / `fails` / `undecided`) and `FeatureValue` (`single` / `many` / `error`)
-are unions of the same shape. Integers are `bigint`, because the service's `int64`
-does not fit a `number` and an exact comparison would otherwise be a lie.
-`decodeValue`, `decodeVerdict` and `formatValue` are exported for a caller
-decoding a response it obtained itself.
+are unions of the same shape; every verdict arm carries a `standing` (`engine`, `strength`,
+`bounds`), empty from a service without the `engines` capability. Integers are `bigint`,
+because the service's `int64` does not fit a `number` and an exact comparison would
+otherwise be a lie. `decodeValue`, `decodeVerdict`, `decodeStanding` and `formatValue` are
+exported for a caller decoding a response it obtained itself.
 
 ## Errors
 

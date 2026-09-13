@@ -13,16 +13,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// checkSettings is what the check engine is asked beside the behaviors: the features
-// that may not diverge, the properties every state must satisfy, where witnesses go.
+// checkSettings is what the check engines are asked beside the behaviors: the features
+// that may not diverge, the properties every state must satisfy, the inputs left
+// free and the assumptions made over the initial state, where witnesses go.
 type checkSettings struct {
 	diverge    []string
 	properties []string
+	inputs     []string
+	assume     []string
 	witnessDir string
-	// depth and states bound the search, 0 for the engine's default; timeout is
-	// the plan's clock, 0 for none.
-	depth, states int
-	timeout       time.Duration
+	// depth, states and unroll bound the search, 0 for the engine's default;
+	// timeout is the plan's clock, 0 for none.
+	depth, states, unroll int
+	timeout               time.Duration
 	// checked is the last invocation searched, for %advance to search again.
 	checked *checkedInvocation
 }
@@ -38,20 +41,88 @@ func (c checkSettings) deadline() time.Time {
 // given reports whether any check setting was made, which under %engine all puts
 // a behavior to the check engine beside the others.
 func (c checkSettings) given() bool {
-	return len(c.diverge) > 0 || len(c.properties) > 0 || c.witnessDir != "" ||
-		c.depth > 0 || c.states > 0 || c.timeout > 0
+	return len(c.diverge) > 0 || len(c.properties) > 0 || len(c.inputs) > 0 || len(c.assume) > 0 ||
+		c.witnessDir != "" || c.depth > 0 || c.states > 0 || c.unroll > 0 || c.timeout > 0
+}
+
+// frees is what the settings leave open beside the schedule: the inputs, once one
+// is released or an assumption is made about them.
+func (c checkSettings) frees() analysis.Freedom {
+	if len(c.inputs) > 0 || len(c.assume) > 0 {
+		return analysis.FreeInputs
+	}
+	return analysis.FreeNothing
+}
+
+// explicitOnly names the settings made that the check engine alone reads.
+func (c checkSettings) explicitOnly() []string {
+	var made []string
+	if len(c.diverge) > 0 {
+		made = append(made, "%check-diverge")
+	}
+	if c.states > 0 {
+		made = append(made, "%check-bounds states")
+	}
+	return made
+}
+
+// symbolicOnly names the settings made that the smt engine alone reads.
+func (c checkSettings) symbolicOnly() []string {
+	var made []string
+	if len(c.inputs) > 0 {
+		made = append(made, "%check-input")
+	}
+	if len(c.assume) > 0 {
+		made = append(made, "%check-assume")
+	}
+	if c.unroll > 0 {
+		made = append(made, "%check-bounds unroll")
+	}
+	return made
+}
+
+// checkerMisuse reports why a check setting made checks nothing under the engine
+// selected alone, and "" when every setting made reaches an engine that reads it.
+func (s *Session) checkerMisuse() string {
+	switch {
+	case s.checkOnly() && len(s.checker.symbolicOnly()) > 0:
+		return misuseText(s.checker.symbolicOnly(), analysis.SMTEngineName, analysis.CheckEngineName)
+	case s.symbolic() && len(s.checker.explicitOnly()) > 0:
+		return misuseText(s.checker.explicitOnly(), analysis.CheckEngineName, analysis.SMTEngineName)
+	}
+	return ""
+}
+
+// misuseText spells the settings made that reader alone reads, which %engine
+// selected leaves out.
+func misuseText(made []string, reader, selected string) string {
+	return fmt.Sprintf("%s %s the %s engine's, which %%engine %s leaves out; select it, as %%engine %s, or every engine, as %%engine all",
+		spelled(made), plural(len(made), "is", "are"), reader, selected, reader)
+}
+
+// spelled lists names as prose: `a`, `a and b`, `a, b and c`.
+func spelled(names []string) string {
+	if len(names) < 2 {
+		return strings.Join(names, "")
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }
 
 // checking reports whether the session's selection puts a behavior to the check
-// engine, which searches its schedules rather than stepping one run: under
-// %engine check always, under %engine all once a check setting is made.
+// engines, which decide its schedules rather than stepping one run: under
+// %engine check or %engine smt always, under %engine all once a check setting is made.
 func (s *Session) checking() bool {
-	return s.checkOnly() || s.engine.Mode == analysis.SelectAll && s.checker.given()
+	return s.checkOnly() || s.symbolic() || s.engine.Mode == analysis.SelectAll && s.checker.given()
 }
 
 // checkOnly reports whether the check engine alone is selected.
 func (s *Session) checkOnly() bool {
 	return s.engine == analysis.Only(analysis.CheckEngineName)
+}
+
+// symbolic reports whether the smt engine alone is selected.
+func (s *Session) symbolic() bool {
+	return s.engine == analysis.Only(analysis.SMTEngineName)
 }
 
 // CheckDiverge returns the features a check compares the final values of; none
@@ -79,6 +150,33 @@ func (s *Session) CheckProperties() []string {
 func (s *Session) SetCheckProperties(names []string) {
 	defer s.enter()()
 	s.checker.properties = append([]string(nil), names...)
+}
+
+// CheckInputs returns the features a check leaves free although the model binds them.
+func (s *Session) CheckInputs() []string {
+	defer s.reading()()
+	return append([]string(nil), s.checker.inputs...)
+}
+
+// SetCheckInputs names the features a check leaves free although the model binds
+// them; each is resolved when the check runs.
+func (s *Session) SetCheckInputs(features []string) {
+	defer s.enter()()
+	s.checker.inputs = append([]string(nil), features...)
+}
+
+// CheckAssume returns the constraints and requirements a check assumes over the
+// initial state.
+func (s *Session) CheckAssume() []string {
+	defer s.reading()()
+	return append([]string(nil), s.checker.assume...)
+}
+
+// SetCheckAssume names the constraints and requirements a check assumes over the
+// initial state; each is resolved when the check runs.
+func (s *Session) SetCheckAssume(names []string) {
+	defer s.enter()()
+	s.checker.assume = append([]string(nil), names...)
 }
 
 // CheckWitnessDir returns where a check writes its witnesses, "" for nowhere.
@@ -110,6 +208,24 @@ func (s *Session) doCheckProperty(args []string) []string {
 	return []string{"check-property: " + settingText(s.checker.properties, "none")}
 }
 
+// doCheckInput shows or sets the features a check leaves free, `off` freeing only
+// the ones the model leaves unbound.
+func (s *Session) doCheckInput(args []string) []string {
+	if len(args) > 0 {
+		s.checker.inputs = settingList(args)
+	}
+	return []string{"check-input: " + settingText(s.checker.inputs, "only the inputs the model leaves unbound")}
+}
+
+// doCheckAssume shows or sets the conditions a check assumes over the initial
+// state, `off` assuming none.
+func (s *Session) doCheckAssume(args []string) []string {
+	if len(args) > 0 {
+		s.checker.assume = settingList(args)
+	}
+	return []string{"check-assume: " + settingText(s.checker.assume, "none")}
+}
+
 // doCheckWitness shows or sets where a check writes its witnesses, `off` writing none.
 func (s *Session) doCheckWitness(args []string) []string {
 	if len(args) > 0 {
@@ -126,17 +242,17 @@ func (s *Session) doCheckWitness(args []string) []string {
 }
 
 // doCheckBounds shows or sets the bounds a check searches within, each as
-// `depth=<n>`, `states=<n>` or `timeout=<d>`; `off` restores the engine's defaults.
+// `depth=<n>`, `states=<n>`, `unroll=<n>` or `timeout=<d>`; `off` restores the engines' defaults.
 func (s *Session) doCheckBounds(args []string) []string {
 	if len(args) == 1 && args[0] == "off" {
-		s.checker.depth, s.checker.states, s.checker.timeout = 0, 0, 0
+		s.checker.depth, s.checker.states, s.checker.unroll, s.checker.timeout = 0, 0, 0, 0
 		args = nil
 	}
-	depth, states, timeout := s.checker.depth, s.checker.states, s.checker.timeout
+	depth, states, unroll, timeout := s.checker.depth, s.checker.states, s.checker.unroll, s.checker.timeout
 	for _, arg := range args {
 		name, value, found := strings.Cut(arg, "=")
 		if !found {
-			return []string{"usage: %check-bounds [depth=<n>] [states=<n>] [timeout=<duration>] | off"}
+			return []string{"usage: %check-bounds [depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off"}
 		}
 		var err error
 		switch name {
@@ -144,21 +260,24 @@ func (s *Session) doCheckBounds(args []string) []string {
 			depth, err = parseBound(name, value)
 		case "states":
 			states, err = parseBound(name, value)
+		case "unroll":
+			unroll, err = parseBound(name, value)
 		case "timeout":
 			timeout, err = time.ParseDuration(value)
 			if err == nil && timeout <= 0 {
 				err = fmt.Errorf("timeout takes a duration above zero, not %q", value)
 			}
 		default:
-			err = fmt.Errorf("%q is not a bound; the bounds are depth, states and timeout", name)
+			err = fmt.Errorf("%q is not a bound; the bounds are depth, states, unroll and timeout", name)
 		}
 		if err != nil {
 			return []string{errPrefix + err.Error()}
 		}
 	}
-	s.checker.depth, s.checker.states, s.checker.timeout = depth, states, timeout
+	s.checker.depth, s.checker.states, s.checker.unroll, s.checker.timeout = depth, states, unroll, timeout
 	return []string{"check-bounds: " + boundText("depth", depth, analysis.DefaultCheckDepth) +
-		", " + boundText("states", states, analysis.DefaultCheckStates) + ", " + timeoutText(timeout)}
+		", " + boundText("states", states, analysis.DefaultCheckStates) +
+		", " + boundText("unroll", unroll, analysis.DefaultUnroll) + ", " + timeoutText(timeout)}
 }
 
 // parseBound reads a search bound, a count of at least one.
@@ -223,8 +342,8 @@ func (s *Session) doReplay(args []string) []string {
 	return out
 }
 
-// checkAction searches every schedule of the action for a violation, a deadlock,
-// a failure or a divergence of the selected features, witnesses replayed and written.
+// checkAction decides every schedule of the action: a violation, a deadlock, a
+// failure or a divergence of the selected features, witnesses replayed and written.
 func (s *Session) checkAction(name string, performer []string) Verdict {
 	return s.checkInvocation([]Behavior{{Name: name, Performer: performer}}, nil, nil)
 }
@@ -250,17 +369,21 @@ func (s *Session) checkInvocations(actions, states []Behavior, horizon *float64)
 	return []Verdict{s.checkResolved(inv, actions, states)}
 }
 
-// checkResolved puts the resolved invocation to the check engine.
+// checkResolved puts the resolved invocation to the check engines.
 func (s *Session) checkResolved(inv *freshInvocation, actions, states []Behavior) Verdict {
 	s.checker.checked = &checkedInvocation{actions: actions, states: states}
-	properties, err := s.checkProperties()
+	if misuse := s.checkerMisuse(); misuse != "" {
+		return unresolvedVerdict(inv.subject(), misuse)
+	}
+	if s.symbolic() && !inv.singleAction() {
+		return unresolvedVerdict(inv.subject(), "the smt engine decides an action's schedules alone; name one, as %action <name>, or select the check engine, as %engine check, to search state machines and behaviors on one clock")
+	}
+	asks, err := s.checkAsks(inv)
 	if err != nil {
 		return unresolvedVerdict(inv.subject(), err.Error())
 	}
-	ask, run := inv.ask(s.checker)
-	ask.Properties = properties
-	kind := analysis.Outcomes
-	if len(properties) > 0 {
+	kind := analysis.CheckKind(asks.check, asks.holds, s.checker.unroll)
+	if s.symbolic() {
 		kind = analysis.Holds
 	}
 	policy, explores := s.exploring()
@@ -268,15 +391,19 @@ func (s *Session) checkResolved(inv *freshInvocation, actions, states []Behavior
 		policy = runtime.DefaultExploreSchedulePolicy
 	}
 	budget := s.checkBudget(policy, kind)
-	// The check engine alone searches under its own defaults; beside an exploration,
-	// the one figure is the exploration policy's unless a check bound sets it.
+	// The check engine alone searches under its own defaults, the smt engine alone
+	// unrolls to its own; beside an exploration, the one figure is the exploration
+	// policy's unless a check bound sets it.
 	if s.checkOnly() && !explores && s.checker.depth <= 0 {
 		budget.Depth = analysis.DefaultCheckDepth
+	}
+	if s.symbolic() && !explores && s.checker.depth <= 0 {
+		budget.Depth = 0
 	}
 	if s.checkOnly() && !explores && s.checker.states <= 0 {
 		budget.Runs = analysis.DefaultCheckStates
 	}
-	return s.checkVerdict(inv, policy, kind, ask, run, budget)
+	return s.checkVerdict(inv, policy, kind, asks, budget)
 }
 
 // checkedInvocation is the behaviors the last check searched, as they were named.
@@ -294,6 +421,34 @@ func (s *Session) checkAdvance(duration float64) ([]string, error) {
 	return s.checkInvocation(last.actions, last.states, &duration).Lines, nil
 }
 
+// checkAsks is the invocation's schedules as the engines are asked about them: the
+// explicit-state search's ask, the symbolic one's, and one run for an exploration.
+// The symbolic ask is an action's alone: nil for a machine or several behaviors.
+type checkAsks struct {
+	check *analysis.CheckAsk
+	holds *analysis.HoldsAsk
+	run   analysis.Linearization
+}
+
+// checkAsks resolves the session's check settings against the invocation: how
+// one run starts, the properties, the assumptions.
+func (s *Session) checkAsks(inv *freshInvocation) (checkAsks, error) {
+	asks := inv.asks(s.checker)
+	properties, conditions, scope, err := s.checkProperties()
+	if err != nil {
+		return checkAsks{}, err
+	}
+	assume, err := s.checkAssumptions()
+	if err != nil {
+		return checkAsks{}, err
+	}
+	asks.check.Properties = properties
+	if asks.holds != nil {
+		asks.holds.Conditions, asks.holds.Scope, asks.holds.Assume = conditions, scope, assume
+	}
+	return asks, nil
+}
+
 // checkBudget is the question's budget under policy with the check's bounds and
 // clock on it where they were set.
 func (s *Session) checkBudget(policy runtime.SchedulePolicy, kind analysis.Kind) analysis.Budget {
@@ -304,16 +459,18 @@ func (s *Session) checkBudget(policy runtime.SchedulePolicy, kind analysis.Kind)
 	if s.checker.states > 0 {
 		budget.Runs = s.checker.states
 	}
+	budget.Unroll = s.checker.unroll
 	budget.Deadline = s.checker.deadline()
 	return budget
 }
 
 // checkVerdict puts the question to the engines under the session's selection and
 // budget, the session's state released for the run, and reports what stood.
-func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePolicy, kind analysis.Kind, ask *analysis.CheckAsk, run analysis.Linearization, budget analysis.Budget) Verdict {
+func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePolicy, kind analysis.Kind, asks checkAsks, budget analysis.Budget) Verdict {
 	model := s.freshModel()
 	selection := s.engine
 	subject, label := inv.subject(), inv.label()
+	free := s.checker.frees()
 	s.state.Unlock()
 	answered, err := s.engines.Check(context.Background(), analysis.Request{
 		Model:     model,
@@ -321,7 +478,7 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 		Schedule:  policy,
 		Budget:    budget,
 		Selection: selection,
-	}, kind, ask, run)
+	}, kind, free, asks.check, asks.holds, asks.run)
 	s.state.Lock()
 	if err != nil {
 		return standing(checkStoppedVerdict(subject, label, err), &answered)
@@ -329,32 +486,33 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 	if x := answered.Result.Exploration(); x != nil {
 		return standing(explorationVerdict(subject, x), &answered)
 	}
+	if answered.Result.Check() == nil && answered.Result.Engine == analysis.SMTEngineName {
+		return standing(decidedVerdict(subject, answered.Result), &answered)
+	}
 	return standing(checkedVerdict(subject, label, answered.Result), &answered)
 }
 
-// checkProperties resolves the session's properties to the constraint and
-// requirement each names, evaluated about the invocation's performer at every state.
-func (s *Session) checkProperties() ([]runtime.CheckProperty, error) {
+// checkProperties resolves the session's properties to the constraint or
+// requirement each names: as the check engine evaluates each about the invocation's
+// performer at every state, as the symbols the symbolic engine translates, and
+// the scope they resolve in.
+func (s *Session) checkProperties() ([]runtime.CheckProperty, []*symbols.Symbol, *symbols.Scope, error) {
 	docScopes := s.docScopes()
-	if len(s.checker.properties) > 0 && len(docScopes) == 0 {
-		return nil, errors.New("no declarations loaded")
+	if (len(s.checker.properties) > 0 || len(s.checker.assume) > 0) && len(docScopes) == 0 {
+		return nil, nil, nil, errors.New("no declarations loaded")
+	}
+	var root *symbols.Scope
+	if len(docScopes) > 0 {
+		root = docScopes[0]
 	}
 	properties := make([]runtime.CheckProperty, 0, len(s.checker.properties))
+	conditions := make([]*symbols.Symbol, 0, len(s.checker.properties))
 	for _, name := range s.checker.properties {
-		sym, _, err := s.lookupSymbol(name)
+		sym, check, err := s.checkCondition(name)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
-		scope := declaringScope(sym, docScopes[0])
-		var check func(*runtime.Context, *symbols.Symbol, *symbols.Scope, *runtime.Instance) (runtime.CheckResult, error)
-		switch {
-		case runtime.RequireConstraint(sym) == nil:
-			check = (*runtime.Context).CheckConstraintOn
-		case runtime.RequireRequirement(sym) == nil:
-			check = (*runtime.Context).CheckRequirementOn
-		default:
-			return nil, fmt.Errorf("%q is not a constraint or requirement", name)
-		}
+		scope := declaringScope(sym, root)
 		properties = append(properties, runtime.CheckProperty{Name: name, Holds: func(ctx *runtime.Context, inv *runtime.Invocation) (bool, error) {
 			result, err := check(ctx, sym, scope, inv.Performer())
 			if err != nil && !errors.Is(err, runtime.ErrViolated) {
@@ -362,8 +520,42 @@ func (s *Session) checkProperties() ([]runtime.CheckProperty, error) {
 			}
 			return result.Holds, nil
 		}})
+		conditions = append(conditions, sym)
 	}
-	return properties, nil
+	return properties, conditions, root, nil
+}
+
+// checkAssumptions resolves the session's assumptions to the constraint or
+// requirement each names.
+func (s *Session) checkAssumptions() ([]*symbols.Symbol, error) {
+	assume := make([]*symbols.Symbol, 0, len(s.checker.assume))
+	for _, name := range s.checker.assume {
+		sym, _, err := s.checkCondition(name)
+		if err != nil {
+			return nil, err
+		}
+		assume = append(assume, sym)
+	}
+	return assume, nil
+}
+
+// conditionCheck evaluates a constraint or requirement about an object.
+type conditionCheck func(*runtime.Context, *symbols.Symbol, *symbols.Scope, *runtime.Instance) (runtime.CheckResult, error)
+
+// checkCondition resolves name to the constraint or requirement it names and
+// how the runtime evaluates it about an object.
+func (s *Session) checkCondition(name string) (*symbols.Symbol, conditionCheck, error) {
+	sym, _, err := s.lookupSymbol(name)
+	if err != nil {
+		return nil, nil, err
+	}
+	switch {
+	case runtime.RequireConstraint(sym) == nil:
+		return sym, (*runtime.Context).CheckConstraintOn, nil
+	case runtime.RequireRequirement(sym) == nil:
+		return sym, (*runtime.Context).CheckRequirementOn, nil
+	}
+	return nil, nil, fmt.Errorf("%q is not a constraint or requirement", name)
 }
 
 // checkStoppedVerdict reports a check that answered nothing: a refusal, a fault,
@@ -429,6 +621,46 @@ func checkedVerdict(subject, label string, result analysis.Result) Verdict {
 	return v
 }
 
+// decidedVerdict reports what the symbolic engine decided about the action: a
+// violation fails, a proof holds, and a bounded or uncovered answer is undecided;
+// the inputs it ranged over or a witness chose, and its assumptions, follow.
+func decidedVerdict(name string, result analysis.Result) Verdict {
+	v := Verdict{Subject: name}
+	switch {
+	case !result.Covered():
+		v.Status = VerdictUnresolved
+		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: not covered", name), "  "+result.Reason)
+	case result.Claim == analysis.ClaimViolated:
+		v.Status = VerdictFails
+		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: %s", name, result.Reason))
+	case result.Strength == analysis.Proved:
+		v.Status = VerdictHolds
+		v.Lines = append(v.Lines, fmt.Sprintf("✓ Action %s: %s", name, result.Claim))
+	default:
+		v.Status = VerdictUnresolved
+		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: %s (%s)", name, result.Claim, result.Strength))
+	}
+	if inputs := inputLines(result.Inputs); inputs != "" {
+		v.Lines = append(v.Lines, "  inputs: "+inputs)
+	}
+	if len(result.Assumptions) > 0 {
+		v.Lines = append(v.Lines, "  assumed: "+strings.Join(result.Assumptions, ", "))
+	}
+	if w := result.Witness; w != nil && w.Written != "" {
+		v.Lines = append(v.Lines, "  witness: "+w.Written)
+	}
+	return v
+}
+
+// inputLines spells the inputs a symbolic engine reported, "" when it reported none.
+func inputLines(inputs []analysis.Input) string {
+	parts := make([]string, 0, len(inputs))
+	for _, in := range inputs {
+		parts = append(parts, in.String())
+	}
+	return strings.Join(parts, ", ")
+}
+
 // witnessPath spells where the i'th witness was written, "" when none was.
 func witnessPath(paths []string, i int) string {
 	if i >= len(paths) || paths[i] == "" {
@@ -437,16 +669,16 @@ func witnessPath(paths []string, i int) string {
 	return " (witness " + paths[i] + ")"
 }
 
-// CheckBounds returns the search bounds a check runs under: depth and states, 0
-// for the engine's defaults, and the timeout, 0 for none.
-func (s *Session) CheckBounds() (depth, states int, timeout time.Duration) {
+// CheckBounds returns the search bounds a check runs under: depth, states and
+// unroll, 0 for the engines' defaults, and the timeout, 0 for none.
+func (s *Session) CheckBounds() (depth, states, unroll int, timeout time.Duration) {
 	defer s.reading()()
-	return s.checker.depth, s.checker.states, s.checker.timeout
+	return s.checker.depth, s.checker.states, s.checker.unroll, s.checker.timeout
 }
 
-// SetCheckBounds sets the search bounds a check runs under; 0 keeps the engine's
-// default for depth and states, and no clock for the timeout.
-func (s *Session) SetCheckBounds(depth, states int, timeout time.Duration) {
+// SetCheckBounds sets the search bounds a check runs under; 0 keeps the engines'
+// default for depth, states and unroll, and no clock for the timeout.
+func (s *Session) SetCheckBounds(depth, states, unroll int, timeout time.Duration) {
 	defer s.enter()()
-	s.checker.depth, s.checker.states, s.checker.timeout = depth, states, timeout
+	s.checker.depth, s.checker.states, s.checker.unroll, s.checker.timeout = depth, states, unroll, timeout
 }

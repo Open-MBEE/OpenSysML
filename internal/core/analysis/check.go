@@ -169,12 +169,18 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		first := report.Violations[0]
 		result.Reason = first.String()
 		result.Witness = &Witness{Schedule: runtime.ReplayPolicy(first.Witness.Choices), Choices: first.Witness.Choices}
+		if len(checked.Violations) > 0 {
+			result.Witness.Written = checked.Violations[0]
+		}
 	case report.Verdict == runtime.CheckDivergent:
 		result.Claim = ClaimSensitive
 		result.Strength = Witnessed
 		result.Reason = divergenceReason(report.Divergent)
 		first := report.Divergent[0].Values[0].Witness
 		result.Witness = &Witness{Schedule: runtime.ReplayPolicy(first.Choices), Choices: first.Choices}
+		if len(checked.Divergent) > 0 && len(checked.Divergent[0]) > 0 {
+			result.Witness.Written = checked.Divergent[0][0]
+		}
 	case q.Kind == Holds:
 		result.Claim = ClaimHolds
 		result.Strength = Bounded
@@ -229,7 +235,7 @@ func (e checkEngine) replayed(ctx context.Context, model *Model, q Question, bud
 		checked.Divergent = make([][]string, len(report.Divergent))
 	}
 	for i, v := range report.Violations {
-		w := &replayWitness{what: "violation " + fmt.Sprint(i+1) + " (" + v.String() + ")", witness: v.Witness, file: violationFile(q.Subject, q.Check.Performer, i+1)}
+		w := &replayWitness{what: "violation " + fmt.Sprint(i+1) + " (" + v.String() + ")", witness: v.Witness, file: ViolationFile(q.Subject, q.Check.Performer, i+1)}
 		if checked.Violations != nil {
 			w.path = &checked.Violations[i]
 		}
@@ -246,11 +252,6 @@ func (e checkEngine) replayed(ctx context.Context, model *Model, q Question, bud
 				w.path = &checked.Divergent[i][j]
 			}
 			witnesses = append(witnesses, w)
-		}
-	}
-	if q.Check.WitnessDir != "" && len(witnesses) > 0 {
-		if err := os.MkdirAll(q.Check.WitnessDir, 0o750); err != nil {
-			return nil, nil, err
 		}
 	}
 	jobs := max(budget.Jobs, 1)
@@ -289,7 +290,7 @@ func (e checkEngine) replayOne(ctx context.Context, fresh func() (*runtime.Conte
 	}
 	if w.path != nil {
 		*w.path = filepath.Join(q.Check.WitnessDir, w.file)
-		if err := writeWitness(*w.path, w.witness.String()); err != nil {
+		if err := WriteWitness(*w.path, w.witness.String()); err != nil {
 			return err
 		}
 	}
@@ -297,10 +298,14 @@ func (e checkEngine) replayOne(ctx context.Context, fresh func() (*runtime.Conte
 	return err
 }
 
-// writeWitness writes the witness beside path and moves it into place over what
+// WriteWitness writes the witness text beside path and moves it into place over what
 // the path held, so a link planted there is replaced, never followed to what it points at.
-func writeWitness(path, text string) (err error) {
+// The directory is made when it does not exist.
+func WriteWitness(path, text string) (err error) {
 	dir, name := filepath.Split(path)
+	if err := os.MkdirAll(filepath.Clean(dir), 0o750); err != nil {
+		return err
+	}
 	f, err := os.CreateTemp(dir, "."+name+".*")
 	if err != nil {
 		return err
@@ -319,9 +324,10 @@ func writeWitness(path, text string) (err error) {
 	return fsutil.Replace(f.Name(), path)
 }
 
-// violationFile names the witness of the n-th violation, `test.race.violation-1.witness`:
-// its one `-` tells it from a divergence's file, whose tokens carry none.
-func violationFile(subject, performer string, n int) string {
+// ViolationFile names the witness of the n-th violation of the subject, performed by
+// performer when one is named: `test.race.violation-1.witness`, `Plant.fill@Plant.tank.violation-1.witness`.
+// Its one `-` tells it from a divergence's file, whose tokens carry none.
+func ViolationFile(subject, performer string, n int) string {
 	return fmt.Sprintf("%s.violation-%d.witness", checkedName(subject, performer), n)
 }
 

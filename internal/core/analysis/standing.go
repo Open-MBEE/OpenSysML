@@ -48,8 +48,14 @@ func (r Result) evidence() string {
 	if c := r.Check(); c != nil {
 		parts = append(parts, fmt.Sprintf("%s, %s searched", plural(c.Report.States, "state"), plural(c.Report.Moves, "move")))
 	}
-	if r.Witness != nil && len(r.Witness.Choices) > 0 {
-		parts = append(parts, fmt.Sprintf("witness of %s replayed", plural(len(r.Witness.Choices), "choice")))
+	if w := r.Witness; w != nil && (len(w.Choices) > 0 || len(w.Inputs) > 0) {
+		parts = append(parts, "witness of "+witnessSize(w)+" replayed")
+	}
+	if len(r.Inputs) > 0 {
+		parts = append(parts, r.inputsEvidence())
+	}
+	if len(r.Assumptions) > 0 {
+		parts = append(parts, "assumed "+strings.Join(r.Assumptions, ", "))
 	}
 	for _, b := range r.Bounds {
 		if b.Reached {
@@ -60,6 +66,39 @@ func (r Result) evidence() string {
 		parts = append(parts, "by "+r.Engine)
 	}
 	return strings.Join(parts, ", ")
+}
+
+// witnessSize counts what a witness fixes: `2 inputs and 1 choice`, `1 choice`.
+func witnessSize(w *Witness) string {
+	var parts []string
+	if len(w.Inputs) > 0 {
+		parts = append(parts, plural(len(w.Inputs), "input"))
+	}
+	if len(w.Choices) > 0 {
+		parts = append(parts, plural(len(w.Choices), "choice"))
+	}
+	return strings.Join(parts, " and ")
+}
+
+// inputsEvidence spells what the result says of the initial state's inputs: the
+// free ones with their domains, the values a witness chose from them, or that
+// every one was taken as written.
+func (r Result) inputsEvidence() string {
+	var free []string
+	chosen := false
+	for _, in := range r.Inputs {
+		if in.Free {
+			free = append(free, in.String())
+			chosen = chosen || in.Value != ""
+		}
+	}
+	switch {
+	case len(free) == 0:
+		return "inputs as written"
+	case chosen:
+		return "inputs chosen from their domains: " + strings.Join(free, ", ")
+	}
+	return "inputs free in their domains: " + strings.Join(free, ", ")
 }
 
 // Standing is the plan's result's standing, followed by the plan when it consulted more than

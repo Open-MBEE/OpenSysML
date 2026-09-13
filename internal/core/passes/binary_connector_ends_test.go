@@ -177,7 +177,8 @@ func TestBinaryConnectorSysMLShapes(t *testing.T) {
 // A declaration owning two ends that redefine two of an n-ary general's ends
 // inherits the rest, so it stays n-ary and takes no binary base (KerML 1.1
 // checkAssociationBinarySpecialization, checkConnectorBinarySpecialization);
-// only a declared binary base makes the inherited third end excessive.
+// only a declared binary base makes the inherited third end excessive. Over two
+// binary generals, two owned ends mask both pairs by position whatever they name.
 func TestBinaryConnectorInheritedThirdEndStaysNary(t *testing.T) {
 	const src = `package P {
 	class T { feature x : T; feature y : T; feature z : T; }
@@ -202,8 +203,38 @@ func TestBinaryConnectorInheritedThirdEndStaysNary(t *testing.T) {
 		connector q :> n, Links::binaryLinks { end redefines a references x; end redefines b references y; }
 	}
 }`
-	// OfA/ofA conform to BinaryLink through binary A and still inherit B's ends.
-	if got, want := binaryEndLines(t, src, true), []int{6, 10, 16, 21}; !sameLines(got, want) {
+	if got, want := binaryEndLines(t, src, true), []int{6, 21}; !sameLines(got, want) {
 		t.Fatalf("binary link diagnostics on lines %v, want %v", got, want)
+	}
+}
+
+// A connection definition specializing BinaryConnection whose two ends redefine
+// the library ends by name, and a usage of it whose `end :>>` members do the same,
+// have two ends each; a third owned end is still reported at its declaration.
+func TestBinaryConnectionExplicitEndRedefinition(t *testing.T) {
+	const src = `package P {
+	private import Connections::BinaryConnection;
+	private import Objects::BinaryLinkObject;
+	part def Foo;
+	connection def Link :> BinaryConnection {
+		end source : Foo :>> BinaryLinkObject::source;
+		end target : Foo :>> BinaryLinkObject::target;
+	}
+	connection def Bare :> BinaryConnection { end source : Foo; end target : Foo; }
+	connection def Three :> BinaryConnection {
+		end source : Foo :>> BinaryLinkObject::source;
+		end target : Foo :>> BinaryLinkObject::target;
+		end third : Foo;
+	}
+	part a : Foo; part b : Foo; part c : Foo;
+	connection l : Link { end :>> source = a; end :>> target = b; }
+	connection m : Link { end :>> source = a; end :>> target = b; end third : Foo = c; }
+	connection n : Bare connect a to b;
+}`
+	if got, want := binaryEndLines(t, src, false), []int{13, 17}; !sameLines(got, want) {
+		t.Fatalf("binary link diagnostics on lines %v, want %v", got, want)
+	}
+	if diags := only(constraintDiags(t, src), "connector-ends"); len(diags) != 2 {
+		t.Fatalf("connector-ends diagnostics = %v, want the two binary link reports", diags)
 	}
 }

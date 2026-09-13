@@ -64,19 +64,26 @@ switch (value.kind) {
   case "set":      value.elements;                     // SysMLValue[], each once, unordered
   case "tensorQuantity": value.dimensions; value.components;  // any rank, row-major QuantityValue[]
   case "metaobject": value.elementId; value.metaclassId;  // an element reflected on: x meta KerML::Feature
-  case "enum":     value.value.name;                   // and its literal/enumeration ids
+  case "enum":     value.value.name; value.value.value; // its literal/enumeration ids, and the scalar a `high = 3` literal carries
   case "instance": value.id;                          // an object in the same tree
   case "sequence": value.elements;                    // SysMLValue[]
+  case "undetermined": value.reason; value.countLower; value.countUpper;  // the model leaves it open
+  case "infinity": break;                              // the unbounded `*`
   case "null":     value.reason;                       // evaluated, no value
   case "unset":    break;                              // declared, never given one
   case "absent":   break;                              // the service sent no value at all
 }
 ```
 
-`unset` and `absent` are distinct on purpose: the first is a feature the model
-leaves without a value, the second is a field the answer did not carry.
+`unset`, `undetermined` and `absent` are distinct on purpose: the first is a feature the
+model leaves without a value, the second a model-level answer the model leaves open (an
+unbound feature, a count the multiplicity does not fix) that is read but never sent, and the
+third a field the answer did not carry.
 `SysMLVerdict` (`holds` / `fails` / `undecided`) and `FeatureValue` (`single` /
-`many` / `error`) are unions of the same shape. Integers are `bigint`, because
+`many` / `error`) are unions of the same shape; every verdict arm carries a `standing` — the
+engine that answered, the strength of its evidence (`observed`, `witnessed`, `bounded`,
+`proved`) and the bounds it ran under — empty from a service without the `engines`
+capability. Integers are `bigint`, because
 the service's `int64` does not fit a `number` — an exact comparison against a
 scenario expectation would otherwise be a lie.
 

@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 )
 
 // DefaultUnroll is how many iterations of a body loop the encoding unrolls when
 // the engine is given no other bound.
-const DefaultUnroll = 4
+const DefaultUnroll = analysis.DefaultUnroll
 
 // MaxSlots bounds the token slots one encoding declares; a flow that may need
 // more within k moves is refused with ErrSlotOverflow rather than encoded partially.

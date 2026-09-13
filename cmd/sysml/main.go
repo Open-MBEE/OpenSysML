@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
@@ -158,12 +159,12 @@ var budgets = runtime.DefaultBudgets()
 
 // engines holds the registry the environment resolves to: the build's engines and one
 // `tool:<name>` per entry of the manifest OPENSYSML_TOOLS names, read once at startup.
-var engines = analysis.Default()
+var engines = engineset.Default()
 
 // resolveEngines reads the tool manifest into engines; a manifest that cannot be read is
 // reported at startup like a bad run bound.
 func resolveEngines() error {
-	registry, err := analysis.DefaultFromEnv()
+	registry, err := engineset.DefaultFromEnv()
 	if err != nil {
 		return err
 	}

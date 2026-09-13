@@ -333,3 +333,66 @@ func TestHoverBindingConnectorEnds(t *testing.T) {
 		}
 	}
 }
+
+// An id fixed by an annotation or by the norm is stated; a derived id, which is
+// just the encoded name, is not.
+func TestHoverStatesDeclaredAndNormativeIdentity(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	initMarkdownHover(t, s)
+	name := uri.File("/tmp/hid.sysml").Filename()
+	src := "package P {\n    part def Wheel {\n        @IdentityMetadata::ElementId { id = \"wheel-id\"; }\n    }\n    attribute mass : ScalarValues::Real;\n    part w : Wheel;\n}\n"
+	ws.Open(name, []byte(src), 1)
+
+	for _, tc := range []struct {
+		at   string
+		want string
+	}{
+		{at: "Wheel {", want: "\n\nElement id `wheel-id` (declared)"},
+		{at: "Real;", want: "\n\nElement id `14c0aa22-5489-59b5-b438-ded26e83ba31` (normative, KerML)"},
+	} {
+		res := hoverInSrc(t, s, name, src, strings.Index(src, tc.at))
+		if !strings.HasSuffix(res.Contents.Value, tc.want) {
+			t.Errorf("hover on %q = %q, want it to end in %q", tc.at, res.Contents.Value, tc.want)
+		}
+	}
+	if res := hoverInSrc(t, s, name, src, strings.Index(src, "w :")); strings.Contains(res.Contents.Value, "Element id") {
+		t.Errorf("hover on a derived id = %q, want no identity line", res.Contents.Value)
+	}
+}
+
+func TestHoverStatesIdentityInPlainText(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	name := uri.File("/tmp/hidp.sysml").Filename()
+	src := "package P { attribute mass : ScalarValues::Real; }"
+	ws.Open(name, []byte(src), 1)
+	res := hoverInSrc(t, s, name, src, strings.Index(src, "Real;"))
+	if want := "\n\nElement id 14c0aa22-5489-59b5-b438-ded26e83ba31 (normative, KerML)"; !strings.HasSuffix(res.Contents.Value, want) {
+		t.Errorf("hover = %q, want it to end in %q", res.Contents.Value, want)
+	}
+}
+
+// Hovering a library declaration in its own bundled document states the norm's id.
+func TestHoverLibraryDeclarationStatesNormativeIdentity(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	const file = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
+	doc := ws.LibraryDocument(file)
+	if doc == nil {
+		t.Fatalf("library document %q not bundled", file)
+	}
+	src := string(doc.Content)
+	res, err := s.Hover(context.Background(), &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: libraryURI(file)},
+			Position:     offsetToPosition(doc.Content, strings.Index(src, "datatype Real ")+len("datatype ")),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Hover err = %v", err)
+	}
+	if res == nil || !strings.Contains(res.Contents.Value, "Element id 14c0aa22-5489-59b5-b438-ded26e83ba31 (normative, KerML)") {
+		t.Errorf("hover = %+v, want the norm's id for ScalarValues::Real", res)
+	}
+}

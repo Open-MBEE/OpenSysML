@@ -77,6 +77,12 @@ func (r *freshInvocation) label() string {
 	}
 }
 
+// singleAction reports whether the invocation is one action alone: what the
+// symbolic engine decides.
+func (r *freshInvocation) singleAction() bool {
+	return len(r.behaviors) == 1 && r.behaviors[0].action
+}
+
 // performer is the first object named as performing a behavior, "" for none.
 func (r *freshInvocation) performer() string {
 	for _, b := range r.behaviors {
@@ -141,21 +147,55 @@ func (r *freshInvocation) run(ctx *runtime.Context) (runtime.Outcome, error) {
 			}
 		}
 	}
-	for i, exec := range inv.Actions {
-		if _, err := completedActionOutcome(ctx, exec, r.names[i]); err != nil {
+	actions := 0
+	for _, b := range r.behaviors {
+		if !b.action {
+			continue
+		}
+		if _, err := completedActionOutcome(ctx, inv.Actions[actions], b.Name); err != nil {
 			return runtime.Outcome{}, err
 		}
+		actions++
 	}
 	return inv.Outcome(), nil
 }
 
-// ask is the invocation's schedules as a question to the engines: how a run starts
-// it, what the session has a check compare and write, and one linearization.
-func (r *freshInvocation) ask(c checkSettings) (*analysis.CheckAsk, analysis.Linearization) {
-	return &analysis.CheckAsk{
-		Start:      r.start,
-		Performer:  r.performer(),
-		Diverge:    append([]string(nil), c.diverge...),
-		WitnessDir: c.witnessDir,
-	}, r.run
+// startAction starts the invocation when it is one action alone, as the symbolic
+// engine starts one; nil otherwise.
+func (r *freshInvocation) startAction() analysis.Start {
+	if !r.singleAction() {
+		return nil
+	}
+	return func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
+		inv, err := r.start(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return inv.Actions[0], nil
+	}
+}
+
+// asks is the invocation's schedules as questions to the engines: how a run starts
+// it, what the session has a check compare and write, and one linearization. The
+// symbolic ask is made for one action alone, with the inputs the session frees.
+func (r *freshInvocation) asks(c checkSettings) checkAsks {
+	asks := checkAsks{
+		check: &analysis.CheckAsk{
+			Start:      r.start,
+			Performer:  r.performer(),
+			Diverge:    append([]string(nil), c.diverge...),
+			WitnessDir: c.witnessDir,
+		},
+		run: r.run,
+	}
+	if start := r.startAction(); start != nil {
+		asks.holds = &analysis.HoldsAsk{
+			Behavior:   r.behaviors[0].sym,
+			Start:      start,
+			Performer:  r.performer(),
+			Inputs:     append([]string(nil), c.inputs...),
+			WitnessDir: c.witnessDir,
+		}
+	}
+	return asks
 }

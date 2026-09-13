@@ -490,9 +490,8 @@ func (s *Session) exploreAction(name string, performer []string) Verdict {
 	if inv == nil {
 		return unresolved[0]
 	}
-	ask, run := inv.ask(s.checker)
 	policy, _ := s.exploring()
-	return s.checkVerdict(inv, policy, analysis.Outcomes, ask, run, s.checkBudget(policy, analysis.Outcomes))
+	return s.checkVerdict(inv, policy, analysis.Outcomes, inv.asks(s.checker), s.checkBudget(policy, analysis.Outcomes))
 }
 
 // exploreStateMachine explores a machine started and, when duration is given,

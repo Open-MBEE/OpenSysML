@@ -494,6 +494,7 @@
   stage2DeltaV = 6432.955324716369 [SI::'m/s']
   margin = 70.65198768706614 [SI::'m/s']
   <span class="osml-ok">objective reachesOrbit: satisfied</span>
+  <span class="osml-dim">standing: value (observed: 1 run under reverse)</span>
 
 <span class="osml-prompt">$</span> sysml -quiet -analysis "DeltaVBudget::saturnIBAscent(<span class="osml-hl">required = 9800 ['m/s']</span>)" delta-v-budget.sysml
 <span class="osml-ok">✓ package DeltaVBudget</span>
@@ -501,12 +502,13 @@
   <span class="osml-dim">…</span>
   margin = -329.34801231293386 [SI::'m/s']
   <span class="osml-err">objective reachesOrbit: not satisfied: margin &gt; 0 ['m/s']</span>
+  <span class="osml-dim">standing: value (observed: 1 run under reverse)</span>
 </code></pre>
 <a class="osml-pane__more" href="{{ config.repo_url }}/blob/main/examples/runtime-showcase/README.md">The runtime showcase, with this model</a>
 </div>
 
 <div class="osml-pane" id="osml-pane-found" role="tabpanel" aria-labelledby="osml-tab-found" data-title="sysml — what only running it finds">
-<pre><code><span class="osml-prompt">$</span> sysml -validate mass-rollup.sysml
+<pre><code><span class="osml-prompt">$</span> sysml -quiet -validate mass-rollup.sysml
 <span class="osml-ok">✓ package MassRollup</span>
 <span class="osml-ok">✓ mass-rollup.sysml: no errors</span>
 
@@ -517,6 +519,7 @@
 <span class="osml-prompt">$</span> sysml -quiet -calc "DeltaVBudget::InjectionDeltaV(3.986E14 [SI::N], 6563000 [SI::m], 384400000 [SI::m])" delta-v-budget.sysml
 <span class="osml-ok">✓ package DeltaVBudget</span>
 <span class="osml-err">sysml: calc invocation failed: calc DeltaVBudget::InjectionDeltaV: result: type mismatch: cannot write 3135.1638390999387 [kg**0.5/s] (dimension M^0.5·T^-1) to a feature typed by SpeedValue (dimension L·T^-1)</span>
+  <span class="osml-dim">standing: not covered (…)</span>
 </code></pre>
 <a class="osml-pane__more" href="{{ config.repo_url }}/blob/main/examples/runtime-showcase/README.md">Every one of these, reproduced</a>
 </div>
@@ -541,6 +544,7 @@ Features:
 <span class="osml-prompt">sysml&gt;</span> %calc add 10 20
 <span class="osml-ok">✓ add(10, 20)</span>
   <span class="osml-dim">= 30</span>
+  <span class="osml-dim">standing: value (observed: 1 run under reverse)</span>
 </code></pre>
 <a class="osml-pane__more" href="{{ 'guide/04-repl/'|url }}">The REPL, in the guide</a>
 </div>
@@ -552,13 +556,14 @@ Features:
 
 The rover's top-level parts, from the model:
 
+<span class="osml-dim">&lt;!-- caption --&gt;</span>
 <span class="osml-dim">*Top-level parts*</span>
 
-| name    |
-| ---     |
-| arm     |
+| name |
+| --- |
+| arm |
 | chassis |
-| mast    |
+| mast |
 
 <span class="osml-prompt">$</span> sysml rover.sysml -render-document Hello::RoverReport <span class="osml-hl">-doc-form html</span> -o rover.html
 <span class="osml-ok">✓ package Hello</span>
@@ -587,9 +592,9 @@ sysml: vehicles.sysml did not analyse cleanly; no check was made
 <div class="osml-pane" id="osml-pane-run" role="tabpanel" aria-labelledby="osml-tab-run" data-title="sysml — running a state machine">
 <pre><code><span class="osml-prompt">sysml&gt;</span> state def TrafficLight {
 <span class="osml-prompt">  ...&gt;</span>     entry; then green;
-<span class="osml-prompt">  ...&gt;</span>     state green  { accept after 25 [SI::s] then yellow; }
-<span class="osml-prompt">  ...&gt;</span>     state yellow { accept after 5 [SI::s] then red; }
-<span class="osml-prompt">  ...&gt;</span>     state red    { accept after 30 [SI::s] then done; }
+<span class="osml-prompt">  ...&gt;</span>     state green;  accept after 25 [SI::s] then yellow;
+<span class="osml-prompt">  ...&gt;</span>     state yellow; accept after 5 [SI::s] then red;
+<span class="osml-prompt">  ...&gt;</span>     state red;    accept after 30 [SI::s] then done;
 <span class="osml-prompt">  ...&gt;</span> }
 <span class="osml-ok">✓ state def TrafficLight</span>
 
@@ -610,6 +615,8 @@ sysml: vehicles.sysml did not analyse cleanly; no check was made
 
 <div class="osml-pane" id="osml-pane-rdf" role="tabpanel" aria-labelledby="osml-tab-rdf" data-title="sysml — the model as RDF">
 <pre><code><span class="osml-prompt">$</span> sysml vehicles.sysml -convert ttl -o vehicles.ttl
+<span class="osml-dim">note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, …</span>
+wrote vehicles.ttl (ttl, 5562 bytes)
 <span class="osml-prompt">$</span> grep -A5 '^elmt:Vehicles__Wheel$' vehicles.ttl
 <span class="osml-hl">elmt:Vehicles__Wheel</span>
     a sysml:PartDefinition ;
@@ -619,6 +626,10 @@ sysml: vehicles.sysml did not analyse cleanly; no check was made
     sysml:owningNamespace elmt:Vehicles ;
 
 <span class="osml-prompt">$</span> sysml vehicles.ttl -convert sysml   <span class="osml-dim"># and back again</span>
+<span class="osml-dim">note: RDF conversion is experimental: …</span>
+package Vehicles {
+    part def Wheel;
+  <span class="osml-dim">…</span>
 
 <span class="osml-prompt">$</span> sysml -query 'oslc.where=sysml:name="wheels"' vehicles.sysml
 <span class="osml-ok">✓ package Vehicles</span>
@@ -793,7 +804,7 @@ Vehicles::Car::wheels  PartUsage
       tab.addEventListener("click", function () { stop(); show(i, false); });
       tab.addEventListener("keydown", function (event) {
         var targets = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: panes.length - 1 };
-        if (!Object.prototype.hasOwnProperty.call(targets, event.key)) return;
+        if (typeof targets[event.key] !== "number") return;
         event.preventDefault();
         stop();
         show(targets[event.key], true);

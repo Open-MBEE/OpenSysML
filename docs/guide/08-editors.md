@@ -152,7 +152,11 @@ LSP client; only the syntax highlighting is specific to VS Code.
   `IdentityMetadata::ElementId`, UUID v4, inline in its body or standalone at
   the end of the file) and bind an unbound root namespace to a project
   (`IdentityMetadata::ProjectRef` with a placeholder `projectId` to fill in), see
-  [element identity](../project/element-identity-annotations.md)
+  [element identity](../project/element-identity-annotations.md). A named
+  standard-library element already carries the normative id the specification
+  fixes for it — hover states it as `(normative, KerML)` or `(normative, SysML)` —
+  so the minting action is not offered on one; see
+  [normative library identity](../reference/rdf-mapping.md#normative-library-identity)
 
 **Not implemented:** semantic token deltas (`semanticTokens/full/delta`; the server keeps no
 previous result to diff against, so clients re-request the full set), signature help, code lens
