@@ -245,25 +245,30 @@ func TestSessionLineOverTheBoundEndsTheSession(t *testing.T) {
 	}
 }
 
-// Standard error over the output bound ends the process and the session, naming the bound.
+// Standard error over the output bound ends the process and the session, naming the bound —
+// also when the engine exits right after, so the exit does not hide the overflow.
 func TestSessionStderrOverTheBoundEndsTheSession(t *testing.T) {
-	t.Setenv(engineStandinMode, "stderr-flood")
-	s, err := startSession(standinEntry(t), 64<<10, 5*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(s.close)
-	_, err = runOnce(context.Background(), s, nil)
-	if !errors.Is(err, ErrProtocol) || !strings.Contains(err.Error(), "standard error") || !strings.Contains(err.Error(), OutputLimitEnv) {
-		t.Fatalf("got %v", err)
-	}
-	if s.alive() {
-		t.Fatal("the session is still alive after standard error passed the bound")
-	}
-	select {
-	case <-s.waited:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the process is still running after standard error passed the bound")
+	for _, mode := range []string{"stderr-flood", "stderr-flood-exit"} {
+		t.Run(mode, func(t *testing.T) {
+			t.Setenv(engineStandinMode, mode)
+			s, err := startSession(standinEntry(t), 64<<10, 5*time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(s.close)
+			_, err = runOnce(context.Background(), s, nil)
+			if !errors.Is(err, ErrProtocol) || !strings.Contains(err.Error(), "standard error") || !strings.Contains(err.Error(), OutputLimitEnv) {
+				t.Fatalf("got %v", err)
+			}
+			if s.alive() {
+				t.Fatal("the session is still alive after standard error passed the bound")
+			}
+			select {
+			case <-s.waited:
+			case <-time.After(5 * time.Second):
+				t.Fatal("the process is still running after standard error passed the bound")
+			}
+		})
 	}
 }
 

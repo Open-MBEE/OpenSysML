@@ -69,6 +69,7 @@ const (
 	ModeOverflow            = "overflow"
 	ModeStderr              = "stderr"
 	ModeStderrFlood         = "stderr-flood"
+	ModeStderrFloodAndExit  = "stderr-flood-exit"
 	ModeSlowRun             = "slow-run"
 )
 
@@ -298,6 +299,9 @@ func (e *engine) run(id json.RawMessage, p enginewire.RunParams) {
 		for {
 			fmt.Fprintln(os.Stderr, strings.Repeat("x", 1<<16))
 		}
+	case ModeStderrFloodAndExit:
+		fmt.Fprintln(os.Stderr, strings.Repeat("x", 64<<10))
+		os.Exit(0)
 	case ModeOverflow:
 		raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"result":{"claim":"none","strength":"not covered","reason":"` + strings.Repeat("x", 1<<20) + `"}}`)
 	case ModeSlowRun:

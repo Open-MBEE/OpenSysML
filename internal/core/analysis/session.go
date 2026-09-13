@@ -355,10 +355,12 @@ func startSession(entry EngineEntry, limit int, timeout time.Duration) (*session
 	return s, nil
 }
 
-// stderrOver ends the session of an engine that wrote more than the bound to standard error.
-// It runs from the process's own copier, so the end that waits for it is taken elsewhere.
+// stderrOver ends the session of an engine that wrote more than the bound to standard error:
+// the failure is recorded at once, the kill that waits for the copier it runs on is not.
 func (s *session) stderrOver() {
-	go s.end(s.broke(fmt.Sprintf("wrote more than %d bytes to standard error (%s)", s.limit, OutputLimitEnv)))
+	if s.finish(s.broke(fmt.Sprintf("wrote more than %d bytes to standard error (%s)", s.limit, OutputLimitEnv))) {
+		go s.kill(0)
+	}
 }
 
 // notStarted is the error of a process that never ran.
