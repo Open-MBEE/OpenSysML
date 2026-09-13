@@ -1602,15 +1602,26 @@ The transcripts above omit these fields for brevity; a service with the capabili
 an `EngineInfo`: `name`; `authority`, the strongest evidence the engine can produce, spelled as
 `strength` is; `answers`, the question kinds it covers; `bounds`, the budget bounds it takes;
 `process` and `processFound` for an engine that needs an external process, where it was found;
-`ready`, and `unavailable` with the reason when it is not.
+`ready`, and `unavailable` with the reason when it is not; `kind`, `built-in` for the build's
+own engines or the manifest entry kind (`tool`, `engine`, `policy`, `sampler`, `module`) that
+registered it; `protocol`, how it is spoken to (`-`, `object` for a tool's one JSON object each
+way, `stdio/1` for an external engine); `source`, `command` and `version` for a manifest
+entry, its file, the program it runs and the version the manifest states; and `served`, whether
+this service runs the engine when a request names it. An external engine of
+`OPENSYSML_ENGINES` is listed with `served` false and `ready` false until the service is started
+with `-serve-external-engines <name>,…` or `-serve-external-engines all`, which also advertises
+the `engines_external` capability; `unavailable` stays empty, since nothing is wrong with the
+engine — the service declines to run a program for its clients until told to
+([External engines](external-engines.md#listing-probing-selecting)).
 
 ```console
 $ … /ListEngines -d '{}'
 {"engines":[
-  {"name":"explore","authority":"proved","answers":["outcomes"],"bounds":["runs","depth"],"ready":true},
-  {"name":"run","authority":"observed","answers":["evaluate"],"bounds":["steps","elements"],"ready":true},
-  {"name":"solve","authority":"proved","answers":["satisfiable"],"bounds":["runs","solver"],"process":"z3","processFound":"/usr/bin/z3","ready":true},
-  {"name":"sweep","authority":"observed","answers":["sweep"],"bounds":["runs"],"ready":true}]}
+  {"name":"explore","authority":"proved","answers":["outcomes"],"bounds":["runs","depth"],"ready":true,"kind":"built-in","protocol":"-","served":true},
+  {"name":"run","authority":"observed","answers":["evaluate"],"bounds":["steps","elements"],"ready":true,"kind":"built-in","protocol":"-","served":true},
+  {"name":"solve","authority":"proved","answers":["satisfiable"],"bounds":["runs","solver"],"process":"z3","processFound":"/usr/bin/z3","ready":true,"kind":"built-in","protocol":"-","served":true},
+  {"name":"spin-bridge","authority":"bounded","answers":["holds","outcomes"],"bounds":["depth","steps","runs"],"process":"/opt/spin-bridge/bin/spin-bridge","processFound":"/opt/spin-bridge/bin/spin-bridge","kind":"engine","protocol":"stdio/1","source":"/etc/opensysml/engines/spin-bridge.json","command":"/opt/spin-bridge/bin/spin-bridge","version":"1.4.0"},
+  {"name":"sweep","authority":"observed","answers":["sweep"],"bounds":["runs"],"ready":true,"kind":"built-in","protocol":"-","served":true}]}
 ```
 
 The `engine` field on `VerifyConstraintRequest`, `VerifyRequirementRequest`,
@@ -1621,7 +1632,9 @@ answer (`VerifyConstraint` with `"engine":"explore"` returns a verdict whose `er
 refusal); `"all"` puts it to every covering engine, one after another in name order, and
 composes their answers. `"engine":"explore"` on `RunAnalysisRequest` asks what
 `"schedule":"explore"` asks, and the response answers alike. A name no engine is registered
-under is the `invalid_argument` Connect error. Send the field only to a service advertising
+under is the `invalid_argument` Connect error; the name of an external engine the service lists
+but does not serve is the `failed_precondition` error `engine 'spin-bridge' is not served by
+this service`, and `auto` and `all` pass over it. Send the field only to a service advertising
 `engines`: one without the capability does not read it and answers under `auto`.
 
 Every `Verdict`, and `EvaluateCalcResponse`, `RunAnalysisResponse` and `RunSweepResponse`,

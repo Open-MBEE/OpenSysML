@@ -19,8 +19,10 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_SMT_TIMEOUT` | `10s` | How long one solver query may take, as a Go duration (`5s`, `500ms`), after which the verdict is `unknown` |
 | `OPENSYSML_SMT_CORE_BUDGET` | `30s` | How long `%explain` may spend reducing an unsat core to a minimal one, as a Go duration; past it the solver's own core is reported, said not to be necessarily minimal |
 | `OPENSYSML_SMT_MAX_CONFIGURATIONS` | `32` | How many variant selections `%configure … all` may report before saying the enumeration was cut short at the bound |
-| `OPENSYSML_TOOLS` | unset (no tools) | Directory of the **tool manifest**: one JSON file per external tool, each registering a `tool:<name>` analysis engine that runs the tool for the `ToolExecution`-annotated actions naming it; see [External tools](#external-tools) |
-| `OPENSYSML_TOOL_TIMEOUT` | `10s` | How long one tool process may take, as a Go duration (`5s`, `500ms`), after which the performance fails with a timeout; a value that is not a positive duration is the default |
+| `OPENSYSML_TOOLS` | unset (no tools) | Directory of the **tool manifest**: one JSON file per external tool, each registering a `tool:<name>` analysis engine that runs the tool for the `ToolExecution`-annotated actions naming it; see [External tools](#external-tools). A file whose `kind` is `engine` registers an external engine as `OPENSYSML_ENGINES` does |
+| `OPENSYSML_ENGINES` | unset (no engines) | Directory of the **engine manifest**: one JSON file per external analysis engine — a model checker, a simulator, a solver — spoken to over its standard input by the protocol on [External engines](external-engines.md), listed by `-engines` and selected by `-engine <name>` like any engine of the build. Read beside `OPENSYSML_TOOLS` under the same rules; see [External engines](#external-engines) |
+| `OPENSYSML_TOOL_TIMEOUT` | `10s` | How long one tool process may take, as a Go duration (`5s`, `500ms`), after which the performance fails with a timeout; for an external engine, how long its `describe` and `covers` may take and the grace a `run` has to answer `cancel` before its process is ended. A value that is not a positive duration is the default |
+| `OPENSYSML_TOOL_MAX_OUTPUT` | `64M` | How much one external process may write before it is cut off: a tool's one reply and the whole of its standard error, an external engine's one protocol line and the whole of its standard error. Bytes, or bytes with a `K`, `M` or `G` suffix; a value that is not a positive size is the default |
 | `OPENSYSML_GRPC_INDEX_POOL` | `4` | Whether `sysml-grpc` builds the one shared standard library index ahead of the requests needing it; any positive value prewarms, `0` builds it on the first request instead |
 
 Every variable above uses the `OPENSYSML_` prefix. The eight that predate it
@@ -68,21 +70,31 @@ status, and a manifest that cannot be read is reported at startup, as a bad run 
 `toolName` is the name a `ToolExecution` gives, matched exactly, and two files naming the same
 tool are refused. `version`, optional, is what the status column shows beside the executable's
 path.
-`executable` is a path — relative to the manifest file when it has a directory part — or a bare
-name looked up on `PATH`; an executable that is not found keeps the engine registered and listed
-as `unavailable: tool 'ModelCenter': executable … not found`, and a performance naming the
-tool is refused with that reason. `variables` are the `ToolVariable` names the tool accepts,
-non-empty and distinct; a parameter whose variable is not among them refuses the performance
-before the process is started. Unknown keys are refused.
+`executable` is a path — an absolute one taken as written; a relative one with a directory
+part joined to the manifest's directory, followed through its links and refused unless it stays
+inside that directory — or a bare name looked up on `PATH`; an executable that is not found
+keeps the engine registered and listed as `unavailable: tool 'ModelCenter': executable … not
+found`, and a performance naming the tool is refused with that reason. `variables` are the
+`ToolVariable` names the tool accepts, non-empty and distinct; a parameter whose variable is
+not among them refuses the performance before the process is started. Unknown keys are refused,
+and so is a `kind` other than `tool`, `engine`, `policy` or `sampler` (`tool` when absent); the
+last three are [engine entries](#external-engines), which a tool directory may hold too.
+
+A manifest directory is read only from outside every workspace of the invocation — one under
+a loaded model's directory is refused with the workspace named, since a model must not be able
+to register a program — and a directory or entry writable by anyone but its owner is refused
+(`is writable by others (mode 0664); a manifest entry and its directory may be written by their
+owner alone`). A fault in one entry registers nothing from its directory.
 
 ```bash
 $ OPENSYSML_TOOLS=~/tools sysml -engines
-engine            authority  answers      status
-explore           proved     outcomes     ready
-run               observed   evaluate     ready
-solve             proved     satisfiable  ready (z3 at /usr/bin/z3)
-sweep             observed   sweep        ready
-tool:ModelCenter  observed   compute      ready (ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)
+engine            kind      protocol  authority  answers      status
+explore           built-in  -         proved     outcomes     ready
+run               built-in  -         observed   evaluate     ready
+solve             built-in  -         proved     satisfiable  ready (z3 at /usr/bin/z3)
+sweep             built-in  -         observed   sweep        ready
+tool:ModelCenter  tool      object    observed   compute      ready (ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)
+tool:ModelCenter 14.1: tool from /home/me/tools/modelcenter.json, runs /opt/modelcenter/bin/mc-batch
 ```
 
 **Protocol.** Each performance of the annotated action starts the executable once, with no
@@ -119,7 +131,8 @@ must exit 0 within `OPENSYSML_TOOL_TIMEOUT` (default `10s`). A non-zero exit (it
 error is quoted), a reply that is not exactly one JSON object of this shape, a missing output,
 an output no parameter receives, a key repeated at any depth, a member not of this shape
 (`units` for `unit`), a `null` in place of a member, an `error` beside `outputs`, more
-than 16 MiB on either standard stream, or the timeout is a typed error that fails the performance, and with it the action, sweep row or analysis case
+than `OPENSYSML_TOOL_MAX_OUTPUT` (default 64 MiB) on either standard stream, or the timeout is a
+typed error that fails the performance, and with it the action, sweep row or analysis case
 performing it; no default value is ever invented, and nothing falls back to the action's body.
 The body is never run when the metadata is present: with `OPENSYSML_TOOLS` unset or the tool
 absent from it, the performance fails with `tool 'ModelCenter' is not registered; set
@@ -131,6 +144,24 @@ different outputs are reported as a divergence in the run's notes (`%trace` summ
 an exploration over a non-deterministic tool says its outcome table is not reproducible. See
 [Analysis engines](cli.md#analysis-engines) and the design note
 [`docs/internals/design/analysis-framework.md`](../internals/design/analysis-framework.md#external-tools).
+
+## External engines
+
+`OPENSYSML_ENGINES` names a second manifest directory, read at startup as `OPENSYSML_TOOLS` is
+and under the same rules — `*.json` files only, outside every workspace, writable by their
+owner alone, one fault registering nothing from the directory, a name taken by another entry of
+either directory refused. Its entries are analysis engines rather than tools: a `kind: engine`
+entry registers under its own `name` (`spin-bridge`, not `tool:spin-bridge`) beside `run`,
+`explore`, `check`, `sweep` and `solve`, answers the question kinds it lists and is reached by
+`-engine <name>`, `-engine all` and — after every built-in engine has refused — `-engine auto`.
+The entry's fields, the protocol the engine speaks over its standard input, the model forms it
+is handed, what stands of its answer and how each failure is reported are on
+[External engines](external-engines.md). The directory may also hold `policy` and `sampler`
+entries, which this build parses and lists as `unavailable` naming the stage that serves them.
+
+`OPENSYSML_TOOL_TIMEOUT` is also the deadline for an engine to start and `describe` itself, and
+for it to answer `cancel` once a plan's context ends; `OPENSYSML_TOOL_MAX_OUTPUT` bounds each
+line it writes and the whole of its standard error, as it does a tool's reply.
 
 The budgets are what turn a run that would never finish into a reported error instead
 of a hang. They count different things (expression evaluations, action token

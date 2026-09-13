@@ -241,8 +241,9 @@ written in, so the verdicts are about that object:
 | `-check-depth <n>` | With `-engine check` or `-engine all`: the most moves one schedule may make before the search backtracks (default 10 000), named as the `depth` bound when it is hit; a positive integer |
 | `-check-states <n>` | With `-engine check` or `-engine all`: the most distinct states the search may visit (default 1 000 000), named as the `states` bound when it is hit; a positive integer. It is the shared `runs` budget in the checker's unit, so under `-engine all` the one figure is also an exploration's linearizations |
 | `-check-timeout <duration>` | With `-engine check` or `-engine all`: the wall clock the check's plan may run for, as `30s` or `2m`; a search the clock stops is reported `incomplete: time` with the states and depth it reached, not as a verdict, and exits 2. Unbounded by default |
-| `-engines` | Lists the analysis engines this build knows — name, authority, the question kinds each answers and its status — and exits, without a model. See [Analysis engines](#analysis-engines) |
-| `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name (`run`, `explore`, `check`, `sweep`, `solve`) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action)). See [Analysis engines](#analysis-engines) |
+| `-engines` | Lists the analysis engines this build knows — name, kind, protocol, authority, the question kinds each answers and its status — and exits, without a model and without starting a process: the external engines of `OPENSYSML_ENGINES` and the tools of `OPENSYSML_TOOLS` are listed from their manifests alone, each followed by a line naming its file and command. See [Analysis engines](#analysis-engines) |
+| `-probe` | With `-engines`, also start each external engine once, check its `describe` against its manifest entry field by field and report the outcome as its status (`ready (…; describe agrees)`, or the first field that disagrees). See [External engines](external-engines.md) |
+| `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*, reaching an external engine only after every built-in one has; a name (`run`, `explore`, `check`, `sweep`, `solve`, or an external engine's) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action)). See [Analysis engines](#analysis-engines) |
 | `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
@@ -931,27 +932,55 @@ and a budget the engine reached is named in the standing and lowers the strength
 `outcomes (observed: 1 linearization, inputs as written, runs=1 (reached))`. A budget reached is
 never a proof.
 
-`-engines` tables the engines of the build, in name order, with the authority each carries (the
+`-engines` tables the engines of the build, in name order, with the kind of each (`built-in`,
+or the manifest entry kind that registered it), the protocol it is spoken by (`-` for one built
+in, `object` for a tool, `stdio/1` for an external engine), the authority it carries (the
 strongest strength it may claim for a universal answer), the question kinds it answers and its
 status — `ready`, `ready (z3 at /usr/bin/z3)` for one whose process was found, or
 `unavailable: <why>`:
 
 ```bash
 $ sysml -engines
-engine   authority  answers          status
-check    bounded    outcomes, holds  ready
-explore  proved     outcomes         ready
-run      observed   evaluate         ready
-solve    proved     satisfiable      ready (z3 at /usr/bin/z3)
-sweep    observed   sweep            ready
+engine   kind      protocol  authority  answers          status
+check    built-in  -         bounded    outcomes, holds  ready
+explore  built-in  -         proved     outcomes         ready
+run      built-in  -         observed   evaluate         ready
+solve    built-in  -         proved     satisfiable      ready (z3 at /usr/bin/z3)
+sweep    built-in  -         observed   sweep            ready
 ```
 
 Every tool the manifest directory `OPENSYSML_TOOLS` names adds a `tool:<name>` engine, listed
-the same way with its executable's status (`tool:ModelCenter  observed  compute  ready
-(ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)`); it answers the `compute` a performance
-of an action annotated `ToolExecution` asks, and nothing else does, so a tool that is
-unregistered or fails stops that performance rather than falling back to the action's body
-([External tools](environment.md#external-tools)).
+the same way with its executable's status (`tool:ModelCenter  tool  object  observed  compute
+ready (ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)`); it answers the `compute` a
+performance of an action annotated `ToolExecution` asks, and nothing else does, so a tool that
+is unregistered or fails stops that performance rather than falling back to the action's body
+([External tools](environment.md#external-tools)). Every engine the manifest directory
+`OPENSYSML_ENGINES` names is listed under its own name, with the manifest's authority and
+answers and the status its file can tell; a `policy`, `sampler` or `module` entry is listed as
+`unavailable: … is not served in this build: …` naming the stage that serves it. After the
+table, one line per manifest entry names its file and the command it runs, and `not admitted`
+for an engine, since no engine is admitted by this build. Nothing is started:
+
+```bash
+$ OPENSYSML_ENGINES=/etc/opensysml/engines sysml -engines
+engine       kind      protocol  authority    answers          status
+check        built-in  -         bounded      outcomes, holds  ready
+explore      built-in  -         proved       outcomes         ready
+priority     policy    stdio/1   not covered                   unavailable: policy "priority" is not served in this build: scheduling policies are the strategies stage
+run          built-in  -         observed     evaluate         ready
+solve        built-in  -         proved       satisfiable      ready (z3 at /usr/bin/z3)
+spin-bridge  engine    stdio/1   bounded      holds, outcomes  ready (spin-bridge 1.4.0 at /opt/spin-bridge/bin/spin-bridge)
+sweep        built-in  -         observed   sweep            ready
+priority 0.3: policy from /etc/opensysml/engines/priority.json, runs /opt/priority/bin/priority-policy
+spin-bridge 1.4.0: engine from /etc/opensysml/engines/spin-bridge.json, runs /opt/spin-bridge/bin/spin-bridge, not admitted
+```
+
+`-engines -probe` also starts each external engine once, asks it to `describe` itself, checks
+the answer against the manifest field by field and ends it; the status becomes `ready (…;
+describe agrees)` or names the first disagreement (`engine "spin-bridge" describes its version
+as "1.5.0"; the manifest says "1.4.0"`), a process that does not start or answer in
+`OPENSYSML_TOOL_TIMEOUT` being reported as such. The manifest, the protocol, what an external
+answer is worth and every way one fails are on [External engines](external-engines.md).
 
 `-engine` selects. `auto`, the default, is the dispatch every check has always had: the engine
 of highest authority that covers the question answers it, and one that refuses or answers *not
@@ -969,9 +998,13 @@ $ sysml -engine explore -constraint Rover::MassBudget model.sysml
 ```
 
 `-engine explore -action <name>` explores every linearization exactly as `-schedule explore`
-does, and a budget spelled on `-schedule explore:runs=N,depth=D` bounds it. `-engine all` puts
-the question to every engine that covers it, one after another in name order, and composes what
-they answered: a witnessed violation stands over any universal claim, agreeing universal claims
+does, and a budget spelled on `-schedule explore:runs=N,depth=D` bounds it. `-engine
+spin-bridge -action <name>` puts the action to that external engine alone, and its answer
+stands at the strength the interpreter's replay of its witness earns, never at the one it
+claimed ([External engines](external-engines.md#the-standing-of-an-answer)); under
+`auto` an external engine is reached only once every built-in engine has refused or answered
+*not covered*, whatever authority its manifest declares. `-engine all` puts the question to
+every engine that covers it, one after another in name order, and composes what they answered: a witnessed violation stands over any universal claim, agreeing universal claims
 stand at the strongest strength any of them earned (never promoted past it), differing
 observed values become a witnessed sensitivity, and a universal claim an execution refutes is a
 **disagreement** — the witness stands, the refuted result is demoted to *not covered* with the
@@ -1019,9 +1052,11 @@ did not resolve — carries neither key.
                "standing": "violated (witnessed: 1 run under reverse)"}]}]}
 ```
 
-The REPL selects with [`%engine`](repl-commands.md) and lists with `%engines`; a service client
-sends the same selection in the `engine` field of a request and reads `engine`, `strength` and
-`bounds` off the response ([wire contract](wire-contract.md)).
+The REPL selects with [`%engine`](repl-commands.md) and lists with `%engines` (`%engines
+probe` probing as `-engines -probe` does); a service client sends the same selection in the
+`engine` field of a request and reads `engine`, `strength` and `bounds` off the response
+([wire contract](wire-contract.md)). The service lists external engines but runs none until
+started with `-serve-external-engines` ([sysml-grpc](service-transports.md)).
 
 ## Checking every schedule of an action
 

@@ -8,6 +8,9 @@ reading order.
 - **[REPL commands](repl-commands.md)** — every `%` command and its arguments
 - **[LSP extensions](lsp.md)** — the custom render requests `sysml-lsp` serves to a diagram client
 - **[Environment variables](environment.md)** — the resource limits for a single run, and paths
+- **[External engines](external-engines.md)** — the `OPENSYSML_ENGINES` manifest entry, the
+  protocol an engine speaks over its standard input and its JSON Schema, the `sources` and
+  `graphs:1` model forms, what stands of an engine's answer and how each failure is reported
 - **[Client libraries](clients.md)** — the five ways to reach the engine from a program, what each
   covers, and how to choose between them
 - **[Go packages](api.md)** — `client/opensysml` and the packages behind it, type by type

@@ -155,12 +155,16 @@ sysml> %view Demo::summary
 
 `%engines` lists the analysis engines the build answers checks with — `run` for one execution,
 `explore` for every linearization, `sweep` for a table, `solve` for the SMT solver, one
-`tool:<name>` per external tool the manifest directory `OPENSYSML_TOOLS` names, each with the
-strongest evidence it can produce and whether its process was found — and `%engine` picks
-the one the checks that follow are put to (`%engine solve`, `%engine all` for every engine that
-covers the question, `%engine auto` for the default). Every verdict is followed by its
-`standing:` line, saying which engine answered and how strong the evidence is
-([Analysis engines](../reference/cli.md#analysis-engines)).
+`tool:<name>` per external tool the manifest directory `OPENSYSML_TOOLS` names and one engine
+per file of `OPENSYSML_ENGINES`, each with the strongest evidence it can produce and whether
+its process was found — and `%engine` picks the one the checks that follow are put to
+(`%engine solve`, `%engine spin-bridge` for an external engine, `%engine all` for every engine
+that covers the question, `%engine auto` for the default). Listing starts nothing; `%engines
+probe` starts each external engine once to check that it describes itself as its manifest does.
+Every verdict is followed by its `standing:` line, saying which engine answered and how strong
+the evidence is; an external engine's is the strength the interpreter's replay of its witness
+earned, whatever the engine claimed ([Analysis engines](../reference/cli.md#analysis-engines),
+[External engines](../reference/external-engines.md)).
 
 `%view <name>` reports the elements a view exposes, the views nested inside it, and whether it
 conforms to the viewpoints it satisfies. Conformance checking is read-only and reported in

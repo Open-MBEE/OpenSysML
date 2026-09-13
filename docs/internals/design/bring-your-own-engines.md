@@ -606,6 +606,38 @@ first stage delivers, since it is the gate every external witness passes through
    with the claim kept (`admit` is refused until the next stage); the stand-in engine and its
    tests; `-engines`, `-engines -probe`, `%engines` and `ListEngines` listing external engines,
    the service refusing to run them until `-serve-external-engines`; the reference pages.
+   *Implemented:* `internal/core/analysis` reads both directories through one
+   `manifest.go` (`EntryKind` distinguishing `tool`, `engine`, `policy` and `sampler`;
+   `ManifestsFromEnv` reading `OPENSYSML_TOOLS` then `OPENSYSML_ENGINES`, `ExternalsFromEnv`
+   registering every entry of both), the `engine` entry in `engine_entry.go`
+   with the security rules of this note (`confinedPath` for `command`, and for a tool's
+   `executable` when it is a relative path; a directory under a workspace not read; duplicate
+   names refused across both directories), the session in `session.go` (one process per plan,
+   `describe` checked field by field, `covers`, `run`, `cancel`, coalesced `progress` through
+   `analysis.Reporter` at `ProgressInterval`, ids matched, the failure table of `external.go`
+   and `external_standing.go`), the wire types in `enginewire` with the schema at
+   `docs/reference/engine-protocol.schema.json`, and the bounded process I/O of `process.go`
+   shared with the tool engine (`OPENSYSML_TOOL_MAX_OUTPUT`, default 64 MiB, one message and
+   the captured standard error). `graphs:1` is `export.GraphsOf` over the lowered
+   `ActionGraph` and `StateGraph`, the footprints that `lower.Footprints` computes included;
+   `sources` is `export.SourcesOf`. Standing is the framework's: a `violated` schedule replays
+   through `runtime.ReplaySchedule` under the `replay:` policy as the `check` engine's witnesses
+   do, and the condition is evaluated at the move named, `sensitive` needs two replaying
+   schedules that end the feature differently, `satisfiable` an assignment the solver query's
+   `Confirm` accepts against the semantic model, `executions` replayed for *observed*;
+   every other universal claim is *not covered* with the claim kept. Surfaces: `-engines`
+   spawns nothing, `-engines -probe` and `%engines probe` start each engine once,
+   `ListEngines` gains `kind`, `protocol`, `source`, `command`, `version` and `served`, and
+   `sysml-grpc -serve-external-engines <names|all>` advertises `engines_external`. Decided
+   here: `progress` is printed to standard error by the CLI and REPL — at most one line per
+   quarter second per open run, the latest kept for the reason of a run that ends unanswered —
+   since nothing on `develop` printed `explore`'s; a schedule witness carrying `inputs` is
+   refused naming the SMT engine's free-inputs stage, which replays them; an entry naming
+   the `grpc` transport, the `rdf` form or a `module`, or of `policy` or `sampler` kind, is
+   parsed and listed `unavailable` with the typed `NotServedError` naming its stage, and one
+   naming `admit` is refused as the note says. Still deferred: referee records and `admit`
+   (stage 2); `policy` and `sampler` strategies and the `rdf` form (stage 3); in-process Go
+   (stage 4); WebAssembly (stage 5); the `grpc` transport.
 2. **Referee records.** `-referee <engine> <dir>`, the record format and its placement and
    permission rules, `admit` honored against a matching record, the standing line naming it,
    the disagreement tests.
