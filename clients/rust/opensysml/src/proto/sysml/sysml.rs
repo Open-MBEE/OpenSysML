@@ -471,8 +471,7 @@ pub struct EngineInfo {
     pub unavailable: ::prost::alloc::string::String,
     /// Where the engine comes from: "built-in" for the build's own, else the kind
     /// of the manifest entry that registered it: "tool", "engine", "policy" or
-    /// "sampler". Reported as the "engines_external" capability with the fields
-    /// below, which are empty for a built-in engine.
+    /// "sampler". The fields below are empty for a built-in engine.
     #[prost(string, tag="9")]
     pub kind: ::prost::alloc::string::String,
     /// How the engine is spoken to: "-" for one built in, "object" for a tool's
@@ -1536,10 +1535,10 @@ pub struct ServerInfoResponse {
     ///                   `bounds` it ran under. Without it a service drops the
     ///                   request field and answers under "auto", so a client must
     ///                   not send one.
-    ///    "engines_external" - the service runs at least one engine registered from
-    ///                   an OPENSYSML_ENGINES manifest, having been started with
-    ///                   -serve-external-engines; ListEngines reports which with
-    ///                   `served`. Without it every manifest engine is listed but
+    ///    "engines_external" - the service was started with -serve-external-engines
+    ///                   and runs the OPENSYSML_ENGINES manifest engines it names;
+    ///                   ListEngines reports which with `served`. Without it every
+    ///                   manifest engine is listed but a request naming one is
     ///                   refused with FAILED_PRECONDITION.
     #[prost(string, repeated, tag="2")]
     pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,

@@ -97,7 +97,7 @@ type SysMLServiceClient interface {
 	// `strength` and `bounds` response fields of the verification RPCs. The
 	// engines registered from manifests are listed with their origin and whether
 	// this service serves them; the "engines_external" capability is advertised
-	// only when it serves at least one.
+	// only when it was started to serve them.
 	ListEngines(ctx context.Context, in *ListEnginesRequest, opts ...grpc.CallOption) (*ListEnginesResponse, error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
@@ -364,7 +364,7 @@ type SysMLServiceServer interface {
 	// `strength` and `bounds` response fields of the verification RPCs. The
 	// engines registered from manifests are listed with their origin and whether
 	// this service serves them; the "engines_external" capability is advertised
-	// only when it serves at least one.
+	// only when it was started to serve them.
 	ListEngines(context.Context, *ListEnginesRequest) (*ListEnginesResponse, error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a

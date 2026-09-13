@@ -426,8 +426,7 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * Where the engine comes from: "built-in" for the build's own, else the kind
    * of the manifest entry that registered it: "tool", "engine", "policy" or
-   * "sampler". Reported as the "engines_external" capability with the fields
-   * below, which are empty for a built-in engine.
+   * "sampler". The fields below are empty for a built-in engine.
    * </pre>
    *
    * <code>string kind = 9 [json_name = "kind"];</code>
@@ -450,8 +449,7 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * Where the engine comes from: "built-in" for the build's own, else the kind
    * of the manifest entry that registered it: "tool", "engine", "policy" or
-   * "sampler". Reported as the "engines_external" capability with the fields
-   * below, which are empty for a built-in engine.
+   * "sampler". The fields below are empty for a built-in engine.
    * </pre>
    *
    * <code>string kind = 9 [json_name = "kind"];</code>
@@ -2112,8 +2110,7 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Where the engine comes from: "built-in" for the build's own, else the kind
      * of the manifest entry that registered it: "tool", "engine", "policy" or
-     * "sampler". Reported as the "engines_external" capability with the fields
-     * below, which are empty for a built-in engine.
+     * "sampler". The fields below are empty for a built-in engine.
      * </pre>
      *
      * <code>string kind = 9 [json_name = "kind"];</code>
@@ -2135,8 +2132,7 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Where the engine comes from: "built-in" for the build's own, else the kind
      * of the manifest entry that registered it: "tool", "engine", "policy" or
-     * "sampler". Reported as the "engines_external" capability with the fields
-     * below, which are empty for a built-in engine.
+     * "sampler". The fields below are empty for a built-in engine.
      * </pre>
      *
      * <code>string kind = 9 [json_name = "kind"];</code>
@@ -2159,8 +2155,7 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Where the engine comes from: "built-in" for the build's own, else the kind
      * of the manifest entry that registered it: "tool", "engine", "policy" or
-     * "sampler". Reported as the "engines_external" capability with the fields
-     * below, which are empty for a built-in engine.
+     * "sampler". The fields below are empty for a built-in engine.
      * </pre>
      *
      * <code>string kind = 9 [json_name = "kind"];</code>
@@ -2179,8 +2174,7 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Where the engine comes from: "built-in" for the build's own, else the kind
      * of the manifest entry that registered it: "tool", "engine", "policy" or
-     * "sampler". Reported as the "engines_external" capability with the fields
-     * below, which are empty for a built-in engine.
+     * "sampler". The fields below are empty for a built-in engine.
      * </pre>
      *
      * <code>string kind = 9 [json_name = "kind"];</code>
@@ -2196,8 +2190,7 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Where the engine comes from: "built-in" for the build's own, else the kind
      * of the manifest entry that registered it: "tool", "engine", "policy" or
-     * "sampler". Reported as the "engines_external" capability with the fields
-     * below, which are empty for a built-in engine.
+     * "sampler". The fields below are empty for a built-in engine.
      * </pre>
      *
      * <code>string kind = 9 [json_name = "kind"];</code>

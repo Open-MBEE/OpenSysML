@@ -1067,8 +1067,7 @@ export type EngineInfo = Message<"sysml.EngineInfo"> & {
   /**
    * Where the engine comes from: "built-in" for the build's own, else the kind
    * of the manifest entry that registered it: "tool", "engine", "policy" or
-   * "sampler". Reported as the "engines_external" capability with the fields
-   * below, which are empty for a built-in engine.
+   * "sampler". The fields below are empty for a built-in engine.
    *
    * @generated from field: string kind = 9;
    */
@@ -3462,10 +3461,10 @@ export type ServerInfoResponse = Message<"sysml.ServerInfoResponse"> & {
    *                  `bounds` it ran under. Without it a service drops the
    *                  request field and answers under "auto", so a client must
    *                  not send one.
-   *   "engines_external" - the service runs at least one engine registered from
-   *                  an OPENSYSML_ENGINES manifest, having been started with
-   *                  -serve-external-engines; ListEngines reports which with
-   *                  `served`. Without it every manifest engine is listed but
+   *   "engines_external" - the service was started with -serve-external-engines
+   *                  and runs the OPENSYSML_ENGINES manifest engines it names;
+   *                  ListEngines reports which with `served`. Without it every
+   *                  manifest engine is listed but a request naming one is
    *                  refused with FAILED_PRECONDITION.
    *
    * @generated from field: repeated string capabilities = 2;
@@ -4707,7 +4706,7 @@ export const SysMLService: GenService<{
    * `strength` and `bounds` response fields of the verification RPCs. The
    * engines registered from manifests are listed with their origin and whether
    * this service serves them; the "engines_external" capability is advertised
-   * only when it serves at least one.
+   * only when it was started to serve them.
    *
    * @generated from rpc sysml.SysMLService.ListEngines
    */

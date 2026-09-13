@@ -1919,8 +1919,7 @@ type EngineInfo struct {
 	Unavailable string `protobuf:"bytes,8,opt,name=unavailable,proto3" json:"unavailable,omitempty"`
 	// Where the engine comes from: "built-in" for the build's own, else the kind
 	// of the manifest entry that registered it: "tool", "engine", "policy" or
-	// "sampler". Reported as the "engines_external" capability with the fields
-	// below, which are empty for a built-in engine.
+	// "sampler". The fields below are empty for a built-in engine.
 	Kind string `protobuf:"bytes,9,opt,name=kind,proto3" json:"kind,omitempty"`
 	// How the engine is spoken to: "-" for one built in, "object" for a tool's
 	// one JSON object each way, "<transport>/<protocol>" for an engine entry.
@@ -6367,10 +6366,10 @@ type ServerInfoResponse struct {
 	//	               `bounds` it ran under. Without it a service drops the
 	//	               request field and answers under "auto", so a client must
 	//	               not send one.
-	//	"engines_external" - the service runs at least one engine registered from
-	//	               an OPENSYSML_ENGINES manifest, having been started with
-	//	               -serve-external-engines; ListEngines reports which with
-	//	               `served`. Without it every manifest engine is listed but
+	//	"engines_external" - the service was started with -serve-external-engines
+	//	               and runs the OPENSYSML_ENGINES manifest engines it names;
+	//	               ListEngines reports which with `served`. Without it every
+	//	               manifest engine is listed but a request naming one is
 	//	               refused with FAILED_PRECONDITION.
 	Capabilities  []string `protobuf:"bytes,2,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields

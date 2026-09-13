@@ -283,7 +283,7 @@ class SysMLServiceServicer:
         `strength` and `bounds` response fields of the verification RPCs. The
         engines registered from manifests are listed with their origin and whether
         this service serves them; the "engines_external" capability is advertised
-        only when it serves at least one.
+        only when it was started to serve them.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

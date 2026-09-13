@@ -136,10 +136,10 @@ public interface ServerInfoResponseOrBuilder extends
    * `bounds` it ran under. Without it a service drops the
    * request field and answers under "auto", so a client must
    * not send one.
-   * "engines_external" - the service runs at least one engine registered from
-   * an OPENSYSML_ENGINES manifest, having been started with
-   * -serve-external-engines; ListEngines reports which with
-   * `served`. Without it every manifest engine is listed but
+   * "engines_external" - the service was started with -serve-external-engines
+   * and runs the OPENSYSML_ENGINES manifest engines it names;
+   * ListEngines reports which with `served`. Without it every
+   * manifest engine is listed but a request naming one is
    * refused with FAILED_PRECONDITION.
    * </pre>
    *
@@ -250,10 +250,10 @@ public interface ServerInfoResponseOrBuilder extends
    * `bounds` it ran under. Without it a service drops the
    * request field and answers under "auto", so a client must
    * not send one.
-   * "engines_external" - the service runs at least one engine registered from
-   * an OPENSYSML_ENGINES manifest, having been started with
-   * -serve-external-engines; ListEngines reports which with
-   * `served`. Without it every manifest engine is listed but
+   * "engines_external" - the service was started with -serve-external-engines
+   * and runs the OPENSYSML_ENGINES manifest engines it names;
+   * ListEngines reports which with `served`. Without it every
+   * manifest engine is listed but a request naming one is
    * refused with FAILED_PRECONDITION.
    * </pre>
    *
@@ -363,10 +363,10 @@ public interface ServerInfoResponseOrBuilder extends
    * `bounds` it ran under. Without it a service drops the
    * request field and answers under "auto", so a client must
    * not send one.
-   * "engines_external" - the service runs at least one engine registered from
-   * an OPENSYSML_ENGINES manifest, having been started with
-   * -serve-external-engines; ListEngines reports which with
-   * `served`. Without it every manifest engine is listed but
+   * "engines_external" - the service was started with -serve-external-engines
+   * and runs the OPENSYSML_ENGINES manifest engines it names;
+   * ListEngines reports which with `served`. Without it every
+   * manifest engine is listed but a request naming one is
    * refused with FAILED_PRECONDITION.
    * </pre>
    *
@@ -477,10 +477,10 @@ public interface ServerInfoResponseOrBuilder extends
    * `bounds` it ran under. Without it a service drops the
    * request field and answers under "auto", so a client must
    * not send one.
-   * "engines_external" - the service runs at least one engine registered from
-   * an OPENSYSML_ENGINES manifest, having been started with
-   * -serve-external-engines; ListEngines reports which with
-   * `served`. Without it every manifest engine is listed but
+   * "engines_external" - the service was started with -serve-external-engines
+   * and runs the OPENSYSML_ENGINES manifest engines it names;
+   * ListEngines reports which with `served`. Without it every
+   * manifest engine is listed but a request naming one is
    * refused with FAILED_PRECONDITION.
    * </pre>
    *
