@@ -11,7 +11,7 @@ import (
 )
 
 // stateStarterOf starts the machine alone on the clock, up to the horizon.
-func stateStarterOf(sym *symbols.Symbol, horizon float64) Starter {
+func stateStarterOf(sym *symbols.Symbol, horizon Horizon) Starter {
 	return func(ctx *Context) (*Invocation, error) {
 		exec, err := ctx.CreateStateExecutor(sym)
 		if err != nil {
@@ -54,7 +54,7 @@ func TestCheckHorizonBoundsARearmingTimer(t *testing.T) {
 		return ctx, ctx.SetBudgets(budgets)
 	}
 
-	unbounded, err := Check(context.Background(), fresh, stateStarterOf(sym, 0), CheckBudget{}, unreduced(), nil)
+	unbounded, err := Check(context.Background(), fresh, stateStarterOf(sym, Horizon{}), CheckBudget{}, unreduced(), nil)
 	if err != nil {
 		t.Fatalf("check without a horizon: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestCheckHorizonBoundsARearmingTimer(t *testing.T) {
 		t.Fatalf("without a horizon: depth %d, %d finals, want the 5 dispatches the budget allows and no final", unbounded.MaxDepth, len(unbounded.Finals))
 	}
 
-	bounded, err := Check(context.Background(), fresh, stateStarterOf(sym, 5), CheckBudget{}, unreduced(), nil)
+	bounded, err := Check(context.Background(), fresh, stateStarterOf(sym, HorizonAt(5)), CheckBudget{}, unreduced(), nil)
 	if err != nil {
 		t.Fatalf("check to t=5: %v", err)
 	}
@@ -81,6 +81,16 @@ func TestCheckHorizonBoundsARearmingTimer(t *testing.T) {
 	if bounded.MaxDepth != 2 {
 		t.Fatalf("to t=5: depth %d, want the two dispatches within the horizon", bounded.MaxDepth)
 	}
+
+	// A horizon at t=0 is not none: the machine rests armed with its timer ahead.
+	atStart, err := Check(context.Background(), fresh, stateStarterOf(sym, HorizonAt(0)), CheckBudget{}, unreduced(), nil)
+	if err != nil {
+		t.Fatalf("check to t=0: %v", err)
+	}
+	if !strings.HasPrefix(atStart.Status(), "no violation, exhaustive up to t=0.0 (") ||
+		len(atStart.Finals) != 1 || atStart.Finals[0].Values["ticks"] != "0" || atStart.Finals[0].Values["finalState"] != "armed" {
+		t.Fatalf("to t=0: %s, finals %+v; want exhaustive at armed with no tick", atStart.Status(), atStart.Finals)
+	}
 }
 
 // A property is evaluated at the horizon as at every state: one false only past
@@ -95,7 +105,7 @@ func TestCheckHorizonEvaluatesPropertiesUpToIt(t *testing.T) {
 		}}
 	}
 
-	holds, err := Check(context.Background(), m.fresh, stateStarterOf(sym, 5), CheckBudget{}, unreduced(), []CheckProperty{ticksUnder(3)})
+	holds, err := Check(context.Background(), m.fresh, stateStarterOf(sym, HorizonAt(5)), CheckBudget{}, unreduced(), []CheckProperty{ticksUnder(3)})
 	if err != nil {
 		t.Fatalf("check ticks < 3 to t=5: %v", err)
 	}
@@ -103,7 +113,7 @@ func TestCheckHorizonEvaluatesPropertiesUpToIt(t *testing.T) {
 		t.Fatalf("ticks < 3 to t=5: %s, want exhaustive", holds.Status())
 	}
 
-	violated, err := Check(context.Background(), m.fresh, stateStarterOf(sym, 5), CheckBudget{}, unreduced(), []CheckProperty{ticksUnder(2)})
+	violated, err := Check(context.Background(), m.fresh, stateStarterOf(sym, HorizonAt(5)), CheckBudget{}, unreduced(), []CheckProperty{ticksUnder(2)})
 	if err != nil {
 		t.Fatalf("check ticks < 2 to t=5: %v", err)
 	}
@@ -133,7 +143,7 @@ func TestCheckHorizonLeavesAnActionWaitingPastIt(t *testing.T) {
 		}
 	`)
 	sym := m.action(t, "Sleeper")
-	startTo := func(horizon float64) Starter {
+	startTo := func(horizon Horizon) Starter {
 		return func(ctx *Context) (*Invocation, error) {
 			exec, err := ctx.CreateActionExecutor(sym)
 			if err != nil {
@@ -143,7 +153,7 @@ func TestCheckHorizonLeavesAnActionWaitingPastIt(t *testing.T) {
 		}
 	}
 
-	early, err := Check(context.Background(), m.fresh, startTo(5), CheckBudget{}, unreduced(), nil)
+	early, err := Check(context.Background(), m.fresh, startTo(HorizonAt(5)), CheckBudget{}, unreduced(), nil)
 	if err != nil {
 		t.Fatalf("check to t=5: %v", err)
 	}
@@ -154,7 +164,7 @@ func TestCheckHorizonLeavesAnActionWaitingPastIt(t *testing.T) {
 		t.Fatalf("to t=5: finals %+v, want x still 0", early.Finals)
 	}
 
-	late, err := Check(context.Background(), m.fresh, startTo(0), CheckBudget{}, unreduced(), nil)
+	late, err := Check(context.Background(), m.fresh, startTo(Horizon{}), CheckBudget{}, unreduced(), nil)
 	if err != nil {
 		t.Fatalf("check without a horizon: %v", err)
 	}
@@ -207,7 +217,7 @@ func TestCheckReportsStateFailuresAsViolations(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			m := parseExploreModel(t, c.src)
-			start := stateStarterOf(m.state(t, "Machine"), 0)
+			start := stateStarterOf(m.state(t, "Machine"), Horizon{})
 			report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, reduced(), nil)
 			if err != nil {
 				t.Fatalf("check: %v", err)
@@ -246,7 +256,7 @@ func TestCheckStopsARearmingTimerOnTheCallerDeadline(t *testing.T) {
 		}
 		return true, nil
 	}}
-	_, err := Check(stop, m.fresh, stateStarterOf(sym, 0), CheckBudget{}, unreduced(), []CheckProperty{deadline})
+	_, err := Check(stop, m.fresh, stateStarterOf(sym, Horizon{}), CheckBudget{}, unreduced(), []CheckProperty{deadline})
 	var stopped *CheckStopped
 	if !errors.As(err, &stopped) || !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want CheckStopped wrapping context.Canceled", err)

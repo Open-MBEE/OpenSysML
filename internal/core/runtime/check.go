@@ -203,9 +203,9 @@ type CheckReport struct {
 	BoundsHit []string
 	// Limits are the executor's budgets the search ran under.
 	Limits Budgets
-	// Horizon is the instant the search stopped the clock at, 0 for none: no
-	// schedule was followed past it, and a state there is final.
-	Horizon    float64
+	// Horizon is the instant the search stopped the clock at: no schedule was
+	// followed past it, and a state there is final.
+	Horizon    Horizon
 	Violations []Violation
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
@@ -215,8 +215,8 @@ type CheckReport struct {
 // Status renders how the check ended for a report.
 func (r *CheckReport) Status() string {
 	s := r.Verdict.String()
-	if r.Horizon > 0 {
-		s += " up to t=" + semantics.FormatReal(r.Horizon)
+	if at, bounded := r.Horizon.Bounded(); bounded {
+		s += " up to t=" + semantics.FormatReal(at)
 	}
 	s += fmt.Sprintf(" (%d states, %d moves, depth %d", r.States, r.Moves, r.MaxDepth)
 	if len(r.BoundsHit) > 0 {
@@ -1081,9 +1081,9 @@ func (c *checker) result() *CheckReport {
 	return r
 }
 
-func (c *checker) horizon() float64 {
+func (c *checker) horizon() Horizon {
 	if c.inv == nil {
-		return 0
+		return Horizon{}
 	}
 	return c.inv.Horizon
 }

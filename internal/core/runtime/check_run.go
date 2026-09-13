@@ -125,10 +125,10 @@ func (r *invocationRun) park() error {
 }
 
 // advanceClock moves the clock to the earliest wait ahead within the horizon,
-// false when none is; a horizon of 0 is none.
+// false when none is.
 func (r *invocationRun) advanceClock() bool {
 	next, ok := r.ctx.clock.NextDue()
-	if !ok || next <= r.ctx.clock.now || (r.inv.Horizon > 0 && next > r.inv.Horizon) {
+	if !ok || next <= r.ctx.clock.now || !r.inv.Horizon.Reaches(next) {
 		return false
 	}
 	r.ctx.clock.now = next
@@ -160,11 +160,8 @@ func (r *invocationRun) deadlock() error {
 // waitsPastHorizon reports whether the executor has a wait on the clock the
 // horizon keeps the run from reaching.
 func (r *invocationRun) waitsPastHorizon(exec checkedExecutor) bool {
-	if r.inv.Horizon <= 0 {
-		return false
-	}
 	for _, w := range exec.clockWaits() {
-		if w.Due > r.inv.Horizon {
+		if !r.inv.Horizon.Reaches(w.Due) {
 			return true
 		}
 	}

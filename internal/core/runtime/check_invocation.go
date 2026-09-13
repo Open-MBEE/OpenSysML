@@ -9,16 +9,32 @@ import (
 )
 
 // Invocation is what one check searches: the behaviors started on one clock, in
-// the order started, and the horizon the clock runs to, 0 for none. The objects
-// the started behaviors materialize bring their own behaviors onto the clock.
+// the order started, and the horizon the clock runs to. The objects the started
+// behaviors materialize bring their own behaviors onto the clock.
 type Invocation struct {
 	Actions []*ActionExecutor
 	States  []*StateExecutor
 	// Names are the names the behaviors' observables are reported under in a joint
 	// outcome, actions first; the behaviors' own names when absent.
 	Names   []string
-	Horizon float64
+	Horizon Horizon
 }
+
+// Horizon is the instant a check runs the clock to: the zero Horizon is none,
+// and one at t=0 dispatches what is due at the start alone.
+type Horizon struct {
+	at      float64
+	bounded bool
+}
+
+// HorizonAt is the horizon at instant t.
+func HorizonAt(t float64) Horizon { return Horizon{at: t, bounded: true} }
+
+// Bounded is the instant the horizon stops the clock at, false for none.
+func (h Horizon) Bounded() (at float64, ok bool) { return h.at, h.bounded }
+
+// Reaches reports whether the instant lies within the horizon.
+func (h Horizon) Reaches(t float64) bool { return !h.bounded || t <= h.at }
 
 // Starter builds and starts the behaviors a check runs, in the context given; a
 // replay starts the same invocation the same way.
