@@ -6,9 +6,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
-// The steps of a run whose work never pauses all run on one body coroutine, which
-// the run ends when it leaves, so a long run makes no coroutine per step.
-func TestStepsOfARunShareOneBodyCoroutine(t *testing.T) {
+// The steps of a run whose work never pauses leave no work behind: a long run
+// keeps no paused frame per step.
+func TestStepsOfARunKeepNoPausedWork(t *testing.T) {
 	ctx, sym := loadAction(t, `package test {
 		private import ScalarValues::*;
 		action counter {
@@ -35,11 +35,8 @@ func TestStepsOfARunShareOneBodyCoroutine(t *testing.T) {
 	if n := exec.Results()["n"]; n.Const.Int != 200 {
 		t.Fatalf("n = %v, want 200 steps of bump", n)
 	}
-	if made := ctx.bodyCoroutinesMade; made != 1 {
-		t.Errorf("the run made %d body coroutines, want 1 shared by its steps", made)
-	}
-	if ctx.idleBody != nil {
-		t.Error("a body coroutine is still kept after the run left")
+	if ctx.body != nil {
+		t.Error("a body is still on the stack after the run left")
 	}
 	for _, token := range exec.tokens {
 		if token.body != nil {
@@ -48,9 +45,9 @@ func TestStepsOfARunShareOneBodyCoroutine(t *testing.T) {
 	}
 }
 
-// A step a breakpoint pauses keeps its coroutine for as long as it is paused, and
-// the steps resuming it pause it again at the breakpoint rather than run through.
-func TestAPausedStepKeepsItsBodyCoroutine(t *testing.T) {
+// A step a breakpoint pauses keeps the frames it paused in for as long as it is
+// paused, and the steps resuming it pause it again at the breakpoint rather than run through.
+func TestAPausedStepKeepsItsFrames(t *testing.T) {
 	exec := blockDebugExecutor(t)
 	exec.SetBreakpoint("add")
 	for pass := int64(0); pass < 3; pass++ {
@@ -69,11 +66,14 @@ func TestAPausedStepKeepsItsBodyCoroutine(t *testing.T) {
 		if paused == nil {
 			t.Fatalf("pass %d: no token holds the paused work", pass)
 		}
-		if paused.co == nil || paused.co.run != paused {
-			t.Errorf("pass %d: the paused work does not hold its coroutine", pass)
+		if len(paused.cursor) == 0 {
+			t.Errorf("pass %d: the paused work holds no frame to go on from", pass)
 		}
-		if exec.ctx.idleBody != nil {
-			t.Errorf("pass %d: a body coroutine is kept idle while the run is paused", pass)
+		if paused.paused.onWait || paused.paused.breakpoint != "add" {
+			t.Errorf("pass %d: paused = %+v, want at breakpoint add", pass, paused.paused)
+		}
+		if exec.ctx.body != nil {
+			t.Errorf("pass %d: a body is on the stack while the run is paused", pass)
 		}
 	}
 	if err := exec.RunToCompletion(); err != nil {
@@ -85,14 +85,16 @@ func TestAPausedStepKeepsItsBodyCoroutine(t *testing.T) {
 	if n := exec.Results()["total"]; n.Const.Int != 13 {
 		t.Errorf("total = %v, want 13", n)
 	}
-	if made := exec.ctx.bodyCoroutinesMade; made != 1 {
-		t.Errorf("the run made %d body coroutines, want the one its steps share", made)
+	for _, token := range exec.tokens {
+		if token.body != nil {
+			t.Errorf("token %d holds work after the run completed", token.ID)
+		}
 	}
 }
 
-// A step whose body waits on the clock pauses on its coroutine until the clock
+// A step whose body waits on the clock pauses in its frames until the clock
 // reaches the wait, and the resumed step goes on from the wait.
-func TestAStepWaitingOnTheClockPausesItsBodyCoroutine(t *testing.T) {
+func TestAStepWaitingOnTheClockPausesInItsFrames(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, nestedWaitModel))
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
 	if sym == nil {
@@ -117,8 +119,11 @@ func TestAStepWaitingOnTheClockPausesItsBodyCoroutine(t *testing.T) {
 	if waiting == nil {
 		t.Fatal("no token is paused on the clock")
 	}
-	if waiting.co == nil || waiting.co.run != waiting {
-		t.Error("the work paused on the clock does not hold its coroutine")
+	if len(waiting.cursor) == 0 {
+		t.Error("the work paused on the clock holds no frame to go on from")
+	}
+	if w := waiting.paused.wait; !waiting.paused.onWait || w.onMessage || !w.goesOn() {
+		t.Errorf("paused = %+v, want on a wait on the clock that goes on", waiting.paused)
 	}
 	if _, err := ctx.Advance(5); err != nil {
 		t.Fatalf("Advance(5): %v", err)
@@ -129,10 +134,9 @@ func TestAStepWaitingOnTheClockPausesItsBodyCoroutine(t *testing.T) {
 	if exec.State() != StateCompleted {
 		t.Errorf("State() = %v, want Completed", exec.State())
 	}
-	if made := ctx.bodyCoroutinesMade; made != 1 {
-		t.Errorf("the run made %d body coroutines, want 1", made)
-	}
-	if ctx.idleBody != nil {
-		t.Error("a body coroutine is still kept after the run completed")
+	for _, token := range exec.tokens {
+		if token.body != nil {
+			t.Errorf("token %d holds work after the run completed", token.ID)
+		}
 	}
 }

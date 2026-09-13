@@ -150,6 +150,9 @@ func settleAction(ec *EvalContext, inv actionInvocation, tied []*symbols.Symbol,
 // callee's `in` and `inout` parameters, and its `out` and `inout` parameters come
 // back to the caller. An action with no parameters therefore reads and writes
 // nothing in its caller.
+//
+// A body around the call pauses where the callee waits, and the call is
+// re-entered to go on with it.
 func invokeAction(
 	ctx *Context,
 	scope *symbols.Scope,
@@ -157,6 +160,11 @@ func invokeAction(
 	data map[string]Value,
 	self *Instance,
 ) (features, outputs map[string]Value, err error) {
+	if callee, resumed, err := popFrame[*calleeFrame](ctx); err != nil {
+		return nil, nil, err
+	} else if resumed {
+		return ctx.runCallee(callee)
+	}
 	// Arguments are evaluated as the caller's body is: over its values, performed by self.
 	ec := NewEvalContextIn(ctx, scope, self)
 	ec.inBehaviorBody = true
@@ -180,14 +188,17 @@ func invokeBoundAction(
 	data map[string]Value,
 	self *Instance,
 ) (features, outputs map[string]Value, err error) {
+	if callee, resumed, err := popFrame[*calleeFrame](ctx); err != nil {
+		return nil, nil, err
+	} else if resumed {
+		return ctx.runCallee(callee)
+	}
 	if ctx.actionDepth >= maxActionNestingDepth {
 		return nil, nil, fmt.Errorf(
 			"action invocation nested more than %d deep at %s (recursive action?)",
 			maxActionNestingDepth, qualifiedNameText(inv.target),
 		)
 	}
-	ctx.actionDepth++
-	defer func() { ctx.actionDepth-- }()
 
 	params, err := ctx.performanceParameters(inv.performed(sym), sym)
 	if err != nil {
@@ -216,14 +227,54 @@ func invokeBoundAction(
 		return nil, nil, err
 	}
 
-	callee, err := ctx.performActionStep(inv.performed(sym), sym, self, inputs)
+	callee, err := ctx.beginCallee(inv.performed(sym), sym, self, inputs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
 	}
+	callee.name, callee.out = qualifiedNameText(inv.target), out
+	return ctx.runCallee(callee)
+}
 
-	features = callee.root.data
-	outputs = make(map[string]Value, len(out))
-	for _, name := range out {
+// calleeFrame is an action a body performs as a sub-execution, kept where the body
+// paused on the action's wait: name is the action as invoked and out the names of
+// its output parameters, read once it completes.
+type calleeFrame struct {
+	exec *ActionExecutor
+	name string
+	out  []string
+}
+
+func (f *calleeFrame) abandon(*Context) { f.exec.Release() }
+
+// beginCallee starts action, a performance of performed, as a sub-execution of
+// the caller nested one deeper, on the clock until run to completion.
+func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value) (*calleeFrame, error) {
+	ctx.actionDepth++
+	defer func() { ctx.actionDepth-- }()
+	defer ctx.nestRun()()
+	exec, err := ctx.beginPerformed(performed, action, self, inputs, false, startActionStep)
+	if err != nil {
+		return nil, err
+	}
+	return &calleeFrame{exec: exec}, nil
+}
+
+// runCallee runs the sub-execution to completion, nested one deeper while it runs,
+// and returns the values its features ended with and those of its outputs; a body
+// around it pauses on the action's waits, keeping the frame to go on from.
+func (ctx *Context) runCallee(callee *calleeFrame) (features, outputs map[string]Value, err error) {
+	ctx.actionDepth++
+	defer func() { ctx.actionDepth-- }()
+	defer ctx.nestRun()()
+	if err := ctx.runPerformed(callee.exec, false); err != nil {
+		if paused(err) {
+			return nil, nil, ctx.pausing(callee, err)
+		}
+		return nil, nil, fmt.Errorf("invoke action %s: %w", callee.name, err)
+	}
+	features = callee.exec.root.data
+	outputs = make(map[string]Value, len(callee.out))
+	for _, name := range callee.out {
 		if value, ok := features[name]; ok {
 			outputs[name] = value
 		}

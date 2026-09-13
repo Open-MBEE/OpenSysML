@@ -248,28 +248,83 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 	return ec
 }
 
-// run executes statements in declaration order, stopping at a `return`.
+// engineFrame is the engine of a body that paused, kept with the values and
+// activation it runs in until the body is resumed and ends.
+type engineFrame struct{ engine *stmtEngine }
+
+func (f *engineFrame) abandon(*Context) { f.engine.finish() }
+
+// runStatements runs stmts on the engine build makes, or on the one a paused run
+// of them kept; the engine's activation ends with the run, so a body stepped many
+// times does not hold what every run computed.
+func (ctx *Context) runStatements(build func() *stmtEngine, stmts []lower.Statement) (stmtFlow, error) {
+	f, resumed, err := popFrame[*engineFrame](ctx)
+	if err != nil {
+		return flowNext, err
+	}
+	if !resumed {
+		f = &engineFrame{engine: build()}
+	}
+	flow, err := f.engine.run(stmts)
+	if paused(err) {
+		ctx.pushPaused(f)
+		return flow, err
+	}
+	f.engine.finish()
+	return flow, err
+}
+
+// stmtListFrame is where a statement list paused: at its i-th statement, which
+// holds the trace level it opened and the elements held before it (elementScope).
+type stmtListFrame struct {
+	i        int
+	run      *runState
+	elements int64
+}
+
+func (f *stmtListFrame) abandon(*Context) { f.run.elements = f.elements }
+
+// run executes statements in declaration order, stopping at a `return`; a body
+// pausing in one is re-entered at that statement.
 func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
-	for _, stmt := range stmts {
-		flow, err := e.statement(stmt)
+	f, resumed, err := popFrame[*stmtListFrame](e.ctx)
+	if err != nil {
+		return flowNext, err
+	}
+	if !resumed {
+		f = &stmtListFrame{}
+	}
+	for ; f.i < len(stmts); f.i++ {
+		flow, err := e.statement(stmts[f.i], f, resumed)
+		resumed = false
 		if err != nil || flow == flowReturn {
-			return flow, err
+			return flow, e.ctx.pausing(f, err)
 		}
 	}
 	return flowNext, nil
 }
 
 // statement executes one lowered statement, recording it in the trace with the
-// evaluations and nested statements it produces underneath it.
-func (e *stmtEngine) statement(stmt lower.Statement) (stmtFlow, error) {
-	if tr := e.ctx.trace; tr != nil {
-		tr.RecordStatement(stmtLabel(stmt))
-		defer tr.EndStatement()
+// evaluations and nested statements it produces underneath it; one paused keeps
+// its trace level and elements open until it is resumed and ends.
+func (e *stmtEngine) statement(stmt lower.Statement, f *stmtListFrame, resumed bool) (stmtFlow, error) {
+	if !resumed {
+		if tr := e.ctx.trace; tr != nil {
+			tr.RecordStatement(stmtLabel(stmt))
+		}
+		// A statement's collections live no longer than the statement, so the one after
+		// it starts from the elements held before it.
+		f.run, f.elements = e.ctx.run, e.ctx.run.elements
 	}
-	// A statement's collections live no longer than the statement, so the one after
-	// it starts from the elements held before it.
-	defer e.ctx.elementScope()()
-	return e.execute(stmt)
+	flow, err := e.execute(stmt)
+	if paused(err) {
+		return flow, err
+	}
+	f.run.elements = f.elements
+	if tr := e.ctx.trace; tr != nil {
+		tr.EndStatement()
+	}
+	return flow, err
 }
 
 // execute runs one lowered statement.
@@ -364,31 +419,86 @@ func (e *stmtEngine) declareUsage(stmt lower.DeclareUsage) error {
 	return nil
 }
 
+// branchFrame is the branch of a conditional a body paused in.
+type branchFrame struct{ elseBranch bool }
+
+func (*branchFrame) abandon(*Context) {}
+
 // ifStatement runs the branch its condition selects, or nothing when the
 // condition is false and the conditional declared no else branch.
 func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
-	// The condition is evaluated outside both branches, so neither branch's
-	// declarations are visible to it.
-	holds, err := e.condition(stmt.Condition, stmt.Scope, "condition of 'if'")
+	f, resumed, err := popFrame[*branchFrame](e.ctx)
 	if err != nil {
 		return flowNext, err
 	}
-	if holds {
-		return e.block(stmt.Then)
+	if !resumed {
+		// The condition is evaluated outside both branches, so neither branch's
+		// declarations are visible to it.
+		holds, err := e.condition(stmt.Condition, stmt.Scope, "condition of 'if'")
+		if err != nil {
+			return flowNext, err
+		}
+		if !holds && stmt.Else == nil {
+			return flowNext, nil
+		}
+		f = &branchFrame{elseBranch: !holds}
 	}
-	if stmt.Else != nil {
-		return e.block(*stmt.Else)
+	branch := stmt.Then
+	if f.elseBranch {
+		branch = *stmt.Else
 	}
-	return flowNext, nil
+	flow, err := e.block(branch)
+	return flow, e.ctx.pausing(f, err)
+}
+
+// blockFrame is a block a body paused in: the frame its declarations went into,
+// its activation, and the one around it.
+type blockFrame struct {
+	locals     map[string]Value
+	unvalued   map[string]bool
+	activation int64
+	outer      int64
+}
+
+func (f *blockFrame) abandon(ctx *Context) { ctx.endActivation(f.activation) }
+
+// enterBlock enters a frame and an activation for a block about to run, or the
+// ones a paused block ran in; leave restores what was around them.
+func (e *stmtEngine) enterBlock(f *blockFrame) (leave func()) {
+	if f.locals == nil {
+		f.locals = e.env.enter()
+		f.activation, f.outer = e.ctx.newActivation(), e.activation
+	} else {
+		e.env.frames = append(e.env.frames, f.locals)
+		e.env.unvalued = append(e.env.unvalued, f.unvalued)
+	}
+	e.activation = f.activation
+	return func() {
+		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
+		e.env.leave()
+		e.activation = f.outer
+	}
 }
 
 // block runs a body-local block in a frame and an activation of its own, so a
 // calc usage declared in it is evaluated once per execution of the block.
 func (e *stmtEngine) block(block lower.Block) (stmtFlow, error) {
-	e.env.enter()
-	defer e.env.leave()
-	defer e.enterActivation()()
-	return e.runBlock(block)
+	f, _, err := popFrame[*blockFrame](e.ctx)
+	if err != nil {
+		return flowNext, err
+	}
+	if f == nil {
+		f = &blockFrame{}
+	}
+	leave := e.enterBlock(f)
+	flow, err := e.runBlock(block)
+	leave()
+	if paused(err) {
+		e.ctx.pushPaused(f)
+		return flow, err
+	}
+	e.ctx.endActivation(f.activation)
+	return flow, err
 }
 
 // runBlock runs a block's statements, or the token flow it states where a member
@@ -404,55 +514,138 @@ func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
 	return e.blockFlow(block)
 }
 
+// flowNodeFrame is the node of a block's flow a body paused at.
+type flowNodeFrame struct{ node ast.Node }
+
+func (*flowNodeFrame) abandon(*Context) {}
+
 // blockFlow runs a block that is a token flow of its own (lower/block_graph.go):
 // a token starts at the block's initial node and passes along the successions the
 // block states, running each node it reaches until one succeeds to none.
 func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 	graph := block.Graph
-	for node := graph.Initial; node != nil; {
+	f, resumed, err := popFrame[*flowNodeFrame](e.ctx)
+	if err != nil {
+		return flowNext, err
+	}
+	if !resumed {
+		f = &flowNodeFrame{node: graph.Initial}
+	}
+	for f.node != nil {
 		// A node reached spends a step, so a flow that does not end fails the run.
-		if err := e.ctx.incrementStep(); err != nil {
-			return flowNext, err
+		if !resumed {
+			if err := e.ctx.incrementStep(); err != nil {
+				return flowNext, err
+			}
 		}
-		flow, err := e.blockNode(graph, node)
+		flow, err := e.blockNode(graph, f.node, resumed)
+		resumed = false
 		if err != nil || flow == flowReturn {
-			return flow, err
+			return flow, e.ctx.pausing(f, err)
 		}
-		successors := graph.Edges[node]
+		successors := graph.Edges[f.node]
 		if len(successors) == 0 {
 			return flowNext, nil
 		}
-		node = successors[0].Target
+		f.node = successors[0].Target
 	}
 	return flowNext, nil
 }
 
 // blockNode runs one node of a block's flow: the host performs an action usage in
 // a frame of its own; a run of statements runs in the frame the block entered.
-func (e *stmtEngine) blockNode(graph *lower.ActionGraph, node ast.Node) (stmtFlow, error) {
+// A node resumed keeps the trace level it opened.
+func (e *stmtEngine) blockNode(graph *lower.ActionGraph, node ast.Node, resumed bool) (stmtFlow, error) {
 	if graph.StatementRuns[node] {
 		return e.run(graph.Bodies[node])
 	}
+	traced := false
 	if tr := e.ctx.trace; tr != nil {
 		if name := ActionNodeName(node); name != "" {
-			tr.RecordStatement("node " + name)
-			defer tr.EndStatement()
+			if !resumed {
+				tr.RecordStatement("node " + name)
+			}
+			traced = true
 		}
 	}
+	var flow stmtFlow
+	var err error
 	if usage, ok := node.(*ast.Usage); ok {
-		return e.host.performNode(e, graph, usage)
+		flow, err = e.host.performNode(e, graph, usage)
+	} else {
+		flow, err = e.run(graph.Bodies[node])
 	}
-	return e.run(graph.Bodies[node])
+	if traced && !paused(err) {
+		e.ctx.trace.EndStatement()
+	}
+	return flow, err
 }
 
 // enterActivation runs what follows in a new activation and returns the
-// function restoring the enclosing one.
+// function restoring the enclosing one; for a run that cannot pause.
 func (e *stmtEngine) enterActivation() func() {
 	outer, entered := e.activation, e.ctx.newActivation()
 	e.activation = entered
 	return func() {
 		e.ctx.endActivation(entered)
 		e.activation = outer
+	}
+}
+
+// loopFrame is a loop a body paused in: the frame of its body's declarations, the
+// iteration under way with its activation, and the activation around the loop.
+type loopFrame struct {
+	locals     map[string]Value
+	unvalued   map[string]bool
+	iteration  int
+	activation int64
+	outer      int64
+	// elements are what a `for` loop iterates over, evaluated once as it is entered.
+	elements []Value
+}
+
+func (f *loopFrame) abandon(ctx *Context) { ctx.endActivation(f.activation) }
+
+// enterLoop enters the frame the loop's body declares into, or re-enters the one a
+// paused loop ran in; leave restores what was around it.
+func (e *stmtEngine) enterLoop(f *loopFrame) (leave func()) {
+	if f.locals == nil {
+		f.locals = e.env.enter()
+		f.outer = e.activation
+	} else {
+		e.env.frames = append(e.env.frames, f.locals)
+		e.env.unvalued = append(e.env.unvalued, f.unvalued)
+	}
+	return func() {
+		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
+		e.env.leave()
+		e.activation = f.outer
+	}
+}
+
+// beginIteration opens one iteration of a loop, in an activation of its own so a
+// usage read in it binds its inputs from this iteration's values; a paused
+// iteration resumed keeps the activation and trace level it opened.
+func (e *stmtEngine) beginIteration(f *loopFrame, resumed bool) {
+	if !resumed {
+		f.iteration++
+		if tr := e.ctx.trace; tr != nil {
+			tr.RecordLoopIteration(f.iteration)
+		}
+		f.activation = e.ctx.newActivation()
+	}
+	e.activation = f.activation
+}
+
+// endIteration closes the iteration under way, unless it paused.
+func (e *stmtEngine) endIteration(f *loopFrame, err error) {
+	if paused(err) {
+		return
+	}
+	e.ctx.endActivation(f.activation)
+	e.activation = f.outer
+	if tr := e.ctx.trace; tr != nil {
+		tr.EndStatement()
 	}
 }
 
@@ -463,48 +656,49 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 	if stmt.Kind == ast.LoopFor {
 		return e.forLoop(stmt)
 	}
+	f, resumed, err := popFrame[*loopFrame](e.ctx)
+	if err != nil {
+		return flowNext, err
+	}
+	if !resumed {
+		f = &loopFrame{}
+	}
+	leave := e.enterLoop(f)
+	defer leave()
 
-	frame := e.env.enter()
-	defer e.env.leave()
-
-	for iteration := 1; ; iteration++ {
-		if err := e.ctx.incrementStep(); err != nil {
-			return flowNext, err
+	for {
+		if !resumed {
+			if err := e.ctx.incrementStep(); err != nil {
+				return flowNext, err
+			}
 		}
-		flow, done, err := e.iteration(stmt, frame, iteration)
+		flow, done, err := e.iteration(stmt, f, resumed)
+		resumed = false
 		if err != nil || done || flow == flowReturn {
-			return flow, err
+			return flow, e.ctx.pausing(f, err)
 		}
 	}
 }
 
 // iteration runs one iteration of a conditional loop, reporting whether the
-// loop's condition ended it.
-func (e *stmtEngine) iteration(
-	stmt lower.Loop,
-	frame map[string]Value,
-	iteration int,
-) (stmtFlow, bool, error) {
-	if tr := e.ctx.trace; tr != nil {
-		tr.RecordLoopIteration(iteration)
-		defer tr.EndStatement()
-	}
-	// Each iteration is its own activation, so a usage read in it binds its
-	// inputs from this iteration's values.
-	defer e.enterActivation()()
+// loop's condition ended it; one resumed goes on with its body.
+func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flow stmtFlow, done bool, err error) {
+	e.beginIteration(f, resumed)
+	defer func() { e.endIteration(f, err) }()
 
-	if stmt.Kind == ast.LoopWhile {
-		holds, err := e.condition(stmt.Condition, stmt.Body.Scope, "condition of 'while'")
-		if err != nil {
-			return flowNext, true, err
+	if !resumed {
+		if stmt.Kind == ast.LoopWhile {
+			holds, err := e.condition(stmt.Condition, stmt.Body.Scope, "condition of 'while'")
+			if err != nil {
+				return flowNext, true, err
+			}
+			if !holds {
+				return flowNext, true, nil
+			}
 		}
-		if !holds {
-			return flowNext, true, nil
-		}
+		clear(f.locals)
 	}
-
-	clear(frame)
-	flow, err := e.runBlock(stmt.Body)
+	flow, err = e.runBlock(stmt.Body)
 	if err != nil || flow == flowReturn {
 		return flow, true, err
 	}
@@ -531,47 +725,50 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 	if stmt.Variable == "" {
 		return flowNext, fmt.Errorf("%s: 'for' loop declares no iteration variable", e.host.describe())
 	}
-
-	// The collection is evaluated once, before the loop is entered, so the
-	// iteration is over the value the loop started with.
-	value, err := e.evalIn(stmt.Scope).Eval(stmt.Collection)
+	f, resumed, err := popFrame[*loopFrame](e.ctx)
 	if err != nil {
-		return flowNext, fmt.Errorf("eval 'for' collection: %w", err)
+		return flowNext, err
 	}
-	elements, err := forElements(value)
-	if err != nil {
-		return flowNext, fmt.Errorf("%s: %w", e.host.describe(), err)
-	}
-
-	frame := e.env.enter()
-	defer e.env.leave()
-
-	for i, element := range elements {
-		if err := e.ctx.incrementStep(); err != nil {
-			return flowNext, err
+	if !resumed {
+		// The collection is evaluated once, before the loop is entered, so the
+		// iteration is over the value the loop started with.
+		value, err := e.evalIn(stmt.Scope).Eval(stmt.Collection)
+		if err != nil {
+			return flowNext, fmt.Errorf("eval 'for' collection: %w", err)
 		}
-		flow, err := e.forIteration(stmt, frame, element, i+1)
+		elements, err := forElements(value)
+		if err != nil {
+			return flowNext, fmt.Errorf("%s: %w", e.host.describe(), err)
+		}
+		f = &loopFrame{elements: elements}
+	}
+	leave := e.enterLoop(f)
+	defer leave()
+
+	for f.iteration < len(f.elements) || resumed {
+		if !resumed {
+			if err := e.ctx.incrementStep(); err != nil {
+				return flowNext, err
+			}
+		}
+		flow, err := e.forIteration(stmt, f, resumed)
+		resumed = false
 		if err != nil || flow == flowReturn {
-			return flow, err
+			return flow, e.ctx.pausing(f, err)
 		}
 	}
 	return flowNext, nil
 }
 
-// forIteration runs the body once for one element of the loop's collection.
-func (e *stmtEngine) forIteration(
-	stmt lower.Loop,
-	frame map[string]Value,
-	element Value,
-	iteration int,
-) (stmtFlow, error) {
-	if tr := e.ctx.trace; tr != nil {
-		tr.RecordLoopIteration(iteration)
-		defer tr.EndStatement()
+// forIteration runs the body once for the next element of the loop's collection;
+// one resumed goes on with its body.
+func (e *stmtEngine) forIteration(stmt lower.Loop, f *loopFrame, resumed bool) (flow stmtFlow, err error) {
+	e.beginIteration(f, resumed)
+	defer func() { e.endIteration(f, err) }()
+	if !resumed {
+		clear(f.locals)
+		f.locals[stmt.Variable] = f.elements[f.iteration-1]
 	}
-	defer e.enterActivation()()
-	clear(frame)
-	frame[stmt.Variable] = element
 	return e.runBlock(stmt.Body)
 }
 

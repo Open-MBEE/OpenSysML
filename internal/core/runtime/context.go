@@ -127,16 +127,12 @@ type Context struct {
 	// bounding recursion across nested action executors.
 	actionDepth int
 
-	// pausable is the body run on the stack a breakpoint or a wait on the clock
+	// body is the body run on the stack a breakpoint or a wait on the clock
 	// pauses (action_body_run.go), nil while none is.
-	pausable *bodyRun
+	body *bodyRun
 	// clockHeldBy names the behavior on the stack that must end at the instant it
 	// runs at, so no wait on the clock under it may advance the clock; "" for none.
 	clockHeldBy string
-	// idleBody is the body coroutine no step's work is on, kept for the next step
-	// until the outermost run leaves; bodyCoroutinesMade counts the ones made.
-	idleBody           *bodyCoroutine
-	bodyCoroutinesMade int
 
 	// calcDepth is the number of calc invocations currently on the stack, which
 	// maxCalcDepth bounds, so a recursion evaluates while it stays within it.
@@ -603,18 +599,26 @@ func (ctx *Context) enterRun(state *runState) func() {
 	return ctx.leaveRun
 }
 
-// leaveRun ends one call of the run under way; the outermost leaving ends the body
-// coroutine kept idle for its steps.
+// leaveRun ends one call of the run under way.
 func (ctx *Context) leaveRun() {
 	ctx.runDepth--
-	if ctx.runDepth == 0 {
-		ctx.endIdleBodyCoroutine()
-	}
 }
 
 // beginRun starts a run and returns the function that ends it: a top-level run
 // starts on a fresh state, so the budget bounds one run, not a whole session.
+// No body around the run pauses for a wait under it (syncBoundary).
 func (ctx *Context) beginRun() func() {
+	leave := ctx.nestRun()
+	restore := ctx.syncBoundary()
+	return func() {
+		restore()
+		leave()
+	}
+}
+
+// nestRun is beginRun for a run the body on the stack pauses for: a nested action
+// performed from a body, whose waits pause the body.
+func (ctx *Context) nestRun() func() {
 	if ctx.runDepth > 0 {
 		return ctx.enterRun(ctx.run)
 	}
@@ -693,10 +697,12 @@ func (ctx *Context) beginProbe() func() {
 	}
 	_, rollback := ctx.beginJournal()
 	restoreSchedule := run.scheduler.mark()
+	restoreBody := ctx.syncBoundary()
 	ctx.trace, ctx.stepWrites = nil, nil
 	ctx.runDepth++
 	ctx.probes++
 	return func() {
+		restoreBody()
 		rollback()
 		endBoundary()
 		restoreSchedule()
@@ -1349,30 +1355,41 @@ func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs
 	return ctx.performActionFrom(action, action, self, inputs, (*ActionExecutor).initialize)
 }
 
-// performActionStep runs action as a step of an enclosing behavior, the step as named
-// being performed. A step stating no flow performs none: it takes its inputs, binds
-// its computed outputs and ends at once, as an object performing such an action does.
-func (ctx *Context) performActionStep(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	return ctx.performActionFrom(performed, action, self, inputs, func(exec *ActionExecutor) error {
-		if !exec.hasFlow() {
-			return exec.completeWithoutFlow()
-		}
-		return exec.initialize()
-	})
+// startActionStep starts an action performed as a step of an enclosing behavior:
+// one stating a flow is initialized, one stating none takes its inputs, binds its
+// computed outputs and ends at once, as an object performing such an action does.
+func startActionStep(exec *ActionExecutor) error {
+	if !exec.hasFlow() {
+		return exec.completeWithoutFlow()
+	}
+	return exec.initialize()
 }
 
 // performActionFrom creates the executor for a performance of performed running
 // action, seeds its inputs, starts it with start, and runs it to completion; the
-// clock drives it no further.
+// clock drives it no further, and no body around it pauses for its waits.
 func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
+	exec, err := ctx.beginPerformed(performed, action, self, inputs, top, start)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.runPerformed(exec, top); err != nil {
+		return nil, err
+	}
+	return exec, nil
+}
+
+// beginPerformed creates the executor for a performance of performed running
+// action, seeds its inputs and starts it with start, on the clock until it is run;
+// top marks the performance a top-level run begins on.
+func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, top bool, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
-	defer ctx.clock.detach(exec)
 	exec.beginsRun = top
 
 	// Bind inputs before initialization so they seed the initial token.
@@ -1381,17 +1398,29 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 	}
 
 	if err := ctx.startAction(exec, start); err != nil {
+		ctx.clock.detach(exec)
 		return nil, err
 	}
+	return exec, nil
+}
+
+// runPerformed runs a performance beginPerformed started to completion, after
+// which the clock drives it no further; a body around it pauses where it waits.
+func (ctx *Context) runPerformed(exec *ActionExecutor, top bool) error {
 	if exec.state != StateCompleted {
 		if err := exec.RunToCompletion(); err != nil {
-			return nil, fmt.Errorf("execute action: %w", err)
+			if paused(err) {
+				return err
+			}
+			ctx.clock.detach(exec)
+			return fmt.Errorf("execute action: %w", err)
 		}
 	}
+	ctx.clock.detach(exec)
 	if err := ctx.followedWhole(top); err != nil {
-		return nil, fmt.Errorf("execute action: %w", err)
+		return fmt.Errorf("execute action: %w", err)
 	}
-	return exec, nil
+	return nil
 }
 
 // followedWhole is the refusal of a top-level run that ended with witness moves

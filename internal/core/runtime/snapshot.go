@@ -46,18 +46,17 @@ type journalMark struct {
 
 // runCapture is the run bookkeeping the context keeps outside its journal.
 type runCapture struct {
-	ids                *idSequence
-	nextID             int64
-	activations, runs  int64
-	run                *runState
-	trace              *TraceRecorder
-	traced             traceCapture
-	choices            []ChoiceTaken
-	evaluations        *evaluationLog
-	pendingBehaviors   []*ObjectBehavior
-	heldBehaviors      mapState[*ObjectBehavior, bool]
-	clockRun           *runState
-	bodyCoroutinesMade int
+	ids               *idSequence
+	nextID            int64
+	activations, runs int64
+	run               *runState
+	trace             *TraceRecorder
+	traced            traceCapture
+	choices           []ChoiceTaken
+	evaluations       *evaluationLog
+	pendingBehaviors  []*ObjectBehavior
+	heldBehaviors     mapState[*ObjectBehavior, bool]
+	clockRun          *runState
 }
 
 // traceCapture is a recorder's state at the mark. Entries are only appended to or
@@ -134,7 +133,7 @@ func (e *StateExecutor) Snapshot() (*Snapshot, error) {
 }
 
 func (ctx *Context) snapshotWith(actions []*ActionExecutor, states []*StateExecutor) (*Snapshot, error) {
-	if ctx.runDepth > 0 || ctx.actionDepth > 0 || ctx.calcDepth > 0 || ctx.pausable != nil || ctx.probes > 0 {
+	if ctx.runDepth > 0 || ctx.actionDepth > 0 || ctx.calcDepth > 0 || ctx.body != nil || ctx.probes > 0 {
 		return nil, ErrSnapshotMidRun
 	}
 	for _, behavior := range ctx.objectBehaviors {
@@ -246,15 +245,14 @@ func (ctx *Context) captureRun() runCapture {
 	c := runCapture{
 		ids: ctx.ids, nextID: ctx.ids.next,
 		activations: ctx.activations, runs: ctx.runs,
-		run:                ctx.run,
-		trace:              ctx.trace,
-		traced:             captureTrace(ctx.trace),
-		choices:            ctx.choices,
-		evaluations:        ctx.evaluations,
-		pendingBehaviors:   slices.Clone(ctx.pendingBehaviors),
-		heldBehaviors:      captureMap(ctx.heldBehaviors),
-		clockRun:           ctx.clockRun.state,
-		bodyCoroutinesMade: ctx.bodyCoroutinesMade,
+		run:              ctx.run,
+		trace:            ctx.trace,
+		traced:           captureTrace(ctx.trace),
+		choices:          ctx.choices,
+		evaluations:      ctx.evaluations,
+		pendingBehaviors: slices.Clone(ctx.pendingBehaviors),
+		heldBehaviors:    captureMap(ctx.heldBehaviors),
+		clockRun:         ctx.clockRun.state,
 	}
 	return c
 }
@@ -275,7 +273,6 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
 	ctx.clockRun.state = c.clockRun
-	ctx.bodyCoroutinesMade = c.bodyCoroutinesMade
 }
 
 // captureRunState captures a run's state once, however many executors share it.
@@ -341,7 +338,8 @@ type actionCapture struct {
 	released          bool
 	pauses            int64
 	steps, stepsSpent int64
-	inRun, moved      bool
+	inRun, held       bool
+	moved             bool
 	awaiting          *actionFrame
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	driven            *runState
@@ -359,7 +357,7 @@ func (e *ActionExecutor) capture() (actionCapture, error) {
 		exec: e, tokens: slices.Clone(e.tokens), state: e.state,
 		nextTokenID: e.nextTokenID, stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
-		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, moved: e.moved, awaiting: e.awaiting,
+		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		driven:           e.driven.state,
 	}
@@ -374,7 +372,8 @@ func (c actionCapture) restore() {
 	e.tokens = slices.Clone(c.tokens)
 	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = c.state, c.nextTokenID, c.stepCount, c.sweep, c.sweeps
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
-	e.steps, e.stepsSpent, e.inRun, e.moved, e.awaiting = c.steps, c.stepsSpent, c.inRun, c.moved, c.awaiting
+	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
+	e.moved, e.awaiting = c.moved, c.awaiting
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.driven.state = c.driven
 	for _, perf := range c.frames {
