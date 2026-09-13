@@ -230,6 +230,31 @@ func TestReplayStepsTheRunAWitnessRecords(t *testing.T) {
 	wants(t, run(t, s, "%continue"), "Action completed", "leftCount = 1", "rightCount = 10")
 }
 
+// A witness explore writes for a step the clock retries replays under %replay: the
+// step waits on the clock with the move kept, and %continue takes it at the retry.
+func TestReplayStepsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
+	model, err := os.ReadFile(filepath.Join("..", "core", "runtime", "testdata", "conformance",
+		"action_explore_performed_and_accept_due_together.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := loadSource(t, string(model))
+	witness := filepath.Join(t.TempDir(), "wake.witness")
+	const choices = "step 3: 2@performed first of 2@performed, 3@direct\nstep 4: 2@writeOne first of 2@writeOne, 3@direct\n"
+	if err := os.WriteFile(witness, []byte(choices), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	wants(t, run(t, s, "%replay "+witness), "schedule: replay:"+witness)
+	run(t, s, "%trace on")
+	run(t, s, "%action test::wake")
+	run(t, s, "%step")
+	run(t, s, "%step")
+	out := run(t, s, "%step")
+	wants(t, out, "Nothing to step: the action waits on the clock")
+	rejects(t, out, "replay refused")
+	wants(t, run(t, s, "%continue"), "Action completed", "x = 2")
+}
+
 // checkStraightSource breaks a property with no choice point on the way to it.
 const checkStraightSource = `
 package Plant {

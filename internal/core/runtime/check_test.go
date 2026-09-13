@@ -210,6 +210,36 @@ func replayWitness(t *testing.T, m *exploreModel, start ActionStarter, w Witness
 	return r
 }
 
+// The checker's replay follows a token order drawn once the clock retried a step
+// as the runtime's does: the witness explore writes for the model whose step 3 is
+// retried re-runs to the trace and value it claims, the kept move taken at the retry.
+func TestCheckReplayFollowsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
+	m, _ := clockRetriedModel(t)
+	start := starterOf(m.action(t, "wake"))
+	choices, err := ParseChoices("step 3: 2@performed first of 2@performed, 3@direct\nstep 4: 2@writeOne first of 2@writeOne, 3@direct\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, _ := m.fresh()
+	mustSchedule(t, ctx, ReplayPolicy(choices))
+	trace := NewTraceRecorder()
+	ctx.SetTrace(trace)
+	exec, err := start(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.Unfollowed(); err != nil {
+		t.Fatal(err)
+	}
+	r := replayWitness(t, m, start, Witness{Choices: choices, Trace: trace.String()}, "x = 2")
+	if got := r.Ctx.ActionOutcome(r.Exec.Results()).String(); got != "x = 2" || r.Err != nil {
+		t.Fatalf("the replay reached %s, %v; want x = 2", got, r.Err)
+	}
+}
+
 // A witness altered to another schedule does not replay: the disagreement is reported.
 func TestCheckReplayDisagreesWithATamperedWitness(t *testing.T) {
 	m := conformanceModel(t, "action_fork_branches_write_one_feature")
