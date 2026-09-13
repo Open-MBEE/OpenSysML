@@ -164,6 +164,35 @@ const raceModel = `package Mission {
 }
 `
 
+// TestExternalWitnessedViolationFailsTheCheck checks that a violation an external engine
+// reports, replayed by the host to the move it names, fails the check as the check engine's
+// own would, and that the two agree under -engine all.
+func TestExternalWitnessedViolationFailsTheCheck(t *testing.T) {
+	binary := buildCLI(t)
+	dir, _ := recordingManifest(t)
+	entry := `{"kind":"engine","name":"alpha","version":"1.0.0","command":["alpha.sh"],"protocol":1,` +
+		`"answers":["holds"],"subjects":["action"],"model":["sources"],"witness":"schedule","authority":"bounded"}`
+	if err := os.WriteFile(filepath.Join(dir, "alpha.json"), []byte(entry), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\n" +
+		`ENGINE_STANDIN_DESCRIBE='{"name":"alpha","version":"1.0.0","protocol":1,"answers":["holds"],"subjects":["action"]}' ` +
+		"exec " + engineStandin(t) + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "alpha.sh"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ENGINE_STANDIN_RESULT", `{"claim":"violated","strength":"witnessed",`+
+		`"witness":{"schedules":["step 3: 2@a first of 2@a, 3@b"]}}`)
+
+	got := check(t, binary, tankModel, "-engine", "all", "-instantiate", "Plant::tank",
+		"-action", "Plant::Tank::fill Plant::tank", "-check-property", "Plant::Tank::low")
+	wantReport(t, got, 1, "✗ Action Plant::Tank::fill: violated (witnessed)",
+		`at its end (engine "alpha", replayed): `+"`Plant::Tank::low` evaluates false there",
+		"witness: step 3: 2@a first of 2@a, 3@b",
+		"standing: violated (witnessed: witness of 1 choice replayed); all: alpha violated (witnessed), beta violated (witnessed), check violated (witnessed)")
+	rejectReport(t, got, "could not be checked")
+}
+
 // TestProgressGoesToStandardError checks that what an external engine reports while it runs is
 // printed to standard error, one line naming the engine per coalesced report, and that -quiet
 // prints none; the verdict itself is on standard output either way.

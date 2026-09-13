@@ -123,12 +123,22 @@ func (m *Model) builds() bool {
 	return m != nil && m.Semantics != nil && m.Fresh != nil
 }
 
-// semantics is the model-derived part the plan's first worker holds, built on first use: what
-// an engine outside the process is sent the model from. A surface model that derives none is
-// ErrNoRuntime.
+// semantics is the model-derived part the plan's first worker holds, built on first use, or
+// the one a held context runs over: what an engine outside the process is sent the model
+// from. A surface model that neither derives nor holds one is ErrNoRuntime.
 func (m *Model) semantics() (*runtime.Model, error) {
-	if m == nil || m.Semantics == nil {
+	if m == nil || (m.Semantics == nil && !m.holds()) {
 		return nil, ErrNoRuntime
+	}
+	if m.Semantics == nil {
+		ctx, err := m.Context()
+		if err != nil {
+			return nil, err
+		}
+		if ctx == nil || ctx.Model() == nil {
+			return nil, ErrNoRuntime
+		}
+		return ctx.Model(), nil
 	}
 	worker, err := m.WorkerAt(0)
 	if err != nil {

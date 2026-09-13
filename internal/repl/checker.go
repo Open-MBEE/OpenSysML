@@ -380,10 +380,7 @@ func checkStoppedVerdict(name string, err error) Verdict {
 func checkedVerdict(name string, result analysis.Result) Verdict {
 	checked := result.Check()
 	if checked == nil {
-		return Verdict{Subject: name, Status: VerdictUnresolved, Lines: []string{
-			fmt.Sprintf("? Action %s could not be checked", name),
-			"  " + result.Reason,
-		}}
+		return claimedVerdict(name, result)
 	}
 	report := checked.Report
 	v := Verdict{Subject: name}
@@ -418,6 +415,45 @@ func checkedVerdict(name string, result analysis.Result) Verdict {
 		v.Lines = append(v.Lines, "  outcome: "+final.Outcome)
 	}
 	return v
+}
+
+// claimedVerdict reports an answer carrying no check report, an external engine's: a stood
+// violation or divergence fails the check, a proved holds holds, anything else is undecided.
+func claimedVerdict(name string, result analysis.Result) Verdict {
+	v := Verdict{Subject: name}
+	switch {
+	case result.Strength == analysis.NotCovered:
+		v.Status = VerdictUnresolved
+		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s could not be checked", name), "  "+result.Reason)
+	case result.Claim == analysis.ClaimViolated, result.Claim == analysis.ClaimSensitive:
+		v.Status = VerdictFails
+		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: %s (%s)", name, result.Claim, result.Strength), "  "+result.Reason)
+	case result.Claim == analysis.ClaimHolds && result.Strength == analysis.Proved:
+		v.Status = VerdictHolds
+		v.Lines = append(v.Lines, fmt.Sprintf("✓ Action %s: %s (%s)", name, result.Claim, result.Strength), "  "+result.Reason)
+	default:
+		v.Status = VerdictUnresolved
+		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: %s (%s)", name, result.Claim, result.Strength), "  "+result.Reason)
+	}
+	if result.Witness != nil {
+		v.Lines = append(v.Lines, "  witness: "+choicesLine(result.Witness.Choices))
+	}
+	if result.Contrast != nil {
+		v.Lines = append(v.Lines, "  contrast: "+choicesLine(result.Contrast.Choices))
+	}
+	return v
+}
+
+// choicesLine spells a witness's choices as one schedule, "no choices" for an empty one.
+func choicesLine(choices []runtime.ChoiceTaken) string {
+	if len(choices) == 0 {
+		return "no choices"
+	}
+	parts := make([]string, len(choices))
+	for i, c := range choices {
+		parts[i] = c.String()
+	}
+	return strings.Join(parts, "; ")
 }
 
 // witnessPath spells where the i'th witness was written, "" when none was.

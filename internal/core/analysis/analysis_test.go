@@ -118,7 +118,9 @@ func (f *fixture) building() *Model {
 // context is a runtime the surface would hold over the model.
 func (f *fixture) context(t *testing.T) *runtime.Context {
 	t.Helper()
-	return runtime.NewContext(runtime.NewModel(f.model, f.resolver), fixtureSteps)
+	model := runtime.NewModel(f.model, f.resolver)
+	model.RegisterSource(f.source)
+	return runtime.NewContext(model, fixtureSteps)
 }
 
 // symbol is the named member of the test package.

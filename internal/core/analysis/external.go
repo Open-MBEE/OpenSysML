@@ -66,8 +66,8 @@ func (e externalEngine) Probe() (string, error) {
 var errProbed = errors.New("probed")
 
 // Covers takes a question of a kind and subject the entry declares, over a model that derives
-// the semantics it is sent as, when the engine's process answers covers with true; a refusal of
-// the engine's own names its reason.
+// or holds the semantics it is sent as, when the engine's process answers covers with true; a
+// refusal of the engine's own names its reason.
 func (e externalEngine) Covers(model *Model, q Question) Coverage {
 	if err := e.entry.Served(); err != nil {
 		return refused(err)
@@ -78,8 +78,8 @@ func (e externalEngine) Covers(model *Model, q Question) Coverage {
 	if err := e.askable(q); err != nil {
 		return refused(err)
 	}
-	if _, err := model.semantics(); err != nil {
-		return refused(&NoRuntimeError{Engine: e.Name()})
+	if err := e.runnable(model, q); err != nil {
+		return refused(err)
 	}
 	if len(e.entry.Subjects) > 0 {
 		family := subjectFamily(model, q.Subject)
@@ -130,6 +130,18 @@ func (e externalEngine) askable(q Question) error {
 	return nil
 }
 
+// runnable is whether the model serves the question: it derives or holds the semantics the
+// engine is sent, and builds the run contexts a check question's witnesses replay in.
+func (e externalEngine) runnable(model *Model, q Question) error {
+	if _, err := model.semantics(); err != nil {
+		return &NoRuntimeError{Engine: e.Name()}
+	}
+	if q.Check != nil && q.Check.Start != nil && !model.builds() {
+		return &NoRuntimeError{Engine: e.Name()}
+	}
+	return nil
+}
+
 // Run puts the question to the engine's process in the plan and stands its answer: a claim
 // the host checked at the strength the check earns, else not covered with the claim kept in
 // the reason. Every failure of the process or the protocol is not covered too; only the
@@ -141,8 +153,8 @@ func (e externalEngine) Run(ctx context.Context, model *Model, q Question, budge
 	if err := e.entry.Served(); err != nil {
 		return Result{}, err
 	}
-	if _, err := model.semantics(); err != nil {
-		return Result{}, &NoRuntimeError{Engine: e.Name()}
+	if err := e.runnable(model, q); err != nil {
+		return Result{}, err
 	}
 	started := time.Now()
 	result := Result{Question: q, Engine: e.Name(), Strength: NotCovered}

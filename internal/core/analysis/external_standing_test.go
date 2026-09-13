@@ -266,6 +266,31 @@ func TestExternalExecutionsFailingTheClaimEarnNothing(t *testing.T) {
 	notCovered(t, standinAnswers(t, unfollowed, f.building(), midway, Budget{}), "execution 1: does not replay")
 }
 
+// A surface's held context is a model the engine is sent: a constraint check put to it runs,
+// its answer stood as any. A check question replays witnesses in contexts of a run's own,
+// which a held context alone does not build: refused before the process starts.
+func TestExternalEngineRunsOverAHeldContext(t *testing.T) {
+	f := parseFixture(t)
+	t.Setenv(engineStandinDescribe, `{"name":"standin","version":"1.0.0","protocol":1,"answers":["evaluate","holds"]}`)
+	r := standinRegistryEntry(t, `{"claim":"holds","strength":"proved"}`, WitnessSchedule,
+		func(e *EngineEntry) { e.Answers = []Kind{Evaluate, Holds} })
+	ctx := f.context(t)
+	q := Question{Kind: Evaluate, Subject: "test::Tank::low", Schedule: ctx.Schedule(),
+		Perform: func(*runtime.Context) (Answer, error) { return Answer{Claim: ClaimHolds}, nil }}
+	result := standinAnswers(t, r, Held(ctx), q, Budget{})
+	notCovered(t, result, `engine "standin" reports holds`, "proved", "referee-record stage")
+
+	race := f.checked(t, "race")
+	check := checkQuestion(t, f, Holds, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{race.x(3)}})
+	plan, err := r.AnswerWith(context.Background(), Held(ctx), check, Budget{}, Only("standin"))
+	if err != nil {
+		t.Fatalf("answer: %v", err)
+	}
+	if refused := plan.Refused(); !errors.Is(refused, ErrNoRuntime) {
+		t.Fatalf("refused %v, want ErrNoRuntime for a witness with no run context to replay in", refused)
+	}
+}
+
 // A universal claim without executions is not covered with the claim kept, naming the
 // stage that admits engines; a proof is no stronger than an unadmitted bound.
 func TestExternalUniversalClaimsWithoutExecutionsAreNotCovered(t *testing.T) {
