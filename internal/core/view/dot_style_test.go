@@ -321,7 +321,7 @@ func TestPaletteOnOtherForms(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mermaid: %v", err)
 	}
-	if !strings.Contains(mermaid, "%% not represented: palette brewer-set2; only the DOT form fills nodes by keyword family\n") {
+	if !strings.Contains(mermaid, "%% not represented: palette brewer-set2; only the DOT and PlantUML forms fill nodes by keyword family\n") {
 		t.Errorf("Mermaid does not note the palette:\n%s", mermaid)
 	}
 	if strings.Contains(mermaid, "fill:") || strings.Contains(mermaid, "classDef") || strings.Contains(mermaid, "theme") {

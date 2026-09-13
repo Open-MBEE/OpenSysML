@@ -1,0 +1,51 @@
+@startuml
+' NoticeViews::handshakeView — sequence rendering (view def SequenceView)
+' not represented: attribute def Kit::Level has no place in a sequence rendering; it is not shown
+' not represented: a connect in Talk::Handshake states no direction; a sequence rendering shows directed messages only
+' not represented: message pending states no source and target; no message is drawn
+' not represented: message adrift attaches to monitor.tapped, which is on no lifeline the rendering shows; no message is drawn
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+participant "**caller**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>>
+participant "**callee**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+n0 -> n0 : echo
+n0 -> n1 : of Ping
+@enduml

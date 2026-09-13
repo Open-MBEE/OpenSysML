@@ -206,6 +206,12 @@ func diagramSource(name string, rendering *view.Rendering, options view.Options,
 			return "", err
 		}
 		return strings.TrimRight(dot, "\n"), nil
+	case view.FormPlantUML:
+		puml, err := rendering.PlantUMLWith(options)
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimRight(puml, "\n"), nil
 	}
 	return "", &Error{Kind: ErrorUnknownForm, DiagramForm: form}
 }

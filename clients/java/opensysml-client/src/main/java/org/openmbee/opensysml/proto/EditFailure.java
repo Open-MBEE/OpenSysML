@@ -144,6 +144,22 @@ public enum EditFailure
    * <code>EDIT_FAILURE_DELETE_REFERENCED = 15;</code>
    */
   EDIT_FAILURE_DELETE_REFERENCED(15),
+  /**
+   * <pre>
+   * move owner is the target or inside it
+   * </pre>
+   *
+   * <code>EDIT_FAILURE_OWNER_INSIDE_TARGET = 16;</code>
+   */
+  EDIT_FAILURE_OWNER_INSIDE_TARGET(16),
+  /**
+   * <pre>
+   * move would leave a reference no spelling restores
+   * </pre>
+   *
+   * <code>EDIT_FAILURE_MOVE_REFERENCED = 17;</code>
+   */
+  EDIT_FAILURE_MOVE_REFERENCED(17),
   UNRECOGNIZED(-1),
   ;
 
@@ -284,6 +300,22 @@ public enum EditFailure
    * <code>EDIT_FAILURE_DELETE_REFERENCED = 15;</code>
    */
   public static final int EDIT_FAILURE_DELETE_REFERENCED_VALUE = 15;
+  /**
+   * <pre>
+   * move owner is the target or inside it
+   * </pre>
+   *
+   * <code>EDIT_FAILURE_OWNER_INSIDE_TARGET = 16;</code>
+   */
+  public static final int EDIT_FAILURE_OWNER_INSIDE_TARGET_VALUE = 16;
+  /**
+   * <pre>
+   * move would leave a reference no spelling restores
+   * </pre>
+   *
+   * <code>EDIT_FAILURE_MOVE_REFERENCED = 17;</code>
+   */
+  public static final int EDIT_FAILURE_MOVE_REFERENCED_VALUE = 17;
 
 
   public final int getNumber() {
@@ -326,6 +358,8 @@ public enum EditFailure
       case 13: return EDIT_FAILURE_ILLEGAL_KIND;
       case 14: return EDIT_FAILURE_MEMBER_NAME_TAKEN;
       case 15: return EDIT_FAILURE_DELETE_REFERENCED;
+      case 16: return EDIT_FAILURE_OWNER_INSIDE_TARGET;
+      case 17: return EDIT_FAILURE_MOVE_REFERENCED;
       default: return null;
     }
   }
