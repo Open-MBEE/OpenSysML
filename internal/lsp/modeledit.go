@@ -241,8 +241,8 @@ func textEdits(content, edited []byte) []protocol.TextEdit {
 	return edits
 }
 
-// palette is what a diagram of kind offers to add in lang: the member kinds a
-// rendering of that kind draws, and the connection kinds it draws as edges.
+// palette is what a diagram of kind offers to add in lang: the member and
+// connection kinds it draws. A table draws rows, not nodes, so it offers none.
 func palette(kind view.Kind, lang source.Kind) *editPalette {
 	members, connections := modeledit.MemberKinds(lang), modeledit.ConnectionKinds(lang)
 	keep := func(list []string, want func(string) bool) []string {
@@ -281,7 +281,7 @@ func palette(kind view.Kind, lang source.Kind) *editPalette {
 			Members:     keep(members, anyOf("action", "fork", "join", "merge", "decide", "step", "item")),
 			Connections: keep(connections, anyOf("succession", "flow")),
 		}
-	case view.KindTree, view.KindTable:
+	case view.KindTree:
 		p = &editPalette{Members: members, Connections: connections}
 	default:
 		return nil

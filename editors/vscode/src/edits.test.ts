@@ -7,6 +7,7 @@ import {
   describeRefusal,
   editParams,
   endpointPath,
+  offeredOn,
   ownerOf,
   rootOwner,
   validName,
@@ -87,6 +88,14 @@ test("editParams asks for the version the rendering drew, not the buffer's", () 
   const operations: ModelEditOperation[] = [{ kind: "delete", target: tank.fqn! }];
   const params = editParams("file:///vehicle.sysml", { nodes, version: 3 }, operations);
   assert.deepEqual(params, { textDocument: { uri: "file:///vehicle.sysml" }, version: 3, operations });
+});
+
+// A menu opened on one rendering and chosen from after a redraw names node ids
+// the new rendering may have given to other declarations.
+test("offeredOn holds only for the rendering the action was offered on", () => {
+  assert.equal(offeredOn({ nodes, version: 3 }, 3), true);
+  assert.equal(offeredOn({ nodes, version: 4 }, 3), false);
+  assert.equal(offeredOn({ nodes: [], version: 0 }, 3), false);
 });
 
 test("describeRefusal quotes the message, diagnostics and referrers", () => {

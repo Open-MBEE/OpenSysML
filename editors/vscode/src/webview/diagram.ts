@@ -58,7 +58,7 @@ adder.addEventListener("change", () => {
   const item = paletteEntries[Number(adder.value)];
   adder.selectedIndex = 0;
   if (item?.command) {
-    run(item.command);
+    run(item.command, paletteVersion);
   }
 });
 
@@ -166,7 +166,9 @@ async function draw(result: RenderResult): Promise<void> {
     last = result;
     remember();
     showNotices(result);
-    showPalette(result.palette);
+    // An open menu names nodes of the drawing just replaced.
+    hideMenu();
+    showPalette(result.palette, result.version);
     kindLabel.textContent = describe(result);
   } catch (err) {
     if (generation !== drawn) {
@@ -231,16 +233,18 @@ function markNodes(result: RenderResult): void {
     element.addEventListener("contextmenu", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      showMenu(node, result.palette, event.clientX, event.clientY);
+      showMenu(node, result, event.clientX, event.clientY);
     });
   }
 }
 
 let paletteEntries: MenuItem[] = [];
+let paletteVersion = 0;
 
 // showPalette fills the toolbar's "Add" list, or hides it for a rendering that is not editable.
-function showPalette(palette: EditPalette | undefined): void {
+function showPalette(palette: EditPalette | undefined, version: number): void {
   paletteEntries = palette ? paletteItems(palette) : [];
+  paletteVersion = version;
   adder.replaceChildren();
   adder.hidden = paletteEntries.length === 0;
   if (paletteEntries.length === 0) {
@@ -259,9 +263,10 @@ function showPalette(palette: EditPalette | undefined): void {
   adder.selectedIndex = 0;
 }
 
-// showMenu opens a node's context menu where it was clicked, kept on screen.
-function showMenu(node: RenderNode, palette: EditPalette | undefined, x: number, y: number): void {
-  const items = nodeMenu(node, palette);
+// showMenu opens a node's context menu where it was clicked, kept on screen;
+// its entries act on the rendering the node was drawn from.
+function showMenu(node: RenderNode, result: RenderResult, x: number, y: number): void {
+  const items = nodeMenu(node, result.palette);
   menu.replaceChildren();
   if (items.length === 0) {
     hideMenu();
@@ -282,7 +287,7 @@ function showMenu(node: RenderNode, palette: EditPalette | undefined, x: number,
         event.stopPropagation();
         hideMenu();
         if (command) {
-          run(command);
+          run(command, result.version);
         }
       });
     }
@@ -299,13 +304,14 @@ function hideMenu(): void {
   menu.hidden = true;
 }
 
-// run hands a chosen entry to the extension; the panel redraws once the document has changed.
-function run(command: MenuCommand): void {
+// run hands a chosen entry to the extension with the rendering it was offered
+// on; the panel redraws once the document has changed.
+function run(command: MenuCommand, version: number): void {
   if (command.kind === "reveal") {
     vscode.postMessage({ type: "reveal", id: command.id });
     return;
   }
-  vscode.postMessage({ type: "edit", action: command });
+  vscode.postMessage({ type: "edit", action: command, version });
 }
 
 // highlight marks the node the cursor is in, and only that one. The id is kept so

@@ -217,10 +217,10 @@ export type EditAction =
   | { kind: "rename"; id: string }
   | { kind: "delete"; id: string };
 
-/** A message the webview sends the extension. */
+/** A message the webview sends the extension; `version` is the rendering an action's ids name. */
 export type FromWebview =
   | { type: "ready" }
   | { type: "reveal"; id: string }
   | { type: "pick"; view: string }
-  | { type: "edit"; action: EditAction }
+  | { type: "edit"; action: EditAction; version: number }
   | { type: "failed"; message: string };

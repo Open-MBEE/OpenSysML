@@ -391,6 +391,10 @@ func TestPaletteFollowsRenderingKind(t *testing.T) {
 	if palette(view.KindGeometry, source.KindSysML) != nil {
 		t.Error("an unsupported kind offers a palette")
 	}
+	// A table draws rows, not nodes, so there is no owner or endpoint to pick.
+	if palette(view.KindTable, source.KindSysML) != nil {
+		t.Error("a table offers a palette")
+	}
 }
 
 func contains(list []string, want string) bool {

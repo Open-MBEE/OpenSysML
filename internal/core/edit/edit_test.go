@@ -368,6 +368,15 @@ func TestOrderedOperationsSeeEarlierResults(t *testing.T) {
 			[]Operation{Delete("P::Base", false), AddMember("P", "part def", "Base")},
 			"package P {\n    part def Base;\n}\n",
 		},
+		{
+			"add, delete, then reuse the name for another kind",
+			[]Operation{
+				AddMember("P", "part", "x"),
+				Delete("P::x", false),
+				AddMember("P", "attribute", "x"),
+			},
+			"package P {\n    part def Base;\n    attribute x;\n}\n",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -6,7 +6,9 @@ import {
   describeRefusal,
   editParams,
   endpointPath,
+  offeredOn,
   ownerOf,
+  REDRAWN_MESSAGE,
   Rendering,
   rootOwner,
   validName,
@@ -352,7 +354,7 @@ class DiagramPanel {
         void this.revealSource(message.id);
         return;
       case "edit":
-        void this.edit(message.action);
+        void this.edit(message.action, message.version);
         return;
       case "failed":
         this.fail(message.message);
@@ -378,11 +380,14 @@ class DiagramPanel {
     editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
   }
 
-  // edit applies a diagram action as a workspace edit, so it is undone like typing;
-  // the redraw comes from the server's renderChanged, not from here. The action is
-  // read from the rendering it was taken on, even if the panel redraws meanwhile.
-  private async edit(action: EditAction): Promise<void> {
+  // edit applies a diagram action as a workspace edit, so it is undone like typing; the redraw
+  // comes from the server's renderChanged. The action's ids name only the rendering it was offered on.
+  private async edit(action: EditAction, version: number): Promise<void> {
     const rendering = this.rendering;
+    if (!offeredOn(rendering, version)) {
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return;
+    }
     const operations = await this.operationsFor(rendering, action);
     if (!operations) {
       return;
@@ -560,7 +565,7 @@ class DiagramPanel {
     // The names acted on may spell other declarations now: redraw, do not retry.
     if (result.stale) {
       this.refresh();
-      void vscode.window.showWarningMessage("The document changed after the diagram was drawn; it is redrawn now, so repeat the action on it.");
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;
     }
     if (result.refused) {
@@ -680,7 +685,8 @@ function html(
       #add { max-width: 14rem; }
       #status { color: var(--vscode-errorForeground); min-height: 1.2em; font-size: 0.9em; white-space: pre-wrap; }
       #diagram { overflow: auto; }
-      #menu { position: fixed; z-index: 10; min-width: 12rem; padding: 0.25rem 0; margin: 0; list-style: none;
+      #menu { position: fixed; z-index: 10; min-width: 12rem; max-height: calc(100vh - 1rem); overflow-y: auto;
+        padding: 0.25rem 0; margin: 0; list-style: none;
         background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
         color: var(--vscode-menu-foreground, var(--vscode-foreground));
         border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border)); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }

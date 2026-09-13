@@ -268,15 +268,11 @@ var memberKindTypes = map[string]string{
 
 // TestEveryMemberKindWrites drives each registered kind through the parser and
 // the analyzer: a definition or control node by name alone, a usage typed by
-// its definition. A connector definition is written but wants its ends, so the
-// analyzer's verdict, not a rejection of the kind, is what refuses it.
+// its definition. Every offered kind must come out clean.
 func TestEveryMemberKindWrites(t *testing.T) {
-	wantsEnds := map[string]bool{
-		"connection def": true, "interface def": true, "flow def": true, "assoc": true, "interaction": true,
-	}
 	for name, lang := range map[string]source.Kind{"kinds.sysml": source.KindSysML, "kinds.kerml": source.KindKerML} {
 		kinds := MemberKinds(lang)
-		if len(kinds) < 15 {
+		if len(kinds) < 13 {
 			t.Fatalf("%s offers only %v", name, kinds)
 		}
 		for _, kind := range kinds {
@@ -300,13 +296,6 @@ func TestEveryMemberKindWrites(t *testing.T) {
 				m := loadContent(t, name, src)
 				requireClean(t, m)
 				res, err := Apply(m, []Operation{op})
-				if wantsEnds[kind] {
-					e := editError(t, err)
-					if e.Failure != FailureResultInvalid || !strings.Contains(e.Message, "two related elements") {
-						t.Fatalf("refusal = %s (%s), want the analyzer asking for ends", e.Failure, e.Message)
-					}
-					return
-				}
 				if err != nil {
 					t.Fatalf("Apply: %v", err)
 				}
@@ -320,6 +309,30 @@ func TestEveryMemberKindWrites(t *testing.T) {
 				}
 				requireClean(t, loadContent(t, name, got))
 			})
+		}
+	}
+}
+
+// A connector definition declared by name alone has no ends, which the
+// analyzer requires, so the kind is not offered and a request for it is
+// refused as illegal rather than written and then refused as invalid.
+func TestConnectorDefinitionsAreNotMemberKinds(t *testing.T) {
+	for name, kinds := range map[string][]string{
+		"kinds.sysml": {"connection def", "interface def", "flow def"},
+		"kinds.kerml": {"assoc", "interaction"},
+	} {
+		m := loadContent(t, name, "package P {\n}\n")
+		lang := m.Source.Kind()
+		for _, kind := range kinds {
+			for _, offered := range MemberKinds(lang) {
+				if offered == kind {
+					t.Fatalf("%s offers %q", name, kind)
+				}
+			}
+			_, err := Apply(m, []Operation{AddMember("P", kind, "added")})
+			if e := editError(t, err); e.Failure != FailureIllegalKind {
+				t.Fatalf("%s %q: failure = %s (%s), want %s", name, kind, e.Failure, e.Message, FailureIllegalKind)
+			}
 		}
 	}
 }

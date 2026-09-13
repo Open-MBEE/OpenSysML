@@ -160,9 +160,6 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 	if len(ops) == 0 {
 		return nil, &Error{Failure: FailureNoOperations, Message: "no edit operations requested"}
 	}
-	if err := duplicateAddNames(ops); err != nil {
-		return nil, err
-	}
 	m.reindex = &reindexer{newIndex: m.NewIndex}
 	if !needsSequential(ops) {
 		return applyBatch(m, ops)
@@ -199,26 +196,6 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 		return nil, err
 	}
 	return &Result{Content: content, Applied: applied}, nil
-}
-
-func duplicateAddNames(ops []Operation) error {
-	seen := make(map[string]int)
-	for i, op := range ops {
-		if !op.adds() || op.MemberName == "" {
-			continue
-		}
-		key := op.Owner + "\x00" + op.MemberName
-		if previous, ok := seen[key]; ok {
-			return &Error{
-				Failure:        FailureMemberNameTaken,
-				OperationIndex: i,
-				Message: fmt.Sprintf("%q is declared more than once in owner %q (operations %d and %d)",
-					op.MemberName, op.Owner, previous, i),
-			}
-		}
-		seen[key] = i
-	}
-	return nil
 }
 
 // needsSequential reports whether a later operation may look up a name an

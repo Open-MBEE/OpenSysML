@@ -17,9 +17,8 @@ type memberKind struct {
 	typed      bool
 }
 
-// memberKinds are the parser's definition and usage kinds an OpAddMember writes
-// by name alone; connectors are ConnectionKinds. A control node (`fork f;`) is
-// neither typed nor a definition.
+// memberKinds are the kinds an OpAddMember writes by name alone: not connectors
+// (ConnectionKinds) nor connector definitions, which need ends; `fork f;` is neither typed nor a definition.
 var memberKinds = map[string]memberKind{
 	"package":          {languages: bothLangs},
 	"part def":         {languages: sysmlOnly, definition: true},
@@ -52,9 +51,6 @@ var memberKinds = map[string]memberKind{
 	"state":            {languages: sysmlOnly, typed: true},
 	"occurrence def":   {languages: sysmlOnly, definition: true},
 	"occurrence":       {languages: sysmlOnly, typed: true},
-	"connection def":   {languages: sysmlOnly, definition: true},
-	"interface def":    {languages: sysmlOnly, definition: true},
-	"flow def":         {languages: sysmlOnly, definition: true},
 	"allocation def":   {languages: sysmlOnly, definition: true},
 	"binding def":      {languages: sysmlOnly, definition: true},
 	"constraint def":   {languages: sysmlOnly, definition: true},
@@ -81,11 +77,9 @@ var memberKinds = map[string]memberKind{
 	"step":             {languages: kermlOnly, typed: true},
 	"expr":             {languages: kermlOnly, typed: true},
 	"bool":             {languages: kermlOnly, typed: true},
-	"assoc":            {languages: kermlOnly, definition: true},
 	"behavior":         {languages: kermlOnly, definition: true},
 	"function":         {languages: kermlOnly, definition: true},
 	"predicate":        {languages: kermlOnly, definition: true},
-	"interaction":      {languages: kermlOnly, definition: true},
 	"metaclass":        {languages: kermlOnly, definition: true},
 }
 

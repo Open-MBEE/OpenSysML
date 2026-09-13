@@ -61,6 +61,15 @@ export function endpointPath(node: RenderNode, owner: RenderNode, nodes: RenderN
   return undefined;
 }
 
+/** What the user is told when an action names a rendering that has been replaced. */
+export const REDRAWN_MESSAGE =
+  "The document changed after the diagram was drawn; it is redrawn now, so repeat the action on it.";
+
+/** offeredOn reports whether an action taken on rendering version `offered` still names `rendering`. */
+export function offeredOn(rendering: Rendering, offered: number): boolean {
+  return offered === rendering.version;
+}
+
 // editParams pins the request to the version the operations were read from: a later
 // version may spell the same names for other declarations, so it is that text or none.
 export function editParams(uri: string, rendering: Rendering, operations: ModelEditOperation[]): ApplyModelEditParams {
