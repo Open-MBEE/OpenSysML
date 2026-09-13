@@ -34,9 +34,9 @@ func New(discover func() (*solve.Solver, error)) *Engine {
 // Name is `smt`.
 func (*Engine) Name() string { return EngineName }
 
-// Describe: every schedule of at most k moves on the inputs as written, decided by a
-// solver; an `unsat` with no bound reachable is a proof, a witness is replayed before
-// it is claimed.
+// Describe: every schedule of at most k moves over the inputs free in their declared
+// domains, decided by a solver; an `unsat` with no bound reachable is a proof, a
+// witness is replayed before it is claimed.
 func (*Engine) Describe() analysis.Description {
 	return analysis.Description{
 		Questions: []analysis.Kind{analysis.Holds},
@@ -56,14 +56,11 @@ func (e *Engine) Process() (string, error) {
 	return solver.Name + " at " + solver.Path, nil
 }
 
-// Covers takes a Holds question over concrete inputs with the schedule free; free
-// inputs, a fixed schedule, another kind and a question without its ask are refused.
+// Covers takes a Holds question with the schedule free, its inputs free or as
+// written; a fixed schedule, another kind and a question without its ask are refused.
 func (e *Engine) Covers(_ *analysis.Model, q analysis.Question) analysis.Coverage {
 	if q.Kind != analysis.Holds {
 		return analysis.Coverage{Refusal: &analysis.NotAskedError{Engine: e.Name(), Kind: q.Kind}}
-	}
-	if q.Free.Has(analysis.FreeInputs) {
-		return analysis.Coverage{Refusal: &analysis.FreedomError{Engine: e.Name(), Free: analysis.FreeInputs}}
 	}
 	if !q.Free.Has(analysis.FreeSchedule) {
 		return analysis.Coverage{Refusal: &ScheduleError{Engine: e.Name(), Schedule: q.Schedule}}
@@ -169,9 +166,14 @@ func (r *run) encode() (refusal error, err error) {
 		return nil, err
 	}
 	defer exec.Release()
-	encoding, err := Encode(ctx, r.q.Holds.Behavior, exec.Graph(), exec.Held(), r.moves, r.unroll)
+	encoding, err := Encode(ctx, r.q.Holds.Behavior, exec.Graph(), exec.Held(), r.q.Holds.Inputs, r.moves, r.unroll)
 	if err != nil {
 		return refusalOf(err)
+	}
+	for _, assumption := range r.q.Holds.Assume {
+		if err := encoding.Assume(ctx, assumption, r.q.Holds.Scope); err != nil {
+			return refusalOf(err)
+		}
 	}
 	r.encoding = encoding
 	r.deadlock = encoding.Deadlock()
@@ -193,7 +195,8 @@ func (r *run) encode() (refusal error, err error) {
 func refusalOf(err error) (error, error) {
 	switch {
 	case errors.Is(err, ErrNotEncoded), errors.Is(err, ErrMalformedFlow), errors.Is(err, ErrSlotOverflow),
-		errors.Is(err, solve.ErrNotTranslatable), errors.Is(err, runtime.ErrNoConditions):
+		errors.Is(err, solve.ErrNotTranslatable), errors.Is(err, runtime.ErrNoConditions),
+		errors.Is(err, analysis.ErrInput), errors.Is(err, analysis.ErrDomain):
 		return err, nil
 	}
 	var unsupported *solve.UnsupportedCapabilityError
@@ -227,11 +230,28 @@ func (o outcome) String() string {
 	return "an outcome"
 }
 
+// NoInitialState is the reason a run claims nothing when its assumptions admit
+// no initial state: a property over no run is vacuous, not proved.
+const NoInitialState = "assumptions admit no initial state"
+
 // decide asks the queries in order, stopping at the first `sat` whose witness
 // replays or at the first answer that decides nothing. An `unsat` over arithmetic
 // the interpreter rounds refutes nothing, so once every query is `unsat` it
 // leaves the question not covered rather than held.
 func (r *run) decide(ctx context.Context) (analysis.Result, error) {
+	if len(r.encoding.Assumptions) > 0 {
+		result, err := r.solver.Solve(ctx, r.encoding.Consistency())
+		if err != nil {
+			return analysis.Result{}, err
+		}
+		switch result.Status {
+		case solve.StatusUnsat:
+			return r.uncovered(NoInitialState), nil
+		case solve.StatusSat:
+		default:
+			return r.undecided(result, "whether the assumptions admit an initial state"), nil
+		}
+	}
 	type ask struct {
 		query   *solve.Query
 		outcome outcome
@@ -307,11 +327,48 @@ func (r *run) result() analysis.Result {
 	result := analysis.Result{Question: r.q, Engine: r.engine.Name(), Elapsed: time.Since(r.started)}
 	if r.encoding != nil {
 		result.Bounds = r.bounds(Cut{})
+		result.Inputs = r.inputs(nil)
+		result.Assumptions = r.encoding.Assumptions
+		if r.frees() {
+			result.Question.Free |= analysis.FreeInputs
+		}
 	} else {
 		result.Bounds = analysis.Bounds{{Name: "moves", Limit: int64(r.moves)}, {Name: "unroll", Limit: int64(r.unroll)},
 			{Name: "solver", Limit: r.timeout.Milliseconds()}}
 	}
 	return result
+}
+
+// frees reports whether the encoding ranged over any input, which the answer's
+// question then says it did.
+func (r *run) frees() bool {
+	for _, in := range r.encoding.Inputs {
+		if in.Free {
+			return true
+		}
+	}
+	return false
+}
+
+// inputs lists the features the encoding ranged over or pinned, a free one's
+// value the one the witness chose when there is one.
+func (r *run) inputs(witness []runtime.InputTaken) []analysis.Input {
+	chosen := make(map[string]string, len(witness))
+	for _, in := range witness {
+		chosen[in.Feature] = in.Written
+	}
+	inputs := make([]analysis.Input, 0, len(r.encoding.Inputs))
+	for _, in := range r.encoding.Inputs {
+		out := analysis.Input{Name: in.Name, Type: in.Type, Sort: in.Var.Sort.Name, Domain: in.Domain, Free: in.Free}
+		switch {
+		case in.Free:
+			out.Value = chosen[in.Name]
+		case in.Value.Kind != runtime.ValInvalid:
+			out.Value = runtime.FormatValue(in.Value)
+		}
+		inputs = append(inputs, out)
+	}
+	return inputs
 }
 
 // uncovered claims nothing, for the reason.
@@ -367,14 +424,16 @@ func (r *run) witnessed(result *solve.Result, expected outcome) (analysis.Result
 	if err != nil {
 		return analysis.Result{}, err
 	}
-	witness := &analysis.Witness{Schedule: runtime.ReplayPolicy(w.Choices), Choices: w.Choices}
+	witness := &analysis.Witness{Schedule: w.policy(), Inputs: w.Inputs, Choices: w.Choices}
 	if replayed.disagreement != "" {
 		out := r.uncovered(replayed.disagreement)
 		out.Witness = witness
+		out.Inputs = r.inputs(w.Inputs)
 		return out, nil
 	}
 	out := r.result()
 	out.Claim, out.Strength, out.Witness = analysis.ClaimViolated, analysis.Witnessed, witness
+	out.Inputs = r.inputs(w.Inputs)
 	out.Values = []analysis.Evaluation{{Name: r.property.Name, Err: replayed.err}}
 	out.Reason = replayed.describe()
 	return out, nil
@@ -401,18 +460,22 @@ func (r *run) replay(w *Witness, expected outcome) (replayed, error) {
 	if err != nil {
 		return replayed{}, err
 	}
-	if err := ctx.SetSchedule(runtime.ReplayPolicy(w.Choices)); err != nil {
+	if err := ctx.SetSchedule(w.policy()); err != nil {
 		return replayed{}, err
 	}
-	exec, err := r.q.Holds.Start(ctx)
-	if err != nil {
-		return replayed{}, err
-	}
-	defer exec.Release()
 	claim := fmt.Sprintf("the solver claims %v at move %d", expected, w.Mark)
 	disagree := func(format string, args ...any) (replayed, error) {
 		return replayed{disagreement: claim + "; " + fmt.Sprintf(format, args...)}, nil
 	}
+	exec, err := r.q.Holds.Start(ctx)
+	if err != nil {
+		var refused *runtime.WitnessInputError
+		if errors.As(err, &refused) {
+			return disagree("the interpreter could not fix the witness's inputs: %v", err)
+		}
+		return replayed{}, err
+	}
+	defer exec.Release()
 	// A deadlock is reported by the step that finds no token to move, so one at
 	// the initial state is the first step's.
 	limit := w.Mark

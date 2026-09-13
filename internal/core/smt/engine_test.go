@@ -117,9 +117,9 @@ func TestEngineDescribesItself(t *testing.T) {
 	var _ analysis.External = e
 }
 
-// TestEngineRefusesWhatItDoesNotAnswer: another kind, free inputs, a fixed schedule
-// and a Holds question without its ask are each refused with the typed reason, and a
-// solver's absence is the typed absence, from Process and from Covers alike.
+// TestEngineRefusesWhatItDoesNotAnswer: another kind, a fixed schedule and a Holds
+// question without its ask are each refused with the typed reason, free inputs are
+// covered, and a solver's absence is the typed absence, from Process and from Covers alike.
 func TestEngineRefusesWhatItDoesNotAnswer(t *testing.T) {
 	d := indexed(t, "refuse.sysml", conditionsSrc)
 	e := New(func() (*solve.Solver, error) { return &solve.Solver{Name: "z3", Path: "/bin/z3"}, nil })
@@ -130,7 +130,6 @@ func TestEngineRefusesWhatItDoesNotAnswer(t *testing.T) {
 		want error
 	}{
 		{"kind", analysis.Question{Kind: analysis.Outcomes, Free: analysis.FreeSchedule}, analysis.ErrNotAsked},
-		{"inputs", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule | analysis.FreeInputs, Holds: ok.Holds}, analysis.ErrFreedom},
 		{"schedule", analysis.Question{Kind: analysis.Holds, Holds: ok.Holds}, ErrScheduleFixed},
 		{"ask", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule}, analysis.ErrMalformedQuestion},
 		{"behavior", analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{Start: ok.Holds.Start}}, analysis.ErrMalformedQuestion},
@@ -149,6 +148,11 @@ func TestEngineRefusesWhatItDoesNotAnswer(t *testing.T) {
 	}
 	if coverage := e.Covers(d.model, ok); !coverage.Covered {
 		t.Fatalf("a Holds question with the schedule free is refused: %v", coverage.Refusal)
+	}
+	free := ok
+	free.Free = analysis.FreeSchedule | analysis.FreeInputs
+	if coverage := e.Covers(d.model, free); !coverage.Covered {
+		t.Fatalf("a Holds question with the inputs free is refused: %v", coverage.Refusal)
 	}
 	if name, err := e.Process(); err != nil || name != "z3 at /bin/z3" {
 		t.Fatalf("process %q, %v", name, err)

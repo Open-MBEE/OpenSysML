@@ -1,6 +1,7 @@
 package smt
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -31,6 +32,11 @@ type Encoding struct {
 	Choosable [][]*solve.Term
 	// Completed[i] holds when no token is left in state i.
 	Completed []*solve.Term
+	// Inputs are the features of the initial state, free in their domains or
+	// pinned at the model's values, in the order the performance declares them.
+	Inputs []Input
+	// Assumptions names the conditions Assume asserted over the initial state, in order.
+	Assumptions []string
 	// Sorts, variables and assertions of the relation, for a query to build on.
 	Query *solve.Query
 
@@ -50,8 +56,11 @@ type Encoding struct {
 	// results are the features an inline expression node writes its value to.
 	results map[ast.Node]*solve.Var
 	// held are the values the performance holds at its start, ahead of its defaults.
-	held  runtime.Held
-	fresh int
+	held runtime.Held
+	// releases names the bound features the question leaves free; released indexes them.
+	releases []string
+	released map[string]bool
+	fresh    int
 }
 
 // pin is one feature a node's performance holds, and its declared default.
@@ -64,8 +73,9 @@ type pin struct {
 // unrolling each body loop unroll times. The action's features resolve as the
 // interpreter resolves them, through ctx; held is what the performance holds at
 // its start: its features, own and inherited, and their values ahead of the
-// defaults it declares.
-func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGraph, held runtime.Held, k, unroll int) (*Encoding, error) {
+// defaults it declares. A feature held bound by nothing is free in state 0, in
+// the domain its declared type gives it; releases names bound ones to free too.
+func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGraph, held runtime.Held, releases []string, k, unroll int) (*Encoding, error) {
 	f, err := Analyze(graph, k)
 	if err != nil {
 		return nil, err
@@ -76,6 +86,10 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 	name := "action"
 	if action != nil {
 		name = action.Name
+	}
+	released := make(map[string]bool, len(releases))
+	for _, release := range releases {
+		released[release] = true
 	}
 	translator, err := solve.NewTranslator(ctx, solve.Subject{Kind: "action", Name: name, Symbol: action})
 	if err != nil {
@@ -97,7 +111,12 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 		pending:    make(map[string]*solve.Var),
 		results:    make(map[ast.Node]*solve.Var),
 		held:       held,
+		releases:   releases,
+		released:   released,
 		Query:      &solve.Query{Kind: "action", Element: name},
+	}
+	if err := e.checkReleases(name); err != nil {
+		return nil, err
 	}
 	if err := e.collectFeatures(); err != nil {
 		return nil, err
@@ -166,7 +185,7 @@ func (e *Encoding) assert(term *solve.Term, role string) {
 
 // collectFeatures translates every expression the flow evaluates and gathers
 // the features they read and the bodies write, refusing one the stage does not
-// encode: a feature of the performing object, a free input.
+// encode: a feature of the performing object, a free input of a type with no domain.
 func (e *Encoding) collectFeatures() error {
 	graph := e.Flow.Graph
 	declared := make(map[string]bool)
@@ -175,18 +194,32 @@ func (e *Encoding) collectFeatures() error {
 		if scope == nil {
 			scope = graph.Scope
 		}
+		free, released := e.frees(attr)
+		if free {
+			if _, err := e.translator.Variable(attr.Name, scope, "attribute "+attr.Name); err != nil {
+				return noDomain(attr, err)
+			}
+		}
 		v, err := e.variable(attr.Name, scope, "attribute "+attr.Name, nodeLabel(graph.Initial))
 		if err != nil {
 			return err
 		}
 		declared[v.Name] = true
-		if attr.Value == nil {
+		in := Input{Name: attr.Name, Type: attr.Type, Var: v, Free: free, Released: released, def: attr.Value}
+		switch {
+		case free && v.Sort.Kind == solve.SortString:
+			return noDomain(attr, errors.New("a string ranges over no domain the solver decides"))
+		case free:
+		case attr.Value == nil:
 			e.flagged[v.Name] = true
-			continue
+			in.Value, _ = e.held.Value(attr.Name)
+		default:
+			in.Value, _ = e.held.Value(attr.Name)
+			if _, err := e.expression(attr.Value, scope, "default of "+attr.Name, nodeLabel(graph.Initial)); err != nil {
+				return err
+			}
 		}
-		if _, err := e.expression(attr.Value, scope, "default of "+attr.Name, nodeLabel(graph.Initial)); err != nil {
-			return err
-		}
+		e.Inputs = append(e.Inputs, in)
 	}
 	for _, node := range e.Flow.Nodes {
 		if err := e.collectPins(node, declared); err != nil {
@@ -241,6 +274,9 @@ func (e *Encoding) collectFeatures() error {
 		if read != nil {
 			e.domains[read.Name] = term
 		}
+	}
+	for i := range e.Inputs {
+		e.Inputs[i].Domain = e.domainText(e.Inputs[i].Var)
 	}
 	e.Features = make([]*solve.Var, 0, len(e.features))
 	for _, v := range e.features {
@@ -581,25 +617,28 @@ func (e *Encoding) initial() error {
 		}
 	}
 	var failed []*solve.Term
-	for _, attr := range e.held.Features() {
-		scope := attr.Scope
-		if scope == nil {
-			scope = f.Graph.Scope
-		}
-		v := e.features[e.translatedName(attr.Name, scope)]
-		if v == nil {
+	for _, in := range e.Inputs {
+		v := in.Var
+		if in.Free {
+			if v.Sort.Kind == solve.SortInt {
+				// The interpreter's Integer is int64; beyond it there is no value to replay.
+				e.assert(solve.Int64(env.values[v.Name]), "range of "+in.Name)
+			}
+			if domain := e.domain(v.Name, env.values[v.Name]); domain != nil {
+				e.assert(domain, "domain of "+in.Name)
+			}
 			continue
 		}
 		var value *solve.Term
-		if held, ok := e.held.Value(attr.Name); ok {
-			term, err := e.translator.Literal(v, held)
+		if in.Value.Kind != runtime.ValInvalid {
+			term, err := e.translator.Literal(v, in.Value)
 			if err != nil {
-				return refusal(f.label(f.Graph.Initial), "value held by "+attr.Name, err)
+				return refusal(f.label(f.Graph.Initial), "value held by "+in.Name, err)
 			}
 			value = term
-		} else if attr.Value != nil {
+		} else if expr, ok := e.exprs[in.def]; ok {
 			var defined *solve.Term
-			value, defined = env.evaluate(e.exprs[attr.Value])
+			value, defined = env.evaluate(expr)
 			failed = append(failed, not(defined))
 		} else {
 			continue
@@ -610,7 +649,9 @@ func (e *Encoding) initial() error {
 		}
 	}
 	for _, base := range e.Features {
-		e.assert(eq(solve.VarTerm(s.value(base)), env.values[base.Name]), "initial value of "+base.Name)
+		if value := env.values[base.Name]; value.Op != solve.OpVar || value.Var != s.value(base) {
+			e.assert(eq(solve.VarTerm(s.value(base)), value), "initial value of "+base.Name)
+		}
 		if e.flagged[base.Name] {
 			e.assert(eq(solve.VarTerm(s.has(base)), env.has[base.Name]), "initial value of "+base.Name)
 		}

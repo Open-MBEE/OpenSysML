@@ -244,21 +244,22 @@ type Input struct {
 	Domain string
 	// Free reports whether the engine ranged over the domain; false pins Value.
 	Free bool
-	// Value is the value pinned, or the one a witness chose for a free input;
-	// ValInvalid for a free input of a claim with no witness.
-	Value runtime.Value
+	// Value is the value pinned, or the one a witness chose for a free input,
+	// spelled as the witness file's input line spells it; "" for a free input
+	// of a claim with no witness, or a pinned one held without a value.
+	Value string
 }
 
 // String spells the input as a report lists it: `x : Integer free`,
 // `n : Natural free in >= 0`, `mode = Mode::Fast`.
 func (in Input) String() string {
 	switch {
-	case in.Free && in.Value.Kind != runtime.ValInvalid:
-		return in.Name + " = " + runtime.FormatValue(in.Value) + in.domainText(" (free in ", ")")
+	case in.Free && in.Value != "":
+		return in.Name + " = " + in.Value + in.domainText(" (free in ", ")")
 	case in.Free:
 		return in.Name + in.typeText() + " free" + in.domainText(" in ", "")
-	case in.Value.Kind != runtime.ValInvalid:
-		return in.Name + " = " + runtime.FormatValue(in.Value)
+	case in.Value != "":
+		return in.Name + " = " + in.Value
 	}
 	return in.Name + in.typeText() + " pinned"
 }

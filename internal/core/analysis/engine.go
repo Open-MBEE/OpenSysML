@@ -174,14 +174,22 @@ type DomainError struct {
 	Feature string
 	// Type is the declared type, as written; "" when the feature declares none.
 	Type string
+	// Reason says what the type lacks, when the engine can say more than its name.
+	Reason string
 }
 
 // Error names the engine, the feature and its type.
 func (e *DomainError) Error() string {
+	var msg string
 	if e.Type == "" {
-		return fmt.Sprintf("%s ranges over no domain for %s, which declares no type", e.Engine, e.Feature)
+		msg = fmt.Sprintf("%s ranges over no domain for %s, which declares no type", e.Engine, e.Feature)
+	} else {
+		msg = fmt.Sprintf("%s ranges over no domain for %s : %s", e.Engine, e.Feature, e.Type)
 	}
-	return fmt.Sprintf("%s ranges over no domain for %s : %s", e.Engine, e.Feature, e.Type)
+	if e.Reason != "" {
+		msg += ": " + e.Reason
+	}
+	return msg
 }
 
 // Is matches ErrDomain.

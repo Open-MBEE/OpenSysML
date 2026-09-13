@@ -67,26 +67,8 @@ func (e *Encoding) Deadlock() *Property {
 // Condition is the property that sym's requirement or constraint (inherited conditions included)
 // holds at every state; one reading a feature the action does not carry is refused.
 func (e *Encoding) Condition(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (*Property, error) {
-	if sym == nil {
-		return nil, fmt.Errorf("%w: no condition named", runtime.ErrNoConditions)
-	}
-	kind := PropertyConstraint
-	if err := runtime.RequireConstraint(sym); err != nil {
-		if runtime.RequireRequirement(sym) != nil {
-			return nil, err
-		}
-		kind = PropertyRequirement
-	}
-	subject := solve.Subject{Kind: kind.String(), Name: sym.Name, Symbol: sym, Negated: runtime.NegatedDecl(sym)}
-	translator, err := solve.NewTranslator(ctx, subject)
+	kind, expr, err := e.condition(ctx, sym, scope)
 	if err != nil {
-		return nil, err
-	}
-	expr, err := translator.Conditions(ctx.ConditionsOf(sym, scope))
-	if err != nil {
-		return nil, err
-	}
-	if err := e.adopt(translator, expr, kind.String()+" "+sym.Name); err != nil {
 		return nil, err
 	}
 	p := &Property{Kind: kind, Condition: sym, Name: kind.String() + " " + sym.Name,
@@ -97,6 +79,54 @@ func (e *Encoding) Condition(ctx *runtime.Context, sym *symbols.Symbol, scope *s
 		p.Undefined[i] = not(defined)
 	}
 	return p, nil
+}
+
+// Assume asserts sym's requirement or constraint over state 0 alone, narrowing the
+// initial states the queries range over; it is translated and refused as a property is.
+func (e *Encoding) Assume(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) error {
+	kind, expr, err := e.condition(ctx, sym, scope)
+	if err != nil {
+		return err
+	}
+	name := kind.String() + " " + sym.Name
+	value, defined := e.environment(e.States[0]).evaluate(expr)
+	e.assert(and(defined, value), "assumed "+name)
+	e.Assumptions = append(e.Assumptions, name)
+	return nil
+}
+
+// condition translates sym's conditions (inherited ones included) over the
+// encoding's features, telling a requirement from a constraint.
+func (e *Encoding) condition(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (PropertyKind, *solve.Expression, error) {
+	if sym == nil {
+		return 0, nil, fmt.Errorf("%w: no condition named", runtime.ErrNoConditions)
+	}
+	kind := PropertyConstraint
+	if err := runtime.RequireConstraint(sym); err != nil {
+		if runtime.RequireRequirement(sym) != nil {
+			return 0, nil, err
+		}
+		kind = PropertyRequirement
+	}
+	subject := solve.Subject{Kind: kind.String(), Name: sym.Name, Symbol: sym, Negated: runtime.NegatedDecl(sym)}
+	translator, err := solve.NewTranslator(ctx, subject)
+	if err != nil {
+		return 0, nil, err
+	}
+	expr, err := translator.Conditions(ctx.ConditionsOf(sym, scope))
+	if err != nil {
+		return 0, nil, err
+	}
+	if err := e.adopt(translator, expr, kind.String()+" "+sym.Name); err != nil {
+		return 0, nil, err
+	}
+	return kind, expr, nil
+}
+
+// Consistency is satisfiable exactly when some initial state meets the
+// assumptions; unsat, the assumptions admit none and every query is vacuous.
+func (e *Encoding) Consistency() *solve.Query {
+	return e.query(solve.BoolTerm(true), "an initial state under the assumptions")
 }
 
 // adopt rewrites a property's reads to the encoding's features and declares the
