@@ -71,7 +71,13 @@ func (s *Service) newVerifyContext(modelHash, engine string) (*verifyContext, er
 // on is this request's context over a run's own runtime, so what the run made is
 // read through the context that made it.
 func (v *verifyContext) on(rt *runtime.Context) *verifyContext {
-	return &verifyContext{service: v.service, cached: v.cached, runtime: rt, engine: v.engine, release: func() {}}
+	return &verifyContext{service: v.service, cached: v.cached, runtime: rt, engine: v.engine, release: releaseNothing}
+}
+
+// releaseNothing stands in for release on a context over a run's own runtime,
+// which borrowed no worker and so has nothing to give back.
+func releaseNothing() {
+	// The parent context releases the worker it borrowed; this one holds none.
 }
 
 // sem is the semantic model the request's runtime evaluates against.
