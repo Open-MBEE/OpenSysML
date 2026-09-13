@@ -408,6 +408,62 @@ func TestEngineDoesNotProveOverRoundedArithmetic(t *testing.T) {
 	}
 }
 
+// TestEngineFilesNoWitnessTheInterpreterRefutes: a witness the replay does not
+// reproduce leaves the question not covered, reported but written to no file.
+func TestEngineFilesNoWitnessTheInterpreterRefutes(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "refuted.sysml", freeSrc)
+	q := d.holds(t, "test::A", "test::A::positive")
+	q.Holds.WitnessDir = t.TempDir()
+	solver, err := e.discover()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &run{engine: e, model: d.model, q: q, budget: analysis.Budget{Depth: 3}, solver: solver,
+		timeout: solve.DefaultTimeout, moves: 3, unroll: DefaultUnroll, started: time.Now()}
+	if refusal, err := r.encode(); err != nil || refusal != nil {
+		t.Fatalf("encode: %v %v", refusal, err)
+	}
+	result, err := solver.Solve(context.Background(), r.encoding.Violation(r.property))
+	if err != nil || result.Status != solve.StatusSat {
+		t.Fatalf("the violation query answered %v, %v", result.Status, err)
+	}
+	// The solver's n violates x + n > 0; a witness claiming so at n = 5 is refuted.
+	var moved bool
+	for _, in := range r.encoding.Inputs {
+		if in.Name != "n" {
+			continue
+		}
+		at := r.encoding.States[0].value(in.Var).Name
+		for i := range result.Model {
+			if result.Model[i].Var.Name == at {
+				result.Model[i].Value, result.Model[i].Raw, moved = "5", "5", true
+			}
+		}
+	}
+	if !moved {
+		t.Fatal("the model assigns the input n no value")
+	}
+	out, err := r.witnessed(result, outcomeViolation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect(t, out, analysis.ClaimNone, analysis.NotCovered)
+	if !strings.Contains(out.Reason, "the solver claims a violation") || !strings.Contains(out.Reason, "the interpreter") {
+		t.Errorf("reason %q does not report the disagreement", out.Reason)
+	}
+	if out.Witness == nil || out.Witness.Written != "" {
+		t.Errorf("witness %+v, want the refuted witness reported with no file", out.Witness)
+	}
+	files, err := os.ReadDir(q.Holds.WitnessDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 0 {
+		t.Errorf("%d file(s) written for a witness the interpreter refutes", len(files))
+	}
+}
+
 // TestEngineEncodesInheritedFeatures: a specialized action's inherited features
 // are encoded as the performance holds them, with the inherited default or the
 // redefinition's, so a condition over one is decided as the interpreter decides it.

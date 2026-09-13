@@ -415,8 +415,8 @@ func (r *run) holds(strength analysis.Strength, cut Cut) analysis.Result {
 	return result
 }
 
-// witnessed decodes a `sat` and replays it: the claim stands only when the
-// interpreter reaches the outcome the witness claims by the step it names.
+// witnessed decodes a `sat` and replays it: the claim stands, and the witness is
+// written, only when the interpreter reaches the outcome claimed by the step named.
 func (r *run) witnessed(result *solve.Result, expected outcome) (analysis.Result, error) {
 	w, err := r.encoding.Decode(result)
 	if err != nil {
@@ -431,14 +431,14 @@ func (r *run) witnessed(result *solve.Result, expected outcome) (analysis.Result
 		return analysis.Result{}, err
 	}
 	witness := &analysis.Witness{Schedule: w.policy(), Inputs: w.Inputs, Choices: w.Choices}
-	if witness.Written, err = r.write(w, replayed); err != nil {
-		return analysis.Result{}, err
-	}
 	if replayed.disagreement != "" {
 		out := r.uncovered(replayed.disagreement)
 		out.Witness = witness
 		out.Inputs = r.inputs(w.Inputs)
 		return out, nil
+	}
+	if witness.Written, err = r.write(w, replayed); err != nil {
+		return analysis.Result{}, err
 	}
 	out := r.result()
 	out.Claim, out.Strength, out.Witness = analysis.ClaimViolated, analysis.Witnessed, witness
