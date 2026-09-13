@@ -59,7 +59,7 @@ func (e externalEngine) Probe() (string, error) {
 		return "", err
 	}
 	s.end(errProbed)
-	return found, nil
+	return found + "; describe agrees", nil
 }
 
 // errProbed is why a probe's session ended: the handshake was all that was asked.

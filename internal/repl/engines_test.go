@@ -37,6 +37,71 @@ func TestEnginesListsEveryRegisteredEngine(t *testing.T) {
 	wants(t, lines[5], "sweep", "observed", "sweep", "ready")
 }
 
+// manifestEngine stands in for an engine registered from a manifest: it counts the probes
+// made of it and reports its origin as -engines prints it.
+type manifestEngine struct{ probed *int }
+
+func (manifestEngine) Name() string { return "standin" }
+
+func (manifestEngine) Describe() analysis.Description {
+	return analysis.Description{Questions: []analysis.Kind{analysis.Holds}, Authority: analysis.Bounded, Process: "/opt/standin/bin/standin"}
+}
+
+func (manifestEngine) Covers(*analysis.Model, analysis.Question) analysis.Coverage {
+	return analysis.Coverage{Covered: true}
+}
+
+func (manifestEngine) Run(context.Context, *analysis.Model, analysis.Question, analysis.Budget) (analysis.Result, error) {
+	return analysis.Result{}, errors.New("not run by this test")
+}
+
+func (manifestEngine) Process() (string, error) { return "standin 1.0.0 at /opt/standin/bin/standin", nil }
+
+func (e manifestEngine) Probe() (string, error) {
+	*e.probed++
+	return "standin 1.0.0 at /opt/standin/bin/standin; describe agrees", nil
+}
+
+func (manifestEngine) Origin() analysis.Origin {
+	return analysis.Origin{Kind: analysis.KindEngine, Version: "1.0.0", File: "/etc/opensysml/engines/standin.json",
+		Command: "/opt/standin/bin/standin", Transport: analysis.TransportStdio, Protocol: 1}
+}
+
+// %engines lists a manifest engine with its kind, protocol and origin without probing it;
+// %engines probe probes each external engine once; any other argument is refused.
+func TestEnginesListsManifestEnginesAndProbesOnRequest(t *testing.T) {
+	s := loadSource(t, engineCalcSource)
+	probed := 0
+	engines := analysis.Default()
+	if err := engines.Register(manifestEngine{probed: &probed}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if err := s.SetEngines(engines); err != nil {
+		t.Fatalf("SetEngines: %v", err)
+	}
+
+	out := run(t, s, "%engines")
+	wantsInOrder(t, out, "engine", "kind", "protocol", "authority", "answers", "status",
+		"check    built-in  -", "standin  engine    stdio/1   bounded    holds", "ready (standin 1.0.0 at /opt/standin/bin/standin)",
+		"standin 1.0.0: engine from /etc/opensysml/engines/standin.json, runs /opt/standin/bin/standin, not admitted")
+	rejects(t, out, "describe agrees")
+	if probed != 0 {
+		t.Fatalf("%%engines probed %d times", probed)
+	}
+
+	out = run(t, s, "%engines probe")
+	wants(t, out, "ready (standin 1.0.0 at /opt/standin/bin/standin; describe agrees)")
+	if probed != 1 {
+		t.Fatalf("%%engines probe probed %d times, want once", probed)
+	}
+
+	out = run(t, s, "%engines all")
+	wants(t, out, "error: %engines takes `probe` or nothing, not \"all\"")
+	if !errors.Is(&EnginesArgumentError{Args: []string{"all"}}, ErrEnginesArgument) {
+		t.Fatal("EnginesArgumentError does not match ErrEnginesArgument")
+	}
+}
+
 // %engine shows the selection, sets it by name, to auto or to all, and reports a
 // name no engine carries as a typed error that leaves the selection in force.
 func TestEngineShowsAndSetsTheSelection(t *testing.T) {
