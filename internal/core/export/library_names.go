@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // NormativeSubject reports whether id is the id the norm fixes for the subject a
@@ -29,19 +30,31 @@ func NormativeSubject(id, qualifiedName string) bool {
 }
 
 // libraryDocument is the bundled library document a graph is a version of: the
-// one declaring every root, each a package the norm names and ids as the graph
-// does. A graph rooted anywhere else, or in several documents, is none.
+// one declaring every root, each a top-level package the norm names and ids as
+// the graph does. A graph rooted anywhere else — in a nested library element,
+// or in several documents — is none, and is read beside the library.
 func libraryDocument(roots []*element) string {
 	catalog := identity.LibraryCatalog(libs.NewModelIndex())
 	doc := ""
 	for _, root := range roots {
 		el, ok := catalog.Element(root.elementID)
-		if !ok || el.FQN != root.qname || (doc != "" && el.Symbol.DocName != doc) {
+		if !ok || el.FQN != root.qname || !topLevelPackage(root, el) ||
+			(doc != "" && el.Symbol.DocName != doc) {
 			return ""
 		}
 		doc = el.Symbol.DocName
 	}
 	return doc
+}
+
+// topLevelPackage reports whether root is written as a package and el is one
+// its document declares at the top: its owner scope is the document root.
+func topLevelPackage(root *element, el *identity.LibraryElement) bool {
+	if root.metaclass != "Package" || el.Symbol.Kind != symbols.SymbolPackage {
+		return false
+	}
+	scope := el.Symbol.OwnerScope
+	return scope != nil && scope.Parent() == nil && scope.Owner() == nil
 }
 
 // libraryGraphNames memoizes, per bundled library document, the qualified name
