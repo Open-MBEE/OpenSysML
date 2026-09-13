@@ -150,11 +150,15 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}): C
   };
   placeGrid(roots, { x: MARGIN, y: MARGIN }, geometry);
 
+  // Every drawn box counts, since a placed child may lie beyond a sized owner.
   let width = MARGIN;
   let height = MARGIN;
-  for (const root of roots) {
-    width = Math.max(width, root.box.x + root.box.width);
-    height = Math.max(height, root.box.y + root.box.height);
+  for (const entry of placed.values()) {
+    if (entry.hidden) {
+      continue;
+    }
+    width = Math.max(width, entry.box.x + entry.box.width);
+    height = Math.max(height, entry.box.y + entry.box.height);
   }
   const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes));
   for (const edge of edges) {

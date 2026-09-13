@@ -105,6 +105,19 @@ test("layoutCanvas grows an unsized owner to hold a child the model put beyond i
   assert.ok(a.box.y + a.box.height >= 400 + 40 + 16);
 });
 
+test("layoutCanvas extends the canvas to a placed child beyond its sized owner", () => {
+  const layout = layoutCanvas(rendering([
+    node("a", "a", { x: 0, y: 0, width: 100, height: 100 }),
+    node("b", "b", { parent: "a", x: 500, y: 400 }),
+  ]));
+  const a = layout.nodes.get("a")!;
+  const b = layout.nodes.get("b")!;
+  assert.deepEqual(a.box, { x: 0, y: 0, width: 100, height: 100 });
+  assert.deepEqual([b.box.x, b.box.y], [500, 400]);
+  assert.equal(layout.width, 500 + b.box.width + MARGIN);
+  assert.equal(layout.height, 400 + b.box.height + MARGIN);
+});
+
 test("layoutCanvas moves a root's siblings past an owner grown around a placed child", () => {
   const layout = layoutCanvas(rendering([
     node("a", "a"),
