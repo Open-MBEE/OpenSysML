@@ -11,7 +11,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Document is the parsed state of one source file.
+// Document is the parsed state of one source file. It is immutable once built:
+// it is parsed from bytes the workspace owns, newDocument sets every field and
+// nothing writes one afterwards, so a document the workspace hands out is a
+// snapshot that neither a later update nor whoever supplied the bytes can touch.
 type Document struct {
 	Name             string
 	Content          []byte
@@ -23,7 +26,8 @@ type Document struct {
 	sf               *source.SourceFile
 }
 
-// newDocument parses content and builds the document's local scope tree.
+// newDocument parses content, which the workspace owns and never writes, and
+// builds the document's local scope tree.
 func newDocument(name string, content []byte, version int) *Document {
 	sf := source.New(name, content)
 	p := parser.New(sf)
