@@ -1,3 +1,9 @@
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
 %% PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
   subgraph n0 ["Plant::Loop<br>«part def»"]

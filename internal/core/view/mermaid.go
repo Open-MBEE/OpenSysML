@@ -26,6 +26,7 @@ func (r *Rendering) Mermaid() string {
 // direction applies to ignores it.
 func (r *Rendering) MermaidDirected(direction Direction) string {
 	var b strings.Builder
+	r.writeFlowchartFrontmatter(&b)
 	if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)
 	} else {
@@ -95,6 +96,39 @@ func writeLayoutComments(b *strings.Builder, node *Node) {
 	for _, child := range node.Children {
 		writeLayoutComments(b, child)
 	}
+}
+
+// mermaidTitleLine is the height in pixels of one line of a subgraph title.
+const mermaidTitleLine = 24
+
+// writeFlowchartFrontmatter reserves, as a subgraph title's bottom margin, the
+// height Mermaid leaves out for a title beyond its first line; none is needed otherwise.
+func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder) {
+	switch r.Kind {
+	case KindTree, KindState, KindSequence:
+		return
+	}
+	extra := 0
+	for _, root := range r.Roots {
+		extra = max(extra, clusterTitleExtraLines(root))
+	}
+	if extra == 0 {
+		return
+	}
+	fmt.Fprintf(b, "---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n", extra*mermaidTitleLine)
+}
+
+// clusterTitleExtraLines is the most lines beyond the first spanned by the
+// title of node or of a cluster under it.
+func clusterTitleExtraLines(node *Node) int {
+	if len(node.Children) == 0 {
+		return 0
+	}
+	extra := len(labelLines(node)) - 1
+	for _, child := range node.Children {
+		extra = max(extra, clusterTitleExtraLines(child))
+	}
+	return extra
 }
 
 // writeFlowchart writes the tree, interconnection and action renderings as a

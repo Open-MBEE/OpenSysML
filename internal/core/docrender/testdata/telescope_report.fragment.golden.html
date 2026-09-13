@@ -198,7 +198,13 @@
 <section class="sysml-section" id="diagrams" data-content="section" data-name="diagrams">
 <h2><span class="sysml-section-number">2</span> Diagrams</h2>
 <figure class="sysml-diagram" data-content="diagram" data-name="imaging" data-view="Observatory::interconnectView" data-diagram-kind="interconnection">
-<pre class="mermaid">%% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
+<pre class="mermaid">---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
   subgraph n0 [&#34;Observatory::imagingChain&lt;br&gt;«part»&#34;]
     n1[&#34;camera : Camera&lt;br&gt;«part»&#34;]

@@ -1,3 +1,9 @@
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
 %% PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
 %% canvas: unit=px w=1200 h=800
 %% layout: n1 x=300 y=40 collapsed

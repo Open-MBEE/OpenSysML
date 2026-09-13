@@ -122,6 +122,12 @@ the model into a directory.
 ```
 
 ```
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
 %% RobotViews::interfaces — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
   subgraph n0 ["Robot::Platform<br>«part def»"]

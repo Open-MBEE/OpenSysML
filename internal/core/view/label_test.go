@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -105,6 +106,40 @@ func TestMermaidLabelShapePerForm(t *testing.T) {
 			if strings.Contains(mermaid, stale) {
 				t.Errorf("%s Mermaid still leads with the keyword, %q:\n%s", tc.kind, stale, mermaid)
 			}
+		}
+	}
+}
+
+// A flowchart whose cluster title spans several lines leads with the Mermaid
+// frontmatter reserving the extra height, sized by its tallest title; a flowchart
+// without such a cluster, a tree, a state or a sequence diagram carries none.
+func TestMermaidFrontmatterReservesClusterTitleHeight(t *testing.T) {
+	cluster := func(children ...*Node) []*Node {
+		return []*Node{{ID: "n0", Kind: "part def", Name: "Plant::Loop", Children: children}}
+	}
+	leaf := &Node{ID: "n1", Kind: "part", Name: "pump", Type: "Pump"}
+	noted := &Node{ID: "n2", Kind: "action", Name: "monitor", Detail: "own flow", Children: []*Node{{ID: "n3", Kind: "initial", Name: "begin"}}}
+	frontmatter := func(bottom int) string {
+		return fmt.Sprintf("---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n%%%% V — ", bottom)
+	}
+	cases := []struct {
+		name  string
+		kind  Kind
+		roots []*Node
+		want  string
+	}{
+		{"two-line cluster title", KindInterconnection, cluster(leaf), frontmatter(24)},
+		{"nested three-line title", KindAction, cluster(leaf, noted), frontmatter(48)},
+		{"anonymous cluster", KindInterconnection, []*Node{{ID: "n0", Kind: "connect", Children: []*Node{leaf}}}, "%% V — "},
+		{"no cluster", KindInterconnection, []*Node{leaf}, "%% V — "},
+		{"tree", KindTree, cluster(leaf), "%% V — "},
+		{"state", KindState, cluster(leaf), "%% V — "},
+		{"sequence", KindSequence, cluster(leaf), "%% V — "},
+	}
+	for _, tc := range cases {
+		rendering := &Rendering{View: "V", Kind: tc.kind, Roots: tc.roots}
+		if mermaid := rendering.Mermaid(); !strings.HasPrefix(mermaid, tc.want) {
+			t.Errorf("%s: Mermaid starts with %q, want %q", tc.name, mermaid[:min(len(mermaid), len(tc.want))], tc.want)
 		}
 	}
 }

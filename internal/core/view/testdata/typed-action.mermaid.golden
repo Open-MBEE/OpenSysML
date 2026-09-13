@@ -1,3 +1,9 @@
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
 %% TypedViews::cycleView — action rendering (view def ActionFlowView)
 flowchart TD
   subgraph n0 ["Typed::run : Cycle<br>«action»"]

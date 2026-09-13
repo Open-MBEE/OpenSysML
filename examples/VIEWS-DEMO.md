@@ -141,14 +141,26 @@ than written as something else.
 ```
 
 ```
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 48
+---
 %% LanderViews::descentFlow — action rendering (view def ActionFlowView)
 flowchart TD
-  subgraph n0 ["action def Lander::Descend"]
-    n1["initial start"]
+  subgraph n0 ["Lander::Descend<br>«action def»"]
+    n1["start<br>«initial»"]
+    n2["deployParachute<br>«action»"]
+    subgraph n3 ["burn<br>«action»<br>own flow"]
     …
   end
-  n11 -->|"[altitude #gt; 0.0]"| n9
+  n10 -->|"[altitude #gt; 0.0]"| n9
 ```
+
+The leading frontmatter reserves the height of a cluster title's second and
+third lines, which Mermaid would otherwise draw under the first child; a
+flowchart with no such cluster has none.
 
 ```
 %render LanderViews::partsTable markdown

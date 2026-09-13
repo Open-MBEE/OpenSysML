@@ -53,7 +53,12 @@ Mermaid joins the lines with `<br>` in every grammar it writes — a flowchart n
 `state "…" as n` and a `participant n as …` — which the pinned `mermaid-cli` breaks at whether
 `htmlLabels` is on (the text becomes HTML, `<br>` a line break) or off (the label is split into
 `<tspan>` rows); no `<br>` survives as text in the drawing. The tree, interconnection and action
-kinds draw the same flowchart labels. DOT writes an HTML-like label, `label=<<b>pump :
+kinds draw the same flowchart labels. A flowchart reserves one line of height for a `subgraph`
+title and draws the first child over the rest, so a rendering whose cluster title spans several
+lines opens on a YAML frontmatter block, `config: flowchart: subGraphTitleMargin: bottom: <n>`,
+claiming 24px per extra line as the title's bottom margin (`writeFlowchartFrontmatter`); the
+block rides the text into every consumer, and a flowchart without such a cluster, a tree, a
+state diagram and a sequence diagram carry none. DOT writes an HTML-like label, `label=<<b>pump :
 Pump</b><br/><font point-size="10">«part»</font>>`, the name in bold and the keyword line under
 the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
 reads as markup. A cluster's label is the same string. The text form keeps the notation's

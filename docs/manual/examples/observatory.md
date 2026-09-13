@@ -62,6 +62,12 @@ Subsystems at or above 10 kg:
 *Imaging chain interconnection*
 
 ```mermaid
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
   subgraph n0 ["Observatory::imagingChain<br>«part»"]

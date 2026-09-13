@@ -468,6 +468,29 @@ in each form:
 | `mermaid` | `n1["pump : Pump<br>«part»"]` — a flowchart node, a `state "…" as n1` and a `participant n1 as …` all break at `<br>` |
 | `dot` | `"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>];` — an HTML-like label, the name in bold and the keyword line at 10pt |
 
+A Mermaid flowchart reserves the height of one line for a `subgraph` title, so a flowchart
+whose cluster title spans more — an interconnection or action rendering with a container —
+opens on a YAML frontmatter block that claims the rest as the title's bottom margin, 24px per
+extra line:
+
+```
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["Plant::Loop<br>«part def»"]
+  …
+```
+
+The block travels with the text into every consumer (`-render`, `-render-all`, `%render`,
+`opensysml/render`, the Mermaid fences of a document in Markdown, HTML and PDF), and Mermaid
+10.5 and later reads it. A flowchart with no such cluster, a `tree` rendering (its containment
+is edges), a `state` and a `sequence` diagram have no frontmatter.
+
 `dot` writes a `digraph` with one `// view:`, `// kind:` and `// layout:` header comment line and
 one `// not represented:` line per notice, the same header Mermaid writes as `%%` comments.
 Node and cluster labels are HTML-like strings (`label=<…>`) with `&`, `<`, `>` and `"` in a name

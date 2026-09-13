@@ -1,3 +1,9 @@
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 48
+---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 flowchart TD
   subgraph n0 ["Flows::Drive<br>«action def»"]
