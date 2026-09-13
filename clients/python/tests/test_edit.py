@@ -38,6 +38,8 @@ from opensysml.errors import (
     IllegalMemberKindError,
     MemberNameTakenError,
     DeleteReferencedError,
+    OwnerInsideTargetError,
+    MoveReferencedError,
 )
 from opensysml.proto import sysml_pb2, sysml_pb2_grpc
 
@@ -220,6 +222,19 @@ def test_add_member_and_delete_requests_are_exact(fake_service):
     assert result is not None
 
 
+def test_move_request_is_exact(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        model.edit().move("Demo::SC::unitMass", "Demo::sc").move("Demo::sc", "").apply()
+    into, to_root = service.requests[0].operations
+    assert into.WhichOneof("operation") == "move"
+    assert (into.move.target, into.move.owner) == ("Demo::SC::unitMass", "Demo::sc")
+    assert (to_root.move.target, to_root.move.owner) == ("Demo::sc", "")
+
+
 @pytest.mark.parametrize(
     "method,kind",
     [
@@ -245,18 +260,22 @@ def test_every_typed_helper_uses_service_kind(fake_service, method, kind):
     assert service.requests[0].operations[0].add_member.kind == kind
 
 
-def test_authoring_capability_gates_add_and_delete(fake_service):
+def test_authoring_capability_gates_add_delete_and_move(fake_service):
     port, service = fake_service(capabilities=(CAPABILITY_APPLY_EDITS,))
     with Connection(port=port, auto_start=False) as conn:
         model = conn.load_from_content(MODEL)
         add = model.edit().add_part("Demo::SC", "new")
         delete = model.edit().delete("Demo::sc")
+        move = model.edit().move("Demo::sc", "Demo::SC")
         with pytest.raises(MissingCapabilityError) as add_error:
             add.apply()
         with pytest.raises(MissingCapabilityError) as delete_error:
             delete.apply()
+        with pytest.raises(MissingCapabilityError) as move_error:
+            move.apply()
     assert add_error.value.capability == CAPABILITY_AUTHORING
     assert delete_error.value.capability == CAPABILITY_AUTHORING
+    assert move_error.value.capability == CAPABILITY_AUTHORING
     assert service.requests == []
 
 
@@ -268,6 +287,8 @@ def test_authoring_capability_gates_add_and_delete(fake_service):
         (sysml_pb2.EDIT_FAILURE_ILLEGAL_KIND, IllegalMemberKindError),
         (sysml_pb2.EDIT_FAILURE_MEMBER_NAME_TAKEN, MemberNameTakenError),
         (sysml_pb2.EDIT_FAILURE_DELETE_REFERENCED, DeleteReferencedError),
+        (sysml_pb2.EDIT_FAILURE_OWNER_INSIDE_TARGET, OwnerInsideTargetError),
+        (sysml_pb2.EDIT_FAILURE_MOVE_REFERENCED, MoveReferencedError),
     ],
 )
 def test_every_authoring_failure_is_typed(fake_service, failure, expected):
@@ -462,6 +483,8 @@ def test_an_unknown_operation_kind_is_refused(fake_service):
     with Connection(port=port, auto_start=False) as conn:
         with pytest.raises(ValueError, match="malformed delete operation"):
             conn.apply_edits("fake-hash", [("delete", "Demo::SC", "")])
+        with pytest.raises(ValueError, match="malformed move operation"):
+            conn.apply_edits("fake-hash", [("move", "Demo::SC")])
     assert service.requests == []
 
 

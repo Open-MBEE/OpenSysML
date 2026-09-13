@@ -9,6 +9,8 @@ import {
   DOCUMENT_ROOT,
   editParams,
   endpointPath,
+  moveDestinations,
+  moveOperation,
   nameSegments,
   offeredOn,
   ownerOf,
@@ -205,6 +207,57 @@ test("offeredOn holds only for the rendering the action was offered on", () => {
   assert.equal(offeredOn({ nodes, version: 3 }, 3), true);
   assert.equal(offeredOn({ nodes, version: 4 }, 3), false);
   assert.equal(offeredOn({ nodes: [], version: 0 }, 3), false);
+});
+
+// The same rendering with each declaration's notation, as a server that serves moves sends it.
+const notated = nodes.map((node) => (node.fqn ? { ...node, notation: node.kind } : node));
+const [carN, tankN, fuelOutN, engineN, fuelInN] = notated;
+
+test("moveDestinations offers the declared nodes but the node, its owner and what it declares, then the document", () => {
+  const rendering = { nodes: notated, version: 1 };
+  assert.deepEqual(
+    moveDestinations(fuelOutN, rendering).map(({ fqn, node }) => [fqn, node?.id]),
+    [["Vehicle::Car", "n1"], ["Vehicle::Car::engine", "n4"], ["Vehicle::Car::engine::fuelIn", "n5"], ["", undefined]],
+  );
+  // The car declares every other drawn node, so only the document is left; the wheel is not declared here.
+  assert.deepEqual(moveDestinations(carN, rendering), [{ fqn: "" }]);
+  // The tank is owned by the car: not the car again, not the port it declares, not itself.
+  assert.deepEqual(
+    moveDestinations(tankN, rendering).map(({ fqn }) => fqn),
+    ["Vehicle::Car::engine", "Vehicle::Car::engine::fuelIn", ""],
+  );
+  assert.equal(moveDestinations(engineN, rendering).some(({ node }) => node === fuelInN), false);
+});
+
+test("moveDestinations is empty for a node without a notation or a declaration here", () => {
+  const rendering = { nodes: notated, version: 1 };
+  assert.deepEqual(moveDestinations(tank, rendering), []);
+  assert.deepEqual(moveDestinations(imported, rendering), []);
+});
+
+test("moveDestinations keeps a confined notation to the nodes the palette admits it in, and off the document", () => {
+  const fit: RenderNode = { id: "n8", kind: "requirement def", name: "Fit", type: "", detail: "", fqn: "Vehicle::Fit", notation: "requirement def", owners: [vehicle] };
+  const check: RenderNode = { id: "n9", kind: "requirement def", name: "Check", type: "", detail: "", fqn: "Vehicle::Check", notation: "requirement def", owners: [vehicle] };
+  const subject: RenderNode = { id: "n10", kind: "subject", name: "car", type: "Car", detail: "", parent: "n8", fqn: "Vehicle::Fit::car", notation: "subject", owners: [{ fqn: "Vehicle::Fit", feature: false }, vehicle] };
+  const all = [...notated, fit, check, subject];
+  const palette = { members: ["part"], connections: [], typed: [], owners: { subject: ["n8", "n9"] } };
+  assert.deepEqual(moveDestinations(subject, { nodes: all, version: 1, palette }), [{ fqn: "Vehicle::Check", node: check }]);
+  // A part is not confined: every declared node but the document's own admits it, the document too.
+  assert.deepEqual(
+    moveDestinations(tankN, { nodes: all, version: 1, palette }).map(({ fqn }) => fqn),
+    ["Vehicle::Car::engine", "Vehicle::Car::engine::fuelIn", "Vehicle::Fit", "Vehicle::Check", "Vehicle::Fit::car", ""],
+  );
+});
+
+test("moveDestinations leaves the document out for a top-level declaration", () => {
+  const top: RenderNode = { ...carN, owners: undefined };
+  assert.deepEqual(moveDestinations(top, { nodes: [top, tankN], version: 1 }), []);
+});
+
+test("moveOperation names the target and the owner, the document by the empty owner", () => {
+  assert.deepEqual(moveOperation(fuelOutN, "Vehicle::Car"), { kind: "move", target: "Vehicle::Car::tank::fuelOut", owner: "Vehicle::Car" });
+  assert.deepEqual(moveOperation(tankN, ""), { kind: "move", target: "Vehicle::Car::tank", owner: "" });
+  assert.equal(moveOperation(imported, "Vehicle::Car"), undefined);
 });
 
 test("describeRefusal quotes the message, diagnostics and referrers", () => {

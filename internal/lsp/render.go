@@ -69,6 +69,7 @@ type renderNode struct {
 	Detail    string        `json:"detail"`
 	Parent    string        `json:"parent,omitempty"`
 	FQN       string        `json:"fqn,omitempty"`
+	Notation  string        `json:"notation,omitempty"`
 	Owners    []renderOwner `json:"owners,omitempty"`
 	Origin    *renderOrigin `json:"origin,omitempty"`
 	X         *float64      `json:"x,omitempty"`
@@ -250,6 +251,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
+	var declared []declaredNode
 	for _, node := range data.Nodes {
 		n := renderNode{
 			ID:     node.ID,
@@ -264,9 +266,11 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			if sym := nodeSymbol(doc.Scope, node.Origin); sym != nil {
 				if owners, ok := nodeOwners(sym); ok {
 					n.FQN = notationName(sym)
+					n.Notation = sym.Notation()
 					n.Owners = owners
 					if out.Palette != nil {
-						out.Palette.admit(node.ID, sym.Decl)
+						out.Palette.confine(n.Notation)
+						declared = append(declared, declaredNode{node.ID, sym.Decl})
 					}
 				}
 			}
@@ -280,6 +284,9 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			}
 		}
 		out.Nodes = append(out.Nodes, n)
+	}
+	for _, d := range declared {
+		out.Palette.admit(d.id, d.decl)
 	}
 	for _, edge := range data.Edges {
 		e := renderEdge{
