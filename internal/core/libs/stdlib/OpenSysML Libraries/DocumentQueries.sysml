@@ -26,6 +26,13 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* Objects: the objects the session holds that are of the named type,
+	 * each nested object under its path (`car.wheels[2]`). Requires a session. */
+	calc def Objects {
+		in type : String[1];
+		return result : Element[0..*] ordered;
+	}
+
 	calc def RelatedElements {
 		in source : Element[0..*] ordered;
 		/* relationshipKind: "specialization", "subsetting", "redefinition",

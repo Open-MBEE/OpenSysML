@@ -77,7 +77,7 @@ func (s *Session) evaluateDocument(invocation string) (*docir.Document, error) {
 	}
 	return docir.EvaluateLinked(plan,
 		model.SiblingDocumentPlans(idx, sem, resolver, sym),
-		queryexec.Context{Index: idx, Resolver: resolver, Model: sem},
+		s.queryContext(ctx),
 		queryexec.Options{},
 		s.sessionSourceText())
 }
@@ -146,7 +146,7 @@ func (s *Session) renderDocumentSet(
 		plans = append(plans, plan)
 	}
 	documents, err := docir.EvaluateSet(plans,
-		queryexec.Context{Index: idx, Resolver: resolver, Model: sem},
+		s.queryContext(ctx),
 		queryexec.Options{},
 		s.sessionSourceText())
 	if err != nil {

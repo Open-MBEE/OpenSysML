@@ -499,7 +499,7 @@ func runCLI() int {
 		case queryText != "" || len(evalExprs) > 0 || fromFormat != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-documents cannot be combined with -query, -eval or -from")
 			return 2
-		case modelChecks.requested():
+		case modelChecks.requested() && !modelChecks.instantiatesOnly():
 			return refuse(modelChecks,
 				"-render-documents writes documents out and decides nothing about the model; check it in its own run")
 		}
@@ -587,7 +587,7 @@ func runCLI() int {
 		case modelChecks.jsonOut && !modelChecks.checksOnly():
 			fmt.Fprintln(os.Stderr, "sysml: -render-document writes a document, not JSON; -json reports checks")
 			return 2
-		case modelChecks.requested():
+		case modelChecks.requested() && !modelChecks.instantiatesOnly():
 			return refuse(modelChecks,
 				"-render-document writes a document out and decides nothing about the model; check it in its own run")
 		case len(evalExprs) > 0 || fromFormat != "":

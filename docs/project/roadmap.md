@@ -1629,10 +1629,12 @@ Four query surfaces exist and are landed: the standard API `Query` over a projec
 (`internal/grpc`, the OSLC query grammar with its diagnostics — #798, #812), the native document
 query (`query def` with parameters, planned by `internal/core/queryplan` and run by
 `internal/core/queryexec`, from the CLI, the REPL and gRPC), `Evaluate`/`-eval`/`%eval in`, and the
-solver's `solve`. All four read the *model*: its elements, its declarations and the expressions
-over them. **None reaches the runtime** — the objects `%instantiate` and `-instantiate` create,
-their current state, or the trace `-trace` prints — and the documentation does not yet say which
-surface answers which question. That is the whole track.
+solver's `solve`. Three of the four read the *model*: its elements, its declarations and the
+expressions over them. The document query is the one that reaches the runtime: bound to an object
+`%instantiate`/`-instantiate` created (by name, `#id` or path), its operations walk the objects held
+and read their current values, and `Objects(type = T)` enumerates a session's population (Q2, first
+slice). None reaches the trace `-trace` prints, and the documentation does not yet say which
+surface answers which question. That is the rest of the track.
 
 ## Q1 — say which query is which
 
@@ -1646,9 +1648,25 @@ from re-explaining the boundary. Not started.
 `all Vehicle` (every object typed by `Vehicle` in the session), and the collection operations over
 it — `all Vehicle->select { in v; v.mass > 1000 [kg] }` — are the expression form of a runtime
 query. The runtime already keeps every object it materialized (`Context.instances`, with identity
-across rebuilds — `keepIdentitiesOf`); what is missing is the enumeration as a value, its static
-type (`T[0..*]`), and the REPL/CLI/gRPC binding so a document query parameter can be bound to it.
-Depends on a stable object representation, which #810/#836/#843 have been settling; goes after them.
+across rebuilds — `keepIdentitiesOf`).
+
+**Landed — the document-query form.** `queryexec.Value` has an object kind beside the element kind
+(`ObjectValue`, a `*runtime.Instance` under the path the session reaches it by), the executor takes an
+optional `*runtime.Context` and the session's held roots, and every operation that accepts an
+element row accepts an object row: `OwnedElements`/`Descendants`/`Ancestors` walk the objects held
+and holding, `WhereType` tests the object's declaration, type and classifiers, `WhereName` its path,
+`WhereFeature`/`Project`/`OrderBy`/`Column` read the values it holds now. `Objects(type = T)` is the
+population: every object held that is of `T`, each under its path, refused with a typed error
+outside a session. `%run-query`/`-run-query` bind a parameter to the object held under a usage's
+name (else the element), to `#id`, or to a path (`car.wheels[2]`); `-instantiate` is the one check
+flag a `-render-document` run takes, and a document parameter bound to a usage's name binds the
+object held under it. Objects render by path in Markdown, HTML (`data-object`, `sysml-object`) and
+PDF. `RelatedElements` stays over elements and refuses an object row.
+
+**Still missing:** the expression form (`all T` as a value with static type `T[0..*]`), the
+gRPC binding of an object as a query parameter, and predicates over verdicts — a `Verdicts` operation
+projecting the assertion, its carrier object and the verdict `ValidateObject` (A7) reaches — which
+is what "which requirements does *this* car violate" needs in a document.
 
 ## Q3 — state and event queries
 
@@ -2273,7 +2291,10 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   executes from its text; `interpolateLinear` does not.
 - **Track A** — A4, the state-space runner, unblocked by A5 and not started; A7, one verdict for
   every assertion an object carries, depending on nothing open and not started.
-- **Track Q** — Q3, unblocked by A5, still behind Q2's population; Q1 and Q2 unchanged.
+- **Track Q** — Q2's document-query form landed (object rows, `Objects(type = T)`, object bindings
+  in `%run-query`/`-run-query` and `-instantiate` with `-render-document`); its expression form
+  (`all T` as a value) and the verdict predicates remain. Q3, unblocked by A5, still behind Q2's
+  population; Q1 unchanged.
 - **Track E** — deferred to the release after the one that ships F and S; next once that release
   is tagged.
 - **Release follow-through** — R2, R3, R5 (account- and hardware-gated); R4's `.msi` is fixed on
@@ -2298,6 +2319,8 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 4. **Q2, then Q1** — runtime query bindings and `all T`, with the page that says which query is
    which. Depends on the object, state and trace representations being stable, which #810, #836
    and #843 (all landed) have settled; Q4 (parameter defaults, #849) landed independently ahead of it.
+   The document-query bindings and `Objects(type = T)` are landed; `all T` as a value and the
+   verdict predicates are what is left of Q2.
 5. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 9.

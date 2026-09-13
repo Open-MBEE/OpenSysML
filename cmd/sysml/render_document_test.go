@@ -210,3 +210,63 @@ func TestRenderDocumentFlagConflicts(t *testing.T) {
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-constraint", "C"),
 		2, "check it in its own run")
 }
+
+// objectDocumentModel declares a document whose table is bound to a part the
+// run may hold an object of, and one over the objects the run holds.
+const objectDocumentModel = objectQueryModel + `package Reports {
+	private import DocumentQueries::*;
+	private import Garage::*;
+
+	part def CarReport :> Document {
+		attribute redefines title = "Car Report";
+
+		part parts : Table {
+			attribute redefines caption = "Parts of the car";
+			calc rows : Parts {
+				in root = car;
+			}
+		}
+
+		part wheels : Table {
+			attribute redefines caption = "Wheels held";
+			calc rows : Wheels;
+		}
+	}
+}
+`
+
+// TestRenderDocumentOverObjects checks that -instantiate is the one check a
+// render run takes: a table bound to a part renders the object the run holds
+// under that name, by path, and Objects tables fill from what it holds.
+func TestRenderDocumentOverObjects(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, objectDocumentModel, "-render-document", "Reports::CarReport"),
+		0, "# Car Report", "*Parts of the car*", "| name | pressure |", "*Wheels held*")
+	declared := check(t, binary, objectDocumentModel, "-render-document", "Reports::CarReport")
+	if strings.Contains(declared.stdout, "wheels[1]") {
+		t.Errorf("a run holding no object rendered one:\n%s", declared.stdout)
+	}
+
+	got := check(t, binary, objectDocumentModel, "-instantiate", "Garage::car", "-render-document", "Reports::CarReport")
+	wantReport(t, got, 0,
+		"# Car Report",
+		"| name | pressure |",
+		`| wheels\[1\] | 30 |`,
+		`| wheels\[2\] | 30 |`,
+		"*Wheels held*",
+		"| pressure |",
+		"| 30 |")
+	if !strings.Contains(got.stderr, "Created instance") {
+		t.Errorf("the object created belongs on stderr:\n%s", got.stderr)
+	}
+
+	html := check(t, binary, objectDocumentModel, "-instantiate", "Garage::car", "-render-document", "Reports::CarReport", "-doc-form", "html")
+	wantReport(t, html, 0,
+		`<tr class="sysml-row" data-object="#2" data-element="Garage::Car::wheels" data-element-kind="partUsage">`)
+
+	wantReport(t, check(t, binary, objectDocumentModel, "-instantiate", "Garage::car", "-validate", "-render-document", "Reports::CarReport"),
+		2, "decides nothing about the model")
+	wantReport(t, check(t, binary, objectDocumentModel, "-instantiate", "Garage::NoSuchPart", "-render-document", "Reports::CarReport"),
+		2, "NoSuchPart")
+}

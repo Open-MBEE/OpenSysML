@@ -968,7 +968,12 @@ each row's element and each cell's values, an element carried as its qualified
 name plus its metamodel type (the `@type` mapping above). `RenderDocument`
 takes no bindings, because a document binds its queries' parameters in the
 model; it answers the rendered CommonMark Markdown, byte-identical to
-`-render-document` on the same model.
+`-render-document` on the same model. Both run over the model alone — a
+cached model holds no session objects, so a binding always names an element,
+and a query enumerating `Objects` is refused as `FAILED_PRECONDITION`; the
+objects `%instantiate`/`-instantiate` create are read by `%run-query`,
+`-run-query` and `-render-document` only
+([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)).
 
 Failures keep the engine's message, append the declaring document where the
 failure carries provenance, and map onto status codes by whose fault they are:

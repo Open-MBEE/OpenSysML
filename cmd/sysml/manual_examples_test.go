@@ -40,11 +40,57 @@ func TestManualCookbookModelAnalysesCleanly(t *testing.T) {
 	for _, query := range []string{
 		"Cookbook::MassTable root=Cookbook::telescope",
 		"Cookbook::MassBudget root=Cookbook::telescope",
+		"Cookbook::HeldParts root=Cookbook::telescope",
 	} {
 		cmd := exec.Command(binary, source, "-run-query", query)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("cookbook query %s: %v\n%s", query, err, output)
 		}
+	}
+}
+
+// TestManualCookbookObjectRecipes runs the cookbook's recipes over the objects
+// the run holds, and checks they print the rows the manual quotes.
+func TestManualCookbookObjectRecipes(t *testing.T) {
+	binary := buildCLI(t)
+	source := filepath.Join("..", "..", "docs", "manual", "examples", "cookbook.sysml")
+	for _, tc := range []struct {
+		query string
+		want  []string
+	}{
+		{"Cookbook::HeldParts root=telescope", []string{
+			"returned 3 rows",
+			"Row 1: Cookbook::telescope.primaryMirror (#2)",
+			`qualifiedName = "Cookbook::telescope.primaryMirror"`,
+			"Row 2: Cookbook::telescope.instrumentCluster (#4)",
+			"Row 3: Cookbook::telescope.mountControl (#7)",
+			"mass = 15.0",
+		}},
+		{"Cookbook::HeldSubsystems", []string{
+			"returned 3 rows",
+			"Row 1: Cookbook::telescope.mountControl (#7)",
+			"Row 2: Cookbook::telescope.primaryMirror (#2)",
+			"Row 3: Cookbook::telescope.instrumentCluster (#4)",
+		}},
+	} {
+		cmd := exec.Command(binary, source, "-instantiate", "Cookbook::telescope", "-run-query", tc.query)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("cookbook query %s: %v\n%s", tc.query, err, output)
+		}
+		for _, want := range tc.want {
+			if !strings.Contains(string(output), want) {
+				t.Errorf("cookbook query %s output is missing %q:\n%s", tc.query, want, output)
+			}
+		}
+	}
+	cmd := exec.Command(binary, source, "-run-query", "Cookbook::HeldSubsystems")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("cookbook query without objects: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "returned 0 rows") {
+		t.Errorf("Objects over a run holding nothing should return no rows:\n%s", output)
 	}
 }
 

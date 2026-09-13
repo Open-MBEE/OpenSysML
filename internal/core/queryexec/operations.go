@@ -15,20 +15,70 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
+// rowKey identifies a row for traversal: an element by identity, an object by
+// its session identity.
+type rowKey struct {
+	element symbols.ElementKey
+	object  int64
+}
+
+func keyOfRow(row Value) rowKey {
+	if inst, _, ok := row.Object(); ok {
+		return rowKey{object: inst.ID}
+	}
+	sym, _ := row.Element()
+	return rowKey{element: symbols.KeyOf(sym)}
+}
+
+// ownedRows returns the rows a row owns: the members of an element's scope, or
+// the objects an object's features hold.
+func (e *executor) ownedRows(expression queryplan.Expression, row Value) ([]Value, error) {
+	if _, _, ok := row.Object(); ok {
+		return e.heldObjects(expression, row)
+	}
+	sym, _ := row.Element()
+	if sym.Scope == nil {
+		return nil, nil
+	}
+	members := sym.Scope.AllMembers()
+	out := make([]Value, 0, len(members))
+	for _, member := range members {
+		out = append(out, ElementValue(member))
+	}
+	return out, nil
+}
+
+// ownerRow returns the row owning a row: the owner of an element's scope, or the
+// object holding an object.
+func (e *executor) ownerRow(row Value) (Value, bool) {
+	if _, _, ok := row.Object(); ok {
+		return e.objectOwner(row)
+	}
+	sym, _ := row.Element()
+	if sym.OwnerScope == nil {
+		return Value{}, false
+	}
+	owner := sym.OwnerScope.Owner()
+	if owner == nil {
+		return Value{}, false
+	}
+	return ElementValue(owner), true
+}
+
 func (e *executor) evaluateOwned(expression queryplan.Expression) (sequence, error) {
-	source, err := e.elementArgument(expression, "source")
+	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
 	var result sequence
-	seen := make(map[symbols.ElementKey]struct{})
+	seen := make(map[rowKey]struct{})
 	for _, value := range source.values {
-		sym, _ := value.Element()
-		if sym.Scope == nil {
-			continue
+		owned, err := e.ownedRows(expression, value)
+		if err != nil {
+			return sequence{}, err
 		}
-		for _, member := range sym.Scope.AllMembers() {
-			key := symbols.KeyOf(member)
+		for _, member := range owned {
+			key := keyOfRow(member)
 			if _, duplicate := seen[key]; duplicate {
 				continue
 			}
@@ -36,14 +86,14 @@ func (e *executor) evaluateOwned(expression queryplan.Expression) (sequence, err
 				return sequence{}, e.budgetError(expression)
 			}
 			seen[key] = struct{}{}
-			result.values = append(result.values, ElementValue(member))
+			result.values = append(result.values, member)
 		}
 	}
 	return result, nil
 }
 
 func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequence, error) {
-	source, err := e.elementArgument(expression, "source")
+	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -52,26 +102,28 @@ func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequenc
 		return sequence{}, err
 	}
 	type pending struct {
-		sym   *symbols.Symbol
+		row   Value
 		depth int64
 	}
 	queue := make([]pending, 0, len(source.values))
-	seen := make(map[symbols.ElementKey]struct{})
+	seen := make(map[rowKey]struct{})
 	for _, value := range source.values {
-		sym, _ := value.Element()
-		key := symbols.KeyOf(sym)
-		seen[key] = struct{}{}
-		queue = append(queue, pending{sym: sym})
+		seen[keyOfRow(value)] = struct{}{}
+		queue = append(queue, pending{row: value})
 	}
 	var result sequence
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= maxDepth || next.sym.Scope == nil {
+		if next.depth >= maxDepth {
 			continue
 		}
-		for _, member := range next.sym.Scope.AllMembers() {
-			key := symbols.KeyOf(member)
+		owned, err := e.ownedRows(expression, next.row)
+		if err != nil {
+			return sequence{}, err
+		}
+		for _, member := range owned {
+			key := keyOfRow(member)
 			if _, duplicate := seen[key]; duplicate {
 				continue
 			}
@@ -79,15 +131,15 @@ func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequenc
 				return sequence{}, e.budgetError(expression)
 			}
 			seen[key] = struct{}{}
-			result.values = append(result.values, ElementValue(member))
-			queue = append(queue, pending{sym: member, depth: next.depth + 1})
+			result.values = append(result.values, member)
+			queue = append(queue, pending{row: member, depth: next.depth + 1})
 		}
 	}
 	return result, nil
 }
 
 func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence, error) {
-	source, err := e.elementArgument(expression, "source")
+	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -96,28 +148,27 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 		return sequence{}, err
 	}
 	type pending struct {
-		sym   *symbols.Symbol
+		row   Value
 		depth int64
 	}
 	queue := make([]pending, 0, len(source.values))
-	seen := make(map[symbols.ElementKey]struct{})
+	seen := make(map[rowKey]struct{})
 	for _, value := range source.values {
-		sym, _ := value.Element()
-		seen[symbols.KeyOf(sym)] = struct{}{}
-		queue = append(queue, pending{sym: sym})
+		seen[keyOfRow(value)] = struct{}{}
+		queue = append(queue, pending{row: value})
 	}
 	var result sequence
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= maxDepth || next.sym.OwnerScope == nil {
+		if next.depth >= maxDepth {
 			continue
 		}
-		owner := next.sym.OwnerScope.Owner()
-		if owner == nil {
+		owner, ok := e.ownerRow(next.row)
+		if !ok {
 			continue
 		}
-		key := symbols.KeyOf(owner)
+		key := keyOfRow(owner)
 		if _, duplicate := seen[key]; duplicate {
 			continue
 		}
@@ -125,14 +176,14 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 			return sequence{}, e.budgetError(expression)
 		}
 		seen[key] = struct{}{}
-		result.values = append(result.values, ElementValue(owner))
-		queue = append(queue, pending{sym: owner, depth: next.depth + 1})
+		result.values = append(result.values, owner)
+		queue = append(queue, pending{row: owner, depth: next.depth + 1})
 	}
 	return result, nil
 }
 
 func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence, error) {
-	source, err := e.elementArgument(expression, "source")
+	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -147,6 +198,12 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 	}
 	result := filtered(source)
 	for i, value := range source.values {
+		if _, _, isObject := value.Object(); isObject {
+			if e.objectIsA(value, typeName, target) {
+				appendSelected(&result, source, i)
+			}
+			continue
+		}
 		sym, _ := value.Element()
 		matches := query.MetamodelTypeNameOf(sym) == typeName
 		if target != nil {
@@ -172,7 +229,7 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 }
 
 func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (sequence, error) {
-	source, err := e.elementArgument(expression, "source")
+	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -192,7 +249,7 @@ func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (seque
 	}
 	result := filtered(source)
 	for i, value := range source.values {
-		sym, _ := value.Element()
+		sym := value.Declaration()
 		for _, annotation := range e.context.Model.AnnotationFactsOf(sym) {
 			types := e.context.Index.LookupQualified(annotation.TypeFQN)
 			matches := false
@@ -212,7 +269,7 @@ func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (seque
 }
 
 func (e *executor) evaluateWhereName(expression queryplan.Expression) (sequence, error) {
-	source, err := e.elementArgument(expression, "source")
+	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -232,12 +289,15 @@ func (e *executor) evaluateWhereName(expression queryplan.Expression) (sequence,
 	}
 	result := filtered(source)
 	for i, value := range source.values {
-		sym, _ := value.Element()
-		names, _ := e.reader.Values(sym, query.PropertyName)
+		names, _, nameErr := e.propertyValues(value, query.PropertyName)
+		if nameErr != nil {
+			return sequence{}, nameErr
+		}
 		if len(names) == 0 {
 			continue
 		}
-		match, compareErr := compareText(names[0], operator, expected)
+		name, _ := names[0].String()
+		match, compareErr := compareText(name, operator, expected)
 		if compareErr != nil {
 			if compareErr != errComparison {
 				return sequence{}, e.invalidArgument(expression, "value", expected)
@@ -252,7 +312,7 @@ func (e *executor) evaluateWhereName(expression queryplan.Expression) (sequence,
 }
 
 func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequence, error) {
-	source, err := e.elementArgument(expression, "source")
+	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -280,10 +340,9 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	result := filtered(source)
 	known := false
 	for i, value := range source.values {
-		sym, _ := value.Element()
-		values, present, valueErr := e.propertyValues(sym, property)
+		values, present, valueErr := e.propertyValues(value, property)
 		if valueErr != nil {
-			return sequence{}, e.unevaluable(expression, property, sym, valueErr)
+			return sequence{}, e.unevaluable(expression, property, value, valueErr)
 		}
 		known = known || present
 		for _, actual := range values {
@@ -307,7 +366,7 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 }
 
 func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, error) {
-	source, err := e.elementArgument(expression, "source")
+	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -358,7 +417,6 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 	known := false
 	var firstKey Value
 	for i, value := range source.values {
-		sym, _ := value.Element()
 		var values []Value
 		var present bool
 		if columnIndex >= 0 && i < len(source.cells) {
@@ -366,9 +424,9 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 			present = true
 		} else {
 			var valueErr error
-			values, present, valueErr = e.propertyValues(sym, property)
+			values, present, valueErr = e.propertyValues(value, property)
 			if valueErr != nil {
-				return sequence{}, e.unevaluable(expression, property, sym, valueErr)
+				return sequence{}, e.unevaluable(expression, property, value, valueErr)
 			}
 		}
 		known = known || present
@@ -379,14 +437,14 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		switch len(values) {
 		case 0:
 			if missing == "error" {
-				return sequence{}, e.featureError(expression, property, sym)
+				return sequence{}, e.featureError(expression, property, value)
 			}
 		case 1:
 			items[i].key = values[0]
 			items[i].set = true
 		default:
 			if multiple == "error" {
-				return sequence{}, e.featureError(expression, property, sym)
+				return sequence{}, e.featureError(expression, property, value)
 			}
 			index := 0
 			if multiple == "last" {
@@ -442,7 +500,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 }
 
 func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, error) {
-	source, err := e.elementArgument(expression, "source")
+	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -488,12 +546,11 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 	}
 	tracker := newPropertyTracker()
 	for row, value := range source.values {
-		sym, _ := value.Element()
 		result.cells[row] = make([]Cell, total)
 		for column, property := range properties {
-			values, present, valueErr := e.propertyValues(sym, property)
+			values, present, valueErr := e.propertyValues(value, property)
 			if valueErr != nil {
-				return sequence{}, e.unevaluable(expression, property, sym, valueErr)
+				return sequence{}, e.unevaluable(expression, property, value, valueErr)
 			}
 			known[column] = known[column] || present
 			result.cells[row][column] = Cell{
@@ -502,7 +559,7 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 			}
 		}
 		for i, column := range computed {
-			values, cellErr := e.evaluateColumnCell(column, sym, tracker)
+			values, cellErr := e.evaluateColumnCell(column, value, tracker)
 			if cellErr != nil {
 				return sequence{}, cellErr
 			}
@@ -525,7 +582,13 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 	return result, nil
 }
 
-func (e *executor) propertyValues(sym *symbols.Symbol, property string) ([]Value, bool, error) {
+// propertyValues reads a property of a row: of the session for an object row,
+// of the model for an element row.
+func (e *executor) propertyValues(row Value, property string) ([]Value, bool, error) {
+	if _, _, isObject := row.Object(); isObject {
+		return e.objectPropertyValues(row, property)
+	}
+	sym, _ := row.Element()
 	if isQueryableProperty(property) {
 		values, present := e.reader.Values(sym, property)
 		if !present {
@@ -557,7 +620,7 @@ func (e *executor) declaredFeatureValues(sym *symbols.Symbol, property string) (
 				derived, err := e.derivedFeatureValues(sym, property)
 				return derived, true, err
 			}
-			return nil, true, e.featureError(queryplan.Expression{}, property, sym)
+			return nil, true, e.featureError(queryplan.Expression{}, property, ElementValue(sym))
 		}
 		result = append(result, converted)
 	}
@@ -957,12 +1020,12 @@ func (e *executor) invalidOrder(expression queryplan.Expression, property string
 	return err
 }
 
-func (e *executor) featureError(expression queryplan.Expression, property string, sym *symbols.Symbol) error {
-	return e.unevaluable(expression, property, sym, nil)
+func (e *executor) featureError(expression queryplan.Expression, property string, row Value) error {
+	return e.unevaluable(expression, property, row, nil)
 }
 
 // unevaluable is featureError carrying the evaluator's reason, when one is known.
-func (e *executor) unevaluable(expression queryplan.Expression, property string, sym *symbols.Symbol, cause error) error {
+func (e *executor) unevaluable(expression queryplan.Expression, property string, row Value, cause error) error {
 	var inner *Error
 	if errors.As(cause, &inner) && inner.Kind == ErrorUnevaluableFeature {
 		cause = inner.Cause
@@ -972,8 +1035,18 @@ func (e *executor) unevaluable(expression queryplan.Expression, property string,
 		Query:     e.definition.Name(),
 		Operation: expression.Operation(),
 		Property:  property,
-		Target:    symbols.FQNOf(sym),
+		Target:    rowTarget(row),
 		Origin:    expression.Origin(),
 		Cause:     cause,
 	}
+}
+
+// rowTarget names a row in an error: an element by qualified name, an object
+// by the label the session reaches it by.
+func rowTarget(row Value) string {
+	if _, label, ok := row.Object(); ok {
+		return label
+	}
+	sym, _ := row.Element()
+	return symbols.FQNOf(sym)
 }
