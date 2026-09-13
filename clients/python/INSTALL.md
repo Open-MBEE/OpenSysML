@@ -6,9 +6,9 @@
 pip install opensysml
 ```
 
-Published from CircleCI on a `opensysml-v*` tag; the first such release creates the
-project on PyPI, so until it is cut this installs nothing and the source install
-below is the only route. See
+Published to [PyPI](https://pypi.org/project/opensysml/) from CircleCI on an
+`opensysml-v*` tag, independently of the core `v*` releases: the package downloads the
+`sysml-grpc` service it needs at runtime, so a newer core release needs no new package. See
 [docs/project/releasing.md](../../docs/project/releasing.md#releasing-opensysml-to-pypi).
 
 ## From source
@@ -55,10 +55,11 @@ yourself, set `OPENSYSML_SERVICE=host:port`.
 clients/python/
 ├── opensysml/          # Package source
 │   ├── *.py          # Core modules (connection, model, symbol, etc.)
-│   └── proto/        # Generated protobuf stubs
+│   ├── proto/        # Generated protobuf stubs
+│   └── release-digests.json  # Pinned service digests, synced from clients/
 ├── tests/            # Test suite
-├── setup.py          # Package metadata
-├── pyproject.toml    # Build configuration
+├── scripts/          # Release helpers (version check, latency measurement)
+├── pyproject.toml    # Package metadata and build configuration
 ├── README.md         # Package documentation
 └── INSTALL.md        # This file
 ```

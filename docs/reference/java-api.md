@@ -97,6 +97,7 @@ which JDK 17 offers only as a preview:
 String rendered;
 if (value instanceof Value.IntegerValue v)              rendered = Long.toString(v.value());
 else if (value instanceof Value.RealValue v)            rendered = Double.toString(v.value());
+else if (value instanceof Value.ComplexValue v)         rendered = v.real() + " + " + v.imaginary() + "i";  // one value
 else if (value instanceof Value.BooleanValue v)         rendered = Boolean.toString(v.value());
 else if (value instanceof Value.StringValue v)          rendered = v.value();
 else if (value instanceof Value.QuantityValue v)        rendered = v.quantity().toString();
@@ -105,9 +106,14 @@ else if (value instanceof Value.VectorValue v)          rendered = v.components(
 else if (value instanceof Value.VectorQuantityValue v)  rendered = v.components().toString();   // one Quantity each
 else if (value instanceof Value.MeasurementRefValue v)  rendered = v.unit();                    // a bare unit and its reduction
 else if (value instanceof Value.FunctionValue v)        rendered = v.calcId();                  // a calc held as a value; selfId() when read off an object
-else if (value instanceof Value.EnumerationValue v)     rendered = v.literal().name();
+else if (value instanceof Value.SetValue v)             rendered = v.elements().toString();     // each member once, unordered
+else if (value instanceof Value.TensorQuantityValue v)  rendered = v.dimensions() + v.components().toString();  // any rank, row-major
+else if (value instanceof Value.MetaobjectValue v)      rendered = v.elementId();               // x meta KerML::Feature; metaclassId() is the element's own
+else if (value instanceof Value.EnumerationValue v)     rendered = v.literal().name();          // literal().value() is the scalar a `high = 3` literal carries
 else if (value instanceof Value.InstanceReference v)    rendered = "instance " + v.instanceId();
 else if (value instanceof Value.Sequence v)             rendered = v.elements().toString();
+else if (value instanceof Value.UndeterminedValue v)    rendered = "<undetermined>: " + v.reason();  // left open by the model
+else if (value instanceof Value.InfinityValue v)        rendered = "*";       // unbounded
 else if (value instanceof Value.NullValue v)            rendered = "null";    // evaluated, no value
 else                                                    rendered = "unset";   // declared, never given one
 ```
