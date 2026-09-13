@@ -183,7 +183,7 @@
         "version": { "type": "string", "minLength": 1 },
         "protocol": { "type": "integer", "minimum": 1 },
         "answers": { "type": "array", "items": { "$ref": "#/$defs/questionKind" }, "minItems": 1 },
-        "subjects": { "type": "array", "items": { "type": "string" } },
+        "subjects": { "description": "Declaration kinds the engine answers about, the notation's keyword without def: action, state, calc, ...", "type": "array", "items": { "type": "string" } },
         "bounds": { "type": "array", "items": { "$ref": "#/$defs/boundName" } },
         "witness": { "$ref": "#/$defs/witnessKind" },
         "model": { "type": "array", "items": { "$ref": "#/$defs/modelForm" } },
@@ -243,7 +243,7 @@
       "properties": {
         "kind": { "$ref": "#/$defs/questionKind" },
         "subject": { "description": "The qualified name as the surface spelled it.", "type": "string" },
-        "subjectKind": { "type": "string" },
+        "subjectKind": { "description": "The subject's declaration kind as a manifest's subjects spells it; absent when the model does not declare the subject once.", "type": "string" },
         "schedule": { "description": "The scheduling policy as -schedule spells it.", "type": "string" },
         "free": { "type": "array", "items": { "enum": ["schedule", "inputs"] } },
         "condition": { "$ref": "#/$defs/condition" },

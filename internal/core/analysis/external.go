@@ -75,14 +75,17 @@ func (e externalEngine) Covers(model *Model, q Question) Coverage {
 	if !e.Describe().Answers(q.Kind) {
 		return refused(&NotAskedError{Engine: e.Name(), Kind: q.Kind})
 	}
-	if len(e.entry.Subjects) > 0 && !containsString(e.entry.Subjects, q.Subject) {
-		return refused(&SubjectError{Engine: e.Name(), Subject: q.Subject, Subjects: e.entry.Subjects})
-	}
 	if err := e.askable(q); err != nil {
 		return refused(err)
 	}
 	if _, err := model.semantics(); err != nil {
 		return refused(&NoRuntimeError{Engine: e.Name()})
+	}
+	if len(e.entry.Subjects) > 0 {
+		family := subjectFamily(model, q.Subject)
+		if !containsString(e.entry.Subjects, family) {
+			return refused(&SubjectError{Engine: e.Name(), Subject: q.Subject, Family: family, Subjects: e.entry.Subjects})
+		}
 	}
 	params, err := e.coversParams(model, q)
 	if err != nil {
@@ -213,16 +216,21 @@ func (e externalEngine) request(ctx context.Context, model *Model, method string
 // ErrSubject is the typed error for a question about a subject the entry does not name.
 var ErrSubject = errors.New("engine does not answer for the subject")
 
-// SubjectError reports a question about a subject outside the entry's subjects.
+// SubjectError reports a question about a subject whose declaration kind is outside the
+// entry's subjects; Family is the kind found, empty for a subject the model does not declare.
 type SubjectError struct {
 	Engine   string
 	Subject  string
+	Family   string
 	Subjects []string
 }
 
-// Error names the engine, the subject and the ones it answers for.
+// Error names the engine, the subject with its kind, and the kinds the engine answers for.
 func (e *SubjectError) Error() string {
-	return fmt.Sprintf("engine %q answers for %v, not %s", e.Engine, e.Subjects, e.Subject)
+	if e.Family == "" {
+		return fmt.Sprintf("engine %q answers for %s, and %s is not a declaration of the model", e.Engine, spellList(e.Subjects), e.Subject)
+	}
+	return fmt.Sprintf("engine %q answers for %s, not the %s %s", e.Engine, spellList(e.Subjects), e.Family, e.Subject)
 }
 
 // Is matches ErrSubject.

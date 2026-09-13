@@ -85,9 +85,7 @@ func (e externalEngine) wireQuestion(model *Model, q Question) (enginewire.Quest
 		Schedule: q.Schedule.String(),
 		Free:     freeNames(q.Free),
 	}
-	if subject := subjectOf(model, q.Subject); subject != nil {
-		out.SubjectKind = subject.Kind.String()
-	}
+	out.SubjectKind = subjectFamily(model, q.Subject)
 	switch q.Kind {
 	case Holds, Outcomes:
 		if q.Check != nil {
@@ -144,6 +142,15 @@ func freeNames(f Freedom) []string {
 		names = append(names, "inputs")
 	}
 	return names
+}
+
+// subjectFamily is the subject's declaration kind as a manifest's subjects spells it
+// (action, state, calc, …), empty for a subject the model does not declare once.
+func subjectFamily(model *Model, subject string) string {
+	if sym := subjectOf(model, subject); sym != nil {
+		return sym.Kind.Family()
+	}
+	return ""
 }
 
 // subjectOf is the one symbol the subject's qualified name resolves to in the model, nil

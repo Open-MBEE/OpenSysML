@@ -85,8 +85,9 @@ type EngineEntry struct {
 	Module string
 	// Protocol is the version of the message set the engine speaks.
 	Protocol int
-	// Answers, Subjects, Bounds and Witness are the engine's Description; Subjects empty
-	// means any subject.
+	// Answers, Subjects, Bounds and Witness are the engine's Description. Subjects are
+	// declaration kinds as the notation spells them without def (action, state, calc);
+	// empty means any subject.
 	Answers  []Kind
 	Subjects []string
 	Bounds   []string

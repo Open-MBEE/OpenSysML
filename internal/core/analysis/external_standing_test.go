@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -422,6 +423,34 @@ func sameAnswer(a, b Result) bool {
 	return a.Standing() == b.Standing() && a.Claim == b.Claim && a.Bounds.String() == b.Bounds.String() &&
 		fmt.Sprint(a.Witness) == fmt.Sprint(b.Witness) && fmt.Sprint(a.Contrast) == fmt.Sprint(b.Contrast) &&
 		fmt.Sprint(a.Executions) == fmt.Sprint(b.Executions) && len(a.Values) == len(b.Values)
+}
+
+// A manifest's subjects are declaration kinds: an engine for actions answers about
+// `test::race`, an action, and refuses a part or a name the model does not declare, the
+// refusal naming the kind found.
+func TestExternalSubjectsAreDeclarationKinds(t *testing.T) {
+	f := parseFixture(t)
+	race := f.checked(t, "race")
+	t.Setenv(engineStandinDescribe, `{"name":"standin","version":"1.0.0","protocol":1,"answers":["holds","sensitive","outcomes","satisfiable"],"subjects":["action"]}`)
+	r := standinRegistryEntry(t, `{"claim":"violated","strength":"witnessed","witness":{"schedules":`+schedules(raceEndsThree)+`}}`, WitnessSchedule,
+		func(e *EngineEntry) { e.Subjects = []string{"action"} })
+	ask := &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{race.x(2)}}
+	if result := standinAnswers(t, r, f.building(), checkQuestion(t, f, Holds, ask), Budget{}); result.Strength != Witnessed {
+		t.Fatalf("standing %s, want witnessed on the action", result.Standing())
+	}
+	for subject, want := range map[string]string{
+		"test::Tank":  `answers for ["action"], not the part test::Tank`,
+		"test::stray": `answers for ["action"], and test::stray is not a declaration of the model`,
+	} {
+		plan, err := r.AnswerWith(context.Background(), f.building(), questionOf(t, subject, Holds, ask), Budget{}, Only("standin"))
+		if err != nil {
+			t.Fatalf("%s: answer: %v", subject, err)
+		}
+		var refusal *SubjectError
+		if refused := plan.Refused(); refused == nil || !errors.As(refused, &refusal) || !strings.Contains(refused.Error(), want) {
+			t.Fatalf("%s: refused %v, want a SubjectError %q", subject, refused, want)
+		}
+	}
 }
 
 // Outside a plan, a surface's model holds no session: the request is the typed refusal.

@@ -114,7 +114,8 @@ type Question struct {
 	Kind string `json:"kind"`
 	// Subject is the element asked about, as the surface spelled it.
 	Subject string `json:"subject"`
-	// SubjectKind is the subject's declaration kind (action, state, calc, case, …) when known.
+	// SubjectKind is the subject's declaration kind as a manifest's subjects spells it
+	// (action, state, calc, …), absent when the model does not declare the subject once.
 	SubjectKind string `json:"subjectKind,omitempty"`
 	// Schedule is the scheduling policy the question states, as -schedule spells it.
 	Schedule string `json:"schedule"`

@@ -181,6 +181,14 @@ func (k SymbolKind) String() string {
 	return "unknown"
 }
 
+// Family names the kind without its def/usage distinction, in the notation's words:
+// SymbolActionDef and SymbolActionUsage are both "action", SymbolUseCaseDef "use case".
+func (k SymbolKind) Family() string {
+	name := k.String()
+	name = strings.TrimSuffix(strings.TrimSuffix(name, "Def"), "Usage")
+	return spacedWords(name)
+}
+
 // IsFeature reports whether k classifies a KerML Feature (KerML 1.0 §8.3.3): a
 // usage of any kind, a connector end or a multiplicity, never a type or a namespace.
 func (k SymbolKind) IsFeature() bool {
