@@ -302,10 +302,14 @@ func (s *Session) checkAction(name string, performer []string) Verdict {
 		policy = runtime.DefaultExploreSchedulePolicy
 	}
 	budget := s.checkBudget(policy, kind)
-	// The check engine alone searches under its own defaults; beside an exploration,
-	// the one figure is the exploration policy's unless a check bound sets it.
+	// The check engine alone searches under its own defaults, the smt engine alone
+	// unrolls to its own; beside an exploration, the one figure is the exploration
+	// policy's unless a check bound sets it.
 	if s.checkOnly() && !explores && s.checker.depth <= 0 {
 		budget.Depth = analysis.DefaultCheckDepth
+	}
+	if s.symbolic() && !explores && s.checker.depth <= 0 {
+		budget.Depth = 0
 	}
 	if s.checkOnly() && !explores && s.checker.states <= 0 {
 		budget.Runs = analysis.DefaultCheckStates

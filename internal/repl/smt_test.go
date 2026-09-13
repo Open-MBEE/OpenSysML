@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/smt"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
 
@@ -46,21 +47,26 @@ func symbolicSession(t *testing.T, source string) *Session {
 	return loadSource(t, source)
 }
 
-// Under %engine smt the property is proved on the inputs as written; once
-// %check-input releases the bound one, it is decided over every value of it,
-// the witness names the value the solver chose and the file opens with it.
-// Under %engine check the same settings are refused, and without the release
-// the same question holds on the inputs as written: each report says why.
+// Under %engine smt the property is proved on the inputs as written, unrolled
+// to the engine's own move bound; once %check-input releases the bound one, it
+// is decided over every value of it, the witness names the value the solver
+// chose and the file opens with it. Under %engine check the same settings are
+// refused, and without the release the same question holds on the inputs as
+// written: each report says why.
 func TestEngineSMTRangesOverAReleasedInput(t *testing.T) {
 	s := symbolicSession(t, gateSource)
 	dir := t.TempDir()
 	wants(t, run(t, s, "%engine smt"), "engine: smt")
 	run(t, s, "%check-property Gate::open::positive")
 	run(t, s, "%check-witness "+dir)
-	wantVerdict(t, s.RunAction("Gate::open"), VerdictHolds,
+	proved := s.RunAction("Gate::open")
+	wantVerdict(t, proved, VerdictHolds,
 		"✓ Action Gate::open: holds",
 		"inputs: n = 1, limit = 5",
 		"standing: holds (proved over schedules: inputs as written)")
+	if moves := planBound(t, proved, "moves"); moves.Limit != smt.DefaultMoves {
+		t.Errorf("moves bound under %%engine smt alone = %d, want the engine's default %d", moves.Limit, smt.DefaultMoves)
+	}
 
 	run(t, s, "%check-input limit")
 	witness := filepath.Join(dir, "Gate.open.violation-1.witness")
@@ -123,6 +129,26 @@ func TestEngineAllShowsCheckRefusingFreeInputs(t *testing.T) {
 	if !refused || !answered {
 		t.Errorf("plan steps %+v, want check refusing the free inputs and smt answering", v.Plan.Steps)
 	}
+}
+
+// planBound is the named bound of the one result the verdict's plan answered with.
+func planBound(t *testing.T, v Verdict, name string) analysis.Bound {
+	t.Helper()
+	if v.Plan == nil {
+		t.Fatalf("verdict carries no plan:\n%s", strings.Join(v.Lines, "\n"))
+	}
+	for _, step := range v.Plan.Steps {
+		if step.Result == nil {
+			continue
+		}
+		for _, b := range step.Result.Bounds {
+			if b.Name == name {
+				return b
+			}
+		}
+	}
+	t.Fatalf("no %s bound in the plan %+v", name, v.Plan.Steps)
+	return analysis.Bound{}
 }
 
 // A released name that is not a feature of the action is refused naming it.
