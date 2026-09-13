@@ -354,7 +354,7 @@ func TestDeclaredIDOverridesTheNormativeID(t *testing.T) {
 func TestLibraryCatalogNamesEveryNormativeIDAndIsSharedByOverlays(t *testing.T) {
 	_, idx := buildTable(t, `package Use;`)
 	catalog := identity.LibraryCatalog(idx)
-	if other := identity.LibraryCatalog(libs.NewModelIndex()); other != catalog {
+	if identity.LibraryCatalog(libs.NewModelIndex()) != catalog {
 		t.Fatal("two overlays over one library base should share one catalog")
 	}
 	el, ok := catalog.Element("14c0aa22-5489-59b5-b438-ded26e83ba31")

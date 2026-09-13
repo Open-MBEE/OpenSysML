@@ -278,11 +278,11 @@ func (in Input) typeText() string {
 	return " : " + in.Type
 }
 
-func (in Input) domainText(open, close string) string {
+func (in Input) domainText(before, after string) string {
 	if in.Domain == "" {
 		return ""
 	}
-	return open + in.Domain + close
+	return before + in.Domain + after
 }
 
 // Evaluation is one thing the question asked for, as the engine established it: exactly
