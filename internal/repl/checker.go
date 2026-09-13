@@ -13,7 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// checkSettings is what the check engine is asked beside the action: the features
+// checkSettings is what the check engine is asked beside the behaviors: the features
 // that may not diverge, the properties every state must satisfy, where witnesses go.
 type checkSettings struct {
 	diverge    []string
@@ -23,6 +23,8 @@ type checkSettings struct {
 	// the plan's clock, 0 for none.
 	depth, states int
 	timeout       time.Duration
+	// checked is the last invocation searched, for %advance to search again.
+	checked *checkedInvocation
 }
 
 // deadline is the plan's clock as the timeout sets it, zero for none.
@@ -34,13 +36,13 @@ func (c checkSettings) deadline() time.Time {
 }
 
 // given reports whether any check setting was made, which under %engine all puts
-// an action to the check engine beside the others.
+// a behavior to the check engine beside the others.
 func (c checkSettings) given() bool {
 	return len(c.diverge) > 0 || len(c.properties) > 0 || c.witnessDir != "" ||
 		c.depth > 0 || c.states > 0 || c.timeout > 0
 }
 
-// checking reports whether the session's selection puts an action to the check
+// checking reports whether the session's selection puts a behavior to the check
 // engine, which searches its schedules rather than stepping one run: under
 // %engine check always, under %engine all once a check setting is made.
 func (s *Session) checking() bool {
@@ -202,7 +204,7 @@ func settingText(values []string, empty string) string {
 
 // doReplay installs the schedule a witness file fixes, so the next %action or
 // %state steps the run it records under %step and %continue; under the check
-// engine %action would search instead, so the hint names the selection to leave.
+// engine they would search instead, so the hint names the selection to leave.
 func (s *Session) doReplay(args []string) []string {
 	if len(args) != 1 {
 		return []string{"usage: %replay <witness>"}
@@ -216,7 +218,7 @@ func (s *Session) doReplay(args []string) []string {
 	}
 	out := []string{fmt.Sprintf("schedule: %s", s.schedule), "Use %action or %state to start the run the witness records, then %step or %continue"}
 	if s.checking() {
-		out = append(out, fmt.Sprintf("Under %%engine %s, %%action searches every schedule; select %%engine auto to step the one the witness records", s.engine))
+		out = append(out, fmt.Sprintf("Under %%engine %s, %%action and %%state search every schedule; select %%engine auto to step the one the witness records", s.engine))
 	}
 	return out
 }
@@ -224,14 +226,38 @@ func (s *Session) doReplay(args []string) []string {
 // checkAction searches every schedule of the action for a violation, a deadlock,
 // a failure or a divergence of the selected features, witnesses replayed and written.
 func (s *Session) checkAction(name string, performer []string) Verdict {
+	return s.checkInvocation([]Behavior{{Name: name, Performer: performer}}, nil, nil)
+}
+
+// checkInvocation searches every schedule of the behaviors named, started on one
+// clock and, with a horizon, run up to it: a violation, a deadlock, a failure or a
+// divergence of the selected features is witnessed, replayed and written. The
+// invocation is remembered so %advance can search it again up to a horizon.
+func (s *Session) checkInvocation(actions, states []Behavior, horizon *float64) Verdict {
+	return s.checkInvocations(actions, states, horizon)[0]
+}
+
+// checkInvocations is checkInvocation reporting every behavior that did not
+// resolve, one verdict each, where one verdict answers for the searched invocation.
+func (s *Session) checkInvocations(actions, states []Behavior, horizon *float64) []Verdict {
+	inv, unresolved := s.resolveInvocation(actions, states, horizon)
+	if inv == nil {
+		if len(unresolved) == 0 {
+			return []Verdict{unresolvedVerdict("", "no behavior to check; name an action or a state machine")}
+		}
+		return unresolved
+	}
+	return []Verdict{s.checkResolved(inv, actions, states)}
+}
+
+// checkResolved puts the resolved invocation to the check engine.
+func (s *Session) checkResolved(inv *freshInvocation, actions, states []Behavior) Verdict {
+	s.checker.checked = &checkedInvocation{actions: actions, states: states}
 	properties, err := s.checkProperties()
 	if err != nil {
-		return unresolvedVerdict(name, err.Error())
+		return unresolvedVerdict(inv.subject(), err.Error())
 	}
-	ask, run, err := s.checkAsk(name, performer)
-	if err != nil {
-		return unresolvedVerdict(name, err.Error())
-	}
+	ask, run := inv.ask(s.checker)
 	ask.Properties = properties
 	kind := analysis.Outcomes
 	if len(properties) > 0 {
@@ -250,43 +276,22 @@ func (s *Session) checkAction(name string, performer []string) Verdict {
 	if s.checkOnly() && !explores && s.checker.states <= 0 {
 		budget.Runs = analysis.DefaultCheckStates
 	}
-	return s.checkVerdict(name, policy, kind, ask, run, budget)
+	return s.checkVerdict(inv, policy, kind, ask, run, budget)
 }
 
-// checkAsk is the action's schedules as a question: how one run starts the action
-// on its performer, and what the session has a check compare and write.
-func (s *Session) checkAsk(name string, performer []string) (*analysis.CheckAsk, analysis.Linearization, error) {
-	sym, err := s.exploredAction(name)
-	if err != nil {
-		return nil, nil, err
+// checkedInvocation is the behaviors the last check searched, as they were named.
+type checkedInvocation struct {
+	actions, states []Behavior
+}
+
+// checkAdvance searches the last checked invocation again, its clock bounded at
+// duration: %advance under the check engine, where no debugger steps.
+func (s *Session) checkAdvance(duration float64) ([]string, error) {
+	last := s.checker.checked
+	if last == nil {
+		return nil, errors.New("no behavior checked yet; under %engine check, %action or %state searches every schedule of a behavior, and %advance <time> then searches it again up to that instant")
 	}
-	plan := s.planFresh(performer...)
-	start := func(ctx *runtime.Context) (*runtime.Invocation, error) {
-		exec, err := freshAction(plan.bind(ctx), sym, performer)
-		if err != nil {
-			return nil, err
-		}
-		return &runtime.Invocation{Actions: []*runtime.ActionExecutor{exec}}, nil
-	}
-	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
-		exec, err := freshAction(plan.bind(ctx), sym, performer)
-		if err != nil {
-			return runtime.Outcome{}, err
-		}
-		if err := exec.RunToCompletion(); err != nil {
-			return runtime.Outcome{}, err
-		}
-		return completedActionOutcome(ctx, exec, name)
-	}
-	ask := &analysis.CheckAsk{
-		Start:      start,
-		Diverge:    append([]string(nil), s.checker.diverge...),
-		WitnessDir: s.checker.witnessDir,
-	}
-	if len(performer) > 0 {
-		ask.Performer = performer[0]
-	}
-	return ask, run, nil
+	return s.checkInvocation(last.actions, last.states, &duration).Lines, nil
 }
 
 // checkBudget is the question's budget under policy with the check's bounds and
@@ -305,29 +310,30 @@ func (s *Session) checkBudget(policy runtime.SchedulePolicy, kind analysis.Kind)
 
 // checkVerdict puts the question to the engines under the session's selection and
 // budget, the session's state released for the run, and reports what stood.
-func (s *Session) checkVerdict(name string, policy runtime.SchedulePolicy, kind analysis.Kind, ask *analysis.CheckAsk, run analysis.Linearization, budget analysis.Budget) Verdict {
+func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePolicy, kind analysis.Kind, ask *analysis.CheckAsk, run analysis.Linearization, budget analysis.Budget) Verdict {
 	model := s.freshModel()
 	selection := s.engine
+	subject, label := inv.subject(), inv.label()
 	s.state.Unlock()
 	answered, err := s.engines.Check(context.Background(), analysis.Request{
 		Model:     model,
-		Subject:   name,
+		Subject:   subject,
 		Schedule:  policy,
 		Budget:    budget,
 		Selection: selection,
 	}, kind, ask, run)
 	s.state.Lock()
 	if err != nil {
-		return standing(checkStoppedVerdict(name, err), &answered)
+		return standing(checkStoppedVerdict(subject, label, err), &answered)
 	}
 	if x := answered.Result.Exploration(); x != nil {
-		return standing(explorationVerdict(name, x), &answered)
+		return standing(explorationVerdict(subject, x), &answered)
 	}
-	return standing(checkedVerdict(name, answered.Result), &answered)
+	return standing(checkedVerdict(subject, label, answered.Result), &answered)
 }
 
 // checkProperties resolves the session's properties to the constraint and
-// requirement each names, evaluated about the action's performer at every state.
+// requirement each names, evaluated about the invocation's performer at every state.
 func (s *Session) checkProperties() ([]runtime.CheckProperty, error) {
 	docScopes := s.docScopes()
 	if len(s.checker.properties) > 0 && len(docScopes) == 0 {
@@ -362,47 +368,47 @@ func (s *Session) checkProperties() ([]runtime.CheckProperty, error) {
 
 // checkStoppedVerdict reports a check that answered nothing: a refusal, a fault,
 // or the plan's clock ending, with what the search reached before it stopped.
-func checkStoppedVerdict(name string, err error) Verdict {
+func checkStoppedVerdict(subject, label string, err error) Verdict {
 	var stopped *runtime.CheckStopped
 	if errors.As(err, &stopped) {
-		return Verdict{Subject: name, Status: VerdictUnresolved, Lines: []string{
-			fmt.Sprintf("? Action %s: incomplete: time (%d states, %d moves, depth %d)", name, stopped.States, stopped.Moves, stopped.MaxDepth),
+		return Verdict{Subject: subject, Status: VerdictUnresolved, Lines: []string{
+			fmt.Sprintf("? %s: incomplete: time (%d states, %d moves, depth %d)", label, stopped.States, stopped.Moves, stopped.MaxDepth),
 			"  " + stopped.Cause.Error(),
 		}}
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
-		return Verdict{Subject: name, Status: VerdictUnresolved, Lines: []string{
-			fmt.Sprintf("? Action %s: incomplete: time (the plan's clock ended before the search began)", name),
+		return Verdict{Subject: subject, Status: VerdictUnresolved, Lines: []string{
+			fmt.Sprintf("? %s: incomplete: time (the plan's clock ended before the search began)", label),
 		}}
 	}
-	return unresolvedVerdict(name, err.Error())
+	return unresolvedVerdict(subject, err.Error())
 }
 
 // checkedVerdict reports what the check engine found: a violation or a divergence
 // fails the check, an exhaustive clean search holds, a bounded one is undecided.
-func checkedVerdict(name string, result analysis.Result) Verdict {
+func checkedVerdict(subject, label string, result analysis.Result) Verdict {
 	checked := result.Check()
 	if checked == nil {
-		return Verdict{Subject: name, Status: VerdictUnresolved, Lines: []string{
-			fmt.Sprintf("? Action %s could not be checked", name),
+		return Verdict{Subject: subject, Status: VerdictUnresolved, Lines: []string{
+			fmt.Sprintf("? %s could not be checked", label),
 			"  " + result.Reason,
 		}}
 	}
 	report := checked.Report
-	v := Verdict{Subject: name}
+	v := Verdict{Subject: subject}
 	switch {
 	case result.Strength == analysis.NotCovered:
 		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: %s", name, report.Status()), "  "+result.Reason)
+		v.Lines = append(v.Lines, fmt.Sprintf("? %s: %s", label, report.Status()), "  "+result.Reason)
 	case report.Verdict == runtime.CheckViolation, report.Verdict == runtime.CheckDivergent:
 		v.Status = VerdictFails
-		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: %s", name, report.Status()))
+		v.Lines = append(v.Lines, fmt.Sprintf("✗ %s: %s", label, report.Status()))
 	case report.Verdict == runtime.CheckExhaustive:
 		v.Status = VerdictHolds
-		v.Lines = append(v.Lines, fmt.Sprintf("✓ Action %s: %s", name, report.Status()))
+		v.Lines = append(v.Lines, fmt.Sprintf("✓ %s: %s", label, report.Status()))
 	default:
 		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: %s", name, report.Status()))
+		v.Lines = append(v.Lines, fmt.Sprintf("? %s: %s", label, report.Status()))
 	}
 	for i, violation := range report.Violations {
 		v.Lines = append(v.Lines, "  violation: "+violation.String()+witnessPath(checked.Violations, i))

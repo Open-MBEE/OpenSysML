@@ -36,7 +36,7 @@ type checks struct {
 }
 
 // checkerOptions are the -check-* flags: what the check engine is asked beside
-// -engine check -action, and the bounds its search runs under.
+// -engine check -action or -state, and the bounds its search runs under.
 type checkerOptions struct {
 	diverge    stringSlice
 	properties stringSlice
@@ -159,7 +159,7 @@ func (c *checks) requested() bool {
 }
 
 // checkerMisuse reports why the -check-* flags written check nothing under the
-// engine selected, and "" when they check an action: under -engine check always,
+// engine selected, and "" when they check a behavior: under -engine check always,
 // under -engine all when one of them is written.
 func (c *checks) checkerMisuse(engine string) string {
 	selection := analysis.ParseSelection(engine)
@@ -168,10 +168,8 @@ func (c *checks) checkerMisuse(engine string) string {
 	switch {
 	case c.checker.given() && !checking:
 		return "-check-diverge, -check-property, -check-witness, -check-depth, -check-states and -check-timeout are the check engine's; select it, as -engine check, or every engine, as -engine all"
-	case c.checker.given() && len(c.actions) == 0:
-		return "the -check-* flags search an action's schedules; name one, as -action <name>"
-	case checking && c.advance.given:
-		return "-advance runs behaviors on one clock, which a search of every schedule of an action does not; drop one of them"
+	case c.checker.given() && len(c.actions) == 0 && len(c.states) == 0:
+		return "the -check-* flags search a behavior's schedules; name one, as -action <name> or -state <name>"
 	}
 	return ""
 }
@@ -432,7 +430,8 @@ func runChecks(files []string, exprs []string, c checks) int {
 		rep.verdict(sess.RunDocumentQuery(invocation))
 	}
 	// With -advance every behavior named is started first and the clock they share
-	// is moved once, so an action's signal reaches a machine that accepts it later.
+	// is moved once, so an action's signal reaches a machine that accepts it later;
+	// under the check engine it bounds the search of the invocation's schedules.
 	if c.advance.given {
 		for _, v := range sess.RunFor(behaviors(c.actions), behaviors(c.states), advance) {
 			rep.verdict(v)

@@ -486,12 +486,13 @@ func completedActionOutcome(ctx *runtime.Context, exec *runtime.ActionExecutor, 
 // performer names when it names one; the check engine searches the same schedules
 // beside the exploration where the selection consults it.
 func (s *Session) exploreAction(name string, performer []string) Verdict {
-	ask, run, err := s.checkAsk(name, performer)
-	if err != nil {
-		return unresolvedVerdict(name, err.Error())
+	inv, unresolved := s.resolveInvocation([]Behavior{{Name: name, Performer: performer}}, nil, nil)
+	if inv == nil {
+		return unresolved[0]
 	}
+	ask, run := inv.ask(s.checker)
 	policy, _ := s.exploring()
-	return s.checkVerdict(name, policy, analysis.Outcomes, ask, run, s.checkBudget(policy, analysis.Outcomes))
+	return s.checkVerdict(inv, policy, analysis.Outcomes, ask, run, s.checkBudget(policy, analysis.Outcomes))
 }
 
 // exploreStateMachine explores a machine started and, when duration is given,
@@ -521,82 +522,11 @@ func (s *Session) exploreStateMachine(name string, duration *float64, performer 
 // whole run. Several behaviors come to a joint outcome, each one's observables
 // under its name; one behavior's outcome is its own.
 func (s *Session) exploreRunFor(actions, states []Behavior, duration float64) []Verdict {
-	type explored struct {
-		Behavior
-		sym    *symbols.Symbol
-		action bool
-	}
-	var (
-		runs       []explored
-		unresolved []Verdict
-		names      []string
-		performers []string
-	)
-	for _, b := range actions {
-		sym, err := s.exploredAction(b.Name)
-		if err != nil {
-			unresolved = append(unresolved, unresolvedVerdict(b.Name, err.Error()))
-			continue
-		}
-		runs = append(runs, explored{Behavior: b, sym: sym, action: true})
-		names = append(names, b.Name)
-		performers = append(performers, b.Performer...)
-	}
-	for _, b := range states {
-		sym, err := s.exploredMachine(b.Name)
-		if err != nil {
-			unresolved = append(unresolved, unresolvedVerdict(b.Name, err.Error()))
-			continue
-		}
-		runs = append(runs, explored{Behavior: b, sym: sym})
-		names = append(names, b.Name)
-		performers = append(performers, b.Performer...)
-	}
-	if len(unresolved) > 0 || len(runs) == 0 {
+	inv, unresolved := s.resolveInvocation(actions, states, &duration)
+	if inv == nil {
 		return unresolved
 	}
-	subject := strings.Join(names, ", ")
-	plan := s.planFresh(performers...)
-	verdict := s.exploreVerdict(subject, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		objects := plan.bind(ctx)
-		actionExecs := make(map[int]*runtime.ActionExecutor)
-		stateExecs := make(map[int]*runtime.StateExecutor)
-		for i, r := range runs {
-			if r.action {
-				exec, err := freshAction(objects, r.sym, r.Performer)
-				if err != nil {
-					return runtime.Outcome{}, err
-				}
-				actionExecs[i] = exec
-				continue
-			}
-			exec, err := freshMachine(objects, r.sym, r.Name, r.Performer)
-			if err != nil {
-				return runtime.Outcome{}, err
-			}
-			stateExecs[i] = exec
-		}
-		if _, err := ctx.Advance(duration); err != nil {
-			return runtime.Outcome{}, err
-		}
-		outcomes := make([]runtime.Outcome, len(runs))
-		for i, r := range runs {
-			if exec, ok := actionExecs[i]; ok {
-				outcome, err := completedActionOutcome(ctx, exec, r.Name)
-				if err != nil {
-					return runtime.Outcome{}, err
-				}
-				outcomes[i] = outcome
-				continue
-			}
-			outcomes[i] = stateExecs[i].Outcome()
-		}
-		if len(outcomes) == 1 {
-			return outcomes[0], nil
-		}
-		return ctx.JointOutcome(names, outcomes), nil
-	})
-	return []Verdict{verdict}
+	return []Verdict{s.exploreVerdict(inv.subject(), inv.run)}
 }
 
 // exploreCalc explores a calculation, which has choice points when it performs

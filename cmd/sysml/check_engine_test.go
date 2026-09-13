@@ -39,6 +39,7 @@ const tankModel = `package Plant {
 // checkedReport is the JSON a check engine's result carries beside the plan.
 type checkedReport struct {
 	Checks []struct {
+		Subject string `json:"subject"`
 		Status  string `json:"status"`
 		Results []struct {
 			Engine   string `json:"engine"`
@@ -293,8 +294,8 @@ func TestEngineAllChecksBesideExploring(t *testing.T) {
 	}
 }
 
-// The check flags need -engine check or all and an action, -advance has no place
-// in a search of every schedule, a bound is a positive count: each misuse is refused.
+// The check flags need -engine check or all and a behavior, a bound is a positive
+// count: each misuse is refused.
 func TestEngineCheckRefusesMisuse(t *testing.T) {
 	binary := buildCLI(t)
 
@@ -303,21 +304,13 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 	wantReport(t, check(t, binary, forkModel, "-engine", "explore", "-check-depth", "3", "-action", "Mission::race"),
 		2, "select it, as -engine check, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-depth", "3"),
-		2, "the -check-* flags search an action's schedules; name one, as -action <name>")
+		2, "the -check-* flags search a behavior's schedules; name one, as -action <name> or -state <name>")
 	wantReport(t, check(t, binary, forkModel, "-engine", "all", "-check-depth", "3"),
-		2, "the -check-* flags search an action's schedules; name one, as -action <name>")
-	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-advance", "5", "-action", "Mission::race"),
-		2, "-advance runs behaviors on one clock, which a search of every schedule of an action does not; drop one of them")
-	wantReport(t, check(t, binary, forkModel, "-engine", "all", "-check-depth", "3", "-advance", "5", "-action", "Mission::race"),
-		2, "-advance runs behaviors on one clock, which a search of every schedule of an action does not; drop one of them")
+		2, "the -check-* flags search a behavior's schedules; name one, as -action <name> or -state <name>")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-depth", "x", "-action", "Mission::race"),
 		2, `-check-depth takes a bound of at least one, not "x"`)
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-states", "0", "-action", "Mission::race"),
 		2, `-check-states takes a bound of at least one, not "0"`)
-
-	// A state machine is not an action's schedules: the named engine's refusal is the answer.
-	wantReport(t, check(t, binary, forkModel+lampModel, "-engine", "check", "-action", "Mission::race", "-state", "Shine::Lamp"),
-		2, "check does not answer evaluate questions", "✗ Action Mission::race: divergent")
 
 	// A body paused mid-statement is a wait the search does not represent: refused by name, not searched.
 	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
@@ -331,11 +324,83 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 		"standing: not covered")
 }
 
-// lampModel is a state machine beside the fork model.
+// lampModel has a machine and an action of one part due at one instant of the
+// clock they share, so which runs first is a choice point the search draws.
 const lampModel = `package Shine {
-    state def Lamp { entry; then off; state off; state on; }
+    private import SI::*;
+    private import ScalarValues::*;
+    part def Lamp {
+        attribute lit : Boolean = false;
+        exhibit state glow {
+            entry; then off;
+            state off;
+            accept after 3 [s] then on;
+            state on { entry assign lit := true; }
+        }
+        action peek {
+            attribute saw : Boolean = false;
+            first start;
+            then action wait accept after 3 [s];
+            then action look assign saw := lit;
+            then done;
+        }
+    }
 }
 `
+
+// -engine check searches a state machine's schedules as it does an action's, its
+// clock advanced until nothing is due or, with -advance, up to that instant; the
+// behaviors named together are one invocation on one clock, answered by one verdict.
+func TestEngineCheckSearchesBehaviorsOnOneClock(t *testing.T) {
+	binary := buildCLI(t)
+	glow, peek := "Shine::Lamp::glow Shine::Lamp", "Shine::Lamp::peek Shine::Lamp"
+
+	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-state", glow),
+		0, "✓ State machine Shine::Lamp::glow: no violation, exhaustive (2 states, 1 moves, depth 1)",
+		"outcome: finalState on; visits off, on; this.isSolid = true; this.lit = true")
+	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-state", glow, "-advance", "1"),
+		0, "✓ State machine Shine::Lamp::glow: no violation, exhaustive up to t=1.0 (1 states, 0 moves, depth 0)",
+		"outcome: finalState off; visits off; this.isSolid = true; this.lit = false")
+
+	// Named apart, each behavior is its own search; the action's clock runs to its end.
+	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow),
+		1, "✗ Action Shine::Lamp::peek: divergent (9 states, 8 moves, depth 5)", "divergent: saw ends as false or true",
+		"✓ State machine Shine::Lamp::glow: no violation, exhaustive (2 states, 1 moves, depth 1)")
+
+	// With -advance they are one invocation: the machine's timer and the action's
+	// wait are due together, and the order the search draws decides what peek saw.
+	got := check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "3")
+	wantReport(t, got, 1, "✗ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: divergent up to t=3.0 (9 states, 8 moves, depth 5)",
+		"divergent: Shine::Lamp::peek.saw ends as false or true",
+		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = false; this.isSolid = true; this.lit = true`,
+		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = true; this.isSolid = true; this.lit = true`)
+	if strings.Count(got.stdout, "✗") != 1 {
+		t.Errorf("one invocation is answered by one verdict:\n%s", got.output())
+	}
+
+	// A horizon before the tie leaves both waiting: no divergence up to it.
+	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "2"),
+		0, "✓ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: no violation, exhaustive up to t=2.0")
+
+	// -advance bounds an action's search as it does a run: the fork is drawn within it.
+	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-advance", "5", "-action", "Mission::race"),
+		1, "✗ Action Mission::race: divergent up to t=5.0 (11 states, 10 moves, depth 6)")
+
+	// -json tables the joint outcome, each behavior's observables under its name.
+	got = check(t, binary, lampModel, "-json", "-engine", "check", "-action", peek, "-state", glow, "-advance", "3")
+	var report checkedReport
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
+	}
+	if len(report.Checks) != 1 || len(report.Checks[0].Results) != 1 || report.Checks[0].Results[0].Check == nil {
+		t.Fatalf("one invocation is one check with the engine's result:\n%s", got.stdout)
+	}
+	c := report.Checks[0].Results[0].Check
+	if report.Checks[0].Subject != "Shine::Lamp::peek, Shine::Lamp::glow" || c.Verdict != "divergent" || len(c.Outcomes) != 2 ||
+		!strings.Contains(c.Outcomes[0], `Shine::Lamp::glow finalState = "on"`) || !strings.Contains(c.Outcomes[1], "Shine::Lamp::peek.saw = true") {
+		t.Errorf("the joint outcome is misreported:\n%s", got.stdout)
+	}
+}
 
 // -json carries the search on its result: verdict, counts, bounds hit, each
 // violation and divergent value with its witness path, and the outcomes.
