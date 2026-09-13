@@ -174,10 +174,11 @@ release means upgrading the crate.
 
 Deliberately out of scope: generated model-ergonomics types beyond the domain
 objects above, the edit API, RDF conversion and the verification helpers. The
-service still serves them, but this crate has no generic RPC escape hatch:
-`Connection` exposes only the calls above, and `opensysml::wire` gives the message
-types for reading a field off an answer, not a way to make a call the typed surface
-omits. Reach those RPCs from the Go or Python client until a v2 wraps them here.
+service still serves them, and `Connection::call` is the escape hatch: it sends one
+method's request message from `opensysml::wire` and decodes the response without
+the ergonomic layer, so an RPC the typed API does not wrap — `RunAnalysis`,
+`RunSweep` — can still be made. In-band `error` fields are the caller's to read,
+and `Capabilities::has` gates the response fields the same way.
 
 ## Conformance
 
