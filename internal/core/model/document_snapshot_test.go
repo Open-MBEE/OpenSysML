@@ -78,27 +78,41 @@ func sameDiagnostic(a, b parser.Diagnostic) bool {
 	return a.Span == b.Span && a.Message == b.Message && a.Code == b.Code
 }
 
-// A document owns its bytes: the buffer a caller passed to Open, Update or
-// SetOnDisk can be overwritten afterwards without the document, or the source
-// its AST spans index into, changing.
+// The workspace owns the bytes it is given: the buffer a caller passed to Open,
+// Update or SetOnDisk can be overwritten afterwards (clobber) without the
+// document built from it, or the source its AST spans index into, changing.
 func TestDocumentSnapshotOwnsContent(t *testing.T) {
 	const want = "package P { part def A; }"
+	old := []byte("package Old;")
 	for _, tc := range []struct {
 		name string
-		set  func(ws *Workspace, name string, buf []byte)
+		run  func(ws *Workspace, name string, buf []byte, clobber func())
 	}{
-		{"Open", func(ws *Workspace, name string, buf []byte) { ws.Open(name, buf, 1) }},
-		{"Update", func(ws *Workspace, name string, buf []byte) {
-			ws.Open(name, []byte("package Old;"), 1)
-			ws.Update(name, buf, 2)
+		{"Open", func(ws *Workspace, name string, buf []byte, clobber func()) {
+			ws.Open(name, buf, 1)
+			clobber()
 		}},
-		{"SetOnDisk", func(ws *Workspace, name string, buf []byte) { ws.SetOnDisk(name, buf) }},
+		{"Update", func(ws *Workspace, name string, buf []byte, clobber func()) {
+			ws.Open(name, old, 1)
+			ws.Update(name, buf, 2)
+			clobber()
+		}},
+		{"SetOnDisk", func(ws *Workspace, name string, buf []byte, clobber func()) {
+			ws.SetOnDisk(name, buf)
+			clobber()
+		}},
+		{"SetOnDiskWhileOpenThenClose", func(ws *Workspace, name string, buf []byte, clobber func()) {
+			ws.Open(name, old, 1)
+			ws.SetOnDisk(name, buf)
+			clobber()
+			ws.Close(name)
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ws := NewWorkspace()
 			const name = "own.sysml"
 			buf := []byte(want)
-			tc.set(ws, name, buf)
+			tc.run(ws, name, buf, func() { copy(buf, "package Q { part def B; }") })
 			snap := ws.Document(name)
 			if snap == nil {
 				t.Fatal("Document = nil")
@@ -106,8 +120,6 @@ func TestDocumentSnapshotOwnsContent(t *testing.T) {
 			if sameSlice(snap.Content, buf) || sameSlice(snap.sf.Bytes(), buf) {
 				t.Fatal("document aliases the caller's buffer")
 			}
-			copy(buf, "package Q { part def B; }")
-
 			if got := string(snap.Content); got != want {
 				t.Errorf("Content = %q, want %q", got, want)
 			}
