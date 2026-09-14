@@ -110,7 +110,7 @@ answered by name (below).
 
 ### What it reports
 
-The run reports **37 warnings and no error**, and every one of them is a finding
+The run reports **4 warnings and no error**, and every one of them is a finding
 about the model. Three of the warnings are calculation invocations that leave an
 input the calculation declares unbound, so the call cannot be evaluated — well-formed
 SysML v2 the reference validator also accepts, hence advisories rather than errors — all
@@ -121,10 +121,7 @@ in `Analysis/CalculationsPackage.sysml`:
 | 111 | `return deltaV :> ISQ::speed = isp * g0 * ln(m0 / mf);` | `ln` is the alias of `CoSMAQuantitiesAndUnitsPackage::naturalLogarithm`, declared `calc <ln> naturalLogarithm { in x: DataValue[1]; in y: DataValue[1]; return : DataValue[1]; }` — two inputs, one argument. A natural logarithm takes one argument; the second `in` is the slip |
 | 124 and 135 | `return deltaV :> ISQ::speed = calculateDeltaV(isp, initialMass, finalMass);` | `calculateDeltaV` declares `in isp`, `in g0`, `in m0`, `in mf` — four inputs, three arguments, so `g0` (standard gravity) is never supplied; bound by position, it is the last input, `mf`, that the warning names |
 
-Of the other warnings, 33 are the crew declarations in `Program/ProgramPackage.sysml`
-written `individual part : 'Eugene Cernan' :> crew;`, where `part` is read as the
-kind of the usage rather than its name, so the usage is unnamed; the last is
-dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
+The fourth is dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
 `in mu_Moon :> ISQ::force`, so `v_inf^2 + 2*mu_Moon/r_periapsis` adds a
 velocity squared (L²·T⁻²) to a force over a length (M·T⁻²). A gravitational
 parameter is L³·T⁻².
