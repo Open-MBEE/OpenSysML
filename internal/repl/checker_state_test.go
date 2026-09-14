@@ -3,6 +3,7 @@ package repl
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -82,5 +83,42 @@ func TestReplayStepsBehaviorsOnOneClock(t *testing.T) {
 		wants(t, run(t, s, "%action Shared::Lamp::peek Shared::Lamp"), "Started action executor")
 		wants(t, run(t, s, "%state Shared::Lamp::glow Shared::Lamp"), "Current state: off")
 		wants(t, run(t, s, "%advance 3"), "Advanced to 3.0", "Current state: on", "Action completed", saw, "1 choice point")
+	}
+}
+
+// A joint start that fails on a later behavior leaves nothing of the earlier
+// ones on the clock: the action started first is released with the error.
+func TestFailedJointStartReleasesTheBehaviorsStarted(t *testing.T) {
+	s := loadSource(t, exploreLampSource)
+	peek := Behavior{Name: "Shared::Lamp::peek", Performer: []string{"Shared::Lamp"}}
+	glow := Behavior{Name: "Shared::Lamp::glow"}
+	inv, unresolved := s.resolveInvocation([]Behavior{peek}, []Behavior{glow}, nil)
+	if len(unresolved) != 0 {
+		t.Fatalf("unresolved = %+v, want both behaviors resolved", unresolved)
+	}
+	model, err := s.runtimeModel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := s.newRuntimeOver(model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := inv.start(ctx)
+	if err == nil {
+		t.Fatalf("started %v, want the machine refused without a performer", started)
+	}
+	if !strings.Contains(err.Error(), "exhibit") {
+		t.Fatalf("start failed with %q, want the exhibiting part named", err)
+	}
+	report, err := ctx.Advance(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Steps != 0 {
+		t.Fatalf("the action took %d steps after the failed start, want none: it was released", report.Steps)
+	}
+	if report.Events == 0 {
+		t.Fatal("the lamp's own machine, materialized with the object, took no event")
 	}
 }

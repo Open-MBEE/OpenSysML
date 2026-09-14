@@ -139,6 +139,7 @@ func (r *freshInvocation) start(ctx *runtime.Context) (*runtime.Invocation, erro
 		if b.action {
 			exec, err := freshAction(objects, b.sym, b.Performer)
 			if err != nil {
+				inv.Release()
 				return nil, err
 			}
 			inv.Actions = append(inv.Actions, exec)
@@ -146,6 +147,7 @@ func (r *freshInvocation) start(ctx *runtime.Context) (*runtime.Invocation, erro
 		}
 		exec, err := freshMachine(objects, b.sym, b.Name, b.Performer)
 		if err != nil {
+			inv.Release()
 			return nil, err
 		}
 		inv.States = append(inv.States, exec)
