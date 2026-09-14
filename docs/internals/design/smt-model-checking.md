@@ -651,7 +651,18 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
 3. **Sensitivity.** The two-copy query, the diverging pair, `-check-sensitive`. Test layer 5.
 4. **Clock, messages and nested flows.** `now` and due times, the bounded bus, performed actions
    as nested slots, so the whole action fragment the runtime executes is covered. The corpus's
-   `accept` cases join the referee.
+   `accept` cases join the referee. *Prepared, not implemented:* `Flow` (`support.go`) numbers
+   the root graph and every flow a node states of its own as frames (`Flow.Frames`,
+   `Flow.FrameOf`), each with its own node range, labels prefixed by the performing node and a
+   slot count summed into `T`, and records the `Send` and `accept` sites it meets (`Flow.Sends`,
+   `Flow.Accepts`, `Flow.Bus` as `M`); `State` (`state.go`) declares the parked and due
+   variables, `now` and the bus slots only for a flow that has accepts, timed accepts or sends,
+   and lists its variables as a named vector (`State.Vector`) for a query over two copies of
+   the relation. No transition reads them yet: `send`, `accept`, `accept after`/`accept at` and
+   a node stating a flow of its own are refused before any query, naming the node and the
+   construct, exactly as stage 1 left them; the `Bounds` line lists no `bus`; the referee's
+   tally is stage 2's. The horizon question is settled above, in "The state": no horizon, and
+   `-advance` stays refused for `smt`.
 5. **k-induction.** The step query and the `proved, unbounded` verdict.
 6. **Bounded heap and calc inlining.** Object-valued pins over `N` objects per type; inlining a
    pure, loop-free calc body. Each moves rows of the coverage table from *not covered* to
