@@ -476,7 +476,7 @@ func TestSensitivityUndecidedFeatureDoesNotHideALaterOne(t *testing.T) {
 		t.Skipf("no sh to stand in for a solver: %v", err)
 	}
 	const name = "action_fork_branches_write_one_feature"
-	real := requireSolver(t)
+	solver := requireSolver(t)
 	// The script reads up to check-sat, answers unknown to leftRan's query by the
 	// comment its assertion carries, and hands any other dialogue to the real solver.
 	script := `buf=$(mktemp); trap 'rm -f "$buf"' EXIT
@@ -487,8 +487,8 @@ if grep -q "different values of leftRan" "$buf"; then
   exit 0
 fi
 { cat "$buf"; cat; } | exec "$@"`
-	args := append([]string{"-c", script, "declining", real.Path}, real.Args...)
-	declining := &solve.Solver{Name: "declining", Path: "sh", Args: args, Declared: real.Declared}
+	args := append([]string{"-c", script, "declining", solver.Path}, solver.Args...)
+	declining := &solve.Solver{Name: "declining", Path: "sh", Args: args, Declared: solver.Declared}
 	e := New(func() (*solve.Solver, error) { return declining, nil })
 	d, o := conformance(t, name), oracleOf(t, name)
 	budget := analysis.Budget{Depth: 8}

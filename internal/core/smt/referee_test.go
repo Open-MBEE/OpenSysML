@@ -258,18 +258,29 @@ func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, 
 		tally.agreeing++
 	}
 	if verdict.Claim == analysis.ClaimHolds {
-		refereeSensitivity(t, solver, encoding, d, ask, budget, oracleOutcomes(t, name, c.Outcomes), tally)
+		r := refereed{d: d, encoding: encoding, ask: ask, budget: budget}
+		refereeSensitivity(t, solver, r, oracleOutcomes(t, name, c.Outcomes), tally)
 	}
+}
+
+// refereed is one corpus case as check 5 sees it: its document, the encoding of its
+// action, the ask starting the action and the budget the queries run under.
+type refereed struct {
+	d        *document
+	encoding *Encoding
+	ask      *analysis.HoldsAsk
+	budget   analysis.Budget
 }
 
 // refereeSensitivity runs check 5 over a case every schedule of which completes: each
 // of the action's own features is asked about across schedules; a sensitive answer
 // replays both witnesses to two distinct values the case's outcomes list, and a
 // feature not sensitive has one value across them.
-func refereeSensitivity(t *testing.T, solver *solve.Solver, encoding *Encoding, d *document, ask *analysis.HoldsAsk, budget analysis.Budget, o oracle, tally *refereeTally) {
+func refereeSensitivity(t *testing.T, solver *solve.Solver, r refereed, o oracle, tally *refereeTally) {
 	t.Helper()
 	e := New(func() (*solve.Solver, error) { return solver, nil })
-	for _, out := range encoding.Outputs() {
+	d, ask, budget := r.d, r.ask, r.budget
+	for _, out := range r.encoding.Outputs() {
 		feature := out.Name
 		if o[feature] == nil {
 			t.Errorf("the encoding holds %s, which the case's outcomes do not list", feature)

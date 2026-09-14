@@ -259,8 +259,19 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
+	s.renderNodes(out, doc, name, data.Nodes)
+	s.renderEdges(out, doc, name, data.Edges)
+	for _, row := range data.Rows {
+		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
+	}
+	return out, nil
+}
+
+// renderNodes converts the rendering's nodes into out; a node the document
+// declares confines the palette to its notation and is admitted once all are known.
+func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string, nodes []view.NodeData) {
 	var declared []declaredNode
-	for _, node := range data.Nodes {
+	for _, node := range nodes {
 		n := renderNode{
 			ID:     node.ID,
 			Kind:   node.Kind,
@@ -268,7 +279,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			Type:   node.Type,
 			Detail: node.Detail,
 			Parent: node.Parent,
-			Origin: origin(node.Origin),
+			Origin: s.originIn(doc, node.Origin),
 		}
 		if sym := nodeSymbol(doc, name, node.Origin); sym != nil {
 			if owners, ok := nodeOwners(sym); ok {
@@ -297,13 +308,18 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	for _, d := range declared {
 		out.Palette.admit(d.id, d.decl)
 	}
-	for _, edge := range data.Edges {
+}
+
+// renderEdges converts the rendering's edges into out, each with its route and
+// the FQN or declaration range of the element it comes from.
+func (s *Server) renderEdges(out *renderResult, doc *model.Document, name string, edges []view.EdgeData) {
+	for _, edge := range edges {
 		e := renderEdge{
 			From:   edge.From,
 			To:     edge.To,
 			Label:  edge.Label,
 			Kind:   edge.Kind.String(),
-			Origin: origin(edge.Origin),
+			Origin: s.originIn(doc, edge.Origin),
 		}
 		if sym := nodeSymbol(doc, name, edge.Origin); sym != nil {
 			if _, ok := nodeOwners(sym); ok {
@@ -318,10 +334,6 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		}
 		out.Edges = append(out.Edges, e)
 	}
-	for _, row := range data.Rows {
-		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
-	}
-	return out, nil
 }
 
 // renderForm is the form to write: the one asked for, else the machine form of

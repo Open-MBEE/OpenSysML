@@ -93,7 +93,7 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
       const span = element("tspan", {
         x: String(box.x + LABEL_PAD_X),
         dy: String(i === 0 ? LINE_HEIGHT * 0.8 : LINE_HEIGHT),
-        class: i === 0 ? "head" : i === 1 && entry.node.name !== "" ? "keyword" : "detail",
+        class: labelLineClass(i, entry.node.name !== ""),
       });
       span.textContent = line;
       text.append(span);
@@ -111,6 +111,15 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
       drawNode(parent, child, layout);
     }
   }
+}
+
+// labelLineClass styles the i-th label line: the head, then the «kind» of a
+// named node, then detail.
+function labelLineClass(i: number, named: boolean): string {
+  if (i === 0) {
+    return "head";
+  }
+  return i === 1 && named ? "keyword" : "detail";
 }
 
 // shape is the outline a node is drawn with: a box for an element, square-cornered

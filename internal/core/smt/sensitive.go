@@ -256,11 +256,11 @@ func (r *run) sensitive(ctx context.Context, pair *Diverging, solved []analysis.
 // the feature's final value; the witness is then written, with the trace the run left,
 // when the question names a directory, and replayed from what was written as a violation
 // witness is. It returns the disagreement, "" when the interpreter agrees.
-func (r *run) replayRun(ctx context.Context, w *Witness, feature, expected, copy string) (*analysis.Witness, string, error) {
+func (r *run) replayRun(ctx context.Context, w *Witness, feature, expected, label string) (*analysis.Witness, string, error) {
 	fresh := func() (*runtime.Context, error) { return r.model.NewContextOn(0, r.budget) }
 	start := runtime.ActionStarter(r.q.Holds.Start)
 	witness := &analysis.Witness{Schedule: w.policy(), Inputs: w.Inputs, Choices: w.Choices}
-	claim := fmt.Sprintf("the solver claims %s ends as %s under schedule %s", feature, expected, copy)
+	claim := fmt.Sprintf("the solver claims %s ends as %s under schedule %s", feature, expected, label)
 	file := runtime.Witness{Inputs: w.Inputs, Choices: w.Choices}
 	replayed, err := runtime.ReplaySchedule(ctx, fresh, start, file, runtime.ScheduleEnd)
 	switch {
@@ -284,7 +284,7 @@ func (r *run) replayRun(ctx context.Context, w *Witness, feature, expected, copy
 	}
 	file.Trace = replayed.Ctx.Trace().String()
 	if r.q.Holds.WitnessDir != "" {
-		path := filepath.Join(r.q.Holds.WitnessDir, analysis.SensitivityFile(r.q.Subject, r.q.Holds.Performer, feature, copy))
+		path := filepath.Join(r.q.Holds.WitnessDir, analysis.SensitivityFile(r.q.Subject, r.q.Holds.Performer, feature, label))
 		if err := analysis.WriteWitness(path, file.String()); err != nil {
 			return nil, "", err
 		}

@@ -252,7 +252,8 @@ function lanes(entries: PlacedNode[], columns: number, byColumn: boolean): Place
   const out: PlacedNode[][] = [];
   entries.forEach((entry, i) => {
     const lane = byColumn ? i % columns : Math.floor(i / columns);
-    (out[lane] ??= []).push(entry);
+    out[lane] ??= [];
+    out[lane].push(entry);
   });
   return out;
 }
@@ -335,8 +336,7 @@ export function labelLines(node: RenderNode): string[] {
   if (symbolSize(shapeOf(node.kind))) {
     return [];
   }
-  const head = node.name === "" ? node.kind : node.type === "" ? node.name : `${node.name} : ${node.type}`;
-  const lines = [head];
+  const lines = [labelHead(node)];
   if (node.name !== "") {
     lines.push(`«${node.kind}»`);
   }
@@ -344,6 +344,15 @@ export function labelLines(node: RenderNode): string[] {
     lines.push(node.detail);
   }
   return lines;
+}
+
+// labelHead is a label's first line: the kind of an unnamed node, else the name
+// with its type when it has one.
+function labelHead(node: RenderNode): string {
+  if (node.name === "") {
+    return node.kind;
+  }
+  return node.type === "" ? node.name : `${node.name} : ${node.type}`;
 }
 
 // labelSize is the box a label needs, its head in bold glyphs.
@@ -421,7 +430,7 @@ function routeEdge(
     ];
   }
   const start = anchor(from, inner[0] ?? center(to));
-  const end = anchor(to, inner[inner.length - 1] ?? center(from));
+  const end = anchor(to, inner.at(-1) ?? center(from));
   const points = [start, ...inner, end];
   return { edge, index, points, route, label: midpoint(points), hidden: source?.hidden === true || target?.hidden === true };
 }

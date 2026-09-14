@@ -1099,7 +1099,7 @@ func TestApplyModelEditSetLayoutRefusals(t *testing.T) {
 			t.Errorf("%+v: refusal = %+v, want %s", tc.op, out.Refused[0], tc.failure)
 		}
 	}
-	if got := string(s.ws.Document(docURI.Filename()).Content); got != plantModel {
+	if string(s.ws.Document(docURI.Filename()).Content) != plantModel {
 		t.Error("server document changed on refused requests")
 	}
 	_, err := call(t, s, MethodApplyModelEdit, &applyModelEditParams{
