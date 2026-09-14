@@ -2280,8 +2280,15 @@ reported rather than silently replaced by the default.
 | Nested calc invocations | `ErrCalcRecursionLimit` | `OPENSYSML_MAX_CALC_DEPTH` | 10,000 (ceiling 25,000) | `robustness_test.go` calc recursion cases |
 | Runs one parameter sweep or sample may make | `ErrSweepBudget` | `OPENSYSML_MAX_SWEEP_RUNS` | 1,000 | `sweep_test.go:TestSweepBudgetIsRefusedBeforeRunning`, `:TestSweepBudgetBoundsTheProduct`, `:TestSamplesBeyondTheBudgetAreRefused` |
 
-Two more bounds are not budgets and are stated here because they shape what a caller is told:
+Three more bounds are not budgets and are stated here because they shape what a caller is told:
 
+- **The objects one context holds are bounded where a host asks.** `Context.SetMaxInstances`
+  bounds the objects registered at once, nested ones counted; `materialize` refuses the one past
+  it with `ErrInstanceLimitExceeded`, and the creation or read that reached it is abandoned whole
+  (`instance_limit_test.go:TestInstanceLimit_CountsNestedObjects`, `:TestInstanceLimit_RootFailsWhole`).
+  `sysml-grpc` sets it from `OPENSYSML_GRPC_MAX_HELD_OBJECTS` (default 10,000) on the runtime each
+  cached model holds its objects in and answers the refusal as `RESOURCE_EXHAUSTED`
+  (`grpc/objects_test.go:TestHeldObjectsAreBounded`); no other surface sets it.
 - **Suspension is bounded by the executor.** An accept can only be satisfied by a message the run
   can still receive: a nested action invoked synchronously, and an action driven by
   `RunToCompletion`, cannot wait for a message posted after the call begins, and a run whose every

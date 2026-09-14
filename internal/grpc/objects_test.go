@@ -311,32 +311,50 @@ func TestHeldObjectsAreBounded(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := parseFixture(t, srv, objectFixture)
 
-	// A car is four objects (car, engine, two wheels): the first two fit under
-	// the bound as each is created, the third finds it reached.
-	holdObject(t, srv, hash, "Garage::car")
-	holdObject(t, srv, hash, "Garage::car")
-	_, err := srv.Instantiate(context.Background(), &pb.InstantiateRequest{ModelHash: hash, SymbolId: "Garage::car"})
-	if err == nil {
-		t.Fatal("third Instantiate succeeded, want RESOURCE_EXHAUSTED")
-	}
-	if connect.CodeOf(err) != connect.CodeResourceExhausted {
-		t.Errorf("code = %v, want %v: %v", connect.CodeOf(err), connect.CodeResourceExhausted, err)
-	}
-	for _, text := range []string{"holds 8 objects", HeldObjectsEnvVar, "(5)"} {
-		if !strings.Contains(err.Error(), text) {
-			t.Errorf("error %q lacks %q", err.Error(), text)
+	// A car is four objects (car, engine, two wheels): the first fits under the
+	// bound, the second would pass it at its engine and is refused whole.
+	exhausted := func(sym string, held int) {
+		t.Helper()
+		_, err := srv.Instantiate(context.Background(), &pb.InstantiateRequest{ModelHash: hash, SymbolId: sym})
+		if err == nil {
+			t.Fatalf("Instantiate %s succeeded, want RESOURCE_EXHAUSTED", sym)
+		}
+		if connect.CodeOf(err) != connect.CodeResourceExhausted {
+			t.Errorf("code = %v, want %v: %v", connect.CodeOf(err), connect.CodeResourceExhausted, err)
+		}
+		for _, text := range []string{fmt.Sprintf("holds %d objects", held), HeldObjectsEnvVar, "the 5 that"} {
+			if !strings.Contains(err.Error(), text) {
+				t.Errorf("error %q lacks %q", err.Error(), text)
+			}
 		}
 	}
+	holdObject(t, srv, hash, "Garage::car")
+	exhausted("Garage::car", 4)
+	cached, _ := srv.cache.Get(hash)
+	if got := srv.objects(cached).rt.InstanceCount(); got != 4 {
+		t.Errorf("held after the refused car = %d, want 4", got)
+	}
 
+	// The population is as it was before the refused car, root and parts alike.
 	resp := queryObjects(t, srv, hash, "Garage::Parts", binding("root", objectByID(1)))
 	if got := objectLabels(resp); len(got) != 3 || got[0] != "#1.engine (#2)" {
-		t.Errorf("Parts root=#1 rows = %v, want the first car's three parts", got)
+		t.Errorf("Parts root=#1 rows = %v, want the car's three parts", got)
 	}
 	resp = queryObjects(t, srv, hash, "Garage::Wheels")
-	want := []string{"Garage::car.wheels[1] (#7)", "Garage::car.wheels[2] (#8)", "#1.wheels[1] (#3)", "#1.wheels[2] (#4)"}
+	want := []string{"Garage::car.wheels[1] (#3)", "Garage::car.wheels[2] (#4)"}
 	if got := objectLabels(resp); strings.Join(got, ";") != strings.Join(want, ";") {
 		t.Errorf("Wheels rows = %v, want %v", got, want)
 	}
+	_, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+		ModelHash: hash, QueryId: "Garage::Parts", Bindings: []*pb.DocumentQueryBinding{binding("root", objectByID(5))},
+	})
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("binding the refused car's id: code = %v, want NOT_FOUND: %v", connect.CodeOf(err), err)
+	}
+
+	// One object fills the bound exactly; the next is one too many.
+	holdObject(t, srv, hash, "Garage::spare")
+	exhausted("Garage::spare", 5)
 
 	// Another model is a population of its own under the same bound.
 	other := mustParse(t, srv, "package Lot { part def Cone; part cone : Cone; }")

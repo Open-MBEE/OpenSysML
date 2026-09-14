@@ -57,7 +57,7 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	}
 	result, err := queryexec.Execute(program, qctx, bindings, queryexec.Options{})
 	if err != nil {
-		return nil, documentStatus(err)
+		return nil, held.documentStatus(err)
 	}
 	return rowSetResponse(qctx.Index, result), nil
 }
@@ -95,7 +95,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 		model.SiblingDocumentPlans(qctx.Index, qctx.Model, qctx.Resolver, sym),
 		qctx, queryexec.Options{}, cachedSourceText(cached))
 	if err != nil {
-		return nil, documentStatus(err)
+		return nil, held.documentStatus(err)
 	}
 	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{})
 	if err != nil {

@@ -17,5 +17,6 @@
   `ObjectRef(id=…)`/`ObjectRef(path=…)` and decodes `ObjectRef` as a cell and as
   `DocumentRow.object`; the Node, Java and Rust clients carry the regenerated stubs. What one
   model holds is bounded by `OPENSYSML_GRPC_MAX_HELD_OBJECTS` (default `10000`, nested objects
-  counted): at the bound `Instantiate` is `RESOURCE_EXHAUSTED` until the model leaves the
-  cache, which releases its objects; none is evicted behind an id a client holds.
+  counted): an `Instantiate`, query or render whose objects would pass it fails whole with
+  `RESOURCE_EXHAUSTED`, leaving none of them, until the model leaves the cache, which releases
+  its objects; none is evicted behind an id a client holds.

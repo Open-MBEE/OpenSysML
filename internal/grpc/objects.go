@@ -21,8 +21,8 @@ import (
 )
 
 // HeldObjectsEnvVar names the variable bounding the objects one cached model
-// holds, nested objects counted: once the model holds that many, Instantiate is
-// refused until the model leaves the cache, which releases them all.
+// holds, nested objects counted: a materialization that would pass it fails
+// whole, and the model leaving the cache releases them all.
 const HeldObjectsEnvVar = "OPENSYSML_GRPC_MAX_HELD_OBJECTS"
 
 // DefaultMaxHeldObjects is the bound HeldObjectsEnvVar takes when unset.
@@ -63,8 +63,10 @@ func (s *Service) objects(cached *CachedModel) *heldObjects {
 	defer cached.objectsMu.Unlock()
 	if cached.objects == nil {
 		model, _ := cached.Semantics()
+		rt := s.newRuntimeContext(model)
+		rt.SetMaxInstances(s.maxHeldObjects)
 		cached.objects = &heldObjects{
-			rt:    s.newRuntimeContext(model),
+			rt:    rt,
 			idx:   cached.Index,
 			named: make(map[string]*runtime.Instance),
 		}
@@ -94,15 +96,24 @@ func (h *heldObjects) empty() bool {
 	return len(h.named) == 0 && len(h.displaced) == 0
 }
 
-// room refuses another Instantiate once the model holds limit objects, so a
-// population never outgrows the bound by more than one object graph.
-func (h *heldObjects) room(limit int) error {
-	if held := h.rt.InstanceCount(); held >= limit {
-		return statusErrorf(connect.CodeResourceExhausted,
-			"the model holds %d objects, the most %s allows (%d); raise it to hold more (the objects are released when the model leaves the cache)",
-			held, HeldObjectsEnvVar, limit)
+// exhausted is the RESOURCE_EXHAUSTED status of a failure at the held-objects
+// bound, nil for any other; the count reported is what the model still holds.
+func (h *heldObjects) exhausted(err error) error {
+	if !errors.Is(err, runtime.ErrInstanceLimitExceeded) {
+		return nil
 	}
-	return nil
+	return statusErrorf(connect.CodeResourceExhausted,
+		"the model holds %d objects, and one more would pass the %d that %s allows; raise it to hold more (the objects are released when the model leaves the cache)",
+		h.rt.InstanceCount(), h.rt.MaxInstances(), HeldObjectsEnvVar)
+}
+
+// documentStatus is the status of a document failure over the held population:
+// RESOURCE_EXHAUSTED when a read materialized past the bound, else the engine's own.
+func (h *heldObjects) documentStatus(err error) error {
+	if status := h.exhausted(err); status != nil {
+		return status
+	}
+	return documentStatus(err)
 }
 
 // roots are the objects a query enumerates from, each under the label it is
@@ -241,9 +252,13 @@ func (h *heldObjects) resolvePath(ref objref.Ref) (*runtime.Instance, string, er
 	return h.walked(walker.Walk(inst, lexer.QualifiedNameText(fqn), rest))
 }
 
-// walked types a walk's failure: the path is the caller's, so an invalid argument.
+// walked types a walk's failure: the path is the caller's, so an invalid
+// argument, unless materializing along it ran into the held-objects bound.
 func (h *heldObjects) walked(inst *runtime.Instance, label string, err error) (*runtime.Instance, string, error) {
 	if err != nil {
+		if status := h.exhausted(err); status != nil {
+			return nil, "", status
+		}
 		return nil, "", statusErrorf(connect.CodeInvalidArgument, "%v", err)
 	}
 	return inst, label, nil

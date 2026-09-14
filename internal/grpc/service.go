@@ -664,9 +664,10 @@ func (s *Service) parseModel(inputs []sourceInput, mode conformance.Mode) (strin
 		}
 	}
 
+	// A parse racing another of the same model keeps the entry already cached,
+	// so the objects held on it stay reachable under the hash.
 	model := &CachedModel{Documents: documents, Index: idx, Library: library}
-	s.cache.Put(modelHash, model)
-	return modelHash, model
+	return modelHash, s.cache.Add(modelHash, model)
 }
 
 // GetSymbol retrieves symbol information by FQN
@@ -858,23 +859,33 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	// binds it by id or by the name it was created under.
 	held := s.objects(cached)
 	defer held.lock()()
-	if err := held.room(s.maxHeldObjects); err != nil {
-		return nil, err
-	}
 	runtimeCtx := held.rt
 
-	inst, err := runtimeCtx.Instantiate(sym)
+	// Serializing the graph materializes the objects under the root, so it is
+	// part of the creation: past the held-objects bound, none of them stays.
+	var graph InstanceGraph
+	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
+		graph = s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
+		for _, err := range graph.Errors {
+			if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
+				return err
+			}
+		}
+		return nil
+	})
 	if err != nil {
+		if status := held.exhausted(err); status != nil {
+			return nil, status
+		}
 		return &pb.InstantiateResponse{
 			Error: fmt.Sprintf("instantiation failed: %v", err),
 		}, nil
 	}
 	held.hold(sym, inst)
 
-	root, all := s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
 	return &pb.InstantiateResponse{
-		Instance:  root,
-		Instances: all,
+		Instance:  graph.Root,
+		Instances: graph.All,
 	}, nil
 }
 

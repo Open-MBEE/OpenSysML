@@ -19,6 +19,10 @@ var (
 	// work, so it is its own error and its own budget.
 	ErrElementLimitExceeded = errors.New("collection element limit exceeded")
 
+	// ErrInstanceLimitExceeded is returned when materializing one more object
+	// would take the context past the bound SetMaxInstances set.
+	ErrInstanceLimitExceeded = errors.New("object limit exceeded")
+
 	// ErrUnresolvedReference is returned when a feature reference cannot be resolved.
 	ErrUnresolvedReference = errors.New("unresolved reference")
 
