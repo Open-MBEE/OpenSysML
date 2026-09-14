@@ -1565,8 +1565,12 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if d.boolOf(el, rdf.SysML+"isChain") {
 		words = append(words, "chain")
 	}
+	// `all` is not a declaration: the ends follow it bare or after the verb
+	// (KerML.xtext SuccessionDeclaration `isSufficient ?= 'all' 'first'?`).
+	declaredAt := keywordAt + 1
 	if d.boolOf(el, rdf.SysML+"isAll") {
 		words = append(words, "all")
+		declaredAt++
 	}
 	// A `render`/`frame` reference writes its target as a bare name; without one the
 	// member declares a usage, spelling out the kind keyword (SysML.xtext
@@ -1712,7 +1716,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if hasEnds {
 		// A connector's own multiplicity is its declaration, written ahead of
 		// the ends; after them it would read as the last end's.
-		declared := multPart != "" || len(words) > keywordAt+1
+		declared := multPart != "" || len(words) > declaredAt
 		if declared && keywordAt < len(words) && words[keywordAt] == "bind" {
 			// SysML's `bind` shorthand declares nothing; `bind [1] a = b` gives the
 			// first end the `[1]`, so the declaration takes the `binding … bind` form.

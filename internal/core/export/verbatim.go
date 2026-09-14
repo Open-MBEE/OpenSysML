@@ -3,11 +3,9 @@ package export
 import (
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // Source text is printed only while it states what the graph states: the
@@ -34,7 +32,7 @@ func (d *decoder) render(roots []*element) (string, error) {
 				return "", err
 			}
 		}
-		if d.implied > 0 && !libraryText(b.String()) {
+		if d.implied > 0 && !d.libraryNotation(b.String(), roots) {
 			d.explicit = true
 			continue
 		}
@@ -49,11 +47,16 @@ func (d *decoder) render(roots []*element) (string, error) {
 	}
 }
 
-// libraryText reports whether notation is, byte for byte, a bundled library
-// document: the only text that derives the norm's ids on its own.
-func libraryText(notation string) bool {
-	_, _, library := libs.NewModelIndex().LibraryDocumentByDigest(symbols.TextDigest([]byte(notation)))
-	return library
+// libraryNotation reports whether the encoder reads notation as the bundled
+// library document the graph is a version of, which derives the norm's ids on its own.
+func (d *decoder) libraryNotation(notation string, roots []*element) bool {
+	name, ok := d.candidateName(roots)
+	if !ok || d.library == "" {
+		return false
+	}
+	p := parser.New(source.New(name, []byte(notation)))
+	root := p.ParseFile()
+	return len(p.Diagnostics) == 0 && documentLibrary(name, root) == d.library
 }
 
 // verbatim returns the source text an element is printed as, if it carries
