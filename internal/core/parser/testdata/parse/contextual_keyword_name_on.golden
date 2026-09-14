@@ -7,7 +7,11 @@
         (Definition kind="attribute" abstract=false variation=false name="OffSignal"))
       (Membership visibility="default"
         (Definition kind="state" abstract=false variation=false name="Machine"
-          (InitialNode name="start" successor="off")
+          (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (ConnectorEnd target="start"
+              (*ast.QualifiedName))
+            (ConnectorEnd target="off"
+              (*ast.QualifiedName)))
           (SubstateMember name="off")
           (TransitionMember source="" target="on" trigger="OnSignal")
           (Membership visibility="default"

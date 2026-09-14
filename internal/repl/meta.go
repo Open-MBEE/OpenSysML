@@ -2605,6 +2605,9 @@ func (s *Session) doStop() ([]string, bool, error) {
 
 // doStateMachine starts a state machine executor debugging session.
 func (s *Session) doStateMachine(name string, performer []string) ([]string, bool, error) {
+	if s.checking() {
+		return s.checkInvocation(nil, []Behavior{{Name: name, Performer: performer}}, nil).Lines, false, nil
+	}
 	lines, err := s.startStateMachine(name, performer)
 	if err != nil {
 		if errors.Is(err, errRuntimeInit) {
@@ -3259,6 +3262,9 @@ func (s *Session) doAdvance(timeStr string) ([]string, bool, error) {
 // ran; a failed step is an error, a budget stop part of the report.
 func (s *Session) advanceBy(duration float64) ([]string, error) {
 	if s.actionExec == nil && s.stateExec == nil {
+		if s.checking() {
+			return s.checkAdvance(duration)
+		}
 		return nil, errors.New(noSessionText("debugging session", s.mostRecentlyEnded(), ""))
 	}
 	var state *runtime.StateExecutor

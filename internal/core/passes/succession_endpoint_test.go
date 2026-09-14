@@ -60,6 +60,26 @@ func TestEndpointNamingNoMemberIsReported(t *testing.T) {
 			state idle;
 			transition first zzz then idle;
 		} }`,
+		"first source": `package P { action def A {
+			first start;
+			action a;
+			first zzz then a;
+		} }`,
+		"first source with a body": `package P { action def A {
+			first start;
+			action a;
+			first zzz then a { attribute delay; }
+		} }`,
+		"state succession source": `package P { state def M {
+			entry; then idle;
+			state idle;
+			first zzz then idle;
+		} }`,
+		"state succession target": `package P { state def M {
+			entry; then idle;
+			state idle;
+			first idle then zzz;
+		} }`,
 	}
 
 	for name, src := range cases {
@@ -122,6 +142,24 @@ func TestEndpointsThatResolveStaySilent(t *testing.T) {
 			action a;
 			done;
 			succession first start then a;
+		} }`,
+		"first source": `package P { action def A {
+			first start;
+			action a;
+			action b;
+			first a then b;
+		} }`,
+		"first source is the implicit start": `package P { action def A {
+			action a;
+			first start then a;
+		} }`,
+		"one-ended first marker": `package P { action def A {
+			first a;
+			action a;
+		} }`,
+		"machine initial start": `package P { state def M {
+			first start then idle;
+			state idle;
 		} }`,
 		"implicit done": `package P { action def A {
 			first start;
@@ -349,10 +387,11 @@ func TestStateSuccessionEndpointSpellingsAcceptVertices(t *testing.T) {
 			state idle;
 			EDGE
 		} }`,
-		"first marker source": `package P { state def M {
-			first marker then other;
+		"keyword-less succession": `package P { state def M {
+			entry; then other;
 			state other;
 			state idle;
+			first other then idle;
 			EDGE
 		} }`,
 	}
@@ -364,6 +403,32 @@ func TestStateSuccessionEndpointSpellingsAcceptVertices(t *testing.T) {
 					model = strings.Replace(model, "first idle", "first begin", 1)
 				}
 				if got := endpointDiags(t, model); len(got) != 0 {
+					t.Fatalf("expected no diagnostics for a legal vertex endpoint, got %+v", got)
+				}
+			})
+		}
+	}
+}
+
+// A succession end written as a feature chain names the nested vertex the
+// qualified spelling does, whichever end it stands at, and its first segment
+// reaches a vertex nested anywhere in the machine as a qualified end's does.
+func TestStateSuccessionChainedEndpointsAcceptNestedVertices(t *testing.T) {
+	for _, keyword := range []string{"succession", ""} {
+		for _, sep := range []string{"::", "."} {
+			t.Run(keyword+"/"+sep, func(t *testing.T) {
+				src := `package P { state def M {
+					entry; then idle;
+					state idle;
+					state outer { state inner { state deep; } state other; }
+					state region parallel { state left { state l1; } state right { state r1; } }
+					` + keyword + ` first idle then outer` + sep + `inner` + sep + `deep;
+					` + keyword + ` first outer` + sep + `inner` + sep + `deep then outer` + sep + `other;
+					` + keyword + ` first outer` + sep + `other then inner` + sep + `deep;
+					` + keyword + ` first inner` + sep + `deep then left` + sep + `l1;
+					` + keyword + ` first left` + sep + `l1 then done;
+				} }`
+				if got := endpointDiags(t, src); len(got) != 0 {
 					t.Fatalf("expected no diagnostics for a legal vertex endpoint, got %+v", got)
 				}
 			})
@@ -431,6 +496,24 @@ func TestResolvedStateEndpointNotVertexIsReported(t *testing.T) {
 			state idle;
 			transition first idle then mode;
 		} }`,
+		"chained succession": `package P { state def M {
+			entry; then idle;
+			state idle;
+			state outer { attribute mode = 0; }
+			succession first idle then outer.mode;
+		} }`,
+		"chained keyword-less succession": `package P { state def M {
+			entry; then idle;
+			state idle;
+			state outer { attribute mode = 0; }
+			first idle then outer.mode;
+		} }`,
+		"chain operand naming no vertex": `package P { state def M {
+			entry; then idle;
+			state idle;
+			attribute mode = 0;
+			first idle then mode.deep;
+		} }`,
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -442,7 +525,7 @@ func TestResolvedStateEndpointNotVertexIsReported(t *testing.T) {
 				t.Fatalf("got code %q, want %q", got[0].Code, resolve.CodeNotAVertex)
 			}
 			covered := src[got[0].Span.Offset : got[0].Span.Offset+got[0].Span.Len]
-			if covered != "mode" && covered != "t" {
+			if covered != "mode" && covered != "t" && covered != "outer.mode" {
 				t.Fatalf("expected the span to cover the endpoint name, it covers %q", covered)
 			}
 		})

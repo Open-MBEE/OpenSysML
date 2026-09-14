@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"sawLit": ["false", "true"]},
+	"agreed": {"armed": "true"}
+}

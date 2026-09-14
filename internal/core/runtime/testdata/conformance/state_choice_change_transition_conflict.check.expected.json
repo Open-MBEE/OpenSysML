@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"finalState": ["cool", "hot"], "route": ["1", "2"]},
+	"agreed": {"temp": "30"}
+}

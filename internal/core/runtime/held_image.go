@@ -184,7 +184,7 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 // midRun reports a context inside a step: a run, action or calc on the stack, a
 // body paused there, or a probe under way.
 func (ctx *Context) midRun() bool {
-	return ctx.runDepth > 0 || ctx.actionDepth > 0 || ctx.calcDepth > 0 || ctx.pausable != nil || ctx.probes > 0
+	return ctx.runDepth > 0 || ctx.actionDepth > 0 || ctx.calcDepth > 0 || ctx.body != nil || ctx.probes > 0
 }
 
 // imaging takes an image: the closure under way, and the runs taken so far.

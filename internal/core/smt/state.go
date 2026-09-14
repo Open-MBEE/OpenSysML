@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
 
@@ -28,7 +29,13 @@ type Sorts struct {
 	Edge solve.Sort
 	// Choice ranges over the token slots that may act in a move, and Stutter.
 	Choice solve.Sort
+	// Signal ranges over the signal types the sends post and NoSignal; its
+	// values are empty for a flow without sends.
+	Signal solve.Sort
 }
+
+// NoSignal is the signal value of an empty bus slot.
+const NoSignal = "none"
 
 // newSorts declares the sorts of a flow with the given token slots. Names are
 // prefixed by the action so two encodings in one query stay distinct.
@@ -46,11 +53,42 @@ func newSorts(prefix string, f *Flow) Sorts {
 		choices = append(choices, slotLabel(t))
 	}
 	choices = append(choices, Stutter)
-	return Sorts{
+	sorts := Sorts{
 		Node:   solve.Sort{Kind: solve.SortDatatype, Name: prefix + "::Node", Values: nodes, Origin: prefix},
 		Edge:   solve.Sort{Kind: solve.SortDatatype, Name: prefix + "::Edge", Values: edges, Origin: prefix},
 		Choice: solve.Sort{Kind: solve.SortDatatype, Name: prefix + "::Choice", Values: choices, Origin: prefix},
 	}
+	if f.Bus > 0 {
+		signals := append(f.signalTypes(), NoSignal)
+		sorts.Signal = solve.Sort{Kind: solve.SortDatatype, Name: prefix + "::Signal", Values: signals, Origin: prefix}
+	}
+	return sorts
+}
+
+// signalTypes lists, in first-met order, the signal type each send posts.
+func (f *Flow) signalTypes() []string {
+	var types []string
+	seen := make(map[string]bool, len(f.Sends))
+	for _, site := range f.Sends {
+		name := sendSignal(site.Send)
+		if !seen[name] {
+			seen[name] = true
+			types = append(types, name)
+		}
+	}
+	return types
+}
+
+// sendSignal names the signal type a send posts: the type its message names,
+// or the message text where it is a value.
+func sendSignal(send lower.Send) string {
+	switch m := send.Message.(type) {
+	case *ast.QualifiedName:
+		return ast.QualifiedText(m)
+	case *ast.InvocationExpr:
+		return ast.QualifiedText(m.Type)
+	}
+	return nodeLabel(send.Message)
 }
 
 // edgeLabel names succession i of the flow: source, target and its position
@@ -79,6 +117,19 @@ type Slot struct {
 	// Able holds when the slot's token may act from this state, as the
 	// interpreter's step would offer it.
 	Able *solve.Var
+	// Parked holds when the token waits at an accept: for a message, or for
+	// the clock to reach Due. Both are nil for a flow without accepts.
+	Parked *solve.Var
+	Due    *solve.Var
+}
+
+// BusSlot is one message slot of the bus at one state: whether a message sits
+// in it, its signal type, its payload and the move that posted it.
+type BusSlot struct {
+	Present  *solve.Var
+	Signal   *solve.Var
+	Payload  *solve.Var
+	PostedAt *solve.Var
 }
 
 // State is the symbolic state after move Move; move 0 is the initial state.
@@ -99,6 +150,19 @@ type State struct {
 	// Overflow is set when a move reaching this state exceeded what the state
 	// holds: a fork found no free slot, or a delivery found a pin's queue full.
 	Overflow *solve.Var
+	// Now is the clock in seconds; nil for a flow without timed accepts.
+	Now *solve.Var
+	// Bus holds the M message slots; BusOverflow is set when a send found none
+	// free. Both are empty for a flow without sends.
+	Bus         []BusSlot
+	BusOverflow *solve.Var
+}
+
+// Named is one variable of the state vector under the name it has at every
+// move, so a query over two copies of the relation pairs them by name.
+type Named struct {
+	Name string
+	Var  *solve.Var
 }
 
 // Move is the choice made in move Index, from state Index-1 to state Index.
@@ -131,12 +195,33 @@ func newState(sorts Sorts, f *Flow, i int) *State {
 			ID:   intVar(fmt.Sprintf("id[%d]@%d", t, i)),
 			Able: boolVar(fmt.Sprintf("able[%d]@%d", t, i)),
 		}
+		if len(f.Accepts) > 0 {
+			s.Slots[t].Parked = boolVar(fmt.Sprintf("parked[%d]@%d", t, i))
+		}
+		if f.Timed {
+			s.Slots[t].Due = realVar(fmt.Sprintf("due[%d]@%d", t, i))
+		}
 	}
 	for l := range s.Loop {
 		s.Loop[l] = boolVar(fmt.Sprintf("loop[%d]@%d", l, i))
 	}
 	if f.Cyclic || f.Delivers {
 		s.Overflow = boolVar(fmt.Sprintf("overflow@%d", i))
+	}
+	if f.Timed {
+		s.Now = realVar(fmt.Sprintf("now@%d", i))
+	}
+	if f.Bus > 0 {
+		s.Bus = make([]BusSlot, f.Bus)
+		for b := range s.Bus {
+			s.Bus[b] = BusSlot{
+				Present:  boolVar(fmt.Sprintf("bus[%d].present@%d", b, i)),
+				Signal:   sortedVar(fmt.Sprintf("bus[%d].signal@%d", b, i), sorts.Signal),
+				Payload:  intVar(fmt.Sprintf("bus[%d].payload@%d", b, i)),
+				PostedAt: intVar(fmt.Sprintf("bus[%d].posted@%d", b, i)),
+			}
+		}
+		s.BusOverflow = boolVar(fmt.Sprintf("bus.overflow@%d", i))
 	}
 	return s
 }
@@ -192,24 +277,62 @@ func (s *State) value(base *solve.Var) *solve.Var {
 	return v
 }
 
-// vars lists the state's variables in a stable order, the feature copies by name.
-func (s *State) vars(features []*solve.Var) []*solve.Var {
-	vars := make([]*solve.Var, 0, 3*len(s.Slots)+len(s.Loop)+len(features)+3)
-	for _, slot := range s.Slots {
-		vars = append(vars, slot.At, slot.Via, slot.ID, slot.Able)
+// Vector lists the state's variables under their move-independent names: the
+// slots, the clock, the bus, the flags, the feature copies and, for each
+// flagged feature, the flag saying whether it holds a value. Two states of one
+// encoding have vectors of the same names in the same order.
+func (s *State) Vector(features []*solve.Var, flagged map[string]bool) []Named {
+	vector := make([]Named, 0, 6*len(s.Slots)+4*len(s.Bus)+len(s.Loop)+2*len(features)+5)
+	add := func(name string, v *solve.Var) {
+		if v != nil {
+			vector = append(vector, Named{Name: name, Var: v})
+		}
 	}
-	vars = append(vars, s.NextID, s.Failed)
-	if s.Overflow != nil {
-		vars = append(vars, s.Overflow)
+	for t, slot := range s.Slots {
+		add(fmt.Sprintf("at[%d]", t), slot.At)
+		add(fmt.Sprintf("via[%d]", t), slot.Via)
+		add(fmt.Sprintf("id[%d]", t), slot.ID)
+		add(fmt.Sprintf("able[%d]", t), slot.Able)
+		add(fmt.Sprintf("parked[%d]", t), slot.Parked)
+		add(fmt.Sprintf("due[%d]", t), slot.Due)
 	}
-	vars = append(vars, s.Loop...)
+	add("next", s.NextID)
+	add("failed", s.Failed)
+	add("overflow", s.Overflow)
+	add("now", s.Now)
+	for b, slot := range s.Bus {
+		add(fmt.Sprintf("bus[%d].present", b), slot.Present)
+		add(fmt.Sprintf("bus[%d].signal", b), slot.Signal)
+		add(fmt.Sprintf("bus[%d].payload", b), slot.Payload)
+		add(fmt.Sprintf("bus[%d].posted", b), slot.PostedAt)
+	}
+	add("bus.overflow", s.BusOverflow)
+	for l, loop := range s.Loop {
+		add(fmt.Sprintf("loop[%d]", l), loop)
+	}
 	for _, base := range features {
-		vars = append(vars, s.value(base))
+		add(base.Name, s.value(base))
+	}
+	for _, base := range features {
+		if flagged[base.Name] {
+			add(fmt.Sprintf("has(%s)", base.Name), s.has(base))
+		}
+	}
+	return vector
+}
+
+// vars lists the state's variables in the vector's order.
+func (s *State) vars(features []*solve.Var, flagged map[string]bool) []*solve.Var {
+	vector := s.Vector(features, flagged)
+	vars := make([]*solve.Var, len(vector))
+	for i, named := range vector {
+		vars[i] = named.Var
 	}
 	return vars
 }
 
 func intVar(name string) *solve.Var  { return &solve.Var{Name: name, Sort: solve.Int} }
+func realVar(name string) *solve.Var { return &solve.Var{Name: name, Sort: solve.Real} }
 func boolVar(name string) *solve.Var { return &solve.Var{Name: name, Sort: solve.Bool} }
 func sortedVar(name string, sort solve.Sort) *solve.Var {
 	return &solve.Var{Name: name, Sort: sort}

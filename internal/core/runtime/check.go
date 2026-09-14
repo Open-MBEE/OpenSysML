@@ -12,14 +12,15 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// The model checker: a depth-first search over the schedules of one action,
-// one token advancing one node per move, backtracking through snapshots. It
-// finds the properties' violations, the deadlocks and the typed failures some
-// schedule reaches, and the features whose final value the schedule decides
-// (docs/internals/design/bounded-model-checking.md).
+// The model checker: a depth-first search over the schedules of one invocation —
+// actions and state machines on one clock — one executor acting one unit per
+// move, backtracking through snapshots. It finds the properties' violations, the
+// deadlocks and the typed failures some schedule reaches, and the observables
+// whose final value the schedule decides (docs/internals/design/bounded-model-checking.md).
 
 // CheckBudget bounds a check: the moves one schedule may make and the distinct
 // states the search may visit; 0 leaves either unbounded.
@@ -60,16 +61,12 @@ func (e *UnknownCheckFeatureError) Is(target error) bool { return target == ErrU
 
 // CheckProperty is a property evaluated at every stable state of a check: a
 // requirement or constraint, false at a state being a violation. Holds is asked
-// in the check's context of the executor the check runs, and again of a replay
+// in the check's context of the invocation the check runs, and again of a replay
 // of the witness that claims it false or failing to evaluate.
 type CheckProperty struct {
 	Name  string
-	Holds func(*Context, *ActionExecutor) (bool, error)
+	Holds func(*Context, *Invocation) (bool, error)
 }
-
-// ActionStarter builds and starts the action executor a check runs, in the
-// context given; a replay starts the same executor the same way.
-type ActionStarter func(*Context) (*ActionExecutor, error)
 
 // ViolationKind classifies what a schedule reached.
 type ViolationKind int
@@ -77,7 +74,7 @@ type ViolationKind int
 const (
 	// ViolationProperty is a property evaluating false at a reached state.
 	ViolationProperty ViolationKind = iota
-	// ViolationDeadlock is a state with no move where the action is not complete.
+	// ViolationDeadlock is a state with no move where an action is not complete.
 	ViolationDeadlock
 	// ViolationFailure is a typed runtime error a move raised.
 	ViolationFailure
@@ -192,7 +189,10 @@ type CheckReport struct {
 	// executor's budgets by name (ExecutorBounds); none when exhaustive.
 	BoundsHit []string
 	// Limits are the executor's budgets the search ran under.
-	Limits     Budgets
+	Limits Budgets
+	// Horizon is the instant the search stopped the clock at: no schedule was
+	// followed past it, and a state there is final.
+	Horizon    Horizon
 	Violations []Violation
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
@@ -201,7 +201,11 @@ type CheckReport struct {
 
 // Status renders how the check ended for a report.
 func (r *CheckReport) Status() string {
-	s := fmt.Sprintf("%s (%d states, %d moves, depth %d", r.Verdict, r.States, r.Moves, r.MaxDepth)
+	s := r.Verdict.String()
+	if at, bounded := r.Horizon.Bounded(); bounded {
+		s += " up to t=" + semantics.FormatReal(at)
+	}
+	s += fmt.Sprintf(" (%d states, %d moves, depth %d", r.States, r.Moves, r.MaxDepth)
 	if len(r.BoundsHit) > 0 {
 		s += "; bounds hit: " + strings.Join(r.BoundsHit, ", ")
 	}
@@ -223,17 +227,16 @@ func (e *CheckStopped) Error() string {
 
 func (e *CheckStopped) Unwrap() error { return e.Cause }
 
-// CheckAction searches the schedules of the action start begins in the context
+// Check searches the schedules of the invocation start begins in the context
 // fresh makes. Every violation and every final value carries the witness a
-// replay of the same starter follows (ReplayAction). It stops with a CheckStopped
-// when stop ends first; it fails when the checked action is one the search
-// cannot snapshot (ErrSnapshotPausedBody) or the run refused a move it selected.
-func CheckAction(stop context.Context, fresh func() (*Context, error), start ActionStarter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
+// replay of the same starter follows (Replay). It stops with a CheckStopped
+// when stop ends first; it fails when the run refused a move it selected.
+func Check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
 	ctx, err := fresh()
 	if err != nil {
 		return nil, err
 	}
-	script := &checkScript{branch: -1}
+	script := &checkScript{due: -1}
 	if err := ctx.SetSchedule(checkPolicy(script)); err != nil {
 		return nil, err
 	}
@@ -241,24 +244,28 @@ func CheckAction(stop context.Context, fresh func() (*Context, error), start Act
 		ctx.SetTrace(NewTraceRecorder())
 	}
 	c := &checker{
-		ctx:      ctx,
-		budget:   budget,
-		opts:     opts,
-		props:    props,
-		visited:  make(map[stateKey]*visitedState),
-		onStack:  make(map[stateKey]int),
-		finals:   make(map[string]int),
-		futures:  make(map[futureKey]lower.Footprint),
-		maxSteps: int(ctx.Budgets().MaxActionSteps),
+		ctx:            ctx,
+		budget:         budget,
+		opts:           opts,
+		props:          props,
+		visited:        make(map[stateKey]*visitedState),
+		onStack:        make(map[stateKey]int),
+		finals:         make(map[string]int),
+		futures:        make(map[futureKey]lower.Footprint),
+		machineFutures: make(map[*lower.StateGraph]lower.Footprint),
+		budgets:        ctx.Budgets(),
 	}
-	exec, err := start(ctx)
+	run, err := beginInvocation(ctx, start)
 	if err != nil {
 		// Failing to start fails on every schedule: a violation with no move.
 		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err)})
 		return c.result(), nil
 	}
-	c.exec = exec
-	defer exec.Release()
+	defer run.inv.Release()
+	if err := run.inv.started(ctx); err != nil {
+		return nil, err
+	}
+	c.inv, c.run = run.inv, run
 	if err := c.resolveDiverge(); err != nil {
 		return nil, err
 	}
@@ -274,7 +281,8 @@ func CheckAction(stop context.Context, fresh func() (*Context, error), start Act
 // checker is one search in progress.
 type checker struct {
 	ctx    *Context
-	exec   *ActionExecutor
+	inv    *Invocation
+	run    *invocationRun
 	budget CheckBudget
 	opts   CheckOptions
 	props  []CheckProperty
@@ -284,9 +292,12 @@ type checker struct {
 	onStack map[stateKey]int
 	stack   []*checkFrame
 	futures map[futureKey]lower.Footprint
+	// machineFutures is the footprint of a machine's whole graph, by graph.
+	machineFutures map[*lower.StateGraph]lower.Footprint
 
-	// maxSteps is the executor's budget of action steps, a bound on the depth.
-	maxSteps int
+	// budgets are the executors' budgets, each a bound on the moves of its kind
+	// along one schedule.
+	budgets  Budgets
 	moves    int
 	maxDepth int
 	bounds   []string
@@ -310,9 +321,13 @@ type visitedState struct {
 
 // checkFrame is one state on the search stack.
 type checkFrame struct {
-	snap  *Snapshot
+	snap *Snapshot
+	// turn is the executor holding the turn in the state, nil for none.
+	turn  checkedExecutor
 	key   stateKey
 	depth int
+	// spent counts the moves of each kind the schedule to the state made.
+	spent spending
 	// all lists every move enabled in the state; moves the ones the search takes,
 	// in order; next indexes the one to take.
 	all   []searchMove
@@ -326,18 +341,36 @@ type checkFrame struct {
 	cut bool
 }
 
+// spending counts the moves of one schedule by the executor budget each draws on.
+type spending struct {
+	actionSteps, events, doSteps int64
+}
+
+// spend counts the move against its budget and reports the bound it exceeds, if any.
+func (s *spending) spend(kind moveKind, budgets Budgets) (bound string, exceeded bool) {
+	switch kind {
+	case moveDispatch:
+		s.events++
+		return BoundEvents, budgets.MaxStateEvents > 0 && s.events > budgets.MaxStateEvents
+	case moveDoStep:
+		s.doSteps++
+		return BoundDoSteps, budgets.MaxDoSteps > 0 && s.doSteps > budgets.MaxDoSteps
+	}
+	s.actionSteps++
+	return BoundActionSteps, budgets.MaxActionSteps > 0 && s.actionSteps > budgets.MaxActionSteps
+}
+
 // searchMove is an enabled move with what the reduction needs of it: its
-// canonical name, its footprint, and the footprint of its token's future.
+// canonical name and its footprint.
 type searchMove struct {
 	enabledMove
 	name      string
 	footprint lower.Footprint
-	future    lower.Footprint
 }
 
-// same reports whether the two are one move: one token taking one branch.
+// same reports whether the two are one move: one unit taking one pick sequence.
 func (m searchMove) same(o searchMove) bool {
-	return m.Token == o.Token && m.Branch == o.Branch
+	return m.enabledMove.same(o.enabledMove)
 }
 
 func containsMove(moves []searchMove, m searchMove) bool {
@@ -370,6 +403,7 @@ func (c *checker) violate(v Violation) {
 // witness is the schedule so far: the choices the run noted and its trace.
 func (c *checker) witness() Witness {
 	w := Witness{Choices: c.ctx.ChoicesTaken()}
+	w.Objects = c.ctx.objectsNamed(w.Choices)
 	if tr := c.ctx.Trace(); tr != nil {
 		w.Trace = tr.String()
 	}
@@ -383,13 +417,13 @@ func (c *checker) failing(err error) Witness {
 	return w
 }
 
-// search runs the depth-first search from the started executor's state,
+// search runs the depth-first search from the started invocation's state,
 // stopping early once stop ends.
 func (c *checker) search(stop context.Context) error {
-	if err := c.stabilize(); err != nil {
+	if err := c.run.stabilize(); err != nil {
 		return c.failed(err, 0)
 	}
-	if c.exec.State() == StateCompleted {
+	if c.run.terminal() {
 		return c.complete(0)
 	}
 	root, key, err := c.enter(0, nil)
@@ -417,6 +451,7 @@ func (c *checker) search(stop context.Context) error {
 		f.next++
 		c.visited[f.key].explored[m.name] = true
 		f.snap.Restore()
+		c.run.turn = f.turn
 		if err := c.take(f, m); err != nil {
 			c.releaseAll()
 			return err
@@ -446,29 +481,31 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 		c.cut(f)
 		return nil
 	}
-	if c.maxSteps > 0 && depth > c.maxSteps {
-		c.hit(BoundActionSteps)
+	spent := f.spent
+	if bound, exceeded := spent.spend(m.Kind, c.budgets); exceeded {
+		c.hit(bound)
 		c.cut(f)
 		return nil
 	}
-	branches, err := c.exec.makeMove(m.enabledMove)
+	drawn, err := c.run.makeMove(m.enabledMove)
 	c.moves++
 	c.maxDepth = max(c.maxDepth, depth)
-	if m.Branch < 0 && branches > 1 {
-		f.branches(m, branches)
-	}
+	f.reveal(m, drawn)
 	if err != nil {
 		return c.failed(err, depth)
 	}
-	if err := c.stabilize(); err != nil {
+	if err := c.run.stabilize(); err != nil {
 		return c.failed(err, depth)
 	}
-	if c.exec.State() == StateCompleted {
+	if c.run.terminal() {
 		return c.complete(depth)
 	}
 	child, key, err := c.enter(depth, c.childSleep(f, m))
 	if err != nil {
 		return err
+	}
+	if child != nil {
+		child.spent = spent
 	}
 	if seen := c.visited[key]; seen != nil && seen.cut {
 		c.cut(f)
@@ -492,7 +529,7 @@ func (c *checker) failed(err error, depth int) error {
 		c.hit(bound)
 		return nil
 	}
-	if errors.Is(err, ErrCheckRefused) || errors.Is(err, ErrSnapshotPausedBody) {
+	if errors.Is(err, ErrCheckRefused) {
 		return err
 	}
 	kind := ViolationFailure
@@ -503,27 +540,7 @@ func (c *checker) failed(err error, depth int) error {
 	return nil
 }
 
-// stabilize settles the state until a move is enabled or the action is complete;
-// a settling that changes nothing is a deadlock.
-func (c *checker) stabilize() error {
-	for !c.stable() {
-		now, state := c.ctx.clock.now, c.exec.State()
-		if err := c.exec.settle(); err != nil {
-			return err
-		}
-		if c.ctx.clock.now == now && c.exec.State() == state && !c.stable() {
-			return c.exec.deadlockError(nil)
-		}
-	}
-	return nil
-}
-
-// stable reports whether the state is one to search from: complete, or with a move enabled.
-func (c *checker) stable() bool {
-	return c.exec.State() == StateCompleted || len(c.exec.enabledMoves()) > 0
-}
-
-// complete visits the completed state the executor reached: a state like any
+// complete visits the terminal state the invocation reached: a state like any
 // other, its properties evaluated when new, whose outcome is a final.
 func (c *checker) complete(depth int) error {
 	if _, _, seen, _, err := c.visit(depth); err != nil || seen == nil {
@@ -533,12 +550,10 @@ func (c *checker) complete(depth int) error {
 	return nil
 }
 
-// visit records the stable state the executor stands in, evaluating the
+// visit records the stable state the invocation stands in, evaluating the
 // properties at a new one; seen is nil when the states bound keeps the search out.
 func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
-	if form, err = c.exec.canonicalState(); err != nil {
-		return form, "", nil, false, err
-	}
+	form = c.run.canonicalState()
 	key = form.key()
 	if seen, visited = c.visited[key]; !visited {
 		if c.budget.States > 0 && len(c.visited) >= c.budget.States {
@@ -559,7 +574,7 @@ func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visi
 	return form, key, seen, visited, nil
 }
 
-// enter visits the stable state the executor stands in and returns the frame to
+// enter visits the stable state the invocation stands in and returns the frame to
 // search it from, nil when nothing remains to explore from it or a bound keeps
 // the search out.
 func (c *checker) enter(depth int, sleep []searchMove) (*checkFrame, stateKey, error) {
@@ -568,12 +583,12 @@ func (c *checker) enter(depth int, sleep []searchMove) (*checkFrame, stateKey, e
 		return nil, key, err
 	}
 	all := c.movesOf(form)
-	f := &checkFrame{key: key, depth: depth, all: all, sleep: sleep}
+	f := &checkFrame{turn: c.run.turn, key: key, depth: depth, all: all, sleep: sleep}
 	f.moves = c.persistent(all, sleep)
 	if visited && !seen.wanted(f) {
 		return nil, key, nil
 	}
-	snap, err := c.exec.Snapshot()
+	snap, err := c.inv.Snapshot()
 	if err != nil {
 		return nil, key, err
 	}
@@ -604,31 +619,54 @@ func (s *visitedState) mark(moves []searchMove) {
 // movesOf lists the state's enabled moves with their canonical names and
 // footprints, in canonical order.
 func (c *checker) movesOf(form canonicalForm) []searchMove {
-	enabled := c.exec.enabledMoves()
+	enabled := c.run.enabledMoves()
+	draw := len(owners(enabled)) > 1
 	moves := make([]searchMove, 0, len(enabled))
 	for _, m := range enabled {
-		moves = append(moves, c.named(form, m))
+		moves = append(moves, c.named(form, m, draw))
 	}
 	slices.SortFunc(moves, func(a, b searchMove) int { return strings.Compare(a.name, b.name) })
 	return moves
 }
 
-func (c *checker) named(form canonicalForm, m enabledMove) searchMove {
-	name := form.tokens[m.Token]
-	if m.Branch >= 0 {
-		name = fmt.Sprintf("%s branch %d", name, m.Branch+1)
+// named gives the move its canonical name — its executor's canonical name, its
+// token's where it moves one, else its label, and its picks — and its footprint:
+// the whole turn's where the move takes the turn, at a state drawing the due order.
+func (c *checker) named(form canonicalForm, m enabledMove, draw bool) searchMove {
+	name := form.names[m.Owner] + ": "
+	if m.Token != 0 {
+		name += form.tokens[tokenKey{m.Owner, m.Token}]
+	} else {
+		name += m.Label
 	}
-	return searchMove{enabledMove: m, name: name, footprint: c.footprintOf(m), future: c.futureOf(m)}
+	for _, pick := range m.Picks {
+		name = fmt.Sprintf("%s pick %d", name, pick+1)
+	}
+	footprint := c.footprintOf(m)
+	if draw {
+		footprint = c.turnFootprint(m)
+	}
+	return searchMove{enabledMove: m, name: name, footprint: footprint}
 }
 
-// branches adds the other branches of a decision the move revealed, right after it.
-func (f *checkFrame) branches(m searchMove, n int) {
+// reveal adds, right after the move, the moves taking each other alternative of
+// the choice points the move drew past its picks: one sibling per alternative,
+// each taking the drawn choices before it at their first alternative.
+func (f *checkFrame) reveal(m searchMove, drawn []ChoicePoint) {
 	var more []searchMove
-	for branch := 1; branch < n; branch++ {
-		other := m
-		other.Branch = branch
-		other.name = fmt.Sprintf("%s branch %d", m.name, branch+1)
-		more = append(more, other)
+	for i, choice := range drawn {
+		for alt := 1; alt < len(choice.Alternatives); alt++ {
+			other := m
+			other.Picks = slices.Concat(m.Picks, make([]int, i), []int{alt})
+			other.name = m.name
+			for _, pick := range other.Picks[len(m.Picks):] {
+				other.name = fmt.Sprintf("%s pick %d", other.name, pick+1)
+			}
+			more = append(more, other)
+		}
+	}
+	if len(more) == 0 {
+		return
 	}
 	f.all = slices.Insert(f.all, slices.IndexFunc(f.all, m.same)+1, more...)
 	f.moves = slices.Insert(f.moves, f.next, more...)
@@ -670,7 +708,7 @@ func (c *checker) properties(depth int) {
 // derives is given back.
 func (c *checker) evaluate(p CheckProperty) (bool, error) {
 	defer c.ctx.beginProbe()()
-	return p.Holds(c.ctx, c.exec)
+	return p.Holds(c.ctx, c.inv)
 }
 
 // final records the outcome of a complete schedule, the first schedule
@@ -694,11 +732,12 @@ func (c *checker) final() {
 // trace behind for the witness to carry.
 func (c *checker) spellFinal() (values map[string]string, spelled, identity string) {
 	defer c.ctx.beginProbe()()
-	outcome := c.ctx.ActionOutcome(c.exec.Results())
-	values = c.divergenceValues(outcome)
+	outcome := c.inv.Outcome()
+	values = c.divergenceValues()
 	spelled, identity = outcome.String(), outcome.identity()
+	prefixes := c.inv.performerPrefixes()
 	for _, name := range slices.Sorted(maps.Keys(values)) {
-		if !strings.HasPrefix(name, "this.") {
+		if !slices.ContainsFunc(prefixes, func(p performer) bool { return strings.HasPrefix(name, p.name) }) {
 			continue
 		}
 		spelled += "; " + name + " = " + values[name]
@@ -707,90 +746,141 @@ func (c *checker) spellFinal() (values map[string]string, spelled, identity stri
 	return values, spelled, identity
 }
 
-// divergenceValues spells the features divergence is reported over as the
-// schedule left them, a selected feature holding no value as UnsetText: the
-// action's own from its root performance, a performed node's from the outputs
-// under `node.`, the performing object's as `this.<name>`.
-func (c *checker) divergenceValues(outcome Outcome) map[string]string {
+// divergenceValues spells the observables divergence is reported over as the
+// schedule left them, a selected feature holding no value as UnsetText: each
+// action's own features from its root performance and its performed nodes' from
+// the outputs under `node.`, each state machine's `finalState` and data, under
+// the behavior's name in a joint invocation, and the performing objects' under
+// their prefixes: `this.<name>` for one object, `<object>.<name>` for several.
+func (c *checker) divergenceValues() map[string]string {
 	defer c.ctx.beginProbe()()
 	values := make(map[string]string)
-	root := c.exec.root
+	prefixes := c.inv.prefixes()
+	for i, exec := range c.inv.Actions {
+		c.actionDivergence(exec, prefixes[i], values)
+	}
+	for i, exec := range c.inv.States {
+		c.machineDivergence(exec, prefixes[len(c.inv.Actions)+i], values)
+	}
+	for _, p := range c.inv.performerPrefixes() {
+		c.performerDivergence(p.self, p.name, values)
+	}
+	return values
+}
+
+// actionDivergence spells the action's own features and its performed nodes'
+// under prefix.
+func (c *checker) actionDivergence(exec *ActionExecutor, prefix string, values map[string]string) {
+	root := exec.root
 	own := make(map[string]Value)
 	for name := range root.ownFeatures() {
-		if !c.reportsDivergenceOf(name) {
+		if !c.reportsDivergenceOf(root, prefix, name) {
 			continue
 		}
 		if value, held := root.data[name]; held {
 			own[name] = value
 		} else {
-			values[name] = UnsetText
+			values[prefix+name] = UnsetText
 		}
 	}
 	for _, out := range c.ctx.ActionOutcome(own).RenderedOutputs() {
-		values[out.Name] = out.Text
+		values[prefix+out.Name] = out.Text
 	}
-	if len(c.nested) > 0 {
-		held := c.heldUnderNodes()
-		for name := range c.nested {
-			if held[name] {
-				values[name] = UnsetText
-			}
-		}
-		for _, out := range outcome.RenderedOutputs() {
-			if _, wanted := c.nested[out.Name]; wanted {
-				values[out.Name] = out.Text
-			}
+	if len(c.nested) == 0 {
+		return
+	}
+	held := c.heldUnderNodes(exec, prefix)
+	for name := range c.nested {
+		if held[name] {
+			values[name] = UnsetText
 		}
 	}
-	if self := c.exec.Performer(); self != nil {
-		selfOwn := make(map[string]Value)
-		for name, held := range self.FeatureValues {
-			if !c.reportsPerformerDivergenceOf(name, held.Feature) {
-				continue
-			}
-			fv, err := self.GetFeatureValue(c.ctx, name)
-			if err != nil {
-				values["this."+name] = "<error: " + err.Error() + ">"
-				continue
-			}
-			switch {
-			case !fv.Materialized:
-				values["this."+name] = UnsetText
-			case fv.Feature.Scalar():
-				selfOwn[name] = fv.Value
-			default:
-				selfOwn[name] = fv.Values
-			}
-		}
-		for _, out := range c.ctx.ActionOutcome(selfOwn).RenderedOutputs() {
-			values["this."+out.Name] = out.Text
+	for _, out := range c.ctx.ActionOutcome(exec.Results()).RenderedOutputs() {
+		if _, wanted := c.nested[prefix+out.Name]; wanted {
+			values[prefix+out.Name] = out.Text
 		}
 	}
-	return values
+}
+
+// machineDivergence spells the machine's final configuration and its data under
+// prefix: `finalState` bare, `<name> finalState` in a joint invocation.
+func (c *checker) machineDivergence(exec *StateExecutor, prefix string, values map[string]string) {
+	final := finalStateKey(prefix)
+	if len(c.opts.Diverge) == 0 || slices.Contains(c.opts.Diverge, final) {
+		values[final] = exec.FinalStateName()
+	}
+	data := make(map[string]Value)
+	for name, value := range exec.StateData() {
+		if len(c.opts.Diverge) == 0 || slices.Contains(c.opts.Diverge, prefix+name) {
+			data[name] = value
+		}
+	}
+	for _, out := range c.ctx.ActionOutcome(data).RenderedOutputs() {
+		values[prefix+out.Name] = out.Text
+	}
+}
+
+// finalStateKey names a machine's final configuration among the observables.
+func finalStateKey(prefix string) string {
+	if prefix == "" {
+		return "finalState"
+	}
+	return strings.TrimSuffix(prefix, ".") + " finalState"
+}
+
+// performerDivergence spells the performing object's features under prefix.
+func (c *checker) performerDivergence(self *Instance, prefix string, values map[string]string) {
+	selfOwn := make(map[string]Value)
+	for name, held := range self.FeatureValues {
+		if !c.reportsPerformerDivergenceOf(prefix, name, held.Feature) {
+			continue
+		}
+		fv, err := self.GetFeatureValue(c.ctx, name)
+		if err != nil {
+			values[prefix+name] = "<error: " + err.Error() + ">"
+			continue
+		}
+		switch {
+		case !fv.Materialized:
+			values[prefix+name] = UnsetText
+		case fv.Feature.Scalar():
+			selfOwn[name] = fv.Value
+		default:
+			selfOwn[name] = fv.Values
+		}
+	}
+	for _, out := range c.ctx.ActionOutcome(selfOwn).RenderedOutputs() {
+		values[prefix+out.Name] = out.Text
+	}
 }
 
 // reportsDivergenceOf reports whether the action's own feature, under the name
 // its performance holds it by, is one divergence is reported over; absent names, every one is.
-func (c *checker) reportsDivergenceOf(name string) bool {
-	return len(c.opts.Diverge) == 0 ||
-		slices.ContainsFunc(c.opts.Diverge, func(d string) bool { return c.exec.root.key(d) == name })
+func (c *checker) reportsDivergenceOf(root *actionFrame, prefix, name string) bool {
+	if len(c.opts.Diverge) == 0 {
+		return true
+	}
+	return slices.ContainsFunc(c.opts.Diverge, func(d string) bool {
+		own, ofThis := strings.CutPrefix(d, prefix)
+		return ofThis && root.key(own) == name
+	})
 }
 
 // reportsPerformerDivergenceOf reports whether the performing object's feature,
-// named `this.<name>`, is one divergence is reported over; absent names, its attributes are.
-func (c *checker) reportsPerformerDivergenceOf(name string, of *EffectiveFeature) bool {
+// named under prefix, is one divergence is reported over; absent names, its attributes are.
+func (c *checker) reportsPerformerDivergenceOf(prefix, name string, of *EffectiveFeature) bool {
 	if len(c.opts.Diverge) == 0 {
 		return of != nil && of.Symbol != nil && of.Symbol.Kind == symbols.SymbolAttributeUsage
 	}
-	return slices.Contains(c.opts.Diverge, "this."+name)
+	return slices.Contains(c.opts.Diverge, prefix+name)
 }
 
-// heldUnderNodes names, as `node.feature`, every feature the latest performances
-// of the action's nodes hold at the state the executor stands in.
-func (c *checker) heldUnderNodes() map[string]bool {
+// heldUnderNodes names, as `node.feature` under prefix, every feature the latest
+// performances of the action's nodes hold at the state the executor stands in.
+func (c *checker) heldUnderNodes(exec *ActionExecutor, prefix string) map[string]bool {
 	held := make(map[string]bool)
-	for name, sub := range c.exec.root.latestSubactions() {
-		sub.heldFeatures(name+".", held)
+	for name, sub := range exec.root.latestSubactions() {
+		sub.heldFeatures(prefix+name+".", held)
 	}
 	return held
 }
@@ -800,45 +890,162 @@ func (c *checker) tellHeld() {
 	if len(c.untold) == 0 {
 		return
 	}
-	for name := range c.heldUnderNodes() {
-		delete(c.untold, name)
+	prefixes := c.inv.prefixes()
+	for i, exec := range c.inv.Actions {
+		for name := range c.heldUnderNodes(exec, prefixes[i]) {
+			delete(c.untold, name)
+		}
 	}
 }
 
-// resolveDiverge checks every name Diverge selects against what the started action
-// holds: `this.<name>` the performing object's feature, a bare name the action's own,
-// `node.path` a feature under a node it performs, told from the lowered flows where
-// a call is settled and left to the performances where it is tied.
+// FeatureOwner tells whose feature a name a check compares resolves to.
+type FeatureOwner int
+
+const (
+	// OwnedByAction: a feature the action holds itself.
+	OwnedByAction FeatureOwner = iota
+	// OwnedByPerformer: `this.<name>`, a feature of the object performing the action.
+	OwnedByPerformer
+	// OwnedByNode: `node.path`, a feature a performance of one of the action's nodes holds.
+	OwnedByNode
+)
+
+// ResolveCheckFeatures resolves the names a check compares as Check does over an
+// invocation of the started action exec alone, telling whose feature each is; a
+// name nothing answers to is an UnknownCheckFeatureError.
+func ResolveCheckFeatures(exec *ActionExecutor, names []string) (map[string]FeatureOwner, error) {
+	inv := &Invocation{Actions: []*ActionExecutor{exec}}
+	c := &checker{ctx: exec.ctx, inv: inv, opts: CheckOptions{Diverge: names}}
+	if err := c.resolveDiverge(); err != nil {
+		return nil, err
+	}
+	owners := make(map[string]FeatureOwner, len(names))
+	for _, name := range names {
+		switch {
+		case strings.HasPrefix(name, "this."):
+			owners[name] = OwnedByPerformer
+		case c.nested[name]:
+			owners[name] = OwnedByNode
+		default:
+			owners[name] = OwnedByAction
+		}
+	}
+	return owners, nil
+}
+
+// PerformerAttributes names, in name order, the attributes of the object performing
+// the action: the features a check compares for it absent names; none without one.
+func (e *ActionExecutor) PerformerAttributes() []string {
+	self := e.Performer()
+	if self == nil {
+		return nil
+	}
+	var names []string
+	for name, held := range self.FeatureValues {
+		if of := held.Feature; of != nil && of.Symbol != nil && of.Symbol.Kind == symbols.SymbolAttributeUsage {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return names
+}
+
+// resolveDiverge checks every name Diverge selects against what the started
+// behaviors hold: `this.<name>` the performing object's feature, `<object>.<name>`
+// one of several performing objects'; under a behavior's name in a joint
+// invocation, bare in a single one, an action's own feature, a `node.path` under
+// a node it performs — told from the lowered flows where a call is settled and
+// left to the performances where it is tied — or a machine's `finalState` or data.
 func (c *checker) resolveDiverge() error {
 	c.nested, c.untold = make(map[string]bool), make(map[string]bool)
-	root := c.exec.root
+	prefixes := c.inv.prefixes()
 	for _, name := range c.opts.Diverge {
-		if feature, ofSelf := strings.CutPrefix(name, "this."); ofSelf {
-			self := c.exec.Performer()
-			switch {
-			case self == nil:
-				return &UnknownCheckFeatureError{Name: name, Reason: "no object performs the action"}
-			case self.FeatureValues[feature] == nil:
-				return &UnknownCheckFeatureError{Name: name, Reason: "the performing object has no feature " + feature}
+		if ofObject, err := c.resolvePerformerDiverge(name); ofObject {
+			if err != nil {
+				return err
 			}
 			continue
 		}
-		if root.owns(name) {
-			continue
+		i, rest := c.inv.behaviorOf(prefixes, name)
+		switch {
+		case i < 0:
+			return &UnknownCheckFeatureError{Name: name, Reason: "no started behavior is named so"}
+		case i >= len(c.inv.Actions):
+			exec := c.inv.States[i-len(c.inv.Actions)]
+			if _, held := exec.StateData()[rest]; held || name == finalStateKey(prefixes[i]) {
+				continue
+			}
+			return &UnknownCheckFeatureError{Name: name, Reason: "the state machine holds no such feature"}
 		}
-		node, path, nested := strings.Cut(name, ".")
-		named := root.nodesNamed(node)
-		if !nested || len(named) == 0 {
-			return &UnknownCheckFeatureError{Name: name, Reason: "the action holds no such feature and performs no such node"}
+		if err := c.resolveActionDiverge(c.inv.Actions[i], name, rest); err != nil {
+			return err
 		}
-		held, told := c.pathUnder(c.exec.graph, named, path)
-		if !held {
-			return &UnknownCheckFeatureError{Name: name, Reason: "action node " + node + " holds no feature " + path}
+	}
+	return nil
+}
+
+// resolvePerformerDiverge checks a name of a performing object's feature: `this.`
+// names the one object the behaviors perform on, `<object>.` one of several; the
+// name is not of an object when neither prefix applies.
+func (c *checker) resolvePerformerDiverge(name string) (ofObject bool, err error) {
+	performers := c.inv.performers()
+	if feature, ofThis := strings.CutPrefix(name, "this."); ofThis {
+		switch len(performers) {
+		case 0:
+			return true, &UnknownCheckFeatureError{Name: name, Reason: "no object performs the behaviors"}
+		case 1:
+			return true, c.performerHolds(performers[0], name, feature)
 		}
-		c.nested[name] = true
-		if !told {
-			c.untold[name] = true
+		names := make([]string, len(performers))
+		for i, p := range performers {
+			names[i] = p.name
 		}
+		return true, &UnknownCheckFeatureError{Name: name, Reason: fmt.Sprintf(
+			"the behaviors perform on different objects, %s; name the object's feature, as %s.%s",
+			strings.Join(names, " and "), performers[0].name, feature)}
+	}
+	if len(performers) < 2 {
+		return false, nil
+	}
+	for _, p := range performers {
+		if feature, ofObject := strings.CutPrefix(name, p.name+"."); ofObject {
+			return true, c.performerHolds(p, name, feature)
+		}
+	}
+	return false, nil
+}
+
+// performerHolds checks the object holds the feature, name being the feature as Diverge spells it.
+func (c *checker) performerHolds(p performer, name, feature string) error {
+	if p.self.FeatureValues[feature] != nil {
+		return nil
+	}
+	object := "the performing object"
+	if !strings.HasPrefix(name, "this.") {
+		object = p.name
+	}
+	return &UnknownCheckFeatureError{Name: name, Reason: object + " has no feature " + feature}
+}
+
+// resolveActionDiverge checks the action holds the feature rest names, own or
+// under a node it performs; name is the feature as Diverge spells it.
+func (c *checker) resolveActionDiverge(exec *ActionExecutor, name, rest string) error {
+	root := exec.root
+	if root.owns(rest) {
+		return nil
+	}
+	node, path, nested := strings.Cut(rest, ".")
+	named := root.nodesNamed(node)
+	if !nested || len(named) == 0 {
+		return &UnknownCheckFeatureError{Name: name, Reason: "the action holds no such feature and performs no such node"}
+	}
+	held, told := c.pathUnder(exec, exec.graph, named, path)
+	if !held {
+		return &UnknownCheckFeatureError{Name: name, Reason: "action node " + node + " holds no feature " + path}
+	}
+	c.nested[name] = true
+	if !told {
+		c.untold[name] = true
 	}
 	return nil
 }
@@ -847,10 +1054,10 @@ func (c *checker) resolveDiverge() error {
 // feature path names — a pin of the node, or a path under a node its flow performs —
 // and whether that is told before it runs; a call tied on its arguments' types, or a
 // node whose pins cannot be told, may hold the path, the performance telling.
-func (c *checker) pathUnder(graph *lower.ActionGraph, nodes []ast.Node, path string) (held, told bool) {
+func (c *checker) pathUnder(exec *ActionExecutor, graph *lower.ActionGraph, nodes []ast.Node, path string) (held, told bool) {
 	told = true
 	for _, node := range nodes {
-		pins, err := c.exec.nodePins(graph, node)
+		pins, err := exec.nodePins(graph, node)
 		if err != nil {
 			return true, false
 		}
@@ -864,12 +1071,12 @@ func (c *checker) pathUnder(graph *lower.ActionGraph, nodes []ast.Node, path str
 			continue
 		}
 		if under := usagesNamed(graph.BlockNodes[node], name); len(under) > 0 {
-			if h, t := c.pathUnder(graph, under, rest); h {
+			if h, t := c.pathUnder(exec, graph, under, rest); h {
 				return true, t
 			}
 		}
-		if sub, owns := c.exec.subflowOf(graph, node); owns {
-			if h, t := c.pathUnder(sub.Graph, flowNodesNamed(sub.Graph, name), rest); h {
+		if sub, owns := exec.subflowOf(graph, node); owns {
+			if h, t := c.pathUnder(exec, sub.Graph, flowNodesNamed(sub.Graph, name), rest); h {
 				return true, t
 			}
 		}
@@ -878,7 +1085,7 @@ func (c *checker) pathUnder(graph *lower.ActionGraph, nodes []ast.Node, path str
 			if err != nil {
 				return true, false
 			}
-			if h, t := c.pathUnder(flow, flowNodesNamed(flow, name), rest); h {
+			if h, t := c.pathUnder(exec, flow, flowNodesNamed(flow, name), rest); h {
 				return true, t && callee == settled
 			}
 		}
@@ -941,6 +1148,7 @@ func (c *checker) result() *CheckReport {
 		MaxDepth:   c.maxDepth,
 		BoundsHit:  c.bounds,
 		Limits:     c.ctx.Budgets(),
+		Horizon:    c.horizon(),
 		Violations: c.violations,
 		Finals:     slices.Clone(c.results),
 	}
@@ -957,6 +1165,13 @@ func (c *checker) result() *CheckReport {
 		r.Verdict = CheckExhaustive
 	}
 	return r
+}
+
+func (c *checker) horizon() Horizon {
+	if c.inv == nil {
+		return Horizon{}
+	}
+	return c.inv.Horizon
 }
 
 // divergences finds the features the finals disagree on, each value with the

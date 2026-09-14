@@ -51,7 +51,7 @@ func TestContext_ExecuteAction(t *testing.T) {
 	ctx := NewContext(NewModel(model, resolver), 100000)
 
 	// Create simple action: initial → action(x=42) → final
-	initial := &ast.InitialNode{Name: "start"}
+	initial := &ast.InitialNode{First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}}
 	actionNode := &ast.ActionExecutionNode{
 		Name: "compute",
 		Expression: &ast.LiteralInteger{
@@ -194,7 +194,7 @@ func TestContext_Integration_ActionWithinState(t *testing.T) {
 
 	// Create a simple action: compute = 10 + 20
 	initial := &ast.InitialNode{
-		Name: "initial",
+		First: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "initial"}}},
 	}
 	compute := &ast.ActionExecutionNode{
 		Name: "compute",

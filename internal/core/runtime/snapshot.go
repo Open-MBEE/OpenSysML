@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 
@@ -16,7 +15,8 @@ var ErrSnapshotMidRun = errors.New("snapshot inside a step")
 
 // ErrSnapshotPausedBody reports a body paused mid-statement — a token's step a
 // breakpoint or a wait on the clock suspended, or a do behavior waiting — whose
-// continuation is a coroutine no snapshot captures.
+// continuation points into its model's lowered statements: a Snapshot of the
+// same context captures it, a portable image (HeldImage) does not.
 var ErrSnapshotPausedBody = errors.New("snapshot of a body paused mid-statement")
 
 // Snapshot is the run-derived state of a Context at one point between steps: a
@@ -29,9 +29,15 @@ type Snapshot struct {
 	journal   journalMark
 	run       runCapture
 	runStates []runStateCapture
-	actions   []actionCapture
-	states    []stateCapture
-	released  bool
+	executorCaptures
+	released bool
+}
+
+// executorCaptures is a set of executors captured by value, each once: those
+// asked for, and those the paused bodies of these perform.
+type executorCaptures struct {
+	actions []actionCapture
+	states  []stateCapture
 }
 
 // journalMark is where in the journal a change began and what the journal holds
@@ -46,18 +52,17 @@ type journalMark struct {
 
 // runCapture is the run bookkeeping the context keeps outside its journal.
 type runCapture struct {
-	ids                *idSequence
-	nextID             int64
-	activations, runs  int64
-	run                *runState
-	trace              *TraceRecorder
-	traced             traceCapture
-	choices            []ChoiceTaken
-	evaluations        *evaluationLog
-	pendingBehaviors   []*ObjectBehavior
-	heldBehaviors      mapState[*ObjectBehavior, bool]
-	clockRun           *runState
-	bodyCoroutinesMade int
+	ids               *idSequence
+	nextID            int64
+	activations, runs int64
+	run               *runState
+	trace             *TraceRecorder
+	traced            traceCapture
+	choices           []ChoiceTaken
+	evaluations       *evaluationLog
+	pendingBehaviors  []*ObjectBehavior
+	heldBehaviors     mapState[*ObjectBehavior, bool]
+	clockRun          *runState
 }
 
 // traceCapture is a recorder's state at the mark. Entries are only appended to or
@@ -118,7 +123,7 @@ func (s mapState[K, V]) restore() map[K]V {
 // objects and their values, the bus, the clock, its run bookkeeping and the state
 // of every behavior an object of it runs. An executor driven over the context is
 // captured through its own Snapshot. It fails with ErrSnapshotMidRun from inside
-// a step and with ErrSnapshotPausedBody while a body is paused mid-statement.
+// a step; a body paused mid-statement is captured where it paused.
 func (ctx *Context) Snapshot() (*Snapshot, error) {
 	return ctx.snapshotWith(nil, nil)
 }
@@ -134,7 +139,7 @@ func (e *StateExecutor) Snapshot() (*Snapshot, error) {
 }
 
 func (ctx *Context) snapshotWith(actions []*ActionExecutor, states []*StateExecutor) (*Snapshot, error) {
-	if ctx.runDepth > 0 || ctx.actionDepth > 0 || ctx.calcDepth > 0 || ctx.pausable != nil || ctx.probes > 0 {
+	if ctx.runDepth > 0 || ctx.actionDepth > 0 || ctx.calcDepth > 0 || ctx.body != nil || ctx.probes > 0 {
 		return nil, ErrSnapshotMidRun
 	}
 	for _, behavior := range ctx.objectBehaviors {
@@ -149,20 +154,16 @@ func (ctx *Context) snapshotWith(actions []*ActionExecutor, states []*StateExecu
 	s.captureRunState(ctx.run)
 	s.captureRunState(ctx.clockRun.state)
 	for _, exec := range actions {
-		capture, err := exec.capture()
-		if err != nil {
-			return nil, err
-		}
-		s.actions = append(s.actions, capture)
-		s.captureRunState(exec.driven.state)
+		s.captureAction(exec)
 	}
 	for _, exec := range states {
-		capture, err := exec.capture()
-		if err != nil {
-			return nil, err
-		}
-		s.states = append(s.states, capture)
-		s.captureRunState(exec.driven.state)
+		s.captureState(exec)
+	}
+	for _, capture := range s.actions {
+		s.captureRunState(capture.driven)
+	}
+	for _, capture := range s.states {
+		s.captureRunState(capture.driven)
 	}
 	ctx.journals++
 	ctx.snapshots = append(ctx.snapshots, s)
@@ -189,11 +190,81 @@ func (s *Snapshot) Restore() {
 	for _, capture := range s.runStates {
 		capture.restore()
 	}
+	s.executorCaptures.restore()
+}
+
+// captureAction captures an action executor once, with the executors the work of
+// its paused bodies performs.
+func (s *executorCaptures) captureAction(e *ActionExecutor) {
+	if slices.ContainsFunc(s.actions, func(c actionCapture) bool { return c.exec == e }) {
+		return
+	}
+	at := len(s.actions)
+	s.actions = append(s.actions, e.capture())
+	for _, token := range e.tokens {
+		if token.body != nil {
+			s.actions[at].bodies = append(s.actions[at].bodies, s.captureBody(token.body))
+		}
+	}
+}
+
+// captureState captures a state executor once, with the do behaviors it has paused.
+func (s *executorCaptures) captureState(e *StateExecutor) {
+	if slices.ContainsFunc(s.states, func(c stateCapture) bool { return c.exec == e }) {
+		return
+	}
+	at := len(s.states)
+	s.states = append(s.states, e.capture())
+	for i, act := range e.doActions {
+		if act.run != nil {
+			s.states[at].doActions[i].body = s.captureBody(act.run.body)
+		}
+	}
+}
+
+func (s *executorCaptures) restore() {
 	for _, capture := range s.actions {
 		capture.restore()
 	}
 	for _, capture := range s.states {
 		capture.restore()
+	}
+}
+
+// bodyCapture is a paused body's run by value: its work and the frames it paused
+// at, cloned again at every restore so the capture stays as it was taken.
+type bodyCapture struct {
+	run    *bodyRun
+	saved  bodyRun
+	frames []bodyFrame
+}
+
+// captureBody captures the run and, into the set, the executors its paused work
+// performs: the action it holds, and a do behavior's own flow.
+func (s *executorCaptures) captureBody(run *bodyRun) *bodyCapture {
+	c := &bodyCapture{run: run, saved: *run}
+	c.saved.work, c.saved.cursor, c.saved.resuming = run.work.clone(), nil, nil
+	for _, f := range run.cursor {
+		c.frames = append(c.frames, f.clone())
+		if callee, ok := f.(*calleeFrame); ok {
+			s.captureAction(callee.exec)
+		}
+	}
+	if held := run.paused.wait.held; held != nil {
+		s.captureAction(held)
+	}
+	if host, ok := run.work.(*stateStmtHost); ok {
+		s.captureAction(host.flow)
+	}
+	return c
+}
+
+func (c *bodyCapture) restore() {
+	*c.run = c.saved
+	c.run.work = c.saved.work.clone()
+	c.run.cursor = make([]bodyFrame, len(c.frames))
+	for i, f := range c.frames {
+		c.run.cursor[i] = f.clone()
 	}
 }
 
@@ -246,15 +317,14 @@ func (ctx *Context) captureRun() runCapture {
 	c := runCapture{
 		ids: ctx.ids, nextID: ctx.ids.next,
 		activations: ctx.activations, runs: ctx.runs,
-		run:                ctx.run,
-		trace:              ctx.trace,
-		traced:             captureTrace(ctx.trace),
-		choices:            ctx.choices,
-		evaluations:        ctx.evaluations,
-		pendingBehaviors:   slices.Clone(ctx.pendingBehaviors),
-		heldBehaviors:      captureMap(ctx.heldBehaviors),
-		clockRun:           ctx.clockRun.state,
-		bodyCoroutinesMade: ctx.bodyCoroutinesMade,
+		run:              ctx.run,
+		trace:            ctx.trace,
+		traced:           captureTrace(ctx.trace),
+		choices:          ctx.choices,
+		evaluations:      ctx.evaluations,
+		pendingBehaviors: slices.Clone(ctx.pendingBehaviors),
+		heldBehaviors:    captureMap(ctx.heldBehaviors),
+		clockRun:         ctx.clockRun.state,
 	}
 	return c
 }
@@ -275,7 +345,6 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
 	ctx.clockRun.state = c.clockRun
-	ctx.bodyCoroutinesMade = c.bodyCoroutinesMade
 }
 
 // captureRunState captures a run's state once, however many executors share it.
@@ -341,32 +410,31 @@ type actionCapture struct {
 	released          bool
 	pauses            int64
 	steps, stepsSpent int64
-	inRun, moved      bool
+	inRun, held       bool
+	moved             bool
 	awaiting          *actionFrame
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	driven            *runState
 	frames            []frameCapture
+	// bodies are the paused work of the tokens, which the tokens keep by identity.
+	bodies []*bodyCapture
 }
 
-func (e *ActionExecutor) capture() (actionCapture, error) {
-	for _, token := range e.tokens {
-		if token.body != nil {
-			return actionCapture{}, fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
-				token.ID, symbolText(e.action), ActionNodeName(token.Location))
-		}
-	}
+// capture is the executor's state between steps; the paused work of its tokens
+// is captured beside it (Snapshot.captureAction).
+func (e *ActionExecutor) capture() actionCapture {
 	c := actionCapture{
 		exec: e, tokens: slices.Clone(e.tokens), state: e.state,
 		nextTokenID: e.nextTokenID, stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
-		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, moved: e.moved, awaiting: e.awaiting,
+		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		driven:           e.driven.state,
 	}
 	for _, perf := range e.reachableFrames() {
 		c.frames = append(c.frames, captureFrame(perf))
 	}
-	return c, nil
+	return c
 }
 
 func (c actionCapture) restore() {
@@ -374,11 +442,15 @@ func (c actionCapture) restore() {
 	e.tokens = slices.Clone(c.tokens)
 	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = c.state, c.nextTokenID, c.stepCount, c.sweep, c.sweeps
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
-	e.steps, e.stepsSpent, e.inRun, e.moved, e.awaiting = c.steps, c.stepsSpent, c.inRun, c.moved, c.awaiting
+	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
+	e.moved, e.awaiting = c.moved, c.awaiting
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.driven.state = c.driven
 	for _, perf := range c.frames {
 		perf.restore()
+	}
+	for _, body := range c.bodies {
+		body.restore()
 	}
 }
 
@@ -493,6 +565,8 @@ type stateCapture struct {
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
+	round              []*doAction
+	roundDone          bool
 	machineExited      bool
 	driven             *runState
 	inRun, moved       bool
@@ -506,27 +580,17 @@ type stateCapture struct {
 }
 
 // doActionCapture is one do action's progress: the behaviors it has still to run
-// and, for a mark inside a step, the one paused under way.
+// and the one paused under way, by identity, with its paused work by value.
 type doActionCapture struct {
 	act     *doAction
 	pending []lower.StateBehavior
 	run     *doRun
+	body    *bodyCapture
 }
 
-// capture is the executor's state between steps; a do behavior paused
-// mid-statement is a coroutine no snapshot captures.
-func (e *StateExecutor) capture() (stateCapture, error) {
-	for _, act := range e.doActions {
-		if act.run != nil {
-			return stateCapture{}, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
-				getNodeName(act.state), symbolText(e.stateMachine))
-		}
-	}
-	return e.captureState(), nil
-}
-
-// captureState is the executor's state by value, the do behaviors under way by identity.
-func (e *StateExecutor) captureState() stateCapture {
+// capture is the executor's state between steps; the paused work of its do
+// behaviors is captured beside it (Snapshot.captureState).
+func (e *StateExecutor) capture() stateCapture {
 	c := stateCapture{
 		exec: e, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
 		nextEventID:        e.nextEventID,
@@ -538,6 +602,8 @@ func (e *StateExecutor) captureState() stateCapture {
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
+		round:              slices.Clone(e.round),
+		roundDone:          e.roundDone,
 		machineExited:      e.machineExited,
 		driven:             e.driven.state,
 		inRun:              e.inRun,
@@ -590,7 +656,11 @@ func (c stateCapture) restore() {
 	for _, act := range c.doActions {
 		act.act.pending, act.act.run = slices.Clone(act.pending), act.run
 		e.doActions = append(e.doActions, act.act)
+		if act.body != nil {
+			act.body.restore()
+		}
 	}
+	e.round, e.roundDone = slices.Clone(c.round), c.roundDone
 	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()
@@ -627,7 +697,7 @@ type moveMark struct {
 	trace            traceCapture
 	ids              *idSequence
 	nextID           int64
-	state            stateCapture
+	state            executorCaptures
 	ended            []*doRun
 }
 
@@ -639,8 +709,8 @@ func (e *StateExecutor) markMove() *moveMark {
 		notes: slices.Clone(ctx.run.notes),
 		trace: captureTrace(ctx.trace),
 		ids:   ctx.ids, nextID: ctx.ids.next,
-		state: e.captureState(),
 	}
+	m.state.captureState(e)
 	m.commit, m.rollback = ctx.beginJournal()
 	e.moving = m
 	return m

@@ -18,12 +18,16 @@ const DefaultUnroll = analysis.DefaultUnroll
 const MaxSlots = 32
 
 // Flow is an action's lowered flow as the encoding numbers it: every node and
-// every succession has a stable index, and the constructs the stage encodes
-// have been checked for, so the encoder meets nothing it must refuse.
+// every succession of every frame has a stable index, and the constructs the
+// stage encodes have been checked for, so the encoder meets nothing it must refuse.
 type Flow struct {
 	// Graph is the lowered flow the interpreter runs; it stays the source of truth.
 	Graph *lower.ActionGraph
-	// Nodes lists the graph's nodes in graph order; Index inverts it.
+	// Frames lists the root flow first, then each flow a node states of its own,
+	// in the order the nodes are met; FrameOf gives the frame each node runs in.
+	Frames  []*Frame
+	FrameOf map[ast.Node]*Frame
+	// Nodes lists every frame's nodes, frame by frame in graph order; Index inverts it.
 	Nodes []ast.Node
 	Index map[ast.Node]int
 	// Labels names each node as a trace does, made unique by position where
@@ -39,7 +43,8 @@ type Flow struct {
 	// Loops lists the body loops the encoding unrolls, in the order their
 	// statements are met walking the nodes.
 	Loops []BodyLoop
-	// Slots is how many tokens may be in flight at once within k moves.
+	// Slots is how many tokens may be in flight at once within k moves, over
+	// every frame: the bound T.
 	Slots int
 	// Cyclic is set when a fork lies on a cycle, so the tokens in flight are
 	// bounded by k rather than by the graph, and the state records a full fork.
@@ -47,6 +52,53 @@ type Flow struct {
 	// Delivers is set when an object flow delivers to a node performing in a
 	// frame of its own, whose pin queues the deliveries it has yet to take.
 	Delivers bool
+	// Sends lists the send statements the bodies run; Bus is how many messages
+	// may sit on the bus at once within k moves: the bound M.
+	Sends []SendSite
+	Bus   int
+	// Accepts lists the accept nodes; Timed is set when one waits on the clock.
+	Accepts []AcceptSite
+	Timed   bool
+}
+
+// Frame is one flow the encoding runs: the root, or the flow a node states of
+// its own, run by that node's performance.
+type Frame struct {
+	// Index is the frame's position in Flow.Frames; the root is 0.
+	Index int
+	Graph *lower.ActionGraph
+	// Node performs the frame's flow; nil for the root. Parent is its frame.
+	Node   ast.Node
+	Parent *Frame
+	// Nodes lists the frame's own nodes, in graph order.
+	Nodes []ast.Node
+	// Slots is how many tokens the frame's flow may hold at once within k moves.
+	Slots int
+}
+
+// SendSite is one send statement and the node whose body runs it.
+type SendSite struct {
+	Node  ast.Node
+	Label string
+	Send  lower.Send
+}
+
+// AcceptSite is one accept node and what it waits for.
+type AcceptSite struct {
+	Node   ast.Node
+	Label  string
+	Accept lower.Accept
+}
+
+// Nested reports whether any node states a flow of its own.
+func (f *Flow) Nested() bool { return len(f.Frames) > 1 }
+
+// path names a frame as its performing nodes chain, empty for the root.
+func (fr *Frame) path() string {
+	if fr.Parent == nil {
+		return ""
+	}
+	return fr.Parent.path() + nodeLabel(fr.Node) + "/"
 }
 
 // BodyLoop is one body loop the encoding unrolls, and the node whose body it is in.
@@ -70,47 +122,31 @@ func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
 	}
 	f := &Flow{
 		Graph:     graph,
+		FrameOf:   make(map[ast.Node]*Frame, len(graph.Nodes)),
 		Index:     make(map[ast.Node]int, len(graph.Nodes)),
 		EdgeIndex: make(map[lower.ActionEdge]int),
 		Incoming:  make(map[ast.Node][]int),
 		Outgoing:  make(map[ast.Node][]int),
 	}
-	for _, node := range graph.Nodes {
-		if _, seen := f.Index[node]; seen {
-			continue
+	if err := f.number(&Frame{Graph: graph}); err != nil {
+		return nil, err
+	}
+	for _, fr := range f.Frames {
+		if len(fr.Graph.Bindings) > 0 {
+			return nil, &UnsupportedError{Node: nodeLabel(fr.Graph.Bindings[0].Node), Construct: "pin binding",
+				Reason: "a binding connector at a pin is not encoded; object flows are"}
 		}
-		f.Index[node] = len(f.Nodes)
-		f.Nodes = append(f.Nodes, node)
-	}
-	if _, ok := f.Index[graph.Initial]; !ok {
-		return nil, &FlowError{Node: nodeLabel(graph.Initial), Reason: "the initial node is not among the flow's nodes"}
-	}
-	f.Labels = uniqueLabels(f.Nodes)
-	for _, node := range f.Nodes {
-		for _, edge := range graph.Edges[node] {
-			if _, seen := f.EdgeIndex[edge]; seen {
-				continue
-			}
-			if _, ok := f.Index[edge.Target]; !ok {
-				return nil, &FlowError{Node: f.label(node), Reason: "a succession leaves the flow's nodes"}
-			}
-			i := len(f.Edges)
-			f.Edges = append(f.Edges, edge)
-			f.EdgeIndex[edge] = i
-			f.Outgoing[node] = append(f.Outgoing[node], i)
-			f.Incoming[edge.Target] = append(f.Incoming[edge.Target], i)
-		}
-	}
-	if len(graph.Bindings) > 0 {
-		return nil, &UnsupportedError{Node: nodeLabel(graph.Bindings[0].Node), Construct: "pin binding",
-			Reason: "a binding connector at a pin is not encoded; object flows are"}
 	}
 	for _, node := range f.Nodes {
 		if err := f.checkNode(node); err != nil {
 			return nil, err
 		}
 	}
-	f.sizeSlots(k)
+	for _, fr := range f.Frames {
+		f.sizeSlots(fr, k)
+		f.Slots += fr.Slots
+	}
+	f.Bus = min(len(f.Sends), k)
 	if f.Slots > 1 {
 		for _, node := range f.Nodes {
 			if err := f.checkImplicitJoin(node); err != nil {
@@ -125,6 +161,70 @@ func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
 	return f, nil
 }
 
+// number gives the frame's nodes and successions their indices, then those of
+// each flow a node of it states of its own, so every frame's labels stay distinct.
+func (f *Flow) number(fr *Frame) error {
+	graph := fr.Graph
+	if graph == nil || graph.Initial == nil {
+		return &FlowError{Node: nodeLabel(fr.Node), Reason: "the flow has no initial node"}
+	}
+	fr.Index = len(f.Frames)
+	f.Frames = append(f.Frames, fr)
+	prefix := fr.path()
+	first := len(f.Nodes)
+	for _, node := range graph.Nodes {
+		if _, seen := f.Index[node]; seen {
+			continue
+		}
+		f.Index[node] = len(f.Nodes)
+		f.FrameOf[node] = fr
+		f.Nodes = append(f.Nodes, node)
+		fr.Nodes = append(fr.Nodes, node)
+	}
+	if f.FrameOf[graph.Initial] != fr {
+		return &FlowError{Node: nodeLabel(graph.Initial), Reason: "the initial node is not among the flow's nodes"}
+	}
+	for _, label := range uniqueLabels(fr.Nodes) {
+		f.Labels = append(f.Labels, prefix+label)
+	}
+	for _, node := range fr.Nodes {
+		for _, edge := range graph.Edges[node] {
+			if _, seen := f.EdgeIndex[edge]; seen {
+				continue
+			}
+			if f.FrameOf[edge.Target] != fr {
+				return &FlowError{Node: f.label(node), Reason: "a succession leaves the flow's nodes"}
+			}
+			i := len(f.Edges)
+			f.Edges = append(f.Edges, edge)
+			f.EdgeIndex[edge] = i
+			f.Outgoing[node] = append(f.Outgoing[node], i)
+			f.Incoming[edge.Target] = append(f.Incoming[edge.Target], i)
+		}
+	}
+	for _, node := range f.Nodes[first:] {
+		sub := graph.Subflows[node]
+		if sub == nil {
+			continue
+		}
+		if sub.Err != nil || sub.Graph == nil || sub.Graph.Initial == nil {
+			return f.refuseNested(node)
+		}
+		if err := f.number(&Frame{Graph: sub.Graph, Node: node, Parent: fr}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// graphOf returns the lowered flow node runs in.
+func (f *Flow) graphOf(node ast.Node) *lower.ActionGraph {
+	if fr, ok := f.FrameOf[node]; ok {
+		return fr.Graph
+	}
+	return f.Graph
+}
+
 // label names node as the encoding does.
 func (f *Flow) label(node ast.Node) string {
 	if i, ok := f.Index[node]; ok {
@@ -137,11 +237,15 @@ func (f *Flow) label(node ast.Node) string {
 // interpreter would refuse to run there.
 func (f *Flow) checkNode(node ast.Node) error {
 	label := f.label(node)
-	graph := f.Graph
+	graph := f.FrameOf[node].Graph
 	if graph.Subflows[node] != nil {
-		return &UnsupportedError{Node: label, Construct: "nested flow", Reason: "a node stating a flow of its own is encoded by a later stage"}
+		return f.refuseNested(node)
 	}
-	if _, ok := graph.Accepts[node]; ok {
+	if accept, ok := graph.Accepts[node]; ok {
+		f.Accepts = append(f.Accepts, AcceptSite{Node: node, Label: label, Accept: accept})
+		if _, timed := accept.Trigger.(*ast.TimeEvent); timed {
+			f.Timed = true
+		}
 		return &UnsupportedError{Node: label, Construct: "accept", Reason: "messages and the clock are encoded by a later stage"}
 	}
 	if err := f.checkNodeKind(node, label); err != nil {
@@ -159,6 +263,11 @@ func (f *Flow) checkNode(node ast.Node) error {
 		}
 	}
 	return f.checkBody(node, label, graph.Bodies[node])
+}
+
+// refuseNested refuses a node stating a flow of its own, whatever that flow holds.
+func (f *Flow) refuseNested(node ast.Node) error {
+	return &UnsupportedError{Node: f.label(node), Construct: "nested flow", Reason: "a node stating a flow of its own is encoded by a later stage"}
 }
 
 // checkNodeKind refuses a node of a kind the stage does not encode, or with
@@ -273,6 +382,7 @@ func (f *Flow) checkBody(node ast.Node, label string, body []lower.Statement) er
 		case lower.Return:
 			return &UnsupportedError{Node: label, Construct: "return", Reason: "an action node computes no result to return"}
 		case lower.Send:
+			f.Sends = append(f.Sends, SendSite{Node: node, Label: label, Send: s})
 			return &UnsupportedError{Node: label, Construct: "send", Reason: "messages are encoded by a later stage"}
 		case lower.Effect:
 			return &UnsupportedError{Node: label, Construct: effectName(s.Kind), Reason: "an effect on the world outside the body is not encoded"}
@@ -293,12 +403,12 @@ func (f *Flow) checkBlock(node ast.Node, label string, block lower.Block) error 
 	return f.checkBody(node, label, block.Statements)
 }
 
-// sizeSlots decides how many tokens may be in flight at once within k moves:
-// one, plus what each fork adds per time a token reaches it, at most k times.
-func (f *Flow) sizeSlots(k int) {
-	arrivals := f.arrivals(k)
+// sizeSlots decides how many tokens the frame's flow may hold at once within k
+// moves: one, plus what each fork adds per time a token reaches it, at most k times.
+func (f *Flow) sizeSlots(fr *Frame, k int) {
+	arrivals := f.arrivals(fr, k)
 	slots, widest := 1, 0
-	for _, node := range f.Nodes {
+	for _, node := range fr.Nodes {
 		fork, ok := node.(*ast.ForkNode)
 		if !ok {
 			continue
@@ -314,19 +424,19 @@ func (f *Flow) sizeSlots(k int) {
 		slots += min(arrivals[fork], k) * extra
 	}
 	// Each of the k moves performs at most one fork.
-	f.Slots = min(slots, 1+k*widest)
+	fr.Slots = min(slots, 1+k*widest)
 }
 
-// arrivals bounds how often a token may reach each node within k moves: a
-// fork or decision passes on all that reach it, a merge sums them, a join
-// passes on the most over one succession, and a cycle multiplying tokens
+// arrivals bounds how often a token may reach each node of the frame within k
+// moves: a fork or decision passes on all that reach it, a merge sums them, a
+// join passes on the most over one succession, and a cycle multiplying tokens
 // passes on k.
-func (f *Flow) arrivals(k int) map[ast.Node]int {
-	reached := make(map[ast.Node]int, len(f.Nodes))
-	leaving := make(map[ast.Node]int, len(f.Nodes))
-	for _, comp := range f.components() {
+func (f *Flow) arrivals(fr *Frame, k int) map[ast.Node]int {
+	reached := make(map[ast.Node]int, len(fr.Nodes))
+	leaving := make(map[ast.Node]int, len(fr.Nodes))
+	for _, comp := range f.components(fr) {
 		cyclic := len(comp) > 1 || f.reaches(comp[0], comp[0])
-		entering, multiplies := f.entering(comp, cyclic, leaving)
+		entering, multiplies := f.entering(fr, comp, cyclic, leaving)
 		entering = min(entering, k)
 		if cyclic {
 			// A token entering the cycle leaves it once at most, unless the
@@ -353,13 +463,13 @@ func (f *Flow) arrivals(k int) map[ast.Node]int {
 
 // entering is how many tokens may enter the component comp from outside it, given
 // how many leave each node before it, and whether a fork inside a cycle multiplies them.
-func (f *Flow) entering(comp []ast.Node, cyclic bool, leaving map[ast.Node]int) (entering int, multiplies bool) {
+func (f *Flow) entering(fr *Frame, comp []ast.Node, cyclic bool, leaving map[ast.Node]int) (entering int, multiplies bool) {
 	inside := make(map[ast.Node]bool, len(comp))
 	for _, node := range comp {
 		inside[node] = true
 	}
 	for _, node := range comp {
-		if node == f.Graph.Initial {
+		if node == fr.Graph.Initial {
 			entering++
 		}
 		for _, ei := range f.Incoming[node] {
@@ -374,12 +484,12 @@ func (f *Flow) entering(comp []ast.Node, cyclic bool, leaving map[ast.Node]int) 
 	return entering, multiplies
 }
 
-// components are the flow's strongly connected components, each before any
+// components are the frame's strongly connected components, each before any
 // the successions lead to from it.
-func (f *Flow) components() [][]ast.Node {
-	index := make(map[ast.Node]int, len(f.Nodes))
-	low := make(map[ast.Node]int, len(f.Nodes))
-	onStack := make(map[ast.Node]bool, len(f.Nodes))
+func (f *Flow) components(fr *Frame) [][]ast.Node {
+	index := make(map[ast.Node]int, len(fr.Nodes))
+	low := make(map[ast.Node]int, len(fr.Nodes))
+	onStack := make(map[ast.Node]bool, len(fr.Nodes))
 	var stack []ast.Node
 	var comps [][]ast.Node
 	next := 0
@@ -413,7 +523,7 @@ func (f *Flow) components() [][]ast.Node {
 		}
 		comps = append(comps, comp)
 	}
-	for _, node := range f.Nodes {
+	for _, node := range fr.Nodes {
 		if _, seen := index[node]; !seen {
 			visit(node)
 		}
@@ -482,7 +592,7 @@ func nodeLabel(node ast.Node) string {
 	case nil:
 		return "nil"
 	case *ast.InitialNode:
-		return controlLabel(n.Name, "initial")
+		return controlLabel(n.Name(), "initial")
 	case *ast.FinalNode:
 		return "done"
 	case *ast.ForkNode:

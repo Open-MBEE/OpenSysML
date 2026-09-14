@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -10,11 +11,16 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// checkedAction is an action executor stepped move by move under the check policy.
+// checkedAction is a one-action invocation moved move by move under the check policy.
 type checkedAction struct {
-	ctx    *Context
-	script *checkScript
-	exec   *ActionExecutor
+	ctx  *Context
+	run  *invocationRun
+	exec *ActionExecutor
+}
+
+func checkedActionOf(ctx *Context, exec *ActionExecutor) *checkedAction {
+	inv := &Invocation{Actions: []*ActionExecutor{exec}}
+	return &checkedAction{ctx: ctx, run: &invocationRun{ctx: ctx, inv: inv}, exec: exec}
 }
 
 func startChecked(t *testing.T, m *exploreModel, name string) *checkedAction {
@@ -28,13 +34,12 @@ func startChecked(t *testing.T, m *exploreModel, name string) *checkedAction {
 
 func checkedOn(t *testing.T, ctx *Context, action *symbols.Symbol) *checkedAction {
 	t.Helper()
-	script := &checkScript{branch: -1}
-	mustSchedule(t, ctx, checkPolicy(script))
+	mustSchedule(t, ctx, checkPolicy(&checkScript{due: -1}))
 	exec, err := ctx.CreateActionExecutor(action)
 	if err != nil {
 		t.Fatalf("create %s: %v", symbolText(action), err)
 	}
-	return &checkedAction{ctx: ctx, script: script, exec: exec}
+	return checkedActionOf(ctx, exec)
 }
 
 func moveLabels(moves []enabledMove) string {
@@ -45,20 +50,21 @@ func moveLabels(moves []enabledMove) string {
 	return strings.Join(labels, " ")
 }
 
-// make makes the move, failing the test if the run refused it.
-func (a *checkedAction) make(t *testing.T, m enabledMove) int {
+// make makes the move, failing the test if the run refused it, and returns the
+// choice points the move drew past its picks.
+func (a *checkedAction) make(t *testing.T, m enabledMove) []ChoicePoint {
 	t.Helper()
-	branches, err := a.exec.makeMove(m)
+	drawn, err := a.run.makeMove(m)
 	if err != nil {
 		t.Fatalf("move %s: %v", m, err)
 	}
-	return branches
+	return drawn
 }
 
 // only asserts the state has exactly the moves labelled and returns them.
 func (a *checkedAction) only(t *testing.T, want string) []enabledMove {
 	t.Helper()
-	moves := a.exec.enabledMoves()
+	moves := a.run.enabledMoves()
 	if got := moveLabels(moves); got != want {
 		t.Fatalf("moves %q, want %q", got, want)
 	}
@@ -90,14 +96,14 @@ func TestEnabledMovesAreTheTokensAbleToAct(t *testing.T) {
 		t.Fatalf("x = %s after b, c, a; want 1", got)
 	}
 	// The three arrived tokens fuse into one performance of the join.
-	joined := a.exec.enabledMoves()
+	joined := a.run.enabledMoves()
 	if len(joined) != 1 || joined[0].Kind != moveJoin {
 		t.Fatalf("at the join: %s, want one join move", moveLabels(joined))
 	}
 	a.make(t, joined[0])
 	a.make(t, a.only(t, "5@done:plain")[0])
-	if a.exec.State() != StateCompleted || len(a.exec.enabledMoves()) != 0 {
-		t.Fatalf("state %v with moves %s, want completed with none", a.exec.State(), moveLabels(a.exec.enabledMoves()))
+	if a.exec.State() != StateCompleted || len(a.run.enabledMoves()) != 0 {
+		t.Fatalf("state %v with moves %s, want completed with none", a.exec.State(), moveLabels(a.run.enabledMoves()))
 	}
 	for _, c := range a.ctx.Choices() {
 		if c.Kind == ChoiceTokenOrder && c.Step == 3 && c.Taken != 1 {
@@ -113,16 +119,16 @@ func TestMakeMoveRefusesATokenUnableToAct(t *testing.T) {
 	a := startChecked(t, m, "race")
 	a.make(t, a.only(t, "1@start:plain")[0])
 	a.make(t, a.only(t, "1@split:plain")[0])
-	_, err := a.exec.makeMove(enabledMove{Token: 9, Branch: -1, Label: "9@nowhere"})
+	_, err := a.run.makeMove(enabledMove{Owner: a.exec, Token: 9, Label: "9@nowhere"})
 	var refused *CheckMoveError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrCheckRefused) || refused.Token != 9 {
+	if !errors.As(err, &refused) || !errors.Is(err, ErrCheckRefused) || !strings.Contains(refused.Move, "token 9") {
 		t.Fatalf("moving token 9: %v, want a CheckMoveError for token 9", err)
 	}
 	a.only(t, "2@a:plain 3@b:plain 4@c:plain")
 }
 
 // A decision several of whose guards hold is one move per holding branch: the
-// first move reveals how many hold, and a branch index past them is refused.
+// first move reveals the branch choice it drew, and a pick past them is refused.
 func TestMakeMoveTakesTheSelectedBranch(t *testing.T) {
 	m := parseExploreModel(t, decisionLoopModel)
 	a := startChecked(t, m, "count")
@@ -132,23 +138,24 @@ func TestMakeMoveTakesTheSelectedBranch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if branches := a.make(t, pick); branches != 2 {
-		t.Fatalf("the first branch revealed %d holding, want 2", branches)
+	drawn := a.make(t, pick)
+	if len(drawn) != 1 || drawn[0].Kind != ChoiceDecisionBranch || len(drawn[0].Alternatives) != 2 || drawn[0].Taken != 0 {
+		t.Fatalf("the first branch drew %+v, want one branch choice of two taking the first", drawn)
 	}
 	a.only(t, "1@left:plain")
 
 	before.Restore()
-	pick.Branch = 1
-	if branches := a.make(t, pick); branches != 2 {
-		t.Fatalf("branch 2 revealed %d holding, want 2", branches)
+	pick.Picks = []int{1}
+	if drawn := a.make(t, pick); len(drawn) != 0 {
+		t.Fatalf("branch 2 drew %+v, want nothing past its pick", drawn)
 	}
 	a.only(t, "1@right:plain")
 
 	before.Restore()
-	pick.Branch = 2
-	_, err = a.exec.makeMove(pick)
-	if !errors.Is(err, ErrCheckRefused) || !strings.Contains(err.Error(), "branch 3 is not among them") {
-		t.Fatalf("branch 3 of two: %v, want a refusal naming it", err)
+	pick.Picks = []int{2}
+	_, err = a.run.makeMove(pick)
+	if !errors.Is(err, ErrCheckRefused) || !strings.Contains(err.Error(), "pick 3 is not among them") {
+		t.Fatalf("pick 3 of two: %v, want a refusal naming it", err)
 	}
 	before.Release()
 }
@@ -169,7 +176,7 @@ func TestParkedAcceptIsAMoveOnceAnswered(t *testing.T) {
 	a := startChecked(t, m, "reader")
 	a.make(t, a.only(t, "1@start:plain")[0])
 	a.only(t, "")
-	if err := a.exec.settle(); !errors.Is(err, ErrAcceptDeadlock) {
+	if err := a.run.stabilize(); !errors.Is(err, ErrAcceptDeadlock) {
 		t.Fatalf("settle with nothing in flight: %v, want %v", err, ErrAcceptDeadlock)
 	}
 	if tok := a.exec.Tokens(); len(tok) != 1 || tok[0].Wait == nil {
@@ -201,7 +208,7 @@ func TestSettlingOnTheClockAdvancesItWithoutAMove(t *testing.T) {
 	a := checkedOn(t, ctx, findSymbolByName(idx.DocumentRoot("<test>"), "timed", ast.DefAction))
 	a.make(t, a.only(t, "1@start:plain")[0])
 	a.only(t, "")
-	if err := a.exec.settle(); err != nil {
+	if err := a.run.stabilize(); err != nil {
 		t.Fatalf("settle on the clock: %v", err)
 	}
 	if now := a.ctx.Clock().Now(); now != 5 {
@@ -236,16 +243,15 @@ func TestAFailingAcceptIsAMoveThatRaisesItsError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	script := &checkScript{branch: -1}
-	mustSchedule(t, ctx, checkPolicy(script))
+	mustSchedule(t, ctx, checkPolicy(&checkScript{due: -1}))
 	exec, err := ctx.CreateActionExecutorFor(oneSymbol(t, idx, "P::Listener::listen"), listener)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := &checkedAction{ctx: ctx, script: script, exec: exec}
+	a := checkedActionOf(ctx, exec)
 	a.make(t, a.only(t, "1@start:plain")[0])
 	a.only(t, "")
-	if err := a.exec.settle(); !errors.Is(err, ErrAcceptDeadlock) {
+	if err := a.run.stabilize(); !errors.Is(err, ErrAcceptDeadlock) {
 		t.Fatalf("settle with nothing in flight: %v, want %v", err, ErrAcceptDeadlock)
 	}
 	four := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 4}}
@@ -255,7 +261,7 @@ func TestAFailingAcceptIsAMoveThatRaisesItsError(t *testing.T) {
 	if !errors.Is(moves[0].Fails, ErrDivisionByZero) {
 		t.Fatalf("the move fails with %v, want the port's %v", moves[0].Fails, ErrDivisionByZero)
 	}
-	if _, err := a.exec.makeMove(moves[0]); !errors.Is(err, ErrDivisionByZero) {
+	if _, err := a.run.makeMove(moves[0]); !errors.Is(err, ErrDivisionByZero) {
 		t.Fatalf("making the move: %v, want %v", err, ErrDivisionByZero)
 	}
 }
@@ -271,8 +277,102 @@ func TestMakeMoveNeedsTheCheckPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = exec.makeMove(exec.enabledMoves()[0])
+	a := checkedActionOf(ctx, exec)
+	_, err = a.run.makeMove(a.run.enabledMoves()[0])
 	if !errors.Is(err, ErrCheckRefused) {
 		t.Fatalf("under the declared policy: %v, want %v", err, ErrCheckRefused)
+	}
+}
+
+// A move of an invocation with several executors due draws the due order exactly
+// once, taken at the move's owner, who then holds the turn while it has a move;
+// one with a single executor due draws none. The order once drawn, a second draw
+// within the move is a refusal, not a second choice.
+func TestMakeMoveDrawsTheDueOrderOnce(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action worker {
+			out x : Integer = 0;
+			first start;
+			then assign x := 1;
+			then assign x := 2;
+			then done;
+		}
+		state Machine {
+			attribute y : Integer = 0;
+			entry; then a;
+			state a;
+			state b;
+			state c;
+			transition first a do assign y := 1 then b;
+			transition first b do assign y := 2 then c;
+		}
+	}`)
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, checkPolicy(&checkScript{due: -1}))
+	action, err := ctx.CreateActionExecutor(m.action(t, "worker"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	machine, err := ctx.CreateStateExecutor(m.state(t, "Machine"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inv := &Invocation{Actions: []*ActionExecutor{action}, States: []*StateExecutor{machine}}
+	if err := inv.started(ctx); err != nil {
+		t.Fatal(err)
+	}
+	run := &invocationRun{ctx: ctx, inv: inv}
+	dueOrders := func() []ChoiceTaken {
+		var drawn []ChoiceTaken
+		for _, c := range ctx.ChoicesTaken() {
+			if c.Kind == ChoiceDueOrder {
+				drawn = append(drawn, c)
+			}
+		}
+		return drawn
+	}
+	// The machine's move is taken first, so the one draw gives it the turn until
+	// it rests, and the action alone moves after.
+	moves := 0
+	for {
+		if err := run.stabilize(); err != nil {
+			t.Fatalf("settling after %d moves: %v", moves, err)
+		}
+		if run.terminal() {
+			break
+		}
+		enabled := run.enabledMoves()
+		execs := owners(enabled)
+		move := enabled[len(enabled)-1]
+		before := len(dueOrders())
+		if _, err := run.makeMove(move); err != nil {
+			t.Fatalf("move %d, %s: %v", moves+1, move, err)
+		}
+		moves++
+		drawn := dueOrders()[before:]
+		switch {
+		case len(execs) < 2 && len(drawn) != 0:
+			t.Fatalf("move %d, %s, alone due: drew %v, want no due order", moves, move, drawn)
+		case len(execs) >= 2 && len(drawn) != 1:
+			t.Fatalf("move %d, %s, %d due: drew %v, want one due order", moves, move, len(execs), drawn)
+		case len(execs) >= 2 && (drawn[0].Taken != slices.Index(execs, move.Owner) || !slices.Equal(drawn[0].Among, executorLabels(execs))):
+			t.Fatalf("move %d, %s: drew %s, want the owner among %v", moves, move, drawn[0], executorLabels(execs))
+		}
+	}
+	if moves != 6 {
+		t.Fatalf("made %d moves, want the machine's two dispatches and the action's four steps", moves)
+	}
+	if orders := dueOrders(); len(orders) != 1 {
+		t.Fatalf("drew %d due orders, want the one move both executors were due for", len(orders))
+	}
+	if x := FormatValue(action.Results()["x"]); x != "2" {
+		t.Fatalf("x = %s, want 2", x)
+	}
+	if y := FormatValue(machine.StateData()["y"]); y != "2" {
+		t.Fatalf("y = %s, want 2", y)
 	}
 }

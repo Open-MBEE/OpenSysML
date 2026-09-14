@@ -289,16 +289,16 @@ func TestSendRefusesWhatCannotBeDelivered(t *testing.T) {
 	s := lampSession(t)
 
 	// No session and no `to`: nothing to guess a target from.
-	wants(t, run(t, s, "%send go"), "error: no active state machine session", "name one with `to <object>`")
+	wants(t, run(t, s, "%send go"), "error: no active debugging session", "name one with `to <object>`", "a %state or %action session on an object supplies it")
 	wants(t, run(t, s, "%send"), "usage: %send <signal>")
 	wants(t, run(t, s, "%send go bulb"), `unexpected "bulb" after the signal`, "usage: %send")
 	wants(t, run(t, s, "%send go to"), "usage: %send")
 	wants(t, run(t, s, "%send Dim(level=1 to bulb"), "not closed")
 
-	// An object nothing runs a machine on, and one nothing instantiated.
+	// An object that runs no behavior at all, and one nothing instantiated.
 	wants(t, run(t, s, "%send go to plain"), `error: no instance of "Lamps::plain"`, "%instantiate first")
 	run(t, s, "%instantiate plain")
-	wants(t, run(t, s, "%send go to plain"), `runs no state machine`, "%state <machine> <object>")
+	wants(t, run(t, s, "%send go to plain"), `runs no state machine and performs no action`, "%state <machine> <object> or %action <action> <object>")
 	wants(t, run(t, s, "%send go to nobody"), "error: unresolved reference: nobody")
 
 	run(t, s, "%state bulb")
@@ -333,6 +333,26 @@ func TestSendToAMachineNoObjectPerforms(t *testing.T) {
 	wants(t, run(t, s, "%state Lamp"), `error: no object of this session exhibits "Lamp"`, "%state Lamp <object>")
 	wants(t, run(t, s, "%state Loose"), `✓ Started state machine executor for "Loose"`, "Current state: off")
 	rejects(t, run(t, s, "%state Loose"), "Performed by")
+	wants(t, run(t, s, "%send go"), `✓ Sent go to state machine "Loose"`, `Accepted by state machine "Loose" in state off`)
+	wants(t, run(t, s, "%advance 1"), "Current state: on")
+}
+
+// TestSendToAMachineNoObjectPerformsLeftOnAnEarlierRuntime: a bare %send posts on
+// the rebuilt runtime, which the detached machine an unrelated declaration left
+// behind never hears, so it is refused rather than reported as the taker.
+func TestSendToAMachineNoObjectPerformsLeftOnAnEarlierRuntime(t *testing.T) {
+	s := loadFixture(t, "testdata/lamp_signals.sysml")
+	wants(t, run(t, s, "%state Loose"), `✓ Started state machine executor for "Loose"`)
+	if res := s.Submit("package Other { part def Unrelated; }"); len(res.Diagnostics) != 0 {
+		t.Fatalf("unrelated declaration: %v", res.Diagnostics)
+	}
+	wants(t, run(t, s, "%send go"),
+		`error: the %state session runs "Loose" on the runtime of an earlier model, so nothing sent now reaches it: %state Loose starts it anew, or name an object with `+"`to <object>`")
+	wants(t, run(t, s, "%advance 1"), "No pending work")
+	wants(t, run(t, s, "%current"), "Current state: off")
+	// Reopened on the current runtime, the machine is addressable again.
+	run(t, s, "%stop")
+	wants(t, run(t, s, "%state Loose"), `✓ Started state machine executor for "Loose"`)
 	wants(t, run(t, s, "%send go"), `✓ Sent go to state machine "Loose"`, `Accepted by state machine "Loose" in state off`)
 	wants(t, run(t, s, "%advance 1"), "Current state: on")
 }
@@ -516,4 +536,187 @@ func TestStateOnAnObjectStartsWhatItDoesNotRun(t *testing.T) {
 	// The bulb's own machine was not touched.
 	run(t, s, "%stop")
 	wants(t, run(t, s, "%state bulb"), "Current state: off")
+}
+
+// performedSession loads the objects whose performed actions park at accepts,
+// and instantiates the one performing a lone action, leaving no session open.
+func performedSession(t *testing.T) *Session {
+	t.Helper()
+	s := loadFixture(t, "testdata/performed_accept.sysml")
+	wants(t, run(t, s, "%instantiate Q::pd"), "✓ Created instance of Q::pd", "ID: 1")
+	return s
+}
+
+// TestSendReachesAPerformedActionParkedAtItsAccept: an object that exhibits no
+// machine but performs an action parked at an accept takes the signal, which the
+// report names the accept for; the next advance lets the action go on with it.
+func TestSendReachesAPerformedActionParkedAtItsAccept(t *testing.T) {
+	s := performedSession(t)
+	wants(t, run(t, s, "%send Halt to Q::pd"),
+		`error: object #1 of "Q::pd" accepts no signal Halt now: performed action "main" waiting at accept g of type Go`)
+	// With no session open, nothing drives the runtime, and the report says what to open.
+	wants(t, run(t, s, "%send Go(n=7) to Q::pd"),
+		`✓ Sent Go(n=7) to object #1 of "Q::pd"`,
+		`Accepted by performed action "main" waiting at accept g`,
+		"Open a %state or %action session, then %advance <time> dispatches it")
+	wants(t, run(t, s, "%eval Q::pd.main.total"), "= 0")
+	wants(t, run(t, s, "%advance 1"), "error: no active debugging session")
+
+	// The object's behaviors run when the clock advances, from any session.
+	run(t, s, "%instantiate Q::other")
+	wants(t, run(t, s, "%state Q::other"), `✓ Debugging state machine "s"`)
+	wants(t, run(t, s, "%advance 1"), "✓ Advanced to 1.0")
+	wants(t, run(t, s, "%eval Q::pd.main.total"), "= 7")
+	wants(t, run(t, s, "%send Go(n=7) to Q::pd"),
+		`error: object #1 of "Q::pd" accepts no signal Go now: performed action "main" completed`)
+}
+
+// TestSendReachesAnAcceptNestedInAPerformedAction: the accept a token is parked
+// at may be in an action nested in the performed one, and is named with it.
+func TestSendReachesAnAcceptNestedInAPerformedAction(t *testing.T) {
+	s := loadFixture(t, "testdata/performed_accept.sysml")
+	run(t, s, "%instantiate Q::nest")
+	wants(t, run(t, s, "%send Go(n=1) to Q::nest"),
+		`accepts no signal Go now: performed action "outer" waiting at accept h of type Halt`)
+	wants(t, run(t, s, "%send Halt to Q::nest"),
+		`✓ Sent Halt to object #1 of "Q::nest"`,
+		`Accepted by performed action "outer" waiting at accept h of inner`)
+
+	run(t, s, "%instantiate Q::other")
+	run(t, s, "%state Q::other")
+	wants(t, run(t, s, "%advance 0"), "✓ Advanced to 0.0")
+	wants(t, run(t, s, "%eval Q::nest.outer.heard"), "= 1")
+}
+
+// TestSendToAnActionParkedAtTwoAcceptsForTheSignal: an action whose parallel
+// tokens both wait for the signal is reported with every accept, the step being
+// what picks the taker; one message lets exactly one of them go on.
+func TestSendToAnActionParkedAtTwoAcceptsForTheSignal(t *testing.T) {
+	s := loadFixture(t, "testdata/performed_accept.sysml")
+	run(t, s, "%instantiate Q::twin")
+	wants(t, run(t, s, "%send Halt to Q::twin"),
+		`✓ Sent Halt to object #1 of "Q::twin"`,
+		`Accepted by performed action "split" waiting at accept l and at accept r; the step dispatching it lets one of them take it`)
+	// Asking which accepts take it decides nothing: asked again, the same are waiting.
+	wants(t, run(t, s, "%send Halt to Q::twin"),
+		`Accepted by performed action "split" waiting at accept l and at accept r; the step dispatching it lets one of them take it`)
+
+	run(t, s, "%instantiate Q::other")
+	run(t, s, "%state Q::other")
+	wants(t, run(t, s, "%advance 0"), "✓ Advanced to 0.0")
+	wants(t, run(t, s, "%eval Q::twin.split.taken"), "= 11")
+	wants(t, run(t, s, "%send Halt to Q::twin"),
+		`error: object #1 of "Q::twin" accepts no signal Halt now: performed action "split" completed`)
+}
+
+// TestSendToAnObjectRunningAMachineAndAnAction: each behavior of the object is
+// asked, and the report names the one taking the signal; an action of the
+// object is not what a step of the debugged machine dispatches to, so no step
+// hint is given for it, and the advance runs it.
+func TestSendToAnObjectRunningAMachineAndAnAction(t *testing.T) {
+	s := loadFixture(t, "testdata/performed_accept.sysml")
+	run(t, s, "%instantiate Q::both")
+	wants(t, run(t, s, "%state Q::both"), `✓ Debugging state machine "idle"`, "Current state: a")
+
+	out := run(t, s, "%send Go(n=3)")
+	wants(t, out, `✓ Sent Go(n=3) to object #1 of "Q::both"`, `Accepted by performed action "main" waiting at accept g`,
+		"Use %advance <time> to dispatch it")
+	rejects(t, out, "Use %step", "Accepted by state machine")
+	wants(t, run(t, s, "%send Halt"),
+		`Accepted by state machine "Idle" in state a: transition a_b fires on it`,
+		"Use %step or %advance <time> to dispatch it")
+	wants(t, run(t, s, "%send Reset"),
+		`accepts no signal Reset now: state machine "Idle" in state a, performed action "main" waiting at accept g of type Go`)
+
+	// A step of the machine dispatches its own signal, not the action's.
+	wants(t, run(t, s, "%step"), "Event dispatched", "Current state: b")
+	wants(t, run(t, s, "%eval Q::both.main.total"), "= 0")
+	wants(t, run(t, s, "%advance 0"), "Action steps taken")
+	wants(t, run(t, s, "%eval Q::both.main.total"), "= 3")
+	wants(t, run(t, s, "%send Go(n=1)"),
+		`accepts no signal Go now: state machine "Idle" in state b, performed action "main" completed`)
+}
+
+// TestSendDefaultsToTheActionSessionsObject: a %send naming no object goes to
+// the object an `%action <def> <object>` session performs its action on behalf
+// of — the very object it materialized, across a declaration that leaves the
+// session running — while a session on no object has none to send to.
+func TestSendDefaultsToTheActionSessionsObject(t *testing.T) {
+	s := performedSession(t)
+	wants(t, run(t, s, "%action Q::Main"), `✓ Started action executor for "Q::Main"`)
+	wants(t, run(t, s, "%send Go(n=7)"),
+		`error: the %action session performs "Q::Main" on behalf of no object, so there is no object to send to`,
+		"name one with `to <object>` (%action Q::Main <object> performs it on one)")
+	wants(t, run(t, s, "%send Go(n=7) to Q::pd"), `✓ Sent Go(n=7) to object #1 of "Q::pd"`, `Accepted by performed action "main" waiting at accept g`)
+	run(t, s, "%stop")
+
+	wants(t, run(t, s, "%action Q::Main Q::pd"), `✓ Started action executor for "Q::Main"`)
+	// The fresh executor is at its start, so only the object's own action is
+	// parked for the signal.
+	out := run(t, s, "%send Go(n=2)")
+	wants(t, out, `✓ Sent Go(n=2) to object #1 of "Q::pd"`, `Accepted by performed action "main" waiting at accept g`)
+	rejects(t, out, `"Main"`)
+	wants(t, run(t, s, "%send Halt"),
+		`error: object #1 of "Q::pd" accepts no signal Halt now`,
+		`performed action "main" waiting at accept g of type Go, performed action "Main" running`)
+
+	res := s.Submit("package Other { part def Unrelated; }")
+	if len(res.Diagnostics) > 0 {
+		t.Fatalf("unrelated declaration has diagnostics: %v", res.Diagnostics)
+	}
+	wants(t, strings.Join(res.Notices, "\n"), "the performed action main of object #1 was restarted")
+	wants(t, run(t, s, "%send Go(n=5)"), `✓ Sent Go(n=5) to object #1 of "Q::pd"`, `Accepted by performed action "main" waiting at accept g`)
+
+	wants(t, run(t, s, "%stop"), "Stopped")
+	wants(t, run(t, s, "%send Go(n=1)"), "error: no active debugging session", "name one with `to <object>`")
+}
+
+// TestSendIsDispatchedToTheDebuggedActionAtItsAccept: an %action session whose
+// own executor is parked at the accept is reported among the takers, and a step
+// of it goes on with the signal.
+func TestSendIsDispatchedToTheDebuggedActionAtItsAccept(t *testing.T) {
+	s := performedSession(t)
+	run(t, s, "%action Q::Main Q::pd")
+	run(t, s, "%step")
+	wants(t, run(t, s, "%step"), "Step complete")
+	wants(t, run(t, s, "%send Go(n=7)"),
+		`✓ Sent Go(n=7) to object #1 of "Q::pd"`,
+		`Accepted by performed action "main" waiting at accept g`,
+		`Accepted by performed action "Main" waiting at accept g`,
+		"Use %step or %advance <time> to dispatch it")
+	wants(t, run(t, s, "%continue"), "Action completed", "total = 7")
+}
+
+// TestSendAfterARebuildLeavesTheStaleDebuggerOut: a declaration that rebuilds the
+// runtime carries an object-bound %action session over on the earlier one, so a
+// %send posted on the object's new bus is not reported as taken by it, nor is a
+// step of it said to dispatch the signal; the object's restarted action takes it.
+func TestSendAfterARebuildLeavesTheStaleDebuggerOut(t *testing.T) {
+	s := performedSession(t)
+	run(t, s, "%action Q::Main Q::pd")
+	run(t, s, "%step")
+	wants(t, run(t, s, "%step"), "Step complete", "State: Waiting")
+
+	res := s.Submit("package Other { part def Unrelated; }")
+	if len(res.Diagnostics) > 0 {
+		t.Fatalf("unrelated declaration has diagnostics: %v", res.Diagnostics)
+	}
+	wants(t, strings.Join(res.Notices, "\n"), "the performed action main of object #1 was restarted")
+
+	out := run(t, s, "%send Go(n=7)")
+	wants(t, out, `✓ Sent Go(n=7) to object #1 of "Q::pd"`,
+		`Accepted by performed action "main" waiting at accept g`,
+		"The open session runs on the runtime of an earlier model, so open a %state or %action session anew, then %advance <time> dispatches it")
+	rejects(t, out, `"Main"`, "Use %step")
+	// The stale debugger hears nothing posted on the new bus.
+	wants(t, run(t, s, "%step"), "State: Waiting")
+	wants(t, run(t, s, "%advance 0"), "No pending work", "accept g waiting")
+	wants(t, run(t, s, "%eval Q::pd.main.total"), "= 0")
+
+	// A session on the rebuilt runtime drives the object's restarted action to take it.
+	run(t, s, "%stop")
+	run(t, s, "%instantiate Q::other")
+	wants(t, run(t, s, "%state Q::other"), `✓ Debugging state machine "s"`)
+	wants(t, run(t, s, "%advance 0"), "✓ Advanced to 0.0")
+	wants(t, run(t, s, "%eval Q::pd.main.total"), "= 7")
 }

@@ -154,9 +154,12 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		child := r.childScope(scope, d)
 		r.resolveHeaderRelationships(scope, child, d, d.Relationships)
 		r.resolveMultiplicity(scope, d.Multiplicity)
+		// The cross feature is a member of the end (buildCrossFeature), so its
+		// head names resolve from the end, as its lazy generals do.
 		if cross := d.CrossFeature; cross != nil {
-			r.resolveHeaderRelationships(scope, child, cross, cross.Relationships)
-			r.resolveMultiplicity(scope, cross.Multiplicity)
+			owner := r.bodyScope(scope, d)
+			r.resolveHeaderRelationships(owner, r.childScope(owner, cross), cross, cross.Relationships)
+			r.resolveMultiplicity(owner, cross.Multiplicity)
 		}
 		// An accept node keeps its trigger in the usage's value, and a trigger's
 		// names are not all references (see resolveTrigger).
@@ -189,20 +192,22 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 			r.resolveRelationships(redefinitionScope, end, redefines)
 			r.resolveRelationships(endScope, end, others)
 			endpointKind := d.Kind == ast.UsageSuccession || d.Kind == ast.UsageTransition
-			resolveAsEndpoint := endpointKind && inStateMachine(endScope) && !declaresName
+			resolveAsEndpoint := endpointKind && symbols.InStateMachine(endScope) && !declaresName
 			resolveEnd := func(target ast.Node) {
 				// A calc's binding may name its implicit result feature as an end.
 				if d.Kind == ast.UsageBinding && isImplicitCalcResult(scope, target) {
 					return
 				}
-				// A machine succession/transition end names a vertex like a transition endpoint.
-				if qn, ok := target.(*ast.QualifiedName); ok {
-					if resolveAsEndpoint {
-						r.ResolveEndpoint(endScope, qn)
-					} else {
-						r.ResolveQualified(endScope, qn)
-					}
-				} else {
+				// A machine succession/transition end names a vertex like a transition
+				// endpoint, a chained one (`c.c1`) included.
+				qn, isName := target.(*ast.QualifiedName)
+				_, isChain := target.(*ast.FeatureChainExpr)
+				switch {
+				case resolveAsEndpoint && (isName || isChain):
+					r.ResolveEndpointRef(endScope, target)
+				case isName:
+					r.ResolveQualified(endScope, qn)
+				default:
 					r.resolveExpr(endScope, target)
 				}
 			}
@@ -245,7 +250,11 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		}
 		return true
 	case *ast.InitialNode:
-		r.resolveInitial(scope, d)
+		if symbols.FirstNamesSource(d) {
+			r.resolveEdgeEnd(scope, d.First, nil, false)
+		} else {
+			r.resolveInitial(scope, d)
+		}
 		r.resolveEdgeEnd(scope, d.Successor, nil, false)
 		r.resolveExpr(scope, d.Guard)
 		r.walkMembers(r.bodyScope(scope, d), d.Members)

@@ -6,18 +6,37 @@ import "github.com/Open-MBEE/OpenSysML/internal/core/source"
 // These nodes implement the Node interface and populate Usage.Members
 // for action and state usages (UsageAction, UsageState).
 
-// InitialNode is the entry point for action execution.
+// InitialNode is a `first` member of an action or state body. One-ended
+// (`first start;`, `first a;`) it marks where the flow starts; with a Successor
+// (`first a then b;`) it states the succession a -> b and declares no node of its own.
 type InitialNode struct {
 	NodeBase
-	Name      string         // optional identifier for edge referencing
-	NameSpan  source.Span    // span of Name, empty when none is written
-	Successor *QualifiedName // optional target for implicit succession (from `first X then Y` syntax)
+	// First is the name written after `first`, nil when none was. In an action
+	// body's two-ended form it is a reference to the succession's source.
+	First     *QualifiedName
+	Successor *QualifiedName // the target of `first X then Y`, nil for the one-ended form
 	Guard     Node           // optional guard condition for succession
 	// Members are the members of the body the succession was written with
 	// (`first start then continue { … }`), and HasBody that it was written with
 	// one rather than ended by ';'.
 	Members []Node
 	HasBody bool
+}
+
+// Name is the text of the name written after `first`, "" when none was.
+func (n *InitialNode) Name() string {
+	if n.First == nil || len(n.First.Parts) == 0 {
+		return ""
+	}
+	return n.First.Parts[len(n.First.Parts)-1].Text
+}
+
+// NameSpan is the span of the name written after `first`, empty when none was.
+func (n *InitialNode) NameSpan() source.Span {
+	if n.First == nil {
+		return source.Span{}
+	}
+	return n.First.Span()
 }
 
 // FinalNode is the termination point for action execution.
@@ -220,6 +239,10 @@ func (n *IfActionNode) Branches() []*IfBranchNode {
 // DoneFeature is the name of the end shot every state inherits from the standard
 // library (`Systems Library/States.sysml`), which a transition enters to complete.
 const DoneFeature = "done"
+
+// StartFeature is the name of the start shot every state inherits from the standard
+// library (`Systems Library/States.sysml`), which a succession leaves to start.
+const StartFeature = "start"
 
 // StateNode represents a state in a state machine (simple, composite, or orthogonal).
 type StateNode struct {

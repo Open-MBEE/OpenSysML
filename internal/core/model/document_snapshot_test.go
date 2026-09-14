@@ -184,7 +184,7 @@ func TestLibraryDocumentSnapshotOwnsContent(t *testing.T) {
 	if sameSlice(docA.Content, src.buf) || sameSlice(docA.sf.Bytes(), src.buf) {
 		t.Fatal("library document aliases the source's buffer")
 	}
-	if docB := ws.LibraryDocument(b); docB == nil {
+	if ws.LibraryDocument(b) == nil {
 		t.Fatal("LibraryDocument(b) = nil")
 	}
 	if got := string(docA.Content); got != wantA {
@@ -193,7 +193,7 @@ func TestLibraryDocumentSnapshotOwnsContent(t *testing.T) {
 	if got := docA.sf.Text(docA.AST.Members[0].Span()); got != wantA {
 		t.Errorf("text of the package member = %q, want %q", got, wantA)
 	}
-	if again := ws.LibraryDocument(a); again != docA {
+	if ws.LibraryDocument(a) != docA {
 		t.Error("LibraryDocument(a) is not cached")
 	}
 }

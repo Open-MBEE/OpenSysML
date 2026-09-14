@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // checkValue refuses a new value that is not one expression. Whether it names
@@ -69,23 +71,31 @@ func checkName(i int, name string) error {
 	return nil
 }
 
-// validate re-reads the edited notation the way the original was read and
-// refuses it if it carries errors the original did not: an edit never hands back
-// a model that cannot be read again.
-func (m Model) validate(content []byte) error {
-	sf := source.NewWithKind(m.Source.Name(), content, m.Source.Kind())
-	p := parser.New(sf)
-	root := p.ParseFile()
-	editedParse := parseDiagnostics(p.Diagnostics)
-	originalParse := parseDiagnostics(m.ParseDiags)
-	if introduced := introduced(originalParse, editedParse); len(introduced) > 0 {
-		return &Error{
-			Failure:        FailureResultInvalid,
-			OperationIndex: -1,
-			Diagnostics:    introduced,
-			Diagnosed:      sf,
-			Message:        "the edited model does not parse: " + introduced[0].Message,
+// validate re-reads every rewritten document the way the original was read and
+// refuses the edit if any carries errors its original did not: an edit never
+// hands back a model that cannot be read again. The documents are judged
+// together, each analyzed in an index holding the others as rewritten.
+func (m Model) validate(edited rewrites) error {
+	own := m.Source.Name()
+	type reread struct {
+		Model
+		sf          *source.SourceFile
+		root        *ast.RootNamespace
+		editedParse []passes.Diagnostic
+		before      []passes.Diagnostic
+	}
+	rereads := make([]*reread, 0, len(edited))
+	for _, name := range edited.names(own) {
+		doc, _ := m.inDocument(name)
+		sf := source.NewWithKind(name, edited[name].content, doc.Source.Kind())
+		p := parser.New(sf)
+		rr := &reread{Model: doc, sf: sf, root: p.ParseFile(), editedParse: parseDiagnostics(p.Diagnostics)}
+		originalParse := parseDiagnostics(doc.ParseDiags)
+		if introduced := introduced(originalParse, rr.editedParse); len(introduced) > 0 {
+			return invalidResult(own, sf, introduced, "does not parse")
 		}
+		rr.before = errorsOnly(originalParse)
+		rereads = append(rereads, rr)
 	}
 	if m.NewIndex == nil {
 		return nil
@@ -95,22 +105,39 @@ func (m Model) validate(content []byte) error {
 	}
 	// The parse diagnostics are handed to the analysis, so a model that already
 	// had syntax errors is not judged by tiers its own parse never reached. The
-	// baseline is taken first: it and the edited notation share one index, in
-	// which each is in turn the document under the model's name.
-	before := errorsOnly(m.baseline(editedParse))
-	before = append(before, errorsOnly(originalParse)...)
-	idx := m.reindex.analyzedIn(sf.Name(), root, sf.Kind())
-	after := errorsOnly(passes.AnalyzeWithOptions(sf.Name(), sf.Kind(), root, editedParse, idx, m.Analysis))
-	if introduced := introduced(before, after); len(introduced) > 0 {
-		return &Error{
-			Failure:        FailureResultInvalid,
-			OperationIndex: -1,
-			Diagnostics:    introduced,
-			Diagnosed:      sf,
-			Message:        "the edited model is not valid: " + introduced[0].Message,
+	// baselines are taken first: they and the edited notation share one index, in
+	// which each is in turn the document under its name.
+	for _, rr := range rereads {
+		rr.reindex = m.reindex
+		rr.before = append(errorsOnly(rr.baseline(rr.editedParse)), rr.before...)
+	}
+	var idx *symbols.Index
+	for _, rr := range rereads {
+		idx = m.reindex.analyzedIn(rr.sf.Name(), rr.root, rr.sf.Kind())
+	}
+	for _, rr := range rereads {
+		after := errorsOnly(passes.AnalyzeWithOptions(rr.sf.Name(), rr.sf.Kind(), rr.root, rr.editedParse, idx, m.Analysis))
+		if introduced := introduced(rr.before, after); len(introduced) > 0 {
+			return invalidResult(own, rr.sf, introduced, "is not valid")
 		}
 	}
 	return nil
+}
+
+// invalidResult refuses the edit for the errors introduced into sf, named when
+// it is not the edited document own.
+func invalidResult(own string, sf *source.SourceFile, introduced []passes.Diagnostic, what string) error {
+	where := ""
+	if sf.Name() != own {
+		where = " in " + sf.Name()
+	}
+	return &Error{
+		Failure:        FailureResultInvalid,
+		OperationIndex: -1,
+		Diagnostics:    introduced,
+		Diagnosed:      sf,
+		Message:        "the edited model " + what + where + ": " + introduced[0].Message,
+	}
 }
 
 // baseline is what the original was already wrong about, judged at the tiers the

@@ -876,7 +876,6 @@ expr:Results__Documented___401_pm0
     a sysml:Documentation ;
     sysml:elementId "Results__Documented___401_pm0" ;
     sysx:memberIndex "0"^^xsd:integer ;
-    sysx:sourceText "doc" ;
     sysml:body " the parameter, unchanged " .
 
 expr:Results__Documented___401_pin1

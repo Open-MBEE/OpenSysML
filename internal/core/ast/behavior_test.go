@@ -10,7 +10,7 @@ func TestActionNodeConstruction(t *testing.T) {
 	span := source.Span{Offset: 0, Len: 10}
 
 	nodes := []Node{
-		&InitialNode{NodeBase: NodeBase{NodeSpan: span}, Name: "start"},
+		&InitialNode{NodeBase: NodeBase{NodeSpan: span}, First: &QualifiedName{Parts: []NameSegment{{Text: "start"}}}},
 		&FinalNode{NodeBase: NodeBase{NodeSpan: span}},
 		&ForkNode{NodeBase: NodeBase{NodeSpan: span}, Name: "split"},
 		&JoinNode{NodeBase: NodeBase{NodeSpan: span}, Name: "sync"},

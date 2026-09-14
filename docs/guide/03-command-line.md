@@ -93,11 +93,16 @@ that a condition holds, and a run that shows it false is a *witnessed* violation
 a question put to an analysis engine — `run` here; `-engines` lists them and `-engine` picks
 one, or `all` to have every engine that covers the question answer it and compare their
 answers ([Analysis engines](../reference/cli.md#analysis-engines)). `-engine check` searches
-every schedule of an action for a violation, and `-engine smt` decides a property over every
+every schedule of an action or a state machine — of several named together, run on one clock
+to `-advance` — for a violation, and `-engine smt` decides a property over every
 schedule and every value of the inputs the model leaves unbound — or that `-check-input` frees —
 with an SMT solver, so its *proved* stands for any input in its declared domain where a run's
 *observed* stands for the inputs as written
 ([Deciding a property over the inputs](../reference/cli.md#deciding-a-property-over-the-inputs)).
+`-check-diverge <feature>` asks either checker whether the schedule decides a feature's final
+value: `check` searches the schedules for two that end it differently, `smt` asks a solver for
+two at once, and a *sensitive* verdict comes with both schedules as witnesses, each replayable
+([Deciding whether the schedule decides a feature](../reference/cli.md#deciding-whether-the-schedule-decides-a-feature)).
 A model checker or a simulator installed beside OpenSysML joins them through one JSON file in
 the directory `OPENSYSML_ENGINES` names; `-engines` lists it without starting it,
 `-engines -probe` starts it once to check that it describes itself as its file does, and

@@ -30,6 +30,10 @@ const (
 	// ChoiceDueOrder: several executors had work due at one instant of the
 	// shared clock, and one of them ran first.
 	ChoiceDueOrder
+	// ChoiceDispatchOrder: several events the library leaves unordered — time
+	// triggers, or a time trigger and a pool event — were due at one instant, and
+	// one of them was dispatched first.
+	ChoiceDispatchOrder
 )
 
 // String is the kind as a trace or diagnostic names it.
@@ -47,6 +51,8 @@ func (k ChoiceKind) String() string {
 		return "region order"
 	case ChoiceDueOrder:
 		return "due order"
+	case ChoiceDispatchOrder:
+		return "dispatch order"
 	}
 	return fmt.Sprintf("ChoiceKind(%d)", int(k))
 }
@@ -83,7 +89,7 @@ type ChoicePoint struct {
 	// Alternatives are canonical: tokens by ID, branches and transitions by
 	// declaration position, writes by writing token, reacting states by name in
 	// declaration order, executors due at one instant in the order they were
-	// created. Taken indexes the one taken.
+	// created, tied events in arrival order. Taken indexes the one taken.
 	Alternatives []string
 	Taken        int
 	// File and Span locate the declaration the choice was made at; File is ""
@@ -113,6 +119,8 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("%s: states %s react (unordered; took %s first)", c.Where, alts, taken)
 	case ChoiceDueOrder:
 		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)
+	case ChoiceDispatchOrder:
+		return fmt.Sprintf("%s: %s (unordered; dispatched %s first)", c.Where, alts, taken)
 	}
 	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)
 }

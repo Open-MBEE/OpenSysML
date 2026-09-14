@@ -9,7 +9,9 @@ import (
 )
 
 // Compose is the one result of several engines' answers, taken in engine-name order: a witness
-// stands over the universal claim it refutes (a disagreement), else the strongest strength earned.
+// stands over the universal claim it refutes (a disagreement) — a violation over holds, a
+// satisfying assignment over unsatisfiable, and to a Sensitive question a replayed sensitivity
+// over the feature held not sensitive — else the strongest strength earned.
 func Compose(results []Result) (Result, []Disagreement) {
 	answered := make([]Result, 0, len(results))
 	for _, r := range results {
@@ -26,6 +28,11 @@ func Compose(results []Result) (Result, []Disagreement) {
 	}
 	if witness, ok := firstClaiming(answered, ClaimSatisfiable); ok {
 		return witness, refuted(witness, answered, ClaimUnsatisfiable)
+	}
+	if answered[0].Question.Kind == Sensitive {
+		if witness, ok := firstClaiming(answered, ClaimSensitive); ok {
+			return witness, refuted(witness, answered, ClaimHolds)
+		}
 	}
 	if sensitive, ok := sensitivity(answered); ok {
 		return sensitive, nil

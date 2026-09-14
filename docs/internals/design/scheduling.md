@@ -23,7 +23,7 @@ linearization a run took, the points at which it had a choice, and the rule it c
 ## Choice points (`choice.go`, `action_choice.go`)
 
 A `ChoicePoint` is one point where an executor had several enabled alternatives the library leaves
-unordered and took one by its scheduling rule. `ChoiceKind` names the six:
+unordered and took one by its scheduling rule. `ChoiceKind` names the seven:
 
 | Kind | Where it is noted | Alternatives, canonically |
 |------|-------------------|---------------------------|
@@ -32,7 +32,8 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the six:
 | `ChoiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
 | `ChoiceTransition` | `StateExecutor.chooseTransition`; `choiceBranchPoint` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` pseudostate enabled on arrival, read after the incoming segment's effect, labelled `choice <name>` |
 | `ChoiceRegionOrder` | `StateExecutor.chooseRegion`, drawn by `dispatchInOrder` | the states whose transitions one occurrence selected, by name in declaration order; the one fired first is taken |
-| `ChoiceDueOrder` | `Context.runDue` (`advance.go`) | the executors due at one instant, in creation order; the one run first is taken |
+| `ChoiceDueOrder` | `Context.runDue` (`advance.go`); the checker's run, one executor holding the turn until it has no move at the instant | the executors due at one instant, in creation order; the one run first is taken |
+| `ChoiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
 
 Two rules hold at every site:
 

@@ -103,6 +103,11 @@
         "enablement": "opensysml.renderSupported && (editorLangId == sysml || editorLangId == kerml)"
       },
       {
+        "command": "opensysml.exportDiagram",
+        "title": "SysML: Export Diagram",
+        "enablement": "opensysml.renderSupported && (editorLangId == sysml || editorLangId == kerml)"
+      },
+      {
         "command": "opensysml.renderDocument",
         "title": "SysML: Render Document",
         "enablement": "opensysml.renderDocumentSupported"
@@ -112,14 +117,12 @@
   "scripts": {
     "grammar": "go run ./tools/gengrammar -out syntaxes",
     "build": "node esbuild.mjs",
-    "check-nodes": "node tools/check-nodes.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json",
     "test": "node tools/test.mjs",
     "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
   },
   "dependencies": {
-    "mermaid": "11.16.1",
     "vscode-languageclient": "9.0.1"
   },
   "devDependencies": {
