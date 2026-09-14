@@ -21,6 +21,11 @@ const (
 | a | ✅ Faithful |
 | b | ⚠️ Approximate |
 
+<!-- doc-counts:begin analysis-libraries -->
+old library table
+<!-- doc-counts:end analysis-libraries -->
+The rows above are the map's own.
+
 - Execution conformance: <!-- doc-counts:begin inventory-conformance -->stale<!-- doc-counts:end inventory-conformance --> — kept prose
 - Runtime robustness: <!-- doc-counts:begin inventory-robustness -->stale<!-- doc-counts:end inventory-robustness -->, among them kept prose
 - Runtime tests: <!-- doc-counts:begin inventory-runtime-tests -->stale<!-- doc-counts:end inventory-runtime-tests -->
@@ -57,6 +62,9 @@ Nothing else on this line's neighbours moves.
 		`"errata":{"kinds":[{"kind":"errors","assertions":2,"rows":2,"agree":2,"wordingOnly":1}]}}`
 	fixtureRejectionBaseline = `{"totals":{"cases":2,"bothReject":2,"pilotOnlyRejects":0},"strictOnlyAgreements":[],` +
 		`"errata":{"totals":{"cases":2,"bothReject":2,"pilotOnlyRejects":0}}}`
+	fixtureLibraryCensus = `{"command":"go test -run TestFixtureCensus ./x","packages":[` +
+		`{"name":"Alpha","path":"a.sysml","declarations":["Alpha::a","Alpha::b"],"evaluated":["Alpha::a"],` +
+		`"refused":[{"declaration":"Alpha::b","error":"ErrNoValue","message":"no value: b"}],"wrong":[]}]}`
 )
 
 // TestRunRewritesEveryDerivedLineAndIsIdempotent is the guarantee the wave-9
@@ -105,6 +113,14 @@ func TestRunRewritesEveryDerivedLineAndIsIdempotent(t *testing.T) {
 		if !strings.Contains(first[doccounts.SpecCompliancePath], sentence) {
 			t.Fatalf("compliance map lacks %q:\n%s", sentence, first[doccounts.SpecCompliancePath])
 		}
+	}
+	compliance := read(t, root, doccounts.SpecCompliancePath)
+	first[doccounts.SpecCompliancePath] = compliance
+	if !strings.Contains(compliance, "| `Alpha` | 2 | 1 | 1 | 0 |") || strings.Contains(compliance, "old library table") {
+		t.Fatalf("the library table is not restated from the census:\n%s", compliance)
+	}
+	if !strings.Contains(compliance, "| a | ✅ Faithful |\n| b | ⚠️ Approximate |\n") || !strings.Contains(compliance, "The rows above are the map's own.") {
+		t.Fatalf("the compliance map's own rows moved:\n%s", compliance)
 	}
 
 	rewritten, err = run(root, io.Discard)
@@ -179,11 +195,59 @@ func TestCheckReportsStaleFilesWithoutWriting(t *testing.T) {
 	if stale != 3 {
 		t.Fatalf("check reported %d stale files, want 3", stale)
 	}
-	if !strings.Contains(output.String(), "README.md is stale") {
-		t.Fatalf("check report does not name README.md:\n%s", output.String())
+	for _, name := range []string{"README.md is stale", "docs/project/spec-compliance.md is stale"} {
+		if !strings.Contains(output.String(), name) {
+			t.Fatalf("check report lacks %q:\n%s", name, output.String())
+		}
 	}
 	if read(t, root, doccounts.ReadmePath) != before {
 		t.Fatal("check mode changed README.md")
+	}
+	if read(t, root, doccounts.SpecCompliancePath) != fixtureCompliance {
+		t.Fatal("check mode changed the compliance map")
+	}
+}
+
+// TestCheckReportsAnEditedCensusFigure is the drift gate: a census figure that
+// moves in the JSON leaves the rendered table stale until it is regenerated.
+func TestCheckReportsAnEditedCensusFigure(t *testing.T) {
+	root := writeFixture(t)
+	if _, err := run(root, io.Discard); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if stale, err := check(root, io.Discard); err != nil || stale != 0 {
+		t.Fatalf("check after run: %d stale, %v", stale, err)
+	}
+	moved := strings.Replace(fixtureLibraryCensus, `"evaluated":["Alpha::a"],"refused":[{"declaration":"Alpha::b","error":"ErrNoValue","message":"no value: b"}]`,
+		`"evaluated":["Alpha::a","Alpha::b"],"refused":[]`, 1)
+	if moved == fixtureLibraryCensus {
+		t.Fatal("the fixture census did not move")
+	}
+	writeAt(t, root, doccounts.LibraryCensusPath, moved)
+	var output strings.Builder
+	stale, err := check(root, &output)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if stale != 1 || !strings.Contains(output.String(), "docs/project/spec-compliance.md is stale") {
+		t.Fatalf("check reported %d stale files:\n%s", stale, output.String())
+	}
+	if !strings.Contains(output.String(), "| `Alpha` | 2 | 2 | 0 | 0 |") {
+		t.Fatalf("check report does not show the moved figure:\n%s", output.String())
+	}
+}
+
+// TestRunReportsACensusMissingItsBlock keeps the table from disappearing: a
+// compliance map without the markers is an error, not a map without a table.
+func TestRunReportsACensusMissingItsBlock(t *testing.T) {
+	root := writeFixture(t)
+	writeAt(t, root, doccounts.SpecCompliancePath, "# Compliance\n\n| Rule | Status |\n|---|---|\n| a | ✅ Faithful |\n")
+	before := read(t, root, doccounts.ReadmePath)
+	if _, err := run(root, io.Discard); err == nil || !strings.Contains(err.Error(), "analysis-libraries") {
+		t.Fatalf("want an error naming the missing block, got %v", err)
+	}
+	if read(t, root, doccounts.ReadmePath) != before {
+		t.Fatal("a failed run rewrote an earlier file")
 	}
 }
 
@@ -279,6 +343,7 @@ func writeFixture(t *testing.T) string {
 	writeAt(t, root, "docs/project/pilot-differential-baseline.json", fixtureDifferentialBaseline)
 	writeAt(t, root, "docs/project/pilot-xpect-baseline.json", fixtureXpectBaseline)
 	writeAt(t, root, "docs/project/pilot-rejection-baseline.json", fixtureRejectionBaseline)
+	writeAt(t, root, doccounts.LibraryCensusPath, fixtureLibraryCensus)
 	return root
 }
 

@@ -29,6 +29,14 @@ description: How to end-to-end test the generated documentation figures (cmd/doc
    clause does not leak into it). The test and subtest total of a run is
    **not** generated — only a run can state it, so the prose no longer quotes one.
 
+A third consumer, `<!-- doc-counts:begin analysis-libraries -->` in `docs/project/spec-compliance.md`,
+renders the per-library table from `docs/project/analysis-library-census.json`, which
+`TestAnalysisLibraryCensus` (`internal/core/runtime/library_census_test.go`) writes under
+`-update-library-census` and otherwise asserts. Its inputs are `doccounts.ReadFigures`
+(the refereed baselines plus the census); the same stale/marker/read-only checks below apply to it,
+and a census JSON mutated by hand (a declaration dropped from `evaluated`) must fail both `-check`
+(`has 0 verdicts, want 1`) and the runtime test.
+
 The compliance map's own row census (`The map below tracks N semantic rules: …`) is **not** committed
 anywhere: `scripts/mkdocs_census.py` counts it from the rows and fills the
 `<!-- doc-counts:begin census -->` block in `docs/project/spec-compliance.md` while the site builds

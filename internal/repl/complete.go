@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -383,7 +384,7 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 	if s.rtCtx == nil {
 		return objectShape{}, false
 	}
-	ref, err := parseObjectRef(text)
+	ref, err := objref.Parse(text)
 	if err != nil {
 		return objectShape{}, false
 	}
@@ -392,12 +393,12 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 		rest []objectSegment
 		ok   bool
 	)
-	if ref.id > 0 {
+	if ref.ID > 0 {
 		// A connector a carry-over set aside is offered by id but not built to
 		// complete a path from.
-		root, _ = s.heldByID(ref.id)
+		root, _ = s.heldByID(ref.ID)
 		ok = root != nil
-		rest = ref.segments
+		rest = ref.Segments
 	} else {
 		var rerr error
 		root, _, rest, rerr = s.namedRoot(ref)
@@ -408,18 +409,18 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 	}
 	shape := objectShape{inst: root, typ: root.Type}
 	for _, seg := range rest {
-		feat := featureNamed(s.rtCtx.FeaturesOf(shape.typ), seg.name)
-		if feat == nil || feat.Scalar() != (seg.index == 0) {
+		feat := featureNamed(s.rtCtx.FeaturesOf(shape.typ), seg.Name)
+		if feat == nil || feat.Scalar() != (seg.Index == 0) {
 			return objectShape{}, false
 		}
-		if fv := heldFeatureValue(shape.inst, seg.name); fv != nil {
+		if fv := heldFeatureValue(shape.inst, seg.Name); fv != nil {
 			val := fv.Value
-			if seg.index > 0 {
-				elements := collectionElements(fv.Values)
-				if seg.index > len(elements) {
+			if seg.Index > 0 {
+				elements := objref.CollectionElements(fv.Values)
+				if seg.Index > len(elements) {
 					return objectShape{}, false
 				}
-				val = elements[seg.index-1]
+				val = elements[seg.Index-1]
 			}
 			id, isObject := val.Object()
 			if !isObject {
@@ -433,7 +434,7 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 			continue
 		}
 		typ := s.objectTypeOf(feat)
-		if typ == nil || max(seg.index, 1) > s.elementCount(shape, feat) {
+		if typ == nil || max(seg.Index, 1) > s.elementCount(shape, feat) {
 			return objectShape{}, false
 		}
 		shape = objectShape{typ: typ}
@@ -453,7 +454,7 @@ func (s *Session) holdsObjects(shape objectShape, feat *runtime.EffectiveFeature
 		_, isObject := fv.Value.Object()
 		return isObject
 	}
-	for _, el := range collectionElements(fv.Values) {
+	for _, el := range objref.CollectionElements(fv.Values) {
 		if _, isObject := el.Object(); isObject {
 			return true
 		}
@@ -551,7 +552,7 @@ func (s *Session) elementsToHold(shape objectShape, feat *runtime.EffectiveFeatu
 			}
 			return 0
 		}
-		return len(collectionElements(fv.Values))
+		return len(objref.CollectionElements(fv.Values))
 	}
 	if reading[feat.Name] || s.objectTypeOf(feat) == nil {
 		return 0

@@ -21,10 +21,11 @@ const (
 // appearance, so a scenario can state that two feature values name one object
 // without knowing which id it was given.
 var normalizedIDs = map[string]bool{
-	"sysml.Instance.id":         true,
-	"sysml.Value.instance_id":   true,
-	"sysml.Verdict.instance_id": true,
-	"sysml.Function.self_id":    true,
+	"sysml.Instance.id":                true,
+	"sysml.Value.instance_id":          true,
+	"sysml.Verdict.instance_id":        true,
+	"sysml.Function.self_id":           true,
+	"sysml.DocumentObject.instance_id": true,
 }
 
 // integer and unsigned are normalized integral values. They are distinct from

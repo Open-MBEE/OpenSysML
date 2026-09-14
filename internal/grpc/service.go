@@ -237,6 +237,9 @@ type Service struct {
 	// jobs is how many runs of one plan go concurrently, OPENSYSML_JOBS read once at
 	// construction; no request sets it.
 	jobs int
+	// maxHeldObjects bounds the objects one cached model holds for its queries,
+	// HeldObjectsEnvVar read once at construction.
+	maxHeldObjects int
 	// engines answers every analysis question the runtime RPCs put, under auto.
 	engines *analysis.Registry
 	// version is the build version GetServerInfo reports, informational only.
@@ -262,11 +265,11 @@ func ServeExternalEngines(names ...string) Option {
 
 // NewService creates a gRPC service with specified cache size, reporting
 // version as its build version. It returns an error if cacheSize is not
-// positive, if a budget variable or OPENSYSML_JOBS holds anything but a positive
-// integer, if the prewarm setting is not a non-negative integer, or if a manifest
-// or a name given to ServeExternalEngines is wrong. It does not load the
-// standard library: call Prewarm to have that happen in the background, ahead of
-// the requests that need it.
+// positive, if a budget variable, OPENSYSML_JOBS or OPENSYSML_GRPC_MAX_HELD_OBJECTS
+// holds anything but a positive integer, if the prewarm setting is not a
+// non-negative integer, or if a manifest or a name given to ServeExternalEngines
+// is wrong. It does not load the standard library: call Prewarm to have that
+// happen in the background, ahead of the requests that need it.
 func NewService(cacheSize int, version string, opts ...Option) (*Service, error) {
 	return newService(cacheSize, version, opts)
 }
@@ -302,6 +305,10 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 	if err != nil {
 		return nil, err
 	}
+	maxHeldObjects, err := maxHeldObjectsFromEnv()
+	if err != nil {
+		return nil, err
+	}
 	registry, err := engineset.DefaultFromEnv()
 	if err != nil {
 		return nil, err
@@ -314,14 +321,15 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 		availability.withhold(CapabilityEnginesExternal)
 	}
 	return &Service{
-		cache:        cache,
-		libIndexes:   newLibraryBase(buildLibraryIndex),
-		prewarm:      prewarm > 0,
-		budgets:      budgets,
-		jobs:         jobs,
-		engines:      engines,
-		version:      version,
-		capabilities: availability,
+		cache:          cache,
+		libIndexes:     newLibraryBase(buildLibraryIndex),
+		prewarm:        prewarm > 0,
+		budgets:        budgets,
+		jobs:           jobs,
+		maxHeldObjects: maxHeldObjects,
+		engines:        engines,
+		version:        version,
+		capabilities:   availability,
 	}, nil
 }
 
@@ -413,7 +421,12 @@ func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, func()) {
 // newRuntimeOver builds a runtime context under the service's budgets on a worker;
 // every explored run gets one of its own.
 func (s *Service) newRuntimeOver(w *analysis.Worker) *runtime.Context {
-	ctx := runtime.NewContext(w.Model, s.budgets.MaxSteps)
+	return s.newRuntimeContext(w.Model)
+}
+
+// newRuntimeContext builds a runtime context over model under the service's budgets.
+func (s *Service) newRuntimeContext(model *runtime.Model) *runtime.Context {
+	ctx := runtime.NewContext(model, s.budgets.MaxSteps)
 	if err := ctx.SetBudgets(s.budgets); err != nil {
 		// Unreachable: NewService validated these budgets.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
@@ -651,9 +664,10 @@ func (s *Service) parseModel(inputs []sourceInput, mode conformance.Mode) (strin
 		}
 	}
 
+	// A parse racing another of the same model keeps the entry already cached,
+	// so the objects held on it stay reachable under the hash.
 	model := &CachedModel{Documents: documents, Index: idx, Library: library}
-	s.cache.Put(modelHash, model)
-	return modelHash, model
+	return modelHash, s.cache.Add(modelHash, model)
 }
 
 // GetSymbol retrieves symbol information by FQN
@@ -841,21 +855,37 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 	sym := syms[0]
 
-	runtimeCtx, release := s.newRuntime(cached)
-	defer release()
+	// The object outlives the request: a later RunDocumentQuery on the model
+	// binds it by id or by the name it was created under.
+	held := s.objects(cached)
+	defer held.lock()()
+	runtimeCtx := held.rt
 
-	// Instantiate
-	inst, err := runtimeCtx.Instantiate(sym)
+	// Serializing the graph materializes the objects under the root, so it is
+	// part of the creation: past the held-objects bound, none of them stays.
+	var graph InstanceGraph
+	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
+		graph = s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
+		for _, err := range graph.Errors {
+			if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
+				return err
+			}
+		}
+		return nil
+	})
 	if err != nil {
+		if status := held.exhausted(err); status != nil {
+			return nil, status
+		}
 		return &pb.InstantiateResponse{
 			Error: fmt.Sprintf("instantiation failed: %v", err),
 		}, nil
 	}
+	held.hold(sym, inst)
 
-	root, all := s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
 	return &pb.InstantiateResponse{
-		Instance:  root,
-		Instances: all,
+		Instance:  graph.Root,
+		Instances: graph.All,
 	}, nil
 }
 

@@ -43,6 +43,11 @@ type CachedModel struct {
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex
 	idle   []*analysis.Worker
+
+	// objects are the objects Instantiate created for the model, on a runtime of
+	// their own that outlives the requests; nil until the first Instantiate.
+	objectsMu sync.Mutex
+	objects   *heldObjects
 }
 
 // maxIdleWorkers bounds the warm workers a model keeps: as many as can run at once, so a
@@ -203,7 +208,26 @@ func (c *Cache) Put(hash string, model *CachedModel) {
 		elem.Value.(*cacheEntry).value = model
 		return
 	}
+	c.insert(hash, model)
+}
 
+// Add caches model under hash unless the hash is already cached, and returns
+// the model cached under it: two parses of one model racing to the cache end
+// up sharing the one entry, and the objects held on it, rather than replacing it.
+func (c *Cache) Add(hash string, model *CachedModel) *CachedModel {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if elem, ok := c.items[hash]; ok {
+		c.lruList.MoveToFront(elem)
+		return elem.Value.(*cacheEntry).value
+	}
+	c.insert(hash, model)
+	return model
+}
+
+// insert adds a new entry under the write lock, evicting the LRU at capacity.
+func (c *Cache) insert(hash string, model *CachedModel) {
 	// Evict if at capacity
 	if c.lruList.Len() >= c.maxSize {
 		oldest := c.lruList.Back()

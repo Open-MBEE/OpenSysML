@@ -748,7 +748,11 @@ pub struct InstantiateRequest {
     #[prost(string, tag="2")]
     pub symbol_id: ::prost::alloc::string::String,
 }
-/// InstantiateResponse contains the created instance
+/// InstantiateResponse contains the created instance. The service keeps the
+/// object for the model it was created in: a later RunDocumentQuery on the same
+/// model_hash binds it by its id or by the name it was instantiated under, and
+/// `DocumentQueries::Objects` enumerates it. Instantiating the same symbol again
+/// creates a new object under the name; the earlier one stays reachable by id.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InstantiateResponse {
     #[prost(message, optional, tag="1")]
@@ -1843,7 +1847,9 @@ pub struct RunSweepResponse {
 /// RunDocumentQueryRequest runs a named document query — a calc def
 /// specializing DocumentQueries::Query — against a model the service already
 /// parsed, binding its entry parameters. It answers as %run-query does, but with
-/// typed rows rather than formatted lines.
+/// typed rows rather than formatted lines. The query runs over the objects
+/// Instantiate created for the model, which a binding may name (DocumentObject)
+/// and `DocumentQueries::Objects` and `Verdicts` reach.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunDocumentQueryRequest {
     /// from ParseFile response
@@ -1867,15 +1873,15 @@ pub struct DocumentQueryBinding {
     pub values: ::prost::alloc::vec::Vec<DocumentValue>,
 }
 /// DocumentValue is one typed document-query value. A request binds a model
-/// element by qualified name in element_id; a response also says what the
-/// element is in element_type. `infinity` denotes an unbounded multiplicity and
-/// is only ever answered, never bound.
+/// element by qualified name in element_id, or an object the service holds in
+/// object; a response also says what the element is in element_type. `infinity`
+/// denotes an unbounded multiplicity and is only ever answered, never bound.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DocumentValue {
     /// Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
     #[prost(string, tag="7")]
     pub element_type: ::prost::alloc::string::String,
-    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9")]
+    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10")]
     pub kind: ::core::option::Option<document_value::Kind>,
 }
 /// Nested message and enum types in `DocumentValue`.
@@ -1901,7 +1907,35 @@ pub mod document_value {
         /// a row Verdicts answered; answered, never bound
         #[prost(message, tag="9")]
         Verdict(::prost::alloc::boxed::Box<super::DocumentVerdict>),
+        /// an object Instantiate created; bound and answered
+        #[prost(message, tag="10")]
+        Object(::prost::alloc::boxed::Box<super::DocumentObject>),
     }
+}
+/// DocumentObject is an object the service holds for the model, created by
+/// Instantiate, as a query binds and answers it. A request names it by path
+/// when path is set, and by instance_id otherwise; a request setting both must
+/// name one object by both. A response answers both, and the element the object
+/// stands for.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DocumentObject {
+    /// The object's id, as Instantiate answered it. Fails with NOT_FOUND when no
+    /// object of the model has it.
+    #[prost(int64, tag="1")]
+    pub instance_id: i64,
+    /// The object by the label a session reaches it under: the qualified name it
+    /// was instantiated as (`Garage::car`), its id (`#2`), or a path through the
+    /// feature values of either (`Garage::car.wheels\[2\]`, `#2.wheels\[2\]`; indexes
+    /// count from 1). Fails with INVALID_ARGUMENT when the text is no reference or
+    /// a segment reaches no object, and NOT_FOUND when the name it starts from has
+    /// no object.
+    #[prost(string, tag="2")]
+    pub path: ::prost::alloc::string::String,
+    /// The usage the object is held under — its own definition or usage for an
+    /// object Instantiate created — as an element value with its qualified name
+    /// and metamodel type. Answered, ignored when bound.
+    #[prost(message, optional, boxed, tag="3")]
+    pub element: ::core::option::Option<::prost::alloc::boxed::Box<DocumentValue>>,
 }
 /// DocumentVerdict is one row a `Verdicts` query answered: an assertion checked
 /// on the object at `path`, which the row stands for as its `element`.
@@ -1953,8 +1987,9 @@ pub struct DocumentQueryCell {
 /// column in column order.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DocumentQueryRow {
-    /// The selected element itself, an element value with its qualified name; a
-    /// verdict value for a row `Verdicts` answered.
+    /// The selected element itself, an element value with its qualified name; an
+    /// object value for a row over an object the service holds; a verdict value
+    /// for a row `Verdicts` answered.
     #[prost(message, optional, tag="1")]
     pub element: ::core::option::Option<DocumentValue>,
     #[prost(message, repeated, tag="2")]

@@ -37,7 +37,7 @@ from opensysml.engines import Bound, EngineInfo, Standing
 from opensysml.query import QueryElement, QueryError
 from opensysml.document import (
     DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentVerdict, ElementRef,
-    INFINITY,
+    INFINITY, ObjectRef,
 )
 from opensysml.conversion import (
     FORMAT_SYSML, FORMAT_TURTLE, Conversion, ExperimentalFeatureWarning,
@@ -75,7 +75,7 @@ __all__ = [
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
     "DocumentQueryError", "DocumentQueryResult", "DocumentRow", "DocumentVerdict",
-    "ElementRef", "INFINITY",
+    "ElementRef", "INFINITY", "ObjectRef",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/doccounts/doccountstest"
 )
 
 const complianceFixture = `# Compliance
@@ -97,14 +99,13 @@ func TestReadRefereedCountsRejectsABaselineWithoutErrata(t *testing.T) {
 func TestRewriteBlockUsesConsumerRelativeLinksAndIsIdempotent(t *testing.T) {
 	root := t.TempDir()
 	writeDoccountsFixture(t, root)
-	refereed, err := ReadRefereedCounts(root)
+	figures, err := ReadFigures(root)
 	if err != nil {
-		t.Fatalf("read baselines: %v", err)
+		t.Fatalf("read figures: %v", err)
 	}
-	counts := Counts{Refereed: refereed}
 	spec := Block{Path: "README.md", Name: "refereed-figures", LinkPrefix: "docs/project/"}
 	content := "before\n<!-- doc-counts:begin refereed-figures -->\nstale\n<!-- doc-counts:end refereed-figures -->\nafter\n"
-	got, err := RewriteBlock(content, spec, counts)
+	got, err := RewriteBlock(content, spec, figures)
 	if err != nil {
 		t.Fatalf("rewrite block: %v", err)
 	}
@@ -119,7 +120,7 @@ func TestRewriteBlockUsesConsumerRelativeLinksAndIsIdempotent(t *testing.T) {
 			t.Fatalf("generated block lacks %q:\n%s", want, got)
 		}
 	}
-	again, err := RewriteBlock(got, spec, counts)
+	again, err := RewriteBlock(got, spec, figures)
 	if err != nil {
 		t.Fatalf("second block rewrite: %v", err)
 	}
@@ -128,18 +129,144 @@ func TestRewriteBlockUsesConsumerRelativeLinksAndIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestRewriteLibraryBlockRendersTheCensus pins the table to the census file: a
+// count, a refusal and a mismatch each appear where the file states them.
+func TestRewriteLibraryBlockRendersTheCensus(t *testing.T) {
+	root := t.TempDir()
+	writeDoccountsFixture(t, root)
+	figures, err := ReadFigures(root)
+	if err != nil {
+		t.Fatalf("read figures: %v", err)
+	}
+	spec := Block{Path: SpecCompliancePath, Name: "analysis-libraries"}
+	content := "before\n<!-- doc-counts:begin analysis-libraries -->\nstale\n<!-- doc-counts:end analysis-libraries -->\nafter\n"
+	got, err := RewriteBlock(content, spec, figures)
+	if err != nil {
+		t.Fatalf("rewrite block: %v", err)
+	}
+	for _, want := range []string{
+		"**Measured by `go test -run TestFixtureCensus ./x`,**",
+		"[`analysis-library-census.json`](analysis-library-census.json)",
+		"| `Alpha` | 3 | 1 | 1 | 1 |",
+		"| `Empty` | 0 | 0 | 0 | 0 |",
+		"| **Total** | **3** | **1** | **1** | **1** |",
+		"- `Alpha::b` — `ErrNotAFunction`: not a function: b",
+		"- `Alpha::c` — value = 2, want 3",
+		"before\n<!-- doc-counts:begin analysis-libraries -->",
+		"<!-- doc-counts:end analysis-libraries -->\nafter\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("generated block lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "stale") {
+		t.Fatalf("generated block kept the stale body:\n%s", got)
+	}
+	again, err := RewriteBlock(got, spec, figures)
+	if err != nil {
+		t.Fatalf("second block rewrite: %v", err)
+	}
+	if again != got {
+		t.Fatal("library block rewrite is not idempotent")
+	}
+}
+
+// TestLibraryTableOmitsEmptyNameLists keeps a clean census from listing nothing
+// under a heading: the by-name lists appear only when there is a name to list.
+func TestLibraryTableOmitsEmptyNameLists(t *testing.T) {
+	census := LibraryCensus{Command: "c", Packages: []LibraryPackage{{Name: "P", Declarations: []string{"P::f"}, Evaluated: []string{"P::f"}}}}
+	got := libraryTable(census)
+	if strings.Contains(got, "Refused, by name") || strings.Contains(got, "Wrong, by name") {
+		t.Fatalf("table lists names it has none of:\n%s", got)
+	}
+	if !strings.Contains(got, "| `P` | 1 | 1 | 0 | 0 |") {
+		t.Fatalf("table row:\n%s", got)
+	}
+}
+
+func TestFormatLibraryCensusRoundTripsThroughRead(t *testing.T) {
+	root := t.TempDir()
+	writeDoccountsFixture(t, root)
+	census, err := ReadLibraryCensus(root)
+	if err != nil {
+		t.Fatalf("read census: %v", err)
+	}
+	formatted, err := FormatLibraryCensus(census)
+	if err != nil {
+		t.Fatalf("format census: %v", err)
+	}
+	writeAt(t, root, LibraryCensusPath, string(formatted))
+	again, err := ReadLibraryCensus(root)
+	if err != nil {
+		t.Fatalf("read formatted census: %v", err)
+	}
+	formattedAgain, err := FormatLibraryCensus(again)
+	if err != nil {
+		t.Fatalf("format census again: %v", err)
+	}
+	if string(formattedAgain) != string(formatted) {
+		t.Fatalf("census format is not stable:\n%s\n---\n%s", formatted, formattedAgain)
+	}
+}
+
+// TestLibraryCensusValidateRejectsUnbalancedVerdicts keeps the figures a census
+// of the declarations: every declaration verdicted once, nothing else verdicted.
+func TestLibraryCensusValidateRejectsUnbalancedVerdicts(t *testing.T) {
+	valid := func() LibraryCensus {
+		return LibraryCensus{Command: "c", Packages: []LibraryPackage{{
+			Name: "P", Path: "p.sysml", Declarations: []string{"P::a", "P::b", "P::c"},
+			Evaluated: []string{"P::a"},
+			Refused:   []LibraryRefusal{{Declaration: "P::b", Error: "ErrNoValue", Message: "no value"}},
+			Wrong:     []LibraryMismatch{{Declaration: "P::c", Mismatch: "value = 1, want 2"}},
+		}}}
+	}
+	if err := valid().Validate(); err != nil {
+		t.Fatalf("valid census: %v", err)
+	}
+	for name, mutate := range map[string]func(*LibraryCensus){
+		"no command":            func(c *LibraryCensus) { c.Command = "" },
+		"no packages":           func(c *LibraryCensus) { c.Packages = nil },
+		"unverdicted":           func(c *LibraryCensus) { c.Packages[0].Evaluated = nil },
+		"verdicted twice":       func(c *LibraryCensus) { c.Packages[0].Evaluated = []string{"P::a", "P::b"} },
+		"verdict of a stranger": func(c *LibraryCensus) { c.Packages[0].Evaluated = []string{"P::a", "P::z"} },
+		"untyped refusal":       func(c *LibraryCensus) { c.Packages[0].Refused[0].Error = "" },
+		"silent refusal":        func(c *LibraryCensus) { c.Packages[0].Refused[0].Message = "" },
+		"unexplained mismatch":  func(c *LibraryCensus) { c.Packages[0].Wrong[0].Mismatch = "" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			census := valid()
+			mutate(&census)
+			if err := census.Validate(); err == nil {
+				t.Fatal("want a validation error")
+			}
+			if _, err := FormatLibraryCensus(census); err == nil {
+				t.Fatal("want the format to refuse an invalid census")
+			}
+		})
+	}
+}
+
+func TestReadFiguresRejectsAnInvalidCensusFile(t *testing.T) {
+	root := t.TempDir()
+	writeDoccountsFixture(t, root)
+	writeAt(t, root, LibraryCensusPath, `{"command":"c","packages":[{"name":"P","declarations":["P::a"],"evaluated":[]}]}`)
+	if _, err := ReadFigures(root); err == nil {
+		t.Fatal("want an error for a census leaving a declaration unverdicted")
+	}
+}
+
 // TestRewriteBlockRejectsABlockWithNoTemplate keeps a new consumer from silently
 // emptying a block: a name no template renders is an error, not empty markup.
 func TestRewriteBlockRejectsABlockWithNoTemplate(t *testing.T) {
 	content := "<!-- doc-counts:begin invented -->\nkept\n<!-- doc-counts:end invented -->\n"
-	if _, err := RewriteBlock(content, Block{Path: ReadmePath, Name: "invented"}, Counts{}); err == nil {
+	if _, err := RewriteBlock(content, Block{Path: ReadmePath, Name: "invented"}, Figures{}); err == nil {
 		t.Fatal("want an error for a block name no template renders")
 	}
 }
 
 func TestRewriteBlockRejectsMalformedMarkers(t *testing.T) {
 	spec := Block{Path: "README.md", Name: "refereed-figures"}
-	counts := Counts{}
+	figures := Figures{}
 	for name, content := range map[string]string{
 		"missing begin":          "<!-- doc-counts:end refereed-figures -->\n",
 		"missing end":            "<!-- doc-counts:begin refereed-figures -->\n",
@@ -152,7 +279,7 @@ func TestRewriteBlockRejectsMalformedMarkers(t *testing.T) {
 		"multi-line inline":      "x <!-- doc-counts:begin refereed-figures --> stale <!-- doc-counts:end refereed-figures -->\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := RewriteBlock(content, spec, counts); err == nil {
+			if _, err := RewriteBlock(content, spec, figures); err == nil {
 				t.Fatal("want malformed marker error")
 			}
 		})
@@ -189,7 +316,17 @@ func writeDoccountsFixture(t *testing.T, root string) {
 		`"errata":{"kinds":[{"kind":"errors","rows":11,"agree":9,"wordingOnly":2,"sameLocation":1,"sameLine":1}]}}`)
 	writeAt(t, root, "docs/project/pilot-rejection-baseline.json", `{"totals":{"cases":12,"bothReject":11,"pilotOnlyRejects":1},"strictOnlyAgreements":["a","b"],`+
 		`"errata":{"totals":{"cases":12,"bothReject":11,"pilotOnlyRejects":1}}}`)
+	writeAt(t, root, LibraryCensusPath, libraryCensusFixture)
+	doccountstest.WriteSuiteFixture(t, root)
 }
+
+// libraryCensusFixture is a census of one package with a verdict of each kind
+// and one package making no callable declaration.
+const libraryCensusFixture = `{"command":"go test -run TestFixtureCensus ./x","packages":[` +
+	`{"name":"Alpha","path":"a.sysml","declarations":["Alpha::a","Alpha::b","Alpha::c"],"evaluated":["Alpha::a"],` +
+	`"refused":[{"declaration":"Alpha::b","error":"ErrNotAFunction","message":"not a function: b"}],` +
+	`"wrong":[{"declaration":"Alpha::c","mismatch":"value = 2, want 3"}]},` +
+	`{"name":"Empty","path":"e.sysml","declarations":[],"evaluated":[],"refused":[],"wrong":[]}]}`
 
 func writeAt(t *testing.T, root, path, content string) {
 	t.Helper()

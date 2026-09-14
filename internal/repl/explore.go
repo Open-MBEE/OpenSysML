@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -284,19 +285,19 @@ func (s *Session) planFresh(names ...string) *freshPlan {
 // freshRef resolves one object name to the declaration an explored run
 // instantiates; an object of the session is refused.
 func (s *Session) freshRef(text string) freshRef {
-	ref, err := parseObjectRef(text)
+	ref, err := objref.Parse(text)
 	if err != nil {
 		return freshRef{err: err}
 	}
-	if ref.id > 0 {
+	if ref.ID > 0 {
 		return freshRef{err: &ExploredObjectError{Ref: text}}
 	}
-	for _, seg := range ref.segments {
-		if seg.index > 0 || seg.dotted {
+	for _, seg := range ref.Segments {
+		if seg.Index > 0 || seg.Dotted {
 			return freshRef{err: &ExploredObjectError{Ref: text}}
 		}
 	}
-	sym, fqn, err := s.lookupSymbol(joinTyped(ref.segments))
+	sym, fqn, err := s.lookupSymbol(objref.JoinTyped(ref.Segments))
 	if err != nil {
 		return freshRef{err: err}
 	}
@@ -401,7 +402,7 @@ func (s *Session) exploredAction(name string) (*symbols.Symbol, error) {
 // exploredMachine resolves the state machine an exploration runs, which names a
 // declaration: an object of the session is not run on.
 func (s *Session) exploredMachine(name string) (*symbols.Symbol, error) {
-	if looksLikeObjectPath(name) {
+	if objref.LooksLikePath(name) {
 		return nil, &ExploredObjectError{Ref: name}
 	}
 	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolStateDef, symbols.SymbolStateUsage)

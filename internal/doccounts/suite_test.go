@@ -383,10 +383,10 @@ func TestSuiteBlocksRenderInlineSentences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read suite counts: %v", err)
 	}
-	counts := Counts{Suite: suite}
+	figures := Figures{Suite: suite}
 	for _, block := range suiteBlocks() {
 		content := "| row | before <!-- doc-counts:begin " + block.Name + " -->stale<!-- doc-counts:end " + block.Name + " --> after |\n"
-		got, err := RewriteBlock(content, block, counts)
+		got, err := RewriteBlock(content, block, figures)
 		if err != nil {
 			t.Fatalf("%s: %v", block.Name, err)
 		}
@@ -396,7 +396,7 @@ func TestSuiteBlocksRenderInlineSentences(t *testing.T) {
 		if strings.Count(got, "\n") != 1 {
 			t.Fatalf("%s spilt over the line:\n%s", block.Name, got)
 		}
-		again, err := RewriteBlock(got, block, counts)
+		again, err := RewriteBlock(got, block, figures)
 		if err != nil || again != got {
 			t.Fatalf("%s is not idempotent: %v", block.Name, err)
 		}
@@ -409,7 +409,7 @@ func TestSuiteBlocksRenderInlineSentences(t *testing.T) {
 		inventoryNegativesBlock:   "3 negative parser subtests (first-level subtests of `TestNegative`; 5 across the `TestNegative*` functions, 2 of them KerML, and 6 across every `*Negative*` parser test)",
 		inventoryTestsBlock:       "8 top-level `Test` functions across the module",
 	} {
-		got, err := renderBlock(Block{Path: ReadmePath, Name: name}, counts)
+		got, err := renderBlock(Block{Path: ReadmePath, Name: name}, figures)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}

@@ -27,26 +27,6 @@ const (
 // refereedBlockName names the generated block: the prose census the Markdown pages share.
 const refereedBlockName = "refereed-figures"
 
-// Counts is everything the generated blocks are rendered from: the oracle
-// baselines and the test-suite figures counted from the tree.
-type Counts struct {
-	Refereed RefereedCounts
-	Suite    SuiteCounts
-}
-
-// ReadCounts reads the baselines and counts the tree under root.
-func ReadCounts(root string) (Counts, error) {
-	refereed, err := ReadRefereedCounts(root)
-	if err != nil {
-		return Counts{}, err
-	}
-	suite, err := ReadSuiteCounts(root)
-	if err != nil {
-		return Counts{}, err
-	}
-	return Counts{Refereed: refereed, Suite: suite}, nil
-}
-
 // statusMarkers are the row statuses the compliance map uses. '⚠' is matched
 // without its variation selector, as the map writes both spellings.
 var statusMarkers = []string{"✅", "⚠", "❌", "⛔", "🚧"}
@@ -379,8 +359,34 @@ func Blocks() []Block {
 	blocks := []Block{
 		{Path: ReadmePath, Name: refereedBlockName, LinkPrefix: "docs/project/"},
 		{Path: ArchitecturePath, Name: refereedBlockName, LinkPrefix: "../project/"},
+		{Path: SpecCompliancePath, Name: libraryBlockName, LinkPrefix: ""},
 	}
 	return append(blocks, suiteBlocks()...)
+}
+
+// Figures are everything the generated blocks are rendered from: the committed
+// oracle baselines and library census, and the test-suite figures counted from the tree.
+type Figures struct {
+	Refereed RefereedCounts
+	Library  LibraryCensus
+	Suite    SuiteCounts
+}
+
+// ReadFigures reads the committed measurements and counts the tree under root.
+func ReadFigures(root string) (Figures, error) {
+	refereed, err := ReadRefereedCounts(root)
+	if err != nil {
+		return Figures{}, err
+	}
+	library, err := ReadLibraryCensus(root)
+	if err != nil {
+		return Figures{}, err
+	}
+	suite, err := ReadSuiteCounts(root)
+	if err != nil {
+		return Figures{}, err
+	}
+	return Figures{Refereed: refereed, Library: library, Suite: suite}, nil
 }
 
 // FindLine returns the index of the first line of content carrying the marker.
@@ -422,7 +428,7 @@ const (
 )
 
 // RewriteBlock replaces a named generated block and preserves surrounding bytes.
-func RewriteBlock(content string, spec Block, counts Counts) (string, error) {
+func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
 	begin := fmt.Sprintf(blockBeginFormat, spec.Name)
 	end := fmt.Sprintf(blockEndFormat, spec.Name)
 	lines := strings.Split(content, "\n")
@@ -459,7 +465,7 @@ func RewriteBlock(content string, spec Block, counts Counts) (string, error) {
 	if inlineIndex < 0 && (beginIndex < 0 || endIndex < 0 || endIndex <= beginIndex) {
 		return "", fmt.Errorf("%s: named block %q is missing or unterminated", spec.Path, spec.Name)
 	}
-	renderedBlock, err := renderBlock(spec, counts)
+	renderedBlock, err := renderBlock(spec, figures)
 	if err != nil {
 		return "", err
 	}
@@ -472,7 +478,7 @@ func RewriteBlock(content string, spec Block, counts Counts) (string, error) {
 		lines[inlineIndex] = line[:from] + begin + renderedBlock + end + line[to:]
 		return strings.Join(lines, "\n"), nil
 	}
-	rendered := append([]string{begin}, strings.Split(renderedBlock, "\n")...)
+	rendered := append([]string{begin}, strings.Split(strings.TrimSuffix(renderedBlock, "\n"), "\n")...)
 	rendered = append(rendered, end)
 	updated := make([]string, 0, len(lines)-endIndex+beginIndex+len(rendered))
 	updated = append(updated, lines[:beginIndex]...)
@@ -481,10 +487,12 @@ func RewriteBlock(content string, spec Block, counts Counts) (string, error) {
 	return strings.Join(updated, "\n"), nil
 }
 
-// blockTemplateData is the baseline census and the suite figures plus the
+// blockTemplateData is the committed figures and the suite figures plus the
 // consumer's own link prefix.
 type blockTemplateData struct {
 	RefereedCounts
+	Library    LibraryCensus
+	Table      string
 	Suite      suiteFigures
 	Name       string
 	LinkPrefix string
@@ -503,7 +511,10 @@ const refereedBlockTemplateText = "**Measured against the pinned reference** (`P
 
 // blockTemplates is the one template per generated block name. A block naming no
 // template is reported rather than written, so a consumer cannot be added without one.
-var blockTemplates = parseBlockTemplates(map[string]string{refereedBlockName: refereedBlockTemplateText}, suiteBlockTemplateTexts)
+var blockTemplates = parseBlockTemplates(map[string]string{
+	refereedBlockName: refereedBlockTemplateText,
+	libraryBlockName:  libraryBlockTemplateText,
+}, suiteBlockTemplateTexts)
 
 func parseBlockTemplates(texts ...map[string]string) map[string]*template.Template {
 	parsed := map[string]*template.Template{}
@@ -515,12 +526,19 @@ func parseBlockTemplates(texts ...map[string]string) map[string]*template.Templa
 	return parsed
 }
 
-func renderBlock(spec Block, counts Counts) (string, error) {
+func renderBlock(spec Block, figures Figures) (string, error) {
 	blockTemplate, ok := blockTemplates[spec.Name]
 	if !ok {
 		return "", fmt.Errorf("%s: no template renders the block named %q", spec.Path, spec.Name)
 	}
-	data := blockTemplateData{RefereedCounts: counts.Refereed, Suite: figuresOf(counts.Suite), Name: spec.Name, LinkPrefix: spec.LinkPrefix}
+	data := blockTemplateData{
+		RefereedCounts: figures.Refereed,
+		Library:        figures.Library,
+		Table:          libraryTable(figures.Library),
+		Suite:          figuresOf(figures.Suite),
+		Name:           spec.Name,
+		LinkPrefix:     spec.LinkPrefix,
+	}
 	var rendered strings.Builder
 	if err := blockTemplate.Execute(&rendered, data); err != nil {
 		return "", fmt.Errorf("render %s: %w", spec.Name, err)

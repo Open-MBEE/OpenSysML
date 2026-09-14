@@ -1,0 +1,15 @@
+{
+  "rpc": "RunDocumentQuery",
+  "instantiate": ["Garage::car"],
+  "query_id": "Garage::Pressure",
+  "bindings": [
+    {"parameter": "root", "values": [{"kind": "object", "value": {"path": "car.wheels[2]"}}]}
+  ],
+  "expected_columns": ["name", "pressure"],
+  "expected_rows": [
+    {
+      "element": {"kind": "object", "value": "Garage::car.wheels[2] (#3) : Garage::Car::wheels (PartUsage)"},
+      "cells": [[{"kind": "string_value", "value": "wheels[2]"}], [{"kind": "int_value", "value": 30}]]
+    }
+  ]
+}

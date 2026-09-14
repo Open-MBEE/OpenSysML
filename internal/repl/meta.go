@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -670,7 +671,7 @@ func (s *Session) evalIn(name, expr string) ([]string, error) {
 	}
 	inst, label, rerr := s.resolveObject(name)
 	var noInstance *NotInstantiatedError
-	if rerr != nil && (looksLikeObjectPath(name) || !errors.As(rerr, &noInstance)) {
+	if rerr != nil && (objref.LooksLikePath(name) || !errors.As(rerr, &noInstance)) {
 		return nil, rerr
 	}
 	var (
@@ -2157,7 +2158,7 @@ func onInstance(inst *runtime.Instance, owner string) string {
 // objectMention names an object by id and, unless the id is all the label
 // says, the name or path it was reached by.
 func objectMention(inst *runtime.Instance, label string) string {
-	if isObjectID(label) {
+	if objref.IsID(label) {
 		return fmt.Sprintf("object #%d", inst.ID)
 	}
 	return fmt.Sprintf("object #%d of %q", inst.ID, label)
@@ -2661,7 +2662,7 @@ func (s *Session) startStateMachine(name string, performer []string) ([]string, 
 			return s.debugExhibitedMachine(ctx, name, label, inst, performer)
 		}
 		sym, fqn = inst.Type, symbols.FQNOf(inst.Type)
-	case looksLikeObjectPath(name):
+	case objref.LooksLikePath(name):
 		return nil, rerr
 	default:
 		var lerr error
@@ -2926,7 +2927,7 @@ func exhibitorsError(name string, types []*symbols.Symbol, exhibitors []exhibito
 	}
 	for _, ex := range exhibitors {
 		ref := RelatedObject{ID: ex.inst.ID}
-		if !isObjectID(ex.name) {
+		if !objref.IsID(ex.name) {
 			ref.Label = ex.name
 		}
 		e.Objects = append(e.Objects, ref)

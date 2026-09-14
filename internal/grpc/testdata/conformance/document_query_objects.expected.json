@@ -1,0 +1,20 @@
+{
+  "rpc": "RunDocumentQuery",
+  "instantiate": ["Garage::car", "Garage::spare"],
+  "query_id": "Garage::Wheels",
+  "expected_columns": ["pressure"],
+  "expected_rows": [
+    {
+      "element": {"kind": "object", "value": "Garage::spare (#4) : Garage::spare (PartUsage)"},
+      "cells": [[{"kind": "int_value", "value": 20}]]
+    },
+    {
+      "element": {"kind": "object", "value": "Garage::car.wheels[1] (#2) : Garage::Car::wheels (PartUsage)"},
+      "cells": [[{"kind": "int_value", "value": 30}]]
+    },
+    {
+      "element": {"kind": "object", "value": "Garage::car.wheels[2] (#3) : Garage::Car::wheels (PartUsage)"},
+      "cells": [[{"kind": "int_value", "value": 30}]]
+    }
+  ]
+}
