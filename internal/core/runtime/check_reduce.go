@@ -224,12 +224,13 @@ func (c *checker) reach(graph *lower.ActionGraph, node ast.Node) lower.Footprint
 
 func unionFootprints(f, g lower.Footprint) lower.Footprint {
 	return lower.Footprint{
-		Reads:   append(slices.Clone(f.Reads), g.Reads...),
-		Writes:  append(slices.Clone(f.Writes), g.Writes...),
-		Sends:   append(slices.Clone(f.Sends), g.Sends...),
-		Accepts: append(slices.Clone(f.Accepts), g.Accepts...),
-		Control: append(slices.Clone(f.Control), g.Control...),
-		Dynamic: f.Dynamic || g.Dynamic,
+		Reads:      append(slices.Clone(f.Reads), g.Reads...),
+		Writes:     append(slices.Clone(f.Writes), g.Writes...),
+		Sends:      append(slices.Clone(f.Sends), g.Sends...),
+		Accepts:    append(slices.Clone(f.Accepts), g.Accepts...),
+		Control:    append(slices.Clone(f.Control), g.Control...),
+		Completion: f.Completion || g.Completion,
+		Dynamic:    f.Dynamic || g.Dynamic,
 	}
 }
 

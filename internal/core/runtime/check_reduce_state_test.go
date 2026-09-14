@@ -133,6 +133,27 @@ func TestStateDoStepFootprintIsTheBehaviorPending(t *testing.T) {
 	}
 }
 
+// A machine's future is the union of its transitions' footprints, the
+// completion any of them queues included.
+func TestMachineFutureKeepsCompletion(t *testing.T) {
+	m := reductionModel(t, "por_two_machines", false)
+	ci := startCheckedInvocation(t, m, nil, []string{"turner", "loner"})
+	loner := ci.moveOf(t, "state machine loner")
+	if !ci.c.footprintOf(loner).Completion {
+		t.Fatal("loner's dispatch enters two, whose completion transition queues a completion")
+	}
+	if !ci.c.futureOf(loner).Completion {
+		t.Fatal("loner's future lost the completion its dispatch queues")
+	}
+	if ci.c.futureOf(ci.moveOf(t, "state machine turner")).Completion {
+		t.Fatal("turner's future queues a completion no transition of it does")
+	}
+	union := unionFootprints(lower.Footprint{Completion: true}, lower.Footprint{})
+	if !union.Completion || !unionFootprints(lower.Footprint{}, union).Completion {
+		t.Fatal("the union of footprints drops a completion")
+	}
+}
+
 func TestStateMoveUnitsAreTheirExecutor(t *testing.T) {
 	m := reductionModel(t, "por_two_machines", false)
 	ci := startCheckedInvocation(t, m, nil, []string{"turner", "router", "loner"})
