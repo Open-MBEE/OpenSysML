@@ -58,6 +58,9 @@ func TestReadSuiteCountsReportsAKnownFailureAsNotPassing(t *testing.T) {
 	if got := counts.Conformance.PassingOf("calc"); got != 3 {
 		t.Fatalf("PassingOf(calc) = %d, want 3", got)
 	}
+	if counts.Traces.Default != 2 || counts.Traces.Policy != 0 || counts.Traces.Prefixes["calc"] != 1 {
+		t.Fatalf("the known failure's traces are counted, which the harness skips: %+v", counts.Traces)
+	}
 	if got := passingOf(counts.Conformance, "calc"); got != "3 of 4" {
 		t.Fatalf("passingOf = %q, want %q", got, "3 of 4")
 	}
@@ -76,6 +79,16 @@ func TestReadSuiteCountsRejectsWhatNoGateWouldRead(t *testing.T) {
 		},
 		"a trace owned by no case": func(t *testing.T, root string) {
 			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/ghost.trace.golden", "trace\n")
+		},
+		"a trace under no sweep policy": func(t *testing.T, root string) {
+			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/calc_a.typo.trace.golden", "trace\n")
+		},
+		"a policy trace of a case admitting one outcome": func(t *testing.T, root string) {
+			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/calc_b.declared.trace.golden", "trace\n")
+		},
+		"a policy trace of a case owning no default golden": func(t *testing.T, root string) {
+			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/state_a.expected.json", `{"outcomes": [{}, {}]}`+"\n")
+			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/state_a.seed-1.trace.golden", "trace\n")
 		},
 		"a parse fixture with no golden": func(t *testing.T, root string) {
 			doccountstest.Write(t, root, "internal/core/parser/testdata/parse/orphan.sysml", "package P;\n")

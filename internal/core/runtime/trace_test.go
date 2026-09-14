@@ -16,6 +16,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
 )
 
 var updateTraces = flag.Bool("update-traces", false, "Update golden trace files")
@@ -98,7 +99,7 @@ func fileExists(path string) bool {
 
 // policyFileTag spells a policy as a file-name segment: `seed:1` becomes `seed-1`.
 func policyFileTag(policy SchedulePolicy) string {
-	return strings.ReplaceAll(policy.String(), ":", "-")
+	return fixtures.PolicyFileTag(policy.String())
 }
 
 // runTraceTest drives a case under policy (or the policy it pins) and, when

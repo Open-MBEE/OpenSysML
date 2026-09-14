@@ -126,10 +126,13 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   the `Test`-function figure must move by one in both pages. Remove the probes afterwards
   (`git status --short` must be empty again).
 - **The counters refuse what they cannot count:** a `.trace.golden` owned by no case, a
-  `.sysml` under `testdata/parse/` with no `.golden`, a `known_failures.txt` entry naming no case,
-  a `for i := 0; i < n; i++ { t.Run(...) }` loop or an `if cond { t.Run(...) }` in
-  `TestRuntimeRobustness` must each make the generator and `-check` exit 1 naming the file, rather
-  than print a smaller (or larger) number. A `range` or `if` that runs no subtest is passed over.
+  `<case>.typo.trace.golden` under no sweep policy, a `<case>.declared.trace.golden` of a case
+  with no `outcomes` (or no default golden), a `.sysml` under `testdata/parse/` with no `.golden`,
+  a `known_failures.txt` entry naming no case, a `for i := 0; i < n; i++ { t.Run(...) }` loop or
+  an `if cond { t.Run(...) }` in `TestRuntimeRobustness` must each make the generator and `-check`
+  exit 1 naming the file, rather than print a smaller (or larger) number. A `range` or `if` that
+  runs no subtest is passed over, and so are the goldens of a case `known_failures.txt` lists,
+  since `TestExecutionTrace` skips the case.
 - **The figures are the gates' figures:** `go test -count=1 -v -run 'TestExecutionConformance$'
   ./internal/core/runtime | grep -cE '^=== RUN   TestExecutionConformance/[^/]+$'` must equal the
   conformance figure; the same shape with `TestRuntimeRobustness$`, `TestGRPCRobustness$` (in

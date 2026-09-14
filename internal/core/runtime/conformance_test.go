@@ -295,7 +295,7 @@ func TestExecutionConformance(t *testing.T) {
 }
 
 // sweepPolicies are the non-default policies the whole suite always runs under.
-var sweepPolicies = []string{"declared", "seed:1"}
+var sweepPolicies = fixtures.SweepPolicies
 
 // seedSweepEnv names the seeds the suite runs under besides seed:1, as a
 // comma-separated list of non-negative integers; unset, the sweep is seed:1 alone.

@@ -25,8 +25,6 @@ const (
 	grpcDir               = "internal/grpc"
 	grpcConformanceDir    = grpcDir + "/testdata/conformance"
 	lspDir                = "internal/lsp"
-
-	traceGoldenSuffix = ".trace.golden"
 )
 
 // SuiteCounts are the test-suite figures counted from the tree: the fixtures
@@ -192,34 +190,21 @@ func containsCase(sorted []string, name string) bool {
 	return i < len(sorted) && sorted[i] == name
 }
 
-// readTraceCounts tells a case's own golden (`<case>.trace.golden`) from one
-// pinning it under a policy (`<case>.<policy>.trace.golden`); a golden owned by
-// no case is an error, since no gate would read it.
+// readTraceCounts counts the goldens the trace harness reads, a case's own
+// (`<case>.trace.golden`) apart from those pinning it under a sweep policy.
 func readTraceCounts(dir string) (TraceCounts, error) {
-	cases, err := fixtures.Cases(dir)
+	traces, err := fixtures.Traces(dir)
 	if err != nil {
-		return TraceCounts{}, err
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return TraceCounts{}, err
+		return TraceCounts{}, fmt.Errorf("%s: %w", dir, err)
 	}
 	counts := TraceCounts{Prefixes: map[string]int{}}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), traceGoldenSuffix) {
-			continue
-		}
-		stem := strings.TrimSuffix(entry.Name(), traceGoldenSuffix)
-		if containsCase(cases, stem) {
-			counts.Default++
-			counts.Prefixes[casePrefix(stem)]++
-			continue
-		}
-		if base, _, ok := strings.Cut(stem, "."); ok && containsCase(cases, base) {
+	for _, trace := range traces {
+		if trace.Policy != "" {
 			counts.Policy++
 			continue
 		}
-		return TraceCounts{}, fmt.Errorf("%s: %s belongs to no conformance case", dir, entry.Name())
+		counts.Default++
+		counts.Prefixes[casePrefix(trace.Case)]++
 	}
 	if counts.Default == 0 {
 		return TraceCounts{}, fmt.Errorf("%s: no golden traces", dir)

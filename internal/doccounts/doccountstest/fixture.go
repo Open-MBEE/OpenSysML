@@ -47,6 +47,7 @@ func WriteSuiteFixture(t TB, root string) {
 		Write(t, root, conformance+name+".sysml", "package P;\n")
 		Write(t, root, conformance+name+".expected.json", "{}\n")
 	}
+	Write(t, root, conformance+"calc_a.expected.json", `{"outcomes": [{}, {}]}`+"\n")
 	Write(t, root, conformance+"calc_a.check.expected.json", "{}\n")
 	Write(t, root, conformance+"calc_a.trace.golden", "trace\n")
 	Write(t, root, conformance+"calc_b.trace.golden", "trace\n")
