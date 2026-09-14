@@ -1,11 +1,11 @@
 # OpenSysML — Roadmap
 
-Baseline: `main` @ `180773449` (`Merge pull request #141 from Open-MBEE/fix/region-order-choice-point`,
-2026-09-09), verified locally with Go 1.25.0. Newest tag: `v0.6.0` (`30f103bb`, 2026-09-07).
-Everything merged after that tag — 34 pull requests, #110–#142 and #144 — is unreleased at this
-baseline and is the content of the next release. Nothing is counted ahead of `main`: every status
-below is what that commit carries, and no pull request is open against it that moves a roadmap
-item.
+Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release/0.8.0`,
+2026-09-13), verified locally with Go 1.25.0. It is the newest tag on `Open-MBEE/OpenSysML`, after
+`v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch
+`develop` carries one pull request past the tag, #278, and nothing else is counted ahead of it:
+every status below is what the tag carries, an item #278 moved says so, and the pull requests open
+against `develop` at this baseline are named where they touch a roadmap item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
@@ -20,71 +20,33 @@ Read `AGENTS.md` first; it governs everything below.
 > modeled elements to external data and services, and `M` the embedded target. Each is stated in
 > full where it is introduced, and a reader who wants only the gap can ignore the label.
 >
-> **Status words.** *Landed* means merged to `main` at the baseline — the commit named above, not
-> the newest tag, so a landed item may be unreleased. *Open* names a pull request
-> that exists and is not merged; *conflicts* means it no longer merges cleanly onto `main` and
+> **Status words.** *Landed* means in the tag named above, so a landed item is released; where
+> #278 alone moved an item, the text says so. *Open* names a pull request against `develop` that
+> exists and is not merged; *conflicts* means it no longer merges cleanly onto `develop` and
 > needs a rebase before review. *In progress* means the work is being implemented and has no
 > pull request yet. *Not started* means exactly that. A status is taken from the pull request
 > itself, never from a branch name or a commit message.
 
-`v0.6.0` is the newest tag on `Open-MBEE/OpenSysML` (`30f103bb`, 2026-09-07), after `v0.5.1`
-(`d7b3eb45`, 2026-09-05) and `v0.5.0` (`0fdeb11e`, 2026-09-04); the tag's CI release job
-publishes `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms and the Homebrew bundles (the
-Windows installer job failed for that tag — see R4), and the Python client is on PyPI as
-`opensysml` 0.4.0. `CHANGELOG.md`'s **0.6.0** section is the tag's content (#988 folded it; the
-0.5.1 and 0.5.0 sections were folded the same way), less #108 and #109, which are in the tag —
-the tag is #109's merge commit — but were not in that fold and are described with the next
-release's notes. Everything merged after the tag is unreleased and is the next release's
-content. The baseline is `main`, not the tag, so the tracks below state what a binary built from
-`main` does; where that differs from what a `v0.6.0` binary does, the item says so. Everything in "Release follow-through" is maintainer- or
-account-gated; everything after it is ordinary engineering work.
+`v0.8.0` is the newest tag on `Open-MBEE/OpenSysML` (`238aed650`, 2026-09-13), after `v0.7.0`
+(`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The tag's CircleCI `release`
+workflow succeeded: the release carries `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms,
+the Homebrew bundles, the cosign-signed manifest and — for the second release running — the
+Windows installer `opensysml-0.8.0-windows-amd64.msi` (R4). The Python client's `opensysml-v0.5.0`
+tag points at the same commit; at this baseline PyPI still serves `opensysml` 0.4.0, its
+`release-python` workflow having failed twice in `Go coverage profile` and been rerun (the
+procedure and its post-tag checks are in `docs/project/releasing.md`).
+`CHANGELOG.md`'s **0.8.0** section is the tag's content (#268 and #277 folded it), its **0.7.0**
+section is `v0.7.0`'s (#145, #154, #159), and `changes/unreleased/` on `develop` holds #278's
+fragment alone once #286 carries the fold back. Since `v0.7.0` the repository works git-flow:
+`develop` is the integration branch, `main` receives only `release/x.y.z` and `hotfix/` pull
+requests (#151), and the roadmap's baseline is therefore the tag rather than `main`'s head.
+Everything in "Release follow-through" is maintainer- or account-gated; everything after it is
+ordinary engineering work.
 
-**What closed between `v0.5.0` (2026-09-04, the previous baseline's tag) and `v0.6.0`** — 109
-merged pull requests, in `CHANGELOG.md`'s 0.5.1 and 0.6.0 sections for the detail, listed here
-because each retires or narrows a roadmap line.
-
-- *Analysis.* An analysis case runs (#979, closes A1): `-analysis`/`%analysis`, the `RunAnalysis`
-  RPC and the Go and Python clients run an `analysis` definition or usage as the calculation it
-  is, its body through the action executor, its `objective` and `assert constraint`s as verdicts,
-  and an analysis usage's outputs read as features. The follow-ups shipped in the same release: an
-  objective binds its requirement's subject by keyword alone, a case's result is readable by its
-  qualified name, a recursive step reports once, later objectives keep their position, and an
-  actor bound without `:>>` is held to the actor it inherits. An `%optimize` objective states the
-  value to improve by redefining the trade-study library's `eval` calculation.
-- *Expression and value kinds.* A constructor evaluates in a value position (#981, closes X1); a
-  coordinate frame, a measurement scale, a measurement reference and a tensor quantity are runtime
-  values, cross the gRPC/Connect API whole and are answered by a named reference's members; arrays,
-  vectors and vector quantities cross the API in both directions; a derived `=` value follows the
-  features it read and is invalidated with them; a quantity compares with a bare number and with
-  zero; `sum` over an empty quantity collection is the declared kind's zero; a parameter redefined
-  under a short name alone is bound at run time; a state usage typed directly by `StateAction` is
-  exhibited; every transition guard is checked for a Boolean and a state body accepts the
-  `if … then` target-transition spellings.
-- *Validation.* Six more KerML structural rules, the end-feature, return-parameter and conjugation
-  rules, three operator-expression checks, association arity and multiplicity bound types (0.5.1),
-  the cross-feature rules, keyword-first relationship end kinds, `bool def` as a behavior
-  definition, and the derived-name and short-name rules the reference validators apply; an
-  invocation leaving a required parameter unbound is an advisory, `redefinition-type-mismatch` a
-  warning, and specialization and binding conformance follow the reference more closely. The census
-  now reads 162 of 217 constraints reported.
-- *RDF.* A binding connector's ends are connector ends and may be named; anonymous `feature`,
-  `event`, `snapshot`, `timeslice` and `assert` declarations, KerML `const`, `portion` and
-  `member feature`, nested expressions and guarded successions all survive a graph-only round trip;
-  a graph the notation would read back as a different model is refused rather than rewritten. The
-  round-trip gate reads 346 of 346 models stable and none refused.
-- *Queries, documents and migration.* Queries project `shortName`, `declaredShortName` and
-  `documentation`, read quantity-valued and derived attribute values, and documents render query
-  rows as prose; `-html-mermaid` and `-html-theme` for the HTML backend; SysML v1 models exported
-  as OMG XMI migrate to v2 (experimental).
-- *Release.* Windows releases ship an installer and the Scoop, winget and MSYS2 manifests are
-  maintained as templates (R4); the Linux `amd64` binaries are static and no longer require glibc
-  2.34; pull requests run one CI (GitHub Actions) and CircleCI runs on `main` and tags; the
-  SonarCloud findings are cleared.
-
-**What has landed on `main` since `v0.6.0` (unreleased)** — 34 merged pull requests (#110–#142,
-#144), from #110's merge `298acff7` to #141's `180773449`; listed here because each retires or
-narrows a roadmap line, and grouped as the paragraph above is. The tracks below carry the detail
-and what each pull request deliberately leaves.
+**What closed between `v0.6.0` and `v0.7.0`** — 50 merged pull requests (#110–#161, less #143
+and #160, which were closed unmerged), in `CHANGELOG.md`'s 0.7.0 section for the detail, listed
+here because each retires or narrows a roadmap line. The tracks below carry the detail and what each pull
+request deliberately leaves.
 
 - *Executor.* A node several successions reach performs once, after one token per succession,
   and a join one of whose successions can deliver nothing deadlocks instead of firing on a count
@@ -92,49 +54,119 @@ and what each pull request deliberately leaves.
   to its exit (#120, closes F3); a breakpoint on a synchronized node pauses once and a step moves
   each token at most once (#119); a via-less `accept` on a transition no longer takes a transfer
   addressed to a port (#126); a paused `%action`/`%state` run resumes with its own budgets, choice
-  points and memo rather than another run's (#130). `known_failures.txt` is empty.
+  points and memo rather than another run's (#130); a long race-instrumented run no longer grows
+  step by step (#146); a sourceless transition leaves the state declared before it, the guarded
+  entry transition chooses by its guards, and a machine's own `entry`/`do`/`exit` run for every
+  machine (#155, #161). `known_failures.txt` is empty.
 - *Multiple valid executions.* A conformance case lists the outcomes the library admits and a
   `.trace.order` file states a partial order on its trace (#110, closes S1); every choice the
   library leaves open is reported as a `choice` trace line, a diagnostic and a REPL summary (#123,
   closes S2); the scheduling policy is selectable — `reverse` the default, `declared`, `seed:<n>`
   — on the CLI, in the REPL, on the wire and as a conformance-case pin (#125, closes S3); `explore`
-  runs every linearization and tables the distinct outcomes, and the harness explores every case
-  that lists `outcomes` (#134, closes S4); the order two regions react to one event in is a choice
-  point under every policy and `seed:<n>` varies it (#141); the oracle, the compliance record and
-  the behavior guide state which orders are open and how each is checked (#138).
+  runs every linearization one token per step and tables the distinct outcomes, and the harness
+  explores every case that lists `outcomes` (#134, #153, closes S4); the order two regions react
+  to one event in is a choice point under every policy and `seed:<n>` varies it (#141); the
+  oracle, the compliance record, the behavior guide and a design note state which orders are open
+  and how each is checked (#138, #150).
 - *Expressions and values.* `x as T` evaluates as classification, including composed types (#115,
   closes X3); `*` is a value and `elem.metadata` reads an element's metadata (#113, closes X4); a
   calc is a value — passed, returned, read off a part, applied through a `calc`-typed parameter —
   and crosses the wire as `Value.function` (#122, closes X6); `Collections::Set` is held as a set
   and tensor quantities take any rank, both crossing gRPC whole (#121, closes X7's value half); a
   collection operation's static type follows its body's result (#112, closes X8's typing half); a
-  wire `Diagnostic` carries its `code` (#124).
+  wire `Diagnostic` carries its `code` (#124); a worked example of the expression forms (#147).
 - *Analysis.* A verification case runs and reports its body's verdict beside requirement
-  satisfaction (#117, closes A6); `-sweep`, `-samples -seed`, `%sweep`, `%samples`, `RunSweep` and
-  `run_sweep` run a case or a calc once per value and table the rows (#118, closes A3); a
+  satisfaction, and its objective checks the case's subject (#117, #156, closes A6); `-sweep`,
+  `-samples -seed`, `%sweep`, `%samples`, `RunSweep` and `run_sweep` run a case or a calc once per
+  value, typed by the parameter they bind, and table the rows (#118, #157, closes A3); a
   `TradeStudy` runs as the library writes it and reports each evaluation, with `%optimize`
   refusing an objective bound to the case's own calc (#133, closes A2); one simulation clock owned
   by the runtime context, `accept after`/`at` in action bodies, `Context.Advance`, the `due order`
-  choice point and `final_time` on the wire (#136, closes A5).
+  choice point and `final_time` on the wire (#136, closes A5); a worked walkthrough of analysis
+  cases under `examples/analysis-demo` (#148).
 - *Wire and clients.* Every value kind above crosses gRPC/Connect under its own capability
   (`infinity_value`, `function_values`, `set_values`, `tensor_values`, `verification_verdicts`,
   `case_evaluations`, `schedule`, `schedule_explore`, `final_time`, `diagnostic_codes`), read by
   the Go, Python, Node, Rust and Java clients; the Go and Python clients add sweeps, exploration,
   evaluations and the schedule option (#113, #117, #118, #121, #122, #124, #125, #133, #134, #136).
-- *Release, CI and records.* The Windows MSI builds again on the GitHub runners (#127, R4); the
-  CircleCI suite on `main` and tags is four jobs under the plan's time limit and the
-  wire-compatibility baseline is the merge's own parent or the previous tag (#132); the coverage
-  the SonarCloud scan reads measures every suite the checks run, including the command binaries
-  (#142); loading a large model merges the library's member set once rather than per declaration
-  (#114); the pre-1.0 rule for which version segment a release bumps is stated in `CONTRIBUTING.md`
-  (#131); the SonarCloud findings are cleared again (#139); the bounded-model-checking design record
-  (`docs/internals/design/bounded-model-checking.md`, #135) and the bindings track below (#140) are
-  written; the roadmap was refreshed to the `v0.6.0` baseline (#111); and the repository's agent
-  skills were extended (#128, #129, #137, #144). Two pull requests inside the tag but outside
-  the 0.6.0 changelog section are released with the rest: pull requests running GitHub Actions
-  only while CircleCI runs on `main` and tags, the wire-compatibility check working from a
-  blobless checkout and the recount of the repeated test figures (#108), and the SonarCloud
-  findings cleared (#109).
+- *Release, CI and records.* The Windows MSI builds again on the GitHub runners and `v0.7.0` was
+  the first release to publish one (#127, R4); pull requests run GitHub Actions only while CircleCI
+  runs on `main` and tags, as four jobs under the plan's time limit, with the wire-compatibility
+  baseline the merge's own parent or the previous tag (#108, #132); development moved to a
+  `develop` integration branch (#151); the coverage the SonarCloud scan reads measures every suite
+  the checks run (#142) and the findings are cleared (#109, #139); loading a large model merges
+  the library's member set once rather than per declaration (#114); the pre-1.0 rule for which
+  version segment a release bumps is stated in `CONTRIBUTING.md` (#131); the bounded-model-checking
+  design record (#135, #158) and the bindings track below (#140) are written; the roadmap was
+  refreshed to the `v0.6.0` baseline and then swept for what landed after it (#111, #149); and
+  the repository's agent skills were extended (#128, #129, #137, #144, #152).
+
+**What closed between `v0.7.0` and `v0.8.0`** — 113 merged pull requests (#162–#279, less #216
+and #232, which were closed unmerged, #263 and #267, which are still open, and #278, which is
+past the tag), in
+`CHANGELOG.md`'s 0.8.0 section for the detail, grouped as the paragraph above is.
+
+- *Analysis framework and engines.* Every analysis question goes through one framework
+  (`internal/core/analysis`, #172, #162): each plan runs on a resolver and semantic model of its own
+  (#180), runs and sweep rows go in parallel under `-jobs` with the same answer whatever the count
+  (#190, #193), a sweep over a held object runs on the object as the session holds it (#215), every
+  verdict states its standing and the engines can be listed and chosen (#182), an action annotated
+  `ToolExecution` runs through an external tool (#189), and an engine is a directory of executables
+  speaking over standard input, bounded by `OPENSYSML_TOOL_MAX_OUTPUT` (#235; design note #171).
+- *Model checking.* An SMT model checker for actions on concrete inputs (#185), over free inputs
+  (#233), deciding whether the schedule decides a feature under its own solver budget (#262,
+  #279), reading timed accepts, messages and nested flows (#260); `-engine check` searches every schedule of an action, of a state
+  machine, and of the two together, with static reduction and time ties (#192, #244); the
+  `replay:<file>` scheduling policy replays a witness, including a clock-retried step (#258); the
+  OMG PSSM state-machine suite runs as an advisory referee (#230); the bounded model checker's
+  independence relation counts message order (the design note, #217's companion).
+- *Expressions and values.* The extent operator `all T` evaluates, statically `T[0..*]`, over the
+  whole model, and a namespace-level usage of several occurrences denotes its objects (#211, #238,
+  #239, closes X5 and the expression half of Q2); `x meta T` evaluates and `x.metadata` ends with
+  the reflective metaobject, which crosses gRPC (#212); a `[0..*]` feature holding one value
+  denotes that value wherever one value is expected, including through a feature chain, so
+  `interpolateLinear` runs (#164, closes X2 and unblocks L7); function values compile natively in
+  C and Go (#165, retiring the compiler's function-value refusal); a literal's direct type is its
+  `ScalarValues` definition, scale arithmetic agrees with the library, a computed quantity is
+  reported in its dimension's coherent unit, and classification against an enumeration is decided
+  by its values (#205, #191, #179, #208, #177); a bare feature reference is typed statically by
+  the feature it names, a computed value is judged against a scalar-typed feature, and an argument
+  of unknown type keeps every overload (#213, #237, #241); a multi-valued feature not declared
+  `nonunique` refuses a repeated value (#178).
+- *Executor.* A deferred event outranks an enclosing transition, a history with nothing to
+  restore performs the ordinary entry, a composite's completion fires its own completion
+  transitions, and a `choice` reads its guards after the incoming effect (#228); a `do` behavior
+  may be a full action that waits on the clock (#181); a body paused mid-statement is state a
+  snapshot captures, and the runtime's `Context` is a shared `Model` plus a run's own state
+  (#187, #259); `first a then b;` in action and state bodies is the succession it names, with
+  feature-chain ends (#269, #270, #274); `%send` reaches an object whose performed action waits
+  at an `accept` (#271); `entry point`/`exit point` — an extension with no SysML v2 notation —
+  are gone (#184).
+- *Diagrams and documents.* A view renders as Graphviz DOT with the `dot` form, in the pilot
+  visualizer's Standard B&W style with an optional colourblind-safe palette, and a document
+  renders its diagrams as DOT on request (#222, #248, closes W1 and W3's DOT half); a view renders
+  as PlantUML with the `plantuml` form and a document as PlantUML on request (#264, closes W2 and
+  W3's PlantUML half); a model can say where a view draws its elements and every rendering carries
+  it, validated by `-validate` (#227); node labels lead with the name (#243); `sysml -render`
+  accepts several files as one model (#167).
+- *Editing.* The VS Code diagram panel is an editable canvas: an **Add…** menu, connection edits,
+  a dragged node's position written back, **Move to…** across namespaces, and rename or delete
+  following references into the other documents of the model, all through the
+  `opensysml/applyModelEdit` LSP request over `internal/core/edit` (#247, #261, #265, #266).
+- *Library and identity.* Named standard-library elements carry the normative element ids the
+  KerML and SysML specifications assign, and a copy of a library file rooted at the library's
+  packages converts as the library (#245, #276, #278 — the last past the tag); a `MOSA` library
+  and its openness checks (#200); every bundled library file converts back from its graph without
+  source text (#272).
+- *Records, corpora and site.* The pinned OMG pilot implementation is release `2026-08` (#224);
+  the precise-semantics alignment note (#217), the embedded-target design note (#226), the
+  runtime showcase under `examples/runtime-showcase/` (#225), the architecture self-model's
+  analysis flows (#194, #201), the execution-semantics vocabulary (#183) and the landing page's
+  carousel (#203); SysML v1 migration reads the open model formats tool-neutrally (#188); the
+  Python client answers `Model.find`, `Model.get` and indexing from the model (#207); the
+  SonarCloud findings are cleared on each pass (#196–#199, #242, #253, #257, #275); the roadmap
+  gained D12, Track W (#195) and A7 (#214) along the way; and `main` was merged back into `develop`
+  after `v0.7.0` (#202).
 
 The previous baselines' retirements — native compilation's first phase, the wire contract, L3–L6,
 the nested-action frames, D3, Q4, the changelog fragments, the census and its gate, the
@@ -149,19 +181,19 @@ of the pilot corpora fails `cmd/pilot-diff`, `cmd/pilot-xpect` and the `TestPilo
 with a provenance message naming the drift; that is the gate working, not a regression — re-fetch
 before re-recording anything.
 
-| Gate | Count at `develop` @ `074f9c4b7` (2026-09-13, Go 1.25.0); the `v0.7.0` figure in brackets where it moved |
+| Gate | Count at `v0.8.0` (`238aed650`, 2026-09-13, Go 1.25.0); the `v0.7.0` figure in brackets where it moved |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
 | OMG pilot corpora (ratchet) | 213 files; 7 report a diagnostic [6], each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
 | Stdlib parser conformance | 100/100 clean — 94 vendored OMG files and 6 non-normative OpenSysML extensions |
-| Execution conformance cases | 889 under `TestExecutionConformance`, all run and pass, none skipped [770] |
+| Execution conformance cases | 894 under `TestExecutionConformance`, all run and pass, none skipped [770] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case: "every derived case passes" |
-| Cases admitting several outcomes | 25 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [19] |
-| Trace partial orders | 7 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [5] |
-| Golden execution traces | 272 `.trace.golden` files: 228 under the default schedule (`TestExecutionTrace`, one per case) and 44 per-policy goldens (`<case>.declared`, `<case>.seed-1`) [216: 182 and 34] |
-| Runtime robustness cases | 457 first-level subtests of `TestRuntimeRobustness` [369] |
+| Cases admitting several outcomes | 26 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [19] |
+| Trace partial orders | 8 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [5] |
+| Golden execution traces | 276 `.trace.golden` files: 230 under the default schedule (`TestExecutionTrace`, one per case) and 46 per-policy goldens (`<case>.declared`, `<case>.seed-1`) [216: 182 and 34] |
+| Runtime robustness cases | 459 first-level subtests of `TestRuntimeRobustness` [369] |
 | gRPC conformance fixtures / robustness cases | 15 / 8 (`TestGRPCConformance`, `TestGRPCRobustness`; the authoring service adds 2 robustness cases of its own) |
-| Golden AST fixtures | 204 (`TestGolden`: 176 SysML, 28 KerML) [197: 171 SysML, 26 KerML] |
+| Golden AST fixtures | 205 (`TestGolden`: 177 SysML, 28 KerML) [197: 171 SysML, 26 KerML] |
 | Negative parser subtests | 252 first-level subtests of `TestNegative` (396 across the `TestNegative*` functions, 454 across every `*Negative*` parser test) [249: 338 and 396] |
 | Rejection oracle | 306 self-authored invalid models: 293 both reject by default and 297 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [285: 273 and 276, 3 the pilot alone] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
 | Validation census | 162 of 217 named constraints reported (156 faithful, 6 approximate), 1 not implemented, 1 deliberate, 53 unknown |
@@ -171,16 +203,19 @@ The pilot differential, the Xpect oracle, the scope oracle and the rejection ora
 external conformance statement, and their figures are generated into `README.md` by `make
 docs-counts` from the committed baselines; they are not repeated here.
 
-The test-suite figures above are counted from `go test -v` at the commit the table names. The
-other surfaces `releasing.md` allows to repeat them (`README.md`, `docs/project/spec-compliance.md`,
-`docs/project/training-examples.md`) are still typed in by hand and were recounted at the same
-commit, so they agree with the table; `make docs-counts`
-generates only the refereed pilot figures and does not check them. Folding the test-suite figures
-into `cmd/doc-counts` so they are generated like the pilot figures and can no longer drift is the
-small open item listed under sequencing, and the recount of those surfaces for the next release belongs to
-the release procedure (`releasing.md`), not to this record. The census, rejection-oracle and RDF
-round-trip rows follow the committed baselines; the census did not move since the tag, the other
-two grew with the corpus and the baseline (bracketed above).
+The test-suite figures above are counted from `go test -v` at the tag. The other surfaces
+`releasing.md` allows to repeat them (`README.md`, `docs/project/spec-compliance.md`,
+`docs/project/training-examples.md`) are still typed in by hand and were last recounted at
+`074f9c4b7` (#245), 30 pull requests before the tag: they read 889 conformance cases where the
+tag has 894, and the trace, robustness and golden-fixture rows moved the same way, so they lag
+the table until the next recount; `make docs-counts` generates only the refereed pilot figures
+and does not check them. Folding the test-suite figures into `cmd/doc-counts` so they are
+generated like the pilot figures and can no longer drift is the small open item listed under
+sequencing, and the recount of those surfaces for the next release belongs to the release
+procedure (`releasing.md`), not to this record. The census, rejection-oracle and RDF round-trip
+rows follow the committed baselines; none of the three moved between `074f9c4b7` and the tag, the
+census did not move since `v0.7.0`, and the other two grew with the corpus and the baseline
+between `v0.7.0` and `074f9c4b7` (bracketed above).
 
 Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
 present. It counts only each package's own tests, which understates a package consumed by others
@@ -232,21 +267,26 @@ previous release tag on a tag build, so the verdict cannot change with what merg
 # Release follow-through
 
 Tagging a core release, publishing the Python client and the Homebrew bump are all proven paths:
-`v0.6.0` is tagged and its release job runs the same path `v0.4.2` and `v0.4.3` completed with
-their full archive sets, `opensysml-v0.4.0` uploaded the client to PyPI,
-and the tap `Open-MBEE/homebrew-tap` bumps itself from its own scheduled workflow on each tag,
-rendering the formula from this repository's `scripts/render-homebrew-formula.sh` and template.
-The procedure and its post-tag verification are in `docs/project/releasing.md`.
+`v0.8.0` is tagged and its `release` workflow completed with the full archive set, as `v0.7.0`,
+`v0.6.0`, `v0.4.2` and `v0.4.3` did before it; `opensysml-v0.4.0` uploaded the client to PyPI
+(`opensysml-v0.5.0`, tagged with `v0.8.0`, is rerunning after two `Go coverage profile`
+failures); and the tap `Open-MBEE/homebrew-tap` bumps itself from its own scheduled workflow on
+each tag, rendering the formula from this repository's `scripts/render-homebrew-formula.sh` and
+template. The procedure and its post-tag verification are in `docs/project/releasing.md`.
 
 ## R1 — the changelog agrees with the tags (done)
 
 `CHANGELOG.md`'s **0.4.3** section holds what `99e02003` shipped (#877), its **0.5.0** section
-what `0fdeb11e` shipped (#894), its **0.5.1** section what `d7b3eb45` shipped and its **0.6.0**
-section what `30f103bb` shipped (#988), each dated to its tag; **Unreleased** is empty in the file
-because since #852 a change adds a fragment under `changes/unreleased/` instead, and
-`python3 scripts/changelog.py release X.Y.Z` folds the fragments in at release time
-(`releasing.md`). The 0.5.0 fold was the first release cut that way and 0.5.1 and 0.6.0 followed
-it. Nothing remains here; the item is kept because the folds are the procedure's proof.
+what `0fdeb11e` shipped (#894), its **0.5.1** section what `d7b3eb45` shipped, its **0.6.0**
+section what `30f103bb9` shipped (#988), its **0.7.0** section what `e0fbfea5b` shipped (#145,
+#154, #159) and its **0.8.0** section what `238aed650` shipped (#268, #277), each dated to its
+tag; **Unreleased** is empty in the file because since #852 a change adds a fragment under
+`changes/unreleased/` instead, and `python3 scripts/changelog.py release X.Y.Z` folds the
+fragments in at release time (`releasing.md`). The 0.5.0 fold was the first release cut that way
+and every release since followed it; under git-flow the fold rides the `release/x.y.z` pull
+request into `main` and returns to `develop` with the back-merge (#202 after `v0.7.0`, #286
+after `v0.8.0`). Nothing remains here; the item is kept because the folds are the procedure's
+proof.
 
 ## R2 — the Node, Java and Rust clients are unpublished
 
@@ -297,8 +337,8 @@ with the Z3 solver as an optional feature pinned by hash, published unsigned as
 `opensysml-<x.y.z>-windows-amd64.msi`. `v0.6.0` shipped no `.msi`: its `msi` job failed with
 `error: C:\Program is required`, because the script read the `wix` command from the `WIX`
 environment variable, which the preinstalled WiX v3 on `windows-latest` exports as its
-installation directory. #127 renamed the override to `WIX_CMD` (the MSI builds again on the
-GitHub runners, as that pull request states); the next tag is the first release to publish one.
+installation directory. #127 renamed the override to `WIX_CMD`, and `v0.7.0` and `v0.8.0` each
+published their `.msi`.
 Once SignPath is configured it is rebuilt from the signed executables and itself signed as
 `*-signed.msi` (Z3 stays unsigned by SignPath's terms). Scoop,
 winget and MSYS2 manifests that depend on Z3 rather than bundle it are maintained as templates
@@ -404,25 +444,23 @@ user `calc def` samples it and constructs the `SampledFunction` (X6, #122 — at
 refused `cannot evaluate definition Sq`), `Domain(sampled)` reads `[1.0, 2.0, 3.0]` off it, and
 `TradeStudies::TradeStudy` runs as the library writes it — `evaluationFunction` bound as a
 function value, `MinimizeObjective`/`MaximizeObjective` computing `best` over the alternatives,
-`selectedAlternative` found by the inherited `->selectOne` (A2). What does not run:
-`interpolateLinear(sampled, 1.5)` still fails inside the library's own `Linear` — `operator '-'
-is not defined for a Real and a sequence` evaluating its `f`, which subtracts
-`lowerSample.domainValue` — and the same failure reproduces with no function value involved:
-`sampled.samples#(1).domainValue - 1.0` is refused `operator '-' is not defined for a sequence
-and a Real`. That is the chain-read half of X2: a singleton read *through a feature chain on an
-object* (`sp.domainValue`, the library's `KeyValuePair::key` redefined without a multiplicity)
-arrives as the sequence `[1.0]` and is refused by every operator, where a feature's own
-`Real[0..*]` value holding one element is reduced. `spec-compliance.md` records it as the one
-`SampledFunctions` row not implemented. `StateSpaceRepresentation` depends on A4. The vector half
-moved earlier: since #883 a `NumericalVector` and a `VectorQuantity` are value kinds of their
-own, `VectorFunctions` computes over them and `OccurrenceFunctions` evaluates over lifetimes
-(#884), the 0.6.0 release added the tensor quantity, coordinate-frame and measurement-scale
-values the measurement reference libraries declare, and #121 added the set kind and tensor
-quantities of any rank, so no value kind the analysis libraries declare is missing. Closing this
-item is closing the chain-read half of X2 and then adding a *measured per-library conformance
-table* — package → declarations → evaluated → refused by name → wrong — to
-`spec-compliance.md`, so the library's status stops being anecdotal. Open; the table is not
-started and the X2 half is what blocks `interpolateLinear`.
+`selectedAlternative` found by the inherited `->selectOne` (A2); and since #164
+`interpolateLinear(sampled, 1.5)` runs inside the library's own `Linear` — its `f` subtracts
+`lowerSample.domainValue`, a singleton read through a feature chain on an object, which at
+`v0.6.0` arrived as the sequence `[1.0]` and was refused `operator '-' is not defined for a Real
+and a sequence`. That was the chain-read half of X2, and it is closed: a `[0..*]` feature holding
+one value denotes that value wherever one value is taken, read off the feature itself or through
+a chain, and the conformance case `calc_sample_pair_arithmetic` pins the arithmetic over
+`SamplePair::domainValue`/`rangeValue` and the interpolation (`5.0`). `spec-compliance.md` no
+longer lists a `SampledFunctions` row as not implemented. `StateSpaceRepresentation` depends on
+A4. The vector half moved earlier: since #883 a `NumericalVector` and a `VectorQuantity` are
+value kinds of their own, `VectorFunctions` computes over them and `OccurrenceFunctions`
+evaluates over lifetimes (#884), the 0.6.0 release added the tensor quantity, coordinate-frame
+and measurement-scale values the measurement reference libraries declare, and #121 added the set
+kind and tensor quantities of any rank, so no value kind the analysis libraries declare is
+missing. What remains is a *measured per-library conformance table* — package → declarations →
+evaluated → refused by name → wrong — in `spec-compliance.md`, so the library's status stops
+being anecdotal. Open; nothing gates it any more, and the table is not started.
 
 ---
 
@@ -1052,19 +1090,17 @@ operation invocation with positional arguments, and routing a send to a second o
 usage; a `terminate` inside a body is refused by the runtime with a typed error and appears in no
 list. The behavior-execution review after `v0.4.3` found nothing missing beyond those, and this
 track records each as work with a stated scope, dependency order and acceptance gate rather than
-as a bullet or an error message alone. **Deferred: next once the release that ships F and S is
-tagged.** The condition was
-"after F and S have landed and a release has shipped with them"; F and S have landed on `main`
-(#116, #120, #110, #123, #125, #134) and no release carrying them has shipped — `v0.6.0` is
-still the newest tag — so E is the first executor track of the release after the next one. No
-conformance fixture or trace golden exercises any of the seven items, and each has a typed
-refusal or a documented limitation in place of a wrong result. The executor loops E edits are
-now the ones F fixed and S instrumented and parameterized, and since #136 they also run on A5's
-shared simulation clock (`Context.Clock()`, `Context.Advance`, `accept after`/`at` parking a
-token in an action body, `due order` as a choice point), so every E item is written against a
-named scheduling policy and a shared clock, not an implicit order. Each item below ends with
-what would move it forward; until that happens, the honest status is the "not supported" bullet
-or the refusal. E8–E10 are the three findings about the runtime's own conformance in
+as a bullet or an error message alone. **Eligible: the next executor track.** The condition was
+"after F and S have landed and a release has shipped with them"; F and S landed (#116, #120,
+#110, #123, #125, #134) and `v0.7.0` shipped them, `v0.8.0` followed, and nothing else waits in
+front of E. No conformance fixture or trace golden exercises any of the seven items, and each
+has a typed refusal or a documented limitation in place of a wrong result. The executor loops E
+edits are now the ones F fixed and S instrumented and parameterized, and since #136 they also run
+on A5's shared simulation clock (`Context.Clock()`, `Context.Advance`, `accept after`/`at`
+parking a token in an action body, `due order` as a choice point), so every E item is written
+against a named scheduling policy and a shared clock, not an implicit order. Each item below ends
+with what would move it forward; until that happens, the honest status is the "not supported"
+bullet or the refusal. E8–E10 are the three findings about the runtime's own conformance in
 `docs/internals/design/precise-semantics-alignment.md` that concern state machines: E8 is open,
 E9 and E10 landed with the change set that decided the note's open decisions.
 
@@ -1483,12 +1519,15 @@ review after `v0.4.3` found two defects, both landed (#794: `x @ T` on a value i
 lookahead does not establish the `chain` modifier — `step chain …` still does not parse and is a
 separate parser item). Since then the 0.6.0 release closed the first two items of this track:
 constructors evaluate in a value position (X1, #981) and a singleton sequence takes part in
-arithmetic as the scalar (X2), and since the tag five more landed on `main`: casts (X3, #115),
-`*` and `.metadata` (X4, #113), function values (X6, #122), the set kind and rank-n tensor
+arithmetic as the scalar (X2, for a feature's own value), 0.7.0 closed five more — casts (X3,
+#115), `*` and `.metadata` (X4, #113), function values (X6, #122), the set kind and rank-n tensor
 quantities (X7's value half, #121) and the static type of a collection body (X8's typing half,
-#112). What follows is measured against `runtime/eval.go` and `bin/sysml` at this baseline: each
-landed item is stated with what it leaves, and what is still open in the track is X2's chain-read
-half, X7's RDF literal form and native layout, and X8's two harness halves.
+#112) — and 0.8.0 closed X2's chain-read half (#164), evaluated the `meta` cast (#212) and typed
+a bare feature reference, an untyped collection body and an argument of unknown type statically
+(#174, #213, #241). What follows is
+measured against `runtime/eval.go` and `bin/sysml` at this baseline: each landed item is stated
+with what it leaves, and what is still open in the track is X7's RDF literal form and native
+layout, and X8's two harness halves.
 
 ## X1 — constructors: `new Pt(1, 2)` as a value (landed)
 
@@ -1503,20 +1542,24 @@ SamplePair(…), …))` constructs and `Domain` reads it (L7), and an analysis c
 records (A1). What remains is on the compiled side: the interpreted/native differential cannot
 cover a constructor until N2.1 gives the compiled side a record type.
 
-## X2 — a singleton sequence is the scalar (landed for a feature's own value)
+## X2 — a singleton sequence is the scalar (landed)
 
-KerML has no scalar/sequence distinction: a one-element sequence *is* the value, and `[0..*]`
-features with one value take part in arithmetic. Both directions hold at this baseline for a
-feature read directly: `attribute xs : Real[0..*] = (2.5);` gives `xs + 1.0 = 3.5`, and the
-mirror, `attribute ys : Real[0..*] = one;` with `one : Real`, reads `1.0` where a sequence is
-expected. The multiplicity checks are not weakened: `attribute two : Real[2..*] = (1.0);` is still
-refused by the checker as `1 value(s) bound to a feature with multiplicity lower bound 2` before
-anything evaluates. What is *not* coerced is a singleton read through a feature chain on an
-object: `sp.domainValue` on a constructed `SamplePair` (a feature redefined without its own
-multiplicity, so it inherits `KeyValuePair::key`'s) still arrives as the sequence `[0.0]` and
-`1.0 - sp.domainValue` refuses `operator '-' is not defined for a Real and a sequence`. That
-remaining half is what keeps `interpolateLinear` from running (L7) and is the one piece of X2 still
-open; it is a read-side coercion in the chain evaluation, not a change to what a legal value is.
+**Landed** in #164, completing what the feature's own value already did. KerML has no
+scalar/sequence distinction: a one-element sequence *is* the value, and `[0..*]` features with
+one value take part in arithmetic. Both directions hold for a feature read directly: `attribute
+xs : Real[0..*] = (2.5);` gives `xs + 1.0 = 3.5`, and the mirror, `attribute ys : Real[0..*] =
+one;` with `one : Real`, reads `1.0` where a sequence is expected. The half that was open at
+`v0.6.0` — a singleton read *through a feature chain on an object*, `sp.domainValue` on a
+constructed `SamplePair` (a feature redefined without its own multiplicity, so it inherits
+`KeyValuePair::key`'s `[0..*]`), arriving as the sequence `[0.0]` and refused by every operator —
+is closed by one binding rule serving every place one value is taken: an operator's operand, a
+`[1]` parameter of a user calc or a library function, a cast or classification operand. A
+collection of several stays what it is and is refused as before (`type mismatch`, `multiplicity
+violation`), an empty one still holds no value, and the multiplicity checks are not weakened:
+`attribute two : Real[2..*] = (1.0);` is still refused by the checker as `1 value(s) bound to a
+feature with multiplicity lower bound 2` before anything evaluates. `calc_sample_pair_arithmetic`
+pins the chain reads, and `interpolateLinear` runs (L7). What it leaves, by design: nothing — the
+row in `spec-compliance.md` is faithful.
 
 ## X3 — casts: `r as Integer` (landed)
 
@@ -1547,14 +1590,24 @@ element with no metadata yields the empty sequence. What it leaves, by design: a
 `*` is refused with a typed error naming the operation rather than answering an infinity or a
 NaN, and reading `.metadata` off a value rather than an element is a typed error.
 
-## X5 — `all` (named reducers done)
+## X5 — `all` (landed)
 
-`all T` (every instance of a type) is the expression form of Q2 and is refused (`'all' needs the
-extent of a type, which the runtime does not enumerate`) until there is a runtime population to
-enumerate; the item is now Q2's alone. The named-reducer half is done: `->reduce '+'` and the other
-named spellings resolve to the library function by name through L4's dispatch
-(`runtime/collections.go` `builtinControlReduce`; conformance `calc_library_complex_sum_real_axis`
-exercises the Real-axis case).
+**Landed** in #211, #238 and #239. `all T` (KerML `ExtentExpression`, `BaseFunctions::'all'`)
+answers the instances of the named type as an ordered sequence, statically `T[0..*]`, over the
+whole loaded model: every object the run holds and every namespace-level object usage of every
+document that may hold a `T` — an imported package's, an un-imported one's and the standard
+library's alike, so `all Clock` answers `Time::universalClock` — materialized as the extent is
+taken, with a variation's extent its variants, an enumeration's its literals, and a usage of
+several occurrences (`part wheels : Wheel[2];`) denoting its lower bound of objects. What it
+leaves, by design: a data type's extent (`all Integer`, `all Point`) is refused with
+`ErrUnboundedExtent`, since a run creates no data values to enumerate; a namespace-level port or
+open-count collection that may hold a `T` refuses the extent with `ErrExtentUnavailable` naming
+it rather than answering short; `all T` is never model-level evaluable; and the native compiler
+keeps refusing `all`, a compiled program having no run whose extent it could report. The
+named-reducer half landed earlier: `->reduce '+'` and the other named spellings resolve to the
+library function by name through L4's dispatch (`runtime/collections.go` `builtinControlReduce`;
+conformance `calc_library_complex_sum_real_axis` exercises the Real-axis case). The `extent_*`
+conformance cases pin the operator; what remains of a runtime population is Q2's query side.
 
 ## X6 — function values (landed)
 
@@ -1616,12 +1669,13 @@ The two harness halves are **open, unchanged since `v0.6.0`**. Interpreted and c
 evaluation are held equal by one differential over the compiled subset; the pilot differential
 (`cmd/pilot-exec-diff`) still needs its normalization of numeric spellings and an adjudication
 file the harness reads to say why each remaining disagreement is ours or the pilot's — the
-adjudications live in prose in `pilot-execution-referee.md`, and the only change under
-`cmd/pilot-exec-diff` since the tag is #115's five cast cases; and the RDF expression trees have
-no round trip of their own — a tree is written, read and rewritten only as part of a whole model,
-and the only change under `internal/core/export` since the tag is #121's set and tensor values
-round-tripping as the expressions that build them. Two hygiene items that make every X change
-measurable; do them first when the track is next picked up.
+adjudications live in prose in `pilot-execution-referee.md`, and what `cmd/pilot-exec-diff`
+gained since `v0.6.0` is cases (#115's five casts, #235's stdin-fed engines), not the
+normalization; and the RDF expression trees have no round trip of their own — a tree is written,
+read and rewritten only as part of a whole model, `internal/core/export` having gained #121's set
+and tensor values, the canonical predicate order (#166) and the library copies' normative identity
+(#276) but no tree-level harness. Two hygiene items that make every X change measurable; do them
+first when the track is next picked up.
 
 ---
 
@@ -1631,10 +1685,12 @@ Four query surfaces exist and are landed: the standard API `Query` over a projec
 (`internal/grpc`, the OSLC query grammar with its diagnostics — #798, #812), the native document
 query (`query def` with parameters, planned by `internal/core/queryplan` and run by
 `internal/core/queryexec`, from the CLI, the REPL and gRPC), `Evaluate`/`-eval`/`%eval in`, and the
-solver's `solve`. All four read the *model*: its elements, its declarations and the expressions
-over them. **None reaches the runtime** — the objects `%instantiate` and `-instantiate` create,
-their current state, or the trace `-trace` prints — and the documentation does not yet say which
-surface answers which question. That is the whole track.
+solver's `solve`. Three of the four read the *model* alone: its elements, its declarations and
+the expressions over them. `Evaluate`/`-eval`/`%eval in` reaches the runtime since 0.8.0 — `all
+T` enumerates the objects a run holds (X5) and `%eval in #1` reads an object's current values —
+but the document query, the API `Query` and `solve` do not reach the objects `%instantiate` and
+`-instantiate` create, their current state, or the trace `-trace` prints, and the documentation
+does not yet say which surface answers which question. That is the track.
 
 ## Q1 — say which query is which
 
@@ -1643,14 +1699,21 @@ One page distinguishing the four: document queries over elements, the API `Query
 each cannot see, and where runtime queries (Q2–Q4) will sit. Cheap, and it stops each later item
 from re-explaining the boundary. Not started.
 
-## Q2 — a runtime population: `all T`, and predicates over instances
+## Q2 — a runtime population: `all T`, and predicates over instances (expression half landed)
 
 `all Vehicle` (every object typed by `Vehicle` in the session), and the collection operations over
 it — `all Vehicle->select { in v; v.mass > 1000 [kg] }` — are the expression form of a runtime
-query. The runtime already keeps every object it materialized (`Context.instances`, with identity
-across rebuilds — `keepIdentitiesOf`); what is missing is the enumeration as a value, its static
-type (`T[0..*]`), and the REPL/CLI/gRPC binding so a document query parameter can be bound to it.
-Depends on a stable object representation, which #810/#836/#843 have been settling; goes after them.
+query, and that half **landed** with X5 (#211, #238, #239): the extent is a value, statically
+`T[0..*]`, the collection operations run over it, and it is taken over the whole loaded model.
+What is missing is the query side: a document query (`query def`) whose rows are the objects a
+session holds rather than the elements of the model, so a rendered document can report the
+current values of `car.wheels[2]` and not its declared default, and the REPL/CLI/gRPC binding
+that hands a session's objects to `%run-query`, `-run-query` and `-render-document`. #267, open
+against `develop` at this baseline, is that work: one row vocabulary polymorphic over elements
+and objects (`queryexec.ValueObject`, a `Context.Runtime` and `Roots`), with `OwnedElements`,
+`Descendants`, `WhereType`, `WhereFeature`, `Project` and `OrderBy` accepting object rows. Its
+companion #263 validates an object as a whole (A7) and shares the carrier walk. Q2 closes when
+#267 lands and the row in `spec-compliance.md` says so.
 
 ## Q3 — state and event queries
 
@@ -1661,9 +1724,9 @@ query vocabulary over current state and over the trace as a time-ordered relatio
 filter forms as Q2, so the trace stops being something one reads by eye. Its prerequisite on the
 trace side is met: A5 landed (#136), so the clock Q3 reads is `Context.Clock()`, shared by every
 executor in a context, and the trace now carries `choice` lines (S2) and `due order` draws that a
-query over it would need to see; the representation Q3 would read is the one on `main`, not one
-in flight. It still depends on Q2's population for "which objects are in `run`". Unblocked on the
-A5 side; not started.
+query over it would need to see; the representation Q3 would read is the one at the tag, not one
+in flight. "Which objects are in `run`" has its population (X5); the query side waits on Q2's
+object rows (#267). Unblocked on the A5 side; not started.
 
 ## Q4 — document-query parameter defaults evaluate (done)
 
@@ -1687,11 +1750,12 @@ The Systems Library's analysis vocabulary loads and type-checks — `AnalysisCas
 `StateSpaceRepresentation`, `SampledFunctions`, `VerificationCases` — and the runtime executes
 calcs, constraints, requirements, actions, state machines and, since 0.6.0, an *analysis case*
 (A1, the keystone the review after `v0.4.3` found missing). Each simulation capability people
-expect from "SysML v2 execution" hangs off that keystone, and since the tag four of the five
-landed on `main`: verification verdicts (A6, #117), parameter sweeps (A3, #118), the trade study
-(A2, #133) and the shared clock (A5, #136). What is open in the track is A4, the state-space
-runner, which A5 unblocked, and A7, one verdict for every assertion an object carries. Every item
-below is self-assessed (the pilot executes none of this); neither is started, and no surface
+expect from "SysML v2 execution" hangs off that keystone, and `v0.7.0` shipped four of the five:
+verification verdicts (A6, #117), parameter sweeps (A3, #118), the trade study (A2, #133) and the
+shared clock (A5, #136). What is open in the track is A4, the state-space runner, which A5
+unblocked and which is not started, and A7, one verdict for every assertion an object carries,
+which #263 implements against `develop`. Every item below is self-assessed (the pilot executes
+none of this), and no surface
 claims to integrate a `StateSpaceRepresentation` or to validate an object as a whole.
 
 ## A1 — an analysis case runs (landed)
@@ -1855,8 +1919,11 @@ verdicts A6 reports beside a requirement are reported beside it here too. The pi
 any of this, so the evidence is the conformance fixtures: one object with asserted constraints at
 three depths and a collection part, a violated nested assertion, an ambiguous-by-name pair that
 this sweep disambiguates by carrier, and a `satisfy` whose subject is a nested part. Depends on
-nothing open; Q2's population (`all T`) would let the same sweep run over every object of a type
-rather than one tree, and should share the carrier walk rather than add one.
+nothing open; the population `all T` from X5 lets the same sweep run over every object of a
+type rather than one tree, and it should share Q2's carrier walk rather than add one. #263, open
+against `develop` at this baseline, is this item as written — `Context.ValidateObject`, one
+`ObjectVerdict` per assertion per carrier with its path, `-validate=<object>`, `%validate` and
+`ValidateInstance` — and A7 closes when it lands.
 
 ---
 
@@ -1929,8 +1996,8 @@ name, instance references, `Complex`), how *unset* differs from *absent* and fro
 diagnostic and a Connect error arrive, the model-hash lifetime, and how a behavior call and a query
 are made. [wire-contract.md](../reference/wire-contract.md) is that page (#848, **landed**): every
 example captured from the running service, every `Value` arm (eleven when it was written; the
-`infinity` (#113), `function` (#122), `set` and `tensorQuantity` (#121) arms added since the tag are
-on the page), the Connect code table, the
+`infinity` (#113), `function` (#122), `set` and `tensorQuantity` (#121) arms added since `v0.6.0`
+are on the page), the Connect code table, the
 `Instantiate`/`ExecuteState`/`Verify*`/`Query` answer shapes, and R, Julia, MATLAB and C
 illustrations marked untested, linked from the transports, clients and API pages. Everything else
 in the track reads from it.
@@ -2262,139 +2329,149 @@ not more harness work.
 
 Two orders, because there are two kinds of item. The **track-local** orders say where to start
 inside a track; the **cross-cutting** order says which tracks' first items go first when a session
-must choose. The order agreed at the previous baseline had A1 first and X2/X1/X6 second; A1, X1
-and X2 landed in 0.6.0; the order agreed at the `v0.6.0` baseline had F and S first and A6/X6/A2
-second, and those landed on `main` after the tag, so both orders below are rewritten again around
-what remains. No pull request open at this baseline moves a roadmap item, and the only one the
-previous baseline named — #774, the ontology modules — was on the previous repository and has no
-counterpart here (Track D, D8).
+must choose. The order agreed at the `v0.6.0` baseline had F and S first and A6/X6/A2 second, and
+owed X2's chain-read half; all of it landed and `v0.7.0` and `v0.8.0` shipped it, so both orders
+below are rewritten again around what remains. Three pull requests open against `develop` at this
+baseline move a roadmap item and are named where they do: #267 (Q2's query side), #263 (A7) and
+#286 (the release fold-back).
 
-## What has landed since `v0.6.0` and is unreleased
+## What `v0.7.0` and `v0.8.0` released
 
-The previous baseline listed these as "what the next release is taking"; every one is now merged to
-`main` and none is in a tagged release. The pull requests are the ones the tracks cite.
+Everything the previous baseline listed as unreleased is in a tag, and the two releases since then
+carried more than that list. By track, with the pull requests the tracks cite:
 
 - **Track F** — closed: F1 and F2 (#116), F3 (#120); `known_failures.txt` is empty. #119 moved the
   synchronized step boundary the debugger stops at.
 - **Track S** — landed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 made region order a
   choice point, #138 wrote the guide.
-- **Track X** — landed: X3 (#115), X4 (#113), X6 (#122), X7's values (#121), X8's typing (#112).
+- **Track X** — landed: X2 in full (#164 closed the chain-read half), X3 (#115), X4 (#113), X5
+  (#211, #238, #239), X6 (#122), X7's values (#121), X8's typing (#112); the `meta` cast (#212)
+  and static expression typing landed beside them.
 - **Track A** — landed: A6 (#117), A3 (#118), A2 (#133), A5 (#136).
+- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both.
+- **Track E** — E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
+  itself is open.
+- **Track D** — D12 (the standard library's normative element ids) is done.
+- **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
+  alike; the release procedure runs git-flow (#151).
 
 ## What remains open
 
 The open items, by track, with the item that gates each where one does. Everything not named here
-is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, Q1/Q2, R2–R5).
+is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5).
 
-- **Track X** — X2's chain-read half (a `[0..*]`-inherited member read is not reduced to the scalar
-  the caller wants; `interpolateLinear` still refuses); X7's RDF literal form and native layout for
-  sets and tensors; X8's two harness halves (pilot-differential numeric normalization with an
-  adjudication file, and a standalone RDF expression-tree round trip).
-- **Track L** — L7, gated on X2's chain-read half alone: `Sample` runs and a domain library's calc
-  executes from its text; `interpolateLinear` does not.
-- **Track A** — A4, the state-space runner, unblocked by A5 and not started; A7, one verdict for
-  every assertion an object carries, depending on nothing open and not started.
-- **Track Q** — Q3, unblocked by A5, still behind Q2's population; Q1 and Q2 unchanged.
-- **Track E** — deferred to the release after the one that ships F and S; next once that release
-  is tagged.
-- **Release follow-through** — R2, R3, R5 (account- and hardware-gated); R4's `.msi` is fixed on
-  `main` (#127) and the next tag is the first to publish one; the hand-typed test figures in `README.md` and
-  `spec-compliance.md` are still hand-typed (see the Track-local orders).
-- **Tracks D, N, M, I, V, B** — as the tracks state them; nothing in them moved since the tag
-  except that Track I's clients now carry the four new `Value` arms (#113, #121, #122).
+- **Track L** — L7, gated on nothing: `Sample`, a domain library's calc and `interpolateLinear`
+  all run; the measured per-library table in `spec-compliance.md` is not started.
+- **Track E** — eligible: E1, E2, E4 in that order, then E6 on request, E3/E5 behind their design
+  records, E7 behind its object-model item, E8 behind a model that needs it.
+- **Track Q** — Q2's query side (#267 open); Q1 with it; Q3, unblocked by A5, behind Q2.
+- **Track A** — A4, the state-space runner, unblocked by A5 and not started; A7 (#263 open).
+- **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
+  halves (pilot-differential numeric normalization with an adjudication file, and a standalone
+  RDF expression-tree round trip).
+- **Track W** — richer DOT/PlantUML node shapes and compartments, PDF rasterization of both forms
+  through optional tools, and the VS Code panel's *save as* for the non-Mermaid forms.
+- **Release follow-through** — R2, R3, R5 (account- and hardware-gated); the `opensysml-v0.5.0`
+  Python release has to reach PyPI (`releasing.md`'s post-tag checks); the hand-typed test figures
+  in `README.md` and `spec-compliance.md` lag the gate table (see the Track-local orders).
+- **Tracks D, N, M, I, V, B** — as the tracks state them; nothing in them moved since `v0.6.0`
+  except D12 and the four `Value` arms Track I's clients carry (#113, #121, #122).
 
 ## Cross-cutting order
 
-1. **F1–F3, then S1–S4** — done (#116, #120; #110, #123, #125, #134). The executor defects went
-   first, since they changed what the conformance fixtures expect, then the multiple-executions
-   instrumentation over the corrected loops. Kept here so the order reads as agreed; nothing
-   remains in the step.
-2. **A6, then X6, then A2** — done (#117, #122, #133): verification verdicts from a body, function
-   values, trade-study evaluation and selection. What the step still owes is **X2's chain-read
-   half**, which was to go with X6 so `interpolateLinear` runs when `Sample` does and did not; it
-   is now the only thing between L7 and closed, and is the first open item in this order.
-3. **The REPL state attachment** — `%state <machine>` attaching to the exhibiting object (#845,
-   **landed**), *after* validating on `main` that #810 closed the original duplicate initial `do`,
-   which the review did. Done; kept here so the order reads as agreed.
-4. **Q2, then Q1** — runtime query bindings and `all T`, with the page that says which query is
-   which. Depends on the object, state and trace representations being stable, which #810, #836
-   and #843 (all landed) have settled; Q4 (parameter defaults, #849) landed independently ahead of it.
-5. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
+1. **Release housekeeping** — #286 folds `main` back into `develop` after `v0.8.0` so the
+   **0.8.0** changelog section and the emptied `changes/unreleased/` reach the integration branch;
+   the Python release's PyPI publication is checked as `releasing.md` says. Small, and first
+   because every later pull request otherwise carries the fragments the release folded.
+2. **L7** — the measured per-library conformance table for the analysis libraries. Nothing gates
+   it any more; it closes Track L, and it is the smallest item that changes a status.
+3. **Track E** — E1, then E2, then E4, in the track's own order below. F and S landed and two
+   releases shipped them, so the condition the previous baseline set is met; the loops E edits
+   carry A5's clock and S2's choice points, and every E item is written against a named scheduling
+   policy.
+4. **Q2's query side, then Q1, then Q3** — #267 lands the object-row query and its REPL/CLI/gRPC
+   bindings, closing Q2; Q1 is the page that says which query is which, written once the set is
+   complete; Q3 (state and event queries) follows on A5's clock. A7 (#263) runs beside this step
+   and shares Q2's carrier walk; Q4 (#849) landed independently ahead of it.
+5. **A4** — the continuous-time runner (Euler/RK4, zero-crossing) on A5's clock; the last open
+   Track A item, and the one `StateSpaceRepresentation` in L7's libraries waits on.
+6. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
-   not here — it is step 9.
-6. **D2 and D1, then D9.1 and D9.2** — Flexo: the standard vocabulary for expression trees and
+   not here — it is step 10.
+7. **D2 and D1, then D9.1 and D9.2** — Flexo: the standard vocabulary for expression trees and
    end structure, then the authenticated push and the branch read (the collection JSON annotations,
    D3.4, landed in #850). Push and read depend on the vocabulary quality, which is why they come
    last in the step; re-record the live-stack harness after D1/D2.
-7. **A3, then A5 (after S3), then A4** — A3 (#118) and A5 (#136) are done: sweeps, Monte Carlo
-   and tables as orchestration over A1, and one clock for actions and states, ordered by the
-   scheduling policy S3 gave it (`due order` is a choice point). Only **A4**, the continuous-time
-   runner, remains, and it now has the clock it advances against. The clock was also the
-   prerequisite to Q3, which is unblocked and follows Q2 in step 4.
-8. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
-   static tables. Embedded behavior compilation depends on the closed IR; the native track's action
-   and state phases start from the same IR rather than a second one. M3 and M5 prove it; M6 last.
-9. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
-   after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
-   contract exists to design against rather than three.
-10. **Track E** — F and S have landed on `main`; the release that ships them has not been tagged.
-    E is next once it has, in the track's own order below, and its loops now also carry A5's clock.
-11. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
-    API. Proposed after the steps above were agreed and not yet slotted among them; the two items
-    depend on nothing outstanding (the wire contract is landed, the dispatch and materialization
-    seams exist) and touch only the metadata library, one pass and the runtime's dispatch, so they
-    can run beside steps 5 and 6. The one collision the previous baseline named — B2's event drain
-    editing the executor loops step 1 was rewriting — is gone, since step 1 landed; B2 now edits
-    loops that carry the clock (A5) and the choice points (S2), and drains events into them. **B3**
-    follows the transport decision, **I5** goes with step 5 since it is built from the same
-    fixtures, and **B4**/**B5** come whenever a model needs them.
+8. **X8's harness halves, then X7's RDF and native layout** — normalization and adjudication in
+   the pilot differential and a standalone RDF expression-tree round trip, so every later
+   expression item is measured; the set and tensor layouts when something needs them.
+9. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
+   API. The two items depend on nothing outstanding (the wire contract is landed, the dispatch and
+   materialization seams exist) and touch only the metadata library, one pass and the runtime's
+   dispatch, so they can run beside steps 6 and 7; B2 drains events into loops that carry the
+   clock (A5) and the choice points (S2). **B3** follows the transport decision, **I5** goes with
+   step 6 since it is built from the same fixtures, and **B4**/**B5** come whenever a model needs
+   them.
+10. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
+    static tables. Embedded behavior compilation depends on the closed IR; the native track's
+    action and state phases start from the same IR rather than a second one. M3 and M5 prove it;
+    M6 last.
+11. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
+    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
+    contract exists to design against rather than three.
+
+Beside the order, whenever a session has room: Track V's census rows (1 *not implemented*, 53
+*unknown*), the PDF path onto the HTML backend (about one session, independent of every track),
+and Track W's remaining writer and rasterization work.
 
 ## Track-local orders
 
 - **Release follow-through.** **R1** is done. **R2**–**R5** as the accounts and hardware appear:
   publisher tokens for npm, Maven Central and crates.io, a real Mac for the tap, an Apple Developer
   and an OV/EV certificate to sign with, and a marketplace publisher for the extension. None gates
-  the others or anything below; **R4**'s Windows installer builds again on `main` (#127) and is
-  proven by the next tagged release. One engineering item sits beside them: #108 recounted the
-  hand-written test figures in `README.md` and `spec-compliance.md` for `v0.6.0`, and they have
-  drifted again since (the gate table above against the README's 671, 140 and 336); fold them into
-  `cmd/doc-counts` so they are generated and cannot drift, as the pilot figures already are. Small,
-  and independent of every track.
-- **Track L.** L3–L6 landed (#830, #821, #818, #825/#861). Only L7 is left; X6 landed (#122), so it
-  now needs the chain-read half of X2 alone — step 2 above.
+  the others or anything below; **R4**'s Windows installer is proven by two tagged releases. One
+  engineering item sits beside them: the test-suite figures in `README.md` and
+  `spec-compliance.md` were last recounted at `074f9c4b7` (#245) and lag the gate table above
+  (889 conformance cases against the tag's 894); fold them into `cmd/doc-counts` so they are
+  generated and cannot drift, as the pilot figures already are. Small, and independent of every
+  track.
+- **Track L.** L3–L6 landed (#830, #821, #818, #825/#861). Only L7 is left, and nothing gates it
+  — step 2 above.
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the
   differential's record and constructor coverage both need it; decide N2.2 (the budget) before
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
-- **Track D.** The RDF ratchet is 353/353 with no refusal left; step 6 above is next; **D7** is
+- **Track D.** The RDF ratchet is 353/353 with no refusal left; step 7 above is next; **D7** is
   mechanical now that identity is stable and fits anywhere; the ontology modules (#774 on the
-  previous repository) have to be re-proposed against this `main` before **D8**'s profile, which
-  only becomes conformant behind D1 and D2; **D12** (the standard library's normative element
-  ids) is done; **D11** (the API element
-  form) after D1 and D2, and before D9.2 if the branch read is to offer it; **D10**
-  (write-through from a view-only project) after D9.1 and D9.2, which it reads and writes through.
+  previous repository) have to be re-proposed against this repository before **D8**'s profile,
+  which only becomes conformant behind D1 and D2; **D12** (the standard library's normative
+  element ids) is done; **D11** (the API element form) after D1 and D2, and before D9.2 if the
+  branch read is to offer it; **D10** (write-through from a view-only project) after D9.1 and
+  D9.2, which it reads and writes through.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
   the region-order choice point afterwards. Nothing remains in the track.
-- **Track E.** Deferred to the release after the one taking F and S, which is the next one tagged;
-  E is taken once it ships. When it is taken, the order
-  is **E1** (termination of an ongoing performance, which **E2** and **E4** build on), then **E2**,
-  then **E4**; **E6** whenever asked, being a day's work; **E3** and **E5** only after their design
-  records; **E7** after the object-model item it depends on.
-- **Track X.** X3, X4, X6, X7's values and X8's typing landed (#115, #113, #122, #121, #112).
-  What is left, in order: X2's chain-read half first (step 2 above, since L7 waits on it); X8's
-  harness halves (normalization and adjudication in the pilot differential, a standalone RDF
-  expression-tree round trip) so every later X item is measured; X7's RDF literal form and native
-  layout for sets and tensors last, when something needs them.
-- **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A4 is step 7 above; A7 (an
-  object validated as a whole) depends on nothing open, so it can run beside any step, and its
-  carrier walk is what Q2's population should reuse when Q2 is taken.
+- **Track E.** Eligible — step 3 above. The order is **E1** (termination of an ongoing
+  performance, which **E2** and **E4** build on), then **E2**, then **E4**; **E6** whenever asked,
+  being a day's work; **E3** and **E5** only after their design records; **E7** after the
+  object-model item it depends on; **E8** when a model redefines run-to-completion, its refusal
+  (#229) standing until then; **E9** and **E10** are landed.
+- **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
+  #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
+  in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is
+  measured; X7's RDF literal form and native layout for sets and tensors last, when something
+  needs them — step 8 above.
+- **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A4 is step 5 above; A7 is #263,
+  open against `develop`, and its carrier walk is what Q2's query side (#267) shares.
+- **Track Q.** Q4 is done; Q2's expression half landed with X5; the query side is #267 — step 4
+  above — with Q1 and then Q3 behind it.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
   reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
   negative case first, each change moving its row.
-- **Track B.** B1, B2, then B3; step 1 above has landed, so nothing holds B1 or B2 back; B4's file
-  and HTTP providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
-- **Track W.** W1 (`dot`) has landed with its share of W3; W2 (`plantuml`) next, with the rest
-  of W3 — DOT and PlantUML rasterized for PDF — alongside; targeted at `0.8.0`, and independent
-  of every other track, so it can run beside any step above.
-- **Track Q, I, M.** Entirely given by the cross-cutting order above.
+- **Track B.** B1, B2, then B3 — step 9 above; nothing holds B1 or B2 back; B4's file and HTTP
+  providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
+- **Track W.** W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both have landed. What is left
+  — richer node shapes and compartments in both writers, DOT and PlantUML rasterized for PDF
+  through optional tools, the VS Code panel's *save as* — is independent of every other track and
+  runs beside any step above.
+- **Track I, M.** Entirely given by the cross-cutting order above.
