@@ -26,4 +26,21 @@
               (ConnectorEnd target="start"
                 (*ast.QualifiedName))
               (ConnectorEnd target="s1"
-                (*ast.QualifiedName)))))))))
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="ManyBesideStart"
+          (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (Usage kind="action" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (InitialNode name="start" successor="")
+          (ForkNode name="f")
+          (SuccessionEdge source="start" target="f")
+          (SuccessionEdge source="f" target="a")
+          (SuccessionEdge source="f" target="b")
+          (InitialNode name="a" successor="j")
+          (InitialNode name="b" successor="j")
+          (JoinNode name="j")
+          (InitialNode name="j" successor="c"
+            (Membership visibility="default"
+              (Documentation locale="")))
+          (InitialNode name="c" successor="done"))))))

@@ -254,7 +254,26 @@ func TestCompileDiagramRejectsInvalidPalette(t *testing.T) {
 	}
 }
 
-func TestCompileDiagramRejectsPaletteOnASequence(t *testing.T) {
+func TestCompileDiagramRejectsPaletteOnATable(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines kind = "table";
+			attribute redefines palette = "viridis";
+			ref redefines source = imagingChain;
+		}
+	`))
+	_, err := fixture.compile(t, "Report")
+	planning := planningError(t, err)
+	if planning.Kind != ErrorUnsupportedPalette || planning.Expected != "table" || planning.Actual != "viridis" {
+		t.Fatalf("error = %+v", planning)
+	}
+	want := `document Observatory::Report diagram Observatory::Report::imaging states palette "viridis", but a table rendering has no DOT or PlantUML form to fill`
+	if planning.Error() != want {
+		t.Fatalf("error = %q, want %q", planning.Error(), want)
+	}
+}
+
+func TestCompileDiagramAcceptsPaletteOnASequence(t *testing.T) {
 	fixture := loadPlanningFixture(t, diagramDocument(`
 		part imaging : Diagram {
 			attribute redefines kind = "sequence";
@@ -262,9 +281,9 @@ func TestCompileDiagramRejectsPaletteOnASequence(t *testing.T) {
 			ref redefines source = imagingChain;
 		}
 	`))
-	_, err := fixture.compile(t, "Report")
-	planning := planningError(t, err)
-	if planning.Kind != ErrorUnsupportedPalette || planning.Expected != "sequence" || planning.Actual != "viridis" {
-		t.Fatalf("error = %+v", planning)
+	plan := fixture.mustCompile(t, "Report")
+	reference := plan.Content()[0].Diagram()
+	if reference.Kind() != view.KindSequence || reference.Palette() != "viridis" {
+		t.Fatalf("kind = %q, palette = %q", reference.Kind(), reference.Palette())
 	}
 }

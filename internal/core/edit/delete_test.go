@@ -176,9 +176,9 @@ func TestDeleteCascadeRemovesTheReferringDeclarationOnly(t *testing.T) {
 	}
 }
 
-// A declaration another workspace document refers to is not deleted, with or
-// without cascade: an edit rewrites one document, so the reference could not
-// follow. The refusal names each referrer with its document.
+// A declaration referred to from a document the edit may not rewrite — one the
+// model hands out no source for — is not deleted, with or without cascade: the
+// reference could not follow. The refusal names each referrer with its document.
 func TestDeleteRefusesWhenAnotherDocumentRefers(t *testing.T) {
 	m := loadWorkspace(t, "p.sysml",
 		"package P {\n    part def Base {\n        part def Inner;\n    }\n    part def Keep;\n}\n",
@@ -244,6 +244,12 @@ func TestDeleteOnlyMemberRootAndNeighborTrivia(t *testing.T) {
 			src:    "package P {\n    // keep\n    part def Keep;\n\n    // remove\n    part def Gone;\n\n    // neighbor\n    part def Next;\n}\n",
 			target: "P::Gone",
 			want:   "package P {\n    // keep\n    part def Keep;\n\n    // neighbor\n    part def Next;\n}\n",
+		},
+		{
+			name:   "trailing line comment goes with the declaration",
+			src:    "package P {\n    part def Keep;\n    part def Gone; // gone too\n    part def Next; // stays\n}\n",
+			target: "P::Gone",
+			want:   "package P {\n    part def Keep;\n    part def Next; // stays\n}\n",
 		},
 	}
 	for _, tc := range tests {

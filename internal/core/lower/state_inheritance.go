@@ -29,6 +29,12 @@ type StateTypeWithholder interface {
 	WithholdsStateType(decl ast.Node) bool
 }
 
+// StartShotResolver identifies the library's inherited `start` shot, the one
+// declaration a `first start then s;` may leave from without naming a vertex.
+type StartShotResolver interface {
+	StartShot(decl ast.Node) bool
+}
+
 // inheritedMember is one member a state inherits, with the body that declares
 // it: names written in it resolve in that body's scope, not in the usage's.
 type inheritedMember struct {
@@ -634,7 +640,7 @@ func DescribeMember(member ast.Node) string {
 	case *ast.PseudostateNode:
 		return fmt.Sprintf("the %s %s", n.Kind, n.Name)
 	case *ast.InitialNode:
-		return "the succession from " + n.Name
+		return "the `first` marker " + n.Name()
 	case *ast.FinalNode:
 		return "the `done` marker"
 	case *ast.Package:

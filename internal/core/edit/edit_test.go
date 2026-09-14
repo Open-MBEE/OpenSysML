@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -61,10 +62,52 @@ func loadContent(t *testing.T, name, content string) Model {
 func loadWorkspace(t *testing.T, name, content string, siblings map[string]string) Model {
 	t.Helper()
 	m := loadContent(t, name, content)
+	parsed := map[string]*ast.RootNamespace{}
 	for sibling, text := range siblings {
-		m.Index.AddDocument(sibling, parser.New(source.New(sibling, []byte(text))).ParseFile())
+		parsed[sibling] = parser.New(source.New(sibling, []byte(text))).ParseFile()
+		m.Index.AddDocument(sibling, parsed[sibling])
+	}
+	m.Index.AddDocument(name, m.Root)
+	m.Index.ExpandWildcardImports()
+	if len(m.ParseDiags) == 0 {
+		m.SemDiags = passes.Analyze(name, m.Root, nil, m.Index)
+	}
+	m.NewIndex = func() *symbols.Index {
+		idx := libraryIndex(t)
+		for sibling, root := range parsed {
+			idx.AddDocument(sibling, root)
+		}
+		return idx
+	}
+	return m
+}
+
+// loadEditableWorkspace is loadWorkspace with the siblings' sources handed out
+// through Model.Other, the way the language server does for the documents it
+// holds, so that an edit may rewrite them.
+func loadEditableWorkspace(t *testing.T, name, content string, siblings map[string]string) Model {
+	t.Helper()
+	m := loadContent(t, name, content)
+	others := map[string]Document{}
+	roots := map[string]*ast.RootNamespace{}
+	for sibling, text := range siblings {
+		sf := source.New(sibling, []byte(text))
+		p := parser.New(sf)
+		roots[sibling] = p.ParseFile()
+		m.Index.AddDocument(sibling, roots[sibling])
+		others[sibling] = Document{Source: sf, ParseDiags: p.Diagnostics}
 	}
 	m.Index.ExpandWildcardImports()
+	for sibling, doc := range others {
+		if len(doc.ParseDiags) == 0 {
+			doc.SemDiags = passes.Analyze(sibling, roots[sibling], nil, m.Index)
+			others[sibling] = doc
+		}
+	}
+	m.Other = func(name string) (Document, bool) {
+		doc, ok := others[name]
+		return doc, ok
+	}
 	return m
 }
 

@@ -415,9 +415,10 @@ func TestRenameSeesUnnamedTransitionBodyDeclarations(t *testing.T) {
 	}
 }
 
-// A name another workspace document writes is not renamed: an edit rewrites
-// one document, so the reference there would break. One written there by the
-// short name, or through an alias, still resolves afterwards and does not refuse.
+// A name written in a document the edit may not rewrite — one the model hands
+// out no source for — is not renamed: the reference there would break. One
+// written there by the short name, or through an alias, still resolves
+// afterwards and does not refuse.
 func TestRenameRefusesWhenAnotherDocumentWritesTheName(t *testing.T) {
 	const src = "package P {\n    part def <O> Old;\n    part def Keep;\n}\n"
 	m := loadWorkspace(t, "p.sysml", src, map[string]string{

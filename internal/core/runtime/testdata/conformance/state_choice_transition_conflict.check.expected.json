@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"finalState": ["high", "low"], "route": ["1", "2"]},
+	"agreed": {"level": "8"}
+}

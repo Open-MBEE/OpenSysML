@@ -25,8 +25,8 @@ const (
 // endsAtOne is the property that the racing action, once complete, left x as 1: false at
 // the end of a run whose last writer is another, true at every state before.
 func endsAtOne() runtime.CheckProperty {
-	return runtime.CheckProperty{Name: "x", Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
-		return exec.State() != runtime.StateCompleted || exec.Results()["x"].Const.Int == 1, nil
+	return runtime.CheckProperty{Name: "x", Holds: func(_ *runtime.Context, inv *runtime.Invocation) (bool, error) {
+		return !inv.Completed() || inv.Actions[0].Results()["x"].Const.Int == 1, nil
 	}}
 }
 
@@ -121,8 +121,8 @@ func TestExternalViolationRefusedWhenThePropertyHolds(t *testing.T) {
 func TestExternalViolationIsJudgedAtTheMoveNamed(t *testing.T) {
 	f := parseFixture(t)
 	race := f.checked(t, "race")
-	notOne := runtime.CheckProperty{Name: "x", Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
-		return exec.Results()["x"].Const.Int != 1, nil
+	notOne := runtime.CheckProperty{Name: "x", Holds: func(_ *runtime.Context, inv *runtime.Invocation) (bool, error) {
+		return inv.Actions[0].Results()["x"].Const.Int != 1, nil
 	}}
 	ask := &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{notOne}}
 	at1 := standinRegistry(t, `{"claim":"violated","strength":"witnessed","witness":{"schedules":`+schedules(raceEndsThree)+`,"at":1}}`, WitnessSchedule)
@@ -195,7 +195,7 @@ func inputQuestion(t *testing.T, f *fixture, property runtime.CheckProperty, nam
 	a := f.checked(t, "open")
 	q := questionOf(t, "test::open", Holds, &CheckAsk{Start: a.start, Properties: []runtime.CheckProperty{property}})
 	q.Free |= FreeInputs
-	q.Holds = &HoldsAsk{Behavior: a.sym, Start: a.start, Inputs: named}
+	q.Holds = &HoldsAsk{Behavior: a.sym, Start: a.startAction, Inputs: named}
 	return q
 }
 

@@ -22,6 +22,40 @@ func deleteOp(target string, cascade bool) *pb.EditOperation {
 	}}
 }
 
+func moveOp(target, owner string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_Move{
+		Move: &pb.MoveEdit{Target: target, Owner: owner},
+	}}
+}
+
+func TestApplyEditsMove(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, "package P {\n    part def Base;\n    part def Holder;\n    part x : P::Base;\n}\n")
+
+	moved, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{moveOp("P::Base", "P::Holder")},
+	})
+	if err != nil {
+		t.Fatalf("move call failed: %v", err)
+	}
+	want := "package P {\n    part def Holder {\n        part def Base;\n    }\n    part x : P::Holder::Base;\n}\n"
+	if moved.Error != "" || moved.Content != want {
+		t.Fatalf("move response = %+v\n%s", moved, moved.Content)
+	}
+
+	refused, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{moveOp("P::Holder", "P::Holder")},
+	})
+	if err != nil {
+		t.Fatalf("refused move call failed: %v", err)
+	}
+	if refused.Content != "" || refused.Failure != pb.EditFailure_EDIT_FAILURE_OWNER_INSIDE_TARGET {
+		t.Fatalf("self-move response = %+v", refused)
+	}
+}
+
 func TestApplyEditsAddMemberAndDelete(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustParsedModel(t, srv, "package P {\n    part def Base;\n    part x : Base;\n}\n")
@@ -63,6 +97,8 @@ func TestApplyEditsNewFailureEnumsAreMapped(t *testing.T) {
 		{edit.FailureIllegalKind, pb.EditFailure_EDIT_FAILURE_ILLEGAL_KIND},
 		{edit.FailureMemberNameTaken, pb.EditFailure_EDIT_FAILURE_MEMBER_NAME_TAKEN},
 		{edit.FailureDeleteReferenced, pb.EditFailure_EDIT_FAILURE_DELETE_REFERENCED},
+		{edit.FailureOwnerInsideTarget, pb.EditFailure_EDIT_FAILURE_OWNER_INSIDE_TARGET},
+		{edit.FailureMoveReferenced, pb.EditFailure_EDIT_FAILURE_MOVE_REFERENCED},
 	}
 	for _, tc := range tests {
 		if got := editFailureToProto(tc.failure); got != tc.want {

@@ -39,24 +39,10 @@ func notationName(sym *symbols.Symbol) string {
 // target returns the declaration an operation names. Only a declaration of this
 // model's own document can be edited: its source is the only one being rewritten.
 func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
-	declaring := m.declared(op.Target)
-	switch len(declaring) {
-	case 0:
-		return nil, &Error{
-			Failure:        FailureUnknownTarget,
-			OperationIndex: i,
-			Message:        fmt.Sprintf("no element named %q in this model", op.Target),
-		}
-	case 1:
-	default:
-		return nil, &Error{
-			Failure:        FailureAmbiguousTarget,
-			OperationIndex: i,
-			Message: fmt.Sprintf("%q names %d declarations; it does not say which to edit",
-				op.Target, len(declaring)),
-		}
+	sym, err := m.element(i, op)
+	if err != nil {
+		return nil, err
 	}
-	sym := declaring[0]
 	if doc := sym.DocName; doc != m.Source.Name() {
 		return nil, &Error{
 			Failure:        FailureUnknownTarget,
@@ -66,6 +52,73 @@ func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
 		}
 	}
 	return sym, nil
+}
+
+// element is the declaration an operation edits, in whichever document: the one
+// Target names, or the one at Declaration in this document when Target is empty.
+func (m Model) element(i int, op Operation) (*symbols.Symbol, error) {
+	if op.Target != "" || op.Declaration.Len == 0 {
+		return m.declaredOnce(i, op.Target)
+	}
+	if sym := m.Index.DocumentRoot(m.Source.Name()).DeclaredAt(op.Declaration); sym != nil {
+		return sym, nil
+	}
+	return nil, &Error{
+		Failure:        FailureUnknownTarget,
+		OperationIndex: i,
+		Message:        fmt.Sprintf("nothing is declared at %s of this model", m.at(op.Declaration)),
+	}
+}
+
+// label names the element an operation edits for a message and a splice: its
+// qualified name, or where it is declared when it is reached by no name.
+func (m Model) label(op Operation) string {
+	if op.Target != "" || op.Declaration.Len == 0 {
+		return op.Target
+	}
+	return "the element declared at " + m.at(op.Declaration)
+}
+
+// at spells where a span starts, as line:column.
+func (m Model) at(span source.Span) string {
+	pos := m.Source.Lines().PosAt(span.Offset)
+	return fmt.Sprintf("%d:%d", pos.Line, pos.Col)
+}
+
+// qualified reports whether a qualified name reaches sym: it and every namespace
+// declaring it are named, so an `about` can refer to it.
+func qualified(sym *symbols.Symbol) bool {
+	if sym.Name == "" {
+		return false
+	}
+	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
+		if scope.Owner().Name == "" {
+			return false
+		}
+	}
+	return true
+}
+
+// declaredOnce is the one declaration name names, in whichever document.
+func (m Model) declaredOnce(i int, name string) (*symbols.Symbol, error) {
+	declaring := m.declared(name)
+	switch len(declaring) {
+	case 0:
+		return nil, &Error{
+			Failure:        FailureUnknownTarget,
+			OperationIndex: i,
+			Message:        fmt.Sprintf("no element named %q in this model", name),
+		}
+	case 1:
+		return declaring[0], nil
+	default:
+		return nil, &Error{
+			Failure:        FailureAmbiguousTarget,
+			OperationIndex: i,
+			Message: fmt.Sprintf("%q names %d declarations; it does not say which to edit",
+				name, len(declaring)),
+		}
+	}
 }
 
 // docLabel names a document for a message, for the library declarations that

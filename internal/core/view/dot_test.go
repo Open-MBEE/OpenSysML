@@ -71,7 +71,7 @@ func TestDOTFormSupport(t *testing.T) {
 			t.Errorf("%s supports a machine form that is not its own", kind)
 		}
 	}
-	if got := KindTree.SupportedForms(); fmt.Sprint(got) != "[text mermaid dot]" {
+	if got := KindTree.SupportedForms(); fmt.Sprint(got) != "[text mermaid dot plantuml]" {
 		t.Errorf("tree forms = %v", got)
 	}
 	if got := KindTable.SupportedForms(); fmt.Sprint(got) != "[text markdown]" {
@@ -112,11 +112,11 @@ func TestDOTFormSupport(t *testing.T) {
 	}
 	// The wrong-form error of a graph-shaped kind offers DOT among its forms.
 	_, err := render(t, "tree.sysml", "VehicleViews::vehicleView").Write(FormMarkdown)
-	if err == nil || !strings.Contains(err.Error(), "ask for text, mermaid or dot") {
+	if err == nil || !strings.Contains(err.Error(), "ask for text, mermaid, dot or plantuml") {
 		t.Errorf("markdown of a tree error = %v, want it to offer dot", err)
 	}
 	_, err = render(t, "tree.sysml", "VehicleViews::vehicleView").Write("svg")
-	if err == nil || !strings.Contains(err.Error(), "text, mermaid, markdown and dot") {
+	if err == nil || !strings.Contains(err.Error(), "text, mermaid, markdown, dot and plantuml") {
 		t.Errorf("unknown form error = %v, want it to list dot", err)
 	}
 }

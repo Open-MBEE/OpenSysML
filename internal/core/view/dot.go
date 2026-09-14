@@ -53,13 +53,13 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	}
 	direction := options.Direction
 	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
-		palette: options.Palette}
+		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}}
 	for _, root := range r.Roots {
 		if !w.tree {
 			w.collectClusters(root, nil)
 		}
 		w.countPlaced(root)
-		w.collectFamilies(root)
+		w.fills.collect(root)
 	}
 	for _, edge := range r.Edges {
 		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
@@ -132,10 +132,9 @@ type dotWriter struct {
 	canvas    *Canvas             // the surface positions are flipped against
 	nodes     int                 // nodes written, and how many are positioned
 	placed    int
-	routed    int      // edges with a route to write
-	notices   []string // geometry the form cannot draw
-	palette   Palette  // the fills, by keyword family; empty is black and white
-	families  []string // the keyword families of the nodes filled, in palette order
+	routed    int         // edges with a route to write
+	notices   []string    // geometry the form cannot draw
+	fills     familyFills // the palette fills, by keyword family
 }
 
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
@@ -158,43 +157,6 @@ var (
 // dotColorAttr and dotFontAttr are the quoted `color` and `fontname` attributes.
 func dotColorAttr(color string) string { return "color=" + dotQuote(color) }
 func dotFontAttr(name string) string   { return "fontname=" + dotQuote(name) }
-
-// dotControlKinds are the kinds drawn as control and pseudo-state nodes: they
-// keep the black-and-white rules and a square shape under every palette.
-var dotControlKinds = map[string]bool{startKind: true, "initial": true, "final": true, "fork": true, "join": true,
-	"merge": true, "decision": true, "choice": true, "junction": true, "shallow history": true, "deep history": true}
-
-// dotFilled reports whether a node takes a family colour under a palette: a
-// plain node (a cluster keeps its black border) that is no control node.
-func (w *dotWriter) dotFilled(node *Node) bool {
-	return w.palette != "" && !dotControlKinds[node.Kind] && (len(node.Children) == 0 || w.tree)
-}
-
-// collectFamilies records the keyword families of the nodes under node that a
-// palette fills, in palette order, so a sequential palette spans those present.
-func (w *dotWriter) collectFamilies(node *Node) {
-	if w.dotFilled(node) {
-		family := paletteFamily(node.Kind)
-		if !slices.Contains(w.families, family) {
-			w.families = append(w.families, family)
-			slices.SortFunc(w.families, func(a, b string) int { return familyRank(a) - familyRank(b) })
-		}
-	}
-	for _, child := range node.Children {
-		w.collectFamilies(child)
-	}
-}
-
-// dotFamilyColor is the palette colour of a node's keyword family: a qualitative
-// palette's colour at the family's fixed rank, a sequential palette's at the
-// family's place among those present.
-func (w *dotWriter) dotFamilyColor(node *Node) string {
-	family := paletteFamily(node.Kind)
-	if w.palette.Sequential() {
-		return w.palette.Color(slices.Index(w.families, family), len(w.families))
-	}
-	return w.palette.Color(familyRank(family), len(paletteFamilies)+1)
-}
 
 // countPlaced counts the nodes under node and those a Geometry positions.
 func (w *dotWriter) countPlaced(node *Node) {
@@ -345,13 +307,11 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	case "initial", "final":
 		attrs = w.dotPseudostateAttributes(node)
 	default:
-		if !dotControlKinds[node.Kind] && !isDefinitionKind(node.Kind) {
+		if !controlKinds[node.Kind] && !isDefinitionKind(node.Kind) {
 			attrs = append(attrs, `style="rounded,filled"`)
 		}
-		if w.dotFilled(node) {
-			color := w.dotFamilyColor(node)
-			attrs = append(attrs, "fillcolor="+dotQuote(paletteFill(color, !isDefinitionKind(node.Kind))),
-				dotColorAttr(color), "penwidth=1")
+		if w.fills.filled(node) {
+			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), "penwidth=1")
 		}
 		attrs = append(attrs, dotLabel(node))
 	}

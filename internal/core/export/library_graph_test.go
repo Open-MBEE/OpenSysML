@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -35,6 +36,50 @@ func TestLibraryGraphSpellsImpliedChainSegmentWithoutSourceText(t *testing.T) {
 		t.Errorf("the chain through the implied accepter was not spelled as the library writes it:\n%s", back)
 	}
 	keepsIDsWithoutSourceText(t, name, turtle)
+}
+
+// Every bundled library file comes back from the mapping alone: the notation
+// written from its source-free graph is the library rooted at its normative
+// ids, so it states no id in an annotation and converts to the same graph
+// but for the source text, and that graph writes the same notation again.
+func TestLibraryFilesComeBackFromTheGraphAlone(t *testing.T) {
+	names := libs.EmbeddedSource().List()
+	if len(names) == 0 {
+		t.Fatal("no bundled library files")
+	}
+	for _, name := range names {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			turtle, stripped := libraryGraphWithoutSourceText(t, name)
+			back := toNotation(t, stripped)
+			if strings.Contains(back, "sysx:") {
+				t.Errorf("the notation leaks graph vocabulary:\n%s", back)
+			}
+			if strings.Contains(back, "@IdentityMetadata::ElementId") {
+				t.Errorf("the library's ids are the norm's, yet the notation states one:\n%s", back)
+			}
+			keepsIDsWithoutSourceText(t, name, turtle)
+			copyName := "copy" + filepath.Ext(name)
+			second, err := export.Convert(copyName, []byte(back), export.FormatSysML, export.FormatTurtle)
+			if err != nil {
+				t.Fatalf("rebuilt notation to turtle: %v", err)
+			}
+			if got := withoutSourceText(t, second); string(got) != string(stripped) {
+				t.Errorf("the first source-free hop changed the graph:\n%s", firstLineDifference(stripped, got))
+			}
+			again := toNotation(t, withoutSourceText(t, second))
+			if again != back {
+				t.Errorf("the graph of the rebuilt notation writes different notation:\n%s", firstLineDifference([]byte(back), []byte(again)))
+			}
+			third, err := export.Convert(copyName, []byte(again), export.FormatSysML, export.FormatTurtle)
+			if err != nil {
+				t.Fatalf("second rebuilt notation to turtle: %v", err)
+			}
+			if string(third) != string(second) {
+				t.Errorf("the second source-free hop is not idempotent:\n%s", firstLineDifference(second, third))
+			}
+		})
+	}
 }
 
 // A KerML library graph whose roots record no grammar is read in the library

@@ -18,9 +18,9 @@ func connectorEndReference(end *ast.ConnectorEnd) ast.Node {
 // by the name-resolution tier (*resolve.Resolver) so lowering matches no names
 // itself.
 type EndpointResolver interface {
-	// Endpoint returns the declaration qn names, written in scope, and whether it
-	// names a vertex at all.
-	Endpoint(scope *symbols.Scope, qn *ast.QualifiedName) (decl ast.Node, ok bool)
+	// Endpoint returns the declaration an endpoint names, written in scope, and
+	// whether it names a vertex at all. target is a name or a feature chain (`c.c1`).
+	Endpoint(scope *symbols.Scope, target ast.Node) (decl ast.Node, ok bool)
 }
 
 // machineEndpoints resolves the endpoints of one machine through a resolver over
@@ -30,11 +30,11 @@ type machineEndpoints struct {
 	scope    *symbols.Scope
 }
 
-func (m machineEndpoints) Endpoint(scope *symbols.Scope, qn *ast.QualifiedName) (ast.Node, bool) {
+func (m machineEndpoints) Endpoint(scope *symbols.Scope, target ast.Node) (ast.Node, bool) {
 	if scope == nil {
 		scope = m.scope
 	}
-	return m.resolver.Endpoint(scope, qn)
+	return m.resolver.Endpoint(scope, target)
 }
 
 func (m machineEndpoints) RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
@@ -48,15 +48,38 @@ func (m machineEndpoints) LibraryFeature(sym *symbols.Symbol) bool {
 	return m.resolver.LibraryFeature(sym)
 }
 
+// EndpointRef is the node a connector end names a vertex with: a qualified name
+// or a feature chain, unwrapped from a feature reference; nil for anything else.
+func EndpointRef(target ast.Node) ast.Node {
+	switch t := target.(type) {
+	case *ast.FeatureReference:
+		if t == nil {
+			return nil
+		}
+		return EndpointRef(t.Name)
+	case *ast.QualifiedName:
+		if t == nil {
+			return nil
+		}
+		return t
+	case *ast.FeatureChainExpr:
+		if t == nil || t.Member == nil || EndpointRef(t.Operand) == nil {
+			return nil
+		}
+		return t
+	}
+	return nil
+}
+
 // scopeEndpoints resolves an endpoint from the caller's own scope tree, for a
 // machine lowered with that tree but without the resolver over its document.
 type scopeEndpoints struct{ machine *symbols.Scope }
 
-func (s scopeEndpoints) Endpoint(scope *symbols.Scope, qn *ast.QualifiedName) (ast.Node, bool) {
+func (s scopeEndpoints) Endpoint(scope *symbols.Scope, target ast.Node) (ast.Node, bool) {
 	if scope == nil {
 		scope = s.machine
 	}
-	return resolve.VertexInScope(scope, qn)
+	return resolve.VertexInScope(scope, target)
 }
 
 // localEndpoints indexes a machine no scope tree holds — a hand-built one in a

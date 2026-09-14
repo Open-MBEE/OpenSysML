@@ -373,15 +373,22 @@ func TestEngineWrittenWitnessCarriesItsTrace(t *testing.T) {
 	}
 	fresh := func() (*runtime.Context, error) { return runtime.NewContext(m, 10000), nil }
 	positive := lookup(t, d.idx, "test::A::positive")
-	props := []runtime.CheckProperty{{Name: w.Property, Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
-		ok, err := exec.Holds(positive, nil)
+	props := []runtime.CheckProperty{{Name: w.Property, Holds: func(_ *runtime.Context, inv *runtime.Invocation) (bool, error) {
+		ok, err := inv.Actions[0].Holds(positive, nil)
 		var violation *runtime.ViolationError
 		if errors.As(err, &violation) {
 			return false, nil
 		}
 		return ok, err
 	}}}
-	if _, err := runtime.ReplayAction(context.Background(), fresh, runtime.ActionStarter(q.Holds.Start), w, props); err != nil {
+	start := func(ctx *runtime.Context) (*runtime.Invocation, error) {
+		exec, err := q.Holds.Start(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return &runtime.Invocation{Actions: []*runtime.ActionExecutor{exec}}, nil
+	}
+	if _, err := runtime.Replay(context.Background(), fresh, start, w, props); err != nil {
 		t.Fatalf("replaying the written witness: %v", err)
 	}
 }

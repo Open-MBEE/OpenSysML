@@ -65,9 +65,34 @@ export interface RenderNode {
   parent?: string;
   /** The qualified name a model edit targets the declaration by; absent for a node with none in this document. */
   fqn?: string;
+  /** The keyword the declaration was written with (`part def`, `port`); with `fqn`. A move asks its new owner to admit it. */
+  notation?: string;
   /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
   owners?: RenderOwner[];
+  /** The range of the node's declaration when the document declares it but no qualified name reaches it; a layout edit targets that instead of `fqn`. */
+  declaration?: Range;
   origin?: RenderOrigin;
+  /** Where a `DiagramLayout::Layout` puts the node, in pixels, y down; absent when the model does not place it. */
+  x?: number;
+  y?: number;
+  /** The stated size, both or neither. */
+  width?: number;
+  height?: number;
+  /** The node is drawn closed, its children hidden. */
+  collapsed?: boolean;
+}
+
+/** One waypoint or corner, in the canvas's pixels, y down. */
+export interface RenderPoint {
+  x: number;
+  y: number;
+}
+
+/** The drawing surface a view states with a `DiagramLayout::Canvas`. */
+export interface RenderCanvas {
+  unit?: string;
+  width?: number;
+  height?: number;
 }
 
 /** RenderOwner is a namespace declaring a node: its qualified name, and whether it is a feature an end path chains through with `.`. */
@@ -81,7 +106,13 @@ export interface RenderEdge {
   to: string;
   label: string;
   kind: string;
+  /** The qualified name a model edit targets the declaring connection by; absent for one not declared in this document. */
+  fqn?: string;
+  /** The range of the connection's declaration when no qualified name reaches it, as on a node. */
+  declaration?: Range;
   origin?: RenderOrigin;
+  /** The waypoints a `DiagramLayout::Route` steers the edge through, source to target. */
+  route?: RenderPoint[];
 }
 
 export interface RenderRow {
@@ -106,9 +137,19 @@ export interface RenderResult {
   rows?: RenderRow[];
   columns?: string[];
   notices: string[];
+  canvas?: RenderCanvas;
   /** What a diagram of this kind offers to add; absent when the rendering is not editable. */
   palette?: EditPalette;
   version: number;
+}
+
+/** The geometry a `setLayout` writes; `width` and `height` go together. */
+export interface LayoutGeometry {
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  collapsed?: boolean;
 }
 
 /** The member and connection kinds a rendering's kind offers, in the document's language. */
@@ -117,7 +158,7 @@ export interface EditPalette {
   connections: string[];
   /** The members that take a type. */
   typed: string[];
-  /** For each member only some bodies offer (`subject`), the ids of the nodes that open one. */
+  /** For each member only some bodies offer (`subject`), and each drawn notation that is one, the ids of the nodes that open one. */
   owners?: Record<string, string[]>;
 }
 
@@ -127,13 +168,29 @@ export function admits(palette: EditPalette | undefined, memberKind: string, nod
   return owners ? owners.includes(node.id) : true;
 }
 
+/** reachable: whether a layout edit can reach a node or edge — by qualified name, or by declaration when none reaches it. */
+export function reachable(element: RenderNode | RenderEdge): boolean {
+  return element.fqn !== undefined || element.declaration !== undefined;
+}
+
 /** One edit.Operation on the wire; `kind` selects which of the other fields are read. */
 export type ModelEditOperation =
   | { kind: "setValue"; target: string; value: string }
   | { kind: "rename"; target: string; newName: string }
   | { kind: "addMember"; owner: string; memberKind: string; name: string; type?: string; multiplicity?: string; value?: string; specializes?: string[] }
   | { kind: "addConnection"; owner: string; memberKind: string; from: string; to: string; name?: string; type?: string }
-  | { kind: "delete"; target: string; cascade?: boolean };
+  | { kind: "delete"; target: string; cascade?: boolean }
+  | { kind: "move"; target: string; owner: string }
+  /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. */
+  | { kind: "setLayout"; target: string; view?: string; layout?: LayoutGeometry }
+  /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. */
+  | { kind: "setLayout"; declaration: Range; layout?: LayoutGeometry }
+  /** Steers the connection `target` through `route`, per view or inline as above; an empty or absent route clears it. */
+  | { kind: "setRoute"; target: string; view?: string; route?: RenderPoint[] }
+  /** Steers the connection declared at `declaration` inline, as `setLayout` by declaration places a node. */
+  | { kind: "setRoute"; declaration: Range; route?: RenderPoint[] }
+  /** Sizes the drawing surface of the view `target`; no `canvas` clears it. */
+  | { kind: "setCanvas"; target: string; canvas?: RenderCanvas };
 
 export interface ApplyModelEditParams {
   textDocument: { uri: string };
@@ -141,16 +198,30 @@ export interface ApplyModelEditParams {
   operations: ModelEditOperation[];
 }
 
-/** Why an operation was refused; `operation` is its index, or -1 for the request as a whole. */
+/**
+ * Why an operation was refused; `operation` is its index, or -1 for the request as a whole.
+ * `referring` names the declarations referring to a refused target, qualified by document
+ * when that is another; `referrers` tells each from the document declaring it.
+ */
 export interface ModelEditRefusal {
   operation: number;
   failure: string;
   message: string;
   diagnostics?: { range: Range; message: string; severity?: number; code?: string | number; source?: string }[];
   referring?: string[];
+  referrers?: ModelEditReferrer[];
 }
 
-/** A WorkspaceEdit as the protocol writes it; the language client converts it. */
+export interface ModelEditReferrer {
+  name: string;
+  uri: string;
+}
+
+/**
+ * A WorkspaceEdit as the protocol writes it; the language client converts it. Each document
+ * change is pinned to the version the server computed it against, null for a document the
+ * server read from disk.
+ */
 export interface WorkspaceEdit {
   changes?: Record<string, TextEdit[]>;
   documentChanges?: { textDocument: { uri: string; version: number | null }; edits: TextEdit[] }[];
@@ -231,7 +302,20 @@ export type EditAction =
   | { kind: "addMember"; memberKind: string; typed: boolean; owner?: string }
   | { kind: "addConnection"; connectionKind: string; from?: string; to?: string }
   | { kind: "rename"; id: string }
-  | { kind: "delete"; id: string };
+  | { kind: "delete"; id: string }
+  | { kind: "move"; id: string };
+
+/** Where a gesture left a node. */
+export interface NodePlacement {
+  id: string;
+  layout: LayoutGeometry;
+}
+
+/** Where a gesture left an edge, by its index in the rendering's edges: its waypoints, or none for a straight edge. */
+export interface EdgePlacement {
+  index: number;
+  route?: RenderPoint[];
+}
 
 /** A message the webview sends the extension; `version` is the rendering an action's ids name. */
 export type FromWebview =
@@ -239,4 +323,6 @@ export type FromWebview =
   | { type: "reveal"; id: string }
   | { type: "pick"; view: string }
   | { type: "edit"; action: EditAction; version: number }
+  /** One completed gesture: everything it moved, applied as one edit. */
+  | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; version: number }
   | { type: "failed"; message: string };

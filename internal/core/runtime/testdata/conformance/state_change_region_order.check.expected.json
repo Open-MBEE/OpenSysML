@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"last": ["1", "2"]},
+	"agreed": {"finalState": "a2+b2", "temp": "30"}
+}

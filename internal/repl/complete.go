@@ -50,12 +50,12 @@ func (s *Session) Complete(line string, pos int) Completion {
 		return completion(word, pathCompletions(word))
 	}
 	// %render takes the form after the view name, which is no name to look up,
-	// and a palette after the dot form.
+	// and a palette after a form that fills nodes.
 	if command == "%render" && atSecondArgument(head) {
 		word := lastField(head)
 		return completion(word, matchingPrefix(renderForms(), word))
 	}
-	if command == "%render" && atDotPalette(head) {
+	if command == "%render" && atPaletteArgument(head) {
 		word := lastField(head)
 		return completion(word, matchingPrefix(renderPalettes(), word))
 	}
@@ -113,11 +113,11 @@ func atSecondArgument(head string) bool {
 	return !inUnfinishedName(head) && argumentIndex(head) == 2
 }
 
-// atDotPalette reports whether the word being typed is %render's third
-// argument after the dot form: the palette to fill from.
-func atDotPalette(head string) bool {
+// atPaletteArgument reports whether the word being typed is %render's third
+// argument after a form that takes a palette: the palette to fill from.
+func atPaletteArgument(head string) bool {
 	args := typedArgs(head)
-	return !inUnfinishedName(head) && argumentIndex(head) == 3 && len(args) > 2 && args[2] == string(view.FormDot)
+	return !inUnfinishedName(head) && argumentIndex(head) == 3 && len(args) > 2 && view.Form(args[2]).TakesPalette()
 }
 
 // atObjectArgument reports whether the word being typed is an argument the

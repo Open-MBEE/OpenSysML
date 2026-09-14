@@ -26,12 +26,68 @@ func checkModel(t *testing.T, m *exploreModel, name string, budget CheckBudget, 
 func checkModelErr(t *testing.T, m *exploreModel, name string, budget CheckBudget, opts CheckOptions, props ...CheckProperty) (*CheckReport, error) {
 	t.Helper()
 	sym := m.action(t, name)
-	return CheckAction(context.Background(), m.fresh, starterOf(sym), budget, opts, props)
+	return Check(context.Background(), m.fresh, starterOf(sym), budget, opts, props)
 }
 
-func starterOf(sym *symbols.Symbol) ActionStarter {
-	return func(ctx *Context) (*ActionExecutor, error) {
-		return ctx.CreateActionExecutor(sym)
+func starterOf(sym *symbols.Symbol) Starter {
+	return func(ctx *Context) (*Invocation, error) {
+		exec, err := ctx.CreateActionExecutor(sym)
+		if err != nil {
+			return nil, err
+		}
+		return &Invocation{Actions: []*ActionExecutor{exec}}, nil
+	}
+}
+
+// checkStart checks the invocation the starter starts, under the default bounds.
+func checkStart(t *testing.T, m *exploreModel, start Starter, opts CheckOptions, props ...CheckProperty) *CheckReport {
+	t.Helper()
+	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, opts, props)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	return report
+}
+
+// invocationOf starts the actions and the state machines, performed by no object.
+func invocationOf(actions, states []*symbols.Symbol) Starter {
+	return func(ctx *Context) (*Invocation, error) {
+		inv := &Invocation{}
+		for _, sym := range actions {
+			exec, err := ctx.CreateActionExecutor(sym)
+			if err != nil {
+				inv.Release()
+				return nil, err
+			}
+			inv.Actions = append(inv.Actions, exec)
+		}
+		for _, sym := range states {
+			exec, err := ctx.CreateStateExecutor(sym)
+			if err != nil {
+				inv.Release()
+				return nil, err
+			}
+			inv.States = append(inv.States, exec)
+		}
+		return inv, nil
+	}
+}
+
+// action is the one action a single-action invocation runs.
+func (inv *Invocation) action() *ActionExecutor { return inv.Actions[0] }
+
+// performedBy starts the action performed by a fresh instance of the part.
+func performedBy(part, action *symbols.Symbol) Starter {
+	return func(ctx *Context) (*Invocation, error) {
+		self, err := ctx.Instantiate(part)
+		if err != nil {
+			return nil, err
+		}
+		exec, err := ctx.CreateActionExecutorFor(action, self)
+		if err != nil {
+			return nil, err
+		}
+		return &Invocation{Actions: []*ActionExecutor{exec}}, nil
 	}
 }
 
@@ -113,7 +169,8 @@ func TestCheckForkBranchesWriteOneFeatureDiverge(t *testing.T) {
 // violation on the schedule completing, at the depth that completes it.
 func TestCheckEvaluatesPropertiesAtCompletion(t *testing.T) {
 	m := conformanceModel(t, "action_join_waits_for_slowest_branch")
-	incomplete := CheckProperty{Name: "incomplete", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+	incomplete := CheckProperty{Name: "incomplete", Holds: func(_ *Context, inv *Invocation) (bool, error) {
+		exec := inv.action()
 		return exec.State() != StateCompleted, nil
 	}}
 	for _, opts := range []CheckOptions{reduced(), unreduced()} {
@@ -126,8 +183,8 @@ func TestCheckEvaluatesPropertiesAtCompletion(t *testing.T) {
 			t.Fatalf("reduce=%v: violation %+v, want incomplete false at the completing depth %d", opts.Reduce, v, report.MaxDepth)
 		}
 		r := replayWitness(t, m, starterOf(m.action(t, "gather")), v.Witness, "completion", incomplete)
-		if r.Err != nil || r.Exec.State() != StateCompleted {
-			t.Fatalf("reduce=%v: the replay ends %s with %v, want complete", opts.Reduce, r.Exec.State(), r.Err)
+		if r.Err != nil || r.Inv.action().State() != StateCompleted {
+			t.Fatalf("reduce=%v: the replay ends %s with %v, want complete", opts.Reduce, r.Inv.action().State(), r.Err)
 		}
 	}
 	// An action complete before any move is the same state.
@@ -167,7 +224,7 @@ func TestCheckStopsWhenCancelled(t *testing.T) {
 	m := conformanceModel(t, "action_join_waits_for_slowest_branch")
 	stop, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := CheckAction(stop, m.fresh, starterOf(m.action(t, "gather")), CheckBudget{}, reduced(), nil)
+	_, err := Check(stop, m.fresh, starterOf(m.action(t, "gather")), CheckBudget{}, reduced(), nil)
 	var stopped *CheckStopped
 	if !errors.As(err, &stopped) || !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want CheckStopped wrapping context.Canceled", err)
@@ -194,7 +251,7 @@ func TestCheckWitnessesReplay(t *testing.T) {
 	}
 }
 
-func replayWitness(t *testing.T, m *exploreModel, start ActionStarter, w Witness, claim string, props ...CheckProperty) *Replayed {
+func replayWitness(t *testing.T, m *exploreModel, start Starter, w Witness, claim string, props ...CheckProperty) *Replayed {
 	t.Helper()
 	parsed, err := ParseWitness(w.String())
 	if err != nil {
@@ -203,7 +260,7 @@ func replayWitness(t *testing.T, m *exploreModel, start ActionStarter, w Witness
 	if parsed.Trace != w.Trace || parsed.Fails != w.Fails || parsed.Property != w.Property || len(parsed.Choices) != len(w.Choices) {
 		t.Fatalf("%s: the witness reads back otherwise:\n%s", claim, w)
 	}
-	r, err := ReplayAction(context.Background(), m.fresh, start, parsed, props)
+	r, err := Replay(context.Background(), m.fresh, start, parsed, props)
 	if err != nil {
 		t.Fatalf("%s: replay: %v", claim, err)
 	}
@@ -224,18 +281,18 @@ func TestCheckReplayFollowsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 	mustSchedule(t, ctx, ReplayPolicy(choices))
 	trace := NewTraceRecorder()
 	ctx.SetTrace(trace)
-	exec, err := start(ctx)
+	inv, err := start(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := exec.RunToCompletion(); err != nil {
+	if err := inv.Actions[0].RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}
 	if err := ctx.Unfollowed(); err != nil {
 		t.Fatal(err)
 	}
 	r := replayWitness(t, m, start, Witness{Choices: choices, Trace: trace.String()}, "x = 2")
-	if got := r.Ctx.ActionOutcome(r.Exec.Results()).String(); got != "x = 2" || r.Err != nil {
+	if got := r.Outcome(); got != "x = 2" || r.Err != nil {
 		t.Fatalf("the replay reached %s, %v; want x = 2", got, r.Err)
 	}
 }
@@ -246,7 +303,7 @@ func TestCheckReplayDisagreesWithATamperedWitness(t *testing.T) {
 	report := checkModel(t, m, "clash", CheckBudget{}, reduced())
 	w := report.Finals[0].Witness
 	other := Witness{Choices: report.Finals[1].Witness.Choices, Trace: w.Trace}
-	_, err := ReplayAction(context.Background(), m.fresh, starterOf(m.action(t, "clash")), other, nil)
+	_, err := Replay(context.Background(), m.fresh, starterOf(m.action(t, "clash")), other, nil)
 	var dis *ReplayDisagreement
 	if !errors.As(err, &dis) || !errors.Is(err, ErrReplayDisagrees) {
 		t.Fatalf("replay = %v, want a ReplayDisagreement", err)
@@ -266,14 +323,14 @@ func TestCheckReplayStopsWhenCancelled(t *testing.T) {
 		cancel()
 		return m.fresh()
 	}
-	r, err := ReplayAction(stop, fresh, starterOf(m.action(t, "clash")), w, nil)
+	r, err := Replay(stop, fresh, starterOf(m.action(t, "clash")), w, nil)
 	if !errors.Is(err, context.Canceled) || errors.Is(err, ErrReplayDisagrees) {
 		t.Fatalf("replay = %v, want context.Canceled", err)
 	}
-	if r == nil || r.Exec == nil || r.Ctx.Trace().String() == w.Trace {
+	if r == nil || r.Inv == nil || r.Ctx.Trace().String() == w.Trace {
 		t.Fatalf("the replay ran to the claimed state after being cancelled")
 	}
-	if _, err := ReplayAction(stop, m.fresh, starterOf(m.action(t, "clash")), w, nil); !errors.Is(err, context.Canceled) {
+	if _, err := Replay(stop, m.fresh, starterOf(m.action(t, "clash")), w, nil); !errors.Is(err, context.Canceled) {
 		t.Fatalf("replay under a cancelled context = %v, want context.Canceled", err)
 	}
 }
@@ -304,14 +361,8 @@ func TestCheckWitnessesAPerformedActionThroughItsPerformer(t *testing.T) {
 	}`)
 	fill := m.idx.LookupQualified("test::Tank::fill")[0]
 	tank := m.idx.LookupQualified("test::Tank")[0]
-	start := func(ctx *Context) (*ActionExecutor, error) {
-		self, err := ctx.Instantiate(tank)
-		if err != nil {
-			return nil, err
-		}
-		return ctx.CreateActionExecutorFor(fill, self)
-	}
-	report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"this.level"}}, nil)
+	start := performedBy(tank, fill)
+	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"this.level"}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,13 +405,7 @@ func TestCheckDivergeNamesTellTheActionsFeaturesFromThePerformers(t *testing.T) 
 	}`)
 	fill := m.idx.LookupQualified("test::Tank::fill")[0]
 	tank := m.idx.LookupQualified("test::Tank")[0]
-	start := func(ctx *Context) (*ActionExecutor, error) {
-		self, err := ctx.Instantiate(tank)
-		if err != nil {
-			return nil, err
-		}
-		return ctx.CreateActionExecutorFor(fill, self)
-	}
+	start := performedBy(tank, fill)
 	features := func(report *CheckReport) []string {
 		var names []string
 		for _, d := range report.Divergent {
@@ -377,7 +422,7 @@ func TestCheckDivergeNamesTellTheActionsFeaturesFromThePerformers(t *testing.T) 
 		{[]string{"this.level"}, []string{"this.level"}},
 		{[]string{"level", "this.level"}, []string{"level", "this.level"}},
 	} {
-		report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, CheckOptions{Reduce: true, Diverge: tc.diverge}, nil)
+		report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, CheckOptions{Reduce: true, Diverge: tc.diverge}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -420,14 +465,9 @@ func TestCheckPropertyOfThePerformerIsWitnessed(t *testing.T) {
 	fill := m.idx.LookupQualified("test::Tank::fill")[0]
 	tank := m.idx.LookupQualified("test::Tank")[0]
 	low := m.idx.LookupQualified("test::Tank::low")[0]
-	start := func(ctx *Context) (*ActionExecutor, error) {
-		self, err := ctx.Instantiate(tank)
-		if err != nil {
-			return nil, err
-		}
-		return ctx.CreateActionExecutorFor(fill, self)
-	}
-	prop := CheckProperty{Name: "low", Holds: func(ctx *Context, exec *ActionExecutor) (bool, error) {
+	start := performedBy(tank, fill)
+	prop := CheckProperty{Name: "low", Holds: func(ctx *Context, inv *Invocation) (bool, error) {
+		exec := inv.action()
 		result, err := ctx.CheckConstraintOn(low, tank.Scope, exec.Performer())
 		if err != nil && !errors.Is(err, ErrViolated) {
 			return false, err
@@ -435,7 +475,7 @@ func TestCheckPropertyOfThePerformerIsWitnessed(t *testing.T) {
 		return result.Holds, nil
 	}}
 	for _, opts := range []CheckOptions{reduced(), unreduced()} {
-		report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, opts, []CheckProperty{prop})
+		report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, opts, []CheckProperty{prop})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -447,7 +487,7 @@ func TestCheckPropertyOfThePerformerIsWitnessed(t *testing.T) {
 			t.Fatalf("reduce=%v: violation %+v, want the property low", opts.Reduce, v)
 		}
 		r := replayWitness(t, m, start, v.Witness, "low false", prop)
-		holds, err := prop.Holds(r.Ctx, r.Exec)
+		holds, err := prop.Holds(r.Ctx, r.Inv)
 		if err != nil || holds {
 			t.Fatalf("reduce=%v: replayed to a state where low = %v, %v; want false", opts.Reduce, holds, err)
 		}
@@ -537,7 +577,7 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 			}
 			// The same schedule claiming a state the run goes on from does not replay.
 			state := Witness{Choices: v.Witness.Choices, Trace: v.Witness.Trace}
-			_, err := ReplayAction(context.Background(), m.fresh, starterOf(m.action(t, c.action)), state, nil)
+			_, err := Replay(context.Background(), m.fresh, starterOf(m.action(t, c.action)), state, nil)
 			if !errors.Is(err, ErrReplayDisagrees) {
 				t.Fatalf("replay of the schedule without its failure = %v, want a disagreement", err)
 			}
@@ -545,28 +585,30 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 	}
 }
 
-// The check lets go of the executor it started however the search ends: complete,
-// or refused by a construct a later stage owns. The clock drives it no further and
-// a step of it is the released executor's refusal.
+// The check lets go of the executor it started once the search ends, its bodies
+// paused along the way or not. The clock drives it no further and a step of it is
+// the released executor's refusal.
 func TestCheckReleasesItsExecutorHoweverTheSearchEnds(t *testing.T) {
-	want := map[string]error{
-		"action_explore_performed_and_accept_due_together": ErrSnapshotPausedBody,
-		"action_fork_branches_write_one_feature":           nil,
+	want := map[string]bool{
+		"action_explore_performed_and_accept_due_together": true,
+		"action_fork_branches_write_one_feature":           true,
 	}
 	for _, c := range checkCorpus(t) {
-		if _, tested := want[c.name]; !tested {
+		if !want[c.name] {
 			continue
 		}
 		t.Run(c.name, func(t *testing.T) {
 			var started *ActionExecutor
-			start := func(ctx *Context) (*ActionExecutor, error) {
-				exec, err := ctx.CreateActionExecutor(c.sym)
-				started = exec
-				return exec, err
+			start := func(ctx *Context) (*Invocation, error) {
+				inv, err := c.start(ctx)
+				if err != nil {
+					return nil, err
+				}
+				started = inv.action()
+				return inv, nil
 			}
-			_, err := CheckAction(context.Background(), c.model.fresh, start, CheckBudget{}, reduced(), nil)
-			if !errors.Is(err, want[c.name]) {
-				t.Fatalf("check = %v, want %v", err, want[c.name])
+			if _, err := Check(context.Background(), c.model.fresh, start, CheckBudget{}, reduced(), nil); err != nil {
+				t.Fatalf("check = %v", err)
 			}
 			if started == nil {
 				t.Fatal("the check started no executor")
@@ -611,7 +653,7 @@ func TestCheckReplaysAFailureLeavingNoTrace(t *testing.T) {
 	}
 	other := Witness{Trace: v.Witness.Trace, Fails: "another failure"}
 	var dis *ReplayDisagreement
-	if _, err := ReplayAction(context.Background(), m.fresh, start, other, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "otherwise than claimed") {
+	if _, err := Replay(context.Background(), m.fresh, start, other, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "otherwise than claimed") {
 		t.Fatalf("replay claiming another failure = %v, want a disagreement naming both", err)
 	}
 }
@@ -652,15 +694,9 @@ func TestCheckReportsAnUnresolvedViaPortAsTheRoutingError(t *testing.T) {
 	}`)
 	listen := m.idx.LookupQualified("test::Listener::listen")[0]
 	part := m.idx.LookupQualified("test::Listener")[0]
-	start := func(ctx *Context) (*ActionExecutor, error) {
-		self, err := ctx.Instantiate(part)
-		if err != nil {
-			return nil, err
-		}
-		return ctx.CreateActionExecutorFor(listen, self)
-	}
+	start := performedBy(part, listen)
 	for _, opts := range []CheckOptions{reduced(), unreduced()} {
-		report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, opts, nil)
+		report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, opts, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -720,7 +756,7 @@ func TestCheckMergeLoopHitsTheDepthBound(t *testing.T) {
 		}
 		return ctx, ctx.SetBudgets(limits)
 	}
-	stepped, err := CheckAction(context.Background(), fresh, starterOf(m.action(t, "spin")), CheckBudget{}, reduced(), nil)
+	stepped, err := Check(context.Background(), fresh, starterOf(m.action(t, "spin")), CheckBudget{}, reduced(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -757,7 +793,8 @@ func TestCheckSearchesAgainWhatTheDepthBoundCutFromAShorterWay(t *testing.T) {
 			succession first bump then done;
 		}
 	}`)
-	low := CheckProperty{Name: "low", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+	low := CheckProperty{Name: "low", Holds: func(_ *Context, inv *Invocation) (bool, error) {
+		exec := inv.action()
 		return exec.Data()["n"].Const.Int < 1, nil
 	}}
 	// The short way makes n = 1 after 4 moves, the long way after 7: with a bound
@@ -933,10 +970,7 @@ func TestCheckTellsSetMembersApartInTheVisitedSet(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}
-	form, err := exec.canonicalState()
-	if err != nil {
-		t.Fatal(err)
-	}
+	form := (&Invocation{Actions: []*ActionExecutor{exec}}).canonicalState(nil)
 	for _, path := range []string{"workers[0]", "workers[1]", "workers[2]"} {
 		if !strings.Contains(form.text, "object test::team#1."+path+": ") {
 			t.Errorf("canonical form names no object at %s:\n%s", path, form.text)
@@ -979,17 +1013,11 @@ func TestCheckKeepsAnUnsetFeatureInADivergence(t *testing.T) {
 	}`)
 	fill := m.idx.LookupQualified("test::Tank::fill")[0]
 	tank := m.idx.LookupQualified("test::Tank")[0]
-	start := func(ctx *Context) (*ActionExecutor, error) {
-		self, err := ctx.Instantiate(tank)
-		if err != nil {
-			return nil, err
-		}
-		return ctx.CreateActionExecutorFor(fill, self)
-	}
+	start := performedBy(tank, fill)
 	for _, diverge := range [][]string{nil, {"y", "this.mark"}} {
 		for _, opts := range []CheckOptions{reduced(), unreduced()} {
 			opts.Diverge = diverge
-			report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, opts, nil)
+			report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, opts, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1195,10 +1223,12 @@ func TestCheckSearchesEveryOrderUnderAProperty(t *testing.T) {
 		}
 	}`)
 	at := func(exec *ActionExecutor, name string) int64 { return exec.Results()[name].Const.Int }
-	notLeftFirst := CheckProperty{Name: "notLeftFirst", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+	notLeftFirst := CheckProperty{Name: "notLeftFirst", Holds: func(_ *Context, inv *Invocation) (bool, error) {
+		exec := inv.action()
 		return !(at(exec, "a") == 2 && at(exec, "b") == 0), nil
 	}}
-	notRightFirst := CheckProperty{Name: "notRightFirst", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+	notRightFirst := CheckProperty{Name: "notRightFirst", Holds: func(_ *Context, inv *Invocation) (bool, error) {
+		exec := inv.action()
 		return !(at(exec, "b") == 2 && at(exec, "a") == 0), nil
 	}}
 	outcomes := checkModel(t, m, "pair", CheckBudget{}, reduced())
@@ -1221,7 +1251,8 @@ func TestCheckReplaysAPropertyThatFailsToEvaluate(t *testing.T) {
 	m := conformanceModel(t, "action_fork_branches_write_one_feature")
 	start := starterOf(m.action(t, "clash"))
 	offline := errors.New("the sensor is offline")
-	sensor := CheckProperty{Name: "sensor", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+	sensor := CheckProperty{Name: "sensor", Holds: func(_ *Context, inv *Invocation) (bool, error) {
+		exec := inv.action()
 		if exec.State() == StateCompleted && exec.Results()["x"].Const.Int == 2 {
 			return false, offline
 		}
@@ -1242,10 +1273,10 @@ func TestCheckReplaysAPropertyThatFailsToEvaluate(t *testing.T) {
 	if !errors.Is(r.Err, offline) {
 		t.Fatalf("replay ends with %v, want the sensor's failure", r.Err)
 	}
-	quiet := CheckProperty{Name: "sensor", Holds: func(*Context, *ActionExecutor) (bool, error) { return false, nil }}
+	quiet := CheckProperty{Name: "sensor", Holds: func(*Context, *Invocation) (bool, error) { return false, nil }}
 	for name, props := range map[string][]CheckProperty{"none": nil, "another": {quiet}} {
 		var dis *ReplayDisagreement
-		if _, err := ReplayAction(context.Background(), m.fresh, start, v.Witness, props); !errors.As(err, &dis) {
+		if _, err := Replay(context.Background(), m.fresh, start, v.Witness, props); !errors.As(err, &dis) {
 			t.Errorf("replay given %s property: %v, want a ReplayDisagreement", name, err)
 		}
 	}

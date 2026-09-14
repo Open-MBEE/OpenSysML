@@ -929,7 +929,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -944,6 +944,8 @@ pub mod edit_operation {
         AddMember(super::AddMemberEdit),
         #[prost(message, tag="4")]
         Delete(super::DeleteEdit),
+        #[prost(message, tag="5")]
+        Move(super::MoveEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -980,6 +982,19 @@ pub struct DeleteEdit {
     /// Also remove declarations that refer to target.
     #[prost(bool, tag="2")]
     pub cascade: bool,
+}
+/// MoveEdit re-parents a declaration: the span DeleteEdit would remove is
+/// written where AddMemberEdit would insert it, and the references the move
+/// breaks are respelled so the model stays valid. A move whose references
+/// cannot be respelled is refused, naming them, rather than leaving them dangling.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MoveEdit {
+    /// Fully qualified name of the declaration to move.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Namespace FQN to receive the declaration; empty means the document root.
+    #[prost(string, tag="2")]
+    pub owner: ::prost::alloc::string::String,
 }
 /// SetValueEdit sets the value of a feature that already exists, replacing the
 /// expression of its `= <expr>` or adding one before the declaration's `;`.
@@ -2013,6 +2028,10 @@ pub enum EditFailure {
     MemberNameTaken = 14,
     /// delete would leave references
     DeleteReferenced = 15,
+    /// move owner is the target or inside it
+    OwnerInsideTarget = 16,
+    /// move would leave a reference no spelling restores
+    MoveReferenced = 17,
 }
 impl EditFailure {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2037,6 +2056,8 @@ impl EditFailure {
             Self::IllegalKind => "EDIT_FAILURE_ILLEGAL_KIND",
             Self::MemberNameTaken => "EDIT_FAILURE_MEMBER_NAME_TAKEN",
             Self::DeleteReferenced => "EDIT_FAILURE_DELETE_REFERENCED",
+            Self::OwnerInsideTarget => "EDIT_FAILURE_OWNER_INSIDE_TARGET",
+            Self::MoveReferenced => "EDIT_FAILURE_MOVE_REFERENCED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2058,6 +2079,8 @@ impl EditFailure {
             "EDIT_FAILURE_ILLEGAL_KIND" => Some(Self::IllegalKind),
             "EDIT_FAILURE_MEMBER_NAME_TAKEN" => Some(Self::MemberNameTaken),
             "EDIT_FAILURE_DELETE_REFERENCED" => Some(Self::DeleteReferenced),
+            "EDIT_FAILURE_OWNER_INSIDE_TARGET" => Some(Self::OwnerInsideTarget),
+            "EDIT_FAILURE_MOVE_REFERENCED" => Some(Self::MoveReferenced),
             _ => None,
         }
     }

@@ -1,0 +1,63 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="M"
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="a")
+          (SubstateMember name="a")
+          (SubstateMember name="b")
+          (Membership visibility="default"
+            (Usage kind="state" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (SubstateMember name="c1")
+              (SubstateMember name="c2")
+              (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (ConnectorEnd target="c1"
+                  (*ast.QualifiedName))
+                (ConnectorEnd target="c2"
+                  (*ast.QualifiedName)))))
+          (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (ConnectorEnd target="a"
+              (*ast.QualifiedName))
+            (ConnectorEnd target="b"
+              (*ast.QualifiedName)))
+          (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (ConnectorEnd target="b"
+              (*ast.QualifiedName))
+            (ConnectorEnd target="*ast.FeatureChainExpr"
+              (FeatureChainExpr member="c1"
+                (FeatureReference name="c"))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="c"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="done"
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="N"
+          (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (ConnectorEnd target="start"
+              (*ast.QualifiedName))
+            (ConnectorEnd target="idle"
+              (*ast.QualifiedName)))
+          (SubstateMember name="idle")
+          (SubstateMember name="busy")
+          (TransitionMember source="idle" target="busy"
+            (LiteralBool value=true))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="PD"
+          (Membership visibility="default"
+            (Usage kind="state" name="m" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state"
+              (Relationship kind="typing" target=M
+                (*ast.QualifiedName))
+              (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (ConnectorEnd target="a"
+                  (*ast.QualifiedName))
+                (ConnectorEnd target="b"
+                  (*ast.QualifiedName)))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="A"
+          (InitialNode name="go" successor="")
+          (Usage kind="action" name="go" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (InitialNode name="go" successor="walk")
+          (Usage kind="action" name="walk" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))))

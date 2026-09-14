@@ -725,7 +725,7 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		b.WriteString(`)`)
 		return true
 	case *InitialNode:
-		fmt.Fprintf(b, `(InitialNode name=%q successor=%q`, v.Name, qnString(v.Successor))
+		fmt.Fprintf(b, `(InitialNode name=%q successor=%q`, v.Name(), qnString(v.Successor))
 		kids := []Node{}
 		if v.Guard != nil {
 			kids = append(kids, v.Guard)

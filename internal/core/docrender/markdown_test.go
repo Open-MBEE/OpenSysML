@@ -148,6 +148,58 @@ func TestMarkdownTelescopeReportDotGolden(t *testing.T) {
 	}
 }
 
+// TestMarkdownTelescopeReportPlantUMLGolden locks the report with PlantUML
+// diagrams: the fences change, every other block matches the Mermaid golden.
+func TestMarkdownTelescopeReportPlantUMLGolden(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	got, err := Markdown(fixtureDocument(t, path, "Observatory::MassReport"),
+		MarkdownOptions{DiagramForm: view.FormPlantUML})
+	if err != nil {
+		t.Fatalf("render document as PlantUML: %v", err)
+	}
+	golden := filepath.Join("testdata", "telescope_report.plantuml.golden.md")
+	if *update {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+		return
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read golden (run with -update to create): %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+	for _, want := range []string{
+		"```plantuml\n@startuml\n' Observatory::interconnectView — interconnection rendering",
+		"```plantuml\n@startuml\n' state rendering (the diagram states kind \"state\")\n",
+		"left to right direction\n",
+		"@enduml\n```\n",
+		"| name | mass |\n| --- | --- |\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering does not contain %q\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "```mermaid") || strings.Contains(got, "```dot") {
+		t.Errorf("a diagram is in another form under -diagram-form plantuml:\n%s", got)
+	}
+	mermaid := renderFixtureDocument(t, path, "Observatory::MassReport")
+	strip := func(markdown string) string {
+		var kept []string
+		for _, block := range strings.Split(markdown, "\n\n") {
+			if !strings.HasPrefix(block, "```") {
+				kept = append(kept, block)
+			}
+		}
+		return strings.Join(kept, "\n\n")
+	}
+	if strip(got) != strip(mermaid) {
+		t.Errorf("the diagram form changed a block that is not a diagram:\n%s", got)
+	}
+}
+
 // TestMarkdownDiagramFormIsChecked rejects a form that is not a diagram form
 // before any content is rendered, and takes each diagram form by name.
 func TestMarkdownDiagramFormIsChecked(t *testing.T) {

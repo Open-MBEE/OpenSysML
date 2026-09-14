@@ -145,8 +145,9 @@ type SolveAsk struct {
 	Ask     Asking
 }
 
-// HoldsAsk is the behavior a Holds question is about, the conditions asked to
-// hold over its schedules, and how one run of it begins in a fresh context.
+// HoldsAsk is the behavior a Holds or Sensitive question is about, the conditions
+// asked to hold over its schedules, the features whose final values a Sensitive
+// question compares across them, and how one run of it begins in a fresh context.
 type HoldsAsk struct {
 	// Behavior is the action definition or usage whose schedules are asked about.
 	Behavior *symbols.Symbol
@@ -163,10 +164,14 @@ type HoldsAsk struct {
 	Inputs []string
 	// Assume are the constraints or requirements assumed over the initial state.
 	Assume []*symbols.Symbol
+	// Diverge names the features whose final values a Sensitive question compares
+	// across the complete schedules, as `-check-diverge` spells them; none compares
+	// the action's own attributes, and the performing object's when one performs it.
+	Diverge []string
 	// Performer names the object performing Behavior, "" when the action runs on
 	// its own; a witness file is named after the subject and it.
 	Performer string
-	// WitnessDir is where a violation's witness is written, "" for nowhere.
+	// WitnessDir is where a violation's or a sensitivity's witnesses are written, "" for nowhere.
 	WitnessDir string
 }
 

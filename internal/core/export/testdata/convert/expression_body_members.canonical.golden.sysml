@@ -1,1 +1,7 @@
-sysml: cannot convert the body member <urn:opensysml:expr:Bodies__Scaled___401_pm1>: a declaration inside an expression body is carried as its notation in sysx:sourceText, and this one has none; save to .sysml or .kerml instead, which writes the source exactly; see docs/reference/rdf-mapping.md § Limitations
+package Bodies {
+    attribute def Real;
+    calc def Scaled {
+        in x : Real;
+        { in y : Real; private attribute k : Real = 2; y * k + x }
+    }
+}

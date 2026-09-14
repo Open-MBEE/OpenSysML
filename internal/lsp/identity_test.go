@@ -464,3 +464,49 @@ func TestIdentityActionNotOfferedOnLibraryDeclaration(t *testing.T) {
 		t.Errorf("actions on ScalarValues::Real = %+v, want none", acts)
 	}
 }
+
+// A copy of a library file open in the workspace is the user's file, whatever
+// its roots: its elements' ids are derived, or declared where the copy states
+// one, and minting is offered as for any other user declaration.
+func TestWorkspaceCopyOfLibraryFileStaysAUserFile(t *testing.T) {
+	const file = "/tmp/ScalarValues.kerml"
+	ws := model.NewWorkspace()
+	lib := ws.LibraryDocument("Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml")
+	if lib == nil {
+		t.Fatal("ScalarValues.kerml not bundled")
+	}
+	src := string(lib.Content)
+	// The copy's Real, not the library's: both resolve under the qualified name.
+	copyIdentity := func(text string) *identity.Info {
+		t.Helper()
+		name := uri.File(file).Filename()
+		ws.Open(name, []byte(text), 1)
+		for _, sym := range ws.LookupQualified("ScalarValues::Real") {
+			if sym.DocName == name {
+				info, ok := ws.IdentityOf(name, sym)
+				if !ok {
+					t.Fatal("no identity for the copy's Real")
+				}
+				return info
+			}
+		}
+		t.Fatal("the copy declares no ScalarValues::Real")
+		return nil
+	}
+	real := copyIdentity(src)
+	if real.Source != identity.SourceDerived || real.Normative() {
+		t.Errorf("Real in a workspace copy = %+v, want a derived id", real)
+	}
+	if act := mintAction(t, file, src, cursorAt(t, src, "datatype Real ")).Title; !strings.HasPrefix(act, "Annotate 'Real' with a minted element id") {
+		t.Errorf("action on the copy's Real = %q", act)
+	}
+	const norm = "14c0aa22-5489-59b5-b438-ded26e83ba31"
+	annotated := strings.Replace(src, "datatype Real specializes Complex;", "datatype Real specializes Complex {\n\t\t@IdentityMetadata::ElementId { id = \""+norm+"\"; }\n\t}", 1)
+	if annotated == src {
+		t.Fatalf("Real is not declared where expected:\n%s", src)
+	}
+	real = copyIdentity(annotated)
+	if real.Source != identity.SourceDeclared || !real.Declared || real.EffectiveID != norm {
+		t.Errorf("annotated Real in a workspace copy = %+v, want the id declared", real)
+	}
+}

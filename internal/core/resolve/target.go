@@ -296,6 +296,9 @@ type Reference struct {
 	Subsetting ast.Node
 	// Member is the declaration whose text QN is written in, when known.
 	Member ast.Node
+	// Within is set when Member is declared inside an expression body: the
+	// namespace member whose declaration holds the outermost such body.
+	Within ast.Node
 	// Head is set when QN is written in a head relationship of a declaration
 	// with a scope of its own, where the target may resolve ahead of Scope.
 	Head *HeadRelationship
@@ -323,6 +326,15 @@ func (ref Reference) Spelled(qn *ast.QualifiedName) Reference {
 		}
 	}
 	return ref
+}
+
+// spelledChain is ref.Chain with QN as its member: the chain itself when QN is
+// the written member, otherwise a fresh node carrying a trial spelling (see Spelled).
+func (ref Reference) spelledChain() *ast.FeatureChainExpr {
+	if ref.QN == ref.Chain.Member {
+		return ref.Chain
+	}
+	return &ast.FeatureChainExpr{NodeBase: ref.Chain.NodeBase, Operand: ref.Chain.Operand, Member: ref.QN}
 }
 
 // ProbeReference resolves ref as a trial reading: what a name spelled differently
@@ -359,6 +371,9 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		return sym, ok
 	}
 	if ref.Chain != nil {
+		if ref.Endpoint {
+			return r.ResolveEndpointRef(ref.Scope, ref.spelledChain())
+		}
 		return r.resolveChainSegment(ref, hide)
 	}
 	if ref.Constructed != nil {

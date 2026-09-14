@@ -397,19 +397,21 @@ part structure : Diagram {
 - `caption` is optional and renders in emphasis above the diagram.
 - `direction` — `"TB"`, `"LR"`, `"RL"` or `"BT"` — is accepted only by kinds
   drawn as directed graphs; it becomes the Mermaid flowchart direction or a
-  `stateDiagram-v2` `direction` statement, or the Graphviz `rankdir` when the
-  document is rendered with DOT diagrams. Stating one on a sequence diagram is
-  a typed error.
+  `stateDiagram-v2` `direction` statement, the Graphviz `rankdir` when the
+  document is rendered with DOT diagrams, or PlantUML's `top to bottom
+  direction`/`left to right direction` with PlantUML ones. Stating one on a
+  sequence diagram is a typed error.
 - `palette` — `"okabe-ito"`, `"tol-bright"`, `"tol-muted"`, `"tol-light"`,
   `"brewer-set2"`, `"brewer-dark2"`, `"viridis"` or `"cividis"` — is accepted
-  only by kinds that have a DOT form (tree, interconnection, state, action).
-  When the document is rendered with DOT diagrams, the diagram's nodes are
-  filled by keyword family from that colourblind-safe palette, a `part def`
-  and its `part` usages sharing a hue, with black text kept legible on every
-  fill ([the palettes](../project/view-rendering-forms.md#palettes)); with
-  Mermaid diagrams the palette is noted as not represented, and the HTML
-  figure carries it as `data-palette` either way. Any other name, or a palette
-  on a table or sequence diagram, is a typed error.
+  only by kinds that have a DOT or PlantUML form (tree, interconnection,
+  state, action, sequence). When the document is rendered with DOT or
+  PlantUML diagrams, the diagram's nodes are filled by keyword family from
+  that colourblind-safe palette, a `part def` and its `part` usages sharing a
+  hue, with black text kept legible on every fill
+  ([the palettes](../project/view-rendering-forms.md#palettes)); with Mermaid
+  diagrams the palette is noted as not represented, and the HTML figure
+  carries it as `data-palette` either way. Any other name, or a palette on a
+  table diagram, is a typed error.
 
 A diagram block states *what* is drawn, not the notation it is written in:
 that is a choice made when the document is rendered. By default most kinds
@@ -471,9 +473,41 @@ backend keeps it as source under a notice rather than drawing it. A `sequence` k
 has no DOT form, so a document holding one cannot be rendered with DOT
 diagrams; the failure is a typed error naming the block.
 
+Rendered with `-diagram-form plantuml` (`%render-document <name> plantuml`,
+`diagramForm: "plantuml"`), every diagram — the `sequence` kind included, which
+PlantUML has a grammar for — is a fenced ` ```plantuml ` block in the OMG Pilot
+visualizer's B&W style, its style inline so the file stands alone. No Java or
+PlantUML jar is needed to write it:
+
+```markdown
+*Imaging chain interconnection*
+
+```plantuml
+@startuml
+' Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
+<style>
+…
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "**Observatory::imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
+  rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+  rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
+}
+n1 -[thickness=3]- n2 : link
+@enduml
+```
+```
+
+The HTML backend embeds it in `<pre class="plantuml">` and the PDF backend keeps
+it as source under a notice. PlantUML pins no positions, so a view's
+`DiagramLayout` geometry rides along as `'` comments; DOT is the form that
+honours it ([the PlantUML form](../project/view-rendering-forms.md#plantuml)).
+
 The `table` kind is the exception — it renders as a pipe table of the
 element's structure (Element / Kind / Type / Declared in) rather than a
-Mermaid or DOT block, whichever diagram form the document is rendered with.
+Mermaid, DOT or PlantUML block, whichever diagram form the document is rendered
+with.
 
 ## Binding queries to blocks
 

@@ -130,7 +130,7 @@ model, what is asked of it, the bindings that are fixed, and what is left free.
 | `evaluate` | a calc, an analysis case, an action or state machine, a constraint or requirement on a subject | nothing: one execution under stated bindings and a stated scheduling policy | `-calc`, `-analysis`, `-action`, `-state`, `-constraint`, `-requirement`, `-satisfy`, `%run`, the verification RPCs |
 | `outcomes` | a behavior | the schedule | `-schedule explore` |
 | `holds` | a condition over a behavior or an analysis case | the schedule and/or the unbound inputs, within stated bounds | proposed by both model-checking designs |
-| `sensitive` | a behavior | the schedule | proposed by the SMT design |
+| `sensitive` | a behavior | the schedule | `-check-diverge`, `%check-diverge` |
 | `satisfiable` | a set of conditions | the unbound features | `%check`, `%explain`, `%solve`, `%configure`, `%optimize` |
 | `sweep` | a calc or analysis case | nothing per row; the rows enumerate or sample a domain | `-sweep`, `-samples`, `RunSweep` |
 | `compute` | an action annotated `ToolExecution` | nothing: the tool is asked once | none |
@@ -665,6 +665,7 @@ reached.
 | `%check`, `%explain`, `%solve`, `%configure`, `%optimize`, `OPENSYSML_SMT` | `solve` | nothing; `solve.Discover` becomes the engine's status in `-engines` |
 | Proposed `-check-engine smt` and `-check-*` | `smt` | the flags are `-engine smt` and the shared bounds |
 | Proposed `-check-action`, `-check-state`, `-check-diverge` | `check` | selected by `-engine check`, which puts the invocation's `-action` to the checker; `-check-property`, `-check-diverge`, `-check-witness`, `-check-depth`, `-check-states`, `-check-timeout` fill the question and the shared bounds |
+| Proposed `-check-sensitive` | `smt` | one flag, `-check-diverge <feature>`, read by both engines: naming a feature makes the question `sensitive`, `check` answers it by its divergence search and `smt` by the two-copy query, and under `-engine all` one question reaches both |
 | `ToolExecution` and `ToolVariable`, parsed and unread | `tool:<name>` | new: analysis cases that name a registered tool run it |
 | `Session.mu` held for a whole REPL command | a command lock held for the command and a state lock released while a plan runs on contexts of its own | completion and the session's getters answer during a long exploration, and a `%stop`-style interruption becomes possible; a second command still waits |
 | `runtimeSemantics.mu` in the gRPC service | one resolver and semantic model per worker, a worker per request | concurrent requests on one model no longer serialize |
@@ -927,14 +928,17 @@ behavior unchanged until stage 4.
    that engine meets when it registers; nothing here encodes it.
 6. **The model checkers register.** `smt` and `check` land by their own notes' stages, each as
    an engine from its first stage, with `all` as their referee harness. *Implemented:* `check`
-   ([explicit-state design](bounded-model-checking.md), stage 2), registered in `Default()` at
-   authority *bounded*, answering `outcomes` and `holds` over an action's schedules and refusing
-   with a typed reason every other question (a state machine's is an `evaluate`), a body paused
-   mid-statement and a state and an action due together; `auto` never picks it over `explore`,
-   so no existing output moves; every violation
-   and divergent value is *witnessed* only after `runtime.ReplayAction` replayed it on the
-   plan's workers, a disagreement *not covered*; the referee test compares its outcome set with
-   `explore`'s complete table over the conformance corpus.
+   ([explicit-state design](bounded-model-checking.md), stages 2 and 3), registered in
+   `Default()` at authority *bounded*, answering `outcomes` and `holds` over the schedules of an
+   invocation — the actions and state machines started on one clock, run to a horizon, and the
+   machines of the objects they materialize — and refusing with a typed reason every other
+   question (a machine's `evaluate` included), a question with free inputs and a fixed
+   schedule; a move the run itself refuses is a result *not covered* naming it; `auto` never
+   picks it over `explore`, so no existing output moves; every violation and divergent value is
+   *witnessed* only after `runtime.Replay` replayed it on the plan's workers, a disagreement
+   *not covered*; the referee test compares its outcome set with `explore`'s complete table over
+   the conformance corpus, an action and a machine due together on one clock among the cases,
+   and two checks at once keep workers and models of their own.
    `smt` ([SMT design](smt-model-checking.md), stages 1 and 2) answers `holds` with the
    schedule free and the inputs free or as written: an input the model binds is pinned, one it
    leaves unbound or `-check-input` releases ranges over its declared type's domain, and
@@ -951,7 +955,17 @@ behavior unchanged until stage 4.
    with its solver's status; no surface asks `holds` under `auto`, so registering it moved only
    the engine listings, and a future automatic `holds` reaches it ahead of `check`. The `smt`
    clause on tool outputs above waits on an encoding that admits a `tool:<name>` body, which
-   stage 1's refuses.
+   stage 1's refuses. With stage 3 both engines answer `sensitive` through one question: a
+   `-check-diverge` or `%check-diverge` feature makes the question `Sensitive`
+   (`analysis.CheckKind`), its features on `HoldsAsk.Diverge`, and `check`'s clean search of a
+   `Sensitive` question is the bounded negative *holds (bounded over schedules)*, the pair
+   `smt` spells as *no sensitivity found within k moves*, so the composition rule above sees
+   two answers about the same feature under `all`; `check`'s divergent pair is
+   `Result.Witness` and `Result.Contrast`, as `smt`'s two replayed schedules are, and a
+   `ClaimSensitive` an engine states stands over a `ClaimHolds` about the same feature as a
+   witness does over a universal claim. Absent the flag the default feature set is `check`'s
+   — every attribute of the action and of its performing object — which `smt` answers for the
+   action's own and refuses per feature for the performing object's until those are encoded.
 
 ## What this does not change
 

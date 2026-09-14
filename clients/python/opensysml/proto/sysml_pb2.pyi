@@ -32,6 +32,8 @@ class EditFailure(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     EDIT_FAILURE_ILLEGAL_KIND: _ClassVar[EditFailure]
     EDIT_FAILURE_MEMBER_NAME_TAKEN: _ClassVar[EditFailure]
     EDIT_FAILURE_DELETE_REFERENCED: _ClassVar[EditFailure]
+    EDIT_FAILURE_OWNER_INSIDE_TARGET: _ClassVar[EditFailure]
+    EDIT_FAILURE_MOVE_REFERENCED: _ClassVar[EditFailure]
 
 class PrimitiveOperator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -65,6 +67,8 @@ EDIT_FAILURE_OWNER_NOT_NAMESPACE: EditFailure
 EDIT_FAILURE_ILLEGAL_KIND: EditFailure
 EDIT_FAILURE_MEMBER_NAME_TAKEN: EditFailure
 EDIT_FAILURE_DELETE_REFERENCED: EditFailure
+EDIT_FAILURE_OWNER_INSIDE_TARGET: EditFailure
+EDIT_FAILURE_MOVE_REFERENCED: EditFailure
 PRIMITIVE_OPERATOR_UNSPECIFIED: PrimitiveOperator
 PRIMITIVE_OPERATOR_EQUAL: PrimitiveOperator
 PRIMITIVE_OPERATOR_GREATER: PrimitiveOperator
@@ -710,16 +714,18 @@ class ApplyEditsRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ...) -> None: ...
 
 class EditOperation(_message.Message):
-    __slots__ = ("set_value", "rename", "add_member", "delete")
+    __slots__ = ("set_value", "rename", "add_member", "delete", "move")
     SET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RENAME_FIELD_NUMBER: _ClassVar[int]
     ADD_MEMBER_FIELD_NUMBER: _ClassVar[int]
     DELETE_FIELD_NUMBER: _ClassVar[int]
+    MOVE_FIELD_NUMBER: _ClassVar[int]
     set_value: SetValueEdit
     rename: RenameEdit
     add_member: AddMemberEdit
     delete: DeleteEdit
-    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ...) -> None: ...
+    move: MoveEdit
+    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
     __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes")
@@ -746,6 +752,14 @@ class DeleteEdit(_message.Message):
     target: str
     cascade: bool
     def __init__(self, target: _Optional[str] = ..., cascade: _Optional[bool] = ...) -> None: ...
+
+class MoveEdit(_message.Message):
+    __slots__ = ("target", "owner")
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    target: str
+    owner: str
+    def __init__(self, target: _Optional[str] = ..., owner: _Optional[str] = ...) -> None: ...
 
 class SetValueEdit(_message.Message):
     __slots__ = ("target", "value")

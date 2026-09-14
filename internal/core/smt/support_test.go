@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -262,5 +263,90 @@ func TestSortsNameEveryNodeEdgeAndSlot(t *testing.T) {
 	}
 	if s.Overflow != nil {
 		t.Errorf("an acyclic flow declares an overflow flag")
+	}
+	if s.Now != nil || len(s.Bus) != 0 || s.BusOverflow != nil || s.Slots[0].Parked != nil || s.Slots[0].Due != nil {
+		t.Errorf("a flow without accepts or sends declares clock or bus variables: %+v", s)
+	}
+	if len(f.Frames) != 1 || f.Frames[0].Graph != graph || f.Frames[0].Slots != f.Slots || f.Nested() {
+		t.Errorf("a flat flow numbers %d frames", len(f.Frames))
+	}
+}
+
+// TestStateVectorNamesEveryVariableAcrossMoves: two states of one encoding
+// list the same names in the same order, each naming that state's own copy,
+// the flag of a feature that may hold no value included.
+func TestStateVectorNamesEveryVariableAcrossMoves(t *testing.T) {
+	graph := conformanceAction(t, "action_fork_branches_write_one_feature.sysml", "test::clash")
+	f, err := Analyze(graph, 10)
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	sorts := newSorts("clash", f)
+	features := []*solve.Var{intVar("x"), intVar("y")}
+	flagged := map[string]bool{"y": true}
+	before, after := newState(sorts, f, 0).Vector(features, flagged), newState(sorts, f, 1).Vector(features, flagged)
+	if len(before) != len(after) || len(before) != 4*f.Slots+5 {
+		t.Fatalf("vectors of %d and %d variables, want %d", len(before), len(after), 4*f.Slots+5)
+	}
+	for i := range before {
+		if before[i].Name != after[i].Name {
+			t.Errorf("entry %d: %q at move 0, %q at move 1", i, before[i].Name, after[i].Name)
+		}
+		if before[i].Var.Name != before[i].Name+"@0" || after[i].Var.Name != after[i].Name+"@1" {
+			t.Errorf("entry %d: %q holds %q and %q", i, before[i].Name, before[i].Var.Name, after[i].Var.Name)
+		}
+	}
+	n := len(before)
+	if before[0].Name != "at[0]" || before[n-3].Name != "x" || before[n-2].Name != "y" || before[n-1].Name != "has(y)" {
+		t.Errorf("vector starts %q, ends %q %q %q", before[0].Name, before[n-3].Name, before[n-2].Name, before[n-1].Name)
+	}
+}
+
+// TestAnalyzeRefusesANestedFlowBeforeLookingInside: a node stating a flow of
+// its own is refused as a nested flow whether that flow is well formed or not.
+func TestAnalyzeRefusesANestedFlowBeforeLookingInside(t *testing.T) {
+	for _, tc := range []struct {
+		name, leg string
+		noGraph   bool
+	}{
+		{name: "well formed", leg: "first a; action a; action b; succession first a then b;"},
+		{name: "missing step", leg: "first a; action a; succession first a then missing;"},
+		{name: "no start", leg: "action a; action b; succession first a then b; succession first b then a;"},
+		{name: "no graph", leg: "first a; action a;", noGraph: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, idx := fixture(t, "<test>", `
+				package test {
+					action outer {
+						first start;
+						action leg { `+tc.leg+` }
+						done;
+						succession first start then leg;
+						succession first leg then done;
+					}
+				}`)
+			sym := idx.LookupQualified("test::outer")
+			if len(sym) != 1 {
+				t.Fatalf("test::outer matched %d symbols", len(sym))
+			}
+			graph, err := lower.ToActionGraph(sym[0].Decl, sym[0].Scope)
+			if err != nil {
+				t.Fatalf("lower: %v", err)
+			}
+			if graph.Subflows[graph.Nodes[1]] == nil {
+				t.Fatalf("leg states no flow of its own: %+v", graph.Subflows)
+			}
+			if tc.noGraph {
+				graph.Subflows[graph.Nodes[1]] = &lower.Subflow{}
+			}
+			_, err = Analyze(graph, 10)
+			var unsupported *UnsupportedError
+			if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
+				t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
+			}
+			if unsupported.Node != "leg" || unsupported.Construct != "nested flow" {
+				t.Errorf("refusal names %q/%q, want node leg, construct nested flow", unsupported.Node, unsupported.Construct)
+			}
+		})
 	}
 }

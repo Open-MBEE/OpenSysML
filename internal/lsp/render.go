@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -30,8 +32,8 @@ const (
 // renderParams asks for one rendering. View names a view the document declares,
 // or a supported pseudo-view (`#<kind>` or `#<kind>:<fqn>`); empty renders the
 // document's own view. Form is the artifact written, defaulting to the machine
-// form of the rendering's kind. Palette names the palette the DOT form fills
-// nodes from, by keyword family; empty draws in black and white.
+// form of the rendering's kind. Palette names the palette the DOT and PlantUML
+// forms fill nodes from, by keyword family; empty draws in black and white.
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
@@ -60,22 +62,26 @@ type renderResult struct {
 // renderNode is one node of a rendering, with the range of the declaration it
 // was built from when there is one, and its position when a Layout gives one.
 // FQN names that declaration the way opensysml/applyModelEdit targets it, and
-// Owners the namespaces declaring it, nearest first, drawn or not.
+// Owners the namespaces declaring it, nearest first, drawn or not. Declaration
+// stands in for FQN when the document declares the node but no qualified name
+// reaches it: a layout operation targets the declaration at that range.
 type renderNode struct {
-	ID        string        `json:"id"`
-	Kind      string        `json:"kind"`
-	Name      string        `json:"name"`
-	Type      string        `json:"type"`
-	Detail    string        `json:"detail"`
-	Parent    string        `json:"parent,omitempty"`
-	FQN       string        `json:"fqn,omitempty"`
-	Owners    []renderOwner `json:"owners,omitempty"`
-	Origin    *renderOrigin `json:"origin,omitempty"`
-	X         *float64      `json:"x,omitempty"`
-	Y         *float64      `json:"y,omitempty"`
-	Width     *float64      `json:"width,omitempty"`
-	Height    *float64      `json:"height,omitempty"`
-	Collapsed bool          `json:"collapsed,omitempty"`
+	ID          string          `json:"id"`
+	Kind        string          `json:"kind"`
+	Name        string          `json:"name"`
+	Type        string          `json:"type"`
+	Detail      string          `json:"detail"`
+	Parent      string          `json:"parent,omitempty"`
+	FQN         string          `json:"fqn,omitempty"`
+	Notation    string          `json:"notation,omitempty"`
+	Owners      []renderOwner   `json:"owners,omitempty"`
+	Declaration *protocol.Range `json:"declaration,omitempty"`
+	Origin      *renderOrigin   `json:"origin,omitempty"`
+	X           *float64        `json:"x,omitempty"`
+	Y           *float64        `json:"y,omitempty"`
+	Width       *float64        `json:"width,omitempty"`
+	Height      *float64        `json:"height,omitempty"`
+	Collapsed   bool            `json:"collapsed,omitempty"`
 }
 
 // renderOwner is a namespace declaring a node: its qualified name, and whether
@@ -87,13 +93,16 @@ type renderOwner struct {
 
 // renderEdge is one edge of a rendering, located at the connector, transition,
 // succession or flow it was written as, with the waypoints a Route gives it.
+// FQN and Declaration identify that declaration to a setRoute as a node's do.
 type renderEdge struct {
-	From   string        `json:"from"`
-	To     string        `json:"to"`
-	Label  string        `json:"label"`
-	Kind   string        `json:"kind"`
-	Origin *renderOrigin `json:"origin,omitempty"`
-	Route  []renderPoint `json:"route,omitempty"`
+	From        string          `json:"from"`
+	To          string          `json:"to"`
+	Label       string          `json:"label"`
+	Kind        string          `json:"kind"`
+	FQN         string          `json:"fqn,omitempty"`
+	Declaration *protocol.Range `json:"declaration,omitempty"`
+	Origin      *renderOrigin   `json:"origin,omitempty"`
+	Route       []renderPoint   `json:"route,omitempty"`
 }
 
 // renderPoint is one waypoint of an edge, in the canvas's pixels, y down.
@@ -250,7 +259,19 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
-	for _, node := range data.Nodes {
+	s.renderNodes(out, doc, name, data.Nodes)
+	s.renderEdges(out, doc, name, data.Edges)
+	for _, row := range data.Rows {
+		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
+	}
+	return out, nil
+}
+
+// renderNodes converts the rendering's nodes into out; a node the document
+// declares confines the palette to its notation and is admitted once all are known.
+func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string, nodes []view.NodeData) {
+	var declared []declaredNode
+	for _, node := range nodes {
 		n := renderNode{
 			ID:     node.ID,
 			Kind:   node.Kind,
@@ -258,17 +279,20 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			Type:   node.Type,
 			Detail: node.Detail,
 			Parent: node.Parent,
-			Origin: origin(node.Origin),
+			Origin: s.originIn(doc, node.Origin),
 		}
-		if node.Origin.Doc == name {
-			if sym := nodeSymbol(doc.Scope, node.Origin); sym != nil {
-				if owners, ok := nodeOwners(sym); ok {
-					n.FQN = notationName(sym)
-					n.Owners = owners
-					if out.Palette != nil {
-						out.Palette.admit(node.ID, sym.Decl)
-					}
+		if sym := nodeSymbol(doc, name, node.Origin); sym != nil {
+			if owners, ok := nodeOwners(sym); ok {
+				n.FQN = notationName(sym)
+				n.Notation = sym.Notation()
+				n.Owners = owners
+				if out.Palette != nil {
+					out.Palette.confine(n.Notation)
+					declared = append(declared, declaredNode{node.ID, sym.Decl})
 				}
+			} else {
+				decl := spanToRange(doc.Content, sym.DeclSpan)
+				n.Declaration = &decl
 			}
 		}
 		if g := node.Geometry; g != nil {
@@ -281,23 +305,35 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		}
 		out.Nodes = append(out.Nodes, n)
 	}
-	for _, edge := range data.Edges {
+	for _, d := range declared {
+		out.Palette.admit(d.id, d.decl)
+	}
+}
+
+// renderEdges converts the rendering's edges into out, each with its route and
+// the FQN or declaration range of the element it comes from.
+func (s *Server) renderEdges(out *renderResult, doc *model.Document, name string, edges []view.EdgeData) {
+	for _, edge := range edges {
 		e := renderEdge{
 			From:   edge.From,
 			To:     edge.To,
 			Label:  edge.Label,
 			Kind:   edge.Kind.String(),
-			Origin: origin(edge.Origin),
+			Origin: s.originIn(doc, edge.Origin),
+		}
+		if sym := nodeSymbol(doc, name, edge.Origin); sym != nil {
+			if _, ok := nodeOwners(sym); ok {
+				e.FQN = notationName(sym)
+			} else {
+				decl := spanToRange(doc.Content, sym.DeclSpan)
+				e.Declaration = &decl
+			}
 		}
 		for _, p := range edge.Route {
 			e.Route = append(e.Route, renderPoint{X: p.X, Y: p.Y})
 		}
 		out.Edges = append(out.Edges, e)
 	}
-	for _, row := range data.Rows {
-		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
-	}
-	return out, nil
 }
 
 // renderForm is the form to write: the one asked for, else the machine form of
@@ -311,7 +347,11 @@ func renderForm(rendering *view.Rendering, asked string) (view.Form, error) {
 	if slices.Contains(view.Forms(), form) {
 		return form, nil
 	}
-	return "", fmt.Errorf("%q is no rendering form: write %q, %q, %q or %q", asked, view.FormMermaid, view.FormText, view.FormMarkdown, view.FormDot)
+	names := make([]string, 0, len(view.Forms()))
+	for _, form := range view.Forms() {
+		names = append(names, strconv.Quote(string(form)))
+	}
+	return "", fmt.Errorf("%q is no rendering form: write %s or %s", asked, strings.Join(names[:len(names)-1], ", "), names[len(names)-1])
 }
 
 // renderPalette is the palette a request names, none when it names none, and

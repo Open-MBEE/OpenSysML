@@ -66,7 +66,9 @@ by hand decodes the answers by [the wire contract](wire-contract.md).
 `Editor.add_member(owner, kind, name, type=None, multiplicity=None, value=None,
 specializes=None)` and its typed `add_*` helpers create declarations while
 preserving untouched source bytes. `Editor.delete(target, cascade=False)`
-removes declarations transactionally. `opensysml.loads(content, language=None,
+removes declarations transactionally; `Editor.move(target, owner)` carries one
+into another namespace of the same document and respells the references the
+move would break. `opensysml.loads(content, language=None,
 strict=False)` loads inline SysML or KerML for this workflow.
 
 ## Overview

@@ -1,8 +1,8 @@
 // Runs the extension's unit tests: every src/**/*.test.ts is bundled with esbuild,
 // the way the extension itself is built, and handed to node's own test runner.
+// The bundles land under out/ so a test's jsdom resolves from node_modules.
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { build } from "esbuild";
 
@@ -15,7 +15,9 @@ if (tests.length === 0) {
   process.exit(1);
 }
 
-const outdir = await mkdtemp(join(tmpdir(), "opensysml-vscode-test-"));
+const outRoot = resolve(new URL("../out", import.meta.url).pathname);
+await mkdir(outRoot, { recursive: true });
+const outdir = await mkdtemp(join(outRoot, "test-"));
 try {
   await build({
     entryPoints: tests,
@@ -25,7 +27,7 @@ try {
     format: "esm",
     platform: "node",
     target: "node18",
-    external: ["node:*"],
+    external: ["node:*", "jsdom"],
     sourcemap: "inline",
     logLevel: "warning",
   });

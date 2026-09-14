@@ -402,14 +402,15 @@ package OpenSysMLPipeline {
         out item instances : InstanceGraph;
     }
 
-    // A run's state between two steps, restored as often as asked; the model-derived
-    // state the run is over is no part of it, and a snapshot mid-step is refused.
+    // A run's state between two steps, paused bodies included, restored as often as asked;
+    // the model-derived state is no part of it, and a snapshot mid-step is refused.
     part def SnapshotStore :> CodeUnit {
         attribute :>> goPackage = "internal/core/runtime";
         attribute capturesRunState : Boolean = true;
         attribute excludesModelState : Boolean = true;
+        attribute capturesPausedBody : Boolean = true;
         attribute refusesMidStep : String = "snapshot inside a step";
-        attribute refusesPausedBody : String = "snapshot of a body paused mid-statement";
+        attribute imageRefusesPausedBody : String = "snapshot of a body paused mid-statement";
         out item mark : RunSnapshot;
     }
 
@@ -546,7 +547,7 @@ package OpenSysMLPipeline {
     // static partial-order reduction; bounded within its depth and states, never proved.
     part def CheckEngine :> AnalysisEngine {
         attribute :>> engineName = "check";
-        attribute :>> answers = "outcomes, holds";
+        attribute :>> answers = "outcomes, holds, sensitive";
         attribute :>> bounds = "depth, states, deadline, steps, actionSteps, events, doSteps, elements, behaviors";
         attribute :>> authority = "bounded";
         attribute :>> replays = true;
@@ -578,7 +579,7 @@ package OpenSysMLPipeline {
     // relation an SMT solver decides; registered whether or not one is found.
     part def SmtEngine :> AnalysisEngine {
         attribute :>> engineName = "smt";
-        attribute :>> answers = "holds";
+        attribute :>> answers = "holds, sensitive";
         attribute :>> bounds = "moves, unroll, slots, solver";
         attribute :>> authority = "proved";
         attribute :>> replays = true;
@@ -623,8 +624,8 @@ package OpenSysMLPipeline {
         attribute defaultSelection : String = "auto";
         attribute strongestFirst : Boolean = true;
         // The default engines declaring each kind: outcomes has two, explore ranked over
-        // check, and holds two, smt ranked over check.
-        attribute candidatesPerKind : String = "evaluate: 1, holds: 2, outcomes: 2, satisfiable: 1, sweep: 1";
+        // check, and holds and sensitive two each, smt ranked over check.
+        attribute candidatesPerKind : String = "evaluate: 1, holds: 2, outcomes: 2, satisfiable: 1, sensitive: 2, sweep: 1";
         attribute advancesOnNotCovered : Boolean = true;
         attribute stopsOnFault : Boolean = true;
         attribute recordsEveryStep : Boolean = true;

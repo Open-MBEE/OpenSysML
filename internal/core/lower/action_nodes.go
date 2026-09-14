@@ -16,7 +16,7 @@ var ErrStatementOutsideFlow = errors.New("has no position in the token flow")
 // ActionNodes returns the nodes accepted by action lowering and whether the
 // action has an initial node after interpreting `first <node>`.
 func ActionNodes(actionDecl ast.Node, scope *symbols.Scope) (nodes []ast.Node, hasInitial bool, err error) {
-	graph, _, _, err := collectActionNodes(actionDecl, scope)
+	graph, _, err := collectActionNodes(actionDecl, scope)
 	if err != nil {
 		return nil, false, err
 	}
@@ -72,10 +72,10 @@ func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 	}
 }
 
-func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, []ast.Node, map[*ast.InitialNode]ast.Node, error) {
+func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, []ast.Node, error) {
 	members, err := actionMembers(actionDecl)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	graph := newActionGraph(scope)
 
@@ -88,8 +88,12 @@ func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph
 
 		switch n := actualMember.(type) {
 		case *ast.InitialNode:
+			// `first a then b;` states the succession a -> b and declares no node.
+			if n.Successor != nil {
+				continue
+			}
 			if graph.Initial != nil {
-				return nil, nil, nil, fmt.Errorf("action has multiple initial nodes")
+				return nil, nil, fmt.Errorf("action has multiple initial nodes")
 			}
 			graph.Initial = n
 			graph.Nodes = append(graph.Nodes, n)
@@ -114,7 +118,7 @@ func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph
 			// A statement written among the action's own members with no succession
 			// binding it has no position in the token flow.
 			if !sequenced[actualMember] {
-				return nil, nil, nil, fmt.Errorf("%s written directly in an action body %w: declare it inside an action node",
+				return nil, nil, fmt.Errorf("%s written directly in an action body %w: declare it inside an action node",
 					statementKeyword(n), ErrStatementOutsideFlow)
 			}
 			graph.Nodes = append(graph.Nodes, n)
@@ -125,20 +129,21 @@ func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph
 	collectInheritedActionNodes(graph, members)
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
 	graph.Attributes = lowerAttributes(members)
-	// `first a then b;` names the node the flow starts at rather than declaring an
-	// initial node, so a itself is the initial node and holds the edge.
-	firstNode, err := resolveFirstNode(graph)
-	if err != nil {
-		return nil, nil, nil, err
+	// `first a;` names the node the flow starts at rather than declaring one.
+	if err := resolveFirstNode(graph); err != nil {
+		return nil, nil, err
 	}
-	return graph, members, firstNode, nil
+	return graph, members, nil
 }
 
 func collectInheritedActionNodes(graph *ActionGraph, members []ast.Node) {
 	for _, member := range members {
 		switch n := unwrapMembership(member).(type) {
 		case *ast.InitialNode:
-			ensureInheritedActionNode(graph, n.Successor)
+			if n.Successor != nil {
+				ensureInheritedActionNode(graph, n.First)
+				ensureInheritedActionNode(graph, n.Successor)
+			}
 		case *ast.SuccessionEdge:
 			if n.SourceMember == nil && !n.SourceImplied {
 				ensureInheritedActionNode(graph, n.Source)

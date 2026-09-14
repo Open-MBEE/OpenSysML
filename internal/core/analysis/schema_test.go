@@ -150,8 +150,8 @@ func TestSchemaValidatesEveryStandinMessage(t *testing.T) {
 	f := parseFixture(t)
 	race := f.checked(t, "race")
 	holds := checkQuestion(t, f, Holds, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{race.x(3)}})
-	notOne := runtime.CheckProperty{Name: "x", Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
-		return exec.Results()["x"].Const.Int != 1, nil
+	notOne := runtime.CheckProperty{Name: "x", Holds: func(_ *runtime.Context, inv *runtime.Invocation) (bool, error) {
+		return inv.Actions[0].Results()["x"].Const.Int != 1, nil
 	}}
 	violable := checkQuestion(t, f, Holds, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{notOne}})
 	sensitive := checkQuestion(t, f, Sensitive, &CheckAsk{Start: race.start})

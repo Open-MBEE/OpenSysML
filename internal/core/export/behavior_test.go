@@ -2,6 +2,7 @@ package export_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -111,6 +112,8 @@ func TestBehavioralStatementsRoundTrip(t *testing.T) {
 		"terminate":           "terminate;",
 		"terminate a node":    "terminate brake;",
 		"succession":          "succession first brake then finish;",
+		"first then":          "first brake then finish;",
+		"first then body":     "first brake then finish {\n            attribute delay;\n        }",
 		"edge succession":     "done;\n        succession first brake then finish;",
 		"while loop":          "while speed > 0 {\n            perform brake;\n        }",
 		"loop":                "loop {\n            perform brake;\n        }",
@@ -307,25 +310,43 @@ func TestThenAfterFirstSequencesFromTheMemberTheStartNames(t *testing.T) {
 	}
 }
 
-// A state machine's initial successor is a transition endpoint: it may name a
-// nested state or one in a sibling region, which no lexical lookup from the
-// machine's body reaches, so it is linked the way transition ends are.
-func TestInitialSuccessorLinksAVertexOfTheMachine(t *testing.T) {
-	src := "package P {\n    state def M {\n        first start then nested;\n        state outer {\n            state nested;\n        }\n    }\n" +
-		"    state def Q parallel {\n        state a {\n            state a1;\n        }\n        state b {\n            first start then a1;\n            state b2;\n        }\n    }\n" +
-		"    action def A {\n        first start then walk;\n        action walk;\n    }\n}\n"
+// The `first` end of an action body's `first a then b;` is the source of that
+// succession, linked to the member it names; the one-ended `first start;`
+// beside it carries the start it marks. Both read back unchanged.
+func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
+	src := "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n" +
+		"        first start;\n        first a then b;\n        succession first a then b;\n    }\n}\n"
 	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, target := range []string{
-		"sysml:targetFeature elmt:P__M__outer__nested",
-		"sysml:targetFeature elmt:P__Q__a__a1",
-		"sysml:targetFeature elmt:P__A__walk",
-	} {
-		if !strings.Contains(string(turtle), target) {
-			t.Errorf("the initial node should link its successor as %s:\n%s", target, turtle)
-		}
+	if n := strings.Count(string(turtle), "sysml:sourceFeature elmt:P__A__a"); n != 1 {
+		t.Fatalf("`first a then b` should link a as its source once, found %d:\n%s", n, turtle)
+	}
+	if !strings.Contains(string(turtle), "sysml:referent elmt:P__A__a") {
+		t.Fatalf("`succession first a then b` should link a through its end:\n%s", turtle)
+	}
+	if !strings.Contains(string(turtle), `sysml:sourceFeature "start"`) {
+		t.Fatalf("`first start;` should carry the start it marks by name:\n%s", turtle)
+	}
+	back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+// An action body's initial node links the member its successor names.
+func TestInitialSuccessorLinksAVertexOfTheMachine(t *testing.T) {
+	src := "package P {\n    action def A {\n        first start then walk;\n        action walk;\n    }\n}\n"
+	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if !strings.Contains(string(turtle), "sysml:targetFeature elmt:P__A__walk") {
+		t.Errorf("the initial node should link its successor as elmt:P__A__walk:\n%s", turtle)
 	}
 	if strings.Contains(string(turtle), `sysml:targetFeature "`) {
 		t.Errorf("no initial successor should be carried as text:\n%s", turtle)
@@ -336,6 +357,72 @@ func TestInitialSuccessorLinksAVertexOfTheMachine(t *testing.T) {
 	}
 	if string(back) != src {
 		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+// A state body's `first x then y;` is the succession `succession first x then
+// y;` spells with its keyword: a SuccessionAsUsage in `firstThen` form, no
+// initial node, whose ends reach a nested state or one in a sibling region and
+// which the mapping alone writes back with the keyword.
+func TestStateBodyFirstThenIsASuccession(t *testing.T) {
+	const machines = "    state def M {\n        entry;\n        then idle;\n        state idle;\n        %sfirst idle then nested;\n        state outer {\n            state nested;\n        }\n    }\n" +
+		"    state def Q parallel {\n        state a {\n            state a1;\n        }\n        state b {\n            state b1;\n            %sfirst b1 then a1;\n        }\n    }\n"
+	src := "package P {\n" + fmt.Sprintf(machines, "", "") + "}\n"
+	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if strings.Contains(string(turtle), "sysx:InitialNode") {
+		t.Errorf("a state body's `first x then y;` should map to no initial node:\n%s", turtle)
+	}
+	// The entry's `then idle;` is the third succession.
+	if n := strings.Count(string(turtle), "a sysml:SuccessionAsUsage ;"); n != 3 {
+		t.Errorf("want the two `first` successions and the entry's as SuccessionAsUsage, found %d:\n%s", n, turtle)
+	}
+	if n := strings.Count(string(turtle), `sysx:endForm "firstThen"`); n != 2 {
+		t.Errorf("want both successions in firstThen form, found %d:\n%s", n, turtle)
+	}
+	back, err := export.Convert("m.ttl", withoutSourceText(t, turtle), export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if want := "package P {\n" + fmt.Sprintf(machines, "succession ", "succession ") + "}\n"; string(back) != want {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", want, back)
+	}
+	keyworded, err := export.Convert("m.sysml", []byte(string(back)), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("keyworded spelling to turtle: %v", err)
+	}
+	if a, b := withoutSourceText(t, turtle), withoutSourceText(t, keyworded); string(a) != string(b) {
+		t.Errorf("both spellings should map to one graph\n--- first ---\n%s\n--- succession first ---\n%s", a, b)
+	}
+}
+
+// A chained succession end links every segment: its root is an endpoint too, so
+// a vertex nested anywhere in the machine is linked, not carried as its text.
+func TestChainedSuccessionEndLinksItsRootAsAVertex(t *testing.T) {
+	src := "package P {\n    state def M {\n        entry;\n        then src;\n        state src;\n" +
+		"        state outer {\n            state inner {\n                state deep;\n            }\n        }\n" +
+		"        first src then inner.deep;\n        succession first inner.deep then src;\n    }\n}\n"
+	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if n := strings.Count(string(turtle), "sysml:referent elmt:P__M__outer__inner ;"); n != 2 {
+		t.Errorf("want the root of both chained ends linked to the nested state, found %d:\n%s", n, turtle)
+	}
+	if n := strings.Count(string(turtle), "sysml:targetFeature elmt:P__M__outer__inner__deep ;"); n != 2 {
+		t.Errorf("want both chained ends linked to the deep state, found %d:\n%s", n, turtle)
+	}
+	if strings.Contains(string(turtle), `sysml:referent "`) {
+		t.Errorf("no end segment should be carried as text:\n%s", turtle)
+	}
+	back, err := export.Convert("m.ttl", withoutSourceText(t, turtle), export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if !strings.Contains(string(back), "first inner.deep then src;") || !strings.Contains(string(back), "first src then inner.deep;") {
+		t.Errorf("the chained ends should be written back as chains:\n%s", back)
 	}
 }
 

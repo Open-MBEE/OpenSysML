@@ -9,9 +9,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
-// `first a then b;` names the node the flow starts at, so a is the graph's
-// initial node and holds the succession out of it.
-func TestToActionGraph_FirstNamesADeclaredNode(t *testing.T) {
+// `first a then b;` is the succession a -> b: it declares no node and marks no
+// start, so the graph has no initial node and the executor infers the start.
+func TestToActionGraph_FirstThenIsASuccession(t *testing.T) {
 	graph := actionGraphFor(t, `
 		action seq {
 			action s1;
@@ -23,8 +23,8 @@ func TestToActionGraph_FirstNamesADeclaredNode(t *testing.T) {
 	s1 := nodeNamed(t, graph, "s1")
 	s2 := nodeNamed(t, graph, "s2")
 
-	if graph.Initial != s1 {
-		t.Errorf("initial node = %s, want s1", nodeDescription(graph.Initial))
+	if graph.Initial != nil {
+		t.Errorf("initial node = %s, want none", nodeDescription(graph.Initial))
 	}
 	if edges := graph.Edges[s1]; len(edges) != 1 || edges[0].Target != s2 {
 		t.Errorf("s1 edges = %v, want [s2]", edges)
@@ -36,9 +36,88 @@ func TestToActionGraph_FirstNamesADeclaredNode(t *testing.T) {
 	}
 }
 
-// The same start written as its own member: the succession out of the first node
-// is a separate member and still leaves from the named node.
-func TestToActionGraph_FirstNamesADeclaredNodeSplit(t *testing.T) {
+// Any number of `first a then b;` successions stand beside `first start;`: start
+// is the one initial node, and each succession leaves from the node it names.
+func TestToActionGraph_FirstThenBesideFirstStart(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action seq {
+			action a;
+			action b;
+			action c;
+			first start;
+			then fork f;
+				then a;
+				then b;
+			first a then j;
+			first b then j;
+			join j;
+			first j then c { doc /* c runs last */ }
+			first c then done;
+		}
+	`)
+
+	initial, ok := graph.Initial.(*ast.InitialNode)
+	if !ok || initial.Name() != "start" {
+		t.Fatalf("initial node = %s, want the `first start;` marker", nodeDescription(graph.Initial))
+	}
+	want := map[string][]string{
+		"start": {"f"},
+		"f":     {"a", "b"},
+		"a":     {"j"},
+		"b":     {"j"},
+		"j":     {"c"},
+		"c":     {"done"},
+	}
+	for _, node := range graph.Nodes {
+		var targets []string
+		for _, edge := range graph.Edges[node] {
+			targets = append(targets, nodeDescription(edge.Target))
+		}
+		if got, wanted := strings.Join(targets, ","), strings.Join(want[nodeDescription(node)], ","); got != wanted {
+			t.Errorf("%s -> [%s], want [%s]", nodeDescription(node), got, wanted)
+		}
+	}
+}
+
+// The body a `first a then b { … }` carries is a succession's body: one holding
+// annotations lowers to the same edge, one declaring a node is rejected as the
+// body of `succession first a then b { … }` is.
+func TestToActionGraph_FirstThenWithABody(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action seq {
+			action s1;
+			action s2;
+			first s1 then s2 { doc /* s2 follows s1 */ }
+		}
+	`)
+	s1 := nodeNamed(t, graph, "s1")
+	s2 := nodeNamed(t, graph, "s2")
+	if edges := graph.Edges[s1]; len(edges) != 1 || edges[0].Target != s2 {
+		t.Errorf("s1 edges = %v, want [s2]", edges)
+	}
+
+	src := `
+		action seq {
+			action s1;
+			action s2;
+			first s1 then s2 { action s3; }
+		}
+	`
+	p := parser.New(source.New("test.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	usage := root.Members[0].(*ast.Membership).Member.(*ast.Usage)
+	_, err := ToActionGraph(usage, nil)
+	if err == nil || !strings.Contains(err.Error(), "unsupported body") {
+		t.Errorf("error = %v, want the succession's body rejected", err)
+	}
+}
+
+// The one-ended `first s1;` names the node the flow starts at, so s1 is the
+// graph's initial node and holds the succession written out of it.
+func TestToActionGraph_FirstNamesADeclaredNode(t *testing.T) {
 	graph := actionGraphFor(t, `
 		action seq {
 			action s1;
@@ -73,21 +152,22 @@ func TestToActionGraph_FirstDeclaresItsOwnInitialNode(t *testing.T) {
 	if !ok {
 		t.Fatalf("initial node = %T, want *ast.InitialNode", graph.Initial)
 	}
-	if initial.Name != "start" {
-		t.Errorf("initial node name = %q, want %q", initial.Name, "start")
+	if initial.Name() != "start" {
+		t.Errorf("initial node name = %q, want %q", initial.Name(), "start")
 	}
 	if edges := graph.Edges[initial]; len(edges) != 1 || edges[0].Target != nodeNamed(t, graph, "s1") {
 		t.Errorf("initial edges = %v, want [s1]", edges)
 	}
 }
 
-// A `first` end naming a final node states a flow that ends where it starts.
+// A one-ended `first done;` names a final node, stating a flow that ends where
+// it starts, so lowering rejects it.
 func TestToActionGraph_FirstNamesAFinalNode(t *testing.T) {
 	src := `
 		action seq {
 			action s1;
 			done;
-			first done then s1;
+			first done;
 		}
 	`
 	p := parser.New(source.New("test.sysml", []byte(src)))

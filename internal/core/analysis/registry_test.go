@@ -141,7 +141,7 @@ func TestDefaultPutsHoldsToCheckAlone(t *testing.T) {
 	if len(plan.Steps) != 1 || plan.Steps[0].Engine != CheckEngineName || !errors.Is(plan.Steps[0].Refusal, ErrMalformedQuestion) {
 		t.Fatalf("steps %+v, want check alone refusing the question as malformed", plan.Steps)
 	}
-	if plan.Result.Strength != NotCovered || !strings.Contains(plan.Result.Reason, "a Check starting an action") {
+	if plan.Result.Strength != NotCovered || !strings.Contains(plan.Result.Reason, "a Check starting an invocation") {
 		t.Fatalf("result %s %q, want not covered for want of a Check", plan.Result.Strength, plan.Result.Reason)
 	}
 }

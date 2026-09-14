@@ -267,7 +267,7 @@ func TestToStateGraph_InitialDesignationIsRecordedOnTheGraph(t *testing.T) {
 	}{
 		{"named entry action", "entry action begin { }\ntransition first begin then off;"},
 		{"anonymous entry", "entry; then off;"},
-		{"initial pseudostate", "first i then off;"},
+		{"named entry action, keyword-less succession", "entry action begin { }\nfirst begin then off;"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			machine := stateUsageIn(t, `

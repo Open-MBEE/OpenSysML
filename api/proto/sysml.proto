@@ -787,6 +787,7 @@ message EditOperation {
     RenameEdit rename = 2;
     AddMemberEdit add_member = 3;
     DeleteEdit delete = 4;
+    MoveEdit move = 5;
   }
 }
 
@@ -814,6 +815,17 @@ message DeleteEdit {
   string target = 1;
   // Also remove declarations that refer to target.
   bool cascade = 2;
+}
+
+// MoveEdit re-parents a declaration: the span DeleteEdit would remove is
+// written where AddMemberEdit would insert it, and the references the move
+// breaks are respelled so the model stays valid. A move whose references
+// cannot be respelled is refused, naming them, rather than leaving them dangling.
+message MoveEdit {
+  // Fully qualified name of the declaration to move.
+  string target = 1;
+  // Namespace FQN to receive the declaration; empty means the document root.
+  string owner = 2;
 }
 
 // SetValueEdit sets the value of a feature that already exists, replacing the
@@ -886,6 +898,8 @@ enum EditFailure {
   EDIT_FAILURE_ILLEGAL_KIND = 13;     // kind is invalid for document language
   EDIT_FAILURE_MEMBER_NAME_TAKEN = 14; // owner already declares the name
   EDIT_FAILURE_DELETE_REFERENCED = 15; // delete would leave references
+  EDIT_FAILURE_OWNER_INSIDE_TARGET = 16; // move owner is the target or inside it
+  EDIT_FAILURE_MOVE_REFERENCED = 17;  // move would leave a reference no spelling restores
 }
 
 // SymbolInfo represents any SysML element

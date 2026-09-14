@@ -196,9 +196,8 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message:        fmt.Sprintf("%s already declares %q", op.Owner, op.MemberName),
 		}
 	}
-	text := writeMember(op, kind)
-	span, replacement := m.memberInsertion(owner, text)
-	return splice{span: span, text: replacement, opIndex: i, target: op.Owner}, nil
+	ins := m.memberInsertion(owner, writeMember(op, kind))
+	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 }
 
 func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
@@ -257,17 +256,36 @@ func writeMember(op Operation, kind memberKind) string {
 	return header + ";"
 }
 
-func (m Model) memberInsertion(owner ast.Node, text string) (source.Span, string) {
+// insertion is the splice adding a member to an owner: text replaces span, and
+// the member's own notation starts at offset at within text.
+type insertion struct {
+	span source.Span
+	text string
+	at   int
+}
+
+// ownerMemberIndent is the indentation a member of owner is written at.
+func (m Model) ownerMemberIndent(owner ast.Node) string {
+	if owner == m.Root {
+		return ""
+	}
+	return m.memberIndent(owner.Span())
+}
+
+// memberInsertion places text, one member's notation with its later lines
+// already indented for owner, where a new member of owner goes: before the
+// closing brace of its body, or in the body opened for a bodyless owner.
+func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 	if owner == m.Root {
 		prefix := ""
 		if len(m.Source.Bytes()) > 0 && m.Source.Bytes()[len(m.Source.Bytes())-1] != '\n' {
 			prefix = "\n"
 		}
-		return source.Span{Offset: m.Source.Len()}, prefix + text + "\n"
+		return insertion{span: source.Span{Offset: m.Source.Len()}, text: prefix + text + "\n", at: len(prefix)}
 	}
 	body, hasBody := bodyInfo(owner)
 	ownerIndent := lineIndent(m.Source.Bytes(), owner.Span().Offset)
-	indent := m.memberIndent(owner.Span())
+	indent := m.ownerMemberIndent(owner)
 	if hasBody {
 		rbrace := lastToken(m.Source, body, lexer.RBrace)
 		closeOffset := rbrace.Span.Offset
@@ -284,12 +302,19 @@ func (m Model) memberInsertion(owner ast.Node, text string) (source.Span, string
 		if lineStart > 0 && m.Source.Bytes()[lineStart-1] == '\n' {
 			prefix = ""
 		}
-		return source.Span{Offset: lineStart, Len: closeOffset - lineStart},
-			prefix + indent + text + "\n" + closeIndent
+		return insertion{
+			span: source.Span{Offset: lineStart, Len: closeOffset - lineStart},
+			text: prefix + indent + text + "\n" + closeIndent,
+			at:   len(prefix) + len(indent),
+		}
 	}
 	semi := lastToken(m.Source, owner.Span(), lexer.Semicolon)
-	return source.Span{Offset: semi.Span.Offset, Len: semi.Span.Len},
-		" {\n" + indent + text + "\n" + ownerIndent + "}"
+	open := " {\n" + indent
+	return insertion{
+		span: source.Span{Offset: semi.Span.Offset, Len: semi.Span.Len},
+		text: open + text + "\n" + ownerIndent + "}",
+		at:   len(open),
+	}
 }
 
 func bodyInfo(node ast.Node) (source.Span, bool) {
@@ -301,6 +326,10 @@ func bodyInfo(node ast.Node) (source.Span, bool) {
 	case *ast.Definition:
 		return d.Span(), d.HasBody
 	case *ast.Usage:
+		return d.Span(), d.HasBody
+	case *ast.TransitionMember:
+		return d.Span(), d.HasBody
+	case *ast.SuccessionEdge:
 		return d.Span(), d.HasBody
 	default:
 		return source.Span{}, false

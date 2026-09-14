@@ -52,19 +52,24 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHos
 	return host
 }
 
-// run executes the behavior's statements.
+// run executes the behavior's statements; a do behavior's pause where they wait
+// and are re-entered (perform).
 func (h *stateStmtHost) run() error {
-	engine := newStmtEngineOver(h.exec.ctx, h, h.exec.stateData, h.attrs)
-	engine.env.perf = h.perfs.root
-	// The activation ends with this execution of the body, so a behavior run
-	// again does not read what an earlier execution computed.
-	defer engine.finish()
-	_, err := engine.run(h.behavior.Body)
+	_, err := h.exec.ctx.runStatements(func() *stmtEngine {
+		engine := newStmtEngineOver(h.exec.ctx, h, h.exec.stateData, h.attrs)
+		engine.env.perf = h.perfs.root
+		return engine
+	}, h.behavior.Body)
 	return err
 }
 
-// doRun is a do behavior under way on a body coroutine: a wait on the clock or
-// for a message in its flow pauses it there, to be resumed once the wait ends or
+func (h *stateStmtHost) perform() error { return h.run() }
+
+// clone is the host itself: what its run changes is the flow's, captured with it.
+func (h *stateStmtHost) clone() bodyWork { return h }
+
+// doRun is a do behavior under way as a body run: a wait on the clock or for a
+// message in its flow pauses it there, to be resumed once the wait ends or
 // ended when the state is exited, while the machine goes on around it.
 type doRun struct {
 	host *stateStmtHost
@@ -81,7 +86,7 @@ func (e *StateExecutor) startDoRun(behavior lower.StateBehavior) (*doRun, error)
 		return nil, nil
 	}
 	host := e.behaviorHost(behavior)
-	body := &bodyRun{co: e.ctx.takeBodyCoroutine(), work: host.run, awaitsMessages: true}
+	body := &bodyRun{work: host, awaitsMessages: true}
 	run := &doRun{host: host, body: body}
 	return run.resume(e.ctx)
 }
@@ -112,7 +117,7 @@ func (run *doRun) offer(ctx *Context, m Message) (*doRun, error) {
 // message stays until its machine dispatches one to it.
 func (run *doRun) resumable(ctx *Context) bool {
 	defer ctx.readingMail(&run.mail)()
-	return !run.body.paused.waits()
+	return !run.body.paused.wait.goesOn()
 }
 
 // end abandons the run for good: nothing of the behavior runs after it.
@@ -123,7 +128,10 @@ func (run *doRun) end(ctx *Context) {
 // messageAcceptor is an executor a message in flight may let go on from an accept
 // it is parked at.
 type messageAcceptor interface {
-	acceptsMessage(m Message) (bool, error)
+	// acceptTaking lists the accepts parked for m, placed in the performance parked there.
+	acceptTaking(m Message) ([]TakingAccept, error)
+	// performanceName names the performance the accepts are placed in.
+	performanceName() string
 }
 
 // acceptsMessage reports whether the run, paused at an accept of its flow or of
@@ -132,7 +140,7 @@ func (run *doRun) acceptsMessage(m Message) (bool, error) {
 	if accepted, err := run.host.flow.acceptsMessage(m); err != nil || accepted {
 		return accepted, err
 	}
-	if held, ok := run.body.paused.held.(messageAcceptor); ok {
+	if held := run.body.paused.wait.held; held != nil {
 		return held.acceptsMessage(m)
 	}
 	return false, nil
@@ -142,7 +150,7 @@ func (run *doRun) acceptsMessage(m Message) (bool, error) {
 // flow's, and those of the action it performs where that is what waits.
 func (run *doRun) armedWaits() []ClockWait {
 	waits := run.host.flow.armedWaits()
-	if held := run.body.paused.held; held != nil {
+	if held := run.body.paused.wait.held; held != nil {
 		waits = append(waits, held.armedWaits()...)
 	}
 	return waits
@@ -152,7 +160,7 @@ func (run *doRun) armedWaits() []ClockWait {
 // turn, for the paused work of the flow and of the action performed.
 func (run *doRun) visibleArmedWaits() []ClockWait {
 	waits := run.host.flow.visibleArmedWaits()
-	if held := run.body.paused.held; held != nil {
+	if held := run.body.paused.wait.held; held != nil {
 		waits = append(waits, held.visibleArmedWaits()...)
 	}
 	return waits
@@ -266,7 +274,7 @@ func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 
 // effect performs the action a `perform` names; every other effect a body may
 // state has no execution in a state behavior.
-func (h *stateStmtHost) effect(s lower.Effect) error {
+func (h *stateStmtHost) effect(_ *stmtEnv, s lower.Effect) error {
 	if s.Kind == lower.EffectPerform {
 		inv, ok := performedInvocation(s)
 		if !ok {
@@ -287,6 +295,9 @@ func (h *stateStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph
 // control nodes, as the behavior's own performance: the body's attributes are
 // the performance's, initialized as a standalone action's are.
 func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
+	if resumingAt[*subflowFrame](h.exec.ctx) {
+		return flowNext, h.flow.runSubflow(h.flow.root)
+	}
 	if block.Graph.Initial == nil {
 		return flowNext, fmt.Errorf("%w: %s: no node starts the flow%s",
 			ErrInvalidActionFlow, h.describe(), noFlowStart(block.Graph))

@@ -105,14 +105,88 @@ func closingParen(text string) int {
 }
 
 // signalTarget is where a %send delivers: the object (nil for a machine no
-// object performs), the machines that may accept it, and its name in the report.
+// object performs), the behaviors that may accept it, and its name in the report.
 type signalTarget struct {
-	object   *runtime.Instance
-	machines []*runtime.StateExecutor
-	label    string
+	object    *runtime.Instance
+	receivers []signalReceiver
+	label     string
 }
 
-// doSend injects a signal into an object's machine through the runtime's own
+// signalReceiver is one behavior a %send may reach: a state machine, or a
+// performed action a token of which may be parked at an accept for the signal.
+type signalReceiver struct {
+	machine *runtime.StateExecutor
+	action  *runtime.ActionExecutor
+	name    string
+}
+
+// machineReceiver is a state machine as a %send reaches it.
+func machineReceiver(exec *runtime.StateExecutor) signalReceiver {
+	return signalReceiver{machine: exec, name: machineName(exec)}
+}
+
+// actionReceiver is a performed action as a %send reaches it, under the name the
+// object performs it by, or the action's own when it performs it by none.
+func actionReceiver(exec *runtime.ActionExecutor, name string) signalReceiver {
+	if name == "" {
+		name = actionName(exec)
+	}
+	return signalReceiver{action: exec, name: name}
+}
+
+// kind says what the receiver is, as a report names it.
+func (r signalReceiver) kind() string {
+	if r.machine != nil {
+		return "state machine"
+	}
+	return "performed action"
+}
+
+// status names the receiver with where it stands: the state a machine is in,
+// the accepts an action is parked at or the state of its run.
+func (r signalReceiver) status() string {
+	if r.machine != nil {
+		return fmt.Sprintf("state machine %q in state %s", r.name, currentStateName(r.machine))
+	}
+	return fmt.Sprintf("performed action %q %s", r.name, actionStanding(r.action))
+}
+
+// accepts reports whether the receiver takes msg in its present configuration; a
+// receiver whose accept port fails to resolve is the error.
+func (r signalReceiver) accepts(msg runtime.Message) (bool, error) {
+	var (
+		accepted bool
+		err      error
+	)
+	if r.machine != nil {
+		accepted, err = r.machine.AcceptsMessage(msg)
+	} else {
+		accepted, err = r.action.AcceptsMessage(msg)
+	}
+	if err != nil {
+		return false, fmt.Errorf("%s %q cannot accept %s: %w", r.kind(), r.name, signalText(msg), err)
+	}
+	return accepted, nil
+}
+
+// decide says what the receiver would do with msg once dispatched (what a machine
+// fires, defers or resumes on it; the accepts an action is parked at for it), false for nothing.
+func (r signalReceiver) decide(msg runtime.Message) (acceptance, bool, error) {
+	if r.machine != nil {
+		decision, err := r.machine.Decide(msg)
+		if err != nil {
+			return acceptance{}, false, fmt.Errorf("state machine %q cannot decide %s: %w", r.name, signalText(msg), err)
+		}
+		return acceptance{receiver: r, decision: decision}, decision.Enabled(), nil
+	}
+	taking, err := r.action.AcceptTaking(msg)
+	if err != nil {
+		return acceptance{}, false, fmt.Errorf("performed action %q cannot accept %s: %w", r.name, signalText(msg), err)
+	}
+	return acceptance{receiver: r, accepts: taking}, len(taking) > 0, nil
+}
+
+// doSend injects a signal into an object's behaviors through the runtime's own
 // message bus, so the debugger delivers it as it would one an action sent.
 func (s *Session) doSend(text string) ([]string, bool, error) {
 	lines, err := s.sendSignal(text)
@@ -125,9 +199,8 @@ func (s *Session) doSend(text string) ([]string, bool, error) {
 	return lines, false, nil
 }
 
-// sendSignal resolves the signal and its destination, refuses what no machine
-// there would accept, and posts the rest. The arguments are parsed before the
-// destination is reached, so a malformed one materializes nothing.
+// sendSignal resolves the signal and its destination, refuses what no behavior
+// there would accept, and posts the rest; arguments are parsed before anything materializes.
 func (s *Session) sendSignal(text string) ([]string, error) {
 	req, err := parseSendLine(text)
 	if err != nil {
@@ -144,7 +217,7 @@ func (s *Session) sendSignal(text string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 	}
-	target, err := s.signalTarget(req.target)
+	target, err := s.signalTarget(ctx, req.target)
 	if err != nil {
 		return nil, err
 	}
@@ -152,18 +225,18 @@ func (s *Session) sendSignal(text string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	accepting, err := acceptingMachines(target.machines, msg)
+	accepting, err := acceptingReceivers(target.receivers, msg)
 	if err != nil {
 		return nil, err
 	}
 	if len(accepting) == 0 {
-		return nil, fmt.Errorf("%s accepts no signal %s now: %s", target.label, msg.SignalType, machineStates(target.machines))
+		return nil, fmt.Errorf("%s accepts no signal %s now: %s", target.label, msg.SignalType, receiverStatuses(target.receivers))
 	}
-	decisions, err := decideMachines(accepting, msg)
+	acceptances, err := decideReceivers(accepting, msg)
 	if err != nil {
 		return nil, err
 	}
-	if len(decisions) == 0 {
+	if len(acceptances) == 0 {
 		return nil, fmt.Errorf("%s would fire no transition on %s now, so it was not sent: %s", target.label, signalText(msg), guardsHolding(accepting, msg))
 	}
 	ctx.PostMessage(msg)
@@ -172,67 +245,98 @@ func (s *Session) sendSignal(text string) ([]string, error) {
 	if !typed {
 		out = append(out, fmt.Sprintf("  No declaration types %s, so the signal is matched by name alone", msg.SignalType))
 	}
-	for _, d := range decisions {
-		out = append(out, "  "+d.text())
+	for _, a := range acceptances {
+		out = append(out, "  "+a.text())
 	}
-	if s.stateExec != nil {
-		out = append(out, s.dispatchHint(accepting, decisions)...)
-	}
+	out = append(out, s.dispatchHint(ctx, accepting, acceptances)...)
 	return out, nil
 }
 
-// dispatchHint says how the debugged machine relates to the signal just sent:
-// that a step of it dispatches it, or that the machine leaves it to a sibling
-// because its own guards would drop it.
-func (s *Session) dispatchHint(accepting []*runtime.StateExecutor, decisions []machineDecision) []string {
-	exec := s.stateExec.executor
-	if slices.ContainsFunc(decisions, func(d machineDecision) bool { return d.machine == exec }) {
+// dispatchHint says what dispatches the signal just sent: a step of the debugged
+// behavior taking it, an advance of a session driving the runtime it is in flight
+// on, or a session to open when none does; a debugged machine whose guards would
+// drop it is said to leave it to a sibling.
+func (s *Session) dispatchHint(ctx *runtime.Context, accepting []signalReceiver, acceptances []acceptance) []string {
+	debugged := s.debuggedReceivers(ctx)
+	if slices.ContainsFunc(acceptances, func(a acceptance) bool { return slices.ContainsFunc(debugged, a.receiver.sameExecution) }) {
 		return []string{"", "Use %step or %advance <time> to dispatch it"}
 	}
-	if slices.Contains(accepting, exec) {
-		return []string{fmt.Sprintf("  %s would fire nothing on it, so a step of it leaves it to the machine above", machineStates([]*runtime.StateExecutor{exec}))}
+	for _, r := range debugged {
+		if r.machine != nil && slices.ContainsFunc(accepting, r.sameExecution) {
+			return []string{fmt.Sprintf("  %s would fire nothing on it, so a step of it leaves it to the machine above", r.status())}
+		}
 	}
-	return nil
+	if slices.Contains(distinctContexts(s.stateExec.contextOf(), s.actionExec.contextOf()), ctx) {
+		return []string{"", "Use %advance <time> to dispatch it"}
+	}
+	if s.stateExec != nil || s.actionExec != nil {
+		return []string{"", "The open session runs on the runtime of an earlier model, so open a %state or %action session anew, then %advance <time> dispatches it"}
+	}
+	return []string{"", "Open a %state or %action session, then %advance <time> dispatches it"}
 }
 
-// machineDecision is what one machine decided for a message: what its dispatch
-// would do with it now.
-type machineDecision struct {
-	machine  *runtime.StateExecutor
+// debuggedReceivers are the behaviors the open debugging sessions step on ctx's
+// bus; a session a rebuild left on an earlier runtime hears nothing posted here.
+func (s *Session) debuggedReceivers(ctx *runtime.Context) []signalReceiver {
+	var out []signalReceiver
+	if s.stateExec != nil && s.stateExec.contextOf() == ctx {
+		out = append(out, machineReceiver(s.stateExec.executor))
+	}
+	if s.actionExec != nil && s.actionExec.contextOf() == ctx {
+		out = append(out, actionReceiver(s.actionExec.executor, ""))
+	}
+	return out
+}
+
+// acceptance is what one receiver would do with a message once it is dispatched:
+// what a machine's dispatch does with it, or the accepts an action is parked at for it.
+type acceptance struct {
+	receiver signalReceiver
 	decision runtime.Decision
+	accepts  []runtime.TakingAccept
 }
 
-// text says what the machine would do with the message when it is dispatched.
-func (d machineDecision) text() string {
-	where := machineStates([]*runtime.StateExecutor{d.machine})
-	if d.decision.Deferred {
+// text says what the receiver would do with the message when it is dispatched; an
+// action parked at several accepts for it names them all, as its step picks the taker.
+func (a acceptance) text() string {
+	if a.receiver.action != nil {
+		accepts := make([]string, len(a.accepts))
+		for i, accept := range a.accepts {
+			accepts[i] = accept.String()
+		}
+		if len(accepts) == 1 {
+			return fmt.Sprintf("Accepted by performed action %q waiting at %s", a.receiver.name, accepts[0])
+		}
+		return fmt.Sprintf("Accepted by performed action %q waiting at %s; the step dispatching it lets one of them take it", a.receiver.name, strings.Join(accepts, " and at "))
+	}
+	where := a.receiver.status()
+	if a.decision.Deferred {
 		return fmt.Sprintf("Deferred by %s, to be dispatched once it leaves", where)
 	}
 	resumes := ""
-	if len(d.decision.Resumes) > 0 {
-		resumes = fmt.Sprintf("the %s goes on from its accept", strings.Join(d.decision.Resumes, " and the "))
+	if len(a.decision.Resumes) > 0 {
+		resumes = fmt.Sprintf("the %s goes on from its accept", strings.Join(a.decision.Resumes, " and the "))
 	}
-	if len(d.decision.Fires) == 0 {
+	if len(a.decision.Fires) == 0 {
 		return fmt.Sprintf("Accepted by %s: %s", where, resumes)
 	}
 	if resumes != "" {
 		resumes = ", and " + resumes
 	}
-	return fmt.Sprintf("Accepted by %s: %s fires on it%s", where, strings.Join(d.decision.Fires, " and "), resumes)
+	return fmt.Sprintf("Accepted by %s: %s fires on it%s", where, strings.Join(a.decision.Fires, " and "), resumes)
 }
 
-// decideMachines decides the message with each machine as its dispatch would,
-// keeping the machines that would fire a transition on it, defer it, or let a do
-// behavior go on with it.
-func decideMachines(machines []*runtime.StateExecutor, msg runtime.Message) ([]machineDecision, error) {
-	var out []machineDecision
-	for _, m := range machines {
-		decision, err := m.Decide(msg)
+// decideReceivers decides the message with each receiver as its dispatch would,
+// keeping those that fire on it, defer it, or go on from an accept with it.
+func decideReceivers(receivers []signalReceiver, msg runtime.Message) ([]acceptance, error) {
+	var out []acceptance
+	for _, r := range receivers {
+		a, enabled, err := r.decide(msg)
 		if err != nil {
-			return nil, fmt.Errorf("state machine %q cannot decide %s: %w", machineName(m), signalText(msg), err)
+			return nil, err
 		}
-		if decision.Enabled() {
-			out = append(out, machineDecision{machine: m, decision: decision})
+		if enabled {
+			out = append(out, a)
 		}
 	}
 	return out, nil
@@ -240,25 +344,15 @@ func decideMachines(machines []*runtime.StateExecutor, msg runtime.Message) ([]m
 
 // guardsHolding explains a message the machines accept but would fire nothing
 // on: every transition it triggers is held back by its guard.
-func guardsHolding(machines []*runtime.StateExecutor, msg runtime.Message) string {
-	return fmt.Sprintf("%s, and the guard of every transition %s triggers is false", machineStates(machines), msg.SignalType)
+func guardsHolding(machines []signalReceiver, msg runtime.Message) string {
+	return fmt.Sprintf("%s, and the guard of every transition %s triggers is false", receiverStatuses(machines), msg.SignalType)
 }
 
 // signalTarget resolves the object a %send names, or the object the debugged
-// machine is performed by when it names none.
-func (s *Session) signalTarget(name string) (signalTarget, error) {
+// machine or action is performed by when it names none.
+func (s *Session) signalTarget(ctx *runtime.Context, name string) (signalTarget, error) {
 	if name == "" {
-		if s.stateExec == nil {
-			return signalTarget{}, fmt.Errorf("%w, so there is no object to send to: name one with `to <object>`", s.noStateSessionErr())
-		}
-		exec := s.stateExec.executor
-		self := exec.Performer()
-		if self == nil {
-			label := fmt.Sprintf("state machine %q", s.stateExec.name)
-			return signalTarget{machines: []*runtime.StateExecutor{exec}, label: label}, nil
-		}
-		label := objectMention(self, s.stateExec.selfFQN)
-		return signalTarget{object: self, machines: s.machinesOf(self), label: label}, nil
+		return s.debuggedTarget(ctx)
 	}
 
 	inst, ref, err := s.resolveObject(name)
@@ -266,29 +360,72 @@ func (s *Session) signalTarget(name string) (signalTarget, error) {
 		return signalTarget{}, err
 	}
 	label := objectMention(inst, ref)
-	machines := s.machinesOf(inst)
-	if len(machines) == 0 {
-		return signalTarget{}, fmt.Errorf("%s runs no state machine, so nothing there accepts a signal (%%state <machine> <object> starts one)", label)
+	receivers := s.receiversOf(ctx, inst)
+	if len(receivers) == 0 {
+		return signalTarget{}, fmt.Errorf("%s runs no state machine and performs no action, so nothing there accepts a signal (%%state <machine> <object> or %%action <action> <object> starts one)", label)
 	}
-	return signalTarget{object: inst, machines: machines, label: label}, nil
+	return signalTarget{object: inst, receivers: receivers, label: label}, nil
 }
 
-// machinesOf lists the machines an object runs: those it exhibits, and the one
-// a %state session performs on its behalf.
-func (s *Session) machinesOf(inst *runtime.Instance) []*runtime.StateExecutor {
-	var machines []*runtime.StateExecutor
-	for _, b := range inst.Behaviors() {
-		if b.State != nil {
-			machines = append(machines, b.State)
-		}
-	}
+// debuggedTarget is where a %send naming no object delivers: the %state session's object (or its
+// machine when none performs it, unless a rebuild left it on an earlier runtime), else the %action session's object.
+func (s *Session) debuggedTarget(ctx *runtime.Context) (signalTarget, error) {
 	if s.stateExec != nil {
 		exec := s.stateExec.executor
-		if exec.Performer() == inst && !slices.Contains(machines, exec) {
-			machines = append(machines, exec)
+		self := exec.Performer()
+		if self == nil {
+			if s.stateExec.contextOf() != ctx {
+				return signalTarget{}, fmt.Errorf("the %%state session runs %q on the runtime of an earlier model, so nothing sent now reaches it: %%state %s starts it anew, or name an object with `to <object>`",
+					s.stateExec.name, s.stateExec.name)
+			}
+			label := fmt.Sprintf("state machine %q", s.stateExec.name)
+			return signalTarget{receivers: []signalReceiver{machineReceiver(exec)}, label: label}, nil
+		}
+		return signalTarget{object: self, receivers: s.receiversOf(ctx, self), label: objectMention(self, s.stateExec.selfFQN)}, nil
+	}
+	if s.actionExec != nil {
+		self := s.actionExec.executor.Performer()
+		if self == nil {
+			return signalTarget{}, fmt.Errorf("the %%action session performs %q on behalf of no object, so there is no object to send to: name one with `to <object>` (%%action %s <object> performs it on one)",
+				s.actionExec.name, s.actionExec.name)
+		}
+		return signalTarget{object: self, receivers: s.receiversOf(ctx, self), label: objectMention(self, s.actionExec.selfFQN)}, nil
+	}
+	return signalTarget{}, fmt.Errorf("%s, so there is no object to send to: name one with `to <object>` (a %%state or %%action session on an object supplies it)",
+		noSessionText("debugging session", s.mostRecentlyEnded(), ""))
+}
+
+// receiversOf lists the behaviors an object runs, in declaration order, and the
+// machine or action a debugging session performs on its behalf on ctx's bus.
+func (s *Session) receiversOf(ctx *runtime.Context, inst *runtime.Instance) []signalReceiver {
+	var receivers []signalReceiver
+	for _, b := range inst.Behaviors() {
+		switch {
+		case b.State != nil:
+			receivers = append(receivers, machineReceiver(b.State))
+		case b.Action != nil:
+			receivers = append(receivers, actionReceiver(b.Action, b.Name))
 		}
 	}
-	return machines
+	for _, r := range s.debuggedReceivers(ctx) {
+		if r.performer() == inst && !slices.ContainsFunc(receivers, r.sameExecution) {
+			receivers = append(receivers, r)
+		}
+	}
+	return receivers
+}
+
+// performer is the object the receiver runs on behalf of, nil for one no object performs.
+func (r signalReceiver) performer() *runtime.Instance {
+	if r.machine != nil {
+		return r.machine.Performer()
+	}
+	return r.action.Performer()
+}
+
+// sameExecution reports whether other is the receiver's very execution, whatever it is named.
+func (r signalReceiver) sameExecution(other signalReceiver) bool {
+	return r.machine == other.machine && r.action == other.action
 }
 
 // signalMessage builds the message to post, typed by the definition the name
@@ -303,7 +440,7 @@ func (s *Session) signalMessage(ctx *runtime.Context, signal string, args []argu
 		if len(args) > 0 {
 			return runtime.Message{}, false, lerr
 		}
-		accepting, err := acceptingMachines(target.machines, named)
+		accepting, err := acceptingReceivers(target.receivers, named)
 		if err != nil {
 			return runtime.Message{}, false, err
 		}
@@ -339,17 +476,17 @@ func checkArgumentNames(args []argument) error {
 	return nil
 }
 
-// acceptingMachines keeps the machines whose active configuration accepts msg;
-// a machine whose accept port fails to resolve is the error.
-func acceptingMachines(machines []*runtime.StateExecutor, msg runtime.Message) ([]*runtime.StateExecutor, error) {
-	var out []*runtime.StateExecutor
-	for _, m := range machines {
-		accepted, err := m.AcceptsMessage(msg)
+// acceptingReceivers keeps the receivers whose present configuration accepts
+// msg; one whose accept port fails to resolve is the error.
+func acceptingReceivers(receivers []signalReceiver, msg runtime.Message) ([]signalReceiver, error) {
+	var out []signalReceiver
+	for _, r := range receivers {
+		accepted, err := r.accepts(msg)
 		if err != nil {
-			return nil, fmt.Errorf("state machine %q cannot accept %s: %w", machineName(m), signalText(msg), err)
+			return nil, err
 		}
 		if accepted {
-			out = append(out, m)
+			out = append(out, r)
 		}
 	}
 	return out, nil
@@ -389,11 +526,11 @@ func droppedDispatchNote(d runtime.Dispatch) string {
 	return msg.SignalType + " was consumed by no transition: since it was sent, the state or the data its guards read had changed"
 }
 
-// machineStates names each machine with the state it is in.
-func machineStates(machines []*runtime.StateExecutor) string {
-	parts := make([]string, 0, len(machines))
-	for _, m := range machines {
-		parts = append(parts, fmt.Sprintf("state machine %q in state %s", machineName(m), currentStateName(m)))
+// receiverStatuses names each receiver with where it stands.
+func receiverStatuses(receivers []signalReceiver) string {
+	parts := make([]string, 0, len(receivers))
+	for _, r := range receivers {
+		parts = append(parts, r.status())
 	}
 	return strings.Join(parts, ", ")
 }
@@ -404,6 +541,37 @@ func machineName(exec *runtime.StateExecutor) string {
 		return sym.Name
 	}
 	return "<anonymous>"
+}
+
+// actionName names an action the way the notation declares it.
+func actionName(exec *runtime.ActionExecutor) string {
+	if sym := exec.ActionSymbol(); sym != nil && sym.Name != "" {
+		return sym.Name
+	}
+	return "<anonymous>"
+}
+
+// actionStanding says where a performed action stands: the accepts its tokens
+// are parked at, or else the state of its run.
+func actionStanding(exec *runtime.ActionExecutor) string {
+	var waits []string
+	for _, token := range exec.Tokens() {
+		if token.Wait != nil && !token.Wait.Timed && token.Wait.Trigger == "" {
+			waits = append(waits, fmt.Sprintf("accept %s of type %s", token.Wait.ParamName, orAnySignal(token.Wait.SignalType)))
+		}
+	}
+	if len(waits) == 0 {
+		return strings.ToLower(exec.State().String())
+	}
+	return "waiting at " + strings.Join(waits, " and ")
+}
+
+// orAnySignal names the type an accept awaits, "any" for an accept naming none.
+func orAnySignal(signalType string) string {
+	if signalType == "" {
+		return "any"
+	}
+	return signalType
 }
 
 // signalText writes a message as the send that posts it: the signal with its

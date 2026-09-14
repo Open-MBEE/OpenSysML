@@ -34,7 +34,11 @@
                 (*ast.QualifiedName))))
           (SubstateMember name="off")
           (SubstateMember name="on")
-          (InitialNode name="off" successor="on")))
+          (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (ConnectorEnd target="off"
+              (*ast.QualifiedName))
+            (ConnectorEnd target="on"
+              (*ast.QualifiedName)))))
       (Membership visibility="default"
         (Definition kind="action" abstract=false variation=false name="Plain"
           (Usage kind="action" name="start" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)

@@ -524,7 +524,7 @@ func nodeIdentifier(node ast.Node) string {
 		}
 		return "state_anonymous"
 	case *ast.InitialNode:
-		return controlNodeName(n.Name, "initial")
+		return controlNodeName(n.Name(), "initial")
 	case *ast.FinalNode:
 		return "done"
 	case *ast.ForkNode:

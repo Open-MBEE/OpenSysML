@@ -10,7 +10,8 @@ import (
 // the repository's own docs, and in the editors that host the language server —
 // without a Graphviz installation, and it has a state-diagram grammar the state
 // rendering maps onto directly. Graphviz DOT, written by DOT, is the alternative
-// for Graphviz toolchains and for renderings that will carry exact positions.
+// for Graphviz toolchains and for renderings that will carry exact positions;
+// PlantUML, written by PlantUML, for PlantUML toolchains.
 //
 // A graph-shaped rendering is a `flowchart`; a state rendering is a
 // `stateDiagram-v2` and a sequence rendering a `sequenceDiagram`. What the
@@ -44,7 +45,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	if options.Palette != "" {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette))
 	}
-	r.writeGeometryComments(&b)
+	r.writeGeometryComments(&b, "%%")
 	switch r.Kind {
 	case KindState:
 		r.writeStateDiagram(&b, direction)
@@ -58,11 +59,12 @@ func (r *Rendering) MermaidWith(options Options) string {
 }
 
 // writeGeometryComments writes the canvas, node placements and edge routes as
-// comments, which Mermaid lays out without: the geometry stays readable in the
-// file rather than being dropped.
-func (r *Rendering) writeGeometryComments(b *strings.Builder) {
+// comments opened by prefix (`%%` in Mermaid, `'` in PlantUML), which those
+// forms lay out without: the geometry stays readable in the file rather than
+// being dropped.
+func (r *Rendering) writeGeometryComments(b *strings.Builder, prefix string) {
 	if c := r.Canvas; c != nil {
-		b.WriteString("%% canvas:")
+		b.WriteString(prefix + " canvas:")
 		if c.Unit != "" {
 			b.WriteString(" unit=" + c.Unit)
 		}
@@ -72,13 +74,13 @@ func (r *Rendering) writeGeometryComments(b *strings.Builder) {
 		b.WriteString("\n")
 	}
 	for _, root := range r.Roots {
-		writeLayoutComments(b, root)
+		writeLayoutComments(b, prefix, root)
 	}
 	for _, edge := range r.Edges {
 		if len(edge.Route) == 0 {
 			continue
 		}
-		fmt.Fprintf(b, "%%%% route: %s->%s", edge.From, edge.To)
+		fmt.Fprintf(b, "%s route: %s->%s", prefix, edge.From, edge.To)
 		for _, p := range edge.Route {
 			fmt.Fprintf(b, " %s,%s", formatCoord(p.X), formatCoord(p.Y))
 		}
@@ -86,10 +88,11 @@ func (r *Rendering) writeGeometryComments(b *strings.Builder) {
 	}
 }
 
-// writeLayoutComments writes the placement of node and of the nodes under it.
-func writeLayoutComments(b *strings.Builder, node *Node) {
+// writeLayoutComments writes the placement of node and of the nodes under it,
+// as comments opened by prefix.
+func writeLayoutComments(b *strings.Builder, prefix string, node *Node) {
 	if g := node.Geometry; g != nil {
-		fmt.Fprintf(b, "%%%% layout: %s x=%s y=%s", node.ID, formatCoord(g.X), formatCoord(g.Y))
+		fmt.Fprintf(b, "%s layout: %s x=%s y=%s", prefix, node.ID, formatCoord(g.X), formatCoord(g.Y))
 		if g.HasSize {
 			fmt.Fprintf(b, " w=%s h=%s", formatCoord(g.Width), formatCoord(g.Height))
 		}
@@ -99,7 +102,7 @@ func writeLayoutComments(b *strings.Builder, node *Node) {
 		b.WriteString("\n")
 	}
 	for _, child := range node.Children {
-		writeLayoutComments(b, child)
+		writeLayoutComments(b, prefix, child)
 	}
 }
 

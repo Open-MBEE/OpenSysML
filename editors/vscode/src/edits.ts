@@ -1,20 +1,69 @@
 // How a diagram action becomes an opensysml/applyModelEdit request: owner,
 // endpoint spelling, the version it is pinned to and refusal wording. No VS
 // Code here, so it is unit-tested.
-import type {
-  ApplyModelEditParams,
-  EditPalette,
-  ModelEditOperation,
-  ModelEditRefusal,
-  RenderNode,
-  RenderOwner,
+import {
+  admits,
+  type ApplyModelEditParams,
+  type EdgePlacement,
+  type EditPalette,
+  type ModelEditOperation,
+  type ModelEditRefusal,
+  type NodePlacement,
+  type RenderEdge,
+  type RenderNode,
+  type RenderOwner,
+  type WorkspaceEdit,
 } from "./protocol";
 
-/** Rendering is the diagram an action is taken on: its nodes, what they offer to add, and the document version they draw. */
+/**
+ * Rendering is the diagram an action is taken on: its nodes and edges, the view
+ * they were drawn for (empty for a pseudo-view), what they offer to add, and the
+ * document version they draw.
+ */
 export interface Rendering {
   nodes: RenderNode[];
+  edges?: RenderEdge[];
+  view?: string;
   version: number;
   palette?: EditPalette;
+}
+
+/**
+ * placementOperations turns where a gesture left nodes and edges into the layout
+ * and route operations of one edit: a Layout in the view's body for a rendering
+ * of a declared view, inline on the element for a pseudo-view. An element no
+ * qualified name reaches is targeted by its declaration and placed inline, since
+ * a view body cannot name it. Undefined when something placed is not declared by
+ * the document, since no annotation can reach it.
+ */
+export function placementOperations(
+  rendering: Rendering,
+  nodes: NodePlacement[],
+  edges: EdgePlacement[],
+): ModelEditOperation[] | undefined {
+  const view = rendering.view || undefined;
+  const operations: ModelEditOperation[] = [];
+  for (const placement of nodes) {
+    const node = rendering.nodes.find((candidate) => candidate.id === placement.id);
+    if (node?.fqn) {
+      operations.push({ kind: "setLayout", target: node.fqn, view, layout: placement.layout });
+    } else if (node?.declaration) {
+      operations.push({ kind: "setLayout", declaration: node.declaration, layout: placement.layout });
+    } else {
+      return undefined;
+    }
+  }
+  for (const placement of edges) {
+    const edge = rendering.edges?.[placement.index];
+    if (edge?.fqn) {
+      operations.push({ kind: "setRoute", target: edge.fqn, view, route: placement.route });
+    } else if (edge?.declaration) {
+      operations.push({ kind: "setRoute", declaration: edge.declaration, route: placement.route });
+    } else {
+      return undefined;
+    }
+  }
+  return operations;
 }
 
 /** A node's ancestors, nearest first, ending at a root. */
@@ -53,6 +102,49 @@ export const DOCUMENT_ROOT: RenderOwner = { fqn: "", feature: false };
 /** ownersOf: the namespaces declaring node, nearest first, the document last; undefined for a node the document does not declare. */
 export function ownersOf(node: RenderNode): RenderOwner[] | undefined {
   return node.fqn === undefined ? undefined : [...(node.owners ?? []), DOCUMENT_ROOT];
+}
+
+/** Destination is a namespace a move may put a node into: a drawn node, or the document itself, which no node draws. */
+export interface Destination {
+  fqn: string;
+  node?: RenderNode;
+}
+
+/**
+ * moveDestinations lists where node may be moved, in drawing order with the document last:
+ * every declared node that admits its notation, but itself, what it declares and its present
+ * owner; the document when it admits the notation and does not already own the node.
+ */
+export function moveDestinations(node: RenderNode, rendering: Rendering): Destination[] {
+  if (node.fqn === undefined || node.notation === undefined) {
+    return [];
+  }
+  const notation = node.notation;
+  const owner = node.owners?.[0] ?? DOCUMENT_ROOT;
+  const offered = new Set<string>([node.fqn, owner.fqn]);
+  const out: Destination[] = [];
+  for (const candidate of rendering.nodes) {
+    if (candidate.fqn === undefined || offered.has(candidate.fqn) || !admits(rendering.palette, notation, candidate)) {
+      continue;
+    }
+    if (
+      candidate.owners?.some((owner) => owner.fqn === node.fqn) ||
+      ancestors(candidate, rendering.nodes).includes(node)
+    ) {
+      continue;
+    }
+    offered.add(candidate.fqn);
+    out.push({ fqn: candidate.fqn, node: candidate });
+  }
+  if (!offered.has(DOCUMENT_ROOT.fqn) && rendering.palette?.owners?.[notation] === undefined) {
+    out.push({ fqn: DOCUMENT_ROOT.fqn });
+  }
+  return out;
+}
+
+/** moveOperation is the one operation that puts node into the namespace owner names; "" is the document. */
+export function moveOperation(node: RenderNode, owner: string): ModelEditOperation | undefined {
+  return node.fqn === undefined ? undefined : { kind: "move", target: node.fqn, owner };
 }
 
 /** nameSegments splits a qualified name at `::` outside quotes: `'P::Q'::x` is two segments. */
@@ -145,6 +237,69 @@ function describeOne(refusal: ModelEditRefusal): string {
     parts.push(`Referenced by ${refusal.referring.join(", ")}.`);
   }
   return parts.join("\n");
+}
+
+/**
+ * referrersByFile lists the declarations referring to a refused target, one per line: a
+ * flat list when all are in the edited document, else grouped under the document each
+ * is declared in, the edited document first. A server naming no documents is listed flat.
+ */
+export function referrersByFile(refused: ModelEditRefusal[], docURI: string): string[] {
+  const referrers = refused.flatMap((refusal) => refusal.referrers ?? []);
+  if (referrers.length === 0) {
+    return refused.flatMap((refusal) => refusal.referring ?? []);
+  }
+  const byFile = new Map<string, string[]>([[docURI, []]]);
+  for (const referrer of referrers) {
+    const names = byFile.get(referrer.uri) ?? [];
+    names.push(referrer.name);
+    byFile.set(referrer.uri, names);
+  }
+  if (byFile.size === 1) {
+    return byFile.get(docURI) ?? [];
+  }
+  const out: string[] = [];
+  for (const [uri, names] of byFile) {
+    if (names.length === 0) {
+      continue;
+    }
+    out.push(uri === docURI ? "In this document:" : `In ${fileLabel(uri)}:`, ...names.map((name) => `  ${name}`));
+  }
+  return out;
+}
+
+/** fileLabel is the file name a URI ends in, as the user knows the document. */
+export function fileLabel(uri: string): string {
+  const query = uri.search(/[?#]/);
+  const path = query < 0 ? uri : uri.slice(0, query);
+  return decodeURIComponent(path.slice(path.lastIndexOf("/") + 1));
+}
+
+/** unopenedDocuments lists the documents an edit names that no buffer holds. */
+export function unopenedDocuments(edit: WorkspaceEdit, versionOf: (uri: string) => number | undefined): string[] {
+  return (edit.documentChanges ?? []).map((change) => change.textDocument.uri).filter((uri) => versionOf(uri) === undefined);
+}
+
+/**
+ * staleDocuments lists the documents an edit was computed against a text of that the
+ * client no longer holds: one pinned to a version the buffer has moved past, or one the
+ * server read from disk (no version) that a buffer has been opened for since.
+ */
+export function staleDocuments(edit: WorkspaceEdit, versionOf: (uri: string) => number | undefined): string[] {
+  const out: string[] = [];
+  for (const change of edit.documentChanges ?? []) {
+    const { uri, version } = change.textDocument;
+    const held = versionOf(uri);
+    if (held !== undefined && held !== version) {
+      out.push(uri);
+    }
+  }
+  return out;
+}
+
+/** describeStale is the one-line message an edit whose other documents moved on is reported with. */
+export function describeStale(stale: string[]): string {
+  return `${stale.map(fileLabel).join(", ")} changed while the edit was computed; it is not applied, so repeat the action.`;
 }
 
 /** Characters a backslash may escape in an unrestricted name (KerML §8.2.2). */

@@ -15,6 +15,7 @@ const StateActionFQN = "States::StateAction"
 type LibraryStateTypes struct {
 	*resolve.Resolver
 	frame *symbols.Symbol
+	start *symbols.Symbol
 }
 
 // NewLibraryStateTypes is the LibraryStateTypes over resolver, nil without one:
@@ -28,11 +29,20 @@ func NewLibraryStateTypes(resolver *resolve.Resolver) EndpointResolver {
 		for _, sym := range idx.LookupQualified(StateActionFQN) {
 			if idx.Library(sym) {
 				types.frame = sym
+				if sym.Scope != nil {
+					types.start, _ = sym.Scope.LookupLocal(ast.StartFeature)
+				}
 				break
 			}
 		}
 	}
 	return types
+}
+
+// StartShot reports the library StateAction's own `start`, the shot every state
+// inherits: a declaration elsewhere under that name is no start shot.
+func (s *LibraryStateTypes) StartShot(decl ast.Node) bool {
+	return s.start != nil && decl == s.start.Decl
 }
 
 // WithholdsStateType reports the library's StateAction, whose content lowering

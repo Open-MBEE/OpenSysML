@@ -79,16 +79,23 @@ type LibraryElement struct {
 }
 
 // Catalog indexes the normative ids of the bundled library by id: a version-5
-// UUID cannot be reversed, only looked up.
+// UUID cannot be reversed, only looked up. Elements are indexed by name too.
 type Catalog struct {
 	elements    map[string]*LibraryElement
 	memberships map[string]*LibraryElement
+	names       map[string]*LibraryElement
 	order       []*LibraryElement
 }
 
 // Element is the library element whose normative id is id.
 func (c *Catalog) Element(id string) (*LibraryElement, bool) {
 	el, ok := c.elements[id]
+	return el, ok
+}
+
+// ElementNamed is the library element whose qualified name is fqn.
+func (c *Catalog) ElementNamed(fqn string) (*LibraryElement, bool) {
+	el, ok := c.names[fqn]
 	return el, ok
 }
 
@@ -107,7 +114,7 @@ var catalogs sync.Map // *symbols.Index → *Catalog
 // LibraryCatalog is the catalog of the library idx holds, shared by every overlay over one base.
 func LibraryCatalog(idx *symbols.Index) *Catalog {
 	if idx == nil {
-		return &Catalog{elements: map[string]*LibraryElement{}, memberships: map[string]*LibraryElement{}}
+		return newCatalog()
 	}
 	key := idx
 	if base := idx.Base(); base != nil {
@@ -123,9 +130,17 @@ func LibraryCatalog(idx *symbols.Index) *Catalog {
 	return c.(*Catalog)
 }
 
+func newCatalog() *Catalog {
+	return &Catalog{
+		elements:    map[string]*LibraryElement{},
+		memberships: map[string]*LibraryElement{},
+		names:       map[string]*LibraryElement{},
+	}
+}
+
 // buildCatalog fixes the id of every element the norm names in idx's library documents.
 func buildCatalog(idx *symbols.Index) *Catalog {
-	c := &Catalog{elements: map[string]*LibraryElement{}, memberships: map[string]*LibraryElement{}}
+	c := newCatalog()
 	q := newQualifier(idx)
 	var roots []*symbols.Scope
 	for _, name := range idx.Documents() {
@@ -154,6 +169,7 @@ func buildCatalog(idx *symbols.Index) *Catalog {
 		}
 		c.elements[el.ID] = el
 		c.memberships[el.OwningMembershipID] = el
+		c.names[el.FQN] = el
 		c.order = append(c.order, el)
 	}
 	return c

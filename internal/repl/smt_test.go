@@ -222,12 +222,12 @@ func TestEngineAllPutsSMTOnlySettingsToSMT(t *testing.T) {
 func TestEngineRefusesTheOtherEnginesSettings(t *testing.T) {
 	s := loadSource(t, gateSource)
 	run(t, s, "%engine smt")
-	run(t, s, "%check-diverge n")
-	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved,
-		"%check-diverge is the check engine's, which %engine smt leaves out; select it, as %engine check, or every engine, as %engine all")
 	run(t, s, "%check-bounds states=3")
 	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved,
-		"%check-diverge and %check-bounds states are the check engine's, which %engine smt leaves out")
+		"%check-bounds states is the check engine's, which %engine smt leaves out; select it, as %engine check, or every engine, as %engine all")
+	run(t, s, "%check-diverge n")
+	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved,
+		"%check-bounds states is the check engine's, which %engine smt leaves out")
 	run(t, s, "%check-diverge off")
 	run(t, s, "%check-bounds off")
 
@@ -239,4 +239,64 @@ func TestEngineRefusesTheOtherEnginesSettings(t *testing.T) {
 	run(t, s, "%check-bounds unroll=2")
 	wantVerdict(t, s.RunAction("Gate::open"), VerdictUnresolved,
 		"%check-input, %check-assume and %check-bounds unroll are the smt engine's, which %engine check leaves out")
+}
+
+// raceSource: two branches write one feature, so its final value is the schedule's.
+const raceSource = `
+package Debug {
+	private import ScalarValues::*;
+	action race {
+		attribute x : Integer = 0;
+		attribute y : Integer = 0;
+		first start;
+		fork split;
+		action left { assign x := 1; }
+		action right { assign x := 2; }
+		join sync;
+		done;
+		succession first start then split;
+		succession first split then left;
+		succession first split then right;
+		succession first left then sync;
+		succession first right then sync;
+		succession first sync then done;
+	}
+}
+`
+
+// Under %engine smt the feature %check-diverge names is decided by the two-copy
+// query: sensitive with a witness for each value, either of which %replay steps to
+// the value it records; a feature the schedules agree on is proved not sensitive.
+func TestEngineSMTDecidesSensitivity(t *testing.T) {
+	s := symbolicSession(t, raceSource)
+	dir := t.TempDir()
+	run(t, s, "%engine smt")
+	run(t, s, "%check-witness "+dir)
+	wants(t, run(t, s, "%check-diverge x"), "check-diverge: x")
+	fileA, fileB := filepath.Join(dir, "Debug.race-x-A.witness"), filepath.Join(dir, "Debug.race-x-B.witness")
+	wantVerdict(t, s.RunAction("Debug::race"), VerdictFails,
+		"✗ Action Debug::race: sensitive: x ends as 1 or 2; the schedules part at step 3:",
+		"witness A: "+fileA, "witness B: "+fileB,
+		"standing: sensitive (witnessed: witness of 1 choice replayed, inputs as written)")
+
+	run(t, s, "%check-diverge y")
+	wantVerdict(t, s.RunAction("Debug::race"), VerdictHolds,
+		"✓ Action Debug::race: holds", "standing: holds (proved over schedules: inputs as written)")
+
+	run(t, s, "%engine auto")
+	values := map[string]bool{}
+	for _, file := range []string{fileA, fileB} {
+		wants(t, run(t, s, "%replay "+file), "schedule: replay:"+file)
+		run(t, s, "%action Debug::race")
+		out := run(t, s, "%continue")
+		wants(t, out, "Action completed")
+		for _, value := range []string{"x = 1", "x = 2"} {
+			if strings.Contains(out, value) {
+				values[value] = true
+			}
+		}
+	}
+	if len(values) != 2 {
+		t.Errorf("the two witnesses replay to %v, want both values", values)
+	}
 }

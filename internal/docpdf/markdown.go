@@ -16,6 +16,7 @@ const (
 	blockList
 	blockMermaid
 	blockDOT
+	blockPlantUML
 	blockAnchor
 )
 
@@ -30,13 +31,14 @@ type block struct {
 	Rows    [][]string // blockTable: body rows
 	Ordered bool       // blockList
 	Items   []string   // blockList
-	Source  string     // blockMermaid, blockDOT
+	Source  string     // blockMermaid, blockDOT, blockPlantUML
 }
 
 // Fences docrender opens diagram blocks with.
 const (
-	mermaidFence = "```mermaid"
-	dotFence     = "```dot"
+	mermaidFence  = "```mermaid"
+	dotFence      = "```dot"
+	plantumlFence = "```plantuml"
 )
 
 // parseBlocks parses docrender's Markdown dialect into blocks.
@@ -60,14 +62,17 @@ func parseBlocks(markdown string) ([]block, error) {
 			continue
 		case strings.HasPrefix(line, anchorOpen) && strings.HasSuffix(line, anchorClose):
 			blocks = append(blocks, block{Kind: blockAnchor, Anchor: line[len(anchorOpen) : len(line)-len(anchorClose)]})
-		case line == mermaidFence || line == dotFence:
+		case line == mermaidFence || line == dotFence || line == plantumlFence:
 			body, next, ok := fenceBody(lines, i+1)
 			if !ok {
 				return nil, &Error{Kind: ErrorUnclosedFence}
 			}
 			kind := blockMermaid
-			if line == dotFence {
+			switch line {
+			case dotFence:
 				kind = blockDOT
+			case plantumlFence:
+				kind = blockPlantUML
 			}
 			blocks = append(blocks, block{Kind: kind, Source: body})
 			i = next

@@ -25,8 +25,8 @@ import (
 )
 
 // renderUsage is how %render is written: a view, the form to write it in, text
-// when none is named, and the palette the DOT form fills nodes from.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot [palette]]"
+// when none is named, and the palette the DOT and PlantUML forms fill nodes from.
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -163,7 +163,7 @@ var metaCommandTable = []metaCommand{
 	{group: groupLibrary, name: "%search", args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{group: groupLibrary, name: "%builtins", desc: "list the library functions this build implements directly"},
 	{group: groupLibrary, name: "%view", args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{group: groupLibrary, name: "%render", args: "<name> [form [palette]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT, filled from a named palette"},
+	{group: groupLibrary, name: "%render", args: "<name> [form [palette]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette"},
 
 	{group: groupRuntime, name: "%instantiate", args: argName, desc: "create an instance of a part def"},
 	{group: groupRuntime, name: "%eval", args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
@@ -176,7 +176,7 @@ var metaCommandTable = []metaCommand{
 	{group: groupBehavioral, name: cmdSweep, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
 	{group: groupBehavioral, name: cmdSamples, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{group: groupBehavioral, name: cmdRunQuery, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
-	{group: groupBehavioral, name: cmdRenderDocument, args: "<name> [mermaid|dot]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid or as Graphviz DOT"},
+	{group: groupBehavioral, name: cmdRenderDocument, args: "<name> [mermaid|dot|plantuml]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT or PlantUML"},
 	{group: groupBehavioral, name: "%constraint", args: argName, desc: "evaluate a constraint definition"},
 	{group: groupBehavioral, name: "%requirement", args: argName, desc: "evaluate a requirement definition"},
 	{group: groupBehavioral, name: "%satisfy", args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
@@ -380,7 +380,7 @@ func (s *Session) doTrace(args []string) []string {
 }
 
 // metaRender reads the %render arguments — the name, an optional form and, for
-// the dot form only, an optional palette — and renders the view they name.
+// a form that fills nodes, an optional palette — and renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
 	if len(args) < 1 || len(args) > 3 {
 		return []string{renderUsage}, false, nil
@@ -394,8 +394,8 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 	}
 	var palette view.Palette
 	if len(args) == 3 {
-		if form != view.FormDot {
-			return []string{fmt.Sprintf("a palette fills the dot form only, not %s; %s", form, renderUsage)}, false, nil
+		if !form.TakesPalette() {
+			return []string{fmt.Sprintf("a palette fills the dot and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
 		}
 		var ok bool
 		if palette, ok = view.ParsePalette(args[2]); !ok {
@@ -2619,6 +2619,9 @@ func (s *Session) doStop() ([]string, bool, error) {
 
 // doStateMachine starts a state machine executor debugging session.
 func (s *Session) doStateMachine(name string, performer []string) ([]string, bool, error) {
+	if s.checking() {
+		return s.checkInvocation(nil, []Behavior{{Name: name, Performer: performer}}, nil).Lines, false, nil
+	}
 	lines, err := s.startStateMachine(name, performer)
 	if err != nil {
 		if errors.Is(err, errRuntimeInit) {
@@ -3273,6 +3276,9 @@ func (s *Session) doAdvance(timeStr string) ([]string, bool, error) {
 // ran; a failed step is an error, a budget stop part of the report.
 func (s *Session) advanceBy(duration float64) ([]string, error) {
 	if s.actionExec == nil && s.stateExec == nil {
+		if s.checking() {
+			return s.checkAdvance(duration)
+		}
 		return nil, errors.New(noSessionText("debugging session", s.mostRecentlyEnded(), ""))
 	}
 	var state *runtime.StateExecutor
