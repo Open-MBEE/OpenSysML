@@ -139,6 +139,7 @@ var (
 	htmlShowCSS     bool
 	htmlFragment    bool
 	htmlMermaid     string
+	htmlMath        string
 	htmlTheme       string
 	strictMode      bool
 	modelChecks     checks
@@ -363,6 +364,10 @@ func runCLI() int {
 	}
 	if flagGiven("html-mermaid") && htmlMermaid == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -html-mermaid is empty; give it cdn or the URL of a Mermaid script")
+		return 2
+	}
+	if flagGiven("html-math") && htmlMath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -html-math is empty; give it cdn or the URL of a MathJax script")
 		return 2
 	}
 

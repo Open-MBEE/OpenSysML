@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Provision the optional PDF toolchain for `sysml -render-document -doc-form pdf`
 # into build/doc-pdf/: WeasyPrint (the default engine), pandoc (an alternative
-# engine, which also drives WeasyPrint), and mermaid-cli (mmdc) for diagram
-# pre-rendering. Prince is commercial and is not provisioned here; install it
-# separately and select it with -pdf-engine prince.
+# engine, which also drives WeasyPrint), mermaid-cli (mmdc) for diagram
+# pre-rendering, and KaTeX for formula typesetting. Prince is commercial and
+# is not provisioned here; install it separately and select it with -pdf-engine prince.
 #
 # None of these tools is needed to build, test, or render Markdown: PDF output
 # alone drives them, as subprocesses. This script pins each version so a PDF
@@ -18,6 +18,7 @@ PANDOC_SHA256_AMD64="c7edd535941c48be6a362081a748272837de81ae11777202d9c341d3d82
 PANDOC_SHA256_ARM64="1c4d69f2a092bd47cb180e58a4aab7b9637101ced928252458c7d41a7f7fa71d"
 WEASYPRINT_VERSION="69.0"
 MERMAID_CLI_VERSION="11.16.0"
+KATEX_VERSION="0.16.47"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dest="$repo_root/build/doc-pdf"
@@ -89,9 +90,20 @@ print(json.dumps({"executablePath": os.environ["CHROME"],
 PY
 fi
 
+katex="$dest/katex"
+if [[ -x "$katex/node_modules/.bin/katex" && -s "$katex/node_modules/katex/dist/katex.min.css" ]]; then
+	echo "KaTeX already present at $katex"
+else
+	echo "Installing katex $KATEX_VERSION ..."
+	mkdir -p "$katex"
+	printf '{"dependencies":{"katex":"%s"}}' "$KATEX_VERSION" >"$katex/package.json"
+	(cd "$katex" && npm install --silent --no-fund --no-audit --ignore-scripts)
+fi
+
 echo
 echo "Done. Point the sysml binary at the pinned copies:"
 echo "  export OPENSYSML_PANDOC=$pandoc_dir/bin/pandoc"
 echo "  export OPENSYSML_WEASYPRINT=$venv/bin/weasyprint"
 echo "  export OPENSYSML_MMDC=$mermaid/node_modules/.bin/mmdc"
 echo "  export OPENSYSML_MMDC_PUPPETEER=$mermaid/puppeteer.json"
+echo "  export OPENSYSML_KATEX=$katex/node_modules/.bin/katex"

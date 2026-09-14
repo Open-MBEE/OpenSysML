@@ -143,7 +143,7 @@ func TestDocumentHTMLCaptionVersusEmphasisParagraph(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseBlocks: %v", err)
 	}
-	page := documentHTML(blocks, nil, Options{})
+	page := documentHTML(blocks, artwork{}, Options{})
 	if !strings.Contains(page, `<p class="caption"><em>Table 1. Masses</em></p>`) {
 		t.Fatalf("caption not styled as caption:\n%s", page)
 	}
@@ -194,7 +194,7 @@ func TestDOTBlockIsKeptAsSource(t *testing.T) {
 	if err != nil || len(images) != 0 {
 		t.Fatalf("renderDiagrams = %v, %v; want no images and no tool lookup", images, err)
 	}
-	page := documentHTML(blocks, nil, Options{})
+	page := documentHTML(blocks, artwork{}, Options{})
 	for _, want := range []string{
 		`<figure class="dot"><p class="notice"><em>` + dotNotice + `</em></p>`,
 		"<pre>// kind: action\ndigraph &#34;a &amp; b&#34; {\n  &#34;n0&#34; -&gt; &#34;n1&#34;;\n}</pre></figure>",
@@ -224,7 +224,7 @@ func TestDOTAndMermaidBlocksTogether(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseBlocks: %v", err)
 	}
-	page := documentHTML(blocks, []string{"diagram-1.svg"}, Options{})
+	page := documentHTML(blocks, artwork{images: []string{"diagram-1.svg"}}, Options{})
 	image, dot := strings.Index(page, `<img src="diagram-1.svg"`), strings.Index(page, `<figure class="dot">`)
 	if image < 0 || dot < 0 || image > dot {
 		t.Fatalf("image at %d, DOT at %d:\n%s", image, dot, page)
@@ -280,7 +280,7 @@ func TestPlantUMLBlockIsKeptAsSource(t *testing.T) {
 	if err != nil || len(images) != 0 {
 		t.Fatalf("renderDiagrams = %v, %v; want no images and no tool lookup", images, err)
 	}
-	page := documentHTML(blocks, nil, Options{})
+	page := documentHTML(blocks, artwork{}, Options{})
 	for _, want := range []string{
 		`<figure class="plantuml"><p class="notice"><em>` + plantumlNotice + `</em></p>`,
 		"<pre>@startuml\n&#39; action rendering\n&lt;style&gt;\n",
@@ -343,8 +343,8 @@ func TestDocumentHTML(t *testing.T) {
 		t.Fatalf("parseBlocks: %v", err)
 	}
 	opts := Options{TitlePage: true, TOC: true, NumberSections: true}
-	page := documentHTML(blocks, []string{"diagram-1.svg"}, opts)
-	if page != documentHTML(blocks, []string{"diagram-1.svg"}, opts) {
+	page := documentHTML(blocks, artwork{images: []string{"diagram-1.svg"}}, opts)
+	if page != documentHTML(blocks, artwork{images: []string{"diagram-1.svg"}}, opts) {
 		t.Fatal("HTML generation is nondeterministic")
 	}
 	for _, want := range []string{
@@ -365,7 +365,7 @@ func TestDocumentHTML(t *testing.T) {
 			t.Fatalf("HTML missing %q:\n%s", want, page)
 		}
 	}
-	plain := documentHTML(blocks, []string{"diagram-1.svg"}, Options{})
+	plain := documentHTML(blocks, artwork{images: []string{"diagram-1.svg"}}, Options{})
 	if strings.Contains(plain, `<div class="title-page">`) || strings.Contains(plain, `<nav class="toc">`) || strings.Contains(plain, `<span class="section-number">`) {
 		t.Fatal("options leaked into default HTML")
 	}
@@ -553,7 +553,7 @@ func TestParseTelescopeGolden(t *testing.T) {
 	if tables == 0 || headings == 0 {
 		t.Fatalf("got %d tables, %d headings", tables, headings)
 	}
-	page := documentHTML(blocks, []string{"diagram-1.svg", "diagram-2.svg"}, Options{TitlePage: true, TOC: true, NumberSections: true})
+	page := documentHTML(blocks, artwork{images: []string{"diagram-1.svg", "diagram-2.svg"}}, Options{TitlePage: true, TOC: true, NumberSections: true})
 	if !strings.Contains(page, "diagram-2.svg") {
 		t.Fatal("second diagram missing from HTML")
 	}

@@ -17,6 +17,7 @@ const (
 	ContentTable       ContentKind = "table"
 	ContentList        ContentKind = "list"
 	ContentDefinitions ContentKind = "definitions"
+	ContentFormula     ContentKind = "formula"
 	ContentDiagram     ContentKind = "diagram"
 )
 
@@ -28,8 +29,9 @@ const (
 	ListNumber ListStyle = "number"
 )
 
-// RunKind classifies one text run: plain prose, an inline style, a link to
-// an external destination, or a reference to another content node.
+// RunKind classifies one text run: plain prose, an inline style, inline
+// mathematics, a link to an external destination, or a reference to another
+// content node.
 type RunKind string
 
 const (
@@ -37,8 +39,10 @@ const (
 	RunEmphasis RunKind = "emphasis"
 	RunStrong   RunKind = "strong"
 	RunCode     RunKind = "code"
-	RunLink     RunKind = "link"
-	RunRef      RunKind = "ref"
+	// RunMath is inline mathematics; the run's text is LaTeX source.
+	RunMath RunKind = "math"
+	RunLink RunKind = "link"
+	RunRef  RunKind = "ref"
 )
 
 // TextRun is one piece of paragraph or list-item text with its provenance:
@@ -133,11 +137,12 @@ func (d Definition) Element() queryexec.Value { return d.element }
 func (d Definition) Origin() provenance.Origin { return d.origin }
 
 // Content is one evaluated content node: a section, paragraph, table, list,
-// definitions block, or diagram.
+// definitions block, formula, or diagram.
 type Content struct {
 	kind        ContentKind
 	name        string
 	title       string
+	source      string
 	caption     string
 	style       ListStyle
 	anchor      string
@@ -166,7 +171,11 @@ func (c Content) Name() string { return c.name }
 // Title returns the title of a section.
 func (c Content) Title() string { return c.title }
 
-// Caption returns the caption of a table or diagram.
+// Source returns the LaTeX source of a formula, typeset as display
+// mathematics.
+func (c Content) Source() string { return c.source }
+
+// Caption returns the caption of a table, formula or diagram.
 func (c Content) Caption() string { return c.caption }
 
 // Style returns the style of a list.
@@ -253,6 +262,7 @@ func cloneContent(content []Content) []Content {
 			kind:        child.kind,
 			name:        child.name,
 			title:       child.title,
+			source:      child.source,
 			caption:     child.caption,
 			style:       child.style,
 			anchor:      child.anchor,

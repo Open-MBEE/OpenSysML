@@ -94,10 +94,11 @@ This report is *generated* `sysml -render-document` [(OpenSysML)](<https://opens
 ```
 
 **`Span`** carries required `text` and an optional `style`: `"plain"` (the
-default), `"emphasis"` (`*text*`), `"strong"` (`**text**`) or `"code"`
-(`` `text` ``). Content is still escaped inside the styling — a `*` in an
-emphasis span cannot break out of it, and a code span grows its backtick
-fence past any backticks in the text.
+default), `"emphasis"` (`*text*`), `"strong"` (`**text**`), `"code"`
+(`` `text` ``) or `"math"` (`$text$`, the text being LaTeX — see
+[Mathematics](#mathematics)). Content is still escaped inside the styling — a
+`*` in an emphasis span cannot break out of it, and a code span grows its
+backtick fence past any backticks in the text.
 
 **`Link`** carries required `text` and a required `target` URL, rendering as
 an inline Markdown link with the destination in pointy brackets (so
@@ -179,11 +180,16 @@ part styledSummary : Paragraph {
 **`SpanColumn`** carries a required `column` naming the projected column its
 text comes from, plus at most one of:
 
-- `style` — a fixed `"plain"` (the default), `"emphasis"`, `"strong"` or
-  `"code"` applied to every row;
+- `style` — a fixed `"plain"` (the default), `"emphasis"`, `"strong"`,
+  `"code"` or `"math"` applied to every row;
 - `styleColumn` — a projected column supplying each row's style. Each row
-  must supply exactly one string value among the four styles; anything else
+  must supply exactly one string value among the five styles; anything else
   is a typed evaluation error naming the query, column and row.
+
+A `"math"` column run reads each row's value as LaTeX, so a query can typeset
+formulas stored on the model — a `latex` attribute of each relation, say. A
+row whose math value is blank is a typed evaluation error naming the query,
+column and row, since an empty formula has nothing to typeset.
 
 **`LinkColumn`** carries a required `column` for the link text and a required
 `targetColumn` naming a projected column that supplies each row's one
@@ -363,6 +369,63 @@ $ sysml docs/manual/examples/requirements.sysml -run-query "Requirements::Reqs r
 $ sysml docs/manual/examples/requirements.sysml -render-document Requirements::RequirementsReport
 $ sysml docs/manual/examples/requirements.sysml -render-document Requirements::RequirementsReport -doc-form html
 ```
+
+## Mathematics
+
+Formulas are written in LaTeX, inline or displayed. An inline formula is a
+`Span` (or `SpanColumn`) with `style = "math"`; a displayed one is a
+`Formula` block with the LaTeX in `source` and an optional `caption`:
+
+```sysml
+part intro : Paragraph {
+	part lead : Span {
+		attribute redefines text = "The mirror's mass scales as";
+	}
+	part scaling : Span {
+		attribute redefines text = "m \\propto D^{2.5}_{\\text{eff}}";
+		attribute redefines style = "math";
+	}
+	part cost : Span {
+		attribute redefines text = "and each $ of budget buys about 1 cm^2 of aperture.";
+	}
+}
+part mirrorArea : Formula {
+	attribute redefines caption = "Collecting area of a circular mirror";
+	attribute redefines source = "A = \\pi \\left(\\frac{D}{2}\\right)^2 = \\frac{\\pi D^2}{4}";
+}
+```
+
+renders as:
+
+```markdown
+The mirror's mass scales as $m \propto D^{2.5}_{\text{eff}}$ and each \$ of budget buys about 1 cm^2 of aperture.
+
+<!-- caption -->
+*Collecting area of a circular mirror*
+
+$$
+A = \pi \left(\frac{D}{2}\right)^2 = \frac{\pi D^2}{4}
+$$
+```
+
+The LaTeX passes through untouched: math is the one run whose text is not
+escaped as prose, so `\frac`, `_{eff}` and `^2` reach the typesetter as
+written (SysML string literals still need their own backslashes doubled). In
+return, ordinary prose is kept out of the math: a `$` in a plain span renders
+as `\$`, so "each $ of budget" can never open a formula, and a `$` inside a
+formula — `\text{cost} = 10^6\,\$` — is escaped so it cannot close one.
+Markdown carries the formulas as `$…$` and `$$…$$` blocks, which GitHub,
+pandoc and most Markdown viewers typeset; HTML and PDF have their own
+typesetters — see [Outputs](outputs.md#mathematics).
+
+`Formula.source` is required and cannot be blank, and so is the text of a math
+span: an empty formula is a typed planning error rather than an empty box. A
+`Formula` is a content block like a `Table` or `Diagram`, not a paragraph: it
+takes no query and nests no runs, its caption renders above it, and a named
+one is a `Ref` target — `ref redefines target = mirrorArea` links to it, and
+the link text defaults to its caption. Line breaks in `source` survive into
+the display block (alignment environments keep their rows), while an inline
+formula's are folded to spaces.
 
 ## Diagrams
 

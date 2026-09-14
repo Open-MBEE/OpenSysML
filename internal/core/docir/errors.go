@@ -18,6 +18,7 @@ const (
 	ErrorUnknownRunColumn        ErrorKind = "unknown-run-column"
 	ErrorInvalidRunStyle         ErrorKind = "invalid-run-style"
 	ErrorInvalidRunTarget        ErrorKind = "invalid-run-target"
+	ErrorBlankMath               ErrorKind = "blank-math"
 	ErrorUnknownDefinitionColumn ErrorKind = "unknown-definition-column"
 )
 
@@ -50,8 +51,13 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s content %s column run names column %q, which query %s did not project", e.Document, e.Content, e.Column, e.Query)
 	case ErrorInvalidRunStyle:
 		return fmt.Sprintf(
-			"document %s content %s query %s row %d column %q must supply one style \"plain\", \"emphasis\", \"strong\" or \"code\", got %s",
+			"document %s content %s query %s row %d column %q must supply one style \"plain\", \"emphasis\", \"strong\", \"code\" or \"math\", got %s",
 			e.Document, e.Content, e.Query, e.Row, e.Column, e.Actual,
+		)
+	case ErrorBlankMath:
+		return fmt.Sprintf(
+			"document %s content %s query %s row %d column %q is typeset as math but supplies no LaTeX",
+			e.Document, e.Content, e.Query, e.Row, e.Column,
 		)
 	case ErrorInvalidRunTarget:
 		return fmt.Sprintf(

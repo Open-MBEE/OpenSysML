@@ -212,6 +212,14 @@ func (e *evaluator) evaluateNode(node docplan.Content) (Content, error) {
 		return e.evaluateList(node)
 	case docplan.ContentDefinitions:
 		return e.evaluateDefinitions(node)
+	case docplan.ContentFormula:
+		return Content{
+			kind:    ContentFormula,
+			name:    node.Name(),
+			source:  node.Source(),
+			caption: node.Caption(),
+			origin:  node.Origin(),
+		}, nil
 	case docplan.ContentDiagram:
 		return e.evaluateDiagram(node)
 	default:
@@ -335,7 +343,19 @@ func (e *evaluator) templateRuns(
 				kind = styled
 			}
 			for _, value := range cellOf(template.Column()).Values() {
-				runs = append(runs, TextRun{kind: kind, text: e.valueText(value), origin: value.Origin()})
+				text := e.valueText(value)
+				if kind == RunMath && strings.TrimSpace(text) == "" {
+					return nil, &Error{
+						Kind:     ErrorBlankMath,
+						Document: e.document,
+						Content:  node.Name(),
+						Query:    node.Query().Entry(),
+						Column:   template.Column(),
+						Row:      number,
+						Origin:   value.Origin(),
+					}
+				}
+				runs = append(runs, TextRun{kind: kind, text: text, origin: value.Origin()})
 			}
 		}
 	}
@@ -364,12 +384,10 @@ func (e *evaluator) rowStyle(node docplan.Content, template docplan.ColumnRun, c
 	if !ok {
 		return "", invalid(strconv.Quote(e.valueText(values[0])))
 	}
-	switch docplan.RunStyle(style) {
-	case docplan.StylePlain, docplan.StyleEmphasis, docplan.StyleStrong, docplan.StyleCode:
-		return styledKind(docplan.RunStyle(style)), nil
-	default:
+	if !docplan.ValidRunStyle(docplan.RunStyle(style)) {
 		return "", invalid(strconv.Quote(style))
 	}
+	return styledKind(docplan.RunStyle(style)), nil
 }
 
 // rowTarget reads one row's link destination from a link column run's
@@ -500,6 +518,8 @@ func styledKind(style docplan.RunStyle) RunKind {
 		return RunStrong
 	case docplan.StyleCode:
 		return RunCode
+	case docplan.StyleMath:
+		return RunMath
 	default:
 		return RunPlain
 	}

@@ -6,11 +6,95 @@ import (
 )
 
 // This file renders docrender's inline dialect to HTML: escaped prose,
-// emphasis and strong spans, code spans, inline links, and reference links
-// to in-document anchors. Anything malformed stays literal text.
+// emphasis and strong spans, code spans, inline links, reference links to
+// in-document anchors, and dollar-delimited inline math. Anything malformed
+// stays literal text.
 
-// inlineHTML renders one line of the inline dialect as HTML element content.
-func inlineHTML(text string) string {
+// inlineHTML renders one line of the inline dialect as HTML element content,
+// each inline formula shown as math typesets it.
+func inlineHTML(text string, math formulas) string {
+	var b strings.Builder
+	for _, seg := range splitMath(text) {
+		if seg.math {
+			b.WriteString(`<span class="math">` + math.typeset(formula{Source: seg.text}) + "</span>")
+			continue
+		}
+		b.WriteString(proseHTML(seg.text))
+	}
+	return b.String()
+}
+
+// segment is one stretch of an inline line: prose in the dialect, or the
+// LaTeX source of one inline formula.
+type segment struct {
+	text string
+	math bool
+}
+
+// splitMath cuts a line at its inline formulas. A dollar opens one unless
+// escaped or inside a code span or link; it runs to the next unescaped
+// dollar, and a dollar with no closing one stays prose.
+func splitMath(text string) []segment {
+	var segs []segment
+	start := 0
+	for i := 0; i < len(text); {
+		switch text[i] {
+		case '\\':
+			i += 2
+		case '`':
+			fence := backtickRun(text, i)
+			if _, next, ok := codeSpanBody(text, i+fence, fence); ok {
+				i = next
+				continue
+			}
+			i += fence
+		case '[':
+			if _, _, next, ok := linkAt(text, i); ok {
+				i = next
+				continue
+			}
+			i++
+		case '$':
+			source, next, ok := mathAt(text, i)
+			if !ok {
+				i++
+				continue
+			}
+			if i > start {
+				segs = append(segs, segment{text: text[start:i]})
+			}
+			segs = append(segs, segment{text: source, math: true})
+			start, i = next, next
+		default:
+			i++
+		}
+	}
+	if start < len(text) || len(segs) == 0 {
+		segs = append(segs, segment{text: text[start:]})
+	}
+	return segs
+}
+
+// mathAt parses an inline formula opened by the dollar at i, returning its
+// LaTeX source and the index after the closing dollar. The source keeps its
+// backslash escapes, which are LaTeX's own, and may not be empty.
+func mathAt(text string, i int) (source string, next int, ok bool) {
+	for j := i + 1; j < len(text); j++ {
+		switch text[j] {
+		case '\\':
+			j++
+		case '$':
+			if j == i+1 {
+				return "", 0, false
+			}
+			return text[i+1 : j], j + 1, true
+		}
+	}
+	return "", 0, false
+}
+
+// proseHTML renders one stretch of the inline dialect holding no math.
+func proseHTML(text string) string {
 	var b strings.Builder
 	var literal strings.Builder
 	flush := func() {

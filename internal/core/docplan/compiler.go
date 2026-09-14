@@ -23,6 +23,7 @@ const (
 	tableBaseFQN       = "DocumentQueries::Table"
 	listBaseFQN        = "DocumentQueries::List"
 	definitionsBaseFQN = "DocumentQueries::Definitions"
+	formulaBaseFQN     = "DocumentQueries::Formula"
 	diagramBaseFQN     = "DocumentQueries::Diagram"
 	runBaseFQN         = "DocumentQueries::Run"
 	spanBaseFQN        = "DocumentQueries::Span"
@@ -56,6 +57,7 @@ type bases struct {
 	table       *symbols.Symbol
 	list        *symbols.Symbol
 	definitions *symbols.Symbol
+	formula     *symbols.Symbol
 	diagram     *symbols.Symbol
 	run         *symbols.Symbol
 	span        *symbols.Symbol
@@ -109,6 +111,7 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		table:       libraryBase(index, tableBaseFQN),
 		list:        libraryBase(index, listBaseFQN),
 		definitions: libraryBase(index, definitionsBaseFQN),
+		formula:     libraryBase(index, formulaBaseFQN),
 		diagram:     libraryBase(index, diagramBaseFQN),
 		run:         libraryBase(index, runBaseFQN),
 		span:        libraryBase(index, spanBaseFQN),
@@ -120,7 +123,7 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		linkColumn: libraryBase(index, linkColumnBaseFQN),
 	}
 	if all.document == nil || all.section == nil || all.paragraph == nil ||
-		all.table == nil || all.list == nil || all.definitions == nil || all.diagram == nil ||
+		all.table == nil || all.list == nil || all.definitions == nil || all.formula == nil || all.diagram == nil ||
 		all.run == nil || all.span == nil || all.link == nil || all.ref == nil ||
 		all.columnRun == nil || all.spanColumn == nil || all.linkColumn == nil {
 		return nil, &Error{Kind: ErrorLibraryUnavailable}
@@ -236,6 +239,7 @@ func (c *compiler) isContent(member *symbols.Symbol) bool {
 		c.model.Conforms(member, c.bases.table) ||
 		c.model.Conforms(member, c.bases.list) ||
 		c.model.Conforms(member, c.bases.definitions) ||
+		c.model.Conforms(member, c.bases.formula) ||
 		c.model.Conforms(member, c.bases.diagram)
 }
 
@@ -258,6 +262,8 @@ func (c *compiler) compileContent(member *symbols.Symbol) (Content, error) {
 		return c.compileList(member)
 	case c.model.Conforms(member, c.bases.definitions):
 		return c.compileDefinitions(member)
+	case c.model.Conforms(member, c.bases.formula):
+		return c.compileFormula(member)
 	case c.model.Conforms(member, c.bases.diagram):
 		return c.compileDiagram(member)
 	default:
@@ -434,9 +440,7 @@ func (c *compiler) compileColumnRun(member *symbols.Symbol, query *QueryRef) (Co
 		}
 		if styleStated {
 			run.style = RunStyle(style)
-			switch run.style {
-			case StylePlain, StyleEmphasis, StyleStrong, StyleCode:
-			default:
+			if !ValidRunStyle(run.style) {
 				return ColumnRun{}, &Error{
 					Kind:     ErrorInvalidRunStyle,
 					Document: c.document,
@@ -576,9 +580,7 @@ func (c *compiler) compileSpanRun(member *symbols.Symbol) (Run, error) {
 	runStyle := StylePlain
 	if stated {
 		runStyle = RunStyle(style)
-		switch runStyle {
-		case StylePlain, StyleEmphasis, StyleStrong, StyleCode:
-		default:
+		if !ValidRunStyle(runStyle) {
 			return Run{}, &Error{
 				Kind:     ErrorInvalidRunStyle,
 				Document: c.document,
@@ -586,6 +588,15 @@ func (c *compiler) compileSpanRun(member *symbols.Symbol) (Run, error) {
 				Actual:   style,
 				Origin:   provenance.Symbol(member),
 			}
+		}
+	}
+	// Blank LaTeX typesets nothing, where blank prose is at least a space.
+	if runStyle == StyleMath && strings.TrimSpace(text) == "" {
+		return Run{}, &Error{
+			Kind:     ErrorMissingRunText,
+			Document: c.document,
+			Content:  c.contentName(member),
+			Origin:   provenance.Symbol(member),
 		}
 	}
 	return Run{kind: RunSpan, text: text, style: runStyle, origin: provenance.Symbol(member)}, nil
@@ -1239,6 +1250,40 @@ func (c *compiler) definitionColumn(member *symbols.Symbol, attribute string) (s
 
 // compileDiagram compiles a diagram content block: the view or element its
 // source names, the resolved rendering kind, and the stated presentation.
+// compileFormula compiles a display formula: its LaTeX source, which must
+// not be blank, and an optional caption.
+func (c *compiler) compileFormula(member *symbols.Symbol) (Content, error) {
+	source, stated, err := c.optionalText(member, "source")
+	if err != nil {
+		return Content{}, err
+	}
+	if !stated || strings.TrimSpace(source) == "" {
+		return Content{}, &Error{
+			Kind:     ErrorMissingFormulaSource,
+			Document: c.document,
+			Content:  c.contentName(member),
+			Origin:   provenance.Symbol(member),
+		}
+	}
+	caption, _, err := c.optionalText(member, "caption")
+	if err != nil {
+		return Content{}, err
+	}
+	if err := c.rejectQuery(member); err != nil {
+		return Content{}, err
+	}
+	if err := c.rejectNestedContent(member); err != nil {
+		return Content{}, err
+	}
+	return Content{
+		kind:    ContentFormula,
+		name:    c.effectiveName(member),
+		source:  source,
+		caption: caption,
+		origin:  provenance.Symbol(member),
+	}, nil
+}
+
 func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 	caption, _, err := c.optionalText(member, "caption")
 	if err != nil {

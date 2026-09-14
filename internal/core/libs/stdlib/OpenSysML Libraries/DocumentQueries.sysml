@@ -117,7 +117,8 @@ library package DocumentQueries {
 
 	part def Span :> Run {
 		attribute text : String[1];
-		/* style: "plain", "emphasis", "strong" or "code". */
+		/* style: "plain", "emphasis", "strong", "code" or "math"; a math
+		 * span's text is LaTeX, typeset inline. */
 		attribute style : String[0..1];
 	}
 
@@ -141,7 +142,7 @@ library package DocumentQueries {
 	part def SpanColumn :> ColumnRun {
 		/* column: the projected column whose values become the run text. */
 		attribute column : String[1];
-		/* style: "plain", "emphasis", "strong" or "code". */
+		/* style: "plain", "emphasis", "strong", "code" or "math". */
 		attribute style : String[0..1];
 		/* styleColumn: a projected column supplying each row's style. */
 		attribute styleColumn : String[0..1];
@@ -173,6 +174,13 @@ library package DocumentQueries {
 		attribute term : String[1];
 		/* description: the projected column whose values describe it. */
 		attribute description : String[1];
+	}
+
+	/* Formula typesets one LaTeX expression as display mathematics on a line
+	 * of its own; a named formula is a Ref target. */
+	part def Formula :> ContentBlock {
+		attribute source : String[1];
+		attribute caption : String[0..1];
 	}
 
 	part def Diagram :> ContentBlock {
