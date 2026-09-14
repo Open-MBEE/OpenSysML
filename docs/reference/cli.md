@@ -233,6 +233,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--html-default-css` | | Write the default document stylesheet and exit, as a starting point for your own; with `--html-theme`, the theme's whole sheet |
 | `--html-fragment` | | Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own |
 | `--html-mermaid <cdn\|url>` | | Have the HTML page load Mermaid to draw its diagrams: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: diagrams stay Mermaid source) |
+| `--html-math <cdn\|url>` | | Have the HTML page load MathJax to typeset its formulas: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: formulas stay LaTeX source) |
 | `--pdf-engine <engine>` | | Converter `--doc-form pdf` drives: `weasyprint` (default), `pandoc` or `prince` |
 | `--pdf-title-page` | | Alias of `--doc-title-page` |
 | `--pdf-toc` | | Alias of `--doc-toc` |
@@ -728,6 +729,13 @@ carries only the source, so it degrades to source wherever the script cannot loa
 does not combine with `-html-fragment`: a fragment has no page shell to hold the script, so the
 embedding page loads Mermaid itself.
 
+Formulas follow the same rule. A math span is a `<span class="sysml-math">` and a `Formula` block a
+`<figure class="sysml-formula">`, each holding its LaTeX between MathJax's `\(…\)` or `\[…\]`
+delimiters; `-html-math cdn` adds one `<script>` loading a pinned MathJax release from jsDelivr,
+configured to typeset `.sysml-math` elements alone, and `-html-math <url>` loads the script from a
+URL of your own. Without the option the page shows the LaTeX source, and the option does not
+combine with `-html-fragment`.
+
 ### Styling the HTML
 
 The default stylesheet is inlined in a standalone page and declared in a cascade layer:
@@ -782,6 +790,12 @@ without Mermaid diagrams needs no diagram tool. Under `-diagram-form dot` or `-d
 plantuml` no diagram is drawn: the PDF keeps each one's DOT or PlantUML source under a notice
 saying so, and neither `mmdc` nor a Graphviz or PlantUML tool is looked for.
 
+Formulas — `$…$` spans and `$$…$$` blocks, wherever the Markdown carries them — are typeset with
+[KaTeX](https://katex.org)'s command line (`katex`; override with `OPENSYSML_KATEX`, and name its
+stylesheet with `OPENSYSML_KATEX_CSS` when it is not installed beside the command), whose HTML and
+fonts every engine embeds, so the PDF shows typeset mathematics rather than LaTeX. A document
+without formulas needs no KaTeX; LaTeX KaTeX rejects fails the run with its parse error.
+
 Inline runs keep their meaning in PDF: emphasis, strong and code styling, links, and `Ref`
 cross-references as clickable internal links to their targets' invisible anchors, in every engine
 (`weasyprint` and `prince` through the prepared HTML, `pandoc` through the Markdown itself). A
@@ -790,7 +804,7 @@ grouped table's group key renders in bold above each subtable.
 A PDF is a binary artifact, so `-doc-form pdf` requires `-o`. A missing tool stops the run with
 status 2 and a message naming the tool, its override variable and the other engines; a converter
 that fails reports its own output. `scripts/download-doc-pdf-toolchain.sh` installs pinned copies
-of WeasyPrint, pandoc and mermaid-cli under `build/doc-pdf/` and prints the variables to export
+of WeasyPrint, pandoc, mermaid-cli and KaTeX under `build/doc-pdf/` and prints the variables to export
 (Prince is commercial and installed separately). Every tool runs with `SOURCE_DATE_EPOCH=0`, so
 an engine that embeds a creation date embeds the same one every run, and the artifact is
 reproducible for a given toolchain.

@@ -1,0 +1,23 @@
+<article class="sysml-document" data-document="Optics::OpticsReport">
+<h1 class="sysml-title">Optics Design Relations</h1>
+<section class="sysml-section" id="overview" data-content="section" data-name="overview">
+<h2>Overview</h2>
+<p class="sysml-paragraph" data-content="paragraph" data-name="intro">The mirror&#39;s mass scales as <span class="sysml-math">\(m \propto D^{2.5}_{\text{eff}}\)</span> and each $ of budget buys about 1 cm^2 of aperture; <em>see</em> <a class="sysml-ref" href="#overview-mirrorArea">Collecting area of a circular mirror</a> and the <a class="sysml-link" href="https://example.com/aperture">aperture memo</a></p>
+<figure class="sysml-formula" id="overview-mirrorArea" data-content="formula" data-name="mirrorArea">
+<div class="sysml-math">\[A = \pi \left(\frac{D}{2}\right)^2
+
+  = \frac{\pi D^2}{4}\]</div>
+<figcaption class="sysml-caption">Collecting area of a circular mirror</figcaption>
+</figure>
+<figure class="sysml-formula" data-content="formula" data-name="dollars">
+<div class="sysml-math">\[\text{cost} = 10^6\,\$ \times D^{2.5} + $\]</div>
+</figure>
+</section>
+<section class="sysml-section" id="relations" data-content="section" data-name="relations">
+<h2>Design relations</h2>
+<ul class="sysml-list" data-content="list" data-name="list" data-query="Optics::Relations">
+<li class="sysml-item" data-element="Optics::telescope::focalRatio" data-element-kind="partUsage">f-number <span class="sysml-math">\(N = \frac{f}{D}\)</span></li>
+<li class="sysml-item" data-element="Optics::telescope::resolution" data-element-kind="partUsage">Rayleigh criterion <span class="sysml-math">\(\theta = 1.22\,\frac{\lambda}{D}\)</span></li>
+</ul>
+</section>
+</article>

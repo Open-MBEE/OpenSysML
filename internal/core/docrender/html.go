@@ -128,6 +128,11 @@ type HTMLOptions struct {
 	// draw its diagrams; empty loads none, leaving each as source.
 	MermaidScript string
 
+	// MathScript is the URL of a MathJax-compatible script a standalone page
+	// loads to typeset its formulas; empty loads none, leaving each as LaTeX
+	// source in \(…\) or \[…\] delimiters.
+	MathScript string
+
 	// DiagramForm is the source every graph-shaped diagram is written as,
 	// Mermaid when empty; a table-kind view is a table whichever it is.
 	DiagramForm view.Form
@@ -137,10 +142,22 @@ type HTMLOptions struct {
 // CDN when a script is asked for by name rather than URL.
 const MermaidScriptURL = "https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/mermaid.min.js"
 
+// MathScriptURL is the pinned MathJax release a page loads from a public CDN
+// when a math script is asked for by name rather than URL.
+const MathScriptURL = "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"
+
+// mathConfig configures MathJax ahead of its script: the delimiters the
+// markup writes, and typesetting confined to .sysml-math so prose that
+// happens to contain a delimiter is never read as math.
+const mathConfig = `<script>window.MathJax = {tex: {inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]]}, ` +
+	`options: {ignoreHtmlClass: "sysml-document", processHtmlClass: "sysml-math"}};</script>
+`
+
 // HTML renders an evaluated document as deterministic, semantic HTML: an
 // <article> holding nested <section> elements, real tables with <caption> and
-// <th scope>, <ul>/<ol> lists, <dl> definitions and <figure> diagrams
-// carrying their source in the chosen diagram form.
+// <th scope>, <ul>/<ol> lists, <dl> definitions, <figure> formulas holding
+// their LaTeX in display delimiters and <figure> diagrams carrying their
+// source in the chosen diagram form.
 // Every node keeps its model facts in sysml- classes and data- attributes —
 // content kind, declared name, query, group column, row element and its kind,
 // projected column, value kind, reference target, diagram kind, direction and
@@ -216,6 +233,9 @@ func (w *htmlWriter) writeDocument(document *docir.Document) error {
 	if !w.opts.Fragment {
 		if w.opts.MermaidScript != "" {
 			w.b.WriteString("<script" + attr("src", w.opts.MermaidScript) + "></script>\n")
+		}
+		if w.opts.MathScript != "" {
+			w.b.WriteString(mathConfig + "<script" + attr("src", w.opts.MathScript) + "></script>\n")
 		}
 		w.b.WriteString("</body>\n</html>\n")
 	}
@@ -351,6 +371,9 @@ func (w *htmlWriter) writeContent(node docir.Content, path []step, index, level 
 		return nil
 	case docir.ContentDefinitions:
 		w.writeDefinitions(node, id)
+		return nil
+	case docir.ContentFormula:
+		w.writeFormula(node, id)
 		return nil
 	case docir.ContentDiagram:
 		return w.writeDiagram(node, id)
@@ -515,6 +538,38 @@ func (w *htmlWriter) writeDefinitions(node docir.Content, id string) {
 	w.b.WriteString("</dl>\n")
 }
 
+// writeFormula writes one formula as a figure: its LaTeX, escaped, in display
+// delimiters for a math script to typeset, then its caption.
+func (w *htmlWriter) writeFormula(node docir.Content, id string) {
+	w.b.WriteString("<figure class=\"sysml-formula\"" + attr("id", id) + " data-content=\"formula\"" +
+		attr(attrName, node.Name()) + ">\n")
+	w.b.WriteString("<div class=\"sysml-math\">" + displayMathHTML(node.Source()) + "</div>\n")
+	if node.Caption() != "" {
+		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(node.Caption()) + "</figcaption>\n")
+	}
+	w.b.WriteString("</figure>\n")
+}
+
+// Delimiters a math script recognizes inline and display LaTeX by.
+const (
+	inlineMathOpen   = `\(`
+	inlineMathClose  = `\)`
+	displayMathOpen  = `\[`
+	displayMathClose = `\]`
+)
+
+// inlineMathHTML writes inline LaTeX, escaped and trimmed with its newlines
+// folded, in inline delimiters.
+func inlineMathHTML(source string) string {
+	return inlineMathOpen + htmlText(strings.TrimSpace(source)) + inlineMathClose
+}
+
+// displayMathHTML writes display LaTeX, escaped and trimmed with its line
+// breaks kept, in display delimiters.
+func displayMathHTML(source string) string {
+	return displayMathOpen + html.EscapeString(strings.TrimSpace(newlineNormalizer.Replace(source))) + displayMathClose
+}
+
 // writeDiagram writes one diagram as a figure: a table-kind view as a table,
 // every other supported kind as its source in the render's diagram form —
 // Mermaid, which a loaded Mermaid script draws, or DOT or PlantUML — shown as text.
@@ -584,8 +639,9 @@ func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 }
 
 // inlineRuns renders text runs joined by single spaces, each by its kind:
-// plain runs as prose, styled runs in <em>, <strong> or <code>, links and
-// references as anchors, and element-valued runs carrying their element.
+// plain runs as prose, styled runs in <em>, <strong> or <code>, math runs as
+// delimited LaTeX in a math span, links and references as anchors, and
+// element-valued runs carrying their element.
 func (w *htmlWriter) inlineRuns(runs []docir.TextRun) string {
 	parts := make([]string, len(runs))
 	for i, run := range runs {
@@ -602,6 +658,8 @@ func (w *htmlWriter) runHTML(run docir.TextRun) string {
 		return "<strong>" + htmlText(run.Text()) + "</strong>"
 	case docir.RunCode:
 		return "<code>" + htmlText(run.Text()) + "</code>"
+	case docir.RunMath:
+		return "<span class=\"sysml-math\">" + inlineMathHTML(run.Text()) + "</span>"
 	case docir.RunLink:
 		if target, ok := navigableURL(run.Target()); ok {
 			return "<a class=\"sysml-link\"" + attr("href", target) + ">" + htmlText(run.Text()) + "</a>"

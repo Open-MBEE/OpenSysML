@@ -6,7 +6,8 @@ import (
 )
 
 // Render converts docrender Markdown to PDF bytes with the named engine
-// ("" selects the default). Diagrams are pre-rendered to SVG with mermaid-cli.
+// ("" selects the default). Diagrams are pre-rendered to SVG with mermaid-cli
+// and formulas to HTML with KaTeX.
 func Render(markdown, engine string, opts Options) ([]byte, error) {
 	converter, err := EngineNamed(engine)
 	if err != nil {
@@ -28,15 +29,19 @@ func Render(markdown, engine string, opts Options) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	doc := &Prepared{Dir: dir, MarkdownFile: "document.md", HTMLFile: "document.html", Options: opts}
+	math, err := renderFormulas(dir, blocks)
+	if err != nil {
+		return nil, err
+	}
+	doc := &Prepared{Dir: dir, MarkdownFile: "document.md", HTMLFile: "document.html", MathCSS: math.css, Options: opts}
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
-		md := markdownWithImages(markdownWithSpanCaptions(markdown), images)
+		md := markdownWithFormulas(markdownWithImages(markdownWithSpanCaptions(markdown), images), math)
 		if err := os.WriteFile(filepath.Join(dir, doc.MarkdownFile), []byte(md), 0o600); err != nil {
 			return nil, err
 		}
 	case InputHTML:
-		page := documentHTML(blocks, images, opts)
+		page := documentHTML(blocks, artwork{images: images, math: math}, opts)
 		if err := os.WriteFile(filepath.Join(dir, doc.HTMLFile), []byte(page), 0o600); err != nil {
 			return nil, err
 		}

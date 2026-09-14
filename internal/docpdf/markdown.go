@@ -18,10 +18,11 @@ const (
 	blockDOT
 	blockPlantUML
 	blockAnchor
+	blockFormula
 )
 
 // block is one parsed Markdown block. Text fields hold Markdown-escaped
-// prose; Source holds a diagram block's raw body.
+// prose; Source holds a diagram block's raw body or a formula's LaTeX.
 type block struct {
 	Kind    blockKind
 	Level   int        // blockHeading: ATX level 1..6
@@ -31,7 +32,7 @@ type block struct {
 	Rows    [][]string // blockTable: body rows
 	Ordered bool       // blockList
 	Items   []string   // blockList
-	Source  string     // blockMermaid, blockDOT, blockPlantUML
+	Source  string     // blockMermaid, blockDOT, blockPlantUML, blockFormula
 }
 
 // Fences docrender opens diagram blocks with.
@@ -40,6 +41,9 @@ const (
 	dotFence      = "```dot"
 	plantumlFence = "```plantuml"
 )
+
+// mathFence opens and closes a display-math block, on lines of its own.
+const mathFence = "$$"
 
 // parseBlocks parses docrender's Markdown dialect into blocks.
 func parseBlocks(markdown string) ([]block, error) {
@@ -75,6 +79,13 @@ func parseBlocks(markdown string) ([]block, error) {
 				kind = blockPlantUML
 			}
 			blocks = append(blocks, block{Kind: kind, Source: body})
+			i = next
+		case line == mathFence:
+			next := fenceEndAt(lines, i+1, mathFence)
+			if next < 0 {
+				return nil, &Error{Kind: ErrorUnclosedMath}
+			}
+			blocks = append(blocks, block{Kind: blockFormula, Source: strings.Join(lines[i+1:next], "\n")})
 			i = next
 		case strings.HasPrefix(line, "#"):
 			level, text := headingParts(line)
@@ -125,12 +136,22 @@ func markdownWithSpanCaptions(markdown string) string {
 // fenceBody collects the lines of a fenced block opened before start,
 // returning the body, the index of the closing fence, and whether one closed.
 func fenceBody(lines []string, start int) (string, int, bool) {
+	end := fenceEndAt(lines, start, "```")
+	if end < 0 {
+		return "", 0, false
+	}
+	return strings.Join(lines[start:end], "\n"), end, true
+}
+
+// fenceEndAt returns the index of the line closing a fence at or after
+// start, or -1 when none does.
+func fenceEndAt(lines []string, start int, fence string) int {
 	for i := start; i < len(lines); i++ {
-		if lines[i] == "```" {
-			return strings.Join(lines[start:i], "\n"), i, true
+		if lines[i] == fence {
+			return i
 		}
 	}
-	return "", 0, false
+	return -1
 }
 
 // headingParts splits an ATX heading into its level, saturating at 6, and text.

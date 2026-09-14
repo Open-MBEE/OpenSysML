@@ -225,6 +225,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render-documents site -doc-form html -html-css theme.css", ""),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-theme report -o report.html", "a bundled theme"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-mermaid cdn -o report.html", "diagrams drawn in the browser"),
+				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-math cdn -o report.html", "formulas typeset in the browser"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form dot -o report.md", "diagrams as Graphviz DOT"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form plantuml -o report.md", "diagrams as PlantUML"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form pdf "+
@@ -257,6 +258,12 @@ func doc() usage.Doc {
 					"— or, with -html-theme, a theme's whole sheet — to start from. -html-mermaid " +
 					"cdn has the page load a pinned Mermaid release from jsDelivr so a " +
 					"browser draws the Mermaid diagrams, or names a URL of your own to load it from.",
+				"Mathematics is LaTeX: a Span styled math is an inline formula, a Formula " +
+					"block a display one. Markdown writes them between $ and $$ delimiters, HTML " +
+					"in \\( \\) and \\[ \\] inside sysml-math elements, left as source until " +
+					"-html-math cdn has the page load a pinned MathJax release from jsDelivr, or " +
+					"a URL of your own; PDF typesets them with KaTeX (katex) as it pre-renders " +
+					"diagrams with mermaid-cli.",
 			},
 		}, {
 			Title: "Flag order",
@@ -379,6 +386,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&htmlShowCSS, "html-default-css", false, "Write the default document stylesheet and exit, as a starting point for your own")
 	fs.BoolVar(&htmlFragment, "html-fragment", false, "Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own")
 	fs.StringVar(&htmlMermaid, "html-mermaid", "", "Have the HTML page load Mermaid to draw its diagrams: cdn loads a pinned release from jsDelivr, a URL loads the script it names (default: diagrams stay Mermaid source)")
+	fs.StringVar(&htmlMath, "html-math", "", "Have the HTML page load MathJax to typeset its formulas: cdn loads a pinned release from jsDelivr, a URL loads the script it names (default: formulas stay LaTeX source)")
 	fs.StringVar(&syncDiffWith, "sync-diff", "", "Show the change set between the model and this repository — a graph file (.ttl) or a SysML v2 API endpoint URL — keyed by effective element id, instead of running it; never writes")
 	fs.StringVar(&syncApplyTo, "sync-apply", "", "Apply the change set to the model's project branch at this SysML v2 API endpoint URL, then record the commit in the sync state (token from "+flexo.EnvToken+")")
 	fs.StringVar(&syncBase, "sync-base", "", "Repository graph at the last-seen commit; with it, repository changes since then surface as conflicts")
