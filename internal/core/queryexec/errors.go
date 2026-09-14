@@ -44,6 +44,12 @@ const (
 	ErrorNoRuntime ErrorKind = "no-runtime"
 	// ErrorObjectRow: a model-only operation was given a runtime object row.
 	ErrorObjectRow ErrorKind = "object-row"
+	// ErrorVerdictRow: a model-only operation was given a verdict row.
+	ErrorVerdictRow ErrorKind = "verdict-row"
+	// ErrorNotAnObject: Verdicts was asked about an element that declares no object.
+	ErrorNotAnObject ErrorKind = "not-an-object"
+	// ErrorIncompleteValidation: Verdicts could not check every assertion about a row.
+	ErrorIncompleteValidation ErrorKind = "incomplete-validation"
 )
 
 // Error is a typed query-execution failure with plan provenance.
@@ -118,6 +124,12 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s operation %s reads a session's objects, and this execution has no session: instantiate an object first", e.Query, e.Operation)
 	case ErrorObjectRow:
 		return fmt.Sprintf("query %s operation %s applies to model elements, not to object %s", e.Query, e.Operation, e.Target)
+	case ErrorVerdictRow:
+		return fmt.Sprintf("query %s operation %s applies to model elements, not to verdict %s", e.Query, e.Operation, e.Target)
+	case ErrorNotAnObject:
+		return fmt.Sprintf("query %s operation %s cannot check %s, which declares no object", e.Query, e.Operation, e.Target)
+	case ErrorIncompleteValidation:
+		return fmt.Sprintf("query %s operation %s could not check every assertion about %s: %v", e.Query, e.Operation, e.Target, e.Cause)
 	case ErrorResultType:
 		return fmt.Sprintf("query %s produced %s, expected %s", e.Query, e.Actual, e.Expected)
 	case ErrorResultMultiplicity:

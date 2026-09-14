@@ -25,6 +25,7 @@ from opensysml.document import (
     DocumentQueryError,
     DocumentQueryResult,
     DocumentRow,
+    DocumentVerdict,
     ElementRef,
     build_bindings,
 )
@@ -50,6 +51,10 @@ FIXTURE = os.path.join(
 )
 GOLDEN = os.path.join(
     REPO_ROOT, "internal", "core", "docrender", "testdata", "telescope_report.golden.md"
+)
+#: The renderer's verdict fixture: assertions on a car and queries over them.
+VERDICT_FIXTURE = os.path.join(
+    REPO_ROOT, "internal", "core", "docrender", "testdata", "verdict_report.sysml"
 )
 
 CAPABILITIES = (CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT)
@@ -138,6 +143,16 @@ def test_a_binding_the_wire_cannot_carry_is_refused():
     """An untranslatable value is a caller error, named before anything is sent."""
     with pytest.raises(DocumentQueryError, match="'root'"):
         build_bindings({"root": object()})
+
+
+def test_a_verdict_binding_is_refused():
+    """A verdict is answered by queries; binding one is a caller error."""
+    verdict = DocumentVerdict(
+        assertion=ElementRef("Garage::Car::massOk"), kind="constraint",
+        text="assert constraint massOk", path="Garage::car", status="holds",
+    )
+    with pytest.raises(DocumentQueryError, match="'root'.*answered by queries"):
+        build_bindings({"root": verdict})
 
 
 def test_an_oversized_int_binding_is_refused():
@@ -256,6 +271,63 @@ def test_answered_rows_decode_to_typed_records(fake_service):
     assert len(result) == 1
 
 
+def test_a_verdict_row_decodes_to_its_assertion_and_verdict(fake_service):
+    """A row a Verdicts query answered stands for the assertion it checked
+    and carries the verdict; a verdict-valued cell decodes the same way."""
+    wire = sysml_pb2.DocumentVerdict(
+        assertion=sysml_pb2.DocumentValue(
+            element_id="Garage::Engine::powerLow", element_type="ConstraintUsage"
+        ),
+        kind="constraint",
+        text="assert constraint powerLow",
+        path="Garage::car.engine",
+        verdict="violated",
+        condition="power < 200.0",
+        reason="power < 200.0 is false",
+        verification=["pass"],
+    )
+    response = sysml_pb2.RunDocumentQueryResponse(
+        columns=[sysml_pb2.DocumentQueryColumn(name="self")],
+        rows=[sysml_pb2.DocumentQueryRow(
+            element=sysml_pb2.DocumentValue(verdict=wire),
+            cells=[sysml_pb2.DocumentQueryCell(values=[
+                sysml_pb2.DocumentValue(verdict=wire),
+            ])],
+        )],
+    )
+    port, _ = fake_service(response=response)
+    with Connection(port=port, auto_start=False) as conn:
+        result = conn.load_from_content("package Demo;").run_document_query("Demo::Q")
+
+    (row,) = result
+    expected = DocumentVerdict(
+        assertion=ElementRef(id="Garage::Engine::powerLow", type="ConstraintUsage"),
+        kind="constraint",
+        text="assert constraint powerLow",
+        path="Garage::car.engine",
+        status="violated",
+        condition="power < 200.0",
+        reason="power < 200.0 is false",
+        verification=("pass",),
+    )
+    assert row.verdict == expected
+    assert row.element == expected.assertion
+    assert row[0] == (expected,)
+    assert str(row.verdict) == "assert constraint powerLow on Garage::car.engine: violated"
+
+
+def test_a_row_that_is_no_verdict_carries_none(fake_service):
+    response = sysml_pb2.RunDocumentQueryResponse(
+        rows=[sysml_pb2.DocumentQueryRow(
+            element=sysml_pb2.DocumentValue(element_id="Demo::part", element_type="PartUsage"),
+        )],
+    )
+    port, _ = fake_service(response=response)
+    with Connection(port=port, auto_start=False) as conn:
+        (row,) = conn.load_from_content("package Demo;").run_document_query("Demo::Q")
+    assert row.verdict is None
+
+
 def test_render_document_answers_the_markdown(fake_service):
     port, service = fake_service(markdown="# Report\n")
     with Connection(port=port, auto_start=False) as conn:
@@ -303,9 +375,42 @@ def telescope():
         return f.read()
 
 
+@pytest.fixture(scope="module")
+def garage():
+    """The verdict fixture's source, read from the repo it tests."""
+    with open(VERDICT_FIXTURE, encoding="utf-8") as f:
+        return f.read()
+
+
 @pytest.mark.integration
 class TestDocumentsAgainstRealService:
     """The answers themselves, from the real engine."""
+
+    def test_a_verdicts_query_checks_the_element_as_declared(self, real_service, garage):
+        with Connection(port=real_service, auto_start=False) as conn:
+            result = conn.load_from_content(garage).run_document_query(
+                "Garage::Checks", bindings={"root": ElementRef("Garage::car")}
+            )
+        assert result.columns == ("path", "name", "verdict", "reason")
+        by_text = {f"{row.verdict.text} on {row.verdict.path}": row for row in result}
+        mass_ok = by_text["assert constraint massOk on Garage::car"]
+        assert mass_ok.verdict.status == "holds"
+        assert mass_ok.verdict.kind == "constraint"
+        assert mass_ok.verdict.reason == ""
+        assert mass_ok.element == ElementRef("Garage::Car::massOk", "ConstraintUsage")
+        assert mass_ok[0] == ("Garage::car",)
+        assert mass_ok[2] == ("holds",)
+        power_low = by_text["assert constraint powerLow on Garage::car.engine"].verdict
+        assert power_low.status == "violated"
+        assert power_low.condition and power_low.reason
+        fits = by_text["assert constraint fits on Garage::car"].verdict
+        assert fits.status == "undecided"
+        assert "capacity" in fits.reason
+        satisfied = by_text["satisfy strongEngine by car.engine on Garage::car.engine"]
+        assert satisfied.verdict.kind == "satisfaction"
+        assert satisfied.verdict.status == "holds"
+        assert satisfied.verdict.verification == ("pass",)
+        assert satisfied.element == ElementRef("", "SatisfyRequirementUsage")
 
     def test_a_document_query_answers_typed_ordered_rows(self, real_service, telescope):
         with Connection(port=real_service, auto_start=False) as conn:

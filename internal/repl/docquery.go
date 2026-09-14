@@ -413,6 +413,9 @@ func formatQueryValue(value queryexec.Value) string {
 	if inst, label, ok := value.Object(); ok {
 		return fmt.Sprintf("%s (#%d)", label, inst.ID)
 	}
+	if verdict, ok := value.Verdict(); ok {
+		return verdict.Summary()
+	}
 	if text, ok := value.String(); ok {
 		return strconv.Quote(text)
 	}

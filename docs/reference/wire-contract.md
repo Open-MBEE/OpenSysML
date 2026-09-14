@@ -1798,14 +1798,56 @@ The answer is a table: `columns` in order, and `rows` each with `element` (the r
 a `DocumentValue`, here always `elementId` plus `elementType`) and `cells` **positionally
 aligned with `columns`**. A cell holds `values`, a list of `DocumentValue`s (several for a
 multi-valued property, none for a missing one, in which case `values` is absent). A
-`DocumentValue` decodes like a `Value` — one arm present — but its arms are the seven above and
-never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
+`DocumentValue` decodes like a `Value` — one arm present — but its arms are the seven above plus
+the answer-only `verdict` below, and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
 `realValue` cell:
 
 ```console
 $ … /RunDocumentQuery -d '{"modelHash":"7e6a…a687","queryId":"Observatory::SubsystemTable","bindings":[{"parameter":"root","values":[{"elementId":"Observatory::telescope"}]}]}'
 {"columns":[{"name":"name"},{"name":"mass"}],"rows":[{"element":{"elementId":"Observatory::telescope::baffle|shroud *tricky*","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"baffle|shroud *tricky*"}]},{"values":[{"realValue":1.5}]}]},{"element":{"elementId":"Observatory::telescope::mount","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"mount"}]},{"values":[{"realValue":15}]}]},{"element":{"elementId":"Observatory::telescope::optics","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"optics"}]},{"values":[{"realValue":8.5}]}]},{"element":{"elementId":"Observatory::telescope::segmentControl","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"segmentControl"}]},{"values":[{"realValue":20}]}]}]}
 ```
+
+A query over `DocumentQueries::Verdicts` answers **verdict rows**: the row's `element` is the
+eighth arm, **`verdict`**, a `DocumentVerdict` with `assertion` (the assertion checked, as an
+`elementId` `DocumentValue` — an anonymous `satisfy` keeps its `elementType` and has an empty
+`elementId`), `kind` (`constraint`, `requirement`, `satisfaction`, `verification`), `text`
+(the assertion as written), `path` (the object checked, from the bound element down —
+`Garage::car.wheels[2]`), `verdict` (`holds`, `violated`, `undecided`), and, where they apply,
+`condition` (the expression found false), `reason` (why a row is violated or undecided — an
+undecided row always carries one) and `verification` (the verdict kinds — `pass`, `fail`,
+`inconclusive`, `error` — of the verification cases verifying the requirement). Over this
+service the element is checked **as declared**: definition defaults and the usage's
+redefinitions, no session object. Model `a3d6…0d43` is `conformance/fixtures/verdicts.sysml`;
+`Failing` keeps the rows whose `verdict` is not `holds`:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"a3d6af37675d0e1d866cb2c59b88147a9eba7ebf00dbedcd51d7a29d12e60d43","queryId":"Garage::Failing","bindings":[{"parameter":"root","values":[{"elementId":"Garage::car"}]}]}'
+```
+
+```json
+{
+  "rows": [
+    {"element": {"verdict": {"assertion": {"elementId": "Garage::Car::fits",        "elementType": "ConstraintUsage"}, "kind": "constraint", "text": "assert constraint fits",       "path": "Garage::car",           "verdict": "undecided", "reason": "constraint fits: assertion evaluation failed: no value for feature capacity"}}},
+    {"element": {"verdict": {"assertion": {"elementId": "Garage::Engine::powerLow",  "elementType": "ConstraintUsage"}, "kind": "constraint", "text": "assert constraint powerLow",   "path": "Garage::car.engine",    "verdict": "violated",  "condition": "power < 200.0",    "reason": "constraint powerLow: assertion evaluated to false: power < 200.0"}}},
+    {"element": {"verdict": {"assertion": {"elementId": "Garage::Wheel::pressureOk", "elementType": "ConstraintUsage"}, "kind": "constraint", "text": "assert constraint pressureOk", "path": "Garage::car.wheels[1]", "verdict": "violated",  "condition": "pressure >= 30.0", "reason": "constraint pressureOk: assertion evaluated to false: pressure >= 30.0"}}},
+    {"element": {"verdict": {"assertion": {"elementId": "Garage::Wheel::pressureOk", "elementType": "ConstraintUsage"}, "kind": "constraint", "text": "assert constraint pressureOk", "path": "Garage::car.wheels[2]", "verdict": "violated",  "condition": "pressure >= 30.0", "reason": "constraint pressureOk: assertion evaluated to false: pressure >= 30.0"}}}
+  ]
+}
+```
+
+A `WhereFeature` query projects no columns, so `columns` is absent and each row is its
+`element` alone. `Checks` projects `path`, `name`, `verdict` and `reason`; a satisfaction row
+shows how a verdict relates to the verification of its requirement:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"a3d6…0d43","queryId":"Garage::Checks","bindings":[{"parameter":"root","values":[{"elementId":"Garage::car"}]}]}'
+{"columns":[{"name":"path"},{"name":"name"},{"name":"verdict"},{"name":"reason"}],"rows":[…,{"element":{"verdict":{"assertion":{"elementId":"","elementType":"SatisfyRequirementUsage"},"kind":"satisfaction","text":"satisfy strongEngine by car.engine","path":"Garage::car.engine","verdict":"holds","verification":["pass"]}},"cells":[{"values":[{"stringValue":"Garage::car.engine"}]},{},{"values":[{"stringValue":"holds"}]},{}]},{"element":{"verdict":{"assertion":{"elementId":"Garage::checkEngine","elementType":"VerificationCaseUsage"},"kind":"verification","text":"verification Garage::checkEngine","path":"Garage::car.engine","verdict":"holds","verification":["pass"]}},"cells":[{"values":[{"stringValue":"Garage::car.engine"}]},{"values":[{"stringValue":"checkEngine"}]},{"values":[{"stringValue":"holds"}]},{}]},…]}
+```
+
+A verdict is answered, never bound: a binding carrying the `verdict` arm is refused with
+`invalid_argument` (`binding root: a verdict is answered by queries, not bound to them`). A
+client that decodes `DocumentValue` by its one present arm therefore has eight arms to read in
+an answer and seven to write in a request.
 
 The request-side failures are Connect errors, because the request — not the model — is wrong:
 

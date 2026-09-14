@@ -19,7 +19,9 @@ const (
 	OperationDescendants   Operation = "descendants"
 	OperationAncestors     Operation = "ancestors"
 	// OperationObjects enumerates the objects a session holds, by type.
-	OperationObjects         Operation = "objects"
+	OperationObjects Operation = "objects"
+	// OperationVerdicts checks the assertions about each source row's object.
+	OperationVerdicts        Operation = "verdicts"
 	OperationRelatedElements Operation = "related-elements"
 	OperationWhereType       Operation = "where-type"
 	OperationWhereMetadata   Operation = "where-metadata"

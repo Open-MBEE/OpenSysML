@@ -44,6 +44,29 @@ func (r *DeclaredReader) Read(sym *symbols.Symbol, name string) (Value, error) {
 	return val, nil
 }
 
+// Validate checks every assertion about the object the element declares, and the
+// objects it holds, as the model declares them: ErrNotAnObject for an element
+// with no object (a package, an attribute).
+func (r *DeclaredReader) Validate(sym *symbols.Symbol, scopes []*symbols.Scope) (ValidationReport, error) {
+	if sym == nil {
+		return ValidationReport{}, fmt.Errorf("%w: no element to validate", ErrUnresolvedReference)
+	}
+	if err := RequireObject(sym); err != nil {
+		return ValidationReport{}, err
+	}
+	inst, err := r.objectOf(sym)
+	if err != nil {
+		return ValidationReport{}, err
+	}
+	return r.ctx.ValidateObject(inst, scopes)
+}
+
+// VerificationVerdictsIn runs the verification cases in scopes whose objective
+// verifies req, in the reader's behavior-free context.
+func (r *DeclaredReader) VerificationVerdictsIn(scopes []*symbols.Scope, req *symbols.Symbol) []VerificationVerdict {
+	return r.ctx.VerificationVerdictsIn(scopes, req)
+}
+
 // objectOf materializes the element once, so all its features read from one object.
 func (r *DeclaredReader) objectOf(sym *symbols.Symbol) (*Instance, error) {
 	if sym == nil {

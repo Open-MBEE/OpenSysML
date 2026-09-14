@@ -66,7 +66,7 @@ func (e *executor) ownerRow(row Value) (Value, bool) {
 }
 
 func (e *executor) evaluateOwned(expression queryplan.Expression) (sequence, error) {
-	source, err := e.rowArgument(expression, "source")
+	source, err := e.ownershipArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -93,7 +93,7 @@ func (e *executor) evaluateOwned(expression queryplan.Expression) (sequence, err
 }
 
 func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequence, error) {
-	source, err := e.rowArgument(expression, "source")
+	source, err := e.ownershipArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -139,7 +139,7 @@ func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequenc
 }
 
 func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence, error) {
-	source, err := e.rowArgument(expression, "source")
+	source, err := e.ownershipArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
@@ -204,7 +204,10 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 			}
 			continue
 		}
-		sym, _ := value.Element()
+		sym := value.Declaration()
+		if sym == nil {
+			continue
+		}
 		matches := query.MetamodelTypeNameOf(sym) == typeName
 		if target != nil {
 			matches = matches ||
@@ -583,10 +586,13 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 }
 
 // propertyValues reads a property of a row: of the session for an object row,
-// of the model for an element row.
+// of the check for a verdict row, of the model for an element row.
 func (e *executor) propertyValues(row Value, property string) ([]Value, bool, error) {
 	if _, _, isObject := row.Object(); isObject {
 		return e.objectPropertyValues(row, property)
+	}
+	if _, isVerdict := row.Verdict(); isVerdict {
+		return e.verdictPropertyValues(row, property)
 	}
 	sym, _ := row.Element()
 	if isQueryableProperty(property) {
@@ -1046,6 +1052,9 @@ func (e *executor) unevaluable(expression queryplan.Expression, property string,
 func rowTarget(row Value) string {
 	if _, label, ok := row.Object(); ok {
 		return label
+	}
+	if verdict, ok := row.Verdict(); ok {
+		return verdict.Label()
 	}
 	sym, _ := row.Element()
 	return symbols.FQNOf(sym)

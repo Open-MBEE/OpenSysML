@@ -285,3 +285,50 @@ func TestRunQueryOverObjects(t *testing.T) {
 	wantReport(t, check(t, binary, objectQueryModel, "-run-query", "Wheels"),
 		0, "✓ Query Garage::Wheels returned 0 rows")
 }
+
+// verdictQueryModel declares a car whose constraint holds and whose wheels'
+// constraint fails, with a query over the verdicts about it.
+const verdictQueryModel = `package Garage {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Wheel {
+		attribute pressure : Integer = 30;
+		assert constraint inflated { pressure >= 35 }
+	}
+
+	part def Car {
+		attribute mass : Integer = 1500;
+		part wheels : Wheel[2];
+		assert constraint light { mass < 2000 }
+	}
+
+	part car : Car;
+
+	calc def Checks :> Query {
+		in root : Element;
+		Project(source = Verdicts(source = root), properties = ("path", "verdict"))
+	}
+}
+`
+
+// TestRunQueryReportsVerdicts checks that -run-query reports one row per
+// assertion about the bound object and the objects it holds, over the
+// instantiated object or, without -instantiate, the element as declared.
+func TestRunQueryReportsVerdicts(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, verdictQueryModel, "-run-query", "Checks root=car"),
+		0, "✓ Query Garage::Checks returned 3 rows",
+		"Columns: path, verdict",
+		"Row 1: assert constraint light on Garage::car: holds",
+		`path = "Garage::car"`,
+		`verdict = "holds"`,
+		"Row 2: assert constraint inflated on Garage::car.wheels[1]: violated",
+		`verdict = "violated"`)
+
+	wantReport(t, check(t, binary, verdictQueryModel, "-instantiate", "Garage::car", "-run-query", "Checks root=#1"),
+		0, "✓ Query Garage::Checks returned 3 rows",
+		"Row 3: assert constraint inflated on #1.wheels[2]: violated")
+}

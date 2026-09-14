@@ -3,6 +3,7 @@ package opensysml_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -156,6 +157,31 @@ const documentSource = `package Observatory {
 				in threshold = "10";
 			}
 		}
+	}
+}`
+
+const verdictQuerySource = `package Garage {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Engine {
+		attribute power : Real = 300.0;
+		assert constraint powerLow { power < 200.0 }
+	}
+	part def Car {
+		attribute mass : Real = 1500.0;
+		part engine : Engine;
+		assert constraint massOk { mass < 2000.0 }
+	}
+	part car : Car;
+
+	calc def Checks :> Query {
+		in root : Element;
+		Project(
+			source = Verdicts(source = root),
+			properties = ("path", "verdict")
+		)
 	}
 }`
 
@@ -504,6 +530,61 @@ func TestADocumentQueryBindingRefusesInfinity(t *testing.T) {
 	}
 }
 
+func TestRunDocumentQueryAnswersVerdictRows(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, verdictQuerySource)
+	rows, err := client.RunDocumentQuery(context.Background(), model, "Garage::Checks",
+		opensysml.Bind("root", opensysml.Element{ID: "Garage::car"}))
+	if err != nil {
+		t.Fatalf("RunDocumentQuery: %v", err)
+	}
+	if len(rows.Rows) != 2 {
+		t.Fatalf("rows = %d, want the car's constraint and its engine's", len(rows.Rows))
+	}
+	want := []opensysml.DocumentVerdict{
+		{
+			Assertion: opensysml.Element{ID: "Garage::Car::massOk", Type: "ConstraintUsage"},
+			Kind:      "constraint", Text: "assert constraint massOk", Path: "Garage::car", Status: "holds",
+		},
+		{
+			Assertion: opensysml.Element{ID: "Garage::Engine::powerLow", Type: "ConstraintUsage"},
+			Kind:      "constraint", Text: "assert constraint powerLow", Path: "Garage::car.engine", Status: "violated",
+		},
+	}
+	for i, row := range rows.Rows {
+		if row.Verdict == nil {
+			t.Fatalf("row %d carries no verdict", i)
+		}
+		got := *row.Verdict
+		if got.Status == "violated" && (got.Condition == "" || got.Reason == "") {
+			t.Errorf("row %d violated without its condition and reason: %+v", i, got)
+		}
+		got.Condition, got.Reason = "", ""
+		if !reflect.DeepEqual(got, want[i]) {
+			t.Errorf("row %d verdict = %+v, want %+v", i, got, want[i])
+		}
+		if row.Element != want[i].Assertion {
+			t.Errorf("row %d element = %+v, want the assertion %+v", i, row.Element, want[i].Assertion)
+		}
+		if path := opensysml.CellText(row.Cells[0][0]); path != want[i].Path {
+			t.Errorf("row %d path cell = %q, want %q", i, path, want[i].Path)
+		}
+	}
+	if got := rows.Rows[1].Verdict.String(); got != "assert constraint powerLow on Garage::car.engine: violated" {
+		t.Errorf("String() = %q", got)
+	}
+}
+
+func TestADocumentQueryBindingRefusesAVerdict(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, verdictQuerySource)
+	_, err := client.RunDocumentQuery(context.Background(), model, "Garage::Checks",
+		opensysml.Bind("root", opensysml.DocumentVerdict{Kind: "constraint"}))
+	if !errors.Is(err, opensysml.CodeInvalidArgument) {
+		t.Errorf("err = %v, want CodeInvalidArgument", err)
+	}
+}
+
 func TestCellTextRendersEveryCellKind(t *testing.T) {
 	for _, testcase := range []struct {
 		cell opensysml.Cell
@@ -515,6 +596,8 @@ func TestCellTextRendersEveryCellKind(t *testing.T) {
 		{opensysml.Real(8.5), "8.5"},
 		{opensysml.Bool(true), "true"},
 		{opensysml.Infinity{}, "*"},
+		{opensysml.DocumentVerdict{Text: "assert constraint massOk", Path: "Garage::car", Status: "holds"},
+			"assert constraint massOk on Garage::car: holds"},
 		{nil, ""},
 	} {
 		if got := opensysml.CellText(testcase.cell); got != testcase.want {

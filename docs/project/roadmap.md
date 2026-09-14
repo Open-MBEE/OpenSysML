@@ -1665,10 +1665,18 @@ flag a `-render-document` run takes, and a document parameter bound to a usage's
 object held under it. Objects render by path in Markdown, HTML (`data-object`, `sysml-object`) and
 PDF. `RelatedElements` stays over elements and refuses an object row.
 
-**Still missing:** the expression form (`all T` as a value with static type `T[0..*]`), the
-gRPC binding of an object as a query parameter, and predicates over verdicts — a `Verdicts` operation
-projecting the assertion, its carrier object and the verdict `ValidateObject` (A7) reaches — which
-is what "which requirements does *this* car violate" needs in a document.
+**Landed — the verdict predicates.** `Verdicts(source, kind)` runs the `ValidateObject` sweep (A7)
+over each row's object — the held object, or the element's declared object — and answers one
+verdict row per assertion about it and the objects it holds: the assertion as the row's element,
+plus `kind`, `carrier`, `path`, `verdict` (`holds`/`violated`/`undecided`), `condition`, `reason`
+and the `verification` outcomes of the cases verifying a requirement. `WhereFeature`, `OrderBy`,
+`Project` and `Column` read those properties, so "which requirements does *this* car violate" is
+`WhereFeature(source = Verdicts(source = root), 'feature' = "verdict", operator = "=", value = "violated")`
+in a document. Verdicts render in Markdown, HTML (`span.sysml-verdict`) and PDF, and
+`RunDocumentQuery` answers them as the `verdict` arm of `DocumentValue`, checked as declared.
+
+**Still missing:** the expression form (`all T` as a value with static type `T[0..*]`) and the
+gRPC binding of an object as a query parameter.
 
 ## Q3 — state and event queries
 
@@ -2330,8 +2338,8 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 - **Track A** — A4, the state-space runner, unblocked by A5 and not started; A7, one verdict for
   every assertion an object carries, in progress.
 - **Track Q** — Q2's document-query form landed (object rows, `Objects(type = T)`, object bindings
-  in `%run-query`/`-run-query` and `-instantiate` with `-render-document`); its expression form
-  (`all T` as a value) and the verdict predicates remain. Q3, unblocked by A5, still behind Q2's
+  in `%run-query`/`-run-query` and `-instantiate` with `-render-document`, `Verdicts` rows over
+  A7's sweep); its expression form (`all T` as a value) remains. Q3, unblocked by A5, still behind Q2's
   population; Q1 unchanged.
 - **Track E** — deferred to the release after the one that ships F and S; next once that release
   is tagged.
@@ -2357,8 +2365,8 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 4. **Q2, then Q1** — runtime query bindings and `all T`, with the page that says which query is
    which. Depends on the object, state and trace representations being stable, which #810, #836
    and #843 (all landed) have settled; Q4 (parameter defaults, #849) landed independently ahead of it.
-   The document-query bindings and `Objects(type = T)` are landed; `all T` as a value and the
-   verdict predicates are what is left of Q2.
+   The document-query bindings, `Objects(type = T)` and `Verdicts` are landed; `all T` as a value
+   is what is left of Q2.
 5. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 9.

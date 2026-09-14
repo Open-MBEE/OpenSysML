@@ -459,3 +459,86 @@ func TestRenderDocumentOverHeldObjects(t *testing.T) {
 		`| wheels\[2\] | 35 |`,
 		"- 30\n- 35")
 }
+
+// verdictQueryModel declares a car whose own constraint holds and whose wheels'
+// constraint fails once instantiated, with queries over the verdicts about it.
+const verdictQueryModel = `package Garage {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Wheel {
+		attribute pressure : Integer = 30;
+		assert constraint inflated { pressure >= 25 }
+		action deflate {
+			in delta : Integer;
+			first set;
+			action set {
+				assign pressure := pressure - delta;
+			}
+		}
+	}
+
+	part def Car {
+		attribute mass : Integer = 1500;
+		part wheels : Wheel[2];
+		assert constraint light { mass < 2000 }
+	}
+
+	part car : Car;
+
+	requirement def LightCar {
+		subject c : Car;
+		require constraint { c.mass < 1800 }
+	}
+	requirement lightCar : LightCar;
+	satisfy lightCar by car;
+
+	calc def Checks :> Query {
+		in root : Element;
+		Project(source = Verdicts(source = root), properties = ("path", "verdict", "reason"))
+	}
+
+	calc def Failing :> Query {
+		in root : Element;
+		WhereFeature(source = Verdicts(source = root), 'feature' = "verdict", operator = "=", value = "violated")
+	}
+}
+`
+
+// Verdicts about a held object read it as it stands, one row per assertion on
+// the object and the objects it holds; before instantiation the same binding is
+// the element, checked as declared.
+func TestRunQueryReportsVerdicts(t *testing.T) {
+	s := NewSession()
+	if res := s.Submit(verdictQueryModel); len(errorDiagnostics(res.Diagnostics)) > 0 {
+		t.Fatalf("model did not analyse cleanly: %v", res.Diagnostics)
+	}
+	wants(t, run(t, s, "%run-query Checks root=car"),
+		"✓ Query Garage::Checks returned 4 rows",
+		"Row 1: assert constraint light on Garage::car: holds",
+		`path = "Garage::car"`,
+		`verdict = "holds"`,
+		"reason = (none)",
+		"Row 2: satisfy lightCar by car on Garage::car: holds",
+		"Row 3: assert constraint inflated on Garage::car.wheels[1]: holds")
+	wants(t, run(t, s, "%run-query Failing root=car"), "✓ Query Garage::Failing returned 0 rows")
+	wants(t, run(t, s, "%instantiate Garage::car"), "Created instance")
+	wants(t, run(t, s, "%invoke car.wheels[2] deflate delta=10"), "Invoked deflate on object #3")
+	wants(t, run(t, s, "%run-query Checks root=car"),
+		"✓ Query Garage::Checks returned 4 rows",
+		"Row 2: satisfy lightCar by car on Garage::car: holds",
+		"Row 4: assert constraint inflated on Garage::car.wheels[2]: violated",
+		`path = "Garage::car.wheels[2]"`,
+		`verdict = "violated"`,
+		`reason = "constraint inflated: assertion evaluated to false: pressure >= 25"`)
+	wants(t, run(t, s, "%run-query Failing root=#1"),
+		"✓ Query Garage::Failing returned 1 row",
+		"Row 1: assert constraint inflated on #1.wheels[2]: violated")
+	// Asked again, the object answers the same rows: the satisfaction's subject
+	// binding classified the car, which restates no assertion about it.
+	wants(t, run(t, s, "%run-query Checks root=car"),
+		"✓ Query Garage::Checks returned 4 rows",
+		"Row 1: assert constraint light on Garage::car: holds",
+		"Row 2: satisfy lightCar by car on Garage::car: holds")
+}

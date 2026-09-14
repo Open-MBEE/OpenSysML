@@ -134,6 +134,16 @@ func (e *executor) evaluateColumnExpression(
 			}
 			return values, nil
 		}
+		if verdict, isVerdict := row.Verdict(); isVerdict {
+			if declaring == verdictFQN {
+				values, _, err := e.verdictPropertyValues(row, property)
+				if err != nil {
+					return nil, e.unevaluable(expression, property, row, err)
+				}
+				return values, nil
+			}
+			row = ElementValue(verdict.Assertion())
+		}
 		sym, _ := row.Element()
 		if isMetaclassFQN(declaring) {
 			if !e.context.Model.MetaclassConforms(sym, declaring) {
