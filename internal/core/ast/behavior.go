@@ -223,6 +223,10 @@ func (n *IfActionNode) Branches() []*IfBranchNode {
 // library (`Systems Library/States.sysml`), which a transition enters to complete.
 const DoneFeature = "done"
 
+// StartFeature is the name of the start shot every state inherits from the standard
+// library (`Systems Library/States.sysml`), which a succession leaves to start.
+const StartFeature = "start"
+
 // StateNode represents a state in a state machine (simple, composite, or orthogonal).
 type StateNode struct {
 	NodeBase

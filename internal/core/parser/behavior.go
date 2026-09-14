@@ -2404,9 +2404,12 @@ func (p *Parser) parseStateMember(allowBody bool) ast.Node {
 			p.advance()
 			return p.parseTransitionMember(start)
 		case "first":
-			// Initial node: first <name> then <target>; a chained end makes it a
-			// SuccessionAsUsage instead.
-			if p.atChainedFirstSuccession() {
+			// A state body has no token flow: `first a then b;` is a SuccessionAsUsage
+			// over its vertices, `first a if g then b;` a guarded transition between them.
+			if p.atGuardedSuccession() {
+				return p.parseTransitionMember(start)
+			}
+			if p.atChainedFirstSuccession() || p.atTwoEndedFirst() {
 				return p.parseSuccessionAsUsage(start)
 			}
 			return p.parseInitialNode(p.advance())

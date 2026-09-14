@@ -328,6 +328,15 @@ func (ref Reference) Spelled(qn *ast.QualifiedName) Reference {
 	return ref
 }
 
+// spelledChain is ref.Chain with QN as its member: the chain itself when QN is
+// the written member, otherwise a fresh node carrying a trial spelling (see Spelled).
+func (ref Reference) spelledChain() *ast.FeatureChainExpr {
+	if ref.QN == ref.Chain.Member {
+		return ref.Chain
+	}
+	return &ast.FeatureChainExpr{NodeBase: ref.Chain.NodeBase, Operand: ref.Chain.Operand, Member: ref.QN}
+}
+
 // ProbeReference resolves ref as a trial reading: what a name spelled differently
 // at the same place would denote. Its diagnostics are suppressed.
 func (r *Resolver) ProbeReference(ref Reference) (*symbols.Symbol, bool) {
@@ -362,6 +371,9 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		return sym, ok
 	}
 	if ref.Chain != nil {
+		if ref.Endpoint {
+			return r.ResolveEndpointRef(ref.Scope, ref.spelledChain())
+		}
 		return r.resolveChainSegment(ref, hide)
 	}
 	if ref.Constructed != nil {

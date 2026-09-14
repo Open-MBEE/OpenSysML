@@ -877,12 +877,14 @@ func TestAnInitialReferenceReachesALaterDeclaration(t *testing.T) {
 	}
 }
 
-// A state machine's initial successor is a transition endpoint, reaching a nested
-// state or one in a sibling region; an action body's is an ordinary member name.
+// A state body's `first X then Y;` is a succession whose ends are transition
+// endpoints, reaching a nested state or one in a sibling region; an action
+// body's `first start then Y;` names an ordinary member.
 func TestAnInitialSuccessorInAMachineIsAnEndpoint(t *testing.T) {
 	const src = `package P {
 	state def M {
-		first start then nested;
+		state idle;
+		first idle then nested;
 		state outer {
 			state nested;
 		}
@@ -892,7 +894,8 @@ func TestAnInitialSuccessorInAMachineIsAnEndpoint(t *testing.T) {
 			state a1;
 		}
 		state b {
-			first start then a1;
+			state b1;
+			first b1 then a1;
 		}
 	}
 	action def A {
@@ -932,6 +935,89 @@ func TestAnInitialSuccessorInAMachineIsAnEndpoint(t *testing.T) {
 		if !seen[name] {
 			t.Errorf("`then %s` was not collected", name)
 		}
+	}
+}
+
+// Every segment of a chained transition end is an endpoint: the root reaches a
+// vertex nested anywhere in the machine, which no lexical lookup from the body does.
+func TestAChainedEndpointRootIsAnEndpoint(t *testing.T) {
+	const src = `package P {
+	state def M {
+		entry; then src;
+		state src;
+		state outer {
+			state inner {
+				state deep;
+			}
+		}
+		first src then inner.deep;
+	}
+}`
+	walk, root, rootScope := resolvedDoc(t, src)
+	if len(walk.Diagnostics) != 0 {
+		t.Fatalf("the document walk must resolve the chained end: %v", walk.Diagnostics)
+	}
+	query, _, _ := resolvedDoc(t, src) // a fresh resolver, as the editor's is
+	want := map[string]string{"inner": "P::M::outer::inner", "deep": "P::M::outer::inner::deep"}
+	seen := map[string]bool{}
+	for _, ref := range resolve.References(root, rootScope) {
+		name := nameText(ref.QN)
+		fqn, wanted := want[name]
+		if !wanted {
+			continue
+		}
+		seen[name] = true
+		if !ref.Endpoint {
+			t.Errorf("`inner.deep` collected its %s with Endpoint=false", name)
+		}
+		if sym, ok := query.ProbeReference(ref); !ok || symbols.FQNOf(sym) != fqn {
+			t.Errorf("%s of `inner.deep` = %v, %v; want %s", name, sym, ok, fqn)
+		}
+	}
+	for name := range want {
+		if !seen[name] {
+			t.Errorf("%s of `inner.deep` was not collected", name)
+		}
+	}
+}
+
+// A chained endpoint's member probed under another spelling reads that spelling
+// in the operand's vertex, as the rename check trial-reads a respelled reference.
+func TestAChainedEndpointProbesItsRespelledMember(t *testing.T) {
+	const src = `package P {
+	state def O { state old; }
+	state def M {
+		entry; then idle;
+		state idle;
+		state outer : O { state taken; }
+		first idle then outer.old;
+	}
+}`
+	walk, root, rootScope := resolvedDoc(t, src)
+	if len(walk.Diagnostics) != 0 {
+		t.Fatalf("the document walk must resolve the chained end: %v", walk.Diagnostics)
+	}
+	var ends []resolve.Reference
+	for _, ref := range resolve.References(root, rootScope) {
+		if ref.Endpoint && ref.Chain != nil {
+			ends = append(ends, ref)
+		}
+	}
+	if len(ends) != 1 {
+		t.Fatalf("References tags %d chained endpoint members, want the one `outer.old` writes", len(ends))
+	}
+	ref := ends[0]
+	if sym, ok := walk.ProbeReference(ref); !ok || symbols.FQNOf(sym) != "P::O::old" {
+		t.Fatalf("`outer.old` = %v, %v; want the inherited P::O::old", sym, ok)
+	}
+	if sym, ok := walk.ProbeReference(ref.Spelled(spelling(false, "taken"))); !ok || symbols.FQNOf(sym) != "P::M::outer::taken" {
+		t.Errorf("`outer.taken` = %v, %v; want the usage's own P::M::outer::taken", sym, ok)
+	}
+	if sym, ok := walk.ProbeReference(ref.Spelled(spelling(false, "fresh"))); ok {
+		t.Errorf("`outer.fresh` = %v; want nothing, outer has no such vertex", sym)
+	}
+	if sym, ok := walk.EndSymbol(ref.QN); !ok || symbols.FQNOf(sym) != "P::O::old" {
+		t.Errorf("the probes moved what the document walk bound `outer.old` to: %v, %v", sym, ok)
 	}
 }
 

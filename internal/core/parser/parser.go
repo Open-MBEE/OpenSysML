@@ -84,11 +84,11 @@ const (
 	bodyView
 )
 
-// carriesActions reports whether the body is action-carrying (action, state,
-// calc, case), whose `first` opens an InitialNodeMember rather than a SuccessionAsUsage.
+// carriesActions reports whether the body admits ActionBodyItem (action, calc,
+// case), whose `first` opens an InitialNodeMember rather than a SuccessionAsUsage.
 func (c bodyContext) carriesActions() bool {
 	switch c {
-	case bodyAction, bodyState, bodyCalc, bodyCase:
+	case bodyAction, bodyCalc, bodyCase:
 		return true
 	}
 	return false

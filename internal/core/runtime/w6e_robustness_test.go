@@ -45,10 +45,11 @@ func TestSimpleSelfTransitionThatNeverSettlesIsBounded(t *testing.T) {
 	}
 }
 
-// A `first` marker named as a transition's source is refused when the machine is
-// built: whether it names one edge or a second one is unadjudicated (row ~485).
+// The `start` shot a state inherits is where `first start then off;` starts the
+// machine, not a vertex: a triggered transition leaving it is refused when the
+// machine is built.
 func TestFirstMarkerNamedAsATransitionSourceIsRefused(t *testing.T) {
-	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
 		attribute def StartSignal;
 		state Machine {
 			first start then off;
@@ -65,8 +66,54 @@ func TestFirstMarkerNamedAsATransitionSourceIsRefused(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected building the machine to report the marker source")
 	}
-	if !strings.Contains(err.Error(), "start") {
-		t.Errorf("err = %v; want it to name the endpoint", err)
+	if !strings.Contains(err.Error(), "start") || !strings.Contains(err.Error(), "not a vertex") {
+		t.Errorf("err = %v; want it to name the endpoint as no vertex", err)
+	}
+}
+
+// Only the library's own `start` is the shot `first start then off;` leaves from:
+// a state usage merely named `start`, whether declared beside the machine or
+// inherited from a definition of the model, designates no starting state.
+func TestFirstStartNamingAModelStateUsageDesignatesNoStart(t *testing.T) {
+	cases := map[string]struct {
+		src       string
+		libraries bool
+	}{
+		"state beside the machine, no library": {src: `package test {
+			state start;
+			state Machine {
+				first start then off;
+				state off;
+			}
+		}`},
+		"state inherited from a definition of the model": {libraries: true, src: `package test {
+			state def Base { state start; }
+			state def Machine :> Base {
+				first start then off;
+				state off;
+			}
+		}`},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			build := buildRuntime
+			if tc.libraries {
+				build = buildRuntimeWithLibraries
+			}
+			idx, _, ctx := build(t, "<test>", parseAndBuild(t, tc.src))
+			sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+			if sym == nil {
+				t.Fatal("state machine Machine not found")
+			}
+			exec, err := newStateExecutor(ctx, sym, nil)
+			if err != nil {
+				t.Fatalf("newStateExecutor: %v", err)
+			}
+			err = exec.initialize()
+			if !errors.Is(err, ErrNoInitialState) {
+				t.Fatalf("initialize = %v; want ErrNoInitialState, `start` naming no shot of the library", err)
+			}
+		})
 	}
 }
 
