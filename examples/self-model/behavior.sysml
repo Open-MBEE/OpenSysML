@@ -223,6 +223,112 @@ package OpenSysMLBehavior {
         succession first evaluateBody then done;
     }
 
+    // One feature read on one object: the value is made the first time it is asked for,
+    // by the case its feature is in, and passes admission before the object holds it.
+    action def ReadFeatureValue {
+        attribute declared : Boolean = true;
+        attribute materialized : Boolean = false;
+        attribute bound : Boolean = false;
+        attribute variationFeature : Boolean = false;
+        attribute statesValue : Boolean = false;
+        attribute fallbackDefault : Boolean = false;
+        attribute contributed : Boolean = false;
+        attribute connector : Boolean = false;
+        attribute composite : Boolean = false;
+        attribute abstractFeature : Boolean = false;
+        attribute optional : Boolean = false;
+
+        attribute evaluations : Integer = 0;
+        attribute objectsMade : Integer = 0;
+        attribute admitted : Boolean = false;
+        attribute tracked : Boolean = false;
+        attribute refused : Boolean = false;
+
+        first start;
+
+        action refuseUnknown { assign refused := true; }
+        action refuseUninitialized { assign refused := true; }
+        action returnHeld;
+        action holdNothing;
+        action readFarEnd { assign evaluations := evaluations + 1; }
+        action bindVariant { assign evaluations := evaluations + 1; }
+        action holdContributions;
+        action deriveValue {
+            assign evaluations := evaluations + 1;
+            assign tracked := true;
+        }
+        action holdConnectedEnds;
+        action makeObjects { assign objectsMade := objectsMade + 1; }
+        action admit { assign admitted := true; }
+
+        succession first start then lookupGate;
+
+        // Naming no feature value of the object is no materialization of one.
+        decide lookupGate;
+        if declared then bindingGate;
+        else refuseUnknown;
+
+        // A value bound or connected is read from its far end whatever the feature states.
+        decide bindingGate;
+        if bound then readFarEnd;
+        else heldGate;
+
+        // Written already, or a constant default folded when the object was made.
+        decide heldGate;
+        if materialized then returnHeld;
+        else variationGate;
+
+        // A variation holds the variant its default selects, and nothing until then.
+        decide variationGate;
+        if variationFeature then bindVariant;
+        else fallbackGate;
+
+        // A `default` applies only where no member subsetting the feature contributes.
+        decide fallbackGate;
+        if statesValue and fallbackDefault and contributed then holdContributions;
+        else valueGate;
+
+        // A default that did not fold is derived against the object, so that it sees the
+        // sibling values it reads, and re-derived when one of them is written.
+        decide valueGate;
+        if statesValue then deriveValue;
+        else contributionGate;
+
+        // An abstract feature has no values of its own and an optional one demands none:
+        // a connector or composite of either kind holds only what subsets it contributes.
+        decide contributionGate;
+        if (abstractFeature or optional) and (connector or composite) then holdContributions;
+        else connectorGate;
+
+        // A connector holds the features at its ends rather than objects of its own.
+        decide connectorGate;
+        if connector then holdConnectedEnds;
+        else compositeGate;
+
+        // Lazy instantiation: a composite feature holds objects of its own.
+        decide compositeGate;
+        if composite then makeObjects;
+        else valuelessGate;
+
+        // Nothing makes a value for a plain feature: it reads as empty when optional, and
+        // as uninitialized when required.
+        decide valuelessGate;
+        if optional then holdNothing;
+        else refuseUninitialized;
+
+        succession first readFarEnd then admit;
+        succession first bindVariant then admit;
+        succession first deriveValue then admit;
+        succession first makeObjects then admit;
+        succession first holdContributions then admit;
+        succession first admit then done;
+        succession first returnHeld then done;
+        succession first holdConnectedEnds then done;
+        succession first holdNothing then done;
+        succession first refuseUnknown then done;
+        succession first refuseUninitialized then done;
+    }
+
     // The runtime tiers, from an effective feature list to a simulated model.
     state def RuntimeTiers {
         entry; then featureFlattening;

@@ -215,6 +215,27 @@ package OpenSysMLDocument {
                 ref redefines source = OpenSysMLViews::budgetExhaustion;
             }
 
+            part instantiating : Paragraph {
+                attribute redefines text = "Beneath the executors sits the instance layer. A type's schema — its effective features, with redefinitions kept and connector ends appended — is built once per model from the semantic shape and shared by every object of the type. Making an object claims an identity and a feature value per schema entry, folding only constant defaults; everything else waits for its first read, when the case the feature is in decides how its value is made: a bound feature reads its far end, a selected variation binds its variant, a stated value is evaluated, a connector holds its connected ends, a composite makes its objects. Whatever a feature comes to hold passes multiplicity, type and uniqueness first, and a derived value lists itself on every value it read, so a later write to one of them sends it back to be derived again.";
+            }
+
+            part instanceLayer : Diagram {
+                attribute redefines caption = "The instance layer: schema once per type, objects on demand, values on first read";
+                attribute redefines direction = "TB";
+                ref redefines source = OpenSysMLViews::instanceLayer;
+            }
+
+            part featureRead : Diagram {
+                attribute redefines caption = "One feature read: the case the feature is in decides how its value is made";
+                attribute redefines direction = "LR";
+                ref redefines source = OpenSysMLViews::featureReadFlow;
+            }
+
+            part actionExecution : Diagram {
+                attribute redefines caption = "One action executed: lowered, stepped, scheduled, evaluated, read and written";
+                ref redefines source = OpenSysMLViews::actionExecution;
+            }
+
             part calculating : Paragraph {
                 attribute redefines text = "A calc whose body is scalar — an expression, or local declarations, returns and conditionals over scalars, calling other such calcs by position or by name and the library's scalar functions — is compiled on its first invocation into closures over an unboxed frame, kept in a side table on the context like every other derived fact. The evaluator remains the reference: the compiled tier must reproduce its values, errors and step charges exactly, a traced run or an invocation it cannot take goes to the evaluator whole, and an environment variable switches the tier off for bisecting.";
             }
