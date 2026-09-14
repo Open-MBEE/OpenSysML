@@ -474,7 +474,7 @@ func (c *transitionChecker) report(span source.Span, code, message string) {
 // regions declaring same-named pseudostates do not mask each other's dead ends.
 // An endpoint naming no vertex is recorded by name instead: what it meant to
 // leave is unknown, and reporting that as a dead end would be a false positive.
-func (m *machine) markLeft(decl ast.Node, target ast.Node) {
+func (m *machine) markLeft(decl, target ast.Node) {
 	if decl != nil {
 		m.sources[decl] = true
 		return

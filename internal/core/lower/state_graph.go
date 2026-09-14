@@ -631,7 +631,7 @@ func endpointPrefix(target ast.Node) ast.Node {
 
 // startShot reports whether decl, what an endpoint resolved to, is the inherited
 // `start` of the body's state (`States::StateAction::start`) and no vertex of the machine.
-func (g *StateGraph) startShot(target ast.Node, decl ast.Node) bool {
+func (g *StateGraph) startShot(target, decl ast.Node) bool {
 	if !isStartEndpoint(target) {
 		return false
 	}

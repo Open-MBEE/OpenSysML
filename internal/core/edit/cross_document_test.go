@@ -98,7 +98,7 @@ func TestRenameRefusesForTheDocumentsItMayNotRewrite(t *testing.T) {
 	m.Index.ExpandWildcardImports()
 
 	e := addFailure(t, m, Rename("P::Old", "Fresh"), FailureReferencedElsewhere)
-	if got := strings.Join(e.Referring, ","); got != "L::x (locked.sysml)" {
+	if strings.Join(e.Referring, ",") != "L::x (locked.sysml)" {
 		t.Fatalf("referring = %v, want L::x (locked.sysml)", e.Referring)
 	}
 	if len(e.Referrers) != 1 || e.Referrers[0] != (Referrer{Name: "L::x", Document: "locked.sysml"}) {
@@ -150,7 +150,7 @@ func TestDeleteFollowsReferrerAtTheDeclarationOffsetInAnotherDocument(t *testing
 	requireClean(t, m)
 
 	e := addFailure(t, m, Delete("P::Base", false), FailureDeleteReferenced)
-	if got := strings.Join(e.Referring, ","); got != "Q::b (q.sysml)" {
+	if strings.Join(e.Referring, ",") != "Q::b (q.sysml)" {
 		t.Fatalf("referring = %v, want Q::b (q.sysml)", e.Referring)
 	}
 
@@ -215,7 +215,7 @@ func TestDeleteWithoutCascadeNamesReferrersInOtherDocuments(t *testing.T) {
 	requireClean(t, m)
 
 	e := addFailure(t, m, Delete("P::Base", false), FailureDeleteReferenced)
-	if got := strings.Join(e.Referring, ","); got != "P::own,Q::b (q.sysml)" {
+	if strings.Join(e.Referring, ",") != "P::own,Q::b (q.sysml)" {
 		t.Fatalf("referring = %v, want P::own and Q::b (q.sysml)", e.Referring)
 	}
 	want := []Referrer{{Name: "P::own", Document: "p.sysml"}, {Name: "Q::b", Document: "q.sysml"}}
@@ -234,7 +234,7 @@ func TestDeleteCascadeRefusesForTheDocumentsItMayNotRewrite(t *testing.T) {
 	m.Index.ExpandWildcardImports()
 
 	e := addFailure(t, m, Delete("P::Base", true), FailureReferencedElsewhere)
-	if got := strings.Join(e.Referring, ","); got != "L::x (locked.sysml)" {
+	if strings.Join(e.Referring, ",") != "L::x (locked.sysml)" {
 		t.Fatalf("referring = %v, want L::x (locked.sysml)", e.Referring)
 	}
 }
@@ -249,7 +249,7 @@ func TestDeleteWithoutCascadeRefusesForTheDocumentsItsCascadeMayNotRewrite(t *te
 	m.Index.ExpandWildcardImports()
 
 	e := addFailure(t, m, Delete("P::Base", false), FailureReferencedElsewhere)
-	if got := strings.Join(e.Referring, ","); got != "L::x (locked.sysml)" {
+	if strings.Join(e.Referring, ",") != "L::x (locked.sysml)" {
 		t.Fatalf("referring = %v, want L::x (locked.sysml)", e.Referring)
 	}
 }
