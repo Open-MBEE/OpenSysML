@@ -423,12 +423,14 @@ with `go test ./internal/core/runtime -run TestAnalysisLibraryCensus -update-lib
 `AnalysisTooling` declares metadata definitions only, no callable declaration, and is listed with
 zeros. `StateSpaceRepresentation` is abstract by design — `GetNextState`, `GetOutput`, `GetDerivative`,
 `Integrate`, `GetDifference` and the dynamics actions holding them state their parameters and leave
-the body to a specialization and a runner stepping it through time — and no state-space runner exists
-yet, so its probes specialize the declarations as a model would and record what the runtime answers:
-an inherited calc body evaluates where the specialization states its result, while the dynamics
-actions, the calc usages they hold and the integration through an abstract derivative are refused by
-name. Those refusals are the honest measure of that library until the runner lands; none of them is
-worked around here. `TradeStudy::evaluationFunction` invoked directly on a study usage is refused
+the body to a specialization and a runner stepping it through time — so its probes specialize the
+declarations as a model would and record what the runtime answers: an inherited calc body evaluates
+where the specialization states its result, a `ContinuousStateSpaceDynamics` and a
+`DiscreteStateSpaceDynamics` stating a `timeStep` run one step of the state-space runner (see
+"State-Space Dynamics" above) and their output is checked, while the base `StateSpaceDynamics`, the
+event definitions, the calc usages the dynamics hold read as functions and the integration through an
+abstract derivative are refused by name. Those refusals are the honest measure of that library; none
+of them is worked around here. `TradeStudy::evaluationFunction` invoked directly on a study usage is refused
 (the case usage is read as a computation, not as the holder of a callable member) although the study
 itself evaluates it through its objective; that is a runtime limitation of member calc invocation on
 case usages, not of the library. A `VectorFunctions` invariant is probed where its parameters are
@@ -446,10 +448,10 @@ checked after the result is bound is not a form the runtime offers, and none is 
 | `AnalysisTooling` | 0 | 0 | 0 | 0 |
 | `SampledFunctions` | 5 | 5 | 0 | 0 |
 | `TradeStudies` | 7 | 6 | 1 | 0 |
-| `StateSpaceRepresentation` | 17 | 4 | 13 | 0 |
+| `StateSpaceRepresentation` | 17 | 6 | 11 | 0 |
 | `VectorFunctions` | 39 | 30 | 9 | 0 |
 | `OccurrenceFunctions` | 8 | 6 | 2 | 0 |
-| **Total** | **76** | **51** | **25** | **0** |
+| **Total** | **76** | **53** | **23** | **0** |
 
 **Refused, by name** (the typed error the runtime answered with):
 
@@ -460,11 +462,9 @@ checked after the result is bound is not a form the runtime offers, and none is 
 - `StateSpaceRepresentation::StateSpaceDynamics::getNextState` — `ErrNotAFunction`: not a function: plant.getNextState is undetermined, not a function
 - `StateSpaceRepresentation::StateSpaceDynamics::getOutput` — `ErrNotAFunction`: not a function: plant.getOutput is undetermined, not a function
 - `StateSpaceRepresentation::Integrate` — `ErrNoResultExpression`: calc test::Euler: evaluating the returned expression: no result expression: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = <expr>;`
-- `StateSpaceRepresentation::ContinuousStateSpaceDynamics` — `ErrInvalidActionFlow`: initialize action: invalid action flow: no initial node found in action Damper
 - `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative` — `ErrNotAFunction`: not a function: damper.getDerivative is undetermined, not a function
 - `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState` — `ErrNotAFunction`: not a function: damper.getNextState is undetermined, not a function
 - `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate` — `Undetermined`: damper has no value in the model
-- `StateSpaceRepresentation::DiscreteStateSpaceDynamics` — `ErrInvalidActionFlow`: initialize action: invalid action flow: no initial node found in action Spring
 - `StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference` — `ErrNotAFunction`: not a function: spring.getDifference is undetermined, not a function
 - `StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState` — `ErrNotAFunction`: not a function: spring.getNextState is undetermined, not a function
 - `VectorFunctions::+::commutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::+::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: u has no value in the model

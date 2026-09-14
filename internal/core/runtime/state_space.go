@@ -26,30 +26,34 @@ var (
 	ErrStateSpaceDiverged = errors.New("state-space dynamics diverged")
 )
 
-// stateSpaceModel answers lowering's semantic questions from the context's model.
-type stateSpaceModel struct{ ctx *Context }
+// stateSpaceSemantics answers lowering's semantic questions from the context's model.
+type stateSpaceSemantics struct{ ctx *Context }
 
-func (m stateSpaceModel) LibrarySymbol(fqn string) *symbols.Symbol { return m.ctx.librarySymbol(fqn) }
-func (m stateSpaceModel) Specializes(sym, general *symbols.Symbol) bool {
+func (m stateSpaceSemantics) LibrarySymbol(fqn string) *symbols.Symbol {
+	return m.ctx.librarySymbol(fqn)
+}
+func (m stateSpaceSemantics) Specializes(sym, general *symbols.Symbol) bool {
 	return m.ctx.conforms(sym, general)
 }
-func (m stateSpaceModel) MembersOf(sym *symbols.Symbol) []*symbols.Symbol {
+func (m stateSpaceSemantics) MembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.ctx.model.semantics.MembersOf(sym)
 }
-func (m stateSpaceModel) FeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
+func (m stateSpaceSemantics) FeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.ctx.model.semantics.FeatureTypes(sym)
 }
-func (m stateSpaceModel) ParameterDefault(sym *symbols.Symbol) (ast.Node, *symbols.Scope) {
+func (m stateSpaceSemantics) ParameterDefault(sym *symbols.Symbol) (ast.Node, *symbols.Scope) {
 	return m.ctx.model.semantics.ParameterDefault(sym)
 }
-func (m stateSpaceModel) LibraryDeclared(sym *symbols.Symbol) bool { return m.ctx.libraryDeclared(sym) }
+func (m stateSpaceSemantics) LibraryDeclared(sym *symbols.Symbol) bool {
+	return m.ctx.libraryDeclared(sym)
+}
 
 // stateSpaceKindOf classifies an action by the library dynamics it specializes.
 func (ctx *Context) stateSpaceKindOf(action *symbols.Symbol) lower.StateSpaceKind {
 	if ctx.model.semantics == nil {
 		return lower.NotStateSpace
 	}
-	return lower.StateSpaceKindOf(action, stateSpaceModel{ctx})
+	return lower.StateSpaceKindOf(action, stateSpaceSemantics{ctx})
 }
 
 // stateSpaceRun is the progress of an action run as state-space dynamics: one
@@ -91,7 +95,7 @@ func (e *ActionExecutor) dynamicsNode() ast.Node { return e.action.Decl }
 // initializeDynamics starts a state-space run: binds the action's features, checks
 // the state and step, computes the output at the start and parks a token until the first step.
 func (e *ActionExecutor) initializeDynamics() error {
-	dyn, err := lower.ToStateSpaceDynamics(e.action, e.graph.Scope, stateSpaceModel{e.ctx})
+	dyn, err := lower.ToStateSpaceDynamics(e.action, e.graph.Scope, stateSpaceSemantics{e.ctx})
 	if err != nil {
 		return err
 	}
