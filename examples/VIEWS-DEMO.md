@@ -150,9 +150,11 @@ config:
 %% LanderViews::descentFlow — action rendering (view def ActionFlowView)
 flowchart TD
   subgraph n0 ["Lander::Descend<br>«action def»"]
+    direction TD
     n1["start<br>«initial»"]
     n2["deployParachute<br>«action»"]
     subgraph n3 ["burn<br>«action»<br>own flow"]
+      direction TD
     …
   end
   n10 -->|"[altitude #gt; 0.0]"| n9
