@@ -207,8 +207,8 @@ func (f *Flow) number(fr *Frame) error {
 		if sub == nil {
 			continue
 		}
-		if sub.Err != nil {
-			return &FlowError{Node: f.label(node), Reason: sub.Err.Error()}
+		if sub.Err != nil || sub.Graph.Initial == nil {
+			return f.refuseNested(node)
 		}
 		if err := f.number(&Frame{Graph: sub.Graph, Node: node, Parent: fr}); err != nil {
 			return err
@@ -239,7 +239,7 @@ func (f *Flow) checkNode(node ast.Node) error {
 	label := f.label(node)
 	graph := f.FrameOf[node].Graph
 	if graph.Subflows[node] != nil {
-		return &UnsupportedError{Node: label, Construct: "nested flow", Reason: "a node stating a flow of its own is encoded by a later stage"}
+		return f.refuseNested(node)
 	}
 	if accept, ok := graph.Accepts[node]; ok {
 		f.Accepts = append(f.Accepts, AcceptSite{Node: node, Label: label, Accept: accept})
@@ -263,6 +263,11 @@ func (f *Flow) checkNode(node ast.Node) error {
 		}
 	}
 	return f.checkBody(node, label, graph.Bodies[node])
+}
+
+// refuseNested refuses a node stating a flow of its own, whatever that flow holds.
+func (f *Flow) refuseNested(node ast.Node) error {
+	return &UnsupportedError{Node: f.label(node), Construct: "nested flow", Reason: "a node stating a flow of its own is encoded by a later stage"}
 }
 
 // checkNodeKind refuses a node of a kind the stage does not encode, or with

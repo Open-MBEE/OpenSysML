@@ -170,16 +170,9 @@ func (e *Encoding) declare(vars ...*solve.Var) {
 	e.Query.Vars = append(e.Query.Vars, vars...)
 }
 
-// stateVars lists every variable of the state: the state vector, the feature
-// copies and the flags saying which features hold a value.
+// stateVars lists every variable of the state in the named vector's order.
 func (e *Encoding) stateVars(s *State) []*solve.Var {
-	vars := s.vars(e.Features)
-	for _, base := range e.Features {
-		if e.flagged[base.Name] {
-			vars = append(vars, s.has(base))
-		}
-	}
-	return vars
+	return s.vars(e.Features, e.flagged)
 }
 
 // assert adds an assertion about role of the relation.

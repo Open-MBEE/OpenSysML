@@ -273,7 +273,8 @@ func TestSortsNameEveryNodeEdgeAndSlot(t *testing.T) {
 }
 
 // TestStateVectorNamesEveryVariableAcrossMoves: two states of one encoding
-// list the same names in the same order, each naming that state's own copy.
+// list the same names in the same order, each naming that state's own copy,
+// the flag of a feature that may hold no value included.
 func TestStateVectorNamesEveryVariableAcrossMoves(t *testing.T) {
 	graph := conformanceAction(t, "action_fork_branches_write_one_feature.sysml", "test::clash")
 	f, err := Analyze(graph, 10)
@@ -281,10 +282,11 @@ func TestStateVectorNamesEveryVariableAcrossMoves(t *testing.T) {
 		t.Fatalf("Analyze: %v", err)
 	}
 	sorts := newSorts("clash", f)
-	feature := intVar("x")
-	before, after := newState(sorts, f, 0).Vector([]*solve.Var{feature}), newState(sorts, f, 1).Vector([]*solve.Var{feature})
-	if len(before) != len(after) || len(before) != 4*f.Slots+3 {
-		t.Fatalf("vectors of %d and %d variables, want %d", len(before), len(after), 4*f.Slots+3)
+	features := []*solve.Var{intVar("x"), intVar("y")}
+	flagged := map[string]bool{"y": true}
+	before, after := newState(sorts, f, 0).Vector(features, flagged), newState(sorts, f, 1).Vector(features, flagged)
+	if len(before) != len(after) || len(before) != 4*f.Slots+5 {
+		t.Fatalf("vectors of %d and %d variables, want %d", len(before), len(after), 4*f.Slots+5)
 	}
 	for i := range before {
 		if before[i].Name != after[i].Name {
@@ -294,7 +296,50 @@ func TestStateVectorNamesEveryVariableAcrossMoves(t *testing.T) {
 			t.Errorf("entry %d: %q holds %q and %q", i, before[i].Name, before[i].Var.Name, after[i].Var.Name)
 		}
 	}
-	if before[0].Name != "at[0]" || before[len(before)-1].Name != "x" {
-		t.Errorf("vector starts %q, ends %q", before[0].Name, before[len(before)-1].Name)
+	n := len(before)
+	if before[0].Name != "at[0]" || before[n-3].Name != "x" || before[n-2].Name != "y" || before[n-1].Name != "has(y)" {
+		t.Errorf("vector starts %q, ends %q %q %q", before[0].Name, before[n-3].Name, before[n-2].Name, before[n-1].Name)
+	}
+}
+
+// TestAnalyzeRefusesANestedFlowBeforeLookingInside: a node stating a flow of
+// its own is refused as a nested flow whether that flow is well formed or not.
+func TestAnalyzeRefusesANestedFlowBeforeLookingInside(t *testing.T) {
+	for _, tc := range []struct{ name, leg string }{
+		{"well formed", "first a; action a; action b; succession first a then b;"},
+		{"missing step", "first a; action a; succession first a then missing;"},
+		{"no start", "action a; action b; succession first a then b; succession first b then a;"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, idx := fixture(t, "<test>", `
+				package test {
+					action outer {
+						first start;
+						action leg { `+tc.leg+` }
+						done;
+						succession first start then leg;
+						succession first leg then done;
+					}
+				}`)
+			sym := idx.LookupQualified("test::outer")
+			if len(sym) != 1 {
+				t.Fatalf("test::outer matched %d symbols", len(sym))
+			}
+			graph, err := lower.ToActionGraph(sym[0].Decl, sym[0].Scope)
+			if err != nil {
+				t.Fatalf("lower: %v", err)
+			}
+			if graph.Subflows[graph.Nodes[1]] == nil {
+				t.Fatalf("leg states no flow of its own: %+v", graph.Subflows)
+			}
+			_, err = Analyze(graph, 10)
+			var unsupported *UnsupportedError
+			if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
+				t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
+			}
+			if unsupported.Node != "leg" || unsupported.Construct != "nested flow" {
+				t.Errorf("refusal names %q/%q, want node leg, construct nested flow", unsupported.Node, unsupported.Construct)
+			}
+		})
 	}
 }

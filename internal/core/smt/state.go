@@ -278,10 +278,11 @@ func (s *State) value(base *solve.Var) *solve.Var {
 }
 
 // Vector lists the state's variables under their move-independent names: the
-// slots, the clock, the bus, the flags and the feature copies. Two states of
-// one encoding have vectors of the same names in the same order.
-func (s *State) Vector(features []*solve.Var) []Named {
-	vector := make([]Named, 0, 6*len(s.Slots)+4*len(s.Bus)+len(s.Loop)+len(features)+5)
+// slots, the clock, the bus, the flags, the feature copies and, for each
+// flagged feature, the flag saying whether it holds a value. Two states of one
+// encoding have vectors of the same names in the same order.
+func (s *State) Vector(features []*solve.Var, flagged map[string]bool) []Named {
+	vector := make([]Named, 0, 6*len(s.Slots)+4*len(s.Bus)+len(s.Loop)+2*len(features)+5)
 	add := func(name string, v *solve.Var) {
 		if v != nil {
 			vector = append(vector, Named{Name: name, Var: v})
@@ -312,12 +313,17 @@ func (s *State) Vector(features []*solve.Var) []Named {
 	for _, base := range features {
 		add(base.Name, s.value(base))
 	}
+	for _, base := range features {
+		if flagged[base.Name] {
+			add(fmt.Sprintf("has(%s)", base.Name), s.has(base))
+		}
+	}
 	return vector
 }
 
 // vars lists the state's variables in the vector's order.
-func (s *State) vars(features []*solve.Var) []*solve.Var {
-	vector := s.Vector(features)
+func (s *State) vars(features []*solve.Var, flagged map[string]bool) []*solve.Var {
+	vector := s.Vector(features, flagged)
 	vars := make([]*solve.Var, len(vector))
 	for i, named := range vector {
 		vars[i] = named.Var
