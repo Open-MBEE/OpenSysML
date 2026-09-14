@@ -151,6 +151,34 @@ themselves:
 sysml -satisfy -constraint MassBudget design.sysml   # 0 held, 1 answered false, 2 undecided
 ```
 
+So does an object validated as a whole — every assertion it and the parts it
+holds carry, in one exit status. Over a `Car` that asserts `massOk`, carries the
+requirement `light` and holds two `wheels : Wheel[2]` whose `Wheel` asserts
+`pressureOk`:
+
+```bash
+$ sysml fleet.sysml -instantiate Fleet::car -validate=Fleet::car; echo $?
+✓ package Fleet
+✓ Created instance of Fleet::car
+  ID: 1
+  Use %features Fleet::car to inspect
+✓ assert constraint massOk holds (on Fleet::car ID: 1)
+✗ requirement light fails (on Fleet::car ID: 1)
+  Required condition evaluated to false: mass < 1000.0
+✗ assert constraint pressureOk fails (on Fleet::car.wheels[1] ID: 2)
+  Assertion evaluated to false: pressure >= 30.0
+✗ assert constraint pressureOk fails (on Fleet::car.wheels[2] ID: 3)
+  Assertion evaluated to false: pressure >= 30.0
+✗ Fleet::car is not valid: 3 of 4 assertions fail
+  standing: violated (witnessed: 1 run under reverse)
+1
+```
+
+Under `-json` each verdict is a check of its own, `subject` naming the
+assertion and the object (`assert constraint pressureOk on Fleet::car.wheels[2]`),
+and the last check is the object's, carrying the `plan` and `results` of the
+engine that answered.
+
 ### 6. Use REPL Meta Commands
 
 Load a file and use meta commands:
@@ -220,6 +248,7 @@ written in, so the verdicts are about that object:
 | Flag | Checks |
 |------|--------|
 | `-validate` | Only that the model analyses cleanly and that the objects `-instantiate` asked for could be built; it says nothing about the model's constraints |
+| `-validate=<object>` | Every assertion about an object `-instantiate` created and the objects it holds, as `%validate` does: each `assert constraint` the carrier's type declares or inherits, each requirement usage it carries and each `satisfy` assertion whose subject is in the tree, one verdict per assertion per object, root first and then each held object as the walk reaches it (`Fleet::car.wheels[2]`), then one verdict about the object as a whole — valid only when every assertion holds and every held object was reached, so an assertion that could not be evaluated or a walk cut short by an object graph without end leaves it undecided rather than valid, as does an object no assertion is about (`states no assertion to validate`, exit status 2). The object is named as `%validate` names it: the usage's name, a feature path to a part it holds (`Fleet::car.engine`), or the id the report prints (`#2`). A constraint declared without `assert` is not swept; name it with `-constraint`. Repeatable; `-validate=false` asks for nothing and withdraws a bare `-validate` written before it, as `-satisfy=false` does |
 | `-constraint <name>` | One constraint, as `%constraint` does |
 | `-requirement <name>` | One requirement, as `%requirement` does, with [the verdict of every verification case](#verification-case-verdicts) verifying it beside its own |
 | `-satisfy` | Every satisfaction assertion the model states, with [the verdict of every verification case](#verification-case-verdicts) verifying the requirement beside each |

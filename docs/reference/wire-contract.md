@@ -1543,7 +1543,9 @@ $ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle
 
 Reading a `Verdict`:
 
-- `kind` — `"constraint"`, `"requirement"` or `"satisfy"`.
+- `kind` — `"constraint"`, `"requirement"` or `"satisfy"`; `"object"` for the summary
+  [`ValidateInstance`](#validateinstance-every-assertion-about-one-object) returns about a
+  whole object.
 - `holds` — the verdict. **Omitted when false** (the default-omission rule), so the second and
   third examples say `massLight` does *not* hold for `sedan` (1200 is not < 100) by having no
   `holds` key. Read it with a default of `false`, and read `error` first.
@@ -1592,6 +1594,69 @@ $ … /VerifySatisfaction -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::analy
 for the `massLight` example.) Each assertion instantiated its own `sedan`, hence two ids; the
 second verdict has no `holds` and no `error`, so it is a real *false*.
 
+### `ValidateInstance`: every assertion about one object
+
+`ValidateInstance` takes the `symbolId` of a part definition or usage, builds one object of it,
+and answers every assertion about that object and the objects it holds — each `assert
+constraint` the carrier's type declares or inherits, each requirement usage it carries, and each
+`satisfy` assertion whose subject is an object in the tree — as `sysml -validate=<object>` and
+the REPL's `%validate` do. It is served under the `verification` capability and takes the
+`engine` field. The response is `verdicts`, one per (assertion, object), root first and then
+each held object in traversal order; `summary`, one `Verdict` of kind `"object"` about the root;
+`instances`, the whole tree in the shape `Instantiate` returns; `bounded`, present and `true`
+when the walk stopped at its depth bound before reaching every held object; and
+`verificationVerdicts` as `VerifyRequirement` returns them, keyed by `requirementId`. Over a
+model whose `Car` asserts `massOk`, carries requirement `light` (mass < 1000, violated by its
+1500 kg) and holds two `wheels : Wheel[2]` at 20 psi against `Wheel`'s asserted `pressure >=
+30.0`, with the standing fields omitted:
+
+```console
+$ … /ValidateInstance -d '{"modelHash":"6457…5d2c","symbolId":"Fleet::car"}'
+```
+
+```json
+{
+  "verdicts": [
+    {"kind": "constraint", "elementId": "Fleet::Car::massOk", "element": "assert constraint massOk", "holds": true, "instanceId": "1", "instanceTypeId": "Fleet::car"},
+    {"kind": "requirement", "elementId": "Fleet::Car::light", "element": "requirement light", "condition": "mass < 1000.0", "instanceId": "1", "instanceTypeId": "Fleet::car", "requirementId": "Fleet::Car::light"},
+    {"kind": "constraint", "elementId": "Fleet::Wheel::pressureOk", "element": "assert constraint pressureOk", "condition": "pressure >= 30.0", "instanceId": "2", "instanceTypeId": "Fleet::Car::wheels", "instancePath": "wheels[1]"},
+    {"kind": "constraint", "elementId": "Fleet::Wheel::pressureOk", "element": "assert constraint pressureOk", "condition": "pressure >= 30.0", "instanceId": "3", "instanceTypeId": "Fleet::Car::wheels", "instancePath": "wheels[2]"}
+  ],
+  "summary": {"kind": "object", "elementId": "Fleet::car", "element": "Fleet::car", "instanceId": "1", "instanceTypeId": "Fleet::car"},
+  "instances": [ … ]
+}
+```
+
+Reading the response:
+
+- Each of `verdicts` is a `Verdict` as above — `kind` is `"constraint"`, `"requirement"` or
+  `"satisfy"`, and `holds`, `condition`, `error`, `requirementId` mean what they mean there — with
+  one field more: `instancePath`, where the object the verdict is about sits under the root
+  (`engine.injector`, `wheels[2]`, one-based for a collection element), omitted for the root
+  itself. `instanceId` keys the object in `instances` as before.
+- `summary.holds` is `true` only when every verdict holds **and** the walk was complete. The
+  example's summary has no `holds` and no `error`, so the object is a real *not valid*: three
+  of its four assertions are false. A summary with `error` is undecided — an assertion that could
+  not be evaluated, a feature value that could not be read, or a walk that `bounded` cut short —
+  and says which; read `error` first, as for any `Verdict`.
+- An object no assertion is about decides nothing: `verdicts` is empty and `summary` neither
+  holds nor is a violation — its `error` says the object `states no assertion to validate`, with
+  `failureReason` `FAILURE_REASON_EVALUATION` — so an object is shown valid only by at least one
+  assertion holding.
+- An unknown `symbolId`, or one that has no object to validate — a package, an attribute, an
+  enumeration — is answered in-band, as the other verification calls answer it: `error` at the
+  top level with `failureReason` (`FAILURE_REASON_WRONG_KIND` for a symbol of the wrong kind),
+  and no `verdicts` or `summary`:
+
+  ```console
+  $ … /ValidateInstance -d '{"modelHash":"6457…5d2c","symbolId":"Fleet::nope"}'
+  {"error":"symbol not found: Fleet::nope","failureReason":"FAILURE_REASON_EVALUATION"}
+  $ … /ValidateInstance -d '{"modelHash":"6457…5d2c","symbolId":"Fleet"}'
+  {"error":"not an object: Fleet is a package, which has no object to validate","failureReason":"FAILURE_REASON_WRONG_KIND"}
+  ```
+
+A constraint declared without `assert` is not swept — it is what `VerifyConstraint` is for.
+
 ### `ListEngines`, the `engine` field and the standing of an answer
 
 Every verification, analysis and sweep request is a question put to an analysis engine, and a
@@ -1625,8 +1690,8 @@ $ … /ListEngines -d '{}'
 ```
 
 The `engine` field on `VerifyConstraintRequest`, `VerifyRequirementRequest`,
-`VerifySatisfactionRequest`, `EvaluateCalcRequest`, `RunAnalysisRequest` and `RunSweepRequest`
-selects: unset or `"auto"` puts the question to the engine of highest authority covering it,
+`VerifySatisfactionRequest`, `ValidateInstanceRequest`, `EvaluateCalcRequest`,
+`RunAnalysisRequest` and `RunSweepRequest` selects: unset or `"auto"` puts the question to the engine of highest authority covering it,
 advancing past one that refuses; a name puts it to that engine alone, whose refusal is then the
 answer (`VerifyConstraint` with `"engine":"explore"` returns a verdict whose `error` is the
 refusal); `"all"` puts it to every covering engine, one after another in name order, and

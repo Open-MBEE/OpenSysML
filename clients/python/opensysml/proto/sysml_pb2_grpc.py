@@ -105,6 +105,11 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.VerifySatisfactionRequest.SerializeToString,
                 response_deserializer=sysml__pb2.VerifySatisfactionResponse.FromString,
                 _registered_method=True)
+        self.ValidateInstance = channel.unary_unary(
+                '/sysml.SysMLService/ValidateInstance',
+                request_serializer=sysml__pb2.ValidateInstanceRequest.SerializeToString,
+                response_deserializer=sysml__pb2.ValidateInstanceResponse.FromString,
+                _registered_method=True)
         self.EvaluateCalc = channel.unary_unary(
                 '/sysml.SysMLService/EvaluateCalc',
                 request_serializer=sysml__pb2.EvaluateCalcRequest.SerializeToString,
@@ -253,6 +258,18 @@ class SysMLServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ValidateInstance(self, request, context):
+        """Validate an object as a whole, as the REPL's %validate and the CLI's
+        -validate=<object> do: every assertion about an object of the named part
+        and about the objects it holds — the asserted constraints of their types,
+        the requirements they carry and the satisfactions they are the subject of —
+        each answered on the concrete object it is about. Reported as the
+        "verification" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def EvaluateCalc(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -387,6 +404,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.VerifySatisfaction,
                     request_deserializer=sysml__pb2.VerifySatisfactionRequest.FromString,
                     response_serializer=sysml__pb2.VerifySatisfactionResponse.SerializeToString,
+            ),
+            'ValidateInstance': grpc.unary_unary_rpc_method_handler(
+                    servicer.ValidateInstance,
+                    request_deserializer=sysml__pb2.ValidateInstanceRequest.FromString,
+                    response_serializer=sysml__pb2.ValidateInstanceResponse.SerializeToString,
             ),
             'EvaluateCalc': grpc.unary_unary_rpc_method_handler(
                     servicer.EvaluateCalc,
@@ -803,6 +825,33 @@ class SysMLService:
             '/sysml.SysMLService/VerifySatisfaction',
             sysml__pb2.VerifySatisfactionRequest.SerializeToString,
             sysml__pb2.VerifySatisfactionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ValidateInstance(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/ValidateInstance',
+            sysml__pb2.ValidateInstanceRequest.SerializeToString,
+            sysml__pb2.ValidateInstanceResponse.FromString,
             options,
             channel_credentials,
             insecure,

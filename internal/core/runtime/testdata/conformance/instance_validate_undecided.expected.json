@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::tank",
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint levelPositive", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint fits", "status": "undecided", "error": "capacity"},
+      {"kind": "requirement", "assertion": "requirement roomLeft", "status": "undecided", "error": "no value for feature c"}
+    ],
+    "valid": false
+  }
+}
