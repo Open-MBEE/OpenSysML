@@ -61,6 +61,16 @@ const (
 	// FailureMoveReferenced is a move leaving a reference no spelling can make
 	// reach what it reached before.
 	FailureMoveReferenced
+	// FailureNotAView is a layout view, or a Canvas target, that is no view.
+	FailureNotAView
+	// FailureNotExposed is a view-local layout of an element the view does not
+	// expose.
+	FailureNotExposed
+	// FailureNotDrawn is a layout of an element no rendering draws as the node
+	// or edge the annotation positions.
+	FailureNotDrawn
+	// FailureNotAnnotated is a clearing of an annotation that is not there.
+	FailureNotAnnotated
 )
 
 var failureNames = map[Failure]string{
@@ -83,6 +93,10 @@ var failureNames = map[Failure]string{
 	FailureReferencedElsewhere: "referenced-elsewhere",
 	FailureOwnerInsideTarget:   "owner-inside-target",
 	FailureMoveReferenced:      "move-referenced",
+	FailureNotAView:            "not-a-view",
+	FailureNotExposed:          "not-exposed",
+	FailureNotDrawn:            "not-drawn",
+	FailureNotAnnotated:        "not-annotated",
 }
 
 // String returns the lowercase name of the failure, or "unknown".

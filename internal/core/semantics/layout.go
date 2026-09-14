@@ -72,6 +72,8 @@ type LayoutSite struct {
 	// PointCount is the number of values a Route binds to points, whether or
 	// not they read as waypoints.
 	PointCount int
+	// Bindings are the features the annotation's body binds, in declaration order.
+	Bindings []MetadataBinding
 	// Problems are the bindings that could not be read: a value that is not a
 	// constant of the feature's type, a Route with an odd number of values.
 	Problems []LayoutProblem
@@ -124,6 +126,7 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 			site.View = enclosingView(a.scope)
 		}
 		bindings := metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node))
+		site.Bindings = bindings
 		switch fqn {
 		case LayoutFQN:
 			m.readLayout(site, bindings)
