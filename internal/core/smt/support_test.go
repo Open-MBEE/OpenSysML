@@ -305,10 +305,14 @@ func TestStateVectorNamesEveryVariableAcrossMoves(t *testing.T) {
 // TestAnalyzeRefusesANestedFlowBeforeLookingInside: a node stating a flow of
 // its own is refused as a nested flow whether that flow is well formed or not.
 func TestAnalyzeRefusesANestedFlowBeforeLookingInside(t *testing.T) {
-	for _, tc := range []struct{ name, leg string }{
-		{"well formed", "first a; action a; action b; succession first a then b;"},
-		{"missing step", "first a; action a; succession first a then missing;"},
-		{"no start", "action a; action b; succession first a then b; succession first b then a;"},
+	for _, tc := range []struct {
+		name, leg string
+		noGraph   bool
+	}{
+		{name: "well formed", leg: "first a; action a; action b; succession first a then b;"},
+		{name: "missing step", leg: "first a; action a; succession first a then missing;"},
+		{name: "no start", leg: "action a; action b; succession first a then b; succession first b then a;"},
+		{name: "no graph", leg: "first a; action a;", noGraph: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, idx := fixture(t, "<test>", `
@@ -331,6 +335,9 @@ func TestAnalyzeRefusesANestedFlowBeforeLookingInside(t *testing.T) {
 			}
 			if graph.Subflows[graph.Nodes[1]] == nil {
 				t.Fatalf("leg states no flow of its own: %+v", graph.Subflows)
+			}
+			if tc.noGraph {
+				graph.Subflows[graph.Nodes[1]] = &lower.Subflow{}
 			}
 			_, err = Analyze(graph, 10)
 			var unsupported *UnsupportedError

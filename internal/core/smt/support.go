@@ -207,7 +207,7 @@ func (f *Flow) number(fr *Frame) error {
 		if sub == nil {
 			continue
 		}
-		if sub.Err != nil || sub.Graph.Initial == nil {
+		if sub.Err != nil || sub.Graph == nil || sub.Graph.Initial == nil {
 			return f.refuseNested(node)
 		}
 		if err := f.number(&Frame{Graph: sub.Graph, Node: node, Parent: fr}); err != nil {
