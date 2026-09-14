@@ -59,6 +59,9 @@ export interface CanvasLayout {
   roots: PlacedNode[];
   nodes: Map<string, PlacedNode>;
   edges: PlacedEdge[];
+  /** The canvas's top-left corner: the origin, or above and left of geometry the model puts there. */
+  origin: RenderPoint;
+  /** The canvas's size from its origin. */
   width: number;
   height: number;
   /** The rendering's kind reads DiagramLayout back, so gestures on it can be kept. */
@@ -150,15 +153,21 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}): C
   };
   placeGrid(roots, { x: MARGIN, y: MARGIN }, geometry);
 
-  // Every drawn box counts, since a placed child may lie beyond a sized owner.
-  let width = MARGIN;
-  let height = MARGIN;
+  // Every drawn box counts, since a placed child may lie beyond a sized owner,
+  // and a placed node may lie left of or above the origin.
+  const extent = { left: 0, top: 0, right: MARGIN, bottom: MARGIN };
+  const reach = (x: number, y: number): void => {
+    extent.left = Math.min(extent.left, x);
+    extent.top = Math.min(extent.top, y);
+    extent.right = Math.max(extent.right, x);
+    extent.bottom = Math.max(extent.bottom, y);
+  };
   for (const entry of placed.values()) {
     if (entry.hidden) {
       continue;
     }
-    width = Math.max(width, entry.box.x + entry.box.width);
-    height = Math.max(height, entry.box.y + entry.box.height);
+    reach(entry.box.x, entry.box.y);
+    reach(entry.box.x + entry.box.width, entry.box.y + entry.box.height);
   }
   const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes));
   for (const edge of edges) {
@@ -166,16 +175,20 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}): C
       continue;
     }
     for (const point of edge.points) {
-      width = Math.max(width, point.x);
-      height = Math.max(height, point.y);
+      reach(point.x, point.y);
     }
   }
+  const origin = {
+    x: extent.left < 0 ? extent.left - MARGIN : 0,
+    y: extent.top < 0 ? extent.top - MARGIN : 0,
+  };
   return {
     roots,
     nodes: placed,
     edges,
-    width: Math.max(width + MARGIN, result.canvas?.width ?? 0),
-    height: Math.max(height + MARGIN, result.canvas?.height ?? 0),
+    origin,
+    width: Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
+    height: Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
     placeable: PLACEABLE_KINDS.has(result.kind),
   };
 }
@@ -208,6 +221,7 @@ function layoutSequence(result: RenderResult, roots: PlacedNode[], placed: Map<s
     roots,
     nodes: placed,
     edges: routed,
+    origin: { x: 0, y: 0 },
     width: Math.max(x - GAP, MARGIN) + MARGIN,
     height: bottom + MARGIN,
     placeable: false,

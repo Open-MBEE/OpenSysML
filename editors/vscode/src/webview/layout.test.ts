@@ -116,6 +116,18 @@ test("layoutCanvas extends the canvas to a placed child beyond its sized owner",
   assert.deepEqual([b.box.x, b.box.y], [500, 400]);
   assert.equal(layout.width, 500 + b.box.width + MARGIN);
   assert.equal(layout.height, 400 + b.box.height + MARGIN);
+  assert.deepEqual(layout.origin, { x: 0, y: 0 });
+});
+
+test("layoutCanvas moves the canvas's corner up and left to geometry the model puts before the origin", () => {
+  const layout = layoutCanvas(rendering([
+    node("a", "a", { x: -120, y: 40, width: 100, height: 50 }),
+    node("b", "b", { x: 200, y: -30, width: 100, height: 50 }),
+  ]));
+  assert.deepEqual(layout.nodes.get("a")!.box, { x: -120, y: 40, width: 100, height: 50 });
+  assert.deepEqual(layout.origin, { x: -120 - MARGIN, y: -30 - MARGIN });
+  assert.equal(layout.origin.x + layout.width, 300 + MARGIN);
+  assert.equal(layout.origin.y + layout.height, 90 + MARGIN);
 });
 
 test("layoutCanvas moves a root's siblings past an owner grown around a placed child", () => {

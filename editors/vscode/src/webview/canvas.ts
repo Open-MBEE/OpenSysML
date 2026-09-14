@@ -28,7 +28,7 @@ export function drawCanvas(layout: CanvasLayout): SVGSVGElement {
     xmlns: SVG,
     width: String(layout.width),
     height: String(layout.height),
-    viewBox: `0 0 ${layout.width} ${layout.height}`,
+    viewBox: `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`,
     class: "opensysml-canvas",
     "font-size": String(FONT_SIZE),
   });

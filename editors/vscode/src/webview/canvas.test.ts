@@ -54,6 +54,16 @@ test("drawCanvas draws every node as a group carrying its rendering id, movable 
   assert.equal(svg.querySelector('g[data-opensysml-id="d"] text'), null);
 });
 
+test("drawCanvas opens the view on geometry the model puts left of or above the origin", () => {
+  const layout = layoutCanvas({ ...result, nodes: [node("a", "tank", { x: -120, y: 40, width: 100, height: 50 })], edges: [] });
+  const svg = drawCanvas(layout);
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
+  assert.ok(layout.origin.x <= -120 && layout.origin.y <= 0);
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
+  const rect = svg.querySelector('g[data-opensysml-id="a"] > rect')!;
+  assert.deepEqual([rect.getAttribute("x"), rect.getAttribute("y")], ["-120", "40"]);
+});
+
 test("drawCanvas draws edges with the arrowhead their kind takes and handles on a steerable route", () => {
   const svg = drawCanvas(layoutCanvas(result));
   const edges = [...svg.querySelectorAll("g.opensysml-edge")];
