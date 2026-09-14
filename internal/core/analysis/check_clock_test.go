@@ -32,6 +32,7 @@ const beaconModel = `package test {
 		}
 	}
 	part beacon : Beacon;
+	part def Pebble;
 	action watcher {
 		attribute armed : Boolean = false;
 		attribute sawLit : Boolean = false;
@@ -152,5 +153,42 @@ func TestChecksOfBehaviorsOnOneClockHaveWorkersOfTheirOwn(t *testing.T) {
 	}
 	if resolvers, models := w.distinct(); resolvers < 2 || models < 2 {
 		t.Fatalf("%d resolvers, %d models across two plans, want each plan's own", resolvers, models)
+	}
+}
+
+// The witness a check returns replays in a context of its own, whatever numbers
+// that context gives the objects the moves name: the schedule carries the
+// bindings of the check's run, so a beacon numbered differently is still found.
+func TestCheckWitnessesReplayOverObjectsNumberedAfresh(t *testing.T) {
+	f := parseLibraryModel(t, beaconModel)
+	watcher := f.checked(t, "watcher")
+	q := questionOf(t, "test::watcher", Outcomes, &CheckAsk{Start: watcher.start, Diverge: []string{"sawLit"}})
+	result := answered(t, Default(), f.building(), q, Budget{}).Result
+	if result.Claim != ClaimSensitive || result.Witness == nil || result.Contrast == nil {
+		t.Fatalf("result %+v, want sawLit's two values witnessed", result)
+	}
+	values := result.Check().Report.Divergent[0].Values
+	for i, w := range []*Witness{result.Witness, result.Contrast} {
+		bound, ok := w.Schedule.Witness()
+		if !ok || len(bound.Objects) == 0 || !strings.Contains(bound.Objects[0].Path, "beacon") {
+			t.Fatalf("witness %d: schedule %s binds %v, want the beacon the moves name", i, w.Schedule, bound.Objects)
+		}
+		ctx := f.context(t)
+		if _, err := ctx.Instantiate(f.symbol(t, "Pebble")); err != nil {
+			t.Fatal(err)
+		}
+		if err := ctx.SetSchedule(w.Schedule); err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := watcherRun(t, f)(ctx)
+		if err != nil {
+			t.Fatalf("witness %d: replay over a renumbered beacon: %v", i, err)
+		}
+		if err := ctx.Unfollowed(); err != nil {
+			t.Fatalf("witness %d: %v", i, err)
+		}
+		if got := runtime.FormatValue(outcome.Outputs["sawLit"]); got != values[i].Value {
+			t.Fatalf("witness %d: sawLit %s, want %s as the check saw it", i, got, values[i].Value)
+		}
 	}
 }

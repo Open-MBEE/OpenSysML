@@ -165,7 +165,7 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		result.Strength = Witnessed
 		first := report.Violations[0]
 		result.Reason = first.String()
-		result.Witness = &Witness{Schedule: runtime.ReplayPolicy(first.Witness.Choices), Choices: first.Witness.Choices}
+		result.Witness = &Witness{Schedule: runtime.ReplayOf(first.Witness), Choices: first.Witness.Choices}
 		if len(checked.Violations) > 0 {
 			result.Witness.Written = checked.Violations[0]
 		}
@@ -196,7 +196,7 @@ func divergenceWitness(d runtime.Divergence, written []string, n int) *Witness {
 		return nil
 	}
 	w := d.Values[n].Witness
-	out := &Witness{Schedule: runtime.ReplayPolicy(w.Choices), Choices: w.Choices}
+	out := &Witness{Schedule: runtime.ReplayOf(w), Choices: w.Choices}
 	if n < len(written) {
 		out.Written = written[n]
 	}
