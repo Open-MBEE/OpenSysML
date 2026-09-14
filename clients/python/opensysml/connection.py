@@ -82,8 +82,8 @@ from opensysml.values import (
 )
 from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Verdict,
-    VerificationVerdict,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
+    Verdict, VerificationVerdict,
 )
 
 
@@ -1620,6 +1620,83 @@ class Connection:
             )
             for pb_verdict in response.verdicts
         ]
+
+    def validate_instance(self, symbol_id, model_hash, engine=None):
+        """Check every assertion about an object and the objects it holds, as ``%validate`` does.
+
+        An object of the part named is built for the call, then each asserted
+        constraint, each requirement and each satisfaction assertion whose
+        subject lies in the object's tree is evaluated against the object
+        carrying it — a wheel's constraint against each wheel, not against the
+        car.
+
+        Args:
+            symbol_id (str): FQN of the part definition or usage an object of
+                which is validated
+            model_hash (str): Hash from ParseFile response
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
+
+        Returns:
+            Validation: One verdict per assertion, naming the object it is
+                about by its path from the root, and the object's own verdict.
+                A failing assertion is that answer, not an exception; one that
+                could not be evaluated is reported as its ``error``.
+
+        Raises:
+            ExecutionError: If the request could not be answered at all — an
+                unknown symbol, or one no object can be built of
+            MissingCapabilityError: If the service cannot verify, or an engine
+                is given and the service predates ``engines``; nothing is sent
+            InvalidRequestError: If the engine names none the service registers
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        self._require_verification()
+        self._require_engine(engine)
+        request = sysml_pb2.ValidateInstanceRequest(
+            model_hash=model_hash,
+            symbol_id=symbol_id,
+            engine=_engine_field(engine),
+        )
+        with translate_rpc_errors(
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+            )
+        ):
+            response = self._stub.ValidateInstance(request)
+
+        diagnostics = [Diagnostic(d) for d in response.diagnostics]
+        if response.error:
+            raise _failure_of(
+                response.error, response.failure_reason, diagnostics
+            )
+        instances = self._instances_of(response)
+        verifications = _verifications_of(response)
+        verdicts = [
+            Verdict(
+                pb_verdict,
+                instances=instances,
+                diagnostics=diagnostics,
+                verifications=_verifications_for(verifications, pb_verdict),
+            )
+            for pb_verdict in response.verdicts
+        ]
+        summary = None
+        if response.HasField("summary"):
+            summary = Verdict(
+                response.summary,
+                instances=instances,
+                diagnostics=diagnostics,
+                verifications=verifications,
+            )
+        return Validation(
+            verdicts,
+            summary,
+            instances=instances,
+            diagnostics=diagnostics,
+            verifications=verifications,
+            bounded=response.bounded,
+        )
 
     def calc(self, symbol_id, model_hash, arguments=None, engine=None):
         """Invoke a calculation, as the REPL's ``%calc`` does.

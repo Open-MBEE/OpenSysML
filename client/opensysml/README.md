@@ -34,7 +34,7 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `Calculate`, `RunAnalysis` |
 | Run behavior | `ExecuteAction`, `ExecuteState` |
 | Run every linearization of it | `ExploreAction`, `ExploreState`, `ExploreAnalysis` |
-| Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` |
+| Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` |
 | Choose who answers | `ListEngines`, `WithEngine`, `Engine`, `CalcEngine` |
 | Search it | `Query`, `QueryOSLC` |
 | Report on it | `RunDocumentQuery`, `RenderDocument` |
@@ -58,6 +58,15 @@ A verdict of false is an answer about the model, not an error: a verification
 fails only when it could not be evaluated at all, and then it is a
 `*VerifyError` whose `Reason` classifies the failure. A condition the runtime
 could not evaluate for one subject arrives as `Verdict.Undecided()`.
+
+`ValidateInstance` builds one object of the part named and answers every
+assertion about it and the objects it holds — asserted constraints,
+requirement usages and `satisfy` assertions whose subject is in the tree — as
+a `Validation`: one `Verdict` per assertion per object, each placing its object
+by `InstancePath` (`wheels[2]`), and a `Summary` of Kind `"object"` that
+`Valid()` reads. `Violated()` lists the verdicts the model answered false, kept
+apart from undecided ones, and `Bounded` marks a walk cut short, which is not
+valid either.
 
 What running a verification case's body answered is a separate answer, reported
 beside the satisfaction verdict rather than instead of it, by a service

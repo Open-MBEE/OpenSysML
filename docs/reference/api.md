@@ -40,7 +40,7 @@ refuse each other's policies with `CodeInvalidArgument`, and exploring requires 
 `schedule_explore` capability alongside `schedule`.
 
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
-`VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take `WithEngine(name)` and
+`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `ValidateInstance` take `WithEngine(name)` and
 `RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
 options, its arguments under `CalcArguments`) takes `CalcEngine(name)`, to put the question to one engine,
 `EngineAll` to ask every engine that covers it, or `EngineAuto` (the default) to leave the choice

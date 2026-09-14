@@ -51,6 +51,13 @@ service SysMLService {
   rpc VerifyConstraint(VerifyConstraintRequest) returns (VerifyConstraintResponse);
   rpc VerifyRequirement(VerifyRequirementRequest) returns (VerifyRequirementResponse);
   rpc VerifySatisfaction(VerifySatisfactionRequest) returns (VerifySatisfactionResponse);
+  // Validate an object as a whole, as the REPL's %validate and the CLI's
+  // -validate=<object> do: every assertion about an object of the named part
+  // and about the objects it holds — the asserted constraints of their types,
+  // the requirements they carry and the satisfactions they are the subject of —
+  // each answered on the concrete object it is about. Reported as the
+  // "verification" capability.
+  rpc ValidateInstance(ValidateInstanceRequest) returns (ValidateInstanceResponse);
   rpc EvaluateCalc(EvaluateCalcRequest) returns (EvaluateCalcResponse);
   rpc RunAnalysis(RunAnalysisRequest) returns (RunAnalysisResponse);
 
@@ -98,7 +105,8 @@ enum FailureReason {
 // it did not, which condition the model answered false about.
 message Verdict {
   // What was verified: "constraint", "requirement" or "satisfy"; for a check
-  // an analysis case run made, "objective" or "assertion".
+  // an analysis case run made, "objective" or "assertion"; for the summary
+  // of a ValidateInstance, "object".
   string kind = 1;
   // FQN of the element verified; empty for an anonymous satisfy assertion or
   // an anonymous assertion in a case body.
@@ -141,6 +149,11 @@ message Verdict {
   string strength = 12;
   // The bounds the engine ran under, each marked when it stopped the run.
   repeated Bound bounds = 13;
+  // For a verdict ValidateInstance reports: the path from the validated object
+  // to the object this verdict is about, as the REPL spells it ("engine",
+  // "wheels[2]", "engine.injector"). Empty for the validated object itself,
+  // and for every other RPC.
+  string instance_path = 14;
 }
 
 // Bound is one limit an engine ran under, as its plan names it: a count, or
@@ -255,6 +268,45 @@ message VerifySatisfactionResponse {
   // names the requirement it was reported for, which the verdict of an
   // assertion of that requirement carries as its own requirement_id.
   repeated VerificationVerdict verification_verdicts = 6;
+}
+
+// ValidateInstanceRequest asks for every assertion about an object of a part,
+// as %validate does: the object is built for the call.
+message ValidateInstanceRequest {
+  string model_hash = 1;
+  // FQN of the part or usage an object of which is validated.
+  string symbol_id = 2;
+  // The engine the validation is put to; see VerifyConstraintRequest.engine.
+  string engine = 3;
+}
+
+// ValidateInstanceResponse carries one verdict per assertion, in the order the
+// objects were reached from the validated one, and the verdict about the object
+// as a whole. An object no assertion is about has an empty list and a summary
+// that decides nothing.
+message ValidateInstanceResponse {
+  // One per assertion: kind "constraint", "requirement" or "satisfy", about the
+  // object `instance_id` names, reached along `instance_path`.
+  repeated Verdict verdicts = 1;
+  // The object as a whole, kind "object": holds when every assertion holds and
+  // every held object was reached. With `error` empty, false is the model's
+  // answer, some assertion failing; with `error` set, nothing was decided, an
+  // assertion being undecided or nesting left unreached.
+  Verdict summary = 2;
+  // Every object reached, the validated one first, so a client can read the
+  // feature values behind each verdict.
+  repeated Instance instances = 3;
+  string error = 4;
+  repeated Diagnostic diagnostics = 5;
+  // What kind of failure `error` reports.
+  FailureReason failure_reason = 6;
+  // What the body of every verification case verifying a requirement a verdict
+  // is about answered, once per requirement; each names its requirement, which
+  // the requirement and satisfy verdicts carry as their requirement_id.
+  repeated VerificationVerdict verification_verdicts = 7;
+  // True when nesting deeper than the validation descends, or past its budget,
+  // was left unvalidated; the summary then decides nothing.
+  bool bounded = 8;
 }
 
 // EvaluateCalcRequest invokes a calculation, as %calc does. Arguments are bound

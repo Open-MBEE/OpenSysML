@@ -54,6 +54,10 @@ type Verdict struct {
 	// RequirementID is the FQN of the requirement a satisfaction verdict
 	// asserts satisfied, empty when the assertion names none.
 	RequirementID string
+	// InstancePath names the object the verdict is about by the features held
+	// from the validated object, "engine.pump" or "wheels[2]"; empty for the
+	// validated object itself and for verdicts a Validation did not produce.
+	InstancePath string
 	// Verifications are the body verdicts of that requirement's verification
 	// cases, reported beside this verdict rather than instead of it.
 	Verifications []VerificationVerdict
@@ -140,6 +144,47 @@ func (s *Satisfaction) Holds() bool {
 		}
 	}
 	return true
+}
+
+// Validation is every assertion's verdict about one object and the objects it
+// holds: its asserted constraints and invariants, the requirements it carries,
+// and the satisfaction assertions whose subjects are inside it.
+type Validation struct {
+	// Verdicts is one verdict per assertion per object, in the order the objects
+	// were reached from the validated one, each naming its object by InstancePath.
+	Verdicts []Verdict
+	// Summary is the verdict about the object as a whole, of Kind "object": it
+	// holds when every verdict holds and every held object was reached, and is
+	// Undecided, with the reason as its Error, when an assertion is.
+	Summary *Verdict
+	// Verifications are the body verdicts of every requirement the verdicts are
+	// about, each naming the requirement it was reported for.
+	Verifications []VerificationVerdict
+	// Instances are the objects reachable from the validated one, including it.
+	Instances []*Instance
+	// Bounded reports a walk cut short by an object graph that goes on without
+	// end, so objects past the cut carry assertions no verdict covers.
+	Bounded bool
+	// Diagnostics the validation reported.
+	Diagnostics []Diagnostic
+}
+
+// Valid reports whether the object stands: at least one assertion, every one held
+// and every held object reached. An undecided assertion, a bounded walk or an
+// object no assertion is about is not valid.
+func (v *Validation) Valid() bool {
+	return v.Summary != nil && v.Summary.Holds && !v.Summary.Undecided()
+}
+
+// Violated reports whether an assertion answered false, whatever else went
+// undecided.
+func (v *Validation) Violated() bool {
+	for i := range v.Verdicts {
+		if !v.Verdicts[i].Holds && !v.Verdicts[i].Undecided() {
+			return true
+		}
+	}
+	return false
 }
 
 // Calculation is what one calculation computed: the value an invocation
@@ -271,6 +316,54 @@ func (c *client) VerifySatisfaction(
 	}
 	out := &Satisfaction{
 		Instances:     instancesFromProto(resp.Instances),
+		Diagnostics:   diagnostics,
+		Verifications: verificationVerdictsFromProto(resp.VerificationVerdicts),
+	}
+	for _, verdict := range resp.Verdicts {
+		if converted := verdictFromProto(verdict); converted != nil {
+			converted.Verifications = verificationsOf(out.Verifications, converted.RequirementID)
+			out.Verdicts = append(out.Verdicts, *converted)
+		}
+	}
+	return out, nil
+}
+
+func (c *client) ValidateInstance(
+	ctx context.Context, model *Model, symbolID string, opts ...VerifyOption,
+) (*Validation, error) {
+	hash, err := c.call(model)
+	if err != nil {
+		return nil, err
+	}
+	options, err := c.verifyOptions(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	if options.subjectSymbolID != "" {
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "ValidateInstance takes no subject: the symbol named is the object validated",
+		}
+	}
+	resp, err := c.caller.validateInstance(ctx, &pb.ValidateInstanceRequest{
+		ModelHash: hash,
+		SymbolId:  symbolID,
+		Engine:    engineField(options.engine),
+	})
+	if err != nil {
+		return nil, err
+	}
+	diagnostics := diagnosticsFromProto(resp.Diagnostics)
+	if resp.Error != "" {
+		return nil, &VerifyError{
+			FailureError: FailureError{Op: "ValidateInstance", Message: resp.Error, Diagnostics: diagnostics},
+			Reason:       Reason(resp.FailureReason),
+		}
+	}
+	out := &Validation{
+		Summary:       verdictFromProto(resp.Summary),
+		Instances:     instancesFromProto(resp.Instances),
+		Bounded:       resp.Bounded,
 		Diagnostics:   diagnostics,
 		Verifications: verificationVerdictsFromProto(resp.VerificationVerdicts),
 	}
@@ -428,6 +521,7 @@ func verdictFromProto(verdict *pb.Verdict) *Verdict {
 		Error:          verdict.Error,
 		Reason:         Reason(verdict.FailureReason),
 		RequirementID:  verdict.RequirementId,
+		InstancePath:   verdict.InstancePath,
 		Standing:       standingFromProto(verdict.Engine, verdict.Strength, verdict.Bounds),
 	}
 }

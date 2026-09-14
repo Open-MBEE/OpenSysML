@@ -347,7 +347,10 @@ tokens, state transitions
 Show version (shorthand)
 .TP
 .B \-validate
-Analyse the model and report its diagnostics, exiting nonzero on an error
+Analyse the model and report its diagnostics, exiting nonzero on an error;
+with \-validate=<object> check instead every assertion about an object
+\-instantiate created and the objects it holds, an object named, #<id>, or a
+path such as car.engine (repeatable). The default is [].
 .TP
 .B \-version
 Show version information
@@ -379,6 +382,8 @@ sysml \-instantiate p \-constraint C model.sysml
 sysml \-validate model.sysml
 # \&...asking whether it is conforming SysML v2
 sysml \-validate \-strict model.sysml
+# Check every assertion about an object
+sysml \-instantiate car \-validate=car m.sysml
 # Invoke a calculation
 sysml \-calc "Fall(3, 4)" model.sysml
 # Run an analysis case

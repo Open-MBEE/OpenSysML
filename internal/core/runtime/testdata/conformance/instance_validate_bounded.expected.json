@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::node",
+  "validation": {
+    "bounded": true,
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint shallow", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint shallow", "object": "next", "status": "holds"}
+    ],
+    "valid": false
+  }
+}
