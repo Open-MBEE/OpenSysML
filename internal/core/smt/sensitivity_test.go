@@ -329,6 +329,10 @@ func TestSensitivityShortOfCompletionIsBounded(t *testing.T) {
 	}
 }
 
+// proofTimeout is how long a test asserting a proof gives the solver per query: the
+// verdict is the subject, not the speed, so a loaded machine must not leave it undecided.
+const proofTimeout = 2 * time.Minute
+
 // TestSensitivityOfJoinWaitingForSlowestBranch: every schedule counts three arrivals
 // before the join lets `after` read them, so `arrived` is not sensitive, at proof.
 func TestSensitivityOfJoinWaitingForSlowestBranch(t *testing.T) {
@@ -336,7 +340,7 @@ func TestSensitivityOfJoinWaitingForSlowestBranch(t *testing.T) {
 	e := engine(t)
 	d, o := conformance(t, name), oracleOf(t, name)
 	for _, feature := range []string{"arrived", "seen"} {
-		result := answer(t, e, d, d.sensitive(t, "test::gather", feature), analysis.Budget{Depth: 12})
+		result := answer(t, e, d, d.sensitive(t, "test::gather", feature), analysis.Budget{Depth: 12, Solver: proofTimeout})
 		expectInsensitive(t, result, feature, o)
 	}
 }
