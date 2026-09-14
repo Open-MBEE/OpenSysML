@@ -412,6 +412,27 @@ func TestSatisfyCanBeTurnedOff(t *testing.T) {
 	wantReport(t, check(t, binary, checkModel, "-satisfy=false"), 2, "no check was named")
 }
 
+// TestValidateCanBeTurnedOff checks that -validate=false asks for no check, as
+// -satisfy=false does: it withdraws a bare -validate written before it, leaves
+// an object named beside it, and alone reports that no check was named.
+func TestValidateCanBeTurnedOff(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, validateModel, "-validate=false"), 2, "no check was named")
+	wantReport(t, check(t, binary, validateModel, "-validate", "-validate=false"), 2, "no check was named")
+
+	got := check(t, binary, validateModel, "-validate=false", "-instantiate", "Fleet::car", "-validate=car")
+	wantReport(t, got, 1, "✗ Fleet::car is not valid: 3 of 4 assertions fail")
+	if strings.Contains(got.output(), "no errors") {
+		t.Errorf("-validate=false reported the model's diagnostics anyway:\n%s", got.output())
+	}
+	got = check(t, binary, validateModel, "-validate", "-validate=false", "-instantiate", "Fleet::car", "-validate=car")
+	wantReport(t, got, 1, "✗ Fleet::car is not valid")
+	if strings.Contains(got.output(), "no errors") {
+		t.Errorf("-validate=false left the bare -validate before it standing:\n%s", got.output())
+	}
+}
+
 // TestCheckAgainstInstantiatedObject checks that -instantiate makes a following
 // verdict be about that object, which is the only way a part's own constraint
 // reaches concrete feature values.

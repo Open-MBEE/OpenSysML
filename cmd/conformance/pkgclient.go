@@ -386,9 +386,10 @@ func (c *pkgClient) verifyRequirement(ctx context.Context, request protoreflect.
 		return nil, apiError(err)
 	}
 	return &pb.VerifyRequirementResponse{
-		Verdict:     verdictToProto(verification.Verdict),
-		Instances:   instancesToProto(verification.Instances),
-		Diagnostics: diagnosticsToProto(verification.Diagnostics),
+		Verdict:              verdictToProto(verification.Verdict),
+		Instances:            instancesToProto(verification.Instances),
+		Diagnostics:          diagnosticsToProto(verification.Diagnostics),
+		VerificationVerdicts: verificationVerdictsToProto(verification.Verifications),
 	}, nil
 }
 
@@ -411,8 +412,9 @@ func (c *pkgClient) verifySatisfaction(ctx context.Context, request protoreflect
 		return nil, apiError(err)
 	}
 	response := &pb.VerifySatisfactionResponse{
-		Instances:   instancesToProto(satisfaction.Instances),
-		Diagnostics: diagnosticsToProto(satisfaction.Diagnostics),
+		Instances:            instancesToProto(satisfaction.Instances),
+		Diagnostics:          diagnosticsToProto(satisfaction.Diagnostics),
+		VerificationVerdicts: verificationVerdictsToProto(satisfaction.Verifications),
 	}
 	for i := range satisfaction.Verdicts {
 		response.Verdicts = append(response.Verdicts, verdictToProto(&satisfaction.Verdicts[i]))
@@ -439,10 +441,11 @@ func (c *pkgClient) validateInstance(ctx context.Context, request protoreflect.M
 		return nil, apiError(err)
 	}
 	response := &pb.ValidateInstanceResponse{
-		Summary:     verdictToProto(validation.Summary),
-		Instances:   instancesToProto(validation.Instances),
-		Diagnostics: diagnosticsToProto(validation.Diagnostics),
-		Bounded:     validation.Bounded,
+		Summary:              verdictToProto(validation.Summary),
+		Instances:            instancesToProto(validation.Instances),
+		Diagnostics:          diagnosticsToProto(validation.Diagnostics),
+		VerificationVerdicts: verificationVerdictsToProto(validation.Verifications),
+		Bounded:              validation.Bounded,
 	}
 	for i := range validation.Verdicts {
 		response.Verdicts = append(response.Verdicts, verdictToProto(&validation.Verdicts[i]))
@@ -527,11 +530,12 @@ func (c *pkgClient) runAnalysis(ctx context.Context, request protoreflect.Messag
 		return nil, apiError(err)
 	}
 	response := &pb.RunAnalysisResponse{
-		Instances:   instancesToProto(analysis.Instances),
-		Diagnostics: diagnosticsToProto(analysis.Diagnostics),
-		Engine:      analysis.Standing.Engine,
-		Strength:    analysis.Standing.Strength,
-		Bounds:      boundsToProto(analysis.Standing.Bounds),
+		Instances:            instancesToProto(analysis.Instances),
+		Diagnostics:          diagnosticsToProto(analysis.Diagnostics),
+		VerificationVerdicts: verificationVerdictsToProto(analysis.Verifications),
+		Engine:               analysis.Standing.Engine,
+		Strength:             analysis.Standing.Strength,
+		Bounds:               boundsToProto(analysis.Standing.Bounds),
 	}
 	for _, output := range analysis.Outputs {
 		response.Outputs = append(response.Outputs, &pb.CalcOutput{
@@ -1079,6 +1083,23 @@ func verdictToProto(verdict *opensysml.Verdict) *pb.Verdict {
 		Strength:       verdict.Standing.Strength,
 		Bounds:         boundsToProto(verdict.Standing.Bounds),
 	}
+}
+
+func verificationVerdictsToProto(verdicts []opensysml.VerificationVerdict) []*pb.VerificationVerdict {
+	if len(verdicts) == 0 {
+		return nil
+	}
+	out := make([]*pb.VerificationVerdict, 0, len(verdicts))
+	for _, verdict := range verdicts {
+		out = append(out, &pb.VerificationVerdict{
+			CaseId:        verdict.CaseID,
+			Kind:          string(verdict.Kind),
+			Detail:        verdict.Detail,
+			Subcase:       verdict.Subcase,
+			RequirementId: verdict.RequirementID,
+		})
+	}
+	return out
 }
 
 func boundsToProto(bounds []opensysml.Bound) []*pb.Bound {

@@ -109,11 +109,17 @@ func (r ValidationReport) Count(status ValidationStatus) int {
 }
 
 // validatedObject is one object the walk reached: its path from the root (a
-// collection element indexed), and the feature it was read through, by name and declaration.
+// collection element indexed) the first time, and every feature it was read through.
 type validatedObject struct {
-	inst    *Instance
+	inst     *Instance
+	path     []string
+	holdings []holding
+}
+
+// holding is one feature an object was read through, by name and declaration,
+// on the object holding it; a shared object has one per feature.
+type holding struct {
 	parent  *validatedObject
-	path    []string
 	name    string
 	through *symbols.Symbol
 	owner   *symbols.Symbol
@@ -124,7 +130,7 @@ type validatedObject struct {
 type validationWalk struct {
 	ctx     *Context
 	onPath  map[*symbols.Symbol]bool
-	visited map[int64]bool
+	visited map[int64]*validatedObject
 	read    map[*FeatureValue]bool
 	budget  int
 	bounded bool
@@ -161,14 +167,15 @@ func (ctx *Context) ValidateObject(root *Instance, scopes []*symbols.Scope) (Val
 	if err := ctx.checkNotDestroyed(root); err != nil {
 		return ValidationReport{Root: root}, err
 	}
+	obj := &validatedObject{inst: root}
 	w := &validationWalk{
 		ctx:     ctx,
 		onPath:  map[*symbols.Symbol]bool{root.Type: true},
-		visited: map[int64]bool{root.ID: true},
+		visited: map[int64]*validatedObject{root.ID: obj},
 		read:    map[*FeatureValue]bool{},
 		budget:  maxMaterializeBudget,
 	}
-	w.walk(&validatedObject{inst: root}, 0)
+	w.walk(obj, 0)
 
 	report := ValidationReport{Root: root, Bounded: w.bounded, Unread: w.unread}
 	var stated []*SatisfyAssertion
@@ -221,30 +228,39 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 				return
 			}
 			w.budget--
-			if w.visited[child.inst.ID] {
+			held := holding{parent: obj, name: of.Name, through: feat.Symbol, owner: feat.OwnerType}
+			if reached, ok := w.visited[child.inst.ID]; ok {
+				reached.holdings = append(reached.holdings, held)
 				continue
 			}
-			w.visited[child.inst.ID] = true
-			child.parent, child.name, child.through, child.owner = obj, of.Name, feat.Symbol, feat.OwnerType
-			child.path = append(append([]string(nil), obj.path...), child.path...)
-			w.onPath[child.inst.Type] = true
-			w.walk(child, depth+1)
-			delete(w.onPath, child.inst.Type)
+			reached := child.validatedObject
+			w.visited[reached.inst.ID] = reached
+			reached.holdings = []holding{held}
+			reached.path = append(append([]string(nil), obj.path...), child.segment)
+			w.onPath[reached.inst.Type] = true
+			w.walk(reached, depth+1)
+			delete(w.onPath, reached.inst.Type)
 		}
 	}
 }
 
-// heldChildren lists the objects a feature value holds, each with the segment
-// naming it: the feature's name, indexed for a collection's elements.
-func (w *validationWalk) heldChildren(fv *FeatureValue, segment string) []*validatedObject {
-	var out []*validatedObject
+// heldChild is an object a feature value holds and the segment naming it there:
+// the feature's name, indexed for a collection's element.
+type heldChild struct {
+	*validatedObject
+	segment string
+}
+
+// heldChildren lists the objects a feature value holds, each under its segment.
+func (w *validationWalk) heldChildren(fv *FeatureValue, segment string) []heldChild {
+	var out []heldChild
 	reach := func(val Value, segment string) {
 		id, ok := val.Object()
 		if !ok || w.ctx.HoldsNoValue(val) {
 			return
 		}
 		if child, ok := w.ctx.Instance(id); ok {
-			out = append(out, &validatedObject{inst: child, path: []string{segment}})
+			out = append(out, heldChild{&validatedObject{inst: child}, segment})
 		}
 	}
 	if fv.Values.Kind == ValInvalid {
@@ -395,44 +411,54 @@ func (ctx *Context) subjectOf(a *SatisfyAssertion, obj *validatedObject) bool {
 	if a.SubjectChain == nil {
 		return ctx.occursAs(obj, a.Subject)
 	}
-	if a.SubjectRoot == nil {
-		return false
-	}
-	cur := obj
-	for i := len(a.SubjectPath) - 1; i >= 0; i-- {
-		if cur.parent == nil {
-			cur.parent, cur.name, cur.through, cur.owner = ctx.holderOf(cur.inst)
-		}
-		if cur.parent == nil || cur.name != a.SubjectPath[i] {
-			return false
-		}
-		cur = cur.parent
-	}
-	return ctx.occursAs(cur, a.SubjectRoot)
+	return a.SubjectRoot != nil && ctx.reachedBy(obj, a.SubjectPath, a.SubjectRoot)
 }
 
-// holderOf finds the object whose feature value holds inst, so a chain can be
-// walked above a nested validated root.
-func (ctx *Context) holderOf(inst *Instance) (holder *validatedObject, name string, through, owner *symbols.Symbol) {
+// reachedBy reports whether some chain of holdings named path leads up from obj
+// to an object of root, trying every feature a shared object is held through.
+func (ctx *Context) reachedBy(obj *validatedObject, path []string, root *symbols.Symbol) bool {
+	if len(path) == 0 {
+		return ctx.occursAs(obj, root)
+	}
+	if len(obj.holdings) == 0 {
+		obj.holdings = ctx.holdersOf(obj.inst)
+	}
+	last := path[len(path)-1]
+	for _, h := range obj.holdings {
+		if h.name == last && ctx.reachedBy(h.parent, path[:len(path)-1], root) {
+			return true
+		}
+	}
+	return false
+}
+
+// holdersOf finds the features whose values hold inst, so a chain can be walked
+// above a nested validated root.
+func (ctx *Context) holdersOf(inst *Instance) []holding {
 	ids := make([]int64, 0, len(ctx.instances))
 	for id := range ctx.instances {
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)
+	var out []holding
 	for _, id := range ids {
 		candidate := ctx.instances[id]
 		if candidate == nil || candidate == inst {
 			continue
 		}
+		var holder *validatedObject
 		for _, of := range ctx.FeaturesOfObject(candidate) {
 			fv := candidate.FeatureValues[of.Name]
 			if of.Name == "" || fv == nil || !slices.Contains(heldObjects(fv.HeldValue()), inst.ID) {
 				continue
 			}
-			return &validatedObject{inst: candidate}, of.Name, of.Feature.Symbol, of.Feature.OwnerType
+			if holder == nil {
+				holder = &validatedObject{inst: candidate}
+			}
+			out = append(out, holding{parent: holder, name: of.Name, through: of.Feature.Symbol, owner: of.Feature.OwnerType})
 		}
 	}
-	return nil, "", nil, nil
+	return out
 }
 
 // occursAs reports whether obj is an object of sym: typed by it, or held by a
@@ -441,13 +467,12 @@ func (ctx *Context) occursAs(obj *validatedObject, sym *symbols.Symbol) bool {
 	if slices.Contains(obj.inst.types(), sym) {
 		return true
 	}
-	if obj.through == nil {
-		return false
+	for _, h := range obj.holdings {
+		if h.through == sym || slices.Contains(ctx.redefinedFeatures(h.through, h.owner), sym) {
+			return true
+		}
 	}
-	if obj.through == sym {
-		return true
-	}
-	return slices.Contains(ctx.redefinedFeatures(obj.through, obj.owner), sym)
+	return false
 }
 
 // objectVerdict reports what a check on obj decided, about a nested object when

@@ -275,7 +275,9 @@ func (c *checks) checksOnly() bool {
 type optionalNames struct {
 	// targets are the names given, the bare spelling recorded as "".
 	targets []string
-	given   bool
+	// given records the flag written at all, =false included, so a script that
+	// wrote it is answered rather than left at a prompt.
+	given bool
 }
 
 func (t *optionalNames) String() string { return fmt.Sprint(t.targets) }
@@ -289,7 +291,9 @@ func (t *optionalNames) Set(value string) error {
 	case "true":
 		t.targets = append(t.targets, "")
 	case "false":
-		// The off spelling of a flag declared boolean, so -satisfy=$on works.
+		// The off spelling of a flag declared boolean, so -satisfy=$on works: it
+		// withdraws a bare request written before it and leaves the names given.
+		t.targets = t.names()
 	default:
 		t.targets = append(t.targets, value)
 	}
