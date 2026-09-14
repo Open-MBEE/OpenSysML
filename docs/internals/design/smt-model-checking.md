@@ -112,7 +112,7 @@ verdict names it.
 | Feature values | `Instance.FeatureValues`, `actionFrame.data` | one variable per scalar feature per state, `x_i`, in the sort the translator already gives the feature; a frame-local feature is one per (node performance, feature) |
 | Pins and object flows | `PinBinding`, `DataFlows`, delivered `out` pins | the value carried on an object flow is a variable set by the source node's move and read by the target's |
 | Messages | `Context.messages`, oldest first | a bounded bus of `M` slots, each `(present, signal type, payload, posted-at)`, `M` computed as the number of `Send` statements reachable in `k` moves |
-| Clock | `Context.Clock()`, `accept after`/`at` | `now_i : Real` (seconds) and a due time per parked token; `now` never decreases and advances only when no token is enabled, to the earliest due time — time is not a choice, only ties are, as the explicit note says |
+| Clock | `Context.Clock()`, `accept after`/`at` | `now_i : Real` (seconds) and a due time per parked token; `now` never decreases and advances only when no token is enabled, to the earliest due time — time is not a choice, only ties are, as the explicit note says. There is no horizon: `k` moves alone bound the run. The library's `Clocks` and `Occurrences`, and `accept after`/`accept at` over them, fix *when* a timed accept becomes enabled and say nothing about how far a run proceeds; fUML, PSCS and PSSM define no clock at all. A horizon would be a bound the specification does not name, so the rule that adds nothing is the one taken, and `-advance` stays refused for `smt` as `check` refuses it |
 | Paused nested flows | `Token.body`, `Token.resumable` | a nested flow's tokens are slots of their own, and the performing node is `Done` only when its `Finals` are reached (`Subflows`) |
 
 What is *not* in the state — the memo tables, the lowered graph, the symbol tables — is not in
@@ -346,7 +346,7 @@ solver answers and `explore` confirms.
 | Products and quotients of two computed values | encoded as nonlinear; the solver may answer `unknown` | yes | *not covered: solver undecided* |
 | Strings beyond equality | not encoded | yes | *not covered* |
 | `send`/`accept` within the checked behavior | encoded over a bus of `M` slots | yes | a bus that fills is a bound, reported |
-| `accept after`/`accept at`, one clock | encoded: `now`, due times, ties as choices | yes, with `-advance` | — |
+| `accept after`/`accept at`, one clock | encoded: `now`, due times, ties as choices; no horizon, `k` moves alone bound the run | yes, with or without `-advance` | — |
 | Performed actions with their own flow, paused and resumed | encoded as nested slots | yes | — |
 | Requirement, constraint, `satisfy` over scalars | encoded as the negated property | yes, at every state | a condition the translator refuses: *not covered: condition* |
 | Deadlock | encoded as a stutter short of completion | yes | — |
@@ -696,7 +696,18 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    two-copy query. The wire and the clients still do not carry the question.
 4. **Clock, messages and nested flows.** `now` and due times, the bounded bus, performed actions
    as nested slots, so the whole action fragment the runtime executes is covered. The corpus's
-   `accept` cases join the referee.
+   `accept` cases join the referee. *Prepared, not implemented:* `Flow` (`support.go`) numbers
+   the root graph and every flow a node states of its own as frames (`Flow.Frames`,
+   `Flow.FrameOf`), each with its own node range, labels prefixed by the performing node and a
+   slot count summed into `T`, and records the `Send` and `accept` sites it meets (`Flow.Sends`,
+   `Flow.Accepts`, `Flow.Bus` as `M`); `State` (`state.go`) declares the parked and due
+   variables, `now` and the bus slots only for a flow that has accepts, timed accepts or sends,
+   and lists its variables as a named vector (`State.Vector`) for a query over two copies of
+   the relation. No transition reads them yet: `send`, `accept`, `accept after`/`accept at` and
+   a node stating a flow of its own are refused before any query, naming the node and the
+   construct, exactly as stage 1 left them; the `Bounds` line lists no `bus`; the referee's
+   tally is stage 2's. The horizon question is settled above, in "The state": no horizon, and
+   `-advance` stays refused for `smt`.
 5. **k-induction.** The step query and the `proved, unbounded` verdict.
 6. **Bounded heap and calc inlining.** Object-valued pins over `N` objects per type; inlining a
    pure, loop-free calc body. Each moves rows of the coverage table from *not covered* to
