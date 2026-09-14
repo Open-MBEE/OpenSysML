@@ -226,9 +226,10 @@ func TestSuccessionBodyReferencesCarryTheBodyScope(t *testing.T) {
 			t.Errorf("`%s` resolves from the action body, so the body scope was not needed", name)
 		}
 	}
-	// `first prep` labels the initial node, so `prep` is no reference; `launch` is
-	// the end of both successions, `left` and `right` the branches of the decision.
-	for name, want := range map[string]int{"prep": 0, "launch": 2, "left": 1, "right": 1} {
+	// `first prep then launch` refers to `prep` as the succession's source, so it
+	// is a reference like `launch`, the end of both successions; `left` and `right`
+	// are the branches of the decision.
+	for name, want := range map[string]int{"prep": 1, "launch": 2, "left": 1, "right": 1} {
 		if n := len(byName[name]); n != want {
 			t.Errorf("edge end `%s` is collected %d times, want %d", name, n, want)
 		}
@@ -525,7 +526,7 @@ func TestControlNodeBodiesResolveInTheirOwnScope(t *testing.T) {
 		attribute retries;
 		action a;
 		action b;
-		first start then a {
+		first a then b {
 			attribute retries;
 			send new Request(id = retries) to a;
 			send new Missing() to a;
@@ -861,7 +862,7 @@ func TestAnInitialReferenceReachesALaterDeclaration(t *testing.T) {
 	for _, def := range unwrapMember(root.Members[0]).(*ast.Package).Members {
 		for _, member := range unwrapMember(def).(*ast.Definition).Members {
 			if n, ok := unwrapMember(member).(*ast.InitialNode); ok {
-				initials[n.Name] = n
+				initials[n.Name()] = n
 			}
 		}
 	}
@@ -874,6 +875,63 @@ func TestAnInitialReferenceReachesALaterDeclaration(t *testing.T) {
 	}
 	if sym, ok := r.InitialSymbol(initials["start"]); ok {
 		t.Errorf("`first start` names %T, but no member is called start", sym.Decl)
+	}
+}
+
+// The name after `first` in an action body's `first a then b;` is the source
+// of the succession: it resolves like any reference, to the declared node, and
+// is diagnosed when nothing declares it. A one-ended `first a;` stays a start
+// marker, bound to the member it names and reported by InitialSymbol alone.
+func TestAnActionSuccessionFirstEndIsAnOrdinaryReference(t *testing.T) {
+	const src = `package P {
+	action def Drive {
+		action prep;
+		first prep then launch;
+		action launch;
+		first missing then launch;
+	}
+	action def Idle {
+		first wait;
+		action wait;
+	}
+}`
+	walk, root, rootScope := resolvedDoc(t, src)
+	if len(walk.Diagnostics) != 1 || !strings.Contains(walk.Diagnostics[0].Message, "unresolved reference: missing") {
+		t.Fatalf("`first missing then launch` should be the one unresolved reference, got %v", walk.Diagnostics)
+	}
+	initials := map[string]*ast.InitialNode{}
+	for _, def := range unwrapMember(root.Members[0]).(*ast.Package).Members {
+		for _, member := range unwrapMember(def).(*ast.Definition).Members {
+			if n, ok := unwrapMember(member).(*ast.InitialNode); ok {
+				initials[n.Name()] = n
+			}
+		}
+	}
+	prep, ok := walk.EndSymbol(initials["prep"].First)
+	if !ok {
+		t.Fatal("`first prep then launch` does not bind prep as an end")
+	}
+	if usage, isUsage := prep.Decl.(*ast.Usage); !isUsage || usage.Ident.Name != "prep" {
+		t.Errorf("`first prep then launch` binds %T, want the action usage `prep`", prep.Decl)
+	}
+	if sym, ok := walk.InitialSymbol(initials["prep"]); !ok || sym != prep {
+		t.Errorf("InitialSymbol of `first prep then launch` = %v, %v; want the bound source", sym, ok)
+	}
+	if _, ok := walk.EndSymbol(initials["missing"].First); ok {
+		t.Error("`first missing then launch` binds a source, but nothing declares missing")
+	}
+	if _, ok := walk.EndSymbol(initials["wait"].First); ok {
+		t.Error("`first wait;` is a start marker, not a reference, yet its name was bound as an end")
+	}
+	if sym, ok := walk.InitialSymbol(initials["wait"]); !ok || sym.Decl.(*ast.Usage).Ident.Name != "wait" {
+		t.Errorf("InitialSymbol of `first wait;` = %v, %v; want the action usage `wait`", sym, ok)
+	}
+	refs := map[string]int{}
+	for _, ref := range resolve.References(root, rootScope) {
+		refs[nameText(ref.QN)]++
+	}
+	if refs["prep"] != 1 || refs["missing"] != 1 || refs["wait"] != 0 {
+		t.Errorf("references collected: %v; want prep and missing once, wait never", refs)
 	}
 }
 
@@ -899,7 +957,8 @@ func TestAnInitialSuccessorInAMachineIsAnEndpoint(t *testing.T) {
 		}
 	}
 	action def A {
-		first start then step;
+		action prep;
+		first prep then step;
 		action step;
 	}
 }`

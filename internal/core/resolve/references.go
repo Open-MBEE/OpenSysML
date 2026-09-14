@@ -119,7 +119,7 @@ func (c *refCollector) edgeEnd(scope *symbols.Scope, qn *ast.QualifiedName, memb
 	if qn == nil || len(qn.Parts) == 0 || member != nil || implied {
 		return
 	}
-	if inStateMachine(scope) {
+	if symbols.InStateMachine(scope) {
 		c.addEndpoint(scope, qn)
 		return
 	}
@@ -288,7 +288,7 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 			c.relationships(scope, end, others)
 			// A machine succession/transition end names a vertex like a transition endpoint.
 			asEndpoint := (d.Kind == ast.UsageSuccession || d.Kind == ast.UsageTransition) &&
-				inStateMachine(scope) && !declaresName
+				symbols.InStateMachine(scope) && !declaresName
 			if !declaresName {
 				c.connectorEnd(scope, end.Target, asEndpoint)
 			}
@@ -320,7 +320,10 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		}
 		return true
 	case *ast.InitialNode:
-		// The node's own name is a label, not a reference.
+		// A start marker's own name is a label, not a reference.
+		if symbols.FirstNamesSource(d) {
+			c.edgeEnd(scope, d.First, nil, false)
+		}
 		c.edgeEnd(scope, d.Successor, nil, false)
 		c.expr(scope, d.Guard)
 		c.walkMembers(c.bodyScope(scope, d), d.Members)
@@ -405,6 +408,9 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 		c.walkMembers(body, d.Members)
 		return true
 	case *ast.InitialNode:
+		if symbols.FirstNamesSource(d) {
+			c.edgeEnd(scope, d.First, nil, false)
+		}
 		c.edgeEnd(scope, d.Successor, nil, false)
 		c.expr(scope, d.Guard)
 		c.walkMembers(c.bodyScope(scope, d), d.Members)

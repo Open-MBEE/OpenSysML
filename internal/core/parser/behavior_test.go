@@ -40,8 +40,8 @@ func TestParseAction_Simple(t *testing.T) {
 	if !ok {
 		t.Errorf("node 0: expected *ast.InitialNode, got %T", nodes[0])
 	} else {
-		if initial.Name != "startNode" {
-			t.Errorf("InitialNode.Name: expected 'startNode', got '%s'", initial.Name)
+		if initial.Name() != "startNode" {
+			t.Errorf("InitialNode.Name: expected 'startNode', got '%s'", initial.Name())
 		}
 	}
 
@@ -105,8 +105,8 @@ func TestParseAction_Decision(t *testing.T) {
 	if !ok {
 		t.Errorf("node 0: expected *ast.InitialNode, got %T", nodes[0])
 	} else {
-		if initial.Name != "start" {
-			t.Errorf("InitialNode.Name: expected 'start', got '%s'", initial.Name)
+		if initial.Name() != "start" {
+			t.Errorf("InitialNode.Name: expected 'start', got '%s'", initial.Name())
 		}
 	}
 

@@ -41,37 +41,10 @@ func (r *Resolver) resolveEdgeEnd(scope *symbols.Scope, qn *ast.QualifiedName, m
 		}
 		return
 	}
-	if inStateMachine(scope) {
+	if symbols.InStateMachine(scope) {
 		// In a machine, judge the end as a transition endpoint, including its kind.
 		r.ResolveEndpoint(scope, qn)
 		return
 	}
 	r.ResolveQualified(scope, qn)
-}
-
-// inStateMachine reports whether an edge written in scope belongs to a state
-// machine, the body a vertex lookup applies to; an action body (a transition's
-// included) or anything else is not one.
-func inStateMachine(scope *symbols.Scope) bool {
-	for s := scope; s != nil; s = s.Parent() {
-		switch n := s.Node().(type) {
-		case *ast.TransitionMember:
-			return false
-		case *ast.Definition:
-			if n.Kind == ast.DefState {
-				return true
-			}
-			if n.Kind == ast.DefAction {
-				return false
-			}
-		case *ast.Usage:
-			if n.Kind == ast.UsageState {
-				return true
-			}
-			if n.Kind == ast.UsageAction {
-				return false
-			}
-		}
-	}
-	return false
 }

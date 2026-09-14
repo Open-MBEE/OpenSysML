@@ -6498,7 +6498,7 @@ func testFirstBesideAnInitialNode(t *testing.T) {
 		t.Fatalf("create action executor: %v", err)
 	}
 	initial, ok := exec.graph.Initial.(*ast.InitialNode)
-	if !ok || initial.Name != "start" {
+	if !ok || initial.Name() != "start" {
 		t.Fatalf("initial node = %T, want the `first start;` marker", exec.graph.Initial)
 	}
 	if edges := exec.graph.Edges[initial]; len(edges) != 0 {

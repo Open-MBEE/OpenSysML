@@ -116,14 +116,10 @@ func (m *Model) DeclaredSuccessions(scope *symbols.Scope, owner *symbols.Symbol,
 			if n.Successor == nil {
 				continue
 			}
-			source := ActionSuccessionEnd{Span: n.NameSpan}
-			if sym := m.actionSymbolNamed(scope, owner, n.Name); sym != nil {
-				source.Node, source.Symbol = sym.Decl, sym
-			}
 			out = append(out, ActionSuccession{
 				Decl:   n,
 				Owner:  owner,
-				Source: source,
+				Source: m.referenceEnd(scope, owner, n.First),
 				Target: m.referenceEnd(scope, owner, n.Successor),
 			})
 		case *ast.SuccessionEdge:
@@ -203,8 +199,8 @@ func (m *Model) referenceEnd(scope *symbols.Scope, owner *symbols.Symbol, target
 		return e
 	}
 	if _, initial := sym.Decl.(*ast.InitialNode); initial {
-		// `first a` registers a symbol of its own under a's name; the end is the
-		// node declared under that name.
+		// A one-ended `first a;` registers a label under a's name; the end is
+		// the node declared under that name.
 		sym = m.actionSymbolNamed(sym.OwnerScope, owner, sym.Name)
 	}
 	if sym != nil {
@@ -214,8 +210,8 @@ func (m *Model) referenceEnd(scope *symbols.Scope, owner *symbols.Symbol, target
 }
 
 // actionSymbolNamed is the symbol an action declares or inherits under name, as
-// a `first a` names it: the nearest declaration of that name that is not itself
-// an initial-node marker.
+// a one-ended `first a;` names it: the nearest declaration of that name that is
+// not itself an initial-node marker.
 func (m *Model) actionSymbolNamed(scope *symbols.Scope, owner *symbols.Symbol, name string) *symbols.Symbol {
 	if name == "" {
 		return nil
@@ -237,7 +233,7 @@ func (m *Model) actionSymbolNamed(scope *symbols.Scope, owner *symbols.Symbol, n
 	if sym := nonInitialDecl(candidates); sym != nil {
 		return sym
 	}
-	// A `first j then …` names j without declaring it, but its symbol masks the
+	// A `first j;` marker names j without declaring it, but its label masks the
 	// inherited j in MembersOf; look the node up where it is declared.
 	for _, src := range m.MemberSources(owner) {
 		if src == nil || src.Scope == nil {

@@ -482,7 +482,7 @@ func nodeLabel(node ast.Node) string {
 	case nil:
 		return "nil"
 	case *ast.InitialNode:
-		return controlLabel(n.Name, "initial")
+		return controlLabel(n.Name(), "initial")
 	case *ast.FinalNode:
 		return "done"
 	case *ast.ForkNode:

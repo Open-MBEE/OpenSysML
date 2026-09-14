@@ -326,7 +326,7 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 		case *ast.InitialNode:
 			// A state body has no token flow for a one-ended `first` to start.
 			c.report(n.Span(), CodeFirstNamesNoTarget, fmt.Sprintf(
-				"`first %s;` names no target: a state body orders two vertices, `first %s then <target>`", n.Name, n.Name))
+				"`first %s;` names no target: a state body orders two vertices, `first %s then <target>`", n.Name(), n.Name()))
 		case *ast.PseudostateNode:
 			if routingPseudostate(n.Kind) {
 				m.routing = append(m.routing, n)
