@@ -1020,7 +1020,10 @@ func TestSelfModelFeatureReadFlowFollowsRuntime(t *testing.T) {
 		{"a default without contributions is derived", map[string]string{"statesValue": "true", "fallbackDefault": "true"}, 1, 0, true, true, false},
 		{"a connector holds its connected ends", map[string]string{"connector": "true"}, 0, 0, false, false, false},
 		{"a composite makes its objects", map[string]string{"composite": "true"}, 0, 1, true, false, false},
-		{"a feature with no value holds its contributions", nil, 0, 0, true, false, false},
+		{"an optional composite holds its contributions", map[string]string{"composite": "true", "optional": "true"}, 0, 0, true, false, false},
+		{"an abstract connector holds its contributions", map[string]string{"connector": "true", "abstractFeature": "true"}, 0, 0, true, false, false},
+		{"an optional feature with nothing to hold reads as empty", map[string]string{"optional": "true"}, 0, 0, false, false, false},
+		{"a required feature with nothing to hold is uninitialized", nil, 0, 0, false, false, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

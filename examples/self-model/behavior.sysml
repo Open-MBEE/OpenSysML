@@ -235,6 +235,8 @@ package OpenSysMLBehavior {
         attribute contributed : Boolean = false;
         attribute connector : Boolean = false;
         attribute composite : Boolean = false;
+        attribute abstractFeature : Boolean = false;
+        attribute optional : Boolean = false;
 
         attribute evaluations : Integer = 0;
         attribute objectsMade : Integer = 0;
@@ -245,7 +247,9 @@ package OpenSysMLBehavior {
         first start;
 
         action refuseUnknown { assign refused := true; }
+        action refuseUninitialized { assign refused := true; }
         action returnHeld;
+        action holdNothing;
         action readFarEnd { assign evaluations := evaluations + 1; }
         action bindVariant { assign evaluations := evaluations + 1; }
         action holdContributions;
@@ -288,6 +292,12 @@ package OpenSysMLBehavior {
         // sibling values it reads, and re-derived when one of them is written.
         decide valueGate;
         if statesValue then deriveValue;
+        else contributionGate;
+
+        // An abstract feature has no values of its own and an optional one demands none:
+        // a connector or composite of either kind holds only what subsets it contributes.
+        decide contributionGate;
+        if (abstractFeature or optional) and (connector or composite) then holdContributions;
         else connectorGate;
 
         // A connector holds the features at its ends rather than objects of its own.
@@ -298,7 +308,13 @@ package OpenSysMLBehavior {
         // Lazy instantiation: a composite feature holds objects of its own.
         decide compositeGate;
         if composite then makeObjects;
-        else holdContributions;
+        else valuelessGate;
+
+        // Nothing makes a value for a plain feature: it reads as empty when optional, and
+        // as uninitialized when required.
+        decide valuelessGate;
+        if optional then holdNothing;
+        else refuseUninitialized;
 
         succession first readFarEnd then admit;
         succession first bindVariant then admit;
@@ -308,7 +324,9 @@ package OpenSysMLBehavior {
         succession first admit then done;
         succession first returnHeld then done;
         succession first holdConnectedEnds then done;
+        succession first holdNothing then done;
         succession first refuseUnknown then done;
+        succession first refuseUninitialized then done;
     }
 
     // The runtime tiers, from an effective feature list to a simulated model.
