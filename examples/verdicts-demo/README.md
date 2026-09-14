@@ -7,8 +7,10 @@ that does not, why?** The document query `Verdicts(...)` answers it as a table,
 over the object as the model declares it and over the object a session holds
 after it has driven.
 
-The rover carries five kinds of assertion, placed so that one run of the model
-touches all three outcomes a verdict can have:
+The rover carries seven assertions of the four kinds a verdict row can have
+(`constraint`, `requirement`, `satisfaction`, `verification`), placed so that one run
+of the model touches all three outcomes. The transcripts below quote the lines that
+carry the point; the binary also prints each projected cell under its row.
 
 | Assertion | Where it sits | What decides it |
 | --- | --- | --- |
