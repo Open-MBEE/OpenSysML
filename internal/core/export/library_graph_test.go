@@ -38,31 +38,34 @@ func TestLibraryGraphSpellsImpliedChainSegmentWithoutSourceText(t *testing.T) {
 	keepsIDsWithoutSourceText(t, name, turtle)
 }
 
-// The library files whose graphs carry a cross feature the norm ids, a
-// declaration inside an expression body, or an invocation of a named function
-// come back from the mapping alone: every element keeps its id, and the notation
-// written from the graph converts to a graph that writes the same notation again.
+// Every bundled library file comes back from the mapping alone: the notation
+// written from its source-free graph is the library rooted at its normative
+// ids, so it states no id in an annotation and converts to the same graph
+// but for the source text, and that graph writes the same notation again.
 func TestLibraryFilesComeBackFromTheGraphAlone(t *testing.T) {
-	for _, name := range []string{
-		"Systems Library/Items.sysml",
-		"Kernel Libraries/Kernel Semantic Library/Links.kerml",
-		"Kernel Libraries/Kernel Semantic Library/Occurrences.kerml",
-		"Kernel Libraries/Kernel Semantic Library/TransitionPerformances.kerml",
-		"Domain Libraries/Cause and Effect/CausationConnections.sysml",
-		"Domain Libraries/Analysis/TradeStudies.sysml",
-		"Kernel Libraries/Kernel Semantic Library/Observation.kerml",
-	} {
-		t.Run(filepath.Base(name), func(t *testing.T) {
+	names := libs.EmbeddedSource().List()
+	if len(names) == 0 {
+		t.Fatal("no bundled library files")
+	}
+	for _, name := range names {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			turtle, stripped := libraryGraphWithoutSourceText(t, name)
 			back := toNotation(t, stripped)
 			if strings.Contains(back, "sysx:") {
 				t.Errorf("the notation leaks graph vocabulary:\n%s", back)
+			}
+			if strings.Contains(back, "@IdentityMetadata::ElementId") {
+				t.Errorf("the library's ids are the norm's, yet the notation states one:\n%s", back)
 			}
 			keepsIDsWithoutSourceText(t, name, turtle)
 			copyName := "copy" + filepath.Ext(name)
 			second, err := export.Convert(copyName, []byte(back), export.FormatSysML, export.FormatTurtle)
 			if err != nil {
 				t.Fatalf("rebuilt notation to turtle: %v", err)
+			}
+			if got := withoutSourceText(t, second); string(got) != string(stripped) {
+				t.Errorf("the first source-free hop changed the graph:\n%s", firstLineDifference(stripped, got))
 			}
 			again := toNotation(t, withoutSourceText(t, second))
 			if again != back {

@@ -196,29 +196,61 @@ is guessed.
 
 A normative id is not a declared one. `sysx:declaredId` is not written for it,
 and reading the graph back leaves it implied — no `@ElementId` annotation —
-while the notation that comes back is, byte for byte, the bundled library file,
-which derives the same id again on its own. Notation that is not that file (the
-graph's source text was stripped, or stale for some element) cannot imply the
-id, so the reader writes it as an `@IdentityMetadata::ElementId` annotation
-instead and the id survives a further hop through notation as a declared one.
-The reader recognises a normative id only on the subject whose
-`sysml:qualifiedName` is the library element's (its effective name, or the exact
-positional name the writer gives an effectively named member); a user element
-that happens to carry a library UUID without `sysx:declaredId` keeps it as a
-declared id, as any other foreign id. An explicit `@IdentityMetadata::ElementId`
-still wins over the normative id when a library element carries one.
+because the notation that comes back is a version of the bundled library file
+(see below) and derives the same id again on its own. Notation the encoder does
+not read as the library — a graph whose roots are not a library document's, or
+whose source text is stale for some element — cannot imply the id, so the
+reader writes it as an `@IdentityMetadata::ElementId` annotation instead and
+the id survives a further hop through notation as a declared one. The reader
+recognises a normative id only on the subject whose `sysml:qualifiedName` is the
+library element's (its effective name, or the exact positional name the writer
+gives an effectively named member); a user element that happens to carry a
+library UUID without `sysx:declaredId` keeps it as a declared id, as any other
+foreign id. An explicit `@IdentityMetadata::ElementId` stating a different id
+still wins over the normative id when a library element carries one; an
+annotation restating the norm's own id declares nothing, so the id stays
+normative and `sysx:declaredId` is not written.
 
-A graph whose every root is a library package under its normative id and name is
-a version of that bundled library file, and the reader reads the notation it
-writes back *in that file's place*: in the file's grammar (KerML for a `.kerml`
-library) when the roots record none, and with the file's own declarations
-standing in for the bundled ones when a name is checked to reach the element
-the graph links. That is what lets a chain reach a feature the library only
-implies — `aState.aTransition.accepter.acceptedMessage` in `Actions.sysml`
-reads `accepter` off the `TransitionAction` every transition inherits — and
-lets a KerML library read back without its source text at all. The target
-still has to be the graph's exact element; a spelling that reaches anything
-else is refused as before.
+**What is a version of a library file.** A document is a version of a bundled
+library file when every one of its roots is a top-level package that file
+declares, under the same qualified name, and all of one file. On the graph side
+the root must carry the package's normative id; in notation, where an
+unannotated package can state no id, the root must either state the normative id
+in an `@ElementId` annotation or be declared as the library declares it
+(`standard library package Occurrences`, `library package …`). Both sides apply
+the one test (`libraryDocument` for graph roots, `documentLibrary` for parsed
+roots in `internal/core/export/library_names.go`). It is not a test of names,
+file names or UUIDs alone: `package Actions { part def X; }` is a user package
+with encoded ids (`Actions`, `Actions__X`) and none of the library's members, a
+user element carrying a catalogued UUID under another qualified name keeps that
+id as declared, and a graph rooted at a nested library element
+(`ScalarValues::Real`) is not the document, even under its normative id.
+
+Such a version is analyzed *in the bundled file's place*, whatever its bytes: the
+encoder takes the bundled document out of the library index and indexes the
+version where it stood, so the version's own declarations are what its names
+resolve to (`portionOfLife subsets portionOf` in a respaced copy of
+`Occurrences.kerml` reaches the copy's `portionOf`, not the bundled package
+beside it), its elements carry their normative element ids and normative
+owning-membership ids, and no `sysx:declaredId` is written for them. The reader
+does the same with a graph whose roots are a library file's: it writes the
+notation back in that file's grammar (KerML for a `.kerml` library) when the
+roots record none, and with the graph's own declarations standing in for the
+bundled ones when a name is checked to reach the element the graph links. That
+is what lets a chain reach a feature the library only implies —
+`aState.aTransition.accepter.acceptedMessage` in `Actions.sysml` reads
+`accepter` off the `TransitionAction` every transition inherits — and lets a
+KerML library read back without its source text at all. The target still has to
+be the graph's exact element; a spelling that reaches anything else is refused
+as before. Together these make the source-free round trip of every bundled
+library file exact from the first hop: the Turtle of the rebuilt notation equals
+the Turtle it was rebuilt from, source text aside, and the rebuilt notation
+states no `@ElementId` (`library_graph_test.go:TestLibraryFilesComeBackFromTheGraphAlone`).
+
+This recognition is the RDF mapping's. A copy of a library file open in an
+editor workspace is still the user's file: the language server derives or
+declares its ids as for any other document and offers to mint them
+(`internal/lsp/identity_test.go:TestWorkspaceCopyOfLibraryFileStaysAUserFile`).
 
 A document holding **more than one project scope** qualifies each element's IRI
 with its scope's provenance (`elmt:<encoded-org>.<encoded-project>:<id>`), so an
@@ -1017,6 +1049,17 @@ canonically, and a comment on its lines goes with the text. Save straight to
 `.sysml` when the comments must survive an edit; that path writes the source and
 keeps everything.
 
+**A library copy is recognised by its roots, not its contents.** Notation is
+read as a version of a bundled library file when its roots pass the test under
+[Normative library identity](#normative-library-identity); what those packages
+contain is not compared with the bundled file. A copy whose root package drops
+the library's `standard library` (or `library`) modifiers and states no
+`@ElementId` is a user package with encoded ids, however alike its members, and
+a copy that keeps the roots but has renamed or removed members carries the
+normative ids of the members it still declares and derives ids for the rest as
+a library file would. Nothing is compared below the roots, so nothing is refused
+there either: converting such a copy is exact for what it declares.
+
 **A reference is written in the spelling that resolves, where it is written, to
 the element the graph names.** Every reference an element carries — a
 specialization, subsetting, redefinition, reference-subsetting or typing target,
@@ -1154,7 +1197,10 @@ the leading `[1]` as the first end's multiplicity in both notations: a `binding`
 or `succession` that declares something but recorded no `sysx:endVerb` is written
 with KerML `of`/`first` or SysML `bind`/`first`, which the second hop then records
 as its verb. SysML's `bind` shorthand declares nothing, so a `bind` whose graph
-states a multiplicity is written `binding [1] bind a = b`.
+states a multiplicity is written `binding [1] bind a = b`. The `all` modifier
+(`sysml:isAll`) is not a declaration either: `succession all a then b` writes
+its ends bare, as the library does, and only a recorded `sysx:endVerb` puts
+`first` after `all`.
 
 **The form is only recorded when rebuilding from it reproduces the head's tokens.**
 The encoder writes the ends back from `sysx:endForm` and compares them with the
