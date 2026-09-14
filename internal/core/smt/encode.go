@@ -238,18 +238,19 @@ func (e *Encoding) collectFeatures() error {
 	}
 	for _, node := range e.Flow.Nodes {
 		label := e.Flow.label(node)
+		frame := e.Flow.graphOf(node)
 		if err := e.collectFlows(node); err != nil {
 			return err
 		}
-		if err := e.collectBody(graph.Bodies[node], label, declared); err != nil {
+		if err := e.collectBody(frame.Bodies[node], label, declared); err != nil {
 			return err
 		}
 		if action, ok := node.(*ast.ActionExecutionNode); ok && action.Expression != nil {
-			if _, err := e.expression(action.Expression, graph.Scope, "expression of "+label, label); err != nil {
+			if _, err := e.expression(action.Expression, frame.Scope, "expression of "+label, label); err != nil {
 				return err
 			}
-			result := resultPin(graph, node)
-			v, err := e.variable(result, graph.Scope, "result "+result+" of "+label, label)
+			result := resultPin(frame, node)
+			v, err := e.variable(result, frame.Scope, "result "+result+" of "+label, label)
 			if err != nil {
 				return err
 			}
@@ -260,7 +261,7 @@ func (e *Encoding) collectFeatures() error {
 			if edge.Guard == nil {
 				continue
 			}
-			if _, err := e.boolean(edge.Guard, graph.Scope, "guard of "+edgeLabel(e.Flow, i), label); err != nil {
+			if _, err := e.boolean(edge.Guard, frame.Scope, "guard of "+edgeLabel(e.Flow, i), label); err != nil {
 				return err
 			}
 		}
@@ -309,10 +310,11 @@ func resultPin(graph *lower.ActionGraph, node ast.Node) string {
 // without a value unless a delivery or its own default gives it one.
 func (e *Encoding) collectPins(node ast.Node, declared map[string]bool) error {
 	label := e.Flow.label(node)
-	for _, feature := range e.Flow.Graph.Features[node] {
+	graph := e.Flow.graphOf(node)
+	for _, feature := range graph.Features[node] {
 		scope := feature.Scope
 		if scope == nil {
-			scope = e.Flow.Graph.Scopes[node]
+			scope = graph.Scopes[node]
 		}
 		v, err := e.variable(feature.Name, scope, "pin "+feature.Name, label)
 		if err != nil {
@@ -337,7 +339,7 @@ func (e *Encoding) collectPins(node ast.Node, declared map[string]bool) error {
 // collectFlows registers the pins the object flows out of node read and write,
 // and a pending slot per pin a flow delivers to a node performing in a frame of its own.
 func (e *Encoding) collectFlows(node ast.Node) error {
-	graph := e.Flow.Graph
+	graph := e.Flow.graphOf(node)
 	label := e.Flow.label(node)
 	for _, flow := range graph.DataFlows[node] {
 		within := flowLabel(flow)
@@ -367,7 +369,7 @@ func (e *Encoding) collectFlows(node ast.Node) error {
 // node performing in a frame of its own declares, else the action's feature.
 func (e *Encoding) flowEnd(node ast.Node, name, within, label string) (*solve.Var, error) {
 	if _, performs := node.(*ast.Usage); !performs {
-		return e.variable(name, e.Flow.Graph.Scope, within, label)
+		return e.variable(name, e.Flow.graphOf(node).Scope, within, label)
 	}
 	for _, p := range e.pins[node] {
 		if p.feature.Name == name {
@@ -1200,7 +1202,7 @@ func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, e
 	effect := &nodeEffect{env: e.environment(prev), loops: make(map[int]*solve.Term)}
 	where := fmt.Sprintf("%d.%s", i, e.Flow.Labels[n])
 	e.begin(effect, node, where)
-	body := e.Flow.Graph.Bodies[node]
+	body := e.Flow.graphOf(node).Bodies[node]
 	if err := e.statements(effect, body, solve.BoolTerm(true), where, node); err != nil {
 		return nil, err
 	}
@@ -1256,7 +1258,7 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) {
 func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
 	always := solve.BoolTerm(true)
 	label := e.Flow.label(node)
-	for _, flow := range e.Flow.Graph.DataFlows[node] {
+	for _, flow := range e.Flow.graphOf(node).DataFlows[node] {
 		source, err := e.flowEnd(node, flow.SourcePin, flowLabel(flow), label)
 		if err != nil {
 			return err

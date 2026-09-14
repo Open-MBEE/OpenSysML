@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -262,5 +263,38 @@ func TestSortsNameEveryNodeEdgeAndSlot(t *testing.T) {
 	}
 	if s.Overflow != nil {
 		t.Errorf("an acyclic flow declares an overflow flag")
+	}
+	if s.Now != nil || len(s.Bus) != 0 || s.BusOverflow != nil || s.Slots[0].Parked != nil || s.Slots[0].Due != nil {
+		t.Errorf("a flow without accepts or sends declares clock or bus variables: %+v", s)
+	}
+	if len(f.Frames) != 1 || f.Frames[0].Graph != graph || f.Frames[0].Slots != f.Slots || f.Nested() {
+		t.Errorf("a flat flow numbers %d frames", len(f.Frames))
+	}
+}
+
+// TestStateVectorNamesEveryVariableAcrossMoves: two states of one encoding
+// list the same names in the same order, each naming that state's own copy.
+func TestStateVectorNamesEveryVariableAcrossMoves(t *testing.T) {
+	graph := conformanceAction(t, "action_fork_branches_write_one_feature.sysml", "test::clash")
+	f, err := Analyze(graph, 10)
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	sorts := newSorts("clash", f)
+	feature := intVar("x")
+	before, after := newState(sorts, f, 0).Vector([]*solve.Var{feature}), newState(sorts, f, 1).Vector([]*solve.Var{feature})
+	if len(before) != len(after) || len(before) != 4*f.Slots+3 {
+		t.Fatalf("vectors of %d and %d variables, want %d", len(before), len(after), 4*f.Slots+3)
+	}
+	for i := range before {
+		if before[i].Name != after[i].Name {
+			t.Errorf("entry %d: %q at move 0, %q at move 1", i, before[i].Name, after[i].Name)
+		}
+		if before[i].Var.Name != before[i].Name+"@0" || after[i].Var.Name != after[i].Name+"@1" {
+			t.Errorf("entry %d: %q holds %q and %q", i, before[i].Name, before[i].Var.Name, after[i].Var.Name)
+		}
+	}
+	if before[0].Name != "at[0]" || before[len(before)-1].Name != "x" {
+		t.Errorf("vector starts %q, ends %q", before[0].Name, before[len(before)-1].Name)
 	}
 }
