@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::big",
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint one", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint positive", "object": "inner", "status": "holds"},
+      {"kind": "requirement", "assertion": "requirement lim", "object": "inner", "status": "holds"},
+      {"kind": "satisfaction", "assertion": "satisfy Inner::lim by big", "object": "inner", "status": "holds"}
+    ],
+    "valid": true
+  }
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -202,6 +203,87 @@ func TestCheckSatisfyThroughCLI(t *testing.T) {
 		"no satisfaction assertion in Rover::touchdown")
 }
 
+// validateModel holds a car whose own assertion holds, whose engine's fails and
+// whose wheels each fail, so validating the car as a whole reports every one.
+const validateModel = `
+package Fleet {
+    private import ScalarValues::Real;
+
+    part def Engine {
+        attribute power : Real = 300.0;
+        assert constraint powerBudget { power < 200.0 }
+    }
+    part def Wheel {
+        attribute pressure : Real default = 32.0;
+        assert constraint pressureOk { pressure >= 30.0 }
+    }
+    part def Car {
+        attribute mass : Real = 1500.0;
+        part engine : Engine;
+        part wheels : Wheel[2] {
+            attribute :>> pressure = 20.0;
+        }
+        assert constraint massOk { mass < 2000.0 }
+    }
+    part car : Car;
+
+    part def Crate;
+    part crate : Crate;
+}
+`
+
+// TestValidateObjectThroughCLI checks that -validate=<object> reports every
+// assertion about an object -instantiate created and the objects it holds, and
+// exits as the summary verdict decides; a bare -validate still reports the model.
+func TestValidateObjectThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, validateModel, "-instantiate", "Fleet::car", "-validate=car"), 1,
+		"✓ assert constraint massOk holds (on Fleet::car ID: 1)",
+		"✗ assert constraint powerBudget fails (on Fleet::car.engine ID: 2)",
+		"Assertion evaluated to false: power < 200.0",
+		"✗ assert constraint pressureOk fails (on Fleet::car.wheels[1] ID: 3)",
+		"✗ assert constraint pressureOk fails (on Fleet::car.wheels[2] ID: 4)",
+		"✗ Fleet::car is not valid: 3 of 4 assertions fail")
+
+	// A nested object is validated on its own, and the id spelling reaches it too.
+	wantReport(t, check(t, binary, validateModel, "-instantiate", "Fleet::car", "-validate=car.wheels[1]", "-validate=#2"), 1,
+		"✗ Fleet::car.wheels[1] is not valid: 1 of 1 assertion fails",
+		"✗ assert constraint powerBudget fails (on #2 ID: 2)",
+		"✗ #2 is not valid: 1 of 1 assertion fails")
+
+	// Both spellings in one run: the model's diagnostics, then the object.
+	wantReport(t, check(t, binary, validateModel, "-validate", "-instantiate", "Fleet::car", "-validate=car"), 1,
+		"no errors", "✗ Fleet::car is not valid")
+
+	// An object nobody created decided nothing, so the check failed to run.
+	wantReport(t, check(t, binary, validateModel, "-validate=car"), 2, "car")
+
+	// So did one no assertion is about: nothing was shown, so it is not valid.
+	wantReport(t, check(t, binary, validateModel, "-instantiate", "Fleet::crate", "-validate=crate"), 2,
+		"? Fleet::crate states no assertion to validate")
+
+	got := check(t, binary, validateModel, "-instantiate", "Fleet::car", "-validate=car", "-json")
+	if got.status != 1 {
+		t.Fatalf("exit status = %d, want 1\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Subject string `json:"subject"`
+			Status  string `json:"status"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 5 {
+		t.Fatalf("report carries %d checks, want 4 assertions and the summary:\n%s", len(report.Checks), got.stdout)
+	}
+	if last := report.Checks[4]; last.Subject != "Fleet::car" || last.Status != "fails" {
+		t.Errorf("summary = %+v, want Fleet::car failing", last)
+	}
+}
+
 // TestCheckModelSplitAcrossFiles checks that a reference from one file to a
 // declaration in another resolves, whatever order the files are named in: the
 // analysis gate is about the model, not about each file as it is read.
@@ -328,6 +410,27 @@ func TestSatisfyCanBeTurnedOff(t *testing.T) {
 	// With nothing else asked for, that leaves no check to make, which is reported
 	// rather than leaving the script at a prompt it cannot answer.
 	wantReport(t, check(t, binary, checkModel, "-satisfy=false"), 2, "no check was named")
+}
+
+// TestValidateCanBeTurnedOff checks that -validate=false asks for no check, as
+// -satisfy=false does: it withdraws a bare -validate written before it, leaves
+// an object named beside it, and alone reports that no check was named.
+func TestValidateCanBeTurnedOff(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, validateModel, "-validate=false"), 2, "no check was named")
+	wantReport(t, check(t, binary, validateModel, "-validate", "-validate=false"), 2, "no check was named")
+
+	got := check(t, binary, validateModel, "-validate=false", "-instantiate", "Fleet::car", "-validate=car")
+	wantReport(t, got, 1, "✗ Fleet::car is not valid: 3 of 4 assertions fail")
+	if strings.Contains(got.output(), "no errors") {
+		t.Errorf("-validate=false reported the model's diagnostics anyway:\n%s", got.output())
+	}
+	got = check(t, binary, validateModel, "-validate", "-validate=false", "-instantiate", "Fleet::car", "-validate=car")
+	wantReport(t, got, 1, "✗ Fleet::car is not valid")
+	if strings.Contains(got.output(), "no errors") {
+		t.Errorf("-validate=false left the bare -validate before it standing:\n%s", got.output())
+	}
 }
 
 // TestCheckAgainstInstantiatedObject checks that -instantiate makes a following

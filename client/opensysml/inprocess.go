@@ -158,6 +158,13 @@ func (p *inprocess) verifySatisfaction(
 	return answer(ctx, req, p.svc.VerifySatisfaction)
 }
 
+func (p *inprocess) validateInstance(
+	ctx context.Context,
+	req *pb.ValidateInstanceRequest,
+) (*pb.ValidateInstanceResponse, error) {
+	return answer(ctx, req, p.svc.ValidateInstance)
+}
+
 func (p *inprocess) evaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest) (*pb.EvaluateCalcResponse, error) {
 	return answer(ctx, req, p.svc.EvaluateCalc)
 }

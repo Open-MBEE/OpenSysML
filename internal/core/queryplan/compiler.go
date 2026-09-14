@@ -27,6 +27,7 @@ var builtins = map[string]builtin{
 	"DocumentQueries::OwnedElements":   {OperationOwnedElements},
 	"DocumentQueries::Descendants":     {OperationDescendants},
 	"DocumentQueries::Ancestors":       {OperationAncestors},
+	"DocumentQueries::Objects":         {OperationObjects},
 	"DocumentQueries::RelatedElements": {OperationRelatedElements},
 	"DocumentQueries::WhereType":       {OperationWhereType},
 	"DocumentQueries::WhereMetadata":   {OperationWhereMetadata},

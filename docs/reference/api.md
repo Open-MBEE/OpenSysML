@@ -40,7 +40,7 @@ refuse each other's policies with `CodeInvalidArgument`, and exploring requires 
 `schedule_explore` capability alongside `schedule`.
 
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
-`VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take `WithEngine(name)` and
+`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `ValidateInstance` take `WithEngine(name)` and
 `RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
 options, its arguments under `CalcArguments`) takes `CalcEngine(name)`, to put the question to one engine,
 `EngineAll` to ask every engine that covers it, or `EngineAuto` (the default) to leave the choice
@@ -970,7 +970,12 @@ each row's element and each cell's values, an element carried as its qualified
 name plus its metamodel type (the `@type` mapping above). `RenderDocument`
 takes no bindings, because a document binds its queries' parameters in the
 model; it answers the rendered CommonMark Markdown, byte-identical to
-`-render-document` on the same model.
+`-render-document` on the same model. Both run over the model alone — a
+cached model holds no session objects, so a binding always names an element,
+and a query enumerating `Objects` is refused as `FAILED_PRECONDITION`; the
+objects `%instantiate`/`-instantiate` create are read by `%run-query`,
+`-run-query` and `-render-document` only
+([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)).
 
 Failures keep the engine's message, append the declaring document where the
 failure carries provenance, and map onto status codes by whose fault they are:

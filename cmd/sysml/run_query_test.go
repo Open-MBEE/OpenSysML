@@ -228,3 +228,60 @@ func TestRunQueryJSON(t *testing.T) {
 		t.Errorf("values = %v, want rows = 1 and columns = name, mass", report.Checks[0].Values)
 	}
 }
+
+// objectQueryModel declares queries a run can answer about an object it
+// creates: the parts an object holds, and the objects a session holds by type.
+const objectQueryModel = `package Garage {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Wheel {
+		attribute pressure : Integer = 30;
+	}
+
+	part def Car {
+		part wheels : Wheel[2];
+	}
+
+	part car : Car;
+
+	calc def Parts :> Query {
+		in root : Element;
+		Project(source = OwnedElements(source = root), properties = ("name", "pressure"))
+	}
+
+	calc def Wheels :> Query {
+		Project(source = Objects(type = "Wheel"), properties = ("pressure"))
+	}
+}
+`
+
+// TestRunQueryOverObjects checks that -instantiate puts the object under its
+// name for -run-query: the query runs over the object's parts by path and
+// reads their feature values, and Objects enumerates what the run holds.
+func TestRunQueryOverObjects(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, objectQueryModel, "-run-query", "Parts root=car"),
+		0, "✓ Query Garage::Parts returned 0 rows")
+
+	wantReport(t, check(t, binary, objectQueryModel, "-instantiate", "Garage::car", "-run-query", "Parts root=car"),
+		0, "✓ Query Garage::Parts returned 2 rows",
+		"Columns: name, pressure",
+		"Row 1: Garage::car.wheels[1] (#2)",
+		`name = "wheels[1]"`,
+		"pressure = 30",
+		"Row 2: Garage::car.wheels[2] (#3)")
+
+	wantReport(t, check(t, binary, objectQueryModel, "-instantiate", "Garage::car", "-run-query", "Parts root=#1"),
+		0, "✓ Query Garage::Parts returned 2 rows", "Row 1: #1.wheels[1] (#2)")
+
+	wantReport(t, check(t, binary, objectQueryModel, "-instantiate", "Garage::car", "-run-query", "Wheels"),
+		0, "✓ Query Garage::Wheels returned 2 rows",
+		"Row 1: Garage::car.wheels[1] (#2)", "Row 2: Garage::car.wheels[2] (#3)")
+
+	// Without -instantiate the run holds no object to enumerate.
+	wantReport(t, check(t, binary, objectQueryModel, "-run-query", "Wheels"),
+		0, "✓ Query Garage::Wheels returned 0 rows")
+}

@@ -20,7 +20,7 @@ var htmlClassVocabulary = map[string]bool{
 	"sysml-section": true, "sysml-section-number": true, "sysml-paragraph": true,
 	"sysml-table": true, "sysml-group": true, "sysml-group-heading": true,
 	"sysml-group-column": true, "sysml-group-key": true,
-	"sysml-row": true, "sysml-cell": true, "sysml-value": true, "sysml-element": true,
+	"sysml-row": true, "sysml-cell": true, "sysml-value": true, "sysml-element": true, "sysml-object": true,
 	"sysml-separator": true, "sysml-list": true, "sysml-item": true,
 	"sysml-definitions": true, "sysml-entry": true, "sysml-term": true, "sysml-description": true,
 	"sysml-diagram": true, "sysml-caption": true, "sysml-link": true, "sysml-ref": true,

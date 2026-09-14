@@ -383,6 +383,38 @@ fixtures: the execution harness skips them.
   object. `errors` lists the text of each error in order (matched as a
   substring) and `bounded` whether the walk left nesting unchecked; `{}` states
   a clean, complete read. Omit it for a case whose contract is its slots alone.
+- `validation`: what validating the object as a whole reports — the check
+  `-validate=<object>` and `%validate` make. `verdicts` lists every verdict in
+  report order, root first then each held object as the walk reaches it:
+
+  ```json
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint massOk", "status": "holds"},
+      {"kind": "requirement", "assertion": "requirement lightEnough", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint pressureOk", "object": "wheels[2]",
+       "status": "violated", "error": "evaluated to false"},
+      {"kind": "satisfaction", "assertion": "satisfy strongEngine by car.engine", "object": "engine",
+       "status": "holds"}
+    ],
+    "valid": false
+  }
+  ```
+
+  `kind` is `constraint` (an asserted constraint or invariant the object
+  carries), `requirement` (a requirement usage it carries) or `satisfaction` (a
+  satisfaction assertion whose subject is an object in the tree). `assertion` is
+  the assertion as declared; `object` the path from the root to the object the
+  verdict is about, one-based for a collection element and omitted for the root.
+  `status` is `holds`, `violated` (the condition evaluated to false) or
+  `undecided` (it could not be evaluated); `error` is text the verdict's error
+  must carry, matched as a substring. `valid`, when stated, is whether the object
+  is shown valid: at least one assertion, every one holding, and a complete walk.
+  `bounded` states that the walk stopped at its depth bound before reaching every
+  held object and `unread` the text of each feature value it could not read; a
+  report with either is not valid even when every verdict holds, and so is one
+  with no verdict at all, which decided nothing. An unasserted named constraint
+  is not swept.
 
 ## Diagnostics
 

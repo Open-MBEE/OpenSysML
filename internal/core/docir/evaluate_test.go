@@ -2,6 +2,7 @@ package docir
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -344,5 +346,97 @@ func TestEvaluateHonorsExecutionBudget(t *testing.T) {
 	var execution *queryexec.Error
 	if !errors.As(err, &execution) || execution.Kind != queryexec.ErrorVisitBudget {
 		t.Fatalf("inner = %v", evaluation.Err)
+	}
+}
+
+// objectDocument is a document over a part the session may hold an object of:
+// its table is bound to the usage, and a list enumerates the wheels held.
+const objectDocument = `
+	part def Wheel {
+		attribute pressure : Integer default 30;
+	}
+	part def Car {
+		part wheels : Wheel[2];
+	}
+	part car : Car;
+	calc def Parts :> Query {
+		in root : Element;
+		Project(source = Descendants(source = root, maxDepth = 2), properties = ("name", "pressure"))
+	}
+	calc def Wheels :> Query {
+		Objects(type = "Wheel")
+	}
+	part def CarReport :> Document {
+		attribute redefines title = "Car Report";
+		part parts : Table {
+			calc rows : Parts {
+				in root = car;
+			}
+		}
+		part wheels : List {
+			calc items : Wheels;
+		}
+	}
+`
+
+// TestEvaluateBindsHeldObject checks that a binding written as a usage's name
+// binds the object the session holds under it, so the table lists the objects
+// by path and the list enumerates what the session holds. Without a session the
+// binding stays the declared element and Objects is refused as such.
+func TestEvaluateBindsHeldObject(t *testing.T) {
+	fixture := loadEvaluationFixture(t, objectDocument)
+	_, err := fixture.evaluate(t, "CarReport")
+	var execution *queryexec.Error
+	if !errors.As(err, &execution) || execution.Kind != queryexec.ErrorNoRuntime {
+		t.Fatalf("without a session: %v", err)
+	}
+
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	empty := fixture.context()
+	empty.Runtime = ctx
+	declared, err := Evaluate(fixture.plan(t, "CarReport"), empty, queryexec.Options{}, nil)
+	if err != nil {
+		t.Fatalf("evaluate with an empty session: %v", err)
+	}
+	content := declared.Content()
+	if len(content) != 2 || len(content[0].Rows()) != 0 || len(content[1].Items()) != 0 {
+		t.Fatalf("declared document = %d rows, %d items", len(content[0].Rows()), len(content[1].Items()))
+	}
+
+	car, err := ctx.Instantiate(fixture.symbol(t, "car"))
+	if err != nil {
+		t.Fatalf("Instantiate car: %v", err)
+	}
+	held := empty
+	held.Roots = []queryexec.Root{{Label: "car", Object: car}}
+	document, err := Evaluate(fixture.plan(t, "CarReport"), held, queryexec.Options{}, nil)
+	if err != nil {
+		t.Fatalf("evaluate with objects: %v", err)
+	}
+	content = document.Content()
+	rows := content[0].Rows()
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want the two wheels", len(rows))
+	}
+	for i, row := range rows {
+		inst, label, ok := row.Element().Object()
+		if !ok || inst == nil || label != fmt.Sprintf("car.wheels[%d]", i+1) {
+			t.Fatalf("row %d = %+v, label %q", i, row.Element(), label)
+		}
+		name, _ := row.Cells()[0].Values()[0].String()
+		pressure, _ := row.Cells()[1].Values()[0].Integer()
+		if name != fmt.Sprintf("wheels[%d]", i+1) || pressure != 30 {
+			t.Fatalf("row %d cells = %q %d", i, name, pressure)
+		}
+	}
+	items := content[1].Items()
+	if len(items) != 2 {
+		t.Fatalf("items = %d, want the two wheels", len(items))
+	}
+	if _, label, ok := items[1].Element().Object(); !ok || label != "car.wheels[2]" {
+		t.Fatalf("item = %+v", items[1].Element())
+	}
+	if texts := runTexts(items[1].Runs()); !equalStrings(texts, []string{"car.wheels[2]"}) {
+		t.Fatalf("item runs = %v", texts)
 	}
 }

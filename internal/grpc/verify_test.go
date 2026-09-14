@@ -256,6 +256,12 @@ func TestVerifyUncachedModelIsNotFound(t *testing.T) {
 			})
 			return err
 		},
+		"ValidateInstance": func() error {
+			_, err := srv.ValidateInstance(context.Background(), &pb.ValidateInstanceRequest{
+				ModelHash: "nosuchmodel", SymbolId: "Demo::sedan",
+			})
+			return err
+		},
 		"EvaluateCalc": func() error {
 			_, err := srv.EvaluateCalc(context.Background(), &pb.EvaluateCalcRequest{
 				ModelHash: "nosuchmodel", SymbolId: "Demo::add",

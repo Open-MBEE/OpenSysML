@@ -40,6 +40,10 @@ const (
 	ErrorColumnArithmetic      ErrorKind = "column-arithmetic"
 	ErrorColumnAbsent          ErrorKind = "column-absent"
 	ErrorColumnCardinality     ErrorKind = "column-cardinality"
+	// ErrorNoRuntime: an operation over a session's objects ran with no session.
+	ErrorNoRuntime ErrorKind = "no-runtime"
+	// ErrorObjectRow: a model-only operation was given a runtime object row.
+	ErrorObjectRow ErrorKind = "object-row"
 )
 
 // Error is a typed query-execution failure with plan provenance.
@@ -110,6 +114,10 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s exceeded the invocation budget invoking %s", e.Query, e.Target)
 	case ErrorVisitBudget:
 		return fmt.Sprintf("query %s exceeded its visit budget", e.Query)
+	case ErrorNoRuntime:
+		return fmt.Sprintf("query %s operation %s reads a session's objects, and this execution has no session: instantiate an object first", e.Query, e.Operation)
+	case ErrorObjectRow:
+		return fmt.Sprintf("query %s operation %s applies to model elements, not to object %s", e.Query, e.Operation, e.Target)
 	case ErrorResultType:
 		return fmt.Sprintf("query %s produced %s, expected %s", e.Query, e.Actual, e.Expected)
 	case ErrorResultMultiplicity:

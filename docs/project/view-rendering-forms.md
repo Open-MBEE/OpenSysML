@@ -59,9 +59,12 @@ title and draws the first child over the rest, so a rendering whose cluster titl
 lines opens on a YAML frontmatter block, `config: flowchart: subGraphTitleMargin: bottom: <n>`,
 claiming 24px per extra line as the title's bottom margin (`writeFlowchartFrontmatter`); the
 block rides the text into every consumer, and a flowchart without such a cluster, a tree, a
-state diagram and a sequence diagram carry none. DOT writes an HTML-like label, `label=<<b>pump :
-Pump</b><br/><font point-size="10">«part»</font>>`, the name in bold and the keyword line under
-the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
+state diagram and a sequence diagram carry none. Every `subgraph` opens on a `direction`
+statement restating the flowchart's own (`TD`, `LR` for an interconnection, or the one asked
+for), since Mermaid lays out a subgraph that states none without regard to the flowchart's;
+a tree draws containment as edges, not subgraphs, so it states none. DOT writes an HTML-like
+label, `label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>`, the name in bold
+and the keyword line under the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
 reads as markup. A cluster's label is the same string. The text form keeps the notation's
 declaration order, `part pump : Pump`, with a detail parenthesised after it. The declared type is
 a field of the node (`Node.Type`, `type` in the JSON), never parsed back out of the detail.

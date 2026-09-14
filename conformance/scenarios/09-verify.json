@@ -201,6 +201,221 @@
           "verdicts": 2
         }
       }
+    },
+    {
+      "id": "validate_instance/every_assertion_about_the_object_gets_a_verdict",
+      "description": "The sedan carries two requirements and is the subject of two satisfaction assertions, one of each failing; the object's own verdict is false without being an error.",
+      "rpc": "ValidateInstance",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "verification.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::sedan"
+      },
+      "expect": {
+        "counts": {
+          "verdicts": 4
+        },
+        "response": {
+          "verdicts": [
+            {
+              "kind": "requirement",
+              "element_id": "Demo::Vehicle::lightEnough",
+              "holds": true
+            },
+            {
+              "kind": "requirement",
+              "element_id": "Demo::Vehicle::tiny",
+              "holds": false
+            },
+            {
+              "kind": "satisfy",
+              "requirement_id": "Demo::massLimit",
+              "holds": true
+            },
+            {
+              "kind": "satisfy",
+              "requirement_id": "Demo::massTiny",
+              "holds": false
+            }
+          ],
+          "summary": {
+            "kind": "object",
+            "element_id": "Demo::sedan",
+            "holds": false
+          },
+          "bounded": false
+        },
+        "non_empty": [
+          "verdicts.1.condition",
+          "instances"
+        ],
+        "absent": [
+          "error",
+          "summary.error",
+          "verdicts.1.error",
+          "verdicts.0.instance_path"
+        ]
+      }
+    },
+    {
+      "id": "validate_instance/an_unknown_symbol_is_reported_in_band",
+      "rpc": "ValidateInstance",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "verification.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::nosuch"
+      },
+      "expect": {
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "summary"
+        ]
+      }
+    },
+    {
+      "id": "validate_instance/a_symbol_with_no_object_is_the_wrong_kind",
+      "description": "A package has no object to validate: the request is of the wrong kind, answered in band without a summary.",
+      "rpc": "ValidateInstance",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "verification.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo"
+      },
+      "expect": {
+        "response": {
+          "failure_reason": "FAILURE_REASON_WRONG_KIND"
+        },
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "summary"
+        ]
+      }
+    },
+    {
+      "id": "verify_requirement/the_verification_cases_verifying_it_report_beside_the_verdict",
+      "description": "The requirement's own verdict stands, and the body verdict of the case whose objective verifies it is reported beside it, naming the requirement.",
+      "rpc": "VerifyRequirement",
+      "requires_capabilities": [
+        "verification",
+        "verification_verdicts"
+      ],
+      "model": {
+        "fixture": "verification_cases.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::bounded"
+      },
+      "expect": {
+        "response": {
+          "verdict": {
+            "kind": "requirement",
+            "element_id": "Demo::bounded",
+            "holds": true
+          },
+          "verification_verdicts": [
+            {
+              "case_id": "Demo::checkBound",
+              "kind": "fail",
+              "requirement_id": "Demo::bounded"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "verify_satisfaction/every_requirement_asserted_reports_its_verification_cases",
+      "description": "Two assertions about two requirements: the cases of both are reported once each, keyed to the requirement each verifies.",
+      "rpc": "VerifySatisfaction",
+      "requires_capabilities": [
+        "verification",
+        "verification_verdicts"
+      ],
+      "model": {
+        "fixture": "verification_cases.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::checks"
+      },
+      "expect": {
+        "counts": {
+          "verdicts": 2
+        },
+        "response": {
+          "verification_verdicts": [
+            {
+              "case_id": "Demo::checkZero",
+              "kind": "pass",
+              "requirement_id": "Demo::zeroed"
+            },
+            {
+              "case_id": "Demo::checkBound",
+              "kind": "fail",
+              "requirement_id": "Demo::bounded"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "validate_instance/the_verification_cases_of_every_requirement_about_the_object_report",
+      "description": "The widget is the subject of two satisfaction assertions; the cases verifying each of those requirements are reported beside the object's verdicts.",
+      "rpc": "ValidateInstance",
+      "requires_capabilities": [
+        "verification",
+        "verification_verdicts"
+      ],
+      "model": {
+        "fixture": "verification_cases.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::good"
+      },
+      "expect": {
+        "counts": {
+          "verdicts": 2
+        },
+        "response": {
+          "summary": {
+            "kind": "object",
+            "element_id": "Demo::good",
+            "holds": true
+          },
+          "verification_verdicts": [
+            {
+              "case_id": "Demo::checkZero",
+              "kind": "pass",
+              "requirement_id": "Demo::zeroed"
+            },
+            {
+              "case_id": "Demo::checkBound",
+              "kind": "fail",
+              "requirement_id": "Demo::bounded"
+            }
+          ]
+        }
+      }
     }
   ]
 }

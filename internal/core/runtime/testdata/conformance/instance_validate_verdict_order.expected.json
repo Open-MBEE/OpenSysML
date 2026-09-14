@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::car",
+  "validation": {
+    "verdicts": [
+      {"kind": "requirement", "assertion": "requirement light", "status": "holds"},
+      {"kind": "satisfaction", "assertion": "satisfy light", "status": "holds"},
+      {"kind": "satisfaction", "assertion": "satisfy alsoLight by car", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint powered", "object": "engine", "status": "holds"},
+      {"kind": "satisfaction", "assertion": "satisfy strong by car.engine", "object": "engine", "status": "holds"}
+    ],
+    "valid": true
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::car",
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint", "object": "wheel", "status": "holds"},
+      {"kind": "satisfaction", "assertion": "satisfy inflated by car.spare", "object": "wheel", "status": "violated", "error": "evaluated to false"},
+      {"kind": "satisfaction", "assertion": "satisfy torqued by car.spare.hub", "object": "wheel.hub", "status": "holds"}
+    ],
+    "valid": false
+  }
+}
