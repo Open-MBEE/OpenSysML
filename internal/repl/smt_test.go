@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/smt"
@@ -180,6 +181,28 @@ func planBound(t *testing.T, v Verdict, name string) analysis.Bound {
 	}
 	t.Fatalf("no %s bound in the plan %+v", name, v.Plan.Steps)
 	return analysis.Bound{}
+}
+
+// %check-bounds timeout is the solver's clock as well as the plan's: without it each query
+// runs under the solver's own timeout, with it under the check's, as the solver bound names.
+func TestCheckBoundsTimeoutClocksTheSolver(t *testing.T) {
+	s := symbolicSession(t, gateSource)
+	own, err := solve.Discover()
+	if err != nil {
+		t.Fatal(err)
+	}
+	run(t, s, "%engine smt")
+	run(t, s, "%check-property Gate::open::positive")
+	if bound := planBound(t, s.RunAction("Gate::open"), "solver"); bound.Limit != own.Timeout.Milliseconds() {
+		t.Errorf("solver bound without a timeout = %d ms, want the solver's own %s", bound.Limit, own.Timeout)
+	}
+
+	wants(t, run(t, s, "%check-bounds timeout=90s"), "timeout=1m30s")
+	v := s.RunAction("Gate::open")
+	wantVerdict(t, v, VerdictHolds, "standing: holds (proved over schedules: inputs as written)")
+	if bound := planBound(t, v, "solver"); bound.Limit != (90 * time.Second).Milliseconds() {
+		t.Errorf("solver bound under timeout=90s = %d ms, want 90000", bound.Limit)
+	}
 }
 
 // A released name that is not a feature of the action is refused naming it.

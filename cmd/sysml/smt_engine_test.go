@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
@@ -28,6 +29,10 @@ const gateModel = `package Gate {
 	}
 }
 `
+
+// solverTimeout is the -check-timeout a test asserting a solver's verdict gives it: the verdict
+// is the subject, not the speed, so a loaded machine must not leave it undecided at the default.
+const solverTimeout = "2m"
 
 // needsSolver skips a test without an SMT solver installed, or fails it under
 // OPENSYSML_REQUIRE_SMT.
@@ -93,7 +98,7 @@ func TestEngineAllPutsSMTOnlySettingsToSMT(t *testing.T) {
 		{"unroll", []string{"-check-unroll", "2"}, "answered"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			args := append([]string{"-json", "-engine", "all", "-action", "Gate::open"}, tc.flags...)
+			args := append([]string{"-json", "-engine", "all", "-action", "Gate::open", "-check-timeout", solverTimeout}, tc.flags...)
 			got := check(t, binary, gateModel, args...)
 			steps := planSteps(t, got)
 			if got.status != 0 || steps["smt"] != "answered" || steps["check"] != tc.check {
@@ -105,7 +110,7 @@ func TestEngineAllPutsSMTOnlySettingsToSMT(t *testing.T) {
 		})
 	}
 
-	got := check(t, binary, gateModel, "-engine", "all", "-action", "Gate::open", "-check-input", "limit")
+	got := check(t, binary, gateModel, "-engine", "all", "-action", "Gate::open", "-check-input", "limit", "-check-timeout", solverTimeout)
 	wantReport(t, got, 0, "inputs: n = 1, limit : Integer free",
 		"all: check refused (check cannot leave the inputs free), smt holds (proved)")
 }
@@ -143,7 +148,7 @@ func TestEngineSMTDecidesSensitivity(t *testing.T) {
 	dir := t.TempDir()
 	fileA, fileB := filepath.Join(dir, "Mission.race-x-A.witness"), filepath.Join(dir, "Mission.race-x-B.witness")
 
-	got := check(t, binary, forkModel, "-engine", "smt", "-action", "Mission::race", "-check-diverge", "x", "-check-witness", dir)
+	got := check(t, binary, forkModel, "-engine", "smt", "-action", "Mission::race", "-check-diverge", "x", "-check-witness", dir, "-check-timeout", solverTimeout)
 	wantReport(t, got, 1,
 		"✗ Action Mission::race: sensitive: x ends as 1 or 2; the schedules part at step 3:",
 		"witness A: "+fileA, "witness B: "+fileB,
@@ -171,7 +176,7 @@ func TestEngineSMTDecidesSensitivity(t *testing.T) {
 		t.Errorf("the two witnesses replay to %v, want both values", values)
 	}
 
-	got = check(t, binary, forkModel, "-json", "-engine", "smt", "-action", "Mission::race", "-check-diverge", "x", "-check-witness", dir)
+	got = check(t, binary, forkModel, "-json", "-engine", "smt", "-action", "Mission::race", "-check-diverge", "x", "-check-witness", dir, "-check-timeout", solverTimeout)
 	var report sensitivityReport
 	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
 		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
@@ -191,11 +196,11 @@ func TestEngineSMTDecidesSensitivity(t *testing.T) {
 
 	// A feature no branch writes apart is not sensitive, and the negative is a proof.
 	agreed := strings.Replace(forkModel, "attribute x : Integer = 0;", "attribute x : Integer = 0;\n        attribute y : Integer = 0;", 1)
-	wantReport(t, check(t, binary, agreed, "-engine", "smt", "-action", "Mission::race", "-check-diverge", "y"),
+	wantReport(t, check(t, binary, agreed, "-engine", "smt", "-action", "Mission::race", "-check-diverge", "y", "-check-timeout", solverTimeout),
 		0, "✓ Action Mission::race: holds", "standing: holds (proved over schedules: inputs as written)")
 
 	// Short of the moves the action needs, no sensitivity is found within the bound; nothing is proved.
-	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-action", "Mission::race", "-check-diverge", "x", "-check-depth", "3"),
+	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-action", "Mission::race", "-check-diverge", "x", "-check-depth", "3", "-check-timeout", solverTimeout),
 		2, "? Action Mission::race: holds (bounded)", "no sensitivity found within 3 moves: a schedule is still live after move 3",
 		"standing: holds (bounded over schedules: inputs as written, moves=3 (reached))")
 
@@ -217,7 +222,7 @@ func TestEngineAllComposesSensitivity(t *testing.T) {
 	needsSolver(t)
 	binary := buildCLI(t)
 
-	got := check(t, binary, forkModel, "-json", "-engine", "all", "-action", "Mission::race", "-check-diverge", "x", "-check-depth", "12")
+	got := check(t, binary, forkModel, "-json", "-engine", "all", "-action", "Mission::race", "-check-diverge", "x", "-check-depth", "12", "-check-timeout", solverTimeout)
 	steps := planSteps(t, got)
 	if got.status != 1 || steps["smt"] != "answered" || steps["check"] != "answered" {
 		t.Errorf("status %d, plan %v; want check and smt answering\n%s", got.status, steps, got.output())
@@ -225,6 +230,45 @@ func TestEngineAllComposesSensitivity(t *testing.T) {
 	if _, explored := steps["explore"]; explored {
 		t.Errorf("explore took part in a sensitivity question: %v", steps)
 	}
-	got = check(t, binary, forkModel, "-engine", "all", "-action", "Mission::race", "-check-diverge", "x", "-check-depth", "12")
+	got = check(t, binary, forkModel, "-engine", "all", "-action", "Mission::race", "-check-diverge", "x", "-check-depth", "12", "-check-timeout", solverTimeout)
 	wantReport(t, got, 1, "all: check sensitive (witnessed), smt sensitive (witnessed)")
+}
+
+// -check-timeout is the solver's clock as well as the plan's: without it each query runs
+// under the solver's own OPENSYSML_SMT_TIMEOUT, with it under the check's, and the solver
+// bound the result names is the clock the query ran under.
+func TestCheckTimeoutClocksTheSolver(t *testing.T) {
+	needsSolver(t)
+	binary := buildCLI(t)
+	env := []string{solve.TimeoutEnv + "=3s"}
+
+	for _, tc := range []struct {
+		name  string
+		flags []string
+		limit int64
+	}{
+		{"solver's own", nil, (3 * time.Second).Milliseconds()},
+		{"check's", []string{"-check-timeout", "90s"}, (90 * time.Second).Milliseconds()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"-json", "-engine", "smt", "-action", "Gate::open"}, tc.flags...)
+			got := checkEnv(t, binary, gateModel, env, args...)
+			var report checkedReport
+			if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+				t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
+			}
+			if got.status != 0 || len(report.Checks) != 1 || len(report.Checks[0].Results) != 1 || report.Checks[0].Results[0].Claim != "holds" {
+				t.Fatalf("status %d, checks %d; want smt's proof\n%s", got.status, len(report.Checks), got.output())
+			}
+			var limit int64 = -1
+			for _, b := range report.Checks[0].Results[0].Bounds {
+				if b.Name == "solver" {
+					limit = b.Limit
+				}
+			}
+			if limit != tc.limit {
+				t.Errorf("solver bound = %d ms, want %d\n%s", limit, tc.limit, got.stdout)
+			}
+		})
+	}
 }
