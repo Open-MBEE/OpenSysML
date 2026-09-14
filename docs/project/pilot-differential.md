@@ -209,7 +209,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 376 files)
+## Results (pilot `2026-08`, 377 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -218,9 +218,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 41 | 29 | 13 | 1112 | 4 | 2 | 7 | 1106 |
+| `examples` | 42 | 29 | 13 | 1171 | 4 | 2 | 7 | 1165 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **376** | **346** | **79** | **1167** | **38** | **3** | **38** | **1126** |
+| **Total** | **377** | **346** | **79** | **1226** | **38** | **3** | **38** | **1185** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -249,6 +249,31 @@ reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Verdict-table example round
+
+`examples/verdicts-demo/rover.sysml` is one file added to the `examples` root: files 41 → **42**
+on the root, 376 → **377** overall. It is the worked example of the `Verdicts(...)` query — a
+rover whose constraints, requirement, satisfaction and verification case are read as one table over
+the object a session holds — and its model half (the part definitions, the requirement, the
+`satisfy` and the verification) draws no row on either side. Its query and document half draws
+**59** pilot-only rows, every one the `DocumentQueries` cascade already adjudicated for
+`self-model/document.sysml`: 43 `unresolved-reference` from the import of that library and the
+`Query`, `Verdicts`, `Project`, `WhereFeature`, `OrderBy`, `Document`, `Section`, `Table`, `List`
+and `Paragraph` names it fails to resolve, and 16 `kind-mismatch`: 8 `Must invoke a behavior or a
+behavioral feature` on the query invocations whose calc def did not resolve, 5 `An occurrence, item
+or part must be typed by occurrence definitions` on the document parts typed by the unresolved
+`Section`, `Table`, `List` and `Paragraph`, and 3 `Bound features should have conforming types`
+warnings on the bindings to them. The file is therefore not fully agreeing, and fully agreeing stays at **346** (29 on the
+root). Pilot diagnostics rise 1167 → **1226** and only-pilot 1126 → **1185**; only-ours, our
+diagnostics, agreed and severity-only do not move, and no per-file ratchet count moves.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 376 | **377** |
+| only pilot | 1126 | **1185** |
+| pilot diagnostics | 1167 | **1226** |
+| `examples`: only pilot | 1106 | **1165** |
 
 ### Instance-layer self-model round
 
@@ -653,8 +678,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1126** |
-| pilot diagnostics | 123 | **1167** |
+| only pilot | 82 | **1185** |
+| pilot diagnostics | 123 | **1226** |
 | severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -787,7 +812,7 @@ Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 531 `kind-mismatch`, 546 `unresolved-reference` — of which
+`examples` 10 syntax, 19 `unmapped`, 547 `kind-mismatch`, 589 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -879,13 +904,13 @@ page's history.
 | Count | Now |
 |---|---:|
 | overall: fully agreeing / only ours / our diagnostics | **346 / 38 / 79** |
-| only pilot | **1126** |
-| pilot diagnostics | **1167** |
+| only pilot | **1185** |
+| pilot diagnostics | **1226** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **1106** |
+| examples: only pilot | **1165** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
 only-pilot, with 49 of 58 files fully
