@@ -175,17 +175,39 @@ func (ctx *Context) validateObjectWithin(root *Instance, scopes []*symbols.Scope
 	}
 	w := ctx.walkHeldObjects(root, budget)
 	report := ValidationReport{Root: root, Bounded: w.bounded, Unread: w.unread}
+	// Every object's carried assertions are read first, since a satisfaction one
+	// states may be about any object of the tree; verdicts then go out object by object.
+	carried := make([][]ObjectVerdict, len(w.objects))
 	var stated []*SatisfyAssertion
-	for _, obj := range w.objects {
-		verdicts, assertions := ctx.carriedVerdicts(obj)
-		report.Verdicts = append(report.Verdicts, verdicts...)
+	for i, obj := range w.objects {
+		var assertions []*SatisfyAssertion
+		carried[i], assertions = ctx.carriedVerdicts(obj)
 		stated = append(stated, assertions...)
 	}
 	for _, scope := range scopes {
 		stated = append(stated, ctx.SatisfyAssertionsIn(scope)...)
 	}
-	report.Verdicts = append(report.Verdicts, ctx.satisfactionVerdicts(w.objects, stated)...)
+	stated = distinctAssertions(stated)
+	for i, obj := range w.objects {
+		report.Verdicts = append(report.Verdicts, carried[i]...)
+		report.Verdicts = append(report.Verdicts, ctx.satisfactionVerdicts(obj, stated)...)
+	}
 	return report, nil
+}
+
+// distinctAssertions keeps the first of each assertion, so one stated by a type
+// and again in a scope is checked once.
+func distinctAssertions(assertions []*SatisfyAssertion) []*SatisfyAssertion {
+	var out []*SatisfyAssertion
+	seen := map[*symbols.Symbol]bool{}
+	for _, a := range assertions {
+		if a == nil || a.Symbol == nil || seen[a.Symbol] {
+			continue
+		}
+		seen[a.Symbol] = true
+		out = append(out, a)
+	}
+	return out
 }
 
 // walkHeldObjects reaches the objects root holds, directly or through them, with
@@ -400,25 +422,18 @@ func assertionText(usage *ast.Usage, sym *symbols.Symbol) string {
 	return strings.Join(parts, " ")
 }
 
-// satisfactionVerdicts checks each assertion, once, against every object of the
-// tree that is its subject, in the order the objects were reached.
-func (ctx *Context) satisfactionVerdicts(objects []*validatedObject, assertions []*SatisfyAssertion) []ObjectVerdict {
+// satisfactionVerdicts checks each assertion obj is the subject of against it,
+// in the order the assertions were stated.
+func (ctx *Context) satisfactionVerdicts(obj *validatedObject, assertions []*SatisfyAssertion) []ObjectVerdict {
 	var verdicts []ObjectVerdict
-	seen := map[*symbols.Symbol]bool{}
 	for _, a := range assertions {
-		if a == nil || a.Symbol == nil || seen[a.Symbol] {
+		if !ctx.subjectOf(a, obj) {
 			continue
 		}
-		seen[a.Symbol] = true
-		for _, obj := range objects {
-			if !ctx.subjectOf(a, obj) {
-				continue
-			}
-			result, err := ctx.CheckSatisfactionOn(a, obj.inst)
-			v := ctx.objectVerdict(AssertionSatisfaction, a.Symbol, a.Text(), obj, result, err)
-			v.Requirement = a.AssertedRequirement()
-			verdicts = append(verdicts, v)
-		}
+		result, err := ctx.CheckSatisfactionOn(a, obj.inst)
+		v := ctx.objectVerdict(AssertionSatisfaction, a.Symbol, a.Text(), obj, result, err)
+		v.Requirement = a.AssertedRequirement()
+		verdicts = append(verdicts, v)
 	}
 	return verdicts
 }

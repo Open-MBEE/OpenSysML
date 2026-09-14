@@ -19,12 +19,12 @@ func TestValidateObjectReportsEveryAssertion(t *testing.T) {
 		"✓ requirement lightEnough holds (on test::car ID: 1)",
 		"✗ assert constraint fails (on test::car.engine ID: 2)",
 		"Assertion evaluated to false: power < 200.0",
+		"✓ satisfy strongEngine by car.engine holds (on test::car.engine ID: 2)",
 		"✓ assert constraint ratePositive holds (on test::car.engine.injector ID: 3)",
 		"✗ assert constraint pressureOk fails (on test::car.wheels[1] ID: 4)",
 		"Assertion evaluated to false: pressure >= 30.0",
 		"✗ assert constraint pressureOk fails (on test::car.wheels[2] ID: 5)",
 		"✗ assert constraint pressureOk fails (on test::car.wheels[3] ID: 6)",
-		"✓ satisfy strongEngine by car.engine holds (on test::car.engine ID: 2)",
 		"✗ test::car is not valid: 4 of 8 assertions fail",
 	)
 
@@ -50,8 +50,8 @@ func TestValidateNestedObject(t *testing.T) {
 	out := run(t, s, "%validate car.engine")
 	wantsInOrder(t, out,
 		"✗ assert constraint fails (on test::car.engine ID: 2)",
-		"✓ assert constraint ratePositive holds (on test::car.engine.injector ID: 3)",
 		"✓ satisfy strongEngine by car.engine holds (on test::car.engine ID: 2)",
+		"✓ assert constraint ratePositive holds (on test::car.engine.injector ID: 3)",
 		"✗ test::car.engine is not valid: 1 of 3 assertions fails",
 	)
 	if strings.Contains(out, "massOk") {
