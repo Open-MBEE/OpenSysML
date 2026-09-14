@@ -3,6 +3,7 @@ package queryexec
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -11,7 +12,10 @@ import (
 type ValueKind string
 
 const (
-	ValueElement  ValueKind = "element"
+	ValueElement ValueKind = "element"
+	// ValueObject is a runtime object a session holds, `car.wheels[2]`, as opposed
+	// to the model element declaring it.
+	ValueObject   ValueKind = "object"
 	ValueString   ValueKind = "string"
 	ValueInteger  ValueKind = "integer"
 	ValueReal     ValueKind = "real"
@@ -25,6 +29,7 @@ const (
 type Value struct {
 	kind     ValueKind
 	element  *symbols.Symbol
+	object   *runtime.Instance
 	text     string
 	integer  int64
 	real     float64
@@ -36,6 +41,16 @@ type Value struct {
 // ElementValue constructs an element value with declaration provenance.
 func ElementValue(sym *symbols.Symbol) Value {
 	return Value{kind: ValueElement, element: sym, origin: provenance.Symbol(sym)}
+}
+
+// ObjectValue constructs a runtime object value under the label a session
+// reaches it by (`car.wheels[2]`, `#7`), with its declaration as provenance.
+func ObjectValue(inst *runtime.Instance, label string) Value {
+	value := Value{kind: ValueObject, object: inst, text: label}
+	if inst != nil {
+		value.origin = provenance.Symbol(objectDeclaration(inst))
+	}
+	return value
 }
 
 // StringValue constructs a string value.
@@ -93,6 +108,25 @@ func (v Value) Kind() ValueKind { return v.kind }
 // Element returns the value's element and whether it is an element value.
 func (v Value) Element() (*symbols.Symbol, bool) {
 	return v.element, v.kind == ValueElement && v.element != nil
+}
+
+// Declaration returns the element a value is declared by: an element itself, the
+// usage or definition an object stands for, and nil for a scalar.
+func (v Value) Declaration() *symbols.Symbol {
+	if inst, _, ok := v.Object(); ok {
+		return objectDeclaration(inst)
+	}
+	sym, _ := v.Element()
+	return sym
+}
+
+// Object returns the value's runtime object, the label it is reached by, and
+// whether it is an object value.
+func (v Value) Object() (*runtime.Instance, string, bool) {
+	if v.kind != ValueObject || v.object == nil {
+		return nil, "", false
+	}
+	return v.object, v.text, true
 }
 
 // String returns the value's string and whether it is a string value.
@@ -157,13 +191,14 @@ func (c Cell) Values() []Value { return append([]Value(nil), c.values...) }
 // Origin returns the selected model element behind the cell.
 func (c Cell) Origin() provenance.Origin { return c.origin }
 
-// Row retains the selected element and its ordered projected cells.
+// Row retains the selected element or object and its ordered projected cells.
 type Row struct {
 	element Value
 	cells   []Cell
 }
 
-// Element returns the selected element.
+// Element returns the selected value: a model element, or a runtime object
+// when the query ran over a session's objects.
 func (r Row) Element() Value { return r.element }
 
 // Cells returns an independent copy of the row's projected cells.

@@ -169,14 +169,29 @@ func (s *Session) runDocumentQuery(name string, args []string) ([]string, []Name
 	if err != nil {
 		return nil, nil, err
 	}
-	result, err := queryexec.Execute(program,
-		queryexec.Context{Index: idx, Resolver: resolver, Model: model},
-		bindings, queryexec.Options{})
+	result, err := queryexec.Execute(program, s.queryContext(ctx), bindings, queryexec.Options{})
 	if err != nil {
 		return nil, nil, err
 	}
 	lines, values := renderRowSet(notationName(fqn), result)
 	return lines, values, nil
+}
+
+// queryContext is the context the session's queries execute in: its model, and
+// the objects it holds under the labels it reports them by.
+func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
+	carriers := s.rootCarriers()
+	roots := make([]queryexec.Root, 0, len(carriers))
+	for _, root := range carriers {
+		roots = append(roots, queryexec.Root{Label: root.name, Object: root.inst})
+	}
+	return queryexec.Context{
+		Index:    s.browseIndex(),
+		Resolver: ctx.Resolver(),
+		Model:    ctx.Semantics(),
+		Runtime:  ctx,
+		Roots:    roots,
+	}
 }
 
 // queryBindings reads the `<parameter>=<expression>` arguments of %run-query.
@@ -202,9 +217,14 @@ func (s *Session) queryBindings(ctx *runtime.Context, args []string) (queryexec.
 	return bindings, nil
 }
 
-// bindingValues reads one binding: a name denoting a model element binds that
-// element, and anything else is evaluated as an expression at the prompt.
+// bindingValues reads one binding: a held object, else a model element by name,
+// else the value of an expression evaluated at the prompt.
 func (s *Session) bindingValues(ctx *runtime.Context, param, expr string) ([]queryexec.Value, error) {
+	if inst, label, err := s.boundObject(expr); err != nil {
+		return nil, fmt.Errorf("binding %s: %w", param, err)
+	} else if inst != nil {
+		return []queryexec.Value{queryexec.ObjectValue(inst, label)}, nil
+	}
 	sym, _, lerr := s.lookupSymbol(expr)
 	if lerr == nil && sym != nil {
 		return []queryexec.Value{queryexec.ElementValue(sym)}, nil
@@ -224,18 +244,45 @@ func (s *Session) bindingValues(ctx *runtime.Context, param, expr string) ([]que
 	if err != nil {
 		return nil, fmt.Errorf("binding %s: %w", param, err)
 	}
-	values, err := queryValues(value)
+	values, err := s.queryValues(ctx, value)
 	if err != nil {
 		return nil, fmt.Errorf("binding %s: %w", param, err)
 	}
 	return values, nil
 }
 
-// queryValues converts an evaluated prompt value into query binding values. A
-// collection binds its elements in order; a null binds nothing.
-func queryValues(value runtime.Value) ([]queryexec.Value, error) {
+// boundObject resolves an object reference (`#3`, an instantiated name, a path
+// like `car.wheels[2]`); a name holding no object binds nothing, so it may be an element.
+func (s *Session) boundObject(expr string) (*runtime.Instance, string, error) {
+	inst, label, err := s.resolveObject(expr)
+	if err == nil {
+		return inst, label, nil
+	}
+	if strings.HasPrefix(expr, "#") {
+		return nil, "", err
+	}
+	return nil, "", nil
+}
+
+// queryValues converts a prompt value into binding values: an object under its
+// label, a collection element by element, a null as nothing.
+func (s *Session) queryValues(ctx *runtime.Context, value runtime.Value) ([]queryexec.Value, error) {
 	if lit := value.EnumerationLiteral(); lit != nil {
 		return []queryexec.Value{queryexec.ElementValue(lit)}, nil
+	}
+	if id, ok := value.Object(); ok {
+		if ctx.HoldsNoValue(value) {
+			return nil, nil
+		}
+		inst, held := ctx.Instance(id)
+		if !held {
+			return nil, &UnknownObjectIDError{ID: id, Known: s.heldIDs()}
+		}
+		label, labelled := s.heldLabel(id)
+		if !labelled {
+			label = fmt.Sprintf("#%d", id)
+		}
+		return []queryexec.Value{queryexec.ObjectValue(inst, label)}, nil
 	}
 	switch value.Kind {
 	case runtime.ValConst:
@@ -256,21 +303,21 @@ func queryValues(value runtime.Value) ([]queryexec.Value, error) {
 		if value.Sequence() == nil {
 			return nil, nil
 		}
-		return queryValueList(value.Sequence().Elements())
+		return s.queryValueList(ctx, value.Sequence().Elements())
 	case runtime.ValSet:
 		if value.Set() == nil {
 			return nil, nil
 		}
-		return queryValueList(value.Set().Elements())
+		return s.queryValueList(ctx, value.Set().Elements())
 	case runtime.ValArray:
-		return queryValueList(value.Array().Elements)
+		return s.queryValueList(ctx, value.Array().Elements)
 	case runtime.ValVector:
 		components := value.Vector().Elements
 		elements := make([]runtime.Value, len(components))
 		for i, c := range components {
 			elements[i] = runtime.Value{Kind: runtime.ValConst, Const: c}
 		}
-		return queryValueList(elements)
+		return s.queryValueList(ctx, elements)
 	case runtime.ValMeasurementRef:
 		// A reference to one declared unit is that element; a composed unit names none.
 		if decl := value.MeasurementRef().Declaration(); decl != nil {
@@ -295,10 +342,10 @@ func queryValues(value runtime.Value) ([]queryexec.Value, error) {
 	}
 }
 
-func queryValueList(elements []runtime.Value) ([]queryexec.Value, error) {
+func (s *Session) queryValueList(ctx *runtime.Context, elements []runtime.Value) ([]queryexec.Value, error) {
 	var out []queryexec.Value
 	for _, element := range elements {
-		values, err := queryValues(element)
+		values, err := s.queryValues(ctx, element)
 		if err != nil {
 			return nil, err
 		}
@@ -362,6 +409,9 @@ func formatQueryValue(value queryexec.Value) string {
 			return notationName(fqn)
 		}
 		return sym.Name
+	}
+	if inst, label, ok := value.Object(); ok {
+		return fmt.Sprintf("%s (#%d)", label, inst.ID)
 	}
 	if text, ok := value.String(); ok {
 		return strconv.Quote(text)

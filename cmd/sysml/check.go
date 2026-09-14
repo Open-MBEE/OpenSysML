@@ -259,6 +259,14 @@ func (c *checks) sweepMisuse() string {
 	return ""
 }
 
+// instantiatesOnly reports whether the run creates objects and decides nothing
+// about them, so a document can be rendered over what it holds.
+func (c *checks) instantiatesOnly() bool {
+	return len(c.instantiate) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
+		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 && len(c.analyses) == 0 &&
+		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.checker.given()
+}
+
 // checksOnly reports whether anything was asked about the model itself, as
 // against how to report the answer.
 func (c *checks) checksOnly() bool {
