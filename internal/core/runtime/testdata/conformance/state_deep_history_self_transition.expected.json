@@ -1,0 +1,17 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go", "args": null},
+    {"signal": "Leave", "args": null},
+    {"signal": "Back", "args": null},
+    {"signal": "Next", "args": null},
+    {"signal": "Reset", "args": null},
+    {"signal": "Finish", "args": null}
+  ],
+  "finalState": "done",
+  "stateVisits": ["start", "outer", "middle", "inner", "away", "outer", "middle", "inner", "innerTwo", "outer", "middle", "innerTwo", "done"],
+  "outputs": {
+    "log": {"type": "String", "value": "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);outer(entry);middle(entry);innerTwo(entry);outer(exit);"}
+  }
+}

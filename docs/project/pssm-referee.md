@@ -152,7 +152,8 @@ test in the suite reaches them.
 
 ## Baseline
 
-Recorded **2026-09-12** on develop commit **`bb95cf2264ed02dc6eaca3cf3cc880a3ea020548`**, as
+Recorded **2026-09-14** on develop commit **`f4b844329ace2f8feaf2560b4e21d0a5d834683d`** with
+the history-record fix (finding 7) and the emitter's initial-effect fix described below, as
 `docs/project/pssm-referee-baseline.json`; regenerate with `go run ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
 The figures below are as measured when this record was last updated and are not the current
@@ -160,8 +161,8 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 36 |
-| `fail` | 23 |
+| `pass` | 41 |
+| `fail` | 18 |
 | `not-expressible` | 39 |
 | `terminate-gap` | 3 |
 | `differs-by-design` | 2 |
@@ -169,7 +170,35 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 ### Movements since the previous baseline
 
-The previous baseline (develop `fb034e817`, the same day) counted 25 `pass` and 34 `fail`. It was
+The previous baseline (develop `bb95cf226`, 2026-09-12) counted 36 `pass` and 23 `fail`. Two
+changes move it: the runtime fix of [finding 7](#findings-about-our-own-conformance) (a
+transition into a history reads the record after its exits have run, and a history declared in
+the machine's own body restores the machine's configuration) and a translation fix in the
+emitter (an initial transition's effect used to be folded into the entry action of the state or
+region it starts, so it ran before the state's own `entry` and ran again on every entry, a
+history restore included; it is now the completion transition of an empty helper state the
+initial transition enters, `emit_test.go:TestEmitInitialWithEffect`). Five tests moved `fail` →
+`pass` and none the other way.
+
+| Test | Row | Movement | Adjudication |
+|---|---|---|---|
+| History 001-A, History 002-D | finding 7 | `fail` → `pass` | Expected: the finding's two cases. `S1`'s self-transition now restores `S1.1.2`; its completion transition into its own shallow history finds no record (the owner's exit cleared it) and takes the default transition `T1.3` after `S1(entry)` |
+| History 001-D | finding 7 | `fail` → `pass` | Expected: the test declares `DeepHistory1` in the machine's own region, restoring the machine's top-level configuration, which the runtime refused as a history outside any composite state; the machine's body is now a valid owner |
+| History 002-A | finding 7 | `fail` → `pass` | Expected: `S1`'s self-transition `T3` into its shallow history read the record before `S1` was left, found none (`S1` had never been left) and performed a default entry through `S1.1`, re-running `S1.1(exit)::S1.2(entry)`; it now restores `S1.2`, the substate being left |
+| History 001-B | finding 7 and the emitter | `fail` → `pass` | Expected: the default transition `T1.4` now runs after `S1(entry)` (finding 7's default entry from inside the owner) and the initial transition `T1.4`'s effect no longer repeats on the revisit (the emitter fix) |
+
+The emitter fix also altered the recorded reason, without moving the bucket, of *Entering 010*,
+*Entering 011*, *Junction 004* and *Junction 005* (the repeated `T1.1(effect)` / `T2.1(effect)`
+of a region's initial transition is gone; *Junction 004* now reaches no trace at all — a run
+error at the junction whose guards are all false, SM32's case — where it reached an inadmissible
+one), and finding 7 the reason of *History 001-C* and *History 002-B* (the restore is now the
+admitted one; what remains missing are the other interleavings of the two regions' entries and
+exits). Their rows below quote the new reasons.
+
+### Movements before that
+
+The baseline of develop `bb95cf226` followed one (develop `fb034e817`, the same day) that
+counted 25 `pass` and 34 `fail`. It was
 recorded before the alignment note's four decided rules — SM7 deferral, SM11 composite
 completion, SM28 empty history, SM30 dynamic choice guards — landed on `develop`, and of its
 thirty-four failures eight cited one of those rows or SM32. Re-running on the commit that carries
@@ -201,7 +230,7 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (36)
+### `pass` (41)
 
 Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 015,
 Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
@@ -209,8 +238,8 @@ Event 010, Event 016 A (reports on SM11), Event 016 B, Event 017 A, Event 018, E
 Entering 005, Exiting 002, Exiting 005, Choice 001 and Choice 002 (report on SM30), Choice 003,
 Choice 004, Final001 (reports on SM11), Deferred 001, Deferred 002, Deferred 003 (reports on
 SM7), Deferred 004 A and Deferred 004 B (report on SM7), Deferred 005, Deferred 006 A (reports
-on SM15: the runtime's rule and PSSM's agree on this variant), History 002-C (reports on SM28),
-Junction 001.
+on SM15: the runtime's rule and PSSM's agree on this variant), History 001-A, History 001-B,
+History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Junction 001.
 
 ### `differs-by-design` (2)
 
@@ -224,13 +253,12 @@ Junction 001.
 Terminate 001, Terminate 002, Terminate 003 — each reaches `S1.Terminate1`; they move to
 `pass` or `fail` when the runtime executes `terminate` (alignment finding 1).
 
-### `fail` (23)
+### `fail` (18)
 
-One failure cites a note row through the committed table. Two are attributed to
-[finding 7](#findings-about-our-own-conformance), a candidate gap of this runtime's. The other
-twenty are **unadjudicated**: fails, not yet attributed to a translation defect, a runtime
-defect, or a missing alignment row. The referee records them; it does not diagnose them, and
-none of them is a finding against the runtime until someone adjudicates it.
+One failure cites a note row through the committed table. The other seventeen are
+**unadjudicated**: fails, not yet attributed to a translation defect, a runtime defect, or a
+missing alignment row. The referee records them; it does not diagnose them, and none of them is
+a finding against the runtime until someone adjudicates it.
 
 #### Citing a note row (1)
 
@@ -238,14 +266,7 @@ none of them is a finding against the runtime until someone adjudicates it.
 |---|---|---|
 | Junction 002 | SM32 | run error: no outgoing guard of the junction holds; PSSM disables the compound transition and admits `T3(effect)` |
 
-#### Attributed to finding 7 (2)
-
-| Test | What the run shows |
-|---|---|
-| History 001-A | `S1`'s self-transition `T3` into its own deep history performs a default entry, `…::T3(effect)::S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)`; PSSM restores `S1.1.2`, `…::T3(effect)::S1(entry)::S1.1(entry)::S1.1.2(entry)`. The record is read before `S1` is left, and `S1` has never been left |
-| History 002-D | run error: the step budget is exhausted. `S1`'s completion transition `T3` into its own shallow history should take the history's default transition `T1.3` (PSSM admits `…::T3(effect)::S1(entry)::T1.3(effect)::S1.2(entry)::S1(exit)`); the record read before `S1` is left still holds `S1.1`, so `S1.1` is re-entered, completes `S1` again, and `T3` fires again |
-
-#### Unadjudicated (20)
+#### Unadjudicated (17)
 
 One line per test, from the baseline's `reasons`: what the run reached that the suite does not
 admit (`—` when every reached trace is admitted and the failure is only a missing one), and
@@ -260,21 +281,18 @@ suite; the full sets are in the baseline file.
 | Transition 017 | — | `T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)` and 6 more interleavings of `S3.1(doActivity)`, `T2.2(effect)`, `T3.1.2(effect)` (the eighth admitted order is reached) |
 | Transition 019 | `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T1.3(effect)` and the mirror ending `T2.3(effect)` | `S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)` and 5 more, all containing both `T1.3(effect)` and `T2.3(effect)` |
 | Event 015 | — | `T1.3(effect)` |
-| Entering 010 | `S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S2.1(entry)::T1.1(effect)::S1.1(entry)` | `S1(entry)::S1.1(entry)::T2.1(effect)::S2.1(entry)` and 2 more orders, none repeating `T1.1(effect)` |
-| Entering 011 | `S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)` | `S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)` and 5 more, each effect once |
+| Entering 010 | — | `S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)` and `S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)` (the third admitted order is reached) |
+| Entering 011 | — | `S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)` and 4 more orders of the two regions' initial effects and entries (the sixth admitted order is reached) |
 | Exiting 001 | — | `S1.1.1(exit)::S2.1(exit)::S1.1(exit)::S1(exit)` and `S2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the third admitted order is reached) |
 | Exiting 003 | — | `S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the other admitted order is reached) |
 | Choice 005 | `T2(effect)::S1(entry)::S1.1(entry)` | `T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)` |
 | Join002 | `S1(exit)::T2.2(effect)::T3(effect)::S2(entry)` | `T1.2(effect)::T2.2(effect)::S1(exit)::T3(effect)::S2(entry)` and the order with the first two swapped (`T1.2(effect)` never runs, and `S1(exit)` precedes the effects of the join's incoming segments) |
 | Join003 | run error: `join Join1: eval guard of transition Join1 -> S2: no value for feature value` | `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)` |
-| History 001-B | `T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)` | `S1(entry)::T1.4(effect)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)` (the history's default transition effect runs before `S1(entry)`, not after, and runs again on the revisit) |
-| History 001-C | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)` | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 11 more, all restoring `S1.1(exit)::S1.2(entry)` and ending `S1(exit)` |
-| History 001-D | run error: `fire transition out of S1_S1_2: history DeepHistory1 must be declared inside the composite state it restores` | `S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1(exit)::S2(entry)` |
-| History 002-A | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)` | `…::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)` (the restore skips `S1.1(exit)::S1.2(entry)`; the prefix is shared) |
-| History 002-B | `…::S1(exit)::T3(effect)::S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)` | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)` and 5 more, none re-running `S2.1(exit)`, all ending `S1(exit)` |
+| History 001-C | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached) |
+| History 002-B | — | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)` and 4 more orders of the two regions' entries and exits (the sixth admitted order is reached) |
 | Junction 003 | — | `T1.4(effect)::T1.4.1(effect)::T1.8(effect)` (the other admitted path, through `T1.3`, is reached) |
-| Junction 004 | `T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)` | `T3(effect)` |
-| Junction 005 | `T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)` | `S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` and 2 more orders of `T1.3(effect)`, `T2.1(effect)`, `S2.1(entry)` |
+| Junction 004 | run error: `junction S1_Junction1_2: no guard evaluated to true` (the junction in `S1`'s second region, both of whose outgoing guards are false) | `T3(effect)` |
+| Junction 005 | `T1.3(effect)::S1(entry)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` | `S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` and 2 more orders of `T1.3(effect)`, `T2.1(effect)`, `S2.1(entry)`, all after `S1(entry)` |
 
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
