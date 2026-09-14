@@ -178,21 +178,48 @@ func (ctx *Context) validateObjectWithin(root *Instance, scopes []*symbols.Scope
 	// Every object's carried assertions are read first, since a satisfaction one
 	// states may be about any object of the tree; verdicts then go out object by object.
 	carried := make([][]ObjectVerdict, len(w.objects))
+	position := make(map[int64]int, len(w.objects))
 	var stated []*SatisfyAssertion
 	for i, obj := range w.objects {
 		var assertions []*SatisfyAssertion
 		carried[i], assertions = ctx.carriedVerdicts(obj)
 		stated = append(stated, assertions...)
+		position[obj.inst.ID] = i
 	}
 	for _, scope := range scopes {
 		stated = append(stated, ctx.SatisfyAssertionsIn(scope)...)
 	}
 	stated = distinctAssertions(stated)
+	// A satisfaction resolving below the object `by` names is about that nested
+	// object, so it is filed with the object it turned out to be about.
+	satisfied := make([][]ObjectVerdict, len(w.objects))
+	decided := map[satisfactionKey]bool{}
 	for i, obj := range w.objects {
+		for _, v := range ctx.satisfactionVerdicts(obj, stated) {
+			key := satisfactionKey{v.Element, v.Subject.ID}
+			if decided[key] {
+				continue
+			}
+			decided[key] = true
+			at := i
+			if j, ok := position[v.Subject.ID]; ok {
+				at = j
+			}
+			satisfied[at] = append(satisfied[at], v)
+		}
+	}
+	for i := range w.objects {
 		report.Verdicts = append(report.Verdicts, carried[i]...)
-		report.Verdicts = append(report.Verdicts, ctx.satisfactionVerdicts(obj, stated)...)
+		report.Verdicts = append(report.Verdicts, satisfied[i]...)
 	}
 	return report, nil
+}
+
+// satisfactionKey is one assertion decided about one object, so an assertion
+// resolving to the same nested object from two holders is reported once.
+type satisfactionKey struct {
+	assertion *symbols.Symbol
+	subject   int64
 }
 
 // distinctAssertions keeps the first of each assertion, so one stated by a type
