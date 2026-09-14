@@ -214,8 +214,9 @@ func TestEngineWithoutASolverIsAbsent(t *testing.T) {
 	}
 }
 
-// TestEncodingEmitsOnlyPortableFeatures: every SMT-LIB feature the relation emits is one the
-// solve layer's portability harness exercises, so a backend refusing one is reported as refusing.
+// TestEncodingEmitsOnlyPortableFeatures: every SMT-LIB feature the relation emits, the
+// two-copy query included, is one the solve layer's portability harness exercises, so a
+// backend refusing one is reported as refusing.
 func TestEncodingEmitsOnlyPortableFeatures(t *testing.T) {
 	d := indexed(t, "loops.sysml", loopsSrc)
 	budget := analysis.Budget{Depth: 8}
@@ -227,7 +228,15 @@ func TestEncodingEmitsOnlyPortableFeatures(t *testing.T) {
 			t.Fatalf("%s refused: %v", name, refusal)
 		}
 		deadlock := encoding.Deadlock()
-		for _, q := range []*solve.Query{encoding.Violation(deadlock), encoding.Failure(deadlock), encoding.Uncertainty(), encoding.Completion()} {
+		queries := []*solve.Query{encoding.Violation(deadlock), encoding.Failure(deadlock), encoding.Uncertainty(), encoding.Completion()}
+		for _, out := range encoding.Outputs() {
+			q, err := encoding.Sensitivity(out)
+			if err != nil {
+				t.Fatalf("%s: two-copy query for %s: %v", name, out.Name, err)
+			}
+			queries = append(queries, q)
+		}
+		for _, q := range queries {
 			for _, c := range q.Requires() {
 				if !slices.Contains(portable, c) {
 					t.Errorf("%s: query %s needs %s, which the portability harness does not exercise", name, q.Kind, c)

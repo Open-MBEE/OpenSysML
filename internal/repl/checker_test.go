@@ -113,7 +113,7 @@ func TestEngineCheckSearchesTheActionsSchedules(t *testing.T) {
 	run(t, s, "%check-diverge this.capacity")
 	wantVerdict(t, s.RunAction("Plant::Tank::fill", "Plant::tank"), VerdictHolds,
 		"Action Plant::Tank::fill: no violation, exhaustive (11 states, 10 moves, depth 6)",
-		"standing: outcomes (bounded over schedules: 11 states, 10 moves searched)")
+		"standing: holds (bounded over schedules: 11 states, 10 moves searched)")
 }
 
 // A property the check evaluates at every state is judged about the performer:

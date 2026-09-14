@@ -451,7 +451,7 @@ sysml plant.sysml -instantiate Plant::reactor \
     -action "Plant::Reactor::regulate reactor" -engine smt \
     -check-property Plant::MaxPressure \
     -check-input inletTemp -check-assume Plant::EnvelopeLimits \
-    -check-sensitive pressure \
+    -check-diverge pressure \
     -check-depth 40 -check-unroll 4
 ```
 
@@ -461,7 +461,7 @@ sysml plant.sysml -instantiate Plant::reactor \
 | `-check-property <condition>` | The requirement or constraint to hold at every state; repeatable |
 | `-check-input <feature>` | Leave the feature free in its declared domain; repeatable. Absent, every unbound input is free and every bound one is pinned |
 | `-check-assume <constraint>` | Assume a constraint over the initial state; repeatable |
-| `-check-sensitive <feature>` | Ask the two-copy query for the feature; repeatable; absent with `-engine smt`, every feature the behavior writes (stage 3) |
+| `-check-diverge <feature>` | Compare the feature's final value across schedules, the flag the `check` engine reads for its divergence search; naming one makes the question `Sensitive`; repeatable; under `smt` it is the two-copy query (stage 3) |
 | `-check-depth`, `-check-unroll`, `-check-timeout` | The bounds: moves `k`, loop unrolling `L`, solver time |
 | `-check-witness <dir>` | Write each witness as a replayable trace file |
 | `-schedule replay:<file>` | The replay policy: fix the witness's inputs, then follow it move for move, then behave as `reverse` if it runs out. Refused when a move in the file is not enabled at that point, naming the move, or when an input names a feature the behavior does not have — a witness that cannot be followed is never silently resolved |
@@ -527,7 +527,7 @@ Written before the code, as the behavioral contract asks:
    witnesses and `leftRan`, `rightRan` not sensitive;
    `action_explore_performed_and_accept_due_together` reports `x` sensitive with the paused body
    and the sibling accept as the diverging pair; `action_join_waits_for_slowest_branch` reports
-   `arrived` not sensitive. `action_fork_branches_write_one_feature` at a `-check-moves` short
+   `arrived` not sensitive. `action_fork_branches_write_one_feature` at a `-check-depth` short
    of its completion reports `no sensitivity found within k moves`, not *not sensitive*. These
    expectations are derived from the oracle, not from the checker.
 6. **Portability.** One query per feature the encoding emits — datatypes for nodes, the
@@ -638,8 +638,8 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    `-check-assume` and `-check-unroll` sit on the `check` engine's flag struct, any of them
    makes the question `holds` as `-check-property` does (`analysis.CheckKind`), so under
    `-engine all` it reaches `smt`, and each surface refuses a flag only the engine it left out
-   reads (`-check-diverge`, `-check-states` under `smt` alone; the three above under `check`
-   alone) naming the flag, rather than dropping it; `-check-witness` writes an `smt` witness
+   reads (`-check-states` under `smt` alone; the three above under `check` alone) naming the
+   flag, rather than dropping it; `-check-witness` writes an `smt` witness
    with its inputs as it writes a `check` one.
    Referee check 4 (`TestRefereeInputs`) explores the layer-4 models with a violated witness's
    inputs pinned and requires the violation reproduced; the corpus cases pin every input, so
@@ -648,7 +648,52 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    note's `smt` clause on tool outputs does not yet apply. The engine is in the build's registry
    as stage 1 now says; a wire request that asks `holds` and its client option stay deferred
    until the CLI surface has settled, so the gRPC service lists `smt` but no request reaches it.
-3. **Sensitivity.** The two-copy query, the diverging pair, `-check-sensitive`. Test layer 5.
+3. **Sensitivity.** The two-copy query, the diverging pair, `-check-diverge`. Test layer 5.
+   *Implemented:* `smt` answers the framework's `Sensitive` question (`sensitive.go`), which is
+   the `check` engine's question under the same flag: `-check-diverge <feature>` and
+   `%check-diverge` name the features on `HoldsAsk.Diverge`, naming one makes the question
+   `Sensitive` (`analysis.CheckKind`), so under `-engine all` one question reaches both engines
+   and `compose.go` sees two answers about the same feature; there is no `-check-sensitive`,
+   and the refusal of `-check-diverge` under `smt` alone that stage 2 recorded is gone
+   (`-check-states` under `smt` alone stays refused). The two copies are built from the
+   encoded relation, not its slot layout (`twocopy.go`): copy `B` is `Encoding.Query` with
+   every variable but those of `s_0` and the free inputs renamed under `B/`, its assertions
+   rewritten by `solve.Substitute`, so a stage that adds slots to the state vector adds them
+   to both copies without change here. The three queries are asked in the order the
+   *Properties* paragraph spells, each on its own and none incrementally, so the stage needs
+   no `CapIncremental`: `complete^A_k ∧ complete^B_k ∧ f^A_k ≠ f^B_k`, then the deadlock and
+   typed-error properties (a `sat` on either is that *violated* finding), then `cut_k ∨
+   loopflag`, whose `sat` is *no sensitivity found within k moves* at `ClaimHolds`/`Bounded` —
+   the pair the bounded negative of a `Holds` question already uses — and whose `unsat` is
+   *not sensitive* at `ClaimHolds`/`Proved`. A `sat` two-copy model decodes to two schedules
+   (`Encoding.Diverging`), both replayed through `runtime.ReplayAction` before the verdict is
+   `ClaimSensitive`/`Witnessed`; a copy whose replay ends with another value of `f` is *not
+   covered* naming the disagreement, in the interpreter's favor. The report prints the two
+   final values, the earliest move at which the schedules differ and the two moves taken, and
+   both witnesses with their replay commands; `-json` carries the pair as `witness` and
+   `contrast`; `-check-witness` writes `<checked>-<feature>-A.witness` and `-B.witness`, each
+   replayable through `-schedule replay:` and `%replay`. The default feature set, with
+   `-check-diverge` absent on a `Sensitive` question, is the `check` engine's — every
+   attribute of the action and, with a performer, of the performing object — and since the
+   performing object's features are not encoded before stage 6, `smt` refuses each of those
+   per feature as *not covered* naming the construct rather than narrowing the list — the
+   action's own features on the list are still asked, a sensitivity found among them is the
+   answer, and a negative over a list with a refused feature, or one the solver left
+   undecided, is *not covered* naming it, never a proof over the whole list; the CLI
+   and REPL only ask `Sensitive` when the flag names a feature, so no `holds` question gained
+   a sensitivity answer and no `-engine smt` or `-engine all` expectation moved. Layer 5:
+   `action_fork_branches_write_one_feature` reports `x` sensitive, both witnesses replayed to
+   the two values the case's `outcomes` list, `leftRan` and `rightRan` not sensitive;
+   `action_join_waits_for_slowest_branch` reports `arrived` not sensitive; the fork case at a
+   depth short of completion reports *no sensitivity found within k moves*, never *not
+   sensitive*; a join every schedule deadlocks at reports the deadlock
+   (`sensitivity_test.go`). The row `action_explore_performed_and_accept_due_together` needs
+   the performed action and the clock stage 4 encodes; it stays *not covered* naming the
+   construct, pinned as such, and is the row stage 4 completes. The referee gains a fifth
+   column: each feature of every completing corpus case is asked across schedules, a
+   *sensitive* answer has both witnesses replayed to two distinct values among the case's
+   `outcomes`, and a *not sensitive* feature has one value across them. Layer 6 gains the
+   two-copy query. The wire and the clients still do not carry the question.
 4. **Clock, messages and nested flows.** `now` and due times, the bounded bus, performed actions
    as nested slots, so the whole action fragment the runtime executes is covered. The corpus's
    `accept` cases join the referee. *Prepared, not implemented:* `Flow` (`support.go`) numbers

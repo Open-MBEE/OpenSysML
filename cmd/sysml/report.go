@@ -171,7 +171,11 @@ type checkResultOf struct {
 	Bounds   []checkBound `json:"bounds"`
 	// Witness is the execution the interpreter replays to exhibit the claim; `null` without one.
 	Witness *checkWitness `json:"witness"`
-	// Reason is why nothing is claimed, empty for a covered result.
+	// Contrast is the second execution of a sensitivity, ending the feature at the
+	// other value; absent from every other claim.
+	Contrast *checkWitness `json:"contrast,omitempty"`
+	// Reason is why nothing is claimed, or what bounds a bounded negative answer
+	// to a Sensitive question; empty for every other covered result.
 	Reason   string `json:"reason,omitempty"`
 	Standing string `json:"standing"`
 	// Inputs are the features of the initial state the engine quantified over or
@@ -356,6 +360,7 @@ func checkResultsOf(plan *analysis.Plan) []checkResultOf {
 			Strength:    r.Strength.String(),
 			Bounds:      checkBounds(r.Bounds),
 			Witness:     checkWitnessOf(r.Witness),
+			Contrast:    checkWitnessOf(r.Contrast),
 			Reason:      r.Reason,
 			Standing:    r.Standing(),
 			Inputs:      checkInputs(r.Inputs),

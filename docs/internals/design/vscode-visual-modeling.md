@@ -12,20 +12,22 @@ three tiers, each of which is shippable on its own:
 
 The tiers are ordered by what they require of the Go side: tier 1 needs a rendering
 carried over the wire, tier 2 needs the source-rewriting layer widened, tier 3 needs
-a place to keep layout that is not the model.
+layout to be written back into the model.
 
-**Status.** Tiers 1 and 2 are built: the panel (`editors/vscode/src/diagram.ts`,
+**Status.** All three tiers are built. The panel (`editors/vscode/src/diagram.ts`,
 `src/webview/`), the rendering requests (`internal/lsp/render.go`) and the
 authoring request (`internal/lsp/modeledit.go` over `internal/core/edit` and
 `model.Workspace.ApplyEdit`) are what [docs/reference/lsp.md](../../reference/lsp.md)
-and the extension's README describe. Of tier 3, the move re-parenting needs is
-built: `edit.OpMove` (`internal/core/edit/move.go`), the `move` operation of
-`applyModelEdit`, the service's `MoveEdit`, and the node menu's **Move to…**, which
-offers the drawn declarations whose body admits the node's kind; the drag that
-will issue it, and the layout sidecar, are not. The `DiagramLayout` annotations
-that have since landed give tier 3 a place in the model for layout, which changes
-its "layout is not model data" premise below. The rest of this note is the design
-as written before the work, kept for the reasoning behind it.
+and the extension's README describe. Tier 3 is the SVG canvas in
+`src/webview/{layout,canvas}.ts` over the `setLayout`, `setRoute` and `setCanvas`
+operations of `internal/core/edit/layout.go`, writing the `DiagramLayout`
+annotations of [Diagram layout annotations](../../project/diagram-layout-annotations.md);
+its section below is the design as built. Re-parenting is `edit.OpMove`
+(`internal/core/edit/move.go`), the `move` operation of `applyModelEdit` and the
+node menu's **Move to…**, which offers the drawn declarations whose body admits the
+node's kind; the drag that would issue it, and the `CustomTextEditorProvider`
+registration, are not built, as the known limitations say. The tier 1 and 2
+sections are the design as written before the work, kept for the reasoning behind it.
 
 ## What exists today
 
@@ -279,81 +281,117 @@ palette rewritten.
 Tiers 1 and 2 avoid the two problems a real graphical editor has: layout, and
 edits whose intent is not a text operation. Tier 3 takes them on.
 
-### Layout is not model data
+### Layout is model data
 
-A node's position is not in the model and must never be written to the `.sysml`
-file — that would put tool state into a spec-conformant document and make two
-authors' files differ by nothing but pixels. Layout lives beside the model, in
-`<model>.sysml.layout.json`, an explicitly tool-defined sidecar:
+A node's position is in the model: the bundled `DiagramLayout` library declares
+`Layout`, `Route` and `Canvas` metadata, and a view places an element by stating
+`metadata Layout about engine { x = 120; y = 80; }` in its body, or an element
+places itself in every view that says nothing by carrying the annotation inline.
+That is the design of
+[Diagram layout annotations](../../project/diagram-layout-annotations.md), and it
+replaced an earlier plan for a `<model>.sysml.layout.json` sidecar: the sidecar
+kept pixels out of a conformant document, but at the price of a second file that
+drifts from the model, that a rename orphans, and that no other tool reads. The
+annotations are ordinary metadata, so they travel with the model, rename with the
+element, and version with it.
 
-```
-{ "schema": 1, "view": "Views::vehicleView", "kind": "interconnection",
-  "nodes": { "Vehicle::engine": { "x": 120, "y": 40, "w": 160, "h": 80 } },
-  "edges": { "Vehicle::c1": { "waypoints": [ [200,80], [260,120] ] } } }
-```
+The consequences for the editor:
 
-Keys are FQNs, not the rendering's node ids: an id is assigned per render
-(`nodeIDs.take`) and is not stable across edits, while an FQN is as stable as the
-model. An element with no entry is auto-placed by the layout engine and its
-position written back on first drag; an entry whose element is gone is dropped on
-save. The sidecar is optional, and committing it is the user's choice — a model
-opened without one still draws, just auto-laid-out.
+- Positions are keyed by declaration, so the canvas writes to a node's `fqn` and an
+  edge's `fqn`, never to a rendering's node id, which is assigned per render.
+- An element the model does not place is laid out by the client and its position
+  written on first drag, so a model with no annotation draws and its bytes are
+  untouched until a user drags something.
+- The unit is the canvas's pixel, y downward, as `opensysml/render` reports it, so
+  a position written by one client draws the same in another.
+
+### The write-back
+
+`internal/core/edit` gained `SetLayout`, `SetRoute` and `SetCanvas`
+(`layout.go`), each a source-preserving splice: an annotation already there has
+its values rewritten in place, one added goes where the writer puts it — the view's
+body for a view-local one, the element's own body for an inline one, opening a
+bodyless declaration as `AddMember` does — and a cleared one is removed with its
+line and, when it was the whole body, with the body. The operations refuse a target
+outside the document (`unknown-target`), a view that is none (`not-a-view`), a
+view-local placement of an element the view does not expose (`not-exposed`), an
+element no rendering draws as the node or edge the annotation positions
+(`not-drawn`), and a clearing with nothing to clear (`not-annotated`).
+`opensysml/applyModelEdit` exposes them as `setLayout`, `setRoute` and
+`setCanvas`; the three rewrite the requesting document alone, so their
+`WorkspaceEdit` carries one `TextDocumentEdit`.
 
 ### Direct manipulation
 
-Dragging a node changes layout only, so it touches the sidecar and not the model.
-Every action that changes the model goes through tier 2's operations — drawing an
-edge between two nodes is `OpAddConnection`, dropping a palette item is
-`OpAddMember`, deleting a node is `OpDelete`, renaming in place is `OpRename`. So
-tier 3 adds no new way to write a model; it adds gestures over tier 2's vocabulary.
+Dragging a node writes its `Layout`; dragging an edge's handle writes its `Route`.
+Every action that changes the model otherwise goes through tier 2's operations —
+the palette is `AddMember`, the node menu's connections `AddConnection`, its
+`Delete` and `Rename` the same. So tier 3 adds gestures whose outcome is an
+annotation, over tier 2's vocabulary for everything else.
 
-Two things genuinely new:
+A gesture is one edit. The canvas previews a drag by redrawing itself over the
+last rendering with the moved geometry laid over it, and posts one `place` message
+when the pointer is released; the extension turns it into one `applyModelEdit`
+request on the version the rendering was drawn from, so one drag is one undo step
+and a stale rendering is redrawn rather than written to. Moving a node carries the
+descendants the model places, and the routes between two nodes of the moved
+subtree, in the same request; unplaced descendants follow their owner on their own.
 
-- **Re-parenting** (dragging a part into a different definition) is a move: delete
-  from one body and add to another, as one operation so a failure leaves neither
-  half applied. `edit` gains `OpMove{Target, NewOwner}` for it, rather than the
-  client issuing two operations it cannot make atomic.
-- **Batching.** A drag that creates several elements at once must be one
-  `WorkspaceEdit` so it is one undo step. `applyModelEdit` already takes a list;
-  tier 3 requires that the list is applied all-or-nothing, which is how `edit`
-  composes operations already.
+Re-parenting is a move — delete from one body and add to another as one
+operation, `edit.OpMove{Target, NewOwner}`, so the two halves cannot come apart —
+issued from the node menu's **Move to…**; dragging a part into a different
+definition does not issue it.
 
 ### Rendering surface
 
 Mermaid is a fine read-only renderer and a poor editing surface — it lays out the
-graph itself and exposes no handles. Tier 3 replaces the webview's renderer with an
-SVG canvas driven by the rendering's nodes and edges plus the sidecar's geometry,
-keeping Mermaid as the export path (`SysML: Export Diagram`) so the docs pipeline
-and tier 1's panel keep working. The panel is registered as a
-`CustomTextEditorProvider` for `.sysml`, so a user can open a model *as* a diagram
-and VS Code handles dirty state, undo and save.
+graph itself and exposes no handles. The panel draws its own SVG
+(`src/webview/canvas.ts`) from a layout computed in the webview
+(`src/webview/layout.ts`): a node the model places goes exactly there, at the size
+it states; every other node takes a slot in a near-square grid under its owner, in
+rendering order, so the layout is a pure function of the rendering. A sequence is
+lifelines in a row with its messages down them. Mermaid remains the server's
+machine form — the `artifact` of a rendering, the REPL's and the document
+pipeline's diagram output — and nothing there changed. The panel is a
+`WebviewPanel` beside the text editor, not a `CustomTextEditorProvider`: a model
+is edited as text with the diagram in step, and the editor's dirty state, undo and
+save are the text document's.
 
 ### Test contract
 
-- Sidecar: schema round-trip, unknown-element pruning, missing-file defaulting,
-  and a golden auto-layout for a fixture model.
-- `edit`: `OpMove` goldens, and an all-or-nothing test where the second operation of
-  a batch is refused and the source is unchanged.
-- GUI: draw a connection between two dragged nodes, save, reopen, check the layout
-  and the model both came back.
+- `edit`: goldens for a new annotation in a view body and inline, an update in
+  place, a clearing that removes the body it filled, a route and a canvas, and each
+  typed refusal; the unannotated case stays byte-identical
+  (`internal/core/edit/layout_test.go`).
+- LSP: a render → `setLayout` → apply → re-render round trip that sees the new
+  `x` and `y`, one versioned `TextDocumentEdit` on the document, and a refusal shape
+  (`internal/lsp/modeledit_test.go`).
+- Webview: the automatic layout pinned for a fixture, the model's geometry kept
+  exactly, one placement per gesture, and the SVG's node groups, handles and
+  arrowheads (`src/webview/layout.test.ts`, `canvas.test.ts`).
+- GUI: drag a node, check the file gained the annotation, <kbd>Ctrl</kbd>+<kbd>Z</kbd>,
+  check it is gone, redraw and check the position held.
 
 ## Known limitations, stated rather than hidden
 
 - The `geometry` view kind is not rendered by `internal/core/view` and no tier here
   adds it; the panel reports it as unsupported.
 - Multi-document models render per document. A view exposing elements from another
-  open file draws them, but the panel is anchored to one document's URI, and a
-  cross-document layout sidecar is out of scope. Rename and delete follow references
-  into the workspace's other documents; a reference from a bundled library file, or
-  from a document the index holds without the workspace holding its source, still
-  refuses the edit.
+  open file draws them, and dragging one writes into the view's body in the
+  panel's document; a document drawn directly places only what it declares, and
+  writing an annotation into another document is out of scope. Rename and delete
+  follow references into the workspace's other documents; a reference from a
+  bundled library file, or from a document the index holds without the workspace
+  holding its source, still refuses the edit.
 - Only the requesting document's version travels in the request, so only it can be
   answered `stale` by the server; another document that changed between the server
   computing the edit and the client applying it is caught by the client comparing
   the versions the edit carries, not by a server refusal.
-- Tier 3's layout sidecar is tool-defined. SysML v2 §10.2 leaves how a view is drawn
-  to the tool, so nothing here claims to be a normative diagram interchange, and no
-  attempt is made to read or write another tool's layout.
+- The layout annotations are this project's library. SysML v2 §10.2 leaves how a
+  view is drawn to the tool, so nothing here claims to be a normative diagram
+  interchange, and no attempt is made to read or write another tool's layout.
+- Re-parenting by drag is not built; a part is moved from the node menu's
+  **Move to…** or by editing the text.
 - The palette writes the notation OpenSysML's writer emits, which is
   spec-conformant but not necessarily byte-identical to what a user would have
   typed. `format` makes it consistent with the file; it does not make it a

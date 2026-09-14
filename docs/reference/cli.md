@@ -236,7 +236,7 @@ written in, so the verdicts are about that object:
 | `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the `input <feature> = <value>` lines of a witness, which pin those features before the run starts, then its choice lines, one per line up to the first blank line, followed move for move and then `reverse` — a header of `no choice points`, as the checker writes for a run that met none, follows the one run there is; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>`, an input line naming a feature the action does not have is refused naming it, and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read, is empty or has a line spelling no choice — is refused before anything runs |
 | `-check-property <name>` | With `-engine check` or `-engine all`: a constraint or requirement the checker evaluates at every stable state of each `-action`, on the performing object where there is one, reporting a schedule at which it is false; repeatable. See [Checking every schedule of an action](#checking-every-schedule-of-an-action) |
-| `-check-diverge <feature>` | With `-engine check` or `-engine all`: a feature the checker reports divergent when schedules leave it with different final values — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's; repeatable; a name nothing holds is refused. A feature a schedule leaves unset ends as `<unset>`. Absent, every attribute of the action and of the performing object; an action run without one has no object, so its own attributes only |
+| `-check-diverge <feature>` | With `-engine check`, `-engine smt` or `-engine all`: a feature whose final value is compared across schedules, so the question put to the engine is whether it is *sensitive* to the schedule — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's; repeatable; a name nothing holds is refused. Under `check` a feature a schedule leaves unset ends as `<unset>`, and absent the flag every attribute of the action and of the performing object is compared (an action run without one has no object, so its own attributes only); under `smt` the feature is decided by a two-copy query, and the performing object's features are *not covered* until they are encoded |
 | `-check-input <feature>` | With `-engine smt` or `-engine all`: a feature of the action the solver leaves free in its declared type's domain although the model binds it — a default, a value the performing object holds — as `-check-input inletTemp`; repeatable. A name that is not a feature the action reads is refused naming it. Without the flag every input the model leaves unbound is free and every bound one is pinned at its value. See [Deciding a property over the inputs](#deciding-a-property-over-the-inputs) |
 | `-check-assume <name>` | With `-engine smt` or `-engine all`: a constraint or requirement asserted over the initial state of the action, as `-check-assume Plant::EnvelopeLimits`; repeatable. One the translator cannot encode is refused naming the construct; a set no initial state satisfies is reported *not covered*, never *proved* |
 | `-check-witness <dir>` | With `-engine check`, `-engine smt` or `-engine all`: write a witness file into this directory for each violation and each divergent value — the inputs the solver chose (`input <feature> = <value>`, one per line), the schedule's choice lines, a blank line, then the run's trace, and for a deadlock or a failure a blank line and `fails: <the error>` last — which `-schedule replay:<file>` and `%replay` follow. The directory is created if absent |
@@ -1305,8 +1305,8 @@ does not have is refused naming it.
 `-check-timeout` the solver's clock; a bound hit is named in the standing and the claim is
 *bounded*, not *proved*. `-check-input`, `-check-assume` or `-check-unroll` without `-engine smt`
 or `-engine all` is refused before anything runs, naming the flag as the `smt` engine's, as
-`-check-diverge` or `-check-states` under `-engine smt` alone is refused as the `check`
-engine's — a flag only the engine left out would read is never dropped silently;
+`-check-states` under `-engine smt` alone is refused as the `check` engine's — a flag only the
+engine left out would read is never dropped silently;
 `-check-input` naming no feature the action reads, and `-check-assume` naming a constraint the translator cannot encode, are refused naming
 it before the solver is asked, and the check is *not covered*.
 
@@ -1321,6 +1321,61 @@ The `smt` engine is registered at authority *proved*, so `-engines` lists it wit
 *not covered: no solver*. `auto` never asks a `holds` question today — a property is checked
 only under `-engine check`, `-engine smt` or `-engine all` — so no plan line of an invocation
 without `-engine` goes through the solver.
+
+### Deciding whether the schedule decides a feature
+
+`-check-diverge <feature>` asks whether the feature's final value depends on the order the
+schedule takes, and both engines answer it: `check` by the divergence search above, `smt` by a
+**two-copy query** — two copies of the action's schedules from one initial state, both complete
+within `-check-depth` moves, ending with different values of the feature. Naming a feature makes
+the question one of *sensitivity* rather than of what holds, so under `-engine all` one
+question reaches both engines and the standing compares their answers. A `-check-property`
+beside it is still checked first: a violation, a deadlock or a typed error on any schedule is
+the verdict, the feature having no final value there.
+
+```bash
+$ sysml -engine smt -action Mission::race -check-diverge x -check-witness witnesses race.sysml; echo $?
+✓ package Mission
+✗ Action Mission::race: sensitive: x ends as 2 or 1; the schedules part at step 3: step 3: 2@left first of 2@left, 3@right against step 3: 3@right first of 2@left, 3@right
+  inputs: x = 0, leftRan = false, rightRan = false
+  witness A: witnesses/Mission.race-x-A.witness
+  witness B: witnesses/Mission.race-x-B.witness
+  standing: sensitive (witnessed: witness of 1 choice replayed, inputs as written)
+1
+$ sysml -engine smt -action Mission::race -check-diverge leftRan race.sysml; echo $?
+✓ package Mission
+✓ Action Mission::race: holds
+  inputs: x = 0, leftRan = false, rightRan = false
+  standing: holds (proved over schedules: inputs as written)
+0
+$ sysml -engine smt -action Mission::race -check-diverge x -check-depth 3 race.sysml; echo $?
+✓ package Mission
+? Action Mission::race: holds (bounded)
+  no sensitivity found within 3 moves: a schedule is still live after move 3 (step 3: 3@right first of 2@left, 3@right)
+  inputs: x = 0, leftRan = false, rightRan = false
+  standing: holds (bounded over schedules: inputs as written, moves=3 (reached))
+2
+```
+
+A *sensitive* verdict names the two final values, the earliest move at which the two schedules
+part and the move each takes there, and is *witnessed* only once **both** schedules were
+replayed by the interpreter to the values the solver claimed; a schedule that replays to another
+value is *not covered* with the disagreement, in the interpreter's favor. `-check-witness`
+writes the pair as `<checked>-<feature>-A.witness` and `-B.witness`, each a file
+`-schedule replay:<file>` and `%replay` follow. A feature the schedule does not decide is
+*holds* at *proved*: every schedule completes within the bound and all of them end with one
+value, for the inputs as written or free in their domains. A bound that cuts some schedule
+short — the depth, a loop's unrolling — leaves the question open on that schedule, so the verdict
+is *holds* at *bounded* with `no sensitivity found within k moves` and the still-live schedule
+or the cut loop as its reason, never *proved*; and a question the solver cannot decide
+(`unknown`, a timeout) is *not covered*. Where every schedule deadlocks or raises a typed
+error, that violation is the verdict. The performing object's own features (`this.level`) are
+not encoded by the `smt` engine, so asking about one is *not covered* naming it; `check`
+answers it beside `smt` under `-engine all`.
+
+With `-json` the `smt` engine's `results[]` entry carries the pair as `witness` and `contrast`,
+each with its `schedule`, `choices`, `inputs[]` and the `path` `-check-witness` wrote, and the
+verdict's `reason` names the two values and the parting move.
 
 ## Output Format
 

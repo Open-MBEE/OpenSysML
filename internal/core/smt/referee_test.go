@@ -28,7 +28,9 @@ import (
 // The referee holds the encoding to the interpreter over every conformance action case with
 // outcomes: same outcome set, every witness replays, same deadlock verdict; refusals are counted.
 // Its fourth check, over the cases with free inputs: a violated witness with inputs, explored
-// with those inputs pinned as a caller pins them, reproduces the violation.
+// with those inputs pinned as a caller pins them, reproduces the violation. Its fifth, per
+// feature of every case that completes: a sensitive verdict has both witnesses replayed and
+// their two values among the case's outcomes; a feature not sensitive has one value there.
 
 // corpusCase is the part of a conformance case's expectation the referee reads.
 type corpusCase struct {
@@ -140,14 +142,18 @@ type refereeTally struct {
 	// inputs counts the violated witnesses fixing inputs, reproduced those the
 	// exploration with the inputs pinned reaches the violation of.
 	inputs, reproduced int
-	refusals           []string
+	// features counts the features asked about across schedules, sensitive those
+	// found sensitive with both witnesses replayed to two of the case's outcomes,
+	// insensitive those found not sensitive with one value across its outcomes.
+	features, sensitive, insensitive int
+	refusals                         []string
 }
 
 // log reports the tally as the referee's columns.
 func (tally *refereeTally) log(t *testing.T) {
 	t.Helper()
-	t.Logf("referee: %d cases encoded, %d refused, %d agreeing on outcomes and verdict; %d witnesses, %d replayed; %d witnesses with inputs, %d reproduced under explore",
-		tally.encoded, tally.refused, tally.agreeing, tally.witnesses, tally.replayed, tally.inputs, tally.reproduced)
+	t.Logf("referee: %d cases encoded, %d refused, %d agreeing on outcomes and verdict; %d witnesses, %d replayed; %d witnesses with inputs, %d reproduced under explore; %d features compared across schedules, %d sensitive with both witnesses replayed, %d not sensitive",
+		tally.encoded, tally.refused, tally.agreeing, tally.witnesses, tally.replayed, tally.inputs, tally.reproduced, tally.features, tally.sensitive, tally.insensitive)
 	for _, refusal := range tally.refusals {
 		t.Logf("refused: %s", refusal)
 	}
@@ -157,7 +163,7 @@ func (tally *refereeTally) log(t *testing.T) {
 // faithfulness, not speed, so a slow machine must not turn a verdict undecided.
 const refereeTimeout = 5 * time.Minute
 
-// TestRefereeCorpus runs checks 1–3 over the corpus and reports the counts.
+// TestRefereeCorpus runs checks 1–3 and 5 over the corpus and reports the counts.
 func TestRefereeCorpus(t *testing.T) {
 	solver := *requireSolver(t)
 	solver.Timeout = refereeTimeout
@@ -250,6 +256,53 @@ func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, 
 	}
 	if agreeing {
 		tally.agreeing++
+	}
+	if verdict.Claim == analysis.ClaimHolds {
+		refereeSensitivity(t, solver, encoding, d, ask, budget, oracleOutcomes(t, name, c.Outcomes), tally)
+	}
+}
+
+// refereeSensitivity runs check 5 over a case every schedule of which completes: each
+// of the action's own features is asked about across schedules; a sensitive answer
+// replays both witnesses to two distinct values the case's outcomes list, and a
+// feature not sensitive has one value across them.
+func refereeSensitivity(t *testing.T, solver *solve.Solver, encoding *Encoding, d *document, ask *analysis.HoldsAsk, budget analysis.Budget, o oracle, tally *refereeTally) {
+	t.Helper()
+	e := New(func() (*solve.Solver, error) { return solver, nil })
+	for _, out := range encoding.Outputs() {
+		feature := out.Name
+		if o[feature] == nil {
+			t.Errorf("the encoding holds %s, which the case's outcomes do not list", feature)
+			continue
+		}
+		tally.features++
+		q := analysis.Question{Kind: analysis.Sensitive, Subject: ask.Behavior.Name, Free: analysis.FreeSchedule,
+			Holds: &analysis.HoldsAsk{Behavior: ask.Behavior, Start: ask.Start, Diverge: []string{feature}}}
+		verdict := answer(t, e, d, q, budget)
+		listed := sortedKeys(o[feature])
+		switch verdict.Claim {
+		case analysis.ClaimSensitive:
+			if verdict.Strength != analysis.Witnessed || verdict.Witness == nil || verdict.Contrast == nil {
+				t.Errorf("%s sensitive at %v with witnesses %v, %v", feature, verdict.Strength, verdict.Witness, verdict.Contrast)
+				continue
+			}
+			values := replayedValues(t, d, q, verdict, feature)
+			if values[0] == values[1] || !o[feature][values[0]] || !o[feature][values[1]] {
+				t.Errorf("%s sensitive between %v, the case's outcomes list %v", feature, values, listed)
+				continue
+			}
+			tally.sensitive++
+			t.Logf("%s: sensitive between %v", feature, values)
+		case analysis.ClaimHolds:
+			if len(listed) != 1 {
+				t.Errorf("%s not sensitive (%v: %s), the case's outcomes list %v", feature, verdict.Strength, verdict.Reason, listed)
+				continue
+			}
+			tally.insensitive++
+			t.Logf("%s: not sensitive (%v), %s throughout", feature, verdict.Strength, listed[0])
+		default:
+			t.Errorf("%s: the engine answers %v/%v where the exploration completes: %s", feature, verdict.Claim, verdict.Strength, verdict.Reason)
+		}
 	}
 }
 

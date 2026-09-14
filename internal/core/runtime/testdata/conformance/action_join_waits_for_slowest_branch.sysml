@@ -1,4 +1,5 @@
 package test {
+	private import ScalarValues::*;
 	// Oracle (docs/project/behavior-semantic-oracle.md): `sync` follows one
 	// performance of each of `a`, `b2` and `c3`, so `after` reads arrived = 3.
 	action gather {

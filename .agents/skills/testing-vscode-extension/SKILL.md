@@ -240,22 +240,27 @@ main.sysml  package Main { import Lib::*; part w : Widget; }
   different tab) tears the webview down; on re-show it reconstructs from `vscode.getState().last`. Test
   it explicitly, and test it with a view whose render *errors* — that is the case that blanked before
   the cache existed.
-- **Click-to-source / cursor-highlight break easily on Mermaid id mangling.** Mermaid 11 decorates node
-  ids on *both* sides — `<diagramId>-flowchart-<serverNodeId>-<n>` (e.g.
-  `opensysml-diagram-3-flowchart-n2-0`), and `statediagram-state-<id>-<n>` for state diagrams — so a
-  `bareID()` that only strips a *leading* `flowchart-`/`state-` never matches the server's `n0…nN`.
-  Diagnose it (not with the GUI) in Command Palette → **Developer: Open Webview Developer Tools**, pick
-  the `active-frame (index.html)` context in the context dropdown, then run
-  `document.querySelectorAll('#diagram svg g.node').length` vs
-  `document.querySelectorAll('#diagram .opensysml-node').length` and
-  `[...document.querySelectorAll('#diagram svg g.node')].map(g=>g.id)`.
-  `0 marked` ⇒ ids don't match; clicks and highlights will silently do nothing.
-  Always check a **state** diagram as well as a flowchart — they take different id shapes.
-- A second, independent trap: a highlight rule like
-  `.opensysml-selected > rect { stroke: var(--vscode-focusBorder) }` loses to Mermaid's own
-  `<style>` block injected *inside* the SVG (same specificity, later in document order). Check
-  `getComputedStyle(rect).stroke` — if it is still Mermaid's grey, the highlight is invisible even
-  though the class is applied. `!important` on `stroke`/`stroke-width` fixes it.
+- **The panel draws its own SVG** (`editors/vscode/src/webview/{layout,canvas}.ts`), not Mermaid: each
+  node is a `g[data-opensysml-id="<serverNodeId>"]`, class `movable` when a drag can write a
+  `DiagramLayout::Layout` for it, each edge a `g[data-edge="<index>"]`, its route handles
+  `circle[data-point]` (waypoint) and `circle.segment[data-segment]` (bend here). Diagnose
+  click-to-source / highlight (not with the GUI) in Command Palette → **Developer: Open Webview
+  Developer Tools**, `active-frame (index.html)` context:
+  `document.querySelectorAll('#diagram svg g[data-opensysml-id]').length`,
+  `document.querySelectorAll('#diagram .movable').length`, and after moving the cursor
+  `document.querySelector('#diagram .opensysml-selected')?.dataset.opensysmlId`.
+- **Drags are pointer-captured on `#diagram`**, so a `dblclick` there names the container, never the
+  handle under it — waypoint removal is two quick clicks paired by the webview itself (`< 400 ms`,
+  no movement between press and release). Deliver it as one double-click action (the computer
+  tool's double-click, or xdotool `click --repeat 2 1`); two clicks from separate exec calls are
+  too far apart and read as two single clicks.
+- A dragged node writes the annotation on **pointer release** only — one edit per drag, so one
+  Ctrl+Z (focus in the text editor) undoes the whole move. When a declared view is drawn the
+  `metadata Layout about <element> { x = …; y = …; }` lands in the view body; when a pseudo-view
+  (`#tree`, `#interconnection`, …) is drawn it lands inline in the element's own body as
+  `@DiagramLayout::Layout { x = …; y = …; }`. In this repository's root workspace the parser
+  fixture's `package Views` shadows the standard library, so declared views are `(not drawable)`
+  and only the inline placement can be exercised — use a scratch workspace for the view-body case.
 - **Judging "the node is outlined" needs the right fixture.** `LanderViews::overview` draws 14 boxes
   scaled down to ~30 px wide, where a 3 px stroke is unreadable in a screenshot. Use a small view —
   `LanderViews::safetyView` renders 4 large boxes — so the focus-border outline is unmistakable.
@@ -270,8 +275,12 @@ main.sysml  package Main { import Lib::*; part w : Widget; }
 - Live-redraw proof: type a new member (e.g. `part booster : Tank;`) inside a `part def` that the view
   exposes and screenshot before/after — a new box must appear with no manual refresh. Undo with
   Command Palette **File: Revert File** to keep the git tree clean.
-- Parse-error proof: delete a closing `}`. The previous SVG must stay on screen at reduced opacity
-  (`.stale`) with a red status line; zoom on the status line, and compare box brightness before/after.
+- Parse-error proof: the dimmed (`.stale`) diagram with a red status line appears only when
+  `opensysml/render` itself fails. A missing trailing `}` or a missing package `{` is recovered by
+  the parser and the recovered model renders brightly, so a syntax diagnostic in Problems is not
+  the oracle — pick a break the renderer refuses (e.g. misspell the `render as…` kind of the
+  declared view being drawn) and confirm the red status line names the error, then compare box
+  brightness before/after.
 
 ## TextMate grammar changes (`editors/vscode/syntaxes/*.tmLanguage.json`, `tools/gengrammar`)
 
@@ -399,17 +408,11 @@ degradation case.
   `sequence-vehicle.sysml` (`VehicleSequenceViews::startVehicleView`, 2 participants
   `part driver (Driver)` / `part vehicle (Vehicle)`). Copy them into a scratch workspace; both
   auto-select in the panel because they declare exactly one view.
-- Mermaid draws a participant box **twice** (top and bottom). Only the **top** one carries
-  `data-id`/`id`; the bottom box is deliberately inert, so always click the top row of boxes or the
-  test looks broken.
-- `nodeElement` (`editors/vscode/src/webview/nodes.ts`) matches participants via
-  `g[data-et="participant"][data-id]` — flowchart/state nodes still go through `bareID()`. If a
-  future Mermaid bump changes `data-et`, participants go silently inert again; diagnose with
-  Webview Developer Tools (`active-frame` context):
-  `[...document.querySelectorAll('#diagram svg g[data-et=participant]')].map(g=>[g.id,g.dataset.id])`
-  and `document.querySelectorAll('#diagram .opensysml-node').length`.
-  `npm run check-nodes` (`editors/vscode/tools/check-nodes.mjs`) renders the same fixtures under jsdom
-  and is the cheapest pre-GUI check.
+- A sequence diagram is drawn as lifelines (a head box per participant, a dashed line under it,
+  messages as arrows between lines). The head boxes are the participants' `g[data-opensysml-id]`
+  and answer clicks and highlight; nothing in a sequence diagram is `movable` — a drag on a lifeline
+  is a click, and no `Layout` is written. `npm test` (`src/webview/canvas.test.ts`) draws the same
+  shapes under jsdom and is the cheapest pre-GUI check.
 - The picker's pseudo-view entries come from the server's `opensysml/views` → `pseudoViews`
   (`internal/lsp/render.go`, `view.PseudoViewSpecs()`), labelled by
   `PSEUDO_VIEW_LABELS` in `editors/vscode/src/diagram.ts` — e.g. `#sequence` →

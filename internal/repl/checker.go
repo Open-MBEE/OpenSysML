@@ -55,9 +55,6 @@ func (c checkSettings) frees() analysis.Freedom {
 // explicitOnly names the settings made that the check engine alone reads.
 func (c checkSettings) explicitOnly() []string {
 	var made []string
-	if len(c.diverge) > 0 {
-		made = append(made, "%check-diverge")
-	}
 	if c.states > 0 {
 		made = append(made, "%check-bounds states")
 	}
@@ -351,7 +348,7 @@ func (s *Session) checkAction(name string, performer []string) Verdict {
 		return unresolvedVerdict(name, err.Error())
 	}
 	kind := analysis.CheckKind(asks.check, asks.holds, s.checker.unroll)
-	if s.symbolic() {
+	if s.symbolic() && kind == analysis.Outcomes {
 		kind = analysis.Holds
 	}
 	policy, explores := s.exploring()
@@ -433,6 +430,7 @@ func (s *Session) actionAsks(name string, performer []string) (checkAsks, error)
 			Behavior:   sym,
 			Start:      start,
 			Inputs:     append([]string(nil), s.checker.inputs...),
+			Diverge:    append([]string(nil), s.checker.diverge...),
 			WitnessDir: s.checker.witnessDir,
 		},
 		run: run,
@@ -617,23 +615,30 @@ func checkedVerdict(name string, result analysis.Result) Verdict {
 }
 
 // decidedVerdict reports an answer carrying no check report, the symbolic engine's or an
-// external one's: a violation or a divergence fails, a proof holds, a bounded or uncovered
-// answer is undecided; the inputs, assumptions and witnesses it rests on follow.
+// external one's: a violation or a sensitivity fails, a proof holds, a bounded or uncovered
+// answer is undecided; the inputs, assumptions and witnesses it rests on follow, a
+// sensitivity's two schedules as witness A and witness B.
 func decidedVerdict(name string, result analysis.Result) Verdict {
 	v := Verdict{Subject: name}
 	switch {
 	case !result.Covered():
 		v.Status = VerdictUnresolved
 		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: not covered", name), "  "+result.Reason)
-	case result.Claim == analysis.ClaimViolated, result.Claim == analysis.ClaimSensitive:
+	case result.Claim == analysis.ClaimViolated:
 		v.Status = VerdictFails
 		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: %s", name, result.Reason))
+	case result.Claim == analysis.ClaimSensitive:
+		v.Status = VerdictFails
+		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: sensitive: %s", name, result.Reason))
 	case result.Strength == analysis.Proved:
 		v.Status = VerdictHolds
 		v.Lines = append(v.Lines, fmt.Sprintf("✓ Action %s: %s", name, result.Claim))
 	default:
 		v.Status = VerdictUnresolved
 		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: %s (%s)", name, result.Claim, result.Strength))
+		if result.Question.Kind == analysis.Sensitive && result.Reason != "" {
+			v.Lines = append(v.Lines, "  "+result.Reason)
+		}
 	}
 	if inputs := inputLines(result.Inputs); inputs != "" {
 		v.Lines = append(v.Lines, "  inputs: "+inputs)
@@ -641,11 +646,11 @@ func decidedVerdict(name string, result analysis.Result) Verdict {
 	if len(result.Assumptions) > 0 {
 		v.Lines = append(v.Lines, "  assumed: "+strings.Join(result.Assumptions, ", "))
 	}
-	if w := result.Witness; w != nil {
+	switch w := result.Witness; {
+	case w != nil && result.Contrast != nil:
+		v.Lines = append(v.Lines, "  witness A: "+witnessLine(w), "  witness B: "+witnessLine(result.Contrast))
+	case w != nil:
 		v.Lines = append(v.Lines, "  witness: "+witnessLine(w))
-	}
-	if result.Contrast != nil {
-		v.Lines = append(v.Lines, "  contrast: "+witnessLine(result.Contrast))
 	}
 	return v
 }
