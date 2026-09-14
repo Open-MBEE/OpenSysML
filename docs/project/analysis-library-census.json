@@ -38,14 +38,16 @@
         "TradeStudies::MinimizeObjective",
         "TradeStudies::MaximizeObjective",
         "TradeStudies::TradeStudy",
-        "TradeStudies::TradeStudy::evaluationFunction"
+        "TradeStudies::TradeStudy::evaluationFunction",
+        "TradeStudies::TradeStudy::tradeStudyObjective"
       ],
       "evaluated": [
         "TradeStudies::EvaluationFunction",
         "TradeStudies::TradeStudyObjective",
         "TradeStudies::MinimizeObjective",
         "TradeStudies::MaximizeObjective",
-        "TradeStudies::TradeStudy"
+        "TradeStudies::TradeStudy",
+        "TradeStudies::TradeStudy::tradeStudyObjective"
       ],
       "refused": [
         {
@@ -159,25 +161,42 @@
       "declarations": [
         "VectorFunctions::isZeroVector",
         "VectorFunctions::+",
+        "VectorFunctions::+::zeroAddition",
+        "VectorFunctions::+::commutivity",
         "VectorFunctions::-",
+        "VectorFunctions::-::negation",
+        "VectorFunctions::-::difference",
         "VectorFunctions::sum0",
+        "VectorFunctions::sum0::precondition",
         "VectorFunctions::VectorOf",
         "VectorFunctions::scalarVectorMult",
+        "VectorFunctions::scalarVectorMult::scaling",
+        "VectorFunctions::scalarVectorMult::zeroLength",
         "VectorFunctions::vectorScalarMult",
         "VectorFunctions::vectorScalarDiv",
         "VectorFunctions::inner",
+        "VectorFunctions::inner::commmutivity",
+        "VectorFunctions::inner::zeroInner",
         "VectorFunctions::norm",
+        "VectorFunctions::norm::squareNorm",
+        "VectorFunctions::norm::lengthZero",
         "VectorFunctions::angle",
+        "VectorFunctions::angle::commutivity",
+        "VectorFunctions::angle::lengthInsensitive",
         "VectorFunctions::CartesianVectorOf",
         "VectorFunctions::CartesianThreeVectorOf",
         "VectorFunctions::isCartesianZeroVector",
         "VectorFunctions::cartesian+",
+        "VectorFunctions::cartesian+::precondition",
         "VectorFunctions::cartesian-",
+        "VectorFunctions::cartesian-::precondition",
         "VectorFunctions::cartesianScalarVectorMult",
         "VectorFunctions::cartesianVectorScalarMult",
         "VectorFunctions::cartesianInner",
+        "VectorFunctions::cartesianInner::precondition",
         "VectorFunctions::cartesianNorm",
         "VectorFunctions::cartesianAngle",
+        "VectorFunctions::cartesianAngle::precondition",
         "VectorFunctions::sum"
       ],
       "evaluated": [
@@ -202,9 +221,63 @@
         "VectorFunctions::cartesianInner",
         "VectorFunctions::cartesianNorm",
         "VectorFunctions::cartesianAngle",
-        "VectorFunctions::sum"
+        "VectorFunctions::sum",
+        "VectorFunctions::+::zeroAddition",
+        "VectorFunctions::-::negation",
+        "VectorFunctions::sum0::precondition",
+        "VectorFunctions::inner::zeroInner",
+        "VectorFunctions::cartesian+::precondition",
+        "VectorFunctions::cartesian-::precondition",
+        "VectorFunctions::cartesianInner::precondition",
+        "VectorFunctions::cartesianAngle::precondition"
       ],
-      "refused": [],
+      "refused": [
+        {
+          "declaration": "VectorFunctions::+::commutivity",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::+::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: u has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::-::difference",
+          "error": "ErrTypeMismatch",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::-::difference: constraint difference: require condition evaluation failed: type mismatch: operator '+' is not defined for a vector and an undetermined VectorValue"
+        },
+        {
+          "declaration": "VectorFunctions::scalarVectorMult::scaling",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::scalarVectorMult::scaling: constraint scaling: require condition evaluation failed: no value: condition is undetermined: w has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::scalarVectorMult::zeroLength",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::scalarVectorMult::zeroLength: constraint zeroLength: require condition evaluation failed: no value: condition is undetermined: w has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::inner::commmutivity",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::inner::commmutivity: constraint commmutivity: require condition evaluation failed: no value: condition is undetermined: x has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::norm::squareNorm",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::squareNorm: constraint squareNorm: require condition evaluation failed: no value: condition is undetermined: l has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::norm::lengthZero",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::lengthZero: constraint lengthZero: require condition evaluation failed: no value: condition is undetermined: l has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::angle::commutivity",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::angle::lengthInsensitive",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::lengthInsensitive: constraint lengthInsensitive: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model"
+        }
+      ],
       "wrong": []
     },
     {

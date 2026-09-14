@@ -32,8 +32,9 @@ type censusPackage struct {
 	probes []libraryProbe
 }
 
-// libraryProbe is one declaration's representative invocation: a model using it and
-// the value checked, read as a feature (read), a slot (instantiate+slot) or an action output.
+// libraryProbe is one declaration's representative invocation: a model using it and the
+// value checked, read as a feature (read), a slot (instantiate+slot), an action output or
+// a case verdict (analysis+verdict).
 type libraryProbe struct {
 	decl        string
 	model       string
@@ -42,6 +43,8 @@ type libraryProbe struct {
 	slot        string
 	action      string
 	output      string
+	analysis    string
+	verdict     string
 	want        ExpectedValue
 }
 
@@ -225,6 +228,8 @@ func runLibraryProbe(t *testing.T, probe libraryProbe) probeVerdict {
 		value, err = readProbeSlot(t, ctx, idx, probe)
 	case probe.action != "":
 		value, err = readProbeOutput(t, ctx, idx, probe)
+	case probe.analysis != "":
+		value, err = readProbeVerdict(t, ctx, idx, probe)
 	default:
 		t.Errorf("%s: the probe reads nothing", probe.decl)
 		return probeVerdict{}
@@ -286,6 +291,31 @@ func readProbeOutput(t *testing.T, ctx *Context, idx *symbols.Index, probe libra
 		return Value{}, fmt.Errorf("%w: %s produced no output %q", ErrUnknownOutput, probe.action, probe.output)
 	}
 	return value, nil
+}
+
+// readProbeVerdict runs the case and reads the named verdict as a Boolean; an
+// undecided verdict is the undetermined value its detail explains.
+func readProbeVerdict(t *testing.T, ctx *Context, idx *symbols.Index, probe libraryProbe) (Value, error) {
+	t.Helper()
+	sym := oneProbeSymbol(t, idx, probe.decl, probe.analysis)
+	if sym == nil {
+		return Value{}, nil
+	}
+	result, err := ctx.RunAnalysis(sym, AnalysisArgs{}, nil, nil)
+	if err != nil {
+		return Value{}, err
+	}
+	for _, verdict := range result.Verdicts {
+		if verdict.Name != probe.verdict {
+			continue
+		}
+		if verdict.Status == VerdictUndecided {
+			return NewUndeterminedValue(verdict.Detail, semantics.Range{}), nil
+		}
+		return boolValue(verdict.Status == VerdictSatisfied), nil
+	}
+	t.Errorf("%s: %s decided no verdict %q", probe.decl, probe.analysis, probe.verdict)
+	return Value{}, nil
 }
 
 // oneProbeSymbol resolves a qualified name the probe states, reporting a probe
@@ -358,7 +388,8 @@ func isCallableDeclaration(decl ast.Node) bool {
 			return false
 		}
 		switch d.Kind {
-		case ast.UsageCalc, ast.UsageExpr, ast.UsageBehavior, ast.UsagePredicate,
+		case ast.UsageCalc, ast.UsageExpr, ast.UsageBehavior, ast.UsageAction, ast.UsagePredicate,
+			ast.UsageConstraint, ast.UsageRequirement, ast.UsageObjective,
 			ast.UsageCase, ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase:
 			return true
 		}

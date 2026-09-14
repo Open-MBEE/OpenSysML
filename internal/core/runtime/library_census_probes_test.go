@@ -154,6 +154,13 @@ var tradeStudyProbes = []libraryProbe{
 		read:  "test::r",
 		want:  expectReal(20.0),
 	},
+	{
+		decl:     "TradeStudies::TradeStudy::tradeStudyObjective",
+		model:    probeModel("TradeStudies", byMass("MinimizeObjective")),
+		analysis: "test::study",
+		verdict:  "tradeStudyObjective",
+		want:     expectBool(true),
+	},
 }
 
 // stateSpaceModel specializes the state-space library as a model does: a calc for
@@ -305,6 +312,60 @@ var vectorFunctionProbes = []libraryProbe{
 	vectorProbe("cartesianNorm", "cartesianNorm((3.0, 4.0))", expectReal(5.0)),
 	vectorProbe("cartesianAngle", "cartesianAngle((1.0, 0.0), (0.0, 1.0))", expectReal(math.Pi/2)),
 	vectorProbe("sum", "sum((CartesianThreeVectorOf((1.0, 2.0, 3.0)), CartesianThreeVectorOf((4.0, 5.0, 6.0))))", expectVector(5.0, 7.0, 9.0)),
+	invariantProbe("'+'", "zeroAddition", plusParams, twoVectors, "VectorOf", true),
+	invariantProbe("'+'", "commutivity", plusParams, twoVectors, "VectorOf", true),
+	invariantProbe("'-'", "negation", plusParams, twoVectors, "VectorOf", true),
+	// The text reads v + u == w, which u = v - w = (-2, -2) does not satisfy: v + u = (-1, 0).
+	invariantProbe("'-'", "difference", plusParams, twoVectors, "VectorOf", false),
+	invariantProbe("sum0", "precondition", "in coll : VectorValue[*]; in zero : VectorValue; return :>> s", "((), CartesianVectorOf((0.0, 0.0)))", "VectorOf", true),
+	invariantProbe("scalarVectorMult", "scaling", scalingParams, "(2.0, VectorOf((1.0, 2.0)))", "VectorOf", true),
+	invariantProbe("scalarVectorMult", "zeroLength", scalingParams, "(2.0, VectorOf((1.0, 2.0)))", "VectorOf", true),
+	invariantProbe("inner", "commmutivity", innerParams, twoVectors, "", true),
+	invariantProbe("inner", "zeroInner", innerParams, twoVectors, "", true),
+	invariantProbe("norm", "squareNorm", normParams, "(VectorOf((3.0, 4.0)))", "", true),
+	invariantProbe("norm", "lengthZero", normParams, "(VectorOf((3.0, 4.0)))", "", true),
+	invariantProbe("angle", "commutivity", angleParams, axes, "", true),
+	invariantProbe("angle", "lengthInsensitive", angleParams, axes, "", true),
+	invariantProbe("'cartesian+'", "precondition", cartesianPlusParams, twoCartesian, "CartesianVectorOf", true),
+	invariantProbe("'cartesian-'", "precondition", cartesianPlusParams, twoCartesian, "CartesianVectorOf", true),
+	invariantProbe("cartesianInner", "precondition", "in v : CartesianVectorValue; in w : CartesianVectorValue; return :>> x", twoCartesian, "", true),
+	invariantProbe("cartesianAngle", "precondition", "in v : CartesianVectorValue; in w : CartesianVectorValue; return :>> theta", "(CartesianVectorOf((1.0, 0.0)), CartesianVectorOf((0.0, 1.0)))", "", true),
+}
+
+// The parameter lists of the functions whose invariants are probed, as the library declares them.
+const (
+	plusParams          = "in v : VectorValue; in w : VectorValue[0..1]; return :>> u"
+	scalingParams       = "in x : NumericalValue; in v : NumericalVectorValue; return :>> w"
+	innerParams         = "in v : NumericalVectorValue; in w : NumericalVectorValue; return :>> x"
+	normParams          = "in v : NumericalVectorValue; return :>> l"
+	angleParams         = "in v : NumericalVectorValue; in w : NumericalVectorValue; return :>> theta"
+	cartesianPlusParams = "in v : CartesianVectorValue; in w : CartesianVectorValue[0..1]; return :>> u"
+	twoVectors          = "(VectorOf((1.0, 2.0)), VectorOf((3.0, 4.0)))"
+	twoCartesian        = "(CartesianVectorOf((1.0, 2.0)), CartesianVectorOf((3.0, 4.0)))"
+	axes                = "(VectorOf((1.0, 0.0)), VectorOf((0.0, 1.0)))"
+)
+
+// invariantProbe invokes a function's invariant where its parameters are bound: from the
+// result of a specialization, which is 1 when the invariant holds and 0 when it does not.
+func invariantProbe(fn, inv, params, args, marker string, holds bool) libraryProbe {
+	one, zero, want := "1.0", "0.0", expectReal(0.0)
+	if marker != "" {
+		one, zero, want = marker+"(1.0)", marker+"(0.0)", expectVector(0.0)
+	}
+	if holds {
+		want = expectReal(1.0)
+		if marker != "" {
+			want = expectVector(1.0)
+		}
+	}
+	return libraryProbe{
+		decl: "VectorFunctions::" + strings.Trim(fn, "'") + "::" + inv,
+		model: probeModel("VectorValues VectorFunctions",
+			"\tcalc def Probe :> "+fn+" { "+params+" = if "+inv+"() ? "+one+" else "+zero+"; }\n"+
+				"\tattribute r = Probe"+args+";\n"),
+		read: "test::r",
+		want: want,
+	}
 }
 
 // vectorProbe reads one expression over VectorFunctions at package level.

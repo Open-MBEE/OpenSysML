@@ -370,7 +370,9 @@ The rows above and in the Function Library map say what the analysis libraries d
 table below says how much of them runs, and is measured rather than written. `TestAnalysisLibraryCensus`
 (`internal/core/runtime/library_census_test.go`) enumerates every public callable declaration each
 bundled library package makes — calc and function definitions, the calc usages a definition holds,
-action and event definitions — from the standard library's own symbol scopes, so a declaration the
+action and event definitions, and the constraint, requirement and objective usages the runtime applies
+as predicates (a function's invariants and preconditions, a trade study's objective) — from the
+standard library's own symbol scopes, so a declaration the
 library gains or loses moves the count without anyone editing a list. Each declaration has one
 representative probe (`library_census_probes_test.go`): a small model that specializes or calls it
 the way the library's own text says to, evaluated through `internal/core/runtime` with the value
@@ -402,7 +404,12 @@ name. Those refusals are the honest measure of that library until the runner lan
 worked around here. `TradeStudy::evaluationFunction` invoked directly on a study usage is refused
 (the case usage is read as a computation, not as the holder of a callable member) although the study
 itself evaluates it through its objective; that is a runtime limitation of member calc invocation on
-case usages, not of the library.
+case usages, not of the library. A `VectorFunctions` invariant is probed where its parameters are
+bound — from the result expression of a specialization of its function — so the preconditions and
+the invariants an implication discharges on the inputs evaluate, while an invariant that reads the
+function's result is refused with `ErrNoValue` (or `ErrTypeMismatch` where the result feeds an
+operator) because the result is not yet bound when the expression computing it runs; a postcondition
+checked after the result is bound is not a form the runtime offers, and none is added here.
 
 <!-- doc-counts:begin analysis-libraries -->
 **Measured by `go test ./internal/core/runtime -run TestAnalysisLibraryCensus -update-library-census`,** which writes [`analysis-library-census.json`](analysis-library-census.json); `make docs-counts` renders this block from that file and `go run ./cmd/doc-counts -check` fails when they disagree.
@@ -411,11 +418,11 @@ case usages, not of the library.
 |---|---:|---:|---:|---:|
 | `AnalysisTooling` | 0 | 0 | 0 | 0 |
 | `SampledFunctions` | 5 | 5 | 0 | 0 |
-| `TradeStudies` | 6 | 5 | 1 | 0 |
+| `TradeStudies` | 7 | 6 | 1 | 0 |
 | `StateSpaceRepresentation` | 17 | 4 | 13 | 0 |
-| `VectorFunctions` | 22 | 22 | 0 | 0 |
+| `VectorFunctions` | 39 | 30 | 9 | 0 |
 | `OccurrenceFunctions` | 8 | 6 | 2 | 0 |
-| **Total** | **58** | **42** | **16** | **0** |
+| **Total** | **76** | **51** | **25** | **0** |
 
 **Refused, by name** (the typed error the runtime answered with):
 
@@ -433,6 +440,15 @@ case usages, not of the library.
 - `StateSpaceRepresentation::DiscreteStateSpaceDynamics` — `ErrInvalidActionFlow`: initialize action: invalid action flow: no initial node found in action Spring
 - `StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference` — `ErrNotAFunction`: not a function: spring.getDifference is undetermined, not a function
 - `StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState` — `ErrNotAFunction`: not a function: spring.getNextState is undetermined, not a function
+- `VectorFunctions::+::commutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::+::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: u has no value in the model
+- `VectorFunctions::-::difference` — `ErrTypeMismatch`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::-::difference: constraint difference: require condition evaluation failed: type mismatch: operator '+' is not defined for a vector and an undetermined VectorValue
+- `VectorFunctions::scalarVectorMult::scaling` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::scalarVectorMult::scaling: constraint scaling: require condition evaluation failed: no value: condition is undetermined: w has no value in the model
+- `VectorFunctions::scalarVectorMult::zeroLength` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::scalarVectorMult::zeroLength: constraint zeroLength: require condition evaluation failed: no value: condition is undetermined: w has no value in the model
+- `VectorFunctions::inner::commmutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::inner::commmutivity: constraint commmutivity: require condition evaluation failed: no value: condition is undetermined: x has no value in the model
+- `VectorFunctions::norm::squareNorm` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::squareNorm: constraint squareNorm: require condition evaluation failed: no value: condition is undetermined: l has no value in the model
+- `VectorFunctions::norm::lengthZero` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::lengthZero: constraint lengthZero: require condition evaluation failed: no value: condition is undetermined: l has no value in the model
+- `VectorFunctions::angle::commutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model
+- `VectorFunctions::angle::lengthInsensitive` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::lengthInsensitive: constraint lengthInsensitive: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model
 - `OccurrenceFunctions::removeOld` — `ErrActionPerformanceOccurrence`: action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOld is not an action
 - `OccurrenceFunctions::removeOldAt` — `ErrActionPerformanceOccurrence`: action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOldAt is not an action
 <!-- doc-counts:end analysis-libraries -->
