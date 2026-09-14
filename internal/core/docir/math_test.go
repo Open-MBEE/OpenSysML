@@ -90,6 +90,58 @@ func TestEvaluateMath(t *testing.T) {
 	}
 }
 
+// TestEvaluateMathColumnMissingValue checks that a math column row with no
+// value at all is the same typed error as a blank one, not a dropped formula.
+func TestEvaluateMathColumnMissingValue(t *testing.T) {
+	fixture := loadEvaluationFixture(t, `
+		part def Sub {
+			attribute latex : String;
+		}
+		part telescope {
+			part optics : Sub {
+				attribute redefines latex = "f = \\frac{D}{N}";
+			}
+			part stand : Sub;
+		}
+		calc def Symbolic :> Query {
+			in root : Element;
+			Project(
+				source = OrderBy(
+					source = WhereType(source = OwnedElements(source = root), type = "Observatory::Sub"),
+					property = "name",
+					direction = "ascending",
+					missing = "last",
+					multiple = "error"
+				),
+				properties = ("name", "latex")
+			)
+		}
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			part fixed : Paragraph {
+				calc rows : Symbolic {
+					in root = telescope;
+				}
+				part expr : SpanColumn {
+					attribute redefines column = "latex";
+					attribute redefines style = "math";
+				}
+			}
+		}
+	`)
+	_, err := fixture.evaluate(t, "Report")
+	var evaluation *Error
+	if !errors.As(err, &evaluation) {
+		t.Fatalf("err = %v, want *docir.Error", err)
+	}
+	if evaluation.Kind != ErrorBlankMath || evaluation.Column != "latex" || evaluation.Row != 2 {
+		t.Fatalf("error = %+v, want blank-math on column latex row 2", evaluation)
+	}
+	if evaluation.Query == "" || !evaluation.Origin.Located() {
+		t.Fatalf("error lacks query or origin: %+v", evaluation)
+	}
+}
+
 // TestEvaluateMathColumnRuns checks query-backed math: a fixed math style
 // and a row-driven "math" style both yield math runs with verbatim LaTeX,
 // while a blank LaTeX cell is a typed error naming query, column and row.

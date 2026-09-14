@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/docplan"
+	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -342,24 +343,33 @@ func (e *evaluator) templateRuns(
 				}
 				kind = styled
 			}
-			for _, value := range cellOf(template.Column()).Values() {
+			values := cellOf(template.Column()).Values()
+			if kind == RunMath && len(values) == 0 {
+				return nil, e.blankMath(node, template, number, template.Origin())
+			}
+			for _, value := range values {
 				text := e.valueText(value)
 				if kind == RunMath && strings.TrimSpace(text) == "" {
-					return nil, &Error{
-						Kind:     ErrorBlankMath,
-						Document: e.document,
-						Content:  node.Name(),
-						Query:    node.Query().Entry(),
-						Column:   template.Column(),
-						Row:      number,
-						Origin:   value.Origin(),
-					}
+					return nil, e.blankMath(node, template, number, value.Origin())
 				}
 				runs = append(runs, TextRun{kind: kind, text: text, origin: value.Origin()})
 			}
 		}
 	}
 	return runs, nil
+}
+
+// blankMath reports a math column run whose row supplies no LaTeX to typeset.
+func (e *evaluator) blankMath(node docplan.Content, template docplan.ColumnRun, number int, origin provenance.Origin) error {
+	return &Error{
+		Kind:     ErrorBlankMath,
+		Document: e.document,
+		Content:  node.Name(),
+		Query:    node.Query().Entry(),
+		Column:   template.Column(),
+		Row:      number,
+		Origin:   origin,
+	}
 }
 
 // rowStyle reads one row's style from a span column run's style column.

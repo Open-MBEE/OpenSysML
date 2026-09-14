@@ -188,8 +188,8 @@ text comes from, plus at most one of:
 
 A `"math"` column run reads each row's value as LaTeX, so a query can typeset
 formulas stored on the model — a `latex` attribute of each relation, say. A
-row whose math value is blank is a typed evaluation error naming the query,
-column and row, since an empty formula has nothing to typeset.
+row whose math value is blank or absent is a typed evaluation error naming the
+query, column and row, since an empty formula has nothing to typeset.
 
 **`LinkColumn`** carries a required `column` for the link text and a required
 `targetColumn` naming a projected column that supplies each row's one
