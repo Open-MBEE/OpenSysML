@@ -84,6 +84,11 @@ curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/latest/download/SHA256
 shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # macOS; use sha256sum -c on Linux
 ```
 
+**Ahead of the next release:** the same archives are built from `develop` every night and
+published as the prerelease `nightly`. It is a development build, replaced nightly and never
+the `latest` release; [Nightly snapshots](../project/nightly.md) says what it contains, how to
+verify one, and what to expect from it.
+
 ## macOS: Gatekeeper
 
 If macOS refuses to run a downloaded binary with **"cannot be opened because the developer

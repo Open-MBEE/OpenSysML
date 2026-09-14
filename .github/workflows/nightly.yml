@@ -1,0 +1,193 @@
+name: Nightly snapshot
+
+# Builds the newest green `develop` commit into the release assets and publishes it
+# as the moving prerelease `nightly`, never marked latest. See docs/project/nightly.md.
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild and republish even when the newest green develop commit is already the published snapshot
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-snapshot
+  cancel-in-progress: false
+
+env:
+  BRANCH: develop
+  TAG: nightly
+
+jobs:
+  select:
+    name: Pick the commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      publish: ${{ steps.pick.outputs.publish }}
+    steps:
+      - name: Find the newest green develop commit
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          # CircleCI reports each job as a commit status; the combined state is
+          # `success` only when all passed. Unbuilt commits stay `pending` and are skipped.
+          sha=
+          while read -r candidate; do
+            state=$(gh api "repos/$GH_REPO/commits/$candidate/status" --jq .state)
+            echo "$candidate: $state"
+            if [ "$state" = success ]; then
+              sha=$candidate
+              break
+            fi
+          done < <(gh api "repos/$GH_REPO/commits?sha=$BRANCH&per_page=100" --jq '.[].sha')
+          if [ -z "$sha" ]; then
+            echo "::error::No commit among the newest 100 on $BRANCH has a green CircleCI status; nothing to publish."
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+          published=$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null || true)
+          if [ "$published" = "$sha" ] && [ "$FORCE" != true ]; then
+            echo "::notice::$TAG already points at $sha, the newest green commit on $BRANCH; nothing to rebuild."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Publishing $sha as $TAG (previously ${published:-unpublished})."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Build and publish the snapshot
+    needs: select
+    if: needs.select.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Check out the selected commit
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ needs.select.outputs.sha }}
+          # Full history: the notes count commits since the last `v*` tag.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Derive the snapshot version
+        id: version
+        run: |
+          commit=$(git rev-parse --short HEAD)
+          {
+            echo "version=nightly-$(date -u +%Y%m%d)-${commit}"
+            echo "date=$(date -u +%Y-%m-%d)"
+            echo "base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build the release artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/build-release-artifacts.sh dist
+
+      # Keyless, like the stable release; the identity is this workflow's OIDC identity.
+      - name: Sign the checksum manifest with cosign keyless
+        run: |
+          go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.3
+          cd dist
+          "$(go env GOPATH)/bin/cosign" sign-blob SHA256SUMS.txt \
+            --bundle SHA256SUMS.txt.bundle \
+            --use-signing-config=false \
+            --yes
+
+      - name: Verify the signature against the identity the snapshot page documents
+        env:
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          cd dist
+          "$(go env GOPATH)/bin/cosign" verify-blob SHA256SUMS.txt \
+            --bundle SHA256SUMS.txt.bundle \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/${WORKFLOW_REF}"
+
+      - name: Write the release notes
+        env:
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DATE: ${{ steps.version.outputs.date }}
+          BASE: ${{ steps.version.outputs.base }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          count=$(git rev-list --count "$BASE..HEAD")
+          {
+            echo "**Development snapshot of \`$BRANCH\`, not a release.** Built $DATE from"
+            echo "[\`${sha:0:7}\`](https://github.com/$GH_REPO/commit/$sha), $count commit(s) after"
+            echo "[$BASE](https://github.com/$GH_REPO/releases/tag/$BASE)"
+            echo "([compare](https://github.com/$GH_REPO/compare/$BASE...$sha)), by"
+            echo "[this workflow run]($RUN_URL). Every binary reports \`$VERSION\`."
+            echo
+            echo "The snapshot is replaced each night and is never the \`latest\` release; Homebrew,"
+            echo "PyPI, npm and the Windows installer follow the stable line only. The"
+            echo "[snapshot page](https://opensysml.org/project/nightly/) explains what it is, how"
+            echo "to verify it and what to expect from it; the"
+            echo "[install guide](https://opensysml.org/guide/01-install/) covers the stable releases."
+            echo
+            echo "Verify a download against the signed manifest:"
+            echo
+            echo '```bash'
+            echo "sha256sum -c --ignore-missing SHA256SUMS.txt"
+            echo "cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com \\"
+            echo "  --certificate-identity https://github.com/$WORKFLOW_REF"
+            echo '```'
+            echo
+            echo "## Unreleased changes in this snapshot"
+            echo
+            echo "One line per entry; the full text is under"
+            echo "[\`changes/unreleased/\`](https://github.com/$GH_REPO/tree/$sha/changes/unreleased)"
+            echo "and \`CHANGELOG.md\` at this commit."
+            echo
+            # GitHub caps a release body at 125,000 characters; a one-line summary stays far under it.
+            python3 scripts/changelog.py summary | head -c 100000
+          } > notes.md
+          cat notes.md
+
+      # Recreated rather than edited, so no asset of a previous night survives.
+      # `gh release delete` leaves the tag behind; it is moved by hand.
+      - name: Publish the prerelease at the moving tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DATE: ${{ steps.version.outputs.date }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          if gh release view "$TAG" --json tagName >/dev/null 2>&1; then
+            gh release delete "$TAG" --yes
+          fi
+          git tag --force "$TAG" "$sha"
+          git push --force origin "refs/tags/$TAG"
+          gh release create "$TAG" \
+            --target "$sha" \
+            --title "Nightly snapshot $DATE ($VERSION)" \
+            --notes-file notes.md \
+            --prerelease \
+            --latest=false \
+            dist/*.tar.gz dist/*.zip dist/SHA256SUMS.txt dist/SHA256SUMS.txt.bundle \
+            dist/grpc/sysml-grpc-*
+          gh release view "$TAG" --json url,assets --jq '.url, (.assets[].name)'

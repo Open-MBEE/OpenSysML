@@ -61,6 +61,8 @@ within these records and means nothing outside this repository.
   [0.6 against 0.4.2](performance-release-0.6-vs-0.4.2.md) and
   [0.5 against 0.4.3](performance-release-0.5-vs-0.4.3.md) records precede it
 - **[Roadmap](roadmap.md)** — the known gaps, in the order they should be picked up
+- **[Nightly snapshots](nightly.md)** — the prerelease built from `develop` every night: where it
+  is, what it contains, and how to verify one
 - **[Releasing](releasing.md)** — the pre-tag gate, tagging, artifacts, Homebrew
 - **[macOS distribution](macos-distribution.md)** — Gatekeeper and the signing decision
 - **[Bugs in the OMG materials](omg-issues.md)** — defects in the vendored specification
