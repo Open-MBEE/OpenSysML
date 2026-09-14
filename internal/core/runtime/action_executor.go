@@ -34,6 +34,10 @@ type ActionExecutor struct {
 	// tool is the ToolExecution annotating performed, whose tool performs the action in
 	// place of its body; nil for an action performed by its body.
 	tool *toolExecution
+	// dynamicsKind is the library state-space dynamics the action specializes, if
+	// either; dynamics is the run stepping it, once initialized.
+	dynamicsKind lower.StateSpaceKind
+	dynamics     *stateSpaceRun
 	// occurrence is the action performance materialized for a performed usage. It
 	// holds what the action's own features hold, and data mirrors it.
 	occurrence *Instance
@@ -165,6 +169,7 @@ func newActionExecutorOn(
 		action:       action,
 		performed:    performed,
 		tool:         tool,
+		dynamicsKind: ctx.stateSpaceKindOf(action),
 		occurrence:   occurrence,
 		graph:        graph,
 		tokens:       make([]Token, 0),
@@ -385,7 +390,7 @@ func (e *ActionExecutor) tokensProgressed(countBefore int, locationsBefore []ast
 		return true
 	}
 	for i := 0; i < len(e.tokens) && i < len(locationsBefore); i++ {
-		if e.tokens[i].Location != locationsBefore[i] {
+		if e.tokens[i].Location != locationsBefore[i] || e.moving(e.tokens[i]) {
 			return true
 		}
 	}
@@ -1093,7 +1098,7 @@ func (e *ActionExecutor) setFrameFeatures(frame *actionFrame, values map[string]
 // hasFlow reports whether the action states a flow to start: an action with no
 // step performs none, while one whose steps give no start fails to initialize.
 func (e *ActionExecutor) hasFlow() bool {
-	return e.graph != nil && (e.graph.Initial != nil || statesSteps(e.graph))
+	return e.graph != nil && (e.graph.Initial != nil || statesSteps(e.graph) || e.dynamicsKind != lower.NotStateSpace)
 }
 
 // statesSteps reports whether the graph has a step to perform, a final node aside.
@@ -1238,6 +1243,9 @@ func (e *ActionExecutor) checkInputNames() error {
 func (e *ActionExecutor) initialize() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
+	if e.dynamicsKind != lower.NotStateSpace {
+		return e.initializeDynamics()
+	}
 	if e.graph.Initial == nil {
 		return fmt.Errorf("%w: no initial node found in action %s%s",
 			ErrInvalidActionFlow, e.action.Name, noFlowStart(e.graph))
@@ -1278,6 +1286,9 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	}
 	defer e.beginTokenStep(e.tokens[tokenIdx].ID)()
 
+	if e.dynamics != nil {
+		return e.stepDynamics(tokenIdx)
+	}
 	if e.tokens[tokenIdx].body != nil {
 		return e.resumeBody(tokenIdx)
 	}
@@ -1602,6 +1613,9 @@ func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready b
 		return false, nil
 	}
 	t := e.tokens[i]
+	if e.dynamics != nil {
+		return e.dynamicsDue(t), nil
+	}
 	usage, ok := t.Location.(*ast.Usage)
 	if !ok || t.body != nil {
 		return true, nil
@@ -2324,12 +2338,12 @@ func (e *ActionExecutor) watchesChange() bool {
 // runDue runs the action to quiescence at the current instant; the steps it takes
 // count against the drive's budget together with those already taken.
 func (e *ActionExecutor) runDue(progress *dueProgress) (bool, error) {
-	before, positions := e.stepCount, e.tokenPositions()
+	before, positions, taken := e.stepCount, e.tokenPositions(), e.dynamicsSteps()
 	e.stepsSpent = progress.steps
 	err := e.run(true)
 	e.stepsSpent = 0
 	progress.steps += int64(e.stepCount - before)
-	return e.state != StateWaiting || !maps.Equal(positions, e.tokenPositions()), err
+	return e.state != StateWaiting || !maps.Equal(positions, e.tokenPositions()) || e.dynamicsSteps() != taken, err
 }
 
 // tokenPositions maps each token to where it stands, for telling a step that

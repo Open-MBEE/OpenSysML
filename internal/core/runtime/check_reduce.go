@@ -47,6 +47,9 @@ func (c *checker) footprintOf(m enabledMove) lower.Footprint {
 // standing is the footprint of the node the token stands at; a body paused
 // mid-statement goes on with the rest of that node's, which the node's covers.
 func (c *checker) standing(exec *ActionExecutor, t Token) lower.Footprint {
+	if exec.dynamics != nil {
+		return dynamicsFootprint()
+	}
 	return tokenGraphOf(exec, t).Footprints()[t.Location]
 }
 
@@ -172,6 +175,9 @@ func (c *checker) machineFuture(e *StateExecutor) lower.Footprint {
 // tokenFuture is what the token may still touch: every node reachable from its
 // own, the one it stands at included, and from the nodes its frames stand at.
 func (c *checker) tokenFuture(exec *ActionExecutor, t Token) lower.Footprint {
+	if exec.dynamics != nil {
+		return dynamicsFootprint()
+	}
 	future := c.reach(tokenGraphOf(exec, t), t.Location)
 	for frame := t.frame; frame != nil && frame.node != nil; frame = frame.parent {
 		flow := frame.flow

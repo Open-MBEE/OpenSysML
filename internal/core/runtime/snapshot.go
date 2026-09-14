@@ -415,6 +415,7 @@ type actionCapture struct {
 	awaiting          *actionFrame
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	driven            *runState
+	dynamics          *stateSpaceRun
 	frames            []frameCapture
 	// bodies are the paused work of the tokens, which the tokens keep by identity.
 	bodies []*bodyCapture
@@ -430,6 +431,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		driven:           e.driven.state,
+		dynamics:         e.dynamics.clone(),
 	}
 	for _, perf := range e.reachableFrames() {
 		c.frames = append(c.frames, captureFrame(perf))
@@ -446,6 +448,7 @@ func (c actionCapture) restore() {
 	e.moved, e.awaiting = c.moved, c.awaiting
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.driven.state = c.driven
+	e.dynamics = c.dynamics.clone()
 	for _, perf := range c.frames {
 		perf.restore()
 	}

@@ -146,6 +146,9 @@ func (e *ActionExecutor) enabledMoves() []enabledMove {
 
 // moveKindOf classifies the move of an enabled token by its node.
 func (e *ActionExecutor) moveKindOf(t Token) moveKind {
+	if e.dynamics != nil {
+		return moveTrigger
+	}
 	if t.body != nil {
 		return moveResume
 	}
