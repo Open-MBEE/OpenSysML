@@ -574,22 +574,27 @@ type memberHead struct {
 	// typeFeature marks a KerML `member` (TypeFeatureMember): a feature its type
 	// owns through a plain OwningMembership rather than a FeatureMembership.
 	typeFeature bool
+	// local is the subject of a declaration inside an expression body, which has
+	// no qualified name and no owning namespace: the body positions it.
+	local rdf.Term
 }
 
 func (e *encoder) head(subject rdf.Term, h memberHead) {
 	node, visibility, fqn, ownerTerm, index, metaclass, lines, inline :=
 		h.node, h.visibility, h.fqn, h.owner, h.index, h.metaclass, h.lines, h.inline
 	e.graph.Add(subject, rdf.IRI(rdf.RDFType), metaclass)
-	e.graph.Add(subject, e.sysml(pQualifiedName), rdf.String(fqn))
+	if h.local.Value == "" {
+		e.graph.Add(subject, e.sysml(pQualifiedName), rdf.String(fqn))
+		e.offsets[subject.Value] = node.Span().Offset
+	}
 	// The id an API reader addresses the element by, which is the id its own
 	// IRI ends in, so the two cannot disagree.
 	e.graph.Add(subject, e.sysml(pElementID), rdf.String(rdf.LocalName(subject.Value)))
 	e.graph.Add(subject, e.sysx(xMemberIndex), rdf.Int(index))
-	e.offsets[subject.Value] = node.Span().Offset
 	if !inline {
 		e.regions[subject] = lines
 	}
-	if language := languageName(e.file.Kind()); ownerTerm.Value == "" && language != "" {
+	if language := languageName(e.file.Kind()); ownerTerm.Value == "" && h.local.Value == "" && language != "" {
 		e.graph.Add(subject, e.sysx(xSourceLanguage), rdf.String(language))
 	}
 	if e.ids.declaredIDAt(node) {
@@ -619,20 +624,40 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 
 // encodeMember maps one member: h.node is the declaration inside its membership
 // wrapper and h.lines the text of the member, wrapper and all, unless inline;
-// owner is the qualified name of the namespace the member is declared in.
+// owner is the qualified name of the namespace the member is declared in, or of
+// the member whose expression body declares it when h.local names it.
 func (e *encoder) encodeMember(h memberHead, owner string) error {
 	node, ownerTerm, index := h.node, h.owner, h.index
 	name, _ := declaredNameAndMembers(node)
 	fqn := qualify(owner, name, index)
-	subject, err := e.mint(node, fqn)
-	if err != nil {
-		return err
+	subject := h.local
+	local := subject.Value != ""
+	// within is the member the expressions written here are part of.
+	within := fqn
+	if local {
+		if err := e.localShape(node); err != nil {
+			return err
+		}
+		fqn, within = "", owner
+	} else {
+		var err error
+		if subject, err = e.mint(node, fqn); err != nil {
+			return err
+		}
 	}
 	// A bare expression among a body's members is the result the body computes.
 	result := ast.IsExpression(node)
 	head := func(metaclass rdf.Term) {
 		h.fqn, h.metaclass = fqn, metaclass
 		e.head(subject, h)
+	}
+	// A body's members are those of the namespace the member declares; a local
+	// member's body declares into the expression body it lies in.
+	members := func(members []ast.Node) error {
+		if local {
+			return e.bodyDeclarations(subject, within, nil, members)
+		}
+		return e.encode(members, fqn, subject)
 	}
 
 	switch n := node.(type) {
@@ -647,7 +672,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
-		return e.encode(n.Members, fqn, subject)
+		return members(n.Members)
 
 	case *ast.Namespace:
 		head(rdf.SysMLTerm("Namespace"))
@@ -656,7 +681,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
-		return e.encode(n.Members, fqn, subject)
+		return members(n.Members)
 
 	case *ast.Definition:
 		metaclass, ok := definitionMetaclass[n.Kind]
@@ -682,10 +707,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		e.relationships(subject, owner, n.Relationships)
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
-		return e.encode(n.Members, fqn, subject)
+		return members(n.Members)
 
 	case *ast.Usage:
-		inBody := e.metadataBodies[owner]
+		inBody := !local && e.metadataBodies[owner]
 		metaclass, ok := usageMetaclassOf(n, inBody)
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("usage kind %q at %s", n.Kind, e.where(n))}
@@ -749,23 +774,29 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysml(pPortionKind), rdf.String(portion))
 		}
 		e.relationships(subject, owner, n.Relationships)
-		e.multiplicity(subject, owner, n.Multiplicity)
+		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
+			return err
+		}
 		if err := e.crossFeature(subject, fqn, n); err != nil {
 			return err
 		}
-		e.featureValue(subject, owner, n.Value, n.ValueIsDefault, n.ValueIsInitial)
+		if err := e.featureValue(subject, within, n.Value, n.ValueIsDefault, n.ValueIsInitial); err != nil {
+			return err
+		}
 		// A declaration head that binds ends (connect/bind/flow/succession),
 		// a transition, an accept action or a satisfy usage states its ends
 		// and form structurally, since the properties above do not.
 		if verbatimUsage(n) {
-			e.bindingEnds(subject, owner, n)
+			if err := e.bindingEnds(subject, within, n); err != nil {
+				return err
+			}
 			e.endForm(subject, n)
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
-		if inBody || n.Kind == ast.UsageMetadata {
+		if !local && (inBody || n.Kind == ast.UsageMetadata) {
 			e.metadataBodies[fqn] = true
 		}
-		return e.encode(bodyMembers(n), fqn, subject)
+		return members(bodyMembers(n))
 
 	case *ast.Import:
 		head(rdf.SysMLTerm("Import"))
@@ -776,16 +807,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{xRecursive, n.IsRecursive},
 			{xExpose, n.IsExpose},
 		})
-		e.expression(subject, e.sysx(xFilter), xFilter, owner, n.FilterExpr)
+		if err := e.expression(subject, e.sysx(xFilter), xFilter, within, n.FilterExpr); err != nil {
+			return err
+		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
-		return e.encode(n.Body, fqn, subject)
+		return members(n.Body)
 
 	case *ast.Alias:
 		head(rdf.OpenSysMLTerm(mAlias))
 		e.ident(subject, n.Ident)
 		e.graph.Add(subject, e.sysml(pAliasFor), e.reference(n.For))
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
-		return e.encode(n.Body, fqn, subject)
+		return members(n.Body)
 
 	case *ast.RelationshipMember:
 		form, ok := relationshipElementForm[n.Kind]
@@ -804,7 +837,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		e.relationshipEnd(subject, owner, form.source, n.Source)
 		e.relationshipEnd(subject, owner, form.target, n.Target)
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
-		return e.encode(n.Members, fqn, subject)
+		return members(n.Members)
 
 	case *ast.Dependency:
 		head(rdf.SysMLTerm("Dependency"))
@@ -819,7 +852,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
-		return e.encode(n.Body, fqn, subject)
+		return members(n.Body)
 
 	case *ast.Comment:
 		head(rdf.SysMLTerm("Comment"))
@@ -848,14 +881,16 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	case *ast.MultiplicityDecl:
 		head(rdf.OpenSysMLTerm(mMultiplicity))
 		e.ident(subject, n.Ident)
-		e.multiplicity(subject, owner, n.Range)
+		if err := e.multiplicity(subject, within, n.Range); err != nil {
+			return err
+		}
 		// A MultiplicitySubset states its bounds by subsetting, not as a range.
 		if n.Subsets != nil {
 			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelSubsets]),
 				e.reference(n.Subsets))
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
-		return e.encode(n.Members, fqn, subject)
+		return members(n.Members)
 
 	case *ast.ConstraintMember:
 		// A condition of a constraint body, written bare (`x > 0`) or as a
@@ -868,11 +903,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(n.Keyword))
 		}
 		e.flags(subject, []boolProperty{{"isNegated", n.IsNegated}})
-		return e.condition(subject, fqn, owner, n.Expression, nil, true, n.Body)
+		return e.condition(subject, fqn, within, n.Expression, nil, true, n.Body)
 
 	case *ast.AssumeMember:
 		head(rdf.OpenSysMLTerm(mAssume))
-		return e.requirementCondition(subject, fqn, owner, requirementConditionDecl{
+		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
 			expression: n.Expression, reference: n.Reference, hasBody: n.HasBody, body: n.Body,
@@ -880,7 +915,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 
 	case *ast.RequireMember:
 		head(rdf.OpenSysMLTerm(mRequire))
-		return e.requirementCondition(subject, fqn, owner, requirementConditionDecl{
+		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
 			expression: n.Expression, reference: n.Reference, hasBody: n.HasBody, body: n.Body,
@@ -904,15 +939,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.relationships(subject, owner, n.Relationships)
-		e.multiplicity(subject, owner, n.Multiplicity)
-		e.featureValue(subject, owner, n.BindingExpr, n.ValueIsDefault, n.ValueIsInitial)
+		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
+			return err
+		}
+		if err := e.featureValue(subject, within, n.BindingExpr, n.ValueIsDefault, n.ValueIsInitial); err != nil {
+			return err
+		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		return e.encode(n.Body, fqn, subject)
 
 	case *ast.FilterMember:
 		head(rdf.OpenSysMLTerm(mFilter))
-		e.expression(subject, e.sysx(xFilter), xFilter, owner, n.Condition)
-		return nil
+		return e.expression(subject, e.sysx(xFilter), xFilter, within, n.Condition)
 
 	case *ast.ErrorNode:
 		return &UnsupportedError{
@@ -925,7 +963,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	if result {
 		head(rdf.SysMLTerm(expressionMetaclass(node)))
 		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-		e.expressionStructure(subject, owner, node)
+		if err := e.expressionStructure(subject, within, node); err != nil {
+			return err
+		}
 		if membership, ok := e.graph.Object(subject, rdf.SysML+pOwningMembership); ok {
 			e.graph.Add(membership, e.sysml(pOwnedResultExpression), subject)
 		}
@@ -933,13 +973,41 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	}
 	// A behavioral node — a control node, statement, loop, conditional, state or
 	// transition — is mapped by the behavior half of this encoder.
-	if handled, err := e.encodeBehavior(node, head, subject, fqn, owner, index); handled {
+	if handled, err := e.encodeBehavior(node, head, subject, fqn, within, index); handled {
 		return err
 	}
 	return &UnsupportedError{
 		What: fmt.Sprintf("the %s at %s", nodeDescription(node), e.where(node)),
 		Note: rdfLimitationsNote,
 	}
+}
+
+// localShape refuses a declaration an expression body cannot hold: one whose parts
+// (a prefix, a cross feature, an annotation) need a qualified name to be minted under.
+func (e *encoder) localShape(node ast.Node) error {
+	unsupported := func(note string) error {
+		return &UnsupportedError{
+			What: fmt.Sprintf("the %s at %s", nodeDescription(node), e.where(node)),
+			Note: note + " inside an expression body; " + rdfLimitationsNote,
+		}
+	}
+	if len(declaredPrefixes(node)) > 0 {
+		return unsupported("a `#M` prefix annotation has no qualified name to be minted under")
+	}
+	switch n := node.(type) {
+	case *ast.Usage:
+		if n.CrossFeature != nil {
+			return unsupported("an end's cross feature has no qualified name to be minted under")
+		}
+		return nil
+	case *ast.PrefixMetadata:
+		return unsupported("a `@M` annotation has no qualified name to be minted under")
+	case *ast.Package, *ast.Namespace, *ast.Definition, *ast.Import, *ast.Alias,
+		*ast.RelationshipMember, *ast.Dependency, *ast.Comment, *ast.Documentation,
+		*ast.TextualRepresentation, *ast.MultiplicityDecl, *ast.ErrorNode:
+		return nil
+	}
+	return unsupported("only a namespace, type, feature, relationship or annotation declaration is mapped")
 }
 
 // owningMembership wires a member to its owner the way the abstract syntax does,
@@ -1097,8 +1165,7 @@ func isRelationship(metaclass string) bool {
 // nested constraint stating its conditions in a body.
 func (e *encoder) condition(subject rdf.Term, fqn, owner string, expr ast.Node, ref *ast.QualifiedName, hasBody bool, body []ast.Node) error {
 	if expr != nil {
-		e.expression(subject, e.sysx(xCondition), xCondition, owner, expr)
-		return nil
+		return e.expression(subject, e.sysx(xCondition), xCondition, owner, expr)
 	}
 	if ref != nil {
 		e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelReferences]), e.reference(ref))
@@ -1136,8 +1203,12 @@ func (e *encoder) requirementCondition(subject rdf.Term, fqn, owner string, n re
 		return err
 	}
 	e.relationships(subject, owner, n.relationships)
-	e.multiplicity(subject, owner, n.multiplicity)
-	e.featureValue(subject, owner, n.value, n.isDefault, n.isInitial)
+	if err := e.multiplicity(subject, owner, n.multiplicity); err != nil {
+		return err
+	}
+	if err := e.featureValue(subject, owner, n.value, n.isDefault, n.isInitial); err != nil {
+		return err
+	}
 	return e.condition(subject, fqn, owner, n.expression, n.reference, n.hasBody, n.body)
 }
 
@@ -1186,7 +1257,7 @@ func verbatimUsage(n *ast.Usage) bool {
 
 // bindingEnds states the features a binding head relates as structure beside the
 // text it is kept as, so a consumer reads the ends without reading notation.
-func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) {
+func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) error {
 	// A named end (`connect bead ::> t.bead`) relates the feature it attaches
 	// to and carries its own name beside it.
 	for i, end := range n.ConnectorEnds {
@@ -1194,7 +1265,9 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) {
 			continue
 		}
 		slot := fmt.Sprintf("end%d", i)
-		e.endNode(subject, owner, slot, i, "", end.AttachedTarget(), end.Multiplicity)
+		if err := e.endNode(subject, owner, slot, i, "", end.AttachedTarget(), end.Multiplicity); err != nil {
+			return err
+		}
 		if id, named := end.DeclaredName(); named {
 			node := rdf.ExpressionIRI(subject, slot)
 			e.graph.Add(node, e.sysx(xEndName), rdf.String(id.Name))
@@ -1203,32 +1276,47 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) {
 			}
 		}
 	}
-	if n.FlowEnds != nil {
-		e.endNode(subject, owner, "flowSource", 0, "source", n.FlowEnds.From, nil)
-		e.endNode(subject, owner, "flowTarget", 1, "target", n.FlowEnds.To, nil)
-		e.endNode(subject, owner, "flowPayload", -1, "payload", n.FlowEnds.Payload, nil)
+	if n.FlowEnds == nil {
+		return nil
 	}
+	for _, end := range []struct {
+		slot   string
+		index  int
+		role   string
+		target ast.Node
+	}{
+		{"flowSource", 0, "source", n.FlowEnds.From},
+		{"flowTarget", 1, "target", n.FlowEnds.To},
+		{"flowPayload", -1, "payload", n.FlowEnds.Payload},
+	} {
+		if err := e.endNode(subject, owner, end.slot, end.index, end.role, end.target, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // endNode emits one end as an expression node, tagged with its position.
-func (e *encoder) endNode(subject rdf.Term, owner, slot string, index int, role string, target ast.Node, mult *ast.Multiplicity) {
+func (e *encoder) endNode(subject rdf.Term, owner, slot string, index int, role string, target ast.Node, mult *ast.Multiplicity) error {
 	if target == nil {
-		return
+		return nil
 	}
-	e.expression(subject, e.sysx(xRelatedFeature), slot, owner, target)
-	e.endMarks(rdf.ExpressionIRI(subject, slot), owner, index, role, mult)
+	if err := e.expression(subject, e.sysx(xRelatedFeature), slot, owner, target); err != nil {
+		return err
+	}
+	return e.endMarks(rdf.ExpressionIRI(subject, slot), owner, index, role, mult)
 }
 
 // endMarks tags an end node with its position, role and the bounds of the
 // multiplicity written ahead of it (`connect [1] a to [0..1] b`).
-func (e *encoder) endMarks(end rdf.Term, owner string, index int, role string, mult *ast.Multiplicity) {
+func (e *encoder) endMarks(end rdf.Term, owner string, index int, role string, mult *ast.Multiplicity) error {
 	if index >= 0 {
 		e.graph.Add(end, e.sysx(xEndIndex), rdf.Int(index))
 	}
 	if role != "" {
 		e.graph.Add(end, e.sysx(xEndRole), rdf.String(role))
 	}
-	e.multiplicity(end, owner, mult)
+	return e.multiplicity(end, owner, mult)
 }
 
 func (e *encoder) sysml(name string) rdf.Term { return rdf.SysMLTerm(name) }
@@ -1254,15 +1342,18 @@ func (e *encoder) ident(subject rdf.Term, ident ast.Identification) {
 
 // featureValue emits a feature's value with the `default` and `:=` of its
 // operator (FeatureValue::isDefault, isInitial), so the operator converts back.
-func (e *encoder) featureValue(subject rdf.Term, owner string, value ast.Node, isDefault, isInitial bool) {
+func (e *encoder) featureValue(subject rdf.Term, owner string, value ast.Node, isDefault, isInitial bool) error {
 	if value == nil {
-		return
+		return nil
 	}
-	e.expression(subject, e.sysml(pValue), pValue, owner, value)
+	if err := e.expression(subject, e.sysml(pValue), pValue, owner, value); err != nil {
+		return err
+	}
 	e.flags(subject, []boolProperty{
 		{pIsDefault, isDefault},
 		{pIsInitial, isInitial},
 	})
+	return nil
 }
 
 func (e *encoder) flags(subject rdf.Term, flags []boolProperty) {
@@ -1349,8 +1440,7 @@ func (e *encoder) crossFeature(subject rdf.Term, fqn string, n *ast.Usage) error
 		e.graph.Add(crossSubject, e.sysml(pDirection), rdf.String(keyword))
 	}
 	e.relationships(crossSubject, fqn, cross.Relationships)
-	e.multiplicity(crossSubject, fqn, cross.Multiplicity)
-	return nil
+	return e.multiplicity(crossSubject, crossFQN, cross.Multiplicity)
 }
 
 // metadataUsage states an annotation's definition, the elements it is about and
@@ -1458,19 +1548,20 @@ func (e *encoder) relationshipEnd(subject rdf.Term, owner, property string, end 
 	e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(end), rdf.OpenSysML+dtExpression))
 }
 
-func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multiplicity) {
+func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multiplicity) error {
 	if mult == nil {
-		return
+		return nil
 	}
 	// The parser puts the single bound of `[n]` in Lower; the language reads
 	// that as lower and upper both being n, so it is written as the upper bound
 	// alone and the printer renders it back as `[n]`.
 	if !mult.IsRange {
-		e.expression(subject, e.sysml(pUpperBound), pUpperBound, owner, mult.Lower)
-		return
+		return e.expression(subject, e.sysml(pUpperBound), pUpperBound, owner, mult.Lower)
 	}
-	e.expression(subject, e.sysml(pLowerBound), pLowerBound, owner, mult.Lower)
-	e.expression(subject, e.sysml(pUpperBound), pUpperBound, owner, mult.Upper)
+	if err := e.expression(subject, e.sysml(pLowerBound), pLowerBound, owner, mult.Lower); err != nil {
+		return err
+	}
+	return e.expression(subject, e.sysml(pUpperBound), pUpperBound, owner, mult.Upper)
 }
 
 // reference renders a name reference as a link when it resolves to an element

@@ -2087,7 +2087,8 @@ func (p *Parser) parseUsageIdentification(kind ast.UsageKind) ast.Identification
 
 // atGuardedSuccession reports whether the succession being read states a guard
 // between its ends (`succession [name] first a if g then b`), which is the
-// GuardedSuccession production and so a transition, not a connector.
+// GuardedSuccession production and so a transition, not a connector. The scan
+// stops at the member's end, however long its source end is.
 func (p *Parser) atGuardedSuccession() bool {
 	i := 0
 	if p.peek().Kind == lexer.Identifier || p.peek().Kind == lexer.UnrestrictedName {
@@ -2096,7 +2097,7 @@ func (p *Parser) atGuardedSuccession() bool {
 	if !p.peekIsKeyword(i, "first") {
 		return false
 	}
-	for depth := 0; i < 60; i++ {
+	for depth := 0; ; i++ {
 		tok := p.peekN(i)
 		switch tok.Kind {
 		case lexer.EOF, lexer.Semicolon, lexer.LBrace, lexer.RBrace:
@@ -2114,7 +2115,6 @@ func (p *Parser) atGuardedSuccession() bool {
 			}
 		}
 	}
-	return false
 }
 
 // parseUsage parses a usage. keyword is the kind keyword as consumed from the

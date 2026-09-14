@@ -39,12 +39,13 @@ func (p *Parser) atChainedFirstSuccession() bool {
 
 // atTwoEndedFirst reports whether the `first` at the cursor names both ends —
 // `first <source> then <target>` — before its member ends, as opposed to the
-// one-ended `first <node>;` form that opens an InitialNodeMember.
+// one-ended `first <node>;` form that opens an InitialNodeMember. The scan
+// stops at the member's end, however long its source end is.
 func (p *Parser) atTwoEndedFirst() bool {
 	if !p.atKeyword("first") {
 		return false
 	}
-	for depth, i := 0, 1; i < 60; i++ {
+	for depth, i := 0, 1; ; i++ {
 		tok := p.peekN(i)
 		switch tok.Kind {
 		case lexer.EOF, lexer.Semicolon, lexer.LBrace, lexer.RBrace:
@@ -59,7 +60,6 @@ func (p *Parser) atTwoEndedFirst() bool {
 			}
 		}
 	}
-	return false
 }
 
 // nonOccurrenceUsageKeywords are the usage keywords a `then` may not precede:

@@ -116,6 +116,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("action_whose_last_node_has_no_succession", testActionWhoseLastNodeHasNoSuccession)
 	t.Run("first_node_with_a_second_succession", testFirstNodeWithASecondSuccession)
 	t.Run("first_beside_an_initial_node", testFirstBesideAnInitialNode)
+	t.Run("two_one_ended_firsts", testTwoOneEndedFirsts)
 	t.Run("first_naming_a_final_node", testFirstNamingAFinalNode)
 	t.Run("fork_branches_assigning_the_same_feature", testForkBranchesAssigningTheSameFeature)
 	t.Run("decision_no_satisfied_guard", testDecisionNoSatisfiedGuard)
@@ -436,6 +437,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("coordinate_frame_failure_modes", testCoordinateFrameFailureModes)
 	t.Run("object_exhibited_machine_never_settles", testObjectExhibitedMachineNeverSettles)
 	t.Run("object_exhibited_machine_without_an_initial_state", testObjectExhibitedMachineWithoutAnInitialState)
+	t.Run("object_exhibited_machine_whose_only_edge_is_a_first_succession", testObjectExhibitedMachineWhoseOnlyEdgeIsAFirstSuccession)
 	t.Run("object_exhibited_machine_attribute_write_violates_multiplicity", testObjectExhibitedMachineAttributeWriteViolatesMultiplicity)
 	t.Run("object_performed_action_attribute_write_violates_multiplicity", testObjectPerformedActionAttributeWriteViolatesMultiplicity)
 	t.Run("object_performed_action_occurrence_holds_a_non_object", testObjectPerformedActionOccurrenceHoldsANonObject)
@@ -3503,9 +3505,9 @@ func testStateTransitionEndpointInAnotherMachine(t *testing.T) {
 	}
 }
 
-// testStateTransitionEndpointNamingAFirstMarker: a `first m then x` marker is no
-// vertex, so an endpoint naming one is reported by the state transition check and
-// backstopped here with a typed error rather than a panic.
+// testStateTransitionEndpointNamingAFirstMarker: a one-ended `first m;` marker is
+// no vertex, so an endpoint naming one is reported by the state transition check
+// and backstopped here with a typed error rather than a panic.
 func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 	src := `package test {
 		state Machine {
@@ -3513,7 +3515,7 @@ func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 			state init;
 			state busy;
 			state other;
-			first marker then other;
+			first marker;
 			succession first init then busy;
 			transition first busy then marker;
 		}
@@ -6435,8 +6437,8 @@ func testActionWhoseLastNodeHasNoSuccession(t *testing.T) {
 	}
 }
 
-// testFirstNodeWithASecondSuccession: the succession out of a `first` end leaves
-// from the node it names, so a second succession out of that node is ambiguous.
+// testFirstNodeWithASecondSuccession: `first s1 then s2;` is a succession out of
+// s1, so a second succession out of that node is ambiguous.
 func testFirstNodeWithASecondSuccession(t *testing.T) {
 	src := `
 		package test {
@@ -6470,8 +6472,9 @@ func testFirstNodeWithASecondSuccession(t *testing.T) {
 	}
 }
 
-// testFirstBesideAnInitialNode: a body declaring an initial node of its own and a
-// `first` end naming a declared node states two starts, which lowering rejects.
+// testFirstBesideAnInitialNode: `first s1 then s2;` beside `first start;` is the
+// succession s1 -> s2, not a second start: start is the initial node and has no
+// edge of its own.
 func testFirstBesideAnInitialNode(t *testing.T) {
 	src := `
 		package test {
@@ -6480,6 +6483,56 @@ func testFirstBesideAnInitialNode(t *testing.T) {
 				action s2;
 				first start;
 				first s1 then s2;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "seq", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action seq not found")
+	}
+
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	initial, ok := exec.graph.Initial.(*ast.InitialNode)
+	if !ok || initial.Name != "start" {
+		t.Fatalf("initial node = %T, want the `first start;` marker", exec.graph.Initial)
+	}
+	if edges := exec.graph.Edges[initial]; len(edges) != 0 {
+		t.Fatalf("start has %d successions, want none", len(edges))
+	}
+	var s1, s2 ast.Node
+	for _, node := range exec.graph.Nodes {
+		if u, ok := node.(*ast.Usage); ok {
+			switch u.Ident.Name {
+			case "s1":
+				s1 = node
+			case "s2":
+				s2 = node
+			}
+		}
+	}
+	if s1 == nil || s2 == nil {
+		t.Fatal("s1 and s2 are not both nodes of the graph")
+	}
+	if edges := exec.graph.Edges[s1]; len(edges) != 1 || edges[0].Target != s2 {
+		t.Fatalf("successions out of s1 = %d, want exactly s1 -> s2", len(edges))
+	}
+}
+
+// testTwoOneEndedFirsts: two one-ended `first` ends each mark a start, and a
+// body has one, so lowering rejects them.
+func testTwoOneEndedFirsts(t *testing.T) {
+	src := `
+		package test {
+			action seq {
+				action a;
+				action b;
+				first a;
+				first b;
 			}
 		}
 	`
@@ -6506,7 +6559,7 @@ func testFirstNamingAFinalNode(t *testing.T) {
 				attribute x = 0;
 				action s1 { assign x := 7; }
 				done;
-				first done then s1;
+				first done;
 			}
 		}
 	`
@@ -12378,6 +12431,29 @@ func testObjectExhibitedMachineWithoutAnInitialState(t *testing.T) {
 			exhibit state modes {
 				state off;
 				state on;
+			}
+		}
+	}`
+	_, _, err := instantiateInSource(t, src, "test::Controller")
+	if err == nil {
+		t.Fatal("expected an error for a machine with no initial state")
+	}
+	if !strings.Contains(err.Error(), "modes") || !strings.Contains(err.Error(), "initial") {
+		t.Errorf("error = %v, want one naming the machine and its missing initial state", err)
+	}
+}
+
+// testObjectExhibitedMachineWhoseOnlyEdgeIsAFirstSuccession: `first b then c;`
+// orders two states and enters neither, so a machine with no entry marker is
+// reported as having no initial state rather than started in c.
+func testObjectExhibitedMachineWhoseOnlyEdgeIsAFirstSuccession(t *testing.T) {
+	src := `
+	package test {
+		part def Controller {
+			exhibit state modes {
+				state b;
+				state c;
+				first b then c;
 			}
 		}
 	}`

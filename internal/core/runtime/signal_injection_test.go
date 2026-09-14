@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1671,4 +1672,236 @@ func activeLeaf(exec *StateExecutor) string {
 		return ""
 	}
 	return states[len(states)-1].Name
+}
+
+// A message built from outside the model is taken by the accept a performed
+// action's token is parked at — in its own flow, or in an action nested in it —
+// and AcceptTaking names that accept; posted, it wakes the object's action.
+func TestAcceptTakingNamesThePerformedActionsAccept(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		attribute def Go { attribute n : Integer; }
+		attribute def Halt;
+		attribute def Other;
+		part def Waiter {
+			attribute total : Integer = 0;
+			attribute heard : Integer = 0;
+			perform action main {
+				first start;
+				then action w1 accept g : Go;
+				then action a1 assign total := total + g.n;
+				then done;
+			}
+			perform action outer {
+				first start;
+				then action inner {
+					first start;
+					then action listen accept h : Halt;
+					then action mark assign heard := 1;
+					then done;
+				}
+				then done;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "waiter.sysml", parseAndBuild(t, src))
+	root := idx.DocumentRoot("waiter.sysml")
+	waiter, err := ctx.Instantiate(resolveSymbol(t, root, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	main, ok := waiter.Behavior("main")
+	if !ok || main.Action == nil || main.Action.Performer() != waiter {
+		t.Fatalf("the waiter performs no main action on its own behalf, behaviors: %v", waiter.Behaviors())
+	}
+	outer, ok := waiter.Behavior("outer")
+	if !ok || outer.Action == nil {
+		t.Fatalf("the waiter performs no outer action, behaviors: %v", waiter.Behaviors())
+	}
+
+	goMsg, err := ctx.SignalMessage(resolveSymbol(t, root, "Go"), map[string]Value{"n": integerValue(7)}, waiter)
+	if err != nil {
+		t.Fatalf("SignalMessage(Go): %v", err)
+	}
+	halt, err := ctx.SignalMessage(resolveSymbol(t, root, "Halt"), nil, waiter)
+	if err != nil {
+		t.Fatalf("SignalMessage(Halt): %v", err)
+	}
+	other, err := ctx.SignalMessage(resolveSymbol(t, root, "Other"), nil, waiter)
+	if err != nil {
+		t.Fatalf("SignalMessage(Other): %v", err)
+	}
+
+	// The accept in the action's own flow, named by its parameter.
+	taking, err := main.Action.AcceptTaking(goMsg)
+	if err != nil || len(taking) != 1 {
+		t.Fatalf("main.AcceptTaking(Go) = %v, %v; want the one parked accept to take it", taking, err)
+	}
+	if want := (TakingAccept{Param: "g", Node: "w1"}); taking[0] != want || taking[0].String() != "accept g" {
+		t.Errorf("main.AcceptTaking(Go) = %+v (%q), want %+v", taking[0], taking[0], want)
+	}
+	if accepted, err := main.Action.AcceptsMessage(goMsg); err != nil || !accepted {
+		t.Errorf("main.AcceptsMessage(Go) = %v, %v; want accepted", accepted, err)
+	}
+	// The accept in a nested action, placed in it.
+	taking, err = outer.Action.AcceptTaking(halt)
+	if err != nil || len(taking) != 1 {
+		t.Fatalf("outer.AcceptTaking(Halt) = %v, %v; want the one nested accept to take it", taking, err)
+	}
+	if want := (TakingAccept{Param: "h", Node: "listen", Within: "inner"}); taking[0] != want || taking[0].String() != "accept h of inner" {
+		t.Errorf("outer.AcceptTaking(Halt) = %+v (%q), want %+v", taking[0], taking[0], want)
+	}
+	// A signal no parked accept awaits is taken by neither action.
+	for name, action := range map[string]*ActionExecutor{"main": main.Action, "outer": outer.Action} {
+		if taking, err := action.AcceptTaking(other); err != nil || len(taking) != 0 {
+			t.Errorf("%s.AcceptTaking(Other) = %+v, %v; want nothing taking it", name, taking, err)
+		}
+	}
+	if taking, err := main.Action.AcceptTaking(halt); err != nil || len(taking) != 0 {
+		t.Errorf("main.AcceptTaking(Halt) = %v, %v; want main not to take outer's signal", taking, err)
+	}
+
+	// Posted on the bus, each message is the object's work, and draining the
+	// object's behaviors lets the parked action finish with it.
+	ctx.PostMessage(goMsg)
+	ctx.PostMessage(halt)
+	if !main.Action.HasPendingSignal() || !outer.Action.HasPendingSignal() {
+		t.Fatal("the posted messages are not pending for the actions parked for them")
+	}
+	if err := ctx.drainObjectBehaviors(); err != nil {
+		t.Fatalf("drainObjectBehaviors: %v", err)
+	}
+	if got := featureInt(t, ctx, waiter, "total"); got != 7 {
+		t.Errorf("total = %d after Go(n=7), want 7", got)
+	}
+	if got := featureInt(t, ctx, waiter, "heard"); got != 1 {
+		t.Errorf("heard = %d after Halt, want 1", got)
+	}
+	if main.Action.State() != StateCompleted || outer.Action.State() != StateCompleted {
+		t.Errorf("states = %v, %v after the messages; want both completed", main.Action.State(), outer.Action.State())
+	}
+	if taking, err := main.Action.AcceptTaking(goMsg); err != nil || len(taking) != 0 {
+		t.Errorf("main.AcceptTaking(Go) once completed = %v, %v; want nothing taking it", taking, err)
+	}
+}
+
+// An action parked at several accepts for one message lists them all, in the
+// order its tokens are held: which one goes on is the step's to decide, and
+// asking does not decide it. Dispatched, the message is taken by exactly one.
+func TestAcceptTakingListsEveryParallelAccept(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		attribute def Ping;
+		part def Waiter {
+			attribute taken : Integer = 0;
+			perform action main {
+				first start;
+				then fork split;
+					then left;
+					then right;
+				action left accept Ping;
+				then action l1 assign taken := taken + 1;
+				then meet;
+				action right accept Ping;
+				then action r1 assign taken := taken + 10;
+				then meet;
+				join meet;
+				then done;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "waiter.sysml", parseAndBuild(t, src))
+	root := idx.DocumentRoot("waiter.sysml")
+	waiter, err := ctx.Instantiate(resolveSymbol(t, root, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	main, ok := waiter.Behavior("main")
+	if !ok || main.Action == nil {
+		t.Fatalf("the waiter performs no main action, behaviors: %v", waiter.Behaviors())
+	}
+	ping, err := ctx.SignalMessage(resolveSymbol(t, root, "Ping"), nil, waiter)
+	if err != nil {
+		t.Fatalf("SignalMessage(Ping): %v", err)
+	}
+
+	taking, err := main.Action.AcceptTaking(ping)
+	if err != nil {
+		t.Fatalf("main.AcceptTaking(Ping): %v", err)
+	}
+	want := []TakingAccept{{Node: "left"}, {Node: "right"}}
+	if !slices.Equal(taking, want) {
+		t.Fatalf("main.AcceptTaking(Ping) = %+v, want %+v", taking, want)
+	}
+	if again, err := main.Action.AcceptTaking(ping); err != nil || !slices.Equal(again, taking) {
+		t.Errorf("main.AcceptTaking(Ping) asked again = %+v, %v; want the same %+v", again, err, taking)
+	}
+
+	ctx.PostMessage(ping)
+	if err := ctx.drainObjectBehaviors(); err != nil {
+		t.Fatalf("drainObjectBehaviors: %v", err)
+	}
+	if got := featureInt(t, ctx, waiter, "taken"); got != 1 && got != 10 {
+		t.Errorf("taken = %d after one Ping, want exactly one of the two accepts to have taken it", got)
+	}
+	if main.Action.State() == StateCompleted {
+		t.Error("main completed on one Ping; want the other accept still parked")
+	}
+	if taking, err := main.Action.AcceptTaking(ping); err != nil || len(taking) != 1 {
+		t.Errorf("main.AcceptTaking(Ping) after one was taken = %+v, %v; want the one still parked", taking, err)
+	}
+}
+
+// Asking which accept would take a message routed through a port is a preview:
+// the port it resolves on the way is not left materialized.
+func TestAcceptTakingLeavesThePortUnmaterialized(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		attribute def Ping;
+		port def Ear;
+		part def Waiter {
+			port input : Ear;
+			attribute heard : Integer = 0;
+			perform action main {
+				first start;
+				then action listen accept Ping via input;
+				then action mark assign heard := 1;
+				then done;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "waiter.sysml", parseAndBuild(t, src))
+	root := idx.DocumentRoot("waiter.sysml")
+	waiter, err := ctx.Instantiate(resolveSymbol(t, root, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	main, ok := waiter.Behavior("main")
+	if !ok || main.Action == nil {
+		t.Fatalf("the waiter performs no main action, behaviors: %v", waiter.Behaviors())
+	}
+	input, held := waiter.FeatureValues["input"]
+	if !held || input.Materialized {
+		t.Fatalf("the input port is held %v, materialized %v before anything asks for it", held, held && input.Materialized)
+	}
+	ping, err := ctx.SignalMessage(resolveSymbol(t, root, "Ping"), nil, waiter)
+	if err != nil {
+		t.Fatalf("SignalMessage(Ping): %v", err)
+	}
+	// Reaching a port object by identity makes the accept resolve its own port to compare.
+	ping.Delivery, ping.PortID = DeliverPort, -1
+	objects := len(ctx.instances)
+
+	if taking, err := main.Action.AcceptTaking(ping); err != nil || len(taking) != 0 {
+		t.Errorf("main.AcceptTaking(Ping to another port) = %+v, %v; want nothing taking it", taking, err)
+	}
+	if accepted, err := main.Action.AcceptsMessage(ping); err != nil || accepted {
+		t.Errorf("main.AcceptsMessage(Ping to another port) = %v, %v; want not accepted", accepted, err)
+	}
+	if input.Materialized {
+		t.Error("the preview left the input port materialized")
+	}
+	if got := len(ctx.instances); got != objects {
+		t.Errorf("%d objects after the preview, want the %d before it", got, objects)
+	}
 }

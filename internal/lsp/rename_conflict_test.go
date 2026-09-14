@@ -248,6 +248,29 @@ func TestRenameSucceedsThroughFeatureChainWhenSubtypeLacksName(t *testing.T) {
 	}
 }
 
+// A chained transition end's member is read in the vertex its operand names: a
+// state the usage declares itself captures the renamed inherited one there.
+func TestRenameRefusesCaptureThroughChainedTransitionEnd(t *testing.T) {
+	const src = "package P {\n\tstate def O { state old; }\n\tstate def M {\n\t\tentry; then idle;\n\t\tstate idle;\n" +
+		"\t\tstate outer : O { state taken; }\n\t\tfirst idle then outer.old;\n\t}\n}\n"
+	ws := model.NewWorkspace()
+	name := openRenameDoc(t, ws, "/tmp/capture_chain_end.sysml", src)
+	msg := refuseRename(t, ws, name, "old;", "taken")
+	wantRefusal(t, msg, `P::O::old cannot be renamed to "taken"`, "reference to it in P::M", "would read P::M::outer::taken instead")
+
+	ws = model.NewWorkspace()
+	name = openRenameDoc(t, ws, "/tmp/capture_chain_end_clean.sysml", src)
+	got, err := applyRename(t, ws, name, "old;", "fresh")
+	if err != nil {
+		t.Fatalf("Rename err = %v", err)
+	}
+	want := "package P {\n\tstate def O { state fresh; }\n\tstate def M {\n\t\tentry; then idle;\n\t\tstate idle;\n" +
+		"\t\tstate outer : O { state taken; }\n\t\tfirst idle then outer.fresh;\n\t}\n}\n"
+	if got[name] != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got[name], want)
+	}
+}
+
 // Renaming a name to itself changes nothing, even where the declaration shadows
 // an outer namesake that the collision check would otherwise report.
 func TestRenameToTheSameNameIsNotAConflict(t *testing.T) {

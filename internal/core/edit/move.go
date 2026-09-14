@@ -64,7 +64,7 @@ func (m Model) moveSplices(i int, op Operation) ([]splice, error) {
 		}
 	}
 	if !sameOwner {
-		if err := m.refuseReferencedElsewhere(i, op, m.reachesDeletion([]deletion{del})); err != nil {
+		if err := m.refuseReferencedElsewhere(i, op, r, del); err != nil {
 			return nil, err
 		}
 	}
@@ -82,6 +82,24 @@ func (m Model) moveSplices(i int, op Operation) ([]splice, error) {
 		return nil, err
 	}
 	return mv.splices(), nil
+}
+
+// refuseReferencedElsewhere is the refusal of operation i when another workspace
+// document refers to target or a declaration inside it: a move respells the
+// references of its own document only. Nil when none does.
+func (m Model) refuseReferencedElsewhere(i int, op Operation, r *resolve.Resolver, target deletion) error {
+	targets := []deletion{target}
+	var elsewhere []Referrer
+	for _, doc := range m.workspaceDocuments()[1:] {
+		for _, referrer := range m.referrersIn(r, doc, targets, targets) {
+			elsewhere = append(elsewhere, referrer.referrer())
+		}
+	}
+	if len(elsewhere) == 0 {
+		return nil
+	}
+	sortReferrers(elsewhere)
+	return referencedElsewhere(i, m.Source.Name(), op.Target, elsewhere)
 }
 
 // mover is one move in progress: what it removes, what it inserts, the
@@ -339,10 +357,11 @@ func (mv *mover) reread() (*moved, error) {
 	if m.reindex == nil {
 		m.reindex = &reindexer{newIndex: m.NewIndex}
 	}
-	model, err := reparseModel(m, m.splice(mv.splices()))
-	if err != nil {
+	edited := unedited(m)
+	if err := m.rewrite(edited, mv.splices()); err != nil {
 		return nil, err
 	}
+	model := reparseModel(m, edited)
 	if introduced := introduced(parseDiagnostics(m.ParseDiags), parseDiagnostics(model.ParseDiags)); len(introduced) > 0 {
 		return nil, &Error{
 			Failure:        FailureResultInvalid,
