@@ -4422,7 +4422,8 @@ export const DocumentQueryCellSchema: GenMessage<DocumentQueryCell> = /*@__PURE_
  */
 export type DocumentQueryRow = Message<"sysml.DocumentQueryRow"> & {
   /**
-   * The selected element itself, an element value with its qualified name.
+   * The selected element itself, an element value with its qualified name; a
+   * verdict value for a row `Verdicts` answered.
    *
    * @generated from field: sysml.DocumentValue element = 1;
    */

@@ -1953,7 +1953,8 @@ pub struct DocumentQueryCell {
 /// column in column order.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DocumentQueryRow {
-    /// The selected element itself, an element value with its qualified name.
+    /// The selected element itself, an element value with its qualified name; a
+    /// verdict value for a row `Verdicts` answered.
     #[prost(message, optional, tag="1")]
     pub element: ::core::option::Option<DocumentValue>,
     #[prost(message, repeated, tag="2")]

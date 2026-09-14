@@ -8117,7 +8117,8 @@ func (x *DocumentQueryCell) GetValues() []*DocumentValue {
 // column in column order.
 type DocumentQueryRow struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The selected element itself, an element value with its qualified name.
+	// The selected element itself, an element value with its qualified name; a
+	// verdict value for a row `Verdicts` answered.
 	Element       *DocumentValue       `protobuf:"bytes,1,opt,name=element,proto3" json:"element,omitempty"`
 	Cells         []*DocumentQueryCell `protobuf:"bytes,2,rep,name=cells,proto3" json:"cells,omitempty"`
 	unknownFields protoimpl.UnknownFields
