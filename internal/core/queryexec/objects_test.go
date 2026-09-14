@@ -412,3 +412,47 @@ part 'my.car' : Car;
 		t.Fatalf("ancestors = %v, want 'my.car'", got)
 	}
 }
+
+// A structured attribute is materialized as an object of its own, so the object
+// it holds is reached, populated and owned like a nested part.
+func TestExecuteReachesStructuredAttributeObjects(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Centroid { attribute x : Real = 1.0; attribute y : Real = 2.0; }
+part def Wheel { attribute pressure : Integer default 30; }
+part def Car {
+	attribute center : Centroid;
+	attribute mass : Real;
+	part wheel : Wheel;
+}
+part car : Car;
+calc def Points :> Query {
+	Project(source = Objects(type = "Centroid"), properties = ("qualifiedName", "x", "y"))
+}
+`+objectQueries)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	car, err := ctx.Instantiate(fixture.symbol(t, "car"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	context := Context{
+		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+		Roots: []Root{{Label: "car", Object: car}},
+	}
+	direct, err := Execute(fixture.program(t, "Direct"), context, Bindings{"root": {ObjectValue(car, "car")}}, Options{})
+	if err != nil {
+		t.Fatalf("execute Direct: %v", err)
+	}
+	if got := cellTexts(t, direct, 0); strings.Join(got, ",") != "center,wheel" {
+		t.Fatalf("owned names = %v, want center,wheel", got)
+	}
+	points, err := Execute(fixture.program(t, "Points"), context, nil, Options{})
+	if err != nil {
+		t.Fatalf("execute Points: %v", err)
+	}
+	if got := cellTexts(t, points, 0); strings.Join(got, ",") != "car.center" {
+		t.Fatalf("points = %v, want car.center", got)
+	}
+	if x, y := cellTexts(t, points, 1), cellTexts(t, points, 2); x[0] != "1.0" || y[0] != "2.0" {
+		t.Fatalf("center = (%v, %v), want (1.0, 2.0)", x, y)
+	}
+}

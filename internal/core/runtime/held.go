@@ -27,10 +27,11 @@ func (e *HeldObjectsError) Error() string {
 
 func (e *HeldObjectsError) Unwrap() error { return e.Err }
 
-// HeldObjects returns the objects inst's object-valued features hold, in feature
-// order then collection order, materializing lazy ones as reading them does. An
-// object reached through several features is listed once, under a scalar feature
-// when it has one. A feature that cannot be read is a HeldObjectsError.
+// HeldObjects returns the objects inst's object-valued features hold — occurrence
+// usages and structured attributes alike — in feature order then collection order,
+// materializing lazy ones as reading them does. An object reached through several
+// features is listed once, under a scalar feature when it has one. A feature that
+// cannot be read is a HeldObjectsError.
 func (ctx *Context) HeldObjects(inst *Instance) ([]HeldObject, error) {
 	if err := ctx.checkNotDestroyed(inst); err != nil {
 		return nil, err
@@ -60,7 +61,7 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]HeldObject, error) {
 		indexedAt = append(indexedAt, indexed)
 	}
 	for _, of := range ctx.FeaturesOfObject(inst) {
-		if of.Name == "" || !holdsObjects(of.Feature) {
+		if of.Name == "" || !(holdsObjects(of.Feature) || ctx.namesStructuredValue(of.Feature.Symbol)) {
 			continue
 		}
 		fv, err := inst.GetFeatureValue(ctx, of.Name)
