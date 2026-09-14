@@ -984,9 +984,15 @@ a walk through feature values from either (`car.wheels[2]`, `#2.wheels[2]`;
 indexes count from 1), exactly what `%run-query` accepts. Given both, the path
 is followed and must reach the object with that id. Instantiating a name again
 makes the name denote the new object; the earlier one stays held, reached by
-id. A row that is an object is answered as an object (`DocumentObject`) — its
-id, its path and the usage element it stands for — and so is an object-valued
-cell such as `car.engine` or the two entries of `car.wheels`.
+id. What one model holds is bounded: `OPENSYSML_GRPC_MAX_HELD_OBJECTS`
+(default `10000`, nested objects counted) is the most objects a cached model
+keeps, and an `Instantiate` that finds the bound reached fails with
+`RESOURCE_EXHAUSTED` naming the variable — nothing is evicted behind an id a
+client still holds; the objects are released together when the model leaves
+the cache ([Environment variables](environment.md)). A row that is an object
+is answered as an object (`DocumentObject`) — its id, its path and the usage
+element it stands for — and so is an object-valued cell such as `car.engine`
+or the two entries of `car.wheels`.
 `DocumentQueries::Objects(type = T)` enumerates what the model holds, named
 objects by qualified name then displaced ones by id, and answers no rows before
 the first `Instantiate`; a document rendered after one reports the objects'
@@ -1017,9 +1023,10 @@ one; a symbol of the wrong kind, a malformed request, or a wrong binding
 does not have, an object path that does not reach an object — a namespace, a
 scalar feature, an index out of range — or an object bound with both an id and a
 path that reaches a different object) is `INVALID_ARGUMENT`; an exhausted visit
-or invocation budget is
-`RESOURCE_EXHAUSTED`; an operation the engine does not execute — a fault in the
-model's own definitions rather than in the request — is `FAILED_PRECONDITION`;
+or invocation budget is `RESOURCE_EXHAUSTED`, as is an `Instantiate` a model
+that holds its most objects refuses; an operation the engine does not execute
+— a fault in the model's own definitions rather than in the request — is
+`FAILED_PRECONDITION`;
 and a request the service lacks the capability for is `UNIMPLEMENTED`, naming
 it.
 

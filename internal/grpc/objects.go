@@ -3,8 +3,11 @@ package grpc
 import (
 	"errors"
 	"fmt"
+	"math"
+	"os"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -16,6 +19,29 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
+
+// HeldObjectsEnvVar names the variable bounding the objects one cached model
+// holds, nested objects counted: once the model holds that many, Instantiate is
+// refused until the model leaves the cache, which releases them all.
+const HeldObjectsEnvVar = "OPENSYSML_GRPC_MAX_HELD_OBJECTS"
+
+// DefaultMaxHeldObjects is the bound HeldObjectsEnvVar takes when unset.
+const DefaultMaxHeldObjects = 10000
+
+// maxHeldObjectsFromEnv returns the positive integer HeldObjectsEnvVar holds, or
+// DefaultMaxHeldObjects when it is unset or empty. An unusable value is an error
+// naming the variable, rather than a silently kept default.
+func maxHeldObjectsFromEnv() (int, error) {
+	raw := strings.TrimSpace(os.Getenv(HeldObjectsEnvVar))
+	if raw == "" {
+		return DefaultMaxHeldObjects, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return 0, fmt.Errorf("held objects bound must be a positive integer, got %q (%s)", raw, HeldObjectsEnvVar)
+	}
+	return n, nil
+}
 
 // heldObjects is the population of objects Instantiate created for one cached
 // model: a runtime outliving the requests, and the names its roots were
@@ -68,6 +94,17 @@ func (h *heldObjects) empty() bool {
 	return len(h.named) == 0 && len(h.displaced) == 0
 }
 
+// room refuses another Instantiate once the model holds limit objects, so a
+// population never outgrows the bound by more than one object graph.
+func (h *heldObjects) room(limit int) error {
+	if held := h.rt.InstanceCount(); held >= limit {
+		return statusErrorf(connect.CodeResourceExhausted,
+			"the model holds %d objects, the most %s allows (%d); raise it to hold more (the objects are released when the model leaves the cache)",
+			held, HeldObjectsEnvVar, limit)
+	}
+	return nil
+}
+
 // roots are the objects a query enumerates from, each under the label it is
 // reported by: named ones by qualified name in name order, displaced ones by id.
 func (h *heldObjects) roots() []queryexec.Root {
@@ -97,11 +134,25 @@ func (h *heldObjects) queryContext() queryexec.Context {
 }
 
 // resolve is the object a request's DocumentObject binds and the label it is
-// reported under: by path when one is written, else by id.
+// reported under: by path when one is written, else by id. A malformed
+// reference is refused as written, whatever the model holds.
 func (h *heldObjects) resolve(parameter string, ref *pb.DocumentObject) (*runtime.Instance, string, error) {
 	if ref.GetPath() == "" && ref.GetInstanceId() == 0 {
 		return nil, "", statusErrorf(connect.CodeInvalidArgument,
 			"binding %s: an object is bound by instance_id or by path, and neither was given", parameter)
+	}
+	var parsed objref.Ref
+	if ref.GetPath() != "" {
+		var err error
+		if parsed, err = objref.Parse(ref.GetPath()); err != nil {
+			return nil, "", statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+		}
+	} else if ref.GetInstanceId() < 0 {
+		return nil, "", bindingError(parameter, notAnID(ref.GetInstanceId()))
+	}
+	if h.empty() {
+		return nil, "", statusErrorf(connect.CodeNotFound,
+			"binding %s: the model holds no objects (Instantiate creates one)", parameter)
 	}
 	var (
 		inst  *runtime.Instance
@@ -109,7 +160,7 @@ func (h *heldObjects) resolve(parameter string, ref *pb.DocumentObject) (*runtim
 		err   error
 	)
 	if ref.GetPath() != "" {
-		inst, label, err = h.resolvePath(ref.GetPath())
+		inst, label, err = h.resolvePath(parsed)
 	} else {
 		inst, err = h.byID(ref.GetInstanceId())
 		label = fmt.Sprintf("#%d", ref.GetInstanceId())
@@ -133,10 +184,15 @@ func bindingError(parameter string, err error) error {
 	return statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
 }
 
+// notAnID refuses an id no object can have.
+func notAnID(id int64) error {
+	return statusErrorf(connect.CodeInvalidArgument, "#%d is not an object id (ids count up from 1)", id)
+}
+
 // byID is the object with id among those the runtime holds.
 func (h *heldObjects) byID(id int64) (*runtime.Instance, error) {
 	if id <= 0 {
-		return nil, statusErrorf(connect.CodeInvalidArgument, "#%d is not an object id (ids count up from 1)", id)
+		return nil, notAnID(id)
 	}
 	if inst, ok := h.rt.Instance(id); ok {
 		return inst, nil
@@ -166,13 +222,10 @@ func (h *heldObjects) unknownID(id int64) error {
 		"no object #%d for this model: nothing materialized has that identity (the objects are %s%s)", id, strings.Join(listed, ", "), more)
 }
 
-// resolvePath is the object a reference denotes — `#3`, an instantiated name, or
-// a path through feature values from either — and the label it is reported under.
-func (h *heldObjects) resolvePath(text string) (*runtime.Instance, string, error) {
-	ref, err := objref.Parse(text)
-	if err != nil {
-		return nil, "", statusErrorf(connect.CodeInvalidArgument, "%v", err)
-	}
+// resolvePath is the object a parsed reference denotes — `#3`, an instantiated
+// name, or a path through feature values from either — and the label it is
+// reported under.
+func (h *heldObjects) resolvePath(ref objref.Ref) (*runtime.Instance, string, error) {
 	walker := objref.Walker{Runtime: h.rt, Index: h.idx}
 	if ref.ID > 0 {
 		inst, err := h.byID(ref.ID)
@@ -237,7 +290,7 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 
 // lookup is the declaration segments name: by qualified name as every RPC
 // reads one, or — for a lone name, as the REPL reads `car` — the one model
-// declaration of that name. Nil when nothing is declared under it.
+// declaration of that name among all declared. Nil when nothing is declared under it.
 func (h *heldObjects) lookup(segments []objref.Segment) (*symbols.Symbol, error) {
 	name := objref.JoinTyped(segments)
 	if syms := lookupNamed(h.idx, name); len(syms) > 0 {
@@ -247,7 +300,7 @@ func (h *heldObjects) lookup(segments []objref.Segment) (*symbols.Symbol, error)
 		return nil, nil
 	}
 	var found []*symbols.Symbol
-	for _, fqn := range h.idx.FQNsEndingIn(segments[0].Name, unknownIDListed) {
+	for _, fqn := range h.idx.FQNsEndingIn(segments[0].Name, math.MaxInt) {
 		for _, sym := range h.idx.LookupQualified(fqn) {
 			if !h.idx.Library(sym) {
 				found = append(found, sym)

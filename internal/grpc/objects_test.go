@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
@@ -267,5 +268,121 @@ func TestVerdictsOverHeldObject(t *testing.T) {
 	failing := queryObjects(t, srv, hash, "Garage::Failing", binding("root", objectByPath("car.wheels[2]")))
 	if len(failing.Rows) != 1 || failing.Rows[0].Element.GetVerdict().GetPath() != "Garage::car.wheels[2]" {
 		t.Errorf("Failing root=car.wheels[2] rows = %v, want the wheel's violated pressureOk", failing.Rows)
+	}
+}
+
+// TestShortNameLookupSeesEveryDeclaration: a lone name is matched against every
+// declaration of that name, so one instantiated among many is found and an
+// ambiguity names them all, however many sort ahead of it.
+func TestShortNameLookupSeesEveryDeclaration(t *testing.T) {
+	var src strings.Builder
+	src.WriteString("package Fleet {\n\tprivate import DocumentQueries::*;\n\tprivate import KerML::Root::Element;\n")
+	src.WriteString("\tpart def Item;\n\tcalc def Self :> Query { in root : Element; Project(source = root, properties = (\"qualifiedName\")) }\n")
+	for i := 1; i <= 30; i++ {
+		fmt.Fprintf(&src, "\tpackage P%02d { part crate : Fleet::Item; }\n", i)
+	}
+	src.WriteString("\tpackage Z { part crate : Item; }\n}\n")
+	srv := mustNewService(t, 10)
+	hash := mustParse(t, srv, src.String())
+	holdObject(t, srv, hash, "Fleet::Z::crate")
+
+	_, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+		ModelHash: hash, QueryId: "Fleet::Self", Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath("crate"))},
+	})
+	if err == nil {
+		t.Fatal("binding crate resolved, want ambiguity among 31 declarations")
+	}
+	for _, name := range []string{"Fleet::P01::crate", "Fleet::P30::crate", "Fleet::Z::crate"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("ambiguity %q does not name %s", err.Error(), name)
+		}
+	}
+	resp := queryObjects(t, srv, hash, "Fleet::Self", binding("root", objectByPath("Fleet::Z::crate")))
+	if got := objectLabels(resp); len(got) != 1 || got[0] != "Fleet::Z::crate (#1)" {
+		t.Errorf("Self root=Fleet::Z::crate rows = %v, want [Fleet::Z::crate (#1)]", got)
+	}
+}
+
+// TestHeldObjectsAreBounded: once a model holds the objects HeldObjectsEnvVar
+// allows, Instantiate is refused with RESOURCE_EXHAUSTED naming the variable, and
+// everything held stays bound; nothing is evicted behind a client's ids.
+func TestHeldObjectsAreBounded(t *testing.T) {
+	t.Setenv(HeldObjectsEnvVar, "5")
+	srv := mustNewService(t, 10)
+	hash := parseFixture(t, srv, objectFixture)
+
+	// A car is four objects (car, engine, two wheels): the first two fit under
+	// the bound as each is created, the third finds it reached.
+	holdObject(t, srv, hash, "Garage::car")
+	holdObject(t, srv, hash, "Garage::car")
+	_, err := srv.Instantiate(context.Background(), &pb.InstantiateRequest{ModelHash: hash, SymbolId: "Garage::car"})
+	if err == nil {
+		t.Fatal("third Instantiate succeeded, want RESOURCE_EXHAUSTED")
+	}
+	if connect.CodeOf(err) != connect.CodeResourceExhausted {
+		t.Errorf("code = %v, want %v: %v", connect.CodeOf(err), connect.CodeResourceExhausted, err)
+	}
+	for _, text := range []string{"holds 8 objects", HeldObjectsEnvVar, "(5)"} {
+		if !strings.Contains(err.Error(), text) {
+			t.Errorf("error %q lacks %q", err.Error(), text)
+		}
+	}
+
+	resp := queryObjects(t, srv, hash, "Garage::Parts", binding("root", objectByID(1)))
+	if got := objectLabels(resp); len(got) != 3 || got[0] != "#1.engine (#2)" {
+		t.Errorf("Parts root=#1 rows = %v, want the first car's three parts", got)
+	}
+	resp = queryObjects(t, srv, hash, "Garage::Wheels")
+	want := []string{"Garage::car.wheels[1] (#7)", "Garage::car.wheels[2] (#8)", "#1.wheels[1] (#3)", "#1.wheels[2] (#4)"}
+	if got := objectLabels(resp); strings.Join(got, ";") != strings.Join(want, ";") {
+		t.Errorf("Wheels rows = %v, want %v", got, want)
+	}
+
+	// Another model is a population of its own under the same bound.
+	other := mustParse(t, srv, "package Lot { part def Cone; part cone : Cone; }")
+	holdObject(t, srv, other, "Lot::cone")
+}
+
+// TestMaxHeldObjectsFromEnv: the bound is the positive integer the variable
+// holds, the default when it is unset, and anything else is refused at
+// construction naming the variable.
+func TestMaxHeldObjectsFromEnv(t *testing.T) {
+	cases := []struct {
+		raw     string
+		want    int
+		wantErr bool
+	}{
+		{raw: "", want: DefaultMaxHeldObjects},
+		{raw: "   ", want: DefaultMaxHeldObjects},
+		{raw: "1", want: 1},
+		{raw: " 250 ", want: 250},
+		{raw: "0", wantErr: true},
+		{raw: "-1", wantErr: true},
+		{raw: "many", wantErr: true},
+		{raw: "1.5", wantErr: true},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("%q", tc.raw), func(t *testing.T) {
+			t.Setenv(HeldObjectsEnvVar, tc.raw)
+			got, err := maxHeldObjectsFromEnv()
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("%q was accepted as %d", tc.raw, got)
+				}
+				if !strings.Contains(err.Error(), HeldObjectsEnvVar) {
+					t.Errorf("error does not name %s: %v", HeldObjectsEnvVar, err)
+				}
+				if _, serr := NewService(4, "test"); serr == nil {
+					t.Error("NewService accepted an unusable held objects bound")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("maxHeldObjectsFromEnv(%q): %v", tc.raw, err)
+			}
+			if got != tc.want {
+				t.Errorf("bound %d, want %d", got, tc.want)
+			}
+		})
 	}
 }

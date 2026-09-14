@@ -142,10 +142,6 @@ func documentBindings(idx *symbols.Index, sem *semantics.Model, held *heldObject
 func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, parameter string, value *pb.DocumentValue) (queryexec.Value, error) {
 	switch kind := value.GetKind().(type) {
 	case *pb.DocumentValue_Object:
-		if held.empty() {
-			return queryexec.Value{}, statusErrorf(connect.CodeNotFound,
-				"binding %s: the model holds no objects (Instantiate creates one)", parameter)
-		}
 		inst, label, err := held.resolve(parameter, kind.Object)
 		if err != nil {
 			return queryexec.Value{}, err

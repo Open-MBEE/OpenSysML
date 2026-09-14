@@ -868,6 +868,11 @@ func (ctx *Context) InstanceIDs() []int64 {
 	return ids
 }
 
+// InstanceCount is how many objects this context holds, nested ones counted.
+func (ctx *Context) InstanceCount() int {
+	return len(ctx.instances)
+}
+
 // getInstance retrieves an instance by ID.
 func (ctx *Context) getInstance(id int64) (*Instance, bool) {
 	inst, ok := ctx.instances[id]

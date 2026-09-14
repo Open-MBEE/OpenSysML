@@ -274,6 +274,11 @@ func TestGRPCObjectBindingRobustness(t *testing.T) {
 		expect(t, run(objectByID(1)), connect.CodeNotFound, "binding root", "holds no objects", "Instantiate")
 		expect(t, run(objectByPath("car")), connect.CodeNotFound, "binding root", "holds no objects")
 		expect(t, run(objectByPath("car.wheels[2]")), connect.CodeNotFound, "binding root", "holds no objects")
+		// A malformed reference is refused the same way whether or not objects are held.
+		expect(t, run(objectByPath("")), connect.CodeInvalidArgument, "binding root", "instance_id or by path")
+		expect(t, run(objectByID(-1)), connect.CodeInvalidArgument, "binding root", "#-1 is not an object id")
+		expect(t, run(objectByPath("car..wheels")), connect.CodeInvalidArgument, "binding root", "not an object reference")
+		expect(t, run(objectByPath("car.wheels[0]")), connect.CodeInvalidArgument, "binding root", "counted from 1")
 	})
 
 	holdObject(t, service, hash, "Garage::car")
