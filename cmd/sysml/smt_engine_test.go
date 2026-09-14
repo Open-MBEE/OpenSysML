@@ -237,7 +237,7 @@ func TestEngineAllComposesSensitivity(t *testing.T) {
 // -check-timeout is the solver's clock as well as the plan's: without it each query runs
 // under the solver's own OPENSYSML_SMT_TIMEOUT, with it under the check's, and the solver
 // bound the result names is the clock the query ran under.
-func TestCheckTimeoutClocksTheSolver(t *testing.T) {
+func TestEngineSMTRunsUnderTheCheckTimeout(t *testing.T) {
 	needsSolver(t)
 	binary := buildCLI(t)
 	env := []string{solve.TimeoutEnv + "=3s"}

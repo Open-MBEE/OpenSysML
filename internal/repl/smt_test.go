@@ -185,7 +185,7 @@ func planBound(t *testing.T, v Verdict, name string) analysis.Bound {
 
 // %check-bounds timeout is the solver's clock as well as the plan's: without it each query
 // runs under the solver's own timeout, with it under the check's, as the solver bound names.
-func TestCheckBoundsTimeoutClocksTheSolver(t *testing.T) {
+func TestEngineSMTRunsUnderTheCheckTimeout(t *testing.T) {
 	s := symbolicSession(t, gateSource)
 	own, err := solve.Discover()
 	if err != nil {
