@@ -56,10 +56,10 @@ jobs:
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-          # The tag moves before the release is created, so a night counts as done only when a
-          # published release sits at it; `gh release create` publishes after every asset uploaded.
+          # The tag moves before the release exists, so a night counts as done only once a published
+          # release sits at it; `gh release create` uploads into a draft and publishes last.
           published=$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null || true)
-          released=$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq .id 2>/dev/null || true)
+          released=$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq 'select(.draft == false) | .id' 2>/dev/null || true)
           if [ "$published" = "$sha" ] && [ -n "$released" ] && [ "$FORCE" != true ]; then
             echo "::notice::$TAG already points at $sha, the newest green commit on $BRANCH, with its release; nothing to rebuild."
             echo "publish=false" >> "$GITHUB_OUTPUT"
