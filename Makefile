@@ -1,7 +1,8 @@
 .PHONY: all build build-sysml build-lsp build-grpc windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+# Only release tags describe a build; the moving `nightly` tag is not a version.
+VERSION ?= $(shell git describe --tags --always --dirty --match 'v[0-9]*' 2>/dev/null || echo "dev")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GO_VERSION ?= $(shell go version | awk '{print $$3}')

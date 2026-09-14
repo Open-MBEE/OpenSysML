@@ -46,6 +46,7 @@ a [complete worked example](manual/worked-example.md) and
 - **[Pilot differential](project/pilot-differential.md)** — OpenSysML's diagnostics compared against the OMG pilot implementation's
 - **[Grammar coverage](project/grammar-coverage.md)** — which OMG grammar productions the project's inputs exercise
 - **[Roadmap](project/roadmap.md)** — the known gaps, in the order we plan to address them
+- **[Nightly snapshots](project/nightly.md)** — `develop` built every night as a prerelease, and how to verify one
 - **[Releasing](project/releasing.md)** — the pre-tag gate, tagging, artifacts and Homebrew
 - **[macOS distribution](project/macos-distribution.md)** — Gatekeeper and the signing decision
 - **[Demo](project/demo.md)** — a scripted walkthrough of the full surface
