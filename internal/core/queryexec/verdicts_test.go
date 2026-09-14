@@ -122,6 +122,16 @@ calc def Verified :> Query {
 		columns = (Column(name = "verified", expression = Verdict::path + ": " + Verdict::'verification'))
 	)
 }
+calc def Columns :> Query {
+	in root : Element;
+	Project(
+		source = Verdicts(source = root, kind = "constraint"),
+		columns = (
+			Column(name = "assertion", expression = Verdict::assertion),
+			Column(name = "carrier", expression = Verdict::carrier)
+		)
+	)
+}
 calc def Rows :> Query {
 	in root : Element;
 	Verdicts(source = root)
@@ -351,6 +361,14 @@ func TestExecuteVerdictRowsThroughRowOperations(t *testing.T) {
 	if got := cellTexts(t, summary, 0); got[3] != "car.engine.injector: holds" || got[4] != "car.wheels[1]: violated" {
 		t.Fatalf("computed summaries = %v", got)
 	}
+	columns := fixture.rows(t, session, "Columns", root)
+	cells = columns.Rows()[2].Cells()
+	if sym, ok := cells[0].Values()[0].Element(); !ok || sym != fixture.symbol(t, "Engine::powerLow") {
+		t.Fatalf("Verdict::assertion column = %v", cells[0].Values())
+	}
+	if inst, label, ok := cells[1].Values()[0].Object(); !ok || label != "car.engine" || inst.Type != fixture.symbol(t, "Engine") {
+		t.Fatalf("Verdict::carrier column = %v %q %v", inst, label, ok)
+	}
 	verified := fixture.rows(t, session, "Verified", root)
 	if got := cellTexts(t, verified, 0); strings.Join(got, ",") != "car.engine: pass,car.engine: inconclusive" {
 		t.Fatalf("computed verification column = %v", got)
@@ -456,6 +474,10 @@ func TestExecuteVerdictsAboutADeclaredElement(t *testing.T) {
 		carriers := fixture.rows(t, context, "Carriers", root)
 		if sym, ok := carriers.Rows()[2].Cells()[0].Values()[0].Element(); !ok || sym != fixture.symbol(t, "Car::engine") {
 			t.Fatalf("%s: engine carrier = %v, want the declared part", name, carriers.Rows()[2].Cells()[0].Values())
+		}
+		columns := fixture.rows(t, context, "Columns", root)
+		if sym, ok := columns.Rows()[2].Cells()[1].Values()[0].Element(); !ok || sym != fixture.symbol(t, "Car::engine") {
+			t.Fatalf("%s: Verdict::carrier column = %v, want the declared part", name, columns.Rows()[2].Cells()[1].Values())
 		}
 		rows := fixture.rows(t, context, "Rows", root)
 		verdict, _ := rows.Rows()[0].Element().Verdict()

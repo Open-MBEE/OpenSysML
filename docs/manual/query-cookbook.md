@@ -1034,7 +1034,9 @@ $ sysml cookbook.sysml -run-query "Cookbook::Violated root=telescope"
 
 `OrderBy(property = "verdict")` sorts the table by outcome, `WhereFeature` on
 `path` or `kind` narrows it, and `Project` reads any verdict property beside
-the assertion's own (`shortName`, `documentation`). A verdict row's
+the assertion's own (`shortName`, `documentation`) — `assertion` and `carrier`
+project the assertion element and the object it was checked on themselves.
+A verdict row's
 `verification` property lists the outcomes (`pass`, `fail`, `inconclusive`,
 `error`) of the verification cases that verify its requirement — on a
 `requirement` or `satisfaction` row — while a `verification` row carries one

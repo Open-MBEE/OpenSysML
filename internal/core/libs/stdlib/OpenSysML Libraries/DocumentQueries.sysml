@@ -42,10 +42,14 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
-	/* The properties of a Verdicts row, for column expressions (`Verdict::verdict`);
-	 * a row also answers its assertion's own properties by name. */
+	/* The properties of a Verdicts row, for Project and column expressions
+	 * (`Verdict::verdict`); a row also answers its assertion's own properties by
+	 * name. The assertion and the carrier it was checked on are elements, so a
+	 * Column expression cannot read them; project them by name instead. */
 	attribute def Verdict {
+		ref assertion : Element[1];
 		attribute kind : String[1];
+		ref carrier : Element[0..1];
 		attribute path : String[1];
 		attribute verdict : String[1];
 		attribute condition : String[0..1];
