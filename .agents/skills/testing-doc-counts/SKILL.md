@@ -25,8 +25,8 @@ description: How to end-to-end test the generated documentation figures (cmd/doc
    are stat'ed against the case that owns them, and the robustness, negative and `Test`-function
    figures are counted from the `_test.go` files with `go/ast` (first-level `t.Run` calls,
    multiplied out over the table literal a `range` walks, read in statement order and lexical
-   scope, so a table rebound after the loop or shadowed in an inner block does not leak into
-   it). The test and subtest total of a run is
+   scope, so a table rebound after the loop or shadowed by a `:=` in an inner block, branch or
+   clause does not leak into it). The test and subtest total of a run is
    **not** generated — only a run can state it, so the prose no longer quotes one.
 
 The compliance map's own row census (`The map below tracks N semantic rules: …`) is **not** committed

@@ -220,6 +220,52 @@ func TestCountSubtestsReadsTablesInStatementOrder(t *testing.T) {
 	}`,
 			want: 6,
 		},
+		"a table shadowed by := under a condition": {
+			body: `cases := []string{"a"}
+	if len(t.Name()) > 0 {
+		cases := []string{"x", "y"}
+		_ = cases
+	}
+	for range cases {
+		t.Run("x", nil)
+	}`,
+			want: 1,
+		},
+		"a table shadowed in a switch clause and an if init": {
+			body: `cases := []string{"a", "b"}
+	switch cases := []string{"x"}; len(cases) {
+	case 1:
+		cases := []string{"y", "z", "w"}
+		_ = cases
+	}
+	if cases := []string{"q"}; len(cases) > 0 {
+		_ = cases
+	}
+	for range cases {
+		t.Run("x", nil)
+	}`,
+			want: 2,
+		},
+		"a table shadowed by a range variable": {
+			body: `cases := []string{"a", "b"}
+	for _, cases := range [][]string{{"x"}} {
+		_ = cases
+	}
+	for range cases {
+		t.Run("x", nil)
+	}`,
+			want: 2,
+		},
+		"a table reassigned in a loop that runs no subtest": {
+			body: `cases := []string{"a"}
+	for range []int{1} {
+		cases = []string{"x", "y"}
+	}
+	for range cases {
+		t.Run("x", nil)
+	}`,
+			err: "whose length the source does not state",
+		},
 		"a table appended to before the loop": {
 			body: `cases := []string{"a"}
 	cases = append(cases, "b")
