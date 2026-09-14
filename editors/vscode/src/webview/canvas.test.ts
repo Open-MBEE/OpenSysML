@@ -40,8 +40,8 @@ const result: RenderResult = {
 test("drawCanvas draws every node as a group carrying its rendering id, movable when declared", () => {
   const svg = drawCanvas(layoutCanvas(result));
   assert.equal(svg.getAttribute("viewBox")?.startsWith("0 0 "), true);
-  const groups = [...svg.querySelectorAll("g.opensysml-node")];
-  assert.deepEqual(groups.map((group) => group.getAttribute("data-opensysml-id")), ["a", "b", "c", "d"]);
+  const groups = [...svg.querySelectorAll<SVGGElement>("g.opensysml-node")];
+  assert.deepEqual(groups.map((group) => group.dataset.opensysmlId), ["a", "b", "c", "d"]);
   assert.deepEqual(groups.map((group) => group.classList.contains("movable")), [true, true, false, true]);
   // The owner's box is drawn where the model put it; its child draws after it, on top.
   const rect = svg.querySelector('g[data-opensysml-id="a"] > rect')!;
@@ -66,20 +66,20 @@ test("drawCanvas opens the view on geometry the model puts left of or above the 
 
 test("drawCanvas draws edges with the arrowhead their kind takes and handles on a steerable route", () => {
   const svg = drawCanvas(layoutCanvas(result));
-  const edges = [...svg.querySelectorAll("g.opensysml-edge")];
-  assert.deepEqual(edges.map((edge) => edge.getAttribute("data-edge")), ["0", "1"]);
+  const edges = [...svg.querySelectorAll<SVGGElement>("g.opensysml-edge")];
+  assert.deepEqual(edges.map((edge) => edge.dataset.edge), ["0", "1"]);
   assert.equal(edges[0].querySelector("polyline")?.getAttribute("marker-end"), "url(#arrow-open)");
   assert.equal(edges[1].querySelector("polyline")?.getAttribute("marker-end"), "url(#arrow)");
   assert.equal(edges[0].querySelector("text")?.textContent, "supply");
   assert.equal(edges[1].querySelector("text"), null);
   // Only the declared connection gets handles: one waypoint and one per segment.
-  const handles = [...svg.querySelectorAll("g.edge-handles")];
-  assert.deepEqual(handles.map((group) => group.getAttribute("data-edge")), ["0"]);
-  const waypoints = [...handles[0].querySelectorAll("circle.waypoint")];
-  assert.deepEqual(waypoints.map((circle) => [circle.getAttribute("data-edge"), circle.getAttribute("data-point"), circle.getAttribute("cx"), circle.getAttribute("cy")]), [
+  const handles = [...svg.querySelectorAll<SVGGElement>("g.edge-handles")];
+  assert.deepEqual(handles.map((group) => group.dataset.edge), ["0"]);
+  const waypoints = [...handles[0].querySelectorAll<SVGCircleElement>("circle.waypoint")];
+  assert.deepEqual(waypoints.map((circle) => [circle.dataset.edge, circle.dataset.point, circle.getAttribute("cx"), circle.getAttribute("cy")]), [
     ["0", "0", "300", "300"],
   ]);
-  const segments = [...handles[0].querySelectorAll("circle.segment")].map((circle) => circle.getAttribute("data-segment"));
+  const segments = [...handles[0].querySelectorAll<SVGCircleElement>("circle.segment")].map((circle) => circle.dataset.segment);
   assert.deepEqual(segments, ["0", "1"]);
 });
 
@@ -98,11 +98,11 @@ test("drawCanvas leaves out the edges and handles at nodes a collapsed owner hid
       { from: "a", to: "c", label: "", kind: "connection", fqn: "M::ac" },
     ],
   }));
-  assert.deepEqual([...svg.querySelectorAll("g.opensysml-node")].map((group) => group.getAttribute("data-opensysml-id")), ["a", "c"]);
+  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.opensysml-node")].map((group) => group.dataset.opensysmlId), ["a", "c"]);
   assert.equal(svg.querySelector('g[data-opensysml-id="a"] text.collapsed')?.textContent, "+");
   // Neither the edge inside the collapsed owner nor the one crossing its border is drawn; the owner's own is.
-  assert.deepEqual([...svg.querySelectorAll("g.opensysml-edge")].map((edge) => edge.getAttribute("data-edge")), ["2"]);
-  assert.deepEqual([...svg.querySelectorAll("g.edge-handles")].map((group) => group.getAttribute("data-edge")), ["2"]);
+  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.opensysml-edge")].map((edge) => edge.dataset.edge), ["2"]);
+  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.edge-handles")].map((group) => group.dataset.edge), ["2"]);
 });
 
 test("drawCanvas draws a sequence's lifelines", () => {

@@ -2337,25 +2337,7 @@ func (p *Parser) parseStateMember(allowBody bool) ast.Node {
 	// so they are matched by the shape around them (see notation.go).
 	if w, ok := p.atStateNotationWord(); ok {
 		p.advance()
-		switch w {
-		case "choice":
-			return p.parsePseudostate(start, w, ast.PseudostateChoice)
-		case "junction":
-			return p.parsePseudostate(start, w, ast.PseudostateJunction)
-		case "history":
-			// Bare `history <name>;` is shallow: SysML v2 has no history notation, so
-			// UML's H vs H* is the reference for this OpenSysML extension.
-			return p.parsePseudostate(start, w, ast.PseudostateShallowHistory)
-		case "shallow", "deep":
-			kind := ast.PseudostateShallowHistory
-			if w == "deep" {
-				kind = ast.PseudostateDeepHistory
-			}
-			p.advance() // consume 'history'
-			return p.parsePseudostate(start, w+" history", kind)
-		case "defer":
-			return p.parseDeferMember(start)
-		}
+		return p.parseStateNotationMember(start, w)
 	}
 
 	// Check for state-specific keywords first
@@ -2424,20 +2406,50 @@ func (p *Parser) parseStateMember(allowBody bool) ast.Node {
 
 	// A member-leading succession is not a SysML succession production.
 	if p.at(lexer.Identifier) && p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "then" {
-		msg := "a succession names both ends as `first <source> then <target>`"
-		p.error(p.peek().Span, msg)
-		for !p.at(lexer.Semicolon) && !p.atEOF() {
-			p.advance()
-		}
-		p.expectSemicolon("succession")
-		en := &ast.ErrorNode{Message: msg}
-		en.NodeSpan = p.spanFrom(start)
-		return en
+		return p.parseMemberLeadingSuccession(start)
 	}
 
 	// Not a state-specific keyword - try parsing as general body member
 	// This allows succession, binding, feature declarations, etc. in state bodies
 	return p.parseBodyMember()
+}
+
+// parseStateNotationMember parses the state body member the notation word w heads
+// (see atStateNotationWord); the word itself is already consumed.
+func (p *Parser) parseStateNotationMember(start int, w string) ast.Node {
+	switch w {
+	case "choice":
+		return p.parsePseudostate(start, w, ast.PseudostateChoice)
+	case "junction":
+		return p.parsePseudostate(start, w, ast.PseudostateJunction)
+	case "history":
+		// Bare `history <name>;` is shallow: SysML v2 has no history notation, so
+		// UML's H vs H* is the reference for this OpenSysML extension.
+		return p.parsePseudostate(start, w, ast.PseudostateShallowHistory)
+	case "shallow", "deep":
+		kind := ast.PseudostateShallowHistory
+		if w == "deep" {
+			kind = ast.PseudostateDeepHistory
+		}
+		p.advance() // consume 'history'
+		return p.parsePseudostate(start, w+" history", kind)
+	default: // "defer", the last word atStateNotationWord admits
+		return p.parseDeferMember(start)
+	}
+}
+
+// parseMemberLeadingSuccession reports `<name> then …`, which no SysML succession
+// production spells, and skips the member through its semicolon.
+func (p *Parser) parseMemberLeadingSuccession(start int) ast.Node {
+	msg := "a succession names both ends as `first <source> then <target>`"
+	p.error(p.peek().Span, msg)
+	for !p.at(lexer.Semicolon) && !p.atEOF() {
+		p.advance()
+	}
+	p.expectSemicolon("succession")
+	en := &ast.ErrorNode{Message: msg}
+	en.NodeSpan = p.spanFrom(start)
+	return en
 }
 
 // atAcceptNode reports whether the parser is at an accept node declaration

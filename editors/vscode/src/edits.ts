@@ -263,15 +263,15 @@ export function referrersByFile(refused: ModelEditRefusal[], docURI: string): st
     if (names.length === 0) {
       continue;
     }
-    out.push(uri === docURI ? "In this document:" : `In ${fileLabel(uri)}:`);
-    out.push(...names.map((name) => `  ${name}`));
+    out.push(uri === docURI ? "In this document:" : `In ${fileLabel(uri)}:`, ...names.map((name) => `  ${name}`));
   }
   return out;
 }
 
 /** fileLabel is the file name a URI ends in, as the user knows the document. */
 export function fileLabel(uri: string): string {
-  const path = uri.replace(/[?#].*$/, "");
+  const query = uri.search(/[?#]/);
+  const path = query < 0 ? uri : uri.slice(0, query);
   return decodeURIComponent(path.slice(path.lastIndexOf("/") + 1));
 }
 

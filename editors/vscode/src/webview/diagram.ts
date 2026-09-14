@@ -278,7 +278,7 @@ function moveGesture(event: PointerEvent): void {
 // that moved nothing is a click — on a node, opening its declaration; on a waypoint,
 // the second of two in quick succession removes it.
 function endGesture(event: PointerEvent): void {
-  if (!gesture || event.pointerId !== gesture.pointer) {
+  if (event.pointerId !== gesture?.pointer) {
     return;
   }
   const done = gesture;
@@ -294,7 +294,7 @@ function endGesture(event: PointerEvent): void {
     return;
   }
   if (done.kind === "waypoint") {
-    const again = clickedWaypoint !== undefined && clickedWaypoint.edge === done.edge
+    const again = clickedWaypoint?.edge === done.edge
       && clickedWaypoint.point === done.point && event.timeStamp - clickedWaypoint.at < DOUBLE_CLICK_MS;
     if (again && layout && last) {
       clickedWaypoint = undefined;

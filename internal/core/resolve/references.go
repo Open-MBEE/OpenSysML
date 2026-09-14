@@ -255,59 +255,7 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		}
 		return true
 	case *ast.Usage:
-		c.prefixes(scope, d, d.Prefixes)
-		child := c.childScope(scope, d)
-		c.headerRelationships(scope, child, d, d.Relationships)
-		c.multiplicity(scope, d.Multiplicity)
-		if d.CrossFeature != nil {
-			c.crossFeature(scope, child, d)
-		}
-		// An accept node keeps its trigger in the usage's value.
-		if d.IsAccept {
-			c.trigger(scope, d.Value)
-		} else if inv := d.PerformedInvocation(); inv != nil {
-			c.invocation(scope, inv, true)
-		} else {
-			c.expr(scope, d.Value)
-		}
-		for _, end := range d.ConnectorEnds {
-			if end == nil {
-				continue
-			}
-			// An end that reference-subsets what it attaches to declares its
-			// own name, so that name is a declaration, not a reference. A `:>>`
-			// on it names an end of the connector's type and so resolves in the
-			// connector's scope; everything else resolves in the enclosing one.
-			_, declaresName := end.DeclaredName()
-			endScope := scope
-			if child != nil {
-				endScope = child
-			}
-			redefines, others := ast.SplitRedefinitions(end.Relationships)
-			c.relationships(endScope, end, redefines)
-			c.relationships(scope, end, others)
-			// A machine succession/transition end names a vertex like a transition endpoint.
-			asEndpoint := (d.Kind == ast.UsageSuccession || d.Kind == ast.UsageTransition) &&
-				symbols.InStateMachine(scope) && !declaresName
-			if !declaresName {
-				c.connectorEnd(scope, end.Target, asEndpoint)
-			}
-			c.connectorEnd(scope, end.Reference, asEndpoint)
-		}
-		if d.FlowEnds != nil {
-			c.expr(scope, d.FlowEnds.From)
-			c.expr(scope, d.FlowEnds.To)
-			// A declared payload (`of name : Type`) names a member of the flow
-			// itself, not an element of the enclosing scope.
-			payloadScope := scope
-			if d.FlowEnds.PayloadDecl != nil && child != nil {
-				payloadScope = child
-			}
-			c.expr(payloadScope, d.FlowEnds.Payload)
-		}
-		if child != nil {
-			c.walkMembers(child, d.Members)
-		}
+		c.usage(scope, d)
 		return true
 	case *ast.SubjectMember:
 		c.prefixes(scope, d, d.Prefixes)
@@ -355,6 +303,70 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// usage collects the references of a usage: its header, value, connector and flow
+// ends, and the members of its body.
+func (c *refCollector) usage(scope *symbols.Scope, d *ast.Usage) {
+	c.prefixes(scope, d, d.Prefixes)
+	child := c.childScope(scope, d)
+	c.headerRelationships(scope, child, d, d.Relationships)
+	c.multiplicity(scope, d.Multiplicity)
+	if d.CrossFeature != nil {
+		c.crossFeature(scope, child, d)
+	}
+	// An accept node keeps its trigger in the usage's value.
+	if d.IsAccept {
+		c.trigger(scope, d.Value)
+	} else if inv := d.PerformedInvocation(); inv != nil {
+		c.invocation(scope, inv, true)
+	} else {
+		c.expr(scope, d.Value)
+	}
+	c.connectorEnds(scope, child, d)
+	if d.FlowEnds != nil {
+		c.expr(scope, d.FlowEnds.From)
+		c.expr(scope, d.FlowEnds.To)
+		// A declared payload (`of name : Type`) names a member of the flow
+		// itself, not an element of the enclosing scope.
+		payloadScope := scope
+		if d.FlowEnds.PayloadDecl != nil && child != nil {
+			payloadScope = child
+		}
+		c.expr(payloadScope, d.FlowEnds.Payload)
+	}
+	if child != nil {
+		c.walkMembers(child, d.Members)
+	}
+}
+
+// connectorEnds collects the references of a usage's connector ends; child is the
+// usage's own scope, nil when it declares none.
+func (c *refCollector) connectorEnds(scope, child *symbols.Scope, d *ast.Usage) {
+	for _, end := range d.ConnectorEnds {
+		if end == nil {
+			continue
+		}
+		// An end that reference-subsets what it attaches to declares its
+		// own name, so that name is a declaration, not a reference. A `:>>`
+		// on it names an end of the connector's type and so resolves in the
+		// connector's scope; everything else resolves in the enclosing one.
+		_, declaresName := end.DeclaredName()
+		endScope := scope
+		if child != nil {
+			endScope = child
+		}
+		redefines, others := ast.SplitRedefinitions(end.Relationships)
+		c.relationships(endScope, end, redefines)
+		c.relationships(scope, end, others)
+		// A machine succession/transition end names a vertex like a transition endpoint.
+		asEndpoint := (d.Kind == ast.UsageSuccession || d.Kind == ast.UsageTransition) &&
+			symbols.InStateMachine(scope) && !declaresName
+		if !declaresName {
+			c.connectorEnd(scope, end.Target, asEndpoint)
+		}
+		c.connectorEnd(scope, end.Reference, asEndpoint)
 	}
 }
 
