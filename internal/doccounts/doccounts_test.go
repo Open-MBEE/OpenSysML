@@ -97,10 +97,11 @@ func TestReadRefereedCountsRejectsABaselineWithoutErrata(t *testing.T) {
 func TestRewriteBlockUsesConsumerRelativeLinksAndIsIdempotent(t *testing.T) {
 	root := t.TempDir()
 	writeDoccountsFixture(t, root)
-	counts, err := ReadRefereedCounts(root)
+	refereed, err := ReadRefereedCounts(root)
 	if err != nil {
 		t.Fatalf("read baselines: %v", err)
 	}
+	counts := Counts{Refereed: refereed}
 	spec := Block{Path: "README.md", Name: "refereed-figures", LinkPrefix: "docs/project/"}
 	content := "before\n<!-- doc-counts:begin refereed-figures -->\nstale\n<!-- doc-counts:end refereed-figures -->\nafter\n"
 	got, err := RewriteBlock(content, spec, counts)
@@ -131,19 +132,24 @@ func TestRewriteBlockUsesConsumerRelativeLinksAndIsIdempotent(t *testing.T) {
 // emptying a block: a name no template renders is an error, not empty markup.
 func TestRewriteBlockRejectsABlockWithNoTemplate(t *testing.T) {
 	content := "<!-- doc-counts:begin invented -->\nkept\n<!-- doc-counts:end invented -->\n"
-	if _, err := RewriteBlock(content, Block{Path: ReadmePath, Name: "invented"}, RefereedCounts{}); err == nil {
+	if _, err := RewriteBlock(content, Block{Path: ReadmePath, Name: "invented"}, Counts{}); err == nil {
 		t.Fatal("want an error for a block name no template renders")
 	}
 }
 
 func TestRewriteBlockRejectsMalformedMarkers(t *testing.T) {
 	spec := Block{Path: "README.md", Name: "refereed-figures"}
-	counts := RefereedCounts{}
+	counts := Counts{}
 	for name, content := range map[string]string{
-		"missing begin": "<!-- doc-counts:end refereed-figures -->\n",
-		"missing end":   "<!-- doc-counts:begin refereed-figures -->\n",
-		"reversed":      "<!-- doc-counts:end refereed-figures -->\n<!-- doc-counts:begin refereed-figures -->\n",
-		"duplicate":     "<!-- doc-counts:begin refereed-figures -->\n<!-- doc-counts:begin refereed-figures -->\n<!-- doc-counts:end refereed-figures -->\n",
+		"missing begin":          "<!-- doc-counts:end refereed-figures -->\n",
+		"missing end":            "<!-- doc-counts:begin refereed-figures -->\n",
+		"reversed":               "<!-- doc-counts:end refereed-figures -->\n<!-- doc-counts:begin refereed-figures -->\n",
+		"duplicate":              "<!-- doc-counts:begin refereed-figures -->\n<!-- doc-counts:begin refereed-figures -->\n<!-- doc-counts:end refereed-figures -->\n",
+		"inline unterminated":    "x <!-- doc-counts:begin refereed-figures --> stale\n",
+		"inline reversed":        "x <!-- doc-counts:end refereed-figures --> stale <!-- doc-counts:begin refereed-figures -->\n",
+		"inline and block mixed": "x <!-- doc-counts:begin refereed-figures --> stale <!-- doc-counts:end refereed-figures -->\n<!-- doc-counts:end refereed-figures -->\n",
+		"inline twice":           "x <!-- doc-counts:begin refereed-figures --> a <!-- doc-counts:end refereed-figures --> <!-- doc-counts:begin refereed-figures --> b <!-- doc-counts:end refereed-figures -->\n",
+		"multi-line inline":      "x <!-- doc-counts:begin refereed-figures --> stale <!-- doc-counts:end refereed-figures -->\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := RewriteBlock(content, spec, counts); err == nil {
