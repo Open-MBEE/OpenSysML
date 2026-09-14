@@ -313,3 +313,149 @@ func TestRunQueryBindsACoordinateFrame(t *testing.T) {
 		"✓ Query Observatory::NamedSubsystems returned 1 row",
 		"Row 1: SI::'degree celsius (absolute temperature scale)'::zeroDegreeCelsiusToKelvinShift::origin")
 }
+
+// objectQueryModel declares queries over a car whose wheels the session can
+// instantiate: one over what an object owns, one over the objects a session
+// holds, and one that only model elements answer.
+const objectQueryModel = `package Garage {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Wheel {
+		attribute pressure : Integer = 30;
+		action inflate {
+			in delta : Integer;
+			first set;
+			action set {
+				assign pressure := pressure + delta;
+			}
+		}
+	}
+
+	part def Car {
+		part wheels : Wheel[2];
+	}
+
+	part car : Car;
+
+	calc def Parts :> Query {
+		in root : Element;
+		Project(source = OwnedElements(source = root), properties = ("name", "pressure"))
+	}
+
+	calc def Wheels :> Query {
+		Project(source = Objects(type = "Wheel"), properties = ("pressure"))
+	}
+
+	calc def Typing :> Query {
+		in root : Element;
+		RelatedElements(source = root, relationshipKind = "typing", direction = "outgoing", maxDepth = 1)
+	}
+}
+`
+
+func objectQuerySession(t *testing.T) *Session {
+	t.Helper()
+	s := NewSession()
+	if res := s.Submit(objectQueryModel); len(errorDiagnostics(res.Diagnostics)) > 0 {
+		t.Fatalf("model did not analyse cleanly: %v", res.Diagnostics)
+	}
+	return s
+}
+
+// A held object wins over the element it was instantiated from, so the query
+// runs over the object's parts under their paths; before instantiation the same
+// binding is the element, whose usage owns nothing of its own.
+func TestRunQueryBindsHeldObjectOverElement(t *testing.T) {
+	s := objectQuerySession(t)
+	wants(t, run(t, s, "%run-query Parts root=Garage::Car"),
+		"✓ Query Garage::Parts returned 1 row",
+		"Row 1: Garage::Car::wheels",
+		"pressure = 30")
+	wants(t, run(t, s, "%run-query Parts root=car"), "✓ Query Garage::Parts returned 0 rows")
+	wants(t, run(t, s, "%instantiate Garage::car"), "Created instance")
+	wants(t, run(t, s, "%run-query Parts root=car"),
+		"✓ Query Garage::Parts returned 2 rows",
+		"Row 1: Garage::car.wheels[1] (#2)",
+		`name = "wheels[1]"`,
+		"pressure = 30",
+		"Row 2: Garage::car.wheels[2] (#3)")
+	wants(t, run(t, s, "%run-query Parts root=Garage::car"), "returned 2 rows")
+	wants(t, run(t, s, "%run-query Parts root=Garage::Car"), "returned 1 row", "Row 1: Garage::Car::wheels")
+}
+
+// `#id` and a path through a held object bind that object, and a query reads
+// the value an object holds now, not the declared default.
+func TestRunQueryBindsObjectByIDAndPath(t *testing.T) {
+	s := objectQuerySession(t)
+	wants(t, run(t, s, "%instantiate Garage::car"), "Created instance")
+	wants(t, run(t, s, "%run-query Parts root=#1"), "returned 2 rows", "Row 1: #1.wheels[1] (#2)")
+	wants(t, run(t, s, "%run-query Parts root=car.wheels[2]"), "returned 0 rows")
+	wants(t, run(t, s, "%invoke car.wheels[2] inflate delta=5"), "Invoked inflate on object #3")
+	got := run(t, s, "%run-query Wheels")
+	wants(t, got,
+		"✓ Query Garage::Wheels returned 2 rows",
+		"Row 1: Garage::car.wheels[1] (#2)",
+		"pressure = 30",
+		"Row 2: Garage::car.wheels[2] (#3)",
+		"pressure = 35")
+	if strings.Index(got, "pressure = 30") > strings.Index(got, "pressure = 35") {
+		t.Errorf("wheel rows are out of session order:\n%s", got)
+	}
+	wants(t, run(t, s, "%run-query Parts root=#99"), "error:", "binding root", "#99")
+}
+
+// A query over model elements only refuses an object row with the operation
+// and the object it was given.
+func TestRunQueryRefusesObjectRowsInElementOperations(t *testing.T) {
+	s := objectQuerySession(t)
+	wants(t, run(t, s, "%run-query Typing root=car"), "✓ Query Garage::Typing returned 1 row", "Garage::Car")
+	wants(t, run(t, s, "%instantiate Garage::car"), "Created instance")
+	wants(t, run(t, s, "%run-query Typing root=car"), "error:",
+		"operation related-elements applies to model elements, not to object Garage::car")
+}
+
+// objectDocumentModel adds a document over the object query model: a table
+// bound to the car and a list of every wheel the session holds.
+const objectDocumentModel = objectQueryModel + `package Reports {
+	private import DocumentQueries::*;
+	private import Garage::*;
+
+	part def CarReport :> Document {
+		attribute redefines title = "Car Report";
+		part parts : Table {
+			calc rows : Parts {
+				in root = car;
+			}
+		}
+		part wheels : List {
+			calc items : Wheels;
+		}
+	}
+}
+`
+
+// A document renders over what the session holds: before instantiation its
+// table shows the declared usage's parts (none of its own) and no objects; after
+// it, the objects by path, with the values they hold now.
+func TestRenderDocumentOverHeldObjects(t *testing.T) {
+	s := NewSession()
+	if res := s.Submit(objectDocumentModel); len(errorDiagnostics(res.Diagnostics)) > 0 {
+		t.Fatalf("model did not analyse cleanly: %v", res.Diagnostics)
+	}
+	declared := run(t, s, "%render-document Reports::CarReport")
+	wants(t, declared, "# Car Report", "| name | pressure |\n| --- | --- |")
+	if strings.Contains(declared, "wheels\\[") || strings.Contains(declared, "- 30") {
+		t.Errorf("a session holding nothing rendered objects:\n%s", declared)
+	}
+
+	wants(t, run(t, s, "%instantiate Garage::car"), "Created instance")
+	wants(t, run(t, s, "%invoke car.wheels[2] inflate delta=5"), "Invoked inflate on object #3")
+	wants(t, run(t, s, "%render-document Reports::CarReport"),
+		"# Car Report",
+		"| name | pressure |",
+		`| wheels\[1\] | 30 |`,
+		`| wheels\[2\] | 35 |`,
+		"- 30\n- 35")
+}

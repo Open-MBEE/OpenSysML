@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 41,
-        "digest": "sha256:445285e40ab1bdec68f16a8e35e3e7f5ac3fed23a816c156dd8ba005b883e585"
+        "digest": "sha256:ed71b2e0d27f5d8f0901191b73531e86073298a989dd46d4645d06af1feb5f9f"
       },
       {
         "name": "probes",

@@ -32,16 +32,16 @@ func (e *executor) derivedFeatureValues(sym *symbols.Symbol, property string) ([
 		if errors.As(err, &noValue) && !semantics.IsParameter(noValue.Symbol) {
 			return nil, nil
 		}
-		return nil, e.unevaluable(queryplan.Expression{}, property, sym, err)
+		return nil, e.unevaluable(queryplan.Expression{}, property, ElementValue(sym), err)
 	}
-	return e.cellValues(value, property, sym)
+	return e.cellValues(value, property, ElementValue(sym))
 }
 
 // cellValues converts a runtime value to the values of one cell: collections
 // flatten, and a result no cell can hold — an object, an infinity — is a
 // typed error.
-func (e *executor) cellValues(value runtime.Value, property string, sym *symbols.Symbol) ([]Value, error) {
-	origin := ElementValue(sym).Origin()
+func (e *executor) cellValues(value runtime.Value, property string, row Value) ([]Value, error) {
+	origin := row.Origin()
 	if lit := value.EnumerationLiteral(); lit != nil {
 		return []Value{valueAt(StringValue(symbols.FQNOf(lit)), origin)}, nil
 	}
@@ -56,7 +56,7 @@ func (e *executor) cellValues(value runtime.Value, property string, sym *symbols
 	case runtime.ValConst:
 		converted, ok := constValue(value.Const)
 		if !ok {
-			return nil, e.unevaluable(queryplan.Expression{}, property, sym, notAValue(value))
+			return nil, e.unevaluable(queryplan.Expression{}, property, row, notAValue(value))
 		}
 		return []Value{valueAt(converted, origin)}, nil
 	case runtime.ValString:
@@ -64,11 +64,11 @@ func (e *executor) cellValues(value runtime.Value, property string, sym *symbols
 	case runtime.ValQuantity:
 		return []Value{valueAt(QuantityValue(*value.Quantity()), origin)}, nil
 	default:
-		return nil, e.unevaluable(queryplan.Expression{}, property, sym, notAValue(value))
+		return nil, e.unevaluable(queryplan.Expression{}, property, row, notAValue(value))
 	}
 	var result []Value
 	for _, element := range elements {
-		values, err := e.cellValues(element, property, sym)
+		values, err := e.cellValues(element, property, row)
 		if err != nil {
 			return nil, err
 		}

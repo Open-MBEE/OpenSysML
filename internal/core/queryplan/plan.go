@@ -10,14 +10,16 @@ import (
 type Operation string
 
 const (
-	OperationParameter       Operation = "parameter"
-	OperationElement         Operation = "element"
-	OperationLiteral         Operation = "literal"
-	OperationSequence        Operation = "sequence"
-	OperationInvoke          Operation = "invoke"
-	OperationOwnedElements   Operation = "owned-elements"
-	OperationDescendants     Operation = "descendants"
-	OperationAncestors       Operation = "ancestors"
+	OperationParameter     Operation = "parameter"
+	OperationElement       Operation = "element"
+	OperationLiteral       Operation = "literal"
+	OperationSequence      Operation = "sequence"
+	OperationInvoke        Operation = "invoke"
+	OperationOwnedElements Operation = "owned-elements"
+	OperationDescendants   Operation = "descendants"
+	OperationAncestors     Operation = "ancestors"
+	// OperationObjects enumerates the objects a session holds, by type.
+	OperationObjects         Operation = "objects"
 	OperationRelatedElements Operation = "related-elements"
 	OperationWhereType       Operation = "where-type"
 	OperationWhereMetadata   Operation = "where-metadata"

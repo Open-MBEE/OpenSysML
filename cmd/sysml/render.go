@@ -146,6 +146,22 @@ func loadRenderingModel(files []string) (*repl.Session, error) {
 	if report.Errors {
 		return nil, fmt.Errorf("%s did not analyse cleanly; nothing was rendered", strings.Join(files, ", "))
 	}
+	// The objects -instantiate names are created first, so a document's queries
+	// run over what the session holds under those names.
+	for _, name := range modelChecks.instantiate {
+		created, err := sess.InstantiateReport(name)
+		if err != nil {
+			return nil, err
+		}
+		writeLines(os.Stderr, created.Lines)
+		if len(created.FeatureValueErrors) > 0 {
+			writeLines(os.Stderr, created.FeatureValueErrors)
+			return nil, fmt.Errorf("%s did not materialize cleanly; nothing was rendered", name)
+		}
+		if created.Bounded {
+			fmt.Fprintf(os.Stderr, "%s: materialization is bounded; not every feature value was materialized\n", name)
+		}
+	}
 	return sess, nil
 }
 

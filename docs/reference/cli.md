@@ -151,6 +151,34 @@ themselves:
 sysml -satisfy -constraint MassBudget design.sysml   # 0 held, 1 answered false, 2 undecided
 ```
 
+So does an object validated as a whole — every assertion it and the parts it
+holds carry, in one exit status. Over a `Car` that asserts `massOk`, carries the
+requirement `light` and holds two `wheels : Wheel[2]` whose `Wheel` asserts
+`pressureOk`:
+
+```bash
+$ sysml fleet.sysml -instantiate Fleet::car -validate=Fleet::car; echo $?
+✓ package Fleet
+✓ Created instance of Fleet::car
+  ID: 1
+  Use %features Fleet::car to inspect
+✓ assert constraint massOk holds (on Fleet::car ID: 1)
+✗ requirement light fails (on Fleet::car ID: 1)
+  Required condition evaluated to false: mass < 1000.0
+✗ assert constraint pressureOk fails (on Fleet::car.wheels[1] ID: 2)
+  Assertion evaluated to false: pressure >= 30.0
+✗ assert constraint pressureOk fails (on Fleet::car.wheels[2] ID: 3)
+  Assertion evaluated to false: pressure >= 30.0
+✗ Fleet::car is not valid: 3 of 4 assertions fail
+  standing: violated (witnessed: 1 run under reverse)
+1
+```
+
+Under `-json` each verdict is a check of its own, `subject` naming the
+assertion and the object (`assert constraint pressureOk on Fleet::car.wheels[2]`),
+and the last check is the object's, carrying the `plan` and `results` of the
+engine that answered.
+
 ### 6. Use REPL Meta Commands
 
 Load a file and use meta commands:
@@ -192,7 +220,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`, a ` ```plantuml ` block under `-diagram-form plantuml`; a table-kind view as a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
+| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`, a ` ```plantuml ` block under `-diagram-form plantuml`; a table-kind view as a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
 | `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid` (default), `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
 | `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
@@ -220,14 +248,15 @@ written in, so the verdicts are about that object:
 | Flag | Checks |
 |------|--------|
 | `-validate` | Only that the model analyses cleanly and that the objects `-instantiate` asked for could be built; it says nothing about the model's constraints |
+| `-validate=<object>` | Every assertion about an object `-instantiate` created and the objects it holds, as `%validate` does: each `assert constraint` the carrier's type declares or inherits, each requirement usage it carries and each `satisfy` assertion whose subject is in the tree, one verdict per assertion per object, root first and then each held object as the walk reaches it (`Fleet::car.wheels[2]`), then one verdict about the object as a whole — valid only when every assertion holds and every held object was reached, so an assertion that could not be evaluated or a walk cut short by an object graph without end leaves it undecided rather than valid, as does an object no assertion is about (`states no assertion to validate`, exit status 2). The object is named as `%validate` names it: the usage's name, a feature path to a part it holds (`Fleet::car.engine`), or the id the report prints (`#2`). A constraint declared without `assert` is not swept; name it with `-constraint`. Repeatable; `-validate=false` asks for nothing and withdraws a bare `-validate` written before it, as `-satisfy=false` does |
 | `-constraint <name>` | One constraint, as `%constraint` does |
 | `-requirement <name>` | One requirement, as `%requirement` does, with [the verdict of every verification case](#verification-case-verdicts) verifying it beside its own |
 | `-satisfy` | Every satisfaction assertion the model states, with [the verdict of every verification case](#verification-case-verdicts) verifying the requirement beside each |
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
-| `-instantiate <name>` | Creates an object first, so the verdicts are about it |
+| `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)) |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
 | `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
-| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>` |
+| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate` |
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
@@ -492,6 +521,10 @@ in each form:
 | `dot` | `"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>];` — an HTML-like label, the name in bold and the keyword line at 10pt |
 | `plantuml` | `rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>` — a creole label, the name in bold and the keyword line italic at 10pt; the stereotypes drive the style and are hidden |
 
+Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restating the
+flowchart's, because Mermaid lays out a subgraph that states none without regard to the
+flowchart's; a tree draws containment as edges, not subgraphs, so it carries none.
+
 A Mermaid flowchart reserves the height of one line for a `subgraph` title, so a flowchart
 whose cluster title spans more — an interconnection or action rendering with a container —
 opens on a YAML frontmatter block that claims the rest as the title's bottom margin, 24px per
@@ -507,6 +540,7 @@ config:
 %% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
   subgraph n0 ["Plant::Loop<br>«part def»"]
+    direction LR
   …
 ```
 
@@ -615,7 +649,8 @@ sysml model.sysml -render-documents rendered
 The directory is created if needed; written paths go to stderr and stdout stays empty. A
 model that declares no documents, declares two documents with the same name, or does not analyse
 cleanly stops the run with status 2. `-render-documents` cannot be combined with
-`-render-document`, `-render`, `-render-all`, `-o`, `-convert`, a query flag, or a check flag.
+`-render-document`, `-render`, `-render-all`, `-o`, `-convert`, a query flag, or a check flag
+other than `-instantiate` (see [Rendering a document over objects](#rendering-a-document-over-objects)).
 Rendering a single document with `-render-document` still succeeds when it has cross-document
 references: the links point at the targets' expected file names and dangle until those documents
 are rendered into the same directory.
@@ -626,6 +661,34 @@ document can query elements declared in sibling files:
 ```bash
 sysml model/*.sysml -render-document Reports::MassReport -o report.md
 ```
+
+## Rendering a document over objects
+
+A document's queries read the model — the elements and what they declare. With `-instantiate`,
+the one check flag a render run takes, they read the **objects** the run holds as well: each
+`-instantiate <name>` creates its object first, as it does before a check, and the document is
+then rendered over a session holding them. A query parameter the document binds to a usage's name
+(`in root = car;`) binds the object the run holds under that name while it holds one, and the
+element otherwise, so one document renders the declared model in one run and the objects in the
+next; `Objects(type = "<type>")` enumerates every object held that is of the type. Over an
+object, `OwnedElements`, `Descendants` and `Ancestors` walk the objects it holds and is held by,
+`WhereType` tests its types, and `WhereFeature`, `Project` and `OrderBy` read the values it holds
+now. See [Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds).
+
+```bash
+sysml model.sysml -instantiate Garage::car -render-document Reports::CarReport -o report.md
+```
+
+The instantiation report goes to stderr, the document to stdout or `-o`, in every `-doc-form`.
+An object renders by its path from the object it was bound through: a row's `name` is
+`wheels[2]` for the second wheel of a collection, its `qualifiedName` the whole path
+(`car.wheels[2]`), and an object-valued cell (a part's `engine`) is the path of the object held.
+In HTML each row or list item over an object carries `data-object="#<id>"`, the id the
+instantiation report printed, beside the `data-element` and `data-element-kind` of the usage the
+object stands for, and an object-valued value is a `span.sysml-object`. An object that could not
+be materialized stops the run with status 2 and the materialization errors; a render run still
+takes no other check flag (`-validate`, `-constraint`, `-satisfy`, …), so the verdicts about the
+objects are a run of their own.
 
 ## Rendering a document as HTML
 

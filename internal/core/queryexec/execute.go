@@ -10,15 +10,43 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/query"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Context provides the semantic workspace used by one execution.
+// Context provides the semantic workspace used by one execution; Index,
+// Resolver and Model are required, Runtime and Roots absent over the model alone.
 type Context struct {
 	Index    *symbols.Index
 	Resolver *resolve.Resolver
 	Model    *semantics.Model
+	// Runtime holds the objects the query may read; nil makes object bindings
+	// and Objects typed errors.
+	Runtime *runtime.Context
+	// Roots are the objects the session holds directly, each under its label,
+	// in the order Objects enumerates them.
+	Roots []Root
+}
+
+// Root is one object a session holds directly, under its label (`Demo::car`, `#7`).
+type Root struct {
+	Label  string
+	Object *runtime.Instance
+}
+
+// HeldRoot returns the first root materialized from a declaration, so a binding
+// naming the declaration binds its object while the session holds one.
+func (c Context) HeldRoot(sym *symbols.Symbol) (Value, bool) {
+	if sym == nil {
+		return Value{}, false
+	}
+	for _, root := range c.Roots {
+		if root.Object != nil && symbols.SameElement(root.Object.Type, sym) {
+			return ObjectValue(root.Object, root.Label), true
+		}
+	}
+	return Value{}, false
 }
 
 // Options controls bounded query execution.
@@ -61,6 +89,9 @@ type executor struct {
 // Execute evaluates a compiled entry query into an immutable ordered row set.
 func Execute(program *queryplan.Program, context Context, bindings Bindings, options Options) (*RowSet, error) {
 	if program == nil || context.Index == nil || context.Resolver == nil || context.Model == nil {
+		return nil, &Error{Kind: ErrorInvalidContext}
+	}
+	if context.Runtime == nil && len(context.Roots) > 0 {
 		return nil, &Error{Kind: ErrorInvalidContext}
 	}
 	definition, ok := entryDefinition(program)
@@ -253,6 +284,13 @@ func (e *executor) valueConforms(value Value, expected string) bool {
 			}
 		}
 		return expected == "Element" || expected == "KerML::Root::Element"
+	case ValueObject:
+		inst, _, ok := value.Object()
+		if !ok {
+			return false
+		}
+		return e.objectConformsTo(inst, expected) ||
+			expected == "Element" || expected == "KerML::Root::Element"
 	case ValueQuantity:
 		quantity, ok := value.Quantity()
 		if !ok {
@@ -330,6 +368,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateInvoke(expression)
 	case queryplan.OperationRelatedElements:
 		return e.evaluateRelated(expression)
+	case queryplan.OperationObjects:
+		return e.evaluateObjects(expression)
 	default:
 		return sequence{}, &Error{
 			Kind:      ErrorUnsupportedOperation,
@@ -501,14 +541,42 @@ func (e *executor) argument(expression queryplan.Expression, name string) (seque
 	return sequence{}, e.invalidArgument(expression, name, "missing")
 }
 
-func (e *executor) elementArgument(expression queryplan.Expression, name string) (sequence, error) {
+// rowArgument evaluates an argument whose values are rows: model elements, or
+// runtime objects when the execution has a session.
+func (e *executor) rowArgument(expression queryplan.Expression, name string) (sequence, error) {
 	value, err := e.argument(expression, name)
 	if err != nil {
 		return sequence{}, err
 	}
 	for _, item := range value.values {
-		if _, ok := item.Element(); !ok {
-			return sequence{}, e.invalidArgument(expression, name, string(item.Kind()))
+		if _, ok := item.Element(); ok {
+			continue
+		}
+		if _, _, ok := item.Object(); ok && e.context.Runtime != nil {
+			continue
+		}
+		return sequence{}, e.invalidArgument(expression, name, string(item.Kind()))
+	}
+	return value, nil
+}
+
+// elementArgument is rowArgument for an operation defined over the model
+// alone, which an object row cannot pass through.
+func (e *executor) elementArgument(expression queryplan.Expression, name string) (sequence, error) {
+	value, err := e.rowArgument(expression, name)
+	if err != nil {
+		return sequence{}, err
+	}
+	for _, item := range value.values {
+		if _, label, ok := item.Object(); ok {
+			return sequence{}, &Error{
+				Kind:      ErrorObjectRow,
+				Query:     e.definition.Name(),
+				Operation: expression.Operation(),
+				Parameter: name,
+				Target:    label,
+				Origin:    expression.Origin(),
+			}
 		}
 	}
 	return value, nil
@@ -602,10 +670,13 @@ func cloneCells(input []Cell) []Cell {
 
 func (e *executor) validateResult(result sequence) error {
 	for _, value := range result.values {
-		if value.Kind() != ValueElement || !e.valueConforms(value, e.definition.Result().Type) {
+		isRow := value.Kind() == ValueElement || value.Kind() == ValueObject
+		if !isRow || !e.valueConforms(value, e.definition.Result().Type) {
 			actual := string(value.Kind())
 			if sym, ok := value.Element(); ok {
 				actual = symbols.FQNOf(sym)
+			} else if _, label, ok := value.Object(); ok {
+				actual = "object " + label
 			}
 			return &Error{
 				Kind:     ErrorResultType,

@@ -669,7 +669,7 @@ func (e *evaluator) executeQuery(node docplan.Content) (*queryexec.RowSet, error
 		values := binding.Values()
 		bound := make([]queryexec.Value, 0, len(values))
 		for _, value := range values {
-			bound = append(bound, executionValue(value))
+			bound = append(bound, e.executionValue(value))
 		}
 		bindings[binding.Parameter()] = bound
 	}
@@ -688,8 +688,12 @@ func (e *evaluator) executeQuery(node docplan.Content) (*queryexec.RowSet, error
 }
 
 // executionValue converts one planned binding value into an execution value.
-func executionValue(value docplan.BindingValue) queryexec.Value {
+// An element the session holds an object for binds that object.
+func (e *evaluator) executionValue(value docplan.BindingValue) queryexec.Value {
 	if element, ok := value.Element(); ok {
+		if object, held := e.context.HeldRoot(element); held {
+			return object
+		}
 		return queryexec.ElementValue(element)
 	}
 	if text, ok := value.String(); ok {
@@ -723,13 +727,17 @@ func (e *evaluator) rowRuns(row queryexec.Row) []TextRun {
 	return runs
 }
 
-// valueText renders one typed query value as deterministic plain text.
+// valueText renders one typed query value as deterministic plain text; an
+// object reads as the label the session reaches it by.
 func (e *evaluator) valueText(value queryexec.Value) string {
 	if element, ok := value.Element(); ok {
 		if name := e.context.Model.EffectiveNameOf(element); name != "" {
 			return name
 		}
 		return symbols.FQNOf(element)
+	}
+	if _, label, ok := value.Object(); ok {
+		return label
 	}
 	if text, ok := value.String(); ok {
 		return text

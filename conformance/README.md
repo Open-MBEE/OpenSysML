@@ -134,7 +134,7 @@ What a request asks for is fixed per capability:
 | Capability | Request-side contract when unavailable |
 | --- | --- |
 | `convert` | Refuse `Convert`. |
-| `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `EvaluateCalc`. |
+| `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` and `EvaluateCalc`. |
 | `query` | Refuse `Query`. |
 | `oslc_query` | Refuse `Query` only when `oslc_query` is set; structured queries still use `query`. |
 | `apply_edits` | Refuse `ApplyEdits`. |

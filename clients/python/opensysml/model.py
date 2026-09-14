@@ -702,6 +702,29 @@ class Model:
         """
         return all(v.holds for v in self.verify_satisfaction(symbol_id))
 
+    def validate_instance(self, symbol_id, engine=None):
+        """Check every assertion about an object of one of this model's parts.
+
+        This is the scriptable form of ``sysml -validate=<object>``: an object
+        of the part is built, and each asserted constraint, requirement and
+        satisfaction assertion in its tree is evaluated against the object
+        carrying it, nested parts and every element of a collection included.
+
+        Args:
+            symbol_id (str): FQN of the part definition or usage an object of
+                which is validated
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
+
+        Returns:
+            Validation: One verdict per assertion and the object's own; truthy
+                when every assertion holds and the whole tree was reached
+
+        Raises:
+            ExecutionError: If the request could not be answered at all
+        """
+        return self._client.validate_instance(symbol_id, self._hash, engine=engine)
+
     def calc(self, symbol_id, arguments=None, engine=None):
         """Invoke one of this model's calculations.
 
