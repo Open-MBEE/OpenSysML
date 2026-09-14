@@ -1016,11 +1016,11 @@ func TestSelfModelFeatureReadFlowFollowsRuntime(t *testing.T) {
 		{"a bound feature reads its far end even when held", map[string]string{"bound": "true", "materialized": "true"}, 1, 0, true, false, false},
 		{"a variation binds its variant", map[string]string{"variationFeature": "true"}, 1, 0, true, false, false},
 		{"a stated value is derived and tracked", map[string]string{"statesValue": "true"}, 1, 0, true, true, false},
-		{"a default yields to contributions", map[string]string{"statesValue": "true", "fallbackDefault": "true", "contributed": "true"}, 0, 0, false, false, false},
+		{"a default yields to contributions", map[string]string{"statesValue": "true", "fallbackDefault": "true", "contributed": "true"}, 0, 0, true, false, false},
 		{"a default without contributions is derived", map[string]string{"statesValue": "true", "fallbackDefault": "true"}, 1, 0, true, true, false},
 		{"a connector holds its connected ends", map[string]string{"connector": "true"}, 0, 0, false, false, false},
 		{"a composite makes its objects", map[string]string{"composite": "true"}, 0, 1, true, false, false},
-		{"a feature with no value holds its contributions", nil, 0, 0, false, false, false},
+		{"a feature with no value holds its contributions", nil, 0, 0, true, false, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

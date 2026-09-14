@@ -304,9 +304,9 @@ package OpenSysMLBehavior {
         succession first bindVariant then admit;
         succession first deriveValue then admit;
         succession first makeObjects then admit;
+        succession first holdContributions then admit;
         succession first admit then done;
         succession first returnHeld then done;
-        succession first holdContributions then done;
         succession first holdConnectedEnds then done;
         succession first refuseUnknown then done;
     }
