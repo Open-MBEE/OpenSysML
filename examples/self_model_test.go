@@ -922,6 +922,128 @@ func TestSelfModelCalcCompilerMatchesImplementation(t *testing.T) {
 	}
 }
 
+// TestSelfModelInstanceLayerMatchesImplementation checks the modelled instance
+// layer against the runtime: the schema's memoization, the effective feature's
+// shape, and the refusals the reader and admission spell.
+func TestSelfModelInstanceLayerMatchesImplementation(t *testing.T) {
+	idx, ctx := analyseSelfModel(t)
+
+	feature := instantiateSelfModel(t, idx, ctx, "execution.sysml", "OpenSysMLExecution", "EffectiveFeature")
+	if fields := reflect.TypeOf(runtime.EffectiveFeature{}).NumField(); fields != feature.integer("fieldCount") {
+		t.Errorf("execution.sysml says an effective feature has %d fields, runtime.EffectiveFeature has %d", feature.integer("fieldCount"), fields)
+	}
+	object := instantiateSelfModel(t, idx, ctx, "execution.sysml", "OpenSysMLExecution", "Instance")
+	id, ok := reflect.TypeOf(runtime.Instance{}).FieldByName("ID")
+	if !ok {
+		t.Fatal("runtime.Instance has no ID field")
+	}
+	if isInteger := id.Type.Kind() == reflect.Int64; isInteger != object.boolean("identityIsInteger") {
+		t.Errorf("execution.sysml says an instance's identity is an integer = %t, runtime.Instance.ID is %s", object.boolean("identityIsInteger"), id.Type)
+	}
+
+	layer := instantiateSelfModel(t, idx, ctx, "execution.sysml", "OpenSysMLExecution", "InstanceModel")
+	parts := layer.parts()
+	for _, name := range []string{"schema", "allocator", "reader", "bindings", "admission", "dependencies"} {
+		if _, ok := parts[name]; !ok {
+			t.Fatalf("InstanceModel declares no %s part", name)
+		}
+	}
+
+	schemaMemoized := false
+	modelType := reflect.TypeOf(runtime.Model{})
+	symbolType := reflect.TypeOf((*symbols.Symbol)(nil))
+	featuresType := reflect.TypeOf([]runtime.EffectiveFeature(nil))
+	for i := 0; i < modelType.NumField(); i++ {
+		field := modelType.Field(i).Type
+		if field.Kind() == reflect.Map && field.Key() == symbolType && field.Elem() == featuresType {
+			schemaMemoized = true
+		}
+	}
+	if schemaMemoized != parts["schema"].boolean("memoized") {
+		t.Errorf("execution.sysml says the schema is memoized = %t, runtime.Model keys a feature list by type: %t",
+			parts["schema"].boolean("memoized"), schemaMemoized)
+	}
+
+	for _, tc := range []struct {
+		part, attribute string
+		err             error
+	}{
+		{"reader", "refusesUnknownFeature", runtime.ErrNoSuchFeature},
+		{"reader", "refusesUnselectedVariation", runtime.ErrVariationUnselected},
+		{"admission", "multiplicityRefusal", runtime.ErrMultiplicityViolation},
+		{"admission", "typeRefusal", runtime.ErrTypeMismatch},
+		{"admission", "uniquenessRefusal", runtime.ErrUniquenessViolation},
+	} {
+		if got := parts[tc.part].str(tc.attribute); got != tc.err.Error() {
+			t.Errorf("execution.sysml says %s.%s = %q, the runtime spells it %q", tc.part, tc.attribute, got, tc.err)
+		}
+	}
+}
+
+// TestSelfModelSchedulerMatchesImplementation checks the modelled scheduler's
+// choice kinds and policy spellings against the runtime.
+func TestSelfModelSchedulerMatchesImplementation(t *testing.T) {
+	idx, ctx := analyseSelfModel(t)
+	scheduler := instantiateSelfModel(t, idx, ctx, "execution.sysml", "OpenSysMLExecution", "Scheduler")
+
+	kinds := 0
+	for !strings.HasPrefix(runtime.ChoiceKind(kinds).String(), "ChoiceKind(") {
+		kinds++
+	}
+	if declared := scheduler.integer("choiceKindCount"); declared != kinds {
+		t.Errorf("execution.sysml says a run meets %d kinds of choice, the runtime names %d", declared, kinds)
+	}
+	if got, want := scheduler.str("defaultPolicy"), runtime.DefaultSchedulePolicy.String(); got != want {
+		t.Errorf("execution.sysml says the default policy is %q, the runtime's is %q", got, want)
+	}
+	if got, want := scheduler.str("policySpellings"), strings.Join(runtime.SchedulePolicyNames, ", "); got != want {
+		t.Errorf("execution.sysml spells the policies %q, the runtime %q", got, want)
+	}
+}
+
+// TestSelfModelFeatureReadFlowFollowsRuntime runs the modelled feature read
+// through each case a feature can be in, checking which path makes the value.
+func TestSelfModelFeatureReadFlowFollowsRuntime(t *testing.T) {
+	cases := []struct {
+		name                       string
+		initial                    map[string]string
+		evaluations, objectsMade   int
+		admitted, tracked, refused bool
+	}{
+		{"an undeclared feature is refused", map[string]string{"declared": "false"}, 0, 0, false, false, true},
+		{"a held value is returned as it is", map[string]string{"materialized": "true"}, 0, 0, false, false, false},
+		{"a bound feature reads its far end", map[string]string{"bound": "true"}, 1, 0, true, false, false},
+		{"a bound feature reads its far end even when held", map[string]string{"bound": "true", "materialized": "true"}, 1, 0, true, false, false},
+		{"a variation binds its variant", map[string]string{"variationFeature": "true"}, 1, 0, true, false, false},
+		{"a stated value is derived and tracked", map[string]string{"statesValue": "true"}, 1, 0, true, true, false},
+		{"a default yields to contributions", map[string]string{"statesValue": "true", "fallbackDefault": "true", "contributed": "true"}, 0, 0, false, false, false},
+		{"a default without contributions is derived", map[string]string{"statesValue": "true", "fallbackDefault": "true"}, 1, 0, true, true, false},
+		{"a connector holds its connected ends", map[string]string{"connector": "true"}, 0, 0, false, false, false},
+		{"a composite makes its objects", map[string]string{"composite": "true"}, 0, 1, true, false, false},
+		{"a feature with no value holds its contributions", nil, 0, 0, false, false, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			flow := selfModelFlow(t, "ReadFeatureValue", tc.initial)
+			if got := flow.integer("evaluations"); got != tc.evaluations {
+				t.Errorf("the read evaluated %d times, want %d", got, tc.evaluations)
+			}
+			if got := flow.integer("objectsMade"); got != tc.objectsMade {
+				t.Errorf("the read made %d objects, want %d", got, tc.objectsMade)
+			}
+			if got := flow.boolean("admitted"); got != tc.admitted {
+				t.Errorf("the value was admitted: %t, want %t", got, tc.admitted)
+			}
+			if got := flow.boolean("tracked"); got != tc.tracked {
+				t.Errorf("the value was tracked: %t, want %t", got, tc.tracked)
+			}
+			if got := flow.boolean("refused"); got != tc.refused {
+				t.Errorf("the read was refused: %t, want %t", got, tc.refused)
+			}
+		})
+	}
+}
+
 // TestSelfModelViewKindsMatchImplementation compares the rendering kinds the
 // modelled view engine declares with those the view package recognizes, and
 // which of them it renders.

@@ -73,6 +73,8 @@ package OpenSysMLArtifacts {
 package OpenSysMLPipeline {
     private import ScalarValues::*;
     private import OpenSysMLArtifacts::*;
+    private import OpenSysMLExecution::InstanceModel;
+    private import OpenSysMLExecution::Scheduler;
 
     // --- Front end -------------------------------------------------------
 
@@ -396,12 +398,6 @@ package OpenSysMLPipeline {
         part compiled : CalcCompiler;
     }
 
-    part def InstanceModel :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
-        attribute lazyFeatureValues : Boolean = true;
-        out item instances : InstanceGraph;
-    }
-
     // A run's state between two steps, paused bodies included, restored as often as asked;
     // the model-derived state is no part of it, and a snapshot mid-step is refused.
     part def SnapshotStore :> CodeUnit {
@@ -442,7 +438,9 @@ package OpenSysMLPipeline {
         attribute budgetCount : Integer = 7;
         attribute splitsModelFromRun : Boolean = true;
 
+        // The instance layer and scheduler are modelled in execution.sysml.
         part instances : InstanceModel;
+        part scheduler : Scheduler;
         part evaluator : Evaluator;
         part actions : ActionExecutor;
         part states : StateExecutor;
