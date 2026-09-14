@@ -167,13 +167,13 @@ func replayedValues(t *testing.T, d *document, q analysis.Question, result analy
 	budget := analysis.Budget{Depth: DefaultMoves}
 	var values []string
 	for i, w := range []*analysis.Witness{result.Witness, result.Contrast} {
-		replayed, err := runtime.ReplaySchedule(context.Background(), d.fresh(budget), runtime.ActionStarter(q.Holds.Start),
+		replayed, err := runtime.ReplaySchedule(context.Background(), d.fresh(budget), actionStarter(q.Holds.Start),
 			runtime.Witness{Inputs: w.Inputs, Choices: w.Choices}, runtime.ScheduleEnd)
 		if err != nil {
 			t.Fatalf("witness %s does not replay: %v\n  %s", CopyNames[i], err, runtime.FormatChoices(w.Choices))
 		}
-		if replayed.Err != nil || replayed.Exec.State() != runtime.StateCompleted {
-			t.Fatalf("witness %s replays to %v in state %v, want a completion", CopyNames[i], replayed.Err, replayed.Exec.State())
+		if replayed.Err != nil || replayed.Inv.Actions[0].State() != runtime.StateCompleted {
+			t.Fatalf("witness %s replays to %v in state %v, want a completion", CopyNames[i], replayed.Err, replayed.Inv.Actions[0].State())
 		}
 		value, err := replayed.FinalValue(feature)
 		if err != nil {
@@ -293,7 +293,7 @@ func TestSensitivityWritesBothWitnesses(t *testing.T) {
 		if err != nil {
 			t.Fatalf("witness %s does not read back: %v", CopyNames[i], err)
 		}
-		replayed, err := runtime.ReplayAction(context.Background(), d.fresh(analysis.Budget{Depth: 8}), runtime.ActionStarter(q.Holds.Start), file, nil)
+		replayed, err := runtime.Replay(context.Background(), d.fresh(analysis.Budget{Depth: 8}), actionStarter(q.Holds.Start), file, nil)
 		if err != nil {
 			t.Fatalf("witness %s does not replay: %v", CopyNames[i], err)
 		}

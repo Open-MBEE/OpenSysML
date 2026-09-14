@@ -252,13 +252,24 @@ func (r *run) sensitive(ctx context.Context, pair *Diverging, solved []analysis.
 	return out, nil
 }
 
+// actionStarter starts the action alone as the invocation a replay runs.
+func actionStarter(start analysis.Start) runtime.Starter {
+	return func(ctx *runtime.Context) (*runtime.Invocation, error) {
+		exec, err := start(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return &runtime.Invocation{Actions: []*runtime.ActionExecutor{exec}}, nil
+	}
+}
+
 // replayRun re-runs one schedule of a pair through the interpreter to its end and reads
 // the feature's final value; the witness is then written, with the trace the run left,
 // when the question names a directory, and replayed from what was written as a violation
 // witness is. It returns the disagreement, "" when the interpreter agrees.
 func (r *run) replayRun(ctx context.Context, w *Witness, feature, expected, copy string) (*analysis.Witness, string, error) {
 	fresh := func() (*runtime.Context, error) { return r.model.NewContextOn(0, r.budget) }
-	start := runtime.ActionStarter(r.q.Holds.Start)
+	start := actionStarter(r.q.Holds.Start)
 	witness := &analysis.Witness{Schedule: w.policy(), Inputs: w.Inputs, Choices: w.Choices}
 	claim := fmt.Sprintf("the solver claims %s ends as %s under schedule %s", feature, expected, copy)
 	file := runtime.Witness{Inputs: w.Inputs, Choices: w.Choices}
@@ -270,7 +281,7 @@ func (r *run) replayRun(ctx context.Context, w *Witness, feature, expected, copy
 		return nil, "", err
 	case replayed.Err != nil:
 		return witness, fmt.Sprintf("%s; the interpreter's run fails: %v", claim, replayed.Err), nil
-	case replayed.Exec.State() != runtime.StateCompleted:
+	case replayed.Inv.Actions[0].State() != runtime.StateCompleted:
 		return witness, claim + "; the interpreter's run does not complete", nil
 	}
 	value, err := replayed.FinalValue(feature)
@@ -290,7 +301,7 @@ func (r *run) replayRun(ctx context.Context, w *Witness, feature, expected, copy
 		}
 		witness.Written = path
 	}
-	if _, err := runtime.ReplayAction(ctx, fresh, start, file, nil); err != nil {
+	if _, err := runtime.Replay(ctx, fresh, start, file, nil); err != nil {
 		if errors.Is(err, runtime.ErrReplayDisagrees) {
 			return witness, claim + "; " + err.Error(), nil
 		}

@@ -2,26 +2,56 @@ package runtime
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
-	"iter"
+	"maps"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 )
 
-// bodyRun is the work of one token's step run on a body coroutine: a breakpoint met
-// inside it, or a wait on the clock, pauses the token there until stepped again.
+// A body's work — a token's step of a node with a body, or a state's do behavior —
+// pauses where it waits and is resumed later. The paused work is data: the
+// frames each level of it was at (bodyRun.cursor), re-entered level by level.
+
+// errPaused unwinds the work of a body to the run driving it, which keeps where it paused.
+var errPaused = errors.New("body paused")
+
+// errBodyContinuation is a paused body resumed at a level other than the one it paused at.
+var errBodyContinuation = errors.New("body continuation")
+
+// paused reports whether err is the unwinding of a paused body.
+func paused(err error) bool { return errors.Is(err, errPaused) }
+
+// bodyWork is what a body run performs; perform is re-entered after each pause,
+// clone copies how far it has come, for a snapshot to restore it to, and spell
+// writes that into a state's canonical form.
+type bodyWork interface {
+	perform() error
+	clone() bodyWork
+	spell(*stateSpeller) string
+}
+
+// bodyFrame is where one level of a body's work paused; abandon ends what it
+// holds open, clone copies it as it stands, for a snapshot to restore it to, and
+// spell writes it into a state's canonical form.
+type bodyFrame interface {
+	abandon(ctx *Context)
+	clone() bodyFrame
+	spell(*stateSpeller) string
+}
+
+// bodyRun is the work of one body: a breakpoint met inside it, or a wait on the
+// clock, pauses it there until resumed, its frames kept in cursor.
 type bodyRun struct {
-	// co is the coroutine the work runs on, which a pause keeps until the work
-	// has ended with err or was stopped for good.
-	co    *bodyCoroutine
-	work  func() error
+	work bodyWork
+	// err is what ended the work, once ended: its own failure, or its abandonment.
 	err   error
-	after func(tokenIdx int) error
-	// yield pauses the work from inside; runDepth and actionDepth are the nesting
-	// the context had when the work was last resumed, which a pause gives back to.
-	yield                 func(bodyPause) bool
-	runDepth, actionDepth int
+	ended bool
+	// cursor is the paused work, innermost level first; resuming is the cursor
+	// being re-entered, each level popping its frame.
+	cursor, resuming []bodyFrame
 	// pausedAt orders the paused runs by when they last paused; paused is why.
 	pausedAt int64
 	paused   bodyPause
@@ -33,87 +63,290 @@ type bodyRun struct {
 	awaitsMessages bool
 }
 
-// bodyPause is why a body run paused: at the named breakpoint, or on a wait (on
-// the clock, or for a message) of a flow it runs or of the executor (held) it
-// performs an action with; ended reports the work done instead.
+// bodyPause is why a body run paused: at the named breakpoint, or on a wait.
 type bodyPause struct {
 	breakpoint string
 	onWait     bool
-	held       clockWaiter
-	// waits reports whether the wait goes on, so resuming would only pause again.
-	waits func() bool
-	ended bool
+	wait       bodyWait
 }
 
-// bodyCoroutine runs the work of token steps one after another, so the steps of a
-// run share one coroutine and only a pause, which keeps it, has the next step make another.
-type bodyCoroutine struct {
-	// next resumes the work, yielding why it paused or that it ended, or false once
-	// the coroutine was stopped; stop ends it, and any work paused on it, for good.
-	next func() (bodyPause, bool)
-	stop func()
-	// run is the work the coroutine is doing or has paused, nil while idle.
-	run *bodyRun
+// bodyWait is the wait a body's run paused on: of the action it performs (held),
+// or of perf's flow run by exec; onMessage for a wait for a message, else the clock.
+type bodyWait struct {
+	held      *ActionExecutor
+	exec      *ActionExecutor
+	perf      *actionFrame
+	onMessage bool
 }
 
-// runPausable runs work for the token at tokenIdx, then after with the token's index
-// by then, inline when a run on the stack is pausable already. The steps of a run
-// share one body coroutine, kept only by a pause, as the race detector never frees one.
-func (e *ActionExecutor) runPausable(tokenIdx int, work func() error, after func(tokenIdx int) error) error {
-	if e.ctx.pausable != nil {
-		if err := work(); err != nil {
-			return err
+// goesOn reports whether the wait goes on, so resuming would only pause again.
+func (w bodyWait) goesOn() bool {
+	if e := w.held; e != nil {
+		if e.state != StateWaiting || e.canProceed(nil) {
+			return false
 		}
-		return after(tokenIdx)
+		return w.onMessage || e.waitsOnClock(nil)
 	}
-	run := &bodyRun{co: e.ctx.takeBodyCoroutine(), work: work, after: after}
-	e.tokens[tokenIdx].body = run
-	return e.resumeBody(tokenIdx)
-}
-
-// takeBodyCoroutine takes the idle body coroutine for a step's work, making one when none is.
-func (ctx *Context) takeBodyCoroutine() *bodyCoroutine {
-	if co := ctx.idleBody; co != nil {
-		ctx.idleBody = nil
-		return co
+	e := w.exec
+	if e.canProceed(w.perf) {
+		return false
 	}
-	ctx.bodyCoroutinesMade++
-	co := &bodyCoroutine{}
-	co.next, co.stop = iter.Pull(func(yield func(bodyPause) bool) {
-		for {
-			co.run.perform(ctx, yield)
-			if !yield(bodyPause{ended: true}) {
-				return
-			}
-		}
-	})
-	return co
+	if w.onMessage {
+		return len(e.waitingTokens(w.perf)) > 0
+	}
+	return e.waitsOnClock(w.perf)
 }
 
-// perform does the run's work on the coroutine resuming it, pausable through yield meanwhile.
-func (run *bodyRun) perform(ctx *Context, yield func(bodyPause) bool) {
-	run.yield = yield
-	ctx.pausable = run
-	defer func() { ctx.pausable = nil }()
-	run.err = run.work()
+// heldWaiter is the executor the wait holds, nil for none.
+func (w bodyWait) heldWaiter() clockWaiter {
+	if w.held == nil {
+		return nil
+	}
+	return w.held
 }
 
-// keepBodyCoroutine keeps co, whose work ended, idle for the next step; a second
-// idle one is ended instead.
-func (ctx *Context) keepBodyCoroutine(co *bodyCoroutine) {
-	if ctx.idleBody != nil {
-		co.stop()
+// resume lets the work go on to its next pause, reported as true with why, or to
+// its end, leaving err set.
+func (run *bodyRun) resume(ctx *Context) (bodyPause, bool) {
+	outer := ctx.body
+	ctx.body = run
+	run.resuming, run.cursor = run.cursor, nil
+	base := ctx.trace.nesting()
+	ctx.trace.setNesting(base + run.traceLevels)
+	err := run.work.perform()
+	ctx.body = outer
+	// Levels a failure left un-entered hold nothing the work still needs.
+	for _, f := range run.resuming {
+		f.abandon(ctx)
+	}
+	run.resuming = nil
+	if paused(err) {
+		run.traceLevels = ctx.trace.nesting() - base
+		ctx.trace.setNesting(base)
+		return run.paused, true
+	}
+	run.err, run.ended = err, true
+	return bodyPause{}, false
+}
+
+// end ends the paused work for good: what its frames hold open is abandoned,
+// innermost first, an action it was performing among it; err records the abandonment.
+func (run *bodyRun) end(ctx *Context) {
+	if run.ended {
 		return
 	}
-	ctx.idleBody = co
+	for _, f := range run.cursor {
+		f.abandon(ctx)
+	}
+	run.cursor, run.ended = nil, true
+	where := "on a wait"
+	if !run.paused.onWait {
+		where = fmt.Sprintf("at breakpoint %q", run.paused.breakpoint)
+	}
+	run.err = fmt.Errorf("%w: the run paused %s was abandoned", ErrActionDeadlock, where)
 }
 
-// endIdleBodyCoroutine ends the idle body coroutine, if any, as the outermost run leaves.
-func (ctx *Context) endIdleBodyCoroutine() {
-	if co := ctx.idleBody; co != nil {
-		ctx.idleBody = nil
-		co.stop()
+// pushPaused keeps f, where the level of the body's work now unwinding paused.
+func (ctx *Context) pushPaused(f bodyFrame) {
+	ctx.body.cursor = append(ctx.body.cursor, f)
+}
+
+// popFrame takes the frame the level resuming the body's work paused at, false
+// where the work is not resuming; a frame of another kind is an error.
+func popFrame[T bodyFrame](ctx *Context) (frame T, resumed bool, err error) {
+	run := ctx.body
+	if run == nil || len(run.resuming) == 0 {
+		return frame, false, nil
 	}
+	top := run.resuming[len(run.resuming)-1]
+	frame, ok := top.(T)
+	if !ok {
+		return frame, false, fmt.Errorf("%w: %T resumed where %T paused", errBodyContinuation, frame, top)
+	}
+	run.resuming = run.resuming[:len(run.resuming)-1]
+	return frame, true, nil
+}
+
+// resumingAt reports whether the level re-entering the body's work paused at a
+// frame of kind T, which it is about to pop.
+func resumingAt[T bodyFrame](ctx *Context) bool {
+	run := ctx.body
+	if run == nil || len(run.resuming) == 0 {
+		return false
+	}
+	_, ok := run.resuming[len(run.resuming)-1].(T)
+	return ok
+}
+
+// pausing keeps f for the paused body unwinding through err, which it returns.
+func (ctx *Context) pausing(f bodyFrame, err error) error {
+	if paused(err) {
+		ctx.pushPaused(f)
+	}
+	return err
+}
+
+// syncBoundary runs what follows with no body to pause: a wait under it drives the
+// clock itself, or is an error where a behavior holds it. It returns the restorer.
+func (ctx *Context) syncBoundary() func() {
+	outer := ctx.body
+	ctx.body = nil
+	return func() { ctx.body = outer }
+}
+
+// usageWork is a token's step of a nested action usage: the case it is or the
+// action it performs, then its own body, then the succession out of it.
+type usageWork struct {
+	exec  *ActionExecutor
+	token int64
+	perf  *actionFrame
+	graph *lower.ActionGraph
+	usage *ast.Usage
+	// inv is the action the usage performs, where performs; isCase marks a case step.
+	inv      actionInvocation
+	performs bool
+	isCase   bool
+	phase    usagePhase
+}
+
+// usagePhase is how far a usageWork has come.
+type usagePhase int
+
+const (
+	usagePerforming usagePhase = iota // the case it is or the action it performs
+	usageBody                         // the flow it owns or its statements
+	usageComplete                     // the succession out of it
+)
+
+func (w *usageWork) clone() bodyWork { c := *w; return &c }
+
+func (w *usageWork) perform() error {
+	e := w.exec
+	if w.phase == usagePerforming {
+		switch {
+		case w.isCase:
+			if err := e.performCase(w.perf); err != nil {
+				return err
+			}
+			if err := e.endPerformance(w.perf); err != nil {
+				return err
+			}
+			w.phase = usageComplete
+		case w.performs:
+			if err := e.performInvocation(w.perf, w.inv); err != nil {
+				return err
+			}
+			w.phase = usageBody
+		default:
+			w.phase = usageBody
+		}
+	}
+	if w.phase == usageBody {
+		// A node owning a flow performs it as subperformances, completing once they have.
+		if w.perf.graph != nil {
+			idx, err := e.workToken(w.token)
+			if err != nil {
+				return err
+			}
+			return e.enterSubflow(idx, w.perf)
+		}
+		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil {
+			return err
+		}
+		if err := e.endPerformance(w.perf); err != nil {
+			return err
+		}
+		w.phase = usageComplete
+	}
+	idx, err := e.workToken(w.token)
+	if err != nil {
+		return err
+	}
+	return e.completeNode(idx, w.perf)
+}
+
+// statementWork is a token's step of a node written as a statement: its body, then
+// the succession out of it.
+type statementWork struct {
+	exec  *ActionExecutor
+	token int64
+	frame *actionFrame
+	node  ast.Node
+	done  bool
+}
+
+func (w *statementWork) clone() bodyWork { c := *w; return &c }
+
+func (w *statementWork) perform() error {
+	e := w.exec
+	if !w.done {
+		if err := e.executeBody(w.frame, w.frame.graph, w.node); err != nil {
+			return err
+		}
+		w.done = true
+	}
+	idx, err := e.workToken(w.token)
+	if err != nil {
+		return err
+	}
+	return e.leaveStatementNode(idx, w.frame, w.node)
+}
+
+// executionWork is a token's step of an execution node invoking an action: the
+// invocation, whose outputs the node's features take, then the succession out of it.
+type executionWork struct {
+	exec    *ActionExecutor
+	token   int64
+	frame   *actionFrame
+	node    *ast.ActionExecutionNode
+	outputs map[string]Value
+	invoked bool
+}
+
+func (w *executionWork) clone() bodyWork {
+	c := *w
+	c.outputs = maps.Clone(w.outputs)
+	return &c
+}
+
+func (w *executionWork) perform() error {
+	e := w.exec
+	if !w.invoked {
+		_, outputs, err := invokeAction(
+			e.ctx, w.frame.graph.Scope, actionInvocation{target: w.node.ActionRef}, lexicalValues(w.frame), e.self,
+		)
+		if err != nil {
+			return err
+		}
+		w.outputs, w.invoked = outputs, true
+		if err := e.setFrameFeatures(w.frame, outputs); err != nil {
+			return err
+		}
+	}
+	idx, err := e.workToken(w.token)
+	if err != nil {
+		return err
+	}
+	return e.leaveExecutionNode(idx, w.frame, w.node)
+}
+
+// workToken is the index of the token whose step is under way; one gone is an error.
+func (e *ActionExecutor) workToken(id int64) (int, error) {
+	idx := e.tokenIndex(id)
+	if idx < 0 {
+		return -1, fmt.Errorf("%w: token %d left its step", errBodyContinuation, id)
+	}
+	return idx, nil
+}
+
+// runBody starts work for the token at tokenIdx and drives it to its first pause or end.
+func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
+	run := &bodyRun{work: work}
+	if outer := e.ctx.body; outer != nil {
+		run.awaitsMessages = outer.awaitsMessages
+	}
+	e.tokens[tokenIdx].body = run
+	return e.resumeBody(tokenIdx)
 }
 
 // Release ends the run for good: the work of every token a breakpoint left
@@ -138,47 +371,12 @@ func (e *ActionExecutor) endPausedBodies() {
 	}
 }
 
-// end ends the paused work for good, unwinding it on the nesting the context has
-// now; an action the work was performing is let go of, so the clock drives it no further.
-func (run *bodyRun) end(ctx *Context) {
-	run.runDepth, run.actionDepth = ctx.runDepth, ctx.actionDepth
-	outer := ctx.trace.nesting()
-	run.co.stop()
-	ctx.trace.setNesting(outer)
-	if held := run.paused.held; held != nil {
-		held.Release()
-	}
-}
-
-// resume lets the paused work go on to its next pause, which it reports as true
-// with why, or to its end, leaving err set; the coroutine is kept for the next step.
-func (run *bodyRun) resume(ctx *Context) (bodyPause, bool) {
-	run.runDepth, run.actionDepth = ctx.runDepth, ctx.actionDepth
-	co := run.co
-	co.run = run
-	pausable, outer := ctx.pausable, ctx.trace.nesting()
-	ctx.trace.setNesting(outer + run.traceLevels)
-	pause, alive := co.next()
-	ctx.pausable = pausable
-	if alive && !pause.ended {
-		run.paused = pause
-		run.traceLevels = ctx.trace.nesting() - outer
-		ctx.trace.setNesting(outer)
-		return pause, true
-	}
-	co.run = nil
-	if alive {
-		ctx.keepBodyCoroutine(co)
-	}
-	return pause, false
-}
-
-// pausedTokens returns the IDs of the tokens whose work a breakpoint paused, the
-// longest paused first.
+// pausedTokens returns the IDs of the tokens Step resumes, whose work paused,
+// the longest paused first; a body's flow resumes the tokens it drives.
 func (e *ActionExecutor) pausedTokens() []int64 {
 	var paused []Token
 	for _, token := range e.tokens {
-		if token.body != nil {
+		if token.body != nil && !token.drivenByBody() {
 			paused = append(paused, token)
 		}
 	}
@@ -205,7 +403,7 @@ func (e *ActionExecutor) tokenIndex(id int64) int {
 // resumeBody lets the paused work of the token at tokenIdx go on to its next pause
 // (a breakpoint suspends the executor, the clock does not) or to its end.
 func (e *ActionExecutor) resumeBody(tokenIdx int) error {
-	run := e.tokens[tokenIdx].body
+	run, id := e.tokens[tokenIdx].body, e.tokens[tokenIdx].ID
 	if pause, paused := run.resume(e.ctx); paused {
 		e.pauses++
 		run.pausedAt = e.pauses
@@ -215,63 +413,46 @@ func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 		}
 		return nil
 	}
-	e.tokens[tokenIdx].body = nil
-	if run.err != nil {
-		return run.err
+	if i := e.tokenIndex(id); i >= 0 {
+		e.tokens[i].body = nil
 	}
-	return run.after(tokenIdx)
+	return run.err
 }
 
 // pauseAt pauses the run before a node a breakpoint is set on performs, as the run
 // pauses before a token steps such a node; a run not made pausable goes on.
 func (e *ActionExecutor) pauseAt(node ast.Node) error {
 	if name := e.breakpointNameOf(node); name != "" {
-		return e.ctx.pauseRun(bodyPause{breakpoint: name})
+		return e.ctx.pauseBody(bodyPause{breakpoint: name})
 	}
 	return nil
 }
 
-// pauseRun pauses the pausable run on the stack until it is resumed, giving back
-// the run nesting its frames hold meanwhile; a run with none pausable goes on.
-func (ctx *Context) pauseRun(pause bodyPause) error {
-	run := ctx.pausable
+// pauseBody pauses the body on the stack, unwinding its work to the run driving
+// it; nil, going on, where no body is on the stack.
+func (ctx *Context) pauseBody(pause bodyPause) error {
+	run := ctx.body
 	if run == nil {
 		return nil
 	}
-	heldRuns, heldActions := ctx.runDepth-run.runDepth, ctx.actionDepth-run.actionDepth
-	ctx.runDepth, ctx.actionDepth = run.runDepth, run.actionDepth
-	ctx.pausable = nil
-	resumed := run.yield(pause)
-	ctx.pausable = run
-	ctx.runDepth, ctx.actionDepth = run.runDepth+heldRuns, run.actionDepth+heldActions
-	if !resumed {
-		where := "on a wait"
-		if !pause.onWait {
-			where = fmt.Sprintf("at breakpoint %q", pause.breakpoint)
-		}
-		return fmt.Errorf("%w: the run paused %s was abandoned", ErrActionDeadlock, where)
-	}
-	return nil
+	run.paused = pause
+	return errPaused
 }
 
-// pauseForClock pauses the pausable run on the stack while held (nil for a flow of
-// the run's own executor) waits on the clock, as long as waits reports; false when
-// none is pausable.
-func (ctx *Context) pauseForClock(held clockWaiter, waits func() bool) (bool, error) {
-	if ctx.pausable == nil {
-		return false, nil
-	}
-	return true, ctx.pauseRun(bodyPause{onWait: true, held: held, waits: waits})
+// pauseForClock pauses the body on the stack while wait, a wait on the clock,
+// goes on; nil where none is on the stack.
+func (ctx *Context) pauseForClock(wait bodyWait) error {
+	return ctx.pauseBody(bodyPause{onWait: true, wait: wait})
 }
 
-// pauseForMessage pauses the pausable run on the stack while held (nil for a flow
-// of the run's own executor) waits for a message, as long as waits reports; false
-// when none is pausable or the run cannot wait for one.
-func (ctx *Context) pauseForMessage(held clockWaiter, waits func() bool) (bool, error) {
-	if ctx.pausable == nil || !ctx.pausable.awaitsMessages {
-		return false, nil
+// pauseForMessage pauses the body on the stack while wait, a wait for a message,
+// goes on; nil where none is on the stack or the body cannot wait for one.
+func (ctx *Context) pauseForMessage(wait bodyWait) error {
+	if ctx.body == nil || !ctx.body.awaitsMessages {
+		return nil
 	}
-	return true, ctx.pauseRun(bodyPause{onWait: true, held: held, waits: waits})
+	wait.onMessage = true
+	return ctx.pauseBody(bodyPause{onWait: true, wait: wait})
 }
 
 // holdClock keeps the clock where it is while the behavior named runs: a wait on the
@@ -279,7 +460,11 @@ func (ctx *Context) pauseForMessage(held clockWaiter, waits func() bool) (bool, 
 func (ctx *Context) holdClock(behavior string) func() {
 	outer := ctx.clockHeldBy
 	ctx.clockHeldBy = behavior
-	return func() { ctx.clockHeldBy = outer }
+	restore := ctx.syncBoundary()
+	return func() {
+		restore()
+		ctx.clockHeldBy = outer
+	}
 }
 
 // driveClock reports the error where a wait on the clock, described by waits, cannot
@@ -301,7 +486,7 @@ func (t Token) pausedOnClock() bool {
 // resumable reports a token whose paused work would go on if resumed now: paused
 // at a breakpoint, or on the clock for a wait that has ended.
 func (t Token) resumable() bool {
-	return t.body != nil && (!t.body.paused.onWait || !t.body.paused.waits())
+	return t.body != nil && (!t.body.paused.onWait || !t.body.paused.wait.goesOn())
 }
 
 // heldWaiter returns the executor performing an action for the token's paused
@@ -310,7 +495,7 @@ func (t Token) heldWaiter() clockWaiter {
 	if t.body == nil {
 		return nil
 	}
-	return t.body.paused.held
+	return t.body.paused.wait.heldWaiter()
 }
 
 // drivenByBody reports whether the token runs in a flow a body statement runs

@@ -16,22 +16,16 @@ type actionStmtHost struct {
 	node ast.Node // the action node whose body is running, for diagnostics
 	// perf is the performance the body runs in, whose features it declares into.
 	perf *actionFrame
-	// engine runs the body, and holds the values a `perform` in it reads and
-	// writes: the performance's own, and those of every block entered around it.
-	engine *stmtEngine
 }
 
 // executeBody runs the lowered statements graph records for node in perf, the
 // performance they belong to, with the performances around it in lexical reach.
 func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, node ast.Node) error {
-	host := &actionStmtHost{exec: e, node: node, perf: perf}
-	lexical := perf.lexicalFrames()
-	engine := newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
-	host.engine = engine
-	// The body's activation ends with this execution of it, so a run stepping the
-	// node many times does not hold what every execution computed.
-	defer engine.finish()
-	_, err := engine.run(graph.Bodies[node])
+	_, err := e.ctx.runStatements(func() *stmtEngine {
+		host := &actionStmtHost{exec: e, node: node, perf: perf}
+		lexical := perf.lexicalFrames()
+		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
+	}, graph.Bodies[node])
 	return err
 }
 
@@ -92,7 +86,7 @@ func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 
 // effect performs the action a `perform` in statement form names, where it
 // stands; any other effect is reported.
-func (h *actionStmtHost) effect(s lower.Effect) error {
+func (h *actionStmtHost) effect(env *stmtEnv, s lower.Effect) error {
 	if s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)
 	}
@@ -102,7 +96,6 @@ func (h *actionStmtHost) effect(s lower.Effect) error {
 	}
 	// The performed action reads the values in scope where it is performed and its
 	// outputs come back to them, so a perform in a loop body sees that iteration.
-	env := h.engine.env
 	_, outputs, err := invokeAction(h.exec.ctx, s.Scope, inv, env.values(), h.exec.self)
 	if err != nil {
 		return fmt.Errorf("%s: %w", h.describe(), err)
@@ -144,35 +137,68 @@ func (h *actionStmtHost) runFlow(lower.Block) (stmtFlow, error) {
 // of parent with the block-locals entered around it in reach; a node owning a flow runs it
 // to completion here. A breakpoint on the node pauses the run before it performs.
 func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
-	if err := e.owner.pauseAt(node); err != nil {
-		return flowNext, err
-	}
-	perf, err := e.beginPerformance(parent, graph, node, slices.Clone(engine.env.frames))
+	f, resumed, err := popFrame[*performFrame](e.ctx)
 	if err != nil {
 		return flowNext, err
 	}
-	if isCaseStep(node) {
-		if err := e.performCase(perf); err != nil {
-			return flowNext, err
+	if !resumed {
+		f = &performFrame{}
+		if err := e.owner.pauseAt(node); err != nil {
+			return flowNext, e.ctx.pausing(f, err)
 		}
-	} else {
-		if inv, ok := nestedInvocation(node); ok {
-			if err := e.performInvocation(perf, inv); err != nil {
-				return flowNext, err
-			}
-		}
-		if perf.graph != nil {
-			if err := e.owner.runOwnFlow(perf); err != nil {
-				return flowNext, err
-			}
-		} else if err := e.executeBody(perf, graph, node); err != nil {
+	}
+	if f.perf == nil {
+		if f.perf, err = e.beginPerformance(parent, graph, node, slices.Clone(engine.env.frames)); err != nil {
 			return flowNext, err
 		}
 	}
-	if err := e.endPerformance(perf); err != nil {
+	if err := e.performNodeBody(f, graph, node); err != nil {
+		return flowNext, e.ctx.pausing(f, err)
+	}
+	if err := e.endPerformance(f.perf); err != nil {
 		return flowNext, err
 	}
-	return flowNext, e.applyDataFlows(parent, graph, node, perf.data)
+	return flowNext, e.applyDataFlows(parent, graph, node, f.perf.data)
+}
+
+// performFrame is a node a body performs (performNode) where the body paused: at
+// a breakpoint before the node's performance began, else in one of its phases.
+type performFrame struct {
+	perf  *actionFrame
+	phase performPhase
+}
+
+func (*performFrame) abandon(*Context) {}
+
+func (f *performFrame) clone() bodyFrame { c := *f; return &c }
+
+// performPhase is how far a node's performance has come.
+type performPhase int
+
+const (
+	performInvoking performPhase = iota // the case it is or the action it performs
+	performBody                         // the flow it owns or its statements
+)
+
+// performNodeBody performs the case the node is or the action it performs, then
+// the flow it owns or the statements of its body.
+func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph, node *ast.Usage) error {
+	perf := f.perf
+	if isCaseStep(node) {
+		return e.performCase(perf)
+	}
+	if f.phase == performInvoking {
+		if inv, ok := nestedInvocation(node); ok {
+			if err := e.performInvocation(perf, inv); err != nil {
+				return err
+			}
+		}
+		f.phase = performBody
+	}
+	if perf.graph != nil {
+		return e.owner.runOwnFlow(perf)
+	}
+	return e.executeBody(perf, graph, node)
 }
 
 // declaredOutput reports no output features: an action node's parameters live

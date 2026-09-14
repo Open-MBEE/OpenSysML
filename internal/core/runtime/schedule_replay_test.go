@@ -10,7 +10,7 @@ import (
 )
 
 // clashSchedules is the two complete schedules of `clash`, keyed by the final x each leaves.
-func clashSchedules(t *testing.T) (*exploreModel, ActionStarter, map[string][]ChoiceTaken) {
+func clashSchedules(t *testing.T) (*exploreModel, Starter, map[string][]ChoiceTaken) {
 	t.Helper()
 	m := conformanceModel(t, "action_fork_branches_write_one_feature")
 	report := checkModel(t, m, "clash", CheckBudget{}, unreduced())
@@ -26,8 +26,8 @@ func clashSchedules(t *testing.T) (*exploreModel, ActionStarter, map[string][]Ch
 
 // xIsNot is the property that x is not the value given.
 func xIsNot(value string) CheckProperty {
-	return CheckProperty{Name: "x != " + value, Holds: func(ctx *Context, exec *ActionExecutor) (bool, error) {
-		r := &Replayed{Ctx: ctx, Exec: exec}
+	return CheckProperty{Name: "x != " + value, Holds: func(ctx *Context, inv *Invocation) (bool, error) {
+		r := &Replayed{Ctx: ctx, Inv: inv}
 		x, err := r.FinalValue("x")
 		return x != value, err
 	}}
@@ -53,8 +53,8 @@ func TestReplayScheduleEvaluatesAtTheMoveNamed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if x, _ := r.FinalValue("x"); x != "2" || r.Exec.State() == StateCompleted {
-		t.Fatalf("after move 1 x = %s, %s; want 2 with the run going on", x, r.Exec.State())
+	if x, _ := r.FinalValue("x"); x != "2" || r.Inv.Completed() {
+		t.Fatalf("after move 1 x = %s, complete %v; want 2 with the run going on", x, r.Inv.Completed())
 	}
 	if holds, err := r.Evaluate(xIsNot("2")); holds || err != nil {
 		t.Fatalf("x != 2 at move 1: %v, %v; want false", holds, err)
@@ -63,8 +63,8 @@ func TestReplayScheduleEvaluatesAtTheMoveNamed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if x, _ := end.FinalValue("x"); x != "1" || end.Exec.State() != StateCompleted || end.Err != nil {
-		t.Fatalf("at the end x = %s, %s, %v; want 1, complete", x, end.Exec.State(), end.Err)
+	if x, _ := end.FinalValue("x"); x != "1" || !end.Inv.Completed() || end.Err != nil {
+		t.Fatalf("at the end x = %s, complete %v, %v; want 1, complete", x, end.Inv.Completed(), end.Err)
 	}
 	if holds, err := end.Evaluate(xIsNot("2")); !holds || err != nil {
 		t.Fatalf("x != 2 at the end: %v, %v; want true, the later move having repaired it", holds, err)
@@ -95,8 +95,8 @@ func TestReplayExecutionVisitsEverySettledState(t *testing.T) {
 		seen = append(seen, fmt.Sprintf("%d:%s", moves, x))
 		return nil
 	})
-	if err != nil || r.Err != nil || r.Exec.State() != StateCompleted {
-		t.Fatalf("replay: %v, %v, %s; want a complete run", err, r.Err, r.Exec.State())
+	if err != nil || r.Err != nil || !r.Inv.Completed() {
+		t.Fatalf("replay: %v, %v, complete %v; want a complete run", err, r.Err, r.Inv.Completed())
 	}
 	if len(seen) < 3 || seen[0] != "0:0" || seen[len(seen)-1] != "1:1" || !slices.Contains(seen, "1:2") {
 		t.Fatalf("visited %v, want x = 0 before any move, 2 after the move, 1 at the end", seen)
@@ -242,7 +242,7 @@ func TestReplayScheduleAdvancesTheClock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if x, _ := r.FinalValue("x"); x != "1" || r.Exec.State() != StateCompleted || r.Err != nil {
-		t.Fatalf("x = %s, %s, %v; want 1, complete", x, r.Exec.State(), r.Err)
+	if x, _ := r.FinalValue("x"); x != "1" || !r.Inv.Completed() || r.Err != nil {
+		t.Fatalf("x = %s, complete %v, %v; want 1, complete", x, r.Inv.Completed(), r.Err)
 	}
 }

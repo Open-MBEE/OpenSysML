@@ -348,17 +348,25 @@ func (s *Session) RunAction(name string, performer ...string) Verdict {
 
 // RunStateMachine starts a state machine outside the prompt, taking only its
 // initial transition, which is `%state` alone. The values are the configuration
-// the machine settled in.
+// the machine settled in. Under the check engine the machine's whole run is
+// searched instead, its timers advanced until nothing more is due.
 func (s *Session) RunStateMachine(name string, performer ...string) Verdict {
 	defer s.enter()()
+	if s.checking() {
+		return s.checkInvocation(nil, []Behavior{{Name: name, Performer: performer}}, nil)
+	}
 	return s.runStateMachine(name, nil, performer)
 }
 
 // RunStateMachineFor starts a state machine and advances it by duration time
 // units, which is `%state` followed by `%advance`. A duration of 0 is a run to
 // the current time, dispatching the events already due, as `%advance 0` is.
+// Under the check engine every schedule up to that instant is searched.
 func (s *Session) RunStateMachineFor(name string, duration float64, performer ...string) Verdict {
 	defer s.enter()()
+	if s.checking() {
+		return s.checkInvocation(nil, []Behavior{{Name: name, Performer: performer}}, &duration)
+	}
 	return s.runStateMachine(name, &duration, performer)
 }
 
@@ -371,8 +379,13 @@ type Behavior struct {
 
 // RunFor starts the behaviors named, advances their shared clock by duration once
 // and returns one verdict per behavior (an action holds when it completed in time).
+// Under the check engine the behaviors are one invocation, every schedule of which
+// up to that instant is searched: one verdict for them all.
 func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict {
 	defer s.enter()()
+	if s.checking() {
+		return s.checkInvocations(actions, states, &duration)
+	}
 	if _, explores := s.exploring(); explores {
 		return s.exploreRunFor(actions, states, duration)
 	}

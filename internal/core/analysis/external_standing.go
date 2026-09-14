@@ -273,18 +273,22 @@ func freeInputs(model *Model, q Question, budget Budget) (freed, error) {
 	if err != nil {
 		return freed{}, err
 	}
-	exec, err := q.Check.Start(ctx)
+	inv, err := q.Check.Start(ctx)
 	if err != nil {
 		return freed{ctx: ctx}, nil
 	}
-	defer exec.Release()
+	defer inv.Release()
+	if len(inv.Actions) == 0 {
+		return freed{ctx: ctx}, nil
+	}
 	named := map[string]bool{}
 	if q.Holds != nil {
 		for _, name := range q.Holds.Inputs {
 			named[name] = true
 		}
 	}
-	held := exec.Held()
+	// A witness's inputs are fixed on the first action performance begun.
+	held := inv.Actions[0].Held()
 	for _, attr := range held.Unbound() {
 		named[attr.Name] = true
 	}

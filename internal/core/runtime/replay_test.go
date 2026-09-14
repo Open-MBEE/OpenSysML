@@ -1312,6 +1312,35 @@ func TestReplayRefusesMovesLeftOverByADrivenExecutor(t *testing.T) {
 			t.Errorf("state %v, want completed", exec.State())
 		}
 	})
+	t.Run("action run by the clock's advance", func(t *testing.T) {
+		m := parseExploreModel(t, choiceModel)
+		good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+		for _, leftOver := range []bool{false, true} {
+			ctx, err := m.fresh()
+			if err != nil {
+				t.Fatal(err)
+			}
+			witness := slices.Clone(good)
+			if leftOver {
+				witness = append(witness, extra)
+			}
+			mustSchedule(t, ctx, ReplayPolicy(witness))
+			exec, err := ctx.CreateActionExecutor(m.action(t, "route"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = ctx.Advance(0)
+			switch {
+			case leftOver:
+				assertRefusedLeftOver(t, err, len(good)+1, extra)
+			case err != nil:
+				t.Fatalf("a witness the advance uses up is followed whole: %v", err)
+			}
+			if exec.State() != StateCompleted {
+				t.Errorf("left over %v: state %v, want completed", leftOver, exec.State())
+			}
+		}
+	})
 	t.Run("state not yet complete", func(t *testing.T) {
 		m := parseExploreModel(t, dispatcher)
 		witness := stateWitness(t, "state idle on accept Go -> 1->low\nstate low on accept Go -> 1->idle\n")
@@ -1332,6 +1361,39 @@ func TestReplayRefusesMovesLeftOverByADrivenExecutor(t *testing.T) {
 			t.Fatal("the machine completed in low")
 		}
 	})
+}
+
+// A move naming an object the witness binds to a path the run has no object at is
+// refused as a witness object, at that move: the run may make the object moves in.
+func TestReplayRefusesAMoveNamingAnObjectTheRunDidNotMake(t *testing.T) {
+	m := parseExploreModel(t, choiceModel)
+	good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := Witness{
+		Objects: []ObjectNamed{{ID: 9, Path: "test::beacon#1"}},
+		Choices: slices.Clone(good),
+	}
+	w.Choices[0] = ChoiceTaken{Kind: ChoiceTokenOrder, Step: good[0].Step,
+		Among: []string{"2@a of object #9", "3@b of object #9"}, Took: "2@a of object #9", Alternatives: 2}
+	mustSchedule(t, ctx, ReplayOf(w))
+	exec, err := ctx.CreateActionExecutor(m.action(t, "route"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = exec.RunToCompletion()
+	var refused *WitnessObjectError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrWitnessObject) {
+		t.Fatalf("error %T %v, want a WitnessObjectError", err, err)
+	}
+	if refused.Object != w.Objects[0] || !strings.Contains(refused.Reason, "test::beacon#1") {
+		t.Errorf("refused %+v", refused)
+	}
+	if exec.State() == StateCompleted {
+		t.Error("the run went on past the move it refused")
+	}
 }
 
 // Every choice reads back from the line that spells it, whatever punctuation the

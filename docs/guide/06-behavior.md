@@ -1293,7 +1293,8 @@ copy of it: an image of the held object and everything it holds, taken once when
 begins and made afresh in every row's context under the same identities, so a row reads the
 written feature, the current state and the parked action as the session holds them, writes only
 its own copy, and the held object is untouched afterwards. An object destroyed, or one whose
-state no copy can carry — a body paused mid-statement, such as a `do action` waiting at an `accept` — is
+state no image can carry into a fresh context — a body paused mid-statement, such as a
+`do action` waiting at an `accept`, whose continuation points into the running model — is
 refused naming the reason rather than run on shared state; `%instantiate` it afresh and sweep
 that. An argument naming a held object is carried the same way, the row's own copy bound in
 place of it, and refused the same way when no copy can be made.

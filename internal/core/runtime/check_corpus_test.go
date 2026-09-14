@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -32,26 +31,18 @@ type CheckExpected struct {
 	Agreed map[string]string `json:"agreed,omitempty"`
 }
 
-// checkRefusedCases are the action cases with an admissible set the check
-// refuses with a typed reason: a body paused mid-statement, or a state machine's
-// transition due beside the action's token — both later stages' constructs.
-var checkRefusedCases = map[string]error{
-	"action_explore_performed_and_accept_due_together": ErrSnapshotPausedBody,
-	"clock_action_state_due_together":                  ErrCheckRefused,
-}
-
-// checkCase is one action conformance case with an admissible set, ready to check and explore.
+// checkCase is one action or state conformance case with an admissible set, ready to check and explore.
 type checkCase struct {
 	name     string
 	expected ExpectedOutcome
 	model    *exploreModel
-	sym      *symbols.Symbol
+	start    Starter
 	run      func(*Context) (Outcome, error)
 }
 
-// checkCorpus loads every action case of the conformance corpus whose oracle
-// entry leaves an ordering open — those with an admissible set — and every one
-// with a check expectation beside it.
+// checkCorpus loads every action and state case of the conformance corpus whose
+// oracle entry leaves an ordering open — those with an admissible set — and
+// every one with a check expectation beside it.
 func checkCorpus(t *testing.T) []checkCase {
 	t.Helper()
 	dir := filepath.Join("testdata", "conformance")
@@ -77,7 +68,7 @@ func checkCorpus(t *testing.T) []checkCase {
 		if err := json.Unmarshal(data, &expected); err != nil {
 			t.Fatalf("%s: %v", entry.Name(), err)
 		}
-		if expected.Type != "action" || (len(expected.Outcomes) == 0 && !hasCheckExpected(name)) {
+		if (expected.Type != "action" && expected.Type != "state") || (len(expected.Outcomes) == 0 && !hasCheckExpected(name)) {
 			continue
 		}
 		path := filepath.Join(dir, name+".sysml")
@@ -100,13 +91,37 @@ func checkCorpus(t *testing.T) []checkCase {
 		sem := semantics.NewModel(resolver)
 		sem.SetSourceText(source.TextOf(map[string]*source.SourceFile{path: src}, nil))
 		model := &exploreModel{idx: idx, model: sem, resolver: resolver, path: path}
-		sym := namedOrFoundSymbol(t, idx, expected.Evaluate, idx.DocumentRoot(path), ast.DefAction, ast.UsageAction)
-		cases = append(cases, checkCase{name: name, expected: expected, model: model, sym: sym, run: conformanceRun(t, idx, path, expected)})
+		cases = append(cases, checkCase{name: name, expected: expected, model: model, start: conformanceStarter(t, idx, path, expected), run: conformanceRun(t, idx, path, expected)})
 	}
 	if len(cases) == 0 {
-		t.Fatal("no action case with an admissible set")
+		t.Fatal("no action or state case with an admissible set")
 	}
 	return cases
+}
+
+// conformanceStarter starts the case's behavior as conformanceRun runs it: the
+// action, or the state machine with the case's events queued.
+func conformanceStarter(t *testing.T, idx *symbols.Index, path string, expected ExpectedOutcome) Starter {
+	t.Helper()
+	rootScope := idx.DocumentRoot(path)
+	if expected.Type == "action" {
+		return starterOf(namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefAction, ast.UsageAction))
+	}
+	stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)
+	events := queuedEvents(t, expected.Events)
+	return func(ctx *Context) (*Invocation, error) {
+		exec, err := ctx.CreateStateExecutor(stateSym)
+		if err != nil {
+			return nil, err
+		}
+		for _, event := range events {
+			if err := exec.Enqueue(event); err != nil {
+				exec.Release()
+				return nil, err
+			}
+		}
+		return &Invocation{States: []*StateExecutor{exec}}, nil
+	}
 }
 
 func hasCheckExpected(name string) bool {
@@ -136,7 +151,7 @@ func loadCheckExpected(t *testing.T, name string) CheckExpected {
 // check checks the case's action under the default bounds.
 func (c checkCase) check(t *testing.T, opts CheckOptions) (*CheckReport, error) {
 	t.Helper()
-	return CheckAction(context.Background(), c.model.fresh, starterOf(c.sym), CheckBudget{}, opts, nil)
+	return Check(context.Background(), c.model.fresh, c.start, CheckBudget{}, opts, nil)
 }
 
 // checked is check with the report owed.
@@ -168,20 +183,10 @@ func (c checkCase) explore(t *testing.T) *Exploration {
 
 // Every case with an admissible set is checked against its `.check.expected.json`,
 // reduced and unreduced alike: the verdict, every divergent feature with its values,
-// every agreed feature with its one value; a refused case is refused as it says.
+// every agreed feature with its one value.
 func TestCheckConformanceOracles(t *testing.T) {
 	for _, c := range checkCorpus(t) {
 		t.Run(c.name, func(t *testing.T) {
-			if want, refused := checkRefusedCases[c.name]; refused {
-				_, err := c.check(t, reduced())
-				if !errors.Is(err, want) {
-					t.Fatalf("check = %v, want the refusal %v", err, want)
-				}
-				if hasCheckExpected(c.name) {
-					t.Fatal("a refused case states no check expectation")
-				}
-				return
-			}
 			want := loadCheckExpected(t, c.name)
 			for _, opts := range []CheckOptions{reduced(), unreduced()} {
 				report := c.checked(t, opts)
@@ -215,9 +220,6 @@ func TestCheckConformanceOracles(t *testing.T) {
 // reduced and unreduced: explore is the referee of the check.
 func TestCheckAgreesWithExploreOverTheConformanceCorpus(t *testing.T) {
 	for _, c := range checkCorpus(t) {
-		if _, refused := checkRefusedCases[c.name]; refused {
-			continue
-		}
 		t.Run(c.name, func(t *testing.T) {
 			want := explored(t, c.explore(t))
 			for _, opts := range []CheckOptions{reduced(), unreduced()} {
@@ -253,26 +255,22 @@ func explored(t *testing.T, x *Exploration) []string {
 // feature with that value, and the replayed trace equals the witness's.
 func TestCheckWitnessesReplayOverTheConformanceCorpus(t *testing.T) {
 	for _, c := range checkCorpus(t) {
-		if _, refused := checkRefusedCases[c.name]; refused {
-			continue
-		}
 		t.Run(c.name, func(t *testing.T) {
 			report := c.checked(t, reduced())
-			start := starterOf(c.sym)
 			witnessed := 0
 			for _, final := range report.Finals {
-				r := replayWitness(t, c.model, start, final.Witness, final.Outcome)
-				if r.Exec.State() != StateCompleted {
-					t.Fatalf("%s: replay ends %s, want completed", final.Outcome, r.Exec.State())
+				r := replayWitness(t, c.model, c.start, final.Witness, final.Outcome)
+				if !r.Inv.Completed() {
+					t.Fatalf("%s: replay ends incomplete", final.Outcome)
 				}
-				if got := r.Ctx.ActionOutcome(r.Exec.Results()).String(); !strings.HasPrefix(final.Outcome, got) {
+				if got := r.Inv.Outcome().String(); !strings.HasPrefix(final.Outcome, got) {
 					t.Fatalf("replay reaches %s, want %s", got, final.Outcome)
 				}
 				witnessed++
 			}
 			for _, d := range report.Divergent {
 				for _, v := range d.Values {
-					r := replayWitness(t, c.model, start, v.Witness, d.Feature+" = "+v.Value)
+					r := replayWitness(t, c.model, c.start, v.Witness, d.Feature+" = "+v.Value)
 					if got := replayedValue(r, d.Feature); got != v.Value {
 						t.Fatalf("replay leaves %s = %s, want %s", d.Feature, got, v.Value)
 					}
@@ -286,9 +284,14 @@ func TestCheckWitnessesReplayOverTheConformanceCorpus(t *testing.T) {
 	}
 }
 
-// replayedValue is the value a replayed run left the action's feature with.
+// replayedValue is the value a replayed run left the invocation's feature with;
+// a machine's `finalState` is its final state.
 func replayedValue(r *Replayed, feature string) string {
-	for _, out := range r.Ctx.ActionOutcome(r.Exec.Results()).RenderedOutputs() {
+	outcome := r.Inv.Outcome()
+	if feature == "finalState" {
+		return outcome.FinalState
+	}
+	for _, out := range outcome.RenderedOutputs() {
 		if out.Name == feature {
 			return out.Text
 		}

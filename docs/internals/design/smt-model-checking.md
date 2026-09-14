@@ -353,8 +353,8 @@ solver answers and `explore` confirms.
 | Schedule sensitivity of a feature | encoded as the two-copy query | read off the outcome table | — |
 | Typed runtime errors (division by zero, no guard holds) | encoded as side conditions | yes, as an error outcome | — |
 | Unbound inputs | **free variables in their declared domain** | fixed at the caller's value | — |
-| State machines, orthogonal regions, `do` behaviors, deferred events | not in this design | explicit note stage 3 | *not covered: state machine* |
-| Time triggers and change events of a state machine | not in this design | explicit note stage 3 | *not covered* |
+| State machines, orthogonal regions, `do` behaviors, deferred events | not in this design | searched by the explicit checker (`-engine check -state`) | *not covered: state machine* |
+| Time triggers and change events of a state machine | not in this design | searched by the explicit checker, on one clock with the actions named beside it | *not covered* |
 | Signals to other objects' running machines | not in this design | explicit note stage 5 | *not covered: across objects* |
 | Liveness (`done` is eventually reached) | not a safety property; only deadlock within `k` | not asked | *not covered: liveness* — needs a cycle detection or a separate encoding, its own note |
 | Interruptible regions, expansion regions, streaming pins, and the other executor gaps | not executed by the runtime | not executed | the runtime's own typed refusal |
@@ -666,7 +666,7 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    loopflag`, whose `sat` is *no sensitivity found within k moves* at `ClaimHolds`/`Bounded` —
    the pair the bounded negative of a `Holds` question already uses — and whose `unsat` is
    *not sensitive* at `ClaimHolds`/`Proved`. A `sat` two-copy model decodes to two schedules
-   (`Encoding.Diverging`), both replayed through `runtime.ReplayAction` before the verdict is
+   (`Encoding.Diverging`), both replayed through `runtime.Replay` before the verdict is
    `ClaimSensitive`/`Witnessed`; a copy whose replay ends with another value of `f` is *not
    covered* naming the disagreement, in the interpreter's favor. The report prints the two
    final values, the earliest move at which the schedules differ and the two moves taken, and

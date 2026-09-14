@@ -402,14 +402,15 @@ package OpenSysMLPipeline {
         out item instances : InstanceGraph;
     }
 
-    // A run's state between two steps, restored as often as asked; the model-derived
-    // state the run is over is no part of it, and a snapshot mid-step is refused.
+    // A run's state between two steps, paused bodies included, restored as often as asked;
+    // the model-derived state is no part of it, and a snapshot mid-step is refused.
     part def SnapshotStore :> CodeUnit {
         attribute :>> goPackage = "internal/core/runtime";
         attribute capturesRunState : Boolean = true;
         attribute excludesModelState : Boolean = true;
+        attribute capturesPausedBody : Boolean = true;
         attribute refusesMidStep : String = "snapshot inside a step";
-        attribute refusesPausedBody : String = "snapshot of a body paused mid-statement";
+        attribute imageRefusesPausedBody : String = "snapshot of a body paused mid-statement";
         out item mark : RunSnapshot;
     }
 

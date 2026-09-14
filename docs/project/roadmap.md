@@ -1419,7 +1419,9 @@ entry; the default unchanged. A trace golden for the interleaving order. Robustn
 is not an ancestor. `spec-compliance.md`: the run-to-completion row gains the two features with
 file:function in place of the refusal; the alignment note's SM1 row and its finding move to
 agreement. **Prioritize when** a user model redefines either feature — none in the corpora does
-today — or when the model checker's stage 3 needs the interleaving as a move.
+today — or when the model checker, which searches a machine's transitions, region orders, event
+and due orders but takes run-to-completion as the library fixes it, needs the interleaving as a
+move.
 
 ## E9 — a composite state's completion fires its own completion transition (landed)
 

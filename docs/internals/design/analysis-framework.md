@@ -928,14 +928,17 @@ behavior unchanged until stage 4.
    that engine meets when it registers; nothing here encodes it.
 6. **The model checkers register.** `smt` and `check` land by their own notes' stages, each as
    an engine from its first stage, with `all` as their referee harness. *Implemented:* `check`
-   ([explicit-state design](bounded-model-checking.md), stage 2), registered in `Default()` at
-   authority *bounded*, answering `outcomes` and `holds` over an action's schedules and refusing
-   with a typed reason every other question (a state machine's is an `evaluate`), a body paused
-   mid-statement and a state and an action due together; `auto` never picks it over `explore`,
-   so no existing output moves; every violation
-   and divergent value is *witnessed* only after `runtime.ReplayAction` replayed it on the
-   plan's workers, a disagreement *not covered*; the referee test compares its outcome set with
-   `explore`'s complete table over the conformance corpus.
+   ([explicit-state design](bounded-model-checking.md), stages 2 and 3), registered in
+   `Default()` at authority *bounded*, answering `outcomes` and `holds` over the schedules of an
+   invocation — the actions and state machines started on one clock, run to a horizon, and the
+   machines of the objects they materialize — and refusing with a typed reason every other
+   question (a machine's `evaluate` included), a question with free inputs and a fixed
+   schedule; a move the run itself refuses is a result *not covered* naming it; `auto` never
+   picks it over `explore`, so no existing output moves; every violation and divergent value is
+   *witnessed* only after `runtime.Replay` replayed it on the plan's workers, a disagreement
+   *not covered*; the referee test compares its outcome set with `explore`'s complete table over
+   the conformance corpus, an action and a machine due together on one clock among the cases,
+   and two checks at once keep workers and models of their own.
    `smt` ([SMT design](smt-model-checking.md), stages 1 and 2) answers `holds` with the
    schedule free and the inputs free or as written: an input the model binds is pinned, one it
    leaves unbound or `-check-input` releases ranges over its declared type's domain, and

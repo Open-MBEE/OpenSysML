@@ -70,9 +70,10 @@ Out of scope, and stated as such in the report where they apply:
 - **Unbounded state spaces.** A merge-loop, a `do` behavior that never completes or a time
   trigger that re-arms itself produces infinitely many states. The checker is *bounded*: it
   reports what it found within the bound and never claims more.
-- **Behavior across objects.** Stage 1 and 2 check one behavior, performed by one object. Signals
-  routed to other objects' running machines are recorded as effects, not followed. Following them
-  is a later extension, with its own note.
+- **Behavior across objects, beyond the clock.** A check searches the behaviors its invocation
+  started and every machine the objects they materialize bring onto the same clock; a signal to
+  one of those is followed as that machine's dispatch. A signal to an object whose machine no
+  executor of the invocation runs stays in flight on the bus, an effect recorded and not followed.
 - **Liveness.** Only reachability properties: a requirement violated in some reachable state, a
   deadlock, a divergent outcome. "Every run eventually reaches `done`" is not asked.
 
@@ -124,10 +125,12 @@ canonical state. The sequence remembers of each context only how far it took, so
 context is collected. An undo log suits depth-first exploration — only
 the path from the root to the current state is live, and backtracking one move undoes one move's
 writes — and avoids copying the object graph at every choice point. A snapshot is taken between
-steps, never from inside one (`ErrSnapshotMidRun`), and cannot capture a body paused
-mid-statement — a token or a `do` behavior suspended in its coroutine on a wait
-(`ErrSnapshotPausedBody`); stage 3's `do` interleaving is where those waits become explicit
-state.
+steps, never from inside one (`ErrSnapshotMidRun`). A body paused mid-statement — a token
+suspended at a breakpoint or on the clock, a `do` behavior waiting — is explicit state, a
+`bodyRun` of statement cursors, block and loop frames, the nested performance under way and a
+`bodyWait` descriptor, so the snapshot captures it and restore resumes it; its cursors point
+into the model's lowered statements, which is why a portable `HeldImage` refuses it
+(`ErrSnapshotPausedBody`) while a snapshot of the same context does not.
 
 ### The atomic step
 
@@ -159,7 +162,11 @@ time. Two consequences:
 
 For a state machine the atomic unit is **one dispatch**: take one event off the queue, select
 the transitions it enables in the active configuration, fire them, run entries and effects, and
-stop. A `do` round is one atomic unit per do behavior.
+stop. A `do` round is one atomic unit per do behavior: one **do step** runs one due body until
+it completes or waits. Every executor on the invocation's clock — the behaviors started and the
+machines of the objects they materialize — moves one unit at a time, and the checker draws
+which moves as the clock's `runDue` draws it (`ChoiceDueOrder`): the executor drawn holds the
+turn until it has no move left at the instant, then the order is drawn again.
 
 ### The choice points
 
@@ -188,11 +195,14 @@ At each state the checker enumerates the **enabled moves**:
   executor reports as a `ChoiceDecisionBranch` today, taking the first in declaration order
   under `reverse` and `declared` and a seeded draw under `seed:<n>`.
 - **State machine**: with one event at the head of the queue there is one move. Several events
-  due at the same instant are one move each; the executor dispatches them in arrival order,
-  the checker explores every order, so a state that reacts differently to `A` then `B` than to
-  `B` then `A` is found. Completion events keep their precedence over pool events at the same
-  instant (`eventHeap.Less`), because that is a library-derived rule
-  (a state that has completed leaves before it reacts), not a tool choice.
+  the library leaves unordered at one instant are one move each (`ChoiceDispatchOrder`, drawn in
+  `processNextEvent`): time-trigger events with each other and with the earliest pool event of
+  the same timestamp, so a state that reacts differently to `A` then `B` than to `B` then `A` is
+  found. Two orders are library-derived and never drawn: completion events keep their precedence
+  over pool events at the same instant (`eventHeap.Less` — a state that has completed leaves
+  before it reacts), and pool events dispatch in arrival order (`earlierFirstIncomingTransferSort`,
+  as the [alignment note](precise-semantics-alignment.md) records under its state-machine
+  rows), so seven sends at `t=0` are one dispatch sequence, not 7! of them.
 - **`do` behaviors**: one move per active do behavior with pending statements.
 - **Regions**: one event enabling transitions in several orthogonal regions is one dispatch
   under run-to-completion. Selection happens once, against the state before any reaction fires:
@@ -424,10 +434,11 @@ constructor-succeeds/`initialize()`-errors contract and the error-timing tests a
 ## User surface
 
 The checker is the `check` engine of the [analysis framework](analysis-framework.md), and its
-selection is the framework's: `-engine check` puts every `-action` of the invocation to it, so
-the proposed `-check-action` and `-check-state` flags of earlier drafts do not exist — the
-behavior to check is named as it is run. Command line, alongside the check flags in
-[the CLI reference](../../reference/cli.md#checking-every-schedule-of-an-action):
+selection is the framework's: `-engine check` puts every `-action` and `-state` of the
+invocation to it, on one clock run to `-advance`, so the proposed `-check-action` and
+`-check-state` flags of earlier drafts do not exist — the behaviors to check are named as they
+are run. Command line, alongside the check flags in
+[the CLI reference](../../reference/cli.md#checking-every-schedule-of-an-action-or-a-state-machine):
 
 ```
 sysml model.sysml -engine check -instantiate Fleet::truck \
@@ -438,7 +449,7 @@ sysml model.sysml -engine check -instantiate Fleet::truck \
 
 | Flag | Meaning |
 |------|---------|
-| `-engine check` with `-action "<name> [object]"` | Explore the schedules of the action `-action` would run once; with `-state`, the state machine is refused by name (stage 3) |
+| `-engine check` with `-action "<name> [object]"`, `-state "<name> [object]"`, `-advance D` | Explore the schedules of the behaviors `-action` and `-state` would run once, on one clock: an action's to completion, a state machine's until nothing more is due — or, with `-advance`, up to that horizon, a wait past it left unreached |
 | `-check-property <name>` | Evaluate this constraint or requirement at every stable state, on the performing object where there is one; repeatable |
 | `-check-diverge <feature>` | Report divergence of this feature (`x`, `step.out` for a performed node's output, or `this.level` for the performing object's; a name nothing holds is refused; a schedule leaving it unset ends as `<unset>`); repeatable; absent, every attribute of the action and, with a performer, every attribute of the object — with no performer there is no object, so the action's own attributes only |
 | `-check-depth N`, `-check-states N`, `-check-timeout D` | The bounds, onto `Budget.Depth`, `Budget.Runs` and `Budget.Deadline` |
@@ -452,10 +463,11 @@ whether it was reached) and `witness` (the replayed schedule), the entry gains a
 with `verdict`, `states`, `moves`, `depth`, `boundsHit`, `violations[]`, `divergent[]` (each
 feature's values, each with its witness choices and file `path`) and `outcomes[]`.
 
-REPL: `%engine check` selects the engine for `%action` from then on, `%check-property`,
-`%check-diverge`, `%check-witness` and `%check-bounds` hold the settings the flags carry, and
-`%replay <witness>` installs the replay scheduler and then behaves as `%step`/`%continue` do,
-so a witness can be walked with breakpoints in the debugger. The LSP surfaces nothing in the
+REPL: `%engine check` selects the engine for `%action` and `%state` from then on — `%advance D`
+under it is the horizon of the machine checked — `%check-property`, `%check-diverge`,
+`%check-witness` and `%check-bounds` hold the settings the flags carry, and `%replay <witness>`
+installs the replay scheduler and then behaves as `%step`/`%continue` do, so a witness can be
+walked with breakpoints in the debugger. The LSP surfaces nothing in the
 first stages; a code action "check this action" is a natural later addition.
 
 Exit status follows the CLI's existing convention: a violation or a divergence is a failed check
@@ -520,18 +532,18 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    bookkeeping and step counters, and the state executor's configuration, stack, history, state
    values, event queue, deferred events, timers, change triggers, `do` progress and virtual
    time — everything layer 2 needs, which the round-trip and restore-twice tests over every
-   conformance case prove. Not captured: a body coroutine paused mid-statement
+   conformance case prove. Not captured at this stage: a body coroutine paused mid-statement
    (`ErrSnapshotPausedBody`), which the eight conformance cases whose default run pauses one
-   pin. Stages 2 and 3 add no capture for the executors' present state; they add the choice
-   points (one token, one dispatch), the canonical form over a snapshot, and, for `do`
-   interleaving, the explicit representation of a body's wait that removes the paused-body
-   limit.
+   pinned until stage 3 made the wait explicit state. Stages 2 and 3 add no capture for the
+   executors' present state beyond that; they add the choice points (one token, one dispatch,
+   one do step), the canonical form over a snapshot, and the explicit representation of a
+   body's wait.
 2. **Actions, static reduction.** Snapshot/restore for the action executor's state; DFS with
    persistent sets and a visited set; footprints in the lowering layer; `-check-action`,
    `-check-diverge`, bounds, witnesses in trace format; `%check-action`, `%replay`. Test layers
-   3–8 for actions. *Implemented:* `runtime.CheckAction` — a DFS over the action executor on
-   stage 1's snapshots, one token advancing one node the atomic step (a body one step, so a
-   body that pauses mid-statement stays refused as `ErrSnapshotPausedBody`), enumerating the
+   3–8 for actions. *Implemented:* `runtime.Check` — a DFS over the action executor on
+   stage 1's snapshots, one token advancing one node the atomic step (a body one step; a body
+   that paused mid-statement stayed refused as `ErrSnapshotPausedBody` until stage 3), enumerating the
    moves of "The choice points / Action" through the scheduler seam as a `check` policy that
    takes exactly the move the search names, so a move is the `ChoiceTaken` `explore` records
    for the same step and a witness is a choice sequence; persistent sets with a sleep set over
@@ -553,7 +565,7 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    `ParseChoices`/`ReplayPolicy` the SMT stage shares. The framework's `check`
    engine answers `outcomes` and `holds` at authority *bounded* — exhaustive is `Bounded`,
    never `Proved` — with every violation and divergent value *witnessed* only after
-   `ReplayAction` re-ran it to the state it claims, a disagreement *not covered*; `explore`
+   `runtime.Replay` re-ran it to the state it claims, a disagreement *not covered*; `explore`
    beside it is the referee over the conformance corpus. Surface: `-engine check` with
    `-action`, `-check-property`, `-check-diverge`, `-check-witness`, `-check-depth`,
    `-check-states`, `-check-timeout`; `%engine check`, `%check-property`, `%check-diverge`,
@@ -561,21 +573,61 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    `.check.expected.json` oracles beside every conformance case that leaves an order open,
    reduced against unreduced final states over the dependence corpus, the state-count ratchet,
    the depth and time bounds, corpus-wide witness replay, the robustness failures as violations
-   and an unresolved `via` port as its routing error. Known limitations: the search is
+   and an unresolved `via` port as its routing error. Known limitation: the search is
    single-threaded — one executor state per stack frame and one visited set — so `Jobs` buys
-   nothing inside a check, though replay verification runs on the plan's workers; a state
-   machine (its question is an `evaluate`), a state and an action due together and the eight
-   paused-body cases are refused with a typed reason, for stage 3.
+   nothing inside a check, though replay verification runs on the plan's workers. Until stage 3
+   a state machine (its question is an `evaluate`), a state and an action due together and the
+   eight paused-body cases were refused with a typed reason.
 3. **State machines and time ties.** Snapshot/restore for the state executor; dispatch-order
-   choice points; `do` interleaving; `-check-state`. Test layers 3–8 for states.
+   choice points; `do` interleaving; `-state` under `-engine check`. Test layers 3–8 for states.
+   *Implemented:* one search over an **invocation** — `runtime.Invocation`, what a
+   `runtime.Starter` starts on one context: the `-action`s and `-state`s named, run on one clock
+   to the `-advance` horizon, and the machines of the objects they materialize — in place of the
+   action-only search, one DFS moving every executor on the clock one atomic unit at a time: a
+   token's node, a dispatch, a do step. The moves of "The choice points" for state machines are
+   drawn through the same `check` policy: `ChoiceTransition` and the choice pseudostate's
+   branches, `ChoiceRegionOrder` over the selected reactions and the do round,
+   `ChoiceDispatchOrder` (new in `choice.go`, drawn in `processNextEvent`) among the events the
+   library leaves unordered at one instant, and `ChoiceDueOrder` among the executors due, as the
+   clock's `runDue` draws it — the one drawn holding the turn until it has no move at the
+   instant. The canonical form spells every executor on the clock in invocation order — an
+   action's tokens and performances, a machine's configuration, history, values, queue in
+   dispatch order, deferred events, timers and do progress — then the bus and the objects by
+   materialization path; the observable a divergence is asked of gains `finalState` (`<name>
+   finalState` in a joint run), and a property is evaluated on the performing object. Reduction
+   extends to the new moves over `lower.StateGraph`'s transition and behavior footprints: a
+   dispatch reads the guards and triggers of the transitions the event can select out of the
+   active configuration and writes their effects and the activity of the states left and
+   entered, a do step its statements', and one executor's moves are pairwise dependent. The
+   body paused mid-statement is explicit state — `bodyRun`'s cursor of statement, block, loop
+   and flow-node frames, its nested performance and `bodyWait` — in place of the coroutine, so a
+   snapshot of the same context captures it, the canonical form spells it and the eight
+   paused-body cases and `clock_action_state_due_together` are checked like any other; a
+   portable `HeldImage` alone still refuses it. A machine resting where nothing wakes it is a
+   final state, not a deadlock; the clock runs to the horizon as an `Advance` ends there, a wait
+   past it is left unreached and the verdict reads `exhaustive up to t=D`.
+   A witness is the same choice sequence, its moves labelled by executor, replayed by
+   `runtime.Replay` over the invocation; `explore` referees `check` over every state and clock
+   case of the corpus. Surface: `-engine check` with `-state` and `-advance` beside `-action`,
+   `-json`'s `outcomes[]` spelling each behavior's observables under its name; `%engine check`
+   with `%state`, `%advance` and `RunFor`; an external engine's schedule is replayed over the
+   same invocation. Test layers 3–8 for states: the `.check.expected.json` oracles beside every
+   state and clock case that leaves an order open and one decided case each for deferral,
+   composite completion and a junction, the dependence corpus of machines reduced against
+   unreduced, the state-count ratchet, the re-arming timer with and without a horizon, corpus-wide
+   witness replay, the robustness `state_*` failures as violations and a missing initial state
+   as `initialize()`'s error, two checks at once with workers of their own under the race
+   detector, the referee over every state and clock case.
 4. **Dynamic reduction.** Concrete footprint instrumentation; DPOR backtrack points; the
    effectiveness ratchet moves and is re-adjudicated. Statement-level granularity is considered
    here, if a property has asked for it.
-5. **Across objects.** Following signals to other objects' running machines, whose queues and
-   configurations join the explored state. Its own note.
+5. **Across objects, beyond the clock.** The machines of the objects an invocation materializes
+   are on its clock and explored with it since stage 3; following a signal to an object whose
+   machine no executor of the invocation runs is its own note.
 
 Stages 1 and 2 are the minimum that answers the safety-case question for actions. Stage 3 is
-where most systems models live (a state machine per component) and should follow directly.
+where most systems models live (a state machine per component); with it the checker answers
+over the behaviors of a model as they run together.
 
 ## What this does not change
 

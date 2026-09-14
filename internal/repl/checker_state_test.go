@@ -1,0 +1,124 @@
+package repl
+
+import (
+	"fmt"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// Under %engine check, %state searches every schedule of a machine as %action does
+// an action's, the clock advanced until nothing is due; %advance searches the last
+// checked invocation again up to that instant, and RunFor searches the behaviors
+// named as one invocation on one clock.
+func TestEngineCheckSearchesStateMachines(t *testing.T) {
+	s := loadSource(t, exploreLampSource)
+	run(t, s, "%engine check")
+
+	out := run(t, s, "%state Shared::Lamp::glow Shared::Lamp")
+	wants(t, out, "✓ State machine Shared::Lamp::glow: no violation, exhaustive (2 states, 1 moves, depth 1)",
+		"outcome: finalState on; visits off, on")
+	rejects(t, out, "Started state machine")
+	wants(t, run(t, s, "%current"), "no active state machine session")
+
+	wants(t, run(t, s, "%advance 1"), "✓ State machine Shared::Lamp::glow: no violation, exhaustive up to t=1.0 (1 states, 0 moves, depth 0)",
+		"outcome: finalState off; visits off")
+	wants(t, run(t, s, "%advance 3"), "✓ State machine Shared::Lamp::glow: no violation, exhaustive up to t=3.0 (2 states, 1 moves, depth 1)",
+		"outcome: finalState on; visits off, on")
+
+	peek := Behavior{Name: "Shared::Lamp::peek", Performer: []string{"Shared::Lamp"}}
+	glow := Behavior{Name: "Shared::Lamp::glow", Performer: []string{"Shared::Lamp"}}
+	verdicts := s.RunFor([]Behavior{peek}, []Behavior{glow}, 3)
+	if len(verdicts) != 1 {
+		t.Fatalf("verdicts = %+v, want one for the invocation", verdicts)
+	}
+	wantVerdict(t, verdicts[0], VerdictFails, "✗ Behaviors Shared::Lamp::peek, Shared::Lamp::glow: divergent up to t=3.0 (10 states, 9 moves, depth 5)",
+		"divergent: Shared::Lamp::peek.saw ends as false or true",
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false`,
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true`)
+	if verdicts[0].Subject != "Shared::Lamp::peek, Shared::Lamp::glow" {
+		t.Errorf("subject = %q, want the behaviors in start order", verdicts[0].Subject)
+	}
+	wantVerdict(t, s.RunFor([]Behavior{peek}, []Behavior{glow}, 2)[0], VerdictHolds,
+		"✓ Behaviors Shared::Lamp::peek, Shared::Lamp::glow: no violation, exhaustive up to t=2.0")
+
+	// A behavior that does not resolve is reported by name and nothing is searched.
+	verdicts = s.RunFor([]Behavior{{Name: "Shared::Lamp::nothing"}}, []Behavior{glow}, 3)
+	if len(verdicts) != 1 || verdicts[0].Status != VerdictUnresolved || verdicts[0].Subject != "Shared::Lamp::nothing" {
+		t.Fatalf("verdicts = %+v, want one unresolved", verdicts)
+	}
+
+	// RunStateMachineFor is %state then %advance under the check engine.
+	wantVerdict(t, s.RunStateMachineFor("Shared::Lamp::glow", 1, "Shared::Lamp"), VerdictHolds, "exhaustive up to t=1.0")
+	wantVerdict(t, s.RunStateMachine("Shared::Lamp::glow", "Shared::Lamp"), VerdictHolds, "exhaustive (2 states, 1 moves, depth 1)")
+}
+
+// %advance under the check engine with nothing checked yet says what it would search.
+func TestEngineCheckAdvanceNeedsACheckedInvocation(t *testing.T) {
+	s := loadSource(t, exploreLampSource)
+	run(t, s, "%engine check")
+	wants(t, run(t, s, "%advance 3"), "error: no behavior checked yet; under %engine check, %action or %state searches every schedule of a behavior, and %advance <time> then searches it again up to that instant")
+}
+
+// A witness of behaviors checked on one clock replays in the REPL: %replay, then
+// %action and %state on the one instance, and %advance to the horizon, ends the
+// run at the value the witness claims for either due order.
+func TestReplayStepsBehaviorsOnOneClock(t *testing.T) {
+	s := loadSource(t, exploreLampSource)
+	dir := t.TempDir()
+	run(t, s, "%engine check")
+	run(t, s, "%check-witness "+dir)
+	peek := Behavior{Name: "Shared::Lamp::peek", Performer: []string{"Shared::Lamp"}}
+	glow := Behavior{Name: "Shared::Lamp::glow", Performer: []string{"Shared::Lamp"}}
+	name := filepath.Join(dir, "Shared.Lamp.peek+Shared.Lamp.glow@Shared.Lamp-Shared.Lamp.peek.saw-%d.witness")
+	wantVerdict(t, s.RunFor([]Behavior{peek}, []Behavior{glow}, 3)[0], VerdictFails,
+		"Shared::Lamp::peek.saw = false (witness "+fmt.Sprintf(name, 1)+")",
+		"Shared::Lamp::peek.saw = true (witness "+fmt.Sprintf(name, 2)+")")
+
+	for n, saw := range map[int]string{1: "saw = false", 2: "saw = true"} {
+		s := loadSource(t, exploreLampSource)
+		witness := fmt.Sprintf(name, n)
+		wants(t, run(t, s, "%replay "+witness), "schedule: replay:"+witness)
+		run(t, s, "%instantiate Shared::Lamp")
+		wants(t, run(t, s, "%action Shared::Lamp::peek Shared::Lamp"), "Started action executor")
+		wants(t, run(t, s, "%state Shared::Lamp::glow Shared::Lamp"), "Current state: off")
+		wants(t, run(t, s, "%advance 3"), "Advanced to 3.0", "Current state: on", "Action completed", saw, "1 choice point")
+	}
+}
+
+// A joint start that fails on a later behavior leaves nothing of the earlier
+// ones on the clock: the action started first is released with the error.
+func TestFailedJointStartReleasesTheBehaviorsStarted(t *testing.T) {
+	s := loadSource(t, exploreLampSource)
+	peek := Behavior{Name: "Shared::Lamp::peek", Performer: []string{"Shared::Lamp"}}
+	glow := Behavior{Name: "Shared::Lamp::glow"}
+	inv, unresolved := s.resolveInvocation([]Behavior{peek}, []Behavior{glow}, nil)
+	if len(unresolved) != 0 {
+		t.Fatalf("unresolved = %+v, want both behaviors resolved", unresolved)
+	}
+	model, err := s.runtimeModel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := s.newRuntimeOver(model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := inv.start(ctx)
+	if err == nil {
+		t.Fatalf("started %v, want the machine refused without a performer", started)
+	}
+	if !strings.Contains(err.Error(), "exhibit") {
+		t.Fatalf("start failed with %q, want the exhibiting part named", err)
+	}
+	report, err := ctx.Advance(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Steps != 0 {
+		t.Fatalf("the action took %d steps after the failed start, want none: it was released", report.Steps)
+	}
+	if report.Events == 0 {
+		t.Fatal("the lamp's own machine, materialized with the object, took no event")
+	}
+}

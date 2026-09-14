@@ -3,6 +3,7 @@ package lower
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -88,6 +89,13 @@ type StateGraph struct {
 
 	// Transitions: source node (StateNode or PseudostateNode) → list of transitions
 	Transitions map[ast.Node][]*Transition
+
+	// transitionFootprints: transition out of a state → what firing it may touch;
+	// behaviorFootprints: entry, do or exit behavior (its Node) → what running it
+	// touches. Both are computed on the first call of their accessors.
+	transitionFootprints map[*Transition]Footprint
+	behaviorFootprints   map[ast.Node]Footprint
+	footprintsOnce       sync.Once
 
 	// CompositeStates: state → regions
 	CompositeStates map[*ast.StateNode][]*ast.StateRegion

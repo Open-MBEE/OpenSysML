@@ -36,7 +36,8 @@ type checks struct {
 }
 
 // checkerOptions are the -check-* flags: what the check and smt engines are asked
-// beside -engine check -action or -engine smt -action, and the bounds they run under.
+// beside -engine check -action or -state and -engine smt -action, and the bounds
+// they run under.
 type checkerOptions struct {
 	diverge    stringSlice
 	properties stringSlice
@@ -186,9 +187,10 @@ func (o *checkerOptions) symbolicOnly() []string {
 }
 
 // checkerMisuse reports why the -check-* flags written check nothing under the
-// engine selected, and "" when they check an action: under -engine check or
+// engine selected, and "" when they check a behavior: under -engine check or
 // -engine smt always, each reading the flags it has, under -engine all when one
-// of them is written.
+// of them is written. The smt engine searches an action's schedules alone; the
+// check engine's take in state machines and the clock -advance moves.
 func (c *checks) checkerMisuse(engine string) string {
 	selection := analysis.ParseSelection(engine)
 	checkOnly, symbolic := selection == analysis.Only(analysis.CheckEngineName), selection == analysis.Only(analysis.SMTEngineName)
@@ -200,10 +202,12 @@ func (c *checks) checkerMisuse(engine string) string {
 		return flagMisuse(c.checker.symbolicOnly(), analysis.SMTEngineName, analysis.CheckEngineName)
 	case symbolic && len(c.checker.explicitOnly()) > 0:
 		return flagMisuse(c.checker.explicitOnly(), analysis.CheckEngineName, analysis.SMTEngineName)
-	case c.checker.given() && len(c.actions) == 0:
-		return "the -check-* flags search an action's schedules; name one, as -action <name>"
-	case checking && c.advance.given:
-		return "-advance runs behaviors on one clock, which a search of every schedule of an action does not; drop one of them"
+	case symbolic && c.checker.given() && len(c.actions) == 0:
+		return "the -check-* flags search an action's schedules under -engine smt; name one, as -action <name>"
+	case c.checker.given() && len(c.actions) == 0 && len(c.states) == 0:
+		return "the -check-* flags search a behavior's schedules; name one, as -action <name> or -state <name>"
+	case symbolic && c.advance.given:
+		return "-advance runs behaviors on one clock, which -engine smt's search of an action's schedules does not; drop one of them"
 	}
 	return ""
 }
@@ -485,7 +489,8 @@ func runChecks(files []string, exprs []string, c checks) int {
 		rep.verdict(sess.RunDocumentQuery(invocation))
 	}
 	// With -advance every behavior named is started first and the clock they share
-	// is moved once, so an action's signal reaches a machine that accepts it later.
+	// is moved once, so an action's signal reaches a machine that accepts it later;
+	// under the check engine it bounds the search of the invocation's schedules.
 	if c.advance.given {
 		for _, v := range sess.RunFor(behaviors(c.actions), behaviors(c.states), advance) {
 			rep.verdict(v)
