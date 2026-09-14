@@ -24,6 +24,8 @@ type refCollector struct {
 	condition bool
 	// member is the declaration whose text is being walked.
 	member ast.Node
+	// within is the namespace member whose expression body member lies in, if any.
+	within ast.Node
 	// head is set while a head relationship of a declaration with a scope of
 	// its own is walked (Reference.Head).
 	head *HeadRelationship
@@ -34,12 +36,25 @@ type refCollector struct {
 func (c *refCollector) push(ref Reference) {
 	ref.Condition = c.condition
 	ref.Member = c.member
+	ref.Within = c.within
 	ref.Head = c.head
 	// The outermost chain member is the name decided on.
 	if ref.Head != nil && ref.Head.Member == ref.QN {
 		ref.Head = &HeadRelationship{Scope: ref.Head.Scope, Kind: ref.Head.Kind}
 	}
 	c.refs = append(c.refs, ref)
+}
+
+// withinBody walks an expression body's declarations, which are written inside
+// the member being walked unless that member is itself inside a body.
+func (c *refCollector) withinBody(walk func()) {
+	if c.within != nil {
+		walk()
+		return
+	}
+	c.within = c.member
+	defer func() { c.within = nil }()
+	walk()
 }
 
 // conditionExpr walks the names of a filter condition.
@@ -604,13 +619,17 @@ func (c *refCollector) prefixes(scope *symbols.Scope, decl ast.Node, prefixes []
 }
 
 // crossFeature collects the references the cross feature an end declares ahead
-// of itself writes, as that feature's; they resolve where the end's do.
-func (c *refCollector) crossFeature(scope, header *symbols.Scope, u *ast.Usage) {
+// of itself writes, as that feature's; they resolve where the end's members do.
+func (c *refCollector) crossFeature(scope, end *symbols.Scope, u *ast.Usage) {
 	prev := c.member
 	c.member = u.CrossFeature
 	defer func() { c.member = prev }()
-	c.headerRelationships(scope, header, u.CrossFeature, u.CrossFeature.Relationships)
-	c.multiplicity(scope, u.CrossFeature.Multiplicity)
+	owner := scope
+	if end != nil {
+		owner = end
+	}
+	c.headerRelationships(owner, c.childScope(owner, u.CrossFeature), u.CrossFeature, u.CrossFeature.Relationships)
+	c.multiplicity(owner, u.CrossFeature.Multiplicity)
 }
 
 // metadataPrefix collects an annotation's metaclass name and the elements it is
@@ -695,7 +714,7 @@ func (c *refCollector) expr(scope *symbols.Scope, e ast.Node) {
 		// The same scope the resolver uses, so a reference to a parameter or a
 		// body declaration and its declaration denote one symbol.
 		inner := symbols.BodyExprScope(scope, v)
-		c.walkMembers(inner, v.Members)
+		c.withinBody(func() { c.walkMembers(inner, v.Members) })
 		c.expr(inner, v.Result)
 	case *ast.SequenceExpr:
 		for _, el := range v.Elements {

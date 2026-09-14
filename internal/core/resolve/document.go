@@ -154,9 +154,12 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		child := r.childScope(scope, d)
 		r.resolveHeaderRelationships(scope, child, d, d.Relationships)
 		r.resolveMultiplicity(scope, d.Multiplicity)
+		// The cross feature is a member of the end (buildCrossFeature), so its
+		// head names resolve from the end, as its lazy generals do.
 		if cross := d.CrossFeature; cross != nil {
-			r.resolveHeaderRelationships(scope, child, cross, cross.Relationships)
-			r.resolveMultiplicity(scope, cross.Multiplicity)
+			owner := r.bodyScope(scope, d)
+			r.resolveHeaderRelationships(owner, r.childScope(owner, cross), cross, cross.Relationships)
+			r.resolveMultiplicity(owner, cross.Multiplicity)
 		}
 		// An accept node keeps its trigger in the usage's value, and a trigger's
 		// names are not all references (see resolveTrigger).

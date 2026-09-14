@@ -107,7 +107,7 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 			chains = append(chains, ref)
 			continue
 		}
-		key := nameKey{member: e.fqn[ref.Member], target: e.writtenTarget(ref)}
+		key := nameKey{member: e.memberOf(ref), target: e.writtenTarget(ref)}
 		if _, ok := want.references[key]; ok {
 			occurrences[key] = append(occurrences[key], ref)
 			continue
@@ -117,7 +117,7 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	// A spelling read as another element is still an occurrence of the reference
 	// written that way, unless every writing of it already read back correctly.
 	for _, ref := range misread {
-		key, ok := written[nameKey{member: e.fqn[ref.Member], target: qualifiedText(ref.QN)}]
+		key, ok := written[nameKey{member: e.memberOf(ref), target: qualifiedText(ref.QN)}]
 		if !ok || len(occurrences[key]) >= want.references[key].count {
 			continue
 		}
@@ -168,7 +168,7 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 		read := ref
 		read.Chain = respelled(ref.Chain, chosen)
 		read.QN = read.Chain.Member
-		as := segmentKey{member: e.fqn[ref.Member], name: qualifiedText(ref.QN)}
+		as := segmentKey{member: e.memberOf(ref), name: qualifiedText(ref.QN)}
 		for _, operand := range e.operandKeys(read) {
 			as.operand = operand
 			if _, ok := writtenAs[as]; ok {
@@ -187,6 +187,15 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 		}
 	}
 	return names, changed, nil
+}
+
+// memberOf is the qualified name of the member a reference is written in: the
+// declaration itself, or the one whose expression body declares that declaration.
+func (e *encoder) memberOf(ref resolve.Reference) string {
+	if ref.Within != nil {
+		return e.fqn[ref.Within]
+	}
+	return e.fqn[ref.Member]
 }
 
 // writtenKeys indexes the wanted references by the member and the spelling

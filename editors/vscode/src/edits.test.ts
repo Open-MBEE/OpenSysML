@@ -6,6 +6,11 @@ import {
   connectionOwner,
   describeOwner,
   describeRefusal,
+  describeStale,
+  fileLabel,
+  referrersByFile,
+  staleDocuments,
+  unopenedDocuments,
   DOCUMENT_ROOT,
   editParams,
   endpointPath,
@@ -293,6 +298,133 @@ test("describeRefusal quotes the message, diagnostics and referrers", () => {
       "edit introduces 1 error",
       "3:5: unresolved name X",
     ].join("\n"),
+  );
+});
+
+const carURI = "file:///work/car.sysml";
+const fleetURI = "file:///work/fleet.sysml";
+
+test("referrersByFile lists referrers in the edited document flat", () => {
+  const lines = referrersByFile(
+    [
+      {
+        operation: 0,
+        failure: "delete-referenced",
+        message: "Vehicle::Car::tank is referenced",
+        referring: ["Vehicle::Car::c1", "Vehicle::Car::c2"],
+        referrers: [
+          { name: "Vehicle::Car::c1", uri: carURI },
+          { name: "Vehicle::Car::c2", uri: carURI },
+        ],
+      },
+    ],
+    carURI,
+  );
+  assert.deepEqual(lines, ["Vehicle::Car::c1", "Vehicle::Car::c2"]);
+});
+
+test("referrersByFile groups referrers in other files by file, the edited document first", () => {
+  const lines = referrersByFile(
+    [
+      {
+        operation: 0,
+        failure: "delete-referenced",
+        message: "Vehicle::Car is referenced",
+        referring: ["fleet.sysml: Fleet::truck", "Vehicle::Car::c1", "fleet.sysml: Fleet::van"],
+        referrers: [
+          { name: "Fleet::truck", uri: fleetURI },
+          { name: "Vehicle::Car::c1", uri: carURI },
+          { name: "Fleet::van", uri: fleetURI },
+        ],
+      },
+    ],
+    carURI,
+  );
+  assert.deepEqual(lines, ["In this document:", "  Vehicle::Car::c1", "In fleet.sysml:", "  Fleet::truck", "  Fleet::van"]);
+});
+
+test("referrersByFile names only the other files when the edited document holds no referrer", () => {
+  const lines = referrersByFile(
+    [
+      {
+        operation: 0,
+        failure: "delete-referenced",
+        message: "Vehicle::Car is referenced",
+        referrers: [{ name: "Fleet::truck", uri: fleetURI }],
+      },
+    ],
+    carURI,
+  );
+  assert.deepEqual(lines, ["In fleet.sysml:", "  Fleet::truck"]);
+});
+
+test("referrersByFile falls back to the plain names of a server telling no documents", () => {
+  const lines = referrersByFile(
+    [{ operation: 0, failure: "delete-referenced", message: "referenced", referring: ["Vehicle::Car::c1"] }],
+    carURI,
+  );
+  assert.deepEqual(lines, ["Vehicle::Car::c1"]);
+});
+
+test("fileLabel is the decoded last path segment", () => {
+  assert.equal(fileLabel("file:///work/my%20models/fleet.sysml"), "fleet.sysml");
+  assert.equal(fileLabel("file:///work/my%20fleet.sysml?x=1"), "my fleet.sysml");
+});
+
+const twoFileEdit = {
+  documentChanges: [
+    { textDocument: { uri: carURI, version: 3 }, edits: [] },
+    { textDocument: { uri: fleetURI, version: 7 }, edits: [] },
+    { textDocument: { uri: "file:///work/disk.sysml", version: null }, edits: [] },
+  ],
+};
+
+test("staleDocuments is empty when every open document is at the version the edit was computed against", () => {
+  const versions = new Map([
+    [carURI, 3],
+    [fleetURI, 7],
+  ]);
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), []);
+});
+
+test("staleDocuments names a document whose buffer moved on", () => {
+  const versions = new Map([
+    [carURI, 3],
+    [fleetURI, 8],
+  ]);
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), [fleetURI]);
+});
+
+test("staleDocuments ignores a document no buffer holds, whether the server read it open or from disk", () => {
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => (uri === carURI ? 3 : undefined)), []);
+  assert.deepEqual(staleDocuments({ changes: { [carURI]: [] } }, () => 1), []);
+});
+
+test("staleDocuments names a document the server read from disk that a buffer has since been opened for", () => {
+  const versions = new Map([
+    [carURI, 3],
+    [fleetURI, 7],
+    ["file:///work/disk.sysml", 1],
+  ]);
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), ["file:///work/disk.sysml"]);
+});
+
+test("unopenedDocuments lists the documents no buffer holds, whatever version the server gave them", () => {
+  assert.deepEqual(unopenedDocuments(twoFileEdit, (uri) => (uri === carURI ? 3 : undefined)), [
+    fleetURI,
+    "file:///work/disk.sysml",
+  ]);
+  assert.deepEqual(unopenedDocuments({ changes: { [carURI]: [] } }, () => undefined), []);
+});
+
+test("unopenedDocuments is empty once every document the edit names is open", () => {
+  assert.deepEqual(unopenedDocuments(twoFileEdit, () => 1), []);
+});
+
+test("describeStale names the files and says the edit was not applied", () => {
+  assert.equal(
+    describeStale([fleetURI, "file:///work/disk.sysml"]),
+    "fleet.sysml, disk.sysml changed while the edit was computed; it is not applied, so repeat the action.",
   );
 });
 

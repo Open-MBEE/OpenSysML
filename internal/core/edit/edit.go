@@ -155,14 +155,50 @@ type Model struct {
 	ParseDiags []parser.Diagnostic
 	SemDiags   []passes.Diagnostic
 	// NewIndex hands out an index carrying the libraries the model was analyzed
-	// against and no document of its own, for analyzing the edited notation.
-	// Nil checks syntax alone.
+	// against and every other document of Index, but none under Source's name,
+	// for analyzing the edited notation. Nil checks syntax alone.
 	NewIndex func() *symbols.Index
 	// Analysis is the options the edited notation is judged under, the same the
 	// original's SemDiags came from; the zero value is the default mode.
 	Analysis passes.Options
+	// Other hands out another document of Index whose notation the edit may
+	// rewrite when a rename or delete reaches a reference in it, or false for one
+	// it may not, which the edit then refuses to follow. Nil rewrites Source alone.
+	Other func(name string) (Document, bool)
 	// reindex is the one index an Apply call analyzes in, set by Apply.
 	reindex *reindexer
+}
+
+// Document is the source of another document of a Model's index, as Index was
+// built from it, with what its original was found to have.
+type Document struct {
+	Source     *source.SourceFile
+	ParseDiags []parser.Diagnostic
+	SemDiags   []passes.Diagnostic
+}
+
+// inDocument is m read as the document named name: m itself for the edited one,
+// else the other document as the edit may rewrite it, or false for one it may not.
+func (m Model) inDocument(name string) (Model, bool) {
+	if name == m.Source.Name() {
+		return m, true
+	}
+	if m.Other == nil {
+		return Model{}, false
+	}
+	doc, ok := m.Other(name)
+	if !ok || doc.Source == nil {
+		return Model{}, false
+	}
+	root, _, ok := m.documentRoot(name)
+	if !ok {
+		return Model{}, false
+	}
+	return Model{
+		Source: doc.Source, Root: root, Index: m.Index,
+		ParseDiags: doc.ParseDiags, SemDiags: doc.SemDiags,
+		NewIndex: m.NewIndex, Analysis: m.Analysis, Other: m.Other, reindex: m.reindex,
+	}, true
 }
 
 // reindexer holds the one index an Apply call reads its intermediate and final
@@ -198,10 +234,60 @@ type Applied struct {
 	NewText string
 }
 
-// Result is the edited notation and what each operation changed.
+// Result is the edited notation and what each operation changed. Content and
+// Applied are the edited document's; Others are the other documents a rename or
+// delete followed a reference into, in name order, and none when it reached none.
 type Result struct {
 	Content []byte
 	Applied []Applied
+	Others  []DocumentResult
+}
+
+// DocumentResult is the edited notation of one other document and what changed in it.
+type DocumentResult struct {
+	Name    string
+	Content []byte
+	Applied []Applied
+}
+
+// rewrite is one document's notation as the operations so far have left it.
+type rewrite struct {
+	content []byte
+	applied []Applied
+}
+
+// rewrites is every document the operations have rewritten, by name.
+type rewrites map[string]*rewrite
+
+// result presents the rewrites as the edited document's, named own, then the others.
+func (rw rewrites) result(own string) *Result {
+	out := &Result{}
+	for _, name := range rw.names(own) {
+		r := rw[name]
+		if name == own {
+			out.Content, out.Applied = r.content, r.applied
+			continue
+		}
+		out.Others = append(out.Others, DocumentResult{Name: name, Content: r.content, Applied: r.applied})
+	}
+	return out
+}
+
+// names lists the rewritten documents, own first and the rest in name order.
+func (rw rewrites) names(own string) []string {
+	out := make([]string, 0, len(rw))
+	for name := range rw {
+		if name != own {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return append([]string{own}, out...)
+}
+
+// unedited is the rewrites before any operation: the edited document as read.
+func unedited(m Model) rewrites {
+	return rewrites{m.Source.Name(): &rewrite{content: append([]byte(nil), m.Source.Bytes()...)}}
 }
 
 // Apply applies every operation to m's source, or none of them, and returns the
@@ -219,43 +305,28 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 	}
 
 	current := m
-	content := append([]byte(nil), m.Source.Bytes()...)
-	applied := make([]Applied, 0, len(ops))
+	edited := unedited(m)
 	ops = append([]Operation(nil), ops...)
 	for i, op := range ops {
 		splices, err := current.splicesFor(i, op)
 		if err != nil {
 			return nil, err
 		}
-		if err := checkOverlap(splices); err != nil {
+		if err := current.rewrite(edited, splices); err != nil {
 			return nil, err
 		}
 		if err := current.rebaseDeclarations(ops[i+1:], i+1, splices); err != nil {
 			return nil, err
 		}
-		next := current.splice(splices)
-		for _, sp := range splices {
-			applied = append(applied, Applied{
-				OperationIndex: sp.opIndex,
-				Target:         sp.target,
-				Span:           sp.span,
-				OldText:        current.Source.Text(sp.span),
-				NewText:        sp.text,
-			})
-		}
-		content = next
-		current, err = reparseModel(m, content)
-		if err != nil {
-			return nil, err
-		}
+		current = reparseModel(m, edited)
 		if err := current.relocateDeclarations(ops[i+1:], i+1); err != nil {
 			return nil, err
 		}
 	}
-	if err := m.validate(content); err != nil {
+	if err := m.validate(edited); err != nil {
 		return nil, err
 	}
-	return &Result{Content: content, Applied: applied}, nil
+	return edited.result(m.Source.Name()), nil
 }
 
 // needsSequential reports whether one operation may see another's work: a name
@@ -283,47 +354,122 @@ func applyBatch(m Model, ops []Operation) (*Result, error) {
 		}
 		splices = append(splices, next...)
 	}
-	if err := checkOverlap(splices); err != nil {
+	edited := unedited(m)
+	if err := m.rewrite(edited, splices); err != nil {
 		return nil, err
 	}
-	content := m.splice(splices)
-	if err := m.validate(content); err != nil {
+	if err := m.validate(edited); err != nil {
 		return nil, err
 	}
-	applied := make([]Applied, len(splices))
-	for i, sp := range splices {
-		applied[i] = Applied{
-			OperationIndex: sp.opIndex,
-			Target:         sp.target,
-			Span:           sp.span,
-			OldText:        m.Source.Text(sp.span),
-			NewText:        sp.text,
-		}
-	}
-	return &Result{Content: content, Applied: applied}, nil
+	return edited.result(m.Source.Name()), nil
 }
 
-// reparseModel is the state the later operations locate their targets in: it is
-// parsed and indexed, and not analyzed — an edit is judged by the original's
-// diagnostics and the returned notation's, which validate takes.
-func reparseModel(base Model, content []byte) (Model, error) {
-	sf := source.NewWithKind(base.Source.Name(), content, base.Source.Kind())
+// rewrite applies splices to the documents they address, the edited one and the
+// others, adding each result to out; overlapping splices in one document refuse.
+func (m Model) rewrite(out rewrites, splices []splice) error {
+	for _, name := range spliceDocuments(m.Source.Name(), splices) {
+		doc, ok := m.inDocument(name)
+		if !ok {
+			return &Error{Failure: FailureReferencedElsewhere, OperationIndex: -1,
+				Message: "the edit reaches " + name + ", which it cannot rewrite"}
+		}
+		var own []splice
+		for _, sp := range splices {
+			if sp.document(m.Source.Name()) == name {
+				own = append(own, sp)
+			}
+		}
+		if err := checkOverlap(own); err != nil {
+			return err
+		}
+		r := out[name]
+		if r == nil {
+			r = &rewrite{}
+			out[name] = r
+		}
+		r.content = doc.splice(own)
+		for _, sp := range own {
+			r.applied = append(r.applied, Applied{
+				OperationIndex: sp.opIndex,
+				Target:         sp.target,
+				Span:           sp.span,
+				OldText:        doc.Source.Text(sp.span),
+				NewText:        sp.text,
+			})
+		}
+	}
+	return nil
+}
+
+// spliceDocuments names the documents splices address, own first and the rest in
+// name order.
+func spliceDocuments(own string, splices []splice) []string {
+	seen := map[string]bool{}
+	var others []string
+	for _, sp := range splices {
+		name := sp.document(own)
+		if !seen[name] {
+			seen[name] = true
+			if name != own {
+				others = append(others, name)
+			}
+		}
+	}
+	sort.Strings(others)
+	if seen[own] {
+		return append([]string{own}, others...)
+	}
+	return others
+}
+
+// reparseModel is the state the later operations locate their targets in: every
+// rewritten document parsed and indexed, and not analyzed — an edit is judged by
+// the original's diagnostics and the returned notation's, which validate takes.
+func reparseModel(base Model, edited rewrites) Model {
+	others := map[string]Document{}
+	for _, name := range edited.names(base.Source.Name())[1:] {
+		original, _ := base.Other(name)
+		sf := source.NewWithKind(name, edited[name].content, original.Source.Kind())
+		p := parser.New(sf)
+		base.reindex.analyzedIn(name, p.ParseFile(), sf.Kind())
+		others[name] = Document{Source: sf, ParseDiags: p.Diagnostics}
+	}
+	sf := source.NewWithKind(base.Source.Name(), edited[base.Source.Name()].content, base.Source.Kind())
 	p := parser.New(sf)
 	root := p.ParseFile()
 	idx := base.reindex.analyzedIn(sf.Name(), root, sf.Kind())
+	other := base.Other
+	if len(others) > 0 {
+		other = func(name string) (Document, bool) {
+			if doc, ok := others[name]; ok {
+				return doc, true
+			}
+			return base.Other(name)
+		}
+	}
 	return Model{
 		Source: sf, Root: root, Index: idx,
 		ParseDiags: p.Diagnostics,
-		NewIndex:   base.NewIndex, Analysis: base.Analysis, reindex: base.reindex,
-	}, nil
+		NewIndex:   base.NewIndex, Analysis: base.Analysis, Other: other, reindex: base.reindex,
+	}
 }
 
-// splice is one byte range of the original source to replace with text.
+// splice is one byte range of a document's source to replace with text.
 type splice struct {
 	span    source.Span
 	text    string
 	opIndex int
 	target  string
+	// doc names the other document the span is in; empty for the edited one.
+	doc string
+}
+
+// document names the document the splice rewrites, own being the edited one.
+func (sp splice) document(own string) string {
+	if sp.doc == "" {
+		return own
+	}
+	return sp.doc
 }
 
 // splicesFor turns one operation into the byte ranges it rewrites. A rename, a
@@ -426,6 +572,8 @@ func (m Model) rebaseDeclarations(later []Operation, first int, splices []splice
 		shift := 0
 		for _, sp := range splices {
 			switch {
+			case sp.doc != "":
+				// Another document's bytes; a declaration is in the edited one.
 			case sp.span.End() <= decl.Offset:
 				shift += len(sp.text) - sp.span.Len
 			case sp.span.Offset <= decl.Offset:

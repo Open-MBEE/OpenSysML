@@ -216,9 +216,15 @@ Deletion is where a "refuse on new errors" rule is least obviously right: deleti
 part that something connects to *should* be reported. The operation therefore
 carries `Cascade bool`; without it the delete is refused and names the referents,
 with it the referring declarations are deleted in the same operation, and the panel
-asks before setting it. A reference from another document is refused either way,
-as is a rename one writes: the edit rewrites one document, and a `WorkspaceEdit`
-across several is not yet offered.
+asks before setting it, listing the referents by file. A reference from another
+document of the workspace is followed: a rename respells it there, a cascade delete
+removes the declaration making it, recursively, and the `WorkspaceEdit` carries one
+`TextDocumentEdit` per document rewritten. `edit.Model.Other` hands the operation the
+other documents it may rewrite; a reference from a document it may not — a bundled
+library file — is still refused as `referenced-elsewhere`, since the edit cannot
+follow it. The documents are snapshotted, rewritten and re-analyzed together under
+one workspace lock, so a rewrite that leaves any of them with a new error refuses
+the whole operation and nothing is written.
 
 ### From the diagram to the file
 
@@ -232,11 +238,19 @@ The server translates the operations into `edit` operations, runs them against t
 workspace's current content, and returns the byte diff as a `WorkspaceEdit` — it
 does not write the file. The client applies it with
 `vscode.workspace.applyEdit`, which puts the change in VS Code's undo stack, so a
-diagram action is undone with `ctrl+z` like anything typed. The request names the
+diagram action is undone with `ctrl+z` like anything typed — across every document
+it touched, since it is one edit. The request names the
 `version` of the rendering the action was taken on, not the buffer's: its targets
 are names the user saw there, and a later version may spell the same names for
 other declarations. A `version` that no longer matches is rejected, and the panel
-redraws and asks the user to repeat the action on what is now shown.
+redraws and asks the user to repeat the action on what is now shown. Each other
+document's `TextDocumentEdit` carries the version the server computed it against; the
+language client library applies edits without checking that, so the panel does. A
+document the edit names that no buffer holds is opened first and the edit asked for
+again, so every document it lands on is a versioned buffer; the versions are compared
+and `applyEdit` called in one turn, and VS Code pins each document to the version it
+holds at that call, so an edit naming a document that moved on meanwhile is not
+applied at all.
 
 The diagram never mutates itself. It applies the edit, the edit re-triggers
 analysis, analysis emits `renderChanged`, and the panel redraws from the model. One
@@ -304,7 +318,8 @@ view-local placement of an element the view does not expose (`not-exposed`), an
 element no rendering draws as the node or edge the annotation positions
 (`not-drawn`), and a clearing with nothing to clear (`not-annotated`).
 `opensysml/applyModelEdit` exposes them as `setLayout`, `setRoute` and
-`setCanvas`, keeping its one-document `WorkspaceEdit`.
+`setCanvas`; the three rewrite the requesting document alone, so their
+`WorkspaceEdit` carries one `TextDocumentEdit`.
 
 ### Direct manipulation
 
@@ -349,7 +364,7 @@ save are the text document's.
   typed refusal; the unannotated case stays byte-identical
   (`internal/core/edit/layout_test.go`).
 - LSP: a render → `setLayout` → apply → re-render round trip that sees the new
-  `x` and `y`, one versioned `TextDocumentEdit`, and a refusal shape
+  `x` and `y`, one versioned `TextDocumentEdit` on the document, and a refusal shape
   (`internal/lsp/modeledit_test.go`).
 - Webview: the automatic layout pinned for a fixture, the model's geometry kept
   exactly, one placement per gesture, and the SVG's node groups, handles and
@@ -364,7 +379,14 @@ save are the text document's.
 - Multi-document models render per document. A view exposing elements from another
   open file draws them, and dragging one writes into the view's body in the
   panel's document; a document drawn directly places only what it declares, and
-  writing an annotation into another document is out of scope.
+  writing an annotation into another document is out of scope. Rename and delete
+  follow references into the workspace's other documents; a reference from a
+  bundled library file, or from a document the index holds without the workspace
+  holding its source, still refuses the edit.
+- Only the requesting document's version travels in the request, so only it can be
+  answered `stale` by the server; another document that changed between the server
+  computing the edit and the client applying it is caught by the client comparing
+  the versions the edit carries, not by a server refusal.
 - The layout annotations are this project's library. SysML v2 §10.2 leaves how a
   view is drawn to the tool, so nothing here claims to be a normative diagram
   interchange, and no attempt is made to read or write another tool's layout.

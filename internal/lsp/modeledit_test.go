@@ -51,8 +51,9 @@ func applyModelEdit(t *testing.T, s *Server, docURI uri.URI, version int, ops ..
 	return &out
 }
 
-// applyWorkspaceEdit applies the edit to content the way a client does: each
-// text edit at its range in the original text, later ranges first.
+// applyWorkspaceEdit applies an edit of one document to content the way a
+// client does: each text edit at its range in the original text, later ranges
+// first.
 func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEdit, docURI uri.URI) string {
 	t.Helper()
 	if edit == nil {
@@ -68,6 +69,28 @@ func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEd
 	if change.TextDocument.Version == nil {
 		t.Error("edit names no document version")
 	}
+	return applyDocumentChange(t, content, change)
+}
+
+// documentChangeFor is the edit's change to the document at docURI.
+func documentChangeFor(t *testing.T, edit *protocol.WorkspaceEdit, docURI uri.URI) protocol.TextDocumentEdit {
+	t.Helper()
+	if edit == nil {
+		t.Fatal("no edit in result")
+	}
+	for _, change := range edit.DocumentChanges {
+		if change.TextDocument.URI == docURI {
+			return change
+		}
+	}
+	t.Fatalf("no change to %s in %+v", docURI, edit.DocumentChanges)
+	return protocol.TextDocumentEdit{}
+}
+
+// applyDocumentChange applies one document's text edits to content, later
+// ranges first.
+func applyDocumentChange(t *testing.T, content string, change protocol.TextDocumentEdit) string {
+	t.Helper()
 	edits := append([]protocol.TextEdit(nil), change.Edits...)
 	sort.Slice(edits, func(i, j int) bool {
 		a, b := edits[i].Range.Start, edits[j].Range.Start
@@ -102,7 +125,7 @@ func golden(t *testing.T, s *Server, name string, ops ...modelEditOperation) str
 	if !ok || err != nil {
 		t.Fatalf("edit.Apply: ok=%v err=%v", ok, err)
 	}
-	return string(result.Content)
+	return string(result.Documents[0].Content)
 }
 
 func TestApplyModelEditAddsMemberAsWorkspaceEdit(t *testing.T) {
@@ -412,29 +435,118 @@ func TestRenderNodesCarryNotation(t *testing.T) {
 	}
 }
 
-// A delete or rename that another open document refers to is refused, whether
-// or not it cascades: the edit rewrites one document, so the other would break.
-func TestApplyModelEditRefusesWhatAnotherDocumentRefersTo(t *testing.T) {
+// fleetModel is a second document referring to editModel's Vehicle::Car.
+const fleetModel = "package Fleet {\n    part truck : Vehicle::Car;\n    part van : Vehicle::Car;\n}\n"
+
+// A rename respells the references in another open document: the edit holds
+// one versioned change per document, the requested one first and the other at
+// the version the server holds for it.
+func TestApplyModelEditRenameRespellsAnotherDocument(t *testing.T) {
 	s, docURI := renderServer(t, "vehicle.sysml", editModel)
 	fleetURI := uri.File("fleet.sysml")
-	openDoc(t, s, fleetURI, "package Fleet {\n    part truck : Vehicle::Car;\n}\n")
-	for _, op := range []modelEditOperation{
-		{Kind: EditDelete, Target: "Vehicle::Car"},
-		{Kind: EditDelete, Target: "Vehicle::Car", Cascade: true},
-		{Kind: EditRename, Target: "Vehicle::Car", NewName: "Auto"},
-	} {
-		out := applyModelEdit(t, s, docURI, 1, op)
-		if len(out.Refused) != 1 || out.Edit != nil {
-			t.Fatalf("%+v: result = %+v, want one refusal", op, out)
-		}
-		r := out.Refused[0]
-		if r.Failure != "referenced-elsewhere" || r.Operation != 0 {
-			t.Errorf("%+v: refusal = %+v, want referenced-elsewhere of operation 0", op, r)
-		}
-		if want := []string{"Fleet::truck (" + fleetURI.Filename() + ")"}; strings.Join(r.Referring, ",") != strings.Join(want, ",") {
-			t.Errorf("%+v: referring = %v, want %v", op, r.Referring, want)
-		}
+	openDoc(t, s, fleetURI, fleetModel)
+	op := modelEditOperation{Kind: EditRename, Target: "Vehicle::Car", NewName: "Auto"}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Edit == nil || out.Refused != nil {
+		t.Fatalf("result = %+v, want an edit", out)
 	}
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{docURI, fleetURI}) {
+		t.Fatalf("documentChanges = %v, want %v", got, []uri.URI{docURI, fleetURI})
+	}
+	vehicle := applyDocumentChange(t, editModel, documentChangeFor(t, out.Edit, docURI))
+	if want := golden(t, s, docURI.Filename(), op); vehicle != want {
+		t.Errorf("vehicle.sysml:\n%s\nwant:\n%s", vehicle, want)
+	}
+	change := documentChangeFor(t, out.Edit, fleetURI)
+	if change.TextDocument.Version == nil || *change.TextDocument.Version != 1 {
+		t.Errorf("fleet version = %v, want the server's 1", change.TextDocument.Version)
+	}
+	fleet := applyDocumentChange(t, fleetModel, change)
+	if want := strings.ReplaceAll(fleetModel, "Vehicle::Car", "Vehicle::Auto"); fleet != want {
+		t.Errorf("fleet.sysml:\n%s\nwant:\n%s", fleet, want)
+	}
+}
+
+// A cascading delete removes the referring declarations of another document;
+// without cascade it is refused, naming them by document.
+func TestApplyModelEditDeleteCascadesIntoAnotherDocument(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	fleetURI := uri.File("fleet.sysml")
+	openDoc(t, s, fleetURI, fleetModel)
+
+	out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditDelete, Target: "Vehicle::Car"})
+	if len(out.Refused) != 1 || out.Edit != nil {
+		t.Fatalf("result = %+v, want one refusal", out)
+	}
+	r := out.Refused[0]
+	if r.Failure != "delete-referenced" || r.Operation != 0 {
+		t.Errorf("refusal = %+v, want delete-referenced of operation 0", r)
+	}
+	fleetName := fleetURI.Filename()
+	if want := []string{"Fleet::truck (" + fleetName + ")", "Fleet::van (" + fleetName + ")"}; !reflect.DeepEqual(r.Referring, want) {
+		t.Errorf("referring = %v, want %v", r.Referring, want)
+	}
+	if want := []modelEditReferrer{{Name: "Fleet::truck", URI: fleetURI}, {Name: "Fleet::van", URI: fleetURI}}; !reflect.DeepEqual(r.Referrers, want) {
+		t.Errorf("referrers = %v, want %v", r.Referrers, want)
+	}
+
+	out = applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditDelete, Target: "Vehicle::Car", Cascade: true})
+	if out.Edit == nil || out.Refused != nil {
+		t.Fatalf("cascade result = %+v, want an edit", out)
+	}
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{docURI, fleetURI}) {
+		t.Fatalf("documentChanges = %v, want %v", got, []uri.URI{docURI, fleetURI})
+	}
+	vehicle := applyDocumentChange(t, editModel, documentChangeFor(t, out.Edit, docURI))
+	if strings.Contains(vehicle, "Car") {
+		t.Errorf("vehicle.sysml still declares Car:\n%s", vehicle)
+	}
+	fleet := applyDocumentChange(t, fleetModel, documentChangeFor(t, out.Edit, fleetURI))
+	if want := "package Fleet {\n}\n"; fleet != want {
+		t.Errorf("fleet.sysml:\n%s\nwant:\n%s", fleet, want)
+	}
+}
+
+// The other document's change carries the version the server holds for it, so
+// a client whose buffer has moved on refuses it instead of landing it wrong; a
+// document read from disk, which no client versions, carries none.
+func TestApplyModelEditVersionsOtherDocumentsAsHeld(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	fleetURI := uri.File("fleet.sysml")
+	openDoc(t, s, fleetURI, fleetModel)
+	sendDidChange(t, s, fleetURI, 3, []json.RawMessage{json.RawMessage(`{"text":"package Fleet {\n    part van : Vehicle::Car;\n}\n"}`)})
+	depotName := uri.File("depot.sysml").Filename()
+	s.ws.SetOnDisk(depotName, []byte("package Depot {\n    part spare : Vehicle::Car;\n}\n"))
+
+	out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditRename, Target: "Vehicle::Car", NewName: "Auto"})
+	if out.Edit == nil || out.Refused != nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{docURI, uri.File(depotName), fleetURI}) {
+		t.Fatalf("documentChanges = %v, want vehicle, depot, fleet", got)
+	}
+	if v := documentChangeFor(t, out.Edit, docURI).TextDocument.Version; v == nil || *v != 1 {
+		t.Errorf("vehicle version = %v, want the request's 1", v)
+	}
+	if v := documentChangeFor(t, out.Edit, fleetURI).TextDocument.Version; v == nil || *v != 3 {
+		t.Errorf("fleet version = %v, want the server's 3", v)
+	}
+	depot := documentChangeFor(t, out.Edit, uri.File(depotName))
+	if depot.TextDocument.Version != nil {
+		t.Errorf("depot version = %d, want none for a document read from disk", *depot.TextDocument.Version)
+	}
+	if got := applyDocumentChange(t, "package Depot {\n    part spare : Vehicle::Car;\n}\n", depot); !strings.Contains(got, "Vehicle::Auto") {
+		t.Errorf("depot.sysml not respelled:\n%s", got)
+	}
+}
+
+// documentURIs lists the documents an edit changes, in the edit's order.
+func documentURIs(edit *protocol.WorkspaceEdit) []uri.URI {
+	out := make([]uri.URI, 0, len(edit.DocumentChanges))
+	for _, change := range edit.DocumentChanges {
+		out = append(out, change.TextDocument.URI)
+	}
+	return out
 }
 
 func TestApplyModelEditRejectsStaleVersion(t *testing.T) {

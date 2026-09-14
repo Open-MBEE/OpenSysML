@@ -82,6 +82,35 @@ func loadWorkspace(t *testing.T, name, content string, siblings map[string]strin
 	return m
 }
 
+// loadEditableWorkspace is loadWorkspace with the siblings' sources handed out
+// through Model.Other, the way the language server does for the documents it
+// holds, so that an edit may rewrite them.
+func loadEditableWorkspace(t *testing.T, name, content string, siblings map[string]string) Model {
+	t.Helper()
+	m := loadContent(t, name, content)
+	others := map[string]Document{}
+	roots := map[string]*ast.RootNamespace{}
+	for sibling, text := range siblings {
+		sf := source.New(sibling, []byte(text))
+		p := parser.New(sf)
+		roots[sibling] = p.ParseFile()
+		m.Index.AddDocument(sibling, roots[sibling])
+		others[sibling] = Document{Source: sf, ParseDiags: p.Diagnostics}
+	}
+	m.Index.ExpandWildcardImports()
+	for sibling, doc := range others {
+		if len(doc.ParseDiags) == 0 {
+			doc.SemDiags = passes.Analyze(sibling, roots[sibling], nil, m.Index)
+			others[sibling] = doc
+		}
+	}
+	m.Other = func(name string) (Document, bool) {
+		doc, ok := others[name]
+		return doc, ok
+	}
+	return m
+}
+
 // requireClean fails when a fixture does not start out valid: a test about what
 // an edit introduced says nothing if the original was already broken.
 func requireClean(t *testing.T, m Model) {

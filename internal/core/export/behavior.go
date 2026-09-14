@@ -89,7 +89,9 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 			}
 			e.graph.Add(subject, e.sysml(pSourceFeature), start)
 		}
-		e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard)
+		if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
+			return true, err
+		}
 		if qualifiedText(n.Successor) != "" {
 			e.graph.Add(subject, e.sysml(pTargetFeature), e.edgeReference(n.Successor))
 		} else if n.Guard != nil {
@@ -134,7 +136,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		e.name(subject, n.Name)
 		switch {
 		case n.Expression != nil:
-			e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Expression)
+			return true, e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Expression)
 		case qualifiedText(n.ActionRef) != "":
 			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelReferences]),
 				e.reference(n.ActionRef))
@@ -148,8 +150,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.PerformActionNode:
 		head(rdf.SysMLTerm(mPerform))
-		e.expression(subject, e.sysx(xExpression), xExpression, owner, n.ActionRef)
-		return true, nil
+		return true, e.expression(subject, e.sysx(xExpression), xExpression, owner, n.ActionRef)
 
 	case *ast.AssignmentActionNode:
 		head(rdf.SysMLTerm(mAssignment))
@@ -157,14 +158,19 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		if operator := e.between(n.Target, n.Value); operator != "" && operator != ":=" {
 			e.graph.Add(subject, e.sysx(xAssignOperator), rdf.String(operator))
 		}
-		e.expression(subject, e.sysx(xTarget), xTarget, owner, n.Target)
-		e.expression(subject, e.sysml(pValue), pValue, owner, n.Value)
-		return true, nil
+		if err := e.expression(subject, e.sysx(xTarget), xTarget, owner, n.Target); err != nil {
+			return true, err
+		}
+		return true, e.expression(subject, e.sysml(pValue), pValue, owner, n.Value)
 
 	case *ast.SendStatement:
 		head(rdf.SysMLTerm(mSend))
-		e.expression(subject, e.sysx(xPayload), xPayload, owner, n.Message)
-		e.expression(subject, e.sysx(xReceiver), xReceiver, owner, n.Target)
+		if err := e.expression(subject, e.sysx(xPayload), xPayload, owner, n.Message); err != nil {
+			return true, err
+		}
+		if err := e.expression(subject, e.sysx(xReceiver), xReceiver, owner, n.Target); err != nil {
+			return true, err
+		}
 		if n.IsVia {
 			e.graph.Add(subject, e.sysx(xIsVia), rdf.Bool(true))
 		}
@@ -172,8 +178,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.TerminateStatement:
 		head(rdf.SysMLTerm(mTerminate))
-		e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Target)
-		return true, nil
+		return true, e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Target)
 
 	case *ast.SuccessionEdge:
 		head(rdf.SysMLTerm(mSuccession))
@@ -198,7 +203,9 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		// guarded one is. Which keyword introduced it decides how it is written.
 		head(rdf.SysMLTerm(mSuccession))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(firstWord(e.text(n))))
-		e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard)
+		if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
+			return true, err
+		}
 		if n.IsElse {
 			e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
 		}
@@ -211,7 +218,9 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.IfActionNode:
 		head(rdf.SysMLTerm(mIfAction))
-		e.expression(subject, e.sysx(xCondition), xCondition, owner, n.Condition)
+		if err := e.expression(subject, e.sysx(xCondition), xCondition, owner, n.Condition); err != nil {
+			return true, err
+		}
 		branches := make([]ast.Node, 0, 2)
 		for _, branch := range n.Branches() {
 			branches = append(branches, branch)
@@ -282,17 +291,22 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 			}
 		}
 		e.graph.Add(subject, e.sysx(xLoopVariable), rdf.String(n.Variable.Name))
-		e.expression(subject, e.sysx(xCollection), xCollection, owner, n.Collection)
+		if err := e.expression(subject, e.sysx(xCollection), xCollection, owner, n.Collection); err != nil {
+			return err
+		}
 	} else {
 		head(rdf.SysMLTerm(mWhileLoop))
-		switch n.Kind {
-		case ast.LoopWhile:
-			e.expression(subject, e.sysx(xWhileCondition), xWhileCondition, fqn, n.Condition)
-			e.expression(subject, e.sysx(xUntilCondition), xUntilCondition, fqn, n.Until)
-		default:
-			// A `loop` tests its condition after each iteration, which is what an
-			// `until` clause states; without one it has no condition at all.
-			e.expression(subject, e.sysx(xUntilCondition), xUntilCondition, fqn, n.Condition)
+		// A `loop` tests its condition after each iteration, which is what an
+		// `until` clause states; without one it has no condition at all.
+		while, until := ast.Node(nil), n.Condition
+		if n.Kind == ast.LoopWhile {
+			while, until = n.Condition, n.Until
+		}
+		if err := e.expression(subject, e.sysx(xWhileCondition), xWhileCondition, fqn, while); err != nil {
+			return err
+		}
+		if err := e.expression(subject, e.sysx(xUntilCondition), xUntilCondition, fqn, until); err != nil {
+			return err
 		}
 	}
 	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(e.bracedBody(n, n.Body)))
@@ -340,7 +354,9 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 		e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelVia]), e.reference(n.Via))
 	}
 	// The guard reads the parameters the trigger declares, in the transition's scope.
-	e.expression(subject, e.sysx(xGuard), xGuard, fqn, n.Guard)
+	if err := e.expression(subject, e.sysx(xGuard), xGuard, fqn, n.Guard); err != nil {
+		return err
+	}
 	if n.HasEffect {
 		e.graph.Add(subject, e.sysx(xBracedEffect), rdf.Bool(len(n.Effect) == 0 || e.bracedBody(n, n.Effect)))
 	}
