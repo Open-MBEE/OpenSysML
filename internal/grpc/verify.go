@@ -32,6 +32,7 @@ func failureReason(err error) pb.FailureReason {
 	case errors.Is(err, runtime.ErrNotAConstraint),
 		errors.Is(err, runtime.ErrNotARequirement),
 		errors.Is(err, runtime.ErrNotASatisfaction),
+		errors.Is(err, runtime.ErrNotAnObject),
 		errors.Is(err, runtime.ErrNotACalc),
 		errors.Is(err, runtime.ErrNotAnAnalysis):
 		return pb.FailureReason_FAILURE_REASON_WRONG_KIND
@@ -113,6 +114,24 @@ func (v *verifyContext) subject(symbolID string) (*runtime.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	return v.instantiate(symbolID, sym)
+}
+
+// object instantiates the symbol a request named to validate as a whole, which
+// must have objects: a package or an attribute is ErrNotAnObject, a wrong kind.
+func (v *verifyContext) object(symbolID string) (*runtime.Instance, error) {
+	sym, err := v.lookup(symbolID)
+	if err != nil {
+		return nil, err
+	}
+	if err := runtime.RequireObject(sym); err != nil {
+		return nil, err
+	}
+	return v.instantiate(symbolID, sym)
+}
+
+// instantiate materializes an object of sym, named as the request spelt it in a failure.
+func (v *verifyContext) instantiate(symbolID string, sym *symbols.Symbol) (*runtime.Instance, error) {
 	inst, err := v.runtime.Instantiate(sym)
 	if err != nil {
 		return nil, fmt.Errorf("instantiation of subject %s failed: %w", symbolID, err)

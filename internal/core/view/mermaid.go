@@ -156,7 +156,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction) {
 		return
 	}
 	for _, root := range r.Roots {
-		writeFlowchartNode(b, root, 1, r.Kind == KindTree)
+		writeFlowchartNode(b, root, 1, r.Kind == KindTree, flow)
 	}
 	for _, edge := range r.Edges {
 		if edge.Label == "" {
@@ -169,8 +169,9 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction) {
 
 // writeFlowchartNode writes one node: a subgraph when it holds others, a plain
 // node otherwise. containment adds an edge from a node to each of its children,
-// which is how a tree rendering shows what contains what.
-func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool) {
+// which is how a tree rendering shows what contains what. A subgraph restates the
+// flowchart's direction, which Mermaid does not apply inside one that states none.
+func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool, flow string) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
 		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidLabel(node))
@@ -179,14 +180,15 @@ func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment b
 	if containment {
 		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidLabel(node))
 		for _, child := range node.Children {
-			writeFlowchartNode(b, child, depth, containment)
+			writeFlowchartNode(b, child, depth, containment, flow)
 			fmt.Fprintf(b, "%s%s --- %s\n", indent, node.ID, child.ID)
 		}
 		return
 	}
 	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, mermaidLabel(node))
+	fmt.Fprintf(b, "%s  direction %s\n", indent, flow)
 	for _, child := range node.Children {
-		writeFlowchartNode(b, child, depth+1, containment)
+		writeFlowchartNode(b, child, depth+1, containment, flow)
 	}
 	fmt.Fprintf(b, "%send\n", indent)
 }

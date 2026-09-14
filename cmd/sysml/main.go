@@ -504,9 +504,12 @@ func runCLI() int {
 		case queryText != "" || len(evalExprs) > 0 || fromFormat != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-documents cannot be combined with -query, -eval or -from")
 			return 2
-		case modelChecks.requested():
+		case modelChecks.requested() && !modelChecks.instantiatesOnly():
 			return refuse(modelChecks,
 				"-render-documents writes documents out and decides nothing about the model; check it in its own run")
+		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
 		}
 		if err := runRenderDocuments(args); err != nil {
 			return fail(err)
@@ -592,12 +595,15 @@ func runCLI() int {
 		case modelChecks.jsonOut && !modelChecks.checksOnly():
 			fmt.Fprintln(os.Stderr, "sysml: -render-document writes a document, not JSON; -json reports checks")
 			return 2
-		case modelChecks.requested():
+		case modelChecks.requested() && !modelChecks.instantiatesOnly():
 			return refuse(modelChecks,
 				"-render-document writes a document out and decides nothing about the model; check it in its own run")
 		case len(evalExprs) > 0 || fromFormat != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-document cannot be combined with -eval or -from")
 			return 2
+		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
 		}
 		if err := runRenderDocument(args); err != nil {
 			return fail(err)
@@ -605,18 +611,8 @@ func runCLI() int {
 		return exitHolds
 	}
 
-	// Resolve the run bounds before any model runs, so a bad value is reported at
-	// startup rather than mistaken for the default at execution time. Reporting the
-	// version and converting a model evaluate nothing, so they are handled above.
-	budgets, err = runtime.BudgetsFromEnv()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, errPrefix, err)
-		return 2
-	}
-	jobs, err = resolveJobs()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, errPrefix, err)
-		return 2
+	if status := resolveRunBounds(); status != 0 {
+		return status
 	}
 
 	// Checking mode: load, check what was named, and exit on the verdict.
@@ -631,6 +627,21 @@ func runCLI() int {
 
 	// No expression to evaluate: load whatever was named and take lines.
 	return runInteractiveWithFiles(args)
+}
+
+// resolveRunBounds reads the run bounds before any model runs, so a bad value is
+// reported at startup (status 2) rather than mistaken for the default; 0 when read.
+func resolveRunBounds() int {
+	var err error
+	if budgets, err = runtime.BudgetsFromEnv(); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
+	if jobs, err = resolveJobs(); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
+	return 0
 }
 
 // newSession returns a session in the output modes the flags asked for, under

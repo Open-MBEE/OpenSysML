@@ -33,6 +33,7 @@ const (
 	SysMLService_VerifyConstraint_FullMethodName   = "/sysml.SysMLService/VerifyConstraint"
 	SysMLService_VerifyRequirement_FullMethodName  = "/sysml.SysMLService/VerifyRequirement"
 	SysMLService_VerifySatisfaction_FullMethodName = "/sysml.SysMLService/VerifySatisfaction"
+	SysMLService_ValidateInstance_FullMethodName   = "/sysml.SysMLService/ValidateInstance"
 	SysMLService_EvaluateCalc_FullMethodName       = "/sysml.SysMLService/EvaluateCalc"
 	SysMLService_RunAnalysis_FullMethodName        = "/sysml.SysMLService/RunAnalysis"
 	SysMLService_RunSweep_FullMethodName           = "/sysml.SysMLService/RunSweep"
@@ -83,6 +84,13 @@ type SysMLServiceClient interface {
 	VerifyConstraint(ctx context.Context, in *VerifyConstraintRequest, opts ...grpc.CallOption) (*VerifyConstraintResponse, error)
 	VerifyRequirement(ctx context.Context, in *VerifyRequirementRequest, opts ...grpc.CallOption) (*VerifyRequirementResponse, error)
 	VerifySatisfaction(ctx context.Context, in *VerifySatisfactionRequest, opts ...grpc.CallOption) (*VerifySatisfactionResponse, error)
+	// Validate an object as a whole, as the REPL's %validate and the CLI's
+	// -validate=<object> do: every assertion about an object of the named part
+	// and about the objects it holds — the asserted constraints of their types,
+	// the requirements they carry and the satisfactions they are the subject of —
+	// each answered on the concrete object it is about. Reported as the
+	// "verification" capability.
+	ValidateInstance(ctx context.Context, in *ValidateInstanceRequest, opts ...grpc.CallOption) (*ValidateInstanceResponse, error)
 	EvaluateCalc(ctx context.Context, in *EvaluateCalcRequest, opts ...grpc.CallOption) (*EvaluateCalcResponse, error)
 	RunAnalysis(ctx context.Context, in *RunAnalysisRequest, opts ...grpc.CallOption) (*RunAnalysisResponse, error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
@@ -246,6 +254,15 @@ func (c *sysMLServiceClient) VerifySatisfaction(ctx context.Context, in *VerifyS
 	return out, nil
 }
 
+func (c *sysMLServiceClient) ValidateInstance(ctx context.Context, in *ValidateInstanceRequest, opts ...grpc.CallOption) (*ValidateInstanceResponse, error) {
+	out := new(ValidateInstanceResponse)
+	err := c.cc.Invoke(ctx, SysMLService_ValidateInstance_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sysMLServiceClient) EvaluateCalc(ctx context.Context, in *EvaluateCalcRequest, opts ...grpc.CallOption) (*EvaluateCalcResponse, error) {
 	out := new(EvaluateCalcResponse)
 	err := c.cc.Invoke(ctx, SysMLService_EvaluateCalc_FullMethodName, in, out, opts...)
@@ -350,6 +367,13 @@ type SysMLServiceServer interface {
 	VerifyConstraint(context.Context, *VerifyConstraintRequest) (*VerifyConstraintResponse, error)
 	VerifyRequirement(context.Context, *VerifyRequirementRequest) (*VerifyRequirementResponse, error)
 	VerifySatisfaction(context.Context, *VerifySatisfactionRequest) (*VerifySatisfactionResponse, error)
+	// Validate an object as a whole, as the REPL's %validate and the CLI's
+	// -validate=<object> do: every assertion about an object of the named part
+	// and about the objects it holds — the asserted constraints of their types,
+	// the requirements they carry and the satisfactions they are the subject of —
+	// each answered on the concrete object it is about. Reported as the
+	// "verification" capability.
+	ValidateInstance(context.Context, *ValidateInstanceRequest) (*ValidateInstanceResponse, error)
 	EvaluateCalc(context.Context, *EvaluateCalcRequest) (*EvaluateCalcResponse, error)
 	RunAnalysis(context.Context, *RunAnalysisRequest) (*RunAnalysisResponse, error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
@@ -425,6 +449,9 @@ func (UnimplementedSysMLServiceServer) VerifyRequirement(context.Context, *Verif
 }
 func (UnimplementedSysMLServiceServer) VerifySatisfaction(context.Context, *VerifySatisfactionRequest) (*VerifySatisfactionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VerifySatisfaction not implemented")
+}
+func (UnimplementedSysMLServiceServer) ValidateInstance(context.Context, *ValidateInstanceRequest) (*ValidateInstanceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateInstance not implemented")
 }
 func (UnimplementedSysMLServiceServer) EvaluateCalc(context.Context, *EvaluateCalcRequest) (*EvaluateCalcResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EvaluateCalc not implemented")
@@ -712,6 +739,24 @@ func _SysMLService_VerifySatisfaction_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_ValidateInstance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateInstanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).ValidateInstance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_ValidateInstance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).ValidateInstance(ctx, req.(*ValidateInstanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SysMLService_EvaluateCalc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EvaluateCalcRequest)
 	if err := dec(in); err != nil {
@@ -900,6 +945,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VerifySatisfaction",
 			Handler:    _SysMLService_VerifySatisfaction_Handler,
+		},
+		{
+			MethodName: "ValidateInstance",
+			Handler:    _SysMLService_ValidateInstance_Handler,
 		},
 		{
 			MethodName: "EvaluateCalc",

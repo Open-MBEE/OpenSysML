@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,11 +18,11 @@ import (
 // they are carried out: objects are created first, so a verdict is about them,
 // and behavior runs after the conditions the model states about it.
 type checks struct {
-	validate     bool
+	validate     optionalNames
 	instantiate  stringSlice
 	constraints  stringSlice
 	requirements stringSlice
-	satisfy      satisfyTargets
+	satisfy      optionalNames
 	calcs        stringSlice
 	analyses     stringSlice
 	sweeps       stringSlice
@@ -156,7 +157,7 @@ func (a *advanceTime) Set(value string) error {
 // -json and -advance check nothing themselves, but are included so their misuse
 // is reported rather than leaving a script at a prompt it cannot answer.
 func (c *checks) requested() bool {
-	return c.validate || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
+	return c.validate.given || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
 		len(c.constraints) > 0 || len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 ||
 		c.sweeping() || c.checker.given()
@@ -258,53 +259,80 @@ func (c *checks) sweepMisuse() string {
 	return ""
 }
 
+// instantiatesOnly reports whether the run creates objects and decides nothing
+// about them, so a document can be rendered over what it holds.
+func (c *checks) instantiatesOnly() bool {
+	return len(c.instantiate) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
+		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 && len(c.analyses) == 0 &&
+		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.checker.given()
+}
+
 // checksOnly reports whether anything was asked about the model itself, as
 // against how to report the answer.
 func (c *checks) checksOnly() bool {
-	return c.validate || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
+	return len(c.validate.targets) > 0 || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
 		len(c.requirements) > 0 || len(c.satisfy.targets) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0
 }
 
-// satisfyTargets collects -satisfy values. The flag takes an optional value: a
-// bare -satisfy evaluates every satisfaction assertion in the model, and
-// -satisfy=<name> evaluates the ones the named element states. Go's flag package
-// passes "true" for the valueless spelling, which no name can be mistaken for
-// because `true` is a literal keyword rather than a declarable name.
-type satisfyTargets struct {
+// optionalNames collects the values of a flag that takes an optional name, as
+// -satisfy and -validate do: bare, it is about the whole model, and with =<name>
+// about the element or object named. Go's flag package passes "true" for the
+// valueless spelling, which no name can be mistaken for because `true` is a
+// literal keyword rather than a declarable name.
+type optionalNames struct {
+	// targets are the names given, the bare spelling recorded as "".
 	targets []string
-	given   bool
+	// given records the flag written at all, =false included, so a script that
+	// wrote it is answered rather than left at a prompt.
+	given bool
 }
 
-func (t *satisfyTargets) String() string { return fmt.Sprint(t.targets) }
+func (t *optionalNames) String() string { return fmt.Sprint(t.targets) }
 
-// IsBoolFlag makes the value optional, so -satisfy alone is accepted.
-func (t *satisfyTargets) IsBoolFlag() bool { return true }
+// IsBoolFlag makes the value optional, so the flag alone is accepted.
+func (t *optionalNames) IsBoolFlag() bool { return true }
 
-func (t *satisfyTargets) Set(value string) error {
+func (t *optionalNames) Set(value string) error {
 	t.given = true
 	switch value {
 	case "true":
-		// Every assertion in the model, which CheckSatisfy names with "".
 		t.targets = append(t.targets, "")
 	case "false":
-		// The off spelling of a flag declared boolean, so -satisfy=$on works.
+		// The off spelling of a flag declared boolean, so -satisfy=$on works: it
+		// withdraws a bare request written before it and leaves the names given.
+		t.targets = t.names()
 	default:
 		t.targets = append(t.targets, value)
 	}
 	return nil
 }
 
-// tookNoValue reports whether -satisfy was given without a value. A name written
+// tookNoValue reports whether the flag was given without a value. A name written
 // after it (`-satisfy Landing::touchdown`) is then a positional argument, i.e. a
 // file to load, which is worth explaining when no such file exists.
-func (t *satisfyTargets) tookNoValue() bool {
-	for _, target := range t.targets {
-		if target == "" {
-			return true
-		}
+func (t *optionalNames) tookNoValue() bool {
+	return slices.Contains(t.targets, "")
+}
+
+// names are the values given, the bare spelling left out.
+func (t *optionalNames) names() []string {
+	return slices.DeleteFunc(slices.Clone(t.targets), func(name string) bool { return name == "" })
+}
+
+// valueMisuse explains a flag whose name was written as a positional argument
+// that names no file, for whichever of -satisfy and -validate was so written.
+func (c *checks) valueMisuse(path string) string {
+	if fileExists(path) {
+		return ""
 	}
-	return false
+	switch {
+	case c.satisfy.tookNoValue():
+		return fmt.Sprintf("%s is read as a file to load; -satisfy takes a name as -satisfy=%s", path, path)
+	case c.validate.tookNoValue() && len(c.instantiate) > 0:
+		return fmt.Sprintf("%s is read as a file to load; -validate takes an object as -validate=%s", path, path)
+	}
+	return ""
 }
 
 // refuse reports a misused flag in whichever form the caller asked for, so a
@@ -369,8 +397,10 @@ func runChecks(files []string, exprs []string, c checks) int {
 	paths, err := repl.ExpandPaths(files)
 	if err != nil {
 		rep.failed(err.Error())
-		if c.satisfy.tookNoValue() && len(files) == 1 && !fileExists(files[0]) {
-			rep.failed(fmt.Sprintf("%s is read as a file to load; -satisfy takes a name as -satisfy=%s", files[0], files[0]))
+		if len(files) == 1 {
+			if message := c.valueMisuse(files[0]); message != "" {
+				rep.failed(message)
+			}
 		}
 		return rep.finish()
 	}
@@ -381,8 +411,10 @@ func runChecks(files []string, exprs []string, c checks) int {
 	if err != nil {
 		rep.failed(err.Error())
 		var read *repl.ReadError
-		if errors.As(err, &read) && c.satisfy.tookNoValue() && !fileExists(read.Path) {
-			rep.failed(fmt.Sprintf("%s is read as a file to load; -satisfy takes a name as -satisfy=%s", read.Path, read.Path))
+		if errors.As(err, &read) {
+			if message := c.valueMisuse(read.Path); message != "" {
+				rep.failed(message)
+			}
 		}
 		return rep.finish()
 	}
@@ -435,7 +467,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 	// The model is only reported clean once the objects asked for were created:
 	// what materializing them found is a diagnostic about the model, so a run
 	// that produced one must not also report that there were none.
-	if c.validate {
+	if c.validate.tookNoValue() {
 		switch {
 		case rep.clean() && bounded:
 			rep.info([]string{fmt.Sprintf("✓ %s: no errors in the feature values checked", namedModels(files))})
@@ -458,6 +490,14 @@ func runChecks(files []string, exprs []string, c checks) int {
 			return rep.finish()
 		}
 		rep.info(output)
+	}
+
+	// An object is validated as a whole: every assertion about it and about the
+	// objects it holds, then a summary verdict about the object.
+	for _, object := range c.validate.names() {
+		for _, v := range sess.ValidateObject(object) {
+			rep.verdict(v)
+		}
 	}
 
 	for _, name := range c.constraints {

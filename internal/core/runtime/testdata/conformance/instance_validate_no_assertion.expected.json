@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::crate",
+  "validation": {
+    "verdicts": [],
+    "valid": false
+  }
+}

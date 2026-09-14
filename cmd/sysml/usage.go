@@ -44,6 +44,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml -instantiate p -constraint C model.sysml", "Check C against an object of p"),
 				usage.Ex("sysml -validate model.sysml", "Report diagnostics only"),
 				usage.Ex("sysml -validate -strict model.sysml", "...asking whether it is conforming SysML v2"),
+				usage.Ex("sysml -instantiate car -validate=car m.sysml", "Check every assertion about an object"),
 				usage.Ex(`sysml -calc "Fall(3, 4)" model.sysml`, "Invoke a calculation"),
 				usage.Ex("sysml -analysis shipCost model.sysml", "Run an analysis case"),
 				usage.Ex(`sysml -analysis "CostAnalysis ship" model.sysml`, "...on an object as its subject"),
@@ -398,7 +399,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
 	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement and exit, reporting beside its verdict the verdict of every verification case verifying it (repeatable)")
 	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states, reporting beside each verdict the verdict of every verification case verifying the requirement (repeatable)")
-	fs.BoolVar(&modelChecks.validate, "validate", false, "Analyse the model and report its diagnostics, exiting nonzero on an error")
+	fs.Var(&modelChecks.validate, "validate", "Analyse the model and report its diagnostics, exiting nonzero on an error; with -validate=<object> check instead every assertion about an object -instantiate created and the objects it holds, an object named, #<id>, or a path such as car.engine (repeatable)")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report what it computed, as -calc \"Fall(3, 4)\" (repeatable)")
 	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis or verification case and report its outputs and the verdict of its objective, as -analysis \"Pkg::Case(3.0) Pkg::part\" with arguments for its inputs and an object as its subject; a verification case also reports the verdict its body produced (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the named -analysis or -calc once per value of this range, as -sweep \"speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']\"; the values are produced in the parameter's declared type; several ranges run their cartesian product (repeatable)")

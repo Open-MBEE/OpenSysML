@@ -29,8 +29,8 @@ from opensysml.values import (
     Vector, VectorQuantity,
 )
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Verdict,
-    VerificationVerdict,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
+    Verdict, VerificationVerdict,
 )
 from opensysml.exploration import Exploration, Outcome
 from opensysml.engines import Bound, EngineInfo, Standing
@@ -69,7 +69,7 @@ __all__ = [
     "ExperimentalFeatureWarning", "is_experimental",
     "Editor", "EditResult", "AppliedEdit",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
-    "VerificationVerdict",
+    "Validation", "VerificationVerdict",
     "Exploration", "Outcome",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",

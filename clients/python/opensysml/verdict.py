@@ -17,6 +17,7 @@ KIND_REQUIREMENT = "requirement"
 KIND_SATISFY = "satisfy"
 KIND_OBJECTIVE = "objective"
 KIND_ASSERTION = "assertion"
+KIND_OBJECT = "object"
 
 
 #: VerdictKind values a verification case's body produces, as the library
@@ -119,7 +120,8 @@ class Verdict:
 
     Attributes:
         kind (str): What was verified: 'constraint', 'requirement', 'satisfy',
-            or an analysis case's 'objective' or 'assertion'
+            an analysis case's 'objective' or 'assertion', or a validated
+            'object' as a whole
         element_id (str): FQN of the element verified; empty for an anonymous
             satisfaction assertion
         element (str): The element as a reader names it — its FQN, or the
@@ -140,6 +142,9 @@ class Verdict:
         requirement_id (str): FQN of the requirement a 'satisfy' verdict asserts
             satisfied; empty for every other kind and for an anonymous
             requirement
+        instance_path (str): Where the object this verdict is about sits in a
+            validated one (``engine.injector``, ``wheels[2]``); empty for the
+            validated object itself and outside a validation
         verifications (list[VerificationVerdict]): What the bodies of the
             verification cases verifying this verdict's own requirement
             answered, beside this verdict rather than instead of it. Empty when
@@ -213,6 +218,11 @@ class Verdict:
         return getattr(self._pb, "requirement_id", "")
 
     @property
+    def instance_path(self):
+        """Path from the validated object to the one this verdict is about."""
+        return getattr(self._pb, "instance_path", "")
+
+    @property
     def error(self):
         """Why evaluation failed, when it failed rather than answering."""
         return self._pb.error
@@ -248,9 +258,10 @@ class Verdict:
         satisfy r by p"), so the kind is not repeated in front of it.
         """
         element = self.element
-        if self.kind in element.split():
-            return element
-        return f"{self.kind} {element}"
+        named = element if self.kind in element.split() else f"{self.kind} {element}"
+        if self.instance_path:
+            named += f" at {self.instance_path}"
+        return named
 
     def explain(self):
         """One line saying what the verdict is and why, then its standing when reported."""
@@ -286,6 +297,102 @@ class Verdict:
             f"Verdict(kind={self.kind!r}, element={self.element!r}, "
             f"holds={self.holds!r}, condition={self.condition!r}, "
             f"error={self.error!r})"
+        )
+
+
+class Validation:
+    """Every assertion about one object and the objects it holds, answered.
+
+    Validating an object evaluates each asserted constraint, each requirement
+    and each satisfaction assertion whose subject lies in the object's tree
+    against the object carrying it, as ``sysml -validate=<object>`` and the
+    REPL's ``%validate`` do. Truthy only when every assertion holds and the
+    whole tree was reached, so a verdict that could not be decided is not a
+    holding one and a tree cut short by the traversal bound is not valid.
+
+    Attributes:
+        verdicts (list[Verdict]): One per assertion, root first then each held
+            object in traversal order; ``instance_path`` says which object it
+            is about, empty for the root
+        summary (Verdict): The object's own verdict, of kind 'object': holds
+            when every assertion does, carries ``error`` when one could not be
+            decided or the tree was cut short
+        instances (list[Instance]): The object validated and every object
+            reachable from it
+        bounded (bool): Whether traversal stopped at its bound before reaching
+            every held object, so the verdicts are not the whole answer
+        diagnostics (list[Diagnostic]): Diagnostics the service reported
+        verifications (list[VerificationVerdict]): What the bodies of the
+            verification cases of the requirements met answered
+        standing (Standing): The engine that answered; unreported when the
+            service predates ``engines``
+    """
+
+    def __init__(self, verdicts, summary, instances=None, diagnostics=None,
+                 verifications=None, bounded=False):
+        self.verdicts = list(verdicts or [])
+        self.summary = summary
+        self.instances = list(instances or [])
+        self.diagnostics = list(diagnostics or [])
+        self.verifications = list(verifications or [])
+        self.bounded = bounded
+        self.standing = summary.standing if summary is not None else Standing()
+
+    engine = property(lambda self: self.standing.engine, doc="Name of the engine that answered.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
+
+    @property
+    def valid(self):
+        """Whether the object is shown valid: at least one assertion, every one
+        holding, and every held object reached."""
+        return self.summary is not None and self.summary.holds and not self.summary.error
+
+    @property
+    def violated(self):
+        """The verdicts the model answered false, as opposed to undecided ones."""
+        return [v for v in self.verdicts if not v.holds and not v.error]
+
+    @property
+    def undecided(self):
+        """The verdicts whose condition could not be evaluated."""
+        return [v for v in self.verdicts if v.error]
+
+    def raise_for_error(self):
+        """Raise :class:`~opensysml.errors.ExecutionError` if any assertion could not be decided.
+
+        A verdict of false raises nothing: it is the model's answer.
+
+        Returns:
+            Validation: self, so a call can be chained
+        """
+        for verdict in self.undecided:
+            verdict.raise_for_error()
+        return self
+
+    def __bool__(self):
+        """Truthy when the object is valid."""
+        return self.valid
+
+    def __len__(self):
+        return len(self.verdicts)
+
+    def __iter__(self):
+        return iter(self.verdicts)
+
+    def __getitem__(self, index):
+        return self.verdicts[index]
+
+    def __str__(self):
+        lines = [v.explain() for v in self.verdicts]
+        if self.summary is not None:
+            lines.append(self.summary.explain())
+        return "\n".join(lines)
+
+    def __repr__(self):
+        return (
+            f"Validation(verdicts={len(self.verdicts)}, valid={self.valid!r}, "
+            f"bounded={self.bounded!r})"
         )
 
 

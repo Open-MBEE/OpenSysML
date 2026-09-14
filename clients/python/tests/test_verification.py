@@ -23,7 +23,9 @@ from opensysml.errors import (
     WrongKindError,
 )
 from opensysml.proto import sysml_pb2
-from opensysml.verdict import AnalysisResult, CalcResult, Verdict, VerificationVerdict
+from opensysml.verdict import (
+    AnalysisResult, CalcResult, Validation, Verdict, VerificationVerdict,
+)
 
 
 def make_connection(stub):
@@ -441,6 +443,172 @@ def test_verify_satisfaction_narrowed_to_a_symbol():
 
     assert conn.verify_satisfaction("hash1", symbol_id="Demo::analysis") == []
     assert stub.VerifySatisfaction.call_args[0][0].symbol_id == "Demo::analysis"
+
+
+def validation_response():
+    """A car whose engine fails its constraint and whose second wheel cannot be read."""
+    return sysml_pb2.ValidateInstanceResponse(
+        verdicts=[
+            sysml_pb2.Verdict(
+                kind="constraint", element_id="Demo::Car::massOk", holds=True,
+                instance_id=1, instance_type_id="Demo::car",
+            ),
+            sysml_pb2.Verdict(
+                kind="requirement", element_id="Demo::Car::safe", holds=True,
+                instance_id=1, instance_type_id="Demo::car", requirement_id="Demo::Car::safe",
+            ),
+            sysml_pb2.Verdict(
+                kind="constraint", element_id="Demo::Engine::powerOk", holds=False,
+                condition="power < 200.0", instance_id=2, instance_type_id="Demo::Engine",
+                instance_path="engine",
+            ),
+            sysml_pb2.Verdict(
+                kind="constraint", element_id="Demo::Wheel::pressureOk", holds=True,
+                instance_id=3, instance_type_id="Demo::Wheel", instance_path="wheels[1]",
+            ),
+            sysml_pb2.Verdict(
+                kind="constraint", element_id="Demo::Wheel::pressureOk", holds=False,
+                error="no value for feature pressure", instance_id=4,
+                instance_type_id="Demo::Wheel", instance_path="wheels[2]",
+            ),
+        ],
+        summary=sysml_pb2.Verdict(
+            kind="object", element_id="Demo::car", element="Demo::car", holds=False,
+            instance_id=1, instance_type_id="Demo::car",
+        ),
+        instances=[
+            sysml_pb2.Instance(id=1, type_symbol_id="Demo::car"),
+            sysml_pb2.Instance(id=2, type_symbol_id="Demo::Engine"),
+            sysml_pb2.Instance(id=3, type_symbol_id="Demo::Wheel"),
+            sysml_pb2.Instance(id=4, type_symbol_id="Demo::Wheel"),
+        ],
+        verification_verdicts=[
+            sysml_pb2.VerificationVerdict(
+                case_id="Demo::checkSafe", kind="pass", requirement_id="Demo::Car::safe",
+            ),
+        ],
+        diagnostics=[sysml_pb2.Diagnostic(severity="warning", message="heads up")],
+    )
+
+
+def test_validate_instance_answers_every_assertion_by_path():
+    stub = Mock()
+    stub.ValidateInstance.return_value = validation_response()
+    conn = make_connection(stub)
+
+    validation = conn.validate_instance("Demo::car", "hash1")
+
+    request = stub.ValidateInstance.call_args[0][0]
+    assert (request.model_hash, request.symbol_id) == ("hash1", "Demo::car")
+    assert isinstance(validation, Validation)
+    assert len(validation) == 5
+    assert [v.instance_path for v in validation] == ["", "", "engine", "wheels[1]", "wheels[2]"]
+    assert [v.holds for v in validation] == [True, True, False, True, False]
+    assert not validation
+    assert validation.valid is False
+    assert validation.bounded is False
+    assert [v.element_id for v in validation.violated] == ["Demo::Engine::powerOk"]
+    assert [v.instance_path for v in validation.undecided] == ["wheels[2]"]
+    assert validation.summary.kind == "object"
+    assert validation.summary.holds is False
+    assert validation.summary.evaluated
+    # The verdicts about the requirement take its cases; the summary takes them all.
+    assert [v.case_id for v in validation[1].verifications] == ["Demo::checkSafe"]
+    assert validation[0].verifications == []
+    assert [v.case_id for v in validation.verifications] == ["Demo::checkSafe"]
+    assert [inst.id for inst in validation.instances] == [1, 2, 3, 4]
+    assert [d.message for d in validation.diagnostics] == ["heads up"]
+    assert validation[2].explain() == (
+        "\u2717 constraint Demo::Engine::powerOk at engine fails (on Demo::Engine ID: 2)"
+        ": condition evaluated to false: power < 200.0"
+    )
+    with pytest.raises(ExecutionError, match="wheels\\[2\\].*no value for feature pressure"):
+        validation.raise_for_error()
+
+
+def test_validate_instance_of_a_valid_object_is_truthy():
+    stub = Mock()
+    stub.ValidateInstance.return_value = sysml_pb2.ValidateInstanceResponse(
+        verdicts=[sysml_pb2.Verdict(kind="constraint", element_id="Demo::c", holds=True)],
+        summary=sysml_pb2.Verdict(kind="object", element_id="Demo::p", holds=True),
+    )
+    conn = make_connection(stub)
+
+    validation = conn.validate_instance("Demo::p", "hash1")
+
+    assert validation
+    assert validation.valid
+    assert validation.violated == []
+    assert validation.undecided == []
+    assert validation.raise_for_error() is validation
+    assert str(validation).splitlines()[-1] == "\u2713 object Demo::p holds"
+
+
+def test_validate_instance_an_undecided_tree_is_not_valid():
+    stub = Mock()
+    stub.ValidateInstance.return_value = sysml_pb2.ValidateInstanceResponse(
+        verdicts=[sysml_pb2.Verdict(kind="constraint", element_id="Demo::c", holds=True)],
+        summary=sysml_pb2.Verdict(
+            kind="object", element_id="Demo::p", holds=False,
+            error="not every held object was reached",
+            failure_reason=sysml_pb2.FAILURE_REASON_EVALUATION,
+        ),
+        bounded=True,
+    )
+    conn = make_connection(stub)
+
+    validation = conn.validate_instance("Demo::p", "hash1")
+
+    assert validation.bounded
+    assert not validation.valid
+    assert validation.violated == []
+    assert validation.summary.error == "not every held object was reached"
+
+
+def test_validate_instance_unanswerable_request_raises():
+    stub = Mock()
+    stub.ValidateInstance.return_value = sysml_pb2.ValidateInstanceResponse(
+        error="symbol not found: Demo::nope",
+        diagnostics=[sysml_pb2.Diagnostic(severity="error", message="unknown symbol")],
+    )
+    conn = make_connection(stub)
+
+    with pytest.raises(ExecutionError) as excinfo:
+        conn.validate_instance("Demo::nope", "hash1")
+    assert "Demo::nope" in str(excinfo.value)
+    assert [d.message for d in excinfo.value.diagnostics] == ["unknown symbol"]
+
+
+def test_validate_instance_requires_the_capability():
+    stub = Mock()
+    stub.GetServerInfo.return_value = sysml_pb2.ServerInfoResponse(
+        version="test", capabilities=[CAPABILITY_FEATURE_VALUES],
+    )
+    with patch('grpc.insecure_channel'):
+        with patch('opensysml.proto.sysml_pb2_grpc.SysMLServiceStub', return_value=stub):
+            conn = Connection(auto_start=False)
+
+    with pytest.raises(MissingCapabilityError) as excinfo:
+        conn.validate_instance("Demo::p", "hash1")
+    assert excinfo.value.capability == CAPABILITY_VERIFICATION
+    stub.ValidateInstance.assert_not_called()
+
+
+def test_model_validate_instance_passes_the_models_hash():
+    stub = Mock()
+    stub.ParseFile.return_value = sysml_pb2.ParseFileResponse(
+        model_hash="hash1",
+        root=sysml_pb2.SymbolInfo(id="Demo", name="Demo", kind="Package"),
+    )
+    stub.ValidateInstance.return_value = sysml_pb2.ValidateInstanceResponse(
+        summary=sysml_pb2.Verdict(kind="object", element_id="Demo::p", holds=True),
+    )
+    conn = make_connection(stub)
+    model = conn.load("demo.sysml")
+
+    assert model.validate_instance("Demo::p").valid
+    request = stub.ValidateInstance.call_args[0][0]
+    assert (request.model_hash, request.symbol_id) == ("hash1", "Demo::p")
 
 
 def test_calc_invocation_returns_its_value():

@@ -123,6 +123,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.VerifySatisfaction(ctx, &pb.VerifySatisfactionRequest{})
 			return err
 		}},
+		{"validate instance", CapabilityVerification, func(s *Service) error {
+			_, err := s.ValidateInstance(ctx, &pb.ValidateInstanceRequest{})
+			return err
+		}},
 		{"evaluate calc", CapabilityVerification, func(s *Service) error {
 			_, err := s.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{})
 			return err

@@ -228,7 +228,7 @@ go get github.com/Open-MBEE/OpenSysML@latest
 Nothing else needs installing: the SysML standard library is embedded in the module and no
 operation shells out. Every RPC the service offers is a method (`ParseFiles` for a model made of
 several documents, `ExecuteAction` and `ExecuteState`, `VerifyConstraint`, `VerifyRequirement`,
-`VerifySatisfaction`, `EvaluateCalc`, `RunAnalysis`, `ListEngines`, `Query`, `RunDocumentQuery`,
+`VerifySatisfaction`, `ValidateInstance`, `EvaluateCalc`, `RunAnalysis`, `ListEngines`, `Query`, `RunDocumentQuery`,
 `RenderDocument`, `Convert` and `ApplyEdits`), and queries and edits are built from typed values rather than a string dialect, so
 an unsupported operator is a compile error rather than a refused call.
 
@@ -245,8 +245,8 @@ before anything is sent; a service that does not advertise `schedule` or `schedu
 refuses with `CodeUnimplemented`.
 
 Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen the same way
-`sysml -engine` chooses it: `VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take
-`opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `Calculate` — `EvaluateCalc`
+`sysml -engine` chooses it: `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and
+`ValidateInstance` take `opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `Calculate` — `EvaluateCalc`
 with options — takes `opensysml.CalcEngine(...)` beside `opensysml.CalcArguments(...)`, `opensysml.EngineAll`
 asks every engine that covers the question and `opensysml.EngineAuto` — the default — leaves the
 choice to the service. `ListEngines` names the engines the service registers — the `check` and
@@ -723,6 +723,51 @@ verdict is about using its `instance_id`:
 subject = next(i for i in verdict.instances if i.id == verdict.instance_id)
 ```
 
+#### Validating an object as a whole
+
+`validate_instance` is `sysml -validate=<object>` for a script: it builds one object of a part
+and evaluates every assertion about it and the objects it holds — each `assert constraint` the
+carrier's type declares or inherits, each requirement usage it carries, and each `satisfy`
+assertion whose subject is in the tree — rather than one named condition. Over a `Car` that
+asserts `massOk`, carries requirement `light` (mass under 1000, which its 1500 kg violates) and
+holds two `wheels : Wheel[2]` at 20 psi against `Wheel`'s asserted `pressure >= 30.0`:
+
+```python
+validation = model.validate_instance("Fleet::car")
+
+bool(validation)            # False — truthy only when every assertion holds and the whole tree was reached
+len(validation)             # 4 — one verdict per (assertion, object)
+for verdict in validation:  # root first, then each held object as the walk reaches it
+    print(verdict.instance_path or ".", verdict.holds)
+# . True
+# . False
+# wheels[1] False
+# wheels[2] False
+
+[v.instance_path for v in validation.violated]   # ['', 'wheels[1]', 'wheels[2]']
+validation.undecided                             # [] — verdicts whose condition could not be evaluated
+validation.summary.kind                          # 'object' — the verdict about the root itself
+validation.bounded                               # False — True when the walk stopped at its depth bound
+print(validation)
+# ✓ assert constraint massOk holds (on Fleet::car ID: 1) — witnessed by run
+# ✗ requirement light fails (on Fleet::car ID: 1): condition evaluated to false: mass < 1000.0 — witnessed by run
+# ✗ assert constraint pressureOk at wheels[1] fails (on Fleet::Car::wheels ID: 2): condition evaluated to false: pressure >= 30.0 — witnessed by run
+# ✗ assert constraint pressureOk at wheels[2] fails (on Fleet::Car::wheels ID: 3): condition evaluated to false: pressure >= 30.0 — witnessed by run
+# ✗ object Fleet::car fails (on Fleet::car ID: 1): condition evaluated to false — witnessed by run
+```
+
+Each verdict is a `Verdict` as above, with `instance_path` naming where its object sits under
+the root (`engine.injector`, `wheels[2]`, one-based for a collection element; empty for the root
+itself) and `instance_id` picking it out of `validation.instances`, which holds the whole tree.
+The same rule separates a *false* from a *failure*: `validation.violated` lists the verdicts the
+model answered false, `validation.undecided` the ones that could not be evaluated, and
+`validation.raise_for_error()` raises `ExecutionError` for the first of those, so a script that
+must not read an unbound feature as a passing check can insist on a decided answer. A
+`Validation` is falsy for an undecided assertion and for a `bounded` walk, since neither says the
+object holds. A constraint declared without `assert` is not swept — that is what
+`verify_constraint` is for — and an unknown or non-instantiable part raises `ExecutionError` from
+the call, as the other verification calls do.
+
 Calculations are invoked with positional arguments. A calc *usage* named without arguments is
 evaluated from its own members and reports every output feature it computes (SysML 7.17):
 
@@ -811,8 +856,8 @@ required upgrade rather than failing on an unimplemented method.
 #### Choosing the engine, and reading the standing of an answer
 
 Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen as `sysml -engine`
-chooses it: `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`,
-`run_analysis` and `run_sweep` take `engine=` — `"auto"` (the default, the service picks),
+chooses it: `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `validate_instance`,
+`calc`, `run_analysis` and `run_sweep` take `engine=` — `"auto"` (the default, the service picks),
 `"all"` (every engine that covers the question, composed) or one by name; `explore_analysis`
 takes a `schedule=` instead and leaves the engine to the service. A
 name the service does not register raises `InvalidRequestError` listing the ones it does, and

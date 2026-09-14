@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -79,20 +80,20 @@ func (t *propertyTracker) missing() (string, bool) {
 // A failure or absent final result fails the query; ?? defaults absence.
 func (e *executor) evaluateColumnCell(
 	column computedColumn,
-	sym *symbols.Symbol,
+	row Value,
 	tracker *propertyTracker,
 ) ([]Value, error) {
-	values, err := e.evaluateColumnExpression(column.expression, column.name, sym, tracker)
+	values, err := e.evaluateColumnExpression(column.expression, column.name, row, tracker)
 	if err != nil {
 		return nil, err
 	}
 	if len(values) == 0 {
 		return nil, e.columnError(
-			ErrorColumnAbsent, column.name, sym, column.expression.Origin(), "", "")
+			ErrorColumnAbsent, column.name, row, column.expression.Origin(), "", "")
 	}
 	if len(values) > 1 {
 		return nil, e.columnError(
-			ErrorColumnCardinality, column.name, sym, column.expression.Origin(),
+			ErrorColumnCardinality, column.name, row, column.expression.Origin(),
 			"", strconv.Itoa(len(values)))
 	}
 	return values, nil
@@ -101,7 +102,7 @@ func (e *executor) evaluateColumnCell(
 func (e *executor) evaluateColumnExpression(
 	expression queryplan.Expression,
 	column string,
-	sym *symbols.Symbol,
+	row Value,
 	tracker *propertyTracker,
 ) ([]Value, error) {
 	switch expression.Operation() {
@@ -109,13 +110,31 @@ func (e *executor) evaluateColumnExpression(
 		property := expression.Target()
 		_, declaring := expression.Literal()
 		if declaringIsElement(declaring) {
-			values, present, err := e.propertyValues(sym, property)
+			values, present, err := e.propertyValues(row, property)
 			if err != nil {
-				return nil, e.unevaluable(expression, property, sym, err)
+				return nil, e.unevaluable(expression, property, row, err)
 			}
 			tracker.record(property, present)
 			return values, nil
 		}
+		if inst, _, isObject := row.Object(); isObject {
+			if isMetaclassFQN(declaring) {
+				decl := objectDeclaration(inst)
+				if !e.context.Model.MetaclassConforms(decl, declaring) {
+					return nil, nil
+				}
+				return e.reflectiveFeatureValues(expression, property, decl)
+			}
+			if !e.objectConformsTo(inst, declaring) {
+				return nil, nil
+			}
+			values, _, err := e.objectFeatureValues(row, property)
+			if err != nil {
+				return nil, e.unevaluable(expression, property, row, err)
+			}
+			return values, nil
+		}
+		sym, _ := row.Element()
 		if isMetaclassFQN(declaring) {
 			if !e.context.Model.MetaclassConforms(sym, declaring) {
 				return nil, nil
@@ -129,7 +148,7 @@ func (e *executor) evaluateColumnExpression(
 		}
 		values, _, err := e.declaredFeatureValues(sym, property)
 		if err != nil {
-			return nil, e.unevaluable(expression, property, sym, err)
+			return nil, e.unevaluable(expression, property, ElementValue(sym), err)
 		}
 		return values, nil
 	case queryplan.OperationLiteral:
@@ -145,7 +164,7 @@ func (e *executor) evaluateColumnExpression(
 		}
 		return append([]Value(nil), binding.values...), nil
 	case queryplan.OperationColumnOperator:
-		return e.evaluateColumnOperator(expression, column, sym, tracker)
+		return e.evaluateColumnOperator(expression, column, row, tracker)
 	default:
 		return nil, &Error{
 			Kind:      ErrorUnsupportedOperation,
@@ -178,17 +197,27 @@ func (e *executor) reflectiveFeatureValues(
 ) ([]Value, error) {
 	values, ok := e.context.Model.ReflectiveFeatureValues(sym, property)
 	if !ok {
-		return nil, e.featureError(expression, property, sym)
+		return nil, e.featureError(expression, property, ElementValue(sym))
 	}
 	result := make([]Value, 0, len(values))
 	for _, value := range values {
 		converted, ok := filterValue(value, sym)
 		if !ok {
-			return nil, e.featureError(expression, property, sym)
+			return nil, e.featureError(expression, property, ElementValue(sym))
 		}
 		result = append(result, converted)
 	}
 	return result, nil
+}
+
+// objectConformsTo reports whether an object is of a feature's declaring type.
+func (e *executor) objectConformsTo(inst *runtime.Instance, declaring string) bool {
+	for _, target := range e.context.Index.LookupQualified(declaring) {
+		if e.objectConforms(inst, target) {
+			return true
+		}
+	}
+	return false
 }
 
 // rowConformsTo reports whether the row conforms to a feature's declaring
@@ -212,34 +241,34 @@ func (e *executor) rowConformsTo(sym *symbols.Symbol, declaring string) bool {
 func (e *executor) evaluateColumnOperator(
 	expression queryplan.Expression,
 	column string,
-	sym *symbols.Symbol,
+	row Value,
 	tracker *propertyTracker,
 ) ([]Value, error) {
 	_, operator := expression.Literal()
 	operands := expression.Arguments()
 	if operator == "??" {
-		left, err := e.evaluateColumnExpression(operands[0].Value, column, sym, tracker)
+		left, err := e.evaluateColumnExpression(operands[0].Value, column, row, tracker)
 		if err != nil {
 			return nil, err
 		}
 		if len(left) > 0 {
 			return left, nil
 		}
-		return e.evaluateColumnExpression(operands[1].Value, column, sym, tracker)
+		return e.evaluateColumnExpression(operands[1].Value, column, row, tracker)
 	}
 	values := make([]Value, len(operands))
 	for i, operand := range operands {
-		operandValues, err := e.evaluateColumnExpression(operand.Value, column, sym, tracker)
+		operandValues, err := e.evaluateColumnExpression(operand.Value, column, row, tracker)
 		if err != nil {
 			return nil, err
 		}
 		if len(operandValues) != 1 {
-			return nil, e.columnError(ErrorColumnOperand, column, sym, operand.Value.Origin(),
+			return nil, e.columnError(ErrorColumnOperand, column, row, operand.Value.Origin(),
 				operator, strconv.Itoa(len(operandValues)))
 		}
 		values[i] = operandValues[0]
 	}
-	result, err := e.applyColumnOperator(expression, column, sym, operator, values)
+	result, err := e.applyColumnOperator(expression, column, row, operator, values)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +278,7 @@ func (e *executor) evaluateColumnOperator(
 func (e *executor) applyColumnOperator(
 	expression queryplan.Expression,
 	column string,
-	sym *symbols.Symbol,
+	row Value,
 	operator string,
 	values []Value,
 ) (Value, error) {
@@ -258,10 +287,10 @@ func (e *executor) applyColumnOperator(
 		if len(values) == 2 {
 			kinds += " and " + string(values[1].Kind())
 		}
-		return e.columnError(ErrorColumnOperandType, column, sym, expression.Origin(), operator, kinds)
+		return e.columnError(ErrorColumnOperandType, column, row, expression.Origin(), operator, kinds)
 	}
 	if hasQuantity(values) {
-		return e.applyQuantityOperator(expression, column, sym, operator, values, mismatch)
+		return e.applyQuantityOperator(expression, column, row, operator, values, mismatch)
 	}
 	if len(values) == 1 {
 		// Unary + and - require one numeric operand.
@@ -304,7 +333,7 @@ func (e *executor) applyColumnOperator(
 		case "/":
 			if r == 0 {
 				return Value{}, e.columnError(
-					ErrorColumnDivisionByZero, column, sym, expression.Origin(), operator, "")
+					ErrorColumnDivisionByZero, column, row, expression.Origin(), operator, "")
 			}
 			return IntegerValue(l / r), nil
 		}
@@ -321,7 +350,7 @@ func (e *executor) applyColumnOperator(
 	case "/":
 		if r == 0 {
 			return Value{}, e.columnError(
-				ErrorColumnDivisionByZero, column, sym, expression.Origin(), operator, "")
+				ErrorColumnDivisionByZero, column, row, expression.Origin(), operator, "")
 		}
 		return RealValue(l / r), nil
 	}
@@ -346,7 +375,7 @@ func hasQuantity(values []Value) bool {
 func (e *executor) applyQuantityOperator(
 	expression queryplan.Expression,
 	column string,
-	sym *symbols.Symbol,
+	row Value,
 	operator string,
 	values []Value,
 	mismatch func() error,
@@ -375,14 +404,14 @@ func (e *executor) applyQuantityOperator(
 	switch {
 	case err == nil:
 	case errors.Is(err, semantics.ErrDivisionByZero):
-		return Value{}, e.columnError(ErrorColumnDivisionByZero, column, sym, expression.Origin(), operator, "")
+		return Value{}, e.columnError(ErrorColumnDivisionByZero, column, row, expression.Origin(), operator, "")
 	case errors.Is(err, semantics.ErrIncommensurableUnits):
 		units := operands[0].Unit.String() + " and " + operands[1].Unit.String()
-		return Value{}, e.columnError(ErrorColumnIncommensurable, column, sym, expression.Origin(), operator, units)
+		return Value{}, e.columnError(ErrorColumnIncommensurable, column, row, expression.Origin(), operator, units)
 	case errors.Is(err, semantics.ErrQuantityOperand):
 		return Value{}, mismatch()
 	default:
-		return Value{}, e.columnError(ErrorColumnArithmetic, column, sym, expression.Origin(), operator, err.Error())
+		return Value{}, e.columnError(ErrorColumnArithmetic, column, row, expression.Origin(), operator, err.Error())
 	}
 	if result.Unit.None() {
 		value, ok := constantValue(result.Num)
@@ -441,7 +470,7 @@ func realOperand(value Value) float64 {
 func (e *executor) columnError(
 	kind ErrorKind,
 	column string,
-	sym *symbols.Symbol,
+	row Value,
 	origin provenance.Origin,
 	operator string,
 	actual string,
@@ -451,7 +480,7 @@ func (e *executor) columnError(
 		Query:     e.definition.Name(),
 		Operation: queryplan.OperationProject,
 		Property:  column,
-		Target:    symbols.FQNOf(sym),
+		Target:    rowTarget(row),
 		Parameter: operator,
 		Actual:    actual,
 		Origin:    origin,

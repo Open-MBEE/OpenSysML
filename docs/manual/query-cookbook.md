@@ -851,3 +851,98 @@ $ sysml cookbook.sysml -run-query "Cookbook::Specializers general=Cookbook::Subs
 Traversal results are elements like any others — feed them into `Project` for
 a traceability table, as the [worked example](worked-example.md) does for its
 requirement section.
+
+## Objects the session holds
+
+Every recipe so far reads the model: its elements and what they declare. A
+query can also read the **objects** a session holds — the ones `-instantiate`
+(or `%instantiate` in the REPL) created — with the same operations. A binding
+written as a usage's name binds the object the session holds under that name
+while it holds one, and the element otherwise; `#2` binds an object by the id
+the instantiation report printed, and `telescope.primaryMirror` a nested object
+by its path. Over an object, `OwnedElements` and `Descendants` are the objects
+it holds as its parts, `Ancestors` the objects holding it, `WhereType` tests
+the object's types, and `WhereFeature`, `Project` and `OrderBy` read the values
+the object holds **now** — after a run changed them, not the declared defaults.
+An object's `name` is its path from the object it was bound through
+(`primaryMirror`, `wheels[2]` for the second of a collection), its
+`qualifiedName` the whole path (`Cookbook::telescope.primaryMirror`), and the
+report prints its id beside each row.
+
+```sysml
+calc def HeldParts :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root, maxDepth = 2), type = "Subsystem"),
+		properties = ("qualifiedName", "mass")
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -instantiate Cookbook::telescope -run-query "Cookbook::HeldParts root=telescope"
+✓ Created instance of Cookbook::telescope
+  ID: 1
+  Use %features Cookbook::telescope to inspect
+✓ Query Cookbook::HeldParts returned 3 rows
+  Columns: qualifiedName, mass
+  Row 1: Cookbook::telescope.primaryMirror (#2)
+    qualifiedName = "Cookbook::telescope.primaryMirror"
+    mass = 10.0
+  Row 2: Cookbook::telescope.instrumentCluster (#4)
+    qualifiedName = "Cookbook::telescope.instrumentCluster"
+    mass = 4.5
+  Row 3: Cookbook::telescope.mountControl (#7)
+    qualifiedName = "Cookbook::telescope.mountControl"
+    mass = 15.0
+```
+
+Without `-instantiate` the same invocation binds the element `telescope` and
+returns its three declared subsystems, as the recipes above do.
+
+`Objects(type = "<type>")` enumerates every object the session holds that is of
+the type — the objects bound at the top and every object they hold, each under
+its path — and needs no binding at all:
+
+```sysml
+calc def HeldSubsystems :> Query {
+	OrderBy(
+		source = Project(source = Objects(type = "Subsystem"), properties = ("qualifiedName", "mass")),
+		property = "mass",
+		direction = "descending",
+		missing = "last",
+		multiple = "first"
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -instantiate Cookbook::telescope -run-query "Cookbook::HeldSubsystems"
+✓ Created instance of Cookbook::telescope
+  ID: 1
+  Use %features Cookbook::telescope to inspect
+✓ Query Cookbook::HeldSubsystems returned 3 rows
+  Columns: qualifiedName, mass
+  Row 1: Cookbook::telescope.mountControl (#7)
+    qualifiedName = "Cookbook::telescope.mountControl"
+    mass = 15.0
+  Row 2: Cookbook::telescope.primaryMirror (#2)
+    qualifiedName = "Cookbook::telescope.primaryMirror"
+    mass = 10.0
+  Row 3: Cookbook::telescope.instrumentCluster (#4)
+    qualifiedName = "Cookbook::telescope.instrumentCluster"
+    mass = 4.5
+```
+
+A session holding no object returns no rows from `Objects`; running the query
+outside any session (through the library alone) is refused with a typed error
+saying to instantiate an object first. `RelatedElements` reads the model's
+relationships and is refused over an object row — traverse the relationship from
+the element, then bind what it finds.
+
+A document renders the same way: `-instantiate <name> -render-document <doc>`
+creates the object first, and every table or list whose query is bound to that
+usage's name, or enumerates `Objects`, renders the objects by path. In HTML each
+such row carries its `data-object="#<id>"` beside the `data-element` of the
+usage it stands for, and an object-valued cell is a `span.sysml-object`. See
+[Rendering a document over objects](../reference/cli.md#rendering-a-document-over-objects).

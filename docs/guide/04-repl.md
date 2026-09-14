@@ -361,6 +361,7 @@ completes them: `#` offers the ids there are, `car.` the objects `car` holds.
 | what an expression is worth | `%eval`, `%eval in … : …` | [5](05-checking.md) |
 | what an object holds for each feature | `%instantiate`, `%features`, `%instances` | [5](05-checking.md) |
 | whether a check holds | `%constraint`, `%requirement`, `%satisfy`, `%calc` | [5](05-checking.md) |
+| whether every assertion about an object and the objects it holds is met | `%validate` | [5](05-checking.md#calculations-constraints-and-requirements) |
 | what an analysis case computes and whether its objective holds | `%analysis` | [6](06-behavior.md#running-an-analysis-case) |
 | what it computes across a range of one parameter | `%sweep`, `%samples` | [6](06-behavior.md#running-an-analysis-case) |
 | whether a check *can* hold at all (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%check` | [reference](../reference/repl-commands.md) |

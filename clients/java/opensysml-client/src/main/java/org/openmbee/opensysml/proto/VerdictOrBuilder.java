@@ -13,7 +13,8 @@ public interface VerdictOrBuilder extends
   /**
    * <pre>
    * What was verified: "constraint", "requirement" or "satisfy"; for a check
-   * an analysis case run made, "objective" or "assertion".
+   * an analysis case run made, "objective" or "assertion"; for the summary
+   * of a ValidateInstance, "object".
    * </pre>
    *
    * <code>string kind = 1 [json_name = "kind"];</code>
@@ -23,7 +24,8 @@ public interface VerdictOrBuilder extends
   /**
    * <pre>
    * What was verified: "constraint", "requirement" or "satisfy"; for a check
-   * an analysis case run made, "objective" or "assertion".
+   * an analysis case run made, "objective" or "assertion"; for the summary
+   * of a ValidateInstance, "object".
    * </pre>
    *
    * <code>string kind = 1 [json_name = "kind"];</code>
@@ -306,4 +308,30 @@ public interface VerdictOrBuilder extends
    */
   org.openmbee.opensysml.proto.BoundOrBuilder getBoundsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * For a verdict ValidateInstance reports: the path from the validated object
+   * to the object this verdict is about, as the REPL spells it ("engine",
+   * "wheels[2]", "engine.injector"). Empty for the validated object itself,
+   * and for every other RPC.
+   * </pre>
+   *
+   * <code>string instance_path = 14 [json_name = "instancePath"];</code>
+   * @return The instancePath.
+   */
+  java.lang.String getInstancePath();
+  /**
+   * <pre>
+   * For a verdict ValidateInstance reports: the path from the validated object
+   * to the object this verdict is about, as the REPL spells it ("engine",
+   * "wheels[2]", "engine.injector"). Empty for the validated object itself,
+   * and for every other RPC.
+   * </pre>
+   *
+   * <code>string instance_path = 14 [json_name = "instancePath"];</code>
+   * @return The bytes for instancePath.
+   */
+  com.google.protobuf.ByteString
+      getInstancePathBytes();
 }

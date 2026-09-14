@@ -188,4 +188,22 @@ package Cookbook {
 			maxDepth = 2
 		)
 	}
+
+	calc def HeldParts :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 2), type = "Subsystem"),
+			properties = ("qualifiedName", "mass")
+		)
+	}
+
+	calc def HeldSubsystems :> Query {
+		OrderBy(
+			source = Project(source = Objects(type = "Subsystem"), properties = ("qualifiedName", "mass")),
+			property = "mass",
+			direction = "descending",
+			missing = "last",
+			multiple = "first"
+		)
+	}
 }

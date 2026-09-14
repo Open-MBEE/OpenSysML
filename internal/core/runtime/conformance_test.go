@@ -199,6 +199,29 @@ type ExpectedOutcome struct {
 	// Materialization states what reading every feature value of the instance,
 	// and of the objects those hold, reports — the check `-instantiate` makes.
 	Materialization *ExpectedMaterialization `json:"materialization,omitempty"`
+	// Validation states what validating the instance as a whole reports: every
+	// assertion about it and the objects it holds, in report order.
+	Validation *ExpectedValidation `json:"validation,omitempty"`
+}
+
+// ExpectedValidation is the report of validating an instance as a whole: each
+// verdict in order, whether the object is shown valid, whether the walk was
+// bounded, and the unreadable feature values.
+type ExpectedValidation struct {
+	Verdicts []ExpectedObjectVerdict `json:"verdicts"`
+	Valid    *bool                   `json:"valid,omitempty"`
+	Bounded  bool                    `json:"bounded,omitempty"`
+	Unread   []string                `json:"unread,omitempty"`
+}
+
+// ExpectedObjectVerdict is one verdict of a validation: the assertion's kind and
+// text, the object's path from the root (empty for the root), status and error text.
+type ExpectedObjectVerdict struct {
+	Kind      string `json:"kind"`
+	Assertion string `json:"assertion"`
+	Object    string `json:"object,omitempty"`
+	Status    string `json:"status"`
+	Error     string `json:"error,omitempty"`
 }
 
 // ExpectedMaterialization is the report of reading an instance's feature values in full:
@@ -430,7 +453,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	case "verification":
 		runVerificationConformance(t, ctx, idx, sysmlPath, expected)
 	case "instance":
-		runInstanceConformance(t, ctx, idx, expected)
+		runInstanceConformance(t, ctx, idx, sysmlPath, expected)
 	default:
 		t.Fatalf("unknown test type: %s", expected.Type)
 	}
@@ -1426,7 +1449,7 @@ func sortedKeys(m map[string]bool) []string {
 // runInstanceConformance instantiates a type and validates the values its feature values
 // hold, including derived defaults, plus the verdict of each constraint the
 // instance carries.
-func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, expected ExpectedOutcome) {
+func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
 	if expected.Instantiate == "" {
 		t.Fatalf("instance case declares no \"instantiate\" type")
 	}
@@ -1467,6 +1490,7 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, expe
 	validateIdentity(t, ctx, inst, expected)
 	validateObjectRuns(t, ctx, typeSym, inst, expected)
 	validateMaterialization(t, ctx, inst, expected.Materialization)
+	validateValidation(t, ctx, idx.DocumentRoot(path), inst, expected.Validation)
 
 	for name, wantSatisfied := range expected.Constraints {
 		feat := featureNamed(ctx, typeSym, name)
@@ -1502,6 +1526,62 @@ func validateMaterialization(t *testing.T, ctx *Context, inst *Instance, expecte
 	}
 	for i, want := range expected.Errors {
 		requireError(t, fmt.Sprintf("materialization error %d", i+1), errs[i], want)
+	}
+}
+
+// validateValidation checks what validating the instance as a whole reports
+// against what the case states, when it states it: the verdicts in order.
+func validateValidation(t *testing.T, ctx *Context, scope *symbols.Scope, inst *Instance, expected *ExpectedValidation) {
+	t.Helper()
+	if expected == nil {
+		return
+	}
+	report, err := ctx.ValidateObject(inst, []*symbols.Scope{scope})
+	if err != nil {
+		t.Fatalf("validation: %v", err)
+	}
+	if expected.Valid != nil && report.Valid() != *expected.Valid {
+		t.Errorf("validation: valid = %v, want %v", report.Valid(), *expected.Valid)
+	}
+	if report.Bounded != expected.Bounded {
+		t.Errorf("validation: bounded = %v, want %v", report.Bounded, expected.Bounded)
+	}
+	if len(report.Unread) != len(expected.Unread) {
+		t.Errorf("validation: %d unread %v, want %d %v", len(report.Unread), report.Unread, len(expected.Unread), expected.Unread)
+	} else {
+		for i, want := range expected.Unread {
+			requireError(t, fmt.Sprintf("validation unread %d", i+1), report.Unread[i], want)
+		}
+	}
+	var got []string
+	for _, v := range report.Verdicts {
+		got = append(got, fmt.Sprintf("%s %q on %q: %s", v.Kind, v.Text, strings.Join(v.Path, "."), v.Status))
+	}
+	if len(report.Verdicts) != len(expected.Verdicts) {
+		t.Errorf("validation: %d verdict(s), want %d:\n%s", len(report.Verdicts), len(expected.Verdicts), strings.Join(got, "\n"))
+		return
+	}
+	for i, want := range expected.Verdicts {
+		v := report.Verdicts[i]
+		wantText := fmt.Sprintf("%s %q on %q: %s", want.Kind, want.Assertion, want.Object, want.Status)
+		if got[i] != wantText {
+			t.Errorf("validation verdict %d: %s, want %s", i+1, got[i], wantText)
+			continue
+		}
+		if v.Element == nil {
+			t.Errorf("validation verdict %d: names no element", i+1)
+		}
+		if v.Subject == nil {
+			t.Errorf("validation verdict %d: names no subject", i+1)
+		}
+		switch {
+		case want.Error != "":
+			requireError(t, fmt.Sprintf("validation verdict %d", i+1), v.Err, want.Error)
+		case v.Status == ValidationHolds && v.Err != nil:
+			t.Errorf("validation verdict %d holds yet carries %v", i+1, v.Err)
+		case v.Status != ValidationHolds && v.Err == nil:
+			t.Errorf("validation verdict %d is %s yet carries no error", i+1, v.Status)
+		}
 	}
 }
 

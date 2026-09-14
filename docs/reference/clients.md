@@ -45,8 +45,8 @@ rather than half-implemented in some:
 
 - the edit API (`ApplyEdits`) and generated model-ergonomics types;
 - RDF conversion (`Convert`);
-- verification (`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`), `EvaluateCalc` and
-  `RunAnalysis`, with `ListEngines` and the `engine` selection they take;
+- verification (`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance`),
+  `EvaluateCalc` and `RunAnalysis`, with `ListEngines` and the `engine` selection they take;
 - behaviour execution (`ExecuteAction`, `ExecuteState`);
 - `Query` and OSLC query;
 - native document queries and rendering (`RunDocumentQuery`, `RenderDocument`).

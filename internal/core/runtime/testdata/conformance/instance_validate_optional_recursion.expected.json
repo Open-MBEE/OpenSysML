@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::chain",
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint shallow", "object": "head", "status": "holds"}
+    ],
+    "valid": true
+  }
+}

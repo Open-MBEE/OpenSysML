@@ -45,6 +45,13 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   action's token flow to a bounded number of moves and ask an SMT solver whether any schedule and
   any input violates a requirement, with every witness replayed in the interpreter and `explore`
   as the referee
+- **[Surface parity](api-surface-parity.md)** — a proposal: the REPL, the CLI, the editor, the
+  public Go package and the wire inventoried operation by operation, each difference sorted as
+  shared already, missing and worth adding, interactive, protocol-bound or local-only, and the
+  stages that give every operation one assembly the four surfaces call, add the stateless
+  operations the wire lacks (satisfiability, checker options, replay, views, search), design a
+  session API for the debuggers apart from the stateless calls, and make the agreement a
+  conformance protocol rather than a claim
 - **[Transport evaluation](transport-evaluation.md)** — Connect and stdio measured beside gRPC,
   with the lifecycle-code delta and a recommendation
 - **[Visual modeling in VS Code](vscode-visual-modeling.md)** — the live diagram panel, the
