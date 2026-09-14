@@ -78,7 +78,7 @@ func TestTracesListsWhatTheTraceHarnessSchedules(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, name := range []string{"calc_a", "calc_b", "state_a", "state_b"} {
+	for _, name := range []string{"calc_a", "calc_b", "state_a", "state_b", "state.choice"} {
 		write(name+".sysml", "package P;\n")
 		write(name+".expected.json", "{}\n")
 	}
@@ -89,6 +89,9 @@ func TestTracesListsWhatTheTraceHarnessSchedules(t *testing.T) {
 	write("state_a.expected.json", `{"trace": true, "outcomes": [{}]}`+"\n")
 	write("state_a.declared.trace.golden", "")
 	write("state_b.trace.golden", "")
+	write("state.choice.expected.json", `{"outcomes": [{}, {}]}`+"\n")
+	write("state.choice.trace.golden", "")
+	write("state.choice.seed-1.trace.golden", "")
 	write("known_failures.txt", "state_b\n")
 
 	traces, err := Traces(dir)
@@ -99,6 +102,8 @@ func TestTracesListsWhatTheTraceHarnessSchedules(t *testing.T) {
 		{Case: "calc_a", Policy: "declared"},
 		{Case: "calc_a", Policy: "seed:1"},
 		{Case: "calc_a"},
+		{Case: "state.choice", Policy: "seed:1"},
+		{Case: "state.choice"},
 		{Case: "state_a", Policy: "declared"},
 	}
 	if !reflect.DeepEqual(traces, want) {
@@ -109,6 +114,7 @@ func TestTracesListsWhatTheTraceHarnessSchedules(t *testing.T) {
 		"calc_a.typo.trace.golden":     "",
 		"calc_b.declared.trace.golden": "",
 		"ghost.trace.golden":           "",
+		"state.typo.trace.golden":      "",
 	} {
 		write(name, text)
 		_, err := Traces(dir)

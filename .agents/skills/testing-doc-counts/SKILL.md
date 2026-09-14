@@ -24,7 +24,9 @@ description: How to end-to-end test the generated documentation figures (cmd/doc
    `TestExecutionConformance` and the gRPC conformance gate iterate), the parse and trace goldens
    are stat'ed against the case that owns them, and the robustness, negative and `Test`-function
    figures are counted from the `_test.go` files with `go/ast` (first-level `t.Run` calls,
-   multiplied out over the table literal a `range` walks). The test and subtest total of a run is
+   multiplied out over the table literal a `range` walks, read in statement order and lexical
+   scope, so a table rebound after the loop or shadowed in an inner block does not leak into
+   it). The test and subtest total of a run is
    **not** generated — only a run can state it, so the prose no longer quotes one.
 
 The compliance map's own row census (`The map below tracks N semantic rules: …`) is **not** committed
@@ -128,7 +130,8 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
 - **The counters refuse what they cannot count:** a `.trace.golden` owned by no case, a
   `<case>.typo.trace.golden` under no sweep policy, a `<case>.declared.trace.golden` of a case
   with no `outcomes` (or no default golden), a `.sysml` under `testdata/parse/` with no `.golden`,
-  a `known_failures.txt` entry naming no case, a `for i := 0; i < n; i++ { t.Run(...) }` loop or
+  a `known_failures.txt` entry naming no case, a `for i := 0; i < n; i++ { t.Run(...) }` loop,
+  a `range` over a table the function `append`s to or rebinds under a condition before the loop, or
   an `if cond { t.Run(...) }` in `TestRuntimeRobustness` must each make the generator and `-check`
   exit 1 naming the file, rather than print a smaller (or larger) number. A `range` or `if` that
   runs no subtest is passed over, and so are the goldens of a case `known_failures.txt` lists,

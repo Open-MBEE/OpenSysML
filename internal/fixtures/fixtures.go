@@ -135,21 +135,25 @@ func Traces(dir string) ([]Trace, error) {
 	return traces, nil
 }
 
-// traceOf resolves a golden's stem to the case and sweep policy it records.
+// traceOf resolves a golden's stem to the case and sweep policy it records: the
+// stem is a case, or the longest case followed by `.` and a policy's file tag.
 func traceOf(stem string, cases []string) (Trace, error) {
 	if containsCase(cases, stem) {
 		return Trace{Case: stem}, nil
 	}
-	base, tag, ok := strings.Cut(stem, ".")
-	if !ok || !containsCase(cases, base) {
-		return Trace{}, fmt.Errorf("belongs to no conformance case")
-	}
-	for _, policy := range SweepPolicies {
-		if PolicyFileTag(policy) == tag {
-			return Trace{Case: base, Policy: policy}, nil
+	for i := strings.LastIndex(stem, "."); i > 0; i = strings.LastIndex(stem[:i], ".") {
+		base, tag := stem[:i], stem[i+1:]
+		if !containsCase(cases, base) {
+			continue
 		}
+		for _, policy := range SweepPolicies {
+			if PolicyFileTag(policy) == tag {
+				return Trace{Case: base, Policy: policy}, nil
+			}
+		}
+		return Trace{}, fmt.Errorf("pins %s under %q, which is no sweep policy", base, tag)
 	}
-	return Trace{}, fmt.Errorf("pins %s under %q, which is no sweep policy", base, tag)
+	return Trace{}, fmt.Errorf("belongs to no conformance case")
 }
 
 // scheduledUnderPolicies checks that the harness runs the case under the sweep

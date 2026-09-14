@@ -391,8 +391,9 @@ func countSubtestsOf(files []*ast.File, name string) (int, error) {
 
 // countSubtests counts the first-level subtests a test runs: each `t.Run` in its
 // body outside nested function literals, multiplied out over a `range` of a
-// table the function declares as a literal. A loop whose trip count the source
-// does not state, or a `t.Run` under a condition, cannot be counted and is an error.
+// table the function binds to a literal before the loop, in the loop's scope. A
+// loop whose trip count the source does not state there, or a `t.Run` under a
+// condition, cannot be counted and is an error.
 func countSubtests(fn *ast.FuncDecl) (int, error) {
 	if fn.Body == nil {
 		return 0, fmt.Errorf("%s has no body", fn.Name.Name)
@@ -401,9 +402,8 @@ func countSubtests(fn *ast.FuncDecl) (int, error) {
 	if len(param.Names) != 1 {
 		return 0, fmt.Errorf("%s names no *testing.T", fn.Name.Name)
 	}
-	counter := subtestCounter{t: param.Names[0].Name, tables: map[string]int{}}
-	counter.collectTables(fn.Body)
-	count, err := counter.count(fn.Body, 1)
+	counter := subtestCounter{t: param.Names[0].Name}
+	count, err := counter.countBlock(fn.Body.List, newTableScope(nil), 1)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", fn.Name.Name, err)
 	}
@@ -411,75 +411,119 @@ func countSubtests(fn *ast.FuncDecl) (int, error) {
 }
 
 type subtestCounter struct {
-	t      string
-	tables map[string]int
+	t string
 }
 
-// collectTables records the length of every composite literal the body binds
-// to a name outside nested function literals.
-func (c *subtestCounter) collectTables(body ast.Node) {
-	ast.Inspect(body, func(n ast.Node) bool {
-		switch x := n.(type) {
-		case *ast.FuncLit:
-			return false
-		case *ast.AssignStmt:
-			if len(x.Lhs) == 1 && len(x.Rhs) == 1 {
-				c.recordTable(x.Lhs[0], x.Rhs[0])
-			}
-		case *ast.ValueSpec:
-			if len(x.Names) == 1 && len(x.Values) == 1 {
-				c.recordTable(x.Names[0], x.Values[0])
-			}
+// tableScope binds the names of one lexical scope to the length of the literal
+// each holds at the point of the walk; a name assigned anything else is bound
+// to unknownLength.
+type tableScope struct {
+	parent  *tableScope
+	lengths map[string]int
+}
+
+const unknownLength = -1
+
+func newTableScope(parent *tableScope) *tableScope {
+	return &tableScope{parent: parent, lengths: map[string]int{}}
+}
+
+// define binds name in this scope, as `:=` and `var` do.
+func (s *tableScope) define(name string, length int) {
+	s.lengths[name] = length
+}
+
+// assign rebinds name where it is bound, as `=` does; an unbound name is bound here.
+func (s *tableScope) assign(name string, length int) {
+	for scope := s; scope != nil; scope = scope.parent {
+		if _, ok := scope.lengths[name]; ok {
+			scope.lengths[name] = length
+			return
 		}
-		return true
-	})
-}
-
-func (c *subtestCounter) recordTable(name ast.Expr, value ast.Expr) {
-	ident, ok := name.(*ast.Ident)
-	literal, isLiteral := value.(*ast.CompositeLit)
-	if ok && isLiteral {
-		c.tables[ident.Name] = len(literal.Elts)
 	}
+	s.define(name, length)
 }
 
-func (c *subtestCounter) count(body ast.Node, multiplier int) (int, error) {
-	total := 0
-	var failure error
-	ast.Inspect(body, func(n ast.Node) bool {
-		if failure != nil {
-			return false
+func (s *tableScope) lookup(name string) (int, bool) {
+	for scope := s; scope != nil; scope = scope.parent {
+		if length, ok := scope.lengths[name]; ok {
+			return length, true
 		}
+	}
+	return 0, false
+}
+
+// countBlock walks the statements in order, so a range sees the bindings that
+// precede it and none that follow.
+func (c *subtestCounter) countBlock(stmts []ast.Stmt, scope *tableScope, multiplier int) (int, error) {
+	total := 0
+	for _, stmt := range stmts {
+		count, err := c.countStmt(stmt, scope, multiplier)
+		if err != nil {
+			return 0, err
+		}
+		total += count
+	}
+	return total, nil
+}
+
+func (c *subtestCounter) countStmt(stmt ast.Stmt, scope *tableScope, multiplier int) (int, error) {
+	switch x := stmt.(type) {
+	case *ast.BlockStmt:
+		return c.countBlock(x.List, newTableScope(scope), multiplier)
+	case *ast.LabeledStmt:
+		return c.countStmt(x.Stmt, scope, multiplier)
+	case *ast.DeclStmt:
+		c.bindDecl(x, scope)
+		return c.countExprs(x, scope, multiplier), nil
+	case *ast.AssignStmt:
+		count := c.countExprs(x, scope, multiplier)
+		c.bindAssign(x, scope)
+		return count, nil
+	case *ast.RangeStmt:
+		return c.countRange(x, scope, multiplier)
+	case *ast.ForStmt:
+		if c.runsSubtests(x.Body) {
+			return 0, fmt.Errorf("a for loop runs subtests, and its trip count is not a table's length")
+		}
+		c.forgetAssigned(x, scope)
+		return 0, nil
+	case *ast.IfStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
+		if c.runsSubtests(x) {
+			return 0, fmt.Errorf("a subtest runs under a condition, so the source does not state whether it runs")
+		}
+		c.forgetAssigned(x, scope)
+		return 0, nil
+	}
+	return c.countExprs(stmt, scope, multiplier), nil
+}
+
+// countRange multiplies the body's subtests by the table's length, or walks the
+// body of a range that runs none only for what it rebinds.
+func (c *subtestCounter) countRange(x *ast.RangeStmt, scope *tableScope, multiplier int) (int, error) {
+	length := 1
+	if c.runsSubtests(x.Body) {
+		var err error
+		if length, err = c.tableLength(x.X, scope); err != nil {
+			return 0, err
+		}
+	}
+	inner, err := c.countBlock(x.Body.List, newTableScope(scope), multiplier*length)
+	return c.countExprs(x.X, scope, multiplier) + inner, err
+}
+
+// countExprs counts the `t.Run` calls in a node outside nested function
+// literals; a name whose address is taken there is no longer a known table.
+func (c *subtestCounter) countExprs(node ast.Node, scope *tableScope, multiplier int) int {
+	total := 0
+	ast.Inspect(node, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.FuncLit:
 			return false
-		case *ast.RangeStmt:
-			if !c.runsSubtests(x.Body) {
-				return true
+		case *ast.UnaryExpr:
+			if ident, ok := x.X.(*ast.Ident); ok && x.Op == token.AND {
+				scope.assign(ident.Name, unknownLength)
 			}
-			length, err := c.tableLength(x.X)
-			if err != nil {
-				failure = err
-				return false
-			}
-			inner, err := c.count(x.Body, multiplier*length)
-			if err != nil {
-				failure = err
-				return false
-			}
-			total += inner
-			return false
-		case *ast.ForStmt:
-			if c.runsSubtests(x.Body) {
-				failure = fmt.Errorf("a for loop runs subtests, and its trip count is not a table's length")
-				return false
-			}
-		case *ast.IfStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
-			if c.runsSubtests(x) {
-				failure = fmt.Errorf("a subtest runs under a condition, so the source does not state whether it runs")
-				return false
-			}
-			return false
 		case *ast.CallExpr:
 			if c.isRun(x) {
 				total += multiplier
@@ -487,20 +531,98 @@ func (c *subtestCounter) count(body ast.Node, multiplier int) (int, error) {
 		}
 		return true
 	})
-	return total, failure
+	return total
+}
+
+// bindDecl binds each `var` name to its literal's length, or to unknownLength.
+func (c *subtestCounter) bindDecl(decl *ast.DeclStmt, scope *tableScope) {
+	gen, ok := decl.Decl.(*ast.GenDecl)
+	if !ok {
+		return
+	}
+	for _, spec := range gen.Specs {
+		value, ok := spec.(*ast.ValueSpec)
+		if !ok {
+			continue
+		}
+		for i, name := range value.Names {
+			length := unknownLength
+			if len(value.Values) == len(value.Names) {
+				length = literalLength(value.Values[i])
+			}
+			scope.define(name.Name, length)
+		}
+	}
+}
+
+// bindAssign binds each assigned name to its literal's length, or to unknownLength.
+func (c *subtestCounter) bindAssign(assign *ast.AssignStmt, scope *tableScope) {
+	for i, lhs := range assign.Lhs {
+		ident, ok := lhs.(*ast.Ident)
+		if !ok || ident.Name == "_" {
+			continue
+		}
+		length := unknownLength
+		if len(assign.Rhs) == len(assign.Lhs) {
+			length = literalLength(assign.Rhs[i])
+		}
+		if assign.Tok == token.DEFINE {
+			scope.define(ident.Name, length)
+		} else {
+			scope.assign(ident.Name, length)
+		}
+	}
+}
+
+// forgetAssigned unbinds every name a statement the walk does not enter assigns
+// or takes the address of, since the source does not state what it holds after.
+func (c *subtestCounter) forgetAssigned(node ast.Node, scope *tableScope) {
+	ast.Inspect(node, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.FuncLit:
+			return false
+		case *ast.AssignStmt:
+			for _, lhs := range x.Lhs {
+				if ident, ok := lhs.(*ast.Ident); ok {
+					scope.assign(ident.Name, unknownLength)
+				}
+			}
+		case *ast.IncDecStmt:
+			if ident, ok := x.X.(*ast.Ident); ok {
+				scope.assign(ident.Name, unknownLength)
+			}
+		case *ast.UnaryExpr:
+			if ident, ok := x.X.(*ast.Ident); ok && x.Op == token.AND {
+				scope.assign(ident.Name, unknownLength)
+			}
+		}
+		return true
+	})
+}
+
+// literalLength is the element count of a composite literal, or unknownLength.
+func literalLength(expr ast.Expr) int {
+	if literal, ok := expr.(*ast.CompositeLit); ok {
+		return len(literal.Elts)
+	}
+	return unknownLength
 }
 
 // tableLength is the element count of a range expression that is a composite
-// literal or names one the function declared.
-func (c *subtestCounter) tableLength(expr ast.Expr) (int, error) {
+// literal or names one bound to a literal at this point of the function.
+func (c *subtestCounter) tableLength(expr ast.Expr, scope *tableScope) (int, error) {
 	switch x := expr.(type) {
 	case *ast.CompositeLit:
 		return len(x.Elts), nil
 	case *ast.Ident:
-		if length, ok := c.tables[x.Name]; ok {
-			return length, nil
+		length, ok := scope.lookup(x.Name)
+		if !ok {
+			return 0, fmt.Errorf("ranges over %s, which is not a table literal the function declares", x.Name)
 		}
-		return 0, fmt.Errorf("ranges over %s, which is not a table literal the function declares", x.Name)
+		if length == unknownLength {
+			return 0, fmt.Errorf("ranges over %s, whose length the source does not state at the loop", x.Name)
+		}
+		return length, nil
 	}
 	return 0, fmt.Errorf("ranges over an expression that is not a table literal")
 }

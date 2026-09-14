@@ -170,6 +170,111 @@ func TestRuntimeRobustness(t *testing.T) {
 	}
 }
 
+// TestCountSubtestsReadsTablesInStatementOrder binds a range to the literal its
+// table holds at the loop, not to the last one the function assigns anywhere.
+func TestCountSubtestsReadsTablesInStatementOrder(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body string
+		want int
+		err  string
+	}{
+		"a table reassigned after the loop": {
+			body: `cases := []string{"a", "b"}
+	for range cases {
+		t.Run("x", nil)
+	}
+	cases = []string{"c", "d", "e"}
+	_ = cases`,
+			want: 2,
+		},
+		"a table reassigned between two loops": {
+			body: `cases := []string{"a", "b"}
+	for range cases {
+		t.Run("x", nil)
+	}
+	cases = []string{"c", "d", "e"}
+	for range cases {
+		t.Run("y", nil)
+	}`,
+			want: 5,
+		},
+		"a table shadowed in an inner block": {
+			body: `cases := []string{"a", "b"}
+	{
+		cases := []string{"c"}
+		for range cases {
+			t.Run("inner", nil)
+		}
+	}
+	for range cases {
+		t.Run("outer", nil)
+	}`,
+			want: 3,
+		},
+		"a var table and a literal range": {
+			body: `var cases = []int{1, 2, 3}
+	for range cases {
+		for range []int{1, 2} {
+			t.Run("x", nil)
+		}
+	}`,
+			want: 6,
+		},
+		"a table appended to before the loop": {
+			body: `cases := []string{"a"}
+	cases = append(cases, "b")
+	for range cases {
+		t.Run("x", nil)
+	}`,
+			err: "whose length the source does not state",
+		},
+		"a table reassigned under a condition": {
+			body: `cases := []string{"a"}
+	if len(t.Name()) > 0 {
+		cases = []string{"b", "c"}
+	}
+	for range cases {
+		t.Run("x", nil)
+	}`,
+			err: "whose length the source does not state",
+		},
+		"a table whose address is taken": {
+			body: `cases := []string{"a"}
+	grow(&cases)
+	for range cases {
+		t.Run("x", nil)
+	}`,
+			err: "whose length the source does not state",
+		},
+		"a table declared after the loop": {
+			body: `for range cases {
+		t.Run("x", nil)
+	}
+	cases := []string{"a"}
+	_ = cases`,
+			err: "not a table literal the function declares",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := "package p\n\nimport \"testing\"\n\nvar cases []string\n\nfunc grow(c *[]string) {}\n\nfunc TestIt(t *testing.T) {\n\t" + tc.body + "\n}\n"
+			file, err := parser.ParseFile(token.NewFileSet(), "p_test.go", src, parser.SkipObjectResolution)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := countSubtestsOf([]*ast.File{file}, "TestIt")
+			if tc.err != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.err) {
+					t.Fatalf("err = %v, want one saying %q", err, tc.err)
+				}
+				return
+			}
+			if err != nil || got != tc.want {
+				t.Fatalf("count = %d, %v; want %d", got, err, tc.want)
+			}
+		})
+	}
+}
+
 func TestIsTestFunctionAppliesGoTestsRule(t *testing.T) {
 	src := `package p
 
