@@ -115,7 +115,7 @@ func (c *actionEndpointChecker) checkBody(decl ast.Node, scope *symbols.Scope) {
 			if v.Successor == nil {
 				continue
 			}
-			c.checkEndpoint(scope, nodes, hasInitial, lower.FirstEndReference(v), true, v)
+			c.checkEndpoint(scope, nodes, hasInitial, v.First, true, v)
 			c.checkEndpoint(scope, nodes, hasInitial, v.Successor, false, v)
 		case *ast.SuccessionEdge:
 			if v.SourceMember == nil && !v.SourceImplied {

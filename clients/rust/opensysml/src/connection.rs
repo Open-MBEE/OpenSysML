@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::env;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -19,6 +19,9 @@ use crate::wire;
 
 const START_TIMEOUT: Duration = Duration::from_millis(2500);
 const STOP_TIMEOUT: Duration = Duration::from_secs(5);
+// A service that closes its stdout without serving an address is on its way
+// out; its exit status is the evidence of why, so it gets this long to arrive.
+const EXIT_STATUS_GRACE: Duration = Duration::from_millis(500);
 const STDERR_LINES_KEPT: usize = 20;
 /// Bound on a buffered response, so a runaway service cannot exhaust memory.
 /// A parse of a large model answers far above ureq's 10 MB default.
@@ -479,13 +482,9 @@ impl PrivateService {
             Ok(Some(address)) if !address.is_empty() => address,
             Ok(_) => {
                 drop(stdin);
-                let code = process
-                    .try_wait()
-                    .ok()
-                    .flatten()
+                let code = terminate_process(&mut process, EXIT_STATUS_GRACE)
                     .and_then(|status| status.code());
                 let message = format!("exited with code {code:?} without serving an address");
-                terminate_process(&mut process, Duration::ZERO);
                 return Err(Error::ServiceStart(format!(
                     "{message}; {}",
                     stderr_tail(&tail)
@@ -538,15 +537,17 @@ fn stderr_tail(tail: &Arc<Mutex<VecDeque<String>>>) -> String {
     }
 }
 
-fn terminate_process(process: &mut Child, grace: Duration) {
-    if process.try_wait().ok().flatten().is_some() {
-        return;
+/// Waits up to `grace` for the process to exit on its own, then kills it,
+/// and reports how it ended.
+fn terminate_process(process: &mut Child, grace: Duration) -> Option<ExitStatus> {
+    if let Ok(Some(status)) = process.try_wait() {
+        return Some(status);
     }
     let deadline = Instant::now() + STOP_TIMEOUT;
     let grace_deadline = std::cmp::min(Instant::now() + grace, deadline);
     while Instant::now() < deadline {
-        if process.try_wait().ok().flatten().is_some() {
-            return;
+        if let Ok(Some(status)) = process.try_wait() {
+            return Some(status);
         }
         if Instant::now() >= grace_deadline {
             break;
@@ -554,7 +555,7 @@ fn terminate_process(process: &mut Child, grace: Duration) {
         thread::sleep(Duration::from_millis(10));
     }
     let _ = process.kill();
-    let _ = process.wait();
+    process.wait().ok()
 }
 
 /// Resolve the service binary: explicit path, shared cache, download, then `$PATH`.

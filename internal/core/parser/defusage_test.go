@@ -249,7 +249,7 @@ func TestParseActionUsageIntegration(t *testing.T) {
 
 	// Verify InitialNode
 	init, ok := u.Members[0].(*ast.InitialNode)
-	if !ok || init.Name != "startNode" {
+	if !ok || init.Name() != "startNode" {
 		t.Fatalf("member[0]: expected InitialNode startNode, got %T %+v", u.Members[0], u.Members[0])
 	}
 

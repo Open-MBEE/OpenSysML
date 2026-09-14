@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-// An action body's `first start then off;` is an InitialNodeMember whose name
+// An action body's one-ended `first start;` is an InitialNodeMember whose name
 // `start` is indexed as a member of the body.
 func TestInitialNodeIndexing(t *testing.T) {
 	src := `package test {
 	action def S {
-		first start then off;
+		first start;
 		action off;
 	}
 }`
@@ -73,14 +73,14 @@ func TestInitialNodeIndexing(t *testing.T) {
 		for i, m := range actionDef.Members {
 			t.Logf("  [%d] %T", i, m)
 			if init, ok := m.(*ast.InitialNode); ok {
-				t.Logf("      InitialNode name=%s", init.Name)
+				t.Logf("      InitialNode name=%s", init.Name())
 			}
 			if usage, ok := m.(*ast.Usage); ok {
 				t.Logf("      Usage name=%s, kind=%v, members=%d", usage.Ident.Name, usage.Kind, len(usage.Members))
 				for j, um := range usage.Members {
 					t.Logf("        [%d] %T", j, um)
 					if init2, ok2 := um.(*ast.InitialNode); ok2 {
-						t.Logf("            InitialNode name=%s", init2.Name)
+						t.Logf("            InitialNode name=%s", init2.Name())
 					}
 				}
 			}
@@ -96,5 +96,59 @@ func TestInitialNodeIndexing(t *testing.T) {
 		t.Errorf("'start' not found in action scope")
 	} else {
 		t.Logf("Found 'start': %T", startSym.Decl)
+	}
+}
+
+// A one-ended `first a;` declares a label under a's name; an action body's
+// `first a then b;` names the source of a succession and declares nothing, and
+// a state body's `first start then off;` is a succession usage, no label either.
+func TestFirstNamesASourceOnlyInATwoEndedActionForm(t *testing.T) {
+	root := build(t, `package P {
+	action def Marked {
+		first prep;
+		action prep;
+	}
+	action def Sequenced {
+		action prep;
+		first prep then launch;
+		action launch;
+		first missing then launch;
+	}
+	state def Machine {
+		first start then off;
+		state off;
+	}
+}`)
+	pkg, _ := root.LookupLocal("P")
+	labels := func(owner string, name string) int {
+		def, ok := pkg.Scope.LookupLocal(owner)
+		if !ok {
+			t.Fatalf("%s is not indexed", owner)
+		}
+		n := 0
+		for _, sym := range def.Scope.LookupLocalAll(name) {
+			if _, label := sym.Decl.(*ast.InitialNode); label {
+				n++
+			}
+		}
+		return n
+	}
+	if got := labels("Marked", "prep"); got != 1 {
+		t.Errorf("`first prep;` should declare one label, found %d", got)
+	}
+	if got := labels("Sequenced", "prep"); got != 0 {
+		t.Errorf("`first prep then launch;` should declare no label, found %d", got)
+	}
+	if got := labels("Sequenced", "missing"); got != 0 {
+		t.Errorf("`first missing then launch;` should declare no label, found %d", got)
+	}
+	if got := labels("Machine", "start"); got != 0 {
+		t.Errorf("a state machine's `first start then off;` should declare no label, found %d", got)
+	}
+	for def, want := range map[string]bool{"Sequenced": false, "Machine": true} {
+		sym, _ := pkg.Scope.LookupLocal(def)
+		if got := InStateMachine(sym.Scope); got != want {
+			t.Errorf("InStateMachine(%s) = %v, want %v", def, got, want)
+		}
 	}
 }

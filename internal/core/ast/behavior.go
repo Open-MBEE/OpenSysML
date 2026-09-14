@@ -6,13 +6,14 @@ import "github.com/Open-MBEE/OpenSysML/internal/core/source"
 // These nodes implement the Node interface and populate Usage.Members
 // for action and state usages (UsageAction, UsageState).
 
-// InitialNode is a `first` member of an action body. One-ended (`first start;`,
-// `first a;`) it marks where the flow starts; with a Successor (`first a then b;`)
-// it states the succession a -> b and declares no node of its own.
+// InitialNode is a `first` member of an action or state body. One-ended
+// (`first start;`, `first a;`) it marks where the flow starts; with a Successor
+// (`first a then b;`) it states the succession a -> b and declares no node of its own.
 type InitialNode struct {
 	NodeBase
-	Name      string         // the node named after `first`
-	NameSpan  source.Span    // span of Name, empty when none is written
+	// First is the name written after `first`, nil when none was. In an action
+	// body's two-ended form it is a reference to the succession's source.
+	First     *QualifiedName
 	Successor *QualifiedName // the target of `first X then Y`, nil for the one-ended form
 	Guard     Node           // optional guard condition for succession
 	// Members are the members of the body the succession was written with
@@ -20,6 +21,22 @@ type InitialNode struct {
 	// one rather than ended by ';'.
 	Members []Node
 	HasBody bool
+}
+
+// Name is the text of the name written after `first`, "" when none was.
+func (n *InitialNode) Name() string {
+	if n.First == nil || len(n.First.Parts) == 0 {
+		return ""
+	}
+	return n.First.Parts[len(n.First.Parts)-1].Text
+}
+
+// NameSpan is the span of the name written after `first`, empty when none was.
+func (n *InitialNode) NameSpan() source.Span {
+	if n.First == nil {
+		return source.Span{}
+	}
+	return n.First.Span()
 }
 
 // FinalNode is the termination point for action execution.

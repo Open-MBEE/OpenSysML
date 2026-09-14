@@ -527,14 +527,14 @@ func (p *Parser) parseActionMember() ast.Node {
 
 func (p *Parser) parseInitialNode(tok lexer.Token) ast.Node {
 	start := tok.Span.Offset
-	var name string
-	var nameSpan source.Span
 
-	// The name refers to a member, so it is kept as the name itself: an
+	// The name refers to a member, so it is kept as a reference to it: an
 	// unrestricted name without its quotes, as a qualified name segment is.
+	var first *ast.QualifiedName
 	if seg, ok := p.parseNameSegmentRelaxed(); ok {
-		name = seg.Text
-		nameSpan = seg.Span
+		first = &ast.QualifiedName{}
+		first.SetSingleton(seg)
+		first.NodeSpan = seg.Span
 	}
 
 	// Check for succession edge continuation: first X [if <expr>] then Y;
@@ -560,8 +560,7 @@ func (p *Parser) parseInitialNode(tok lexer.Token) ast.Node {
 	members, hasBody := p.parseNodeBody(start, "initial node")
 
 	node := &ast.InitialNode{
-		Name:      name,
-		NameSpan:  nameSpan,
+		First:     first,
 		Successor: successor,
 		Guard:     guard,
 		Members:   members,

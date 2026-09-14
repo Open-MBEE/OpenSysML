@@ -640,7 +640,7 @@ func DescribeMember(member ast.Node) string {
 	case *ast.PseudostateNode:
 		return fmt.Sprintf("the %s %s", n.Kind, n.Name)
 	case *ast.InitialNode:
-		return "the `first` marker " + n.Name
+		return "the `first` marker " + n.Name()
 	case *ast.FinalNode:
 		return "the `done` marker"
 	case *ast.Package:

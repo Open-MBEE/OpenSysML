@@ -490,7 +490,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 			if !annotationsOnly(n.Members) {
 				return nil, fmt.Errorf("action succession has unsupported body")
 			}
-			if err := lowerSuccession(graph, FirstEndReference(n), n.Successor, n.Guard, n); err != nil {
+			if err := lowerSuccession(graph, n.First, n.Successor, n.Guard, n); err != nil {
 				return nil, err
 			}
 		case *ast.SuccessionEdge:
@@ -712,12 +712,12 @@ func inheritedNodeLookup(graph *ActionGraph, body *symbols.Scope) nodeLookup {
 // not a node of the graph.
 func resolveFirstNode(graph *ActionGraph) error {
 	initial, ok := graph.Initial.(*ast.InitialNode)
-	if !ok || initial.Name == "" {
+	if !ok || initial.Name() == "" {
 		return nil
 	}
 	var named ast.Node
 	for _, node := range graph.Nodes {
-		if node != ast.Node(initial) && nodeAnswersTo(node, initial.Name) {
+		if node != ast.Node(initial) && nodeAnswersTo(node, initial.Name()) {
 			named = node
 			break
 		}
@@ -728,22 +728,13 @@ func resolveFirstNode(graph *ActionGraph) error {
 	if _, isFinal := named.(*ast.FinalNode); isFinal {
 		// A flow cannot start where it ends: naming a final node would retire the
 		// token before any succession out of it is taken.
-		return fmt.Errorf("first names the final node %s, so the action would end before it started", initial.Name)
+		return fmt.Errorf("first names the final node %s, so the action would end before it started", initial.Name())
 	}
 	graph.Initial = named
 	graph.Nodes = slices.DeleteFunc(graph.Nodes, func(node ast.Node) bool {
 		return node == ast.Node(initial)
 	})
 	return nil
-}
-
-// FirstEndReference is the `first` end of a two-ended `first a then b;` as the
-// reference it names, which the parser keeps as a bare name.
-func FirstEndReference(n *ast.InitialNode) *ast.QualifiedName {
-	qn := &ast.QualifiedName{}
-	qn.NodeSpan = n.NameSpan
-	qn.SetSingleton(ast.NameSegment{Text: n.Name, Span: n.NameSpan})
-	return qn
 }
 
 // lowerSuccession adds the edge a succession states between the nodes its two
@@ -1317,7 +1308,10 @@ func resolveActionEndpoint(graph *ActionGraph, ref ast.Node, source bool) ast.No
 		return nil
 	}
 	if source {
-		initial := &ast.InitialNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}, Name: "start"}
+		first := &ast.QualifiedName{}
+		first.NodeSpan = ref.Span()
+		first.SetSingleton(ast.NameSegment{Text: "start", Span: ref.Span()})
+		initial := &ast.InitialNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}, First: first}
 		graph.Initial = initial
 		graph.Nodes = append(graph.Nodes, initial)
 		return initial
@@ -1416,7 +1410,7 @@ func nodeAnswersTo(node ast.Node, name string) bool {
 func getNodeName(node ast.Node) string {
 	switch n := node.(type) {
 	case *ast.InitialNode:
-		return n.Name
+		return n.Name()
 	case *ast.FinalNode:
 		// The node declares no name of its own: a succession reaches it by the
 		// name of the library feature it is, `done`.

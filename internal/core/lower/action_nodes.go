@@ -141,7 +141,7 @@ func collectInheritedActionNodes(graph *ActionGraph, members []ast.Node) {
 		switch n := unwrapMembership(member).(type) {
 		case *ast.InitialNode:
 			if n.Successor != nil {
-				ensureInheritedActionNode(graph, FirstEndReference(n))
+				ensureInheritedActionNode(graph, n.First)
 				ensureInheritedActionNode(graph, n.Successor)
 			}
 		case *ast.SuccessionEdge:
