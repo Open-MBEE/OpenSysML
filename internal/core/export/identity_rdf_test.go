@@ -556,8 +556,9 @@ func TestMembershipIDsAreDisjointFromAdversarialElements(t *testing.T) {
 
 // TestLibraryElementsCarryNormativeIDs pins the ids the norm fixes: a bundled
 // library file converts to the UUIDs the pilot assigns its elements and their
-// owning memberships, states them as implied rather than declared, and a copy
-// of the same notation that is not the library file keeps encoded ids.
+// owning memberships, states them as implied rather than declared, and so does
+// an edited copy still rooted at the library's package; a user package that
+// only reuses the library's name keeps encoded ids.
 func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 	const name = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
 	src, err := libs.EmbeddedSource().Read(name)
@@ -601,14 +602,21 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 	// Read back from the mapping alone, the notation is not the library file,
 	// so it has to state the ids the library text would have implied.
 	keepsIDsWithoutSourceText(t, name, turtle)
-	edited := append([]byte("// not the library\n"), src...)
-	turtle, err = export.Convert(name, edited, export.FormatSysML, export.FormatTurtle)
+	edited := append([]byte("// a copy of the library\n"), src...)
+	turtle, err = export.Convert("copy.kerml", edited, export.FormatSysML, export.FormatTurtle)
 	if err != nil {
 		t.Fatalf("edited copy to turtle: %v", err)
 	}
-	if text := string(turtle); !strings.Contains(text, "elmt:ScalarValues__Real") ||
+	if got := string(withoutSourceText(t, turtle)); got != string(withoutSourceText(t, []byte(text))) {
+		t.Errorf("an edited copy rooted at the library's package is the library, yet its graph differs:\n%s", got)
+	}
+	user, err := export.Convert("user.kerml", []byte("package ScalarValues {\n\tdatatype Real;\n}\n"), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("user package to turtle: %v", err)
+	}
+	if text := string(user); !strings.Contains(text, "elmt:ScalarValues__Real") ||
 		strings.Contains(text, "14c0aa22-5489-59b5-b438-ded26e83ba31") {
-		t.Errorf("an edited copy of a library file is not the library, so its ids are encoded names:\n%s", text)
+		t.Errorf("a user package reusing the library's name is not the library, so its ids are encoded names:\n%s", text)
 	}
 }
 
@@ -788,4 +796,97 @@ func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
 		t.Errorf("the norm's id is stated as declared")
 	}
 	keepsIDsWithoutSourceText(t, name, turtle)
+}
+
+// A copy of a library file that is not its bytes — respaced, or stating the
+// ids the norm fixes — is still rooted at the library's package, so it is the
+// library: its graph is the bundled file's but for the source text, with the
+// norm's element and owning-membership ids, none of them declared, and the
+// names it inherits resolved to the copy's own declarations.
+func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
+	const name = "Kernel Libraries/Kernel Semantic Library/Occurrences.kerml"
+	src, err := libs.EmbeddedSource().Read(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	turtle, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	want := withoutSourceText(t, turtle)
+	const head = "standard library package Occurrences {\r\n"
+	if !strings.HasPrefix(string(src), head) {
+		t.Fatalf("the library file does not open with %q", head)
+	}
+	annotation := "\t@IdentityMetadata::ElementId { id = \"" + normative.ElementID(normative.KerML, "Occurrences") + "\"; }\r\n"
+	for _, tc := range []struct{ name, text string }{
+		{"respaced", strings.Replace(string(src), head, head+"\r\n", 1)},
+		{"annotated", strings.Replace(string(src), head, head+annotation, 1)},
+	} {
+		got, err := export.Convert("copy.kerml", []byte(tc.text), export.FormatSysML, export.FormatTurtle)
+		if err != nil {
+			t.Fatalf("%s copy to turtle: %v", tc.name, err)
+		}
+		if stripped := withoutSourceText(t, got); string(stripped) != string(want) {
+			t.Errorf("the %s copy's graph differs from the library's:\n%s", tc.name, firstLineDifference(want, stripped))
+		}
+	}
+	graph, err := rdf.ParseTurtle(want)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	life := rdf.ElementIRIForID(normative.ElementID(normative.KerML, "Occurrences::Occurrence::portionOfLife"))
+	portionOf := rdf.ElementIRIForID(normative.ElementID(normative.KerML, "Occurrences::Occurrence::portionOf"))
+	if got, _ := graph.Object(life, rdf.SysML+"subsets"); got != portionOf {
+		t.Errorf("portionOfLife subsets %v, want the id of portionOf", got)
+	}
+	membership := rdf.ElementIRIForID(normative.OwningMembershipID(normative.KerML, "Occurrences::Occurrence::portionOfLife"))
+	if got, _ := graph.Object(life, rdf.SysML+"owningMembership"); got != membership {
+		t.Errorf("portionOfLife's owning membership is %v, want the norm's", got)
+	}
+	if graph.HasProperty(life, rdf.OpenSysML+"declaredId") {
+		t.Errorf("the norm's id is stated as declared")
+	}
+}
+
+// A user package is not the library it takes its name from: a bare `package
+// Actions` keeps encoded ids and gains none of the library's members, and an
+// element stating a catalogued uuid under another qualified name keeps that
+// declared id while its members' ids stay its own.
+func TestUserPackagesUnderLibraryNamesKeepTheirOwnIdentity(t *testing.T) {
+	turtle := idTurtle(t, "package Actions {\n\tpart def X;\n}\n")
+	text := string(turtle)
+	for _, want := range []string{
+		`sysml:elementId "Actions"`,
+		`sysml:elementId "Actions__X"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("graph lacks %q:\n%s", want, text)
+		}
+	}
+	for _, reject := range []string{
+		normative.ElementID(normative.SysML, "Actions"),
+		"Actions::Action",
+	} {
+		if strings.Contains(text, reject) {
+			t.Errorf("a user package named Actions is read as the library, stating %q:\n%s", reject, text)
+		}
+	}
+	scalarValues := normative.ElementID(normative.KerML, "ScalarValues")
+	turtle = idTurtle(t, "package Mine {\n\t@IdentityMetadata::ElementId { id = \""+scalarValues+"\"; }\n\tdatatype Real;\n}\n")
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	mine := rdf.ElementIRIForID(scalarValues)
+	if got, _ := graph.Object(mine, rdf.SysML+"qualifiedName"); got != rdf.String("Mine") {
+		t.Fatalf("the declared id names %v, want Mine", got)
+	}
+	if !graph.HasProperty(mine, rdf.OpenSysML+"declaredId") {
+		t.Errorf("a catalogued uuid under another name is declared, yet the graph states no sysx:declaredId")
+	}
+	if text := string(turtle); !strings.Contains(text, `sysml:elementId "Mine__Real"`) ||
+		strings.Contains(text, normative.ElementID(normative.KerML, "ScalarValues::Real")) {
+		t.Errorf("Mine::Real took the library's id:\n%s", text)
+	}
 }

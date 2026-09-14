@@ -664,6 +664,42 @@ that dispatches it draws the region order the same way (`choice on change: state
 (unordered; took a1 first)`), and no order between the two raised conditions is derivable from the
 library either.
 
+### Two time events due at one instant: each dispatches, in which order is open
+
+Fixture: `state_explore_time_trigger_tie` (golden, explored).
+
+```
+work parallel { a: a1 ─ accept after 2 [s] { last := 1 } → a2
+                b: b1 ─ accept after 2 [s] { last := 2 } → b2 }
+```
+
+Derived constraints:
+
+- The regions of `work` are concurrent substate performances of it, sharing its `localClock`
+  (`Occurrences.kerml`, "The localClock of a suboccurrence defaults to the localClock of its
+  containing occurrence"); each region arms `TriggerAfter(2, …)` on entering its first state at
+  `t=0` (`Triggers.kerml`), and each ends when that clock reads 2 (`TimeSignal::signalCondition`).
+  The two are two acceptable events, one per transition, each firing its own region's transition.
+- `timeOrderingConstraint` (`Clocks.kerml`, `TimeOf`) orders only occurrences already ordered by
+  `HappensBefore`, and no `HappensBefore` chain joins one region's transition to the other's; the
+  pool order (`earlierFirstIncomingTransferSort`, `Occurrences.kerml`) ranks transfers, which a
+  time signal is not. Neither dispatch precedes the other.
+- Both effects write `last`, so the value that stands is the last write: `last = 2` when `a`'s
+  timer dispatches first, `last = 1` when `b`'s does; the machine ends in `a2+b2` either way.
+
+Open: which time event dispatches first. The two orders reach two outcomes, told apart by `last`
+and by the order `a2` and `b2` are visited in.
+
+Pinned outcome: the admissible set `{last = 2 visiting a2 then b2, last = 1 visiting b2 then a2}`,
+stated as `outcomes` citing this section. The order is a dispatch-order choice point under every
+policy, reported as `choice events at t=2.0: time a1 1->a2, time b1 1->b2 (unordered; dispatched
+time a1 1->a2 first)`: `declared` and `reverse` dispatch the earlier armed first — a tool-defined
+order — and the default golden pins that linearization (`a` first, `last = 2`); `seed:<n>` draws
+the order; `explore` varies it and must reach both outcomes and no other, in two runs. A time event
+due together with a signal already in the pool at the same instant is the same choice; two pool
+events are not, their arrival order being library-derived (`earlierFirstIncomingTransferSort`).
+A completion event precedes both, never drawn.
+
 ### Do behaviors of sibling regions active at one instant: each proceeds, in which order is open
 
 Fixtures: `state_concurrent_do` (golden, explored), `state_concurrent_do_action_bodies_timed`

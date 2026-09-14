@@ -13,24 +13,32 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// The canonical form of a checked run's state is the text of what a future step
-// can observe: the tokens by node and performance, the performances root-first
-// with what they hold, the messages in flight, the clock, and the objects
-// reached by their materialization path. Identities a run hands out — token ids,
-// object ids, step counters, activation numbers — are spelled by position
-// instead, so two runs reaching one state spell it alike.
+// The canonical form of a checked run's state is the text of what a future move
+// can observe: the clock, the executor holding the turn, then every executor on
+// it in invocation order — an action's tokens by node and performance and its
+// performances root-first with what they hold, a state machine's configuration,
+// history, values, queue, timers and do progress — then the messages in flight
+// and the objects reached by their materialization path. Identities a run hands
+// out — token ids, event ids, object ids, step counters, activation numbers — are
+// spelled by position instead, so two runs reaching one state spell it alike.
 
 // stateKey is the SHA-256 of a state's canonical form, hex-encoded.
 type stateKey string
 
-// canonicalForm is a state's canonical text and the canonical name of each of its
-// tokens: what the token spells as, numbered among tokens spelling alike.
+// tokenKey names a token of one executor: ids are handed out per executor.
+type tokenKey struct {
+	owner checkedExecutor
+	id    int64
+}
+
+// canonicalForm is a state's canonical text, the canonical name of each executor
+// on the clock and of each token: what it spells as, numbered among those spelling alike.
 type canonicalForm struct {
 	text   string
-	tokens map[int64]string
+	names  map[checkedExecutor]string
+	tokens map[tokenKey]string
 }
 
 // key hashes the canonical text.
@@ -39,59 +47,60 @@ func (f canonicalForm) key() stateKey {
 	return stateKey(hex.EncodeToString(sum[:]))
 }
 
-// canonicalState renders the state of the executor's run in canonical form; a
-// token whose paused work the snapshot cannot capture is refused as the snapshot refuses it.
-func (e *ActionExecutor) canonicalState() (canonicalForm, error) {
-	for _, token := range e.tokens {
-		if token.body != nil {
-			return canonicalForm{}, fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
-				token.ID, symbolText(e.action), ActionNodeName(token.Location))
-		}
-	}
+// canonicalState renders the state of the invocation's run in canonical form, the
+// turn settled first.
+func (r *invocationRun) canonicalState() canonicalForm {
+	r.enabledMoves()
+	return r.inv.canonicalState(r.turn)
+}
+
+// canonicalState renders the invocation's state with turn holding the turn, nil for none.
+func (inv *Invocation) canonicalState(turn checkedExecutor) canonicalForm {
+	execs := inv.executors()
+	ctx := inv.Context()
 	// Reading a feature may derive its default; a probe gives that back.
-	defer e.ctx.beginProbe()()
-	s := &stateSpeller{exec: e, ctx: e.ctx, paths: make(map[int64]string), tokens: make(map[int64]string)}
-	text := s.spell()
-	return canonicalForm{text: text, tokens: s.tokens}, nil
+	defer ctx.beginProbe()()
+	s := &stateSpeller{
+		ctx:    ctx,
+		paths:  make(map[int64]string),
+		names:  make(map[checkedExecutor]string, len(execs)),
+		tokens: make(map[tokenKey]string),
+	}
+	text := s.spell(execs, turn)
+	return canonicalForm{text: text, names: s.names, tokens: s.tokens}
 }
 
 // stateSpeller writes the canonical form, naming objects by materialization
 // path and performances by their path in the action.
 type stateSpeller struct {
+	ctx *Context
+	// exec is the action being spelled.
 	exec *ActionExecutor
-	ctx  *Context
 	// paths are the objects mentioned so far by path; mentioned lists them in order.
 	paths     map[int64]string
 	mentioned []int64
-	// labels name the reachable performances canonically; tokens name the tokens.
+	// names name the executors canonically; frames are the reachable performances
+	// of the action being spelled, root first, labels their labels; tokens the tokens.
+	names  map[checkedExecutor]string
+	frames []*actionFrame
 	labels map[*actionFrame]string
-	tokens map[int64]string
+	tokens map[tokenKey]string
 	out    strings.Builder
 }
 
-func (s *stateSpeller) spell() string {
-	e := s.exec
-	frames := s.labelFrames()
-	fmt.Fprintf(&s.out, "state %s\n", e.state)
+func (s *stateSpeller) spell(execs []checkedExecutor, turn checkedExecutor) string {
 	fmt.Fprintf(&s.out, "clock t=%s\n", semantics.FormatReal(s.ctx.clock.now))
-	if e.self != nil {
-		fmt.Fprintf(&s.out, "self %s\n", s.object(e.self.ID))
+	s.nameExecutors(execs)
+	if turn != nil {
+		fmt.Fprintf(&s.out, "turn: %s\n", s.names[turn])
 	}
-	for _, perf := range frames {
-		s.frame(perf)
-	}
-	tokens := make([]string, 0, len(e.tokens))
-	alike := make(map[string]int)
-	for _, token := range slices.SortedFunc(slices.Values(e.tokens), func(a, b Token) int { return cmp.Compare(a.ID, b.ID) }) {
-		text := s.token(token)
-		tokens = append(tokens, text)
-		alike[text]++
-		s.tokens[token.ID] = fmt.Sprintf("%s #%d", text, alike[text])
-	}
-	sort.Strings(tokens)
-	for _, line := range tokens {
-		s.out.WriteString(line)
-		s.out.WriteByte('\n')
+	for _, exec := range execs {
+		switch e := exec.(type) {
+		case *ActionExecutor:
+			s.action(e)
+		case *StateExecutor:
+			s.machine(e)
+		}
 	}
 	for i, msg := range s.ctx.messages {
 		fmt.Fprintf(&s.out, "message %d: %s\n", i+1, s.message(msg))
@@ -108,6 +117,225 @@ func (s *stateSpeller) spell() string {
 	return s.out.String()
 }
 
+// nameExecutors names every executor by its kind, its behavior and the object it
+// performs on, numbered among those spelling alike in invocation order.
+func (s *stateSpeller) nameExecutors(execs []checkedExecutor) {
+	alike := make(map[string]int, len(execs))
+	for _, exec := range execs {
+		var name string
+		switch e := exec.(type) {
+		case *ActionExecutor:
+			name = "action " + symbolText(e.action) + s.performer(e.self)
+		case *StateExecutor:
+			name = "state machine " + symbolText(e.stateMachine) + s.performer(e.self)
+		default:
+			name = exec.dueLabel()
+		}
+		alike[name]++
+		if n := alike[name]; n > 1 {
+			name += " #" + strconv.Itoa(n)
+		}
+		s.names[exec] = name
+	}
+}
+
+// performer spells the object a behavior performs on, by path; nothing for none.
+func (s *stateSpeller) performer(self *Instance) string {
+	if self == nil {
+		return ""
+	}
+	return " of " + s.object(self.ID)
+}
+
+// action spells one action executor: its state, its performances root-first and its tokens.
+func (s *stateSpeller) action(e *ActionExecutor) {
+	defer s.enter(e)()
+	fmt.Fprintf(&s.out, "%s: state %s\n", s.names[e], e.state)
+	for _, perf := range s.frames {
+		s.out.WriteString(s.frame(perf))
+		s.out.WriteByte('\n')
+	}
+	for _, line := range s.tokenLines() {
+		s.out.WriteString(line)
+		s.out.WriteByte('\n')
+	}
+}
+
+// enter makes e the action being spelled, its performances labelled, and returns
+// the restorer of the one spelled around it.
+func (s *stateSpeller) enter(e *ActionExecutor) func() {
+	exec, frames, labels := s.exec, s.frames, s.labels
+	s.exec = e
+	s.frames = s.labelFrames()
+	return func() { s.exec, s.frames, s.labels = exec, frames, labels }
+}
+
+// tokenLines spells the tokens of the action being spelled, sorted, naming each
+// canonically among those spelling alike.
+func (s *stateSpeller) tokenLines() []string {
+	e := s.exec
+	tokens := make([]string, 0, len(e.tokens))
+	alike := make(map[string]int)
+	for _, token := range slices.SortedFunc(slices.Values(e.tokens), func(a, b Token) int { return cmp.Compare(a.ID, b.ID) }) {
+		text := s.token(token)
+		tokens = append(tokens, text)
+		alike[text]++
+		s.tokens[tokenKey{e, token.ID}] = fmt.Sprintf("%s #%d", text, alike[text])
+	}
+	sort.Strings(tokens)
+	return tokens
+}
+
+// machine spells one state machine executor: its state, active configuration,
+// history, values, visits, queue in dispatch order, deferred events, timers,
+// change latches and do progress.
+func (s *stateSpeller) machine(e *StateExecutor) {
+	fmt.Fprintf(&s.out, "%s: state %s", s.names[e], e.state)
+	if e.machineExited {
+		s.out.WriteString(" exited")
+	}
+	if e.activeConfig != nil {
+		if e.activeConfig.simpleState != nil {
+			fmt.Fprintf(&s.out, " active{%s}", e.statePath(e.activeConfig.simpleState))
+		}
+		for _, region := range e.orderedActiveRegions() {
+			fmt.Fprintf(&s.out, " active{%s = %s}", regionKey(region), e.statePath(e.activeConfig.regionStates[region]))
+		}
+	}
+	for _, state := range e.stateStack {
+		fmt.Fprintf(&s.out, " stack{%s}", e.statePath(state))
+	}
+	for _, state := range sortedStates(e.history) {
+		record := e.history[state]
+		fmt.Fprintf(&s.out, " history{%s = %s", e.statePath(state), s.stateName(e, record.child))
+		for _, region := range sortedRegions(record.regions) {
+			fmt.Fprintf(&s.out, ", %s = %s", regionKey(region), s.stateName(e, record.regions[region]))
+		}
+		s.out.WriteString("}")
+	}
+	fmt.Fprintf(&s.out, " data{%s}", s.values(e.stateData))
+	for _, state := range sortedStates(e.stateAttrs) {
+		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.values(e.stateAttrs[state]))
+	}
+	fmt.Fprintf(&s.out, " visits{%s}", strings.Join(e.stateVisits, ", "))
+	if e.eventQueue != nil {
+		events := slices.Clone(e.eventQueue.events)
+		sort.SliceStable(events, func(i, j int) bool { return events.Less(i, j) })
+		for _, event := range events {
+			fmt.Fprintf(&s.out, " event{%s}", s.event(e, event))
+		}
+	}
+	for _, event := range e.deferred {
+		fmt.Fprintf(&s.out, " deferred{%s}", s.event(e, event))
+	}
+	for _, trans := range sortedTransitions(e.timerScheduled) {
+		fmt.Fprintf(&s.out, " timer{%s}", s.transition(e, trans))
+	}
+	for _, trans := range sortedTransitions(e.changeFired) {
+		fmt.Fprintf(&s.out, " latched{%s}", s.transition(e, trans))
+	}
+	for _, act := range e.doActions {
+		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(act.state), len(act.pending))
+		if slices.Contains(e.round, act) {
+			s.out.WriteString(", in round")
+		}
+		if act.run != nil {
+			fmt.Fprintf(&s.out, ", paused{%s}", s.body(act.run.body))
+		}
+		s.out.WriteString("}")
+	}
+	if e.roundDone {
+		s.out.WriteString(" round done")
+	}
+	s.out.WriteByte('\n')
+}
+
+// stateName spells a state by its path in the machine, nothing for none.
+func (s *stateSpeller) stateName(e *StateExecutor, state *ast.StateNode) string {
+	if state == nil {
+		return ""
+	}
+	return e.statePath(state)
+}
+
+// regionKey identifies a region by its name and where it was written.
+func regionKey(region *ast.StateRegion) string {
+	span := region.Span()
+	return fmt.Sprintf("%s@%d-%d", region.Name, span.Offset, span.End())
+}
+
+// sortedStates orders a map's state keys by identity, so the form is independent of map order.
+func sortedStates[V any](m map[*ast.StateNode]V) []*ast.StateNode {
+	states := make([]*ast.StateNode, 0, len(m))
+	for state := range m {
+		states = append(states, state)
+	}
+	sort.Slice(states, func(i, j int) bool { return nodeKey(states[i]) < nodeKey(states[j]) })
+	return states
+}
+
+// sortedRegions orders a map's region keys by identity.
+func sortedRegions[V any](m map[*ast.StateRegion]V) []*ast.StateRegion {
+	regions := make([]*ast.StateRegion, 0, len(m))
+	for region := range m {
+		regions = append(regions, region)
+	}
+	sort.Slice(regions, func(i, j int) bool { return regionKey(regions[i]) < regionKey(regions[j]) })
+	return regions
+}
+
+// sortedTransitions orders a set's transitions by source and position.
+func sortedTransitions(m map[*lower.Transition]bool) []*lower.Transition {
+	transitions := make([]*lower.Transition, 0, len(m))
+	for trans, set := range m {
+		if set {
+			transitions = append(transitions, trans)
+		}
+	}
+	sort.Slice(transitions, func(i, j int) bool { return transitionKey(transitions[i]) < transitionKey(transitions[j]) })
+	return transitions
+}
+
+// transitionKey identifies a transition by its source, target and where it was written.
+func transitionKey(trans *lower.Transition) string {
+	key := nodeKey(trans.Source) + "->" + nodeKey(trans.Target)
+	if trans.Decl != nil {
+		key += "@" + nodeKey(trans.Decl)
+	}
+	return key
+}
+
+// transition spells a transition by its source state and its position among the
+// source's transitions, as the trace names it.
+func (s *stateSpeller) transition(e *StateExecutor, trans *lower.Transition) string {
+	transitions := e.graph.Transitions[trans.Source]
+	if pos := slices.Index(transitions, trans); pos >= 0 {
+		return getNodeName(trans.Source) + " " + transitionName(transitions, pos)
+	}
+	return transitionDescription(trans)
+}
+
+// event spells a queued event by its instant, what it carries and where it goes;
+// its id is arrival order, which the queue's order spells.
+func (s *stateSpeller) event(e *StateExecutor, event Event) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "t=%s ", semantics.FormatReal(event.Timestamp))
+	switch payload := event.Payload.(type) {
+	case Message:
+		b.WriteString(s.message(payload))
+	case Call:
+		fmt.Fprintf(&b, "call %s args{%s}", orAny(payload.Operation), s.values(payload.Args))
+	case *lower.Transition:
+		if payload.Trigger == nil {
+			b.WriteString("completion ")
+		}
+		b.WriteString(s.transition(e, payload))
+	default:
+		b.WriteString(eventName(&event))
+	}
+	return b.String()
+}
+
 // objects spells every object the form mentioned, and those their features
 // mention in turn, in path order.
 func (s *stateSpeller) objects() {
@@ -119,7 +347,7 @@ func (s *stateSpeller) objects() {
 			continue
 		}
 		var b strings.Builder
-		fmt.Fprintf(&b, "object %s: %s{%s}", s.paths[id], s.typeName(inst), s.features(inst))
+		fmt.Fprintf(&b, "object %s: %s{%s}", s.paths[id], s.ctx.typeName(inst), s.features(inst))
 		for i, end := range inst.Ends {
 			name := end.Name
 			if name == "" {
@@ -179,18 +407,19 @@ func (s *stateSpeller) frameLabel(perf *actionFrame) string {
 
 // frame spells one performance: its flags, held values, block locals, the
 // deliveries its nodes' pins queue and which performance of each node is the latest.
-func (s *stateSpeller) frame(perf *actionFrame) {
-	fmt.Fprintf(&s.out, "frame %s:", s.frameLabel(perf))
+func (s *stateSpeller) frame(perf *actionFrame) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "frame %s:", s.frameLabel(perf))
 	if perf.ended {
-		s.out.WriteString(" ended")
+		b.WriteString(" ended")
 	}
 	if perf.inBody {
-		s.out.WriteString(" body")
+		b.WriteString(" body")
 	}
-	fmt.Fprintf(&s.out, " live=%d", perf.live)
-	fmt.Fprintf(&s.out, " data{%s}", s.values(perf.data))
+	fmt.Fprintf(&b, " live=%d", perf.live)
+	fmt.Fprintf(&b, " data{%s}", s.values(perf.data))
 	for _, local := range perf.locals {
-		fmt.Fprintf(&s.out, " local{%s}", s.values(local))
+		fmt.Fprintf(&b, " local{%s}", s.values(local))
 	}
 	for _, node := range sortedNodes(perf.pending) {
 		pins := perf.pending[node]
@@ -200,7 +429,7 @@ func (s *stateSpeller) frame(perf *actionFrame) {
 		}
 		sort.Strings(names)
 		for _, pin := range names {
-			fmt.Fprintf(&s.out, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
+			fmt.Fprintf(&b, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
 		}
 	}
 	for _, node := range sortedNodes(perf.nested) {
@@ -210,13 +439,13 @@ func (s *stateSpeller) frame(perf *actionFrame) {
 			for _, step := range delivery.path {
 				path = append(path, nodeIdentifier(step))
 			}
-			fmt.Fprintf(&s.out, " nested{%s.%s = %s}", strings.Join(path, "."), delivery.pin, s.value(delivery.value))
+			fmt.Fprintf(&b, " nested{%s.%s = %s}", strings.Join(path, "."), delivery.pin, s.value(delivery.value))
 		}
 	}
 	for _, node := range sortedNodes(perf.subactions) {
-		fmt.Fprintf(&s.out, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
+		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
 	}
-	s.out.WriteByte('\n')
+	return b.String()
 }
 
 // sortedNodes orders a map's node keys by identity, so the form is independent of map order.
@@ -261,6 +490,9 @@ func (s *stateSpeller) token(t Token) string {
 	if t.Wait != nil {
 		fmt.Fprintf(&b, " wait{%s}", s.wait(*t.Wait))
 	}
+	if t.body != nil {
+		fmt.Fprintf(&b, " paused{%s}", s.body(t.body))
+	}
 	return b.String()
 }
 
@@ -291,12 +523,12 @@ func (s *stateSpeller) message(m Message) string {
 	var b strings.Builder
 	b.WriteString(orAny(m.SignalType))
 	if m.Signal != nil {
-		b.WriteString(" (" + s.symbolName(m.Signal) + ")")
+		b.WriteString(" (" + s.ctx.symbolName(m.Signal) + ")")
 	}
 	if m.EventName != "" || m.Event != nil {
 		name := m.EventName
 		if m.Event != nil {
-			name = s.symbolName(m.Event)
+			name = s.ctx.symbolName(m.Event)
 		}
 		fmt.Fprintf(&b, " from %s", name)
 		if m.EventObject != 0 {
@@ -321,13 +553,6 @@ func (s *stateSpeller) message(m Message) string {
 		fmt.Fprintf(&b, " value %s", s.value(*m.Value))
 	}
 	return b.String()
-}
-
-func (s *stateSpeller) symbolName(sym *symbols.Symbol) string {
-	if fqn := s.ctx.fqnOf(sym); fqn != "" {
-		return fqn
-	}
-	return sym.Name
 }
 
 // values spells a map of named values in name order.
@@ -393,8 +618,8 @@ func (s *stateSpeller) object(id int64) string {
 	return "@" + s.objectPath(id)
 }
 
-// objectPath is the object's materialization path: the holder's path and the feature
-// holding it, indexed within one holding several; a root is its type and creation rank.
+// objectPath is the object's materialization path (see Context.objectPath), the
+// holders on the way mentioned too so their contents follow in the objects section.
 func (s *stateSpeller) objectPath(id int64) string {
 	if path, ok := s.paths[id]; ok {
 		return path
@@ -406,11 +631,11 @@ func (s *stateSpeller) objectPath(id int64) string {
 	var path string
 	owner, feature := inst.Owner()
 	if owner == nil {
-		path = s.rootPath(inst)
+		path = s.ctx.rankedRootPath(inst)
 	} else {
 		path = s.objectPath(owner.ID) + "." + feature
 		if fv := owner.FeatureValues[feature]; fv != nil && !fv.Feature.Scalar() {
-			if i := s.memberIndex(fv.Values, id); i >= 0 {
+			if i := s.ctx.memberIndex(fv.Values, id); i >= 0 {
 				path += "[" + strconv.Itoa(i) + "]"
 			}
 		}
@@ -418,53 +643,6 @@ func (s *stateSpeller) objectPath(id int64) string {
 	s.paths[id] = path
 	s.mentioned = append(s.mentioned, id)
 	return path
-}
-
-// memberIndex is the object's place among the objects a collection holds: its
-// position in a sequence, its creation rank among a set's members; -1 if the
-// collection does not hold it.
-func (s *stateSpeller) memberIndex(collection Value, id int64) int {
-	holds := func(v Value) bool { return v.Kind == ValInstance && v.Instance == id }
-	if collection.Kind != ValSet {
-		return slices.IndexFunc(elementsOf(collection), holds)
-	}
-	members := make(map[int64]bool)
-	for _, element := range elementsOf(collection) {
-		if element.Kind == ValInstance {
-			members[element.Instance] = true
-		}
-	}
-	if !members[id] {
-		return -1
-	}
-	return s.creationRank(id, func(other *Instance) bool { return members[other.ID] })
-}
-
-// creationRank is the object's rank, from 0, among the objects satisfying among,
-// in the order the run made them; -1 if the run made no such object.
-func (s *stateSpeller) creationRank(id int64, among func(*Instance) bool) int {
-	rank := 0
-	for _, created := range s.ctx.created {
-		other, ok := s.ctx.Instance(created)
-		if !ok || !among(other) {
-			continue
-		}
-		if created == id {
-			return rank
-		}
-		rank++
-	}
-	return -1
-}
-
-// rootPath names an object no other holds by its type and its rank, from 1,
-// among the roots of that type, in the order the run made them.
-func (s *stateSpeller) rootPath(inst *Instance) string {
-	roots := func(other *Instance) bool {
-		owner, _ := other.Owner()
-		return owner == nil && other.Type == inst.Type
-	}
-	return fmt.Sprintf("%s#%d", s.typeName(inst), s.creationRank(inst.ID, roots)+1)
 }
 
 // features spells what every feature of inst holds, in name order.
@@ -496,11 +674,4 @@ func (s *stateSpeller) feature(inst *Instance, name string) string {
 		return UnsetText
 	}
 	return s.value(fv.Value)
-}
-
-func (s *stateSpeller) typeName(inst *Instance) string {
-	if inst.Type == nil {
-		return "object"
-	}
-	return s.symbolName(inst.Type)
 }

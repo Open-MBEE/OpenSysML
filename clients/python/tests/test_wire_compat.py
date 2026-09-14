@@ -349,13 +349,14 @@ def test_edit_messages_pin_their_field_numbers():
     expected = {
         "ApplyEditsRequest": {"model_hash": 1, "operations": 2},
         "EditOperation": {
-            "set_value": 1, "rename": 2, "add_member": 3, "delete": 4
+            "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5
         },
         "AddMemberEdit": {
             "owner": 1, "kind": 2, "name": 3, "type": 4,
             "multiplicity": 5, "value": 6, "specializes": 7,
         },
         "DeleteEdit": {"target": 1, "cascade": 2},
+        "MoveEdit": {"target": 1, "owner": 2},
         "SetValueEdit": {"target": 1, "value": 2},
         "RenameEdit": {"target": 1, "new_name": 2},
         "ApplyEditsResponse": {
@@ -406,6 +407,8 @@ def test_edit_failure_kinds_keep_their_values():
         "EDIT_FAILURE_ILLEGAL_KIND": 13,
         "EDIT_FAILURE_MEMBER_NAME_TAKEN": 14,
         "EDIT_FAILURE_DELETE_REFERENCED": 15,
+        "EDIT_FAILURE_OWNER_INSIDE_TARGET": 16,
+        "EDIT_FAILURE_MOVE_REFERENCED": 17,
     }
 
 

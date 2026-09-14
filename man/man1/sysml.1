@@ -44,12 +44,13 @@ may make before the search backtracks, or the moves the smt engine unrolls the
 action to, named as the depth bound hit (default 10000 for check, 40 for smt)
 .TP
 .BI \-check\-diverge " value"
-With \-engine check or \-engine all: report this feature divergent when
-schedules leave it with different final values, as \-check\-diverge x,
-\-check\-diverge step.out for a performed node's output or \-check\-diverge
-this.level for the performing object's, a name nothing holds refused; default
-every attribute of the action and of its performing object, the action's own
-when it has none (repeatable)
+With \-engine check, \-engine smt or \-engine all: report this feature
+sensitive when schedules leave it with different final values \(em check
+searching the schedules, smt asking the solver for two that end it apart \(em
+as \-check\-diverge x, \-check\-diverge step.out for a performed node's output
+or \-check\-diverge this.level for the performing object's (not covered under
+smt), a name nothing holds refused; default every attribute of the action and
+of its performing object, the action's own when it has none (repeatable)
 .TP
 .BI \-check\-input " value"
 With \-engine smt or \-engine all: leave this feature of the action free in

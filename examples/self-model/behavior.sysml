@@ -319,8 +319,8 @@ package OpenSysMLBehavior {
     action def AnswerQuestion {
         attribute selectsAuto : Boolean = true;
         attribute selectsAll : Boolean = false;
-        // The engines declaring the question's kind: one for every kind but outcomes and
-        // holds in the default registry, whose count per kind Dispatcher.candidatesPerKind states.
+        // The engines declaring the question's kind: one for every kind but outcomes, holds
+        // and sensitive in the default registry, whose count per kind Dispatcher.candidatesPerKind states.
         attribute candidates : Integer = 1;
         attribute enginesLeft : Integer = 0;
         attribute steps : Integer = 0;
@@ -592,23 +592,20 @@ package OpenSysMLBehavior {
         transition first ready if runsPending <= 0 then released;
     }
 
-    // A snapshot is a mark between steps: restore brings the run back to it as often as
-    // asked until release, and a mark asked for mid-step or over a paused body is refused.
+    // A snapshot is a mark between steps, a paused body's continuation among what it holds:
+    // restore brings the run back to it as often as asked until release; mid-step it is refused.
     state def SnapshotLifecycle {
         attribute betweenSteps : Boolean = true;
-        attribute bodyPaused : Boolean = false;
 
         entry; then running;
 
         state running;
         state marked;
         state refusedMidStep;
-        state refusedPausedBody;
         state released;
 
-        transition first running if betweenSteps and not bodyPaused then marked;
+        transition first running if betweenSteps then marked;
         transition first running if not betweenSteps then refusedMidStep;
-        transition first running if betweenSteps and bodyPaused then refusedPausedBody;
         transition first marked then running;
         transition first marked then released;
     }

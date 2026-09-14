@@ -9,16 +9,16 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 var updateCheckReduction = flag.Bool("update-check-reduction", false, "Rewrite the reduction ratchet of testdata/check")
 
 // The reduction corpus: one small model per dependence clause of the checker's
-// static reduction, and one whose branches are independent.
-var reductionCorpus = []struct {
-	file, action string
-	library      bool // the model uses the standard libraries
-}{
+// static reduction, over actions, state machines and both on one clock, and one
+// per kind whose units are independent.
+var reductionCorpus = []reductionCase{
 	{file: "por_shared_write", action: "race"},
 	{file: "por_guard_read", action: "gated"},
 	{file: "por_trigger_read", action: "monitor"},
@@ -29,6 +29,33 @@ var reductionCorpus = []struct {
 	{file: "por_alias", action: "aliased"},
 	{file: "por_address", action: "addressed"},
 	{file: "por_constructor", action: "populate", library: true},
+	{file: "por_state_independent", action: "parallel", states: []string{"stepper"}},
+	{file: "por_state_effect_write", action: "watcher", states: []string{"lighter"}},
+	{file: "por_state_guard_read", action: "turner", states: []string{"router"}},
+	{file: "por_state_do_write", action: "reader", states: []string{"counter"}},
+	{file: "por_state_send_accept", action: "sender", states: []string{"receiver"}},
+	{file: "por_two_machines", states: []string{"turner", "router", "loner"}},
+}
+
+// starter starts the corpus model's invocation: its action, if any, and its
+// state machines, in that order.
+func (c reductionCase) starter(t *testing.T, m *exploreModel) Starter {
+	t.Helper()
+	var actions, states []*symbols.Symbol
+	if c.action != "" {
+		actions = append(actions, m.action(t, c.action))
+	}
+	for _, name := range c.states {
+		states = append(states, m.state(t, name))
+	}
+	return invocationOf(actions, states)
+}
+
+type reductionCase struct {
+	file    string
+	action  string   // the action the invocation runs, if any
+	states  []string // the state machines it runs beside
+	library bool     // the model uses the standard libraries
 }
 
 const reductionExpected = "testdata/check/reduction_expected.txt"
@@ -60,8 +87,9 @@ func TestCheckReductionIsSound(t *testing.T) {
 	for _, c := range reductionCorpus {
 		t.Run(c.file, func(t *testing.T) {
 			m := reductionModel(t, c.file, c.library)
-			with := checkModel(t, m, c.action, CheckBudget{}, reduced())
-			without := checkModel(t, m, c.action, CheckBudget{}, unreduced())
+			start := c.starter(t, m)
+			with := checkStart(t, m, start, reduced())
+			without := checkStart(t, m, start, unreduced())
 			if with.Verdict == CheckViolation || without.Verdict == CheckViolation {
 				t.Fatalf("violations: reduced %v, unreduced %v", with.Violations, without.Violations)
 			}
@@ -79,7 +107,6 @@ func TestCheckReductionIsSound(t *testing.T) {
 				t.Fatalf("reduced search did more: %d states, %d moves against %d, %d",
 					with.States, with.Moves, without.States, without.Moves)
 			}
-			start := starterOf(m.action(t, c.action))
 			for _, final := range with.Finals {
 				replayWitness(t, m, start, final.Witness, final.Outcome)
 			}
@@ -93,8 +120,9 @@ func TestCheckReductionRatchet(t *testing.T) {
 	got := make(map[string]string, len(reductionCorpus))
 	for _, c := range reductionCorpus {
 		m := reductionModel(t, c.file, c.library)
-		with := checkModel(t, m, c.action, CheckBudget{}, reduced())
-		without := checkModel(t, m, c.action, CheckBudget{}, unreduced())
+		start := c.starter(t, m)
+		with := checkStart(t, m, start, reduced())
+		without := checkStart(t, m, start, unreduced())
 		got[c.file] = fmt.Sprintf("%d\t%d\t%d\t%d", with.States, with.Moves, without.States, without.Moves)
 	}
 	if *updateCheckReduction {
@@ -147,7 +175,7 @@ func TestCheckReductionRatchet(t *testing.T) {
 func TestCheckReductionKeepsEveryAddressee(t *testing.T) {
 	m := reductionModel(t, "por_address", false)
 	addressed := func(node string) CheckProperty {
-		return CheckProperty{Name: node + " unaddressed", Holds: func(ctx *Context, _ *ActionExecutor) (bool, error) {
+		return CheckProperty{Name: node + " unaddressed", Holds: func(ctx *Context, _ *Invocation) (bool, error) {
 			for _, msg := range ctx.PendingMessages() {
 				if inst, held := ctx.instances[msg.Object]; held && symbolText(inst.Type) == node {
 					return false, nil

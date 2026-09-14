@@ -674,7 +674,8 @@ func destinationStateOf(ctx *Context) destinationState {
 }
 
 // An object whose start left a do action's body paused at its accept is refused
-// as the in-place snapshot refuses it: the body's statement is mid-run.
+// by the portable image, whose model may not be the one the body's statements are
+// of; the in-place snapshot captures the wait and restores the body to it.
 func TestHeldImageRefusesAPausedBody(t *testing.T) {
 	const source = `
 	private import SI::*;
@@ -703,9 +704,40 @@ func TestHeldImageRefusesAPausedBody(t *testing.T) {
 	if !errors.Is(err, ErrSnapshotPausedBody) || !errors.As(err, &hie) || hie.ID != watcher.ID {
 		t.Fatalf("Image = %v, want ErrSnapshotPausedBody naming #%d", err, watcher.ID)
 	}
-	if _, err := ctx.Snapshot(); !errors.Is(err, ErrSnapshotPausedBody) {
-		t.Errorf("Snapshot = %v, want the same ErrSnapshotPausedBody", err)
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot = %v, want the paused body captured", err)
 	}
+	pausedDo := func() *doRun {
+		for _, behavior := range ctx.objectBehaviors {
+			if behavior.State != nil {
+				for _, act := range behavior.State.doActions {
+					return act.run
+				}
+			}
+		}
+		return nil
+	}
+	if run := pausedDo(); run == nil || len(run.body.cursor) == 0 || !run.body.paused.onWait {
+		t.Fatalf("do body = %+v, want paused on its wait", run)
+	}
+	if _, err := ctx.Advance(3); err != nil {
+		t.Fatalf("Advance = %v", err)
+	}
+	if run := pausedDo(); run != nil {
+		t.Fatalf("do body after the wait = %+v, want done", run)
+	}
+	snapshot.Restore()
+	if run := pausedDo(); run == nil || !run.body.paused.onWait {
+		t.Fatalf("restored do body = %+v, want paused on its wait again", run)
+	}
+	if _, err := ctx.Advance(3); err != nil {
+		t.Fatalf("Advance after the restore = %v", err)
+	}
+	if run := pausedDo(); run != nil {
+		t.Fatalf("restored do body after the wait = %+v, want done", run)
+	}
+	snapshot.Release()
 }
 
 // heldDigest renders the objects held under ids, their lifetimes, features,

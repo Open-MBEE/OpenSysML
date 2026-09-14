@@ -4,7 +4,7 @@ const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
 
 // Two bundles: the extension runs in Node, the diagram webview runs in a browser
-// with Mermaid bundled into it so nothing is loaded from the network.
+// and draws its SVG itself, so nothing is loaded from the network.
 const builds = [
   {
     entryPoints: ["src/extension.ts"],

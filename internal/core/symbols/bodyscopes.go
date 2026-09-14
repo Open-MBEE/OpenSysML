@@ -115,8 +115,9 @@ func (w ExprWalker) Decl(scope *Scope, decl ast.Node) {
 		w.relationships(scope, d.Relationships)
 		w.multiplicity(scope, d.Multiplicity)
 		if d.CrossFeature != nil {
-			w.relationships(scope, d.CrossFeature.Relationships)
-			w.multiplicity(scope, d.CrossFeature.Multiplicity)
+			end := nodeBodyScope(scope, d)
+			w.relationships(end, d.CrossFeature.Relationships)
+			w.multiplicity(end, d.CrossFeature.Multiplicity)
 		}
 		// An accept node keeps its trigger in the usage's value.
 		if d.IsAccept {

@@ -41,13 +41,17 @@ type identityFacts struct {
 }
 
 // analyzeDocument indexes one parsed document over the standard library and resolves
-// every name it writes; a library file (named, or a byte-identical copy) takes the bundled one's place.
+// every name it writes; a library file (named, or a copy rooted at the bundled
+// document's top-level packages) takes the bundled one's place.
 func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*resolve.Resolver, *semantics.Model) {
 	name := file.Name()
 	idx := libs.NewModelIndex()
 	digest := symbols.TextDigest(file.Bytes())
 	if library == "" {
 		library, _, _ = idx.LibraryDocumentByDigest(digest)
+	}
+	if library == "" {
+		library = documentLibrary(name, root)
 	}
 	tier := idx.DocumentLibraryTier(library)
 	if tier.Library() {
@@ -99,7 +103,7 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		el := elementIdentity{
 			id:         info.EffectiveID,
 			source:     info.Source,
-			declared:   info.Declared,
+			declared:   info.Source == identity.SourceDeclared,
 			scope:      info.Scope,
 			membership: info.OwningMembershipID(),
 		}
@@ -181,7 +185,8 @@ func (f *identityFacts) owningMembershipOf(node ast.Node, member rdf.Term) rdf.T
 
 // declaredIDAt reports whether the declaration's id came from an explicit
 // ElementId annotation, which the graph must record: explicitness is not
-// recoverable from the value.
+// recoverable from the value. An annotation restating a normative id declares
+// nothing, and the graph reads that id as the norm's without the record.
 func (f *identityFacts) declaredIDAt(node ast.Node) bool {
 	return f.byNode[node].declared
 }

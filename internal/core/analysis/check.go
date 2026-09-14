@@ -25,21 +25,21 @@ const (
 	DefaultCheckStates = 1000000
 )
 
-// CheckAsk is what a check question asks over the schedules of one action: how the
-// action begins, what must hold at every stable state, what may not diverge, and
-// where the witnesses go.
+// CheckAsk is what a check question asks over the schedules of one invocation:
+// how its behaviors begin on one clock, what must hold at every stable state,
+// what may not diverge, and where the witnesses go.
 type CheckAsk struct {
-	// Start begins the action in a context of the check's own; a replay begins it the same way.
-	Start runtime.ActionStarter
-	// Performer names the object Start performs the action on, as the surface
-	// spelled it, so the witnesses of one action on two objects are two sets of
+	// Start begins the invocation in a context of the check's own; a replay begins it the same way.
+	Start runtime.Starter
+	// Performer names the object Start performs the behaviors on, as the surface
+	// spelled it, so the witnesses of one behavior on two objects are two sets of
 	// files; empty when no object performs it.
 	Performer string
 	// Properties are evaluated at every stable state; one false is a violation.
 	Properties []runtime.CheckProperty
 	// Diverge names the features whose final values are compared across the
-	// complete schedules; none compares the action's own attributes, and the
-	// performing object's features when one performs it.
+	// complete schedules; none compares the behaviors' own attributes and final
+	// states, and the performing object's features when one performs them.
 	Diverge []string
 	// WitnessDir is where every violation's and divergent value's witness is
 	// written, a file per witness; empty writes none.
@@ -71,9 +71,10 @@ func (e *ConstructError) Error() string {
 // Is matches ErrConstruct.
 func (e *ConstructError) Is(target error) bool { return target == ErrConstruct }
 
-// checkEngine answers Outcomes and Holds questions over an action by a depth-first
-// search of its schedules, one token advancing one node at a time, under static
-// partial-order reduction; what it finds within its bounds is bounded, never proved.
+// checkEngine answers Outcomes, Holds and Sensitive questions over an invocation
+// by a depth-first search of its schedules, one token, dispatch or do step at a
+// time on one clock, under static partial-order reduction; what it finds within
+// its bounds is bounded, never proved.
 type checkEngine struct{}
 
 // NewCheck returns the check engine.
@@ -86,18 +87,18 @@ func (checkEngine) Name() string { return CheckEngineName }
 // executor's budgets; every violation and divergent value is a replayed witness.
 func (checkEngine) Describe() Description {
 	return Description{
-		Questions: []Kind{Outcomes, Holds},
+		Questions: []Kind{Outcomes, Holds, Sensitive},
 		Bounds:    append([]string{"depth", "states", "deadline"}, runtime.ExecutorBounds...),
 		Replays:   true,
 		Authority: Bounded,
 	}
 }
 
-// Covers takes an Outcomes or Holds question over an action's schedules with its
-// inputs as written; the constructs the search meets and cannot capture are
+// Covers takes an Outcomes, Holds or Sensitive question over an invocation's
+// schedules with its inputs as written; the constructs the search meets and cannot capture are
 // refused as it meets them, as a result not covered naming the construct.
 func (e checkEngine) Covers(_ *Model, q Question) Coverage {
-	if q.Kind != Outcomes && q.Kind != Holds {
+	if q.Kind != Outcomes && q.Kind != Holds && q.Kind != Sensitive {
 		return refused(&NotAskedError{Engine: e.Name(), Kind: q.Kind})
 	}
 	if q.Free.Has(FreeInputs) {
@@ -107,7 +108,7 @@ func (e checkEngine) Covers(_ *Model, q Question) Coverage {
 		return refused(&ConstructError{Engine: e.Name(), Construct: "a fixed schedule"})
 	}
 	if q.Check == nil || q.Check.Start == nil {
-		return refused(&MalformedQuestionError{Kind: q.Kind, Missing: "a Check starting an action"})
+		return refused(&MalformedQuestionError{Kind: q.Kind, Missing: "a Check starting an invocation"})
 	}
 	if q.Check.WitnessDir != "" && q.Subject == "" {
 		return refused(&MalformedQuestionError{Kind: q.Kind, Missing: "a Subject to name the witness files after"})
@@ -115,10 +116,12 @@ func (e checkEngine) Covers(_ *Model, q Question) Coverage {
 	return covered
 }
 
-// Run searches the action's schedules under the budget's depth and, as its runs,
+// Run searches the invocation's schedules under the budget's depth and, as its runs,
 // states, in a context of the check's own on the plan's first worker; a violation
-// is witnessed, a divergence is the sensitivity it witnesses, and a clean search is
-// bounded, once every witness has replayed on the plan's workers. The plan's clock
+// is witnessed, a divergence is the sensitivity it witnesses (its first two values'
+// schedules the witness and the contrast), and a clean search is bounded — the
+// feature not sensitive, the condition holding, or the outcomes reached, as the
+// question asks — once every witness has replayed on the plan's workers. The plan's clock
 // ending is the search stopping, an error, not a result. A model that builds no
 // context of a run's own is the typed fault NoRuntimeError.
 func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
@@ -135,14 +138,9 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	}
 	limits := runtime.CheckBudget{Depth: budget.Depth, States: budget.Runs}
 	options := runtime.CheckOptions{Diverge: q.Check.Diverge, Reduce: true}
-	report, err := runtime.CheckAction(ctx, fresh, q.Check.Start, limits, options, q.Check.Properties)
+	report, err := runtime.Check(ctx, fresh, q.Check.Start, limits, options, q.Check.Properties)
 	result := Result{Question: q, Engine: e.Name()}
 	switch {
-	case errors.Is(err, runtime.ErrSnapshotPausedBody):
-		result.Strength = NotCovered
-		result.Reason = (&ConstructError{Engine: e.Name(), Construct: "a body paused mid-statement: " + err.Error()}).Error()
-		result.Elapsed = time.Since(started)
-		return result, nil
 	case errors.Is(err, runtime.ErrCheckRefused):
 		result.Strength = NotCovered
 		result.Reason = (&ConstructError{Engine: e.Name(), Construct: "a move the run makes otherwise: " + err.Error()}).Error()
@@ -167,7 +165,7 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		result.Strength = Witnessed
 		first := report.Violations[0]
 		result.Reason = first.String()
-		result.Witness = &Witness{Schedule: runtime.ReplayPolicy(first.Witness.Choices), Choices: first.Witness.Choices}
+		result.Witness = &Witness{Schedule: runtime.ReplayOf(first.Witness), Choices: first.Witness.Choices}
 		if len(checked.Violations) > 0 {
 			result.Witness.Written = checked.Violations[0]
 		}
@@ -175,12 +173,13 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		result.Claim = ClaimSensitive
 		result.Strength = Witnessed
 		result.Reason = divergenceReason(report.Divergent)
-		first := report.Divergent[0].Values[0].Witness
-		result.Witness = &Witness{Schedule: runtime.ReplayPolicy(first.Choices), Choices: first.Choices}
-		if len(checked.Divergent) > 0 && len(checked.Divergent[0]) > 0 {
-			result.Witness.Written = checked.Divergent[0][0]
+		var written []string
+		if len(checked.Divergent) > 0 {
+			written = checked.Divergent[0]
 		}
-	case q.Kind == Holds:
+		result.Witness = divergenceWitness(report.Divergent[0], written, 0)
+		result.Contrast = divergenceWitness(report.Divergent[0], written, 1)
+	case q.Kind == Holds, q.Kind == Sensitive:
 		result.Claim = ClaimHolds
 		result.Strength = Bounded
 	default:
@@ -188,6 +187,20 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		result.Strength = Bounded
 	}
 	return result, nil
+}
+
+// divergenceWitness is the schedule reaching the divergence's n-th value, with the
+// file it was written to when one was; nil when the divergence has no n-th value.
+func divergenceWitness(d runtime.Divergence, written []string, n int) *Witness {
+	if n >= len(d.Values) {
+		return nil
+	}
+	w := d.Values[n].Witness
+	out := &Witness{Schedule: runtime.ReplayOf(w), Choices: w.Choices}
+	if n < len(written) {
+		out.Written = written[n]
+	}
+	return out
 }
 
 // divergenceReason spells every divergence, `x ends as 1 or 2; y ends as a or b`.
@@ -293,7 +306,7 @@ func (e checkEngine) replayOne(ctx context.Context, fresh func() (*runtime.Conte
 			return err
 		}
 	}
-	_, err := runtime.ReplayAction(ctx, fresh, q.Check.Start, w.witness, q.Check.Properties)
+	_, err := runtime.Replay(ctx, fresh, q.Check.Start, w.witness, q.Check.Properties)
 	return err
 }
 
@@ -333,23 +346,58 @@ func ViolationFile(subject, performer string, n int) string {
 // divergenceFile names the witness of a feature's n-th final value,
 // `test.race-x-1.witness`, `test.race-this.level-2.witness`: the checked name,
 // the feature's segments and the count, told apart by the `-` no token carries.
+// A feature of one behavior of several, `Shine::Lamp::peek.saw`, spells
+// `Shine.Lamp.peek.saw`.
 func divergenceFile(subject, performer, feature string, n int) string {
-	return fmt.Sprintf("%s-%s-%d.witness", checkedName(subject, performer), fileSegments(feature, "."), n)
+	return fmt.Sprintf("%s-%s-%d.witness", checkedName(subject, performer), fileSegments(feature, "::", "."), n)
+}
+
+// SensitivityFile names one witness of a pair of schedules ending with different
+// values of a feature, `test.race-x-A.witness` and `test.race-x-B.witness`: the
+// checked name, the feature's segments and the label, `A` or `B`, of the copy that ran it.
+func SensitivityFile(subject, performer, feature, label string) string {
+	return fmt.Sprintf("%s-%s-%s.witness", checkedName(subject, performer), fileSegments(feature, "."), label)
 }
 
 // checkedName is the subject's segments and, after `@`, the performer's when an
-// object performs it: `Plant.Tank.fill@Plant.tank`, one name per action and object.
+// object performs it: `Plant.Tank.fill@Plant.tank`, one name per behavior and
+// object; several behaviors on one clock are joined by `+`, each with its own
+// `@<object>` when the subject spells the objects they perform on, and its `#n`
+// when the subject numbers repeats of one behavior.
 func checkedName(subject, performer string) string {
-	name := fileSegments(subject, "::")
+	behaviors := strings.Split(subject, ", ")
+	for i, behavior := range behaviors {
+		words := strings.Fields(behavior)
+		if len(words) == 0 {
+			continue
+		}
+		behaviors[i] = fileSegments(words[0], "::")
+		for _, word := range words[1:] {
+			if n, numbered := strings.CutPrefix(word, "#"); numbered {
+				behaviors[i] += "." + fileToken(n)
+			} else {
+				behaviors[i] += "@" + fileSegments(word, "::")
+			}
+		}
+	}
+	name := strings.Join(behaviors, "+")
 	if performer != "" {
 		name += "@" + fileSegments(performer, "::")
 	}
 	return name
 }
 
-// fileSegments joins the tokens of a name's segments with `.`, one name per spelling.
-func fileSegments(name, separator string) string {
-	segments := strings.Split(name, separator)
+// fileSegments joins the tokens of a name's segments, split at any of the
+// separators, with `.`, one name per spelling.
+func fileSegments(name string, separators ...string) string {
+	segments := []string{name}
+	for _, separator := range separators {
+		var split []string
+		for _, segment := range segments {
+			split = append(split, strings.Split(segment, separator)...)
+		}
+		segments = split
+	}
 	for i, segment := range segments {
 		segments[i] = fileToken(segment)
 	}

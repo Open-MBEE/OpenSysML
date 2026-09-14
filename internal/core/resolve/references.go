@@ -24,6 +24,8 @@ type refCollector struct {
 	condition bool
 	// member is the declaration whose text is being walked.
 	member ast.Node
+	// within is the namespace member whose expression body member lies in, if any.
+	within ast.Node
 	// head is set while a head relationship of a declaration with a scope of
 	// its own is walked (Reference.Head).
 	head *HeadRelationship
@@ -34,12 +36,25 @@ type refCollector struct {
 func (c *refCollector) push(ref Reference) {
 	ref.Condition = c.condition
 	ref.Member = c.member
+	ref.Within = c.within
 	ref.Head = c.head
 	// The outermost chain member is the name decided on.
 	if ref.Head != nil && ref.Head.Member == ref.QN {
 		ref.Head = &HeadRelationship{Scope: ref.Head.Scope, Kind: ref.Head.Kind}
 	}
 	c.refs = append(c.refs, ref)
+}
+
+// withinBody walks an expression body's declarations, which are written inside
+// the member being walked unless that member is itself inside a body.
+func (c *refCollector) withinBody(walk func()) {
+	if c.within != nil {
+		walk()
+		return
+	}
+	c.within = c.member
+	defer func() { c.within = nil }()
+	walk()
 }
 
 // conditionExpr walks the names of a filter condition.
@@ -104,7 +119,7 @@ func (c *refCollector) edgeEnd(scope *symbols.Scope, qn *ast.QualifiedName, memb
 	if qn == nil || len(qn.Parts) == 0 || member != nil || implied {
 		return
 	}
-	if inStateMachine(scope) {
+	if symbols.InStateMachine(scope) {
 		c.addEndpoint(scope, qn)
 		return
 	}
@@ -240,56 +255,7 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		}
 		return true
 	case *ast.Usage:
-		c.prefixes(scope, d, d.Prefixes)
-		child := c.childScope(scope, d)
-		c.headerRelationships(scope, child, d, d.Relationships)
-		c.multiplicity(scope, d.Multiplicity)
-		if d.CrossFeature != nil {
-			c.crossFeature(scope, child, d)
-		}
-		// An accept node keeps its trigger in the usage's value.
-		if d.IsAccept {
-			c.trigger(scope, d.Value)
-		} else if inv := d.PerformedInvocation(); inv != nil {
-			c.invocation(scope, inv, true)
-		} else {
-			c.expr(scope, d.Value)
-		}
-		for _, end := range d.ConnectorEnds {
-			if end == nil {
-				continue
-			}
-			// An end that reference-subsets what it attaches to declares its
-			// own name, so that name is a declaration, not a reference. A `:>>`
-			// on it names an end of the connector's type and so resolves in the
-			// connector's scope; everything else resolves in the enclosing one.
-			_, declaresName := end.DeclaredName()
-			endScope := scope
-			if child != nil {
-				endScope = child
-			}
-			redefines, others := ast.SplitRedefinitions(end.Relationships)
-			c.relationships(endScope, end, redefines)
-			c.relationships(scope, end, others)
-			if !declaresName {
-				c.target(scope, end.Target)
-			}
-			c.target(scope, end.Reference)
-		}
-		if d.FlowEnds != nil {
-			c.expr(scope, d.FlowEnds.From)
-			c.expr(scope, d.FlowEnds.To)
-			// A declared payload (`of name : Type`) names a member of the flow
-			// itself, not an element of the enclosing scope.
-			payloadScope := scope
-			if d.FlowEnds.PayloadDecl != nil && child != nil {
-				payloadScope = child
-			}
-			c.expr(payloadScope, d.FlowEnds.Payload)
-		}
-		if child != nil {
-			c.walkMembers(child, d.Members)
-		}
+		c.usage(scope, d)
 		return true
 	case *ast.SubjectMember:
 		c.prefixes(scope, d, d.Prefixes)
@@ -302,7 +268,10 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		}
 		return true
 	case *ast.InitialNode:
-		// The node's own name is a label, not a reference.
+		// A start marker's own name is a label, not a reference.
+		if symbols.FirstNamesSource(d) {
+			c.edgeEnd(scope, d.First, nil, false)
+		}
 		c.edgeEnd(scope, d.Successor, nil, false)
 		c.expr(scope, d.Guard)
 		c.walkMembers(c.bodyScope(scope, d), d.Members)
@@ -334,6 +303,70 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// usage collects the references of a usage: its header, value, connector and flow
+// ends, and the members of its body.
+func (c *refCollector) usage(scope *symbols.Scope, d *ast.Usage) {
+	c.prefixes(scope, d, d.Prefixes)
+	child := c.childScope(scope, d)
+	c.headerRelationships(scope, child, d, d.Relationships)
+	c.multiplicity(scope, d.Multiplicity)
+	if d.CrossFeature != nil {
+		c.crossFeature(scope, child, d)
+	}
+	// An accept node keeps its trigger in the usage's value.
+	if d.IsAccept {
+		c.trigger(scope, d.Value)
+	} else if inv := d.PerformedInvocation(); inv != nil {
+		c.invocation(scope, inv, true)
+	} else {
+		c.expr(scope, d.Value)
+	}
+	c.connectorEnds(scope, child, d)
+	if d.FlowEnds != nil {
+		c.expr(scope, d.FlowEnds.From)
+		c.expr(scope, d.FlowEnds.To)
+		// A declared payload (`of name : Type`) names a member of the flow
+		// itself, not an element of the enclosing scope.
+		payloadScope := scope
+		if d.FlowEnds.PayloadDecl != nil && child != nil {
+			payloadScope = child
+		}
+		c.expr(payloadScope, d.FlowEnds.Payload)
+	}
+	if child != nil {
+		c.walkMembers(child, d.Members)
+	}
+}
+
+// connectorEnds collects the references of a usage's connector ends; child is the
+// usage's own scope, nil when it declares none.
+func (c *refCollector) connectorEnds(scope, child *symbols.Scope, d *ast.Usage) {
+	for _, end := range d.ConnectorEnds {
+		if end == nil {
+			continue
+		}
+		// An end that reference-subsets what it attaches to declares its
+		// own name, so that name is a declaration, not a reference. A `:>>`
+		// on it names an end of the connector's type and so resolves in the
+		// connector's scope; everything else resolves in the enclosing one.
+		_, declaresName := end.DeclaredName()
+		endScope := scope
+		if child != nil {
+			endScope = child
+		}
+		redefines, others := ast.SplitRedefinitions(end.Relationships)
+		c.relationships(endScope, end, redefines)
+		c.relationships(scope, end, others)
+		// A machine succession/transition end names a vertex like a transition endpoint.
+		asEndpoint := (d.Kind == ast.UsageSuccession || d.Kind == ast.UsageTransition) &&
+			symbols.InStateMachine(scope) && !declaresName
+		if !declaresName {
+			c.connectorEnd(scope, end.Target, asEndpoint)
+		}
+		c.connectorEnd(scope, end.Reference, asEndpoint)
 	}
 }
 
@@ -387,6 +420,9 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 		c.walkMembers(body, d.Members)
 		return true
 	case *ast.InitialNode:
+		if symbols.FirstNamesSource(d) {
+			c.edgeEnd(scope, d.First, nil, false)
+		}
 		c.edgeEnd(scope, d.Successor, nil, false)
 		c.expr(scope, d.Guard)
 		c.walkMembers(c.bodyScope(scope, d), d.Members)
@@ -571,6 +607,32 @@ func (c *refCollector) referenceTarget(scope *symbols.Scope, decl ast.Node, targ
 	c.expr(scope, target)
 }
 
+// connectorEnd collects what a connector end names, as a transition endpoint
+// when the connector orders the vertices of a state machine.
+func (c *refCollector) connectorEnd(scope *symbols.Scope, target ast.Node, asEndpoint bool) {
+	if !asEndpoint {
+		c.target(scope, target)
+		return
+	}
+	switch t := target.(type) {
+	case *ast.QualifiedName:
+		c.addEndpoint(scope, t)
+	case *ast.FeatureReference:
+		// The root of a parsed chain is wrapped as a feature reference.
+		if t != nil {
+			c.addEndpoint(scope, t.Name)
+		}
+	case *ast.FeatureChainExpr:
+		// `c.c1` names c as an endpoint too, then c1 as its member.
+		c.connectorEnd(scope, t.Operand, true)
+		if t.Member != nil {
+			c.push(Reference{Scope: scope, QN: t.Member, Chain: t, Endpoint: true})
+		}
+	default:
+		c.target(scope, target)
+	}
+}
+
 // target collects a node that names something, whether it was parsed as a
 // qualified name or wrapped in an expression.
 func (c *refCollector) target(scope *symbols.Scope, target ast.Node) {
@@ -604,13 +666,17 @@ func (c *refCollector) prefixes(scope *symbols.Scope, decl ast.Node, prefixes []
 }
 
 // crossFeature collects the references the cross feature an end declares ahead
-// of itself writes, as that feature's; they resolve where the end's do.
-func (c *refCollector) crossFeature(scope, header *symbols.Scope, u *ast.Usage) {
+// of itself writes, as that feature's; they resolve where the end's members do.
+func (c *refCollector) crossFeature(scope, end *symbols.Scope, u *ast.Usage) {
 	prev := c.member
 	c.member = u.CrossFeature
 	defer func() { c.member = prev }()
-	c.headerRelationships(scope, header, u.CrossFeature, u.CrossFeature.Relationships)
-	c.multiplicity(scope, u.CrossFeature.Multiplicity)
+	owner := scope
+	if end != nil {
+		owner = end
+	}
+	c.headerRelationships(owner, c.childScope(owner, u.CrossFeature), u.CrossFeature, u.CrossFeature.Relationships)
+	c.multiplicity(owner, u.CrossFeature.Multiplicity)
 }
 
 // metadataPrefix collects an annotation's metaclass name and the elements it is
@@ -695,7 +761,7 @@ func (c *refCollector) expr(scope *symbols.Scope, e ast.Node) {
 		// The same scope the resolver uses, so a reference to a parameter or a
 		// body declaration and its declaration denote one symbol.
 		inner := symbols.BodyExprScope(scope, v)
-		c.walkMembers(inner, v.Members)
+		c.withinBody(func() { c.walkMembers(inner, v.Members) })
 		c.expr(inner, v.Result)
 	case *ast.SequenceExpr:
 		for _, el := range v.Elements {

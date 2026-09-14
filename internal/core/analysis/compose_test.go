@@ -129,6 +129,30 @@ func TestComposeSatisfiableWitnessStandsOverUnsat(t *testing.T) {
 	}
 }
 
+// To a Sensitive question, an engine's replayed sensitivity stands over another's claim that
+// the feature is not sensitive (holds), the contrast kept; to a Holds question the same
+// witnessed sensitivity refutes nothing, and the stronger holds stands as before.
+func TestComposeSensitivityWitnessStandsOverNotSensitive(t *testing.T) {
+	q := Question{Kind: Sensitive, Subject: "test::race", Free: FreeSchedule}
+	witness := &Witness{Schedule: runtime.ReplayPolicy(nil)}
+	contrast := &Witness{Schedule: runtime.ReplayPolicy(nil)}
+	sensitive := Result{Question: q, Engine: CheckEngineName, Claim: ClaimSensitive, Strength: Witnessed, Witness: witness, Contrast: contrast}
+	notSensitive := Result{Question: q, Engine: "smt", Claim: ClaimHolds, Strength: Proved}
+	composed, disagreements := Compose([]Result{notSensitive, sensitive})
+	if composed.Engine != CheckEngineName || composed.Claim != ClaimSensitive || composed.Contrast != contrast {
+		t.Fatalf("composed %+v, want the witnessed sensitivity with its contrast", composed)
+	}
+	if len(disagreements) != 1 || disagreements[0].Demoted != "smt" || disagreements[0].Stands != CheckEngineName {
+		t.Fatalf("disagreements %+v, want the proof demoted in the witness's favor", disagreements)
+	}
+	holds := Question{Kind: Holds, Subject: "test::race", Free: FreeSchedule}
+	sensitive.Question, notSensitive.Question = holds, holds
+	composed, disagreements = Compose([]Result{notSensitive, sensitive})
+	if composed.Engine != "smt" || composed.Claim != ClaimHolds || len(disagreements) != 0 {
+		t.Fatalf("composed %+v (%d disagreements), want the proof standing over a sensitivity to a Holds question", composed, len(disagreements))
+	}
+}
+
 func TestComposeDifferingValuesAreASensitivity(t *testing.T) {
 	q := Question{Kind: Evaluate, Subject: "test::Double", Schedule: runtime.DefaultSchedulePolicy}
 	one := Result{Question: q, Engine: "a", Claim: ClaimValue, Strength: Observed, Values: []Evaluation{{Name: "x", Value: intOf(1)}}}

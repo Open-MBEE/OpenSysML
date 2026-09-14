@@ -7,7 +7,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
-## 0.8.0 — 2026-09-13
+## 0.8.0 — 2026-09-14
 
 ### Added
 
@@ -187,11 +187,8 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   `moves`, `depth`, `boundsHit`, `violations[]`, `divergent[]`, `outcomes[]` and the witness
   paths) on the engine's `results[]` entry. The engine is listed by `-engines` and `%engines`
   at authority *bounded*, `auto` never picks it over `explore`, and it refuses with a typed
-  reason what it does not search: a state machine, a body paused mid-statement (an `accept` or
-  a timed wait inside a block), a state and an action due together, and a `-check-*` flag
-  without `-engine check` or the engine without an action. State machines, `do` interleaving
-  and checking across objects are later stages'; the search itself is single-threaded, `-jobs`
-  dividing only the replay of its witnesses.
+  reason a `-check-*` flag without `-engine check` or the engine without a behavior; the
+  search itself is single-threaded, `-jobs` dividing only the replay of its witnesses.
 
 - **Function values compile natively.** `sysml -compile` (C and Go) now accepts a calc that
   takes an `in calc` parameter, a calc def, a calc usage with an unsupplied input or a compiled
@@ -608,6 +605,113 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   `%schedule` and a conformance case's `schedule` pin; over the wire, where a request carries no
   file of the caller's, the spelling is `INVALID_ARGUMENT`.
 
+- **`-engine check` searches every schedule of a state machine, and of actions and machines
+  on one clock.** The `check` engine takes an *invocation* — every `-action` and `-state`
+  named (`%action`, `%state`, `RunFor` in the REPL), started on one context and run to the
+  `-advance` horizon, together with the machines of the objects they materialize — and searches
+  it as one run, one move at a time: a token advancing one node, an event dispatched, a `do`
+  behavior stepped. Beside the action choices it explored before, the search draws every
+  transition enabled for one event, every order of the regions reacting to it, every branch of
+  a choice pseudostate, every order of the events the library leaves unordered at one instant
+  (two timers firing together, a timer beside a signal of the same timestamp; completion
+  events still go first and signals arrive in the order sent) and every order of the executors
+  due at one instant — an action's `accept after` and a machine's timer falling due together
+  being the case a run under one policy silently decides. A machine resting where nothing will
+  wake it is a complete schedule, not a deadlock; an action left incomplete is one as before; a
+  wait past the horizon is left unreached and the verdict reads `exhaustive up to t=<horizon>`.
+  `finalState` is an observable beside the attributes — `-check-diverge finalState`, and
+  `<behavior>.<feature>` or `<behavior> finalState` when several behaviors are checked
+  together — so a machine that rests in different states on different schedules is *divergent*
+  with a witness per state, and every witness of a joint run replays through `-schedule
+  replay:` and `%replay` onto `%action`, `%state` and `%advance` on one object. Moves of
+  independent footprints — a dispatch's being the guards, triggers, effects and state
+  activities of the transitions the event can select — are searched in one order only, as an
+  action's already were. Without `-advance` each behavior named is its own search; under
+  `-engine smt` a `-state` or `-advance` is refused, as the solver does not encode a machine.
+- **A body paused mid-statement is state a snapshot captures.** A token suspended at a
+  breakpoint or on the clock inside a block or loop, a performed action waiting on its callee,
+  and a state's `do` behavior waiting at an `accept` or a timed wait are held as explicit
+  continuations — the statement cursor, the block, loop and flow-node frames, the nested
+  performance and the wait — in place of a suspended coroutine, so `Snapshot` and `Restore`
+  round-trip them and the checker searches the cases that pause a body like any other. A
+  portable image (`HeldImage`, what a sweep of a held object copies) still refuses one with
+  `ErrSnapshotPausedBody`, since its continuation points into the model's lowered statements.
+  Every existing run, trace and choice point is unchanged.
+
+- **The VS Code diagram panel is an editable canvas, and a dragged node's position is written
+  into the model.** The panel draws its own SVG from the server's rendering: a node the model
+  places with a `DiagramLayout::Layout` annotation is drawn exactly there, at the size it
+  states, every other node takes a deterministic slot in a grid under its owner, and an edge
+  follows its `DiagramLayout::Route` waypoints. Dragging a node writes `metadata Layout about
+  … { x = …; y = …; }` — into the view's body when a view is drawn, into the element's own
+  when the document is — as one source-preserving edit of the file when the pointer is
+  released, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> puts it back; an annotation already stated is
+  updated in place, and the children the model places move with their owner. Dragging the
+  handle on an edge bends it through a `Route` waypoint, dragging a waypoint moves it, and
+  double-clicking one removes it. The palette, node menu, click-to-source and cursor
+  highlight work on the canvas as before; a sequence diagram is drawn as lifelines and a
+  table as Markdown, neither dragged. `SysML: Export Diagram` saves the Mermaid (or a table's
+  Markdown) the server writes, positions included, to a file. Behind it, `opensysml/applyModelEdit`
+  gains the `setLayout`, `setRoute` and `setCanvas` operations, which set, update or clear the
+  three `DiagramLayout` annotations and refuse a target outside the document, a view that is
+  none (`not-a-view`), a view-local placement of an element the view does not expose
+  (`not-exposed`), an element no rendering draws (`not-drawn`) and a clearing with nothing to
+  clear (`not-annotated`); a model without annotations keeps exactly its bytes. A node or edge
+  no qualified name reaches — an unnamed transition, a connection in an unnamed part — is
+  reported with the range of its `declaration` in place of an `fqn`, which `setLayout` and
+  `setRoute` take as the target of an inline annotation. Not built:
+  moving a node into another owner, placing an element in another document's view, and the
+  `geometry` view kind.
+
+- **A declaration can be moved into another namespace of its document.** `internal/core/edit`
+  gains `OpMove{Target, NewOwner}`: the declaration — its body, the comment block above it, a
+  line comment after it and its own lines, the span a delete removes — is taken out of its owner
+  and written at the end of the new owner's body where an added member would go, re-indented to
+  its neighbors, with a body added to an owner declared without one and the empty owner meaning
+  the document itself. Every reference the move would break is respelled to the shortest
+  qualified name that still reaches the declaration, references inside the moved declaration
+  included; an import the move leaves redundant or dangling is dropped or respelled. The move is
+  one operation, so a refusal leaves neither half applied, and a batch it is part of is applied
+  all-or-nothing as before. Refused, with the stable names `owner-inside-target`,
+  `illegal-kind`, `member-name-taken`, `move-referenced` and `referenced-elsewhere`: moving a
+  declaration into itself or into what it declares, into a body that does not admit its kind,
+  beside a declaration of the same name, a reference no qualified name can respell, and a target
+  another document of the workspace refers to. The service's `ApplyEdits` takes it as `MoveEdit`
+  (`target`, `owner`), under the `authoring` capability like `add_member` and `delete`; the
+  Python client as `Editor.move(target, owner)` and the Go client as `edit.Move`. The language
+  server's `opensysml/applyModelEdit` takes it as the `move` operation (`target`, `owner`), and
+  `opensysml/render` now gives each declared node the `notation` it was written with and lists,
+  under that notation in the palette's `owners`, the nodes that admit it, so a client can offer
+  the right destinations.
+- **The VS Code diagram panel moves declarations.** A node's right-click menu gains **Move to…**,
+  which lists the drawn declarations whose body may hold the node's kind — not the node itself,
+  its present owner or anything it declares — and the document's top level, and moves the
+  declaration into the one picked. The edit lands in the editor's buffer like typed text, so
+  <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it and the diagram redraws from the file.
+
+- **The `smt` engine decides whether the schedule decides a feature, under the one flag both
+  checkers read.** `-check-diverge <feature>` (repeatable) and `%check-diverge` now make the
+  checked action's question one of *sensitivity* for whichever engine answers: `check` searches
+  the schedules for two that end the feature differently as before, `smt` asks a solver for the
+  two at once — two copies of the action's unrolled relation sharing the initial state and the
+  free inputs, both completing within the depth, the feature's final values differing — and
+  `-engine all` puts the one question to both and composes their answers. A *sensitive* verdict
+  names the two final values, the first step at which the two schedules part and the move each
+  took there, and comes with both schedules as witnesses (`witness A:`/`witness B:`, `-json`'s
+  `witness` and `contrast`), each replayed through the interpreter before it is claimed and each
+  written by `-check-witness` as a `-A`/`-B` file that `-schedule replay:` and `%replay` follow.
+  A feature every schedule ends alike is *holds*, *proved* when no schedule was cut by the
+  depth, unroll or slot bounds and `no sensitivity found within k moves` (*bounded*) otherwise,
+  with the live schedule or the cut loop as the reason; a deadlock or typed error every schedule
+  reaches is reported as that violation instead. The refusal of `-check-diverge` under `-engine
+  smt` alone is gone; `-check-states` under `smt` alone stays refused. Two expectations of the
+  `check` engine moved with the shared question: a clean exhaustive search under
+  `-check-diverge` now stands as `holds (bounded over schedules …)`, the same claim `smt` spells
+  for its bounded negative, where it stood as `outcomes (bounded …)`; the `✓ … no violation,
+  exhaustive` line is unchanged. A feature of the performing object and an action with the
+  clock or a paused nested flow are refused by `smt` naming the construct until later stages
+  encode them.
+
 ### Changed
 
 - **Every analysis question now goes through one framework.** `internal/core/analysis` holds
@@ -733,8 +837,9 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   action and state executors' `Snapshot`, mark the run's journal between steps and capture the
   executors' tokens, frame tree, configuration, event queue, timers and `do` progress;
   `Restore` rolls the run back to the mark as often as asked, keeping every object's identity,
-  until `Release`. A snapshot asked for inside a step or of a body paused mid-statement is the
-  typed `ErrSnapshotMidRun` or `ErrSnapshotPausedBody`. The conformance suite proves the round
+  until `Release`. A snapshot asked for inside a step is the typed `ErrSnapshotMidRun`; a body
+  paused mid-statement is captured where it paused, and only a portable image (`HeldImage`)
+  refuses it (`ErrSnapshotPausedBody`). The conformance suite proves the round
   trip on every case at every step, and `OPENSYSML_SCHEDULE_SEEDS` widens its scheduling sweep
   to further seeds. No flag, command, RPC, field or line of output changed.
 
@@ -799,6 +904,55 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   listed and annotated as the state's own feature (SysML v2 §7.19.2).
 
 - **An untyped parameter of a collection-operation body is typed by the collection's elements.** A body applied by `collect`, `select`, `reject`, `selectOne`, `forAll`, `exists`, `reduce`, `minimize` or `maximize` — in the `xs.{…}`, `xs.?{…}`, `xs->f {…}`, `f(xs, {…})` and `f(mapper = {…}, collection = xs)` notations alike — binds its parameter to each element of the collection (KerML 1.1 §8.3.4.8), so a parameter declaring no type now takes the element type(s) the collection is statically known to hold, as do a reducer's second parameter and the parameter of a body nested in another's. A reducer's first parameter holds the reducer's own result from the second fold on, so it takes the element type(s) only where that result, typed under the assumption, conforms to them (`cs->reduce {in a; in b; a}`); `cs->reduce {in a; in b; a.mass}` leaves `a` untyped as before, its `a.mass` refused rather than passed to fail at run time. `xs->collect {in x; x.mass}` and `xs.{in x; x.mass}` are typed `MassValue` as their `in x : C` forms are, `x.mass` is checked against `C`, and `x.nosuch` is reported as an unresolved member where it was passed over before. A body over a collection whose elements cannot be typed keeps its parameter untyped and its result the library's `Anything`. Runtime results are unchanged.
+
+- **A rename or delete from the diagram panel follows references into the other documents of
+  the workspace.** `opensysml/applyModelEdit` answers a `WorkspaceEdit` with one versioned
+  `TextDocumentEdit` per document it rewrites, the requested document first: a rename respells
+  every reference that writes the name wherever the workspace declares it, the way the editor's
+  rename does; a cascade delete removes the referring declarations in whichever documents make
+  them, recursively; a delete without cascade is refused as `delete-referenced` naming the
+  referrers, each with its document, in `referring` and the new `referrers`. Every document is
+  snapshotted, rewritten and re-analyzed together under one lock, so a new error in any of them
+  refuses the whole request. The `referenced-elsewhere` refusal now applies only to a reference
+  the edit cannot follow: one from a bundled library file, or from a document the index holds
+  without the workspace holding its source. The VS Code extension applies the edit as one
+  `WorkspaceEdit`, so one <kbd>Ctrl</kbd>+<kbd>Z</kbd> reverts every file, lists the referrers
+  of a refused delete by file, opens a file the server read from disk before editing it so the
+  edit lands on a versioned buffer, and leaves an edit unapplied when another document it names
+  was typed into while it was computed. An edit within one document is unchanged.
+
+- **A copy of a library file rooted at the library's packages converts as the library.** The
+  encoder read only the byte-identical bundled file as the standard library, so the notation
+  rebuilt from a source-free graph — not the bundled bytes — came back as a user file: its
+  normative ids were written as `@IdentityMetadata::ElementId` annotations, and its second
+  Turtle gained `sysx:declaredId`, `sysx:hasBody` and derived `_om` owning-membership IRIs;
+  a `standard library package` sitting beside the bundled one also resolved a few inherited
+  names (`portionOf` in a respaced `Occurrences.kerml`) against the bundled package. A
+  document whose roots are the top-level packages of one bundled library file — same
+  qualified names and normative ids, or the library's own package modifiers — is now
+  analyzed in that file's place on the encoder side as the decoder already did: its elements
+  carry normative element and owning-membership ids, no annotation and no `sysx:declaredId`,
+  and its names resolve to its own declarations. An annotation restating a normative id
+  declares nothing. `succession all a then b` no longer gains `first` when rebuilt. Every
+  bundled library file now converts `notation → Turtle → strip source text → notation →
+  Turtle` with the second Turtle equal to the first, source predicates aside, from the first
+  hop. A user `package Actions { … }` keeps its encoded ids, an element carrying a library
+  UUID under another name keeps it as declared, and a workspace copy of a library file in
+  the editor is still the user's file.
+
+- **The SMT model-checking note reads timed accepts without a horizon, and the encoding numbers
+  flows by frame.** `docs/internals/design/smt-model-checking.md` now says, in one place, how
+  `now` is to advance under `-engine smt`: only when no token is enabled, to the earliest due
+  time, with `k` moves alone bounding the run and `-advance` refused as `check` refuses it — the
+  library's `Clocks` and `Occurrences` fix when a timed accept becomes enabled and name no
+  horizon, so none is added; the coverage row that said timed accepts needed `-advance` is
+  corrected. In `internal/core/smt`, `Flow` numbers the root graph and every flow a node states
+  of its own as frames, each with its own node range, labels and slot count, and records the
+  `send` and `accept` sites it meets; `State` declares parked, due, clock and bus variables only
+  for a flow that has accepts, timed accepts or sends, and lists its variables as a named vector.
+  No transition reads them yet: `send`, `accept`, `accept after`/`accept at` and a node stating
+  a flow of its own are refused before any query exactly as before, and no `-engine smt` output
+  changes.
 
 ### Removed
 
@@ -1282,6 +1436,79 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   exits `0` while `%features` lists the attribute `<unset>` as before. A bound quantity still
   derives its `dimensions`, and a default that genuinely fails beside or beneath an unset
   quantity is still reported.
+
+- **The `first` end of an action body's `first a then b;` is a reference to the succession's
+  source, not a name the node declares.** The symbol table no longer registers a label under `a`
+  for the two-ended form in an action body, so `a` resolves like any other succession end: a
+  source nothing declares is reported as `unresolved reference` where it is written instead of
+  being taken for a member the node declares, and `a` is collected as a reference for
+  find-references and rename. A one-ended `first a;` still marks the start of the flow under `a`'s
+  name, and a state machine's `first start then off;` still declares its `start` for transitions
+  to name. The AST keeps the name after `first` as a qualified name (`InitialNode.First`), so the
+  RDF mapping, the REPL and the language server read the source through the one binding; no
+  notation, output or graph changed.
+
+- **A two-ended `first a then b;` in an action body is the succession a → b, not a second start.**
+  Lowering used to collect every `first` member as the action's initial node, so a body writing
+  `first start;` beside one or more `first a then b;` successions — as OMG's
+  `3a-Function-based Behavior-2` and the Annex A vehicle models do — validated clean and then
+  failed at `%action` with `action has multiple initial nodes`. A two-ended `first`, with or
+  without a body, now lowers to the same edge `succession first a then b;` does, any number of
+  times and beside `first start;`, `then` chains, forks, joins, decisions and merges; only the
+  one-ended `first start;` and `first a;` mark where the flow starts, two of them are still
+  rejected, and a body writing neither still starts at its one node no succession leads to. The
+  validation pass checks both ends of a two-ended `first`, and the RDF mapping is unchanged.
+
+- **Every bundled library file converts back from its graph without source text.** Reading a
+  `.ttl` stripped of `sysx:sourceText` refused seven library files. A cross feature an `end`
+  declares in its head (`end happensWhile subsets timeCoincidentOccurrences feature …`) was
+  refused whenever its id had to be written, since the head holds no annotation: the reader
+  now writes the id as `metadata : IdentityMetadata::ElementId about <end> { … }` in the end's
+  body, and a normative library id, which the rebuilt notation implies on its own, is not
+  written at all; a graph that gives the cross feature a body or members of its own is still
+  reported. A declaration inside an expression body (`{ in x; attribute k = 2; x * k }`) was
+  carried only as its notation and refused without it: it is now a `sysx:bodyMember` node of
+  its own, typed by its metaclass and carrying what a namespace member carries, nested bodies
+  included, and is written back from that structure. An invocation of a named function
+  (`f(a, b)`, `x->f()`, `new T()`) was refused: it is now spelled from its `sysml:function`
+  link by the same rule as every other reference, so a function the graph does not define, or
+  that no spelling reaches, is still refused rather than misspelled. The inherited target of a
+  cross feature's `subsets` is resolved in the end that owns it, so the spelling written back
+  is the one the library wrote.
+
+- **The Rust client's private-service startup error carries the exit status.** When the service closed its stdout without serving an address, the client read the exit status before the process had been reaped and reported `code None`; it now waits briefly for the exit and reports the real code, so a binary that exits immediately is described as `code Some(0)` rather than as still running.
+
+- **`%send` reaches an object whose performed action is waiting at an `accept`.** The REPL used to
+  refuse a signal to any object that exhibited no state machine (`runs no state machine, so
+  nothing there accepts a signal`), so the only way to wake a lone object's performed action was a
+  sibling's machine sending to it. `%send <signal> to <object>` now asks every behavior the object
+  runs — the machines it exhibits and the actions it performs, an accept nested in a performed
+  action included — and posts the signal on the runtime's message bus when one of them is parked
+  for it, reporting the accept that takes it (`Accepted by performed action "main" waiting at
+  accept g`); the action goes on from its accept at the next `%advance`. An object none of whose
+  behaviors accepts the signal is refused with each behavior's standing, and one running no
+  behavior at all with a hint to start one. With an `%action <name> <object>` session open, a bare
+  `%send <signal>` goes to that object, as it goes to the `%state` session's; an `%action` session
+  performing on behalf of no object still has none to send to, and says so.
+
+- **A state body's two-ended `first a then b;` is the succession `succession first a then b;`
+  spells with its keyword: a completion transition from `a` to `b`.** It was read as an initial
+  node and lowered as an entry transition into `b`, so a machine with no `entry` marker silently
+  started in `b`, and one written `entry; then a; first a then b; first b then c;` never left `a`.
+  The keyword-less spelling now parses as the same `SuccessionAsUsage`, resolves nested, qualified,
+  region-local and pseudostate ends as a `succession` does, and designates no initial state; a
+  machine whose only edges are such successions is reported as having no initial state, as any
+  exhibited machine without one is. `first start then off;`, leaving the `start` every state
+  inherits, still designates where the machine starts. A one-ended `first a;` in a state body
+  orders nothing and is reported (`first-names-no-target`) rather than ignored. Validation and the
+  RDF mapping follow: the two-ended form is checked and exported as a succession, with no
+  `sysx:InitialNode` written for it.
+- **A succession end written as a feature chain (`succession first b then c.c1;`, `first b then
+  c.c1;`) names the same nested vertex as `c::c1`.** The chained end was dropped, so the edge into
+  `c1` was never lowered; it is now resolved through the endpoint lookup as the qualified spelling
+  is, at either end of the edge, its first segment reaching a vertex nested anywhere in the machine
+  as a qualified end's does, and a chain whose member or operand is not a state or pseudostate is
+  reported.
 
 ### Performance
 

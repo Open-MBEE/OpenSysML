@@ -8,9 +8,9 @@ outside an edited span come back unchanged, and it re-parses what it edited
 before returning it.
 
 Operations include setting a feature's value, renaming a declaration, adding a
-member, and deleting a declaration. Renaming rewrites the declaration's name
-token only and is refused for an element that is referenced — see
-:class:`~opensysml.errors.RenameReferencedError`.
+member, deleting a declaration, and moving one into another namespace.
+Renaming rewrites the declaration's name token only and is refused for an
+element that is referenced — see :class:`~opensysml.errors.RenameReferencedError`.
 """
 
 from dataclasses import dataclass, field
@@ -31,6 +31,8 @@ from opensysml.errors import (
     IllegalMemberKindError,
     MemberNameTakenError,
     DeleteReferencedError,
+    OwnerInsideTargetError,
+    MoveReferencedError,
 )
 
 #: Refusal kinds, as the wire enum names them, and the error each raises. A kind
@@ -52,6 +54,8 @@ _FAILURE_ERRORS = {
     "EDIT_FAILURE_ILLEGAL_KIND": IllegalMemberKindError,
     "EDIT_FAILURE_MEMBER_NAME_TAKEN": MemberNameTakenError,
     "EDIT_FAILURE_DELETE_REFERENCED": DeleteReferencedError,
+    "EDIT_FAILURE_OWNER_INSIDE_TARGET": OwnerInsideTargetError,
+    "EDIT_FAILURE_MOVE_REFERENCED": MoveReferencedError,
 }
 
 
@@ -270,6 +274,26 @@ class Editor:
         if not isinstance(cascade, bool):
             raise TypeError("cascade must be bool")
         self._add(("delete", _target_id(target), cascade))
+        return self
+
+    def move(self, target, owner):
+        """Move a declaration into another namespace of the same document.
+
+        The declaration is carried with its body and owned comments to where
+        :meth:`add_member` would insert it, and references to it are respelled
+        so they still reach it. A move that would leave a reference no spelling
+        restores is refused with :class:`~opensysml.errors.MoveReferencedError`.
+
+        Args:
+            target (str or Symbol): Declaration to move, by FQN/id or symbol
+            owner (str or Symbol): Namespace to receive it; ``""`` is the
+                document root
+
+        Returns:
+            Editor: self, so operations can be chained
+        """
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("move", _target_id(target), owner))
         return self
 
     def apply(self):

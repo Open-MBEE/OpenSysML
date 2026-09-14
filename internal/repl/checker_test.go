@@ -113,7 +113,7 @@ func TestEngineCheckSearchesTheActionsSchedules(t *testing.T) {
 	run(t, s, "%check-diverge this.capacity")
 	wantVerdict(t, s.RunAction("Plant::Tank::fill", "Plant::tank"), VerdictHolds,
 		"Action Plant::Tank::fill: no violation, exhaustive (11 states, 10 moves, depth 6)",
-		"standing: outcomes (bounded over schedules: 11 states, 10 moves searched)")
+		"standing: holds (bounded over schedules: 11 states, 10 moves searched)")
 }
 
 // A property the check evaluates at every state is judged about the performer:
@@ -214,7 +214,7 @@ func TestReplayStepsTheRunAWitnessRecords(t *testing.T) {
 
 	run(t, s, "%engine check")
 	wants(t, run(t, s, "%replay "+witness), "schedule: replay:"+witness,
-		"Under %engine check, %action searches every schedule; select %engine auto to step the one the witness records")
+		"Under %engine check, %action and %state search every schedule; select %engine auto to step the one the witness records")
 	run(t, s, "%engine auto")
 	out = run(t, s, "%replay "+witness)
 	wants(t, out, "schedule: replay:"+witness,

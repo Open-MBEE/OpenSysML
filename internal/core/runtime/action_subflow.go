@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -45,17 +47,64 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	return nil
 }
 
+// subflowFrame is a flow a body statement runs (runSubflow) where the body paused:
+// the tokens of the flow stay on their executor, their own paused work with them.
+type subflowFrame struct {
+	exec     *ActionExecutor
+	perf     *actionFrame
+	name     string
+	progress dueProgress
+}
+
+// abandon ends the paused work of the flow's tokens; the flow itself ends with the body.
+func (f *subflowFrame) abandon(ctx *Context) {
+	for i := range f.exec.tokens {
+		if token := &f.exec.tokens[i]; token.body != nil && token.inFlowOf(f.perf) {
+			token.body.end(ctx)
+			token.body = nil
+		}
+	}
+}
+
+func (f *subflowFrame) clone() bodyFrame {
+	c := *f
+	c.progress.dropped = slices.Clone(f.progress.dropped)
+	c.progress.settled = maps.Clone(f.progress.settled)
+	return &c
+}
+
 // runSubflow performs the flow perf owns to completion where a body statement,
 // not a token of the enclosing flow, performs its node: the tokens of that flow
 // alone are stepped until its last one retires, pausing where a breakpoint is
 // met as RunToCompletion does. Nothing outside can post a message meanwhile, so
 // a token parked at an accept for one is a deadlock, as under RunToCompletion;
-// one parked on the clock pauses the body's run until the clock is advanced to its
-// instant; a run not pausable (a case body's) advances the clock itself, as RunToCompletion does.
+// one parked on the clock pauses the body until the clock is advanced to its
+// instant; a run with no body to pause (a case body's) advances the clock itself.
 func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
+	f, resumed, err := popFrame[*subflowFrame](e.ctx)
+	if err != nil {
+		return err
+	}
+	if !resumed {
+		if f, err = e.enterBodyFlow(perf); err != nil {
+			return err
+		}
+	}
+	if err := e.driveSubflow(f); err != nil {
+		return e.ctx.pausing(f, err)
+	}
+	if tr := e.trace(); tr != nil {
+		tr.RecordActionNodeExit(f.name)
+	}
+	return nil
+}
+
+// enterBodyFlow starts the flow perf owns for a body statement performing its
+// node, with one token at its initial node.
+func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error) {
 	node := perf.node
 	if perf.graph == nil || perf.graph.Initial == nil {
-		return fmt.Errorf("%w: %s owns a flow that cannot be built",
+		return nil, fmt.Errorf("%w: %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, perf.describe())
 	}
 	perf.inBody = true
@@ -69,10 +118,16 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeEnter(name)
 	}
-	var progress dueProgress
+	return &subflowFrame{exec: e, perf: perf, name: name}, nil
+}
+
+// driveSubflow steps the flow's tokens until its last one retires, pausing the
+// body where a breakpoint is met or the flow waits.
+func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
+	perf := f.perf
 	for perf.live > 0 {
 		if name := e.breakpointHit(); name != "" {
-			if err := e.ctx.pauseRun(bodyPause{breakpoint: name}); err != nil {
+			if err := e.ctx.pauseBody(bodyPause{breakpoint: name}); err != nil {
 				return err
 			}
 		}
@@ -83,20 +138,24 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 		if err != nil {
 			return err
 		}
+		// A step of a token's own work stopped at a breakpoint stops the body too.
+		if e.state == StateSuspended {
+			e.state = StateRunning
+			if err := e.ctx.pauseBody(bodyPause{breakpoint: e.pausedAt}); err != nil {
+				return err
+			}
+		}
 		if moved {
 			continue
 		}
 		if e.waitsOnClock(perf) && !e.hasDueTimeWait(perf) && !e.hasDueHeldRun(perf) {
-			waits := func() bool { return e.waitsOnClock(perf) && !e.canProceed(perf) }
-			if paused, err := e.ctx.pauseForClock(nil, waits); err != nil {
+			if err := e.ctx.pauseForClock(bodyWait{exec: e, perf: perf}); err != nil {
 				return err
-			} else if paused {
-				continue
 			}
 			if err := e.ctx.driveClock(e.describeWaits(perf)); err != nil {
 				return err
 			}
-			moved, err := e.awaitClock(perf, &progress)
+			moved, err := e.awaitClock(perf, &f.progress)
 			if err != nil {
 				return err
 			}
@@ -104,11 +163,8 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 				continue
 			}
 		} else if len(e.waitingTokens(perf)) > 0 && !e.canProceed(perf) {
-			awaitsMessage := func() bool { return len(e.waitingTokens(perf)) > 0 && !e.canProceed(perf) }
-			if paused, err := e.ctx.pauseForMessage(nil, awaitsMessage); err != nil {
+			if err := e.ctx.pauseForMessage(bodyWait{exec: e, perf: perf}); err != nil {
 				return err
-			} else if paused {
-				continue
 			}
 		}
 		if len(e.waitingTokens(perf)) > 0 {
@@ -116,9 +172,6 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 		}
 		return fmt.Errorf("%w: %d token(s) stuck in %s, no progress made",
 			ErrActionDeadlock, len(e.tokensIn(perf)), perf.describe())
-	}
-	if tr := e.trace(); tr != nil {
-		tr.RecordActionNodeExit(name)
 	}
 	return nil
 }

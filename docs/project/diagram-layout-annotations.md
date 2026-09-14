@@ -1,10 +1,13 @@
 # Diagram layout annotations — design
 
-Status: **the read side is implemented** — the `DiagramLayout` library, the semantic
+Status: **implemented, read and write** — the `DiagramLayout` library, the semantic
 side table that resolves a position per view, the geometry the rendering tree carries,
-what the Mermaid, text and Graphviz DOT writers make of it, the LSP fields, and the
-validation pass. Open: the write-back of positions from a graphical editor, and the OMG
-proposal. It records the design agreed for carrying diagram geometry in textual notation and how that geometry
+what the Mermaid, text and Graphviz DOT writers make of it, the LSP fields, the
+validation pass, and the write-back: `internal/core/edit` sets, updates and clears the
+annotations source-preservingly, `opensysml/applyModelEdit` exposes that as `setLayout`,
+`setRoute` and `setCanvas`, and the VS Code diagram panel writes a `Layout` when a node
+is dragged and a `Route` when an edge is. Open: the OMG proposal. This note records the
+design agreed for carrying diagram geometry in textual notation and how that geometry
 reaches every rendering OpenSysML produces.
 
 ## The problem
@@ -236,8 +239,13 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
 
 - **Editors.** The LSP fields are what a graphical client (the VS Code diagram panel, a
   SysON-style editor) reads to place nodes where the model says. Writing positions back
-  is the `ApplyEdits` `AddMember` of `metadata Layout about …` into the view body —
-  planned, not built.
+  is `opensysml/applyModelEdit` with `setLayout`, `setRoute` and `setCanvas`
+  ([the LSP reference](../reference/lsp.md)): `metadata Layout about … { x = …; y = …;
+  }` into the view body when the operation names a view, inline into the element's own
+  body when it does not, updated in place when one is already stated and removed with
+  its line when cleared. The VS Code panel draws its own SVG from the geometry, lays out
+  what the model does not place, and writes one edit per drag, so the editor's undo
+  puts a node back. A model nobody has dragged in keeps exactly its bytes.
 - **RDF / Flexo.** Metadata already maps; `Layout`, `Route` and `Canvas` ride along as
   ordinary metadata usages with no change to the mapping.
 - **Other tools.** Any conforming implementation parses and preserves the annotations,
@@ -246,7 +254,6 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
 
 ## Open items
 
-- **Write-back** from a graphical editor's layout into the view body.
 - **Standardization.** A proposal to the SysML v2 taskforce is drafted in
   [omg-issues.md](omg-issues.md) and not filed.
 - **Containers.** A `Layout` on a composite node positions its box; where its children

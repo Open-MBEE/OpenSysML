@@ -62,7 +62,7 @@ func (e *TransitionSourceError) Error() string {
 
 // IsStateSource reports whether a vertex the shorthand found before it is one it may
 // leave: SysML v2 7.18.3 names the previous state usage, which a pseudostate, a
-// `first start then s;` succession and a `done;` marker are not.
+// one-ended `first s;` marker and a `done;` marker are not.
 func IsStateSource(source ast.Node) bool {
 	switch source.(type) {
 	case *ast.PseudostateNode, *ast.InitialNode, *ast.FinalNode:

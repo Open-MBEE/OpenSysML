@@ -266,11 +266,15 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 		info.Declared = first.Declared
 		info.DeclaredID = first.ID
 		for _, d := range info.Declarations {
-			if d.Declared && d.ID != "" {
+			if !d.Declared || d.ID == "" {
+				continue
+			}
+			// An annotation restating the norm's id declares nothing the norm does not.
+			if d.ID != info.EffectiveID || !info.Normative() {
 				info.EffectiveID = d.ID
 				info.Source, info.Language = SourceDeclared, 0
-				break
 			}
+			break
 		}
 	}
 	info.Scope = b.scopeOf(sym)

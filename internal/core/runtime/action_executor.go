@@ -72,6 +72,9 @@ type ActionExecutor struct {
 	stepsSpent int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
+	// held marks a run paused on this action's waits by the body performing it,
+	// which resumes the run; the clock leaves a held action to its holder.
+	held bool
 	// moved is set once a token acted — a failed step included — or the body wrote a
 	// feature, and cleared when the start that attached the execution to its object settles.
 	moved bool
@@ -406,6 +409,17 @@ func (e *ActionExecutor) waitsOnClockAlone() bool {
 	return len(e.tokens) > 0
 }
 
+// allTokensParked reports whether every token is parked at an accept or paused
+// for work of its own that waits, so a step at this instant moves none.
+func (e *ActionExecutor) allTokensParked() bool {
+	for _, token := range e.tokens {
+		if token.Wait == nil && (token.body == nil || !token.body.paused.onWait) {
+			return false
+		}
+	}
+	return len(e.tokens) > 0
+}
+
 // anyTokenWaiting reports whether some token is parked at an accept, or paused
 // for work of its own that waits on the clock.
 func (e *ActionExecutor) anyTokenWaiting() bool {
@@ -484,8 +498,10 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
 	}
 
-	e.steps = 0
-	e.inRun = true
+	if !e.held {
+		e.steps = 0
+	}
+	e.held, e.inRun = false, true
 	defer func() { e.inRun = false }()
 
 	e.pausedAt = ""
@@ -496,30 +512,29 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 	// A run may start from StateWaiting: a caller that stepped an action into a
 	// suspension and then posted the awaited message resumes it here.
 	var progress dueProgress
-	waits := func() bool { return e.state == StateWaiting && e.waitsOnClock(nil) && !e.canProceed(nil) }
-	awaitsMessage := func() bool { return e.state == StateWaiting && !e.canProceed(nil) }
+	wait := bodyWait{held: e}
 	for e.state == StateRunning || e.state == StateWaiting {
 		// Tokens parked on the clock alone: advancing it is what moves them; a run
-		// performing this action for a body pauses that body's run instead.
-		if waits() {
+		// performing this action for a body pauses that body instead.
+		if e.state == StateWaiting && e.waitsOnClock(nil) && !e.canProceed(nil) {
 			if atCurrentTime {
 				return nil
 			}
-			moved, err := e.moveClockForWaits(waits, &progress)
+			moved, err := e.moveClockForWaits(wait, &progress)
 			if err != nil {
+				e.held = paused(err)
 				return err
 			}
 			if moved {
 				continue
 			}
 			break
-		} else if !atCurrentTime && awaitsMessage() {
+		} else if !atCurrentTime && e.state == StateWaiting && !e.canProceed(nil) {
 			// Tokens parked for a message: a do behavior pauses until one is in
 			// flight or its state is left; any other run deadlocks below.
-			if paused, err := e.ctx.pauseForMessage(e, awaitsMessage); err != nil {
+			if err := e.ctx.pauseForMessage(wait); err != nil {
+				e.held = paused(err)
 				return err
-			} else if paused {
-				continue
 			}
 		}
 
@@ -554,11 +569,11 @@ func (e *ActionExecutor) stepOnce(atCurrentTime bool) (bool, error) {
 	return e.state == StateWaiting && (atCurrentTime || !e.waitsOnClock(nil)), nil
 }
 
-// moveClockForWaits resumes tokens parked on the clock: a body's run pauses
-// instead, otherwise the clock advances to them; false when it cannot move.
-func (e *ActionExecutor) moveClockForWaits(waits func() bool, progress *dueProgress) (bool, error) {
-	if paused, err := e.ctx.pauseForClock(e, waits); err != nil || paused {
-		return paused, err
+// moveClockForWaits resumes tokens parked on the clock: a body performing the
+// action pauses instead, otherwise the clock advances to them; false when it cannot move.
+func (e *ActionExecutor) moveClockForWaits(wait bodyWait, progress *dueProgress) (bool, error) {
+	if err := e.ctx.pauseForClock(wait); err != nil {
+		return false, err
 	}
 	if err := e.ctx.driveClock(e.describeWaits(nil)); err != nil {
 		return false, err
@@ -673,7 +688,7 @@ func (e *ActionExecutor) HasPendingSignal() bool {
 // of perf's flow (of the whole action for nil) proceed, without consuming it.
 func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
 	pending := e.ctx.acceptable()
-	return e.parkedAcceptTakes(perf, func(matches func(Message) bool, failed *error) bool {
+	return e.parkedAcceptTakes(perf, func(_ Token, matches func(Message) bool, failed *error) bool {
 		for _, msg := range pending {
 			// A port that fails to resolve counts as pending: the step this
 			// provokes surfaces the failure.
@@ -685,30 +700,113 @@ func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
 	})
 }
 
-// acceptsMessage reports whether a token parked at a signal accept, or an action
-// performed for a paused token, would take m; a port failing to resolve is the error.
-func (e *ActionExecutor) acceptsMessage(m Message) (bool, error) {
-	var err error
-	if e.parkedAcceptTakes(nil, func(matches func(Message) bool, failed *error) bool {
-		accepted := matches(m)
-		err = *failed
-		return accepted || err != nil
-	}) {
-		return err == nil, err
-	}
-	for _, token := range e.tokens {
-		if held, ok := token.heldWaiter().(messageAcceptor); ok {
-			if accepted, err := held.acceptsMessage(m); err != nil || accepted {
-				return accepted, err
-			}
-		}
-	}
-	return false, nil
+// TakingAccept is the accept a message in flight would let a parked token go on
+// from, and the performance it is parked in.
+type TakingAccept struct {
+	Param  string // the parameter the accept binds, "" where it binds none
+	Node   string // the accept node's own name, "" for an anonymous one
+	Within string // the dotted path of the nested performance parked there, "" for the action's own flow
 }
 
-// parkedAcceptTakes calls takes with the predicate of each signal accept a token of
-// perf's flow (of the whole action for nil) is parked at, until one reports true.
-func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(matches func(Message) bool, failed *error) bool) bool {
+// String names the accept as a report reads it: `accept g`, `accept g of inner`.
+func (a TakingAccept) String() string {
+	name := "accept " + a.Param
+	switch {
+	case a.Param != "":
+	case a.Node != "":
+		name = "the accept of action " + a.Node
+	default:
+		name = "an unnamed accept"
+	}
+	if a.Within == "" {
+		return name
+	}
+	return name + " of " + a.Within
+}
+
+// within places the accept in the performance named, around the one it is already in.
+func (a TakingAccept) within(performance string) TakingAccept {
+	if a.Within == "" {
+		a.Within = performance
+	} else {
+		a.Within = performance + "." + a.Within
+	}
+	return a
+}
+
+// AcceptsMessage reports whether a token parked at a signal accept, or an action
+// performed for a paused token, would take m; a port failing to resolve is the error.
+func (e *ActionExecutor) AcceptsMessage(m Message) (accepted bool, err error) {
+	e.preview(func() { accepted, err = e.acceptsMessage(m) })
+	return accepted, err
+}
+
+// acceptsMessage is AcceptsMessage for the executors that reach this one.
+func (e *ActionExecutor) acceptsMessage(m Message) (bool, error) {
+	taking, err := e.acceptTaking(m)
+	return len(taking) > 0, err
+}
+
+// AcceptTaking lists the accepts parked for m, in the action's own flow and in the work
+// it performs, in the order their tokens are held; the step dispatching m lets one go on.
+func (e *ActionExecutor) AcceptTaking(m Message) (taking []TakingAccept, err error) {
+	e.preview(func() { taking, err = e.acceptTaking(m) })
+	return taking, err
+}
+
+// preview runs fn in the action's own run as a probe, undone whole: a port it
+// materializes to tell is not left behind.
+func (e *ActionExecutor) preview(fn func()) {
+	defer e.ctx.previewExecutorRun(&e.driven)()
+	defer e.ctx.beginProbe()()
+	fn()
+}
+
+// acceptTaking is AcceptTaking for the executors that reach this one.
+func (e *ActionExecutor) acceptTaking(m Message) ([]TakingAccept, error) {
+	var (
+		taking []TakingAccept
+		err    error
+	)
+	e.parkedAcceptTakes(nil, func(token Token, matches func(Message) bool, failed *error) bool {
+		if matches(m) {
+			taking = append(taking, TakingAccept{
+				Param:  token.Wait.ParamName,
+				Node:   ActionNodeName(token.Location),
+				Within: token.frame.path(),
+			})
+		}
+		err = *failed
+		return err != nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, token := range e.tokens {
+		held, ok := token.heldWaiter().(messageAcceptor)
+		if !ok {
+			continue
+		}
+		nested, err := held.acceptTaking(m)
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range nested {
+			taking = append(taking, a.within(held.performanceName()))
+		}
+	}
+	return taking, nil
+}
+
+// performanceName names the action the executor performs, which the accepts it
+// holds are placed in.
+func (e *ActionExecutor) performanceName() string {
+	return symbolText(e.action)
+}
+
+// parkedAcceptTakes calls takes with each token of perf's flow (of the whole action
+// for nil) parked at a signal accept, and its predicate, until one reports true.
+func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(token Token, matches func(Message) bool, failed *error) bool) bool {
 	for _, token := range e.tokens {
 		if token.Wait == nil || token.Wait.Timed || !token.inFlowOf(perf) {
 			continue
@@ -721,7 +819,8 @@ func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(matches
 		if !isAccept || accept.Trigger != nil {
 			continue
 		}
-		if takes(e.acceptMatch(token.frame, accept, usage)) {
+		matches, failed := e.acceptMatch(token.frame, accept, usage)
+		if takes(token, matches, failed) {
 			return true
 		}
 	}
@@ -827,7 +926,7 @@ func (e *ActionExecutor) PausedAt() string {
 func ActionNodeName(node ast.Node) string {
 	switch n := node.(type) {
 	case *ast.InitialNode:
-		return n.Name
+		return n.Name()
 	case *ast.FinalNode:
 		return "done"
 	case *ast.ForkNode:
@@ -1878,19 +1977,17 @@ func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 			return err
 		}
 	} else if node.ActionRef != nil {
-		_, outputs, err := invokeAction(
-			e.ctx, graph.Scope, actionInvocation{target: node.ActionRef}, lexicalValues(frame), e.self,
-		)
-		if err != nil {
-			return err
-		}
-		if err := e.setFrameFeatures(frame, outputs); err != nil {
-			return err
-		}
+		// The action invoked may wait on the clock, pausing the token's step.
+		return e.runBody(tokenIdx, &executionWork{exec: e, token: token.ID, frame: frame, node: node})
 	}
+	return e.leaveExecutionNode(tokenIdx, frame, node)
+}
 
+// leaveExecutionNode takes the token at tokenIdx on from node, whose result its
+// data flows carry, retiring it where the flow leads no further.
+func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, node *ast.ActionExecutionNode) error {
 	// Advance to a succession its guard, where it carries one, leaves enabled.
-	successors, err := e.enabledSuccessions(frame, token.Location)
+	successors, err := e.enabledSuccessions(frame, node)
 	if err != nil {
 		return err
 	}
@@ -1908,7 +2005,7 @@ func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 		return e.retireToken(tokenIdx)
 	}
 
-	token.travel(successors[0], e.sweep)
+	e.tokens[tokenIdx].travel(successors[0], e.sweep)
 	return nil
 }
 
@@ -1990,49 +2087,15 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		return err
 	}
 
-	// A nested case is a step of its own kind: the analysis it is runs to completion.
+	// A node owning no flow, performing no action, is done in this step: a case
+	// runs to completion, a body runs its statements, and the token goes on.
+	work := &usageWork{exec: e, token: token.ID, perf: perf, graph: graph, usage: usage}
 	if isCaseStep(usage) {
-		return e.runPausable(tokenIdx, func() error {
-			if err := e.performCase(perf); err != nil {
-				return err
-			}
-			return e.endPerformance(perf)
-		}, func(tokenIdx int) error {
-			return e.completeNode(tokenIdx, perf)
-		})
+		work.isCase = true
+	} else if inv, ok := nestedInvocation(usage); ok {
+		work.inv, work.performs = inv, true
 	}
-
-	// A usage that performs another action (perform X / action a : X / a = X(...))
-	// runs that action to completion before its own body, pausing the token
-	// while the action waits on the clock.
-	if inv, ok := nestedInvocation(usage); ok {
-		return e.runPausable(tokenIdx, func() error {
-			return e.performInvocation(perf, inv)
-		}, func(tokenIdx int) error {
-			return e.performNodeBody(tokenIdx, perf, graph, usage)
-		})
-	}
-	return e.performNodeBody(tokenIdx, perf, graph, usage)
-}
-
-// performNodeBody performs what a nested action node states of its own once the
-// action it performs, if any, has completed: the flow it owns, or its statements.
-func (e *ActionExecutor) performNodeBody(tokenIdx int, perf *actionFrame, graph *lower.ActionGraph, usage *ast.Usage) error {
-	// A node owning a flow performs it: its steps are subperformances of the
-	// node, so the node completes only once they have.
-	if perf.graph != nil {
-		return e.enterSubflow(tokenIdx, perf)
-	}
-
-	// Execute the node's lowered statements in declaration order.
-	return e.runPausable(tokenIdx, func() error {
-		if err := e.executeBody(perf, graph, usage); err != nil {
-			return err
-		}
-		return e.endPerformance(perf)
-	}, func(tokenIdx int) error {
-		return e.completeNode(tokenIdx, perf)
-	})
+	return e.runBody(tokenIdx, work)
 }
 
 // completeNode takes the succession out of a node whose performance perf is
@@ -2280,7 +2343,7 @@ func (e *ActionExecutor) tokenPositions() map[int64]ast.Node {
 }
 
 func (e *ActionExecutor) finished() bool { return e.released || e.state == StateCompleted }
-func (e *ActionExecutor) running() bool  { return e.inRun }
+func (e *ActionExecutor) running() bool  { return e.inRun || e.held }
 
 // performerSuffix names the object performing a behavior, nothing for none.
 func performerSuffix(self *Instance) string {
@@ -2294,28 +2357,25 @@ func performerSuffix(self *Instance) string {
 // and advances the token, which is what the node contributes to the flow: it
 // runs the statements lowering recorded for it, then leaves for its successor.
 func (e *ActionExecutor) stepStatementNode(tokenIdx int) error {
-	node := e.tokens[tokenIdx].Location
-	frame := e.tokens[tokenIdx].frame
+	token := e.tokens[tokenIdx]
+	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Location})
+}
 
-	return e.runPausable(tokenIdx, func() error {
-		return e.executeBody(frame, frame.graph, node)
-	}, func(tokenIdx int) error {
-		successors, err := e.enabledSuccessions(frame, node)
-		if err != nil {
-			return err
-		}
-		if len(successors) > 1 {
-			return fmt.Errorf("%s node has multiple successors", statementNodeKeyword(node))
-		}
-
-		// As for a nested action, a node with nothing after it ends the flow.
-		if len(successors) == 0 {
-			return e.retireToken(tokenIdx)
-		}
-
-		e.tokens[tokenIdx].travel(successors[0], e.sweep)
-		return nil
-	})
+// leaveStatementNode takes the token at tokenIdx on from node, retiring it where
+// the flow leads no further, as for a nested action.
+func (e *ActionExecutor) leaveStatementNode(tokenIdx int, frame *actionFrame, node ast.Node) error {
+	successors, err := e.enabledSuccessions(frame, node)
+	if err != nil {
+		return err
+	}
+	if len(successors) > 1 {
+		return fmt.Errorf("%s node has multiple successors", statementNodeKeyword(node))
+	}
+	if len(successors) == 0 {
+		return e.retireToken(tokenIdx)
+	}
+	e.tokens[tokenIdx].travel(successors[0], e.sweep)
+	return nil
 }
 
 // statementNodeKeyword names a statement node for a message about it, since a

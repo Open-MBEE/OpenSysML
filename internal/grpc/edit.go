@@ -72,7 +72,7 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 func requestsAuthoring(operations []*pb.EditOperation) bool {
 	for _, operation := range operations {
 		switch operation.GetOperation().(type) {
-		case *pb.EditOperation_AddMember, *pb.EditOperation_Delete:
+		case *pb.EditOperation_AddMember, *pb.EditOperation_Delete, *pb.EditOperation_Move:
 			return true
 		}
 	}
@@ -80,7 +80,7 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 }
 
 // editOperations reads the operations a request carries, rejecting a request
-// that names none of the two forms: an unset operation is a client fault rather
+// that names none of the forms: an unset operation is a client fault rather
 // than a refused edit.
 func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 	ops := make([]edit.Operation, 0, len(pbOps))
@@ -101,9 +101,11 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))
+		case *pb.EditOperation_Move:
+			ops = append(ops, edit.Move(op.Move.GetTarget(), op.Move.GetOwner()))
 		default:
 			return nil, statusErrorf(connect.CodeInvalidArgument,
-				"operation %d must be set_value, rename, add_member or delete", i)
+				"operation %d must be set_value, rename, add_member, delete or move", i)
 		}
 	}
 	return ops, nil
@@ -170,6 +172,8 @@ var editFailures = map[edit.Failure]pb.EditFailure{
 	edit.FailureIllegalKind:       pb.EditFailure_EDIT_FAILURE_ILLEGAL_KIND,
 	edit.FailureMemberNameTaken:   pb.EditFailure_EDIT_FAILURE_MEMBER_NAME_TAKEN,
 	edit.FailureDeleteReferenced:  pb.EditFailure_EDIT_FAILURE_DELETE_REFERENCED,
+	edit.FailureOwnerInsideTarget: pb.EditFailure_EDIT_FAILURE_OWNER_INSIDE_TARGET,
+	edit.FailureMoveReferenced:    pb.EditFailure_EDIT_FAILURE_MOVE_REFERENCED,
 }
 
 func editFailureToProto(f edit.Failure) pb.EditFailure {

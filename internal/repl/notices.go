@@ -302,11 +302,6 @@ func (s *Session) noActionSessionErr() error {
 	return errors.New(noSessionText("action session", s.endedAction, "%action"))
 }
 
-// noStateSessionErr is noStateSessionMsg as an error.
-func (s *Session) noStateSessionErr() error {
-	return errors.New(noSessionText("state machine session", s.endedState, "%state"))
-}
-
 // noStateSessionMsg is the same for the state machine debugger.
 func (s *Session) noStateSessionMsg() string {
 	return noSessionMsg("state machine session", s.endedState, "%state")

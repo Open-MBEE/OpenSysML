@@ -548,24 +548,39 @@ func TestLiteralValuesAreSpelledAsTokens(t *testing.T) {
 	}
 }
 
-// A declaration inside an expression body is carried as its notation; a graph
-// that states such a member without its text is refused, naming the member.
-func TestExpressionBodyDeclarationNeedsItsText(t *testing.T) {
-	turtle := convertFixture(t, "expression_body_members")
-	if !strings.Contains(string(turtle), "a sysx:BodyMember ;") {
-		t.Fatalf("the declaration inside the body should be a sysx:BodyMember:\n%s", turtle)
+// A declaration inside an expression body is a subject with the declaration's
+// metaclass and properties, so the graph alone writes it back; untyped, it is refused.
+func TestExpressionBodyDeclarationIsStructure(t *testing.T) {
+	turtle := string(withoutTriples(t, convertFixture(t, "expression_body_members"), "sysx:sourceText"))
+	const member = "expr:Bodies__Scaled___401_pm1\n    a sysml:AttributeUsage ;\n"
+	if !strings.Contains(turtle, member) {
+		t.Fatalf("the declaration inside the body should be an AttributeUsage:\n%s", turtle)
 	}
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	for _, want := range []string{
+		`sysml:visibility "private"`,
+		`sysml:declaredName "k"`,
+		"sysml:type elmt:Bodies__Real",
+		"sysml:value expr:Bodies__Scaled___401_pm1_pvalue",
+	} {
+		if !strings.Contains(turtle, want) {
+			t.Errorf("the graph lacks %q:\n%s", want, turtle)
+		}
+	}
+	if strings.Contains(turtle, "BodyMember") || strings.Contains(turtle, "expr:Bodies__Scaled___401_pm1 sysml:owningNamespace") {
+		t.Errorf("a body declaration is neither a notation-only node nor a namespace member:\n%s", turtle)
+	}
+	back, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
 	if err != nil {
-		t.Fatalf("back to notation: %v", err)
+		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}
 	if !strings.Contains(string(back), "{ in y : Real; private attribute k : Real = 2; y * k + x }") {
 		t.Errorf("the body did not come back with its declaration:\n%s", back)
 	}
-	_, err = export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	untyped := strings.Replace(turtle, member, "expr:Bodies__Scaled___401_pm1\n", 1)
+	_, err = export.Convert("m.ttl", []byte(untyped), export.FormatTurtle, export.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
-		t.Fatalf("want an UnsupportedError for a body member without its text, got %v", err)
+		t.Fatalf("want an UnsupportedError for a body member of no type, got %v", err)
 	}
 	if !strings.Contains(err.Error(), "the body member <urn:opensysml:expr:Bodies__Scaled___401_pm1>") {
 		t.Errorf("the refusal should name the body member: %v", err)
@@ -573,17 +588,10 @@ func TestExpressionBodyDeclarationNeedsItsText(t *testing.T) {
 }
 
 // Parameters and declarations share one index, so a body written as parameter,
-// declaration, parameter comes back in that order when the graph alone orders
-// it — only the declarations keep their text; a body of declarations alone is
-// written too.
+// declaration, parameter comes back in that order from the graph alone.
 func TestExpressionBodyKeepsTheOrderOfItsDeclarations(t *testing.T) {
-	turtle := string(withoutTriples(t, convertFixture(t, "expression_body_order"), "sysx:sourceText"))
-	const member = "    a sysx:BodyMember ;\n"
-	if strings.Count(turtle, member) != 2 {
-		t.Fatalf("expected the declaration of two bodies in the graph:\n%s", turtle)
-	}
-	turtle = strings.ReplaceAll(turtle, member, member+`    sysx:sourceText "private attribute k : Real = 1;" ;`+"\n")
-	back, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	turtle := withoutTriples(t, convertFixture(t, "expression_body_order"), "sysx:sourceText")
+	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the body's structure: %v", err)
 	}
@@ -594,6 +602,63 @@ func TestExpressionBodyKeepsTheOrderOfItsDeclarations(t *testing.T) {
 		if !strings.Contains(string(back), want) {
 			t.Errorf("the notation rebuilt from the graph lacks %q:\n%s", want, back)
 		}
+	}
+}
+
+// A body declaration may declare a body of its own, carried the same way, nested;
+// a reference from one body declaration to another reads as written.
+func TestExpressionBodyDeclarationsNest(t *testing.T) {
+	const src = `package Edge {
+    attribute def Real;
+    calc def Nested {
+        in x : Real;
+        { in y : Real { doc /* the input */ } attribute k : Real = 2 { attribute j : Real = 3; } private attribute m : Real = k * 2; y * m + x }
+    }
+}
+`
+	turtle := idTurtle(t, src)
+	if back := toNotation(t, withoutSourceText(t, turtle)); back != src {
+		t.Errorf("the nested bodies did not come back from the mapping alone:\n%s", back)
+	}
+	structuralRoundTrip(t, "m.sysml", turtle)
+}
+
+// An identity annotation is not mapped inside an expression body: refused on the
+// way in, and a graph declaring an id for a body declaration is refused on the way out.
+func TestExpressionBodyDeclarationIDsAreRefused(t *testing.T) {
+	_, err := export.Convert("m.sysml", []byte(`package Edge {
+    attribute def Real;
+    calc def Ident {
+        { attribute k : Real = 2 { @IdentityMetadata::ElementId { id = "k-id"; } } k }
+    }
+}
+`), export.FormatSysML, export.FormatTurtle)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "inside an expression body") {
+		t.Fatalf("want an UnsupportedError for an annotation inside a body declaration, got %v", err)
+	}
+	turtle := string(withoutTriples(t, convertFixture(t, "expression_body_members"), "sysx:sourceText"))
+	const id = `sysml:elementId "Bodies__Scaled___401_pm1" ;`
+	if !strings.Contains(turtle, id) {
+		t.Fatalf("the body declaration's id is not where expected:\n%s", turtle)
+	}
+	turtle = strings.Replace(turtle, id, id+"\n    sysx:declaredId \"true\"^^xsd:boolean ;", 1)
+	_, err = export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "the body member <urn:opensysml:expr:Bodies__Scaled___401_pm1>: it declares an id of its own") {
+		t.Fatalf("want an UnsupportedError for a body declaration with an id, got %v", err)
+	}
+
+	// An annotation in the body is written without a body of its own, and an id
+	// it declares is refused the same way rather than dropped.
+	turtle = string(withoutTriples(t, convertFixture(t, "result_expressions"), "sysx:sourceText"))
+	const doc = `sysml:elementId "Results__Documented___401_pm0" ;`
+	if !strings.Contains(turtle, doc) {
+		t.Fatalf("the body documentation's id is not where expected:\n%s", turtle)
+	}
+	turtle = strings.Replace(turtle, doc, doc+"\n    sysx:declaredId \"true\"^^xsd:boolean ;", 1)
+	_, err = export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "the body member <urn:opensysml:expr:Results__Documented___401_pm0>: it declares an id of its own") {
+		t.Fatalf("want an UnsupportedError for a body documentation with an id, got %v", err)
 	}
 }
 

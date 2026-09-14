@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -103,15 +104,16 @@ func bound(t *testing.T, result analysis.Result, name string) analysis.Bound {
 	return analysis.Bound{}
 }
 
-// TestEngineDescribesItself: the engine is `smt`, answers Holds with the schedule
-// free over concrete inputs, replays, and reaches proof.
+// TestEngineDescribesItself: the engine is `smt`, answers Holds and Sensitive with
+// the schedule free over concrete inputs, replays, and reaches proof.
 func TestEngineDescribesItself(t *testing.T) {
 	e := New(nil)
 	if e.Name() != EngineName {
 		t.Fatalf("name %q", e.Name())
 	}
 	d := e.Describe()
-	if len(d.Questions) != 1 || d.Questions[0] != analysis.Holds || !d.Replays || d.Authority != analysis.Proved {
+	kinds := []analysis.Kind{analysis.Holds, analysis.Sensitive}
+	if !slices.Equal(d.Questions, kinds) || !d.Replays || d.Authority != analysis.Proved {
 		t.Fatalf("description %+v", d)
 	}
 	var _ analysis.External = e

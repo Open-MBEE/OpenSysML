@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -42,13 +43,7 @@ type changePoll struct {
 // A trigger fires on the condition rising: one that stays true does not take the
 // same edge again, and only a condition observed false re-arms it.
 func (e *StateExecutor) pollChangeEvents() (bool, error) {
-	poll := &changePoll{
-		condition:   make(map[*lower.Transition]bool),
-		guard:       make(map[*lower.Transition]bool),
-		blocked:     make(map[*lower.Transition]bool),
-		unevaluable: make(map[*lower.Transition]UnevaluableGuard),
-		waited:      make(map[*lower.Transition]bool),
-	}
+	poll := newChangePoll()
 	e.changeRearmed = make(map[*lower.Transition]bool)
 	defer func() { e.changeRearmed = nil }()
 
@@ -111,6 +106,37 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 	e.consumeRise(poll)
 	e.changeWaits = poll.waits
 	return fired, nil
+}
+
+func newChangePoll() *changePoll {
+	return &changePoll{
+		condition:   make(map[*lower.Transition]bool),
+		guard:       make(map[*lower.Transition]bool),
+		blocked:     make(map[*lower.Transition]bool),
+		unevaluable: make(map[*lower.Transition]UnevaluableGuard),
+		waited:      make(map[*lower.Transition]bool),
+	}
+}
+
+// changeRisen observes the change conditions as a poll does, under a probe so the
+// machine keeps its latches, and reports whether one enables a transition or
+// cannot be evaluated: a poll now would fire, or fail.
+func (e *StateExecutor) changeRisen() bool {
+	defer e.ctx.beginProbe()()
+	fired := maps.Clone(e.changeFired)
+	defer func() { e.changeFired = fired }()
+	poll := newChangePoll()
+	e.changeRearmed = make(map[*lower.Transition]bool)
+	defer func() { e.changeRearmed = nil }()
+	if err := e.observeChangeConditions(poll); err != nil {
+		return true
+	}
+	for trans, holds := range poll.condition {
+		if holds && !e.changeFired[trans] && poll.guard[trans] {
+			return true
+		}
+	}
+	return false
 }
 
 // consumeRise latches every enabled transition whose condition was observed

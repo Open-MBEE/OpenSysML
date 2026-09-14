@@ -1,6 +1,9 @@
 package edit
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -45,9 +48,29 @@ const (
 	FailureMemberNameTaken
 	// FailureDeleteReferenced is a non-cascade delete with live references.
 	FailureDeleteReferenced
-	// FailureReferencedElsewhere is a delete or rename of a declaration that
-	// another document refers to, which an edit of this one cannot follow.
+	// FailureReferencedElsewhere is a delete or rename of a declaration referred
+	// to from a document the edit may not rewrite — one the model hands out no
+	// source for, such as a document not open in the editor or a bundled library
+	// file — so the reference could not follow. A reference from a document the
+	// edit may rewrite is followed instead. A move respells references in its
+	// own document only, so any other document's reference refuses it.
 	FailureReferencedElsewhere
+	// FailureOwnerInsideTarget is a move whose new owner is the target itself or
+	// a declaration inside it.
+	FailureOwnerInsideTarget
+	// FailureMoveReferenced is a move leaving a reference no spelling can make
+	// reach what it reached before.
+	FailureMoveReferenced
+	// FailureNotAView is a layout view, or a Canvas target, that is no view.
+	FailureNotAView
+	// FailureNotExposed is a view-local layout of an element the view does not
+	// expose.
+	FailureNotExposed
+	// FailureNotDrawn is a layout of an element no rendering draws as the node
+	// or edge the annotation positions.
+	FailureNotDrawn
+	// FailureNotAnnotated is a clearing of an annotation that is not there.
+	FailureNotAnnotated
 )
 
 var failureNames = map[Failure]string{
@@ -68,6 +91,12 @@ var failureNames = map[Failure]string{
 	FailureMemberNameTaken:     "member-name-taken",
 	FailureDeleteReferenced:    "delete-referenced",
 	FailureReferencedElsewhere: "referenced-elsewhere",
+	FailureOwnerInsideTarget:   "owner-inside-target",
+	FailureMoveReferenced:      "move-referenced",
+	FailureNotAView:            "not-a-view",
+	FailureNotExposed:          "not-exposed",
+	FailureNotDrawn:            "not-drawn",
+	FailureNotAnnotated:        "not-annotated",
 }
 
 // String returns the lowercase name of the failure, or "unknown".
@@ -90,9 +119,59 @@ type Error struct {
 	// Diagnosed is the source the Diagnostics' spans are offsets into: the new
 	// value's text, or the edited notation. A refusal still returns no model.
 	Diagnosed *source.SourceFile
-	// Referring names the declarations referring to a target whose delete or
-	// rename was refused, each qualified by its document when that is another.
+	// Referring names the declarations referring to a target whose delete,
+	// rename or move was refused, each qualified by its document when that is another.
 	Referring []string
+	// Referrers is Referring with each name told apart from its document, for a
+	// client that lists them by document; empty where Referring names no declaration.
+	Referrers []Referrer
 }
 
 func (e *Error) Error() string { return e.Message }
+
+// Referrer is one declaration referring to the target of a refused delete or rename.
+type Referrer struct {
+	// Name is the declaration as the notation names it, an anonymous one by its
+	// heading or keyword within its namespace.
+	Name string
+	// Document is the document declaring it.
+	Document string
+}
+
+// sortReferrers orders referrers by document, then by name.
+func sortReferrers(referrers []Referrer) {
+	sort.SliceStable(referrers, func(i, j int) bool {
+		if referrers[i].Document != referrers[j].Document {
+			return referrers[i].Document < referrers[j].Document
+		}
+		return referrers[i].Name < referrers[j].Name
+	})
+}
+
+// referring spells referrers for a message, each qualified by its document when
+// that is not own.
+func referring(own string, referrers []Referrer) []string {
+	out := make([]string, 0, len(referrers))
+	for _, r := range referrers {
+		if r.Document == own {
+			out = append(out, r.Name)
+		} else {
+			out = append(out, r.Name+" ("+r.Document+")")
+		}
+	}
+	return out
+}
+
+// referencedElsewhere refuses operation i on target, which the declarations
+// referrers, in documents the edit may not rewrite, refer to.
+func referencedElsewhere(i int, own, target string, referrers []Referrer) error {
+	names := referring(own, referrers)
+	return &Error{
+		Failure:        FailureReferencedElsewhere,
+		OperationIndex: i,
+		Referring:      names,
+		Referrers:      referrers,
+		Message: target + " is referenced by " + strings.Join(names, ", ") +
+			" in documents this edit cannot rewrite; change those references first",
+	}
+}

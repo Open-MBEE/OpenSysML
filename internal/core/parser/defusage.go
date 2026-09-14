@@ -1984,15 +1984,22 @@ var ownedMembers = map[string]ownedMember{
 
 // MemberOwner names the body kind that alone offers the member keyword kw
 // introduces ("requirement or case" for `subject`), or "" when every body does.
+// kw may be the whole notation of a member (`entry action`); its first word decides.
 func MemberOwner(kw string) string {
-	return ownedMembers[kw].owner
+	return ownedMembers[memberKeyword(kw)].owner
+}
+
+// memberKeyword is the keyword a member notation opens with: `entry` of `entry action`.
+func memberKeyword(notation string) string {
+	kw, _, _ := strings.Cut(notation, " ")
+	return kw
 }
 
 // BodyAdmitsMember reports whether the body of owner — a Definition or Usage;
 // any other node, the document root included, opens a plain namespace body —
-// offers the member keyword kw introduces.
+// offers the member keyword kw introduces; as for MemberOwner, kw may be a notation.
 func BodyAdmitsMember(owner ast.Node, kw string) bool {
-	m, ok := ownedMembers[kw]
+	m, ok := ownedMembers[memberKeyword(kw)]
 	if !ok {
 		return true
 	}
@@ -2080,7 +2087,8 @@ func (p *Parser) parseUsageIdentification(kind ast.UsageKind) ast.Identification
 
 // atGuardedSuccession reports whether the succession being read states a guard
 // between its ends (`succession [name] first a if g then b`), which is the
-// GuardedSuccession production and so a transition, not a connector.
+// GuardedSuccession production and so a transition, not a connector. The scan
+// stops at the member's end, however long its source end is.
 func (p *Parser) atGuardedSuccession() bool {
 	i := 0
 	if p.peek().Kind == lexer.Identifier || p.peek().Kind == lexer.UnrestrictedName {
@@ -2089,7 +2097,7 @@ func (p *Parser) atGuardedSuccession() bool {
 	if !p.peekIsKeyword(i, "first") {
 		return false
 	}
-	for depth := 0; i < 60; i++ {
+	for depth := 0; ; i++ {
 		tok := p.peekN(i)
 		switch tok.Kind {
 		case lexer.EOF, lexer.Semicolon, lexer.LBrace, lexer.RBrace:
@@ -2107,7 +2115,6 @@ func (p *Parser) atGuardedSuccession() bool {
 			}
 		}
 	}
-	return false
 }
 
 // parseUsage parses a usage. keyword is the kind keyword as consumed from the

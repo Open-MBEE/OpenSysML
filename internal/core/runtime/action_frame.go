@@ -1138,26 +1138,44 @@ func bindingEndText(end ast.Node) string {
 // pins (its arguments among them) bind the callee's inputs, its final values become the node's,
 // and its outputs return to enclosing features when the node's own performance ends.
 func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation) error {
+	callee, resumed, err := popFrame[*calleeFrame](e.ctx)
+	if err != nil {
+		return err
+	}
+	if !resumed {
+		if callee, err = e.beginInvocation(perf, inv); err != nil {
+			return err
+		}
+	}
+	if _, _, err := e.ctx.runCallee(callee); err != nil {
+		return err
+	}
+	perf.adopt(callee.exec)
+	perf.outputs = callee.out
+	return nil
+}
+
+// beginInvocation starts the action a node names as a subperformance of perf,
+// its inputs bound from the node's pins, and returns it to be run to completion.
+func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) (*calleeFrame, error) {
 	sym := perf.callee
 	if sym == nil {
 		var err error
 		if sym, err = resolveActionSymbol(e.ctx, nodeScope(perf.flow, perf.node), inv); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	if e.ctx.actionDepth >= maxActionNestingDepth {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"action invocation nested more than %d deep at %s (recursive action?)",
 			maxActionNestingDepth, qualifiedNameText(inv.target),
 		)
 	}
-	e.ctx.actionDepth++
-	defer func() { e.ctx.actionDepth-- }()
 
 	params, err := e.ctx.performanceParameters(inv.performed(sym), sym)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	in, out := parameterNames(params)
 	inputs := make(map[string]Value, len(in))
@@ -1177,17 +1195,16 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 		}
 	}
 	if err := checkInputsBound(inv, params, inputs); err != nil {
-		return err
+		return nil, err
 	}
 
-	callee, err := e.ctx.performActionStep(inv.performed(sym), sym, e.self, inputs)
+	callee, err := e.ctx.beginCallee(inv.performed(sym), sym, e.self, inputs)
 	if err != nil {
-		return fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
+		return nil, fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
 	}
-	perf.adopt(callee)
 	sort.Strings(out)
-	perf.outputs = out
-	return nil
+	callee.name, callee.out = qualifiedNameText(inv.target), out
+	return callee, nil
 }
 
 // adopt makes the completed performance of the action a node performed the node's

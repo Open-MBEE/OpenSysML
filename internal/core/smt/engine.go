@@ -37,10 +37,11 @@ func (*Engine) Name() string { return EngineName }
 
 // Describe: every schedule of at most k moves over the inputs free in their declared
 // domains, decided by a solver; an `unsat` with no bound reachable is a proof, a
-// witness is replayed before it is claimed.
+// witness is replayed before it is claimed. A Sensitive question is decided over two
+// copies of the schedule sharing the initial state, both witnesses replayed.
 func (*Engine) Describe() analysis.Description {
 	return analysis.Description{
-		Questions: []analysis.Kind{analysis.Holds},
+		Questions: []analysis.Kind{analysis.Holds, analysis.Sensitive},
 		Process:   analysis.SolveProcess,
 		Bounds:    []string{"moves", "unroll", "slots", "solver"},
 		Replays:   true,
@@ -57,10 +58,10 @@ func (e *Engine) Process() (string, error) {
 	return solver.Name + " at " + solver.Path, nil
 }
 
-// Covers takes a Holds question with the schedule free, its inputs free or as
-// written; a fixed schedule, another kind and a question without its ask are refused.
+// Covers takes a Holds or Sensitive question with the schedule free, its inputs free or
+// as written; a fixed schedule, another kind and a question without its ask are refused.
 func (e *Engine) Covers(_ *analysis.Model, q analysis.Question) analysis.Coverage {
-	if q.Kind != analysis.Holds {
+	if q.Kind != analysis.Holds && q.Kind != analysis.Sensitive {
 		return analysis.Coverage{Refusal: &analysis.NotAskedError{Engine: e.Name(), Kind: q.Kind}}
 	}
 	if !q.Free.Has(analysis.FreeSchedule) {
@@ -110,13 +111,18 @@ type run struct {
 	encoding *Encoding
 	property *Property
 	deadlock *Property
-	started  time.Time
-	timedOut bool
+	// compared tells whose feature each name a Sensitive question compares is, and
+	// performer names the performing object's attributes, compared absent names.
+	compared  map[string]runtime.FeatureOwner
+	performer []string
+	started   time.Time
+	timedOut  bool
 }
 
 // Run encodes the flow for Budget.Depth moves (DefaultMoves when none), body loops unrolled
 // Budget.Unroll times (DefaultUnroll when none), and asks, in order, for a violation, a
-// failure and a deadlock; a `sat` is replayed before it is claimed.
+// failure and a deadlock; a `sat` is replayed before it is claimed. A Sensitive question
+// asks the two-copy query first, as decideSensitive spells.
 func (e *Engine) Run(ctx context.Context, model *analysis.Model, q analysis.Question, budget analysis.Budget) (analysis.Result, error) {
 	if coverage := e.Covers(model, q); !coverage.Covered {
 		return analysis.Result{}, coverage.Refusal
@@ -146,6 +152,9 @@ func (e *Engine) Run(ctx context.Context, model *analysis.Model, q analysis.Ques
 	} else if refusal != nil {
 		return r.uncovered(refusal.Error()), nil
 	}
+	if q.Kind == analysis.Sensitive {
+		return r.decideSensitive(ctx)
+	}
 	return r.decide(ctx)
 }
 
@@ -167,6 +176,12 @@ func (r *run) encode() (refusal error, err error) {
 		return nil, err
 	}
 	defer exec.Release()
+	if r.q.Kind == analysis.Sensitive {
+		if r.compared, err = runtime.ResolveCheckFeatures(exec, r.q.Holds.Diverge); err != nil {
+			return nil, err
+		}
+		r.performer = exec.PerformerAttributes()
+	}
 	encoding, err := Encode(ctx, r.q.Holds.Behavior, exec.Graph(), exec.Held(), r.q.Holds.Inputs, r.moves, r.unroll)
 	if err != nil {
 		return refusalOf(err)
@@ -241,38 +256,82 @@ const NoInitialState = "assumptions admit no initial state"
 // leaves the question not covered rather than held, and assumptions no exact
 // initial state satisfies are contradictory only when nothing in them rounds.
 func (r *run) decide(ctx context.Context) (analysis.Result, error) {
-	if len(r.encoding.Assumptions) > 0 {
-		consistency := r.encoding.Consistency()
-		result, err := r.solver.Solve(ctx, consistency)
-		if err != nil {
-			return analysis.Result{}, err
-		}
-		switch result.Status {
-		case solve.StatusUnsat:
-			if consistency.Rounded() {
-				return r.rounded(result, "whether the assumptions admit an initial state"), nil
-			}
-			return r.uncovered(NoInitialState), nil
-		case solve.StatusSat:
-		default:
-			return r.undecided(result, "whether the assumptions admit an initial state"), nil
-		}
+	if out, err := r.consistent(ctx); out != nil || err != nil {
+		return orEmpty(out), err
 	}
-	type ask struct {
-		query   *solve.Query
-		outcome outcome
+	found, rounded, err := r.findings(ctx, r.asks())
+	if found != nil || err != nil {
+		return orEmpty(found), err
 	}
+	if rounded != nil {
+		return *rounded, nil
+	}
+	return r.completes(ctx,
+		func(cut Cut, _ *solve.Result) (analysis.Result, error) { return r.holds(analysis.Bounded, cut), nil },
+		func() analysis.Result { return r.holds(analysis.Proved, Cut{}) })
+}
+
+// orEmpty is the result pointed at, or the zero result for nil.
+func orEmpty(out *analysis.Result) analysis.Result {
+	if out == nil {
+		return analysis.Result{}
+	}
+	return *out
+}
+
+// consistent asks whether the assumptions admit an initial state, when any are
+// assumed: the answer when they do not or the solver did not decide, nil otherwise.
+func (r *run) consistent(ctx context.Context) (*analysis.Result, error) {
+	if len(r.encoding.Assumptions) == 0 {
+		return nil, nil
+	}
+	consistency := r.encoding.Consistency()
+	result, err := r.solver.Solve(ctx, consistency)
+	if err != nil {
+		return nil, err
+	}
+	var out analysis.Result
+	switch result.Status {
+	case solve.StatusUnsat:
+		if consistency.Rounded() {
+			out = r.rounded(result, "whether the assumptions admit an initial state")
+		} else {
+			out = r.uncovered(NoInitialState)
+		}
+	case solve.StatusSat:
+		return nil, nil
+	default:
+		out = r.undecided(result, "whether the assumptions admit an initial state")
+	}
+	return &out, nil
+}
+
+// ask is one query for a finding and the outcome its `sat` witnesses.
+type ask struct {
+	query   *solve.Query
+	outcome outcome
+}
+
+// asks are the finding queries in the order decide asks them: a violation of the
+// property, a failure, then a deadlock when the property is another.
+func (r *run) asks() []ask {
 	asks := []ask{{r.encoding.Violation(r.property), outcomeViolation}, {r.encoding.Failure(r.property), outcomeFailure}}
 	if r.property == r.deadlock {
 		asks[0].outcome = outcomeDeadlock
 	} else {
 		asks = append(asks, ask{r.encoding.Violation(r.deadlock), outcomeDeadlock})
 	}
-	var rounded *analysis.Result
+	return asks
+}
+
+// findings asks each query in order: the first `sat` replayed is found, as is the
+// first answer the solver did not decide; rounded is the first `unsat` that decides
+// nothing for rounding, kept while the later queries are asked.
+func (r *run) findings(ctx context.Context, asks []ask) (found, rounded *analysis.Result, err error) {
 	for _, a := range asks {
 		result, err := r.solver.Solve(ctx, a.query)
 		if err != nil {
-			return analysis.Result{}, err
+			return nil, nil, err
 		}
 		switch result.Status {
 		case solve.StatusUnsat:
@@ -281,14 +340,22 @@ func (r *run) decide(ctx context.Context) (analysis.Result, error) {
 				rounded = &out
 			}
 		case solve.StatusSat:
-			return r.witnessed(result, a.outcome)
+			out, err := r.witnessed(result, a.outcome)
+			if err != nil {
+				return nil, nil, err
+			}
+			return &out, rounded, nil
 		default:
-			return r.undecided(result, "whether a schedule reaches "+a.outcome.String()), nil
+			out := r.undecided(result, "whether a schedule reaches "+a.outcome.String())
+			return &out, rounded, nil
 		}
 	}
-	if rounded != nil {
-		return *rounded, nil
-	}
+	return nil, rounded, nil
+}
+
+// completes asks whether every schedule ends within the bounds: proved answers an
+// `unsat` that rounds nothing, bounded a `sat` with the bounds its model reached.
+func (r *run) completes(ctx context.Context, bounded func(Cut, *solve.Result) (analysis.Result, error), proved func() analysis.Result) (analysis.Result, error) {
 	uncertainty := r.encoding.Uncertainty()
 	result, err := r.solver.Solve(ctx, uncertainty)
 	if err != nil {
@@ -299,13 +366,13 @@ func (r *run) decide(ctx context.Context) (analysis.Result, error) {
 		if uncertainty.Rounded() {
 			return r.rounded(result, "whether every schedule ends within the bounds"), nil
 		}
-		return r.holds(analysis.Proved, Cut{}), nil
+		return proved(), nil
 	case solve.StatusSat:
 		cut, err := r.encoding.Cuts(result)
 		if err != nil {
 			return analysis.Result{}, err
 		}
-		return r.holds(analysis.Bounded, cut), nil
+		return bounded(cut, result)
 	default:
 		return r.undecided(result, "whether every schedule ends within the bounds"), nil
 	}
