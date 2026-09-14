@@ -343,9 +343,10 @@ func (e *evaluator) templateRuns(
 				}
 				kind = styled
 			}
-			values := cellOf(template.Column()).Values()
+			cell := cellOf(template.Column())
+			values := cell.Values()
 			if kind == RunMath && len(values) == 0 {
-				return nil, e.blankMath(node, template, number, template.Origin())
+				return nil, e.blankMath(node, template, number, cell.Origin())
 			}
 			for _, value := range values {
 				text := e.valueText(value)
