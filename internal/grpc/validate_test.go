@@ -90,11 +90,11 @@ func TestValidateInstanceReportsEveryAssertionOnEveryObject(t *testing.T) {
 		{"constraint", "Demo::Car::massOk", "", true},
 		{"requirement", "Demo::Car::lightEnough", "", true},
 		{"constraint", "", "engine", false},
+		{"satisfy", "", "engine", true},
 		{"constraint", "Demo::Injector::ratePositive", "engine.injector", true},
 		{"constraint", "Demo::Wheel::pressureOk", "wheels[1]", false},
 		{"constraint", "Demo::Wheel::pressureOk", "wheels[2]", false},
 		{"constraint", "Demo::Wheel::pressureOk", "wheels[3]", false},
-		{"satisfy", "", "engine", true},
 	}
 	if len(resp.Verdicts) != len(wants) {
 		t.Fatalf("got %d verdicts, want %d: %v", len(resp.Verdicts), len(wants), resp.Verdicts)
@@ -115,7 +115,7 @@ func TestValidateInstanceReportsEveryAssertionOnEveryObject(t *testing.T) {
 			t.Errorf("verdict %d names no instance", i)
 		}
 	}
-	satisfy := resp.Verdicts[7]
+	satisfy := resp.Verdicts[3]
 	if satisfy.RequirementId != "Demo::strongEngine" {
 		t.Errorf("satisfaction verdict requirement_id = %q, want Demo::strongEngine", satisfy.RequirementId)
 	}
