@@ -20,6 +20,7 @@ import {
   offeredOn,
   ownerOf,
   ownersOf,
+  placementOperations,
   rootOwner,
   validName,
 } from "./edits";
@@ -440,6 +441,56 @@ test("validName says what is wrong", () => {
   assert.match(validName("front wheel") ?? "", /identifier/);
   assert.match(validName("1st") ?? "", /identifier/);
   assert.match(validName("a::b") ?? "", /identifier/);
+});
+
+const placed = {
+  nodes: [tank, engine, imported],
+  edges: [
+    { from: "n2", to: "n4", label: "", kind: "connection", fqn: "Vehicle::Car::fuel" },
+    { from: "n6", to: "n4", label: "", kind: "connection" },
+  ],
+  view: "Vehicle::Wiring",
+  version: 4,
+};
+
+test("placementOperations names each placed node and steered edge by its declaration, in the view", () => {
+  assert.deepEqual(
+    placementOperations(placed, [{ id: "n2", layout: { x: 10, y: 20 } }, { id: "n4", layout: { x: 30, y: 40, width: 100, height: 50 } }], [{ index: 0, route: [{ x: 5, y: 5 }] }]),
+    [
+      { kind: "setLayout", target: "Vehicle::Car::tank", view: "Vehicle::Wiring", layout: { x: 10, y: 20 } },
+      { kind: "setLayout", target: "Vehicle::Car::engine", view: "Vehicle::Wiring", layout: { x: 30, y: 40, width: 100, height: 50 } },
+      { kind: "setRoute", target: "Vehicle::Car::fuel", view: "Vehicle::Wiring", route: [{ x: 5, y: 5 }] },
+    ],
+  );
+});
+
+test("placementOperations places on the element when the rendering has no view, and clears a route", () => {
+  assert.deepEqual(placementOperations({ ...placed, view: "" }, [{ id: "n2", layout: { x: 1, y: 2 } }], [{ index: 0 }]), [
+    { kind: "setLayout", target: "Vehicle::Car::tank", view: undefined, layout: { x: 1, y: 2 } },
+    { kind: "setRoute", target: "Vehicle::Car::fuel", view: undefined, route: undefined },
+  ]);
+});
+
+const declaration = { start: { line: 4, character: 8 }, end: { line: 4, character: 37 } };
+
+test("placementOperations targets a node or edge no qualified name reaches by its declaration, inline", () => {
+  const unnamed = {
+    ...placed,
+    nodes: [...placed.nodes, { ...imported, id: "n7", declaration }],
+    edges: [...placed.edges, { from: "n7", to: "n4", label: "", kind: "transition", declaration }],
+  };
+  assert.deepEqual(placementOperations(unnamed, [{ id: "n7", layout: { x: 1, y: 2 } }], [{ index: 2, route: [{ x: 3, y: 4 }] }, { index: 0 }]), [
+    { kind: "setLayout", declaration, layout: { x: 1, y: 2 } },
+    { kind: "setRoute", declaration, route: [{ x: 3, y: 4 }] },
+    { kind: "setRoute", target: "Vehicle::Car::fuel", view: "Vehicle::Wiring", route: undefined },
+  ]);
+});
+
+test("placementOperations refuses a node or edge the document does not declare", () => {
+  assert.equal(placementOperations(placed, [{ id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
+  assert.equal(placementOperations(placed, [{ id: "missing", layout: { x: 1, y: 2 } }], []), undefined);
+  assert.equal(placementOperations(placed, [], [{ index: 1, route: [] }]), undefined);
+  assert.equal(placementOperations(placed, [], [{ index: 9, route: [] }]), undefined);
 });
 
 // The scanner follows the lexer's UNRESTRICTED_NAME: a backslash escapes one

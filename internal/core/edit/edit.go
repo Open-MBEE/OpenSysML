@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -34,13 +35,19 @@ const (
 	// OpMove re-parents a declaration: the span OpDelete removes is written
 	// where OpAddMember inserts, and the references it breaks are respelled.
 	OpMove
+	// OpSetLayout writes, updates or clears a DiagramLayout annotation.
+	OpSetLayout
 )
 
 // Operation is one change to make to a model's source.
 type Operation struct {
 	Kind OpKind
-	// Target is the element to edit, by FQN, as symbols name it.
-	Target string
+	// Target is the element to edit, by FQN, as symbols name it. An OpSetLayout
+	// may give Declaration instead, the span the element is declared at in this
+	// document, for an element no qualified name reaches: an unnamed one, or
+	// one declared inside an unnamed one.
+	Target      string
+	Declaration source.Span
 	// Value is the new value in SysML notation, for OpSetValue.
 	Value string
 	// NewName is the new declared name, for OpRename.
@@ -62,6 +69,17 @@ type Operation struct {
 	Cascade bool
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
+	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
+	// (semantics.LayoutFQN, RouteFQN or CanvasFQN). View names the view whose
+	// body states it about Target; empty, the annotation is inline on Target
+	// and applies in every view.
+	Annotation string
+	View       string
+	// The geometry to write, the one Annotation names; all nil clears the
+	// annotation.
+	Layout *semantics.Layout
+	Route  *semantics.Route
+	Canvas *semantics.Canvas
 }
 
 // SetValue is an operation setting target's value to the expression value.
@@ -94,6 +112,36 @@ func AddConnection(owner, kind, from, to, name string) Operation {
 // Move is an operation making target a member of newOwner, "" for the root.
 func Move(target, newOwner string) Operation {
 	return Operation{Kind: OpMove, Target: target, NewOwner: newOwner}
+}
+
+// SetLayout is an operation placing target in view — inline on target when
+// view is empty — or clearing its position when layout is nil.
+func SetLayout(target, view string, layout *semantics.Layout) Operation {
+	return Operation{Kind: OpSetLayout, Target: target, View: view, Annotation: semantics.LayoutFQN, Layout: layout}
+}
+
+// SetLayoutAt is SetLayout of the element declared at decl in the document,
+// which is how an element no qualified name reaches is placed.
+func SetLayoutAt(decl source.Span, view string, layout *semantics.Layout) Operation {
+	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.LayoutFQN, Layout: layout}
+}
+
+// SetRoute is an operation steering the edge target through route's waypoints in
+// view — inline on target when view is empty — or clearing them when route is nil.
+func SetRoute(target, view string, route *semantics.Route) Operation {
+	return Operation{Kind: OpSetLayout, Target: target, View: view, Annotation: semantics.RouteFQN, Route: route}
+}
+
+// SetRouteAt is SetRoute of the edge declared at decl in the document, which is
+// how an unnamed transition or succession is steered.
+func SetRouteAt(decl source.Span, view string, route *semantics.Route) Operation {
+	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.RouteFQN, Route: route}
+}
+
+// SetCanvas is an operation sizing the drawing surface of view, or clearing its
+// size when canvas is nil.
+func SetCanvas(view string, canvas *semantics.Canvas) Operation {
+	return Operation{Kind: OpSetLayout, Target: view, Annotation: semantics.CanvasFQN, Canvas: canvas}
 }
 
 // Model is a parsed model to edit: the source that was read, its parse, and the
@@ -258,6 +306,7 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 
 	current := m
 	edited := unedited(m)
+	ops = append([]Operation(nil), ops...)
 	for i, op := range ops {
 		splices, err := current.splicesFor(i, op)
 		if err != nil {
@@ -266,7 +315,13 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 		if err := current.rewrite(edited, splices); err != nil {
 			return nil, err
 		}
+		if err := current.rebaseDeclarations(ops[i+1:], i+1, splices); err != nil {
+			return nil, err
+		}
 		current = reparseModel(m, edited)
+		if err := current.relocateDeclarations(ops[i+1:], i+1); err != nil {
+			return nil, err
+		}
 	}
 	if err := m.validate(edited); err != nil {
 		return nil, err
@@ -438,6 +493,13 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 		}
 		return []splice{sp}, nil
 	}
+	if op.Kind == OpSetLayout {
+		return m.layoutSplices(i, op)
+	}
+	if op.Declaration.Len > 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: "only a layout operation reaches its element by declaration; name the target"}
+	}
 	if op.Kind == OpDelete {
 		deletes, err := m.deleteSplices(i, op)
 		if err != nil {
@@ -496,6 +558,54 @@ func (m Model) splice(splices []splice) []byte {
 		out = edited
 	}
 	return out
+}
+
+// rebaseDeclarations moves the start of each later operation's Declaration,
+// numbered from first, past the bytes splices insert or remove before it. A
+// declaration a replacement covers is gone, so the operation is refused.
+func (m Model) rebaseDeclarations(later []Operation, first int, splices []splice) error {
+	for j := range later {
+		decl := later[j].Declaration
+		if decl.Len == 0 {
+			continue
+		}
+		shift := 0
+		for _, sp := range splices {
+			switch {
+			case sp.doc != "":
+				// Another document's bytes; a declaration is in the edited one.
+			case sp.span.End() <= decl.Offset:
+				shift += len(sp.text) - sp.span.Len
+			case sp.span.Offset <= decl.Offset:
+				return m.declarationGone(first+j, decl)
+			}
+		}
+		later[j].Declaration.Offset += shift
+	}
+	return nil
+}
+
+// relocateDeclarations reads each later operation's Declaration afresh from the
+// reparsed source, where its extent may have changed but its start has not.
+func (m Model) relocateDeclarations(later []Operation, first int) error {
+	root := m.Index.DocumentRoot(m.Source.Name())
+	for j := range later {
+		decl := later[j].Declaration
+		if decl.Len == 0 {
+			continue
+		}
+		sym := root.DeclaredFrom(decl.Offset)
+		if sym == nil {
+			return m.declarationGone(first+j, decl)
+		}
+		later[j].Declaration = sym.DeclSpan
+	}
+	return nil
+}
+
+func (m Model) declarationGone(i int, decl source.Span) error {
+	return &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+		Message: fmt.Sprintf("an earlier operation rewrote the declaration at %s; nothing is declared there now", m.at(decl))}
 }
 
 // checkOverlap refuses edits covering the same non-empty source bytes.

@@ -149,9 +149,9 @@ func (r *Registry) Explore(ctx context.Context, req Request, run Linearization) 
 // Check puts an action's schedules to the registry as a question of kind, free being
 // what the asker leaves open beside them: check is the explicit-state search's ask,
 // holds the symbolic one, and run performs the action once for an engine exploring it.
-// A Holds question over a start leaving an input unbound has the inputs free too.
+// A Holds or Sensitive question over a start leaving an input unbound has the inputs free too.
 func (r *Registry) Check(ctx context.Context, req Request, kind Kind, free Freedom, check *CheckAsk, holds *HoldsAsk, run Linearization) (Plan, error) {
-	if kind == Holds && leavesInputsUnbound(req, holds) {
+	if (kind == Holds || kind == Sensitive) && leavesInputsUnbound(req, holds) {
 		free |= FreeInputs
 	}
 	return r.ask(ctx, req, Question{
@@ -181,10 +181,14 @@ func leavesInputsUnbound(req Request, holds *HoldsAsk) bool {
 	return len(exec.Held().Unbound()) > 0
 }
 
-// CheckKind is what a check asks: Holds once a property or condition is stated, an
+// CheckKind is what a check asks: Sensitive once a feature is named to compare
+// across the schedules; else Holds once a property or condition is stated, an
 // input released, an assumption made or the unroll bound set (what a symbolic
-// engine alone answers or reads), else Outcomes.
+// engine alone answers or reads); else Outcomes.
 func CheckKind(check *CheckAsk, holds *HoldsAsk, unroll int) Kind {
+	if check != nil && len(check.Diverge) > 0 || holds != nil && len(holds.Diverge) > 0 {
+		return Sensitive
+	}
 	if check != nil && len(check.Properties) > 0 || unroll > 0 ||
 		holds != nil && (len(holds.Conditions) > 0 || len(holds.Inputs) > 0 || len(holds.Assume) > 0) {
 		return Holds

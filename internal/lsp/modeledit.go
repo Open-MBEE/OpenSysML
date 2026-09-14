@@ -15,6 +15,7 @@ import (
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -33,6 +34,9 @@ const (
 	EditAddConnection = "addConnection"
 	EditDelete        = "delete"
 	EditMove          = "move"
+	EditSetLayout     = "setLayout"
+	EditSetRoute      = "setRoute"
+	EditSetCanvas     = "setCanvas"
 )
 
 // applyModelEditParams asks for the operations to be applied to the document as
@@ -46,20 +50,46 @@ type applyModelEditParams struct {
 // modelEditOperation is one modeledit.Operation on the wire. Kind selects the
 // operation; the other fields are read as that operation reads them. Elements
 // are named by qualified name, as a rendering's nodes report them.
+//
+// The DiagramLayout kinds place what a rendering draws: setLayout writes the
+// Layout of the node Target, setRoute the Route of the edge Target, setCanvas
+// the Canvas of the view Target. A setLayout or setRoute may give Declaration
+// instead of Target, the range a rendering reports for a node or edge no
+// qualified name reaches. View names the view whose body states a Layout or
+// Route, so it applies in that view alone; left empty, the annotation goes
+// inline into Target's declaration and applies in every view. A setLayout with
+// no Layout, a setRoute with no or an empty Route and a setCanvas with no Canvas
+// clear the annotation.
 type modelEditOperation struct {
-	Kind         string   `json:"kind"`
-	Target       string   `json:"target,omitempty"`
-	Value        string   `json:"value,omitempty"`
-	NewName      string   `json:"newName,omitempty"`
-	Owner        string   `json:"owner,omitempty"`
-	MemberKind   string   `json:"memberKind,omitempty"`
-	Name         string   `json:"name,omitempty"`
-	Type         string   `json:"type,omitempty"`
-	Multiplicity string   `json:"multiplicity,omitempty"`
-	Specializes  []string `json:"specializes,omitempty"`
-	From         string   `json:"from,omitempty"`
-	To           string   `json:"to,omitempty"`
-	Cascade      bool     `json:"cascade,omitempty"`
+	Kind         string           `json:"kind"`
+	Target       string           `json:"target,omitempty"`
+	Declaration  *protocol.Range  `json:"declaration,omitempty"`
+	Value        string           `json:"value,omitempty"`
+	NewName      string           `json:"newName,omitempty"`
+	Owner        string           `json:"owner,omitempty"`
+	MemberKind   string           `json:"memberKind,omitempty"`
+	Name         string           `json:"name,omitempty"`
+	Type         string           `json:"type,omitempty"`
+	Multiplicity string           `json:"multiplicity,omitempty"`
+	Specializes  []string         `json:"specializes,omitempty"`
+	From         string           `json:"from,omitempty"`
+	To           string           `json:"to,omitempty"`
+	Cascade      bool             `json:"cascade,omitempty"`
+	View         string           `json:"view,omitempty"`
+	Layout       *modelEditLayout `json:"layout,omitempty"`
+	Route        []renderPoint    `json:"route,omitempty"`
+	Canvas       *renderCanvas    `json:"canvas,omitempty"`
+}
+
+// modelEditLayout is a node's geometry as setLayout writes it, in the units
+// opensysml/render reports: pixels, y down. Width and Height are written both
+// or neither; Collapsed is written only when set.
+type modelEditLayout struct {
+	X         float64  `json:"x"`
+	Y         float64  `json:"y"`
+	Width     *float64 `json:"width,omitempty"`
+	Height    *float64 `json:"height,omitempty"`
+	Collapsed bool     `json:"collapsed,omitempty"`
 }
 
 // applyModelEditResult is exactly one of: an edit to apply, the refusals that
@@ -173,7 +203,7 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 	}
 	ops := make([]modeledit.Operation, 0, len(params.Operations))
 	for i, op := range params.Operations {
-		converted, err := op.operation()
+		converted, err := op.operation(doc.Content)
 		if err != nil {
 			return nil, fmt.Errorf("%s: operation %d: %w", jsonrpc2.ErrInvalidParams, i, err)
 		}
@@ -228,8 +258,15 @@ func documentChange(edited model.DocumentEdit) (protocol.TextDocumentEdit, error
 	return change, nil
 }
 
-// operation reads the wire operation as the edit operation it names.
-func (op modelEditOperation) operation() (modeledit.Operation, error) {
+// operation reads the wire operation as the edit operation it names; content
+// is the document a Declaration range is a range of.
+func (op modelEditOperation) operation(content []byte) (modeledit.Operation, error) {
+	if op.Declaration != nil && op.Kind != EditSetLayout && op.Kind != EditSetRoute {
+		return modeledit.Operation{}, fmt.Errorf("a declaration stands in for the target of a %s or %s alone", EditSetLayout, EditSetRoute)
+	}
+	if op.Declaration != nil && op.Target != "" {
+		return modeledit.Operation{}, errors.New("an operation targets its element by name or by declaration, not both")
+	}
 	switch op.Kind {
 	case EditSetValue:
 		return modeledit.SetValue(op.Target, op.Value), nil
@@ -247,9 +284,66 @@ func (op modelEditOperation) operation() (modeledit.Operation, error) {
 		return modeledit.Delete(op.Target, op.Cascade), nil
 	case EditMove:
 		return modeledit.Move(op.Target, op.Owner), nil
+	case EditSetLayout:
+		layout, err := op.Layout.layout()
+		if err != nil {
+			return modeledit.Operation{}, err
+		}
+		if op.Declaration != nil {
+			return modeledit.SetLayoutAt(rangeToSpan(content, *op.Declaration), op.View, layout), nil
+		}
+		return modeledit.SetLayout(op.Target, op.View, layout), nil
+	case EditSetRoute:
+		var route *semantics.Route
+		if len(op.Route) > 0 {
+			route = &semantics.Route{Points: make([]semantics.Waypoint, len(op.Route))}
+			for i, p := range op.Route {
+				route.Points[i] = semantics.Waypoint{X: p.X, Y: p.Y}
+			}
+		}
+		if op.Declaration != nil {
+			return modeledit.SetRouteAt(rangeToSpan(content, *op.Declaration), op.View, route), nil
+		}
+		return modeledit.SetRoute(op.Target, op.View, route), nil
+	case EditSetCanvas:
+		canvas, err := op.Canvas.canvas()
+		if err != nil {
+			return modeledit.Operation{}, err
+		}
+		return modeledit.SetCanvas(op.Target, canvas), nil
 	}
 	return modeledit.Operation{}, fmt.Errorf("kind %q is none of %s", op.Kind,
-		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete, EditMove}, ", "))
+		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas}, ", "))
+}
+
+// layout reads the wire geometry as the edit layer writes it; nil clears.
+func (l *modelEditLayout) layout() (*semantics.Layout, error) {
+	if l == nil {
+		return nil, nil
+	}
+	if (l.Width == nil) != (l.Height == nil) {
+		return nil, errors.New("a layout sizes its node with both width and height or with neither")
+	}
+	out := &semantics.Layout{X: l.X, Y: l.Y, Collapsed: l.Collapsed}
+	if l.Width != nil {
+		out.Width, out.Height, out.HasSize = *l.Width, *l.Height, true
+	}
+	return out, nil
+}
+
+// canvas reads the wire canvas as the edit layer writes it; nil clears.
+func (c *renderCanvas) canvas() (*semantics.Canvas, error) {
+	if c == nil {
+		return nil, nil
+	}
+	if (c.Width == nil) != (c.Height == nil) {
+		return nil, errors.New("a canvas sizes the drawing surface with both width and height or with neither")
+	}
+	out := &semantics.Canvas{Unit: c.Unit}
+	if c.Width != nil {
+		out.Width, out.Height, out.HasSize = *c.Width, *c.Height, true
+	}
+	return out, nil
 }
 
 // refusal reports an edit refusal to the client. Diagnostics of the edited
@@ -373,8 +467,12 @@ func palette(kind view.Kind, lang source.Kind) *editPalette {
 }
 
 // nodeOwners lists the namespaces declaring sym, nearest first, as an edit names
-// them; false when an unnamed one intervenes, which no qualified name reaches.
+// them; false when sym or a namespace declaring it is unnamed, so no qualified
+// name reaches it.
 func nodeOwners(sym *symbols.Symbol) ([]renderOwner, bool) {
+	if sym.Name == "" {
+		return nil, false
+	}
 	owners := []renderOwner{}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
 		owner := scope.Owner()
@@ -392,15 +490,12 @@ func notationName(sym *symbols.Symbol) string {
 	return lexer.QualifiedNameOf(symbols.NameChain(sym))
 }
 
-// nodeSymbol is the declaration a rendering node was built from, as an edit
-// targets it, or nil for a node with no named declaration in the document.
-func nodeSymbol(scope *symbols.Scope, o view.Origin) *symbols.Symbol {
-	if scope == nil || !o.Located() {
+// nodeSymbol is the declaration a rendering node or edge was built from, named
+// or not, when the rendered document declares it; nil for one another document
+// declares or a lowering sequenced without a declaration of its own.
+func nodeSymbol(doc *model.Document, name string, o view.Origin) *symbols.Symbol {
+	if doc == nil || doc.Scope == nil || o.Doc != name || !o.Located() {
 		return nil
 	}
-	sym := symbolAtOffset(scope, o.Span.Offset)
-	if sym == nil || sym.Name == "" || sym.DeclSpan.Offset != o.Span.Offset {
-		return nil
-	}
-	return sym
+	return doc.Scope.DeclaredAt(o.Span)
 }

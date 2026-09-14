@@ -71,7 +71,14 @@ func (e *Encoding) Decode(result *solve.Result) (*Witness, error) {
 	if mark < 0 || mark > e.Moves {
 		return nil, &WitnessError{Var: MarkVar, Reason: fmt.Sprintf("%d is not a state of %d moves", mark, e.Moves)}
 	}
+	return e.decodeRun(m, mark)
+}
+
+// decodeRun reads the run m assigns up to state mark: its inputs, then each
+// move's choices until a stutter.
+func (e *Encoding) decodeRun(m model, mark int) (*Witness, error) {
 	w := &Witness{Mark: mark}
+	var err error
 	if w.Inputs, err = e.decodeInputs(m); err != nil {
 		return nil, err
 	}

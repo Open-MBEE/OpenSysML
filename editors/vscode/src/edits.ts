@@ -4,19 +4,66 @@
 import {
   admits,
   type ApplyModelEditParams,
+  type EdgePlacement,
   type EditPalette,
   type ModelEditOperation,
   type ModelEditRefusal,
+  type NodePlacement,
+  type RenderEdge,
   type RenderNode,
   type RenderOwner,
   type WorkspaceEdit,
 } from "./protocol";
 
-/** Rendering is the diagram an action is taken on: its nodes, what they offer to add, and the document version they draw. */
+/**
+ * Rendering is the diagram an action is taken on: its nodes and edges, the view
+ * they were drawn for (empty for a pseudo-view), what they offer to add, and the
+ * document version they draw.
+ */
 export interface Rendering {
   nodes: RenderNode[];
+  edges?: RenderEdge[];
+  view?: string;
   version: number;
   palette?: EditPalette;
+}
+
+/**
+ * placementOperations turns where a gesture left nodes and edges into the layout
+ * and route operations of one edit: a Layout in the view's body for a rendering
+ * of a declared view, inline on the element for a pseudo-view. An element no
+ * qualified name reaches is targeted by its declaration and placed inline, since
+ * a view body cannot name it. Undefined when something placed is not declared by
+ * the document, since no annotation can reach it.
+ */
+export function placementOperations(
+  rendering: Rendering,
+  nodes: NodePlacement[],
+  edges: EdgePlacement[],
+): ModelEditOperation[] | undefined {
+  const view = rendering.view || undefined;
+  const operations: ModelEditOperation[] = [];
+  for (const placement of nodes) {
+    const node = rendering.nodes.find((candidate) => candidate.id === placement.id);
+    if (node?.fqn) {
+      operations.push({ kind: "setLayout", target: node.fqn, view, layout: placement.layout });
+    } else if (node?.declaration) {
+      operations.push({ kind: "setLayout", declaration: node.declaration, layout: placement.layout });
+    } else {
+      return undefined;
+    }
+  }
+  for (const placement of edges) {
+    const edge = rendering.edges?.[placement.index];
+    if (edge?.fqn) {
+      operations.push({ kind: "setRoute", target: edge.fqn, view, route: placement.route });
+    } else if (edge?.declaration) {
+      operations.push({ kind: "setRoute", declaration: edge.declaration, route: placement.route });
+    } else {
+      return undefined;
+    }
+  }
+  return operations;
 }
 
 /** A node's ancestors, nearest first, ending at a root. */

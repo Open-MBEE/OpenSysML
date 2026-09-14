@@ -130,6 +130,8 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 type MetadataBinding struct {
 	Feature string
 	Value   ast.Node
+	// Node is the body member stating the binding.
+	Node *ast.Usage
 	// Scope is where the value resolves names: the body's own scope, which sees
 	// the metadata type's members before those around the annotated element.
 	Scope  *symbols.Scope
@@ -229,6 +231,7 @@ func metadataBindings(scope *symbols.Scope, body []ast.Node) []MetadataBinding {
 		out = append(out, MetadataBinding{
 			Feature: name,
 			Value:   usage.Value,
+			Node:    usage,
 			Scope:   scope,
 			Nested:  nested,
 		})
