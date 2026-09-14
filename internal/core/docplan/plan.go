@@ -18,6 +18,7 @@ const (
 	ContentTable       ContentKind = "table"
 	ContentList        ContentKind = "list"
 	ContentDefinitions ContentKind = "definitions"
+	ContentFormula     ContentKind = "formula"
 	ContentDiagram     ContentKind = "diagram"
 )
 
@@ -46,7 +47,18 @@ const (
 	StyleEmphasis RunStyle = "emphasis"
 	StyleStrong   RunStyle = "strong"
 	StyleCode     RunStyle = "code"
+	// StyleMath typesets the span's text, LaTeX source, as inline mathematics.
+	StyleMath RunStyle = "math"
 )
+
+// ValidRunStyle reports whether a style names one of the span styles.
+func ValidRunStyle(style RunStyle) bool {
+	switch style {
+	case StylePlain, StyleEmphasis, StyleStrong, StyleCode, StyleMath:
+		return true
+	}
+	return false
+}
 
 // Run is one planned inline run: a styled span, a link, or a reference to
 // a content block of this or another document, or another document's root.
@@ -260,12 +272,13 @@ func (d *DiagramRef) Palette() view.Palette { return d.palette }
 func (d *DiagramRef) Origin() provenance.Origin { return d.origin }
 
 // Content is one planned content node: a section, paragraph, table, list,
-// definitions, or diagram.
+// definitions, formula, or diagram.
 type Content struct {
 	kind        ContentKind
 	name        string
 	title       string
 	text        string
+	source      string
 	caption     string
 	style       ListStyle
 	groupBy     string
@@ -291,7 +304,10 @@ func (c Content) Title() string { return c.title }
 // Text returns the static text of a paragraph, empty when query-backed.
 func (c Content) Text() string { return c.text }
 
-// Caption returns the declared caption of a table or diagram.
+// Source returns the LaTeX source of a formula.
+func (c Content) Source() string { return c.source }
+
+// Caption returns the declared caption of a table, formula or diagram.
 func (c Content) Caption() string { return c.caption }
 
 // Style returns the declared style of a list.
@@ -335,6 +351,7 @@ func cloneContent(content []Content) []Content {
 			name:        child.name,
 			title:       child.title,
 			text:        child.text,
+			source:      child.source,
 			caption:     child.caption,
 			style:       child.style,
 			groupBy:     child.groupBy,

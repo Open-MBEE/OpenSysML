@@ -34,10 +34,11 @@ type MarkdownOptions struct {
 // title as a level-1 ATX heading, each section one level deeper (saturating
 // at 6), paragraphs from space-joined text runs, GitHub-flavored pipe tables
 // with projected column headers, bullet or numbered lists, definitions as one
-// "**term** — description" paragraph per entry, and diagrams as fenced
-// blocks of their source in the chosen diagram form (table-kind views as pipe
-// tables). Metacharacters in content are escaped so no value can corrupt the
-// document structure.
+// "**term** — description" paragraph per entry, formulas as $$-fenced
+// display math with inline math in $…$, and diagrams as fenced blocks of
+// their source in the chosen diagram form (table-kind views as pipe tables).
+// Metacharacters in content are escaped so no value can corrupt the document
+// structure; LaTeX is written verbatim, since math is not prose.
 func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if document == nil {
 		return "", &Error{Kind: ErrorNilDocument}
@@ -111,6 +112,8 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 		return renderList(node), nil
 	case docir.ContentDefinitions:
 		return renderDefinitions(node), nil
+	case docir.ContentFormula:
+		return renderFormula(node), nil
 	case docir.ContentDiagram:
 		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), node.Options(), w.form)
 	default:
@@ -268,6 +271,77 @@ func renderList(node docir.Content) []string {
 	return []string{strings.Join(lines, "\n")}
 }
 
+// mathFence opens and closes a display-math block on lines of its own.
+const mathFence = "$$"
+
+// renderFormula writes one display-math block under its marked caption: the
+// LaTeX source between $$ fences, one source line per line.
+func renderFormula(node docir.Content) []string {
+	var blocks []string
+	if node.Caption() != "" {
+		blocks = append(blocks, captionMarker+"\n*"+inline(node.Caption())+"*")
+	}
+	return append(blocks, mathFence+"\n"+displayMath(node.Source())+"\n"+mathFence)
+}
+
+// displayMath prepares LaTeX for a $$ block: lines keep their breaks, blank
+// lines (which would end the block) are dropped, and bare dollars are
+// escaped so none can close the block early.
+func displayMath(source string) string {
+	var lines []string
+	for _, line := range strings.Split(newlineNormalizer.Replace(source), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			lines = append(lines, escapeDollars(line))
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// mathSpan writes inline LaTeX between single dollars: whitespace trimmed and
+// newlines folded so the delimiters hug non-space characters, as the
+// dollar-math convention requires, and bare dollars escaped.
+func mathSpan(source string) string {
+	source = strings.TrimSpace(strings.ReplaceAll(newlineNormalizer.Replace(source), "\n", " "))
+	escaped := escapeDollars(source)
+	if trailingBackslashes(escaped)%2 == 1 {
+		escaped += `\`
+	}
+	return "$" + escaped + "$"
+}
+
+// trailingBackslashes counts the backslashes ending text; an odd count would
+// escape whatever follows.
+func trailingBackslashes(text string) int {
+	n := 0
+	for n < len(text) && text[len(text)-1-n] == '\\' {
+		n++
+	}
+	return n
+}
+
+// escapeDollars backslash-escapes every dollar in LaTeX not already escaped,
+// leaving other backslash sequences alone: \$ is LaTeX for a literal dollar,
+// so the source keeps its meaning while no dollar can end the math.
+func escapeDollars(source string) string {
+	var b strings.Builder
+	b.Grow(len(source))
+	for i := 0; i < len(source); i++ {
+		switch source[i] {
+		case '\\':
+			b.WriteByte('\\')
+			if i+1 < len(source) {
+				i++
+				b.WriteByte(source[i])
+			}
+		case '$':
+			b.WriteString(`\$`)
+		default:
+			b.WriteByte(source[i])
+		}
+	}
+	return b.String()
+}
+
 // definitionSeparator joins an entry's term to its description.
 const definitionSeparator = " — "
 
@@ -310,7 +384,8 @@ func blockText(runs []docir.TextRun) string {
 
 // itemText joins text runs by single spaces, rendering each by its kind:
 // plain runs as escaped prose, styled runs in emphasis or strong delimiters
-// or as code spans, links and references as inline links.
+// or as code spans, math runs as dollar math, links and references as inline
+// links.
 func itemText(runs []docir.TextRun) string {
 	parts := make([]string, len(runs))
 	for i, run := range runs {
@@ -327,6 +402,8 @@ func runText(run docir.TextRun) string {
 		return delimited("**", run.Text())
 	case docir.RunCode:
 		return codeSpan(run.Text())
+	case docir.RunMath:
+		return mathSpan(run.Text())
 	case docir.RunLink:
 		return "[" + inline(run.Text()) + "](<" + destination(run.Target()) + ">)"
 	case docir.RunRef:
@@ -455,7 +532,7 @@ func valueText(value queryexec.Value) string {
 }
 
 // inlineEscaper backslash-escapes the characters that open Markdown or HTML
-// structure anywhere in a line.
+// structure anywhere in a line, dollar math included.
 var inlineEscaper = strings.NewReplacer(
 	`\`, `\\`,
 	"`", "\\`",
@@ -467,6 +544,7 @@ var inlineEscaper = strings.NewReplacer(
 	"&", `\&`,
 	"|", `\|`,
 	"#", `\#`,
+	"$", `\$`,
 )
 
 // newlineNormalizer folds CRLF and lone CR to LF, so a carriage return cannot

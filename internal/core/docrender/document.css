@@ -26,6 +26,7 @@
     --sysml-title-page-height: 60vh;
     --sysml-group-heading-weight: 600;
     --sysml-term-weight: 600;
+    --sysml-formula-align: center;
 
     box-sizing: border-box;
     max-width: var(--sysml-measure);
@@ -126,6 +127,15 @@
 
   .sysml-document .sysml-diagram {
     margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-formula {
+    margin: var(--sysml-space) 0;
+    text-align: var(--sysml-formula-align);
+  }
+
+  .sysml-document .sysml-formula .sysml-math {
+    overflow-x: auto;
   }
 
   .sysml-document .sysml-diagram pre {

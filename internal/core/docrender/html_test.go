@@ -24,6 +24,7 @@ var htmlClassVocabulary = map[string]bool{
 	"sysml-separator": true, "sysml-list": true, "sysml-item": true,
 	"sysml-definitions": true, "sysml-entry": true, "sysml-term": true, "sysml-description": true,
 	"sysml-diagram": true, "sysml-caption": true, "sysml-link": true, "sysml-ref": true,
+	"sysml-formula": true, "sysml-math": true,
 	"mermaid": true, "dot": true, "plantuml": true,
 }
 
@@ -223,9 +224,17 @@ func TestHTMLDiagramForm(t *testing.T) {
 // markup: nothing carries a style attribute, and every class is one the
 // documented vocabulary names.
 func TestHTMLNoInlineStylesOrUnknownClasses(t *testing.T) {
-	for _, opts := range []HTMLOptions{{}, {Fragment: true, TitlePage: true, TOC: true, NumberSections: true}, {DiagramForm: view.FormDot}, {DiagramForm: view.FormPlantUML}} {
-		got := renderFixtureHTML(t, filepath.Join("testdata", "telescope_report.sysml"),
-			"Observatory::MassReport", opts)
+	for _, c := range []struct {
+		fixture, document string
+		opts              HTMLOptions
+	}{
+		{"telescope_report.sysml", "Observatory::MassReport", HTMLOptions{}},
+		{"telescope_report.sysml", "Observatory::MassReport", HTMLOptions{Fragment: true, TitlePage: true, TOC: true, NumberSections: true}},
+		{"telescope_report.sysml", "Observatory::MassReport", HTMLOptions{DiagramForm: view.FormDot}},
+		{"telescope_report.sysml", "Observatory::MassReport", HTMLOptions{DiagramForm: view.FormPlantUML}},
+		{"math_report.sysml", "Optics::OpticsReport", HTMLOptions{}},
+	} {
+		got := renderFixtureHTML(t, filepath.Join("testdata", c.fixture), c.document, c.opts)
 		if strings.Contains(got, "style=\"") {
 			t.Error("rendering carries an inline style attribute, which reader CSS cannot override")
 		}

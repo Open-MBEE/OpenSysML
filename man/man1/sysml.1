@@ -71,8 +71,9 @@ exploration as its runs (default 1000000)
 .TP
 .BI \-check\-timeout " value"
 With \-engine check, \-engine smt or \-engine all: the time the check's plan
-may run for, as 30s or 2m; a search it stops is reported incomplete with the
-states and depth reached, not as a verdict
+may run for, as 30s or 2m, and the time each of the smt engine's solver
+queries may take in place of OPENSYSML_SMT_TIMEOUT; a search it stops is
+reported incomplete with the states and depth reached, not as a verdict
 .TP
 .BI \-check\-unroll " value"
 With \-engine smt or \-engine all: the most iterations of one loop the smt
@@ -165,6 +166,11 @@ own
 .B \-html\-fragment
 Write the document element alone, without the page shell or a stylesheet, to
 embed in a page of your own
+.TP
+.BI \-html\-math " string"
+Have the HTML page load MathJax to typeset its formulas: cdn loads a pinned
+release from jsDelivr, a URL loads the script it names (default: formulas stay
+LaTeX source)
 .TP
 .BI \-html\-mermaid " string"
 Have the HTML page load Mermaid to draw its diagrams: cdn loads a pinned
@@ -614,6 +620,9 @@ sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
 # diagrams drawn in the browser
 sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
     \-html\-mermaid cdn \-o report.html
+# formulas typeset in the browser
+sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
+    \-html\-math cdn \-o report.html
 # diagrams as Graphviz DOT
 sysml model.sysml \-render\-document Reports::MassReport \-diagram\-form \e
     dot \-o report.md
@@ -655,6 +664,13 @@ yours, and \-html\-default\-css writes the default sheet out \(em or, with
 \-html\-theme, a theme's whole sheet \(em to start from. \-html\-mermaid cdn
 has the page load a pinned Mermaid release from jsDelivr so a browser draws
 the Mermaid diagrams, or names a URL of your own to load it from.
+.PP
+Mathematics is LaTeX: a Span styled math is an inline formula, a Formula block
+a display one. Markdown writes them between $ and $$ delimiters, HTML in \e(
+\e) and \e[ \e] inside sysml\-math elements, left as source until \-html\-math
+cdn has the page load a pinned MathJax release from jsDelivr, or a URL of your
+own; PDF typesets them with KaTeX (katex) as it pre\-renders diagrams with
+mermaid\-cli.
 .SH FLAG ORDER
 Flags may be written before or after the model they apply to. A file named
 like a flag is read as a file after \-\-, which ends the flags: sysml \-trace
@@ -749,7 +765,8 @@ drive as their SMT solver, speaking SMT\-LIB2 on standard input
 .TP
 .B OPENSYSML_SMT_TIMEOUT
 How long one solver query may take, as a Go duration. Default 10s, after which
-the verdict is unknown.
+the verdict is unknown; a check's \-check\-timeout takes its place for the smt
+engine's queries.
 .TP
 .B OPENSYSML_SMT_CORE_BUDGET
 How long %explain may spend reducing an unsat core to a minimal one, as a Go

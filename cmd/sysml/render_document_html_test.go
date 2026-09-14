@@ -196,6 +196,94 @@ func TestRenderDocumentHTMLMermaid(t *testing.T) {
 		2, "not the sheet")
 }
 
+// mathModel declares a document carrying an inline formula and a display one.
+const mathModel = queryModel + `package Reports {
+	private import DocumentQueries::*;
+	private import Observatory::*;
+
+	part def OpticsReport :> Document {
+		attribute redefines title = "Optics Report";
+
+		part intro : Paragraph {
+			part lead : Span {
+				attribute redefines text = "Aperture area scales as";
+			}
+			part area : Span {
+				attribute redefines text = "A \\propto D^2";
+				attribute redefines style = "math";
+			}
+		}
+
+		part rayleigh : Formula {
+			attribute redefines source = "\\theta = 1.22\\,\\frac{\\lambda}{D}";
+			attribute redefines caption = "Rayleigh criterion";
+		}
+	}
+}
+`
+
+// TestRenderDocumentHTMLMath checks formulas reach every document form as
+// math rather than prose, and that -html-math loads the pinned MathJax
+// release or the URL named, under the same rules as -html-mermaid.
+func TestRenderDocumentHTMLMath(t *testing.T) {
+	binary := buildCLI(t)
+	pinned := `<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>`
+	inline := `<span class="sysml-math">\(A \propto D^2\)</span>`
+	display := `<div class="sysml-math">\[\theta = 1.22\,\frac{\lambda}{D}\]</div>`
+
+	wantReport(t, check(t, binary, mathModel, "-render-document", "Reports::OpticsReport"), 0,
+		"Aperture area scales as $A \\propto D^2$", "$$\n\\theta = 1.22\\,\\frac{\\lambda}{D}\n$$", "*Rayleigh criterion*")
+
+	plain := check(t, binary, mathModel, "-render-document", "Reports::OpticsReport", "-doc-form", "html")
+	wantReport(t, plain, 0, inline, `<figure class="sysml-formula" data-content="formula" data-name="rayleigh">`, display,
+		`<figcaption class="sysml-caption">Rayleigh criterion</figcaption>`)
+	if strings.Contains(plain.stdout, "<script") {
+		t.Errorf("a page loads no script unless asked:\n%s", plain.stdout)
+	}
+	wantReport(t, check(t, binary, mathModel, "-render-document", "Reports::OpticsReport",
+		"-doc-form", "html", "-html-math", "cdn"), 0, inline, `processHtmlClass: "sysml-math"`, "</article>\n<script>window.MathJax", pinned+"\n</body>")
+	wantReport(t, check(t, binary, mathModel, "-render-document", "Reports::OpticsReport",
+		"-doc-form", "html", "-html-math", "https://example.test/mathjax.js", "-html-mermaid", "cdn"),
+		0, `<script src="https://example.test/mathjax.js"></script>`, "mermaid.min.js")
+
+	dir := filepath.Join(t.TempDir(), "site")
+	wantReport(t, check(t, binary, mathModel, "-render-documents", dir, "-doc-form", "html", "-html-math", "cdn"), 0)
+	pages, err := filepath.Glob(filepath.Join(dir, "*.html"))
+	if err != nil || len(pages) == 0 {
+		t.Fatalf("set wrote no pages: %v", err)
+	}
+	for _, page := range pages {
+		content, err := os.ReadFile(page)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(content), pinned) {
+			t.Errorf("%s does not load MathJax:\n%s", page, content)
+		}
+	}
+
+	wantReport(t, check(t, binary, mathModel, "-render-document", "Reports::OpticsReport",
+		"-doc-form", "html", "-html-math", "mathjax.js"),
+		2, "-html-math takes cdn or the URL of a MathJax script")
+	wantReport(t, check(t, binary, mathModel, "-render-documents", dir,
+		"-doc-form", "html", "-html-math", "mathjax.js"),
+		2, "-html-math takes cdn or the URL of a MathJax script")
+	wantReport(t, check(t, binary, mathModel, "-render-document", "Reports::OpticsReport",
+		"-doc-form", "html", "-html-math="), 2, "-html-math is empty")
+	wantReport(t, check(t, binary, mathModel, "-render-document", "Reports::OpticsReport",
+		"-doc-form", "html", "-html-fragment", "-html-math", "cdn"),
+		2, "load MathJax in the page you embed it in")
+	wantReport(t, check(t, binary, mathModel, "-render-document", "Reports::OpticsReport", "-html-math", "cdn"),
+		2, "-doc-form html")
+	wantReport(t, check(t, binary, mathModel, "-render-document", "Reports::OpticsReport",
+		"-doc-form", "pdf", "-o", filepath.Join(t.TempDir(), "r.pdf"), "-html-math", "cdn"),
+		2, "-doc-form html")
+	wantReport(t, check(t, binary, mathModel, "-html-math", "cdn"),
+		2, "apply to -render-document")
+	wantReport(t, runCommand(t, exec.Command(binary, "-html-default-css", "-html-math", "cdn")),
+		2, "not the sheet")
+}
+
 // TestRenderDocumentHTMLDiagramForm checks -diagram-form reaches the HTML
 // backend: DOT or PlantUML on request, Mermaid otherwise, the table a table
 // either way.

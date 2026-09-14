@@ -225,6 +225,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render-documents site -doc-form html -html-css theme.css", ""),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-theme report -o report.html", "a bundled theme"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-mermaid cdn -o report.html", "diagrams drawn in the browser"),
+				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-math cdn -o report.html", "formulas typeset in the browser"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form dot -o report.md", "diagrams as Graphviz DOT"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form plantuml -o report.md", "diagrams as PlantUML"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form pdf "+
@@ -257,6 +258,12 @@ func doc() usage.Doc {
 					"— or, with -html-theme, a theme's whole sheet — to start from. -html-mermaid " +
 					"cdn has the page load a pinned Mermaid release from jsDelivr so a " +
 					"browser draws the Mermaid diagrams, or names a URL of your own to load it from.",
+				"Mathematics is LaTeX: a Span styled math is an inline formula, a Formula " +
+					"block a display one. Markdown writes them between $ and $$ delimiters, HTML " +
+					"in \\( \\) and \\[ \\] inside sysml-math elements, left as source until " +
+					"-html-math cdn has the page load a pinned MathJax release from jsDelivr, or " +
+					"a URL of your own; PDF typesets them with KaTeX (katex) as it pre-renders " +
+					"diagrams with mermaid-cli.",
 			},
 		}, {
 			Title: "Flag order",
@@ -327,7 +334,7 @@ func doc() usage.Doc {
 func solverEnvironment() []usage.Item {
 	return []usage.Item{
 		usage.Entry("OPENSYSML_SMT", "Executable the %check, %explain, %solve, %configure and %optimize commands drive as their SMT solver, speaking SMT-LIB2 on standard input (experimental). Unset looks for z3, then cvc5, on PATH."),
-		usage.Entry("OPENSYSML_SMT_TIMEOUT", "How long one solver query may take, as a Go duration. Default 10s, after which the verdict is unknown."),
+		usage.Entry("OPENSYSML_SMT_TIMEOUT", "How long one solver query may take, as a Go duration. Default 10s, after which the verdict is unknown; a check's -check-timeout takes its place for the smt engine's queries."),
 		usage.Entry("OPENSYSML_SMT_CORE_BUDGET", "How long %explain may spend reducing an unsat core to a minimal one, as a Go duration. Default 30s."),
 		usage.Entry("OPENSYSML_SMT_MAX_CONFIGURATIONS", "How many variant selections %configure ... all may report before saying the enumeration was cut short. Default 32."),
 	}
@@ -379,6 +386,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&htmlShowCSS, "html-default-css", false, "Write the default document stylesheet and exit, as a starting point for your own")
 	fs.BoolVar(&htmlFragment, "html-fragment", false, "Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own")
 	fs.StringVar(&htmlMermaid, "html-mermaid", "", "Have the HTML page load Mermaid to draw its diagrams: cdn loads a pinned release from jsDelivr, a URL loads the script it names (default: diagrams stay Mermaid source)")
+	fs.StringVar(&htmlMath, "html-math", "", "Have the HTML page load MathJax to typeset its formulas: cdn loads a pinned release from jsDelivr, a URL loads the script it names (default: formulas stay LaTeX source)")
 	fs.StringVar(&syncDiffWith, "sync-diff", "", "Show the change set between the model and this repository — a graph file (.ttl) or a SysML v2 API endpoint URL — keyed by effective element id, instead of running it; never writes")
 	fs.StringVar(&syncApplyTo, "sync-apply", "", "Apply the change set to the model's project branch at this SysML v2 API endpoint URL, then record the commit in the sync state (token from "+flexo.EnvToken+")")
 	fs.StringVar(&syncBase, "sync-base", "", "Repository graph at the last-seen commit; with it, repository changes since then surface as conflicts")
@@ -410,7 +418,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.depth, "check-depth", "With -engine check, -engine smt or -engine all: the most moves one schedule may make before the search backtracks, or the moves the smt engine unrolls the action to, named as the depth bound hit (default 10000 for check, 40 for smt)")
 	fs.Var(&modelChecks.checker.states, "check-states", "With -engine check or -engine all: the most distinct states the search may visit, named as the states bound hit; the same figure -engine all gives an exploration as its runs (default 1000000)")
 	fs.Var(&modelChecks.checker.unroll, "check-unroll", "With -engine smt or -engine all: the most iterations of one loop the smt engine unrolls before it stops, named as the unroll bound hit (default 4)")
-	fs.Var(&modelChecks.checker.timeout, "check-timeout", "With -engine check, -engine smt or -engine all: the time the check's plan may run for, as 30s or 2m; a search it stops is reported incomplete with the states and depth reached, not as a verdict")
+	fs.Var(&modelChecks.checker.timeout, "check-timeout", "With -engine check, -engine smt or -engine all: the time the check's plan may run for, as 30s or 2m, and the time each of the smt engine's solver queries may take in place of OPENSYSML_SMT_TIMEOUT; a search it stops is reported incomplete with the states and depth reached, not as a verdict")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
 	fs.StringVar(&compileTarget, "target", "c", "Backend -compile generates code for: c (default) or go")

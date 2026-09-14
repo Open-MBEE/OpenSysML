@@ -16,7 +16,7 @@ func TestInlineHTMLPlainText(t *testing.T) {
 		{`trailing\`, `trailing\`},
 		{"", ""},
 	} {
-		if got := inlineHTML(c.in); got != c.want {
+		if got := inlineHTML(c.in, formulas{}); got != c.want {
 			t.Errorf("inlineHTML(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
@@ -37,7 +37,7 @@ func TestInlineHTMLEmphasis(t *testing.T) {
 		{"unclosed *span", "unclosed *span"},
 		{"unclosed **span", "unclosed **span"},
 	} {
-		if got := inlineHTML(c.in); got != c.want {
+		if got := inlineHTML(c.in, formulas{}); got != c.want {
 			t.Errorf("inlineHTML(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
@@ -58,7 +58,7 @@ func TestInlineHTMLCodeSpans(t *testing.T) {
 		{"unclosed `span", "unclosed `span"},
 		{"`*not em*`", "<code>*not em*</code>"},
 	} {
-		if got := inlineHTML(c.in); got != c.want {
+		if got := inlineHTML(c.in, formulas{}); got != c.want {
 			t.Errorf("inlineHTML(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
@@ -82,7 +82,7 @@ func TestInlineHTMLLinks(t *testing.T) {
 		{"[unclosed](<dest", "[unclosed](&lt;dest"},
 		{"[unclosed](#ref", "[unclosed](#ref"},
 	} {
-		if got := inlineHTML(c.in); got != c.want {
+		if got := inlineHTML(c.in, formulas{}); got != c.want {
 			t.Errorf("inlineHTML(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
@@ -93,7 +93,7 @@ func TestInlineHTMLLinks(t *testing.T) {
 func TestInlineHTMLMixedRuns(t *testing.T) {
 	in := `The *margin* is **critical** for ` + "`m > 0`" + ` per [spec](<https://example.com/spec.md>) and [table](#Report-masses)\.`
 	want := `The <em>margin</em> is <strong>critical</strong> for <code>m &gt; 0</code> per <a href="https://example.com/spec.md">spec</a> and <a href="#Report-masses">table</a>.`
-	if got := inlineHTML(in); got != want {
+	if got := inlineHTML(in, formulas{}); got != want {
 		t.Errorf("inlineHTML(%q) = %q, want %q", in, got, want)
 	}
 }
@@ -157,7 +157,7 @@ func TestDocumentHTMLInlineRuns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseBlocks: %v", err)
 	}
-	page := documentHTML(blocks, nil, Options{})
+	page := documentHTML(blocks, artwork{}, Options{})
 	for _, want := range []string{
 		`<a id="Inline.20Report-masses"></a>`,
 		"<p>The <em>margin</em> is <strong>critical</strong> for <code>m &gt; 0</code> per " +

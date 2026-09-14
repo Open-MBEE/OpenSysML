@@ -58,6 +58,7 @@ const (
 	ErrorUnknownRunColumn        ErrorKind = "unknown-run-column"
 	ErrorMissingDefinitionColumn ErrorKind = "missing-definition-column"
 	ErrorUnknownDefinitionColumn ErrorKind = "unknown-definition-column"
+	ErrorMissingFormulaSource    ErrorKind = "missing-formula-source"
 )
 
 // Error is a typed document-planning failure with its source location.
@@ -174,13 +175,14 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s run %s states no text", e.Document, e.Content)
 	case ErrorInvalidRunStyle:
 		return fmt.Sprintf(
-			"document %s run %s style must be %q, %q, %q or %q, got %q",
+			"document %s run %s style must be %q, %q, %q, %q or %q, got %q",
 			e.Document,
 			e.Content,
 			StylePlain,
 			StyleEmphasis,
 			StyleStrong,
 			StyleCode,
+			StyleMath,
 			e.Actual,
 		)
 	case ErrorMissingLinkTarget:
@@ -209,6 +211,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s definitions %s states no %s column", e.Document, e.Content, e.Parameter)
 	case ErrorUnknownDefinitionColumn:
 		return fmt.Sprintf("document %s definitions %s names %s column %q, which query %s does not project", e.Document, e.Content, e.Parameter, e.Actual, e.Query)
+	case ErrorMissingFormulaSource:
+		return fmt.Sprintf("document %s formula %s states no LaTeX source", e.Document, e.Content)
 	default:
 		return fmt.Sprintf("document planning failed for %s", e.Document)
 	}
