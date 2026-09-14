@@ -161,22 +161,19 @@ func notAnObject(sym *symbols.Symbol) error {
 // ValidateObject checks every assertion about root and the objects it holds: asserted
 // constraints, carried requirements, and satisfactions (in scopes or the types) about them.
 func (ctx *Context) ValidateObject(root *Instance, scopes []*symbols.Scope) (ValidationReport, error) {
+	return ctx.validateObjectWithin(root, scopes, maxMaterializeBudget)
+}
+
+// validateObjectWithin is ValidateObject with room for budget feature reads and
+// objects reached beyond the root.
+func (ctx *Context) validateObjectWithin(root *Instance, scopes []*symbols.Scope, budget int) (ValidationReport, error) {
 	if root == nil {
 		return ValidationReport{}, errors.New("validate: no object")
 	}
 	if err := ctx.checkNotDestroyed(root); err != nil {
 		return ValidationReport{Root: root}, err
 	}
-	obj := &validatedObject{inst: root}
-	w := &validationWalk{
-		ctx:     ctx,
-		onPath:  map[*symbols.Symbol]bool{root.Type: true},
-		visited: map[int64]*validatedObject{root.ID: obj},
-		read:    map[*FeatureValue]bool{},
-		budget:  maxMaterializeBudget,
-	}
-	w.walk(obj, 0)
-
+	w := ctx.walkHeldObjects(root, budget)
 	report := ValidationReport{Root: root, Bounded: w.bounded, Unread: w.unread}
 	var stated []*SatisfyAssertion
 	for _, obj := range w.objects {
@@ -191,6 +188,21 @@ func (ctx *Context) ValidateObject(root *Instance, scopes []*symbols.Scope) (Val
 	return report, nil
 }
 
+// walkHeldObjects reaches the objects root holds, directly or through them, with
+// room for budget feature reads and objects reached beyond the root.
+func (ctx *Context) walkHeldObjects(root *Instance, budget int) *validationWalk {
+	obj := &validatedObject{inst: root}
+	w := &validationWalk{
+		ctx:     ctx,
+		onPath:  map[*symbols.Symbol]bool{root.Type: true},
+		visited: map[int64]*validatedObject{root.ID: obj},
+		read:    map[*FeatureValue]bool{},
+		budget:  budget,
+	}
+	w.walk(obj, 0)
+	return w
+}
+
 func (w *validationWalk) walk(obj *validatedObject, depth int) {
 	w.objects = append(w.objects, obj)
 	inst := obj.inst
@@ -198,15 +210,13 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 		return
 	}
 	for _, of := range w.ctx.FeaturesOfObject(inst) {
-		if w.budget <= 0 {
-			w.bounded = true
-			return
-		}
 		feat := of.Feature
 		if of.Name == "" || !holdsObjects(feat) {
 			continue
 		}
-		if held := w.ctx.CompositeTypeOf(feat); held != nil && (depth >= maxMaterializeDepth || w.onPath[held]) {
+		// A part of a type being expanded above, or deeper than the walk descends,
+		// is cut only where reading it would begin objects of its own.
+		if held := w.ctx.CompositeTypeOf(feat); held != nil && (depth >= maxMaterializeDepth || w.onPath[held]) && w.makesObjects(inst, of) {
 			w.bounded = true
 			continue
 		}
@@ -216,6 +226,12 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 			}
 			w.read[shared] = true
 		}
+		// The budget is charged per read and per object reached, and checked only
+		// where the walk would spend it, so what was reached is validated whole.
+		if w.budget <= 0 {
+			w.bounded = true
+			return
+		}
 		w.budget--
 		fv, err := inst.GetFeatureValue(w.ctx, of.Name)
 		if err != nil {
@@ -223,16 +239,16 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 			continue
 		}
 		for _, child := range w.heldChildren(fv, lexer.NameText(of.Name)) {
-			if w.budget <= 0 {
-				w.bounded = true
-				return
-			}
-			w.budget--
 			held := holding{parent: obj, name: of.Name, through: feat.Symbol, owner: feat.OwnerType}
 			if reached, ok := w.visited[child.inst.ID]; ok {
 				reached.holdings = append(reached.holdings, held)
 				continue
 			}
+			if w.budget <= 0 {
+				w.bounded = true
+				return
+			}
+			w.budget--
 			reached := child.validatedObject
 			w.visited[reached.inst.ID] = reached
 			reached.holdings = []holding{held}
@@ -242,6 +258,16 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 			delete(w.onPath, reached.inst.Type)
 		}
 	}
+}
+
+// makesObjects reports whether reading a composite feature would materialize
+// objects of its own: it is unread, and its lower bound or its body demands one.
+func (w *validationWalk) makesObjects(inst *Instance, of ObjectFeature) bool {
+	if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
+		return false
+	}
+	lower := of.Feature.Multiplicity.Lower
+	return !lower.Known || lower.Infinite || lower.Value > 0 || w.ctx.bodyBindsAFeature(of.Feature)
 }
 
 // heldChild is an object a feature value holds and the segment naming it there:
