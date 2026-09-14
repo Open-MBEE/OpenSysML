@@ -407,7 +407,7 @@ func countSubtestsOf(files []*ast.File, name string) (int, error) {
 // countSubtests counts the first-level subtests a test runs: each `t.Run` in its
 // body outside nested function literals, multiplied out over a `range` of a
 // table the function declares as a literal. A loop whose trip count the source
-// does not state cannot be counted and is an error.
+// does not state, or a `t.Run` under a condition, cannot be counted and is an error.
 func countSubtests(fn *ast.FuncDecl) (int, error) {
 	if fn.Body == nil {
 		return 0, fmt.Errorf("%s has no body", fn.Name.Name)
@@ -469,6 +469,9 @@ func (c *subtestCounter) count(body ast.Node, multiplier int) (int, error) {
 		case *ast.FuncLit:
 			return false
 		case *ast.RangeStmt:
+			if !c.runsSubtests(x.Body) {
+				return true
+			}
 			length, err := c.tableLength(x.X)
 			if err != nil {
 				failure = err
@@ -486,6 +489,12 @@ func (c *subtestCounter) count(body ast.Node, multiplier int) (int, error) {
 				failure = fmt.Errorf("a for loop runs subtests, and its trip count is not a table's length")
 				return false
 			}
+		case *ast.IfStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
+			if c.runsSubtests(x) {
+				failure = fmt.Errorf("a subtest runs under a condition, so the source does not state whether it runs")
+				return false
+			}
+			return false
 		case *ast.CallExpr:
 			if c.isRun(x) {
 				total += multiplier

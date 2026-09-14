@@ -106,6 +106,35 @@ func TestRuntimeRobustness(t *testing.T) {
 func cases() []string { return nil }
 `)
 		},
+		"a robustness subtest under a condition": func(t *testing.T, root string) {
+			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", `package runtime
+
+import (
+	"runtime"
+	"testing"
+)
+
+func TestRuntimeRobustness(t *testing.T) {
+	t.Run("a", func(t *testing.T) {})
+	if runtime.GOOS == "windows" {
+		t.Run("windows", func(t *testing.T) {})
+	}
+}
+`)
+		},
+		"a robustness subtest under a switch": func(t *testing.T, root string) {
+			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", `package runtime
+
+import "testing"
+
+func TestRuntimeRobustness(t *testing.T) {
+	switch len(t.Name()) {
+	case 0:
+		t.Run("never", func(t *testing.T) {})
+	}
+}
+`)
+		},
 		"no robustness test": func(t *testing.T, root string) {
 			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", "package runtime\n")
 		},

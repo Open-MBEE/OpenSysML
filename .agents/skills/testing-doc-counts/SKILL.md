@@ -127,8 +127,9 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   (`git status --short` must be empty again).
 - **The counters refuse what they cannot count:** a `.trace.golden` owned by no case, a
   `.sysml` under `testdata/parse/` with no `.golden`, a `known_failures.txt` entry naming no case,
-  or a `for i := 0; i < n; i++ { t.Run(...) }` loop in `TestRuntimeRobustness` must each make the
-  generator and `-check` exit 1 naming the file, rather than print a smaller number.
+  a `for i := 0; i < n; i++ { t.Run(...) }` loop or an `if cond { t.Run(...) }` in
+  `TestRuntimeRobustness` must each make the generator and `-check` exit 1 naming the file, rather
+  than print a smaller (or larger) number. A `range` or `if` that runs no subtest is passed over.
 - **The figures are the gates' figures:** `go test -count=1 -v -run 'TestExecutionConformance$'
   ./internal/core/runtime | grep -cE '^=== RUN   TestExecutionConformance/[^/]+$'` must equal the
   conformance figure; the same shape with `TestRuntimeRobustness$`, `TestGRPCRobustness$` (in

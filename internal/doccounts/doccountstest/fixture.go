@@ -89,12 +89,19 @@ func TestGolden(t *testing.T) {}
 import "testing"
 
 func TestRuntimeRobustness(t *testing.T) {
+	for _, name := range setup() {
+		if name == "" {
+			t.Fatal("empty")
+		}
+	}
 	t.Run("a", func(t *testing.T) {})
 	t.Run("b", func(t *testing.T) {})
 	for _, name := range []string{"c", "d", "e"} {
 		t.Run(name, func(t *testing.T) {})
 	}
 }
+
+func setup() []string { return nil }
 
 func TestExecutionConformance(t *testing.T) {}
 
