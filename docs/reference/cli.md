@@ -492,6 +492,10 @@ in each form:
 | `dot` | `"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>];` — an HTML-like label, the name in bold and the keyword line at 10pt |
 | `plantuml` | `rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>` — a creole label, the name in bold and the keyword line italic at 10pt; the stereotypes drive the style and are hidden |
 
+Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restating the
+flowchart's, because Mermaid lays out a subgraph that states none without regard to the
+flowchart's; a tree draws containment as edges, not subgraphs, so it carries none.
+
 A Mermaid flowchart reserves the height of one line for a `subgraph` title, so a flowchart
 whose cluster title spans more — an interconnection or action rendering with a container —
 opens on a YAML frontmatter block that claims the rest as the title's bottom margin, 24px per
@@ -507,6 +511,7 @@ config:
 %% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
   subgraph n0 ["Plant::Loop<br>«part def»"]
+    direction LR
   …
 ```
 

@@ -49,6 +49,50 @@ func TestMermaidWithDirection(t *testing.T) {
 	}
 }
 
+// Every subgraph restates the flowchart's direction, nested ones included, since
+// Mermaid does not apply the flowchart's direction inside a subgraph that states none.
+func TestMermaidSubgraphsRestateDirection(t *testing.T) {
+	rendering := &Rendering{Kind: KindAction, Roots: []*Node{{
+		ID: "n0", Kind: "action def", Name: "Drive",
+		Children: []*Node{
+			{ID: "n1", Kind: "action", Name: "monitor", Children: []*Node{{ID: "n2", Kind: "action", Name: "record"}}},
+			{ID: "n3", Kind: "action", Name: "park"},
+		},
+	}}}
+	for _, tc := range []struct {
+		options Options
+		flow    string
+	}{
+		{Options{}, "TD"},
+		{Options{Direction: DirectionLeftRight}, "LR"},
+		{Options{Direction: DirectionBottomTop}, "BT"},
+	} {
+		got := rendering.MermaidWith(tc.options)
+		if !strings.Contains(got, "flowchart "+tc.flow+"\n") {
+			t.Errorf("%q: no flowchart %s:\n%s", tc.options.Direction, tc.flow, got)
+		}
+		for _, line := range []string{
+			"  subgraph n0 [\"Drive<br>«action def»\"]\n    direction " + tc.flow + "\n",
+			"    subgraph n1 [\"monitor<br>«action»\"]\n      direction " + tc.flow + "\n",
+		} {
+			if !strings.Contains(got, line) {
+				t.Errorf("%q: subgraph lacks %q:\n%s", tc.options.Direction, line, got)
+			}
+		}
+		if got, want := strings.Count(got, "direction "), 2; got != want {
+			t.Errorf("%q: %d direction statements, want one per subgraph (%d)", tc.options.Direction, got, want)
+		}
+	}
+	interconnection := &Rendering{Kind: KindInterconnection, Roots: rendering.Roots}
+	if got := interconnection.Mermaid(); !strings.Contains(got, "flowchart LR\n  subgraph n0 [\"Drive<br>«action def»\"]\n    direction LR\n") {
+		t.Errorf("interconnection subgraph does not restate LR:\n%s", got)
+	}
+	tree := &Rendering{Kind: KindTree, Roots: rendering.Roots}
+	if got := tree.Mermaid(); strings.Contains(got, "direction") {
+		t.Errorf("a tree draws no subgraph, so states no direction:\n%s", got)
+	}
+}
+
 func TestRenderingClone(t *testing.T) {
 	original := &Rendering{
 		Kind:    KindTree,
