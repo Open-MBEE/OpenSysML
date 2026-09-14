@@ -66,7 +66,8 @@ func documentLibrary(name string, root *ast.RootNamespace) string {
 		if !ok {
 			return ""
 		}
-		if _, ok := catalog.ElementNamed(pkg.Ident.Name); !ok {
+		pkgName, _ := pkg.Ident.DeclaredName()
+		if _, ok := catalog.ElementNamed(pkgName); !ok {
 			return ""
 		}
 	}
