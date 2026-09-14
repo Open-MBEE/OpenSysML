@@ -52,7 +52,7 @@ func Cases(dir string) ([]string, error) {
 // KnownFailures reads dir's known_failures.txt — one case name per line, `#`
 // starting a comment — and returns the set; an absent file is an empty set.
 func KnownFailures(dir string) (map[string]bool, error) {
-	data, err := os.ReadFile(filepath.Join(dir, knownFailuresFile))
+	data, err := os.ReadFile(filepath.Join(dir, knownFailuresFile)) // #nosec G304 -- a fixture directory the caller names
 	if err != nil {
 		if os.IsNotExist(err) {
 			return map[string]bool{}, nil
