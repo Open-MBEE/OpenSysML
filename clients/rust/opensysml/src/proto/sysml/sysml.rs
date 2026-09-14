@@ -1875,7 +1875,7 @@ pub struct DocumentValue {
     /// Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
     #[prost(string, tag="7")]
     pub element_type: ::prost::alloc::string::String,
-    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8")]
+    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9")]
     pub kind: ::core::option::Option<document_value::Kind>,
 }
 /// Nested message and enum types in `DocumentValue`.
@@ -1898,7 +1898,44 @@ pub mod document_value {
         /// magnitude in a unit, `2290000 \[kg\]`
         #[prost(message, tag="8")]
         Quantity(super::Quantity),
+        /// a row Verdicts answered; answered, never bound
+        #[prost(message, tag="9")]
+        Verdict(::prost::alloc::boxed::Box<super::DocumentVerdict>),
     }
+}
+/// DocumentVerdict is one row a `Verdicts` query answered: an assertion checked
+/// on the object at `path`, which the row stands for as its `element`.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DocumentVerdict {
+    /// The assertion checked, as an element value: the constraint, requirement,
+    /// satisfy usage or verification case, its element_id empty when anonymous.
+    #[prost(message, optional, boxed, tag="1")]
+    pub assertion: ::core::option::Option<::prost::alloc::boxed::Box<DocumentValue>>,
+    /// "constraint", "requirement", "satisfaction" or "verification".
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    /// The assertion as written ("assert constraint massKnown", "satisfy Range by
+    /// cruise", "verification Tests::massTest"), naming an anonymous one.
+    #[prost(string, tag="3")]
+    pub text: ::prost::alloc::string::String,
+    /// The object checked, by path from the element the query was bound to
+    /// ("Garage::car.wheels\[2\]"); the element's own qualified name for itself.
+    #[prost(string, tag="4")]
+    pub path: ::prost::alloc::string::String,
+    /// "holds", "violated" or "undecided".
+    #[prost(string, tag="5")]
+    pub verdict: ::prost::alloc::string::String,
+    /// The condition that evaluated to false, as written; empty otherwise.
+    #[prost(string, tag="6")]
+    pub condition: ::prost::alloc::string::String,
+    /// Why the assertion is violated or undecided; empty when it holds.
+    #[prost(string, tag="7")]
+    pub reason: ::prost::alloc::string::String,
+    /// The verdict kinds ("pass", "fail", "inconclusive", "error") of the
+    /// verification cases verifying the requirement the row is about; a
+    /// verification row's own kind. Empty for a constraint.
+    #[prost(string, repeated, tag="8")]
+    pub verification: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// DocumentQueryColumn is one projected property, in projection order.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

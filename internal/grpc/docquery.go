@@ -134,7 +134,7 @@ func documentBindings(idx *symbols.Index, sem *semantics.Model, bindings []*pb.D
 }
 
 // boundValue converts one request value. An element is bound by qualified name;
-// infinity is only ever answered, so binding it is refused.
+// infinity and verdicts are only ever answered, so binding them is refused.
 func boundValue(idx *symbols.Index, sem *semantics.Model, parameter string, value *pb.DocumentValue) (queryexec.Value, error) {
 	switch kind := value.GetKind().(type) {
 	case *pb.DocumentValue_ElementId:
@@ -155,6 +155,9 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, parameter string, valu
 	case *pb.DocumentValue_Infinity:
 		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 			"binding %s: infinity is answered by queries, not bound to them", parameter)
+	case *pb.DocumentValue_Verdict:
+		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
+			"binding %s: a verdict is answered by queries, not bound to them", parameter)
 	case *pb.DocumentValue_Quantity:
 		bound, err := ProtoToQuantity(kind.Quantity, idx, sem)
 		if err != nil {
@@ -202,7 +205,7 @@ func rowSetResponse(idx *symbols.Index, result *queryexec.RowSet) *pb.RunDocumen
 }
 
 // documentValue converts one engine value, naming an element by qualified name
-// and metamodel type.
+// and metamodel type, and a verdict by the assertion checked and its outcome.
 func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue {
 	switch value.Kind() {
 	case queryexec.ValueElement:
@@ -210,10 +213,10 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 		if !ok {
 			return &pb.DocumentValue{}
 		}
-		return &pb.DocumentValue{
-			Kind:        &pb.DocumentValue_ElementId{ElementId: idx.GetFQN(sym)},
-			ElementType: corequery.MetamodelTypeNameOf(sym),
-		}
+		return elementValue(idx, sym)
+	case queryexec.ValueVerdict:
+		verdict, _ := value.Verdict()
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Verdict{Verdict: documentVerdict(idx, verdict)}}
 	case queryexec.ValueString:
 		text, _ := value.String()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_StringValue{StringValue: text}}
@@ -234,6 +237,38 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 	default:
 		return &pb.DocumentValue{}
 	}
+}
+
+// elementValue names an element by qualified name and metamodel type.
+func elementValue(idx *symbols.Index, sym *symbols.Symbol) *pb.DocumentValue {
+	return &pb.DocumentValue{
+		Kind:        &pb.DocumentValue_ElementId{ElementId: idx.GetFQN(sym)},
+		ElementType: corequery.MetamodelTypeNameOf(sym),
+	}
+}
+
+// documentVerdict converts a verdict row: the assertion checked, where, and
+// how it came out. An anonymous assertion keeps its type but has no id.
+func documentVerdict(idx *symbols.Index, verdict queryexec.Verdict) *pb.DocumentVerdict {
+	out := &pb.DocumentVerdict{
+		Assertion: &pb.DocumentValue{},
+		Kind:      string(verdict.Kind()),
+		Text:      verdict.Text(),
+		Path:      verdict.Path(),
+		Verdict:   verdict.Status().String(),
+		Condition: verdict.Condition(),
+		Reason:    verdict.Reason(),
+	}
+	if sym := verdict.Assertion(); sym != nil {
+		out.Assertion = &pb.DocumentValue{
+			Kind:        &pb.DocumentValue_ElementId{ElementId: namedFQN(idx, sym)},
+			ElementType: corequery.MetamodelTypeNameOf(sym),
+		}
+	}
+	for _, kind := range verdict.Verification() {
+		out.Verification = append(out.Verification, string(kind))
+	}
+	return out
 }
 
 // documentStatus maps a typed engine failure onto the status code for it,

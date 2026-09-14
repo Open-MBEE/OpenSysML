@@ -429,6 +429,9 @@ func valueText(value queryexec.Value) string {
 	if _, label, ok := value.Object(); ok {
 		return label
 	}
+	if verdict, ok := value.Verdict(); ok {
+		return verdict.Summary()
+	}
 	if text, ok := value.String(); ok {
 		return text
 	}

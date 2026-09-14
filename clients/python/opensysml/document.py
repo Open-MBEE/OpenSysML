@@ -9,11 +9,12 @@ Query that :mod:`opensysml.query` builds.
 A binding value is a plain Python value (``str``, ``int``, ``float``,
 ``bool``), a :class:`~opensysml.values.Quantity`, or an :class:`ElementRef`
 naming a model element by qualified name. Answered cells decode back to the
-same kinds, plus :data:`INFINITY` for an unbounded multiplicity.
+same kinds, plus :data:`INFINITY` for an unbounded multiplicity and a
+:class:`DocumentVerdict` for a row a ``Verdicts`` query answered.
 """
 
 from dataclasses import dataclass
-from typing import Sequence, Union
+from typing import Optional, Sequence, Union
 
 from opensysml.errors import OpenSysMLError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
@@ -41,8 +42,47 @@ class ElementRef:
         return f"{self.id} ({self.type})" if self.type else self.id
 
 
+@dataclass(frozen=True)
+class DocumentVerdict:
+    """A row a ``Verdicts`` query answered: an assertion checked on one object.
+
+    Answered only; binding one is refused.
+
+    Attributes:
+        assertion: The constraint, requirement, satisfy usage or verification
+            case checked; its ``id`` is empty when the assertion is anonymous
+        kind: ``"constraint"``, ``"requirement"``, ``"satisfaction"`` or
+            ``"verification"``
+        text: The assertion as written (``"assert constraint massKnown"``)
+        path: The object checked, named from the element the query was bound
+            to (``"Garage::car.wheels[2]"``)
+        status: ``"holds"``, ``"violated"`` or ``"undecided"``
+        condition: The condition that evaluated to false, as written; empty
+            otherwise
+        reason: Why the assertion is violated or undecided; empty when it holds
+        verification: Verdict kinds (``"pass"``, ``"fail"``, ...) of the
+            verification cases verifying the requirement the row is about; a
+            verification row's own kind
+    """
+
+    assertion: ElementRef
+    kind: str
+    text: str
+    path: str
+    status: str
+    condition: str = ""
+    reason: str = ""
+    verification: tuple = ()
+
+    def __str__(self):
+        where = f" on {self.path}" if self.path else ""
+        return f"{self.text}{where}: {self.status}"
+
+
 #: What a binding value or an answered cell value may be.
-DocumentValue = Union[ElementRef, str, int, float, bool, Quantity, _Infinity]
+DocumentValue = Union[
+    ElementRef, str, int, float, bool, Quantity, _Infinity, DocumentVerdict,
+]
 
 #: What ``bindings`` accepts for one parameter: one value or several.
 BindingValues = Union[DocumentValue, Sequence[DocumentValue]]
@@ -53,12 +93,16 @@ class DocumentRow:
     """One selected element and its projected cells, one per column.
 
     Attributes:
-        element: The selected element itself
+        element: The selected element itself; for a row a ``Verdicts`` query
+            answered, the assertion checked
         cells: One value sequence per column, in column order
+        verdict: The :class:`DocumentVerdict` a row a ``Verdicts`` query
+            answered carries; ``None`` for any other row
     """
 
     element: ElementRef
     cells: tuple
+    verdict: Optional[DocumentVerdict] = None
 
     def __getitem__(self, index):
         return self.cells[index]
@@ -130,6 +174,11 @@ def _bound_value(parameter, value):
         return sysml_pb2.DocumentValue(real_value=value)
     if isinstance(value, Quantity):
         return sysml_pb2.DocumentValue(quantity=_bound_quantity(parameter, value))
+    if isinstance(value, DocumentVerdict):
+        raise DocumentQueryError(
+            f"binding {parameter!r} cannot carry {value!r}: a verdict is "
+            f"answered by queries, not bound to them"
+        )
     raise DocumentQueryError(
         f"binding {parameter!r} cannot carry {value!r}: a binding is a str, "
         f"int, float, bool, Quantity or ElementRef"
@@ -157,16 +206,22 @@ def result_of(response):
     return DocumentQueryResult(
         columns=tuple(column.name for column in response.columns),
         rows=tuple(
-            DocumentRow(
-                element=_element_of(row.element),
-                cells=tuple(
-                    tuple(_value_of(value) for value in cell.values)
-                    for cell in row.cells
-                ),
-            )
+            _row_of(row)
             for row in response.rows
         ),
     )
+
+
+def _row_of(row):
+    """One answered row; a verdict row stands for the assertion it checked."""
+    cells = tuple(
+        tuple(_value_of(value) for value in cell.values)
+        for cell in row.cells
+    )
+    if row.element.WhichOneof("kind") == "verdict":
+        verdict = _value_of(row.element)
+        return DocumentRow(element=verdict.assertion, cells=cells, verdict=verdict)
+    return DocumentRow(element=_element_of(row.element), cells=cells)
 
 
 def _element_of(value):
@@ -193,6 +248,18 @@ def _value_of(value):
         return INFINITY
     if kind == "quantity":
         return Quantity.from_pb(value.quantity)
+    if kind == "verdict":
+        verdict = value.verdict
+        return DocumentVerdict(
+            assertion=_element_of(verdict.assertion),
+            kind=verdict.kind,
+            text=verdict.text,
+            path=verdict.path,
+            status=verdict.verdict,
+            condition=verdict.condition,
+            reason=verdict.reason,
+            verification=tuple(verdict.verification),
+        )
     raise UnsupportedValueError(
         f"the service answered a document value this client cannot read: {value}"
     )

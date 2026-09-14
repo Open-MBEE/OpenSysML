@@ -470,7 +470,7 @@ func (ctx *Context) satisfactionVerdicts(obj *validatedObject, assertions []*Sat
 func (ctx *Context) subjectOf(a *SatisfyAssertion, obj *validatedObject) bool {
 	if a.SubjectRef == "" {
 		return a.Owner != nil && slices.ContainsFunc(obj.inst.types(), func(typ *symbols.Symbol) bool {
-			return typ == a.Owner || ctx.modelConforms(typ, a.Owner)
+			return sameDeclaration(typ, a.Owner) || ctx.modelConforms(typ, a.Owner)
 		})
 	}
 	if a.Subject == nil {
@@ -532,15 +532,25 @@ func (ctx *Context) holdersOf(inst *Instance) []holding {
 // occursAs reports whether obj is an object of sym: typed by it, or held by a
 // feature declaring or redefining it.
 func (ctx *Context) occursAs(obj *validatedObject, sym *symbols.Symbol) bool {
-	if slices.Contains(obj.inst.types(), sym) {
+	declares := func(s *symbols.Symbol) bool { return sameDeclaration(s, sym) }
+	if slices.ContainsFunc(obj.inst.types(), declares) {
 		return true
 	}
 	for _, h := range obj.holdings {
-		if h.through == sym || slices.Contains(ctx.redefinedFeatures(h.through, h.owner), sym) {
+		if declares(h.through) || slices.ContainsFunc(ctx.redefinedFeatures(h.through, h.owner), declares) {
 			return true
 		}
 	}
 	return false
+}
+
+// sameDeclaration reports whether two symbols stand for one declaration: one symbol,
+// or the symbols two scope trees (an index's and a document's) built for one node.
+func sameDeclaration(a, b *symbols.Symbol) bool {
+	if a == b {
+		return a != nil
+	}
+	return a != nil && b != nil && a.Decl != nil && a.Decl == b.Decl
 }
 
 // objectVerdict reports what a check on obj decided, about a nested object when

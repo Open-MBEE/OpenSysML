@@ -256,7 +256,7 @@ written in, so the verdicts are about that object:
 | `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)) |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
 | `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
-| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise |
+| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)) |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate` |
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
@@ -687,8 +687,25 @@ In HTML each row or list item over an object carries `data-object="#<id>"`, the 
 instantiation report printed, beside the `data-element` and `data-element-kind` of the usage the
 object stands for, and an object-valued value is a `span.sysml-object`. An object that could not
 be materialized stops the run with status 2 and the materialization errors; a render run still
-takes no other check flag (`-validate`, `-constraint`, `-satisfy`, …), so the verdicts about the
-objects are a run of their own.
+takes no other check flag (`-validate`, `-constraint`, `-satisfy`, …): the verdicts about the
+objects are a run of their own, or a table of the document itself.
+
+A document lists what holds and what does not through `Verdicts(source = <rows>)`, which runs
+the check `-validate=<object>` runs over the object behind each row — the object the run holds
+when the binding is one, the element's declared object otherwise — and answers one row per
+assertion about it and the objects it holds. Each row is a verdict: it stands for the
+constraint, requirement, `satisfy` or verification case checked (so `name` and `WhereType` read
+the assertion) and carries `path` (the object checked, `car.wheels[2]`), `kind`, `verdict`
+(`holds`, `violated`, `undecided`), `condition`, `reason` and `verification`, which `Project`,
+`WhereFeature` and `OrderBy` read. A verdict cell renders as `<assertion> on <path>: <verdict>`
+in Markdown and PDF; in HTML it is a `span.sysml-verdict` carrying `data-verdict`, `data-path`
+and, over a held object, `data-object`. See
+[Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold).
+
+```bash
+sysml model.sysml -instantiate Garage::car -run-query "Reports::Violated root=car"
+sysml model.sysml -instantiate Garage::car -render-document Reports::CarChecks -o checks.md
+```
 
 ## Rendering a document as HTML
 

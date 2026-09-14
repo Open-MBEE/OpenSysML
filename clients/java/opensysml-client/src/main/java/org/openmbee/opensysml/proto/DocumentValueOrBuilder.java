@@ -129,6 +129,33 @@ public interface DocumentValueOrBuilder extends
 
   /**
    * <pre>
+   * a row Verdicts answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+   * @return Whether the verdict field is set.
+   */
+  boolean hasVerdict();
+  /**
+   * <pre>
+   * a row Verdicts answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+   * @return The verdict.
+   */
+  org.openmbee.opensysml.proto.DocumentVerdict getVerdict();
+  /**
+   * <pre>
+   * a row Verdicts answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+   */
+  org.openmbee.opensysml.proto.DocumentVerdictOrBuilder getVerdictOrBuilder();
+
+  /**
+   * <pre>
    * Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
    * </pre>
    *

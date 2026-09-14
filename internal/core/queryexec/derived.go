@@ -10,9 +10,17 @@ import (
 )
 
 // derivedValues holds the runtime reader behind derived attribute values, made
-// on first use and shared by every executor of one execution.
+// on first use and shared by every executor of one execution, and the
+// verification runs the execution has made.
 type derivedValues struct {
-	reader *runtime.DeclaredReader
+	reader   *runtime.DeclaredReader
+	verified map[verificationKey][]runtime.VerificationVerdict
+}
+
+// verificationKey identifies one run of the cases verifying a requirement.
+type verificationKey struct {
+	verifier    verifier
+	requirement *symbols.Symbol
 }
 
 func (d *derivedValues) get(context Context) *runtime.DeclaredReader {
@@ -20,6 +28,21 @@ func (d *derivedValues) get(context Context) *runtime.DeclaredReader {
 		d.reader = runtime.NewDeclaredReader(context.Model, context.Resolver)
 	}
 	return d.reader
+}
+
+// verifications runs the verification cases verifying req once per execution
+// and verifier, in the scopes given.
+func (d *derivedValues) verifications(verifier verifier, scopes []*symbols.Scope, req *symbols.Symbol) []runtime.VerificationVerdict {
+	key := verificationKey{verifier: verifier, requirement: req}
+	if cases, ok := d.verified[key]; ok {
+		return cases
+	}
+	if d.verified == nil {
+		d.verified = make(map[verificationKey][]runtime.VerificationVerdict)
+	}
+	cases := verifier.VerificationVerdictsIn(scopes, req)
+	d.verified[key] = cases
+	return cases
 }
 
 // derivedFeatureValues evaluates a feature the constant folder could not, as

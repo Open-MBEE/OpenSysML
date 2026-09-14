@@ -470,6 +470,9 @@ func (w *htmlWriter) writeValue(value queryexec.Value) {
 	if _, _, ok := value.Object(); ok {
 		classes += " sysml-object"
 	}
+	if _, ok := value.Verdict(); ok {
+		classes += " sysml-verdict"
+	}
 	w.b.WriteString("<span class=\"" + classes + "\"" + attr("data-value-kind", string(value.Kind())) +
 		elementAttrs(value) + quantityAttrs(value) + ">" + htmlText(valueText(value)) + "</span>")
 }
@@ -755,13 +758,18 @@ func attr(name, value string) string {
 	return " " + name + "=\"" + html.EscapeString(value) + "\""
 }
 
-// elementAttrs writes the model element behind a row, list item or value: its
-// qualified name and its element kind. An object carries its session identity
-// too, and the element it stands for is the usage or definition declaring it.
+// elementAttrs writes the element behind a row, item or value (an object's declaration,
+// a verdict's assertion), plus an object's identity or a verdict's status and carrier path.
 func elementAttrs(value queryexec.Value) string {
 	objectAttrs := ""
 	if inst, _, ok := value.Object(); ok {
 		objectAttrs = attr("data-object", "#"+strconv.FormatInt(inst.ID, 10))
+	}
+	if verdict, ok := value.Verdict(); ok {
+		if carrier, held := verdict.Carrier(); held && carrier != nil {
+			objectAttrs = attr("data-object", "#"+strconv.FormatInt(carrier.ID, 10))
+		}
+		objectAttrs += attr("data-verdict", verdict.Status().String()) + attr("data-path", verdict.Path())
 	}
 	element := value.Declaration()
 	if element == nil {

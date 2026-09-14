@@ -33,6 +33,26 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* Verdicts: one row per assertion checked on each source row's object and the
+	 * objects it holds (a session object as it stands, an element as declared);
+	 * kind selects all, constraint, requirement, satisfaction or verification. */
+	calc def Verdicts {
+		in source : Element[0..*] ordered;
+		in kind : String[1] = "all";
+		return result : Element[0..*] ordered;
+	}
+
+	/* The properties of a Verdicts row, for column expressions (`Verdict::verdict`);
+	 * a row also answers its assertion's own properties by name. */
+	attribute def Verdict {
+		attribute kind : String[1];
+		attribute path : String[1];
+		attribute verdict : String[1];
+		attribute condition : String[0..1];
+		attribute reason : String[0..1];
+		attribute 'verification' : String[0..*] ordered;
+	}
+
 	calc def RelatedElements {
 		in source : Element[0..*] ordered;
 		/* relationshipKind: "specialization", "subsetting", "redefinition",

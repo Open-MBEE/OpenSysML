@@ -291,6 +291,12 @@ func (e *executor) valueConforms(value Value, expected string) bool {
 		}
 		return e.objectConformsTo(inst, expected) ||
 			expected == "Element" || expected == "KerML::Root::Element"
+	case ValueVerdict:
+		verdict, ok := value.Verdict()
+		if !ok {
+			return false
+		}
+		return e.valueConforms(ElementValue(verdict.Assertion()), expected)
 	case ValueQuantity:
 		quantity, ok := value.Quantity()
 		if !ok {
@@ -370,6 +376,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateRelated(expression)
 	case queryplan.OperationObjects:
 		return e.evaluateObjects(expression)
+	case queryplan.OperationVerdicts:
+		return e.evaluateVerdicts(expression)
 	default:
 		return sequence{}, &Error{
 			Kind:      ErrorUnsupportedOperation,
@@ -542,7 +550,7 @@ func (e *executor) argument(expression queryplan.Expression, name string) (seque
 }
 
 // rowArgument evaluates an argument whose values are rows: model elements, or
-// runtime objects when the execution has a session.
+// runtime objects and verdicts about them when the execution has a session.
 func (e *executor) rowArgument(expression queryplan.Expression, name string) (sequence, error) {
 	value, err := e.argument(expression, name)
 	if err != nil {
@@ -555,13 +563,31 @@ func (e *executor) rowArgument(expression queryplan.Expression, name string) (se
 		if _, _, ok := item.Object(); ok && e.context.Runtime != nil {
 			continue
 		}
+		if _, ok := item.Verdict(); ok {
+			continue
+		}
 		return sequence{}, e.invalidArgument(expression, name, string(item.Kind()))
 	}
 	return value, nil
 }
 
+// ownershipArgument is rowArgument for an operation walking ownership, which
+// elements and objects have and a verdict row does not.
+func (e *executor) ownershipArgument(expression queryplan.Expression, name string) (sequence, error) {
+	value, err := e.rowArgument(expression, name)
+	if err != nil {
+		return sequence{}, err
+	}
+	for _, item := range value.values {
+		if verdict, ok := item.Verdict(); ok {
+			return sequence{}, e.verdictRowError(expression, name, verdict)
+		}
+	}
+	return value, nil
+}
+
 // elementArgument is rowArgument for an operation defined over the model
-// alone, which an object row cannot pass through.
+// alone, which an object or verdict row cannot pass through.
 func (e *executor) elementArgument(expression queryplan.Expression, name string) (sequence, error) {
 	value, err := e.rowArgument(expression, name)
 	if err != nil {
@@ -578,8 +604,22 @@ func (e *executor) elementArgument(expression queryplan.Expression, name string)
 				Origin:    expression.Origin(),
 			}
 		}
+		if verdict, ok := item.Verdict(); ok {
+			return sequence{}, e.verdictRowError(expression, name, verdict)
+		}
 	}
 	return value, nil
+}
+
+func (e *executor) verdictRowError(expression queryplan.Expression, name string, verdict Verdict) error {
+	return &Error{
+		Kind:      ErrorVerdictRow,
+		Query:     e.definition.Name(),
+		Operation: expression.Operation(),
+		Parameter: name,
+		Target:    verdict.Label(),
+		Origin:    expression.Origin(),
+	}
 }
 
 func (e *executor) stringArgument(expression queryplan.Expression, name string) (string, error) {
@@ -670,13 +710,14 @@ func cloneCells(input []Cell) []Cell {
 
 func (e *executor) validateResult(result sequence) error {
 	for _, value := range result.values {
-		isRow := value.Kind() == ValueElement || value.Kind() == ValueObject
-		if !isRow || !e.valueConforms(value, e.definition.Result().Type) {
+		if !value.isRow() || !e.valueConforms(value, e.definition.Result().Type) {
 			actual := string(value.Kind())
 			if sym, ok := value.Element(); ok {
 				actual = symbols.FQNOf(sym)
 			} else if _, label, ok := value.Object(); ok {
 				actual = "object " + label
+			} else if verdict, ok := value.Verdict(); ok {
+				actual = "verdict " + verdict.Label()
 			}
 			return &Error{
 				Kind:     ErrorResultType,

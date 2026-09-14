@@ -604,6 +604,9 @@ func (c *pkgClient) runDocumentQuery(ctx context.Context, request protoreflect.M
 	}
 	for _, row := range rows.Rows {
 		converted := &pb.DocumentQueryRow{Element: cellToProto(row.Element)}
+		if row.Verdict != nil {
+			converted.Element = cellToProto(*row.Verdict)
+		}
 		for _, cell := range row.Cells {
 			values := &pb.DocumentQueryCell{}
 			for _, value := range cell {
@@ -1190,6 +1193,20 @@ func cellFromProto(value *pb.DocumentValue) opensysml.Cell {
 		return opensysml.Bool(kind.BoolValue)
 	case *pb.DocumentValue_Infinity:
 		return opensysml.Infinity{}
+	case *pb.DocumentValue_Verdict:
+		verdict := opensysml.DocumentVerdict{
+			Kind:         kind.Verdict.GetKind(),
+			Text:         kind.Verdict.GetText(),
+			Path:         kind.Verdict.GetPath(),
+			Status:       kind.Verdict.GetVerdict(),
+			Condition:    kind.Verdict.GetCondition(),
+			Reason:       kind.Verdict.GetReason(),
+			Verification: append([]string(nil), kind.Verdict.GetVerification()...),
+		}
+		if assertion, ok := cellFromProto(kind.Verdict.GetAssertion()).(opensysml.Element); ok {
+			verdict.Assertion = assertion
+		}
+		return verdict
 	default:
 		return nil
 	}
@@ -1212,6 +1229,17 @@ func cellToProto(cell opensysml.Cell) *pb.DocumentValue {
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_BoolValue{BoolValue: bool(value)}}
 	case opensysml.Infinity:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Infinity{Infinity: true}}
+	case opensysml.DocumentVerdict:
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Verdict{Verdict: &pb.DocumentVerdict{
+			Assertion:    cellToProto(value.Assertion),
+			Kind:         value.Kind,
+			Text:         value.Text,
+			Path:         value.Path,
+			Verdict:      value.Status,
+			Condition:    value.Condition,
+			Reason:       value.Reason,
+			Verification: value.Verification,
+		}}}
 	default:
 		return nil
 	}

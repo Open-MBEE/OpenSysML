@@ -64,6 +64,7 @@ private static final long serialVersionUID = 0L;
     BOOL_VALUE(5),
     INFINITY(6),
     QUANTITY(8),
+    VERDICT(9),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -88,6 +89,7 @@ private static final long serialVersionUID = 0L;
         case 5: return BOOL_VALUE;
         case 6: return INFINITY;
         case 8: return QUANTITY;
+        case 9: return VERDICT;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -346,6 +348,49 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.Quantity.getDefaultInstance();
   }
 
+  public static final int VERDICT_FIELD_NUMBER = 9;
+  /**
+   * <pre>
+   * a row Verdicts answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+   * @return Whether the verdict field is set.
+   */
+  @java.lang.Override
+  public boolean hasVerdict() {
+    return kindCase_ == 9;
+  }
+  /**
+   * <pre>
+   * a row Verdicts answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+   * @return The verdict.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentVerdict getVerdict() {
+    if (kindCase_ == 9) {
+       return (org.openmbee.opensysml.proto.DocumentVerdict) kind_;
+    }
+    return org.openmbee.opensysml.proto.DocumentVerdict.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * a row Verdicts answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentVerdictOrBuilder getVerdictOrBuilder() {
+    if (kindCase_ == 9) {
+       return (org.openmbee.opensysml.proto.DocumentVerdict) kind_;
+    }
+    return org.openmbee.opensysml.proto.DocumentVerdict.getDefaultInstance();
+  }
+
   public static final int ELEMENT_TYPE_FIELD_NUMBER = 7;
   @SuppressWarnings("serial")
   private volatile java.lang.Object elementType_ = "";
@@ -435,6 +480,9 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 8) {
       output.writeMessage(8, (org.openmbee.opensysml.proto.Quantity) kind_);
     }
+    if (kindCase_ == 9) {
+      output.writeMessage(9, (org.openmbee.opensysml.proto.DocumentVerdict) kind_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -476,6 +524,10 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 8) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(8, (org.openmbee.opensysml.proto.Quantity) kind_);
+    }
+    if (kindCase_ == 9) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(9, (org.openmbee.opensysml.proto.DocumentVerdict) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -525,6 +577,10 @@ private static final long serialVersionUID = 0L;
         if (!getQuantity()
             .equals(other.getQuantity())) return false;
         break;
+      case 9:
+        if (!getVerdict()
+            .equals(other.getVerdict())) return false;
+        break;
       case 0:
       default:
     }
@@ -573,6 +629,10 @@ private static final long serialVersionUID = 0L;
       case 8:
         hash = (37 * hash) + QUANTITY_FIELD_NUMBER;
         hash = (53 * hash) + getQuantity().hashCode();
+        break;
+      case 9:
+        hash = (37 * hash) + VERDICT_FIELD_NUMBER;
+        hash = (53 * hash) + getVerdict().hashCode();
         break;
       case 0:
       default:
@@ -718,6 +778,9 @@ private static final long serialVersionUID = 0L;
       if (quantityBuilder_ != null) {
         quantityBuilder_.clear();
       }
+      if (verdictBuilder_ != null) {
+        verdictBuilder_.clear();
+      }
       elementType_ = "";
       kindCase_ = 0;
       kind_ = null;
@@ -755,7 +818,7 @@ private static final long serialVersionUID = 0L;
 
     private void buildPartial0(org.openmbee.opensysml.proto.DocumentValue result) {
       int from_bitField0_ = bitField0_;
-      if (((from_bitField0_ & 0x00000080) != 0)) {
+      if (((from_bitField0_ & 0x00000100) != 0)) {
         result.elementType_ = elementType_;
       }
     }
@@ -766,6 +829,10 @@ private static final long serialVersionUID = 0L;
       if (kindCase_ == 8 &&
           quantityBuilder_ != null) {
         result.kind_ = quantityBuilder_.build();
+      }
+      if (kindCase_ == 9 &&
+          verdictBuilder_ != null) {
+        result.kind_ = verdictBuilder_.build();
       }
     }
 
@@ -783,7 +850,7 @@ private static final long serialVersionUID = 0L;
       if (other == org.openmbee.opensysml.proto.DocumentValue.getDefaultInstance()) return this;
       if (!other.getElementType().isEmpty()) {
         elementType_ = other.elementType_;
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000100;
         onChanged();
       }
       switch (other.getKindCase()) {
@@ -817,6 +884,10 @@ private static final long serialVersionUID = 0L;
         }
         case QUANTITY: {
           mergeQuantity(other.getQuantity());
+          break;
+        }
+        case VERDICT: {
+          mergeVerdict(other.getVerdict());
           break;
         }
         case KIND_NOT_SET: {
@@ -883,7 +954,7 @@ private static final long serialVersionUID = 0L;
             } // case 48
             case 58: {
               elementType_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000080;
+              bitField0_ |= 0x00000100;
               break;
             } // case 58
             case 66: {
@@ -893,6 +964,13 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 8;
               break;
             } // case 66
+            case 74: {
+              input.readMessage(
+                  internalGetVerdictFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 9;
+              break;
+            } // case 74
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1481,6 +1559,184 @@ private static final long serialVersionUID = 0L;
       return quantityBuilder_;
     }
 
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentVerdict, org.openmbee.opensysml.proto.DocumentVerdict.Builder, org.openmbee.opensysml.proto.DocumentVerdictOrBuilder> verdictBuilder_;
+    /**
+     * <pre>
+     * a row Verdicts answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+     * @return Whether the verdict field is set.
+     */
+    @java.lang.Override
+    public boolean hasVerdict() {
+      return kindCase_ == 9;
+    }
+    /**
+     * <pre>
+     * a row Verdicts answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+     * @return The verdict.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.DocumentVerdict getVerdict() {
+      if (verdictBuilder_ == null) {
+        if (kindCase_ == 9) {
+          return (org.openmbee.opensysml.proto.DocumentVerdict) kind_;
+        }
+        return org.openmbee.opensysml.proto.DocumentVerdict.getDefaultInstance();
+      } else {
+        if (kindCase_ == 9) {
+          return verdictBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.DocumentVerdict.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * a row Verdicts answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+     */
+    public Builder setVerdict(org.openmbee.opensysml.proto.DocumentVerdict value) {
+      if (verdictBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        verdictBuilder_.setMessage(value);
+      }
+      kindCase_ = 9;
+      return this;
+    }
+    /**
+     * <pre>
+     * a row Verdicts answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+     */
+    public Builder setVerdict(
+        org.openmbee.opensysml.proto.DocumentVerdict.Builder builderForValue) {
+      if (verdictBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        verdictBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 9;
+      return this;
+    }
+    /**
+     * <pre>
+     * a row Verdicts answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+     */
+    public Builder mergeVerdict(org.openmbee.opensysml.proto.DocumentVerdict value) {
+      if (verdictBuilder_ == null) {
+        if (kindCase_ == 9 &&
+            kind_ != org.openmbee.opensysml.proto.DocumentVerdict.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.DocumentVerdict.newBuilder((org.openmbee.opensysml.proto.DocumentVerdict) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 9) {
+          verdictBuilder_.mergeFrom(value);
+        } else {
+          verdictBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 9;
+      return this;
+    }
+    /**
+     * <pre>
+     * a row Verdicts answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+     */
+    public Builder clearVerdict() {
+      if (verdictBuilder_ == null) {
+        if (kindCase_ == 9) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 9) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        verdictBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * a row Verdicts answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+     */
+    public org.openmbee.opensysml.proto.DocumentVerdict.Builder getVerdictBuilder() {
+      return internalGetVerdictFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * a row Verdicts answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.DocumentVerdictOrBuilder getVerdictOrBuilder() {
+      if ((kindCase_ == 9) && (verdictBuilder_ != null)) {
+        return verdictBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 9) {
+          return (org.openmbee.opensysml.proto.DocumentVerdict) kind_;
+        }
+        return org.openmbee.opensysml.proto.DocumentVerdict.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * a row Verdicts answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentVerdict verdict = 9 [json_name = "verdict"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentVerdict, org.openmbee.opensysml.proto.DocumentVerdict.Builder, org.openmbee.opensysml.proto.DocumentVerdictOrBuilder> 
+        internalGetVerdictFieldBuilder() {
+      if (verdictBuilder_ == null) {
+        if (!(kindCase_ == 9)) {
+          kind_ = org.openmbee.opensysml.proto.DocumentVerdict.getDefaultInstance();
+        }
+        verdictBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.DocumentVerdict, org.openmbee.opensysml.proto.DocumentVerdict.Builder, org.openmbee.opensysml.proto.DocumentVerdictOrBuilder>(
+                (org.openmbee.opensysml.proto.DocumentVerdict) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 9;
+      onChanged();
+      return verdictBuilder_;
+    }
+
     private java.lang.Object elementType_ = "";
     /**
      * <pre>
@@ -1536,7 +1792,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       elementType_ = value;
-      bitField0_ |= 0x00000080;
+      bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }
@@ -1550,7 +1806,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearElementType() {
       elementType_ = getDefaultInstance().getElementType();
-      bitField0_ = (bitField0_ & ~0x00000080);
+      bitField0_ = (bitField0_ & ~0x00000100);
       onChanged();
       return this;
     }
@@ -1568,7 +1824,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       elementType_ = value;
-      bitField0_ |= 0x00000080;
+      bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }

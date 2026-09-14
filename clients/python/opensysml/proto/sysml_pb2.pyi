@@ -1273,7 +1273,7 @@ class DocumentQueryBinding(_message.Message):
     def __init__(self, parameter: _Optional[str] = ..., values: _Optional[_Iterable[_Union[DocumentValue, _Mapping]]] = ...) -> None: ...
 
 class DocumentValue(_message.Message):
-    __slots__ = ("element_id", "string_value", "int_value", "real_value", "bool_value", "infinity", "quantity", "element_type")
+    __slots__ = ("element_id", "string_value", "int_value", "real_value", "bool_value", "infinity", "quantity", "verdict", "element_type")
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
     INT_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -1281,6 +1281,7 @@ class DocumentValue(_message.Message):
     BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
     INFINITY_FIELD_NUMBER: _ClassVar[int]
     QUANTITY_FIELD_NUMBER: _ClassVar[int]
+    VERDICT_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_TYPE_FIELD_NUMBER: _ClassVar[int]
     element_id: str
     string_value: str
@@ -1289,8 +1290,29 @@ class DocumentValue(_message.Message):
     bool_value: bool
     infinity: bool
     quantity: Quantity
+    verdict: DocumentVerdict
     element_type: str
-    def __init__(self, element_id: _Optional[str] = ..., string_value: _Optional[str] = ..., int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., infinity: _Optional[bool] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., element_type: _Optional[str] = ...) -> None: ...
+    def __init__(self, element_id: _Optional[str] = ..., string_value: _Optional[str] = ..., int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., infinity: _Optional[bool] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., verdict: _Optional[_Union[DocumentVerdict, _Mapping]] = ..., element_type: _Optional[str] = ...) -> None: ...
+
+class DocumentVerdict(_message.Message):
+    __slots__ = ("assertion", "kind", "text", "path", "verdict", "condition", "reason", "verification")
+    ASSERTION_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    VERDICT_FIELD_NUMBER: _ClassVar[int]
+    CONDITION_FIELD_NUMBER: _ClassVar[int]
+    REASON_FIELD_NUMBER: _ClassVar[int]
+    VERIFICATION_FIELD_NUMBER: _ClassVar[int]
+    assertion: DocumentValue
+    kind: str
+    text: str
+    path: str
+    verdict: str
+    condition: str
+    reason: str
+    verification: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, assertion: _Optional[_Union[DocumentValue, _Mapping]] = ..., kind: _Optional[str] = ..., text: _Optional[str] = ..., path: _Optional[str] = ..., verdict: _Optional[str] = ..., condition: _Optional[str] = ..., reason: _Optional[str] = ..., verification: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class DocumentQueryColumn(_message.Message):
     __slots__ = ("name",)

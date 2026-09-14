@@ -7,10 +7,12 @@ package Cookbook {
 
 	part def Subsystem {
 		attribute mass : Real;
+		assert constraint massKnown { mass > 0.0 }
 	}
 	part def OpticalSubsystem :> Subsystem;
 	part def MirrorAssembly :> OpticalSubsystem {
 		attribute :>> mass = 10.0;
+		assert constraint lightweight { mass < 5.0 }
 	}
 
 	metadata def Critical;
@@ -205,5 +207,15 @@ package Cookbook {
 			missing = "last",
 			multiple = "first"
 		)
+	}
+
+	calc def Checks :> Query {
+		in root : Element;
+		Project(source = Verdicts(source = root), properties = ("path", "name", "verdict", "reason"))
+	}
+
+	calc def Violated :> Query {
+		in root : Element;
+		WhereFeature(source = Verdicts(source = root), 'feature' = "verdict", operator = "=", value = "violated")
 	}
 }
