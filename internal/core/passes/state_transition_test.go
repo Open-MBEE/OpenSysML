@@ -350,7 +350,7 @@ func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
 		accept go then done;
 		state active;
 	}
-}`, CodeTransitionSourceNotVertex, "leaves the succession from init, the member declared before it, which is not a state")
+}`, CodeTransitionSourceNotVertex, "leaves an unnamed succession usage, the member declared before it, which is not a state")
 	// The pilot's grammar chains the shorthand straight off the usage it leaves: a
 	// parameter, a written succession or documentation between them is what it leaves.
 	wantOneError(t, `package test {
@@ -503,21 +503,83 @@ func TestJunctionLeftBySuccessionIsLegal(t *testing.T) {
 }`)
 }
 
-// Handed over from #205: a named `first`/`then` marker is not a vertex, and UML
-// 2.5.1 §15.7.18 gives the initial pseudostate it stands for no incoming
-// transition — so this reports at check time rather than at executor construction.
+// A one-ended `first marker;` is a marker, not a vertex, and UML 2.5.1 §15.7.18
+// gives the initial pseudostate it stands for no incoming transition — so this
+// reports at check time rather than at executor construction.
 func TestTransitionToFirstMarkerIsIllegal(t *testing.T) {
-	wantOneError(t, `package test {
+	got := transitionDiags(t, `package test {
 	state def M {
 		entry; then i;
 		state i;
 		state busy;
 		state other;
-		first marker then other;
+		first marker;
 		succession first i then busy;
 		transition first busy then marker;
 	}
-}`, CodeEndpointNotOfMachine, "marker")
+}`)
+	if len(got) != 2 {
+		t.Fatalf("got %+v, want the marker and the transition to it reported", got)
+	}
+	if got[0].Code != CodeFirstNamesNoTarget || !strings.Contains(got[0].Message, "`first marker;` names no target") {
+		t.Errorf("got %+v, want the one-ended `first` reported as naming no target", got[0])
+	}
+	if got[1].Code != CodeEndpointNotOfMachine || !strings.Contains(got[1].Message, "marker") {
+		t.Errorf("got %+v, want the transition to the marker reported", got[1])
+	}
+}
+
+// In a state body `first X then Y;` is the succession X -> Y that `succession
+// first X then Y;` spells with its keyword, so its ends are checked as vertices
+// and the body's `first` designates no initial state.
+func TestStateBodyFirstIsASuccession(t *testing.T) {
+	wantClean(t, `package test {
+	state def M {
+		entry; then a;
+		state a;
+		state b;
+		state c { state c1; state c2; first c1 then c2; }
+		first a then b;
+		first b then c.c1;
+		first c then done;
+	}
+}`)
+	for _, spelling := range []string{"first a then count;", "succession first a then count;"} {
+		got := endpointDiags(t, `package test {
+	state def M {
+		entry; then a;
+		state a;
+		attribute count;
+		`+spelling+`
+	}
+}`)
+		if len(got) != 1 || !strings.Contains(got[0].Message, "count is not a state or pseudostate") {
+			t.Errorf("%s: got %+v, want the target reported as no vertex", spelling, got)
+		}
+	}
+}
+
+// A one-ended `first X;` orders nothing in a state body, whose members are
+// vertices rather than a token flow, so it is reported rather than ignored.
+func TestOneEndedFirstInAStateBodyIsReported(t *testing.T) {
+	wantOneError(t, `package test {
+	state def M {
+		entry; then a;
+		state a;
+		state b;
+		first b;
+		succession first a then b;
+	}
+}`, CodeFirstNamesNoTarget, "`first b;` names no target: a state body orders two vertices, `first b then <target>`")
+	wantOneError(t, `package test {
+	state def M {
+		entry; then a;
+		state a {
+			state a1;
+			first a1;
+		}
+	}
+}`, CodeFirstNamesNoTarget, "`first a1;` names no target")
 }
 
 // A final state is a vertex, so a transition to one is legal.

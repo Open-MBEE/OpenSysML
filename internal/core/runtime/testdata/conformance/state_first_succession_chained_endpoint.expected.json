@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "instantiate": "P::PD",
+  "objects": [
+    {
+      "finalState": "done",
+      "stateVisits": ["a", "b", "b1", "b2", "c", "c1", "deep", "done"],
+      "slots": {
+        "m.log": {"type": "String", "value": "a b1 b2 deep "}
+      }
+    }
+  ]
+}

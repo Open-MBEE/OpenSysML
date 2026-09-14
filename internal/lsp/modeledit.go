@@ -14,13 +14,15 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
 // MethodApplyModelEdit turns diagram actions into a WorkspaceEdit the client
-// applies to the document: the server rewrites nothing itself.
+// applies to the document and to every other document the edit reached: the
+// server rewrites nothing itself.
 const MethodApplyModelEdit = "opensysml/applyModelEdit"
 
 // The operation kinds a modelEditOperation names.
@@ -62,7 +64,11 @@ type modelEditOperation struct {
 
 // applyModelEditResult is exactly one of: an edit to apply, the refusals that
 // kept the model as it was, or a stale version. Version is the document version
-// the answer was made at, which tells a stale client how far behind it was.
+// the answer was made at, which tells a stale client how far behind it was. The
+// edit holds one versioned TextDocumentEdit per document it rewrites, the
+// requested document first; the others carry the versions the server holds,
+// null for one it read from disk, so a client refuses to apply them to text that
+// has moved on rather than land them wrong.
 type applyModelEditResult struct {
 	Edit    *protocol.WorkspaceEdit `json:"edit,omitempty"`
 	Refused []modelEditRefusal      `json:"refused,omitempty"`
@@ -71,13 +77,23 @@ type applyModelEditResult struct {
 }
 
 // modelEditRefusal is why an operation was not applied. Operation is its index
-// in the request, or -1 when the edited model as a whole was refused.
+// in the request, or -1 when the edited model as a whole was refused. Referring
+// names the declarations that refer to a target whose delete or rename was
+// refused, qualified by document when that is another; Referrers tells each
+// name from its document, so a client can list them by file.
 type modelEditRefusal struct {
 	Operation   int                   `json:"operation"`
 	Failure     string                `json:"failure"`
 	Message     string                `json:"message"`
 	Diagnostics []protocol.Diagnostic `json:"diagnostics,omitempty"`
 	Referring   []string              `json:"referring,omitempty"`
+	Referrers   []modelEditReferrer   `json:"referrers,omitempty"`
+}
+
+// modelEditReferrer is one referring declaration and the document declaring it.
+type modelEditReferrer struct {
+	Name string               `json:"name"`
+	URI  protocol.DocumentURI `json:"uri"`
 }
 
 // editPalette lists the declarations a diagram of one rendering kind offers to
@@ -143,7 +159,9 @@ func (s *Server) modelEditHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 // ApplyModelEdit answers opensysml/applyModelEdit: the edits that make the
 // document say what the operations ask, or why it cannot. The document is read
 // at the version the client named; any other version is reported stale, since
-// an edit computed against text the client no longer has would land wrong.
+// an edit computed against text the client no longer has would land wrong. The
+// other documents a rename or delete reaches are read at the versions the
+// server holds, which their edits carry.
 func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditResult, error) {
 	name := uriToName(params.TextDocument.URI)
 	doc := s.ws.Document(name)
@@ -175,22 +193,39 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 		}
 		return &applyModelEditResult{Refused: []modelEditRefusal{s.refusal(refusal, doc.Content)}, Version: version}, nil
 	}
-	if version > math.MaxInt32 {
-		return nil, fmt.Errorf("%s: document version %d exceeds int32", name, version)
+	changes := make([]protocol.TextDocumentEdit, 0, len(result.Documents))
+	for _, edited := range result.Documents {
+		change, err := documentChange(edited)
+		if err != nil {
+			return nil, err
+		}
+		changes = append(changes, change)
 	}
-	v := int32(version) // #nosec G115 -- bounds checked above; the client sent it as int32.
 	return &applyModelEditResult{
 		Version: version,
-		Edit: &protocol.WorkspaceEdit{
-			DocumentChanges: []protocol.TextDocumentEdit{{
-				TextDocument: protocol.OptionalVersionedTextDocumentIdentifier{
-					TextDocumentIdentifier: params.TextDocument,
-					Version:                &v,
-				},
-				Edits: textEdits(doc.Content, result.Content),
-			}},
-		},
+		Edit:    &protocol.WorkspaceEdit{DocumentChanges: changes},
 	}, nil
+}
+
+// documentChange is the versioned edit turning one document into its rewrite,
+// computed from the content the rewrite was made of. A document read from disk
+// has no client version, which the null version says.
+func documentChange(edited model.DocumentEdit) (protocol.TextDocumentEdit, error) {
+	change := protocol.TextDocumentEdit{
+		TextDocument: protocol.OptionalVersionedTextDocumentIdentifier{
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: nameToURI(edited.Name)},
+		},
+		Edits: textEdits(edited.Original, edited.Content),
+	}
+	if !edited.Open {
+		return change, nil
+	}
+	if edited.Version > math.MaxInt32 {
+		return protocol.TextDocumentEdit{}, fmt.Errorf("%s: document version %d exceeds int32", edited.Name, edited.Version)
+	}
+	v := int32(edited.Version) // #nosec G115 -- bounds checked above; the client sent it as int32.
+	change.TextDocument.Version = &v
+	return change, nil
 }
 
 // operation reads the wire operation as the edit operation it names.
@@ -226,6 +261,9 @@ func (s *Server) refusal(e *modeledit.Error, content []byte) modelEditRefusal {
 		Failure:   e.Failure.String(),
 		Message:   e.Message,
 		Referring: e.Referring,
+	}
+	for _, r := range e.Referrers {
+		out.Referrers = append(out.Referrers, modelEditReferrer{Name: r.Name, URI: nameToURI(r.Document)})
 	}
 	diagnosed := content
 	if e.Diagnosed != nil {

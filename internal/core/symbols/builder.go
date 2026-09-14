@@ -188,7 +188,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 	case *ast.InitialNode:
 		// A start marker is registered by name so transitions can reference it; a
 		// succession's `first a` declares nothing, its body owning a body-local scope.
-		marker := d.Name() != "" && !FirstNamesSource(scope, d)
+		marker := d.Name() != "" && !FirstNamesSource(d)
 		if !marker && len(d.Members) == 0 {
 			return true
 		}

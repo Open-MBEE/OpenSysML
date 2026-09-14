@@ -144,16 +144,30 @@ export interface ApplyModelEditParams {
   operations: ModelEditOperation[];
 }
 
-/** Why an operation was refused; `operation` is its index, or -1 for the request as a whole. */
+/**
+ * Why an operation was refused; `operation` is its index, or -1 for the request as a whole.
+ * `referring` names the declarations referring to a refused target, qualified by document
+ * when that is another; `referrers` tells each from the document declaring it.
+ */
 export interface ModelEditRefusal {
   operation: number;
   failure: string;
   message: string;
   diagnostics?: { range: Range; message: string; severity?: number; code?: string | number; source?: string }[];
   referring?: string[];
+  referrers?: ModelEditReferrer[];
 }
 
-/** A WorkspaceEdit as the protocol writes it; the language client converts it. */
+export interface ModelEditReferrer {
+  name: string;
+  uri: string;
+}
+
+/**
+ * A WorkspaceEdit as the protocol writes it; the language client converts it. Each document
+ * change is pinned to the version the server computed it against, null for a document the
+ * server read from disk.
+ */
 export interface WorkspaceEdit {
   changes?: Record<string, TextEdit[]>;
   documentChanges?: { textDocument: { uri: string; version: number | null }; edits: TextEdit[] }[];

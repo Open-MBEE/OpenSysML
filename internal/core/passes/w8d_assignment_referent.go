@@ -182,7 +182,7 @@ func (c *assignmentReferentChecker) referentMayTimeVary(referent *symbols.Symbol
 // targetText renders an assignment target as written, for a message about it.
 func targetText(target ast.Node) string {
 	if qn := ast.AsQualifiedName(target); qn != nil {
-		return endpointText(qn)
+		return lower.EndpointText(qn)
 	}
 	return lower.FeaturePath(target)
 }

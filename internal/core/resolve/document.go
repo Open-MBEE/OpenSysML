@@ -198,14 +198,16 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 				if d.Kind == ast.UsageBinding && isImplicitCalcResult(scope, target) {
 					return
 				}
-				// A machine succession/transition end names a vertex like a transition endpoint.
-				if qn, ok := target.(*ast.QualifiedName); ok {
-					if resolveAsEndpoint {
-						r.ResolveEndpoint(endScope, qn)
-					} else {
-						r.ResolveQualified(endScope, qn)
-					}
-				} else {
+				// A machine succession/transition end names a vertex like a transition
+				// endpoint, a chained one (`c.c1`) included.
+				qn, isName := target.(*ast.QualifiedName)
+				_, isChain := target.(*ast.FeatureChainExpr)
+				switch {
+				case resolveAsEndpoint && (isName || isChain):
+					r.ResolveEndpointRef(endScope, target)
+				case isName:
+					r.ResolveQualified(endScope, qn)
+				default:
 					r.resolveExpr(endScope, target)
 				}
 			}
@@ -248,7 +250,7 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		}
 		return true
 	case *ast.InitialNode:
-		if symbols.FirstNamesSource(scope, d) {
+		if symbols.FirstNamesSource(d) {
 			r.resolveEdgeEnd(scope, d.First, nil, false)
 		} else {
 			r.resolveInitial(scope, d)

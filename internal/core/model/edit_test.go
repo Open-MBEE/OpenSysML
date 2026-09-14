@@ -68,8 +68,84 @@ func TestApplyEditCustomIndexValidatesSemantics(t *testing.T) {
 			t.Fatalf("ok %v, err %v", ok, err)
 		}
 		want := "part def Car {\n    part tank : Lib::Tank;\n    part spare : Lib::Tank;\n    part engine : Engine;\n}\n"
-		if string(result.Content) != want {
-			t.Fatalf("content:\n%s\nwant:\n%s", result.Content, want)
+		if string(result.Documents[0].Content) != want {
+			t.Fatalf("content:\n%s\nwant:\n%s", result.Documents[0].Content, want)
 		}
 	})
+}
+
+// A rename reaches every document of the workspace referring to the target,
+// open or read from disk, each reported at the version the workspace holds; a
+// document the caller indexed but the workspace does not hold cannot be
+// rewritten, so a reference from it refuses the edit.
+func TestApplyEditFollowsReferencesIntoWorkspaceDocuments(t *testing.T) {
+	ws := NewWorkspace()
+	ws.Open("engine.sysml", []byte("package Engines {\n    part def Engine;\n}\n"), 1)
+	ws.Open("car.sysml", []byte("package Cars {\n    part def Car {\n        part e : Engines::Engine;\n    }\n}\n"), 4)
+	ws.SetOnDisk("boat.sysml", []byte("package Boats {\n    part motor : Engines::Engine;\n}\n"))
+
+	result, version, ok, err := ws.ApplyEdit("engine.sysml", []edit.Operation{edit.Rename("Engines::Engine", "Motor")})
+	if !ok || err != nil {
+		t.Fatalf("ok %v, err %v", ok, err)
+	}
+	if version != 1 {
+		t.Errorf("version = %d, want 1", version)
+	}
+	want := []DocumentEdit{
+		{Name: "engine.sysml", Version: 1, Open: true, Content: []byte("package Engines {\n    part def Motor;\n}\n")},
+		{Name: "boat.sysml", Version: 0, Open: false, Content: []byte("package Boats {\n    part motor : Engines::Motor;\n}\n")},
+		{Name: "car.sysml", Version: 4, Open: true, Content: []byte("package Cars {\n    part def Car {\n        part e : Engines::Motor;\n    }\n}\n")},
+	}
+	if len(result.Documents) != len(want) {
+		t.Fatalf("documents = %d, want %d", len(result.Documents), len(want))
+	}
+	for i, doc := range result.Documents {
+		if doc.Name != want[i].Name || doc.Version != want[i].Version || doc.Open != want[i].Open {
+			t.Errorf("document %d = %s v%d open %v, want %s v%d open %v", i,
+				doc.Name, doc.Version, doc.Open, want[i].Name, want[i].Version, want[i].Open)
+		}
+		if string(doc.Content) != string(want[i].Content) {
+			t.Errorf("%s:\n%s\nwant:\n%s", doc.Name, doc.Content, want[i].Content)
+		}
+		if string(doc.Original) != string(ws.Document(doc.Name).Content) {
+			t.Errorf("%s original:\n%s\nwant the workspace's content", doc.Name, doc.Original)
+		}
+		if len(doc.Applied) == 0 {
+			t.Errorf("%s reports no applied range", doc.Name)
+		}
+	}
+	for _, name := range []string{"engine.sysml", "car.sysml", "boat.sysml"} {
+		if strings.Contains(string(ws.Document(name).Content), "Motor") {
+			t.Errorf("%s was rewritten in place", name)
+		}
+	}
+}
+
+func TestApplyEditRefusesReferenceFromDocumentItCannotRewrite(t *testing.T) {
+	idx := symbols.NewIndex()
+	fleet := []byte("package Fleet {\n    part truck : Engines::Engine;\n}\n")
+	idx.AddDocumentWithKind("fleet.sysml", parser.New(source.New("fleet.sysml", fleet)).ParseFile(), source.KindSysML)
+	idx.ExpandWildcardImports()
+	ws := NewWorkspaceWithIndex(idx)
+	ws.Open("engine.sysml", []byte("package Engines {\n    part def Engine;\n}\n"), 1)
+
+	for _, op := range []edit.Operation{
+		edit.Rename("Engines::Engine", "Motor"),
+		edit.Delete("Engines::Engine", true),
+	} {
+		result, _, ok, err := ws.ApplyEdit("engine.sysml", []edit.Operation{op})
+		if !ok {
+			t.Fatal("document not found")
+		}
+		var e *edit.Error
+		if !errors.As(err, &e) || e.Failure != edit.FailureReferencedElsewhere {
+			t.Fatalf("%v: got %v, want %s", op.Kind, err, edit.FailureReferencedElsewhere)
+		}
+		if result != nil {
+			t.Errorf("%v: result %+v alongside a refusal", op.Kind, result)
+		}
+		if want := []string{"Fleet::truck (fleet.sysml)"}; strings.Join(e.Referring, ",") != strings.Join(want, ",") {
+			t.Errorf("%v: referring = %v, want %v", op.Kind, e.Referring, want)
+		}
+	}
 }

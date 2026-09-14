@@ -286,10 +286,13 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 			redefines, others := ast.SplitRedefinitions(end.Relationships)
 			c.relationships(endScope, end, redefines)
 			c.relationships(scope, end, others)
+			// A machine succession/transition end names a vertex like a transition endpoint.
+			asEndpoint := (d.Kind == ast.UsageSuccession || d.Kind == ast.UsageTransition) &&
+				symbols.InStateMachine(scope) && !declaresName
 			if !declaresName {
-				c.target(scope, end.Target)
+				c.connectorEnd(scope, end.Target, asEndpoint)
 			}
-			c.target(scope, end.Reference)
+			c.connectorEnd(scope, end.Reference, asEndpoint)
 		}
 		if d.FlowEnds != nil {
 			c.expr(scope, d.FlowEnds.From)
@@ -318,7 +321,7 @@ func (c *refCollector) typeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		return true
 	case *ast.InitialNode:
 		// A start marker's own name is a label, not a reference.
-		if symbols.FirstNamesSource(scope, d) {
+		if symbols.FirstNamesSource(d) {
 			c.edgeEnd(scope, d.First, nil, false)
 		}
 		c.edgeEnd(scope, d.Successor, nil, false)
@@ -405,7 +408,7 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 		c.walkMembers(body, d.Members)
 		return true
 	case *ast.InitialNode:
-		if symbols.FirstNamesSource(scope, d) {
+		if symbols.FirstNamesSource(d) {
 			c.edgeEnd(scope, d.First, nil, false)
 		}
 		c.edgeEnd(scope, d.Successor, nil, false)
@@ -590,6 +593,32 @@ func (c *refCollector) referenceTarget(scope *symbols.Scope, decl ast.Node, targ
 		return
 	}
 	c.expr(scope, target)
+}
+
+// connectorEnd collects what a connector end names, as a transition endpoint
+// when the connector orders the vertices of a state machine.
+func (c *refCollector) connectorEnd(scope *symbols.Scope, target ast.Node, asEndpoint bool) {
+	if !asEndpoint {
+		c.target(scope, target)
+		return
+	}
+	switch t := target.(type) {
+	case *ast.QualifiedName:
+		c.addEndpoint(scope, t)
+	case *ast.FeatureReference:
+		// The root of a parsed chain is wrapped as a feature reference.
+		if t != nil {
+			c.addEndpoint(scope, t.Name)
+		}
+	case *ast.FeatureChainExpr:
+		// `c.c1` names c as an endpoint too, then c1 as its member.
+		c.connectorEnd(scope, t.Operand, true)
+		if t.Member != nil {
+			c.push(Reference{Scope: scope, QN: t.Member, Chain: t, Endpoint: true})
+		}
+	default:
+		c.target(scope, target)
+	}
 }
 
 // target collects a node that names something, whether it was parsed as a

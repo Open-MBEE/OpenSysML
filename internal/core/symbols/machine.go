@@ -29,9 +29,9 @@ func InStateMachine(scope *Scope) bool {
 	return false
 }
 
-// FirstNamesSource reports whether the name after `first` in n, written in
-// scope, refers to the source of a succession (`first a then b;` in an action
-// body) rather than declaring a start marker.
-func FirstNamesSource(scope *Scope, n *ast.InitialNode) bool {
-	return n.Successor != nil && !InStateMachine(scope)
+// FirstNamesSource reports whether the name after `first` in n refers to the
+// source of a succession (`first a then b;`, parsed as an InitialNode only in
+// an action body) rather than declaring a start marker (`first a;`).
+func FirstNamesSource(n *ast.InitialNode) bool {
+	return n.Successor != nil
 }
