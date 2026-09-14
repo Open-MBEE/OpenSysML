@@ -327,6 +327,10 @@ func bodyInfo(node ast.Node) (source.Span, bool) {
 		return d.Span(), d.HasBody
 	case *ast.Usage:
 		return d.Span(), d.HasBody
+	case *ast.TransitionMember:
+		return d.Span(), d.HasBody
+	case *ast.SuccessionEdge:
+		return d.Span(), d.HasBody
 	default:
 		return source.Span{}, false
 	}

@@ -4,18 +4,66 @@
 import {
   admits,
   type ApplyModelEditParams,
+  type EdgePlacement,
   type EditPalette,
   type ModelEditOperation,
   type ModelEditRefusal,
+  type NodePlacement,
+  type RenderEdge,
   type RenderNode,
   type RenderOwner,
+  type WorkspaceEdit,
 } from "./protocol";
 
-/** Rendering is the diagram an action is taken on: its nodes, what they offer to add, and the document version they draw. */
+/**
+ * Rendering is the diagram an action is taken on: its nodes and edges, the view
+ * they were drawn for (empty for a pseudo-view), what they offer to add, and the
+ * document version they draw.
+ */
 export interface Rendering {
   nodes: RenderNode[];
+  edges?: RenderEdge[];
+  view?: string;
   version: number;
   palette?: EditPalette;
+}
+
+/**
+ * placementOperations turns where a gesture left nodes and edges into the layout
+ * and route operations of one edit: a Layout in the view's body for a rendering
+ * of a declared view, inline on the element for a pseudo-view. An element no
+ * qualified name reaches is targeted by its declaration and placed inline, since
+ * a view body cannot name it. Undefined when something placed is not declared by
+ * the document, since no annotation can reach it.
+ */
+export function placementOperations(
+  rendering: Rendering,
+  nodes: NodePlacement[],
+  edges: EdgePlacement[],
+): ModelEditOperation[] | undefined {
+  const view = rendering.view || undefined;
+  const operations: ModelEditOperation[] = [];
+  for (const placement of nodes) {
+    const node = rendering.nodes.find((candidate) => candidate.id === placement.id);
+    if (node?.fqn) {
+      operations.push({ kind: "setLayout", target: node.fqn, view, layout: placement.layout });
+    } else if (node?.declaration) {
+      operations.push({ kind: "setLayout", declaration: node.declaration, layout: placement.layout });
+    } else {
+      return undefined;
+    }
+  }
+  for (const placement of edges) {
+    const edge = rendering.edges?.[placement.index];
+    if (edge?.fqn) {
+      operations.push({ kind: "setRoute", target: edge.fqn, view, route: placement.route });
+    } else if (edge?.declaration) {
+      operations.push({ kind: "setRoute", declaration: edge.declaration, route: placement.route });
+    } else {
+      return undefined;
+    }
+  }
+  return operations;
 }
 
 /** A node's ancestors, nearest first, ending at a root. */
@@ -189,6 +237,69 @@ function describeOne(refusal: ModelEditRefusal): string {
     parts.push(`Referenced by ${refusal.referring.join(", ")}.`);
   }
   return parts.join("\n");
+}
+
+/**
+ * referrersByFile lists the declarations referring to a refused target, one per line: a
+ * flat list when all are in the edited document, else grouped under the document each
+ * is declared in, the edited document first. A server naming no documents is listed flat.
+ */
+export function referrersByFile(refused: ModelEditRefusal[], docURI: string): string[] {
+  const referrers = refused.flatMap((refusal) => refusal.referrers ?? []);
+  if (referrers.length === 0) {
+    return refused.flatMap((refusal) => refusal.referring ?? []);
+  }
+  const byFile = new Map<string, string[]>([[docURI, []]]);
+  for (const referrer of referrers) {
+    const names = byFile.get(referrer.uri) ?? [];
+    names.push(referrer.name);
+    byFile.set(referrer.uri, names);
+  }
+  if (byFile.size === 1) {
+    return byFile.get(docURI) ?? [];
+  }
+  const out: string[] = [];
+  for (const [uri, names] of byFile) {
+    if (names.length === 0) {
+      continue;
+    }
+    out.push(uri === docURI ? "In this document:" : `In ${fileLabel(uri)}:`);
+    out.push(...names.map((name) => `  ${name}`));
+  }
+  return out;
+}
+
+/** fileLabel is the file name a URI ends in, as the user knows the document. */
+export function fileLabel(uri: string): string {
+  const path = uri.replace(/[?#].*$/, "");
+  return decodeURIComponent(path.slice(path.lastIndexOf("/") + 1));
+}
+
+/** unopenedDocuments lists the documents an edit names that no buffer holds. */
+export function unopenedDocuments(edit: WorkspaceEdit, versionOf: (uri: string) => number | undefined): string[] {
+  return (edit.documentChanges ?? []).map((change) => change.textDocument.uri).filter((uri) => versionOf(uri) === undefined);
+}
+
+/**
+ * staleDocuments lists the documents an edit was computed against a text of that the
+ * client no longer holds: one pinned to a version the buffer has moved past, or one the
+ * server read from disk (no version) that a buffer has been opened for since.
+ */
+export function staleDocuments(edit: WorkspaceEdit, versionOf: (uri: string) => number | undefined): string[] {
+  const out: string[] = [];
+  for (const change of edit.documentChanges ?? []) {
+    const { uri, version } = change.textDocument;
+    const held = versionOf(uri);
+    if (held !== undefined && held !== version) {
+      out.push(uri);
+    }
+  }
+  return out;
+}
+
+/** describeStale is the one-line message an edit whose other documents moved on is reported with. */
+export function describeStale(stale: string[]): string {
+  return `${stale.map(fileLabel).join(", ")} changed while the edit was computed; it is not applied, so repeat the action.`;
 }
 
 /** Characters a backslash may escape in an unrestricted name (KerML §8.2.2). */

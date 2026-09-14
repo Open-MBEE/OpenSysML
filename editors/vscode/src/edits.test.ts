@@ -6,6 +6,11 @@ import {
   connectionOwner,
   describeOwner,
   describeRefusal,
+  describeStale,
+  fileLabel,
+  referrersByFile,
+  staleDocuments,
+  unopenedDocuments,
   DOCUMENT_ROOT,
   editParams,
   endpointPath,
@@ -15,6 +20,7 @@ import {
   offeredOn,
   ownerOf,
   ownersOf,
+  placementOperations,
   rootOwner,
   validName,
 } from "./edits";
@@ -295,6 +301,133 @@ test("describeRefusal quotes the message, diagnostics and referrers", () => {
   );
 });
 
+const carURI = "file:///work/car.sysml";
+const fleetURI = "file:///work/fleet.sysml";
+
+test("referrersByFile lists referrers in the edited document flat", () => {
+  const lines = referrersByFile(
+    [
+      {
+        operation: 0,
+        failure: "delete-referenced",
+        message: "Vehicle::Car::tank is referenced",
+        referring: ["Vehicle::Car::c1", "Vehicle::Car::c2"],
+        referrers: [
+          { name: "Vehicle::Car::c1", uri: carURI },
+          { name: "Vehicle::Car::c2", uri: carURI },
+        ],
+      },
+    ],
+    carURI,
+  );
+  assert.deepEqual(lines, ["Vehicle::Car::c1", "Vehicle::Car::c2"]);
+});
+
+test("referrersByFile groups referrers in other files by file, the edited document first", () => {
+  const lines = referrersByFile(
+    [
+      {
+        operation: 0,
+        failure: "delete-referenced",
+        message: "Vehicle::Car is referenced",
+        referring: ["fleet.sysml: Fleet::truck", "Vehicle::Car::c1", "fleet.sysml: Fleet::van"],
+        referrers: [
+          { name: "Fleet::truck", uri: fleetURI },
+          { name: "Vehicle::Car::c1", uri: carURI },
+          { name: "Fleet::van", uri: fleetURI },
+        ],
+      },
+    ],
+    carURI,
+  );
+  assert.deepEqual(lines, ["In this document:", "  Vehicle::Car::c1", "In fleet.sysml:", "  Fleet::truck", "  Fleet::van"]);
+});
+
+test("referrersByFile names only the other files when the edited document holds no referrer", () => {
+  const lines = referrersByFile(
+    [
+      {
+        operation: 0,
+        failure: "delete-referenced",
+        message: "Vehicle::Car is referenced",
+        referrers: [{ name: "Fleet::truck", uri: fleetURI }],
+      },
+    ],
+    carURI,
+  );
+  assert.deepEqual(lines, ["In fleet.sysml:", "  Fleet::truck"]);
+});
+
+test("referrersByFile falls back to the plain names of a server telling no documents", () => {
+  const lines = referrersByFile(
+    [{ operation: 0, failure: "delete-referenced", message: "referenced", referring: ["Vehicle::Car::c1"] }],
+    carURI,
+  );
+  assert.deepEqual(lines, ["Vehicle::Car::c1"]);
+});
+
+test("fileLabel is the decoded last path segment", () => {
+  assert.equal(fileLabel("file:///work/my%20models/fleet.sysml"), "fleet.sysml");
+  assert.equal(fileLabel("file:///work/my%20fleet.sysml?x=1"), "my fleet.sysml");
+});
+
+const twoFileEdit = {
+  documentChanges: [
+    { textDocument: { uri: carURI, version: 3 }, edits: [] },
+    { textDocument: { uri: fleetURI, version: 7 }, edits: [] },
+    { textDocument: { uri: "file:///work/disk.sysml", version: null }, edits: [] },
+  ],
+};
+
+test("staleDocuments is empty when every open document is at the version the edit was computed against", () => {
+  const versions = new Map([
+    [carURI, 3],
+    [fleetURI, 7],
+  ]);
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), []);
+});
+
+test("staleDocuments names a document whose buffer moved on", () => {
+  const versions = new Map([
+    [carURI, 3],
+    [fleetURI, 8],
+  ]);
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), [fleetURI]);
+});
+
+test("staleDocuments ignores a document no buffer holds, whether the server read it open or from disk", () => {
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => (uri === carURI ? 3 : undefined)), []);
+  assert.deepEqual(staleDocuments({ changes: { [carURI]: [] } }, () => 1), []);
+});
+
+test("staleDocuments names a document the server read from disk that a buffer has since been opened for", () => {
+  const versions = new Map([
+    [carURI, 3],
+    [fleetURI, 7],
+    ["file:///work/disk.sysml", 1],
+  ]);
+  assert.deepEqual(staleDocuments(twoFileEdit, (uri) => versions.get(uri)), ["file:///work/disk.sysml"]);
+});
+
+test("unopenedDocuments lists the documents no buffer holds, whatever version the server gave them", () => {
+  assert.deepEqual(unopenedDocuments(twoFileEdit, (uri) => (uri === carURI ? 3 : undefined)), [
+    fleetURI,
+    "file:///work/disk.sysml",
+  ]);
+  assert.deepEqual(unopenedDocuments({ changes: { [carURI]: [] } }, () => undefined), []);
+});
+
+test("unopenedDocuments is empty once every document the edit names is open", () => {
+  assert.deepEqual(unopenedDocuments(twoFileEdit, () => 1), []);
+});
+
+test("describeStale names the files and says the edit was not applied", () => {
+  assert.equal(
+    describeStale([fleetURI, "file:///work/disk.sysml"]),
+    "fleet.sysml, disk.sysml changed while the edit was computed; it is not applied, so repeat the action.",
+  );
+});
+
 test("validName accepts identifiers and quoted names", () => {
   assert.equal(validName("engine"), undefined);
   assert.equal(validName("_x1"), undefined);
@@ -308,6 +441,56 @@ test("validName says what is wrong", () => {
   assert.match(validName("front wheel") ?? "", /identifier/);
   assert.match(validName("1st") ?? "", /identifier/);
   assert.match(validName("a::b") ?? "", /identifier/);
+});
+
+const placed = {
+  nodes: [tank, engine, imported],
+  edges: [
+    { from: "n2", to: "n4", label: "", kind: "connection", fqn: "Vehicle::Car::fuel" },
+    { from: "n6", to: "n4", label: "", kind: "connection" },
+  ],
+  view: "Vehicle::Wiring",
+  version: 4,
+};
+
+test("placementOperations names each placed node and steered edge by its declaration, in the view", () => {
+  assert.deepEqual(
+    placementOperations(placed, [{ id: "n2", layout: { x: 10, y: 20 } }, { id: "n4", layout: { x: 30, y: 40, width: 100, height: 50 } }], [{ index: 0, route: [{ x: 5, y: 5 }] }]),
+    [
+      { kind: "setLayout", target: "Vehicle::Car::tank", view: "Vehicle::Wiring", layout: { x: 10, y: 20 } },
+      { kind: "setLayout", target: "Vehicle::Car::engine", view: "Vehicle::Wiring", layout: { x: 30, y: 40, width: 100, height: 50 } },
+      { kind: "setRoute", target: "Vehicle::Car::fuel", view: "Vehicle::Wiring", route: [{ x: 5, y: 5 }] },
+    ],
+  );
+});
+
+test("placementOperations places on the element when the rendering has no view, and clears a route", () => {
+  assert.deepEqual(placementOperations({ ...placed, view: "" }, [{ id: "n2", layout: { x: 1, y: 2 } }], [{ index: 0 }]), [
+    { kind: "setLayout", target: "Vehicle::Car::tank", view: undefined, layout: { x: 1, y: 2 } },
+    { kind: "setRoute", target: "Vehicle::Car::fuel", view: undefined, route: undefined },
+  ]);
+});
+
+const declaration = { start: { line: 4, character: 8 }, end: { line: 4, character: 37 } };
+
+test("placementOperations targets a node or edge no qualified name reaches by its declaration, inline", () => {
+  const unnamed = {
+    ...placed,
+    nodes: [...placed.nodes, { ...imported, id: "n7", declaration }],
+    edges: [...placed.edges, { from: "n7", to: "n4", label: "", kind: "transition", declaration }],
+  };
+  assert.deepEqual(placementOperations(unnamed, [{ id: "n7", layout: { x: 1, y: 2 } }], [{ index: 2, route: [{ x: 3, y: 4 }] }, { index: 0 }]), [
+    { kind: "setLayout", declaration, layout: { x: 1, y: 2 } },
+    { kind: "setRoute", declaration, route: [{ x: 3, y: 4 }] },
+    { kind: "setRoute", target: "Vehicle::Car::fuel", view: "Vehicle::Wiring", route: undefined },
+  ]);
+});
+
+test("placementOperations refuses a node or edge the document does not declare", () => {
+  assert.equal(placementOperations(placed, [{ id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
+  assert.equal(placementOperations(placed, [{ id: "missing", layout: { x: 1, y: 2 } }], []), undefined);
+  assert.equal(placementOperations(placed, [], [{ index: 1, route: [] }]), undefined);
+  assert.equal(placementOperations(placed, [], [{ index: 9, route: [] }]), undefined);
 });
 
 // The scanner follows the lexer's UNRESTRICTED_NAME: a backslash escapes one

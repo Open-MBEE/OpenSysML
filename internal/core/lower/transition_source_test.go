@@ -245,13 +245,13 @@ func TestToStateGraph_SourcelessTransitionAfterANonVertex(t *testing.T) {
 		body string
 		want string
 	}{
-		"start marker": {
+		"keyword-less succession": {
 			body: `entry; then init;
 				state init;
 				first init then active;
 				accept Go then done;
 				state active;`,
-			want: "the succession from init",
+			want: "an unnamed succession usage",
 		},
 		"explicit transition": {
 			body: `entry; then init;

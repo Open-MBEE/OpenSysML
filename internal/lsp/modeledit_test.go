@@ -51,8 +51,9 @@ func applyModelEdit(t *testing.T, s *Server, docURI uri.URI, version int, ops ..
 	return &out
 }
 
-// applyWorkspaceEdit applies the edit to content the way a client does: each
-// text edit at its range in the original text, later ranges first.
+// applyWorkspaceEdit applies an edit of one document to content the way a
+// client does: each text edit at its range in the original text, later ranges
+// first.
 func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEdit, docURI uri.URI) string {
 	t.Helper()
 	if edit == nil {
@@ -68,6 +69,28 @@ func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEd
 	if change.TextDocument.Version == nil {
 		t.Error("edit names no document version")
 	}
+	return applyDocumentChange(t, content, change)
+}
+
+// documentChangeFor is the edit's change to the document at docURI.
+func documentChangeFor(t *testing.T, edit *protocol.WorkspaceEdit, docURI uri.URI) protocol.TextDocumentEdit {
+	t.Helper()
+	if edit == nil {
+		t.Fatal("no edit in result")
+	}
+	for _, change := range edit.DocumentChanges {
+		if change.TextDocument.URI == docURI {
+			return change
+		}
+	}
+	t.Fatalf("no change to %s in %+v", docURI, edit.DocumentChanges)
+	return protocol.TextDocumentEdit{}
+}
+
+// applyDocumentChange applies one document's text edits to content, later
+// ranges first.
+func applyDocumentChange(t *testing.T, content string, change protocol.TextDocumentEdit) string {
+	t.Helper()
 	edits := append([]protocol.TextEdit(nil), change.Edits...)
 	sort.Slice(edits, func(i, j int) bool {
 		a, b := edits[i].Range.Start, edits[j].Range.Start
@@ -86,9 +109,13 @@ func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEd
 // WorkspaceEdit must reproduce byte for byte.
 func golden(t *testing.T, s *Server, name string, ops ...modelEditOperation) string {
 	t.Helper()
+	doc := s.ws.Document(name)
+	if doc == nil {
+		t.Fatalf("no document %s", name)
+	}
 	converted := make([]modeledit.Operation, 0, len(ops))
 	for _, op := range ops {
-		c, err := op.operation()
+		c, err := op.operation(doc.Content)
 		if err != nil {
 			t.Fatalf("convert %+v: %v", op, err)
 		}
@@ -98,7 +125,7 @@ func golden(t *testing.T, s *Server, name string, ops ...modelEditOperation) str
 	if !ok || err != nil {
 		t.Fatalf("edit.Apply: ok=%v err=%v", ok, err)
 	}
-	return string(result.Content)
+	return string(result.Documents[0].Content)
 }
 
 func TestApplyModelEditAddsMemberAsWorkspaceEdit(t *testing.T) {
@@ -408,29 +435,118 @@ func TestRenderNodesCarryNotation(t *testing.T) {
 	}
 }
 
-// A delete or rename that another open document refers to is refused, whether
-// or not it cascades: the edit rewrites one document, so the other would break.
-func TestApplyModelEditRefusesWhatAnotherDocumentRefersTo(t *testing.T) {
+// fleetModel is a second document referring to editModel's Vehicle::Car.
+const fleetModel = "package Fleet {\n    part truck : Vehicle::Car;\n    part van : Vehicle::Car;\n}\n"
+
+// A rename respells the references in another open document: the edit holds
+// one versioned change per document, the requested one first and the other at
+// the version the server holds for it.
+func TestApplyModelEditRenameRespellsAnotherDocument(t *testing.T) {
 	s, docURI := renderServer(t, "vehicle.sysml", editModel)
 	fleetURI := uri.File("fleet.sysml")
-	openDoc(t, s, fleetURI, "package Fleet {\n    part truck : Vehicle::Car;\n}\n")
-	for _, op := range []modelEditOperation{
-		{Kind: EditDelete, Target: "Vehicle::Car"},
-		{Kind: EditDelete, Target: "Vehicle::Car", Cascade: true},
-		{Kind: EditRename, Target: "Vehicle::Car", NewName: "Auto"},
-	} {
-		out := applyModelEdit(t, s, docURI, 1, op)
-		if len(out.Refused) != 1 || out.Edit != nil {
-			t.Fatalf("%+v: result = %+v, want one refusal", op, out)
-		}
-		r := out.Refused[0]
-		if r.Failure != "referenced-elsewhere" || r.Operation != 0 {
-			t.Errorf("%+v: refusal = %+v, want referenced-elsewhere of operation 0", op, r)
-		}
-		if want := []string{"Fleet::truck (" + fleetURI.Filename() + ")"}; strings.Join(r.Referring, ",") != strings.Join(want, ",") {
-			t.Errorf("%+v: referring = %v, want %v", op, r.Referring, want)
-		}
+	openDoc(t, s, fleetURI, fleetModel)
+	op := modelEditOperation{Kind: EditRename, Target: "Vehicle::Car", NewName: "Auto"}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Edit == nil || out.Refused != nil {
+		t.Fatalf("result = %+v, want an edit", out)
 	}
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{docURI, fleetURI}) {
+		t.Fatalf("documentChanges = %v, want %v", got, []uri.URI{docURI, fleetURI})
+	}
+	vehicle := applyDocumentChange(t, editModel, documentChangeFor(t, out.Edit, docURI))
+	if want := golden(t, s, docURI.Filename(), op); vehicle != want {
+		t.Errorf("vehicle.sysml:\n%s\nwant:\n%s", vehicle, want)
+	}
+	change := documentChangeFor(t, out.Edit, fleetURI)
+	if change.TextDocument.Version == nil || *change.TextDocument.Version != 1 {
+		t.Errorf("fleet version = %v, want the server's 1", change.TextDocument.Version)
+	}
+	fleet := applyDocumentChange(t, fleetModel, change)
+	if want := strings.ReplaceAll(fleetModel, "Vehicle::Car", "Vehicle::Auto"); fleet != want {
+		t.Errorf("fleet.sysml:\n%s\nwant:\n%s", fleet, want)
+	}
+}
+
+// A cascading delete removes the referring declarations of another document;
+// without cascade it is refused, naming them by document.
+func TestApplyModelEditDeleteCascadesIntoAnotherDocument(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	fleetURI := uri.File("fleet.sysml")
+	openDoc(t, s, fleetURI, fleetModel)
+
+	out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditDelete, Target: "Vehicle::Car"})
+	if len(out.Refused) != 1 || out.Edit != nil {
+		t.Fatalf("result = %+v, want one refusal", out)
+	}
+	r := out.Refused[0]
+	if r.Failure != "delete-referenced" || r.Operation != 0 {
+		t.Errorf("refusal = %+v, want delete-referenced of operation 0", r)
+	}
+	fleetName := fleetURI.Filename()
+	if want := []string{"Fleet::truck (" + fleetName + ")", "Fleet::van (" + fleetName + ")"}; !reflect.DeepEqual(r.Referring, want) {
+		t.Errorf("referring = %v, want %v", r.Referring, want)
+	}
+	if want := []modelEditReferrer{{Name: "Fleet::truck", URI: fleetURI}, {Name: "Fleet::van", URI: fleetURI}}; !reflect.DeepEqual(r.Referrers, want) {
+		t.Errorf("referrers = %v, want %v", r.Referrers, want)
+	}
+
+	out = applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditDelete, Target: "Vehicle::Car", Cascade: true})
+	if out.Edit == nil || out.Refused != nil {
+		t.Fatalf("cascade result = %+v, want an edit", out)
+	}
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{docURI, fleetURI}) {
+		t.Fatalf("documentChanges = %v, want %v", got, []uri.URI{docURI, fleetURI})
+	}
+	vehicle := applyDocumentChange(t, editModel, documentChangeFor(t, out.Edit, docURI))
+	if strings.Contains(vehicle, "Car") {
+		t.Errorf("vehicle.sysml still declares Car:\n%s", vehicle)
+	}
+	fleet := applyDocumentChange(t, fleetModel, documentChangeFor(t, out.Edit, fleetURI))
+	if want := "package Fleet {\n}\n"; fleet != want {
+		t.Errorf("fleet.sysml:\n%s\nwant:\n%s", fleet, want)
+	}
+}
+
+// The other document's change carries the version the server holds for it, so
+// a client whose buffer has moved on refuses it instead of landing it wrong; a
+// document read from disk, which no client versions, carries none.
+func TestApplyModelEditVersionsOtherDocumentsAsHeld(t *testing.T) {
+	s, docURI := renderServer(t, "vehicle.sysml", editModel)
+	fleetURI := uri.File("fleet.sysml")
+	openDoc(t, s, fleetURI, fleetModel)
+	sendDidChange(t, s, fleetURI, 3, []json.RawMessage{json.RawMessage(`{"text":"package Fleet {\n    part van : Vehicle::Car;\n}\n"}`)})
+	depotName := uri.File("depot.sysml").Filename()
+	s.ws.SetOnDisk(depotName, []byte("package Depot {\n    part spare : Vehicle::Car;\n}\n"))
+
+	out := applyModelEdit(t, s, docURI, 1, modelEditOperation{Kind: EditRename, Target: "Vehicle::Car", NewName: "Auto"})
+	if out.Edit == nil || out.Refused != nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{docURI, uri.File(depotName), fleetURI}) {
+		t.Fatalf("documentChanges = %v, want vehicle, depot, fleet", got)
+	}
+	if v := documentChangeFor(t, out.Edit, docURI).TextDocument.Version; v == nil || *v != 1 {
+		t.Errorf("vehicle version = %v, want the request's 1", v)
+	}
+	if v := documentChangeFor(t, out.Edit, fleetURI).TextDocument.Version; v == nil || *v != 3 {
+		t.Errorf("fleet version = %v, want the server's 3", v)
+	}
+	depot := documentChangeFor(t, out.Edit, uri.File(depotName))
+	if depot.TextDocument.Version != nil {
+		t.Errorf("depot version = %d, want none for a document read from disk", *depot.TextDocument.Version)
+	}
+	if got := applyDocumentChange(t, "package Depot {\n    part spare : Vehicle::Car;\n}\n", depot); !strings.Contains(got, "Vehicle::Auto") {
+		t.Errorf("depot.sysml not respelled:\n%s", got)
+	}
+}
+
+// documentURIs lists the documents an edit changes, in the edit's order.
+func documentURIs(edit *protocol.WorkspaceEdit) []uri.URI {
+	out := make([]uri.URI, 0, len(edit.DocumentChanges))
+	for _, change := range edit.DocumentChanges {
+		out = append(out, change.TextDocument.URI)
+	}
+	return out
 }
 
 func TestApplyModelEditRejectsStaleVersion(t *testing.T) {
@@ -703,4 +819,295 @@ func contains(list []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// plantModel is a document with an interconnection view over unplaced parts and
+// a connection, as a diagram panel first draws it.
+const plantModel = `package Plant {
+	part def Pump;
+	part def Tank;
+	part def Loop {
+		part pump : Pump;
+		part tank : Tank;
+		connection supply connect pump to tank;
+	}
+}
+
+package PlantViews {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+
+	view loopView : InterconnectionView {
+		expose Plant::Loop;
+	}
+}
+`
+
+// float is a wire number the operation payload points at.
+func float(v float64) *float64 { return &v }
+
+// redraw applies the edit as the client would, tells the server, and renders
+// the view again at the new version.
+func redraw(t *testing.T, s *Server, docURI uri.URI, content string, out *applyModelEditResult, version int, viewName string) (string, *renderResult) {
+	t.Helper()
+	if out.Stale || out.Refused != nil || out.Edit == nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	applied := applyWorkspaceEdit(t, content, out.Edit, docURI)
+	encoded, _ := json.Marshal(map[string]string{"text": applied})
+	sendDidChange(t, s, docURI, int32(version), []json.RawMessage{encoded})
+	r := render(t, s, docURI, viewName)
+	if r.Version != version {
+		t.Fatalf("render version = %d, want %d", r.Version, version)
+	}
+	return applied, r
+}
+
+// Dragging a node on the rendering of a view writes its Layout into the view's
+// body as one WorkspaceEdit; the redrawn rendering carries the position, and
+// dragging it again updates the annotation in place rather than adding one.
+func TestApplyModelEditSetLayoutRoundTripsThroughRender(t *testing.T) {
+	s, docURI := renderServer(t, "plant.sysml", plantModel)
+	drawn := render(t, s, docURI, "PlantViews::loopView")
+	var pump renderNode
+	for _, n := range drawn.Nodes {
+		if n.Name == "pump" {
+			pump = n
+		}
+	}
+	if pump.FQN != "Plant::Loop::pump" || pump.X != nil || pump.Y != nil {
+		t.Fatalf("pump before the drag = %+v, want its fqn and no geometry", pump)
+	}
+	if drawn.View != "PlantViews::loopView" {
+		t.Fatalf("rendering names view %q", drawn.View)
+	}
+
+	drag := modelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View, Layout: &modelEditLayout{X: 120, Y: 40.5}}
+	out := applyModelEdit(t, s, docURI, drawn.Version, drag)
+	applied, redrawn := redraw(t, s, docURI, plantModel, out, 2, drawn.View)
+	if want := golden(t, s, docURI.Filename(), drag); applied != want {
+		t.Errorf("applied edit:\n%s\nwant:\n%s", applied, want)
+	}
+	if !strings.Contains(applied, "\t\texpose Plant::Loop;\n\t\tmetadata DiagramLayout::Layout about Plant::Loop::pump { x = 120; y = 40.5; }\n\t}\n") {
+		t.Errorf("Layout not stated in the view body:\n%s", applied)
+	}
+	for _, n := range redrawn.Nodes {
+		switch n.Name {
+		case "pump":
+			if n.X == nil || n.Y == nil || *n.X != 120 || *n.Y != 40.5 || n.Width != nil {
+				t.Errorf("redrawn pump = %+v, want x 120, y 40.5 and no size", n)
+			}
+		default:
+			if n.X != nil || n.Y != nil {
+				t.Errorf("redrawn %s gained geometry %+v", n.Name, n)
+			}
+		}
+	}
+
+	again := modelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View,
+		Layout: &modelEditLayout{X: 10, Y: 20, Width: float(200), Height: float(80), Collapsed: true}}
+	out = applyModelEdit(t, s, docURI, redrawn.Version, again)
+	applied, redrawn = redraw(t, s, docURI, applied, out, 3, drawn.View)
+	if strings.Count(applied, "DiagramLayout::Layout") != 1 {
+		t.Errorf("second drag did not update the annotation in place:\n%s", applied)
+	}
+	for _, n := range redrawn.Nodes {
+		if n.Name == "pump" {
+			if n.X == nil || *n.X != 10 || n.Width == nil || *n.Width != 200 || n.Height == nil || *n.Height != 80 || !n.Collapsed {
+				t.Errorf("redrawn pump = %+v, want the sized, collapsed layout", n)
+			}
+		}
+	}
+
+	unplace := modelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View}
+	out = applyModelEdit(t, s, docURI, redrawn.Version, unplace)
+	applied, _ = redraw(t, s, docURI, applied, out, 4, drawn.View)
+	if applied != plantModel {
+		t.Errorf("clearing the layout did not restore the document:\n%s", applied)
+	}
+}
+
+// Dragging an edge's waypoints writes a Route, sizing the canvas writes a
+// Canvas; each reaches the redrawn rendering as the geometry it wrote.
+func TestApplyModelEditSetRouteAndCanvasRoundTrip(t *testing.T) {
+	s, docURI := renderServer(t, "plant.sysml", plantModel)
+	drawn := render(t, s, docURI, "PlantViews::loopView")
+	if len(drawn.Edges) != 1 || drawn.Edges[0].FQN != "Plant::Loop::supply" || drawn.Edges[0].Route != nil {
+		t.Fatalf("edges = %+v, want the supply connection with its fqn and no route", drawn.Edges)
+	}
+	if drawn.Canvas != nil {
+		t.Fatalf("canvas before any edit = %+v", drawn.Canvas)
+	}
+	out := applyModelEdit(t, s, docURI, drawn.Version,
+		modelEditOperation{Kind: EditSetRoute, Target: drawn.Edges[0].FQN, View: drawn.View, Route: []renderPoint{{X: 50, Y: 60}, {X: 70, Y: 60}}},
+		modelEditOperation{Kind: EditSetCanvas, Target: drawn.View, Canvas: &renderCanvas{Unit: "px", Width: float(800), Height: float(600)}},
+	)
+	applied, redrawn := redraw(t, s, docURI, plantModel, out, 2, drawn.View)
+	if !strings.Contains(applied, "metadata DiagramLayout::Route about Plant::Loop::supply { points = (50, 60, 70, 60); }") ||
+		!strings.Contains(applied, `@DiagramLayout::Canvas { unit = "px"; width = 800; height = 600; }`) {
+		t.Errorf("route and canvas not written:\n%s", applied)
+	}
+	if got := redrawn.Edges[0].Route; len(got) != 2 || got[0] != (renderPoint{X: 50, Y: 60}) || got[1] != (renderPoint{X: 70, Y: 60}) {
+		t.Errorf("redrawn route = %+v", got)
+	}
+	if c := redrawn.Canvas; c == nil || c.Unit != "px" || c.Width == nil || *c.Width != 800 || c.Height == nil || *c.Height != 600 {
+		t.Errorf("redrawn canvas = %+v", c)
+	}
+}
+
+// An unnamed transition is reported with the range it is declared at and no
+// fqn; a setRoute targeting that range writes the Route inline and the redrawn
+// edge carries it. In a view body the edit is refused: nothing names the edge.
+func TestApplyModelEditSetRouteOfUnnamedEdgeByDeclaration(t *testing.T) {
+	const machine = `package Plant {
+	state def Motor {
+		state off;
+		state on;
+		transition first off then on;
+	}
+}
+
+package PlantViews {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+
+	view motorView : StateTransitionView {
+		expose Plant::Motor;
+	}
+}
+`
+	s, docURI := renderServer(t, "plant.sysml", machine)
+	drawn := render(t, s, docURI, "PlantViews::motorView")
+	if len(drawn.Edges) != 1 || drawn.Edges[0].FQN != "" || drawn.Edges[0].Declaration == nil {
+		t.Fatalf("edges = %+v, want the unnamed transition with a declaration range and no fqn", drawn.Edges)
+	}
+	decl := *drawn.Edges[0].Declaration
+	if want := drawn.Edges[0].Origin.Range; decl != want {
+		t.Errorf("declaration = %+v, want the origin range %+v", decl, want)
+	}
+	for _, n := range drawn.Nodes {
+		if n.Declaration != nil {
+			t.Errorf("node %s has a declaration range %+v besides its fqn %q", n.ID, *n.Declaration, n.FQN)
+		}
+	}
+
+	viewLocal := applyModelEdit(t, s, docURI, drawn.Version,
+		modelEditOperation{Kind: EditSetRoute, Declaration: &decl, View: drawn.View, Route: []renderPoint{{X: 30, Y: 90}}})
+	if viewLocal.Edit != nil || len(viewLocal.Refused) != 1 || viewLocal.Refused[0].Failure != "not-named" {
+		t.Fatalf("view-local route of an unnamed edge: %+v, want a not-named refusal", viewLocal)
+	}
+
+	op := modelEditOperation{Kind: EditSetRoute, Declaration: &decl, Route: []renderPoint{{X: 30, Y: 90}, {X: 30, Y: 10}}}
+	out := applyModelEdit(t, s, docURI, drawn.Version, op)
+	want := golden(t, s, docURI.Filename(), op)
+	applied, redrawn := redraw(t, s, docURI, machine, out, 2, drawn.View)
+	if applied != want {
+		t.Errorf("edit differs from the edit layer's:\n--- want\n%s\n--- got\n%s", want, applied)
+	}
+	if !strings.Contains(applied, "transition first off then on {\n\t\t\t@DiagramLayout::Route { points = (30, 90, 30, 10); }\n\t\t}") {
+		t.Errorf("route not written inline:\n%s", applied)
+	}
+	if got := redrawn.Edges[0].Route; len(got) != 2 || got[0] != (renderPoint{X: 30, Y: 90}) || got[1] != (renderPoint{X: 30, Y: 10}) {
+		t.Errorf("redrawn route = %+v", got)
+	}
+	if redrawn.Edges[0].Declaration == nil || redrawn.Edges[0].FQN != "" {
+		t.Errorf("redrawn edge = %+v, want a declaration range and no fqn", redrawn.Edges[0])
+	}
+
+	cleared := applyModelEdit(t, s, docURI, redrawn.Version,
+		modelEditOperation{Kind: EditSetRoute, Declaration: redrawn.Edges[0].Declaration})
+	restored, replotted := redraw(t, s, docURI, applied, cleared, 3, drawn.View)
+	if restored != machine {
+		t.Errorf("clearing the route did not restore the document:\n%s", restored)
+	}
+	if replotted.Edges[0].Route != nil {
+		t.Errorf("route after clearing = %+v", replotted.Edges[0].Route)
+	}
+
+	both := modelEditOperation{Kind: EditSetRoute, Target: "Plant::Motor", Declaration: &decl}
+	if _, err := both.operation(nil); err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Errorf("target and declaration together: err = %v", err)
+	}
+	rename := modelEditOperation{Kind: EditRename, Declaration: &decl, NewName: "x"}
+	if _, err := rename.operation(nil); err == nil || !strings.Contains(err.Error(), "setLayout or setRoute") {
+		t.Errorf("rename by declaration: err = %v", err)
+	}
+}
+
+// One request routes two unnamed transitions: the body the first gains moves the
+// second's declaration, which is still found where the rendering placed it.
+func TestApplyModelEditRoutesTwoUnnamedEdgesInOneRequest(t *testing.T) {
+	const machine = `package Plant {
+	state def Motor {
+		state off;
+		state on;
+		transition first off then on;
+		transition first on then off;
+	}
+}
+
+package PlantViews {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+
+	view motorView : StateTransitionView {
+		expose Plant::Motor;
+	}
+}
+`
+	s, docURI := renderServer(t, "plant.sysml", machine)
+	drawn := render(t, s, docURI, "PlantViews::motorView")
+	if len(drawn.Edges) != 2 || drawn.Edges[0].Declaration == nil || drawn.Edges[1].Declaration == nil {
+		t.Fatalf("edges = %+v, want two unnamed transitions with declaration ranges", drawn.Edges)
+	}
+	out := applyModelEdit(t, s, docURI, drawn.Version,
+		modelEditOperation{Kind: EditSetRoute, Declaration: drawn.Edges[0].Declaration, Route: []renderPoint{{X: 1, Y: 2}}},
+		modelEditOperation{Kind: EditSetRoute, Declaration: drawn.Edges[1].Declaration, Route: []renderPoint{{X: 3, Y: 4}, {X: 5, Y: 6}}})
+	applied, redrawn := redraw(t, s, docURI, machine, out, 2, drawn.View)
+	want := strings.Replace(machine,
+		"\t\ttransition first off then on;\n\t\ttransition first on then off;\n",
+		"\t\ttransition first off then on {\n\t\t\t@DiagramLayout::Route { points = (1, 2); }\n\t\t}\n\t\ttransition first on then off {\n\t\t\t@DiagramLayout::Route { points = (3, 4, 5, 6); }\n\t\t}\n", 1)
+	if applied != want {
+		t.Errorf("document after both routes:\n--- want\n%s\n--- got\n%s", want, applied)
+	}
+	if len(redrawn.Edges) != 2 || len(redrawn.Edges[0].Route) != 1 || len(redrawn.Edges[1].Route) != 2 {
+		t.Errorf("redrawn edges = %+v, want routes of one and two points", redrawn.Edges)
+	}
+}
+
+// A layout the view cannot show is refused with the edit layer's failure name
+// and nothing is written; an empty route clears like an absent one, so there is
+// nothing to clear here; a payload that is not a layout is invalid params.
+func TestApplyModelEditSetLayoutRefusals(t *testing.T) {
+	s, docURI := renderServer(t, "plant.sysml", plantModel)
+	for _, tc := range []struct {
+		op      modelEditOperation
+		failure string
+	}{
+		{modelEditOperation{Kind: EditSetLayout, Target: "Plant::Pump", View: "PlantViews::loopView", Layout: &modelEditLayout{X: 1, Y: 2}}, "not-exposed"},
+		{modelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::supply", View: "PlantViews::loopView", Layout: &modelEditLayout{X: 1, Y: 2}}, "not-drawn"},
+		{modelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: "Plant::Loop", Layout: &modelEditLayout{X: 1, Y: 2}}, "not-a-view"},
+		{modelEditOperation{Kind: EditSetLayout, Target: "Plant::Loop::pump", View: "PlantViews::loopView"}, "not-annotated"},
+		{modelEditOperation{Kind: EditSetRoute, Target: "Plant::Loop::supply", Route: []renderPoint{}}, "not-annotated"},
+		{modelEditOperation{Kind: EditSetCanvas, Target: "Plant::Loop", Canvas: &renderCanvas{Unit: "px"}}, "not-a-view"},
+	} {
+		out := applyModelEdit(t, s, docURI, 1, tc.op)
+		if out.Edit != nil || out.Stale || len(out.Refused) != 1 {
+			t.Fatalf("%+v: result = %+v, want one refusal", tc.op, out)
+		}
+		if out.Refused[0].Failure != tc.failure || out.Refused[0].Operation != 0 {
+			t.Errorf("%+v: refusal = %+v, want %s", tc.op, out.Refused[0], tc.failure)
+		}
+	}
+	if got := string(s.ws.Document(docURI.Filename()).Content); got != plantModel {
+		t.Error("server document changed on refused requests")
+	}
+	_, err := call(t, s, MethodApplyModelEdit, &applyModelEditParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		Version:      1,
+		Operations:   []modelEditOperation{{Kind: EditSetLayout, Target: "Plant::Loop::pump", Layout: &modelEditLayout{X: 1, Y: 2, Width: float(10)}}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "width and height") {
+		t.Errorf("err = %v, want an invalid-params error about the size", err)
+	}
 }
