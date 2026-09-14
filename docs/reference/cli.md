@@ -233,6 +233,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--html-default-css` | | Write the default document stylesheet and exit, as a starting point for your own; with `--html-theme`, the theme's whole sheet |
 | `--html-fragment` | | Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own |
 | `--html-mermaid <cdn\|url>` | | Have the HTML page load Mermaid to draw its diagrams: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: diagrams stay Mermaid source) |
+| `--html-math <cdn\|url>` | | Have the HTML page load MathJax to typeset its formulas: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: formulas stay LaTeX source) |
 | `--pdf-engine <engine>` | | Converter `--doc-form pdf` drives: `weasyprint` (default), `pandoc` or `prince` |
 | `--pdf-title-page` | | Alias of `--doc-title-page` |
 | `--pdf-toc` | | Alias of `--doc-toc` |
@@ -256,7 +257,7 @@ written in, so the verdicts are about that object:
 | `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)) |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
 | `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
-| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise |
+| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)) |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate` |
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
@@ -272,7 +273,7 @@ written in, so the verdicts are about that object:
 | `-check-depth <n>` | With `-engine check`, `-engine smt` or `-engine all`: the most moves one schedule may make before the search backtracks (default 10 000), or the moves the `smt` engine unrolls the action to (default 40), named as the `depth` bound when it is hit; a positive integer |
 | `-check-unroll <n>` | With `-engine smt` or `-engine all`: the most iterations of one loop the `smt` engine unrolls before it stops (default 4), named as the `unroll` bound when it is hit; a positive integer |
 | `-check-states <n>` | With `-engine check` or `-engine all`: the most distinct states the search may visit (default 1 000 000), named as the `states` bound when it is hit; a positive integer. It is the shared `runs` budget in the checker's unit, so under `-engine all` the one figure is also an exploration's linearizations |
-| `-check-timeout <duration>` | With `-engine check`, `-engine smt` or `-engine all`: the wall clock the check's plan may run for, as `30s` or `2m`; a search the clock stops is reported `incomplete: time` with the states and depth it reached, not as a verdict, and exits 2. Unbounded by default |
+| `-check-timeout <duration>` | With `-engine check`, `-engine smt` or `-engine all`: the wall clock the check's plan may run for, as `30s` or `2m`, and the time each of the `smt` engine's solver queries may take, in place of `OPENSYSML_SMT_TIMEOUT`; a search the clock stops is reported `incomplete: time` with the states and depth it reached, not as a verdict, and exits 2. Unbounded by default, the solver's queries at `OPENSYSML_SMT_TIMEOUT` |
 | `-engines` | Lists the analysis engines this build knows — name, kind, protocol, authority, the question kinds each answers and its status — and exits, without a model and without starting a process: the external engines of `OPENSYSML_ENGINES` and the tools of `OPENSYSML_TOOLS` are listed from their manifests alone, each followed by a line naming its file and command. See [Analysis engines](#analysis-engines) |
 | `-probe` | With `-engines`, also start each external engine once, check its `describe` against its manifest entry field by field and report the outcome as its status (`ready (…; describe agrees)`, or the first field that disagrees). See [External engines](external-engines.md) |
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*, reaching an external engine only after every built-in one has; a name (`run`, `explore`, `check`, `smt`, `sweep`, `solve`, or an external engine's) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action-or-a-state-machine)); `-engine smt` decides a `-check-property` over every schedule and every value of the free inputs with an SMT solver ([Deciding a property over the inputs](#deciding-a-property-over-the-inputs)). See [Analysis engines](#analysis-engines) |
@@ -687,8 +688,25 @@ In HTML each row or list item over an object carries `data-object="#<id>"`, the 
 instantiation report printed, beside the `data-element` and `data-element-kind` of the usage the
 object stands for, and an object-valued value is a `span.sysml-object`. An object that could not
 be materialized stops the run with status 2 and the materialization errors; a render run still
-takes no other check flag (`-validate`, `-constraint`, `-satisfy`, …), so the verdicts about the
-objects are a run of their own.
+takes no other check flag (`-validate`, `-constraint`, `-satisfy`, …): the verdicts about the
+objects are a run of their own, or a table of the document itself.
+
+A document lists what holds and what does not through `Verdicts(source = <rows>)`, which runs
+the check `-validate=<object>` runs over the object behind each row — the object the run holds
+when the binding is one, the element's declared object otherwise — and answers one row per
+assertion about it and the objects it holds. Each row is a verdict: it stands for the
+constraint, requirement, `satisfy` or verification case checked (so `name` and `WhereType` read
+the assertion) and carries `path` (the object checked, `car.wheels[2]`), `kind`, `verdict`
+(`holds`, `violated`, `undecided`), `condition`, `reason` and `verification`, which `Project`,
+`WhereFeature` and `OrderBy` read. A verdict cell renders as `<assertion> on <path>: <verdict>`
+in Markdown and PDF; in HTML it is a `span.sysml-verdict` carrying `data-verdict`, `data-path`
+and, over a held object, `data-object`. See
+[Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold).
+
+```bash
+sysml model.sysml -instantiate Garage::car -run-query "Reports::Violated root=car"
+sysml model.sysml -instantiate Garage::car -render-document Reports::CarChecks -o checks.md
+```
 
 ## Rendering a document as HTML
 
@@ -727,6 +745,13 @@ script from a URL of your own instead, such as a copy served beside the pages. T
 carries only the source, so it degrades to source wherever the script cannot load. The option
 does not combine with `-html-fragment`: a fragment has no page shell to hold the script, so the
 embedding page loads Mermaid itself.
+
+Formulas follow the same rule. A math span is a `<span class="sysml-math">` and a `Formula` block a
+`<figure class="sysml-formula">`, each holding its LaTeX between MathJax's `\(…\)` or `\[…\]`
+delimiters; `-html-math cdn` adds one `<script>` loading a pinned MathJax release from jsDelivr,
+configured to typeset `.sysml-math` elements alone, and `-html-math <url>` loads the script from a
+URL of your own. Without the option the page shows the LaTeX source, and the option does not
+combine with `-html-fragment`.
 
 ### Styling the HTML
 
@@ -782,6 +807,12 @@ without Mermaid diagrams needs no diagram tool. Under `-diagram-form dot` or `-d
 plantuml` no diagram is drawn: the PDF keeps each one's DOT or PlantUML source under a notice
 saying so, and neither `mmdc` nor a Graphviz or PlantUML tool is looked for.
 
+Formulas — `$…$` spans and `$$…$$` blocks, wherever the Markdown carries them — are typeset with
+[KaTeX](https://katex.org)'s command line (`katex`; override with `OPENSYSML_KATEX`, and name its
+stylesheet with `OPENSYSML_KATEX_CSS` when it is not installed beside the command), whose HTML and
+fonts every engine embeds, so the PDF shows typeset mathematics rather than LaTeX. A document
+without formulas needs no KaTeX; LaTeX KaTeX rejects fails the run with its parse error.
+
 Inline runs keep their meaning in PDF: emphasis, strong and code styling, links, and `Ref`
 cross-references as clickable internal links to their targets' invisible anchors, in every engine
 (`weasyprint` and `prince` through the prepared HTML, `pandoc` through the Markdown itself). A
@@ -790,7 +821,7 @@ grouped table's group key renders in bold above each subtable.
 A PDF is a binary artifact, so `-doc-form pdf` requires `-o`. A missing tool stops the run with
 status 2 and a message naming the tool, its override variable and the other engines; a converter
 that fails reports its own output. `scripts/download-doc-pdf-toolchain.sh` installs pinned copies
-of WeasyPrint, pandoc and mermaid-cli under `build/doc-pdf/` and prints the variables to export
+of WeasyPrint, pandoc, mermaid-cli and KaTeX under `build/doc-pdf/` and prints the variables to export
 (Prince is commercial and installed separately). Every tool runs with `SOURCE_DATE_EPOCH=0`, so
 an engine that embeds a creation date embeds the same one every run, and the artifact is
 reproducible for a given toolchain.
@@ -1386,8 +1417,9 @@ does not have is refused naming it.
 
 **Bounds.** `-check-depth` is the number of moves the action is unrolled to (default 40 under
 `smt`), `-check-unroll` the iterations of one loop unrolled within it (default 4) and
-`-check-timeout` the solver's clock; a bound hit is named in the standing and the claim is
-*bounded*, not *proved*. `-check-input`, `-check-assume` or `-check-unroll` without `-engine smt`
+`-check-timeout` the solver's clock per query, `OPENSYSML_SMT_TIMEOUT` (default 10 s) without
+it; a bound hit is named in the standing and the claim is *bounded*, not *proved*.
+`-check-input`, `-check-assume` or `-check-unroll` without `-engine smt`
 or `-engine all` is refused before anything runs, naming the flag as the `smt` engine's, as
 `-check-states` under `-engine smt` alone is refused as the `check` engine's — a flag only the
 engine left out would read is never dropped silently;

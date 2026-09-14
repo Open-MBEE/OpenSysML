@@ -20,19 +20,30 @@ type Options struct {
 	NumberSections bool
 }
 
+// artwork is what was pre-rendered for a page: Mermaid diagrams as image
+// files, in block order, and formulas as typeset HTML.
+type artwork struct {
+	images []string
+	math   formulas
+}
+
 // documentHTML writes the parsed document as one standalone, deterministic
-// HTML page for a converter to lay out. Mermaid blocks reference the files
-// named in images, in block order; DOT blocks are kept as source.
-func documentHTML(blocks []block, images []string, opts Options) string {
+// HTML page for a converter to lay out. Mermaid blocks reference the images
+// in art, formulas show the HTML typeset there, and DOT blocks are kept as
+// source.
+func documentHTML(blocks []block, art artwork, opts Options) string {
 	var b strings.Builder
 	b.WriteString("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
 	b.WriteString("<title>" + html.EscapeString(documentTitle(blocks)) + "</title>\n")
-	b.WriteString("<style>\n" + styleSheet + "</style>\n</head>\n<body>\n")
-	writeTitle(&b, blocks, opts)
-	if opts.TOC {
-		writeTOC(&b, blocks, opts)
+	if art.math.css != "" {
+		b.WriteString("<link rel=\"stylesheet\" href=\"" + html.EscapeString(art.math.css) + "\">\n")
 	}
-	writeContent(&b, blocks, images, opts)
+	b.WriteString("<style>\n" + styleSheet + "</style>\n</head>\n<body>\n")
+	writeTitle(&b, blocks, art.math, opts)
+	if opts.TOC {
+		writeTOC(&b, blocks, art.math, opts)
+	}
+	writeContent(&b, blocks, art, opts)
 	b.WriteString("</body>\n</html>\n")
 	return b.String()
 }
@@ -55,8 +66,8 @@ func titleHeading(blocks []block) string {
 
 // writeTitle writes the document title: on a page of its own when the title
 // page was asked for, and as the opening heading otherwise.
-func writeTitle(b *strings.Builder, blocks []block, opts Options) {
-	title := inlineHTML(titleHeading(blocks))
+func writeTitle(b *strings.Builder, blocks []block, math formulas, opts Options) {
+	title := inlineHTML(titleHeading(blocks), math)
 	if opts.TitlePage {
 		b.WriteString("<div class=\"title-page\"><h1>" + title + "</h1></div>\n")
 		return
@@ -66,7 +77,7 @@ func writeTitle(b *strings.Builder, blocks []block, opts Options) {
 
 // writeTOC writes the table of contents: every section heading, numbered as
 // the headings themselves are, linked to its anchor.
-func writeTOC(b *strings.Builder, blocks []block, opts Options) {
+func writeTOC(b *strings.Builder, blocks []block, math formulas, opts Options) {
 	entries := false
 	var counters []int
 	for _, blk := range blocks {
@@ -78,7 +89,7 @@ func writeTOC(b *strings.Builder, blocks []block, opts Options) {
 			entries = true
 		}
 		number, anchor := headingNumber(&counters, blk.Level)
-		label := inlineHTML(blk.Text)
+		label := inlineHTML(blk.Text, math)
 		if opts.NumberSections {
 			label = number + " " + label
 		}
@@ -90,7 +101,7 @@ func writeTOC(b *strings.Builder, blocks []block, opts Options) {
 }
 
 // writeContent writes every block after the title heading.
-func writeContent(b *strings.Builder, blocks []block, images []string, opts Options) {
+func writeContent(b *strings.Builder, blocks []block, art artwork, opts Options) {
 	var counters []int
 	image := 0
 	seenTitle := false
@@ -102,25 +113,27 @@ func writeContent(b *strings.Builder, blocks []block, images []string, opts Opti
 				continue
 			}
 			number, anchor := headingNumber(&counters, blk.Level)
-			label := inlineHTML(blk.Text)
+			label := inlineHTML(blk.Text, art.math)
 			if opts.NumberSections {
 				label = "<span class=\"section-number\">" + number + "</span> " + label
 			}
 			level := blk.Level
 			b.WriteString(fmt.Sprintf("<h%d id=\"%s\">%s</h%d>\n", level, anchor, label, level))
 		case blockParagraph:
-			b.WriteString("<p>" + inlineHTML(blk.Text) + "</p>\n")
+			b.WriteString("<p>" + inlineHTML(blk.Text, art.math) + "</p>\n")
 		case blockCaption:
-			b.WriteString("<p class=\"caption\"><em>" + inlineHTML(blk.Text) + "</em></p>\n")
+			b.WriteString("<p class=\"caption\"><em>" + inlineHTML(blk.Text, art.math) + "</em></p>\n")
 		case blockAnchor:
 			b.WriteString(`<a id="` + html.EscapeString(blk.Anchor) + `"></a>` + "\n")
 		case blockTable:
-			writeTable(b, blk)
+			writeTable(b, blk, art.math)
 		case blockList:
-			writeList(b, blk)
+			writeList(b, blk, art.math)
+		case blockFormula:
+			b.WriteString("<div class=\"formula\">" + art.math.typeset(formula{Source: blk.Source, Display: true}) + "</div>\n")
 		case blockMermaid:
-			if image < len(images) {
-				b.WriteString("<figure><img src=\"" + html.EscapeString(images[image]) + "\" alt=\"diagram\"></figure>\n")
+			if image < len(art.images) {
+				b.WriteString("<figure><img src=\"" + html.EscapeString(art.images[image]) + "\" alt=\"diagram\"></figure>\n")
 				image++
 			}
 		case blockDOT:
@@ -151,16 +164,16 @@ func headingNumber(counters *[]int, level int) (string, string) {
 }
 
 // writeTable writes one table, headers and body rows in document order.
-func writeTable(b *strings.Builder, blk block) {
+func writeTable(b *strings.Builder, blk block, math formulas) {
 	b.WriteString("<table>\n<thead>\n<tr>\n")
 	for _, cell := range blk.Header {
-		b.WriteString("<th>" + cellHTML(cell) + "</th>\n")
+		b.WriteString("<th>" + cellHTML(cell, math) + "</th>\n")
 	}
 	b.WriteString("</tr>\n</thead>\n<tbody>\n")
 	for _, row := range blk.Rows {
 		b.WriteString("<tr>\n")
 		for _, cell := range row {
-			b.WriteString("<td>" + cellHTML(cell) + "</td>\n")
+			b.WriteString("<td>" + cellHTML(cell, math) + "</td>\n")
 		}
 		b.WriteString("</tr>\n")
 	}
@@ -168,14 +181,14 @@ func writeTable(b *strings.Builder, blk block) {
 }
 
 // writeList writes one bullet or numbered list.
-func writeList(b *strings.Builder, blk block) {
+func writeList(b *strings.Builder, blk block, math formulas) {
 	tag := "ul"
 	if blk.Ordered {
 		tag = "ol"
 	}
 	b.WriteString("<" + tag + ">\n")
 	for _, item := range blk.Items {
-		b.WriteString("<li>" + inlineHTML(item) + "</li>\n")
+		b.WriteString("<li>" + inlineHTML(item, math) + "</li>\n")
 	}
 	b.WriteString("</" + tag + ">\n")
 }
@@ -183,10 +196,10 @@ func writeList(b *strings.Builder, blk block) {
 // cellHTML writes one table cell. Every literal metacharacter in a cell is
 // Markdown-escaped, so an unescaped <br> is docrender's fold of a newline and
 // is kept as the line break it stands for.
-func cellHTML(cell string) string {
+func cellHTML(cell string, math formulas) string {
 	parts := strings.Split(cell, "<br>")
 	for i, part := range parts {
-		parts[i] = inlineHTML(part)
+		parts[i] = inlineHTML(part, math)
 	}
 	return strings.Join(parts, "<br>")
 }
@@ -220,6 +233,7 @@ th { background: #eeeeee; }
 p.caption, span.caption { font-size: 9.5pt; color: #444444; }
 figure { margin: 0.8em 0; }
 figure img { max-width: 100%; }
+div.formula { margin: 0.8em 0; }
 figure.dot pre, figure.plantuml pre { font-size: 9pt; white-space: pre-wrap; }
 p.notice { font-size: 9.5pt; color: #444444; }
 `

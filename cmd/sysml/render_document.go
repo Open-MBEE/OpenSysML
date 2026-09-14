@@ -121,6 +121,7 @@ func documentOptions() docrender.HTMLOptions {
 		TOC:                 pdfTOC,
 		NumberSections:      pdfNumbering,
 		MermaidScript:       mermaidScriptURL(),
+		MathScript:          mathScriptURL(),
 		DiagramForm:         view.Form(diagramForm),
 	}
 }
@@ -138,7 +139,7 @@ func checkDiagramForm() error {
 	return fmt.Errorf("unknown diagram form %q; -diagram-form takes %s", diagramForm, view.FormNames(view.DiagramForms()))
 }
 
-// The -html-mermaid value naming the pinned CDN release.
+// The -html-mermaid and -html-math value naming the pinned CDN release.
 const mermaidCDN = "cdn"
 
 // mermaidScriptURL resolves -html-mermaid: cdn names the pinned release,
@@ -148,6 +149,15 @@ func mermaidScriptURL() string {
 		return docrender.MermaidScriptURL
 	}
 	return htmlMermaid
+}
+
+// mathScriptURL resolves -html-math: cdn names the pinned MathJax release,
+// anything else is the URL to load as it stands.
+func mathScriptURL() string {
+	if htmlMath == mermaidCDN {
+		return docrender.MathScriptURL
+	}
+	return htmlMath
 }
 
 // setStylesheets resolves the stylesheets of an HTML set: the default sheet
@@ -580,7 +590,7 @@ func htmlFlagsGiven() bool {
 // rendered HTML page carries; -html-theme is left out, as it also shapes the
 // sheet -html-default-css writes.
 func htmlPageFlagsGiven() bool {
-	return len(htmlCSS) > 0 || htmlNoCSS || htmlFragment || htmlMermaid != ""
+	return len(htmlCSS) > 0 || htmlNoCSS || htmlFragment || htmlMermaid != "" || htmlMath != ""
 }
 
 // checkTheme rejects an -html-theme value that names no bundled theme.
@@ -602,6 +612,15 @@ func checkMermaidScript() error {
 		return fmt.Errorf("-html-mermaid loads a script that draws Mermaid diagrams, which -diagram-form %s does not write", diagramForm)
 	}
 	return nil
+}
+
+// checkMathScript rejects an -html-math value that is neither cdn nor a URL a
+// page can load a script from.
+func checkMathScript() error {
+	if htmlMath == "" || htmlMath == mermaidCDN || isWebURL(htmlMath) {
+		return nil
+	}
+	return fmt.Errorf("-html-math takes %s or the URL of a MathJax script; %q is neither", mermaidCDN, htmlMath)
 }
 
 // documentSetForm resolves -doc-form for -render-documents, which writes a
@@ -627,6 +646,9 @@ func documentSetForm() (string, error) {
 			return "", errors.New("-pdf-engine shapes PDF output; -doc-form html needs no external converter")
 		}
 		if err := checkMermaidScript(); err != nil {
+			return "", err
+		}
+		if err := checkMathScript(); err != nil {
 			return "", err
 		}
 		if err := checkThemeUse(); err != nil {
@@ -688,7 +710,13 @@ func documentForm() (string, error) {
 		if htmlFragment && htmlMermaid != "" {
 			return "", errors.New("-html-fragment writes the document element alone, with no place for a script; load Mermaid in the page you embed it in")
 		}
+		if htmlFragment && htmlMath != "" {
+			return "", errors.New("-html-fragment writes the document element alone, with no place for a script; load MathJax in the page you embed it in")
+		}
 		if err := checkMermaidScript(); err != nil {
+			return "", err
+		}
+		if err := checkMathScript(); err != nil {
 			return "", err
 		}
 		if htmlFragment && htmlTheme != "" {

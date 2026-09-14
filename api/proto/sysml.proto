@@ -1538,9 +1538,36 @@ message DocumentValue {
     bool bool_value = 5;
     bool infinity = 6;
     Quantity quantity = 8;   // magnitude in a unit, `2290000 [kg]`
+    DocumentVerdict verdict = 9;  // a row Verdicts answered; answered, never bound
   }
   // Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
   string element_type = 7;
+}
+
+// DocumentVerdict is one row a `Verdicts` query answered: an assertion checked
+// on the object at `path`, which the row stands for as its `element`.
+message DocumentVerdict {
+  // The assertion checked, as an element value: the constraint, requirement,
+  // satisfy usage or verification case, its element_id empty when anonymous.
+  DocumentValue assertion = 1;
+  // "constraint", "requirement", "satisfaction" or "verification".
+  string kind = 2;
+  // The assertion as written ("assert constraint massKnown", "satisfy Range by
+  // cruise", "verification Tests::massTest"), naming an anonymous one.
+  string text = 3;
+  // The object checked, by path from the element the query was bound to
+  // ("Garage::car.wheels[2]"); the element's own qualified name for itself.
+  string path = 4;
+  // "holds", "violated" or "undecided".
+  string verdict = 5;
+  // The condition that evaluated to false, as written; empty otherwise.
+  string condition = 6;
+  // Why the assertion is violated or undecided; empty when it holds.
+  string reason = 7;
+  // The verdict kinds ("pass", "fail", "inconclusive", "error") of the
+  // verification cases verifying the requirement the row is about; a
+  // verification row's own kind. Empty for a constraint.
+  repeated string verification = 8;
 }
 
 // DocumentQueryColumn is one projected property, in projection order.
@@ -1556,7 +1583,8 @@ message DocumentQueryCell {
 // DocumentQueryRow is one selected element and its projected cells, one per
 // column in column order.
 message DocumentQueryRow {
-  // The selected element itself, an element value with its qualified name.
+  // The selected element itself, an element value with its qualified name; a
+  // verdict value for a row `Verdicts` answered.
   DocumentValue element = 1;
   repeated DocumentQueryCell cells = 2;
 }

@@ -21,6 +21,10 @@ const (
 	// MermaidPuppeteerEnv names an optional puppeteer configuration file
 	// passed to mmdc, for environments whose browser needs launch flags.
 	MermaidPuppeteerEnv = "OPENSYSML_MMDC_PUPPETEER"
+	KatexEnv            = "OPENSYSML_KATEX"
+	// KatexCSSEnv names KaTeX's stylesheet, with its fonts directory beside
+	// it, when it is not in the dist directory of the katex executable.
+	KatexCSSEnv = "OPENSYSML_KATEX_CSS"
 )
 
 // toolTimeout bounds each converter subprocess, so a wedged tool is a typed
@@ -38,6 +42,10 @@ type Prepared struct {
 
 	// HTMLFile is the HTML document's name within Dir.
 	HTMLFile string
+
+	// MathCSS is the KaTeX stylesheet's path within Dir, for converters that
+	// read the Markdown themselves; empty when the document has no formulas.
+	MathCSS string
 
 	// Options are the deliverable choices, for converters with native flags.
 	Options Options
@@ -109,6 +117,7 @@ var (
 	weasyPrintTool = tool{name: "weasyprint", envVar: WeasyPrintEnv}
 	princeTool     = tool{name: "prince", envVar: PrinceEnv}
 	mermaidTool    = tool{name: "mmdc", envVar: MermaidEnv}
+	katexTool      = tool{name: "katex", envVar: KatexEnv}
 )
 
 // locate finds the tool via its environment override or a PATH lookup;
@@ -131,6 +140,12 @@ func (t tool) locate(engine string) (string, error) {
 // runTool runs one external executable in dir with SOURCE_DATE_EPOCH pinned
 // for determinism; a failure is a typed error carrying the tool's stderr.
 func runTool(dir, path string, args ...string) error {
+	return runToolWith(dir, path, tail, args...)
+}
+
+// runToolWith is runTool with detail choosing what of the tool's stderr the
+// failure reports.
+func runToolWith(dir, path string, detail func(stderr string) string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), toolTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, path, args...) // #nosec G204 -- the path is the operator's own converter choice
@@ -139,11 +154,11 @@ func runTool(dir, path string, args ...string) error {
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		detail := strings.TrimSpace(stderr.String())
-		if detail == "" {
-			detail = err.Error()
+		said := strings.TrimSpace(stderr.String())
+		if said == "" {
+			said = err.Error()
 		}
-		return &Error{Kind: ErrorToolFailed, Tool: filepath.Base(path), Detail: tail(detail)}
+		return &Error{Kind: ErrorToolFailed, Tool: filepath.Base(path), Detail: detail(said)}
 	}
 	return nil
 }
@@ -233,6 +248,9 @@ func (c *pandocConverter) Convert(doc *Prepared) ([]byte, error) {
 		"--variable", "document-css=false",
 		"--css", pandocCSSName,
 		"--output", outputName,
+	}
+	if doc.MathCSS != "" {
+		args = append(args, "--css", doc.MathCSS)
 	}
 	if doc.Options.TOC {
 		args = append(args, "--toc")

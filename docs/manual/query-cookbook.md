@@ -12,10 +12,12 @@ package Cookbook {
 
 	part def Subsystem {
 		attribute mass : Real;
+		assert constraint massKnown { mass > 0.0 }
 	}
 	part def OpticalSubsystem :> Subsystem;
 	part def MirrorAssembly :> OpticalSubsystem {
 		attribute :>> mass = 10.0;
+		assert constraint lightweight { mass < 5.0 }
 	}
 
 	metadata def Critical;
@@ -946,3 +948,111 @@ usage's name, or enumerates `Objects`, renders the objects by path. In HTML each
 such row carries its `data-object="#<id>"` beside the `data-element` of the
 usage it stands for, and an object-valued cell is a `span.sysml-object`. See
 [Rendering a document over objects](../reference/cli.md#rendering-a-document-over-objects).
+
+## Which constraints and requirements hold
+
+`Verdicts(source = <rows>)` checks the object behind each row — the object the
+session holds when the binding is one, the row's declared object otherwise —
+and returns one row per assertion about it or about the objects it holds:
+every `assert constraint`, every requirement the object carries, every
+`satisfy` whose subject it is, and the verification cases that verify those
+requirements. Each row is a **verdict**: its `verdict` is `holds`, `violated`
+or `undecided`, its `path` names the object the assertion was checked on
+(`Cookbook::telescope.primaryMirror`), its `kind` is `constraint`,
+`requirement`, `satisfaction` or `verification`, and its `reason` explains a
+violation or why nothing could be decided. The row still stands for the
+assertion element, so `name`, `qualifiedName`, `WhereName` and `WhereType`
+read the constraint or requirement itself; on a violated row `condition` is the
+condition that came out false, as written.
+
+The cookbook's `Subsystem` asserts `massKnown { mass > 0.0 }`, and the
+`MirrorAssembly` redefining `mass = 10.0` also asserts `lightweight { mass < 5.0 }`:
+
+```sysml
+calc def Checks :> Query {
+	in root : Element;
+	Project(source = Verdicts(source = root), properties = ("path", "name", "verdict", "reason"))
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::Checks root=telescope"
+✓ Query Cookbook::Checks returned 6 rows
+  Columns: path, name, verdict, reason
+  Row 1: satisfy massRequirement by telescope on Cookbook::telescope: undecided
+    path = "Cookbook::telescope"
+    name = (none)
+    verdict = "undecided"
+    reason = "satisfaction satisfy massRequirement by telescope: no condition to evaluate"
+  Row 2: verification Cookbook::massVerification on Cookbook::telescope: undecided
+    path = "Cookbook::telescope"
+    name = "massVerification"
+    verdict = "undecided"
+    reason = "the case body bound no VerdictKind value"
+  Row 3: assert constraint massKnown on Cookbook::telescope.primaryMirror: holds
+    path = "Cookbook::telescope.primaryMirror"
+    name = "massKnown"
+    verdict = "holds"
+    reason = (none)
+  Row 4: assert constraint lightweight on Cookbook::telescope.primaryMirror: violated
+    path = "Cookbook::telescope.primaryMirror"
+    name = "lightweight"
+    verdict = "violated"
+    reason = "constraint lightweight: assertion evaluated to false: mass < 5.0"
+  Row 5: assert constraint massKnown on Cookbook::telescope.instrumentCluster: holds
+    ...
+  Row 6: assert constraint massKnown on Cookbook::telescope.mountControl: holds
+    ...
+```
+
+Rows come in the order the objects are walked — the root first, then each
+part in declaration order — with the assertions on one object together. The
+`massRequirement` has no `require constraint`, so satisfying it decides
+nothing, and its verification case binds no verdict; both are `undecided` with
+the reason saying so. Written over the element `telescope`, the query checks
+the declared object — definition defaults and `:>>` redefinitions — exactly as
+the derived `mass` recipes above read it. With `-instantiate Cookbook::telescope`
+the same binding is the held object and the verdicts are about its values
+**now**, so a run that changed `mass` changes the table.
+
+`kind = "constraint"` (or `requirement`, `satisfaction`, `verification`)
+keeps one kind of assertion; the default `"all"` keeps every kind. To list
+only what fails, filter on the verdict:
+
+```sysml
+calc def Violated :> Query {
+	in root : Element;
+	WhereFeature(source = Verdicts(source = root), 'feature' = "verdict", operator = "=", value = "violated")
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::Violated root=telescope"
+✓ Query Cookbook::Violated returned 1 row
+  Row 1: assert constraint lightweight on Cookbook::telescope.primaryMirror: violated
+```
+
+`OrderBy(property = "verdict")` sorts the table by outcome, `WhereFeature` on
+`path` or `kind` narrows it, and `Project` reads any verdict property beside
+the assertion's own (`shortName`, `documentation`) — `assertion` and `carrier`
+project the assertion element and the object it was checked on themselves.
+A verdict row's
+`verification` property lists the outcomes (`pass`, `fail`, `inconclusive`,
+`error`) of the verification cases that verify its requirement — on a
+`requirement` or `satisfaction` row — while a `verification` row carries one
+case's own outcome as its `verdict`.
+
+Two things a verdict table refuses rather than approximates. `Verdicts` over a
+row that is not an object — a package, an attribute usage — is a typed error
+naming the element, as `-validate=<object>` is. And when the object graph
+cannot be walked whole (a part that holds another of its own type without
+end, or one that exceeds the materialization budget), the query fails with an
+`incomplete-validation` error instead of returning a table missing rows;
+`Ancestors`, `Descendants` and `OwnedElements` are likewise refused over
+verdict rows, which are assertions checked on an object, not elements owning
+others.
+
+In a document, a `Verdicts` table renders each cell as
+`<assertion> on <path>: <verdict>`; in HTML a verdict cell is a
+`span.sysml-verdict` carrying `data-verdict`, `data-path` and, for an object
+the session holds, `data-object`, beside the `data-element` of the assertion.

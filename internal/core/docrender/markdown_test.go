@@ -368,6 +368,7 @@ func TestMarkdownEscaping(t *testing.T) {
 		{"<script>&amp;", `\<script>\&amp;`},
 		{`back\slash`, `back\\slash`},
 		{"[link]", `\[link\]`},
+		{"$5 and $x$", `\$5 and \$x\$`},
 	}
 	for _, c := range cases {
 		if got := inline(c.in); got != c.want {

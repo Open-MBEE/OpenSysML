@@ -15,7 +15,10 @@ const (
 	ValueElement ValueKind = "element"
 	// ValueObject is a runtime object a session holds, `car.wheels[2]`, as opposed
 	// to the model element declaring it.
-	ValueObject   ValueKind = "object"
+	ValueObject ValueKind = "object"
+	// ValueVerdict is an assertion checked about an object, carried as a row whose
+	// declaration is the asserting element.
+	ValueVerdict  ValueKind = "verdict"
 	ValueString   ValueKind = "string"
 	ValueInteger  ValueKind = "integer"
 	ValueReal     ValueKind = "real"
@@ -30,6 +33,7 @@ type Value struct {
 	kind     ValueKind
 	element  *symbols.Symbol
 	object   *runtime.Instance
+	verdict  *Verdict
 	text     string
 	integer  int64
 	real     float64
@@ -111,10 +115,14 @@ func (v Value) Element() (*symbols.Symbol, bool) {
 }
 
 // Declaration returns the element a value is declared by: an element itself, the
-// usage or definition an object stands for, and nil for a scalar.
+// usage or definition an object stands for, the assertion a verdict is about,
+// and nil for a scalar.
 func (v Value) Declaration() *symbols.Symbol {
 	if inst, _, ok := v.Object(); ok {
 		return objectDeclaration(inst)
+	}
+	if verdict, ok := v.Verdict(); ok {
+		return verdict.assertion
 	}
 	sym, _ := v.Element()
 	return sym
@@ -191,14 +199,27 @@ func (c Cell) Values() []Value { return append([]Value(nil), c.values...) }
 // Origin returns the selected model element behind the cell.
 func (c Cell) Origin() provenance.Origin { return c.origin }
 
-// Row retains the selected element or object and its ordered projected cells.
+// isRow reports whether a value can be a query row: an element, an object or a verdict.
+func (v Value) isRow() bool {
+	switch v.kind {
+	case ValueElement:
+		return v.element != nil
+	case ValueObject:
+		return v.object != nil
+	case ValueVerdict:
+		return v.verdict != nil
+	}
+	return false
+}
+
+// Row retains the selected element, object or verdict and its ordered projected cells.
 type Row struct {
 	element Value
 	cells   []Cell
 }
 
-// Element returns the selected value: a model element, or a runtime object
-// when the query ran over a session's objects.
+// Element returns the selected value: a model element, a runtime object when
+// the query ran over a session's objects, or a verdict about one.
 func (r Row) Element() Value { return r.element }
 
 // Cells returns an independent copy of the row's projected cells.

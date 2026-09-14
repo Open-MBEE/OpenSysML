@@ -21,6 +21,16 @@ on `opensysml-java-v*`, and [the Rust client](#releasing-the-rust-client-to-crat
 on `opensysml-rust-v*`. The public Go API in `client/opensysml` has no release of its
 own: it is part of this module, so the core's `v*` tag is what a Go program pins.
 
+Between releases, `.github/workflows/nightly.yml` builds the newest green `develop`
+commit every night with `scripts/build-release-artifacts.sh` — the same targets,
+platforms and layout as `build-release` below — and publishes it as the moving
+prerelease `nightly`, never marked latest and signed by the workflow's own GitHub
+identity rather than the CircleCI one the clients pin. It touches nothing described on
+this page: the `nightly` tag matches neither the `v*` filter of the `release` workflow
+nor the Windows signing workflow, and `releases/latest` keeps resolving to the stable
+line. [Nightly snapshots](nightly.md) documents it for a user; when `build-release`
+changes what it produces, change the script so the two stay the same.
+
 ## Before tagging
 
 Run the full gate on the commit you intend to tag:

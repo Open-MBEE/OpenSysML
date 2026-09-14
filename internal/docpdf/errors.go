@@ -20,6 +20,8 @@ const (
 	ErrorNoPDF ErrorKind = "no-pdf"
 	// ErrorUnclosedFence reports a diagram fence the Markdown never closes.
 	ErrorUnclosedFence ErrorKind = "unclosed-fence"
+	// ErrorUnclosedMath reports a display-math block the Markdown never closes.
+	ErrorUnclosedMath ErrorKind = "unclosed-math"
 	// ErrorDanglingCaption reports a caption marker not followed by a
 	// fully-emphasized caption line.
 	ErrorDanglingCaption ErrorKind = "dangling-caption"
@@ -52,8 +54,11 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("unknown PDF engine %q; -pdf-engine takes %s", e.Engine, strings.Join(e.Engines, ", "))
 	case ErrorToolMissing:
 		who := "rendering the document's diagrams"
-		if e.Engine != "" {
+		switch {
+		case e.Engine != "":
 			who = "the " + e.Engine + " engine"
+		case e.EnvVar == KatexEnv || e.EnvVar == KatexCSSEnv:
+			who = "typesetting the document's formulas"
 		}
 		msg := fmt.Sprintf("%s needs %s, which was not found", who, e.Tool)
 		if e.EnvVar != "" {
@@ -61,7 +66,10 @@ func (e *Error) Error() string {
 			if e.EnvVar == PrinceEnv {
 				hint = "install it"
 			}
-			msg += fmt.Sprintf("; %s, point %s at it, or select another engine with -pdf-engine", hint, e.EnvVar)
+			msg += fmt.Sprintf("; %s and point %s at it", hint, e.EnvVar)
+			if e.Engine != "" {
+				msg += ", or select another engine with -pdf-engine"
+			}
 		}
 		return msg
 	case ErrorToolFailed:
@@ -74,6 +82,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("%s reported success but wrote no PDF", e.Tool)
 	case ErrorUnclosedFence:
 		return "the document's Markdown opens a diagram fence it never closes"
+	case ErrorUnclosedMath:
+		return "the document's Markdown opens a $$ display-math block it never closes"
 	case ErrorDanglingCaption:
 		return "the document's Markdown has a caption marker without a caption line after it"
 	default:

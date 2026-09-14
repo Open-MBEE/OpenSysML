@@ -110,6 +110,17 @@ plantuml`, every graph-shaped diagram embeds its Graphviz DOT source in
 `<pre class="dot">` or its PlantUML source in `<pre class="plantuml">` instead;
 the page never draws it, and `-html-mermaid` leaves it alone.
 
+Formulas work the same way. A math span becomes `<span class="sysml-math">`
+and a `Formula` block a `<figure class="sysml-formula">` with its caption,
+each holding the LaTeX between MathJax's `\(…\)` or `\[…\]` delimiters.
+By default the page loads nothing and shows the source; `-html-math cdn`
+adds a `<script>` loading a pinned MathJax release from jsDelivr, and
+`-html-math <url>` loads it from a URL of your own. The script is configured
+to typeset `.sysml-math` elements alone, so a `$` or `\(` in ordinary prose
+is never mistaken for a formula. `-html-math` and `-html-mermaid` combine, and
+neither combines with `-html-fragment` — the embedding page loads the
+typesetter itself. See [Mathematics](#mathematics) for the PDF side.
+
 ### Styling it
 
 The default stylesheet is inlined in a standalone page and declared in a
@@ -171,8 +182,9 @@ $ sysml report.sysml -render-document Observatory::MassReport \
 ```
 
 Internally the engine renders Markdown, converts it to styled HTML, renders
-any Mermaid diagrams to SVG with Mermaid CLI (`mmdc`), and hands the result
-to an external HTML-to-PDF converter. Rendered with `-diagram-form dot` or
+any Mermaid diagrams to SVG with Mermaid CLI (`mmdc`), typesets any formulas
+with KaTeX (`katex`), and hands the result to an external HTML-to-PDF
+converter. Rendered with `-diagram-form dot` or
 `-diagram-form plantuml`, the diagrams are not drawn: the PDF keeps their DOT
 or PlantUML source under a notice saying so, and neither Mermaid CLI nor a
 Graphviz or PlantUML tool is looked for, so the run needs no diagram tool at
@@ -192,10 +204,11 @@ The converters are external tools, not bundled with the binary. If the
 selected tool is not on `PATH`, the render fails with a typed `tool-missing`
 error naming it. Environment variables override discovery:
 `OPENSYSML_WEASYPRINT`, `OPENSYSML_PANDOC`, `OPENSYSML_PRINCE`,
-`OPENSYSML_MMDC`, and `OPENSYSML_MMDC_PUPPETEER` (extra Puppeteer
-configuration for Mermaid CLI). The repository's
-`scripts/download-doc-pdf-toolchain.sh` fetches a pinned WeasyPrint, pandoc
-and Mermaid CLI and prints the exports to use them.
+`OPENSYSML_MMDC`, `OPENSYSML_MMDC_PUPPETEER` (extra Puppeteer
+configuration for Mermaid CLI), `OPENSYSML_KATEX` and `OPENSYSML_KATEX_CSS`
+(the KaTeX stylesheet, when it is not installed beside the `katex` command).
+The repository's `scripts/download-doc-pdf-toolchain.sh` fetches a pinned
+WeasyPrint, pandoc, Mermaid CLI and KaTeX and prints the exports to use them.
 
 ### Deliverable options
 
@@ -218,6 +231,30 @@ a grouped table's group key renders in bold above each subtable. All
 three engines support internal links: `weasyprint` and `prince` from the
 prepared HTML's element ids and fragment hrefs, and `pandoc` from the
 Markdown itself, whose CommonMark reader keeps the anchor's raw HTML.
+
+### Mathematics
+
+Formulas are typeset in the PDF, not printed as LaTeX. The engine reads the
+`$…$` spans and `$$…$$` blocks the Markdown carries — in paragraphs,
+headings, captions, list items and table cells alike — and runs each distinct
+formula once through the KaTeX command line (`katex`, found on `PATH` or
+named by `OPENSYSML_KATEX`), which typesets it as HTML that needs no
+JavaScript. KaTeX's stylesheet and fonts are copied beside the page, so the
+finished PDF embeds the KaTeX faces and shows the formula as a formula:
+
+- `weasyprint` and `prince` lay out the typeset HTML directly, an inline
+  formula in a `<span class="math">` and a displayed one in a
+  `<div class="formula">` centered on its own line under its caption;
+- `pandoc` receives the Markdown with each formula replaced by the typeset
+  HTML as a raw block or span, and links the same stylesheet.
+
+A document without formulas needs no KaTeX, as one without diagrams needs no
+Mermaid. An escaped `\$` in prose stays a dollar sign, and a `$` inside a
+fenced code or diagram block is never read as math. A missing `katex` stops
+the run with the usual `tool-missing` message naming `OPENSYSML_KATEX`; a
+missing stylesheet names `OPENSYSML_KATEX_CSS`; and LaTeX KaTeX cannot parse
+fails the run with KaTeX's own message quoting the formula, rather than a PDF
+with a hole in it.
 
 ## Determinism
 

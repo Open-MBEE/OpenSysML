@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/docplan"
+	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -212,6 +213,14 @@ func (e *evaluator) evaluateNode(node docplan.Content) (Content, error) {
 		return e.evaluateList(node)
 	case docplan.ContentDefinitions:
 		return e.evaluateDefinitions(node)
+	case docplan.ContentFormula:
+		return Content{
+			kind:    ContentFormula,
+			name:    node.Name(),
+			source:  node.Source(),
+			caption: node.Caption(),
+			origin:  node.Origin(),
+		}, nil
 	case docplan.ContentDiagram:
 		return e.evaluateDiagram(node)
 	default:
@@ -334,12 +343,34 @@ func (e *evaluator) templateRuns(
 				}
 				kind = styled
 			}
-			for _, value := range cellOf(template.Column()).Values() {
-				runs = append(runs, TextRun{kind: kind, text: e.valueText(value), origin: value.Origin()})
+			cell := cellOf(template.Column())
+			values := cell.Values()
+			if kind == RunMath && len(values) == 0 {
+				return nil, e.blankMath(node, template, number, cell.Origin())
+			}
+			for _, value := range values {
+				text := e.valueText(value)
+				if kind == RunMath && strings.TrimSpace(text) == "" {
+					return nil, e.blankMath(node, template, number, value.Origin())
+				}
+				runs = append(runs, TextRun{kind: kind, text: text, origin: value.Origin()})
 			}
 		}
 	}
 	return runs, nil
+}
+
+// blankMath reports a math column run whose row supplies no LaTeX to typeset.
+func (e *evaluator) blankMath(node docplan.Content, template docplan.ColumnRun, number int, origin provenance.Origin) error {
+	return &Error{
+		Kind:     ErrorBlankMath,
+		Document: e.document,
+		Content:  node.Name(),
+		Query:    node.Query().Entry(),
+		Column:   template.Column(),
+		Row:      number,
+		Origin:   origin,
+	}
 }
 
 // rowStyle reads one row's style from a span column run's style column.
@@ -364,12 +395,10 @@ func (e *evaluator) rowStyle(node docplan.Content, template docplan.ColumnRun, c
 	if !ok {
 		return "", invalid(strconv.Quote(e.valueText(values[0])))
 	}
-	switch docplan.RunStyle(style) {
-	case docplan.StylePlain, docplan.StyleEmphasis, docplan.StyleStrong, docplan.StyleCode:
-		return styledKind(docplan.RunStyle(style)), nil
-	default:
+	if !docplan.ValidRunStyle(docplan.RunStyle(style)) {
 		return "", invalid(strconv.Quote(style))
 	}
+	return styledKind(docplan.RunStyle(style)), nil
 }
 
 // rowTarget reads one row's link destination from a link column run's
@@ -500,6 +529,8 @@ func styledKind(style docplan.RunStyle) RunKind {
 		return RunStrong
 	case docplan.StyleCode:
 		return RunCode
+	case docplan.StyleMath:
+		return RunMath
 	default:
 		return RunPlain
 	}
@@ -728,7 +759,7 @@ func (e *evaluator) rowRuns(row queryexec.Row) []TextRun {
 }
 
 // valueText renders one typed query value as deterministic plain text; an
-// object reads as the label the session reaches it by.
+// object reads as the label the session reaches it by, a verdict as its summary.
 func (e *evaluator) valueText(value queryexec.Value) string {
 	if element, ok := value.Element(); ok {
 		if name := e.context.Model.EffectiveNameOf(element); name != "" {
@@ -738,6 +769,9 @@ func (e *evaluator) valueText(value queryexec.Value) string {
 	}
 	if _, label, ok := value.Object(); ok {
 		return label
+	}
+	if verdict, ok := value.Verdict(); ok {
+		return verdict.Summary()
 	}
 	if text, ok := value.String(); ok {
 		return text

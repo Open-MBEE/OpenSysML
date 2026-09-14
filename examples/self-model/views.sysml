@@ -62,6 +62,22 @@ package OpenSysMLViews {
         expose OpenSysMLBehavior::InvokeCalc;
     }
 
+    view instanceLayer {
+        doc /* The instance layer: a type's schema once, objects on demand, every value read lazily and admitted. */
+        expose OpenSysMLExecution::InstanceModel;
+        render asInterconnectionDiagram;
+    }
+
+    view featureReadFlow : ActionFlowView {
+        doc /* One feature read: the case the feature is in decides how its value is made. */
+        expose OpenSysMLBehavior::ReadFeatureValue;
+    }
+
+    view actionExecution : SequenceView {
+        doc /* One action executed: lowered, stepped, scheduled, evaluated, read and written. */
+        expose OpenSysMLExecution::ExecuteAction;
+    }
+
     view tierStates : StateTransitionView {
         expose OpenSysMLBehavior::TierProgression;
     }

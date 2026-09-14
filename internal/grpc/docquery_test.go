@@ -25,6 +25,9 @@ const defaultedFixture = "../core/docrender/testdata/defaulted_queries.sysml"
 // quantityFixture declares quantity-valued attributes and queries over them.
 const quantityFixture = "../core/docrender/testdata/quantity_report.sysml"
 
+// verdictFixture declares assertions on a car and queries over their verdicts.
+const verdictFixture = "../core/docrender/testdata/verdict_report.sysml"
+
 // parseTelescope loads the telescope fixture into a fresh service.
 func parseTelescope(t *testing.T, srv *Service) string {
 	t.Helper()
@@ -175,6 +178,65 @@ func TestRunDocumentQueryAnswersQuantities(t *testing.T) {
 		if got := tonnes[0].GetQuantity(); got.GetRealMagnitude() != want[i].tonnes || got.GetUnit() != want[i].unit {
 			t.Errorf("row %d tonnes = %v, want %v [%s]", i, got, want[i].tonnes, want[i].unit)
 		}
+	}
+}
+
+// TestRunDocumentQueryAnswersVerdicts: a row Verdicts answered over the model
+// alone is a verdict value: the assertion checked on the car as declared, its
+// path, status and reason, while its projected cells read the same properties.
+func TestRunDocumentQueryAnswersVerdicts(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := parseFixture(t, srv, verdictFixture)
+
+	resp, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+		ModelHash: hash,
+		QueryId:   "Garage::Checks",
+		Bindings:  []*pb.DocumentQueryBinding{binding("root", element("Garage::car"))},
+	})
+	if err != nil {
+		t.Fatalf("RunDocumentQuery failed: %v", err)
+	}
+	if len(resp.Rows) < 4 {
+		t.Fatalf("rows = %d, want the car's assertions and those of what it holds", len(resp.Rows))
+	}
+	byText := make(map[string]*pb.DocumentVerdict)
+	for i, row := range resp.Rows {
+		verdict := row.Element.GetVerdict()
+		if verdict == nil {
+			t.Fatalf("row %d element = %v, want a verdict", i, row.Element)
+		}
+		byText[verdict.Text+" on "+verdict.Path] = verdict
+		if got := stringCell(t, row.Cells[0]); got != verdict.Path {
+			t.Errorf("row %d path cell = %q, verdict path = %q", i, got, verdict.Path)
+		}
+		if got := stringCell(t, row.Cells[2]); got != verdict.Verdict {
+			t.Errorf("row %d verdict cell = %q, verdict = %q", i, got, verdict.Verdict)
+		}
+	}
+	massOk := byText["assert constraint massOk on Garage::car"]
+	if massOk == nil || massOk.Verdict != "holds" || massOk.Kind != "constraint" || massOk.Reason != "" ||
+		massOk.Assertion.GetElementId() != "Garage::Car::massOk" ||
+		massOk.Assertion.GetElementType() != "ConstraintUsage" {
+		t.Errorf("massOk = %v, want a holding constraint on Garage::Car::massOk", massOk)
+	}
+	fits := byText["assert constraint fits on Garage::car"]
+	if fits == nil || fits.Verdict != "undecided" || !strings.Contains(fits.Reason, "capacity") {
+		t.Errorf("fits = %v, want undecided over the unbound capacity", fits)
+	}
+	powerLow := byText["assert constraint powerLow on Garage::car.engine"]
+	if powerLow == nil || powerLow.Verdict != "violated" || powerLow.Condition == "" || powerLow.Reason == "" {
+		t.Errorf("powerLow = %v, want violated with its condition and reason", powerLow)
+	}
+	satisfied := byText["satisfy strongEngine by car.engine on Garage::car.engine"]
+	if satisfied == nil || satisfied.Kind != "satisfaction" || satisfied.Verdict != "holds" ||
+		satisfied.Assertion.GetElementId() != "" || satisfied.Assertion.GetElementType() != "SatisfyRequirementUsage" ||
+		strings.Join(satisfied.Verification, ",") != "pass" {
+		t.Errorf("satisfaction = %v, want a holding anonymous satisfy verified by a pass", satisfied)
+	}
+	verified := byText["verification Garage::checkEngine on Garage::car.engine"]
+	if verified == nil || verified.Kind != "verification" || verified.Verdict != "holds" ||
+		strings.Join(verified.Verification, ",") != "pass" {
+		t.Errorf("verification = %v, want the passing case's row", verified)
 	}
 }
 
@@ -380,6 +442,11 @@ func TestRunDocumentQueryFailures(t *testing.T) {
 			ModelHash: hash, QueryId: "Observatory::SubsystemTable",
 			Bindings: []*pb.DocumentQueryBinding{binding("root",
 				&pb.DocumentValue{Kind: &pb.DocumentValue_Infinity{Infinity: true}})},
+		}, connect.CodeInvalidArgument},
+		{"bound verdict", &pb.RunDocumentQueryRequest{
+			ModelHash: hash, QueryId: "Observatory::SubsystemTable",
+			Bindings: []*pb.DocumentQueryBinding{binding("root",
+				&pb.DocumentValue{Kind: &pb.DocumentValue_Verdict{Verdict: &pb.DocumentVerdict{Kind: "constraint"}}})},
 		}, connect.CodeInvalidArgument},
 		{"valueless binding", &pb.RunDocumentQueryRequest{
 			ModelHash: hash, QueryId: "Observatory::SubsystemTable",

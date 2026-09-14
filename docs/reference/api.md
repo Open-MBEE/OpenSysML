@@ -976,6 +976,13 @@ and a query enumerating `Objects` is refused as `FAILED_PRECONDITION`; the
 objects `%instantiate`/`-instantiate` create are read by `%run-query`,
 `-run-query` and `-render-document` only
 ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)).
+A query over `Verdicts` runs, checking each element as declared, and answers
+its rows as verdict values (`DocumentVerdict`): the assertion checked as an
+element value, its kind and text, the path of the object checked, the verdict
+(`holds`, `violated`, `undecided`), the condition found false, the reason, and
+the verdict kinds of the verification cases verifying the requirement. A
+verdict is answered, never bound — a binding carrying one is `INVALID_ARGUMENT`
+([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)).
 
 Failures keep the engine's message, append the declaring document where the
 failure carries provenance, and map onto status codes by whose fault they are:

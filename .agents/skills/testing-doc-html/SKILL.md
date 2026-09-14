@@ -22,6 +22,9 @@ mkdir -p /tmp/ht && cp internal/core/docrender/testdata/telescope_report.sysml \
   cross-document link pair. File names are percent-ish escaped:
   `Observatory-Mass.20Appendix.html`. See `internal/core/docrender/html_crossdoc_test.go`
   for the exact expected `href`/anchor shapes.
+- `math_report.sysml` → `Optics::OpticsReport`, the formula fixture: an inline `style = "math"`
+  span next to a prose `$`, a captioned `Formula` block that a `Ref` targets, a display formula
+  containing `\$`, and math list items driven by a query.
 
 ## Invocations that matter
 
@@ -32,6 +35,7 @@ bin/sysml m.sysml -render-document Observatory::MassReport -doc-form html \
 bin/sysml m.sysml -render-document Observatory::MassReport -doc-form html \
     -html-css theme.css -o report_theme.html      # file is inlined; a URL is <link>ed
 bin/sysml m.sysml -render-document Observatory::MassReport -doc-form html -html-fragment -o frag.html
+bin/sysml math_report.sysml -render-document Optics::OpticsReport -doc-form html -html-math cdn -o math.html
 bin/sysml m.sysml -render-document Observatory::MassReport -doc-form html -html-no-default-css -o nocss.html
 bin/sysml linked_reports.sysml -render-documents site -doc-form html   # pages + sysml-document.css
 bin/sysml -html-default-css -o default.css                             # no model needed
@@ -71,6 +75,12 @@ rather than shared.
 
 - Mermaid diagrams are emitted as `<pre class="mermaid">` **source**, intentionally. Nothing
   is drawn unless you add a Mermaid script yourself. Not a bug.
+- Formulas likewise stay LaTeX source between `\(…\)`/`\[…\]` in `.sysml-math` elements until
+  `-html-math cdn|<url>` adds MathJax (`MathScriptURL` in `internal/core/docrender/html.go` pins
+  the release). Typesetting is confined to `.sysml-math` (`processHtmlClass`), so the prose `$`
+  next to the inline formula must stay a literal dollar sign once MathJax has run — that is the
+  check that distinguishes scoped typesetting from a page-wide scan. Loading from the CDN needs
+  network access; without it the page degrades to source, which is expected.
 - A query that matches nothing yields a header-only `<table>` (no `<tbody>`), and an empty
   `List` renders nothing at all. Expect the "Missing Subsystems" section to look bare.
 - Linked-set pages can be short enough to fit the viewport, so a cross-document

@@ -33,6 +33,30 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* Verdicts: one row per assertion checked on each source row's object and the
+	 * objects it holds (a session object as it stands, an element as declared);
+	 * kind selects all, constraint, requirement, satisfaction or verification. */
+	calc def Verdicts {
+		in source : Element[0..*] ordered;
+		in kind : String[1] = "all";
+		return result : Element[0..*] ordered;
+	}
+
+	/* The properties of a Verdicts row, for Project and column expressions
+	 * (`Verdict::verdict`); a row also answers its assertion's own properties by
+	 * name. The assertion and the carrier it was checked on are elements, so a
+	 * Column expression cannot read them; project them by name instead. */
+	attribute def Verdict {
+		ref assertion : Element[1];
+		attribute kind : String[1];
+		ref carrier : Element[0..1];
+		attribute path : String[1];
+		attribute verdict : String[1];
+		attribute condition : String[0..1];
+		attribute reason : String[0..1];
+		attribute 'verification' : String[0..*] ordered;
+	}
+
 	calc def RelatedElements {
 		in source : Element[0..*] ordered;
 		/* relationshipKind: "specialization", "subsetting", "redefinition",
@@ -124,7 +148,8 @@ library package DocumentQueries {
 
 	part def Span :> Run {
 		attribute text : String[1];
-		/* style: "plain", "emphasis", "strong" or "code". */
+		/* style: "plain", "emphasis", "strong", "code" or "math"; a math
+		 * span's text is LaTeX, typeset inline. */
 		attribute style : String[0..1];
 	}
 
@@ -148,7 +173,7 @@ library package DocumentQueries {
 	part def SpanColumn :> ColumnRun {
 		/* column: the projected column whose values become the run text. */
 		attribute column : String[1];
-		/* style: "plain", "emphasis", "strong" or "code". */
+		/* style: "plain", "emphasis", "strong", "code" or "math". */
 		attribute style : String[0..1];
 		/* styleColumn: a projected column supplying each row's style. */
 		attribute styleColumn : String[0..1];
@@ -180,6 +205,13 @@ library package DocumentQueries {
 		attribute term : String[1];
 		/* description: the projected column whose values describe it. */
 		attribute description : String[1];
+	}
+
+	/* Formula typesets one LaTeX expression as display mathematics on a line
+	 * of its own; a named formula is a Ref target. */
+	part def Formula :> ContentBlock {
+		attribute source : String[1];
+		attribute caption : String[0..1];
 	}
 
 	part def Diagram :> ContentBlock {

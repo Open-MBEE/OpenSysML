@@ -209,7 +209,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 375 files)
+## Results (pilot `2026-08`, 376 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -218,9 +218,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 40 | 28 | 13 | 1095 | 4 | 2 | 7 | 1089 |
+| `examples` | 41 | 29 | 13 | 1112 | 4 | 2 | 7 | 1106 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **375** | **345** | **79** | **1150** | **38** | **3** | **38** | **1109** |
+| **Total** | **376** | **346** | **79** | **1167** | **38** | **3** | **38** | **1126** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -249,6 +249,37 @@ reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Instance-layer self-model round
+
+`examples/self-model/execution.sysml` is one file added to the `examples` root: files 40 → **41**
+on the root, 375 → **376** overall. It models the runtime's instance layer — the effective-feature
+schema built once per type, the allocator, the lazy reader, binding propagation, admission and
+dependency tracking — together with the scheduler and an `ExecuteAction` interaction, and it is
+fully agreeing on landing (346 fully agreeing overall, 29 on the root): neither implementation
+reports a row on it. Its first draft did draw five pilot-only `unmapped` rows, `Duplicate of
+inherited member name 'shape' from Item`, wherever a unit declared `in item shape`; `Items::Item`
+owns a `shape` feature, and the reference reads a directed feature of a part definition as an
+ordinary owned member, where our distinguishability pass exempts every directed usage as a
+parameter that implicitly redefines by position (`resolve.ImplicitlyRedefined`) — an exemption
+the rule grants only to the parameters of a behavior, so the five rows were a gap of ours the
+reference would have kept exposing. The model renamed the port `typeShape` rather than carry the
+row; the exemption's breadth is left for a round of its own.
+
+The only movement is the `DocumentQueries` cascade on `self-model/document.sysml`, 330 → **347**,
+where the architecture document gains a paragraph and three diagrams on the instance layer, the
+feature read and the action execution: 13 `unresolved-reference` and 4 `kind-mismatch` more, read
+the same way as every earlier growth of that file. Pilot diagnostics rise 1150 → **1167** and
+only-pilot 1109 → **1126**; only-ours, our diagnostics, agreed and severity-only do not move, and
+no per-file ratchet count moves.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 375 | **376** |
+| overall: fully agreeing | 345 | **346** |
+| only pilot | 1109 | **1126** |
+| pilot diagnostics | 1150 | **1167** |
+| `examples`: only pilot | 1089 | **1106** |
 
 ### Argument-binding conformance round
 
@@ -622,8 +653,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1109** |
-| pilot diagnostics | 123 | **1150** |
+| only pilot | 82 | **1126** |
+| pilot diagnostics | 123 | **1167** |
 | severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -756,7 +787,7 @@ Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 527 `kind-mismatch`, 533 `unresolved-reference` — of which
+`examples` 10 syntax, 19 `unmapped`, 531 `kind-mismatch`, 546 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -773,11 +804,11 @@ beside it, joined the pass registry; the feature-value overriding round above wr
 `default =`, and with them the two rows `relay-probe-demo/mission.sysml` drew from the same rule,
 so the send-argument pass joining the registry element-scoped the same way draws none.
 
-**`self-model/document.sysml` carries 330 pilot-only rows on its own, and every one of them has a
+**`self-model/document.sysml` carries 347 pilot-only rows on its own, and every one of them has a
 single cause: the reference has no `DocumentQueries` library.** The file is the architecture
 document written in the notation, so its first line imports the document and query vocabulary this
 project bundles as an OpenSysML library ([the authoring chapter](../manual/authoring.md)); the
-reference cannot resolve that namespace, and the cascade is 230 `unresolved-reference`, 83
+reference cannot resolve that namespace, and the cascade is 243 `unresolved-reference`, 87
 `kind-mismatch` (`Must invoke a behavior or a behavioral feature`, once per query invocation whose
 calc def did not resolve, 6 of them warnings) and 17 `unmapped`. It is the first file in any root that depends on a
 library the reference does not ship, which is why the `examples` only-pilot column jumps 34 → 307
@@ -785,7 +816,8 @@ without a single one of our own diagnostics moving: only-ours stays at 20 and ou
 The cascade grows with the document (182 rows when the self-model landed, 240 after its accuracy
 round added queries over the pass registry, the budgets and the rendering kinds, 249 after the
 section on loading the library snapshot, 259 after the paragraph and diagram on invoking a calc,
-330 after the analysis framework joined the model), so its size measures how much the document asks of the library, not conformance. Read this root's
+330 after the analysis framework joined the model, 347 after the instance layer and the action
+interaction), so its size measures how much the document asks of the library, not conformance. Read this root's
 only-pilot total as "one file the reference has no library for, plus the 48 rows the other files
 carry", not as a conformance movement.
 
@@ -846,14 +878,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **345 / 38 / 79** |
-| only pilot | **1109** |
-| pilot diagnostics | **1150** |
+| overall: fully agreeing / only ours / our diagnostics | **346 / 38 / 79** |
+| only pilot | **1126** |
+| pilot diagnostics | **1167** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **1089** |
+| examples: only pilot | **1106** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
 only-pilot, with 49 of 58 files fully

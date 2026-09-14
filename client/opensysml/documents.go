@@ -7,8 +7,8 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
-// Cell is one typed document-query value: Element, String, Int, Real, Bool or
-// Infinity. A type switch over them is exhaustive.
+// Cell is one typed document-query value: Element, String, Int, Real, Bool,
+// Infinity or DocumentVerdict. A type switch over them is exhaustive.
 type Cell interface {
 	isCell()
 }
@@ -25,18 +25,52 @@ type Element struct {
 // Infinity is an unbounded multiplicity. It is answered, never bound.
 type Infinity struct{}
 
-func (Element) isCell()  { /* marker: closed Cell set */ }
-func (Infinity) isCell() { /* marker: closed Cell set */ }
-func (String) isCell()   { /* marker: closed Cell set */ }
-func (Int) isCell()      { /* marker: closed Cell set */ }
-func (Real) isCell()     { /* marker: closed Cell set */ }
-func (Bool) isCell()     { /* marker: closed Cell set */ }
+// DocumentVerdict is a row a `Verdicts` query answered: an assertion checked
+// on the object at Path. It is answered, never bound.
+type DocumentVerdict struct {
+	// Assertion is the constraint, requirement, satisfy usage or verification
+	// case checked; its ID is empty when the assertion is anonymous.
+	Assertion Element
+	// Kind is "constraint", "requirement", "satisfaction" or "verification".
+	Kind string
+	// Text is the assertion as written ("assert constraint massKnown").
+	Text string
+	// Path names the object checked from the element the query was bound to
+	// ("Garage::car.wheels[2]").
+	Path string
+	// Status is "holds", "violated" or "undecided".
+	Status string
+	// Condition is the condition that evaluated to false, as written; empty otherwise.
+	Condition string
+	// Reason is why the assertion is violated or undecided; empty when it holds.
+	Reason string
+	// Verification is the verdict kinds of the verification cases verifying the
+	// requirement the row is about; a verification row's own kind.
+	Verification []string
+}
+
+func (Element) isCell()         { /* marker: closed Cell set */ }
+func (Infinity) isCell()        { /* marker: closed Cell set */ }
+func (DocumentVerdict) isCell() { /* marker: closed Cell set */ }
+func (String) isCell()          { /* marker: closed Cell set */ }
+func (Int) isCell()             { /* marker: closed Cell set */ }
+func (Real) isCell()            { /* marker: closed Cell set */ }
+func (Bool) isCell()            { /* marker: closed Cell set */ }
 
 // String is the element as a binding names it, its qualified name.
 func (e Element) String() string { return e.ID }
 
 // String reports an unbounded multiplicity as the notation writes it.
 func (Infinity) String() string { return "*" }
+
+// String is the verdict in one line, as the CLI reports it:
+// "assert constraint inflated on Garage::car.wheels[2]: violated".
+func (v DocumentVerdict) String() string {
+	if v.Path == "" {
+		return v.Text + ": " + v.Status
+	}
+	return v.Text + " on " + v.Path + ": " + v.Status
+}
 
 // Binding binds one entry parameter of a document query. Several values bind a
 // nonscalar parameter.
@@ -61,8 +95,12 @@ type Rows struct {
 
 // Row is one selected element and its projected cells, one per column.
 type Row struct {
-	// Element is the element the row is about.
+	// Element is the element the row is about; for a row a `Verdicts` query
+	// answered, the assertion checked.
 	Element Element
+	// Verdict is the verdict a row a `Verdicts` query answered carries; nil for
+	// any other row.
+	Verdict *DocumentVerdict
 	// Cells holds each column's values, in column order.
 	Cells [][]Cell
 }
@@ -99,8 +137,12 @@ func (c *client) RunDocumentQuery(
 	}
 	for _, row := range resp.Rows {
 		converted := Row{Cells: make([][]Cell, 0, len(row.Cells))}
-		if element, ok := cellFromProto(row.Element).(Element); ok {
-			converted.Element = element
+		switch selected := cellFromProto(row.Element).(type) {
+		case Element:
+			converted.Element = selected
+		case DocumentVerdict:
+			converted.Element = selected.Assertion
+			converted.Verdict = &selected
 		}
 		for _, cell := range row.Cells {
 			values := make([]Cell, 0, len(cell.Values))
@@ -126,8 +168,8 @@ func (c *client) RenderDocument(ctx context.Context, model *Model, documentID st
 	return resp.Markdown, nil
 }
 
-// cellToProto marshals a bound value. Infinity is refused here, as the service
-// refuses it: queries answer it, nothing binds it.
+// cellToProto marshals a bound value. Infinity and DocumentVerdict are refused
+// here, as the service refuses them: queries answer them, nothing binds them.
 func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 	switch value := cell.(type) {
 	case nil:
@@ -146,6 +188,11 @@ func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
 			Message: "infinity is answered by queries, not bound to them",
+		}
+	case DocumentVerdict:
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "a verdict is answered by queries, not bound to them",
 		}
 	default:
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "unknown document value kind"}
@@ -166,6 +213,20 @@ func cellFromProto(value *pb.DocumentValue) Cell {
 		return Bool(kind.BoolValue)
 	case *pb.DocumentValue_Infinity:
 		return Infinity{}
+	case *pb.DocumentValue_Verdict:
+		verdict := DocumentVerdict{
+			Kind:         kind.Verdict.GetKind(),
+			Text:         kind.Verdict.GetText(),
+			Path:         kind.Verdict.GetPath(),
+			Status:       kind.Verdict.GetVerdict(),
+			Condition:    kind.Verdict.GetCondition(),
+			Reason:       kind.Verdict.GetReason(),
+			Verification: append([]string(nil), kind.Verdict.GetVerification()...),
+		}
+		if assertion, ok := cellFromProto(kind.Verdict.GetAssertion()).(Element); ok {
+			verdict.Assertion = assertion
+		}
+		return verdict
 	default:
 		return nil
 	}
@@ -189,6 +250,8 @@ func CellText(cell Cell) string {
 		return strconv.FormatBool(bool(value))
 	case Infinity:
 		return "*"
+	case DocumentVerdict:
+		return value.String()
 	default:
 		return ""
 	}
