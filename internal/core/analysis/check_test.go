@@ -93,14 +93,15 @@ func explored(x *runtime.Exploration) []string {
 	return out
 }
 
-// check describes itself as the framework's bounded, replaying engine over outcomes and holds.
+// check describes itself as the framework's bounded, replaying engine over outcomes, holds
+// and sensitivity.
 func TestCheckDescribesItself(t *testing.T) {
 	d := NewCheck().Describe()
 	if NewCheck().Name() != CheckEngineName || d.Authority != Bounded || !d.Replays {
 		t.Fatalf("description %+v, want check, bounded, replaying", d)
 	}
-	if len(d.Questions) != 2 || d.Questions[0] != Outcomes || d.Questions[1] != Holds {
-		t.Fatalf("questions %v, want outcomes and holds", d.Questions)
+	if len(d.Questions) != 3 || d.Questions[0] != Outcomes || d.Questions[1] != Holds || d.Questions[2] != Sensitive {
+		t.Fatalf("questions %v, want outcomes, holds and sensitive", d.Questions)
 	}
 	for _, name := range append([]string{"depth", "states", "deadline"}, runtime.ExecutorBounds...) {
 		found := false
@@ -169,10 +170,73 @@ func TestCheckCoversOutcomesAndHoldsOverAnActionsSchedules(t *testing.T) {
 			t.Errorf("%s: coverage %+v, want refused with %v", tc.name, c, tc.want)
 		}
 	}
-	for _, kind := range []Kind{Outcomes, Holds} {
+	for _, kind := range []Kind{Outcomes, Holds, Sensitive} {
 		if c := e.Covers(f.building(), Question{Kind: kind, Free: FreeSchedule, Check: ask}); !c.Covered {
 			t.Errorf("%s: refused %v, want covered", kind, c.Refusal)
 		}
+	}
+}
+
+// A check asks Sensitive once a feature is named to compare, on either ask; else Holds once
+// a property, condition, input, assumption or unroll bound is stated; else Outcomes.
+func TestCheckKindAsksSensitiveForANamedFeature(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		check  *CheckAsk
+		holds  *HoldsAsk
+		unroll int
+		want   Kind
+	}{
+		{"nothing", &CheckAsk{}, &HoldsAsk{}, 0, Outcomes},
+		{"property", &CheckAsk{Properties: []runtime.CheckProperty{{Name: "x"}}}, &HoldsAsk{}, 0, Holds},
+		{"input", &CheckAsk{}, &HoldsAsk{Inputs: []string{"n"}}, 0, Holds},
+		{"unroll", &CheckAsk{}, &HoldsAsk{}, 2, Holds},
+		{"diverge on check", &CheckAsk{Diverge: []string{"x"}}, &HoldsAsk{}, 0, Sensitive},
+		{"diverge on holds", &CheckAsk{}, &HoldsAsk{Diverge: []string{"x"}}, 0, Sensitive},
+		{"diverge beside a property", &CheckAsk{Properties: []runtime.CheckProperty{{Name: "x"}}, Diverge: []string{"x"}}, &HoldsAsk{Diverge: []string{"x"}}, 3, Sensitive},
+		{"no asks", nil, nil, 0, Outcomes},
+	} {
+		if got := CheckKind(tc.check, tc.holds, tc.unroll); got != tc.want {
+			t.Errorf("%s: kind %s, want %s", tc.name, got, tc.want)
+		}
+	}
+}
+
+// A Sensitive question over the racing feature is check's witnessed sensitivity with both the
+// witness and the contrast replayable to their two values; over a feature no schedule decides
+// it is the bounded not-sensitive holds, the same pair the bounded negative of a Holds takes.
+func TestCheckAnswersASensitiveQuestionWithAPair(t *testing.T) {
+	f := parseFixture(t)
+	race := f.checked(t, "race")
+	steady := f.checked(t, "steady")
+	dir := filepath.Join(t.TempDir(), "witnesses")
+	ask := &CheckAsk{Start: race.start, Diverge: []string{"x"}, WitnessDir: dir}
+	result := answered(t, Default(), f.building(), checkQuestion(t, f, Sensitive, ask), Budget{}).Result
+	if result.Engine != CheckEngineName || result.Claim != ClaimSensitive || result.Strength != Witnessed {
+		t.Fatalf("result %+v, want check's witnessed sensitivity", result)
+	}
+	if result.Witness == nil || result.Contrast == nil || result.Witness.Written == "" || result.Contrast.Written == "" || result.Witness.Written == result.Contrast.Written {
+		t.Fatalf("witness %+v contrast %+v, want both written to files of their own", result.Witness, result.Contrast)
+	}
+	c := result.Check()
+	if c == nil || len(c.Report.Divergent) != 1 || len(c.Report.Divergent[0].Values) != 3 {
+		t.Fatalf("checked %+v, want x divergent over its three values", c)
+	}
+	for i, w := range []*Witness{result.Witness, result.Contrast} {
+		want := c.Report.Divergent[0].Values[i].Witness.Choices
+		if replay, ok := w.Schedule.Replay(); !ok || fmt.Sprint(replay) != fmt.Sprint(want) || fmt.Sprint(w.Choices) != fmt.Sprint(want) {
+			t.Fatalf("pair member %d %+v, want the schedule reaching value %d", i, w, i)
+		}
+		if _, err := os.Stat(w.Written); err != nil {
+			t.Fatalf("pair member %d: %v", i, err)
+		}
+	}
+	clean := answered(t, Default(), f.building(), questionOf(t, "test::steady", Sensitive, &CheckAsk{Start: steady.start, Diverge: []string{"y"}}), Budget{}).Result
+	if clean.Engine != CheckEngineName || clean.Claim != ClaimHolds || clean.Strength != Bounded || clean.Witness != nil || clean.Contrast != nil {
+		t.Fatalf("result %+v, want check holding y not sensitive, bounded", clean)
+	}
+	if s := clean.Standing(); !strings.HasPrefix(s, "holds (bounded") {
+		t.Fatalf("standing %q, want the bounded holds pair", s)
 	}
 }
 

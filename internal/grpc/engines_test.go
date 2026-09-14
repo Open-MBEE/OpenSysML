@@ -33,10 +33,10 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		name, authority string
 		answers         []string
 	}{
-		{"check", "bounded", []string{"outcomes", "holds"}},
+		{"check", "bounded", []string{"outcomes", "holds", "sensitive"}},
 		{"explore", "proved", []string{"outcomes"}},
 		{"run", "observed", []string{"evaluate"}},
-		{"smt", "proved", []string{"holds"}},
+		{"smt", "proved", []string{"holds", "sensitive"}},
 		{"solve", "proved", []string{"satisfiable"}},
 		{"sweep", "observed", []string{"sweep"}},
 	}

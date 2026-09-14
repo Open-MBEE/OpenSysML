@@ -264,7 +264,12 @@ A run is **divergent** when two complete executions end with different values of
 user named (or, by default, of any feature of the checked behavior or object). Divergence is not
 a violation — the library admits it — but it is what the semantic oracle calls the tool-defined
 outcome, and a model that depends on it has a defect the modeler should see. The report lists
-each divergent feature with the set of final values and one witness schedule per value.
+each divergent feature with the set of final values and one witness schedule per value. The
+question a named feature asks is the framework's `sensitive`, and the `smt` engine answers the
+same question, under the same `-check-diverge`, by its two-copy query: a divergent feature is a
+*witnessed* sensitivity with the first two values' schedules as its pair, and a clean
+exhaustive search of a `sensitive` question is the bounded negative *holds*, the pair the
+`smt` engine spells as *no sensitivity found within k moves*.
 
 ## Partial-order reduction
 

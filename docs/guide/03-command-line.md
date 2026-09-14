@@ -99,6 +99,10 @@ schedule and every value of the inputs the model leaves unbound — or that `-ch
 with an SMT solver, so its *proved* stands for any input in its declared domain where a run's
 *observed* stands for the inputs as written
 ([Deciding a property over the inputs](../reference/cli.md#deciding-a-property-over-the-inputs)).
+`-check-diverge <feature>` asks either checker whether the schedule decides a feature's final
+value: `check` searches the schedules for two that end it differently, `smt` asks a solver for
+two at once, and a *sensitive* verdict comes with both schedules as witnesses, each replayable
+([Deciding whether the schedule decides a feature](../reference/cli.md#deciding-whether-the-schedule-decides-a-feature)).
 A model checker or a simulator installed beside OpenSysML joins them through one JSON file in
 the directory `OPENSYSML_ENGINES` names; `-engines` lists it without starting it,
 `-engines -probe` starts it once to check that it describes itself as its file does, and

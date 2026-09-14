@@ -237,6 +237,7 @@ func (r *freshInvocation) asks(c checkSettings) checkAsks {
 			Start:      start,
 			Performer:  r.performer(),
 			Inputs:     append([]string(nil), c.inputs...),
+			Diverge:    append([]string(nil), c.diverge...),
 			WitnessDir: c.witnessDir,
 		}
 	}

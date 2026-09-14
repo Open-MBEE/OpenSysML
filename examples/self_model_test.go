@@ -547,7 +547,7 @@ func TestSelfModelWorkersAreIsolated(t *testing.T) {
 // TestSelfModelQuestionFlowFollowsDispatcher runs the modelled question flow
 // as the dispatcher behaves: the engines consulted are the ones declaring the
 // question's kind — the flow's default `candidates` is the count every kind but
-// outcomes and holds has in the build's registry — and every one of them lands in
+// outcomes, holds and sensitive has in the build's registry — and every one of them lands in
 // the plan as a step under `all`, while `auto` stops at the first that concludes.
 func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 	engines := engineset.Default().Engines()
@@ -559,7 +559,7 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 	}
 	flow := selfModelFlow(t, "AnswerQuestion", nil)
 	for kind, count := range declaring {
-		if kind == analysis.Outcomes || kind == analysis.Holds {
+		if kind == analysis.Outcomes || kind == analysis.Holds || kind == analysis.Sensitive {
 			continue
 		}
 		if declared := flow.integer("candidates"); declared != count {
@@ -571,6 +571,9 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 	}
 	if declaring[analysis.Holds] != 2 {
 		t.Errorf("%d default engines declare holds, the model states two (smt over check)", declaring[analysis.Holds])
+	}
+	if declaring[analysis.Sensitive] != 2 {
+		t.Errorf("%d default engines declare sensitive, the model states two (smt over check)", declaring[analysis.Sensitive])
 	}
 
 	cases := []struct {

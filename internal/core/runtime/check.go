@@ -898,6 +898,58 @@ func (c *checker) tellHeld() {
 	}
 }
 
+// FeatureOwner tells whose feature a name a check compares resolves to.
+type FeatureOwner int
+
+const (
+	// OwnedByAction: a feature the action holds itself.
+	OwnedByAction FeatureOwner = iota
+	// OwnedByPerformer: `this.<name>`, a feature of the object performing the action.
+	OwnedByPerformer
+	// OwnedByNode: `node.path`, a feature a performance of one of the action's nodes holds.
+	OwnedByNode
+)
+
+// ResolveCheckFeatures resolves the names a check compares as Check does over an
+// invocation of the started action exec alone, telling whose feature each is; a
+// name nothing answers to is an UnknownCheckFeatureError.
+func ResolveCheckFeatures(exec *ActionExecutor, names []string) (map[string]FeatureOwner, error) {
+	inv := &Invocation{Actions: []*ActionExecutor{exec}}
+	c := &checker{ctx: exec.ctx, inv: inv, opts: CheckOptions{Diverge: names}}
+	if err := c.resolveDiverge(); err != nil {
+		return nil, err
+	}
+	owners := make(map[string]FeatureOwner, len(names))
+	for _, name := range names {
+		switch {
+		case strings.HasPrefix(name, "this."):
+			owners[name] = OwnedByPerformer
+		case c.nested[name]:
+			owners[name] = OwnedByNode
+		default:
+			owners[name] = OwnedByAction
+		}
+	}
+	return owners, nil
+}
+
+// PerformerAttributes names, in name order, the attributes of the object performing
+// the action: the features a check compares for it absent names; none without one.
+func (e *ActionExecutor) PerformerAttributes() []string {
+	self := e.Performer()
+	if self == nil {
+		return nil
+	}
+	var names []string
+	for name, held := range self.FeatureValues {
+		if of := held.Feature; of != nil && of.Symbol != nil && of.Symbol.Kind == symbols.SymbolAttributeUsage {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return names
+}
+
 // resolveDiverge checks every name Diverge selects against what the started
 // behaviors hold: `this.<name>` the performing object's feature, `<object>.<name>`
 // one of several performing objects'; under a behavior's name in a joint

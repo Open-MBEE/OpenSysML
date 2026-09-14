@@ -165,9 +165,6 @@ func (c *checks) requested() bool {
 // explicitOnly names the -check-* flags written that the check engine alone reads.
 func (o *checkerOptions) explicitOnly() []string {
 	var written []string
-	if len(o.diverge) > 0 {
-		written = append(written, "-check-diverge")
-	}
 	if o.states.given {
 		written = append(written, "-check-states")
 	}

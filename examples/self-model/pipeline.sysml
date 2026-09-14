@@ -547,7 +547,7 @@ package OpenSysMLPipeline {
     // static partial-order reduction; bounded within its depth and states, never proved.
     part def CheckEngine :> AnalysisEngine {
         attribute :>> engineName = "check";
-        attribute :>> answers = "outcomes, holds";
+        attribute :>> answers = "outcomes, holds, sensitive";
         attribute :>> bounds = "depth, states, deadline, steps, actionSteps, events, doSteps, elements, behaviors";
         attribute :>> authority = "bounded";
         attribute :>> replays = true;
@@ -579,7 +579,7 @@ package OpenSysMLPipeline {
     // relation an SMT solver decides; registered whether or not one is found.
     part def SmtEngine :> AnalysisEngine {
         attribute :>> engineName = "smt";
-        attribute :>> answers = "holds";
+        attribute :>> answers = "holds, sensitive";
         attribute :>> bounds = "moves, unroll, slots, solver";
         attribute :>> authority = "proved";
         attribute :>> replays = true;
@@ -624,8 +624,8 @@ package OpenSysMLPipeline {
         attribute defaultSelection : String = "auto";
         attribute strongestFirst : Boolean = true;
         // The default engines declaring each kind: outcomes has two, explore ranked over
-        // check, and holds two, smt ranked over check.
-        attribute candidatesPerKind : String = "evaluate: 1, holds: 2, outcomes: 2, satisfiable: 1, sweep: 1";
+        // check, and holds and sensitive two each, smt ranked over check.
+        attribute candidatesPerKind : String = "evaluate: 1, holds: 2, outcomes: 2, satisfiable: 1, sensitive: 2, sweep: 1";
         attribute advancesOnNotCovered : Boolean = true;
         attribute stopsOnFault : Boolean = true;
         attribute recordsEveryStep : Boolean = true;

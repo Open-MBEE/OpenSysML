@@ -47,7 +47,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%engines [probe]` | List the analysis engines of the build in name order — the kind of each, the protocol it is spoken by, the authority it carries, the question kinds it answers and its status (`ready`, `ready (z3 at …)` for one whose process was found, `unavailable: <why>`), then one line per manifest entry naming its file and command — as the CLI's [`-engines`](cli.md#analysis-engines) does, starting nothing. `%engines probe` also starts each [external engine](external-engines.md) once, checks its `describe` against its manifest entry field by field and reports the outcome as its status, as `-engines -probe` does; any other argument is refused |
 | `%engine [<name>\|auto\|all]` | Show or set the analysis engine every question asked from then on — `%constraint`, `%requirement`, `%satisfy`, `%calc`, `%analysis`, `%sweep`, `%samples`, `%check` and the other solver commands — is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name puts it to that engine alone, whose refusal is then the verdict; `all` puts it to every covering engine, one after another in name order, and composes their answers, naming a disagreement in the interpreter's favor. Every verdict is followed by a `standing:` line — the claim, the strength of the evidence (*not covered*, *observed*, *witnessed*, *bounded*, *proved*) and what earned it — and under `all` each engine's part. A name no engine is registered under is refused and the selection left as it was. `explore` is refused at the prompt as `%schedule explore` is, since the debuggers step one run; the `%action` and `%state` debuggers keep the schedule `%schedule` set whatever the engine ([Analysis engines](cli.md#analysis-engines)). `%engine check` is the one selection that changes what `%action` does by itself: it puts the action to the `check` engine, which searches every schedule for a violation, a deadlock, a failure or a divergence and prints the verdict, instead of starting a debugging session; `%engine all` does the same, the exploration beside the checker, once a `%check-*` setting is made ([Checking every schedule](#checking-every-schedule-of-an-action-or-a-state-machine)) |
 | `%check-property [<name>...\|off]` | Show or set the constraints and requirements the `check` engine evaluates at every stable state of a checked action, on its performing object where there is one; `off` (the default) names none |
-| `%check-diverge [<feature>...\|off]` | Show or set the features whose final values the `check` engine compares across schedules — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's, a name nothing holds refused; `off` (the default) compares every attribute of the action and of its performing object; an action run without one is compared on its own attributes only |
+| `%check-diverge [<feature>...\|off]` | Show or set the features whose final values are compared across schedules, which makes the checked action's question one of *sensitivity*, answered by the `check` engine's divergence search or the `smt` engine's two-copy query, whichever `%engine` names, and by both under `%engine all` — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's, a name nothing holds refused; `off` (the default) names none, and the `check` engine then compares every attribute of the action and of its performing object (an action run without one on its own attributes only). The CLI's [`-check-diverge`](cli.md#deciding-whether-the-schedule-decides-a-feature) |
 | `%check-input [<feature>...\|off]` | Show or set the features of a checked action the `smt` engine leaves free in their declared type's domain although the model binds them — a default, a value the performing object holds; `off` (the default) frees only the inputs the model leaves unbound and pins every bound one at its value. A name that is not a feature the action reads is refused naming it when the action is checked. The CLI's [`-check-input`](cli.md#deciding-a-property-over-the-inputs) |
 | `%check-assume [<name>...\|off]` | Show or set the constraints and requirements the `smt` engine asserts over the initial state of a checked action, so its claim ranges over the inputs they admit; `off` (the default) assumes none. A set no initial state satisfies is reported *not covered*, never *proved*. The CLI's [`-check-assume`](cli.md#deciding-a-property-over-the-inputs) |
 | `%check-witness [<dir>\|off]` | Show or set the directory the `check` and `smt` engines write a witness file into for each violation and each divergent value, created if absent; `off` (the default) writes none, and the verdict names each divergent value and violation without a path. A witness of the `smt` engine's opens with the input values the solver chose, one `input <feature> = <value>` line each, ahead of the choice lines |
@@ -179,8 +179,39 @@ sysml> %action Gate::open
   standing: holds (proved over schedules and inputs: inputs free in their domains: limit : Integer free, assumed constraint wide)
 ```
 
-Each engine reads its own settings: `%check-diverge` and `states=<n>` are the `check`
-engine's, `%check-input`, `%check-assume` and `unroll=<n>` the `smt` engine's, and the rest
+`%check-diverge` under `%engine smt` asks whether the schedule decides a feature — the CLI's
+[`-check-diverge`](cli.md#deciding-whether-the-schedule-decides-a-feature): a *sensitive*
+verdict names the two final values, the step at which the two schedules part and the move each
+took there, and writes a witness per schedule, `-A` and `-B`, either of which `%replay` steps
+under `%engine auto`; a feature every schedule ends alike is *holds*, *proved* when no schedule
+was cut by the bounds and *bounded* otherwise:
+
+```text
+sysml> %engine smt
+engine: smt
+sysml> %check-witness witnesses
+check-witness: witnesses
+sysml> %check-diverge x
+check-diverge: x
+sysml> %action Debug::race
+✗ Action Debug::race: sensitive: x ends as 1 or 2; the schedules part at step 3: step 3: 2@left first of 2@left, 3@right against step 3: 3@right first of 2@left, 3@right
+  inputs: x = 0
+  witness A: witnesses/Debug.race-x-A.witness
+  witness B: witnesses/Debug.race-x-B.witness
+  standing: sensitive (witnessed: witness of 1 choice replayed, inputs as written)
+sysml> %check-diverge y
+check-diverge: y
+sysml> %action Debug::race
+✓ Action Debug::race: holds
+  standing: holds (proved over schedules: inputs as written)
+sysml> %engine auto
+engine: auto
+sysml> %replay witnesses/Debug.race-x-B.witness
+schedule: replay:witnesses/Debug.race-x-B.witness
+```
+
+Each engine reads its own settings: `states=<n>` is the `check` engine's, `%check-input`,
+`%check-assume` and `unroll=<n>` the `smt` engine's, and the rest — `%check-diverge` included —
 both. A setting made that the engine selected alone does not read is refused when the action
 is checked, naming the setting and the engine that reads it, rather than dropped; under
 `%engine all` any `smt` setting, like a `%check-property`, puts the action to the `check` and

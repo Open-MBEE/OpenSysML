@@ -116,7 +116,7 @@ func TestEngineCheckWitnessesADivergence(t *testing.T) {
 	agreed := strings.Replace(forkModel, "attribute x : Integer = 0;", "attribute x : Integer = 0;\n        attribute y : Integer = 0;", 1)
 	wantReport(t, check(t, binary, agreed, "-engine", "check", "-action", "Mission::race", "-check-diverge", "y"),
 		0, "✓ Action Mission::race: no violation, exhaustive (11 states, 10 moves, depth 6)",
-		"standing: outcomes (bounded over schedules: 11 states, 10 moves searched)")
+		"standing: holds (bounded over schedules: 11 states, 10 moves searched)")
 	rejects := check(t, binary, agreed, "-engine", "check", "-action", "Mission::race", "-check-diverge", "y")
 	rejectReport(t, rejects, "divergent:")
 
@@ -379,11 +379,12 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-states", "0", "-action", "Mission::race"),
 		2, `-check-states takes a bound of at least one, not "0"`)
 
-	// A flag one engine alone reads is refused under the other engine alone, not dropped.
-	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-check-diverge", "x", "-action", "Mission::race"),
-		2, "-check-diverge is the check engine's, which -engine smt leaves out; select it, as -engine check, or every engine, as -engine all")
+	// A flag one engine alone reads is refused under the other engine alone, not dropped;
+	// -check-diverge both engines read, so only -check-states is named.
+	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-check-states", "3", "-action", "Mission::race"),
+		2, "-check-states is the check engine's, which -engine smt leaves out; select it, as -engine check, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-check-diverge", "x", "-check-states", "3", "-action", "Mission::race"),
-		2, "-check-diverge and -check-states are the check engine's, which -engine smt leaves out")
+		2, "-check-states is the check engine's, which -engine smt leaves out")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-input", "x", "-action", "Mission::race"),
 		2, "-check-input is the smt engine's, which -engine check leaves out; select it, as -engine smt, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-input", "x", "-check-assume", "Mission::x", "-check-unroll", "2", "-action", "Mission::race"),

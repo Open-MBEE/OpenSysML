@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
@@ -106,4 +108,123 @@ func TestEngineAllPutsSMTOnlySettingsToSMT(t *testing.T) {
 	got := check(t, binary, gateModel, "-engine", "all", "-action", "Gate::open", "-check-input", "limit")
 	wantReport(t, got, 0, "inputs: n = 1, limit : Integer free",
 		"all: check refused (check cannot leave the inputs free), smt holds (proved)")
+}
+
+// sensitivityReport is the paired witness the JSON report carries for a sensitivity.
+type sensitivityReport struct {
+	Checks []struct {
+		Status  string `json:"status"`
+		Results []struct {
+			Engine   string `json:"engine"`
+			Claim    string `json:"claim"`
+			Strength string `json:"strength"`
+			Reason   string `json:"reason"`
+			Witness  *struct {
+				Schedule string   `json:"schedule"`
+				Choices  []string `json:"choices"`
+				Path     string   `json:"path"`
+			} `json:"witness"`
+			Contrast *struct {
+				Schedule string   `json:"schedule"`
+				Choices  []string `json:"choices"`
+				Path     string   `json:"path"`
+			} `json:"contrast"`
+		} `json:"results"`
+	} `json:"checks"`
+}
+
+// -engine smt -check-diverge asks the two-copy query: a feature two branches write is
+// sensitive, with two witnesses -check-witness writes apart and -schedule replay:<file>
+// follows to the two values; a feature the schedules agree on is not sensitive, at
+// proved; a depth short of completion bounds the negative rather than proving it.
+func TestEngineSMTDecidesSensitivity(t *testing.T) {
+	needsSolver(t)
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	fileA, fileB := filepath.Join(dir, "Mission.race-x-A.witness"), filepath.Join(dir, "Mission.race-x-B.witness")
+
+	got := check(t, binary, forkModel, "-engine", "smt", "-action", "Mission::race", "-check-diverge", "x", "-check-witness", dir)
+	wantReport(t, got, 1,
+		"✗ Action Mission::race: sensitive: x ends as 1 or 2; the schedules part at step 3:",
+		"witness A: "+fileA, "witness B: "+fileB,
+		"standing: sensitive (witnessed: witness of 1 choice replayed, inputs as written)")
+	for _, file := range []string{fileA, fileB} {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(string(content), "step 3: ") || !strings.Contains(string(content), "\n\neval literal 0 -> 0\nstep 1: token 1@split\n") {
+			t.Errorf("witness %s is not the schedule's choices, a blank line, then the trace:\n%s", file, content)
+		}
+	}
+	values := map[string]bool{}
+	for _, file := range []string{fileA, fileB} {
+		replayed := check(t, binary, forkModel, "-schedule", "replay:"+file, "-action", "Mission::race")
+		wantReport(t, replayed, 0, "standing: value (observed: 1 run under replay:"+file+")")
+		for _, value := range []string{"x = 1", "x = 2"} {
+			if strings.Contains(replayed.stdout, value) {
+				values[value] = true
+			}
+		}
+	}
+	if len(values) != 2 {
+		t.Errorf("the two witnesses replay to %v, want both values", values)
+	}
+
+	got = check(t, binary, forkModel, "-json", "-engine", "smt", "-action", "Mission::race", "-check-diverge", "x", "-check-witness", dir)
+	var report sensitivityReport
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
+	}
+	if len(report.Checks) != 1 || len(report.Checks[0].Results) != 1 {
+		t.Fatalf("checks %d\n%s", len(report.Checks), got.output())
+	}
+	r := report.Checks[0].Results[0]
+	if r.Engine != "smt" || r.Claim != "sensitive" || r.Strength != "witnessed" || !strings.HasPrefix(r.Reason, "x ends as 1 or 2") {
+		t.Errorf("result %+v, want smt's witnessed sensitivity\n%s", r, got.stdout)
+	}
+	if r.Witness == nil || r.Contrast == nil || r.Witness.Path != fileA || r.Contrast.Path != fileB ||
+		r.Witness.Schedule != "replay" || r.Contrast.Schedule != "replay" || len(r.Witness.Choices) != 1 || len(r.Contrast.Choices) != 1 ||
+		r.Witness.Choices[0] == r.Contrast.Choices[0] {
+		t.Errorf("witness %+v contrast %+v, want the two schedules with their files\n%s", r.Witness, r.Contrast, got.stdout)
+	}
+
+	// A feature no branch writes apart is not sensitive, and the negative is a proof.
+	agreed := strings.Replace(forkModel, "attribute x : Integer = 0;", "attribute x : Integer = 0;\n        attribute y : Integer = 0;", 1)
+	wantReport(t, check(t, binary, agreed, "-engine", "smt", "-action", "Mission::race", "-check-diverge", "y"),
+		0, "✓ Action Mission::race: holds", "standing: holds (proved over schedules: inputs as written)")
+
+	// Short of the moves the action needs, no sensitivity is found within the bound; nothing is proved.
+	wantReport(t, check(t, binary, forkModel, "-engine", "smt", "-action", "Mission::race", "-check-diverge", "x", "-check-depth", "3"),
+		2, "? Action Mission::race: holds (bounded)", "no sensitivity found within 3 moves: a schedule is still live after move 3",
+		"standing: holds (bounded over schedules: inputs as written, moves=3 (reached))")
+
+	// The performing object's features are not encoded yet: refused by name, not narrowed away.
+	wantReport(t, check(t, binary, straightTankModel, "-engine", "smt", "-instantiate", "Plant::tank", "-action", "Plant::Tank::overfill Plant::tank", "-check-diverge", "this.level"),
+		2, "? Action Plant::Tank::overfill: not covered", "this.level: the performing object's features are encoded by a later stage")
+
+	// Beside a feature the encoding answers, a refused one keeps the question not covered:
+	// a negative over the list would claim the refused feature too.
+	mixed := strings.Replace(straightTankModel, "action overfill {", "action overfill {\n            attribute y : Integer = 0;", 1)
+	wantReport(t, check(t, binary, mixed, "-engine", "smt", "-instantiate", "Plant::tank", "-action", "Plant::Tank::overfill Plant::tank", "-check-diverge", "y", "-check-diverge", "this.level"),
+		2, "? Action Plant::Tank::overfill: not covered", "standing: not covered (this.level: the performing object's features are encoded by a later stage)")
+}
+
+// Under -engine all one Sensitive question reaches check and smt alike, and the
+// composition sees both answers about the same feature; the depth bounds both in
+// their own unit, as it does a holds question.
+func TestEngineAllComposesSensitivity(t *testing.T) {
+	needsSolver(t)
+	binary := buildCLI(t)
+
+	got := check(t, binary, forkModel, "-json", "-engine", "all", "-action", "Mission::race", "-check-diverge", "x", "-check-depth", "12")
+	steps := planSteps(t, got)
+	if got.status != 1 || steps["smt"] != "answered" || steps["check"] != "answered" {
+		t.Errorf("status %d, plan %v; want check and smt answering\n%s", got.status, steps, got.output())
+	}
+	if _, explored := steps["explore"]; explored {
+		t.Errorf("explore took part in a sensitivity question: %v", steps)
+	}
+	got = check(t, binary, forkModel, "-engine", "all", "-action", "Mission::race", "-check-diverge", "x", "-check-depth", "12")
+	wantReport(t, got, 1, "all: check sensitive (witnessed), smt sensitive (witnessed)")
 }
