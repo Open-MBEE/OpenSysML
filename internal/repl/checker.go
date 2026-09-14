@@ -22,8 +22,8 @@ type checkSettings struct {
 	inputs     []string
 	assume     []string
 	witnessDir string
-	// depth, states and unroll bound the search, 0 for the engine's default;
-	// timeout is the plan's clock, 0 for none.
+	// depth, states and unroll bound the search, 0 for the engine's default; timeout is
+	// the plan's clock and each solver query's, 0 for none and the solver's own.
 	depth, states, unroll int
 	timeout               time.Duration
 	// checked is the last invocation searched, for %advance to search again.
@@ -446,8 +446,8 @@ func (s *Session) checkAsks(inv *freshInvocation) (checkAsks, error) {
 	return asks, nil
 }
 
-// checkBudget is the question's budget under policy with the check's bounds and
-// clock on it where they were set.
+// checkBudget is the question's budget under policy with the check's bounds and clock on
+// it where they were set; the clock is the plan's deadline and each solver query's time.
 func (s *Session) checkBudget(policy runtime.SchedulePolicy, kind analysis.Kind) analysis.Budget {
 	budget := s.budgetFor(policy, kind)
 	if s.checker.depth > 0 {
@@ -458,6 +458,7 @@ func (s *Session) checkBudget(policy runtime.SchedulePolicy, kind analysis.Kind)
 	}
 	budget.Unroll = s.checker.unroll
 	budget.Deadline = s.checker.deadline()
+	budget.Solver = s.checker.timeout
 	return budget
 }
 

@@ -327,7 +327,7 @@ func doc() usage.Doc {
 func solverEnvironment() []usage.Item {
 	return []usage.Item{
 		usage.Entry("OPENSYSML_SMT", "Executable the %check, %explain, %solve, %configure and %optimize commands drive as their SMT solver, speaking SMT-LIB2 on standard input (experimental). Unset looks for z3, then cvc5, on PATH."),
-		usage.Entry("OPENSYSML_SMT_TIMEOUT", "How long one solver query may take, as a Go duration. Default 10s, after which the verdict is unknown."),
+		usage.Entry("OPENSYSML_SMT_TIMEOUT", "How long one solver query may take, as a Go duration. Default 10s, after which the verdict is unknown; a check's -check-timeout takes its place for the smt engine's queries."),
 		usage.Entry("OPENSYSML_SMT_CORE_BUDGET", "How long %explain may spend reducing an unsat core to a minimal one, as a Go duration. Default 30s."),
 		usage.Entry("OPENSYSML_SMT_MAX_CONFIGURATIONS", "How many variant selections %configure ... all may report before saying the enumeration was cut short. Default 32."),
 	}
@@ -410,7 +410,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.depth, "check-depth", "With -engine check, -engine smt or -engine all: the most moves one schedule may make before the search backtracks, or the moves the smt engine unrolls the action to, named as the depth bound hit (default 10000 for check, 40 for smt)")
 	fs.Var(&modelChecks.checker.states, "check-states", "With -engine check or -engine all: the most distinct states the search may visit, named as the states bound hit; the same figure -engine all gives an exploration as its runs (default 1000000)")
 	fs.Var(&modelChecks.checker.unroll, "check-unroll", "With -engine smt or -engine all: the most iterations of one loop the smt engine unrolls before it stops, named as the unroll bound hit (default 4)")
-	fs.Var(&modelChecks.checker.timeout, "check-timeout", "With -engine check, -engine smt or -engine all: the time the check's plan may run for, as 30s or 2m; a search it stops is reported incomplete with the states and depth reached, not as a verdict")
+	fs.Var(&modelChecks.checker.timeout, "check-timeout", "With -engine check, -engine smt or -engine all: the time the check's plan may run for, as 30s or 2m, and the time each of the smt engine's solver queries may take in place of OPENSYSML_SMT_TIMEOUT; a search it stops is reported incomplete with the states and depth reached, not as a verdict")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
 	fs.StringVar(&compileTarget, "target", "c", "Backend -compile generates code for: c (default) or go")
