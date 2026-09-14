@@ -8,7 +8,7 @@
 # is a per-file ratchet, not a claim that any verdict is right; see
 # docs/project/rdf-corpus-roundtrip.md. Regenerate with:
 #   go test ./internal/core/export -run TestCorpusRoundTrip -update-corpus-roundtrip
-# files: committed 41
+# files: committed 42
 # files: sysml-v2-training 100
 # files: pilot-corpora/kerml-examples 58
 # files: pilot-corpora/sysml-examples 99
@@ -366,4 +366,5 @@ stable	sysml-v2-training/41. Language Extension/Semantic Metadata Example.sysml
 stable	sysml-v2-training/41. Language Extension/User Keyword Example.sysml
 stable	sysml-v2-training/42. Views/Viewpoint Example.sysml
 stable	sysml-v2-training/42. Views/Views Example.sysml
+stable	verdicts-demo/rover.sysml
 stable	views-demo.sysml
