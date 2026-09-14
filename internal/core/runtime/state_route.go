@@ -394,6 +394,7 @@ func (e *StateExecutor) travelResolving(r route, exits exitPlan, move func([]low
 			return err
 		}
 	}
+	e.noteFired(r.segments...)
 	return move(r.effects(), r.target)
 }
 

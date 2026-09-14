@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -965,4 +966,173 @@ func activeStateNames(exec *StateExecutor) string {
 		names = append(names, state.Name)
 	}
 	return strings.Join(names, "|")
+}
+
+// firedNames spells the transitions an executor logged as source->target, an
+// entry transition as ->target, so a test compares the log against the model.
+func firedNames(exec *StateExecutor) []string {
+	out := make([]string, 0, exec.FiredCount())
+	for _, fired := range exec.FiredTransitions() {
+		source := ""
+		if fired.Source != nil {
+			source = getNodeName(fired.Source)
+		}
+		out = append(out, source+"->"+getNodeName(fired.Target))
+	}
+	return out
+}
+
+// The fired-transition log names the entry transition, then every transition
+// taken in order; a mark read before a step delimits what that step fired.
+func TestFiredTransitionsLogsEachTransitionInOrder(t *testing.T) {
+	ctx, sym := loadState(t, debugStateSrc, "Cycle")
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	if got := firedNames(exec); !slices.Equal(got, []string{"->init"}) {
+		t.Fatalf("after start fired = %v, want the entry transition only", got)
+	}
+	mark := exec.FiredCount()
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent: %v", err)
+	}
+	if got := firedNames(exec)[mark:]; !slices.Equal(got, []string{"init->waiting"}) {
+		t.Fatalf("first step fired = %v, want init->waiting", got)
+	}
+	for exec.HasPendingWork() && exec.State() == StateRunning {
+		if err := exec.ProcessNextEvent(); err != nil {
+			t.Fatalf("ProcessNextEvent: %v", err)
+		}
+	}
+	want := []string{"->init", "init->waiting", "waiting->working", "working->done"}
+	if got := firedNames(exec); !slices.Equal(got, want) {
+		t.Fatalf("fired = %v, want %v", got, want)
+	}
+}
+
+// A compound transition through a junction logs each segment; a fork logs the
+// transition into it and then its branches; a join logs every branch into it.
+func TestFiredTransitionsLogsCompoundAndForkSegments(t *testing.T) {
+	src := `package test {
+		state Machine {
+			attribute priority : Integer = 2;
+			entry; then init;
+			state init;
+			junction route;
+			state low;
+			state high;
+			state working parallel {
+				state left {
+					entry; then leftStart;
+					state leftStart;
+					state building;
+					succession first leftStart then building;
+				}
+				state right {
+					entry; then rightStart;
+					state rightStart;
+					state checking;
+					succession first rightStart then checking;
+				}
+			}
+			fork split;
+			join sync;
+			transition first init then route;
+			transition first route if priority > 5 then high;
+			transition first route then low;
+			transition first low then split;
+			transition first high then split;
+			transition first split then building;
+			transition first split then checking;
+			transition first building then sync;
+			transition first checking then sync;
+			transition first sync then done;
+		}
+	}`
+	ctx, sym := loadState(t, src, "Machine")
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	want := []string{
+		"->init", "init->route", "route->low", "low->split",
+		"split->building", "split->checking",
+		"checking->sync", "building->sync", "sync->done",
+	}
+	if got := firedNames(exec); !slices.Equal(got, want) {
+		t.Fatalf("fired = %v, want %v", got, want)
+	}
+}
+
+// traversalNames spells the traversal log as source->target, prefixing an edge
+// of a nested action's own flow with that action's name.
+func traversalNames(exec *ActionExecutor) []string {
+	out := make([]string, 0, exec.TraversalCount())
+	for _, tr := range exec.Traversals() {
+		prefix := ""
+		for _, owner := range tr.Within {
+			prefix += ActionNodeName(owner) + "/"
+		}
+		out = append(out, prefix+ActionNodeName(tr.Edge.Source)+"->"+ActionNodeName(tr.Edge.Target))
+	}
+	return out
+}
+
+// The traversal log records every succession taken, fork branches, nested flows
+// and join branches included; a mark read before a step delimits what it took.
+func TestTraversalsLogEachSuccessionInOrder(t *testing.T) {
+	src := `package test {
+		action Drive {
+			attribute speed : Integer = 0;
+			first start;
+			fork split;
+			action prep { first begin; action warm; succession first begin then warm; }
+			action tally { assign speed := speed + 1; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then prep;
+			succession first split then tally;
+			succession first prep then sync;
+			succession first tally then sync;
+			succession first sync then done;
+		}
+	}`
+	ctx, sym := loadAction(t, src, "Drive")
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	if got := traversalNames(exec); len(got) != 0 {
+		t.Fatalf("before any step traversals = %v, want none", got)
+	}
+	if err := exec.Step(); err != nil {
+		t.Fatalf("Step: %v", err)
+	}
+	if got := traversalNames(exec); !slices.Equal(got, []string{"start->split"}) {
+		t.Fatalf("first step traversals = %v, want start->split", got)
+	}
+	mark := exec.TraversalCount()
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	got := traversalNames(exec)[mark:]
+	want := []string{
+		"split->prep", "split->tally", "tally->sync",
+		"prep/begin->warm", "prep->sync", "sync->done",
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("run traversals = %v, want %v", got, want)
+	}
+	tokens := make(map[int64]bool)
+	for _, tr := range exec.Traversals() {
+		tokens[tr.Token] = true
+	}
+	if len(tokens) < 2 {
+		t.Errorf("traversals name %d token(s), want the fork's branches to be distinct", len(tokens))
+	}
 }

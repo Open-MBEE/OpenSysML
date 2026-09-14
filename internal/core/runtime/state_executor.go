@@ -65,6 +65,10 @@ type StateExecutor struct {
 	lastDispatch *Dispatch
 	lastEventAt  float64
 
+	// fired are the transitions taken so far, in firing order, entry transitions
+	// included; a debugger reads what a step took from a mark.
+	fired []FiredTransition
+
 	// doActions are the running do behaviors, in the order their states were
 	// entered. Concurrently active states interleave one action per round, so this
 	// order — not map iteration order — decides the interleaving.
@@ -641,6 +645,32 @@ func (e *StateExecutor) LastDispatch() (Dispatch, bool) {
 		return Dispatch{}, false
 	}
 	return *e.lastDispatch, true
+}
+
+// FiredTransition is one transition taken: where it was written and the vertices
+// it joined. Source is nil for an entry transition, which leaves a body's start.
+type FiredTransition struct {
+	Decl   ast.Node
+	Source ast.Node
+	Target ast.Node
+}
+
+// FiredTransitions returns every transition taken so far, in firing order: compound
+// transitions by segment, fork and join branches, and entry transitions.
+func (e *StateExecutor) FiredTransitions() []FiredTransition {
+	return slices.Clone(e.fired)
+}
+
+// FiredCount is len(FiredTransitions()), a mark to read what a later step fired from.
+func (e *StateExecutor) FiredCount() int { return len(e.fired) }
+
+// noteFired records transitions taken, skipping any without a declaration.
+func (e *StateExecutor) noteFired(transitions ...*lower.Transition) {
+	for _, trans := range transitions {
+		if trans != nil && trans.Decl != nil {
+			e.fired = append(e.fired, FiredTransition{Decl: trans.Decl, Source: trans.Source, Target: trans.Target})
+		}
+	}
 }
 
 // dispatchEvent delivers one event to the active configuration and reports what
@@ -2004,6 +2034,8 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	if err != nil {
 		return err
 	}
+	e.noteFired(trans)
+	e.noteFired(e.graph.Transitions[fork]...)
 
 	// Leave the source configuration, up to but excluding the composite state
 	// the branches live in.
@@ -2082,6 +2114,15 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 	}
 	if !r.settled() || !e.allActive(sources) {
 		return false, nil
+	}
+
+	// Every branch into the join is taken with the one that completed it.
+	for _, source := range sources {
+		for _, into := range e.graph.Transitions[source] {
+			if into != trans && into.Target == join {
+				e.noteFired(into)
+			}
+		}
 	}
 
 	// Exit every synchronized branch, then continue from the composite state
@@ -3308,6 +3349,9 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 			return nil, err
 		}
 		if holds {
+			if entry.Decl != nil {
+				e.fired = append(e.fired, FiredTransition{Decl: entry.Decl, Target: entry.Target})
+			}
 			return entry.Target, nil
 		}
 	}
@@ -3862,6 +3906,12 @@ func (e *StateExecutor) State() ExecutionState {
 // StateMachineSymbol returns the state machine being executed.
 func (e *StateExecutor) StateMachineSymbol() *symbols.Symbol {
 	return e.stateMachine
+}
+
+// Graph is the lowered state graph the executor runs, which a debugger reads to
+// place the active configuration and the transitions it fired in a rendering.
+func (e *StateExecutor) Graph() *lower.StateGraph {
+	return e.graph
 }
 
 // ProcessNextEvent processes the next event from the queue (for REPL stepping).

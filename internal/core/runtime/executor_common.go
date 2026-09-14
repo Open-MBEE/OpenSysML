@@ -5,6 +5,7 @@ import (
 	"container/heap"
 	"fmt"
 	"slices"
+	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -37,6 +38,19 @@ type Token struct {
 	// body is the work of this token's step a breakpoint paused, resumed by the
 	// next step (action_body_run.go); nil for a token with none pending.
 	body *bodyRun
+}
+
+// Within lists the nested action nodes whose own flows the token runs in,
+// outermost first; empty for a token in the action's own flow.
+func (t Token) Within() []ast.Node {
+	var chain []ast.Node
+	for f := t.frame; f != nil; f = f.parent {
+		if f.node != nil {
+			chain = append(chain, f.node)
+		}
+	}
+	slices.Reverse(chain)
+	return chain
 }
 
 // travel moves the token along a succession in the given sweep, recording the one it arrived over.
@@ -223,6 +237,13 @@ func (q *EventQueue) Peek() Event {
 // Len returns the number of pending events.
 func (q *EventQueue) Len() int {
 	return len(q.events)
+}
+
+// Events lists the pending events in dispatch order.
+func (q *EventQueue) Events() []Event {
+	events := eventHeap(slices.Clone(q.events))
+	sort.Sort(events)
+	return events
 }
 
 // Withdraw drops every pending event the predicate accepts, which cancels an

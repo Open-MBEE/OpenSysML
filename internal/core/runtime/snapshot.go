@@ -414,6 +414,7 @@ type actionCapture struct {
 	moved             bool
 	awaiting          *actionFrame
 	firedBreakpoints  mapState[breakpointVisit, bool]
+	traversals        []Traversal
 	driven            *runState
 	frames            []frameCapture
 	// bodies are the paused work of the tokens, which the tokens keep by identity.
@@ -429,6 +430,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		firedBreakpoints: captureMap(e.firedBreakpoints),
+		traversals:       slices.Clone(e.traversals),
 		driven:           e.driven.state,
 	}
 	for _, perf := range e.reachableFrames() {
@@ -445,6 +447,7 @@ func (c actionCapture) restore() {
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
 	e.moved, e.awaiting = c.moved, c.awaiting
 	e.firedBreakpoints = c.firedBreakpoints.restore()
+	e.traversals = slices.Clone(c.traversals)
 	e.driven.state = c.driven
 	for _, perf := range c.frames {
 		perf.restore()
@@ -560,6 +563,7 @@ type stateCapture struct {
 	stateAttrs         map[*ast.StateNode]mapState[string, Value]
 	stateVisits        []string
 	stateStack         []*ast.StateNode
+	fired              []FiredTransition
 	history            map[*ast.StateNode]historyRecord
 	deferred           []Event
 	lastDispatch       *Dispatch
@@ -598,6 +602,7 @@ func (e *StateExecutor) capture() stateCapture {
 		stateAttrs:         make(map[*ast.StateNode]mapState[string, Value], len(e.stateAttrs)),
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
+		fired:              slices.Clone(e.fired),
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
@@ -645,6 +650,7 @@ func (c stateCapture) restore() {
 		}
 	}
 	e.stateVisits, e.stateStack = slices.Clone(c.stateVisits), slices.Clone(c.stateStack)
+	e.fired = slices.Clone(c.fired)
 	if e.history != nil {
 		clear(e.history)
 		for node, record := range c.history {

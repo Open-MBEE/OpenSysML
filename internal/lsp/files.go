@@ -173,6 +173,7 @@ func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.Did
 	}
 	if changed {
 		s.refreshOpenDiagnostics(ctx, "")
+		s.debugDocumentsChanged(ctx)
 	}
 	return nil
 }
@@ -188,6 +189,7 @@ func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol
 		s.addFolder(uriToName(protocol.DocumentURI(folder.URI)))
 	}
 	s.refreshOpenDiagnostics(ctx, "")
+	s.debugDocumentsChanged(ctx)
 	return nil
 }
 

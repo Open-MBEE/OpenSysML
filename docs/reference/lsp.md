@@ -8,13 +8,15 @@ result:
 ```json
 { "capabilities": { "experimental": {
     "openSysmlRender": true, "openSysmlRenderDocument": true, "openSysmlStdlibContent": true,
-    "openSysmlApplyModelEdit": true } } }
+    "openSysmlApplyModelEdit": true, "openSysmlDebug": true } } }
 ```
 
 `openSysmlRender` covers the view-rendering methods, `openSysmlRenderDocument`
 the document-rendering ones, `openSysmlStdlibContent` the request that serves
-the bundled standard library's text, and `openSysmlApplyModelEdit` the request
-that turns model operations into text edits.
+the bundled standard library's text, `openSysmlApplyModelEdit` the request
+that turns model operations into text edits, and `openSysmlDebug` the
+[`opensysml/debug/*`](#opensysmldebug-requests) requests that run a drawn
+behavior and report where it stands.
 
 A client that does not see that capability must not send these methods. That is
 how a new client and an older server stay compatible.
@@ -421,6 +423,177 @@ of keystrokes costs one notification rather than one per keystroke.
 It carries no rendering: the client responds with a fresh `opensysml/render` if it
 is showing the document, and does nothing if it is not. This keeps a large
 diagram off the wire for a panel nobody is looking at.
+
+## `opensysml/debug/*` (requests)
+
+Runs the state machine or action flow a `state` or `action` rendering draws,
+with the same executors the REPL's [`%state` and `%action`
+debuggers](repl-commands.md) use, and reports where it stands in the IDs of
+that rendering: the `id` of each node and the position of each edge in the
+`opensysml/render` result. A client that drew the result overlays the execution
+on it — fills the active states, places a token on each node one sits at, flashes
+the edges just taken — without a mapping of its own.
+
+Every request answers a *snapshot* (below). A session runs in a runtime built
+from the workspace as it is when the session starts, so later edits do not move
+the behavior underneath it; see `opensysml/debugChanged` for what an edit does.
+
+### `opensysml/debug/start`
+
+```json
+{
+  "textDocument": { "uri": "file:///tmp/lander.sysml" },
+  "view": "LanderViews::descentStates",
+  "target": "Lander::Descent",
+  "object": "Lander::lander"
+}
+```
+
+`view` is a view the document declares, or a built-in `#` view, as for
+`opensysml/render`; it must render a `state` or `action` kind. `target` is the
+qualified name of the state machine or action the rendering draws — a `state def`
+or `state` usage for a state rendering, an `action def` or `action` usage for an
+action one. `object`, optional, names a part or object definition or usage; when
+it is given the object is instantiated first and performs the behavior, so
+`send … via` and references to the performer's features resolve the way they do
+under `%instantiate`. Without it the behavior runs on its own.
+
+The answer is the initial snapshot: the machine in the state its entry transition
+selects, or the action's first token on its start node. Errors are answered with
+`InvalidParams` when the request itself is wrong — a view of another kind, a
+target the document does not declare or that is not a behavior the kind draws, an
+object that does not exist — and as a plain error when the behavior cannot be
+initialized (no entry transition, an initial node the flow lacks).
+
+### `opensysml/debug/step`, `opensysml/debug/continue`, `opensysml/debug/stop`
+
+```json
+{ "session": "debug-1" }
+```
+
+`step` moves the behavior by one step: for an action, one token move (a token
+leaving a node, a fork spawning its branches, a join firing); for a state machine,
+the next of a change condition firing, an event being dispatched, or a round of
+`do` behaviors, in that order of preference — the same step `%state` takes. A
+step that finds nothing to do at the current instant leaves the machine
+`suspended` (quiescent) or an action `waiting` on the clock.
+
+`continue` runs until the behavior completes, waits for something the clock or a
+signal must bring, reaches a breakpoint, or spends the runtime's step budget,
+which it reports as a failure. The clock does not move: a behavior waiting on
+`accept after` stays `waiting` until `advance`.
+
+`stop` ends the session and releases its runtime. The session's ID is then
+unknown to the server, and any request naming it is answered with
+`InvalidParams`.
+
+### `opensysml/debug/send`
+
+```json
+{ "session": "debug-1", "signal": "Lander::Abort", "args": { "reason": "\"fuel\"", "level": "1 + 2" } }
+```
+
+Posts a signal to the behavior, as `%send` does. `signal` names a signal
+definition by qualified name, or by the name the target's document declares it
+under; a name that declares nothing is delivered by name alone and may carry no
+arguments. Each argument is a SysML expression evaluated in the scope the target
+is declared in, bound to the signal feature it is keyed by. A signal the behavior
+accepts nowhere it now stands is refused with `InvalidParams` rather than queued
+to be lost; an accepted one is queued, and the next `step` or `continue`
+delivers it.
+
+### `opensysml/debug/advance`
+
+```json
+{ "session": "debug-1", "time": 5 }
+```
+
+Moves the runtime's clock forward by `time`, a finite duration of at least 0 in
+the clock's units, dispatching what falls due on the way: timed transitions
+fire, `accept after` waits end and the tokens move on. A `time` that is
+negative, infinite or not a number is refused with `InvalidParams`.
+
+### `opensysml/debug/breakpoints`
+
+```json
+{ "session": "debug-1", "nodeIds": ["n4", "n7"] }
+```
+
+Replaces the session's breakpoints with the nodes named, by the `id` of the
+render result the snapshot's `version` refers to. A node the rendering does not
+draw, or that draws nothing that runs — the root, a title — is refused with
+`InvalidParams`, and the breakpoints stand as they were. A run (`step`,
+`continue`, `advance`) stops when a token arrives at a breakpoint node or a
+breakpoint state becomes active; the snapshot then reports `suspended` with
+`pausedAt` naming the node, and the next run resumes past it. Breakpoints are
+kept on the runtime node, so they follow a node whose `id` changes when the
+rendering is redrawn.
+
+### The snapshot
+
+```json
+{
+  "protocol": 1,
+  "session": "debug-1",
+  "kind": "state",
+  "view": "LanderViews::descentStates",
+  "target": "Lander::Descent",
+  "object": "Lander::lander",
+  "root": "n0",
+  "version": 3,
+  "state": "suspended",
+  "reason": "paused at breakpoint braking",
+  "time": 5,
+  "tokens": [],
+  "activeStates": ["n2", "n4", "n9"],
+  "taken": [ { "index": 3, "from": "n3", "to": "n4" } ],
+  "queue": [ { "event": "Touchdown", "at": 12.5 } ],
+  "breakpoints": ["n4"],
+  "pausedAt": "n4",
+  "notes": []
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `protocol` | The version of this shape, `1`. It moves when a field a client relies on changes meaning. |
+| `session` | The session's ID, to name in later requests. |
+| `kind` | `state` or `action`. |
+| `view`, `target`, `object` | What was started, `target` and `object` as qualified names. `object` is absent when none performs the behavior. |
+| `root` | The `id` of the node drawing the behavior itself. |
+| `version` | The document version whose `opensysml/render` result the IDs below belong to, as that result's `version` reports it. |
+| `state` | `ready` for a behavior not yet initialized, `running` while there is work at the current instant, `waiting` for a behavior parked on the clock or a signal, `suspended` for one stopped at a breakpoint or a quiescent machine, `completed`, `failed`, or `ended` for a session that is over. |
+| `reason` | Why, for the last four: what is waited for, the breakpoint, the runtime's error, or why the session ended. |
+| `time` | The runtime clock's current instant. |
+| `tokens` | Of an action: each control token, with `id`, the `node` it is at, `placed` (false when it runs somewhere the rendering does not draw — a statement inside a node, a flow deeper than the rendering lowers — and `node` is the innermost drawn node around it), `via` (the edge it arrived by), `awaiting` (the join edges it still waits for), `waiting` (the signal or instant an `accept` parks it on) and `due` (the instant a timed wait ends). Empty for a machine. |
+| `activeStates` | Of a machine: the `id` of every active state — each state a token sits in with the composite states and regions enclosing it, outermost first, region by region — so a client fills them all without walking the rendering's nesting. Empty for an action. |
+| `taken` | The edges traversed since the previous snapshot, in order: the transitions a machine fired, or the successions tokens moved along. Each is its `index` among the render result's edges, with `from` and `to` for a client keyed by endpoints. |
+| `queue` | Events the behavior has yet to take: a machine's queued events with the instant each is due `at`, and messages `pending` on the runtime's bus. |
+| `breakpoints` | The breakpoint nodes, by `id`, sorted. |
+| `pausedAt` | The breakpoint node the last run stopped at; absent when it stopped for another reason. |
+| `notes` | What the runtime noted about the last request's run without changing it — a choice it made among enabled alternatives, a guard it could not evaluate — one trace line each, as the REPL prints them. |
+| `results` | Of a completed action: the values its features hold at the end, by name, each formatted as the REPL prints a value. Absent otherwise. |
+
+`tokens`, `activeStates`, `taken`, `queue`, `breakpoints` and `notes` are always
+present, empty when there is nothing to report, so a client need not test for
+absence.
+
+### `opensysml/debugChanged` (notification, server → client)
+
+Carries a snapshot, sent when a document change moved a session. An edit that
+leaves the target's declaration (and the performer's, when there is one) as it
+was keeps the session running; a redraw of the view gives the nodes new IDs, so
+the notification carries the snapshot in the fresh IDs at the new `version`. An
+edit that rewrites or removes the target, the performer or the view, that makes
+the view render another kind or stop drawing the target, or closing the
+document, ends the session: the snapshot reports `ended` with the `reason`, and
+the session's runtime is released. Shutting the server down ends every session
+the same way.
+
+The notification is sent after the workspace has taken the change, and is not
+debounced: a client keeps the last snapshot it received for each session. Like
+`opensysml/renderChanged`, it is best-effort — a client that missed one learns
+the current IDs from its next request's answer.
 
 ## Trying it by hand
 

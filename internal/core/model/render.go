@@ -182,17 +182,44 @@ func (w *Workspace) viewNamedLocked(doc, fqn string) *symbols.Symbol {
 // the index, else by qualified or simple name among the document's own
 // declarations.
 func (w *Workspace) declaredInLocked(doc, fqn string) *symbols.Symbol {
-	for _, sym := range w.index.LookupQualified(fqn) {
+	return declaredIn(w.index, doc, fqn)
+}
+
+// Declared is declaredInLocked for a caller outside the lock.
+func (w *Workspace) Declared(doc, fqn string) *symbols.Symbol {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return declaredIn(w.index, doc, fqn)
+}
+
+// DeclarationText is the source text of sym's declaration in the workspace's
+// current document, "" when the document is gone.
+func (w *Workspace) DeclarationText(sym *symbols.Symbol) string {
+	if sym == nil || sym.Decl == nil {
+		return ""
+	}
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	d := w.docs[sym.DocName]
+	if d == nil {
+		return ""
+	}
+	return source.New(sym.DocName, d.Content).Text(sym.Decl.Span())
+}
+
+// declaredIn is declaredInLocked over any index.
+func declaredIn(idx *symbols.Index, doc, fqn string) *symbols.Symbol {
+	for _, sym := range idx.LookupQualified(fqn) {
 		if sym.DocName == doc {
 			return sym
 		}
 	}
 	var found *symbols.Symbol
-	walkScope(w.index.DocumentRoot(doc), func(sym *symbols.Symbol) {
+	walkScope(idx.DocumentRoot(doc), func(sym *symbols.Symbol) {
 		if found != nil {
 			return
 		}
-		if w.index.GetFQN(sym) == fqn || sym.Name == fqn {
+		if idx.GetFQN(sym) == fqn || sym.Name == fqn {
 			found = sym
 		}
 	})

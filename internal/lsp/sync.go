@@ -18,6 +18,7 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 	s.ws.Open(name, []byte(params.TextDocument.Text), int(params.TextDocument.Version))
 	s.publishDiagnostics(ctx, name)
 	s.queueOpenDiagnostics(ctx, name)
+	s.debugDocumentsChanged(ctx)
 	return nil
 }
 
@@ -57,6 +58,7 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 	s.ws.Close(name)
 	s.clearDiagnostics(ctx, name)
 	s.queueOpenDiagnostics(ctx, name)
+	s.debugDocumentsChanged(ctx)
 	return nil
 }
 

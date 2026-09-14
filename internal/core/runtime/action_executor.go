@@ -46,8 +46,12 @@ type ActionExecutor struct {
 	nextTokenID int64
 	stepCount   int // Current step number for tracing
 	breakpoints map[string]bool
+	// breakpointNodes are the graph nodes a run stops at by identity, named or not.
+	breakpointNodes map[ast.Node]bool
 	// firedBreakpoints records the token visits a breakpoint already stopped on.
 	firedBreakpoints map[breakpointVisit]bool
+	// traversals are the successions tokens have taken, in order.
+	traversals []Traversal
 	// sweep numbers the pass over a flow's tokens in progress, 0 between passes; sweeps
 	// counts those begun. A token a sweep moved is not an arrival until the sweep ends.
 	sweep, sweeps uint64
@@ -172,6 +176,7 @@ func newActionExecutorOn(
 		nextTokenID:  1,
 		breakpoints:  make(map[string]bool),
 
+		breakpointNodes:  make(map[ast.Node]bool),
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
 	exec.features = exec.performanceFeatures()
@@ -859,7 +864,7 @@ func (e *ActionExecutor) acceptMatch(frame *actionFrame, accept lower.Accept, us
 // run continues past the node it stopped at, while a token that comes back around a loop
 // stops again; tokens held at a synchronized node stop once, when the last has arrived.
 func (e *ActionExecutor) breakpointHit() string {
-	if len(e.breakpoints) == 0 {
+	if len(e.breakpoints) == 0 && len(e.breakpointNodes) == 0 {
 		return ""
 	}
 	for visit := range e.firedBreakpoints {
@@ -905,8 +910,15 @@ func (e *ActionExecutor) tokenLocation(id int64) (ast.Node, bool) {
 }
 
 // breakpointNameOf returns the name a breakpoint is set on for the given node,
-// or "" when none is. A node answers to its short name as well as its name.
+// or "" when none is. A node answers to its short name as well as its name; one
+// a breakpoint is set on by identity answers to its description.
 func (e *ActionExecutor) breakpointNameOf(node ast.Node) string {
+	if e.breakpointNodes[node] {
+		if name := ActionNodeName(node); name != "" {
+			return name
+		}
+		return nodeDescription(node)
+	}
 	for _, name := range ActionNodeNames(node) {
 		if e.breakpoints[name] {
 			return name
@@ -1700,7 +1712,7 @@ func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 	}
 
 	// Move token to first successor (initial should have exactly 1)
-	token.travel(successors[0], e.sweep)
+	e.move(token, successors[0])
 	return nil
 }
 
@@ -1776,6 +1788,7 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 		}
 		e.nextTokenID++
 		newTokens = append(newTokens, newToken)
+		e.traversals = append(e.traversals, Traversal{Token: newToken.ID, Edge: edge, Within: newToken.Within()})
 	}
 
 	// Remove original token, add new tokens
@@ -1817,7 +1830,7 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
-	token.travel(successors[0], e.sweep)
+	e.move(token, successors[0])
 	return nil
 }
 
@@ -1853,7 +1866,7 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
-	token.travel(successors[0], e.sweep)
+	e.move(token, successors[0])
 	return nil
 }
 
@@ -1932,13 +1945,13 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		if choice != nil {
 			e.ctx.noteChoice(*choice)
 		}
-		token.travel(successors[holding[pick]], e.sweep)
+		e.move(token, successors[holding[pick]])
 		return nil
 	}
 
 	// Pass 2: Use unguarded edge as fallback
 	if unguardedEdge != nil {
-		token.travel(*unguardedEdge, e.sweep)
+		e.move(token, *unguardedEdge)
 		return nil
 	}
 
@@ -2005,7 +2018,7 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 		return e.retireToken(tokenIdx)
 	}
 
-	e.tokens[tokenIdx].travel(successors[0], e.sweep)
+	e.move(&e.tokens[tokenIdx], successors[0])
 	return nil
 }
 
@@ -2125,7 +2138,7 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 		return e.retireToken(tokenIdx)
 	}
 
-	e.tokens[tokenIdx].travel(successors[0], e.sweep)
+	e.move(&e.tokens[tokenIdx], successors[0])
 	return nil
 }
 
@@ -2374,7 +2387,7 @@ func (e *ActionExecutor) leaveStatementNode(tokenIdx int, frame *actionFrame, no
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
-	e.tokens[tokenIdx].travel(successors[0], e.sweep)
+	e.move(&e.tokens[tokenIdx], successors[0])
 	return nil
 }
 
@@ -2465,6 +2478,29 @@ func (e *ActionExecutor) Tokens() []Token {
 	return tokens
 }
 
+// Traversal is one succession a token took: which token, the edge, and the
+// nested action nodes whose own flows it was running in (see Token.Within).
+type Traversal struct {
+	Token  int64
+	Edge   lower.ActionEdge
+	Within []ast.Node
+}
+
+// Traversals returns every succession taken so far, in order: a fork's branches
+// as the tokens they spawned, a join as the one token that passes on.
+func (e *ActionExecutor) Traversals() []Traversal {
+	return slices.Clone(e.traversals)
+}
+
+// TraversalCount is the number of successions taken so far.
+func (e *ActionExecutor) TraversalCount() int { return len(e.traversals) }
+
+// move travels token along edge, recording the traversal.
+func (e *ActionExecutor) move(token *Token, edge lower.ActionEdge) {
+	token.travel(edge, e.sweep)
+	e.traversals = append(e.traversals, Traversal{Token: token.ID, Edge: edge, Within: token.Within()})
+}
+
 // State returns current execution state.
 func (e *ActionExecutor) State() ExecutionState {
 	return e.state
@@ -2535,9 +2571,18 @@ func (e *ActionExecutor) SetBreakpoint(nodeName string) {
 	e.breakpoints[nodeName] = true
 }
 
+// SetBreakpointAt stops a run at node itself, named or not: a debugger holding
+// the graph (Graph, Token.Within) sets breakpoints this way.
+func (e *ActionExecutor) SetBreakpointAt(node ast.Node) {
+	if node != nil {
+		e.breakpointNodes[node] = true
+	}
+}
+
 // ClearBreakpoints removes all breakpoints.
 func (e *ActionExecutor) ClearBreakpoints() {
 	e.breakpoints = make(map[string]bool)
+	e.breakpointNodes = make(map[ast.Node]bool)
 	e.firedBreakpoints = make(map[breakpointVisit]bool)
 }
 
