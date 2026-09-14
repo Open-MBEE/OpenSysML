@@ -847,6 +847,25 @@ func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
 	if graph.HasProperty(life, rdf.OpenSysML+"declaredId") {
 		t.Errorf("the norm's id is stated as declared")
 	}
+
+	// A root known only by its short name is registered under it, so it is the library too.
+	short := strings.Replace(string(src), head, "standard library package <Occurrences> {\r\n", 1)
+	got, err := export.Convert("copy.kerml", []byte(short), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("short-name copy to turtle: %v", err)
+	}
+	if graph, err = rdf.ParseTurtle(got); err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	if got, _ := graph.Object(life, rdf.SysML+"subsets"); got != portionOf {
+		t.Errorf("in the short-name copy portionOfLife subsets %v, want the id of portionOf", got)
+	}
+	if got, _ := graph.Object(life, rdf.SysML+"owningMembership"); got != membership {
+		t.Errorf("in the short-name copy portionOfLife's owning membership is %v, want the norm's", got)
+	}
+	if graph.HasProperty(life, rdf.OpenSysML+"declaredId") {
+		t.Errorf("in the short-name copy the norm's id is stated as declared")
+	}
 }
 
 // A user package is not the library it takes its name from: a bare `package
