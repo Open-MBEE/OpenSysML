@@ -7,7 +7,11 @@ package org.openmbee.opensysml.proto;
 
 /**
  * <pre>
- * InstantiateResponse contains the created instance
+ * InstantiateResponse contains the created instance. The service keeps the
+ * object for the model it was created in: a later RunDocumentQuery on the same
+ * model_hash binds it by its id or by the name it was instantiated under, and
+ * `DocumentQueries::Objects` enumerates it. Instantiating the same symbol again
+ * creates a new object under the name; the earlier one stays reachable by id.
  * </pre>
  *
  * Protobuf type {@code sysml.InstantiateResponse}
@@ -423,7 +427,11 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * InstantiateResponse contains the created instance
+   * InstantiateResponse contains the created instance. The service keeps the
+   * object for the model it was created in: a later RunDocumentQuery on the same
+   * model_hash binds it by its id or by the name it was instantiated under, and
+   * `DocumentQueries::Objects` enumerates it. Instantiating the same symbol again
+   * creates a new object under the name; the earlier one stays reachable by id.
    * </pre>
    *
    * Protobuf type {@code sysml.InstantiateResponse}

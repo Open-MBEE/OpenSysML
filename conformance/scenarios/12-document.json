@@ -393,6 +393,37 @@
       }
     },
     {
+      "id": "document/an_object_binding_needs_an_object_the_model_holds",
+      "description": "A parameter bound to an object by id or by path names one Instantiate created for this model; before any was, the binding is not found.",
+      "rpc": "RunDocumentQuery",
+      "requires_capabilities": [
+        "document_query"
+      ],
+      "model": {
+        "fixture": "document.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "query_id": "Observatory::SubsystemTable",
+        "bindings": [
+          {
+            "parameter": "root",
+            "values": [
+              {
+                "object": {
+                  "path": "telescope"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "status": "NOT_FOUND",
+        "status_message_contains": "holds no objects"
+      }
+    },
+    {
       "id": "document/a_named_document_renders_markdown",
       "description": "A named document renders to the same Markdown the CLI renders.",
       "rpc": "RenderDocument",

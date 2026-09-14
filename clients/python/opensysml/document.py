@@ -7,10 +7,12 @@ the model's own named queries and documents, not the SysML v2 API & Services
 Query that :mod:`opensysml.query` builds.
 
 A binding value is a plain Python value (``str``, ``int``, ``float``,
-``bool``), a :class:`~opensysml.values.Quantity`, or an :class:`ElementRef`
-naming a model element by qualified name. Answered cells decode back to the
-same kinds, plus :data:`INFINITY` for an unbounded multiplicity and a
-:class:`DocumentVerdict` for a row a ``Verdicts`` query answered.
+``bool``), a :class:`~opensysml.values.Quantity`, an :class:`ElementRef`
+naming a model element by qualified name, or an :class:`ObjectRef` naming an
+object the service holds for the model since ``instantiate`` — by id or by
+path (``"car.wheels[2]"``). Answered cells decode back to the same kinds, plus
+:data:`INFINITY` for an unbounded multiplicity and a :class:`DocumentVerdict`
+for a row a ``Verdicts`` query answered.
 """
 
 from dataclasses import dataclass
@@ -40,6 +42,33 @@ class ElementRef:
 
     def __str__(self):
         return f"{self.id} ({self.type})" if self.type else self.id
+
+
+@dataclass(frozen=True)
+class ObjectRef:
+    """An object the service holds for the model, created by ``instantiate``.
+
+    Bound, it names the object by ``path`` when set and by ``id`` otherwise;
+    one setting both must name one object by both. Answered, it carries all
+    three fields.
+
+    Attributes:
+        id: The object's id, as ``instantiate`` answered it
+        path: The object by the label a session reaches it under: the
+            qualified name it was instantiated as (``"Garage::car"``), its id
+            (``"#2"``), or a path through feature values of either
+            (``"Garage::car.wheels[2]"``, ``"#2.wheels[2]"``; indexes count
+            from 1)
+        element: The usage the object is held under, its definition or usage;
+            reported when answered, ignored when bound
+    """
+
+    id: int = 0
+    path: str = ""
+    element: Optional[ElementRef] = None
+
+    def __str__(self):
+        return self.path or f"#{self.id}"
 
 
 @dataclass(frozen=True)
@@ -81,7 +110,8 @@ class DocumentVerdict:
 
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[
-    ElementRef, str, int, float, bool, Quantity, _Infinity, DocumentVerdict,
+    ElementRef, ObjectRef, str, int, float, bool, Quantity, _Infinity,
+    DocumentVerdict,
 ]
 
 #: What ``bindings`` accepts for one parameter: one value or several.
@@ -93,16 +123,21 @@ class DocumentRow:
     """One selected element and its projected cells, one per column.
 
     Attributes:
-        element: The selected element itself; for a row a ``Verdicts`` query
-            answered, the assertion checked
+        element: The selected element itself; for an object row, the usage the
+            object is held under; for a row a ``Verdicts`` query answered, the
+            assertion checked
         cells: One value sequence per column, in column order
         verdict: The :class:`DocumentVerdict` a row a ``Verdicts`` query
             answered carries; ``None`` for any other row
+        object: The :class:`ObjectRef` a row over held objects is about — one
+            an ``Objects`` query enumerated, or a bound object's part; ``None``
+            for any other row
     """
 
     element: ElementRef
     cells: tuple
     verdict: Optional[DocumentVerdict] = None
+    object: Optional[ObjectRef] = None
 
     def __getitem__(self, index):
         return self.cells[index]
@@ -159,6 +194,15 @@ def _bound_value(parameter, value):
     """One binding value as the wire writes it. bool before int: it is one."""
     if isinstance(value, ElementRef):
         return sysml_pb2.DocumentValue(element_id=value.id)
+    if isinstance(value, ObjectRef):
+        if not value.id and not value.path:
+            raise DocumentQueryError(
+                f"binding {parameter!r} cannot carry {value!r}: an object is "
+                f"bound by id or by path; neither was given"
+            )
+        return sysml_pb2.DocumentValue(
+            object=sysml_pb2.DocumentObject(instance_id=value.id, path=value.path)
+        )
     if isinstance(value, bool):
         return sysml_pb2.DocumentValue(bool_value=value)
     if isinstance(value, str):
@@ -181,7 +225,7 @@ def _bound_value(parameter, value):
         )
     raise DocumentQueryError(
         f"binding {parameter!r} cannot carry {value!r}: a binding is a str, "
-        f"int, float, bool, Quantity or ElementRef"
+        f"int, float, bool, Quantity, ElementRef or ObjectRef"
     )
 
 
@@ -218,9 +262,13 @@ def _row_of(row):
         tuple(_value_of(value) for value in cell.values)
         for cell in row.cells
     )
-    if row.element.WhichOneof("kind") == "verdict":
+    kind = row.element.WhichOneof("kind")
+    if kind == "verdict":
         verdict = _value_of(row.element)
         return DocumentRow(element=verdict.assertion, cells=cells, verdict=verdict)
+    if kind == "object":
+        obj = _value_of(row.element)
+        return DocumentRow(element=obj.element, cells=cells, object=obj)
     return DocumentRow(element=_element_of(row.element), cells=cells)
 
 
@@ -248,6 +296,13 @@ def _value_of(value):
         return INFINITY
     if kind == "quantity":
         return Quantity.from_pb(value.quantity)
+    if kind == "object":
+        obj = value.object
+        return ObjectRef(
+            id=obj.instance_id,
+            path=obj.path,
+            element=_element_of(obj.element),
+        )
     if kind == "verdict":
         verdict = value.verdict
         return DocumentVerdict(

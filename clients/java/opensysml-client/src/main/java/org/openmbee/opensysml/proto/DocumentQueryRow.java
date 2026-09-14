@@ -54,8 +54,9 @@ private static final long serialVersionUID = 0L;
   private org.openmbee.opensysml.proto.DocumentValue element_;
   /**
    * <pre>
-   * The selected element itself, an element value with its qualified name; a
-   * verdict value for a row `Verdicts` answered.
+   * The selected element itself, an element value with its qualified name; an
+   * object value for a row over an object the service holds; a verdict value
+   * for a row `Verdicts` answered.
    * </pre>
    *
    * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -67,8 +68,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The selected element itself, an element value with its qualified name; a
-   * verdict value for a row `Verdicts` answered.
+   * The selected element itself, an element value with its qualified name; an
+   * object value for a row over an object the service holds; a verdict value
+   * for a row `Verdicts` answered.
    * </pre>
    *
    * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -80,8 +82,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The selected element itself, an element value with its qualified name; a
-   * verdict value for a row `Verdicts` answered.
+   * The selected element itself, an element value with its qualified name; an
+   * object value for a row over an object the service holds; a verdict value
+   * for a row `Verdicts` answered.
    * </pre>
    *
    * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -530,8 +533,9 @@ private static final long serialVersionUID = 0L;
         org.openmbee.opensysml.proto.DocumentValue, org.openmbee.opensysml.proto.DocumentValue.Builder, org.openmbee.opensysml.proto.DocumentValueOrBuilder> elementBuilder_;
     /**
      * <pre>
-     * The selected element itself, an element value with its qualified name; a
-     * verdict value for a row `Verdicts` answered.
+     * The selected element itself, an element value with its qualified name; an
+     * object value for a row over an object the service holds; a verdict value
+     * for a row `Verdicts` answered.
      * </pre>
      *
      * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -542,8 +546,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The selected element itself, an element value with its qualified name; a
-     * verdict value for a row `Verdicts` answered.
+     * The selected element itself, an element value with its qualified name; an
+     * object value for a row over an object the service holds; a verdict value
+     * for a row `Verdicts` answered.
      * </pre>
      *
      * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -558,8 +563,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The selected element itself, an element value with its qualified name; a
-     * verdict value for a row `Verdicts` answered.
+     * The selected element itself, an element value with its qualified name; an
+     * object value for a row over an object the service holds; a verdict value
+     * for a row `Verdicts` answered.
      * </pre>
      *
      * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -579,8 +585,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The selected element itself, an element value with its qualified name; a
-     * verdict value for a row `Verdicts` answered.
+     * The selected element itself, an element value with its qualified name; an
+     * object value for a row over an object the service holds; a verdict value
+     * for a row `Verdicts` answered.
      * </pre>
      *
      * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -598,8 +605,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The selected element itself, an element value with its qualified name; a
-     * verdict value for a row `Verdicts` answered.
+     * The selected element itself, an element value with its qualified name; an
+     * object value for a row over an object the service holds; a verdict value
+     * for a row `Verdicts` answered.
      * </pre>
      *
      * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -624,8 +632,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The selected element itself, an element value with its qualified name; a
-     * verdict value for a row `Verdicts` answered.
+     * The selected element itself, an element value with its qualified name; an
+     * object value for a row over an object the service holds; a verdict value
+     * for a row `Verdicts` answered.
      * </pre>
      *
      * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -642,8 +651,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The selected element itself, an element value with its qualified name; a
-     * verdict value for a row `Verdicts` answered.
+     * The selected element itself, an element value with its qualified name; an
+     * object value for a row over an object the service holds; a verdict value
+     * for a row `Verdicts` answered.
      * </pre>
      *
      * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -655,8 +665,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The selected element itself, an element value with its qualified name; a
-     * verdict value for a row `Verdicts` answered.
+     * The selected element itself, an element value with its qualified name; an
+     * object value for a row over an object the service holds; a verdict value
+     * for a row `Verdicts` answered.
      * </pre>
      *
      * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -671,8 +682,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The selected element itself, an element value with its qualified name; a
-     * verdict value for a row `Verdicts` answered.
+     * The selected element itself, an element value with its qualified name; an
+     * object value for a row over an object the service holds; a verdict value
+     * for a row `Verdicts` answered.
      * </pre>
      *
      * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>

@@ -34,31 +34,32 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	if req.QueryId == "" {
 		return nil, statusError(connect.CodeInvalidArgument, "a document query to run must be named in query_id")
 	}
-	sc := cached.SymbolContext()
-	defer sc.Lock()()
-	sym, err := documentSymbol(sc.Index, req.QueryId)
+	// The query runs over the model's runtime and the objects it holds, as
+	// %run-query runs over the session's; Objects answers no rows while none are held.
+	held := s.objects(cached)
+	defer held.lock()()
+	qctx := held.queryContext()
+	sym, err := documentSymbol(qctx.Index, req.QueryId)
 	if err != nil {
 		return nil, err
 	}
-	if !queryplan.IsQueryDefinition(sc.Index, sc.Semantics, sym) {
+	if !queryplan.IsQueryDefinition(qctx.Index, qctx.Model, sym) {
 		return nil, statusErrorf(connect.CodeInvalidArgument,
 			"%s is not a document query: one is a calc def specializing DocumentQueries::Query", req.QueryId)
 	}
-	program, err := queryplan.Compile(sc.Index, sc.Semantics, sc.Resolver, sym)
+	program, err := queryplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
 	if err != nil {
 		return nil, documentStatus(err)
 	}
-	bindings, err := documentBindings(sc.Index, sc.Semantics, req.Bindings)
+	bindings, err := documentBindings(qctx.Index, qctx.Model, held, req.Bindings)
 	if err != nil {
 		return nil, err
 	}
-	result, err := queryexec.Execute(program,
-		queryexec.Context{Index: sc.Index, Resolver: sc.Resolver, Model: sc.Semantics},
-		bindings, queryexec.Options{})
+	result, err := queryexec.Execute(program, qctx, bindings, queryexec.Options{})
 	if err != nil {
 		return nil, documentStatus(err)
 	}
-	return rowSetResponse(sc.Index, result), nil
+	return rowSetResponse(qctx.Index, result), nil
 }
 
 // RenderDocument renders a named document to Markdown, as -render-document does.
@@ -73,24 +74,26 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if req.DocumentId == "" {
 		return nil, statusError(connect.CodeInvalidArgument, "a document to render must be named in document_id")
 	}
-	sc := cached.SymbolContext()
-	defer sc.Lock()()
-	sym, err := documentSymbol(sc.Index, req.DocumentId)
+	// A document reads the objects the model holds, as -render-document reads
+	// the ones -instantiate created beside it.
+	held := s.objects(cached)
+	defer held.lock()()
+	qctx := held.queryContext()
+	sym, err := documentSymbol(qctx.Index, req.DocumentId)
 	if err != nil {
 		return nil, err
 	}
-	if !docplan.IsDocumentDefinition(sc.Index, sc.Semantics, sym) {
+	if !docplan.IsDocumentDefinition(qctx.Index, qctx.Model, sym) {
 		return nil, statusErrorf(connect.CodeInvalidArgument,
 			"%s is not a document: one is a part def specializing DocumentQueries::Document", req.DocumentId)
 	}
-	plan, err := docplan.Compile(sc.Index, sc.Semantics, sc.Resolver, sym)
+	plan, err := docplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
 	if err != nil {
 		return nil, documentStatus(err)
 	}
 	document, err := docir.EvaluateLinked(plan,
-		model.SiblingDocumentPlans(sc.Index, sc.Semantics, sc.Resolver, sym),
-		queryexec.Context{Index: sc.Index, Resolver: sc.Resolver, Model: sc.Semantics},
-		queryexec.Options{}, cachedSourceText(cached))
+		model.SiblingDocumentPlans(qctx.Index, qctx.Model, qctx.Resolver, sym),
+		qctx, queryexec.Options{}, cachedSourceText(cached))
 	if err != nil {
 		return nil, documentStatus(err)
 	}
@@ -111,9 +114,9 @@ func documentSymbol(idx *symbols.Index, id string) (*symbols.Symbol, error) {
 	return syms[0], nil
 }
 
-// documentBindings converts a request's typed bindings into the engine's.
-// Repeated parameters append, as %run-query's repeated bindings do.
-func documentBindings(idx *symbols.Index, sem *semantics.Model, bindings []*pb.DocumentQueryBinding) (queryexec.Bindings, error) {
+// documentBindings converts a request's typed bindings into the engine's, an object
+// one against the objects held. Repeated parameters append, as %run-query's do.
+func documentBindings(idx *symbols.Index, sem *semantics.Model, held *heldObjects, bindings []*pb.DocumentQueryBinding) (queryexec.Bindings, error) {
 	if len(bindings) == 0 {
 		return nil, nil
 	}
@@ -123,7 +126,7 @@ func documentBindings(idx *symbols.Index, sem *semantics.Model, bindings []*pb.D
 			return nil, statusError(connect.CodeInvalidArgument, "a binding must name the parameter it binds")
 		}
 		for _, value := range binding.GetValues() {
-			bound, err := boundValue(idx, sem, binding.GetParameter(), value)
+			bound, err := boundValue(idx, sem, held, binding.GetParameter(), value)
 			if err != nil {
 				return nil, err
 			}
@@ -133,10 +136,21 @@ func documentBindings(idx *symbols.Index, sem *semantics.Model, bindings []*pb.D
 	return out, nil
 }
 
-// boundValue converts one request value. An element is bound by qualified name;
-// infinity and verdicts are only ever answered, so binding them is refused.
-func boundValue(idx *symbols.Index, sem *semantics.Model, parameter string, value *pb.DocumentValue) (queryexec.Value, error) {
+// boundValue converts one request value. An element is bound by qualified name
+// and an object by id or path among those held; infinity and verdicts are only
+// ever answered, so binding them is refused.
+func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, parameter string, value *pb.DocumentValue) (queryexec.Value, error) {
 	switch kind := value.GetKind().(type) {
+	case *pb.DocumentValue_Object:
+		if held.empty() {
+			return queryexec.Value{}, statusErrorf(connect.CodeNotFound,
+				"binding %s: the model holds no objects (Instantiate creates one)", parameter)
+		}
+		inst, label, err := held.resolve(parameter, kind.Object)
+		if err != nil {
+			return queryexec.Value{}, err
+		}
+		return queryexec.ObjectValue(inst, label), nil
 	case *pb.DocumentValue_ElementId:
 		syms := lookupNamed(idx, kind.ElementId)
 		if len(syms) == 0 {
@@ -214,6 +228,8 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 			return &pb.DocumentValue{}
 		}
 		return elementValue(idx, sym)
+	case queryexec.ValueObject:
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Object{Object: documentObject(idx, value)}}
 	case queryexec.ValueVerdict:
 		verdict, _ := value.Verdict()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Verdict{Verdict: documentVerdict(idx, verdict)}}
@@ -237,6 +253,17 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 	default:
 		return &pb.DocumentValue{}
 	}
+}
+
+// documentObject answers an object row: its id, the path it was reached by, and
+// the usage or definition it stands for.
+func documentObject(idx *symbols.Index, value queryexec.Value) *pb.DocumentObject {
+	inst, label, _ := value.Object()
+	out := &pb.DocumentObject{InstanceId: inst.ID, Path: label}
+	if decl := value.Declaration(); decl != nil {
+		out.Element = elementValue(idx, decl)
+	}
+	return out
 }
 
 // elementValue names an element by qualified name and metamodel type.

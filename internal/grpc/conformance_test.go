@@ -60,6 +60,14 @@ type conformanceCase struct {
 	// ExecuteState
 	Events []string `json:"events,omitempty"`
 
+	// RunDocumentQuery: the symbols Instantiate creates objects of first, in
+	// order, then the query and its bindings.
+	Instantiate     []string          `json:"instantiate,omitempty"`
+	QueryID         string            `json:"query_id,omitempty"`
+	Bindings        []expectedBinding `json:"bindings,omitempty"`
+	ExpectedColumns []string          `json:"expected_columns,omitempty"`
+	ExpectedRows    []expectedRow     `json:"expected_rows,omitempty"`
+
 	ExpectedResult        *expectedValue                  `json:"expected_result,omitempty"`
 	ExpectedFeatureValues map[string]expectedFeatureValue `json:"expected_feature_values,omitempty"`
 	ExpectedInstanceCount int                             `json:"expected_instance_count,omitempty"`
@@ -75,7 +83,7 @@ type conformanceCase struct {
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
 
 	// ExpectedError, when set, requires the RPC to report an in-band error
-	// containing this substring.
+	// containing this substring (a status error, for RunDocumentQuery).
 	ExpectedError string `json:"expected_error,omitempty"`
 }
 
@@ -168,6 +176,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runExecuteStateCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ApplyEdits":
 		runApplyEditsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "RunDocumentQuery":
+		runRunDocumentQueryCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}

@@ -43,6 +43,11 @@ type CachedModel struct {
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex
 	idle   []*analysis.Worker
+
+	// objects are the objects Instantiate created for the model, on a runtime of
+	// their own that outlives the requests; nil until the first Instantiate.
+	objectsMu sync.Mutex
+	objects   *heldObjects
 }
 
 // maxIdleWorkers bounds the warm workers a model keeps: as many as can run at once, so a

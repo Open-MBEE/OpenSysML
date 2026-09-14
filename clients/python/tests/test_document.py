@@ -27,6 +27,7 @@ from opensysml.document import (
     DocumentRow,
     DocumentVerdict,
     ElementRef,
+    ObjectRef,
     build_bindings,
 )
 from opensysml.errors import (
@@ -55,6 +56,12 @@ GOLDEN = os.path.join(
 #: The renderer's verdict fixture: assertions on a car and queries over them.
 VERDICT_FIXTURE = os.path.join(
     REPO_ROOT, "internal", "core", "docrender", "testdata", "verdict_report.sysml"
+)
+#: The service's object fixture: a car with wheels, a spare wheel, and
+#: queries over the objects the service holds — bound, enumerated, checked.
+OBJECT_FIXTURE = os.path.join(
+    REPO_ROOT, "internal", "grpc", "testdata", "conformance",
+    "document_query_object_by_path.sysml",
 )
 
 CAPABILITIES = (CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT)
@@ -153,6 +160,30 @@ def test_a_verdict_binding_is_refused():
     )
     with pytest.raises(DocumentQueryError, match="'root'.*answered by queries"):
         build_bindings({"root": verdict})
+
+
+def test_an_object_binds_by_id_by_path_or_both():
+    """An ObjectRef binds the object the service holds, by id, path or both."""
+    bindings = build_bindings({
+        "by_id": ObjectRef(id=2),
+        "by_path": ObjectRef(path="car.wheels[2]"),
+        "both": ObjectRef(id=3, path="Garage::car.wheels[2]"),
+    })
+    by_parameter = {b.parameter: b for b in bindings}
+    (by_id,) = by_parameter["by_id"].values
+    assert by_id.WhichOneof("kind") == "object"
+    assert (by_id.object.instance_id, by_id.object.path) == (2, "")
+    (by_path,) = by_parameter["by_path"].values
+    assert (by_path.object.instance_id, by_path.object.path) == (0, "car.wheels[2]")
+    (both,) = by_parameter["both"].values
+    assert (both.object.instance_id, both.object.path) == (3, "Garage::car.wheels[2]")
+    assert not both.object.HasField("element")
+
+
+def test_an_object_naming_nothing_is_refused():
+    """An ObjectRef with neither id nor path is a caller error, named early."""
+    with pytest.raises(DocumentQueryError, match="'root'.*neither was given"):
+        build_bindings({"root": ObjectRef()})
 
 
 def test_an_oversized_int_binding_is_refused():
@@ -316,6 +347,43 @@ def test_a_verdict_row_decodes_to_its_assertion_and_verdict(fake_service):
     assert str(row.verdict) == "assert constraint powerLow on Garage::car.engine: violated"
 
 
+def test_an_object_row_decodes_to_the_object_and_its_usage(fake_service):
+    """A row over held objects stands for the usage the object is held under
+    and carries the object; an object-valued cell decodes the same way."""
+    def wire(instance_id, path, usage):
+        return sysml_pb2.DocumentValue(object=sysml_pb2.DocumentObject(
+            instance_id=instance_id,
+            path=path,
+            element=sysml_pb2.DocumentValue(element_id=usage, element_type="PartUsage"),
+        ))
+
+    response = sysml_pb2.RunDocumentQueryResponse(
+        columns=[sysml_pb2.DocumentQueryColumn(name="wheels")],
+        rows=[sysml_pb2.DocumentQueryRow(
+            element=wire(1, "Garage::car", "Garage::car"),
+            cells=[sysml_pb2.DocumentQueryCell(values=[
+                wire(2, "Garage::car.wheels[1]", "Garage::Car::wheels"),
+                wire(3, "Garage::car.wheels[2]", "Garage::Car::wheels"),
+            ])],
+        )],
+    )
+    port, _ = fake_service(response=response)
+    with Connection(port=port, auto_start=False) as conn:
+        result = conn.load_from_content("package Demo;").run_document_query("Demo::Q")
+
+    (row,) = result
+    car = ObjectRef(id=1, path="Garage::car", element=ElementRef("Garage::car", "PartUsage"))
+    assert row.object == car
+    assert row.element == car.element
+    assert row.verdict is None
+    assert row[0] == (
+        ObjectRef(2, "Garage::car.wheels[1]", ElementRef("Garage::Car::wheels", "PartUsage")),
+        ObjectRef(3, "Garage::car.wheels[2]", ElementRef("Garage::Car::wheels", "PartUsage")),
+    )
+    assert [str(wheel) for wheel in row[0]] == ["Garage::car.wheels[1]", "Garage::car.wheels[2]"]
+    assert str(ObjectRef(id=2)) == "#2"
+
+
 def test_a_row_that_is_no_verdict_carries_none(fake_service):
     response = sysml_pb2.RunDocumentQueryResponse(
         rows=[sysml_pb2.DocumentQueryRow(
@@ -382,6 +450,20 @@ def garage():
         return f.read()
 
 
+@pytest.fixture(scope="module")
+def garage_objects():
+    """The object fixture's source, stamped so each test gets a model of its
+    own: the service holds the objects it instantiates per model, and the
+    model is its content's hash."""
+    with open(OBJECT_FIXTURE, encoding="utf-8") as f:
+        source = f.read()
+
+    def stamped(tag):
+        return f"{source}\n// {tag}\n"
+
+    return stamped
+
+
 @pytest.mark.integration
 class TestDocumentsAgainstRealService:
     """The answers themselves, from the real engine."""
@@ -411,6 +493,128 @@ class TestDocumentsAgainstRealService:
         assert satisfied.verdict.status == "holds"
         assert satisfied.verdict.verification == ("pass",)
         assert satisfied.element == ElementRef("", "SatisfyRequirementUsage")
+
+    def test_a_query_binds_the_object_instantiate_built_by_id(
+        self, real_service, garage_objects
+    ):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(garage_objects("by id"))
+            car = model.instantiate("Garage::car")
+            result = model.run_document_query(
+                "Garage::Parts", bindings={"root": ObjectRef(id=car.id)}
+            )
+        assert result.columns == ("name", "pressure")
+        # Bound by id, the wheels are reached from "#<id>"; each is an object
+        # of its own, standing for the usage it is held under.
+        assert [str(row.object) for row in result] == [
+            f"#{car.id}.wheels[1]", f"#{car.id}.wheels[2]",
+        ]
+        assert [row.element for row in result] == [
+            ElementRef("Garage::Car::wheels", "PartUsage"),
+            ElementRef("Garage::Car::wheels", "PartUsage"),
+        ]
+        assert len({row.object.id for row in result} | {car.id}) == 3
+        assert [(row[0], row[1]) for row in result] == [
+            (("wheels[1]",), (30,)), (("wheels[2]",), (30,)),
+        ]
+        assert result.rows[0].object.element == ElementRef("Garage::Car::wheels", "PartUsage")
+
+    def test_a_query_binds_the_object_instantiate_built_by_path(
+        self, real_service, garage_objects
+    ):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(garage_objects("by path"))
+            car = model.instantiate("Garage::car")
+            whole = model.run_document_query(
+                "Garage::Drive", bindings={"root": ObjectRef(path="car")}
+            )
+            wheel = model.run_document_query(
+                "Garage::Pressure", bindings={"root": ObjectRef(path="car.wheels[2]")}
+            )
+            both = model.run_document_query(
+                "Garage::Drive", bindings={"root": ObjectRef(id=car.id, path="Garage::car")}
+            )
+        (row,) = whole
+        assert row.object == ObjectRef(car.id, "Garage::car", ElementRef("Garage::car", "PartUsage"))
+        assert row.element == row.object.element
+        assert row[0] == (1200,)
+        assert [str(w) for w in row[1]] == ["Garage::car.wheels[1]", "Garage::car.wheels[2]"]
+        assert {type(value) for value in row[1]} == {ObjectRef}
+        assert {w.element for w in row[1]} == {ElementRef("Garage::Car::wheels", "PartUsage")}
+        (row,) = wheel
+        assert str(row.object) == "Garage::car.wheels[2]"
+        assert row.object.id == whole.rows[0][1][1].id
+        assert row.element == ElementRef("Garage::Car::wheels", "PartUsage")
+        assert (row[0], row[1]) == (("wheels[2]",), (30,))
+        assert both.rows == whole.rows
+
+    def test_objects_enumerates_what_the_model_holds(self, real_service, garage_objects):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(garage_objects("objects"))
+            before = model.run_document_query("Garage::Wheels")
+            model.instantiate("Garage::car")
+            model.instantiate("Garage::spare")
+            after = model.run_document_query("Garage::Wheels")
+        assert before.columns == ("pressure",) and len(before) == 0
+        assert [(str(row.object), row[0]) for row in after] == [
+            ("Garage::spare", (20,)),
+            ("Garage::car.wheels[1]", (30,)),
+            ("Garage::car.wheels[2]", (30,)),
+        ]
+
+    def test_verdicts_over_the_object_instantiate_built(self, real_service, garage_objects):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(garage_objects("verdicts"))
+            model.instantiate("Garage::car")
+            model.instantiate("Garage::spare")
+            car = model.run_document_query(
+                "Garage::Checks", bindings={"root": ObjectRef(path="car")}
+            )
+            spare = model.run_document_query(
+                "Garage::Checks", bindings={"root": ObjectRef(path="spare")}
+            )
+        assert car.columns == ("path", "verdict")
+        assert [(row.verdict.text, row[0], row[1]) for row in car] == [
+            ("assert constraint light", ("Garage::car",), ("holds",)),
+            ("assert constraint inflated", ("Garage::car.wheels[1]",), ("holds",)),
+            ("assert constraint inflated", ("Garage::car.wheels[2]",), ("holds",)),
+        ]
+        assert car.rows[0].element == ElementRef("Garage::Car::light", "ConstraintUsage")
+        (row,) = spare
+        assert row.verdict.status == "violated"
+        assert row.verdict.path == "Garage::spare"
+        assert row.verdict.reason
+
+    def test_an_object_binding_the_model_cannot_reach_is_refused(
+        self, real_service, garage_objects
+    ):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(garage_objects("refused"))
+            with pytest.raises(SymbolNotFoundError, match="holds no objects"):
+                model.run_document_query("Garage::Parts", bindings={"root": ObjectRef(id=1)})
+            model.instantiate("Garage::car")
+            with pytest.raises(SymbolNotFoundError, match="no object #99"):
+                model.run_document_query("Garage::Parts", bindings={"root": ObjectRef(id=99)})
+            with pytest.raises(SymbolNotFoundError, match="no instance of"):
+                model.run_document_query(
+                    "Garage::Parts", bindings={"root": ObjectRef(path="spare")}
+                )
+            with pytest.raises(InvalidRequestError, match="hood"):
+                model.run_document_query(
+                    "Garage::Parts", bindings={"root": ObjectRef(path="car.hood")}
+                )
+            with pytest.raises(InvalidRequestError, match="not an object"):
+                model.run_document_query(
+                    "Garage::Parts", bindings={"root": ObjectRef(path="car.mass")}
+                )
+            with pytest.raises(InvalidRequestError, match="not an object reference"):
+                model.run_document_query(
+                    "Garage::Parts", bindings={"root": ObjectRef(path="car..wheels")}
+                )
+            with pytest.raises(InvalidRequestError, match="is object #"):
+                model.run_document_query(
+                    "Garage::Parts", bindings={"root": ObjectRef(id=99, path="car")}
+                )
 
     def test_a_document_query_answers_typed_ordered_rows(self, real_service, telescope):
         with Connection(port=real_service, auto_start=False) as conn:

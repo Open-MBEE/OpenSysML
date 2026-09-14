@@ -413,7 +413,12 @@ func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, func()) {
 // newRuntimeOver builds a runtime context under the service's budgets on a worker;
 // every explored run gets one of its own.
 func (s *Service) newRuntimeOver(w *analysis.Worker) *runtime.Context {
-	ctx := runtime.NewContext(w.Model, s.budgets.MaxSteps)
+	return s.newRuntimeContext(w.Model)
+}
+
+// newRuntimeContext builds a runtime context over model under the service's budgets.
+func (s *Service) newRuntimeContext(model *runtime.Model) *runtime.Context {
+	ctx := runtime.NewContext(model, s.budgets.MaxSteps)
 	if err := ctx.SetBudgets(s.budgets); err != nil {
 		// Unreachable: NewService validated these budgets.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
@@ -841,16 +846,19 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 	sym := syms[0]
 
-	runtimeCtx, release := s.newRuntime(cached)
-	defer release()
+	// The object outlives the request: a later RunDocumentQuery on the model
+	// binds it by id or by the name it was created under.
+	held := s.objects(cached)
+	defer held.lock()()
+	runtimeCtx := held.rt
 
-	// Instantiate
 	inst, err := runtimeCtx.Instantiate(sym)
 	if err != nil {
 		return &pb.InstantiateResponse{
 			Error: fmt.Sprintf("instantiation failed: %v", err),
 		}, nil
 	}
+	held.hold(sym, inst)
 
 	root, all := s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
 	return &pb.InstantiateResponse{

@@ -964,32 +964,60 @@ the rows and the Markdown are the ones those surfaces produce, in the same
 deterministic order.
 
 `RunDocumentQuery` takes typed parameter bindings — an element by qualified
-name, a string, an integer, a real, a boolean, or a list of these for a
-multi-valued parameter — and answers the projected column names and typed rows:
-each row's element and each cell's values, an element carried as its qualified
-name plus its metamodel type (the `@type` mapping above). `RenderDocument`
-takes no bindings, because a document binds its queries' parameters in the
-model; it answers the rendered CommonMark Markdown, byte-identical to
-`-render-document` on the same model. Both run over the model alone — a
-cached model holds no session objects, so a binding always names an element,
-and a query enumerating `Objects` is refused as `FAILED_PRECONDITION`; the
-objects `%instantiate`/`-instantiate` create are read by `%run-query`,
-`-run-query` and `-render-document` only
+name, an object the service holds, a string, an integer, a real, a boolean, or
+a list of these for a multi-valued parameter — and answers the projected column
+names and typed rows: each row's element and each cell's values, an element
+carried as its qualified name plus its metamodel type (the `@type` mapping
+above), an object as its id, its path and the usage it stands for.
+`RenderDocument` takes no bindings, because a document binds its queries'
+parameters in the model; it answers the rendered CommonMark Markdown,
+byte-identical to `-render-document` on the same model.
+
+Both run over the model's runtime and the objects it holds. `Instantiate`
+creates an object for the model named by hash and the service keeps it, under
+the qualified name it was instantiated as, for as long as the model stays
+cached — the counterpart of the session `%instantiate`/`-instantiate` fill
 ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)).
-A query over `Verdicts` runs, checking each element as declared, and answers
-its rows as verdict values (`DocumentVerdict`): the assertion checked as an
-element value, its kind and text, the path of the object checked, the verdict
-(`holds`, `violated`, `undecided`), the condition found false, the reason, and
-the verdict kinds of the verification cases verifying the requirement. A
-verdict is answered, never bound — a binding carrying one is `INVALID_ARGUMENT`
+A binding names a held object by the id `Instantiate` answered (`instance_id`)
+or by a path (`path`): the usage name (`car`, `Garage::car`), the id (`#2`), or
+a walk through feature values from either (`car.wheels[2]`, `#2.wheels[2]`;
+indexes count from 1), exactly what `%run-query` accepts. Given both, the path
+is followed and must reach the object with that id. Instantiating a name again
+makes the name denote the new object; the earlier one stays held, reached by
+id. A row that is an object is answered as an object (`DocumentObject`) — its
+id, its path and the usage element it stands for — and so is an object-valued
+cell such as `car.engine` or the two entries of `car.wheels`.
+`DocumentQueries::Objects(type = T)` enumerates what the model holds, named
+objects by qualified name then displaced ones by id, and answers no rows before
+the first `Instantiate`; a document rendered after one reports the objects'
+current values rather than their declared defaults.
+
+A query over `Verdicts` runs over the same population — the held object a
+binding names, or the element as declared — and answers its rows as verdict
+values (`DocumentVerdict`): the assertion checked as an element value, its kind
+and text, the path of the object checked, the verdict (`holds`, `violated`,
+`undecided`), the condition found false, the reason, and the verdict kinds of
+the verification cases verifying the requirement. A verdict is answered, never
+bound — a binding carrying one is `INVALID_ARGUMENT`
 ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)).
+
+Go: `opensysml.ObjectByID(id)` and `opensysml.ObjectByPath("car.wheels[2]")`
+bind, and an answered `opensysml.Object` carries `ID`, `Path` and `Element`;
+a row over objects sets `Row.Object`. Python: `ObjectRef(id=2)`,
+`ObjectRef(path="car.wheels[2]")` bind, and an answered `ObjectRef` carries
+`id`, `path` and the usage as `element`; a row over objects sets `row.object`.
 
 Failures keep the engine's message, append the declaring document where the
 failure carries provenance, and map onto status codes by whose fault they are:
-an unknown model or an unknown query/document is `NOT_FOUND`; a symbol of the
-wrong kind, a malformed request, or a wrong binding (unknown, missing,
-mistyped, wrong multiplicity, or naming an element the model does not have) is
-`INVALID_ARGUMENT`; an exhausted visit or invocation budget is
+an unknown model or an unknown query/document is `NOT_FOUND`, as is an object
+binding naming an id or a usage no `Instantiate` created — while the model
+holds no objects at all, the message says so and names the RPC that creates
+one; a symbol of the wrong kind, a malformed request, or a wrong binding
+(unknown, missing, mistyped, wrong multiplicity, naming an element the model
+does not have, an object path that does not reach an object — a namespace, a
+scalar feature, an index out of range — or an object bound with both an id and a
+path that reaches a different object) is `INVALID_ARGUMENT`; an exhausted visit
+or invocation budget is
 `RESOURCE_EXHAUSTED`; an operation the engine does not execute — a fault in the
 model's own definitions rather than in the request — is `FAILED_PRECONDITION`;
 and a request the service lacks the capability for is `UNIMPLEMENTED`, naming

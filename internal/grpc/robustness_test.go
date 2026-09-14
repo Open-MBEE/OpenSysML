@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -237,5 +238,93 @@ func TestGRPCAuthoringRobustness(t *testing.T) {
 		if len(resp.ReferringElements) == 0 {
 			t.Fatal("refusal did not identify referring elements")
 		}
+	})
+}
+
+// TestGRPCObjectBindingRobustness: a document-query binding to an object the
+// service does not hold fails with a typed status naming the parameter, never
+// a panic — nothing held, an unknown id, a path reaching no object.
+func TestGRPCObjectBindingRobustness(t *testing.T) {
+	service := mustNewService(t, 10)
+	hash := parseFixture(t, service, objectFixture)
+
+	run := func(value *pb.DocumentValue) error {
+		_, err := service.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+			ModelHash: hash, QueryId: "Garage::Parts",
+			Bindings: []*pb.DocumentQueryBinding{binding("root", value)},
+		})
+		return err
+	}
+	expect := func(t *testing.T, err error, code connect.Code, texts ...string) {
+		t.Helper()
+		if err == nil {
+			t.Fatalf("got no error, want %v", code)
+		}
+		if connect.CodeOf(err) != code {
+			t.Errorf("code = %v, want %v: %v", connect.CodeOf(err), code, err)
+		}
+		for _, text := range texts {
+			if !strings.Contains(err.Error(), text) {
+				t.Errorf("error %q lacks %q", err.Error(), text)
+			}
+		}
+	}
+
+	t.Run("nothing_held", func(t *testing.T) {
+		expect(t, run(objectByID(1)), connect.CodeNotFound, "binding root", "holds no objects", "Instantiate")
+		expect(t, run(objectByPath("car")), connect.CodeNotFound, "binding root", "holds no objects")
+		expect(t, run(objectByPath("car.wheels[2]")), connect.CodeNotFound, "binding root", "holds no objects")
+	})
+
+	holdObject(t, service, hash, "Garage::car")
+
+	t.Run("unknown_id", func(t *testing.T) {
+		expect(t, run(objectByID(99)), connect.CodeNotFound, "binding root", "no object #99", "#1")
+		expect(t, run(objectByPath("#99")), connect.CodeNotFound, "binding root", "no object #99")
+		expect(t, run(objectByPath("#99.wheels[1]")), connect.CodeNotFound, "binding root", "no object #99")
+		expect(t, run(objectByID(-1)), connect.CodeInvalidArgument, "binding root", "#-1 is not an object id")
+	})
+
+	t.Run("no_reference", func(t *testing.T) {
+		expect(t, run(objectByPath("")), connect.CodeInvalidArgument, "binding root", "instance_id or by path")
+		expect(t, run(objectByPath("car..wheels")), connect.CodeInvalidArgument, "binding root", "not an object reference")
+		expect(t, run(objectByPath("car.wheels[0]")), connect.CodeInvalidArgument, "binding root", "not an object reference", "counted from 1")
+		expect(t, run(objectByPath("Garage.car")), connect.CodeInvalidArgument, "binding root", "Garage is a package, not an object")
+	})
+
+	t.Run("name_not_instantiated", func(t *testing.T) {
+		expect(t, run(objectByPath("spare")), connect.CodeNotFound, "binding root", `no instance of "Garage::spare"`, "Instantiate first")
+		expect(t, run(objectByPath("Garage::spare.pressure")), connect.CodeNotFound, "binding root", `no instance of "Garage::spare"`)
+		expect(t, run(objectByPath("nowhere")), connect.CodeNotFound, "binding root", "symbol not found: nowhere")
+		expect(t, run(objectByPath("Garage::Car")), connect.CodeNotFound, "binding root", `no instance of "Garage::Car"`)
+	})
+
+	t.Run("path_reaches_no_object", func(t *testing.T) {
+		expect(t, run(objectByPath("car.wheels")), connect.CodeInvalidArgument, "binding root", "wheels of Garage::car holds 2 objects", "wheels[1] to wheels[2]")
+		expect(t, run(objectByPath("car.wheels[3]")), connect.CodeInvalidArgument, "binding root", "wheels[3] names none")
+		expect(t, run(objectByPath("car.engine.power")), connect.CodeInvalidArgument, "binding root", "power of Garage::car.engine holds a value (100), not an object")
+		expect(t, run(objectByPath("car.hood")), connect.CodeInvalidArgument, "binding root", `Garage::car has no feature "hood"`, "engine, wheels")
+		expect(t, run(objectByPath("#1.engine.power")), connect.CodeInvalidArgument, "binding root", "power of #1.engine holds a value (100), not an object")
+	})
+
+	t.Run("id_and_path_disagree", func(t *testing.T) {
+		both := &pb.DocumentValue{Kind: &pb.DocumentValue_Object{Object: &pb.DocumentObject{InstanceId: 2, Path: "car"}}}
+		expect(t, run(both), connect.CodeInvalidArgument, "binding root", "Garage::car is object #1, not #2")
+	})
+
+	t.Run("object_bound_to_scalar_parameter", func(t *testing.T) {
+		_, err := service.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+			ModelHash: hash, QueryId: "Garage::Wheels",
+			Bindings: []*pb.DocumentQueryBinding{binding("root", objectByID(1))},
+		})
+		expect(t, err, connect.CodeInvalidArgument, "unknown binding root")
+	})
+
+	t.Run("missing_model", func(t *testing.T) {
+		_, err := service.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+			ModelHash: "nonexistent_hash", QueryId: "Garage::Parts",
+			Bindings: []*pb.DocumentQueryBinding{binding("root", objectByID(1))},
+		})
+		expect(t, err, connect.CodeNotFound, "not found")
 	})
 }

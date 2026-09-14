@@ -10,7 +10,9 @@ package org.openmbee.opensysml.proto;
  * RunDocumentQueryRequest runs a named document query — a calc def
  * specializing DocumentQueries::Query — against a model the service already
  * parsed, binding its entry parameters. It answers as %run-query does, but with
- * typed rows rather than formatted lines.
+ * typed rows rather than formatted lines. The query runs over the objects
+ * Instantiate created for the model, which a binding may name (DocumentObject)
+ * and `DocumentQueries::Objects` and `Verdicts` reach.
  * </pre>
  *
  * Protobuf type {@code sysml.RunDocumentQueryRequest}
@@ -399,7 +401,9 @@ private static final long serialVersionUID = 0L;
    * RunDocumentQueryRequest runs a named document query — a calc def
    * specializing DocumentQueries::Query — against a model the service already
    * parsed, binding its entry parameters. It answers as %run-query does, but with
-   * typed rows rather than formatted lines.
+   * typed rows rather than formatted lines. The query runs over the objects
+   * Instantiate created for the model, which a binding may name (DocumentObject)
+   * and `DocumentQueries::Objects` and `Verdicts` reach.
    * </pre>
    *
    * Protobuf type {@code sysml.RunDocumentQueryRequest}
