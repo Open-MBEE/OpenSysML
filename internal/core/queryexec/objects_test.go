@@ -342,3 +342,73 @@ func TestExecuteRefusesObjectRowsWhereTheModelIsRead(t *testing.T) {
 		t.Fatalf("declared descendants = %v", got)
 	}
 }
+
+// A quoted name may hold the very characters that separate a label's segments,
+// so a label is cut at a separator outside its quotes, escapes included.
+func TestSplitLabelHonoursQuotedNames(t *testing.T) {
+	for _, tc := range []struct {
+		label, before, sep, segment string
+	}{
+		{"car", "", "", "car"},
+		{"#7", "", "", "#7"},
+		{"Demo::car", "Demo", "::", "car"},
+		{"Demo::car.wheels[2]", "Demo::car", ".", "wheels[2]"},
+		{"car.'front.left'", "car", ".", "'front.left'"},
+		{"car.'a::b'[3]", "car", ".", "'a::b'[3]"},
+		{"'Demo.Cars'::car", "'Demo.Cars'", "::", "car"},
+		{"'it\\'s'.wheel", "'it\\'s'", ".", "wheel"},
+		{"'back\\\\slash.x'", "", "", "'back\\\\slash.x'"},
+		{"'front.left'", "", "", "'front.left'"},
+	} {
+		before, sep, segment := splitLabel(tc.label)
+		if before != tc.before || sep != tc.sep || segment != tc.segment {
+			t.Errorf("splitLabel(%q) = %q %q %q, want %q %q %q",
+				tc.label, before, sep, segment, tc.before, tc.sep, tc.segment)
+		}
+		if got := lastSegment(tc.label); got != tc.segment {
+			t.Errorf("lastSegment(%q) = %q, want %q", tc.label, got, tc.segment)
+		}
+	}
+}
+
+// An object held under a quoted name is named and owned as the label spells
+// it: the quotes, not the punctuation inside them, decide where a segment ends.
+func TestExecuteNamesObjectsHeldUnderQuotedNames(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part def Wheel { attribute pressure : Integer default 30; }
+part def Car { part 'front.left' : Wheel; part 'rear::right' : Wheel; }
+part 'my.car' : Car;
+`+objectQueries)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	car, err := ctx.Instantiate(fixture.symbol(t, "my.car"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	context := Context{
+		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+		Roots: []Root{{Label: "'my.car'", Object: car}},
+	}
+	direct, err := Execute(fixture.program(t, "Direct"), context, Bindings{"root": {ObjectValue(car, "'my.car'")}}, Options{})
+	if err != nil {
+		t.Fatalf("execute Direct: %v", err)
+	}
+	if got := cellTexts(t, direct, 0); strings.Join(got, ",") != "'front.left','rear::right'" {
+		t.Fatalf("owned names = %v", got)
+	}
+	if got := cellTexts(t, direct, 1); strings.Join(got, ",") != "'my.car','my.car'" {
+		t.Fatalf("owners = %v, want 'my.car'", got)
+	}
+
+	held, err := ctx.HeldObjects(car)
+	if err != nil {
+		t.Fatalf("held objects: %v", err)
+	}
+	up, err := Execute(fixture.program(t, "Up"), context,
+		Bindings{"root": {ObjectValue(held[0].Instance, "'my.car'.'front.left'")}}, Options{})
+	if err != nil {
+		t.Fatalf("execute Up: %v", err)
+	}
+	if got := cellTexts(t, up, 0); strings.Join(got, ",") != "'my.car'" {
+		t.Fatalf("ancestors = %v, want 'my.car'", got)
+	}
+}

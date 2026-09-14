@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
 // documentModel declares a document over the query model's part tree, so
@@ -276,4 +278,19 @@ func TestRenderDocumentOverObjects(t *testing.T) {
 		2, "decides nothing about the model")
 	wantReport(t, check(t, binary, objectDocumentModel, "-instantiate", "Garage::NoSuchPart", "-render-document", "Reports::CarReport"),
 		2, "NoSuchPart")
+}
+
+// TestRenderDocumentOverObjectsUnderRunBounds checks that the run bounds the
+// environment sets are read before -instantiate materializes anything: a bad
+// value is refused at startup, and a small one bounds the object made.
+func TestRenderDocumentOverObjectsUnderRunBounds(t *testing.T) {
+	binary := buildCLI(t)
+	render := []string{"-instantiate", "Garage::car", "-render-document", "Reports::CarReport"}
+
+	wantReport(t, checkEnv(t, binary, objectDocumentModel, []string{runtime.MaxStepsEnvVar + "=none"}, render...),
+		2, "OPENSYSML_MAX_STEPS=\"none\" is not an integer")
+	wantReport(t, checkEnv(t, binary, objectDocumentModel, []string{runtime.MaxElementsEnvVar + "=1"}, render...),
+		2, "collection element limit exceeded")
+	wantReport(t, checkEnv(t, binary, objectDocumentModel, []string{runtime.MaxElementsEnvVar + "=1"}, "-render-document", "Reports::CarReport"),
+		0, "# Car Report")
 }

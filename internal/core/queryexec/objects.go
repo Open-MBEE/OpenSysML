@@ -3,7 +3,6 @@ package queryexec
 import (
 	"errors"
 	"strconv"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/query"
@@ -162,8 +161,8 @@ func (e *executor) objectOwner(row Value) (Value, bool) {
 // ownerLabel derives an owner's label from its held object's: the label up to
 // the last `.`, or the owner's identity when the label starts at the object.
 func ownerLabel(label string, owner *runtime.Instance) string {
-	if i := strings.LastIndex(label, "."); i > 0 {
-		return label[:i]
+	if held, sep, _ := splitLabel(label); sep == "." && held != "" {
+		return held
 	}
 	return "#" + strconv.FormatInt(owner.ID, 10)
 }
@@ -171,13 +170,35 @@ func ownerLabel(label string, owner *runtime.Instance) string {
 // lastSegment returns the segment an object row is named by within its owner:
 // `wheels[2]` of `Demo::car.wheels[2]`, `car` of `Demo::car`.
 func lastSegment(label string) string {
-	if i := strings.LastIndex(label, "."); i >= 0 {
-		return label[i+1:]
+	_, _, segment := splitLabel(label)
+	return segment
+}
+
+// splitLabel cuts an object label at its last `.` or `::` outside a quoted name,
+// whose text may hold either: the part before, the separator (empty for none), the rest.
+func splitLabel(label string) (before, sep, segment string) {
+	last, width := -1, 0
+	for i := 0; i < len(label); i++ {
+		switch label[i] {
+		case '\'':
+			for i++; i < len(label) && label[i] != '\''; i++ {
+				if label[i] == '\\' {
+					i++
+				}
+			}
+		case '.':
+			last, width = i, 1
+		case ':':
+			if i+1 < len(label) && label[i+1] == ':' {
+				last, width = i, 2
+				i++
+			}
+		}
 	}
-	if i := strings.LastIndex(label, "::"); i >= 0 {
-		return label[i+2:]
+	if last < 0 {
+		return "", "", label
 	}
-	return label
+	return label[:last], label[last : last+width], label[last+width:]
 }
 
 // objectPropertyValues reads a property of an object row: identity, naming and
