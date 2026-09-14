@@ -3,9 +3,10 @@
 Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release/0.8.0`,
 2026-09-13), verified locally with Go 1.25.0. It is the newest tag on `Open-MBEE/OpenSysML`, after
 `v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch
-`develop` carries one pull request past the tag, #278, and nothing else is counted ahead of it:
-every status below is what the tag carries, an item #278 moved says so, and the pull requests open
-against `develop` at this baseline are named where they touch a roadmap item.
+`develop` carries six pull requests past the tag (#278, #263, #267, #281, #282, #285) and
+nothing else is counted ahead of it: every status below is what the tag carries unless the text
+names one of those six as having moved it, and the pull requests open against `develop` at this
+baseline are named where they touch a roadmap item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
@@ -20,8 +21,9 @@ Read `AGENTS.md` first; it governs everything below.
 > modeled elements to external data and services, and `M` the embedded target. Each is stated in
 > full where it is introduced, and a reader who wants only the gap can ignore the label.
 >
-> **Status words.** *Landed* means in the tag named above, so a landed item is released; where
-> #278 alone moved an item, the text says so. *Open* names a pull request against `develop` that
+> **Status words.** *Landed* means in the tag named above, so a landed item is released; where a
+> pull request merged to `develop` after the tag moved an item, the text names it and the item is
+> landed but unreleased. *Open* names a pull request against `develop` that
 > exists and is not merged; *conflicts* means it no longer merges cleanly onto `develop` and
 > needs a rebase before review. *In progress* means the work is being implemented and has no
 > pull request yet. *Not started* means exactly that. A status is taken from the pull request
@@ -36,10 +38,11 @@ tag points at the same commit; at this baseline PyPI still serves `opensysml` 0.
 `release-python` workflow having failed twice in `Go coverage profile` and been rerun (the
 procedure and its post-tag checks are in `docs/project/releasing.md`).
 `CHANGELOG.md`'s **0.8.0** section is the tag's content (#268 and #277 folded it), its **0.7.0**
-section is `v0.7.0`'s (#145, #154, #159), and `changes/unreleased/` on `develop` holds #278's
-fragment alone once #286 carries the fold back. Since `v0.7.0` the repository works git-flow:
-`develop` is the integration branch, `main` receives only `release/x.y.z` and `hotfix/` pull
-requests (#151), and the roadmap's baseline is therefore the tag rather than `main`'s head.
+section is `v0.7.0`'s (#145, #154, #159), and `changes/unreleased/` on `develop` holds the
+fragments of the six pull requests merged after the tag alone once #286 carries the fold back.
+Since `v0.7.0` the repository works git-flow: `develop` is the integration branch, `main`
+receives only `release/x.y.z` and `hotfix/` pull requests (#151), and the roadmap's baseline is
+therefore the tag rather than `main`'s head.
 Everything in "Release follow-through" is maintainer- or account-gated; everything after it is
 ordinary engineering work.
 
@@ -102,9 +105,8 @@ request deliberately leaves.
   the repository's agent skills were extended (#128, #129, #137, #144, #152).
 
 **What closed between `v0.7.0` and `v0.8.0`** — 113 merged pull requests (#162–#279, less #216
-and #232, which were closed unmerged, #263 and #267, which are still open, and #278, which is
-past the tag), in
-`CHANGELOG.md`'s 0.8.0 section for the detail, grouped as the paragraph above is.
+and #232, which were closed unmerged, and #263, #267 and #278, which merged to `develop` after the
+tag), in `CHANGELOG.md`'s 0.8.0 section for the detail, grouped as the paragraph above is.
 
 - *Analysis framework and engines.* Every analysis question goes through one framework
   (`internal/core/analysis`, #172, #162): each plan runs on a resolver and semantic model of its own
@@ -1607,7 +1609,7 @@ keeps refusing `all`, a compiled program having no run whose extent it could rep
 named-reducer half landed earlier: `->reduce '+'` and the other named spellings resolve to the
 library function by name through L4's dispatch (`runtime/collections.go` `builtinControlReduce`;
 conformance `calc_library_complex_sum_real_axis` exercises the Real-axis case). The `extent_*`
-conformance cases pin the operator; what remains of a runtime population is Q2's query side.
+conformance cases pin the operator; the query side of a runtime population is Q2's (#267).
 
 ## X6 — function values (landed)
 
@@ -1685,12 +1687,12 @@ Four query surfaces exist and are landed: the standard API `Query` over a projec
 (`internal/grpc`, the OSLC query grammar with its diagnostics — #798, #812), the native document
 query (`query def` with parameters, planned by `internal/core/queryplan` and run by
 `internal/core/queryexec`, from the CLI, the REPL and gRPC), `Evaluate`/`-eval`/`%eval in`, and the
-solver's `solve`. Three of the four read the *model* alone: its elements, its declarations and
-the expressions over them. `Evaluate`/`-eval`/`%eval in` reaches the runtime since 0.8.0 — `all
-T` enumerates the objects a run holds (X5) and `%eval in #1` reads an object's current values —
-but the document query, the API `Query` and `solve` do not reach the objects `%instantiate` and
-`-instantiate` create, their current state, or the trace `-trace` prints, and the documentation
-does not yet say which surface answers which question. That is the track.
+solver's `solve`. Two of the four reach the runtime: `Evaluate`/`-eval`/`%eval in` since 0.8.0 —
+`all T` enumerates the objects a run holds (X5) and `%eval in #1` reads an object's current values
+— and the document query since #267 on `develop`, whose rows may be the objects `%instantiate` and
+`-instantiate` create and whose operations read what they hold now. The API `Query` and `solve`
+read the *model* alone, no surface reaches the trace `-trace` prints, and the documentation does
+not yet say which surface answers which question. That is the rest of the track.
 
 ## Q1 — say which query is which
 
@@ -1699,21 +1701,27 @@ One page distinguishing the four: document queries over elements, the API `Query
 each cannot see, and where runtime queries (Q2–Q4) will sit. Cheap, and it stops each later item
 from re-explaining the boundary. Not started.
 
-## Q2 — a runtime population: `all T`, and predicates over instances (expression half landed)
+## Q2 — a runtime population: `all T`, and predicates over instances (landed, unreleased in part)
 
 `all Vehicle` (every object typed by `Vehicle` in the session), and the collection operations over
 it — `all Vehicle->select { in v; v.mass > 1000 [kg] }` — are the expression form of a runtime
-query, and that half **landed** with X5 (#211, #238, #239): the extent is a value, statically
-`T[0..*]`, the collection operations run over it, and it is taken over the whole loaded model.
-What is missing is the query side: a document query (`query def`) whose rows are the objects a
-session holds rather than the elements of the model, so a rendered document can report the
-current values of `car.wheels[2]` and not its declared default, and the REPL/CLI/gRPC binding
-that hands a session's objects to `%run-query`, `-run-query` and `-render-document`. #267, open
-against `develop` at this baseline, is that work: one row vocabulary polymorphic over elements
-and objects (`queryexec.ValueObject`, a `Context.Runtime` and `Roots`), with `OwnedElements`,
-`Descendants`, `WhereType`, `WhereFeature`, `Project` and `OrderBy` accepting object rows. Its
-companion #263 validates an object as a whole (A7) and shares the carrier walk. Q2 closes when
-#267 lands and the row in `spec-compliance.md` says so.
+query, and that half **landed** with X5 (#211, #238, #239) in the tag: the extent is a value,
+statically `T[0..*]`, the collection operations run over it, and it is taken over the whole loaded
+model. The query side **landed** in #267, on `develop` after the tag: a document query's rows may
+be the objects a session holds (`queryexec.ValueObject`, a `*runtime.Instance` under the path the
+session reaches it by), every operation that takes an element row takes an object row and reads
+what it holds now — `OwnedElements`/`Descendants`/`Ancestors` walk the objects held and holding,
+`WhereType` tests the object's types, `WhereName` its path, `WhereFeature`/`Project`/`OrderBy`/
+`Column` its current values — `DocumentQueries::Objects(type = T)` is the population as a query
+operation, refused outside a session, `%run-query`/`-run-query` bind a parameter to the object held
+under a usage's name, to `#id` or to a path (`car.wheels[2]`), `-instantiate` is accepted beside
+`-render-document` so a document reports `car.wheels[2]`'s current value and not its declared
+default, and objects render by path in Markdown, HTML (`span.sysml-object`, `data-object`) and PDF.
+`RelatedElements` stays over elements and refuses an object row. Its companion #263 validates an
+object as a whole (A7) over the same carrier walk. What it leaves: the gRPC binding of a held
+object as a query parameter, and a `Verdicts` operation projecting the assertion, its carrier and
+the verdict A7 reaches, which is what "which requirements does *this* car violate" needs in a
+document. The rows in `spec-compliance.md` say so.
 
 ## Q3 — state and event queries
 
@@ -1725,8 +1733,8 @@ filter forms as Q2, so the trace stops being something one reads by eye. Its pre
 trace side is met: A5 landed (#136), so the clock Q3 reads is `Context.Clock()`, shared by every
 executor in a context, and the trace now carries `choice` lines (S2) and `due order` draws that a
 query over it would need to see; the representation Q3 would read is the one at the tag, not one
-in flight. "Which objects are in `run`" has its population (X5); the query side waits on Q2's
-object rows (#267). Unblocked on the A5 side; not started.
+in flight. "Which objects are in `run`" has its population (X5) and its object rows (Q2, #267).
+Unblocked; not started.
 
 ## Q4 — document-query parameter defaults evaluate (done)
 
@@ -1753,9 +1761,9 @@ calcs, constraints, requirements, actions, state machines and, since 0.6.0, an *
 expect from "SysML v2 execution" hangs off that keystone, and `v0.7.0` shipped four of the five:
 verification verdicts (A6, #117), parameter sweeps (A3, #118), the trade study (A2, #133) and the
 shared clock (A5, #136). What is open in the track is A4, the state-space runner, which A5
-unblocked and which is not started, and A7, one verdict for every assertion an object carries,
-which #263 implements against `develop`. Every item below is self-assessed (the pilot executes
-none of this), and no surface
+unblocked and which is not started; A7, one verdict for every assertion an object carries, landed
+in #263 on `develop` after the tag. Every item below is self-assessed (the pilot executes none of
+this), and no surface
 claims to integrate a `StateSpaceRepresentation` or to validate an object as a whole.
 
 ## A1 — an analysis case runs (landed)
@@ -1881,7 +1889,24 @@ unchanged. Over gRPC the verdicts are `verification_verdicts` fields under the
 `Verifications`/`verifications`. What it leaves, by design: a case performed as a step of another
 is reported on its own, marked as a subcase, since the library states no roll-up.
 
-## A7 — an object validates as a whole: every assertion it carries, in one verdict
+## A7 — an object validates as a whole: every assertion it carries, in one verdict (landed, unreleased)
+
+**Landed** in #263, on `develop` after the tag, as written below. `runtime.Context.ValidateObject`
+walks an object's part tree — the composite features `Instantiate` materialized, collections
+included, one-based paths such as `wheels[2]` — and reports one `ObjectVerdict` per (assertion,
+carrier): the asserted constraints and invariants the carrier's type declares or inherits, the
+requirement usages it carries and the `satisfy` assertions whose subject it is, each `holds`,
+`violated` or `undecided` with the reason, then one verdict about the object itself, `valid` only
+when every line holds *and* the walk was complete — a tree cut at the depth bound, a value that
+could not be read, or an object no assertion is about leaves it not shown valid. Surfaces:
+`-validate=<object>` (bare `-validate` keeps its meaning), `%validate <object>`, the
+`ValidateInstance` RPC under the `verification` capability with `Verdict.instance_path` and a
+`summary` verdict of kind `object`, and `ValidateInstance`/`validate_instance` in the Go and Python
+clients. The evidence is the `instance_validate_*` conformance fixtures: three depths and a
+collection part, a violated nested assertion, a same-type pair disambiguated by carrier, a
+`satisfy` whose subject is a nested part, an undecidable condition, a shared object, an optional
+recursion and a bounded walk. The rows in `spec-compliance.md` say so. The text below is the
+design as it stood before the work began.
 
 An object is checked today one assertion at a time. `-instantiate car -constraint C`,
 `%constraint C`, `%requirement R`, `%satisfy` and the `VerifyConstraint`/`VerifyRequirement`/
@@ -1920,10 +1945,8 @@ any of this, so the evidence is the conformance fixtures: one object with assert
 three depths and a collection part, a violated nested assertion, an ambiguous-by-name pair that
 this sweep disambiguates by carrier, and a `satisfy` whose subject is a nested part. Depends on
 nothing open; the population `all T` from X5 lets the same sweep run over every object of a
-type rather than one tree, and it should share Q2's carrier walk rather than add one. #263, open
-against `develop` at this baseline, is this item as written — `Context.ValidateObject`, one
-`ObjectVerdict` per assertion per carrier with its path, `-validate=<object>`, `%validate` and
-`ValidateInstance` — and A7 closes when it lands.
+type rather than one tree, and it should share Q2's carrier walk rather than add one — which is
+what #263 did, and #267 (Q2's query side) shares the walk.
 
 ---
 
@@ -2331,9 +2354,9 @@ Two orders, because there are two kinds of item. The **track-local** orders say 
 inside a track; the **cross-cutting** order says which tracks' first items go first when a session
 must choose. The order agreed at the `v0.6.0` baseline had F and S first and A6/X6/A2 second, and
 owed X2's chain-read half; all of it landed and `v0.7.0` and `v0.8.0` shipped it, so both orders
-below are rewritten again around what remains. Three pull requests open against `develop` at this
-baseline move a roadmap item and are named where they do: #267 (Q2's query side), #263 (A7) and
-#286 (the release fold-back).
+below are rewritten again around what remains. Two pull requests merged to `develop` after the
+tag move a roadmap item and are named where they do: #267 (Q2's query side) and #263 (A7); one is
+open, #286 (the release fold-back).
 
 ## What `v0.7.0` and `v0.8.0` released
 
@@ -2347,7 +2370,10 @@ carried more than that list. By track, with the pull requests the tracks cite:
 - **Track X** — landed: X2 in full (#164 closed the chain-read half), X3 (#115), X4 (#113), X5
   (#211, #238, #239), X6 (#122), X7's values (#121), X8's typing (#112); the `meta` cast (#212)
   and static expression typing landed beside them.
-- **Track A** — landed: A6 (#117), A3 (#118), A2 (#133), A5 (#136).
+- **Track A** — landed: A6 (#117), A3 (#118), A2 (#133), A5 (#136); A7 (#263) is on `develop`
+  after the tag.
+- **Track Q** — landed: Q4 (#849), Q2's expression half (X5); Q2's query side (#267) is on
+  `develop` after the tag.
 - **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both.
 - **Track E** — E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
   itself is open.
@@ -2364,8 +2390,9 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   all run; the measured per-library table in `spec-compliance.md` is not started.
 - **Track E** — eligible: E1, E2, E4 in that order, then E6 on request, E3/E5 behind their design
   records, E7 behind its object-model item, E8 behind a model that needs it.
-- **Track Q** — Q2's query side (#267 open); Q1 with it; Q3, unblocked by A5, behind Q2.
-- **Track A** — A4, the state-space runner, unblocked by A5 and not started; A7 (#263 open).
+- **Track Q** — Q2's remainder (the gRPC object binding and the `Verdicts` operation); Q1; Q3,
+  unblocked by A5 and by Q2's object rows, not started.
+- **Track A** — A4, the state-space runner, unblocked by A5 and not started.
 - **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
   halves (pilot-differential numeric normalization with an adjudication file, and a standalone
   RDF expression-tree round trip).
@@ -2389,10 +2416,11 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
    releases shipped them, so the condition the previous baseline set is met; the loops E edits
    carry A5's clock and S2's choice points, and every E item is written against a named scheduling
    policy.
-4. **Q2's query side, then Q1, then Q3** — #267 lands the object-row query and its REPL/CLI/gRPC
-   bindings, closing Q2; Q1 is the page that says which query is which, written once the set is
-   complete; Q3 (state and event queries) follows on A5's clock. A7 (#263) runs beside this step
-   and shares Q2's carrier walk; Q4 (#849) landed independently ahead of it.
+4. **Q2's remainder, then Q1, then Q3** — #267 landed the object-row query and its REPL/CLI
+   bindings on `develop`; what closes Q2 is the gRPC binding of a held object as a query parameter
+   and the `Verdicts` operation over A7's report (#263, landed beside it). Q1 is the page that says
+   which query is which, written once the set is complete; Q3 (state and event queries) follows on
+   A5's clock and Q2's object rows. Q4 (#849) landed independently ahead of it.
 5. **A4** — the continuous-time runner (Euler/RK4, zero-crossing) on A5's clock; the last open
    Track A item, and the one `StateSpaceRepresentation` in L7's libraries waits on.
 6. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
@@ -2461,10 +2489,11 @@ and Track W's remaining writer and rasterization work.
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is
   measured; X7's RDF literal form and native layout for sets and tensors last, when something
   needs them — step 8 above.
-- **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A4 is step 5 above; A7 is #263,
-  open against `develop`, and its carrier walk is what Q2's query side (#267) shares.
-- **Track Q.** Q4 is done; Q2's expression half landed with X5; the query side is #267 — step 4
-  above — with Q1 and then Q3 behind it.
+- **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A7 landed in #263 on `develop`
+  after the tag, its carrier walk shared with Q2's query side (#267); A4 is step 5 above.
+- **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267 on
+  `develop` after the tag; what is left of Q2 (the gRPC object binding, the `Verdicts` operation)
+  is step 4 above, with Q1 and then Q3 behind it.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
   reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
   negative case first, each change moving its row.
