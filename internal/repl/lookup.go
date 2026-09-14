@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -310,30 +308,30 @@ func (s *Session) rootCarriers() []carrier {
 func carrierLess(a, b string) bool {
 	aRef, bRef := parseLabel(a), parseLabel(b)
 	switch {
-	case (aRef.id > 0) != (bRef.id > 0):
-		return aRef.id == 0
-	case aRef.id != bRef.id:
-		return aRef.id < bRef.id
+	case (aRef.ID > 0) != (bRef.ID > 0):
+		return aRef.ID == 0
+	case aRef.ID != bRef.ID:
+		return aRef.ID < bRef.ID
 	}
-	for i := 0; i < len(aRef.segments) && i < len(bRef.segments); i++ {
-		aSeg, bSeg := aRef.segments[i], bRef.segments[i]
-		if aSeg.name != bSeg.name {
-			return aSeg.name < bSeg.name
+	for i := 0; i < len(aRef.Segments) && i < len(bRef.Segments); i++ {
+		aSeg, bSeg := aRef.Segments[i], bRef.Segments[i]
+		if aSeg.Name != bSeg.Name {
+			return aSeg.Name < bSeg.Name
 		}
-		if aSeg.index != bSeg.index {
-			return aSeg.index < bSeg.index
+		if aSeg.Index != bSeg.Index {
+			return aSeg.Index < bSeg.Index
 		}
 	}
-	return len(aRef.segments) < len(bRef.segments)
+	return len(aRef.Segments) < len(bRef.Segments)
 }
 
 // parseLabel reads a label back as the reference it spells. A label is built
 // from names the notation quotes as needed, so it always reads; text that does
 // not is one nameless segment, ordered by its spelling.
 func parseLabel(label string) objectRef {
-	ref, err := parseObjectRef(label)
+	ref, err := objref.Parse(label)
 	if err != nil {
-		return objectRef{text: label, segments: []objectSegment{{text: label, name: label}}}
+		return objectRef{Text: label, Segments: []objectSegment{{Text: label, Name: label}}}
 	}
 	return ref
 }
@@ -464,7 +462,7 @@ func nestedObjects(ctx *runtime.Context, of carrier, read func(string) (*runtime
 			reach(fv.Value, lexer.NameText(name), false)
 			continue
 		}
-		for i, val := range collectionElements(fv.Values) {
+		for i, val := range objref.CollectionElements(fv.Values) {
 			reach(val, fmt.Sprintf("%s[%d]", lexer.NameText(name), i+1), true)
 		}
 	}
@@ -523,7 +521,7 @@ func (s *Session) walkFeatureValues(inst *runtime.Instance, label string, names 
 	if err != nil {
 		return nil, ""
 	}
-	inst, label, err = s.walkObjectPath(ctx, inst, label, pathSegments(names))
+	inst, label, err = s.walker(ctx).Walk(inst, label, pathSegments(names))
 	if err != nil {
 		return nil, ""
 	}
@@ -534,7 +532,7 @@ func (s *Session) walkFeatureValues(inst *runtime.Instance, label string, names 
 func pathSegments(names []string) []objectSegment {
 	path := make([]objectSegment, 0, len(names))
 	for _, name := range names {
-		path = append(path, objectSegment{text: lexer.NameText(name), name: name})
+		path = append(path, objectSegment{Text: lexer.NameText(name), Name: name})
 	}
 	return path
 }
@@ -557,36 +555,6 @@ func pathSegments(names []string) []objectSegment {
 // is only ever a feature, so no declaration can capture it — and one a name
 // alone cannot forge: an object named '#3' or a feature named 'wheels[2]' is
 // quoted, where a generated id or index is not.
-
-// objectSegment is one segment of an object reference.
-type objectSegment struct {
-	text   string // as typed, quotes kept, so a lookup reads the notation
-	name   string // the declaration or feature it names
-	dotted bool   // written after a `.` rather than `::`
-	index  int    // 1-based element of a multi-valued feature, 0 for none
-}
-
-// objectRef is a parsed object reference.
-type objectRef struct {
-	text     string
-	id       int64 // the root object's id, 0 when the root is a declared name
-	segments []objectSegment
-}
-
-// ObjectRefError reports text that is no object reference at all.
-type ObjectRefError struct {
-	Ref    string
-	Detail string
-	// Named is the `::`-joined run of names read before a character no unquoted
-	// name holds stopped the text: `T::SA` in `T::SA-506`.
-	Named string
-	// Hint is what Named may have meant, appended to the report.
-	Hint string
-}
-
-func (e *ObjectRefError) Error() string {
-	return fmt.Sprintf("%q is not an object reference: %s%s", e.Ref, e.Detail, e.Hint)
-}
 
 // UnknownObjectIDError reports an id no object of the session has, with the
 // ids that do exist so the reader can pick one.
@@ -714,7 +682,7 @@ func (s *Session) notInstantiated(sym *symbols.Symbol, fqn string) error {
 	s.walkHeldObjects(ctx, func(cur carrier) bool {
 		if carriesDeclaration(model, cur.inst.Type, definition.Decl) {
 			related := RelatedObject{ID: cur.inst.ID}
-			if !isObjectID(cur.name) {
+			if !objref.IsID(cur.name) {
 				related.Label = cur.name
 			}
 			e.Objects = append(e.Objects, related)
@@ -724,211 +692,20 @@ func (s *Session) notInstantiated(sym *symbols.Symbol, fqn string) error {
 	return e
 }
 
-// ObjectPathError reports a segment of an object reference that names no object
-// of the one before it: Object is that object as the REPL reports it, Segment
-// the offending segment as typed.
-type ObjectPathError struct {
-	Object  string
-	Segment string
-	Detail  string
-	// Err is what kept the segment's feature value from materializing, nil when
-	// the segment reached a value that is no object or no feature at all.
-	Err error
-}
-
-func (e *ObjectPathError) Error() string {
-	return e.Detail
-}
-
-func (e *ObjectPathError) Unwrap() error { return e.Err }
-
-// pathError builds an ObjectPathError about seg read from the object labelled object.
-func pathError(object string, seg objectSegment, format string, args ...any) *ObjectPathError {
-	return &ObjectPathError{Object: object, Segment: seg.text, Detail: fmt.Sprintf(format, args...)}
-}
-
-// isObjectID reports whether text is an id alone, `#` followed by digits.
-func isObjectID(text string) bool {
-	return len(text) > 1 && text[0] == '#' && leadingDigits(text[1:]) == text[1:]
-}
-
-// leadingDigits returns the run of ASCII digits text starts with.
-func leadingDigits(text string) string {
-	i := 0
-	for i < len(text) && text[i] >= '0' && text[i] <= '9' {
-		i++
-	}
-	return text[:i]
-}
-
-// looksLikeObjectPath reports whether text can only be an object reference — it
-// starts with an id or walks a feature with `.` or an index — so a failure to
-// resolve it is reported as such rather than tried as a declaration's name.
-func looksLikeObjectPath(text string) bool {
-	if strings.HasPrefix(text, "#") {
-		return true
-	}
-	inName, escaped := false, false
-	for _, r := range text {
-		switch {
-		case escaped:
-			escaped = false
-		case r == '\\':
-			escaped = true
-		case r == '\'':
-			inName = !inName
-		case !inName && (r == '.' || r == '['):
-			return true
-		}
-	}
-	return false
-}
-
-// parseObjectRef reads an object reference, reporting what makes text none.
-func parseObjectRef(text string) (objectRef, error) {
-	ref := objectRef{text: text}
-	rest := text
-	if rest == "" {
-		return ref, &ObjectRefError{Ref: text, Detail: "nothing was named"}
-	}
-	if strings.HasPrefix(rest, "#") {
-		digits := leadingDigits(rest[1:])
-		if digits == "" {
-			return ref, &ObjectRefError{Ref: text, Detail: "an object id is written #<id>, with the number %instantiate printed"}
-		}
-		id, err := strconv.ParseInt(digits, 10, 64)
-		if err != nil || id <= 0 {
-			return ref, &ObjectRefError{Ref: text, Detail: fmt.Sprintf("#%s is not an object id (ids count up from 1)", digits)}
-		}
-		ref.id = id
-		rest = rest[1+len(digits):]
-		if rest == "" {
-			return ref, nil
-		}
-		var ok bool
-		if _, rest, ok = cutSeparator(rest); !ok {
-			return ref, &ObjectRefError{Ref: text, Detail: fmt.Sprintf("a feature of #%d is written after . or ::, not %q", id, rest)}
-		}
-	}
-	dotted := false
-	for {
-		seg, after, err := scanObjectSegment(text, rest)
-		if err != nil {
-			return ref, err
-		}
-		seg.dotted = dotted
-		if len(ref.segments) == 0 && ref.id == 0 && seg.index > 0 {
-			return ref, &ObjectRefError{Ref: text, Detail: fmt.Sprintf("%s takes no index: an index picks an element of a multi-valued feature", seg.text)}
-		}
-		ref.segments = append(ref.segments, seg)
-		if after == "" {
-			return ref, nil
-		}
-		sep, next, ok := cutSeparator(after)
-		if !ok {
-			err := &ObjectRefError{Ref: text, Detail: fmt.Sprintf("%q cannot follow %s: segments are separated by . or ::", after, seg.text)}
-			if ref.id == 0 {
-				err.Named = declaredRun(ref.segments)
-			}
-			return ref, err
-		}
-		if next == "" {
-			return ref, &ObjectRefError{Ref: text, Detail: fmt.Sprintf("it ends in %q with no feature after it", sep)}
-		}
-		rest, dotted = next, sep == "."
-	}
-}
-
-// declaredRun is the `::`-joined registered names of segments that may all name
-// a declaration — none reached through `.` or an index — or "" when one is not.
-func declaredRun(segments []objectSegment) string {
-	names := make([]string, len(segments))
-	for i, seg := range segments {
-		if seg.dotted || seg.index > 0 {
-			return ""
-		}
-		names[i] = seg.name
-	}
-	return strings.Join(names, "::")
-}
-
-// cutSeparator splits the segment separator text starts with from what follows.
-func cutSeparator(text string) (sep, rest string, ok bool) {
-	switch {
-	case strings.HasPrefix(text, "::"):
-		return "::", text[2:], true
-	case strings.HasPrefix(text, "."):
-		return ".", text[1:], true
-	}
-	return "", text, false
-}
-
-// scanObjectSegment reads one segment — a name, quoted or not, and an optional
-// index — from the front of rest; ref is the whole reference, for reporting.
-func scanObjectSegment(ref, rest string) (objectSegment, string, error) {
-	var seg objectSegment
-	end := 0
-	if strings.HasPrefix(rest, "'") {
-		escaped := false
-		for i, r := range rest[1:] {
-			if escaped {
-				escaped = false
-				continue
-			}
-			switch r {
-			case '\\':
-				escaped = true
-			case '\'':
-				end = i + 2
-			}
-			if end > 0 {
-				break
-			}
-		}
-		if end == 0 {
-			return seg, "", &ObjectRefError{Ref: ref, Detail: fmt.Sprintf("the quoted name %s is not closed", rest)}
-		}
-		plain, ok := plainName(rest[:end])
-		if !ok {
-			return seg, "", &ObjectRefError{Ref: ref, Detail: fmt.Sprintf("%s is not a name", rest[:end])}
-		}
-		seg.text, seg.name = rest[:end], plain
-	} else {
-		for end < len(rest) {
-			r, size := utf8.DecodeRuneInString(rest[end:])
-			if r != '_' && !unicode.IsLetter(r) && !unicode.IsDigit(r) {
-				break
-			}
-			end += size
-		}
-		if end == 0 {
-			return seg, "", &ObjectRefError{Ref: ref, Detail: fmt.Sprintf("a name was expected at %q", rest)}
-		}
-		seg.text, seg.name = rest[:end], rest[:end]
-	}
-	rest = rest[end:]
-	if !strings.HasPrefix(rest, "[") {
-		return seg, rest, nil
-	}
-	closeAt := strings.IndexByte(rest, ']')
-	if closeAt < 0 {
-		return seg, "", &ObjectRefError{Ref: ref, Detail: fmt.Sprintf("the index after %s is not closed with ]", seg.text)}
-	}
-	digits := rest[1:closeAt]
-	index, err := strconv.Atoi(digits)
-	if digits == "" || leadingDigits(digits) != digits || err != nil || index < 1 {
-		return seg, "", &ObjectRefError{Ref: ref, Detail: fmt.Sprintf("%s[%s] is not an index: elements are counted from 1", seg.text, digits)}
-	}
-	seg.index = index
-	seg.text += rest[:closeAt+1]
-	return seg, rest[closeAt+1:], nil
-}
+// An object reference is read and walked by objref; the REPL's own names for
+// its parts and errors are kept, since every command reports them.
+type (
+	objectSegment   = objref.Segment
+	objectRef       = objref.Ref
+	ObjectRefError  = objref.RefError
+	ObjectPathError = objref.PathError
+)
 
 // resolveObject is the one path every object-taking command resolves its
 // argument through: the object the reference denotes and the label the REPL
 // reports it under, or why it denotes none.
 func (s *Session) resolveObject(text string) (*runtime.Instance, string, error) {
-	ref, err := parseObjectRef(text)
+	ref, err := objref.Parse(text)
 	if err != nil {
 		var bad *ObjectRefError
 		if errors.As(err, &bad) && bad.Named != "" {
@@ -936,26 +713,26 @@ func (s *Session) resolveObject(text string) (*runtime.Instance, string, error) 
 		}
 		return nil, "", err
 	}
-	if ref.id > 0 {
+	if ref.ID > 0 {
 		// No runtime is no object at all, so none is built only to say so.
 		if s.rtCtx == nil {
-			return nil, "", &UnknownObjectIDError{ID: ref.id}
+			return nil, "", &UnknownObjectIDError{ID: ref.ID}
 		}
-		inst, keeper := s.heldByID(ref.id)
+		inst, keeper := s.heldByID(ref.ID)
 		if inst == nil && keeper != nil {
-			conn, err := keeper.RestoreConnector(s.rtCtx, ref.id)
+			conn, err := keeper.RestoreConnector(s.rtCtx, ref.ID)
 			if err != nil && conn == nil {
-				return nil, "", &UnknownObjectIDError{ID: ref.id, Err: err}
+				return nil, "", &UnknownObjectIDError{ID: ref.ID, Err: err}
 			}
 			if err != nil {
-				return nil, "", fmt.Errorf("#%d is materialized again, but an older object's behavior failed: %w", ref.id, err)
+				return nil, "", fmt.Errorf("#%d is materialized again, but an older object's behavior failed: %w", ref.ID, err)
 			}
 			inst = conn
 		}
 		if inst == nil {
-			return nil, "", &UnknownObjectIDError{ID: ref.id, Known: s.heldIDs()}
+			return nil, "", &UnknownObjectIDError{ID: ref.ID, Known: s.heldIDs()}
 		}
-		return s.walkObjectPath(s.rtCtx, inst, fmt.Sprintf("#%d", ref.id), ref.segments)
+		return s.walker(s.rtCtx).Walk(inst, fmt.Sprintf("#%d", ref.ID), ref.Segments)
 	}
 	return s.resolveNamedObject(ref)
 }
@@ -974,28 +751,30 @@ func (s *Session) resolveNamedObject(ref objectRef) (*runtime.Instance, string, 
 	if err != nil {
 		return nil, "", err
 	}
-	return s.walkObjectPath(ctx, inst, s.declaredName(fqn), rest)
+	return s.walker(ctx).Walk(inst, s.declaredName(fqn), rest)
+}
+
+// walker walks object paths through ctx's objects, spelling the values it
+// reports as the prompt does.
+func (s *Session) walker(ctx *runtime.Context) objref.Walker {
+	return objref.Walker{
+		Runtime: ctx,
+		Index:   s.idx,
+		Format:  func(val runtime.Value) string { return formatValue(ctx, val) },
+	}
 }
 
 // namedRoot finds the object a name-rooted reference starts from: the object,
 // its qualified name and the segments left to walk from it.
 func (s *Session) namedRoot(ref objectRef) (*runtime.Instance, string, []objectSegment, error) {
-	// The declared name is the `::`-joined run before the first `.` or index; a
-	// segment after `.` is a feature of the object before it, never a declaration.
-	head := len(ref.segments)
-	for i, seg := range ref.segments {
-		if seg.index > 0 || seg.dotted {
-			head = i
-			break
-		}
-	}
+	head := objref.Head(ref.Segments)
 	var (
 		noInstance    string
 		noInstanceSym *symbols.Symbol
 		unresolved    error
 	)
 	for i := head; i > 0; i-- {
-		name := joinTyped(ref.segments[:i])
+		name := objref.JoinTyped(ref.Segments[:i])
 		sym, fqn, err := s.lookupSymbol(name)
 		if err != nil {
 			var ambiguous *AmbiguousNameError
@@ -1008,11 +787,11 @@ func (s *Session) namedRoot(ref objectRef) (*runtime.Instance, string, []objectS
 			continue
 		}
 		if inst, ok := s.instances[fqn]; ok {
-			return inst, fqn, ref.segments[i:], nil
+			return inst, fqn, ref.Segments[i:], nil
 		}
-		if i == head && head < len(ref.segments) && isNamespaceSymbol(sym) {
+		if i == head && head < len(ref.Segments) && objref.IsNamespace(sym) {
 			shown := declarationNotation(sym)
-			return nil, "", nil, &ObjectRefError{Ref: ref.text, Detail: fmt.Sprintf("%s is a %s, not an object: its member is written %s::%s", shown, namespaceKind(sym), shown, ref.segments[head].text)}
+			return nil, "", nil, &ObjectRefError{Ref: ref.Text, Detail: fmt.Sprintf("%s is a %s, not an object: its member is written %s::%s", shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)}
 		}
 		if noInstance == "" {
 			noInstance, noInstanceSym = fqn, sym
@@ -1022,32 +801,9 @@ func (s *Session) namedRoot(ref objectRef) (*runtime.Instance, string, []objectS
 		return nil, "", nil, s.notInstantiated(noInstanceSym, noInstance)
 	}
 	if unresolved == nil {
-		_, _, unresolved = s.lookupSymbol(joinTyped(ref.segments[:head]))
+		_, _, unresolved = s.lookupSymbol(objref.JoinTyped(ref.Segments[:head]))
 	}
 	return nil, "", nil, unresolved
-}
-
-// isNamespaceSymbol reports whether sym is a package or namespace, which holds
-// members but is never an object.
-func isNamespaceSymbol(sym *symbols.Symbol) bool {
-	return sym != nil && (sym.Kind == symbols.SymbolPackage || sym.Kind == symbols.SymbolNamespace)
-}
-
-// namespaceKind names what a namespace symbol is for a message.
-func namespaceKind(sym *symbols.Symbol) string {
-	if sym.Kind == symbols.SymbolPackage {
-		return "package"
-	}
-	return "namespace"
-}
-
-// joinTyped spells segments as the qualified name they were typed as.
-func joinTyped(segments []objectSegment) string {
-	texts := make([]string, len(segments))
-	for i, seg := range segments {
-		texts[i] = seg.text
-	}
-	return strings.Join(texts, "::")
 }
 
 // heldObject is the object the session holds under a label it reported — a
@@ -1062,7 +818,7 @@ func (s *Session) heldObject(label string) (*runtime.Instance, bool) {
 // once the name denotes another object. Other labels are returned unchanged.
 func (s *Session) relabelByID(label, fqn string) string {
 	ref := parseLabel(label)
-	if ref.id > 0 {
+	if ref.ID > 0 {
 		return label
 	}
 	inst, root, rest, err := s.namedRoot(ref)
@@ -1071,113 +827,9 @@ func (s *Session) relabelByID(label, fqn string) string {
 	}
 	relabelled := fmt.Sprintf("#%d", inst.ID)
 	for _, seg := range rest {
-		relabelled += "." + seg.text
+		relabelled += "." + seg.Text
 	}
 	return relabelled
-}
-
-// walkObjectPath follows segments through feature values from inst, labelled
-// label, to the object they reach. Each segment must name a feature of the
-// object before it that holds an object — one, or one picked by index from a
-// multi-valued feature — and the first that does not is reported. The label
-// spells walked features after `.`, which only ever reads as a feature.
-func (s *Session) walkObjectPath(ctx *runtime.Context, inst *runtime.Instance, label string, segments []objectSegment) (*runtime.Instance, string, error) {
-	for _, seg := range segments {
-		fv, err := inst.GetFeatureValue(ctx, seg.name)
-		if err != nil {
-			if _, has := inst.FeatureValues[seg.name]; !has {
-				return nil, "", pathError(label, seg, "%s has no feature %q%s", label, seg.name, s.featureListHint(inst))
-			}
-			perr := pathError(label, seg, "%s of %s could not be materialized: %v", lexer.NameText(seg.name), label, err)
-			perr.Err = err
-			return nil, "", perr
-		}
-		var val runtime.Value
-		next := label + "." + lexer.NameText(seg.name)
-		if fv.Values.Kind != runtime.ValInvalid {
-			elements := collectionElements(fv.Values)
-			switch {
-			case len(elements) == 0:
-				return nil, "", pathError(label, seg, "%s of %s holds no objects", lexer.NameText(seg.name), label)
-			case seg.index == 0:
-				return nil, "", pathError(label, seg, "%s of %s holds %d %s: pick one by index, %s[1] to %s[%d]",
-					lexer.NameText(seg.name), label, len(elements), plural(len(elements), "object", "objects"), lexer.NameText(seg.name), lexer.NameText(seg.name), len(elements))
-			case seg.index > len(elements):
-				return nil, "", pathError(label, seg, "%s of %s holds %d %s, so %s names none (indexes run from 1 to %d)",
-					lexer.NameText(seg.name), label, len(elements), plural(len(elements), "object", "objects"), seg.text, len(elements))
-			}
-			val = elements[seg.index-1]
-			next = fmt.Sprintf("%s[%d]", next, seg.index)
-		} else {
-			if seg.index > 0 {
-				return nil, "", pathError(label, seg, "%s of %s holds one value and takes no index: write %s, not %s",
-					lexer.NameText(seg.name), label, lexer.NameText(seg.name), seg.text)
-			}
-			val = fv.Value
-		}
-		id, isObject := val.Object()
-		switch {
-		case val.Kind == runtime.ValInvalid:
-			return nil, "", pathError(label, seg, "%s of %s holds no object", lexer.NameText(seg.name), label)
-		case !isObject || ctx.HoldsNoValue(val):
-			return nil, "", pathError(label, seg, "%s of %s holds a value (%s), not an object", lexer.NameText(seg.name), label, formatValue(ctx, val))
-		}
-		child, ok := ctx.Instance(id)
-		if !ok {
-			return nil, "", pathError(label, seg, "%s of %s holds object #%d, which the session no longer has", lexer.NameText(seg.name), label, id)
-		}
-		inst, label = child, next
-	}
-	return inst, label, nil
-}
-
-// collectionElements is what a multi-valued feature holds, in order.
-func collectionElements(val runtime.Value) []runtime.Value {
-	switch val.Kind {
-	case runtime.ValSequence:
-		if val.Sequence() != nil {
-			return val.Sequence().Elements()
-		}
-	case runtime.ValSet:
-		if val.Set() != nil {
-			return val.Set().Elements()
-		}
-	}
-	return nil
-}
-
-// featureListLimit bounds the features an unknown-feature error lists.
-const featureListLimit = 12
-
-// featureListHint names the features an object has, so a misspelt one can be
-// corrected without another command: the model's own by name, the ones the
-// library declares for it by count.
-func (s *Session) featureListHint(inst *runtime.Instance) string {
-	if len(inst.FeatureValues) == 0 {
-		return " (it has no features)"
-	}
-	var names []string
-	library := 0
-	for name, fv := range inst.FeatureValues {
-		if s.idx != nil && fv.Feature != nil && s.idx.Library(fv.Feature.Symbol) {
-			library++
-			continue
-		}
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	more := ""
-	if len(names) > featureListLimit {
-		more = fmt.Sprintf(", … (%d in all)", len(names))
-		names = names[:featureListLimit]
-	}
-	switch {
-	case len(names) == 0:
-		return fmt.Sprintf(" (its %d features are all declared by the library)", library)
-	case library > 0:
-		more += fmt.Sprintf(", and %d more the library declares", library)
-	}
-	return fmt.Sprintf(" (its features are %s%s)", strings.Join(names, ", "), more)
 }
 
 // unresolvedError reports a name nothing declares, in the wording every surface

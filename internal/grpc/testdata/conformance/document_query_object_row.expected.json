@@ -1,0 +1,21 @@
+{
+  "rpc": "RunDocumentQuery",
+  "instantiate": ["Garage::car"],
+  "query_id": "Garage::Drive",
+  "bindings": [
+    {"parameter": "root", "values": [{"kind": "object", "value": {"path": "Garage::car", "instance_id": 1}}]}
+  ],
+  "expected_columns": ["mass", "wheels"],
+  "expected_rows": [
+    {
+      "element": {"kind": "object", "value": "Garage::car (#1) : Garage::car (PartUsage)"},
+      "cells": [
+        [{"kind": "int_value", "value": 1200}],
+        [
+          {"kind": "object", "value": "Garage::car.wheels[1] (#2) : Garage::Car::wheels (PartUsage)"},
+          {"kind": "object", "value": "Garage::car.wheels[2] (#3) : Garage::Car::wheels (PartUsage)"}
+        ]
+      ]
+    }
+  ]
+}

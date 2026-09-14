@@ -222,23 +222,53 @@ fn instantiation_decodes_values_multiplicity_and_nesting() {
 
 /// Reading a feature materializes the object it holds, so an instantiation that
 /// depended on map order would hand out different ids each time it was asked.
+/// The service keeps every object it builds, so each instantiation is a new
+/// object with ids of its own; the graph is the same up to that offset.
 #[test]
 fn instantiation_is_the_same_graph_every_time() {
     let Some(model) = model_or_skip() else {
         return;
     };
     let graph = || {
+        let instances = model
+            .instantiate("Vehicles::sedan")
+            .unwrap_or_else(|error| panic!("instantiation failed: {error}"));
+        let root = instances.instance.id();
+        instances
+            .instances()
+            .iter()
+            .map(|instance| (instance.id() - root, instance.type_symbol_id().to_owned()))
+            .collect::<Vec<_>>()
+    };
+    let first = graph();
+    assert_eq!(first.len(), 6);
+    assert_eq!(first[0].0, 0);
+    for _ in 0..4 {
+        assert_eq!(graph(), first);
+    }
+}
+
+/// The service holds each object it builds, so a second instantiation of the
+/// same part is a second object, its ids fresh.
+#[test]
+fn instantiating_again_builds_a_new_object() {
+    let Some(model) = model_or_skip() else {
+        return;
+    };
+    let ids = || {
         model
             .instantiate("Vehicles::sedan")
             .unwrap_or_else(|error| panic!("instantiation failed: {error}"))
             .instances()
             .iter()
-            .map(|instance| (instance.id(), instance.type_symbol_id().to_owned()))
+            .map(|instance| instance.id())
             .collect::<Vec<_>>()
     };
-    let first = graph();
-    assert_eq!(first.len(), 6);
-    for _ in 0..4 {
-        assert_eq!(graph(), first);
-    }
+    let first = ids();
+    let second = ids();
+    let highest = first.iter().copied().max().expect("an instance");
+    assert!(
+        second.iter().all(|id| *id > highest),
+        "{second:?} after {first:?}"
+    );
 }

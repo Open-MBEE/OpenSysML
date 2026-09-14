@@ -12,8 +12,9 @@ public interface DocumentQueryRowOrBuilder extends
 
   /**
    * <pre>
-   * The selected element itself, an element value with its qualified name; a
-   * verdict value for a row `Verdicts` answered.
+   * The selected element itself, an element value with its qualified name; an
+   * object value for a row over an object the service holds; a verdict value
+   * for a row `Verdicts` answered.
    * </pre>
    *
    * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -22,8 +23,9 @@ public interface DocumentQueryRowOrBuilder extends
   boolean hasElement();
   /**
    * <pre>
-   * The selected element itself, an element value with its qualified name; a
-   * verdict value for a row `Verdicts` answered.
+   * The selected element itself, an element value with its qualified name; an
+   * object value for a row over an object the service holds; a verdict value
+   * for a row `Verdicts` answered.
    * </pre>
    *
    * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -32,8 +34,9 @@ public interface DocumentQueryRowOrBuilder extends
   org.openmbee.opensysml.proto.DocumentValue getElement();
   /**
    * <pre>
-   * The selected element itself, an element value with its qualified name; a
-   * verdict value for a row `Verdicts` answered.
+   * The selected element itself, an element value with its qualified name; an
+   * object value for a row over an object the service holds; a verdict value
+   * for a row `Verdicts` answered.
    * </pre>
    *
    * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>

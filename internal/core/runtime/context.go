@@ -41,6 +41,10 @@ type Context struct {
 	// what its memory grows with, unlike a step.
 	maxElements int64
 
+	// maxInstances bounds the objects this context holds at once, nested ones
+	// counted; zero leaves it unbounded.
+	maxInstances int
+
 	// framesReading holds the frame each object being read is (nil for a
 	// transformation), so `target = that` finds it and a cycle is reported.
 	framesReading map[int64]*CoordinateFrame
@@ -866,6 +870,30 @@ func (ctx *Context) InstanceIDs() []int64 {
 	}
 	slices.Sort(ids)
 	return ids
+}
+
+// InstanceCount is how many objects this context holds, nested ones counted.
+func (ctx *Context) InstanceCount() int {
+	return len(ctx.instances)
+}
+
+// SetMaxInstances bounds the objects this context holds at once, nested ones
+// counted, zero lifting it; the materialization past it is ErrInstanceLimitExceeded.
+func (ctx *Context) SetMaxInstances(n int) {
+	ctx.maxInstances = max(n, 0)
+}
+
+// MaxInstances is the bound SetMaxInstances set, zero when there is none.
+func (ctx *Context) MaxInstances() int {
+	return ctx.maxInstances
+}
+
+// instanceRoom is the refusal of one more object where the bound holds no more.
+func (ctx *Context) instanceRoom() error {
+	if ctx.maxInstances > 0 && len(ctx.instances) >= ctx.maxInstances {
+		return fmt.Errorf("%w (%d objects held)", ErrInstanceLimitExceeded, ctx.maxInstances)
+	}
+	return nil
 }
 
 // getInstance retrieves an instance by ID.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -482,7 +483,7 @@ func (s *Session) instantiateNamed(name string) ([]string, error) {
 	}
 	// Echoed as typed, unless %features would not read that spelling as a name.
 	shown := name
-	if _, err := parseObjectRef(name); err != nil {
+	if _, err := objref.Parse(name); err != nil {
 		shown = s.declaredName(fqn)
 	}
 	return append(out, fmt.Sprintf("  Use %%features %s to inspect", shown)), nil

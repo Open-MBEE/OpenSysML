@@ -1776,6 +1776,14 @@ arm says what was bound:
   by a quantity value type of the same dimension (`MassValue` for a mass, any for
   `ScalarQuantityValue`); a parameter of another dimension or of a scalar type such as
   `String` refuses it with `invalid_argument`.
+- **`object`** binds an object the service holds for the model — one `Instantiate` created —
+  as a `DocumentObject` with `instanceId` (the `id` `Instantiate` answered, an int64 so a
+  string in JSON) or `path` (the usage it was instantiated as, `car` or `Garage::car`; its id,
+  `#2`; or a walk through feature values from either, `car.wheels[2]`, indexes from 1) or
+  both, in which case the path is followed and must reach the object with that id. *This is
+  how a parameter of type `Element` is bound to an object rather than to its declaration*;
+  the query then reads the object's current values. The answer-side `element` of a
+  `DocumentObject` is ignored in a request.
 
 Model `7e6a…a687` is `conformance/fixtures/document.sysml`; `HeavySubsystemNames` takes
 `root : Element` and `threshold : String`:
@@ -1798,7 +1806,7 @@ The answer is a table: `columns` in order, and `rows` each with `element` (the r
 a `DocumentValue`, here always `elementId` plus `elementType`) and `cells` **positionally
 aligned with `columns`**. A cell holds `values`, a list of `DocumentValue`s (several for a
 multi-valued property, none for a missing one, in which case `values` is absent). A
-`DocumentValue` decodes like a `Value` — one arm present — but its arms are the seven above plus
+`DocumentValue` decodes like a `Value` — one arm present — but its arms are the eight above plus
 the answer-only `verdict` below, and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
 `realValue` cell:
 
@@ -1807,17 +1815,97 @@ $ … /RunDocumentQuery -d '{"modelHash":"7e6a…a687","queryId":"Observatory::S
 {"columns":[{"name":"name"},{"name":"mass"}],"rows":[{"element":{"elementId":"Observatory::telescope::baffle|shroud *tricky*","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"baffle|shroud *tricky*"}]},{"values":[{"realValue":1.5}]}]},{"element":{"elementId":"Observatory::telescope::mount","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"mount"}]},{"values":[{"realValue":15}]}]},{"element":{"elementId":"Observatory::telescope::optics","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"optics"}]},{"values":[{"realValue":8.5}]}]},{"element":{"elementId":"Observatory::telescope::segmentControl","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"segmentControl"}]},{"values":[{"realValue":20}]}]}]}
 ```
 
+#### Objects the service holds
+
+The service keeps every object `Instantiate` creates for a model, under the qualified name it
+was instantiated as, for as long as the model stays cached; instantiating the name again makes
+it denote the new object, and the earlier one stays held, reached by its id. A query runs over
+that population: a binding names one of its objects, `DocumentQueries::Objects(type = T)`
+enumerates it — named objects by qualified name, then displaced ones by id — and answers no
+rows while nothing is held, and `RenderDocument` renders over it, so a document rendered after
+an `Instantiate` reports the objects' current values rather than their declared defaults.
+
+A row that is an object, and a cell whose value is one, is answered with the **`object`** arm:
+`instanceId`, `path` (the label the object is reached under, from the binding down —
+`Garage::car.wheels[2]`, or `#1.wheels[2]` when the binding was by id) and `element`, the
+usage the object stands for as an `elementId` `DocumentValue` with its `elementType`. Model
+`0ff2…48a0` is `internal/core/docrender/testdata/object_report.sysml`; after
+`Instantiate` of `Garage::car` (answered id `1`, its engine `2` and wheels `3` and `4`) and of
+`Garage::spare` (`5`), `Drive` projects the car's `name`, `engine` and `wheels`:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"0ff27b91eb544169523526daec8007f6d4e05a66c8d1bca59f9224561ea348a0","queryId":"Garage::Drive","bindings":[{"parameter":"root","values":[{"object":{"path":"car"}}]}]}'
+```
+
+```json
+{
+  "columns": [{"name": "name"}, {"name": "engine"}, {"name": "wheels"}],
+  "rows": [
+    {
+      "element": {"object": {"instanceId": "1", "path": "Garage::car", "element": {"elementId": "Garage::car", "elementType": "PartUsage"}}},
+      "cells": [
+        {"values": [{"stringValue": "car"}]},
+        {"values": [{"object": {"instanceId": "2", "path": "Garage::car.engine",    "element": {"elementId": "Garage::Car::engine", "elementType": "PartUsage"}}}]},
+        {"values": [{"object": {"instanceId": "3", "path": "Garage::car.wheels[1]", "element": {"elementId": "Garage::Car::wheels", "elementType": "PartUsage"}},
+                     {"object": {"instanceId": "4", "path": "Garage::car.wheels[2]", "element": {"elementId": "Garage::Car::wheels", "elementType": "PartUsage"}}]}
+      ]
+    }
+  ]
+}
+```
+
+Bound by id instead, the same objects are reported under `#1`; `Parts` walks the car's
+descendants and shows a projected `pressure` of the wheels — a `Descendants` walk over an
+object follows its feature values, so a wheel bound by path (`car.wheels[2]`) has no rows:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"instanceId":"1"}}]}]}'
+{"columns":[{"name":"name"},{"name":"qualifiedName"},{"name":"pressure"}],"rows":[{"element":{"object":{"instanceId":"2","path":"#1.engine","element":{"elementId":"Garage::Car::engine","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"engine"}]},{"values":[{"stringValue":"#1.engine"}]},{}]},{"element":{"object":{"instanceId":"3","path":"#1.wheels[1]","element":{"elementId":"Garage::Car::wheels","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"wheels[1]"}]},{"values":[{"stringValue":"#1.wheels[1]"}]},{"values":[{"intValue":"30"}]}]},{"element":{"object":{"instanceId":"4","path":"#1.wheels[2]","element":{"elementId":"Garage::Car::wheels","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"wheels[2]"}]},{"values":[{"stringValue":"#1.wheels[2]"}]},{"values":[{"intValue":"30"}]}]}]}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Wheels"}'
+{"columns":[{"name":"qualifiedName"},{"name":"pressure"}],"rows":[{"element":{"object":{"instanceId":"5","path":"Garage::spare","element":{"elementId":"Garage::spare","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"Garage::spare"}]},{"values":[{"intValue":"20"}]}]},{"element":{"object":{"instanceId":"3","path":"Garage::car.wheels[1]","element":{"elementId":"Garage::Car::wheels","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"Garage::car.wheels[1]"}]},{"values":[{"intValue":"30"}]}]},{"element":{"object":{"instanceId":"4","path":"Garage::car.wheels[2]","element":{"elementId":"Garage::Car::wheels","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"Garage::car.wheels[2]"}]},{"values":[{"intValue":"30"}]}]}]}
+```
+
+`Wheels` takes no binding: it is an `OrderBy` over `Objects(type = "Wheel")`, so it answers the
+three wheels the model holds, spare first by its lower pressure. An object binding the model
+cannot honor is a Connect error naming the parameter — `not_found` while nothing is held or
+for an id or a usage no `Instantiate` created, `invalid_argument` for a path that does not
+reach an object or an id the path disagrees with:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"path":"car"}}]}]}'
+HTTP/1.1 404 Not Found
+{"code":"not_found","message":"binding root: the model holds no objects (Instantiate creates one)"}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"instanceId":"9"}}]}]}'
+HTTP/1.1 404 Not Found
+{"code":"not_found","message":"binding root: no object #9 for this model: nothing materialized has that identity (the objects are #1, #2, #3, #4, #5)"}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"path":"car.wheels[3]"}}]}]}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"binding root: wheels of Garage::car holds 2 objects, so wheels[3] names none (indexes run from 1 to 2)"}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"path":"spare.pressure"}}]}]}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"binding root: pressure of Garage::spare holds a value (20), not an object"}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"instanceId":"5","path":"car.wheels[2]"}}]}]}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"binding root: Garage::car.wheels[2] is object #4, not #5"}
+```
+
 A query over `DocumentQueries::Verdicts` answers **verdict rows**: the row's `element` is the
-eighth arm, **`verdict`**, a `DocumentVerdict` with `assertion` (the assertion checked, as an
+ninth arm, **`verdict`**, a `DocumentVerdict` with `assertion` (the assertion checked, as an
 `elementId` `DocumentValue` — an anonymous `satisfy` keeps its `elementType` and has an empty
 `elementId`), `kind` (`constraint`, `requirement`, `satisfaction`, `verification`), `text`
 (the assertion as written), `path` (the object checked, from the bound element down —
 `Garage::car.wheels[2]`), `verdict` (`holds`, `violated`, `undecided`), and, where they apply,
 `condition` (the expression found false), `reason` (why a row is violated or undecided — an
 undecided row always carries one) and `verification` (the verdict kinds — `pass`, `fail`,
-`inconclusive`, `error` — of the verification cases verifying the requirement). Over this
-service the element is checked **as declared**: definition defaults and the usage's
-redefinitions, no session object. Model `a3d6…0d43` is `conformance/fixtures/verdicts.sysml`;
+`inconclusive`, `error` — of the verification cases verifying the requirement). An element
+bound by `elementId` is checked **as declared** — definition defaults and the usage's
+redefinitions; an object bound by `object` is checked as it is, its current values, and the
+rows' `path`s start from the label it was bound under. Model `a3d6…0d43` is `conformance/fixtures/verdicts.sysml`;
 `Failing` keeps the rows whose `verdict` is not `holds`:
 
 ```console
@@ -1846,8 +1934,8 @@ $ … /RunDocumentQuery -d '{"modelHash":"a3d6…0d43","queryId":"Garage::Checks
 
 A verdict is answered, never bound: a binding carrying the `verdict` arm is refused with
 `invalid_argument` (`binding root: a verdict is answered by queries, not bound to them`). A
-client that decodes `DocumentValue` by its one present arm therefore has eight arms to read in
-an answer and seven to write in a request.
+client that decodes `DocumentValue` by its one present arm therefore has nine arms to read in
+an answer and eight to write in a request.
 
 The request-side failures are Connect errors, because the request — not the model — is wrong:
 

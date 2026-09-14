@@ -155,8 +155,9 @@ type Client interface {
 	QueryOSLC(ctx context.Context, model *Model, oslc string) ([]QueryElement, error)
 
 	// RunDocumentQuery runs the named document query, binding its entry
-	// parameters, and answers typed rows. Requires the document_query
-	// capability.
+	// parameters — to elements, scalars, or objects the service holds for the
+	// model since Instantiate (Object) — and answers typed rows. Requires the
+	// document_query capability.
 	RunDocumentQuery(ctx context.Context, model *Model, queryID string, bindings ...Binding) (*Rows, error)
 
 	// RenderDocument renders the named document to Markdown. Requires the

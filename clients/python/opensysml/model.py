@@ -267,7 +267,8 @@ class Model:
             query_id (str): Qualified name of the document query
             bindings (Mapping, optional): Parameter name to a value or list of
                 values; an :class:`~opensysml.document.ElementRef` binds a
-                model element
+                model element, an :class:`~opensysml.document.ObjectRef` an
+                object ``instantiate`` built, by id or by path
 
         Returns:
             DocumentQueryResult: Projected columns and typed rows, in the
@@ -276,7 +277,8 @@ class Model:
         Raises:
             MissingCapabilityError: If the service cannot run document queries
             InvalidRequestError: If the query is not one, or a binding is wrong
-            SymbolNotFoundError: If this model does not declare the query
+            SymbolNotFoundError: If this model does not declare the query, or
+                an object binding names an object this model does not hold
             ModelNotFoundError: If the service no longer holds this model
 
         Example:

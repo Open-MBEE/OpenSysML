@@ -196,8 +196,7 @@ func (v *verifyContext) instanceGraph(inst *runtime.Instance) []*pb.Instance {
 	if inst == nil {
 		return nil
 	}
-	_, all := v.service.instanceGraphToProto(v.runtime, inst, v.cached.Index)
-	return all
+	return v.service.instanceGraphToProto(v.runtime, inst, v.cached.Index).All
 }
 
 // VerifyConstraint evaluates a constraint definition or usage, as the REPL's
