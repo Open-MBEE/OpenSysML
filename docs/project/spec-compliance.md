@@ -153,6 +153,12 @@ Each row documents one behavioral semantic feature:
   - ⛔ **Deliberate Divergence**: not implemented on purpose — the row states the reason, the alternative it rejects, and the test that pins the refusal
   - 🚧 **Known Failure**: Test exists but fails
 
+Two parts of this page are not written by hand. The row census at the top is counted from the rows
+when the documentation site is built, and the [analysis-library table](#analysis-libraries-measured-domain-librariesanalysis-vectorfunctions-occurrencefunctions)
+is rendered by `make docs-counts` from `analysis-library-census.json`, which a runtime test writes
+and holds current; `go run ./cmd/doc-counts -check` fails in CI when the rendered block and the
+file disagree. Edit neither block in place: regenerate them.
+
 ### Calculation (Calc)
 
 | Semantic Rule | Implementation | Test Case | Status |
@@ -357,6 +363,95 @@ by name is refused naming what is missing rather than approximated.
 | The number of runs one plan may make is bounded by `OPENSYSML_MAX_SWEEP_RUNS` (default 1000), counted before the first run and refused naming the count asked for and the bound; each run still has the runtime bounds of its own | `runtime/budget.go` `Budgets.MaxSweepRuns`, `BudgetsFromEnv`, `DefaultMaxSweepRuns`; `runtime/context.go` | `runtime/sweep_test.go:TestSweepBudgetIsRefusedBeforeRunning`, `:TestSweepBudgetBoundsTheProduct`, `:TestSamplesBeyondTheBudgetAreRefused` | ✅ Faithful to the bound it states (see [Runtime bounds](#runtime-bounds-every-limit-a-model-can-reach)) |
 | `-sweep <param>=<from>..<to>[:<step>]` (repeatable) with `-samples <n> -seed <s>` sweep an `-analysis` case or a `-calc`, printing the table as text and, under `-json`, as `rows` inside the check the sweep ran; `%sweep` and `%samples` do the same in the REPL, on the session's object where the case takes a subject, and a named argument holding `=` is not mistaken for a range; a sweep or sample flag without an `-analysis`/`-calc`, more than one of them, `-samples` without a range or a seed, and `-seed` without `-samples` are refused | `cmd/sysml/check.go` (the sweep flags and their validation), `cmd/sysml/report.go` `checkRow`, `cmd/sysml/usage.go`; `repl/sweep.go` `Session.RunSweep`, `Session.RunSamples`, `splitSpecs`; `repl/meta.go`; `repl/query.go` `VerdictRow`; `man/man1/sysml.1` | `cmd/sysml/sweep_test.go` (all), `cmd/sysml/sweep_pilot_test.go` (all), `repl/sweep_test.go` (all), `make man-check` | ⚠️ Approximate (tool-defined) |
 | `RunSweep` RPC: the `RunAnalysis` request plus repeated `ranges` and an optional `samples`/`seed` pair, answering one row per run — `inputs`, `outputs`, `verdicts`, `elapsed_micros` and a per-row `error`/`failure_reason` — with the swept `parameters`, `sampled` and the `seed` echoed; a refused plan answers an `error` and no rows; exposed in the Connect adapter, the generated Go, Python, Node, Java and Rust stubs, and the Python client (`Model.run_sweep`, `SweepTable`, `SweepRow`) | `grpc/sweep.go` `Service.RunSweep`; `grpc/connect.go`; `clients/python/opensysml/connection.py`, `model.py`, `verdict.py`; `api/proto/sysml.proto` | `grpc/sweep_test.go` (all), `clients/python/tests/test_sweep_integration.py` | ⚠️ Approximate (tool-defined; the Go client and the conformance scenarios keep the single-run RPCs — a sweep over the wire is the generated stub or the Python client) |
+
+#### Analysis libraries, measured (`Domain Libraries/Analysis/`, `VectorFunctions`, `OccurrenceFunctions`)
+
+The rows above and in the Function Library map say what the analysis libraries do case by case; the
+table below says how much of them runs, and is measured rather than written. `TestAnalysisLibraryCensus`
+(`internal/core/runtime/library_census_test.go`) enumerates every public callable declaration each
+bundled library package makes — calc and function definitions, the calc usages a definition holds,
+action and event definitions, and the constraint, requirement and objective usages the runtime applies
+as predicates (a function's invariants and preconditions, a trade study's objective) — from the
+standard library's own symbol scopes, so a declaration the
+library gains or loses moves the count without anyone editing a list. Each declaration has one
+representative probe (`library_census_probes_test.go`): a small model that specializes or calls it
+the way the library's own text says to, evaluated through `internal/core/runtime` with the value
+checked against the library's text or a hand-computed result. The verdicts are:
+
+- **Evaluated** — the invocation produced a value and the value passed its check. Parsing, resolving
+  or dispatching the declaration does not count; only a checked value does.
+- **Refused** — the runtime answered with one of its typed errors (`ErrNoValue`, `ErrNotAFunction`,
+  `ErrInvalidActionFlow`, …) or an undetermined value instead of a value. Each is listed by name
+  with the error it was refused by. A refusal typed by no known error fails the test, so nothing
+  is refused silently.
+- **Wrong** — the invocation produced a value and the value failed its check. Each is listed by
+  name with what the check reported.
+
+The test writes what it measured to `analysis-library-census.json` and fails when the committed file
+disagrees, so the figures cannot go stale against the runtime; `make docs-counts` renders the block
+from that file and `go run ./cmd/doc-counts -check` fails when the block disagrees with it. Regenerate
+with `go test ./internal/core/runtime -run TestAnalysisLibraryCensus -update-library-census` followed by
+`make docs-counts`.
+
+`AnalysisTooling` declares metadata definitions only, no callable declaration, and is listed with
+zeros. `StateSpaceRepresentation` is abstract by design — `GetNextState`, `GetOutput`, `GetDerivative`,
+`Integrate`, `GetDifference` and the dynamics actions holding them state their parameters and leave
+the body to a specialization and a runner stepping it through time — and no state-space runner exists
+yet, so its probes specialize the declarations as a model would and record what the runtime answers:
+an inherited calc body evaluates where the specialization states its result, while the dynamics
+actions, the calc usages they hold and the integration through an abstract derivative are refused by
+name. Those refusals are the honest measure of that library until the runner lands; none of them is
+worked around here. `TradeStudy::evaluationFunction` invoked directly on a study usage is refused
+(the case usage is read as a computation, not as the holder of a callable member) although the study
+itself evaluates it through its objective; that is a runtime limitation of member calc invocation on
+case usages, not of the library. A `VectorFunctions` invariant is probed where its parameters are
+bound — from the result expression of a specialization of its function — so the preconditions and
+the invariants an implication discharges on the inputs evaluate, while an invariant that reads the
+function's result is refused with `ErrNoValue` (or `ErrTypeMismatch` where the result feeds an
+operator) because the result is not yet bound when the expression computing it runs; a postcondition
+checked after the result is bound is not a form the runtime offers, and none is added here.
+
+<!-- doc-counts:begin analysis-libraries -->
+**Measured by `go test ./internal/core/runtime -run TestAnalysisLibraryCensus -update-library-census`,** which writes [`analysis-library-census.json`](analysis-library-census.json); `make docs-counts` renders this block from that file and `go run ./cmd/doc-counts -check` fails when they disagree.
+
+| Package | Declarations | Evaluated | Refused | Wrong |
+|---|---:|---:|---:|---:|
+| `AnalysisTooling` | 0 | 0 | 0 | 0 |
+| `SampledFunctions` | 5 | 5 | 0 | 0 |
+| `TradeStudies` | 7 | 6 | 1 | 0 |
+| `StateSpaceRepresentation` | 17 | 4 | 13 | 0 |
+| `VectorFunctions` | 39 | 30 | 9 | 0 |
+| `OccurrenceFunctions` | 8 | 6 | 2 | 0 |
+| **Total** | **76** | **51** | **25** | **0** |
+
+**Refused, by name** (the typed error the runtime answered with):
+
+- `TradeStudies::TradeStudy::evaluationFunction` — `ErrNoValue`: no value: calc usage study computes output features (selectedAlternative); read one of them
+- `StateSpaceRepresentation::StateSpaceEventDef` — `ErrInvalidActionFlow`: initialize action: invalid action flow: no initial node found in action run
+- `StateSpaceRepresentation::ZeroCrossingEventDef` — `ErrInvalidActionFlow`: initialize action: invalid action flow: no initial node found in action run
+- `StateSpaceRepresentation::StateSpaceDynamics` — `ErrInvalidActionFlow`: initialize action: invalid action flow: no initial node found in action Plant
+- `StateSpaceRepresentation::StateSpaceDynamics::getNextState` — `ErrNotAFunction`: not a function: plant.getNextState is undetermined, not a function
+- `StateSpaceRepresentation::StateSpaceDynamics::getOutput` — `ErrNotAFunction`: not a function: plant.getOutput is undetermined, not a function
+- `StateSpaceRepresentation::Integrate` — `ErrNoResultExpression`: calc test::Euler: evaluating the returned expression: no result expression: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = <expr>;`
+- `StateSpaceRepresentation::ContinuousStateSpaceDynamics` — `ErrInvalidActionFlow`: initialize action: invalid action flow: no initial node found in action Damper
+- `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative` — `ErrNotAFunction`: not a function: damper.getDerivative is undetermined, not a function
+- `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState` — `ErrNotAFunction`: not a function: damper.getNextState is undetermined, not a function
+- `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate` — `Undetermined`: damper has no value in the model
+- `StateSpaceRepresentation::DiscreteStateSpaceDynamics` — `ErrInvalidActionFlow`: initialize action: invalid action flow: no initial node found in action Spring
+- `StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference` — `ErrNotAFunction`: not a function: spring.getDifference is undetermined, not a function
+- `StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState` — `ErrNotAFunction`: not a function: spring.getNextState is undetermined, not a function
+- `VectorFunctions::+::commutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::+::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: u has no value in the model
+- `VectorFunctions::-::difference` — `ErrTypeMismatch`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::-::difference: constraint difference: require condition evaluation failed: type mismatch: operator '+' is not defined for a vector and an undetermined VectorValue
+- `VectorFunctions::scalarVectorMult::scaling` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::scalarVectorMult::scaling: constraint scaling: require condition evaluation failed: no value: condition is undetermined: w has no value in the model
+- `VectorFunctions::scalarVectorMult::zeroLength` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::scalarVectorMult::zeroLength: constraint zeroLength: require condition evaluation failed: no value: condition is undetermined: w has no value in the model
+- `VectorFunctions::inner::commmutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::inner::commmutivity: constraint commmutivity: require condition evaluation failed: no value: condition is undetermined: x has no value in the model
+- `VectorFunctions::norm::squareNorm` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::squareNorm: constraint squareNorm: require condition evaluation failed: no value: condition is undetermined: l has no value in the model
+- `VectorFunctions::norm::lengthZero` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::lengthZero: constraint lengthZero: require condition evaluation failed: no value: condition is undetermined: l has no value in the model
+- `VectorFunctions::angle::commutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model
+- `VectorFunctions::angle::lengthInsensitive` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::lengthInsensitive: constraint lengthInsensitive: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model
+- `OccurrenceFunctions::removeOld` — `ErrActionPerformanceOccurrence`: action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOld is not an action
+- `OccurrenceFunctions::removeOldAt` — `ErrActionPerformanceOccurrence`: action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOldAt is not an action
+<!-- doc-counts:end analysis-libraries -->
 
 ### Constraint
 

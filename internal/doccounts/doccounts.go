@@ -350,13 +350,33 @@ type Block struct {
 	LinkPrefix string
 }
 
-// Blocks lists the consumers of the generated block: the two Markdown pages
-// sharing the prose census.
+// Blocks lists the consumers of the generated blocks: the two Markdown pages
+// sharing the prose census, and the compliance map carrying the library table.
 func Blocks() []Block {
 	return []Block{
 		{Path: ReadmePath, Name: refereedBlockName, LinkPrefix: "docs/project/"},
 		{Path: ArchitecturePath, Name: refereedBlockName, LinkPrefix: "../project/"},
+		{Path: SpecCompliancePath, Name: libraryBlockName, LinkPrefix: ""},
 	}
+}
+
+// Figures are the committed measurements every generated block is rendered from.
+type Figures struct {
+	Refereed RefereedCounts
+	Library  LibraryCensus
+}
+
+// ReadFigures reads every committed measurement the generated blocks render.
+func ReadFigures(root string) (Figures, error) {
+	refereed, err := ReadRefereedCounts(root)
+	if err != nil {
+		return Figures{}, err
+	}
+	library, err := ReadLibraryCensus(root)
+	if err != nil {
+		return Figures{}, err
+	}
+	return Figures{Refereed: refereed, Library: library}, nil
 }
 
 // FindLine returns the index of the first line of content carrying the marker.
@@ -398,7 +418,7 @@ const (
 )
 
 // RewriteBlock replaces a named generated block and preserves surrounding bytes.
-func RewriteBlock(content string, spec Block, counts RefereedCounts) (string, error) {
+func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
 	begin := fmt.Sprintf(blockBeginFormat, spec.Name)
 	end := fmt.Sprintf(blockEndFormat, spec.Name)
 	lines := strings.Split(content, "\n")
@@ -420,7 +440,7 @@ func RewriteBlock(content string, spec Block, counts RefereedCounts) (string, er
 	if beginIndex < 0 || endIndex < 0 || endIndex <= beginIndex {
 		return "", fmt.Errorf("%s: named block %q is missing or unterminated", spec.Path, spec.Name)
 	}
-	renderedBlock, err := renderBlock(spec, counts)
+	renderedBlock, err := renderBlock(spec, figures)
 	if err != nil {
 		return "", err
 	}
@@ -432,9 +452,11 @@ func RewriteBlock(content string, spec Block, counts RefereedCounts) (string, er
 	return strings.Join(updated, "\n"), nil
 }
 
-// blockTemplateData is the baseline census plus the consumer's own link prefix.
+// blockTemplateData is the committed figures plus the consumer's own link prefix.
 type blockTemplateData struct {
 	RefereedCounts
+	Library    LibraryCensus
+	Table      string
 	Name       string
 	LinkPrefix string
 }
@@ -455,14 +477,21 @@ const refereedBlockTemplateText = "<!-- doc-counts:begin {{.Name}} -->\n" +
 // template is reported rather than written, so a consumer cannot be added without one.
 var blockTemplates = map[string]*template.Template{
 	refereedBlockName: template.Must(template.New(refereedBlockName).Parse(refereedBlockTemplateText)),
+	libraryBlockName:  template.Must(template.New(libraryBlockName).Parse(libraryBlockTemplateText)),
 }
 
-func renderBlock(spec Block, counts RefereedCounts) (string, error) {
+func renderBlock(spec Block, figures Figures) (string, error) {
 	blockTemplate, ok := blockTemplates[spec.Name]
 	if !ok {
 		return "", fmt.Errorf("%s: no template renders the block named %q", spec.Path, spec.Name)
 	}
-	data := blockTemplateData{RefereedCounts: counts, Name: spec.Name, LinkPrefix: spec.LinkPrefix}
+	data := blockTemplateData{
+		RefereedCounts: figures.Refereed,
+		Library:        figures.Library,
+		Table:          libraryTable(figures.Library),
+		Name:           spec.Name,
+		LinkPrefix:     spec.LinkPrefix,
+	}
 	var rendered strings.Builder
 	if err := blockTemplate.Execute(&rendered, data); err != nil {
 		return "", fmt.Errorf("render %s: %w", spec.Name, err)

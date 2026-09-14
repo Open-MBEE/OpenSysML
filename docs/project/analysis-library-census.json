@@ -1,0 +1,319 @@
+{
+  "command": "go test ./internal/core/runtime -run TestAnalysisLibraryCensus -update-library-census",
+  "packages": [
+    {
+      "name": "AnalysisTooling",
+      "path": "Domain Libraries/Analysis/AnalysisTooling.sysml",
+      "declarations": [],
+      "evaluated": [],
+      "refused": [],
+      "wrong": []
+    },
+    {
+      "name": "SampledFunctions",
+      "path": "Domain Libraries/Analysis/SampledFunctions.sysml",
+      "declarations": [
+        "SampledFunctions::Domain",
+        "SampledFunctions::Range",
+        "SampledFunctions::Sample",
+        "SampledFunctions::Interpolate",
+        "SampledFunctions::interpolateLinear"
+      ],
+      "evaluated": [
+        "SampledFunctions::Domain",
+        "SampledFunctions::Range",
+        "SampledFunctions::Sample",
+        "SampledFunctions::Interpolate",
+        "SampledFunctions::interpolateLinear"
+      ],
+      "refused": [],
+      "wrong": []
+    },
+    {
+      "name": "TradeStudies",
+      "path": "Domain Libraries/Analysis/TradeStudies.sysml",
+      "declarations": [
+        "TradeStudies::EvaluationFunction",
+        "TradeStudies::TradeStudyObjective",
+        "TradeStudies::MinimizeObjective",
+        "TradeStudies::MaximizeObjective",
+        "TradeStudies::TradeStudy",
+        "TradeStudies::TradeStudy::evaluationFunction",
+        "TradeStudies::TradeStudy::tradeStudyObjective"
+      ],
+      "evaluated": [
+        "TradeStudies::EvaluationFunction",
+        "TradeStudies::TradeStudyObjective",
+        "TradeStudies::MinimizeObjective",
+        "TradeStudies::MaximizeObjective",
+        "TradeStudies::TradeStudy",
+        "TradeStudies::TradeStudy::tradeStudyObjective"
+      ],
+      "refused": [
+        {
+          "declaration": "TradeStudies::TradeStudy::evaluationFunction",
+          "error": "ErrNoValue",
+          "message": "no value: calc usage study computes output features (selectedAlternative); read one of them"
+        }
+      ],
+      "wrong": []
+    },
+    {
+      "name": "StateSpaceRepresentation",
+      "path": "Domain Libraries/Analysis/StateSpaceRepresentation.sysml",
+      "declarations": [
+        "StateSpaceRepresentation::GetNextState",
+        "StateSpaceRepresentation::GetOutput",
+        "StateSpaceRepresentation::StateSpaceEventDef",
+        "StateSpaceRepresentation::ZeroCrossingEventDef",
+        "StateSpaceRepresentation::StateSpaceDynamics",
+        "StateSpaceRepresentation::StateSpaceDynamics::getNextState",
+        "StateSpaceRepresentation::StateSpaceDynamics::getOutput",
+        "StateSpaceRepresentation::GetDerivative",
+        "StateSpaceRepresentation::Integrate",
+        "StateSpaceRepresentation::ContinuousStateSpaceDynamics",
+        "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative",
+        "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState",
+        "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate",
+        "StateSpaceRepresentation::GetDifference",
+        "StateSpaceRepresentation::DiscreteStateSpaceDynamics",
+        "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference",
+        "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState"
+      ],
+      "evaluated": [
+        "StateSpaceRepresentation::GetNextState",
+        "StateSpaceRepresentation::GetOutput",
+        "StateSpaceRepresentation::GetDerivative",
+        "StateSpaceRepresentation::GetDifference"
+      ],
+      "refused": [
+        {
+          "declaration": "StateSpaceRepresentation::StateSpaceEventDef",
+          "error": "ErrInvalidActionFlow",
+          "message": "initialize action: invalid action flow: no initial node found in action run"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::ZeroCrossingEventDef",
+          "error": "ErrInvalidActionFlow",
+          "message": "initialize action: invalid action flow: no initial node found in action run"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::StateSpaceDynamics",
+          "error": "ErrInvalidActionFlow",
+          "message": "initialize action: invalid action flow: no initial node found in action Plant"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::StateSpaceDynamics::getNextState",
+          "error": "ErrNotAFunction",
+          "message": "not a function: plant.getNextState is undetermined, not a function"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::StateSpaceDynamics::getOutput",
+          "error": "ErrNotAFunction",
+          "message": "not a function: plant.getOutput is undetermined, not a function"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::Integrate",
+          "error": "ErrNoResultExpression",
+          "message": "calc test::Euler: evaluating the returned expression: no result expression: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = \u003cexpr\u003e;`"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics",
+          "error": "ErrInvalidActionFlow",
+          "message": "initialize action: invalid action flow: no initial node found in action Damper"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative",
+          "error": "ErrNotAFunction",
+          "message": "not a function: damper.getDerivative is undetermined, not a function"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState",
+          "error": "ErrNotAFunction",
+          "message": "not a function: damper.getNextState is undetermined, not a function"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate",
+          "error": "Undetermined",
+          "message": "damper has no value in the model"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics",
+          "error": "ErrInvalidActionFlow",
+          "message": "initialize action: invalid action flow: no initial node found in action Spring"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference",
+          "error": "ErrNotAFunction",
+          "message": "not a function: spring.getDifference is undetermined, not a function"
+        },
+        {
+          "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState",
+          "error": "ErrNotAFunction",
+          "message": "not a function: spring.getNextState is undetermined, not a function"
+        }
+      ],
+      "wrong": []
+    },
+    {
+      "name": "VectorFunctions",
+      "path": "Kernel Libraries/Kernel Function Library/VectorFunctions.kerml",
+      "declarations": [
+        "VectorFunctions::isZeroVector",
+        "VectorFunctions::+",
+        "VectorFunctions::+::zeroAddition",
+        "VectorFunctions::+::commutivity",
+        "VectorFunctions::-",
+        "VectorFunctions::-::negation",
+        "VectorFunctions::-::difference",
+        "VectorFunctions::sum0",
+        "VectorFunctions::sum0::precondition",
+        "VectorFunctions::VectorOf",
+        "VectorFunctions::scalarVectorMult",
+        "VectorFunctions::scalarVectorMult::scaling",
+        "VectorFunctions::scalarVectorMult::zeroLength",
+        "VectorFunctions::vectorScalarMult",
+        "VectorFunctions::vectorScalarDiv",
+        "VectorFunctions::inner",
+        "VectorFunctions::inner::commmutivity",
+        "VectorFunctions::inner::zeroInner",
+        "VectorFunctions::norm",
+        "VectorFunctions::norm::squareNorm",
+        "VectorFunctions::norm::lengthZero",
+        "VectorFunctions::angle",
+        "VectorFunctions::angle::commutivity",
+        "VectorFunctions::angle::lengthInsensitive",
+        "VectorFunctions::CartesianVectorOf",
+        "VectorFunctions::CartesianThreeVectorOf",
+        "VectorFunctions::isCartesianZeroVector",
+        "VectorFunctions::cartesian+",
+        "VectorFunctions::cartesian+::precondition",
+        "VectorFunctions::cartesian-",
+        "VectorFunctions::cartesian-::precondition",
+        "VectorFunctions::cartesianScalarVectorMult",
+        "VectorFunctions::cartesianVectorScalarMult",
+        "VectorFunctions::cartesianInner",
+        "VectorFunctions::cartesianInner::precondition",
+        "VectorFunctions::cartesianNorm",
+        "VectorFunctions::cartesianAngle",
+        "VectorFunctions::cartesianAngle::precondition",
+        "VectorFunctions::sum"
+      ],
+      "evaluated": [
+        "VectorFunctions::isZeroVector",
+        "VectorFunctions::+",
+        "VectorFunctions::-",
+        "VectorFunctions::sum0",
+        "VectorFunctions::VectorOf",
+        "VectorFunctions::scalarVectorMult",
+        "VectorFunctions::vectorScalarMult",
+        "VectorFunctions::vectorScalarDiv",
+        "VectorFunctions::inner",
+        "VectorFunctions::norm",
+        "VectorFunctions::angle",
+        "VectorFunctions::CartesianVectorOf",
+        "VectorFunctions::CartesianThreeVectorOf",
+        "VectorFunctions::isCartesianZeroVector",
+        "VectorFunctions::cartesian+",
+        "VectorFunctions::cartesian-",
+        "VectorFunctions::cartesianScalarVectorMult",
+        "VectorFunctions::cartesianVectorScalarMult",
+        "VectorFunctions::cartesianInner",
+        "VectorFunctions::cartesianNorm",
+        "VectorFunctions::cartesianAngle",
+        "VectorFunctions::sum",
+        "VectorFunctions::+::zeroAddition",
+        "VectorFunctions::-::negation",
+        "VectorFunctions::sum0::precondition",
+        "VectorFunctions::inner::zeroInner",
+        "VectorFunctions::cartesian+::precondition",
+        "VectorFunctions::cartesian-::precondition",
+        "VectorFunctions::cartesianInner::precondition",
+        "VectorFunctions::cartesianAngle::precondition"
+      ],
+      "refused": [
+        {
+          "declaration": "VectorFunctions::+::commutivity",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::+::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: u has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::-::difference",
+          "error": "ErrTypeMismatch",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::-::difference: constraint difference: require condition evaluation failed: type mismatch: operator '+' is not defined for a vector and an undetermined VectorValue"
+        },
+        {
+          "declaration": "VectorFunctions::scalarVectorMult::scaling",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::scalarVectorMult::scaling: constraint scaling: require condition evaluation failed: no value: condition is undetermined: w has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::scalarVectorMult::zeroLength",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::scalarVectorMult::zeroLength: constraint zeroLength: require condition evaluation failed: no value: condition is undetermined: w has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::inner::commmutivity",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::inner::commmutivity: constraint commmutivity: require condition evaluation failed: no value: condition is undetermined: x has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::norm::squareNorm",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::squareNorm: constraint squareNorm: require condition evaluation failed: no value: condition is undetermined: l has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::norm::lengthZero",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::lengthZero: constraint lengthZero: require condition evaluation failed: no value: condition is undetermined: l has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::angle::commutivity",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model"
+        },
+        {
+          "declaration": "VectorFunctions::angle::lengthInsensitive",
+          "error": "ErrNoValue",
+          "message": "calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::lengthInsensitive: constraint lengthInsensitive: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model"
+        }
+      ],
+      "wrong": []
+    },
+    {
+      "name": "OccurrenceFunctions",
+      "path": "Kernel Libraries/Kernel Function Library/OccurrenceFunctions.kerml",
+      "declarations": [
+        "OccurrenceFunctions::===",
+        "OccurrenceFunctions::isDuring",
+        "OccurrenceFunctions::create",
+        "OccurrenceFunctions::destroy",
+        "OccurrenceFunctions::addNew",
+        "OccurrenceFunctions::addNewAt",
+        "OccurrenceFunctions::removeOld",
+        "OccurrenceFunctions::removeOldAt"
+      ],
+      "evaluated": [
+        "OccurrenceFunctions::===",
+        "OccurrenceFunctions::isDuring",
+        "OccurrenceFunctions::create",
+        "OccurrenceFunctions::destroy",
+        "OccurrenceFunctions::addNew",
+        "OccurrenceFunctions::addNewAt"
+      ],
+      "refused": [
+        {
+          "declaration": "OccurrenceFunctions::removeOld",
+          "error": "ErrActionPerformanceOccurrence",
+          "message": "action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOld is not an action"
+        },
+        {
+          "declaration": "OccurrenceFunctions::removeOldAt",
+          "error": "ErrActionPerformanceOccurrence",
+          "message": "action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOldAt is not an action"
+        }
+      ],
+      "wrong": []
+    }
+  ]
+}

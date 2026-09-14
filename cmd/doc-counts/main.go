@@ -1,8 +1,9 @@
 // Command doc-counts rewrites the documentation lines that are a function of the
-// committed oracle baselines, so no contributor types them. It reads them through
-// internal/doccounts, which the guard in cmd/pilot-diff reads too, and rewrites
-// nothing else in the files it touches. The compliance map's own row census is not
-// written anywhere: the documentation build counts it. Run it with `make docs-counts`.
+// committed oracle baselines and of the committed analysis-library census, so no
+// contributor types them. It reads them through internal/doccounts, which the
+// guard in cmd/pilot-diff reads too, and rewrites nothing else in the files it
+// touches. The compliance map's own row census is not written anywhere: the
+// documentation build counts it. Run it with `make docs-counts`.
 package main
 
 import (
@@ -99,7 +100,7 @@ func pendingRewrites(root string) ([]rewrite, error) {
 	if counts.KnownFailure != 0 {
 		return nil, fmt.Errorf("%s: %d 🚧 rows; give them a status the census states", doccounts.SpecCompliancePath, counts.KnownFailure)
 	}
-	refereed, err := doccounts.ReadRefereedCounts(root)
+	figures, err := doccounts.ReadFigures(root)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func pendingRewrites(root string) ([]rewrite, error) {
 			if line.Path != path {
 				continue
 			}
-			if updated, err = doccounts.RewriteBaselineLine(updated, line, refereed); err != nil {
+			if updated, err = doccounts.RewriteBaselineLine(updated, line, figures.Refereed); err != nil {
 				return nil, err
 			}
 		}
@@ -123,7 +124,7 @@ func pendingRewrites(root string) ([]rewrite, error) {
 			if block.Path != path {
 				continue
 			}
-			if updated, err = doccounts.RewriteBlock(updated, block, refereed); err != nil {
+			if updated, err = doccounts.RewriteBlock(updated, block, figures); err != nil {
 				return nil, err
 			}
 		}
