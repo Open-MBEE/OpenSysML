@@ -3,9 +3,9 @@
 Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release/0.8.0`,
 2026-09-13), verified locally with Go 1.25.0. It is the newest tag on `Open-MBEE/OpenSysML`, after
 `v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch
-`develop` carries six pull requests past the tag (#278, #263, #267, #281, #282, #285) and
+`develop` carries twelve pull requests past the tag (#278, #263, #267, #280–#287, #289) and
 nothing else is counted ahead of it: every status below is what the tag carries unless the text
-names one of those six as having moved it, and the pull requests open against `develop` at this
+names one of those as having moved it, and the pull requests open against `develop` at this
 baseline are named where they touch a roadmap item.
 Read `AGENTS.md` first; it governs everything below.
 
@@ -39,7 +39,9 @@ tag points at the same commit; at this baseline PyPI still serves `opensysml` 0.
 procedure and its post-tag checks are in `docs/project/releasing.md`).
 `CHANGELOG.md`'s **0.8.0** section is the tag's content (#268 and #277 folded it), its **0.7.0**
 section is `v0.7.0`'s (#145, #154, #159), and `changes/unreleased/` on `develop` holds the
-fragments of the six pull requests merged after the tag alone once #286 carries the fold back.
+fragments of the pull requests merged after the tag alone, #286 having carried the fold back.
+Between releases `.github/workflows/nightly.yml` publishes the newest green `develop` as the
+prerelease `nightly` (#284), so an item landed after the tag is unreleased but not unbuilt.
 Since `v0.7.0` the repository works git-flow: `develop` is the integration branch, `main`
 receives only `release/x.y.z` and `hotfix/` pull requests (#151), and the roadmap's baseline is
 therefore the tag rather than `main`'s head.
@@ -1718,10 +1720,15 @@ under a usage's name, to `#id` or to a path (`car.wheels[2]`), `-instantiate` is
 `-render-document` so a document reports `car.wheels[2]`'s current value and not its declared
 default, and objects render by path in Markdown, HTML (`span.sysml-object`, `data-object`) and PDF.
 `RelatedElements` stays over elements and refuses an object row. Its companion #263 validates an
-object as a whole (A7) over the same carrier walk. What it leaves: the gRPC binding of a held
-object as a query parameter, and a `Verdicts` operation projecting the assertion, its carrier and
-the verdict A7 reaches, which is what "which requirements does *this* car violate" needs in a
-document. The rows in `spec-compliance.md` say so.
+object as a whole (A7) over the same carrier walk, and #289 puts that sweep in a query:
+`DocumentQueries::Verdicts(source, kind)` answers one row per assertion about each row's object —
+the held object, or the element's declared one — and the objects it holds, the assertion as the
+row's element with `kind`, `carrier`, `path`, `verdict`, `condition`, `reason` and `verification`
+read by `WhereFeature`, `OrderBy`, `Project` and `Column`, so "which requirements does *this* car
+violate" is a `WhereFeature` over `Verdicts` in a document; verdicts render in Markdown, HTML
+(`span.sysml-verdict`) and PDF and cross `RunDocumentQuery` as the `verdict` arm of
+`DocumentValue`. What it leaves: the gRPC binding of a held object as a query parameter. The rows
+in `spec-compliance.md` say so.
 
 ## Q3 — state and event queries
 
@@ -2354,9 +2361,9 @@ Two orders, because there are two kinds of item. The **track-local** orders say 
 inside a track; the **cross-cutting** order says which tracks' first items go first when a session
 must choose. The order agreed at the `v0.6.0` baseline had F and S first and A6/X6/A2 second, and
 owed X2's chain-read half; all of it landed and `v0.7.0` and `v0.8.0` shipped it, so both orders
-below are rewritten again around what remains. Two pull requests merged to `develop` after the
-tag move a roadmap item and are named where they do: #267 (Q2's query side) and #263 (A7); one is
-open, #286 (the release fold-back).
+below are rewritten again around what remains. Of the pull requests merged to `develop` after the
+tag, four move a roadmap item and are named where they do: #267 and #289 (Q2's query side), #263
+(A7) and #286 (the release fold-back); none is open.
 
 ## What `v0.7.0` and `v0.8.0` released
 
@@ -2372,7 +2379,7 @@ carried more than that list. By track, with the pull requests the tracks cite:
   and static expression typing landed beside them.
 - **Track A** — landed: A6 (#117), A3 (#118), A2 (#133), A5 (#136); A7 (#263) is on `develop`
   after the tag.
-- **Track Q** — landed: Q4 (#849), Q2's expression half (X5); Q2's query side (#267) is on
+- **Track Q** — landed: Q4 (#849), Q2's expression half (X5); Q2's query side (#267, #289) is on
   `develop` after the tag.
 - **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both.
 - **Track E** — E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
@@ -2390,7 +2397,7 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   all run; the measured per-library table in `spec-compliance.md` is not started.
 - **Track E** — eligible: E1, E2, E4 in that order, then E6 on request, E3/E5 behind their design
   records, E7 behind its object-model item, E8 behind a model that needs it.
-- **Track Q** — Q2's remainder (the gRPC object binding and the `Verdicts` operation); Q1; Q3,
+- **Track Q** — Q2's remainder (the gRPC binding of a held object as a query parameter); Q1; Q3,
   unblocked by A5 and by Q2's object rows, not started.
 - **Track A** — A4, the state-space runner, unblocked by A5 and not started.
 - **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
@@ -2406,10 +2413,10 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 
 ## Cross-cutting order
 
-1. **Release housekeeping** — #286 folds `main` back into `develop` after `v0.8.0` so the
-   **0.8.0** changelog section and the emptied `changes/unreleased/` reach the integration branch;
-   the Python release's PyPI publication is checked as `releasing.md` says. Small, and first
-   because every later pull request otherwise carries the fragments the release folded.
+1. **Release housekeeping** — #286 folded `main` back into `develop` after `v0.8.0`, so the
+   **0.8.0** changelog section and the emptied `changes/unreleased/` are on the integration
+   branch; what is left of the step is the Python release's PyPI publication, checked as
+   `releasing.md` says.
 2. **L7** — the measured per-library conformance table for the analysis libraries. Nothing gates
    it any more; it closes Track L, and it is the smallest item that changes a status.
 3. **Track E** — E1, then E2, then E4, in the track's own order below. F and S landed and two
@@ -2417,8 +2424,8 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
    carry A5's clock and S2's choice points, and every E item is written against a named scheduling
    policy.
 4. **Q2's remainder, then Q1, then Q3** — #267 landed the object-row query and its REPL/CLI
-   bindings on `develop`; what closes Q2 is the gRPC binding of a held object as a query parameter
-   and the `Verdicts` operation over A7's report (#263, landed beside it). Q1 is the page that says
+   bindings on `develop` and #289 the `Verdicts` rows over A7's sweep (#263); what closes Q2 is the
+   gRPC binding of a held object as a query parameter. Q1 is the page that says
    which query is which, written once the set is complete; Q3 (state and event queries) follows on
    A5's clock and Q2's object rows. Q4 (#849) landed independently ahead of it.
 5. **A4** — the continuous-time runner (Euler/RK4, zero-crossing) on A5's clock; the last open
@@ -2491,9 +2498,9 @@ and Track W's remaining writer and rasterization work.
   needs them — step 8 above.
 - **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A7 landed in #263 on `develop`
   after the tag, its carrier walk shared with Q2's query side (#267); A4 is step 5 above.
-- **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267 on
-  `develop` after the tag; what is left of Q2 (the gRPC object binding, the `Verdicts` operation)
-  is step 4 above, with Q1 and then Q3 behind it.
+- **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267 and
+  #289 on `develop` after the tag; what is left of Q2 (the gRPC object binding) is step 4 above,
+  with Q1 and then Q3 behind it.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
   reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
   negative case first, each change moving its row.
