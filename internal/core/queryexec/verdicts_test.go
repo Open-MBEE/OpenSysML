@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // verdictBody declares a car whose own assertions hold, decide nothing (an
@@ -406,6 +407,32 @@ func TestExecuteVerdictsReadCurrentValues(t *testing.T) {
 	}
 	if got := optionalTexts(t, all, 5); !strings.Contains(got[1], "mass <= capacity") {
 		t.Fatalf("fits reason = %q", got[1])
+	}
+}
+
+// Asking again answers the same rows, and a validation after agrees with them:
+// checking the object leaves no assertion restated about it.
+func TestExecuteVerdictsAnswerTheSameRowsAgain(t *testing.T) {
+	fixture := loadVerdictFixture(t)
+	root := Bindings{"root": {ObjectValue(fixture.car, "car")}}
+	first := fixture.rows(t, fixture.session(), "All", root)
+	again := fixture.rows(t, fixture.session(), "All", root)
+	for _, column := range []int{0, 2, 3} {
+		before, after := cellTexts(t, first, column), cellTexts(t, again, column)
+		if strings.Join(before, ",") != strings.Join(after, ",") {
+			t.Fatalf("column %d changed between queries:\n%v\n%v", column, before, after)
+		}
+	}
+	var scopes []*symbols.Scope
+	for _, name := range fixture.index.WorkspaceDocuments() {
+		scopes = append(scopes, fixture.index.DocumentRoot(name))
+	}
+	report, err := fixture.ctx.ValidateObject(fixture.car, scopes)
+	if err != nil {
+		t.Fatalf("validate after querying: %v", err)
+	}
+	if want := len(first.Rows()) - 2; len(report.Verdicts) != want {
+		t.Fatalf("validation after querying has %d verdicts, want %d", len(report.Verdicts), want)
 	}
 }
 

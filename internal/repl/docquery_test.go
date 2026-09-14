@@ -535,4 +535,10 @@ func TestRunQueryReportsVerdicts(t *testing.T) {
 	wants(t, run(t, s, "%run-query Failing root=#1"),
 		"✓ Query Garage::Failing returned 1 row",
 		"Row 1: assert constraint inflated on #1.wheels[2]: violated")
+	// Asked again, the object answers the same rows: the satisfaction's subject
+	// binding classified the car, which restates no assertion about it.
+	wants(t, run(t, s, "%run-query Checks root=car"),
+		"✓ Query Garage::Checks returned 4 rows",
+		"Row 1: assert constraint light on Garage::car: holds",
+		"Row 2: satisfy lightCar by car on Garage::car: holds")
 }

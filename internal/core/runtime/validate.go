@@ -359,17 +359,17 @@ func (w *validationWalk) heldChildren(fv *FeatureValue, segment string) []heldCh
 	return out
 }
 
-// carriedVerdicts checks the assertions the object's types state about it, inherited
+// carriedVerdicts checks each assertion declaration the object's types state about it once, inherited
 // ones included and masked named ones left out; satisfaction assertions are returned for the subject search.
 func (ctx *Context) carriedVerdicts(obj *validatedObject) ([]ObjectVerdict, []*SatisfyAssertion) {
 	var verdicts []ObjectVerdict
 	var stated []*SatisfyAssertion
-	seen := map[*symbols.Symbol]bool{}
+	seen := map[*ast.Usage]bool{}
 	for _, typ := range obj.inst.types() {
 		var effective map[*symbols.Symbol]bool
 		for _, member := range ctx.chainMembers(typ, typ.OwnerScope) {
 			usage, ok := member.node.(*ast.Usage)
-			if !ok {
+			if !ok || seen[usage] {
 				continue
 			}
 			kind, asserted := assertionKindOf(usage)
@@ -377,7 +377,7 @@ func (ctx *Context) carriedVerdicts(obj *validatedObject) ([]ObjectVerdict, []*S
 				continue
 			}
 			sym := memberSymbol(member.scope, member.node)
-			if sym == nil || seen[sym] {
+			if sym == nil {
 				continue
 			}
 			if sym.Name != "" {
@@ -388,7 +388,7 @@ func (ctx *Context) carriedVerdicts(obj *validatedObject) ([]ObjectVerdict, []*S
 					continue
 				}
 			}
-			seen[sym] = true
+			seen[usage] = true
 			switch kind {
 			case AssertionSatisfaction:
 				if a := ctx.satisfyAssertionOf(sym); a != nil {
