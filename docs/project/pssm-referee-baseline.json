@@ -7,7 +7,7 @@
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
     "recorded": "2026-09-15",
-    "develop": "bcc6b13e0ab9fa3814f183c2e8f2cf33b68adb03"
+    "develop": "433628833698770b565ea075faf783c22e8a7b75"
   },
   "buckets": {
     "differs-by-design": 2,
@@ -234,6 +234,8 @@
       "name": "Transition 019",
       "area": "Transition",
       "class": "extension",
+      "row": "SM34",
+      "rowKind": "differs, v2 silent",
       "bucket": "fail",
       "reasons": [
         "reached a trace the suite does not admit: S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T2.3(effect)::T1.3(effect)",
@@ -241,7 +243,8 @@
         "admitted trace not reached: S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)",
         "admitted trace not reached: S1.1(exit)::S2.1(exit)::T2.2(effect)::T1.2(effect)::T2.3(effect)::T1.3(effect)",
         "admitted trace not reached: S2.1(exit)::S1.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)",
-        "admitted trace not reached: S2.1(exit)::S1.1(exit)::T2.2(effect)::T1.2(effect)::T2.3(effect)::T1.3(effect)"
+        "admitted trace not reached: S2.1(exit)::S1.1(exit)::T2.2(effect)::T1.2(effect)::T2.3(effect)::T1.3(effect)",
+        "reports on SM34 (Join): differs, v2 silent"
       ],
       "expected": [
         "S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)",
@@ -919,12 +922,15 @@
       "name": "Join001",
       "area": "Join",
       "class": "extension",
+      "row": "SM34",
+      "rowKind": "differs, v2 silent",
       "bucket": "fail",
       "reasons": [
         "reached a trace the suite does not admit: S1.1(exit)::T2.3(effect)::S2.1(exit)::T2.4(effect)::S1(exit)",
         "reached a trace the suite does not admit: S2.1(exit)::T2.4(effect)::S1.1(exit)::T2.3(effect)::S1(exit)",
         "admitted trace not reached: S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)",
-        "admitted trace not reached: S1.2(exit)::T2.4(effect)::S1.1(exit)::S1(exit)::T2.4(effect)"
+        "admitted trace not reached: S1.2(exit)::T2.4(effect)::S1.1(exit)::S1(exit)::T2.4(effect)",
+        "reports on SM34 (Join): differs, v2 silent"
       ],
       "expected": [
         "S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)",
@@ -955,11 +961,14 @@
       "name": "Join003",
       "area": "Join",
       "class": "extension",
+      "row": "SM32",
+      "rowKind": "differs, v2 silent",
       "bucket": "fail",
       "reasons": [
         "run error: process event: evaluate pseudostate: join Join1: no guard evaluated to true",
         "admitted trace not reached: T1.2(effect)::T5(effect)",
-        "admitted trace not reached: T1.4(effect)::T5(effect)"
+        "admitted trace not reached: T1.4(effect)::T5(effect)",
+        "reports on SM32 (Junction or join with no path through): differs, v2 silent"
       ],
       "expected": [
         "T1.2(effect)::T5(effect)",
@@ -1376,7 +1385,7 @@
       "reasons": [
         "run error: process event: evaluate pseudostate: junction S1_Junction1: no guard evaluated to true",
         "admitted trace not reached: T3(effect)",
-        "reports on SM32 (Junction with no path through): differs, v2 silent"
+        "reports on SM32 (Junction or join with no path through): differs, v2 silent"
       ],
       "expected": [
         "T3(effect)"
@@ -1402,10 +1411,13 @@
       "name": "Junction 004",
       "area": "Junction",
       "class": "extension",
+      "row": "SM32",
+      "rowKind": "differs, v2 silent",
       "bucket": "fail",
       "reasons": [
         "run error: process event: evaluate pseudostate: junction S1_Junction1_2: no guard evaluated to true",
-        "admitted trace not reached: T3(effect)"
+        "admitted trace not reached: T3(effect)",
+        "reports on SM32 (Junction or join with no path through): differs, v2 silent"
       ],
       "expected": [
         "T3(effect)"
