@@ -9,7 +9,8 @@
   evaluated once per distinct set of inputs and its verdict fanned out to each occurrence, which
   still reports its own verdict, message and path in the same order. Values, verdicts and
   diagnostics are unchanged, as `TestSparseValuesDifferential` asserts with sharing on and off
-  (`OPENSYSML_SHARED_DEFAULTS=0` turns it off). On the 12 800-satellite fleet constellation,
+  (`OPENSYSML_SHARED_DEFAULTS=0` turns it off; a context recording a trace shares nothing, so
+  the trace lists every evaluation). On the 12 800-satellite fleet constellation,
   checking its 2 412 satisfaction assertions drops from 23.2 s and 14.4 GiB allocated to 10.9 s
   and 6.1 GiB, and reading one summed attribute over every occurrence from 259 s and 74.3 GiB to
   8.6 s and 2.1 GiB.

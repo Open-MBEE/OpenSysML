@@ -196,7 +196,9 @@ table by every other pristine occurrence of the shape, without materializing
 the subtree the derivation walked; within one report, a check over
 occurrences of one shape is evaluated once per distinct set of inputs and
 its verdict fanned out (`internal/core/runtime/shared_default.go`,
-`shared_verdict.go`; `OPENSYSML_SHARED_DEFAULTS=0` turns it off). Measured on
+`shared_verdict.go`; `OPENSYSML_SHARED_DEFAULTS=0` turns it off, and a
+context recording a trace shares nothing, so the trace lists every
+evaluation). Measured on
 the same machine, before and after that sharing, one run each with
 `-memstats` and `/usr/bin/time`:
 
