@@ -173,6 +173,140 @@ func TestTransitionFootprintsFollowChoiceBranchesAndCompletion(t *testing.T) {
 	}
 }
 
+// Firing a join runs the effect of every transition into it, so each incoming
+// transition's footprint writes what all the incoming effects write.
+func TestTransitionFootprintsFoldJoinIncomingEffects(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			state Machine parallel {
+				attribute p : Integer = 0;
+				attribute q : Integer = 0;
+				state left {
+					entry; then l1;
+					state l1;
+					transition first l1 do assign p := 1 then sync;
+				}
+				state right {
+					entry; then r1;
+					state r1;
+					transition first r1 do assign q := 1 then sync;
+				}
+				join sync;
+				transition first sync then done;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	for _, source := range []string{"l1", "r1"} {
+		fp := graph.TransitionFootprints()[transitionOut(t, graph, source, 0)]
+		if !hasPlace(fp.Writes, "p") || !hasPlace(fp.Writes, "q") {
+			t.Fatalf("out of %s writes %v, want both incoming effects' p and q", source, placeNames(fp.Writes))
+		}
+	}
+}
+
+// A transition into a fork covers the regions the fork omits as well as its
+// branches' targets: the omitted region starts by default, so its states'
+// activity, entry behavior and completion are the fork's too.
+func TestTransitionFootprintsCoverForkOmittedRegions(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			attribute def Go;
+			attribute def Tick;
+			state Machine {
+				attribute k : Integer = 0;
+				attribute n : Integer = 0;
+				entry; then idle;
+				state idle;
+				state other;
+				state work parallel {
+					state left { state a; }
+					state right { state b; }
+					state third {
+						entry; then c;
+						state c { entry action { assign n := n + 1; } }
+						transition first c then c2;
+						state c2;
+					}
+				}
+				fork split;
+				transition first idle accept Go do assign k := 1 then split;
+				transition first idle accept Tick do assign n := 0 then other;
+				transition first split then a;
+				transition first split then b;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	fork := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
+	for _, name := range []string{"k", "n", "work", "a", "b", "c", "c2"} {
+		if !hasPlace(fork.Writes, name) {
+			t.Fatalf("writes %v, want %s", placeNames(fork.Writes), name)
+		}
+	}
+	if !fork.Completion {
+		t.Fatal("entering c, whose completion transition fires, queues a completion")
+	}
+	tick := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 1)]
+	if hasPlace(tick.Writes, "c") || hasPlace(tick.Writes, "a") {
+		t.Fatalf("Tick writes %v, want none of work's states", placeNames(tick.Writes))
+	}
+}
+
+// A transition from inside a parallel composite into a fork over its regions
+// restarts every region: the sibling regions' active states are exited too, so
+// their activity and exit behaviors are the fork's.
+func TestTransitionFootprintsCoverForkSiblingRegionExits(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			attribute def Go;
+			attribute def Tick;
+			state Machine {
+				attribute x : Integer = 0;
+				attribute y : Integer = 0;
+				entry; then work;
+				state work parallel {
+					state left {
+						entry; then a;
+						state a;
+						state c;
+						transition first a accept Go then split;
+					}
+					state right {
+						entry; then b;
+						state b { exit action { assign x := x + 1; } }
+						state d;
+						transition first b accept Tick do assign y := x then d;
+					}
+				}
+				fork split;
+				transition first split then c;
+				transition first split then d;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	fork := graph.TransitionFootprints()[transitionOut(t, graph, "a", 0)]
+	for _, name := range []string{"x", "a", "b", "c", "d"} {
+		if !hasPlace(fork.Writes, name) {
+			t.Fatalf("writes %v, want %s", placeNames(fork.Writes), name)
+		}
+	}
+	if hasPlace(fork.Writes, "work") {
+		t.Fatalf("writes %v, want work's own activity untouched: it stays active", placeNames(fork.Writes))
+	}
+	tick := graph.TransitionFootprints()[transitionOut(t, graph, "b", 0)]
+	if !fork.Dependent(tick) {
+		t.Fatalf("the fork exits b, whose exit writes the x Tick reads:\nfork:\n%s\ntick:\n%s", fork, tick)
+	}
+}
+
 // Every entry, do and exit behavior has a footprint: what its statements touch
 // and the activity of the state it belongs to.
 func TestBehaviorFootprintsCoverEveryBehavior(t *testing.T) {

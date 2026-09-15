@@ -283,6 +283,9 @@ func (e *StateExecutor) moveBetweenRegions(
 	if err := e.runBehaviors(effects); err != nil {
 		return err
 	}
+	if keep == target {
+		return e.completeInto(trans, source.Name, target)
+	}
 
 	// The region's active state is the deepest state on the path to target that the
 	// region itself declares, which is a composite state above target when the
@@ -377,6 +380,37 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 	// exits its regions' active states, as exiting a KerML StatePerformance ends
 	// its subperformances.
 	lca := e.getLCA(owner, target)
+	between := e.exitPath(owner, lca, nil)
+	if lca == target {
+		// The target is an active ancestor: the region is left, the states between
+		// are exited, and the target's region they were in rests at the target.
+		if err := e.exitRegionTo(region, nil); err != nil {
+			return err
+		}
+		e.activeConfig.regionStates[region] = owner
+	}
+	if err := e.exitRegionOwnerTo(owner, lca); err != nil {
+		return err
+	}
+	if lca == target && len(between) > 0 {
+		if declaring := e.declaringRegion(between[len(between)-1]); declaring != nil {
+			// The region completed: its history keeps no state to restore.
+			e.forgetRegionHistory(declaring)
+			e.activeConfig.regionStates[declaring] = target
+		}
+	}
+	if err := e.runBehaviors(effects); err != nil {
+		return err
+	}
+	if lca == target {
+		return e.completeInto(trans, source.Name, target)
+	}
+	return e.enterOutside(trans, source, lca, target)
+}
+
+// exitRegionOwnerTo exits owner, whose regions hold the active configuration,
+// and its ancestors up to lca, which stays active.
+func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
 	for _, current := range e.exitPath(owner, lca, nil) {
 		// Clear the region current is active in first — a region's active state may
 		// be nested below current — or an enclosing state exits current again.
@@ -390,10 +424,7 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 			return fmt.Errorf("exit state: %w", err)
 		}
 	}
-	if err := e.runBehaviors(effects); err != nil {
-		return err
-	}
-	return e.enterOutside(trans, source, lca, target)
+	return nil
 }
 
 // leaveTopRegions leaves the machine's own orthogonal regions, which no state

@@ -571,7 +571,10 @@ guard cannot be evaluated is not an alternative and does not fail the dispatch: 
 an informational `guard-unevaluable` note naming the state, the event and the transition
 (`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `state_choice_unevaluable_transition`,
 golden). The first transition read is the run's own, and its failure fails the dispatch as it
-always has (`TestFirstTransitionFailureStillFailsTheRun`).
+always has (`TestFirstTransitionFailureStillFailsTheRun`). A state's completion is one occurrence
+too: several unguarded completion transitions out of one state are the same choice, drawn when
+the completion is dispatched, and the completion fires exactly one of them
+(`state_explore_completion_choice`, 2 runs, 2 outcomes, complete).
 
 The choice is recorded when the transition fires, not when it is selected: a transition selected
 on the event reads its guard once more as it fires, and one another region's reaction has
@@ -772,6 +775,47 @@ values and no other. `state_concurrent_do_action_bodies_timed` is the shape with
 that wait on the clock: both behaviors pause at an `accept after 2 [s]` and are due again in the
 round at `t=2.0`, where the order of the two counts is open (`1324` entering order, `3124` the
 other), while the counts at `t=4.0` and `t=5.0` are alone in their rounds.
+
+### Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open
+
+Fixture: `state_join_runs_every_incoming_effect` (golden, explored).
+
+```
+Outer { exit { log += "outer(exit) " }
+        Work parallel { left:  l1 ─ do log += "left(effect) "  → sync
+                        right: r1 ─ do log += "right(effect) " → sync }
+        sync join ─ do log += "sync(effect) " → Rest { entry { log += "rest(entry)" } } }
+```
+
+Derived constraints:
+
+- The library has no join among states (`fork` and `join` are action nodes, `Actions.sysml`
+  `ForkAction` / `JoinAction`); the state-body form follows UML, where the transitions into a
+  join and the one out of it are segments of one compound transition (UML 2.5.1 §14.2.3.8.1) and
+  the join is enabled only once every incoming segment is (PSSM §8.5.7 `JoinPseudostateActivation`).
+  Each incoming segment is a `StateTransitionPerformance`, so its effect follows its own source's
+  exit (`TransitionPerformances.kerml`, `transitionLinkSource then effect`), and the segments are
+  the last steps of two regions' substate performances.
+- Every step of a substate is an `enclosedPerformance` of the enclosing state performance,
+  "happening during the state performance" (`StatePerformances.kerml`), whose exit is its last
+  step (`succession [*] middle then [1] exit`): both incoming segments — effects included — end
+  before `Work` is left, and `Work` before `Outer`, so `outer(exit)` follows both incoming
+  effects and precedes the outgoing segment's `sync(effect)` and `Rest`'s entry
+  (`effect then transitionLink.laterOccurrence`, `entry then middle`).
+- No succession joins `left`'s segment to `right`'s, so the library orders nothing between the
+  two incoming effects.
+
+Open: which incoming segment fires first. The two orders reach two values of `log`.
+
+Pinned outcome: the admissible set `{left(effect) right(effect) …, right(effect) left(effect) …}`
+each ending `outer(exit) sync(effect) rest(entry)`, stated as `outcomes` citing this section. The
+order is a choice point under every policy, reported as `choice join sync: states l1, r1 react
+(unordered; took l1 first)`: `declared` and `reverse` take source declaration order — a tool-defined
+order — and the default golden pins that linearization (`left` first); `seed:<n>` draws the order,
+and the `seed:1` golden pins the other; `explore` varies it and must reach both outcomes and no
+other, in two runs. Each segment exits its source and runs its effect before the next segment is
+drawn (`exit: l1`, `assign log`, `exit: r1`, `assign log` in the golden), so the incoming effects
+interleave with the sources' exits only as the segments do, never across one segment.
 
 ### A merge is re-entered on every traversal of a loop
 

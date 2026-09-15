@@ -120,8 +120,10 @@ func (b *stateFootprintBuilder) segment(source *ast.StateNode, seg *Transition) 
 }
 
 // pseudostate adds what a route through the pseudostate may do: every branch of
-// a choice or junction, every target of a fork, the target of a join with the
-// regions it leaves, the whole composite a history re-enters.
+// a choice or junction, every target of a fork with the regions it leaves to
+// start by default and every region it restarts when reached from inside its
+// owner, the target of a join with the regions it leaves, the whole composite a
+// history re-enters.
 func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transition, ps *ast.PseudostateNode) {
 	if b.crossed[ps] {
 		return
@@ -144,9 +146,30 @@ func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transiti
 				b.footprint.Dynamic = true
 			}
 		}
+		if plan := b.graph.ForkPlans[ps]; plan != nil {
+			for _, region := range b.graph.CompositeStates[plan.Owner] {
+				if plan.Branches[region] == nil {
+					b.entersRegion(plan.Owner, region)
+				}
+			}
+			if source != plan.Owner && b.graph.encloses(plan.Owner, source) {
+				for _, child := range b.graph.children(plan.Owner) {
+					b.exits(child)
+				}
+			}
+		}
 	case ast.PseudostateJoin:
 		if owner := b.graph.PseudostateOwner[ps]; owner != nil {
 			b.exits(owner)
+		}
+		// Firing the join runs the effects of every incoming segment, not just seg's.
+		for _, incoming := range b.graph.incomingTo(ps) {
+			if incoming == seg {
+				continue
+			}
+			for _, effect := range incoming.Effect {
+				b.statements(effect.Body)
+			}
 		}
 		for _, branch := range b.graph.Transitions[ps] {
 			b.segment(source, branch)
@@ -225,6 +248,23 @@ func (b *stateFootprintBuilder) entersBelow(state *ast.StateNode) {
 	}
 }
 
+// entersRegion adds every state a region of owner may start in by default: the
+// graph-only state standing for the region, or the states it declares, and all
+// below them.
+func (b *stateFootprintBuilder) entersRegion(owner *ast.StateNode, region *ast.StateRegion) {
+	if wrapper := b.graph.RegionState[region]; wrapper != nil {
+		b.enters(wrapper)
+		b.entersBelow(wrapper)
+		return
+	}
+	for _, child := range b.graph.children(owner) {
+		if b.graph.RegionOf[child] == region {
+			b.enters(child)
+			b.entersBelow(child)
+		}
+	}
+}
+
 // children lists the states whose parent is state, in graph order.
 func (g *StateGraph) children(state *ast.StateNode) []*ast.StateNode {
 	var children []*ast.StateNode
@@ -239,6 +279,19 @@ func (g *StateGraph) children(state *ast.StateNode) []*ast.StateNode {
 		}
 	}
 	return children
+}
+
+// incomingTo lists the transitions out of a state into ps, in state order.
+func (g *StateGraph) incomingTo(ps *ast.PseudostateNode) []*Transition {
+	var incoming []*Transition
+	for _, state := range g.States {
+		for _, trans := range g.Transitions[state] {
+			if trans.Target == ast.Node(ps) {
+				incoming = append(incoming, trans)
+			}
+		}
+	}
+	return incoming
 }
 
 // commonAncestor is the innermost state enclosing both, nil when only the

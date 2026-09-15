@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "finalState": "x0+a+b",
+  "stateVisits": ["idle", "work", "x0", "a", "b"],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "T1(effect) T1.1(effect) work(entry) x0(entry) a(entry) T1.2(effect) b(entry) "
+    }
+  },
+  "trace": true
+}
