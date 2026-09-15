@@ -685,10 +685,23 @@ into one region (`robustness_test.go:fork_branches_share_region`).
 
 **SM34. Join.** PSSM requirement *Join 001* (§9.4.12): "all incoming Transitions have to complete before execution
 can continue through an outgoing Transition"; the join fires when every source state is active
-and the occurrence enables all incoming segments. *Runtime:* `fireJoinTransition` fires only when
-every state in `joinSources` is active, exiting them all and entering the join's target; a join
-with a single incoming branch is refused (`join_with_one_incoming_branch`).
-`state_fork_join_pseudostate`. **agrees.**
+and the occurrence enables all incoming segments. Requirement *Join 002* (§9.4.12) and §8.5.7
+(`JoinPseudostateActivation`): the incoming transitions and the outgoing one are segments of one
+compound transition, so every incoming segment fires — its source exited, then its effect — in
+either order, before the state owning the join is exited and the outgoing effect runs (the test's
+expected execution: the two incoming effects in parallel, the owner's exit, then the outgoing
+effect). *v2/KerML:* no state-body join in v2 (`join` is an action node, as SM33 says of `fork`);
+the extension follows UML, and the library's `transitionLinkSource then effect` and "happening
+during the state performance" fix each segment's exit-then-effect and place both segments before
+the owner's exit
+([oracle](../../project/behavior-semantic-oracle.md#transitions-into-a-join-each-exits-its-source-and-runs-its-effect-before-the-owner-is-left-in-which-order-is-open)).
+*Runtime:* `fireJoinTransition` fires only when every state in `joinSources` is active;
+`fireJoinIncoming` then fires the incoming segments one at a time, drawing the next from the
+scheduling policy as a `ChoiceRegionOrder` labelled `join <name>` (declaration order by default),
+before the owner is exited and the outgoing segment followed; a join with a single incoming branch
+is refused (`join_with_one_incoming_branch`). `state_fork_join_pseudostate`,
+`state_join_runs_every_incoming_effect` (both orders as `outcomes`, explored). **agrees**: every
+order PSSM admits is a run the policies produce, as SM21 has it for region firing order.
 
 #### Transition kinds: external, local, internal
 
@@ -1270,7 +1283,7 @@ which supersede the hand count this section was first written with — the moves
 
 | Aspect of the suite | Verdict | Why |
 |---|---|---|
-| **Expressing the test model in SysML v2 textual notation** | **Can, for 66 of 103** (31 with standard notation, 32 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 37** (30 use a construct v2 has no spelling for, 7 more use a behavior shape the notation cannot bind) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
+| **Expressing the test model in SysML v2 textual notation** | **Can, for 65 of 103** (31 with standard notation, 31 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 38** (30 use a construct v2 has no spelling for, 8 more use a behavior shape the notation cannot bind) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
 | **Driving the test** | **Can, with one normalization** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling; the conformance harness queues a case's `events` before the first step (`conformance_test.go:injectEvents`). The two coincide when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
 | **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("<state>(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "<state>(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
 | **Alternative expected traces** | **Can, and exactly** | 36 tests declare more than one admissible trace. The conformance schema's `outcomes` with the `explore` policy replays a case once per linearization of its choice points (`ChoiceRegionOrder`, `ChoiceTransition`, `ChoiceDueOrder`) and fails when a listed outcome is unreachable or an unlisted one is reached — the same set-equality PSSM's alternatives ask for, and stricter than the single-run comparison the PSSM harness performs |
@@ -1296,6 +1309,8 @@ which supersede the hand count this section was first written with — the moves
 | Entry, exit or do behavior with parameters (reading the triggering event's data) | none: the notation binds event data on the transition (`accept d : Data`), never on an `entry`/`exit`/`do` action | no translation |
 | Call event whose operation returns a value the tester traces | none: the runtime's call events carry no result back to the caller | no translation |
 | A `trace(...)` call in the tester's own behavior | none: only the target's behaviors append to the model's `log` | no translation |
+| A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed | no translation |
+| A guard whose behavior is an opaque behavior, not an activity | none: the reader follows an activity's nodes to tell whether the behavior acts, and does not read an opaque body, so the guard is refused rather than carried as its Boolean text alone. A `FunctionBehavior` is the exception — it accesses no object by UML's contract (§13.2.3.3) — and is translated as the expression it spells | no translation |
 | Fork into states of orthogonal regions that have no initial pseudostate | `parallel` regions spell the shape and the `fork` extension the fork; a region a fork enters needs no `entry; then` (finding 6 below, fixed) | extension |
 
 The classification is by construct, in the order of the table: a test whose model uses any
@@ -1313,7 +1328,7 @@ uses any of them, and as standard otherwise. `internal/pssm/classify.go` is the 
 | Exiting | 5 | 4 | 0 | 0 | 1 |
 | Entry (entry points) | 6 | 0 | 0 | 0 | 6 |
 | Exit (exit points) | 3 | 0 | 0 | 0 | 3 |
-| Choice | 5 | 0 | 5 | 0 | 0 |
+| Choice | 5 | 0 | 4 | 0 | 1 |
 | Junction | 6 | 0 | 5 | 0 | 1 |
 | Fork | 2 | 0 | 1 | 0 | 1 |
 | Join | 3 | 0 | 3 | 0 | 0 |
@@ -1324,12 +1339,12 @@ uses any of them, and as standard otherwise. `internal/pssm/classify.go` is the 
 | Redefinition | 6 | 0 | 0 | 0 | 6 |
 | Standalone | 3 | 0 | 0 | 0 | 3 |
 | Other | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **103** | **31** | **32** | **3** | **37** |
+| **Total** | **103** | **31** | **31** | **3** | **38** |
 
 Of the 30 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
-an internal transition and 6 the redefinition machinery (several use more than one). Of the 63
+an internal transition and 6 the redefinition machinery (several use more than one). Of the 62
 expressible and runnable tests, 20 use orthogonal regions, 8 a do activity, 9 deferral, 8
-history, 6 a junction, 5 a choice and 5 a fork or join; no expressible test has a call event,
+history, 6 a junction, 4 a choice and 5 a fork or join; no expressible test has a call event,
 since every test with one also traces its result from the tester.
 
 #### Moves from the hand count
@@ -1337,7 +1352,8 @@ since every test with one also traces its result from the tester.
 This section was first written with a hand count of 37 / 33 / 3 / 30, which classified by the
 state-machine constructs alone. Writing the emitter showed nine of those 73 tests to have no
 exact translation, for reasons the construct table did not list; two of the nine (*Fork 002*,
-*Join 001*) have one since the lowerer accepts a fork-entered region without an initial. Each is recorded here with the
+*Join 001*) have one since the lowerer accepts a fork-entered region without an initial; adjudicating the failures
+found a tenth. Each is recorded here with the
 classifier's reason; the count ratchet in `docs/project/pssm-referee.md` is where a later
 translation moves them back.
 
@@ -1352,6 +1368,7 @@ translation moves them back.
 | *Deferred 007* | extension | the deferred call trigger's operation `T4` returns a value the tester traces |
 | *Fork 002* | extension | *translated since finding 6 was fixed:* the fork enters the two regions of a nested composite state, which have no initial pseudostate; the lowerer used to refuse a `parallel` region with no `entry; then` — this project's gap, not v2's |
 | *Join 001* | extension | *translated since finding 6 was fixed:* the fork enters the two regions of the top-level composite state, which have no initial pseudostate; the same lowerer refusal |
+| *Choice 005* | extension | the guards of the junction's and the choice's four outgoing transitions each call `trace("T1.n(guard)")` and the admitted trace records the calls, to show when each guard is read; a v2 guard is an expression with no room for an action, so the translation keeps only the guard's value and cannot reach the trace, and is refused rather than run short |
 
 The last two were kept apart from the other seven and from the 30 with no spelling: UML allows
 a fork to target states inside orthogonal regions that have no initial pseudostate, SysML v2
