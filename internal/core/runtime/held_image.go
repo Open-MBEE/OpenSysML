@@ -564,6 +564,7 @@ func (img *HeldImage) Materialize(dst *Context) error {
 	mark := dst.materializeMark()
 	if err := m.run(); err != nil {
 		mark.rollBack(dst)
+		m.unrecord()
 		return err
 	}
 	return nil
@@ -659,10 +660,11 @@ func (mark materializeMark) rollBack(ctx *Context) {
 
 // materializing builds one context's objects for an image.
 type materializing struct {
-	dst  *Context
-	img  *HeldImage
-	made map[int64]*Instance
-	runs []*runState
+	dst      *Context
+	img      *HeldImage
+	made     map[int64]*Instance
+	runs     []*runState
+	recorded []sharedKey
 }
 
 // bring answers the object made here for an imaged identity.
@@ -851,11 +853,19 @@ func (m *materializing) records(obj imagedObject) {
 				shared = prior
 			} else {
 				m.dst.sharedDefaults[key] = shared
+				m.recorded = append(m.recorded, key)
 			}
 		}
 		if f.owed {
 			inst.owed = append(inst.owed, owedDefault{fv: fv, shared: shared})
 		}
+	}
+}
+
+// unrecord takes off dst's shared table the records a failed materialization put there.
+func (m *materializing) unrecord() {
+	for _, key := range m.recorded {
+		delete(m.dst.sharedDefaults, key)
 	}
 }
 
