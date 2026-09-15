@@ -133,17 +133,27 @@ func (p Pin) Check(e *Expected) error {
 	if e.Provenance.JarDigest != p.Jar {
 		differences = append(differences, fmt.Sprintf("jarDigest %s, pin %s", e.Provenance.JarDigest, p.Jar))
 	}
-	want := map[string]string{TestsFile: p.Tests, ExceptionTestsFile: p.ExceptionTest}
+	want := map[string]ExpectedModel{
+		TestsFile:          {File: TestsFile, URI: p.TestsURI, Digest: p.Tests},
+		ExceptionTestsFile: {File: ExceptionTestsFile, URI: p.ExceptionTestsURI, Digest: p.ExceptionTest},
+	}
 	seen := map[string]bool{}
 	for _, m := range e.Provenance.Models {
-		sum, ok := want[m.File]
+		pinned, ok := want[m.File]
 		if !ok {
 			differences = append(differences, fmt.Sprintf("model %s is not pinned", m.File))
 			continue
 		}
+		if seen[m.File] {
+			differences = append(differences, fmt.Sprintf("model %s was run twice", m.File))
+			continue
+		}
 		seen[m.File] = true
-		if m.Digest != sum {
-			differences = append(differences, fmt.Sprintf("%s digest %s, pin %s", m.File, m.Digest, sum))
+		if m.Digest != pinned.Digest {
+			differences = append(differences, fmt.Sprintf("%s digest %s, pin %s", m.File, m.Digest, pinned.Digest))
+		}
+		if m.URI != pinned.URI {
+			differences = append(differences, fmt.Sprintf("%s uri %q, pin %q", m.File, m.URI, pinned.URI))
 		}
 	}
 	for file := range want {

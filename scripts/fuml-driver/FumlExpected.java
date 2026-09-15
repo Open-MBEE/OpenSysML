@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -242,6 +243,8 @@ public final class FumlExpected {
 
 		int packaged = 0;
 		int failed = 0;
+		// A timed-out activity may still be running on the shared locus, so nothing runs after it.
+		String timedOut = null;
 		List<Object> records = new ArrayList<>();
 		ExecutorService runner = Executors.newSingleThreadExecutor(r -> {
 			Thread t = new Thread(r, "fuml-activity");
@@ -259,6 +262,11 @@ public final class FumlExpected {
 					rec.put("executed", false);
 					rec.put("skipped", decl.ownerKind + " of " + decl.ownerName
 							+ ": runs only as part of its owner, as in the JUnit suite");
+					continue;
+				}
+				if (timedOut != null) {
+					rec.put("executed", false);
+					rec.put("skipped", "not run: " + timedOut + " timed out and may still be executing");
 					continue;
 				}
 				packaged++;
@@ -285,13 +293,9 @@ public final class FumlExpected {
 					failed++;
 					rec.put("error", "timed out after " + ACTIVITY_TIMEOUT_SECONDS + "s");
 					events.owner = null;
-					System.err.println("error: " + decl.name + " timed out");
+					timedOut = decl.name;
+					System.err.println("error: " + decl.name + " timed out; no later activity is run");
 					runner.shutdownNow();
-					runner = Executors.newSingleThreadExecutor(r -> {
-						Thread t = new Thread(r, "fuml-activity");
-						t.setDaemon(true);
-						return t;
-					});
 				} catch (java.util.concurrent.ExecutionException e) {
 					failed++;
 					Throwable cause = e.getCause() == null ? e : e.getCause();
@@ -323,8 +327,16 @@ public final class FumlExpected {
 		}
 		Path staged = Files.createTempFile(outPath.getParent(), outPath.getFileName() + ".", ".tmp");
 		Files.write(staged, sb.toString().getBytes(StandardCharsets.UTF_8));
-		Files.move(staged, outPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+		move(staged, outPath);
 		System.err.println("Wrote " + out + ": " + activities.size() + " activities, " + packaged + " executed");
+	}
+
+	private static void move(Path from, Path to) throws IOException {
+		try {
+			Files.move(from, to, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+		} catch (AtomicMoveNotSupportedException e) {
+			Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
+		}
 	}
 
 	/** Routes the implementation's event lines to the appender and its noise to stderr. */

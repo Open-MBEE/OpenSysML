@@ -58,6 +58,8 @@ type Pin struct {
 	ExceptionTest string // sha256 of fUML-Exception-Tests.uml
 	Library       string // sha256 of fUML_Library.xmi
 	Jar           string // sha256 of fuml-1.5.0a.jar
+	// The namespace URIs the two test models are loaded under.
+	TestsURI, ExceptionTestsURI string
 }
 
 // The script's variables; an environment value overrides each for the downloader,
@@ -71,6 +73,12 @@ const (
 	JarSHA256Env     = "FUML_JAR_SHA256"
 )
 
+// The script's fixed variables: the URIs have no environment override.
+const (
+	TestsURIVar          = "FUML_TESTS_URI"
+	ExceptionTestsURIVar = "FUML_EXCEPTION_TESTS_URI"
+)
+
 var (
 	sha256Re = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	commitRe = regexp.MustCompile(`^[0-9a-f]{40}$`)
@@ -78,6 +86,10 @@ var (
 
 func pinDefaultRe(name, value string) *regexp.Regexp {
 	return regexp.MustCompile(regexp.QuoteMeta(name) + `="\$\{` + regexp.QuoteMeta(name) + `:-(` + value + `)\}"`)
+}
+
+func pinFixedRe(name string) *regexp.Regexp {
+	return regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(name) + `="([^"$]+)"$`)
 }
 
 // ReadPin resolves the pin as scripts/fuml-pin.sh does: the script's defaults
@@ -132,6 +144,19 @@ func readPinDefaults(repo string) (Pin, error) {
 		{JarSHA256Env, `[0-9a-f]{64}`, &pin.Jar},
 	} {
 		m := pinDefaultRe(f.name, f.value).FindSubmatch(content)
+		if m == nil {
+			return Pin{}, fmt.Errorf("%s pins no %s", PinPath, f.name)
+		}
+		*f.field = string(m[1])
+	}
+	for _, f := range []struct {
+		name  string
+		field *string
+	}{
+		{TestsURIVar, &pin.TestsURI},
+		{ExceptionTestsURIVar, &pin.ExceptionTestsURI},
+	} {
+		m := pinFixedRe(f.name).FindSubmatch(content)
 		if m == nil {
 			return Pin{}, fmt.Errorf("%s pins no %s", PinPath, f.name)
 		}

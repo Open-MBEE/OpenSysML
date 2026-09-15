@@ -18,6 +18,8 @@ FUML_TESTS_SHA256="${FUML_TESTS_SHA256:-1111111111111111111111111111111111111111
 FUML_EXCEPTION_TESTS_SHA256="${FUML_EXCEPTION_TESTS_SHA256:-2222222222222222222222222222222222222222222222222222222222222222}"
 FUML_LIBRARY_SHA256="${FUML_LIBRARY_SHA256:-3333333333333333333333333333333333333333333333333333333333333333}"
 FUML_JAR_SHA256="${FUML_JAR_SHA256:-4444444444444444444444444444444444444444444444444444444444444444}"
+FUML_TESTS_URI="http://example.org/tests"
+FUML_EXCEPTION_TESTS_URI="http://example.org/exception-tests"
 `
 
 func writePinScript(t *testing.T, script string) string {
@@ -43,6 +45,7 @@ func TestReadPinTakesTheScriptsDefaults(t *testing.T) {
 		Tag: "v0.0.0", Commit: "0123456789abcdef0123456789abcdef01234567",
 		Tests: strings.Repeat("1", 64), ExceptionTest: strings.Repeat("2", 64),
 		Library: strings.Repeat("3", 64), Jar: strings.Repeat("4", 64),
+		TestsURI: "http://example.org/tests", ExceptionTestsURI: "http://example.org/exception-tests",
 	}
 	if pin != want {
 		t.Fatalf("pin = %+v, want %+v", pin, want)

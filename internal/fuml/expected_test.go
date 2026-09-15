@@ -272,6 +272,17 @@ func TestCheckRejectsARecordFromAnotherPin(t *testing.T) {
 	if err := pin.Check(&missing); err == nil || !strings.Contains(err.Error(), ExceptionTestsFile+" was not run") {
 		t.Fatalf("err = %v, want one naming the model that was not run", err)
 	}
+	moved := *e
+	moved.Provenance.Models = append([]ExpectedModel(nil), e.Provenance.Models...)
+	moved.Provenance.Models[0].URI = "http://example.org/elsewhere"
+	if err := pin.Check(&moved); err == nil || !strings.Contains(err.Error(), TestsFile+" uri") {
+		t.Fatalf("err = %v, want one naming the model loaded under another URI", err)
+	}
+	twice := *e
+	twice.Provenance.Models = append(append([]ExpectedModel(nil), e.Provenance.Models...), e.Provenance.Models[0])
+	if err := pin.Check(&twice); err == nil || !strings.Contains(err.Error(), TestsFile+" was run twice") {
+		t.Fatalf("err = %v, want one naming the model recorded twice", err)
+	}
 }
 
 func TestReadExpectedRejectsMalformedJSON(t *testing.T) {
