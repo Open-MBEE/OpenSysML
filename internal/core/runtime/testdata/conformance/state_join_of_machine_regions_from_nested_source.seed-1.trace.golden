@@ -1,0 +1,40 @@
+choice on accept Go: states a, b react (unordered; took b first)
+choice join sync: states a, b react (unordered; took a first)
+exit: a (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "a(exit) " -> "a(exit) "
+    eval operator + -> "a(exit) "
+exit: c (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "a(exit) "
+      eval literal "c(exit) " -> "c(exit) "
+    eval operator + -> "a(exit) c(exit) "
+exit: inner (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "a(exit) c(exit) "
+      eval literal "inner(exit) " -> "inner(exit) "
+    eval operator + -> "a(exit) c(exit) inner(exit) "
+stmt assign log
+    eval feature log -> "a(exit) c(exit) inner(exit) "
+    eval literal "a " -> "a "
+  eval operator + -> "a(exit) c(exit) inner(exit) a "
+exit: b (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "a(exit) c(exit) inner(exit) a "
+      eval literal "b(exit) " -> "b(exit) "
+    eval operator + -> "a(exit) c(exit) inner(exit) a b(exit) "
+stmt assign log
+    eval feature log -> "a(exit) c(exit) inner(exit) a b(exit) "
+    eval literal "b " -> "b "
+  eval operator + -> "a(exit) c(exit) inner(exit) a b(exit) b "
+stmt assign log
+    eval feature log -> "a(exit) c(exit) inner(exit) a b(exit) b "
+    eval literal "sync" -> "sync"
+  eval operator + -> "a(exit) c(exit) inner(exit) a b(exit) b sync"
+enter: done
+transition:  -> done (event: accept Go)
