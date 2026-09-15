@@ -2,7 +2,7 @@
 // clicks, menu choices and drags back, and highlights the cursor's node.
 import type { EditPalette, FromWebview, PickerEntry, RenderNode, RenderPoint, RenderResult, ToWebview } from "../protocol";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
-import { drawCanvas } from "./canvas";
+import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
 import {
   CanvasLayout,
@@ -84,13 +84,13 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideMenu();
     cancelGesture();
-  } else if (event.key === "Shift") {
-    previewDrop(true);
+  } else if (event.key === "Shift" && !event.repeat) {
+    drawDrag(true);
   }
 });
 window.addEventListener("keyup", (event) => {
   if (event.key === "Shift") {
-    previewDrop(false);
+    drawDrag(false);
   }
 });
 // A right-click off a node offers nothing; the browser's own menu offers less.
@@ -210,8 +210,8 @@ type Gesture =
   | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; placements?: Placements }
   | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; placements?: Placements };
 
-// A node drag also tracks what a release would do: `shown` is the layout drawn with the
-// node where the pointer holds it, `at` the pointer, `drop` the node under it while Shift is held.
+// A node drag also tracks what a release would do: `at` is where the pointer holds the
+// node, `drop` the node under it while Shift is held.
 interface NodeGesture {
   kind: "node";
   id: string;
@@ -219,7 +219,6 @@ interface NodeGesture {
   pointer: number;
   fixed: boolean;
   placements?: Placements;
-  shown?: CanvasLayout;
   at?: RenderPoint;
   drop?: Drop;
 }
@@ -294,28 +293,49 @@ function moveGesture(event: PointerEvent): void {
     gesture = undefined;
     return;
   }
-  const shown = layoutCanvas(result, overridesOf(gesture.placements));
+  if (gesture.kind === "node") {
+    gesture.at = at;
+    drawDrag(event.shiftKey);
+    return;
+  }
+  showDragged(layoutCanvas(result, overridesOf(gesture.placements)));
+}
+
+// showDragged puts the canvas a gesture has changed on screen.
+function showDragged(shown: CanvasLayout): SVGSVGElement {
   const svg = drawCanvas(shown);
   svg.classList.add("dragging");
   diagram.replaceChildren(svg);
   highlight(selectedNode);
-  if (gesture.kind === "node") {
-    gesture.shown = shown;
-    gesture.at = at;
-    previewDrop(event.shiftKey);
+  return svg;
+}
+
+// drawDrag draws a node drag: laid out again around the node's new place, or, with Shift held,
+// the model's layout left where it is with the dragged node floating over it, so the node
+// under the pointer is the one the user sees there and no owner grows out to reclaim it.
+function drawDrag(shift: boolean): void {
+  if (gesture?.kind !== "node" || !gesture.placements || !gesture.at || !layout || !last) {
+    return;
   }
+  if (shift) {
+    const svg = showDragged(layout);
+    liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
+  } else {
+    showDragged(layoutCanvas(last, overridesOf(gesture.placements)));
+  }
+  previewDrop(shift);
 }
 
 // previewDrop shows what a release would do: with Shift held over another node, that node
 // is marked as taking the dragged one or the status line says why not; else the line says how.
 function previewDrop(shift: boolean): void {
-  if (gesture?.kind !== "node" || !gesture.shown || !gesture.at || !last) {
+  if (gesture?.kind !== "node" || !gesture.at || !layout || !last) {
     return;
   }
   const result = last;
   const dragged = gesture.id;
   const node = result.nodes?.find((candidate) => candidate.id === dragged);
-  const under = shift ? nodeUnder(gesture.shown, gesture.at, dragged) : undefined;
+  const under = shift ? nodeUnder(layout, gesture.at, dragged) : undefined;
   gesture.drop = node && under ? dropOn(node, under.node, result) : undefined;
   for (const marked of diagram.querySelectorAll(".opensysml-drop-target")) {
     marked.classList.remove("opensysml-drop-target");
@@ -578,12 +598,6 @@ function highlight(id: string | undefined): void {
   }
   const element = diagram.querySelector(`[data-opensysml-id="${cssEscape(id)}"]`);
   element?.classList.add("opensysml-selected");
-}
-
-// cssEscape quotes an id for an attribute selector, since CSS.escape is not in
-// every webview host.
-function cssEscape(value: string): string {
-  return value.replace(/["\\]/g, String.raw`\$&`);
 }
 
 // remember keeps what the panel is showing, so a window reload restores it.

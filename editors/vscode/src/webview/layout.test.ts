@@ -309,7 +309,7 @@ test("nodeUnder passes over the dragged subtree and the children a collapsed nod
   assert.equal(nodeUnder(layout, { x: 430, y: 60 })?.node.id, "c");
 });
 
-test("nodeUnder is judged on the layout a drag shows, so a node moved aside no longer covers the point", () => {
+test("nodeUnder reads the layout it is given, so a node placed aside no longer covers its old point", () => {
   const result = rendering([node("a", "a", { x: 0, y: 0, width: 100, height: 50 }), node("b", "b", { x: 200, y: 0, width: 100, height: 50 })]);
   const shown = layoutCanvas(result, overridesOf(movedNode(layoutCanvas(result), "a", 200, 0)!));
   assert.equal(nodeUnder(shown, { x: 50, y: 25 }), undefined);

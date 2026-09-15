@@ -53,6 +53,34 @@ export function drawCanvas(layout: CanvasLayout): SVGSVGElement {
   return svg;
 }
 
+/**
+ * liftNode floats a drawn node and its descendants by (dx, dy) over the rest of the
+ * canvas, which stays where the layout put it; the groups moved are marked `lifted`.
+ */
+export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, dx: number, dy: number): void {
+  const entry = layout.nodes.get(id);
+  if (!entry) {
+    return;
+  }
+  const lift = (current: PlacedNode): void => {
+    const group = svg.querySelector<SVGGElement>(`g.opensysml-node[data-opensysml-id="${cssEscape(current.node.id)}"]`);
+    if (group) {
+      group.setAttribute("transform", `translate(${dx} ${dy})`);
+      group.classList.add("lifted");
+      group.parentElement?.append(group);
+    }
+    for (const child of current.children) {
+      lift(child);
+    }
+  };
+  lift(entry);
+}
+
+/** cssEscape quotes an id for an attribute selector, since CSS.escape is not in every webview host. */
+export function cssEscape(value: string): string {
+  return value.replace(/["\\]/g, String.raw`\$&`);
+}
+
 // markers are the arrowheads edges end in: a filled head for a transition or a
 // succession, an open one for a flow. A connection ends in none.
 function markers(): SVGDefsElement {

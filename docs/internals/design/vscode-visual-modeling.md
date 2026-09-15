@@ -352,9 +352,13 @@ position alone decided. So a release never moves a declaration unless
 message it always did. The gesture is told on the status line as soon as a node
 that some drawn node admits is picked up ("Hold Shift and release over a node to
 move … into it"), so it is found without reading the manual, and confirmed while
-it is held: the node under the pointer — the innermost, latest-drawn box holding
-the point, with the dragged subtree passed over (`nodeUnder` in
-`src/webview/layout.ts`) — is judged by the same `moveDestinations` filter the
+it is held. While <kbd>Shift</kbd> is down the canvas is not laid out again around
+the node's new place — an owner's box growing out to keep the node, and its
+neighbours shuffling aside, would carry the target away from under the pointer —
+but stays as the model laid it out, with the dragged subtree floating over it
+(`liftNode` in `src/webview/canvas.ts`). The node under the pointer — the innermost,
+latest-drawn box of that layout holding the point, with the dragged subtree passed
+over (`nodeUnder` in `src/webview/layout.ts`) — is judged by the same `moveDestinations` filter the
 **Move to…** menu is built from (`src/edits.ts`: the body admits the node's
 `notation`, the target is neither the node, nor its current owner, nor anything
 inside it), and outlined when it admits the dragged node. A node that does not

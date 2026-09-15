@@ -910,6 +910,7 @@ function html(
       #diagram svg { display: block; font-family: var(--vscode-font-family); user-select: none; touch-action: none; }
       #diagram svg.dragging { cursor: grabbing; }
       #diagram svg.dragging.refused { cursor: not-allowed; }
+      #diagram g.lifted { opacity: 0.75; }
       #diagram .opensysml-drop-target > .shape, #diagram .opensysml-drop-target > g.shape > circle {
         stroke: var(--vscode-focusBorder); stroke-width: 3px; stroke-dasharray: 6 3;
         fill: var(--vscode-editor-selectionBackground, var(--vscode-list-activeSelectionBackground));
