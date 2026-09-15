@@ -695,13 +695,25 @@ the extension follows UML, and the library's `transitionLinkSource then effect` 
 during the state performance" fix each segment's exit-then-effect and place both segments before
 the owner's exit
 ([oracle](../../project/behavior-semantic-oracle.md#transitions-into-a-join-each-exits-its-source-and-runs-its-effect-before-the-owner-is-left-in-which-order-is-open)).
-*Runtime:* `fireJoinTransition` fires only when every state in `joinSources` is active;
+*Runtime:* `fireJoinTransition` fires only when `joinSynchronized` finds every other segment
+into the join enabled by the occurrence being dispatched — its source active, its guard holding,
+its trigger matching the same signal, call, timer expiry or change rise — whichever path fires
+the segment: a signal or call dispatch, a timer, a completion or a change poll
+(`state_join_waits_for_every_segment_enabled`, `state_join_segment_trigger_unmatched`,
+`state_join_time_segment_needs_same_occurrence`, `state_join_change_segments_rise_together`,
+`state_join_change_segment_rises_alone` — one condition rising is one occurrence, so a later
+rise of the other segment's condition does not fire the join);
 `fireJoinIncoming` then fires the incoming segments one at a time, drawing the next from the
 scheduling policy as a `ChoiceRegionOrder` labelled `join <name>` (declaration order by default),
 each with the arguments its own trigger takes from the occurrence bound (`fireJoinSegment`,
 `state_join_segment_reads_its_payload`), before the owner is exited and the outgoing segment
-followed, and a replay refused at a later draw undoes the segments already fired with the rest
-of the move (`TestReplayRefusedJoinDrawChangesNothing`); a join with a single incoming
+followed. The owner and the region of it each segment leaves are the lowerer's `JoinPlan`, found
+by the same ancestor walk that places the segments one per region, so a segment whose source
+is nested below a region's state exits its wrappers up to the region and the owner is left
+(`state_join_from_nested_states`, `join_from_nested_states_wrapper_exit_that_fails`), and a
+sibling segment's guard the firing occurrence has read fail is the step's error
+(`join_time_segment_sibling_guard_that_fails`); a replay refused at a later draw undoes the segments already
+fired with the rest of the move (`TestReplayRefusedJoinDrawChangesNothing`); a join with a single incoming
 branch is refused (`join_with_one_incoming_branch`), as is one two of whose incoming transitions
 leave the same region — UML 2.5.1 §14.2.3.5 Pseudostates has a join target "two or more
 Transitions originating from Vertices in different orthogonal Regions", so every segment fires

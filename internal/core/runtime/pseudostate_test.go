@@ -156,8 +156,10 @@ func TestJoinWaitsForEveryBranch(t *testing.T) {
 }
 
 // A transition into a join is not enabled until every branch has arrived: an
-// event reaching one branch first fires nothing, Decide and LastDispatch say so,
-// and the join fires on the event that completes the last branch.
+// event reaching one branch first fires nothing, Decide and LastDispatch say so;
+// the completion of the last branch fires nothing either while the other
+// segment's trigger is not that occurrence, and the join fires on the event
+// that enables every segment at once.
 func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
 	ctx, machine := loadState(t, `package test {
     attribute def Go;
@@ -217,8 +219,22 @@ func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(completion of b): %v", err)
 	}
+	if d, ok := exec.LastDispatch(); !ok || d.Fired || d.Deferred {
+		t.Errorf("LastDispatch after b completed = %+v, %v; want dispatched, neither fired nor deferred: a's segment waits for Go", d, ok)
+	}
+	if got := activeStateNames(exec); got != "a|b" {
+		t.Fatalf("configuration after b completed = %s, want a|b", got)
+	}
+
+	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
+		t.Errorf("Decide(Go) with both branches arrived = %+v, %v; want the join enabled", d, err)
+	}
+	exec.SendSignal("Go", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent(second Go): %v", err)
+	}
 	if d, ok := exec.LastDispatch(); !ok || !d.Fired {
-		t.Errorf("LastDispatch after b completed = %+v, %v; want the join fired", d, ok)
+		t.Errorf("LastDispatch after the second Go = %+v, %v; want the join fired", d, ok)
 	}
 	if exec.State() != StateCompleted {
 		t.Errorf("machine %v after the join, want completed; configuration %s", exec.State(), activeStateNames(exec))

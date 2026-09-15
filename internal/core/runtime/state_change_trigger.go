@@ -88,7 +88,9 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		e.changeFired[trans] = true
 		e.firingChange = trans
 		e.moved = true
-		_, err = e.fireFrom(candidate.source, trans, notes, candidate.route)
+		_, err = e.firingOn(&Event{Type: EventChange, Payload: poll}, func() (bool, error) {
+			return e.fireFrom(candidate.source, trans, notes, candidate.route)
+		})
 		e.firingChange = nil
 		if err != nil {
 			return true, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)

@@ -5,4 +5,8 @@
   join two of whose incoming transitions leave the same region is refused when lowered — UML has
   the segments originate in different orthogonal regions, so none is an alternative to another
   — and a replay refused at a later draw among the segments undoes the segments already fired
-  with the rest of the move rather than leaving some sources exited.
+  with the rest of the move rather than leaving some sources exited. A segment fired by a timer
+  or a change condition's rise now holds the join, as one fired by a signal does, until the same
+  occurrence enables every other segment into it; and a join whose sources all lie nested below
+  the states of the owner's regions exits those wrappers and the owner, where before it found
+  no owner and left them active.

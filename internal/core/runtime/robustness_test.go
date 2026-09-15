@@ -298,6 +298,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("join_with_one_incoming_branch", testJoinWithOneIncomingBranch)
 	t.Run("join_incoming_effect_that_fails", testJoinIncomingEffectThatFails)
 	t.Run("join_with_two_segments_from_one_source", testJoinWithTwoSegmentsFromOneSource)
+	t.Run("join_from_nested_states_wrapper_exit_that_fails", testJoinFromNestedStatesWrapperExitThatFails)
+	t.Run("join_time_segment_sibling_guard_that_fails", testJoinTimeSegmentSiblingGuardThatFails)
 	t.Run("region_pseudostate_without_satisfied_guard", testRegionPseudostateWithoutSatisfiedGuard)
 	t.Run("region_pseudostate_cycle", testRegionPseudostateCycle)
 	t.Run("non_numeric_time_trigger", testNonNumericTimeTrigger)
@@ -6277,6 +6279,81 @@ func testJoinIncomingEffectThatFails(t *testing.T) {
 	}`)
 	if !errors.Is(err, ErrDivisionByZero) {
 		t.Fatalf("error = %v, want the failing incoming effect's division by zero", err)
+	}
+}
+
+// testJoinFromNestedStatesWrapperExitThatFails: a join whose sources lie nested
+// below its owner's region states exits the composite states between each source
+// and its region, so a failing exit action on one of them is the step's error.
+func testJoinFromNestedStatesWrapperExitThatFails(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		state Machine {
+			attribute x : Integer = 0;
+			attribute zero : Integer = 0;
+
+			entry; then work;
+			state work parallel {
+				state left {
+					entry; then il;
+					state il {
+						exit action { assign x := 1 / zero; }
+						entry; then l1;
+						state l1;
+					}
+					transition first l1 then sync;
+				}
+				state right {
+					entry; then ir;
+					state ir {
+						entry; then r1;
+						state r1;
+					}
+					transition first r1 then sync;
+				}
+			}
+			join sync;
+			transition first sync then done;
+		}
+	}`)
+	if !errors.Is(err, ErrDivisionByZero) {
+		t.Fatalf("error = %v, want the nested wrapper's failing exit action's division by zero", err)
+	}
+}
+
+// testJoinTimeSegmentSiblingGuardThatFails: a timer coming due on one segment
+// into a join reads the other segments' guards to know whether the join is
+// enabled, so one that cannot be evaluated then is the step's error. The guard
+// read fine when its own completion came up and the timer segment held the join.
+func testJoinTimeSegmentSiblingGuardThatFails(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		state Machine {
+			attribute zero : Integer = 1;
+
+			entry; then work;
+			state work parallel {
+				state left {
+					entry; then l1;
+					state l1;
+					transition first l1 accept after 2 then sync;
+				}
+				state right {
+					entry; then r1;
+					state r1;
+					transition first r1 if 1 / zero > 0 then sync;
+				}
+				state aux {
+					entry; then c1;
+					state c1;
+					state c2;
+					transition first c1 accept after 1 do assign zero := 0 then c2;
+				}
+			}
+			join sync;
+			transition first sync then done;
+		}
+	}`)
+	if !errors.Is(err, ErrDivisionByZero) {
+		t.Fatalf("error = %v, want the sibling segment's guard's division by zero", err)
 	}
 }
 

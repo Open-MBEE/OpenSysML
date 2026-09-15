@@ -145,6 +145,9 @@ type StateGraph struct {
 	// order. A region only forks enter needs no entry transition of its own.
 	ForkEntered map[*ast.StateRegion][]*ast.PseudostateNode
 
+	// JoinPlans: join → where its segments come from, checked when the graph is built.
+	JoinPlans map[*ast.PseudostateNode]*JoinPlan
+
 	// Connections are the connectors declared in the state machine body, which
 	// is how a `send ... via <port>` in an entry/do/exit/effect action finds the
 	// ports it reaches.
@@ -568,6 +571,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		EntryTransitions:   make(map[ast.Node][]*EntryTransition),
 		ForkPlans:          make(map[*ast.PseudostateNode]*ForkPlan),
 		ForkEntered:        make(map[*ast.StateRegion][]*ast.PseudostateNode),
+		JoinPlans:          make(map[*ast.PseudostateNode]*JoinPlan),
 	}
 }
 

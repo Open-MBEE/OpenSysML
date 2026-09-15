@@ -6,9 +6,17 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
+// JoinPlan is where a join's incoming segments come from: Regions maps each to
+// the orthogonal region of Owner it leaves, Owner being the innermost state all
+// the sources lie below, nil when only the machine's own regions do.
+type JoinPlan struct {
+	Owner   *ast.StateNode
+	Regions map[*Transition]*ast.StateRegion
+}
+
 // checkJoins refuses a join two of whose incoming transitions leave one region
 // (UML: the transitions into a join originate in different orthogonal regions),
-// so every segment fires when the join does.
+// so every segment fires when the join does, and records where each comes from.
 func (g *StateGraph) checkJoins() error {
 	for _, ps := range g.Pseudostates {
 		if ps.Kind != ast.PseudostateJoin {
@@ -23,22 +31,24 @@ func (g *StateGraph) checkJoins() error {
 
 func (g *StateGraph) checkJoin(join *ast.PseudostateNode) error {
 	var sources []*ast.StateNode
+	var segments []*Transition
 	for _, state := range g.States {
 		for _, trans := range g.Transitions[state] {
 			if trans.Target == ast.Node(join) {
 				sources = append(sources, state)
+				segments = append(segments, trans)
 			}
 		}
 	}
 	if len(sources) < 2 {
 		return nil
 	}
-	owner := g.forkOwner(sources)
+	plan := &JoinPlan{Owner: g.forkOwner(sources), Regions: make(map[*Transition]*ast.StateRegion, len(segments))}
 	seen := make(map[*ast.StateRegion]*ast.StateNode, len(sources))
-	for _, source := range sources {
+	for i, source := range sources {
 		region := g.enclosingRegion(source)
-		if owner != nil {
-			region = g.regionUnder(owner, source)
+		if plan.Owner != nil {
+			region = g.regionUnder(plan.Owner, source)
 		}
 		if region == nil {
 			return fmt.Errorf("join %s: incoming transition leaves %s, which is not in an orthogonal region", join.Name, source.Name)
@@ -50,6 +60,8 @@ func (g *StateGraph) checkJoin(join *ast.PseudostateNode) error {
 			return fmt.Errorf("join %s: incoming transitions leave %s and %s, in the same region", join.Name, other.Name, source.Name)
 		}
 		seen[region] = source
+		plan.Regions[segments[i]] = region
 	}
+	g.JoinPlans[join] = plan
 	return nil
 }

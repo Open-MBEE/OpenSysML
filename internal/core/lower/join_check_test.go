@@ -72,9 +72,10 @@ func TestToStateGraph_JoinSegmentsShareRegionFail(t *testing.T) {
 }
 
 // One segment per region is the join's shape, the source lying in the region
-// directly or below a composite state of it.
+// directly or below a composite state of it; the plan names the state the
+// sources all lie below and the region of it each segment leaves.
 func TestToStateGraph_JoinSegmentsOnePerRegion(t *testing.T) {
-	_, err := ToStateGraph(stateDefinitionIn(t, joinMachine(
+	graph, err := ToStateGraph(stateDefinitionIn(t, joinMachine(
 		`entry; then wrapper; state wrapper { entry; then w0; state w0; }`,
 		`entry; then b; state b;`,
 		`transition first w0 then sync;
@@ -82,5 +83,30 @@ func TestToStateGraph_JoinSegmentsOnePerRegion(t *testing.T) {
 	)), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
+	}
+	var plan *JoinPlan
+	for join, p := range graph.JoinPlans {
+		if join.Name == "sync" {
+			plan = p
+		}
+	}
+	if plan == nil {
+		t.Fatal("no plan recorded for join sync")
+	}
+	if plan.Owner == nil || plan.Owner.Name != "work" {
+		t.Fatalf("plan owner = %v, want work", plan.Owner)
+	}
+	regions := make(map[string]string, len(plan.Regions))
+	for trans, region := range plan.Regions {
+		regions[vertexName(trans.Source)] = region.Name
+	}
+	want := map[string]string{"w0": "left", "b": "right"}
+	if len(regions) != len(want) {
+		t.Fatalf("plan regions = %v, want %v", regions, want)
+	}
+	for source, region := range want {
+		if regions[source] != region {
+			t.Errorf("segment out of %s leaves region %q, want %q", source, regions[source], region)
+		}
 	}
 }
