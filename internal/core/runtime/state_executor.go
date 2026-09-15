@@ -2098,9 +2098,10 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	}
 	owner := plan.Owner
 
-	// Leave the source configuration, up to but excluding the composite state
-	// the branches live in.
-	if err := e.exitToward(owner); err != nil {
+	// Leave the source configuration down to the move's boundary, which stays
+	// active: states above it are neither exited nor entered again.
+	boundary, err := e.leaveForFork(trans, owner)
+	if err != nil {
 		return err
 	}
 	for _, behavior := range trans.Effect {
@@ -2112,7 +2113,7 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	// The fork's own parent is entered before its branches fire; the branches
 	// enter the rest of the way down to the owner and their targets, bypassing
 	// the initial states of the regions they enter (PSSM §8.5.7).
-	toOwner := e.inactiveChain(owner)
+	toOwner := e.descendantChain(boundary, owner)
 	if i := slices.Index(toOwner, e.graph.PseudostateOwner[fork]); i >= 0 {
 		for _, ancestor := range toOwner[:i+1] {
 			if err := e.enterState(ancestor); err != nil {
@@ -2124,6 +2125,12 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	if err := e.enterForkBranches(plan, toOwner); err != nil {
 		return err
 	}
+	// A region the move re-entered on its way down keeps the state of that path.
+	for region, state := range e.branchesTo(boundary, owner) {
+		if _, active := e.activeConfig.regionStates[region]; !active {
+			e.activeConfig.regionStates[region] = state
+		}
+	}
 
 	if err := e.scheduleTransitionEvents(); err != nil {
 		return fmt.Errorf("schedule events: %w", err)
@@ -2132,6 +2139,35 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 		e.trace().RecordStateTransition(getNodeName(trans.Source), fork.Name, "")
 	}
 	return nil
+}
+
+// leaveForFork exits the source configuration of a transition into a fork whose
+// branches enter owner's regions, and returns the state the exits stopped at: the
+// least common ancestor of source and owner, as for a move to a single state.
+func (e *StateExecutor) leaveForFork(trans *lower.Transition, owner *ast.StateNode) (*ast.StateNode, error) {
+	source, _ := trans.Source.(*ast.StateNode)
+	region := e.activeRegionOf(source)
+	if region == nil {
+		origin := e.moveOrigin()
+		lca := e.moveBoundary(origin, trans, owner)
+		return lca, e.exitStates(e.exitPath(origin, lca, nil))
+	}
+	sourceRegion, targetRegion := e.regionMove(region, owner)
+	if targetRegion == nil {
+		regionOwner := e.graph.RegionOwner[region]
+		if regionOwner == nil {
+			return nil, fmt.Errorf("fork into %s from region %s: the target lies outside the machine's regions", owner.Name, region.Name)
+		}
+		lca := e.getLCA(regionOwner, owner)
+		return lca, e.exitRegionOwnerTo(regionOwner, lca)
+	}
+	keep := e.regionKeep(targetRegion, trans, owner)
+	if sourceRegion != targetRegion {
+		if err := e.exitRegionTo(sourceRegion, nil); err != nil {
+			return nil, err
+		}
+	}
+	return keep, e.exitRegionTo(targetRegion, keep)
 }
 
 // forkPlan is where a fork's branches lead, as lowering checked and recorded it.
@@ -2243,27 +2279,6 @@ func (e *StateExecutor) isActive(state *ast.StateNode) bool {
 	return false
 }
 
-// exitToward exits the active configuration up to, but not including, stop.
-func (e *StateExecutor) exitToward(stop *ast.StateNode) error {
-	for _, active := range e.orderedRegionStates() {
-		if !e.isActive(active) {
-			continue // Already left as part of an enclosing composite state's teardown.
-		}
-		if err := e.exitState(active); err != nil {
-			return fmt.Errorf("exit state: %w", err)
-		}
-	}
-	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
-
-	for _, current := range e.exitPath(e.getCurrentState(), stop, nil) {
-		if err := e.exitState(current); err != nil {
-			return fmt.Errorf("exit state: %w", err)
-		}
-	}
-	e.activeConfig.simpleState = nil
-	return nil
-}
-
 // activeCompositeOwner returns the deepest composite state whose orthogonal
 // regions hold the active configuration, or nil when no region is active.
 func (e *StateExecutor) activeCompositeOwner() *ast.StateNode {
@@ -2305,19 +2320,6 @@ func (e *StateExecutor) inActiveConfiguration(state *ast.StateNode) bool {
 		}
 	}
 	return false
-}
-
-// inactiveChain returns the states from the root down to state that are not
-// active, outermost first.
-func (e *StateExecutor) inactiveChain(state *ast.StateNode) []*ast.StateNode {
-	chain := e.getParentChain(state)
-	inactive := make([]*ast.StateNode, 0, len(chain))
-	for i := len(chain) - 1; i >= 0; i-- {
-		if !e.isActive(chain[i]) {
-			inactive = append(inactive, chain[i])
-		}
-	}
-	return inactive
 }
 
 // RunToCompletion processes queued events until the machine completes or has no

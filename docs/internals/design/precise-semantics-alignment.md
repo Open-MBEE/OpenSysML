@@ -1646,15 +1646,23 @@ where.
    branches into a `ForkPlan` — one target state per orthogonal region of one composite state,
    no guard, at least two branches — and `ToStateGraph` accepts a region with no entry
    transition when `ForkStarted` says a fork enters it, still refusing one with neither
-   (`robustness_test.go:fork_leaves_a_region_without_a_way_in`). The runtime consumes the plan
+   (`robustness_test.go:fork_leaves_a_region_without_a_way_in`). Such a region has no default
+   start, so `checkForkOnlyRegion` also refuses a machine where any other way into the composite
+   — a transition to the composite itself, to a state in another of its regions or to its
+   history, its own self-transition, or the machine's entry naming it, directly or through a
+   junction, choice or join — would start the region by default, naming that way in
+   (`robustness_test.go:fork_only_region_entered_by_default`). The runtime consumes the plan
    (`state_executor.go:fireForkTransition` → `state_region_entry.go:enterForkBranches`): the
-   fork's parent is entered first, then each branch runs its effect, enters what is left of the
-   way down to the composite and its target directly (PSSM §8.5.7), a region no branch names
-   taking its own initial. Pinned by `state_fork_enters_regions_without_initial`,
-   `state_fork_in_composite_enters_parallel_substate` (both with trace goldens) and
-   `lower/fork_plan_test.go`. *Fork 002* and *Join 001* translate and run; the branches are
-   still entered in the regions' declaration order, so the interleavings PSSM admits beyond that
-   one are SM22's open decision, and `docs/project/pssm-referee.md` records where each landed.
+   source configuration is left down to the least common ancestor of the source and the
+   composite, as for a move to a single state (`leaveForFork`), so an active ancestor is
+   neither exited nor entered again; then each branch runs its effect, enters what is left of
+   the way down to the composite and its target directly (PSSM §8.5.7), a region no branch
+   names taking its own initial. Pinned by `state_fork_enters_regions_without_initial`,
+   `state_fork_in_composite_enters_parallel_substate`, `state_fork_within_active_ancestor`,
+   `state_fork_within_active_region` (all with trace goldens) and `lower/fork_plan_test.go`.
+   *Fork 002* and *Join 001* translate and run; the branches are still entered in the regions'
+   declaration order, so the interleavings PSSM admits beyond that one are SM22's open decision,
+   and `docs/project/pssm-referee.md` records where each landed.
 7. **A transition from a composite state into its own history pseudostate reads the record
    before the state is left.** The configuration a history restores is written when its owner
    is exited (`state_executor.go:exitState` → `recordChildHistory`, `recordRegionHistory`), but

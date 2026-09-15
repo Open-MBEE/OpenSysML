@@ -137,6 +137,89 @@ func TestToStateGraph_RegionWithoutInitialOrForkFails(t *testing.T) {
 	}
 }
 
+// A region only a fork enters must be entered only by that fork: any other way
+// into its composite state would start the region by default, which it cannot.
+func TestToStateGraph_ForkOnlyRegionEnteredByDefaultFails(t *testing.T) {
+	for name, tc := range map[string]struct{ entry, extra, want string }{
+		"transition into the composite state": {
+			`entry; then idle;`,
+			`transition first idle accept Go then work;`,
+			"the transition from idle to work enters work",
+		},
+		"transition into the other region": {
+			`entry; then idle;`,
+			`transition first idle accept Go then b;`,
+			"the transition from idle to b enters work",
+		},
+		"self-transition of the composite state": {
+			`entry; then idle;`,
+			`transition first work accept Go then work;`,
+			"the transition from work to work enters work",
+		},
+		"transition into the composite state's history": {
+			`entry; then idle;`,
+			`transition first idle accept Go then back;`,
+			"the transition from idle to back enters work",
+		},
+		"entry transition naming the composite state": {
+			`entry; then work;`,
+			``,
+			"the entry transition naming work",
+		},
+		"junction outside leading into the other region": {
+			`entry; then idle;`,
+			`junction j; transition first idle accept Go then j; transition first j then b;`,
+			"the transition from idle to b enters work",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := ToStateGraph(stateDefinitionIn(t, `
+				package test {
+					attribute def Go;
+					state def Machine {
+						`+tc.entry+`
+						state idle;
+						state work parallel {
+							state left { state a; }
+							state right { state b; }
+							history back;
+						}
+						fork split;
+						transition first idle then split;
+						transition first split then a;
+						transition first split then b;
+						`+tc.extra+`
+					}
+				}
+			`), nil)
+			if err == nil {
+				t.Fatal("default entry into a fork-only region succeeded")
+			}
+			if !strings.Contains(err.Error(), "region left in state work has no initial state") || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %q, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// A transition that names a state inside the fork-only region, or one that stays
+// inside the composite state — directly or through a junction declared there —
+// starts no region by default and is accepted.
+func TestToStateGraph_ForkOnlyRegionKeepsExplicitEntries(t *testing.T) {
+	_, err := ToStateGraph(stateDefinitionIn(t, forkMachine(
+		`state a; state a2; transition first a accept Go then a2;`,
+		`state b; state b2; entry; then b; junction j;
+		 transition first b accept Go then j; transition first j then b2;`,
+		`transition first split then a;
+		 transition first split then b;
+		 transition first idle accept Go then a2;
+		 transition first b2 accept Go then a;`,
+	)), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+}
+
 // The fork's own shape is checked as the graph is built.
 func TestToStateGraph_ForkShapeRejected(t *testing.T) {
 	for name, tc := range map[string]struct{ branches, want string }{

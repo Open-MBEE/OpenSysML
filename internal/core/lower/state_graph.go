@@ -316,14 +316,20 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 			return nil, fmt.Errorf("top-level region %s has no initial state", region.Name)
 		}
 	}
-	for state, regions := range graph.CompositeStates {
-		for _, region := range regions {
+	for _, state := range graph.CompositeStateOrder {
+		for _, region := range graph.CompositeStates[state] {
 			graph.RegionInitials[region] = graph.UnconditionalStart(region)
-			if len(graph.EntryTransitions[region]) == 0 && !graph.ForkStarted(region) {
+			if len(graph.EntryTransitions[region]) > 0 {
+				continue
+			}
+			if !graph.ForkStarted(region) {
 				if graph.regionDecl[region] != nil {
 					return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
 				}
 				return nil, fmt.Errorf("region %s in state %s has no initial state", region.Name, state.Name)
+			}
+			if err := graph.checkForkOnlyRegion(state, region); err != nil {
+				return nil, err
 			}
 		}
 	}

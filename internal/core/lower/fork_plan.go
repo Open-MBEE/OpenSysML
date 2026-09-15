@@ -82,3 +82,101 @@ func (g *StateGraph) planFork(fork *ast.PseudostateNode) (*ForkPlan, error) {
 func (g *StateGraph) ForkStarted(region *ast.StateRegion) bool {
 	return len(g.ForkEntered[region]) > 0
 }
+
+// checkForkOnlyRegion checks that a region without an entry transition is only
+// ever started by a fork's branch: no other way into its composite state may
+// leave the region to start by default.
+func (g *StateGraph) checkForkOnlyRegion(owner *ast.StateNode, region *ast.StateRegion) error {
+	entry := g.defaultEntryInto(owner, region)
+	if entry == "" {
+		return nil
+	}
+	return fmt.Errorf("region %s in state %s has no initial state: only a fork's branch may start it, but %s enters %s without one; write `entry; then <state>;` inside the region",
+		region.Name, owner.Name, entry, owner.Name)
+}
+
+// defaultEntryInto describes a way into owner that starts region by default,
+// naming no state inside it, or is empty when only forks' branches enter owner.
+func (g *StateGraph) defaultEntryInto(owner *ast.StateNode, region *ast.StateRegion) string {
+	if g.IsInitial(owner) {
+		return "the entry transition naming " + owner.Name
+	}
+	for _, source := range g.States {
+		for _, t := range g.Transitions[source] {
+			if target := g.defaultStart(owner, region, source, t.Target, nil); target != nil {
+				return fmt.Sprintf("the transition from %s to %s", source.Name, vertexName(target))
+			}
+		}
+	}
+	return ""
+}
+
+// defaultStart is the vertex a transition from source to target ends at when it
+// enters owner in a way that starts region by default — owner itself or a state
+// in another of its regions, reached from outside owner or from owner itself —
+// following junctions, choices and joins to the states they lead to; nil otherwise.
+func (g *StateGraph) defaultStart(owner *ast.StateNode, region *ast.StateRegion, source *ast.StateNode, target ast.Node, seen map[ast.Node]bool) ast.Node {
+	switch v := target.(type) {
+	case *ast.StateNode:
+		if g.entersByDefault(owner, region, source, v) {
+			return v
+		}
+	case *ast.PseudostateNode:
+		switch v.Kind {
+		case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
+			if g.entersByDefault(owner, region, source, g.PseudostateOwner[v]) {
+				return v
+			}
+		case ast.PseudostateJunction, ast.PseudostateChoice, ast.PseudostateJoin:
+			if seen[v] {
+				return nil
+			}
+			if seen == nil {
+				seen = map[ast.Node]bool{}
+			}
+			seen[v] = true
+			for _, t := range g.Transitions[v] {
+				if end := g.defaultStart(owner, region, source, t.Target, seen); end != nil {
+					return end
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// entersByDefault reports whether a move from source to target starts region by
+// default: target is owner or lies in another of its regions, and the move comes
+// from outside owner or from owner itself, so the whole of owner is entered.
+func (g *StateGraph) entersByDefault(owner *ast.StateNode, region *ast.StateRegion, source, target *ast.StateNode) bool {
+	if target == nil || !g.within(owner, target) {
+		return false
+	}
+	if source != owner && g.within(owner, source) && target != owner {
+		return false
+	}
+	return g.regionUnder(owner, target) != region
+}
+
+// within reports whether state is owner or lies below it.
+func (g *StateGraph) within(owner, state *ast.StateNode) bool {
+	for s := state; s != nil; s = g.ParentState[s] {
+		if s == owner {
+			return true
+		}
+	}
+	return false
+}
+
+// regionUnder is the region of owner that state lies in, nil for owner itself.
+func (g *StateGraph) regionUnder(owner, state *ast.StateNode) *ast.StateRegion {
+	for s := state; s != nil && s != owner; s = g.ParentState[s] {
+		if region := g.HiddenRegionOf[s]; region != nil && g.RegionOwner[region] == owner {
+			return region
+		}
+		if region := g.RegionOf[s]; region != nil && g.RegionOwner[region] == owner {
+			return region
+		}
+	}
+	return nil
+}

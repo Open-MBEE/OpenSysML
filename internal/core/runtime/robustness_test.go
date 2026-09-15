@@ -291,6 +291,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_body_unresolved_unit", testStateBodyUnresolvedUnit)
 	t.Run("fork_branches_share_region", testForkBranchesShareRegion)
 	t.Run("fork_leaves_a_region_without_a_way_in", testForkLeavesARegionWithoutAWayIn)
+	t.Run("fork_only_region_entered_by_default", testForkOnlyRegionEnteredByDefault)
 	t.Run("join_with_one_incoming_branch", testJoinWithOneIncomingBranch)
 	t.Run("region_pseudostate_without_satisfied_guard", testRegionPseudostateWithoutSatisfiedGuard)
 	t.Run("region_pseudostate_cycle", testRegionPseudostateCycle)
@@ -6092,6 +6093,36 @@ func testForkLeavesARegionWithoutAWayIn(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "region left") || strings.Contains(err.Error(), "region right") {
 		t.Errorf("the fork-entered regions were refused too: %v", err)
+	}
+}
+
+// testForkOnlyRegionEnteredByDefault: a region only a fork enters has no
+// default start, so another transition into its composite state is refused
+// before the machine runs rather than failing when that transition fires.
+func testForkOnlyRegionEnteredByDefault(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		attribute def Go;
+		state Machine {
+			entry; then init;
+			state init;
+			state working parallel {
+				state left { state a; }
+				state right { state b; }
+			}
+			fork split;
+
+			transition first init accept Go then working;
+			transition first init then split;
+			transition first split then a;
+			transition first split then b;
+		}
+	}`)
+	if err == nil {
+		t.Fatal("expected an error for the transition entering the fork-only regions by default")
+	}
+	if !strings.Contains(err.Error(), "region left in state working has no initial state") ||
+		!strings.Contains(err.Error(), "the transition from init to working") {
+		t.Errorf("expected the default entry into left to be named, got: %v", err)
 	}
 }
 
