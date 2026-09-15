@@ -182,3 +182,39 @@ func TestFramesGatherIsNoDependencyOfTheAnalysis(t *testing.T) {
 		t.Fatalf("dropped %v, want the document and its gather frame", dropped)
 	}
 }
+
+func TestFramesReadingTheWholeIndexSurviveAJudgmentChange(t *testing.T) {
+	w := newTrackedIndex(t, map[string]string{
+		"a.sysml": "package A { part def X; }",
+		"b.sysml": "package B { part def Y :> A::X; }",
+	})
+	w.analyze("a.sysml")
+	w.r.InDocument("b.sysml", func() {
+		w.r.ReadAllNames()
+		w.r.ReadName("\x00judgment/b")
+		w.r.suggestTable()
+	})
+	table := w.r.names
+	if table == nil {
+		t.Fatal("the analysis built no suggestion table")
+	}
+	if dropped := w.r.Invalidate(symbols.Changes{Names: map[string]bool{"\x00judgment/a": true}}); len(dropped) != 0 {
+		t.Fatalf("a judgment b.sysml never read dropped %v", dropped)
+	}
+	if w.r.names != table {
+		t.Fatal("a judgment change rebuilt the suggestion table")
+	}
+	if dropped := w.r.Invalidate(symbols.Changes{Names: map[string]bool{"\x00judgment/b": true}}); !reflect.DeepEqual(dropped, []string{"b.sysml"}) {
+		t.Fatalf("the judgment b.sysml read dropped %v, want b.sysml", dropped)
+	}
+	if w.r.names != table {
+		t.Fatal("a judgment change rebuilt the suggestion table")
+	}
+	w.r.InDocument("b.sysml", func() { w.r.ReadAllNames() })
+	if dropped := w.put("a.sysml", "package A { part def X2; }"); !reflect.DeepEqual(dropped, []string{"a.sysml", "b.sysml"}) {
+		t.Fatalf("a registration dropped %v, want the whole-index reader too", dropped)
+	}
+	if w.r.names != nil {
+		t.Fatal("a registration kept the suggestion table")
+	}
+}

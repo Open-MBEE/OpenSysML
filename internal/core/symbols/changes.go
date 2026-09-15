@@ -13,6 +13,12 @@ func (c Changes) Empty() bool {
 	return len(c.Names) == 0 && len(c.Namespaces) == 0 && len(c.Docs) == 0
 }
 
+// Registered reports whether the index's own tables changed: every write to
+// them records a namespace or a document, so names alone are a caller's.
+func (c Changes) Registered() bool {
+	return len(c.Namespaces) > 0 || len(c.Docs) > 0
+}
+
 func newChanges() *Changes {
 	return &Changes{Names: map[string]bool{}, Namespaces: map[string]bool{}, Docs: map[string]bool{}}
 }

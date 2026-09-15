@@ -24,7 +24,8 @@ type frame struct {
 	journal []dropper
 	ledgers map[uintptr]dropper
 	// names, namespaces and docs are what the index answered about while the
-	// frame was innermost; all is set once it enumerated the whole name table.
+	// frame was innermost; all is set once it enumerated the whole name table,
+	// after which only names outside it (a judgment's) are worth recording.
 	names      map[string]bool
 	namespaces map[string]bool
 	docs       map[string]bool
@@ -97,7 +98,7 @@ func (f *frame) remember(g *frame) {
 
 // stale reports whether ch moved anything the frame's entries were read from.
 func (f *frame) stale(ch symbols.Changes) bool {
-	if ch.Docs[f.doc] || f.all {
+	if ch.Docs[f.doc] || (f.all && ch.Registered()) {
 		return true
 	}
 	if len(f.names) < len(ch.Names) {
@@ -335,7 +336,7 @@ func (r *Resolver) ReadName(fqn string) {
 	if r == nil {
 		return
 	}
-	if f := r.cur; f != nil && !f.all {
+	if f := r.cur; f != nil {
 		if f.names == nil {
 			f.names = map[string]bool{}
 		}
@@ -391,7 +392,9 @@ func (r *Resolver) Invalidate(ch symbols.Changes) []string {
 			ch.Names[name] = true
 		}
 	}
-	r.names = nil
+	if ch.Registered() {
+		r.names = nil
+	}
 	var work []*frame
 	for _, f := range r.owners {
 		if f.stale(ch) {
