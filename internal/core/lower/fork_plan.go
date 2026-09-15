@@ -98,8 +98,15 @@ func (g *StateGraph) checkForkOnlyRegion(owner *ast.StateNode, region *ast.State
 // defaultEntryInto describes a way into owner that starts region by default,
 // naming no state inside it, or is empty when only forks' branches enter owner.
 func (g *StateGraph) defaultEntryInto(owner *ast.StateNode, region *ast.StateRegion) string {
-	if g.IsInitial(owner) {
-		return "the entry transition naming " + owner.Name
+	for _, body := range g.entryBodies() {
+		if from := g.bodyState(body); from != nil && g.within(owner, from) {
+			continue
+		}
+		for _, t := range g.EntryTransitions[body] {
+			if g.entersByDefault(owner, region, nil, t.Target) {
+				return "the entry transition naming " + t.Target.Name
+			}
+		}
 	}
 	for _, source := range g.States {
 		for _, t := range g.Transitions[source] {
@@ -141,6 +148,31 @@ func (g *StateGraph) defaultStart(owner *ast.StateNode, region *ast.StateRegion,
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// entryBodies lists the bodies whose entry transitions are on record, in
+// declaration order: the machine's own, then each state's and its regions'.
+func (g *StateGraph) entryBodies() []ast.Node {
+	bodies := []ast.Node{nil}
+	for _, state := range g.States {
+		bodies = append(bodies, state)
+		for _, region := range g.CompositeStates[state] {
+			bodies = append(bodies, region)
+		}
+	}
+	return bodies
+}
+
+// bodyState is the state a body's entry transitions start inside: the state
+// itself, a region's owner, nil for the machine's own body.
+func (g *StateGraph) bodyState(body ast.Node) *ast.StateNode {
+	switch b := body.(type) {
+	case *ast.StateNode:
+		return b
+	case *ast.StateRegion:
+		return g.RegionOwner[b]
 	}
 	return nil
 }

@@ -166,6 +166,16 @@ func TestToStateGraph_ForkOnlyRegionEnteredByDefaultFails(t *testing.T) {
 			``,
 			"the entry transition naming work",
 		},
+		"entry transition naming a state in the other region": {
+			`entry; then b;`,
+			``,
+			"the entry transition naming b",
+		},
+		"guarded entry transition naming a state in the other region": {
+			`entry; if false then idle; then b;`,
+			``,
+			"the entry transition naming b",
+		},
 		"junction outside leading into the other region": {
 			`entry; then idle;`,
 			`junction j; transition first idle accept Go then j; transition first j then b;`,
@@ -199,6 +209,42 @@ func TestToStateGraph_ForkOnlyRegionEnteredByDefaultFails(t *testing.T) {
 				t.Fatalf("error = %q, want %q", err, tc.want)
 			}
 		})
+	}
+}
+
+// An enclosing state's entry transition naming a state in the other region enters
+// the composite state from outside it too; the other region's own is fine.
+func TestToStateGraph_ForkOnlyRegionEnteredByAnEnclosingEntryFails(t *testing.T) {
+	machine := func(outerEntry, rightEntry string) string {
+		return `
+			package test {
+				attribute def Go;
+				state def Machine {
+					entry; then idle;
+					state idle;
+					state outer {
+						` + outerEntry + `
+						state start;
+						state work parallel {
+							state left { state a; }
+							state right { ` + rightEntry + ` state b; }
+						}
+						fork split;
+						transition first start accept Go then split;
+						transition first split then a;
+						transition first split then b;
+					}
+					transition first idle accept Go then outer;
+				}
+			}
+		`
+	}
+	_, err := ToStateGraph(stateDefinitionIn(t, machine(`entry; then b;`, ``)), nil)
+	if err == nil || !strings.Contains(err.Error(), "the entry transition naming b") {
+		t.Fatalf("outer's entry naming b: error = %v, want the entry transition naming b", err)
+	}
+	if _, err := ToStateGraph(stateDefinitionIn(t, machine(`entry; then start;`, `entry; then b;`)), nil); err != nil {
+		t.Fatalf("right's own entry naming b: %v", err)
 	}
 }
 
