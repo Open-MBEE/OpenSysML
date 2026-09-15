@@ -111,9 +111,9 @@ func (w *Workspace) editIndexLocked(name string) *editIndex {
 // build makes an index holding the libraries and every workspace document but
 // the edited one, so the edited notation resolves what the original did. Over a
 // shared library base it overlays that; over a caller-built index it re-indexes
-// the caller's other documents, library marks and languages included. A bundled
-// file the edited document stands in for stays: indexed displaces it again if
-// the edited notation is still a version of it.
+// the caller's library files, marked, and its other documents, languages
+// included. A bundled file the edited document stands in for stays: indexed
+// displaces it again if the edited notation is still a version of it.
 func (e *editIndex) build() *symbols.Index {
 	w, name := e.w, e.name
 	var idx *symbols.Index
@@ -121,8 +121,15 @@ func (e *editIndex) build() *symbols.Index {
 		idx = symbols.NewOverlay(w.libBase)
 	} else {
 		idx = symbols.NewIndex()
-		for _, other := range w.index.Documents() {
+		for other, file := range w.library {
 			if other == name || w.docs[other] != nil {
+				continue
+			}
+			idx.AddDocumentWithKind(other, file.root, file.kind)
+			idx.MarkLibraryDocument(other, file.record)
+		}
+		for _, other := range w.index.Documents() {
+			if _, library := w.library[other]; library || other == name || w.docs[other] != nil {
 				continue
 			}
 			root, ok := w.index.DocumentRoot(other).Node().(*ast.RootNamespace)
@@ -130,9 +137,6 @@ func (e *editIndex) build() *symbols.Index {
 				continue
 			}
 			idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
-			if lib := w.index.LibraryDocumentOf(other); lib.Tier.Library() {
-				idx.MarkLibraryDocument(other, lib)
-			}
 		}
 	}
 	e.standIns = map[string]string{}

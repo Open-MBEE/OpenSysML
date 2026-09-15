@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
@@ -25,10 +26,19 @@ type Workspace struct {
 	onDisk map[string][]byte // last-known on-disk bytes, used when a doc is not open
 	open   map[string]bool   // names with an authoritative open buffer
 	index  *symbols.Index
+	// library is every library file the index held when the workspace was made,
+	// so a file a workspace document displaces can come back; libraryRoots names
+	// their top-level packages.
+	library      map[string]libraryFile
+	libraryRoots map[string]bool
 	// libBase is the frozen library index this workspace's index overlays, nil
-	// for a caller-built index.
-	libBase   *symbols.Index
-	diagCache map[string][]passes.Diagnostic
+	// for a caller-built index; libAlone indexes the library by itself and
+	// libCatalog catalogues it, both made on first use (see libraryAlone).
+	libBase    *symbols.Index
+	libAlone   *symbols.Index
+	libCatalog *identity.Catalog
+	libOnce    sync.Once
+	diagCache  map[string][]passes.Diagnostic
 	// refs is the reverse reference index, nil until a query after a change
 	// rebuilds it (see refindex.go).
 	refs *refIndex
@@ -45,6 +55,13 @@ type Workspace struct {
 	// displaced, by standing in for it or by taking its name, for when it comes back.
 	standIns  map[string]string
 	displaced map[string]symbols.LibraryDocument
+}
+
+// libraryFile is a library file as indexed: its parsed root, language and mark.
+type libraryFile struct {
+	root   *ast.RootNamespace
+	kind   source.Kind
+	record symbols.LibraryDocument
 }
 
 // Option configures a workspace at construction.
@@ -68,29 +85,71 @@ func WithLibrarySource(src libs.Source) Option {
 func NewWorkspace(opts ...Option) *Workspace {
 	base, src := libs.SharedLibrary()
 	opts = append([]Option{WithLibrarySource(src)}, opts...)
-	w := NewWorkspaceWithIndex(symbols.NewOverlay(base), opts...)
-	w.libBase = base
-	return w
+	return NewWorkspaceWithIndex(symbols.NewOverlay(base), opts...)
 }
 
 // NewWorkspaceWithIndex returns a workspace over a caller-built index, for a
 // consumer whose resource set is not the bundled standard library. The options
 // travel with the resource set, so any index is analyzed under the asked mode.
+// The library files the index holds are the workspace's library, whatever
+// their tier: a workspace document may stand in for one or take its name.
 func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 	w := &Workspace{
-		docs:      map[string]*Document{},
-		onDisk:    map[string][]byte{},
-		open:      map[string]bool{},
-		index:     idx,
-		diagCache: map[string][]passes.Diagnostic{},
-		libDocs:   map[string]*Document{},
-		standIns:  map[string]string{},
-		displaced: map[string]symbols.LibraryDocument{},
+		docs:         map[string]*Document{},
+		onDisk:       map[string][]byte{},
+		open:         map[string]bool{},
+		index:        idx,
+		library:      map[string]libraryFile{},
+		libraryRoots: map[string]bool{},
+		libBase:      idx.Base(),
+		diagCache:    map[string][]passes.Diagnostic{},
+		libDocs:      map[string]*Document{},
+		standIns:     map[string]string{},
+		displaced:    map[string]symbols.LibraryDocument{},
+	}
+	for _, name := range idx.Documents() {
+		record := idx.LibraryDocumentOf(name)
+		if !record.Tier.Library() {
+			continue
+		}
+		scope := idx.DocumentRoot(name)
+		if scope == nil {
+			continue
+		}
+		root, ok := scope.Node().(*ast.RootNamespace)
+		if !ok {
+			continue
+		}
+		w.library[name] = libraryFile{root: root, kind: idx.DocumentKind(name), record: record}
+		names, _ := identity.RootPackageNames(root)
+		for _, pkg := range names {
+			w.libraryRoots[pkg] = true
+		}
 	}
 	for _, opt := range opts {
 		opt(w)
 	}
 	return w
+}
+
+// libraryAlone is an index of the workspace's library files and nothing else,
+// with their catalog: the base the index overlays, or one built once from the
+// library files a caller's index held. Every workspace has one.
+func (w *Workspace) libraryAlone() (*symbols.Index, *identity.Catalog) {
+	w.libOnce.Do(func() {
+		w.libAlone = w.libBase
+		if w.libAlone == nil {
+			idx := symbols.NewIndex()
+			for name, file := range w.library {
+				idx.AddDocumentWithKind(name, file.root, file.kind)
+				idx.MarkLibraryDocument(name, file.record)
+			}
+			idx.ExpandWildcardImports()
+			w.libAlone = idx
+		}
+		w.libCatalog = identity.LibraryCatalog(w.libAlone)
+	})
+	return w.libAlone, w.libCatalog
 }
 
 // ConformanceMode reports the strictness this workspace judges notation at.
@@ -433,13 +492,14 @@ func (w *Workspace) libraryNameLocked(name string) (string, bool) {
 	return "", false
 }
 
-// bundledLocked reports whether name is a bundled library document of the index
-// or of the library it overlays. Caller holds the lock.
+// bundledLocked reports whether name is a bundled library document: one the
+// index marks, or one of the workspace's library a document displaced. Caller holds the lock.
 func (w *Workspace) bundledLocked(name string) bool {
 	if w.index.IsLibraryDocument(name) {
 		return true
 	}
-	return w.libBase != nil && w.libBase.IsLibraryDocument(name)
+	_, ok := w.library[name]
+	return ok
 }
 
 // LibraryDocument returns the parsed text of the named bundled library file,

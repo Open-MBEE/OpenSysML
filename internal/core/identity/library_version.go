@@ -49,38 +49,56 @@ func topLevelPackage(root LibraryRoot, el *LibraryElement) bool {
 // named as a catalogued library element: the cheap test a document must pass
 // before DocumentRootedAt is worth asking, and one a user file rarely does.
 func (c *Catalog) NamesEveryRoot(root *ast.RootNamespace) bool {
-	if root == nil {
+	names, ok := RootPackageNames(root)
+	if !ok {
 		return false
 	}
-	for _, member := range root.Members {
-		m, ok := member.(*ast.Membership)
-		if !ok {
-			return false
-		}
-		pkg, ok := m.Member.(*ast.Package)
-		if !ok {
-			return false
-		}
-		pkgName, _ := pkg.Ident.DeclaredName()
-		if _, ok := c.ElementNamed(pkgName); !ok {
+	for _, name := range names {
+		if _, ok := c.ElementNamed(name); !ok {
 			return false
 		}
 	}
 	return true
 }
 
+// RootPackageNames lists the declared names of the parsed document's roots when
+// every one is a package; ok is false for no document or a root that is not one.
+func RootPackageNames(root *ast.RootNamespace) (names []string, ok bool) {
+	if root == nil {
+		return nil, false
+	}
+	for _, member := range root.Members {
+		m, ok := member.(*ast.Membership)
+		if !ok {
+			return nil, false
+		}
+		pkg, ok := m.Member.(*ast.Package)
+		if !ok {
+			return nil, false
+		}
+		name, _ := pkg.Ident.DeclaredName()
+		names = append(names, name)
+	}
+	return names, true
+}
+
 // LibraryVersion is the bundled library document the named indexed document is
-// a version of (see DocumentRootedAt); a root's id is the one an annotation
+// a version of, judged against the catalog of the library the index holds.
+func LibraryVersion(model *semantics.Model, res *resolve.Resolver, name string) string {
+	return LibraryCatalog(res.Index()).VersionOf(model, res, name)
+}
+
+// VersionOf is the catalogued library document the named indexed document is a
+// version of (see DocumentRootedAt); a root's id is the one an annotation
 // declares, since an unannotated package states none. The document must be
 // indexed unmarked, so its roots read as the user's declarations.
-func LibraryVersion(model *semantics.Model, res *resolve.Resolver, name string) string {
+func (c *Catalog) VersionOf(model *semantics.Model, res *resolve.Resolver, name string) string {
 	idx := res.Index()
 	rs := idx.DocumentRoot(name)
 	if rs == nil {
 		return ""
 	}
-	catalog := LibraryCatalog(idx)
-	if root, ok := rs.Node().(*ast.RootNamespace); !ok || !catalog.NamesEveryRoot(root) {
+	if root, ok := rs.Node().(*ast.RootNamespace); !ok || !c.NamesEveryRoot(root) {
 		return ""
 	}
 	var roots []LibraryRoot
@@ -94,5 +112,5 @@ func LibraryVersion(model *semantics.Model, res *resolve.Resolver, name string) 
 		}
 		roots = append(roots, read)
 	}
-	return catalog.DocumentRootedAt(roots)
+	return c.DocumentRootedAt(roots)
 }

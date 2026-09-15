@@ -11,7 +11,9 @@
   whose on-disk text is the user's, puts the bundled file back. The library identity the
   runtime names library types by (`symbols.Index.LibraryIdentity`) digests each library
   document's tier and text, no longer its name, so an unchanged version standing in leaves
-  it — and the objects carried across a re-analysis — as they were.
+  it — and the objects carried across a re-analysis — as they were. A workspace over a
+  caller-built index (`model.NewWorkspaceWithIndex`) treats the library files that index marks
+  the same way: a document may stand in for one or take its name, and closing it puts the file back.
 - **A file opened under a bundled library's own name no longer removes that library from the
   workspace when it is closed.** Closing it put nothing back, so every later document was checked
   against a library missing that file; the standard-library expression gate

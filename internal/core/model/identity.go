@@ -24,7 +24,7 @@ func (w *Workspace) IdentityOf(name string, sym *symbols.Symbol) (*identity.Info
 		same = func(candidate *symbols.Symbol) bool { return candidate.DeclSpan == sym.DeclSpan }
 		// A bundled file a version displaced keeps its identity in the library it came from.
 		if _, displaced := w.displaced[library]; displaced {
-			idx = w.libBase
+			idx, _ = w.libraryAlone()
 		}
 	}
 	var indexed *symbols.Symbol
