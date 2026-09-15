@@ -76,10 +76,17 @@ func IsEntryTransition(source ast.Node) bool {
 // machine's own body. A state standing for a region of a parallel state starts
 // where that region's entry transitions say.
 func (g *StateGraph) StartOf(owner ast.Node) []*EntryTransition {
+	return g.EntryTransitions[g.EntryOwner(owner)]
+}
+
+// EntryOwner is the body owner's entry transitions are written in, as
+// EntryTransitions keys it: the region a state of a parallel state stands for,
+// else owner itself.
+func (g *StateGraph) EntryOwner(owner ast.Node) ast.Node {
 	if state, ok := owner.(*ast.StateNode); ok {
-		owner = g.entryOwner(state)
+		return g.entryOwner(state)
 	}
-	return g.EntryTransitions[owner]
+	return owner
 }
 
 // UnconditionalStart is the state a body starts in whatever its guards say: its

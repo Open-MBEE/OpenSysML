@@ -19,6 +19,8 @@ type Runtime struct {
 	index *symbols.Index
 	// versions are the document versions the run was built from, by name.
 	versions map[string]int
+	// generation is the workspace's when the run was built.
+	generation uint64
 }
 
 // NewRuntime builds a runtime over the workspace's current documents, on a fresh
@@ -26,6 +28,11 @@ type Runtime struct {
 func (w *Workspace) NewRuntime() (*Runtime, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
+	return w.newRuntimeLocked()
+}
+
+// newRuntimeLocked is NewRuntime under the read lock.
+func (w *Workspace) newRuntimeLocked() (*Runtime, error) {
 	idx, err := w.privateIndexLocked()
 	if err != nil {
 		return nil, err
@@ -36,7 +43,7 @@ func (w *Workspace) NewRuntime() (*Runtime, error) {
 	sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
 	sem.SetSourceText(w.sourceTextLocked())
 	model := runtime.NewModel(sem, resolver)
-	rt := &Runtime{model: model, index: idx, versions: make(map[string]int, len(w.docs))}
+	rt := &Runtime{model: model, index: idx, versions: make(map[string]int, len(w.docs)), generation: w.generation}
 	for _, name := range w.sortedDocNamesLocked() {
 		d := w.docs[name]
 		model.RegisterSource(source.New(name, d.Content))
@@ -82,6 +89,10 @@ func (w *Workspace) sortedDocNamesLocked() []string {
 
 // Model is the runtime model executions are built over with runtime.NewContext.
 func (r *Runtime) Model() *runtime.Model { return r.model }
+
+// Generation is the workspace's generation the runtime was built from; the
+// workspace still holds the same documents while Workspace.Generation equals it.
+func (r *Runtime) Generation() uint64 { return r.generation }
 
 // Version is the version of the named document the runtime was built from, and
 // false for a document it does not hold.

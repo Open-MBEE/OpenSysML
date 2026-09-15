@@ -248,23 +248,29 @@ func (l *StateLocator) Start(owner ast.Node) (string, bool) {
 	return id, ok
 }
 
-// Transition is the edge position of decl from source to target, source nil for
-// an entry transition leaving target's body start; false when none draws it.
+// Transition is the edge position of decl from source to target; false when
+// none draws it.
 func (l *StateLocator) Transition(decl, source, target ast.Node) (int, bool) {
 	to, ok := l.Node(target)
 	if !ok {
 		return 0, false
 	}
-	var from string
-	if source == nil {
-		state, isState := target.(*ast.StateNode)
-		if !isState {
-			return 0, false
-		}
-		if from, ok = l.Start(l.parentOfState(state)); !ok {
-			return 0, false
-		}
-	} else if from, ok = l.Node(source); !ok {
+	from, ok := l.Node(source)
+	if !ok {
+		return 0, false
+	}
+	return firstEdge(l.edges, decl, l.base, from, to)
+}
+
+// EntryTransition is the edge position of the entry transition decl written in
+// owner's body (nil for the machine's own) to target; false when none draws it.
+func (l *StateLocator) EntryTransition(decl, owner, target ast.Node) (int, bool) {
+	to, ok := l.Node(target)
+	if !ok {
+		return 0, false
+	}
+	from, ok := l.Start(owner)
+	if !ok {
 		return 0, false
 	}
 	return firstEdge(l.edges, decl, l.base, from, to)

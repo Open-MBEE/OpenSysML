@@ -108,11 +108,63 @@ func TestLocateStatesMapsVerticesAndTransitions(t *testing.T) {
 	if len(entry) != 1 {
 		t.Fatalf("operating has %d entry transitions, want 1", len(entry))
 	}
-	if _, ok := loc.Transition(entry[0].Decl, nil, entry[0].Target); !ok {
+	operating := stateNamed(t, graph, "operating")
+	if _, ok := loc.EntryTransition(entry[0].Decl, operating, entry[0].Target); !ok {
 		t.Error("entry transition of operating not located")
 	}
-	if _, ok := loc.Start(stateNamed(t, graph, "operating")); !ok {
+	if _, ok := loc.Start(operating); !ok {
 		t.Error("Start(operating) not located")
+	}
+}
+
+// An entry transition written in one body may start the machine in a state nested
+// deeper; the edge leaves the start marker of the body it is written in.
+func TestLocateStatesEntryTransitionIntoNestedState(t *testing.T) {
+	const model = `package Machines {
+	state def Deep {
+		entry; then working::step1;
+		state working {
+			state step1;
+			state step2;
+			transition first step1 then step2;
+		}
+		state done;
+		transition first working then done;
+	}
+}
+package MachineViews {
+	private import StandardViewDefinitions::*;
+	view deepStates : StateTransitionView { expose Machines::Deep; }
+}
+`
+	r, idx := loadSources(t, []string{"deep.sysml"}, [][]byte{[]byte(model)})
+	rendering, err := r.Render(lookup(t, idx, "MachineViews::deepStates"))
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	sym := lookup(t, idx, "Machines::Deep")
+	graph, err := lower.ToStateGraph(sym.Decl, declScope(sym))
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	entry := graph.EntryTransitions[nil]
+	if len(entry) != 1 || entry[0].Target != stateNamed(t, graph, "step1") {
+		t.Fatalf("machine entry transitions = %v, want one to step1", entry)
+	}
+	loc, err := LocateStates(rendering, sym, sym, graph)
+	if err != nil {
+		t.Fatalf("LocateStates: %v", err)
+	}
+	index, ok := loc.EntryTransition(entry[0].Decl, nil, entry[0].Target)
+	if !ok {
+		t.Fatal("EntryTransition(machine -> step1) not located")
+	}
+	edge := rendering.Data().Edges[index]
+	if start, _ := loc.Start(nil); edge.From != start || nodeName(t, rendering, edge.To) != "step1" {
+		t.Errorf("EntryTransition(machine -> step1) draws %s -> %s, want the machine's start -> step1", edge.From, edge.To)
+	}
+	if _, ok := loc.EntryTransition(entry[0].Decl, stateNamed(t, graph, "working"), entry[0].Target); ok {
+		t.Error("EntryTransition located from working's start, which draws no such edge")
 	}
 }
 

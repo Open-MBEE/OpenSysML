@@ -463,7 +463,12 @@ several usages is refused with `InvalidParams` until `target` names the usage,
 as `%state` refuses it. Without an object the behavior runs on its own.
 
 The answer is the initial snapshot: the machine in the state its entry transition
-selects, or the action's first token on its start node. Errors are answered with
+selects, or the action's first token on its start node. The rendering it is
+reported in and the runtime it runs in come from one reading of the workspace,
+so its `version` is the document version both were built from; an edit that
+lands while the session is being built is handled as `opensysml/debugChanged`
+describes — the snapshot is answered under the new IDs, or the start is refused
+with `InvalidParams` when the edit rewrote the behavior. Errors are answered with
 `InvalidParams` when the request itself is wrong — a view of another kind, a
 target the document does not declare or that is not a behavior the kind draws, an
 object that does not exist — and as a plain error when the behavior cannot be

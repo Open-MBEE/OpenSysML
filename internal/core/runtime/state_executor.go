@@ -668,11 +668,13 @@ func (e *StateExecutor) LastDispatch() (Dispatch, bool) {
 }
 
 // FiredTransition is one transition taken: where it was written and the vertices
-// it joined. Source is nil for an entry transition, which leaves a body's start.
+// it joined. An entry transition has no Source; it leaves the start of Owner's
+// body, the one keying it in the graph's EntryTransitions (nil: the machine's own).
 type FiredTransition struct {
 	Decl   ast.Node
 	Source ast.Node
 	Target ast.Node
+	Owner  ast.Node
 }
 
 // FiredTransitions returns every transition taken so far, in firing order: compound
@@ -3376,7 +3378,7 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 		}
 		if holds {
 			if entry.Decl != nil {
-				e.fired = append(e.fired, FiredTransition{Decl: entry.Decl, Target: entry.Target})
+				e.fired = append(e.fired, FiredTransition{Decl: entry.Decl, Target: entry.Target, Owner: e.graph.EntryOwner(owner)})
 			}
 			return entry.Target, nil
 		}

@@ -65,21 +65,24 @@ func (w *Workspace) Views(doc string) []ViewInfo {
 func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Document, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
+	return w.renderViewLocked(doc, fqn)
+}
 
+// renderViewLocked is RenderView under the read lock.
+func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Document, error) {
 	d := w.docs[doc]
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
 	}
-	rendering, err := w.renderViewLocked(d, fqn)
+	rendering, err := w.renderDocumentViewLocked(doc, fqn)
 	if err != nil {
 		return nil, nil, err
 	}
 	return rendering, d, nil
 }
 
-// renderViewLocked renders fqn of the held document d under the read lock.
-func (w *Workspace) renderViewLocked(d *Document, fqn string) (*view.Rendering, error) {
-	doc := d.Name
+// renderDocumentViewLocked renders fqn of the held document doc under the read lock.
+func (w *Workspace) renderDocumentViewLocked(doc, fqn string) (*view.Rendering, error) {
 	renderer := w.rendererLocked(doc)
 	if strings.HasPrefix(fqn, view.PseudoViewPrefix) {
 		return w.renderPseudoLocked(doc, fqn, renderer)
@@ -183,53 +186,6 @@ func (w *Workspace) viewNamedLocked(doc, fqn string) *symbols.Symbol {
 // declarations.
 func (w *Workspace) declaredInLocked(doc, fqn string) *symbols.Symbol {
 	return declaredIn(w.index, doc, fqn)
-}
-
-// Declared is declaredInLocked for a caller outside the lock.
-func (w *Workspace) Declared(doc, fqn string) *symbols.Symbol {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	return declaredIn(w.index, doc, fqn)
-}
-
-// DeclarationText is the source text of sym's declaration as the workspace
-// holds it now, "" when its document is gone.
-func (w *Workspace) DeclarationText(sym *symbols.Symbol) string {
-	if sym == nil || sym.Decl == nil {
-		return ""
-	}
-	return w.TextAt(sym.DocName, sym.Decl.Span())
-}
-
-// TextAt is the source text at span in doc as the workspace holds it now, from
-// the document or the library file behind the documents; "" when neither holds doc.
-func (w *Workspace) TextAt(doc string, span source.Span) string {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	if d := w.docs[doc]; d != nil {
-		return source.New(doc, d.Content).Text(span)
-	}
-	if text := libs.Text(w.libSource); text != nil {
-		return text(doc, span)
-	}
-	return ""
-}
-
-// DeclaredView is the view RenderView renders for fqn in doc: the view named, the
-// document's one view for "", nil for a pseudo-view or a name declaring none.
-func (w *Workspace) DeclaredView(doc, fqn string) *symbols.Symbol {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	if strings.HasPrefix(fqn, view.PseudoViewPrefix) {
-		return nil
-	}
-	if fqn == "" {
-		if views := w.documentViewsLocked(doc); len(views) == 1 {
-			return views[0]
-		}
-		return nil
-	}
-	return w.viewNamedLocked(doc, fqn)
 }
 
 // declaredIn is declaredInLocked over any index.

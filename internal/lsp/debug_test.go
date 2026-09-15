@@ -521,6 +521,51 @@ func TestDebugStateMachineSession(t *testing.T) {
 	}
 }
 
+// debugDeep is a machine whose own entry transition starts in a state nested
+// in a composite state, past that state's own start.
+const debugDeep = `package Machines {
+	attribute def Halt;
+	state def Deep {
+		entry; then working::step1;
+		state working {
+			state step1;
+			state step2;
+			transition first step1 accept Halt then step2;
+		}
+		state done;
+		transition first working accept Halt then done;
+	}
+}
+package MachineViews {
+	private import StandardViewDefinitions::*;
+	view deepView : StateTransitionView { expose Machines::Deep; }
+}
+`
+
+// An entry transition into a nested state is taken from the start marker of the
+// body it is written in — the machine's — not that of the state it lands in.
+func TestDebugEntryTransitionIntoANestedState(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/m.sysml", debugDeep)
+	r := render(t, s, docURI, "MachineViews::deepView")
+	id := ids(t, r)
+	var machineStart string
+	for _, n := range r.Nodes {
+		if n.Kind == "start" && n.Parent == r.Nodes[0].ID {
+			machineStart = n.ID
+		}
+	}
+	if machineStart == "" {
+		t.Fatal("no start marker in the machine's own body")
+	}
+
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "MachineViews::deepView", Target: "Machines::Deep",
+	})
+	wantStrings(t, "initial active states", snap.ActiveStates, []string{id["working"], id["step1"]})
+	wantStrings(t, "entry transition", edges(snap.Taken), []string{machineStart + "->" + id["step1"]})
+}
+
 // A continue runs what is due now and holds the clock: an event due later
 // leaves the machine waiting, at the same instant, until an advance reaches it.
 func TestDebugContinueHoldsTheClock(t *testing.T) {
@@ -942,6 +987,59 @@ func TestDebugSessionFollowsEdits(t *testing.T) {
 	}
 	if _, err := s.DebugStep(&debugSessionParams{Session: session}); !errors.Is(err, ErrDebugSession) {
 		t.Errorf("step after the end: err = %v, want %v", err, ErrDebugSession)
+	}
+}
+
+// A start reads the workspace once and registers the session after; an edit
+// landing in between is not lost. One leaving the behavior as it was moves the
+// session to the fresh IDs before it answers; one to the behavior — of the same
+// length, so every span stays put — refuses the start.
+func TestDebugStartSeesAnEditSinceItsReading(t *testing.T) {
+	s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+	ctx := context.Background()
+	name := uriToName(docURI)
+	params := &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Robot",
+	}
+
+	sess, err := s.debugPrepare(params)
+	if err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	shifted := "package Extra {\n\tpart def Spare;\n}\n" + debugMachine
+	s.applyDidChange(ctx, name, []rawContentChange{{Text: shifted}}, 2)
+	if changed := rec.debugChanged(); len(changed) != 0 {
+		t.Fatalf("debugChanged for a session not yet registered: %v", changed)
+	}
+	snap, err := s.debugRegister(sess)
+	if err != nil {
+		t.Fatalf("register after an unrelated edit: %v", err)
+	}
+	if snap.Version != 2 {
+		t.Errorf("snapshot is at version %d, want 2", snap.Version)
+	}
+	fresh := ids(t, render(t, s, docURI, "MachineViews::opsView"))
+	wantStrings(t, "active states", snap.ActiveStates, []string{fresh["motion"], fresh["idle"], fresh["clock"], fresh["waiting"]})
+	stepped := mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: snap.Session})
+	wantStrings(t, "active states after a step", stepped.ActiveStates, []string{fresh["motion"], fresh["idle"], fresh["clock"], fresh["elapsed"]})
+
+	sess, err = s.debugPrepare(params)
+	if err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	s.applyDidChange(ctx, name, []rawContentChange{{Text: strings.Replace(shifted, "state idle;", "state lazy;", 1)}}, 3)
+	if changed := rec.debugChanged(); len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State != debugEnded {
+		t.Fatalf("debugChanged after editing the machine = %v, want the end of %s", changed, snap.Session)
+	}
+	if _, err := s.debugRegister(sess); !errors.Is(err, ErrDebugTarget) || !strings.Contains(err.Error(), "Machines::Ops was edited") {
+		t.Errorf("register after the machine was edited: err = %v, want %v saying Machines::Ops was edited", err, ErrDebugTarget)
+	}
+	s.debug.mu.Lock()
+	live := len(s.debug.sessions)
+	s.debug.mu.Unlock()
+	if live != 0 {
+		t.Errorf("%d sessions live after the refused start, want none", live)
 	}
 }
 

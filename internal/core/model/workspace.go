@@ -32,6 +32,8 @@ type Workspace struct {
 	// refs is the reverse reference index, nil until a query after a change
 	// rebuilds it (see refindex.go).
 	refs *refIndex
+	// generation counts the changes to the documents and their analysis so far.
+	generation uint64
 	// analysis is the options every document of this workspace is analyzed under,
 	// so one session asks one question of all its files.
 	analysis passes.Options
@@ -223,6 +225,7 @@ func (w *Workspace) invalidateLocked() {
 	// A change anywhere can alter what a name elsewhere resolves to (a shadowing
 	// declaration, an import target, an alias, an overload), so the index goes too.
 	w.refs = nil
+	w.generation++
 }
 
 // Diagnostics returns the analysis diagnostics for name, computing them lazily

@@ -321,19 +321,41 @@ func (s *Server) debugHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 
 // DebugStart answers opensysml/debug/start.
 func (s *Server) DebugStart(params *debugStartParams) (*debugSnapshot, error) {
+	sess, err := s.debugPrepare(params)
+	if err != nil {
+		return nil, err
+	}
+	return s.debugRegister(sess)
+}
+
+// debugPrepare builds the session params asks for, run and located in the
+// documents as one reading of the workspace has them, but not yet registered.
+func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 	name := uriToName(params.TextDocument.URI)
 	if strings.TrimSpace(params.Target) == "" {
 		return nil, debugInvalid(fmt.Errorf("%w: no target named", ErrDebugTarget))
 	}
-	rendering, doc, err := s.ws.RenderView(name, params.View)
-	if err != nil {
-		return nil, err
-	}
-	if rendering.Kind != view.KindState && rendering.Kind != view.KindAction {
-		return nil, debugInvalid(fmt.Errorf("%w: %s renders a %s, which no debugger drives", ErrDebugTarget, params.View, rendering.Kind))
-	}
-	rt, err := s.ws.NewRuntime()
-	if err != nil {
+	// The rendering, the runtime and the view's text are read together, so the
+	// IDs answered and the behavior run are of one and the same documents.
+	var (
+		rendering *view.Rendering
+		doc       *model.Document
+		rt        *model.Runtime
+		viewText  string
+	)
+	if err := s.ws.Read(func(r *model.Reading) (err error) {
+		if rendering, doc, err = r.RenderView(name, params.View); err != nil {
+			return err
+		}
+		if rendering.Kind != view.KindState && rendering.Kind != view.KindAction {
+			return debugInvalid(fmt.Errorf("%w: %s renders a %s, which no debugger drives", ErrDebugTarget, params.View, rendering.Kind))
+		}
+		if rt, err = r.NewRuntime(); err != nil {
+			return err
+		}
+		viewText = r.DeclarationText(r.DeclaredView(name, params.View))
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	target := rt.Declared(name, params.Target)
@@ -351,6 +373,7 @@ func (s *Server) DebugStart(params *debugStartParams) (*debugSnapshot, error) {
 		if objectSym == nil {
 			return nil, debugInvalid(fmt.Errorf("%w: %s declares no %s to perform it", ErrDebugTarget, name, params.Object))
 		}
+		var err error
 		if performer, err = ctx.Instantiate(objectSym); err != nil {
 			return nil, fmt.Errorf("%w: instantiate %s: %w", ErrDebugTarget, params.Object, err)
 		}
@@ -364,16 +387,15 @@ func (s *Server) DebugStart(params *debugStartParams) (*debugSnapshot, error) {
 		runtime:   rt,
 		targetSym: target,
 		objectSym: objectSym,
+		viewText:  viewText,
 	}
 	if objectSym != nil {
 		sess.object = rt.FQN(objectSym)
 	}
-	if viewSym := s.ws.DeclaredView(name, params.View); viewSym != nil {
-		sess.viewText = s.ws.DeclarationText(viewSym)
-	}
 	if err := sess.attach(ctx, target, performer); err != nil {
 		return nil, err
 	}
+	var err error
 	if sess.inherited, err = sess.inheritedDecls(); err != nil {
 		sess.release()
 		return nil, err
@@ -382,13 +404,25 @@ func (s *Server) DebugStart(params *debugStartParams) (*debugSnapshot, error) {
 		sess.release()
 		return nil, err
 	}
+	return sess, nil
+}
+
+// debugRegister gives a prepared session its ID and starts answering for it.
+func (s *Server) debugRegister(sess *debugSession) (*debugSnapshot, error) {
 	s.debug.mu.Lock()
+	defer s.debug.mu.Unlock()
+	// An edit since the session's reading is reconciled under the lock edits
+	// reconcile under, so none passes the session by unseen.
+	if s.ws.Generation() != sess.runtime.Generation() {
+		if _, moved := s.reconcile(sess); moved && sess.ended != "" {
+			sess.release()
+			return nil, debugInvalid(fmt.Errorf("%w: %s", ErrDebugTarget, sess.ended))
+		}
+	}
 	s.debug.next++
 	sess.id = "debug-" + strconv.Itoa(s.debug.next)
 	s.debug.sessions[sess.id] = sess
-	snap := sess.snapshot()
-	s.debug.mu.Unlock()
-	return snap, nil
+	return sess.snapshot(), nil
 }
 
 // attach gives the session the executor of target: the one performer already
@@ -1172,7 +1206,14 @@ func (sess *debugSession) machineSnapshot(snap *debugSnapshot) {
 	fired := exec.FiredTransitions()
 	if len(fired) > sess.fired {
 		for _, f := range fired[sess.fired:] {
-			if index, ok := sess.states.Transition(f.Decl, f.Source, f.Target); ok {
+			var index int
+			var ok bool
+			if f.Source == nil {
+				index, ok = sess.states.EntryTransition(f.Decl, f.Owner, f.Target)
+			} else {
+				index, ok = sess.states.Transition(f.Decl, f.Source, f.Target)
+			}
+			if ok {
 				snap.Taken = append(snap.Taken, sess.edgeAt(index))
 			}
 		}
@@ -1240,63 +1281,78 @@ func (s *Server) debugDocumentsChanged(ctx context.Context) {
 // reconcile rebinds sess to the workspace as it is now, reporting whether the
 // session moved: to new render IDs, or to its end.
 func (s *Server) reconcile(sess *debugSession) (*debugSnapshot, bool) {
-	end := func(reason string) (*debugSnapshot, bool) {
-		sess.ended = reason
-		return sess.snapshot(), true
+	var moved bool
+	// One reading, so the declarations compared and the rendering located in
+	// are of the same documents.
+	_ = s.ws.Read(func(r *model.Reading) error {
+		moved = sess.rebind(r)
+		return nil
+	})
+	if !moved {
+		return nil, false
 	}
-	doc := s.ws.Document(sess.doc)
-	if doc == nil {
+	return sess.snapshot(), true
+}
+
+// rebind binds sess to the documents as r reads them, reporting whether the
+// session moved: to new render IDs, or to its end.
+func (sess *debugSession) rebind(r *model.Reading) bool {
+	end := func(reason string) bool {
+		sess.ended = reason
+		return true
+	}
+	if r.Document(sess.doc) == nil {
 		return end(fmt.Sprintf("%s was closed", sess.doc))
 	}
-	target := s.ws.Declared(sess.doc, sess.target)
+	target := r.Declared(sess.doc, sess.target)
 	if target == nil {
 		return end(fmt.Sprintf("%s is no longer declared", sess.target))
 	}
-	if s.ws.DeclarationText(target) != sess.runtime.Text(sess.targetSym) {
+	if r.DeclarationText(target) != sess.runtime.Text(sess.targetSym) {
 		return end(fmt.Sprintf("%s was edited", sess.target))
 	}
 	if sess.objectSym != nil {
-		object := s.ws.Declared(sess.doc, sess.object)
+		object := r.Declared(sess.doc, sess.object)
 		if object == nil {
 			return end(fmt.Sprintf("%s is no longer declared", sess.object))
 		}
-		if s.ws.DeclarationText(object) != sess.runtime.Text(sess.objectSym) {
+		if r.DeclarationText(object) != sess.runtime.Text(sess.objectSym) {
 			return end(fmt.Sprintf("%s was edited", sess.object))
 		}
 	}
 	for _, in := range sess.inherited {
-		decl := s.ws.Declared(in.doc, in.fqn)
+		decl := r.Declared(in.doc, in.fqn)
 		if decl == nil {
 			return end(fmt.Sprintf("%s is no longer declared", in.fqn))
 		}
-		if s.ws.DeclarationText(decl) != in.text {
+		if r.DeclarationText(decl) != in.text {
 			return end(fmt.Sprintf("%s was edited", in.fqn))
 		}
 	}
-	rendering, doc, err := s.ws.RenderView(sess.doc, sess.view)
+	rendering, doc, err := r.RenderView(sess.doc, sess.view)
 	if err != nil {
 		return end(fmt.Sprintf("%s no longer renders: %v", sess.view, err))
 	}
 	if rendering.Kind != sess.kind {
 		return end(fmt.Sprintf("%s now renders a %s", sess.view, rendering.Kind))
 	}
-	if sess.viewText != "" && s.ws.DeclarationText(s.ws.DeclaredView(sess.doc, sess.view)) != sess.viewText {
+	if sess.viewText != "" && r.DeclarationText(r.DeclaredView(sess.doc, sess.view)) != sess.viewText {
 		return end(fmt.Sprintf("%s was edited", sess.view))
 	}
 	root, err := view.RootDrawing(rendering, target)
 	if err != nil {
 		return end(fmt.Sprintf("%s no longer draws %s: %v", sess.view, sess.target, err))
 	}
-	if from := sess.unknownInherited(root, s.ws.TextAt); from != "" {
+	if from := sess.unknownInherited(root, r.TextAt); from != "" {
 		return end(fmt.Sprintf("%s now takes content from %s", sess.target, from))
 	}
 	if doc.Version == sess.version && sameRendering(rendering, sess.rendering) {
-		return nil, false
+		return false
 	}
 	if err := sess.locate(rendering, target, doc.Version); err != nil {
 		return end(fmt.Sprintf("%s no longer draws %s: %v", sess.view, sess.target, err))
 	}
-	return sess.snapshot(), true
+	return true
 }
 
 // unknownInherited describes the first declaration the drawn root now takes
