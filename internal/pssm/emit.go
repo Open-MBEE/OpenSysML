@@ -152,17 +152,21 @@ func (e *emitter) fail(where, reason string) error {
 }
 
 // nameVertices names every state and pseudostate by its path as an identifier,
-// suffixing a name two vertices share so each is one endpoint.
+// suffixing a name two vertices share so each is one endpoint. An initial
+// pseudostate is named for the helper state startTarget may declare for it.
 func (e *emitter) nameVertices(regions []*Region) {
 	taken := map[string]int{}
 	var visit func([]*Region)
 	visit = func(regions []*Region) {
 		for _, r := range regions {
 			for _, v := range r.Vertices {
-				if v.Kind == VertexInitial || v.Kind == VertexFinal {
+				if v.Kind == VertexFinal {
 					continue
 				}
 				name := identifier(v.Path())
+				if v.Kind == VertexInitial {
+					name += "_start"
+				}
 				taken[name]++
 				if n := taken[name]; n > 1 {
 					name = fmt.Sprintf("%s_%d", name, n)
@@ -550,7 +554,7 @@ func (e *emitter) startTarget(b *strings.Builder, ind string, init *Vertex, tr *
 	if tr.Effect == nil && (tr.Target == nil || !tr.Target.Kind.IsPseudostate()) {
 		return target, nil
 	}
-	helper := identifier(init.Path()) + "_start"
+	helper := e.names[init]
 	fmt.Fprintf(b, "%sstate %s;\n%stransition first %s", ind, helper, ind, helper)
 	if tr.Effect != nil {
 		stmts, err := e.plainBody(tr.Effect, effectOf(tr))
@@ -685,7 +689,7 @@ func (e *emitter) target(t *Transition, where string) (string, error) {
 		return "done", nil
 	}
 	name := e.names[t.Target]
-	if name == "" {
+	if name == "" || t.Target.Kind == VertexInitial {
 		return "", e.fail(where, "a transition into an unnamed vertex")
 	}
 	return spell(name), nil
