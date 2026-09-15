@@ -458,19 +458,25 @@ func (e *StateExecutor) scheduleFromLeaf(leaf *ast.StateNode) error {
 	return nil
 }
 
-// scheduleCompletionTransitions queues the completion transitions of a state
-// whose guard holds. A state completes only once its do behavior has finished,
-// so a state still running one is skipped here and scheduled by settleDoActions
-// when the behavior ends; a composite state's body reaching `done` schedules
-// them through completeIfDone.
+// scheduleCompletionTransitions queues a state's completion: one event per
+// completion transition whose guard holds now, or one carrying the first when
+// none does, so the guards are read again when the occurrence is dispatched. A
+// state completes only once its do behavior has finished, so a state still
+// running one is skipped here and scheduled by settleDoActions when the behavior
+// ends; a composite state's body reaching `done` schedules it through completeIfDone.
 func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) error {
 	if e.hasRunningDoAction(state) {
 		return nil
 	}
 
+	var first *lower.Transition
+	queued := false
 	for _, trans := range e.graph.Transitions[state] {
 		if trans.Trigger != nil {
 			continue
+		}
+		if first == nil {
+			first = trans
 		}
 		satisfied, err := e.passesGuard(trans)
 		if err != nil {
@@ -479,15 +485,24 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 		if !satisfied {
 			continue
 		}
-		e.eventQueue.Push(Event{
-			ID:        e.nextEventID,
-			Type:      EventTime, // Use EventTime with nil trigger
-			Timestamp: e.ctx.clock.now,
-			Payload:   trans,
-		})
-		e.nextEventID++
+		e.pushCompletion(trans)
+		queued = true
+	}
+	if first != nil && !queued {
+		e.pushCompletion(first)
 	}
 	return nil
+}
+
+// pushCompletion queues the completion event carrying a completion transition.
+func (e *StateExecutor) pushCompletion(trans *lower.Transition) {
+	e.eventQueue.Push(Event{
+		ID:        e.nextEventID,
+		Type:      EventTime, // Use EventTime with nil trigger
+		Timestamp: e.ctx.clock.now,
+		Payload:   trans,
+	})
+	e.nextEventID++
 }
 
 // scheduleTransitionsForState schedules events for outgoing transitions of a specific state.
@@ -664,7 +679,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 			var notes []RunNote
 			if lowerTrans.Trigger == nil && sourceState != nil {
 				var err error
-				if lowerTrans, notes, err = e.chooseCompletion(sourceState, lowerTrans); err != nil {
+				if lowerTrans, notes, err = e.chooseCompletion(sourceState, lowerTrans); err != nil || lowerTrans == nil {
 					return dispatch, err
 				}
 			}
@@ -1198,14 +1213,12 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 }
 
 // chooseCompletion resolves which completion transition out of source fires on
-// the completion event dispatched carries: with other completion transitions of
-// the state still queued for it, the policy draws one as a transition choice and
-// the rest leave the queue, one completion occurrence firing one transition.
+// the completion event dispatched carries: every completion transition of the
+// state has its guard read now, the policy draws one of those enabled as a
+// transition choice and the state's other completion events leave the queue,
+// one completion occurrence firing one transition. None enabled fires nothing.
 func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lower.Transition) (*lower.Transition, []RunNote, error) {
 	queued := e.eventQueue.CompletionsOf(source)
-	if len(queued) == 0 {
-		return dispatched, nil, nil
-	}
 	// The others leave the queue only once the draw stands: a refused replay changes nothing.
 	drain := func() {
 		for _, ev := range queued {
@@ -1213,10 +1226,15 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 		}
 	}
 	transitions := e.graph.Transitions[source]
+	if completionCount(transitions) < 2 {
+		// Nothing to choose among: firing reads the one guard.
+		drain()
+		return dispatched, nil, nil
+	}
 	var enabled []int
 	var notes []RunNote
 	for pos, trans := range transitions {
-		if trans != dispatched && !slices.ContainsFunc(queued, func(ev Event) bool { return ev.Payload == trans }) {
+		if trans.Trigger != nil {
 			continue
 		}
 		var ok bool
@@ -1238,7 +1256,7 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 	}
 	if len(enabled) == 0 {
 		drain()
-		return dispatched, nil, nil
+		return nil, nil, nil
 	}
 	choice, ok := e.transitionChoice(source, transitions, enabled)
 	if !ok {
@@ -1254,6 +1272,17 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 	}
 	drain()
 	return transitions[enabled[pick]], append(notes, choice), nil
+}
+
+// completionCount is how many of the transitions are completion transitions.
+func completionCount(transitions []*lower.Transition) int {
+	n := 0
+	for _, trans := range transitions {
+		if trans.Trigger == nil {
+			n++
+		}
+	}
+	return n
 }
 
 // completionEnabled reports whether a completion transition can fire now: its

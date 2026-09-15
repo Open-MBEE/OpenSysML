@@ -14,6 +14,9 @@ transition: first -> second
   eval feature departures -> 0
   eval literal 0 -> 0
 eval operator == -> true
+  eval feature departures -> 0
+  eval literal 0 -> 0
+eval operator == -> true
 exit: second
 exit: outer
 stmt assign departures
@@ -32,6 +35,12 @@ eval operator == -> false
   eval literal 0 -> 0
 eval operator > -> true
 transition: away -> second
+  eval feature departures -> 1
+  eval literal 0 -> 0
+eval operator == -> false
+  eval feature departures -> 1
+  eval literal 0 -> 0
+eval operator > -> true
   eval feature departures -> 1
   eval literal 0 -> 0
 eval operator > -> true

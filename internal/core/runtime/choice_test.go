@@ -1342,6 +1342,97 @@ func TestCompletionTransitionChoiceRereadsGuards(t *testing.T) {
 	}
 }
 
+// A completion transition whose guard was false when the state completed is read
+// again when the completion is dispatched: one a sibling region's earlier
+// completion has since enabled is an alternative, so the two are a choice.
+func TestCompletionTransitionChoiceSeesLaterEnabledGuard(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute flag : Boolean = false;
+			entry; then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 do assign flag := true then a2;
+				}
+				state b {
+					entry; then ready;
+					state ready;
+					state left;
+					state right;
+					transition first ready if flag then left;
+					transition first ready then right;
+				}
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "work,a1,ready,a2,left" {
+		t.Fatalf("visited %v, want a1's completion to set flag before ready's is dispatched, and the draw to take left", visited)
+	}
+	want := []string{"choice state ready: transitions 1->left, 2->right (unordered; took 1->left)"}
+	var got []string
+	for _, choice := range ctx.Choices() {
+		got = append(got, choice.String())
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want exactly %v: the guard enabled since queuing is an alternative", got, want)
+	}
+}
+
+// A state whose only completion transition has a false guard still completes:
+// the guard is read again when the completion is dispatched, and one enabled
+// since fires.
+func TestSingleCompletionTransitionFiresOnceGuardHolds(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute flag : Boolean = false;
+			entry; then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 do assign flag := true then a2;
+				}
+				state b {
+					entry; then ready;
+					state ready;
+					state left;
+					transition first ready if flag then left;
+				}
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "work,a1,ready,a2,left" {
+		t.Fatalf("visited %v, want ready's completion to fire once a1's effect set flag", visited)
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Fatalf("choices = %v, want none: one completion transition is no choice", choices)
+	}
+}
+
 // A completion transition into a join whose other branch has not arrived is not
 // enabled, so it is no alternative to draw: the other completion transition
 // fires and the queue is not drained on a join that cannot move.
