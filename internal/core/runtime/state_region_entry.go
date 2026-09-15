@@ -20,9 +20,20 @@ type regionEntry struct {
 // lazyEntry is the chain of states a fork's branches still have to enter down to
 // owner, the composite whose regions they enter.
 type lazyEntry struct {
-	chain []*ast.StateNode
-	next  int
-	owner *ast.StateNode
+	chain    []*ast.StateNode
+	next     int
+	owner    *ast.StateNode
+	branches map[*ast.StateRegion]*ast.StateNode // region the chain passes through → the state it passes into
+}
+
+// forkEntry describes the way from boundary, which stays active, down to the
+// composite whose regions a fork's branches enter.
+func (e *StateExecutor) forkEntry(boundary, owner *ast.StateNode) *lazyEntry {
+	return &lazyEntry{
+		chain:    e.descendantChain(boundary, owner),
+		owner:    owner,
+		branches: e.branchesTo(boundary, owner),
+	}
 }
 
 // enterRegionsInto activates one state per orthogonal region of container: the
@@ -40,12 +51,9 @@ func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*as
 
 // enterForkBranches enters the owner's regions through the fork's branches: each
 // runs its effect, enters the rest of the way down, then its target. Regions no
-// branch enters start as usual; the owner's do behavior starts once all have.
-func (e *StateExecutor) enterForkBranches(plan *lower.ForkPlan, toOwner []*ast.StateNode) error {
-	var above *lazyEntry
-	if len(toOwner) > 0 {
-		above = &lazyEntry{chain: toOwner, owner: plan.Owner}
-	}
+// branch enters start as usual; the do behaviors of the states entered on the way
+// down start once all have, innermost first, as after an ordinary entry.
+func (e *StateExecutor) enterForkBranches(plan *lower.ForkPlan, above *lazyEntry) error {
 	targets := plan.Targets()
 	for _, region := range e.graph.CompositeStates[plan.Owner] {
 		entry := &regionEntry{region: region, container: plan.Owner, branches: targets, above: above}
@@ -57,8 +65,8 @@ func (e *StateExecutor) enterForkBranches(plan *lower.ForkPlan, toOwner []*ast.S
 			return err
 		}
 	}
-	if above != nil {
-		e.startDoAction(plan.Owner)
+	for i := len(above.chain) - 1; i >= 0; i-- {
+		e.startDoAction(above.chain[i])
 	}
 	return nil
 }
@@ -74,7 +82,7 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 		}
 	}
 	if w.above != nil {
-		if err := e.enterLazily(w.above); err != nil {
+		if err := e.enterLazily(w.above, len(w.above.chain)); err != nil {
 			return err
 		}
 	}
@@ -121,19 +129,27 @@ func (e *StateExecutor) regionStart(w *regionEntry) (*ast.StateNode, error) {
 	return entry, nil
 }
 
-// enterLazily enters what is left of the way down to the owner, which is
-// activated without its regions and do behavior: the branches supply those.
-func (e *StateExecutor) enterLazily(l *lazyEntry) error {
-	for ; l.next < len(l.chain); l.next++ {
+// enterLazily enters the way down as far as the first upto states of the chain.
+// A state on the way is activated without its do behavior; the region the chain
+// passes through is left to the states below, its other regions start as usual,
+// and the owner's regions are the branches' to enter.
+func (e *StateExecutor) enterLazily(l *lazyEntry, upto int) error {
+	for ; l.next < upto; l.next++ {
 		state := l.chain[l.next]
-		if state != l.owner {
-			if err := e.enterState(state); err != nil {
-				return fmt.Errorf("enter state %s: %w", state.Name, err)
-			}
-			continue
-		}
 		if err := e.activateState(state); err != nil {
 			return fmt.Errorf("enter state %s: %w", state.Name, err)
+		}
+		if state == l.owner {
+			continue
+		}
+		for _, region := range e.graph.CompositeStates[state] {
+			if _, onWay := l.branches[region]; onWay {
+				continue
+			}
+			entry := &regionEntry{region: region, container: state, branches: l.branches}
+			if err := e.enterRegion(entry); err != nil {
+				return fmt.Errorf("enter state %s: %w", state.Name, err)
+			}
 		}
 	}
 	return nil

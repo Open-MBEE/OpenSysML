@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Stop"}
+  ],
+  "finalState": "done",
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "idle(exit) T1(effect) T1.1(effect) outer(entry) p(entry) work(entry) a(entry) T1.2(effect) b(entry) p(exit) outer(exit) T2(effect) "
+    }
+  },
+  "trace": true
+}

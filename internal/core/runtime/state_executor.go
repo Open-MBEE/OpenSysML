@@ -2113,16 +2113,13 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	// The fork's own parent is entered before its branches fire; the branches
 	// enter the rest of the way down to the owner and their targets, bypassing
 	// the initial states of the regions they enter (PSSM §8.5.7).
-	toOwner := e.descendantChain(boundary, owner)
-	if i := slices.Index(toOwner, e.graph.PseudostateOwner[fork]); i >= 0 {
-		for _, ancestor := range toOwner[:i+1] {
-			if err := e.enterState(ancestor); err != nil {
-				return fmt.Errorf("enter state %s: %w", ancestor.Name, err)
-			}
+	above := e.forkEntry(boundary, owner)
+	if i := slices.Index(above.chain, e.graph.PseudostateOwner[fork]); i >= 0 {
+		if err := e.enterLazily(above, i+1); err != nil {
+			return err
 		}
-		toOwner = toOwner[i+1:]
 	}
-	if err := e.enterForkBranches(plan, toOwner); err != nil {
+	if err := e.enterForkBranches(plan, above); err != nil {
 		return err
 	}
 	// A region the move re-entered on its way down keeps the state of that path.
@@ -2835,8 +2832,7 @@ func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast
 		if err != nil {
 			return nil, false
 		}
-		exited := slices.Clone(e.orderedRegionStates())
-		return append(exited, e.exitPath(e.getCurrentState(), plan.Owner, nil)...), true
+		return e.exitedForFork(trans, plan.Owner)
 	case ast.PseudostateJoin:
 		if !r.settled() {
 			return nil, true
@@ -2855,6 +2851,20 @@ func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast
 		}
 		return e.exitedByMove(e.moveOrigin(), trans, owner), true
 	}
+}
+
+// exitedForFork lists the states a transition into a fork whose branches enter
+// owner's regions exits, as leaveForFork exits them; false where it would fail.
+func (e *StateExecutor) exitedForFork(trans *lower.Transition, owner *ast.StateNode) ([]*ast.StateNode, bool) {
+	source, _ := trans.Source.(*ast.StateNode)
+	region := e.activeRegionOf(source)
+	if region == nil {
+		return e.exitedByMove(e.moveOrigin(), trans, owner), true
+	}
+	if _, targetRegion := e.regionMove(region, owner); targetRegion == nil && e.graph.RegionOwner[region] == nil {
+		return nil, false
+	}
+	return e.exitedInRegion(region, trans, owner), true
 }
 
 // exitedByMove lists the states a move from current to target exits, as
