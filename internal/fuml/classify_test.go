@@ -441,3 +441,57 @@ func TestExpressibilityStringOutsideTheClasses(t *testing.T) {
 		}
 	}
 }
+
+const unlimitedLiteralModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Unlimited">
+  <packagedElement xmi:type="uml:Activity" xmi:id="a" name="Ordinary">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="vr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="vv" value="*"/>
+    </node>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="call" name="Call(Sink)" behavior="sink">
+      <argument xmi:type="uml:InputPin" xmi:id="callIn" name="in"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f" source="vr" target="callIn"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="b" name="Position">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="pv" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="pvr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="pvv" value="*"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="fork" name="Fork"/>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="add1" name="Add(1)" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="at1" name="insertAt"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="add2" name="Add(2)" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="at2" name="insertAt"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="pf" source="pvr" target="fork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="pf1" source="fork" target="at1"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="pf2" source="fork" target="at2"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="sink" name="Sink"/>
+  <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="items" name="items"/>
+  </packagedElement>
+</uml:Model>
+`
+
+func TestClassifyUntypedUnlimitedNaturalLiterals(t *testing.T) {
+	m, err := ReadModel(strings.NewReader(unlimitedLiteralModel), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %v", m.Diagnostics)
+	}
+	// The literal is the only evidence its untyped result is unlimited natural.
+	c := Classify(activity(t, m, "Ordinary"), nil)
+	if want := "UnlimitedNatural (KerML's ScalarValues has no unlimited natural): Value(*) is a LiteralUnlimitedNatural"; c.Class != NotExpressible || c.Reason() != want {
+		t.Errorf("Ordinary = %s: %s", c.Class, c.Reason())
+	}
+	// A literal that only names positions, through a fork, needs no such type.
+	if c := Classify(activity(t, m, "Position"), nil); c.Class != Expressible {
+		t.Errorf("Position = %s: %s", c.Class, c.Reason())
+	}
+}
