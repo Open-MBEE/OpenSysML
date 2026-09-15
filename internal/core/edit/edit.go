@@ -168,6 +168,9 @@ type Model struct {
 	// rewrite when a rename or delete reaches a reference in it, or false for one
 	// it may not, which the edit then refuses to follow. Nil rewrites Source alone.
 	Other func(name string) (Document, bool)
+	// Documents names the other documents a reference to the edited one may be
+	// written in; nil reads them as Index's unmarked documents.
+	Documents []string
 	// reindex is the one index an Apply call analyzes in, set by Apply.
 	reindex *reindexer
 }
@@ -200,7 +203,7 @@ func (m Model) inDocument(name string) (Model, bool) {
 	return Model{
 		Source: doc.Source, Root: root, Index: m.Index,
 		ParseDiags: doc.ParseDiags, SemDiags: doc.SemDiags,
-		NewIndex: m.NewIndex, Indexed: m.Indexed, Analysis: m.Analysis, Other: m.Other, reindex: m.reindex,
+		NewIndex: m.NewIndex, Indexed: m.Indexed, Analysis: m.Analysis, Other: m.Other, Documents: m.Documents, reindex: m.reindex,
 	}, true
 }
 
@@ -462,7 +465,7 @@ func reparseModel(base Model, edited rewrites) Model {
 	return Model{
 		Source: sf, Root: root, Index: idx,
 		ParseDiags: p.Diagnostics,
-		NewIndex:   base.NewIndex, Indexed: base.Indexed, Analysis: base.Analysis, Other: other, reindex: base.reindex,
+		NewIndex:   base.NewIndex, Indexed: base.Indexed, Analysis: base.Analysis, Other: other, Documents: base.Documents, reindex: base.reindex,
 	}
 }
 

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"maps"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -54,6 +55,7 @@ func (w *Workspace) ApplyEdit(name string, ops []edit.Operation) (result *EditRe
 		Indexed:    ei.indexed,
 		Analysis:   w.analysis,
 		Other:      w.otherDocumentLocked(name),
+		Documents:  w.otherDocumentNamesLocked(name),
 	}
 	edited, err := edit.Apply(m, ops)
 	if err != nil {
@@ -77,6 +79,21 @@ func (w *Workspace) documentEditLocked(doc *Document, content []byte, applied []
 		Version:  doc.Version,
 		Open:     w.open[doc.Name],
 	}
+}
+
+// otherDocumentNamesLocked names the documents other than name an edit reads
+// references in: the index's unmarked ones and the workspace's own, a version
+// standing in for a library file included.
+func (w *Workspace) otherDocumentNamesLocked(name string) []string {
+	names := map[string]bool{}
+	for _, other := range w.index.WorkspaceDocuments() {
+		names[other] = true
+	}
+	for other := range w.docs {
+		names[other] = true
+	}
+	delete(names, name)
+	return slices.Sorted(maps.Keys(names))
 }
 
 // otherDocumentLocked hands an edit of name the other documents of the

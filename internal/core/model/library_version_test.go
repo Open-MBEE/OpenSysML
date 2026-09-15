@@ -1,6 +1,8 @@
 package model
 
 import (
+	"errors"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -448,6 +450,48 @@ func TestWorkspaceLibraryVersionEditsInsideVersion(t *testing.T) {
 	}
 	if want := "attribute mass : ScalarValues::Reel;"; !strings.Contains(edited["car.sysml"], want) {
 		t.Errorf("the reference beside the version is not renamed:\n%s", edited["car.sysml"])
+	}
+}
+
+// A version is a document of the workspace's own: a rename beside it rewrites the
+// references it writes, and a delete of what they refer to names them, as for
+// any other workspace document.
+func TestWorkspaceLibraryVersionIsRefactored(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open("mine.kerml", []byte("package Mine {\n    class Wheel;\n}\n"), 1)
+	version := strings.Replace(string(lib.Content), "package ScalarValues {",
+		"package ScalarValues {\n    alias W for Mine::Wheel;", 1)
+	ws.Open("copy.kerml", []byte(version), 1)
+	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+		t.Fatalf("StandsInFor = %q, want %q", got, scalarValues)
+	}
+
+	result, _, ok, err := ws.ApplyEdit("mine.kerml", []edit.Operation{edit.Rename("Mine::Wheel", "Tyre")})
+	if !ok || err != nil {
+		t.Fatalf("rename: ok %v, err %v", ok, err)
+	}
+	edited := map[string]string{}
+	for _, doc := range result.Documents {
+		edited[doc.Name] = string(doc.Content)
+	}
+	if !strings.Contains(edited["mine.kerml"], "class Tyre;") {
+		t.Errorf("the declaration is not renamed:\n%s", edited["mine.kerml"])
+	}
+	if !strings.Contains(edited["copy.kerml"], "alias W for Mine::Tyre;") {
+		t.Errorf("the version's reference is not renamed; documents rewritten: %v", slices.Sorted(maps.Keys(edited)))
+	}
+
+	_, _, ok, err = ws.ApplyEdit("mine.kerml", []edit.Operation{edit.Delete("Mine::Wheel", false)})
+	var e *edit.Error
+	if !ok || !errors.As(err, &e) || e.Failure != edit.FailureDeleteReferenced {
+		t.Fatalf("delete: ok %v, err %v, want %s", ok, err, edit.FailureDeleteReferenced)
+	}
+	if want := []string{"ScalarValues::W (copy.kerml)"}; strings.Join(e.Referring, ",") != strings.Join(want, ",") {
+		t.Errorf("delete: referring = %v, want %v", e.Referring, want)
 	}
 }
 
