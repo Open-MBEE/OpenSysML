@@ -118,11 +118,13 @@ func AnalyzeWithOptions(name string, kind source.Kind, root *ast.RootNamespace,
 
 // PrepareBatch links what resolving each document of batch would write into its
 // scope tree, so AnalyzeInBatch contexts only read the index. Call it alone, first.
+// The linker resolves as a context does, model attached, to link the same owners.
 func PrepareBatch(idx *symbols.Index, batch *Batch) {
 	if idx == nil || batch == nil {
 		return
 	}
 	linker := resolve.New(idx)
+	attachModel(linker)
 	for _, name := range batch.Documents {
 		linker.LinkMetadataBodies(name)
 	}

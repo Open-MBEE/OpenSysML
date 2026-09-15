@@ -139,10 +139,16 @@ func (c *Context) Resolver() *resolve.Resolver {
 // the shared resolver so constraint passes reuse one memoized instance.
 func (c *Context) Model() *semantics.Model {
 	if c.model == nil {
-		c.model = semantics.NewModel(c.Resolver())
-		// Attach model to resolver for inheritance-aware member resolution
-		c.Resolver().SetModel(c.model)
-		c.model.SetArgumentTyper(NewArgumentTyper(c.Resolver(), c.model))
+		c.model = attachModel(c.Resolver())
 	}
 	return c.model
+}
+
+// attachModel gives r the semantic model every context resolves with, so member
+// lookup through r sees inherited members and typed arguments as the passes do.
+func attachModel(r *resolve.Resolver) *semantics.Model {
+	m := semantics.NewModel(r)
+	r.SetModel(m)
+	m.SetArgumentTyper(NewArgumentTyper(r, m))
+	return m
 }

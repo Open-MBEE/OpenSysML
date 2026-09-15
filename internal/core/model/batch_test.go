@@ -82,6 +82,44 @@ func TestDiagnosticsAllAnswersInTheOrderAsked(t *testing.T) {
 	}
 }
 
+// A batch whose annotation types are reached through inherited and filtered
+// imports, typed usages and another document — the lookups only a model-backed
+// resolver answers — reports on many workers what one reports; under the race
+// detector this also shows the workers writing nothing into the shared scopes.
+func TestParallelBatchLinksAnnotationsFoundThroughTheModel(t *testing.T) {
+	inputs := []Input{
+		{Name: "meta.sysml", Version: 1, Content: []byte(`package Meta {
+	metadata def Tag { attribute n; }
+	metadata def Other { attribute m; }
+}`)},
+		{Name: "model.sysml", Version: 1, Content: []byte(`package P {
+	part def Base { public import Meta::*; }
+	part def Sub :> Base;
+	part def Filtered { public import Meta::*[@Meta::Tag]; }
+	part b : Base;
+	part def Owned { metadata def Own { attribute n; } }
+	part def Derived :> Owned;
+	part def C {
+		@Meta::Tag { n = 1; }
+		@Sub::Tag { n = 2; }
+		@Filtered::Tag { n = 3; }
+		@b::Tag { n = 4; }
+		@Derived::Own { n = 5; }
+	}
+}`)},
+		{Name: "audit.sysml", Version: 1, Content: []byte(`package Audit {
+	part def Ground { part c : P::C; }
+	part sat : Ground;
+}`)},
+	}
+	serial := serialDiagnostics(inputs)
+	for range 8 {
+		if got := batchDiagnostics(t, inputs, 8); got != serial {
+			t.Fatalf("a batch on 8 workers reported:\n%s\nwant, as opening the files one by one does:\n%s", got, serial)
+		}
+	}
+}
+
 // A batch opened over documents already there replaces them as Open does, so
 // the index holds each name once.
 func TestOpenAllReplacesEarlierDocuments(t *testing.T) {
