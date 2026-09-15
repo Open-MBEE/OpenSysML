@@ -156,17 +156,99 @@ func TestRefiredDetectsPerTokenRefiring(t *testing.T) {
 }
 
 func TestRefiredIgnoresTheActionsOfCalledActivities(t *testing.T) {
-	a := ExpectedActivity{Name: "Outer", Events: []ExpectedEvent{
-		{Kind: "Execute", Activity: "Outer"},
-		{Kind: "Fire", Activity: "Outer", Action: "call"},
-		{Kind: "Execute", Activity: "Inner"},
-		{Kind: "Fire", Activity: "Inner", Action: "step"},
-		{Kind: "Fire", Activity: "Outer", Action: "call"},
-		{Kind: "Execute", Activity: "Inner"},
-		{Kind: "Fire", Activity: "Inner", Action: "step"},
+	a := ExpectedActivity{ID: "outer", Name: "Outer", Events: []ExpectedEvent{
+		{Kind: "Execute", Activity: "Outer", ID: "outer"},
+		{Kind: "Fire", Activity: "Outer", Action: "call", ID: "n1"},
+		{Kind: "Execute", Activity: "Inner", ID: "inner"},
+		{Kind: "Fire", Activity: "Inner", Action: "step", ID: "n2"},
+		{Kind: "Complete", Activity: "Inner", ID: "inner"},
+		{Kind: "Fire", Activity: "Outer", Action: "call", ID: "n1"},
+		{Kind: "Execute", Activity: "Inner", ID: "inner"},
+		{Kind: "Fire", Activity: "Inner", Action: "step", ID: "n2"},
+		{Kind: "Complete", Activity: "Inner", ID: "inner"},
+		{Kind: "Complete", Activity: "Outer", ID: "outer"},
 	}}
 	if got := a.Refired(); len(got) != 1 || got[0] != "call" {
 		t.Fatalf("Refired() = %v, want [call]", got)
+	}
+}
+
+// Two nodes sharing a display name are two nodes; the implementation's trace
+// cannot tell them apart, so it carries no id for them and they count as nothing.
+func TestRefiredCountsByNodeIdentityNotName(t *testing.T) {
+	a := ExpectedActivity{ID: "act", Name: "Act", Events: []ExpectedEvent{
+		{Kind: "Execute", Activity: "Act", ID: "act"},
+		{Kind: "Fire", Activity: "Act", Action: "this"},
+		{Kind: "Fire", Activity: "Act", Action: "this"},
+		{Kind: "Fire", Activity: "Act", Action: "Value(1)", ID: "v1"},
+		{Kind: "Fire", Activity: "Act", Action: "Value(1)", ID: "v1"},
+		{Kind: "Complete", Activity: "Act", ID: "act"},
+	}}
+	if got := a.Refired(); len(got) != 1 || got[0] != "Value(1)" {
+		t.Fatalf("Refired() = %v, want [Value(1)]", got)
+	}
+}
+
+// A recursive call suspends the caller: the callee's fires belong to its own
+// activation, and the caller's count resumes, not restarts, when it completes.
+func TestRefiredKeepsRecursiveActivationsApart(t *testing.T) {
+	events := func(callerFiresAfter int) []ExpectedEvent {
+		evs := []ExpectedEvent{
+			{Kind: "Execute", Activity: "Rec", ID: "rec"},
+			{Kind: "Fire", Activity: "Rec", Action: "step", ID: "s"},
+			{Kind: "Fire", Activity: "Rec", Action: "call", ID: "c"},
+			{Kind: "Execute", Activity: "Rec", ID: "rec"},
+			{Kind: "Fire", Activity: "Rec", Action: "step", ID: "s"},
+			{Kind: "Complete", Activity: "Rec", ID: "rec"},
+		}
+		for i := 0; i < callerFiresAfter; i++ {
+			evs = append(evs, ExpectedEvent{Kind: "Fire", Activity: "Rec", Action: "step", ID: "s"})
+		}
+		return append(evs, ExpectedEvent{Kind: "Complete", Activity: "Rec", ID: "rec"})
+	}
+	once := ExpectedActivity{ID: "rec", Name: "Rec", Events: events(0)}
+	if got := once.Refired(); len(got) != 0 {
+		t.Fatalf("one step per activation refired %v, want none", got)
+	}
+	again := ExpectedActivity{ID: "rec", Name: "Rec", Events: events(1)}
+	if got := again.Refired(); len(got) != 1 || got[0] != "step" {
+		t.Fatalf("caller stepping again after the callee refired %v, want [step]", got)
+	}
+}
+
+// The committed trace nests: every Execute has its Complete, in stack order,
+// and every Fire under an activity whose name identifies one node carries its id.
+func TestCommittedEventsNestAndIdentifyNodes(t *testing.T) {
+	_, e := committedExpected(t)
+	identified := 0
+	for _, a := range e.Activities {
+		var open []string
+		for _, ev := range a.Events {
+			switch ev.Kind {
+			case "Execute":
+				open = append(open, ev.Activity)
+			case "Complete":
+				if len(open) == 0 || open[len(open)-1] != ev.Activity {
+					t.Fatalf("%s: Complete %s with %v open", a.Name, ev.Activity, open)
+				}
+				open = open[:len(open)-1]
+			case "Fire":
+				if ev.ID != "" {
+					identified++
+				}
+			}
+		}
+		if len(open) != 0 && a.Error == "" {
+			t.Errorf("%s: %v never completed", a.Name, open)
+		}
+		if a.Executed && a.ID != "" {
+			if len(a.Events) == 0 || a.Events[0].ID != a.ID {
+				t.Errorf("%s: first event %+v does not open the activity itself", a.Name, a.Events[:1])
+			}
+		}
+	}
+	if identified == 0 {
+		t.Fatal("no Fire carries a node id")
 	}
 }
 

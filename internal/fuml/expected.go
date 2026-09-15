@@ -89,12 +89,16 @@ type ExpectedFeature struct {
 	Values  []ExpectedValue `json:"values"`
 }
 
-// ExpectedEvent is one trace line: Execute (an activity started), Fire (an
-// action ran), Output or Post (a parameter received a value).
+// ExpectedEvent is one trace line: Execute and Complete (an activity execution
+// started and ended), Fire (an action ran), Output or Post (a parameter received
+// a value). The implementation names elements; ID is the XMI id of the activity
+// (Execute, Complete) or action node (Fire) where the name identifies exactly
+// one, and empty where it does not.
 type ExpectedEvent struct {
 	Kind      string `json:"kind"`
 	Activity  string `json:"activity"`
 	Action    string `json:"action,omitempty"`
+	ID        string `json:"id,omitempty"`
 	Parameter string `json:"parameter,omitempty"`
 	Value     string `json:"value,omitempty"`
 }
@@ -166,25 +170,78 @@ func (e *Expected) Activity(model, id string) *ExpectedActivity {
 	return nil
 }
 
-// Refired lists the actions fired more than once within the activity's own
-// execution, in first-firing order: fUML's per-token firing, which v2 lacks.
+// Refired lists the actions fired more than once within one execution of the
+// activity itself, in first-firing order: fUML's per-token firing, which v2
+// lacks. A Fire without an id names nothing in particular and is not counted.
 func (a *ExpectedActivity) Refired() []string {
-	counts := map[string]int{}
-	var order []string
-	for _, ev := range a.Events {
-		if ev.Kind != "Fire" || ev.Activity != a.Name {
+	var refired []string
+	for _, act := range a.activations() {
+		if act.id != a.ID {
 			continue
 		}
-		if counts[ev.Action] == 0 {
-			order = append(order, ev.Action)
-		}
-		counts[ev.Action]++
-	}
-	var refired []string
-	for _, action := range order {
-		if counts[action] > 1 {
-			refired = append(refired, action)
+		for _, f := range act.fires {
+			if f.count > 1 {
+				refired = append(refired, f.action)
+			}
 		}
 	}
 	return refired
+}
+
+// activation is one execution of an activity in the trace, with how often each
+// of its action nodes fired, in first-firing order.
+type activation struct {
+	id, name string
+	fires    []*fireCount
+	byNode   map[string]*fireCount
+}
+
+type fireCount struct {
+	id, action string
+	count      int
+}
+
+// activations replays the trace: Execute opens an activation, Complete closes
+// the innermost one of that activity, and a Fire counts toward the innermost
+// open activation of its activity. Nested and recursive executions thus keep
+// their counts apart, and a caller's count resumes when its callee completes.
+func (a *ExpectedActivity) activations() []*activation {
+	var all, open []*activation
+	innermost := func(name string) int {
+		for i := len(open) - 1; i >= 0; i-- {
+			if open[i].name == name {
+				return i
+			}
+		}
+		return -1
+	}
+	for _, ev := range a.Events {
+		switch ev.Kind {
+		case "Execute":
+			act := &activation{id: ev.ID, name: ev.Activity, byNode: map[string]*fireCount{}}
+			all = append(all, act)
+			open = append(open, act)
+		case "Complete":
+			if i := innermost(ev.Activity); i >= 0 {
+				open = append(open[:i], open[i+1:]...)
+			}
+		case "Fire":
+			if ev.ID == "" {
+				continue
+			}
+			i := innermost(ev.Activity)
+			if i < 0 {
+				continue
+			}
+			act := open[i]
+			f := act.byNode[ev.ID]
+			if f == nil {
+				f = &fireCount{id: ev.ID, action: ev.Action}
+				act.byNode[ev.ID] = f
+				act.fires = append(act.fires, f)
+			}
+			f.count++
+		}
+	}
+	return all
 }

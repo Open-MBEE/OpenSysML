@@ -66,18 +66,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestGeneralizationAssembly"
+          "activity": "TestGeneralizationAssembly",
+          "id": "TestGeneralizationAssembly-Create"
         },
         {
           "kind": "Fire",
           "activity": "TestGeneralizationAssembly",
-          "action": "Create(Specific)"
+          "action": "Create(Specific)",
+          "id": "TestGeneralizationAssembly-Create-CreateObjectAction"
         },
         {
           "kind": "Output",
           "activity": "TestGeneralizationAssembly",
           "parameter": "result",
           "value": "Reference to obj1(Specific\n\t\tx[0]  =\n\t\ty[0]  =)"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestGeneralizationAssembly",
+          "id": "TestGeneralizationAssembly-Create"
         }
       ]
     },
@@ -111,33 +118,43 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestClassWriterReader"
+          "activity": "TestClassWriterReader",
+          "id": "_15_5_1_1a900482_1225597989562_591303_1935"
         },
         {
           "kind": "Fire",
           "activity": "TestClassWriterReader",
-          "action": "Create(TestClass)"
+          "action": "Create(TestClass)",
+          "id": "_15_5_1_1a900482_1225598083187_323455_1955"
         },
         {
           "kind": "Fire",
           "activity": "TestClassWriterReader",
-          "action": "Value(999)"
+          "action": "Value(999)",
+          "id": "_15_5_1_1a900482_1225598464343_659206_2169"
         },
         {
           "kind": "Fire",
           "activity": "TestClassWriterReader",
-          "action": "Write(x)"
+          "action": "Write(x)",
+          "id": "_15_5_1_1a900482_1225598199906_782889_2019"
         },
         {
           "kind": "Fire",
           "activity": "TestClassWriterReader",
-          "action": "Read(x)"
+          "action": "Read(x)",
+          "id": "_15_5_1_1a900482_1225598334421_734088_2066"
         },
         {
           "kind": "Output",
           "activity": "TestClassWriterReader",
           "parameter": "x",
           "value": "999"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestClassWriterReader",
+          "id": "_15_5_1_1a900482_1225597989562_591303_1935"
         }
       ]
     },
@@ -180,13 +197,19 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
           "activity": "Copier",
           "parameter": "output",
           "value": "0"
+        },
+        {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         }
       ]
     },
@@ -364,67 +387,80 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestIntegerFunctions"
+          "activity": "TestIntegerFunctions",
+          "id": "_15_5_1_1a900482_1227279618546_338430_844"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Value(3)"
+          "action": "Value(3)",
+          "id": "_15_5_1_1a900482_1227279712390_754953_864"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Call(Neg)"
+          "action": "Call(Neg)",
+          "id": "_15_5_1_1a900482_1227279936109_91525_1047"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Value(2)"
+          "action": "Value(2)",
+          "id": "_15_5_1_1a900482_1227279739625_228549_910"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Call(Plus)"
+          "action": "Call(Plus)",
+          "id": "_15_5_1_1a900482_1227279995203_662087_1110"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Call(Minus)"
+          "action": "Call(Minus)",
+          "id": "_15_5_1_1a900482_1227280082812_640076_1202"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Call(Times)"
+          "action": "Call(Times)",
+          "id": "_15_5_1_1a900482_1227280174859_243278_1295"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Call(Div)"
+          "action": "Call(Div)",
+          "id": "_15_5_1_1a900482_1227280338453_640592_1402"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Call(Mod)"
+          "action": "Call(Mod)",
+          "id": "_15_5_1_1a900482_1227729437750_209396_4862"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Call(Max)"
+          "action": "Call(Max)",
+          "id": "_15_5_1_1a900482_1227728795734_296199_4549"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Call(Min)"
+          "action": "Call(Min)",
+          "id": "_15_5_1_1a900482_1227729785687_791981_4986"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Value(-2)"
+          "action": "Value(-2)",
+          "id": "_15_5_1_1a900482_1227730585078_216373_5605"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerFunctions",
-          "action": "Call(Abs)"
+          "action": "Call(Abs)",
+          "id": "_15_5_1_1a900482_1227730493312_750087_5405"
         },
         {
           "kind": "Output",
@@ -479,6 +515,11 @@
           "activity": "TestIntegerFunctions",
           "parameter": "AbsResult",
           "value": "2"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestIntegerFunctions",
+          "id": "_15_5_1_1a900482_1227279618546_338430_844"
         }
       ]
     },
@@ -516,21 +557,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "ForkMergeData"
+          "activity": "ForkMergeData",
+          "id": "_15_5_1_1a900482_1225507524468_320008_2683"
         },
         {
           "kind": "Fire",
           "activity": "ForkMergeData",
-          "action": "Action_A"
+          "action": "Action_A",
+          "id": "_15_5_1_1a900482_1225507556390_436655_2724"
         },
         {
           "kind": "Fire",
           "activity": "ForkMergeData",
-          "action": "Action_B"
+          "action": "Action_B",
+          "id": "_15_5_1_1a900482_1225507688968_8206_2898"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -539,13 +584,20 @@
           "value": "0"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Fire",
           "activity": "ForkMergeData",
-          "action": "Action_B"
+          "action": "Action_B",
+          "id": "_15_5_1_1a900482_1225507688968_8206_2898"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -554,6 +606,11 @@
           "value": "0"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Output",
           "activity": "ForkMergeData",
           "parameter": "output",
@@ -564,6 +621,11 @@
           "activity": "ForkMergeData",
           "parameter": "output",
           "value": "0"
+        },
+        {
+          "kind": "Complete",
+          "activity": "ForkMergeData",
+          "id": "_15_5_1_1a900482_1225507524468_320008_2683"
         }
       ]
     },
@@ -615,18 +677,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestClassIdentityTester"
+          "activity": "TestClassIdentityTester",
+          "id": "_15_5_1_1a900482_1225509963359_262060_3168"
         },
         {
           "kind": "Fire",
           "activity": "TestClassIdentityTester",
-          "action": "TestIdentity"
+          "action": "TestIdentity",
+          "id": "_15_5_1_1a900482_1225510153937_193644_3232"
         },
         {
           "kind": "Output",
           "activity": "TestClassIdentityTester",
           "parameter": "result",
           "value": "false"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestClassIdentityTester",
+          "id": "_15_5_1_1a900482_1225509963359_262060_3168"
         }
       ]
     },
@@ -676,18 +745,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestClassObjectCreator"
+          "activity": "TestClassObjectCreator",
+          "id": "_15_5_1_1a900482_1225596115812_64376_1639"
         },
         {
           "kind": "Fire",
           "activity": "TestClassObjectCreator",
-          "action": "Create(TestClass)"
+          "action": "Create(TestClass)",
+          "id": "_15_5_1_1a900482_1225596217640_766079_1659"
         },
         {
           "kind": "Output",
           "activity": "TestClassObjectCreator",
           "parameter": "result",
           "value": "Reference to obj1(TestClass\n\t\tx[0]  =\n\t\ty[0]  =)"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestClassObjectCreator",
+          "id": "_15_5_1_1a900482_1225596115812_64376_1639"
         }
       ]
     },
@@ -701,17 +777,20 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "HelloWorld"
+          "activity": "HelloWorld",
+          "id": "_15_5_1_1a900482_1226585645343_932148_780"
         },
         {
           "kind": "Fire",
           "activity": "HelloWorld",
-          "action": "Value(\"Hello World!\")"
+          "action": "Value(\"Hello World!\")",
+          "id": "_15_5_1_1a900482_1226585660109_313935_800"
         },
         {
           "kind": "Fire",
           "activity": "HelloWorld",
-          "action": "WriteLine"
+          "action": "WriteLine",
+          "id": "_15_5_1_1a900482_1226585766687_796793_952"
         },
         {
           "kind": "Execute",
@@ -721,6 +800,15 @@
           "kind": "Fire",
           "activity": "WriteLine",
           "action": "StandardOutputChannel"
+        },
+        {
+          "kind": "Complete",
+          "activity": "WriteLine"
+        },
+        {
+          "kind": "Complete",
+          "activity": "HelloWorld",
+          "id": "_15_5_1_1a900482_1226585645343_932148_780"
         }
       ]
     },
@@ -808,37 +896,44 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestIntegerComparisonFunctions"
+          "activity": "TestIntegerComparisonFunctions",
+          "id": "_15_5_1_1a900482_1227726384859_66730_1949"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerComparisonFunctions",
-          "action": "Value(3)"
+          "action": "Value(3)",
+          "id": "_15_5_1_1a900482_1227726384875_695678_1966"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerComparisonFunctions",
-          "action": "Value(2)"
+          "action": "Value(2)",
+          "id": "_15_5_1_1a900482_1227726384875_536384_1967"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerComparisonFunctions",
-          "action": "Call(LT)"
+          "action": "Call(LT)",
+          "id": "_15_5_1_1a900482_1227726384875_716022_1971"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerComparisonFunctions",
-          "action": "Call(LE)"
+          "action": "Call(LE)",
+          "id": "_15_5_1_1a900482_1227726384875_916777_1972"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerComparisonFunctions",
-          "action": "Call(GT)"
+          "action": "Call(GT)",
+          "id": "_15_5_1_1a900482_1227726384875_911584_1973"
         },
         {
           "kind": "Fire",
           "activity": "TestIntegerComparisonFunctions",
-          "action": "Call(GE)"
+          "action": "Call(GE)",
+          "id": "_15_5_1_1a900482_1227726384875_798568_1974"
         },
         {
           "kind": "Output",
@@ -863,6 +958,11 @@
           "activity": "TestIntegerComparisonFunctions",
           "parameter": "GEResult",
           "value": "true"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestIntegerComparisonFunctions",
+          "id": "_15_5_1_1a900482_1227726384859_66730_1949"
         }
       ]
     },
@@ -1020,76 +1120,91 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestBooleanFunctions"
+          "activity": "TestBooleanFunctions",
+          "id": "_15_5_1_1a900482_1227762472140_166211_5957"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Value(true)"
+          "action": "Value(true)",
+          "id": "_15_5_1_1a900482_1227763612953_143640_7118"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Not)"
+          "action": "Call(Not)",
+          "id": "_15_5_1_1a900482_1227763584984_885324_7007"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Value(false)"
+          "action": "Value(false)",
+          "id": "_15_5_1_1a900482_1227763515453_946232_6974"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Not)"
+          "action": "Call(Not)",
+          "id": "_15_5_1_1a900482_1227763584984_885324_7007"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "GenData1"
+          "action": "GenData1",
+          "id": "_15_5_1_1a900482_1227762572609_251170_5977"
         },
         {
           "kind": "Execute",
-          "activity": "GenerateBooleanTestData"
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-1"
+          "action": "Value(true)-1",
+          "id": "_15_5_1_1a900482_1227762688687_969636_6033"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-2"
+          "action": "Value(true)-2",
+          "id": "_15_5_1_1a900482_1227762838187_674147_6193"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-1"
+          "action": "Value(false)-1",
+          "id": "_15_5_1_1a900482_1227762880015_773897_6383"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-2"
+          "action": "Value(false)-2",
+          "id": "_15_5_1_1a900482_1227762987546_955319_6446"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-3"
+          "action": "Value(true)-3",
+          "id": "_15_5_1_1a900482_1227762843578_615732_6256"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-3"
+          "action": "Value(false)-3",
+          "id": "_15_5_1_1a900482_1227762995531_636713_6509"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-4"
+          "action": "Value(true)-4",
+          "id": "_15_5_1_1a900482_1227762853171_599316_6320"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-4"
+          "action": "Value(false)-4",
+          "id": "_15_5_1_1a900482_1227763002968_872938_6573"
         },
         {
           "kind": "Output",
@@ -1140,73 +1255,92 @@
           "value": "false"
         },
         {
-          "kind": "Fire",
-          "activity": "TestBooleanFunctions",
-          "action": "Call(And)"
+          "kind": "Complete",
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(And)"
+          "action": "Call(And)",
+          "id": "_15_5_1_1a900482_1227763733046_223010_7233"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(And)"
+          "action": "Call(And)",
+          "id": "_15_5_1_1a900482_1227763733046_223010_7233"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(And)"
+          "action": "Call(And)",
+          "id": "_15_5_1_1a900482_1227763733046_223010_7233"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "GenData2"
+          "action": "Call(And)",
+          "id": "_15_5_1_1a900482_1227763733046_223010_7233"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "GenData2",
+          "id": "_15_5_1_1a900482_1227763994093_941072_7752"
         },
         {
           "kind": "Execute",
-          "activity": "GenerateBooleanTestData"
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-1"
+          "action": "Value(true)-1",
+          "id": "_15_5_1_1a900482_1227762688687_969636_6033"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-2"
+          "action": "Value(true)-2",
+          "id": "_15_5_1_1a900482_1227762838187_674147_6193"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-1"
+          "action": "Value(false)-1",
+          "id": "_15_5_1_1a900482_1227762880015_773897_6383"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-2"
+          "action": "Value(false)-2",
+          "id": "_15_5_1_1a900482_1227762987546_955319_6446"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-3"
+          "action": "Value(true)-3",
+          "id": "_15_5_1_1a900482_1227762843578_615732_6256"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-3"
+          "action": "Value(false)-3",
+          "id": "_15_5_1_1a900482_1227762995531_636713_6509"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-4"
+          "action": "Value(true)-4",
+          "id": "_15_5_1_1a900482_1227762853171_599316_6320"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-4"
+          "action": "Value(false)-4",
+          "id": "_15_5_1_1a900482_1227763002968_872938_6573"
         },
         {
           "kind": "Output",
@@ -1257,73 +1391,92 @@
           "value": "false"
         },
         {
-          "kind": "Fire",
-          "activity": "TestBooleanFunctions",
-          "action": "Call(Or)"
+          "kind": "Complete",
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Or)"
+          "action": "Call(Or)",
+          "id": "_15_5_1_1a900482_1227763994093_880225_7753"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Or)"
+          "action": "Call(Or)",
+          "id": "_15_5_1_1a900482_1227763994093_880225_7753"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Or)"
+          "action": "Call(Or)",
+          "id": "_15_5_1_1a900482_1227763994093_880225_7753"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "GenData3"
+          "action": "Call(Or)",
+          "id": "_15_5_1_1a900482_1227763994093_880225_7753"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "GenData3",
+          "id": "_15_5_1_1a900482_1227764082531_453663_8105"
         },
         {
           "kind": "Execute",
-          "activity": "GenerateBooleanTestData"
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-1"
+          "action": "Value(true)-1",
+          "id": "_15_5_1_1a900482_1227762688687_969636_6033"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-2"
+          "action": "Value(true)-2",
+          "id": "_15_5_1_1a900482_1227762838187_674147_6193"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-1"
+          "action": "Value(false)-1",
+          "id": "_15_5_1_1a900482_1227762880015_773897_6383"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-2"
+          "action": "Value(false)-2",
+          "id": "_15_5_1_1a900482_1227762987546_955319_6446"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-3"
+          "action": "Value(true)-3",
+          "id": "_15_5_1_1a900482_1227762843578_615732_6256"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-3"
+          "action": "Value(false)-3",
+          "id": "_15_5_1_1a900482_1227762995531_636713_6509"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-4"
+          "action": "Value(true)-4",
+          "id": "_15_5_1_1a900482_1227762853171_599316_6320"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-4"
+          "action": "Value(false)-4",
+          "id": "_15_5_1_1a900482_1227763002968_872938_6573"
         },
         {
           "kind": "Output",
@@ -1374,73 +1527,92 @@
           "value": "false"
         },
         {
-          "kind": "Fire",
-          "activity": "TestBooleanFunctions",
-          "action": "Call(Implies)"
+          "kind": "Complete",
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Implies)"
+          "action": "Call(Implies)",
+          "id": "_15_5_1_1a900482_1227764082531_779032_8104"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Implies)"
+          "action": "Call(Implies)",
+          "id": "_15_5_1_1a900482_1227764082531_779032_8104"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Implies)"
+          "action": "Call(Implies)",
+          "id": "_15_5_1_1a900482_1227764082531_779032_8104"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "GenData4"
+          "action": "Call(Implies)",
+          "id": "_15_5_1_1a900482_1227764082531_779032_8104"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "GenData4",
+          "id": "_15_5_1_1a900482_1227764280218_810755_8467"
         },
         {
           "kind": "Execute",
-          "activity": "GenerateBooleanTestData"
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-1"
+          "action": "Value(true)-1",
+          "id": "_15_5_1_1a900482_1227762688687_969636_6033"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-2"
+          "action": "Value(true)-2",
+          "id": "_15_5_1_1a900482_1227762838187_674147_6193"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-1"
+          "action": "Value(false)-1",
+          "id": "_15_5_1_1a900482_1227762880015_773897_6383"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-2"
+          "action": "Value(false)-2",
+          "id": "_15_5_1_1a900482_1227762987546_955319_6446"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-3"
+          "action": "Value(true)-3",
+          "id": "_15_5_1_1a900482_1227762843578_615732_6256"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-3"
+          "action": "Value(false)-3",
+          "id": "_15_5_1_1a900482_1227762995531_636713_6509"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-4"
+          "action": "Value(true)-4",
+          "id": "_15_5_1_1a900482_1227762853171_599316_6320"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-4"
+          "action": "Value(false)-4",
+          "id": "_15_5_1_1a900482_1227763002968_872938_6573"
         },
         {
           "kind": "Output",
@@ -1491,24 +1663,33 @@
           "value": "false"
         },
         {
-          "kind": "Fire",
-          "activity": "TestBooleanFunctions",
-          "action": "Call(Xor)"
+          "kind": "Complete",
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Xor)"
+          "action": "Call(Xor)",
+          "id": "_15_5_1_1a900482_1227764280218_68518_8468"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Xor)"
+          "action": "Call(Xor)",
+          "id": "_15_5_1_1a900482_1227764280218_68518_8468"
         },
         {
           "kind": "Fire",
           "activity": "TestBooleanFunctions",
-          "action": "Call(Xor)"
+          "action": "Call(Xor)",
+          "id": "_15_5_1_1a900482_1227764280218_68518_8468"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Xor)",
+          "id": "_15_5_1_1a900482_1227764280218_68518_8468"
         },
         {
           "kind": "Output",
@@ -1617,6 +1798,11 @@
           "activity": "TestBooleanFunctions",
           "parameter": "XorResult",
           "value": "false"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestBooleanFunctions",
+          "id": "_15_5_1_1a900482_1227762472140_166211_5957"
         }
       ]
     },
@@ -1654,21 +1840,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "DecisionJoin"
+          "activity": "DecisionJoin",
+          "id": "_15_5_1_1a900482_1225499009421_139168_1510"
         },
         {
           "kind": "Fire",
           "activity": "DecisionJoin",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_15_5_1_1a900482_1225499023828_680552_1531"
         },
         {
           "kind": "Fire",
           "activity": "DecisionJoin",
-          "action": "Action_A"
+          "action": "Action_A",
+          "id": "_15_5_1_1a900482_1225499115640_478992_1611"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -1677,18 +1867,26 @@
           "value": "0"
         },
         {
-          "kind": "Fire",
-          "activity": "DecisionJoin",
-          "action": "Value(1)"
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Fire",
           "activity": "DecisionJoin",
-          "action": "Action_A"
+          "action": "Value(1)",
+          "id": "_15_5_1_1a900482_1225499028484_131636_1545"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Action_A",
+          "id": "_15_5_1_1a900482_1225499115640_478992_1611"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -1697,13 +1895,20 @@
           "value": "1"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Fire",
           "activity": "DecisionJoin",
-          "action": "Action_B"
+          "action": "Action_B",
+          "id": "_15_5_1_1a900482_1225499496250_273219_1905"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -1718,6 +1923,11 @@
           "value": "1"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Output",
           "activity": "DecisionJoin",
           "parameter": "output",
@@ -1728,6 +1938,11 @@
           "activity": "DecisionJoin",
           "parameter": "output",
           "value": "1"
+        },
+        {
+          "kind": "Complete",
+          "activity": "DecisionJoin",
+          "id": "_15_5_1_1a900482_1225499009421_139168_1510"
         }
       ]
     },
@@ -1769,22 +1984,26 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "GenerateListTestData"
+          "activity": "GenerateListTestData",
+          "id": "_15_5_1_1a900482_1228158528578_548393_3492"
         },
         {
           "kind": "Fire",
           "activity": "GenerateListTestData",
-          "action": "Value(1)"
+          "action": "Value(1)",
+          "id": "_15_5_1_1a900482_1228158543921_177321_3945"
         },
         {
           "kind": "Fire",
           "activity": "GenerateListTestData",
-          "action": "Value(2)"
+          "action": "Value(2)",
+          "id": "_15_5_1_1a900482_1228158543921_410013_3944"
         },
         {
           "kind": "Fire",
           "activity": "GenerateListTestData",
-          "action": "Value(3)"
+          "action": "Value(3)",
+          "id": "_15_5_1_1a900482_1228158543921_759552_3943"
         },
         {
           "kind": "Output",
@@ -1803,6 +2022,11 @@
           "activity": "GenerateListTestData",
           "parameter": "list",
           "value": "3"
+        },
+        {
+          "kind": "Complete",
+          "activity": "GenerateListTestData",
+          "id": "_15_5_1_1a900482_1228158528578_548393_3492"
         }
       ]
     },
@@ -1982,21 +2206,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestSimpleActivities"
+          "activity": "TestSimpleActivities",
+          "id": "_15_5_1_1a900482_1225670181734_47413_418"
         },
         {
           "kind": "Fire",
           "activity": "TestSimpleActivities",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_15_5_1_1a900482_1225670368875_493297_781"
         },
         {
           "kind": "Fire",
           "activity": "TestSimpleActivities",
-          "action": "Call(Copier)"
+          "action": "Call(Copier)",
+          "id": "_15_5_1_1a900482_1225670218609_769922_441"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -2005,27 +2233,37 @@
           "value": "0"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Fire",
           "activity": "TestSimpleActivities",
-          "action": "Call(CopierCaller)"
+          "action": "Call(CopierCaller)",
+          "id": "_15_5_1_1a900482_1225670231359_2833_483"
         },
         {
           "kind": "Execute",
-          "activity": "CopierCaller"
+          "activity": "CopierCaller",
+          "id": "_15_5_1_1a900482_1225497525562_682640_935"
         },
         {
           "kind": "Fire",
           "activity": "CopierCaller",
-          "action": "Value(888)"
+          "action": "Value(888)",
+          "id": "_15_5_1_1a900482_1225497758812_16621_1038"
         },
         {
           "kind": "Fire",
           "activity": "CopierCaller",
-          "action": "Call(Copier)"
+          "action": "Call(Copier)",
+          "id": "_15_5_1_1a900482_1225497607390_797217_958"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -2034,19 +2272,31 @@
           "value": "888"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Output",
           "activity": "CopierCaller",
           "parameter": "output",
           "value": "888"
         },
         {
+          "kind": "Complete",
+          "activity": "CopierCaller",
+          "id": "_15_5_1_1a900482_1225497525562_682640_935"
+        },
+        {
           "kind": "Fire",
           "activity": "TestSimpleActivities",
-          "action": "Call(SimpleDecision_0)"
+          "action": "Call(SimpleDecision_0)",
+          "id": "_15_5_1_1a900482_1225670249609_534902_512"
         },
         {
           "kind": "Execute",
-          "activity": "SimpleDecision"
+          "activity": "SimpleDecision",
+          "id": "_15_5_1_1a900482_1225498182468_409301_1087"
         },
         {
           "kind": "Output",
@@ -2055,18 +2305,26 @@
           "value": "0"
         },
         {
-          "kind": "Fire",
-          "activity": "TestSimpleActivities",
-          "action": "Value(1)"
+          "kind": "Complete",
+          "activity": "SimpleDecision",
+          "id": "_15_5_1_1a900482_1225498182468_409301_1087"
         },
         {
           "kind": "Fire",
           "activity": "TestSimpleActivities",
-          "action": "Call(SimpleDecision_1)"
+          "action": "Value(1)",
+          "id": "_15_5_1_1a900482_1225670695812_14716_1063"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(SimpleDecision_1)",
+          "id": "_15_5_1_1a900482_1225670263421_908553_566"
         },
         {
           "kind": "Execute",
-          "activity": "SimpleDecision"
+          "activity": "SimpleDecision",
+          "id": "_15_5_1_1a900482_1225498182468_409301_1087"
         },
         {
           "kind": "Output",
@@ -2075,36 +2333,53 @@
           "value": "1"
         },
         {
-          "kind": "Fire",
-          "activity": "TestSimpleActivities",
-          "action": "Call(ForkJoin)"
-        },
-        {
-          "kind": "Execute",
-          "activity": "ForkJoin"
+          "kind": "Complete",
+          "activity": "SimpleDecision",
+          "id": "_15_5_1_1a900482_1225498182468_409301_1087"
         },
         {
           "kind": "Fire",
           "activity": "TestSimpleActivities",
-          "action": "Call(DecisionJoin)"
+          "action": "Call(ForkJoin)",
+          "id": "_15_5_1_1a900482_1225670273171_268612_619"
         },
         {
           "kind": "Execute",
-          "activity": "DecisionJoin"
+          "activity": "ForkJoin",
+          "id": "_15_5_1_1a900482_1225498653500_405985_1239"
+        },
+        {
+          "kind": "Complete",
+          "activity": "ForkJoin",
+          "id": "_15_5_1_1a900482_1225498653500_405985_1239"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(DecisionJoin)",
+          "id": "_15_5_1_1a900482_1225670283000_414629_636"
+        },
+        {
+          "kind": "Execute",
+          "activity": "DecisionJoin",
+          "id": "_15_5_1_1a900482_1225499009421_139168_1510"
         },
         {
           "kind": "Fire",
           "activity": "DecisionJoin",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_15_5_1_1a900482_1225499023828_680552_1531"
         },
         {
           "kind": "Fire",
           "activity": "DecisionJoin",
-          "action": "Action_A"
+          "action": "Action_A",
+          "id": "_15_5_1_1a900482_1225499115640_478992_1611"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -2113,18 +2388,26 @@
           "value": "0"
         },
         {
-          "kind": "Fire",
-          "activity": "DecisionJoin",
-          "action": "Value(1)"
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Fire",
           "activity": "DecisionJoin",
-          "action": "Action_A"
+          "action": "Value(1)",
+          "id": "_15_5_1_1a900482_1225499028484_131636_1545"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Action_A",
+          "id": "_15_5_1_1a900482_1225499115640_478992_1611"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -2133,13 +2416,20 @@
           "value": "1"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Fire",
           "activity": "DecisionJoin",
-          "action": "Action_B"
+          "action": "Action_B",
+          "id": "_15_5_1_1a900482_1225499496250_273219_1905"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -2154,6 +2444,11 @@
           "value": "1"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Output",
           "activity": "DecisionJoin",
           "parameter": "output",
@@ -2166,23 +2461,32 @@
           "value": "1"
         },
         {
+          "kind": "Complete",
+          "activity": "DecisionJoin",
+          "id": "_15_5_1_1a900482_1225499009421_139168_1510"
+        },
+        {
           "kind": "Fire",
           "activity": "TestSimpleActivities",
-          "action": "Call(ForkMerge)"
+          "action": "Call(ForkMerge)",
+          "id": "_15_5_1_1a900482_1225670303062_878832_665"
         },
         {
           "kind": "Execute",
-          "activity": "ForkMerge"
+          "activity": "ForkMerge",
+          "id": "_15_5_1_1a900482_1225507220781_95467_2449"
         },
         {
           "kind": "Fire",
           "activity": "ForkMerge",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_15_5_1_1a900482_1225507345562_267308_2600"
         },
         {
           "kind": "Fire",
           "activity": "ForkMerge",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_15_5_1_1a900482_1225507345562_267308_2600"
         },
         {
           "kind": "Output",
@@ -2197,27 +2501,37 @@
           "value": "0"
         },
         {
+          "kind": "Complete",
+          "activity": "ForkMerge",
+          "id": "_15_5_1_1a900482_1225507220781_95467_2449"
+        },
+        {
           "kind": "Fire",
           "activity": "TestSimpleActivities",
-          "action": "Call(ForkMergeData)"
+          "action": "Call(ForkMergeData)",
+          "id": "_15_5_1_1a900482_1225670309218_434223_698"
         },
         {
           "kind": "Execute",
-          "activity": "ForkMergeData"
+          "activity": "ForkMergeData",
+          "id": "_15_5_1_1a900482_1225507524468_320008_2683"
         },
         {
           "kind": "Fire",
           "activity": "ForkMergeData",
-          "action": "Action_A"
+          "action": "Action_A",
+          "id": "_15_5_1_1a900482_1225507556390_436655_2724"
         },
         {
           "kind": "Fire",
           "activity": "ForkMergeData",
-          "action": "Action_B"
+          "action": "Action_B",
+          "id": "_15_5_1_1a900482_1225507688968_8206_2898"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -2226,13 +2540,20 @@
           "value": "0"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Fire",
           "activity": "ForkMergeData",
-          "action": "Action_B"
+          "action": "Action_B",
+          "id": "_15_5_1_1a900482_1225507688968_8206_2898"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -2241,6 +2562,11 @@
           "value": "0"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Output",
           "activity": "ForkMergeData",
           "parameter": "output",
@@ -2251,6 +2577,11 @@
           "activity": "ForkMergeData",
           "parameter": "output",
           "value": "0"
+        },
+        {
+          "kind": "Complete",
+          "activity": "ForkMergeData",
+          "id": "_15_5_1_1a900482_1225507524468_320008_2683"
         },
         {
           "kind": "Output",
@@ -2311,6 +2642,11 @@
           "activity": "TestSimpleActivities",
           "parameter": "ForkMergeData.output",
           "value": "0"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestSimpleActivities",
+          "id": "_15_5_1_1a900482_1225670181734_47413_418"
         }
       ]
     },
@@ -2394,17 +2730,20 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestClassExtentReader"
+          "activity": "TestClassExtentReader",
+          "id": "_15_5_1_1a900482_1225509572421_635041_2992"
         },
         {
           "kind": "Fire",
           "activity": "TestClassExtentReader",
-          "action": "Create(TestClass)"
+          "action": "Create(TestClass)",
+          "id": "_15_5_1_1a900482_1228077350828_551650_3791"
         },
         {
           "kind": "Fire",
           "activity": "TestClassExtentReader",
-          "action": "ReadExtent(TestClass)"
+          "action": "ReadExtent(TestClass)",
+          "id": "_15_5_1_1a900482_1225509680343_927462_3030"
         },
         {
           "kind": "Output",
@@ -2417,6 +2756,11 @@
           "activity": "TestClassExtentReader",
           "parameter": "object",
           "value": "Reference to obj1(TestClass\n\t\tx[0]  =\n\t\ty[0]  =)"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestClassExtentReader",
+          "id": "_15_5_1_1a900482_1225509572421_635041_2992"
         }
       ]
     },
@@ -2506,36 +2850,43 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestListFunctions"
+          "activity": "TestListFunctions",
+          "id": "_15_5_1_1a900482_1228078539484_63392_3939"
         },
         {
           "kind": "Fire",
           "activity": "TestListFunctions",
-          "action": "Value(index)"
+          "action": "Value(index)",
+          "id": "_15_5_1_1a900482_1228082601296_973881_3598"
         },
         {
           "kind": "Fire",
           "activity": "TestListFunctions",
-          "action": "Call(GenerateListTestData)"
+          "action": "Call(GenerateListTestData)",
+          "id": "_15_5_1_1a900482_1228158693687_741778_4157"
         },
         {
           "kind": "Execute",
-          "activity": "GenerateListTestData"
+          "activity": "GenerateListTestData",
+          "id": "_15_5_1_1a900482_1228158528578_548393_3492"
         },
         {
           "kind": "Fire",
           "activity": "GenerateListTestData",
-          "action": "Value(1)"
+          "action": "Value(1)",
+          "id": "_15_5_1_1a900482_1228158543921_177321_3945"
         },
         {
           "kind": "Fire",
           "activity": "GenerateListTestData",
-          "action": "Value(2)"
+          "action": "Value(2)",
+          "id": "_15_5_1_1a900482_1228158543921_410013_3944"
         },
         {
           "kind": "Fire",
           "activity": "GenerateListTestData",
-          "action": "Value(3)"
+          "action": "Value(3)",
+          "id": "_15_5_1_1a900482_1228158543921_759552_3943"
         },
         {
           "kind": "Output",
@@ -2556,19 +2907,27 @@
           "value": "3"
         },
         {
-          "kind": "Fire",
-          "activity": "TestListFunctions",
-          "action": "Call(ListSize)"
+          "kind": "Complete",
+          "activity": "GenerateListTestData",
+          "id": "_15_5_1_1a900482_1228158528578_548393_3492"
         },
         {
           "kind": "Fire",
           "activity": "TestListFunctions",
-          "action": "Call(ListGet)"
+          "action": "Call(ListSize)",
+          "id": "_15_5_1_1a900482_1228082446625_683541_3332"
         },
         {
           "kind": "Fire",
           "activity": "TestListFunctions",
-          "action": "Call(ListConcat)"
+          "action": "Call(ListGet)",
+          "id": "_15_5_1_1a900482_1228082528828_100437_3393"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestListFunctions",
+          "action": "Call(ListConcat)",
+          "id": "_18_0_1_12e503d9_1436991477084_618240_6316"
         },
         {
           "kind": "Output",
@@ -2617,6 +2976,11 @@
           "activity": "TestListFunctions",
           "parameter": "concat",
           "value": "3"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestListFunctions",
+          "id": "_15_5_1_1a900482_1228078539484_63392_3939"
         }
       ]
     },
@@ -2654,17 +3018,20 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "ForkMerge"
+          "activity": "ForkMerge",
+          "id": "_15_5_1_1a900482_1225507220781_95467_2449"
         },
         {
           "kind": "Fire",
           "activity": "ForkMerge",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_15_5_1_1a900482_1225507345562_267308_2600"
         },
         {
           "kind": "Fire",
           "activity": "ForkMerge",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_15_5_1_1a900482_1225507345562_267308_2600"
         },
         {
           "kind": "Output",
@@ -2677,6 +3044,11 @@
           "activity": "ForkMerge",
           "parameter": "output",
           "value": "0"
+        },
+        {
+          "kind": "Complete",
+          "activity": "ForkMerge",
+          "id": "_15_5_1_1a900482_1225507220781_95467_2449"
         }
       ]
     },
@@ -2724,18 +3096,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestClassObjectDestroyer"
+          "activity": "TestClassObjectDestroyer",
+          "id": "_15_5_1_1a900482_1225596518312_548622_1729"
         },
         {
           "kind": "Fire",
           "activity": "TestClassObjectDestroyer",
-          "action": "DestroyObject"
+          "action": "DestroyObject",
+          "id": "_15_5_1_1a900482_1225596543187_598683_1749"
         },
         {
           "kind": "Output",
           "activity": "TestClassObjectDestroyer",
           "parameter": "objectOut",
           "value": "Reference to obj1()"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestClassObjectDestroyer",
+          "id": "_15_5_1_1a900482_1225596518312_548622_1729"
         }
       ]
     },
@@ -2931,72 +3310,86 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestUnlimitedNaturalFunctions"
+          "activity": "TestUnlimitedNaturalFunctions",
+          "id": "_15_5_1_1a900482_1228166688765_800576_7494"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Value(3)"
+          "action": "Value(3)",
+          "id": "_15_5_1_1a900482_1228166688781_892316_7512"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Value(2)"
+          "action": "Value(2)",
+          "id": "_15_5_1_1a900482_1228166688781_466184_7513"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(LT)"
+          "action": "Call(LT)",
+          "id": "_15_5_1_1a900482_1228166688781_216014_7516"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(LE)"
+          "action": "Call(LE)",
+          "id": "_15_5_1_1a900482_1228166688781_393788_7517"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(GT)"
+          "action": "Call(GT)",
+          "id": "_15_5_1_1a900482_1228166688781_446723_7518"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(GE)"
+          "action": "Call(GE)",
+          "id": "_15_5_1_1a900482_1228166688781_218884_7519"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Value(*)"
+          "action": "Value(*)",
+          "id": "_15_5_1_1a900482_1228167830687_912812_10754"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(LT)*"
+          "action": "Call(LT)*",
+          "id": "_15_5_1_1a900482_1228167830687_579155_10757"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(LE)*"
+          "action": "Call(LE)*",
+          "id": "_15_5_1_1a900482_1228167830687_167641_10756"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(GT)*"
+          "action": "Call(GT)*",
+          "id": "_15_5_1_1a900482_1228167830687_132305_10758"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(GE)*"
+          "action": "Call(GE)*",
+          "id": "_15_5_1_1a900482_1228167830687_374599_10755"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(Max)"
+          "action": "Call(Max)",
+          "id": "_15_5_1_1a900482_1228251925203_998666_4612"
         },
         {
           "kind": "Fire",
           "activity": "TestUnlimitedNaturalFunctions",
-          "action": "Call(Min)"
+          "action": "Call(Min)",
+          "id": "_15_5_1_1a900482_1228252014359_735776_4705"
         },
         {
           "kind": "Output",
@@ -3057,6 +3450,11 @@
           "activity": "TestUnlimitedNaturalFunctions",
           "parameter": "MinResult",
           "value": "2"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "id": "_15_5_1_1a900482_1228166688765_800576_7494"
         }
       ]
     },
@@ -3112,13 +3510,19 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "SimpleDecision"
+          "activity": "SimpleDecision",
+          "id": "_15_5_1_1a900482_1225498182468_409301_1087"
         },
         {
           "kind": "Output",
           "activity": "SimpleDecision",
           "parameter": "output_0",
           "value": "0"
+        },
+        {
+          "kind": "Complete",
+          "activity": "SimpleDecision",
+          "id": "_15_5_1_1a900482_1225498182468_409301_1087"
         }
       ]
     },
@@ -3152,21 +3556,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "CopierCaller"
+          "activity": "CopierCaller",
+          "id": "_15_5_1_1a900482_1225497525562_682640_935"
         },
         {
           "kind": "Fire",
           "activity": "CopierCaller",
-          "action": "Value(888)"
+          "action": "Value(888)",
+          "id": "_15_5_1_1a900482_1225497758812_16621_1038"
         },
         {
           "kind": "Fire",
           "activity": "CopierCaller",
-          "action": "Call(Copier)"
+          "action": "Call(Copier)",
+          "id": "_15_5_1_1a900482_1225497607390_797217_958"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -3175,10 +3583,20 @@
           "value": "888"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Output",
           "activity": "CopierCaller",
           "parameter": "output",
           "value": "888"
+        },
+        {
+          "kind": "Complete",
+          "activity": "CopierCaller",
+          "id": "_15_5_1_1a900482_1225497525562_682640_935"
         }
       ]
     },
@@ -3260,23 +3678,31 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestClassAttributeWriter"
+          "activity": "TestClassAttributeWriter",
+          "id": "_15_5_1_1a900482_1225600026640_578409_2320"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeWriter",
-          "action": "Value(*)"
+          "action": "Value(*)",
+          "id": "_16_0_1a900482_1228516137968_340356_395"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeWriter",
-          "action": "Add(y)"
+          "action": "Add(y)",
+          "id": "_15_5_1_1a900482_1225600562687_743220_2404"
         },
         {
           "kind": "Output",
           "activity": "TestClassAttributeWriter",
           "parameter": "objectOut",
           "value": "Reference to obj1(TestClass\n\t\tx[0]  = 0\n\t\ty[0]  = 0 0)"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestClassAttributeWriter",
+          "id": "_15_5_1_1a900482_1225600026640_578409_2320"
         }
       ]
     },
@@ -3290,7 +3716,13 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "ForkJoin"
+          "activity": "ForkJoin",
+          "id": "_15_5_1_1a900482_1225498653500_405985_1239"
+        },
+        {
+          "kind": "Complete",
+          "activity": "ForkJoin",
+          "id": "_15_5_1_1a900482_1225498653500_405985_1239"
         }
       ]
     },
@@ -3366,47 +3798,56 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "GenerateBooleanTestData"
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-1"
+          "action": "Value(true)-1",
+          "id": "_15_5_1_1a900482_1227762688687_969636_6033"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-2"
+          "action": "Value(true)-2",
+          "id": "_15_5_1_1a900482_1227762838187_674147_6193"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-1"
+          "action": "Value(false)-1",
+          "id": "_15_5_1_1a900482_1227762880015_773897_6383"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-2"
+          "action": "Value(false)-2",
+          "id": "_15_5_1_1a900482_1227762987546_955319_6446"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-3"
+          "action": "Value(true)-3",
+          "id": "_15_5_1_1a900482_1227762843578_615732_6256"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-3"
+          "action": "Value(false)-3",
+          "id": "_15_5_1_1a900482_1227762995531_636713_6509"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(true)-4"
+          "action": "Value(true)-4",
+          "id": "_15_5_1_1a900482_1227762853171_599316_6320"
         },
         {
           "kind": "Fire",
           "activity": "GenerateBooleanTestData",
-          "action": "Value(false)-4"
+          "action": "Value(false)-4",
+          "id": "_15_5_1_1a900482_1227763002968_872938_6573"
         },
         {
           "kind": "Output",
@@ -3455,6 +3896,11 @@
           "activity": "GenerateBooleanTestData",
           "parameter": "argumentData2",
           "value": "false"
+        },
+        {
+          "kind": "Complete",
+          "activity": "GenerateBooleanTestData",
+          "id": "_15_5_1_1a900482_1227762594296_105047_5991"
         }
       ]
     },
@@ -3511,17 +3957,20 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "SelfReader"
+          "activity": "SelfReader",
+          "id": "_15_5_1_1a900482_1225509791484_552689_3084"
         },
         {
           "kind": "Fire",
           "activity": "SelfReader",
-          "action": "ReadSelf"
+          "action": "ReadSelf",
+          "id": "_15_5_1_1a900482_1225509847406_207428_3104"
         },
         {
           "kind": "Fire",
           "activity": "SelfReader",
-          "action": "IsClassified(SelfReader)"
+          "action": "IsClassified(SelfReader)",
+          "id": "_18_4_1_12e503d9_1483747589924_717376_8917"
         },
         {
           "kind": "Output",
@@ -3534,6 +3983,11 @@
           "activity": "SelfReader",
           "parameter": "isSelfReader",
           "value": "true"
+        },
+        {
+          "kind": "Complete",
+          "activity": "SelfReader",
+          "id": "_15_5_1_1a900482_1225509791484_552689_3084"
         }
       ]
     },
@@ -3621,52 +4075,62 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestStringFunctions"
+          "activity": "TestStringFunctions",
+          "id": "_15_5_1_1a900482_1227849221843_429815_3275"
         },
         {
           "kind": "Fire",
           "activity": "TestStringFunctions",
-          "action": "Value(\"123456789\")"
+          "action": "Value(\"123456789\")",
+          "id": "_15_5_1_1a900482_1227849237703_210339_3296"
         },
         {
           "kind": "Fire",
           "activity": "TestStringFunctions",
-          "action": "Call(Size)"
+          "action": "Call(Size)",
+          "id": "_15_5_1_1a900482_1227849379468_137816_3316"
         },
         {
           "kind": "Fire",
           "activity": "TestStringFunctions",
-          "action": "Value(1)"
+          "action": "Value(1)",
+          "id": "_15_5_1_1a900482_1227850284375_419423_4132"
         },
         {
           "kind": "Fire",
           "activity": "TestStringFunctions",
-          "action": "Value(5)"
+          "action": "Value(5)",
+          "id": "_15_5_1_1a900482_1227850386359_792327_4276"
         },
         {
           "kind": "Fire",
           "activity": "TestStringFunctions",
-          "action": "Call(Substring)-1"
+          "action": "Call(Substring)-1",
+          "id": "_15_5_1_1a900482_1227849580281_313318_3433"
         },
         {
           "kind": "Fire",
           "activity": "TestStringFunctions",
-          "action": "Value(9)"
+          "action": "Value(9)",
+          "id": "_15_5_1_1a900482_1227850491359_76924_4506"
         },
         {
           "kind": "Fire",
           "activity": "TestStringFunctions",
-          "action": "Value(6)"
+          "action": "Value(6)",
+          "id": "_15_5_1_1a900482_1227850491359_836630_4507"
         },
         {
           "kind": "Fire",
           "activity": "TestStringFunctions",
-          "action": "Call(Substring)-2"
+          "action": "Call(Substring)-2",
+          "id": "_15_5_1_1a900482_1227849833609_535738_3740"
         },
         {
           "kind": "Fire",
           "activity": "TestStringFunctions",
-          "action": "Call(Concat)"
+          "action": "Call(Concat)",
+          "id": "_15_5_1_1a900482_1227849966046_256670_3826"
         },
         {
           "kind": "Output",
@@ -3691,6 +4155,11 @@
           "activity": "TestStringFunctions",
           "parameter": "ConcatResult",
           "value": "123456789"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestStringFunctions",
+          "id": "_15_5_1_1a900482_1227849221843_429815_3275"
         }
       ]
     },
@@ -3922,82 +4391,98 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestRealFunctions"
+          "activity": "TestRealFunctions",
+          "id": "_17_0_2_1_12e503d9_1355788672379_64883_3482"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Value(3.1)"
+          "action": "Value(3.1)",
+          "id": "_17_0_2_1_12e503d9_1355788672881_575183_3524"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Neg)"
+          "action": "Call(Neg)",
+          "id": "_17_0_2_1_12e503d9_1355788672884_158787_3528"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Value(0.5)"
+          "action": "Value(0.5)",
+          "id": "_17_0_2_1_12e503d9_1355788672882_222699_3525"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Plus)"
+          "action": "Call(Plus)",
+          "id": "_17_0_2_1_12e503d9_1355788672884_372750_3529"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Minus)"
+          "action": "Call(Minus)",
+          "id": "_17_0_2_1_12e503d9_1355788672885_354513_3530"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Inv)"
+          "action": "Call(Inv)",
+          "id": "_17_0_2_1_12e503d9_1355789459226_21941_4177"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Times)"
+          "action": "Call(Times)",
+          "id": "_17_0_2_1_12e503d9_1355788672885_305620_3531"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Divide)"
+          "action": "Call(Divide)",
+          "id": "_17_0_2_1_12e503d9_1355788672886_139012_3532"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Max)"
+          "action": "Call(Max)",
+          "id": "_17_0_2_1_12e503d9_1355788672889_399057_3538"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Min)"
+          "action": "Call(Min)",
+          "id": "_17_0_2_1_12e503d9_1355788672891_663111_3542"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Value(-2.3)"
+          "action": "Value(-2.3)",
+          "id": "_17_0_2_1_12e503d9_1355788672892_94521_3545"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Abs)"
+          "action": "Call(Abs)",
+          "id": "_17_0_2_1_12e503d9_1355788672892_125089_3544"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Floor)"
+          "action": "Call(Floor)",
+          "id": "_17_0_2_1_12e503d9_1355790869275_25337_4837"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(Round)"
+          "action": "Call(Round)",
+          "id": "_17_0_2_1_12e503d9_1355790297828_840896_4446"
         },
         {
           "kind": "Fire",
           "activity": "TestRealFunctions",
-          "action": "Call(ToInteger)"
+          "action": "Call(ToInteger)",
+          "id": "_17_0_2_1_12e503d9_1355790472213_264805_4705"
         },
         {
           "kind": "Output",
@@ -4070,6 +4555,11 @@
           "activity": "TestRealFunctions",
           "parameter": "ToIntegerResult",
           "value": "-2"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestRealFunctions",
+          "id": "_17_0_2_1_12e503d9_1355788672379_64883_3482"
         }
       ]
     },
@@ -4157,37 +4647,44 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestRealComparisonFunctions"
+          "activity": "TestRealComparisonFunctions",
+          "id": "_17_0_2_1_12e503d9_1355803291251_482034_5477"
         },
         {
           "kind": "Fire",
           "activity": "TestRealComparisonFunctions",
-          "action": "Value(3.0)"
+          "action": "Value(3.0)",
+          "id": "_17_0_2_1_12e503d9_1355803291393_237820_5513"
         },
         {
           "kind": "Fire",
           "activity": "TestRealComparisonFunctions",
-          "action": "Value(2.0)"
+          "action": "Value(2.0)",
+          "id": "_17_0_2_1_12e503d9_1355803291393_20759_5514"
         },
         {
           "kind": "Fire",
           "activity": "TestRealComparisonFunctions",
-          "action": "Call(LT)"
+          "action": "Call(LT)",
+          "id": "_17_0_2_1_12e503d9_1355803291394_970260_5517"
         },
         {
           "kind": "Fire",
           "activity": "TestRealComparisonFunctions",
-          "action": "Call(LE)"
+          "action": "Call(LE)",
+          "id": "_17_0_2_1_12e503d9_1355803291395_100921_5518"
         },
         {
           "kind": "Fire",
           "activity": "TestRealComparisonFunctions",
-          "action": "Call(GT)"
+          "action": "Call(GT)",
+          "id": "_17_0_2_1_12e503d9_1355803291395_966250_5519"
         },
         {
           "kind": "Fire",
           "activity": "TestRealComparisonFunctions",
-          "action": "Call(GE)"
+          "action": "Call(GE)",
+          "id": "_17_0_2_1_12e503d9_1355803291396_269902_5520"
         },
         {
           "kind": "Output",
@@ -4212,6 +4709,11 @@
           "activity": "TestRealComparisonFunctions",
           "parameter": "GEResult",
           "value": "true"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestRealComparisonFunctions",
+          "id": "_17_0_2_1_12e503d9_1355803291251_482034_5477"
         }
       ]
     },
@@ -4284,53 +4786,67 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestClassAttributeValueRemover"
+          "activity": "TestClassAttributeValueRemover",
+          "id": "_18_0_1_12e503d9_1436296044794_559955_5708"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeValueRemover",
-          "action": "Value(1)"
+          "action": "Value(1)",
+          "id": "_18_0_1_12e503d9_1436297659292_980490_7565"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeValueRemover",
-          "action": "Add(y)-1"
+          "action": "Add(y)-1",
+          "id": "_18_0_1_12e503d9_1436296275857_606075_5791"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeValueRemover",
-          "action": "Add(y)-2"
+          "action": "Add(y)-2",
+          "id": "_18_0_1_12e503d9_1436297075276_582275_6666"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeValueRemover",
-          "action": "Value(2)"
+          "action": "Value(2)",
+          "id": "_18_0_1_12e503d9_1436297908641_477095_7969"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeValueRemover",
-          "action": "Add(y)-3"
+          "action": "Add(y)-3",
+          "id": "_18_0_1_12e503d9_1436297082469_470312_6705"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeValueRemover",
-          "action": "Add(y)-4"
+          "action": "Add(y)-4",
+          "id": "_18_0_1_12e503d9_1436297086205_83042_6743"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeValueRemover",
-          "action": "RemoveOne(y)"
+          "action": "RemoveOne(y)",
+          "id": "_18_0_1_12e503d9_1436297484302_82830_7309"
         },
         {
           "kind": "Fire",
           "activity": "TestClassAttributeValueRemover",
-          "action": "RemoveAll(y)"
+          "action": "RemoveAll(y)",
+          "id": "_18_0_1_12e503d9_1436297580568_794272_7374"
         },
         {
           "kind": "Output",
           "activity": "TestClassAttributeValueRemover",
           "parameter": "objectOut",
           "value": "Reference to obj1(TestClass\n\t\tx[0]  = 0\n\t\ty[0]  = 2 0)"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestClassAttributeValueRemover",
+          "id": "_18_0_1_12e503d9_1436296044794_559955_5708"
         }
       ]
     },
@@ -4535,52 +5051,62 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestAssociationEndWriterReader"
+          "activity": "TestAssociationEndWriterReader",
+          "id": "_18_0_1_12e503d9_1436301597773_391518_6001"
         },
         {
           "kind": "Fire",
           "activity": "TestAssociationEndWriterReader",
-          "action": "Value(2)"
+          "action": "Value(2)",
+          "id": "_18_0_1_12e503d9_1436324155116_152156_6734"
         },
         {
           "kind": "Fire",
           "activity": "TestAssociationEndWriterReader",
-          "action": "Value(*)"
+          "action": "Value(*)",
+          "id": "_18_0_1_12e503d9_1436325474938_196342_7436"
         },
         {
           "kind": "Fire",
           "activity": "TestAssociationEndWriterReader",
-          "action": "Add(end2)-1"
+          "action": "Add(end2)-1",
+          "id": "_18_0_1_12e503d9_1436302134080_139589_6571"
         },
         {
           "kind": "Fire",
           "activity": "TestAssociationEndWriterReader",
-          "action": "Add(end2)-2"
+          "action": "Add(end2)-2",
+          "id": "_18_0_1_12e503d9_1436323765477_149965_6166"
         },
         {
           "kind": "Fire",
           "activity": "TestAssociationEndWriterReader",
-          "action": "Add(end2)-3"
+          "action": "Add(end2)-3",
+          "id": "_18_0_1_12e503d9_1436302269803_236172_6669"
         },
         {
           "kind": "Fire",
           "activity": "TestAssociationEndWriterReader",
-          "action": "RemoveAll(end2)"
+          "action": "RemoveAll(end2)",
+          "id": "_18_0_1_12e503d9_1436302402447_188369_6809"
         },
         {
           "kind": "Fire",
           "activity": "TestAssociationEndWriterReader",
-          "action": "Read(end2)-1"
+          "action": "Read(end2)-1",
+          "id": "_18_0_1_12e503d9_1436302502112_853018_6938"
         },
         {
           "kind": "Fire",
           "activity": "TestAssociationEndWriterReader",
-          "action": "RemoveAt(end2)"
+          "action": "RemoveAt(end2)",
+          "id": "_18_0_1_12e503d9_1436324058363_663699_6642"
         },
         {
           "kind": "Fire",
           "activity": "TestAssociationEndWriterReader",
-          "action": "Read(end2)-2"
+          "action": "Read(end2)-2",
+          "id": "_18_0_1_12e503d9_1436324219039_256583_6787"
         },
         {
           "kind": "Output",
@@ -4605,6 +5131,11 @@
           "activity": "TestAssociationEndWriterReader",
           "parameter": "expected",
           "value": "Reference to obj1(TestClass\n\t\tx[0]  = 0\n\t\ty[0]  = 0)"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestAssociationEndWriterReader",
+          "id": "_18_0_1_12e503d9_1436301597773_391518_6001"
         }
       ]
     },
@@ -4668,53 +5199,67 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestClassReclassifier"
+          "activity": "TestClassReclassifier",
+          "id": "_18_0_1_12e503d9_1436672674539_157357_6267"
         },
         {
           "kind": "Fire",
           "activity": "TestClassReclassifier",
-          "action": "Create(Subclass1)"
+          "action": "Create(Subclass1)",
+          "id": "_18_0_1_12e503d9_1436672739994_23079_6324"
         },
         {
           "kind": "Fire",
           "activity": "TestClassReclassifier",
-          "action": "Value(1)"
+          "action": "Value(1)",
+          "id": "_18_0_1_12e503d9_1436673045383_280345_6585"
         },
         {
           "kind": "Fire",
           "activity": "TestClassReclassifier",
-          "action": "Write(x)"
+          "action": "Write(x)",
+          "id": "_18_0_1_12e503d9_1436672783092_837052_6360"
         },
         {
           "kind": "Fire",
           "activity": "TestClassReclassifier",
-          "action": "Value(true)"
+          "action": "Value(true)",
+          "id": "_18_0_1_12e503d9_1436673263351_437244_6769"
         },
         {
           "kind": "Fire",
           "activity": "TestClassReclassifier",
-          "action": "Value(2)"
+          "action": "Value(2)",
+          "id": "_18_0_1_12e503d9_1436674061239_999391_7276"
         },
         {
           "kind": "Fire",
           "activity": "TestClassReclassifier",
-          "action": "Write(y)"
+          "action": "Write(y)",
+          "id": "_18_0_1_12e503d9_1436672838016_384012_6412"
         },
         {
           "kind": "Fire",
           "activity": "TestClassReclassifier",
-          "action": "Write(a)"
+          "action": "Write(a)",
+          "id": "_18_0_1_12e503d9_1436673197490_462106_6705"
         },
         {
           "kind": "Fire",
           "activity": "TestClassReclassifier",
-          "action": "Reclassify(Subclass2)"
+          "action": "Reclassify(Subclass2)",
+          "id": "_18_0_1_12e503d9_1436673399921_361700_6864"
         },
         {
           "kind": "Output",
           "activity": "TestClassReclassifier",
           "parameter": "result",
           "value": "Reference to obj1(Subclass2\n\t\tb[0]  =\n\t\tx[0]  = 1\n\t\ty[0]  = 2)"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestClassReclassifier",
+          "id": "_18_0_1_12e503d9_1436672674539_157357_6267"
         }
       ]
     },
@@ -4750,7 +5295,13 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestSignalReceiver"
+          "activity": "TestSignalReceiver",
+          "id": "TestSignalReceiver"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestSignalReceiver",
+          "id": "TestSignalReceiver"
         }
       ]
     },
@@ -4764,36 +5315,53 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestSpecializedSignalSend"
+          "activity": "TestSpecializedSignalSend",
+          "id": "_18_0_1_12e503d9_1437771064067_804455_6501"
         },
         {
           "kind": "Fire",
           "activity": "TestSpecializedSignalSend",
-          "action": "Create(TestSignalReceiver)"
+          "action": "Create(TestSignalReceiver)",
+          "id": "_18_0_1_12e503d9_1437771133256_626105_6548"
         },
         {
           "kind": "Fire",
           "activity": "TestSpecializedSignalSend",
-          "action": "Start(TestSignalReceiver)"
+          "action": "Start(TestSignalReceiver)",
+          "id": "_18_0_1_12e503d9_1437771307979_525412_6620"
         },
         {
           "kind": "Fire",
           "activity": "TestSpecializedSignalSend",
-          "action": "Send(SpecializedSignal)"
+          "action": "Send(SpecializedSignal)",
+          "id": "_18_0_1_12e503d9_1437771347129_447370_6671"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestSpecializedSignalSend",
+          "id": "_18_0_1_12e503d9_1437771064067_804455_6501"
         },
         {
           "kind": "Execute",
-          "activity": "TestSignalReceiver"
+          "activity": "TestSignalReceiver",
+          "id": "TestSignalReceiver"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestSignalReceiver",
+          "id": "TestSignalReceiver"
         },
         {
           "kind": "Fire",
           "activity": "TestSignalReceiver",
-          "action": "ReadSelf"
+          "action": "ReadSelf",
+          "id": "_18_4_1_12e503d9_1483829842379_799977_8267"
         },
         {
           "kind": "Fire",
           "activity": "TestSignalReceiver",
-          "action": "Write(signal)"
+          "action": "Write(signal)",
+          "id": "_18_4_1_12e503d9_1483829823208_950040_8222"
         }
       ]
     },
@@ -4807,46 +5375,65 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "ActiveClassBehaviorSender"
+          "activity": "ActiveClassBehaviorSender",
+          "id": "_18_0_1_12e503d9_1438122200080_948207_6950"
         },
         {
           "kind": "Fire",
           "activity": "ActiveClassBehaviorSender",
-          "action": "Create(ActiveClass)"
+          "action": "Create(ActiveClass)",
+          "id": "_18_0_1_12e503d9_1438122277039_24099_6997"
         },
         {
           "kind": "Fire",
           "activity": "ActiveClassBehaviorSender",
-          "action": "Start(ActiveClass)"
+          "action": "Start(ActiveClass)",
+          "id": "_18_0_1_12e503d9_1438122317968_954479_7043"
         },
         {
           "kind": "Fire",
           "activity": "ActiveClassBehaviorSender",
-          "action": "Send(TestSignal)"
+          "action": "Send(TestSignal)",
+          "id": "_18_0_1_12e503d9_1438122425531_791480_7127"
         },
         {
           "kind": "Fire",
           "activity": "ActiveClassBehaviorSender",
-          "action": "Send(OtherSignal)"
+          "action": "Send(OtherSignal)",
+          "id": "_18_0_1_12e503d9_1438122752336_757735_7303"
+        },
+        {
+          "kind": "Complete",
+          "activity": "ActiveClassBehaviorSender",
+          "id": "_18_0_1_12e503d9_1438122200080_948207_6950"
         },
         {
           "kind": "Execute",
-          "activity": "ActiveClassBehavior"
+          "activity": "ActiveClassBehavior",
+          "id": "_18_0_1_12e503d9_1438121989820_191913_6840"
         },
         {
           "kind": "Fire",
           "activity": "ActiveClassBehavior",
-          "action": "ReadSelf"
+          "action": "ReadSelf",
+          "id": "_18_4_1_12e503d9_1483830501611_350242_8184"
+        },
+        {
+          "kind": "Complete",
+          "activity": "ActiveClassBehavior",
+          "id": "_18_0_1_12e503d9_1438121989820_191913_6840"
         },
         {
           "kind": "Fire",
           "activity": "ActiveClassBehavior",
-          "action": "Write(signal1)"
+          "action": "Write(signal1)",
+          "id": "_18_4_1_12e503d9_1483830703339_591903_8425"
         },
         {
           "kind": "Fire",
           "activity": "ActiveClassBehavior",
-          "action": "Write(signal2)"
+          "action": "Write(signal2)",
+          "id": "_18_4_1_12e503d9_1483830809098_523278_8560"
         }
       ]
     },
@@ -4889,21 +5476,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "NodeEnabler"
+          "activity": "NodeEnabler",
+          "id": "_18_4_1_12e503d9_1483307657460_746223_7722"
         },
         {
           "kind": "Fire",
           "activity": "NodeEnabler",
-          "action": "StructuredNode"
+          "action": "StructuredNode",
+          "id": "_18_4_1_12e503d9_1483307687898_893616_7760"
         },
         {
           "kind": "Fire",
           "activity": "NodeEnabler",
-          "action": "Call(Copier)"
+          "action": "Call(Copier)",
+          "id": "_18_4_1_12e503d9_1483307707647_677203_7784"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -4912,10 +5503,20 @@
           "value": "0"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Output",
           "activity": "NodeEnabler",
           "parameter": "output",
           "value": "0"
+        },
+        {
+          "kind": "Complete",
+          "activity": "NodeEnabler",
+          "id": "_18_4_1_12e503d9_1483307657460_746223_7722"
         }
       ]
     },
@@ -4949,35 +5550,42 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestNodeEnabler"
+          "activity": "TestNodeEnabler",
+          "id": "_18_4_1_12e503d9_1483308204258_480645_8357"
         },
         {
           "kind": "Fire",
           "activity": "TestNodeEnabler",
-          "action": "Value(1)"
+          "action": "Value(1)",
+          "id": "_18_4_1_12e503d9_1483308254621_187338_8417"
         },
         {
           "kind": "Fire",
           "activity": "TestNodeEnabler",
-          "action": "Call(NodeEnabler)"
+          "action": "Call(NodeEnabler)",
+          "id": "_18_4_1_12e503d9_1483308295838_675031_8477"
         },
         {
           "kind": "Execute",
-          "activity": "NodeEnabler"
+          "activity": "NodeEnabler",
+          "id": "_18_4_1_12e503d9_1483307657460_746223_7722"
         },
         {
           "kind": "Fire",
           "activity": "NodeEnabler",
-          "action": "StructuredNode"
+          "action": "StructuredNode",
+          "id": "_18_4_1_12e503d9_1483307687898_893616_7760"
         },
         {
           "kind": "Fire",
           "activity": "NodeEnabler",
-          "action": "Call(Copier)"
+          "action": "Call(Copier)",
+          "id": "_18_4_1_12e503d9_1483307707647_677203_7784"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -4986,16 +5594,31 @@
           "value": "1"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Output",
           "activity": "NodeEnabler",
           "parameter": "output",
           "value": "1"
         },
         {
+          "kind": "Complete",
+          "activity": "NodeEnabler",
+          "id": "_18_4_1_12e503d9_1483307657460_746223_7722"
+        },
+        {
           "kind": "Output",
           "activity": "TestNodeEnabler",
           "parameter": "output",
           "value": "1"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestNodeEnabler",
+          "id": "_18_4_1_12e503d9_1483308204258_480645_8357"
         }
       ]
     },
@@ -5051,12 +5674,14 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestCentralBuffer"
+          "activity": "TestCentralBuffer",
+          "id": "_18_4_1_12e503d9_1484800094328_86245_8123"
         },
         {
           "kind": "Fire",
           "activity": "TestCentralBuffer",
-          "action": "StructuredActivityNode"
+          "action": "StructuredActivityNode",
+          "id": "_18_4_1_12e503d9_1484800128076_97406_8159"
         },
         {
           "kind": "Output",
@@ -5069,6 +5694,11 @@
           "activity": "TestCentralBuffer",
           "parameter": "output",
           "value": "0"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestCentralBuffer",
+          "id": "_18_4_1_12e503d9_1484800094328_86245_8123"
         }
       ]
     },
@@ -5106,36 +5736,43 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestDataStore"
+          "activity": "TestDataStore",
+          "id": "_18_4_1_12e503d9_1484800407116_420821_8399"
         },
         {
           "kind": "Fire",
           "activity": "TestDataStore",
-          "action": "Value(1)-Init-1"
+          "action": "Value(1)-Init-1",
+          "id": "_18_4_1_12e503d9_1484800445839_381889_8444"
         },
         {
           "kind": "Fire",
           "activity": "TestDataStore",
-          "action": "Value(1)-Init-2"
+          "action": "Value(1)-Init-2",
+          "id": "_18_4_1_12e503d9_1484800533253_318709_8525"
         },
         {
           "kind": "Fire",
           "activity": "TestDataStore",
-          "action": "Value(2)-Init-3"
+          "action": "Value(2)-Init-3",
+          "id": "_18_4_1_12e503d9_1484800553631_527225_8566"
         },
         {
           "kind": "Fire",
           "activity": "TestDataStore",
-          "action": "Value(1)"
+          "action": "Value(1)",
+          "id": "_18_4_1_12e503d9_1484801172513_358325_9057"
         },
         {
           "kind": "Fire",
           "activity": "TestDataStore",
-          "action": "Call(Copier)-1"
+          "action": "Call(Copier)-1",
+          "id": "_18_4_1_12e503d9_1484800743386_767014_8652"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -5144,18 +5781,26 @@
           "value": "1"
         },
         {
-          "kind": "Fire",
-          "activity": "TestDataStore",
-          "action": "Value(2)"
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Fire",
           "activity": "TestDataStore",
-          "action": "Call(Copier)-2"
+          "action": "Value(2)",
+          "id": "_18_4_1_12e503d9_1484800929832_226311_8835"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestDataStore",
+          "action": "Call(Copier)-2",
+          "id": "_18_4_1_12e503d9_1484800879183_291163_8783"
         },
         {
           "kind": "Execute",
-          "activity": "Copier"
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
         },
         {
           "kind": "Output",
@@ -5164,9 +5809,15 @@
           "value": "2"
         },
         {
+          "kind": "Complete",
+          "activity": "Copier",
+          "id": "_15_5_1_1a900482_1225493265234_644298_826"
+        },
+        {
           "kind": "Fire",
           "activity": "TestDataStore",
-          "action": "Value(3)"
+          "action": "Value(3)",
+          "id": "_18_4_1_12e503d9_1484801062101_648946_8907"
         },
         {
           "kind": "Output",
@@ -5179,6 +5830,11 @@
           "activity": "TestDataStore",
           "parameter": "output",
           "value": "2"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestDataStore",
+          "id": "_18_4_1_12e503d9_1484800407116_420821_8399"
         }
       ]
     },
@@ -5192,7 +5848,13 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestCallAccepter"
+          "activity": "TestCallAccepter",
+          "id": "_18_4_1_12e503d9_1484862146217_913867_10397"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestCallAccepter",
+          "id": "_18_4_1_12e503d9_1484862146217_913867_10397"
         }
       ]
     },
@@ -5206,46 +5868,65 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestCallSender"
+          "activity": "TestCallSender",
+          "id": "TestCallSender"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Create(TestCallAccepter)"
+          "action": "Create(TestCallAccepter)",
+          "id": "_18_4_1_12e503d9_1484862640177_653030_10705"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Start(TestCallAccepter)"
+          "action": "Start(TestCallAccepter)",
+          "id": "_18_4_1_12e503d9_1484862727884_153545_10789"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_18_4_1_12e503d9_1484862997283_21352_10997"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Call(test)"
+          "action": "Call(test)",
+          "id": "_18_4_1_12e503d9_1484862821419_397288_10853"
         },
         {
           "kind": "Execute",
-          "activity": "TestCallAccepter"
+          "activity": "TestCallAccepter",
+          "id": "_18_4_1_12e503d9_1484862146217_913867_10397"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestCallAccepter",
+          "id": "_18_4_1_12e503d9_1484862146217_913867_10397"
         },
         {
           "kind": "Fire",
           "activity": "TestCallAccepter",
-          "action": "Reply(test)"
+          "action": "Reply(test)",
+          "id": "_18_4_1_12e503d9_1484862415959_24153_10489"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "ReadSelf"
+          "action": "ReadSelf",
+          "id": "_18_4_1_12e503d9_1484863273882_298139_11203"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Write(value)"
+          "action": "Write(value)",
+          "id": "_18_4_1_12e503d9_1484863177366_822910_11105"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestCallSender",
+          "id": "TestCallSender"
         }
       ]
     },
@@ -5259,65 +5940,93 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestCallSend"
+          "activity": "TestCallSend",
+          "id": "_18_4_1_12e503d9_1484863459823_274565_11521"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSend",
-          "action": "Create(TestCallSender)"
+          "action": "Create(TestCallSender)",
+          "id": "_18_4_1_12e503d9_1484863484633_545356_11557"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSend",
-          "action": "Start(TestCallSender)"
+          "action": "Start(TestCallSender)",
+          "id": "_18_4_1_12e503d9_1484863568527_339249_11640"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSend",
-          "action": "Send(TestSignal)"
+          "action": "Send(TestSignal)",
+          "id": "_18_4_1_12e503d9_1484863638469_249959_11726"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestCallSend",
+          "id": "_18_4_1_12e503d9_1484863459823_274565_11521"
         },
         {
           "kind": "Execute",
-          "activity": "TestCallSender"
+          "activity": "TestCallSender",
+          "id": "TestCallSender"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Create(TestCallAccepter)"
+          "action": "Create(TestCallAccepter)",
+          "id": "_18_4_1_12e503d9_1484862640177_653030_10705"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Start(TestCallAccepter)"
+          "action": "Start(TestCallAccepter)",
+          "id": "_18_4_1_12e503d9_1484862727884_153545_10789"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_18_4_1_12e503d9_1484862997283_21352_10997"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Call(test)"
+          "action": "Call(test)",
+          "id": "_18_4_1_12e503d9_1484862821419_397288_10853"
         },
         {
           "kind": "Execute",
-          "activity": "TestCallAccepter"
+          "activity": "TestCallAccepter",
+          "id": "_18_4_1_12e503d9_1484862146217_913867_10397"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestCallAccepter",
+          "id": "_18_4_1_12e503d9_1484862146217_913867_10397"
         },
         {
           "kind": "Fire",
           "activity": "TestCallAccepter",
-          "action": "Reply(test)"
+          "action": "Reply(test)",
+          "id": "_18_4_1_12e503d9_1484862415959_24153_10489"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "ReadSelf"
+          "action": "ReadSelf",
+          "id": "_18_4_1_12e503d9_1484863273882_298139_11203"
         },
         {
           "kind": "Fire",
           "activity": "TestCallSender",
-          "action": "Write(value)"
+          "action": "Write(value)",
+          "id": "_18_4_1_12e503d9_1484863177366_822910_11105"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestCallSender",
+          "id": "TestCallSender"
         }
       ]
     },
@@ -5442,27 +6151,32 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestCompositeObjectDestroyer"
+          "activity": "TestCompositeObjectDestroyer",
+          "id": "_19_0_2_12e503d9_1555699676179_888749_7130"
         },
         {
           "kind": "Fire",
           "activity": "TestCompositeObjectDestroyer",
-          "action": "Write(c1)"
+          "action": "Write(c1)",
+          "id": "_19_0_2_12e503d9_1555700050658_641619_7397"
         },
         {
           "kind": "Fire",
           "activity": "TestCompositeObjectDestroyer",
-          "action": "Write(c2)"
+          "action": "Write(c2)",
+          "id": "_19_0_2_12e503d9_1555700172631_22725_7547"
         },
         {
           "kind": "Fire",
           "activity": "TestCompositeObjectDestroyer",
-          "action": "Destroy(composite)"
+          "action": "Destroy(composite)",
+          "id": "_19_0_2_12e503d9_1555700347788_49070_7682"
         },
         {
           "kind": "Fire",
           "activity": "TestCompositeObjectDestroyer",
-          "action": "Read(composite)"
+          "action": "Read(composite)",
+          "id": "_19_0_2_12e503d9_1555700534011_461205_7779"
         },
         {
           "kind": "Output",
@@ -5481,6 +6195,11 @@
           "activity": "TestCompositeObjectDestroyer",
           "parameter": "object2Out",
           "value": "Reference to obj3()"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestCompositeObjectDestroyer",
+          "id": "_19_0_2_12e503d9_1555699676179_888749_7130"
         }
       ]
     },
@@ -5536,62 +6255,74 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "TestClassUnmarshaller"
+          "activity": "TestClassUnmarshaller",
+          "id": "_19_0_3_12e503d9_1576710835563_451691_7206"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Create(Subclass1)"
+          "action": "Create(Subclass1)",
+          "id": "_19_0_3_12e503d9_1576710889127_501852_7246"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Value(0)"
+          "action": "Value(0)",
+          "id": "_19_0_3_12e503d9_1576711102755_43424_7619"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Write(x)"
+          "action": "Write(x)",
+          "id": "_19_0_3_12e503d9_1576710922235_751628_7304"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Value(1)"
+          "action": "Value(1)",
+          "id": "_19_0_3_12e503d9_1576711140029_493691_7681"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Value(2)"
+          "action": "Value(2)",
+          "id": "_19_0_3_12e503d9_1576711165490_346951_7732"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Value(*)"
+          "action": "Value(*)",
+          "id": "_19_0_3_12e503d9_1576712979329_717311_8401"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Write(y[1])"
+          "action": "Write(y[1])",
+          "id": "_19_0_3_12e503d9_1576710956094_873419_7389"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Write(y[2])"
+          "action": "Write(y[2])",
+          "id": "_19_0_3_12e503d9_1576711036767_549299_7510"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Value(true)"
+          "action": "Value(true)",
+          "id": "_19_0_3_12e503d9_1576730889522_4398_7159"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Write(a)"
+          "action": "Write(a)",
+          "id": "_19_0_3_12e503d9_1576730889528_326260_7160"
         },
         {
           "kind": "Fire",
           "activity": "TestClassUnmarshaller",
-          "action": "Unmarshall(TestClass)"
+          "action": "Unmarshall(TestClass)",
+          "id": "_19_0_3_12e503d9_1576711213784_3110_7786"
         },
         {
           "kind": "Output",
@@ -5610,6 +6341,11 @@
           "activity": "TestClassUnmarshaller",
           "parameter": "y",
           "value": "2"
+        },
+        {
+          "kind": "Complete",
+          "activity": "TestClassUnmarshaller",
+          "id": "_19_0_3_12e503d9_1576710835563_451691_7206"
         }
       ]
     },
@@ -5643,37 +6379,44 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "Test001"
+          "activity": "Test001",
+          "id": "_eSDNIEQbEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test001",
-          "action": "Create(DetailedException)"
+          "action": "Create(DetailedException)",
+          "id": "_jjOAQEQlEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test001",
-          "action": "Issue"
+          "action": "Issue",
+          "id": "_7MYp8EQlEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test001",
-          "action": "set(message)"
+          "action": "set(message)",
+          "id": "_sgxKEEQlEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test001",
-          "action": "RaiseException"
+          "action": "RaiseException",
+          "id": "_ubIJgEQbEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test001",
-          "action": "exceptionHandler"
+          "action": "exceptionHandler",
+          "id": "_kFyQ4EQcEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test001",
-          "action": "read(message)"
+          "action": "read(message)",
+          "id": "_UrKcUEQkEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
@@ -5683,7 +6426,8 @@
         {
           "kind": "Fire",
           "activity": "Test001",
-          "action": "set(outputMessage)"
+          "action": "set(outputMessage)",
+          "id": "_WjbugE_2Eeq0eJ3N0xckiQ"
         },
         {
           "kind": "Fire",
@@ -5693,13 +6437,19 @@
         {
           "kind": "Fire",
           "activity": "Test001",
-          "action": "read(outputMessage)"
+          "action": "read(outputMessage)",
+          "id": "_TmFXIE_3Eeq0eJ3N0xckiQ"
         },
         {
           "kind": "Output",
           "activity": "Test001",
           "parameter": "testOutput",
           "value": "Test001 - Exception raised and caught "
+        },
+        {
+          "kind": "Complete",
+          "activity": "Test001",
+          "id": "_eSDNIEQbEeq_86rQwoiqlQ"
         }
       ]
     },
@@ -5733,17 +6483,20 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "Test002"
+          "activity": "Test002",
+          "id": "__awSYEQmEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "root"
+          "action": "root",
+          "id": "_blV40EQnEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "level-1"
+          "action": "level-1",
+          "id": "_jdAYoEQnEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
@@ -5763,42 +6516,50 @@
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "level-2"
+          "action": "level-2",
+          "id": "_m6o9IEQnEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "Create(DetailedException)"
+          "action": "Create(DetailedException)",
+          "id": "_PYDAEEQoEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "Issue"
+          "action": "Issue",
+          "id": "_hqLToEQoEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "set(message)"
+          "action": "set(message)",
+          "id": "_WLJEgEQoEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "RaiseExceptionAction"
+          "action": "RaiseExceptionAction",
+          "id": "_DbaZgEQpEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "handler"
+          "action": "handler",
+          "id": "_gLgLoEQnEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "read(message)"
+          "action": "read(message)",
+          "id": "_XFeJUEQpEeq_86rQwoiqlQ"
         },
         {
           "kind": "Fire",
           "activity": "Test002",
-          "action": "call(writeline)"
+          "action": "call(writeline)",
+          "id": "_e7EzoEQpEeq_86rQwoiqlQ"
         },
         {
           "kind": "Execute",
@@ -5808,6 +6569,10 @@
           "kind": "Fire",
           "activity": "WriteLine",
           "action": "StandardOutputChannel"
+        },
+        {
+          "kind": "Complete",
+          "activity": "WriteLine"
         },
         {
           "kind": "Fire",
@@ -5824,6 +6589,11 @@
           "activity": "Test002",
           "parameter": "testOutput",
           "value": "Test 002 - Before the raising of an exception"
+        },
+        {
+          "kind": "Complete",
+          "activity": "Test002",
+          "id": "__awSYEQmEeq_86rQwoiqlQ"
         }
       ]
     },
@@ -5857,37 +6627,44 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "Test003"
+          "activity": "Test003",
+          "id": "_meVz8EQtEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
           "activity": "Test003",
-          "action": "Create(DetailedException)"
+          "action": "Create(DetailedException)",
+          "id": "_meVz_0QtEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
           "activity": "Test003",
-          "action": "Issue"
+          "action": "Issue",
+          "id": "_meV0DUQtEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
           "activity": "Test003",
-          "action": "set(message)"
+          "action": "set(message)",
+          "id": "_meV0A0QtEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
           "activity": "Test003",
-          "action": "RaiseException"
+          "action": "RaiseException",
+          "id": "_meVz_EQtEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
           "activity": "Test003",
-          "action": "exceptionHandler"
+          "action": "exceptionHandler",
+          "id": "_meV0EkQtEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
           "activity": "Test003",
-          "action": "isClassifiedBy(DetailedException)"
+          "action": "isClassifiedBy(DetailedException)",
+          "id": "_wFSMkFAAEeq0eJ3N0xckiQ"
         },
         {
           "kind": "Fire",
@@ -5897,7 +6674,8 @@
         {
           "kind": "Fire",
           "activity": "Test003",
-          "action": "set(outputFlag)"
+          "action": "set(outputFlag)",
+          "id": "_a-3-EFABEeq0eJ3N0xckiQ"
         },
         {
           "kind": "Fire",
@@ -5907,13 +6685,19 @@
         {
           "kind": "Fire",
           "activity": "Test003",
-          "action": "read(outputFlag)"
+          "action": "read(outputFlag)",
+          "id": "_LgquMFACEeq0eJ3N0xckiQ"
         },
         {
           "kind": "Output",
           "activity": "Test003",
           "parameter": "output",
           "value": "true"
+        },
+        {
+          "kind": "Complete",
+          "activity": "Test003",
+          "id": "_meVz8EQtEeqDuan-cpgLzQ"
         }
       ]
     },
@@ -5947,12 +6731,14 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "Test004"
+          "activity": "Test004",
+          "id": "_5MEXAEQwEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
           "activity": "Test004",
-          "action": "Create(DetailedException)"
+          "action": "Create(DetailedException)",
+          "id": "_5MEXDEQwEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
@@ -5962,17 +6748,20 @@
         {
           "kind": "Fire",
           "activity": "Test004",
-          "action": "set(message)"
+          "action": "set(message)",
+          "id": "_5MEXEEQwEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
           "activity": "Test004",
-          "action": "RaiseException"
+          "action": "RaiseException",
+          "id": "_5MEXGkQwEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
           "activity": "Test004",
-          "action": "exceptionHandler1"
+          "action": "exceptionHandler1",
+          "id": "_5MEXIkQwEeqDuan-cpgLzQ"
         },
         {
           "kind": "Fire",
@@ -5997,13 +6786,19 @@
         {
           "kind": "Fire",
           "activity": "Test004",
-          "action": "read(outputMessage)"
+          "action": "read(outputMessage)",
+          "id": "_39EbYFC0Eeq0eJ3N0xckiQ"
         },
         {
           "kind": "Output",
           "activity": "Test004",
           "parameter": "testOutput",
           "value": "Test 004 - Exception caught by handler 1"
+        },
+        {
+          "kind": "Complete",
+          "activity": "Test004",
+          "id": "_5MEXAEQwEeqDuan-cpgLzQ"
         }
       ]
     },
@@ -6037,37 +6832,44 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "Test005"
+          "activity": "Test005",
+          "id": "_s9agcEQ-EeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "Create(DetailedException)"
+          "action": "Create(DetailedException)",
+          "id": "_s9agfEQ-EeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "Issue"
+          "action": "Issue",
+          "id": "_s9agjUQ-EeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "set(message)"
+          "action": "set(message)",
+          "id": "_s9aggEQ-EeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "RaiseException"
+          "action": "RaiseException",
+          "id": "_s9agikQ-EeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "exceptionHandler"
+          "action": "exceptionHandler",
+          "id": "_s9agkkQ-EeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "read(message)"
+          "action": "read(message)",
+          "id": "_osOtMERAEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
@@ -6077,7 +6879,8 @@
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "set(outputMessage)"
+          "action": "set(outputMessage)",
+          "id": "_0RcBsFC1Eeq0eJ3N0xckiQ"
         },
         {
           "kind": "Fire",
@@ -6087,23 +6890,31 @@
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "read(outputMessage)"
+          "action": "read(outputMessage)",
+          "id": "_bOCjwFC3Eeq0eJ3N0xckiQ"
         },
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "message"
+          "action": "message",
+          "id": "_WHhmcERBEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test005",
-          "action": "call(concat)"
+          "action": "call(concat)",
+          "id": "_zmxpMFC3Eeq0eJ3N0xckiQ"
         },
         {
           "kind": "Output",
           "activity": "Test005",
           "parameter": "testOutput",
           "value": "Test 005 - Exception Raised - After exception handling"
+        },
+        {
+          "kind": "Complete",
+          "activity": "Test005",
+          "id": "_s9agcEQ-EeqVfa4jYxuw1Q"
         }
       ]
     },
@@ -6132,42 +6943,55 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "Test006"
+          "activity": "Test006",
+          "id": "_v9EWMERDEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test006",
-          "action": "root"
+          "action": "root",
+          "id": "_v9EWMURDEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test006",
-          "action": "level-1"
+          "action": "level-1",
+          "id": "_v9EWM0RDEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test006",
-          "action": "level-2"
+          "action": "level-2",
+          "id": "_v9EWQkRDEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test006",
-          "action": "Create(DetailedException)"
+          "action": "Create(DetailedException)",
+          "id": "_v9EWTERDEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test006",
-          "action": "Issue"
+          "action": "Issue",
+          "id": "_v9EWWkRDEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test006",
-          "action": "set(message)"
+          "action": "set(message)",
+          "id": "_v9EWUERDEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test006",
-          "action": "RaiseExceptionAction"
+          "action": "RaiseExceptionAction",
+          "id": "_v9EWX0RDEeqVfa4jYxuw1Q"
+        },
+        {
+          "kind": "Complete",
+          "activity": "Test006",
+          "id": "_v9EWMERDEeqVfa4jYxuw1Q"
         }
       ]
     },
@@ -6240,35 +7064,42 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "Test007"
+          "activity": "Test007",
+          "id": "_jQRH4ERNEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test007",
-          "action": "call(C_Factory)"
+          "action": "call(C_Factory)",
+          "id": "_uOUw4ERNEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Execute",
-          "activity": "C_Factory"
+          "activity": "C_Factory",
+          "id": "_fwq74ERKEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "C_Factory",
-          "action": "createObject"
+          "action": "createObject",
+          "id": "_fzveAERKEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "C_Factory",
-          "action": "callConstructor"
+          "action": "callConstructor",
+          "id": "_fzwFEkRKEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Execute",
-          "activity": "C$Impl"
+          "activity": "C$Impl",
+          "id": "_ICLRMFDKEeq0eJ3N0xckiQ"
         },
         {
           "kind": "Fire",
           "activity": "C$Impl",
-          "action": "this"
+          "action": "this",
+          "id": "_YUGnkFDKEeq0eJ3N0xckiQ"
         },
         {
           "kind": "Output",
@@ -6277,64 +7108,90 @@
           "value": "Reference to obj1(C)"
         },
         {
+          "kind": "Complete",
+          "activity": "C$Impl",
+          "id": "_ICLRMFDKEeq0eJ3N0xckiQ"
+        },
+        {
           "kind": "Output",
           "activity": "C_Factory",
           "parameter": "result",
           "value": "Reference to obj1(C)"
         },
         {
+          "kind": "Complete",
+          "activity": "C_Factory",
+          "id": "_fwq74ERKEeqVfa4jYxuw1Q"
+        },
+        {
           "kind": "Fire",
           "activity": "Test007",
-          "action": "call(raiseException)"
+          "action": "call(raiseException)",
+          "id": "_6o3mAERNEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Execute",
-          "activity": "raiseException$Impl"
+          "activity": "raiseException$Impl",
+          "id": "_kATlEERKEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "raiseException$Impl",
-          "action": "root"
+          "action": "root",
+          "id": "_uw6A4ERKEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "raiseException$Impl",
-          "action": "level-1"
+          "action": "level-1",
+          "id": "_x_KFkERKEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "raiseException$Impl",
-          "action": "Create(DetailedException)"
+          "action": "Create(DetailedException)",
+          "id": "_5-3uIERKEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "raiseException$Impl",
-          "action": "Issue"
+          "action": "Issue",
+          "id": "_b8Jr8ERLEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "raiseException$Impl",
-          "action": "set(message)"
+          "action": "set(message)",
+          "id": "_LkZaYERLEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "raiseException$Impl",
-          "action": "RaiseException"
+          "action": "RaiseException",
+          "id": "_0QTMUERLEeqVfa4jYxuw1Q"
+        },
+        {
+          "kind": "Complete",
+          "activity": "raiseException$Impl",
+          "id": "_kATlEERKEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test007",
-          "action": "handler"
+          "action": "handler",
+          "id": "_GLQrIEROEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test007",
-          "action": "read(message)"
+          "action": "read(message)",
+          "id": "_D4Mm4ERPEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Fire",
           "activity": "Test007",
-          "action": "call(writeline)"
+          "action": "call(writeline)",
+          "id": "_NimPoERPEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Execute",
@@ -6346,14 +7203,20 @@
           "action": "StandardOutputChannel"
         },
         {
-          "kind": "Fire",
-          "activity": "Test007",
-          "action": "Exception"
+          "kind": "Complete",
+          "activity": "WriteLine"
         },
         {
           "kind": "Fire",
           "activity": "Test007",
-          "action": "true"
+          "action": "Exception",
+          "id": "_XTvZkERPEeqVfa4jYxuw1Q"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test007",
+          "action": "true",
+          "id": "_YB3D0ERPEeqVfa4jYxuw1Q"
         },
         {
           "kind": "Output",
@@ -6366,6 +7229,11 @@
           "activity": "Test007",
           "parameter": "outputExceptionFlag",
           "value": "true"
+        },
+        {
+          "kind": "Complete",
+          "activity": "Test007",
+          "id": "_jQRH4ERNEeqVfa4jYxuw1Q"
         }
       ]
     },
@@ -6417,21 +7285,25 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "Test008"
+          "activity": "Test008",
+          "id": "_-5N7YEXCEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "Test008",
-          "action": "root"
+          "action": "root",
+          "id": "_IdLIcEXEEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "Test008",
-          "action": "call(CalledBehavior)"
+          "action": "call(CalledBehavior)",
+          "id": "_EovNgEXEEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Execute",
-          "activity": "CalledBehavior"
+          "activity": "CalledBehavior",
+          "id": "_KI8jMEXDEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
@@ -6441,37 +7313,49 @@
         {
           "kind": "Fire",
           "activity": "CalledBehavior",
-          "action": "Create(DetailedException)"
+          "action": "Create(DetailedException)",
+          "id": "_AtLaEEXIEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "CalledBehavior",
-          "action": "message"
+          "action": "message",
+          "id": "_TjrmAEXIEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "CalledBehavior",
-          "action": "set(message)"
+          "action": "set(message)",
+          "id": "_cXSwsEXIEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "CalledBehavior",
-          "action": "RaiseException"
+          "action": "RaiseException",
+          "id": "_tc2jcEXIEeqhh-m8NkJ-tg"
+        },
+        {
+          "kind": "Complete",
+          "activity": "CalledBehavior",
+          "id": "_KI8jMEXDEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "Test008",
-          "action": "handler"
+          "action": "handler",
+          "id": "_RobXEEXEEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "Test008",
-          "action": "Exception"
+          "action": "Exception",
+          "id": "_eRR4gEXFEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "Test008",
-          "action": "true"
+          "action": "true",
+          "id": "_hc9KUEXFEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Output",
@@ -6484,6 +7368,11 @@
           "activity": "Test008",
           "parameter": "outputExceptionMessage",
           "value": "Exception"
+        },
+        {
+          "kind": "Complete",
+          "activity": "Test008",
+          "id": "_-5N7YEXCEeqhh-m8NkJ-tg"
         }
       ]
     },
@@ -6525,7 +7414,8 @@
       "events": [
         {
           "kind": "Execute",
-          "activity": "CalledBehavior"
+          "activity": "CalledBehavior",
+          "id": "_KI8jMEXDEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
@@ -6535,22 +7425,31 @@
         {
           "kind": "Fire",
           "activity": "CalledBehavior",
-          "action": "Create(DetailedException)"
+          "action": "Create(DetailedException)",
+          "id": "_AtLaEEXIEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "CalledBehavior",
-          "action": "message"
+          "action": "message",
+          "id": "_TjrmAEXIEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "CalledBehavior",
-          "action": "set(message)"
+          "action": "set(message)",
+          "id": "_cXSwsEXIEeqhh-m8NkJ-tg"
         },
         {
           "kind": "Fire",
           "activity": "CalledBehavior",
-          "action": "RaiseException"
+          "action": "RaiseException",
+          "id": "_tc2jcEXIEeqhh-m8NkJ-tg"
+        },
+        {
+          "kind": "Complete",
+          "activity": "CalledBehavior",
+          "id": "_KI8jMEXDEeqhh-m8NkJ-tg"
         }
       ]
     }

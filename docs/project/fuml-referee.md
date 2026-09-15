@@ -110,12 +110,14 @@ pin cannot be compared against old truth. Each entry of `activities` is one decl
                   "lower": 1, "upper": "*", "isOrdered": true, "isUnique": true}],
   "outputs":    [{"parameter": "output",
                   "values": [{"kind": "Integer", "value": 0}, {"kind": "Integer", "value": 1}]}],
-  "events":     [{"kind": "Execute", "activity": "DecisionJoin"},
-                 {"kind": "Fire", "activity": "DecisionJoin", "action": "Value(0)"},
-                 {"kind": "Fire", "activity": "DecisionJoin", "action": "Action_A"},
-                 {"kind": "Execute", "activity": "Copier"},
+  "events":     [{"kind": "Execute", "activity": "DecisionJoin", "id": "_15_5_1_1a900482_1225499009421_139168_1510"},
+                 {"kind": "Fire", "activity": "DecisionJoin", "action": "Value(0)", "id": "_15_5_1_…_1531"},
+                 {"kind": "Fire", "activity": "DecisionJoin", "action": "Action_A", "id": "_15_5_1_…_1611"},
+                 {"kind": "Execute", "activity": "Copier", "id": "_15_5_1_…_826"},
                  {"kind": "Output", "activity": "Copier", "parameter": "output", "value": "0"},
-                 "…"]
+                 {"kind": "Complete", "activity": "Copier", "id": "_15_5_1_…_826"},
+                 "…",
+                 {"kind": "Complete", "activity": "DecisionJoin", "id": "_15_5_1_1a900482_1225499009421_139168_1510"}]
 }
 ```
 
@@ -125,18 +127,27 @@ execution left in it, in the implementation's order — primitives as JSON numbe
 strings (`Real` and `UnlimitedNatural` as strings, so `*` and the implementation's own
 spelling of a real survive), references as the object they point at with its types and feature
 values to a bounded depth. `events` are the implementation's trace in order: `Execute` when
-an activity (the one under test or one it calls) starts, `Fire` when an action runs, `Output`
-when an output parameter receives a value (and `Post` where the implementation reports one
-posted to a parameter node; none of the pinned activities does). The `Fire` sequence is one legal schedule — the
-implementation's, which is sequential — and is compared **advisorily** only; the outputs are the
-oracle.
+an activity (the one under test or one it calls) starts and `Complete` when that execution
+ends, `Fire` when an action runs, `Output` when an output parameter receives a value (and
+`Post` where the implementation reports one posted to a parameter node; none of the pinned
+activities does). `Execute` and `Complete` nest, so the trace shows which execution each
+`Fire` belongs to even when an activity calls itself. The implementation reports elements by
+name only; the driver adds the XMI `id` of the activity (`Execute`, `Complete`) or the action
+node (`Fire`) where the name identifies exactly one element of the loaded models, and omits it
+where it does not — a node name an activity uses twice (the exception model's `Test001` reads `this` at two nodes), or an
+action of a library activity such as `WriteLine`. The `Fire` sequence is one legal schedule —
+the implementation's, which is sequential — and is compared **advisorily** only; the outputs
+are the oracle.
 
 The record also carries the constructs the classifier reads from the trace directly. fUML fires
 an action once per token offered to a multiplicity-1 pin, so an action downstream of a merge
-or a decision that passes two tokens fires twice under one `Execute` (`DecisionJoin`'s
-`Action_A`, `ForkMergeData`'s `Action_B`, `ForkMerge`'s `Value(0)`); SysML v2 performs the
-node once with every delivery, and `ExpectedActivity.Refired` names such actions so the
-classifier can file the activity as `differs-by-design` rather than as a failure.
+or a decision that passes two tokens fires twice within one execution of its activity
+(`DecisionJoin`'s `Action_A`, `ForkMergeData`'s `Action_B`, `ForkMerge`'s `Value(0)`); SysML v2
+performs the node once with every delivery, and `ExpectedActivity.Refired` names such actions
+so the classifier can file the activity as `differs-by-design` rather than as a failure. The
+count is per node `id` and per `Execute`…`Complete` span: two nodes sharing a name are never
+mistaken for one node firing twice (a `Fire` without an `id` counts as nothing), and a callee
+execution — a recursive one included — neither inherits nor resets its caller's counts.
 
 ## Reading, classifying, translating and refereeing
 

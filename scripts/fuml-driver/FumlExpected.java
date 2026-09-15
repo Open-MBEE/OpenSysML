@@ -12,10 +12,12 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -103,6 +105,8 @@ public final class FumlExpected {
 		final String name;
 		final String ownerKind;
 		final String ownerName;
+		/** Every node the activity owns, at any nesting depth, by name: the ids declared under it. */
+		final Map<String, List<String>> nodeIds = new LinkedHashMap<>();
 
 		ActivityDecl(String model, String id, String name, String ownerKind, String ownerName) {
 			this.model = model;
@@ -117,19 +121,32 @@ public final class FumlExpected {
 		}
 	}
 
-	/** Captures the implementation's {@code [event]} lines for the thread running an activity. */
+	// The implementation announces an activity execution's end only as a debug line.
+	private static final Pattern COMPLETED = Pattern.compile("\\[execute\\] Activity (.*) completed\\.");
+
+	/** Captures the thread's {@code [event]} lines, plus each completion debug line as a Complete event. */
 	private static final class EventAppender extends AppenderSkeleton {
 		volatile Thread owner;
 		final List<String> events = new ArrayList<>();
 
 		@Override
 		protected void append(LoggingEvent event) {
+			if (Thread.currentThread() != owner) {
+				return;
+			}
 			// Compared by rank: commons-logging hands log4j its own Priority instances.
-			if (Thread.currentThread() != owner || event.getLevel().toInt() != Level.INFO_INT) {
+			String line = String.valueOf(event.getMessage());
+			if (event.getLevel().toInt() == Level.DEBUG_INT) {
+				Matcher m = COMPLETED.matcher(line);
+				if (!m.matches()) {
+					return;
+				}
+				line = "Complete activity=" + m.group(1);
+			} else if (event.getLevel().toInt() != Level.INFO_INT) {
 				return;
 			}
 			synchronized (events) {
-				events.add(String.valueOf(event.getMessage()));
+				events.add(line);
 			}
 		}
 
@@ -221,6 +238,7 @@ public final class FumlExpected {
 			Fuml.load(m.file, m.uri);
 		}
 		provenance.put("models", modelProvenance);
+		Map<String, ActivityDecl> byName = activitiesByName(activities);
 
 		int packaged = 0;
 		int failed = 0;
@@ -280,7 +298,7 @@ public final class FumlExpected {
 					rec.put("error", cause.getClass().getName() + ": " + cause.getMessage());
 					System.err.println("error: " + decl.name + " failed: " + cause);
 				}
-				rec.put("events", eventRecords(events.drain(), aliases));
+				rec.put("events", eventRecords(events.drain(), aliases, byName));
 			}
 		} finally {
 			runner.shutdownNow();
@@ -317,7 +335,7 @@ public final class FumlExpected {
 		root.addAppender(new ConsoleAppender(new PatternLayout("%-5p %c{1} %m%n"), ConsoleAppender.SYSTEM_ERR));
 		EventAppender appender = new EventAppender();
 		Logger debug = Logger.getLogger("fuml.Debug");
-		debug.setLevel(Level.INFO);
+		debug.setLevel(Level.DEBUG);
 		debug.setAdditivity(false);
 		debug.addAppender(appender);
 		return appender;
@@ -343,14 +361,61 @@ public final class FumlExpected {
 		if ("uml:Activity".equals(el.getAttributeNS(XMI_NS, "type")) && !el.hasAttribute("href")) {
 			Node owner = el.getParentNode();
 			String ownerName = owner instanceof Element ? ((Element) owner).getAttribute("name") : "";
-			out.add(new ActivityDecl(model, el.getAttributeNS(XMI_NS, "id"), el.getAttribute("name"),
-					el.getLocalName(), ownerName));
+			ActivityDecl decl = new ActivityDecl(model, el.getAttributeNS(XMI_NS, "id"), el.getAttribute("name"),
+					el.getLocalName(), ownerName);
+			collectNodes(el, decl.nodeIds);
+			out.add(decl);
 		}
 		for (Node n = el.getFirstChild(); n != null; n = n.getNextSibling()) {
 			if (n instanceof Element) {
 				collectActivities(model, (Element) n, out);
 			}
 		}
+	}
+
+	/** Indexes the nodes under an activity, structured nodes and their contents included. */
+	private static void collectNodes(Element el, Map<String, List<String>> nodeIds) {
+		for (Node n = el.getFirstChild(); n != null; n = n.getNextSibling()) {
+			if (!(n instanceof Element)) {
+				continue;
+			}
+			Element child = (Element) n;
+			if ("uml:Activity".equals(child.getAttributeNS(XMI_NS, "type"))) {
+				continue; // an activity an action owns declares its own nodes
+			}
+			String role = child.getLocalName();
+			if ("node".equals(role) || "structuredNode".equals(role)) {
+				nodeIds.computeIfAbsent(child.getAttribute("name"), k -> new ArrayList<>())
+						.add(child.getAttributeNS(XMI_NS, "id"));
+			}
+			collectNodes(child, nodeIds);
+		}
+	}
+
+	/** The declared activities by name; a name two activities share resolves nothing. */
+	private static Map<String, ActivityDecl> activitiesByName(List<ActivityDecl> activities) {
+		Map<String, ActivityDecl> byName = new LinkedHashMap<>();
+		Set<String> shared = new HashSet<>();
+		for (ActivityDecl decl : activities) {
+			if (byName.put(decl.name, decl) != null) {
+				shared.add(decl.name);
+			}
+		}
+		byName.keySet().removeAll(shared);
+		return byName;
+	}
+
+	/** The XMI id of the named activity, or of its one node with the action's name; null if shared. */
+	private static String elementId(Map<String, ActivityDecl> byName, String activity, String action) {
+		ActivityDecl decl = activity == null ? null : byName.get(activity);
+		if (decl == null) {
+			return null;
+		}
+		if (action == null) {
+			return decl.id;
+		}
+		List<String> ids = decl.nodeIds.get(action);
+		return ids != null && ids.size() == 1 ? ids.get(0) : null;
 	}
 
 	/** The behavior's parameters as the implementation loaded them. */
@@ -472,8 +537,9 @@ public final class FumlExpected {
 		return sb.toString();
 	}
 
-	/** Parses "Kind key=value ..." lines; a final "value=" takes the rest of the line. */
-	private static List<Object> eventRecords(List<String> lines, Map<String, String> aliases) {
+	/** Parses "Kind key=value ..." lines (a final "value=" takes the rest); adds the element's id where unique. */
+	private static List<Object> eventRecords(List<String> lines, Map<String, String> aliases,
+			Map<String, ActivityDecl> byName) {
 		List<Object> out = new ArrayList<>();
 		for (String line : lines) {
 			Map<String, Object> m = new LinkedHashMap<>();
@@ -508,6 +574,12 @@ public final class FumlExpected {
 				}
 				m.put(key.substring(0, key.length() - 1), rest.substring(keyEnd + 1, next));
 				pos = next + 1;
+			}
+			if ("Fire".equals(kind) || "Execute".equals(kind) || "Complete".equals(kind)) {
+				String id = elementId(byName, (String) m.get("activity"), (String) m.get("action"));
+				if (id != null) {
+					m.put("id", id);
+				}
 			}
 			if (value != null) {
 				m.put("value", alias(value, aliases));
