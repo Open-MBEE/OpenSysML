@@ -636,6 +636,10 @@ func (w *Workspace) LibraryDocument(name string) *Document {
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	// The workspace may have taken the name between the locks.
+	if name, isLibrary = w.libraryNameLocked(name); !isLibrary {
+		return nil
+	}
 	return w.libraryDocumentLocked(name)
 }
 
