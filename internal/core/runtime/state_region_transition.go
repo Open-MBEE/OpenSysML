@@ -283,6 +283,9 @@ func (e *StateExecutor) moveBetweenRegions(
 	if err := e.runBehaviors(effects); err != nil {
 		return err
 	}
+	if keep == target {
+		return e.completeInto(trans, source.Name, target)
+	}
 
 	// The region's active state is the deepest state on the path to target that the
 	// region itself declares, which is a composite state above target when the
@@ -377,6 +380,14 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 	// exits its regions' active states, as exiting a KerML StatePerformance ends
 	// its subperformances.
 	lca := e.getLCA(owner, target)
+	if lca == target {
+		// The target is an active ancestor: the region is left and rests at its
+		// owner, the states between are exited, and the target is not re-entered.
+		if err := e.exitRegionTo(region, nil); err != nil {
+			return err
+		}
+		e.activeConfig.regionStates[region] = owner
+	}
 	for _, current := range e.exitPath(owner, lca, nil) {
 		// Clear the region current is active in first — a region's active state may
 		// be nested below current — or an enclosing state exits current again.
@@ -392,6 +403,9 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 	}
 	if err := e.runBehaviors(effects); err != nil {
 		return err
+	}
+	if lca == target {
+		return e.completeInto(trans, source.Name, target)
 	}
 	return e.enterOutside(trans, source, lca, target)
 }

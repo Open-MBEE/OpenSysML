@@ -1618,6 +1618,9 @@ func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateN
 	if err := e.runBehaviors(effects); err != nil {
 		return err
 	}
+	if lca == targetState {
+		return e.completeInto(trans, fromName, targetState)
+	}
 	return e.enterBelow(trans, fromName, lca, targetState, branches)
 }
 
@@ -1732,10 +1735,40 @@ func (e *StateExecutor) machineComplete() bool {
 	return true
 }
 
-// regionComplete reports whether region rests at its completion vertex.
+// completeInto finishes a transition from a substate into its still active
+// ancestor: the target is not re-entered, and the region the source left
+// completes, which completes a target with no other region (PSSM 8.5.8).
+func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, target *ast.StateNode) error {
+	e.stateStack = e.rootToLeaf(target)
+	if _, orthogonal := e.graph.CompositeStates[target]; orthogonal {
+		if e.stateComplete(target) {
+			if err := e.scheduleCompletionTransitions(target); err != nil {
+				return fmt.Errorf("schedule completion of state %s: %w", target.Name, err)
+			}
+		}
+	} else {
+		onPath := e.branchesTo(nil, target)
+		for region, state := range onPath {
+			e.activeConfig.regionStates[region] = state
+		}
+		if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
+			e.activeConfig.simpleState = target
+		}
+		if err := e.scheduleCompletionTransitions(target); err != nil {
+			return fmt.Errorf("schedule completion of state %s: %w", target.Name, err)
+		}
+	}
+	if e.trace() != nil {
+		e.trace().RecordStateTransition(fromName, target.Name, triggerName(trans.Trigger))
+	}
+	return nil
+}
+
+// regionComplete reports whether region rests at its completion vertex, or at
+// its owner once a transition into the owner left it without an active state.
 func (e *StateExecutor) regionComplete(region *ast.StateRegion) bool {
 	active, ok := e.activeConfig.regionStates[region]
-	return ok && e.graph.Completes(active)
+	return ok && (e.graph.Completes(active) || active == e.graph.RegionOwner[region])
 }
 
 // stateComplete reports whether state's body has completed: it is a completion
@@ -3671,7 +3704,9 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	// Remember the configuration being left, so a history pseudostate owned by
 	// this state or by its parent can restore it.
 	for region, regionState := range active {
-		e.recordRegionHistory(region, regionState)
+		if regionState != state {
+			e.recordRegionHistory(region, regionState)
+		}
 	}
 	if parent := e.graph.ParentState[state]; parent != nil {
 		e.recordChildHistory(parent, state)

@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-14",
-    "develop": "f4b844329ace2f8feaf2560b4e21d0a5d834683d"
+    "recorded": "2026-09-15",
+    "develop": "bcc6b13e0ab9fa3814f183c2e8f2cf33b68adb03"
   },
   "buckets": {
     "differs-by-design": 2,
-    "fail": 18,
+    "fail": 17,
     "not-expressible": 39,
-    "pass": 41,
+    "pass": 42,
     "terminate-gap": 3
   },
   "tests": [
@@ -148,16 +148,12 @@
       "name": "Transition 011 C",
       "area": "Transition",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)",
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
       ],
       "reached": [
-        "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)"
+        "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
       ],
       "runs": 1
     },

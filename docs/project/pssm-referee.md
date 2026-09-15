@@ -152,8 +152,8 @@ test in the suite reaches them.
 
 ## Baseline
 
-Recorded **2026-09-14** on develop commit **`f4b844329ace2f8feaf2560b4e21d0a5d834683d`** with
-the history-record fix (finding 7) and the emitter's initial-effect fix described below, as
+Recorded **2026-09-15** on develop commit **`bcc6b13e0ab9fa3814f183c2e8f2cf33b68adb03`** with the history-record fix
+(finding 7), the emitter's initial-effect fix and the active-ancestor fix described below, as
 `docs/project/pssm-referee-baseline.json`; regenerate with `go run ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
 The figures below are as measured when this record was last updated and are not the current
@@ -161,8 +161,8 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 41 |
-| `fail` | 18 |
+| `pass` | 42 |
+| `fail` | 17 |
 | `not-expressible` | 39 |
 | `terminate-gap` | 3 |
 | `differs-by-design` | 2 |
@@ -170,8 +170,19 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 ### Movements since the previous baseline
 
-The previous baseline (develop `bb95cf226`, 2026-09-12) counted 36 `pass` and 23 `fail`. Two
-changes move it: the runtime fix of [finding 7](#findings-about-our-own-conformance) (a
+The previous baseline (develop `f4b844329`, 2026-09-14) counted 41 `pass` and 18 `fail`. One
+change moves it: a transition from a substate into the composite state enclosing it no longer
+re-enters that state (runtime, `state_executor.go:completeInto`; the SM35 row of the alignment
+note records the rule). One test moved `fail` → `pass` and none the other way.
+
+| Test | Row | Movement | Adjudication |
+|---|---|---|---|
+| Transition 011 C | SM35 | `fail` → `pass` | Runtime defect. `T1.3` leaves `S1.2` for `S1`, the composite enclosing it and already active. The run exited `S1.1` and `S1.2`, ran the effect, then started `S1`'s default substate again without exiting or entering `S1` — an entry sequence neither UML nor SysML v2 admits: UML's external transition either exits and re-enters `S1` or, as PSSM §8.5.8 reads it, does not enter a target that is already active and completes the source's region instead ("the RegionActivation owning the sourceVertexActivation completes"); SysML v2 §7.18.3 activates a target on the transition and nowhere restarts an active one. The runtime now follows PSSM: `S1`'s region is complete once `S1.2` is left, `S1` completes, `T2` fires and `S1(exit)` is logged, the admitted trace. `state_transition_into_active_ancestor`, `state_transition_into_active_parallel_ancestor` pin it |
+
+### Movements before that
+
+The baseline of develop `f4b844329` followed one (develop `bb95cf226`, 2026-09-12) that
+counted 36 `pass` and 23 `fail`. Two changes move it: the runtime fix of [finding 7](#findings-about-our-own-conformance) (a
 transition into a history reads the record after its exits have run, and a history declared in
 the machine's own body restores the machine's configuration) and a translation fix in the
 emitter (an initial transition's effect used to be folded into the entry action of the state or
@@ -194,8 +205,6 @@ error at the junction whose guards are all false, SM32's case — where it reach
 one), and finding 7 the reason of *History 001-C* and *History 002-B* (the restore is now the
 admitted one; what remains missing are the other interleavings of the two regions' entries and
 exits). Their rows below quote the new reasons.
-
-### Movements before that
 
 The baseline of develop `bb95cf226` followed one (develop `fb034e817`, the same day) that
 counted 25 `pass` and 34 `fail`. It was
@@ -230,10 +239,10 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (41)
+### `pass` (42)
 
-Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 015,
-Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
+Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 011 C,
+Transition 015, Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
 Event 010, Event 016 A (reports on SM11), Event 016 B, Event 017 A, Event 018, Entering 004,
 Entering 005, Exiting 002, Exiting 005, Choice 001 and Choice 002 (report on SM30), Choice 003,
 Choice 004, Final001 (reports on SM11), Deferred 001, Deferred 002, Deferred 003 (reports on
@@ -253,9 +262,9 @@ History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Ju
 Terminate 001, Terminate 002, Terminate 003 — each reaches `S1.Terminate1`; they move to
 `pass` or `fail` when the runtime executes `terminate` (alignment finding 1).
 
-### `fail` (18)
+### `fail` (17)
 
-One failure cites a note row through the committed table. The other seventeen are
+One failure cites a note row through the committed table. The other sixteen are
 **unadjudicated**: fails, not yet attributed to a translation defect, a runtime defect, or a
 missing alignment row. The referee records them; it does not diagnose them, and none of them is
 a finding against the runtime until someone adjudicates it.
@@ -266,7 +275,7 @@ a finding against the runtime until someone adjudicates it.
 |---|---|---|
 | Junction 002 | SM32 | run error: no outgoing guard of the junction holds; PSSM disables the compound transition and admits `T3(effect)` |
 
-#### Unadjudicated (17)
+#### Unadjudicated (16)
 
 One line per test, from the baseline's `reasons`: what the run reached that the suite does not
 admit (`—` when every reached trace is admitted and the failure is only a missing one), and
@@ -277,7 +286,6 @@ suite; the full sets are in the baseline file.
 | Test | Reached, not admitted | Admitted, not reached |
 |---|---|---|
 | Behavior 003 A | — | `S1(entry)` (the machine completing before the do activity's first segment) |
-| Transition 011 C | `S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)` | `S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)` |
 | Transition 017 | — | `T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)` and 6 more interleavings of `S3.1(doActivity)`, `T2.2(effect)`, `T3.1.2(effect)` (the eighth admitted order is reached) |
 | Transition 019 | `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T1.3(effect)` and the mirror ending `T2.3(effect)` | `S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)` and 5 more, all containing both `T1.3(effect)` and `T2.3(effect)` |
 | Event 015 | — | `T1.3(effect)` |
@@ -356,7 +364,7 @@ is not:
   `state_machine_body_deep_history`). The two tests pass, and *History 001-B*, *001-D* and
   *002-A* with them; the movements table above adjudicates each.
 
-The seventeen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
+The sixteen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
 one by one — to a translation defect (the referee lost a construct), a runtime defect (the extra
 trace shows behavior UML and v2 both forbid), or a missing alignment row (v2 legitimately
 differs and the note has no row for it yet) — and the attribution belongs in the change that
