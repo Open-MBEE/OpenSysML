@@ -123,20 +123,23 @@ session, so the next submission is parsed against the model as it stood before t
 non-interactive use, a load's diagnostics are errors, so a script that loads a malformed
 file fails rather than continuing against an empty session.
 
-Two loaded files that both open `package P` declare two packages of that name, and the load
-reports this:
+Each loaded file is a document of its own, analysed as the editor and the checker analyse it,
+while everything typed at the prompt forms one transcript document. Two consequences follow.
+
+A root-level import serves the file it is written in and no other: after `%load a.sysml`, a
+`private import ScalarValues::*;` at the top of `a.sysml` does not make `Real` resolvable in
+another loaded file or at the prompt. Write the import where it is used — in each file, or at
+the prompt. The packages a file declares stay reachable from every other file and from the
+prompt, since root packages share the global namespace.
+
+Two loaded files that both open `package P` declare two root packages of that name. That is not
+a duplicate, and the load reports it as a note rather than a warning:
 
 ```
 sysml> %load a.sysml b.sysml
 loaded 2 files:
   a.sysml
   b.sysml
-a.sysml:1:9: warning: Duplicate of other owned member name
-package P { part def A; }
-        ^
-b.sysml:1:9: warning: Duplicate of other owned member name
-package P { part def B; }
-        ^
 ✓ package P
 ✓ package P
 note: P is opened by more than one loaded file; each opening stays a declaration of its own, so a member of one is not visible unqualified in the other — qualify it (P::member)
@@ -144,10 +147,10 @@ note: P is opened by more than one loaded file; each opening stays a declaration
 
 Each file keeps its own identity, which is what lets you reload one of them and replace only
 its own contribution. If the two openings were merged into a single namespace, an edit to one
-file could silently delete the other file's members. The members of both openings are
-declared and reachable when qualified (`P::Wheel`, `P::Axle`), but an unqualified reference
-from one to the other does not resolve. Entering a package at the prompt is unaffected: it still
-merges into the package already in the session.
+file could silently delete the other file's members. A qualified reference to `P` resolves to
+the first declaration loaded, so `P::A` resolves while `P::B` does not; an unqualified reference
+from one opening to the other does not resolve either. Entering a package at the prompt is
+unaffected: it still merges into the package already in the session.
 
 ## Finding what a build offers
 

@@ -12,13 +12,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Result is the outcome of one Submit: the top-level members parsed from the
-// accumulated buffer (for the success summary), the names this submission
-// declared, and any analysis diagnostics over the whole <repl> document.
+// Result is the outcome of one Submit: the top-level members of the session's
+// documents (for the success summary), the names this submission declared, and
+// any analysis diagnostics over the whole buffer.
 type Result struct {
-	Members     []ast.Node          // top-level members of the <repl> AST (Task 5 renders these)
+	Members     []Member            // top-level members of the session documents, in buffer order
 	Declared    []string            // names introduced by THIS submission
 	Diagnostics []passes.Diagnostic // eager analysis over the whole buffer
 	Source      string              // the full joined <repl> content (Task 6 caret rendering)
@@ -39,6 +40,15 @@ type Result struct {
 	// masked locates the submissions kept out of the analyzed buffer, whose
 	// findings gated no validation tier.
 	masked []source.Span
+}
+
+// Member is one top-level member of a session document; Offset is where the
+// member begins in the buffer, a loaded file's document having offsets of its own.
+type Member struct {
+	Node   ast.Node
+	Offset int
+	// scope is the root scope of the document declaring the member.
+	scope *symbols.Scope
 }
 
 // Origin locates one file of a submission in the buffer, so a diagnostic is
@@ -111,10 +121,10 @@ func (r Result) holdsMine(span source.Span) bool {
 }
 
 // renderSummary returns one accepted line per top-level member: "✓ <kind> <name>".
-func renderSummary(members []ast.Node) []string {
+func renderSummary(members []Member) []string {
 	out := make([]string, 0, len(members))
 	for _, m := range members {
-		if line := renderMember(m); line != "" {
+		if line := renderMember(m.Node); line != "" {
 			out = append(out, "✓ "+line)
 		}
 	}
@@ -506,13 +516,13 @@ func hasError(diags []passes.Diagnostic) bool {
 
 // within narrows the result to one span of the submission — one file of a load
 // of several — so what is reported as its own is scoped to that text alone. A
-// member is the file's when it begins there: the last member of a document runs
-// on over the other language's text masked out after it.
+// member is the file's when it begins there: the transcript's last member runs
+// on over the files' text masked out after it.
 func (r Result) within(span source.Span) Result {
 	r.own = []source.Span{span}
-	members := make([]ast.Node, 0, len(r.Members))
+	members := make([]Member, 0, len(r.Members))
 	for _, m := range r.Members {
-		if at := m.Span().Offset; at >= span.Offset && at < span.End() {
+		if m.Offset >= span.Offset && m.Offset < span.End() {
 			members = append(members, m)
 		}
 	}
@@ -522,10 +532,10 @@ func (r Result) within(span source.Span) Result {
 
 // ownMembers returns the top-level members this submission contributed, so a
 // summary does not re-announce everything typed earlier in the session.
-func (r Result) ownMembers() []ast.Node {
-	out := make([]ast.Node, 0, len(r.Members))
+func (r Result) ownMembers() []Member {
+	out := make([]Member, 0, len(r.Members))
 	for _, m := range r.Members {
-		if r.holdsMine(m.Span()) {
+		if r.holdsMine(source.Span{Offset: m.Offset, Len: m.Node.Span().Len}) {
 			out = append(out, m)
 		}
 	}
