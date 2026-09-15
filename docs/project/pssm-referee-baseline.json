@@ -11,8 +11,8 @@
   },
   "buckets": {
     "differs-by-design": 2,
-    "fail": 18,
-    "not-expressible": 37,
+    "fail": 17,
+    "not-expressible": 38,
     "pass": 43,
     "terminate-gap": 3
   },
@@ -852,19 +852,11 @@
     {
       "name": "Choice 005",
       "area": "Choice",
-      "class": "extension",
-      "bucket": "fail",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
       "reasons": [
-        "reached a trace the suite does not admit: T2(effect)::S1(entry)::S1.1(entry)",
-        "admitted trace not reached: T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)"
-      ],
-      "expected": [
-        "T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)"
-      ],
-      "reached": [
-        "T2(effect)::S1(entry)::S1.1(entry)"
-      ],
-      "runs": 1
+        "guard side effect T1.2; guard side effect T1.4; guard side effect T1.5; guard side effect T1.3"
+      ]
     },
     {
       "name": "Standalone 001",

@@ -62,16 +62,17 @@ note's [construct-to-notation table](../internals/design/precise-semantics-align
 | Class | Meaning | Count |
 |---|---|---:|
 | **standard** | every construct has a spelling in standard SysML v2 notation | 31 |
-| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 32 |
+| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 31 |
 | **terminate-gap** | spellable, but reaches `terminate`, which the runtime parses and lowers and does not yet execute (alignment finding 1) | 3 |
-| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the notation cannot bind, or a shape this project's lowerer refuses | 37 |
+| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the notation cannot bind, or a shape this project's lowerer refuses | 38 |
 
 A test using any construct with no spelling or no translation is not expressible whatever else
 it uses; otherwise `terminate` wins over the extensions, and the extensions over standard. The
 alignment note was first written with a hand count of 37 / 33 / 3 / 30; the classifier is the
 record from now on, and the note's test-suite section carries its figures. Nine tests moved
-from the hand count when the emitter was written, and two of them moved back when the lowerer
-learned to accept a fork-entered region; each is listed with its reason in the note under
+from the hand count when the emitter was written, two of them moved back when the lowerer
+learned to accept a fork-entered region, and a tenth moved when its failure was adjudicated;
+each is listed with its reason in the note under
 [Moves from the hand count](../internals/design/precise-semantics-alignment.md#moves-from-the-hand-count):
 
 - **Entry, exit or do behaviors with parameters** that read the triggering event's data:
@@ -81,6 +82,13 @@ learned to accept a fork-entered region; each is listed with its reason in the n
   *Deferred 007*. The runtime's call events carry nothing back to the caller, and only the
   target's behaviors write the model's `log`.
 - **A `trace(...)` in the tester's own behavior**: *Event 019-A* (and *019-D*, *019-E*).
+- **A guard whose behavior acts on the model**: *Choice 005*, whose four guards each
+  `trace("T1.n(guard)")` before returning, and whose admitted trace records the calls. A v2
+  guard is a Boolean expression (`bool guard[*]` in `TransitionPerformances.kerml`, the effect a
+  separate `step`), and UML 2.5.1 §14.5.11 itself calls a guard with a side effect ill formed;
+  the translation keeps the guard's value and cannot reach the trace, so the emitter refuses
+  it rather than run the test short (`classify.go:guardSideEffect`, `TestClassifyGuardSideEffect`,
+  `TestEmitRejects`).
 - **A fork into orthogonal regions that have no initial pseudostate**: *Fork 002*, *Join 001*
   — kept apart from the rest while the lowerer refused the shape, and translated since it
   accepts it, see [Findings about our own conformance](#findings-about-our-own-conformance).
@@ -155,7 +163,8 @@ test in the suite reaches them.
 ## Baseline
 
 Recorded **2026-09-15** on develop commit **`e6218449a`** with the fork-entered-region fix
-(finding 6), the active-ancestor fix and the completion-choice fix described below, as
+(finding 6), the active-ancestor fix, the completion-choice fix and the guard-side-effect
+classification described below, as
 `docs/project/pssm-referee-baseline.json`; regenerate with `go run ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
 The figures below are as measured when this record was last updated and are not the current
@@ -164,8 +173,8 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 | Bucket | Tests |
 |---|---:|
 | `pass` | 43 |
-| `fail` | 18 |
-| `not-expressible` | 37 |
+| `fail` | 17 |
+| `not-expressible` | 38 |
 | `terminate-gap` | 3 |
 | `differs-by-design` | 2 |
 | **Total** | **103** |
@@ -173,15 +182,18 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 ### Movements since the previous baseline
 
 The previous baseline (develop `e6218449a` with the active-ancestor fix, 2026-09-15) counted 42
-`pass` and 19 `fail`. One runtime change moves it: a state's completion is one occurrence, so
-several enabled completion transitions out of one state are one transition choice drawn when
-the completion is dispatched (SM19; `chooseCompletion`, `state_explore_completion_choice`),
-where each used to be queued as its own event and the first declared always fired. One test
-moved `fail` → `pass` and none the other way.
+`pass`, 19 `fail` and 37 `not-expressible`. Two changes move it: a runtime change (a state's
+completion is one occurrence, so several enabled completion transitions out of one state are
+one transition choice drawn when the completion is dispatched — SM19; `chooseCompletion`,
+`state_explore_completion_choice` — where each used to be queued as its own event and the first
+declared always fired) and a classifier rule (a guard whose behavior does more than return its
+value has no translation). One test moved `fail` → `pass`, one `fail` → `not-expressible`, and
+none the other way.
 
 | Test | Row | Movement | Adjudication |
 |---|---|---|---|
 | Event 015 | SM19 | `fail` → `pass` | Expected: `S1.1`'s two completion transitions `T1.2` and `T1.3` are in conflict (§9.3.4.11) and either may fire; the run reached only the `T1.2` trace because the second completion event went stale once `S1.1` was left, and reported no choice, so `explore` had nothing to enumerate. Both traces are now reached, as two outcomes of one choice point |
+| Choice 005 | the classifier | `fail` → `not-expressible` | A missing translation, not a defect of the runtime: the test's four guards each `trace("T1.n(guard)")` before returning their value, to show when a junction's and a choice's guards are read, and the admitted trace lists the four calls. The emitter carried each guard as its Boolean body alone and silently dropped the behavior, so the run reached `T2(effect)::S1(entry)::S1.1(entry)` — the admitted trace less the guard segments, the route itself right. A v2 guard is an expression with no spelling for an action, so the classifier now names the construct (*guard side effect*) and the emitter refuses it; see [Moves from the hand count](../internals/design/precise-semantics-alignment.md#moves-from-the-hand-count) |
 
 ### Movements before that
 
@@ -294,9 +306,9 @@ History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Ju
 Terminate 001, Terminate 002, Terminate 003 — each reaches `S1.Terminate1`; they move to
 `pass` or `fail` when the runtime executes `terminate` (alignment finding 1).
 
-### `fail` (18)
+### `fail` (17)
 
-One failure cites a note row through the committed table. The other seventeen are
+One failure cites a note row through the committed table. The other sixteen are
 **unadjudicated**: fails, not yet attributed to a translation defect, a runtime defect, or a
 missing alignment row. The referee records them; it does not diagnose them, and none of them is
 a finding against the runtime until someone adjudicates it.
@@ -307,7 +319,7 @@ a finding against the runtime until someone adjudicates it.
 |---|---|---|
 | Junction 002 | SM32 | run error: no outgoing guard of the junction holds; PSSM disables the compound transition and admits `T3(effect)` |
 
-#### Unadjudicated (17)
+#### Unadjudicated (16)
 
 One line per test, from the baseline's `reasons`: what the run reached that the suite does not
 admit (`—` when every reached trace is admitted and the failure is only a missing one), and
@@ -326,7 +338,6 @@ suite; the full sets are in the baseline file.
 | Exiting 003 | — | `S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the other admitted order is reached) |
 | Fork 002 | — | `T2(effect)::S1(entry)::T2.1(effect)::T2.2(effect)::S1.1(entry)` and 2 more orders of the two branches' effects and `S1.1(entry)` (the fourth admitted order is reached) |
 | Join001 | `S2.1(exit)::S1.1(exit)::S1(exit)::T2.4(effect)` | `S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)` and one more (`T2.3(effect)`, the effect of the join's incoming transition from `S1.1`, never runs) |
-| Choice 005 | `T2(effect)::S1(entry)::S1.1(entry)` | `T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)` |
 | Join002 | `S1(exit)::T2.2(effect)::T3(effect)::S2(entry)` | `T1.2(effect)::T2.2(effect)::S1(exit)::T3(effect)::S2(entry)` and the order with the first two swapped (`T1.2(effect)` never runs, and `S1(exit)` precedes the effects of the join's incoming segments) |
 | Join003 | run error: `join Join1: no guard evaluated to true` (the join fires on the first completion, with both sources active, and the false guard `value < 10` of its only outgoing transition is an error; PSSM §8.5.7 fires the first incoming segment alone — a join that "cannot be entered" is "an acceptable path ending there" — and disables the second, whose entering the join requires an outgoing transition with a true guard; `S1` stays active for `T5`) | `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)` |
 | History 001-C | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached) |
@@ -338,7 +349,7 @@ suite; the full sets are in the baseline file.
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
 
-### `not-expressible` (37)
+### `not-expressible` (38)
 
 By reason, as the classifier names them:
 
@@ -360,6 +371,7 @@ By reason, as the classifier names them:
   into it** (ours): Entry 002 E, which is not expressible on other grounds too. Fork 002 and
   Join 001, filed here while the lowerer refused every region without an entry transition,
   translate since finding 6 was fixed.
+- **guard side effect** (no translation): Choice 005.
 
 A test with several such constructs is listed under each; the baseline file names every
 test's constructs in its `reasons`.
@@ -412,7 +424,7 @@ of its own:
   `state_machine_body_deep_history`). The two tests pass, and *History 001-B*, *001-D* and
   *002-A* with them; the movements table above adjudicates each.
 
-The seventeen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
+The sixteen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
 one by one — to a translation defect (the referee lost a construct), a runtime defect (the extra
 trace shows behavior UML and v2 both forbid), or a missing alignment row (v2 legitimately
 differs and the note has no row for it yet) — and the attribution belongs in the change that
