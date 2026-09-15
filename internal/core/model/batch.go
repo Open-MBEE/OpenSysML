@@ -87,22 +87,50 @@ func (w *Workspace) SetWorkers(n int) error {
 }
 
 // OpenAll opens the inputs as one batch: parsed on the workers, added to the index
-// in order, wildcard imports expanded once. Same result as opening them one by one.
+// in order, wildcard imports expanded once. Same result as opening them one by one
+// as the batch starts: a document changed by another caller meanwhile keeps that change.
 func (w *Workspace) OpenAll(inputs []Input) {
+	was := w.reserveBatch(inputs)
 	docs := make([]*Document, len(inputs))
 	ParallelFor(w.Workers(), len(inputs), func(i int) {
 		in := inputs[i]
 		docs[i] = newDocument(in.Name, bytes.Clone(in.Content), in.Version)
 	})
+	w.commitBatch(was, docs)
+}
+
+// reserveBatch is the document each input's name holds as the batch starts,
+// which is what commitBatch installs over.
+func (w *Workspace) reserveBatch(inputs []Input) map[string]*Document {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	was := make(map[string]*Document, len(inputs))
+	for _, in := range inputs {
+		was[in.Name] = w.docs[in.Name]
+	}
+	return was
+}
+
+// commitBatch installs the parsed documents whose name still holds what the
+// batch reserved; a name changed since keeps its newer document.
+func (w *Workspace) commitBatch(was map[string]*Document, docs []*Document) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	installed := false
 	for _, doc := range docs {
+		if w.docs[doc.Name] != was[doc.Name] {
+			continue
+		}
 		w.open[doc.Name] = true
 		w.docs[doc.Name] = doc
 		w.index.AddBuiltDocument(doc.Name, doc.AST, doc.Scope)
+		was[doc.Name] = doc
+		installed = true
 	}
-	w.index.ExpandWildcardImports()
-	w.invalidateLocked()
+	if installed {
+		w.index.ExpandWildcardImports()
+		w.invalidateLocked()
+	}
 }
 
 // DiagnosticsAll returns the named documents' diagnostics in the order named (nil

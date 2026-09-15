@@ -99,6 +99,52 @@ func TestOpenAllReplacesEarlierDocuments(t *testing.T) {
 	}
 }
 
+// A document another caller changes while a batch parses keeps that change: the
+// batch installs only over what it reserved, so an edit, a buffer opened and a
+// removal made meanwhile all stand, and only the untouched name is opened.
+func TestOpenAllKeepsAChangeMadeWhileItParsed(t *testing.T) {
+	ws := NewWorkspace()
+	ws.Open("a.sysml", []byte("package A { part def Old; }"), 1)
+	ws.Open("d.sysml", []byte("package D { part def Old; }"), 1)
+	inputs := []Input{
+		{Name: "a.sysml", Content: []byte("package A { part def Batch; }"), Version: 2},
+		{Name: "b.sysml", Content: []byte("package B { part def Batch; }"), Version: 1},
+		{Name: "c.sysml", Content: []byte("package C { part def Batch; }"), Version: 1},
+		{Name: "d.sysml", Content: []byte("package D { part def Batch; }"), Version: 2},
+	}
+	was := ws.reserveBatch(inputs)
+	docs := make([]*Document, len(inputs))
+	for i, in := range inputs {
+		docs[i] = newDocument(in.Name, in.Content, in.Version)
+	}
+	ws.Update("a.sysml", []byte("package A { part def Edited; }"), 3)
+	ws.Open("b.sysml", []byte("package B { part def Opened; }"), 1)
+	ws.Remove("d.sysml")
+	ws.commitBatch(was, docs)
+
+	if doc := ws.Document("a.sysml"); doc == nil || doc.Version != 3 {
+		t.Errorf("a.sysml should keep the edit made while the batch parsed, got %+v", doc)
+	}
+	if syms := ws.LookupQualified("A::Edited"); len(syms) != 1 {
+		t.Errorf("A::Edited should be indexed once, found %d", len(syms))
+	}
+	if syms := ws.LookupQualified("A::Batch"); len(syms) != 0 {
+		t.Errorf("the batch's stale a.sysml should not be indexed, found A::Batch %d times", len(syms))
+	}
+	if syms := ws.LookupQualified("B::Opened"); len(syms) != 1 || len(ws.LookupQualified("B::Batch")) != 0 {
+		t.Error("b.sysml was opened while the batch parsed and should keep that buffer")
+	}
+	if ws.Document("d.sysml") != nil || len(ws.LookupQualified("D::Batch")) != 0 {
+		t.Error("d.sysml was removed while the batch parsed and should stay removed")
+	}
+	if doc := ws.Document("c.sysml"); doc == nil || !ws.IsOpen("c.sysml") {
+		t.Errorf("c.sysml, untouched meanwhile, should be opened by the batch, got %+v", doc)
+	}
+	if syms := ws.LookupQualified("C::Batch"); len(syms) != 1 {
+		t.Errorf("C::Batch should be indexed once, found %d", len(syms))
+	}
+}
+
 func TestWorkersSetting(t *testing.T) {
 	ws := NewWorkspace()
 	if ws.Workers() != DefaultWorkers() || DefaultWorkers() < 1 {
