@@ -480,10 +480,19 @@ func objectTypesAt(n *Node, found map[*Node]*typeSources, depth int) (types []Ty
 	if fed && resolved {
 		return types, true, low
 	}
-	if !n.Type.Zero() {
-		return append(types, n.Type), true, low
+	if t := effectiveType(n); !t.Zero() {
+		return append(types, t), true, low
 	}
 	return types, flowed && !fed && resolved, low
+}
+
+// effectiveType is a node's declared type, or for an activity parameter node
+// that repeats none the type of the parameter it stands for.
+func effectiveType(n *Node) TypeRef {
+	if n.Type.Zero() && n.Kind == ActivityParameterNode && n.Parameter != nil {
+		return n.Parameter.Type
+	}
+	return n.Type
 }
 
 // classifierBehavior is the behavior an object of the type runs when started:

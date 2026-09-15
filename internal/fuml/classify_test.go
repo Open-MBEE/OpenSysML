@@ -271,6 +271,14 @@ const refiringModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f3" source="cwr2" target="workerFork"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f4" source="workerFork" target="swo"/>
   </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="paramLauncher" name="ParameterLauncher">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="plIn" name="worker" direction="in" type="worker"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="plNode" name="Input(worker)" parameter="plIn"/>
+    <node xmi:type="uml:StartObjectBehaviorAction" xmi:id="startParam" name="Start(worker)">
+      <object xmi:type="uml:InputPin" xmi:id="spo" name="object"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f4b" source="plNode" target="spo"/>
+  </packagedElement>
   <packagedElement xmi:type="uml:Class" xmi:id="entity" name="Entity" isActive="true" classifierBehavior="entityPatrol">
     <ownedBehavior xmi:type="uml:Activity" xmi:id="entityPatrol" name="Patrol">
       <node xmi:type="uml:ReadExtentAction" xmi:id="readEntities" name="ReadExtent(Entity)" classifier="entity">
@@ -411,8 +419,9 @@ func TestClassifyFilesReFiringByItsCause(t *testing.T) {
 		t.Errorf("Creator = %s: %s", c.Class, c.Reason())
 	}
 	want = "dependency on a not-expressible behavior (a behavior it calls or starts is itself not expressible): Run (DestroyObjectAction)"
-	// The started object is the one created, whatever type the start pin declares.
-	for _, name := range []string{"Launcher", "GeneralLauncher"} {
+	// The started object is the one created, whatever type the start pin declares;
+	// a parameter node without a type of its own has its parameter's.
+	for _, name := range []string{"Launcher", "GeneralLauncher", "ParameterLauncher"} {
 		if c := Classify(activity(t, m, name), nil); c.Class != NotExpressible || c.Reason() != want {
 			t.Errorf("%s = %s: %s", name, c.Class, c.Reason())
 		}
