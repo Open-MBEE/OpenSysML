@@ -106,24 +106,25 @@ var scalarFQNs = map[string]PrimType{
 	"ScalarValues::Number":   PrimNumber,
 }
 
-// scalarTable resolves the stdlib scalar symbols once per model, by identity,
-// so a user-declared type merely named "Integer" is never mistaken for one.
+// scalarTable resolves the stdlib scalar symbols by identity, so a user-declared
+// type merely named "Integer" is never mistaken for one; a document declaring
+// one of the scalar names drops the table with its readers when it changes.
 func (m *Model) scalarTable() map[*symbols.Symbol]PrimType {
-	if m.scalars != nil {
-		return m.scalars
-	}
-	table := make(map[*symbols.Symbol]PrimType, len(scalarFQNs))
-	if m.resolver != nil && m.resolver.Index() != nil {
-		for fqn, prim := range scalarFQNs {
-			for _, sym := range m.resolver.Index().LookupQualified(fqn) {
-				if sym != nil {
-					table[sym] = prim
+	m.shared(sharedScalars, func() bool { return m.scalars != nil }, func() {
+		table := make(map[*symbols.Symbol]PrimType, len(scalarFQNs))
+		if m.resolver != nil && m.resolver.Index() != nil {
+			idx := m.resolver.Index()
+			for fqn, prim := range scalarFQNs {
+				for _, sym := range idx.LookupQualified(fqn) {
+					if sym != nil {
+						table[sym] = prim
+					}
 				}
 			}
 		}
-	}
-	m.scalars = table
-	return table
+		m.scalars = table
+	}, func() { m.scalars = nil })
+	return m.scalars
 }
 
 // ScalarLatticeElement is the lattice element sym is, as opposed to one it
