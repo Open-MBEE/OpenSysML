@@ -65,4 +65,25 @@ func TestWorkersFlagAndEnvironment(t *testing.T) {
 	if got := validate([]string{"OPENSYSML_WORKERS=nope"}, "-workers", "2"); got.status != want.status || got.output() != want.output() {
 		t.Errorf("-workers 2 under OPENSYSML_WORKERS=nope reported %d\n%s\nwant the default's\n%s", got.status, got.output(), want.output())
 	}
+
+	legacy := validate([]string{"SYSML_WORKERS=1"})
+	if legacy.status != want.status || legacy.stdout != want.stdout || !strings.Contains(legacy.stderr, "SYSML_WORKERS is deprecated; set OPENSYSML_WORKERS instead") {
+		t.Errorf("SYSML_WORKERS=1 reported %d\n%s\nwant the default's output and a deprecation warning", legacy.status, legacy.output())
+	}
+	if got := validate([]string{"SYSML_WORKERS=0"}); got.status != 2 || !strings.Contains(got.output(), `OPENSYSML_WORKERS="0" is not a positive integer`) || strings.Contains(got.output(), "Missing") {
+		t.Errorf("SYSML_WORKERS=0: status %d\n%s", got.status, got.output())
+	}
+
+	// Every mode that loads a model reads the setting before loading.
+	for _, mode := range [][]string{
+		{"-query", `sysml:name="X"`},
+		{"-render", "A::X"},
+		{"-render-all", t.TempDir()},
+		{"-compile", "A::X", "-o", filepath.Join(t.TempDir(), "x")},
+	} {
+		got := checkPathsEnv(t, binary, []string{"OPENSYSML_WORKERS=0"}, append(mode, paths...)...)
+		if got.status != 2 || !strings.Contains(got.output(), `OPENSYSML_WORKERS="0" is not a positive integer`) || strings.Contains(got.output(), "Missing") {
+			t.Errorf("%s under OPENSYSML_WORKERS=0: status %d\n%s", mode[0], got.status, got.output())
+		}
+	}
 }

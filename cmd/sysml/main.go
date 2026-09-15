@@ -484,6 +484,9 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -compile needs -o to name the executable (or the source file, with -source)")
 			return 2
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		if err := runCompile(args); err != nil {
 			return fail(err)
 		}
@@ -568,6 +571,9 @@ func runCLI() int {
 			return refuse(modelChecks,
 				"-render-all writes views out and decides nothing about the model; check it in its own run")
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		if err := runRenderAll(args); err != nil {
 			return fail(err)
 		}
@@ -605,6 +611,9 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -query cannot be combined with checks, -eval, -render, -render-document, -output or -from")
 			return 2
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		return runQuery(args, queryText)
 	}
 
@@ -616,6 +625,9 @@ func runCLI() int {
 		if renderDoc != "" {
 			fmt.Fprintln(os.Stderr, "sysml: -render and -render-document each write a document out; ask for one per run")
 			return 2
+		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
 		}
 		if err := runRender(args); err != nil {
 			return fail(err)

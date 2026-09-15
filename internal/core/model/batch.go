@@ -3,13 +3,13 @@ package model
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
 
@@ -51,10 +51,10 @@ func ParseWorkers(source, text string) (int, error) {
 	return n, nil
 }
 
-// WorkersFromEnv is the worker count OPENSYSML_WORKERS asks for, DefaultWorkers
-// when it is unset or empty; a value that is not a positive integer is an error.
+// WorkersFromEnv is the worker count OPENSYSML_WORKERS (or its legacy SYSML_ name)
+// asks for, DefaultWorkers when unset or empty; a value that is not a positive integer is an error.
 func WorkersFromEnv() (int, error) {
-	return workersFromLookup(os.Getenv)
+	return workersFromLookup(envvar.Lookup)
 }
 
 // workersFromLookup is WorkersFromEnv over an explicit lookup, so the parsing is
