@@ -24,11 +24,9 @@ const (
 )
 
 // pilotOnlyElements are named elements the pilot serializes but this implementation
-// derives no id for; kept exact, so the gate fails once one is derived.
-var pilotOnlyElements = map[string]string{
-	// The payload an accept trigger declares inside a transition is not a symbol of it.
-	"Actions::AcceptAction::aState::aTransition::apayload": "e5c34302-378c-5995-a6e3-443bb92bb661",
-}
+// derives no id for; kept exact, so the gate fails once one is derived. Empty:
+// every named library element the pilot serializes is derived.
+var pilotOnlyElements = map[string]string{}
 
 // referenceNamedKinds are the usage kinds named after the feature they reference
 // rather than one they redefine (`perform a`, `exhibit s`, `event e` and the like).
