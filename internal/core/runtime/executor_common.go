@@ -201,6 +201,19 @@ func (q *EventQueue) Tied() []Event {
 	return tied
 }
 
+// CompletionsOf lists the queued completion events carrying a transition out of
+// source, in arrival order.
+func (q *EventQueue) CompletionsOf(source ast.Node) []Event {
+	var events []Event
+	for _, event := range q.events {
+		if trans, ok := event.Payload.(*lower.Transition); ok && isCompletionEvent(event) && trans.Source == source {
+			events = append(events, event)
+		}
+	}
+	slices.SortFunc(events, func(a, b Event) int { return cmp.Compare(a.ID, b.ID) })
+	return events
+}
+
 // Take removes and returns the event with the given ID, false when none has it.
 func (q *EventQueue) Take(id int64) (Event, bool) {
 	for i, event := range q.events {

@@ -1258,3 +1258,86 @@ func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 		t.Fatalf("choices = %v, want exactly %v", got, want)
 	}
 }
+
+// A state's completion is one occurrence: several completion transitions out of
+// it are one transition choice, drawn when the completion is dispatched, and the
+// ones not drawn leave the queue rather than firing on a completion of their own.
+func TestCompletionTransitionChoiceIsReportedOnce(t *testing.T) {
+	src := `package test {
+		state Switch {
+			entry; then ready;
+			state ready;
+			state left;
+			state right;
+			state settled;
+			transition first ready then left;
+			transition first ready then right;
+			transition first left then settled;
+			transition first right then settled;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Switch", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "ready,left,settled" {
+		t.Fatalf("visited %v, want ready, left, settled: one completion fires one transition", visited)
+	}
+	want := []string{"choice state ready: transitions 1->left, 2->right (unordered; took 1->left)"}
+	var got []string
+	for _, choice := range ctx.Choices() {
+		got = append(got, choice.String())
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want exactly %v", got, want)
+	}
+}
+
+// The guards of a state's queued completion transitions are read again when its
+// completion is dispatched: one a sibling region's earlier completion has since
+// disabled is no alternative, so the other fires and no choice is reported.
+func TestCompletionTransitionChoiceRereadsGuards(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute flag : Boolean = true;
+			entry; then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 do assign flag := false then a2;
+				}
+				state b {
+					entry; then ready;
+					state ready;
+					state left;
+					state right;
+					transition first ready if flag then left;
+					transition first ready then right;
+				}
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "work,a1,ready,a2,right" {
+		t.Fatalf("visited %v, want a1's completion to clear flag before ready's is dispatched, and ready to move to right", visited)
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Fatalf("choices = %v, want none: the disabled completion transition is no alternative", choices)
+	}
+}
