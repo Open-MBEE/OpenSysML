@@ -680,16 +680,21 @@ and two branches into one region (`robustness_test.go:fork_branches_share_region
 can continue through an outgoing Transition"; the join fires when every source state is active
 and the occurrence enables all incoming segments. Requirement *Join 002* (§9.4.12) and §8.5.7
 (`JoinPseudostateActivation`): the incoming transitions and the outgoing one are segments of one
-compound transition, so every incoming segment's effect runs — in either order — after the
-sources are exited and before the state owning the join is exited and the outgoing effect runs
-(the test's expected execution: the two incoming effects in parallel, the owner's exit, then the
-outgoing effect). *Runtime:* `fireJoinTransition`
-fires only when every state in `joinSources` is active, exits them all, runs the effect of every
-incoming segment (`joinIncomingEffects`: the firing one's first, then the others in source
-declaration order), then exits the owner and follows the outgoing segment; a join with a single
-incoming branch is refused (`join_with_one_incoming_branch`). `state_fork_join_pseudostate`,
-`state_join_runs_every_incoming_effect`. **agrees** on what runs; the order among the incoming
-effects is one of the region orders SM21 leaves to the runtime.
+compound transition, so every incoming segment fires — its source exited, then its effect — in
+either order, before the state owning the join is exited and the outgoing effect runs (the test's
+expected execution: the two incoming effects in parallel, the owner's exit, then the outgoing
+effect). *v2/KerML:* no state-body join in v2 (`join` is an action node, as SM33 says of `fork`);
+the extension follows UML, and the library's `transitionLinkSource then effect` and "happening
+during the state performance" fix each segment's exit-then-effect and place both segments before
+the owner's exit
+([oracle](../../project/behavior-semantic-oracle.md#transitions-into-a-join-each-exits-its-source-and-runs-its-effect-before-the-owner-is-left-in-which-order-is-open)).
+*Runtime:* `fireJoinTransition` fires only when every state in `joinSources` is active;
+`fireJoinIncoming` then fires the incoming segments one at a time, drawing the next from the
+scheduling policy as a `ChoiceRegionOrder` labelled `join <name>` (declaration order by default),
+before the owner is exited and the outgoing segment followed; a join with a single incoming branch
+is refused (`join_with_one_incoming_branch`). `state_fork_join_pseudostate`,
+`state_join_runs_every_incoming_effect` (both orders as `outcomes`, explored). **agrees**: every
+order PSSM admits is a run the policies produce, as SM21 has it for region firing order.
 
 #### Transition kinds: external, local, internal
 

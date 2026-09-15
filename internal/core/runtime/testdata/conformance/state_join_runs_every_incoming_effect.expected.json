@@ -4,8 +4,19 @@
   "events": [
     {"signal": "go", "args": null}
   ],
-  "finalState": "done",
-  "outputs": {
-    "log": {"type": "String", "value": "left(effect) right(effect) outer(exit) sync(effect) rest(entry)"}
-  }
+  "outcomes": [
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "left(effect) right(effect) outer(exit) sync(effect) rest(entry)"}
+      }
+    },
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "right(effect) left(effect) outer(exit) sync(effect) rest(entry)"}
+      }
+    }
+  ],
+  "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
 }
