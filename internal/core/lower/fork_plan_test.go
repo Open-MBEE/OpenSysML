@@ -285,6 +285,61 @@ func TestToStateGraph_ForkOnlyRegionOmittedByAnotherForkFails(t *testing.T) {
 	}
 }
 
+// A fork's branches enter every composite state above their targets, so a fork
+// into a nested composite state starts an outer sibling region by default, and a
+// fork above a composite state whose branch names it starts the regions of that
+// state the nearer fork alone enters. A fork reached from inside the outer state
+// leaves its other region as it is.
+func TestToStateGraph_ForkOnlyRegionEnteredByANestedForkFails(t *testing.T) {
+	machine := func(o2Entry, leftEntry, routes string) string {
+		return `
+			package test {
+				attribute def Go;
+				state def Machine {
+					entry; then idle;
+					state idle;
+					state outer parallel {
+						state o1 {
+							entry; then hold;
+							state hold;
+							state inner parallel {
+								state left { ` + leftEntry + ` state a; }
+								state right { state b; }
+							}
+							fork split;
+							transition first hold accept Go then split;
+							transition first split then a;
+							transition first split then b;
+						}
+						state o2 { ` + o2Entry + ` state c; }
+					}
+					fork split2;
+					transition first split2 then c;
+					` + routes + `
+				}
+			}
+		`
+	}
+	_, err := ToStateGraph(stateDefinitionIn(t, machine(``, ``,
+		`transition first idle then split;
+		 transition first split2 then hold;
+		 transition first idle accept Go then split2;`)), nil)
+	if err == nil || !strings.Contains(err.Error(), "region o2 in state outer has no initial state") || !strings.Contains(err.Error(), "the transition from idle to split enters outer") {
+		t.Fatalf("nested fork from outside: error = %v, want the transition from idle to split", err)
+	}
+	_, err = ToStateGraph(stateDefinitionIn(t, machine(``, `entry; then a;`,
+		`transition first idle then split2;
+		 transition first split2 then inner;`)), nil)
+	if err == nil || !strings.Contains(err.Error(), "region right in state inner has no initial state") || !strings.Contains(err.Error(), "the transition from idle to split2 enters inner") {
+		t.Fatalf("outer fork naming inner: error = %v, want the transition from idle to split2", err)
+	}
+	if _, err := ToStateGraph(stateDefinitionIn(t, machine(``, ``,
+		`transition first idle then split2;
+		 transition first split2 then hold;`)), nil); err != nil {
+		t.Fatalf("nested fork reached from inside outer: %v", err)
+	}
+}
+
 // A transition that names a state inside the fork-only region, or one that stays
 // inside the composite state — directly or through a junction declared there —
 // starts no region by default and is accepted.
@@ -310,6 +365,11 @@ func TestToStateGraph_ForkShapeRejected(t *testing.T) {
 			`transition first split if true then a;
 			 transition first split then b;`,
 			"cannot be guarded",
+		},
+		"triggered branch": {
+			`transition first split accept Go then a;
+			 transition first split then b;`,
+			"cannot have triggers",
 		},
 		"two branches into one region": {
 			`transition first split then a;
@@ -346,6 +406,7 @@ func TestToStateGraph_ForkShapeRejected(t *testing.T) {
 				 transition first a then sync;
 				 transition first b then sync;
 				 transition first sync then done;
+				 attribute def Go;
 				 state other parallel {
 				 	state third { entry; then c; state c; }
 				 	state fourth { entry; then d; state d; }

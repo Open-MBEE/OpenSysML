@@ -41,8 +41,9 @@ func (g *StateGraph) planForks() error {
 	return nil
 }
 
-// planFork builds one fork's plan: at least two unguarded branches, each into a
-// state of a distinct orthogonal region, all regions of one composite state.
+// planFork builds one fork's plan: at least two branches, neither triggered nor
+// guarded, each into a state of a distinct orthogonal region, all regions of one
+// composite state.
 func (g *StateGraph) planFork(fork *ast.PseudostateNode) (*ForkPlan, error) {
 	branches := g.Transitions[fork]
 	if len(branches) < 2 {
@@ -50,6 +51,9 @@ func (g *StateGraph) planFork(fork *ast.PseudostateNode) (*ForkPlan, error) {
 	}
 	plan := &ForkPlan{Branches: make(map[*ast.StateRegion]*Transition, len(branches))}
 	for _, branch := range branches {
+		if branch.Trigger != nil {
+			return nil, fmt.Errorf("fork %s: outgoing transitions cannot have triggers", fork.Name)
+		}
 		if branch.Guard != nil {
 			return nil, fmt.Errorf("fork %s: outgoing transitions cannot be guarded", fork.Name)
 		}
@@ -126,7 +130,8 @@ func (g *StateGraph) defaultEntryInto(owner *ast.StateNode, region *ast.StateReg
 // defaultStart is the vertex a transition from source to target ends at when it
 // enters owner in a way that starts region by default — owner itself or a state
 // in another of its regions, reached from outside owner or from owner itself —
-// following junctions, choices and joins to the states they lead to; nil otherwise.
+// following junctions, choices and joins to the states they lead to, and a fork
+// to the composite state its branches enter or the states they end at; nil otherwise.
 func (g *StateGraph) defaultStart(owner *ast.StateNode, region *ast.StateRegion, source *ast.StateNode, target ast.Node, seen map[ast.Node]bool) ast.Node {
 	switch v := target.(type) {
 	case *ast.StateNode:
@@ -137,6 +142,10 @@ func (g *StateGraph) defaultStart(owner *ast.StateNode, region *ast.StateRegion,
 		switch v.Kind {
 		case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
 			if g.entersByDefault(owner, region, source, g.PseudostateOwner[v]) {
+				return v
+			}
+		case ast.PseudostateFork:
+			if g.forkStartsByDefault(owner, region, source, v) {
 				return v
 			}
 		case ast.PseudostateJunction, ast.PseudostateChoice, ast.PseudostateJoin:
@@ -155,6 +164,24 @@ func (g *StateGraph) defaultStart(owner *ast.StateNode, region *ast.StateRegion,
 		}
 	}
 	return nil
+}
+
+// forkStartsByDefault reports whether fork's branches enter owner on their way to
+// a state below it, or end at owner or in another of its regions, from source.
+func (g *StateGraph) forkStartsByDefault(owner *ast.StateNode, region *ast.StateRegion, source *ast.StateNode, fork *ast.PseudostateNode) bool {
+	plan := g.ForkPlans[fork]
+	switch {
+	case plan == nil, plan.Owner == owner:
+		return false
+	case g.within(owner, plan.Owner):
+		return g.entersByDefault(owner, region, source, plan.Owner)
+	}
+	for _, branch := range plan.Branches {
+		if g.entersByDefault(owner, region, source, branch.Target.(*ast.StateNode)) {
+			return true
+		}
+	}
+	return false
 }
 
 // entryBodies lists the bodies whose entry transitions are on record, in
