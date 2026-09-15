@@ -339,8 +339,9 @@ func TestDebugProtocolShapes(t *testing.T) {
 	}
 }
 
-// A request naming a behavior the view does not draw, a session not live, a node
-// not drawn or a signal not taken is refused with a typed InvalidParams error.
+// A request naming a behavior the view does not draw, a performer that is no
+// object, a session not live, a node not drawn or a signal not taken is refused
+// with a typed InvalidParams error.
 func TestDebugRefusesWhatItCannotRun(t *testing.T) {
 	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine+`
 package Other {
@@ -360,6 +361,11 @@ package Other {
 		{"undeclared target", debugStartParams{TextDocument: doc, View: "MachineViews::opsView", Target: "Machines::Nope"}, ErrDebugTarget},
 		{"wrong kind of target", debugStartParams{TextDocument: doc, View: "MachineViews::opsView", Target: "Machines::Robot"}, ErrDebugTarget},
 		{"undeclared performer", debugStartParams{TextDocument: doc, View: "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Nope"}, ErrDebugTarget},
+		{"attribute as performer", debugStartParams{TextDocument: doc, View: "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Ops::threshold"}, ErrDebugTarget},
+		{"signal as performer", debugStartParams{TextDocument: doc, View: "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Go"}, ErrDebugTarget},
+		{"package as performer", debugStartParams{TextDocument: doc, View: "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines"}, ErrDebugTarget},
+		{"behavior as performer", debugStartParams{TextDocument: doc, View: "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Ops"}, ErrDebugTarget},
+		{"view as performer", debugStartParams{TextDocument: doc, View: "MachineViews::opsView", Target: "Machines::Ops", Object: "MachineViews::opsView"}, ErrDebugTarget},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

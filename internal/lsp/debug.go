@@ -375,6 +375,9 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 		if objectSym == nil {
 			return nil, debugInvalid(fmt.Errorf("%w: %s declares no %s to perform it", ErrDebugTarget, name, params.Object))
 		}
+		if !debugPerformerKind(objectSym.Kind) {
+			return nil, debugInvalid(fmt.Errorf("%w: %s is a %s, not an object that could perform %s", ErrDebugTarget, params.Object, objectSym.Notation(), params.Target))
+		}
 		var err error
 		if performer, err = ctx.Instantiate(objectSym); err != nil {
 			return nil, fmt.Errorf("%w: instantiate %s: %w", ErrDebugTarget, params.Object, err)
@@ -475,6 +478,19 @@ func debugTargetKind(kind view.Kind, target *symbols.Symbol) error {
 		return fmt.Errorf("%w: %s is a %s, not an action", ErrDebugTarget, target.Name, target.Notation())
 	}
 	return fmt.Errorf("%w: a %s rendering draws no behavior", ErrDebugTarget, kind)
+}
+
+// debugPerformerKind reports whether a declaration of kind is an object — a part,
+// item or occurrence definition or usage — and so can perform a behavior.
+func debugPerformerKind(kind symbols.SymbolKind) bool {
+	switch kind {
+	case symbols.SymbolPartDef, symbols.SymbolPartUsage,
+		symbols.SymbolItemDef, symbols.SymbolItemUsage,
+		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
+		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage:
+		return true
+	}
+	return false
 }
 
 // locate binds the session to rendering, in which drawn declares the target at

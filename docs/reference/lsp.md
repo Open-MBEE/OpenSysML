@@ -453,9 +453,10 @@ the behavior underneath it; see `opensysml/debugChanged` for what an edit does.
 `opensysml/render`; it must render a `state` or `action` kind. `target` is the
 qualified name of the state machine or action the rendering draws — a `state def`
 or `state` usage for a state rendering, an `action def` or `action` usage for an
-action one. `object`, optional, names a part or object definition or usage; when
-it is given the object is instantiated first and performs the behavior, so
-`send … via` and references to the performer's features resolve the way they do
+action one. `object`, optional, names an object — a `part`, `item` or `occurrence`
+definition or usage; when it is given the object is instantiated first and
+performs the behavior, so `send … via` and references to the performer's
+features resolve the way they do
 under `%instantiate`. An object whose type exhibits or performs the target
 already runs it once instantiated, and the session debugs that running behavior
 rather than starting a second one beside it; a type running the target under
@@ -471,8 +472,9 @@ describes — the snapshot is answered under the new IDs, or the start is refuse
 with `InvalidParams` when the edit rewrote the behavior. Errors are answered with
 `InvalidParams` when the request itself is wrong — a view of another kind, a
 target the document does not declare or that is not a behavior the kind draws, an
-object that does not exist — and as a plain error when the behavior cannot be
-initialized (no entry transition, an initial node the flow lacks).
+object that does not exist or is no object (an attribute, a package, a behavior)
+— and as a plain error when the object cannot be instantiated or the behavior
+cannot be initialized (no entry transition, an initial node the flow lacks).
 
 ### `opensysml/debug/step`, `opensysml/debug/continue`, `opensysml/debug/stop`
 
