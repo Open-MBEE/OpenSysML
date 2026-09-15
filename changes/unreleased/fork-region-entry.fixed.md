@@ -9,7 +9,9 @@
   on the way to a state nested deeper — since that way would start the region by default and it
   has no default start. Entering through a fork leaves the source configuration down to
   the ancestor the source and the composite share, as a move to a single state does, so an
-  active ancestor is neither exited nor entered again; then the first branch runs its effect
+  active ancestor is neither exited nor entered again — a fork reached from inside the
+  composite's own regions leaves every one of them, in declaration order, ending their do
+  behaviors, while the composite stays active; then the first branch runs its effect
   and enters the states still on the way down to the composite, and every region enters in
   declaration order, each branch's effect before its target — which may lie below a
   region's own substates, the branch entering every state on the way — so a branch's effect

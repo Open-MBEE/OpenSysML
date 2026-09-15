@@ -2160,6 +2160,9 @@ func (e *StateExecutor) leaveForFork(trans *lower.Transition, owner *ast.StateNo
 			return nil, fmt.Errorf("fork into %s from region %s: the target lies outside the machine's regions", owner.Name, region.Name)
 		}
 		lca := e.getLCA(regionOwner, owner)
+		if lca == owner {
+			return owner, e.exitRegionsOf(owner)
+		}
 		return lca, e.exitRegionOwnerTo(regionOwner, lca)
 	}
 	keep := e.regionKeep(targetRegion, trans, owner)
@@ -2169,6 +2172,26 @@ func (e *StateExecutor) leaveForFork(trans *lower.Transition, owner *ast.StateNo
 		}
 	}
 	return keep, e.exitRegionTo(targetRegion, keep)
+}
+
+// exitRegionsOf leaves every region of owner, which stays active, in declaration
+// order: a fork reached from inside them restarts them all from its branches.
+func (e *StateExecutor) exitRegionsOf(owner *ast.StateNode) error {
+	for _, region := range e.graph.CompositeStates[owner] {
+		if err := e.exitRegionTo(region, owner); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// regionsExitPath lists the states exitRegionsOf exits.
+func (e *StateExecutor) regionsExitPath(owner *ast.StateNode) []*ast.StateNode {
+	var exited []*ast.StateNode
+	for _, region := range e.graph.CompositeStates[owner] {
+		exited = append(exited, e.regionExitPath(region, owner)...)
+	}
+	return exited
 }
 
 // forkPlan is where a fork's branches lead, as lowering checked and recorded it.
@@ -2818,7 +2841,11 @@ func (e *StateExecutor) exitedInRegion(region *ast.StateRegion, trans *lower.Tra
 			}
 			return exited
 		}
-		return e.exitPath(owner, e.getLCA(owner, route), nil)
+		lca := e.getLCA(owner, route)
+		if lca == route {
+			return e.regionsExitPath(route)
+		}
+		return e.exitPath(owner, lca, nil)
 	}
 	keep := e.regionKeep(targetRegion, trans, route)
 	if sourceRegion == targetRegion {
