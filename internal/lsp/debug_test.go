@@ -793,6 +793,58 @@ func TestDebugBreakpointOnAPseudostatePauses(t *testing.T) {
 	}
 }
 
+// A breakpoint on the machine's `done` pauses the run standing on it, before the
+// machine completes; the next step completes it.
+func TestDebugBreakpointOnDonePausesBeforeCompletion(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/h.sysml", `package Halting {
+	attribute def Halt;
+	state def Runner {
+		entry; then idle;
+		state idle;
+		transition first idle accept Halt then done;
+	}
+}
+package HaltingViews {
+	private import StandardViewDefinitions::*;
+	view runnerView : StateTransitionView { expose Halting::Runner; }
+}
+`)
+	id := ids(t, render(t, s, docURI, "HaltingViews::runnerView"))
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "HaltingViews::runnerView", Target: "Halting::Runner",
+	})
+	session := snap.Session
+	snap = mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["done"]}})
+	wantStrings(t, "breakpoints", snap.Breakpoints, []string{id["done"]})
+
+	mustDebug(t, s, MethodDebugSend, &debugSendParams{Session: session, Signal: "Halting::Halt"})
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != id["done"] || !strings.Contains(snap.Reason, "breakpoint done") {
+		t.Errorf("pausedAt = %q reason = %q, want the breakpoint on done", snap.PausedAt, snap.Reason)
+	}
+	wantStrings(t, "active at the breakpoint", snap.ActiveStates, []string{id["done"]})
+	wantStrings(t, "taken to the breakpoint", edges(snap.Taken), []string{id["idle"] + "->" + id["done"]})
+
+	snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session})
+	wantState(t, snap, debugCompleted)
+	if snap.PausedAt != "" {
+		t.Errorf("pausedAt = %q after completing, want none", snap.PausedAt)
+	}
+
+	// Without the breakpoint the same run completes in one continue, standing
+	// where the paused run ended up.
+	plain := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "HaltingViews::runnerView", Target: "Halting::Runner",
+	})
+	mustDebug(t, s, MethodDebugSend, &debugSendParams{Session: plain.Session, Signal: "Halting::Halt"})
+	plain = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: plain.Session})
+	wantState(t, plain, debugCompleted)
+	wantStrings(t, "active after completing without the breakpoint", plain.ActiveStates, snap.ActiveStates)
+}
+
 // A step that lands a token on an action breakpoint pauses there, as a continue
 // does; the step after moves it past the breakpoint.
 func TestDebugStepPausesAtAnActionBreakpoint(t *testing.T) {

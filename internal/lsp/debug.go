@@ -692,14 +692,21 @@ func debugClockWait(exec clockWaiter) string {
 	return "waits on the clock"
 }
 
-// stepMachine advances a state machine one step as the REPL does: a change
-// condition that fires, else the next event, else a round of do behavior.
+// stepMachine advances a state machine one step as the REPL does: a completion
+// held at a breakpoint, else a change condition that fires, else the next event,
+// else a round of do behavior.
 func (sess *debugSession) stepMachine() error {
 	exec := sess.machine
 	if exec.HasPendingWork() || exec.WatchesChangeCondition() {
 		exec.Resume()
 	}
 	if exec.State() != runtime.StateRunning {
+		return nil
+	}
+	if exec.CompletionDue() {
+		if err := exec.ProcessNextEvent(); err != nil {
+			return fmt.Errorf("completion failed: %w", err)
+		}
 		return nil
 	}
 	fired, err := exec.PollChangeEvents()

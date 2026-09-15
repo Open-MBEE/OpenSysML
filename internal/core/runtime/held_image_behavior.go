@@ -87,6 +87,7 @@ type imagedState struct {
 	breakpointNodes    map[ast.Node]bool
 	breakpointHit      *ast.StateNode
 	pausedAt           ast.Node
+	completionDue      bool
 	history            map[*ast.StateNode]historyRecord
 	deferred           []Event
 	lastDispatch       *Dispatch
@@ -268,6 +269,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		breakpointNodes:    maps.Clone(e.breakpointNodes),
 		breakpointHit:      e.breakpointHit,
 		pausedAt:           e.pausedAt,
+		completionDue:      e.completionDue,
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
@@ -555,7 +557,7 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	if e.breakpointNodes == nil {
 		e.breakpointNodes = make(map[ast.Node]bool)
 	}
-	e.breakpointHit, e.pausedAt = img.breakpointHit, img.pausedAt
+	e.breakpointHit, e.pausedAt, e.completionDue = img.breakpointHit, img.pausedAt, img.completionDue
 	for node, record := range img.history {
 		e.history[node] = &historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 	}

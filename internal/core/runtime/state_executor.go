@@ -75,6 +75,10 @@ type StateExecutor struct {
 	breakpointNodes map[ast.Node]bool
 	breakpointHit   *ast.StateNode
 	pausedAt        ast.Node
+	// dispatchMark is where the dispatch under way began in fired, -1 between
+	// dispatches; completionDue holds a completion reached under a breakpoint.
+	dispatchMark  int
+	completionDue bool
 
 	// doActions are the running do behaviors, in the order their states were
 	// entered. Concurrently active states interleave one action per round, so this
@@ -235,6 +239,7 @@ func newStateExecutorOn(
 		timeTriggerVerdict: make(map[*lower.Transition]error),
 		changeFired:        make(map[*lower.Transition]bool),
 		breakpointNodes:    make(map[ast.Node]bool),
+		dispatchMark:       -1,
 		activeConfig: &StateConfiguration{
 			regionStates: make(map[*ast.StateRegion]*ast.StateNode),
 		},
@@ -572,40 +577,48 @@ func (e *StateExecutor) processNextEvent() error {
 	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
 	e.lastEventAt = e.ctx.clock.now
 
-	mark := e.markDispatch()
+	e.markDispatch()
 	dispatch, err := e.dispatchEvent(event)
 	if err != nil {
 		return err
 	}
 	e.lastDispatch = &dispatch
 	e.recallDeferredEvents()
-	e.pauseAtBreakpoint(mark)
+	e.pauseAtBreakpoint()
 	return nil
 }
 
 // markDispatch opens a dispatch's account: where its fired transitions begin,
 // with no state hit left staged by a dispatch that failed before pausing.
-func (e *StateExecutor) markDispatch() int {
+func (e *StateExecutor) markDispatch() {
 	e.breakpointHit = nil
-	return len(e.fired)
+	e.dispatchMark = len(e.fired)
 }
 
-// pauseAtBreakpoint suspends the machine at the breakpoint vertex the dispatch
-// just done passed or entered, leaving whatever is still due to the next run. A
-// pseudostate passed is read from the transitions the dispatch fired, so a
-// failed firing pauses on none.
-func (e *StateExecutor) pauseAtBreakpoint(mark int) {
-	var hit ast.Node
-	for _, fired := range e.fired[mark:] {
+// stagedBreakpoint is the breakpoint vertex the dispatch under way passed or
+// entered, nil when none or no dispatch is under way. A pseudostate passed is
+// read from the transitions the dispatch fired, so a failed firing stages none.
+func (e *StateExecutor) stagedBreakpoint() ast.Node {
+	if e.dispatchMark < 0 {
+		return nil
+	}
+	for _, fired := range e.fired[min(e.dispatchMark, len(e.fired)):] {
 		if _, ok := fired.Target.(*ast.PseudostateNode); ok && e.breakpointNodes[fired.Target] {
-			hit = fired.Target
-			break
+			return fired.Target
 		}
 	}
-	if hit == nil && e.breakpointHit != nil {
-		hit = e.breakpointHit
+	if e.breakpointHit != nil {
+		return e.breakpointHit
 	}
-	e.breakpointHit = nil
+	return nil
+}
+
+// pauseAtBreakpoint closes the dispatch just done, suspending the machine at the
+// breakpoint vertex it passed or entered and leaving whatever is still due —
+// the machine's own completion included — to the next run.
+func (e *StateExecutor) pauseAtBreakpoint() {
+	hit := e.stagedBreakpoint()
+	e.breakpointHit, e.dispatchMark = nil, -1
 	if hit == nil || e.state != StateRunning {
 		return
 	}
@@ -1861,6 +1874,19 @@ func (e *StateExecutor) completeIfDone(target *ast.StateNode) error {
 	if !e.machineComplete() {
 		return nil
 	}
+	// A dispatch pausing at a breakpoint shows the completion vertex it reached;
+	// the machine completes once resumed.
+	if e.stagedBreakpoint() != nil {
+		e.completionDue = true
+		return nil
+	}
+	return e.completeMachine()
+}
+
+// completeMachine finishes the machine off its completion vertex: its exit
+// behaviors run, it completes and its performance ends.
+func (e *StateExecutor) completeMachine() error {
+	e.completionDue = false
 	if err := e.exitMachine(); err != nil {
 		return err
 	}
@@ -2782,7 +2808,7 @@ func (e *StateExecutor) dueWork() bool {
 	if !e.drivable() {
 		return false
 	}
-	return e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
+	return e.completionDue || e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
 }
 
 // watchesChange reports a change condition the active configuration waits on.
@@ -2817,6 +2843,9 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 	}
 	if e.state != StateRunning {
 		return false, nil
+	}
+	if e.completionDue {
+		return true, e.completeMachine()
 	}
 	if !e.roundDone {
 		if stepped, err := e.stepRound(progress); err != nil || stepped {
@@ -2912,6 +2941,9 @@ func (e *StateExecutor) running() bool  { return e.inRun }
 // runStep is one run-to-completion step (a do round, a risen change condition,
 // else the next due event); false when nothing was left to do at this instant.
 func (e *StateExecutor) runStep(progress *dueProgress) (bool, error) {
+	if e.completionDue {
+		return true, e.completeMachine()
+	}
 	maxStateEvents, maxDoSteps := e.ctx.maxStateEvents, e.ctx.maxDoSteps
 	ran, err := e.runDoRound()
 	if err != nil {
@@ -4206,7 +4238,8 @@ func (e *StateExecutor) Release() {
 
 // Resume returns a machine suspended at quiescence to running, so a driver that
 // makes work available — advancing time, or delivering an event — can step it
-// again. A completed or failed machine is left as it is.
+// again. A completed or failed machine is left as it is; one paused on its
+// completion vertex completes as the next step.
 func (e *StateExecutor) Resume() bool {
 	if e.state != StateSuspended {
 		return false
@@ -4240,6 +4273,12 @@ func (e *StateExecutor) ClearBreakpoints() {
 // when none did.
 func (e *StateExecutor) PausedAt() ast.Node {
 	return e.pausedAt
+}
+
+// CompletionDue reports a machine paused on its completion vertex by a
+// breakpoint: entering it completed the machine, which the next step finishes.
+func (e *StateExecutor) CompletionDue() bool {
+	return e.completionDue
 }
 
 // Suspend parks a running machine back at quiescence, for a driver that resumed
@@ -4280,6 +4319,9 @@ func (e *StateExecutor) ProcessNextEvent() (err error) {
 	defer e.completedWhole(&err)
 
 	e.lastDispatch = nil
+	if e.completionDue {
+		return e.completeMachine()
+	}
 	var progress dueProgress
 	for {
 		ran, err := e.runDoRound()
@@ -4352,7 +4394,7 @@ func (e *StateExecutor) HasDueEvent() bool {
 // an event is queued, a signal this machine accepts is in flight, or a state's
 // do behavior has actions left to run.
 func (e *StateExecutor) HasPendingWork() bool {
-	return e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
+	return e.completionDue || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
 }
 
 // RunDoRound advances every active state's do behavior by one action, without

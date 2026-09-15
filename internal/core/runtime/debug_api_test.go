@@ -1654,6 +1654,111 @@ func TestStateBreakpointStagedByAFailedEntryIsDropped(t *testing.T) {
 	}
 }
 
+// A breakpoint on `done` pauses the machine standing on it, its completion held
+// for the resumed run: only then do its exit behaviors run and its performance end.
+func TestStateBreakpointOnDonePausesBeforeCompleting(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute exited : Integer = 0;
+			entry; then idle;
+			state idle {
+				exit action { assign exited := 1; }
+			}
+			transition first idle accept Stop then done;
+		}
+	}`
+	ctx, sym := loadState(t, src, "Machine")
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	done := stateNamed(t, exec, "done")
+	exec.SetBreakpointAt(done)
+
+	exec.SendSignal("Stop", nil)
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence: %v", err)
+	}
+	if got := exec.PausedAt(); got != ast.Node(done) {
+		t.Fatalf("PausedAt() = %v, want done", got)
+	}
+	if got := exec.State(); got != StateSuspended {
+		t.Errorf("State() = %v, want %v", got, StateSuspended)
+	}
+	if !exec.CompletionDue() || !exec.HasPendingWork() {
+		t.Errorf("CompletionDue() = %v, HasPendingWork() = %v, want the completion held", exec.CompletionDue(), exec.HasPendingWork())
+	}
+	if got := activeStateNames(exec); got != "done" {
+		t.Errorf("ActiveStates() = %s, want done", got)
+	}
+	if got := exec.StateData()["exited"]; got.Kind != ValConst || got.Const.Int != 1 {
+		t.Errorf("exited = %v, want 1: idle's exit action ran on the way to done", got)
+	}
+
+	if _, err := ctx.Advance(5); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	if got := exec.State(); got != StateSuspended {
+		t.Fatalf("State() = %v after the clock moved, want the pause held until resumed", got)
+	}
+
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence (resumed): %v", err)
+	}
+	if got := exec.State(); got != StateCompleted {
+		t.Errorf("State() = %v after resuming, want %v", got, StateCompleted)
+	}
+	if exec.PausedAt() != nil || exec.CompletionDue() || exec.HasPendingWork() {
+		t.Errorf("PausedAt() = %v, CompletionDue() = %v, HasPendingWork() = %v after completing, want none",
+			exec.PausedAt(), exec.CompletionDue(), exec.HasPendingWork())
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence (completed): %v", err)
+	}
+}
+
+// A machine paused on `done` completes as its next single step, whichever
+// driver takes it.
+func TestStateBreakpointOnDoneCompletesOnTheNextStep(t *testing.T) {
+	src := `package test {
+		state Machine {
+			entry; then idle;
+			state idle;
+			transition first idle accept Stop then done;
+		}
+	}`
+	for _, tc := range []struct {
+		name string
+		step func(exec *StateExecutor) error
+	}{
+		{"ProcessNextEvent", func(exec *StateExecutor) error { exec.Resume(); return exec.ProcessNextEvent() }},
+		{"stepOne", func(exec *StateExecutor) error { return exec.stepOne() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, sym := loadState(t, src, "Machine")
+			exec, err := ctx.CreateStateExecutor(sym)
+			if err != nil {
+				t.Fatalf("CreateStateExecutor: %v", err)
+			}
+			exec.SetBreakpointAt(stateNamed(t, exec, "done"))
+			exec.SendSignal("Stop", nil)
+			if err := exec.ProcessNextEvent(); err != nil {
+				t.Fatalf("ProcessNextEvent: %v", err)
+			}
+			if got := exec.State(); got != StateSuspended || !exec.CompletionDue() {
+				t.Fatalf("State() = %v, CompletionDue() = %v, want suspended with the completion held", got, exec.CompletionDue())
+			}
+			if err := tc.step(exec); err != nil {
+				t.Fatalf("step: %v", err)
+			}
+			if got := exec.State(); got != StateCompleted || exec.CompletionDue() {
+				t.Errorf("State() = %v, CompletionDue() = %v after the step, want completed", got, exec.CompletionDue())
+			}
+		})
+	}
+}
+
 // Breakpoints are cleared as a set; a pause already reached stands until resumed.
 func TestClearStateBreakpointsRunsThrough(t *testing.T) {
 	ctx, sym := loadState(t, debugStateSrc, "Cycle")
