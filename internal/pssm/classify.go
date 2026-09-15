@@ -361,9 +361,10 @@ func (w *walker) guard(g *Guard, where string) {
 }
 
 // guardSideEffect reports whether a guard's behavior acts on the model, by a
-// node the reading expresses or by one it does not.
+// node the reading expresses or by one it does not; a behavior that is not an
+// activity is not read and may.
 func guardSideEffect(g *Guard) bool {
-	return g != nil && g.Behavior != nil && g.Behavior.Body != nil && g.Behavior.Body.Acts
+	return g != nil && g.Behavior != nil && (g.Behavior.Body == nil || g.Behavior.Body.Acts)
 }
 
 // behavior records a state behavior with parameters: the notation binds event
