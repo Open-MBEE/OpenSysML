@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -17,10 +18,13 @@ func (w *Workspace) HighlightTokens(name string) []highlight.Token {
 	if doc == nil {
 		return nil
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, _ := w.newResolver()
-	return highlight.Tokens(doc.Content, doc.AST, doc.Scope, resolution{r: resolver})
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out []highlight.Token
+	w.queryLocked(name, func(resolver *resolve.Resolver, _ *semantics.Model) {
+		out = highlight.Tokens(doc.Content, doc.AST, doc.Scope, resolution{r: resolver})
+	})
+	return out
 }
 
 // resolution answers highlighting queries from one resolver, so the memoized

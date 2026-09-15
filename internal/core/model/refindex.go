@@ -32,19 +32,32 @@ type refEntry struct {
 }
 
 // refIndex maps every element (by symbols.KeyOf) to the segments in the
-// workspace's documents — never the library's — that reach it or write its name.
+// workspace's documents — never the library's — that reach it or write its name,
+// one table per document so a change drops only the documents it moved.
 type refIndex struct {
-	entries map[symbols.ElementKey][]refEntry
+	docs map[string]map[symbols.ElementKey][]refEntry
+}
+
+func newRefIndex() *refIndex {
+	return &refIndex{docs: map[string]map[symbols.ElementKey][]refEntry{}}
+}
+
+// drop forgets doc's table; the next query rebuilds it. A nil index holds none.
+func (x *refIndex) drop(doc string) {
+	if x != nil {
+		delete(x.docs, doc)
+	}
 }
 
 // add records segment part of ref, which reaches element and writes name (either
-// may be nil).
+// may be nil), in doc's table.
 func (x *refIndex) add(doc *Document, ref resolve.Reference, part int, element, name *symbols.Symbol) {
 	seg := ref.QN.Parts[part]
 	loc := ReferenceLocation{Doc: doc.Name, Content: doc.Content, Span: seg.Span}
+	entries := x.docs[doc.Name]
 	put := func(sym *symbols.Symbol, reached, named bool) {
 		key := symbols.KeyOf(sym)
-		x.entries[key] = append(x.entries[key], refEntry{ReferenceLocation: loc, text: seg.Text,
+		entries[key] = append(entries[key], refEntry{ReferenceLocation: loc, text: seg.Text,
 			reached: reached, named: named, ref: ref, part: part})
 	}
 	switch {
@@ -62,24 +75,37 @@ func (x *refIndex) add(doc *Document, ref resolve.Reference, part int, element, 
 	}
 }
 
-// referenceIndexLocked returns the reverse reference index, building it over every
-// document with one resolver when a change has dropped it. Caller holds the write lock.
-func (w *Workspace) referenceIndexLocked() *refIndex {
-	if w.refs != nil {
-		return w.refs
+// referencesLocked returns the reverse-index entries for key across every
+// document, in document then position order, building the table of each
+// document a change has dropped. Caller holds the write lock.
+func (w *Workspace) referencesLocked(key symbols.ElementKey) []refEntry {
+	if w.refs == nil {
+		w.refs = newRefIndex()
 	}
-	idx := &refIndex{entries: map[symbols.ElementKey][]refEntry{}}
-	r, sem := w.newResolver()
 	names := make([]string, 0, len(w.docs))
 	for name := range w.docs {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	var out []refEntry
 	for _, name := range names {
-		doc := w.docs[name]
-		if doc.Scope == nil {
-			continue
+		if w.refs.docs[name] == nil {
+			w.indexReferencesLocked(w.docs[name])
 		}
+		out = append(out, w.refs.docs[name][key]...)
+	}
+	return out
+}
+
+// indexReferencesLocked builds doc's reverse-index table, as a query owned by
+// doc: the resolutions it memoizes and the table itself go when doc or a
+// document it read changes.
+func (w *Workspace) indexReferencesLocked(doc *Document) {
+	w.refs.docs[doc.Name] = map[symbols.ElementKey][]refEntry{}
+	if doc.Scope == nil {
+		return
+	}
+	w.queryLocked(doc.Name, func(r *resolve.Resolver, sem *semantics.Model) {
 		for _, ref := range resolve.References(doc.AST, doc.Scope) {
 			if ref.QN == nil || len(ref.QN.Parts) == 0 {
 				continue
@@ -89,12 +115,10 @@ func (w *Workspace) referenceIndexLocked() *refIndex {
 			elements := segmentElements(r, ref, sel)
 			written := segmentNames(r, ref, sel)
 			for i := range ref.QN.Parts {
-				idx.add(doc, ref, i, elements[i], written[i])
+				w.refs.add(doc, ref, i, elements[i], written[i])
 			}
 		}
-	}
-	w.refs = idx
-	return idx
+	})
 }
 
 // ReferencesTo returns every segment in the workspace's documents that reaches
@@ -119,7 +143,7 @@ func (w *Workspace) referenceLocations(target *symbols.Symbol, keep func(refEntr
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	entries := w.referenceIndexLocked().entries[symbols.KeyOf(target)]
+	entries := w.referencesLocked(symbols.KeyOf(target))
 	out := make([]ReferenceLocation, 0, len(entries))
 	for _, e := range entries {
 		if keep(e) {
@@ -139,13 +163,16 @@ func (w *Workspace) RenameConflict(target *symbols.Symbol, name, newName string)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	var occurrences []rename.Occurrence
-	for _, e := range w.referenceIndexLocked().entries[symbols.KeyOf(target)] {
+	for _, e := range w.referencesLocked(symbols.KeyOf(target)) {
 		if e.named && e.text == name {
 			occurrences = append(occurrences, rename.Occurrence{Ref: e.ref, Part: e.part})
 		}
 	}
-	r, sem := w.newResolver()
-	return rename.Check(r, sem, target, name, newName, occurrences)
+	var conflict *rename.Conflict
+	w.queryLocked(target.DocName, func(r *resolve.Resolver, sem *semantics.Model) {
+		conflict = rename.Check(r, sem, target, name, newName, occurrences)
+	})
+	return conflict
 }
 
 // segmentElements is the element each segment of a resolved ref reaches (nil where

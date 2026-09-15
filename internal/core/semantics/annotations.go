@@ -44,11 +44,13 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.annotations[sym]; ok {
 		return cached
 	}
 	// Recorded first so that a value that resolves back to this element cannot
 	// re-enter the collection of its own annotations.
+	journal(m, m.annotations, sym, sym.Decl)
 	m.annotations[sym] = nil
 
 	var out []annotation
@@ -185,18 +187,17 @@ func (m *Model) ElementMetadataOf(sym *symbols.Symbol) []ElementMetadata {
 // documentRanks orders the documents of the index as Index.Documents lists
 // them; a document the index does not hold sorts after every one it does.
 func (m *Model) documentRanks() map[string]int {
-	if m.docRanks != nil {
-		return m.docRanks
+	if m.resolver == nil || m.resolver.Index() == nil {
+		return nil
 	}
-	ranks := make(map[string]int)
-	if m.resolver != nil && m.resolver.Index() != nil {
-		docs := m.resolver.Index().Documents()
+	m.shared(sharedDocs, func() bool { return m.docRanks != nil }, func() {
+		docs := m.gatheredDocs()
+		m.docRanks = make(map[string]int, len(docs))
 		for i, doc := range docs {
-			ranks[doc] = i - len(docs)
+			m.docRanks[doc] = i - len(docs)
 		}
-	}
-	m.docRanks = ranks
-	return ranks
+	}, func() { m.docRanks = nil })
+	return m.docRanks
 }
 
 // metadataBody is the body an annotation node binds feature values in.
@@ -406,51 +407,24 @@ func (m *Model) AboutAnnotatedSymbols() []*symbols.Symbol {
 // from the element it applies to, so there is no way to it from the element
 // itself.
 func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
-	if m.aboutAnnots != nil {
-		return m.aboutAnnots
-	}
-	m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
-	m.aboutByDecl = make(map[ast.Node][]annotation)
 	if m.resolver == nil || m.resolver.Index() == nil {
+		if m.aboutAnnots == nil {
+			m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
+			m.aboutByDecl = make(map[ast.Node][]annotation)
+		}
 		return m.aboutAnnots
 	}
-	idx := m.resolver.Index()
-	var seen map[*symbols.Symbol]bool
-	for _, doc := range idx.Documents() {
-		// A frozen document — the shared standard library above all — cached
-		// its `about` usages when it froze, so its tree is not walked here.
-		if usages, cached := idx.FrozenAboutUsages(doc); cached {
-			for _, sym := range usages {
+	m.shared(sharedAbout, func() bool { return m.aboutAnnots != nil }, func() {
+		m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
+		m.aboutByDecl = make(map[ast.Node][]annotation)
+		gathers := m.gathers()
+		for _, doc := range m.gatheredDocs() {
+			for _, sym := range gathers[doc].about {
 				m.indexAboutUsage(sym)
 			}
-			continue
 		}
-		if seen == nil {
-			seen = make(map[*symbols.Symbol]bool)
-		}
-		m.collectAboutAnnotations(idx.DocumentRoot(doc), seen)
-	}
+	}, func() { m.aboutAnnots, m.aboutByDecl, m.aboutOrder = nil, nil, nil })
 	return m.aboutAnnots
-}
-
-// collectAboutAnnotations walks a scope tree — anonymous members included, so
-// `metadata : T about x;` counts like a named usage — indexing every `about`
-// metadata usage by the elements it annotates.
-func (m *Model) collectAboutAnnotations(scope *symbols.Scope, seen map[*symbols.Symbol]bool) {
-	if scope == nil {
-		return
-	}
-	scope.ForEachMember(func(sym *symbols.Symbol) bool {
-		if sym == nil || seen[sym] {
-			return true
-		}
-		seen[sym] = true
-		if sym.Kind == symbols.SymbolMetadataUsage {
-			m.indexAboutUsage(sym)
-		}
-		m.collectAboutAnnotations(sym.Scope, seen)
-		return true
-	})
 }
 
 // indexAboutUsage records one `about` metadata usage against every element it
