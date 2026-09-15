@@ -318,6 +318,21 @@ const refiringModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f12" source="droneRelay" target="droneMerge"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f13" source="droneMerge" target="sro"/>
   </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="j" name="LoopingLauncher">
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createDrone3" name="Create(Drone)" classifier="drone">
+      <result xmi:type="uml:OutputPin" xmi:id="cdr3" name="result"/>
+    </node>
+    <node xmi:type="uml:MergeNode" xmi:id="loop" name="Loop"/>
+    <node xmi:type="uml:DecisionNode" xmi:id="again" name="Again"/>
+    <node xmi:type="uml:StartObjectBehaviorAction" xmi:id="startLooped" name="Start(Entity)">
+      <object xmi:type="uml:InputPin" xmi:id="slo" name="object" type="entity"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f14" source="cdr3" target="loop"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f15" source="loop" target="slo"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f16" source="loop" target="again"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f17" source="again" target="loop"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f18" source="again" target="slo"/>
+  </packagedElement>
 </uml:Model>
 `
 
@@ -411,6 +426,11 @@ func TestClassifyFilesReFiringByItsCause(t *testing.T) {
 	// the pin's own type stands in for none of them.
 	if c := Classify(activity(t, m, "ReconvergingLauncher"), nil); c.Class != Expressible {
 		t.Errorf("ReconvergingLauncher = %s: %s", c.Class, c.Reason())
+	}
+	// A flow cycle carries only what enters it; the pin fed from two of its
+	// nodes sees the one created object, whichever node the search met first.
+	if c := Classify(activity(t, m, "LoopingLauncher"), nil); c.Class != Expressible {
+		t.Errorf("LoopingLauncher = %s: %s", c.Class, c.Reason())
 	}
 }
 

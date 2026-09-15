@@ -381,45 +381,62 @@ func dependencies(a *Activity) []*Activity {
 	return deps
 }
 
-// typeSources is what objectTypes found for one node; done is false while the
-// node is still being searched, which only a flow cycle leads back to.
+// typeSources is what objectTypes found for one node; while the node is still
+// being searched, depth is its place in the search and done is false.
 type typeSources struct {
 	types    []TypeRef
 	resolved bool
+	depth    int
 	done     bool
 }
 
 // objectTypes lists the types the objects reaching a pin may have, tracing its
 // object flows back to their sources; the node's own type stands in for a path
-// with none. Each node is searched once, so reconverging paths share its result.
+// with none. A node is searched once and its result shared by every path
+// reconverging on it.
 func objectTypes(n *Node, found map[*Node]*typeSources) (types []TypeRef, resolved bool) {
+	types, resolved, _ = objectTypesAt(n, found, 0)
+	return types, resolved
+}
+
+// objectTypesAt is objectTypes at depth of the search; low is the shallowest
+// node still being searched that a flow cycle led back to. A result found
+// inside that cycle is only kept once the node closing it has its own.
+func objectTypesAt(n *Node, found map[*Node]*typeSources, depth int) (types []TypeRef, resolved bool, low int) {
 	if s, ok := found[n]; ok {
 		if !s.done {
-			return nil, true
+			return nil, true, s.depth
 		}
-		return s.types, s.resolved
+		return s.types, s.resolved, depth
 	}
-	s := &typeSources{}
+	s := &typeSources{depth: depth}
 	found[n] = s
-	defer func() { s.types, s.resolved, s.done = types, resolved, true }()
-	if n.Kind == OutputPin && n.Owner != nil && n.Owner.Kind == CreateObjectAction && !n.Owner.Classifier.Zero() {
-		return []TypeRef{n.Owner.Classifier}, true
-	}
-	fed, resolved := false, true
-	for _, e := range n.Incoming {
-		if e.Kind == ObjectFlow && e.Source != nil {
-			sources, ok := objectTypes(e.Source, found)
-			fed, resolved = fed || len(sources) > 0, resolved && ok
-			types = append(types, sources...)
+	defer func() {
+		if low >= depth {
+			s.types, s.resolved, s.done = types, resolved, true
+		} else {
+			delete(found, n)
 		}
+	}()
+	if n.Kind == OutputPin && n.Owner != nil && n.Owner.Kind == CreateObjectAction && !n.Owner.Classifier.Zero() {
+		return []TypeRef{n.Owner.Classifier}, true, depth
+	}
+	fed, flowed, resolved, low := false, false, true, depth
+	for _, e := range n.Incoming {
+		if e.Kind != ObjectFlow || e.Source == nil {
+			continue
+		}
+		sources, ok, l := objectTypesAt(e.Source, found, depth+1)
+		fed, flowed, resolved, low = fed || len(sources) > 0, true, resolved && ok, min(low, l)
+		types = append(types, sources...)
 	}
 	if fed && resolved {
-		return types, true
+		return types, true, low
 	}
 	if !n.Type.Zero() {
-		return append(types, n.Type), true
+		return append(types, n.Type), true, low
 	}
-	return types, false
+	return types, flowed && !fed && resolved, low
 }
 
 // classifierBehavior is the behavior an object of the type runs when started:
