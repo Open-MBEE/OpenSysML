@@ -1166,14 +1166,7 @@ func (s *Session) clear() []string {
 	s.snippets = nil
 	s.version = 0
 	s.rtCtx, s.replaced = nil, nil
-	if s.idx != nil {
-		// Drop the documents, keep the library the index was built with.
-		for _, name := range s.idxDocs {
-			s.idx.RemoveDocument(name)
-		}
-		s.idxDocs = nil
-		s.idxVersion = 0
-	}
+	s.dropIndexedDocs()
 	s.instances = make(map[string]*runtime.Instance)
 	s.unnamed = nil
 	s.lost = lost
@@ -1274,6 +1267,7 @@ func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error)
 func (s *Session) symbolIndex() *symbols.Index {
 	docs := s.sessionDocs()
 	if !hasScope(docs) {
+		s.dropIndexedDocs()
 		return nil
 	}
 	if s.idx == nil {
@@ -1298,6 +1292,19 @@ func (s *Session) symbolIndex() *symbols.Index {
 	s.idx.ExpandWildcardImports()
 	s.idxVersion = s.version
 	return s.idx
+}
+
+// dropIndexedDocs takes the session's documents back out of the index, keeping
+// the library it was built with.
+func (s *Session) dropIndexedDocs() {
+	if s.idx == nil {
+		return
+	}
+	for _, name := range s.idxDocs {
+		s.idx.RemoveDocument(name)
+	}
+	s.idxDocs = nil
+	s.idxVersion = 0
 }
 
 // hasScope reports whether any of the documents built a scope tree.
