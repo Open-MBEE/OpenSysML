@@ -380,15 +380,16 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 	// exits its regions' active states, as exiting a KerML StatePerformance ends
 	// its subperformances.
 	lca := e.getLCA(owner, target)
+	between := e.exitPath(owner, lca, nil)
 	if lca == target {
-		// The target is an active ancestor: the region is left and rests at its
-		// owner, the states between are exited, and the target is not re-entered.
+		// The target is an active ancestor: the region is left, the states between
+		// are exited, and the target's region they were in rests at the target.
 		if err := e.exitRegionTo(region, nil); err != nil {
 			return err
 		}
 		e.activeConfig.regionStates[region] = owner
 	}
-	for _, current := range e.exitPath(owner, lca, nil) {
+	for _, current := range between {
 		// Clear the region current is active in first — a region's active state may
 		// be nested below current — or an enclosing state exits current again.
 		if declaring := e.enclosingRegion(current); declaring != nil {
@@ -399,6 +400,11 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 		}
 		if err := e.exitState(current); err != nil {
 			return fmt.Errorf("exit state: %w", err)
+		}
+	}
+	if lca == target && len(between) > 0 {
+		if declaring := e.declaringRegion(between[len(between)-1]); declaring != nil {
+			e.activeConfig.regionStates[declaring] = target
 		}
 	}
 	if err := e.runBehaviors(effects); err != nil {
