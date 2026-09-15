@@ -2739,9 +2739,9 @@ func (ec *EvalContext) evalCollectionNotation(
 type invocationKey struct {
 	node  *ast.InvocationExpr
 	scope *symbols.Scope
-	// running is the behavior whose run evaluates the expression: it applies a
-	// callee it redefines through the redefining feature.
-	running *symbols.Symbol
+	// redefining is the type whose redefinitions the callee answers to: the behavior
+	// whose run evaluates the expression, else the type of the object it is bound to.
+	redefining *symbols.Symbol
 }
 
 // invocationTarget is what an invocation expression denotes, resolved once per
@@ -2769,14 +2769,14 @@ type invocationTarget struct {
 // library built-in is registered by. What the selection read of the model is recorded for the
 // binding being made on every use, a memoized target's included.
 func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget {
-	key := invocationKey{node: n, scope: ec.scope, running: ec.runningBehavior()}
+	key := invocationKey{node: n, scope: ec.scope, redefining: ec.redefiningType()}
 	target, ok := ec.ctx.model.invocationTargets[key]
 	if !ok {
 		target = ec.selectInvocationTarget(key, n)
 		ec.ctx.model.invocationTargets[key] = target
 	}
 	ec.ctx.noteInvocationRead(ec.scope, n.Type, target.candidates)
-	for b := key.running; b != nil; b = enclosingBehavior(b) {
+	for b := key.redefining; b != nil; b = enclosingBehavior(b) {
 		ec.ctx.noteTypeRead(b)
 	}
 	ec.ctx.noteDeclarationRead(target.calc)
@@ -2798,12 +2798,24 @@ func (ec *EvalContext) selectInvocationTarget(key invocationKey, n *ast.Invocati
 		target.ambiguous = sel.Tied
 	case sel.Called() != nil:
 		sym := sel.Called()
-		ec.ctx.implementInvocation(target, ec.ctx.inheritedFeature(key.running, sym))
+		ec.ctx.implementInvocation(target, ec.ctx.inheritedFeature(key.redefining, sym))
 	}
 	if len(n.NamedArgs) > 0 {
 		target.names, target.unbound = ec.ctx.boundParameterNames(ec.scope, target.calc, n.NamedArgs)
 	}
 	return target
+}
+
+// redefiningType is the type whose redefinitions a callee here answers to: the
+// running behavior, else the type of the object the expression is bound to.
+func (ec *EvalContext) redefiningType() *symbols.Symbol {
+	if running := ec.runningBehavior(); running != nil {
+		return running
+	}
+	if ec.self != nil {
+		return ec.self.Type
+	}
+	return nil
 }
 
 // runningBehavior is the behavior whose run the expression is evaluated in: the

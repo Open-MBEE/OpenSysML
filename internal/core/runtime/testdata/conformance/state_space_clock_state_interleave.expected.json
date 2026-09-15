@@ -1,0 +1,11 @@
+{
+  "type": "action",
+  "libraries": true,
+  "trace": true,
+  "evaluate": "test::probe",
+  "outcomes": [
+    {"outputs": {"early": {"type": "Real", "value": 0.5}, "late": {"type": "Real", "value": 0.25}, "final": {"type": "Real", "value": 0.0625}}},
+    {"outputs": {"early": {"type": "Real", "value": 0.5}, "late": {"type": "Real", "value": 0.125}, "final": {"type": "Real", "value": 0.0625}}}
+  ],
+  "admissible": "An action token and a state transition due at one instant: which runs first is open"
+}

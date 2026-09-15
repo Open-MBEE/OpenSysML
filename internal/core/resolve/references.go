@@ -528,7 +528,11 @@ func (c *refCollector) trigger(scope *symbols.Scope, trigger ast.Node) {
 	case *ast.AcceptEvent:
 		// The payload's type and the event feature it subsets, as resolveTrigger.
 		c.add(scope, t.SignalType)
-		c.add(scope, t.Subsets)
+		if qn := ast.AsQualifiedName(t.Subsets); qn != nil {
+			c.add(scope, qn)
+		} else if t.Subsets != nil {
+			c.expr(scope, t.Subsets)
+		}
 		if t.Payload != nil {
 			c.resolveDecl(scope, t.Payload)
 		}

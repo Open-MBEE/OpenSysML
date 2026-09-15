@@ -44,6 +44,7 @@ type imagedAction struct {
 	breakpoints       map[string]bool
 	firedBreakpoints  map[breakpointVisit]bool
 	run               int
+	dynamics          *stateSpaceRun
 	frames            []imagedFrame
 }
 
@@ -148,6 +149,12 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 		return nil, fmt.Errorf("inputs: %w", err)
 	}
 	img.inputs = maps.Clone(e.inputs)
+	if e.dynamics != nil {
+		if err := t.value(e.dynamics.stepValue); err != nil {
+			return nil, fmt.Errorf("time step: %w", err)
+		}
+		img.dynamics = e.dynamics.clone()
+	}
 	for _, token := range e.tokens {
 		if token.body != nil {
 			return nil, fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
@@ -435,6 +442,12 @@ func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) err
 		return fmt.Errorf("inputs: %w", err)
 	}
 	e.driven.state = m.runOf(img.run)
+	if img.dynamics != nil {
+		e.dynamics = img.dynamics.clone()
+		if e.dynamics.stepValue, err = m.value(img.dynamics.stepValue); err != nil {
+			return fmt.Errorf("time step: %w", err)
+		}
+	}
 	return nil
 }
 
