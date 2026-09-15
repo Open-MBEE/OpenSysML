@@ -651,3 +651,39 @@ func TestInvalidatedTakenValueIsImagedAsUnderived(t *testing.T) {
 	expect(t, dst, restored, "sats[1]", "total", "4")
 	expect(t, ctx, fleet, "sats[2]", "total", "11")
 }
+
+const lifetimeFleetSrc = `package test {
+	private import OccurrenceFunctions::*;
+	requirement def Running {
+		subject s : Sat;
+		require constraint { isDuring(s.c1) }
+	}
+	part def Comp;
+	part def Sat {
+		part c1 : Comp;
+		attribute running : ScalarValues::Boolean = isDuring(c1);
+	}
+	part def Fleet {
+		part sats : Sat[2];
+	}
+	part fleet : Fleet {
+		satisfy Running by sats;
+	}
+}`
+
+// A lifetime is the run's, not the shape's: a default derived over one is the
+// occurrence's own, and an occurrence whose part has ended derives its own.
+func TestLifetimeReadsAreNotShared(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, lifetimeFleetSrc))
+	ctx.SetSharedDefaults(true)
+	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	if err := ctx.destroy(at(t, ctx, fleet, "sats[2].c1")); err != nil {
+		t.Fatalf("destroy sats[2].c1: %v", err)
+	}
+	expect(t, ctx, fleet, "sats[1]", "running", "true")
+	expect(t, ctx, fleet, "sats[2]", "running", "false")
+	expectTaken(t, ctx, 0)
+}

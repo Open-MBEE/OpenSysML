@@ -1,8 +1,11 @@
 package runtime
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // sparseSides instantiates and validates the named part with sharing on and off,
@@ -243,5 +246,41 @@ func TestTracedContextSharesNothing(t *testing.T) {
 	ctx.SetTrace(nil)
 	if _, shared := sparseReading(ctx, lookupOne(t, idx, "test::fleet"), idx.DocumentRoot("<test>")); shared == 0 {
 		t.Error("nothing shared once the trace was detached")
+	}
+}
+
+// A condition deciding on a lifetime decides on the run's state of one occurrence:
+// nothing is shared, and an occurrence whose part has ended gets its own verdict.
+func TestLifetimeVerdictsAreNotShared(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, lifetimeFleetSrc))
+	ctx.SetSharedDefaults(true)
+	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	if err := ctx.destroy(at(t, ctx, fleet, "sats[2].c1")); err != nil {
+		t.Fatalf("destroy sats[2].c1: %v", err)
+	}
+	done := ctx.ShareVerdicts()
+	defer done()
+	report, err := ctx.ValidateObject(fleet, []*symbols.Scope{idx.DocumentRoot("<test>")})
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	var lines []string
+	for _, v := range report.Verdicts {
+		if v.Kind == "satisfaction" {
+			lines = append(lines, fmt.Sprintf("%s on %q: %s", v.Kind, strings.Join(v.Path, "."), v.Status))
+		}
+	}
+	want := []string{
+		`satisfaction on "sats[1]": holds`,
+		`satisfaction on "sats[2]": violated`,
+	}
+	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
+		t.Errorf("verdicts:\n%s\nwant:\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
+	}
+	if shared := int(ctx.SharedDefaultsTaken()) + ctx.SharedVerdictsTaken(); shared != 0 {
+		t.Errorf("shared %d values or verdicts deciding on a lifetime", shared)
 	}
 }

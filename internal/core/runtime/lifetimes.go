@@ -34,7 +34,9 @@ func (l life) alive() bool { return l.began > 0 && l.ended == 0 }
 
 // lifeOf answers the lifetime of inst for function op; an object the context
 // holds without one is a fault of the context, reported rather than guessed.
+// A lifetime is the run's, not the shape's: nothing derived over it is shared.
 func (ctx *Context) lifeOf(op string, inst *Instance) (life, error) {
+	ctx.unshareTraces()
 	l, ok := ctx.lives[inst.ID]
 	if !ok {
 		return life{}, fmt.Errorf("%w: function %s: object #%d (%s) has no lifetime here",
@@ -125,6 +127,7 @@ func (ctx *Context) createDuring(op string, inst *Instance, mark int64) error {
 // destroy ends inst and every object it holds as a portion of itself, none of
 // which outlives its whole, ends twice, or ends while performing a behavior.
 func (ctx *Context) destroy(inst *Instance) error {
+	ctx.unshareTraces()
 	if err := ctx.checkMayEnd(inst); err != nil {
 		return err
 	}
