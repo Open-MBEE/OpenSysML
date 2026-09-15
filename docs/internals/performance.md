@@ -6,6 +6,10 @@ say about where the remaining cost is. Figures below were taken on an
 ratios rather than absolutes. Each release is measured against the one before it
 in a record under `docs/project/`; the latest is
 [release 0.8.0 against release 0.7.0](../project/performance-release-0.8-vs-0.7.0.md).
+How far one realistic model scales — a satellite constellation with every
+spacecraft modeled to its components, from 2 to 12 800 satellites — and where
+validation, satisfaction checking and editing each stop being practical is in
+the [satellite-network stress test](../project/satellite-network-stress-test.md).
 
 ## Profiling a run
 

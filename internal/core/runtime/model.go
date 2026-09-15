@@ -69,6 +69,10 @@ type Model struct {
 	// see librarySymbol.
 	librarySymbols map[string]*symbols.Symbol
 
+	// verificationCases memoizes the verification cases declared under a scope;
+	// see verificationCasesIn.
+	verificationCases map[*symbols.Scope][]*symbols.Symbol
+
 	// libraryPerformances memoizes, per model calc, the inherited library function a
 	// call of it applies; nil for a calc that computes on its own.
 	libraryPerformances map[*symbols.Symbol]*libraryPerformance
@@ -141,6 +145,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
 		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
 		librarySymbols:      make(map[string]*symbols.Symbol),
+		verificationCases:   make(map[*symbols.Scope][]*symbols.Symbol),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
 		invocationTargets:   make(map[invocationKey]*invocationTarget),
 		integerLiterals:     make(map[*ast.LiteralInteger]int64),

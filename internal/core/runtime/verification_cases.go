@@ -11,25 +11,46 @@ import (
 func (ctx *Context) VerificationsOf(scope *symbols.Scope, req *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
-	ctx.collectVerifications(scope, req, seen, &out)
-	return out
-}
-
-func (ctx *Context) collectVerifications(scope *symbols.Scope, req *symbols.Symbol, seen map[*symbols.Symbol]bool, out *[]*symbols.Symbol) {
-	if scope == nil {
-		return
-	}
-	for _, sym := range scopeMemberSymbols(scope) {
-		if !IsVerificationCaseSymbol(sym) || seen[sym] {
+	for _, sym := range ctx.model.verificationCasesIn(scope) {
+		if seen[sym] {
 			continue
 		}
 		if req == nil || verifies(ctx.VerifiedRequirements(sym), req) {
 			seen[sym] = true
+			out = append(out, sym)
+		}
+	}
+	return out
+}
+
+// verificationCasesIn returns the verification cases declared in scope and the
+// scopes nested within it, in declaration order, memoized per scope.
+func (m *Model) verificationCasesIn(scope *symbols.Scope) []*symbols.Symbol {
+	if scope == nil {
+		return nil
+	}
+	if m == nil {
+		var out []*symbols.Symbol
+		collectVerificationCases(scope, &out)
+		return out
+	}
+	if cases, done := m.verificationCases[scope]; done {
+		return cases
+	}
+	var out []*symbols.Symbol
+	collectVerificationCases(scope, &out)
+	m.verificationCases[scope] = out
+	return out
+}
+
+func collectVerificationCases(scope *symbols.Scope, out *[]*symbols.Symbol) {
+	for _, sym := range scopeMemberSymbols(scope) {
+		if IsVerificationCaseSymbol(sym) {
 			*out = append(*out, sym)
 		}
 	}
 	for _, child := range scope.Children() {
-		ctx.collectVerifications(child, req, seen, out)
+		collectVerificationCases(child, out)
 	}
 }
 
