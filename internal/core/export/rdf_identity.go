@@ -40,9 +40,8 @@ type identityFacts struct {
 	qualified bool
 }
 
-// analyzeDocument indexes one parsed document over the standard library and resolves
-// every name it writes; a library file (named, or a copy in the bundled document's
-// language that is its text or is rooted at its top-level packages) takes the bundled one's place.
+// analyzeDocument indexes one parsed document over the standard library and resolves every
+// name it writes; a library file, or a copy in its language rooted at its packages, takes the bundled one's place.
 func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*resolve.Resolver, *semantics.Model) {
 	name := file.Name()
 	idx := libs.NewModelIndex()
