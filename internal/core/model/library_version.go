@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -73,6 +74,53 @@ func (w *Workspace) restoreLocked(library string) {
 	if root, ok := scope.Node().(*ast.RootNamespace); ok {
 		w.index.AddDocument(library, root)
 		w.index.MarkLibraryDocument(library, record)
+	}
+}
+
+// standInOverLocked applies standInLocked's rule to idx once it holds sf as root:
+// a library version displaces the bundled file, a document that stopped being one restores it.
+func (w *Workspace) standInOverLocked(idx *symbols.Index, sf *source.SourceFile, root *ast.RootNamespace) {
+	if w.libBase == nil {
+		return
+	}
+	name, library := sf.Name(), ""
+	if identity.LibraryCatalog(idx).NamesEveryRoot(root) {
+		resolver, sem := w.resolverOver(idx)
+		library = identity.LibraryVersion(sem, resolver, name)
+	}
+	if previous := w.standIns[name]; previous != "" && previous != library {
+		w.restoreOverLocked(idx, name, previous)
+	}
+	if library == "" {
+		return
+	}
+	if library != name {
+		idx.RemoveDocument(library)
+	}
+	idx.MarkLibraryDocument(name, symbols.LibraryDocument{
+		Tier:   w.libBase.LibraryDocumentOf(library).Tier,
+		Digest: symbols.TextDigest(sf.Bytes()),
+	})
+}
+
+// restoreOverLocked re-indexes the bundled file library in idx, marked, unless
+// it is already there or another stand-in for it is.
+func (w *Workspace) restoreOverLocked(idx *symbols.Index, name, library string) {
+	if idx.DocumentRoot(library) != nil {
+		return
+	}
+	for other, stoodFor := range w.standIns {
+		if other != name && stoodFor == library && idx.DocumentRoot(other) != nil {
+			return
+		}
+	}
+	scope := w.libBase.DocumentRoot(library)
+	if scope == nil {
+		return
+	}
+	if root, ok := scope.Node().(*ast.RootNamespace); ok {
+		idx.AddDocument(library, root)
+		idx.MarkLibraryDocument(library, w.libBase.LibraryDocumentOf(library))
 	}
 }
 

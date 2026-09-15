@@ -48,6 +48,7 @@ func (w *Workspace) ApplyEdit(name string, ops []edit.Operation) (result *EditRe
 		ParseDiags: doc.ParseDiagnostics,
 		SemDiags:   w.diagnosticsLocked(name, doc),
 		NewIndex:   w.siblingIndexLocked(name),
+		Indexed:    w.standInOverLocked,
 		Analysis:   w.analysis,
 		Other:      w.otherDocumentLocked(name),
 	}
@@ -96,6 +97,8 @@ func (w *Workspace) otherDocumentLocked(name string) func(string) (edit.Document
 // document but name, so the edited notation resolves what the original did.
 // Over a shared library base it overlays that; over a caller-built index it
 // re-indexes the caller's other documents, library marks and languages included.
+// A bundled file that name stands in for stays: standInOverLocked displaces it
+// again if the edited notation is still a version of it.
 func (w *Workspace) siblingIndexLocked(name string) func() *symbols.Index {
 	return func() *symbols.Index {
 		var idx *symbols.Index
