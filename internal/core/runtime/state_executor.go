@@ -1099,12 +1099,15 @@ func (e *StateExecutor) exitedByAncestorRegion(state *ast.StateNode, leaving []*
 
 // activeLeaves returns the innermost active states, ordered by the declaration of
 // the regions they lie in rather than by their depth. A state owning an active
-// orthogonal region is not a leaf: the event reaches it walking outward.
+// orthogonal region is not a leaf: the event reaches it walking outward. Once
+// every one of its regions rests at the state itself, it is the leaf, once.
 func (e *StateExecutor) activeLeaves() []*ast.StateNode {
 	states := e.activeStates()
 	leaves := make([]*ast.StateNode, 0, len(states))
+	seen := make(map[*ast.StateNode]bool, len(states))
 	for _, state := range states {
-		if !e.enclosesActiveRegion(state) {
+		if !e.enclosesActiveRegion(state) && !seen[state] {
+			seen[state] = true
 			leaves = append(leaves, state)
 		}
 	}
@@ -1206,11 +1209,11 @@ func (e *StateExecutor) activeRegionOf(state *ast.StateNode) *ast.StateRegion {
 	return nil
 }
 
-// enclosesActiveRegion reports whether the state owns an orthogonal region that
-// is currently active.
+// enclosesActiveRegion reports whether the state owns an orthogonal region with
+// an active state below it; a region resting at the state itself has none.
 func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 	for _, region := range e.graph.CompositeStates[state] {
-		if _, active := e.activeConfig.regionStates[region]; active {
+		if active, ok := e.activeConfig.regionStates[region]; ok && active != state {
 			return true
 		}
 	}
