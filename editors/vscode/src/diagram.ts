@@ -25,7 +25,9 @@ import {
 import {
   admits,
   APPLY_MODEL_EDIT_CAPABILITY,
+  CROSS_DOCUMENT_CAPABILITY,
   declaredHere,
+  ownDeclarations,
   APPLY_MODEL_EDIT_METHOD,
   ApplyModelEditResult,
   EdgePlacement,
@@ -361,6 +363,10 @@ class DiagramPanel {
       // No palette unless the server also computes the edits it would lead to.
       if (!supportsEdit(client)) {
         delete result.palette;
+      }
+      // A server predating declaredHere names the requested document's own alone.
+      if (!supportsCrossDocument(client)) {
+        result.nodes = ownDeclarations(result.nodes ?? []);
       }
       this.rendering = {
         nodes: result.nodes ?? [],
@@ -794,6 +800,11 @@ type AppliedAction = EditAction | { kind: "place" };
 /** supportsEdit reports whether the server advertised the model-edit capability. */
 function supportsEdit(client: LanguageClient): boolean {
   return experimental(client)?.[APPLY_MODEL_EDIT_CAPABILITY] === true;
+}
+
+/** supportsCrossDocument reports whether the server advertised the cross-document diagram contract. */
+function supportsCrossDocument(client: LanguageClient): boolean {
+  return experimental(client)?.[CROSS_DOCUMENT_CAPABILITY] === true;
 }
 
 /** openVersion is the version of the open buffer at a URI, or nothing when no buffer holds it. */

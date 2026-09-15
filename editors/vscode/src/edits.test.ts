@@ -24,7 +24,7 @@ import {
   rootOwner,
   validName,
 } from "./edits";
-import type { ModelEditOperation, RenderNode, RenderOwner } from "./protocol";
+import { declaredHere, ownDeclarations, type ModelEditOperation, type RenderNode, type RenderOwner } from "./protocol";
 
 // The interconnection rendering of
 //   package Vehicle { part def Car { part tank { port fuelOut; } part engine { port fuelIn; } } }
@@ -572,6 +572,26 @@ test("placementOperations refuses a node or edge the document does not declare",
   assert.equal(placementOperations(placed, [{ id: "missing", layout: { x: 1, y: 2 } }], []), undefined);
   assert.equal(placementOperations(placed, [], [{ index: 1, route: [] }]), undefined);
   assert.equal(placementOperations(placed, [], [{ index: 9, route: [] }]), undefined);
+});
+
+// A server predating declaredHere named the requested document's declarations
+// alone, so read as its own, every named node keeps the edits it used to offer.
+test("ownDeclarations reads a rendering of an older server as declaring every named node", () => {
+  const legacy: RenderNode[] = [
+    { id: "n1", kind: "part def", name: "Vehicle::Car", type: "", detail: "", fqn: "Vehicle::Car", notation: "part def", owners: [vehicle] },
+    { id: "n2", kind: "part", name: "tank", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::tank", notation: "part", owners: [carOwner, vehicle] },
+    { id: "n3", kind: "part", name: "wheel", type: "Wheel", detail: "", parent: "n1" },
+  ];
+  assert.ok(!legacy.some(declaredHere));
+  const own = ownDeclarations(legacy);
+  assert.deepEqual(own.map(declaredHere), [true, true, false]);
+  assert.equal(own[2], legacy[2]);
+  assert.deepEqual(own.map((node) => node.declaredHere), [true, true, undefined]);
+  assert.deepEqual(legacy.map((node) => node.declaredHere), [undefined, undefined, undefined]);
+  assert.equal(ownerOf(own[1], own), own[1]);
+  assert.equal(ownerOf(own[2], own), own[0]);
+  assert.deepEqual(moveOperation(own[1], "Vehicle::Car"), { kind: "move", target: "Vehicle::Car::tank", owner: "Vehicle::Car" });
+  assert.equal(ownerOf(legacy[1], legacy), undefined);
 });
 
 // The scanner follows the lexer's UNRESTRICTED_NAME: a backslash escapes one

@@ -116,6 +116,11 @@ off the wire when the panel is hidden.
 Capability: the server advertises `experimental: { openSysmlRender: true }` in
 `initialize`, and the client only registers the panel when it sees it, so an old
 server and a new extension degrade to today's behavior instead of erroring.
+The cross-document contract is advertised by both sides as
+`openSysmlCrossDocumentLayout`: the server names another document's nodes only
+to a client that pins them by `declaredIn` and `digest`, and the client reads a
+server that never sent `declaredHere` as declaring every node it named, so an
+older extension drags no unpinned name and an older server loses no menu.
 
 ### The Go side
 
@@ -419,7 +424,10 @@ save are the text document's.
   `fqn` and no `declaration`, so the panel does not offer to drag it. A node another
   workspace document declares carries its `fqn` but not `declaredHere`, so the panel
   drags it and offers it nothing else: a rename, delete, move or member added is
-  written by the document declaring the node, from a panel of that document.
+  written by the document declaring the node, from a panel of that document. Both
+  hold only between a client and a server advertising `openSysmlCrossDocumentLayout`;
+  across a version gap each side falls back to naming, or reading, the requested
+  document's declarations alone.
 - Only the requesting document's version travels in the request, so only it can be
   answered `stale` by the server; another document that changed between the server
   computing the edit and the client applying it is caught by the client comparing

@@ -19,6 +19,9 @@ export const APPLY_MODEL_EDIT_METHOD = "opensysml/applyModelEdit";
 /** The capability the server advertises when it serves model edits. */
 export const APPLY_MODEL_EDIT_CAPABILITY = "openSysmlApplyModelEdit";
 
+/** The capability each side advertises when it speaks the cross-document diagram contract: renderings naming other documents' declarations, `declaredHere`, and layouts pinned with `declaredIn`. */
+export const CROSS_DOCUMENT_CAPABILITY = "openSysmlCrossDocumentLayout";
+
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
@@ -178,6 +181,11 @@ export function admits(palette: EditPalette | undefined, memberKind: string, nod
 /** declaredHere: whether the requested document declares a node, which every edit reaches; another document's takes a layout alone. */
 export function declaredHere(node: RenderNode): node is RenderNode & { fqn: string } {
   return node.declaredHere === true && node.fqn !== undefined;
+}
+
+/** ownDeclarations: nodes as a server predating `declaredHere` means them — every named one is the requested document's own. */
+export function ownDeclarations(nodes: RenderNode[]): RenderNode[] {
+  return nodes.map((node) => (node.fqn === undefined ? node : { ...node, declaredHere: true }));
 }
 
 /** reachable: whether a layout edit can reach a node or edge — by qualified name, or by declaration when none reaches it. */

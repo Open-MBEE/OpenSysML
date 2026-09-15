@@ -95,6 +95,9 @@ refused, and the message names the diagnostic. Nodes the file does not declare
 The command exists only when the server advertises
 `experimental: { openSysmlRender: true }`, and the editing menus only with
 `openSysmlApplyModelEdit`, so an older `sysml-lsp` keeps working without them.
+Dragging a node another file declares needs `openSysmlCrossDocumentLayout` on
+both sides; without it the panel places, and the server names, what the
+rendered file declares alone.
 The requests behind the panel — `opensysml/render`, `opensysml/views`,
 `opensysml/applyModelEdit` and the `opensysml/renderChanged` notification — are
 documented in [docs/reference/lsp.md](../../docs/reference/lsp.md).

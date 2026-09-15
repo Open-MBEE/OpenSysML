@@ -15,6 +15,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 		s.applyConformanceSettings(params.InitializationOptions)
 		s.setHoverMarkdown(clientRendersMarkdownHover(params.Capabilities))
 		s.setCompletionMarkdown(clientRendersMarkdownCompletion(params.Capabilities))
+		s.setCrossDocument(clientAdvertisesCrossDocument(params.Capabilities))
 	}
 	return &protocol.InitializeResult{
 		Capabilities: protocol.ServerCapabilities{
@@ -51,6 +52,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				"openSysmlRenderDocument": true,
 				"openSysmlApplyModelEdit": true,
 				"openSysmlStdlibContent":  true,
+				CrossDocumentCapability:   true,
 			},
 			// Folders added mid-session are only indexed if the client reports them.
 			Workspace: &protocol.ServerCapabilitiesWorkspace{
@@ -93,6 +95,13 @@ func clientRendersMarkdownCompletion(caps protocol.ClientCapabilities) bool {
 		}
 	}
 	return false
+}
+
+// clientAdvertisesCrossDocument reports whether the client listed the
+// cross-document diagram contract among its experimental capabilities.
+func clientAdvertisesCrossDocument(caps protocol.ClientCapabilities) bool {
+	experimental, ok := caps.Experimental.(map[string]any)
+	return ok && experimental[CrossDocumentCapability] == true
 }
 
 // Initialized indexes the session's folders, so cross-file names resolve without

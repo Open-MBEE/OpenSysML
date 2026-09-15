@@ -29,6 +29,11 @@ const (
 	MethodRenderChanged = "opensysml/renderChanged"
 )
 
+// CrossDocumentCapability is the experimental capability a client and the server
+// each advertise when they speak the cross-document diagram contract: renderings
+// naming other documents' declarations and layouts pinned with declaredIn.
+const CrossDocumentCapability = "openSysmlCrossDocumentLayout"
+
 // renderParams asks for one rendering. View names a view the document declares,
 // or a supported pseudo-view (`#<kind>` or `#<kind>:<fqn>`); empty renders the
 // document's own view. Form is the artifact written, defaulting to the machine
@@ -293,7 +298,7 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 		}
 		declaring := s.declaring(snapshot, node.Origin)
 		n.Origin = s.originOf(declaring, node.Origin)
-		if sym := nodeSymbol(s.writable(declaring), node.Origin); sym != nil {
+		if sym := nodeSymbol(s.targetable(snapshot, declaring), node.Origin); sym != nil {
 			if owners, ok := nodeOwners(sym); ok {
 				n.FQN = notationName(sym)
 				n.Notation = sym.Notation()
@@ -335,7 +340,7 @@ func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges 
 		}
 		declaring := s.declaring(snapshot, edge.Origin)
 		e.Origin = s.originOf(declaring, edge.Origin)
-		if sym := nodeSymbol(s.writable(declaring), edge.Origin); sym != nil {
+		if sym := nodeSymbol(s.targetable(snapshot, declaring), edge.Origin); sym != nil {
 			if _, ok := nodeOwners(sym); ok {
 				e.FQN = notationName(sym)
 			} else {
@@ -395,10 +400,14 @@ func (s *Server) declaring(snapshot *model.Snapshot, o view.Origin) *model.Docum
 	return s.ws.LibraryDocument(o.Doc)
 }
 
-// writable is declaring when an edit may write into it: a document of the
-// workspace, not a bundled library file, which no operation rewrites.
-func (s *Server) writable(declaring *model.Document) *model.Document {
+// targetable is declaring when the client may target its declarations: not a
+// bundled library file, and not another document than the rendered one for a
+// client that would place its declarations by name alone, unpinned.
+func (s *Server) targetable(snapshot *model.Snapshot, declaring *model.Document) *model.Document {
 	if declaring == nil || s.ws.IsLibraryDocument(declaring.Name) {
+		return nil
+	}
+	if declaring.Name != snapshot.Rendered.Name && !s.clientSpeaksCrossDocument() {
 		return nil
 	}
 	return declaring

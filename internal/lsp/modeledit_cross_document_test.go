@@ -130,6 +130,49 @@ func TestRenderMarksWhatEachDocumentsNodesAdmit(t *testing.T) {
 	}
 }
 
+// A client that did not advertise the cross-document contract reads every named
+// node as the requested document's own and places it by name alone, so another
+// document's declarations are located for it but named to it no more than
+// before: it can neither drag them unpinned nor offer them a rename or a delete.
+func TestRenderNamesOnlyTheRequestedDocumentsDeclarationsToAClientWithoutTheCapability(t *testing.T) {
+	const views = "package EngineViews {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tpart def Mount;\n\tview engineView : InterconnectionView {\n\t\texpose Mount;\n\t\texpose Machinery::Engine;\n\t}\n}\n"
+	s := initializedServer(t, nil)
+	viewsURI, partsURI := uri.File("views.sysml"), uri.File("parts.sysml")
+	openDoc(t, s, viewsURI, views)
+	openDoc(t, s, partsURI, engineParts)
+	drawn := render(t, s, viewsURI, "EngineViews::engineView")
+
+	mount := nodeNamed(t, drawn, "EngineViews::Mount")
+	if mount.FQN != "EngineViews::Mount" || !mount.DeclaredHere || mount.Notation != "part def" {
+		t.Errorf("Mount = %+v, want views.sysml's own declaration named as ever", mount)
+	}
+	for _, name := range []string{"Machinery::Engine", "rotor", "stator"} {
+		n := nodeNamed(t, drawn, name)
+		if n.Origin == nil || n.Origin.URI != partsURI || n.Origin.Digest == "" {
+			t.Errorf("%s = %+v, want it located in parts.sysml", name, n)
+		}
+		if n.FQN != "" || n.Declaration != nil || n.DeclaredHere || n.Notation != "" || n.Owners != nil {
+			t.Errorf("%s = %+v, want another document's declaration unnamed to a client that would not pin it", name, n)
+		}
+	}
+	if len(drawn.Edges) != 1 {
+		t.Fatalf("edges = %+v, want the one connection", drawn.Edges)
+	}
+	if e := drawn.Edges[0]; e.FQN != "" || e.Declaration != nil || e.Origin == nil || e.Origin.URI != partsURI {
+		t.Errorf("edge = %+v, want parts.sysml's connection located there and unnamed", e)
+	}
+
+	// The same session, with the client's capability, names them all.
+	s.setCrossDocument(true)
+	named := render(t, s, viewsURI, "EngineViews::engineView")
+	if rotor := nodeNamed(t, named, "rotor"); rotor.FQN != "Machinery::Engine::rotor" || rotor.DeclaredHere {
+		t.Errorf("rotor = %+v, want its fqn for a client that pins it", rotor)
+	}
+	if e := named.Edges[0]; e.Declaration == nil {
+		t.Errorf("edge = %+v, want its declaration range for a client that pins it", e)
+	}
+}
+
 // Dragging a node the view draws from another document writes the Layout into
 // the view's own body: one change, to the rendered document alone.
 func TestApplyModelEditSetLayoutInViewOfAnotherDocumentsElement(t *testing.T) {
