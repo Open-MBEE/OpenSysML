@@ -1339,7 +1339,8 @@ func TestFiredTransitionsLogsEachTransitionInOrder(t *testing.T) {
 }
 
 // A compound transition through a junction logs each segment; a fork logs the
-// transition into it and then its branches; a join logs every branch into it.
+// transition into it and then its branches; a join logs every branch into it in
+// the order they fire.
 func TestFiredTransitionsLogsCompoundAndForkSegments(t *testing.T) {
 	src := `package test {
 		state Machine {
@@ -1388,7 +1389,7 @@ func TestFiredTransitionsLogsCompoundAndForkSegments(t *testing.T) {
 	want := []string{
 		"->init", "init->route", "route->low", "low->split",
 		"split->building", "split->checking",
-		"checking->sync", "building->sync", "sync->done",
+		"building->sync", "checking->sync", "sync->done",
 	}
 	if got := firedNames(exec); !slices.Equal(got, want) {
 		t.Fatalf("fired = %v, want %v", got, want)
