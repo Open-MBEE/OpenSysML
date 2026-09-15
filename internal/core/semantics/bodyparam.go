@@ -140,6 +140,7 @@ func (m *Model) appliesOverElements(fn *symbols.Symbol) bool {
 // bodyApplicationOf is the operation body is the argument of, indexing the document holding
 // bodyScope on first query: no scope records the expression a body sits in.
 func (m *Model) bodyApplicationOf(bodyScope *symbols.Scope, body *ast.BodyExpr) (bodyApplication, bool) {
+	defer m.ownScope(bodyScope).LeaveDoc()
 	if app, ok := m.bodyApplications[body]; ok {
 		return app, true
 	}
@@ -150,6 +151,7 @@ func (m *Model) bodyApplicationOf(bodyScope *symbols.Scope, body *ast.BodyExpr) 
 	if m.bodyIndexed[root] {
 		return bodyApplication{}, false
 	}
+	journal(m, m.bodyIndexed, root, root.Node())
 	m.bodyIndexed[root] = true
 	doc, ok := root.Node().(*ast.RootNamespace)
 	if !ok {
@@ -160,6 +162,7 @@ func (m *Model) bodyApplicationOf(bodyScope *symbols.Scope, body *ast.BodyExpr) 
 		Body:    symbols.BodyExprScope,
 		Members: func(scope *symbols.Scope, members []ast.Node) { w.WalkMembers(scope, members) },
 		Applied: func(scope *symbols.Scope, op ast.Node, applied *ast.BodyExpr) {
+			journal(m, m.bodyApplications, applied, applied)
 			m.bodyApplications[applied] = bodyApplication{scope: scope, op: op}
 		},
 	}
