@@ -169,10 +169,13 @@ blows of 1400 land in the meantime. The champion's 1200 hit points do not
 survive them; the solver section below says what would.
 
 **The views.** `-render` writes a view in the form its definition names.
-`townSquare` is the game's menu as a state diagram:
+`townSquare` is the game's menu as a state diagram. `-render` writes Mermaid
+when its output is a pipe or file and plain text at a terminal; `-render-form
+mermaid` asks for the diagram either way:
 
 ```bash
-./bin/sysml examples/lord-demo/lord.sysml -render LordViews::townSquare
+./bin/sysml examples/lord-demo/lord.sysml -render LordViews::townSquare \
+  -render-form mermaid
 ```
 
 ```
