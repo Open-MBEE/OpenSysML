@@ -232,6 +232,10 @@ jobs:
           sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
           cvc5 --version | head -1
 
+      # Every corpus below comes through this downloader, so it is checked first.
+      - name: Test the pilot downloader
+        run: scripts/pilot-pin-test.sh
+
       - name: Cache the OMG training corpus
         uses: actions/cache@v4
         with:
