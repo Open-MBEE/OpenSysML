@@ -439,6 +439,9 @@ type OpaqueText struct {
 type Body struct {
 	Statements  []Statement
 	Unsupported []string
+	// Acts reports whether any node, expressed or not, acts on the model: a
+	// write, send, start, create, destroy, or a call of a behavior that does.
+	Acts bool
 }
 
 // Empty reports whether the body has neither statements nor unsupported nodes.
