@@ -488,6 +488,33 @@ func TestSetLayoutByNameDeclaredInADocumentRefusesANamesakeElsewhere(t *testing.
 	}
 }
 
+// A name two documents declare is ambiguous on its own, and is the one
+// declaration a stated document holds when the operation states one; stating a
+// document declaring neither names them as declared where they are.
+func TestSetLayoutByNameDeclaredInADocumentPicksAmongNamesakes(t *testing.T) {
+	m := loadEditableWorkspace(t, "views.sysml", engineViews,
+		map[string]string{"parts.sysml": engineParts, "spare.sysml": engineParts})
+	_, err := Apply(m, []Operation{SetLayout("Machinery::Engine::rotor", "", at(5, 6))})
+	if e := editError(t, err); e.Failure != FailureAmbiguousTarget {
+		t.Fatalf("rotor, declared by two documents and stated in none: got %v", err)
+	}
+	for _, doc := range []string{"parts.sysml", "spare.sysml"} {
+		res := applyOne(t, m, SetLayout("Machinery::Engine::rotor", "", at(5, 6)).DeclaredIn(doc))
+		if got := otherContent(t, res, doc); !strings.Contains(got, "part rotor {\n            @DiagramLayout::Layout { x = 5; y = 6; }") {
+			t.Fatalf("rotor stated to be declared in %s was not placed there:\n%s", doc, got)
+		}
+		if len(res.Others) != 1 || string(res.Content) != engineViews {
+			t.Fatalf("placing rotor of %s changed other documents: %v", doc, otherNames(res))
+		}
+	}
+	_, err = Apply(m, []Operation{SetLayout("Machinery::Engine::rotor", "", at(5, 6)).DeclaredIn("views.sysml")})
+	e := editError(t, err)
+	if e.Failure != FailureUnknownTarget || !strings.Contains(e.Message, "parts.sysml") ||
+		!strings.Contains(e.Message, "spare.sysml") || !strings.Contains(e.Message, "not in views.sysml") {
+		t.Fatalf("rotor stated to be declared in views.sysml, which declares none: got %v", err)
+	}
+}
+
 // A declaration span in another document follows the bytes earlier operations
 // of the same request write before it there, and is refused once one of them
 // rewrote the declaration itself.

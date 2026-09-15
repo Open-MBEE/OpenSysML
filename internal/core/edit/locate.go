@@ -56,20 +56,12 @@ func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
 
 // element is the declaration an operation edits, in whichever document: the one
 // Target names, or the one at Declaration in its document when Target is empty.
-// A Target stated DeclaredIn a document must be declared there, so that a
-// namesake another document declares since does not stand in for it.
+// A Target stated DeclaredIn a document is the one declared there, so that a
+// namesake another document declares does not stand in for it nor make it
+// ambiguous.
 func (m Model) element(i int, op Operation) (*symbols.Symbol, error) {
 	if op.Target != "" || op.Declaration.Len == 0 {
-		sym, err := m.declaredOnce(i, op.Target)
-		if err != nil {
-			return nil, err
-		}
-		if op.DeclarationDoc != "" && sym.DocName != op.DeclarationDoc {
-			return nil, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
-				Message: fmt.Sprintf("%q is declared in %s, not in %s as stated",
-					op.Target, docLabel(sym.DocName), docLabel(op.DeclarationDoc))}
-		}
-		return sym, nil
+		return m.declaredOnceIn(i, op.Target, op.DeclarationDoc)
 	}
 	root := m.Index.DocumentRoot(m.declarationDoc(op))
 	if root == nil {
@@ -134,7 +126,32 @@ func qualified(sym *symbols.Symbol) bool {
 
 // declaredOnce is the one declaration name names, in whichever document.
 func (m Model) declaredOnce(i int, name string) (*symbols.Symbol, error) {
+	return m.declaredOnceIn(i, name, "")
+}
+
+// declaredOnceIn is the one declaration name names in doc, or in whichever
+// document when doc is empty. A name declared only elsewhere is reported with
+// the documents declaring it.
+func (m Model) declaredOnceIn(i int, name, doc string) (*symbols.Symbol, error) {
 	declaring := m.declared(name)
+	if doc != "" {
+		var elsewhere []string
+		declaring = slices.DeleteFunc(declaring, func(sym *symbols.Symbol) bool {
+			if sym.DocName == doc {
+				return false
+			}
+			if label := docLabel(sym.DocName); !slices.Contains(elsewhere, label) {
+				elsewhere = append(elsewhere, label)
+			}
+			return true
+		})
+		if len(declaring) == 0 && len(elsewhere) > 0 {
+			slices.Sort(elsewhere)
+			return nil, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+				Message: fmt.Sprintf("%q is declared in %s, not in %s as stated",
+					name, strings.Join(elsewhere, " and "), docLabel(doc))}
+		}
+	}
 	switch len(declaring) {
 	case 0:
 		return nil, &Error{
