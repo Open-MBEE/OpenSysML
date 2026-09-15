@@ -432,9 +432,10 @@ func TestWorkspaceLibraryVersionEditIndexFollowsRoots(t *testing.T) {
 		}
 		edited := newDocument("copy.kerml", []byte(tc.text), 2)
 		ws.mu.Lock()
-		idx := ws.siblingIndexLocked("copy.kerml")()
+		ei := ws.editIndexLocked("copy.kerml")
+		idx := ei.build()
 		idx.AddDocumentWithKind("copy.kerml", edited.AST, edited.sf.Kind())
-		ws.standInOverLocked(idx, edited.sf, edited.AST)
+		ei.indexed(idx, edited.sf, edited.AST)
 		ws.mu.Unlock()
 		if got := idx.IsLibraryDocument("copy.kerml"); got != tc.library {
 			t.Errorf("%s: the edited copy is a library document: %v, want %v", tc.name, got, tc.library)
@@ -450,6 +451,62 @@ func TestWorkspaceLibraryVersionEditIndexFollowsRoots(t *testing.T) {
 		if !slices.Equal(real, tc.real) {
 			t.Errorf("%s: ScalarValues::Real declared in %q, want %q", tc.name, real, tc.real)
 		}
+	}
+}
+
+// One edit's index sees each rewrite in turn: a copy that a first operation
+// roots at the library's package displaces the bundled file, and a second that
+// moves it off again brings the file back, whatever the workspace holds.
+func TestWorkspaceLibraryVersionEditIndexFollowsSequence(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	src := string(lib.Content)
+	rooted := func(name string) *Document {
+		text := strings.Replace(src, "standard library package ScalarValues", "standard library package "+name, 1)
+		if text == src && name != "ScalarValues" {
+			t.Fatalf("the root is not declared where expected")
+		}
+		return newDocument("copy.kerml", []byte(text), 2)
+	}
+	ws.Open("copy.kerml", rooted("Mine").Content, 1)
+	if got := ws.StandsInFor("copy.kerml"); got != "" {
+		t.Fatalf("the copy rooted at Mine stands in for %q", got)
+	}
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	ei := ws.editIndexLocked("copy.kerml")
+	idx := ei.build()
+	for i, step := range []struct {
+		doc     *Document
+		library bool
+		real    []string
+	}{
+		{rooted("ScalarValues"), true, []string{"copy.kerml"}},
+		{rooted("MineAgain"), false, []string{scalarValues}},
+		{rooted("ScalarValues"), true, []string{"copy.kerml"}},
+	} {
+		idx.AddDocumentWithKind("copy.kerml", step.doc.AST, step.doc.sf.Kind())
+		ei.indexed(idx, step.doc.sf, step.doc.AST)
+		if got := idx.IsLibraryDocument("copy.kerml"); got != step.library {
+			t.Errorf("step %d: the copy is a library document: %v, want %v", i, got, step.library)
+		}
+		if got := idx.DocumentRoot(scalarValues) != nil; got == step.library {
+			t.Errorf("step %d: the bundled file is indexed: %v, want %v", i, got, !step.library)
+		}
+		var real []string
+		for _, sym := range idx.LookupQualified("ScalarValues::Real") {
+			real = append(real, sym.DocName)
+		}
+		sort.Strings(real)
+		if !slices.Equal(real, step.real) {
+			t.Errorf("step %d: ScalarValues::Real declared in %q, want %q", i, real, step.real)
+		}
+	}
+	if got := ws.standIns["copy.kerml"]; got != "" {
+		t.Errorf("the edit's index changed what the workspace's copy stands in for: %q", got)
 	}
 }
 

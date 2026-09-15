@@ -79,9 +79,11 @@ func (w *Workspace) restoreLocked(library string) {
 	}
 }
 
-// standInOverLocked applies standInLocked's rule to idx once it holds sf as root:
-// a library version displaces the bundled file, a document that stopped being one restores it.
-func (w *Workspace) standInOverLocked(idx *symbols.Index, sf *source.SourceFile, root *ast.RootNamespace) {
+// indexed applies standInLocked's rule to idx once it holds sf as root: a library
+// version displaces the bundled file, a document that stopped being one restores it.
+// The edit's own stand-ins are consulted, as an earlier rewrite may have moved them.
+func (e *editIndex) indexed(idx *symbols.Index, sf *source.SourceFile, root *ast.RootNamespace) {
+	w := e.w
 	if w.libBase == nil {
 		return
 	}
@@ -90,8 +92,9 @@ func (w *Workspace) standInOverLocked(idx *symbols.Index, sf *source.SourceFile,
 		resolver, sem := w.resolverOver(idx)
 		library = identity.LibraryVersion(sem, resolver, name)
 	}
-	if previous := w.standIns[name]; previous != "" && previous != library {
-		w.restoreOverLocked(idx, name, previous)
+	if previous := e.standIns[name]; previous != "" && previous != library {
+		delete(e.standIns, name)
+		e.restore(idx, previous)
 	}
 	if library == "" {
 		return
@@ -99,20 +102,22 @@ func (w *Workspace) standInOverLocked(idx *symbols.Index, sf *source.SourceFile,
 	if library != name && w.docs[library] == nil {
 		idx.RemoveDocument(library)
 	}
+	e.standIns[name] = library
 	idx.MarkLibraryDocument(name, symbols.LibraryDocument{
 		Tier:   w.libBase.LibraryDocumentOf(library).Tier,
 		Digest: symbols.TextDigest(sf.Bytes()),
 	})
 }
 
-// restoreOverLocked re-indexes the bundled file library in idx, marked, unless
-// it is already there or another stand-in for it is.
-func (w *Workspace) restoreOverLocked(idx *symbols.Index, name, library string) {
+// restore re-indexes the bundled file library in idx, marked, unless it is
+// already there or another of the edit's documents stands in for it.
+func (e *editIndex) restore(idx *symbols.Index, library string) {
+	w := e.w
 	if idx.DocumentRoot(library) != nil {
 		return
 	}
-	for other, stoodFor := range w.standIns {
-		if other != name && stoodFor == library && idx.DocumentRoot(other) != nil {
+	for _, stoodFor := range e.standIns {
+		if stoodFor == library {
 			return
 		}
 	}
