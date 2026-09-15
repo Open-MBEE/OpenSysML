@@ -109,7 +109,7 @@ func TestSharedSatisfactionVerdicts(t *testing.T) {
 	lines := verdictLines(reading)
 	want := []string{
 		`satisfaction "satisfy MassLimit by unit1" on "sats[1]": holds`,
-		`satisfaction "satisfy MassLimit by unit2" on "sats[1].twin": holds`,
+		`satisfaction "satisfy MassLimit by unit2" on "sats[2]": holds`,
 		`satisfaction "satisfy MassLimit by unit3" on "sats[3]": violated (satisfaction satisfy MassLimit by unit3: require condition evaluated to false: s.b <= limit)`,
 	}
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
