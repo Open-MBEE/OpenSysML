@@ -452,6 +452,8 @@ func (ctx *Context) takeShared(inst *Instance, fv *FeatureValue) bool {
 	if owes {
 		inst.owe(ctx, fv, shared)
 	}
+	taken := ctx.sharedTaken
+	ctx.noteProbeUndo(func() { ctx.sharedTaken = taken })
 	ctx.sharedTaken++
 	return true
 }

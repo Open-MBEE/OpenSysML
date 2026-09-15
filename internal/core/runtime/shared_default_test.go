@@ -536,3 +536,20 @@ func TestSharedDefaultsTakenRestoredWithSnapshot(t *testing.T) {
 	expect(t, ctx, fleet, "sats[2]", "b", "6")
 	expectTaken(t, ctx, 1)
 }
+
+// A probe's takes from the shared table are undone with the values it took: the
+// count reads as it did before the probe.
+func TestSharedDefaultsTakenUndoneWithProbe(t *testing.T) {
+	ctx, fleet, _ := sharedFixture(t, fleetSrc, "test::fleet")
+	expect(t, ctx, fleet, "sats[1]", "b", "6")
+	end := ctx.beginProbe()
+	expect(t, ctx, fleet, "sats[2]", "b", "6")
+	expectTaken(t, ctx, 1)
+	end()
+	expectTaken(t, ctx, 0)
+	if at(t, ctx, fleet, "sats[2]").FeatureValues["b"].Materialized {
+		t.Fatal("sats[2].b still materialized after the probe")
+	}
+	expect(t, ctx, fleet, "sats[2]", "b", "6")
+	expectTaken(t, ctx, 1)
+}
