@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -31,29 +32,31 @@ type ViewInfo struct {
 // the rendering kind it states. A recognized kind this build does not produce
 // is listed as unsupported with the reason.
 func (w *Workspace) Views(doc string) []ViewInfo {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	renderer := w.rendererLocked(doc)
-	if renderer == nil {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.docs[doc] == nil {
 		return nil
 	}
 	out := []ViewInfo{}
-	for _, sym := range w.documentViewsLocked(doc) {
-		info := ViewInfo{Name: notationFQN(w.index, sym), Supported: true}
-		kind, _, err := renderer.KindOf(sym)
-		switch {
-		case err == nil:
-			info.Kind = kind
-		default:
-			info.Supported = false
-			info.Reason = err.Error()
-			var unsupported *view.UnsupportedKindError
-			if errors.As(err, &unsupported) {
-				info.Kind = unsupported.Kind
+	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
+		renderer := w.rendererLocked(doc)
+		for _, sym := range w.documentViewsLocked(doc) {
+			info := ViewInfo{Name: notationFQN(w.index, sym), Supported: true}
+			kind, _, err := renderer.KindOf(sym)
+			switch {
+			case err == nil:
+				info.Kind = kind
+			default:
+				info.Supported = false
+				info.Reason = err.Error()
+				var unsupported *view.UnsupportedKindError
+				if errors.As(err, &unsupported) {
+					info.Kind = unsupported.Kind
+				}
 			}
+			out = append(out, info)
 		}
-		out = append(out, info)
-	}
+	})
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
@@ -63,26 +66,31 @@ func (w *Workspace) Views(doc string) []ViewInfo {
 // document returned is the one the rendering was made from, read under the same
 // lock, so its version, content and scope are the rendering's.
 func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Document, error) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	return w.renderViewLocked(doc, fqn)
 }
 
-// renderViewLocked is RenderView under the read lock.
+// renderViewLocked is RenderView under the lock.
 func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Document, error) {
 	d := w.docs[doc]
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
 	}
-	rendering, err := w.renderDocumentViewLocked(doc, fqn)
+	var rendering *view.Rendering
+	var err error
+	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
+		rendering, err = w.renderDocumentViewLocked(d, fqn)
+	})
 	if err != nil {
 		return nil, nil, err
 	}
 	return rendering, d, nil
 }
 
-// renderDocumentViewLocked renders fqn of the held document doc under the read lock.
-func (w *Workspace) renderDocumentViewLocked(doc, fqn string) (*view.Rendering, error) {
+// renderDocumentViewLocked renders fqn of the held document d, as a query owned by d.
+func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string) (*view.Rendering, error) {
+	doc := d.Name
 	renderer := w.rendererLocked(doc)
 	if strings.HasPrefix(fqn, view.PseudoViewPrefix) {
 		return w.renderPseudoLocked(doc, fqn, renderer)
@@ -136,27 +144,33 @@ func (w *Workspace) renderPseudoLocked(doc, spec string, renderer *view.Renderer
 	return renderer.RenderExposed(exposed, kind, stated)
 }
 
-// rendererLocked builds a renderer over the workspace index, reading any of its
-// documents for the labels a rendering takes verbatim, since what a behavior
-// inherits is written elsewhere. It is the same construction Session.viewRenderer
-// makes in the REPL.
+// rendererLocked builds a renderer over the workspace's resolver and model,
+// reading any of its documents for the labels a rendering takes verbatim, since
+// what a behavior inherits is written elsewhere. It is the same construction
+// Session.viewRenderer makes in the REPL.
 func (w *Workspace) rendererLocked(doc string) *view.Renderer {
 	if w.docs[doc] == nil {
 		return nil
 	}
-	resolver, sem := w.newResolver()
-	return view.NewRenderer(sem, resolver, w.sourceTextLocked())
+	resolver, sem := w.semanticsLocked()
+	return view.NewRenderer(sem, resolver, w.sourceText())
 }
 
-// sourceTextLocked reads notation from any of the workspace's documents, and
-// behind them from the library files its index holds, for the labels a
-// rendering takes verbatim across document boundaries.
-func (w *Workspace) sourceTextLocked() view.SourceText {
-	files := make(map[string]*source.SourceFile, len(w.docs))
-	for name, d := range w.docs {
-		files[name] = source.New(name, d.Content)
+// sourceText reads notation from whichever document the workspace currently
+// holds under a name, and behind them from the library files its index holds,
+// for the labels a rendering takes verbatim across document boundaries. It is
+// read under the lock, so it always sees the document the index was built from.
+func (w *Workspace) sourceText() view.SourceText {
+	lib := libs.Text(w.libSource)
+	return func(doc string, span source.Span) string {
+		if d := w.docs[doc]; d != nil {
+			return d.sf.Text(span)
+		}
+		if lib == nil {
+			return ""
+		}
+		return lib(doc, span)
 	}
-	return source.TextOf(files, libs.Text(w.libSource))
 }
 
 // documentViewsLocked are the views the document declares, outermost first, in

@@ -262,7 +262,8 @@ func (s *Server) refreshOpenDiagnostics(ctx context.Context, except string) {
 }
 
 // queueOpenDiagnostics is refreshOpenDiagnostics once an editor burst settles;
-// a refresh re-analyzes every open document, too much to pay per keystroke.
+// a refresh re-analyzes every open document the edit reached and republishes
+// the others from the workspace's cache, still too much to pay per keystroke.
 func (s *Server) queueOpenDiagnostics(ctx context.Context, except string) {
 	if s.crossDoc == nil {
 		s.refreshOpenDiagnostics(ctx, except)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -42,16 +43,26 @@ func (w *Workspace) newRuntimeLocked() (*Runtime, error) {
 	sem := semantics.NewModel(resolver)
 	resolver.SetModel(sem)
 	sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
-	sem.SetSourceText(w.sourceTextLocked())
+	sem.SetSourceText(w.heldTextLocked())
 	model := runtime.NewModel(sem, resolver)
 	rt := &Runtime{model: model, index: idx, resolver: resolver, versions: make(map[string]int, len(w.docs)), generation: w.generation}
 	for _, name := range w.sortedDocNamesLocked() {
 		d := w.docs[name]
-		model.RegisterSource(source.New(name, d.Content))
+		model.RegisterSource(d.sf)
 		model.RegisterScope(idx.DocumentRoot(name))
 		rt.versions[name] = d.Version
 	}
 	return rt, nil
+}
+
+// heldTextLocked reads notation from the documents held now, then the library
+// files: a runtime outlives the lock, so it keeps the documents it was built from.
+func (w *Workspace) heldTextLocked() source.Lookup {
+	files := make(map[string]*source.SourceFile, len(w.docs))
+	for name, d := range w.docs {
+		files[name] = d.sf
+	}
+	return source.TextOf(files, libs.Text(w.libSource))
 }
 
 // privateIndexLocked indexes the workspace's documents on an index the workspace

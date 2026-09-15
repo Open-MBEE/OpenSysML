@@ -57,7 +57,7 @@ func (r *Runtime) Referenced(scope *symbols.Scope, expr ast.Node) []*symbols.Sym
 // Dependencies is Runtime.Dependencies over the documents as read.
 func (r *Reading) Dependencies(roots ...*symbols.Symbol) []Dependency {
 	held := func(doc string) bool { return r.w.docs[doc] != nil }
-	resolver, _ := r.w.newResolver()
+	resolver, _ := r.w.semanticsLocked()
 	return newDependencyWalk(r.w.index, resolver, held, r.TextAt).closure(roots)
 }
 
@@ -105,11 +105,14 @@ func (d *dependencyWalk) closure(roots []*symbols.Symbol) []Dependency {
 		}
 		seen[dep.key()] = true
 		out = append(out, dep)
-		for _, ref := range d.within(sym.DocName, span) {
-			if target, ok := d.resolver.ResolveReference(ref); ok {
-				queue = append(queue, target)
+		// A document's references resolve as a query owned by it.
+		d.resolver.Query(sym.DocName, func() {
+			for _, ref := range d.within(sym.DocName, span) {
+				if target, ok := d.resolver.ResolveReference(ref); ok {
+					queue = append(queue, target)
+				}
 			}
-		}
+		})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Doc != out[j].Doc {

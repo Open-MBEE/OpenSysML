@@ -18,6 +18,8 @@ func (r *Resolver) ResolveEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) 
 	if qn == nil || len(qn.Parts) == 0 {
 		return nil, false
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if res, done := r.endpoints[qn]; done {
 		return res.sym, res.ok
 	}
@@ -78,6 +80,8 @@ func (r *Resolver) resolveEndpointChain(scope *symbols.Scope, chain *ast.Feature
 		return nil, false
 	}
 	member := chain.Member
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if res, done := r.endpoints[member]; done {
 		return res.sym, res.ok
 	}

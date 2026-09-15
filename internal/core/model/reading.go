@@ -3,23 +3,22 @@ package model
 import (
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
 // Reading answers questions of the workspace's documents as they all stand at
-// one moment: it lives for one call of Workspace.Read, under the read lock.
+// one moment: it lives for one call of Workspace.Read, under the lock.
 type Reading struct {
 	w *Workspace
 }
 
-// Read calls fn with a Reading under the read lock, so every answer fn gets is of
-// the same documents. fn must not call the workspace itself, which would deadlock.
+// Read calls fn with a Reading under the write lock (its answers query the shared
+// resolver), so all are of the same documents. fn must not call the workspace itself.
 func (w *Workspace) Read(fn func(r *Reading) error) error {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	return fn(&Reading{w: w})
 }
 
@@ -61,13 +60,7 @@ func declarationText(text func(doc string, span source.Span) string, doc string,
 // TextAt is the source text at span in doc, from the document or the library
 // file behind the documents; "" when neither holds doc.
 func (r *Reading) TextAt(doc string, span source.Span) string {
-	if d := r.w.docs[doc]; d != nil {
-		return source.New(doc, d.Content).Text(span)
-	}
-	if text := libs.Text(r.w.libSource); text != nil {
-		return text(doc, span)
-	}
-	return ""
+	return r.w.sourceText()(doc, span)
 }
 
 // DeclaredView is the view RenderView renders for fqn in doc: the view named, the
