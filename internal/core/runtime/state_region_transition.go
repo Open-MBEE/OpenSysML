@@ -404,6 +404,8 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 	}
 	if lca == target && len(between) > 0 {
 		if declaring := e.declaringRegion(between[len(between)-1]); declaring != nil {
+			// The region completed: its history keeps no state to restore.
+			e.forgetRegionHistory(declaring)
 			e.activeConfig.regionStates[declaring] = target
 		}
 	}
