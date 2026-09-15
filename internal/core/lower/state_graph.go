@@ -345,12 +345,19 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	return graph, nil
 }
 
-// ownTransitionEffects records, on every transition effect, the state its
-// transition leaves, whose attributes the effect reads and writes.
+// ownTransitionEffects records, on every transition effect, the state whose
+// attributes it reads and writes: the state the transition leaves, or the one
+// declaring the pseudostate it leaves.
 func (g *StateGraph) ownTransitionEffects() {
 	for source, transitions := range g.Transitions {
-		state, ok := source.(*ast.StateNode)
-		if !ok {
+		var state *ast.StateNode
+		switch s := source.(type) {
+		case *ast.StateNode:
+			state = s
+		case *ast.PseudostateNode:
+			state = g.PseudostateOwner[s]
+		}
+		if state == nil {
 			continue
 		}
 		for _, trans := range transitions {
