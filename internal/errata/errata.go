@@ -322,14 +322,13 @@ func ApplyAll(entries []Entry, content []byte) ([]byte, error) {
 	return []byte(strings.Join(lines, "\n")), nil
 }
 
-// Materialize copies the corpus root at repo/dir into dst and applies every
-// correction inside it, leaving the published tree untouched. It returns the
-// applied entries in path and line order.
+// Materialize copies the corpus root at repo/dir into dst, verifies every entry under it and
+// applies the corrections, leaving the published tree untouched. It returns the applied entries in order.
 func (o *Overlay) Materialize(repo, dir, dst string) ([]Entry, error) {
-	applied := o.Under(dir)
-	if len(applied) == 0 {
+	if len(o.Under(dir)) == 0 {
 		return nil, fmt.Errorf("no correction lies under %s", dir)
 	}
+	entries := o.EntriesUnder(dir)
 	if err := os.RemoveAll(dst); err != nil {
 		return nil, err
 	}
@@ -340,20 +339,24 @@ func (o *Overlay) Materialize(repo, dir, dst string) ([]Entry, error) {
 		return nil, fmt.Errorf("copy %s: %w", dir, err)
 	}
 	var out []Entry
-	for _, rel := range SortedPaths(applied) {
+	for _, rel := range SortedPaths(entries) {
 		path := filepath.Join(dst, filepath.FromSlash(rel))
 		content, err := os.ReadFile(path) // #nosec G304 -- the path is inside the copy this function just made
 		if err != nil {
 			return nil, err
 		}
-		corrected, err := ApplyAll(applied[rel], content)
+		corrected, err := ApplyAll(entries[rel], content)
 		if err != nil {
 			return nil, err
 		}
 		if err := os.WriteFile(path, corrected, 0o600); err != nil {
 			return nil, err
 		}
-		out = append(out, applied[rel]...)
+		for _, entry := range entries[rel] {
+			if entry.Corrects() {
+				out = append(out, entry)
+			}
+		}
 	}
 	return out, nil
 }

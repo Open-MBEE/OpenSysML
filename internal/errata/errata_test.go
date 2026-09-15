@@ -244,6 +244,49 @@ func TestMaterializeLeavesThePublishedCorpusByteIdentical(t *testing.T) {
 	}
 }
 
+// TestMaterializeVerifiesDocumentedEntries: a documented-only entry whose line
+// no longer reads as published fails the materialization, even in a file (or a
+// corpus) whose corrections all still apply; only the corrections are reported applied.
+func TestMaterializeVerifiesDocumentedEntries(t *testing.T) {
+	const dir = "examples/pilot-corpora/x"
+	corrected := Entry{
+		ID: "T1", Heading: "a test entry", Path: dir + "/Sample.sysml", Line: 1,
+		AsPublished: "a", Corrected: "A", Citation: "SysML v2 §9.8.9.1", Derivation: "test entry.",
+	}
+	documented := Entry{
+		ID: "T2", Heading: "a test entry", Path: dir + "/Other.sysml", Line: 2,
+		AsPublished: "y", Citation: "SysML v2 §9.8.9.1", Derivation: "no intended reading.",
+	}
+	overlay, err := New([]Entry{corrected, documented})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	materialize := func(other string) ([]Entry, error) {
+		t.Helper()
+		repo := t.TempDir()
+		root := filepath.Join(repo, filepath.FromSlash(dir))
+		if err := os.MkdirAll(root, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		for name, content := range map[string]string{"Sample.sysml": "a\nb\n", "Other.sysml": other} {
+			if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return overlay.Materialize(repo, dir, filepath.Join(repo, "corrected"))
+	}
+	applied, err := materialize("x\ny\n")
+	if err != nil {
+		t.Fatalf("materialize over a corpus as published: %v", err)
+	}
+	if len(applied) != 1 || applied[0].ID != "T1" {
+		t.Fatalf("applied = %v, want the one correction", applied)
+	}
+	if _, err := materialize("x\nother\n"); err == nil {
+		t.Fatal("a corpus whose documented-only line rotted was materialized")
+	}
+}
+
 // TestApplyAllChecksEveryLineBeforeSubstituting keeps a file with several
 // entries all-or-nothing: one rotted entry fails the file, and documented-only
 // entries are verified but substitute nothing.
