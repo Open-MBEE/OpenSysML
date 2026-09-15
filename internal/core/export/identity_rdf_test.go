@@ -810,9 +810,10 @@ func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
 
 // A copy of a library file that is not its bytes — respaced, or stating the
 // ids the norm fixes — is still rooted at the library's package, so it is the
-// library: its graph is the bundled file's but for the source text, with the
-// norm's element and owning-membership ids, none of them declared, and the
-// names it inherits resolved to the copy's own declarations.
+// library, under its own name or the library file's: its graph is the bundled
+// file's but for the source text, with the norm's element and owning-membership
+// ids, none of them declared, and the names it inherits resolved to the copy's
+// own declarations.
 func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
 	const name = "Kernel Libraries/Kernel Semantic Library/Occurrences.kerml"
 	src, err := libs.EmbeddedSource().Read(name)
@@ -833,12 +834,14 @@ func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
 		{"respaced", strings.Replace(string(src), head, head+"\r\n", 1)},
 		{"annotated", strings.Replace(string(src), head, head+annotation, 1)},
 	} {
-		got, err := export.Convert("copy.kerml", []byte(tc.text), export.FormatSysML, export.FormatTurtle)
-		if err != nil {
-			t.Fatalf("%s copy to turtle: %v", tc.name, err)
-		}
-		if stripped := withoutSourceText(t, got); string(stripped) != string(want) {
-			t.Errorf("the %s copy's graph differs from the library's:\n%s", tc.name, firstLineDifference(want, stripped))
+		for _, as := range []string{"copy.kerml", name} {
+			got, err := export.Convert(as, []byte(tc.text), export.FormatSysML, export.FormatTurtle)
+			if err != nil {
+				t.Fatalf("%s copy as %s to turtle: %v", tc.name, as, err)
+			}
+			if stripped := withoutSourceText(t, got); string(stripped) != string(want) {
+				t.Errorf("the %s copy's graph, as %s, differs from the library's:\n%s", tc.name, as, firstLineDifference(want, stripped))
+			}
 		}
 	}
 	graph, err := rdf.ParseTurtle(want)
