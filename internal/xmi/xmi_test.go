@@ -126,7 +126,7 @@ func TestParseErrors(t *testing.T) {
 }
 
 func TestParseAcceptsEveryXMINamespaceVersion(t *testing.T) {
-	for _, version := range []string{"20110701", "20131001"} {
+	for _, version := range []string{"2.1", "20110701", "20131001"} {
 		src := `<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/` + version + `" xmlns:uml="http://www.omg.org/spec/UML/20110701">
   <uml:Model xmi:type="uml:Model" xmi:id="_0" name="Lib">
     <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="F-plus" name="+"/>
@@ -141,12 +141,19 @@ func TestParseAcceptsEveryXMINamespaceVersion(t *testing.T) {
 			t.Fatalf("%s: ByID(F-plus) = %s, want the function behavior", version, e.Describe())
 		}
 	}
-	other := `<x:XMI xmlns:x="http://example.com/not-xmi"><e x:id="a" x:type="t"/></x:XMI>`
-	d, err := Parse(strings.NewReader(other))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if d.ByID("a") != nil {
-		t.Fatal("an id in a foreign namespace must not be indexed")
+	for name, ns := range map[string]string{
+		"foreign":          "http://example.com/not-xmi",
+		"no version":       "http://www.omg.org/spec/XMI/",
+		"not a version":    "http://www.omg.org/spec/XMI/next",
+		"below the prefix": "http://www.omg.org/spec/XMI/20131001/extensions",
+	} {
+		other := `<x:XMI xmlns:x="` + ns + `"><e x:id="a" x:type="t"/></x:XMI>`
+		d, err := Parse(strings.NewReader(other))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.ByID("a") != nil {
+			t.Errorf("%s: an id in the namespace %s must not be indexed", name, ns)
+		}
 	}
 }

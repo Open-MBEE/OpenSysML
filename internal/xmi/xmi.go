@@ -10,11 +10,18 @@ import (
 )
 
 // xmiNamespacePrefix is shared by every XMI namespace version (2.1 through 2.5)
-// under which xmi:type and xmi:id are written.
+// under which xmi:type and xmi:id are written; the version follows it, either
+// as a number (`2.1`) or a date (`20131001`).
 const xmiNamespacePrefix = "http://www.omg.org/spec/XMI/"
 
 // isXMI reports whether the attribute is in an XMI namespace of any version.
-func isXMI(a xml.Attr) bool { return strings.HasPrefix(a.Name.Space, xmiNamespacePrefix) }
+func isXMI(a xml.Attr) bool {
+	version, ok := strings.CutPrefix(a.Name.Space, xmiNamespacePrefix)
+	if !ok || version == "" {
+		return false
+	}
+	return strings.Trim(version, "0123456789.") == ""
+}
 
 // Element is one XML element of an XMI document: its local tag, its xmi:type
 // and xmi:id, every other attribute by local name, and its children in
