@@ -1,0 +1,20 @@
+{
+  "type": "state",
+  "finalState": "done",
+  "stateVisits": [
+    "idle",
+    "stage",
+    "work",
+    "done",
+    "done",
+    "done",
+    "done"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "T1(effect) T1.1(effect) stage(entry) work(entry) T1.2(effect) work(exit) T2(effect) stage(exit) T3(effect) "
+    }
+  },
+  "trace": true
+}

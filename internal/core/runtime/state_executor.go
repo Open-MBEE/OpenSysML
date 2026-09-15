@@ -2132,6 +2132,10 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	if err := e.scheduleTransitionEvents(); err != nil {
 		return fmt.Errorf("schedule events: %w", err)
 	}
+	// Branches ending in `done` complete the owner, or the machine, at once.
+	if err := e.completeIfDone(owner); err != nil {
+		return fmt.Errorf("complete state machine: %w", err)
+	}
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(getNodeName(trans.Source), fork.Name, "")
 	}
