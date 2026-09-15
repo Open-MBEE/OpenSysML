@@ -2713,6 +2713,7 @@ func (e *ActionExecutor) ReplaceBreakpointsAt(bps []NodeBreakpoint) {
 			delete(e.firedBreakpoints, visit)
 		}
 	}
+	e.forgetBodyStopsRemoved()
 }
 
 // ClearBreakpoints removes all breakpoints.
@@ -2720,6 +2721,25 @@ func (e *ActionExecutor) ClearBreakpoints() {
 	e.breakpoints = make(map[string]bool)
 	e.breakpointNodes = nil
 	e.firedBreakpoints = make(map[breakpointVisit]bool)
+	e.forgetBodyStopsRemoved()
+}
+
+// forgetBodyStopsRemoved has each body stopped at a breakpoint no longer set look
+// again when resumed, as firedBreakpoints forgets a token's stop at one removed.
+func (e *ActionExecutor) forgetBodyStopsRemoved() {
+	for _, token := range e.tokens {
+		run := token.body
+		if run == nil || run.paused.onWait || len(run.cursor) == 0 {
+			continue
+		}
+		f, ok := run.cursor[0].(*performFrame)
+		if !ok || !f.stoppedAtBreakpoint() {
+			continue
+		}
+		if at := run.paused.breakpoint.at; e.breakpointNameOf(at.Within, at.Node) == "" {
+			f.recheck = true
+		}
+	}
 }
 
 // trace returns the recorder this executor's context is attached to, so turning

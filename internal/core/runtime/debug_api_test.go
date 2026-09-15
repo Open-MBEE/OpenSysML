@@ -318,6 +318,75 @@ func TestReplaceBreakpointsAtKeepsAStopAlreadyMade(t *testing.T) {
 	}
 }
 
+// A stop made at a node a body performs follows the same rule: kept, the resumed
+// body passes it; removed and re-set while it stands, the body stops there again.
+func TestReplaceBreakpointsAtResetsABodyStopRemoved(t *testing.T) {
+	stopAtQ := func(t *testing.T) (*ActionExecutor, []NodeBreakpoint) {
+		t.Helper()
+		exec := blockDebugExecutor(t)
+		choose := actionNodeNamed(t, exec, "choose")
+		var q ast.Node
+		for _, node := range exec.Graph().BlockNodes[choose] {
+			if ActionNodeName(node) == "q" {
+				q = node
+			}
+		}
+		if q == nil {
+			t.Fatalf("choose's blocks declare no q: %v", exec.Graph().BlockNodes[choose])
+		}
+		at := []NodeBreakpoint{{Within: []ast.Node{choose}, Node: q}}
+		exec.ReplaceBreakpointsAt(at)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("RunToCompletion: %v", err)
+		}
+		if got := exec.PausedAt(); got != "q" {
+			t.Fatalf("PausedAt() = %q, want q", got)
+		}
+		return exec, at
+	}
+
+	exec, at := stopAtQ(t)
+	exec.ReplaceBreakpointsAt(at)
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint after setting the same breakpoints again: %v", err)
+	}
+	if got := exec.PausedAt(); got != "" {
+		t.Errorf("PausedAt() = %q after setting the same breakpoints again, want the body resumed past q", got)
+	}
+	if _, ok := exec.Results()["choose.q.n"]; !ok {
+		t.Errorf("results = %v, want q performed by the resumed step", exec.Results())
+	}
+
+	exec, at = stopAtQ(t)
+	exec.ReplaceBreakpointsAt(nil)
+	exec.ReplaceBreakpointsAt(at)
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint after re-setting the breakpoint: %v", err)
+	}
+	if got := exec.PausedAt(); got != "q" {
+		t.Errorf("PausedAt() = %q after re-setting the breakpoint, want q stopped at again", got)
+	}
+	if _, ok := exec.Results()["choose.q.n"]; ok {
+		t.Errorf("results = %v while stopped again, q must not have performed", exec.Results())
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if total := exec.Results()["total"]; total.Const.Int != 13 {
+		t.Errorf("total = %v after resuming, want 13", total)
+	}
+
+	exec, _ = stopAtQ(t)
+	exec.ClearBreakpoints()
+	exec.SetBreakpoint("q")
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint after clearing and naming the breakpoint again: %v", err)
+	}
+	if got := exec.PausedAt(); got != "q" {
+		t.Errorf("PausedAt() = %q after clearing and naming the breakpoint again, want q stopped at again", got)
+	}
+}
+
 // Resume returns a run a breakpoint suspended to the clock, which then runs it past
 // the breakpoint; a run in any other state is left alone.
 func TestResumeReturnsAPausedRunToTheClock(t *testing.T) {
