@@ -147,7 +147,14 @@ passed to the renderer directly.
 
 - `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document,
   retained across tab switches with `retainContextWhenHidden` off and state restored
-  through `setState`/`getState`.
+  through `setState`/`getState`. The command is bound to <kbd>Alt</kbd>+<kbd>D</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (the PlantUML and Markdown-preview
+  conventions) with `when` clauses that hold only for a model editor or the panel
+  itself, and sits in the editor title bar and the editor and Explorer context menus.
+  It resolves its document from the menu's resource, the focused panel (returning
+  to the source), the active editor, or the one model editor in view — in that order
+  — and is registered whether or not the server draws, so a key or menu always
+  answers, with a diagram or with the reason there is none.
 - The webview bundles Mermaid locally (no CDN, and a `Content-Security-Policy` with
   a nonce and no `connect-src`), renders the artifact, and re-renders on the
   extension's `postMessage`.

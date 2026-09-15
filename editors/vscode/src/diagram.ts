@@ -44,13 +44,12 @@ import {
   ViewsResult,
   WorkspaceEdit,
 } from "./protocol";
+import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import { declaredViewEntries, DEFAULT_PSEUDO_VIEW, impliedView, pseudoViewEntries } from "./views";
 
-/** The context key the Open Diagram command is enabled by. */
-const SUPPORTED_KEY = "opensysml.renderSupported";
-
-/** The type a restored panel is revived under. */
-const PANEL_TYPE = "opensysml.diagram";
+/** Why the diagram commands cannot serve, when they cannot. */
+const NOT_RUNNING = "The SysML v2 language server is not running; run \"SysML: Restart Language Server\" to start it.";
+const NOT_SERVED = "The SysML v2 language server does not serve diagrams; update sysml-lsp to draw one.";
 
 // The file an exported rendering is saved as, by the form the server wrote.
 const EXPORT_FORMS: Record<string, { extension: string; filter: string }> = {
@@ -84,15 +83,19 @@ async function listViews(client: LanguageClient, uri: string, output: vscode.Out
 export class DiagramPanels implements vscode.Disposable {
   private readonly panels = new Map<string, DiagramPanel>();
   private readonly disposables: vscode.Disposable[] = [];
-  private commands: vscode.Disposable[] = [];
   private notification: vscode.Disposable | undefined;
   private client: LanguageClient | undefined;
+  private unavailable: string | undefined = NOT_RUNNING;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly output: vscode.OutputChannel,
   ) {
+    // The commands exist whether or not a server serves them, so a keybinding
+    // or menu always answers — with the diagram, or with why there is none.
     this.disposables.push(
+      vscode.commands.registerCommand("opensysml.openDiagram", (target?: unknown) => this.open(target)),
+      vscode.commands.registerCommand("opensysml.exportDiagram", (target?: unknown) => this.export(target)),
       vscode.window.onDidChangeTextEditorSelection((event) => {
         this.panels.get(event.textEditor.document.uri.toString())?.highlightAt(event.selections[0].active);
       }),
@@ -106,12 +109,11 @@ export class DiagramPanels implements vscode.Disposable {
         },
       }),
     );
-    void vscode.commands.executeCommand("setContext", SUPPORTED_KEY, false);
   }
 
   /**
-   * attach binds the panels to a started client. The command is registered only
-   * when the server advertised the render capability, so an older `sysml-lsp`
+   * attach binds the panels to a started client. Without the render capability
+   * the commands stay registered but explain themselves, so an older `sysml-lsp`
    * keeps working without a diagram panel instead of erroring.
    */
   attach(client: LanguageClient | undefined): void {
@@ -121,6 +123,7 @@ export class DiagramPanels implements vscode.Disposable {
         this.output.appendLine(
           `Language server does not advertise ${RENDER_CAPABILITY}; the diagram panel stays unavailable.`,
         );
+        this.unavailable = NOT_SERVED;
       }
       for (const panel of this.panels.values()) {
         panel.fail("The language server does not serve diagrams.");
@@ -128,14 +131,10 @@ export class DiagramPanels implements vscode.Disposable {
       return;
     }
     this.client = client;
-    this.commands = [
-      vscode.commands.registerCommand("opensysml.openDiagram", () => this.open()),
-      vscode.commands.registerCommand("opensysml.exportDiagram", () => this.export(client)),
-    ];
+    this.unavailable = undefined;
     this.notification = client.onNotification(RENDER_CHANGED_METHOD, (params: RenderChangedParams) => {
       this.panels.get(vscode.Uri.parse(params.textDocument.uri).toString())?.refresh();
     });
-    void vscode.commands.executeCommand("setContext", SUPPORTED_KEY, true);
     for (const panel of this.panels.values()) {
       panel.refresh();
     }
@@ -144,13 +143,9 @@ export class DiagramPanels implements vscode.Disposable {
   /** detach drops what a client owned, so a restart does not leave it behind. */
   detach(): void {
     this.client = undefined;
+    this.unavailable = NOT_RUNNING;
     this.notification?.dispose();
     this.notification = undefined;
-    for (const command of this.commands) {
-      command.dispose();
-    }
-    this.commands = [];
-    void vscode.commands.executeCommand("setContext", SUPPORTED_KEY, false);
   }
 
   dispose(): void {
@@ -163,41 +158,44 @@ export class DiagramPanels implements vscode.Disposable {
     }
   }
 
-  /** open shows the panel for the active document, beside it. */
-  private open(): void {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor || !isModel(editor.document)) {
-      void vscode.window.showInformationMessage("Open a .sysml or .kerml file to draw a diagram of it.");
+  /** open shows the diagram of the document a command names beside its source; from the panel, the source. */
+  private async open(target?: unknown): Promise<void> {
+    const resolved = this.resolve(target, "draw a diagram of it");
+    if (!resolved) {
       return;
     }
-    const key = editor.document.uri.toString();
+    const { uri, fromPanel } = resolved;
+    if (fromPanel) {
+      await vscode.window.showTextDocument(uri, { viewColumn: this.sourceColumn(uri), preserveFocus: false });
+      return;
+    }
+    const key = uri.toString();
     const existing = this.panels.get(key);
     if (existing) {
       existing.reveal();
       return;
     }
+    // A file chosen in the Explorer is opened first, so the diagram sits beside its source.
+    if (!vscode.window.visibleTextEditors.some((editor) => editor.document.uri.toString() === key)) {
+      await vscode.window.showTextDocument(uri, { preview: false });
+    }
     const panel = vscode.window.createWebviewPanel(
       PANEL_TYPE,
-      `Diagram: ${basename(editor.document.uri)}`,
+      `Diagram: ${basename(uri)}`,
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
       { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")] },
     );
-    this.adopt(editor.document.uri, panel, "");
+    this.adopt(uri, panel, "");
   }
 
-  /**
-   * export writes the machine form of the active document's diagram — Mermaid
-   * for a diagram, Markdown for a table — to a file the user picks: the view
-   * its panel has chosen when one is open, else the one the document implies,
-   * else the one the user picks.
-   */
-  private async export(client: LanguageClient): Promise<void> {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor || !isModel(editor.document)) {
-      void vscode.window.showInformationMessage("Open a .sysml or .kerml file to export a diagram of it.");
+  /** export writes the machine form (Mermaid or Markdown) of the named document's diagram to a file. */
+  private async export(target?: unknown): Promise<void> {
+    const resolved = this.resolve(target, "export a diagram of it");
+    const client = this.client;
+    if (!resolved || !client) {
       return;
     }
-    const uri = editor.document.uri.toString();
+    const uri = resolved.uri.toString();
     // A panel that has not chosen among the document's views leaves the choice here.
     const view = this.panels.get(uri)?.selectedView() || await this.exportedView(client, uri);
     if (view === undefined) {
@@ -207,20 +205,59 @@ export class DiagramPanels implements vscode.Disposable {
     try {
       result = await client.sendRequest<RenderResult>(RENDER_METHOD, { textDocument: { uri }, view });
     } catch (err) {
-      void vscode.window.showErrorMessage(`Rendering ${basename(editor.document.uri)} failed: ${errorMessage(err)}`);
+      void vscode.window.showErrorMessage(`Rendering ${basename(resolved.uri)} failed: ${errorMessage(err)}`);
       return;
     }
     const { extension, filter } = EXPORT_FORMS[result.form] ?? { extension: ".txt", filter: "Text" };
-    const stem = basename(editor.document.uri).replace(/\.(sysml|kerml)$/, "");
-    const target = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.joinPath(editor.document.uri, "..", `${stem}${extension}`),
+    const stem = basename(resolved.uri).replace(/\.(sysml|kerml)$/, "");
+    const saveAs = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.joinPath(resolved.uri, "..", `${stem}${extension}`),
       filters: { [filter]: [extension.slice(1)] },
     });
-    if (!target) {
+    if (!saveAs) {
       return;
     }
-    await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(result.artifact));
-    this.output.appendLine(`Exported ${result.form} of ${basename(editor.document.uri)} to ${target.fsPath}`);
+    await vscode.workspace.fs.writeFile(saveAs, new TextEncoder().encode(result.artifact));
+    this.output.appendLine(`Exported ${result.form} of ${basename(resolved.uri)} to ${saveAs.fsPath}`);
+  }
+
+  // resolve names the document a command acts on, or tells the user why there
+  // is none: no server, no diagram service, or no model file in view.
+  private resolve(target: unknown, verb: string): { uri: vscode.Uri; fromPanel: boolean } | undefined {
+    if (this.unavailable) {
+      void vscode.window.showWarningMessage(this.unavailable);
+      return undefined;
+    }
+    const context: CommandContext = {
+      argument: target instanceof vscode.Uri ? target.toString() : undefined,
+      focusedPanel: this.focusedPanel()?.documentUri().toString(),
+      activeEditor: vscode.window.activeTextEditor && editorInfo(vscode.window.activeTextEditor),
+      visibleEditors: vscode.window.visibleTextEditors.map(editorInfo),
+    };
+    const resolved = resolveTarget(context, verb);
+    if (resolved.kind === "none") {
+      void vscode.window.showInformationMessage(resolved.message);
+      return undefined;
+    }
+    return { uri: vscode.Uri.parse(resolved.uri), fromPanel: resolved.fromPanel };
+  }
+
+  // focusedPanel is the diagram panel that has focus, if one does.
+  private focusedPanel(): DiagramPanel | undefined {
+    for (const panel of this.panels.values()) {
+      if (panel.isActive()) {
+        return panel;
+      }
+    }
+    return undefined;
+  }
+
+  // sourceColumn is where a document is shown: its visible editor's group, else
+  // a group beside the panel.
+  private sourceColumn(uri: vscode.Uri): vscode.ViewColumn {
+    const key = uri.toString();
+    const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document.uri.toString() === key);
+    return editor?.viewColumn ?? vscode.ViewColumn.Beside;
   }
 
   // exportedView is the view to export when no panel shows one: the document's
@@ -285,6 +322,16 @@ class DiagramPanel {
 
   reveal(): void {
     this.panel.reveal(vscode.ViewColumn.Beside, true);
+  }
+
+  /** isActive reports whether the panel is the focused editor. */
+  isActive(): boolean {
+    return this.panel.active;
+  }
+
+  /** documentUri is the document the panel draws. */
+  documentUri(): vscode.Uri {
+    return this.docURI;
   }
 
   /** selectedView is the view the panel draws, "" for the document's own. */
@@ -810,8 +857,8 @@ function experimental(client: LanguageClient): Record<string, unknown> | undefin
   return client.initializeResult?.capabilities?.experimental as Record<string, unknown> | undefined;
 }
 
-function isModel(document: vscode.TextDocument): boolean {
-  return document.languageId === "sysml" || document.languageId === "kerml";
+function editorInfo(editor: vscode.TextEditor): { uri: string; languageId: string } {
+  return { uri: editor.document.uri.toString(), languageId: editor.document.languageId };
 }
 
 function basename(uri: vscode.Uri): string {
