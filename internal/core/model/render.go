@@ -136,23 +136,16 @@ func (w *Workspace) renderPseudoLocked(doc, spec string, renderer *view.Renderer
 	return renderer.RenderExposed(exposed, kind, stated)
 }
 
-// rendererLocked builds a renderer over the workspace index, reading the
-// document's own content for the labels a rendering takes verbatim. It is the
-// same construction Session.viewRenderer makes in the REPL.
+// rendererLocked builds a renderer over the workspace index, reading any of its
+// documents for the labels a rendering takes verbatim, since what a behavior
+// inherits is written elsewhere. It is the same construction Session.viewRenderer
+// makes in the REPL.
 func (w *Workspace) rendererLocked(doc string) *view.Renderer {
-	d := w.docs[doc]
-	if d == nil {
+	if w.docs[doc] == nil {
 		return nil
 	}
 	resolver, sem := w.newResolver()
-	sf := source.New(doc, d.Content)
-	text := func(name string, span source.Span) string {
-		if name != doc {
-			return ""
-		}
-		return sf.Text(span)
-	}
-	return view.NewRenderer(sem, resolver, text)
+	return view.NewRenderer(sem, resolver, w.sourceTextLocked())
 }
 
 // sourceTextLocked reads notation from any of the workspace's documents, and
