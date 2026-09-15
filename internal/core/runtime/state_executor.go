@@ -2187,7 +2187,27 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.simpleState = owner
 
+	// Every incoming segment is traversed — its effect runs once its source is
+	// left — before the segments beyond the join exit the owner and move on.
+	if err := e.runBehaviors(e.joinIncomingEffects(join, trans)); err != nil {
+		return false, err
+	}
+	r.segments = r.segments[1:]
 	return true, e.transitionTo(trans, r)
+}
+
+// joinIncomingEffects gathers the effects of the transitions into join: the
+// firing one's first, then the others' in source declaration order.
+func (e *StateExecutor) joinIncomingEffects(join *ast.PseudostateNode, firing *lower.Transition) []lower.StateBehavior {
+	effects := slices.Clone(firing.Effect)
+	for _, state := range e.graph.States {
+		for _, trans := range e.graph.Transitions[state] {
+			if trans != firing && trans.Target == ast.Node(join) {
+				effects = append(effects, trans.Effect...)
+			}
+		}
+	}
+	return effects
 }
 
 // joinOwner is the composite state whose regions the sources of a join lie in.

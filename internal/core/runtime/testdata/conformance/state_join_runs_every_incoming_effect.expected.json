@@ -1,0 +1,11 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "go", "args": null}
+  ],
+  "finalState": "done",
+  "outputs": {
+    "log": {"type": "String", "value": "left(effect) right(effect) outer(exit) sync(effect) rest(entry)"}
+  }
+}

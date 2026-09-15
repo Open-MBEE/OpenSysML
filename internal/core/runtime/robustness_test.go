@@ -291,6 +291,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_body_unresolved_unit", testStateBodyUnresolvedUnit)
 	t.Run("fork_branches_share_region", testForkBranchesShareRegion)
 	t.Run("join_with_one_incoming_branch", testJoinWithOneIncomingBranch)
+	t.Run("join_incoming_effect_that_fails", testJoinIncomingEffectThatFails)
 	t.Run("region_pseudostate_without_satisfied_guard", testRegionPseudostateWithoutSatisfiedGuard)
 	t.Run("region_pseudostate_cycle", testRegionPseudostateCycle)
 	t.Run("non_numeric_time_trigger", testNonNumericTimeTrigger)
@@ -6084,6 +6085,34 @@ func testJoinWithOneIncomingBranch(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "at least two incoming transitions") {
 		t.Errorf("expected an incoming-branch-count error, got: %v", err)
+	}
+}
+
+// testJoinIncomingEffectThatFails: firing a join runs the effect of every
+// transition into it, so an effect on a segment other than the firing one that
+// fails surfaces as the step's error rather than being skipped.
+func testJoinIncomingEffectThatFails(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		state Machine parallel {
+			attribute x : Integer = 0;
+			attribute zero : Integer = 0;
+
+			state left {
+				entry; then l1;
+				state l1;
+				transition first l1 do assign x := 1 then sync;
+			}
+			state right {
+				entry; then r1;
+				state r1;
+				transition first r1 do assign x := 1 / zero then sync;
+			}
+			join sync;
+			transition first sync then done;
+		}
+	}`)
+	if !errors.Is(err, ErrDivisionByZero) {
+		t.Fatalf("error = %v, want the failing incoming effect's division by zero", err)
 	}
 }
 

@@ -678,10 +678,18 @@ and two branches into one region (`robustness_test.go:fork_branches_share_region
 
 **SM34. Join.** PSSM requirement *Join 001* (§9.4.12): "all incoming Transitions have to complete before execution
 can continue through an outgoing Transition"; the join fires when every source state is active
-and the occurrence enables all incoming segments. *Runtime:* `fireJoinTransition` fires only when
-every state in `joinSources` is active, exiting them all and entering the join's target; a join
-with a single incoming branch is refused (`join_with_one_incoming_branch`).
-`state_fork_join_pseudostate`. **agrees.**
+and the occurrence enables all incoming segments. Requirement *Join 002* (§9.4.12) and §8.5.7
+(`JoinPseudostateActivation`): the incoming transitions and the outgoing one are segments of one
+compound transition, so every incoming segment's effect runs — in either order — after the
+sources are exited and before the state owning the join is exited and the outgoing effect runs
+(the test's expected execution: the two incoming effects in parallel, the owner's exit, then the
+outgoing effect). *Runtime:* `fireJoinTransition`
+fires only when every state in `joinSources` is active, exits them all, runs the effect of every
+incoming segment (`joinIncomingEffects`: the firing one's first, then the others in source
+declaration order), then exits the owner and follows the outgoing segment; a join with a single
+incoming branch is refused (`join_with_one_incoming_branch`). `state_fork_join_pseudostate`,
+`state_join_runs_every_incoming_effect`. **agrees** on what runs; the order among the incoming
+effects is one of the region orders SM21 leaves to the runtime.
 
 #### Transition kinds: external, local, internal
 
