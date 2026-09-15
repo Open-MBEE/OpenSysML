@@ -311,6 +311,89 @@ so the win is collector pressure rather than bytes:
 Diagnostics and exit status were verified byte-identical against the previous
 binary over the same models.
 
+### What a batch of files costs
+
+`sysml -validate a.sysml b.sysml …`, `-satisfy` and `%load` open the files as
+one batch of workspace documents (`model.(*Workspace).OpenAll`): the files are
+parsed and their scope trees built on a pool of workers, installed in the
+shared index one after another, wildcard imports are expanded once for the
+batch, and the documents are analyzed on the pool
+(`model.(*Workspace).DiagnosticsAll`), each in a `passes.Context` of its own
+with a private resolver and semantic model, over an index nothing writes while
+the pool runs. What resolving a document would otherwise link into the scope
+tree on first use — the owner of a metadata body — is linked for every document
+of the batch before the pool starts (`passes.PrepareBatch`), so the workers
+only read it. Diagnostics come back in the order the files were given and are
+the same at any worker count; `-workers` and `OPENSYSML_WORKERS` set the pool,
+default one worker per CPU. The earlier cost of indexing files one at a time —
+re-expanding wildcard imports over every document loaded so far, quadratic in
+the file count — is gone with it: the 34-file constellation below parses and
+indexes in 1.4 s.
+
+Measured on the satellite constellation split one file per orbital plane
+(`cmd/stress-model -split-planes`; `Intel Xeon Platinum 8559C`, 8 CPUs, 31 GiB,
+Go 1.25.0, one run each, `/usr/bin/time -v`):
+
+| model | files | workers | wall | CPU | peak RSS |
+| ----- | ----- | ------- | ---- | --- | -------- |
+| 1 600 satellites, one file | 1 | — | 18.5 s | 136% | 2.46 GB |
+| 1 600 satellites, split | 34 | 1 | 129 s | 135% | 1.98 GB |
+| | | 2 | 66.1 s | 269% | 2.60 GB |
+| | | 4 | 38.6 s | 481% | 3.94 GB |
+| | | 8 | 30.9 s | 658% | 7.24 GB |
+| 200 satellites, split | 10 | 1 | 5.35 s | 132% | 354 MB |
+| | | 8 | 1.52 s | 529% | 840 MB |
+
+The single file is unchanged (18.5 s here against 18.7 s for the previous
+binary on the same run, 2.46 GB against 2.54 GB). The pool gives 4.2× on eight
+workers; what it is parallelizing is mostly a cost the split introduced. Three
+passes judge a document against the whole workspace — `OOSEMMethodPass`,
+`IdentityMetadataPass` and `MOSAPass` gather every document's roots, resolving
+`semantics.(*Model).FeatureTypeSet` for every symbol they meet — and each of the
+34 analyses gathers afresh in its own model, so the gather is done 34 times
+over 34 documents. In the eight-worker CPU profile the three are 75% of 201 s
+of samples (112 s, 25 s and 15 s); on one worker they are 118 s of a 128 s
+analysis; the documents' own resolution, type checking and remaining passes are
+about 10 s in either. The per-worker tables that gather builds are also why
+peak RSS grows with the workers — eight workers hold eight workspace-wide
+memoizations, live, so `GOMEMLIMIT` cannot reclaim them (`GOMEMLIMIT=2500MiB`
+still peaks at 3.51 GB and takes 66 s). Gathering once per batch and handing
+the result to every context is the fix; it belongs with the per-document
+gather cache of the persistent-workspace design
+([scaling to very large models](../project/large-model-scaling-design.md)),
+and `passes.Context.Batch` is where a worker receives it. Until then, the
+pool's own speedup is measured by `BenchmarkAnalyzeSplitPerDocument` in
+`internal/stressmodel`, which analyzes the split's files over one index with
+the three passes left out: 3.64 s → 1.04 s at 512 satellites over six files,
+one worker against eight, the largest file bounding it. The whole load of the
+same split, audits included, is `BenchmarkValidateSplit`: 10.3 s → 2.77 s.
+
+Parallelism does not reduce what a load allocates — the 34-file run allocates
+39.1 GiB and 422 million objects at any worker count — and the collector
+marking eight workers' garbage at once is where the pool loses its remaining
+efficiency (`runtime.gcBgMarkWorker` 13% and `runtime.scanobject` 18% of the
+eight-worker samples; user time 172 s → 197 s). The allocation sites the
+pool does not help, from the heap profile of the single-file 1 600-satellite
+run (62 million sampled objects and 4.3 GiB, of a run that counts 85.5 million
+allocations and 5.4 GiB), by objects allocated:
+
+| share of objects | site | what allocates |
+| ---------------- | ---- | -------------- |
+| 12.8% | `passes.(*w9cConflictChecker).specializes` | a slice per conformance question of the inherited-name conflict pass |
+| 12.6% | `passes.contributionsOf` | the per-base member list the same pass compares |
+| 9.8% | `symbols.FQNOf` (via `strings.Builder`) | a fully-qualified name built as a string, 78% of it from `symbols.(*Index).GetFQN`, 18% from the conflict pass |
+| 7.3% | `resolve.(*Resolver).specializationChain` | a slice per walk of a type's generalizations |
+| 3.5% | `semantics.(*Model).AllSupertypes` | a slice per supertype closure |
+| 2.6% | `parser.(*Parser).parseQualifiedNameRelaxed` | a qualified-name node per reference |
+| 1.9% | `parser.(*Parser).parseBase` | a node per specialization clause |
+
+By bytes the parser leads — `parseUsage` and what it calls are 25% of the 5.4
+GiB, `parseQualifiedNameRelaxed` alone 5% — with `contributionsOf` (6.6%),
+`specializes` (4.9%) and `FQNOf` (4.4%) behind it. Each of these is one
+allocation per token, per name or per lookup where one per file, or none, would
+serve — the snapshot decoder's node table, allocated as one block, is the
+model — and each is to be measured on its own before it is changed.
+
 ## What a process pays before the model
 
 Every `sysml`, `sysml-lsp` and `sysml-grpc` start, and every test that builds a

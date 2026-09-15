@@ -127,6 +127,90 @@ report for the synthetic model there, because most of their elements are
 attribute redefinitions with a literal value rather than definitions with
 bodies of their own.
 
+### Split by plane, parallel
+
+A project of this size is not one file. `cmd/stress-model -split-planes <dir>`
+writes the same constellation as one `.sysml` per orbital plane plus
+`library.sysml` (the definitions every plane shares) and `constellation.sysml`
+(the ground segment and the cross-plane network); the split declares the same
+network and analyzes to the same diagnostics as the single file
+(`TestSatelliteNetworkSplitValidates`). `sysml -validate` over the files parses
+them on a pool of workers, indexes them once, expands wildcard imports once
+and analyzes them on the pool, each document with a resolver and semantic
+model of its own; `-workers N` (or `OPENSYSML_WORKERS`) sets the pool, default
+one worker per CPU. The diagnostics are the same at any worker count, in
+command-line order.
+
+```bash
+go run ./cmd/stress-model -planes 32 -satellites 50 -ground-stations 160 -split-planes constellation/
+/usr/bin/time -v sysml -validate -memstats -workers 8 constellation/*.sysml
+```
+
+Same machine as above (`Intel Xeon Platinum 8559C`, 8 CPUs, 31 GiB, Go
+1.25.0, Linux); one run per row; *CPU* is `(user + system) / wall`.
+
+| model | files | workers | wall | user | CPU | allocated | peak RSS |
+| ----- | ----- | ------- | ---- | ---- | --- | --------- | -------- |
+| 200 satellites, one file | 1 | — | 1.95 s | 2.4 s | 130% | 721 MiB | 393 MB |
+| 200 satellites, split | 10 | 1 | 5.35 s | 6.9 s | 132% | 1.9 GiB | 354 MB |
+| | | 2 | 2.96 s | 7.3 s | 252% | 1.9 GiB | 419 MB |
+| | | 4 | 1.88 s | 7.4 s | 405% | 1.9 GiB | 566 MB |
+| | | 8 | 1.52 s | 7.6 s | 529% | 1.9 GiB | 840 MB |
+| 1 600 satellites, one file | 1 | — | 18.5 s | 24.0 s | 136% | 5.4 GiB | 2.46 GB |
+| 1 600 satellites, split | 34 | 1 | 129 s | 172 s | 135% | 39.1 GiB | 1.98 GB |
+| | | 2 | 66.1 s | 175 s | 269% | 39.1 GiB | 2.60 GB |
+| | | 4 | 38.6 s | 181 s | 481% | 39.1 GiB | 3.94 GB |
+| | | 8 | 30.9 s | 197 s | 658% | 39.1 GiB | 7.24 GB |
+
+Three things the table says:
+
+- **The pool works as a pool.** Eight workers take the 1 600-satellite split
+  from 129 s to 30.9 s (4.2×) at 658% CPU, and the 200-satellite split from
+  5.35 s to 1.52 s (3.5×). `BenchmarkAnalyzeSplitPerDocument` in
+  `internal/stressmodel`, which analyzes the split's six files over one index
+  *without* the three workspace-wide audits below, runs 3.64 s → 1.04 s at 512
+  satellites on one worker versus eight — the largest file is about a quarter
+  of the work, so six files cannot use eight workers better than that.
+- **Splitting the file made the serial validation seven times slower, and the
+  pool does not recover it.** One file validates in 18.5 s; the same model in
+  34 files takes 129 s on one worker and 30.9 s on eight. The reason is a
+  gather that is quadratic in the file count, measured below; it is what the
+  pool spends most of its time parallelizing, and what a **per-document
+  gather cache** (the persistent-workspace design in
+  [scaling to very large models](large-model-scaling-design.md), §3) would
+  remove. Until it lands, the ~5 s target that design sets for this run is
+  out of reach: with the gather removed, the split's per-document analysis
+  is about 10 s of work, and the pool's 4–5× on this machine puts it at
+  2–3 s plus a 1.4 s parse and index.
+- **Peak RSS grows with the workers, for the same reason.** Each worker's
+  private semantic model memoizes the kind of every symbol in the workspace
+  while its gather runs, so eight workers hold eight copies of a
+  workspace-wide table: 1.98 GB at one worker, 7.24 GB at eight, against
+  2.46 GB for the single file. The growth is live memory, not collector
+  laziness — under `GOMEMLIMIT=2500MiB` the eight-worker run still peaks at
+  3.51 GB, runs 104 collections instead of 27 and takes 66 s. A machine
+  short of memory should set `-workers` down; two workers hold the run at
+  2.60 GB, the single file's footprint, for half the serial time.
+
+**What the gather costs.** A CPU profile of the 34-file run on eight workers
+(29 s wall, 201 s of samples) spends 75% of them in three passes that walk
+every workspace document to judge the one they analyze — the OOSEM method
+audit `OOSEMMethodPass` (112 s, all of it `oosemAudit.gather` computing
+`semantics.(*Model).FeatureTypeSet` for every symbol of every root),
+`IdentityMetadataPass` (25 s) and the MOSA audit `MOSAPass` (15 s). The passes
+are correct to look at the whole workspace; the cost is that each of the 34
+analyses does it afresh in a model of its own, so the gather is done 34
+times over 34 documents. The per-document work is small beside it: name
+resolution of the document itself is 7 s of the 201, the inherited-name
+conflict pass 5 s, type checking 1.4 s, and parsing all 34 files 1.3 s. On
+one worker the same profile shape reads 118 s of gather in 128 s of analysis.
+Serial per-document analysis times over the 34 files are even — 3.5 s to
+5.5 s each, `constellation.sysml` the largest at 5.2 s — so the pool's
+shortfall from 8× (4.2× measured) is not a straggler; it is the collector
+marking eight workers' tables at once (`runtime.gcBgMarkWorker` is 13% of
+the eight-worker samples, `runtime.scanobject` 18%) and the user time it
+adds (172 s → 197 s).
+
 ## Running: instantiation, state machines and satisfaction
 
 `sysml -satisfy -memstats` loads and validates the model, then for every
@@ -277,10 +361,10 @@ the interactive band at every operation measured.
   usage cost more per element, long documentation comments cost less — but
   the shape of the curve (linear load, memory-bound batch, workspace-bound
   editing) does not depend on the regularity.
-- The whole constellation is one file. Splitting it over files changes two
-  things: the CLI submits files one at a time and reindexes after each, which
-  is quadratic in the file count (`docs/internals/performance.md`, notes for
-  further work), and an editor pays the per-file analysis once per open file.
+- Most figures are for the whole constellation as one file. The split by
+  plane is measured above at two sizes only, and what it shows is that the
+  three workspace-wide audits, not the split itself, set its cost; an editor
+  also pays the per-file analysis once per open file.
 - `-satisfy` instantiates each satellite's tree on its own; it does not
   instantiate the whole `Network` as one object with 12 800 satellites and
   their links, and no figure here says what that would cost.
@@ -303,7 +387,9 @@ items below are the ones the profiles point at directly.
   whole-workspace walk. The audits need the whole workspace only when some
   document declares an artefact of the method's kinds; whether one does is
   computable once per reindex and cached, and a workspace that declares none
-  would then pay nothing. That alone removes a quarter of the per-edit cost.
+  would then pay nothing. That alone removes a quarter of the per-edit cost,
+  and — gathered once per batch rather than once per document — most of the
+  split constellation's 129 s.
 - **Keep the semantic model across edits.** Every diagnostics request after an
   edit starts from cold memoization. Invalidating what a change can reach —
   the documents that import the changed one, transitively — rather than
