@@ -1735,9 +1735,8 @@ func (e *StateExecutor) machineComplete() bool {
 	return true
 }
 
-// completeInto finishes a transition from a substate into its still active
-// ancestor: the target is not re-entered, and the region the source left
-// completes, which completes a target with no other region (PSSM 8.5.8).
+// completeInto finishes a transition into a still active ancestor: the target is
+// not re-entered and the region the source left completes (PSSM 8.5.8).
 func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, target *ast.StateNode) error {
 	e.stateStack = e.rootToLeaf(target)
 	if _, orthogonal := e.graph.CompositeStates[target]; orthogonal {
