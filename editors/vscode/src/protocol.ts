@@ -295,7 +295,9 @@ export type ToWebview =
   | { type: "render"; result: RenderResult; selected: string }
   | { type: "views"; views: PickerEntry[]; selected: string }
   | { type: "error"; message: string }
-  | { type: "highlight"; id: string | undefined };
+  | { type: "highlight"; id: string | undefined }
+  /** A drop the model did not take: the canvas goes back to the model's layout, the status line says why. */
+  | { type: "revert"; message?: string };
 
 /** A diagram action naming nodes by rendering id; the extension asks for the rest. */
 export type EditAction =
@@ -325,4 +327,6 @@ export type FromWebview =
   | { type: "edit"; action: EditAction; version: number }
   /** One completed gesture: everything it moved, applied as one edit. */
   | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; version: number }
+  /** A node dropped on another: moved into it as a declaration, and placed where it was released. */
+  | { type: "reparent"; id: string; owner: string; nodes: NodePlacement[]; edges: EdgePlacement[]; version: number }
   | { type: "failed"; message: string };

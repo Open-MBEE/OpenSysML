@@ -147,6 +147,25 @@ export function moveOperation(node: RenderNode, owner: string): ModelEditOperati
   return node.fqn === undefined ? undefined : { kind: "move", target: node.fqn, owner };
 }
 
+// reparentOperations is a drop on another node as one edit: the drag's placements, then the
+// move into the target; undefined unless Move to… would offer that target.
+export function reparentOperations(
+  rendering: Rendering,
+  id: string,
+  into: string,
+  nodes: NodePlacement[],
+  edges: EdgePlacement[],
+): ModelEditOperation[] | undefined {
+  const node = rendering.nodes.find((candidate) => candidate.id === id);
+  const owner = rendering.nodes.find((candidate) => candidate.id === into);
+  if (!node || !owner || owner.fqn === undefined || !moveDestinations(node, rendering).some((destination) => destination.node === owner)) {
+    return undefined;
+  }
+  const placed = placementOperations(rendering, nodes, edges);
+  const move = moveOperation(node, owner.fqn);
+  return placed && move ? [...placed, move] : undefined;
+}
+
 /** nameSegments splits a qualified name at `::` outside quotes: `'P::Q'::x` is two segments. */
 export function nameSegments(text: string): string[] {
   const out: string[] = [];

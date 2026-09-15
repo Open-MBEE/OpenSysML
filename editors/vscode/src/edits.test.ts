@@ -9,6 +9,7 @@ import {
   describeStale,
   fileLabel,
   referrersByFile,
+  reparentOperations,
   staleDocuments,
   unopenedDocuments,
   DOCUMENT_ROOT,
@@ -484,6 +485,53 @@ test("placementOperations targets a node or edge no qualified name reaches by it
     { kind: "setRoute", declaration, route: [{ x: 3, y: 4 }] },
     { kind: "setRoute", target: "Vehicle::Car::fuel", view: "Vehicle::Wiring", route: undefined },
   ]);
+});
+
+// The placed rendering with each declaration's notation, as a server that serves moves sends it.
+const reparentable = { ...placed, nodes: [carN, tankN, engineN, fuelInN, imported], palette: { members: ["part"], connections: [], typed: [] } };
+
+test("reparentOperations writes the drop's placements first, then the move, as one batch", () => {
+  assert.deepEqual(
+    reparentOperations(reparentable, "n2", "n4", [{ id: "n2", layout: { x: 10, y: 20 } }], [{ index: 0, route: [{ x: 5, y: 5 }] }]),
+    [
+      { kind: "setLayout", target: "Vehicle::Car::tank", view: "Vehicle::Wiring", layout: { x: 10, y: 20 } },
+      { kind: "setRoute", target: "Vehicle::Car::fuel", view: "Vehicle::Wiring", route: [{ x: 5, y: 5 }] },
+      { kind: "move", target: "Vehicle::Car::tank", owner: "Vehicle::Car::engine" },
+    ],
+  );
+  // A drop with nothing placed is the move alone.
+  assert.deepEqual(reparentOperations(reparentable, "n2", "n4", [], []), [{ kind: "move", target: "Vehicle::Car::tank", owner: "Vehicle::Car::engine" }]);
+});
+
+test("reparentOperations refuses a target Move to… would not offer: the owner, a descendant, the node, an undeclared node", () => {
+  const nodes = [{ id: "n2", layout: { x: 10, y: 20 } }];
+  assert.equal(reparentOperations(reparentable, "n2", "n1", nodes, []), undefined);
+  assert.equal(reparentOperations(reparentable, "n4", "n5", [{ id: "n4", layout: { x: 1, y: 2 } }], []), undefined);
+  assert.equal(reparentOperations(reparentable, "n2", "n2", nodes, []), undefined);
+  assert.equal(reparentOperations(reparentable, "n2", "n6", nodes, []), undefined);
+  assert.equal(reparentOperations(reparentable, "n6", "n4", [{ id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
+  assert.equal(reparentOperations(reparentable, "n2", "missing", nodes, []), undefined);
+  // A body the palette does not open for the notation.
+  const confined = { ...reparentable, palette: { members: ["part"], connections: [], typed: [], owners: { part: ["n1"] } } };
+  assert.equal(reparentOperations(confined, "n2", "n4", nodes, []), undefined);
+});
+
+test("a drop is one applyModelEdit request, pinned to the version the canvas was drawn from", () => {
+  const operations = reparentOperations(reparentable, "n2", "n4", [{ id: "n2", layout: { x: 10, y: 20 } }], [])!;
+  assert.equal(offeredOn(reparentable, 4), true);
+  assert.equal(offeredOn(reparentable, 5), false);
+  assert.deepEqual(editParams("file:///vehicle.sysml", reparentable, operations), {
+    textDocument: { uri: "file:///vehicle.sysml" },
+    version: 4,
+    operations: [
+      { kind: "setLayout", target: "Vehicle::Car::tank", view: "Vehicle::Wiring", layout: { x: 10, y: 20 } },
+      { kind: "move", target: "Vehicle::Car::tank", owner: "Vehicle::Car::engine" },
+    ],
+  });
+});
+
+test("reparentOperations refuses a placement the document does not declare, so nothing of the drop is written", () => {
+  assert.equal(reparentOperations(reparentable, "n2", "n4", [{ id: "n2", layout: { x: 1, y: 2 } }, { id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
 });
 
 test("placementOperations refuses a node or edge the document does not declare", () => {

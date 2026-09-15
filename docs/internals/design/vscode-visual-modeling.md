@@ -25,8 +25,9 @@ annotations of [Diagram layout annotations](../../project/diagram-layout-annotat
 its section below is the design as built. Re-parenting is `edit.OpMove`
 (`internal/core/edit/move.go`), the `move` operation of `applyModelEdit` and the
 node menu's **Move to…**, which offers the drawn declarations whose body admits the
-node's kind; the drag that would issue it, and the `CustomTextEditorProvider`
-registration, are not built, as the known limitations say. The tier 1 and 2
+node's kind, and the <kbd>Shift</kbd>-drop of a node on another, which issues it for
+the node under the pointer; the `CustomTextEditorProvider` registration is not
+built, as the known limitations say. The tier 1 and 2
 sections are the design as written before the work, kept for the reasoning behind it.
 
 ## What exists today
@@ -339,8 +340,46 @@ subtree, in the same request; unplaced descendants follow their owner on their o
 
 Re-parenting is a move — delete from one body and add to another as one
 operation, `edit.OpMove{Target, NewOwner}`, so the two halves cannot come apart —
-issued from the node menu's **Move to…**; dragging a part into a different
-definition does not issue it.
+issued from the node menu's **Move to…** and by dropping a node on another with
+<kbd>Shift</kbd> held.
+
+The modifier is what tells the two drags apart. A plain drag is a layout drag
+whatever it is released over: a node is routinely dragged across its neighbours'
+boxes, and inside its owner's, on the way to a position, and a canvas whose nodes
+are placed close together would offer a re-parent on most releases if the pointer's
+position alone decided. So a release never moves a declaration unless
+<kbd>Shift</kbd> is down at that moment, and a plain drag posts the same `place`
+message it always did. The gesture is told on the status line as soon as a node
+that some drawn node admits is picked up ("Hold Shift and release over a node to
+move … into it"), so it is found without reading the manual, and confirmed while
+it is held: the node under the pointer — the innermost, latest-drawn box holding
+the point, with the dragged subtree passed over (`nodeUnder` in
+`src/webview/layout.ts`) — is judged by the same `moveDestinations` filter the
+**Move to…** menu is built from (`src/edits.ts`: the body admits the node's
+`notation`, the target is neither the node, nor its current owner, nor anything
+inside it), and outlined when it admits the dragged node. A node that does not
+admit it is not outlined; the cursor turns to *not-allowed* and the status line
+says why ("already declared in …", "declared inside …", "a subject cannot be
+declared in …"). Releasing there cancels the drag rather than falling back to a
+layout drag: the node goes back where it was and the reason stays on the status
+line, because a release the user meant as a move should not quietly write a
+position instead. Releasing with <kbd>Shift</kbd> over empty canvas is a plain drag.
+
+A drop is one `reparent` message and one `applyModelEdit` request, pinned to the
+version the canvas was drawn from like every other gesture: the `setLayout` (and
+`setRoute`) operations the same drag would have written, followed by the `move`
+(`reparentOperations` in `src/edits.ts`). The layout is written first, on the
+names the rendering draws, and the move respells the annotation's `about` name
+along with every other reference to the moved declaration, so the node redraws
+under its new owner at the place it was released — the owner's box grows around
+it if need be — and one <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes both. The extension
+refuses the drop itself when the rendering it holds no longer offers the target,
+and every refusal the server answers — a name clash in the destination, a cycle, a
+declaration another file refers to — is posted back to the panel as a `revert`:
+the canvas redraws the model's layout, the status line carries the server's
+message, and no source changed. A stale version is redrawn, as for any edit. When
+the edit applies, nothing of the gesture survives: the document-change path
+re-renders and the node is wherever the model now declares it.
 
 ### Rendering surface
 
@@ -368,9 +407,20 @@ save are the text document's.
   (`internal/lsp/modeledit_test.go`).
 - Webview: the automatic layout pinned for a fixture, the model's geometry kept
   exactly, one placement per gesture, and the SVG's node groups, handles and
-  arrowheads (`src/webview/layout.test.ts`, `canvas.test.ts`).
+  arrowheads (`src/webview/layout.test.ts`, `canvas.test.ts`); the node under a
+  point, innermost and latest-drawn, with the dragged subtree and hidden nodes
+  passed over (`layout.test.ts`); a drop admitted for exactly the targets
+  **Move to…** lists, each refusal's reason, and the hint a pick-up shows
+  (`drop.test.ts`).
+- Extension: the drop's batch — placements first, then the move, nothing when the
+  target is not offered or a placement is undeclared — and the request it becomes,
+  pinned to the rendering's version (`src/edits.test.ts`).
 - GUI: drag a node, check the file gained the annotation, <kbd>Ctrl</kbd>+<kbd>Z</kbd>,
-  check it is gone, redraw and check the position held.
+  check it is gone, redraw and check the position held. <kbd>Shift</kbd>-drop a part
+  on another definition, check the declaration moved in the file and the diagram
+  redrew it under the new owner, <kbd>Ctrl</kbd>+<kbd>Z</kbd>, check both are back;
+  <kbd>Shift</kbd>-drop on a node that does not admit it and check the file is
+  untouched.
 
 ## Known limitations, stated rather than hidden
 
@@ -390,8 +440,9 @@ save are the text document's.
 - The layout annotations are this project's library. SysML v2 §10.2 leaves how a
   view is drawn to the tool, so nothing here claims to be a normative diagram
   interchange, and no attempt is made to read or write another tool's layout.
-- Re-parenting by drag is not built; a part is moved from the node menu's
-  **Move to…** or by editing the text.
+- A drop re-parents within the requesting document only, as **Move to…** does: a
+  node drawn from another file is neither dragged nor a drop target, and a
+  declaration another file refers to is refused by the server.
 - The palette writes the notation OpenSysML's writer emits, which is
   spec-conformant but not necessarily byte-identical to what a user would have
   typed. `format` makes it consistent with the file; it does not make it a

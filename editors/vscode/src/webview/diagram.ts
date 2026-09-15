@@ -3,6 +3,7 @@
 import type { EditPalette, FromWebview, PickerEntry, RenderNode, RenderPoint, RenderResult, ToWebview } from "../protocol";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
 import { drawCanvas } from "./canvas";
+import { dragHint, Drop, dropOn } from "./drop";
 import {
   CanvasLayout,
   insertedWaypoint,
@@ -10,6 +11,7 @@ import {
   movable,
   movedNode,
   movedWaypoint,
+  nodeUnder,
   overridesOf,
   Placements,
   removedWaypoint,
@@ -82,6 +84,13 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideMenu();
     cancelGesture();
+  } else if (event.key === "Shift") {
+    previewDrop(true);
+  }
+});
+window.addEventListener("keyup", (event) => {
+  if (event.key === "Shift") {
+    previewDrop(false);
   }
 });
 // A right-click off a node offers nothing; the browser's own menu offers less.
@@ -106,6 +115,9 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       return;
     case "highlight":
       highlight(message.id);
+      return;
+    case "revert":
+      revert(message.message);
       return;
   }
 });
@@ -171,7 +183,7 @@ function draw(result: RenderResult): void {
       diagram.replaceChildren(pre);
     }
     diagram.classList.remove("stale");
-    status.textContent = "";
+    showStatus("");
     last = result;
     remember();
     showNotices(result);
@@ -194,9 +206,23 @@ function show(shown: CanvasLayout): void {
 
 /** A drag in progress: what was pressed, where, and what it has moved to so far. */
 type Gesture =
-  | { kind: "node"; id: string; start: RenderPoint; pointer: number; fixed: boolean; placements?: Placements }
+  | NodeGesture
   | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; placements?: Placements }
   | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; placements?: Placements };
+
+// A node drag also tracks what a release would do: `shown` is the layout drawn with the
+// node where the pointer holds it, `at` the pointer, `drop` the node under it while Shift is held.
+interface NodeGesture {
+  kind: "node";
+  id: string;
+  start: RenderPoint;
+  pointer: number;
+  fixed: boolean;
+  placements?: Placements;
+  shown?: CanvasLayout;
+  at?: RenderPoint;
+  drop?: Drop;
+}
 
 // The pointer is listened to on the diagram's container, which outlives the SVG a
 // drag redraws under it, so a gesture is followed across redraws.
@@ -268,10 +294,42 @@ function moveGesture(event: PointerEvent): void {
     gesture = undefined;
     return;
   }
-  const svg = drawCanvas(layoutCanvas(result, overridesOf(gesture.placements)));
+  const shown = layoutCanvas(result, overridesOf(gesture.placements));
+  const svg = drawCanvas(shown);
   svg.classList.add("dragging");
   diagram.replaceChildren(svg);
   highlight(selectedNode);
+  if (gesture.kind === "node") {
+    gesture.shown = shown;
+    gesture.at = at;
+    previewDrop(event.shiftKey);
+  }
+}
+
+// previewDrop shows what a release would do: with Shift held over another node, that node
+// is marked as taking the dragged one or the status line says why not; else the line says how.
+function previewDrop(shift: boolean): void {
+  if (gesture?.kind !== "node" || !gesture.shown || !gesture.at || !last) {
+    return;
+  }
+  const result = last;
+  const dragged = gesture.id;
+  const node = result.nodes?.find((candidate) => candidate.id === dragged);
+  const under = shift ? nodeUnder(gesture.shown, gesture.at, dragged) : undefined;
+  gesture.drop = node && under ? dropOn(node, under.node, result) : undefined;
+  for (const marked of diagram.querySelectorAll(".opensysml-drop-target")) {
+    marked.classList.remove("opensysml-drop-target");
+  }
+  const svg = diagram.querySelector("svg");
+  svg?.classList.toggle("refused", gesture.drop?.admits === false);
+  if (gesture.drop) {
+    if (gesture.drop.admits) {
+      diagram.querySelector(`[data-opensysml-id="${cssEscape(gesture.drop.target.id)}"]`)?.classList.add("opensysml-drop-target");
+    }
+    showHint(gesture.drop.message);
+    return;
+  }
+  showHint(node ? dragHint(node, result) ?? "" : "");
 }
 
 // endGesture releases the pointer: a drag that moved something is one edit, a press
@@ -281,10 +339,18 @@ function endGesture(event: PointerEvent): void {
   if (event.pointerId !== gesture?.pointer) {
     return;
   }
+  if (gesture.kind === "node" && gesture.placements) {
+    previewDrop(event.shiftKey);
+  }
   const done = gesture;
   gesture = undefined;
   if (done.placements) {
     clickedWaypoint = undefined;
+    showStatus("");
+    if (done.kind === "node" && done.drop) {
+      dropNode(done.id, done.drop, done.placements, last?.version ?? 0);
+      return;
+    }
     place(done.placements, last?.version ?? 0);
     return;
   }
@@ -314,6 +380,28 @@ function cancelGesture(): void {
   gesture = undefined;
   if (moved && layout) {
     show(layout);
+    showStatus("");
+  }
+}
+
+// dropNode ends a Shift-drag over another node: one edit moves the declaration into it,
+// placed where it was released; a node that does not admit it takes the canvas back instead.
+function dropNode(id: string, drop: Drop, placements: Placements, version: number): void {
+  if (!drop.admits) {
+    revert(drop.message);
+    return;
+  }
+  vscode.postMessage({ type: "reparent", id, owner: drop.target.id, nodes: placements.nodes, edges: placements.edges, version });
+}
+
+// revert puts the model's layout back after a drop the model did not take, and says why when told.
+function revert(message: string | undefined): void {
+  cancelGesture();
+  if (layout) {
+    show(layout);
+  }
+  if (message !== undefined) {
+    showStatus(message);
   }
 }
 
@@ -388,10 +476,21 @@ function showNotices(result: RenderResult): void {
 // the last one the model was drawable at, and saying so is more useful than a
 // blank panel.
 function showError(message: string): void {
-  status.textContent = message;
+  showStatus(message);
   if (diagram.childElementCount > 0) {
     diagram.classList.add("stale");
   }
+}
+
+// showStatus puts a failure in the status line; showHint guidance on the gesture in progress.
+function showStatus(message: string): void {
+  status.textContent = message;
+  status.classList.remove("hint");
+}
+
+function showHint(message: string): void {
+  status.textContent = message;
+  status.classList.toggle("hint", message !== "");
 }
 
 // showPalette fills the toolbar's "Add" list, or hides it for a rendering that is not editable.
