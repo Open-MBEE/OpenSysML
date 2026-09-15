@@ -167,6 +167,30 @@ func TestSatelliteNetworkFilesValidate(t *testing.T) {
 	if stats.Satellites != whole.Satellites || stats.Requirements != whole.Requirements || stats.Connections != whole.Connections {
 		t.Fatalf("split stats %+v, single-file stats %+v", stats, whole)
 	}
+	validateFiles(t, files, stats.Requirements)
+}
+
+// TestFleetFilesValidate keeps the split fleet form in step with the whole one:
+// the library and the constellation as two documents declare the same network,
+// load clean under strict conformance, and hold every satisfy assertion.
+func TestFleetFilesValidate(t *testing.T) {
+	n := SatelliteNetwork{Planes: 2, Satellites: 2 * fleetUnitStride, GroundStations: 1, Fleet: true}
+	files, stats := n.Split()
+	if len(files) != 2 {
+		t.Fatalf("got %d files, want the library and the constellation", len(files))
+	}
+	_, whole := n.Source()
+	if stats.Elements != whole.Elements || stats.Definitions != whole.Definitions || stats.Units != whole.Units ||
+		stats.Satellites != whole.Satellites || stats.Requirements != whole.Requirements || stats.Connections != whole.Connections {
+		t.Fatalf("split stats %+v, single-file stats %+v", stats, whole)
+	}
+	validateFiles(t, files, 3*(stats.Definitions+stats.Units))
+}
+
+// validateFiles opens files as one workspace and one session, wanting no
+// diagnostic and the given number of satisfy assertions, all holding.
+func validateFiles(t *testing.T, files []File, assertions int) {
+	t.Helper()
 	ws := model.NewWorkspace(model.WithConformanceMode(conformance.ModeOf(true)))
 	for _, f := range files {
 		ws.Open(f.Name, []byte(f.Source), 1)
@@ -187,8 +211,8 @@ func TestSatelliteNetworkFilesValidate(t *testing.T) {
 		t.Errorf("diagnostic: %s", d.Message)
 	}
 	verdicts := s.CheckSatisfy("")
-	if len(verdicts) != stats.Requirements {
-		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), stats.Requirements)
+	if len(verdicts) != assertions {
+		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), assertions)
 	}
 	for _, v := range verdicts {
 		if !v.Holds() {
