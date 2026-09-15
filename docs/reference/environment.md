@@ -285,3 +285,19 @@ OPENSYSML_GRPC_INDEX_POOL=0 sysml-grpc   # load the library on the first request
 Anything but a non-negative integer is reported at service construction rather
 than silently ignored. The legacy `SYSML_GRPC_INDEX_POOL` name remains accepted
 for compatibility with deployments that set it.
+
+## Variables the test suite reads
+
+None of the variables below is read by `sysml`, `sysml-lsp` or `sysml-grpc`; they govern `go test`
+alone. Each corpus gate in the suite skips, announcing the skip, while the corpus it reads is
+absent, and fails instead when its variable is set — so whatever sets one must run the matching
+download script first (each is idempotent and refuses to report success over an empty corpus).
+
+| Variable | Download | Gate |
+|----------|----------|------|
+| `OPENSYSML_REQUIRE_TRAINING_CORPUS` | `./scripts/download-training-examples.sh` → `examples/sysml-v2-training/` | `TestTrainingExamples*` in `internal/core/model` |
+| `OPENSYSML_REQUIRE_PILOT_CORPORA` | `./scripts/download-pilot-corpora.sh` → `examples/pilot-corpora/` | `TestPilotCorpora*` in `internal/core/model` |
+| `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` | `./scripts/download-pilot-library-xmi.sh` → `build/pilot-library-xmi/` | `TestPilotLibraryXMI` in `internal/core/identity` |
+
+CI sets all three; see [pilot-corpora.md](../project/pilot-corpora.md) for the pin the downloads
+share and what the gates measure.
