@@ -46,5 +46,8 @@ coverage-node.lcov
 # Maven build output for the Java client
 /clients/java/**/target/
 
+# Partial oracle record a failed `make fuml-expected` leaves for diagnosis
+/docs/project/fuml-referee-expected.json.failed
+
 # Windows VERSIONINFO resources, written by go-winres for GOOS=windows builds
 cmd/*/rsrc_windows_*.syso
