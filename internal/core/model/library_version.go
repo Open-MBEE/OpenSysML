@@ -21,9 +21,8 @@ func (w *Workspace) displaceLocked(name string) {
 	}
 }
 
-// standInLocked puts a version of a bundled library file in that file's place,
-// as the RDF mapping does: the bundled document leaves the index and the version
-// carries its tier. Caller holds the write lock and just added doc unmarked.
+// standInLocked puts a version of a bundled library file in that file's place: the bundled
+// document leaves the index (a workspace document holding its name stays) and the version carries its tier.
 func (w *Workspace) standInLocked(name string, doc *Document) {
 	library := w.libraryVersionLocked(name, doc)
 	if previous, ok := w.standIns[name]; ok && previous != library {
@@ -34,7 +33,9 @@ func (w *Workspace) standInLocked(name string, doc *Document) {
 	}
 	if library != name {
 		w.displaceLocked(library)
-		w.index.RemoveDocument(library)
+		if w.docs[library] == nil {
+			w.index.RemoveDocument(library)
+		}
 	}
 	w.standIns[name] = library
 	w.index.MarkLibraryDocument(name, symbols.LibraryDocument{
@@ -94,7 +95,7 @@ func (w *Workspace) standInOverLocked(idx *symbols.Index, sf *source.SourceFile,
 	if library == "" {
 		return
 	}
-	if library != name {
+	if library != name && w.docs[library] == nil {
 		idx.RemoveDocument(library)
 	}
 	idx.MarkLibraryDocument(name, symbols.LibraryDocument{

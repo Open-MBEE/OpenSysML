@@ -225,6 +225,96 @@ func TestWorkspaceLibraryVersionUnderTheBundledName(t *testing.T) {
 	}
 }
 
+// A version opened beside a workspace document that holds the bundled file's
+// name leaves that document in the index, whether it is itself a version or the
+// user's text, and closing either leaves the other; the bundled file comes back
+// only once both are gone.
+func TestWorkspaceLibraryVersionBesideTheBundledName(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	declaring := func(qname string) []string {
+		var docs []string
+		for _, s := range ws.LookupQualified(qname) {
+			docs = append(docs, s.DocName)
+		}
+		sort.Strings(docs)
+		return docs
+	}
+	for _, tc := range []struct {
+		name  string
+		text  []byte
+		qname string
+		holds []string
+	}{
+		{"a version", lib.Content, "ScalarValues::Real", []string{scalarValues, "copy.kerml"}},
+		{"the user's text", []byte("package Mine { datatype Real; }"), "Mine::Real", []string{scalarValues}},
+	} {
+		ws.Open(scalarValues, tc.text, 1)
+		ws.Open("copy.kerml", lib.Content, 1)
+		if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+			t.Fatalf("%s under the bundled name: the copy stands in for %q, want %q", tc.name, got, scalarValues)
+		}
+		if ws.index.DocumentRoot(scalarValues) == nil {
+			t.Errorf("%s under the bundled name left the index when the copy opened", tc.name)
+		}
+		if got := declaring(tc.qname); !slices.Equal(got, tc.holds) {
+			t.Errorf("%s under the bundled name: %s declared in %q, want %q", tc.name, tc.qname, got, tc.holds)
+		}
+		ws.Close("copy.kerml")
+		if ws.index.DocumentRoot(scalarValues) == nil || ws.IsLibraryDocument(scalarValues) {
+			t.Errorf("%s under the bundled name did not survive the copy closing", tc.name)
+		}
+		if got := declaring(tc.qname); !slices.Equal(got, []string{scalarValues}) {
+			t.Errorf("%s under the bundled name: %s declared in %q after the copy closed", tc.name, tc.qname, got)
+		}
+		ws.Open("copy.kerml", lib.Content, 2)
+		ws.Close(scalarValues)
+		if ws.index.DocumentRoot(scalarValues) != nil {
+			t.Errorf("%s: the bundled file came back while the copy stands in for it", tc.name)
+		}
+		if _, doc := realOf(t, ws); doc != "copy.kerml" {
+			t.Errorf("%s: ScalarValues::Real declared in %q with only the copy open, want the copy", tc.name, doc)
+		}
+		ws.Close("copy.kerml")
+		if !ws.IsLibraryDocument(scalarValues) {
+			t.Errorf("%s: the bundled file did not come back once both closed", tc.name)
+		}
+		if _, doc := realOf(t, ws); doc != scalarValues {
+			t.Errorf("%s: ScalarValues::Real declared in %q once both closed, want the bundled file", tc.name, doc)
+		}
+	}
+}
+
+// An edit inside a version is judged with the workspace document holding the
+// bundled file's name still present, so references to its names stay resolved.
+func TestWorkspaceLibraryVersionEditsBesideTheBundledName(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open(scalarValues, []byte("package Mine { datatype Real; }"), 1)
+	ws.Open("copy.kerml", lib.Content, 1)
+	ws.Open("car.sysml", []byte("part def Car {\n    attribute mass : ScalarValues::Real;\n    attribute mine : Mine::Real;\n}\n"), 1)
+	result, _, ok, err := ws.ApplyEdit("copy.kerml", []edit.Operation{edit.Rename("ScalarValues::Real", "Reel")})
+	if !ok || err != nil {
+		t.Fatalf("ok %v, err %v", ok, err)
+	}
+	edited := map[string]string{}
+	for _, doc := range result.Documents {
+		edited[doc.Name] = string(doc.Content)
+	}
+	if want := "attribute mass : ScalarValues::Reel;"; !strings.Contains(edited["car.sysml"], want) {
+		t.Errorf("the reference to the version is not renamed:\n%s", edited["car.sysml"])
+	}
+	if want := "attribute mine : Mine::Real;"; !strings.Contains(edited["car.sysml"], want) {
+		t.Errorf("the reference beside it changed:\n%s", edited["car.sysml"])
+	}
+}
+
 // An edit to a document beside a version resolves the library's names to the
 // version, as the workspace does, so it is not refused as ambiguous.
 func TestWorkspaceLibraryVersionResolvesEdits(t *testing.T) {
