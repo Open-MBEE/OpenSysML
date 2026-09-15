@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -123,10 +124,9 @@ func PrepareBatch(idx *symbols.Index, batch *Batch) {
 	if idx == nil || batch == nil {
 		return
 	}
-	linker := NewContext("", idx, nil)
-	_ = linker.Model()
+	linker := resolve.New(idx)
 	for _, name := range batch.Documents {
-		linker.Resolver().LinkMetadataBodies(name)
+		linker.LinkMetadataBodies(name)
 	}
 }
 
