@@ -38,7 +38,7 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | Choose who answers | `ListEngines`, `WithEngine`, `Engine`, `CalcEngine` |
 | Search it | `Query`, `QueryOSLC` |
 | Report on it | `RunDocumentQuery`, `RenderDocument` |
-| Write it out | `Convert`, `ConvertFile`, `ConvertSource` |
+| Write it out, or migrate a SysML v1 model in | `Convert`, `ConvertFile`, `ConvertSource` |
 | Change its source | `ApplyEdits` |
 
 Execution and verification take the same handles the rest of the API takes:

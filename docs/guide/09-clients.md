@@ -994,6 +994,22 @@ text, and `write(path)` saves it. Formats are named `sysml`, `kerml`, `text`, `t
 `rdf`. A file path's format is inferred from its extension; inline `content` has no extension, so
 it needs `from_format`.
 
+`convert` also reads a **SysML v1** model and migrates it, when the source is UML XMI, an Eclipse
+UML2 `.uml` file or a `.mdzip` archive: `from_format` is `xmi`, `uml` or `mdzip`, inferred from
+those extensions, and is an input only — asking to write it raises `InvalidRequestError`, since a
+v2 model has no v1 form. Migration is
+[experimental](../reference/sysml-v1-migration.md#status-experimental) and warns as the RDF
+direction does. The service does not return the migration report; run
+`sysml Model.xmi -convert sysml -migration-report Model.report.txt` for the element-by-element
+account, as [chapter 11](11-migrating-from-sysml-v1.md) walks through.
+
+```python
+migrated = opensysml.convert("sysml", file_path="Vehicle.mdzip")  # ExperimentalFeatureWarning
+migrated.from_format, migrated.to_format                          # ('xmi', 'sysml')
+migrated.write("Vehicle.sysml")
+opensysml.convert("ttl", content=xmi_text, from_format="xmi")    # straight to RDF
+```
+
 A `Model` writes out the source the service parsed, identified by `model.hash`, so editing the file
 between `load` and `save` does not change what is written: the model saved is the model you
 inspected. `convert(file_path=…)` is the alternative, and reads the file as it is now. The
@@ -1017,7 +1033,8 @@ What each direction preserves:
 Conversion is capability-negotiated: against a service that does not report the `convert`
 capability, these calls raise `MissingCapabilityError` naming the required upgrade rather than
 failing on an unimplemented method. For a service that does not report the RDF mapping's status,
-the status is worked out from the formats it reports, so an RDF conversion warns either way.
+the status is worked out from the formats it reports, so an RDF conversion or a v1 migration
+warns either way.
 Suppress the warning with `warnings.simplefilter("ignore",
 opensysml.ExperimentalFeatureWarning)`; no stable feature uses that warning class.
 
