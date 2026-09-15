@@ -67,6 +67,34 @@ func TestLoadedFilesDeclaringOneRootPackageAreNotDuplicates(t *testing.T) {
 	}
 }
 
+// Which declaration of a repeated root name a reference reaches follows the
+// documents' name order, as the workspace orders them, not the command line.
+func TestRepeatedRootPackageResolvesByDocumentNameNotLoadOrder(t *testing.T) {
+	dir := t.TempDir()
+	first := writeFile(t, filepath.Join(dir, "first.sysml"), "package A { part def X; }\n")
+	second := writeFile(t, filepath.Join(dir, "second.sysml"), "package A { part def Y; }\n")
+	useX := writeFile(t, filepath.Join(dir, "use-x.sysml"), "package C { part x : A::X; }\n")
+	useY := writeFile(t, filepath.Join(dir, "use-y.sysml"), "package D { part y : A::Y; }\n")
+
+	for _, paths := range [][]string{{first, second, useX, useY}, {second, first, useY, useX}} {
+		got := cliDiagnostics(t, paths)
+		if len(got) != 1 || !strings.Contains(got[0], "use-y.sysml") || !strings.Contains(got[0], "A::Y") {
+			t.Errorf("loading %v reported:\n%s\nwant only A::Y unresolved: first.sysml's A sorts first", basenames(paths), strings.Join(got, "\n"))
+		}
+		if want := workspaceDiagnostics(t, paths); strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Errorf("the CLI reported:\n%s\nwant, as the workspace does:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+		}
+	}
+}
+
+func basenames(paths []string) []string {
+	out := make([]string, len(paths))
+	for i, p := range paths {
+		out[i] = filepath.Base(p)
+	}
+	return out
+}
+
 // The prompt's transcript is a document of its own too: a root-level import in
 // a loaded file does not serve what is typed after %load, though the file's
 // root packages are reachable through the global namespace as before.
