@@ -216,6 +216,11 @@ func TestEmitRejects(t *testing.T) {
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
           </transition>`, "no spelling"},
 		{"guard with a side effect", guardWithSideEffect, "acts on the model"},
+		{"guard writing inside a conditional", guardBehavior(`
+            <node xmi:type="uml:ConditionalNode" xmi:id="xT3if" name="1:IfStatement">
+              <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="xT3write" structuralFeature="attrCounter"/>
+            </node>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3if" target="xT3ret1"/>`), "acts on the model"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

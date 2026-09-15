@@ -192,7 +192,7 @@ func TestClassifyStrayConnectionPoint(t *testing.T) {
 
 // guardBehavior writes a transition T3 from S1 to FinalState1 on evContinue whose
 // guard `true` is an activity returning true, preceded by the given statements.
-func guardBehavior(statements string) string {
+func guardBehavior(statements string, behaviors ...string) string {
 	return `
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xFin" guard="xT3guard">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
@@ -219,7 +219,7 @@ func guardBehavior(statements string) string {
             </node>
           </node>
           <edge xmi:type="uml:ObjectFlow" xmi:id="xT3e2" source="xT3ret1Out" target="xT3retNode"/>
-        </ownedBehavior>
+        </ownedBehavior>` + strings.Join(behaviors, "") + `
         <region xmi:type="uml:Region" xmi:id="regX2" name="Region2">
           <subvertex xmi:type="uml:Pseudostate" xmi:id="xInit2" name="Initial2"/>
           <subvertex xmi:type="uml:State" xmi:id="xS9" name="S9"/>
@@ -243,6 +243,19 @@ var guardWithSideEffect = guardBehavior(`
             </node>
             <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3stmt1" target="xT3ret1"/>`)
 
+// helperActivity writes an activity xHelper of the test class holding the given nodes.
+func helperActivity(nodes string) string {
+	return `
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="xHelper" name="helper">
+          ` + nodes + `
+        </ownedBehavior>`
+}
+
+var (
+	pureHelper    = helperActivity(`<node xmi:type="uml:ReadSelfAction" xmi:id="xHelperSelf"><result xmi:type="uml:OutputPin" xmi:id="xHelperSelfOut"/></node>`)
+	writingHelper = helperActivity(`<node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="xHelperWrite" structuralFeature="attrCounter"/>`)
+)
+
 func TestClassifyGuardSideEffect(t *testing.T) {
 	c := classifyFixture(t, "", guardWithSideEffect)
 	if c.Class != NotExpressible || c.Reason() != "guard side effect T3" {
@@ -259,5 +272,59 @@ func TestClassifyGuardSideEffect(t *testing.T) {
             <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3if" target="xT3ret1"/>`))
 	if c.Class != Standard {
 		t.Errorf("branching guard behavior classified %s (%s), want standard", c.Class, c.Reason())
+	}
+	// Nor is a call of a behavior that only computes: a library function or
+	// an activity of the document whose nodes all read.
+	c = classifyFixture(t, "", guardBehavior(`
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="xT3not" name="Call(!)">
+              <behavior href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-BooleanFunctions-Not"/>
+            </node>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="xT3helper" name="Call(helper)" behavior="xHelper"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3not" target="xT3helper"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e6" source="xT3helper" target="xT3ret1"/>`,
+		pureHelper))
+	if c.Class != Standard {
+		t.Errorf("guard behavior calling pure behaviors classified %s (%s), want standard", c.Class, c.Reason())
+	}
+	// An action the reader does not express still acts on the model, whether
+	// it stands alone, is nested in control flow the reader does not evaluate,
+	// or is reached through a call.
+	for name, statements := range map[string]string{
+		"destroy": `
+            <node xmi:type="uml:DestroyObjectAction" xmi:id="xT3destroy" name="Destroy"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3destroy" target="xT3ret1"/>`,
+		"write inside a conditional": `
+            <node xmi:type="uml:ConditionalNode" xmi:id="xT3if" name="1:IfStatement">
+              <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="xT3write" structuralFeature="attrCounter"/>
+            </node>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3if" target="xT3ret1"/>`,
+		"library output": `
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="xT3write" name="Call(WriteLine)">
+              <behavior href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#BasicInputOutput-WriteLine"/>
+            </node>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3write" target="xT3ret1"/>`,
+	} {
+		c = classifyFixture(t, "", guardBehavior(statements))
+		if c.Class != NotExpressible || c.Reason() != "guard side effect T3" {
+			t.Errorf("%s: classified %s (%s), want not-expressible (guard side effect T3)", name, c.Class, c.Reason())
+		}
+	}
+	callHelper := `
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="xT3helper" name="Call(helper)" behavior="xHelper"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3helper" target="xT3ret1"/>`
+	for name, helper := range map[string]string{
+		"write in a called behavior":     writingHelper,
+		"write two calls down":           helperActivity(`<node xmi:type="uml:CallBehaviorAction" xmi:id="xHelperCall" behavior="xWriter"/>`) + strings.ReplaceAll(writingHelper, "xHelper", "xWriter"),
+		"call of a behavior not defined": helperActivity(`<node xmi:type="uml:CallBehaviorAction" xmi:id="xHelperCall" behavior="xNowhere"/>`),
+	} {
+		c = classifyFixture(t, "", guardBehavior(callHelper, helper))
+		if c.Class != NotExpressible || c.Reason() != "guard side effect T3" {
+			t.Errorf("%s: classified %s (%s), want not-expressible (guard side effect T3)", name, c.Class, c.Reason())
+		}
+	}
+	// A behavior calling itself is read once.
+	c = classifyFixture(t, "", guardBehavior(callHelper, helperActivity(`<node xmi:type="uml:CallBehaviorAction" xmi:id="xHelperCall" behavior="xHelper"/>`)))
+	if c.Class != Standard {
+		t.Errorf("guard behavior calling a recursive pure behavior classified %s (%s), want standard", c.Class, c.Reason())
 	}
 }

@@ -276,23 +276,15 @@ func (w *walker) initial(r *Region) {
 // guard records a guard whose behavior does more than compute its value: a v2
 // guard is an expression, and the evaluator admits no side effect in one.
 func (w *walker) guard(g *Guard, where string) {
-	if g != nil && g.Behavior != nil && guardSideEffect(g.Behavior.Body) {
+	if guardSideEffect(g) {
 		w.add(ConstructGuardSideEffect, where)
 	}
 }
 
-// guardSideEffect reports whether a guard behavior's body has a statement
-// other than a return: a call, send, assignment or the like acts on the model.
-func guardSideEffect(body *Body) bool {
-	if body == nil {
-		return false
-	}
-	for _, st := range body.Statements {
-		if st.Kind != StmtReturn {
-			return true
-		}
-	}
-	return false
+// guardSideEffect reports whether a guard's behavior acts on the model, by a
+// node the reading expresses or by one it does not.
+func guardSideEffect(g *Guard) bool {
+	return g != nil && g.Behavior != nil && g.Behavior.Body != nil && g.Behavior.Body.Acts
 }
 
 // behavior records a state behavior with parameters: the notation binds event

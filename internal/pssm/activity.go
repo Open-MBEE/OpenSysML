@@ -43,7 +43,73 @@ func (r *reader) readActivity(act *Element) *Body {
 		return true
 	})
 	ar.readBlock(act)
+	ar.body.Acts = r.acts(act, map[string]bool{})
 	return ar.body
+}
+
+// valueNodes are the node kinds that read, compute or route a value; every
+// other action acts on the model, whether or not the reading expresses it.
+var valueNodes = map[string]bool{
+	"uml:ValueSpecificationAction": true, "uml:ReadSelfAction": true, "uml:ReadStructuralFeatureAction": true,
+	"uml:TestIdentityAction": true, "uml:ReadIsClassifiedObjectAction": true, "uml:ReadExtentAction": true,
+	"uml:ReadLinkAction": true, "uml:ActivityParameterNode": true,
+	"uml:InitialNode": true, "uml:ActivityFinalNode": true, "uml:FlowFinalNode": true, "uml:ForkNode": true,
+	"uml:JoinNode": true, "uml:MergeNode": true, "uml:DecisionNode": true, "uml:ExpansionNode": true,
+	"uml:StructuredActivityNode": true, "uml:SequenceNode": true, "uml:ConditionalNode": true,
+	"uml:LoopNode": true, "uml:ExpansionRegion": true,
+}
+
+// acts reports whether any node under the activity, at any depth, acts on the
+// model; control flow only carries what it encloses, a call what it calls.
+func (r *reader) acts(act *Element, visiting map[string]bool) bool {
+	if visiting[act.ID] {
+		return false
+	}
+	visiting[act.ID] = true
+	defer delete(visiting, act.ID)
+	acts := false
+	act.Walk(func(e *Element) bool {
+		if e.Tag != "node" {
+			return true
+		}
+		switch e.Type {
+		case "uml:CallBehaviorAction":
+			acts = r.calledBehaviorActs(e, visiting)
+		case "uml:CallOperationAction":
+			var method *Element
+			if op := r.doc.ByID(e.Attr("operation")); op != nil && op.First("method") != nil {
+				method = r.doc.ByID(op.First("method").Attr("idref"))
+			}
+			acts = r.callActs(method, visiting)
+		default:
+			acts = !valueNodes[e.Type]
+		}
+		return !acts
+	})
+	return acts
+}
+
+// calledBehaviorActs reports whether the behavior a CallBehaviorAction calls
+// acts on the model: a library primitive function computes, anything else in
+// the library (output, say) acts, and a behavior of the document is read.
+func (r *reader) calledBehaviorActs(n *Element, visiting map[string]bool) bool {
+	id := n.Attr("behavior")
+	if b := n.First("behavior"); b != nil {
+		if href := b.Href(); href != "" {
+			return !strings.Contains(href, "PrimitiveBehaviors")
+		}
+		id = b.Attr("idref")
+	}
+	return r.callActs(r.doc.ByID(id), visiting)
+}
+
+// callActs reports whether calling a behavior of the document acts on the
+// model: an activity does when its nodes do; an unresolved or opaque one may.
+func (r *reader) callActs(called *Element, visiting map[string]bool) bool {
+	if called == nil || called.Type != "uml:Activity" {
+		return true
+	}
+	return r.acts(called, visiting)
 }
 
 // readBlock appends the statements of a block (the activity or a structured
