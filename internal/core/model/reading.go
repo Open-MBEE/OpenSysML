@@ -3,6 +3,7 @@ package model
 import (
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -51,10 +52,23 @@ func (r *Reading) DeclarationText(sym *symbols.Symbol) string {
 	return declarationText(r.TextAt, sym.DocName, sym.Decl.Span())
 }
 
-// declarationText is the text at span less the trivia after its last token,
-// which a declaration's span runs through: an edit after it is not an edit of it.
+// declarationText is the text at span cut after its last visible token: a
+// declaration's span runs on through the trivia after it, which is not its own.
 func declarationText(text func(doc string, span source.Span) string, doc string, span source.Span) string {
-	return strings.TrimRight(text(doc, span), " \t\r\n")
+	return cutTrailingTrivia(text(doc, span))
+}
+
+// cutTrailingTrivia is text up to the end of its last token the parser reads:
+// whitespace, notes and bare /* */ comments are what it skips between tokens.
+func cutTrailingTrivia(text string) string {
+	lx := lexer.New(source.New("declaration.sysml", []byte(text)))
+	end := 0
+	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
+		if !tok.IsTrivia() && tok.Kind != lexer.RegularComment {
+			end = tok.Span.End()
+		}
+	}
+	return text[:end]
 }
 
 // TextAt is the source text at span in doc, from the document or the library

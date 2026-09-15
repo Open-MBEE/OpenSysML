@@ -9,8 +9,8 @@ import (
 const readingModel = `package Machines {
 	state def Ops {
 		entry; then idle;
-		state idle;
-		state busy;
+		state idle; // the machine's rest
+		state busy; /* a comment, not a note */
 		transition first idle then busy;
 	}
 }
@@ -51,8 +51,14 @@ func TestReadingIsOfOneGeneration(t *testing.T) {
 		if got, want := r.Dependencies(target), rt.Dependencies(rt.Declared("m.sysml", "Machines::Ops")); !reflect.DeepEqual(got, want) {
 			t.Errorf("reading and runtime disagree on what Machines::Ops reads:\n%v\n%v", got, want)
 		}
-		if deps := r.Dependencies(target); len(deps) == 0 || deps[0].Text != strings.TrimRight(r.DeclarationText(target), " \t\r\n") || strings.HasSuffix(deps[0].Text, "\n") {
+		if deps := r.Dependencies(target); len(deps) == 0 || deps[0].Text != r.DeclarationText(target) || !strings.HasSuffix(deps[0].Text, "}") {
 			t.Errorf("the target's dependency text = %q, want its declaration less the trivia after it", deps)
+		}
+		if got := r.DeclarationText(r.Declared("m.sysml", "Machines::Ops::idle")); got != "state idle;" {
+			t.Errorf("idle's declaration text = %q, want it cut before the note after it", got)
+		}
+		if got := r.DeclarationText(r.Declared("m.sysml", "Machines::Ops::busy")); got != "state busy;" {
+			t.Errorf("busy's declaration text = %q, want it cut before the comment after it", got)
 		}
 		if r.DeclaredView("m.sysml", "MachineViews::opsView") == nil {
 			t.Error("MachineViews::opsView not declared as a view")

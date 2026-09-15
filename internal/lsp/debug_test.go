@@ -1859,15 +1859,31 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 		}
 	})
 
-	// An edit to a declaration the run never reads leaves the session running.
-	s, docURI, rec := debugServer(t, "/w/d.sysml", debugReads)
-	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops", Object: "Deps::Bots::Robot",
-	})
-	s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugReads, "boost : Integer = 7", "boost : Integer = 8", 1)}}, 2)
-	changed := rec.debugChanged()
-	if len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State == debugEnded {
-		t.Fatalf("debugChanged after an unrelated edit = %v", changed)
+	// An edit to a declaration the run never reads leaves the session running,
+	// as does one to the notes and comments after declarations it does read.
+	unread := []struct{ name, old, new string }{
+		{"unrelated edit", "boost : Integer = 7", "boost : Integer = 8"},
+		{"note after a read declaration", "attribute threshold : Integer = 2;", "attribute threshold : Integer = 2; // the limit"},
+		{"comment after the target", "state run;\n\t}", "state run;\n\t} /* the machine */"},
+		{"note after the view", "expose Deps::Ops; }", "expose Deps::Ops; } // drawn"},
+		{"comment after the view", "expose Deps::Ops; }", "expose Deps::Ops; } /* drawn */"},
+	}
+	for _, tc := range unread {
+		t.Run(tc.name, func(t *testing.T) {
+			s, docURI, rec := debugServer(t, "/w/d.sysml", debugReads)
+			snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops", Object: "Deps::Bots::Robot",
+			})
+			s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugReads, tc.old, tc.new, 1)}}, 2)
+			changed := rec.debugChanged()
+			if len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State == debugEnded {
+				t.Fatalf("debugChanged after the edit = %v", changed)
+			}
+			stepped := mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: snap.Session})
+			if stepped.State == debugEnded {
+				t.Fatalf("step after the edit = %s", describe(stepped))
+			}
+		})
 	}
 }
 
