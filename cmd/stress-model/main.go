@@ -75,6 +75,9 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 	if err != nil {
 		return stats, err
 	}
+	if err := replaceable(dir, files, previous); err != nil {
+		return stats, err
+	}
 	staging, err := os.MkdirTemp(dir, ".stress-model-*")
 	if err != nil {
 		return stats, err
@@ -114,6 +117,46 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 		}
 	}
 	return stats, os.WriteFile(filepath.Join(dir, manifestName), []byte(current.String()), 0o600)
+}
+
+// replaceable reports an error naming every file the generation would write
+// over that the last generation did not write, or that has changed since: the
+// generator replaces only its own unedited output, and writes nothing otherwise.
+func replaceable(dir string, files []stressmodel.File, previous []record) error {
+	recorded := make(map[string]string, len(previous))
+	for _, rec := range previous {
+		recorded[rec.Name] = rec.Digest
+	}
+	var errs []error
+	for _, f := range files {
+		path := filepath.Join(dir, f.Name)
+		info, err := os.Lstat(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		want, ok := recorded[f.Name]
+		switch {
+		case !info.Mode().IsRegular():
+			errs = append(errs, fmt.Errorf("%s: not a regular file", path))
+		case !ok:
+			errs = append(errs, fmt.Errorf("%s: not written by the last generation into %s", path, dir))
+		default:
+			content, err := os.ReadFile(path) // #nosec G304 -- path is a generated name under the output directory.
+			if err != nil {
+				return err
+			}
+			if digest(content) != want {
+				errs = append(errs, fmt.Errorf("%s: changed since the last generation wrote it", path))
+			}
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return fmt.Errorf("nothing written: %w", errors.Join(errs...))
 }
 
 // removeIfRecorded removes the regular file at path when its content still

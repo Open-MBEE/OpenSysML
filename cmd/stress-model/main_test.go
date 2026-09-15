@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/stressmodel"
@@ -42,71 +43,91 @@ func TestWriteSplitDropsOnlyWhatALargerGenerationWrote(t *testing.T) {
 	}
 }
 
-func TestWriteSplitIntoAnUnknownDirectoryRemovesNothing(t *testing.T) {
+// A first generation into a directory holding files at generated names writes
+// nothing: it names every one of them, leaves each as it was and makes no manifest.
+func TestWriteSplitWritesNothingOverFilesItDidNotWrite(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"plane000.sysml", "plane005.sysml", "library.sysml"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("package Mine;\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 2, Satellites: 1}, dir); err != nil {
-		t.Fatal(err)
+	_, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 2, Satellites: 1}, dir)
+	if err == nil {
+		t.Fatal("generating over the user's library.sysml and plane000.sysml should fail")
 	}
-	want := []string{manifestName, "constellation.sysml", "library.sysml", "plane000.sysml", "plane001.sysml", "plane005.sysml"}
-	if got := listing(t, dir); !slices.Equal(got, want) {
-		t.Errorf("a first generation into a directory left %v, want %v", got, want)
+	for _, name := range []string{"library.sysml", "plane000.sysml"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("the error %q does not name %s", err, name)
+		}
 	}
-	if got, err := os.ReadFile(filepath.Join(dir, "plane005.sysml")); err != nil || string(got) != "package Mine;\n" {
-		t.Errorf("plane005.sysml, which no generation wrote, reads %q, %v; want it untouched", got, err)
+	if strings.Contains(err.Error(), "plane005") {
+		t.Errorf("the error %q names plane005.sysml, which no generation of two planes writes", err)
+	}
+	if got := listing(t, dir); !slices.Equal(got, []string{"library.sysml", "plane000.sysml", "plane005.sysml"}) {
+		t.Errorf("the refused generation left %v; want the user's three files alone", got)
+	}
+	for _, name := range []string{"plane000.sysml", "plane005.sysml", "library.sysml"} {
+		if got, err := os.ReadFile(filepath.Join(dir, name)); err != nil || string(got) != "package Mine;\n" {
+			t.Errorf("%s reads %q, %v; want it untouched", name, got, err)
+		}
 	}
 }
 
-// A generation that fails part way records every file it did move in, so the
-// next one still cleans up after it, and leaves no staging behind.
-func TestWriteSplitThatFailsRecordsWhatItWrote(t *testing.T) {
+// A later generation replaces only what the last one wrote and nothing has
+// changed since: a plane the user edited, a directory at a plane's name and a
+// file of the user's at one all stop it before it writes a byte, and are named
+// together; with them out of the way the same generation goes through.
+func TestWriteSplitReplacesOnlyItsOwnUnchangedOutput(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "notes.sysml"), []byte("package Notes;\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 1, Satellites: 1}, dir); err != nil {
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 2, Satellites: 1}, dir); err != nil {
 		t.Fatal(err)
 	}
-	// A directory standing where the third plane goes fails its move, after the
-	// library and two planes — one the earlier generation never had — moved in.
-	blocker := filepath.Join(dir, "plane002.sysml")
-	if err := os.MkdirAll(filepath.Join(blocker, "inner"), 0o750); err != nil {
+	firstListing, firstManifest := listing(t, dir), recordedNames(t, dir)
+	if err := os.WriteFile(filepath.Join(dir, "plane001.sysml"), []byte("package Edited;\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 4, Satellites: 1}, dir); err == nil {
-		t.Fatal("moving a plane onto a directory should fail the generation")
+	if err := os.Mkdir(filepath.Join(dir, "plane002.sysml"), 0o750); err != nil {
+		t.Fatal(err)
 	}
-	want := []string{manifestName, "constellation.sysml", "library.sysml", "notes.sysml", "plane000.sysml", "plane001.sysml", "plane002.sysml"}
-	if got := listing(t, dir); !slices.Equal(got, want) {
-		t.Errorf("the failed generation left %v, want %v: nothing staged, nothing unrecorded", got, want)
+	if err := os.WriteFile(filepath.Join(dir, "plane003.sysml"), []byte("package Mine;\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	recorded := recordedNames(t, dir)
-	for _, name := range []string{"constellation.sysml", "library.sysml", "plane000.sysml", "plane001.sysml"} {
-		if !slices.Contains(recorded, name) {
-			t.Errorf("the manifest %v should still record %s", recorded, name)
+	before := append(slices.Clone(firstListing), "plane002.sysml", "plane003.sysml")
+	slices.Sort(before)
+	_, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 4, Satellites: 1}, dir)
+	if err == nil {
+		t.Fatal("generating over an edited plane, a directory and the user's file should fail")
+	}
+	for _, name := range []string{"plane001.sysml", "plane002.sysml", "plane003.sysml"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("the error %q does not name %s", err, name)
 		}
 	}
-	if slices.Contains(recorded, "notes.sysml") {
-		t.Errorf("the manifest %v claims the user's notes.sysml", recorded)
+	if got := listing(t, dir); !slices.Equal(got, before) {
+		t.Errorf("the refused generation left %v, want %v: nothing written, nothing staged", got, before)
+	}
+	if got, err := os.ReadFile(filepath.Join(dir, "plane001.sysml")); err != nil || string(got) != "package Edited;\n" {
+		t.Errorf("the edited plane001.sysml reads %q, %v; want the edit kept", got, err)
+	}
+	if got := recordedNames(t, dir); !slices.Equal(got, firstManifest) {
+		t.Errorf("the manifest reads %v after the refused generation, want %v as before", got, firstManifest)
 	}
 
-	// With the directory gone, a smaller generation owns everything it finds.
-	if err := os.RemoveAll(blocker); err != nil {
+	for _, name := range []string{"plane001.sysml", "plane002.sysml", "plane003.sysml"} {
+		if err := os.RemoveAll(filepath.Join(dir, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 4, Satellites: 1}, dir); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 1, Satellites: 1}, dir); err != nil {
-		t.Fatal(err)
-	}
-	want = []string{manifestName, "constellation.sysml", "library.sysml", "notes.sysml", "plane000.sysml"}
+	want := []string{manifestName, "constellation.sysml", "library.sysml", "notes.sysml", "plane000.sysml", "plane001.sysml", "plane002.sysml", "plane003.sysml"}
 	if got := listing(t, dir); !slices.Equal(got, want) {
-		t.Errorf("regenerating with one plane left %v, want %v", got, want)
-	}
-	if recorded := recordedNames(t, dir); !slices.Equal(recorded, []string{"library.sysml", "plane000.sysml", "constellation.sysml"}) {
-		t.Errorf("the manifest reads %v; want only the last generation's files", recorded)
+		t.Errorf("regenerating with four planes left %v, want %v", got, want)
 	}
 }
 

@@ -143,10 +143,12 @@ writes the same constellation as one `.sysml` per orbital plane plus
 network and analyzes to the same diagnostics as the single file
 (`TestSatelliteNetworkSplitValidates`). The generator lists what it wrote in
 `.stress-model-files` beside the model, each with a digest of its content, and
-a later generation into the same directory removes only the files on that list
-it did not write again and that still read as written, so a smaller
-constellation leaves no plane of a larger one behind and nothing else in the
-directory — a file of the user's, or an edited plane — is touched. `sysml -validate` over the files parses
+a later generation into the same directory replaces only files on that list
+that still read as written, removes those of them it did not write again, and
+writes nothing at all when a file it would write is not on the list, has been
+edited or is not a regular file — so a smaller constellation leaves no plane of
+a larger one behind and nothing else in the directory, a file of the user's or
+an edited plane, is touched. `sysml -validate` over the files parses
 them on a pool of workers, indexes them once, expands wildcard imports once
 and analyzes them on the pool, each document with a resolver and semantic
 model of its own; the facts the workspace-wide audits (OOSEM, MOSA, identity
