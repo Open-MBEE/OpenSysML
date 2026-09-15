@@ -574,6 +574,38 @@ func TestSetCanvasOfViewInAnotherDocument(t *testing.T) {
 	}
 }
 
+// A view the edited document declares is the one its rendering shows, so an
+// operation naming it applies there whatever namesakes other documents declare;
+// from a document declaring no such view, the name is ambiguous between them.
+func TestSetLayoutInViewPrefersTheEditedDocumentsNamesake(t *testing.T) {
+	m := loadEditableWorkspace(t, "views.sysml", engineViews,
+		map[string]string{"parts.sysml": engineParts, "copy.sysml": engineViews})
+	res := applyOne(t, m, SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6)))
+	if !strings.Contains(string(res.Content), rotorInView) || len(res.Others) != 0 {
+		t.Fatalf("rotor not placed in the edited document's view alone:\n%s\nothers: %v", res.Content, otherNames(res))
+	}
+	canvas := &semantics.Canvas{Unit: "px", Width: 1200, Height: 800, HasSize: true}
+	res = applyOne(t, m, SetCanvas("EngineViews::engineView", canvas))
+	if !strings.Contains(string(res.Content), `@DiagramLayout::Canvas { unit = "px"; width = 1200; height = 800; }`) || len(res.Others) != 0 {
+		t.Fatalf("the edited document's view not sized alone:\n%s\nothers: %v", res.Content, otherNames(res))
+	}
+	res = applyOne(t, m, SetCanvas("EngineViews::engineView", canvas).DeclaredIn("copy.sysml"))
+	if got := otherContent(t, res, "copy.sysml"); !strings.Contains(got, "@DiagramLayout::Canvas") || string(res.Content) != engineViews {
+		t.Fatalf("the view stated to be declared in copy.sysml not sized there alone:\n%s", got)
+	}
+
+	m = loadEditableWorkspace(t, "parts.sysml", engineParts,
+		map[string]string{"views.sysml": engineViews, "copy.sysml": engineViews})
+	_, err := Apply(m, []Operation{SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6))})
+	if e := editError(t, err); e.Failure != FailureAmbiguousTarget {
+		t.Fatalf("a view two other documents declare: got %v", err)
+	}
+	_, err = Apply(m, []Operation{SetCanvas("EngineViews::engineView", canvas)})
+	if e := editError(t, err); e.Failure != FailureAmbiguousTarget {
+		t.Fatalf("a Canvas of a view two other documents declare: got %v", err)
+	}
+}
+
 // One request may place elements in the edited document and in others; each
 // document is rewritten once and the edited one comes first.
 func TestSetLayoutReachesSeveralDocumentsInOneRequest(t *testing.T) {

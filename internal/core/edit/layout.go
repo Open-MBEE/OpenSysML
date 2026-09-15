@@ -172,7 +172,11 @@ func stringLiteral(s string) string {
 // body states an annotation `about` a qualified name, so an element reached by
 // none — its own or an owner's name missing — is placed inline or not at all.
 func (m Model) layoutTargets(i int, op Operation) (sym, viewSym *symbols.Symbol, err error) {
-	sym, err = m.element(i, op)
+	if op.Annotation == semantics.CanvasFQN && (op.Target != "" || op.Declaration.Len == 0) {
+		sym, err = m.viewNamed(i, op.Target, op.DeclarationDoc)
+	} else {
+		sym, err = m.element(i, op)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -195,7 +199,7 @@ func (m Model) layoutTargets(i int, op Operation) (sym, viewSym *symbols.Symbol,
 	if op.View == "" {
 		return sym, nil, nil
 	}
-	viewSym, err = m.declaredOnce(i, op.View)
+	viewSym, err = m.viewNamed(i, op.View, "")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -205,6 +209,25 @@ func (m Model) layoutTargets(i int, op Operation) (sym, viewSym *symbols.Symbol,
 				op.View, layoutTypeName(op.Annotation))}
 	}
 	return sym, viewSym, nil
+}
+
+// viewNamed is the view name names: the declaration of doc when one is stated,
+// else the edited document's own, since that is the view a rendering of it
+// shows, else the one declaration of the workspace.
+func (m Model) viewNamed(i int, name, doc string) (*symbols.Symbol, error) {
+	if doc != "" {
+		return m.declaredOnceIn(i, name, doc)
+	}
+	var own []*symbols.Symbol
+	for _, sym := range m.declared(name) {
+		if sym.DocName == m.Source.Name() {
+			own = append(own, sym)
+		}
+	}
+	if len(own) == 1 {
+		return own[0], nil
+	}
+	return m.declaredOnce(i, name)
 }
 
 // checkPlaceable refuses a Layout or Route of an element the rendering it

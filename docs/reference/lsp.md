@@ -356,7 +356,10 @@ element no qualified name reaches; such an annotation goes inline, and is refuse
 with `digest` the `origin.digest` it was rendered with: the document a `declaration` range
 is one of, and the one a `target` must be declared in — a namesake another document
 declares is refused as `unknown-target`, not placed in its stead. Left out, the requested
-document is meant for a range, and any document for a name. A `declaredIn` naming a
+document is meant for a range, and any document for a name. A `view`, and the `target`
+of a `setCanvas` given no `declaredIn`, name the view the requested document declares when
+it declares one — the one a rendering of it shows, whatever namesakes other documents
+declare — else the one view of the workspace so named. A `declaredIn` naming a
 document the server does not hold, given on an operation other than these two, or naming
 another document without a `digest`, is an invalid-params error, as an operation giving
 both `target` and `declaration` is. No other operation takes a `declaration`. Every target
