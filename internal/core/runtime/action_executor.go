@@ -63,7 +63,7 @@ type ActionExecutor struct {
 	// beginsRun marks the performance the caller begins a run on, the one a
 	// replayed witness's inputs are fixed on (see fixWitnessInputs).
 	beginsRun bool
-	pausedAt  string // Node name RunToCompletion stopped at, empty when it ran to the end
+	pausedAt  breakpointStop // The breakpoint RunToCompletion stopped at, none when it ran to the end
 	// released is set once Release has ended the run for good.
 	released bool
 	// pauses counts the body pauses so far, ordering the paused runs' resumption.
@@ -128,6 +128,23 @@ type NodeBreakpoint struct {
 // at reports whether the breakpoint is set on node in the flow of within.
 func (bp NodeBreakpoint) at(within []ast.Node, node ast.Node) bool {
 	return bp.Node == node && slices.Equal(bp.Within, within)
+}
+
+// breakpointStop is a breakpoint a run stopped at: the node, in its nested flow, and
+// the name the run reports it by; a zero stop is no breakpoint.
+type breakpointStop struct {
+	at   NodeBreakpoint
+	name string
+}
+
+// stopAt is the stop at a breakpoint set on node in the flow of within, if one is;
+// false otherwise.
+func (e *ActionExecutor) stopAt(within []ast.Node, node ast.Node) (breakpointStop, bool) {
+	name := e.breakpointNameOf(within, node)
+	if name == "" {
+		return breakpointStop{}, false
+	}
+	return breakpointStop{at: NodeBreakpoint{Within: within, Node: node}, name: name}, true
 }
 
 // SetInputs binds input parameter values into the action's feature space.
@@ -303,7 +320,7 @@ func (e *ActionExecutor) Step() error {
 	// Stepping resumes a run a breakpoint suspended.
 	if e.state == StateSuspended {
 		e.state = StateRunning
-		e.pausedAt = ""
+		e.pausedAt = breakpointStop{}
 	}
 
 	// A waiting executor is asked again whether its parked tokens can proceed:
@@ -525,7 +542,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 	e.held, e.inRun = false, true
 	defer func() { e.inRun = false }()
 
-	e.pausedAt = ""
+	e.pausedAt = breakpointStop{}
 	if e.state == StateSuspended {
 		e.state = StateRunning
 	}
@@ -595,18 +612,18 @@ func (e *ActionExecutor) Resume() bool {
 	if e.state != StateSuspended {
 		return false
 	}
-	e.state, e.pausedAt = StateRunning, ""
+	e.state, e.pausedAt = StateRunning, breakpointStop{}
 	return true
 }
 
 // pauseAtBreakpoint suspends the run at a breakpoint a token sits on and has not
 // yet stopped at; false when none does.
 func (e *ActionExecutor) pauseAtBreakpoint() bool {
-	node := e.breakpointHit()
-	if node == "" {
+	stop, hit := e.breakpointHit()
+	if !hit {
 		return false
 	}
-	e.pausedAt = node
+	e.pausedAt = stop
 	e.state = StateSuspended
 	return true
 }
@@ -912,13 +929,13 @@ func (e *ActionExecutor) acceptMatch(frame *actionFrame, accept lower.Accept, us
 	}, &failed
 }
 
-// breakpointHit returns the name of a breakpoint node a token sits on and has not yet
-// stopped the run at, or "" if none does. Firing once per token and visit means a resumed
-// run continues past the node it stopped at, while a token that comes back around a loop
-// stops again; tokens held at a synchronized node stop once, when the last has arrived.
-func (e *ActionExecutor) breakpointHit() string {
+// breakpointHit returns the breakpoint a token sits on and has not yet stopped the run
+// at, false if none does. Firing once per token and visit means a resumed run continues
+// past the node it stopped at, while a token that comes back around a loop stops again;
+// tokens held at a synchronized node stop once, when the last has arrived.
+func (e *ActionExecutor) breakpointHit() (breakpointStop, bool) {
 	if len(e.breakpoints) == 0 && len(e.breakpointNodes) == 0 {
-		return ""
+		return breakpointStop{}, false
 	}
 	for visit := range e.firedBreakpoints {
 		if tok, ok := e.tokenByID(visit.token); !ok || tok.Location != visit.node {
@@ -926,8 +943,8 @@ func (e *ActionExecutor) breakpointHit() string {
 		}
 	}
 	for i, token := range e.tokens {
-		name := e.breakpointNameOf(token.Within(), token.Location)
-		if name == "" {
+		stop, set := e.stopAt(token.Within(), token.Location)
+		if !set {
 			continue
 		}
 		if e.firedBreakpoints[breakpointVisit{token: token.ID, node: token.Location}] {
@@ -947,9 +964,9 @@ func (e *ActionExecutor) breakpointHit() string {
 		for _, idx := range performers {
 			e.firedBreakpoints[breakpointVisit{token: e.tokens[idx].ID, node: token.Location}] = true
 		}
-		return name
+		return stop, true
 	}
-	return ""
+	return breakpointStop{}, false
 }
 
 // tokenByID returns the given token, if it is still active.
@@ -986,7 +1003,14 @@ func (e *ActionExecutor) breakpointNameOf(within []ast.Node, node ast.Node) stri
 // PausedAt returns the breakpoint node the last run stopped at, or "" when the
 // run was not stopped by a breakpoint.
 func (e *ActionExecutor) PausedAt() string {
-	return e.pausedAt
+	return e.pausedAt.name
+}
+
+// PausedBreakpoint identifies the node the last run stopped at, in its nested flow:
+// a node a body performs is identified even as its token stays on the enclosing
+// action. False when the run was not stopped by a breakpoint.
+func (e *ActionExecutor) PausedBreakpoint() (NodeBreakpoint, bool) {
+	return e.pausedAt.at, e.pausedAt.name != ""
 }
 
 // ActionNodeName returns the declared name of an action graph node, or "" when

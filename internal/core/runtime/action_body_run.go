@@ -63,9 +63,9 @@ type bodyRun struct {
 	awaitsMessages bool
 }
 
-// bodyPause is why a body run paused: at the named breakpoint, or on a wait.
+// bodyPause is why a body run paused: at the breakpoint, or on a wait.
 type bodyPause struct {
-	breakpoint string
+	breakpoint breakpointStop
 	onWait     bool
 	wait       bodyWait
 }
@@ -141,7 +141,7 @@ func (run *bodyRun) end(ctx *Context) {
 	run.cursor, run.ended = nil, true
 	where := "on a wait"
 	if !run.paused.onWait {
-		where = fmt.Sprintf("at breakpoint %q", run.paused.breakpoint)
+		where = fmt.Sprintf("at breakpoint %q", run.paused.breakpoint.name)
 	}
 	run.err = fmt.Errorf("%w: the run paused %s was abandoned", ErrActionDeadlock, where)
 }
@@ -422,8 +422,8 @@ func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 // pauseAt pauses the run before a node a breakpoint is set on performs, as the run
 // pauses before a token steps such a node; a run not made pausable goes on.
 func (e *ActionExecutor) pauseAt(within []ast.Node, node ast.Node) error {
-	if name := e.breakpointNameOf(within, node); name != "" {
-		return e.ctx.pauseBody(bodyPause{breakpoint: name})
+	if stop, set := e.stopAt(within, node); set {
+		return e.ctx.pauseBody(bodyPause{breakpoint: stop})
 	}
 	return nil
 }

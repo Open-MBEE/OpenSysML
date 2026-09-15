@@ -406,7 +406,7 @@ type actionCapture struct {
 	nextTokenID       int64
 	stepCount         int
 	sweep, sweeps     uint64
-	pausedAt          string
+	pausedAt          breakpointStop
 	released          bool
 	pauses            int64
 	steps, stepsSpent int64

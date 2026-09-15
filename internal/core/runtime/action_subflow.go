@@ -126,8 +126,8 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 	perf := f.perf
 	for perf.live > 0 {
-		if name := e.breakpointHit(); name != "" {
-			if err := e.ctx.pauseBody(bodyPause{breakpoint: name}); err != nil {
+		if stop, hit := e.breakpointHit(); hit {
+			if err := e.ctx.pauseBody(bodyPause{breakpoint: stop}); err != nil {
 				return err
 			}
 		}

@@ -650,15 +650,9 @@ func (sess *debugSession) pause() {
 		}
 		return
 	}
-	if sess.action.PausedAt() == "" {
-		return
-	}
-	for _, tok := range sess.action.Tokens() {
-		if sess.isBreakpoint(debugNode{within: tok.Within(), node: tok.Location}) {
-			sess.paused, _ = sess.actions.Node(tok.Within(), tok.Location)
-			sess.pausedName = sess.action.PausedAt()
-			return
-		}
+	if bp, ok := sess.action.PausedBreakpoint(); ok {
+		sess.paused, _ = sess.actions.Node(bp.Within, bp.Node)
+		sess.pausedName = sess.action.PausedAt()
 	}
 }
 
@@ -1215,16 +1209,6 @@ func (sess *debugSession) root() string {
 		return sess.states.Root()
 	}
 	return sess.actions.Root()
-}
-
-// isBreakpoint reports whether node is one of the session's breakpoints.
-func (sess *debugSession) isBreakpoint(node debugNode) bool {
-	for _, bp := range sess.breakpoints {
-		if bp.same(node) {
-			return true
-		}
-	}
-	return false
 }
 
 // actionEdge is the render edge drawing edge in the flow of within.

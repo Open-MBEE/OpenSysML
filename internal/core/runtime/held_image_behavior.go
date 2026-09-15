@@ -35,7 +35,7 @@ type imagedAction struct {
 	stepCount         int
 	sweep, sweeps     uint64
 	inputs            map[string]Value
-	pausedAt          string
+	pausedAt          breakpointStop
 	released          bool
 	pauses            int64
 	steps, stepsSpent int64

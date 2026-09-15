@@ -492,6 +492,47 @@ func TestBreakpointPausesBeforeABranchNode(t *testing.T) {
 	}
 }
 
+// The breakpoint paused at is identified by the node and its flow, not by where the
+// tokens are: a branch node pauses the run while its token stays on the enclosing node.
+func TestPausedBreakpointIdentifiesABranchNodeInItsFlow(t *testing.T) {
+	exec := blockDebugExecutor(t)
+	if _, ok := exec.PausedBreakpoint(); ok {
+		t.Fatal("PausedBreakpoint() reports a stop before any run")
+	}
+	choose := actionNodeNamed(t, exec, "choose")
+	var q ast.Node
+	for _, node := range exec.Graph().BlockNodes[choose] {
+		if ActionNodeName(node) == "q" {
+			q = node
+		}
+	}
+	if q == nil {
+		t.Fatalf("choose's blocks declare no q: %v", exec.Graph().BlockNodes[choose])
+	}
+	exec.ReplaceBreakpointsAt([]NodeBreakpoint{{Within: []ast.Node{choose}, Node: q}})
+
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if got := exec.PausedAt(); got != "q" {
+		t.Fatalf("PausedAt() = %q, want q", got)
+	}
+	bp, ok := exec.PausedBreakpoint()
+	if !ok || bp.Node != q || !slices.Equal(bp.Within, []ast.Node{choose}) {
+		t.Errorf("PausedBreakpoint() = %+v, %v, want q within choose", bp, ok)
+	}
+	if tokens := exec.Tokens(); len(tokens) != 1 || tokens[0].Location != choose {
+		t.Errorf("tokens = %v, want the one still on choose", tokens)
+	}
+
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if bp, ok := exec.PausedBreakpoint(); ok {
+		t.Errorf("PausedBreakpoint() = %+v after resuming, want none", bp)
+	}
+}
+
 // A breakpoint on a node a loop body declares pauses the run once per iteration,
 // resuming once per pause, as a breakpoint on a node of the action's own flow does.
 func TestBreakpointPausesOnEachLoopIteration(t *testing.T) {

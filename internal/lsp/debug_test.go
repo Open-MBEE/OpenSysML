@@ -908,6 +908,38 @@ func TestDebugBreakpointOnAReusedNodeStopsAtItsOccurrence(t *testing.T) {
 	wantState(t, snap, debugCompleted)
 }
 
+// The node paused at is the breakpoint the run stopped at, not the first token
+// found on a breakpoint: a token still held at one already stopped at does not
+// stand in for the one the run has just reached.
+func TestDebugPausedAtIsTheBreakpointReachedNotTheFirstTokenOnOne(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/f.sysml", debugFlow)
+	id := ids(t, render(t, s, docURI, "FlowViews::driveView"))
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "FlowViews::driveView", Target: "Flows::Drive",
+	})
+	session := snap.Session
+	mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["pause"], id["listen"]}})
+
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != id["pause"] || !strings.Contains(snap.Reason, "breakpoint pause") {
+		t.Fatalf("pausedAt = %q reason = %q, want the breakpoint on pause", snap.PausedAt, snap.Reason)
+	}
+
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != id["listen"] || !strings.Contains(snap.Reason, "breakpoint listen") {
+		t.Errorf("pausedAt = %q reason = %q, want the breakpoint on listen", snap.PausedAt, snap.Reason)
+	}
+	var at []string
+	for _, tok := range snap.Tokens {
+		at = append(at, tok.Node)
+	}
+	if !slices.Contains(at, id["pause"]) || !slices.Contains(at, id["listen"]) {
+		t.Errorf("tokens at %v, want ones still held at pause and at listen", at)
+	}
+}
+
 // debugCounter is a robot whose machine counts the timer firing; guards then
 // tell one firing from two.
 const debugCounter = `package Counting {
