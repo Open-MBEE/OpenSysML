@@ -160,7 +160,5 @@ func libraryTable(census LibraryCensus) string {
 	return b.String()
 }
 
-const libraryBlockTemplateText = "<!-- doc-counts:begin {{.Name}} -->\n" +
-	"**Measured by `{{.Library.Command}}`,** which writes [`analysis-library-census.json`]({{.LinkPrefix}}analysis-library-census.json); `make docs-counts` renders this block from that file and `go run ./cmd/doc-counts -check` fails when they disagree.\n\n" +
-	"{{.Table}}" +
-	"<!-- doc-counts:end {{.Name}} -->"
+const libraryBlockTemplateText = "**Measured by `{{.Library.Command}}`,** which writes [`analysis-library-census.json`]({{.LinkPrefix}}analysis-library-census.json); `make docs-counts` renders this block from that file and `go run ./cmd/doc-counts -check` fails when they disagree.\n\n" +
+	"{{.Table}}"

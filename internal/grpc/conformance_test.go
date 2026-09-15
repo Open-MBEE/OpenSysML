@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
 )
 
 // expectedValue is the fixture encoding of a pb.Value: the oneof field name
@@ -115,10 +116,10 @@ func TestGRPCConformance(t *testing.T) {
 
 	cases := 0
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") || strings.HasSuffix(entry.Name(), ".check.expected.json") {
+		caseName, ok := fixtures.CaseName(entry.Name())
+		if entry.IsDir() || !ok {
 			continue
 		}
-		caseName := strings.TrimSuffix(entry.Name(), ".expected.json")
 		cases++
 		t.Run(caseName, func(t *testing.T) {
 			runGRPCConformanceCase(t, conformanceDir, caseName)

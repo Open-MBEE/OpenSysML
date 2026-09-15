@@ -5,14 +5,29 @@ description: How to end-to-end test the generated documentation figures (cmd/doc
 
 # Testing the generated documentation figures (`cmd/doc-counts`)
 
-`cmd/doc-counts` regenerates two kinds of derived documentation from the committed baselines:
+`cmd/doc-counts` regenerates three kinds of derived documentation:
 
-1. single-copy baseline lines in `README.md` (`**Reference differential:**`, `**Rejection oracle:**`);
+1. single-copy baseline lines in `README.md` (`**Reference differential:**`, `**Rejection oracle:**`),
+   from the committed baselines;
 2. the HTML-comment-delimited named block `<!-- doc-counts:begin refereed-figures -->` …
    `<!-- doc-counts:end refereed-figures -->`, rendered from **one** template in
    `internal/doccounts/doccounts.go` into **two** consumers (`README.md` and
    `docs/internals/architecture.md`), differing only by `Block.LinkPrefix`
-   (`docs/project/` vs `../project/`).
+   (`docs/project/` vs `../project/`);
+3. the test-suite figures, one **inline** block per figure or sentence of figures
+   (`<!-- doc-counts:begin tier-action-execution -->160 conformance cases passing<!-- doc-counts:end tier-action-execution -->`
+   in the middle of a table cell or a sentence), named in `internal/doccounts/suite_blocks.go`:
+   the README's tier rows, `**Test coverage:**` sentence and `**Behavioral execution:**` figure,
+   and the compliance map's `**Test Coverage:**` inventory and the LSP `**Measured coverage:**`
+   line. Their inputs are the **tree**, read by `doccounts.ReadSuiteCounts` the way the gates
+   enumerate them: `internal/fixtures` lists the conformance cases (the same package
+   `TestExecutionConformance` and the gRPC conformance gate iterate), the parse and trace goldens
+   are stat'ed against the case that owns them, and the robustness, negative and `Test`-function
+   figures are counted from the `_test.go` files with `go/ast` (first-level `t.Run` calls,
+   multiplied out over the table literal a `range` walks, read in statement order and lexical
+   scope, so a table rebound after the loop or shadowed by a `:=` in an inner block, branch or
+   clause does not leak into it). The test and subtest total of a run is
+   **not** generated — only a run can state it, so the prose no longer quotes one.
 
 A third consumer, `<!-- doc-counts:begin analysis-libraries -->` in `docs/project/spec-compliance.md`,
 renders the per-library table from `docs/project/analysis-library-census.json`, which
@@ -49,12 +64,18 @@ to a possibly-unpublished record must use. `scripts/check-doc-links.py` only wal
 so it never sees `overrides/*.html`; the hook is the only guard, and both of its warnings
 (`which no page publishes`, `which does not exist`) fail `--strict`.
 
-Inputs are the three committed baselines
+Inputs to the refereed figures are the three committed baselines
 `docs/project/pilot-{differential,xpect,rejection}-baseline.json` (`doccounts.ReadRefereedCounts`);
-`docs/project/spec-compliance.md` is read only to refuse a `🚧` row.
+`docs/project/spec-compliance.md` is read to refuse a `🚧` row and, since it carries the inventory
+blocks, is also a consumer.
 
-`make docs-counts` = generate → `go run ./cmd/doc-counts -check` → `go test -count=1 ./cmd/pilot-diff
-./cmd/pilot-reject ./cmd/doc-counts`.
+`make docs-counts` = generate → `go run ./cmd/doc-counts -check` → `go run ./cmd/validation-census
+-check` → `go test -count=1 ./cmd/pilot-diff ./cmd/pilot-reject ./cmd/doc-counts
+./cmd/validation-census`.
+
+Adding a test anywhere in the module moves the `Test`-function figure, so a PR that adds tests
+regenerates the README and the compliance map too; `TestCheckCommittedTreeIsCurrent` fails until
+it does. That is by design — CI runs `-check`.
 
 ## Never test in a checkout someone else is using
 
@@ -102,7 +123,34 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   the whole block. Each must make *both* the generator and `-check` exit 1 with
   `named block "refereed-figures" is missing or unterminated` or
   `duplicate "<!-- doc-counts:begin refereed-figures -->" marker`, and `wc -c` on the file must be
-  unchanged (no truncation, no `already current`).
+  unchanged (no truncation, no `already current`). For an inline block, also: put the end marker
+  before the begin marker on the line (`ends before it begins`), repeat the pair on one line or
+  add a second copy on a line of its own (`duplicate markers of the block named`), and drop the
+  end marker (`missing or unterminated`).
+- **Tree propagation:** the suite figures must move with the fixtures, not with anyone's typing.
+  Drop a `state_probe.expected.json` into `internal/core/runtime/testdata/conformance/`; `-check`
+  must name **both** the README (`904 conformance cases` → `905`, `904/904` → `905/905`, the state
+  tier row) and the compliance map (`state×171` → `state×172`). List a real case in
+  `known_failures.txt`; the inventory must read `903 passing, 1 listed in` (naming the file) and the
+  tier row `170 of 171 conformance cases passing`. Add a `TestSomething` to any `_test.go`;
+  the `Test`-function figure must move by one in both pages. Remove the probes afterwards
+  (`git status --short` must be empty again).
+- **The counters refuse what they cannot count:** a `.trace.golden` owned by no case, a
+  `<case>.typo.trace.golden` under no sweep policy, a `<case>.declared.trace.golden` of a case
+  with no `outcomes` (or no default golden), a `.sysml` under `testdata/parse/` with no `.golden`,
+  a `known_failures.txt` entry naming no case, a `for i := 0; i < n; i++ { t.Run(...) }` loop,
+  a `range` over a table the function `append`s to or rebinds under a condition before the loop, or
+  an `if cond { t.Run(...) }` in `TestRuntimeRobustness` must each make the generator and `-check`
+  exit 1 naming the file, rather than print a smaller (or larger) number. A `range` or `if` that
+  runs no subtest is passed over, and so are the goldens of a case `known_failures.txt` lists,
+  since `TestExecutionTrace` skips the case.
+- **The figures are the gates' figures:** `go test -count=1 -v -run 'TestExecutionConformance$'
+  ./internal/core/runtime | grep -cE '^=== RUN   TestExecutionConformance/[^/]+$'` must equal the
+  conformance figure; the same shape with `TestRuntimeRobustness$`, `TestGRPCRobustness$` (in
+  `./internal/grpc`), `TestGolden$` and `Negative` (in `./internal/core/parser`, summing the
+  first-level `=== RUN` lines per function) must equal theirs; and
+  `go test -list '.*' ./... | grep -c '^Test'` must equal the `Test`-function figure. Test names
+  carry digits (`TestF62F63Negative`), so match `[^/ ]+`, not `[A-Za-z_]+`.
 - **Every landing link resolves on the built site:** grep the `href`s out of
   `/tmp/site/index.html` and check each one — a site-relative target must exist under
   `/tmp/site`, a repository target must exist under `docs/` — then click them in a browser
@@ -121,7 +169,10 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   `git show main:README.md | grep -o '[0-9][0-9]*'` vs the same on HEAD, `diff` must be empty (same
   for `docs/internals/architecture.md`), and `git diff main -- 'docs/project/pilot-*-baseline.json'`
   must be empty. This is the cheapest proof a "generate it instead of hand-maintaining it" refactor
-  restated exactly what was there.
+  restated exactly what was there. The suite figures are the exception: a hand-typed figure lags
+  the tree by construction, so each one that moved must be explained by fixtures added since the
+  last recount (`git log --stat -- internal/core/runtime/testdata/conformance` between the two
+  commits), not by a change to the counting.
 - **Live oracle reproduction is a separate claim** from doc↔baseline consistency: the guards read
   only committed JSON. Run all three under a fresh cache
   (`XDG_CACHE_HOME=$(mktemp -d) go run ./cmd/pilot-{xpect,reject,diff} -out /tmp/oN`) and `cmp`

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/doccounts/doccountstest"
 )
 
 const complianceFixture = `# Compliance
@@ -266,10 +268,15 @@ func TestRewriteBlockRejectsMalformedMarkers(t *testing.T) {
 	spec := Block{Path: "README.md", Name: "refereed-figures"}
 	figures := Figures{}
 	for name, content := range map[string]string{
-		"missing begin": "<!-- doc-counts:end refereed-figures -->\n",
-		"missing end":   "<!-- doc-counts:begin refereed-figures -->\n",
-		"reversed":      "<!-- doc-counts:end refereed-figures -->\n<!-- doc-counts:begin refereed-figures -->\n",
-		"duplicate":     "<!-- doc-counts:begin refereed-figures -->\n<!-- doc-counts:begin refereed-figures -->\n<!-- doc-counts:end refereed-figures -->\n",
+		"missing begin":          "<!-- doc-counts:end refereed-figures -->\n",
+		"missing end":            "<!-- doc-counts:begin refereed-figures -->\n",
+		"reversed":               "<!-- doc-counts:end refereed-figures -->\n<!-- doc-counts:begin refereed-figures -->\n",
+		"duplicate":              "<!-- doc-counts:begin refereed-figures -->\n<!-- doc-counts:begin refereed-figures -->\n<!-- doc-counts:end refereed-figures -->\n",
+		"inline unterminated":    "x <!-- doc-counts:begin refereed-figures --> stale\n",
+		"inline reversed":        "x <!-- doc-counts:end refereed-figures --> stale <!-- doc-counts:begin refereed-figures -->\n",
+		"inline and block mixed": "x <!-- doc-counts:begin refereed-figures --> stale <!-- doc-counts:end refereed-figures -->\n<!-- doc-counts:end refereed-figures -->\n",
+		"inline twice":           "x <!-- doc-counts:begin refereed-figures --> a <!-- doc-counts:end refereed-figures --> <!-- doc-counts:begin refereed-figures --> b <!-- doc-counts:end refereed-figures -->\n",
+		"multi-line inline":      "x <!-- doc-counts:begin refereed-figures --> stale <!-- doc-counts:end refereed-figures -->\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := RewriteBlock(content, spec, figures); err == nil {
@@ -310,6 +317,7 @@ func writeDoccountsFixture(t *testing.T, root string) {
 	writeAt(t, root, "docs/project/pilot-rejection-baseline.json", `{"totals":{"cases":12,"bothReject":11,"pilotOnlyRejects":1},"strictOnlyAgreements":["a","b"],`+
 		`"errata":{"totals":{"cases":12,"bothReject":11,"pilotOnlyRejects":1}}}`)
 	writeAt(t, root, LibraryCensusPath, libraryCensusFixture)
+	doccountstest.WriteSuiteFixture(t, root)
 }
 
 // libraryCensusFixture is a census of one package with a verdict of each kind
