@@ -521,6 +521,13 @@ func (g *generator) fleet(n SatelliteNetwork) {
 	g.line(2, "private import Platform::*;")
 	g.line(2, "private import Requirements::*;")
 	g.line(2, "private import Behavior::*;")
+	g.fleetBody(n)
+	g.line(1, "}")
+	g.line(0, "}")
+}
+
+// fleetBody writes the members of the fleet-form constellation package.
+func (g *generator) fleetBody(n SatelliteNetwork) {
 	blocks := min(fleetBlocks, n.Planes)
 	for b := 0; b < blocks; b++ {
 		g.block(b)
@@ -579,8 +586,6 @@ func (g *generator) fleet(n SatelliteNetwork) {
 			}
 		}
 	}
-	g.line(1, "}")
-	g.line(0, "}")
 }
 
 // block writes one spacecraft block: a definition whose as-built values are

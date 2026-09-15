@@ -336,7 +336,9 @@ frame in the resolver, its memoized semantics and its gathered facts stay.
 
 The worst edit is to a document everything else depends on. `Split` writes the
 same network as one document per plane beside the library they build on and
-the constellation joining them (six files at these sizes); `BenchmarkLoadFiles`
+the constellation joining them (six files at these sizes; the fleet form, whose
+planes are members of the network, splits into the library and the
+constellation alone); `BenchmarkLoadFiles`
 opens and analyzes every file through one workspace, and `BenchmarkEditImported`
 edits the library and then asks every file for its diagnostics, as the editor's
 refresh sweep does:
