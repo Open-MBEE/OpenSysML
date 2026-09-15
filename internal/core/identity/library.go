@@ -105,10 +105,11 @@ func (c *Catalog) ElementNamed(fqn string) (*LibraryElement, bool) {
 }
 
 // RootNamed is the top-level package of a library document named fqn; its ID is
-// "" when the document's tier has no normative language.
+// "" when the document's tier has no normative language. A name more than one
+// library document declares at its top names no single document, so it is not found.
 func (c *Catalog) RootNamed(fqn string) (*LibraryElement, bool) {
 	el, ok := c.roots[fqn]
-	return el, ok
+	return el, ok && el != nil
 }
 
 // DocumentKind is the language the named library document is written in.
@@ -199,7 +200,9 @@ func buildCatalog(idx *symbols.Index) *Catalog {
 			if fqn == "" {
 				continue
 			}
-			if el, ok := c.names[fqn]; ok && el.Symbol == sym {
+			if _, seen := c.roots[fqn]; seen {
+				c.roots[fqn] = nil // declared at the top of two documents: neither's
+			} else if el, ok := c.names[fqn]; ok && el.Symbol == sym {
 				c.roots[fqn] = el
 			} else {
 				c.roots[fqn] = &LibraryElement{Symbol: sym, FQN: fqn}
