@@ -32,4 +32,9 @@
   recorded within the join's move, so a replay refused at a later draw among the segments undoes
   that record too, where before it stood among the run's choices after the move was undone. The
   check oracle's snapshot of a run's draws is copied rather than aliased, so a run restored to an
-  earlier point no longer trims a snapshot taken after it.
+  earlier point no longer trims a snapshot taken after it. A rise that enables only a segment
+  whose join is not ready is dispatched as a signal nothing takes is — consumed, and counted
+  as one occurrence — so a run stepped under the check policy takes the dispatch it was offered,
+  where before the checker offered a dispatch the poll then refused as nothing to do; and a
+  segment drawn among several that fires nothing is reported as firing nothing rather than as
+  a transition taken.
