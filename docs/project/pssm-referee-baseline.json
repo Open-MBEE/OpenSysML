@@ -7,13 +7,13 @@
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
     "recorded": "2026-09-15",
-    "develop": "bcc6b13e0ab9fa3814f183c2e8f2cf33b68adb03"
+    "develop": "e6218449a097ab30ff2ec6d10982e1358b73a390"
   },
   "buckets": {
     "differs-by-design": 2,
     "fail": 18,
-    "not-expressible": 39,
-    "pass": 41,
+    "not-expressible": 37,
+    "pass": 43,
     "terminate-gap": 3
   },
   "tests": [
@@ -148,16 +148,12 @@
       "name": "Transition 011 C",
       "area": "Transition",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)",
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
       ],
       "reached": [
-        "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)"
+        "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
       ],
       "runs": 1
     },
@@ -295,7 +291,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "exit point ExitPoint1; entry point EntryPoint1; lowerer refuses fork into a region without an entry transition S2/Region1; lowerer refuses fork into a region without an entry transition S2/Region2"
+        "exit point ExitPoint1; entry point EntryPoint1"
       ]
     },
     {
@@ -373,18 +369,16 @@
       "name": "Event 015",
       "area": "Event",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: T1.3(effect)"
-      ],
+      "bucket": "pass",
       "expected": [
         "T1.2(effect)",
         "T1.3(effect)"
       ],
       "reached": [
-        "T1.2(effect)"
+        "T1.2(effect)",
+        "T1.3(effect)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "Event 016 A",
@@ -783,7 +777,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "entry point EntryPoint1; lowerer refuses fork into a region without an entry transition S1/Region1; lowerer refuses fork into a region without an entry transition S1/Region2; local transition T1.1; local transition T2.1"
+        "entry point EntryPoint1; lowerer refuses an orthogonal region with neither an entry transition nor a fork branch into it S1/Region1; lowerer refuses an orthogonal region with neither an entry transition nor a fork branch into it S1/Region2; local transition T1.1; local transition T2.1"
       ]
     },
     {
@@ -887,7 +881,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "standalone state machine Standalone002_Test; exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2; behavior parameter S2; lowerer refuses fork into a region without an entry transition S2/Region1; behavior parameter S2.S2.1; lowerer refuses fork into a region without an entry transition S2/Region2; behavior parameter S2.S2.2"
+        "standalone state machine Standalone002_Test; exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2; behavior parameter S2; behavior parameter S2.S2.1; behavior parameter S2.S2.2"
       ]
     },
     {
@@ -911,20 +905,42 @@
     {
       "name": "Fork 002",
       "area": "Fork",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
+      "class": "extension",
+      "bucket": "fail",
       "reasons": [
-        "lowerer refuses fork into a region without an entry transition S1.S1.1/Region1; lowerer refuses fork into a region without an entry transition S1.S1.1/Region2"
-      ]
+        "admitted trace not reached: T2(effect)::S1(entry)::T2.1(effect)::T2.2(effect)::S1.1(entry)",
+        "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::S1.1(entry)::T2.1(effect)",
+        "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::T2.1(effect)::S1.1(entry)"
+      ],
+      "expected": [
+        "T2(effect)::S1(entry)::T2.1(effect)::S1.1(entry)::T2.2(effect)",
+        "T2(effect)::S1(entry)::T2.1(effect)::T2.2(effect)::S1.1(entry)",
+        "T2(effect)::S1(entry)::T2.2(effect)::S1.1(entry)::T2.1(effect)",
+        "T2(effect)::S1(entry)::T2.2(effect)::T2.1(effect)::S1.1(entry)"
+      ],
+      "reached": [
+        "T2(effect)::S1(entry)::T2.1(effect)::S1.1(entry)::T2.2(effect)"
+      ],
+      "runs": 1
     },
     {
       "name": "Join001",
       "area": "Join",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
+      "class": "extension",
+      "bucket": "fail",
       "reasons": [
-        "lowerer refuses fork into a region without an entry transition S1/Region1; lowerer refuses fork into a region without an entry transition S1/Region2"
-      ]
+        "reached a trace the suite does not admit: S2.1(exit)::S1.1(exit)::S1(exit)::T2.4(effect)",
+        "admitted trace not reached: S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)",
+        "admitted trace not reached: S1.2(exit)::T2.4(effect)::S1.1(exit)::S1(exit)::T2.4(effect)"
+      ],
+      "expected": [
+        "S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)",
+        "S1.2(exit)::T2.4(effect)::S1.1(exit)::S1(exit)::T2.4(effect)"
+      ],
+      "reached": [
+        "S2.1(exit)::S1.1(exit)::S1(exit)::T2.4(effect)"
+      ],
+      "runs": 1
     },
     {
       "name": "Join002",

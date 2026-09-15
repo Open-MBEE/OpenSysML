@@ -62,16 +62,17 @@ note's [construct-to-notation table](../internals/design/precise-semantics-align
 | Class | Meaning | Count |
 |---|---|---:|
 | **standard** | every construct has a spelling in standard SysML v2 notation | 31 |
-| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 30 |
+| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 32 |
 | **terminate-gap** | spellable, but reaches `terminate`, which the runtime parses and lowers and does not yet execute (alignment finding 1) | 3 |
-| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the notation cannot bind, or a shape this project's lowerer refuses | 39 |
+| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the notation cannot bind, or a shape this project's lowerer refuses | 37 |
 
 A test using any construct with no spelling or no translation is not expressible whatever else
 it uses; otherwise `terminate` wins over the extensions, and the extensions over standard. The
 alignment note was first written with a hand count of 37 / 33 / 3 / 30; the classifier is the
 record from now on, and the note's test-suite section carries its figures. Nine tests moved
-from the hand count when the emitter was written; each is listed with its reason in the note
-under [Moves from the hand count](../internals/design/precise-semantics-alignment.md#moves-from-the-hand-count):
+from the hand count when the emitter was written, and two of them moved back when the lowerer
+learned to accept a fork-entered region; each is listed with its reason in the note under
+[Moves from the hand count](../internals/design/precise-semantics-alignment.md#moves-from-the-hand-count):
 
 - **Entry, exit or do behaviors with parameters** that read the triggering event's data:
   *Event 017-B*, *Event 019-B*, *Event 019-C*, *Event 019-E*. The notation binds event data on
@@ -81,7 +82,8 @@ under [Moves from the hand count](../internals/design/precise-semantics-alignmen
   target's behaviors write the model's `log`.
 - **A `trace(...)` in the tester's own behavior**: *Event 019-A* (and *019-D*, *019-E*).
 - **A fork into orthogonal regions that have no initial pseudostate**: *Fork 002*, *Join 001*
-  — kept apart from the rest, see [Findings about our own conformance](#findings-about-our-own-conformance).
+  — kept apart from the rest while the lowerer refused the shape, and translated since it
+  accepts it, see [Findings about our own conformance](#findings-about-our-own-conformance).
 
 ## Translating
 
@@ -152,8 +154,8 @@ test in the suite reaches them.
 
 ## Baseline
 
-Recorded **2026-09-14** on develop commit **`f4b844329ace2f8feaf2560b4e21d0a5d834683d`** with
-the history-record fix (finding 7) and the emitter's initial-effect fix described below, as
+Recorded **2026-09-15** on develop commit **`e6218449a`** with the fork-entered-region fix
+(finding 6), the active-ancestor fix and the completion-choice fix described below, as
 `docs/project/pssm-referee-baseline.json`; regenerate with `go run ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
 The figures below are as measured when this record was last updated and are not the current
@@ -161,17 +163,54 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 41 |
+| `pass` | 43 |
 | `fail` | 18 |
-| `not-expressible` | 39 |
+| `not-expressible` | 37 |
 | `terminate-gap` | 3 |
 | `differs-by-design` | 2 |
 | **Total** | **103** |
 
 ### Movements since the previous baseline
 
-The previous baseline (develop `bb95cf226`, 2026-09-12) counted 36 `pass` and 23 `fail`. Two
-changes move it: the runtime fix of [finding 7](#findings-about-our-own-conformance) (a
+The previous baseline (develop `e6218449a` with the active-ancestor fix, 2026-09-15) counted 42
+`pass` and 19 `fail`. One runtime change moves it: a state's completion is one occurrence, so
+several enabled completion transitions out of one state are one transition choice drawn when
+the completion is dispatched (SM19; `chooseCompletion`, `state_explore_completion_choice`),
+where each used to be queued as its own event and the first declared always fired. One test
+moved `fail` → `pass` and none the other way.
+
+| Test | Row | Movement | Adjudication |
+|---|---|---|---|
+| Event 015 | SM19 | `fail` → `pass` | Expected: `S1.1`'s two completion transitions `T1.2` and `T1.3` are in conflict (§9.3.4.11) and either may fire; the run reached only the `T1.2` trace because the second completion event went stale once `S1.1` was left, and reported no choice, so `explore` had nothing to enumerate. Both traces are now reached, as two outcomes of one choice point |
+
+### Movements before that
+
+The baseline with the active-ancestor fix followed one (develop `f2193d764`, 2026-09-14) that
+counted 41 `pass` and 20 `fail`. One change moved it: a transition from a substate into the composite state enclosing it no longer
+re-enters that state (runtime, `state_executor.go:completeInto`; the SM35 row of the alignment
+note records the rule). One test moved `fail` → `pass` and none the other way.
+
+| Test | Row | Movement | Adjudication |
+|---|---|---|---|
+| Transition 011 C | SM35 | `fail` → `pass` | Runtime defect. `T1.3` leaves `S1.2` for `S1`, the composite enclosing it and already active. The run exited `S1.1` and `S1.2`, ran the effect, then started `S1`'s default substate again without exiting or entering `S1` — an entry sequence neither UML nor SysML v2 admits: UML's external transition either exits and re-enters `S1` or, as PSSM §8.5.8 reads it, does not enter a target that is already active and completes the source's region instead ("the RegionActivation owning the sourceVertexActivation completes"); SysML v2 §7.18.3 activates a target on the transition and nowhere restarts an active one. The runtime now follows PSSM: `S1`'s region is complete once `S1.2` is left, `S1` completes, `T2` fires and `S1(exit)` is logged, the admitted trace. `state_transition_into_active_ancestor`, `state_transition_into_active_parallel_ancestor` pin it |
+
+The baseline of develop `f2193d764` followed one (develop `f4b844329`, 2026-09-14) that counted
+18 `fail` and 39 `not-expressible`. One change moved it: the lowerer accepts an orthogonal region with no entry
+transition when a fork's branch enters it ([finding 6](#findings-about-our-own-conformance)),
+so the two tests the classifier filed under *lowerer refuses fork into a region without an
+entry transition* translate and run. Both moved `not-expressible` → `fail`; nothing else moved,
+and the eighteen other failures' reasons are byte-identical to the previous baseline's. Three
+`not-expressible` tests that also carried the reason stay where they are on their other grounds:
+*Transition 023* and *Standalone 002* drop it (their forks now enter their regions), *Entry 002 E*
+keeps the renamed reason (its regions have neither an entry transition nor a fork branch).
+
+| Test | Row | Movement | Adjudication |
+|---|---|---|---|
+| Fork 002 | finding 6, SM22 | `not-expressible` → `fail` | Expected: the fork's branches now enter `S1.1.1` and `S1.2.1` in `S1.1`'s two regions and the run reaches `T2(effect)::S1(entry)::T2.1(effect)::S1.1(entry)::T2.2(effect)`, one of the four traces PSSM admits. The three not reached are the other interleavings of the two branches' effects and entries; the branches are entered in the regions' declaration order and no choice point records the order, which is SM22's open decision — the same family as *Entering 010* and *Entering 011* |
+| Join001 | finding 6 | `not-expressible` → `fail` | Expected to run, not to pass: the fork's branches enter `S2.1` and `S1.1` and the run reaches `S2.1(exit)::S1.1(exit)::S1(exit)::T2.4(effect)`, which PSSM does not admit — `T2.3(effect)`, the effect of the join's incoming transition from `S1.1`, never runs. The same drop as *Join002*'s missing `T1.2(effect)`: the join fires the outgoing transition after the sources' exits and runs only one incoming effect. A runtime defect of the join, not of the fork entry; it is adjudicated with *Join002* below |
+
+The baseline of develop `f4b844329` followed one (develop `bb95cf226`, 2026-09-12) that counted
+36 `pass` and 23 `fail`. Two changes moved it: the runtime fix of [finding 7](#findings-about-our-own-conformance) (a
 transition into a history reads the record after its exits have run, and a history declared in
 the machine's own body restores the machine's configuration) and a translation fix in the
 emitter (an initial transition's effect used to be folded into the entry action of the state or
@@ -198,8 +237,6 @@ now the attributes' initial values (`emit_test.go:TestEmitFactoryInitializesAttr
 the reason of *Join003* without moving it: `value` is now `15` as the test intends, and the run
 fails at the join instead of at the guard's read of an unset feature. Their rows below quote the
 new reasons.
-
-### Movements before that
 
 The baseline of develop `bb95cf226` followed one (develop `fb034e817`, the same day) that
 counted 25 `pass` and 34 `fail`. It was
@@ -234,11 +271,11 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (41)
+### `pass` (43)
 
-Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 015,
-Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
-Event 010, Event 016 A (reports on SM11), Event 016 B, Event 017 A, Event 018, Entering 004,
+Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 011 C,
+Transition 015, Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
+Event 010, Event 015, Event 016 A (reports on SM11), Event 016 B, Event 017 A, Event 018, Entering 004,
 Entering 005, Exiting 002, Exiting 005, Choice 001 and Choice 002 (report on SM30), Choice 003,
 Choice 004, Final001 (reports on SM11), Deferred 001, Deferred 002, Deferred 003 (reports on
 SM7), Deferred 004 A and Deferred 004 B (report on SM7), Deferred 005, Deferred 006 A (reports
@@ -281,14 +318,14 @@ suite; the full sets are in the baseline file.
 | Test | Reached, not admitted | Admitted, not reached |
 |---|---|---|
 | Behavior 003 A | — | `S1(entry)` (the machine completing before the do activity's first segment) |
-| Transition 011 C | `S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)` | `S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)` |
 | Transition 017 | — | `T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)` and 6 more interleavings of `S3.1(doActivity)`, `T2.2(effect)`, `T3.1.2(effect)` (the eighth admitted order is reached) |
 | Transition 019 | `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T1.3(effect)` and the mirror ending `T2.3(effect)` | `S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)` and 5 more, all containing both `T1.3(effect)` and `T2.3(effect)` |
-| Event 015 | — | `T1.3(effect)` |
 | Entering 010 | — | `S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)` and `S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)` (the third admitted order is reached) |
 | Entering 011 | — | `S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)` and 4 more orders of the two regions' initial effects and entries (the sixth admitted order is reached) |
 | Exiting 001 | — | `S1.1.1(exit)::S2.1(exit)::S1.1(exit)::S1(exit)` and `S2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the third admitted order is reached) |
 | Exiting 003 | — | `S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the other admitted order is reached) |
+| Fork 002 | — | `T2(effect)::S1(entry)::T2.1(effect)::T2.2(effect)::S1.1(entry)` and 2 more orders of the two branches' effects and `S1.1(entry)` (the fourth admitted order is reached) |
+| Join001 | `S2.1(exit)::S1.1(exit)::S1(exit)::T2.4(effect)` | `S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)` and one more (`T2.3(effect)`, the effect of the join's incoming transition from `S1.1`, never runs) |
 | Choice 005 | `T2(effect)::S1(entry)::S1.1(entry)` | `T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)` |
 | Join002 | `S1(exit)::T2.2(effect)::T3(effect)::S2(entry)` | `T1.2(effect)::T2.2(effect)::S1(exit)::T3(effect)::S2(entry)` and the order with the first two swapped (`T1.2(effect)` never runs, and `S1(exit)` precedes the effects of the join's incoming segments) |
 | Join003 | run error: `join Join1: no guard evaluated to true` (the join fires on the first completion, with both sources active, and the false guard `value < 10` of its only outgoing transition is an error; PSSM §8.5.7 fires the first incoming segment alone — a join that "cannot be entered" is "an acceptable path ending there" — and disables the second, whose entering the join requires an outgoing transition with a true guard; `S1` stays active for `T5`) | `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)` |
@@ -301,7 +338,7 @@ suite; the full sets are in the baseline file.
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
 
-### `not-expressible` (39)
+### `not-expressible` (37)
 
 By reason, as the classifier names them:
 
@@ -319,9 +356,10 @@ By reason, as the classifier names them:
 - **behavior parameter, operation result, tester trace** (no translation): Event 017 B, Event
   019 A, Event 019 B, Event 019 C, Event 019 D, Event 019 E, Deferred 007, and among the above
   Entry 002 F, Standalone 002, Standalone 003.
-- **lowerer refuses fork into a region without an entry transition** (ours): Fork 002 and
-  Join 001 as the only construct; also present in Entry 002 E, Transition 023 and Standalone
-  002, which are not expressible on other grounds too.
+- **lowerer refuses an orthogonal region with neither an entry transition nor a fork branch
+  into it** (ours): Entry 002 E, which is not expressible on other grounds too. Fork 002 and
+  Join 001, filed here while the lowerer refused every region without an entry transition,
+  translate since finding 6 was fixed.
 
 A test with several such constructs is listed under each; the baseline file names every
 test's constructs in its `reasons`.
@@ -329,19 +367,33 @@ test's constructs in its `reasons`.
 ## Findings about our own conformance
 
 The referee's classifier and runs surfaced two gaps that are this project's rather than SysML
-v2's, recorded here as candidates when the referee was added; the second is fixed, the first
-is not:
+v2's, recorded here as candidates when the referee was added and fixed since, each in a change
+of its own:
 
-- **The lowerer refuses a fork into orthogonal regions that have no initial pseudostate**
+- **The lowerer refused a fork into orthogonal regions that have no initial pseudostate**
   (*Fork 002*, *Join 001*; alignment finding 6). UML lets a fork's outgoing transitions enter
   states inside a composite state's orthogonal regions directly, with no initial pseudostate in
   those regions; SysML v2 `parallel` regions can spell the shape and this project's `fork`
-  extension can spell the fork. `lower.ToStateGraph` refuses it ("region `<name>` has no initial
-  state; write `entry; then <state>;` inside the region") because it requires every region to
-  name its own start even when a fork is the only way in. The two tests are filed
+  extension can spell the fork. `lower.ToStateGraph` refused it ("region `<name>` has no initial
+  state; write `entry; then <state>;` inside the region") because it required every region to
+  name its own start even when a fork was the only way in. The two tests were filed
   `not-expressible` under the distinct reason *lowerer refuses fork into a region without an
-  entry transition* so they are never confused with the constructs v2 has no spelling for; a fix
-  moves them into the expressible buckets and the count moves with them.
+  entry transition* so they were never confused with the constructs v2 has no spelling for.
+  Fixed: `lower/fork_plan.go` reads each fork's branches into a `ForkPlan` — one target state
+  per orthogonal region of one composite state — and the lowerer accepts a region a fork enters
+  without an entry transition of its own, still refusing one with neither (the classifier's
+  reason is now *lowerer refuses an orthogonal region with neither an entry transition nor a
+  fork branch into it*, which only *Entry 002 E* still carries, and it reads a branch's region
+  the way the lowerer does — the region of the fork's composite the target lies in, however
+  deep); the runtime leaves the source configuration — every region of the composite when
+  the fork is reached from inside them — runs the first branch's effect, enters the rest of the
+  way down to the composite, then enters every region in declaration order, each branch's
+  effect before its target (`state_executor.go:leaveForFork`,
+  `state_region_entry.go:enterForkBranches`; `state_fork_enters_regions_without_initial`,
+  `state_fork_in_composite_enters_parallel_substate`,
+  `state_fork_omitted_region_declared_first` and `state_fork_from_within_owner_regions` with
+  their trace goldens). The two tests
+  translate and run; where each landed is in the movements table above.
 - **A transition from a composite state into its own history pseudostate read the record
   before the state was left** (*History 001-A*, *History 002-D*; alignment finding 7). The
   configuration a history restores is recorded when its owner is exited

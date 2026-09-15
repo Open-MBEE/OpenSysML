@@ -1258,3 +1258,180 @@ func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 		t.Fatalf("choices = %v, want exactly %v", got, want)
 	}
 }
+
+// A state's completion is one occurrence: several completion transitions out of
+// it are one transition choice, drawn when the completion is dispatched, and the
+// ones not drawn leave the queue rather than firing on a completion of their own.
+func TestCompletionTransitionChoiceIsReportedOnce(t *testing.T) {
+	src := `package test {
+		state Switch {
+			entry; then ready;
+			state ready;
+			state left;
+			state right;
+			state settled;
+			transition first ready then left;
+			transition first ready then right;
+			transition first left then settled;
+			transition first right then settled;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Switch", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "ready,left,settled" {
+		t.Fatalf("visited %v, want ready, left, settled: one completion fires one transition", visited)
+	}
+	want := []string{"choice state ready: transitions 1->left, 2->right (unordered; took 1->left)"}
+	var got []string
+	for _, choice := range ctx.Choices() {
+		got = append(got, choice.String())
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want exactly %v", got, want)
+	}
+}
+
+// The guards of a state's queued completion transitions are read again when its
+// completion is dispatched: one a sibling region's earlier completion has since
+// disabled is no alternative, so the other fires and no choice is reported.
+func TestCompletionTransitionChoiceRereadsGuards(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute flag : Boolean = true;
+			entry; then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 do assign flag := false then a2;
+				}
+				state b {
+					entry; then ready;
+					state ready;
+					state left;
+					state right;
+					transition first ready if flag then left;
+					transition first ready then right;
+				}
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "work,a1,ready,a2,right" {
+		t.Fatalf("visited %v, want a1's completion to clear flag before ready's is dispatched, and ready to move to right", visited)
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Fatalf("choices = %v, want none: the disabled completion transition is no alternative", choices)
+	}
+}
+
+// A completion transition into a join whose other branch has not arrived is not
+// enabled, so it is no alternative to draw: the other completion transition
+// fires and the queue is not drained on a join that cannot move.
+func TestCompletionTransitionChoiceSkipsUnreadyJoin(t *testing.T) {
+	src := `package test {
+		state Machine {
+			entry; then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 accept Go then a2;
+				}
+				state b {
+					entry; then ready;
+					state ready;
+					state right;
+					transition first ready then sync;
+					transition first ready then right;
+				}
+			}
+			join sync;
+			state done;
+			transition first a2 then sync;
+			transition first sync then done;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "work,a1,ready,right,a2" {
+		t.Fatalf("visited %v, want ready to move to right while the join waits on a2, then a2 alone", visited)
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Fatalf("choices = %v, want none: a transition into an unready join is no alternative", choices)
+	}
+}
+
+// A queued completion transition whose guard can no longer be read once one
+// alternative is enabled is noted as not selected, as for a triggered event,
+// rather than failing the run.
+func TestLaterCompletionGuardErrorIsNotedNotRaised(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute d : Integer = 1;
+			entry; then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 do assign d := 0 then a2;
+				}
+				state b {
+					entry; then ready;
+					state ready;
+					state left;
+					state right;
+					transition first ready if d < 2 then left;
+					transition first ready if 1 / d > 0 then right;
+				}
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "work,a1,ready,a2,left" {
+		t.Fatalf("visited %v, want a1's completion to zero d before ready's is dispatched, and ready to move to left", visited)
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Fatalf("choices = %v, want none: an unevaluable completion guard is no alternative", choices)
+	}
+	got := ctx.UnevaluableGuards()
+	if len(got) != 1 || got[0].Where != "state ready" || got[0].Alternative != "2->right" ||
+		!strings.Contains(got[0].Reason, "division by zero") {
+		t.Fatalf("unevaluable guards = %+v, want the second completion transition out of ready", got)
+	}
+}
