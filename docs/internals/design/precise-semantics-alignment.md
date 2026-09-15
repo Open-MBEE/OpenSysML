@@ -1297,6 +1297,7 @@ which supersede the hand count this section was first written with — the moves
 | Call event whose operation returns a value the tester traces | none: the runtime's call events carry no result back to the caller | no translation |
 | A `trace(...)` call in the tester's own behavior | none: only the target's behaviors append to the model's `log` | no translation |
 | A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed | no translation |
+| A guard whose behavior is an opaque behavior, not an activity | none: the reader follows an activity's nodes to tell whether the behavior acts, and does not read an opaque body, so the guard is refused rather than carried as its Boolean text alone. A `FunctionBehavior` is the exception — it accesses no object by UML's contract (§13.2.3.3) — and is translated as the expression it spells | no translation |
 | Fork into states of orthogonal regions that have no initial pseudostate | `parallel` regions spell the shape and the `fork` extension the fork; a region a fork enters needs no `entry; then` (finding 6 below, fixed) | extension |
 
 The classification is by construct, in the order of the table: a test whose model uses any

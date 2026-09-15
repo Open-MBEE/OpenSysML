@@ -325,13 +325,19 @@ func TestClassifyGuardSideEffect(t *testing.T) {
 			t.Errorf("%s: classified %s (%s), want not-expressible (guard side effect T3)", name, c.Class, c.Reason())
 		}
 	}
-	// A guard behavior that is not an activity is not read, so it may act.
-	opaque := strings.Replace(guardBehavior(""), `<ownedBehavior xmi:type="uml:Activity" xmi:id="xT3act" name="T3_guard">`,
-		`<ownedBehavior xmi:type="uml:OpaqueBehavior" xmi:id="xT3act" name="T3_guard"><body>this.counter = 1; return true;</body><language>Alf</language></ownedBehavior>
+	// A guard behavior that is not an activity is not read, so whether it acts
+	// is unknown; a function behavior does not act by contract.
+	unread := func(kind string) string {
+		return strings.Replace(guardBehavior(""), `<ownedBehavior xmi:type="uml:Activity" xmi:id="xT3act" name="T3_guard">`,
+			`<ownedBehavior xmi:type="`+kind+`" xmi:id="xT3act" name="T3_guard"><body>return true;</body><language>Alf</language></ownedBehavior>
         <ownedBehavior xmi:type="uml:Activity" xmi:id="xT3unused" name="unused">`, 1)
-	c = classifyFixture(t, "", opaque)
-	if c.Class != NotExpressible || c.Reason() != "guard side effect T3" {
-		t.Errorf("opaque guard behavior classified %s (%s), want not-expressible (guard side effect T3)", c.Class, c.Reason())
+	}
+	c = classifyFixture(t, "", unread("uml:OpaqueBehavior"))
+	if c.Class != NotExpressible || c.Reason() != "guard behavior not read T3" {
+		t.Errorf("opaque guard behavior classified %s (%s), want not-expressible (guard behavior not read T3)", c.Class, c.Reason())
+	}
+	if c = classifyFixture(t, "", unread("uml:FunctionBehavior")); c.Class != Standard {
+		t.Errorf("function guard behavior classified %s (%s), want standard", c.Class, c.Reason())
 	}
 	// A behavior calling itself is read once.
 	c = classifyFixture(t, "", guardBehavior(callHelper, helperActivity(`<node xmi:type="uml:CallBehaviorAction" xmi:id="xHelperCall" behavior="xHelper"/>`)))

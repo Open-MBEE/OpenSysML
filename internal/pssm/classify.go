@@ -66,10 +66,11 @@ const (
 	ConstructUnknownVertex       Construct = "unknown pseudostate kind"
 	ConstructNoMachine           Construct = "no state machine"
 	// No translation: the model's behaviors read what the notation cannot bind.
-	ConstructBehaviorParameter Construct = "behavior parameter"
-	ConstructOperationResult   Construct = "operation result"
-	ConstructTesterTrace       Construct = "tester trace"
-	ConstructGuardSideEffect   Construct = "guard side effect"
+	ConstructBehaviorParameter   Construct = "behavior parameter"
+	ConstructOperationResult     Construct = "operation result"
+	ConstructTesterTrace         Construct = "tester trace"
+	ConstructGuardSideEffect     Construct = "guard side effect"
+	ConstructGuardBehaviorUnread Construct = "guard behavior not read"
 	// This project's lowerer refusing a shape UML allows and v2 can spell:
 	// a candidate gap of ours, recorded apart from v2's missing spellings.
 	ConstructRegionNoEntry Construct = "lowerer refuses an orthogonal region with neither an entry transition nor a fork branch into it"
@@ -107,6 +108,7 @@ var constructClass = map[Construct]Expressibility{
 	ConstructOperationResult:      NotExpressible,
 	ConstructTesterTrace:          NotExpressible,
 	ConstructGuardSideEffect:      NotExpressible,
+	ConstructGuardBehaviorUnread:  NotExpressible,
 	ConstructRegionNoEntry:        NotExpressible,
 	ConstructTerminate:            TerminateGap,
 	ConstructDefer:                Extension,
@@ -352,19 +354,29 @@ func (w *walker) initial(r *Region) {
 	w.add(ConstructRegionNoEntry, r.owner.Path()+"/"+r.Name)
 }
 
-// guard records a guard whose behavior does more than compute its value: a v2
-// guard is an expression, and the evaluator admits no side effect in one.
+// guard records a guard whose behavior does more than compute its value, or
+// whose behavior the reader does not follow: a v2 guard is an expression, and
+// the evaluator admits no side effect in one.
 func (w *walker) guard(g *Guard, where string) {
-	if guardSideEffect(g) {
+	switch {
+	case guardSideEffect(g):
 		w.add(ConstructGuardSideEffect, where)
+	case guardBehaviorUnread(g):
+		w.add(ConstructGuardBehaviorUnread, where)
 	}
 }
 
-// guardSideEffect reports whether a guard's behavior acts on the model, by a
-// node the reading expresses or by one it does not; a behavior that is not an
-// activity is not read and may.
+// guardSideEffect reports whether a guard's activity acts on the model, by a
+// node the reading expresses or by one it does not.
 func guardSideEffect(g *Guard) bool {
-	return g != nil && g.Behavior != nil && (g.Behavior.Body == nil || g.Behavior.Body.Acts)
+	return g != nil && g.Behavior != nil && g.Behavior.Body != nil && g.Behavior.Body.Acts
+}
+
+// guardBehaviorUnread reports whether a guard's behavior is one the reader
+// does not follow, so whether it acts is unknown; a function behavior does not
+// by UML's contract (§13.2.3.3) and is the expression it spells.
+func guardBehaviorUnread(g *Guard) bool {
+	return g != nil && g.Behavior != nil && g.Behavior.Body == nil && g.Behavior.Type != "uml:FunctionBehavior"
 }
 
 // behavior records a state behavior with parameters: the notation binds event

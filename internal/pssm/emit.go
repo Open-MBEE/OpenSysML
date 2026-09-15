@@ -837,6 +837,9 @@ func (e *emitter) guard(g *Guard, param, where string) (string, error) {
 		if guardSideEffect(g) {
 			return "", e.fail(where, "the guard's behavior acts on the model; a guard expression has no side effect")
 		}
+		if guardBehaviorUnread(g) {
+			return "", e.fail(where, "the guard's behavior is not an activity; whether it acts on the model is not read")
+		}
 		body := strings.TrimSpace(g.Opaque.Body)
 		if !alfGuard.MatchString(body) {
 			return "", e.fail(where, fmt.Sprintf("guard %q is not a comparison the translation spells", body))
