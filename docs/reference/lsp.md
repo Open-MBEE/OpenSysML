@@ -456,7 +456,11 @@ or `state` usage for a state rendering, an `action def` or `action` usage for an
 action one. `object`, optional, names a part or object definition or usage; when
 it is given the object is instantiated first and performs the behavior, so
 `send … via` and references to the performer's features resolve the way they do
-under `%instantiate`. Without it the behavior runs on its own.
+under `%instantiate`. An object whose type exhibits or performs the target
+already runs it once instantiated, and the session debugs that running behavior
+rather than starting a second one beside it; a type running the target under
+several usages is refused with `InvalidParams` until `target` names the usage,
+as `%state` refuses it. Without an object the behavior runs on its own.
 
 The answer is the initial snapshot: the machine in the state its entry transition
 selects, or the action's first token on its start node. Errors are answered with
@@ -474,14 +478,16 @@ initialized (no entry transition, an initial node the flow lacks).
 `step` moves the behavior by one step: for an action, one token move (a token
 leaving a node, a fork spawning its branches, a join firing); for a state machine,
 the next of a change condition firing, an event being dispatched, or a round of
-`do` behaviors, in that order of preference — the same step `%state` takes. A
-step that finds nothing to do at the current instant leaves the machine
-`suspended` (quiescent) or an action `waiting` on the clock.
+`do` behaviors, in that order of preference — the same step `%state` takes, so
+an event due later is dispatched too, and the clock moves to its instant. A
+step that finds nothing to do leaves the machine `suspended` (quiescent) or an
+action `waiting` on the clock.
 
 `continue` runs until the behavior completes, waits for something the clock or a
 signal must bring, reaches a breakpoint, or spends the runtime's step budget,
 which it reports as a failure. The clock does not move: a behavior waiting on
-`accept after` stays `waiting` until `advance`.
+`accept after` stays `waiting` until `advance`, a machine whose only pending
+event is due later included.
 
 `stop` ends the session and releases its runtime. The session's ID is then
 unknown to the server, and any request naming it is answered with
@@ -510,7 +516,9 @@ delivers it.
 
 Moves the runtime's clock forward by `time`, a finite duration of at least 0 in
 the clock's units, dispatching what falls due on the way: timed transitions
-fire, `accept after` waits end and the tokens move on. A `time` that is
+fire, `accept after` waits end and the tokens move on. A breakpoint reached on
+the way stops the advance short, the clock held at the instant it was reached,
+and the rest of the duration is for the next `advance`. A `time` that is
 negative, infinite or not a number is refused with `InvalidParams`.
 
 ### `opensysml/debug/breakpoints`
@@ -524,8 +532,9 @@ render result the snapshot's `version` refers to. A node the rendering does not
 draw, or that draws nothing that runs — the root, a title — is refused with
 `InvalidParams`, and the breakpoints stand as they were. A run (`step`,
 `continue`, `advance`) stops when a token arrives at a breakpoint node or a
-breakpoint state becomes active; the snapshot then reports `suspended` with
-`pausedAt` naming the node, and the next run resumes past it. Breakpoints are
+breakpoint state becomes active — as the transition entering it completes, so a
+state left again at the same instant is paused on too; the snapshot then reports
+`suspended` with `pausedAt` naming the node, and the next run resumes past it. Breakpoints are
 kept on the runtime node, so they follow a node whose `id` changes when the
 rendering is redrawn.
 

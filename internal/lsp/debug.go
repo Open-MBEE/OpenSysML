@@ -354,14 +354,8 @@ func (s *Server) DebugStart(params *debugStartParams) (*debugSnapshot, error) {
 	if objectSym != nil {
 		sess.object = rt.FQN(objectSym)
 	}
-	switch rendering.Kind {
-	case view.KindState:
-		sess.machine, err = ctx.CreateStateExecutorFor(target, performer)
-	case view.KindAction:
-		sess.action, err = ctx.CreateActionExecutorFor(target, performer)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %w", ErrDebugTarget, params.Target, err)
+	if err := sess.attach(ctx, target, performer); err != nil {
+		return nil, err
 	}
 	if err := sess.locate(rendering, target, doc.Version); err != nil {
 		sess.release()
@@ -374,6 +368,43 @@ func (s *Server) DebugStart(params *debugStartParams) (*debugSnapshot, error) {
 	snap := sess.snapshot()
 	s.debug.mu.Unlock()
 	return snap, nil
+}
+
+// attach gives the session the executor of target: the one performer already
+// runs when it runs target, else a fresh one, as the REPL attaches a behavior.
+func (sess *debugSession) attach(ctx *runtime.Context, target *symbols.Symbol, performer *runtime.Instance) error {
+	var running []*runtime.ObjectBehavior
+	if performer != nil {
+		switch sess.kind {
+		case view.KindState:
+			running = performer.ExhibitedStatesOf(target)
+		case view.KindAction:
+			running = performer.PerformedActionsOf(target)
+		}
+	}
+	if len(running) > 1 {
+		usages := make([]string, 0, len(running))
+		for _, b := range running {
+			usages = append(usages, b.Describe())
+		}
+		return debugInvalid(fmt.Errorf("%w: %s runs %s %d times, so name the usage: %s",
+			ErrDebugTarget, sess.object, sess.target, len(running), strings.Join(usages, "; ")))
+	}
+	if len(running) == 1 {
+		sess.machine, sess.action = running[0].State, running[0].Action
+		return nil
+	}
+	var err error
+	switch sess.kind {
+	case view.KindState:
+		sess.machine, err = ctx.CreateStateExecutorFor(target, performer)
+	case view.KindAction:
+		sess.action, err = ctx.CreateActionExecutorFor(target, performer)
+	}
+	if err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrDebugTarget, sess.target, err)
+	}
+	return nil
 }
 
 // debugTargetKind checks target declares what a rendering of kind draws.
@@ -461,13 +492,27 @@ func (sess *debugSession) locate(rendering *view.Rendering, drawn *symbols.Symbo
 
 // applyBreakpoints sets the executor's breakpoints to the session's.
 func (sess *debugSession) applyBreakpoints() {
-	if sess.action == nil {
+	if sess.action != nil {
+		sess.action.ClearBreakpoints()
+		for _, bp := range sess.breakpoints {
+			sess.action.SetBreakpointAt(bp.node)
+		}
 		return
 	}
-	sess.action.ClearBreakpoints()
+	sess.machine.ClearBreakpoints()
 	for _, bp := range sess.breakpoints {
-		sess.action.SetBreakpointAt(bp.node)
+		if state, ok := bp.node.(*ast.StateNode); ok {
+			sess.machine.SetBreakpointAt(state)
+		}
 	}
+}
+
+// halted reports the session's executor paused at a breakpoint.
+func (sess *debugSession) halted() bool {
+	if sess.action != nil {
+		return sess.action.PausedAt() != ""
+	}
+	return sess.machine.PausedState() != nil
 }
 
 // release lets the session's executor go.
@@ -522,27 +567,34 @@ func (s *Server) DebugStep(params *debugSessionParams) (*debugSnapshot, error) {
 			sess.failure = err.Error()
 		}
 	case view.KindState:
-		moved, err := sess.stepMachine()
-		if err != nil {
+		if err := sess.stepMachine(); err != nil {
 			sess.failure = err.Error()
-		} else if moved {
-			sess.pauseMachine()
 		}
 	}
 	sess.pause()
 	return sess.snapshot(), nil
 }
 
-// resume forgets what the last run ended on before the next one.
+// resume forgets what the last run ended on before the next one, releasing a
+// machine from the breakpoint it paused at.
 func (sess *debugSession) resume() {
 	sess.waiting, sess.failure = "", ""
 	sess.paused, sess.pausedName = "", ""
+	if sess.machine != nil && sess.machine.PausedState() != nil {
+		sess.machine.Resume()
+	}
 }
 
-// pause records the breakpoint node an action run just stopped at, if any; a
-// machine records its own as it suspends (pauseMachine).
+// pause records the breakpoint node the run just done stopped at, if any.
 func (sess *debugSession) pause() {
-	if sess.action == nil || sess.action.PausedAt() == "" {
+	if sess.machine != nil {
+		if state := sess.machine.PausedState(); state != nil {
+			sess.paused, _ = sess.states.Node(state)
+			sess.pausedName = state.Name
+		}
+		return
+	}
+	if sess.action.PausedAt() == "" {
 		return
 	}
 	for _, tok := range sess.action.Tokens() {
@@ -554,64 +606,50 @@ func (sess *debugSession) pause() {
 	}
 }
 
-// pauseMachine suspends the machine at the first active breakpoint state,
-// reporting whether one was hit.
-func (sess *debugSession) pauseMachine() bool {
-	if len(sess.breakpoints) == 0 {
-		return false
-	}
-	for _, state := range sess.machine.ActiveStates() {
-		if !sess.isBreakpoint(state) {
-			continue
-		}
-		sess.machine.Suspend()
-		sess.paused, _ = sess.states.Node(state)
-		sess.pausedName = state.Name
-		return true
-	}
-	return false
+// clockWaiter is an executor with waits on the clock.
+type clockWaiter interface {
+	NextWait() (float64, bool)
 }
 
-// debugClockWait says what an action parked on the clock waits for.
-func debugClockWait(exec *runtime.ActionExecutor) string {
+// debugClockWait says what a behavior parked on the clock waits for.
+func debugClockWait(exec clockWaiter) string {
 	if due, ok := exec.NextWait(); ok {
 		return "waits on the clock until t=" + semantics.FormatReal(due)
 	}
 	return "waits on the clock"
 }
 
-// stepMachine advances a state machine one step as the REPL does, reporting
-// whether anything moved.
-func (sess *debugSession) stepMachine() (bool, error) {
+// stepMachine advances a state machine one step as the REPL does: a change
+// condition that fires, else the next event, else a round of do behavior.
+func (sess *debugSession) stepMachine() error {
 	exec := sess.machine
 	if exec.HasPendingWork() || exec.WatchesChangeCondition() {
 		exec.Resume()
 	}
 	if exec.State() != runtime.StateRunning {
-		return false, nil
+		return nil
 	}
 	fired, err := exec.PollChangeEvents()
 	if err != nil {
-		return false, fmt.Errorf("change condition failed: %w", err)
+		return fmt.Errorf("change condition failed: %w", err)
 	}
 	if fired {
-		return true, nil
+		return nil
 	}
 	if exec.EventQueue().Len() > 0 || exec.HasPendingSignal() {
 		if err := exec.ProcessNextEvent(); err != nil {
-			return false, fmt.Errorf("event processing failed: %w", err)
+			return fmt.Errorf("event processing failed: %w", err)
 		}
-		return true, nil
+		return nil
 	}
 	if exec.HasPendingDoWork() {
-		ran, err := exec.RunDoRound()
-		if err != nil {
-			return false, fmt.Errorf("do behavior failed: %w", err)
+		if _, err := exec.RunDoRound(); err != nil {
+			return fmt.Errorf("do behavior failed: %w", err)
 		}
-		return ran > 0, nil
+		return nil
 	}
 	exec.Suspend()
-	return false, nil
+	return nil
 }
 
 // DebugContinue answers opensysml/debug/continue.
@@ -644,21 +682,16 @@ func (s *Server) DebugContinue(params *debugSessionParams) (*debugSnapshot, erro
 	return sess.snapshot(), nil
 }
 
-// continueMachine steps a state machine until nothing moves at the current
-// instant, a breakpoint state becomes active, or the event budget is spent.
+// continueMachine runs a state machine to quiescence at the current instant or
+// to a breakpoint, holding the clock: an event due later waits for an advance.
 func (sess *debugSession) continueMachine() {
-	budget := runtime.DefaultBudgets().MaxStateEvents
-	for i := int64(0); i < budget; i++ {
-		moved, err := sess.stepMachine()
-		if err != nil {
-			sess.failure = err.Error()
-			return
-		}
-		if !moved || sess.pauseMachine() {
-			return
-		}
+	exec := sess.machine
+	if exec.State() == runtime.StateCompleted {
+		return
 	}
-	sess.failure = fmt.Sprintf("state machine did not settle within %d events", budget)
+	if err := exec.RunToQuiescence(); err != nil {
+		sess.failure = err.Error()
+	}
 }
 
 // DebugSend answers opensysml/debug/send.
@@ -787,10 +820,8 @@ func (s *Server) DebugAdvance(params *debugAdvanceParams) (*debugSnapshot, error
 		return nil, err
 	}
 	sess.resume()
-	if _, err := sess.rt.Advance(params.Time); err != nil {
+	if _, err := sess.rt.AdvanceUntil(params.Time, sess.halted); err != nil {
 		sess.failure = err.Error()
-	} else if sess.machine != nil {
-		sess.pauseMachine()
 	}
 	sess.pause()
 	return sess.snapshot(), nil
@@ -898,6 +929,9 @@ func (sess *debugSession) status() (string, string) {
 	case runtime.StateWaiting:
 		return debugWaiting, sess.waitReason()
 	case runtime.StateSuspended:
+		if sess.machineWaitsOnClock() {
+			return debugWaiting, debugClockWait(sess.machine)
+		}
 		return debugSuspended, sess.suspendReason()
 	case runtime.StateCompleted:
 		return debugCompleted, ""
@@ -920,6 +954,17 @@ func (sess *debugSession) waitReason() string {
 		return strings.Join(waits, "; ")
 	}
 	return sess.machine.SuspendReason()
+}
+
+// machineWaitsOnClock is a quiescent machine whose only pending work is an
+// event due later, which an advance of the clock delivers.
+func (sess *debugSession) machineWaitsOnClock() bool {
+	exec := sess.machine
+	if exec == nil || sess.paused != "" || exec.SuspendReason() != "" || exec.HasPendingSignal() {
+		return false
+	}
+	_, due := exec.NextWait()
+	return due
 }
 
 // suspendReason says why a behavior is suspended: a breakpoint or quiescence.
@@ -1229,11 +1274,25 @@ func sameRendering(a, b *view.Rendering) bool {
 	return true
 }
 
+// debugDocumentClosed ends the sessions on the closed buffer name, whether or
+// not the workspace keeps the file's text from disk.
+func (s *Server) debugDocumentClosed(ctx context.Context, name string) {
+	s.debugSessionsEndedWhere(ctx, name+" was closed", func(sess *debugSession) bool { return sess.doc == name })
+}
+
 // debugSessionsEnded ends every live session with reason, announcing each.
 func (s *Server) debugSessionsEnded(ctx context.Context, reason string) {
+	s.debugSessionsEndedWhere(ctx, reason, func(*debugSession) bool { return true })
+}
+
+// debugSessionsEndedWhere ends the live sessions matching with reason, announcing each.
+func (s *Server) debugSessionsEndedWhere(ctx context.Context, reason string, matching func(*debugSession) bool) {
 	s.debug.mu.Lock()
 	var ended []*debugSnapshot
 	for id, sess := range s.debug.sessions {
+		if !matching(sess) {
+			continue
+		}
 		sess.ended = reason
 		ended = append(ended, sess.snapshot())
 		delete(s.debug.sessions, id)

@@ -564,6 +564,8 @@ type stateCapture struct {
 	stateVisits        []string
 	stateStack         []*ast.StateNode
 	fired              []FiredTransition
+	breakpointHit      *ast.StateNode
+	pausedState        *ast.StateNode
 	history            map[*ast.StateNode]historyRecord
 	deferred           []Event
 	lastDispatch       *Dispatch
@@ -603,6 +605,8 @@ func (e *StateExecutor) capture() stateCapture {
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
 		fired:              slices.Clone(e.fired),
+		breakpointHit:      e.breakpointHit,
+		pausedState:        e.pausedState,
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
@@ -651,6 +655,7 @@ func (c stateCapture) restore() {
 	}
 	e.stateVisits, e.stateStack = slices.Clone(c.stateVisits), slices.Clone(c.stateStack)
 	e.fired = slices.Clone(c.fired)
+	e.breakpointHit, e.pausedState = c.breakpointHit, c.pausedState
 	if e.history != nil {
 		clear(e.history)
 		for node, record := range c.history {

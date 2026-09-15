@@ -85,6 +85,12 @@ type AdvanceReport struct {
 // instant by instant; a wait due later stays queued and nothing waiting is no error.
 // The duration and the instant it leads to must be finite.
 func (ctx *Context) Advance(duration float64) (AdvanceReport, error) {
+	return ctx.AdvanceUntil(duration, nil)
+}
+
+// AdvanceUntil is Advance stopping early, the clock held at the instant whose
+// due work made halted true — a debugger's breakpoint — before moving on.
+func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceReport, error) {
 	defer ctx.beginExecutorRun(&ctx.clockRun)()
 
 	report := AdvanceReport{From: ctx.clock.now, To: ctx.clock.now}
@@ -101,6 +107,10 @@ func (ctx *Context) Advance(duration float64) (AdvanceReport, error) {
 		if _, err := ctx.runDue(nil, &progress); err != nil {
 			report.To = ctx.clock.now
 			return report.counting(progress, ctx.run.notes[noted:]), err
+		}
+		if halted != nil && halted() {
+			report.To = ctx.clock.now
+			return report.counting(progress, ctx.run.notes[noted:]), nil
 		}
 		next, ok := ctx.clock.NextDue()
 		if !ok || next > deadline {

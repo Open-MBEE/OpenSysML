@@ -105,6 +105,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 	}
 	e.consumeRise(poll)
 	e.changeWaits = poll.waits
+	e.pauseAtBreakpoint()
 	return fired, nil
 }
 

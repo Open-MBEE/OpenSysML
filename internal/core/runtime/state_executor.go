@@ -69,6 +69,12 @@ type StateExecutor struct {
 	// included; a debugger reads what a step took from a mark.
 	fired []FiredTransition
 
+	// breakpointNodes are the states a run pauses on entering; breakpointHit the
+	// first the dispatch under way entered, pausedState the one the run paused at.
+	breakpointNodes map[*ast.StateNode]bool
+	breakpointHit   *ast.StateNode
+	pausedState     *ast.StateNode
+
 	// doActions are the running do behaviors, in the order their states were
 	// entered. Concurrently active states interleave one action per round, so this
 	// order — not map iteration order — decides the interleaving.
@@ -227,6 +233,7 @@ func newStateExecutorOn(
 		timerScheduled:     make(map[*lower.Transition]bool),
 		timeTriggerVerdict: make(map[*lower.Transition]error),
 		changeFired:        make(map[*lower.Transition]bool),
+		breakpointNodes:    make(map[*ast.StateNode]bool),
 		activeConfig: &StateConfiguration{
 			regionStates: make(map[*ast.StateRegion]*ast.StateNode),
 		},
@@ -575,7 +582,20 @@ func (e *StateExecutor) processNextEvent() error {
 	}
 	e.lastDispatch = &dispatch
 	e.recallDeferredEvents()
+	e.pauseAtBreakpoint()
 	return nil
+}
+
+// pauseAtBreakpoint suspends the machine at the breakpoint state the dispatch
+// just done entered, leaving whatever is still due to the next run.
+func (e *StateExecutor) pauseAtBreakpoint() {
+	hit := e.breakpointHit
+	e.breakpointHit = nil
+	if hit == nil || e.state != StateRunning {
+		return
+	}
+	e.pausedState = hit
+	e.state = StateSuspended
 }
 
 // nextEvent takes the event to dispatch off the queue: the earliest, unless the
@@ -2343,7 +2363,7 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 	// Suspension is derived at quiescence, so re-running is allowed: a run that
 	// finds nothing to do suspends again.
 	if e.state == StateSuspended {
-		e.state = StateRunning
+		e.state, e.pausedState = StateRunning, nil
 	}
 
 	for e.state == StateRunning {
@@ -2435,9 +2455,9 @@ func (w transitionWait) String() string {
 }
 
 // dueWork reports an event due, a signal in flight this machine takes, or a do
-// action left to run, on a machine initialized and not completed.
+// action left to run, on a machine the clock may drive.
 func (e *StateExecutor) dueWork() bool {
-	if e.state != StateRunning && e.state != StateSuspended {
+	if !e.drivable() {
 		return false
 	}
 	return e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
@@ -2445,7 +2465,13 @@ func (e *StateExecutor) dueWork() bool {
 
 // watchesChange reports a change condition the active configuration waits on.
 func (e *StateExecutor) watchesChange() bool {
-	return (e.state == StateRunning || e.state == StateSuspended) && e.WatchesChangeCondition()
+	return e.drivable() && e.WatchesChangeCondition()
+}
+
+// drivable is a machine the clock may run: initialized, not completed, and not
+// paused at a breakpoint, which holds its work until its driver resumes it.
+func (e *StateExecutor) drivable() bool {
+	return (e.state == StateRunning || e.state == StateSuspended) && e.pausedState == nil
 }
 
 // runDue runs the machine to quiescence at the current instant.
@@ -2465,7 +2491,7 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 	e.inRun = true
 	defer func() { e.inRun = wasRunning }()
 	if e.state == StateSuspended {
-		e.state = StateRunning
+		e.state, e.pausedState = StateRunning, nil
 	}
 	if e.state != StateRunning {
 		return false, nil
@@ -3497,6 +3523,10 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 		}
 	}
 
+	if e.breakpointNodes[state] && e.breakpointHit == nil {
+		e.breakpointHit = state
+	}
+
 	if !e.graph.HiddenStates[state] {
 		// Track state visit
 		e.stateVisits = append(e.stateVisits, state.Name)
@@ -3884,8 +3914,26 @@ func (e *StateExecutor) Resume() bool {
 	if e.state != StateSuspended {
 		return false
 	}
-	e.state = StateRunning
+	e.state, e.pausedState = StateRunning, nil
 	return true
+}
+
+// SetBreakpointAt pauses a run once the dispatch entering state completes, even
+// one leaving it again; what is still due then waits until the machine resumes.
+func (e *StateExecutor) SetBreakpointAt(state *ast.StateNode) {
+	if state != nil {
+		e.breakpointNodes[state] = true
+	}
+}
+
+// ClearBreakpoints removes every breakpoint; a pause already reached stands.
+func (e *StateExecutor) ClearBreakpoints() {
+	e.breakpointNodes = make(map[*ast.StateNode]bool)
+}
+
+// PausedState is the breakpoint state the last run paused at, nil when none did.
+func (e *StateExecutor) PausedState() *ast.StateNode {
+	return e.pausedState
 }
 
 // Suspend parks a running machine back at quiescence, for a driver that resumed

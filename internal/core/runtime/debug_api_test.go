@@ -1068,6 +1068,77 @@ func TestFiredTransitionsLogsCompoundAndForkSegments(t *testing.T) {
 	}
 }
 
+// A breakpoint pauses the machine as the dispatch entering the state completes,
+// even one leaving it again; the clock skips the paused machine until resumed.
+func TestStateBreakpointPausesOnATransientState(t *testing.T) {
+	src := `package test {
+		state Vehicle {
+			entry; then cruising;
+			state cruising;
+			accept after 5 then braking;
+			state braking;
+			then stopped;
+			state stopped;
+			accept after 5 then done;
+		}
+	}`
+	ctx, sym := loadState(t, src, "Vehicle")
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	exec.SetBreakpointAt(stateNamed(t, exec, "braking"))
+
+	if _, err := ctx.Advance(20); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	if got := exec.PausedState(); got == nil || got.Name != "braking" {
+		t.Fatalf("PausedState() = %v, want braking", got)
+	}
+	if got := exec.State(); got != StateSuspended {
+		t.Errorf("State() = %v, want %v", got, StateSuspended)
+	}
+	if got := activeStateNames(exec); got != "braking" {
+		t.Errorf("ActiveStates() = %s, want braking", got)
+	}
+	if got := ctx.Clock().Now(); got != 20 {
+		t.Errorf("clock = %v, want 20: the clock moves on past a paused machine", got)
+	}
+	if !exec.HasDueEvent() {
+		t.Error("HasDueEvent() = false, want the completion event held for the resumed run")
+	}
+
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence: %v", err)
+	}
+	if exec.PausedState() != nil {
+		t.Errorf("PausedState() = %v after resuming, want nil", exec.PausedState())
+	}
+	if got := activeStateNames(exec); got != "stopped" {
+		t.Errorf("ActiveStates() = %s, want stopped", got)
+	}
+	if got := exec.CurrentTime(); got != 20 {
+		t.Errorf("CurrentTime() = %v, want 20", got)
+	}
+}
+
+// Breakpoints are cleared as a set; a pause already reached stands until resumed.
+func TestClearStateBreakpointsRunsThrough(t *testing.T) {
+	ctx, sym := loadState(t, debugStateSrc, "Cycle")
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	exec.SetBreakpointAt(stateNamed(t, exec, "waiting"))
+	exec.ClearBreakpoints()
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if exec.PausedState() != nil || exec.State() != StateCompleted {
+		t.Fatalf("paused at %v in state %v, want a completed run", exec.PausedState(), exec.State())
+	}
+}
+
 // traversalNames spells the traversal log as source->target, prefixing an edge
 // of a nested action's own flow with that action's name.
 func traversalNames(exec *ActionExecutor) []string {

@@ -58,6 +58,7 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 	s.ws.Close(name)
 	s.clearDiagnostics(ctx, name)
 	s.queueOpenDiagnostics(ctx, name)
+	s.debugDocumentClosed(ctx, name)
 	s.debugDocumentsChanged(ctx)
 	return nil
 }

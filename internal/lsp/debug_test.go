@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -424,7 +426,12 @@ func TestDebugStateMachineSession(t *testing.T) {
 	if snap.Object != "Machines::Robot" || snap.Target != "Machines::Ops" {
 		t.Errorf("start snapshot names %q performed by %q", snap.Target, snap.Object)
 	}
-	wantState(t, snap, debugRunning)
+	// The robot's machine ran to quiescence at t=0 as the robot was instantiated,
+	// so the session begins waiting on its timer.
+	wantState(t, snap, debugWaiting)
+	if !strings.Contains(snap.Reason, "t=5") {
+		t.Errorf("reason = %q, want the wait until t=5", snap.Reason)
+	}
 	wantStrings(t, "initial active states", snap.ActiveStates, []string{id["motion"], id["idle"], id["clock"], id["waiting"]})
 	wantStrings(t, "entry transitions", edges(snap.Taken), []string{startOf("motion") + "->" + id["idle"], startOf("clock") + "->" + id["waiting"]})
 	if len(snap.Queue) != 1 || snap.Queue[0].At != 5 || snap.Queue[0].Pending {
@@ -510,6 +517,176 @@ func TestDebugStateMachineSession(t *testing.T) {
 	wantState(t, snap, debugEnded)
 	if snap.Reason != "stopped" {
 		t.Errorf("stop reason = %q", snap.Reason)
+	}
+}
+
+// A continue runs what is due now and holds the clock: an event due later
+// leaves the machine waiting, at the same instant, until an advance reaches it.
+func TestDebugContinueHoldsTheClock(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine)
+	id := ids(t, render(t, s, docURI, "MachineViews::opsView"))
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "MachineViews::opsView", Target: "Machines::Ops",
+	})
+	wantState(t, snap, debugRunning)
+	session := snap.Session
+
+	for i := 0; i < 2; i++ {
+		snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+		wantState(t, snap, debugWaiting)
+		if !strings.Contains(snap.Reason, "t=5") {
+			t.Errorf("continue %d: reason = %q, want the wait until t=5", i, snap.Reason)
+		}
+		if snap.Time != 0 {
+			t.Errorf("continue %d moved the clock to %v", i, snap.Time)
+		}
+		wantStrings(t, "active after a continue", snap.ActiveStates, []string{id["motion"], id["idle"], id["clock"], id["waiting"]})
+		if len(snap.Queue) != 1 || snap.Queue[0].At != 5 {
+			t.Errorf("continue %d: queue = %+v, want the time event still due at 5", i, snap.Queue)
+		}
+	}
+
+	// A signal is delivered by a continue, the clock still held.
+	mustDebug(t, s, MethodDebugSend, &debugSendParams{Session: session, Signal: "Go", Args: map[string]string{"level": "2"}})
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	wantState(t, snap, debugWaiting)
+	if snap.Time != 0 {
+		t.Errorf("delivering a signal moved the clock to %v", snap.Time)
+	}
+	wantStrings(t, "active after the signal", snap.ActiveStates, []string{id["motion"], id["busy"], id["working"], id["clock"], id["waiting"]})
+
+	// Advancing to the event fires it; a continue then quiesces the machine.
+	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 5})
+	if snap.Time != 5 {
+		t.Errorf("time after advance = %v, want 5", snap.Time)
+	}
+	wantStrings(t, "active after the advance", snap.ActiveStates, []string{id["motion"], id["busy"], id["working"], id["clock"], id["elapsed"]})
+	wantStrings(t, "taken by the advance", edges(snap.Taken), []string{id["waiting"] + "->" + id["elapsed"]})
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if !strings.Contains(snap.Reason, "quiesced") {
+		t.Errorf("reason = %q, want quiescence", snap.Reason)
+	}
+}
+
+// debugTransient is a machine whose timed transition enters a state it leaves
+// again at the same instant.
+const debugTransient = `package Transient {
+	private import SI::*;
+	state def Descent {
+		entry; then coasting;
+		state coasting;
+		accept after 5 [s] then braking;
+		state braking;
+		then landed;
+		state landed;
+	}
+}
+package TransientViews {
+	private import StandardViewDefinitions::*;
+	view descentView : StateTransitionView { expose Transient::Descent; }
+}
+`
+
+// An advance pauses at a breakpoint state as it becomes active, a state left
+// again at the same instant included, the clock held at that instant.
+func TestDebugAdvancePausesOnATransientState(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/t.sysml", debugTransient)
+	id := ids(t, render(t, s, docURI, "TransientViews::descentView"))
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "TransientViews::descentView", Target: "Transient::Descent",
+	})
+	session := snap.Session
+	wantStrings(t, "initial active states", snap.ActiveStates, []string{id["coasting"]})
+	mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["braking"]}})
+
+	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 20})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != id["braking"] || !strings.Contains(snap.Reason, "breakpoint braking") {
+		t.Errorf("pausedAt = %q reason = %q, want the breakpoint on braking", snap.PausedAt, snap.Reason)
+	}
+	wantStrings(t, "active at the breakpoint", snap.ActiveStates, []string{id["braking"]})
+	wantStrings(t, "taken to the breakpoint", edges(snap.Taken), []string{id["coasting"] + "->" + id["braking"]})
+	if snap.Time != 5 {
+		t.Errorf("time at the breakpoint = %v, want 5: the advance stops where it paused", snap.Time)
+	}
+
+	// Resuming leaves the transient state at the held instant; the advance
+	// then finishes without pausing again.
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != "" {
+		t.Errorf("pausedAt = %q after resuming, want none", snap.PausedAt)
+	}
+	wantStrings(t, "active after resuming", snap.ActiveStates, []string{id["landed"]})
+	wantStrings(t, "taken after resuming", edges(snap.Taken), []string{id["braking"] + "->" + id["landed"]})
+	if snap.Time != 5 {
+		t.Errorf("time after resuming = %v, want 5", snap.Time)
+	}
+	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 15})
+	if snap.Time != 20 || snap.PausedAt != "" {
+		t.Errorf("after the rest of the advance: time = %v pausedAt = %q, want 20 and none", snap.Time, snap.PausedAt)
+	}
+}
+
+// debugCounter is a robot whose machine counts the timer firing; guards then
+// tell one firing from two.
+const debugCounter = `package Counting {
+	private import ScalarValues::*;
+	private import SI::*;
+	part def Robot {
+		attribute count : Integer = 0;
+		exhibit state ops {
+			entry; then waiting;
+			state waiting;
+			state elapsed;
+			state once;
+			state twice;
+			transition first waiting accept after 5 [s] do assign count := count + 1 then elapsed;
+			transition first elapsed accept after 1 [s] if count == 1 then once;
+			transition first elapsed accept after 1 [s] if count > 1 then twice;
+		}
+	}
+	state def Ops { entry; then idle; state idle; }
+	part def Twin {
+		exhibit state left : Ops;
+		exhibit state right : Ops;
+	}
+}
+package CountingViews {
+	private import StandardViewDefinitions::*;
+	view opsView : StateTransitionView { expose Counting::Robot::ops; }
+	view twinView : StateTransitionView { expose Counting::Ops; }
+}
+`
+
+// A session on an object exhibiting the target debugs the machine the object
+// already runs, so its timed effect happens once; an object exhibiting it twice
+// is ambiguous.
+func TestDebugStartAttachesToThePerformersMachine(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/c.sysml", debugCounter)
+	id := ids(t, render(t, s, docURI, "CountingViews::opsView"))
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "CountingViews::opsView", Target: "Counting::Robot::ops", Object: "Counting::Robot",
+	})
+	session := snap.Session
+	wantStrings(t, "initial active states", snap.ActiveStates, []string{id["waiting"]})
+	if len(snap.Queue) != 1 {
+		t.Errorf("queue = %+v, want the one timer of the one machine", snap.Queue)
+	}
+	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 6})
+	wantStrings(t, "active after both timers", snap.ActiveStates, []string{id["once"]})
+	wantStrings(t, "taken", edges(snap.Taken), []string{id["waiting"] + "->" + id["elapsed"], id["elapsed"] + "->" + id["once"]})
+
+	_, err := debugCall(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "CountingViews::twinView", Target: "Counting::Ops", Object: "Counting::Twin",
+	})
+	if err == nil || !strings.Contains(err.Error(), "2 times") {
+		t.Errorf("start on an object exhibiting the machine twice: err = %v, want the ambiguity refused", err)
 	}
 }
 
@@ -788,6 +965,27 @@ func TestDebugSessionEnds(t *testing.T) {
 		session := start(t, s, docURI)
 		if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}}); err != nil {
 			t.Fatal(err)
+		}
+		if reason := lastEnd(t, rec, session).Reason; !strings.Contains(reason, "closed") {
+			t.Errorf("reason = %q", reason)
+		}
+	})
+	t.Run("document closed with its text still on disk", func(t *testing.T) {
+		name := filepath.Join(t.TempDir(), "m.sysml")
+		if err := os.WriteFile(name, []byte(debugMachine), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		s, docURI, rec := debugServer(t, name, debugMachine)
+		session := start(t, s, docURI)
+		if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}}); err != nil {
+			t.Fatal(err)
+		}
+		if s.ws.Document(name) == nil {
+			t.Fatal("closing dropped the document the workspace folder holds")
+		}
+		changed := rec.debugChanged()
+		if len(changed) != 1 {
+			t.Fatalf("debugChanged = %d notifications, want the one ending the session", len(changed))
 		}
 		if reason := lastEnd(t, rec, session).Reason; !strings.Contains(reason, "closed") {
 			t.Errorf("reason = %q", reason)
