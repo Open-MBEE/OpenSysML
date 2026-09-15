@@ -53,7 +53,7 @@ func checkCorpus(t *testing.T) []checkCase {
 	}
 	var cases []checkCase
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") || strings.HasSuffix(entry.Name(), ".check.expected.json") {
+		if entry.IsDir() || !isConformanceCase(entry.Name()) {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ".expected.json")

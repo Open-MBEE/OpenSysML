@@ -1,9 +1,9 @@
 // Command doc-counts rewrites the documentation lines that are a function of the
-// committed oracle baselines and of the committed analysis-library census, so no
-// contributor types them. It reads them through internal/doccounts, which the
-// guard in cmd/pilot-diff reads too, and rewrites nothing else in the files it
-// touches. The compliance map's own row census is not written anywhere: the
-// documentation build counts it. Run it with `make docs-counts`.
+// committed oracle baselines, of the committed analysis-library census or of the
+// test suite in the tree, so no contributor types them. It reads them through
+// internal/doccounts, which the guard in cmd/pilot-diff reads too, and rewrites
+// nothing else in the files it touches. The compliance map's own row census is not
+// written anywhere: the documentation build counts it. Run it with `make docs-counts`.
 package main
 
 import (
