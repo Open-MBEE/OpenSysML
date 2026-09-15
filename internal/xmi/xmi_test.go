@@ -124,3 +124,29 @@ func TestParseErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestParseAcceptsEveryXMINamespaceVersion(t *testing.T) {
+	for _, version := range []string{"20110701", "20131001"} {
+		src := `<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/` + version + `" xmlns:uml="http://www.omg.org/spec/UML/20110701">
+  <uml:Model xmi:type="uml:Model" xmi:id="_0" name="Lib">
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="F-plus" name="+"/>
+  </uml:Model>
+</xmi:XMI>`
+		d, err := Parse(strings.NewReader(src))
+		if err != nil {
+			t.Fatalf("%s: %v", version, err)
+		}
+		e := d.ByID("F-plus")
+		if e == nil || e.Type != "uml:FunctionBehavior" || e.Name() != "+" {
+			t.Fatalf("%s: ByID(F-plus) = %s, want the function behavior", version, e.Describe())
+		}
+	}
+	other := `<x:XMI xmlns:x="http://example.com/not-xmi"><e x:id="a" x:type="t"/></x:XMI>`
+	d, err := Parse(strings.NewReader(other))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.ByID("a") != nil {
+		t.Fatal("an id in a foreign namespace must not be indexed")
+	}
+}
