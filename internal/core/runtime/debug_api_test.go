@@ -263,6 +263,156 @@ func TestStepToBreakpointPausesWhereARunWould(t *testing.T) {
 	}
 }
 
+// actionNodeNamed is the node of the executor's own flow with the given name.
+func actionNodeNamed(t *testing.T, exec *ActionExecutor, name string) ast.Node {
+	t.Helper()
+	for _, node := range exec.Graph().Nodes {
+		if ActionNodeName(node) == name {
+			return node
+		}
+	}
+	t.Fatalf("no node named %s among %v", name, exec.NodeNames())
+	return nil
+}
+
+// Replacing the breakpoints set by identity keeps a stop already made at one kept,
+// so the next step resumes past it; one removed stops the run again once re-set.
+func TestReplaceBreakpointsAtKeepsAStopAlreadyMade(t *testing.T) {
+	exec := debugActionExecutor(t)
+	at := []NodeBreakpoint{{Node: actionNodeNamed(t, exec, "accumulate")}}
+	exec.ReplaceBreakpointsAt(at)
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint: %v", err)
+	}
+	if got := exec.PausedAt(); got != "accumulate" {
+		t.Fatalf("PausedAt() = %q, want accumulate", got)
+	}
+
+	exec.ReplaceBreakpointsAt(at)
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint after setting the same breakpoints again: %v", err)
+	}
+	if got := exec.PausedAt(); got != "" {
+		t.Errorf("PausedAt() = %q after setting the same breakpoints again, want the run resumed", got)
+	}
+	if total := exec.Results()["total"]; total.Const.Int != 5 {
+		t.Errorf("total = %v after the resumed step, want accumulate performed (5)", total)
+	}
+
+	exec = debugActionExecutor(t)
+	at = []NodeBreakpoint{{Node: actionNodeNamed(t, exec, "accumulate")}}
+	exec.ReplaceBreakpointsAt(at)
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint: %v", err)
+	}
+	exec.ReplaceBreakpointsAt(nil)
+	exec.ReplaceBreakpointsAt(at)
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint after re-setting the breakpoint: %v", err)
+	}
+	if got := exec.PausedAt(); got != "accumulate" {
+		t.Errorf("PausedAt() = %q after re-setting the breakpoint, want accumulate stopped at again", got)
+	}
+	if total := exec.Results()["total"]; total.Const.Int != 0 {
+		t.Errorf("total = %v while stopped again, want 0", total)
+	}
+}
+
+// Resume returns a run a breakpoint suspended to the clock, which then runs it past
+// the breakpoint; a run in any other state is left alone.
+func TestResumeReturnsAPausedRunToTheClock(t *testing.T) {
+	ctx, sym := loadAction(t, debugActionSrc, "tally")
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	if exec.Resume() {
+		t.Error("Resume() = true for a run no breakpoint suspended")
+	}
+	exec.ReplaceBreakpointsAt([]NodeBreakpoint{{Node: actionNodeNamed(t, exec, "accumulate")}})
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint: %v", err)
+	}
+	if _, err := ctx.Advance(0); err != nil {
+		t.Fatalf("Advance while suspended: %v", err)
+	}
+	if got := exec.State(); got != StateSuspended {
+		t.Fatalf("State() = %v after an advance while suspended, want the run still %v", got, StateSuspended)
+	}
+
+	if !exec.Resume() {
+		t.Fatal("Resume() = false for a run a breakpoint suspended")
+	}
+	if got, paused := exec.State(), exec.PausedAt(); got != StateRunning || paused != "" {
+		t.Fatalf("State(), PausedAt() = %v, %q after Resume, want %v and none", got, paused, StateRunning)
+	}
+	if _, err := ctx.Advance(0); err != nil {
+		t.Fatalf("Advance after Resume: %v", err)
+	}
+	if got := exec.State(); got != StateCompleted {
+		t.Errorf("State() = %v after the advance, want %v", got, StateCompleted)
+	}
+	if total := exec.Results()["total"]; total.Const.Int != 5 {
+		t.Errorf("total = %v after the advance, want 5", total)
+	}
+}
+
+// reusedFlowSrc runs one inherited action declaration in two nested flows.
+const reusedFlowSrc = `package test {
+	action def Check {
+		action look;
+	}
+	action twice {
+		first start;
+		action a : Check { first begin; then look; }
+		action b : Check { first begin; then look; }
+		succession first start then a;
+		succession first a then b;
+	}
+}`
+
+// A breakpoint set by identity is on one occurrence of a node: the one in the flow
+// of the nested node named, not the same declaration another nested flow runs.
+func TestBreakpointsAtDistinguishReusedNestedFlows(t *testing.T) {
+	ctx, sym := loadAction(t, reusedFlowSrc, "twice")
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	a, b := actionNodeNamed(t, exec, "a"), actionNodeNamed(t, exec, "b")
+	sub := exec.Graph().Subflows[a]
+	if sub == nil || sub.Graph == nil || exec.Graph().Subflows[b] == nil || exec.Graph().Subflows[b].Graph == nil {
+		t.Fatalf("a and b own no flows: %v", exec.Graph().Subflows)
+	}
+	var look ast.Node
+	for _, node := range sub.Graph.Nodes {
+		if ActionNodeName(node) == "look" {
+			look = node
+		}
+	}
+	if look == nil || !slices.Contains(exec.Graph().Subflows[b].Graph.Nodes, look) {
+		t.Fatalf("look is not one node both flows run: %v", look)
+	}
+
+	exec.ReplaceBreakpointsAt([]NodeBreakpoint{{Within: []ast.Node{b}, Node: look}})
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if got := exec.PausedAt(); got != "look" {
+		t.Fatalf("PausedAt() = %q, want look", got)
+	}
+	tokens := exec.Tokens()
+	if len(tokens) != 1 || tokens[0].Location != look || !slices.Equal(tokens[0].Within(), []ast.Node{b}) {
+		t.Fatalf("tokens = %v, want the one at look within b", tokens)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("resuming RunToCompletion: %v", err)
+	}
+	if got := exec.State(); got != StateCompleted {
+		t.Errorf("State() = %v after resuming, want %v", got, StateCompleted)
+	}
+}
+
 // blockDebugSrc declares action nodes inside an `if` branch and a loop body.
 const blockDebugSrc = `package test {
 	private import ScalarValues::*;

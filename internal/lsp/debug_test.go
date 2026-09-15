@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -757,6 +758,154 @@ func TestDebugStepPausesAtAnActionBreakpoint(t *testing.T) {
 	if len(snap.Tokens) != 4 || debugTokenAt(t, snap, id["tally"]).Node != id["tally"] {
 		t.Errorf("tokens = %+v, want the fork's four branches", snap.Tokens)
 	}
+}
+
+// pausedAtSplit starts a session on the drive flow and steps it to a breakpoint
+// on its fork, returning the session and the rendering's IDs.
+func pausedAtSplit(t *testing.T) (*Server, string, map[string]string) {
+	t.Helper()
+	s, docURI, _ := debugServer(t, "/w/f.sysml", debugFlow)
+	id := ids(t, render(t, s, docURI, "FlowViews::driveView"))
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "FlowViews::driveView", Target: "Flows::Drive",
+	})
+	session := snap.Session
+	mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["split"]}})
+	snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != id["split"] {
+		t.Fatalf("pausedAt = %q, want the breakpoint on split", snap.PausedAt)
+	}
+	return s, session, id
+}
+
+// Setting the breakpoints again while paused at one keeps the pause made: the
+// next step moves past it rather than pausing at the same node again. Removing
+// the breakpoint and setting it again does pause the run there again.
+func TestDebugBreakpointsSetAgainWhilePausedKeepThePause(t *testing.T) {
+	s, session, id := pausedAtSplit(t)
+	snap := mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["split"]}})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != id["split"] {
+		t.Errorf("pausedAt = %q after setting the same breakpoints, want still split", snap.PausedAt)
+	}
+	snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session})
+	wantState(t, snap, debugRunning)
+	if snap.PausedAt != "" {
+		t.Errorf("pausedAt = %q after the step, want the run past split", snap.PausedAt)
+	}
+	if len(snap.Tokens) != 4 || debugTokenAt(t, snap, id["tally"]).Node != id["tally"] {
+		t.Errorf("tokens = %+v, want the fork's four branches", snap.Tokens)
+	}
+
+	s, session, id = pausedAtSplit(t)
+	snap = mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session})
+	if len(snap.Breakpoints) != 0 {
+		t.Errorf("breakpoints = %v after removing the breakpoint, want none", snap.Breakpoints)
+	}
+	mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["split"]}})
+	snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != id["split"] || len(snap.Tokens) != 1 || snap.Tokens[0].Node != id["split"] {
+		t.Errorf("pausedAt = %q tokens = %+v after re-setting the breakpoint, want the token held at split again", snap.PausedAt, snap.Tokens)
+	}
+}
+
+// An advance resumes an action paused at a breakpoint: the clock moves, and the
+// run goes past the breakpoint to what is due by then.
+func TestDebugAdvanceResumesAPausedAction(t *testing.T) {
+	s, session, id := pausedAtSplit(t)
+	snap := mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 5})
+	if snap.Time != 5 {
+		t.Errorf("time after advance = %v, want 5", snap.Time)
+	}
+	wantState(t, snap, debugWaiting)
+	if snap.PausedAt != "" {
+		t.Errorf("pausedAt = %q after the advance, want the run past split", snap.PausedAt)
+	}
+	for _, tok := range snap.Tokens {
+		if tok.Node == id["split"] {
+			t.Errorf("tokens = %+v, want none still held at split", snap.Tokens)
+		}
+	}
+	if debugTokenAt(t, snap, id["listen"]).Node != id["listen"] {
+		t.Errorf("tokens = %+v, want one waiting at listen", snap.Tokens)
+	}
+	taken := edges(snap.Taken)
+	for _, want := range []string{id["split"] + "->" + id["pause"], id["pause"] + "->" + id["sync"]} {
+		if !slices.Contains(taken, want) {
+			t.Errorf("taken = %v, want %s among them", taken, want)
+		}
+	}
+}
+
+// debugReused is a flow whose two nested actions each run the one action they
+// inherit, so its rendering draws that declaration twice.
+const debugReused = `package Reused {
+	action def Check {
+		action look;
+	}
+	action def Twice {
+		first start;
+		action a : Check { first begin; then look; }
+		action b : Check { first begin; then look; }
+		done;
+		succession first start then a;
+		succession first a then b;
+		succession first b then done;
+	}
+}
+package ReusedViews {
+	private import StandardViewDefinitions::*;
+	view twiceView : ActionFlowView { expose Reused::Twice; }
+}
+`
+
+// A breakpoint on one drawing of a node a nested flow reuses stops the run at
+// that occurrence only, not at the same declaration another nested flow runs.
+func TestDebugBreakpointOnAReusedNodeStopsAtItsOccurrence(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/r.sysml", debugReused)
+	r := render(t, s, docURI, "ReusedViews::twiceView")
+	var a, b, lookInA, lookInB string
+	for _, n := range r.Nodes {
+		switch n.Name {
+		case "a":
+			a = n.ID
+		case "b":
+			b = n.ID
+		}
+	}
+	for _, n := range r.Nodes {
+		if n.Name != "look" {
+			continue
+		}
+		switch n.Parent {
+		case a:
+			lookInA = n.ID
+		case b:
+			lookInB = n.ID
+		}
+	}
+	if lookInA == "" || lookInB == "" || lookInA == lookInB {
+		t.Fatalf("look is drawn as %q in a and %q in b, want one drawing in each", lookInA, lookInB)
+	}
+
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "ReusedViews::twiceView", Target: "Reused::Twice",
+	})
+	session := snap.Session
+	snap = mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{lookInB}})
+	wantStrings(t, "breakpoints", snap.Breakpoints, []string{lookInB})
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != lookInB || !strings.Contains(snap.Reason, "breakpoint look") {
+		t.Errorf("pausedAt = %q reason = %q, want the breakpoint on look within b", snap.PausedAt, snap.Reason)
+	}
+	if len(snap.Tokens) != 1 || snap.Tokens[0].Node != lookInB {
+		t.Errorf("tokens = %+v, want the one held at look within b", snap.Tokens)
+	}
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	wantState(t, snap, debugCompleted)
 }
 
 // debugCounter is a robot whose machine counts the timer firing; guards then

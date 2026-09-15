@@ -50,8 +50,8 @@ type ActionExecutor struct {
 	nextTokenID int64
 	stepCount   int // Current step number for tracing
 	breakpoints map[string]bool
-	// breakpointNodes are the graph nodes a run stops at by identity, named or not.
-	breakpointNodes map[ast.Node]bool
+	// breakpointNodes are the nodes a run stops at by identity, each in one nested flow.
+	breakpointNodes []NodeBreakpoint
 	// firedBreakpoints records the token visits a breakpoint already stopped on.
 	firedBreakpoints map[breakpointVisit]bool
 	// traversals are the successions tokens have taken, in order.
@@ -118,6 +118,18 @@ type breakpointVisit struct {
 	node  ast.Node
 }
 
+// NodeBreakpoint is a breakpoint set by identity: on Node, in the flow of the nested
+// action nodes Within (outermost first, as Token.Within lists them; none for the action's own).
+type NodeBreakpoint struct {
+	Within []ast.Node
+	Node   ast.Node
+}
+
+// at reports whether the breakpoint is set on node in the flow of within.
+func (bp NodeBreakpoint) at(within []ast.Node, node ast.Node) bool {
+	return bp.Node == node && slices.Equal(bp.Within, within)
+}
+
 // SetInputs binds input parameter values into the action's feature space.
 // Inputs are applied after attribute defaults, so they override defaults with
 // the same name. Must be called before initialize().
@@ -181,7 +193,6 @@ func newActionExecutorOn(
 		nextTokenID:  1,
 		breakpoints:  make(map[string]bool),
 
-		breakpointNodes:  make(map[ast.Node]bool),
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
 	exec.features = exec.performanceFeatures()
@@ -578,6 +589,16 @@ func (e *ActionExecutor) StepToBreakpoint() error {
 	return nil
 }
 
+// Resume returns a run a breakpoint suspended to running, for a driver that moves
+// it by other means than a step: the clock, say. Any other state is left as it is.
+func (e *ActionExecutor) Resume() bool {
+	if e.state != StateSuspended {
+		return false
+	}
+	e.state, e.pausedAt = StateRunning, ""
+	return true
+}
+
 // pauseAtBreakpoint suspends the run at a breakpoint a token sits on and has not
 // yet stopped at; false when none does.
 func (e *ActionExecutor) pauseAtBreakpoint() bool {
@@ -900,12 +921,12 @@ func (e *ActionExecutor) breakpointHit() string {
 		return ""
 	}
 	for visit := range e.firedBreakpoints {
-		if loc, ok := e.tokenLocation(visit.token); !ok || loc != visit.node {
+		if tok, ok := e.tokenByID(visit.token); !ok || tok.Location != visit.node {
 			delete(e.firedBreakpoints, visit)
 		}
 	}
 	for i, token := range e.tokens {
-		name := e.breakpointNameOf(token.Location)
+		name := e.breakpointNameOf(token.Within(), token.Location)
 		if name == "" {
 			continue
 		}
@@ -931,21 +952,24 @@ func (e *ActionExecutor) breakpointHit() string {
 	return ""
 }
 
-// tokenLocation returns where the given token sits, if it is still active.
-func (e *ActionExecutor) tokenLocation(id int64) (ast.Node, bool) {
+// tokenByID returns the given token, if it is still active.
+func (e *ActionExecutor) tokenByID(id int64) (Token, bool) {
 	for _, token := range e.tokens {
 		if token.ID == id {
-			return token.Location, true
+			return token, true
 		}
 	}
-	return nil, false
+	return Token{}, false
 }
 
-// breakpointNameOf returns the name a breakpoint is set on for the given node,
-// or "" when none is. A node answers to its short name as well as its name; one
-// a breakpoint is set on by identity answers to its description.
-func (e *ActionExecutor) breakpointNameOf(node ast.Node) string {
-	if e.breakpointNodes[node] {
+// breakpointNameOf returns the name a breakpoint is set on for node in the flow of
+// within, or "" when none is. A node answers to its short name as well as its name;
+// one a breakpoint is set on by identity answers to its description.
+func (e *ActionExecutor) breakpointNameOf(within []ast.Node, node ast.Node) string {
+	for _, bp := range e.breakpointNodes {
+		if !bp.at(within, node) {
+			continue
+		}
 		if name := ActionNodeName(node); name != "" {
 			return name
 		}
@@ -1679,8 +1703,8 @@ func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready b
 
 // tokenLabel names a token as the trace does, by ID and node.
 func (e *ActionExecutor) tokenLabel(id int64) string {
-	if loc, ok := e.tokenLocation(id); ok {
-		return fmt.Sprintf("%d@%s", id, nodeIdentifier(loc))
+	if tok, ok := e.tokenByID(id); ok {
+		return fmt.Sprintf("%d@%s", id, nodeIdentifier(tok.Location))
 	}
 	return fmt.Sprintf("%d", id)
 }
@@ -2612,18 +2636,28 @@ func (e *ActionExecutor) SetBreakpoint(nodeName string) {
 	e.breakpoints[nodeName] = true
 }
 
-// SetBreakpointAt stops a run at node itself, named or not: a debugger holding
-// the graph (Graph, Token.Within) sets breakpoints this way.
-func (e *ActionExecutor) SetBreakpointAt(node ast.Node) {
-	if node != nil {
-		e.breakpointNodes[node] = true
+// ReplaceBreakpointsAt makes bps the breakpoints set by identity, named or not, one
+// occurrence of a node each: a debugger holding the graph (Graph, Token.Within) sets
+// breakpoints this way. A stop already made at one kept stands, so a resumed run
+// passes it; one removed stops again once re-set.
+func (e *ActionExecutor) ReplaceBreakpointsAt(bps []NodeBreakpoint) {
+	e.breakpointNodes = e.breakpointNodes[:0]
+	for _, bp := range bps {
+		if bp.Node != nil {
+			e.breakpointNodes = append(e.breakpointNodes, NodeBreakpoint{Within: slices.Clone(bp.Within), Node: bp.Node})
+		}
+	}
+	for visit := range e.firedBreakpoints {
+		if tok, ok := e.tokenByID(visit.token); !ok || e.breakpointNameOf(tok.Within(), visit.node) == "" {
+			delete(e.firedBreakpoints, visit)
+		}
 	}
 }
 
 // ClearBreakpoints removes all breakpoints.
 func (e *ActionExecutor) ClearBreakpoints() {
 	e.breakpoints = make(map[string]bool)
-	e.breakpointNodes = make(map[ast.Node]bool)
+	e.breakpointNodes = nil
 	e.firedBreakpoints = make(map[breakpointVisit]bool)
 }
 

@@ -43,14 +43,7 @@ type Token struct {
 // Within lists the nested action nodes whose own flows the token runs in,
 // outermost first; empty for a token in the action's own flow.
 func (t Token) Within() []ast.Node {
-	var chain []ast.Node
-	for f := t.frame; f != nil; f = f.parent {
-		if f.node != nil {
-			chain = append(chain, f.node)
-		}
-	}
-	slices.Reverse(chain)
-	return chain
+	return t.frame.within()
 }
 
 // travel moves the token along a succession in the given sweep, recording the one it arrived over.

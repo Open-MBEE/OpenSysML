@@ -540,9 +540,11 @@ draw, or that draws nothing that runs — the root, a title — is refused with
 breakpoint state becomes active, or a transition routes through a breakpoint
 pseudostate — as the dispatch completes, so a state left again at the same
 instant is paused on too; the snapshot then reports `suspended` with `pausedAt`
-naming the node, and the next run resumes past it. Breakpoints are
-kept on the runtime node, so they follow a node whose `id` changes when the
-rendering is redrawn.
+naming the node, and the next run resumes past it — also when the breakpoints
+are set again meanwhile (an action breakpoint removed and then set again does
+stop the token held there once more). Breakpoints are kept on the runtime node — the one
+drawing of it named, where nested flows draw a declaration more than once — so
+they follow a node whose `id` changes when the rendering is redrawn.
 
 ### The snapshot
 

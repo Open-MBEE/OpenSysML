@@ -143,7 +143,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	}
 	if !resumed {
 		f = &performFrame{}
-		if err := e.owner.pauseAt(node); err != nil {
+		if err := e.owner.pauseAt(parent.within(), node); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 	}

@@ -251,6 +251,12 @@ type debugNode struct {
 	node   ast.Node
 }
 
+// same reports whether both draw one runtime node: the same occurrence of it, for
+// an action node a nested flow reuses.
+func (n debugNode) same(other debugNode) bool {
+	return n.node == other.node && slices.Equal(n.within, other.within)
+}
+
 // debugService holds the server's live sessions.
 type debugService struct {
 	mu       sync.Mutex
@@ -527,7 +533,7 @@ func (sess *debugSession) locate(rendering *view.Rendering, drawn *symbols.Symbo
 	kept := make(map[string]debugNode, len(sess.breakpoints))
 	for id, bp := range nodes {
 		for _, old := range sess.breakpoints {
-			if old.node == bp.node {
+			if old.same(bp) {
 				kept[id] = bp
 			}
 		}
@@ -537,13 +543,15 @@ func (sess *debugSession) locate(rendering *view.Rendering, drawn *symbols.Symbo
 	return nil
 }
 
-// applyBreakpoints sets the executor's breakpoints to the session's.
+// applyBreakpoints sets the executor's breakpoints to the session's; a pause
+// already reached at one kept stands, so the next run resumes past it.
 func (sess *debugSession) applyBreakpoints() {
 	if sess.action != nil {
-		sess.action.ClearBreakpoints()
+		bps := make([]runtime.NodeBreakpoint, 0, len(sess.breakpoints))
 		for _, bp := range sess.breakpoints {
-			sess.action.SetBreakpointAt(bp.node)
+			bps = append(bps, runtime.NodeBreakpoint{Within: bp.within, Node: bp.node})
 		}
+		sess.action.ReplaceBreakpointsAt(bps)
 		return
 	}
 	sess.machine.ClearBreakpoints()
@@ -620,13 +628,16 @@ func (s *Server) DebugStep(params *debugSessionParams) (*debugSnapshot, error) {
 	return sess.snapshot(), nil
 }
 
-// resume forgets what the last run ended on before the next one, releasing a
-// machine from the breakpoint it paused at.
+// resume forgets what the last run ended on before the next one, releasing the
+// executor from the breakpoint it paused at.
 func (sess *debugSession) resume() {
 	sess.waiting, sess.failure = "", ""
 	sess.paused, sess.pausedName = "", ""
 	if sess.machine != nil && sess.machine.PausedAt() != nil {
 		sess.machine.Resume()
+	}
+	if sess.action != nil && sess.action.PausedAt() != "" {
+		sess.action.Resume()
 	}
 }
 
@@ -643,7 +654,7 @@ func (sess *debugSession) pause() {
 		return
 	}
 	for _, tok := range sess.action.Tokens() {
-		if sess.isBreakpoint(tok.Location) {
+		if sess.isBreakpoint(debugNode{within: tok.Within(), node: tok.Location}) {
 			sess.paused, _ = sess.actions.Node(tok.Within(), tok.Location)
 			sess.pausedName = sess.action.PausedAt()
 			return
@@ -1207,9 +1218,9 @@ func (sess *debugSession) root() string {
 }
 
 // isBreakpoint reports whether node is one of the session's breakpoints.
-func (sess *debugSession) isBreakpoint(node ast.Node) bool {
+func (sess *debugSession) isBreakpoint(node debugNode) bool {
 	for _, bp := range sess.breakpoints {
-		if bp.node == node {
+		if bp.same(node) {
 			return true
 		}
 	}
