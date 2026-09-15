@@ -1020,9 +1020,10 @@ func (e *ActionExecutor) PausedAt() string {
 
 // PausedBreakpoint identifies the node the last run stopped at, in its nested flow:
 // a node a body performs is identified even as its token stays on the enclosing
-// action. False when the run was not stopped by a breakpoint.
+// action. False when the run was not stopped by a breakpoint. The path is the caller's own.
 func (e *ActionExecutor) PausedBreakpoint() (NodeBreakpoint, bool) {
-	return e.pausedAt.at, e.pausedAt.name != ""
+	at := e.pausedAt.at
+	return NodeBreakpoint{Within: slices.Clone(at.Within), Node: at.Node}, e.pausedAt.name != ""
 }
 
 // ActionNodeName returns the declared name of an action graph node, or "" when

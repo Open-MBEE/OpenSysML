@@ -593,6 +593,11 @@ func TestPausedBreakpointIdentifiesABranchNodeInItsFlow(t *testing.T) {
 	if tokens := exec.Tokens(); len(tokens) != 1 || tokens[0].Location != choose {
 		t.Errorf("tokens = %v, want the one still on choose", tokens)
 	}
+	// The path reported is the caller's own: writing to it leaves the stop where it was.
+	bp.Within[0] = q
+	if again, ok := exec.PausedBreakpoint(); !ok || !slices.Equal(again.Within, []ast.Node{choose}) {
+		t.Errorf("PausedBreakpoint() = %+v, %v after writing to the path reported, want q still within choose", again, ok)
+	}
 
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("resume: %v", err)
