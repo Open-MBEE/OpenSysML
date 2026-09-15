@@ -967,7 +967,7 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "run error: process event: evaluate pseudostate: join Join1: eval guard of transition Join1 -\u003e S2: no value for feature value",
+        "run error: process event: evaluate pseudostate: join Join1: no guard evaluated to true",
         "admitted trace not reached: T1.2(effect)::T5(effect)",
         "admitted trace not reached: T1.4(effect)::T5(effect)"
       ],

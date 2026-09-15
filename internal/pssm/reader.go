@@ -134,7 +134,7 @@ func (r *reader) readAttributes(owner *Element) []Attribute {
 		if p.Attr("association") != "" {
 			continue
 		}
-		a := Attribute{Name: p.Name(), Type: r.typeName(p)}
+		a := Attribute{ID: p.ID, Name: p.Name(), Type: r.typeName(p)}
 		if dv := p.First("defaultValue"); dv != nil {
 			lit, diag := readLiteral(dv)
 			if diag != "" {
