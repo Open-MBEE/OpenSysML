@@ -23,6 +23,9 @@ const (
 	catIndividualDef
 	catVerificationDef
 	catItemDef
+	// catValue is an instance of a value type: an attribute usage holding its
+	// slot values, since an individual cannot specialize an attribute def.
+	catValue
 	// catLibrary marks profile and bundled-library content that is not migrated.
 	catLibrary
 	// catUnmapped marks a classifier this migration has no v2 form for.
@@ -54,6 +57,8 @@ func (c category) keyword() string {
 		return "verification def"
 	case catItemDef:
 		return "item def"
+	case catValue:
+		return "attribute"
 	}
 	return ""
 }
@@ -73,6 +78,18 @@ var scalarValues = map[string]string{
 	"Complex":          "Complex",
 	"Number":           "Number",
 	"Rational":         "Rational",
+}
+
+// hostScalars maps the machine-level datatypes a modeling tool's own library
+// offers, named as a programming language names them, to ScalarValues types.
+var hostScalars = map[string]string{
+	"float":   "Real",
+	"double":  "Real",
+	"int":     "Integer",
+	"long":    "Integer",
+	"short":   "Integer",
+	"byte":    "Integer",
+	"boolean": "Boolean",
 }
 
 // libraryRoots are the names of the SysML and UML profile and model library
@@ -179,19 +196,111 @@ func primitiveLibraryHref(href string) bool {
 	return false
 }
 
+// libraryPath reports whether a qualified name a tool records for an href
+// target starts in one of the standard library or profile roots.
+func libraryPath(qualified string) bool {
+	root := pathRoot(qualified)
+	return root != "" && libraryRoots[root]
+}
+
+// pathRoot is the first segment of a qualified name.
+func pathRoot(qualified string) string {
+	if i := strings.Index(qualified, "::"); i >= 0 {
+		return qualified[:i]
+	}
+	return qualified
+}
+
+// quantityLibraries are the model libraries whose every value type is a
+// quantity value: a number stated in a unit.
+var quantityLibraries = map[string]bool{"ISO-80000": true}
+
+// quantityValueType reports whether t is a value type of a quantity library.
+func (m *migration) quantityValueType(t *xmi.Element) bool {
+	if t.IsProxy() {
+		return quantityLibraries[pathRoot(t.QualifiedName)]
+	}
+	return t.Type == "DataType" && m.isLibrary(t) && quantityLibraries[rootOf(t).Name]
+}
+
+// quantity reports whether value type e is a magnitude: its «ValueType» names
+// a unit or quantity kind and it has no fields of its own.
+func quantity(e *xmi.Element) bool {
+	vt := stereo(e, "ValueType")
+	if vt == nil || len(e.Owned("ownedAttribute")) > 0 {
+		return false
+	}
+	return vt.Tag("unit") != "" || vt.Tag("quantityKind") != ""
+}
+
+// scalarBase returns the ScalarValues type the values of type t are, through
+// its generalizations; "" when t is structured or its base is unknown.
+func (m *migration) scalarBase(t *xmi.Element) string {
+	seen := map[*xmi.Element]bool{}
+	var walk func(*xmi.Element) string
+	walk = func(t *xmi.Element) string {
+		if t == nil || seen[t] {
+			return ""
+		}
+		seen[t] = true
+		if sv := m.scalarValue(t); sv != "" {
+			return sv
+		}
+		if m.quantityValueType(t) {
+			return "Real"
+		}
+		if t.IsProxy() {
+			return ""
+		}
+		if cat, _ := m.classify(t); cat != catAttributeDef {
+			return ""
+		}
+		structured := false
+		for _, g := range t.Owned("generalization") {
+			general := m.model.Ref(g, "general")
+			if sv := walk(general); sv != "" {
+				return sv
+			}
+			if general != nil && !general.IsProxy() && !m.isLibrary(general) {
+				if gc, _ := m.classify(general); gc == catAttributeDef {
+					structured = true
+				}
+			}
+		}
+		if !structured && quantity(t) {
+			return "Real"
+		}
+		return ""
+	}
+	return walk(t)
+}
+
+// structuredValueType reports whether t is written as a value type with no
+// ScalarValues base, one no literal can be a value of.
+func (m *migration) structuredValueType(t *xmi.Element) bool {
+	if t == nil || t.IsProxy() || m.isLibrary(t) || m.scalarBase(t) != "" {
+		return false
+	}
+	cat, _ := m.classify(t)
+	return cat == catAttributeDef || cat == catEnumDef
+}
+
 // scalarValue returns the ScalarValues type a v1 type maps to, or "" when the
 // type is the user's own: a primitive the UML or SysML libraries define, whether
-// referenced by href or bundled in the document.
+// referenced by href or bundled in the document, or a tool library's own
+// machine-level datatype.
 func (m *migration) scalarValue(t *xmi.Element) string {
 	if t == nil {
 		return ""
 	}
 	name, ok := scalarValues[t.Name]
 	if !ok {
-		return ""
+		if name, ok = hostScalars[t.Name]; !ok {
+			return ""
+		}
 	}
 	if t.IsProxy() {
-		if primitiveLibraryHref(t.Href) {
+		if primitiveLibraryHref(t.Href) || libraryPath(t.QualifiedName) {
 			return name
 		}
 		return ""
@@ -250,7 +359,7 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 	case "Enumeration":
 		return catEnumDef, ""
 	case "Signal":
-		return catAttributeDef, "a signal is written as an attribute def; v2 has no signal classifier"
+		return catItemDef, ""
 	case "Interface":
 		return catPortDef, "a UML interface is written as a port def"
 	case "InstanceSpecification":
@@ -260,9 +369,15 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 		if len(m.model.Refs(e, "classifier")) == 0 {
 			return catUnmapped, "an instance specification without a classifier has no v2 form"
 		}
-		written, note := m.instanceClassifiers(e)
-		if len(written) == 0 {
+		occurrences, values, note := m.instanceClassifiers(e)
+		switch {
+		case len(occurrences) == 0 && len(values) == 0:
 			return catUnmapped, note
+		case len(occurrences) == 0:
+			return catValue, note
+		}
+		for _, v := range values {
+			note = joinNotes(note, "the instance's classifier "+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
 		}
 		return catIndividualDef, note
 	case "Activity", "OpaqueBehavior", "Interaction", "StateMachine", "FunctionBehavior":
@@ -289,6 +404,15 @@ func kindOf(e *xmi.Element) string {
 
 // qualifiedName joins the v1 names from below the root model to e.
 func qualifiedName(e *xmi.Element) string {
+	if e.IsProxy() {
+		if e.QualifiedName != "" {
+			return e.QualifiedName
+		}
+		if e.Name != "" {
+			return e.Name
+		}
+		return e.Href
+	}
 	path := e.Path()
 	if len(path) > 1 && rootOf(e).Type == "Model" {
 		path = path[1:]
@@ -303,21 +427,24 @@ func rootOf(e *xmi.Element) *xmi.Element {
 	return e
 }
 
-// instanceClassifiers splits an instance's classifiers into those it can
-// specialize in v2 and a note over those it cannot.
-func (m *migration) instanceClassifiers(e *xmi.Element) ([]*xmi.Element, string) {
-	var written []*xmi.Element
+// instanceClassifiers splits an instance's classifiers into the occurrence
+// definitions an individual can specialize, the value types an attribute can
+// be typed by, and a note over those it can use as neither.
+func (m *migration) instanceClassifiers(e *xmi.Element) (occurrences, values []*xmi.Element, note string) {
 	var notes []string
 	for _, c := range m.model.Refs(e, "classifier") {
 		if c.IsProxy() || m.isLibrary(c) {
 			notes = append(notes, "the instance's classifier "+c.Name+" is outside the document or in a library, so it has no v2 definition to specialize")
 			continue
 		}
-		if cc, _ := m.classify(c); cc.keyword() == "" {
+		switch cc, _ := m.classify(c); {
+		case cc.keyword() == "":
 			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not migrated")
-			continue
+		case cc == catAttributeDef, cc == catEnumDef:
+			values = append(values, c)
+		default:
+			occurrences = append(occurrences, c)
 		}
-		written = append(written, c)
 	}
-	return written, strings.Join(notes, "; ")
+	return occurrences, values, strings.Join(notes, "; ")
 }

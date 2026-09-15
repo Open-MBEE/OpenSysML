@@ -5,6 +5,7 @@ package migrate
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
@@ -45,6 +46,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 		outcomes: map[*xmi.Element]*flowOutcome{},
 		unplaced: map[*xmi.Element]*placement{},
 		taken:    map[*xmi.Element]map[string]bool{},
+		exposed:  map[*xmi.Element]string{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -103,6 +105,9 @@ type migration struct {
 	unplaced map[*xmi.Element]*placement
 	// taken holds synthesized names reserved in a body, by owner.
 	taken map[*xmi.Element]map[string]bool
+	// exposed notes, for each feature reached from outside its owner (through
+	// a connector path, a slot or a redefinition), what reaches it.
+	exposed map[*xmi.Element]string
 	// scope is the element whose body is being written; nil at the top level.
 	scope *xmi.Element
 }
@@ -140,11 +145,36 @@ func (m *migration) prepare() {
 				}
 			}
 			if nce := stereo(e, "NestedConnectorEnd"); nce != nil {
-				for _, id := range nce.Tags["propertyPath"] {
+				for _, id := range nce.IDs("propertyPath") {
 					if p := m.model.Lookup(id); p != nil {
 						m.nameFor(p)
 					}
 				}
+			}
+			if c := e.Parent; c != nil && c.Parent != nil {
+				if segs, note := m.endSegments(e, c.Parent); note == "" {
+					for _, s := range segs {
+						if s.Parent != c.Parent {
+							m.expose(s, "connector "+describe(c)+" in "+qualifiedName(c.Parent)+" reaches it")
+						}
+					}
+				}
+			}
+		case "InstanceSpecification":
+			for _, slot := range e.Owned("slot") {
+				if f := m.model.Ref(slot, "definingFeature"); f != nil && m.slotClassifier(e, f) != nil {
+					m.expose(f, "instance "+describe(e)+" has a slot for it")
+				}
+			}
+		case "Property", "Port":
+			for _, r := range m.model.Refs(e, "redefinedProperty") {
+				m.expose(r, qualifiedName(e)+" redefines it")
+			}
+			for _, r := range m.model.Refs(e, "subsettedProperty") {
+				m.expose(r, qualifiedName(e)+" subsets it")
+			}
+			if r := m.shadowed(e); r != nil {
+				m.expose(r, qualifiedName(e)+" redefines it by name")
 			}
 		case "Dependency", "Abstraction", "Realization", "Usage":
 			for _, role := range []string{"client", "supplier"} {
@@ -163,6 +193,30 @@ func (m *migration) prepare() {
 			walk(r)
 		}
 	}
+}
+
+// expose records the first thing found to reach feature f from outside its
+// owner, which its v2 declaration must then not hide.
+func (m *migration) expose(f *xmi.Element, by string) {
+	if _, ok := m.exposed[f]; !ok && !f.IsProxy() {
+		m.exposed[f] = by
+	}
+}
+
+// hasFeature reports whether f is a feature of classifier c, owned or inherited.
+func (m *migration) hasFeature(c, f *xmi.Element) bool {
+	return f.Parent != nil && (f.Parent == c || m.inherits(c, f.Parent))
+}
+
+// slotClassifier returns the classifier of instance e that has feature f, or
+// nil when the slot's defining feature belongs to none of them.
+func (m *migration) slotClassifier(e, f *xmi.Element) *xmi.Element {
+	for _, c := range m.model.Refs(e, "classifier") {
+		if m.hasFeature(c, f) {
+			return c
+		}
+	}
+	return nil
 }
 
 // distinguish renames the later of two members of e that share a name, since
@@ -310,7 +364,7 @@ func (m *migration) classifier(e *xmi.Element) {
 		verdict = Approximated
 	}
 	var header strings.Builder
-	if e.Attrs["isAbstract"] == "true" {
+	if e.Attrs["isAbstract"] == "true" && cat != catValue {
 		header.WriteString("abstract ")
 	}
 	header.WriteString(cat.keyword())
@@ -323,7 +377,11 @@ func (m *migration) classifier(e *xmi.Element) {
 	header.WriteString(writeName(name))
 	gens, n := m.generals(e, cat)
 	if gens != "" {
-		header.WriteString(" :> " + gens)
+		if cat == catValue {
+			header.WriteString(" : " + gens)
+		} else {
+			header.WriteString(" :> " + gens)
+		}
 	}
 	if cat == catConnectionDef {
 		n = joinNotes(n, m.dangling(e, "memberEnd"))
@@ -337,7 +395,7 @@ func (m *migration) classifier(e *xmi.Element) {
 	case catConnectionDef:
 		m.association(e)
 		return
-	case catIndividualDef:
+	case catIndividualDef, catValue:
 		m.w.block(header.String(), func() { m.individualBody(e) })
 		return
 	case catVerificationDef:
@@ -381,8 +439,13 @@ func (m *migration) generals(e *xmi.Element, cat category) (string, string) {
 			refs = append(refs, "ScalarValues::"+sv)
 			continue
 		}
+		if cat == catAttributeDef && m.quantityValueType(target) {
+			refs = append(refs, "ScalarValues::Real")
+			notes = append(notes, "the quantity value type "+qualifiedName(target)+" is written as ScalarValues::Real; its unit is not kept")
+			continue
+		}
 		if target.IsProxy() || m.isLibrary(target) {
-			notes = append(notes, "generalization of library type "+target.Name+" is not written")
+			notes = append(notes, "generalization of library type "+qualifiedName(target)+" is not written")
 			continue
 		}
 		if tc, _ := m.classify(target); tc != cat {
@@ -391,8 +454,16 @@ func (m *migration) generals(e *xmi.Element, cat category) (string, string) {
 		}
 		refs = append(refs, m.ref(target, m.scope))
 	}
-	if cat == catIndividualDef {
-		written, _ := m.instanceClassifiers(e)
+	if cat == catAttributeDef && len(refs) == 0 && quantity(e) {
+		refs = append(refs, "ScalarValues::Real")
+		notes = append(notes, "a value type with a unit or quantity kind and no base type is written as ScalarValues::Real")
+	}
+	if cat == catIndividualDef || cat == catValue {
+		occurrences, values, _ := m.instanceClassifiers(e)
+		written := occurrences
+		if cat == catValue {
+			written = values
+		}
 		for _, c := range written {
 			refs = append(refs, m.ref(c, m.scope))
 		}
@@ -545,6 +616,10 @@ func (m *migration) individualBody(e *xmi.Element) {
 			m.unmapped(slot, "the slot's defining feature is not in the document")
 			continue
 		}
+		if m.slotClassifier(e, f) == nil {
+			m.unmapped(slot, "the slot's defining feature "+qualifiedName(f)+" is not a feature of any classifier of the instance")
+			continue
+		}
 		kw, _, _ := m.featureKeyword(f, catPartDef)
 		if kw != "attribute" {
 			m.unmapped(slot, "only slots of value properties are written; "+f.Name+" is a "+kw)
@@ -554,7 +629,7 @@ func (m *migration) individualBody(e *xmi.Element) {
 		var notes []string
 		ok := true
 		for _, v := range slot.Owned("value") {
-			expr, vok, note := m.valueExpr(v, e)
+			expr, vok, note := m.featureValue(v, f, e)
 			if !vok {
 				ok = false
 				notes = append(notes, note)
@@ -567,6 +642,10 @@ func (m *migration) individualBody(e *xmi.Element) {
 		}
 		if !ok {
 			m.unmapped(slot, strings.Join(notes, "; "))
+			continue
+		}
+		if conflict := m.slotConflict(f, vals); conflict != "" {
+			m.unmapped(slot, conflict+"; its values are "+strings.Join(vals, ", "))
 			continue
 		}
 		value := ""
@@ -585,6 +664,70 @@ func (m *migration) individualBody(e *xmi.Element) {
 	}
 	m.stereotypeComments(e)
 	m.scope = saved
+}
+
+// slotConflict notes how slot values contradict their feature: a count outside
+// its multiplicity or a repeat on a unique feature. Both v1 and v2 reject them.
+func (m *migration) slotConflict(f *xmi.Element, vals []string) string {
+	n := len(vals)
+	lower, upper, ok := bounds(f)
+	if ok && n > 0 && (n < lower || (upper >= 0 && n > upper)) {
+		return fmt.Sprintf("the slot holds %d value(s) for a feature of multiplicity %s", n, boundsText(lower, upper))
+	}
+	if dup := repeated(vals); dup != "" && f.Attrs["isUnique"] != "false" {
+		return "the slot repeats the value " + dup + " on a unique feature"
+	}
+	return ""
+}
+
+// bounds returns a property's multiplicity as numbers, upper -1 for unbounded;
+// ok is false when a bound is not a literal number.
+func bounds(p *xmi.Element) (lower, upper int, ok bool) {
+	lower, upper = 1, 1
+	var err error
+	if lv := firstOwned(p, "lowerValue"); lv != nil {
+		if lower, err = strconv.Atoi(boundValue(lv)); err != nil {
+			return 0, 0, false
+		}
+	}
+	if uv := firstOwned(p, "upperValue"); uv != nil {
+		if uv.Attrs["value"] == "*" {
+			upper = -1
+		} else if upper, err = strconv.Atoi(boundValue(uv)); err != nil {
+			return 0, 0, false
+		}
+	}
+	return lower, upper, true
+}
+
+// boundValue reads a multiplicity bound; UML reads an omitted value as 0.
+func boundValue(b *xmi.Element) string {
+	if v := b.Attrs["value"]; v != "" {
+		return v
+	}
+	return "0"
+}
+
+func boundsText(lower, upper int) string {
+	if upper < 0 {
+		return fmt.Sprintf("%d..*", lower)
+	}
+	if lower == upper {
+		return strconv.Itoa(lower)
+	}
+	return fmt.Sprintf("%d..%d", lower, upper)
+}
+
+// repeated returns the first value written more than once, or "".
+func repeated(vals []string) string {
+	seen := map[string]bool{}
+	for _, v := range vals {
+		if seen[v] {
+			return v
+		}
+		seen[v] = true
+	}
+	return ""
 }
 
 // verificationBody writes a test case: the requirements it verifies form its
@@ -687,11 +830,18 @@ func (m *migration) association(e *xmi.Element) {
 // and aggregation, given the category of its owner; prefix is `ref ` or empty.
 func (m *migration) featureKeyword(p *xmi.Element, owner category) (keyword, prefix, note string) {
 	t := m.model.Ref(p, "type")
+	if owner == catConstraintDef {
+		// A constraint block's properties are its parameters, whichever
+		// metaclass a tool stores them as; one typed by a constraint block nests it.
+		if t != nil {
+			if tc, _ := m.classify(t); tc == catConstraintDef {
+				return "constraint", "", ""
+			}
+		}
+		return "attribute", "", ""
+	}
 	if p.Type == "Port" {
 		return "port", "", ""
-	}
-	if owner == catConstraintDef {
-		return "attribute", "", ""
 	}
 	if t == nil {
 		return "ref", "", "the untyped property is written as a reference usage"
@@ -703,12 +853,18 @@ func (m *migration) featureKeyword(p *xmi.Element, owner category) (keyword, pre
 	switch tc {
 	case catAttributeDef, catEnumDef:
 		return "attribute", "", ""
+	case catItemDef:
+		switch {
+		case owner == catPortDef, p.Attrs["aggregation"] == "composite":
+			return "item", "", ""
+		case p.Attrs["aggregation"] == "shared":
+			return "item", "ref ", "shared aggregation is written as a reference item"
+		}
+		return "item", "ref ", ""
 	case catConstraintDef:
 		return "constraint", "", ""
 	case catPortDef:
-		if owner == catPortDef {
-			return "attribute", "", "a flow property typed by an interface block is written as an attribute"
-		}
+		// Only a port is typed by a port def, in an interface block as anywhere.
 		return "port", "", "a property typed by an interface block is written as a port"
 	case catRequirementDef:
 		return "requirement", "", ""
@@ -736,37 +892,48 @@ func (m *migration) feature(p *xmi.Element) {
 	t := m.model.Ref(p, "type")
 	typ, tnote := m.typeRef(t, m.scope)
 	note = joinNotes(note, tnote)
+	param := ownerCat == catConstraintDef && kw == "attribute"
 
 	var b strings.Builder
-	switch p.Attrs["visibility"] {
-	case "private":
-		b.WriteString(privatePrefix)
-	case "protected":
+	vis := p.Attrs["visibility"]
+	switch {
+	case vis != "private" && vis != "protected" && vis != "package":
+	case param:
+		// A parameter is bound from outside the constraint, so it must stay visible.
+		note = joinNotes(note, vis+" visibility is not written on a constraint parameter")
+	case m.exposed[p] != "":
+		// v2 neither inherits a private feature nor lets a path reach one.
+		note = joinNotes(note, vis+" visibility is not written: "+m.exposed[p])
+	case vis == "protected":
 		b.WriteString("protected ")
-	case "package":
+	case vis == "package":
 		b.WriteString(privatePrefix)
 		note = joinNotes(note, "package visibility is written as private")
+	default:
+		b.WriteString(privatePrefix)
 	}
 	// The v2 usage prefix orders direction, derived, abstract, constant, ref.
+	dir := ""
 	switch {
+	case param:
+		dir = "in "
 	case p.Type == "Port":
-		dir, dnote := portDirection(p)
-		b.WriteString(dir)
+		var dnote string
+		dir, dnote = portDirection(p)
 		note = joinNotes(note, dnote)
-	case ownerCat == catConstraintDef:
-		b.WriteString("in ")
 	case ownerCat == catPortDef:
 		if fp := stereo(p, "FlowProperty"); fp != nil {
 			switch fp.Tag("direction") {
 			case "in":
-				b.WriteString("in ")
+				dir = "in "
 			case "out":
-				b.WriteString("out ")
+				dir = "out "
 			case "inout":
-				b.WriteString("inout ")
+				dir = "inout "
 			}
 		}
 	}
+	b.WriteString(dir)
 	if p.Attrs["isDerived"] == "true" {
 		b.WriteString("derived ")
 	}
@@ -780,6 +947,11 @@ func (m *migration) feature(p *xmi.Element) {
 		} else {
 			b.WriteString("constant ")
 		}
+	}
+	if ownerCat == catPortDef && dir == "" && prefix == "" && (kw == "item" || kw == "part") {
+		// An interface block's usages other than ports must not be composite.
+		prefix = "ref "
+		note = joinNotes(note, "the undirected "+kw+" of an interface block is written as a reference")
 	}
 	b.WriteString(prefix)
 	b.WriteString(kw)
@@ -802,13 +974,17 @@ func (m *migration) feature(p *xmi.Element) {
 		switch tc, _ := m.classify(t); {
 		case m.scalarValue(t) != "", tc == catAttributeDef, tc == catEnumDef:
 			payload = "attribute"
-		case tc == catPartDef:
+		case tc == catPartDef, tc == catItemDef:
 			payload = "item"
 		}
 	}
 	if typ != "" && payload == "" {
 		if p.Type == "Port" && p.Attrs["isConjugated"] == "true" {
 			typ = "~" + typ
+		}
+		if ind := m.defaultIndividual(p); ind != nil {
+			// A v2 definition is not a value; the usage is typed by the individual instead.
+			typ += ", " + m.ref(ind, m.scope)
 		}
 		b.WriteString(" : " + typ)
 	}
@@ -828,21 +1004,33 @@ func (m *migration) feature(p *xmi.Element) {
 			b.WriteString(op + m.featureRef(r))
 		}
 	}
+	if r := m.shadowed(p); r != nil {
+		b.WriteString(" :>> " + m.featureRef(r))
+		note = joinNotes(note, "written as a redefinition of the inherited "+qualifiedName(r)+": v2 does not let a member share an inherited member's name")
+	}
 	note = joinNotes(note, m.dangling(p, "redefinedProperty", "subsettedProperty"))
 
 	var bodyLines []string
 	if dv := firstOwned(p, "defaultValue"); dv != nil {
-		expr, ok, vnote := m.valueExpr(dv, m.scope)
-		if ok {
+		ind := m.defaultIndividual(p)
+		expr, ok, vnote := m.featureValue(dv, p, m.scope)
+		switch {
+		case ind != nil && typ != "" && payload == "":
+			note = joinNotes(note, "the default value, the individual "+qualifiedName(ind)+", is written as a type of the usage: a definition is not a v2 value")
+		case ok:
 			b.WriteString(" default = " + expr)
 			note = joinNotes(note, vnote)
-		} else {
+		default:
 			bodyLines = append(bodyLines, commentLines("default value not migrated: "+describeValue(dv)+" — "+vnote)...)
 			note = joinNotes(note, "default value not migrated: "+vnote)
 		}
 	}
 	if payload != "" {
 		dir, _ := portDirection(p)
+		if payload == "item" && dir == "" {
+			// An undirected item in a port must still not be composite.
+			payload = "ref item"
+		}
 		bodyLines = append(bodyLines, dir+payload+" "+writeName(m.nameFor(p))+" : "+typ+";")
 		note = joinNotes(note, "a port typed by a "+t.Type+" is written as a port holding one directed "+payload)
 	}
@@ -882,6 +1070,38 @@ func portDirection(p *xmi.Element) (string, string) {
 		return "inout ", ""
 	}
 	return "", ""
+}
+
+// shadowed returns the written inherited feature that p, declaring no
+// redefinition, would hide by sharing its name, or nil when there is none.
+func (m *migration) shadowed(p *xmi.Element) *xmi.Element {
+	if p.Parent == nil || p.Name == "" || len(m.model.Refs(p, "redefinedProperty")) > 0 {
+		return nil
+	}
+	if cat, _ := m.classify(p.Parent); cat.keyword() == "" {
+		return nil
+	}
+	seen := map[*xmi.Element]bool{p.Parent: true}
+	var walk func(*xmi.Element) *xmi.Element
+	walk = func(c *xmi.Element) *xmi.Element {
+		for _, g := range c.Owned("generalization") {
+			t := m.model.Ref(g, "general")
+			if t == nil || seen[t] {
+				continue
+			}
+			seen[t] = true
+			for _, f := range t.Children {
+				if f.Type == p.Type && m.nameOf(f) == m.nameOf(p) && m.written(f) {
+					return f
+				}
+			}
+			if f := walk(t); f != nil {
+				return f
+			}
+		}
+		return nil
+	}
+	return walk(p.Parent)
 }
 
 // written reports whether e becomes a v2 element that can be referred to.
@@ -939,10 +1159,13 @@ func (m *migration) typeRef(t, scope *xmi.Element) (string, string) {
 		return "", ""
 	}
 	if sv := m.scalarValue(t); sv != "" {
+		if _, std := scalarValues[t.Name]; !std {
+			return "ScalarValues::" + sv, "the tool's " + t.Name + " datatype is written as ScalarValues::" + sv
+		}
 		return "ScalarValues::" + sv, ""
 	}
 	if t.IsProxy() {
-		return "", "type " + t.Name + " lives outside the document and is not written"
+		return "", "type " + qualifiedName(t) + " lives outside the document and is not written"
 	}
 	cat, _ := m.classify(t)
 	switch cat {
@@ -959,16 +1182,10 @@ func (m *migration) typeRef(t, scope *xmi.Element) (string, string) {
 func (m *migration) multiplicity(p *xmi.Element) (string, string) {
 	lower, upper := "", ""
 	if lv := firstOwned(p, "lowerValue"); lv != nil {
-		lower = lv.Attrs["value"]
-		if lower == "" {
-			lower = "0"
-		}
+		lower = boundValue(lv)
 	}
 	if uv := firstOwned(p, "upperValue"); uv != nil {
-		upper = uv.Attrs["value"]
-		if upper == "" {
-			upper = "0"
-		}
+		upper = boundValue(uv)
 	}
 	// UML defaults an omitted bound to 1, and a bound's omitted value to 0.
 	switch {
@@ -1068,16 +1285,31 @@ func (m *migration) unmappedConnector(c *xmi.Element, note string) {
 // endPath writes the feature path a connector end names: the nested property
 // path, then the part with port, then the role.
 func (m *migration) endPath(end *xmi.Element) (string, string) {
+	segs, note := m.endSegments(end, m.scope)
+	if note != "" {
+		return "", note
+	}
+	parts := make([]string, len(segs))
+	for i, s := range segs {
+		parts[i] = writeName(m.nameFor(s))
+	}
+	return strings.Join(parts, "."), ""
+}
+
+// endSegments resolves the features a connector end of owner names, in path
+// order, checking each is a feature of the owner or of the preceding segment's
+// type where the document knows it; a note says which is not.
+func (m *migration) endSegments(end, owner *xmi.Element) ([]*xmi.Element, string) {
 	role := m.model.Ref(end, "role")
 	if role == nil {
-		return "", "a connector end names no role in the document"
+		return nil, "a connector end names no role in the document"
 	}
 	var segs []*xmi.Element
 	if nce := stereo(end, "NestedConnectorEnd"); nce != nil {
-		for _, id := range nce.Tags["propertyPath"] {
+		for _, id := range nce.IDs("propertyPath") {
 			p := m.model.Lookup(id)
 			if p == nil {
-				return "", "the nested connector end's property path names " + id + ", which is not in the document"
+				return nil, "the nested connector end's property path names " + id + ", which is not in the document"
 			}
 			segs = append(segs, p)
 		}
@@ -1085,14 +1317,28 @@ func (m *migration) endPath(end *xmi.Element) (string, string) {
 		segs = append(segs, pwp)
 	}
 	segs = append(segs, role)
-	parts := make([]string, len(segs))
+	holder := owner
 	for i, s := range segs {
-		parts[i] = writeName(m.nameFor(s))
+		if s.IsProxy() {
+			return nil, "the connector end's path names " + qualifiedName(s) + ", which lives outside the document"
+		}
+		if holder != nil && !m.hasFeature(holder, s) {
+			return nil, "the connector end's " + segmentWord(i, len(segs)) + " " + qualifiedName(s) + " is not a feature of " + qualifiedName(holder)
+		}
+		holder = m.model.Ref(s, "type")
+		if holder != nil && holder.IsProxy() {
+			holder = nil
+		}
 	}
-	if len(segs) == 1 && role.Parent != m.scope && !m.inherits(m.scope, role.Parent) {
-		return "", "the connector end's role " + qualifiedName(role) + " is not a feature of " + qualifiedName(m.scope)
+	return segs, ""
+}
+
+// segmentWord names position i of a connector end's path of n segments.
+func segmentWord(i, n int) string {
+	if i == n-1 {
+		return "role"
 	}
-	return strings.Join(parts, "."), ""
+	return "path segment"
 }
 
 // itemFlow writes an item flow realized by a connector as a flow between the
@@ -1659,6 +1905,9 @@ func (m *migration) stereotypeComments(e *xmi.Element) {
 	for _, s := range e.Stereotypes {
 		classifying := isStandard(s) && classifyingStereotypes[s.Name]
 		consumed := consumedTags[s.Name]
+		if m.isConstraintParameterMarker(e, s) {
+			continue
+		}
 		if isStandard(s) && isRequirementStereotype(s.Name) {
 			if !classifying {
 				m.w.line("/* «" + s.Name + "» */")
@@ -1687,6 +1936,16 @@ func (m *migration) stereotypeComments(e *xmi.Element) {
 		}
 		m.w.lines(commentLines(text))
 	}
+}
+
+// isConstraintParameterMarker recognises a tool's «ConstraintParameter» marker
+// on a constraint block's property; the `in` direction already says as much.
+func (m *migration) isConstraintParameterMarker(e *xmi.Element, s *xmi.Stereotype) bool {
+	if s.Name != "ConstraintParameter" || len(s.Tags) > 0 || e.Parent == nil {
+		return false
+	}
+	cat, _ := m.classify(e.Parent)
+	return cat == catConstraintDef
 }
 
 // tagValues writes tag values, an element reference by the element's name.

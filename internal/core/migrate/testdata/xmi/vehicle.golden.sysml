@@ -15,7 +15,7 @@ package 'Vehicle Design' {
             green;
             blue;
         }
-        attribute def StartSignal {
+        item def StartSignal {
             attribute key : ScalarValues::Integer;
         }
     }

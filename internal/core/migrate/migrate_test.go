@@ -195,7 +195,7 @@ func TestReportAccountsForEveryElement(t *testing.T) {
 		"_dep_verify":       migrate.Mapped,
 		"_conn_bind":        migrate.Mapped,
 		"_prop_charger":     migrate.Approximated,
-		"_sig_start":        migrate.Approximated,
+		"_sig_start":        migrate.Mapped,
 		"_actor_driver":     migrate.Approximated,
 		"_dep_trace":        migrate.Approximated,
 		"_port_speedOut":    migrate.Approximated,

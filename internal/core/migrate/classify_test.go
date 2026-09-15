@@ -55,6 +55,66 @@ func TestExternalScalarNamesOnlyFromPrimitiveLibraries(t *testing.T) {
 	}
 }
 
+// A tool's export names the standard primitives in several ways: a dotted
+// fragment into SysML.xmi, an opaque id into its bundled library module with
+// the qualified name beside it, and its own machine-level datatypes there.
+// Only those resolve to ScalarValues; a used project's own types stay external.
+func TestExternalScalarsFromToolLibraryReferences(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Thing">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_a" name="mass">
+        <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="label">
+        <type href="UML_Standard_Profile.mdzip#eee_1045467100323_917313_65">
+          <xmi:Extension extender="Some Tool">
+            <referenceExtension referentPath="UML Standard Profile::UML2 Metamodel::PrimitiveTypes::String" referentType="PrimitiveType"/>
+          </xmi:Extension>
+        </type>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_d" name="ratio">
+        <type href="UML_Standard_Profile.mdzip#eee_1045467100323_385364_62">
+          <xmi:Extension extender="Some Tool">
+            <referenceExtension referentPath="UML Standard Profile::MagicDraw Profile::datatypes::float" referentType="DataType"/>
+          </xmi:Extension>
+        </type>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_e" name="glyph">
+        <type href="UML_Standard_Profile.mdzip#eee_1045467100323_191782_59">
+          <xmi:Extension extender="Some Tool">
+            <referenceExtension referentPath="UML Standard Profile::MagicDraw Profile::datatypes::char" referentType="DataType"/>
+          </xmi:Extension>
+        </type>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_f" name="score">
+        <type href="Shared%20Types.mdzip#_17_0_1_2_8f90291_1328000000000_000000_1">
+          <xmi:Extension extender="Some Tool">
+            <referenceExtension referentPath="Shared Types::Scalars::float" referentType="DataType"/>
+          </xmi:Extension>
+        </type>
+      </ownedAttribute>
+    </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_b"/>`)
+	wantLine(t, r.Notation, "attribute mass : ScalarValues::Real;")
+	wantLine(t, r.Notation, "attribute label : ScalarValues::String;")
+	wantLine(t, r.Notation, "attribute ratio : ScalarValues::Real;")
+	wantLine(t, r.Notation, "attribute glyph;")
+	wantLine(t, r.Notation, "attribute score;")
+	for _, id := range []string{"_a", "_c"} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	for id, want := range map[string]string{
+		"_d": "the tool's float datatype is written as ScalarValues::Real",
+		"_e": "type UML Standard Profile::MagicDraw Profile::datatypes::char lives outside the document",
+		"_f": "type Shared Types::Scalars::float lives outside the document",
+	} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, want) {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+}
+
 func TestAnonymousAssociationOwningEveryEndIsWritten(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A"/>
@@ -469,5 +529,42 @@ second	line</notes>
 	}
 	if !found {
 		t.Errorf("no report line for the activity:\n%s", b.String())
+	}
+}
+
+// A signal is a classifier of things conveyed between parts: an item def.
+// Properties typed by it are items, in blocks and in interface blocks alike.
+func TestSignalIsAnItemDef(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_sig" name="Start">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_sig_key" name="key">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_if" name="Control">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_fp" name="start" type="_sig"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Controller">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_own" name="pending" type="_sig" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_seen" name="last" type="_sig"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_port" name="cmd" type="_sig" aggregation="composite"/>
+    </packagedElement>`, `
+  <sysml:InterfaceBlock xmi:id="_s1" base_Class="_if"/>
+  <sysml:Block xmi:id="_s2" base_Class="_b"/>
+  <sysml:FlowProperty xmi:id="_s3" base_Property="_fp" direction="in"/>
+  <sysml:FlowPort xmi:id="_s4" base_Port="_port" direction="in"/>`)
+	wantLine(t, r.Notation, "item def Start {")
+	wantLine(t, r.Notation, "in item start : Start;")
+	wantLine(t, r.Notation, "item pending : Start;")
+	wantLine(t, r.Notation, "ref item last : Start;")
+	wantLine(t, r.Notation, "in item cmd : Start;")
+	wantNoLine(t, r.Notation, "attribute def Start")
+	for _, id := range []string{"_sig", "_fp", "_own", "_seen"} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
 	}
 }

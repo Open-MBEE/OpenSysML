@@ -65,7 +65,16 @@ returned over the service yet.
 - Multiplicity follows UML's defaults: an omitted bound is 1, and a bound element without a
   `value` is 0.
 - A type referenced by `href` is a `ScalarValues` type only when the href points into the UML
-  or SysML primitive libraries; a used project's own `Real` stays external.
+  or SysML primitive libraries — by a plain fragment (`PrimitiveTypes.xmi#Real`), a dotted one
+  (`SysML.xmi#SysML_dataType.Real`), or an opaque id whose qualified name the tool records
+  beside it (MagicDraw's `referentPath`) under a standard library root. A tool library's own
+  machine-level datatypes (`float`, `double`, `int`, `long`, `short`, `byte`, `boolean`) are
+  written as `Real`/`Integer`/`Boolean` and reported as approximations; a used project's own
+  `Real` stays external.
+- A constraint block's properties are its parameters, `in attribute`s, whether the tool stores
+  them as UML Properties or (as MagicDraw does, under a «ConstraintParameter» marker) as UML
+  Ports; a `private` or `protected` parameter is written public, since the owning block's
+  binding connectors reach it from outside, and the report notes the dropped visibility.
 
 ## Mapping
 
@@ -74,18 +83,25 @@ returned over the service yet.
 | Model, Package | `package` | mapped |
 | «Block», plain Class, Actor | `part def` | mapped (Actor and plain Class: approximated) |
 | «InterfaceBlock» | `port def` | mapped |
-| «ValueType» DataType, PrimitiveType, Signal | `attribute def` (`Real`/`Integer`/`Boolean`/`String` for the SysML primitives) | mapped (Signal: approximated) |
+| «ValueType» DataType, PrimitiveType | `attribute def` (`Real`/`Integer`/`Boolean`/`String` for the SysML primitives) | mapped |
+| Signal | `item def`; properties typed by it are `item` / `ref item` | mapped |
 | Enumeration and its literals | `enum def` | mapped |
 | «ConstraintBlock» | `constraint def` with its parameters | mapped |
 | «Requirement», «AbstractRequirement» | `requirement def <id>` with `doc` holding the text; any tool-specific requirement kind applied beside it as a comment | mapped |
 | «TestCase» | `verification def` | approximated: its behavior is not migrated |
-| InstanceSpecification with slots | `individual def` / `individual` with attribute values | mapped |
+| InstanceSpecification of a block, with slots | `individual def` with attribute values | mapped |
+| InstanceSpecification of a value type | `attribute` typed by it, holding its slot values (an individual cannot specialize an attribute def) | mapped |
+| Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a unique feature, a feature of another classifier) | comment | **unmapped** |
+| Property whose default is an InstanceSpecification of a block | the individual added to the usage's types; no `default` (a definition is not a v2 value) | approximated |
+| Literal default on a value type with no scalar base (a structured value type, an enumeration) | comment | approximated |
+| Real literal on an `Integer`/`Natural` feature, numeric string on a scalar feature | converted to the feature's scalar | mapped |
 | Association with a name, «AssociationBlock» | `connection def` | mapped |
 | Anonymous association with a classifier-owned end | nothing: the end property carries it | mapped |
 | Anonymous association owning every end | a named `connection def` | approximated |
 | Value property | `attribute`, with multiplicity and default | mapped |
 | Composite part property | `part` | mapped |
 | Reference property (no aggregation) | `ref part` | mapped |
+| Undirected part or item property of an «InterfaceBlock» | `ref part` / `ref item`; a port owns no composite parts | approximated |
 | Shared aggregation | `ref part` | approximated |
 | «ConstraintProperty» | `constraint` usage | mapped |
 | Redefinition | `:>>` | mapped |
@@ -93,6 +109,7 @@ returned over the service yet.
 | Port, «ProxyPort», «FullPort» typed by an InterfaceBlock / Block | `port`, `~` when conjugated | mapped |
 | «FlowPort» typed by a value type | `port` holding one `in`/`out`/`inout` attribute | approximated |
 | «FlowProperty» | directed `attribute`/`item` in the port def | mapped |
+| `private` feature reached from outside by a connector, a slot, a redefinition or a subset | visibility dropped so the reference resolves; the report names the reacher | approximated |
 | Connector, nested ends | `connect a.b to c.d` | mapped |
 | «BindingConnector» | `bind`, or `binding name bind` when named | mapped |
 | InformationFlow / «ItemFlow» over a connector | `flow of Item from a.x to b.y` | mapped |
@@ -110,7 +127,7 @@ returned over the service yet.
 | Multiplicity bounds that are not natural numbers (a tool's `492x21` array dimensions) | omitted | approximated |
 | `NaN`/infinite real literals | comment | approximated |
 | References to ids the document does not define | the resolvable ends are written; the missing ids are named in the report | approximated |
-| OpaqueExpression defaults and constraints | copied verbatim when it parses as a v2 expression; otherwise as a `comment` | mapped / approximated |
+| OpaqueExpression defaults and constraints | copied verbatim when it parses as a v2 expression and every name it uses is visible where it is written (a parameter, an inherited feature, an enclosing member); a script's `java.util…` path or a bare enumeration literal is not, and the body stays a `comment` | mapped / approximated |
 | Activity, StateMachine, Interaction, OpaqueBehavior | comment placeholder | **unmapped** — behaviors come in a follow-up |
 | Operation, Reception | comment placeholder | **unmapped** — v2 has no operation |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
