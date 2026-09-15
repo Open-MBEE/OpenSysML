@@ -165,7 +165,7 @@ type StateGraph struct {
 	scopeOf map[*ast.StateNode]*symbols.Scope
 
 	// regionScopeOf: region → the scope its declaration was written in, for a
-	// region a usage inherits.
+	// region a usage inherits and for one synthesized from a parallel substate.
 	regionScopeOf map[*ast.StateRegion]*symbols.Scope
 
 	// behaviorScope: entry, do or exit action → the scope it was declared in,
@@ -550,6 +550,13 @@ func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
 		return decl
 	}
 	return state
+}
+
+// RegionScope is the scope a region's declaration was written in: the
+// definition's for one a usage inherits, the substate's for one a parallel body
+// synthesizes; nil for a region written as one in a hand-built graph.
+func (g *StateGraph) RegionScope(region *ast.StateRegion) *symbols.Scope {
+	return g.regionScopeOf[region]
 }
 
 // Completes reports whether entering state completes the region it belongs to:
@@ -969,6 +976,7 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 			States:   regionBody(g, wrapper, actual),
 		}
 		g.regionDecl[region] = actual
+		g.regionScopeOf[region] = childScope(member.scope, actual)
 		g.HiddenRegionOf[wrapper] = region
 		g.RegionState[region] = wrapper
 		before := len(g.States)
@@ -1095,14 +1103,11 @@ func parallelRegionBody(member ast.Node) (string, []ast.Node) {
 	}
 }
 
-// regionScope uses the source substate scope for synthesized regions and the
-// region's own scope for regions written with the extension syntax.
+// regionScope is the scope a region's body resolves in: the one recorded for a
+// synthesized or inherited region, else the region's own under scope.
 func (g *StateGraph) regionScope(scope *symbols.Scope, region *ast.StateRegion) *symbols.Scope {
-	if inherited := g.regionScopeOf[region]; inherited != nil {
-		return inherited
-	}
-	if decl := g.regionDecl[region]; decl != nil {
-		return childScope(scope, decl)
+	if recorded := g.regionScopeOf[region]; recorded != nil {
+		return recorded
 	}
 	return childScope(scope, region)
 }

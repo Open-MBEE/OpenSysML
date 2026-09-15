@@ -168,6 +168,45 @@ func TestInheritedStatesAreLocatedInTheirDefinitionsDocument(t *testing.T) {
 	}
 }
 
+// The regions a usage inherits from a parallel definition — those of the machine
+// itself and those of a composite state within it — are located in the document
+// declaring the definition, as the states in them are.
+func TestInheritedRegionsAreLocatedInTheirDefinitionsDocument(t *testing.T) {
+	machine := renderIn(t, "RegionUsages::controllerView", "regions-usages.sysml", "regions.sysml")
+	usage := findNode(t, machine.Roots, "RegionUsages::controller")
+	if usage.Origin.Doc != "regions-usages.sysml" {
+		t.Errorf("controller is located in %q, want regions-usages.sysml", usage.Origin.Doc)
+	}
+	var regions []*Node
+	var walk func([]*Node)
+	walk = func(nodes []*Node) {
+		for _, node := range nodes {
+			if node.Kind == "region" {
+				regions = append(regions, node)
+			}
+			walk(node.Children)
+		}
+	}
+	walk(machine.Roots)
+	if len(regions) != 4 {
+		t.Fatalf("got %d regions, want 4 (sensing, acting, pumps, valves); notices %v, nodes %v",
+			len(regions), machine.Notices, sortedKeys(nodeNames(machine.Roots)))
+	}
+	for _, region := range regions {
+		if region.Origin.Doc != "regions.sysml" {
+			t.Errorf("region %s is located in %q, want regions.sysml, where Regions::Controller declares it", region.Name, region.Origin.Doc)
+		}
+		if !region.Origin.Located() {
+			t.Errorf("region %s has no located declaration", region.Name)
+		}
+	}
+	for _, name := range []string{"idle", "busy", "off", "on", "shut", "open", "waiting"} {
+		if got := findNode(t, machine.Roots, name).Origin.Doc; got != "regions.sysml" {
+			t.Errorf("%s is located in %q, want regions.sysml", name, got)
+		}
+	}
+}
+
 // The nodes an action usage inherits from its definition keep their inline
 // positions, take the view's, and the usage's own succession over them its route.
 func TestInheritedActionNodesKeepTheirGeometry(t *testing.T) {

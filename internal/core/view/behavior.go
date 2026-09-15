@@ -54,7 +54,8 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	// Regions first: a state of an orthogonal region is nested in that region,
 	// and the region order is the order the machine enters and exits them in.
 	for _, region := range graph.TopRegions {
-		regions[region] = place(r.regionNode(region, docs.machine, ids), region)
+		docs.of[region] = writtenIn(graph.RegionScope(region), docs.machine)
+		regions[region] = place(r.regionNode(region, docs.of[region], ids), region)
 		root.Children = append(root.Children, regions[region])
 	}
 	for _, state := range graph.States {
@@ -63,7 +64,8 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		node := place(r.stateNode(state, graph, doc, ids), graph.DeclOf(state))
 		nodes[state] = node
 		for _, region := range graph.CompositeStates[state] {
-			regions[region] = place(r.regionNode(region, doc, ids), region)
+			docs.of[region] = writtenIn(graph.RegionScope(region), doc)
+			regions[region] = place(r.regionNode(region, docs.of[region], ids), region)
 			node.Children = append(node.Children, regions[region])
 		}
 	}
@@ -99,7 +101,6 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	for _, state := range graph.States {
 		bodies = append(bodies, stateBody{state, nodes[state]})
 		for _, region := range graph.CompositeStates[state] {
-			docs.of[region] = docs.of[state]
 			bodies = append(bodies, stateBody{region, regions[region]})
 		}
 	}
@@ -123,8 +124,9 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	return root
 }
 
-// machineDocs tells the document each vertex of a lowered machine was written
-// in: a state inherited from a definition of another document lies in that one.
+// machineDocs tells the document each vertex and region of a lowered machine
+// was written in: one inherited from a definition of another document lies in
+// that one.
 type machineDocs struct {
 	machine string
 	of      map[ast.Node]string
@@ -148,8 +150,9 @@ func (r *Renderer) declaredIn(machine *symbols.Symbol, decl ast.Node, fallback s
 	return fallback
 }
 
-// writtenIn is the document a transition was written in, which the scope its
-// names resolve in records; fallback is the document of the body holding it.
+// writtenIn is the document a transition or region was written in, which the
+// scope its names resolve in records; fallback is the document of the body
+// holding it.
 func writtenIn(scope *symbols.Scope, fallback string) string {
 	if scope != nil && scope.DocName() != "" {
 		return scope.DocName()
@@ -215,7 +218,7 @@ type stateBody struct {
 }
 
 // regionNode renders one orthogonal region, which holds the states declared in
-// it.
+// it; doc is the document its declaration was written in.
 func (r *Renderer) regionNode(region *ast.StateRegion, doc string, ids *nodeIDs) *Node {
 	return &Node{ID: ids.take(), Kind: "region", Name: nameText(region.Name), Origin: nodeOrigin(doc, region)}
 }
