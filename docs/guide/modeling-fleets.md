@@ -211,9 +211,9 @@ go run ./cmd/stress-model -planes 8 -satellites 200 -ground-stations 20 -fleet -
 | satellites | planes × per plane | form | definitions | units stating values | elements | source |
 | ---------- | ------------------ | ---- | ----------- | -------------------- | -------- | ------ |
 | 1 600 | 8 × 200 | one definition per satellite | 1 600 | 1 600 | 294 627 | 18.1 MB |
-| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 203 | 191 KB |
+| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 203 | 193 KB |
 | 12 800 | 32 × 400 | one definition per satellite | 12 800 | 12 800 | 2 354 827 | 145 MB |
-| 12 800 | 32 × 400 | fleet | 4 | 800 | 12 467 | 766 KB |
+| 12 800 | 32 × 400 | fleet | 4 | 800 | 12 467 | 771 KB |
 
 The fleet form of the 12 800-satellite constellation is **12 467 declared
 elements against 2 354 827** — a factor of 190 — and what remains grows with
