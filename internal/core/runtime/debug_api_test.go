@@ -1428,6 +1428,47 @@ func TestStateBreakpointPausesOnATransientState(t *testing.T) {
 	}
 }
 
+// A dispatch that fails entering a breakpoint state pauses on nothing, then and
+// later: the next dispatch to succeed does not pause on the state it entered.
+func TestStateBreakpointStagedByAFailedEntryIsDropped(t *testing.T) {
+	src := `package test {
+		state Machine {
+			attribute counter : Integer = 0;
+			entry; then init;
+			state init;
+			state arming {
+				entry assign counter := missingName + 1;
+			}
+			state idle;
+			transition first init accept go then arming;
+			transition first init accept rest then idle;
+			transition first arming accept rest then idle;
+		}
+	}`
+	ctx, sym := loadState(t, src, "Machine")
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	exec.SetBreakpointAt(stateNamed(t, exec, "arming"))
+	exec.SendSignal("go", nil)
+	if err := exec.ProcessNextEvent(); !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("ProcessNextEvent: %v, want ErrUnresolvedReference from the entry", err)
+	}
+	if exec.PausedAt() != nil || exec.State() == StateSuspended {
+		t.Fatalf("paused at %v in state %v after the failed entry, want no pause", exec.PausedAt(), exec.State())
+	}
+
+	exec.ClearBreakpoints()
+	exec.SendSignal("rest", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent: %v", err)
+	}
+	if exec.PausedAt() != nil || exec.State() == StateSuspended {
+		t.Fatalf("paused at %v in state %v with no breakpoint set, want none", exec.PausedAt(), exec.State())
+	}
+}
+
 // Breakpoints are cleared as a set; a pause already reached stands until resumed.
 func TestClearStateBreakpointsRunsThrough(t *testing.T) {
 	ctx, sym := loadState(t, debugStateSrc, "Cycle")

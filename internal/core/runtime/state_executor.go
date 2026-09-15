@@ -578,7 +578,7 @@ func (e *StateExecutor) processNextEvent() error {
 	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
 	e.lastEventAt = e.ctx.clock.now
 
-	mark := len(e.fired)
+	mark := e.markDispatch()
 	dispatch, err := e.dispatchEvent(event)
 	if err != nil {
 		return err
@@ -587,6 +587,13 @@ func (e *StateExecutor) processNextEvent() error {
 	e.recallDeferredEvents()
 	e.pauseAtBreakpoint(mark)
 	return nil
+}
+
+// markDispatch opens a dispatch's account: where its fired transitions begin,
+// with no state hit left staged by a dispatch that failed before pausing.
+func (e *StateExecutor) markDispatch() int {
+	e.breakpointHit = nil
+	return len(e.fired)
 }
 
 // pauseAtBreakpoint suspends the machine at the breakpoint vertex the dispatch

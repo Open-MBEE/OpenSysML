@@ -69,7 +69,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		e.changeWaits = poll.waits
 		return false, err
 	}
-	mark := len(e.fired)
+	mark := e.markDispatch()
 	fired, err := e.dispatchInOrder("on change", candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
 		// An earlier candidate's effect may have blocked this guard since the poll
 		// read it, and the fire path re-tests it: a transition that would not move
