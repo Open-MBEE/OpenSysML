@@ -2,6 +2,7 @@ package fuml
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -131,13 +132,23 @@ func TestCommittedExpectedAgreesWithTheJUnitSuite(t *testing.T) {
 
 func TestRefiredDetectsPerTokenRefiring(t *testing.T) {
 	_, e := committedExpected(t)
-	refires := map[string][]string{
-		"DecisionJoin":  {"Action_A"},
-		"ForkMergeData": {"Action_B"},
-		"ForkMerge":     {"Value(0)"},
+	type refire struct {
+		activity, action string
+		fires            int
+	}
+	refires := map[string][]refire{
+		"DecisionJoin":  {{"DecisionJoin", "Action_A", 2}},
+		"ForkMergeData": {{"ForkMergeData", "Action_B", 2}},
+		"ForkMerge":     {{"ForkMerge", "Value(0)", 2}},
 		"Copier":        nil,
 		"ForkJoin":      nil,
 		"NodeEnabler":   nil,
+		// The called activities re-fire; the caller's own actions fire once.
+		"TestSimpleActivities": {
+			{"DecisionJoin", "Action_A", 2},
+			{"ForkMerge", "Value(0)", 2},
+			{"ForkMergeData", "Action_B", 2},
+		},
 	}
 	for name, want := range refires {
 		var a *ExpectedActivity
@@ -149,13 +160,20 @@ func TestRefiredDetectsPerTokenRefiring(t *testing.T) {
 		if a == nil {
 			t.Fatalf("%s not recorded", name)
 		}
-		if got := a.Refired(); strings.Join(got, ",") != strings.Join(want, ",") {
+		var got []refire
+		for _, r := range a.Refired() {
+			if r.ActivityID == "" || r.ActionID == "" {
+				t.Errorf("%s: refire %v carries no ids", name, r)
+			}
+			got = append(got, refire{r.Activity, r.Action, r.Fires})
+		}
+		if fmt.Sprint(got) != fmt.Sprint(want) {
 			t.Errorf("%s refired %v, want %v", name, got, want)
 		}
 	}
 }
 
-func TestRefiredIgnoresTheActionsOfCalledActivities(t *testing.T) {
+func TestRefiredCountsWithinOneExecution(t *testing.T) {
 	a := ExpectedActivity{ID: "outer", Name: "Outer", Events: []ExpectedEvent{
 		{Kind: "Execute", Activity: "Outer", ID: "outer"},
 		{Kind: "Fire", Activity: "Outer", Action: "call", ID: "n1"},
@@ -165,11 +183,14 @@ func TestRefiredIgnoresTheActionsOfCalledActivities(t *testing.T) {
 		{Kind: "Fire", Activity: "Outer", Action: "call", ID: "n1"},
 		{Kind: "Execute", Activity: "Inner", ID: "inner"},
 		{Kind: "Fire", Activity: "Inner", Action: "step", ID: "n2"},
+		{Kind: "Fire", Activity: "Inner", Action: "step", ID: "n2"},
+		{Kind: "Fire", Activity: "Inner", Action: "step", ID: "n2"},
 		{Kind: "Complete", Activity: "Inner", ID: "inner"},
 		{Kind: "Complete", Activity: "Outer", ID: "outer"},
 	}}
-	if got := a.Refired(); len(got) != 1 || got[0] != "call" {
-		t.Fatalf("Refired() = %v, want [call]", got)
+	want := []Refire{{"Outer", "outer", "call", "n1", 2}, {"Inner", "inner", "step", "n2", 3}}
+	if got := a.Refired(); fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("Refired() = %v, want %v", got, want)
 	}
 }
 
@@ -184,7 +205,7 @@ func TestRefiredCountsByNodeIdentityNotName(t *testing.T) {
 		{Kind: "Fire", Activity: "Act", Action: "Value(1)", ID: "v1"},
 		{Kind: "Complete", Activity: "Act", ID: "act"},
 	}}
-	if got := a.Refired(); len(got) != 1 || got[0] != "Value(1)" {
+	if got := a.Refired(); len(got) != 1 || got[0].ActionID != "v1" {
 		t.Fatalf("Refired() = %v, want [Value(1)]", got)
 	}
 }
@@ -211,7 +232,7 @@ func TestRefiredKeepsRecursiveActivationsApart(t *testing.T) {
 		t.Fatalf("one step per activation refired %v, want none", got)
 	}
 	again := ExpectedActivity{ID: "rec", Name: "Rec", Events: events(1)}
-	if got := again.Refired(); len(got) != 1 || got[0] != "step" {
+	if got := again.Refired(); len(got) != 1 || got[0].ActionID != "s" {
 		t.Fatalf("caller stepping again after the callee refired %v, want [step]", got)
 	}
 }

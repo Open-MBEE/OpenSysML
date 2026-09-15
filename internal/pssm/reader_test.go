@@ -3,6 +3,8 @@ package pssm
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/xmi"
 )
 
 // fixtureHead opens a document in the suite's shape: the shared architecture
@@ -549,7 +551,7 @@ func TestReadActivityExpressions(t *testing.T) {
     </ownedBehavior>
   </packagedElement>
 ` + fixtureTail
-	doc, err := Parse(strings.NewReader(src))
+	doc, err := xmi.Parse(strings.NewReader(src))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -584,7 +586,7 @@ func TestReadUnsupportedNodes(t *testing.T) {
     <edge xmi:type="uml:ControlFlow" xmi:id="c2" source="cycB" target="cycA"/>
   </packagedElement>
 ` + fixtureTail
-	doc, err := Parse(strings.NewReader(src))
+	doc, err := xmi.Parse(strings.NewReader(src))
 	if err != nil {
 		t.Fatal(err)
 	}
