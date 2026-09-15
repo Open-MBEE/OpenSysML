@@ -270,6 +270,25 @@ test("movable and steerable need the placeable kind and a declared target", () =
   assert.equal(movable(table, table.nodes.get("a")!), false);
 });
 
+test("movable and steerable take a target another document declares, named or not, and no library's", () => {
+  const foreignOrigin = { ...origin, uri: "file:///work/parts.sysml" };
+  const declaration = { start: { line: 2, character: 4 }, end: { line: 2, character: 30 } };
+  const library = layoutCanvas(rendering([
+    node("a", "a", { declaredHere: true }),
+    node("b", "b", { origin: foreignOrigin }),
+    node("c", "", { fqn: undefined, declaration, origin: foreignOrigin }),
+    node("d", "d", { fqn: undefined, origin: { ...origin, uri: "sysml-stdlib:///Systems%20Library/Parts.sysml" } }),
+  ], [
+    { from: "a", to: "b", label: "", kind: "connection", fqn: "Parts::ab", origin: foreignOrigin },
+    { from: "a", to: "d", label: "", kind: "connection", origin: foreignOrigin },
+  ]));
+  assert.equal(movable(library, library.nodes.get("b")!), true);
+  assert.equal(movable(library, library.nodes.get("c")!), true);
+  assert.equal(movable(library, library.nodes.get("d")!), false);
+  assert.equal(steerable(library, library.edges[0]), true);
+  assert.equal(steerable(library, library.edges[1]), false);
+});
+
 test("movable and steerable accept a target reached by its declaration alone", () => {
   const declaration = { start: { line: 2, character: 4 }, end: { line: 2, character: 30 } };
   const unnamed = layoutCanvas(rendering([node("a", "a"), node("b", "", { fqn: undefined, declaration })], [

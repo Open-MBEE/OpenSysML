@@ -4,6 +4,7 @@
 import {
   admits,
   type ApplyModelEditParams,
+  declaredHere,
   type EdgePlacement,
   type EditPalette,
   type ModelEditOperation,
@@ -94,12 +95,12 @@ export function ownerOf(node: RenderNode | undefined, nodes: RenderNode[]): Rend
   if (!node) {
     return undefined;
   }
-  return [node, ...ancestors(node, nodes)].find((candidate) => candidate.fqn);
+  return [node, ...ancestors(node, nodes)].find(declaredHere);
 }
 
 /** rootOwner is the rendering's one declared root, or nothing when there are several. */
 export function rootOwner(nodes: RenderNode[]): RenderNode | undefined {
-  const roots = nodes.filter((node) => !node.parent && node.fqn);
+  const roots = nodes.filter((node) => !node.parent && declaredHere(node));
   return roots.length === 1 ? roots[0] : undefined;
 }
 
@@ -108,7 +109,7 @@ export const DOCUMENT_ROOT: RenderOwner = { fqn: "", feature: false };
 
 /** ownersOf: the namespaces declaring node, nearest first, the document last; undefined for a node the document does not declare. */
 export function ownersOf(node: RenderNode): RenderOwner[] | undefined {
-  return node.fqn === undefined ? undefined : [...(node.owners ?? []), DOCUMENT_ROOT];
+  return declaredHere(node) ? [...(node.owners ?? []), DOCUMENT_ROOT] : undefined;
 }
 
 /** Destination is a namespace a move may put a node into: a drawn node, or the document itself, which no node draws. */
@@ -123,7 +124,7 @@ export interface Destination {
  * owner; the document when it admits the notation and does not already own the node.
  */
 export function moveDestinations(node: RenderNode, rendering: Rendering): Destination[] {
-  if (node.fqn === undefined || node.notation === undefined) {
+  if (!declaredHere(node) || node.notation === undefined) {
     return [];
   }
   const notation = node.notation;
@@ -131,7 +132,7 @@ export function moveDestinations(node: RenderNode, rendering: Rendering): Destin
   const offered = new Set<string>([node.fqn, owner.fqn]);
   const out: Destination[] = [];
   for (const candidate of rendering.nodes) {
-    if (candidate.fqn === undefined || offered.has(candidate.fqn) || !admits(rendering.palette, notation, candidate)) {
+    if (!declaredHere(candidate) || offered.has(candidate.fqn) || !admits(rendering.palette, notation, candidate)) {
       continue;
     }
     if (
@@ -151,7 +152,7 @@ export function moveDestinations(node: RenderNode, rendering: Rendering): Destin
 
 /** moveOperation is the one operation that puts node into the namespace owner names; "" is the document. */
 export function moveOperation(node: RenderNode, owner: string): ModelEditOperation | undefined {
-  return node.fqn === undefined ? undefined : { kind: "move", target: node.fqn, owner };
+  return declaredHere(node) ? { kind: "move", target: node.fqn, owner } : undefined;
 }
 
 /** nameSegments splits a qualified name at `::` outside quotes: `'P::Q'::x` is two segments. */
@@ -208,7 +209,7 @@ function localName(fqn: string): string {
 export function endpointPath(node: RenderNode, owner: RenderOwner): string | undefined {
   const owners = ownersOf(node);
   const below = owners?.findIndex((step) => step.fqn === owner.fqn) ?? -1;
-  if (!owners || below < 0 || node.fqn === undefined) {
+  if (!owners || below < 0 || !declaredHere(node)) {
     return undefined;
   }
   const steps: RenderOwner[] = [{ fqn: node.fqn, feature: false }, ...owners.slice(0, below)].reverse();

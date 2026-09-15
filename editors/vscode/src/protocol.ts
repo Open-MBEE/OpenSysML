@@ -66,8 +66,10 @@ export interface RenderNode {
   type: string;
   detail: string;
   parent?: string;
-  /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none. */
+  /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none, and for a library's. */
   fqn?: string;
+  /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */
+  declaredHere?: boolean;
   /** The keyword the declaration was written with (`part def`, `port`); with `fqn`. A move asks its new owner to admit it. */
   notation?: string;
   /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
@@ -171,6 +173,11 @@ export interface EditPalette {
 export function admits(palette: EditPalette | undefined, memberKind: string, node: RenderNode): boolean {
   const owners = palette?.owners?.[memberKind];
   return owners ? owners.includes(node.id) : true;
+}
+
+/** declaredHere: whether the requested document declares a node, which every edit reaches; another document's takes a layout alone. */
+export function declaredHere(node: RenderNode): node is RenderNode & { fqn: string } {
+  return node.declaredHere === true && node.fqn !== undefined;
 }
 
 /** reachable: whether a layout edit can reach a node or edge — by qualified name, or by declaration when none reaches it. */

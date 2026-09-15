@@ -411,7 +411,10 @@ save are the text document's.
   annotation into, a bundled library file or a document the index holds without
   the workspace holding its source still refuses the edit, naming the file.
 - A node drawn from a bundled library, or from no workspace document, carries no
-  `fqn` and no `declaration`, so the panel does not offer to drag it.
+  `fqn` and no `declaration`, so the panel does not offer to drag it. A node another
+  workspace document declares carries its `fqn` but not `declaredHere`, so the panel
+  drags it and offers it nothing else: a rename, delete, move or member added is
+  written by the document declaring the node, from a panel of that document.
 - Only the requesting document's version travels in the request, so only it can be
   answered `stale` by the server; another document that changed between the server
   computing the edit and the client applying it is caught by the client comparing

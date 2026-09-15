@@ -64,24 +64,28 @@ type renderResult struct {
 // FQN names that declaration the way opensysml/applyModelEdit targets it, and
 // Owners the namespaces declaring it, nearest first, drawn or not. Declaration
 // stands in for FQN when no qualified name reaches the node: a layout operation
-// targets the declaration at that range of the document Origin names.
+// targets the declaration at that range of the document Origin names. Both are
+// given for a declaration of a workspace document alone, a library's being
+// beyond every operation; DeclaredHere marks the requested document's own, the
+// only ones the operations besides a layout reach.
 type renderNode struct {
-	ID          string          `json:"id"`
-	Kind        string          `json:"kind"`
-	Name        string          `json:"name"`
-	Type        string          `json:"type"`
-	Detail      string          `json:"detail"`
-	Parent      string          `json:"parent,omitempty"`
-	FQN         string          `json:"fqn,omitempty"`
-	Notation    string          `json:"notation,omitempty"`
-	Owners      []renderOwner   `json:"owners,omitempty"`
-	Declaration *protocol.Range `json:"declaration,omitempty"`
-	Origin      *renderOrigin   `json:"origin,omitempty"`
-	X           *float64        `json:"x,omitempty"`
-	Y           *float64        `json:"y,omitempty"`
-	Width       *float64        `json:"width,omitempty"`
-	Height      *float64        `json:"height,omitempty"`
-	Collapsed   bool            `json:"collapsed,omitempty"`
+	ID           string          `json:"id"`
+	Kind         string          `json:"kind"`
+	Name         string          `json:"name"`
+	Type         string          `json:"type"`
+	Detail       string          `json:"detail"`
+	Parent       string          `json:"parent,omitempty"`
+	FQN          string          `json:"fqn,omitempty"`
+	DeclaredHere bool            `json:"declaredHere,omitempty"`
+	Notation     string          `json:"notation,omitempty"`
+	Owners       []renderOwner   `json:"owners,omitempty"`
+	Declaration  *protocol.Range `json:"declaration,omitempty"`
+	Origin       *renderOrigin   `json:"origin,omitempty"`
+	X            *float64        `json:"x,omitempty"`
+	Y            *float64        `json:"y,omitempty"`
+	Width        *float64        `json:"width,omitempty"`
+	Height       *float64        `json:"height,omitempty"`
+	Collapsed    bool            `json:"collapsed,omitempty"`
 }
 
 // renderOwner is a namespace declaring a node: its qualified name, and whether
@@ -286,12 +290,13 @@ func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string
 		}
 		declaring := s.declaring(doc, node.Origin)
 		n.Origin = s.originOf(declaring, node.Origin)
-		if sym := nodeSymbol(declaring, node.Origin); sym != nil {
+		if sym := nodeSymbol(s.writable(declaring), node.Origin); sym != nil {
 			if owners, ok := nodeOwners(sym); ok {
 				n.FQN = notationName(sym)
 				n.Notation = sym.Notation()
 				n.Owners = owners
-				if out.Palette != nil && declaring.Name == name {
+				n.DeclaredHere = declaring.Name == name
+				if out.Palette != nil && n.DeclaredHere {
 					out.Palette.confine(n.Notation)
 					declared = append(declared, declaredNode{node.ID, sym.Decl})
 				}
@@ -327,7 +332,7 @@ func (s *Server) renderEdges(out *renderResult, doc *model.Document, name string
 		}
 		declaring := s.declaring(doc, edge.Origin)
 		e.Origin = s.originOf(declaring, edge.Origin)
-		if sym := nodeSymbol(declaring, edge.Origin); sym != nil {
+		if sym := nodeSymbol(s.writable(declaring), edge.Origin); sym != nil {
 			if _, ok := nodeOwners(sym); ok {
 				e.FQN = notationName(sym)
 			} else {
@@ -385,6 +390,15 @@ func (s *Server) declaring(rendered *model.Document, o view.Origin) *model.Docum
 		return rendered
 	}
 	return s.document(o.Doc)
+}
+
+// writable is declaring when an edit may write into it: a document of the
+// workspace, not a bundled library file, which no operation rewrites.
+func (s *Server) writable(declaring *model.Document) *model.Document {
+	if declaring == nil || s.ws.IsLibraryDocument(declaring.Name) {
+		return nil
+	}
+	return declaring
 }
 
 // originIn is a core origin as a client navigates to it, placed in the text of

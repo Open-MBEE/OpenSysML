@@ -81,6 +81,53 @@ func TestRenderLocatesNodesInTheDocumentDeclaringThem(t *testing.T) {
 	if engine.FQN != "Machinery::Engine" || engine.Origin == nil || engine.Origin.URI != partsURI {
 		t.Errorf("Engine = %+v, want its fqn, located in parts.sysml", engine)
 	}
+	if rotor.DeclaredHere || engine.DeclaredHere {
+		t.Errorf("rotor %v, Engine %v: another document's declarations are marked as views.sysml's own", rotor.DeclaredHere, engine.DeclaredHere)
+	}
+}
+
+// Which operations reach a node is stated, not inferred from its qualified
+// name: the requested document's own declarations are marked so, another
+// workspace document's carry a name for a layout alone, and a bundled library's
+// carry none, only where to navigate to.
+func TestRenderMarksWhatEachDocumentsNodesAdmit(t *testing.T) {
+	const views = "package EngineViews {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tpart def Mount;\n\tview engineView : InterconnectionView {\n\t\texpose Mount;\n\t\texpose Machinery::Engine;\n\t\texpose Parts::Part;\n\t}\n}\n"
+	s, viewsURI := renderServer(t, "views.sysml", views)
+	partsURI := uri.File("parts.sysml")
+	openDoc(t, s, partsURI, engineParts)
+	drawn := render(t, s, viewsURI, "EngineViews::engineView")
+
+	mount := nodeNamed(t, drawn, "EngineViews::Mount")
+	if mount.FQN != "EngineViews::Mount" || !mount.DeclaredHere || mount.Origin == nil || mount.Origin.URI != viewsURI {
+		t.Errorf("Mount = %+v, want its fqn marked as views.sysml's own", mount)
+	}
+	rotor := nodeNamed(t, drawn, "rotor")
+	if rotor.FQN != "Machinery::Engine::rotor" || rotor.DeclaredHere || rotor.Origin == nil || rotor.Origin.URI != partsURI {
+		t.Errorf("rotor = %+v, want its fqn, not marked as views.sysml's own", rotor)
+	}
+	libraryURI := libraryURI("Systems Library/Parts.sysml")
+	var library []renderNode
+	for _, n := range drawn.Nodes {
+		if n.Origin != nil && n.Origin.URI == libraryURI {
+			library = append(library, n)
+		}
+	}
+	if len(library) == 0 {
+		t.Fatalf("nodes = %+v, want some located in the bundled Parts.sysml", drawn.Nodes)
+	}
+	for _, n := range library {
+		if n.FQN != "" || n.Declaration != nil || n.DeclaredHere || n.Notation != "" || n.Owners != nil {
+			t.Errorf("library node %+v, want its origin alone: no operation reaches a bundled library file", n)
+		}
+		if n.Origin.Digest == "" {
+			t.Errorf("library node %q carries no digest", n.Name)
+		}
+	}
+	for _, e := range drawn.Edges {
+		if e.Origin != nil && e.Origin.URI == libraryURI && (e.FQN != "" || e.Declaration != nil) {
+			t.Errorf("library edge %+v, want its origin alone", e)
+		}
+	}
 }
 
 // Dragging a node the view draws from another document writes the Layout into
