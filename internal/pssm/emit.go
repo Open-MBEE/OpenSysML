@@ -216,14 +216,22 @@ func (e *emitter) machine(b *strings.Builder) error {
 	e.carryPayloads(m.Regions)
 	attrs := append([]string{`attribute log : String = "";`}, e.carriedAttrs...)
 	if e.test.Target != nil {
+		initial, err := e.factoryDefaults()
+		if err != nil {
+			return err
+		}
 		for _, a := range e.test.Target.Attributes {
 			typ := scalarTypes[a.Type]
 			if typ == "" {
 				return e.fail("attribute "+a.Name, fmt.Sprintf("type %s has no ScalarValues counterpart", a.Type))
 			}
 			decl := fmt.Sprintf("attribute %s : %s", spell(a.Name), typ)
-			if a.Default != nil {
-				lit, err := e.literal(a.Default)
+			value := a.Default
+			if written, ok := initial[a.ID]; ok {
+				value = written
+			}
+			if value != nil {
+				lit, err := e.literal(value)
 				if err != nil {
 					return err
 				}
@@ -233,6 +241,80 @@ func (e *emitter) machine(b *strings.Builder) error {
 		}
 	}
 	return e.stateBody(b, 1, machineName, "", nil, m.Regions, attrs)
+}
+
+// factoryDefaults reads the target's constructor, the owned activity
+// `<Class>$factory`: the literals it writes on the one instance it creates and
+// returns are the attributes' initial values, keyed by the attribute's id.
+// Nil when the class has no factory.
+func (e *emitter) factoryDefaults() (map[string]*Literal, error) {
+	target := e.test.Target
+	var factory *Behavior
+	for _, bh := range target.Behaviors {
+		if bh.Name == target.Name+"$factory" {
+			factory = bh
+		}
+	}
+	if factory == nil || factory.Body == nil {
+		return nil, nil
+	}
+	where := "factory of " + target.Name
+	if len(factory.Body.Unsupported) > 0 {
+		return nil, e.fail(where, "uses "+strings.Join(factory.Body.Unsupported, "; "))
+	}
+	owned := map[string]bool{}
+	for _, a := range target.Attributes {
+		owned[a.ID] = true
+	}
+	// created is the create action of the instance every statement must address.
+	var created *Expr
+	same := func(x *Expr) bool {
+		x = newInstance(x, target.Name)
+		if x == nil || created != nil && created.ID != x.ID {
+			return false
+		}
+		created = x
+		return true
+	}
+	initial := map[string]*Literal{}
+	returned := false
+	for _, st := range factory.Body.Statements {
+		switch {
+		case st.Kind == StmtStart && same(st.Receiver):
+		case st.Kind == StmtReturn:
+			if !same(st.Value) {
+				return nil, e.fail(where, fmt.Sprintf("%s returns something other than the new instance", st))
+			}
+			returned = true
+		case st.Kind == StmtAssign && same(st.Receiver) && st.Replace && st.Value != nil && st.Value.Kind == ExprLiteral:
+			if !owned[st.FeatureID] {
+				return nil, e.fail(where, fmt.Sprintf("writes %s, which is not an attribute of the class", st.Feature))
+			}
+			initial[st.FeatureID] = st.Value.Literal
+		default:
+			return nil, e.fail(where, fmt.Sprintf("%s is not a literal initialization of the new instance", st))
+		}
+	}
+	if !returned {
+		return nil, e.fail(where, "does not return the new instance")
+	}
+	return initial, nil
+}
+
+// newInstance is the creation x is a new instance of the class from: `new C()`
+// itself, or the result of calling its default constructor `new C().C()`; nil
+// when x is anything else.
+func newInstance(x *Expr, class string) *Expr {
+	if x == nil {
+		return nil
+	}
+	if x.Kind == ExprCall && x.Name == class && len(x.Args) == 0 {
+		x = x.Object
+	}
+	if x == nil || x.Kind != ExprNew || x.Name != class {
+		return nil
+	}
+	return x
 }
 
 // payloadRead matches a guard's read of a scalar payload, `data.value`.
@@ -486,7 +568,8 @@ func (e *emitter) writeDeferred(b *strings.Builder, inner string, deferred []*Tr
 }
 
 // parallelRegion emits one region of an orthogonal state as a parallel substate
-// that starts where the region's entry transition leads.
+// that starts where the region's entry transition leads; a region with none is
+// entered only where a fork's branches lead, which the lowerer checks.
 func (e *emitter) parallelRegion(b *strings.Builder, depth int, path string, r *Region) error {
 	inner := strings.Repeat("    ", depth+1)
 	regionName := path + "/" + r.Name
@@ -498,14 +581,13 @@ func (e *emitter) parallelRegion(b *strings.Builder, depth int, path string, r *
 	if err != nil {
 		return err
 	}
-	if init == nil {
-		return e.fail(regionWhere(regionName), "the lowerer refuses a fork into a region without an entry transition")
+	if init != nil {
+		target, err := e.startTarget(b, inner+"    ", init, tr, regionWhere(regionName))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(b, "%s    entry; then %s;\n", inner, target)
 	}
-	target, err := e.startTarget(b, inner+"    ", init, tr, regionWhere(regionName))
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(b, "%s    entry; then %s;\n", inner, target)
 	if err := e.region(b, depth+2, r, path); err != nil {
 		return err
 	}

@@ -107,6 +107,7 @@ type Class struct {
 
 // Attribute is a typed property with an optional default.
 type Attribute struct {
+	ID      string
 	Name    string
 	Type    string
 	Default *Literal
@@ -458,11 +459,13 @@ type Statement struct {
 	// occurrence is bound to when the body reads it ("" otherwise).
 	Events []*Event
 	Result string
-	// Assign: the feature written on Receiver and the Value written; Replace
-	// distinguishes `x = v` from `x->add(v)`. Return: the Value returned.
-	Feature string
-	Value   *Expr
-	Replace bool
+	// Assign: the feature written on Receiver, by name and xmi:id, and the
+	// Value written; Replace distinguishes `x = v` from `x->add(v)`. Return:
+	// the Value returned.
+	Feature   string
+	FeatureID string
+	Value     *Expr
+	Replace   bool
 }
 
 // StatementKind is the kind of a Statement.
@@ -529,8 +532,10 @@ type Expr struct {
 	Object *Expr
 	// Apply: the behavior applied, by its library name (Concat, ToString, Not,
 	// ...), and its arguments in parameter order. Call: the operation called on
-	// Object, with its result used as a value. New: the classifier instantiated, by Name.
+	// Object, with its result used as a value. New: the classifier instantiated,
+	// by Name, and ID the create action, one per object the behavior creates.
 	Args []Expr
+	ID   string
 	// Unknown: what the reader could not follow, for the diagnostic.
 	Text string
 }

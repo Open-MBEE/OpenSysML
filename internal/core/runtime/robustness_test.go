@@ -76,6 +76,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_accept_runs_before_the_choice_reads", testStateDoBodyAcceptRunsBeforeTheChoiceReads)
 	t.Run("state_choice_route_reads_the_accepted_payload", testStateChoiceRouteReadsTheAcceptedPayload)
 	t.Run("state_do_body_accept_shares_the_dispatch_with_a_region", testStateDoBodyAcceptSharesTheDispatchWithARegion)
+	t.Run("state_do_body_accept_shares_the_dispatch_with_a_fork_in_a_region", testStateDoBodyAcceptSharesTheDispatchWithAForkInARegion)
 	t.Run("state_do_body_nested_accept_cancelled_on_exit", testStateDoBodyNestedAcceptCancelledOnExit)
 	t.Run("state_do_typed_action_input_unbound", testStateDoTypedActionInputUnbound)
 	t.Run("state_do_typed_action_pin_bound_to_missing_feature", testStateDoTypedActionPinBoundToMissingFeature)
@@ -290,6 +291,10 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("action_body_unresolved_feature", testActionBodyUnresolvedFeature)
 	t.Run("state_body_unresolved_unit", testStateBodyUnresolvedUnit)
 	t.Run("fork_branches_share_region", testForkBranchesShareRegion)
+	t.Run("fork_leaves_a_region_without_a_way_in", testForkLeavesARegionWithoutAWayIn)
+	t.Run("fork_only_region_entered_by_default", testForkOnlyRegionEnteredByDefault)
+	t.Run("fork_branch_with_a_trigger", testForkBranchWithATrigger)
+	t.Run("nested_fork_starts_an_outer_region_by_default", testNestedForkStartsAnOuterRegionByDefault)
 	t.Run("join_with_one_incoming_branch", testJoinWithOneIncomingBranch)
 	t.Run("region_pseudostate_without_satisfied_guard", testRegionPseudostateWithoutSatisfiedGuard)
 	t.Run("region_pseudostate_cycle", testRegionPseudostateCycle)
@@ -4217,7 +4222,7 @@ func testHistoryOutsideCompositeState(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"))
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil)
 	if err == nil {
 		t.Fatal("expected an error for a history outside any composite state")
 	}
@@ -4253,7 +4258,7 @@ func testHistoryWithoutRecordDefaultOrEntry(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"))
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil)
 	if !errors.Is(err, ErrHistoryWithoutEntry) {
 		t.Fatalf("expected ErrHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
 	}
@@ -6061,6 +6066,132 @@ func testForkBranchesShareRegion(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "in the same region") {
 		t.Errorf("expected a same-region error, got: %v", err)
+	}
+}
+
+// testForkLeavesARegionWithoutAWayIn: a region a fork enters needs no entry
+// transition, but a sibling region neither enters still has no way in.
+func testForkLeavesARegionWithoutAWayIn(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		state Machine {
+			entry; then init;
+			state init;
+			state working parallel {
+				state left { state a; }
+				state right { state b; }
+				state third { state c; }
+			}
+			fork split;
+
+			transition first init then split;
+			transition first split then a;
+			transition first split then b;
+		}
+	}`)
+	if err == nil {
+		t.Fatal("expected an error for the region no fork enters")
+	}
+	if !strings.Contains(err.Error(), "region third has no initial state") {
+		t.Errorf("expected the third region's missing initial, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "region left") || strings.Contains(err.Error(), "region right") {
+		t.Errorf("the fork-entered regions were refused too: %v", err)
+	}
+}
+
+// testForkOnlyRegionEnteredByDefault: a region only a fork enters has no
+// default start, so another transition into its composite state is refused
+// before the machine runs rather than failing when that transition fires.
+func testForkOnlyRegionEnteredByDefault(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		attribute def Go;
+		state Machine {
+			entry; then init;
+			state init;
+			state working parallel {
+				state left { state a; }
+				state right { state b; }
+			}
+			fork split;
+
+			transition first init accept Go then working;
+			transition first init then split;
+			transition first split then a;
+			transition first split then b;
+		}
+	}`)
+	if err == nil {
+		t.Fatal("expected an error for the transition entering the fork-only regions by default")
+	}
+	if !strings.Contains(err.Error(), "region left in state working has no initial state") ||
+		!strings.Contains(err.Error(), "the transition from init to working") {
+		t.Errorf("expected the default entry into left to be named, got: %v", err)
+	}
+}
+
+// testForkBranchWithATrigger: a fork's branches fire as one with the fork, so a
+// branch that waits for an occurrence is refused before the machine runs rather
+// than firing regardless of it.
+func testForkBranchWithATrigger(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		attribute def Go;
+		state Machine {
+			entry; then init;
+			state init;
+			state working parallel {
+				state left { state a; }
+				state right { state b; }
+			}
+			fork split;
+
+			transition first init then split;
+			transition first split accept Go then a;
+			transition first split then b;
+		}
+	}`)
+	if err == nil {
+		t.Fatal("expected an error for the triggered fork branch")
+	}
+	if !strings.Contains(err.Error(), "fork split: outgoing transitions cannot have triggers") {
+		t.Errorf("expected the triggered branch to be refused, got: %v", err)
+	}
+}
+
+// testNestedForkStartsAnOuterRegionByDefault: a fork into a nested composite
+// state enters the outer one on the way, starting its other region by default,
+// so an outer region only another fork enters is refused before the machine runs.
+func testNestedForkStartsAnOuterRegionByDefault(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		state Machine {
+			entry; then init;
+			state init;
+			state outer parallel {
+				state o1 {
+					entry; then hold;
+					state hold;
+					state inner parallel {
+						state left { state a; }
+						state right { state b; }
+					}
+					fork split;
+					transition first split then a;
+					transition first split then b;
+				}
+				state o2 { state c; }
+			}
+			fork split2;
+
+			transition first init then split;
+			transition first split2 then hold;
+			transition first split2 then c;
+		}
+	}`)
+	if err == nil {
+		t.Fatal("expected an error for the nested fork starting o2 by default")
+	}
+	if !strings.Contains(err.Error(), "region o2 in state outer has no initial state") ||
+		!strings.Contains(err.Error(), "the transition from init to split") {
+		t.Errorf("expected the nested fork's route to be named, got: %v", err)
 	}
 }
 
@@ -14780,6 +14911,66 @@ func testStateDoBodyAcceptSharesTheDispatchWithARegion(t *testing.T) {
 	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
 		t.Errorf("total = %v after running on, want 11 still", total)
+	}
+}
+
+// testStateDoBodyAcceptSharesTheDispatchWithAForkInARegion: the transition the
+// sibling region takes leads into a fork whose branches stay within that region,
+// so the do behavior's region is kept and the behavior goes on with the signal.
+func testStateDoBodyAcceptSharesTheDispatchWithAForkInARegion(t *testing.T) {
+	src := `
+	private import ScalarValues::*;
+	attribute def Go;
+	state def Waiter parallel {
+		attribute total : Integer = 0;
+		state left {
+			entry; then lwork;
+			state lwork {
+				do action work {
+					first start;
+					then action reader accept Go;
+					then action count assign total := total + 10;
+					then done;
+				}
+			}
+		}
+		state right {
+			entry; then rwait;
+			state rwait;
+			fork split;
+			transition leave first rwait accept Go then split;
+			state rwork parallel {
+				state ra { state a { entry assign total := total + 1; } }
+				state rb { state b { entry assign total := total + 2; } }
+			}
+			transition first split then a;
+			transition first split then b;
+		}
+	}
+	part def Box { exhibit state w : Waiter; }
+	`
+	exec, ctx, goMsg := boxDoBehaviorParkedAtGo(t, src)
+	decision, err := exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go): %v", err)
+	}
+	want := Decision{Fires: []string{"transition leave"}, Resumes: []string{"do behavior of state lwork"}}
+	if !reflect.DeepEqual(decision, want) {
+		t.Errorf("Decide(Go) = %+v, want %+v: the fork leaves only its own region, so the sibling's do behavior takes the signal too", decision, want)
+	}
+	ctx.PostMessage(goMsg)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the message: %v", err)
+	}
+	dispatch, ok := exec.LastDispatch()
+	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
+	}
+	if len(ctx.PendingMessages()) != 0 {
+		t.Errorf("%d messages in flight, want the one message consumed", len(ctx.PendingMessages()))
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(13)) {
+		t.Errorf("total = %v, want 13: the do behavior's count, then the entries of a and b", total)
 	}
 }
 
