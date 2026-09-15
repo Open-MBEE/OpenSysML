@@ -1,0 +1,22 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"outcomes": [
+		{
+			"finalState": "left",
+			"stateVisits": ["idle", "left"],
+			"outputs": {
+				"route": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"finalState": "right",
+			"stateVisits": ["idle", "right"],
+			"outputs": {
+				"route": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "Two branches of a junction enabled when the transition is selected: exactly one is taken, which one is open"
+}
