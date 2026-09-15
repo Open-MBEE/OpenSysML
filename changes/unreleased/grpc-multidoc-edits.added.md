@@ -11,7 +11,11 @@
   content — names each referrer with its document in `referrers` (new field 8, `Referrer{name,
   document}`) beside the textual `referring_elements`. `ApplyEditsRequest.document` (new field 3)
   selects a document other than the model's first for the operations to target; a name that is
-  not one of the model's is `INVALID_ARGUMENT`. `EDIT_FAILURE_REFERENCED_ELSEWHERE` is appended
+  not one of the model's is `INVALID_ARGUMENT`. `ApplyEditsRequest.accept_documents` (new field 4)
+  says the client reads `documents`: a model of several is edited only for a request setting it,
+  and one leaving it unset — every request a client of the previous schema sends — is refused on
+  such a model with `FAILED_PRECONDITION` as before, so a client reading `content` alone is never
+  answered an empty one; a model of one document ignores it. `EDIT_FAILURE_REFERENCED_ELSEWHERE` is appended
   for a rename, delete or move referred to from a document the edit cannot rewrite — a move
   respells references in its own document only, so one referred to from another document of the
   model is refused this way. No existing field changed number, type or meaning, so a generated

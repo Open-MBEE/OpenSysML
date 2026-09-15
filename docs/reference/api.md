@@ -64,7 +64,10 @@ of several, even when the batch rewrote only one of them. The operations name el
 in the model's first document; `ApplyDocumentEdits` names another. A rename or cascade delete
 follows its references into the model's other documents, every touched document is re-parsed
 and re-analysed together, and either all of them are answered or the refusal — an `*EditError`
-whose `Referrers` name each referrer with its document — carries none.
+whose `Referrers` name each referrer with its document — carries none. The client sets the
+request's `accept_documents`, which is what lets a model of several documents be edited: a
+request without it, as every earlier client sends, is refused on such a model with
+`FAILED_PRECONDITION` as before, so a caller reading `content` alone is never handed an empty one.
 
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})

@@ -10,9 +10,10 @@ package org.openmbee.opensysml.proto;
  * ApplyEditsRequest asks for a model's source with edits applied to it. The
  * source edited is the one parse read, named by its hash, so an edit is applied
  * to the model that was inspected. A model of several documents (ParseSources)
- * is edited as one: the operations target declarations of the document named
- * by `document`, and a rename or cascade delete follows references into every
- * other document of the model, rewriting those too.
+ * is edited as one when the request sets `accept_documents`: the operations
+ * target declarations of the document named by `document`, and a rename or
+ * cascade delete follows references into every other document of the model,
+ * rewriting those too.
  * </pre>
  *
  * Protobuf type {@code sysml.ApplyEditsRequest}
@@ -223,6 +224,22 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int ACCEPT_DOCUMENTS_FIELD_NUMBER = 4;
+  private boolean acceptDocuments_ = false;
+  /**
+   * <pre>
+   * Whether the client reads the response's `documents`. A model of several documents is
+   * edited only when set; unset, such a model is refused as a failed precondition, as before.
+   * </pre>
+   *
+   * <code>bool accept_documents = 4 [json_name = "acceptDocuments"];</code>
+   * @return The acceptDocuments.
+   */
+  @java.lang.Override
+  public boolean getAcceptDocuments() {
+    return acceptDocuments_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -246,6 +263,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(document_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 3, document_);
     }
+    if (acceptDocuments_ != false) {
+      output.writeBool(4, acceptDocuments_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -264,6 +284,10 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(document_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(3, document_);
+    }
+    if (acceptDocuments_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(4, acceptDocuments_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -286,6 +310,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getOperationsList())) return false;
     if (!getDocument()
         .equals(other.getDocument())) return false;
+    if (getAcceptDocuments()
+        != other.getAcceptDocuments()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -305,6 +331,9 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + DOCUMENT_FIELD_NUMBER;
     hash = (53 * hash) + getDocument().hashCode();
+    hash = (37 * hash) + ACCEPT_DOCUMENTS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getAcceptDocuments());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -407,9 +436,10 @@ private static final long serialVersionUID = 0L;
    * ApplyEditsRequest asks for a model's source with edits applied to it. The
    * source edited is the one parse read, named by its hash, so an edit is applied
    * to the model that was inspected. A model of several documents (ParseSources)
-   * is edited as one: the operations target declarations of the document named
-   * by `document`, and a rename or cascade delete follows references into every
-   * other document of the model, rewriting those too.
+   * is edited as one when the request sets `accept_documents`: the operations
+   * target declarations of the document named by `document`, and a rename or
+   * cascade delete follows references into every other document of the model,
+   * rewriting those too.
    * </pre>
    *
    * Protobuf type {@code sysml.ApplyEditsRequest}
@@ -454,6 +484,7 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000002);
       document_ = "";
+      acceptDocuments_ = false;
       return this;
     }
 
@@ -506,6 +537,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000004) != 0)) {
         result.document_ = document_;
       }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.acceptDocuments_ = acceptDocuments_;
+      }
     }
 
     @java.lang.Override
@@ -556,6 +590,9 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000004;
         onChanged();
       }
+      if (other.getAcceptDocuments() != false) {
+        setAcceptDocuments(other.getAcceptDocuments());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -605,6 +642,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000004;
               break;
             } // case 26
+            case 32: {
+              acceptDocuments_ = input.readBool();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 32
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1152,6 +1194,53 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       document_ = value;
       bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private boolean acceptDocuments_ ;
+    /**
+     * <pre>
+     * Whether the client reads the response's `documents`. A model of several documents is
+     * edited only when set; unset, such a model is refused as a failed precondition, as before.
+     * </pre>
+     *
+     * <code>bool accept_documents = 4 [json_name = "acceptDocuments"];</code>
+     * @return The acceptDocuments.
+     */
+    @java.lang.Override
+    public boolean getAcceptDocuments() {
+      return acceptDocuments_;
+    }
+    /**
+     * <pre>
+     * Whether the client reads the response's `documents`. A model of several documents is
+     * edited only when set; unset, such a model is refused as a failed precondition, as before.
+     * </pre>
+     *
+     * <code>bool accept_documents = 4 [json_name = "acceptDocuments"];</code>
+     * @param value The acceptDocuments to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAcceptDocuments(boolean value) {
+
+      acceptDocuments_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whether the client reads the response's `documents`. A model of several documents is
+     * edited only when set; unset, such a model is refused as a failed precondition, as before.
+     * </pre>
+     *
+     * <code>bool accept_documents = 4 [json_name = "acceptDocuments"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAcceptDocuments() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      acceptDocuments_ = false;
       onChanged();
       return this;
     }

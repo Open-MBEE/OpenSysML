@@ -347,7 +347,7 @@ def test_apply_edits_is_an_added_rpc():
 def test_edit_messages_pin_their_field_numbers():
     """The edit messages' own numbering, pinned from the release that added it."""
     expected = {
-        "ApplyEditsRequest": {"model_hash": 1, "operations": 2, "document": 3},
+        "ApplyEditsRequest": {"model_hash": 1, "operations": 2, "document": 3, "accept_documents": 4},
         "EditOperation": {
             "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5
         },

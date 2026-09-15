@@ -708,14 +708,16 @@ class ConvertResponse(_message.Message):
     def __init__(self, content: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., experimental: _Optional[bool] = ..., experimental_notice: _Optional[str] = ...) -> None: ...
 
 class ApplyEditsRequest(_message.Message):
-    __slots__ = ("model_hash", "operations", "document")
+    __slots__ = ("model_hash", "operations", "document", "accept_documents")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     OPERATIONS_FIELD_NUMBER: _ClassVar[int]
     DOCUMENT_FIELD_NUMBER: _ClassVar[int]
+    ACCEPT_DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     operations: _containers.RepeatedCompositeFieldContainer[EditOperation]
     document: str
-    def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ...) -> None: ...
+    accept_documents: bool
+    def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
     __slots__ = ("set_value", "rename", "add_member", "delete", "move")

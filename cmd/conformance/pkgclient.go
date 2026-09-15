@@ -696,7 +696,11 @@ func (c *pkgClient) applyEdits(ctx context.Context, request protoreflect.Message
 		}
 		edits = append(edits, edit)
 	}
-	result, err := c.api.ApplyDocumentEdits(ctx, c.model(req.ModelHash), req.Document, edits...)
+	model := c.model(req.ModelHash)
+	if !req.AcceptDocuments && len(model.Roots) > 1 {
+		return nil, &uncoveredError{reason: "the public Go API always accepts documents, so it cannot send a legacy-shaped edit of a model of several"}
+	}
+	result, err := c.api.ApplyDocumentEdits(ctx, model, req.Document, edits...)
 	var editErr *opensysml.EditError
 	if errors.As(err, &editErr) {
 		response := &pb.ApplyEditsResponse{

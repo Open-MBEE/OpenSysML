@@ -150,7 +150,7 @@ func TestApplyEditsJudgesEachDocumentAtTheParsedStrictness(t *testing.T) {
 				t.Fatalf("fixture has diagnostics: %v", parsed.Diagnostics)
 			}
 			resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-				ModelHash: parsed.ModelHash, Document: "req.sysml",
+				ModelHash: parsed.ModelHash, AcceptDocuments: true, Document: "req.sysml",
 				Operations: []*pb.EditOperation{moveOp("P::R::c", "P::V")},
 			})
 			if err != nil {

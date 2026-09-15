@@ -45,7 +45,7 @@ func mustApplied(t *testing.T, srv *Service, hash string, ops ...*pb.EditOperati
 // test on a call failure or a refusal.
 func mustAppliedIn(t *testing.T, srv *Service, hash, document string, ops ...*pb.EditOperation) *pb.ApplyEditsResponse {
 	t.Helper()
-	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{ModelHash: hash, Document: document, Operations: ops})
+	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{ModelHash: hash, Document: document, Operations: ops, AcceptDocuments: true})
 	if err != nil {
 		t.Fatalf("ApplyEdits failed: %v", err)
 	}
@@ -113,6 +113,55 @@ func TestApplyEditsSingleDocumentIsNamedAsParsed(t *testing.T) {
 	}
 	if got := documentNames(resp); len(got) != 1 || got[0] != "demo.sysml" {
 		t.Errorf("documents = %v, want [demo.sysml]", got)
+	}
+}
+
+// A request not accepting documents reads only content, which a model of several leaves
+// empty, so it is refused before anything is edited, whatever document it names.
+func TestApplyEditsRefusesAModelOfSeveralUnlessDocumentsAreAccepted(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedSources(t, srv, "p.sysml", editDocP, "q.sysml", editDocQ)
+
+	for _, document := range []string{"", "q.sysml", "missing.sysml"} {
+		_, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+			ModelHash: hash, Document: document, Operations: []*pb.EditOperation{renameOp("P::Keep", "Kept")},
+		})
+		if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+			t.Fatalf("document %q: err = %v, want FAILED_PRECONDITION", document, err)
+		}
+		if !strings.Contains(err.Error(), "accept_documents") || !strings.Contains(err.Error(), "2 documents") {
+			t.Errorf("document %q: err %q does not name accept_documents and the document count", document, err)
+		}
+	}
+
+	resp := mustApplied(t, srv, hash, renameOp("P::Keep", "Kept"))
+	if got := strings.Join(documentNames(resp), ","); got != "p.sysml,q.sysml" {
+		t.Errorf("accepting documents: documents = %v, want p.sysml and q.sysml", documentNames(resp))
+	}
+}
+
+// A model of one document is edited whether or not the request accepts
+// documents, and answers content and documents alike either way.
+func TestApplyEditsSingleDocumentIgnoresAcceptDocuments(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedSources(t, srv, "demo.sysml", editModelSource)
+
+	var answers []*pb.ApplyEditsResponse
+	for _, accept := range []bool{false, true} {
+		resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+			ModelHash: hash, AcceptDocuments: accept,
+			Operations: []*pb.EditOperation{setValueOp("Demo::SC::unitMass", "1050.0[SI::kg]")},
+		})
+		if err != nil {
+			t.Fatalf("accept_documents=%t: ApplyEdits failed: %v", accept, err)
+		}
+		if resp.Error != "" || resp.Content == "" || len(resp.Documents) != 1 {
+			t.Fatalf("accept_documents=%t: error=%q content=%q documents=%v", accept, resp.Error, resp.Content, documentNames(resp))
+		}
+		answers = append(answers, resp)
+	}
+	if answers[0].Content != answers[1].Content || answers[0].Documents[0].Content != answers[1].Documents[0].Content {
+		t.Error("a single-document model answered differently with and without accept_documents")
 	}
 }
 
@@ -200,7 +249,7 @@ func TestApplyEditsRefusalNamesReferrersInOtherDocuments(t *testing.T) {
 	hash := mustParsedSources(t, srv, "p.sysml", editDocP, "q.sysml", editDocQ)
 
 	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-		ModelHash: hash, Operations: []*pb.EditOperation{deleteOp("P::Base", false)},
+		ModelHash: hash, AcceptDocuments: true, Operations: []*pb.EditOperation{deleteOp("P::Base", false)},
 	})
 	if err != nil {
 		t.Fatalf("ApplyEdits failed: %v", err)
@@ -233,7 +282,7 @@ func TestApplyEditsMoveReferredToFromAnotherDocumentIsRefused(t *testing.T) {
 	hash := mustParsedSources(t, srv, "p.sysml", editDocP, "q.sysml", editDocQ)
 
 	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-		ModelHash: hash, Operations: []*pb.EditOperation{
+		ModelHash: hash, AcceptDocuments: true, Operations: []*pb.EditOperation{
 			addMemberOp("P", "package", "Inner"),
 			moveOp("P::Keep", "P::Inner"),
 		},
@@ -260,7 +309,7 @@ func TestApplyEditsAcrossDocumentsIsAtomic(t *testing.T) {
 	hash := mustParsedSources(t, srv, "p.sysml", editDocP, "q.sysml", editDocQ)
 
 	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-		ModelHash: hash, Operations: []*pb.EditOperation{
+		ModelHash: hash, AcceptDocuments: true, Operations: []*pb.EditOperation{
 			renameOp("P::Keep", "Kept"),
 			deleteOp("P::Base", false),
 		},
@@ -288,7 +337,7 @@ func TestApplyEditsRefusesARenameAnotherDocumentWouldCapture(t *testing.T) {
 	)
 
 	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-		ModelHash: hash, Operations: []*pb.EditOperation{renameOp("P::Old", "Fresh")},
+		ModelHash: hash, AcceptDocuments: true, Operations: []*pb.EditOperation{renameOp("P::Old", "Fresh")},
 	})
 	if err != nil {
 		t.Fatalf("ApplyEdits failed: %v", err)
@@ -319,7 +368,7 @@ func TestApplyEditsNamesTheReferrerAMoveCannotRespell(t *testing.T) {
 			"    part def Other;\n    part h : H;\n    part c : Base = h.b;\n}\n")
 
 	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-		ModelHash: hash, Operations: []*pb.EditOperation{moveOp("P::H::b", "P::Other")},
+		ModelHash: hash, AcceptDocuments: true, Operations: []*pb.EditOperation{moveOp("P::H::b", "P::Other")},
 	})
 	if err != nil {
 		t.Fatalf("ApplyEdits failed: %v", err)
@@ -345,7 +394,7 @@ func TestApplyEditsRejectsAnUnknownDocument(t *testing.T) {
 	hash := mustParsedSources(t, srv, "p.sysml", editDocP, "q.sysml", editDocQ)
 
 	_, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-		ModelHash: hash, Document: "r.sysml", Operations: []*pb.EditOperation{renameOp("P::Keep", "Kept")},
+		ModelHash: hash, AcceptDocuments: true, Document: "r.sysml", Operations: []*pb.EditOperation{renameOp("P::Keep", "Kept")},
 	})
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("err = %v, want INVALID_ARGUMENT", err)
@@ -362,7 +411,7 @@ func TestApplyEditsRefusesATargetOfAnotherDocument(t *testing.T) {
 	hash := mustParsedSources(t, srv, "p.sysml", editDocP, "q.sysml", editDocQ)
 
 	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-		ModelHash: hash, Operations: []*pb.EditOperation{renameOp("Q::k", "kept")},
+		ModelHash: hash, AcceptDocuments: true, Operations: []*pb.EditOperation{renameOp("Q::k", "kept")},
 	})
 	if err != nil {
 		t.Fatalf("ApplyEdits failed: %v", err)
@@ -396,7 +445,7 @@ func TestApplyEditsValidatesAgainstTheOtherDocuments(t *testing.T) {
 	}
 
 	refused, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-		ModelHash: hash, Document: "top.sysml",
+		ModelHash: hash, AcceptDocuments: true, Document: "top.sysml",
 		Operations: []*pb.EditOperation{setValueOp("Top::Car::rating", "Lib::peakPower")},
 	})
 	if err != nil {

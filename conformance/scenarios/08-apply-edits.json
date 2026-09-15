@@ -169,6 +169,7 @@
       },
       "request": {
         "model_hash": "${model_hash}",
+        "accept_documents": true,
         "operations": [
           {
             "rename": {
@@ -216,6 +217,35 @@
       }
     },
     {
+      "id": "apply_edits/a_request_not_accepting_documents_is_refused_on_a_model_of_several",
+      "description": "A request that leaves accept_documents unset reads only content, which a model of several documents leaves empty; it is refused as a failed precondition, as every request against such a model was before documents existed, so a client written against content alone never writes an empty one.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits"
+      ],
+      "model": {
+        "fixtures": [
+          "engine_library.sysml",
+          "engine_user.sysml"
+        ]
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "rename": {
+              "target": "EngineLibrary::Engine",
+              "new_name": "Motor"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "FAILED_PRECONDITION",
+        "status_message_contains": "accept_documents"
+      }
+    },
+    {
       "id": "apply_edits/a_cascade_delete_removes_the_declarations_in_other_documents",
       "description": "A cascade delete removes the target and every declaration the deletion would leave dangling, wherever it is declared.",
       "rpc": "ApplyEdits",
@@ -231,6 +261,7 @@
       },
       "request": {
         "model_hash": "${model_hash}",
+        "accept_documents": true,
         "operations": [
           {
             "delete": {
@@ -288,6 +319,7 @@
       },
       "request": {
         "model_hash": "${model_hash}",
+        "accept_documents": true,
         "document": "engine_user.sysml",
         "operations": [
           {
@@ -339,6 +371,7 @@
       },
       "request": {
         "model_hash": "${model_hash}",
+        "accept_documents": true,
         "operations": [
           {
             "delete": {

@@ -106,4 +106,15 @@ public interface ApplyEditsRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDocumentBytes();
+
+  /**
+   * <pre>
+   * Whether the client reads the response's `documents`. A model of several documents is
+   * edited only when set; unset, such a model is refused as a failed precondition, as before.
+   * </pre>
+   *
+   * <code>bool accept_documents = 4 [json_name = "acceptDocuments"];</code>
+   * @return The acceptDocuments.
+   */
+  boolean getAcceptDocuments();
 }

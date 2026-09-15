@@ -301,7 +301,8 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 	if err != nil {
 		return nil, err
 	}
-	req := &pb.ApplyEditsRequest{ModelHash: hash, Document: document}
+	// This client reads Documents, so a model of several documents may be edited.
+	req := &pb.ApplyEditsRequest{ModelHash: hash, Document: document, AcceptDocuments: true}
 	for _, edit := range edits {
 		operation, err := editToProto(edit)
 		if err != nil {

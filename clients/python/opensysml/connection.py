@@ -958,7 +958,8 @@ class Connection:
         """
         info = self.server_info()
         require(info, CAPABILITY_APPLY_EDITS, upgrade_remedy(CAPABILITY_APPLY_EDITS))
-        request = sysml_pb2.ApplyEditsRequest(model_hash=model_hash)
+        # This client reads ``documents``, so a model of several may be edited.
+        request = sysml_pb2.ApplyEditsRequest(model_hash=model_hash, accept_documents=True)
         requests_authoring = False
         for operation_data in operations:
             operation = request.operations.add()

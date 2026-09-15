@@ -777,9 +777,10 @@ message ConvertResponse {
 // ApplyEditsRequest asks for a model's source with edits applied to it. The
 // source edited is the one parse read, named by its hash, so an edit is applied
 // to the model that was inspected. A model of several documents (ParseSources)
-// is edited as one: the operations target declarations of the document named
-// by `document`, and a rename or cascade delete follows references into every
-// other document of the model, rewriting those too.
+// is edited as one when the request sets `accept_documents`: the operations
+// target declarations of the document named by `document`, and a rename or
+// cascade delete follows references into every other document of the model,
+// rewriting those too.
 message ApplyEditsRequest {
   string model_hash = 1;  // from a ParseFile or ParseSources response
   // Edits to apply, all of them or none. Empty is rejected: it names no edit,
@@ -791,6 +792,9 @@ message ApplyEditsRequest {
   // another document is refused as an unknown target, naming that document. A
   // name no document of the model has fails the call as an invalid argument.
   string document = 3;
+  // Whether the client reads the response's `documents`. A model of several documents is
+  // edited only when set; unset, such a model is refused as a failed precondition, as before.
+  bool accept_documents = 4;
 }
 
 // EditOperation is one source-preserving change to make.

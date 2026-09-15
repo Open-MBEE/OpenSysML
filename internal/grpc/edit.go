@@ -15,12 +15,14 @@ import (
 
 // ApplyEdits edits the source a model was parsed from and returns the edited
 // notation, so a client can change a model and write it back with its comments
-// and layout intact. A model of several documents is edited as one: the
-// operations target the document the request names, a rename or cascade delete
-// follows references into every other, and the response carries each document
-// the edits rewrote, or none when they were refused. Argument faults fail the
-// call; an edit the engine refuses is reported in the response's error, failure
-// kind and diagnostics.
+// and layout intact. A model of several documents is edited as one, for a
+// request that accepts documents: the operations target the document the
+// request names, a rename or cascade delete follows references into every
+// other, and the response carries each document the edits rewrote, or none
+// when they were refused. A request not accepting documents is refused on such
+// a model, since it reads only content. Argument faults fail the call; an edit
+// the engine refuses is reported in the response's error, failure kind and
+// diagnostics.
 func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error) {
 	if err := s.requireCapability(CapabilityApplyEdits); err != nil {
 		return nil, err
@@ -43,6 +45,9 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 	if err != nil {
 		return nil, err
 	}
+	if err := acceptsDocuments(cached, req.AcceptDocuments); err != nil {
+		return nil, err
+	}
 	edited, err := editedDocument(cached, req.Document)
 	if err != nil {
 		return nil, err
@@ -53,6 +58,17 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 		return s.editRefusal(err, edited.Source)
 	}
 	return editResultToProto(result, edited.Source.Name(), len(cached.Documents) == 1), nil
+}
+
+// acceptsDocuments refuses a model of several documents for a request that did not say it
+// reads the response's documents: it reads content alone, which such a model leaves empty.
+func acceptsDocuments(cached *CachedModel, accept bool) error {
+	if accept || len(cached.Documents) == 1 {
+		return nil
+	}
+	return statusErrorf(connect.CodeFailedPrecondition,
+		"the model has %d documents, and the request reads only content: "+
+			"set accept_documents to have each edited document answered in documents", len(cached.Documents))
 }
 
 // editedDocument is the document a request's operations target: the one it

@@ -178,7 +178,8 @@ service still serves them, and `Connection::call` is the escape hatch: it sends 
 method's request message from `opensysml::wire` and decodes the response without
 the ergonomic layer, so an RPC the typed API does not wrap — `RunAnalysis`,
 `RunSweep`, `ApplyEdits` (whose `documents` lists every document an edit rewrote,
-by parse name, beside the sole-document `content`) — can still be made. In-band `error` fields are the caller's to read,
+by parse name, beside the sole-document `content`; a model of several documents is
+edited only for a request setting `accept_documents`) — can still be made. In-band `error` fields are the caller's to read,
 and `Capabilities::has` gates the response fields the same way.
 
 ## Conformance

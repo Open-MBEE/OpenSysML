@@ -160,8 +160,10 @@ class EditResult(Conversion):
     ``str(result)`` is the edited text and ``result.save(path)`` writes it, so an
     edit is written the way a conversion is. ``content`` is the notation of a
     model of one document, which is every model this client loads; a model of
-    several documents, edited through the service directly, answers with its
-    rewritten documents in ``documents`` and an empty ``content``.
+    several documents, edited through the service directly by a request that
+    accepts documents, answers with its rewritten documents in ``documents``
+    and an empty ``content``. A request not accepting them is refused on such
+    a model, as every request was before ``documents`` existed.
 
     Attributes:
         applied: What each operation changed, grouped by document in the order

@@ -3918,9 +3918,10 @@ func (x *ConvertResponse) GetExperimentalNotice() string {
 // ApplyEditsRequest asks for a model's source with edits applied to it. The
 // source edited is the one parse read, named by its hash, so an edit is applied
 // to the model that was inspected. A model of several documents (ParseSources)
-// is edited as one: the operations target declarations of the document named
-// by `document`, and a rename or cascade delete follows references into every
-// other document of the model, rewriting those too.
+// is edited as one when the request sets `accept_documents`: the operations
+// target declarations of the document named by `document`, and a rename or
+// cascade delete follows references into every other document of the model,
+// rewriting those too.
 type ApplyEditsRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"` // from a ParseFile or ParseSources response
@@ -3932,9 +3933,12 @@ type ApplyEditsRequest struct {
 	// only one of a ParseFile model. An operation targeting a declaration of
 	// another document is refused as an unknown target, naming that document. A
 	// name no document of the model has fails the call as an invalid argument.
-	Document      string `protobuf:"bytes,3,opt,name=document,proto3" json:"document,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Document string `protobuf:"bytes,3,opt,name=document,proto3" json:"document,omitempty"`
+	// Whether the client reads the response's `documents`. A model of several documents is
+	// edited only when set; unset, such a model is refused as a failed precondition, as before.
+	AcceptDocuments bool `protobuf:"varint,4,opt,name=accept_documents,json=acceptDocuments,proto3" json:"accept_documents,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ApplyEditsRequest) Reset() {
@@ -3986,6 +3990,13 @@ func (x *ApplyEditsRequest) GetDocument() string {
 		return x.Document
 	}
 	return ""
+}
+
+func (x *ApplyEditsRequest) GetAcceptDocuments() bool {
+	if x != nil {
+		return x.AcceptDocuments
+	}
+	return false
 }
 
 // EditOperation is one source-preserving change to make.
@@ -8915,14 +8926,15 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05error\x18\x04 \x01(\tR\x05error\x123\n" +
 	"\vdiagnostics\x18\x05 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12\"\n" +
 	"\fexperimental\x18\x06 \x01(\bR\fexperimental\x12/\n" +
-	"\x13experimental_notice\x18\a \x01(\tR\x12experimentalNotice\"\x84\x01\n" +
+	"\x13experimental_notice\x18\a \x01(\tR\x12experimentalNotice\"\xaf\x01\n" +
 	"\x11ApplyEditsRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x124\n" +
 	"\n" +
 	"operations\x18\x02 \x03(\v2\x14.sysml.EditOperationR\n" +
 	"operations\x12\x1a\n" +
-	"\bdocument\x18\x03 \x01(\tR\bdocument\"\x88\x02\n" +
+	"\bdocument\x18\x03 \x01(\tR\bdocument\x12)\n" +
+	"\x10accept_documents\x18\x04 \x01(\bR\x0facceptDocuments\"\x88\x02\n" +
 	"\rEditOperation\x122\n" +
 	"\tset_value\x18\x01 \x01(\v2\x13.sysml.SetValueEditH\x00R\bsetValue\x12+\n" +
 	"\x06rename\x18\x02 \x01(\v2\x11.sysml.RenameEditH\x00R\x06rename\x125\n" +

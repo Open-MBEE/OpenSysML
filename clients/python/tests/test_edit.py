@@ -535,6 +535,17 @@ def test_a_model_of_several_documents_answers_documents_not_content(fake_service
     assert result.applied[0].document == "lib.sysml"
 
 
+def test_every_request_accepts_documents(fake_service):
+    """The client reads documents, so it says so; the service edits a model of several
+    only for a request that does, and refuses one that does not as it always did."""
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.set_value("Demo::SC::unitMass", "1050.0[SI::kg]")
+        edit.apply()
+    assert [request.accept_documents for request in service.requests] == [True]
+
+
 def test_an_evicted_model_names_the_eviction(fake_service):
     """A model the service no longer holds is reported as such, as convert does."""
     port, _ = fake_service(not_found=True)

@@ -141,7 +141,13 @@ func TestOneDocumentOperationsRefuseAModelOfSeveral(t *testing.T) {
 		t.Errorf("Convert err = %v, want a FAILED_PRECONDITION naming the one-document limit", convertErr)
 	}
 
-	edited, editErr := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{ModelHash: resp.ModelHash})
+	_, legacyErr := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{ModelHash: resp.ModelHash})
+	if connect.CodeOf(legacyErr) != connect.CodeFailedPrecondition ||
+		!strings.Contains(legacyErr.Error(), "accept_documents") {
+		t.Errorf("ApplyEdits err = %v, want a FAILED_PRECONDITION naming accept_documents", legacyErr)
+	}
+
+	edited, editErr := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{ModelHash: resp.ModelHash, AcceptDocuments: true})
 	if editErr != nil {
 		t.Fatalf("ApplyEdits err = %v, want the empty request refused in the response", editErr)
 	}

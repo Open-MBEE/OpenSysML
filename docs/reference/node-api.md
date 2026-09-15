@@ -216,7 +216,8 @@ the verification helpers, `Query`, `GetDiagnostics`, `EvaluateCalc`, `RunAnalysi
 `ApplyEditsResponse.documents` lists every document an edit rewrote by its parse
 name, `applied[].document` names the document each change belongs to, and
 `referrers` names each referrer of a refused delete or rename with its document;
-`content` is filled only for a model of one document. `ParseSources`, which makes
+`content` is filled only for a model of one document, and a model of several is
+edited only for a request setting `acceptDocuments`. `ParseSources`, which makes
 a model of several, is likewise reached through `connection.rpc` only.
 
 ## Conformance

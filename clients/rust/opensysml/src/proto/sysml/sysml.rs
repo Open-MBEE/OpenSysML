@@ -920,9 +920,10 @@ pub struct ConvertResponse {
 /// ApplyEditsRequest asks for a model's source with edits applied to it. The
 /// source edited is the one parse read, named by its hash, so an edit is applied
 /// to the model that was inspected. A model of several documents (ParseSources)
-/// is edited as one: the operations target declarations of the document named
-/// by `document`, and a rename or cascade delete follows references into every
-/// other document of the model, rewriting those too.
+/// is edited as one when the request sets `accept_documents`: the operations
+/// target declarations of the document named by `document`, and a rename or
+/// cascade delete follows references into every other document of the model,
+/// rewriting those too.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyEditsRequest {
     /// from a ParseFile or ParseSources response
@@ -939,6 +940,10 @@ pub struct ApplyEditsRequest {
     /// name no document of the model has fails the call as an invalid argument.
     #[prost(string, tag="3")]
     pub document: ::prost::alloc::string::String,
+    /// Whether the client reads the response's `documents`. A model of several documents is
+    /// edited only when set; unset, such a model is refused as a failed precondition, as before.
+    #[prost(bool, tag="4")]
+    pub accept_documents: bool,
 }
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

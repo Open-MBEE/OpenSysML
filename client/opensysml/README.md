@@ -216,7 +216,10 @@ another, and a name that is not one of the model's is `CodeInvalidArgument`. A
 rename or a cascade delete follows its references into the other documents, every
 document touched is re-parsed and re-analysed together, and `result.Documents`
 lists exactly the documents rewritten — so a batch that reaches one document of
-three answers one `EditedDocument`, and `result.Content` is empty. A reference from
+three answers one `EditedDocument`, and `result.Content` is empty. The client marks
+every request as accepting documents; the service refuses a request that does not on a
+model of several, as it did before, so a program reading `Content` alone through an
+earlier client is never handed an empty one. A reference from
 a document the edit cannot rewrite, such as a bundled library file, refuses the
 edit as `EditFailureReferencedElsewhere`, naming it in `Referrers`.
 

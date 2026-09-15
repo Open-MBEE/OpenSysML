@@ -55,8 +55,10 @@ Those RPCs exist and are served. `ApplyEdits` also edits a model of several docu
 together by `ParseSources`, as one atomic batch — every document the edits reach is answered in
 `ApplyEditsResponse.documents` under the name the parse gave it, and the sole-document `content`
 stays filled for a model of one document ([the wire contract](wire-contract.md#applyedits-one-document-or-several)).
-The Go and Python clients expose that; the Node, Java and Rust clients carry the new fields in
-their generated messages only, since v1 of each parses one document at a time, and their
+A request must set `accept_documents` for that; one that does not is refused on a model of several
+documents as before, so a client of the previous schema is answered as it always was. The Go and
+Python clients set it and expose the documents; the Node, Java and Rust clients carry the new
+fields in their generated messages only, since v1 of each parses one document at a time, and their
 conformance runners skip the multi-document scenarios naming that reason.
 
 Only the Node client offers an escape hatch to them:
