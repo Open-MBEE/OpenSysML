@@ -1,6 +1,8 @@
 package model
 
 import (
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
@@ -223,6 +225,96 @@ func TestWorkspaceLibraryVersionUnderTheBundledName(t *testing.T) {
 	}
 }
 
+// A version opened beside a workspace document that holds the bundled file's
+// name leaves that document in the index, whether it is itself a version or the
+// user's text, and closing either leaves the other; the bundled file comes back
+// only once both are gone.
+func TestWorkspaceLibraryVersionBesideTheBundledName(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	declaring := func(qname string) []string {
+		var docs []string
+		for _, s := range ws.LookupQualified(qname) {
+			docs = append(docs, s.DocName)
+		}
+		sort.Strings(docs)
+		return docs
+	}
+	for _, tc := range []struct {
+		name  string
+		text  []byte
+		qname string
+		holds []string
+	}{
+		{"a version", lib.Content, "ScalarValues::Real", []string{scalarValues, "copy.kerml"}},
+		{"the user's text", []byte("package Mine { datatype Real; }"), "Mine::Real", []string{scalarValues}},
+	} {
+		ws.Open(scalarValues, tc.text, 1)
+		ws.Open("copy.kerml", lib.Content, 1)
+		if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+			t.Fatalf("%s under the bundled name: the copy stands in for %q, want %q", tc.name, got, scalarValues)
+		}
+		if ws.index.DocumentRoot(scalarValues) == nil {
+			t.Errorf("%s under the bundled name left the index when the copy opened", tc.name)
+		}
+		if got := declaring(tc.qname); !slices.Equal(got, tc.holds) {
+			t.Errorf("%s under the bundled name: %s declared in %q, want %q", tc.name, tc.qname, got, tc.holds)
+		}
+		ws.Close("copy.kerml")
+		if ws.index.DocumentRoot(scalarValues) == nil || ws.IsLibraryDocument(scalarValues) {
+			t.Errorf("%s under the bundled name did not survive the copy closing", tc.name)
+		}
+		if got := declaring(tc.qname); !slices.Equal(got, []string{scalarValues}) {
+			t.Errorf("%s under the bundled name: %s declared in %q after the copy closed", tc.name, tc.qname, got)
+		}
+		ws.Open("copy.kerml", lib.Content, 2)
+		ws.Close(scalarValues)
+		if ws.index.DocumentRoot(scalarValues) != nil {
+			t.Errorf("%s: the bundled file came back while the copy stands in for it", tc.name)
+		}
+		if _, doc := realOf(t, ws); doc != "copy.kerml" {
+			t.Errorf("%s: ScalarValues::Real declared in %q with only the copy open, want the copy", tc.name, doc)
+		}
+		ws.Close("copy.kerml")
+		if !ws.IsLibraryDocument(scalarValues) {
+			t.Errorf("%s: the bundled file did not come back once both closed", tc.name)
+		}
+		if _, doc := realOf(t, ws); doc != scalarValues {
+			t.Errorf("%s: ScalarValues::Real declared in %q once both closed, want the bundled file", tc.name, doc)
+		}
+	}
+}
+
+// An edit inside a version is judged with the workspace document holding the
+// bundled file's name still present, so references to its names stay resolved.
+func TestWorkspaceLibraryVersionEditsBesideTheBundledName(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open(scalarValues, []byte("package Mine { datatype Real; }"), 1)
+	ws.Open("copy.kerml", lib.Content, 1)
+	ws.Open("car.sysml", []byte("part def Car {\n    attribute mass : ScalarValues::Real;\n    attribute mine : Mine::Real;\n}\n"), 1)
+	result, _, ok, err := ws.ApplyEdit("copy.kerml", []edit.Operation{edit.Rename("ScalarValues::Real", "Reel")})
+	if !ok || err != nil {
+		t.Fatalf("ok %v, err %v", ok, err)
+	}
+	edited := map[string]string{}
+	for _, doc := range result.Documents {
+		edited[doc.Name] = string(doc.Content)
+	}
+	if want := "attribute mass : ScalarValues::Reel;"; !strings.Contains(edited["car.sysml"], want) {
+		t.Errorf("the reference to the version is not renamed:\n%s", edited["car.sysml"])
+	}
+	if want := "attribute mine : Mine::Real;"; !strings.Contains(edited["car.sysml"], want) {
+		t.Errorf("the reference beside it changed:\n%s", edited["car.sysml"])
+	}
+}
+
 // An edit to a document beside a version resolves the library's names to the
 // version, as the workspace does, so it is not refused as ambiguous.
 func TestWorkspaceLibraryVersionResolvesEdits(t *testing.T) {
@@ -242,6 +334,83 @@ func TestWorkspaceLibraryVersionResolvesEdits(t *testing.T) {
 	want := "part def Car {\n    attribute mass : ScalarValues::Real;\n    attribute speed : ScalarValues::Real;\n}\n"
 	if string(result.Documents[0].Content) != want {
 		t.Fatalf("content:\n%s\nwant:\n%s", result.Documents[0].Content, want)
+	}
+}
+
+// An edit inside a version is judged with the version in the bundled file's
+// place, as the workspace holds it: the file it displaced does not come back to
+// declare the library's names a second time and refuse the edit.
+func TestWorkspaceLibraryVersionEditsInsideVersion(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open("copy.kerml", lib.Content, 1)
+	ws.Open("car.sysml", []byte("part def Car {\n    attribute mass : ScalarValues::Real;\n}\n"), 1)
+	result, _, ok, err := ws.ApplyEdit("copy.kerml", []edit.Operation{edit.Rename("ScalarValues::Real", "Reel")})
+	if !ok || err != nil {
+		t.Fatalf("ok %v, err %v", ok, err)
+	}
+	edited := map[string]string{}
+	for _, doc := range result.Documents {
+		edited[doc.Name] = string(doc.Content)
+	}
+	if !strings.Contains(edited["copy.kerml"], "datatype Reel specializes") {
+		t.Errorf("the version's Real is not renamed:\n%s", edited["copy.kerml"])
+	}
+	if want := "attribute mass : ScalarValues::Reel;"; !strings.Contains(edited["car.sysml"], want) {
+		t.Errorf("the reference beside the version is not renamed:\n%s", edited["car.sysml"])
+	}
+}
+
+// The index an edit is judged in follows the edited roots as the workspace
+// does: a version still rooted at the library's package displaces the bundled
+// file and carries its tier; one that has moved off it is the user's own
+// beside the bundled file, which declares the library's names again.
+func TestWorkspaceLibraryVersionEditIndexFollowsRoots(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	src := string(lib.Content)
+	ws.Open("copy.kerml", lib.Content, 1)
+	for _, tc := range []struct {
+		name, text string
+		library    bool
+		real       []string // documents declaring ScalarValues::Real, sorted
+	}{
+		{"member added", strings.Replace(src, "datatype Real specializes", "datatype Furlong;\n\tdatatype Real specializes", 1),
+			true, []string{"copy.kerml"}},
+		{"root renamed", strings.Replace(src, "standard library package ScalarValues", "standard library package MyValues", 1),
+			false, []string{scalarValues}},
+		{"keywords dropped", strings.Replace(src, "standard library package ScalarValues", "package ScalarValues", 1),
+			false, []string{scalarValues, "copy.kerml"}},
+	} {
+		if tc.text == src {
+			t.Fatalf("%s: the text is not declared where expected", tc.name)
+		}
+		edited := newDocument("copy.kerml", []byte(tc.text), 2)
+		ws.mu.Lock()
+		idx := ws.siblingIndexLocked("copy.kerml")()
+		idx.AddDocumentWithKind("copy.kerml", edited.AST, edited.sf.Kind())
+		ws.standInOverLocked(idx, edited.sf, edited.AST)
+		ws.mu.Unlock()
+		if got := idx.IsLibraryDocument("copy.kerml"); got != tc.library {
+			t.Errorf("%s: the edited copy is a library document: %v, want %v", tc.name, got, tc.library)
+		}
+		if got := idx.DocumentRoot(scalarValues) != nil; got == tc.library {
+			t.Errorf("%s: the bundled file is indexed: %v, want %v", tc.name, got, !tc.library)
+		}
+		var real []string
+		for _, sym := range idx.LookupQualified("ScalarValues::Real") {
+			real = append(real, sym.DocName)
+		}
+		sort.Strings(real)
+		if !slices.Equal(real, tc.real) {
+			t.Errorf("%s: ScalarValues::Real declared in %q, want %q", tc.name, real, tc.real)
+		}
 	}
 }
 

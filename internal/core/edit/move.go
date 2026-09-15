@@ -355,7 +355,7 @@ type moved struct {
 func (mv *mover) reread() (*moved, error) {
 	m := mv.model
 	if m.reindex == nil {
-		m.reindex = &reindexer{newIndex: m.NewIndex}
+		m.reindex = newReindexer(m)
 	}
 	edited := unedited(m)
 	if err := m.rewrite(edited, mv.splices()); err != nil {
