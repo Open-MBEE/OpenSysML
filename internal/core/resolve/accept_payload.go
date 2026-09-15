@@ -13,9 +13,12 @@ func (r *Resolver) acceptPayload(scope *symbols.Scope, name string) (*symbols.Sy
 	if scope == nil || name == "" {
 		return nil, false
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	payloads, done := r.payloads[scope]
 	if !done {
 		payloads = acceptPayloadsIn(scope)
+		journalNew(r, r.payloads, scope, scope.Node())
 		r.payloads[scope] = payloads
 	}
 	sym, ok := payloads[name]
