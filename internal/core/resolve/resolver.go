@@ -136,6 +136,9 @@ type Resolver struct {
 	// payloads are the accept-node payloads a scope's body shares, collected
 	// once per scope: see (*Resolver).acceptPayload.
 	payloads map[*symbols.Scope]map[string]*symbols.Symbol
+	// implicitParams are the anonymous members of a scope that may be named by
+	// an implicit redefinition, collected once per scope: see implicitParameters.
+	implicitParams map[*symbols.Scope][]*symbols.Symbol
 	// redefined memoizes the features a declaration redefines, explicitly or as
 	// an end: see (*Resolver).redefinedFeatures.
 	redefined map[*symbols.Symbol][]*symbols.Symbol
@@ -277,6 +280,7 @@ func New(idx *symbols.Index) *Resolver {
 		viewFilters:           map[*symbols.Scope][]symbols.ElementFilter{},
 		viewFiltersInProgress: map[*symbols.Scope]bool{},
 		payloads:              map[*symbols.Scope]map[string]*symbols.Symbol{},
+		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
 		effNames:              map[*symbols.Symbol]bool{},
