@@ -216,14 +216,23 @@ func (e *emitter) machine(b *strings.Builder) error {
 	e.carryPayloads(m.Regions)
 	attrs := append([]string{`attribute log : String = "";`}, e.carriedAttrs...)
 	if e.test.Target != nil {
+		initial, err := e.factoryDefaults()
+		if err != nil {
+			return err
+		}
 		for _, a := range e.test.Target.Attributes {
 			typ := scalarTypes[a.Type]
 			if typ == "" {
 				return e.fail("attribute "+a.Name, fmt.Sprintf("type %s has no ScalarValues counterpart", a.Type))
 			}
 			decl := fmt.Sprintf("attribute %s : %s", spell(a.Name), typ)
-			if a.Default != nil {
-				lit, err := e.literal(a.Default)
+			value := a.Default
+			if written, ok := initial[a.Name]; ok {
+				value = written
+				delete(initial, a.Name)
+			}
+			if value != nil {
+				lit, err := e.literal(value)
 				if err != nil {
 					return err
 				}
@@ -231,8 +240,65 @@ func (e *emitter) machine(b *strings.Builder) error {
 			}
 			attrs = append(attrs, decl+";")
 		}
+		if len(initial) > 0 {
+			name := sortedLiteralKeys(initial)[0]
+			return e.fail("factory of "+e.test.Target.Name, fmt.Sprintf("writes %s, which is not an attribute of the class", name))
+		}
 	}
 	return e.stateBody(b, 1, machineName, "", nil, m.Regions, attrs)
+}
+
+// factoryDefaults reads the target's constructor, the owned activity
+// `<Class>$factory`: the literals it writes on the new instance are the
+// attributes' initial values. Nil when the class has no factory.
+func (e *emitter) factoryDefaults() (map[string]*Literal, error) {
+	target := e.test.Target
+	var factory *Behavior
+	for _, bh := range target.Behaviors {
+		if bh.Name == target.Name+"$factory" {
+			factory = bh
+		}
+	}
+	if factory == nil || factory.Body == nil {
+		return nil, nil
+	}
+	where := "factory of " + target.Name
+	if len(factory.Body.Unsupported) > 0 {
+		return nil, e.fail(where, "uses "+strings.Join(factory.Body.Unsupported, "; "))
+	}
+	initial := map[string]*Literal{}
+	for _, st := range factory.Body.Statements {
+		instance := isNewInstance(st.Receiver, target.Name)
+		switch {
+		case st.Kind == StmtReturn, st.Kind == StmtStart && instance:
+		case st.Kind == StmtAssign && instance && st.Replace && st.Value != nil && st.Value.Kind == ExprLiteral:
+			initial[st.Feature] = st.Value.Literal
+		default:
+			return nil, e.fail(where, fmt.Sprintf("%s is not a literal initialization of the new instance", st))
+		}
+	}
+	return initial, nil
+}
+
+// isNewInstance reports whether x is a new instance of the class: `new C()`
+// itself, or the result of calling its default constructor `new C().C()`.
+func isNewInstance(x *Expr, class string) bool {
+	if x == nil {
+		return false
+	}
+	if x.Kind == ExprCall && x.Name == class && len(x.Args) == 0 {
+		x = x.Object
+	}
+	return x != nil && x.Kind == ExprNew && x.Name == class
+}
+
+func sortedLiteralKeys(m map[string]*Literal) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // payloadRead matches a guard's read of a scalar payload, `data.value`.

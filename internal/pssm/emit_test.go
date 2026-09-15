@@ -206,6 +206,94 @@ func TestEmitInitialHelperNameIsUnique(t *testing.T) {
 	}
 }
 
+// factoryTarget gives the target class an Integer attribute and a constructor
+// activity `Area001_Test$factory` that creates the instance, runs the given
+// initialization on it and returns it: `t = new Area001_Test(); <init>; return t;`.
+func factoryTarget(init string) string {
+	return `<generalization xmi:type="uml:Generalization" xmi:id="tgtXGen" general="clsTarget"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="tgtXValue" name="value">
+        <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="tgtXFactory" name="Area001_Test$factory">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="tgtXFactoryRet" direction="return" type="tgtX"/>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="tgtXFactoryOut" name="Return" parameter="tgtXFactoryRet"/>
+        <node xmi:type="uml:CreateObjectAction" xmi:id="fCreate" name="Create" classifier="tgtX">
+          <result xmi:type="uml:OutputPin" xmi:id="fCreateOut"/>
+        </node>
+        <node xmi:type="uml:StartObjectBehaviorAction" xmi:id="fStart" name="Start">
+          <object xmi:type="uml:InputPin" xmi:id="fStartObj"/>
+        </node>
+        <node xmi:type="uml:ForkNode" xmi:id="fFork" name="Fork(t)"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="fE1" source="fCreateOut" target="fFork"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="fE2" source="fFork" target="fStartObj"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="fE3" source="fFork" target="tgtXFactoryOut"/>
+        ` + init + `
+      </ownedBehavior>`
+}
+
+// factoryWrite is the statement `t.<feature> = <literal>` on the created instance.
+func factoryWrite(feature, literalType, value string) string {
+	return `<node xmi:type="uml:ValueSpecificationAction" xmi:id="fVal" name="Value">
+          <result xmi:type="uml:OutputPin" xmi:id="fValOut"/>
+          <value xmi:type="` + literalType + `" xmi:id="fLit" value="` + value + `"/>
+        </node>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="fWrite" name="Write" structuralFeature="` + feature + `" isReplaceAll="true">
+          <object xmi:type="uml:InputPin" xmi:id="fWriteObj"/>
+          <value xmi:type="uml:InputPin" xmi:id="fWriteVal"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fFork" target="fWriteObj"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="fE5" source="fValOut" target="fWriteVal"/>`
+}
+
+func emitWithTarget(t *testing.T, target string) (*Model, error) {
+	t.Helper()
+	src := strings.Replace(machineSuite("", ""),
+		`<generalization xmi:type="uml:Generalization" xmi:id="tgtXGen" general="clsTarget"/>`, target, 1)
+	s := readFixture(t, src)
+	noDiagnostics(t, s)
+	if len(s.Tests) != 1 {
+		t.Fatalf("tests = %d", len(s.Tests))
+	}
+	return Emit(s, s.Tests[0])
+}
+
+// TestEmitFactoryInitializesAttributes pins that what the target's constructor
+// writes on the new instance becomes the attribute's initial value, and that a
+// constructor doing anything else is refused rather than dropped.
+func TestEmitFactoryInitializesAttributes(t *testing.T) {
+	m, err := emitWithTarget(t, factoryTarget(factoryWrite("tgtXValue", "uml:LiteralInteger", "15")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(m.Text, "attribute value : Integer = 15;") {
+		t.Errorf("model lacks the factory's initial value:\n%s", m.Text)
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+
+	m, err = emitWithTarget(t, factoryTarget(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(m.Text, "attribute value : Integer;") {
+		t.Errorf("a constructor writing nothing left a value:\n%s", m.Text)
+	}
+
+	_, err = emitWithTarget(t, factoryTarget(factoryWrite("testerTestable", "uml:LiteralInteger", "15")))
+	var te *TranslateError
+	if !errors.As(err, &te) || !strings.Contains(err.Error(), "writes testable, which is not an attribute") {
+		t.Errorf("writing another class's feature: err = %v", err)
+	}
+
+	unread := strings.Replace(factoryWrite("tgtXValue", "uml:LiteralInteger", "15"),
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fFork" target="fWriteObj"/>`, "", 1)
+	_, err = emitWithTarget(t, factoryTarget(unread))
+	if !errors.As(err, &te) || !strings.Contains(err.Error(), "is not a literal initialization of the new instance") {
+		t.Errorf("writing something other than the instance: err = %v", err)
+	}
+}
+
 // TestEmitRejects pins the typed error for constructs with no translation.
 func TestEmitRejects(t *testing.T) {
 	cases := []struct {

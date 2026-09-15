@@ -193,7 +193,11 @@ of a region's initial transition is gone; *Junction 004* now reaches no trace at
 error at the junction whose guards are all false, SM32's case — where it reached an inadmissible
 one), and finding 7 the reason of *History 001-C* and *History 002-B* (the restore is now the
 admitted one; what remains missing are the other interleavings of the two regions' entries and
-exits). Their rows below quote the new reasons.
+exits). A later translation fix — the values a test's constructor writes on the new instance are
+now the attributes' initial values (`emit_test.go:TestEmitFactoryInitializesAttributes`) — altered
+the reason of *Join003* without moving it: `value` is now `15` as the test intends, and the run
+fails at the join instead of at the guard's read of an unset feature. Their rows below quote the
+new reasons.
 
 ### Movements before that
 
@@ -287,7 +291,7 @@ suite; the full sets are in the baseline file.
 | Exiting 003 | — | `S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the other admitted order is reached) |
 | Choice 005 | `T2(effect)::S1(entry)::S1.1(entry)` | `T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)` |
 | Join002 | `S1(exit)::T2.2(effect)::T3(effect)::S2(entry)` | `T1.2(effect)::T2.2(effect)::S1(exit)::T3(effect)::S2(entry)` and the order with the first two swapped (`T1.2(effect)` never runs, and `S1(exit)` precedes the effects of the join's incoming segments) |
-| Join003 | run error: `join Join1: eval guard of transition Join1 -> S2: no value for feature value` | `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)` |
+| Join003 | run error: `join Join1: no guard evaluated to true` (the join fires on the first completion, with both sources active, and the false guard `value < 10` of its only outgoing transition is an error; PSSM §8.5.7 fires the first incoming segment alone — a join that "cannot be entered" is "an acceptable path ending there" — and disables the second, whose entering the join requires an outgoing transition with a true guard; `S1` stays active for `T5`) | `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)` |
 | History 001-C | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached) |
 | History 002-B | — | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)` and 4 more orders of the two regions' entries and exits (the sixth admitted order is reached) |
 | Junction 003 | — | `T1.4(effect)::T1.4.1(effect)::T1.8(effect)` (the other admitted path, through `T1.3`, is reached) |
