@@ -106,9 +106,10 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
 // are read against the data as they stand, the one enabled is taken and several
 // leave the route open at the draw among them. Exactly one succession is taken,
 // as KerML `DecisionPerformance::outgoingHBLink: HappensBefore[1]` requires.
+// A route that cannot be settled is returned as far as it got, with its notes.
 func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, error) {
 	if slices.Contains(r.crossed, ps) {
-		return route{}, fmt.Errorf("%s %s: outgoing transitions form a cycle between pseudostates", ps.Kind, ps.Name)
+		return r, fmt.Errorf("%s %s: outgoing transitions form a cycle between pseudostates", ps.Kind, ps.Name)
 	}
 	r.crossed = append(r.crossed, ps)
 	if ps.Kind == ast.PseudostateChoice {
@@ -117,15 +118,15 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 	}
 	outgoing := e.graph.Transitions[ps]
 	if len(outgoing) == 0 {
-		return route{}, fmt.Errorf("%s %s has no outgoing transitions", ps.Kind, ps.Name)
+		return r, fmt.Errorf("%s %s has no outgoing transitions", ps.Kind, ps.Name)
 	}
 	enabled, notes, err := e.enabledBranches(ps, outgoing)
 	if err != nil {
-		return route{}, err
+		return r, err
 	}
 	r.notes = append(r.notes, notes...)
 	if len(enabled) == 0 {
-		return route{}, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
+		return r, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
 	}
 	if len(enabled) > 1 {
 		draw := &junctionDraw{at: ps, outgoing: outgoing, enabled: enabled, beyond: make([]branchBeyond, len(enabled))}
@@ -144,8 +145,8 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 // enabled branches, as a choice point among the route's notes, and the route goes
 // on along the one drawn as it was settled when the transition was selected, no
 // guard beyond read again; a branch that could not be settled fails the run
-// that draws it, the draw among its notes. A draw the witness refuses is the
-// refusal, and the route is left where it was.
+// that draws it, the draw and what the branch noted on its way among the notes.
+// A draw the witness refuses is the refusal, and the route is left where it was.
 func (e *StateExecutor) settleDraws(r route) (route, error) {
 	for r.draw != nil {
 		draw := r.draw
@@ -156,6 +157,7 @@ func (e *StateExecutor) settleDraws(r route) (route, error) {
 		}
 		beyond := draw.beyond[pick]
 		if beyond.err != nil {
+			r.notes = append(r.notes, beyond.route.notes...)
 			return r, fmt.Errorf("evaluate pseudostate: %w", beyond.err)
 		}
 		r = r.onward(beyond.route)
@@ -182,11 +184,11 @@ func (e *StateExecutor) follow(from *ast.PseudostateNode, seg *lower.Transition,
 		return r, nil
 	case *ast.PseudostateNode:
 		if !transientPseudostate(target.Kind) {
-			return route{}, fmt.Errorf("%s %s: a transition into %s %s is not supported", from.Kind, from.Name, target.Kind, target.Name)
+			return r, fmt.Errorf("%s %s: a transition into %s %s is not supported", from.Kind, from.Name, target.Kind, target.Name)
 		}
 		return e.followOut(target, r)
 	default:
-		return route{}, fmt.Errorf("%s %s: target must be a state or pseudostate, got %T", from.Kind, from.Name, seg.Target)
+		return r, fmt.Errorf("%s %s: target must be a state or pseudostate, got %T", from.Kind, from.Name, seg.Target)
 	}
 }
 

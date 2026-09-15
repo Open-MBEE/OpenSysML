@@ -601,6 +601,65 @@ func TestExploreJunctionBranchBeyondWhichNoGuardHolds(t *testing.T) {
 	}
 }
 
+// The branch drawn noted a guard it could not read at a junction on its way
+// before it dead-ended: the run fails with the dead end and keeps the note.
+func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute d : Integer = 0;
+			entry; then idle;
+			state idle;
+			junction split;
+			junction nested;
+			junction stuck;
+			state ready;
+			state other;
+			state never;
+			transition first idle accept go then split;
+			transition first split then nested;
+			transition first split then ready;
+			transition first nested if d == 0 then stuck;
+			transition first nested if 1 / d > 0 then other;
+			transition first stuck if d > 0 then never;
+		}
+	}`)
+	declared, err := ParseSchedulePolicy("declared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.SetSchedule(declared); err != nil {
+		t.Fatal(err)
+	}
+	exec, err := newStateExecutor(ctx, m.state(t, "Machine"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	exec.SendSignal("go", nil)
+	err = exec.RunToCompletion()
+	if err == nil || !strings.Contains(err.Error(), "junction stuck: no guard evaluated to true") {
+		t.Fatalf("RunToCompletion: %v, want the dead end at stuck", err)
+	}
+	var drew, noted bool
+	for _, n := range ctx.Notes() {
+		switch n := n.(type) {
+		case ChoicePoint:
+			drew = drew || n.Where == "junction split"
+		case UnevaluableGuard:
+			noted = noted || n.Where == "junction nested" && strings.Contains(n.Reason, "division by zero")
+		}
+	}
+	if !drew || !noted {
+		t.Fatalf("notes %v, want the draw at split and the guard at nested that could not be read", ctx.Notes())
+	}
+}
+
 // A junction with two branches enabled in one region, whose incoming guard the
 // other region's effect disarms: the branch is drawn only as the transition
 // fires, after the region order, so a witness lists the order first and the run
