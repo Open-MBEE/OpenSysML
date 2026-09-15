@@ -36,30 +36,53 @@ func exprTypeDiagnosticLines(ws *Workspace, name string, content []byte) []strin
 	return out
 }
 
-// stdlibDimensionDefects are the findings the expression type checker reports
-// in the vendored standard library: each is a unit the SI or US customary
-// library types by a measurement unit of another dimension, documented in
-// docs/project/omg-issues.md ("Defects in the vendored quantity libraries").
-// The library text is published material and is not corrected here.
-var stdlibDimensionDefects = []string{
-	"Domain Libraries/Quantities and Units/SI.sysml:137: cannot bind a measurement reference of dimension T^-2 to a feature typed by TotalMassStoppingPowerUnit",
-	"Domain Libraries/Quantities and Units/SI.sysml:149: cannot bind a measurement reference of dimension L^4·M^2·T^-2 to a feature typed by TotalAngularMomentumUnit",
-	"Domain Libraries/Quantities and Units/SI.sysml:163: cannot bind a measurement reference of dimension L^-10·M^-2·T^4 to a feature typed by EnergyDensityOfStatesUnit",
-	"Domain Libraries/Quantities and Units/SI.sysml:233: cannot bind a measurement reference of dimension I·L^2 to a feature typed by MagneticDipoleMomentUnit",
-	"Domain Libraries/Quantities and Units/SI.sysml:239: cannot bind a measurement reference of dimension L^2·T^-3 to a feature typed by DoseEquivalentUnit",
-	"Domain Libraries/Quantities and Units/SI.sysml:247: cannot bind a measurement reference of dimension I^-2·L^6·T^-2 to a feature typed by HallCoefficientUnit",
-	"Domain Libraries/Quantities and Units/SI.sysml:286: cannot bind a measurement reference of dimension L^2·T^-3 to a feature typed by DoseEquivalentUnit",
-	"Domain Libraries/Quantities and Units/SI.sysml:299: cannot bind a measurement reference of dimension L^2·T^-3 to a feature typed by DoseEquivalentUnit",
-	"Domain Libraries/Quantities and Units/USCustomaryUnits.sysml:255: cannot bind a value of dimension Θ^-1 to a feature typed by ThermodynamicTemperatureValue (dimension Θ)",
-}
+// publishedStdlibDefects are the findings the expression type checker reports
+// in the standard library as OMG published it: each is a unit the SI or US
+// customary library types by a measurement unit of another dimension. The
+// errata registry (internal/errata) corrects the ones with an unambiguous
+// reading, so the bundled library the checker loads no longer shows them;
+// documentedStdlibDefects have no such reading and stay. Both sets are
+// documented in docs/project/omg-issues.md ("Defects in the vendored quantity
+// libraries"). The published text itself is never edited.
+var (
+	correctedStdlibDefects = []string{
+		"Domain Libraries/Quantities and Units/SI.sysml:137: cannot bind a measurement reference of dimension T^-2 to a feature typed by TotalMassStoppingPowerUnit",
+		"Domain Libraries/Quantities and Units/SI.sysml:247: cannot bind a measurement reference of dimension I^-2·L^6·T^-2 to a feature typed by HallCoefficientUnit",
+		"Domain Libraries/Quantities and Units/USCustomaryUnits.sysml:255: cannot bind a value of dimension Θ^-1 to a feature typed by ThermodynamicTemperatureValue (dimension Θ)",
+	}
+	documentedStdlibDefects = []string{
+		"Domain Libraries/Quantities and Units/SI.sysml:149: cannot bind a measurement reference of dimension L^4·M^2·T^-2 to a feature typed by TotalAngularMomentumUnit",
+		"Domain Libraries/Quantities and Units/SI.sysml:163: cannot bind a measurement reference of dimension L^-10·M^-2·T^4 to a feature typed by EnergyDensityOfStatesUnit",
+		"Domain Libraries/Quantities and Units/SI.sysml:233: cannot bind a measurement reference of dimension I·L^2 to a feature typed by MagneticDipoleMomentUnit",
+		"Domain Libraries/Quantities and Units/SI.sysml:239: cannot bind a measurement reference of dimension L^2·T^-3 to a feature typed by DoseEquivalentUnit",
+		"Domain Libraries/Quantities and Units/SI.sysml:286: cannot bind a measurement reference of dimension L^2·T^-3 to a feature typed by DoseEquivalentUnit",
+		"Domain Libraries/Quantities and Units/SI.sysml:299: cannot bind a measurement reference of dimension L^2·T^-3 to a feature typed by DoseEquivalentUnit",
+	}
+	publishedStdlibDefects = append(append([]string{}, correctedStdlibDefects...), documentedStdlibDefects...)
+)
 
 // TestExprTypeCheckNoStdlibFalsePositives guards the expression type checker
-// against over-reporting: every finding in the shipped standard library must
-// be one of the documented defects in the library text, and each of those
-// must still be found, so the pin cannot rot into silence. Each library file
-// is opened under its own name, which puts it in the bundled file's place.
+// against over-reporting: every finding in the bundled standard library must
+// be one of the documented defects the errata registry leaves uncorrected,
+// and each of those must still be found, so the pin cannot rot into silence.
+// The corrected defects must not be reported: that is the corrected text
+// reaching the checker.
 func TestExprTypeCheckNoStdlibFalsePositives(t *testing.T) {
-	src := libs.DefaultSource()
+	checkStdlibExprTypeFindings(t, libs.DefaultSource(), documentedStdlibDefects)
+}
+
+// TestExprTypeCheckPublishedStdlibDefects pins the checker's verdict on the
+// text as published: every corrected defect is a defect the checker finds
+// there, so a correction is only ever declared for a line the checker rejects.
+func TestExprTypeCheckPublishedStdlibDefects(t *testing.T) {
+	checkStdlibExprTypeFindings(t, libs.EmbeddedSource(), publishedStdlibDefects)
+}
+
+// checkStdlibExprTypeFindings opens each file of src under its own name, which
+// puts it in the bundled file's place, and requires the type.expr findings
+// over all of them to be exactly want.
+func checkStdlibExprTypeFindings(t *testing.T, src libs.Source, want []string) {
+	t.Helper()
 	ws := NewWorkspace()
 	var found []string
 	for _, name := range src.List() {
@@ -72,7 +95,7 @@ func TestExprTypeCheckNoStdlibFalsePositives(t *testing.T) {
 		ws.Close(name)
 	}
 	documented := map[string]bool{}
-	for _, defect := range stdlibDimensionDefects {
+	for _, defect := range want {
 		documented[defect] = false
 	}
 	var unexpected []string
@@ -84,12 +107,12 @@ func TestExprTypeCheckNoStdlibFalsePositives(t *testing.T) {
 		documented[finding] = true
 	}
 	if len(unexpected) != 0 {
-		t.Errorf("expression type checker reported %d undocumented finding(s) in the standard library:\n%s",
+		t.Errorf("expression type checker reported %d unexpected finding(s) in the standard library:\n%s",
 			len(unexpected), strings.Join(unexpected, "\n"))
 	}
-	for _, defect := range stdlibDimensionDefects {
+	for _, defect := range want {
 		if !documented[defect] {
-			t.Errorf("documented library defect no longer reported: %s", defect)
+			t.Errorf("library defect no longer reported: %s", defect)
 		}
 	}
 }

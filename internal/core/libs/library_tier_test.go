@@ -66,7 +66,7 @@ func TestLoadedLibraryCarriesTiers(t *testing.T) {
 // as a whole has one identity, the same whether loaded from source or decoded
 // from the snapshot, and another once any document's text differs.
 func TestLoadedLibraryHasAnIdentity(t *testing.T) {
-	src := EmbeddedSource()
+	src := BundledSource()
 	fresh := symbols.NewIndex()
 	if err := NewLoader(src, nil).LoadAll(fresh); err != nil {
 		t.Fatalf("LoadAll: %v", err)

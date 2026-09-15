@@ -84,7 +84,7 @@ func libraryGraphName(el *identity.LibraryElement) (string, error) {
 // encodeLibraryNames runs the encoder's naming over one bundled library
 // document, so the names it answers with are the ones it writes.
 func encodeLibraryNames(doc string) any {
-	data, err := libs.EmbeddedSource().Read(doc)
+	data, err := libs.BundledSource().Read(doc)
 	if err != nil {
 		return err
 	}

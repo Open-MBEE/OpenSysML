@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -76,7 +77,11 @@ func TestDuplicateEntriesAreRejected(t *testing.T) {
 	other := entry
 	other.ID = entry.ID + "b"
 	if _, err := New([]Entry{entry, other}); err == nil {
-		t.Fatal("two entries covering one file were accepted")
+		t.Fatal("two entries covering one line were accepted")
+	}
+	other.Line++
+	if _, err := New([]Entry{entry, other}); err != nil {
+		t.Fatalf("two entries covering different lines of one file were refused: %v", err)
 	}
 }
 
@@ -224,7 +229,8 @@ func TestMaterializeLeavesThePublishedCorpusByteIdentical(t *testing.T) {
 	if after := hashTree(t, root); after != before {
 		t.Fatalf("the published corpus changed: %s -> %s", before, after)
 	}
-	for rel, entry := range applied {
+	for _, entry := range applied {
+		rel := strings.TrimPrefix(entry.Path, dir+"/")
 		content, err := os.ReadFile(filepath.Join(dst, filepath.FromSlash(rel))) // #nosec G304 -- the path is inside the copy the test just made
 		if err != nil {
 			t.Fatalf("read the copy of %s: %v", rel, err)
@@ -234,6 +240,117 @@ func TestMaterializeLeavesThePublishedCorpusByteIdentical(t *testing.T) {
 		}
 		if !strings.Contains(string(content), entry.Corrected) {
 			t.Fatalf("%s does not read as corrected in the copy", rel)
+		}
+	}
+}
+
+// TestApplyAllChecksEveryLineBeforeSubstituting keeps a file with several
+// entries all-or-nothing: one rotted entry fails the file, and documented-only
+// entries are verified but substitute nothing.
+func TestApplyAllChecksEveryLineBeforeSubstituting(t *testing.T) {
+	corrected := Entry{
+		ID: "T1", Heading: "a test entry", Path: "examples/pilot-corpora/x/Sample.sysml", Line: 1,
+		AsPublished: "a", Corrected: "A", Citation: "SysML v2 §9.8.9.1", Derivation: "test entry.",
+	}
+	documented := Entry{
+		ID: "T2", Heading: "a test entry", Path: "examples/pilot-corpora/x/Sample.sysml", Line: 3,
+		AsPublished: "c", Citation: "SysML v2 §9.8.9.1", Derivation: "no intended reading.",
+	}
+	got, err := ApplyAll([]Entry{corrected, documented}, []byte("a\nb\nc\n"))
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if string(got) != "A\nb\nc\n" {
+		t.Fatalf("apply rewrote %q", got)
+	}
+	if _, err := ApplyAll([]Entry{corrected, documented}, []byte("a\nb\nother\n")); err == nil {
+		t.Fatal("a file whose documented entry rotted was still corrected")
+	}
+	got, err = ApplyAll([]Entry{documented}, []byte("a\nb\nc\n"))
+	if err != nil || string(got) != "a\nb\nc\n" {
+		t.Fatalf("documented-only entries changed the text: %q, %v", got, err)
+	}
+}
+
+// fakeSource serves fixed bytes under library-relative names.
+type fakeSource map[string]string
+
+func (s fakeSource) List() []string {
+	names := make([]string, 0, len(s))
+	for name := range s {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func (s fakeSource) Read(name string) ([]byte, error) {
+	content, ok := s[name]
+	if !ok {
+		return nil, fs.ErrNotExist
+	}
+	return []byte(content), nil
+}
+
+// TestLibrarySourceCorrectsOnlyTheDeclaredFiles is the library-side contract:
+// the published source is read, never written, files without an entry pass
+// through byte-identical, and a rotted entry fails the read.
+func TestLibrarySourceCorrectsOnlyTheDeclaredFiles(t *testing.T) {
+	entry := Entry{
+		ID: "T1", Heading: "a test entry", Path: LibraryRoot + "/Lib/Units.sysml", Line: 2,
+		AsPublished: "    attribute u = m^-2;", Corrected: "    attribute u = m^2;",
+		Citation: "KerML 7.4.9", Derivation: "test entry.",
+	}
+	overlay, err := New([]Entry{entry})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	published := fakeSource{
+		"Lib/Units.sysml": "package Units {\n    attribute u = m^-2;\n}\n",
+		"Lib/Other.sysml": "package Other {}\n",
+	}
+	src := overlay.LibrarySource(published)
+	if got := src.List(); !reflect.DeepEqual(got, published.List()) {
+		t.Fatalf("the corrected source lists %v", got)
+	}
+	got, err := src.Read("Lib/Units.sysml")
+	if err != nil || string(got) != "package Units {\n    attribute u = m^2;\n}\n" {
+		t.Fatalf("corrected read: %q, %v", got, err)
+	}
+	if got, err := src.Read("Lib/Other.sysml"); err != nil || string(got) != published["Lib/Other.sysml"] {
+		t.Fatalf("a file without an entry was changed: %q, %v", got, err)
+	}
+	if again, _ := published.Read("Lib/Units.sysml"); string(again) != published["Lib/Units.sysml"] {
+		t.Fatal("the published source was written to")
+	}
+	if _, err := src.Read("Lib/Missing.sysml"); err == nil {
+		t.Fatal("a file the published source lacks was served")
+	}
+	published["Lib/Units.sysml"] = "package Units {\n    attribute u = m^-3;\n}\n"
+	if _, err := src.Read("Lib/Units.sysml"); err == nil {
+		t.Fatal("a file whose declared line changed was served uncorrected")
+	}
+}
+
+// TestLibraryEntriesAreKeyedByLibraryPath ties the declared library entries to
+// the names a libs.Source lists them under.
+func TestLibraryEntriesAreKeyedByLibraryPath(t *testing.T) {
+	overlay, err := Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	under := overlay.Under(LibraryRoot)
+	if len(under) == 0 {
+		t.Fatal("no correction is declared for the bundled library")
+	}
+	for rel, entries := range under {
+		if _, err := os.Stat(filepath.Join(repoRoot, filepath.FromSlash(LibraryRoot), filepath.FromSlash(rel))); err != nil {
+			t.Errorf("%s: %v", rel, err)
+		}
+		for _, entry := range entries {
+			if !entry.Corrects() {
+				t.Errorf("%s is documented only yet offered for substitution", entry.ID)
+			}
 		}
 	}
 }
