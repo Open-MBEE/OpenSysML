@@ -10,6 +10,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -36,6 +37,9 @@ type CachedModel struct {
 	Documents []*CachedDocument
 	Index     *symbols.Index // For symbol lookups by FQN
 	Library   libs.Source    // the files the library in Index was built from, for their spans' text
+	// Mode is the conformance strictness the parse request asked for; an edit's
+	// notation is judged at the same strictness.
+	Mode conformance.Mode
 
 	symCtxOnce sync.Once
 	symCtx     *SymbolContext

@@ -619,15 +619,18 @@ func (mv *mover) refuseReference(md *moved, ref reference, part int, reason stri
 		name = notationName(sym)
 	}
 	site := docLabel(mv.model.Source.Name())
+	var referrers []Referrer
 	if at, ok := md.segments[mv.landed(ref.ref.QN.Parts[part].Span.Offset)]; ok {
 		if referrer, ok := md.model.referrer(md.r, md.model.Source.Name(), at.ref, at.ref.QN.Parts[at.part].Span.Offset); ok {
 			site = referrer.name
+			referrers = []Referrer{referrer.referrer()}
 		}
 	}
 	return &Error{
 		Failure:        FailureMoveReferenced,
 		OperationIndex: mv.index,
 		Referring:      []string{site},
+		Referrers:      referrers,
 		Message: fmt.Sprintf("%s cannot be moved into %s: the reference to %s in %s %s",
 			mv.op.Target, ownerName(mv.op.NewOwner), name, site, reason),
 	}

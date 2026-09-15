@@ -2030,9 +2030,18 @@ $ … /ApplyEdits -d '{"modelHash":"997e…6134","operations":[{"delete":{"targe
 `EDIT_FAILURE_REFERENCED_ELSEWHERE` is the kind for a rename, delete or move whose target is
 referred to from a document the edit cannot rewrite; a move respells references in its own
 document only, so a move of a declaration another document refers to is refused this way, and
-`referrers` names each. An empty batch is
+`referrers` names each. Every refusal that names a referrer fills both fields: a delete or move
+of a referenced declaration, a rename another namespace's declaration would capture
+(`EDIT_FAILURE_INVALID_NAME`, naming the namespace the captured reference is read in), and a
+move whose reference cannot be respelled (`EDIT_FAILURE_MOVE_REFERENCED`). An empty batch is
 `EDIT_FAILURE_NO_OPERATIONS`, with nothing else in the body, as it was before `documents`
 existed.
+
+The edited notation is judged at the conformance mode the model was parsed under, which the
+model hash already encodes: an edit that writes extension notation into a model parsed with
+`strictConformance:true` is refused as `EDIT_FAILURE_RESULT_INVALID` with the extension
+reported as an error, where the same edit of the default-mode model is applied and the
+extension is a warning.
 
 Every field named here keeps its number and type in `api/proto/sysml.proto`; `documents`
 (7), `referrers` (8), `AppliedEdit.document` (7) and `ApplyEditsRequest.document` (3) were

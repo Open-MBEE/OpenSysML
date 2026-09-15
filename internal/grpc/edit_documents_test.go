@@ -299,8 +299,11 @@ func TestApplyEditsRefusesARenameAnotherDocumentWouldCapture(t *testing.T) {
 	if !strings.Contains(resp.Error, "Fresh") {
 		t.Errorf("error %q does not name the conflict", resp.Error)
 	}
-	if len(resp.ReferringElements) != 1 || !strings.HasPrefix(resp.ReferringElements[0], "Q") {
-		t.Errorf("referring_elements = %v, want the site in Q", resp.ReferringElements)
+	if got := strings.Join(resp.ReferringElements, ","); got != "Q (q.sysml)" {
+		t.Errorf("referring_elements = %v, want Q (q.sysml)", resp.ReferringElements)
+	}
+	if len(resp.Referrers) != 1 || resp.Referrers[0].Name != "Q" || resp.Referrers[0].Document != "q.sysml" {
+		t.Errorf("referrers = %v, want Q in q.sysml", resp.Referrers)
 	}
 	if resp.Content != "" || len(resp.Documents) != 0 {
 		t.Errorf("a refusal returned notation: content=%q documents=%v", resp.Content, documentNames(resp))

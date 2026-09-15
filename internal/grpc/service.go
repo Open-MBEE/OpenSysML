@@ -666,7 +666,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode conformance.Mode) (strin
 
 	// A parse racing another of the same model keeps the entry already cached,
 	// so the objects held on it stay reachable under the hash.
-	model := &CachedModel{Documents: documents, Index: idx, Library: library}
+	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode}
 	return modelHash, s.cache.Add(modelHash, model)
 }
 

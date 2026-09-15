@@ -8,6 +8,7 @@ import (
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -89,6 +90,7 @@ func (s *Service) editModel(cached *CachedModel, edited *CachedDocument) edit.Mo
 		Index:      cached.Index,
 		ParseDiags: edited.ParseDiags,
 		SemDiags:   edited.PassesDiags,
+		Analysis:   passes.Options{Conformance: cached.Mode},
 		// The edited notation is analyzed in an index of its own, over the
 		// libraries and every document of the model the edit did not rewrite.
 		NewIndex: func() *symbols.Index {
