@@ -63,12 +63,7 @@ func digest(content []byte) string {
 }
 
 // writeSplit writes the network one file per plane into dir, creating it, and
-// removes what an earlier generation wrote there that this one did not. The
-// files are staged beside their places and all are recorded in the manifest,
-// beside the last generation's records, before any is moved in: a generation
-// that fails leaves nothing unrecorded, and every name it touched reads as one
-// record or the other, so the next run replaces it. The manifest of just this
-// generation's files then takes the place of both.
+// removes what an earlier generation wrote there that this one did not.
 func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, error) {
 	files, stats := n.Split()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -91,6 +86,7 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 			return stats, err
 		}
 	}
+	// Recorded before any move, so a failed generation leaves nothing unrecorded.
 	if err := replaceManifest(dir, staging, intended(previous, files)); err != nil {
 		return stats, err
 	}
@@ -151,7 +147,6 @@ func replaceManifest(dir, staging, content string) error {
 // replaceable reports an error naming every file the generation would write
 // over that the last generation did not write, or that has changed since: the
 // generator replaces only its own unedited output, and writes nothing otherwise.
-// A name an interrupted generation recorded reads as either of its records.
 func replaceable(dir string, files []stressmodel.File, previous []record) error {
 	recorded := make(map[string][]string, len(previous))
 	for _, rec := range previous {

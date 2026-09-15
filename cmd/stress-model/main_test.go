@@ -179,9 +179,8 @@ func TestWriteSplitRemovesOnlyFilesThatReadAsRecorded(t *testing.T) {
 	}
 }
 
-// A generation interrupted between recording its files and moving them all in
-// leaves some names with the new content and some with the old; the next run
-// replaces both, and records each name once again.
+// After a generation interrupted between recording and moving its files in,
+// names hold the new content or the old; the next run replaces both.
 func TestWriteSplitRetriesAnInterruptedGeneration(t *testing.T) {
 	dir := t.TempDir()
 	first := stressmodel.SatelliteNetwork{Planes: 2, Satellites: 1}
@@ -251,9 +250,8 @@ func interruptManifest(dir string, files []stressmodel.File) error {
 	return replaceManifest(dir, staging, intended(previous, files))
 }
 
-// The manifest that stood while a generation ran is never cut short: the run
-// replaces it whole, before moving its files in and again after, so a reader
-// holding the old file sees it unchanged and the name holds a complete manifest.
+// The manifest that stood while a generation ran is replaced whole, never
+// cut short: a reader holding it sees it unchanged.
 func TestWriteSplitReplacesTheManifestWholeInsteadOfTruncatingIt(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("a renamed-over file cannot be held open on Windows")
