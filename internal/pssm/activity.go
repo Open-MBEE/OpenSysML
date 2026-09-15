@@ -77,8 +77,8 @@ func (r *reader) acts(act *Element, visiting map[string]bool) bool {
 			acts = r.calledBehaviorActs(e, visiting)
 		case "uml:CallOperationAction":
 			var method *Element
-			if op := r.doc.ByID(e.Attr("operation")); op != nil && op.First("method") != nil {
-				method = r.doc.ByID(op.First("method").Attr("idref"))
+			if op := r.doc.ByID(e.Attr("operation")); op != nil {
+				method = r.doc.ByID(op.Ref("method"))
 			}
 			acts = r.callActs(method, visiting)
 		default:
@@ -93,14 +93,10 @@ func (r *reader) acts(act *Element, visiting map[string]bool) bool {
 // acts on the model: a library primitive function computes, anything else in
 // the library (output, say) acts, and a behavior of the document is read.
 func (r *reader) calledBehaviorActs(n *Element, visiting map[string]bool) bool {
-	id := n.Attr("behavior")
-	if b := n.First("behavior"); b != nil {
-		if href := b.Href(); href != "" {
-			return !strings.Contains(href, "PrimitiveBehaviors")
-		}
-		id = b.Attr("idref")
+	if b := n.First("behavior"); b != nil && b.Href() != "" {
+		return !strings.Contains(b.Href(), "PrimitiveBehaviors")
 	}
-	return r.callActs(r.doc.ByID(id), visiting)
+	return r.callActs(r.doc.ByID(n.Ref("behavior")), visiting)
 }
 
 // callActs reports whether calling a behavior of the document acts on the

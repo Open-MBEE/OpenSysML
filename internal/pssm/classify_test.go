@@ -327,4 +327,19 @@ func TestClassifyGuardSideEffect(t *testing.T) {
 	if c.Class != Standard {
 		t.Errorf("guard behavior calling a recursive pure behavior classified %s (%s), want standard", c.Class, c.Reason())
 	}
+	// An operation is what its method does, however the method is referenced.
+	callOp := `
+            <node xmi:type="uml:CallOperationAction" xmi:id="xT3op" operation="xOp"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3op" target="xT3ret1"/>`
+	for _, op := range []string{
+		`<ownedOperation xmi:type="uml:Operation" xmi:id="xOp" name="op" method="xHelper"/>`,
+		`<ownedOperation xmi:type="uml:Operation" xmi:id="xOp" name="op"><method xmi:idref="xHelper"/></ownedOperation>`,
+	} {
+		if c = classifyFixture(t, "", guardBehavior(callOp, pureHelper, op)); c.Class != Standard {
+			t.Errorf("guard behavior calling a pure operation classified %s (%s), want standard", c.Class, c.Reason())
+		}
+		if c = classifyFixture(t, "", guardBehavior(callOp, writingHelper, op)); c.Class != NotExpressible || c.Reason() != "guard side effect T3" {
+			t.Errorf("guard behavior calling a writing operation classified %s (%s), want not-expressible (guard side effect T3)", c.Class, c.Reason())
+		}
+	}
 }
