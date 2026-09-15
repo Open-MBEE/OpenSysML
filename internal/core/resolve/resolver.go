@@ -136,6 +136,9 @@ type Resolver struct {
 	// payloads are the accept-node payloads a scope's body shares, collected
 	// once per scope: see (*Resolver).acceptPayload.
 	payloads map[*symbols.Scope]map[string]*symbols.Symbol
+	// implicitParams are the anonymous members of a scope that may be named by
+	// an implicit redefinition, collected once per scope: see implicitParameters.
+	implicitParams map[*symbols.Scope][]*symbols.Symbol
 	// redefined memoizes the features a declaration redefines, explicitly or as
 	// an end: see (*Resolver).redefinedFeatures.
 	redefined map[*symbols.Symbol][]*symbols.Symbol
@@ -277,6 +280,7 @@ func New(idx *symbols.Index) *Resolver {
 		viewFilters:           map[*symbols.Scope][]symbols.ElementFilter{},
 		viewFiltersInProgress: map[*symbols.Scope]bool{},
 		payloads:              map[*symbols.Scope]map[string]*symbols.Symbol{},
+		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
 		effNames:              map[*symbols.Symbol]bool{},
@@ -426,7 +430,7 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 	if r.model == nil {
 		return r.featureOf(sym, name, newFeatureWalk(hide))
 	}
-	if found, ok := r.lookupMemberOf(sym, name); ok {
+	if found, ok := r.model.LookupMember(sym, name); ok {
 		return found, true
 	}
 	if sym.Scope == nil {
@@ -444,15 +448,6 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 		}
 	}
 	return nil, false
-}
-
-// lookupMemberOf resolves name as a member sym declares, inherits, or accepts as
-// a trigger payload; what its imports surface is not considered.
-func (r *Resolver) lookupMemberOf(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
-	if found, ok := r.model.LookupMember(sym, name); ok {
-		return found, true
-	}
-	return r.triggerPayload(sym, name)
 }
 
 // lookupContributedMember resolves name as a member sym inherits or

@@ -22,25 +22,6 @@ func (r *Resolver) acceptPayload(scope *symbols.Scope, name string) (*symbols.Sy
 	return sym, ok
 }
 
-// triggerPayload resolves name as the payload parameter a transition's trigger
-// declares. The trigger fills a parameter slot of the transition itself
-// (SysML.xtext TransitionUsage: EmptyParameterMember TriggerActionMember), so
-// `subscribing.sub` names the payload of `accept sub : Subscribe`.
-func (r *Resolver) triggerPayload(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
-	if sym == nil || name == "" {
-		return nil, false
-	}
-	trans, ok := sym.Decl.(*ast.TransitionMember)
-	if !ok || trans.Trigger == nil {
-		return nil, false
-	}
-	params := symbols.TriggerScope(sym.OwnerScope, trans)
-	if params == nil || params.Node() != trans.Trigger {
-		return nil, false
-	}
-	return params.LookupLocal(name)
-}
-
 // acceptPayloadsIn keys the payloads bound by the accept nodes declared directly
 // in scope by name; the first of two accepts binding one name keeps it.
 func acceptPayloadsIn(scope *symbols.Scope) map[string]*symbols.Symbol {

@@ -161,12 +161,18 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		c.walkExpr(site, body, n.Until)
 		c.walkMembers(site, body, n.Body)
 	case *ast.TransitionMember:
-		// A trigger's parameters are visible to the guard and the effect only.
-		body := symbols.TriggerScope(scope, n)
-		c.walkExpr(site, body, n.Guard)
 		if change, ok := n.Trigger.(*ast.ChangeEvent); ok {
 			c.walkExpr(site, scope, change.Condition)
 		}
+		// The guard, effect and body are the transition's own, so they reach
+		// its features, the payload parameter its trigger declares included.
+		body := symbols.TriggerScope(scope, n)
+		if body != scope {
+			if owner := body.Owner(); owner != nil {
+				site = refSite{sym: owner, inBody: true}
+			}
+		}
+		c.walkExpr(site, body, n.Guard)
 		c.walkMembers(site, body, n.Effect)
 		c.walkMembers(site, body, n.Members)
 	case *ast.StateNode:

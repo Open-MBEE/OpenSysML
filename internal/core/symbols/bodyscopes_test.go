@@ -127,7 +127,8 @@ func TestUnnamedTransitionIsAnAnonymousMember(t *testing.T) {
 }
 
 // An effect's members are the transition's own features (SysML v2 §7.19.2),
-// whether it is an action or a `do send` with parameters; the trigger's are not.
+// whether it is an action or a `do send` with parameters, and so is the payload
+// parameter its trigger declares; none of them escapes into the state.
 func TestTriggeredTransitionOwnsItsEffectMembers(t *testing.T) {
 	root := build(t, `package P {
 	item def Warning;
@@ -156,8 +157,16 @@ func TestTriggeredTransitionOwnsItsEffectMembers(t *testing.T) {
 		} else if member.OwnerScope != trans.Scope {
 			t.Errorf("%s.%s is owned by %v, want the transition", tc.transition, tc.member, member.OwnerScope.Node())
 		}
-		if _, ok := trans.Scope.LookupLocal(tc.param); ok {
-			t.Errorf("trigger parameter %s is a member of transition %s", tc.param, tc.transition)
+		param, ok := trans.Scope.LookupLocal(tc.param)
+		if !ok {
+			t.Errorf("trigger parameter %s is not a member of transition %s", tc.param, tc.transition)
+		} else if param.OwnerScope != trans.Scope {
+			t.Errorf("trigger parameter %s is owned by %v, want the transition", tc.param, param.OwnerScope.Node())
+		}
+		for _, name := range []string{tc.member, tc.param} {
+			if _, ok := s.Scope.LookupLocal(name); ok {
+				t.Errorf("%s escaped transition %s into the state", name, tc.transition)
+			}
 		}
 	}
 }

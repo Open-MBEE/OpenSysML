@@ -224,9 +224,9 @@ func (r *Resolver) implicitlyNamedMember(scope *symbols.Scope, name string, hide
 		return nil, false
 	}
 	var found *symbols.Symbol
-	scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
-		if r.naming[sym] || hide.hides(sym) || !impliesNamingFeature(sym) {
-			return true
+	for _, sym := range r.implicitParameters(scope) {
+		if r.naming[sym] || hide.hides(sym) {
+			continue
 		}
 		r.naming[sym] = true
 		var redefined *symbols.Symbol
@@ -242,11 +242,30 @@ func (r *Resolver) implicitlyNamedMember(scope *symbols.Scope, name string, hide
 		// name, so the feature stays anonymous (KerML 7.3.4.5).
 		if count == 1 && simpleName(redefined) == name {
 			found = sym
-			return false
+			break
+		}
+	}
+	return found, found != nil
+}
+
+// implicitParameters returns the anonymous members of scope that
+// impliesNamingFeature admits, collected once per scope: the test is syntactic,
+// and a scope holding many anonymous connections or assertions would otherwise
+// be rescanned by every name resolved through it.
+func (r *Resolver) implicitParameters(scope *symbols.Scope) []*symbols.Symbol {
+	params, done := r.implicitParams[scope]
+	if done {
+		return params
+	}
+	scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
+		if impliesNamingFeature(sym) {
+			params = append(params, sym)
 		}
 		return true
 	})
-	return found, found != nil
+	journalNew(r, r.implicitParams, scope, scope.Node())
+	r.implicitParams[scope] = params
+	return params
 }
 
 // impliesNamingFeature reports whether sym is a nameless parameter whose naming
