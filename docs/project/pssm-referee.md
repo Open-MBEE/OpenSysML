@@ -361,10 +361,13 @@ of its own:
   per orthogonal region of one composite state — and the lowerer accepts a region a fork enters
   without an entry transition of its own, still refusing one with neither (the classifier's
   reason is now *lowerer refuses an orthogonal region with neither an entry transition nor a
-  fork branch into it*, which only *Entry 002 E* still carries); the runtime enters each
-  branch's effect, then the rest of the way down to the composite, then its target
-  (`state_region_entry.go:enterForkBranches`; `state_fork_enters_regions_without_initial` and
-  `state_fork_in_composite_enters_parallel_substate` with their trace goldens). The two tests
+  fork branch into it*, which only *Entry 002 E* still carries, and it reads a branch's region
+  the way the lowerer does — the region of the fork's composite the target lies in, however
+  deep); the runtime runs the first branch's effect, enters the rest of the way down to the
+  composite, then enters every region in declaration order, each branch's effect before its
+  target (`state_region_entry.go:enterForkBranches`; `state_fork_enters_regions_without_initial`,
+  `state_fork_in_composite_enters_parallel_substate` and
+  `state_fork_omitted_region_declared_first` with their trace goldens). The two tests
   translate and run; where each landed is in the movements table above.
 - **A transition from a composite state into its own history pseudostate read the record
   before the state was left** (*History 001-A*, *History 002-D*; alignment finding 7). The

@@ -9,11 +9,12 @@
   on the way to a state nested deeper — since that way would start the region by default and it
   has no default start. Entering through a fork leaves the source configuration down to
   the ancestor the source and the composite share, as a move to a single state does, so an
-  active ancestor is neither exited nor entered again; then each branch runs its effect, enters
-  the states still on the way down to the composite, then its target — which may lie below a
+  active ancestor is neither exited nor entered again; then the first branch runs its effect
+  and enters the states still on the way down to the composite, and every region enters in
+  declaration order, each branch's effect before its target — which may lie below a
   region's own substates, the branch entering every state on the way — so a branch's effect
-  precedes the composite's `entry` when the fork sits outside it, and a region no branch names
-  starts at its own initial state. A branch's effect reads and writes the attributes of the
+  precedes the composite's `entry` when the fork sits outside it, even when a region no branch
+  names is declared first, and such a region starts at its own initial state. A branch's effect reads and writes the attributes of the
   state declaring the fork, as a transition leaving one of its substates does. A composite state entered on the way down does not start the
   region the branches pass through at its own initial state — only its other regions start as
   usual — and a do behavior in a region the fork leaves untouched still takes the occurrence

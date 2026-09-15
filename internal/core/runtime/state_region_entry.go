@@ -14,7 +14,6 @@ type regionEntry struct {
 	branches  map[*ast.StateRegion]*ast.StateNode
 	target    *ast.StateNode    // where the region starts instead of its own start, if anywhere
 	branch    *lower.Transition // the fork branch into the region, whose effect runs first, if any
-	above     *lazyEntry        // the way down to container, entered by whichever branch gets there first
 }
 
 // lazyEntry is the chain of states a fork's branches still have to enter down to
@@ -49,17 +48,34 @@ func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*as
 	return nil
 }
 
-// enterForkBranches enters the owner's regions through the fork's branches: each
-// runs its effect, enters the rest of the way down, then its target. Regions no
-// branch enters start as usual; the do behaviors of the states entered on the way
-// down start once all have, innermost first, as after an ordinary entry.
+// enterForkBranches enters the owner's regions through the fork's branches: the
+// first branch, in region order, runs its effect and enters the rest of the way
+// down, then every region enters in declaration order, each branch's effect
+// before its target, a region no branch enters starting as usual. The do
+// behaviors of the states entered on the way down start once all have,
+// innermost first, as after an ordinary entry.
 func (e *StateExecutor) enterForkBranches(plan *lower.ForkPlan, above *lazyEntry) error {
 	targets := plan.Targets()
-	for _, region := range e.graph.CompositeStates[plan.Owner] {
-		entry := &regionEntry{region: region, container: plan.Owner, branches: targets, above: above}
+	regions := e.graph.CompositeStates[plan.Owner]
+	var first *lower.Transition
+	for _, region := range regions {
+		if first = plan.Branches[region]; first != nil {
+			break
+		}
+	}
+	if err := e.runBranchEffect(first); err != nil {
+		return err
+	}
+	if err := e.enterLazily(above, len(above.chain)); err != nil {
+		return err
+	}
+	for _, region := range regions {
+		entry := &regionEntry{region: region, container: plan.Owner, branches: targets}
 		if branch := plan.Branches[region]; branch != nil {
 			entry.target = branch.Target.(*ast.StateNode)
-			entry.branch = branch
+			if branch != first {
+				entry.branch = branch
+			}
 		}
 		if err := e.enterRegion(entry); err != nil {
 			return err
@@ -71,39 +87,36 @@ func (e *StateExecutor) enterForkBranches(plan *lower.ForkPlan, above *lazyEntry
 	return nil
 }
 
-// enterRegion enters one region: its fork branch's effect, the states still on
-// the way to its container, then the state it starts in.
-func (e *StateExecutor) enterRegion(w *regionEntry) error {
-	if w.branch != nil {
-		for _, behavior := range w.branch.Effect {
-			if err := e.executeBehavior(behavior); err != nil {
-				return fmt.Errorf("fork branch effect: %w", err)
-			}
+// runBranchEffect executes a fork branch's effect, if any.
+func (e *StateExecutor) runBranchEffect(branch *lower.Transition) error {
+	if branch == nil {
+		return nil
+	}
+	for _, behavior := range branch.Effect {
+		if err := e.executeBehavior(behavior); err != nil {
+			return fmt.Errorf("fork branch effect: %w", err)
 		}
 	}
-	if w.above != nil {
-		if err := e.enterLazily(w.above, len(w.above.chain)); err != nil {
-			return err
-		}
+	return nil
+}
+
+// enterRegion enters one region: its fork branch's effect, then the state it
+// starts in, entering every state on the way down to it as a transition does.
+func (e *StateExecutor) enterRegion(w *regionEntry) error {
+	if err := e.runBranchEffect(w.branch); err != nil {
+		return err
 	}
 	entry, err := e.regionStart(w)
 	if err != nil {
 		return err
 	}
 	e.activeConfig.regionStates[w.region] = entry
-	// A target may lie below the region's own substates: every state on the way
-	// down is entered, outermost first.
-	for _, descendant := range e.descendantChain(w.container, entry) {
-		if err := e.enterStateInto(descendant, w.branches); err != nil {
-			return fmt.Errorf("enter starting state in region %s: %w", w.region.Name, err)
-		}
-	}
-	// A composite entry starts where its own entry transitions choose, which is
-	// then the deepest state the region keeps active.
-	deepest, err := e.enterStartOf(entry)
+	_, deepest, err := e.enterToward(w.container, entry, w.branches)
 	if err != nil {
-		return err
+		return fmt.Errorf("enter starting state in region %s: %w", w.region.Name, err)
 	}
+	// The deepest state the region keeps active is the one on the way down that
+	// its own substates declare.
 	if branch, ok := e.branchesTo(nil, deepest)[w.region]; ok {
 		e.activeConfig.regionStates[w.region] = branch
 	}

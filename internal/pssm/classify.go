@@ -208,16 +208,17 @@ func reachedVertices(regions []*Region) map[*Vertex]bool {
 	return reached
 }
 
-// forkEnteredRegions collects every region some fork's outgoing transition, at
-// any depth, leads a state of.
+// forkEnteredRegions collects every region a fork's branches start, as the
+// lowerer plans them: the regions of the fork's owner — the innermost orthogonal
+// state below every target — each target lies in, however deep.
 func forkEnteredRegions(regions []*Region) map[*Region]bool {
-	entered := map[*Region]bool{}
+	targets := map[*Vertex][]*Vertex{}
 	var visit func([]*Region)
 	visit = func(regions []*Region) {
 		for _, r := range regions {
 			for _, tr := range r.Transitions {
-				if tr.Source != nil && tr.Source.Kind == VertexFork && tr.Target != nil && tr.Target.Region != nil {
-					entered[tr.Target.Region] = true
+				if tr.Source != nil && tr.Source.Kind == VertexFork && tr.Target != nil {
+					targets[tr.Source] = append(targets[tr.Source], tr.Target)
 				}
 			}
 			for _, v := range r.Vertices {
@@ -226,7 +227,63 @@ func forkEnteredRegions(regions []*Region) map[*Region]bool {
 		}
 	}
 	visit(regions)
+	entered := map[*Region]bool{}
+	for _, branches := range targets {
+		owner := forkOwner(branches)
+		for _, target := range branches {
+			if region := regionUnder(owner, target); region != nil {
+				entered[region] = true
+			}
+		}
+	}
 	return entered
+}
+
+// parentState is the state whose region declares v, nil at the machine's.
+func parentState(v *Vertex) *Vertex {
+	if v.Region == nil {
+		return nil
+	}
+	return v.Region.owner
+}
+
+// forkOwner is the innermost orthogonal state every target lies below, nil when
+// only the machine encloses them all.
+func forkOwner(targets []*Vertex) *Vertex {
+	owner := parentState(targets[0])
+	for _, target := range targets[1:] {
+		for owner != nil && !within(owner, target) {
+			owner = parentState(owner)
+		}
+	}
+	for owner != nil && len(owner.Regions) < 2 {
+		owner = parentState(owner)
+	}
+	return owner
+}
+
+// within reports whether v is owner or lies below it.
+func within(owner, v *Vertex) bool {
+	for s := v; s != nil; s = parentState(s) {
+		if s == owner {
+			return true
+		}
+	}
+	return false
+}
+
+// regionUnder is the region of owner that v lies in, nil when owner is the
+// machine or v is not below it.
+func regionUnder(owner, v *Vertex) *Region {
+	if owner == nil {
+		return nil
+	}
+	for s := v; s != nil && s != owner; s = parentState(s) {
+		if s.Region != nil && s.Region.owner == owner {
+			return s.Region
+		}
+	}
+	return nil
 }
 
 type walker struct {
