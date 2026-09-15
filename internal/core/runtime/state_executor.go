@@ -942,8 +942,9 @@ func (e *StateExecutor) selectCandidates(
 
 // chooseTransitions resolves the dispatch: the candidates not outranked by a nested
 // one, each with the one of its enabled transitions that fires drawn once here and
-// its route through any junctions settled against the pre-dispatch data, for
-// the do behaviors taking the occurrence, the firing and the preview alike. A
+// its route through any junctions read against the pre-dispatch data, for the do
+// behaviors taking the occurrence, the firing and the preview alike; a junction
+// several branches of which hold is drawn among only as the candidate fires. A
 // state outranked by a nested one draws nothing. event is nil for a change poll.
 func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event *Event) ([]dispatchCandidate, error) {
 	chosen := make([]dispatchCandidate, 0, len(candidates))
@@ -1613,10 +1614,14 @@ func (e *StateExecutor) triggerMatches(trigger ast.Node, scope *symbols.Scope, e
 }
 
 // fireTransition takes a state transition, reporting whether it was taken: one
-// whose guard is false leaves the machine where it is.
+// whose guard is false leaves the machine where it is; one whose route is open
+// at a junction draw has the draw made first.
 func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (bool, error) {
 	pass, err := e.passesGuard(trans)
 	if err != nil || !pass {
+		return false, err
+	}
+	if r, err = e.settleDraws(r); err != nil {
 		return false, err
 	}
 	// Fork, join and history reshape the active configuration rather than moving
@@ -2021,7 +2026,7 @@ func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast
 		return err
 	}
 	currentState := e.moveOrigin()
-	return e.travelChoosing(e.leadsToChoice(hist), r,
+	return e.travelChoosing(e.drawsBeyond(hist), r,
 		func(*ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, owner) },
 		func(effects []lower.StateBehavior, _ *ast.StateNode) error {
 			return e.moveToHistory(trans, currentState, effects, hist, owner)
@@ -2096,9 +2101,15 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 }
 
 // defaultHistoryRoute takes a history's default transition from inside its
-// owner, resolving any choice on the way once the effects into it have run.
+// owner, drawing at once among several branches enabled, as what it notes is
+// noted, and resolving any choice on the way once the effects into it have run.
 func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode) (route, error) {
 	r, err := e.followOut(hist, route{})
+	if err == nil {
+		r, err = e.settleDraws(r)
+	}
+	e.ctx.noteAll(r.notes)
+	r.notes = nil
 	if err != nil {
 		return route{}, fmt.Errorf("default transition of history %s: %w", hist.Name, err)
 	}
@@ -2113,12 +2124,18 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode) (route, e
 	return r, e.runBehaviors(r.effects())
 }
 
-// leadsToChoice reports whether a path out of ps through junctions reaches a choice.
-func (e *StateExecutor) leadsToChoice(ps *ast.PseudostateNode) bool {
+// drawsBeyond reports whether a path out of ps through junctions may face a draw
+// the policy makes while the move is under way: a choice, or several branches out
+// of ps or a junction beyond it.
+func (e *StateExecutor) drawsBeyond(ps *ast.PseudostateNode) bool {
 	seen := map[*ast.PseudostateNode]bool{ps: true}
 	var visit func(ps *ast.PseudostateNode) bool
 	visit = func(ps *ast.PseudostateNode) bool {
-		for _, branch := range e.graph.Transitions[ps] {
+		branches := e.graph.Transitions[ps]
+		if len(branches) > 1 {
+			return true
+		}
+		for _, branch := range branches {
 			next, ok := branch.Target.(*ast.PseudostateNode)
 			if !ok || seen[next] {
 				continue

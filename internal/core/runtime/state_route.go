@@ -20,23 +20,35 @@ func transientPseudostate(kind ast.PseudostateKind) bool {
 }
 
 // route is a compound transition's path as far as it is settled: the segments to
-// run, the transition first, ending at a state or open at a choice whose guards
-// are read only once those segments' effects have run. Junctions are settled on
-// the way; neither is set for a fork, a waiting join or a history restoring.
+// run, the transition first, ending at a state, open at a choice whose guards
+// are read only once those segments' effects have run, or open at a junction
+// several of whose branches its guards enabled, drawn among once the transition
+// fires. None is set for a fork, a waiting join or a history restoring.
 type route struct {
 	segments []*lower.Transition
 	target   *ast.StateNode
 	choice   *ast.PseudostateNode
+	draw     *junctionDraw
 	// crossed are the pseudostates passed, so a path back into one is a cycle.
 	crossed []*ast.PseudostateNode
-	// notes is what settling the route noted — a junction drawn among several
-	// enabled branches — recorded once the transition is taken.
+	// notes is what settling the route noted — a branch guard it could not read,
+	// a junction drawn among several enabled — recorded once the transition is taken.
 	notes []RunNote
+}
+
+// junctionDraw is a junction the route reached with several branches enabled, as
+// their guards read when the transition was selected; the policy draws among them
+// only once the transition is committed to fire, so a transition another region's
+// reaction leaves behind draws nothing.
+type junctionDraw struct {
+	at       *ast.PseudostateNode
+	outgoing []*lower.Transition
+	enabled  []int
 }
 
 // settled reports whether the route has somewhere to move to.
 func (r route) settled() bool {
-	return r.target != nil || r.choice != nil
+	return r.target != nil || r.choice != nil || r.draw != nil
 }
 
 // effects are the behaviors the route's segments perform, in path order.
@@ -80,7 +92,10 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
 }
 
 // followOut goes on from a pseudostate the route has reached: a choice leaves the
-// route open there; out of any other the segment enabled, or drawn, is taken.
+// route open there; out of any other — junction, join or history — the branches
+// are read against the data as they stand, the one enabled is taken and several
+// leave the route open at the draw among them. Exactly one succession is taken,
+// as KerML `DecisionPerformance::outgoingHBLink: HappensBefore[1]` requires.
 func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, error) {
 	if slices.Contains(r.crossed, ps) {
 		return route{}, fmt.Errorf("%s %s: outgoing transitions form a cycle between pseudostates", ps.Kind, ps.Name)
@@ -90,12 +105,43 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 		r.choice = ps
 		return r, nil
 	}
-	branch, notes, err := e.pseudostateBranch(ps)
+	outgoing := e.graph.Transitions[ps]
+	if len(outgoing) == 0 {
+		return route{}, fmt.Errorf("%s %s has no outgoing transitions", ps.Kind, ps.Name)
+	}
+	enabled, notes, err := e.enabledBranches(ps, outgoing)
 	if err != nil {
 		return route{}, err
 	}
 	r.notes = append(r.notes, notes...)
-	return e.follow(ps, branch, r)
+	if len(enabled) == 0 {
+		return route{}, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
+	}
+	if len(enabled) > 1 {
+		r.draw = &junctionDraw{at: ps, outgoing: outgoing, enabled: enabled}
+		return r, nil
+	}
+	return e.follow(ps, outgoing[enabled[0]], r)
+}
+
+// settleDraws makes the draws the route is open at, in turn, once the transition
+// is committed to fire and nothing has moved yet: the policy draws among the
+// enabled branches, as a choice point among the route's notes, and the route goes
+// on from the branch drawn, through whatever lies beyond; a draw the witness
+// refuses is the refusal, and the route is left where it was.
+func (e *StateExecutor) settleDraws(r route) (route, error) {
+	for r.draw != nil {
+		draw := r.draw
+		r.draw = nil
+		pick, err := e.pickBranch(draw.at, draw.outgoing, draw.enabled, func(n RunNote) { r.notes = append(r.notes, n) })
+		if err != nil {
+			return route{}, err
+		}
+		if r, err = e.follow(draw.at, draw.outgoing[draw.enabled[pick]], r); err != nil {
+			return route{}, fmt.Errorf("evaluate pseudostate: %w", err)
+		}
+	}
+	return r, nil
 }
 
 // follow takes a segment out of the pseudostate from and goes on from its target.
@@ -113,30 +159,6 @@ func (e *StateExecutor) follow(from *ast.PseudostateNode, seg *lower.Transition,
 	default:
 		return route{}, fmt.Errorf("%s %s: target must be a state or pseudostate, got %T", from.Kind, from.Name, seg.Target)
 	}
-}
-
-// pseudostateBranch returns the outgoing transition a junction, join or history
-// routes along, read against the data as it stands: the one enabled, or the one
-// the policy draws among several, as a choice point among the notes returned.
-// Exactly one succession is taken, as KerML `DecisionPerformance::outgoingHBLink:
-// HappensBefore[1]` requires.
-func (e *StateExecutor) pseudostateBranch(ps *ast.PseudostateNode) (*lower.Transition, []RunNote, error) {
-	outgoing := e.graph.Transitions[ps]
-	if len(outgoing) == 0 {
-		return nil, nil, fmt.Errorf("%s %s has no outgoing transitions", ps.Kind, ps.Name)
-	}
-	enabled, notes, err := e.enabledBranches(ps, outgoing)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(enabled) == 0 {
-		return nil, nil, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
-	}
-	pick, err := e.pickBranch(ps, outgoing, enabled, func(n RunNote) { notes = append(notes, n) })
-	if err != nil {
-		return nil, nil, err
-	}
-	return outgoing[enabled[pick]], notes, nil
 }
 
 // resolveChoice reads the guards of the choice the route is open at against the
@@ -157,8 +179,12 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	if err != nil {
 		return route{}, err
 	}
-	// The route past a choice is followed while firing, so what it notes is noted now.
+	// The route past a choice is followed while firing, its draws made at once, so
+	// what it notes is noted now.
 	r, err = e.follow(choice, outgoing[enabled[pick]], route{crossed: r.crossed})
+	if err == nil {
+		r, err = e.settleDraws(r)
+	}
 	e.ctx.noteAll(r.notes)
 	r.notes = nil
 	return r, err
@@ -264,17 +290,18 @@ func pseudostateWhere(ps *ast.PseudostateNode) string {
 	return fmt.Sprintf("%s %s", ps.Kind, ps.Name)
 }
 
-// reachable lists the states the branches of the choice the route is open at can
-// end in, through whatever pseudostates lie beyond it, each once.
+// reachable lists the states the route open at a choice or a draw can end in:
+// through every branch of the choice, or the branches of the junction enabled,
+// and whatever pseudostates lie beyond, each once.
 func (e *StateExecutor) reachable(r route) ([]*ast.StateNode, error) {
 	var states []*ast.StateNode
 	seen := make(map[*ast.PseudostateNode]bool)
 	for _, ps := range r.crossed {
 		seen[ps] = true
 	}
-	var visit func(ps *ast.PseudostateNode) error
-	visit = func(ps *ast.PseudostateNode) error {
-		for _, branch := range e.graph.Transitions[ps] {
+	var visit func(ps *ast.PseudostateNode, branches []*lower.Transition) error
+	visit = func(ps *ast.PseudostateNode, branches []*lower.Transition) error {
+		for _, branch := range branches {
 			switch target := branch.Target.(type) {
 			case *ast.StateNode:
 				if !slices.Contains(states, target) {
@@ -288,7 +315,7 @@ func (e *StateExecutor) reachable(r route) ([]*ast.StateNode, error) {
 					continue
 				}
 				seen[target] = true
-				if err := visit(target); err != nil {
+				if err := visit(target, e.graph.Transitions[target]); err != nil {
 					return err
 				}
 			default:
@@ -297,7 +324,14 @@ func (e *StateExecutor) reachable(r route) ([]*ast.StateNode, error) {
 		}
 		return nil
 	}
-	return states, visit(r.choice)
+	if r.draw != nil {
+		branches := make([]*lower.Transition, len(r.draw.enabled))
+		for i, pos := range r.draw.enabled {
+			branches[i] = r.draw.outgoing[pos]
+		}
+		return states, visit(r.draw.at, branches)
+	}
+	return states, visit(r.choice, e.graph.Transitions[r.choice])
 }
 
 // exitPlan lists the states a move to target exits, against the configuration
@@ -440,7 +474,7 @@ func (e *StateExecutor) runBehaviors(effects []lower.StateBehavior) error {
 // mayExit lists the states a compound transition along r may leave, whichever
 // state it can end at; false where the route cannot be followed.
 func (e *StateExecutor) mayExit(r route, exits exitPlan) ([]*ast.StateNode, bool) {
-	if r.choice == nil {
+	if r.target != nil {
 		return exits(r.target), true
 	}
 	targets, err := e.reachable(r)

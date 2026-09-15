@@ -467,9 +467,11 @@ exploration — and fixed since, each in a change of its own:
   `DecisionPerformance` ranks none of a branching point's successions; the junction differed
   from the choice in *when* its guards are read, never in how many may hold. Fixed:
   `state_route.go:enabledBranches` reads every outgoing guard at the junction's static instant
-  and `pickBranch` makes several enabled the transition choice point at the junction, drawn by
-  the schedule policy and recorded as the transition fires
-  (`state_junction_several_enabled_branches`, `explore_test.go:TestExploreStaticJunctionBranches`).
+  and several enabled leave the route open at the junction, where `settleDraws` → `pickBranch`
+  makes the transition choice point drawn by the schedule policy only as the transition fires,
+  after the region order among several candidates and the transition's own guard read again
+  (`state_junction_several_enabled_branches`, `state_junction_drawn_as_its_transition_fires`,
+  `state_history_default_through_junction`, `explore_test.go:TestExploreStaticJunctionBranches`).
   The test passes; the movements table above adjudicates it.
 
 The fourteen unadjudicated `fail` rows are not findings yet. Each is still to be attributed

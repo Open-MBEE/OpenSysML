@@ -659,6 +659,62 @@ As at a choice, branches after the first enabled one are read in a preview that 
 junction with no enabled branch fails the run at that instant with a typed error naming the
 junction (`robustness_test.go:region_pseudostate_without_satisfied_guard`).
 
+### A junction with two branches enabled in a region another region's reaction may disarm: drawn only as its transition fires
+
+Fixture: `state_junction_drawn_as_its_transition_fires` (golden, explored).
+
+```
+work ─┬─ a: a1 ─ accept Go { armed := false } → a2
+      └─ b: b1 ─ accept Go [armed] → split ─ { route := 1 } → left
+                                            ─ { route := 2 } → right
+```
+
+Derived constraints:
+
+- One Go selects a transition in each region of `work`; the two fire in an open order (the
+  section before). Region b's guard `armed` and the junction's branches are read when the
+  transitions are selected, before either fires, and both branches hold.
+- Region a's effect disarms `armed`. Fired first, it leaves b's transition unenabled when its turn
+  comes, so b stays in `b1`, `route` stays 0 and nothing follows the junction: a compound transition
+  whose guard no longer holds does not fire (UML 2.5.1 §14.2.3.9.1). Fired second, b's transition
+  takes the junction and exactly one branch (`DecisionPerformance::outgoingHBLink:
+  HappensBefore[1]`), so the machine ends in `left` or `right`.
+
+Open: the region order, and, when b fires, which enabled branch it takes.
+
+Pinned outcome: the admissible set `{a2+b1 with route = 0, a2+left with route = 1, a2+right with
+route = 2}`, stated as `outcomes` citing this section; exploration reaches each once (3 runs, 3
+outcomes, complete). The branch is drawn only as b's transition fires, after the region order is
+drawn: a witness reads `on accept Go: b1 first of a1, b1; junction split -> 2->right`, in that
+order, and the run in which a fires first draws nothing at the junction, so replaying its
+witness meets no draw it does not list. The golden pins the a-first linearization, `seed:1` the
+other one.
+
+### A history without a record takes its default transition through a junction with two branches enabled: exactly one is taken, which one is open
+
+Fixture: `state_history_default_through_junction` (golden, explored).
+
+```
+idle ─ accept Go → work.resume ─ (default) → split ─ { route := 1 } → w1
+                                                    ─ { route := 2 } → w2
+```
+
+Derived constraints:
+
+- `work` has never been left when Go arrives, so its history holds no record and the default
+  transition out of it is taken (UML 2.5.1 §14.2.3.7, `shallowHistory`), after `work` is entered.
+- The default transition ends at a junction; both branches hold, exactly one follows
+  (`DecisionPerformance::outgoingHBLink: HappensBefore[1]`), so the machine ends in `w1` or `w2`
+  with the one branch effect run.
+
+Open: which enabled branch is taken, as at any junction.
+
+Pinned outcome: the admissible set `{route = 1 in w1, route = 2 in w2}`, stated as `outcomes`
+citing this section; exploration reaches each once (2 runs, 2 outcomes, complete). The draw is
+recorded as a `ChoiceTransition` at `junction split` when the default route is taken, so it
+appears among the run's notes and choices and in the trace like a junction reached from a
+transition, and a seed replays it. The golden pins the first branch, `seed:1` the other one.
+
 ### Transitions in sibling regions enabled by one event: each fires, in which order is open
 
 Fixture: `state_explore_region_order` (golden, explored).

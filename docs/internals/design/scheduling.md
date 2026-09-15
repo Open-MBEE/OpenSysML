@@ -63,10 +63,14 @@ region was drawn first, so the label is the same under every policy.
 A `choice` pseudostate's branch is drawn on arrival: `resolveChoice` reads its guards once the
 incoming segments' effects have run, so which branches are enabled can depend on those effects,
 and with two or more enabled the draw is a `ChoiceTransition` at `choice <name>` that `explore`
-enumerates and a seed replays (`TestExploreDynamicChoiceBranches`). A junction's branch is settled
-statically before the transition fires — its guards read the data as it stands before the incoming
+enumerates and a seed replays (`TestExploreDynamicChoiceBranches`). A junction's guards are read
+statically, when the transition is selected — against the data as it stands before the incoming
 effect — and with two or more enabled the draw is likewise a `ChoiceTransition` at
-`junction <name>`, recorded once the transition fires (`TestExploreStaticJunctionBranches`).
+`junction <name>`, made and recorded only as the transition fires (`settleDraws`), after the
+region order among several candidates and after the transition's own guard is read again: a
+candidate another region's reaction disarms draws nothing (`TestExploreStaticJunctionBranches`,
+`TestExploreJunctionDrawnAsTransitionFires`). A history's default transition through such a
+junction draws and records the same way (`TestExploreHistoryDefaultThroughJunction`).
 
 Two things that look like openings are determined and are never recorded. Deferral: a state in the
 active configuration that defers the occurrence dispatched holds it back from every enabled

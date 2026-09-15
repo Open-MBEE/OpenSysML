@@ -20,7 +20,7 @@ Pseudostates are transient vertices in state machines that enable complex contro
 
 **Junction (Static Merge/Branch):**
 - Guards evaluated **before the incoming transition fires**, before any effect runs
-  (`state_route.go:resolveRoute` → `followOut` → `pseudostateBranch`)
+  (`state_route.go:resolveRoute` → `followOut` → `enabledBranches`)
 - Used to merge multiple incoming transitions or split paths
 - Several enabled branches are a transition choice point (`ChoiceTaken` at the junction,
   enumerated by `explore`); an unguarded branch is the else branch
@@ -128,9 +128,11 @@ apart with one value, a `route`: a compound transition's path as far as it is se
 segments to run, ending at a state or *open* at a choice.
 
 **Junction evaluation** is static. `resolveRoute` settles a transition's route before anything
-moves: out of a junction `followOut` → `pseudostateBranch` reads every outgoing guard, takes the
-one enabled segment — several enabled are a transition choice point at the junction, drawn by
-the schedule policy and recorded when the transition fires; the unguarded segments are the
+moves: out of a junction `followOut` → `enabledBranches` reads every outgoing guard, takes the
+one enabled segment — several enabled leave the route open at a `junctionDraw`, a transition
+choice point at the junction the schedule policy draws and records only as the transition fires
+(`settleDraws`), once the region order is drawn and the transition's own guard read again, so a
+candidate another region's reaction disarms draws nothing; the unguarded segments are the
 default when no guard holds — and goes on until the route reaches a state or a choice. The
 guards read the data as it stands before the incoming transition's effect; a junction none of
 whose guards holds fails the route, so the incoming transition does not fire (see the
