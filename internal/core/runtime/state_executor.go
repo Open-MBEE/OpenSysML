@@ -471,25 +471,18 @@ func (e *StateExecutor) scheduleFromLeaf(leaf *ast.StateNode) error {
 	return nil
 }
 
-// scheduleCompletionTransitions queues the completion transitions of a state
-// whose guard holds. A state completes only once its do behavior has finished,
-// so a state still running one is skipped here and scheduled by settleDoActions
-// when the behavior ends; a composite state's body reaching `done` schedules
-// them through completeIfDone.
+// scheduleCompletionTransitions queues a state's completion as one event, carrying
+// its first completion transition; the guards are read when the occurrence is
+// dispatched (chooseCompletion), not now. A state completes only once its do
+// behavior has finished, so a state still running one is skipped here and
+// scheduled by settleDoActions when the behavior ends; a composite state's body
+// reaching `done` schedules it through completeIfDone.
 func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) error {
 	if e.hasRunningDoAction(state) {
 		return nil
 	}
-
 	for _, trans := range e.graph.Transitions[state] {
 		if trans.Trigger != nil {
-			continue
-		}
-		satisfied, err := e.passesGuard(trans)
-		if err != nil {
-			return fmt.Errorf("eval completion guard: %w", err)
-		}
-		if !satisfied {
 			continue
 		}
 		e.eventQueue.Push(Event{
@@ -499,6 +492,7 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 			Payload:   trans,
 		})
 		e.nextEventID++
+		return nil
 	}
 	return nil
 }
@@ -755,12 +749,19 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				// no longer there.
 				return dispatch, nil
 			}
+			var notes []RunNote
+			if lowerTrans.Trigger == nil && sourceState != nil {
+				var err error
+				if lowerTrans, notes, err = e.chooseCompletion(sourceState, lowerTrans); err != nil || lowerTrans == nil {
+					return dispatch, err
+				}
+			}
 			// A transition out of a state inside an orthogonal region is region-local:
 			// it must not tear down the sibling regions unless its target lies outside
 			// the region set. The source may be a composite state enclosing the
 			// region's active state, so the region is resolved by containment.
 			var err error
-			dispatch.Fired, err = e.resolveAndFire(sourceState, lowerTrans)
+			dispatch.Fired, err = e.resolveAndFire(sourceState, lowerTrans, notes)
 			return dispatch, err
 		}
 
@@ -1270,15 +1271,101 @@ func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition,
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
 // its route as it fires; source is as for fireFrom, nil for the single hierarchy.
-func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Transition) (bool, error) {
+func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Transition, notes []RunNote) (bool, error) {
 	r, err := e.resolveRoute(trans)
 	if err != nil {
 		return false, err
 	}
 	if source != nil {
-		return e.fireFrom(source, trans, nil, r)
+		return e.fireFrom(source, trans, notes, r)
 	}
+	saved := e.firingNotes
+	e.firingNotes = notes
+	defer func() { e.firingNotes = saved }()
 	return e.fireTransition(trans, r)
+}
+
+// chooseCompletion resolves which completion transition out of source fires on
+// the completion event dispatched carries: every completion transition of the
+// state has its guard read now, the policy draws one of those enabled as a
+// transition choice and the state's other completion events leave the queue,
+// one completion occurrence firing one transition. None enabled fires nothing.
+func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lower.Transition) (*lower.Transition, []RunNote, error) {
+	queued := e.eventQueue.CompletionsOf(source)
+	// The others leave the queue only once the draw stands: a refused replay changes nothing.
+	drain := func() {
+		for _, ev := range queued {
+			e.eventQueue.Take(ev.ID)
+		}
+	}
+	transitions := e.graph.Transitions[source]
+	if completionCount(transitions) < 2 {
+		// Nothing to choose among: firing reads the one guard.
+		drain()
+		return dispatched, nil, nil
+	}
+	var enabled []int
+	var notes []RunNote
+	for pos, trans := range transitions {
+		if trans.Trigger != nil {
+			continue
+		}
+		var ok bool
+		var err error
+		if len(enabled) > 0 {
+			// As for a triggered event: once one is enabled, a later one whose guard
+			// cannot be read is noted as an alternative not taken, not an error.
+			e.preview(func() { ok, err = e.completionEnabled(trans) })
+			if err != nil {
+				notes = append(notes, e.unevaluableTransition(source, transitions, pos, err))
+				ok = false
+			}
+		} else if ok, err = e.completionEnabled(trans); err != nil {
+			return nil, nil, fmt.Errorf("eval completion guard: %w", err)
+		}
+		if ok {
+			enabled = append(enabled, pos)
+		}
+	}
+	if len(enabled) == 0 {
+		drain()
+		return nil, nil, nil
+	}
+	choice, ok := e.transitionChoice(source, transitions, enabled)
+	if !ok {
+		drain()
+		return transitions[enabled[0]], notes, nil
+	}
+	whereOf := func(i int) string { return transitionWhere(source, transitions[enabled[i]]) }
+	pick := e.ctx.scheduling().choose(choice, whereOf)
+	choice.Taken, choice.Where = pick, whereOf(pick)
+	choice.File, choice.Span = e.transitionLocation(source, transitions[enabled[pick]])
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return nil, nil, err
+	}
+	drain()
+	return transitions[enabled[pick]], append(notes, choice), nil
+}
+
+// completionCount is how many of the transitions are completion transitions.
+func completionCount(transitions []*lower.Transition) int {
+	n := 0
+	for _, trans := range transitions {
+		if trans.Trigger == nil {
+			n++
+		}
+	}
+	return n
+}
+
+// completionEnabled reports whether a completion transition can fire now: its
+// guard holds and the join it may lead into has every other branch in place.
+func (e *StateExecutor) completionEnabled(trans *lower.Transition) (bool, error) {
+	pass, err := e.passesGuard(trans)
+	if err != nil || !pass {
+		return false, err
+	}
+	return e.joinSynchronized(trans)
 }
 
 // transitionDecided records what selecting the transition now firing noted, its
