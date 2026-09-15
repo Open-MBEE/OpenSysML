@@ -312,14 +312,25 @@ The consequences for the editor:
 its values rewritten in place, one added goes where the writer puts it — the view's
 body for a view-local one, the element's own body for an inline one, opening a
 bodyless declaration as `AddMember` does — and a cleared one is removed with its
-line and, when it was the whole body, with the body. The operations refuse a target
-outside the document (`unknown-target`), a view that is none (`not-a-view`), a
-view-local placement of an element the view does not expose (`not-exposed`), an
-element no rendering draws as the node or edge the annotation positions
-(`not-drawn`), and a clearing with nothing to clear (`not-annotated`).
-`opensysml/applyModelEdit` exposes them as `setLayout`, `setRoute` and
-`setCanvas`; the three rewrite the requesting document alone, so their
-`WorkspaceEdit` carries one `TextDocumentEdit`.
+line and, when it was the whole body, with the body. The document written is the
+one declaring what holds the annotation, wherever the request came from: the view's
+document for a view-local `Layout` or `Route` and for a `Canvas`, the element's own
+document for an inline one. A target is resolved through the workspace index, and
+its declaration range, when the rendering reports one instead of a qualified name,
+is read in the document `declaredIn` names. The splices go through the same
+per-document routing, atomic validation and `Result.Others` that rename and
+delete use, so one request may write several documents and refuses as a whole
+when the result is invalid in any of them. The operations refuse a target no
+document of the workspace declares (`unknown-target`), a view that is none
+(`not-a-view`), a view-local placement of an element the view does not expose
+(`not-exposed`), an element no rendering draws as the node or edge the annotation
+positions (`not-drawn`), a clearing with nothing to clear (`not-annotated`), and a
+destination it may not rewrite — a bundled library file, or a document the index
+holds without the workspace holding its source — naming the file
+(`referenced-elsewhere`). `opensysml/applyModelEdit` exposes them as `setLayout`,
+`setRoute` and `setCanvas`, answering one versioned `TextDocumentEdit` per
+document changed, as it does for rename and delete; the requesting document is
+among them only when it changed.
 
 ### Direct manipulation
 
@@ -361,11 +372,23 @@ save are the text document's.
 
 - `edit`: goldens for a new annotation in a view body and inline, an update in
   place, a clearing that removes the body it filled, a route and a canvas, and each
-  typed refusal; the unannotated case stays byte-identical
-  (`internal/core/edit/layout_test.go`).
+  typed refusal; the unannotated case stays byte-identical; a view in another
+  document, an element in another document placed inline, a `Canvas` on a view
+  elsewhere, a clearing elsewhere, several documents in one request, the refusals
+  for an unheld and a library document, and the atomic refusal when the second
+  document's result is invalid (`internal/core/edit/layout_test.go`).
 - LSP: a render → `setLayout` → apply → re-render round trip that sees the new
   `x` and `y`, one versioned `TextDocumentEdit` on the document, and a refusal shape
-  (`internal/lsp/modeledit_test.go`).
+  (`internal/lsp/modeledit_test.go`); a view drawing another document's parts, whose
+  drag writes the view's document alone, a route by declaration range that writes the
+  other document at the version the server holds, a direct rendering that writes the
+  other document and not its own, a disk-only document written at no version, the
+  library refusal, and the atomic refusal when the other document would become
+  invalid (`internal/lsp/modeledit_cross_document_test.go`).
+- Extension: a node another document declares is placed by its qualified name, a
+  declaration range travels with the document it is one of, and the edit is applied
+  only while every document it names is open at the version it carries
+  (`src/edits.test.ts`).
 - Webview: the automatic layout pinned for a fixture, the model's geometry kept
   exactly, one placement per gesture, and the SVG's node groups, handles and
   arrowheads (`src/webview/layout.test.ts`, `canvas.test.ts`).
@@ -377,12 +400,14 @@ save are the text document's.
 - The `geometry` view kind is not rendered by `internal/core/view` and no tier here
   adds it; the panel reports it as unsupported.
 - Multi-document models render per document. A view exposing elements from another
-  open file draws them, and dragging one writes into the view's body in the
-  panel's document; a document drawn directly places only what it declares, and
-  writing an annotation into another document is out of scope. Rename and delete
-  follow references into the workspace's other documents; a reference from a
-  bundled library file, or from a document the index holds without the workspace
-  holding its source, still refuses the edit.
+  file draws them and places them in its own body; a document drawn directly places
+  what it draws from another file inline, in that file; a view declared in another
+  file is placed in that file. Rename, delete and the layout operations follow
+  their targets into the workspace's other documents; a reference from, or an
+  annotation into, a bundled library file or a document the index holds without
+  the workspace holding its source still refuses the edit, naming the file.
+- A node drawn from a bundled library, or from no workspace document, carries no
+  `fqn` and no `declaration`, so the panel does not offer to drag it.
 - Only the requesting document's version travels in the request, so only it can be
   answered `stale` by the server; another document that changed between the server
   computing the edit and the client applying it is caught by the client comparing

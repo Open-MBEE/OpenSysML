@@ -55,19 +55,32 @@ func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
 }
 
 // element is the declaration an operation edits, in whichever document: the one
-// Target names, or the one at Declaration in this document when Target is empty.
+// Target names, or the one at Declaration in its document when Target is empty.
 func (m Model) element(i int, op Operation) (*symbols.Symbol, error) {
 	if op.Target != "" || op.Declaration.Len == 0 {
 		return m.declaredOnce(i, op.Target)
 	}
-	if sym := m.Index.DocumentRoot(m.Source.Name()).DeclaredAt(op.Declaration); sym != nil {
+	root := m.Index.DocumentRoot(m.declarationDoc(op))
+	if root == nil {
+		return nil, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+			Message: fmt.Sprintf("%s is no document of this workspace", op.DeclarationDoc)}
+	}
+	if sym := root.DeclaredAt(op.Declaration); sym != nil {
 		return sym, nil
 	}
 	return nil, &Error{
 		Failure:        FailureUnknownTarget,
 		OperationIndex: i,
-		Message:        fmt.Sprintf("nothing is declared at %s of this model", m.at(op.Declaration)),
+		Message:        fmt.Sprintf("nothing is declared at %s of this model", m.at(op)),
 	}
+}
+
+// declarationDoc names the document an operation's Declaration is a span of.
+func (m Model) declarationDoc(op Operation) string {
+	if op.DeclarationDoc == "" {
+		return m.Source.Name()
+	}
+	return op.DeclarationDoc
 }
 
 // label names the element an operation edits for a message and a splice: its
@@ -76,12 +89,21 @@ func (m Model) label(op Operation) string {
 	if op.Target != "" || op.Declaration.Len == 0 {
 		return op.Target
 	}
-	return "the element declared at " + m.at(op.Declaration)
+	return "the element declared at " + m.at(op)
 }
 
-// at spells where a span starts, as line:column.
-func (m Model) at(span source.Span) string {
-	pos := m.Source.Lines().PosAt(span.Offset)
+// at spells where an operation's Declaration starts, as line:column, qualified
+// by its document when that is another than the edited one.
+func (m Model) at(op Operation) string {
+	doc := m.declarationDoc(op)
+	in, ok := m.inDocument(doc)
+	if !ok {
+		return fmt.Sprintf("byte %d of %s", op.Declaration.Offset, doc)
+	}
+	pos := in.Source.Lines().PosAt(op.Declaration.Offset)
+	if doc != m.Source.Name() {
+		return fmt.Sprintf("%d:%d of %s", pos.Line, pos.Col, doc)
+	}
 	return fmt.Sprintf("%d:%d", pos.Line, pos.Col)
 }
 

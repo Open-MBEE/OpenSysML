@@ -486,6 +486,70 @@ test("placementOperations targets a node or edge no qualified name reaches by it
   ]);
 });
 
+// A view of views.sysml drawing what parts.sysml declares: the nodes carry their
+// qualified names and owners as any declared node does, and the unnamed
+// connection its declaration range, all located in parts.sysml.
+const partsURI = "file:///work/parts.sysml";
+const partsOrigin = (line: number) => ({ uri: partsURI, range: { start: { line, character: 2 }, end: { line, character: 30 } } });
+const engineDef: RenderOwner = { fqn: "Machinery::Engine", feature: false };
+const machinery: RenderOwner = { fqn: "Machinery", feature: false };
+const rotor: RenderNode = { id: "n1", kind: "part", name: "rotor", type: "", detail: "", parent: "n0", fqn: "Machinery::Engine::rotor", owners: [engineDef, machinery], origin: partsOrigin(3) };
+const stator: RenderNode = { id: "n2", kind: "part", name: "stator", type: "", detail: "", parent: "n0", fqn: "Machinery::Engine::stator", owners: [engineDef, machinery], origin: partsOrigin(4) };
+const rotorToStator = { from: "n1", to: "n2", label: "", kind: "connection", declaration: partsOrigin(5).range, origin: partsOrigin(5) };
+const drawnFromParts = {
+  nodes: [{ id: "n0", kind: "part def", name: "Machinery::Engine", type: "", detail: "", fqn: "Machinery::Engine", owners: [machinery], origin: partsOrigin(2) }, rotor, stator],
+  edges: [rotorToStator],
+  view: "EngineViews::engineView",
+  version: 2,
+};
+
+test("placementOperations names a node another document declares by its qualified name, in the view", () => {
+  assert.deepEqual(placementOperations(drawnFromParts, [{ id: "n1", layout: { x: 120, y: 40 } }], []), [
+    { kind: "setLayout", target: "Machinery::Engine::rotor", view: "EngineViews::engineView", layout: { x: 120, y: 40 } },
+  ]);
+});
+
+test("placementOperations targets a declaration another document holds in that document", () => {
+  assert.deepEqual(placementOperations(drawnFromParts, [], [{ index: 0, route: [{ x: 30, y: 90 }] }]), [
+    { kind: "setRoute", declaration: rotorToStator.declaration, declaredIn: partsURI, route: [{ x: 30, y: 90 }] },
+  ]);
+  const unnamedNode = { ...drawnFromParts, nodes: [...drawnFromParts.nodes, { ...imported, id: "n7", declaration: partsOrigin(6).range, origin: partsOrigin(6) }] };
+  assert.deepEqual(placementOperations(unnamedNode, [{ id: "n7", layout: { x: 1, y: 2 } }], [{ index: 0 }]), [
+    { kind: "setLayout", declaration: partsOrigin(6).range, declaredIn: partsURI, layout: { x: 1, y: 2 } },
+    { kind: "setRoute", declaration: rotorToStator.declaration, declaredIn: partsURI, route: undefined },
+  ]);
+});
+
+// The edit a drag on drawnFromParts comes back as: the view's document, at the version
+// the request named, and parts.sysml at the version the server holds it.
+const viewsURI = "file:///work/views.sysml";
+const layoutEdit = {
+  documentChanges: [
+    { textDocument: { uri: viewsURI, version: 2 }, edits: [] },
+    { textDocument: { uri: partsURI, version: 5 }, edits: [] },
+  ],
+};
+
+test("a layout edit reaching another document is applied only while that document is at the version it was computed against", () => {
+  const held = new Map([
+    [viewsURI, 2],
+    [partsURI, 5],
+  ]);
+  assert.deepEqual(unopenedDocuments(layoutEdit, (uri) => held.get(uri)), []);
+  assert.deepEqual(staleDocuments(layoutEdit, (uri) => held.get(uri)), []);
+  held.set(partsURI, 6);
+  assert.deepEqual(staleDocuments(layoutEdit, (uri) => held.get(uri)), [partsURI]);
+  assert.equal(describeStale([partsURI]), "parts.sysml changed while the edit was computed; it is not applied, so repeat the action.");
+});
+
+test("a layout edit reaching a document no buffer holds asks for it to be opened first", () => {
+  assert.deepEqual(unopenedDocuments(layoutEdit, (uri) => (uri === viewsURI ? 2 : undefined)), [partsURI]);
+  const inline = { documentChanges: [{ textDocument: { uri: partsURI, version: null }, edits: [] }] };
+  assert.deepEqual(unopenedDocuments(inline, (uri) => (uri === viewsURI ? 2 : undefined)), [partsURI]);
+  assert.deepEqual(staleDocuments(inline, (uri) => (uri === viewsURI ? 2 : undefined)), []);
+  assert.deepEqual(staleDocuments(inline, () => 1), [partsURI]);
+});
+
 test("placementOperations refuses a node or edge the document does not declare", () => {
   assert.equal(placementOperations(placed, [{ id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
   assert.equal(placementOperations(placed, [{ id: "missing", layout: { x: 1, y: 2 } }], []), undefined);

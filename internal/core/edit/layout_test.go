@@ -358,21 +358,255 @@ func TestSetCanvas(t *testing.T) {
 	}
 }
 
+// engineParts and engineViews are a workspace of two documents: one declares
+// the parts, the other a view exposing them.
+const engineParts = "package Machinery {\n    part def Engine {\n        part rotor;\n        part stator;\n        connection connect rotor to stator;\n    }\n}\n"
+
+const engineViews = "package EngineViews {\n    private import Views::*;\n    private import StandardViewDefinitions::*;\n    view engineView {\n        expose Machinery::Engine;\n        render asInterconnectionDiagram;\n    }\n}\n"
+
+const rotorInView = "metadata DiagramLayout::Layout about Machinery::Engine::rotor { x = 5; y = 6; }"
+
+// A view of the edited document places an element another document declares
+// in its own body; an inline annotation belongs to the element's document, which
+// refuses when the model hands out no source for it.
 func TestSetLayoutOfElementInAnotherDocumentFromAView(t *testing.T) {
-	const parts = "package Machinery {\n    part def Engine {\n        part rotor;\n        part stator;\n        connection connect rotor to stator;\n    }\n}\n"
-	const views = "package EngineViews {\n    private import Views::*;\n    private import StandardViewDefinitions::*;\n    view engineView {\n        expose Machinery::Engine;\n        render asInterconnectionDiagram;\n    }\n}\n"
-	m := loadWorkspace(t, "views.sysml", views, map[string]string{"parts.sysml": parts})
+	m := loadWorkspace(t, "views.sysml", engineViews, map[string]string{"parts.sysml": engineParts})
 	requireClean(t, m)
 	res, err := Apply(m, []Operation{SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6))})
 	if err != nil {
 		t.Fatalf("view-local layout of a sibling document's element: %v", err)
 	}
-	if !strings.Contains(string(res.Content), "metadata DiagramLayout::Layout about Machinery::Engine::rotor { x = 5; y = 6; }") {
-		t.Fatalf("layout not stated in the view:\n%s", res.Content)
+	if !strings.Contains(string(res.Content), rotorInView) || len(res.Others) != 0 {
+		t.Fatalf("layout not stated in the view alone:\n%s\nothers: %v", res.Content, otherNames(res))
 	}
 	_, err = Apply(m, []Operation{SetLayout("Machinery::Engine::rotor", "", at(5, 6))})
-	if e := editError(t, err); e.Failure != FailureUnknownTarget || !strings.Contains(e.Message, "parts.sysml") {
+	if e := editError(t, err); e.Failure != FailureReferencedElsewhere || !strings.Contains(e.Message, "parts.sysml") {
 		t.Fatalf("inline layout of another document's element: got %v", err)
+	}
+}
+
+// Placing an element in a view another document declares writes the view's
+// document and leaves the edited one alone; dragging again updates the
+// annotation there in place, and clearing it removes it with its line.
+func TestSetLayoutInViewOfAnotherDocument(t *testing.T) {
+	m := loadEditableWorkspace(t, "parts.sysml", engineParts, map[string]string{"views.sysml": engineViews})
+	requireClean(t, m)
+	res := applyOne(t, m, SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6)))
+	if string(res.Content) != engineParts || len(res.Applied) != 0 {
+		t.Fatalf("parts.sysml changed:\n%s\napplied %+v", res.Content, res.Applied)
+	}
+	placed := strings.Replace(engineViews,
+		"        render asInterconnectionDiagram;\n    }\n",
+		"        render asInterconnectionDiagram;\n        "+rotorInView+"\n    }\n", 1)
+	if got := otherContent(t, res, "views.sysml"); got != placed {
+		t.Fatalf("views.sysml:\n--- want\n%s\n--- got\n%s", placed, got)
+	}
+	if a := res.Others[0].Applied; len(a) != 1 || a[0].OperationIndex != 0 || a[0].Target != "Machinery::Engine::rotor" {
+		t.Fatalf("views.sysml applied = %+v, want one insertion of operation 0", a)
+	}
+
+	m = loadEditableWorkspace(t, "parts.sysml", engineParts, map[string]string{"views.sysml": placed})
+	requireClean(t, m)
+	res = applyOne(t, m, SetLayout("Machinery::Engine::rotor", "EngineViews::engineView",
+		&semantics.Layout{X: 50, Y: 6, Width: 200, Height: 80, HasSize: true}))
+	want := strings.Replace(placed, "{ x = 5; y = 6; }", "{ x = 50; y = 6; width = 200; height = 80; }", 1)
+	if got := otherContent(t, res, "views.sysml"); got != want {
+		t.Fatalf("views.sysml in place:\n--- want\n%s\n--- got\n%s", want, got)
+	}
+
+	res = applyOne(t, m, SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", nil))
+	if got := otherContent(t, res, "views.sysml"); got != engineViews {
+		t.Fatalf("clearing did not restore views.sysml:\n%s", got)
+	}
+}
+
+// An inline Layout or Route of an element another document declares is written
+// into that element's body in its own document, opening the body when it has
+// none and closing it again when the annotation is cleared.
+func TestSetLayoutInlineIntoAnotherDocument(t *testing.T) {
+	m := loadEditableWorkspace(t, "views.sysml", engineViews, map[string]string{"parts.sysml": engineParts})
+	requireClean(t, m)
+	res := applyOne(t, m, SetLayout("Machinery::Engine::rotor", "", at(5, 6)))
+	if string(res.Content) != engineViews {
+		t.Fatalf("views.sysml changed:\n%s", res.Content)
+	}
+	placed := strings.Replace(engineParts, "        part rotor;\n",
+		"        part rotor {\n            @DiagramLayout::Layout { x = 5; y = 6; }\n        }\n", 1)
+	if got := otherContent(t, res, "parts.sysml"); got != placed {
+		t.Fatalf("parts.sysml:\n--- want\n%s\n--- got\n%s", placed, got)
+	}
+
+	m = loadEditableWorkspace(t, "views.sysml", engineViews, map[string]string{"parts.sysml": placed})
+	requireClean(t, m)
+	res = applyOne(t, m, SetLayout("Machinery::Engine::rotor", "", nil))
+	if got := otherContent(t, res, "parts.sysml"); got != engineParts {
+		t.Fatalf("clearing did not restore parts.sysml:\n%s", got)
+	}
+
+	m = loadEditableWorkspace(t, "views.sysml", engineViews, map[string]string{"parts.sysml": engineParts})
+	line := declaredAt(t, engineParts, "connection connect rotor to stator;")
+	route := &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}
+	_, err := Apply(m, []Operation{SetRouteAt(line, "", route)})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget {
+		t.Fatalf("a declaration span names the edited document's declarations unless told otherwise: got %v", err)
+	}
+	routed := strings.Replace(engineParts, "        connection connect rotor to stator;\n",
+		"        connection connect rotor to stator {\n            @DiagramLayout::Route { points = (1, 2); }\n        }\n", 1)
+	res = applyOne(t, m, SetRouteAt(line, "", route).DeclaredIn("parts.sysml"))
+	if got := otherContent(t, res, "parts.sysml"); got != routed || string(res.Content) != engineViews {
+		t.Fatalf("route of another document's unnamed connection:\n--- want\n%s\n--- got\n%s", routed, got)
+	}
+	_, err = Apply(m, []Operation{SetRouteAt(line, "", route).DeclaredIn("gone.sysml")})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget || !strings.Contains(e.Message, "gone.sysml") {
+		t.Fatalf("a declaration in no document: got %v", err)
+	}
+	_, err = Apply(m, []Operation{SetRouteAt(source.Span{Offset: 3, Len: 4}, "", route).DeclaredIn("parts.sysml")})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget || !strings.Contains(e.Message, "1:4 of parts.sysml") {
+		t.Fatalf("a span declaring nothing in another document: got %v", err)
+	}
+}
+
+// A declaration span in another document follows the bytes earlier operations
+// of the same request write before it there, and is refused once one of them
+// rewrote the declaration itself.
+func TestSetLayoutByDeclarationInAnotherDocumentFollowsEarlierOperations(t *testing.T) {
+	m := loadEditableWorkspace(t, "views.sysml", engineViews, map[string]string{"parts.sysml": engineParts})
+	requireClean(t, m)
+	line := declaredAt(t, engineParts, "connection connect rotor to stator;")
+	route := &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}
+	res, err := Apply(m, []Operation{
+		SetLayout("Machinery::Engine::rotor", "", at(5, 6)),
+		SetRouteAt(line, "", route).DeclaredIn("parts.sysml"),
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	want := strings.Replace(engineParts, "        part rotor;\n",
+		"        part rotor {\n            @DiagramLayout::Layout { x = 5; y = 6; }\n        }\n", 1)
+	want = strings.Replace(want, "        connection connect rotor to stator;\n",
+		"        connection connect rotor to stator {\n            @DiagramLayout::Route { points = (1, 2); }\n        }\n", 1)
+	if got := otherContent(t, res, "parts.sysml"); got != want {
+		t.Fatalf("parts.sysml:\n--- want\n%s\n--- got\n%s", want, got)
+	}
+
+	const links = "package Rotors {\n    part def Rotor;\n}\n"
+	linked := strings.Replace(engineParts, "part rotor;", "part rotor : Rotors::Rotor;", 1)
+	m = loadEditableWorkspace(t, "links.sysml", links, map[string]string{"parts.sysml": linked})
+	requireClean(t, m)
+	line = declaredAt(t, linked, "part rotor : Rotors::Rotor;")
+	_, err = Apply(m, []Operation{
+		Delete("Rotors::Rotor", true),
+		SetRouteAt(line, "", route).DeclaredIn("parts.sysml"),
+	})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget || e.OperationIndex != 1 || !strings.Contains(e.Message, "of parts.sysml") {
+		t.Fatalf("a declaration the cascade removed: got %v", err)
+	}
+}
+
+// A Canvas sizes a view in the view's document.
+func TestSetCanvasOfViewInAnotherDocument(t *testing.T) {
+	m := loadEditableWorkspace(t, "parts.sysml", engineParts, map[string]string{"views.sysml": engineViews})
+	requireClean(t, m)
+	canvas := &semantics.Canvas{Unit: "px", Width: 1200, Height: 800, HasSize: true}
+	res := applyOne(t, m, SetCanvas("EngineViews::engineView", canvas))
+	if string(res.Content) != engineParts {
+		t.Fatalf("parts.sysml changed:\n%s", res.Content)
+	}
+	sized := strings.Replace(engineViews,
+		"        render asInterconnectionDiagram;\n    }\n",
+		"        render asInterconnectionDiagram;\n        @DiagramLayout::Canvas { unit = \"px\"; width = 1200; height = 800; }\n    }\n", 1)
+	if got := otherContent(t, res, "views.sysml"); got != sized {
+		t.Fatalf("views.sysml:\n--- want\n%s\n--- got\n%s", sized, got)
+	}
+	m = loadEditableWorkspace(t, "parts.sysml", engineParts, map[string]string{"views.sysml": sized})
+	res = applyOne(t, m, SetCanvas("EngineViews::engineView", nil))
+	if got := otherContent(t, res, "views.sysml"); got != engineViews {
+		t.Fatalf("clearing did not restore views.sysml:\n%s", got)
+	}
+}
+
+// One request may place elements in the edited document and in others; each
+// document is rewritten once and the edited one comes first.
+func TestSetLayoutReachesSeveralDocumentsInOneRequest(t *testing.T) {
+	const own = "package Local {\n    part def Housing {\n        part shell;\n    }\n}\n"
+	m := loadEditableWorkspace(t, "local.sysml", own, map[string]string{"parts.sysml": engineParts, "views.sysml": engineViews})
+	requireClean(t, m)
+	res, err := Apply(m, []Operation{
+		SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6)),
+		SetLayout("Local::Housing::shell", "", at(1, 2)),
+		SetLayout("Machinery::Engine::stator", "", at(3, 4)),
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !strings.Contains(string(res.Content), "part shell {\n            @DiagramLayout::Layout { x = 1; y = 2; }\n        }\n") {
+		t.Fatalf("local.sysml:\n%s", res.Content)
+	}
+	if got := otherNames(res); strings.Join(got, ",") != "parts.sysml,views.sysml" {
+		t.Fatalf("others = %v, want parts.sysml then views.sysml", got)
+	}
+	if got := otherContent(t, res, "parts.sysml"); !strings.Contains(got, "part stator {\n            @DiagramLayout::Layout { x = 3; y = 4; }\n        }\n") {
+		t.Fatalf("parts.sysml:\n%s", got)
+	}
+	if got := otherContent(t, res, "views.sysml"); !strings.Contains(got, rotorInView) {
+		t.Fatalf("views.sysml:\n%s", got)
+	}
+}
+
+// A document the model hands out no source for, and a bundled library file, are
+// never written: the operation refuses, naming the document.
+func TestSetLayoutRefusesDocumentsItMayNotRewrite(t *testing.T) {
+	m := loadEditableWorkspace(t, "parts.sysml", engineParts, nil)
+	m.Index.AddDocument("views.sysml", parseOnly("views.sysml", engineViews))
+	m.Index.ExpandWildcardImports()
+	for _, op := range []Operation{
+		SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6)),
+		SetCanvas("EngineViews::engineView", &semantics.Canvas{Width: 1, Height: 2, HasSize: true}),
+	} {
+		_, err := Apply(m, []Operation{op})
+		e := editError(t, err)
+		if e.Failure != FailureReferencedElsewhere || e.OperationIndex != 0 || !strings.Contains(e.Message, "views.sysml") {
+			t.Fatalf("%s into an unheld document: got %v", op.Annotation, err)
+		}
+	}
+
+	m = loadEditableWorkspace(t, "parts.sysml", engineParts, nil)
+	_, err := Apply(m, []Operation{SetLayout("Parts::Part", "", at(5, 6))})
+	e := editError(t, err)
+	if e.Failure != FailureReferencedElsewhere || !strings.Contains(e.Message, "the bundled library file Systems Library/Parts.sysml") {
+		t.Fatalf("inline layout of a library declaration: got %v", err)
+	}
+}
+
+// Validation judges every rewritten document: an annotation whose type name the
+// view's document spells as something else refuses the request as a whole, and
+// a later operation sees what an earlier one placed in another document.
+func TestSetLayoutIntoAnotherDocumentRefusesWhenTheResultIsInvalidThere(t *testing.T) {
+	shadowed := strings.Replace(engineViews, "    view engineView {", "    part def DiagramLayout;\n    view engineView {", 1)
+	m := loadEditableWorkspace(t, "parts.sysml", engineParts, map[string]string{"views.sysml": shadowed})
+	requireClean(t, m)
+	_, err := Apply(m, []Operation{
+		SetLayout("Machinery::Engine::stator", "", at(1, 2)),
+		SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6)),
+	})
+	e := editError(t, err)
+	if e.Failure != FailureResultInvalid || !strings.Contains(e.Message, "in views.sysml") || e.Diagnosed == nil || e.Diagnosed.Name() != "views.sysml" {
+		t.Fatalf("placing into a document that spells DiagramLayout as its own: got %v", err)
+	}
+	if string(m.Source.Bytes()) != engineParts {
+		t.Fatal("the model's own source was modified")
+	}
+
+	m = loadEditableWorkspace(t, "parts.sysml", engineParts, map[string]string{"views.sysml": engineViews})
+	res, err := Apply(m, []Operation{
+		SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6)),
+		Delete("Machinery::Engine::rotor", true),
+	})
+	if err != nil {
+		t.Fatalf("placing then deleting the element: %v", err)
+	}
+	if got := otherContent(t, res, "views.sysml"); got != engineViews {
+		t.Fatalf("the cascade did not remove the annotation it placed:\n%s", got)
 	}
 }
 

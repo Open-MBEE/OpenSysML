@@ -32,9 +32,11 @@ export interface Rendering {
  * placementOperations turns where a gesture left nodes and edges into the layout
  * and route operations of one edit: a Layout in the view's body for a rendering
  * of a declared view, inline on the element for a pseudo-view. An element no
- * qualified name reaches is targeted by its declaration and placed inline, since
- * a view body cannot name it. Undefined when something placed is not declared by
- * the document, since no annotation can reach it.
+ * qualified name reaches is targeted by its declaration, in the document its
+ * origin names, and placed inline, since a view body cannot name it. The server
+ * writes each annotation into the document that declares what holds it, this
+ * one or another of the workspace. Undefined when something placed no workspace
+ * document declares, since no annotation can reach it.
  */
 export function placementOperations(
   rendering: Rendering,
@@ -48,7 +50,7 @@ export function placementOperations(
     if (node?.fqn) {
       operations.push({ kind: "setLayout", target: node.fqn, view, layout: placement.layout });
     } else if (node?.declaration) {
-      operations.push({ kind: "setLayout", declaration: node.declaration, layout: placement.layout });
+      operations.push({ kind: "setLayout", declaration: node.declaration, ...declaredIn(node), layout: placement.layout });
     } else {
       return undefined;
     }
@@ -58,12 +60,17 @@ export function placementOperations(
     if (edge?.fqn) {
       operations.push({ kind: "setRoute", target: edge.fqn, view, route: placement.route });
     } else if (edge?.declaration) {
-      operations.push({ kind: "setRoute", declaration: edge.declaration, route: placement.route });
+      operations.push({ kind: "setRoute", declaration: edge.declaration, ...declaredIn(edge), route: placement.route });
     } else {
       return undefined;
     }
   }
   return operations;
+}
+
+/** declaredIn names the document a node's or edge's declaration range is one of, when the rendering located it. */
+function declaredIn(element: RenderNode | RenderEdge): { declaredIn?: string } {
+  return element.origin ? { declaredIn: element.origin.uri } : {};
 }
 
 /** A node's ancestors, nearest first, ending at a root. */

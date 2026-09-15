@@ -148,6 +148,26 @@ func TestInheritedStatesKeepTheirGeometry(t *testing.T) {
 	}
 }
 
+// The states and transitions a usage inherits are located in the document
+// declaring the definition, not in the usage's; the usage itself stays in its own.
+func TestInheritedStatesAreLocatedInTheirDefinitionsDocument(t *testing.T) {
+	machine := renderIn(t, "PlantUsages::inheritedMachineView", "layout-usages.sysml", "layout.sysml")
+	usage := findNode(t, machine.Roots, "PlantUsages::machine")
+	if usage.Origin.Doc != "layout-usages.sysml" {
+		t.Errorf("machine is located in %q, want layout-usages.sysml", usage.Origin.Doc)
+	}
+	for _, name := range []string{"off", "on"} {
+		if got := findNode(t, machine.Roots, name).Origin.Doc; got != "layout.sysml" {
+			t.Errorf("%s is located in %q, want layout.sysml, where Plant::Machine declares it", name, got)
+		}
+	}
+	for _, edge := range machine.Edges {
+		if edge.Origin.Doc != "layout.sysml" {
+			t.Errorf("edge %s -> %s is located in %q, want layout.sysml", edge.From, edge.To, edge.Origin.Doc)
+		}
+	}
+}
+
 // The nodes an action usage inherits from its definition keep their inline
 // positions, take the view's, and the usage's own succession over them its route.
 func TestInheritedActionNodesKeepTheirGeometry(t *testing.T) {

@@ -472,12 +472,12 @@ function midpoint(points: RenderPoint[]): RenderPoint {
   return points[0] ?? { x: 0, y: 0 };
 }
 
-/** movable reports whether a node can be dragged: the document declares it, so a Layout can reach it. */
+/** movable reports whether a node can be dragged: a workspace document declares it, so a Layout can reach it. */
 export function movable(layout: CanvasLayout, entry: PlacedNode): boolean {
   return layout.placeable && reachable(entry.node);
 }
 
-/** steerable reports whether an edge's route can be edited: the document declares the connection. */
+/** steerable reports whether an edge's route can be edited: a workspace document declares the connection. */
 export function steerable(layout: CanvasLayout, edge: PlacedEdge): boolean {
   return layout.placeable && reachable(edge.edge);
 }

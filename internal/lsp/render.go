@@ -63,8 +63,8 @@ type renderResult struct {
 // was built from when there is one, and its position when a Layout gives one.
 // FQN names that declaration the way opensysml/applyModelEdit targets it, and
 // Owners the namespaces declaring it, nearest first, drawn or not. Declaration
-// stands in for FQN when the document declares the node but no qualified name
-// reaches it: a layout operation targets the declaration at that range.
+// stands in for FQN when no qualified name reaches the node: a layout operation
+// targets the declaration at that range of the document Origin names.
 type renderNode struct {
 	ID          string          `json:"id"`
 	Kind        string          `json:"kind"`
@@ -279,19 +279,20 @@ func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string
 			Type:   node.Type,
 			Detail: node.Detail,
 			Parent: node.Parent,
-			Origin: s.originIn(doc, node.Origin),
 		}
-		if sym := nodeSymbol(doc, name, node.Origin); sym != nil {
+		declaring := s.declaring(doc, node.Origin)
+		n.Origin = s.originOf(declaring, node.Origin)
+		if sym := nodeSymbol(declaring, node.Origin); sym != nil {
 			if owners, ok := nodeOwners(sym); ok {
 				n.FQN = notationName(sym)
 				n.Notation = sym.Notation()
 				n.Owners = owners
-				if out.Palette != nil {
+				if out.Palette != nil && declaring.Name == name {
 					out.Palette.confine(n.Notation)
 					declared = append(declared, declaredNode{node.ID, sym.Decl})
 				}
 			} else {
-				decl := spanToRange(doc.Content, sym.DeclSpan)
+				decl := spanToRange(declaring.Content, sym.DeclSpan)
 				n.Declaration = &decl
 			}
 		}
@@ -315,17 +316,18 @@ func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string
 func (s *Server) renderEdges(out *renderResult, doc *model.Document, name string, edges []view.EdgeData) {
 	for _, edge := range edges {
 		e := renderEdge{
-			From:   edge.From,
-			To:     edge.To,
-			Label:  edge.Label,
-			Kind:   edge.Kind.String(),
-			Origin: s.originIn(doc, edge.Origin),
+			From:  edge.From,
+			To:    edge.To,
+			Label: edge.Label,
+			Kind:  edge.Kind.String(),
 		}
-		if sym := nodeSymbol(doc, name, edge.Origin); sym != nil {
+		declaring := s.declaring(doc, edge.Origin)
+		e.Origin = s.originOf(declaring, edge.Origin)
+		if sym := nodeSymbol(declaring, edge.Origin); sym != nil {
 			if _, ok := nodeOwners(sym); ok {
 				e.FQN = notationName(sym)
 			} else {
-				decl := spanToRange(doc.Content, sym.DeclSpan)
+				decl := spanToRange(declaring.Content, sym.DeclSpan)
 				e.Declaration = &decl
 			}
 		}
@@ -367,19 +369,29 @@ func renderPalette(asked string) (view.Palette, error) {
 	return palette, nil
 }
 
-// originIn is a core origin as a client navigates to it, nil for an element with
-// no locatable declaration and for one declared in a document the session does
-// not hold. An origin in rendered, the document snapshot the rendering was made
-// from, is placed in that snapshot's text; a standard library declaration is
-// located in its sysml-stdlib document.
-func (s *Server) originIn(rendered *model.Document, o view.Origin) *renderOrigin {
+// declaring is the document an origin is located in, as the session holds it:
+// rendered, the snapshot the rendering was made from, when the origin is in it,
+// else the workspace or bundled library document of that name; nil for an
+// origin with no locatable declaration or in a document the session does not hold.
+func (s *Server) declaring(rendered *model.Document, o view.Origin) *model.Document {
 	if !o.Located() {
 		return nil
 	}
-	doc := rendered
-	if o.Doc != rendered.Name {
-		doc = s.document(o.Doc)
+	if o.Doc == rendered.Name {
+		return rendered
 	}
+	return s.document(o.Doc)
+}
+
+// originIn is a core origin as a client navigates to it, placed in the text of
+// the document declaring it as the session holds it.
+func (s *Server) originIn(rendered *model.Document, o view.Origin) *renderOrigin {
+	return s.originOf(s.declaring(rendered, o), o)
+}
+
+// originOf places o in doc, the document declaring it; a standard library
+// declaration is located in its sysml-stdlib document. Nil for no document.
+func (s *Server) originOf(doc *model.Document, o view.Origin) *renderOrigin {
 	if doc == nil {
 		return nil
 	}
