@@ -420,13 +420,8 @@ func (w *Workspace) memberSymbolsLocked(resolver *resolve.Resolver, sem *semanti
 	return members
 }
 
-// semanticsLocked is the workspace's resolver, with its semantic model attached:
-// an inherited member and the element filters gating an import are both answered
-// by the model, so a read path without one resolves differently to a checked one.
-// Calls are selected under the checker's argument typing, as a checked document's
-// are. Both are made on first use and kept for the workspace's life; the resolver
-// tracks what each document's entries were read from, so a change drops only
-// those. Caller holds the write lock: a query memoizes.
+// semanticsLocked is the workspace's resolver with its model and argument typer, made
+// on first use and kept for its life; it tracks per document what each entry read.
 func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
 	if w.resolver == nil {
 		resolver := resolve.New(w.index)

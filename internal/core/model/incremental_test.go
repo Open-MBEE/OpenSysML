@@ -17,13 +17,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/stressmodel"
 )
 
-// A workspace edited incrementally must answer exactly as one built fresh from
-// the same documents: same diagnostics, same resolution of every written
-// reference, same reverse references. Each fixture set is replayed through a
-// scripted sequence and a seeded random one of edits (to a mutation or back to
-// an earlier version), closes and opens, comparing after every step. A
-// dependency edge the incremental workspace misses shows up here as a
-// diagnostic the fresh one reports and it does not.
+// A workspace edited incrementally (scripted and seeded random edits, reverts, closes,
+// opens) must answer as one built fresh: same diagnostics, resolutions and references.
 
 // replayDoc is one document of a replay: the versions it has had, and which one
 // is open, if any.

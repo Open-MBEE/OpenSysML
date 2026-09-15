@@ -1,10 +1,7 @@
 package symbols
 
-// Changes is what a run of writes to an index changed, at the granularity a
-// ReadRecorder records reads at: the names whose registered symbols, re-exports
-// or hiding changed, the namespaces whose members, filters or wildcard imports
-// changed, and the documents added, replaced or removed. A reader whose
-// recorded reads meet none of these saw nothing move.
+// Changes is what a run of writes to an index changed, at the granularity a ReadRecorder
+// records reads at: names, namespaces and documents. Reads meeting none saw nothing move.
 type Changes struct {
 	Names      map[string]bool
 	Namespaces map[string]bool
@@ -61,12 +58,8 @@ func (idx *Index) changedDoc(name string) {
 	idx.changes.Docs[name] = true
 }
 
-// A ReadRecorder is told what an index read is about, so a consumer can find
-// out later whether a change (see Changes) can have moved what it read. Reads
-// through a name (LookupQualified and kin) report the name; enumerations of a
-// namespace and reads of its direct children report the namespace; reads of a
-// document's root or kind report the document; scans of the whole name table
-// report that.
+// A ReadRecorder is told what an index read is about — a name looked up, a namespace
+// enumerated or its children read, a document's root or kind, the whole table.
 type ReadRecorder interface {
 	ReadName(fqn string)
 	ReadNamespace(fqn string)

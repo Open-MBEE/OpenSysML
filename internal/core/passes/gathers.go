@@ -7,12 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Gathers is what the workspace-wide audits gathered from each workspace
-// document and the unions they judge over, so an analysis merges N cached
-// gathers instead of walking N documents. A workspace shares one across its
-// analyses and keeps it current through Regather; a context outside a
-// workspace makes its own for the run. Once populated it serves readers under
-// its lock, so analyses over a read-only index may share one concurrently.
+// Gathers holds what the workspace-wide audits gathered from each document, and the
+// unions they judge over; kept current by Regather and readable concurrently once built.
 type Gathers struct {
 	mu sync.Mutex
 	// docs is the set of workspace documents gathered; nil until first use.
