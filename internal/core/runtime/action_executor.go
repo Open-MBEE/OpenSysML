@@ -130,6 +130,18 @@ func (bp NodeBreakpoint) at(within []ast.Node, node ast.Node) bool {
 	return bp.Node == node && slices.Equal(bp.Within, within)
 }
 
+// cloneBreakpoints copies bps, each path with it, so neither copy can alias the other.
+func cloneBreakpoints(bps []NodeBreakpoint) []NodeBreakpoint {
+	if bps == nil {
+		return nil
+	}
+	out := make([]NodeBreakpoint, len(bps))
+	for i, bp := range bps {
+		out[i] = NodeBreakpoint{Within: slices.Clone(bp.Within), Node: bp.Node}
+	}
+	return out
+}
+
 // breakpointStop is a breakpoint a run stopped at: the node, in its nested flow, and
 // the name the run reports it by; a zero stop is no breakpoint.
 type breakpointStop struct {
@@ -2583,6 +2595,19 @@ func (e *ActionExecutor) Traversals() []Traversal {
 
 // TraversalCount is the number of successions taken so far.
 func (e *ActionExecutor) TraversalCount() int { return len(e.traversals) }
+
+// TraversalsSince returns the successions taken since mark, a TraversalCount read
+// earlier, copying only those: a client reading each run's moves reads this, not
+// the whole record over again.
+func (e *ActionExecutor) TraversalsSince(mark int) []Traversal {
+	if mark < 0 {
+		mark = 0
+	}
+	if mark >= len(e.traversals) {
+		return nil
+	}
+	return slices.Clone(e.traversals[mark:])
+}
 
 // move travels token along edge, recording the traversal.
 func (e *ActionExecutor) move(token *Token, edge lower.ActionEdge) {

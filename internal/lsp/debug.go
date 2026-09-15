@@ -1042,17 +1042,14 @@ func (sess *debugSession) snapshot() *debugSnapshot {
 	case view.KindAction:
 		snap.Root = sess.actions.Root()
 		sess.actionSnapshot(snap)
-		notes = sess.action.Notes()
+		notes, sess.noted = sess.action.NotesSince(sess.noted), sess.action.NoteCount()
 	case view.KindState:
 		snap.Root = sess.states.Root()
 		sess.machineSnapshot(snap)
-		notes = sess.machine.Notes()
+		notes, sess.noted = sess.machine.NotesSince(sess.noted), sess.machine.NoteCount()
 	}
-	if len(notes) > sess.noted {
-		for _, note := range notes[sess.noted:] {
-			snap.Notes = append(snap.Notes, note.String())
-		}
-		sess.noted = len(notes)
+	for _, note := range notes {
+		snap.Notes = append(snap.Notes, note.String())
 	}
 	snap.State, snap.Reason = sess.status()
 	return snap
@@ -1147,15 +1144,12 @@ func (sess *debugSession) breakpointIDs() []string {
 // actionSnapshot fills in the tokens of an action and the edges they took.
 func (sess *debugSession) actionSnapshot(snap *debugSnapshot) {
 	exec := sess.action
-	traversals := exec.Traversals()
-	if len(traversals) > sess.fired {
-		for _, tr := range traversals[sess.fired:] {
-			if edge, ok := sess.actionEdge(tr.Within, tr.Edge); ok {
-				snap.Taken = append(snap.Taken, edge)
-			}
+	for _, tr := range exec.TraversalsSince(sess.fired) {
+		if edge, ok := sess.actionEdge(tr.Within, tr.Edge); ok {
+			snap.Taken = append(snap.Taken, edge)
 		}
-		sess.fired = len(traversals)
 	}
+	sess.fired = exec.TraversalCount()
 	for _, tok := range exec.Tokens() {
 		within := tok.Within()
 		id, drawn := sess.actions.Node(within, tok.Location)
@@ -1270,22 +1264,19 @@ func (sess *debugSession) machineSnapshot(snap *debugSnapshot) {
 	if current := exec.CurrentState(); current != nil {
 		activate(current)
 	}
-	fired := exec.FiredTransitions()
-	if len(fired) > sess.fired {
-		for _, f := range fired[sess.fired:] {
-			var index int
-			var ok bool
-			if f.Source == nil {
-				index, ok = sess.states.EntryTransition(f.Decl, f.Owner, f.Target)
-			} else {
-				index, ok = sess.states.Transition(f.Decl, f.Source, f.Target)
-			}
-			if ok {
-				snap.Taken = append(snap.Taken, sess.edgeAt(index))
-			}
+	for _, f := range exec.FiredSince(sess.fired) {
+		var index int
+		var ok bool
+		if f.Source == nil {
+			index, ok = sess.states.EntryTransition(f.Decl, f.Owner, f.Target)
+		} else {
+			index, ok = sess.states.Transition(f.Decl, f.Source, f.Target)
 		}
-		sess.fired = len(fired)
+		if ok {
+			snap.Taken = append(snap.Taken, sess.edgeAt(index))
+		}
 	}
+	sess.fired = exec.FiredCount()
 	for _, event := range exec.EventQueue().Events() {
 		snap.Queue = append(snap.Queue, debugEvent{Event: debugEventText(event), At: event.Timestamp})
 	}

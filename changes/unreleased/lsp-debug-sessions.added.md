@@ -19,8 +19,11 @@
   view, ends it and says why. To place runtime state on a rendering, the runtime
   now records the transitions a state machine fires (`StateExecutor.FiredTransitions`) and the
   successions each token travels (`ActionExecutor.Traversals`, `Token.Within` for the nested flows
-  it runs in), a `view.StateLocator`/`view.ActionLocator` map lowered vertices, action nodes and
-  edges to render IDs by their position within the declaration, and document, they were written in
+  it runs in) — a driver reading them step by step takes only what a mark it kept has not seen
+  (`FiredSince`, `TraversalsSince`, `NotesSince`) — a held image of an object carries its
+  debugger's state with it (the breakpoints set, the pause reached, the record so far), a
+  `view.StateLocator`/`view.ActionLocator` map lowered vertices, action nodes and edges to render
+  IDs by their position within the declaration, and document, they were written in
   (a node or edge inherited from another document is drawn from that document and keeps its place
   as either document is edited), and `model.Workspace.NewRuntime` builds a
   runtime model over a workspace's documents whose `Dependencies` lists the declarations a run

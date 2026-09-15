@@ -1249,6 +1249,15 @@ func TestFiredTransitionsLogsEachTransitionInOrder(t *testing.T) {
 	if got := firedNames(exec)[mark:]; !slices.Equal(got, []string{"init->waiting"}) {
 		t.Fatalf("first step fired = %v, want init->waiting", got)
 	}
+	if got := exec.FiredSince(mark); !slices.Equal(got, exec.FiredTransitions()[mark:]) {
+		t.Errorf("FiredSince(%d) = %v, want the firings past the mark", mark, got)
+	}
+	if got := exec.FiredSince(exec.FiredCount()); got != nil {
+		t.Errorf("FiredSince(FiredCount()) = %v, want nil", got)
+	}
+	if got := exec.FiredSince(exec.FiredCount() + 3); got != nil {
+		t.Errorf("FiredSince past the count = %v, want nil", got)
+	}
 	for exec.HasPendingWork() && exec.State() == StateRunning {
 		if err := exec.ProcessNextEvent(); err != nil {
 			t.Fatalf("ProcessNextEvent: %v", err)
@@ -1645,6 +1654,15 @@ func TestTraversalsLogEachSuccessionInOrder(t *testing.T) {
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("run traversals = %v, want %v", got, want)
+	}
+	if since := exec.TraversalsSince(mark); len(since) != len(want) || since[0].Edge != exec.Traversals()[mark].Edge {
+		t.Errorf("TraversalsSince(%d) = %v, want the %d successions past the mark", mark, since, len(want))
+	}
+	if since := exec.TraversalsSince(exec.TraversalCount()); since != nil {
+		t.Errorf("TraversalsSince(TraversalCount()) = %v, want nil", since)
+	}
+	if since := exec.TraversalsSince(-1); len(since) != exec.TraversalCount() {
+		t.Errorf("TraversalsSince(-1) = %d successions, want all %d", len(since), exec.TraversalCount())
 	}
 	tokens := make(map[int64]bool)
 	for _, tr := range exec.Traversals() {

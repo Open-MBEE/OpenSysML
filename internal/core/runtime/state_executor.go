@@ -707,6 +707,19 @@ func (e *StateExecutor) FiredTransitions() []FiredTransition {
 // FiredCount is len(FiredTransitions()), a mark to read what a later step fired from.
 func (e *StateExecutor) FiredCount() int { return len(e.fired) }
 
+// FiredSince returns the transitions taken since mark, a FiredCount read earlier,
+// copying only those: a client reading each step's firings reads this, not the
+// whole record over again.
+func (e *StateExecutor) FiredSince(mark int) []FiredTransition {
+	if mark < 0 {
+		mark = 0
+	}
+	if mark >= len(e.fired) {
+		return nil
+	}
+	return slices.Clone(e.fired[mark:])
+}
+
 // noteFired records transitions taken, skipping any without a declaration.
 func (e *StateExecutor) noteFired(transitions ...*lower.Transition) {
 	for _, trans := range transitions {
