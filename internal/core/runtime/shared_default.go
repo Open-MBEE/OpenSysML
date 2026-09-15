@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
@@ -335,7 +336,7 @@ func (ctx *Context) sharedPaths(root *Instance, reads []sharedRead) (paths [][]s
 			path = append(path, above[i])
 		}
 		path = append(path, read.path...)
-		key := strings.Join(path, ".")
+		key := pathKey(path)
 		if seen[key] {
 			continue
 		}
@@ -350,6 +351,18 @@ func (ctx *Context) sharedPaths(root *Instance, reads []sharedRead) (paths [][]s
 		}
 	}
 	return paths, inputs
+}
+
+// pathKey encodes a path so that no two segment sequences share a key: a quoted
+// feature name may itself contain the dot that separates segments.
+func pathKey(path []string) string {
+	var key strings.Builder
+	for _, segment := range path {
+		key.WriteString(strconv.Itoa(len(segment)))
+		key.WriteByte(':')
+		key.WriteString(segment)
+	}
+	return key.String()
 }
 
 // bindingDeclaredFor reports whether any type on the chain holding inst declares a
