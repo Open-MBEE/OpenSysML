@@ -124,16 +124,16 @@ func qualified(sym *symbols.Symbol) bool {
 	return true
 }
 
-// declaredOnce is the one declaration name names, in whichever document.
-func (m Model) declaredOnce(i int, name string) (*symbols.Symbol, error) {
-	return m.declaredOnceIn(i, name, "")
-}
-
 // declaredOnceIn is the one declaration name names in doc, or in whichever
 // document when doc is empty. A name declared only elsewhere is reported with
 // the documents declaring it.
 func (m Model) declaredOnceIn(i int, name, doc string) (*symbols.Symbol, error) {
-	declaring := m.declared(name)
+	return oneOf(i, name, doc, m.declared(name))
+}
+
+// oneOf is the one of the declarations of name in doc, or in whichever document
+// when doc is empty.
+func oneOf(i int, name, doc string, declaring []*symbols.Symbol) (*symbols.Symbol, error) {
 	if doc != "" {
 		var elsewhere []string
 		declaring = slices.DeleteFunc(declaring, func(sym *symbols.Symbol) bool {

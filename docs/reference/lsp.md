@@ -359,7 +359,8 @@ declares is refused as `unknown-target`, not placed in its stead. Left out, the 
 document is meant for a range, and any document for a name. A `view`, and the `target`
 of a `setCanvas` given no `declaredIn`, name the view the requested document declares when
 it declares one — the one a rendering of it shows, whatever namesakes other documents
-declare — else the one view of the workspace so named. A `declaredIn` naming a
+declare — else the one view of the workspace so named; a namesake that is no view is
+passed over, and a name naming no view is refused as `not-a-view`. A `declaredIn` naming a
 document the server does not hold, given on an operation other than these two, or naming
 another document without a `digest`, is an invalid-params error, as an operation giving
 both `target` and `declaration` is. No other operation takes a `declaration`. Every target

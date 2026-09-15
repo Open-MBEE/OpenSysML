@@ -606,6 +606,33 @@ func TestSetLayoutInViewPrefersTheEditedDocumentsNamesake(t *testing.T) {
 	}
 }
 
+// A namesake that is no view neither stands in for the one view so named nor
+// counts among them: the workspace's sole view is taken, from any document, and
+// a name naming no view at all is refused as such.
+func TestSetLayoutInViewIgnoresNamesakesThatAreNoView(t *testing.T) {
+	partsWithNamesake := engineParts + "package EngineViews {\n    part def engineView;\n}\n"
+	m := loadEditableWorkspace(t, "parts.sysml", partsWithNamesake, map[string]string{"views.sysml": engineViews})
+	res := applyOne(t, m, SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6)))
+	if got := otherContent(t, res, "views.sysml"); !strings.Contains(got, rotorInView) || string(res.Content) != partsWithNamesake {
+		t.Fatalf("rotor not placed in the one view so named, in views.sysml alone:\n%s\nedited: %s", got, res.Content)
+	}
+	canvas := &semantics.Canvas{Unit: "px", Width: 1200, Height: 800, HasSize: true}
+	res = applyOne(t, m, SetCanvas("EngineViews::engineView", canvas))
+	if got := otherContent(t, res, "views.sysml"); !strings.Contains(got, "@DiagramLayout::Canvas") || string(res.Content) != partsWithNamesake {
+		t.Fatalf("the one view so named not sized in views.sysml alone:\n%s\nedited: %s", got, res.Content)
+	}
+
+	m = loadEditableWorkspace(t, "parts.sysml", partsWithNamesake, nil)
+	_, err := Apply(m, []Operation{SetLayout("Machinery::Engine::rotor", "EngineViews::engineView", at(5, 6))})
+	if e := editError(t, err); e.Failure != FailureNotAView || !strings.Contains(e.Message, "EngineViews::engineView is no view") {
+		t.Fatalf("a view name naming a part def alone: got %v", err)
+	}
+	_, err = Apply(m, []Operation{SetCanvas("EngineViews::engineView", canvas)})
+	if e := editError(t, err); e.Failure != FailureNotAView || !strings.Contains(e.Message, "Canvas") {
+		t.Fatalf("a Canvas of a part def: got %v", err)
+	}
+}
+
 // One request may place elements in the edited document and in others; each
 // document is rewritten once and the edited one comes first.
 func TestSetLayoutReachesSeveralDocumentsInOneRequest(t *testing.T) {
