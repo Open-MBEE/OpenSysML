@@ -86,6 +86,13 @@ validation pass, reporting nothing. *Allocated* is cumulative allocation;
 | 6 400 | 1 196 257 | 73.6 MB | 86 s | 22.0 GiB | 9.9 GB |
 | 12 800 | 2 392 417 | 147 MB | 318 s | 44.0 GiB | 20.6 GB |
 
+These figures predate the workspace keeping its semantic model between edits,
+which costs a one-shot validation the bookkeeping of what it would invalidate:
+at 200 satellites 1.85–1.96 s became 2.19–2.25 s and 738 MiB allocated became
+767 MiB, peak RSS 421 to 428 MiB; at 1 600 satellites 17.7 s became 20.5 s and
+5.5 GiB allocated 5.8 GiB. What pays it and what does not is in
+`docs/internals/performance.md`, "What the persistent semantic model changes".
+
 Above the process floor the cost is close to linear in the model: **about
 55 µs, 19 KiB allocated and 8.5 KB of peak RSS per element**, or 10–13 ms,
 3.5 MiB and 1.6 MB per fully modeled satellite. Doubling the model doubles
@@ -298,39 +305,77 @@ change, with the rest of the project indexed beside it. `BenchmarkEditBeside`
 opens the constellation as one workspace document, opens a second small file
 that imports it (`package Ops { private import SatelliteNetwork::Constellation::*; part spare : Sat0; }`),
 and measures one edit to the small file followed by its diagnostics — what the
-LSP server does on `didChange`:
+LSP server does on `didChange`. The workspace now keeps one semantic model
+across edits and invalidates it per document (`docs/internals/performance.md`,
+"What the persistent semantic model changes"); *rebuilt* is the model rebuilt
+from cold memoization on every edit, measured on the same machine, *kept* is
+the persistent one (`-benchtime=5x -count=3`, medians):
 
-| satellites in the workspace | elements | per edit of the small file | allocated per edit |
-| --------------------------- | -------- | -------------------------- | ------------------ |
-| 32 | 6 227 | 52 ms | 21 MiB |
-| 128 | 24 167 | 263 ms | 79 MiB |
-| 512 | 95 927 | 1.53 s | 311 MiB |
+| satellites in the workspace | elements | per edit, rebuilt | allocated, rebuilt | per edit, kept | allocated, kept |
+| --------------------------- | -------- | ----------------- | ------------------ | -------------- | --------------- |
+| 32 | 6 227 | 48 ms | 22 MiB | 0.82 ms | 0.31 MiB |
+| 128 | 24 167 | 189 ms | 83 MiB | 2.5 ms | 0.64 MiB |
+| 512 | 95 927 | 861 ms | 327 MiB | 8.7 ms | 2.0 MiB |
 
-**The cost of editing a two-line file grows linearly with the size of the
-model it sits beside**: about 16 µs per element in the workspace, per
-keystroke. The reasons are structural, not incidental:
+Rebuilding, **the cost of editing a two-line file grew linearly with the size
+of the model it sat beside**: about 9 µs per element in the workspace, per
+keystroke (an earlier revision of this record measured 16 µs; resolution got
+cheaper in between). The reasons were structural: `invalidateLocked` dropped
+every cached diagnostic and the reverse-reference index on any change, and the
+next request re-analyzed from a fresh semantic model; and the OOSEM, MOSA and
+identity audits gathered the kind of every symbol in every workspace document
+to check the one file's relationships.
 
-- `model.(*Workspace).invalidateLocked` drops every cached diagnostic and
-  the reverse-reference index on any change, on the correct grounds that a
-  change anywhere can alter what a name elsewhere resolves to. The next
-  diagnostics request re-analyzes from a fresh semantic model with cold
-  memoization.
-- Several passes are workspace-wide by design: a CPU profile of the 128-
-  satellite case spends 24% in the OOSEM method audit (`OOSEMMethodPass`),
-  which gathers the kind of every symbol in every workspace document to
-  check derivation and satisfaction relationships across files, 10% in the
-  inherited-name conflict pass and 3% in the MOSA audit; between them they
-  compute `semantics.(*Model).FeatureTypeSet` over the whole constellation
-  to analyze a file that declares one part. Name resolution of the small
-  file's own imports is 16%.
+Kept, a keystroke costs what the two-line file costs plus what it reads of the
+constellation, and grows a hundred times more slowly with the model: 512
+satellites beside the file cost 8.7 ms and 2 MiB, a hundredth of the rebuilt
+figures. The edit invalidates the small document only; the constellation's
+frame in the resolver, its memoized semantics and its gathered facts stay.
 
-The interactive limit is therefore set by the workspace, not the file being
-edited. With one large model file beside the one being typed in, 100–200 of
-these satellites (20 000–40 000 elements) keep a keystroke under 250–500 ms;
-at 500 satellites every keystroke costs 1.5 s and the editor is no longer
-usable. A project that splits the constellation over many files pays the
-same per-file analysis for each open file it publishes diagnostics for, so a
-workspace with `n` open files costs about `n` times the figures above.
+### Editing a file the others import
+
+The worst edit is to a document everything else depends on. `Split` writes the
+same network as one document per plane beside the library they build on and
+the constellation joining them (six files at these sizes); `BenchmarkLoadFiles`
+opens and analyzes every file through one workspace, and `BenchmarkEditImported`
+edits the library and then asks every file for its diagnostics, as the editor's
+refresh sweep does:
+
+| satellites | files | load all files, rebuilt | load all files, kept | edit the library, rebuilt | edit the library, kept |
+| ---------- | ----- | ----------------------- | -------------------- | ------------------------- | ---------------------- |
+| 32 | 6 | 0.55 s / 228 MiB | 0.34 s / 129 MiB | 0.63 s / 213 MiB | 0.43 s / 108 MiB |
+| 128 | 6 | 2.11 s / 805 MiB | 1.27 s / 420 MiB | 2.13 s / 735 MiB | 1.31 s / 324 MiB |
+| 512 | 6 | 9.20 s / 3.05 GiB | 5.26 s / 1.56 GiB | 8.78 s / 2.77 GiB | 5.26 s / 1.17 GiB |
+
+Editing the library invalidates every document, since each imports it, so the
+edit costs one analysis of the whole model — the same 5.26 s loading the six
+files costs. It cost 1.7× that rebuilt, because every file's analysis
+re-gathered every other file for the audits. Loading the split model kept costs
+what the single-file model costs (5.99 s for 512 satellites, below); rebuilt it
+cost 1.8× as much, and the ratio grew with the file count. Over the
+1 600-satellite network split into 34 files (297 429 elements), opening every
+file and asking each for its diagnostics through one workspace took 126.5 s
+rebuilt and 18.3 s kept, against 17.7 s for the same model as one file; the
+difference is the three audits, which gathered all 34 documents once per
+document analyzed and now gather each once.
+
+### What the model holds between edits
+
+Keeping the semantic model means keeping its memo tables: the supertype
+closures, redefinition closures, masks, resolved parts and identities the
+analysis computed. `BenchmarkLoad` reports the heap a loaded session holds per
+element, and it rises from about 2.7 KiB to about 5.0 KiB — 254 MiB to 478 MiB
+for 512 satellites (19.4 to 34.7 MiB at 32, 66 to 123 MiB at 128). The same
+bytes were allocated and discarded during every analysis before; now they stay,
+which is what makes the next edit cheap. Editing does not let them grow:
+`TestEditsHoldNoStaleState` edits the small file a thousand times beside the
+32-satellite network, editing the network itself every fiftieth time, and the
+live heap goes from 67.2 MB after the first edit to 70.2 MB after the
+thousandth — the journals drop what a replaced document owned.
+
+The interactive limit is therefore no longer set by the size of the workspace
+a small file sits beside; it is set by the size of the document being edited,
+and by the documents that import it when that document is a library.
 
 ## Where the time goes
 
@@ -374,14 +419,16 @@ is what exposes them:
 
 | use | comfortable | slow | impractical | bound by |
 | --- | ----------- | ---- | ----------- | -------- |
-| editing with the model open beside the file | ≤ 100 satellites (20 000 elements, ≤ 250 ms per keystroke) | 200–400 satellites (0.5–1.2 s) | ≥ 500 satellites (≥ 1.5 s per keystroke) | whole-workspace re-analysis per edit |
+| editing a small file with the model open beside it | ≤ 512 satellites (96 000 elements, ≤ 9 ms per keystroke; the largest size measured) | — | — | the size of the document edited and of the documents importing it, not of the workspace |
+| editing the library every file of a split model imports | ≤ 32 satellites (0.43 s per edit) | 128 satellites (1.3 s) | ≥ 512 satellites (5.3 s) | one analysis of every dependent document |
 | a REPL or gRPC session holding the model | ≤ 500 satellites (≤ 5 s to load, 250 MiB held) | 1 000–2 000 satellites (10–25 s to load, 0.5–1 GiB held) | limited by load time, not by memory, until the tens of thousands | load wall time; ~490 KiB held per satellite |
 | `sysml -validate` in a build or CI | ≤ 800 satellites (≤ 10 s, 1.4 GB) | 1 600–6 400 satellites (20–90 s, 2.7–10 GB) | 12 800 satellites at 5 min and 21 GB; 25 600 would not fit in 31 GiB | peak RSS, 8.5 KB per element |
 | `sysml -satisfy` over every assertion | ≤ 400 satellites (≤ 8 s, 1 GB) | 800–1 600 satellites (18–38 s, 2–4 GB) | 3 200 satellites at 83 s and 7.6 GB; memory runs out about half as far as validation | 2× the validation cost |
 
 For the question as asked — a satellite network with every component modeled
-— the practical ceilings on this machine are **a few hundred satellites for
-interactive editing, a few thousand for batch validation and checking, and
+— the practical ceilings on this machine are **the largest model measured for
+editing a file beside it, a few hundred satellites of dependents for editing
+a file they all import, a few thousand for batch validation and checking, and
 about ten thousand (two million elements) before a 31 GiB machine cannot hold
 a validation**. A small constellation of a dozen satellites is well inside
 the interactive band at every operation measured.
@@ -395,10 +442,11 @@ the interactive band at every operation measured.
   usage cost more per element, long documentation comments cost less — but
   the shape of the curve (linear load, memory-bound batch, workspace-bound
   editing) does not depend on the regularity.
-- The whole constellation is one file. Splitting it over files changes two
-  things: the CLI submits files one at a time and reindexes after each, which
-  is quadratic in the file count (`docs/internals/performance.md`, notes for
-  further work), and an editor pays the per-file analysis once per open file.
+- The whole constellation is one file except where a figure says it was
+  split. Splitting it over files changes two things: the CLI submits files one
+  at a time and reindexes after each, which is quadratic in the file count
+  (`docs/internals/performance.md`, notes for further work), and an editor pays
+  the per-file analysis once per open file.
 - `-satisfy` over the single-definition form instantiates each satellite's
   tree on its own; it does not instantiate the whole `Network` as one object
   with 12 800 satellites and their links. Only the fleet section
@@ -419,17 +467,18 @@ validation, and one definition with many occurrences — is in
 [scaling to very large models](large-model-scaling-design.md). The three
 items below are the ones the profiles point at directly.
 
-- **Scope the workspace-wide passes.** The OOSEM and MOSA audits and the
-  inherited-name conflict pass are what make one keystroke cost a
-  whole-workspace walk. The audits need the whole workspace only when some
-  document declares an artefact of the method's kinds; whether one does is
-  computable once per reindex and cached, and a workspace that declares none
-  would then pay nothing. That alone removes a quarter of the per-edit cost.
-- **Keep the semantic model across edits.** Every diagnostics request after an
-  edit starts from cold memoization. Invalidating what a change can reach —
-  the documents that import the changed one, transitively — rather than
-  everything would let a keystroke in a small file beside a large model cost
-  what the small file costs.
+- **Hand the gathered facts to the batch pipeline.** The OOSEM, MOSA and
+  identity audits now gather each workspace document once and judge each
+  analyzed document over the union, which is what made the 34-file split load
+  in 18 s rather than 126 s through one workspace. A batch that analyzes
+  documents on parallel workers with private contexts gathers per worker
+  again unless the workspace's gathers are what the batch hands them.
+- **Make a one-shot validation skip the bookkeeping.** The persistent model
+  records, on every memoized read, which document depends on the entry's
+  owner, so that the owner's replacement invalidates the reader. A validation
+  that will never edit pays that for nothing — about a sixth of its wall time
+  at 200 satellites. Analyzing each document in a private context over the
+  read-only index, as a parallel batch does, records nothing.
 - **Reduce allocation per element.** Nineteen KiB allocated per element
   against 2.7 KiB held means a load produces seven times its own weight in
   garbage, and the collector's quarter of the profile is the price. The

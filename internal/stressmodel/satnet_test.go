@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -150,5 +151,48 @@ func TestFleetScales(t *testing.T) {
 	}
 	if legacy.Satellites != small.Satellites || legacy.Elements <= 4*small.Elements {
 		t.Errorf("the fleet form is not much smaller than one definition per satellite: %+v vs %+v", small, legacy)
+	}
+}
+
+// TestSatelliteNetworkFilesValidate keeps the multi-file form in step with the
+// single one: the same constellation split by plane loads clean under strict
+// conformance, one document per file, and every satisfy assertion holds.
+func TestSatelliteNetworkFilesValidate(t *testing.T) {
+	n := SatelliteNetwork{Planes: 2, Satellites: 2, GroundStations: 1}
+	files, stats := n.Split()
+	if len(files) != n.Planes+2 {
+		t.Fatalf("got %d files, want the library, %d planes and the network", len(files), n.Planes)
+	}
+	_, whole := n.Source()
+	if stats.Satellites != whole.Satellites || stats.Requirements != whole.Requirements || stats.Connections != whole.Connections {
+		t.Fatalf("split stats %+v, single-file stats %+v", stats, whole)
+	}
+	ws := model.NewWorkspace(model.WithConformanceMode(conformance.ModeOf(true)))
+	for _, f := range files {
+		ws.Open(f.Name, []byte(f.Source), 1)
+	}
+	for _, f := range files {
+		for _, d := range ws.Diagnostics(f.Name) {
+			t.Errorf("%s: %s", f.Name, d.Message)
+		}
+	}
+
+	s := repl.NewSession()
+	s.SetConformanceMode(conformance.ModeOf(true))
+	sources := make([]repl.SourceFile, 0, len(files))
+	for _, f := range files {
+		sources = append(sources, repl.SourceFile{Name: f.Name, Text: f.Source})
+	}
+	for _, d := range s.SubmitFiles(sources).Diagnostics {
+		t.Errorf("diagnostic: %s", d.Message)
+	}
+	verdicts := s.CheckSatisfy("")
+	if len(verdicts) != stats.Requirements {
+		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), stats.Requirements)
+	}
+	for _, v := range verdicts {
+		if !v.Holds() {
+			t.Errorf("%s: %v", v.Subject, v.Lines)
+		}
 	}
 }

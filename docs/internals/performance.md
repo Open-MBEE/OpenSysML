@@ -416,6 +416,75 @@ What this says about a real workload is that the collector, not the run, is what
 grows: a long-lived session over a large model tunes better with `GOGC` than with
 a faster executor.
 
+## What the persistent semantic model changes
+
+A `model.Workspace` keeps one `resolve.Resolver` and one `semantics.Model`
+for its lifetime, beside its index, and hands them to every `passes.Context`
+it builds; a context built outside a workspace still gets fresh ones. The
+resolver keeps a frame per document that owns what was memoized while that
+document was analyzed, and records which documents each frame read: a
+document depends on another when it imports a namespace the other contributes
+to, when both contribute to one namespace, or when a resolution from its scope
+returned the other's symbol. Replacing a document drops its frame and,
+transitively, its dependents' frames — their memo entries, cached diagnostics
+and reverse references — and nothing else. The three workspace-wide audits
+(OOSEM, MOSA, identity metadata) and the coherent-quantity ranking gather each
+document's facts once into the workspace, regather a document when it changes,
+and judge each analyzed document over the union.
+
+`TestIncrementalEqualsFresh` replays scripted and seeded random edit sequences
+— edits, reverts to earlier versions, closes and opens — over the fixtures and
+the four OMG corpora and, after every step, compares diagnostics, resolutions
+and reverse references with a workspace built fresh from the same documents.
+
+Measured on the satellite-network generator (`docs/project/satellite-network-stress-test.md`,
+"Editing"; Intel Xeon Platinum 8559C, 8 CPUs, 31 GiB, Go 1.25, `-benchtime=5x
+-count=3` medians), rebuilt on every edit → kept:
+
+| measurement | rebuilt | kept |
+| ----------- | ------- | ---- |
+| `BenchmarkEditBeside`, 512 satellites beside a two-line file, per edit | 861 ms, 327 MiB | 8.7 ms, 2.0 MiB |
+| `BenchmarkEditBeside`, 128 satellites | 189 ms, 83 MiB | 2.5 ms, 0.64 MiB |
+| `BenchmarkEditBeside`, 32 satellites | 48 ms, 22 MiB | 0.82 ms, 0.31 MiB |
+| `BenchmarkEditImported`, 512 satellites in 6 files, edit the library then every file's diagnostics | 8.78 s, 2.77 GiB | 5.26 s, 1.17 GiB |
+| `BenchmarkLoadFiles`, 512 satellites in 6 files through one workspace | 9.20 s, 3.05 GiB | 5.26 s, 1.56 GiB |
+| 1 600 satellites in 34 files through one workspace, open and analyze all | 126.5 s | 18.3 s |
+| `BenchmarkLoad`, 512 satellites in one file | 5.13 s, 254 MiB held | 5.99 s, 478 MiB held |
+| live heap after 1 000 edits beside 32 satellites, against after the first | — | 67.2 MB → 70.2 MB |
+
+Editing the library every file imports costs one analysis of the whole model,
+what loading it costs; the audits no longer gather every document once per
+document analyzed, which is the whole of the 34-file difference. What the
+model holds between edits nearly doubles — the memo tables that were allocated
+and discarded during every analysis now stay — and a thousand edits grow it by
+4.5%.
+
+### What the bookkeeping costs a one-shot validation
+
+Every memoized read records that the current document depends on the owner of
+the entry it read. That is what makes invalidation sound: an entry keyed by two
+symbols of two documents (`composed[(S, T)]`) must go when either changes, and
+the reader of a cached answer must be re-analyzed when the answer's owner is
+replaced, so the dependency has to be recorded on a hit as well as on a miss.
+A validation that will never edit records about 25 million such reads at
+roughly 8 ns each for nothing. `sysml -validate -memstats` on the 200-satellite
+constellation, one file, three runs each:
+
+| | rebuilt | kept |
+| --- | ------- | ---- |
+| wall | 1.85–1.96 s | 2.19–2.25 s |
+| allocated | 738 MiB in 10.97 M allocations | 767 MiB in 10.98 M allocations |
+| peak RSS (`/usr/bin/time`) | 421 MiB | 428 MiB |
+
+At 1 600 satellites: 17.7 s and 5.5 GiB allocated became 20.5 s and 5.8 GiB.
+The cost falls on whatever analyzes through the workspace's own context: the
+LSP server, a REPL session, and `sysml -validate`, which loads through a REPL
+session. A batch that analyzes each document in a private `passes.Context` —
+its own resolver and model over the read-only index, as a pool of workers
+must — has no frames to record into and pays none of it; the workspace's
+gathered facts are what such a batch should hand its workers, so that they do
+not gather per worker what the workspace gathered once.
+
 ## Notes for further work
 
 - The `about`-metadata index walks the bundled library's documents once per

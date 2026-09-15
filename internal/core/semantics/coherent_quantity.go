@@ -142,9 +142,9 @@ func qualifiedUnitName(unit *symbols.Symbol) string {
 // coherentUnitsFor lists the declared units reducing to exactly the coherent term,
 // library ones first, each rank in declaration order.
 func (m *Model) coherentUnitsFor(coherent UnitTerm) []coherentUnit {
-	if m.coherentUnits == nil {
+	m.shared(sharedUnits, func() bool { return m.coherentUnits != nil }, func() {
 		m.coherentUnits = m.indexCoherentUnits()
-	}
+	}, func() { m.coherentUnits = nil })
 	var out []coherentUnit
 	for _, candidate := range m.coherentUnits[coherent.DimensionKey()] {
 		if term, err := m.UnitTermOf(candidate.sym); err == nil && term.Same(coherent) {
@@ -161,50 +161,40 @@ func (m *Model) indexCoherentUnits() map[string][]coherentUnit {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return out
 	}
-	idx := m.resolver.Index()
-	var roots []*symbols.Scope
 	if system := m.libSymbol(fqnSystemOfUnitsSI); system != nil {
-		roots = append(roots, rootScopeOf(system.OwnerScope))
+		var g docGather
+		collectUnitCandidates(rootScopeOf(system.OwnerScope), &g)
+		m.judgeCoherentUnits(g.units, 0, out)
 	}
-	for _, doc := range idx.WorkspaceDocuments() {
-		roots = append(roots, idx.DocumentRoot(doc))
-	}
-	for rank, root := range roots {
-		if root == nil {
-			continue
+	gathers := m.gathers()
+	for _, doc := range m.gatheredDocs() {
+		if g := gathers[doc]; !g.library {
+			m.judgeCoherentUnits(g.units, 1, out)
 		}
-		m.gatherCoherentUnits(root, min(rank, 1), out)
 	}
 	return out
 }
 
-// gatherCoherentUnits walks a scope tree's packages for the units they declare, leaving
-// out those whose declared kind disagrees with their definition or that compose a dimension-one unit.
-func (m *Model) gatherCoherentUnits(scope *symbols.Scope, rank int, out map[string][]coherentUnit) {
-	for _, sym := range scope.Members() {
-		switch sym.Kind {
-		case symbols.SymbolPackage, symbols.SymbolNamespace:
-			if sym.Scope != nil {
-				m.gatherCoherentUnits(sym.Scope, rank, out)
-			}
-		case symbols.SymbolAttributeUsage:
-			if !m.IsMeasurementUnit(sym) {
-				continue
-			}
-			term, err := m.UnitTermOf(sym)
-			if err != nil || term.Dimensionless() {
-				continue
-			}
-			if slices.ContainsFunc(m.definitionPowers(sym), func(p UnitPower) bool { return p.DimensionOne }) {
-				continue
-			}
-			if declared, ok := m.dimensionOf(sym); ok {
-				if reduced, ok := m.dimensionOfUnitTerm(term); !ok || !declared.Commensurable(reduced) {
-					continue
-				}
-			}
-			out[term.DimensionKey()] = append(out[term.DimensionKey()], coherentUnit{sym: sym, rank: rank})
+// judgeCoherentUnits indexes the candidates that are units, leaving out those whose
+// declared kind disagrees with their definition or that compose a dimension-one unit.
+func (m *Model) judgeCoherentUnits(candidates []*symbols.Symbol, rank int, out map[string][]coherentUnit) {
+	for _, sym := range candidates {
+		if !m.IsMeasurementUnit(sym) {
+			continue
 		}
+		term, err := m.UnitTermOf(sym)
+		if err != nil || term.Dimensionless() {
+			continue
+		}
+		if slices.ContainsFunc(m.definitionPowers(sym), func(p UnitPower) bool { return p.DimensionOne }) {
+			continue
+		}
+		if declared, ok := m.dimensionOf(sym); ok {
+			if reduced, ok := m.dimensionOfUnitTerm(term); !ok || !declared.Commensurable(reduced) {
+				continue
+			}
+		}
+		out[term.DimensionKey()] = append(out[term.DimensionKey()], coherentUnit{sym: sym, rank: rank})
 	}
 }
 

@@ -173,6 +173,7 @@ func (f ElementFilter) Same(g ElementFilter) bool {
 // NamespaceFiltersOf returns the filter conditions declared by the namespace
 // registered under fqn, over the documents declaring it in name order.
 func (idx *Index) NamespaceFiltersOf(fqn string) []ElementFilter {
+	idx.readNamespace(fqn)
 	byDoc := idx.nsFilters.at(fqn)
 	if len(byDoc) == 0 {
 		return nil
@@ -233,6 +234,7 @@ func (idx *Index) forgetNamespaceFilters(fqn, doc string) {
 // under the filters the namespace now declares, and the members it takes back
 // meanwhile mark the namespaces importing it onward for expansion too.
 func (idx *Index) refilter(fqn string) {
+	idx.changedNamespace(fqn)
 	idx.lastTargets.del(fqn)
 	idx.purgeReexportsUnder(fqn)
 }
