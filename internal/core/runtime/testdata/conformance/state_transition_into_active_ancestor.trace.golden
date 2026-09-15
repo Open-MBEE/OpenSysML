@@ -1,0 +1,37 @@
+exit: wait
+enter: outer (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "outer(entry);" -> "outer(entry);"
+    eval operator + -> "outer(entry);"
+enter: inner (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);"
+      eval literal "inner(entry);" -> "inner(entry);"
+    eval operator + -> "outer(entry);inner(entry);"
+transition: wait -> outer (event: accept Go)
+exit: inner (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);inner(entry);"
+      eval literal "inner(exit);" -> "inner(exit);"
+    eval operator + -> "outer(entry);inner(entry);inner(exit);"
+stmt assign log
+    eval feature log -> "outer(entry);inner(entry);inner(exit);"
+    eval literal "up(effect);" -> "up(effect);"
+  eval operator + -> "outer(entry);inner(entry);inner(exit);up(effect);"
+transition: inner -> outer (event: accept Up)
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);inner(entry);inner(exit);up(effect);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);inner(entry);inner(exit);up(effect);outer(exit);"
+stmt assign log
+    eval feature log -> "outer(entry);inner(entry);inner(exit);up(effect);outer(exit);"
+    eval literal "completion(effect);" -> "completion(effect);"
+  eval operator + -> "outer(entry);inner(entry);inner(exit);up(effect);outer(exit);completion(effect);"
+enter: done
+transition: outer -> done
