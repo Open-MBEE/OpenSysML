@@ -1,0 +1,19 @@
+{
+  "type": "state",
+  "finalState": "x0+a+b",
+  "stateVisits": [
+    "idle",
+    "work",
+    "wrapper",
+    "a",
+    "b",
+    "x0"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "T1(effect) T1.1(effect) work(entry) wrapper(entry) a(entry) T1.2(effect) b(entry) x0(entry) "
+    }
+  },
+  "trace": true
+}

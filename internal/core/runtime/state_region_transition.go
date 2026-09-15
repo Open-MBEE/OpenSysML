@@ -377,6 +377,18 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 	// exits its regions' active states, as exiting a KerML StatePerformance ends
 	// its subperformances.
 	lca := e.getLCA(owner, target)
+	if err := e.exitRegionOwnerTo(owner, lca); err != nil {
+		return err
+	}
+	if err := e.runBehaviors(effects); err != nil {
+		return err
+	}
+	return e.enterOutside(trans, source, lca, target)
+}
+
+// exitRegionOwnerTo exits owner, whose regions hold the active configuration,
+// and its ancestors up to lca, which stays active.
+func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
 	for _, current := range e.exitPath(owner, lca, nil) {
 		// Clear the region current is active in first — a region's active state may
 		// be nested below current — or an enclosing state exits current again.
@@ -390,10 +402,7 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 			return fmt.Errorf("exit state: %w", err)
 		}
 	}
-	if err := e.runBehaviors(effects); err != nil {
-		return err
-	}
-	return e.enterOutside(trans, source, lca, target)
+	return nil
 }
 
 // leaveTopRegions leaves the machine's own orthogonal regions, which no state
