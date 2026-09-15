@@ -561,9 +561,8 @@ func (r *Resolver) resolveMetadataPrefix(names, parent *symbols.Scope, prefix *a
 	r.resolveMetadataBody(body, prefix.Body)
 }
 
-// metadataBodyOwner is the metadata definition the body of prefix resolves
-// against, its type read in names; nil when the type does not resolve or the
-// annotation has no body.
+// metadataBodyOwner is the metadata definition the body of prefix resolves against,
+// its type read in names; nil when it does not resolve or there is no body.
 func (r *Resolver) metadataBodyOwner(names *symbols.Scope, prefix *ast.PrefixMetadata) *symbols.Symbol {
 	owner, ok := r.ResolveQualified(names, prefix.Type)
 	if !ok || owner == nil || len(prefix.Body) == 0 {
@@ -575,9 +574,8 @@ func (r *Resolver) metadataBodyOwner(names *symbols.Scope, prefix *ast.PrefixMet
 	return owner
 }
 
-// LinkMetadataBodies gives every annotation body scope of the document the
-// owner resolving the document would; afterwards resolving it writes nothing
-// to the scope tree, so documents of one index can be resolved concurrently.
+// LinkMetadataBodies sets every annotation body scope's owner as resolving the
+// document would, so resolving it afterwards writes nothing to the scope tree.
 func (r *Resolver) LinkMetadataBodies(name string) {
 	rootScope := r.idx.DocumentRoot(name)
 	if rootScope == nil {

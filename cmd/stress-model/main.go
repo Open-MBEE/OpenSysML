@@ -1,8 +1,5 @@
-// Command stress-model writes a large generated SysML v2 model of a stated shape
-// and size to stdout, or one file per orbital plane to a directory, for measuring
-// how the toolchain scales. The one shape today is a satellite network — a
-// constellation of fully modeled spacecraft and the ground stations they downlink
-// to. See docs/project/satellite-network-stress-test.md.
+// Command stress-model writes a large generated satellite-network model to stdout,
+// or one file per orbital plane; see docs/project/satellite-network-stress-test.md.
 package main
 
 import (

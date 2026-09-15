@@ -89,10 +89,8 @@ type File struct {
 	Name, Source string
 }
 
-// Split generates the network as one document per orbital plane beside the
-// library the satellites are built from and the constellation joining the
-// planes: the same satellites and links as Generate writes, declared under
-// a root package per file so each file is a unit of analysis of its own.
+// Split generates the network Generate writes as one document per orbital plane
+// beside the shared library and the constellation joining the planes.
 func (n SatelliteNetwork) Split() ([]File, Stats) {
 	g := &generator{}
 	var files []File

@@ -68,9 +68,8 @@ type Context struct {
 	failures []source.Span
 }
 
-// Batch is what a batch of analyses computes once, before its documents are
-// analyzed at the same time, for the passes that judge a document against the
-// whole workspace; anything a pass would gather over every document belongs here.
+// Batch is what a batch of analyses computes once before its documents are
+// analyzed together; anything a pass would gather over every document belongs here.
 type Batch struct {
 	// Documents names the documents the batch analyzes, in the order asked for.
 	Documents []string

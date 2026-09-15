@@ -70,9 +70,8 @@ func splitFiles(n SatelliteNetwork) ([]repl.SourceFile, Stats) {
 	return srcs, stats
 }
 
-// TestSatelliteNetworkSplitValidates keeps the split in step with the single
-// file: it declares the same network, loads clean under strict conformance at
-// one worker and at several, and every satisfy assertion holds across files.
+// TestSatelliteNetworkSplitValidates: the split declares the single file's
+// network, loads clean at one worker and at several, and satisfies across files.
 func TestSatelliteNetworkSplitValidates(t *testing.T) {
 	n := SatelliteNetwork{Planes: 2, Satellites: 2, GroundStations: 1}
 	_, whole := n.Source()

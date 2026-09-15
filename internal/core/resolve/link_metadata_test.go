@@ -12,9 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// linkedMetadataBodies covers the ways an annotation body finds its owner:
-// inside a definition, at the root, about an element, through an alias, nested
-// in another body, and a type that does not resolve, whose body stays unowned.
+// linkedMetadataBodies covers how an annotation body finds its owner: in a
+// definition, at the root, about an element, via an alias, nested, unresolved.
 const linkedMetadataBodies = `package P {
 	attribute def T { attribute b; }
 	metadata def M { attribute a : T; attribute n; }
@@ -60,9 +59,8 @@ func indexedDoc(t *testing.T, name, src string) (*symbols.Index, *ast.RootNamesp
 	return idx, root, r
 }
 
-// Linking a document's metadata bodies sets exactly the owners resolving it
-// sets, so resolving a linked document changes nothing in its scope tree and
-// reports what it would have.
+// Linking a document's metadata bodies sets exactly the owners resolving it sets,
+// so resolving a linked document changes nothing and reports what it would have.
 func TestLinkMetadataBodiesSetsWhatResolvingWould(t *testing.T) {
 	const name = "linked.sysml"
 	for _, src := range []string{linkedMetadataBodies, nestedMetadataBodies["nested.sysml"], nestedMetadataBodies["nested.kerml"]} {
@@ -88,9 +86,8 @@ func TestLinkMetadataBodiesSetsWhatResolvingWould(t *testing.T) {
 	}
 }
 
-// A prefix carrying a body, which the AST allows though the parser writes
-// bodies only on `@` usages, resolves its type from the annotated declaration's
-// own scope; the linker does the same, so a type visible only there is found.
+// A prefix carrying a body resolves its type from the annotated declaration's own
+// scope; the linker does the same, so a type visible only there is found.
 func TestLinkMetadataBodiesResolvesAPrefixBodyFromTheAnnotatedScope(t *testing.T) {
 	const name = "prefixed.sysml"
 	const src = `package P {

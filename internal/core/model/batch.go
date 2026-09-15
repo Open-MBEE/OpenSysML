@@ -86,11 +86,8 @@ func (w *Workspace) SetWorkers(n int) error {
 	return nil
 }
 
-// OpenAll opens every input as an authoritative buffer in one batch: the
-// documents are parsed and their scope trees built on the workers, then added
-// to the index in the order given, and the wildcard imports of the whole batch
-// are expanded once. It leaves the workspace as opening the inputs one by one
-// would, at a cost that does not grow with the number already open.
+// OpenAll opens the inputs as one batch: parsed on the workers, added to the index
+// in order, wildcard imports expanded once. Same result as opening them one by one.
 func (w *Workspace) OpenAll(inputs []Input) {
 	docs := make([]*Document, len(inputs))
 	ParallelFor(w.Workers(), len(inputs), func(i int) {
@@ -108,11 +105,8 @@ func (w *Workspace) OpenAll(inputs []Input) {
 	w.invalidateLocked()
 }
 
-// DiagnosticsAll returns the diagnostics of the named documents, in the order
-// named, with nil for a name the workspace does not hold. The documents not yet
-// analyzed since the last change are analyzed on the workers, each with a
-// context of its own over the index, which nothing writes meanwhile; the
-// results are cached as Diagnostics caches them.
+// DiagnosticsAll returns the named documents' diagnostics in the order named (nil
+// for an unknown name), analyzing the uncached ones on the workers, then caching.
 func (w *Workspace) DiagnosticsAll(names []string) [][]passes.Diagnostic {
 	w.mu.Lock()
 	defer w.mu.Unlock()

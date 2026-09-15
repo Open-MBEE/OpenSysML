@@ -29,10 +29,8 @@ func writeWorkersModel(t *testing.T) []string {
 	return paths
 }
 
-// TestWorkersFlagAndEnvironment checks that -workers and OPENSYSML_WORKERS take a
-// positive integer, that the flag wins over the variable, that either rejected
-// at startup loads nothing, and that the count does not change what -validate
-// reports over a model of several files.
+// TestWorkersFlagAndEnvironment: -workers and OPENSYSML_WORKERS take a positive
+// integer, the flag wins, a bad value loads nothing, and -validate reports the same.
 func TestWorkersFlagAndEnvironment(t *testing.T) {
 	binary := buildCLI(t)
 	paths := writeWorkersModel(t)

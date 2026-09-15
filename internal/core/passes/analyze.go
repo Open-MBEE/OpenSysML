@@ -116,10 +116,8 @@ func AnalyzeWithOptions(name string, kind source.Kind, root *ast.RootNamespace,
 	return AnalyzeInBatch(name, kind, root, parseDiags, idx, opts, nil)
 }
 
-// PrepareBatch readies the index for the documents of batch to be analyzed at
-// once: what resolving each would otherwise link into its scope tree on first use
-// is linked now, so the contexts of the batch only read it. Call it before the
-// first AnalyzeInBatch of the batch, with nothing else using the index.
+// PrepareBatch links what resolving each document of batch would write into its
+// scope tree, so AnalyzeInBatch contexts only read the index. Call it alone, first.
 func PrepareBatch(idx *symbols.Index, batch *Batch) {
 	if idx == nil || batch == nil {
 		return
@@ -130,10 +128,8 @@ func PrepareBatch(idx *symbols.Index, batch *Batch) {
 	}
 }
 
-// AnalyzeInBatch validates one document of a batch, with a context of its own
-// over an index nothing writes while the batch runs (see PrepareBatch); the
-// result does not depend on which documents share the batch or on how many are
-// analyzed at once.
+// AnalyzeInBatch validates one document of a prepared batch in a context of its
+// own; the result does not depend on which documents share the batch.
 func AnalyzeInBatch(name string, kind source.Kind, root *ast.RootNamespace,
 	parseDiags []Diagnostic, idx *symbols.Index, opts Options, batch *Batch) []Diagnostic {
 	ctx := NewContextWithOptions(name, kind, idx, parseDiags, opts)

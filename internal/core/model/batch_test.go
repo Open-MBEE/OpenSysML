@@ -28,10 +28,8 @@ var batchRoots = []struct {
 	{dir: pilotCorporaGate.roots[2].dir, require: pilotCorporaGate.requireEnv, fetch: pilotCorporaGate.fetch},
 }
 
-// Every directory of models, opened as one batch, reports the same diagnostics
-// in the same order on one worker as on many, and the same as opening its files
-// one by one does: the parallel pipeline changes when the work is done, not what
-// it finds.
+// Every directory of models, opened as one batch, reports the same diagnostics in
+// the same order on one worker as on many, and as opening its files one by one.
 func TestParallelBatchValidationMatchesSerial(t *testing.T) {
 	seen := map[string]bool{}
 	for _, root := range batchRoots {

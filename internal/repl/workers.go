@@ -6,9 +6,8 @@ func (s *Session) Workers() int {
 	return s.ws.Workers()
 }
 
-// SetWorkers sets how many files of one load are parsed and analyzed at once from
-// here on. What a load reports is the same at any count; a value below one is a
-// typed error.
+// SetWorkers sets how many files of one load are parsed and analyzed at once;
+// a value below one is a typed error. What a load reports is the same at any count.
 func (s *Session) SetWorkers(n int) error {
 	defer s.enter()()
 	return s.ws.SetWorkers(n)
