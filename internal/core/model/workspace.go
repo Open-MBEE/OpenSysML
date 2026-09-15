@@ -39,6 +39,12 @@ type Workspace struct {
 	// nil when the index came without one; libDocs caches them parsed.
 	libSource libs.Source
 	libDocs   map[string]*Document
+	// standIns maps a workspace document that is a version of a bundled library
+	// file to that file, which it displaces from the index (see standInLocked);
+	// displaced keeps the mark of each bundled file a workspace document
+	// displaced, by standing in for it or by taking its name, for when it comes back.
+	standIns  map[string]string
+	displaced map[string]symbols.LibraryDocument
 }
 
 // Option configures a workspace at construction.
@@ -78,6 +84,8 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 		index:     idx,
 		diagCache: map[string][]passes.Diagnostic{},
 		libDocs:   map[string]*Document{},
+		standIns:  map[string]string{},
+		displaced: map[string]symbols.LibraryDocument{},
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -202,8 +210,10 @@ func (w *Workspace) Remove(name string) {
 func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 	doc := newDocument(name, content, version)
 	w.docs[name] = doc
+	w.displaceLocked(name)
 	w.index.AddDocument(name, doc.AST) // AddDocument removes stale entries first
-	w.index.ExpandWildcardImports()    // Expand new document's wildcard imports
+	w.standInLocked(name, doc)
+	w.index.ExpandWildcardImports() // Expand new document's wildcard imports
 	w.invalidateLocked()
 }
 
@@ -211,6 +221,8 @@ func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 func (w *Workspace) removeLocked(name string) {
 	delete(w.docs, name)
 	w.index.RemoveDocument(name)
+	w.releaseStandInLocked(name)
+	w.restoreLocked(name)
 	w.invalidateLocked()
 }
 
@@ -360,7 +372,13 @@ func (w *Workspace) memberSymbolsLocked(resolver *resolve.Resolver, sem *semanti
 // the model, so a read path without one resolves differently to a checked one.
 // Calls are selected under the checker's argument typing, as a checked document's are.
 func (w *Workspace) newResolver() (*resolve.Resolver, *semantics.Model) {
-	resolver := resolve.New(w.index)
+	return w.resolverOver(w.index)
+}
+
+// resolverOver is newResolver over idx: the workspace's index, or the bundled
+// library it overlays for a file a version of it displaced from the index.
+func (w *Workspace) resolverOver(idx *symbols.Index) (*resolve.Resolver, *semantics.Model) {
+	resolver := resolve.New(idx)
 	sem := semantics.NewModel(resolver)
 	resolver.SetModel(sem)
 	sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
@@ -387,8 +405,9 @@ func (w *Workspace) DocumentNames() []string {
 	return names
 }
 
-// IsLibraryDocument reports whether name is a bundled library file the index
-// holds, as opposed to a document of the workspace's own.
+// IsLibraryDocument reports whether name is a bundled library file, as opposed
+// to a document of the workspace's own — a version of a library file included,
+// whatever its mark in the index.
 func (w *Workspace) IsLibraryDocument(name string) bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -396,17 +415,31 @@ func (w *Workspace) IsLibraryDocument(name string) bool {
 	return ok
 }
 
-// libraryNameLocked is the index's name for the library file name denotes,
-// accepting the forward-slash form a URI carries where the source listed the
-// file with the OS separator. Caller holds the lock.
+// libraryNameLocked is the index's name for the bundled library file name
+// denotes, accepting the forward-slash form a URI carries where the source
+// listed the file with the OS separator. A file the workspace holds is its own,
+// and a bundled file a version displaced is still the library's. Caller holds
+// the lock.
 func (w *Workspace) libraryNameLocked(name string) (string, bool) {
-	if w.index.IsLibraryDocument(name) {
+	if w.docs[name] != nil {
+		return "", false
+	}
+	if w.bundledLocked(name) {
 		return name, true
 	}
-	if alt := filepath.FromSlash(name); alt != name && w.index.IsLibraryDocument(alt) {
+	if alt := filepath.FromSlash(name); alt != name && w.docs[alt] == nil && w.bundledLocked(alt) {
 		return alt, true
 	}
 	return "", false
+}
+
+// bundledLocked reports whether name is a bundled library document of the index
+// or of the library it overlays. Caller holds the lock.
+func (w *Workspace) bundledLocked(name string) bool {
+	if w.index.IsLibraryDocument(name) {
+		return true
+	}
+	return w.libBase != nil && w.libBase.IsLibraryDocument(name)
 }
 
 // LibraryDocument returns the parsed text of the named bundled library file,
@@ -418,27 +451,16 @@ func (w *Workspace) LibraryDocument(name string) *Document {
 	w.mu.RLock()
 	name, isLibrary := w.libraryNameLocked(name)
 	doc, cached := w.libDocs[name]
-	src := w.libSource
 	w.mu.RUnlock()
 	if cached {
 		return doc
 	}
-	if src == nil || !isLibrary {
+	if !isLibrary {
 		return nil
 	}
-	content, err := src.Read(name)
-	if err != nil {
-		return nil
-	}
-	doc = newDocument(name, bytes.Clone(content), 0)
-
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if existing, ok := w.libDocs[name]; ok {
-		return existing
-	}
-	w.libDocs[name] = doc
-	return doc
+	return w.libraryDocumentLocked(name)
 }
 
 // ResolveQualifiedInDoc resolves a qualified name against the given scope using

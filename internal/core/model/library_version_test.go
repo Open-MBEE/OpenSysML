@@ -1,0 +1,277 @@
+package model
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+)
+
+const scalarValues = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
+
+// realOf is the one ScalarValues::Real the workspace resolves, and the document
+// declaring it.
+func realOf(t *testing.T, ws *Workspace) (*symbols.Symbol, string) {
+	t.Helper()
+	syms := ws.LookupQualified("ScalarValues::Real")
+	if len(syms) != 1 {
+		t.Fatalf("ScalarValues::Real = %d symbols, want 1", len(syms))
+	}
+	return syms[0], syms[0].DocName
+}
+
+// A workspace document rooted at a library's top-level package stands in for
+// the bundled file: it alone declares the library's names, under the norm's ids.
+func TestWorkspaceLibraryVersionStandsInForBundledFile(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open("copy.kerml", lib.Content, 1)
+	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+		t.Fatalf("StandsInFor = %q, want %q", got, scalarValues)
+	}
+	sym, doc := realOf(t, ws)
+	if doc != "copy.kerml" {
+		t.Fatalf("ScalarValues::Real declared in %q, want the copy", doc)
+	}
+	info, ok := ws.IdentityOf("copy.kerml", sym)
+	if !ok || !info.Normative() || info.EffectiveID != "14c0aa22-5489-59b5-b438-ded26e83ba31" {
+		t.Errorf("identity of the copy's Real = %+v, want the norm's", info)
+	}
+	if ws.IsLibraryDocument("copy.kerml") {
+		t.Error("the copy is the workspace's own file, not a bundled one")
+	}
+	if !ws.IsLibraryDocument(scalarValues) {
+		t.Error("the displaced bundled file is still a library document")
+	}
+	var bundledReal *symbols.Symbol
+	walkScope(lib.Scope, func(s *symbols.Symbol) {
+		if s.Name == "Real" {
+			bundledReal = s
+		}
+	})
+	if info, ok := ws.IdentityOf(scalarValues, bundledReal); !ok || !info.Normative() ||
+		info.EffectiveID != "14c0aa22-5489-59b5-b438-ded26e83ba31" {
+		t.Errorf("identity of the displaced bundled Real = %+v, want the norm's", info)
+	}
+	for _, d := range ws.Diagnostics("copy.kerml") {
+		if d.Code == "library-package" || d.Code == "duplicate-name" {
+			t.Errorf("the copy is judged as a user file: %s: %s", d.Code, d.Message)
+		}
+	}
+
+	// A second version of the same file stands in beside the first.
+	ws.Open("other.kerml", lib.Content, 1)
+	if syms := ws.LookupQualified("ScalarValues::Real"); len(syms) != 2 {
+		t.Fatalf("ScalarValues::Real = %d symbols with two versions open, want 2", len(syms))
+	}
+	ws.Remove("other.kerml")
+	if _, doc := realOf(t, ws); doc != "copy.kerml" {
+		t.Fatalf("ScalarValues::Real declared in %q after one version left, want the copy", doc)
+	}
+
+	// Removing the last version brings the bundled file back.
+	ws.Remove("copy.kerml")
+	if _, doc := realOf(t, ws); doc != scalarValues {
+		t.Fatalf("ScalarValues::Real declared in %q after the copy left, want the bundled file", doc)
+	}
+	if !ws.IsLibraryDocument(scalarValues) {
+		t.Error("the restored bundled file is a library document")
+	}
+}
+
+// An edit moving the roots off the library's package makes the document the
+// workspace's own, with derived ids, and restores the bundled file; moving them
+// back makes it the library again.
+func TestWorkspaceLibraryVersionFollowsRootEdits(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	src := string(lib.Content)
+	ws.Open("copy.kerml", lib.Content, 1)
+	for _, tc := range []struct {
+		name, text string
+	}{
+		{"renamed root", strings.Replace(src, "standard library package ScalarValues", "standard library package MyValues", 1)},
+		{"dropped keywords", strings.Replace(src, "standard library package ScalarValues", "package ScalarValues", 1)},
+		{"foreign id", strings.Replace(src, "standard library package ScalarValues {",
+			"standard library package ScalarValues {\n\t@IdentityMetadata::ElementId { id = \"not-the-norm\"; }", 1)},
+	} {
+		if tc.text == src {
+			t.Fatalf("%s: ScalarValues is not declared where expected", tc.name)
+		}
+		ws.Update("copy.kerml", []byte(tc.text), 2)
+		if got := ws.StandsInFor("copy.kerml"); got != "" {
+			t.Errorf("%s: StandsInFor = %q, want nothing", tc.name, got)
+		}
+		if !ws.IsLibraryDocument(scalarValues) {
+			t.Errorf("%s: the bundled file did not come back", tc.name)
+		}
+		root := ws.index.DocumentRoot("copy.kerml")
+		if root == nil || len(root.Members()) == 0 {
+			t.Fatalf("%s: the copy is not indexed", tc.name)
+		}
+		info, ok := ws.IdentityOf("copy.kerml", root.Members()[0])
+		if !ok || info.Normative() {
+			t.Errorf("%s: identity of the copy's root = %+v, want the user's", tc.name, info)
+		}
+		ws.Update("copy.kerml", lib.Content, 3)
+		if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+			t.Errorf("%s: restored copy stands in for %q, want %q", tc.name, got, scalarValues)
+		}
+		if _, doc := realOf(t, ws); doc != "copy.kerml" {
+			t.Errorf("%s: ScalarValues::Real declared in %q after restoring, want the copy", tc.name, doc)
+		}
+	}
+	// A root stating the norm's id is the library's whatever its keywords.
+	el, ok := identity.LibraryCatalog(ws.index).ElementNamed("ScalarValues")
+	if !ok {
+		t.Fatal("ScalarValues not catalogued")
+	}
+	stated := strings.Replace(src, "standard library package ScalarValues {",
+		"package ScalarValues {\n\t@IdentityMetadata::ElementId { id = \""+el.ID+"\"; }", 1)
+	ws.Update("copy.kerml", []byte(stated), 4)
+	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+		t.Errorf("root stating the norm's id stands in for %q, want %q", got, scalarValues)
+	}
+}
+
+// Closing a version whose on-disk text is the user's own reverts to that text
+// and the bundled file; closing one that is on disk keeps it standing in.
+func TestWorkspaceLibraryVersionCloseFollowsDisk(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.SetOnDisk("copy.kerml", []byte("package Mine { datatype Real; }"))
+	ws.Open("copy.kerml", lib.Content, 1)
+	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+		t.Fatalf("open buffer stands in for %q, want %q", got, scalarValues)
+	}
+	ws.Close("copy.kerml")
+	if got := ws.StandsInFor("copy.kerml"); got != "" {
+		t.Errorf("closed to the user's text, still stands in for %q", got)
+	}
+	if _, doc := realOf(t, ws); doc != scalarValues {
+		t.Errorf("ScalarValues::Real declared in %q after closing, want the bundled file", doc)
+	}
+	if syms := ws.LookupQualified("Mine::Real"); len(syms) != 1 {
+		t.Errorf("Mine::Real = %d after closing, want the on-disk text indexed", len(syms))
+	}
+
+	ws.SetOnDisk("copy.kerml", lib.Content)
+	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+		t.Fatalf("on-disk version stands in for %q, want %q", got, scalarValues)
+	}
+	ws.DeleteOnDisk("copy.kerml")
+	if got := ws.StandsInFor("copy.kerml"); got != "" {
+		t.Errorf("deleted, still stands in for %q", got)
+	}
+	if _, doc := realOf(t, ws); doc != scalarValues {
+		t.Errorf("ScalarValues::Real declared in %q after deletion, want the bundled file", doc)
+	}
+}
+
+// A document opened under a bundled file's own name takes its place, standing in
+// for it when it qualifies and as the user's file when it does not; closing it
+// puts the bundled file back under its library mark either way.
+func TestWorkspaceLibraryVersionUnderTheBundledName(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open(scalarValues, lib.Content, 1)
+	if got := ws.StandsInFor(scalarValues); got != scalarValues {
+		t.Fatalf("StandsInFor = %q, want %q", got, scalarValues)
+	}
+	sym, _ := realOf(t, ws)
+	if info, ok := ws.IdentityOf(scalarValues, sym); !ok || !info.Normative() {
+		t.Errorf("identity of Real under the bundled name = %+v, want the norm's", info)
+	}
+	if ws.IsLibraryDocument(scalarValues) {
+		t.Error("a workspace document under the bundled name is the workspace's own")
+	}
+	ws.Close(scalarValues)
+	if !ws.IsLibraryDocument(scalarValues) || !ws.index.IsLibraryDocument(scalarValues) {
+		t.Error("the bundled file did not come back under its library mark")
+	}
+	if _, doc := realOf(t, ws); doc != scalarValues {
+		t.Errorf("ScalarValues::Real declared in %q after closing, want the bundled file", doc)
+	}
+
+	ws.Open(scalarValues, []byte("package Mine { datatype Real; }"), 1)
+	if got := ws.StandsInFor(scalarValues); got != "" {
+		t.Errorf("user text under the bundled name stands in for %q, want nothing", got)
+	}
+	if syms := ws.LookupQualified("ScalarValues::Real"); len(syms) != 0 {
+		t.Errorf("ScalarValues::Real = %d symbols while user text holds the name, want 0", len(syms))
+	}
+	ws.Close(scalarValues)
+	if !ws.index.IsLibraryDocument(scalarValues) {
+		t.Error("the bundled file did not come back under its library mark")
+	}
+	if _, doc := realOf(t, ws); doc != scalarValues {
+		t.Errorf("ScalarValues::Real declared in %q after closing, want the bundled file", doc)
+	}
+}
+
+// An edit to a document beside a version resolves the library's names to the
+// version, as the workspace does, so it is not refused as ambiguous.
+func TestWorkspaceLibraryVersionResolvesEdits(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open("copy.kerml", lib.Content, 1)
+	ws.Open("car.sysml", []byte("part def Car {\n    attribute mass : ScalarValues::Real;\n}\n"), 1)
+	op := edit.AddMember("Car", "attribute", "speed")
+	op.Type = "ScalarValues::Real"
+	result, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op})
+	if !ok || err != nil {
+		t.Fatalf("ok %v, err %v", ok, err)
+	}
+	want := "part def Car {\n    attribute mass : ScalarValues::Real;\n    attribute speed : ScalarValues::Real;\n}\n"
+	if string(result.Documents[0].Content) != want {
+		t.Fatalf("content:\n%s\nwant:\n%s", result.Documents[0].Content, want)
+	}
+}
+
+// A document rooted inside a library, or at a user package beside a library
+// one, is the workspace's own however its text reads.
+func TestWorkspaceLibraryVersionNeedsLibraryRoots(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	for _, tc := range []struct{ name, text string }{
+		{"nested element", "datatype Real;"},
+		{"library and own root", string(lib.Content) + "\npackage Mine;\n"},
+		{"two libraries", string(lib.Content) + "\nstandard library package Base;\n"},
+	} {
+		ws.Open("own.kerml", []byte(tc.text), 1)
+		if got := ws.StandsInFor("own.kerml"); got != "" {
+			t.Errorf("%s: StandsInFor = %q, want nothing", tc.name, got)
+		}
+		if !ws.IsLibraryDocument(scalarValues) {
+			t.Errorf("%s: the bundled file was displaced", tc.name)
+		}
+		if root := ws.index.DocumentRoot("own.kerml"); root != nil {
+			for _, sym := range root.Members() {
+				if info, ok := ws.IdentityOf("own.kerml", sym); ok && info.Source == identity.SourceNormative {
+					t.Errorf("%s: %s carries a normative id", tc.name, sym.Name)
+				}
+			}
+		}
+		ws.Remove("own.kerml")
+	}
+}

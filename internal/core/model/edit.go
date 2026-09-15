@@ -117,9 +117,18 @@ func (w *Workspace) siblingIndexLocked(name string) func() *symbols.Index {
 				}
 			}
 		}
-		for other, doc := range w.docs {
+		for other, library := range w.standIns {
 			if other != name {
-				idx.AddDocument(other, doc.AST)
+				idx.RemoveDocument(library)
+			}
+		}
+		for other, doc := range w.docs {
+			if other == name {
+				continue
+			}
+			idx.AddDocument(other, doc.AST)
+			if _, ok := w.standIns[other]; ok {
+				idx.MarkLibraryDocument(other, w.index.LibraryDocumentOf(other))
 			}
 		}
 		idx.ExpandWildcardImports()
