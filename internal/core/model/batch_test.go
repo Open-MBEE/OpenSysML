@@ -120,6 +120,53 @@ func TestParallelBatchLinksAnnotationsFoundThroughTheModel(t *testing.T) {
 	}
 }
 
+// Asking for some of a batch's documents leaves the others' scopes as they are:
+// the workspace-wide passes read them, so the answer is what asking one by one gives.
+func TestDiagnosticsAllOverSomeDocumentsMatchesAskingOneByOne(t *testing.T) {
+	inputs := []Input{
+		{Name: "meta.sysml", Version: 1, Content: []byte(`package Meta {
+	metadata def Tag { attribute n; }
+	part def Base { public import Meta::*; }
+	part def Sub :> Base;
+	part def C {
+		@Meta::Tag { n = 1; }
+		@Sub::Tag { n = 2; }
+	}
+	part def D;
+	metadata Tag about D { n = 3; }
+}`)},
+		{Name: "a.sysml", Version: 1, Content: []byte(`package A {
+	part def Ground { part c : Meta::C; @Meta::Tag { n = 4; } }
+}`)},
+		{Name: "b.sysml", Version: 1, Content: []byte(`package B {
+	part def Station { part c : Meta::C; @Meta::Tag { n = 5; } }
+}`)},
+	}
+	asked := []string{"a.sysml", "b.sysml"}
+	serial := NewWorkspace()
+	for _, in := range inputs {
+		serial.Open(in.Name, in.Content, in.Version)
+	}
+	var want strings.Builder
+	for _, name := range asked {
+		renderDiagnostics(&want, name, serial.Diagnostics(name))
+	}
+	for range 8 {
+		ws := NewWorkspace()
+		if err := ws.SetWorkers(8); err != nil {
+			t.Fatal(err)
+		}
+		ws.OpenAll(inputs)
+		var got strings.Builder
+		for i, diags := range ws.DiagnosticsAll(asked) {
+			renderDiagnostics(&got, asked[i], diags)
+		}
+		if got.String() != want.String() {
+			t.Fatalf("asking for two of three documents on 8 workers reported:\n%s\nwant, as asking one by one does:\n%s", got.String(), want.String())
+		}
+	}
+}
+
 // A batch opened over documents already there replaces them as Open does, so
 // the index holds each name once.
 func TestOpenAllReplacesEarlierDocuments(t *testing.T) {
