@@ -1,0 +1,33 @@
+exit: a (exit action)
+stmt assign log
+    eval feature log -> "outer(entry);a(entry);b(entry);"
+    eval literal "a(exit);" -> "a(exit);"
+  eval operator + -> "outer(entry);a(entry);b(entry);a(exit);"
+stmt assign log
+    eval feature log -> "outer(entry);a(entry);b(entry);a(exit);"
+    eval literal "up(effect);" -> "up(effect);"
+  eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);"
+transition: a -> outer (event: accept Up)
+exit: b (exit action)
+stmt assign log
+    eval feature log -> "outer(entry);a(entry);b(entry);a(exit);up(effect);"
+    eval literal "b(exit);" -> "b(exit);"
+  eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);"
+exit: outer (exit action)
+stmt assign log
+    eval feature log -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);"
+    eval literal "outer(exit);" -> "outer(exit);"
+  eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);outer(exit);"
+stmt assign log
+    eval feature log -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);outer(exit);"
+    eval literal "leave(effect);" -> "leave(effect);"
+  eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);outer(exit);leave(effect);"
+enter: after (entry action)
+stmt assign log
+    eval feature log -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);outer(exit);leave(effect);"
+    eval literal "after(entry);" -> "after(entry);"
+  eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);outer(exit);leave(effect);after(entry);"
+transition: outer -> after (event: accept Leave)
+exit: after
+enter: done
+transition: after -> done (event: accept Finish)

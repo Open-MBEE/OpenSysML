@@ -1193,12 +1193,15 @@ func (e *StateExecutor) exitedByAncestorRegion(state *ast.StateNode, leaving []*
 
 // activeLeaves returns the innermost active states, ordered by the declaration of
 // the regions they lie in rather than by their depth. A state owning an active
-// orthogonal region is not a leaf: the event reaches it walking outward.
+// orthogonal region is not a leaf: the event reaches it walking outward. Once
+// every one of its regions rests at the state itself, it is the leaf, once.
 func (e *StateExecutor) activeLeaves() []*ast.StateNode {
 	states := e.activeStates()
 	leaves := make([]*ast.StateNode, 0, len(states))
+	seen := make(map[*ast.StateNode]bool, len(states))
 	for _, state := range states {
-		if !e.enclosesActiveRegion(state) {
+		if !e.enclosesActiveRegion(state) && !seen[state] {
+			seen[state] = true
 			leaves = append(leaves, state)
 		}
 	}
@@ -1300,11 +1303,11 @@ func (e *StateExecutor) activeRegionOf(state *ast.StateNode) *ast.StateRegion {
 	return nil
 }
 
-// enclosesActiveRegion reports whether the state owns an orthogonal region that
-// is currently active.
+// enclosesActiveRegion reports whether the state owns an orthogonal region with
+// an active state below it; a region resting at the state itself has none.
 func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 	for _, region := range e.graph.CompositeStates[state] {
-		if _, active := e.activeConfig.regionStates[region]; active {
+		if active, ok := e.activeConfig.regionStates[region]; ok && active != state {
 			return true
 		}
 	}
@@ -1713,6 +1716,9 @@ func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateN
 	if err := e.runBehaviors(effects); err != nil {
 		return err
 	}
+	if lca == targetState {
+		return e.completeInto(trans, fromName, targetState)
+	}
 	return e.enterBelow(trans, fromName, lca, targetState, branches)
 }
 
@@ -1827,10 +1833,43 @@ func (e *StateExecutor) machineComplete() bool {
 	return true
 }
 
-// regionComplete reports whether region rests at its completion vertex.
+// completeInto finishes a transition into a still active ancestor: the target is
+// not re-entered and the region the source left completes (PSSM 8.5.8).
+func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, target *ast.StateNode) error {
+	e.stateStack = e.rootToLeaf(target)
+	if _, orthogonal := e.graph.CompositeStates[target]; orthogonal {
+		if e.stateComplete(target) {
+			if err := e.scheduleCompletionTransitions(target); err != nil {
+				return fmt.Errorf("schedule completion of state %s: %w", target.Name, err)
+			}
+		}
+	} else {
+		// The body completed: its history keeps no substate to restore.
+		if record := e.history[target]; record != nil {
+			record.child = nil
+		}
+		onPath := e.branchesTo(nil, target)
+		for region, state := range onPath {
+			e.activeConfig.regionStates[region] = state
+		}
+		if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
+			e.activeConfig.simpleState = target
+		}
+		if err := e.scheduleCompletionTransitions(target); err != nil {
+			return fmt.Errorf("schedule completion of state %s: %w", target.Name, err)
+		}
+	}
+	if e.trace() != nil {
+		e.trace().RecordStateTransition(fromName, target.Name, triggerName(trans.Trigger))
+	}
+	return nil
+}
+
+// regionComplete reports whether region rests at its completion vertex, or at
+// its owner once a transition into the owner left it without an active state.
 func (e *StateExecutor) regionComplete(region *ast.StateRegion) bool {
 	active, ok := e.activeConfig.regionStates[region]
-	return ok && e.graph.Completes(active)
+	return ok && (e.graph.Completes(active) || active == e.graph.RegionOwner[region])
 }
 
 // stateComplete reports whether state's body has completed: it is a completion
@@ -3761,7 +3800,9 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	// Remember the configuration being left, so a history pseudostate owned by
 	// this state or by its parent can restore it.
 	for region, regionState := range active {
-		e.recordRegionHistory(region, regionState)
+		if regionState != state {
+			e.recordRegionHistory(region, regionState)
+		}
 	}
 	if parent := e.graph.ParentState[state]; parent != nil {
 		e.recordChildHistory(parent, state)
