@@ -147,7 +147,7 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 		breakpoints:      maps.Clone(e.breakpoints),
 		breakpointNodes:  cloneBreakpoints(e.breakpointNodes),
 		firedBreakpoints: maps.Clone(e.firedBreakpoints),
-		traversals:       slices.Clone(e.traversals),
+		traversals:       cloneTraversals(e.traversals),
 	}
 	var err error
 	if img.run, err = t.run(e.driven.state); err != nil {
@@ -446,7 +446,7 @@ func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) err
 		e.breakpoints = make(map[string]bool)
 	}
 	e.breakpointNodes = cloneBreakpoints(img.breakpointNodes)
-	e.traversals = slices.Clone(img.traversals)
+	e.traversals = cloneTraversals(img.traversals)
 	e.firedBreakpoints = maps.Clone(img.firedBreakpoints)
 	if e.firedBreakpoints == nil {
 		e.firedBreakpoints = make(map[breakpointVisit]bool)

@@ -304,7 +304,7 @@ func TestDebugProtocolShapes(t *testing.T) {
 	due := 5.0
 	snap := debugSnapshot{
 		Protocol: debugProtocolVersion, Session: "debug-1", Kind: "action", View: "V::v", Target: "P::T",
-		Root: "n0", Version: 3, State: debugWaiting, Reason: "Ping", Time: 5,
+		Root: "n0", Version: 3, Revision: 7, State: debugWaiting, Reason: "Ping", Time: 5,
 		Tokens: []debugToken{{ID: 2, Node: "n4", Placed: true, Via: &debugEdge{Index: 1, From: "n1", To: "n4"},
 			Awaiting: []debugEdge{{Index: 2, From: "n2", To: "n4"}}, Waiting: "until t=5.0", Due: &due}},
 		ActiveStates: []string{}, Taken: []debugEdge{{Index: 1, From: "n1", To: "n4"}},
@@ -322,7 +322,7 @@ func TestDebugProtocolShapes(t *testing.T) {
 	if again, _ := json.Marshal(decoded); string(again) != string(raw) {
 		t.Errorf("snapshot round trip changed it:\n%s\n%s", raw, again)
 	}
-	for _, key := range []string{"protocol", "session", "kind", "view", "target", "root", "version", "state", "reason",
+	for _, key := range []string{"protocol", "session", "kind", "view", "target", "root", "version", "revision", "state", "reason",
 		"time", "tokens", "activeStates", "taken", "queue", "breakpoints", "pausedAt", "notes", "results"} {
 		if !strings.Contains(string(raw), `"`+key+`":`) {
 			t.Errorf("snapshot lacks %q: %s", key, raw)
@@ -1257,6 +1257,129 @@ func TestDebugSessionFollowsEdits(t *testing.T) {
 	if _, err := s.DebugStep(&debugSessionParams{Session: session}); !errors.Is(err, ErrDebugSession) {
 		t.Errorf("step after the end: err = %v, want %v", err, ErrDebugSession)
 	}
+}
+
+// Every snapshot of a session, answered or notified, takes the next revision, so
+// a client can tell the newer of two that arrive out of order.
+func TestDebugSnapshotsAreNumbered(t *testing.T) {
+	s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Robot",
+	})
+	session := snap.Session
+	if snap.Revision != 1 {
+		t.Errorf("the start answered revision %d, want 1", snap.Revision)
+	}
+	last := snap.Revision
+	next := func(what string, snap *debugSnapshot) {
+		t.Helper()
+		if snap.Revision != last+1 {
+			t.Errorf("%s: revision %d follows %d, want %d", what, snap.Revision, last, last+1)
+		}
+		last = snap.Revision
+	}
+	next("step", mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session}))
+	next("breakpoints", mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session}))
+
+	s.applyDidChange(context.Background(), uriToName(docURI), []rawContentChange{{Text: "package Extra {\n\tpart def Spare;\n}\n" + debugMachine}}, 2)
+	changed := rec.debugChanged()
+	if len(changed) != 1 {
+		t.Fatalf("debugChanged = %v, want one moved snapshot", changed)
+	}
+	next("moved", changed[0])
+	next("continue", mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session}))
+
+	mustDebug(t, s, MethodDebugStop, &debugSessionParams{Session: session})
+	another := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Robot",
+	})
+	if another.Session == session || another.Revision != 1 {
+		t.Errorf("a new session %s starts at revision %d, want its own count from 1", another.Session, another.Revision)
+	}
+}
+
+// A session paused at a breakpoint when an unrelated edit redraws the view stays
+// paused, and the moved snapshot names the breakpoint node in the fresh IDs, for
+// a machine and for an action paused in a nested flow alike.
+func TestDebugPauseFollowsEdits(t *testing.T) {
+	t.Run("machine", func(t *testing.T) {
+		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		id := ids(t, render(t, s, docURI, "#state"))
+		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         "#state", Target: "Machines::Ops", Object: "Machines::Robot",
+		})
+		session := snap.Session
+		mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["busy"]}})
+		mustDebug(t, s, MethodDebugSend, &debugSendParams{Session: session, Signal: "Go", Args: map[string]string{"level": "2"}})
+		snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+		wantState(t, snap, debugSuspended)
+		if snap.PausedAt != id["busy"] {
+			t.Fatalf("pausedAt = %q, want the breakpoint on busy", snap.PausedAt)
+		}
+
+		// A machine declared above Ops is drawn before it, moving every ID.
+		s.applyDidChange(context.Background(), uriToName(docURI), []rawContentChange{{Text: "package Extra {\n\tstate def Spare { state one; }\n}\n" + debugMachine}}, 2)
+		fresh := ids(t, render(t, s, docURI, "#state"))
+		if fresh["busy"] == id["busy"] {
+			t.Fatalf("the edit left busy at %s; the fixture must move it", id["busy"])
+		}
+		changed := rec.debugChanged()
+		if len(changed) != 1 {
+			t.Fatalf("debugChanged = %v, want one moved snapshot", changed)
+		}
+		moved := changed[0]
+		wantState(t, moved, debugSuspended)
+		if moved.PausedAt != fresh["busy"] || !strings.Contains(moved.Reason, "breakpoint busy") {
+			t.Errorf("moved pausedAt = %q reason = %q, want %s, the breakpoint on busy", moved.PausedAt, moved.Reason, fresh["busy"])
+		}
+		wantStrings(t, "moved breakpoints", moved.Breakpoints, []string{fresh["busy"]})
+
+		snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+		if snap.PausedAt != "" {
+			t.Errorf("pausedAt = %q after resuming, want none", snap.PausedAt)
+		}
+		wantStrings(t, "active after resuming", snap.ActiveStates, []string{fresh["motion"], fresh["busy"], fresh["working"], fresh["clock"], fresh["waiting"]})
+	})
+	t.Run("action", func(t *testing.T) {
+		s, docURI, rec := debugServer(t, "/w/f.sysml", debugFlow)
+		id := ids(t, render(t, s, docURI, "#action"))
+		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "#action", Target: "Flows::Drive",
+		})
+		session := snap.Session
+		mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["warm"]}})
+		snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+		wantState(t, snap, debugSuspended)
+		if snap.PausedAt != id["warm"] {
+			t.Fatalf("pausedAt = %q, want the breakpoint on warm", snap.PausedAt)
+		}
+
+		s.applyDidChange(context.Background(), uriToName(docURI), []rawContentChange{{Text: "package Extra {\n\taction def Spare { action one; }\n}\n" + debugFlow}}, 2)
+		fresh := ids(t, render(t, s, docURI, "#action"))
+		if fresh["warm"] == id["warm"] {
+			t.Fatalf("the edit left warm at %s; the fixture must move it", id["warm"])
+		}
+		changed := rec.debugChanged()
+		if len(changed) != 1 {
+			t.Fatalf("debugChanged = %v, want one moved snapshot", changed)
+		}
+		moved := changed[0]
+		wantState(t, moved, debugSuspended)
+		if moved.PausedAt != fresh["warm"] || !strings.Contains(moved.Reason, "breakpoint") {
+			t.Errorf("moved pausedAt = %q reason = %q, want %s, the breakpoint on warm", moved.PausedAt, moved.Reason, fresh["warm"])
+		}
+		if debugTokenAt(t, moved, fresh["warm"]).Node != fresh["warm"] {
+			t.Errorf("moved tokens = %+v, want one held at warm", moved.Tokens)
+		}
+
+		snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+		if snap.PausedAt != "" {
+			t.Errorf("pausedAt = %q after resuming, want none", snap.PausedAt)
+		}
+	})
 }
 
 // A start reads the workspace once and registers the session after; an edit

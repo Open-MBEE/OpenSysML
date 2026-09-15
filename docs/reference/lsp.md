@@ -560,6 +560,7 @@ they follow a node whose `id` changes when the rendering is redrawn.
   "object": "Lander::lander",
   "root": "n0",
   "version": 3,
+  "revision": 7,
   "state": "suspended",
   "reason": "paused at breakpoint braking",
   "time": 5,
@@ -581,6 +582,7 @@ they follow a node whose `id` changes when the rendering is redrawn.
 | `view`, `target`, `object` | What was started, `target` and `object` as qualified names. `object` is absent when none performs the behavior. |
 | `root` | The `id` of the node drawing the behavior itself. |
 | `version` | The document version whose `opensysml/render` result the IDs below belong to, as that result's `version` reports it. |
+| `revision` | The snapshot's number in the session, from 1 up: every answer and every `debugChanged` notification takes the next. A client keeps the highest it has seen and drops any lower one that arrives after it — a notification captured as an edit moved the session can reach the client after the answer to a request that ran the session on. |
 | `state` | `ready` for a behavior not yet initialized, `running` while there is work at the current instant, `waiting` for a behavior parked on the clock or a signal, `suspended` for one stopped at a breakpoint or a quiescent machine, `completed`, `failed`, or `ended` for a session that is over. |
 | `reason` | Why, for the last four: what is waited for, the breakpoint, the runtime's error, or why the session ended. |
 | `time` | The runtime clock's current instant. |
@@ -607,7 +609,11 @@ or are typed by, the actions an action invokes, the signal definitions its
 triggers accept, the types of the performer's features, the attributes a guard
 or an effect names in other packages, and the definition and values a `send`
 named — keeps the session running; a redraw of the view gives the nodes new IDs,
-so the notification carries the snapshot in the fresh IDs at the new `version`.
+so the notification carries the snapshot in the fresh IDs at the new `version`,
+a pause reached at a breakpoint still standing and its `pausedAt` moved too. The
+notification is captured as the edit is applied but may be delivered after the
+answer to a request the client sent meanwhile, so it can be the older of the
+two: compare `revision`, not arrival order.
 An edit that rewrites or removes any of those declarations, that makes the run
 read a declaration it did not (a definition declared nearer now shadows the one
 a specialization resolved to), that rewrites or removes the declared view — even

@@ -2587,10 +2587,22 @@ type Traversal struct {
 	Within []ast.Node
 }
 
+// cloneTraversals copies ts, each path with it, so neither copy can alias the other.
+func cloneTraversals(ts []Traversal) []Traversal {
+	if ts == nil {
+		return nil
+	}
+	out := make([]Traversal, len(ts))
+	for i, t := range ts {
+		out[i] = Traversal{Token: t.Token, Edge: t.Edge, Within: slices.Clone(t.Within)}
+	}
+	return out
+}
+
 // Traversals returns every succession taken so far, in order: a fork's branches
 // as the tokens they spawned, a join as the one token that passes on.
 func (e *ActionExecutor) Traversals() []Traversal {
-	return slices.Clone(e.traversals)
+	return cloneTraversals(e.traversals)
 }
 
 // TraversalCount is the number of successions taken so far.
@@ -2606,7 +2618,7 @@ func (e *ActionExecutor) TraversalsSince(mark int) []Traversal {
 	if mark >= len(e.traversals) {
 		return nil
 	}
-	return slices.Clone(e.traversals[mark:])
+	return cloneTraversals(e.traversals[mark:])
 }
 
 // move travels token along edge, recording the traversal.

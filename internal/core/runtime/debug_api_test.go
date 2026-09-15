@@ -1671,6 +1671,17 @@ func TestTraversalsLogEachSuccessionInOrder(t *testing.T) {
 	if len(tokens) < 2 {
 		t.Errorf("traversals name %d token(s), want the fork's branches to be distinct", len(tokens))
 	}
+
+	// The copies are the caller's: a path overwritten in one leaves the record as it was.
+	nested := slices.IndexFunc(exec.Traversals(), func(tr Traversal) bool { return len(tr.Within) > 0 })
+	if nested < 0 {
+		t.Fatal("no traversal ran in a nested flow")
+	}
+	exec.Traversals()[nested].Within[0] = nil
+	exec.TraversalsSince(nested)[0].Within[0] = nil
+	if got := traversalNames(exec); !slices.Equal(got[mark:], want) {
+		t.Errorf("after writing into copies, traversals = %v, want %v unchanged", got[mark:], want)
+	}
 }
 
 // An advance stops as the debugged machine pauses at a breakpoint: a sibling due

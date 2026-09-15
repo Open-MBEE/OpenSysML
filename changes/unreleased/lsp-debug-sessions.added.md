@@ -14,7 +14,9 @@
   declarations the run reads — the target's, its performer's, and every declaration those name
   and the named name in turn (specialized and typing definitions, invoked actions, accepted
   signals, feature types, values a guard or a `send` names) — keeps it running and reports the
-  snapshot in the fresh IDs through the new `opensysml/debugChanged` notification, while one that
+  snapshot in the fresh IDs (a pause reached at a breakpoint moved with them) through the new
+  `opensysml/debugChanged` notification — every snapshot numbered by `revision`, so a client keeps
+  the newest whatever order the answers and notifications arrive in — while one that
   rewrites or removes any of them, makes the run read one it did not, or rewrites the declared
   view, ends it and says why. To place runtime state on a rendering, the runtime
   now records the transitions a state machine fires (`StateExecutor.FiredTransitions`) and the

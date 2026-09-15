@@ -431,7 +431,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		firedBreakpoints: captureMap(e.firedBreakpoints),
-		traversals:       slices.Clone(e.traversals),
+		traversals:       cloneTraversals(e.traversals),
 		driven:           e.driven.state,
 		dynamics:         e.dynamics.clone(),
 	}
@@ -449,7 +449,7 @@ func (c actionCapture) restore() {
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
 	e.moved, e.awaiting = c.moved, c.awaiting
 	e.firedBreakpoints = c.firedBreakpoints.restore()
-	e.traversals = slices.Clone(c.traversals)
+	e.traversals = cloneTraversals(c.traversals)
 	e.driven.state = c.driven
 	e.dynamics = c.dynamics.clone()
 	for _, perf := range c.frames {

@@ -142,6 +142,9 @@ type debugSnapshot struct {
 	Object   string `json:"object,omitempty"`
 	Root     string `json:"root"`
 	Version  int    `json:"version"`
+	// Revision counts the session's snapshots: a client keeps the highest it has
+	// seen, as a notification taken earlier may reach it after a later answer.
+	Revision int `json:"revision"`
 	// State is ready, running, waiting, suspended, completed, failed or ended;
 	// Reason says why for the last four.
 	State  string  `json:"state"`
@@ -233,6 +236,8 @@ type debugSession struct {
 	// noted and fired count the notes and edge traversals earlier snapshots reported.
 	noted int
 	fired int
+	// revision is the number of snapshots taken, the last one's Revision.
+	revision int
 	// waiting explains an action parked on the clock; failure a run that
 	// failed; ended why the session is over.
 	waiting string
@@ -556,6 +561,9 @@ func (sess *debugSession) locate(rendering *view.Rendering, drawn *symbols.Symbo
 	}
 	sess.breakpoints = kept
 	sess.applyBreakpoints()
+	// A pause stands through a redraw; its node is named in the fresh IDs.
+	sess.paused, sess.pausedName = "", ""
+	sess.pause()
 	return nil
 }
 
@@ -1053,6 +1061,8 @@ func (sess *debugSession) snapshot() *debugSnapshot {
 		PausedAt:     sess.paused,
 		Notes:        []string{},
 	}
+	sess.revision++
+	snap.Revision = sess.revision
 	var notes []runtime.RunNote
 	switch sess.kind {
 	case view.KindAction:
