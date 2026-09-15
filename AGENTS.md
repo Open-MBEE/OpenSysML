@@ -58,6 +58,12 @@ The three OMG pilot corpora are gated the same way: fetch them with
 `go test -count=1 ./internal/core/model -run TestPilotCorpora`. CI sets
 `OPENSYSML_REQUIRE_PILOT_CORPORA=1`. See `docs/project/pilot-corpora.md`.
 
+So is the pilot's XMI of the standard library, which the identity gate reads: fetch it with
+`./scripts/download-pilot-library-xmi.sh` and run
+`go test -count=1 ./internal/core/identity -run TestPilotLibraryXMI`. CI sets
+`OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`. Whatever sets a require variable must run the matching
+download script first; the scripts are idempotent, and none reports success over an empty corpus.
+
 All four roots share one mechanism (`internal/core/model/corpus_gate_test.go`) but two
 policies, and the difference is deliberate: the training corpus is **asserted** clean, so its
 expectation file holds no per-file counts and `-update-training` refuses to record one, while
