@@ -874,8 +874,10 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 		return s.evalWithoutDeclarations(ctx, expr)
 	}
 
-	// Complex expression with feature refs - inject into session context
-	tempSrc := s.joined() + fmt.Sprintf("\nattribute __eval__ = %s;", expr)
+	// Complex expression with feature refs - parsed after the transcript, the
+	// loaded files masked out of it as they are out of the transcript document
+	typed, _ := s.transcript()
+	tempSrc := typed + fmt.Sprintf("\nattribute __eval__ = %s;", expr)
 	p := parser.New(source.New("eval", []byte(tempSrc)))
 	root := p.ParseFile()
 

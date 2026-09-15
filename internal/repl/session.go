@@ -585,7 +585,7 @@ func isCommentOnly(src string) bool {
 // belongs to no file on disk.
 const sessionOrigin = "<session>"
 
-// joined is the buffer the session analyzes: every accepted submission, with a
+// joined is the buffer the session presents: every accepted submission, with a
 // submission that does not close its own text masked out so it cannot change how
 // the others parse. Masking is byte for byte, so every offset still locates the
 // snippet and line it came from.
