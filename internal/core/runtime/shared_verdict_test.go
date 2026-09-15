@@ -109,8 +109,61 @@ func TestSharedSatisfactionVerdicts(t *testing.T) {
 	lines := verdictLines(reading)
 	want := []string{
 		`satisfaction "satisfy MassLimit by unit1" on "sats[1]": holds`,
-		`satisfaction "satisfy MassLimit by unit2" on "sats[2]": holds`,
+		`satisfaction "satisfy MassLimit by unit2" on "sats[1].twin": holds`,
 		`satisfaction "satisfy MassLimit by unit3" on "sats[3]": violated (satisfaction satisfy MassLimit by unit3: require condition evaluated to false: s.b <= limit)`,
+	}
+	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
+		t.Errorf("verdicts:\n%s\nwant:\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// A condition deciding on the identity of its bound subject or actor compares it
+// with an object it reads outside the occurrence, which makes the check the
+// occurrence's own: nothing is shared, and each occurrence gets its own verdict.
+func TestSubjectIdentityIsNotShared(t *testing.T) {
+	const src = `package test {
+	requirement def IsLead {
+		subject s : Sat;
+		require constraint { s == fleet.lead }
+	}
+	requirement def IsLeadActor {
+		subject s : Sat;
+		actor chief : Sat = fleet.lead;
+		require constraint { s == chief }
+	}
+	requirement def IsOwnTwin {
+		subject s : Sat;
+		require constraint { s == s.twin }
+	}
+	part def Sat {
+		attribute a : ScalarValues::Integer = 2;
+		ref part twin : Sat = fleet.lead;
+	}
+	part def Fleet {
+		part sats : Sat[3];
+		ref part lead : Sat = sats#(2);
+	}
+	part fleet : Fleet {
+		satisfy IsLead by sats;
+		satisfy IsLeadActor by sats;
+		satisfy IsOwnTwin by sats;
+	}
+}`
+	reading, _, shared := sparseSides(t, src, "test::fleet")
+	if shared != 0 {
+		t.Errorf("shared %d values or verdicts deciding on an object's identity", shared)
+	}
+	lines := verdictLines(reading)
+	want := []string{
+		`satisfaction "satisfy IsLead by sats" on "sats[1]": violated (satisfaction satisfy IsLead by sats: require condition evaluated to false: s == fleet.lead)`,
+		`satisfaction "satisfy IsLeadActor by sats" on "sats[1]": violated (satisfaction satisfy IsLeadActor by sats: require condition evaluated to false: s == chief)`,
+		`satisfaction "satisfy IsOwnTwin by sats" on "sats[1]": violated (satisfaction satisfy IsOwnTwin by sats: require condition evaluated to false: s == s.twin)`,
+		`satisfaction "satisfy IsLead by sats" on "sats[1].twin": holds`,
+		`satisfaction "satisfy IsLeadActor by sats" on "sats[1].twin": holds`,
+		`satisfaction "satisfy IsOwnTwin by sats" on "sats[1].twin": holds`,
+		`satisfaction "satisfy IsLead by sats" on "sats[3]": violated (satisfaction satisfy IsLead by sats: require condition evaluated to false: s == fleet.lead)`,
+		`satisfaction "satisfy IsLeadActor by sats" on "sats[3]": violated (satisfaction satisfy IsLeadActor by sats: require condition evaluated to false: s == chief)`,
+		`satisfaction "satisfy IsOwnTwin by sats" on "sats[3]": violated (satisfaction satisfy IsOwnTwin by sats: require condition evaluated to false: s == s.twin)`,
 	}
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
 		t.Errorf("verdicts:\n%s\nwant:\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))

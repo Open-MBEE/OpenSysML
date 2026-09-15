@@ -430,10 +430,13 @@ func (ctx *Context) takeShared(inst *Instance, fv *FeatureValue) bool {
 			return false
 		}
 		var eligible bool
+		before := len(sources)
 		if sources, eligible = ctx.declaredAlong(inst, path, sources); !eligible {
 			return false
 		}
-		owes = owes || !sources[len(sources)-1].Materialized
+		for _, src := range sources[before:] {
+			owes = owes || !src.Materialized
+		}
 	}
 	ctx.noteProbeWrite(fv)
 	if ctx.derivable(fv) {

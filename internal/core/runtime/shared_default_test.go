@@ -373,3 +373,53 @@ func TestPathKeyDistinguishesDottedNames(t *testing.T) {
 		t.Fatal("pathKey is not stable over equal paths")
 	}
 }
+
+const collectionFleetSrc = `package test {
+	part def Comp {
+		attribute k : ScalarValues::Integer = 2;
+		attribute m : ScalarValues::Integer = k + 1;
+	}
+	part def HeavyComp :> Comp {
+		attribute :>> m = 9;
+	}
+	part def Sat {
+		part comps : Comp[2];
+		attribute total : ScalarValues::Integer = comps#(1).m + comps#(2).m;
+	}
+	part def Tagged :> Sat {
+		attribute tag : ScalarValues::Integer = 0;
+	}
+	part def Fleet {
+		part sats : Sat[2];
+	}
+	part fleet : Fleet;
+}`
+
+// A value taken over a collection some of whose elements were read already is owed
+// for the elements that were not: a classifier redeclaring the occurrence settles
+// them, and one redefining what a lazy element derives reaches the value.
+func TestSharedDefaultOwesEveryLazyElement(t *testing.T) {
+	ctx, fleet, idx := sharedFixture(t, collectionFleetSrc, "test::fleet")
+	expect(t, ctx, fleet, "sats[1]", "total", "6")
+	expect(t, ctx, fleet, "sats[2].comps[2]", "m", "3")
+	lazy := at(t, ctx, fleet, "sats[2].comps[1]").FeatureValues["m"]
+	if lazy.Materialized {
+		t.Fatal("sats[2].comps[1].m was materialized by reading comps[2].m")
+	}
+	expect(t, ctx, fleet, "sats[2]", "total", "6")
+	sat := at(t, ctx, fleet, "sats[2]")
+	if len(sat.owed) != 1 || sat.owed[0].fv != sat.FeatureValues["total"] {
+		t.Fatalf("sats[2] owes %d values, want its total", len(sat.owed))
+	}
+	if err := ctx.classify(sat, lookupOne(t, idx, "test::Tagged")); err != nil {
+		t.Fatalf("classify sats[2]: %v", err)
+	}
+	if !lazy.Materialized || len(sat.owed) != 0 {
+		t.Fatalf("classifying sats[2] left comps[1].m materialized=%v, owing %d", lazy.Materialized, len(sat.owed))
+	}
+	if err := ctx.classify(at(t, ctx, fleet, "sats[2].comps[1]"), lookupOne(t, idx, "test::HeavyComp")); err != nil {
+		t.Fatalf("classify sats[2].comps[1]: %v", err)
+	}
+	expect(t, ctx, fleet, "sats[2]", "total", "12")
+	expect(t, ctx, fleet, "sats[1]", "total", "6")
+}
