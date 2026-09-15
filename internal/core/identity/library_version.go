@@ -83,9 +83,10 @@ func RootPackageNames(root *ast.RootNamespace) (names []string, ok bool) {
 }
 
 // LibraryVersion is the bundled library document the named indexed document is
-// a version of, judged against the catalog of the library the index holds.
+// a version of, judged against the library the index holds apart from it: over a
+// base, a copy indexed under a library file's own name is judged against that file.
 func LibraryVersion(model *semantics.Model, res *resolve.Resolver, name string) string {
-	return LibraryCatalog(res.Index()).VersionOf(model, res, name)
+	return libraryApart(res.Index(), name).VersionOf(model, res, name)
 }
 
 // VersionOf is the catalogued library document the named indexed document is a

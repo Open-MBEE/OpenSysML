@@ -22,11 +22,11 @@ func LibraryLanguage(tier symbols.LibraryTier) (normative.Language, bool) {
 
 // qualifier decides which library symbols the norm gives a qualified name, and so an id.
 type qualifier struct {
-	idx  *symbols.Index
+	idx  libraryView
 	memo map[*symbols.Symbol]bool
 }
 
-func newQualifier(idx *symbols.Index) *qualifier {
+func newQualifier(idx libraryView) *qualifier {
 	return &qualifier{idx: idx, memo: make(map[*symbols.Symbol]bool)}
 }
 
@@ -134,7 +134,7 @@ func LibraryCatalog(idx *symbols.Index) *Catalog {
 		return newCatalog()
 	}
 	key := idx
-	if base := idx.Base(); base != nil && showsLibraryOf(idx, base) {
+	if base := idx.Base(); base != nil && showsLibraryOf(idx, base, "") {
 		key = base
 	}
 	if !key.Frozen() {
@@ -147,12 +147,25 @@ func LibraryCatalog(idx *symbols.Index) *Catalog {
 	return c.(*Catalog)
 }
 
-// showsLibraryOf reports whether idx holds exactly base's library documents, each
-// as base does: an overlay may shadow one under its name, remove it, or add its own.
-func showsLibraryOf(idx, base *symbols.Index) bool {
+// libraryApart is the catalog of the library idx holds apart from the named
+// document: over a base, the base's file of that name, if any, stands in its place.
+func libraryApart(idx *symbols.Index, name string) *Catalog {
+	base := idx.Base()
+	if base == nil {
+		return LibraryCatalog(idx)
+	}
+	if showsLibraryOf(idx, base, name) {
+		return LibraryCatalog(base)
+	}
+	return buildCatalog(apartFrom{idx: idx, base: base, name: name})
+}
+
+// showsLibraryOf reports whether idx holds exactly base's library documents other
+// than apart, each as base does: an overlay may shadow one, remove it, or add its own.
+func showsLibraryOf(idx, base *symbols.Index, apart string) bool {
 	held := 0
 	for _, name := range idx.Documents() {
-		if !idx.IsLibraryDocument(name) {
+		if name == apart || !idx.IsLibraryDocument(name) {
 			continue
 		}
 		if !base.IsLibraryDocument(name) || idx.DocumentRoot(name) != base.DocumentRoot(name) ||
@@ -163,11 +176,59 @@ func showsLibraryOf(idx, base *symbols.Index) bool {
 		held++
 	}
 	for _, name := range base.Documents() {
-		if base.IsLibraryDocument(name) {
+		if name != apart && base.IsLibraryDocument(name) {
 			held--
 		}
 	}
 	return held == 0
+}
+
+// libraryView is what a catalog is built from: the documents an index holds and
+// how it reads their symbols.
+type libraryView interface {
+	Documents() []string
+	IsLibraryDocument(name string) bool
+	DocumentRoot(name string) *symbols.Scope
+	DocumentKind(name string) source.Kind
+	GetFQN(sym *symbols.Symbol) string
+	LibraryTier(sym *symbols.Symbol) symbols.LibraryTier
+}
+
+// apartFrom reads idx with the named document as its base holds it, so a copy
+// standing under a library file's name is judged against that file.
+type apartFrom struct {
+	idx, base *symbols.Index
+	name      string
+}
+
+func (v apartFrom) Documents() []string {
+	docs := v.idx.Documents()
+	if v.base.DocumentRoot(v.name) == nil {
+		return docs
+	}
+	for _, name := range docs {
+		if name == v.name {
+			return docs
+		}
+	}
+	return append(docs, v.name)
+}
+
+func (v apartFrom) of(name string) *symbols.Index {
+	if name == v.name {
+		return v.base
+	}
+	return v.idx
+}
+
+func (v apartFrom) IsLibraryDocument(name string) bool { return v.of(name).IsLibraryDocument(name) }
+func (v apartFrom) DocumentRoot(name string) *symbols.Scope {
+	return v.of(name).DocumentRoot(name)
+}
+func (v apartFrom) DocumentKind(name string) source.Kind { return v.of(name).DocumentKind(name) }
+func (v apartFrom) GetFQN(sym *symbols.Symbol) string    { return v.of(sym.DocName).GetFQN(sym) }
+func (v apartFrom) LibraryTier(sym *symbols.Symbol) symbols.LibraryTier {
+	return v.of(sym.DocName).LibraryTier(sym)
 }
 
 func newCatalog() *Catalog {
@@ -181,7 +242,7 @@ func newCatalog() *Catalog {
 }
 
 // buildCatalog fixes the id of every element the norm names in idx's library documents.
-func buildCatalog(idx *symbols.Index) *Catalog {
+func buildCatalog(idx libraryView) *Catalog {
 	c := newCatalog()
 	q := newQualifier(idx)
 	var roots []*symbols.Scope
