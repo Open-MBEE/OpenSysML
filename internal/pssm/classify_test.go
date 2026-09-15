@@ -315,15 +315,22 @@ func TestClassifyGuardSideEffect(t *testing.T) {
 	callHelper := `
             <node xmi:type="uml:CallBehaviorAction" xmi:id="xT3helper" name="Call(helper)" behavior="xHelper"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3helper" target="xT3ret1"/>`
+	opaqueHelper := `<ownedBehavior xmi:type="uml:OpaqueBehavior" xmi:id="xHelper" name="helper"><body>return true;</body><language>Alf</language></ownedBehavior>`
 	for name, helper := range map[string]string{
 		"write in a called behavior":     writingHelper,
 		"write two calls down":           helperActivity(`<node xmi:type="uml:CallBehaviorAction" xmi:id="xHelperCall" behavior="xWriter"/>`) + strings.ReplaceAll(writingHelper, "xHelper", "xWriter"),
 		"call of a behavior not defined": helperActivity(`<node xmi:type="uml:CallBehaviorAction" xmi:id="xHelperCall" behavior="xNowhere"/>`),
+		"call of an opaque behavior":     opaqueHelper,
 	} {
 		c = classifyFixture(t, "", guardBehavior(callHelper, helper))
 		if c.Class != NotExpressible || c.Reason() != "guard side effect T3" {
 			t.Errorf("%s: classified %s (%s), want not-expressible (guard side effect T3)", name, c.Class, c.Reason())
 		}
+	}
+	// A called function behavior does not act, by contract.
+	c = classifyFixture(t, "", guardBehavior(callHelper, strings.Replace(opaqueHelper, "uml:OpaqueBehavior", "uml:FunctionBehavior", 1)))
+	if c.Class != Standard {
+		t.Errorf("guard behavior calling a function behavior classified %s (%s), want standard", c.Class, c.Reason())
 	}
 	// A guard behavior that is not an activity is not read, so whether it acts
 	// is unknown; a function behavior does not act by contract.

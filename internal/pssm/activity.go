@@ -100,9 +100,15 @@ func (r *reader) calledBehaviorActs(n *Element, visiting map[string]bool) bool {
 }
 
 // callActs reports whether calling a behavior of the document acts on the
-// model: an activity does when its nodes do; an unresolved or opaque one may.
+// model: an activity does when its nodes do, a function behavior does not by
+// UML's contract (§13.2.3.3); an unresolved or opaque one may.
 func (r *reader) callActs(called *Element, visiting map[string]bool) bool {
-	if called == nil || called.Type != "uml:Activity" {
+	switch {
+	case called == nil:
+		return true
+	case called.Type == "uml:FunctionBehavior":
+		return false
+	case called.Type != "uml:Activity":
 		return true
 	}
 	return r.acts(called, visiting)
