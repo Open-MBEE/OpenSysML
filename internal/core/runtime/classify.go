@@ -96,7 +96,16 @@ func (ctx *Context) classify(inst *Instance, typ *symbols.Symbol) error {
 		return nil
 	}
 	inherited := ctx.instanceConforms(inst, typ)
+	ctx.observeClassify(inst, typ)
 	commit, rollback := ctx.beginJournal()
+	// A classifier may redefine what a value taken from the shape read: what the take
+	// left unmaterialized is materialized first, so the redefinition reaches the value.
+	if !inherited && ctx.classifierRedeclares(inst, typ) {
+		if err := ctx.settleOwed(inst); err != nil {
+			rollback()
+			return err
+		}
+	}
 	classifiers, values, running := inst.classifiers, maps.Clone(inst.FeatureValues), len(inst.behaviors)
 	ctx.noteProbeUndo(func() {
 		if len(inst.behaviors) > running {
@@ -136,6 +145,18 @@ func (ctx *Context) classify(inst *Instance, typ *symbols.Symbol) error {
 	}
 	commit()
 	return nil
+}
+
+// classifierRedeclares reports whether typ declares a feature inst does not hold, or one
+// it holds under another declaration: classifying by it may change what inst's values read.
+func (ctx *Context) classifierRedeclares(inst *Instance, typ *symbols.Symbol) bool {
+	features := ctx.FeaturesOf(typ)
+	for i := range features {
+		if fv, ok := inst.FeatureValues[features[i].Name]; !ok || fv.Feature.Symbol != features[i].Symbol {
+			return true
+		}
+	}
+	return false
 }
 
 // refineFeatureValue makes a carried feature value read the classifier's declaration when it redefines the

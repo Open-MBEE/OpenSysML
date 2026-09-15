@@ -371,6 +371,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		behavior.Action = exec
 	}
 	inst.behaviors = append(inst.behaviors, behavior)
+	dst.behaviorsAttached++
 	dst.objectBehaviors = append(dst.objectBehaviors, behavior)
 	return nil
 }

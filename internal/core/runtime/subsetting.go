@@ -341,25 +341,48 @@ func (ctx *Context) subsettedNames(sym, owner *symbols.Symbol) []string {
 // SubsettingFeatures returns the features of typ subsetting the named feature under any
 // of its redefinition names, in declaration order, reading nothing; inst is nil for a type alone.
 func (ctx *Context) SubsettingFeatures(inst *Instance, typ *symbols.Symbol, name string) []EffectiveFeature {
-	aliases := ctx.redefinitionAliases(typ, name)
+	features := ctx.FeaturesOf(typ)
 	var subsetting []EffectiveFeature
-	for _, feat := range ctx.FeaturesOf(typ) {
-		if aliases[feat.Name] || feat.Symbol == nil {
-			continue
-		}
+	for _, i := range ctx.subsetterIndex(typ, features)[name] {
 		if inst != nil {
-			if _, ok := inst.FeatureValues[feat.Name]; !ok {
+			if _, ok := inst.FeatureValues[features[i].Name]; !ok {
 				continue
 			}
 		}
-		for _, subsetted := range ctx.subsettedNames(feat.Symbol, typ) {
-			if aliases[subsetted] {
-				subsetting = append(subsetting, feat)
-				break
+		subsetting = append(subsetting, features[i])
+	}
+	return subsetting
+}
+
+// subsetterIndex is, per type, the positions in features of the features subsetting
+// each named feature of the type under any of its redefinition names; memoized.
+func (ctx *Context) subsetterIndex(typ *symbols.Symbol, features []EffectiveFeature) map[string][]int {
+	if index, ok := ctx.model.subsetters[typ]; ok {
+		return index
+	}
+	index := make(map[string][]int)
+	subsetted := make([][]string, len(features))
+	for i := range features {
+		if features[i].Symbol != nil {
+			subsetted[i] = ctx.subsettedNames(features[i].Symbol, typ)
+		}
+	}
+	for _, feat := range features {
+		aliases := ctx.redefinitionAliases(typ, feat.Name)
+		for i := range features {
+			if aliases[features[i].Name] {
+				continue
+			}
+			for _, name := range subsetted[i] {
+				if aliases[name] {
+					index[feat.Name] = append(index[feat.Name], i)
+					break
+				}
 			}
 		}
 	}
-	return subsetting
+	ctx.model.subsetters[typ] = index
+	return index
 }
 
 // subsettingContributions returns the values the features subsetting the named
@@ -524,7 +547,7 @@ func (ctx *Context) fillOptionalSubsetters(inst *Instance, name string, n int) (
 		} else {
 			fill.fv.Values = ctx.collectionOf(fill.fv.Feature, fill.held)
 		}
-		fill.fv.Materialized = true
+		fill.fv.Materialized, fill.fv.intrinsic = true, false
 		ctx.invalidateDependents(fill.fv)
 	}
 	return made, undo, nil
