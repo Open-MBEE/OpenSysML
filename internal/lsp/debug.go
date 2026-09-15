@@ -418,12 +418,11 @@ func (s *Server) debugRegister(sess *debugSession) (*debugSnapshot, error) {
 	s.debug.mu.Lock()
 	defer s.debug.mu.Unlock()
 	// An edit since the session's reading is reconciled under the lock edits
-	// reconcile under, so none passes the session by unseen.
-	if s.ws.Generation() != sess.runtime.Generation() {
-		if _, moved := s.reconcile(sess); moved && sess.ended != "" {
-			sess.release()
-			return nil, debugInvalid(fmt.Errorf("%w: %s", ErrDebugTarget, sess.ended))
-		}
+	// reconcile under, so none passes the session by unseen; the session has yet
+	// to answer, so a move is reported by its first snapshot rather than a notification.
+	if s.ws.Generation() != sess.runtime.Generation() && s.rebindNow(sess) && sess.ended != "" {
+		sess.release()
+		return nil, debugInvalid(fmt.Errorf("%w: %s", ErrDebugTarget, sess.ended))
 	}
 	s.debug.next++
 	sess.id = "debug-" + strconv.Itoa(s.debug.next)
@@ -1365,6 +1364,15 @@ func (s *Server) debugDocumentsChanged(ctx context.Context) {
 // reconcile rebinds sess to the workspace as it is now, reporting whether the
 // session moved: to new render IDs, or to its end.
 func (s *Server) reconcile(sess *debugSession) (*debugSnapshot, bool) {
+	if !s.rebindNow(sess) {
+		return nil, false
+	}
+	return sess.snapshot(), true
+}
+
+// rebindNow rebinds sess to the workspace as it is now, reporting whether the
+// session moved, without taking a snapshot.
+func (s *Server) rebindNow(sess *debugSession) bool {
 	var moved bool
 	// One reading, so the declarations compared and the rendering located in
 	// are of the same documents.
@@ -1372,10 +1380,7 @@ func (s *Server) reconcile(sess *debugSession) (*debugSnapshot, bool) {
 		moved = sess.rebind(r)
 		return nil
 	})
-	if !moved {
-		return nil, false
-	}
-	return sess.snapshot(), true
+	return moved
 }
 
 // rebind binds sess to the documents as r reads them, reporting whether the

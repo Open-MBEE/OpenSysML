@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -1413,6 +1414,22 @@ func TestDebugStartSeesAnEditSinceItsReading(t *testing.T) {
 	}
 	fresh := ids(t, render(t, s, docURI, "MachineViews::opsView"))
 	wantStrings(t, "active states", snap.ActiveStates, []string{fresh["motion"], fresh["idle"], fresh["clock"], fresh["waiting"]})
+	// The move is reported by the first snapshot, which is the one a start
+	// without the edit would answer: the same revision, entry edges and notes.
+	undisturbed := mustDebug(t, s, MethodDebugStart, params)
+	if snap.Revision != 1 || undisturbed.Revision != 1 {
+		t.Errorf("revisions = %d after the edit, %d without, want 1 for a first snapshot", snap.Revision, undisturbed.Revision)
+	}
+	if len(undisturbed.Taken) == 0 {
+		t.Fatalf("an undisturbed start takes no entry edges: %+v", undisturbed)
+	}
+	if !reflect.DeepEqual(snap.Taken, undisturbed.Taken) {
+		t.Errorf("taken = %+v after the edit, want the entry edges an undisturbed start reports: %+v", snap.Taken, undisturbed.Taken)
+	}
+	if !reflect.DeepEqual(snap.Notes, undisturbed.Notes) {
+		t.Errorf("notes = %q after the edit, want an undisturbed start's %q", snap.Notes, undisturbed.Notes)
+	}
+	mustDebug(t, s, MethodDebugStop, &debugSessionParams{Session: undisturbed.Session})
 	stepped := mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: snap.Session})
 	wantStrings(t, "active states after a step", stepped.ActiveStates, []string{fresh["motion"], fresh["idle"], fresh["clock"], fresh["elapsed"]})
 
