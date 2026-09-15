@@ -13,11 +13,11 @@ import (
 // workspace document about to be indexed under that name takes the place of.
 // Caller holds the write lock.
 func (w *Workspace) displaceLocked(name string) {
-	if _, done := w.displaced[name]; done || w.libBase == nil {
+	if _, done := w.displaced[name]; done {
 		return
 	}
-	if record := w.index.LibraryDocumentOf(name); record.Tier.Library() {
-		w.displaced[name] = record
+	if file, ok := w.library[name]; ok {
+		w.displaced[name] = file.record
 	}
 }
 
@@ -68,12 +68,8 @@ func (w *Workspace) restoreLocked(library string) {
 		}
 	}
 	delete(w.displaced, library)
-	scope := w.libBase.DocumentRoot(library)
-	if scope == nil {
-		return
-	}
-	if root, ok := scope.Node().(*ast.RootNamespace); ok {
-		w.index.AddDocument(library, root)
+	if file, ok := w.library[library]; ok {
+		w.index.AddDocumentWithKind(library, file.root, file.kind)
 		w.index.MarkLibraryDocument(library, record)
 		w.index.ExpandWildcardImports()
 	}
@@ -84,13 +80,11 @@ func (w *Workspace) restoreLocked(library string) {
 // The edit's own stand-ins are consulted, as an earlier rewrite may have moved them.
 func (e *editIndex) indexed(idx *symbols.Index, sf *source.SourceFile, root *ast.RootNamespace) {
 	w := e.w
-	if w.libBase == nil {
-		return
-	}
 	name, library := sf.Name(), ""
-	if identity.LibraryCatalog(idx).NamesEveryRoot(root) {
+	if w.namesLibraryRoots(root) {
 		resolver, sem := w.resolverOver(idx)
-		library = identity.LibraryVersion(sem, resolver, name)
+		_, catalog := w.libraryAlone()
+		library = catalog.VersionOf(sem, resolver, name)
 	}
 	if previous := e.standIns[name]; previous != "" && previous != library {
 		delete(e.standIns, name)
@@ -104,7 +98,7 @@ func (e *editIndex) indexed(idx *symbols.Index, sf *source.SourceFile, root *ast
 	}
 	e.standIns[name] = library
 	idx.MarkLibraryDocument(name, symbols.LibraryDocument{
-		Tier:   w.libBase.LibraryDocumentOf(library).Tier,
+		Tier:   w.library[library].record.Tier,
 		Digest: symbols.TextDigest(sf.Bytes()),
 	})
 }
@@ -121,26 +115,38 @@ func (e *editIndex) restore(idx *symbols.Index, library string) {
 			return
 		}
 	}
-	scope := w.libBase.DocumentRoot(library)
-	if scope == nil {
-		return
-	}
-	if root, ok := scope.Node().(*ast.RootNamespace); ok {
-		idx.AddDocument(library, root)
-		idx.MarkLibraryDocument(library, w.libBase.LibraryDocumentOf(library))
+	if file, ok := w.library[library]; ok {
+		idx.AddDocumentWithKind(library, file.root, file.kind)
+		idx.MarkLibraryDocument(library, file.record)
 		idx.ExpandWildcardImports()
 	}
 }
 
-// libraryVersionLocked is the bundled library document the indexed doc is a
-// version of, "" for the workspace's own file; only an index over the bundled
-// library has versions to recognise. Caller holds the lock.
+// libraryVersionLocked is the library file the indexed doc is a version of, ""
+// for the workspace's own file. Caller holds the lock.
 func (w *Workspace) libraryVersionLocked(name string, doc *Document) string {
-	if w.libBase == nil || !identity.LibraryCatalog(w.index).NamesEveryRoot(doc.AST) {
+	if !w.namesLibraryRoots(doc.AST) {
 		return ""
 	}
 	resolver, sem := w.newResolver()
-	return identity.LibraryVersion(sem, resolver, name)
+	_, catalog := w.libraryAlone()
+	return catalog.VersionOf(sem, resolver, name)
+}
+
+// namesLibraryRoots reports whether every root of the parsed document is a
+// package named as a top-level package of the workspace's library: the cheap
+// test a document passes before the library's catalog is consulted, or built.
+func (w *Workspace) namesLibraryRoots(root *ast.RootNamespace) bool {
+	names, ok := identity.RootPackageNames(root)
+	if !ok || len(names) == 0 {
+		return false
+	}
+	for _, name := range names {
+		if !w.libraryRoots[name] {
+			return false
+		}
+	}
+	return true
 }
 
 // StandsInFor is the bundled library document name is a version of and stands

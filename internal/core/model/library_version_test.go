@@ -8,7 +8,9 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -584,5 +586,79 @@ func TestWorkspaceLibraryVersionNeedsLibraryRoots(t *testing.T) {
 			}
 		}
 		ws.Remove("own.kerml")
+	}
+}
+
+// A library the caller indexed and marked has the same lifecycle as the bundled
+// one: a workspace document under a library file's name displaces it and closing
+// puts it back under its mark, and a version rooted at its package stands in.
+func TestWorkspaceLibraryVersionOverCallerBuiltIndex(t *testing.T) {
+	const tanks = "lib/tanks.sysml"
+	text := []byte("standard library package Tanks {\n    part def Tank;\n}\n")
+	src := &scratchSource{files: map[string]string{tanks: string(text)}}
+	idx := symbols.NewIndex()
+	idx.AddDocumentWithKind(tanks, parser.New(source.New(tanks, text)).ParseFile(), source.KindSysML)
+	idx.MarkLibraryDocument(tanks, symbols.LibraryDocument{Tier: symbols.TierSystems, Digest: symbols.TextDigest(text)})
+	idx.ExpandWildcardImports()
+	ws := NewWorkspaceWithIndex(idx, WithLibrarySource(src))
+	tankIn := func(when string, want string) {
+		t.Helper()
+		syms := ws.LookupQualified("Tanks::Tank")
+		if len(syms) != 1 || syms[0].DocName != want {
+			var docs []string
+			for _, s := range syms {
+				docs = append(docs, s.DocName)
+			}
+			t.Errorf("%s: Tanks::Tank declared in %q, want %q", when, docs, want)
+		}
+	}
+	tankIn("before anything opens", tanks)
+
+	ws.Open(tanks, []byte("package Mine { part def Tank; }"), 1)
+	if ws.IsLibraryDocument(tanks) || ws.index.IsLibraryDocument(tanks) {
+		t.Error("a workspace document under the library file's name is the workspace's own")
+	}
+	if syms := ws.LookupQualified("Tanks::Tank"); len(syms) != 0 {
+		t.Errorf("Tanks::Tank = %d symbols while user text holds the name, want 0", len(syms))
+	}
+	ws.Close(tanks)
+	tankIn("after closing the document under its name", tanks)
+	if !ws.IsLibraryDocument(tanks) || !ws.index.IsLibraryDocument(tanks) {
+		t.Error("the library file did not come back under its mark")
+	}
+	if lib := ws.LibraryDocument(tanks); lib == nil || string(lib.Content) != string(text) {
+		t.Error("the restored library file is not served from the library source")
+	}
+
+	ws.Open("copy.sysml", text, 1)
+	if got := ws.StandsInFor("copy.sysml"); got != tanks {
+		t.Fatalf("StandsInFor = %q, want %q", got, tanks)
+	}
+	tankIn("with a version open", "copy.sysml")
+	if !ws.index.IsLibraryDocument("copy.sysml") || ws.index.LibraryDocumentOf("copy.sysml").Tier != symbols.TierSystems {
+		t.Error("the version does not carry the library file's tier")
+	}
+	ws.Open("car.sysml", []byte("part def Car {\n    part tank : Tanks::Tank;\n}\n"), 1)
+	for _, d := range ws.Diagnostics("car.sysml") {
+		if d.Code == "unresolved" {
+			t.Errorf("car.sysml beside the version: %s: %s", d.Code, d.Message)
+		}
+	}
+	op := edit.AddMember("Car", "part", "spare")
+	op.Type = "Tanks::Tank"
+	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}); !ok || err != nil {
+		t.Errorf("an edit beside the version: ok %v, err %v", ok, err)
+	}
+	ws.Update("copy.sysml", []byte("package Other { part def Tank; }"), 2)
+	if got := ws.StandsInFor("copy.sysml"); got != "" {
+		t.Errorf("moved off the library's root, still stands in for %q", got)
+	}
+	tankIn("after the version moved off the library's root", tanks)
+	ws.Update("copy.sysml", text, 3)
+	tankIn("after the version returned", "copy.sysml")
+	ws.Remove("copy.sysml")
+	tankIn("after the version left", tanks)
+	if !ws.IsLibraryDocument(tanks) {
+		t.Error("the library file did not come back once the version left")
 	}
 }
