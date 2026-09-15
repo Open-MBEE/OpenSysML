@@ -204,17 +204,31 @@ func declaredBy[T any](ctx *Context, types []*symbols.Symbol, of func(*symbols.S
 	if len(types) == 1 {
 		return of(types[0])
 	}
-	covered := map[*symbols.Scope]bool{}
+	// The scopes the earlier types cover are gathered only once a later type declares
+	// something, since most features have nothing declared for them.
+	var covered map[*symbols.Scope]bool
+	cover := func(typ *symbols.Symbol) {
+		covered[DeclScope(typ)] = true
+		for _, sup := range ctx.model.semantics.AllSupertypes(typ) {
+			covered[DeclScope(sup)] = true
+		}
+	}
 	var out []T
-	for _, typ := range types {
-		for _, rel := range of(typ) {
+	for i, typ := range types {
+		rels := of(typ)
+		if len(rels) != 0 && covered == nil {
+			covered = map[*symbols.Scope]bool{}
+			for _, earlier := range types[:i] {
+				cover(earlier)
+			}
+		}
+		for _, rel := range rels {
 			if scope := scopeOf(rel); scope == nil || !covered[scope] {
 				out = append(out, rel)
 			}
 		}
-		covered[DeclScope(typ)] = true
-		for _, sup := range ctx.model.semantics.AllSupertypes(typ) {
-			covered[DeclScope(sup)] = true
+		if covered != nil {
+			cover(typ)
 		}
 	}
 	return out

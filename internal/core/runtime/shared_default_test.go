@@ -188,3 +188,118 @@ func TestSharedDefaultsOffDerivesEverywhere(t *testing.T) {
 	}
 	expectTaken(t, ctx, 0)
 }
+
+const classifiedFleetSrc = `package test {
+	part def Sat {
+		attribute a : ScalarValues::Integer = 2;
+		attribute b : ScalarValues::Integer = a * 3;
+	}
+	part def Heavy :> Sat {
+		attribute :>> a = 10;
+	}
+	part def Fleet {
+		part sats : Sat[3];
+	}
+	part fleet : Fleet;
+}`
+
+// A classifier redefining what a taken value read gives the occurrence its own
+// value, whether it is classified before or after the take; undoing the
+// classification with its change restores the shape's value.
+func TestSharedDefaultUnderClassification(t *testing.T) {
+	ctx, fleet, idx := sharedFixture(t, classifiedFleetSrc, "test::fleet")
+	heavy := lookupOne(t, idx, "test::Heavy")
+	expect(t, ctx, fleet, "sats[1]", "b", "6")
+	expect(t, ctx, fleet, "sats[2]", "b", "6")
+	expectTaken(t, ctx, 1)
+	if err := ctx.classify(at(t, ctx, fleet, "sats[2]"), heavy); err != nil {
+		t.Fatalf("classify sats[2]: %v", err)
+	}
+	expect(t, ctx, fleet, "sats[2]", "b", "30")
+	expect(t, ctx, fleet, "sats[1]", "b", "6")
+	if err := ctx.classify(at(t, ctx, fleet, "sats[3]"), heavy); err != nil {
+		t.Fatalf("classify sats[3]: %v", err)
+	}
+	expect(t, ctx, fleet, "sats[3]", "b", "30")
+	expectTaken(t, ctx, 2)
+
+	end := ctx.beginProbe()
+	if err := ctx.classify(at(t, ctx, fleet, "sats[1]"), heavy); err != nil {
+		t.Fatalf("classify sats[1]: %v", err)
+	}
+	expect(t, ctx, fleet, "sats[1]", "b", "30")
+	end()
+	expect(t, ctx, fleet, "sats[1]", "b", "6")
+}
+
+const failingDefaultSrc = `package test {
+	part def Sat {
+		attribute a : ScalarValues::Integer = 2;
+		attribute b : ScalarValues::Integer = a / 0;
+	}
+	part def Fleet {
+		part sats : Sat[2];
+	}
+	part fleet : Fleet;
+}`
+
+// A default that fails to derive is never shared: every occurrence reports the
+// failure for itself, the same way it would deriving in place.
+func TestSharedDefaultFailureIsNotShared(t *testing.T) {
+	ctx, fleet, _ := sharedFixture(t, failingDefaultSrc, "test::fleet")
+	var errs []string
+	for _, path := range []string{"sats[1]", "sats[2]"} {
+		_, err := at(t, ctx, fleet, path).GetFeatureValue(ctx, "b")
+		if err == nil {
+			t.Fatalf("%s.b derived from a division by zero", path)
+		}
+		errs = append(errs, err.Error())
+	}
+	if errs[0] != errs[1] {
+		t.Errorf("the occurrences fail differently:\n%s\n%s", errs[0], errs[1])
+	}
+	expectTaken(t, ctx, 0)
+}
+
+const imagedFleetSrc = `package test {
+	part def Comp {
+		attribute m : ScalarValues::Integer = 3;
+	}
+	part def Sat {
+		part c1 : Comp;
+		attribute total : ScalarValues::Integer = c1.m + 1;
+	}
+	part def Heavy :> Sat {
+		part :>> c1 { attribute :>> m = 9; }
+	}
+	part def Fleet {
+		part sats : Sat[2];
+	}
+	part fleet : Fleet;
+}`
+
+// An image of an occurrence that took a value shared over its unmaterialized
+// subtree materializes as one that derived it in place: classifying and writing
+// under the restored object reach the value.
+func TestSharedDefaultSurvivesHeldImage(t *testing.T) {
+	ctx, fleet, idx := sharedFixture(t, imagedFleetSrc, "test::fleet")
+	expect(t, ctx, fleet, "sats[1]", "total", "4")
+	expect(t, ctx, fleet, "sats[2]", "total", "4")
+	expectTaken(t, ctx, 1)
+	if at(t, ctx, fleet, "sats[2]").FeatureValues["c1"].Materialized {
+		t.Fatal("sats[2].c1 was materialized to take a shared total")
+	}
+	dst := imageInto(t, ctx, fleet)
+	restored, ok := dst.Instance(fleet.ID)
+	if !ok {
+		t.Fatalf("object #%d not materialized from the image", fleet.ID)
+	}
+	if err := dst.classify(at(t, dst, restored, "sats[2]"), lookupOne(t, idx, "test::Heavy")); err != nil {
+		t.Fatalf("classify sats[2]: %v", err)
+	}
+	expect(t, dst, restored, "sats[2]", "total", "10")
+	write(t, dst, restored, "sats[1].c1", "m", 10)
+	expect(t, dst, restored, "sats[1]", "total", "11")
+	expect(t, ctx, fleet, "sats[1]", "total", "4")
+	expect(t, ctx, fleet, "sats[2]", "total", "4")
+}

@@ -324,9 +324,6 @@ func (ctx *Context) sharedPaths(root *Instance, reads []sharedRead) (paths [][]s
 	seen := make(map[string]bool, len(reads))
 	paths = make([][]string, 0, len(reads))
 	for _, read := range reads {
-		if ctx.bindingDeclaredFor(read.inst, strings.Join(read.path, ".")) {
-			return nil, nil
-		}
 		var above []string
 		for inst := read.inst; inst != root; {
 			owner, feature := inst.Owner()
@@ -343,6 +340,9 @@ func (ctx *Context) sharedPaths(root *Instance, reads []sharedRead) (paths [][]s
 			continue
 		}
 		seen[key] = true
+		if ctx.bindingDeclaredFor(read.inst, strings.Join(read.path, ".")) {
+			return nil, nil
+		}
 		if read.valued {
 			inputs = append(inputs, sharedInput{path: path, value: read.value})
 		} else {
