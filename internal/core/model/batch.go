@@ -99,32 +99,34 @@ func (w *Workspace) OpenAll(inputs []Input) {
 	w.commitBatch(was, docs)
 }
 
-// reserveBatch is the document each input's name holds as the batch starts,
-// which is what commitBatch installs over.
-func (w *Workspace) reserveBatch(inputs []Input) map[string]*Document {
+// reserveBatch is each input's name's change count as the batch starts, which is
+// what commitBatch installs over: a name opened and removed meanwhile is absent
+// again, but its count has moved.
+func (w *Workspace) reserveBatch(inputs []Input) map[string]uint64 {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	was := make(map[string]*Document, len(inputs))
+	was := make(map[string]uint64, len(inputs))
 	for _, in := range inputs {
-		was[in.Name] = w.docs[in.Name]
+		was[in.Name] = w.changes[in.Name]
 	}
 	return was
 }
 
-// commitBatch installs the parsed documents whose name still holds what the
-// batch reserved; a name changed since keeps its newer document.
-func (w *Workspace) commitBatch(was map[string]*Document, docs []*Document) {
+// commitBatch installs the parsed documents whose name is as the batch reserved
+// it; a name changed since keeps its newer state.
+func (w *Workspace) commitBatch(was map[string]uint64, docs []*Document) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	var installed []string
 	for _, doc := range docs {
-		if w.docs[doc.Name] != was[doc.Name] {
+		if w.changes[doc.Name] != was[doc.Name] {
 			continue
 		}
 		w.open[doc.Name] = true
 		w.docs[doc.Name] = doc
+		w.changes[doc.Name]++
+		was[doc.Name] = w.changes[doc.Name]
 		w.index.AddBuiltDocument(doc.Name, doc.AST, doc.Scope)
-		was[doc.Name] = doc
 		installed = append(installed, doc.Name)
 	}
 	if len(installed) > 0 {

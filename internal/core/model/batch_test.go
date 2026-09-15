@@ -185,8 +185,9 @@ func TestOpenAllReplacesEarlierDocuments(t *testing.T) {
 }
 
 // A document another caller changes while a batch parses keeps that change: the
-// batch installs only over what it reserved, so an edit, a buffer opened and a
-// removal made meanwhile all stand, and only the untouched name is opened.
+// batch installs only over what it reserved, so an edit, a buffer opened, a
+// removal and an open-then-remove made meanwhile all stand, and only the
+// untouched name is opened.
 func TestOpenAllKeepsAChangeMadeWhileItParsed(t *testing.T) {
 	ws := NewWorkspace()
 	ws.Open("a.sysml", []byte("package A { part def Old; }"), 1)
@@ -196,6 +197,7 @@ func TestOpenAllKeepsAChangeMadeWhileItParsed(t *testing.T) {
 		{Name: "b.sysml", Content: []byte("package B { part def Batch; }"), Version: 1},
 		{Name: "c.sysml", Content: []byte("package C { part def Batch; }"), Version: 1},
 		{Name: "d.sysml", Content: []byte("package D { part def Batch; }"), Version: 2},
+		{Name: "e.sysml", Content: []byte("package E { part def Batch; }"), Version: 1},
 	}
 	was := ws.reserveBatch(inputs)
 	docs := make([]*Document, len(inputs))
@@ -205,6 +207,8 @@ func TestOpenAllKeepsAChangeMadeWhileItParsed(t *testing.T) {
 	ws.Update("a.sysml", []byte("package A { part def Edited; }"), 3)
 	ws.Open("b.sysml", []byte("package B { part def Opened; }"), 1)
 	ws.Remove("d.sysml")
+	ws.Open("e.sysml", []byte("package E { part def Opened; }"), 1)
+	ws.Remove("e.sysml")
 	ws.commitBatch(was, docs)
 
 	if doc := ws.Document("a.sysml"); doc == nil || doc.Version != 3 {
@@ -221,6 +225,9 @@ func TestOpenAllKeepsAChangeMadeWhileItParsed(t *testing.T) {
 	}
 	if ws.Document("d.sysml") != nil || len(ws.LookupQualified("D::Batch")) != 0 {
 		t.Error("d.sysml was removed while the batch parsed and should stay removed")
+	}
+	if ws.Document("e.sysml") != nil || len(ws.LookupQualified("E::Batch")) != 0 {
+		t.Error("e.sysml was opened and removed while the batch parsed and should stay removed")
 	}
 	if doc := ws.Document("c.sysml"); doc == nil || !ws.IsOpen("c.sysml") {
 		t.Errorf("c.sysml, untouched meanwhile, should be opened by the batch, got %+v", doc)

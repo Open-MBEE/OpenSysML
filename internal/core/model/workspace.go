@@ -20,11 +20,14 @@ import (
 // document set plus the global symbol index. Mutations are serialized under a
 // write lock; reads take a read lock.
 type Workspace struct {
-	mu     sync.RWMutex
-	docs   map[string]*Document
-	onDisk map[string][]byte // last-known on-disk bytes, used when a doc is not open
-	open   map[string]bool   // names with an authoritative open buffer
-	index  *symbols.Index
+	mu   sync.RWMutex
+	docs map[string]*Document
+	// changes counts the times each name's document was installed or removed,
+	// so a batch can tell a name changed under it even when it is absent again.
+	changes map[string]uint64
+	onDisk  map[string][]byte // last-known on-disk bytes, used when a doc is not open
+	open    map[string]bool   // names with an authoritative open buffer
+	index   *symbols.Index
 	// libBase is the frozen library index this workspace's index overlays, nil
 	// for a caller-built index.
 	libBase   *symbols.Index
@@ -86,6 +89,7 @@ func NewWorkspace(opts ...Option) *Workspace {
 func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 	w := &Workspace{
 		docs:      map[string]*Document{},
+		changes:   map[string]uint64{},
 		onDisk:    map[string][]byte{},
 		open:      map[string]bool{},
 		index:     idx,
@@ -217,6 +221,7 @@ func (w *Workspace) Remove(name string) {
 func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 	doc := newDocument(name, content, version)
 	w.docs[name] = doc
+	w.changes[name]++
 	w.index.AddBuiltDocument(name, doc.AST, doc.Scope) // removes stale entries first
 	w.index.ExpandWildcardImports()
 	w.invalidateLocked(name)
@@ -225,6 +230,7 @@ func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 // removeLocked drops name from the document set and index. Caller holds the lock.
 func (w *Workspace) removeLocked(name string) {
 	delete(w.docs, name)
+	w.changes[name]++
 	w.index.RemoveDocument(name)
 	w.invalidateLocked(name)
 }
