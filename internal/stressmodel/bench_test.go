@@ -89,6 +89,75 @@ func BenchmarkSatisfy(b *testing.B) {
 	}
 }
 
+func fleet(satellitesPerPlane int) SatelliteNetwork {
+	n := network(satellitesPerPlane)
+	n.Fleet = true
+	return n
+}
+
+const fleetNetwork = "SatelliteNetwork::Constellation::network"
+
+// BenchmarkFleetInstantiate measures creating the fleet-form network and reading
+// the dry mass of every occurrence in every plane: what it costs to materialize
+// N spacecraft declared as `Spacecraft[N]` and evaluate a summed attribute over
+// each one's component tree.
+func BenchmarkFleetInstantiate(b *testing.B) {
+	for _, n := range networkSizes {
+		src, stats := fleet(n).Source()
+		b.Run(fmt.Sprintf("satellites=%d/elements=%d", stats.Satellites, stats.Elements), func(b *testing.B) {
+			sess := loadNetwork(b, src)
+			read := func() {
+				if _, err := sess.InstantiateNamed(fleetNetwork); err != nil {
+					b.Fatal(err)
+				}
+				for p := 0; p < 4; p++ {
+					if _, err := sess.EvalExpr(fmt.Sprintf("%s.plane%d.sats.dryMass", fleetNetwork, p)); err != nil {
+						b.Fatal(err)
+					}
+				}
+			}
+			read()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				read()
+			}
+			b.StopTimer()
+			b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N)/float64(stats.Satellites), "ns/satellite")
+		})
+	}
+}
+
+// BenchmarkFleetSatisfy measures the warm re-check of every satisfy assertion of
+// a fleet-form network: three per block and three per unit stating values of its
+// own, each unit checked as one occurrence of its plane's fleet.
+func BenchmarkFleetSatisfy(b *testing.B) {
+	for _, n := range networkSizes {
+		src, stats := fleet(n).Source()
+		assertions := 3 * (stats.Definitions + stats.Units)
+		b.Run(fmt.Sprintf("satellites=%d/assertions=%d", stats.Satellites, assertions), func(b *testing.B) {
+			sess := loadNetwork(b, src)
+			check := func() {
+				verdicts := sess.CheckSatisfy("")
+				if len(verdicts) != assertions {
+					b.Fatalf("got %d verdicts, want %d", len(verdicts), assertions)
+				}
+				for _, v := range verdicts {
+					if !v.Holds() {
+						b.Fatalf("%s: %v", v.Subject, v.Lines)
+					}
+				}
+			}
+			check()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				check()
+			}
+		})
+	}
+}
+
 // BenchmarkEditBeside measures what an editor pays per keystroke in a small file
 // open beside a network: reparse of the small file, reindex, and diagnostics.
 func BenchmarkEditBeside(b *testing.B) {

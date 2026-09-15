@@ -176,6 +176,28 @@ which report nothing:
 Both time and memory grow linearly with the model. Loading was quadratic once —
 doubling the model roughly quadrupled the time — for the reasons below.
 
+Because the cost is per declared element, the largest lever a model has is to
+declare less: one definition with a multiplicity rather than a definition per
+unit. The satellite-network generator writes its constellation both ways
+(`cmd/stress-model -fleet`), and on the machine named above — 8 CPUs, 31 GiB,
+no swap — `sysml -validate -memstats` of the 12 800-satellite constellation
+costs:
+
+| form | elements | source | wall | allocated | peak RSS |
+| ---- | -------- | ------ | ---- | --------- | -------- |
+| one `part def` per satellite, 32 planes of 400 | 2 354 827 | 145 MB | 301 s | 43.5 GiB | 20.1 GB |
+| four blocks, `part sats : Block[400]` in 32 planes | 11 667 | 716 KB | 0.57 s | 249 MiB | 185 MB |
+
+The runtime then pays for the occurrences when something asks for them: the
+same network instantiates in 2.55 s and 650 MB, its 2 412 `satisfy`
+assertions check in 22.6 s and 14.4 GiB allocated, and reading one summed
+attribute over every occurrence costs 252 s and 73.8 GiB, because each
+occurrence is still an object with a value slot per feature whose component
+tree is materialized to evaluate it. Both forms, their element counts and
+what the runtime does with 12 800 occurrences are in the
+[stress-test record](../project/satellite-network-stress-test.md) and the
+guide chapter on [modeling fleets](../guide/modeling-fleets.md).
+
 ### What made it quadratic
 
 The load path had several costs, including three scans over a namespace's

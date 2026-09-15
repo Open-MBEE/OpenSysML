@@ -173,6 +173,111 @@ That is under 0.1 ms per assertion warm, against 3.2 ms cold: the first check
 pays for building the runtime's view of every type, and a session that keeps
 the model loaded — the REPL, the gRPC service — amortizes it.
 
+## The same constellation as a fleet
+
+Everything above declares a `part def` per satellite. The generator's
+`-fleet` form states the same constellation the way a fleet is engineered
+— a few spacecraft blocks carrying the as-built values as defaults, each
+orbital plane as `part sats : Block[N] ordered`, as-built values only on the
+units that diverge from their block (every sixteenth), the ring link as one
+connector over the collection, one inter-plane link per adjacent pair of
+planes and one downlink per plane and station, and the three requirements
+declared once per block and asserted on the block's configuration and on
+every diverging unit. `-stats` reports both forms alike; the two new fields
+are the spacecraft definitions and the units that state values of their own.
+The guide chapter [modeling fleets](../guide/modeling-fleets.md) shows the
+source of both forms.
+
+```bash
+go run ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -stats > legacy.sysml
+# satellites=12800 definitions=12800 units=12800 ground-stations=20 components=256080 connections=204400 requirements=38400 elements=2354827 bytes=145364954
+go run ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -fleet -stats > fleet.sysml
+# satellites=12800 definitions=4 units=800 ground-stations=20 components=960 connections=724 requirements=12 elements=11667 bytes=716125
+```
+
+| satellites | planes × per plane | form | definitions | units | elements | source | `-validate` wall | allocated | peak RSS |
+| ---------- | ------------------ | ---- | ----------- | ----- | -------- | ------ | ---------------- | --------- | -------- |
+| 1 600 | 8 × 200 | one definition per satellite | 1 600 | 1 600 | 294 627 | 18.1 MB | 17.5 s | 5.5 GiB | 2.6 GB |
+| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 099 | 184 KB | 0.16 s | 92 MiB | 106 MB |
+| 12 800 | 32 × 400 | one definition per satellite | 12 800 | 12 800 | 2 354 827 | 145 MB | 301 s | 43.5 GiB | 20.1 GB |
+| 12 800 | 32 × 400 | fleet | 4 | 800 | 11 667 | 716 KB | 0.57 s | 249 MiB | 185 MB |
+
+The single-definition rows here are the plane and station layout the fleet
+uses, so the two forms declare the same links; the validation table above
+(299 137 and 2 392 417 elements, 19.0 s and 318 s) was taken over a layout
+with a different split into planes and stations, and so slightly more links
+and station components. The fleet form
+declares **200 times fewer elements** at 12 800 satellites and validates in
+0.57 s and 185 MB rather than 301 s and 20.1 GB: validation is a function of
+what the source declares, and the fleet source is the size of four
+spacecraft, twenty stations and the links between thirty-two planes.
+
+What the current runtime does with the 12 800 occurrences, on the same
+machine:
+
+| satellites | operation | wall | allocated | peak RSS |
+| ---------- | --------- | ---- | --------- | -------- |
+| 1 600 | `-instantiate` the network | 0.42 s | 219 MiB | 169 MB |
+| 1 600 | `-satisfy`, 324 assertions | 0.91 s | 508 MiB | 269 MB |
+| 12 800 | `-instantiate` the network | 2.55 s | 1.0 GiB | 650 MB |
+| 12 800 | `-satisfy`, 2 412 assertions | 22.6 s | 14.4 GiB | 1.34 GB |
+| 12 800 | `%eval` of `plane<i>.sats.dryMass`, all 32 planes | 252 s | 73.8 GiB | 4.9 GB |
+
+The runtime shares one shape — the effective feature list `FeaturesOf`
+caches per type — between the occurrences of a block, and nothing else: each
+occurrence is an object with a value slot per feature, materialized lazily.
+Instantiating the network is therefore linear and cheap (about 50 KB per
+occurrence; the walk of the created object's feature values stops at the
+materialization budget and says so). Checking is not: a `satisfy` on a unit
+reads the unit through the network object, evaluates its summed mass and
+power — materializing its subsystems and components and starting their
+behaviors — and then drains the behaviors every object of the network runs,
+so each check costs more the more of the fleet earlier checks have touched
+(0.9 MiB allocated per assertion in a network of one plane of 400, 6 MiB in
+one of 32 planes). A CPU profile of the 16-plane `-satisfy` spends 57% of
+its samples evaluating the requirements' expressions, 41% of the total under
+`startClassifierBehaviors` for the parts that evaluation materializes, and
+31% in `ObjectBehavior.hasPendingWork` / `StateExecutor.hasDueEvent`
+polling the running mode machines. Reading one summed attribute over every
+occurrence evaluates it over the full tree of each — the cost the
+single-definition form paid at validation, paid here at the first read.
+
+Two limits of the current runtime shape the fleet form:
+
+- A `satisfy` whose subject is a collection (`satisfy blockAMass by
+  plane0.sats`) is rejected — the subject must denote one object — so the
+  fleet asserts each requirement on the block's configuration, which stands
+  for every occurrence inheriting the block's values, and on each diverging
+  unit.
+- A collection whose lower bound exceeds 1 000 (`maxMaterializedLowerBound`)
+  is not materialized: a plane of `Spacecraft[1600]` validates, but checking
+  a unit of it reports `multiplicity violation: lower bound too large or
+  infinite`. The 12 800-satellite fleet is therefore 32 planes of 400.
+
+`BenchmarkFleetInstantiate` and `BenchmarkFleetSatisfy` in
+`internal/stressmodel` measure, warm, instantiating the fleet network and
+reading `sats.dryMass` over four planes, and re-checking every assertion:
+
+```bash
+go test ./internal/stressmodel -run '^$' -bench Fleet -benchmem -benchtime 3x
+```
+
+| satellites | elements | instantiate + read four planes | per satellite | allocated | assertions | warm re-check | allocated |
+| ---------- | -------- | ------------------------------ | ------------- | --------- | ---------- | ------------- | --------- |
+| 32 | 1 175 | 64 ms | 2.0 ms | 19.2 MiB | 24 | 0.9 ms | 0.5 MiB |
+| 128 | 1 707 | 234 ms | 1.8 ms | 78.9 MiB | 36 | 1.3 ms | 1.1 MiB |
+| 512 | 3 915 | 1.33 s | 2.6 ms | 563 MiB | 108 | 7.1 ms | 7.4 MiB |
+
+Warm, instantiating a fleet and reading a summed attribute over its
+occurrences costs **about 2 ms and 1 MiB per satellite** — the per-satellite
+cost of a cold `-satisfy` over the single-definition form — because every
+occurrence's component tree is still materialized to evaluate the sum. What
+would change that is sparse per-occurrence values and verification over
+distinct shapes ([scaling to very large models](large-model-scaling-design.md),
+one definition, many occurrences): an occurrence whose feature holds its
+block's default storing nothing for it, and a check over N occurrences that
+read only block-level values evaluating once.
+
 ## Editing: what an editor pays per keystroke
 
 An editor does not validate once; it re-validates the open file after every
@@ -281,9 +386,12 @@ the interactive band at every operation measured.
   things: the CLI submits files one at a time and reindexes after each, which
   is quadratic in the file count (`docs/internals/performance.md`, notes for
   further work), and an editor pays the per-file analysis once per open file.
-- `-satisfy` instantiates each satellite's tree on its own; it does not
-  instantiate the whole `Network` as one object with 12 800 satellites and
-  their links, and no figure here says what that would cost.
+- `-satisfy` over the single-definition form instantiates each satellite's
+  tree on its own; it does not instantiate the whole `Network` as one object
+  with 12 800 satellites and their links. Only the fleet section
+  instantiates the network whole, and its occurrences are lazily materialized
+  objects whose component trees are read only where a check or an
+  evaluation reaches them.
 - Runtime execution is a mode machine driven to its initial state per
   instantiation, not a long simulation with events. Event throughput is
   measured separately in `docs/project/execution-performance-2026-09.md`.

@@ -8,6 +8,9 @@
 // power budget, the requirements it satisfies and the mode machine it exhibits.
 // Satellites are cross-linked to their neighbours in the same orbital plane and
 // in the adjacent plane, and every satellite has a downlink to a ground station.
+//
+// The network is written either as a `part def` per satellite or, in the fleet
+// form, as `part sats : Block[N]` over a few blocks whose as-built values are defaults.
 package stressmodel
 
 import (
@@ -22,12 +25,32 @@ type SatelliteNetwork struct {
 	Planes, Satellites int
 	// GroundStations is the number of ground stations the constellation downlinks to.
 	GroundStations int
+	// Fleet declares each plane as occurrences of one spacecraft block rather
+	// than one definition per satellite; see the package documentation.
+	Fleet bool
 }
+
+// fleetBlocks is how many spacecraft blocks the fleet form declares; plane p is
+// built from block p mod fleetBlocks.
+const fleetBlocks = 4
+
+// fleetUnitStride is how many satellites of a plane share their block's
+// defaults for each one the fleet form declares as-built values for.
+const fleetUnitStride = 16
 
 // Stats counts what a generated network declares.
 type Stats struct {
+	// Satellites is the number of spacecraft in the constellation, whichever
+	// form declares them; GroundStations the number of ground stations.
 	Satellites, GroundStations int
-	// Components is the number of leaf components across every satellite and station.
+	// Definitions is the number of spacecraft definitions declared: one per
+	// satellite in the single-definition form, one per block in the fleet form.
+	Definitions int
+	// Units is the number of satellites stating as-built values of their own:
+	// every satellite in the single-definition form, the diverging units in the fleet form.
+	Units int
+	// Components is the number of leaf components declared across the spacecraft
+	// definitions, the diverging units and the stations.
 	Components int
 	// Connections is the number of interface usages, inside satellites and between them.
 	Connections int
@@ -71,7 +94,11 @@ func (n SatelliteNetwork) Generate(w io.Writer) (Stats, error) {
 	var b strings.Builder
 	g := &generator{b: &b}
 	g.library()
-	g.constellation(n)
+	if n.Fleet {
+		g.fleet(n)
+	} else {
+		g.constellation(n)
+	}
 	g.stats.Bytes = b.Len()
 	_, err := io.WriteString(w, b.String())
 	return g.stats, err
@@ -404,10 +431,22 @@ func (g *generator) link(kind string, a, b int) {
 // satellite writes one fully configured spacecraft definition and its requirements.
 func (g *generator) satellite(id, plane, slot int) {
 	g.stats.Satellites++
+	g.stats.Units++
 	g.decl(2, "part def Sat%d :> Spacecraft {", id)
 	g.decl(3, "attribute :>> catalogId = %d;", 40000+id)
 	g.decl(3, "attribute :>> plane = %d;", plane)
 	g.decl(3, "attribute :>> slot = %d;", slot)
+	g.spacecraftBody(id, "")
+	g.line(2, "}")
+	g.decl(2, "part sat%dConfig : Sat%d;", id, id)
+	g.requirements(fmt.Sprintf("sat%d", id), fmt.Sprintf("sat%dConfig", id), id)
+	g.line(0, "")
+}
+
+// spacecraftBody writes the subsystems, budgets and connections of spacecraft id;
+// valued (`=` or `default =`) writes the values a unit may state its own for.
+func (g *generator) spacecraftBody(id int, valued string) {
+	g.stats.Definitions++
 	var massTerms, powerTerms []string
 	for _, s := range subsystems {
 		massTerms = append(massTerms, s.name+".mass")
@@ -419,9 +458,9 @@ func (g *generator) satellite(id, plane, slot int) {
 			subMass = append(subMass, c.name+".mass")
 			subPower = append(subPower, c.name+".powerDraw")
 			g.decl(4, "part :>> %s {", c.name)
-			g.decl(5, "attribute :>> mass = %d.%d [kg];", 2+(id+j)%40, (id*3+j)%10)
-			g.decl(5, "attribute :>> powerDraw = %d.0 [W];", 5+(id*5+j*7)%50)
-			g.decl(5, "attribute :>> serialNumber = \"%s-%05d-%d\";", strings.ToUpper(c.name), id, j)
+			g.decl(5, "attribute :>> mass %s= %d.%d [kg];", valued, 2+(id+j)%40, (id*3+j)%10)
+			g.decl(5, "attribute :>> powerDraw %s= %d.0 [W];", valued, 5+(id*5+j*7)%50)
+			g.decl(5, "attribute :>> serialNumber %s= \"%s-%05d-%d\";", valued, strings.ToUpper(c.name), id, j)
 			g.componentDetail(c.def, id, j)
 			g.line(4, "}")
 		}
@@ -451,19 +490,136 @@ func (g *generator) satellite(id, plane, slot int) {
 	g.stats.Connections++
 	g.decl(3, "interface payloadToCdh : DataFeed connect payload.dataOut to cdh.dataIn;")
 	g.decl(3, "constraint massMargin { dryMass <= %d [kg] }", 500+id%100)
-	g.line(2, "}")
-	g.decl(2, "part sat%dConfig : Sat%d;", id, id)
+}
+
+// requirements writes the three requirements of the spacecraft configuration
+// named config, with their satisfy assertions, under names prefixed by name.
+func (g *generator) requirements(name, config string, id int) {
 	g.stats.Requirements += 3
-	g.decl(2, "requirement sat%dMass : MassBudget { subject :>> sc = sat%dConfig; attribute :>> limit = %d [kg]; }", id, id, 900+id%100)
+	g.decl(2, "requirement %sMass : MassBudget { subject :>> sc = %s; attribute :>> limit = %d [kg]; }", name, config, 900+id%100)
 	g.stats.Elements += 2
-	g.decl(2, "satisfy sat%dMass by sat%dConfig;", id, id)
-	g.decl(2, "requirement sat%dPower : PowerBudget { subject :>> sc = sat%dConfig; }", id, id)
+	g.decl(2, "satisfy %sMass by %s;", name, config)
+	g.decl(2, "requirement %sPower : PowerBudget { subject :>> sc = %s; }", name, config)
 	g.stats.Elements++
-	g.decl(2, "satisfy sat%dPower by sat%dConfig;", id, id)
-	g.decl(2, "requirement sat%dCrosslink : CrosslinkCapacity { subject :>> sc = sat%dConfig; attribute :>> minimumRate = %d.0; }", id, id, 50+id%50)
+	g.decl(2, "satisfy %sPower by %s;", name, config)
+	g.decl(2, "requirement %sCrosslink : CrosslinkCapacity { subject :>> sc = %s; attribute :>> minimumRate = %d.0; }", name, config, 50+id%50)
 	g.stats.Elements += 2
-	g.decl(2, "satisfy sat%dCrosslink by sat%dConfig;", id, id)
+	g.decl(2, "satisfy %sCrosslink by %s;", name, config)
+}
+
+// fleet writes the constellation as a few spacecraft blocks, each plane as
+// occurrences of one of them, the ground stations and the links between them.
+func (g *generator) fleet(n SatelliteNetwork) {
+	g.decl(1, "package Constellation {")
+	g.line(2, "private import Interfaces::*;")
+	g.line(2, "private import Platform::*;")
+	g.line(2, "private import Requirements::*;")
+	g.line(2, "private import Behavior::*;")
+	blocks := min(fleetBlocks, n.Planes)
+	for b := 0; b < blocks; b++ {
+		g.block(b)
+	}
+	for k := 0; k < n.GroundStations; k++ {
+		g.groundStation(k)
+	}
+	g.decl(2, "part def OrbitalPlane {")
+	g.decl(3, "attribute plane : Integer;")
+	g.decl(3, "part sats : Spacecraft[%d] ordered;", n.Satellites)
+	if n.Satellites > 1 {
+		g.stats.Connections++
+		g.decl(3, "interface ring : RFLink connect sats.comms.crosslinkTx to sats.comms.crosslinkRx {")
+		g.decl(4, "attribute :>> dataRate = 100.0;")
+		g.decl(4, "attribute :>> slantRange = 2000 [km];")
+		g.line(3, "}")
+	}
+	g.decl(3, "attribute satelliteCount : Integer = %d;", n.Satellites)
+	g.line(2, "}")
 	g.line(0, "")
+	g.decl(2, "part def Network {")
+	for p := 0; p < n.Planes; p++ {
+		g.plane(n, p, p%blocks)
+	}
+	for k := 0; k < n.GroundStations; k++ {
+		g.decl(3, "part gs%d : Station%d;", k, k)
+	}
+	for p := 0; p+1 < n.Planes; p++ {
+		g.stats.Connections++
+		g.decl(3, "interface plane%dTo%d : RFLink connect plane%d.sats.comms.crosslinkTx to plane%d.sats.comms.crosslinkRx {", p, p+1, p, p+1)
+		g.decl(4, "attribute :>> dataRate = %d.0;", 100+(2*p+1)%400)
+		g.decl(4, "attribute :>> slantRange = %d [km];", 2000+(p*10+3)%3000)
+		g.line(3, "}")
+	}
+	for p := 0; p < n.Planes; p++ {
+		for k := 0; k < n.GroundStations; k++ {
+			g.stats.Connections++
+			g.decl(3, "interface downlink%dTo%d : RFLink connect plane%d.sats.comms.rf to gs%d.uplink {", k, p, p, k)
+			g.decl(4, "attribute :>> dataRate = %d.0;", 50+p%200)
+			g.decl(4, "attribute :>> slantRange = %d [km];", 900+p%1500)
+			g.line(3, "}")
+		}
+	}
+	g.decl(3, "attribute satelliteCount : Integer = %d;", n.Planes*n.Satellites)
+	g.line(2, "}")
+	g.decl(2, "part network : Network;")
+	g.line(0, "")
+	for b := 0; b < blocks; b++ {
+		g.decl(2, "part block%sConfig : Block%s;", blockName(b), blockName(b))
+		g.requirements("block"+blockName(b), "block"+blockName(b)+"Config", b)
+	}
+	for p := 0; p < n.Planes; p++ {
+		for s := 0; s < n.Satellites; s += fleetUnitStride {
+			for _, req := range []string{"Mass", "Power", "Crosslink"} {
+				g.decl(2, "satisfy block%s%s by network.plane%d.unit%d;", blockName(p%blocks), req, p, s)
+			}
+		}
+	}
+	g.line(1, "}")
+	g.line(0, "}")
+}
+
+// block writes one spacecraft block: a definition whose as-built values are
+// defaults, so a unit built from it states only the values it diverges in.
+func (g *generator) block(b int) {
+	g.decl(2, "part def Block%s :> Spacecraft {", blockName(b))
+	g.decl(3, "attribute :>> catalogId default = %d;", 40000+b*10000)
+	g.decl(3, "attribute :>> slot default = 0;")
+	g.spacecraftBody(b, "default ")
+	g.line(2, "}")
+	g.line(0, "")
+}
+
+// plane writes orbital plane p as occurrences of block b, the units diverging
+// from the block stating their catalog identity, slot and as-built terminal.
+func (g *generator) plane(n SatelliteNetwork, p, b int) {
+	g.decl(3, "part plane%d : OrbitalPlane {", p)
+	g.decl(4, "attribute :>> plane = %d;", p)
+	g.decl(4, "part :>> sats : Block%s { attribute :>> plane = %d; }", blockName(b), p)
+	g.stats.Elements++
+	for s := 0; s < n.Satellites; s++ {
+		g.stats.Satellites++
+		if s%fleetUnitStride != 0 {
+			continue
+		}
+		id := p*n.Satellites + s
+		g.stats.Units++
+		g.stats.Components++
+		g.decl(4, "part unit%d :> sats {", s)
+		g.decl(5, "attribute :>> catalogId = %d;", 40000+id)
+		g.decl(5, "attribute :>> slot = %d;", s)
+		g.decl(5, "part :>> comms {")
+		g.decl(6, "part :>> crosslinkTerminal {")
+		g.decl(7, "attribute :>> mass = %d.%d [kg];", 2+(id+1)%40, (id*3+1)%10)
+		g.decl(7, "attribute :>> serialNumber = \"CROSSLINKTERMINAL-%05d-1\";", id)
+		g.line(6, "}")
+		g.line(5, "}")
+		g.line(4, "}")
+	}
+	g.line(3, "}")
+}
+
+// blockName letters the spacecraft blocks A, B, C, ...
+func blockName(b int) string {
+	return string(rune('A' + b))
 }
 
 // componentDetail writes the as-built values of the attributes a component kind adds.
