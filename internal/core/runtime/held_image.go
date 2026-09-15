@@ -99,6 +99,7 @@ type imagedFeature struct {
 	materialized   bool
 	written        bool
 	bindingDerived bool
+	assumed        bool
 	intrinsic      bool
 	shared         [][]string
 	owed           bool
@@ -363,7 +364,7 @@ func (t *imaging) object(inst *Instance) error {
 		f := imagedFeature{
 			names: []string{name}, value: fv.Value, values: fv.Values,
 			materialized: fv.Materialized, written: fv.Written, bindingDerived: fv.BindingDerived,
-			intrinsic: fv.intrinsic,
+			assumed: fv.Assumed, intrinsic: fv.intrinsic,
 		}
 		if fv.Feature != nil {
 			f.feature = *fv.Feature
@@ -774,7 +775,7 @@ func (m *materializing) object(obj imagedObject) error {
 		fv := &FeatureValue{
 			Feature:      m.feature(inst, f.feature),
 			Materialized: f.materialized, Written: f.written, BindingDerived: f.bindingDerived,
-			intrinsic: f.intrinsic,
+			Assumed: f.assumed, intrinsic: f.intrinsic,
 		}
 		var err error
 		if fv.Value, err = m.value(f.value); err != nil {

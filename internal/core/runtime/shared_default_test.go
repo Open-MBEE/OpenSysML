@@ -553,3 +553,42 @@ func TestSharedDefaultsTakenUndoneWithProbe(t *testing.T) {
 	expect(t, ctx, fleet, "sats[2]", "b", "6")
 	expectTaken(t, ctx, 1)
 }
+
+const assumedFleetSrc = `package test {
+	part def Comp {
+		attribute k : ScalarValues::Integer = 2;
+	}
+	part def Sat {
+		part comps : Comp[2..*];
+		attribute n : ScalarValues::Integer = comps#(1).k + 1;
+	}
+	part def Fleet {
+		part sats : Sat[2];
+	}
+	part fleet : Fleet;
+}`
+
+// A population assumed to meet its multiplicity is imaged as assumed: restored, a
+// value derived over it stays the occurrence's own, as on the source.
+func TestAssumedPopulationSurvivesHeldImage(t *testing.T) {
+	ctx, fleet, _ := sharedFixture(t, assumedFleetSrc, "test::fleet")
+	expect(t, ctx, fleet, "sats[1]", "n", "3")
+	expect(t, ctx, fleet, "sats[2]", "n", "3")
+	expectTaken(t, ctx, 0)
+	if !at(t, ctx, fleet, "sats[1]").FeatureValues["comps"].Assumed {
+		t.Fatal("sats[1].comps is not assumed on the source")
+	}
+	dst := imageInto(t, ctx, fleet)
+	restored, ok := dst.Instance(fleet.ID)
+	if !ok {
+		t.Fatalf("object #%d not materialized from the image", fleet.ID)
+	}
+	for _, sat := range []string{"sats[1]", "sats[2]"} {
+		if !at(t, dst, restored, sat).FeatureValues["comps"].Assumed {
+			t.Errorf("restored %s.comps is no longer assumed", sat)
+		}
+	}
+	expect(t, dst, restored, "sats[1]", "n", "3")
+	expect(t, dst, restored, "sats[2]", "n", "3")
+	expectTaken(t, dst, 0)
+}
