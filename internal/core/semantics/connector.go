@@ -114,11 +114,14 @@ func (m *Model) effectiveEnds(sym *symbols.Symbol) []connectorEnd {
 	if cached, ok := m.ends[sym]; ok {
 		return cached
 	}
+	if sym == nil {
+		return nil
+	}
 	// Guard against re-entrancy on cyclic specialization graphs.
 	journal(m, m.ends, sym, sym.Decl)
 	m.ends[sym] = nil
 
-	if sym != nil && sym.Decl == nil && m.IsBinaryConnector(sym) {
+	if sym.Decl == nil && m.IsBinaryConnector(sym) {
 		var out []connectorEnd
 		for i, name := range binaryConnectorEndNames {
 			end, ok := m.LookupMember(sym, name)
