@@ -3,10 +3,12 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/stressmodel"
 )
@@ -46,37 +48,56 @@ func main() {
 	}
 }
 
+// manifestName is the file in a -split-planes directory listing what the last
+// generation wrote there, so the next one removes only its own files.
+const manifestName = ".stress-model-files"
+
 // writeSplit writes the network one file per plane into dir, creating it, and
-// removes the plane files an earlier, larger generation left there.
+// removes what an earlier generation wrote there that this one did not.
 func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, error) {
 	files, stats := n.Split()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return stats, err
 	}
+	previous, err := readManifest(dir)
+	if err != nil {
+		return stats, err
+	}
 	written := make(map[string]bool, len(files))
+	var manifest strings.Builder
 	for _, f := range files {
 		if err := os.WriteFile(filepath.Join(dir, f.Name), []byte(f.Source), 0o600); err != nil {
 			return stats, err
 		}
 		written[f.Name] = true
+		manifest.WriteString(f.Name + "\n")
 	}
-	return stats, removeStalePlanes(dir, written)
-}
-
-// removeStalePlanes deletes the plane files in dir the generator did not just
-// write; only names of the generator's own shape are touched.
-func removeStalePlanes(dir string, written map[string]bool) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		if e.IsDir() || written[e.Name()] || !stressmodel.IsPlaneFile(e.Name()) {
+	for _, name := range previous {
+		if written[name] {
 			continue
 		}
-		if err := os.Remove(filepath.Join(dir, e.Name())); err != nil {
-			return err
+		if err := os.Remove(filepath.Join(dir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return stats, err
 		}
 	}
-	return nil
+	return stats, os.WriteFile(filepath.Join(dir, manifestName), []byte(manifest.String()), 0o600)
+}
+
+// readManifest returns the file names the last generation into dir recorded;
+// none when there was no generation. Only plain names in dir are honored.
+func readManifest(dir string) ([]string, error) {
+	data, err := os.ReadFile(filepath.Join(dir, manifestName))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, name := range strings.Split(string(data), "\n") {
+		if name != "" && name != manifestName && filepath.Base(name) == name {
+			names = append(names, name)
+		}
+	}
+	return names, nil
 }

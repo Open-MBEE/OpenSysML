@@ -134,7 +134,11 @@ writes the same constellation as one `.sysml` per orbital plane plus
 `library.sysml` (the definitions every plane shares) and `constellation.sysml`
 (the ground segment and the cross-plane network); the split declares the same
 network and analyzes to the same diagnostics as the single file
-(`TestSatelliteNetworkSplitValidates`). `sysml -validate` over the files parses
+(`TestSatelliteNetworkSplitValidates`). The generator lists what it wrote in
+`.stress-model-files` beside the model, and a later generation into the same
+directory removes only the files on that list it did not write again, so a
+smaller constellation leaves no plane of a larger one behind and nothing else
+in the directory is touched. `sysml -validate` over the files parses
 them on a pool of workers, indexes them once, expands wildcard imports once
 and analyzes them on the pool, each document with a resolver and semantic
 model of its own; `-workers N` (or `OPENSYSML_WORKERS`) sets the pool, default
