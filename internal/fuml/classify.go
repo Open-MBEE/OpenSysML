@@ -370,7 +370,7 @@ func dependencies(a *Activity) []*Activity {
 		case StartObjectBehaviorAction:
 			for _, p := range n.Inputs() {
 				if p.Role == "object" {
-					types, _ := objectTypes(p, map[*Node]bool{})
+					types, _ := objectTypes(p, map[*Node]*typeSources{})
 					for _, t := range types {
 						take(classifierBehavior(a.Model, t))
 					}
@@ -381,26 +381,36 @@ func dependencies(a *Activity) []*Activity {
 	return deps
 }
 
-// objectTypes lists the types the objects reaching a pin may have: the
-// classifiers of the sources its object flows lead back to (a created object
-// has its classifier), through typed or untyped nodes. The node's own type
-// stands in for every path that reaches no typed source, since a pin typed by
-// a superclass may receive a subclass's object; resolved is false when some
-// path found no type and the node has none to stand in.
-func objectTypes(n *Node, visited map[*Node]bool) (types []TypeRef, resolved bool) {
-	if visited[n] {
-		return nil, true
+// typeSources is what objectTypes found for one node; done is false while the
+// node is still being searched, which only a flow cycle leads back to.
+type typeSources struct {
+	types    []TypeRef
+	resolved bool
+	done     bool
+}
+
+// objectTypes lists the types the objects reaching a pin may have, tracing its
+// object flows back to their sources; the node's own type stands in for a path
+// with none. Each node is searched once, so reconverging paths share its result.
+func objectTypes(n *Node, found map[*Node]*typeSources) (types []TypeRef, resolved bool) {
+	if s, ok := found[n]; ok {
+		if !s.done {
+			return nil, true
+		}
+		return s.types, s.resolved
 	}
-	visited[n] = true
+	s := &typeSources{}
+	found[n] = s
+	defer func() { s.types, s.resolved, s.done = types, resolved, true }()
 	if n.Kind == OutputPin && n.Owner != nil && n.Owner.Kind == CreateObjectAction && !n.Owner.Classifier.Zero() {
 		return []TypeRef{n.Owner.Classifier}, true
 	}
 	fed, resolved := false, true
 	for _, e := range n.Incoming {
 		if e.Kind == ObjectFlow && e.Source != nil {
-			found, ok := objectTypes(e.Source, visited)
-			fed, resolved = fed || len(found) > 0, resolved && ok
-			types = append(types, found...)
+			sources, ok := objectTypes(e.Source, found)
+			fed, resolved = fed || len(sources) > 0, resolved && ok
+			types = append(types, sources...)
 		}
 	}
 	if fed && resolved {

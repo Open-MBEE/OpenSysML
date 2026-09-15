@@ -302,6 +302,22 @@ const refiringModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f7" source="cdr" target="mixedMerge"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f8" source="mixedMerge" target="smo"/>
   </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="i" name="ReconvergingLauncher">
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createDrone2" name="Create(Drone)" classifier="drone">
+      <result xmi:type="uml:OutputPin" xmi:id="cdr2" name="result"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="droneFork" name="Fork"/>
+    <node xmi:type="uml:MergeNode" xmi:id="droneRelay" name="Relay"/>
+    <node xmi:type="uml:MergeNode" xmi:id="droneMerge" name="Merge"/>
+    <node xmi:type="uml:StartObjectBehaviorAction" xmi:id="startReconverged" name="Start(Entity)">
+      <object xmi:type="uml:InputPin" xmi:id="sro" name="object" type="entity"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f9" source="cdr2" target="droneFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f10" source="droneFork" target="droneMerge"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f11" source="droneFork" target="droneRelay"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f12" source="droneRelay" target="droneMerge"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f13" source="droneMerge" target="sro"/>
+  </packagedElement>
 </uml:Model>
 `
 
@@ -390,6 +406,11 @@ func TestClassifyFilesReFiringByItsCause(t *testing.T) {
 	want = "dependency on a not-expressible behavior (a behavior it calls or starts is itself not expressible): Patrol (ReadExtentAction)"
 	if c := Classify(activity(t, m, "MixedLauncher"), nil); c.Class != NotExpressible || c.Reason() != want {
 		t.Errorf("MixedLauncher = %s: %s", c.Class, c.Reason())
+	}
+	// Paths that fork from one created object and reconverge all have its type;
+	// the pin's own type stands in for none of them.
+	if c := Classify(activity(t, m, "ReconvergingLauncher"), nil); c.Class != Expressible {
+		t.Errorf("ReconvergingLauncher = %s: %s", c.Class, c.Reason())
 	}
 }
 
