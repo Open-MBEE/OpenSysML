@@ -63,14 +63,14 @@ var valueNodes = map[string]bool{
 
 // acts reports whether any node under the activity, at any depth, acts on the
 // model; control flow only carries what it encloses, a call what it calls.
-func (r *reader) acts(act *Element, visiting map[string]bool) bool {
+func (r *reader) acts(act *xmi.Element, visiting map[string]bool) bool {
 	if visiting[act.ID] {
 		return false
 	}
 	visiting[act.ID] = true
 	defer delete(visiting, act.ID)
 	acts := false
-	act.Walk(func(e *Element) bool {
+	act.Walk(func(e *xmi.Element) bool {
 		if e.Tag != "node" {
 			return true
 		}
@@ -78,7 +78,7 @@ func (r *reader) acts(act *Element, visiting map[string]bool) bool {
 		case "uml:CallBehaviorAction":
 			acts = r.calledBehaviorActs(e, visiting)
 		case "uml:CallOperationAction":
-			var method *Element
+			var method *xmi.Element
 			if op := r.doc.ByID(e.Attr("operation")); op != nil {
 				method = r.doc.ByID(op.Ref("method"))
 			}
@@ -94,7 +94,7 @@ func (r *reader) acts(act *Element, visiting map[string]bool) bool {
 // calledBehaviorActs reports whether the behavior a CallBehaviorAction calls
 // acts on the model: a library primitive function computes, anything else in
 // the library (output, say) acts, and a behavior of the document is read.
-func (r *reader) calledBehaviorActs(n *Element, visiting map[string]bool) bool {
+func (r *reader) calledBehaviorActs(n *xmi.Element, visiting map[string]bool) bool {
 	if b := n.First("behavior"); b != nil && b.Href() != "" {
 		return !strings.Contains(b.Href(), "PrimitiveBehaviors")
 	}
@@ -104,7 +104,7 @@ func (r *reader) calledBehaviorActs(n *Element, visiting map[string]bool) bool {
 // callActs reports whether calling a behavior of the document acts on the
 // model: an activity does when its nodes do, a function behavior does not by
 // UML's contract (§13.2.3.3); an unresolved or opaque one may.
-func (r *reader) callActs(called *Element, visiting map[string]bool) bool {
+func (r *reader) callActs(called *xmi.Element, visiting map[string]bool) bool {
 	switch {
 	case called == nil:
 		return true
