@@ -5,9 +5,6 @@ enter: rstart
 transition: start -> running
 exit: lstart
 enter: lidle
-  eval feature crossed -> 0
-  eval literal 0 -> 0
-eval operator == -> true
 transition: lstart -> lidle
 exit: rstart
 enter: ridle
