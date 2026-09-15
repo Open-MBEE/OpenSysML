@@ -1,0 +1,6558 @@
+{
+  "meaning": "The fUML reference implementation's outputs and event trace per test activity, selected by XMI id; the referee compares against these and never runs Java itself.",
+  "provenance": {
+    "riTag": "v1.5.0a",
+    "riCommit": "45e506336d4cd56965d4ad3b684149245f899f3a",
+    "jarDigest": "4e78a194bdd15ed4ee30b26828a91d3b2bd32e57cd397667e32b21eb4de1f06e",
+    "libraryResource": "org/modeldriven/fuml/library/fUML_Library.xmi",
+    "libraryDigest": "cdd6b7d1541985e167a8eb59d7391cb3ac088557dcfc544d33a9006f59d0f2f2",
+    "models": [
+      {
+        "file": "fUML-Tests.uml",
+        "uri": "http://org.modeldriven.fuml/test/uml/papyrus/fUML-Tests",
+        "digest": "c7d54bf2b427f65b17e5fbd817b24cbe4a8cad2b7785233ef19f72a09b77e0f0"
+      },
+      {
+        "file": "fUML-Exception-Tests.uml",
+        "uri": "http://org.modeldriven.fuml/test/uml/papyrus/fUML-Exception-Tests",
+        "digest": "4e8315803ffafd1b475847638a7a5e13716b7aea9d7098044cc85b984932d74b"
+      }
+    ]
+  },
+  "activities": [
+    {
+      "model": "fUML-Tests.uml",
+      "id": "TestGeneralizationAssembly-Create",
+      "name": "TestGeneralizationAssembly",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "result",
+          "direction": "inout",
+          "type": null,
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "result",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "Specific"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": []
+                  },
+                  {
+                    "feature": "y",
+                    "values": []
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestGeneralizationAssembly"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestGeneralizationAssembly",
+          "action": "Create(Specific)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestGeneralizationAssembly",
+          "parameter": "result",
+          "value": "Reference to obj1(Specific\n\t\tx[0]  =\n\t\ty[0]  =)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225597989562_591303_1935",
+      "name": "TestClassWriterReader",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "x",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "x",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 999
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestClassWriterReader"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassWriterReader",
+          "action": "Create(TestClass)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassWriterReader",
+          "action": "Value(999)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassWriterReader",
+          "action": "Write(x)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassWriterReader",
+          "action": "Read(x)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassWriterReader",
+          "parameter": "x",
+          "value": "999"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225493265234_644298_826",
+      "name": "Copier",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "input",
+          "direction": "in",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1227279618546_338430_844",
+      "name": "TestIntegerFunctions",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "NegResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "PlusResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "MinusResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "TimesResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "DivResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "ModResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "MaxResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "MinResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "AbsResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "NegResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": -3
+            }
+          ]
+        },
+        {
+          "parameter": "PlusResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "parameter": "MinusResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "parameter": "TimesResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 6
+            }
+          ]
+        },
+        {
+          "parameter": "DivResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "parameter": "MaxResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "parameter": "ModResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "parameter": "MinResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "parameter": "AbsResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 2
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestIntegerFunctions"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Value(3)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Call(Neg)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Call(Plus)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Call(Minus)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Call(Times)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Call(Div)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Call(Mod)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Call(Max)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Call(Min)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Value(-2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerFunctions",
+          "action": "Call(Abs)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerFunctions",
+          "parameter": "NegResult",
+          "value": "-3"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerFunctions",
+          "parameter": "PlusResult",
+          "value": "5"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerFunctions",
+          "parameter": "MinusResult",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerFunctions",
+          "parameter": "TimesResult",
+          "value": "6"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerFunctions",
+          "parameter": "DivResult",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerFunctions",
+          "parameter": "MaxResult",
+          "value": "3"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerFunctions",
+          "parameter": "ModResult",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerFunctions",
+          "parameter": "MinResult",
+          "value": "2"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerFunctions",
+          "parameter": "AbsResult",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225507524468_320008_2683",
+      "name": "ForkMergeData",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            },
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "ForkMergeData"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMergeData",
+          "action": "Action_A"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMergeData",
+          "action": "Action_B"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMergeData",
+          "action": "Action_B"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "ForkMergeData",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "ForkMergeData",
+          "parameter": "output",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225509963359_262060_3168",
+      "name": "TestClassIdentityTester",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "value1",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "value2",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "result",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "result",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestClassIdentityTester"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassIdentityTester",
+          "action": "TestIdentity"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassIdentityTester",
+          "parameter": "result",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225596115812_64376_1639",
+      "name": "TestClassObjectCreator",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "result",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "result",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "TestClass"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": []
+                  },
+                  {
+                    "feature": "y",
+                    "values": []
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestClassObjectCreator"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassObjectCreator",
+          "action": "Create(TestClass)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassObjectCreator",
+          "parameter": "result",
+          "value": "Reference to obj1(TestClass\n\t\tx[0]  =\n\t\ty[0]  =)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1226585645343_932148_780",
+      "name": "HelloWorld",
+      "executed": true,
+      "parameters": [],
+      "outputs": [],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "HelloWorld"
+        },
+        {
+          "kind": "Fire",
+          "activity": "HelloWorld",
+          "action": "Value(\"Hello World!\")"
+        },
+        {
+          "kind": "Fire",
+          "activity": "HelloWorld",
+          "action": "WriteLine"
+        },
+        {
+          "kind": "Execute",
+          "activity": "WriteLine"
+        },
+        {
+          "kind": "Fire",
+          "activity": "WriteLine",
+          "action": "StandardOutputChannel"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1227726384859_66730_1949",
+      "name": "TestIntegerComparisonFunctions",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "LTResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "LEResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "GTResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "GEResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "LTResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "LEResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "GTResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "parameter": "GEResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestIntegerComparisonFunctions"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerComparisonFunctions",
+          "action": "Value(3)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerComparisonFunctions",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerComparisonFunctions",
+          "action": "Call(LT)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerComparisonFunctions",
+          "action": "Call(LE)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerComparisonFunctions",
+          "action": "Call(GT)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestIntegerComparisonFunctions",
+          "action": "Call(GE)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerComparisonFunctions",
+          "parameter": "LTResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerComparisonFunctions",
+          "parameter": "LEResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerComparisonFunctions",
+          "parameter": "GTResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestIntegerComparisonFunctions",
+          "parameter": "GEResult",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1227762472140_166211_5957",
+      "name": "TestBooleanFunctions",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "NotResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": true,
+          "isUnique": true
+        },
+        {
+          "name": "AndResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": true,
+          "isUnique": true
+        },
+        {
+          "name": "OrResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": true,
+          "isUnique": true
+        },
+        {
+          "name": "ImpliesResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": true,
+          "isUnique": true
+        },
+        {
+          "name": "XorResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": true,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "NotResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            },
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "parameter": "AndResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "OrResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "ImpliesResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            },
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "parameter": "XorResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            },
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestBooleanFunctions"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Value(true)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Not)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Value(false)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Not)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "GenData1"
+        },
+        {
+          "kind": "Execute",
+          "activity": "GenerateBooleanTestData"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-4"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-4"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(And)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(And)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(And)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(And)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "GenData2"
+        },
+        {
+          "kind": "Execute",
+          "activity": "GenerateBooleanTestData"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-4"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-4"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Or)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Or)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Or)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Or)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "GenData3"
+        },
+        {
+          "kind": "Execute",
+          "activity": "GenerateBooleanTestData"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-4"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-4"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Implies)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Implies)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Implies)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Implies)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "GenData4"
+        },
+        {
+          "kind": "Execute",
+          "activity": "GenerateBooleanTestData"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-4"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-4"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Xor)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Xor)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Xor)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestBooleanFunctions",
+          "action": "Call(Xor)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "NotResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "NotResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "AndResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "AndResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "AndResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "AndResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "OrResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "OrResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "OrResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "OrResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "ImpliesResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "ImpliesResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "ImpliesResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "ImpliesResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "XorResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "XorResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "XorResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestBooleanFunctions",
+          "parameter": "XorResult",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225499009421_139168_1510",
+      "name": "DecisionJoin",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": true,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            },
+            {
+              "kind": "Integer",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "DecisionJoin"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Action_A"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Action_A"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Action_B"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "DecisionJoin",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "DecisionJoin",
+          "parameter": "output",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1228158528578_548393_3492",
+      "name": "GenerateListTestData",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "list",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "list",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 1
+            },
+            {
+              "kind": "Integer",
+              "value": 2
+            },
+            {
+              "kind": "Integer",
+              "value": 3
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "GenerateListTestData"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateListTestData",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateListTestData",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateListTestData",
+          "action": "Value(3)"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateListTestData",
+          "parameter": "list",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateListTestData",
+          "parameter": "list",
+          "value": "2"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateListTestData",
+          "parameter": "list",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225670181734_47413_418",
+      "name": "TestSimpleActivities",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "Copier.output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "CopierCaller.output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "SimpleDecision_0.output_0",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "SimpleDecision_0.output_1",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "SimpleDecision_1.output_0",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "SimpleDecision_1.output_1",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "DecisionJoin.output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": true,
+          "isUnique": true
+        },
+        {
+          "name": "ForkMerge",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "ForkMergeData.output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "Copier.output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "parameter": "CopierCaller.output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 888
+            }
+          ]
+        },
+        {
+          "parameter": "SimpleDecision_0.output_0",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "parameter": "SimpleDecision_0.output_1",
+          "values": []
+        },
+        {
+          "parameter": "SimpleDecision_1.output_0",
+          "values": []
+        },
+        {
+          "parameter": "SimpleDecision_1.output_1",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "parameter": "DecisionJoin.output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            },
+            {
+              "kind": "Integer",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "parameter": "ForkMerge",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            },
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "parameter": "ForkMergeData.output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            },
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestSimpleActivities"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(Copier)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(CopierCaller)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "CopierCaller"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CopierCaller",
+          "action": "Value(888)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CopierCaller",
+          "action": "Call(Copier)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "888"
+        },
+        {
+          "kind": "Output",
+          "activity": "CopierCaller",
+          "parameter": "output",
+          "value": "888"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(SimpleDecision_0)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "SimpleDecision"
+        },
+        {
+          "kind": "Output",
+          "activity": "SimpleDecision",
+          "parameter": "output_0",
+          "value": "0"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(SimpleDecision_1)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "SimpleDecision"
+        },
+        {
+          "kind": "Output",
+          "activity": "SimpleDecision",
+          "parameter": "output_1",
+          "value": "1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(ForkJoin)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "ForkJoin"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(DecisionJoin)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "DecisionJoin"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Action_A"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Action_A"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "DecisionJoin",
+          "action": "Action_B"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "DecisionJoin",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "DecisionJoin",
+          "parameter": "output",
+          "value": "1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(ForkMerge)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "ForkMerge"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMerge",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMerge",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Output",
+          "activity": "ForkMerge",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "ForkMerge",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSimpleActivities",
+          "action": "Call(ForkMergeData)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "ForkMergeData"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMergeData",
+          "action": "Action_A"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMergeData",
+          "action": "Action_B"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMergeData",
+          "action": "Action_B"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "ForkMergeData",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "ForkMergeData",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "Copier.output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "CopierCaller.output",
+          "value": "888"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "SimpleDecision_0.output_0",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "SimpleDecision_1.output_1",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "DecisionJoin.output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "DecisionJoin.output",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "ForkMerge",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "ForkMerge",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "ForkMergeData.output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestSimpleActivities",
+          "parameter": "ForkMergeData.output",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225509572421_635041_2992",
+      "name": "TestClassExtentReader",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "object",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "extent",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "extent",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "TestClass"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": []
+                  },
+                  {
+                    "feature": "y",
+                    "values": []
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "parameter": "object",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "TestClass"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": []
+                  },
+                  {
+                    "feature": "y",
+                    "values": []
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestClassExtentReader"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassExtentReader",
+          "action": "Create(TestClass)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassExtentReader",
+          "action": "ReadExtent(TestClass)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassExtentReader",
+          "parameter": "extent",
+          "value": "Reference to obj1(TestClass\n\t\tx[0]  =\n\t\ty[0]  =)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassExtentReader",
+          "parameter": "object",
+          "value": "Reference to obj1(TestClass\n\t\tx[0]  =\n\t\ty[0]  =)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1228078539484_63392_3939",
+      "name": "TestListFunctions",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "size",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "element",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "concat",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "*",
+          "isOrdered": true,
+          "isUnique": false
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "size",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "parameter": "element",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "parameter": "concat",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 1
+            },
+            {
+              "kind": "Integer",
+              "value": 2
+            },
+            {
+              "kind": "Integer",
+              "value": 3
+            },
+            {
+              "kind": "Integer",
+              "value": 1
+            },
+            {
+              "kind": "Integer",
+              "value": 2
+            },
+            {
+              "kind": "Integer",
+              "value": 3
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestListFunctions"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestListFunctions",
+          "action": "Value(index)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestListFunctions",
+          "action": "Call(GenerateListTestData)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "GenerateListTestData"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateListTestData",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateListTestData",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateListTestData",
+          "action": "Value(3)"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateListTestData",
+          "parameter": "list",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateListTestData",
+          "parameter": "list",
+          "value": "2"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateListTestData",
+          "parameter": "list",
+          "value": "3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestListFunctions",
+          "action": "Call(ListSize)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestListFunctions",
+          "action": "Call(ListGet)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestListFunctions",
+          "action": "Call(ListConcat)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestListFunctions",
+          "parameter": "size",
+          "value": "3"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestListFunctions",
+          "parameter": "element",
+          "value": "2"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestListFunctions",
+          "parameter": "concat",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestListFunctions",
+          "parameter": "concat",
+          "value": "2"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestListFunctions",
+          "parameter": "concat",
+          "value": "3"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestListFunctions",
+          "parameter": "concat",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestListFunctions",
+          "parameter": "concat",
+          "value": "2"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestListFunctions",
+          "parameter": "concat",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225507220781_95467_2449",
+      "name": "ForkMerge",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            },
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "ForkMerge"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMerge",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ForkMerge",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Output",
+          "activity": "ForkMerge",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "ForkMerge",
+          "parameter": "output",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225596518312_548622_1729",
+      "name": "TestClassObjectDestroyer",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "objectIn",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "objectOut",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "objectOut",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [],
+                "features": []
+              }
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestClassObjectDestroyer"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassObjectDestroyer",
+          "action": "DestroyObject"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassObjectDestroyer",
+          "parameter": "objectOut",
+          "value": "Reference to obj1()"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1228166688765_800576_7494",
+      "name": "TestUnlimitedNaturalFunctions",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "LTResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "LEResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "GTResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "GEResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "LTResult*",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "LEResult*",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "GTResult*",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "GEResult*",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "MaxResult",
+          "direction": "out",
+          "type": "UnlimitedNatural",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "MinResult",
+          "direction": "out",
+          "type": "UnlimitedNatural",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "LTResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "LEResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "GTResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "parameter": "GEResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "parameter": "LEResult*",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "parameter": "GTResult*",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "LTResult*",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "parameter": "GEResult*",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "MaxResult",
+          "values": [
+            {
+              "kind": "UnlimitedNatural",
+              "value": "*"
+            }
+          ]
+        },
+        {
+          "parameter": "MinResult",
+          "values": [
+            {
+              "kind": "UnlimitedNatural",
+              "value": "2"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestUnlimitedNaturalFunctions"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Value(3)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(LT)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(LE)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(GT)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(GE)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Value(*)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(LT)*"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(LE)*"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(GT)*"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(GE)*"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(Max)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "action": "Call(Min)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "LTResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "LEResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "GTResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "GEResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "LEResult*",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "GTResult*",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "LTResult*",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "GEResult*",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "MaxResult",
+          "value": "*"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestUnlimitedNaturalFunctions",
+          "parameter": "MinResult",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225498182468_409301_1087",
+      "name": "SimpleDecision",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "testValue",
+          "direction": "in",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "output_0",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "output_1",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output_0",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "parameter": "output_1",
+          "values": []
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "SimpleDecision"
+        },
+        {
+          "kind": "Output",
+          "activity": "SimpleDecision",
+          "parameter": "output_0",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225497525562_682640_935",
+      "name": "CopierCaller",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 888
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "CopierCaller"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CopierCaller",
+          "action": "Value(888)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CopierCaller",
+          "action": "Call(Copier)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "888"
+        },
+        {
+          "kind": "Output",
+          "activity": "CopierCaller",
+          "parameter": "output",
+          "value": "888"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225600026640_578409_2320",
+      "name": "TestClassAttributeWriter",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "objectIn",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "value",
+          "direction": "in",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "objectOut",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "objectOut",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "TestClass"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "feature": "y",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      },
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestClassAttributeWriter"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeWriter",
+          "action": "Value(*)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeWriter",
+          "action": "Add(y)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassAttributeWriter",
+          "parameter": "objectOut",
+          "value": "Reference to obj1(TestClass\n\t\tx[0]  = 0\n\t\ty[0]  = 0 0)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225498653500_405985_1239",
+      "name": "ForkJoin",
+      "executed": true,
+      "parameters": [],
+      "outputs": [],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "ForkJoin"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1227762594296_105047_5991",
+      "name": "GenerateBooleanTestData",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "argumentData1",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 4,
+          "upper": "4",
+          "isOrdered": true,
+          "isUnique": true
+        },
+        {
+          "name": "argumentData2",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 4,
+          "upper": "4",
+          "isOrdered": true,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "argumentData1",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "argumentData2",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            },
+            {
+              "kind": "Boolean",
+              "value": true
+            },
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "GenerateBooleanTestData"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(true)-4"
+        },
+        {
+          "kind": "Fire",
+          "activity": "GenerateBooleanTestData",
+          "action": "Value(false)-4"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData1",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "GenerateBooleanTestData",
+          "parameter": "argumentData2",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1225509791484_552689_3084",
+      "name": "SelfReader",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "self",
+          "direction": "out",
+          "type": "SelfReader",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "isSelfReader",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "self",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [],
+                "features": []
+              }
+            }
+          ]
+        },
+        {
+          "parameter": "isSelfReader",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "SelfReader"
+        },
+        {
+          "kind": "Fire",
+          "activity": "SelfReader",
+          "action": "ReadSelf"
+        },
+        {
+          "kind": "Fire",
+          "activity": "SelfReader",
+          "action": "IsClassified(SelfReader)"
+        },
+        {
+          "kind": "Output",
+          "activity": "SelfReader",
+          "parameter": "self",
+          "value": "Reference to obj1(SelfReader)"
+        },
+        {
+          "kind": "Output",
+          "activity": "SelfReader",
+          "parameter": "isSelfReader",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_15_5_1_1a900482_1227849221843_429815_3275",
+      "name": "TestStringFunctions",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "SizeResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "Substring1Result",
+          "direction": "out",
+          "type": "String",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "Substring2Result",
+          "direction": "out",
+          "type": "String",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "ConcatResult",
+          "direction": "out",
+          "type": "String",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "SizeResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 9
+            }
+          ]
+        },
+        {
+          "parameter": "Substring1Result",
+          "values": [
+            {
+              "kind": "String",
+              "value": "12345"
+            }
+          ]
+        },
+        {
+          "parameter": "Substring2Result",
+          "values": [
+            {
+              "kind": "String",
+              "value": "6789"
+            }
+          ]
+        },
+        {
+          "parameter": "ConcatResult",
+          "values": [
+            {
+              "kind": "String",
+              "value": "123456789"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestStringFunctions"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestStringFunctions",
+          "action": "Value(\"123456789\")"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestStringFunctions",
+          "action": "Call(Size)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestStringFunctions",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestStringFunctions",
+          "action": "Value(5)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestStringFunctions",
+          "action": "Call(Substring)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestStringFunctions",
+          "action": "Value(9)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestStringFunctions",
+          "action": "Value(6)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestStringFunctions",
+          "action": "Call(Substring)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestStringFunctions",
+          "action": "Call(Concat)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestStringFunctions",
+          "parameter": "SizeResult",
+          "value": "9"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestStringFunctions",
+          "parameter": "Substring1Result",
+          "value": "12345"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestStringFunctions",
+          "parameter": "Substring2Result",
+          "value": "6789"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestStringFunctions",
+          "parameter": "ConcatResult",
+          "value": "123456789"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_17_0_2_1_12e503d9_1355788672379_64883_3482",
+      "name": "TestRealFunctions",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "NegResult",
+          "direction": "out",
+          "type": "Real",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "PlusResult",
+          "direction": "out",
+          "type": "Real",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "MinusResult",
+          "direction": "out",
+          "type": "Real",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "InvResult",
+          "direction": "out",
+          "type": "Real",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "TimesResult",
+          "direction": "out",
+          "type": "Real",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "DivideResult",
+          "direction": "out",
+          "type": "Real",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "MaxResult",
+          "direction": "out",
+          "type": "Real",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "MinResult",
+          "direction": "out",
+          "type": "Real",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "AbsResult",
+          "direction": "out",
+          "type": "Real",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "RoundResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "FloorResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "ToIntegerResult",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "NegResult",
+          "values": [
+            {
+              "kind": "Real",
+              "value": "-3.1"
+            }
+          ]
+        },
+        {
+          "parameter": "PlusResult",
+          "values": [
+            {
+              "kind": "Real",
+              "value": "3.6"
+            }
+          ]
+        },
+        {
+          "parameter": "MinusResult",
+          "values": [
+            {
+              "kind": "Real",
+              "value": "2.6"
+            }
+          ]
+        },
+        {
+          "parameter": "TimesResult",
+          "values": [
+            {
+              "kind": "Real",
+              "value": "1.55"
+            }
+          ]
+        },
+        {
+          "parameter": "DivideResult",
+          "values": [
+            {
+              "kind": "Real",
+              "value": "6.2"
+            }
+          ]
+        },
+        {
+          "parameter": "MaxResult",
+          "values": [
+            {
+              "kind": "Real",
+              "value": "3.1"
+            }
+          ]
+        },
+        {
+          "parameter": "MinResult",
+          "values": [
+            {
+              "kind": "Real",
+              "value": "0.5"
+            }
+          ]
+        },
+        {
+          "parameter": "AbsResult",
+          "values": [
+            {
+              "kind": "Real",
+              "value": "2.3"
+            }
+          ]
+        },
+        {
+          "parameter": "InvResult",
+          "values": [
+            {
+              "kind": "Real",
+              "value": "2.0"
+            }
+          ]
+        },
+        {
+          "parameter": "RoundResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": -2
+            }
+          ]
+        },
+        {
+          "parameter": "FloorResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": -3
+            }
+          ]
+        },
+        {
+          "parameter": "ToIntegerResult",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": -2
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestRealFunctions"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Value(3.1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Neg)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Value(0.5)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Plus)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Minus)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Inv)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Times)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Divide)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Max)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Min)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Value(-2.3)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Abs)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Floor)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(Round)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealFunctions",
+          "action": "Call(ToInteger)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "NegResult",
+          "value": "-0.310000000E1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "PlusResult",
+          "value": "0.360000000E1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "MinusResult",
+          "value": "0.260000000E1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "TimesResult",
+          "value": "0.155000000E1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "DivideResult",
+          "value": "0.620000000E1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "MaxResult",
+          "value": "0.310000000E1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "MinResult",
+          "value": "0.500000000E0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "AbsResult",
+          "value": "0.230000000E1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "InvResult",
+          "value": "0.200000000E1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "RoundResult",
+          "value": "-2"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "FloorResult",
+          "value": "-3"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealFunctions",
+          "parameter": "ToIntegerResult",
+          "value": "-2"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_17_0_2_1_12e503d9_1355803291251_482034_5477",
+      "name": "TestRealComparisonFunctions",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "LTResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "LEResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "GTResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "GEResult",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "LTResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "LEResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "parameter": "GTResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "parameter": "GEResult",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestRealComparisonFunctions"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealComparisonFunctions",
+          "action": "Value(3.0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealComparisonFunctions",
+          "action": "Value(2.0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealComparisonFunctions",
+          "action": "Call(LT)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealComparisonFunctions",
+          "action": "Call(LE)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealComparisonFunctions",
+          "action": "Call(GT)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestRealComparisonFunctions",
+          "action": "Call(GE)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealComparisonFunctions",
+          "parameter": "LTResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealComparisonFunctions",
+          "parameter": "LEResult",
+          "value": "false"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealComparisonFunctions",
+          "parameter": "GTResult",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestRealComparisonFunctions",
+          "parameter": "GEResult",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_0_1_12e503d9_1436296044794_559955_5708",
+      "name": "TestClassAttributeValueRemover",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "objectIn",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "objectOut",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "objectOut",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "TestClass"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "feature": "y",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 2
+                      },
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestClassAttributeValueRemover"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeValueRemover",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeValueRemover",
+          "action": "Add(y)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeValueRemover",
+          "action": "Add(y)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeValueRemover",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeValueRemover",
+          "action": "Add(y)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeValueRemover",
+          "action": "Add(y)-4"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeValueRemover",
+          "action": "RemoveOne(y)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassAttributeValueRemover",
+          "action": "RemoveAll(y)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassAttributeValueRemover",
+          "parameter": "objectOut",
+          "value": "Reference to obj1(TestClass\n\t\tx[0]  = 0\n\t\ty[0]  = 2 0)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_0_1_12e503d9_1436301597773_391518_6001",
+      "name": "TestAssociationEndWriterReader",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "object1",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "object2",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "object3",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "output1",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "output2",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "expected",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output1",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "TestClass"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "feature": "y",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "TestClass"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "feature": "y",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "parameter": "output2",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "TestClass"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "feature": "y",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "parameter": "expected",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "TestClass"
+                ],
+                "features": [
+                  {
+                    "feature": "x",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "feature": "y",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestAssociationEndWriterReader"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestAssociationEndWriterReader",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestAssociationEndWriterReader",
+          "action": "Value(*)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestAssociationEndWriterReader",
+          "action": "Add(end2)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestAssociationEndWriterReader",
+          "action": "Add(end2)-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestAssociationEndWriterReader",
+          "action": "Add(end2)-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestAssociationEndWriterReader",
+          "action": "RemoveAll(end2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestAssociationEndWriterReader",
+          "action": "Read(end2)-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestAssociationEndWriterReader",
+          "action": "RemoveAt(end2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestAssociationEndWriterReader",
+          "action": "Read(end2)-2"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestAssociationEndWriterReader",
+          "parameter": "output1",
+          "value": "Reference to obj1(TestClass\n\t\tx[0]  = 0\n\t\ty[0]  = 0)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestAssociationEndWriterReader",
+          "parameter": "output1",
+          "value": "Reference to obj1(TestClass\n\t\tx[0]  = 0\n\t\ty[0]  = 0)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestAssociationEndWriterReader",
+          "parameter": "output2",
+          "value": "Reference to obj1(TestClass\n\t\tx[0]  = 0\n\t\ty[0]  = 0)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestAssociationEndWriterReader",
+          "parameter": "expected",
+          "value": "Reference to obj1(TestClass\n\t\tx[0]  = 0\n\t\ty[0]  = 0)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_0_1_12e503d9_1436672674539_157357_6267",
+      "name": "TestClassReclassifier",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "result",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "result",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [
+                  "Subclass2"
+                ],
+                "features": [
+                  {
+                    "feature": "b",
+                    "values": []
+                  },
+                  {
+                    "feature": "x",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 1
+                      }
+                    ]
+                  },
+                  {
+                    "feature": "y",
+                    "values": [
+                      {
+                        "kind": "Integer",
+                        "value": 2
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestClassReclassifier"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassReclassifier",
+          "action": "Create(Subclass1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassReclassifier",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassReclassifier",
+          "action": "Write(x)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassReclassifier",
+          "action": "Value(true)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassReclassifier",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassReclassifier",
+          "action": "Write(y)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassReclassifier",
+          "action": "Write(a)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassReclassifier",
+          "action": "Reclassify(Subclass2)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassReclassifier",
+          "parameter": "result",
+          "value": "Reference to obj1(Subclass2\n\t\tb[0]  =\n\t\tx[0]  = 1\n\t\ty[0]  = 2)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_0_1_12e503d9_1438121989820_191913_6840",
+      "name": "ActiveClassBehavior",
+      "executed": false,
+      "skipped": "ownedBehavior of ActiveClass: runs only as part of its owner, as in the JUnit suite"
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "TestSignalReceiver",
+      "name": "TestSignalReceiver",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "testSignalOut",
+          "direction": "out",
+          "type": "TestSignal",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "testSignalOut",
+          "values": []
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestSignalReceiver"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_0_1_12e503d9_1437771064067_804455_6501",
+      "name": "TestSpecializedSignalSend",
+      "executed": true,
+      "parameters": [],
+      "outputs": [],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestSpecializedSignalSend"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSpecializedSignalSend",
+          "action": "Create(TestSignalReceiver)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSpecializedSignalSend",
+          "action": "Start(TestSignalReceiver)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSpecializedSignalSend",
+          "action": "Send(SpecializedSignal)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "TestSignalReceiver"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSignalReceiver",
+          "action": "ReadSelf"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestSignalReceiver",
+          "action": "Write(signal)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_0_1_12e503d9_1438122200080_948207_6950",
+      "name": "ActiveClassBehaviorSender",
+      "executed": true,
+      "parameters": [],
+      "outputs": [],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "ActiveClassBehaviorSender"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ActiveClassBehaviorSender",
+          "action": "Create(ActiveClass)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ActiveClassBehaviorSender",
+          "action": "Start(ActiveClass)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ActiveClassBehaviorSender",
+          "action": "Send(TestSignal)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ActiveClassBehaviorSender",
+          "action": "Send(OtherSignal)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "ActiveClassBehavior"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ActiveClassBehavior",
+          "action": "ReadSelf"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ActiveClassBehavior",
+          "action": "Write(signal1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "ActiveClassBehavior",
+          "action": "Write(signal2)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_4_1_12e503d9_1483307657460_746223_7722",
+      "name": "NodeEnabler",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "input",
+          "direction": "in",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "NodeEnabler"
+        },
+        {
+          "kind": "Fire",
+          "activity": "NodeEnabler",
+          "action": "StructuredNode"
+        },
+        {
+          "kind": "Fire",
+          "activity": "NodeEnabler",
+          "action": "Call(Copier)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "NodeEnabler",
+          "parameter": "output",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_4_1_12e503d9_1483308204258_480645_8357",
+      "name": "TestNodeEnabler",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestNodeEnabler"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestNodeEnabler",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestNodeEnabler",
+          "action": "Call(NodeEnabler)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "NodeEnabler"
+        },
+        {
+          "kind": "Fire",
+          "activity": "NodeEnabler",
+          "action": "StructuredNode"
+        },
+        {
+          "kind": "Fire",
+          "activity": "NodeEnabler",
+          "action": "Call(Copier)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "NodeEnabler",
+          "parameter": "output",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestNodeEnabler",
+          "parameter": "output",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_4_1_12e503d9_1484800094328_86245_8123",
+      "name": "TestCentralBuffer",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "input1",
+          "direction": "in",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "input2",
+          "direction": "in",
+          "type": "Integer",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            },
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestCentralBuffer"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCentralBuffer",
+          "action": "StructuredActivityNode"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestCentralBuffer",
+          "parameter": "output",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestCentralBuffer",
+          "parameter": "output",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_4_1_12e503d9_1484800407116_420821_8399",
+      "name": "TestDataStore",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "output",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 1
+            },
+            {
+              "kind": "Integer",
+              "value": 2
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestDataStore"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestDataStore",
+          "action": "Value(1)-Init-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestDataStore",
+          "action": "Value(1)-Init-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestDataStore",
+          "action": "Value(2)-Init-3"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestDataStore",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestDataStore",
+          "action": "Call(Copier)-1"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestDataStore",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestDataStore",
+          "action": "Call(Copier)-2"
+        },
+        {
+          "kind": "Execute",
+          "activity": "Copier"
+        },
+        {
+          "kind": "Output",
+          "activity": "Copier",
+          "parameter": "output",
+          "value": "2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestDataStore",
+          "action": "Value(3)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestDataStore",
+          "parameter": "output",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestDataStore",
+          "parameter": "output",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_4_1_12e503d9_1484862146217_913867_10397",
+      "name": "TestCallAccepter",
+      "executed": true,
+      "parameters": [],
+      "outputs": [],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestCallAccepter"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "TestCallSender",
+      "name": "TestCallSender",
+      "executed": true,
+      "parameters": [],
+      "outputs": [],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestCallSender"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Create(TestCallAccepter)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Start(TestCallAccepter)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Call(test)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "TestCallAccepter"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallAccepter",
+          "action": "Reply(test)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "ReadSelf"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Write(value)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_18_4_1_12e503d9_1484863459823_274565_11521",
+      "name": "TestCallSend",
+      "executed": true,
+      "parameters": [],
+      "outputs": [],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestCallSend"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSend",
+          "action": "Create(TestCallSender)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSend",
+          "action": "Start(TestCallSender)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSend",
+          "action": "Send(TestSignal)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "TestCallSender"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Create(TestCallAccepter)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Start(TestCallAccepter)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Call(test)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "TestCallAccepter"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallAccepter",
+          "action": "Reply(test)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "ReadSelf"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCallSender",
+          "action": "Write(value)"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_19_0_2_12e503d9_1555699676179_888749_7130",
+      "name": "TestCompositeObjectDestroyer",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "composite",
+          "direction": "in",
+          "type": "TestComposite",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "object1",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "object2",
+          "direction": "in",
+          "type": "TestClass",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "compositeOut",
+          "direction": "out",
+          "type": null,
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "object1Out",
+          "direction": "out",
+          "type": null,
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "object2Out",
+          "direction": "out",
+          "type": null,
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "assocOut",
+          "direction": "out",
+          "type": "TestClass",
+          "lower": 0,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "compositeOut",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj1",
+                "types": [],
+                "features": []
+              }
+            }
+          ]
+        },
+        {
+          "parameter": "object1Out",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj2",
+                "types": [],
+                "features": []
+              }
+            }
+          ]
+        },
+        {
+          "parameter": "object2Out",
+          "values": [
+            {
+              "kind": "Reference",
+              "referent": {
+                "kind": "Object",
+                "id": "obj3",
+                "types": [],
+                "features": []
+              }
+            }
+          ]
+        },
+        {
+          "parameter": "assocOut",
+          "values": []
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestCompositeObjectDestroyer"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCompositeObjectDestroyer",
+          "action": "Write(c1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCompositeObjectDestroyer",
+          "action": "Write(c2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCompositeObjectDestroyer",
+          "action": "Destroy(composite)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestCompositeObjectDestroyer",
+          "action": "Read(composite)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestCompositeObjectDestroyer",
+          "parameter": "compositeOut",
+          "value": "Reference to obj1()"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestCompositeObjectDestroyer",
+          "parameter": "object1Out",
+          "value": "Reference to obj2()"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestCompositeObjectDestroyer",
+          "parameter": "object2Out",
+          "value": "Reference to obj3()"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Tests.uml",
+      "id": "_19_0_3_12e503d9_1576710835563_451691_7206",
+      "name": "TestClassUnmarshaller",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "x",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "y",
+          "direction": "out",
+          "type": "Integer",
+          "lower": 0,
+          "upper": "*",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "x",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "parameter": "y",
+          "values": [
+            {
+              "kind": "Integer",
+              "value": 1
+            },
+            {
+              "kind": "Integer",
+              "value": 2
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "TestClassUnmarshaller"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Create(Subclass1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Value(0)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Write(x)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Value(1)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Value(2)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Value(*)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Write(y[1])"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Write(y[2])"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Value(true)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Write(a)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "TestClassUnmarshaller",
+          "action": "Unmarshall(TestClass)"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassUnmarshaller",
+          "parameter": "x",
+          "value": "0"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassUnmarshaller",
+          "parameter": "y",
+          "value": "1"
+        },
+        {
+          "kind": "Output",
+          "activity": "TestClassUnmarshaller",
+          "parameter": "y",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_eSDNIEQbEeq_86rQwoiqlQ",
+      "name": "Test001",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "testOutput",
+          "direction": "return_",
+          "type": "String",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "testOutput",
+          "values": [
+            {
+              "kind": "String",
+              "value": "Test001 - Exception raised and caught "
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "Test001"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "Create(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "Issue"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "set(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "RaiseException"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "exceptionHandler"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "read(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "set(outputMessage)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test001",
+          "action": "read(outputMessage)"
+        },
+        {
+          "kind": "Output",
+          "activity": "Test001",
+          "parameter": "testOutput",
+          "value": "Test001 - Exception raised and caught "
+        }
+      ]
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "__awSYEQmEeq_86rQwoiqlQ",
+      "name": "Test002",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "testOutput",
+          "direction": "return_",
+          "type": "String",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "testOutput",
+          "values": [
+            {
+              "kind": "String",
+              "value": "Test 002 - Before the raising of an exception"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "Test002"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "root"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "level-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "message"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "set(outputMessage)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "level-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "Create(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "Issue"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "set(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "RaiseExceptionAction"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "handler"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "read(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "call(writeline)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "WriteLine"
+        },
+        {
+          "kind": "Fire",
+          "activity": "WriteLine",
+          "action": "StandardOutputChannel"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test002",
+          "action": "read(outputMessage)"
+        },
+        {
+          "kind": "Output",
+          "activity": "Test002",
+          "parameter": "testOutput",
+          "value": "Test 002 - Before the raising of an exception"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_meVz8EQtEeqDuan-cpgLzQ",
+      "name": "Test003",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "output",
+          "direction": "return_",
+          "type": "Boolean",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "output",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "Test003"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "Create(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "Issue"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "set(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "RaiseException"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "exceptionHandler"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "isClassifiedBy(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "set(outputFlag)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test003",
+          "action": "read(outputFlag)"
+        },
+        {
+          "kind": "Output",
+          "activity": "Test003",
+          "parameter": "output",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_5MEXAEQwEeqDuan-cpgLzQ",
+      "name": "Test004",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "testOutput",
+          "direction": "return_",
+          "type": "String",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "testOutput",
+          "values": [
+            {
+              "kind": "String",
+              "value": "Test 004 - Exception caught by handler 1"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "Test004"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "Create(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "Issue"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "set(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "RaiseException"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "exceptionHandler1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "Issue"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "set(outputMessage)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test004",
+          "action": "read(outputMessage)"
+        },
+        {
+          "kind": "Output",
+          "activity": "Test004",
+          "parameter": "testOutput",
+          "value": "Test 004 - Exception caught by handler 1"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_s9agcEQ-EeqVfa4jYxuw1Q",
+      "name": "Test005",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "testOutput",
+          "direction": "return_",
+          "type": "String",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "testOutput",
+          "values": [
+            {
+              "kind": "String",
+              "value": "Test 005 - Exception Raised - After exception handling"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "Test005"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "Create(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "Issue"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "set(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "RaiseException"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "exceptionHandler"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "read(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "set(outputMessage)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "this"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "read(outputMessage)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "message"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test005",
+          "action": "call(concat)"
+        },
+        {
+          "kind": "Output",
+          "activity": "Test005",
+          "parameter": "testOutput",
+          "value": "Test 005 - Exception Raised - After exception handling"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_v9EWMERDEeqVfa4jYxuw1Q",
+      "name": "Test006",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "testOutput",
+          "direction": "return_",
+          "type": "String",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "testOutput",
+          "values": []
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "Test006"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test006",
+          "action": "root"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test006",
+          "action": "level-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test006",
+          "action": "level-2"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test006",
+          "action": "Create(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test006",
+          "action": "Issue"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test006",
+          "action": "set(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test006",
+          "action": "RaiseExceptionAction"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_fwq74ERKEeqVfa4jYxuw1Q",
+      "name": "C_Factory",
+      "executed": false,
+      "skipped": "ownedBehavior of C: runs only as part of its owner, as in the JUnit suite"
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_kATlEERKEeqVfa4jYxuw1Q",
+      "name": "raiseException$Impl",
+      "executed": false,
+      "skipped": "ownedBehavior of C: runs only as part of its owner, as in the JUnit suite"
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_ICLRMFDKEeq0eJ3N0xckiQ",
+      "name": "C$Impl",
+      "executed": false,
+      "skipped": "ownedBehavior of C: runs only as part of its owner, as in the JUnit suite"
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_jQRH4ERNEeqVfa4jYxuw1Q",
+      "name": "Test007",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "outputExceptionMessage",
+          "direction": "return_",
+          "type": "String",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "outputExceptionFlag",
+          "direction": "return_",
+          "type": "Boolean",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "outputExceptionMessage",
+          "values": [
+            {
+              "kind": "String",
+              "value": "Exception"
+            }
+          ]
+        },
+        {
+          "parameter": "outputExceptionFlag",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "Test007"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test007",
+          "action": "call(C_Factory)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "C_Factory"
+        },
+        {
+          "kind": "Fire",
+          "activity": "C_Factory",
+          "action": "createObject"
+        },
+        {
+          "kind": "Fire",
+          "activity": "C_Factory",
+          "action": "callConstructor"
+        },
+        {
+          "kind": "Execute",
+          "activity": "C$Impl"
+        },
+        {
+          "kind": "Fire",
+          "activity": "C$Impl",
+          "action": "this"
+        },
+        {
+          "kind": "Output",
+          "activity": "C$Impl",
+          "parameter": "return",
+          "value": "Reference to obj1(C)"
+        },
+        {
+          "kind": "Output",
+          "activity": "C_Factory",
+          "parameter": "result",
+          "value": "Reference to obj1(C)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test007",
+          "action": "call(raiseException)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "raiseException$Impl"
+        },
+        {
+          "kind": "Fire",
+          "activity": "raiseException$Impl",
+          "action": "root"
+        },
+        {
+          "kind": "Fire",
+          "activity": "raiseException$Impl",
+          "action": "level-1"
+        },
+        {
+          "kind": "Fire",
+          "activity": "raiseException$Impl",
+          "action": "Create(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "raiseException$Impl",
+          "action": "Issue"
+        },
+        {
+          "kind": "Fire",
+          "activity": "raiseException$Impl",
+          "action": "set(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "raiseException$Impl",
+          "action": "RaiseException"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test007",
+          "action": "handler"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test007",
+          "action": "read(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test007",
+          "action": "call(writeline)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "WriteLine"
+        },
+        {
+          "kind": "Fire",
+          "activity": "WriteLine",
+          "action": "StandardOutputChannel"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test007",
+          "action": "Exception"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test007",
+          "action": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "Test007",
+          "parameter": "outputExceptionMessage",
+          "value": "Exception"
+        },
+        {
+          "kind": "Output",
+          "activity": "Test007",
+          "parameter": "outputExceptionFlag",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_-5N7YEXCEeqhh-m8NkJ-tg",
+      "name": "Test008",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "outputExceptionFlag",
+          "direction": "return_",
+          "type": "Boolean",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "outputExceptionMessage",
+          "direction": "return_",
+          "type": "String",
+          "lower": 0,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "outputExceptionFlag",
+          "values": [
+            {
+              "kind": "Boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "parameter": "outputExceptionMessage",
+          "values": [
+            {
+              "kind": "String",
+              "value": "Exception"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "Test008"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test008",
+          "action": "root"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test008",
+          "action": "call(CalledBehavior)"
+        },
+        {
+          "kind": "Execute",
+          "activity": "CalledBehavior"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "root"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "Create(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "message"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "set(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "RaiseException"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test008",
+          "action": "handler"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test008",
+          "action": "Exception"
+        },
+        {
+          "kind": "Fire",
+          "activity": "Test008",
+          "action": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "Test008",
+          "parameter": "outputExceptionFlag",
+          "value": "true"
+        },
+        {
+          "kind": "Output",
+          "activity": "Test008",
+          "parameter": "outputExceptionMessage",
+          "value": "Exception"
+        }
+      ]
+    },
+    {
+      "model": "fUML-Exception-Tests.uml",
+      "id": "_KI8jMEXDEeqhh-m8NkJ-tg",
+      "name": "CalledBehavior",
+      "executed": true,
+      "parameters": [
+        {
+          "name": "e",
+          "direction": "return_",
+          "type": "String",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        },
+        {
+          "name": "v",
+          "direction": "out",
+          "type": "Boolean",
+          "lower": 1,
+          "upper": "1",
+          "isOrdered": false,
+          "isUnique": true
+        }
+      ],
+      "outputs": [
+        {
+          "parameter": "e",
+          "values": []
+        },
+        {
+          "parameter": "v",
+          "values": []
+        }
+      ],
+      "events": [
+        {
+          "kind": "Execute",
+          "activity": "CalledBehavior"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "root"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "Create(DetailedException)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "message"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "set(message)"
+        },
+        {
+          "kind": "Fire",
+          "activity": "CalledBehavior",
+          "action": "RaiseException"
+        }
+      ]
+    }
+  ]
+}
