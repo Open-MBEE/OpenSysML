@@ -223,14 +223,16 @@ func (s *Server) Views(params *viewsParams) *viewsResult {
 
 // Render answers opensysml/render: the rendering of the view or element asked
 // for, in the form asked for, at the version of the document it was made from:
-// version, node FQNs and ranges all come from that one document snapshot.
+// version, node FQNs, ranges and digests all come from the one read of the
+// workspace the rendering was made under.
 func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	name := uriToName(params.TextDocument.URI)
-	rendering, doc, err := s.ws.RenderView(name, params.View)
+	rendering, snapshot, err := s.ws.RenderView(name, params.View)
 	if err != nil {
 		return nil, err
 	}
-	origin := func(o view.Origin) *renderOrigin { return s.originIn(doc, o) }
+	doc := snapshot.Rendered
+	origin := func(o view.Origin) *renderOrigin { return s.originIn(snapshot, o) }
 	form, err := renderForm(rendering, params.Form)
 	if err != nil {
 		return nil, err
@@ -267,8 +269,8 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
-	s.renderNodes(out, doc, name, data.Nodes)
-	s.renderEdges(out, doc, name, data.Edges)
+	s.renderNodes(out, snapshot, data.Nodes)
+	s.renderEdges(out, snapshot, data.Edges)
 	for _, row := range data.Rows {
 		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
 	}
@@ -277,7 +279,8 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 
 // renderNodes converts the rendering's nodes into out; a node the document
 // declares confines the palette to its notation and is admitted once all are known.
-func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string, nodes []view.NodeData) {
+func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes []view.NodeData) {
+	name := snapshot.Rendered.Name
 	var declared []declaredNode
 	for _, node := range nodes {
 		n := renderNode{
@@ -288,7 +291,7 @@ func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string
 			Detail: node.Detail,
 			Parent: node.Parent,
 		}
-		declaring := s.declaring(doc, node.Origin)
+		declaring := s.declaring(snapshot, node.Origin)
 		n.Origin = s.originOf(declaring, node.Origin)
 		if sym := nodeSymbol(s.writable(declaring), node.Origin); sym != nil {
 			if owners, ok := nodeOwners(sym); ok {
@@ -322,7 +325,7 @@ func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string
 
 // renderEdges converts the rendering's edges into out, each with its route and
 // the FQN or declaration range of the element it comes from.
-func (s *Server) renderEdges(out *renderResult, doc *model.Document, name string, edges []view.EdgeData) {
+func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges []view.EdgeData) {
 	for _, edge := range edges {
 		e := renderEdge{
 			From:  edge.From,
@@ -330,7 +333,7 @@ func (s *Server) renderEdges(out *renderResult, doc *model.Document, name string
 			Label: edge.Label,
 			Kind:  edge.Kind.String(),
 		}
-		declaring := s.declaring(doc, edge.Origin)
+		declaring := s.declaring(snapshot, edge.Origin)
 		e.Origin = s.originOf(declaring, edge.Origin)
 		if sym := nodeSymbol(s.writable(declaring), edge.Origin); sym != nil {
 			if _, ok := nodeOwners(sym); ok {
@@ -378,18 +381,18 @@ func renderPalette(asked string) (view.Palette, error) {
 	return palette, nil
 }
 
-// declaring is the document an origin is located in, as the session holds it:
-// rendered, the snapshot the rendering was made from, when the origin is in it,
-// else the workspace or bundled library document of that name; nil for an
-// origin with no locatable declaration or in a document the session does not hold.
-func (s *Server) declaring(rendered *model.Document, o view.Origin) *model.Document {
+// declaring is the document an origin is located in, as the rendering read it:
+// the snapshot's document of that name, else the bundled library file of that
+// name, which is never rewritten; nil for an origin with no locatable
+// declaration or in a document the session does not hold.
+func (s *Server) declaring(snapshot *model.Snapshot, o view.Origin) *model.Document {
 	if !o.Located() {
 		return nil
 	}
-	if o.Doc == rendered.Name {
-		return rendered
+	if doc := snapshot.Document(o.Doc); doc != nil {
+		return doc
 	}
-	return s.document(o.Doc)
+	return s.ws.LibraryDocument(o.Doc)
 }
 
 // writable is declaring when an edit may write into it: a document of the
@@ -402,9 +405,9 @@ func (s *Server) writable(declaring *model.Document) *model.Document {
 }
 
 // originIn is a core origin as a client navigates to it, placed in the text of
-// the document declaring it as the session holds it.
-func (s *Server) originIn(rendered *model.Document, o view.Origin) *renderOrigin {
-	return s.originOf(s.declaring(rendered, o), o)
+// the document declaring it as the rendering read it.
+func (s *Server) originIn(snapshot *model.Snapshot, o view.Origin) *renderOrigin {
+	return s.originOf(s.declaring(snapshot, o), o)
 }
 
 // originOf places o in doc, the document declaring it; a standard library

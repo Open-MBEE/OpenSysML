@@ -45,8 +45,9 @@ type Operation struct {
 	// Target is the element to edit, by FQN, as symbols name it. An OpSetLayout
 	// may give Declaration instead, the span the element is declared at, for an
 	// element no qualified name reaches: an unnamed one, or one declared inside
-	// an unnamed one. DeclarationDoc names the document the span is of; empty
-	// means the edited document.
+	// an unnamed one. DeclarationDoc names the document the element is declared
+	// in — the one the span is of, or the one Target must resolve to a declaration
+	// of; empty means the edited document for a span and any for a Target.
 	Target         string
 	Declaration    source.Span
 	DeclarationDoc string
@@ -128,8 +129,8 @@ func SetLayoutAt(decl source.Span, view string, layout *semantics.Layout) Operat
 	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.LayoutFQN, Layout: layout}
 }
 
-// DeclaredIn is op with its Declaration read as a span of the named document,
-// another of the workspace than the edited one.
+// DeclaredIn is op with its element declared in the named document: its
+// Declaration a span of that document's text, its Target a name declared there.
 func (op Operation) DeclaredIn(doc string) Operation {
 	op.DeclarationDoc = doc
 	return op

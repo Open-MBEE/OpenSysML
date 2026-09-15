@@ -520,9 +520,9 @@ const drawnFromParts = {
   version: 2,
 };
 
-test("placementOperations names a node another document declares by its qualified name, in the view", () => {
+test("placementOperations names a node another document declares by its qualified name, in the view, at the text it was rendered from", () => {
   assert.deepEqual(placementOperations(drawnFromParts, [{ id: "n1", layout: { x: 120, y: 40 } }], []), [
-    { kind: "setLayout", target: "Machinery::Engine::rotor", view: "EngineViews::engineView", layout: { x: 120, y: 40 } },
+    { kind: "setLayout", target: "Machinery::Engine::rotor", declaredIn: partsURI, digest: partsDigest, view: "EngineViews::engineView", layout: { x: 120, y: 40 } },
   ]);
 });
 

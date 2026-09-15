@@ -466,6 +466,28 @@ func TestSetLayoutInlineIntoAnotherDocument(t *testing.T) {
 	}
 }
 
+// A named target stated to be declared in a document is placed only when that
+// document declares it: a namesake declared elsewhere is refused, so that a
+// declaration replaced since it was rendered is not placed in its stead.
+func TestSetLayoutByNameDeclaredInADocumentRefusesANamesakeElsewhere(t *testing.T) {
+	m := loadEditableWorkspace(t, "views.sysml", engineViews, map[string]string{"parts.sysml": engineParts})
+	requireClean(t, m)
+	res := applyOne(t, m, SetLayout("Machinery::Engine::rotor", "", at(5, 6)).DeclaredIn("parts.sysml"))
+	if got := otherContent(t, res, "parts.sysml"); !strings.Contains(got, "part rotor {\n            @DiagramLayout::Layout { x = 5; y = 6; }") {
+		t.Fatalf("rotor, declared in parts.sysml as stated, was not placed there:\n%s", got)
+	}
+
+	_, err := Apply(m, []Operation{SetLayout("Machinery::Engine::rotor", "", at(5, 6)).DeclaredIn("views.sysml")})
+	e := editError(t, err)
+	if e.Failure != FailureUnknownTarget || !strings.Contains(e.Message, "declared in parts.sysml, not in views.sysml") {
+		t.Fatalf("rotor stated to be declared in views.sysml: got %v", err)
+	}
+	_, err = Apply(m, []Operation{SetLayout("EngineViews::engineView", "", at(5, 6)).DeclaredIn("parts.sysml")})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget || !strings.Contains(e.Message, "declared in views.sysml, not in parts.sysml") {
+		t.Fatalf("the edited document's view stated to be declared in parts.sysml: got %v", err)
+	}
+}
+
 // A declaration span in another document follows the bytes earlier operations
 // of the same request write before it there, and is refused once one of them
 // rewrote the declaration itself.

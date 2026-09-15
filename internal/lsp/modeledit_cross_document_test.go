@@ -387,9 +387,10 @@ func TestApplyModelEditLayoutRefusesWhenAnotherDocumentBecomesInvalid(t *testing
 	}
 }
 
-// declaredIn must name a document the server holds, must accompany a
-// declaration range, and a range of another document must come with the digest
-// of the text it was read from: each fault is an invalid request, not a refusal.
+// declaredIn must name a document the server holds, accompanies a setLayout or
+// setRoute alone, and naming another document must come with the digest of the
+// text its target was rendered from: each fault is an invalid request, not a
+// refusal.
 func TestApplyModelEditRejectsMisplacedDeclaredIn(t *testing.T) {
 	s, viewsURI, partsURI := engineWorkspace(t)
 	drawn := render(t, s, viewsURI, "EngineViews::engineView")
@@ -400,8 +401,11 @@ func TestApplyModelEditRejectsMisplacedDeclaredIn(t *testing.T) {
 		want string
 	}{
 		{modelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Route: []renderPoint{{X: 1, Y: 2}}}, "no document the server holds"},
-		{modelEditOperation{Kind: EditSetRoute, Target: "Machinery::Engine", DeclaredIn: protocol.DocumentURI(partsURI), Route: []renderPoint{{X: 1, Y: 2}}}, "there is none"},
+		{modelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Layout: &modelEditLayout{X: 1, Y: 2}}, "no document the server holds"},
+		{modelEditOperation{Kind: EditRename, Target: "Machinery::Engine", DeclaredIn: protocol.DocumentURI(partsURI), Digest: digest, NewName: "Motor"}, "setLayout or setRoute alone"},
+		{modelEditOperation{Kind: EditSetCanvas, Target: "EngineViews::engineView", DeclaredIn: protocol.DocumentURI(viewsURI), Canvas: &renderCanvas{Unit: "px"}}, "setLayout or setRoute alone"},
 		{modelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(partsURI), Route: []renderPoint{{X: 1, Y: 2}}}, "needs the digest"},
+		{modelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(partsURI), Layout: &modelEditLayout{X: 1, Y: 2}}, "needs the digest"},
 	} {
 		_, err := call(t, s, MethodApplyModelEdit, &applyModelEditParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: viewsURI},
@@ -466,5 +470,48 @@ func TestApplyModelEditIsStaleWhenAnotherDocumentsDeclarationMoved(t *testing.T)
 	}
 	if got := applyDocumentChange(t, engineParts, change); !strings.Contains(got, "connect rotor to stator {\n\t\t\t@DiagramLayout::Route { points = (1, 2); }") {
 		t.Errorf("parts.sysml:\n%s", got)
+	}
+}
+
+// A node another document declares is placed by qualified name at the text it
+// was rendered from: once that document changed — a namesake standing where the
+// rendered declaration was, say — the answer is stale rather than a placement of
+// whatever the name reaches now; and the name must be declared in the document
+// the node's origin named, not in a namesake's document.
+func TestApplyModelEditIsStaleWhenAnotherDocumentsNamedDeclarationWasReplaced(t *testing.T) {
+	s, viewsURI, partsURI := engineWorkspace(t)
+	drawn := render(t, s, viewsURI, "EngineViews::engineView")
+	rotor := nodeNamed(t, drawn, "rotor")
+	if rotor.FQN == "" || rotor.Origin == nil || rotor.Origin.URI != partsURI || rotor.Origin.Digest == "" {
+		t.Fatalf("rotor = %+v, want its qualified name and its origin in parts.sysml with a digest", rotor)
+	}
+	place := modelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, DeclaredIn: protocol.DocumentURI(partsURI),
+		Digest: rotor.Origin.Digest, View: drawn.View, Layout: &modelEditLayout{X: 7, Y: 8}}
+
+	replaced := strings.Replace(engineParts, "\t\tpart rotor;\n", "\t\t// A rotor of another making.\n\t\tpart rotor;\n", 1)
+	tellChanged(t, s, partsURI, replaced, 2)
+	out := applyModelEdit(t, s, viewsURI, drawn.Version, place)
+	if !out.Stale || out.Edit != nil || out.Refused != nil {
+		t.Fatalf("after parts.sysml replaced rotor: %+v, want stale", out)
+	}
+	if string(s.ws.Document(viewsURI.Filename()).Content) != engineViews {
+		t.Error("a stale request changed views.sysml")
+	}
+
+	tellChanged(t, s, partsURI, engineParts, 3)
+	out = applyModelEdit(t, s, viewsURI, drawn.Version, place)
+	if out.Edit == nil || out.Stale || out.Refused != nil {
+		t.Fatalf("parts.sysml restored to the rendered text: %+v, want an edit", out)
+	}
+	if got := applyDocumentChange(t, engineViews, documentChangeFor(t, out.Edit, viewsURI)); !strings.Contains(got, "metadata DiagramLayout::Layout about Machinery::Engine::rotor { x = 7; y = 8; }") {
+		t.Errorf("views.sysml:\n%s", got)
+	}
+
+	// The name is placed only when declared in the document the origin named.
+	misplaced := place
+	misplaced.DeclaredIn, misplaced.Digest = protocol.DocumentURI(viewsURI), s.ws.Document(viewsURI.Filename()).Digest()
+	out = applyModelEdit(t, s, viewsURI, drawn.Version, misplaced)
+	if len(out.Refused) != 1 || out.Refused[0].Failure != "unknown-target" || !strings.Contains(out.Refused[0].Message, "parts.sysml, not in") || !strings.HasSuffix(out.Refused[0].Message, "views.sysml as stated") {
+		t.Fatalf("rotor stated to be declared in views.sysml: %+v, want an unknown-target refusal", out)
 	}
 }

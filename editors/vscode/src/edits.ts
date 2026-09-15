@@ -49,7 +49,7 @@ export function placementOperations(
   for (const placement of nodes) {
     const node = rendering.nodes.find((candidate) => candidate.id === placement.id);
     if (node?.fqn) {
-      operations.push({ kind: "setLayout", target: node.fqn, view, layout: placement.layout });
+      operations.push({ kind: "setLayout", target: node.fqn, ...declaredIn(node), view, layout: placement.layout });
     } else if (node?.declaration) {
       operations.push({ kind: "setLayout", declaration: node.declaration, ...declaredIn(node), layout: placement.layout });
     } else {
@@ -59,7 +59,7 @@ export function placementOperations(
   for (const placement of edges) {
     const edge = rendering.edges?.[placement.index];
     if (edge?.fqn) {
-      operations.push({ kind: "setRoute", target: edge.fqn, view, route: placement.route });
+      operations.push({ kind: "setRoute", target: edge.fqn, ...declaredIn(edge), view, route: placement.route });
     } else if (edge?.declaration) {
       operations.push({ kind: "setRoute", declaration: edge.declaration, ...declaredIn(edge), route: placement.route });
     } else {
@@ -69,7 +69,7 @@ export function placementOperations(
   return operations;
 }
 
-/** declaredIn names the document a node's or edge's declaration range is one of, and the digest of its text, when the rendering located it. */
+/** declaredIn names the document declaring a node or edge, and the digest of its text as rendered, when the rendering located it: the server places the target in that text or answers stale. */
 function declaredIn(element: RenderNode | RenderEdge): { declaredIn?: string; digest?: string } {
   return element.origin ? { declaredIn: element.origin.uri, digest: element.origin.digest } : {};
 }

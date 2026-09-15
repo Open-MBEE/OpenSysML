@@ -56,10 +56,11 @@ type applyModelEditParams struct {
 // Layout of the node Target, setRoute the Route of the edge Target, setCanvas
 // the Canvas of the view Target. A setLayout or setRoute may give Declaration
 // instead of Target, the range a rendering reports for a node or edge no
-// qualified name reaches, a range of the document DeclaredIn names or, when
-// that is empty, of the requested one. Digest is the origin's digest the range
-// was read with; a range of another document is refused as stale when that
-// document's text has changed since. View names the view whose body states a
+// qualified name reaches. DeclaredIn names the document declaring the target —
+// the document the range is one of, the one Target must be declared in — or is
+// empty for the requested one; Digest is the origin's digest of that document's
+// text, and a target of another document is refused as stale when that text has
+// changed since it was rendered. View names the view whose body states a
 // Layout or Route, so it applies in that view alone; left empty, the annotation
 // goes inline into Target's declaration and applies in every view. A setLayout
 // with no Layout, a setRoute with no or an empty Route and a setCanvas with no
@@ -277,23 +278,27 @@ func documentChange(edited model.DocumentEdit) (protocol.TextDocumentEdit, error
 }
 
 // operation reads a wire operation of doc as the edit operation it names, its
-// Declaration a range of the document DeclaredIn names when that is another.
-// That document is read at the text the range's digest names, and returned as
-// the snapshot the range was placed in, so that the edit can be pinned to it; a
-// digest of other text is a *model.StaleError, since the range may name
-// something else now.
+// target declared in the document DeclaredIn names: a Declaration a range of
+// that document's text, a Target a name it declares. Another document than doc
+// is read at the text the operation's digest names, and returned as the
+// snapshot the target was read in, so that the edit can be pinned to it; a
+// digest of other text is a *model.StaleError, since the range may fall on, or
+// the name reach, another declaration now.
 func (s *Server) operation(doc *model.Document, op modelEditOperation) (modeledit.Operation, *model.Document, error) {
-	if op.DeclaredIn == "" || op.Declaration == nil {
+	if op.DeclaredIn == "" {
 		converted, err := op.operation(doc.Content)
 		return converted, nil, err
 	}
 	name := uriToName(op.DeclaredIn)
 	if name == doc.Name {
 		converted, err := op.operation(doc.Content)
-		return converted, nil, err
+		if err != nil {
+			return modeledit.Operation{}, nil, err
+		}
+		return converted.DeclaredIn(name), nil, nil
 	}
 	if op.Digest == "" {
-		return modeledit.Operation{}, nil, fmt.Errorf("a declaration in %s, which declaredIn names, needs the digest of the text its range was read from", op.DeclaredIn)
+		return modeledit.Operation{}, nil, fmt.Errorf("a target declared in %s, which declaredIn names, needs the digest of the text it was rendered from", op.DeclaredIn)
 	}
 	// A library document is never rewritten, so there is no snapshot to pin.
 	pinned := s.ws.Document(name)
@@ -323,8 +328,8 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 	if op.Declaration != nil && op.Target != "" {
 		return modeledit.Operation{}, errors.New("an operation targets its element by name or by declaration, not both")
 	}
-	if op.DeclaredIn != "" && op.Declaration == nil {
-		return modeledit.Operation{}, errors.New("declaredIn names the document of a declaration; there is none")
+	if op.DeclaredIn != "" && op.Kind != EditSetLayout && op.Kind != EditSetRoute {
+		return modeledit.Operation{}, fmt.Errorf("declaredIn names the document declaring the target of a %s or %s alone", EditSetLayout, EditSetRoute)
 	}
 	switch op.Kind {
 	case EditSetValue:

@@ -315,13 +315,18 @@ bodyless declaration as `AddMember` does — and a cleared one is removed with i
 line and, when it was the whole body, with the body. The document written is the
 one declaring what holds the annotation, wherever the request came from: the view's
 document for a view-local `Layout` or `Route` and for a `Canvas`, the element's own
-document for an inline one. A target is resolved through the workspace index, and
-its declaration range, when the rendering reports one instead of a qualified name,
-is read in the document `declaredIn` names — at the text whose `digest` the
-rendering's origin reported, so a range of text since changed is answered stale
-rather than read where it now falls. The edit is then pinned to the very snapshot
-the range was read in: the workspace refuses it, under the one lock, should it have
-replaced that document in between. The splices go through the same
+document for an inline one. A target is resolved through the workspace index, in
+the document `declaredIn` names — the rendering's origin, whose text the `digest`
+it reported fingerprints — at the text it was rendered from: a declaration range is
+read there, and a qualified name must be declared there, so a document since
+changed is answered stale rather than read where the range now falls or the name
+now reaches, and a namesake another document declares is refused rather than
+placed. The rendering itself is converted from one read of the workspace — every
+origin, range and digest of every document it draws from, taken under the one lock
+— so that what a client hands back names the text the rendering was made from. The
+edit is then pinned to the very snapshot the target was read in: the workspace
+refuses it, under the one lock, should it have replaced that document in between.
+The splices go through the same
 per-document routing, atomic validation and `Result.Others` that rename and
 delete use, so one request may write several documents and refuses as a whole
 when the result is invalid in any of them. The operations refuse a target no

@@ -56,9 +56,20 @@ func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
 
 // element is the declaration an operation edits, in whichever document: the one
 // Target names, or the one at Declaration in its document when Target is empty.
+// A Target stated DeclaredIn a document must be declared there, so that a
+// namesake another document declares since does not stand in for it.
 func (m Model) element(i int, op Operation) (*symbols.Symbol, error) {
 	if op.Target != "" || op.Declaration.Len == 0 {
-		return m.declaredOnce(i, op.Target)
+		sym, err := m.declaredOnce(i, op.Target)
+		if err != nil {
+			return nil, err
+		}
+		if op.DeclarationDoc != "" && sym.DocName != op.DeclarationDoc {
+			return nil, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+				Message: fmt.Sprintf("%q is declared in %s, not in %s as stated",
+					op.Target, docLabel(sym.DocName), docLabel(op.DeclarationDoc))}
+		}
+		return sym, nil
 	}
 	root := m.Index.DocumentRoot(m.declarationDoc(op))
 	if root == nil {
