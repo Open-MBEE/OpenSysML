@@ -243,9 +243,9 @@ func TestCompositeCompletesOnceItsDoBehaviorAndItsBodyHaveBothEnded(t *testing.T
 	})
 }
 
-// A completed composite state queues its completion transitions exactly as a
-// leaf does: one event per transition whose guard holds, stamped with the
-// clock instant of the completion, in declaration order.
+// A completed composite state queues its completion exactly as a leaf does: one
+// event carrying its first completion transition, stamped with the clock instant
+// of the completion; the guards are read when it is dispatched.
 func TestCompositeCompletionQueuesItsTransitionsLikeALeaf(t *testing.T) {
 	const machine = `package test {
 		private import ScalarValues::*;
@@ -310,7 +310,7 @@ func TestCompositeCompletionQueuesItsTransitionsLikeALeaf(t *testing.T) {
 		return out
 	}
 
-	want := []string{"s1->a@3", "s1->b@3"}
+	want := []string{"s1->a@3"}
 	got := describe(queued(t, composite))
 	if !slices.Equal(got, want) {
 		t.Fatalf("composite completion queued %v, want %v", got, want)

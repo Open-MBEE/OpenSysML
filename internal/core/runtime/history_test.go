@@ -29,7 +29,7 @@ func transitionBetween(t *testing.T, exec *StateExecutor, source, target string)
 
 func fire(t *testing.T, exec *StateExecutor, source, target string) {
 	t.Helper()
-	fired, err := exec.resolveAndFire(nil, transitionBetween(t, exec, source, target))
+	fired, err := exec.resolveAndFire(nil, transitionBetween(t, exec, source, target), nil)
 	if err != nil {
 		t.Fatalf("fire %s -> %s: %v", source, target, err)
 	}
