@@ -192,7 +192,7 @@ part def Network {
     }
     // …
     interface plane0To1 : RFLink connect [1] plane0.sats.comms.crosslinkTx to [1] plane1.sats.comms.crosslinkRx;
-    interface downlink0To0 : RFLink connect plane0.sats.comms.rf to gs0.uplink;
+    interface downlink0To0 : RFLink connect [1] plane0.sats.comms.rf to [1] gs0.uplink;
 }
 satisfy blockAMass by blockAConfig;
 satisfy blockAMass by network.plane0.unit16;

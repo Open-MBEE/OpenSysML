@@ -552,7 +552,7 @@ func (g *generator) fleet(n SatelliteNetwork) {
 	for p := 0; p < n.Planes; p++ {
 		for k := 0; k < n.GroundStations; k++ {
 			g.stats.Connections++
-			g.decl(3, "interface downlink%dTo%d : RFLink connect plane%d.sats.comms.rf to gs%d.uplink {", k, p, p, k)
+			g.decl(3, "interface downlink%dTo%d : RFLink connect [1] plane%d.sats.comms.rf to [1] gs%d.uplink {", k, p, p, k)
 			g.decl(4, "attribute :>> dataRate = %d.0;", 50+p%200)
 			g.decl(4, "attribute :>> slantRange = %d [km];", 900+p%1500)
 			g.line(3, "}")
