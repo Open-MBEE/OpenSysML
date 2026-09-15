@@ -20,12 +20,19 @@ func TestWriteSplitDropsOnlyWhatALargerGenerationWrote(t *testing.T) {
 	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 8, Satellites: 1}, dir); err != nil {
 		t.Fatal(err)
 	}
+	// A directory now standing where the first generation put a plane.
+	if err := os.Remove(filepath.Join(dir, "plane007.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "plane007.sysml"), 0o750); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 4, Satellites: 1}, dir); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{
 		manifestName, "constellation.sysml", "library.sysml", "notes.sysml",
-		"plane000.sysml", "plane001.sysml", "plane002.sysml", "plane003.sysml", "plane009.sysml",
+		"plane000.sysml", "plane001.sysml", "plane002.sysml", "plane003.sysml", "plane007.sysml", "plane009.sysml",
 	}
 	if got := listing(t, dir); !slices.Equal(got, want) {
 		t.Errorf("after regenerating with four planes the directory holds %v, want %v", got, want)

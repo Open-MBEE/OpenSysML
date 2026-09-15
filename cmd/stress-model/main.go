@@ -76,7 +76,15 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 		if written[name] {
 			continue
 		}
-		if err := os.Remove(filepath.Join(dir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		path := filepath.Join(dir, name)
+		info, err := os.Lstat(path)
+		if errors.Is(err, os.ErrNotExist) || (err == nil && !info.Mode().IsRegular()) {
+			continue
+		}
+		if err != nil {
+			return stats, err
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return stats, err
 		}
 	}
