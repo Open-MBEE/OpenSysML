@@ -14,4 +14,7 @@
   substate first, where before the join never fired. A join of the machine's own regions whose
   segment leaves a state nested in an orthogonal state of a region now records that region, so
   the segment exits the nested state and its wrappers once, where before the innermost region
-  was recorded and the orthogonal state was exited a second time when the regions were left.
+  was recorded and the orthogonal state was exited a second time when the regions were left. A
+  segment drawn among several transitions out of its source, whose join an earlier region's
+  effect disarms before its turn, fires nothing and records no choice, where before the draw
+  stood among the run's choices as though the segment had fired.

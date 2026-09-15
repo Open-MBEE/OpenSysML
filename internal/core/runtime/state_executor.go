@@ -1640,15 +1640,16 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (bool, 
 		return false, err
 	}
 	// Fork, join and history reshape the active configuration rather than moving
-	// to a single state, so they are fired whole.
+	// to a single state, so they are fired whole; a join decides itself once ready.
 	if ps, ok := trans.Target.(*ast.PseudostateNode); ok && isSynchronizationTarget(ps) {
-		e.transitionDecided()
 		switch ps.Kind {
 		case ast.PseudostateFork:
+			e.transitionDecided()
 			return true, e.fireForkTransition(trans, ps)
 		case ast.PseudostateJoin:
 			return e.fireJoinTransition(trans, ps, r)
 		default:
+			e.transitionDecided()
 			return true, e.fireHistoryTransition(trans, ps, r)
 		}
 	}
@@ -2352,7 +2353,8 @@ func (e *StateExecutor) forkPlan(fork *ast.PseudostateNode) (*lower.ForkPlan, er
 
 // fireJoinTransition takes a transition into a join, reporting whether the join
 // fired. It fires only while the occurrence firing trans enables every other
-// segment into the join, still, as it fires; until then the segment simply waits.
+// segment into the join, still, as it fires; until then the segment simply
+// waits, and what selecting it noted is recorded only once it fires.
 func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.PseudostateNode, r route) (bool, error) {
 	if !r.settled() {
 		return false, nil
@@ -2360,6 +2362,7 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 	if ready, err := e.joinSynchronized(trans, e.firingEvent); err != nil || !ready {
 		return false, err
 	}
+	e.transitionDecided()
 	plan, err := e.joinPlan(join)
 	if err != nil {
 		return false, err

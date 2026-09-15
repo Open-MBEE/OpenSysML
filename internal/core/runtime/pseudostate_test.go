@@ -241,6 +241,66 @@ func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
 	}
 }
 
+// A segment into a join drawn among several transitions out of its source, whose
+// join another region's effect then disarms before its turn: the join fires
+// nothing, and the draw that never fired is not among the run's choices.
+func TestJoinDisarmedBeforeItsTurnRecordsNoChoice(t *testing.T) {
+	ctx, machine := loadState(t, `package test {
+    attribute def Go;
+    state Machine {
+        attribute armed : Boolean = true;
+        entry; then running;
+        state running parallel {
+            state c {
+                entry; then c1;
+                state c1;
+                state c2;
+                transition first c1 accept Go do assign armed := false then c2;
+            }
+            state a {
+                entry; then a1;
+                state a1;
+                state a2;
+                transition first a1 accept Go then sync;
+                transition first a1 accept Go then a2;
+            }
+            state b {
+                entry; then b1;
+                state b1;
+                transition first b1 accept Go if armed then sync;
+            }
+        }
+        join sync;
+        transition first sync then done;
+    }
+}`, "Machine")
+	// `declared` fires the regions in declaration order, c before a, and takes
+	// a1's first transition, the segment into the join.
+	policy, err := ParseSchedulePolicy("declared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.SetSchedule(policy); err != nil {
+		t.Fatal(err)
+	}
+	exec, err := ctx.CreateStateExecutor(machine)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	exec.SendSignal("Go", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent(Go): %v", err)
+	}
+	if got := activeStateNames(exec); got != "c2|a1|b1" {
+		t.Fatalf("configuration after Go = %s, want c2|a1|b1: c's effect disarmed b's segment, so a's fires nothing", got)
+	}
+	for _, c := range ctx.Choices() {
+		if c.Kind == ChoiceTransition {
+			t.Errorf("choices include %s: a's segment fired nothing, so its draw is no choice the run made", c)
+		}
+	}
+}
+
 // A segment into a join may leave a composite state whose substate is active:
 // the occurrence reaches that state from within, so Decide reports the join
 // enabled and dispatching the occurrence fires it, the substate exited too.
