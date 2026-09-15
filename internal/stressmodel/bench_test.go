@@ -114,3 +114,32 @@ func BenchmarkEditBeside(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkValidateSplit measures loading a network split one file per plane, as
+// the command line does: the files parsed and analyzed on one worker and on one
+// per CPU, over one shared index.
+func BenchmarkValidateSplit(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := splitFiles(network(n))
+		for _, workers := range []int{1, runtime.GOMAXPROCS(0)} {
+			b.Run(fmt.Sprintf("satellites=%d/files=%d/workers=%d", stats.Satellites, len(files), workers), func(b *testing.B) {
+				load := func() {
+					sess := repl.NewSession()
+					if err := sess.SetWorkers(workers); err != nil {
+						b.Fatal(err)
+					}
+					sess.SubmitFiles(files)
+					if sess.HasErrors() {
+						b.Fatalf("the split network did not analyse cleanly:\n%s", strings.Join(sess.DiagnosticLines(), "\n"))
+					}
+				}
+				load()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					load()
+				}
+			})
+		}
+	}
+}

@@ -59,3 +59,51 @@ func TestSatelliteNetworkScales(t *testing.T) {
 		t.Errorf("first satellite definition missing from:\n%s", one)
 	}
 }
+
+// splitFiles is a network split by plane as the CLI loads it, one source per file.
+func splitFiles(n SatelliteNetwork) ([]repl.SourceFile, Stats) {
+	files, stats := n.Split()
+	srcs := make([]repl.SourceFile, len(files))
+	for i, f := range files {
+		srcs[i] = repl.SourceFile{Name: f.Name, Text: f.Source}
+	}
+	return srcs, stats
+}
+
+// TestSatelliteNetworkSplitValidates keeps the split in step with the single
+// file: it declares the same network, loads clean under strict conformance at
+// one worker and at several, and every satisfy assertion holds across files.
+func TestSatelliteNetworkSplitValidates(t *testing.T) {
+	n := SatelliteNetwork{Planes: 2, Satellites: 2, GroundStations: 1}
+	_, whole := n.Source()
+	files, stats := splitFiles(n)
+	if len(files) != n.Planes+2 {
+		t.Fatalf("got %d files, want one per plane beside the library and the constellation", len(files))
+	}
+	// The split declares one package per plane over the single file's elements.
+	whole.Bytes, stats.Bytes = 0, 0
+	whole.Elements += n.Planes
+	if stats != whole {
+		t.Errorf("split declares %+v, the single file %+v", stats, whole)
+	}
+
+	for _, workers := range []int{1, 4} {
+		s := repl.NewSession()
+		s.SetConformanceMode(conformance.ModeOf(true))
+		if err := s.SetWorkers(workers); err != nil {
+			t.Fatal(err)
+		}
+		for _, d := range s.SubmitFiles(files).Diagnostics {
+			t.Errorf("workers=%d: diagnostic: %s", workers, d.Message)
+		}
+		verdicts := s.CheckSatisfy("")
+		if len(verdicts) != stats.Requirements {
+			t.Fatalf("workers=%d: got %d satisfy verdicts, want %d", workers, len(verdicts), stats.Requirements)
+		}
+		for _, v := range verdicts {
+			if !v.Holds() {
+				t.Errorf("workers=%d: %s: %v", workers, v.Subject, v.Lines)
+			}
+		}
+	}
+}
