@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/xmi"
 )
 
 // activityReader reads one UML activity graph into a Body. The suite's
@@ -15,27 +17,27 @@ import (
 // pin is found by following the object flow that feeds it.
 type activityReader struct {
 	r        *reader
-	activity *Element
+	activity *xmi.Element
 	// incoming maps an element id to the object or control flow edges whose
 	// target it is, over the whole activity.
-	incoming map[string][]*Element
+	incoming map[string][]*xmi.Element
 	// outgoing maps an element id to the edges whose source it is.
-	outgoing map[string][]*Element
+	outgoing map[string][]*xmi.Element
 	body     *Body
 	visiting map[string]bool
 }
 
 // readActivity reads an activity element (uml:Activity) into a Body.
-func (r *reader) readActivity(act *Element) *Body {
+func (r *reader) readActivity(act *xmi.Element) *Body {
 	ar := &activityReader{
 		r:        r,
 		activity: act,
-		incoming: make(map[string][]*Element),
-		outgoing: make(map[string][]*Element),
+		incoming: make(map[string][]*xmi.Element),
+		outgoing: make(map[string][]*xmi.Element),
 		body:     &Body{},
 		visiting: make(map[string]bool),
 	}
-	act.Walk(func(e *Element) bool {
+	act.Walk(func(e *xmi.Element) bool {
 		if e.Tag == "edge" {
 			ar.incoming[e.Attr("target")] = append(ar.incoming[e.Attr("target")], e)
 			ar.outgoing[e.Attr("source")] = append(ar.outgoing[e.Attr("source")], e)
@@ -61,14 +63,14 @@ var valueNodes = map[string]bool{
 
 // acts reports whether any node under the activity, at any depth, acts on the
 // model; control flow only carries what it encloses, a call what it calls.
-func (r *reader) acts(act *Element, visiting map[string]bool) bool {
+func (r *reader) acts(act *xmi.Element, visiting map[string]bool) bool {
 	if visiting[act.ID] {
 		return false
 	}
 	visiting[act.ID] = true
 	defer delete(visiting, act.ID)
 	acts := false
-	act.Walk(func(e *Element) bool {
+	act.Walk(func(e *xmi.Element) bool {
 		if e.Tag != "node" {
 			return true
 		}
@@ -76,7 +78,7 @@ func (r *reader) acts(act *Element, visiting map[string]bool) bool {
 		case "uml:CallBehaviorAction":
 			acts = r.calledBehaviorActs(e, visiting)
 		case "uml:CallOperationAction":
-			var method *Element
+			var method *xmi.Element
 			if op := r.doc.ByID(e.Attr("operation")); op != nil {
 				method = r.doc.ByID(op.Ref("method"))
 			}
@@ -92,7 +94,7 @@ func (r *reader) acts(act *Element, visiting map[string]bool) bool {
 // calledBehaviorActs reports whether the behavior a CallBehaviorAction calls
 // acts on the model: a library primitive function computes, anything else in
 // the library (output, say) acts, and a behavior of the document is read.
-func (r *reader) calledBehaviorActs(n *Element, visiting map[string]bool) bool {
+func (r *reader) calledBehaviorActs(n *xmi.Element, visiting map[string]bool) bool {
 	if b := n.First("behavior"); b != nil && b.Href() != "" {
 		return !strings.Contains(b.Href(), "PrimitiveBehaviors")
 	}
@@ -102,7 +104,7 @@ func (r *reader) calledBehaviorActs(n *Element, visiting map[string]bool) bool {
 // callActs reports whether calling a behavior of the document acts on the
 // model: an activity does when its nodes do, a function behavior does not by
 // UML's contract (§13.2.3.3); an unresolved or opaque one may.
-func (r *reader) callActs(called *Element, visiting map[string]bool) bool {
+func (r *reader) callActs(called *xmi.Element, visiting map[string]bool) bool {
 	switch {
 	case called == nil:
 		return true
@@ -116,7 +118,7 @@ func (r *reader) callActs(called *Element, visiting map[string]bool) bool {
 
 // readBlock appends the statements of a block (the activity or a structured
 // node) in flow order.
-func (ar *activityReader) readBlock(block *Element) {
+func (ar *activityReader) readBlock(block *xmi.Element) {
 	nodes := block.Tagged("node")
 	for _, n := range ar.order(nodes) {
 		ar.readNode(n)
@@ -125,10 +127,10 @@ func (ar *activityReader) readBlock(block *Element) {
 
 // order sorts a block's direct nodes so that every node follows the nodes
 // whose flows it depends on, ties broken by document order.
-func (ar *activityReader) order(nodes []*Element) []*Element {
+func (ar *activityReader) order(nodes []*xmi.Element) []*xmi.Element {
 	owner := make(map[string]int, len(nodes))
 	for i, n := range nodes {
-		n.Walk(func(e *Element) bool {
+		n.Walk(func(e *xmi.Element) bool {
 			if e.ID != "" {
 				owner[e.ID] = i
 			}
@@ -139,7 +141,7 @@ func (ar *activityReader) order(nodes []*Element) []*Element {
 	indegree := make([]int, len(nodes))
 	seen := make(map[[2]int]bool)
 	for i, n := range nodes {
-		n.Walk(func(e *Element) bool {
+		n.Walk(func(e *xmi.Element) bool {
 			for _, edge := range ar.incoming[e.ID] {
 				src, ok := owner[edge.Attr("source")]
 				if ok && src != i && !seen[[2]int{src, i}] {
@@ -157,7 +159,7 @@ func (ar *activityReader) order(nodes []*Element) []*Element {
 			ready = append(ready, i)
 		}
 	}
-	out := make([]*Element, 0, len(nodes))
+	out := make([]*xmi.Element, 0, len(nodes))
 	done := make([]bool, len(nodes))
 	for len(ready) > 0 {
 		sort.Ints(ready)
@@ -181,13 +183,13 @@ func (ar *activityReader) order(nodes []*Element) []*Element {
 	return out
 }
 
-func (ar *activityReader) unsupported(e *Element, why string) {
+func (ar *activityReader) unsupported(e *xmi.Element, why string) {
 	ar.body.Unsupported = append(ar.body.Unsupported, fmt.Sprintf("%s %s", e.Describe(), why))
 }
 
 // consumed reports whether any of the node's output pins feeds another node,
 // in which case the node is an expression read where it is used.
-func (ar *activityReader) consumed(n *Element) bool {
+func (ar *activityReader) consumed(n *xmi.Element) bool {
 	for _, pin := range n.Children {
 		if pin.Tag == "result" && len(ar.outgoing[pin.ID]) > 0 {
 			return true
@@ -196,7 +198,7 @@ func (ar *activityReader) consumed(n *Element) bool {
 	return false
 }
 
-func (ar *activityReader) readNode(n *Element) {
+func (ar *activityReader) readNode(n *xmi.Element) {
 	switch n.Type {
 	case "uml:StructuredActivityNode", "uml:SequenceNode":
 		ar.readBlock(n)
@@ -282,7 +284,7 @@ func (ar *activityReader) emit(st Statement) {
 }
 
 // args reads a call or send action's argument pins in document order.
-func (ar *activityReader) args(n *Element) []Expr {
+func (ar *activityReader) args(n *xmi.Element) []Expr {
 	var out []Expr
 	for _, pin := range n.Tagged("argument") {
 		v := ar.pinValue(pin)
@@ -297,7 +299,7 @@ func (ar *activityReader) args(n *Element) []Expr {
 // behaviorName names the behavior a CallBehaviorAction calls: a library
 // behavior by the last segment of its href (Concat, ToString, Not), an owned
 // behavior by its name.
-func (ar *activityReader) behaviorName(n *Element) string {
+func (ar *activityReader) behaviorName(n *xmi.Element) string {
 	if id := n.Attr("behavior"); id != "" {
 		if b := ar.r.doc.ByID(id); b != nil {
 			return b.Name()
@@ -320,7 +322,7 @@ func (ar *activityReader) behaviorName(n *Element) string {
 
 // pinValue reads the value flowing into a pin or node: nil when nothing feeds
 // it (an absent optional argument), an Expr otherwise.
-func (ar *activityReader) pinValue(pin *Element) *Expr {
+func (ar *activityReader) pinValue(pin *xmi.Element) *Expr {
 	if pin == nil {
 		return nil
 	}
@@ -372,7 +374,7 @@ func (ar *activityReader) value(id string) Expr {
 	return ar.actionValue(owner, e)
 }
 
-func (ar *activityReader) passThrough(e *Element) Expr {
+func (ar *activityReader) passThrough(e *xmi.Element) Expr {
 	edges := ar.incoming[e.ID]
 	switch len(edges) {
 	case 0:
@@ -384,7 +386,7 @@ func (ar *activityReader) passThrough(e *Element) Expr {
 }
 
 // actionValue is the value an action's output pin carries.
-func (ar *activityReader) actionValue(n, pin *Element) Expr {
+func (ar *activityReader) actionValue(n, pin *xmi.Element) Expr {
 	deref := func(p *Expr) *Expr {
 		if p == nil {
 			return &Expr{Kind: ExprUnknown, Text: n.Describe() + " reads an unfed pin"}
@@ -433,7 +435,7 @@ func (ar *activityReader) actionValue(n, pin *Element) Expr {
 }
 
 // readLiteral reads a literal specification element.
-func readLiteral(v *Element) (*Literal, string) {
+func readLiteral(v *xmi.Element) (*Literal, string) {
 	if v == nil {
 		return nil, "value specification is absent"
 	}

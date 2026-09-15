@@ -1,10 +1,6 @@
-// Package pssm reads the OMG PSSM state-machine test suite (ptc/18-11-06,
-// PSSM_TestSuite.xmi), classifies each of its tests by the UML constructs the
-// test's state machine uses, and translates the expressible ones into SysML v2
-// textual notation for cmd/pssm-referee. The suite is downloaded by
-// scripts/download-pssm-suite.sh and never vendored; docs/project/pssm-referee.md
-// records what a result from it means.
-package pssm
+// Package xmi parses XMI 2.5 documents into an immutable element tree indexed by
+// xmi:id, for the readers of the UML test suites this project referees against.
+package xmi
 
 import (
 	"encoding/xml"
