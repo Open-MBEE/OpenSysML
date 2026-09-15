@@ -17,4 +17,8 @@
   was recorded and the orthogonal state was exited a second time when the regions were left. A
   segment drawn among several transitions out of its source, whose join an earlier region's
   effect disarms before its turn, fires nothing and records no choice, where before the draw
-  stood among the run's choices as though the segment had fired.
+  stood among the run's choices as though the segment had fired. A timer's expiry selects the
+  segment it fires as a signal dispatch does — its guard holding and the join it leads into
+  ready — before the route out of the join is resolved, so an expiry that does not fire the join
+  reads no guard beyond it, where before a junction beyond the join with no guard holding aborted
+  the run.

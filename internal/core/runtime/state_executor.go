@@ -664,6 +664,12 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				if lowerTrans, notes, err = e.chooseCompletion(sourceState, lowerTrans); err != nil || lowerTrans == nil {
 					return dispatch, err
 				}
+			} else if lowerTrans.Trigger != nil {
+				// The timer selects its transition as a signal dispatch would: its
+				// guard holds and the join it may lead into is ready, or it fires nothing.
+				if enabled, err := e.transitionEnabled(lowerTrans, &event); err != nil || !enabled {
+					return dispatch, err
+				}
 			}
 			// A transition out of a state inside an orthogonal region is region-local:
 			// it must not tear down the sibling regions unless its target lies outside

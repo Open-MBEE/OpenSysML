@@ -700,7 +700,10 @@ into the join enabled by the occurrence being dispatched — its source active, 
 its trigger matching the same signal, call, timer expiry or change rise — whichever path fires
 the segment: a signal or call dispatch, a timer, a completion or a change poll
 (`state_join_waits_for_every_segment_enabled`, `state_join_segment_trigger_unmatched`,
-`state_join_time_segment_needs_same_occurrence`, `state_join_change_segments_rise_together`,
+`state_join_time_segment_needs_same_occurrence`,
+`state_join_time_segment_unsynchronized_reads_no_route` — the route out of the join is
+resolved only once the join is ready, so an expiry that holds it reads no guard beyond it —
+`state_join_change_segments_rise_together`,
 `state_join_change_segment_rises_alone` — one condition rising is one occurrence, so a later
 rise of the other segment's condition does not fire the join);
 `fireJoinIncoming` then fires the incoming segments one at a time, drawing the next from the
