@@ -28,5 +28,8 @@
   not stand in for that expiry, so it enables no time-triggered segment. A change condition's
   rise selects the segment it fires as a signal dispatch does, the join it leads into ready,
   before the route out of the join is resolved, so a rise that does not fire the join reads no
-  guard beyond it. The check oracle's snapshot of a run's draws is copied rather than aliased, so
-  a run restored to an earlier point no longer trims a snapshot taken after it.
+  guard beyond it. The draw among a source's transitions that selects a segment into a join is
+  recorded within the join's move, so a replay refused at a later draw among the segments undoes
+  that record too, where before it stood among the run's choices after the move was undone. The
+  check oracle's snapshot of a run's draws is copied rather than aliased, so a run restored to an
+  earlier point no longer trims a snapshot taken after it.

@@ -1373,6 +1373,84 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	}
 }
 
+// The draw among a source's transitions that selects the segment into a join is
+// a choice of the join's compound transition: a witness refused at a later join
+// draw leaves it unrecorded too, as though the occurrence had moved nothing.
+func TestReplayRefusedJoinDrawUndoesTheSegmentsChoice(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		attribute def Go;
+		state def Machine {
+			attribute log : String = "";
+			entry; then work;
+			state work parallel {
+				state left {
+					entry; then a;
+					state a;
+					state a2;
+					transition first a accept Go do assign log := log + "a2;" then a2;
+					transition first a accept Go do assign log := log + "a;" then sync;
+				}
+				state middle {
+					entry; then b;
+					state b;
+					transition first b accept Go do assign log := log + "b;" then sync;
+				}
+				state right {
+					entry; then c;
+					state c;
+					transition first c accept Go do assign log := log + "c;" then sync;
+				}
+			}
+			join sync;
+			state rest;
+			transition first sync do assign log := log + "sync;" then rest;
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	witness, err := ParseChoices("state a on accept Go -> 2->sync\non accept Go: a first of a, b, c\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run to the accept: %v", err)
+	}
+	exec.SendSignal("Go", nil)
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 4 {
+		t.Fatalf("error %T %v, want the join's second draw refused", err, err)
+	}
+	if got := FormatValue(exec.StateData()["log"]); got != `""` {
+		t.Errorf("log is %s after the refusal, want nothing written: the join is undone whole", got)
+	}
+	for _, name := range []string{"a", "b", "c"} {
+		if !exec.isActive(stateNamed(t, exec, name)) {
+			t.Errorf("%s is not active after the refusal, want every source where it was", name)
+		}
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Errorf("the run recorded %v, want no choice: the draw among a's transitions is undone with the join", choices)
+	}
+	for _, n := range ctx.Notes() {
+		if _, ok := n.(ChoicePoint); ok {
+			t.Errorf("the run noted %v, want the draw among a's transitions undone with the join", n)
+		}
+	}
+	if taken := ctx.ChoicesTaken(); len(taken) != 0 {
+		t.Errorf("the context holds %v, want no choice taken", taken)
+	}
+}
+
 // A choice move naming a branch the choice's guards do not enable is refused
 // where the choice is resolved, so the run neither takes a branch nor exits 0.
 func TestReplayRefusesAChoiceBranchNotEnabled(t *testing.T) {
