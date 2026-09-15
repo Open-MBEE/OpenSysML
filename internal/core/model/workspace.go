@@ -26,14 +26,12 @@ type Workspace struct {
 	onDisk map[string][]byte // last-known on-disk bytes, used when a doc is not open
 	open   map[string]bool   // names with an authoritative open buffer
 	index  *symbols.Index
-	// library is every library file the index held when the workspace was made,
-	// so a file a workspace document displaces can come back; libraryRoots names
-	// their top-level packages.
+	// library is every library file the index held at construction, so a displaced
+	// one can come back; libraryRoots names their top-level packages.
 	library      map[string]libraryFile
 	libraryRoots map[string]bool
-	// libBase is the frozen library index this workspace's index overlays, nil
-	// for a caller-built index; libAlone indexes the library by itself and
-	// libCatalog catalogues it, both made on first use (see libraryAlone).
+	// libBase is the frozen library index the index overlays, nil for a caller-built
+	// one; libAlone and libCatalog are the library alone, made on first use.
 	libBase    *symbols.Index
 	libAlone   *symbols.Index
 	libCatalog *identity.Catalog
@@ -132,9 +130,8 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 	return w
 }
 
-// libraryAlone is an index of the workspace's library files and nothing else,
-// with their catalog: the base the index overlays, or one built once from the
-// library files a caller's index held. Every workspace has one.
+// libraryAlone is an index of the library files alone, with their catalog: the
+// overlaid base, or one built once from the files a caller's index held.
 func (w *Workspace) libraryAlone() (*symbols.Index, *identity.Catalog) {
 	w.libOnce.Do(func() {
 		w.libAlone = w.libBase
