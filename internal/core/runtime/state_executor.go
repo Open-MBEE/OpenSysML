@@ -1749,6 +1749,10 @@ func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, t
 			}
 		}
 	} else {
+		// The body completed: its history keeps no substate to restore.
+		if record := e.history[target]; record != nil {
+			record.child = nil
+		}
 		onPath := e.branchesTo(nil, target)
 		for region, state := range onPath {
 			e.activeConfig.regionStates[region] = state
