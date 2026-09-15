@@ -107,9 +107,14 @@ func TestLoadedFileErrorsDoNotBlockOtherDocuments(t *testing.T) {
 	if note := s.submit(good, "package Good { part def B; }\n").Blocked.note(); note != "" {
 		t.Errorf("the prompt's error should not block a loaded file's document: %s", note)
 	}
-	// Within the transcript, an earlier typed error still gates the deeper checks.
+	// Within the transcript, an earlier typed error still gates the deeper checks,
+	// and is named once: a load in between does not make it worth saying again.
 	if s.Submit("package Also { part def C; }").Blocked.note() == "" {
 		t.Error("the typed unresolved reference should still be named as blocking the prompt")
+	}
+	s.submit(good, "package Good { part def B; }\n")
+	if note := s.Submit("package More { part def D; }").Blocked.note(); note != "" {
+		t.Errorf("the standing error was named already; a load does not renew it: %s", note)
 	}
 }
 
