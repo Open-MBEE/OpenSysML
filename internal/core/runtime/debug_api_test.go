@@ -1672,3 +1672,55 @@ func TestTraversalsLogEachSuccessionInOrder(t *testing.T) {
 		t.Errorf("traversals name %d token(s), want the fork's branches to be distinct", len(tokens))
 	}
 }
+
+// An advance stops as the debugged machine pauses at a breakpoint: a sibling due
+// at the same instant does not run before the advance returns, and runs once the
+// clock is driven again. The default policy runs the last registered waiter
+// first, so the debugged bulb is instantiated after its sibling.
+func TestAdvanceUntilHaltsBeforeSiblingsRun(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "lamp.sysml", parseAndBuild(t, lampSource))
+	root := idx.DocumentRoot("lamp.sysml")
+	bulbDef := resolveSymbol(t, root, "Bulb")
+	sibling, err := ctx.Instantiate(bulbDef)
+	if err != nil {
+		t.Fatalf("Instantiate sibling: %v", err)
+	}
+	debugged, err := ctx.Instantiate(bulbDef)
+	if err != nil {
+		t.Fatalf("Instantiate debugged: %v", err)
+	}
+	level := map[string]Value{"level": integerValue(7)}
+	for _, bulb := range []*Instance{sibling, debugged} {
+		runTo(t, root, ctx, bulb, "go", nil)
+		runTo(t, root, ctx, bulb, "Dim", level)
+		if leaf := lampLeaf(t, bulb); leaf != "dimmed" {
+			t.Fatalf("bulb #%d is in %s, want dimmed", bulb.ID, leaf)
+		}
+	}
+	machine := lampMachine(t, debugged)
+	machine.SetBreakpointAt(stateNamed(t, machine, "off"))
+
+	report, err := ctx.AdvanceUntil(10, func() bool { return machine.PausedAt() != nil })
+	if err != nil {
+		t.Fatalf("AdvanceUntil: %v", err)
+	}
+	if report.To != 5 || machine.PausedAt() == nil {
+		t.Fatalf("advance reached t=%v paused at %v, want held at t=5 on the breakpoint", report.To, machine.PausedAt())
+	}
+	if leaf := lampLeaf(t, sibling); leaf != "dimmed" {
+		t.Errorf("the sibling is in %s after the debugged machine paused, want still dimmed: it ran after the halt", leaf)
+	}
+
+	if !machine.Resume() {
+		t.Fatal("Resume: the machine was not paused")
+	}
+	if _, err := ctx.Advance(0); err != nil {
+		t.Fatalf("Advance(0): %v", err)
+	}
+	if leaf := lampLeaf(t, sibling); leaf != "off" {
+		t.Errorf("the sibling is in %s once the clock is driven again, want off", leaf)
+	}
+	if leaf := lampLeaf(t, debugged); leaf != "off" {
+		t.Errorf("the debugged machine is in %s after resuming, want off", leaf)
+	}
+}

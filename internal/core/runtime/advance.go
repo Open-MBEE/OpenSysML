@@ -104,13 +104,20 @@ func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceR
 	noted := ctx.run.NoteCount()
 	var progress dueProgress
 	for {
-		if _, err := ctx.runDue(nil, &progress); err != nil {
-			report.To = ctx.clock.now
-			return report.counting(progress, ctx.run.notes[noted:]), err
-		}
-		if halted != nil && halted() {
-			report.To = ctx.clock.now
-			return report.counting(progress, ctx.run.notes[noted:]), nil
+		// One executor at a time, so a halt is seen before the next due one runs.
+		for {
+			ran, _, err := ctx.stepDue(nil, &progress)
+			if err != nil {
+				report.To = ctx.clock.now
+				return report.counting(progress, ctx.run.notes[noted:]), err
+			}
+			if halted != nil && halted() {
+				report.To = ctx.clock.now
+				return report.counting(progress, ctx.run.notes[noted:]), nil
+			}
+			if !ran {
+				break
+			}
 		}
 		next, ok := ctx.clock.NextDue()
 		if !ok || next > deadline {
