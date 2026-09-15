@@ -303,10 +303,11 @@ function moveGesture(event: PointerEvent): void {
   showDragged(layoutCanvas(result, overridesOf(gesture.placements)));
 }
 
-// showDragged puts the canvas a gesture has changed on screen.
+// showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
+// diagram element, whose cursor is the one shown while it is, so the drag is marked there.
 function showDragged(shown: CanvasLayout): SVGSVGElement {
   const svg = drawCanvas(shown);
-  svg.classList.add("dragging");
+  diagram.classList.add("dragging");
   diagram.replaceChildren(svg);
   highlight(selectedNode);
   return svg;
@@ -342,8 +343,7 @@ function previewDrop(shift: boolean): void {
   for (const marked of diagram.querySelectorAll(".opensysml-drop-target")) {
     marked.classList.remove("opensysml-drop-target");
   }
-  const svg = diagram.querySelector("svg");
-  svg?.classList.toggle("refused", gesture.drop?.admits === false);
+  diagram.classList.toggle("refused", gesture.drop?.admits === false);
   if (gesture.drop) {
     if (gesture.drop.admits) {
       diagram.querySelector(`[data-opensysml-id="${cssEscape(gesture.drop.target.id)}"]`)?.classList.add("opensysml-drop-target");
@@ -366,6 +366,7 @@ function endGesture(event: PointerEvent): void {
   }
   const done = gesture;
   gesture = undefined;
+  diagram.classList.remove("dragging", "refused");
   if (done.placements) {
     clickedWaypoint = undefined;
     showStatus("");
@@ -400,6 +401,7 @@ function cancelGesture(): void {
   }
   const moved = gesture.placements !== undefined;
   gesture = undefined;
+  diagram.classList.remove("dragging", "refused");
   if (moved && layout) {
     show(layout);
     showStatus("");
