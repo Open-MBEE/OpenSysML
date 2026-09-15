@@ -82,8 +82,8 @@ verification failed and the entry was removed rather than re-pointed.
   fails unless `AsPublished` still matches each entry's line on disk, so
   re-vendoring the corpus invalidates the entry loudly instead of silently
   skipping the correction. A library read checks every declared line of the file
-  the same way before substituting any, and fails the read rather than serve the
-  file uncorrected.
+  the same way — the documented-only lines included — before substituting any,
+  and fails the read rather than serve the file unverified.
 - **One entry per line.** Two entries naming the same file and line are refused;
   several entries for one file are applied together.
 - **No entry without provenance.** A missing citation, a missing derivation, a

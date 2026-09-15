@@ -267,9 +267,19 @@ func (o *Overlay) Documented() []Entry {
 // Under returns the correcting entries whose file lies under a repository path,
 // keyed by the path relative to it, each file's entries in line order.
 func (o *Overlay) Under(dir string) map[string][]Entry {
+	return byRelativePath(dir, o.Corrections())
+}
+
+// EntriesUnder is Under for every entry, the documented-only ones included, so
+// a reader can verify each declared line and not only substitute the corrected.
+func (o *Overlay) EntriesUnder(dir string) map[string][]Entry {
+	return byRelativePath(dir, o.Entries())
+}
+
+func byRelativePath(dir string, entries []Entry) map[string][]Entry {
 	prefix := strings.TrimSuffix(dir, "/") + "/"
 	out := map[string][]Entry{}
-	for _, entry := range o.Corrections() {
+	for _, entry := range entries {
 		if rel, ok := strings.CutPrefix(entry.Path, prefix); ok {
 			out[rel] = append(out[rel], entry)
 		}
@@ -376,15 +386,16 @@ type Source interface {
 
 // LibrarySource serves the bundled standard library as published, with the
 // corrections declared under LibraryRoot applied to the files they name. The
-// published source is only ever read; a file whose declared line no longer
-// reads as published fails to load rather than loading uncorrected.
+// published source is only ever read; a file whose declared line, corrected or
+// documented only, no longer reads as published fails to load rather than
+// loading unverified.
 func (o *Overlay) LibrarySource(published Source) Source {
-	return &librarySource{published: published, corrections: o.Under(LibraryRoot)}
+	return &librarySource{published: published, entries: o.EntriesUnder(LibraryRoot)}
 }
 
 type librarySource struct {
-	published   Source
-	corrections map[string][]Entry
+	published Source
+	entries   map[string][]Entry
 }
 
 func (s *librarySource) List() []string { return s.published.List() }
@@ -394,7 +405,7 @@ func (s *librarySource) Read(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	entries, ok := s.corrections[name]
+	entries, ok := s.entries[name]
 	if !ok {
 		return content, nil
 	}

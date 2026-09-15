@@ -294,19 +294,25 @@ func (s fakeSource) Read(name string) ([]byte, error) {
 
 // TestLibrarySourceCorrectsOnlyTheDeclaredFiles is the library-side contract:
 // the published source is read, never written, files without an entry pass
-// through byte-identical, and a rotted entry fails the read.
+// through byte-identical, a documented-only entry is verified but substitutes
+// nothing, and a rotted entry of either kind fails the read.
 func TestLibrarySourceCorrectsOnlyTheDeclaredFiles(t *testing.T) {
 	entry := Entry{
 		ID: "T1", Heading: "a test entry", Path: LibraryRoot + "/Lib/Units.sysml", Line: 2,
 		AsPublished: "    attribute u = m^-2;", Corrected: "    attribute u = m^2;",
 		Citation: "KerML 7.4.9", Derivation: "test entry.",
 	}
-	overlay, err := New([]Entry{entry})
+	documented := Entry{
+		ID: "T2", Heading: "a test entry", Path: LibraryRoot + "/Lib/Noted.sysml", Line: 2,
+		AsPublished: "    attribute v = s^-2;", Citation: "KerML 7.4.9", Derivation: "no intended reading.",
+	}
+	overlay, err := New([]Entry{entry, documented})
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
 	published := fakeSource{
 		"Lib/Units.sysml": "package Units {\n    attribute u = m^-2;\n}\n",
+		"Lib/Noted.sysml": "package Noted {\n    attribute v = s^-2;\n}\n",
 		"Lib/Other.sysml": "package Other {}\n",
 	}
 	src := overlay.LibrarySource(published)
@@ -320,6 +326,9 @@ func TestLibrarySourceCorrectsOnlyTheDeclaredFiles(t *testing.T) {
 	if got, err := src.Read("Lib/Other.sysml"); err != nil || string(got) != published["Lib/Other.sysml"] {
 		t.Fatalf("a file without an entry was changed: %q, %v", got, err)
 	}
+	if got, err := src.Read("Lib/Noted.sysml"); err != nil || string(got) != published["Lib/Noted.sysml"] {
+		t.Fatalf("a documented-only entry changed the text: %q, %v", got, err)
+	}
 	if again, _ := published.Read("Lib/Units.sysml"); string(again) != published["Lib/Units.sysml"] {
 		t.Fatal("the published source was written to")
 	}
@@ -329,6 +338,10 @@ func TestLibrarySourceCorrectsOnlyTheDeclaredFiles(t *testing.T) {
 	published["Lib/Units.sysml"] = "package Units {\n    attribute u = m^-3;\n}\n"
 	if _, err := src.Read("Lib/Units.sysml"); err == nil {
 		t.Fatal("a file whose declared line changed was served uncorrected")
+	}
+	published["Lib/Noted.sysml"] = "package Noted {\n    attribute v = s^-3;\n}\n"
+	if _, err := src.Read("Lib/Noted.sysml"); err == nil {
+		t.Fatal("a file whose documented line changed was served unverified")
 	}
 }
 
@@ -352,6 +365,18 @@ func TestLibraryEntriesAreKeyedByLibraryPath(t *testing.T) {
 				t.Errorf("%s is documented only yet offered for substitution", entry.ID)
 			}
 		}
+	}
+	all, want := overlay.EntriesUnder(LibraryRoot), 0
+	for _, entry := range overlay.Entries() {
+		if strings.HasPrefix(entry.Path, LibraryRoot+"/") {
+			want++
+		}
+	}
+	if Count(all) != want {
+		t.Errorf("EntriesUnder(LibraryRoot) holds %d entries, want the %d library entries", Count(all), want)
+	}
+	if Count(all) <= Count(under) {
+		t.Errorf("EntriesUnder holds %d entries, Under %d: the documented-only library entries are not verified", Count(all), Count(under))
 	}
 }
 
