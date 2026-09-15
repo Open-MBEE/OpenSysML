@@ -1,0 +1,15 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go", "args": null},
+    {"signal": "Up", "args": null},
+    {"signal": "Leave", "args": null},
+    {"signal": "Back", "args": null},
+    {"signal": "Finish", "args": null}
+  ],
+  "finalState": "done",
+  "outputs": {
+    "log": {"type": "String", "value": "outer(entry);start(entry);start(exit);inner(entry);inner(exit);up(effect);outer(exit);leave(effect);away(entry);back(effect);outer(entry);default(effect);start(entry);start(exit);outer(exit);"}
+  }
+}
