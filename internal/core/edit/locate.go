@@ -63,10 +63,9 @@ func (m Model) element(i int, op Operation) (*symbols.Symbol, error) {
 	if op.Target != "" || op.Declaration.Len == 0 {
 		return m.declaredOnceIn(i, op.Target, op.DeclarationDoc)
 	}
-	root := m.Index.DocumentRoot(m.declarationDoc(op))
-	if root == nil {
-		return nil, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
-			Message: fmt.Sprintf("%s is no document of this workspace", op.DeclarationDoc)}
+	root, err := m.declarationRoot(i, op)
+	if err != nil {
+		return nil, err
 	}
 	if sym := root.DeclaredAt(op.Declaration); sym != nil {
 		return sym, nil
@@ -76,6 +75,17 @@ func (m Model) element(i int, op Operation) (*symbols.Symbol, error) {
 		OperationIndex: i,
 		Message:        fmt.Sprintf("nothing is declared at %s of this model", m.at(op)),
 	}
+}
+
+// declarationRoot is the root scope of the document an operation's Declaration
+// is a span of; a document the index does not hold is refused.
+func (m Model) declarationRoot(i int, op Operation) (*symbols.Scope, error) {
+	root := m.Index.DocumentRoot(m.declarationDoc(op))
+	if root == nil {
+		return nil, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+			Message: fmt.Sprintf("%s is no document of this workspace", op.DeclarationDoc)}
+	}
+	return root, nil
 }
 
 // declarationDoc names the document an operation's Declaration is a span of.

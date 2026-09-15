@@ -603,7 +603,11 @@ func (m Model) relocateDeclarations(later []Operation, first int) error {
 		if decl.Len == 0 {
 			continue
 		}
-		sym := m.Index.DocumentRoot(m.declarationDoc(later[j])).DeclaredFrom(decl.Offset)
+		root, err := m.declarationRoot(first+j, later[j])
+		if err != nil {
+			return err
+		}
+		sym := root.DeclaredFrom(decl.Offset)
 		if sym == nil {
 			return m.declarationGone(first+j, later[j])
 		}

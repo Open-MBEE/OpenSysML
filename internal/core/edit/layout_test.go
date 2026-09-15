@@ -550,6 +550,13 @@ func TestSetLayoutByDeclarationInAnotherDocumentFollowsEarlierOperations(t *test
 	if e := editError(t, err); e.Failure != FailureUnknownTarget || e.OperationIndex != 1 || !strings.Contains(e.Message, "of parts.sysml") {
 		t.Fatalf("a declaration the cascade removed: got %v", err)
 	}
+	_, err = Apply(m, []Operation{
+		Delete("Rotors::Rotor", true),
+		SetRouteAt(line, "", route).DeclaredIn("gone.sysml"),
+	})
+	if e := editError(t, err); e.Failure != FailureUnknownTarget || e.OperationIndex != 1 || !strings.Contains(e.Message, "gone.sysml is no document") {
+		t.Fatalf("a later declaration in no document: got %v", err)
+	}
 }
 
 // A Canvas sizes a view in the view's document.
