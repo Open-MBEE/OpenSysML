@@ -693,6 +693,21 @@ func (s *Session) maskedSpans() []source.Span {
 	return out
 }
 
+// foreignSpans locates the snippets analyzed in another document than the
+// submission's: a loaded file is a document of its own, so a load shares one
+// with nothing else, and the transcript only with the submissions typed at the prompt.
+func (s *Session) foreignSpans(load bool) []source.Span {
+	var out []source.Span
+	acc := 0
+	for _, sn := range s.snippets {
+		if load || sn.origin != "" {
+			out = append(out, source.Span{Offset: acc, Len: len(sn.src)})
+		}
+		acc += len(sn.src) + 1
+	}
+	return out
+}
+
 // diagnostics reports the analysis of every session document and the syntax errors
 // of the masked submissions, each moved to where its text sits in the session buffer.
 func (s *Session) diagnostics() []passes.Diagnostic {
@@ -866,6 +881,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 		Origins: s.origins(),
 		own:     own,
 		masked:  s.maskedSpans(),
+		foreign: s.foreignSpans(len(files) > 0 && files[0].Name != ""),
 		Notices: notices,
 	}
 	res.Blocked = s.blockedBy(res)

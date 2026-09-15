@@ -88,6 +88,31 @@ func TestPromptDoesNotSeeALoadedFilesRootImports(t *testing.T) {
 	}
 }
 
+// An error in a loaded file gates the deeper checks of that file only: a clean
+// prompt submission is fully analyzed in its own document, so no blocker is named
+// for it, and a later loaded file is not blocked by what the prompt holds either.
+func TestLoadedFileErrorsDoNotBlockOtherDocuments(t *testing.T) {
+	s := NewSession()
+	bad := tempFile(t, "bad.sysml", "package Bad { part a : Missing; }\n")
+	if _, _, err := s.runMeta("%load " + bad); err != nil {
+		t.Fatal(err)
+	}
+	res := s.Submit("package Clean { part def A; }")
+	if note := res.Blocked.note(); note != "" {
+		t.Errorf("a loaded file's error should not block the prompt's document: %s", note)
+	}
+
+	s.Submit("package Typed { part b : Absent; }")
+	good := tempFile(t, "good.sysml", "package Good { part def B; }\n")
+	if note := s.submit(good, "package Good { part def B; }\n").Blocked.note(); note != "" {
+		t.Errorf("the prompt's error should not block a loaded file's document: %s", note)
+	}
+	// Within the transcript, an earlier typed error still gates the deeper checks.
+	if s.Submit("package Also { part def C; }").Blocked.note() == "" {
+		t.Error("the typed unresolved reference should still be named as blocking the prompt")
+	}
+}
+
 // Every multi-file directory of the fixtures and of the OMG corpora reports the
 // same diagnostics loaded from the command line as opened in a workspace.
 func TestCommandLineLoadMatchesWorkspace(t *testing.T) {

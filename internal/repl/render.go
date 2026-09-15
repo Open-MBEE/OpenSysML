@@ -40,6 +40,10 @@ type Result struct {
 	// masked locates the submissions kept out of the analyzed buffer, whose
 	// findings gated no validation tier.
 	masked []source.Span
+
+	// foreign locates the snippets analyzed in another document than this
+	// submission's, whose findings gated none of its validation tiers.
+	foreign []source.Span
 }
 
 // Member is one top-level member of a session document; Offset is where the
@@ -478,7 +482,7 @@ func (n *blockerNote) record(key string) {
 func (r Result) analysisBlocked() *blocker {
 	var first *blocker
 	for _, d := range r.Diagnostics {
-		if !d.Blocking() || r.mine(d.Span) || r.isMasked(d.Span) {
+		if !d.Blocking() || r.mine(d.Span) || covers(r.masked, d.Span) || covers(r.foreign, d.Span) {
 			continue
 		}
 		if first != nil {
@@ -490,10 +494,10 @@ func (r Result) analysisBlocked() *blocker {
 	return first
 }
 
-// isMasked reports whether a span falls in a submission that was kept out of
-// the analyzed buffer, so its errors blocked nothing.
-func (r Result) isMasked(span source.Span) bool {
-	for _, m := range r.masked {
+// covers reports whether a span starts in one of the snippets located, whose
+// errors blocked nothing of the submission's.
+func covers(snippets []source.Span, span source.Span) bool {
+	for _, m := range snippets {
 		// End() included: a submission that does not close its own text is
 		// reported at its end as often as inside it.
 		if span.Offset >= m.Offset && span.Offset <= m.End() {
