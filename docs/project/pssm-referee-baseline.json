@@ -7,13 +7,13 @@
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
     "recorded": "2026-09-15",
-    "develop": "f2193d764ffd05145ebd0407f210f2dc3e5af56a"
+    "develop": "e6218449a097ab30ff2ec6d10982e1358b73a390"
   },
   "buckets": {
     "differs-by-design": 2,
-    "fail": 20,
+    "fail": 19,
     "not-expressible": 37,
-    "pass": 41,
+    "pass": 42,
     "terminate-gap": 3
   },
   "tests": [
@@ -148,16 +148,12 @@
       "name": "Transition 011 C",
       "area": "Transition",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)",
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
       ],
       "reached": [
-        "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)"
+        "S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)"
       ],
       "runs": 1
     },
