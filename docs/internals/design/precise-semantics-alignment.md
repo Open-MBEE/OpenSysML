@@ -698,7 +698,18 @@ transition deactivates its source; there is no kind attribute. *Runtime:* every 
 external: `state_composite_self_transition` ("exits the active substates innermost-first and the
 composite, runs the effect, then re-enters"), `state_composite_self_transition_in_region`,
 `state_composite_to_substate` ("is also external: the composite is exited and re-entered around
-the effect"). **agrees.**
+the effect"). The one target an external transition does not enter is one that is already
+active: PSSM §8.5.8 (`ExternalTransitionActivation`) enters the target only if it "can be
+entered" and otherwise, for a composite target, "the RegionActivation owning the
+sourceVertexActivation completes" — a transition from a substate into the composite state
+enclosing it exits the substate, runs its effect and leaves the region complete, so a composite
+with no other region completes and its completion transition fires (requirement *Transition
+011-C*, §9.3.3.7: the admitted trace ends with the transition's effect and the composite's
+exit, with no second entry of the composite). §7.18.3 orders the
+source's exit and the effect and says nothing of a target already active; the runtime follows
+PSSM: `moveTo` → `completeInto` when the exit boundary is the target itself
+(`state_transition_into_active_ancestor`, `state_transition_into_active_parallel_ancestor`).
+**agrees.**
 
 **SM36. Local transitions.** PSSM §8.5.8 / UML 14.2.3.8.1: a local transition whose source is a
 composite state and whose target is inside it does not exit the source; only the substates
