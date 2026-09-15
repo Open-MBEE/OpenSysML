@@ -34,12 +34,12 @@ func (s *Service) valueToProto(rt *runtime.Context, value runtime.Value, idx *sy
 	return out
 }
 
-func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) (*pb.Instance, []*pb.Instance) {
-	root, all := InstanceGraphToProto(rt, inst, idx)
-	for _, instance := range all {
+func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) InstanceGraph {
+	graph := InstanceGraphToProtoWithin(rt, inst, idx, DefaultGraphBounds())
+	for _, instance := range graph.All {
 		s.filterInstanceCapabilities(instance)
 	}
-	return root, all
+	return graph
 }
 
 func (s *Service) filterInstanceCapabilities(instance *pb.Instance) {

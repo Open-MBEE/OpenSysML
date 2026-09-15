@@ -344,19 +344,49 @@ func BaselineLines() []BaselineLine {
 // Block describes a generated named block and its consumer-relative links. Name
 // selects the template the block is rendered from; LinkPrefix is where that
 // template's links to the conformance records resolve from this consumer.
+//
+// A block's markers either stand on lines of their own, around generated lines,
+// or sit within one line around a generated span, so a figure can be generated
+// in the middle of a sentence or a table cell.
 type Block struct {
 	Path       string
 	Name       string
 	LinkPrefix string
 }
 
-// Blocks lists the consumers of the generated block: the two Markdown pages
-// sharing the prose census.
+// Blocks lists every generated block and the page carrying it.
 func Blocks() []Block {
-	return []Block{
+	blocks := []Block{
 		{Path: ReadmePath, Name: refereedBlockName, LinkPrefix: "docs/project/"},
 		{Path: ArchitecturePath, Name: refereedBlockName, LinkPrefix: "../project/"},
+		{Path: SpecCompliancePath, Name: libraryBlockName, LinkPrefix: ""},
 	}
+	return append(blocks, suiteBlocks()...)
+}
+
+// Figures are everything the generated blocks are rendered from: the committed
+// oracle baselines and library census, and the test-suite figures counted from the tree.
+type Figures struct {
+	Refereed RefereedCounts
+	Library  LibraryCensus
+	Suite    SuiteCounts
+}
+
+// ReadFigures reads the committed measurements and counts the tree under root.
+func ReadFigures(root string) (Figures, error) {
+	refereed, err := ReadRefereedCounts(root)
+	if err != nil {
+		return Figures{}, err
+	}
+	library, err := ReadLibraryCensus(root)
+	if err != nil {
+		return Figures{}, err
+	}
+	suite, err := ReadSuiteCounts(root)
+	if err != nil {
+		return Figures{}, err
+	}
+	return Figures{Refereed: refereed, Library: library, Suite: suite}, nil
 }
 
 // FindLine returns the index of the first line of content carrying the marker.
@@ -398,11 +428,11 @@ const (
 )
 
 // RewriteBlock replaces a named generated block and preserves surrounding bytes.
-func RewriteBlock(content string, spec Block, counts RefereedCounts) (string, error) {
+func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
 	begin := fmt.Sprintf(blockBeginFormat, spec.Name)
 	end := fmt.Sprintf(blockEndFormat, spec.Name)
 	lines := strings.Split(content, "\n")
-	beginIndex, endIndex := -1, -1
+	beginIndex, endIndex, inlineIndex := -1, -1, -1
 	for i, line := range lines {
 		switch strings.TrimSpace(line) {
 		case begin:
@@ -410,21 +440,46 @@ func RewriteBlock(content string, spec Block, counts RefereedCounts) (string, er
 				return "", fmt.Errorf("%s: duplicate %q marker", spec.Path, begin)
 			}
 			beginIndex = i
+			continue
 		case end:
 			if endIndex >= 0 {
 				return "", fmt.Errorf("%s: duplicate %q marker", spec.Path, end)
 			}
 			endIndex = i
+			continue
 		}
+		if !strings.Contains(line, begin) && !strings.Contains(line, end) {
+			continue
+		}
+		if inlineIndex >= 0 || strings.Count(line, begin) != 1 || strings.Count(line, end) != 1 {
+			return "", fmt.Errorf("%s: duplicate markers of the block named %q", spec.Path, spec.Name)
+		}
+		if strings.Index(line, end) < strings.Index(line, begin) {
+			return "", fmt.Errorf("%s:%d: the block named %q ends before it begins", spec.Path, i+1, spec.Name)
+		}
+		inlineIndex = i
 	}
-	if beginIndex < 0 || endIndex < 0 || endIndex <= beginIndex {
+	if inlineIndex >= 0 && (beginIndex >= 0 || endIndex >= 0) {
+		return "", fmt.Errorf("%s: duplicate markers of the block named %q", spec.Path, spec.Name)
+	}
+	if inlineIndex < 0 && (beginIndex < 0 || endIndex < 0 || endIndex <= beginIndex) {
 		return "", fmt.Errorf("%s: named block %q is missing or unterminated", spec.Path, spec.Name)
 	}
-	renderedBlock, err := renderBlock(spec, counts)
+	renderedBlock, err := renderBlock(spec, figures)
 	if err != nil {
 		return "", err
 	}
-	rendered := strings.Split(renderedBlock, "\n")
+	if inlineIndex >= 0 {
+		if strings.Contains(renderedBlock, "\n") {
+			return "", fmt.Errorf("%s:%d: the block named %q renders several lines and cannot sit within one", spec.Path, inlineIndex+1, spec.Name)
+		}
+		line := lines[inlineIndex]
+		from, to := strings.Index(line, begin), strings.Index(line, end)+len(end)
+		lines[inlineIndex] = line[:from] + begin + renderedBlock + end + line[to:]
+		return strings.Join(lines, "\n"), nil
+	}
+	rendered := append([]string{begin}, strings.Split(strings.TrimSuffix(renderedBlock, "\n"), "\n")...)
+	rendered = append(rendered, end)
 	updated := make([]string, 0, len(lines)-endIndex+beginIndex+len(rendered))
 	updated = append(updated, lines[:beginIndex]...)
 	updated = append(updated, rendered...)
@@ -432,15 +487,19 @@ func RewriteBlock(content string, spec Block, counts RefereedCounts) (string, er
 	return strings.Join(updated, "\n"), nil
 }
 
-// blockTemplateData is the baseline census plus the consumer's own link prefix.
+// blockTemplateData is the committed figures and the suite figures plus the
+// consumer's own link prefix.
 type blockTemplateData struct {
 	RefereedCounts
+	Library    LibraryCensus
+	Table      string
+	Suite      suiteFigures
 	Name       string
 	LinkPrefix string
 }
 
-const refereedBlockTemplateText = "<!-- doc-counts:begin {{.Name}} -->\n" +
-	"**Measured against the pinned reference** (`PILOT_TAG={{.PilotTag}}`, artifact `{{.PilotArtifact}}`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.\n\n" +
+// A template renders the text between a block's markers, without them.
+const refereedBlockTemplateText = "**Measured against the pinned reference** (`PILOT_TAG={{.PilotTag}}`, artifact `{{.PilotArtifact}}`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.\n\n" +
 	"- **Corpus agreement:** {{.FilesAgreeing}} of {{.Files}} files agree diagnostic-by-diagnostic; {{.OursOnly}} diagnostics are ours alone and {{.PilotOnly}} the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential]({{.LinkPrefix}}pilot-differential.md), `go run ./cmd/pilot-diff`).\n" +
 	"- **Declared-diagnostic silence:** of the {{.DeclaredErrors}} declared `errors` rows in the reference's own Xpect suites, we report nothing for {{.Silent}}. {{.DeclaredAgree}} we report word-for-word; {{.WordingOnly}} wording-only and {{.LocationOnly}} location-only differences are agreement in substance and are not counted as gaps; {{.SeverityDiffers}} more we report as a warning and {{.Elsewhere}} elsewhere in the file ([Xpect oracle]({{.LinkPrefix}}pilot-xpect.md), `go run ./cmd/pilot-xpect`).\n" +
 	"- **Scope agreement:** {{.ScopeExact}} of {{.ScopeTotal}} declared scope assertions match exactly (same source).\n" +
@@ -448,21 +507,38 @@ const refereedBlockTemplateText = "<!-- doc-counts:begin {{.Name}} -->\n" +
 	"- **Declared errata:** the registry declares {{.Errata.Registry}} defect(s) in the published reference material — {{.Errata.Corrections}} with a specification-derived correction, {{.Errata.Documented}} documented without one, since no intended reading can be inferred ([OMG issues]({{.LinkPrefix}}omg-issues.md), `internal/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports {{.Errata.FilesAgreeing}} of {{.Errata.Files}} files agreeing, {{.Errata.OursOnly}} diagnostics ours alone and {{.Errata.PilotOnly}} the reference's alone, {{.Errata.Silent}} declared rows we are silent on, and {{.Errata.RejectPilotOnly}} of {{.Errata.RejectCases}} authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.\n" +
 	"- **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance]({{.LinkPrefix}}spec-compliance.md) counts them.\n\n" +
 	"What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.\n\n" +
-	"**Row bookkeeping:** the ✅/⚠️/❌/⛔ status of each tracked rule stays in [spec compliance]({{.LinkPrefix}}spec-compliance.md) as a census of our own row list, counted when the documentation site is built rather than committed. It moves when rows are rewritten and does not move when an oracle does, so it is not the progress measure.\n" +
-	"<!-- doc-counts:end {{.Name}} -->"
+	"**Row bookkeeping:** the ✅/⚠️/❌/⛔ status of each tracked rule stays in [spec compliance]({{.LinkPrefix}}spec-compliance.md) as a census of our own row list, counted when the documentation site is built rather than committed. It moves when rows are rewritten and does not move when an oracle does, so it is not the progress measure."
 
 // blockTemplates is the one template per generated block name. A block naming no
 // template is reported rather than written, so a consumer cannot be added without one.
-var blockTemplates = map[string]*template.Template{
-	refereedBlockName: template.Must(template.New(refereedBlockName).Parse(refereedBlockTemplateText)),
+var blockTemplates = parseBlockTemplates(map[string]string{
+	refereedBlockName: refereedBlockTemplateText,
+	libraryBlockName:  libraryBlockTemplateText,
+}, suiteBlockTemplateTexts)
+
+func parseBlockTemplates(texts ...map[string]string) map[string]*template.Template {
+	parsed := map[string]*template.Template{}
+	for _, group := range texts {
+		for name, text := range group {
+			parsed[name] = template.Must(template.New(name).Parse(text))
+		}
+	}
+	return parsed
 }
 
-func renderBlock(spec Block, counts RefereedCounts) (string, error) {
+func renderBlock(spec Block, figures Figures) (string, error) {
 	blockTemplate, ok := blockTemplates[spec.Name]
 	if !ok {
 		return "", fmt.Errorf("%s: no template renders the block named %q", spec.Path, spec.Name)
 	}
-	data := blockTemplateData{RefereedCounts: counts, Name: spec.Name, LinkPrefix: spec.LinkPrefix}
+	data := blockTemplateData{
+		RefereedCounts: figures.Refereed,
+		Library:        figures.Library,
+		Table:          libraryTable(figures.Library),
+		Suite:          figuresOf(figures.Suite),
+		Name:           spec.Name,
+		LinkPrefix:     spec.LinkPrefix,
+	}
 	var rendered strings.Builder
 	if err := blockTemplate.Execute(&rendered, data); err != nil {
 		return "", fmt.Errorf("render %s: %w", spec.Name, err)

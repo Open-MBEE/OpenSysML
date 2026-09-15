@@ -156,6 +156,33 @@ public interface DocumentValueOrBuilder extends
 
   /**
    * <pre>
+   * an object Instantiate created; bound and answered
+   * </pre>
+   *
+   * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+   * @return Whether the object field is set.
+   */
+  boolean hasObject();
+  /**
+   * <pre>
+   * an object Instantiate created; bound and answered
+   * </pre>
+   *
+   * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+   * @return The object.
+   */
+  org.openmbee.opensysml.proto.DocumentObject getObject();
+  /**
+   * <pre>
+   * an object Instantiate created; bound and answered
+   * </pre>
+   *
+   * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+   */
+  org.openmbee.opensysml.proto.DocumentObjectOrBuilder getObjectOrBuilder();
+
+  /**
+   * <pre>
    * Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
    * </pre>
    *

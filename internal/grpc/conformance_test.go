@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
 )
 
 // expectedValue is the fixture encoding of a pb.Value: the oneof field name
@@ -60,6 +61,14 @@ type conformanceCase struct {
 	// ExecuteState
 	Events []string `json:"events,omitempty"`
 
+	// RunDocumentQuery: the symbols Instantiate creates objects of first, in
+	// order, then the query and its bindings.
+	Instantiate     []string          `json:"instantiate,omitempty"`
+	QueryID         string            `json:"query_id,omitempty"`
+	Bindings        []expectedBinding `json:"bindings,omitempty"`
+	ExpectedColumns []string          `json:"expected_columns,omitempty"`
+	ExpectedRows    []expectedRow     `json:"expected_rows,omitempty"`
+
 	ExpectedResult        *expectedValue                  `json:"expected_result,omitempty"`
 	ExpectedFeatureValues map[string]expectedFeatureValue `json:"expected_feature_values,omitempty"`
 	ExpectedInstanceCount int                             `json:"expected_instance_count,omitempty"`
@@ -75,7 +84,7 @@ type conformanceCase struct {
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
 
 	// ExpectedError, when set, requires the RPC to report an in-band error
-	// containing this substring.
+	// containing this substring (a status error, for RunDocumentQuery).
 	ExpectedError string `json:"expected_error,omitempty"`
 }
 
@@ -107,10 +116,10 @@ func TestGRPCConformance(t *testing.T) {
 
 	cases := 0
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") || strings.HasSuffix(entry.Name(), ".check.expected.json") {
+		caseName, ok := fixtures.CaseName(entry.Name())
+		if entry.IsDir() || !ok {
 			continue
 		}
-		caseName := strings.TrimSuffix(entry.Name(), ".expected.json")
 		cases++
 		t.Run(caseName, func(t *testing.T) {
 			runGRPCConformanceCase(t, conformanceDir, caseName)
@@ -168,6 +177,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runExecuteStateCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ApplyEdits":
 		runApplyEditsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "RunDocumentQuery":
+		runRunDocumentQueryCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}

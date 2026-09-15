@@ -31,7 +31,8 @@ final class Normalizer {
           "sysml.Instance.id",
           "sysml.Value.instance_id",
           "sysml.Verdict.instance_id",
-          "sysml.Function.self_id");
+          "sysml.Function.self_id",
+          "sysml.DocumentObject.instance_id");
 
   private final String modelHash;
   private final Map<Long, String> labels = new HashMap<>();

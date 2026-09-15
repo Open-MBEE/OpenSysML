@@ -178,7 +178,14 @@ func (ctx *Context) noValueError(val Value, node ast.Node) *NoValueError {
 // own. The object becomes what the usage denotes from then on, so an expression
 // naming the usage or a feature path under it reads this object as it was run.
 func (ctx *Context) Instantiate(sym *symbols.Symbol) (*Instance, error) {
-	mark := len(ctx.created)
+	return ctx.InstantiateRead(sym, nil)
+}
+
+// InstantiateRead is Instantiate with read run over the new object before it is
+// returned, as one creation: a read that fails abandons the object with all it
+// materialized, so a context under a bound is left as it was.
+func (ctx *Context) InstantiateRead(sym *symbols.Symbol, read func(*Instance) error) (*Instance, error) {
+	mark, attached := len(ctx.created), len(ctx.objectBehaviors)
 	inst, err := ctx.materialize(sym, 0, nil, "")
 	if err != nil {
 		ctx.abandonInstancesSince(mark)
@@ -188,6 +195,11 @@ func (ctx *Context) Instantiate(sym *symbols.Symbol) (*Instance, error) {
 	// reaches this object; a failed start abandons the occurrence with it.
 	inst.explicit = true
 	prior, hadPrior := ctx.occurrences[sym]
+	restore := func() {
+		if hadPrior {
+			ctx.occurrences[sym] = prior
+		}
+	}
 	if ctx.registersOccurrence(sym) {
 		ctx.noteProbeUndo(func() {
 			if hadPrior {
@@ -199,10 +211,15 @@ func (ctx *Context) Instantiate(sym *symbols.Symbol) (*Instance, error) {
 		ctx.occurrences[sym] = []int64{inst.ID}
 	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
-		if hadPrior {
-			ctx.occurrences[sym] = prior
-		}
+		restore()
 		return nil, err
+	}
+	if read != nil {
+		if err := read(inst); err != nil {
+			ctx.abandonCreationSince(mark, attached)
+			restore()
+			return nil, err
+		}
 	}
 	return inst, nil
 }
@@ -299,6 +316,9 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 
 	// Check step limit (I3)
 	if err := ctx.incrementStep(); err != nil {
+		return nil, err
+	}
+	if err := ctx.instanceRoom(); err != nil {
 		return nil, err
 	}
 

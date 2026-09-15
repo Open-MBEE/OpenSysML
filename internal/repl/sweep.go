@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -482,7 +483,7 @@ func (r *rowObjects) object(ref freshRef) (*runtime.Instance, error) {
 		}
 		r.made[ref.root] = root
 	}
-	inst, _, err := r.s.walkObjectPath(r.ctx, root, ref.name, ref.path)
+	inst, _, err := r.s.walker(r.ctx).Walk(root, ref.name, ref.path)
 	if err != nil {
 		return nil, err
 	}
@@ -512,12 +513,12 @@ func (s *Session) sweptObject(ctx *runtime.Context, text string) (freshRef, erro
 	if err != nil {
 		return freshRef{}, err
 	}
-	ref, err := parseObjectRef(text)
+	ref, err := objref.Parse(text)
 	if err != nil {
 		return freshRef{}, err
 	}
-	if ref.id > 0 {
-		return freshRef{name: label, label: label, root: ref.id, held: held.ID, imaged: true}, nil
+	if ref.ID > 0 {
+		return freshRef{name: label, label: label, root: ref.ID, held: held.ID, imaged: true}, nil
 	}
 	root, fqn, path, err := s.namedRoot(ref)
 	if err != nil {

@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -94,6 +96,60 @@ func TestCacheLRUEviction(t *testing.T) {
 	_, ok = cache.Get("hash3")
 	if !ok {
 		t.Error("expected hash3 to be cached")
+	}
+}
+
+// TestCacheAddKeepsTheFirst: Add under a cached hash hands back the entry
+// already there and leaves it in place, where Put would replace it.
+func TestCacheAddKeepsTheFirst(t *testing.T) {
+	cache := mustNewCache(t, 2)
+	first := &CachedModel{Documents: []*CachedDocument{{Root: &ast.RootNamespace{}}}}
+	second := &CachedModel{Documents: []*CachedDocument{{Root: &ast.RootNamespace{}}}}
+
+	if got := cache.Add("hash", first); got != first {
+		t.Fatal("Add of a new hash did not hand back the model added")
+	}
+	if got := cache.Add("hash", second); got != first {
+		t.Error("Add under a cached hash did not hand back the entry already cached")
+	}
+	if got, _ := cache.Get("hash"); got != first {
+		t.Error("Add under a cached hash replaced the entry")
+	}
+
+	// Adding refreshes the entry: it is the most recently used, so it outlives
+	// one that was only read earlier.
+	cache.Add("other", &CachedModel{})
+	cache.Add("hash", second)
+	cache.Add("third", &CachedModel{})
+	if _, ok := cache.Get("other"); ok {
+		t.Error("expected other to be evicted before the re-added hash")
+	}
+	if got, ok := cache.Get("hash"); !ok || got != first {
+		t.Error("expected the first entry under hash to survive")
+	}
+}
+
+// TestParseModelSharesOneEntry: parses of one model racing to the cache all
+// come back with the same entry, so objects held on it stay reachable.
+func TestParseModelSharesOneEntry(t *testing.T) {
+	srv := mustNewService(t, 10)
+	const workers = 16
+	models := make([]*CachedModel, workers)
+	var wg sync.WaitGroup
+	for i := range models {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, models[i] = srv.parseModel([]sourceInput{{
+				name: "lot.sysml", language: "sysml", content: "package Lot { part def Cone; part cone : Cone; }", kind: source.KindSysML,
+			}}, conformance.ModeOf(false))
+		}(i)
+	}
+	wg.Wait()
+	for i, model := range models[1:] {
+		if model != models[0] {
+			t.Fatalf("parse %d came back with an entry of its own", i+1)
+		}
 	}
 }
 

@@ -7,8 +7,8 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
-// Cell is one typed document-query value: Element, String, Int, Real, Bool,
-// Infinity or DocumentVerdict. A type switch over them is exhaustive.
+// Cell is one typed document-query value: Element, Object, String, Int, Real,
+// Bool, Infinity or DocumentVerdict. A type switch over them is exhaustive.
 type Cell interface {
 	isCell()
 }
@@ -21,6 +21,29 @@ type Element struct {
 	// Type is its metamodel type name ("PartUsage", …); answered, never bound.
 	Type string
 }
+
+// Object is an object the service holds for the model, created by Instantiate.
+// Bound, it names the object by Path when set and by ID otherwise (both must
+// then name one object); answered, it carries ID, Path and Element.
+type Object struct {
+	// ID is the object's id, as Instantiate answered it.
+	ID int64
+	// Path is the object by the label a session reaches it under: the qualified
+	// name it was instantiated as ("Garage::car"), its id ("#2"), or a path
+	// through feature values of either ("Garage::car.wheels[2]", "#2.wheels[2]";
+	// indexes count from 1).
+	Path string
+	// Element is the usage the object is held under, its definition or usage;
+	// answered, ignored when bound.
+	Element Element
+}
+
+// ObjectByID names a held object by the id Instantiate answered.
+func ObjectByID(id int64) Object { return Object{ID: id} }
+
+// ObjectByPath names a held object by name, id or path ("car", "#2",
+// "car.wheels[2]").
+func ObjectByPath(path string) Object { return Object{Path: path} }
 
 // Infinity is an unbounded multiplicity. It is answered, never bound.
 type Infinity struct{}
@@ -50,6 +73,7 @@ type DocumentVerdict struct {
 }
 
 func (Element) isCell()         { /* marker: closed Cell set */ }
+func (Object) isCell()          { /* marker: closed Cell set */ }
 func (Infinity) isCell()        { /* marker: closed Cell set */ }
 func (DocumentVerdict) isCell() { /* marker: closed Cell set */ }
 func (String) isCell()          { /* marker: closed Cell set */ }
@@ -59,6 +83,15 @@ func (Bool) isCell()            { /* marker: closed Cell set */ }
 
 // String is the element as a binding names it, its qualified name.
 func (e Element) String() string { return e.ID }
+
+// String is the object as a session names it: its path when it has one, else
+// its id ("#2").
+func (o Object) String() string {
+	if o.Path != "" {
+		return o.Path
+	}
+	return "#" + strconv.FormatInt(o.ID, 10)
+}
 
 // String reports an unbounded multiplicity as the notation writes it.
 func (Infinity) String() string { return "*" }
@@ -95,9 +128,13 @@ type Rows struct {
 
 // Row is one selected element and its projected cells, one per column.
 type Row struct {
-	// Element is the element the row is about; for a row a `Verdicts` query
-	// answered, the assertion checked.
+	// Element is the element the row is about: for an object row, the usage the
+	// object is held under; for a row a `Verdicts` query answered, the assertion
+	// checked.
 	Element Element
+	// Object is the object a row over held objects is about — one an `Objects`
+	// query enumerated or a bound object's part — nil for any other row.
+	Object *Object
 	// Verdict is the verdict a row a `Verdicts` query answered carries; nil for
 	// any other row.
 	Verdict *DocumentVerdict
@@ -140,6 +177,9 @@ func (c *client) RunDocumentQuery(
 		switch selected := cellFromProto(row.Element).(type) {
 		case Element:
 			converted.Element = selected
+		case Object:
+			converted.Element = selected.Element
+			converted.Object = &selected
 		case DocumentVerdict:
 			converted.Element = selected.Assertion
 			converted.Verdict = &selected
@@ -176,6 +216,13 @@ func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "a binding carries no value"}
 	case Element:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_ElementId{ElementId: value.ID}}, nil
+	case Object:
+		if value.ID == 0 && value.Path == "" {
+			return nil, &StatusError{Code: CodeInvalidArgument, Message: "an object is bound by id or by path; neither was given"}
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Object{
+			Object: &pb.DocumentObject{InstanceId: value.ID, Path: value.Path},
+		}}, nil
 	case String:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_StringValue{StringValue: string(value)}}, nil
 	case Int:
@@ -211,6 +258,12 @@ func cellFromProto(value *pb.DocumentValue) Cell {
 		return Real(kind.RealValue)
 	case *pb.DocumentValue_BoolValue:
 		return Bool(kind.BoolValue)
+	case *pb.DocumentValue_Object:
+		object := Object{ID: kind.Object.GetInstanceId(), Path: kind.Object.GetPath()}
+		if element, ok := cellFromProto(kind.Object.GetElement()).(Element); ok {
+			object.Element = element
+		}
+		return object
 	case *pb.DocumentValue_Infinity:
 		return Infinity{}
 	case *pb.DocumentValue_Verdict:
@@ -240,6 +293,8 @@ func CellText(cell Cell) string {
 		return ""
 	case Element:
 		return value.ID
+	case Object:
+		return value.String()
 	case String:
 		return string(value)
 	case Int:

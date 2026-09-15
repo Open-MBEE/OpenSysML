@@ -8,9 +8,9 @@ package org.openmbee.opensysml.proto;
 /**
  * <pre>
  * DocumentValue is one typed document-query value. A request binds a model
- * element by qualified name in element_id; a response also says what the
- * element is in element_type. `infinity` denotes an unbounded multiplicity and
- * is only ever answered, never bound.
+ * element by qualified name in element_id, or an object the service holds in
+ * object; a response also says what the element is in element_type. `infinity`
+ * denotes an unbounded multiplicity and is only ever answered, never bound.
  * </pre>
  *
  * Protobuf type {@code sysml.DocumentValue}
@@ -65,6 +65,7 @@ private static final long serialVersionUID = 0L;
     INFINITY(6),
     QUANTITY(8),
     VERDICT(9),
+    OBJECT(10),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -90,6 +91,7 @@ private static final long serialVersionUID = 0L;
         case 6: return INFINITY;
         case 8: return QUANTITY;
         case 9: return VERDICT;
+        case 10: return OBJECT;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -391,6 +393,49 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.DocumentVerdict.getDefaultInstance();
   }
 
+  public static final int OBJECT_FIELD_NUMBER = 10;
+  /**
+   * <pre>
+   * an object Instantiate created; bound and answered
+   * </pre>
+   *
+   * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+   * @return Whether the object field is set.
+   */
+  @java.lang.Override
+  public boolean hasObject() {
+    return kindCase_ == 10;
+  }
+  /**
+   * <pre>
+   * an object Instantiate created; bound and answered
+   * </pre>
+   *
+   * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+   * @return The object.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentObject getObject() {
+    if (kindCase_ == 10) {
+       return (org.openmbee.opensysml.proto.DocumentObject) kind_;
+    }
+    return org.openmbee.opensysml.proto.DocumentObject.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * an object Instantiate created; bound and answered
+   * </pre>
+   *
+   * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentObjectOrBuilder getObjectOrBuilder() {
+    if (kindCase_ == 10) {
+       return (org.openmbee.opensysml.proto.DocumentObject) kind_;
+    }
+    return org.openmbee.opensysml.proto.DocumentObject.getDefaultInstance();
+  }
+
   public static final int ELEMENT_TYPE_FIELD_NUMBER = 7;
   @SuppressWarnings("serial")
   private volatile java.lang.Object elementType_ = "";
@@ -483,6 +528,9 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 9) {
       output.writeMessage(9, (org.openmbee.opensysml.proto.DocumentVerdict) kind_);
     }
+    if (kindCase_ == 10) {
+      output.writeMessage(10, (org.openmbee.opensysml.proto.DocumentObject) kind_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -528,6 +576,10 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 9) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(9, (org.openmbee.opensysml.proto.DocumentVerdict) kind_);
+    }
+    if (kindCase_ == 10) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(10, (org.openmbee.opensysml.proto.DocumentObject) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -581,6 +633,10 @@ private static final long serialVersionUID = 0L;
         if (!getVerdict()
             .equals(other.getVerdict())) return false;
         break;
+      case 10:
+        if (!getObject()
+            .equals(other.getObject())) return false;
+        break;
       case 0:
       default:
     }
@@ -633,6 +689,10 @@ private static final long serialVersionUID = 0L;
       case 9:
         hash = (37 * hash) + VERDICT_FIELD_NUMBER;
         hash = (53 * hash) + getVerdict().hashCode();
+        break;
+      case 10:
+        hash = (37 * hash) + OBJECT_FIELD_NUMBER;
+        hash = (53 * hash) + getObject().hashCode();
         break;
       case 0:
       default:
@@ -737,9 +797,9 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * DocumentValue is one typed document-query value. A request binds a model
-   * element by qualified name in element_id; a response also says what the
-   * element is in element_type. `infinity` denotes an unbounded multiplicity and
-   * is only ever answered, never bound.
+   * element by qualified name in element_id, or an object the service holds in
+   * object; a response also says what the element is in element_type. `infinity`
+   * denotes an unbounded multiplicity and is only ever answered, never bound.
    * </pre>
    *
    * Protobuf type {@code sysml.DocumentValue}
@@ -781,6 +841,9 @@ private static final long serialVersionUID = 0L;
       if (verdictBuilder_ != null) {
         verdictBuilder_.clear();
       }
+      if (objectBuilder_ != null) {
+        objectBuilder_.clear();
+      }
       elementType_ = "";
       kindCase_ = 0;
       kind_ = null;
@@ -818,7 +881,7 @@ private static final long serialVersionUID = 0L;
 
     private void buildPartial0(org.openmbee.opensysml.proto.DocumentValue result) {
       int from_bitField0_ = bitField0_;
-      if (((from_bitField0_ & 0x00000100) != 0)) {
+      if (((from_bitField0_ & 0x00000200) != 0)) {
         result.elementType_ = elementType_;
       }
     }
@@ -833,6 +896,10 @@ private static final long serialVersionUID = 0L;
       if (kindCase_ == 9 &&
           verdictBuilder_ != null) {
         result.kind_ = verdictBuilder_.build();
+      }
+      if (kindCase_ == 10 &&
+          objectBuilder_ != null) {
+        result.kind_ = objectBuilder_.build();
       }
     }
 
@@ -850,7 +917,7 @@ private static final long serialVersionUID = 0L;
       if (other == org.openmbee.opensysml.proto.DocumentValue.getDefaultInstance()) return this;
       if (!other.getElementType().isEmpty()) {
         elementType_ = other.elementType_;
-        bitField0_ |= 0x00000100;
+        bitField0_ |= 0x00000200;
         onChanged();
       }
       switch (other.getKindCase()) {
@@ -888,6 +955,10 @@ private static final long serialVersionUID = 0L;
         }
         case VERDICT: {
           mergeVerdict(other.getVerdict());
+          break;
+        }
+        case OBJECT: {
+          mergeObject(other.getObject());
           break;
         }
         case KIND_NOT_SET: {
@@ -954,7 +1025,7 @@ private static final long serialVersionUID = 0L;
             } // case 48
             case 58: {
               elementType_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000100;
+              bitField0_ |= 0x00000200;
               break;
             } // case 58
             case 66: {
@@ -971,6 +1042,13 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 9;
               break;
             } // case 74
+            case 82: {
+              input.readMessage(
+                  internalGetObjectFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 10;
+              break;
+            } // case 82
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1737,6 +1815,184 @@ private static final long serialVersionUID = 0L;
       return verdictBuilder_;
     }
 
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentObject, org.openmbee.opensysml.proto.DocumentObject.Builder, org.openmbee.opensysml.proto.DocumentObjectOrBuilder> objectBuilder_;
+    /**
+     * <pre>
+     * an object Instantiate created; bound and answered
+     * </pre>
+     *
+     * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+     * @return Whether the object field is set.
+     */
+    @java.lang.Override
+    public boolean hasObject() {
+      return kindCase_ == 10;
+    }
+    /**
+     * <pre>
+     * an object Instantiate created; bound and answered
+     * </pre>
+     *
+     * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+     * @return The object.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.DocumentObject getObject() {
+      if (objectBuilder_ == null) {
+        if (kindCase_ == 10) {
+          return (org.openmbee.opensysml.proto.DocumentObject) kind_;
+        }
+        return org.openmbee.opensysml.proto.DocumentObject.getDefaultInstance();
+      } else {
+        if (kindCase_ == 10) {
+          return objectBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.DocumentObject.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * an object Instantiate created; bound and answered
+     * </pre>
+     *
+     * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+     */
+    public Builder setObject(org.openmbee.opensysml.proto.DocumentObject value) {
+      if (objectBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        objectBuilder_.setMessage(value);
+      }
+      kindCase_ = 10;
+      return this;
+    }
+    /**
+     * <pre>
+     * an object Instantiate created; bound and answered
+     * </pre>
+     *
+     * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+     */
+    public Builder setObject(
+        org.openmbee.opensysml.proto.DocumentObject.Builder builderForValue) {
+      if (objectBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        objectBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 10;
+      return this;
+    }
+    /**
+     * <pre>
+     * an object Instantiate created; bound and answered
+     * </pre>
+     *
+     * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+     */
+    public Builder mergeObject(org.openmbee.opensysml.proto.DocumentObject value) {
+      if (objectBuilder_ == null) {
+        if (kindCase_ == 10 &&
+            kind_ != org.openmbee.opensysml.proto.DocumentObject.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.DocumentObject.newBuilder((org.openmbee.opensysml.proto.DocumentObject) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 10) {
+          objectBuilder_.mergeFrom(value);
+        } else {
+          objectBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 10;
+      return this;
+    }
+    /**
+     * <pre>
+     * an object Instantiate created; bound and answered
+     * </pre>
+     *
+     * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+     */
+    public Builder clearObject() {
+      if (objectBuilder_ == null) {
+        if (kindCase_ == 10) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 10) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        objectBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * an object Instantiate created; bound and answered
+     * </pre>
+     *
+     * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+     */
+    public org.openmbee.opensysml.proto.DocumentObject.Builder getObjectBuilder() {
+      return internalGetObjectFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * an object Instantiate created; bound and answered
+     * </pre>
+     *
+     * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.DocumentObjectOrBuilder getObjectOrBuilder() {
+      if ((kindCase_ == 10) && (objectBuilder_ != null)) {
+        return objectBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 10) {
+          return (org.openmbee.opensysml.proto.DocumentObject) kind_;
+        }
+        return org.openmbee.opensysml.proto.DocumentObject.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * an object Instantiate created; bound and answered
+     * </pre>
+     *
+     * <code>.sysml.DocumentObject object = 10 [json_name = "object"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentObject, org.openmbee.opensysml.proto.DocumentObject.Builder, org.openmbee.opensysml.proto.DocumentObjectOrBuilder> 
+        internalGetObjectFieldBuilder() {
+      if (objectBuilder_ == null) {
+        if (!(kindCase_ == 10)) {
+          kind_ = org.openmbee.opensysml.proto.DocumentObject.getDefaultInstance();
+        }
+        objectBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.DocumentObject, org.openmbee.opensysml.proto.DocumentObject.Builder, org.openmbee.opensysml.proto.DocumentObjectOrBuilder>(
+                (org.openmbee.opensysml.proto.DocumentObject) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 10;
+      onChanged();
+      return objectBuilder_;
+    }
+
     private java.lang.Object elementType_ = "";
     /**
      * <pre>
@@ -1792,7 +2048,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       elementType_ = value;
-      bitField0_ |= 0x00000100;
+      bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
@@ -1806,7 +2062,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearElementType() {
       elementType_ = getDefaultInstance().getElementType();
-      bitField0_ = (bitField0_ & ~0x00000100);
+      bitField0_ = (bitField0_ & ~0x00000200);
       onChanged();
       return this;
     }
@@ -1824,7 +2080,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       elementType_ = value;
-      bitField0_ |= 0x00000100;
+      bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }

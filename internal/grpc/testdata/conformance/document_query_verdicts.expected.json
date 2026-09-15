@@ -1,0 +1,23 @@
+{
+  "rpc": "RunDocumentQuery",
+  "instantiate": ["Garage::car"],
+  "query_id": "Garage::Checks",
+  "bindings": [
+    {"parameter": "root", "values": [{"kind": "object", "value": {"path": "car"}}]}
+  ],
+  "expected_columns": ["path", "verdict"],
+  "expected_rows": [
+    {
+      "element": {"kind": "verdict", "value": "assert constraint light on Garage::car: holds"},
+      "cells": [[{"kind": "string_value", "value": "Garage::car"}], [{"kind": "string_value", "value": "holds"}]]
+    },
+    {
+      "element": {"kind": "verdict", "value": "assert constraint inflated on Garage::car.wheels[1]: holds"},
+      "cells": [[{"kind": "string_value", "value": "Garage::car.wheels[1]"}], [{"kind": "string_value", "value": "holds"}]]
+    },
+    {
+      "element": {"kind": "verdict", "value": "assert constraint inflated on Garage::car.wheels[2]: holds"},
+      "cells": [[{"kind": "string_value", "value": "Garage::car.wheels[2]"}], [{"kind": "string_value", "value": "holds"}]]
+    }
+  ]
+}

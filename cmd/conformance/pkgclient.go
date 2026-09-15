@@ -607,6 +607,9 @@ func (c *pkgClient) runDocumentQuery(ctx context.Context, request protoreflect.M
 		if row.Verdict != nil {
 			converted.Element = cellToProto(*row.Verdict)
 		}
+		if row.Object != nil {
+			converted.Element = cellToProto(*row.Object)
+		}
 		for _, cell := range row.Cells {
 			values := &pb.DocumentQueryCell{}
 			for _, value := range cell {
@@ -1193,6 +1196,12 @@ func cellFromProto(value *pb.DocumentValue) opensysml.Cell {
 		return opensysml.Bool(kind.BoolValue)
 	case *pb.DocumentValue_Infinity:
 		return opensysml.Infinity{}
+	case *pb.DocumentValue_Object:
+		object := opensysml.Object{ID: kind.Object.GetInstanceId(), Path: kind.Object.GetPath()}
+		if element, ok := cellFromProto(kind.Object.GetElement()).(opensysml.Element); ok {
+			object.Element = element
+		}
+		return object
 	case *pb.DocumentValue_Verdict:
 		verdict := opensysml.DocumentVerdict{
 			Kind:         kind.Verdict.GetKind(),
@@ -1229,6 +1238,12 @@ func cellToProto(cell opensysml.Cell) *pb.DocumentValue {
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_BoolValue{BoolValue: bool(value)}}
 	case opensysml.Infinity:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Infinity{Infinity: true}}
+	case opensysml.Object:
+		object := &pb.DocumentObject{InstanceId: value.ID, Path: value.Path}
+		if value.Element.ID != "" {
+			object.Element = cellToProto(value.Element)
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Object{Object: object}}
 	case opensysml.DocumentVerdict:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Verdict{Verdict: &pb.DocumentVerdict{
 			Assertion:    cellToProto(value.Assertion),
