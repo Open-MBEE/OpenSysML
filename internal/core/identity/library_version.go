@@ -15,13 +15,13 @@ type LibraryRoot struct {
 	Pkg, Library, Standard bool
 }
 
-// DocumentRootedAt is the bundled library document declaring every root as a
-// top-level package under its name and its id, or with its package keywords
-// where none is stated; "" when the roots are not one library document's.
+// DocumentRootedAt is the library document declaring every root as a top-level
+// package under its name and its id, or with its package keywords where none
+// is stated; "" when the roots are not one library document's.
 func (c *Catalog) DocumentRootedAt(roots []LibraryRoot) string {
 	doc := ""
 	for _, root := range roots {
-		el, ok := c.ElementNamed(root.QName)
+		el, ok := c.RootNamed(root.QName)
 		if !ok || !topLevelPackage(root, el) || (doc != "" && el.Symbol.DocName != doc) {
 			return ""
 		}
@@ -46,15 +46,15 @@ func topLevelPackage(root LibraryRoot, el *LibraryElement) bool {
 }
 
 // NamesEveryRoot reports whether every root of the parsed document is a package
-// named as a catalogued library element: the cheap test a document must pass
-// before DocumentRootedAt is worth asking, and one a user file rarely does.
+// named as a library document's top-level package: the cheap test a document
+// must pass before DocumentRootedAt is worth asking, and one a user file rarely does.
 func (c *Catalog) NamesEveryRoot(root *ast.RootNamespace) bool {
 	names, ok := RootPackageNames(root)
 	if !ok {
 		return false
 	}
 	for _, name := range names {
-		if _, ok := c.ElementNamed(name); !ok {
+		if _, ok := c.RootNamed(name); !ok {
 			return false
 		}
 	}

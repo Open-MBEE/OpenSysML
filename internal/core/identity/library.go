@@ -79,11 +79,13 @@ type LibraryElement struct {
 }
 
 // Catalog indexes the normative ids of the bundled library by id: a version-5
-// UUID cannot be reversed, only looked up. Elements are indexed by name too.
+// UUID cannot be reversed, only looked up. Elements are indexed by name too, and
+// roots holds every library document's top-level packages, id or none.
 type Catalog struct {
 	elements    map[string]*LibraryElement
 	memberships map[string]*LibraryElement
 	names       map[string]*LibraryElement
+	roots       map[string]*LibraryElement
 	order       []*LibraryElement
 }
 
@@ -96,6 +98,13 @@ func (c *Catalog) Element(id string) (*LibraryElement, bool) {
 // ElementNamed is the library element whose qualified name is fqn.
 func (c *Catalog) ElementNamed(fqn string) (*LibraryElement, bool) {
 	el, ok := c.names[fqn]
+	return el, ok
+}
+
+// RootNamed is the top-level package of a library document named fqn; its ID is
+// "" when the document's tier has no normative language.
+func (c *Catalog) RootNamed(fqn string) (*LibraryElement, bool) {
+	el, ok := c.roots[fqn]
 	return el, ok
 }
 
@@ -135,6 +144,7 @@ func newCatalog() *Catalog {
 		elements:    map[string]*LibraryElement{},
 		memberships: map[string]*LibraryElement{},
 		names:       map[string]*LibraryElement{},
+		roots:       map[string]*LibraryElement{},
 	}
 }
 
@@ -171,6 +181,22 @@ func buildCatalog(idx *symbols.Index) *Catalog {
 		c.memberships[el.OwningMembershipID] = el
 		c.names[el.FQN] = el
 		c.order = append(c.order, el)
+	}
+	for _, root := range roots {
+		for _, sym := range root.Members() {
+			if sym.Kind != symbols.SymbolPackage || !firstSoNamed(sym) {
+				continue
+			}
+			fqn := idx.GetFQN(sym)
+			if fqn == "" {
+				continue
+			}
+			if el, ok := c.names[fqn]; ok && el.Symbol == sym {
+				c.roots[fqn] = el
+			} else {
+				c.roots[fqn] = &LibraryElement{Symbol: sym, FQN: fqn}
+			}
+		}
 	}
 	return c
 }

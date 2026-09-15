@@ -131,13 +131,19 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 }
 
 // libraryAlone is an index of the library files alone, with their catalog: the
-// overlaid base, or one built once from the files a caller's index held.
+// overlaid base when it holds them all, else one built once from the files.
 func (w *Workspace) libraryAlone() (*symbols.Index, *identity.Catalog) {
 	w.libOnce.Do(func() {
 		w.libAlone = w.libBase
-		if w.libAlone == nil {
+		if !w.baseHoldsLibrary() {
+			names := make([]string, 0, len(w.library))
+			for name := range w.library {
+				names = append(names, name)
+			}
+			slices.Sort(names)
 			idx := symbols.NewIndex()
-			for name, file := range w.library {
+			for _, name := range names {
+				file := w.library[name]
 				idx.AddDocumentWithKind(name, file.root, file.kind)
 				idx.MarkLibraryDocument(name, file.record)
 			}
@@ -147,6 +153,19 @@ func (w *Workspace) libraryAlone() (*symbols.Index, *identity.Catalog) {
 		w.libCatalog = identity.LibraryCatalog(w.libAlone)
 	})
 	return w.libAlone, w.libCatalog
+}
+
+// baseHoldsLibrary reports whether the frozen base holds every library file.
+func (w *Workspace) baseHoldsLibrary() bool {
+	if w.libBase == nil {
+		return false
+	}
+	for name := range w.library {
+		if w.libBase.DocumentRoot(name) == nil {
+			return false
+		}
+	}
+	return true
 }
 
 // ConformanceMode reports the strictness this workspace judges notation at.

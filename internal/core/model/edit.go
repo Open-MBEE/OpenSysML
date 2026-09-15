@@ -1,6 +1,8 @@
 package model
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -109,35 +111,42 @@ func (w *Workspace) editIndexLocked(name string) *editIndex {
 }
 
 // build makes an index holding the libraries and every workspace document but
-// the edited one, so the edited notation resolves what the original did. Over a
-// shared library base it overlays that; over a caller-built index it re-indexes
-// the caller's library files, marked, and its other documents, languages
+// the edited one, so the edited notation resolves what the original did. It
+// overlays the frozen base, if any, then re-indexes what the base does not hold:
+// the library files, marked, and the caller's other documents, languages
 // included. A bundled file the edited document stands in for stays: indexed
 // displaces it again if the edited notation is still a version of it.
 func (e *editIndex) build() *symbols.Index {
 	w, name := e.w, e.name
-	var idx *symbols.Index
+	idx := symbols.NewIndex()
 	if w.libBase != nil {
 		idx = symbols.NewOverlay(w.libBase)
-	} else {
-		idx = symbols.NewIndex()
-		for other, file := range w.library {
-			if other == name || w.docs[other] != nil {
-				continue
-			}
-			idx.AddDocumentWithKind(other, file.root, file.kind)
-			idx.MarkLibraryDocument(other, file.record)
+	}
+	skip := func(other string) bool {
+		return other == name || w.docs[other] != nil || idx.DocumentRoot(other) != nil
+	}
+	libraries := make([]string, 0, len(w.library))
+	for other := range w.library {
+		libraries = append(libraries, other)
+	}
+	slices.Sort(libraries)
+	for _, other := range libraries {
+		if skip(other) {
+			continue
 		}
-		for _, other := range w.index.Documents() {
-			if _, library := w.library[other]; library || other == name || w.docs[other] != nil {
-				continue
-			}
-			root, ok := w.index.DocumentRoot(other).Node().(*ast.RootNamespace)
-			if !ok {
-				continue
-			}
-			idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
+		file := w.library[other]
+		idx.AddDocumentWithKind(other, file.root, file.kind)
+		idx.MarkLibraryDocument(other, file.record)
+	}
+	for _, other := range w.index.Documents() {
+		if skip(other) {
+			continue
 		}
+		root, ok := w.index.DocumentRoot(other).Node().(*ast.RootNamespace)
+		if !ok {
+			continue
+		}
+		idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
 	}
 	e.standIns = map[string]string{}
 	for other, library := range w.standIns {
