@@ -244,14 +244,20 @@ it touched, since it is one edit. The request names the
 `version` of the rendering the action was taken on, not the buffer's: its targets
 are names the user saw there, and a later version may spell the same names for
 other declarations. A `version` that no longer matches is rejected, and the panel
-redraws and asks the user to repeat the action on what is now shown. Each other
-document's `TextDocumentEdit` carries the version the server computed it against; the
-language client library applies edits without checking that, so the panel does. A
-document the edit names that no buffer holds is opened first and the edit asked for
-again, so every document it lands on is a versioned buffer; the versions are compared
-and `applyEdit` called in one turn, and VS Code pins each document to the version it
-holds at that call, so an edit naming a document that moved on meanwhile is not
-applied at all.
+redraws and asks the user to repeat the action on what is now shown. The version
+is the server's guard; the panel has one of its own, since node ids are local to a
+drawing and a drawing can be replaced without the document changing — another
+view is picked, or a document it imports is edited. The panel numbers every
+drawing it posts to the webview, every action the webview sends back carries the
+number of the drawing its ids came from, and an action whose number is not the
+current drawing's is refused before its ids are resolved, with the same message.
+Each other document's `TextDocumentEdit` carries the version the server computed it
+against; the language client library applies edits without checking that, so the
+panel does. A document the edit names that no buffer holds is opened first and the
+edit asked for again, so every document it lands on is a versioned buffer; the
+versions are compared and `applyEdit` called in one turn, and VS Code pins each
+document to the version it holds at that call, so an edit naming a document that
+moved on meanwhile is not applied at all.
 
 The diagram never mutates itself. It applies the edit, the edit re-triggers
 analysis, analysis emits `renderChanged`, and the panel redraws from the model. One
@@ -381,9 +387,11 @@ refuses the drop itself when the rendering it holds no longer offers the target,
 and every refusal the server answers — a name clash in the destination, a cycle, a
 declaration another file refers to — is posted back to the panel as a `revert`:
 the canvas redraws the model's layout, the status line carries the server's
-message, and no source changed. A stale version is redrawn, as for any edit. When
-the edit applies, nothing of the gesture survives: the document-change path
-re-renders and the node is wherever the model now declares it.
+message, and no source changed. A drop begun on a drawing the panel has since
+replaced is refused by the drawing's number, as for any edit, so its ids are never
+resolved against nodes they did not name. When the edit applies, nothing of the
+gesture survives: the document-change path re-renders and the node is wherever the
+model now declares it.
 
 ### Rendering surface
 
@@ -417,8 +425,9 @@ save are the text document's.
   **Move to…** lists, each refusal's reason, and the hint a pick-up shows
   (`drop.test.ts`).
 - Extension: the drop's batch — placements first, then the move, nothing when the
-  target is not offered or a placement is undeclared — and the request it becomes,
-  pinned to the rendering's version (`src/edits.test.ts`).
+  target is not offered or a placement is undeclared — the request it becomes,
+  pinned to the rendering's version, and the refusal of a drop from a replaced
+  drawing whose ids now name other declarations (`src/edits.test.ts`).
 - GUI: drag a node, check the file gained the annotation, <kbd>Ctrl</kbd>+<kbd>Z</kbd>,
   check it is gone, redraw and check the position held. <kbd>Shift</kbd>-drop a part
   on another definition, check the declaration moved in the file and the diagram

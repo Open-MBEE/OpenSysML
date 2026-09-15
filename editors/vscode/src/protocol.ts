@@ -290,9 +290,9 @@ export interface PickerEntry {
   reason?: string;
 }
 
-/** A message the extension sends the webview. */
+/** A message the extension sends the webview; `drawn` counts the panel's drawings and names this one. */
 export type ToWebview =
-  | { type: "render"; result: RenderResult; selected: string }
+  | { type: "render"; result: RenderResult; selected: string; drawn: number }
   | { type: "views"; views: PickerEntry[]; selected: string }
   | { type: "error"; message: string }
   | { type: "highlight"; id: string | undefined }
@@ -319,14 +319,14 @@ export interface EdgePlacement {
   route?: RenderPoint[];
 }
 
-/** A message the webview sends the extension; `version` is the rendering an action's ids name. */
+/** A message the webview sends the extension; `drawn` is the drawing an action's ids name. */
 export type FromWebview =
   | { type: "ready" }
   | { type: "reveal"; id: string }
   | { type: "pick"; view: string }
-  | { type: "edit"; action: EditAction; version: number }
+  | { type: "edit"; action: EditAction; drawn: number }
   /** One completed gesture: everything it moved, applied as one edit. */
-  | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; version: number }
+  | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }
   /** A node dropped on another: moved into it as a declaration, and placed where it was released. */
-  | { type: "reparent"; id: string; owner: string; nodes: NodePlacement[]; edges: EdgePlacement[]; version: number }
+  | { type: "reparent"; id: string; owner: string; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }
   | { type: "failed"; message: string };

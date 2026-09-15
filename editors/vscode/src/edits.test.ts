@@ -208,12 +208,13 @@ test("editParams asks for the version the rendering drew, not the buffer's", () 
   assert.deepEqual(params, { textDocument: { uri: "file:///vehicle.sysml" }, version: 3, operations });
 });
 
-// A menu opened on one rendering and chosen from after a redraw names node ids
-// the new rendering may have given to other declarations.
-test("offeredOn holds only for the rendering the action was offered on", () => {
-  assert.equal(offeredOn({ nodes, version: 3 }, 3), true);
-  assert.equal(offeredOn({ nodes, version: 4 }, 3), false);
-  assert.equal(offeredOn({ nodes: [], version: 0 }, 3), false);
+// A menu opened on one drawing and chosen from after a redraw names node ids the new
+// drawing may have given to other declarations; the panel numbers drawings, not the document.
+test("offeredOn holds only for the drawing the action was offered on", () => {
+  assert.equal(offeredOn(3, 3), true);
+  assert.equal(offeredOn(4, 3), false);
+  assert.equal(offeredOn(0, 3), false);
+  assert.equal(offeredOn(3, 0), false);
 });
 
 // The same rendering with each declaration's notation, as a server that serves moves sends it.
@@ -518,8 +519,6 @@ test("reparentOperations refuses a target Move to… would not offer: the owner,
 
 test("a drop is one applyModelEdit request, pinned to the version the canvas was drawn from", () => {
   const operations = reparentOperations(reparentable, "n2", "n4", [{ id: "n2", layout: { x: 10, y: 20 } }], [])!;
-  assert.equal(offeredOn(reparentable, 4), true);
-  assert.equal(offeredOn(reparentable, 5), false);
   assert.deepEqual(editParams("file:///vehicle.sysml", reparentable, operations), {
     textDocument: { uri: "file:///vehicle.sysml" },
     version: 4,
@@ -532,6 +531,18 @@ test("a drop is one applyModelEdit request, pinned to the version the canvas was
 
 test("reparentOperations refuses a placement the document does not declare, so nothing of the drop is written", () => {
   assert.equal(reparentOperations(reparentable, "n2", "n4", [{ id: "n2", layout: { x: 1, y: 2 } }, { id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
+});
+
+// Another view of the same document version draws other declarations under the same ids, so a
+// drop begun on the first drawing is refused by its number rather than moving what the ids now name.
+test("a drop from a replaced drawing is not resolved against the drawing that replaced it", () => {
+  const other = { ...reparentable, view: "Vehicle::Plumbing", nodes: [{ ...engineN, id: "n2" }, { ...tankN, id: "n4" }, carN] };
+  assert.deepEqual(
+    reparentOperations(other, "n2", "n4", [], [])?.at(-1),
+    { kind: "move", target: "Vehicle::Car::engine", owner: "Vehicle::Car::tank" },
+  );
+  assert.equal(offeredOn(1, 1), true);
+  assert.equal(offeredOn(2, 1), false);
 });
 
 test("placementOperations refuses a node or edge the document does not declare", () => {

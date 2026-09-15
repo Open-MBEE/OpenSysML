@@ -54,7 +54,8 @@ const DOUBLE_CLICK_MS = 400;
 // event would name the container rather than the handle, and clicks are paired here.
 let clickedWaypoint: { edge: number; point: number; at: number } | undefined;
 let paletteEntries: MenuItem[] = [];
-let paletteVersion = 0;
+// The extension's number for the drawing shown; an action names the drawing its ids came from.
+let drawn = 0;
 
 // The panel is torn down while it is hidden, so the rendering it last drew is
 // put back — dimmed until the server answers — rather than showing nothing.
@@ -74,7 +75,7 @@ adder.addEventListener("change", () => {
   const item = paletteEntries[Number(adder.value)];
   adder.selectedIndex = 0;
   if (item?.command) {
-    run(item.command, paletteVersion);
+    run(item.command);
   }
 });
 
@@ -108,6 +109,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       fillPicker(message.views, message.selected);
       return;
     case "render":
+      drawn = message.drawn;
       draw(message.result);
       return;
     case "error":
@@ -189,7 +191,7 @@ function draw(result: RenderResult): void {
     showNotices(result);
     // An open menu names nodes of the drawing just replaced.
     hideMenu();
-    showPalette(result.palette, result.version);
+    showPalette(result.palette);
     kindLabel.textContent = describe(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -371,10 +373,10 @@ function endGesture(event: PointerEvent): void {
     clickedWaypoint = undefined;
     showStatus("");
     if (done.kind === "node" && done.drop) {
-      dropNode(done.id, done.drop, done.placements, last?.version ?? 0);
+      dropNode(done.id, done.drop, done.placements);
       return;
     }
-    place(done.placements, last?.version ?? 0);
+    place(done.placements);
     return;
   }
   if (done.kind === "node") {
@@ -387,7 +389,7 @@ function endGesture(event: PointerEvent): void {
       && clickedWaypoint.point === done.point && event.timeStamp - clickedWaypoint.at < DOUBLE_CLICK_MS;
     if (again && layout && last) {
       clickedWaypoint = undefined;
-      place(removedWaypoint(layout, done.edge, done.point), last.version);
+      place(removedWaypoint(layout, done.edge, done.point));
       return;
     }
     clickedWaypoint = { edge: done.edge, point: done.point, at: event.timeStamp };
@@ -410,12 +412,12 @@ function cancelGesture(): void {
 
 // dropNode ends a Shift-drag over another node: one edit moves the declaration into it,
 // placed where it was released; a node that does not admit it takes the canvas back instead.
-function dropNode(id: string, drop: Drop, placements: Placements, version: number): void {
+function dropNode(id: string, drop: Drop, placements: Placements): void {
   if (!drop.admits) {
     revert(drop.message);
     return;
   }
-  vscode.postMessage({ type: "reparent", id, owner: drop.target.id, nodes: placements.nodes, edges: placements.edges, version });
+  vscode.postMessage({ type: "reparent", id, owner: drop.target.id, nodes: placements.nodes, edges: placements.edges, drawn });
 }
 
 // revert puts the model's layout back after a drop the model did not take, and says why when told.
@@ -429,16 +431,16 @@ function revert(message: string | undefined): void {
   }
 }
 
-// place hands a gesture's outcome to the extension as one edit on the rendering it
+// place hands a gesture's outcome to the extension as one edit on the drawing it
 // was made on; the panel redraws once the document has changed.
-function place(placements: Placements | undefined, version: number): void {
+function place(placements: Placements | undefined): void {
   if (!placements || (placements.nodes.length === 0 && placements.edges.length === 0)) {
     if (layout) {
       show(layout);
     }
     return;
   }
-  vscode.postMessage({ type: "place", nodes: placements.nodes, edges: placements.edges, version });
+  vscode.postMessage({ type: "place", nodes: placements.nodes, edges: placements.edges, drawn });
 }
 
 // canvasPoint is where a pointer event is in the canvas's own coordinates.
@@ -518,9 +520,8 @@ function showHint(message: string): void {
 }
 
 // showPalette fills the toolbar's "Add" list, or hides it for a rendering that is not editable.
-function showPalette(palette: EditPalette | undefined, version: number): void {
+function showPalette(palette: EditPalette | undefined): void {
   paletteEntries = palette ? paletteItems(palette) : [];
-  paletteVersion = version;
   adder.replaceChildren();
   adder.hidden = paletteEntries.length === 0;
   if (paletteEntries.length === 0) {
@@ -563,7 +564,7 @@ function showMenu(node: RenderNode, result: RenderResult, x: number, y: number):
         event.stopPropagation();
         hideMenu();
         if (command) {
-          run(command, result.version);
+          run(command);
         }
       });
     }
@@ -580,14 +581,14 @@ function hideMenu(): void {
   menu.hidden = true;
 }
 
-// run hands a chosen entry to the extension with the rendering it was offered
+// run hands a chosen entry to the extension with the drawing it was offered
 // on; the panel redraws once the document has changed.
-function run(command: MenuCommand, version: number): void {
+function run(command: MenuCommand): void {
   if (command.kind === "reveal") {
     vscode.postMessage({ type: "reveal", id: command.id });
     return;
   }
-  vscode.postMessage({ type: "edit", action: command, version });
+  vscode.postMessage({ type: "edit", action: command, drawn });
 }
 
 // highlight marks the node the cursor is in, and only that one. The id is kept so

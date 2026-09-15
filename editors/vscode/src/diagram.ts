@@ -257,6 +257,8 @@ class DiagramPanel {
   private readonly disposables: vscode.Disposable[] = [];
   private selected: string;
   private rendering: Rendering = { nodes: [], version: 0 };
+  // Counts the drawings posted to the webview; an action names the one its ids came from.
+  private drawn = 0;
   private pending = false;
   private again = false;
   private disposed = false;
@@ -369,7 +371,8 @@ class DiagramPanel {
         version: result.version,
         palette: result.palette,
       };
-      this.post({ type: "render", result, selected: this.selected });
+      this.drawn += 1;
+      this.post({ type: "render", result, selected: this.selected, drawn: this.drawn });
       this.highlightActive();
     } catch (err) {
       this.fail(errorMessage(err));
@@ -423,13 +426,13 @@ class DiagramPanel {
         void this.revealSource(message.id);
         return;
       case "edit":
-        void this.edit(message.action, message.version);
+        void this.edit(message.action, message.drawn);
         return;
       case "place":
-        void this.place(message.nodes, message.edges, message.version);
+        void this.place(message.nodes, message.edges, message.drawn);
         return;
       case "reparent":
-        void this.reparent(message.id, message.owner, message.nodes, message.edges, message.version);
+        void this.reparent(message.id, message.owner, message.nodes, message.edges, message.drawn);
         return;
       case "failed":
         this.fail(message.message);
@@ -457,9 +460,9 @@ class DiagramPanel {
 
   // edit applies a diagram action as a workspace edit, so it is undone like typing; the redraw
   // comes from the server's renderChanged. The action's ids name only the rendering it was offered on.
-  private async edit(action: EditAction, version: number): Promise<void> {
+  private async edit(action: EditAction, drawn: number): Promise<void> {
     const rendering = this.rendering;
-    if (!offeredOn(rendering, version)) {
+    if (!offeredOn(this.drawn, drawn)) {
       void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;
     }
@@ -473,9 +476,9 @@ class DiagramPanel {
   // place writes where a drag left nodes and edges into the model as one edit, so
   // the whole gesture is one undo step. The canvas shows the drag's outcome until the
   // model changes; whenever it does not, it is redrawn from the model as it stands.
-  private async place(nodes: NodePlacement[], edges: EdgePlacement[], version: number): Promise<void> {
+  private async place(nodes: NodePlacement[], edges: EdgePlacement[], drawn: number): Promise<void> {
     const rendering = this.rendering;
-    if (!offeredOn(rendering, version)) {
+    if (!offeredOn(this.drawn, drawn)) {
       this.refresh();
       void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;
@@ -488,9 +491,9 @@ class DiagramPanel {
 
   // reparent moves a dropped node into the node it was dropped on, placed where it was
   // released, as one edit; a refusal is shown in the panel and the drop is undrawn.
-  private async reparent(id: string, owner: string, nodes: NodePlacement[], edges: EdgePlacement[], version: number): Promise<void> {
+  private async reparent(id: string, owner: string, nodes: NodePlacement[], edges: EdgePlacement[], drawn: number): Promise<void> {
     const rendering = this.rendering;
-    if (!offeredOn(rendering, version)) {
+    if (!offeredOn(this.drawn, drawn)) {
       this.refresh();
       void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;

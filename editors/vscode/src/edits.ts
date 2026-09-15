@@ -229,11 +229,12 @@ export function endpointPath(node: RenderNode, owner: RenderOwner): string | und
 
 /** What the user is told when an action names a rendering that has been replaced. */
 export const REDRAWN_MESSAGE =
-  "The document changed after the diagram was drawn; it is redrawn now, so repeat the action on it.";
+  "The diagram was redrawn after the action was offered on it; repeat the action on the diagram shown now.";
 
-/** offeredOn reports whether an action taken on rendering version `offered` still names `rendering`. */
-export function offeredOn(rendering: Rendering, offered: number): boolean {
-  return offered === rendering.version;
+// offeredOn reports whether an action taken on drawing `offered` still names the panel's drawing
+// `drawn`. Node ids are local to a drawing, and a view change redraws at the same document version.
+export function offeredOn(drawn: number, offered: number): boolean {
+  return offered === drawn;
 }
 
 // editParams pins the request to the version the operations were read from: a later
