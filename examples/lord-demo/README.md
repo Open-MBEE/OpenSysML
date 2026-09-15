@@ -98,11 +98,12 @@ that reaches each outcome:
   -check-diverge this.alive -check-diverge this.gold \
   -check-property LordPlay::Warrior::theDeadHaveNoHitPoints \
   -check-property LordPlay::Warrior::noDebt \
+  -check-property LordPlay::Warrior::fightsNotOverdrawn \
   -check-witness witnesses
 ```
 
 ```
-✗ Action LordPlay::Warrior::fight: divergent (55 states, 54 moves, depth 29)
+✗ Action LordPlay::Warrior::fight: divergent (56 states, 55 moves, depth 30)
   divergent: this.alive ends as false or true
     this.alive = false (witness witnesses/LordPlay.Warrior.fight@hero-this.alive-1.witness)
     this.alive = true (witness witnesses/LordPlay.Warrior.fight@hero-this.alive-2.witness)
@@ -115,12 +116,12 @@ that reaches each outcome:
   outcome: … rounds = 4; this.alive = true; this.gold = 534
   outcome: … rounds = 5; this.alive = true; this.gold = 534
   outcome: … rounds = 5; this.alive = false; this.gold = 0
-  standing: sensitive (witnessed: 55 states, 54 moves searched, witness of 5 choices replayed)
+  standing: sensitive (witnessed: 56 states, 55 moves searched, witness of 5 choices replayed)
 ```
 
 Six outcomes: the mosquito dies on the first to fifth swing, or five misses in
 a row and its five bites kill a ten-hit-point warrior, who wakes tomorrow with
-no gold. Neither property was violated on any of the 55 states. The witness
+no gold. No property was violated on any of the 56 states. The witness
 for the death is the five misses, and `-schedule replay:` runs it again:
 
 ```bash
@@ -131,11 +132,11 @@ cat witnesses/LordPlay.Warrior.fight@hero-this.alive-1.witness
 ```
 
 ```
-step 4: decision swing -> 2->miss
-step 9: decision swing -> 2->miss
-step 14: decision swing -> 2->miss
-step 19: decision swing -> 2->miss
-step 24: decision swing -> 2->miss
+step 5: decision swing -> 2->miss
+step 10: decision swing -> 2->miss
+step 15: decision swing -> 2->miss
+step 20: decision swing -> 2->miss
+step 25: decision swing -> 2->miss
 …
 ✓ Action completed
   Final state: Completed
@@ -378,6 +379,30 @@ overnight; a shop refuses a sale the gold on hand does not cover.
 
 The golem's blow of eight took the warrior to two hit points; the eight
 points mended cost sixteen gold; the Dagger was not bought.
+
+Every deed checks its own precondition, so the warrior's invariants hold
+whichever way it is reached — through the `day` machine's guarded transitions
+or directly here. The forest turns away a dead warrior or one whose fifteen
+fights are spent, so `forestFightsLeft` never goes below zero; the bank moves
+only gold the warrior has, so neither balance goes negative; and a master
+refuses a twelfth-level warrior, so `train` never makes a level thirteen:
+
+```
+%instantiate LordPlay::champion
+%invoke LordPlay::champion train
+%eval in LordPlay::champion : level
+%invoke LordPlay::hero deposit amount=1000
+%eval in LordPlay::hero : gold
+```
+
+```
+✓ Invoked train on object #3 of "LordPlay::champion"
+✓ level (on LordPlay::champion ID: 3)
+  = 12
+✓ Invoked deposit on object #1 of "LordPlay::hero"
+✓ gold (on LordPlay::hero ID: 1)
+  = 294
+```
 
 ### What the solver says
 

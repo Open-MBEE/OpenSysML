@@ -209,6 +209,7 @@ package LordPlay {
 
         // One forest fight, against the Large Mosquito unless told otherwise.
         // Whether each swing lands is the game's dice roll, left to the schedule.
+        // The forest turns away the dead and those out of fights for the day.
         action fight {
             in foeHitPoints : Integer = 5;
             in foeStrength : Integer = 3;
@@ -220,6 +221,9 @@ package LordPlay {
             attribute rounds : Integer = 0;
 
             first start;
+            then decide mayFight;
+            if forestFightsLeft > 0 and alive then engage;
+            else done;
 
             action engage {
                 assign foeLeft := foeHitPoints;
@@ -257,7 +261,6 @@ package LordPlay {
                 assign gold := 0;
             }
 
-            succession first start then engage;
             succession first engage then nextRound;
             succession first nextRound then swing;
             first swing if foeLeft > 0 then strike;
@@ -306,11 +309,16 @@ package LordPlay {
         }
 
         // Gold in the bank earns interest and cannot be taken by another player.
+        // The teller moves only gold the warrior actually has.
         action deposit {
             in amount : Integer;
 
             first start;
-            then action move {
+            then decide hasGold;
+            if amount >= 0 and gold >= amount then move;
+            else done;
+
+            action move {
                 assign bankGold := bankGold + amount;
                 assign gold := gold - amount;
             }
@@ -321,7 +329,11 @@ package LordPlay {
             in amount : Integer;
 
             first start;
-            then action move {
+            then decide hasGold;
+            if amount >= 0 and bankGold >= amount then move;
+            else done;
+
+            action move {
                 assign bankGold := bankGold - amount;
                 assign gold := gold + amount;
             }
@@ -368,7 +380,8 @@ package LordPlay {
         }
 
         // A bout at the hall, against Halder unless told otherwise; a win is the
-        // next level and its stats, a loss costs only the bruises.
+        // next level and its stats, a loss costs only the bruises. A warrior of
+        // the twelfth level has no master left to beat.
         action train {
             in masterHitPoints : Integer = 15;
             in masterStrength : Integer = 10;
@@ -383,7 +396,7 @@ package LordPlay {
 
             first start;
             then decide ready;
-            if experience >= experienceRequired then bout;
+            if experience >= experienceRequired and level < 12 then bout;
             else turnedAway;
 
             action bout {
