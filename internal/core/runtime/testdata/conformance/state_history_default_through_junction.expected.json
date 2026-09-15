@@ -1,0 +1,22 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"outcomes": [
+		{
+			"finalState": "w1",
+			"stateVisits": ["idle", "work", "w1"],
+			"outputs": {
+				"route": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"finalState": "w2",
+			"stateVisits": ["idle", "work", "w2"],
+			"outputs": {
+				"route": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "A history without a record takes its default transition through a junction with two branches enabled: exactly one is taken, which one is open"
+}

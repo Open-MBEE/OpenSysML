@@ -1,0 +1,26 @@
+    eval literal 4 -> 4
+    eval feature d -> 2
+  eval operator / -> 2.0
+  eval literal 1 -> 1
+eval operator > -> true
+    eval literal 4 -> 4
+    eval feature d -> 2
+  eval operator / -> 2.0
+  eval literal 1 -> 1
+eval operator > -> true
+choice on accept Go: states a1, b1 react (unordered; took a1 first)
+exit: a1
+stmt assign d
+  eval literal 0 -> 0
+enter: a2
+transition: a1 -> a2 (event: accept Go)
+choice junction split: transitions 1->again, 2->again (unordered; took 1->again)
+exit: b1
+stmt assign route
+  eval literal 1 -> 1
+stmt assign route
+    eval feature route -> 1
+    eval literal 10 -> 10
+  eval operator + -> 11
+enter: left
+transition: b1 -> left (event: accept Go)
