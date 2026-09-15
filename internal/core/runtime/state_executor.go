@@ -2190,7 +2190,8 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 }
 
 // defaultHistoryRoute takes a history's default transition from inside its
-// owner, resolving any choice on the way once the effects into it have run.
+// owner, resolving any choice on the way once the effects into it have run;
+// each stretch of segments is recorded as fired once its effects are done.
 func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode) (route, error) {
 	r, err := e.followOut(hist, route{})
 	if err != nil {
@@ -2200,11 +2201,16 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode) (route, e
 		if err := e.runBehaviors(r.effects()); err != nil {
 			return route{}, err
 		}
+		e.noteFired(r.segments...)
 		if r, err = e.resolveChoice(r); err != nil {
 			return route{}, err
 		}
 	}
-	return r, e.runBehaviors(r.effects())
+	if err := e.runBehaviors(r.effects()); err != nil {
+		return route{}, err
+	}
+	e.noteFired(r.segments...)
+	return r, nil
 }
 
 // leadsToChoice reports whether a path out of ps through junctions reaches a choice.

@@ -1429,6 +1429,66 @@ func TestFiredTransitionsLogsSegmentsIntoAChoice(t *testing.T) {
 	}
 }
 
+// A history entered before its owner has run takes its default transition, and
+// that route is logged after the transition into the history: straight to the
+// default state, or through a choice with each segment on the way.
+func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
+	for _, tc := range []struct {
+		name, src string
+		want      []string
+	}{
+		{"direct", `package test {
+			state Machine {
+				entry; then init;
+				state init;
+				state running {
+					history previous;
+					state idle;
+					state busy;
+					transition first previous then idle;
+					transition first idle accept work then busy;
+				}
+				transition first init accept go then previous;
+			}
+		}`, []string{"->init", "init->previous", "previous->idle"}},
+		{"choice", `package test {
+			state Machine {
+				attribute priority : Integer = 2;
+				entry; then init;
+				state init;
+				state running {
+					history previous;
+					choice route;
+					state idle;
+					state busy;
+					transition first previous then route;
+					transition first route if priority > 5 then busy;
+					transition first route then idle;
+				}
+				transition first init accept go then previous;
+			}
+		}`, []string{"->init", "init->previous", "previous->route", "route->idle"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, sym := loadState(t, tc.src, "Machine")
+			exec, err := ctx.CreateStateExecutor(sym)
+			if err != nil {
+				t.Fatalf("CreateStateExecutor: %v", err)
+			}
+			exec.SendSignal("go", nil)
+			if err := exec.ProcessNextEvent(); err != nil {
+				t.Fatalf("ProcessNextEvent: %v", err)
+			}
+			if got := activeStateNames(exec); !strings.Contains(got, "idle") {
+				t.Fatalf("active = %s, want idle", got)
+			}
+			if got := firedNames(exec); !slices.Equal(got, tc.want) {
+				t.Fatalf("fired = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 // A firing that fails midway logs nothing: not the fork and its branches, nor
 // the segments of a compound transition whose last effect fails, nor those
 // into a choice when the branch out of it fails.
