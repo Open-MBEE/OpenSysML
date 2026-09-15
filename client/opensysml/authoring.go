@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"fmt"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -298,9 +299,31 @@ func (c *client) ApplyEdits(ctx context.Context, model *Model, edits ...Edit) (*
 	return c.ApplyDocumentEdits(ctx, model, "", edits...)
 }
 
+// requireEditDocuments refuses to send a document name to a service without
+// the edit_documents capability, which would ignore it and edit its sole document.
+func (c *client) requireEditDocuments(ctx context.Context, document string) error {
+	if document == "" {
+		return nil
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if !info.Has(CapabilityEditDocuments) {
+		return &StatusError{
+			Code:    CodeUnimplemented,
+			Message: fmt.Sprintf("capability %q is unavailable", CapabilityEditDocuments),
+		}
+	}
+	return nil
+}
+
 func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error) {
 	hash, err := c.call(model)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.requireEditDocuments(ctx, document); err != nil {
 		return nil, err
 	}
 	// This client reads Documents, so a model of several documents may be edited.
