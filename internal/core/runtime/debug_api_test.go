@@ -207,6 +207,62 @@ func TestStepResumesFromBreakpoint(t *testing.T) {
 	}
 }
 
+// A step landing a token on a breakpoint suspends the run there, as a run to
+// completion would; the step after resumes past it, and a breakpoint set on
+// the node a token already sits on stops the next step before it moves.
+func TestStepToBreakpointPausesWhereARunWould(t *testing.T) {
+	exec := debugActionExecutor(t)
+	exec.SetBreakpoint("accumulate")
+
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint: %v", err)
+	}
+	if got := exec.PausedAt(); got != "accumulate" {
+		t.Fatalf("PausedAt() after the step onto it = %q, want accumulate", got)
+	}
+	if got := exec.State(); got != StateSuspended {
+		t.Errorf("State() = %v, want %v", got, StateSuspended)
+	}
+	if total := exec.Results()["total"]; total.Const.Int != 0 {
+		t.Errorf("total = %v before accumulate performs, want 0", total)
+	}
+
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("resuming StepToBreakpoint: %v", err)
+	}
+	if got := exec.PausedAt(); got != "" {
+		t.Errorf("PausedAt() after resuming = %q, want empty", got)
+	}
+	if total := exec.Results()["total"]; total.Const.Int != 5 {
+		t.Errorf("total = %v after accumulate performed, want 5", total)
+	}
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("final StepToBreakpoint: %v", err)
+	}
+	if got := exec.State(); got != StateCompleted {
+		t.Errorf("State() = %v, want %v", got, StateCompleted)
+	}
+
+	// Set on the node the token sits on, the breakpoint holds the next step.
+	exec = debugActionExecutor(t)
+	exec.SetBreakpoint("start")
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("StepToBreakpoint at start: %v", err)
+	}
+	if got := exec.PausedAt(); got != "start" {
+		t.Errorf("PausedAt() = %q, want start", got)
+	}
+	if tokens := exec.Tokens(); len(tokens) != 1 || ActionNodeName(tokens[0].Location) != "start" {
+		t.Errorf("tokens = %v, want the one still at start", tokens)
+	}
+	if err := exec.StepToBreakpoint(); err != nil {
+		t.Fatalf("resuming from start: %v", err)
+	}
+	if tokens := exec.Tokens(); len(tokens) != 1 || ActionNodeName(tokens[0].Location) != "accumulate" {
+		t.Errorf("tokens = %v, want the one moved on to accumulate", tokens)
+	}
+}
+
 // blockDebugSrc declares action nodes inside an `if` branch and a loop body.
 const blockDebugSrc = `package test {
 	private import ScalarValues::*;

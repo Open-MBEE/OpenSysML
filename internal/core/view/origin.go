@@ -27,7 +27,7 @@ func nodeOrigin(doc string, node ast.Node) Origin {
 func inheritedOrigins(inherited []lower.Inherited) []Origin {
 	out := make([]Origin, 0, len(inherited))
 	for _, in := range inherited {
-		out = append(out, nodeOrigin(in.Body.DocName(), in.Decl))
+		out = append(out, nodeOrigin(symbols.DocNameOf(in.Body), in.Decl))
 	}
 	return out
 }

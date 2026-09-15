@@ -20,7 +20,9 @@
   now records the transitions a state machine fires (`StateExecutor.FiredTransitions`) and the
   successions each token travels (`ActionExecutor.Traversals`, `Token.Within` for the nested flows
   it runs in), a `view.StateLocator`/`view.ActionLocator` map lowered vertices, action nodes and
-  edges to render IDs by declaration-relative position, and `model.Workspace.NewRuntime` builds a
+  edges to render IDs by their position within the declaration, and document, they were written in
+  (a node or edge inherited from another document is drawn from that document and keeps its place
+  as either document is edited), and `model.Workspace.NewRuntime` builds a
   runtime model over a workspace's documents whose `Dependencies` lists the declarations a run
   reads; a lowered `StateGraph` or `ActionGraph` lists the
   declarations it took content from besides its own (`Inherited`), which the root node of a

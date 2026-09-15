@@ -12,6 +12,11 @@ type Span struct {
 // End returns the exclusive end offset.
 func (s Span) End() int { return s.Offset + s.Len }
 
+// Contains reports whether other lies within s.
+func (s Span) Contains(other Span) bool {
+	return other.Offset >= s.Offset && other.End() <= s.End()
+}
+
 // Pos is a 1-based line/column location.
 type Pos struct {
 	Line int

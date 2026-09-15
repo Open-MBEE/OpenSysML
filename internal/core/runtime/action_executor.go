@@ -561,12 +561,39 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 	return nil
 }
 
+// StepToBreakpoint is Step with the breakpoints a run stops at: a token sitting
+// on one the run has not yet stopped at suspends the run before any token moves,
+// and one a step lands on suspends it after, so the next step resumes past it.
+func (e *ActionExecutor) StepToBreakpoint() error {
+	if e.released || e.state == StateReady || e.state == StateCompleted {
+		return e.Step()
+	}
+	if e.pauseAtBreakpoint() {
+		return nil
+	}
+	if err := e.Step(); err != nil {
+		return err
+	}
+	e.pauseAtBreakpoint()
+	return nil
+}
+
+// pauseAtBreakpoint suspends the run at a breakpoint a token sits on and has not
+// yet stopped at; false when none does.
+func (e *ActionExecutor) pauseAtBreakpoint() bool {
+	node := e.breakpointHit()
+	if node == "" {
+		return false
+	}
+	e.pausedAt = node
+	e.state = StateSuspended
+	return true
+}
+
 // stepOnce takes one step of a run, stopping at a breakpoint; true when the
 // run's loop ends here.
 func (e *ActionExecutor) stepOnce(atCurrentTime bool) (bool, error) {
-	if node := e.breakpointHit(); node != "" {
-		e.pausedAt = node
-		e.state = StateSuspended
+	if e.pauseAtBreakpoint() {
 		return true, nil
 	}
 	if err := e.chargeActionStep(); err != nil {

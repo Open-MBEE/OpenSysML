@@ -103,6 +103,7 @@ func (g *StateGraph) UnconditionalStart(owner ast.Node) *ast.StateNode {
 // designates its target as a state the machine may start in.
 func (g *StateGraph) addEntryTransition(owner ast.Node, transition *EntryTransition) {
 	g.EntryTransitions[owner] = append(g.EntryTransitions[owner], transition)
+	g.recordDeclaredIn(transition.Decl, transition.Scope)
 	g.designateInitial(transition.Target)
 }
 

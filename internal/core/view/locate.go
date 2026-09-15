@@ -13,37 +13,62 @@ import (
 // A locator finds the render node or edge drawing a vertex of a graph lowered
 // separately, by declaration-relative position rather than identity.
 
-// locatorKey is a node's path within the drawn root: kind, declaration span and
-// an ordinal among same-span siblings, one segment per level of nesting.
+// locatorKey is a node's path within the drawn root: kind, declaration place and
+// an ordinal among same-place siblings, one segment per level of nesting.
 type locatorKey = string
 
-// edgeKey is how an edge is found: what it was written as and the nodes it joins.
+// edgeKey is how an edge is found: where it was written and the nodes it joins.
 type edgeKey struct {
-	span     source.Span
+	at       string
 	from, to string
 }
 
-// relativeTo places span against the declaration drawn at base; an unlocated
-// span is the zero span.
-func relativeTo(span source.Span, base int) source.Span {
-	if span.Len <= 0 {
-		return source.Span{}
-	}
-	return source.Span{Offset: span.Offset - base, Len: span.Len}
+// anchors are the declarations a graph took content from, the behavior drawn and
+// those it inherits, against which the spans of their documents are measured.
+type anchors []Origin
+
+// renderedAnchors are the anchors of a drawn root: itself and what it inherits.
+func renderedAnchors(root *Node) anchors {
+	return append(anchors{root.Origin}, root.Inherited...)
 }
 
-// spanKey spells a span for a locator key; an unlocated node spells as 0:0.
-func spanKey(span source.Span) string {
+// graphAnchors are the anchors of a graph lowered from sym's declaration.
+func graphAnchors(sym *symbols.Symbol, inherited []lower.Inherited) anchors {
+	return append(anchors{symbolOrigin(sym)}, inheritedOrigins(inherited)...)
+}
+
+// place spells where a span of doc was written: doc and the span's position within
+// the innermost anchor of doc enclosing it. An unlocated span spells as 0:0.
+func (a anchors) place(doc string, span source.Span) string {
 	if span.Len <= 0 {
 		return "0:0"
 	}
-	return strconv.Itoa(span.Offset) + ":" + strconv.Itoa(span.Len)
+	offset := span.Offset
+	if base, ok := a.enclosing(doc, span); ok {
+		offset -= base.Offset
+	}
+	return doc + "@" + strconv.Itoa(offset) + ":" + strconv.Itoa(span.Len)
 }
 
-// childKey is the key of a child of parent drawn as kind from span, numbered
-// among the parent's children of the same kind and span so far.
-func childKey(parent locatorKey, kind string, span source.Span, seen map[string]int) locatorKey {
-	base := parent + "/" + kind + "@" + spanKey(span)
+// enclosing is the span of the innermost anchor of doc enclosing span.
+func (a anchors) enclosing(doc string, span source.Span) (source.Span, bool) {
+	var found source.Span
+	ok := false
+	for _, anchor := range a {
+		if anchor.Doc != doc || !anchor.Span.Contains(span) {
+			continue
+		}
+		if !ok || found.Contains(anchor.Span) {
+			found, ok = anchor.Span, true
+		}
+	}
+	return found, ok
+}
+
+// childKey is the key of a child of parent drawn as kind at place, numbered
+// among the parent's children of the same kind and place so far.
+func childKey(parent locatorKey, kind string, place string, seen map[string]int) locatorKey {
+	base := parent + "/" + kind + "@" + place
 	n := seen[base]
 	seen[base]++
 	if n > 0 {
@@ -52,15 +77,20 @@ func childKey(parent locatorKey, kind string, span source.Span, seen map[string]
 	return base
 }
 
-// renderedKeys keys every node nested in root, the root itself under "".
-func renderedKeys(root *Node) map[locatorKey]string {
-	base := root.Origin.Span.Offset
+// renderedKeys keys every node nested in root, the root itself under "", by
+// kind and place, or by place alone when kinded is false.
+func renderedKeys(root *Node, kinded bool) map[locatorKey]string {
+	at := renderedAnchors(root)
 	keys := map[locatorKey]string{"": root.ID}
 	var walk func(node *Node, parent locatorKey)
 	walk = func(node *Node, parent locatorKey) {
 		seen := map[string]int{}
 		for _, child := range node.Children {
-			key := childKey(parent, child.Kind, relativeTo(child.Origin.Span, base), seen)
+			kind := ""
+			if kinded {
+				kind = child.Kind
+			}
+			key := childKey(parent, kind, at.place(child.Origin.Doc, child.Origin.Span), seen)
 			keys[key] = child.ID
 			walk(child, key)
 		}
@@ -69,13 +99,13 @@ func renderedKeys(root *Node) map[locatorKey]string {
 	return keys
 }
 
-// renderedEdges indexes the rendering's edges by declaration, relative to root,
-// and endpoints, each to the positions it holds in rendering.Edges.
+// renderedEdges indexes the rendering's edges by where they were written and
+// their endpoints, each to the positions it holds in rendering.Edges.
 func renderedEdges(rendering *Rendering, root *Node) map[edgeKey][]int {
-	base := root.Origin.Span.Offset
+	at := renderedAnchors(root)
 	edges := map[edgeKey][]int{}
 	for i, edge := range rendering.Edges {
-		key := edgeKey{relativeTo(edge.Origin.Span, base), edge.From, edge.To}
+		key := edgeKey{at.place(edge.Origin.Doc, edge.Origin.Span), edge.From, edge.To}
 		edges[key] = append(edges[key], i)
 	}
 	return edges
@@ -106,7 +136,8 @@ var ErrNotDrawn = fmt.Errorf("behavior not drawn")
 // and transitions of a lowered state machine.
 type StateLocator struct {
 	root  string
-	base  int
+	at    anchors
+	doc   string
 	graph *lower.StateGraph
 	// drawn are the states the rendering draws: graph-only owners are not.
 	drawn map[*ast.StateNode]bool
@@ -133,12 +164,13 @@ func LocateStates(rendering *Rendering, drawn, machine *symbols.Symbol, graph *l
 	}
 	l := &StateLocator{
 		root:  root.ID,
-		base:  machine.DeclSpan.Offset,
+		at:    graphAnchors(machine, graph.Inherited()),
+		doc:   machine.DocName,
 		graph: graph,
 		drawn: make(map[*ast.StateNode]bool, len(graph.States)),
 		keys:  make(map[ast.Node]locatorKey),
 		seen:  make(map[locatorKey]map[string]int),
-		nodes: renderedKeys(root),
+		nodes: renderedKeys(root, true),
 		edges: renderedEdges(rendering, root),
 	}
 	for _, state := range graph.States {
@@ -200,9 +232,17 @@ func (l *StateLocator) key(v ast.Node) (locatorKey, bool) {
 		seen = map[string]int{}
 		l.seen[parentKey] = seen
 	}
-	key := childKey(parentKey, kind, relativeTo(v.Span(), l.base), seen)
+	key := childKey(parentKey, kind, l.place(v), seen)
 	l.keys[v] = key
 	return key, true
+}
+
+// place spells where a declaration of the graph was written, as the rendering does.
+func (l *StateLocator) place(decl ast.Node) string {
+	if decl == nil {
+		return l.at.place("", source.Span{})
+	}
+	return l.at.place(docOf(l.graph, decl, l.doc), decl.Span())
 }
 
 // parentOfState is what the rendering nests a state in: its region when that is
@@ -259,7 +299,7 @@ func (l *StateLocator) Transition(decl, source, target ast.Node) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	return firstEdge(l.edges, decl, l.base, from, to)
+	return firstEdge(l.edges, l.place(decl), from, to)
 }
 
 // EntryTransition is the edge position of the entry transition decl written in
@@ -273,17 +313,13 @@ func (l *StateLocator) EntryTransition(decl, owner, target ast.Node) (int, bool)
 	if !ok {
 		return 0, false
 	}
-	return firstEdge(l.edges, decl, l.base, from, to)
+	return firstEdge(l.edges, l.place(decl), from, to)
 }
 
-// firstEdge is the first edge written as decl, relative to base, joining from
-// and to; an edge with no declaration of its own is matched by its endpoints alone.
-func firstEdge(edges map[edgeKey][]int, decl ast.Node, base int, from, to string) (int, bool) {
-	var span source.Span
-	if decl != nil {
-		span = relativeTo(decl.Span(), base)
-	}
-	if found := edges[edgeKey{span, from, to}]; len(found) > 0 {
+// firstEdge is the first edge written at place joining from and to; an edge with
+// no declaration of its own is matched by its endpoints alone.
+func firstEdge(edges map[edgeKey][]int, at string, from, to string) (int, bool) {
+	if found := edges[edgeKey{at, from, to}]; len(found) > 0 {
 		return found[0], true
 	}
 	return 0, false
@@ -293,14 +329,16 @@ func firstEdge(edges map[edgeKey][]int, decl ast.Node, base int, from, to string
 // and successions of a lowered action, the flows of its nested actions included.
 type ActionLocator struct {
 	root  string
-	base  int
+	at    anchors
+	doc   string
+	graph *lower.ActionGraph
 	nodes map[locatorKey]string
 	edges map[edgeKey][]int
 }
 
-// LocateActions matches the nodes of action's lowered graph, nested flows
-// included, to the root of rendering drawing drawn: the same declaration, as is.
-func LocateActions(rendering *Rendering, drawn, action *symbols.Symbol) (*ActionLocator, error) {
+// LocateActions matches the nodes of graph, lowered from action's declaration, to
+// the root of rendering drawing drawn; keys carry no kind, as an executor's node has none.
+func LocateActions(rendering *Rendering, drawn, action *symbols.Symbol, graph *lower.ActionGraph) (*ActionLocator, error) {
 	root, err := RootDrawing(rendering, drawn)
 	if err != nil {
 		return nil, err
@@ -308,44 +346,61 @@ func LocateActions(rendering *Rendering, drawn, action *symbols.Symbol) (*Action
 	if action == nil {
 		return nil, fmt.Errorf("%w: no declaration was lowered", ErrNotDrawn)
 	}
-	return &ActionLocator{root: root.ID, base: action.DeclSpan.Offset, nodes: actionKeys(root), edges: renderedEdges(rendering, root)}, nil
-}
-
-// actionKeys keys every node nested in root by the spans of the nodes it is
-// nested in, kinds left out: an executor's node carries a span, not a kind.
-func actionKeys(root *Node) map[locatorKey]string {
-	base := root.Origin.Span.Offset
-	keys := map[locatorKey]string{"": root.ID}
-	var walk func(node *Node, parent locatorKey)
-	walk = func(node *Node, parent locatorKey) {
-		seen := map[string]int{}
-		for _, child := range node.Children {
-			key := childKey(parent, "", relativeTo(child.Origin.Span, base), seen)
-			keys[key] = child.ID
-			walk(child, key)
-		}
+	if graph == nil {
+		return nil, fmt.Errorf("%w: %s has no lowered action graph", ErrNotDrawn, action.Name)
 	}
-	walk(root, "")
-	return keys
+	return &ActionLocator{
+		root:  root.ID,
+		at:    graphAnchors(action, graph.Inherited()),
+		doc:   action.DocName,
+		graph: graph,
+		nodes: renderedKeys(root, false),
+		edges: renderedEdges(rendering, root),
+	}, nil
 }
 
 // Node is the ID drawing node in the flow of the nested actions within (outermost
 // first); an undrawn node is placed at the innermost drawn node around it, with false.
 func (l *ActionLocator) Node(within []ast.Node, node ast.Node) (string, bool) {
 	key := locatorKey("")
+	graph := l.graph
 	for _, outer := range within {
-		next := key + "/@" + spanKey(relativeTo(outer.Span(), l.base))
+		next := key + "/@" + l.place(graph, outer)
 		if _, ok := l.nodes[next]; !ok {
 			return l.nodes[key], false
 		}
-		key = next
+		key, graph = next, l.flowOf(graph, outer)
 	}
 	if node != nil {
-		if id, ok := l.nodes[key+"/@"+spanKey(relativeTo(node.Span(), l.base))]; ok {
+		if id, ok := l.nodes[key+"/@"+l.place(graph, node)]; ok {
 			return id, true
 		}
 	}
 	return l.nodes[key], false
+}
+
+// flowOf is the graph of the flow node owns within graph, nil where it owns none.
+func (l *ActionLocator) flowOf(graph *lower.ActionGraph, node ast.Node) *lower.ActionGraph {
+	if graph == nil {
+		return nil
+	}
+	if sub := graph.Subflows[node]; sub != nil {
+		return sub.Graph
+	}
+	return nil
+}
+
+// place spells where a declaration of graph was written, as the rendering does; a
+// declaration of a flow the graph does not hold is placed in the action's document.
+func (l *ActionLocator) place(graph *lower.ActionGraph, decl ast.Node) string {
+	if decl == nil {
+		return l.at.place("", source.Span{})
+	}
+	doc := l.doc
+	if graph != nil {
+		doc = docOf(graph, decl, l.doc)
+	}
+	return l.at.place(doc, decl.Span())
 }
 
 // Root is the ID of the node drawing the action itself.
@@ -362,5 +417,9 @@ func (l *ActionLocator) Edge(within []ast.Node, edge lower.ActionEdge) (int, boo
 	if !ok {
 		return 0, false
 	}
-	return firstEdge(l.edges, edge.Decl, l.base, from, to)
+	graph := l.graph
+	for _, outer := range within {
+		graph = l.flowOf(graph, outer)
+	}
+	return firstEdge(l.edges, l.place(graph, edge.Decl), from, to)
 }

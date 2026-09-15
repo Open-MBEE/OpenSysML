@@ -728,6 +728,37 @@ func TestDebugBreakpointOnAPseudostatePauses(t *testing.T) {
 	}
 }
 
+// A step that lands a token on an action breakpoint pauses there, as a continue
+// does; the step after moves it past the breakpoint.
+func TestDebugStepPausesAtAnActionBreakpoint(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/f.sysml", debugFlow)
+	id := ids(t, render(t, s, docURI, "FlowViews::driveView"))
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "FlowViews::driveView", Target: "Flows::Drive",
+	})
+	session := snap.Session
+	mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["split"]}})
+
+	snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != id["split"] || !strings.Contains(snap.Reason, "breakpoint split") {
+		t.Errorf("pausedAt = %q reason = %q, want the breakpoint on split", snap.PausedAt, snap.Reason)
+	}
+	if len(snap.Tokens) != 1 || snap.Tokens[0].Node != id["split"] {
+		t.Errorf("tokens = %+v, want the one held at split", snap.Tokens)
+	}
+	wantStrings(t, "taken to the breakpoint", edges(snap.Taken), []string{id["start"] + "->" + id["split"]})
+
+	snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session})
+	wantState(t, snap, debugRunning)
+	if snap.PausedAt != "" {
+		t.Errorf("pausedAt = %q after resuming, want none", snap.PausedAt)
+	}
+	if len(snap.Tokens) != 4 || debugTokenAt(t, snap, id["tally"]).Node != id["tally"] {
+		t.Errorf("tokens = %+v, want the fork's four branches", snap.Tokens)
+	}
+}
+
 // debugCounter is a robot whose machine counts the timer firing; guards then
 // tell one firing from two.
 const debugCounter = `package Counting {

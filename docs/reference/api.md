@@ -521,6 +521,9 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   - `Step() error` — Advance all tokens one step; a breakpoint met inside a token's body
     ends the step there, with no other token stepped, and the next step steps the other
     tokens before resuming the paused one
+  - `StepToBreakpoint() error` — `Step` honoring breakpoints on the nodes tokens sit on
+    as `RunToCompletion` does: a step onto one suspends the run there, and the next step
+    resumes past it
   - `RunToCompletion() error` — Execute until StateCompleted (max 10k steps)
   - `Tokens() []Token` — Get active tokens (copy)
   - `State() ExecutionState` — Current execution state (Ready/Running/Completed/Suspended)

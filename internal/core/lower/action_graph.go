@@ -83,6 +83,33 @@ type ActionGraph struct {
 
 	// inherited are the actions the action specializes, nearest general first.
 	inherited []Inherited
+
+	// declaredIn: inherited node, flow or binding declaration → the scope of the
+	// general's body it was written in, which says which document declares it.
+	declaredIn map[ast.Node]*symbols.Scope
+}
+
+// recordDeclaredIn records the scope of the body an inherited declaration was written in.
+func (g *ActionGraph) recordDeclaredIn(decl ast.Node, scope *symbols.Scope) {
+	if decl == nil || scope == nil {
+		return
+	}
+	if g.declaredIn == nil {
+		g.declaredIn = make(map[ast.Node]*symbols.Scope)
+	}
+	g.declaredIn[decl] = scope
+}
+
+// DocOf is the document a declaration of the graph was written in: the general's
+// where inherited, else the action's own; "" outside any document.
+func (g *ActionGraph) DocOf(decl ast.Node) string {
+	scope := g.Scope
+	if decl != nil {
+		if declared := g.declaredIn[decl]; declared != nil {
+			scope = declared
+		}
+	}
+	return symbols.DocNameOf(scope)
 }
 
 // Inherited lists the declarations the action's content came from besides its
@@ -657,6 +684,7 @@ func lowerInheritedPinConnections(graph *ActionGraph, scope *symbols.Scope) erro
 				if err != nil {
 					return err
 				}
+				graph.recordDeclaredIn(u, body)
 				graph.Bindings = append(graph.Bindings, bindings...)
 			case ast.UsageFlow:
 				if u.FlowEnds == nil {
@@ -672,6 +700,7 @@ func lowerInheritedPinConnections(graph *ActionGraph, scope *symbols.Scope) erro
 				if err != nil {
 					return err
 				}
+				graph.recordDeclaredIn(u, body)
 				graph.DataFlows[source] = append(graph.DataFlows[source], flow)
 			}
 		}

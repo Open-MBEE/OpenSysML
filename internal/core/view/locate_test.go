@@ -238,7 +238,7 @@ func TestLocateActionsMapsNodesAndNestedFlows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToActionGraph: %v", err)
 	}
-	loc, err := LocateActions(rendering, sym, sym)
+	loc, err := LocateActions(rendering, sym, sym, graph)
 	if err != nil {
 		t.Fatalf("LocateActions: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestLocateActionsSurvivesShiftedOffsets(t *testing.T) {
 		t.Fatalf("ToActionGraph: %v", err)
 	}
 	after, drawn := locatorModel(t, "action.sysml", "// header\n\n", "FlowViews::driveView", "Flows::Drive")
-	loc, err := LocateActions(after, drawn, sym)
+	loc, err := LocateActions(after, drawn, sym, graph)
 	if err != nil {
 		t.Fatalf("LocateActions: %v", err)
 	}

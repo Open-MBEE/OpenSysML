@@ -494,7 +494,7 @@ func (sess *debugSession) locate(rendering *view.Rendering, drawn *symbols.Symbo
 		}
 		sess.states, sess.actions = loc, nil
 	case view.KindAction:
-		loc, err := view.LocateActions(rendering, drawn, sess.targetSym)
+		loc, err := view.LocateActions(rendering, drawn, sess.targetSym, sess.action.Graph())
 		if err != nil {
 			return err
 		}
@@ -605,7 +605,7 @@ func (s *Server) DebugStep(params *debugSessionParams) (*debugSnapshot, error) {
 		if sess.action.State() == runtime.StateCompleted {
 			break
 		}
-		err := sess.action.Step()
+		err := sess.action.StepToBreakpoint()
 		if errors.Is(err, runtime.ErrNothingDue) {
 			sess.waiting = debugClockWait(sess.action)
 		} else if err != nil {
