@@ -807,6 +807,48 @@ func TestWorkspaceLibraryVersionEditIndexKeepsOverlayDocuments(t *testing.T) {
 	}
 }
 
+// A caller's overlay may remove a frozen base's document, marked or not; an
+// edit's temporary index does not bring it back, so an edit naming what the
+// workspace does not hold is refused as the applied text would be.
+func TestWorkspaceLibraryVersionEditIndexKeepsBaseRemovals(t *testing.T) {
+	const hidden, kept, gone = "lib/hidden.sysml", "lib/kept.sysml", "lib/gone.sysml"
+	base := symbols.NewIndex()
+	base.AddDocumentWithKind(hidden, parser.New(source.New(hidden, []byte("package Hidden {\n    part def T;\n}\n"))).ParseFile(), source.KindSysML)
+	base.AddDocumentWithKind(kept, parser.New(source.New(kept, []byte("standard library package Kept {\n    part def T;\n}\n"))).ParseFile(), source.KindSysML)
+	base.MarkLibrary(kept)
+	base.AddDocumentWithKind(gone, parser.New(source.New(gone, []byte("standard library package Gone {\n    part def T;\n}\n"))).ParseFile(), source.KindSysML)
+	base.MarkLibrary(gone)
+	base.Freeze()
+	idx := symbols.NewOverlay(base)
+	idx.RemoveDocument(hidden)
+	idx.RemoveDocument(gone)
+	idx.ExpandWildcardImports()
+	ws := NewWorkspaceWithIndex(idx)
+
+	ws.Open("car.sysml", []byte("part def Car {\n    part kept : Kept::T;\n}\n"), 1)
+	edited := ws.editIndexLocked("car.sysml").build()
+	for _, name := range []string{hidden, gone} {
+		if edited.DocumentRoot(name) != nil {
+			t.Errorf("the edit index brought back %s, which the overlay removed", name)
+		}
+	}
+	if edited.DocumentRoot(kept) == nil {
+		t.Errorf("the edit index dropped %s", kept)
+	}
+	for _, pkg := range []string{"Hidden", "Gone"} {
+		op := edit.AddMember("Car", "part", "extra")
+		op.Type = pkg + "::T"
+		if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}); ok && err == nil {
+			t.Errorf("an edit naming %s::T, which the overlay removed, was accepted", pkg)
+		}
+	}
+	op := edit.AddMember("Car", "part", "spare")
+	op.Type = "Kept::T"
+	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}); !ok || err != nil {
+		t.Errorf("an edit naming Kept::T: ok %v, err %v", ok, err)
+	}
+}
+
 // A caller overlay may shadow a frozen base's library file under its name: the
 // library is what the overlay shows, so a copy rooted at the shown package is
 // a version, one rooted at the shadowed package is not, and an edit resolves
