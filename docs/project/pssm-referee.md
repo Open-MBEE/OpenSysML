@@ -192,6 +192,16 @@ other way.
 |---|---|---|---|
 | Join002 | SM34 | `fail` → `pass` | Runtime defect. `T1.2` and `T2.2` leave `S1`'s two regions for the join `Join1`; `T3` leaves it for `S2`. The run exited both regions and `S1`, ran only `T2.2`'s effect (the incoming segment that completed the join) and dropped `T1.2`'s — `S1(exit)::T2.2(effect)::T3(effect)::S2(entry)`, an execution neither UML nor SysML v2 admits: PSSM §8.5.7 (`JoinPseudostateActivation`) and requirement *Join 002* make the transitions into a join and the one out of it segments of one compound transition, every one of which is traversed, and the bundled library's `TransitionPerformances.kerml` orders each fired transition's effect after its own source's performance (`succession [1] transitionLinkSource then [*] effect`), never dropping one. Each incoming segment now fires whole — its source exited, then its effect — before `S1(exit)`, in either order; both admitted traces are reached (`T1.2(effect)::T2.2(effect)::…` under the default policy, the swapped order under `seed-1`). `state_join_runs_every_incoming_effect` pins the two orders as an admissible set with an oracle section |
 
+The same change altered the recorded reason, without moving the bucket, of *Join001* (`T2.3(effect)`,
+the incoming segment it dropped, now runs; what the run still gets wrong is the place of
+`S1(exit)`: it exits `S1` after the last incoming segment's effect, where PSSM's
+`exitSource` leaves the composite whose last region that segment empties before the
+segment's effect) and of *Transition 019* (both `T1.3(effect)` and `T2.3(effect)` now run; the
+two traces the suite does not admit are the ones where the join's segments fire in the order
+opposite to the one the regions fired `Continue` in — PSSM fires each incoming segment on its own
+source's completion, so their order follows the sources' order, where the runtime draws it
+afresh). Their rows below quote the new reasons.
+
 ### Movements before that
 
 The baseline with the completion-choice fix and the guard classification followed one (develop
@@ -320,9 +330,9 @@ History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Jo
 Terminate 001, Terminate 002, Terminate 003 — each reaches `S1.Terminate1`; they move to
 `pass` or `fail` when the runtime executes `terminate` (alignment finding 1).
 
-### `fail` (17)
+### `fail` (16)
 
-One failure cites a note row through the committed table. The other sixteen are
+One failure cites a note row through the committed table. The other fifteen are
 **unadjudicated**: fails, not yet attributed to a translation defect, a runtime defect, or a
 missing alignment row. The referee records them; it does not diagnose them, and none of them is
 a finding against the runtime until someone adjudicates it.
@@ -333,7 +343,7 @@ a finding against the runtime until someone adjudicates it.
 |---|---|---|
 | Junction 002 | SM32 | run error: no outgoing guard of the junction holds; PSSM disables the compound transition and admits `T3(effect)` |
 
-#### Unadjudicated (16)
+#### Unadjudicated (15)
 
 One line per test, from the baseline's `reasons`: what the run reached that the suite does not
 admit (`—` when every reached trace is admitted and the failure is only a missing one), and
@@ -345,14 +355,13 @@ suite; the full sets are in the baseline file.
 |---|---|---|
 | Behavior 003 A | — | `S1(entry)` (the machine completing before the do activity's first segment) |
 | Transition 017 | — | `T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)` and 6 more interleavings of `S3.1(doActivity)`, `T2.2(effect)`, `T3.1.2(effect)` (the eighth admitted order is reached) |
-| Transition 019 | `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T1.3(effect)` and the mirror ending `T2.3(effect)` | `S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)` and 5 more, all containing both `T1.3(effect)` and `T2.3(effect)` |
+| Transition 019 | `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T2.3(effect)::T1.3(effect)` and its mirror (the join's segments in the order opposite to the regions' firing order) | `S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)` and 3 more (both regions' exits before either effect, and the join's segments in the regions' order; the two admitted orders that interleave each region's exit and effect are reached) |
 | Entering 010 | — | `S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)` and `S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)` (the third admitted order is reached) |
 | Entering 011 | — | `S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)` and 4 more orders of the two regions' initial effects and entries (the sixth admitted order is reached) |
 | Exiting 001 | — | `S1.1.1(exit)::S2.1(exit)::S1.1(exit)::S1(exit)` and `S2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the third admitted order is reached) |
 | Exiting 003 | — | `S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the other admitted order is reached) |
 | Fork 002 | — | `T2(effect)::S1(entry)::T2.1(effect)::T2.2(effect)::S1.1(entry)` and 2 more orders of the two branches' effects and `S1.1(entry)` (the fourth admitted order is reached) |
-| Join001 | `S2.1(exit)::S1.1(exit)::S1(exit)::T2.4(effect)` | `S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)` and one more (`T2.3(effect)`, the effect of the join's incoming transition from `S1.1`, never runs) |
-| Join002 | `S1(exit)::T2.2(effect)::T3(effect)::S2(entry)` | `T1.2(effect)::T2.2(effect)::S1(exit)::T3(effect)::S2(entry)` and the order with the first two swapped (`T1.2(effect)` never runs, and `S1(exit)` precedes the effects of the join's incoming segments) |
+| Join001 | `S1.1(exit)::T2.3(effect)::S2.1(exit)::T2.4(effect)::S1(exit)` and its mirror (`S1(exit)` after the last incoming segment's effect) | `S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)` and one more (`S1`, whose last region the second segment empties, is exited before that segment's effect) |
 | Join003 | run error: `join Join1: no guard evaluated to true` (the join fires on the first completion, with both sources active, and the false guard `value < 10` of its only outgoing transition is an error; PSSM §8.5.7 fires the first incoming segment alone — a join that "cannot be entered" is "an acceptable path ending there" — and disables the second, whose entering the join requires an outgoing transition with a true guard; `S1` stays active for `T5`) | `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)` |
 | History 001-C | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached) |
 | History 002-B | — | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)` and 4 more orders of the two regions' entries and exits (the sixth admitted order is reached) |
