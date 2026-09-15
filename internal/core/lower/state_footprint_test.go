@@ -173,6 +173,40 @@ func TestTransitionFootprintsFollowChoiceBranchesAndCompletion(t *testing.T) {
 	}
 }
 
+// Firing a join runs the effect of every transition into it, so each incoming
+// transition's footprint writes what all the incoming effects write.
+func TestTransitionFootprintsFoldJoinIncomingEffects(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			state Machine parallel {
+				attribute p : Integer = 0;
+				attribute q : Integer = 0;
+				state left {
+					entry; then l1;
+					state l1;
+					transition first l1 do assign p := 1 then sync;
+				}
+				state right {
+					entry; then r1;
+					state r1;
+					transition first r1 do assign q := 1 then sync;
+				}
+				join sync;
+				transition first sync then done;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	for _, source := range []string{"l1", "r1"} {
+		fp := graph.TransitionFootprints()[transitionOut(t, graph, source, 0)]
+		if !hasPlace(fp.Writes, "p") || !hasPlace(fp.Writes, "q") {
+			t.Fatalf("out of %s writes %v, want both incoming effects' p and q", source, placeNames(fp.Writes))
+		}
+	}
+}
+
 // A transition into a fork covers the regions the fork omits as well as its
 // branches' targets: the omitted region starts by default, so its states'
 // activity, entry behavior and completion are the fork's too.
