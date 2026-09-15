@@ -380,9 +380,10 @@ func dependencies(a *Activity) []*Activity {
 	return deps
 }
 
-// objectTypes lists the types the objects reaching a pin may have: the pin's
-// own type, or else the types of the sources its object flows lead back to,
-// through untyped control and object nodes; a created object has its classifier.
+// objectTypes lists the types the objects reaching a pin may have: the
+// classifiers of the sources its object flows lead back to (a created object
+// has its classifier), through typed or untyped nodes; a pin's own type is only
+// a fallback, since a pin typed by a superclass may receive a subclass's object.
 func objectTypes(n *Node, visited map[*Node]bool) []TypeRef {
 	if visited[n] {
 		return nil
@@ -391,14 +392,14 @@ func objectTypes(n *Node, visited map[*Node]bool) []TypeRef {
 	if n.Kind == OutputPin && n.Owner != nil && n.Owner.Kind == CreateObjectAction && !n.Owner.Classifier.Zero() {
 		return []TypeRef{n.Owner.Classifier}
 	}
-	if !n.Type.Zero() {
-		return []TypeRef{n.Type}
-	}
 	var types []TypeRef
 	for _, e := range n.Incoming {
 		if e.Kind == ObjectFlow && e.Source != nil {
 			types = append(types, objectTypes(e.Source, visited)...)
 		}
+	}
+	if len(types) == 0 && !n.Type.Zero() {
+		return []TypeRef{n.Type}
 	}
 	return types
 }
