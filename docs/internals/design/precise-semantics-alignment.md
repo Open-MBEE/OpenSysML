@@ -674,9 +674,10 @@ common-ancestor rule, then every outgoing transition fires "without any guard ev
 UML does not allow Transitions outgoing a fork Pseudostate to have guards", each into a different
 region of one orthogonal state. *v2/KerML:* no state-body fork in v2 (`fork` is an action node);
 the extension follows UML. *Runtime:* `fireForkTransition` → `forkPlan` enters the target
-composite with each branch's target as that region's initial configuration; `forkPlan` refuses a
-guarded branch ("outgoing transitions cannot be guarded"), a branch outside an orthogonal region
-and two branches into one region (`robustness_test.go:fork_branches_share_region`).
+composite with each branch's target as that region's initial configuration; `planFork` refuses a
+guarded branch ("outgoing transitions cannot be guarded"), a triggered one ("cannot have
+triggers", `fork_branch_with_a_trigger`), a branch outside an orthogonal region and two branches
+into one region (`robustness_test.go:fork_branches_share_region`).
 `state_fork_join_pseudostate`. **agrees.**
 
 **SM34. Join.** PSSM requirement *Join 001* (§9.4.12): "all incoming Transitions have to complete before execution
