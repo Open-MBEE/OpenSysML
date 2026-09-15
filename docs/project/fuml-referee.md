@@ -139,17 +139,91 @@ action of a library activity such as `WriteLine`. The `Fire` sequence is one leg
 the implementation's, which is sequential — and is compared **advisorily** only; the outputs
 are the oracle.
 
-The record also carries the constructs the classifier reads from the trace directly. fUML fires
-an action once per token offered to a multiplicity-1 pin, so an action downstream of a merge
-or a decision that passes two tokens fires twice within one execution of its activity
-(`DecisionJoin`'s `Action_A`, `ForkMergeData`'s `Action_B`, `ForkMerge`'s `Value(0)`); SysML v2
-performs the node once with every delivery, and `ExpectedActivity.Refired` names such actions
-so the classifier can file the activity as `differs-by-design` rather than as a failure. The
-count is per node `id` and per `Execute`…`Complete` span: two nodes sharing a name are never
-mistaken for one node firing twice (a `Fire` without an `id` counts as nothing), and a callee
-execution — a recursive one included — neither inherits nor resets its caller's counts.
+The record also carries the one construct the classifier reads from the trace rather than
+from the model. `ExpectedActivity.Refired` names every action the implementation fired more
+than once within one execution of its activity — the activity under test or one it calls —
+with the activity it belongs to, both XMI ids and the number of fires (`DecisionJoin`'s
+`Action_A` twice, `ForkMergeData`'s `Action_B` twice, `ForkMerge`'s `Value(0)` twice,
+`TestBooleanFunctions`' `Call(And)` four times). The count is per node `id` and per
+`Execute`…`Complete` span: two nodes sharing a name are never mistaken for one node firing
+twice (a `Fire` without an `id` counts as nothing), an activity a test calls twice re-fires
+nothing by being called twice, and a callee execution — a recursive one included — neither
+inherits nor resets its caller's counts. Whether such a re-firing is a design difference is
+then the classifier's decision, below.
 
-## Reading, classifying, translating and refereeing
+## Reading the models
 
-The reader and classifier over the pinned models, the translation rules, `cmd/fuml-referee`
-and the committed bucket counts are described here as each lands.
+`internal/fuml` reads the two test models and the library with the XMI element walker shared
+with the PSSM referee (`internal/xmi`). The walker accepts every OMG XMI namespace version:
+the models are `20131001`, the library `20110701`, and the two are cross-referenced. The
+reader (`ReadModelFile`, `ReadLibraryFile`) accepts a `uml:Model` root or one wrapped in
+`xmi:XMI`, and builds an immutable `Model`:
+
+| fUML | `Model` |
+|---|---|
+| `Activity`, its parameters (direction, type, multiplicity, ordering, uniqueness) and its owner when a class or an action owns it | `Activity`, `Parameter`, `Multiplicity`; `Activity.Owner`, `Class.ClassifierBehavior` |
+| Every `ActivityNode` kind fUML defines — control nodes, parameter nodes, buffers, actions, structured nodes — with their `InputPin`s and `OutputPin`s and the nodes a structured node owns | `Node` (`NodeKind`), `Node.Pins`, `Node.Nodes`; `Activity.AllNodes` walks the structured nodes too |
+| `ControlFlow` and `ObjectFlow` with `guard` (a literal or an instance value naming the enumeration literal) and `weight` | `Edge` (`EdgeKind`), `Edge.Guard`, `Edge.Weight`; `Node.Incoming`/`Outgoing` index them on the node or pin they touch |
+| The behavior a `CallBehaviorAction` calls, the operation a `CallOperationAction` calls or a `CallEvent` names, the signal a `SendSignalAction`/`SignalEvent` names, the feature a structural-feature action reads or writes, the classifier a create/read-extent/reclassify action names | resolved `TypeRef`s: a local element by id, or an **external** reference into the library by `href`, kept with its qualified name (`PrimitiveBehaviors::IntegerFunctions::+`) |
+| `Class` with properties, generalizations, operations (and their methods), `Signal`, `Association` and its member ends | `Class`, `Property`, `Operation`, `Signal`, `Association` |
+| `ExceptionHandler`, `Trigger` | `Node.Handlers`, `Node.Triggers` |
+
+Every reference the model makes to something it does not declare is a diagnostic on the
+`Model`, never a silent gap; the pinned models produce none. The reader is exercised against
+the pinned corpus (43 activities with 95 control and 345 object flows, seven classes, three
+signals and two associations in the test model; 12 activities in the exception model) and
+against a synthetic wrapped model that covers the `20110701` namespace, an external library
+reference, guards, weights, an association, an operation call and its accepter.
+
+**Forty-three, not forty-four.** The test model contains 44 `uml:Activity` elements, but one
+is the library's `WriteLine` referenced by `href` from `HelloWorld`, not a declaration; the
+JUnit suite runs 42 activities directly and `ActiveClassBehavior` through its class. The
+reader, the expected-record and the checklist below all count 43.
+
+## Classifying before translating
+
+`Classify(activity, expected)` files each activity into one of three classes from the
+constructs it uses and the implementation's trace, before any translation exists, with a
+reason that names the construct, why SysML v2 has no spelling for it, and where in the
+activity it occurs (`ReadExtentAction (SysML v2 has no classifier extent): ReadExtent(TestClass)`).
+The classes decide two of the referee's four buckets outright; the third leaves the verdict to
+a run.
+
+| Class | Bucket | Decided by |
+|---|---|---|
+| **not-expressible** | `not-expressible` | any construct in the construct map's not-expressible rows — `CallOperationAction`, `AcceptCallAction`, `ReplyAction`, `ReadExtentAction`, `ReadIsClassifiedObjectAction`, `TestIdentityAction`, `ReclassifyObjectAction`, `UnmarshallAction`, `ReadLinkAction` and the structural-feature actions on an association end, `CentralBufferNode`, `DataStoreNode`, `DestroyObjectAction`, `RaiseExceptionAction` and `ExceptionHandler`; a library function without a Kernel Function Library counterpart (`BasicInputOutput::WriteLine`, the `UnlimitedNaturalFunctions`) or a parameter or pin typed `UnlimitedNatural`, which `ScalarValues` lacks; the exception model as a whole; and, transitively, a call of or a classifier behavior starting a not-expressible activity, reported as the dependency and its decisive constructs |
+| **differs-by-design** | `differs-by-design` | an action the trace fired more than once within one execution of its activity **and** that an object flow feeds — fUML fires it once per token offered to a multiplicity-1 pin; SysML v2 performs the node once with every delivery (`action_node_concurrent_performances`). A merge that delivers two control tokens re-fires its successor in SysML v2 too, so `ForkMerge`'s `Value(0)` stays expressible |
+| **expressible** | `pass` or `fail`, by the run | everything else: control and object flow, fork, join, merge and decision with guards, value specifications, calls of activities and of library functions with a counterpart, multi-valued outputs, object creation and feature reads and writes on a class, signals, active classes, `ReadSelfAction`, `StructuredActivityNode` |
+
+A `differs-by-design` classification is the one an alignment row documents; the classifier
+finds four such activities in the corpus and lists each re-fired action with its count.
+`LibraryCounterpart` maps each of the 46 library functions the test model calls either to its
+Kernel Function Library spelling or to a reason; the test pins the seven without one
+(`WriteLine` and the six `UnlimitedNaturalFunctions`).
+
+**The checklist.** `TestSuiteClassification` in `internal/fuml/classify_test.go` is the
+per-activity checklist: every activity of both models with the class it must receive, the
+counts pinned, every non-expressible reason required to name a construct and a location, and
+every exception-model activity required to be filed as such. Over the test model:
+
+| Class | Count | Activities |
+|---|---|---|
+| expressible | 24 | `Copier`, `CopierCaller`, `SimpleDecision`, `ForkJoin`, `ForkMerge`, `NodeEnabler`, `TestNodeEnabler`, `TestIntegerFunctions`, `TestIntegerComparisonFunctions`, `TestRealFunctions`, `TestRealComparisonFunctions`, `TestStringFunctions`, `GenerateBooleanTestData`, `GenerateListTestData`, `TestListFunctions`, `TestGeneralizationAssembly`, `TestClassObjectCreator`, `TestClassWriterReader`, `TestClassAttributeWriter`, `TestClassAttributeValueRemover`, `ActiveClassBehavior`, `ActiveClassBehaviorSender`, `TestSignalReceiver`, `TestSpecializedSignalSend` |
+| differs-by-design | 4 | `DecisionJoin` (`Action_A` ×2), `ForkMergeData` (`Action_B` ×2), `TestSimpleActivities` (through both), `TestBooleanFunctions` (`Call(Not)` ×2, `Call(And)`, `Call(Or)`, `Call(Implies)`, `Call(Xor)` ×4) |
+| not-expressible | 15 | `HelloWorld` (`WriteLine`), `TestUnlimitedNaturalFunctions`, `TestClassIdentityTester`, `TestClassExtentReader`, `TestClassObjectDestroyer`, `TestCompositeObjectDestroyer`, `TestClassReclassifier`, `TestClassUnmarshaller`, `SelfReader` (`ReadIsClassifiedObjectAction`), `TestAssociationEndWriterReader`, `TestCentralBuffer`, `TestDataStore`, `TestCallAccepter`, `TestCallSender`, `TestCallSend` |
+
+and all 12 activities of the exception model are `not-expressible`. `TestBooleanFunctions`
+is in the second class, not the first, because `GenerateBooleanTestData` hands each function
+a four-token truth table through multiplicity-1 pins, and `Not` reads `Value(true)` and
+`Value(false)` through one pin.
+
+The reader and classifier tests (`TestSuite*`) run only when the suite is present in
+`build/fuml/` (`./scripts/download-fuml-suite.sh`). CI downloads and caches it as it does
+the PSSM suite, sets `OPENSYSML_REQUIRE_FUML_SUITE=1` so an absent suite fails rather than
+skips, and re-runs the suite gates on their own so a skip cannot hide behind a green run. The
+expected-record tests need no suite.
+
+## Translating and refereeing
+
+The translation rules, `cmd/fuml-referee` and the committed bucket counts are described here
+as they land.
