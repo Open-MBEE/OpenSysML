@@ -148,7 +148,8 @@ note: P is opened by more than one loaded file; each opening stays a declaration
 Each file keeps its own identity, which is what lets you reload one of them and replace only
 its own contribution. If the two openings were merged into a single namespace, an edit to one
 file could silently delete the other file's members. A qualified reference to `P` resolves to
-the first declaration loaded, so `P::A` resolves while `P::B` does not; an unqualified reference
+the declaration in the file whose name sorts first — the order the editor gives documents,
+not the order the files were loaded in — so `P::A` resolves while `P::B` does not; an unqualified reference
 from one opening to the other does not resolve either. Entering a package at the prompt is
 unaffected: it still merges into the package already in the session.
 

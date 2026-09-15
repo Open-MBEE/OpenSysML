@@ -97,8 +97,9 @@ package another declares resolves. Two consequences follow:
   at the top of `types.sysml` does not make `Real` resolvable in `instances.sysml`; each file
   imports what it uses.
 - Two files that both declare `package A` are two root packages of that name, not a duplicate.
-  A reference to `A` resolves to the first declaration on the command line, so `A::x` resolves
-  where `x` is a member of that first declaration.
+  A reference to `A` resolves to the declaration in the file whose name sorts first (the
+  order the editor and the workspace give documents, whatever order the files were given
+  in), so `A::x` resolves where `x` is a member of that declaration.
 
 ## Real-World Examples
 
