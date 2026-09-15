@@ -120,7 +120,7 @@ func TestApplyModelEditLayoutReachesSeveralDocumentsInOneRequest(t *testing.T) {
 
 	out := applyModelEdit(t, s, viewsURI, drawn.Version,
 		modelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, View: drawn.View, Layout: &modelEditLayout{X: 5, Y: 6}},
-		modelEditOperation{Kind: EditSetRoute, Declaration: edge.Declaration, DeclaredIn: protocol.DocumentURI(edge.Origin.URI),
+		modelEditOperation{Kind: EditSetRoute, Declaration: edge.Declaration, DeclaredIn: protocol.DocumentURI(edge.Origin.URI), Digest: edge.Origin.Digest,
 			Route: []renderPoint{{X: 30, Y: 90}, {X: 30, Y: 10}}},
 	)
 	if out.Edit == nil || out.Refused != nil || out.Stale {
@@ -165,7 +165,7 @@ func TestApplyModelEditLayoutReachesSeveralDocumentsInOneRequest(t *testing.T) {
 	// Dragging again updates the annotations in place, and clearing removes them with their lines.
 	out = applyModelEdit(t, s, viewsURI, 2,
 		modelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, View: drawn.View, Layout: &modelEditLayout{X: 7, Y: 8}},
-		modelEditOperation{Kind: EditSetRoute, Declaration: redrawn.Edges[0].Declaration, DeclaredIn: protocol.DocumentURI(partsURI),
+		modelEditOperation{Kind: EditSetRoute, Declaration: redrawn.Edges[0].Declaration, DeclaredIn: protocol.DocumentURI(partsURI), Digest: redrawn.Edges[0].Origin.Digest,
 			Route: []renderPoint{{X: 1, Y: 2}}},
 	)
 	if out.Edit == nil || out.Refused != nil {
@@ -184,7 +184,7 @@ func TestApplyModelEditLayoutReachesSeveralDocumentsInOneRequest(t *testing.T) {
 	redrawn = render(t, s, viewsURI, drawn.View)
 	out = applyModelEdit(t, s, viewsURI, 3,
 		modelEditOperation{Kind: EditSetLayout, Target: rotor.FQN, View: drawn.View},
-		modelEditOperation{Kind: EditSetRoute, Declaration: redrawn.Edges[0].Declaration, DeclaredIn: protocol.DocumentURI(partsURI)},
+		modelEditOperation{Kind: EditSetRoute, Declaration: redrawn.Edges[0].Declaration, DeclaredIn: protocol.DocumentURI(partsURI), Digest: redrawn.Edges[0].Origin.Digest},
 	)
 	if out.Edit == nil || out.Refused != nil {
 		t.Fatalf("clearing = %+v, want an edit", out)
@@ -224,7 +224,7 @@ func TestApplyModelEditPlacesInlineIntoTheDeclaringDocument(t *testing.T) {
 
 	out := applyModelEdit(t, s, fleetURI, drawn.Version,
 		modelEditOperation{Kind: EditSetLayout, Target: off.FQN, Layout: &modelEditLayout{X: 10, Y: 20}},
-		modelEditOperation{Kind: EditSetRoute, Declaration: edge.Declaration, DeclaredIn: protocol.DocumentURI(motorURI), Route: []renderPoint{{X: 3, Y: 4}}},
+		modelEditOperation{Kind: EditSetRoute, Declaration: edge.Declaration, DeclaredIn: protocol.DocumentURI(motorURI), Digest: edge.Origin.Digest, Route: []renderPoint{{X: 3, Y: 4}}},
 	)
 	if out.Edit == nil || out.Refused != nil || out.Stale {
 		t.Fatalf("result = %+v, want an edit", out)
@@ -340,18 +340,21 @@ func TestApplyModelEditLayoutRefusesWhenAnotherDocumentBecomesInvalid(t *testing
 	}
 }
 
-// declaredIn must name a document the server holds, and must accompany a
-// declaration range: either fault is an invalid request, not a refusal.
+// declaredIn must name a document the server holds, must accompany a
+// declaration range, and a range of another document must come with the digest
+// of the text it was read from: each fault is an invalid request, not a refusal.
 func TestApplyModelEditRejectsMisplacedDeclaredIn(t *testing.T) {
 	s, viewsURI, partsURI := engineWorkspace(t)
 	drawn := render(t, s, viewsURI, "EngineViews::engineView")
 	decl := drawn.Edges[0].Declaration
+	digest := drawn.Edges[0].Origin.Digest
 	for _, tc := range []struct {
 		op   modelEditOperation
 		want string
 	}{
-		{modelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Route: []renderPoint{{X: 1, Y: 2}}}, "no document the server holds"},
+		{modelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Route: []renderPoint{{X: 1, Y: 2}}}, "no document the server holds"},
 		{modelEditOperation{Kind: EditSetRoute, Target: "Machinery::Engine", DeclaredIn: protocol.DocumentURI(partsURI), Route: []renderPoint{{X: 1, Y: 2}}}, "there is none"},
+		{modelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(partsURI), Route: []renderPoint{{X: 1, Y: 2}}}, "needs the digest"},
 	} {
 		_, err := call(t, s, MethodApplyModelEdit, &applyModelEditParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: viewsURI},
@@ -374,5 +377,47 @@ func TestApplyModelEditRejectsMisplacedDeclaredIn(t *testing.T) {
 	}
 	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{partsURI}) {
 		t.Errorf("documentChanges = %v, want parts.sysml", got)
+	}
+}
+
+// A declaration range of another document is a range of the text it was
+// rendered from. When that document changes before the edit — here a line is
+// added above the connection, so the range now spells a different declaration —
+// the request is answered stale rather than written where the range now falls;
+// the same text at a new version is not stale, since the range still holds.
+func TestApplyModelEditIsStaleWhenAnotherDocumentsDeclarationMoved(t *testing.T) {
+	s, viewsURI, partsURI := engineWorkspace(t)
+	drawn := render(t, s, viewsURI, "EngineViews::engineView")
+	edge := drawn.Edges[0]
+	if edge.Declaration == nil || edge.Origin == nil || edge.Origin.URI != partsURI || edge.Origin.Digest == "" {
+		t.Fatalf("edge = %+v, want a declaration range of parts.sysml with its digest", edge)
+	}
+	steer := modelEditOperation{Kind: EditSetRoute, Declaration: edge.Declaration, DeclaredIn: protocol.DocumentURI(partsURI),
+		Digest: edge.Origin.Digest, Route: []renderPoint{{X: 1, Y: 2}}}
+
+	shifted := strings.Replace(engineParts, "\t\tpart rotor;\n", "\t\tpart rotor;\n\t\tpart shaft;\n", 1)
+	tellChanged(t, s, partsURI, shifted, 2)
+	out := applyModelEdit(t, s, viewsURI, drawn.Version, steer)
+	if !out.Stale || out.Edit != nil || out.Refused != nil {
+		t.Fatalf("after parts.sysml moved the connection: %+v, want stale", out)
+	}
+	if out.Version != drawn.Version {
+		t.Errorf("stale version = %d, want the requested document's %d, which did not change", out.Version, drawn.Version)
+	}
+	if string(s.ws.Document(partsURI.Filename()).Content) != shifted {
+		t.Error("a stale request changed parts.sysml")
+	}
+
+	tellChanged(t, s, partsURI, engineParts, 3)
+	out = applyModelEdit(t, s, viewsURI, drawn.Version, steer)
+	if out.Edit == nil || out.Stale || out.Refused != nil {
+		t.Fatalf("parts.sysml restored to the rendered text: %+v, want an edit", out)
+	}
+	change := documentChangeFor(t, out.Edit, partsURI)
+	if v := change.TextDocument.Version; v == nil || *v != 3 {
+		t.Errorf("parts version = %v, want the server's 3", v)
+	}
+	if got := applyDocumentChange(t, engineParts, change); !strings.Contains(got, "connect rotor to stator {\n\t\t\t@DiagramLayout::Route { points = (1, 2); }") {
+		t.Errorf("parts.sysml:\n%s", got)
 	}
 }

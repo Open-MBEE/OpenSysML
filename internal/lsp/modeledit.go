@@ -57,7 +57,9 @@ type applyModelEditParams struct {
 // the Canvas of the view Target. A setLayout or setRoute may give Declaration
 // instead of Target, the range a rendering reports for a node or edge no
 // qualified name reaches, a range of the document DeclaredIn names or, when
-// that is empty, of the requested one. View names the view whose body states a
+// that is empty, of the requested one. Digest is the origin's digest the range
+// was read with; a range of another document is refused as stale when that
+// document's text has changed since. View names the view whose body states a
 // Layout or Route, so it applies in that view alone; left empty, the annotation
 // goes inline into Target's declaration and applies in every view. A setLayout
 // with no Layout, a setRoute with no or an empty Route and a setCanvas with no
@@ -67,6 +69,7 @@ type modelEditOperation struct {
 	Target       string               `json:"target,omitempty"`
 	Declaration  *protocol.Range      `json:"declaration,omitempty"`
 	DeclaredIn   protocol.DocumentURI `json:"declaredIn,omitempty"`
+	Digest       string               `json:"digest,omitempty"`
 	Value        string               `json:"value,omitempty"`
 	NewName      string               `json:"newName,omitempty"`
 	Owner        string               `json:"owner,omitempty"`
@@ -205,18 +208,27 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 		return &applyModelEditResult{Stale: true, Version: doc.Version}, nil
 	}
 	ops := make([]modeledit.Operation, 0, len(params.Operations))
+	var read []*model.Document
 	for i, op := range params.Operations {
-		converted, err := s.operation(doc, op)
+		converted, declaring, err := s.operation(doc, op)
+		var stale *model.StaleError
+		if errors.As(err, &stale) {
+			return &applyModelEditResult{Stale: true, Version: doc.Version}, nil
+		}
 		if err != nil {
 			return nil, fmt.Errorf("%s: operation %d: %w", jsonrpc2.ErrInvalidParams, i, err)
 		}
 		ops = append(ops, converted)
+		if declaring != nil {
+			read = append(read, declaring)
+		}
 	}
-	result, version, ok, err := s.ws.ApplyEdit(name, ops)
+	result, version, ok, err := s.ws.ApplyEdit(name, ops, read)
 	if !ok {
 		return nil, fmt.Errorf("%s: no such document", name)
 	}
-	if version != params.Version {
+	var stale *model.StaleError
+	if version != params.Version || errors.As(err, &stale) {
 		return &applyModelEditResult{Stale: true, Version: version}, nil
 	}
 	if err != nil {
@@ -266,23 +278,40 @@ func documentChange(edited model.DocumentEdit) (protocol.TextDocumentEdit, error
 
 // operation reads a wire operation of doc as the edit operation it names, its
 // Declaration a range of the document DeclaredIn names when that is another.
-func (s *Server) operation(doc *model.Document, op modelEditOperation) (modeledit.Operation, error) {
+// That document is read at the text the range's digest names, and returned as
+// the snapshot the range was placed in, so that the edit can be pinned to it; a
+// digest of other text is a *model.StaleError, since the range may name
+// something else now.
+func (s *Server) operation(doc *model.Document, op modelEditOperation) (modeledit.Operation, *model.Document, error) {
 	if op.DeclaredIn == "" || op.Declaration == nil {
-		return op.operation(doc.Content)
+		converted, err := op.operation(doc.Content)
+		return converted, nil, err
 	}
 	name := uriToName(op.DeclaredIn)
 	if name == doc.Name {
-		return op.operation(doc.Content)
+		converted, err := op.operation(doc.Content)
+		return converted, nil, err
 	}
-	declaring := s.document(name)
+	if op.Digest == "" {
+		return modeledit.Operation{}, nil, fmt.Errorf("a declaration in %s, which declaredIn names, needs the digest of the text its range was read from", op.DeclaredIn)
+	}
+	// A library document is never rewritten, so there is no snapshot to pin.
+	pinned := s.ws.Document(name)
+	declaring := pinned
 	if declaring == nil {
-		return modeledit.Operation{}, fmt.Errorf("%s, which declaredIn names, is no document the server holds", op.DeclaredIn)
+		declaring = s.ws.LibraryDocument(name)
+	}
+	if declaring == nil {
+		return modeledit.Operation{}, nil, fmt.Errorf("%s, which declaredIn names, is no document the server holds", op.DeclaredIn)
+	}
+	if declaring.Digest() != op.Digest {
+		return modeledit.Operation{}, nil, &model.StaleError{Name: name}
 	}
 	converted, err := op.operation(declaring.Content)
 	if err != nil {
-		return modeledit.Operation{}, err
+		return modeledit.Operation{}, nil, err
 	}
-	return converted.DeclaredIn(name), nil
+	return converted.DeclaredIn(name), pinned, nil
 }
 
 // operation reads the wire operation as the edit operation it names; content

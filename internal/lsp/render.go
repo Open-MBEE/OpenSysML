@@ -126,10 +126,14 @@ type renderRow struct {
 
 // renderOrigin is where an element was declared: Range is the whole declaration,
 // SelectionRange the declared identifier alone, which is where a client goes.
+// Digest fingerprints the text the ranges are of; an operation naming a range
+// of another document hands it back, so a range of text since changed is
+// refused rather than misread.
 type renderOrigin struct {
 	URI            uri.URI         `json:"uri"`
 	Range          protocol.Range  `json:"range"`
 	SelectionRange *protocol.Range `json:"selectionRange,omitempty"`
+	Digest         string          `json:"digest"`
 }
 
 // viewsParams asks for the views a document declares.
@@ -395,7 +399,7 @@ func (s *Server) originOf(doc *model.Document, o view.Origin) *renderOrigin {
 	if doc == nil {
 		return nil
 	}
-	out := &renderOrigin{URI: s.documentURI(o.Doc), Range: spanToRange(doc.Content, o.Span)}
+	out := &renderOrigin{URI: s.documentURI(o.Doc), Range: spanToRange(doc.Content, o.Span), Digest: doc.Digest()}
 	if o.Name.Len > 0 {
 		name := spanToRange(doc.Content, o.Name)
 		out.SelectionRange = &name

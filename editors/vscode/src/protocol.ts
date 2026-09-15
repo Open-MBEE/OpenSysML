@@ -48,12 +48,15 @@ export interface Range {
 
 /**
  * Where an element was declared: `range` is the whole declaration, `selectionRange`
- * the declared identifier alone, which is where clicking a node goes.
+ * the declared identifier alone, which is where clicking a node goes. `digest`
+ * fingerprints the text the ranges are of; an operation naming a range of another
+ * document hands it back, and is answered stale once that text has changed.
  */
 export interface RenderOrigin {
   uri: string;
   range: Range;
   selectionRange?: Range;
+  digest: string;
 }
 
 export interface RenderNode {
@@ -185,12 +188,12 @@ export type ModelEditOperation =
   | { kind: "move"; target: string; owner: string }
   /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. */
   | { kind: "setLayout"; target: string; view?: string; layout?: LayoutGeometry }
-  /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. The range is one of the document `declaredIn` names, or of the edited document without it. */
-  | { kind: "setLayout"; declaration: Range; declaredIn?: string; layout?: LayoutGeometry }
+  /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. The range is one of the document `declaredIn` names — whose text `digest` fingerprints, as its origin reported — or of the edited document without it. */
+  | { kind: "setLayout"; declaration: Range; declaredIn?: string; digest?: string; layout?: LayoutGeometry }
   /** Steers the connection `target` through `route`, per view or inline as above; an empty or absent route clears it. */
   | { kind: "setRoute"; target: string; view?: string; route?: RenderPoint[] }
   /** Steers the connection declared at `declaration` inline, as `setLayout` by declaration places a node. */
-  | { kind: "setRoute"; declaration: Range; declaredIn?: string; route?: RenderPoint[] }
+  | { kind: "setRoute"; declaration: Range; declaredIn?: string; digest?: string; route?: RenderPoint[] }
   /** Sizes the drawing surface of the view `target`; no `canvas` clears it. */
   | { kind: "setCanvas"; target: string; canvas?: RenderCanvas };
 

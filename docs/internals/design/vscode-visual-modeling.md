@@ -317,7 +317,11 @@ one declaring what holds the annotation, wherever the request came from: the vie
 document for a view-local `Layout` or `Route` and for a `Canvas`, the element's own
 document for an inline one. A target is resolved through the workspace index, and
 its declaration range, when the rendering reports one instead of a qualified name,
-is read in the document `declaredIn` names. The splices go through the same
+is read in the document `declaredIn` names — at the text whose `digest` the
+rendering's origin reported, so a range of text since changed is answered stale
+rather than read where it now falls. The edit is then pinned to the very snapshot
+the range was read in: the workspace refuses it, under the one lock, should it have
+replaced that document in between. The splices go through the same
 per-document routing, atomic validation and `Result.Others` that rename and
 delete use, so one request may write several documents and refuses as a whole
 when the result is invalid in any of them. The operations refuse a target no

@@ -115,7 +115,8 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
       "origin": {
         "uri": "file:///tmp/kit.sysml",
         "range": { "start": { "line": 1, "character": 1 }, "end": { "line": 6, "character": 1 } },
-        "selectionRange": { "start": { "line": 1, "character": 10 }, "end": { "line": 1, "character": 16 } }
+        "selectionRange": { "start": { "line": 1, "character": 10 }, "end": { "line": 1, "character": 16 } },
+        "digest": "9b0f3c7a1d2e4f56a7b8c9d0e1f20314"
       }
     },
     {
@@ -125,7 +126,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
       "type": "Cog",
       "detail": "",
       "parent": "n0",
-      "origin": { "uri": "file:///tmp/kit.sysml", "range": { "…": "…" } }
+      "origin": { "uri": "file:///tmp/kit.sysml", "range": { "…": "…" }, "digest": "9b0f3c7a1d2e4f56a7b8c9d0e1f20314" }
     }
   ],
   "edges": [{ "from": "n0", "to": "n1", "label": "", "kind": "connection" }],
@@ -327,8 +328,8 @@ operation and its fields beside it:
 | `addConnection` | `owner`, `memberKind`, `from`, `to`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from` and `to` written as they resolve from the owner's scope (`tank.fuelOut`). |
 | `delete` | `target`, `cascade?` | The declaration and the trivia that belongs to it — its own line, a line comment after it and the comment block above it. Refused as `delete-referenced` when something still refers to it, in the document or in another of the workspace, unless `cascade` is set, in which case the referring declarations go too — an import of the target, the usage typed by it, whatever refers to those, in whichever workspace document declares them — until nothing left behind refers to anything removed. Refused as `referenced-elsewhere`, cascade or not, while a document the server cannot rewrite (a bundled library file, or one indexed without its source held) refers to anything the delete would remove. |
 | `move` | `target`, `owner` | The declaration — with its body, its comments and the trivia a `delete` takes — removed from where it is and written at the end of the owner's body, as an `addMember` would write it, re-indented to its neighbors; an owner declared without a body gets one, and the empty `owner` is the document. Every reference the move would break is respelled to reach the declaration where it now is, by the shortest qualified name that still resolves to it, and an import the move leaves redundant or dangling is dropped or respelled with the rest. The move rewrites its own document only: it is refused as `referenced-elsewhere` while another document of the workspace refers to the target or anything within it. Refused as `owner-inside-target` when the owner is the target or declared within it, as `illegal-kind` when the owner's body does not admit the target's kind (the `palette`'s admission), as `member-name-taken` when the owner already declares the name, and as `move-referenced` when a reference has no spelling that reaches the moved declaration. |
-| `setLayout` | `target` or `declaration` (+ `declaredIn?`), `view?`, `layout?` | The `DiagramLayout::Layout` annotation placing the target: `layout` is `{ "x", "y", "width"?, "height"?, "collapsed"? }` in the coordinates `opensysml/render` reports, `width` and `height` given together or not at all. With a `view`, the annotation is stated about the target in that view's body, in the document declaring the view, and places it there alone; without one, it is written inline in the target's own body, in the document declaring the target, and places it in every view that states nothing. An annotation already there is rewritten in place, value by value; a target declared without a body gets one; omitting `layout` removes the annotation with the line it stood on (and the body it alone filled). Refused as `referenced-elsewhere`, naming the file, when the document to write is one the server cannot rewrite: a bundled library file, or one the index holds without the workspace holding its source. |
-| `setRoute` | `target` or `declaration` (+ `declaredIn?`), `view?`, `route?` | The `DiagramLayout::Route` annotation of a connection, transition, succession or flow, `route` being its waypoints as an array of `{"x", "y"}`; `view`, the document written and an omitted or empty `route` mean what they do for `setLayout`. |
+| `setLayout` | `target` or `declaration` (+ `declaredIn?`, `digest?`), `view?`, `layout?` | The `DiagramLayout::Layout` annotation placing the target: `layout` is `{ "x", "y", "width"?, "height"?, "collapsed"? }` in the coordinates `opensysml/render` reports, `width` and `height` given together or not at all. With a `view`, the annotation is stated about the target in that view's body, in the document declaring the view, and places it there alone; without one, it is written inline in the target's own body, in the document declaring the target, and places it in every view that states nothing. An annotation already there is rewritten in place, value by value; a target declared without a body gets one; omitting `layout` removes the annotation with the line it stood on (and the body it alone filled). Refused as `referenced-elsewhere`, naming the file, when the document to write is one the server cannot rewrite: a bundled library file, or one the index holds without the workspace holding its source. |
+| `setRoute` | `target` or `declaration` (+ `declaredIn?`, `digest?`), `view?`, `route?` | The `DiagramLayout::Route` annotation of a connection, transition, succession or flow, `route` being its waypoints as an array of `{"x", "y"}`; `view`, the document written and an omitted or empty `route` mean what they do for `setLayout`. |
 | `setCanvas` | `target`, `canvas?` | The `DiagramLayout::Canvas` annotation of the view `target` names, written into the view's body in the document declaring it: `{ "unit"?, "width"?, "height"? }`, the sizes together or not at all; omitted, the annotation is removed. Refused as `setLayout` is when that document cannot be rewritten. |
 
 `target` and `owner` are qualified names, as `nodes[].fqn` and `nodes[].owners[].fqn` in a
@@ -339,13 +340,17 @@ edge's `declaration` range, in place of `target` — one or the other, not both 
 element no qualified name reaches; such an annotation goes inline, and is refused as
 `not-named` with a `view`, whose body could not name what it is about. The range is one
 of the requested document unless `declaredIn` names another document of the workspace,
-the node's or edge's `origin.uri`; a `declaredIn` naming a document the server does not
-hold, or given without a `declaration`, is an invalid-params error, as an operation
-giving both `target` and `declaration` is. No other operation takes a `declaration`. Every
-`declaration` of a request is a range of the version the server holds of its document —
-the request's `version` for the requested one: when an earlier operation of the same
-request moves or lengthens the declaration, the later one still reaches it, and is
-refused as `unknown-target` only when the earlier one rewrote the declaration itself. The
+the node's or edge's `origin.uri`, with `digest` the `origin.digest` the range was
+reported with; a `declaredIn` naming a document the server does not hold, given without a
+`declaration`, or naming another document without a `digest`, is an invalid-params error,
+as an operation giving both `target` and `declaration` is. No other operation takes a
+`declaration`. Every `declaration` of a request is a range of the text the server holds of
+its document — the request's `version` for the requested one, the text `digest` fingerprints
+for another, which the answer is `stale` for when that document's text has changed since
+the rendering, whether or not a namesake declaration now stands at the range: when an
+earlier operation of the same request moves or lengthens the declaration, the later one
+still reaches it, and is refused as `unknown-target` only when the earlier one rewrote the
+declaration itself. The
 three layout operations write into whichever document of the workspace declares what
 holds the annotation — the view for a view-local one and a canvas, the target for an
 inline one — whether that is the requested document or another, so a view exposing another
@@ -395,8 +400,9 @@ requested document first when it is among them:
 
 An edit across documents is all of them or none: a reference the server cannot follow, or
 a document the rewrite would leave with an error, refuses the whole request, and no
-document's change is answered alone. Only the requested document's version is named in
-the request, so only that one can be answered `stale`; the version each other document's
+document's change is answered alone. The request names the requested document's version,
+and the digest of each other document a `declaration` range is of; the answer is `stale`
+when either does not match what the server holds. The version each other document's
 change carries is the one its edits were computed against, and a client applies the edit
 only while every document it names is open and still at that version. A document it names
 that the client has no buffer of — one the server read from disk, so that its change

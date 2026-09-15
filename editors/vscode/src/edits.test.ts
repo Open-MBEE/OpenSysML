@@ -490,7 +490,8 @@ test("placementOperations targets a node or edge no qualified name reaches by it
 // qualified names and owners as any declared node does, and the unnamed
 // connection its declaration range, all located in parts.sysml.
 const partsURI = "file:///work/parts.sysml";
-const partsOrigin = (line: number) => ({ uri: partsURI, range: { start: { line, character: 2 }, end: { line, character: 30 } } });
+const partsDigest = "3f9c1a2b4d5e6f70";
+const partsOrigin = (line: number) => ({ uri: partsURI, range: { start: { line, character: 2 }, end: { line, character: 30 } }, digest: partsDigest });
 const engineDef: RenderOwner = { fqn: "Machinery::Engine", feature: false };
 const machinery: RenderOwner = { fqn: "Machinery", feature: false };
 const rotor: RenderNode = { id: "n1", kind: "part", name: "rotor", type: "", detail: "", parent: "n0", fqn: "Machinery::Engine::rotor", owners: [engineDef, machinery], origin: partsOrigin(3) };
@@ -509,14 +510,14 @@ test("placementOperations names a node another document declares by its qualifie
   ]);
 });
 
-test("placementOperations targets a declaration another document holds in that document", () => {
+test("placementOperations targets a declaration another document holds in that document, at the text it was rendered from", () => {
   assert.deepEqual(placementOperations(drawnFromParts, [], [{ index: 0, route: [{ x: 30, y: 90 }] }]), [
-    { kind: "setRoute", declaration: rotorToStator.declaration, declaredIn: partsURI, route: [{ x: 30, y: 90 }] },
+    { kind: "setRoute", declaration: rotorToStator.declaration, declaredIn: partsURI, digest: partsDigest, route: [{ x: 30, y: 90 }] },
   ]);
   const unnamedNode = { ...drawnFromParts, nodes: [...drawnFromParts.nodes, { ...imported, id: "n7", declaration: partsOrigin(6).range, origin: partsOrigin(6) }] };
   assert.deepEqual(placementOperations(unnamedNode, [{ id: "n7", layout: { x: 1, y: 2 } }], [{ index: 0 }]), [
-    { kind: "setLayout", declaration: partsOrigin(6).range, declaredIn: partsURI, layout: { x: 1, y: 2 } },
-    { kind: "setRoute", declaration: rotorToStator.declaration, declaredIn: partsURI, route: undefined },
+    { kind: "setLayout", declaration: partsOrigin(6).range, declaredIn: partsURI, digest: partsDigest, layout: { x: 1, y: 2 } },
+    { kind: "setRoute", declaration: rotorToStator.declaration, declaredIn: partsURI, digest: partsDigest, route: undefined },
   ]);
 });
 

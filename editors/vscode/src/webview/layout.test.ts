@@ -18,7 +18,7 @@ import {
   steerable,
 } from "./layout";
 
-const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } } };
+const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
 function node(id: string, name: string, extra: Partial<RenderNode> = {}): RenderNode {
   return { id, kind: "part", name, type: "", detail: "", fqn: `M::${name}`, origin, ...extra };

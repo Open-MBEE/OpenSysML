@@ -68,9 +68,9 @@ export function placementOperations(
   return operations;
 }
 
-/** declaredIn names the document a node's or edge's declaration range is one of, when the rendering located it. */
-function declaredIn(element: RenderNode | RenderEdge): { declaredIn?: string } {
-  return element.origin ? { declaredIn: element.origin.uri } : {};
+/** declaredIn names the document a node's or edge's declaration range is one of, and the digest of its text, when the rendering located it. */
+function declaredIn(element: RenderNode | RenderEdge): { declaredIn?: string; digest?: string } {
+  return element.origin ? { declaredIn: element.origin.uri, digest: element.origin.digest } : {};
 }
 
 /** A node's ancestors, nearest first, ending at a root. */
