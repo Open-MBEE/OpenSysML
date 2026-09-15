@@ -37,9 +37,12 @@ func (r *Resolver) nestedInRedefined(scope *symbols.Scope, name string, hide *re
 // redefinedFeatures returns the features sym redefines, explicitly, implicitly
 // in a metadata body, or as an association or connector end.
 func (r *Resolver) redefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
+	r.EnterDoc(sym.DocName)
+	defer r.LeaveDoc()
 	if cached, done := r.redefined[sym]; done {
 		return cached
 	}
+	journalNew(r, r.redefined, sym, sym.Decl)
 	r.redefined[sym] = nil
 	out := r.explicitRedefinitions(sym)
 	if model, ok := r.model.(endRedefinitionLookup); ok {

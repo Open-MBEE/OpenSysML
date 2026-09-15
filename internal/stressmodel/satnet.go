@@ -384,6 +384,14 @@ func (g *generator) constellation(n SatelliteNetwork) {
 	for k := 0; k < n.GroundStations; k++ {
 		g.groundStation(k)
 	}
+	g.network(n)
+	g.line(1, "}")
+	g.line(0, "}")
+}
+
+// network writes the part definition joining every satellite and ground
+// station, and its one usage.
+func (g *generator) network(n SatelliteNetwork) {
 	g.line(0, "")
 	g.decl(2, "part def Network {")
 	total := n.Planes * n.Satellites
@@ -415,8 +423,6 @@ func (g *generator) constellation(n SatelliteNetwork) {
 	g.decl(3, "attribute satelliteCount : Integer = %d;", total)
 	g.line(2, "}")
 	g.decl(2, "part network : Network;")
-	g.line(1, "}")
-	g.line(0, "}")
 }
 
 // link writes a crosslink between two satellites' crosslink terminals.
