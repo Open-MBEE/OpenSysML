@@ -236,6 +236,46 @@ func TestInheritedTopLevelPseudostatesAreLocatedInTheirDefinitionsDocument(t *te
 	}
 }
 
+// A pseudostate a state usage inherits from the definition typing it — nested in
+// the definition's body, or in a composite state of it — is located in the
+// definition's document at its declaration, not in the usage's document at the
+// same offsets.
+func TestInheritedNestedPseudostatesAreLocatedInTheirDefinitionsDocument(t *testing.T) {
+	sf := fixtureText(t, "regions.sysml")
+	machine := renderIn(t, "RegionUsages::plantView", "regions-usages.sysml", "regions.sysml")
+	if len(machine.Notices) != 0 {
+		t.Fatalf("notices = %v, want none", machine.Notices)
+	}
+	cases := []struct {
+		owner, pseudo, kind, decl string
+	}{
+		{"running", "retry", "choice", "choice retry;"},
+		{"go", "settle", "junction", "junction settle;"},
+	}
+	for _, tc := range cases {
+		owner := findNode(t, machine.Roots, tc.owner)
+		pseudo := findNode(t, machine.Roots, tc.pseudo)
+		if pseudo.Kind != tc.kind {
+			t.Errorf("%s is a %q, want a %s", tc.pseudo, pseudo.Kind, tc.kind)
+		}
+		if !slices.Contains(owner.Children, pseudo) {
+			t.Errorf("%s is not a child of %s; its children are %v", tc.pseudo, tc.owner, sortedKeys(nodeNames(owner.Children)))
+		}
+		if pseudo.Origin.Doc != "regions.sysml" {
+			t.Errorf("%s is located in %q, want regions.sysml, where its definition declares it", tc.pseudo, pseudo.Origin.Doc)
+		}
+		if !pseudo.Origin.Located() {
+			t.Fatalf("%s has no located declaration", tc.pseudo)
+		}
+		if got := sf.Text(pseudo.Origin.Span); !strings.HasPrefix(got, tc.decl) {
+			t.Errorf("%s's origin in regions.sysml spans %q, want its declaration", tc.pseudo, got)
+		}
+	}
+	if got := findNode(t, machine.Roots, "running").Origin.Doc; got != "regions-usages.sysml" {
+		t.Errorf("running is located in %q, want regions-usages.sysml, where the usage is written", got)
+	}
+}
+
 // The nodes an action usage inherits from its definition keep their inline
 // positions, take the view's, and the usage's own succession over them its route.
 func TestInheritedActionNodesKeepTheirGeometry(t *testing.T) {

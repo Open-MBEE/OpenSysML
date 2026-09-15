@@ -26,4 +26,16 @@ package Regions {
 			state waiting;
 		}
 	}
+
+	// A definition a state usage elsewhere is typed by, with a pseudostate nested
+	// in its body and one in a composite state of it.
+	state def Running {
+		entry; then go;
+		state go {
+			entry; then ready;
+			state ready;
+			junction settle;
+		}
+		choice retry;
+	}
 }

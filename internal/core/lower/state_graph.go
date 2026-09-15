@@ -169,7 +169,7 @@ type StateGraph struct {
 	regionScopeOf map[*ast.StateRegion]*symbols.Scope
 
 	// pseudostateScopeOf: pseudostate → the scope of the body declaring it, which
-	// is a definition's for one a usage inherits.
+	// is a definition's for the copy a usage inherits, recorded when it is copied.
 	pseudostateScopeOf map[*ast.PseudostateNode]*symbols.Scope
 
 	// behaviorScope: entry, do or exit action → the scope it was declared in,
@@ -1179,11 +1179,11 @@ func (g *StateGraph) recordDecl(state *ast.StateNode) {
 }
 
 // addPseudostate records a pseudostate as a vertex of the graph, declared in
-// the body scope resolves.
+// the body scope resolves unless a copy already recorded the definition's.
 func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode, scope *symbols.Scope) {
 	g.Pseudostates = append(g.Pseudostates, ps)
 	g.putVertex(ps, ps)
-	if scope != nil {
+	if scope != nil && g.pseudostateScopeOf[ps] == nil {
 		g.pseudostateScopeOf[ps] = scope
 	}
 }
