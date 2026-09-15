@@ -86,3 +86,59 @@ func TestScalarTableFollowsItsDeclaringDocument(t *testing.T) {
 		previous = integer
 	}
 }
+
+// A memoized member-source closure is owned by the document declaring its
+// symbol, and a reader served from the memo depends on that document: editing
+// it reaches what the reader derived from the closure.
+func TestMemberSourcesReadersDependOnTheDeclaringDocument(t *testing.T) {
+	idx := symbols.NewIndex()
+	r := resolve.New(idx)
+	m := NewModel(r)
+	r.SetModel(m)
+	r.Track()
+	add := func(name, src string) {
+		p := parser.New(source.New(name, []byte(src)))
+		root := p.ParseFile()
+		if len(p.Diagnostics) != 0 {
+			t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+		}
+		idx.AddDocument(name, root)
+	}
+	add("a.sysml", "package A { part def Base; part def Derived :> Base; }")
+	add("b.sysml", "package B { part def Other; }")
+	r.Invalidate(idx.TakeChanges())
+	derived := sym(t, sym(t, idx.DocumentRoot("a.sysml"), "A").Scope, "Derived")
+	sources := func(from string) []*symbols.Symbol {
+		var out []*symbols.Symbol
+		r.InDocument(from, func() { out = m.MemberSources(derived) })
+		return out
+	}
+	if got := sources("a.sysml"); len(got) != 1 || got[0].Name != "Base" {
+		t.Fatalf("MemberSources(Derived) = %v, want Base", got)
+	}
+	if got := sources("b.sysml"); len(got) != 1 || got[0].Name != "Base" {
+		t.Fatalf("memoized MemberSources(Derived) = %v, want Base", got)
+	}
+	if deps := r.Dependents("a.sysml"); len(deps) != 1 || deps[0] != "b.sysml" {
+		t.Fatalf("a.sysml's dependents = %v, want b.sysml, served from the memo", deps)
+	}
+	var lookup []lookupSource
+	r.InDocument("b.sysml", func() { lookup = m.lookupSources(derived) })
+	if len(lookup) != 1 || lookup[0].sym.Name != "Base" {
+		t.Fatalf("lookupSources(Derived) = %v, want Base", lookup)
+	}
+	add("a.sysml", "package A { part def Base; part def Derived; }")
+	ch := idx.TakeChanges()
+	ch.Docs = map[string]bool{"a.sysml": true}
+	dropped := r.Invalidate(ch)
+	if len(dropped) != 2 || dropped[0] != "a.sysml" || dropped[1] != "b.sysml" {
+		t.Fatalf("editing a.sysml dropped %v, want a.sysml and its reader b.sysml", dropped)
+	}
+	if len(m.memberSources) != 0 || len(m.lookupOrder) != 0 {
+		t.Fatalf("%d member-source and %d lookup-order closures survive the edit, want none", len(m.memberSources), len(m.lookupOrder))
+	}
+	derived = sym(t, sym(t, idx.DocumentRoot("a.sysml"), "A").Scope, "Derived")
+	if got := sources("b.sysml"); len(got) != 0 {
+		t.Fatalf("MemberSources(Derived) after the edit = %v, want none", got)
+	}
+}

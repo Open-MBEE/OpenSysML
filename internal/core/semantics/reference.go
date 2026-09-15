@@ -107,6 +107,7 @@ func (m *Model) MemberSources(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.memberSources[sym]; ok {
 		return cached
 	}
@@ -152,6 +153,7 @@ func (m *Model) lookupSources(sym *symbols.Symbol) []lookupSource {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.lookupOrder[sym]; ok {
 		return cached
 	}
