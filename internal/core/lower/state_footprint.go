@@ -162,6 +162,15 @@ func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transiti
 		if owner := b.graph.PseudostateOwner[ps]; owner != nil {
 			b.exits(owner)
 		}
+		// Firing the join runs the effects of every incoming segment, not just seg's.
+		for _, incoming := range b.graph.incomingTo(ps) {
+			if incoming == seg {
+				continue
+			}
+			for _, effect := range incoming.Effect {
+				b.statements(effect.Body)
+			}
+		}
 		for _, branch := range b.graph.Transitions[ps] {
 			b.segment(source, branch)
 		}
@@ -270,6 +279,19 @@ func (g *StateGraph) children(state *ast.StateNode) []*ast.StateNode {
 		}
 	}
 	return children
+}
+
+// incomingTo lists the transitions out of a state into ps, in state order.
+func (g *StateGraph) incomingTo(ps *ast.PseudostateNode) []*Transition {
+	var incoming []*Transition
+	for _, state := range g.States {
+		for _, trans := range g.Transitions[state] {
+			if trans.Target == ast.Node(ps) {
+				incoming = append(incoming, trans)
+			}
+		}
+	}
+	return incoming
 }
 
 // commonAncestor is the innermost state enclosing both, nil when only the

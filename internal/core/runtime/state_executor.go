@@ -2341,18 +2341,65 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 		return false, nil
 	}
 
-	// Exit every synchronized branch, then continue from the composite state
-	// they belong to so the usual hierarchy walk exits it as well.
+	// Every incoming segment fires, then the move goes on from the composite state
+	// the sources belong to so the usual hierarchy walk exits it as well.
 	owner := e.joinOwner(sources)
-	for _, source := range sources {
-		if err := e.exitState(source); err != nil {
-			return false, fmt.Errorf("exit state: %w", err)
-		}
+	if err := e.fireJoinIncoming(join); err != nil {
+		return false, err
 	}
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.simpleState = owner
-
+	r.segments = r.segments[1:]
 	return true, e.transitionTo(trans, r)
+}
+
+// fireJoinIncoming fires each transition into join whole — its source exited,
+// then its effect — in an order the policy draws among their sources.
+func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode) error {
+	pending := e.joinIncoming(join)
+	for len(pending) > 0 {
+		next := 0
+		if len(pending) > 1 {
+			sources := make([]*ast.StateNode, len(pending))
+			for i, trans := range pending {
+				sources[i] = trans.Source.(*ast.StateNode)
+			}
+			choice := e.regionOrderChoice("join "+join.Name, sources)
+			if err := e.ctx.scheduling().refusal(); err != nil {
+				return err
+			}
+			e.ctx.noteChoice(choice)
+			next = choice.Taken
+		}
+		trans := pending[next]
+		pending = slices.Delete(pending, next, next+1)
+		if err := e.fireJoinSegment(trans); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// fireJoinSegment fires one transition into a join: its source exited, then its effect.
+func (e *StateExecutor) fireJoinSegment(trans *lower.Transition) error {
+	if err := e.exitState(trans.Source.(*ast.StateNode)); err != nil {
+		return fmt.Errorf("exit state: %w", err)
+	}
+	return e.runBehaviors(trans.Effect)
+}
+
+// joinIncoming lists the transitions into join, in source declaration order;
+// joinSources has checked that each source is a state.
+func (e *StateExecutor) joinIncoming(join *ast.PseudostateNode) []*lower.Transition {
+	var incoming []*lower.Transition
+	for _, state := range e.graph.States {
+		for _, trans := range e.graph.Transitions[state] {
+			if trans.Target == ast.Node(join) {
+				incoming = append(incoming, trans)
+			}
+		}
+	}
+	return incoming
 }
 
 // joinOwner is the composite state whose regions the sources of a join lie in.
@@ -2395,13 +2442,10 @@ func (e *StateExecutor) allActive(states []*ast.StateNode) bool {
 // exited in — so it comes from graph.States rather than from the graph.Transitions
 // map, whose iteration order varies between runs.
 func (e *StateExecutor) joinSources(join *ast.PseudostateNode) ([]*ast.StateNode, error) {
-	var sources []*ast.StateNode
-	for _, state := range e.graph.States {
-		for _, trans := range e.graph.Transitions[state] {
-			if trans.Target == ast.Node(join) {
-				sources = append(sources, state)
-			}
-		}
+	incoming := e.joinIncoming(join)
+	sources := make([]*ast.StateNode, len(incoming))
+	for i, trans := range incoming {
+		sources[i] = trans.Source.(*ast.StateNode)
 	}
 	for _, ps := range e.graph.Pseudostates {
 		for _, trans := range e.graph.Transitions[ps] {
