@@ -708,6 +708,63 @@ package RoutingViews {
 }
 `
 
+// debugSameNamedSignals declares Go twice, the machine's own after another
+// package's, and one signal inside the machine's body.
+const debugSameNamedSignals = `package A {
+	attribute def Go;
+}
+package B {
+	attribute def Go;
+	state def Machine {
+		attribute def Local;
+		entry; then idle;
+		state idle;
+		state going;
+		state done;
+		transition first idle accept Go then going;
+		transition first going accept Local then done;
+	}
+}
+package BViews {
+	private import StandardViewDefinitions::*;
+	view machineView : StateTransitionView { expose B::Machine; }
+}
+`
+
+// A signal name resolves from the target's scope, as an accept written there
+// does: the machine's own Go rather than the first Go declared in the document,
+// and a signal declared in its body; a qualified name still names what it says.
+func TestDebugSendResolvesSignalInTargetScope(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/s.sysml", debugSameNamedSignals)
+	id := ids(t, render(t, s, docURI, "BViews::machineView"))
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "BViews::machineView", Target: "B::Machine",
+	})
+	session := snap.Session
+
+	if _, err := debugCall(t, s, MethodDebugSend, &debugSendParams{Session: session, Signal: "A::Go"}); !errors.Is(err, ErrDebugSignal) {
+		t.Errorf("send of A::Go: err = %v, want %v", err, ErrDebugSignal)
+	}
+	snap = mustDebug(t, s, MethodDebugSend, &debugSendParams{Session: session, Signal: "Go"})
+	if len(snap.Queue) != 1 || snap.Queue[0].Event != "Go" || !snap.Queue[0].Pending {
+		t.Errorf("queue after sending Go = %+v, want the pending Go", snap.Queue)
+	}
+	snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session})
+	wantStrings(t, "active after Go", snap.ActiveStates, []string{id["going"]})
+
+	snap = mustDebug(t, s, MethodDebugSend, &debugSendParams{Session: session, Signal: "Local"})
+	if len(snap.Queue) != 1 || snap.Queue[0].Event != "Local" {
+		t.Errorf("queue after sending Local = %+v, want the pending Local", snap.Queue)
+	}
+	snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session})
+	wantStrings(t, "active after Local", snap.ActiveStates, []string{id["done"]})
+
+	if _, err := debugCall(t, s, MethodDebugSend, &debugSendParams{Session: session, Signal: "Go(1)"}); !errors.Is(err, ErrDebugSignal) {
+		t.Errorf("send of an expression: err = %v, want %v", err, ErrDebugSignal)
+	}
+}
+
 // A breakpoint on a pseudostate pauses the run once the dispatch routed through
 // it completes, the pseudostate reported as where it paused.
 func TestDebugBreakpointOnAPseudostatePauses(t *testing.T) {

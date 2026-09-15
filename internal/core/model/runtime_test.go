@@ -38,8 +38,8 @@ func TestNewRuntimeKeepsCallerIndexedDocuments(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewRuntime: %v", err)
 			}
-			if got := rt.Lookup("Lib::Base"); len(got) != 1 {
-				t.Fatalf("runtime holds %d symbols named Lib::Base, want 1", len(got))
+			if rt.Declared("lib.sysml", "Lib::Base") == nil {
+				t.Fatal("runtime does not hold Lib::Base")
 			}
 			robot := rt.Declared("main.sysml", "Main::Robot")
 			if robot == nil {

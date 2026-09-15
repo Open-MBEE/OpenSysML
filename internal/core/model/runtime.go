@@ -100,11 +100,6 @@ func (r *Runtime) Declared(doc, fqn string) *symbols.Symbol {
 	return declaredIn(r.index, doc, fqn)
 }
 
-// Lookup is the runtime's own symbols under the fully qualified name fqn.
-func (r *Runtime) Lookup(fqn string) []*symbols.Symbol {
-	return r.index.LookupQualified(fqn)
-}
-
 // FQN spells sym's fully qualified name as the runtime's index holds it.
 func (r *Runtime) FQN(sym *symbols.Symbol) string {
 	return r.index.GetFQN(sym)

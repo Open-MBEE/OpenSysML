@@ -826,7 +826,11 @@ type debugArgument struct {
 
 // parseSend reads the signal and arguments of a send, evaluating nothing yet.
 func (sess *debugSession) parseSend(signal string, args map[string]string) (*debugSend, error) {
-	send := &debugSend{signal: signal, def: sess.signalDefinition(signal)}
+	name, def, err := sess.signalDefinition(signal)
+	if err != nil {
+		return nil, err
+	}
+	send := &debugSend{signal: name, def: def}
 	if send.def == nil && len(args) > 0 {
 		return nil, fmt.Errorf("no signal definition %s is declared, so it cannot carry arguments", signal)
 	}
@@ -856,7 +860,7 @@ func (send *debugSend) named(sess *debugSession) []*symbols.Symbol {
 		out = append(out, send.def)
 	}
 	for _, arg := range send.args {
-		out = append(out, sess.runtime.Referenced(sess.targetSym.OwnerScope, arg.expr)...)
+		out = append(out, sess.runtime.Referenced(sess.scope(), arg.expr)...)
 	}
 	return out
 }
@@ -869,7 +873,7 @@ func (sess *debugSession) signalMessage(send *debugSend) (runtime.Message, error
 	}
 	bound := make(map[string]runtime.Value, len(send.args))
 	for _, arg := range send.args {
-		value, err := sess.rt.EvalWithScope(arg.expr, sess.targetSym.OwnerScope)
+		value, err := sess.rt.EvalWithScope(arg.expr, sess.scope())
 		if err != nil {
 			return runtime.Message{}, fmt.Errorf("argument %s: %w", arg.name, err)
 		}
@@ -937,16 +941,31 @@ func (sess *debugSession) namedIn(r *model.Reading, keys []dependencyKey) ([]*sy
 	return roots, ""
 }
 
-// signalDefinition is the definition signal names, by qualified name anywhere
-// or by name among the target's document, nil when none is declared.
-func (sess *debugSession) signalDefinition(signal string) *symbols.Symbol {
-	if sym := sess.runtime.Declared(sess.doc, signal); sym != nil {
-		return sym
+// signalDefinition is the name signal spells and the definition it resolves to
+// from the target's scope, as an `accept` written there would; nil for none.
+func (sess *debugSession) signalDefinition(signal string) (string, *symbols.Symbol, error) {
+	expr, err := parseDebugExpression(signal)
+	if err != nil {
+		return "", nil, fmt.Errorf("signal %w", err)
 	}
-	for _, sym := range sess.runtime.Lookup(signal) {
-		return sym
+	ref, ok := expr.(*ast.FeatureReference)
+	if !ok || ref.Name == nil || len(ref.Name.Parts) == 0 {
+		return "", nil, fmt.Errorf("signal %q is not a name", signal)
 	}
-	return nil
+	name := ref.Name.Parts[len(ref.Name.Parts)-1].Text
+	for _, sym := range sess.runtime.Referenced(sess.scope(), ref) {
+		return name, sym, nil
+	}
+	return name, nil, nil
+}
+
+// scope is where the target's own text resolves names: its body, or the scope
+// it is declared in when it has no body of its own.
+func (sess *debugSession) scope() *symbols.Scope {
+	if sess.targetSym.Scope != nil {
+		return sess.targetSym.Scope
+	}
+	return sess.targetSym.OwnerScope
 }
 
 // performer is the object performing the session's behavior, nil for none.

@@ -506,11 +506,12 @@ unknown to the server, and any request naming it is answered with
 { "session": "debug-1", "signal": "Lander::Abort", "args": { "reason": "\"fuel\"", "level": "1 + 2" } }
 ```
 
-Posts a signal to the behavior, as `%send` does. `signal` names a signal
-definition by qualified name, or by the name the target's document declares it
-under; a name that declares nothing is delivered by name alone and may carry no
-arguments. Each argument is a SysML expression evaluated in the scope the target
-is declared in, bound to the signal feature it is keyed by. A signal the behavior
+Posts a signal to the behavior, as `%send` does. `signal` is a name, qualified
+or not, resolved from the target's own scope the way an `accept` written in its
+body resolves it — so a `Go` the target's package declares is meant over a `Go`
+declared earlier elsewhere; a name that resolves to nothing is delivered by name
+alone and may carry no arguments. Each argument is a SysML expression evaluated
+in the same scope, bound to the signal feature it is keyed by. A signal the behavior
 accepts nowhere it now stands is refused with `InvalidParams` rather than queued
 to be lost; an accepted one is queued, and the next `step` or `continue`
 delivers it.
