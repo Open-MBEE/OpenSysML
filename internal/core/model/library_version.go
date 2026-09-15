@@ -75,6 +75,7 @@ func (w *Workspace) restoreLocked(library string) {
 	if root, ok := scope.Node().(*ast.RootNamespace); ok {
 		w.index.AddDocument(library, root)
 		w.index.MarkLibraryDocument(library, record)
+		w.index.ExpandWildcardImports()
 	}
 }
 
@@ -122,6 +123,7 @@ func (w *Workspace) restoreOverLocked(idx *symbols.Index, name, library string) 
 	if root, ok := scope.Node().(*ast.RootNamespace); ok {
 		idx.AddDocument(library, root)
 		idx.MarkLibraryDocument(library, w.libBase.LibraryDocumentOf(library))
+		idx.ExpandWildcardImports()
 	}
 }
 
