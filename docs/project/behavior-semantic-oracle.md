@@ -621,6 +621,41 @@ for a transition conflict, branches after the first enabled one are read in a pr
 undone. A choice with no enabled branch and no unguarded one fails the run at that instant with a
 typed error naming the choice (`TestRuntimeRobustness/state_choice_without_an_enabled_branch`).
 
+### Two branches of a junction enabled when the transition is selected: exactly one is taken, which one is open
+
+Fixture: `state_junction_several_enabled_branches` (golden, explored).
+
+```
+idle ─ accept Go → split ─ { route := 1 } → left
+                         ─ { route := 2 } → right
+```
+
+Derived constraints:
+
+- A junction is a `DecisionPerformance` like a choice; what differs is when its guards are read.
+  UML reads a junction's guards statically, with the enabledness of the compound transition, before
+  any of its effects run (UML 2.5.1 §14.2.3.7, `junction`; §14.2.3.8.1, "compound transition"),
+  so the two branches here, both unguarded, are both enabled when Go is dispatched from `idle`.
+- `DecisionPerformance::outgoingHBLink: HappensBefore[1]` (`ControlPerformances.kerml`): exactly one
+  branch follows, so the machine ends in `left` or `right`, never at `split` and never in both,
+  and exactly one of the two branch effects runs (`TransitionPerformances.kerml`,
+  `succession [1] transitionLinkSource then [*] effect`, per segment taken).
+
+Open: which enabled branch is taken. Nothing in the library ranks two branches of one junction
+whose guards both hold, and UML says the same: when several outgoing transitions of a junction are
+enabled, "one is chosen; the algorithm for making this selection is not defined" (PSSM 1.0
+`Junction003`, restating UML 2.5.1 §14.2.3.9.1 on conflicting transitions).
+
+Pinned outcome: the admissible set `{route = 1 in left, route = 2 in right}`, stated as `outcomes`
+citing this section; exploration reaches each once (2 runs, 2 outcomes, complete). The executor
+reads the branches when it selects the transition out of `idle`, takes the first enabled one and
+records the choice at the junction as the transition fires, before `idle` is exited (`choice
+junction split: transitions 1->left, 2->right (unordered; took 1->left)`); the golden pins that
+linearization, `seed:1` the other one.
+As at a choice, branches after the first enabled one are read in a preview that is undone. A
+junction with no enabled branch fails the run at that instant with a typed error naming the
+junction (`robustness_test.go:region_pseudostate_without_satisfied_guard`).
+
 ### Transitions in sibling regions enabled by one event: each fires, in which order is open
 
 Fixture: `state_explore_region_order` (golden, explored).

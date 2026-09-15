@@ -152,8 +152,8 @@ test in the suite reaches them.
 
 ## Baseline
 
-Recorded **2026-09-14** on develop commit **`f4b844329ace2f8feaf2560b4e21d0a5d834683d`** with
-the history-record fix (finding 7) and the emitter's initial-effect fix described below, as
+Recorded **2026-09-15** on develop commit **`bcc6b13e0ab9fa3814f183c2e8f2cf33b68adb03`** with
+the junction branch-choice fix (finding 8) described below, as
 `docs/project/pssm-referee-baseline.json`; regenerate with `go run ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
 The figures below are as measured when this record was last updated and are not the current
@@ -161,8 +161,8 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 41 |
-| `fail` | 18 |
+| `pass` | 42 |
+| `fail` | 17 |
 | `not-expressible` | 39 |
 | `terminate-gap` | 3 |
 | `differs-by-design` | 2 |
@@ -170,8 +170,20 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 ### Movements since the previous baseline
 
-The previous baseline (develop `bb95cf226`, 2026-09-12) counted 36 `pass` and 23 `fail`. Two
-changes move it: the runtime fix of [finding 7](#findings-about-our-own-conformance) (a
+The previous baseline (develop `f4b844329`, 2026-09-14) counted 41 `pass` and 18 `fail`. One
+change moves it: the runtime fix of [finding 8](#findings-about-our-own-conformance) — a
+junction with several enabled outgoing branches is a choice point, as a choice with several is,
+where the runtime took the first in declaration order. One test moved `fail` → `pass` and none
+the other way.
+
+| Test | Row | Movement | Adjudication |
+|---|---|---|---|
+| Junction 003 | finding 8 | `fail` → `pass` | Expected: the finding's case. `T1.3` and `T1.4` both leave `Junction1` unguarded, PSSM admits one trace per branch and demands neither; the run explored took `T1.3` only, so the `T1.4` path was never reached. Both are now drawn at the junction (`explore` enumerates the two runs), and the emitter had preserved both branches and their effects all along — a runtime defect, not a translation one |
+
+### Movements before that
+
+The baseline of develop `f4b844329` followed one (develop `bb95cf226`, 2026-09-12) that
+counted 36 `pass` and 23 `fail`. Two changes moved it: the runtime fix of [finding 7](#findings-about-our-own-conformance) (a
 transition into a history reads the record after its exits have run, and a history declared in
 the machine's own body restores the machine's configuration) and a translation fix in the
 emitter (an initial transition's effect used to be folded into the entry action of the state or
@@ -194,8 +206,6 @@ error at the junction whose guards are all false, SM32's case — where it reach
 one), and finding 7 the reason of *History 001-C* and *History 002-B* (the restore is now the
 admitted one; what remains missing are the other interleavings of the two regions' entries and
 exits). Their rows below quote the new reasons.
-
-### Movements before that
 
 The baseline of develop `bb95cf226` followed one (develop `fb034e817`, the same day) that
 counted 25 `pass` and 34 `fail`. It was
@@ -230,7 +240,7 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (41)
+### `pass` (42)
 
 Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 015,
 Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
@@ -239,7 +249,8 @@ Entering 005, Exiting 002, Exiting 005, Choice 001 and Choice 002 (report on SM3
 Choice 004, Final001 (reports on SM11), Deferred 001, Deferred 002, Deferred 003 (reports on
 SM7), Deferred 004 A and Deferred 004 B (report on SM7), Deferred 005, Deferred 006 A (reports
 on SM15: the runtime's rule and PSSM's agree on this variant), History 001-A, History 001-B,
-History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Junction 001.
+History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Junction 001,
+Junction 003.
 
 ### `differs-by-design` (2)
 
@@ -253,9 +264,9 @@ History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Ju
 Terminate 001, Terminate 002, Terminate 003 — each reaches `S1.Terminate1`; they move to
 `pass` or `fail` when the runtime executes `terminate` (alignment finding 1).
 
-### `fail` (18)
+### `fail` (17)
 
-One failure cites a note row through the committed table. The other seventeen are
+One failure cites a note row through the committed table. The other sixteen are
 **unadjudicated**: fails, not yet attributed to a translation defect, a runtime defect, or a
 missing alignment row. The referee records them; it does not diagnose them, and none of them is
 a finding against the runtime until someone adjudicates it.
@@ -266,7 +277,7 @@ a finding against the runtime until someone adjudicates it.
 |---|---|---|
 | Junction 002 | SM32 | run error: no outgoing guard of the junction holds; PSSM disables the compound transition and admits `T3(effect)` |
 
-#### Unadjudicated (17)
+#### Unadjudicated (16)
 
 One line per test, from the baseline's `reasons`: what the run reached that the suite does not
 admit (`—` when every reached trace is admitted and the failure is only a missing one), and
@@ -290,7 +301,6 @@ suite; the full sets are in the baseline file.
 | Join003 | run error: `join Join1: eval guard of transition Join1 -> S2: no value for feature value` | `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)` |
 | History 001-C | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached) |
 | History 002-B | — | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)` and 4 more orders of the two regions' entries and exits (the sixth admitted order is reached) |
-| Junction 003 | — | `T1.4(effect)::T1.4.1(effect)::T1.8(effect)` (the other admitted path, through `T1.3`, is reached) |
 | Junction 004 | run error: `junction S1_Junction1_2: no guard evaluated to true` (the junction in `S1`'s second region, both of whose outgoing guards are false) | `T3(effect)` |
 | Junction 005 | `T1.3(effect)::S1(entry)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` | `S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` and 2 more orders of `T1.3(effect)`, `T2.1(effect)`, `S2.1(entry)`, all after `S1(entry)` |
 
@@ -324,9 +334,9 @@ test's constructs in its `reasons`.
 
 ## Findings about our own conformance
 
-The referee's classifier and runs surfaced two gaps that are this project's rather than SysML
-v2's, recorded here as candidates when the referee was added; the second is fixed, the first
-is not:
+The referee's classifier and runs surfaced three gaps that are this project's rather than SysML
+v2's, recorded here as candidates: the first when the referee was added and not yet fixed, the
+other two fixed:
 
 - **The lowerer refuses a fork into orthogonal regions that have no initial pseudostate**
   (*Fork 002*, *Join 001*; alignment finding 6). UML lets a fork's outgoing transitions enter
@@ -355,8 +365,21 @@ is not:
   (`state_deep_history_self_transition`, `state_shallow_history_completion_default`,
   `state_machine_body_deep_history`). The two tests pass, and *History 001-B*, *001-D* and
   *002-A* with them; the movements table above adjudicates each.
+- **A junction with several enabled outgoing branches took the first in declaration order**
+  (*Junction 003*; alignment finding 8). `pseudostateBranch` stopped at the first junction guard
+  that held, so where PSSM admits one trace per enabled branch — "one is chosen; the algorithm
+  for making this selection is not defined" — and the referee explores every schedule to reach
+  each, the run reached the `T1.3` path only and never `T1.4`'s. The project's own choice
+  vertex already draws one of several enabled branches as a choice point (SM30), and KerML's
+  `DecisionPerformance` ranks none of a branching point's successions; the junction differed
+  from the choice in *when* its guards are read, never in how many may hold. Fixed:
+  `state_route.go:enabledBranches` reads every outgoing guard at the junction's static instant
+  and `pickBranch` makes several enabled the transition choice point at the junction, drawn by
+  the schedule policy and recorded as the transition fires
+  (`state_junction_several_enabled_branches`, `explore_test.go:TestExploreStaticJunctionBranches`).
+  The test passes; the movements table above adjudicates it.
 
-The seventeen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
+The sixteen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
 one by one — to a translation defect (the referee lost a construct), a runtime defect (the extra
 trace shows behavior UML and v2 both forbid), or a missing alignment row (v2 legitimately
 differs and the note has no row for it yet) — and the attribution belongs in the change that

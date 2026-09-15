@@ -29,6 +29,9 @@ type route struct {
 	choice   *ast.PseudostateNode
 	// crossed are the pseudostates passed, so a path back into one is a cycle.
 	crossed []*ast.PseudostateNode
+	// notes is what settling the route noted — a junction drawn among several
+	// enabled branches — recorded once the transition is taken.
+	notes []RunNote
 }
 
 // settled reports whether the route has somewhere to move to.
@@ -77,7 +80,7 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
 }
 
 // followOut goes on from a pseudostate the route has reached: a choice leaves the
-// route open there; out of any other the first segment whose guard holds is taken.
+// route open there; out of any other the segment enabled, or drawn, is taken.
 func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, error) {
 	if slices.Contains(r.crossed, ps) {
 		return route{}, fmt.Errorf("%s %s: outgoing transitions form a cycle between pseudostates", ps.Kind, ps.Name)
@@ -87,10 +90,11 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 		r.choice = ps
 		return r, nil
 	}
-	branch, err := e.pseudostateBranch(ps)
+	branch, notes, err := e.pseudostateBranch(ps)
 	if err != nil {
 		return route{}, err
 	}
+	r.notes = append(r.notes, notes...)
 	return e.follow(ps, branch, r)
 }
 
@@ -112,97 +116,123 @@ func (e *StateExecutor) follow(from *ast.PseudostateNode, seg *lower.Transition,
 }
 
 // pseudostateBranch returns the outgoing transition a junction, join or history
-// routes along: the first whose guard is satisfied, in declaration order, an
-// unguarded one being the default branch. Exactly one succession is taken, as
-// KerML `DecisionPerformance::outgoingHBLink: HappensBefore[1]` requires.
-func (e *StateExecutor) pseudostateBranch(ps *ast.PseudostateNode) (*lower.Transition, error) {
+// routes along, read against the data as it stands: the one enabled, or the one
+// the policy draws among several, as a choice point among the notes returned.
+// Exactly one succession is taken, as KerML `DecisionPerformance::outgoingHBLink:
+// HappensBefore[1]` requires.
+func (e *StateExecutor) pseudostateBranch(ps *ast.PseudostateNode) (*lower.Transition, []RunNote, error) {
 	outgoing := e.graph.Transitions[ps]
 	if len(outgoing) == 0 {
-		return nil, fmt.Errorf("%s %s has no outgoing transitions", ps.Kind, ps.Name)
+		return nil, nil, fmt.Errorf("%s %s has no outgoing transitions", ps.Kind, ps.Name)
 	}
-	for _, trans := range outgoing {
-		pass, err := e.passesGuard(trans)
-		if err != nil {
-			return nil, fmt.Errorf("%s %s: %w", ps.Kind, ps.Name, err)
-		}
-		if pass {
-			return trans, nil
-		}
+	enabled, notes, err := e.enabledBranches(ps, outgoing)
+	if err != nil {
+		return nil, nil, err
 	}
-	return nil, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
+	if len(enabled) == 0 {
+		return nil, nil, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
+	}
+	pick, err := e.pickBranch(ps, outgoing, enabled, func(n RunNote) { notes = append(notes, n) })
+	if err != nil {
+		return nil, nil, err
+	}
+	return outgoing[enabled[pick]], notes, nil
 }
 
 // resolveChoice reads the guards of the choice the route is open at against the
 // data as it now stands and goes on from the branch taken: the policy draws among
-// several enabled, as a recorded choice point; an unguarded branch is the else
-// branch, taken when no guard holds; none enabled is the typed error.
+// several enabled, as a recorded choice point; none enabled is the typed error.
 func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	choice := r.choice
 	outgoing := e.graph.Transitions[choice]
+	enabled, notes, err := e.enabledBranches(choice, outgoing)
+	if err != nil {
+		return route{}, err
+	}
+	e.ctx.noteAll(notes)
+	if len(enabled) == 0 {
+		return route{}, fmt.Errorf("%w: choice %s: no guard evaluated to true", ErrChoiceWithoutBranch, choice.Name)
+	}
+	pick, err := e.pickBranch(choice, outgoing, enabled, e.ctx.note)
+	if err != nil {
+		return route{}, err
+	}
+	// The route past a choice is followed while firing, so what it notes is noted now.
+	r, err = e.follow(choice, outgoing[enabled[pick]], route{crossed: r.crossed})
+	e.ctx.noteAll(r.notes)
+	r.notes = nil
+	return r, err
+}
+
+// enabledBranches reads the guards of the branches out of ps against the data as
+// it stands: the positions of those that hold, else of the unguarded ones, the
+// else branches. Once a branch holds the rest are probed only to report the
+// choice; one with no result is not a branch, and is returned as a note.
+func (e *StateExecutor) enabledBranches(ps *ast.PseudostateNode, outgoing []*lower.Transition) ([]int, []RunNote, error) {
 	var enabled, unguarded []int
-	var notes []UnevaluableGuard
+	var notes []RunNote
 	for i, trans := range outgoing {
 		if trans.Guard == nil {
 			unguarded = append(unguarded, i)
 			continue
 		}
-		// Once a branch holds the rest are probed only to report the choice; one
-		// with no result is not a branch, and is noted.
 		var pass bool
 		if len(enabled) > 0 {
 			var unevaluable *UnevaluableGuard
-			if pass, unevaluable = e.probeBranch(choice, outgoing, i); unevaluable != nil {
+			if pass, unevaluable = e.probeBranch(ps, outgoing, i); unevaluable != nil {
 				notes = append(notes, *unevaluable)
 			}
 		} else {
 			var err error
 			if pass, err = e.passesGuard(trans); err != nil {
-				return route{}, fmt.Errorf("choice %s: %w", choice.Name, err)
+				return nil, nil, fmt.Errorf("%s %s: %w", ps.Kind, ps.Name, err)
 			}
 		}
 		if pass {
 			enabled = append(enabled, i)
 		}
 	}
-	for _, note := range notes {
-		e.ctx.noteUnevaluableGuard(note)
-	}
 	if len(enabled) == 0 {
 		enabled = unguarded
 	}
-	if len(enabled) == 0 {
-		return route{}, fmt.Errorf("%w: choice %s: no guard evaluated to true", ErrChoiceWithoutBranch, choice.Name)
-	}
-	pick := 0
-	if point, ok := e.choiceBranchPoint(choice, outgoing, enabled); ok {
-		pick = e.ctx.scheduling().choose(point, nil)
-		if err := e.ctx.scheduling().refusal(); err != nil {
-			return route{}, err
-		}
-		point.Taken = pick
-		point.File, point.Span = e.transitionLocation(choice, outgoing[enabled[pick]])
-		e.ctx.note(point)
-		// A branch past the first was only probed; its guard's final reading is made now.
-		if pick > 0 {
-			if _, err := e.passesGuard(outgoing[enabled[pick]]); err != nil {
-				return route{}, fmt.Errorf("choice %s: %w", choice.Name, err)
-			}
-		}
-	}
-	return e.follow(choice, outgoing[enabled[pick]], route{crossed: r.crossed})
+	return enabled, notes, nil
 }
 
-// probeBranch reads whether the branch at position i out of choice holds once
+// pickBranch is the index into enabled of the branch out of ps taken: the only
+// one, or the one the policy draws among several, handed to note as the choice
+// point taken; a draw the witness refuses is the refusal.
+func (e *StateExecutor) pickBranch(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int, note func(RunNote)) (int, error) {
+	point, ok := e.branchPoint(ps, outgoing, enabled)
+	if !ok {
+		return 0, nil
+	}
+	pick := e.ctx.scheduling().choose(point, nil)
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return 0, err
+	}
+	point.Taken = pick
+	point.File, point.Span = e.transitionLocation(ps, outgoing[enabled[pick]])
+	note(point)
+	// A branch past the first was only probed; its guard's final reading is made now.
+	if pick > 0 {
+		if _, err := e.passesGuard(outgoing[enabled[pick]]); err != nil {
+			return 0, fmt.Errorf("%s %s: %w", ps.Kind, ps.Name, err)
+		}
+	}
+	return pick, nil
+}
+
+// probeBranch reads whether the branch at position i out of ps holds once
 // another already does, as a probe the context undoes whole; one that cannot be
 // evaluated is not enabled and is returned as the note to record.
-func (e *StateExecutor) probeBranch(choice *ast.PseudostateNode, outgoing []*lower.Transition, i int) (bool, *UnevaluableGuard) {
+func (e *StateExecutor) probeBranch(ps *ast.PseudostateNode, outgoing []*lower.Transition, i int) (bool, *UnevaluableGuard) {
 	var pass bool
 	var err error
 	e.preview(func() { pass, err = e.passesGuard(outgoing[i]) })
 	if err != nil {
-		file, _ := e.transitionLocation(choice, outgoing[i])
+		file, _ := e.transitionLocation(ps, outgoing[i])
 		return false, &UnevaluableGuard{
-			Where:       "choice " + choice.Name,
+			Where:       pseudostateWhere(ps),
 			Alternative: transitionName(outgoing, i),
 			Reason:      err.Error(),
 			File:        file,
@@ -212,9 +242,9 @@ func (e *StateExecutor) probeBranch(choice *ast.PseudostateNode, outgoing []*low
 	return pass, nil
 }
 
-// choiceBranchPoint is the branches of a choice enabled on arrival, at their
-// declared positions, as a choice point not yet taken; there is none under two.
-func (e *StateExecutor) choiceBranchPoint(choice *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int) (ChoicePoint, bool) {
+// branchPoint is the branches out of ps enabled, at their declared positions, as
+// a choice point not yet taken; there is none under two.
+func (e *StateExecutor) branchPoint(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}
@@ -224,9 +254,14 @@ func (e *StateExecutor) choiceBranchPoint(choice *ast.PseudostateNode, outgoing 
 	}
 	return ChoicePoint{
 		Kind:         ChoiceTransition,
-		Where:        "choice " + choice.Name,
+		Where:        pseudostateWhere(ps),
 		Alternatives: alts,
 	}, true
+}
+
+// pseudostateWhere names a pseudostate for a note, `choice pick` or `junction split`.
+func pseudostateWhere(ps *ast.PseudostateNode) string {
+	return fmt.Sprintf("%s %s", ps.Kind, ps.Name)
 }
 
 // reachable lists the states the branches of the choice the route is open at can

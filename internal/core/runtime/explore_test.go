@@ -429,6 +429,99 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 	}
 }
 
+// A junction with several branches enabled when the incoming transition is
+// selected is a choice point read statically, before the incoming effect: the
+// branch guards see the data as it stood before the effect, exploration
+// enumerates both branches with a witness at the junction, and a seed replays
+// its draw. A guard the effect would enable is not a branch.
+func TestExploreStaticJunctionBranches(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute level : Integer = 0;
+			attribute route : Integer = 0;
+			entry; then idle;
+			state idle;
+			junction split;
+			state left;
+			state right;
+			state late;
+			transition first idle accept go do assign level := 8 then split;
+			transition first split if level == 0 do assign route := 1 then left;
+			transition first split if level < 5 do assign route := 2 then right;
+			transition first split if level > 7 do assign route := 3 then late;
+		}
+	}`)
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sym := m.state(t, "Machine")
+	run := func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	x, err := Explore(context.Background(), policy, m.fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	}
+	want := []string{
+		"finalState left; visits idle, left; level = 8; route = 1",
+		"finalState right; visits idle, right; level = 8; route = 2",
+	}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	w := x.Outcomes[1].Witness
+	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "junction split" || !strings.HasSuffix(w[0].Took, "->right") {
+		t.Fatalf("witness of right %v, want the branch of junction split into right", w)
+	}
+	if alts := w[0].Alternatives; alts != 2 {
+		t.Fatalf("alternatives %v, want the two branches enabled before the effect", alts)
+	}
+
+	for _, spelling := range []string{"seed:1", "seed:2", "seed:3"} {
+		fixed, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ctx.SetSchedule(fixed); err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		notes := ctx.Notes()
+		if len(notes) != 1 {
+			t.Fatalf("%s: notes %v, want the one choice at split", spelling, notes)
+		}
+		choice, ok := notes[0].(ChoicePoint)
+		if !ok || choice.Kind != ChoiceTransition || choice.Where != "junction split" {
+			t.Fatalf("%s: note %v, want the branch choice at split", spelling, notes[0])
+		}
+		if got := outcome.String(); got != want[choice.Taken] {
+			t.Fatalf("%s: outcome %q after taking %s, want %q", spelling, got, choice.Alternatives[choice.Taken], want[choice.Taken])
+		}
+	}
+}
+
 // One event enabling a transition in each of two regions: the library orders
 // neither first, so exploration fires them in both orders; every policy reports
 // the order it took as one region-order choice point, `reverse` and `declared`

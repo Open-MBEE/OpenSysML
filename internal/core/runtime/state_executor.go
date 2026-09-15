@@ -1185,10 +1185,11 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 }
 
 // transitionDecided records what selecting the transition now firing noted, its
-// guard having passed its final reading.
-func (e *StateExecutor) transitionDecided() {
+// guard having passed its final reading, then what settling its route r noted.
+func (e *StateExecutor) transitionDecided(r route) {
 	e.ctx.noteAll(e.firingNotes)
 	e.firingNotes = nil
+	e.ctx.noteAll(r.notes)
 }
 
 // activeRegionOf returns the innermost active orthogonal region the state is
@@ -1531,7 +1532,7 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (bool, 
 	// Fork, join and history reshape the active configuration rather than moving
 	// to a single state, so they are fired whole.
 	if ps, ok := trans.Target.(*ast.PseudostateNode); ok && isSynchronizationTarget(ps) {
-		e.transitionDecided()
+		e.transitionDecided(r)
 		switch ps.Kind {
 		case ast.PseudostateFork:
 			return true, e.fireForkTransition(trans, ps)
@@ -1544,7 +1545,7 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (bool, 
 	if !r.settled() {
 		return false, fmt.Errorf("transition target state not found")
 	}
-	e.transitionDecided()
+	e.transitionDecided(r)
 	return true, e.transitionTo(trans, r)
 }
 

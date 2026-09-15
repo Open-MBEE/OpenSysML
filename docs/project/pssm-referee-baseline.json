@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-14",
-    "develop": "f4b844329ace2f8feaf2560b4e21d0a5d834683d"
+    "recorded": "2026-09-15",
+    "develop": "bcc6b13e0ab9fa3814f183c2e8f2cf33b68adb03"
   },
   "buckets": {
     "differs-by-design": 2,
-    "fail": 18,
+    "fail": 17,
     "not-expressible": 39,
-    "pass": 41,
+    "pass": 42,
     "terminate-gap": 3
   },
   "tests": [
@@ -1381,18 +1381,16 @@
       "name": "Junction 003",
       "area": "Junction",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: T1.4(effect)::T1.4.1(effect)::T1.8(effect)"
-      ],
+      "bucket": "pass",
       "expected": [
         "T1.3(effect)::T3.1.1(effect)::T3.1.1.2(effect)::T1.6(effect)",
         "T1.4(effect)::T1.4.1(effect)::T1.8(effect)"
       ],
       "reached": [
-        "T1.3(effect)::T3.1.1(effect)::T3.1.1.2(effect)::T1.6(effect)"
+        "T1.3(effect)::T3.1.1(effect)::T3.1.1.2(effect)::T1.6(effect)",
+        "T1.4(effect)::T1.4.1(effect)::T1.8(effect)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "Junction 004",
