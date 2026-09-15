@@ -30,7 +30,12 @@ mechanism in `internal/core/model/corpus_gate_test.go`: one walker, one whole-ro
 `download-training-examples.sh` and three by `download-pilot-corpora.sh`). The downloader clones
 the release tag and refuses it unless it resolves to the pinned commit, and stamps each root with
 the tag, commit and repository it came from (`.pilot-pin`); a root stamped with another pin, or
-not stamped at all, is re-fetched on the next run. The ratchet's header records the file count of
+not stamped at all, is re-fetched on the next run. It never reports success over nothing: a
+subtree holding no file of the kinds asked for fails the run and installs none of its targets, and
+a root already stamped at the current pin but holding no such file is re-fetched rather than
+left alone, so a gate cannot be run against a stamped, empty directory. `scripts/pilot-pin-test.sh`
+exercises these paths against a throwaway release repository, without the network, and CI runs
+it before it fetches any corpus. The ratchet's header records the file count of
 each root, so a root whose count differs from the header is a provisioning question — a stale or
 partial copy — before it is a behaviour question; see [pilot-differential.md](pilot-differential.md).
 
@@ -111,3 +116,18 @@ that never ran must not look like a gate that passed. Fetch them once:
 ./scripts/download-pilot-corpora.sh
 go test -count=1 ./internal/core/model -run TestPilotCorpora
 ```
+
+The pilot's XMI serialization of the standard library is fetched the same way, from the release
+repository at the pin in `scripts/pilot-pin.sh`, into `build/pilot-library-xmi/`; the identity gate
+over it (`TestPilotLibraryXMI` in `internal/core/identity`) skips while it is absent and fails under
+`OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`, which CI sets:
+
+```bash
+./scripts/download-pilot-library-xmi.sh
+go test -count=1 ./internal/core/identity -run TestPilotLibraryXMI
+```
+
+An environment that sets any of `OPENSYSML_REQUIRE_TRAINING_CORPUS`,
+`OPENSYSML_REQUIRE_PILOT_CORPORA` or `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` must run the matching
+download script before `go test ./...`, unconditionally and with its exit status honoured; each
+script leaves a root already at the pin alone, so running them on every start costs one `find`.
