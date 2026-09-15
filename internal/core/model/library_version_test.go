@@ -662,3 +662,83 @@ func TestWorkspaceLibraryVersionOverCallerBuiltIndex(t *testing.T) {
 		t.Error("the library file did not come back once the version left")
 	}
 }
+
+// A file MarkLibrary marked at the generic tier has no normative language, so
+// its elements carry no ids; a copy rooted at its package is still its version.
+func TestWorkspaceLibraryVersionOfGenericTierFile(t *testing.T) {
+	const tanks = "tanks.sysml"
+	text := []byte("standard library package Tanks {\n    part def Tank;\n}\n")
+	src := &scratchSource{files: map[string]string{tanks: string(text)}}
+	idx := symbols.NewIndex()
+	idx.AddDocumentWithKind(tanks, parser.New(source.New(tanks, text)).ParseFile(), source.KindSysML)
+	idx.MarkLibrary(tanks)
+	idx.ExpandWildcardImports()
+	ws := NewWorkspaceWithIndex(idx, WithLibrarySource(src))
+	if _, ok := identity.LibraryCatalog(ws.index).ElementNamed("Tanks"); ok {
+		t.Fatal("a generic-tier library file's package was given a normative id")
+	}
+
+	ws.Open("copy.sysml", text, 1)
+	if got := ws.StandsInFor("copy.sysml"); got != tanks {
+		t.Fatalf("StandsInFor = %q, want %q", got, tanks)
+	}
+	syms := ws.LookupQualified("Tanks::Tank")
+	if len(syms) != 1 || syms[0].DocName != "copy.sysml" {
+		t.Fatalf("Tanks::Tank = %v, want the one copy.sysml declares", syms)
+	}
+	if ws.index.LibraryDocumentOf("copy.sysml").Tier != symbols.TierLibrary {
+		t.Error("the version does not carry the generic tier")
+	}
+	ws.Close("copy.sysml")
+	if syms := ws.LookupQualified("Tanks::Tank"); len(syms) != 1 || syms[0].DocName != tanks {
+		t.Errorf("after the version closed: Tanks::Tank = %v, want the one %s declares", syms, tanks)
+	}
+	if !ws.IsLibraryDocument(tanks) {
+		t.Error("the generic-tier file did not come back under its mark")
+	}
+}
+
+// A caller's overlay may hold documents the frozen base does not, unmarked or
+// marked as a library; an edit's temporary index keeps both, so the edited
+// document still resolves what it did.
+func TestWorkspaceLibraryVersionEditIndexKeepsOverlayDocuments(t *testing.T) {
+	const hulls, tanks = "lib/hulls.sysml", "lib/tanks.sysml"
+	hullText := []byte("package Hulls {\n    part def Hull;\n}\n")
+	tankText := []byte("standard library package Tanks {\n    part def Tank;\n}\n")
+	base := symbols.NewIndex()
+	base.AddDocumentWithKind("lib/base.sysml", parser.New(source.New("lib/base.sysml", []byte("package Base;\n"))).ParseFile(), source.KindSysML)
+	base.MarkLibrary("lib/base.sysml")
+	base.Freeze()
+	idx := symbols.NewOverlay(base)
+	idx.AddDocumentWithKind(hulls, parser.New(source.New(hulls, hullText)).ParseFile(), source.KindSysML)
+	idx.AddDocumentWithKind(tanks, parser.New(source.New(tanks, tankText)).ParseFile(), source.KindSysML)
+	idx.MarkLibraryDocument(tanks, symbols.LibraryDocument{Tier: symbols.TierSystems, Digest: symbols.TextDigest(tankText)})
+	idx.ExpandWildcardImports()
+	ws := NewWorkspaceWithIndex(idx)
+
+	ws.Open("boat.sysml", []byte("part def Boat {\n    part hull : Hulls::Hull;\n    part tank : Tanks::Tank;\n}\n"), 1)
+	op := edit.AddMember("Boat", "part", "spare")
+	op.Type = "Tanks::Tank"
+	result, _, ok, err := ws.ApplyEdit("boat.sysml", []edit.Operation{op})
+	if !ok || err != nil {
+		t.Fatalf("ApplyEdit beside the overlay's documents: ok %v, err %v", ok, err)
+	}
+	if len(result.Documents) != 1 || !strings.Contains(string(result.Documents[0].Content), "spare : Tanks::Tank") {
+		t.Fatalf("ApplyEdit result = %+v, want the edited boat.sysml alone", result.Documents)
+	}
+	edited := ws.editIndexLocked("boat.sysml").build()
+	for _, name := range []string{"lib/base.sysml", hulls, tanks} {
+		if edited.DocumentRoot(name) == nil {
+			t.Errorf("the edit index dropped %s", name)
+		}
+	}
+	if edited.DocumentKind(hulls) != source.KindSysML || edited.IsLibraryDocument(hulls) {
+		t.Error("the unmarked overlay document lost its kind or gained a mark")
+	}
+	if got := edited.LibraryDocumentOf(tanks); got.Tier != symbols.TierSystems || got.Digest != symbols.TextDigest(tankText) {
+		t.Errorf("the marked overlay document's mark = %+v in the edit index", got)
+	}
+	if syms := edited.LookupQualified("Hulls::Hull"); len(syms) != 1 || syms[0].DocName != hulls {
+		t.Errorf("Hulls::Hull in the edit index = %v, want the one %s declares", syms, hulls)
+	}
+}
