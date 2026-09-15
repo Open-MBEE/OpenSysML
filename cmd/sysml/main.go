@@ -17,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/usage"
@@ -117,6 +118,7 @@ var (
 	probeEngines    bool
 	engine          engineSelection
 	jobsFlag        jobsSetting
+	workersFlag     workersSetting
 	convertFormat   string
 	queryText       string
 	outputPath      string
@@ -201,6 +203,28 @@ func (j *jobsSetting) Set(value string) error {
 	return nil
 }
 
+// workers is how many files of one load are parsed and analyzed at once: -workers
+// when given, else OPENSYSML_WORKERS, else one per CPU; read once at startup.
+var workers = model.DefaultWorkers()
+
+// workersSetting is -workers as written, rejected where it is parsed so a value
+// below one is reported at startup rather than at the first load.
+type workersSetting struct {
+	value int
+	text  string
+}
+
+func (w *workersSetting) String() string { return w.text }
+
+func (w *workersSetting) Set(value string) error {
+	n, err := model.ParseWorkers("-workers", value)
+	if err != nil {
+		return err
+	}
+	w.value, w.text = n, value
+	return nil
+}
+
 // schedulePolicy is -schedule as written: the policy every run resolves its
 // choice points under, rejected where it is parsed so a misspelling is reported
 // at startup rather than run under the default.
@@ -260,6 +284,15 @@ func resolveJobs() (int, error) {
 		return jobsFlag.value, nil
 	}
 	return analysis.JobsFromEnv()
+}
+
+// resolveWorkers is the workers a load goes under: -workers when given, else what
+// OPENSYSML_WORKERS holds, reported when that is not a positive integer.
+func resolveWorkers() (int, error) {
+	if flagGiven("workers") {
+		return workersFlag.value, nil
+	}
+	return model.WorkersFromEnv()
 }
 
 // flagGiven reports whether the run named this flag, which an empty value
@@ -641,6 +674,10 @@ func resolveRunBounds() int {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		return 2
 	}
+	if workers, err = resolveWorkers(); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
 	return 0
 }
 
@@ -679,6 +716,11 @@ func newSession() *repl.Session {
 	}
 	if err := sess.SetJobs(jobs); err != nil {
 		// Unreachable: jobs were validated in main before any session exists.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetWorkers(workers); err != nil {
+		// Unreachable: workers were validated in main before any session exists.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}

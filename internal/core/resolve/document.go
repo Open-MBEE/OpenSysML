@@ -546,12 +546,9 @@ func (r *Resolver) resolveMetadataPrefix(names, parent *symbols.Scope, prefix *a
 	for _, a := range prefix.About {
 		r.ResolveQualified(names, a)
 	}
-	owner, ok := r.ResolveQualified(names, prefix.Type)
-	if !ok || owner == nil || len(prefix.Body) == 0 {
+	owner := r.metadataBodyOwner(names, prefix)
+	if owner == nil {
 		return
-	}
-	if target, aliasOK := r.ResolveAliasTarget(owner); aliasOK {
-		owner = target
 	}
 	body := parent.ChildFor(prefix)
 	if body == nil {
@@ -562,6 +559,45 @@ func (r *Resolver) resolveMetadataPrefix(names, parent *symbols.Scope, prefix *a
 		body.SetOwner(owner)
 	}
 	r.resolveMetadataBody(body, prefix.Body)
+}
+
+// metadataBodyOwner is the metadata definition the body of prefix resolves
+// against, its type read in names; nil when the type does not resolve or the
+// annotation has no body.
+func (r *Resolver) metadataBodyOwner(names *symbols.Scope, prefix *ast.PrefixMetadata) *symbols.Symbol {
+	owner, ok := r.ResolveQualified(names, prefix.Type)
+	if !ok || owner == nil || len(prefix.Body) == 0 {
+		return nil
+	}
+	if target, aliasOK := r.ResolveAliasTarget(owner); aliasOK {
+		return target
+	}
+	return owner
+}
+
+// LinkMetadataBodies gives every annotation body scope of the document the
+// owner resolving the document would; afterwards resolving it writes nothing
+// to the scope tree, so documents of one index can be resolved concurrently.
+func (r *Resolver) LinkMetadataBodies(name string) {
+	rootScope := r.idx.DocumentRoot(name)
+	if rootScope == nil {
+		return
+	}
+	saved := r.document
+	r.document = name
+	defer func() { r.document = saved }()
+	r.linkMetadataBodies(rootScope)
+}
+
+func (r *Resolver) linkMetadataBodies(scope *symbols.Scope) {
+	for _, child := range scope.Children() {
+		if prefix, ok := child.Node().(*ast.PrefixMetadata); ok && child.Owner() == nil {
+			if owner := r.metadataBodyOwner(r.bodyScope(scope, child.Annotated()), prefix); owner != nil {
+				child.SetOwner(owner)
+			}
+		}
+		r.linkMetadataBodies(child)
+	}
 }
 
 func (r *Resolver) resolveMetadataBody(scope *symbols.Scope, members []ast.Node) {

@@ -23,6 +23,14 @@ func JobsEnvironment() []Item {
 	}
 }
 
+// WorkersEnvironment describes the setting the sysml command reads for how many
+// files of one load are parsed and analyzed at once.
+func WorkersEnvironment() []Item {
+	return []Item{
+		{"OPENSYSML_WORKERS", "Files of one load that are parsed and analyzed at once, each on a worker of its own over the shared index; -workers overrides it. The diagnostics are the same at any count. Default the number of CPUs."},
+	}
+}
+
 // LegacyPrefixNote states how the superseded variable names are still read, and
 // belongs with any list of them.
 const LegacyPrefixNote = "Each variable above also answers to its legacy " +

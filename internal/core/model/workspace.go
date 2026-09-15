@@ -39,6 +39,9 @@ type Workspace struct {
 	// nil when the index came without one; libDocs caches them parsed.
 	libSource libs.Source
 	libDocs   map[string]*Document
+
+	// workers is how many documents OpenAll and DiagnosticsAll work on at once.
+	workers int
 }
 
 // Option configures a workspace at construction.
@@ -78,6 +81,7 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 		index:     idx,
 		diagCache: map[string][]passes.Diagnostic{},
 		libDocs:   map[string]*Document{},
+		workers:   DefaultWorkers(),
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -202,8 +206,8 @@ func (w *Workspace) Remove(name string) {
 func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 	doc := newDocument(name, content, version)
 	w.docs[name] = doc
-	w.index.AddDocument(name, doc.AST) // AddDocument removes stale entries first
-	w.index.ExpandWildcardImports()    // Expand new document's wildcard imports
+	w.index.AddBuiltDocument(name, doc.AST, doc.Scope) // removes stale entries first
+	w.index.ExpandWildcardImports()
 	w.invalidateLocked()
 }
 
@@ -255,6 +259,14 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []passes.Diagn
 	if cached, ok := w.diagCache[name]; ok {
 		return cached
 	}
+	diags := w.analyze(name, doc, nil)
+	w.diagCache[name] = diags
+	return diags
+}
+
+// analyze runs the passes over doc with a context of its own, reading the index,
+// the analysis options and the batch only, so documents can be analyzed at once.
+func (w *Workspace) analyze(name string, doc *Document, batch *passes.Batch) []passes.Diagnostic {
 	parseDiags := make([]passes.Diagnostic, 0, len(doc.ParseDiagnostics)+len(doc.ParseWarnings))
 	for _, pd := range doc.ParseDiagnostics {
 		parseDiags = append(parseDiags, passes.Diagnostic{
@@ -276,9 +288,7 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []passes.Diagn
 			Fixes:    pw.Fixes,
 		})
 	}
-	diags := passes.AnalyzeWithOptions(name, source.KindOf(name), doc.AST, parseDiags, w.index, w.analysis)
-	w.diagCache[name] = diags
-	return diags
+	return passes.AnalyzeInBatch(name, source.KindOf(name), doc.AST, parseDiags, w.index, w.analysis, batch)
 }
 
 // LookupQualified resolves a fully-qualified name against the global index under

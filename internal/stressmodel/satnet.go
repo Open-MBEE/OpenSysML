@@ -84,9 +84,56 @@ func (n SatelliteNetwork) Source() (string, Stats) {
 	return b.String(), stats
 }
 
+// File is one document of a network split across files.
+type File struct {
+	Name, Source string
+}
+
+// Split generates the network as one document per orbital plane beside the
+// library the satellites are built from and the constellation joining the
+// planes: the same satellites and links as Generate writes, declared under
+// a root package per file so each file is a unit of analysis of its own.
+func (n SatelliteNetwork) Split() ([]File, Stats) {
+	g := &generator{}
+	var files []File
+	file := func(name string, write func()) {
+		var b strings.Builder
+		g.b = &b
+		write()
+		g.stats.Bytes += b.Len()
+		files = append(files, File{Name: name, Source: b.String()})
+	}
+	file("library.sysml", func() {
+		g.library()
+		g.line(0, "}")
+	})
+	for p := 0; p < n.Planes; p++ {
+		file(fmt.Sprintf("plane%03d.sysml", p), func() {
+			g.decl(0, "package Plane%d {", p)
+			g.imports("SatelliteNetwork::")
+			g.line(0, "")
+			g.plane(n, p)
+			g.line(0, "}")
+		})
+	}
+	file("constellation.sysml", func() {
+		g.decl(0, "package Constellation {")
+		g.imports("SatelliteNetwork::")
+		for p := 0; p < n.Planes; p++ {
+			g.line(1, "private import Plane%d::*;", p)
+		}
+		g.groundSegment(n)
+		g.line(0, "}")
+	})
+	return files, g.stats
+}
+
 type generator struct {
 	b     *strings.Builder
 	stats Stats
+	// indent is the nesting every line is written at, one deeper for a
+	// constellation nested in the library's package.
+	indent int
 }
 
 // decl writes one declaration line at the given depth and counts it.
@@ -96,10 +143,12 @@ func (g *generator) decl(depth int, format string, args ...any) {
 }
 
 func (g *generator) line(depth int, format string, args ...any) {
-	for i := 0; i < depth; i++ {
-		g.b.WriteString("    ")
+	if format != "" {
+		for i := 0; i < depth+g.indent; i++ {
+			g.b.WriteString("    ")
+		}
+		fmt.Fprintf(g.b, format, args...)
 	}
-	fmt.Fprintf(g.b, format, args...)
 	g.b.WriteByte('\n')
 }
 
@@ -340,31 +389,55 @@ func (g *generator) library() {
 	g.line(0, "")
 }
 
-// constellation writes every satellite and ground station and the links between them.
+// constellation writes every satellite and ground station and the links between
+// them as one package nested in the library's.
 func (g *generator) constellation(n SatelliteNetwork) {
-	g.decl(1, "package Constellation {")
-	g.line(2, "private import Interfaces::*;")
-	g.line(2, "private import Platform::*;")
-	g.line(2, "private import Requirements::*;")
-	g.line(2, "private import Behavior::*;")
-	id := 0
+	g.indent = 1
+	g.decl(0, "package Constellation {")
+	g.imports("")
 	for p := 0; p < n.Planes; p++ {
-		for s := 0; s < n.Satellites; s++ {
-			g.satellite(id, p, s)
-			id++
-		}
+		g.plane(n, p)
 	}
+	g.groundSegment(n)
+	g.line(0, "}")
+	g.indent = 0
+	g.line(0, "}")
+}
+
+// imports writes what the satellites and the constellation resolve their names
+// through, the library's packages reached from prefix.
+func (g *generator) imports(prefix string) {
+	if prefix != "" {
+		g.line(1, "private import ScalarValues::*;")
+		g.line(1, "private import ISQ::*;")
+		g.line(1, "private import SI::*;")
+	}
+	for _, pkg := range []string{"Interfaces", "Platform", "Requirements", "Behavior"} {
+		g.line(1, "private import %s%s::*;", prefix, pkg)
+	}
+}
+
+// plane writes the satellites of one orbital plane.
+func (g *generator) plane(n SatelliteNetwork, p int) {
+	for s := 0; s < n.Satellites; s++ {
+		g.satellite(p*n.Satellites+s, p, s)
+	}
+}
+
+// groundSegment writes the ground stations and the network joining every
+// satellite to its neighbours and to a station.
+func (g *generator) groundSegment(n SatelliteNetwork) {
 	for k := 0; k < n.GroundStations; k++ {
 		g.groundStation(k)
 	}
 	g.line(0, "")
-	g.decl(2, "part def Network {")
+	g.decl(1, "part def Network {")
 	total := n.Planes * n.Satellites
 	for i := 0; i < total; i++ {
-		g.decl(3, "part sat%d : Sat%d;", i, i)
+		g.decl(2, "part sat%d : Sat%d;", i, i)
 	}
 	for k := 0; k < n.GroundStations; k++ {
-		g.decl(3, "part gs%d : Station%d;", k, k)
+		g.decl(2, "part gs%d : Station%d;", k, k)
 	}
 	for p := 0; p < n.Planes; p++ {
 		for s := 0; s < n.Satellites; s++ {
@@ -378,91 +451,89 @@ func (g *generator) constellation(n SatelliteNetwork) {
 			if n.GroundStations > 0 {
 				k := i % n.GroundStations
 				g.stats.Connections++
-				g.decl(3, "interface downlink%dTo%d : RFLink connect sat%d.comms.rf to gs%d.uplink {", k, i, i, k)
-				g.decl(4, "attribute :>> dataRate = %d.0;", 50+i%200)
-				g.decl(4, "attribute :>> slantRange = %d [km];", 900+i%1500)
-				g.line(3, "}")
+				g.decl(2, "interface downlink%dTo%d : RFLink connect sat%d.comms.rf to gs%d.uplink {", k, i, i, k)
+				g.decl(3, "attribute :>> dataRate = %d.0;", 50+i%200)
+				g.decl(3, "attribute :>> slantRange = %d [km];", 900+i%1500)
+				g.line(2, "}")
 			}
 		}
 	}
-	g.decl(3, "attribute satelliteCount : Integer = %d;", total)
-	g.line(2, "}")
-	g.decl(2, "part network : Network;")
+	g.decl(2, "attribute satelliteCount : Integer = %d;", total)
 	g.line(1, "}")
-	g.line(0, "}")
+	g.decl(1, "part network : Network;")
 }
 
 // link writes a crosslink between two satellites' crosslink terminals.
 func (g *generator) link(kind string, a, b int) {
 	g.stats.Connections++
-	g.decl(3, "interface %s%dTo%d : RFLink connect sat%d.comms.crosslinkTx to sat%d.comms.crosslinkRx {", kind, a, b, a, b)
-	g.decl(4, "attribute :>> dataRate = %d.0;", 100+(a+b)%400)
-	g.decl(4, "attribute :>> slantRange = %d [km];", 2000+(a*7+b*3)%3000)
-	g.line(3, "}")
+	g.decl(2, "interface %s%dTo%d : RFLink connect sat%d.comms.crosslinkTx to sat%d.comms.crosslinkRx {", kind, a, b, a, b)
+	g.decl(3, "attribute :>> dataRate = %d.0;", 100+(a+b)%400)
+	g.decl(3, "attribute :>> slantRange = %d [km];", 2000+(a*7+b*3)%3000)
+	g.line(2, "}")
 }
 
 // satellite writes one fully configured spacecraft definition and its requirements.
 func (g *generator) satellite(id, plane, slot int) {
 	g.stats.Satellites++
-	g.decl(2, "part def Sat%d :> Spacecraft {", id)
-	g.decl(3, "attribute :>> catalogId = %d;", 40000+id)
-	g.decl(3, "attribute :>> plane = %d;", plane)
-	g.decl(3, "attribute :>> slot = %d;", slot)
+	g.decl(1, "part def Sat%d :> Spacecraft {", id)
+	g.decl(2, "attribute :>> catalogId = %d;", 40000+id)
+	g.decl(2, "attribute :>> plane = %d;", plane)
+	g.decl(2, "attribute :>> slot = %d;", slot)
 	var massTerms, powerTerms []string
 	for _, s := range subsystems {
 		massTerms = append(massTerms, s.name+".mass")
 		powerTerms = append(powerTerms, s.name+".powerDraw")
-		g.decl(3, "part :>> %s {", s.name)
+		g.decl(2, "part :>> %s {", s.name)
 		var subMass, subPower []string
 		for j, c := range s.components {
 			g.stats.Components++
 			subMass = append(subMass, c.name+".mass")
 			subPower = append(subPower, c.name+".powerDraw")
-			g.decl(4, "part :>> %s {", c.name)
-			g.decl(5, "attribute :>> mass = %d.%d [kg];", 2+(id+j)%40, (id*3+j)%10)
-			g.decl(5, "attribute :>> powerDraw = %d.0 [W];", 5+(id*5+j*7)%50)
-			g.decl(5, "attribute :>> serialNumber = \"%s-%05d-%d\";", strings.ToUpper(c.name), id, j)
+			g.decl(3, "part :>> %s {", c.name)
+			g.decl(4, "attribute :>> mass = %d.%d [kg];", 2+(id+j)%40, (id*3+j)%10)
+			g.decl(4, "attribute :>> powerDraw = %d.0 [W];", 5+(id*5+j*7)%50)
+			g.decl(4, "attribute :>> serialNumber = \"%s-%05d-%d\";", strings.ToUpper(c.name), id, j)
 			g.componentDetail(c.def, id, j)
-			g.line(4, "}")
+			g.line(3, "}")
 		}
-		g.decl(4, "attribute :>> mass = %s;", strings.Join(subMass, " + "))
-		g.decl(4, "attribute :>> powerDraw = %s;", strings.Join(subPower, " + "))
-		g.line(3, "}")
+		g.decl(3, "attribute :>> mass = %s;", strings.Join(subMass, " + "))
+		g.decl(3, "attribute :>> powerDraw = %s;", strings.Join(subPower, " + "))
+		g.line(2, "}")
 	}
-	g.decl(3, "attribute :>> dryMass = %s;", strings.Join(massTerms, " + "))
-	g.decl(3, "attribute :>> totalPowerDraw = %s;", strings.Join(powerTerms, " + "))
+	g.decl(2, "attribute :>> dryMass = %s;", strings.Join(massTerms, " + "))
+	g.decl(2, "attribute :>> totalPowerDraw = %s;", strings.Join(powerTerms, " + "))
 	for _, s := range subsystems {
 		if s.name == "eps" {
 			continue
 		}
 		g.stats.Connections += 2
-		g.decl(3, "interface powerTo%s : PowerFeed connect eps.supply to %s.power {", capitalize(s.name), s.name)
-		g.decl(4, "attribute :>> busVoltage = 28 [V];")
-		g.line(3, "}")
+		g.decl(2, "interface powerTo%s : PowerFeed connect eps.supply to %s.power {", capitalize(s.name), s.name)
+		g.decl(3, "attribute :>> busVoltage = 28 [V];")
+		g.line(2, "}")
 	}
 	busIndex := 1
 	for _, s := range subsystems {
 		if s.name == "cdh" {
 			continue
 		}
-		g.decl(3, "interface busTo%s : DataBusLink connect cdh.obc.bus%d to %s.bus;", capitalize(s.name), busIndex, s.name)
+		g.decl(2, "interface busTo%s : DataBusLink connect cdh.obc.bus%d to %s.bus;", capitalize(s.name), busIndex, s.name)
 		busIndex++
 	}
 	g.stats.Connections++
-	g.decl(3, "interface payloadToCdh : DataFeed connect payload.dataOut to cdh.dataIn;")
-	g.decl(3, "constraint massMargin { dryMass <= %d [kg] }", 500+id%100)
-	g.line(2, "}")
-	g.decl(2, "part sat%dConfig : Sat%d;", id, id)
+	g.decl(2, "interface payloadToCdh : DataFeed connect payload.dataOut to cdh.dataIn;")
+	g.decl(2, "constraint massMargin { dryMass <= %d [kg] }", 500+id%100)
+	g.line(1, "}")
+	g.decl(1, "part sat%dConfig : Sat%d;", id, id)
 	g.stats.Requirements += 3
-	g.decl(2, "requirement sat%dMass : MassBudget { subject :>> sc = sat%dConfig; attribute :>> limit = %d [kg]; }", id, id, 900+id%100)
+	g.decl(1, "requirement sat%dMass : MassBudget { subject :>> sc = sat%dConfig; attribute :>> limit = %d [kg]; }", id, id, 900+id%100)
 	g.stats.Elements += 2
-	g.decl(2, "satisfy sat%dMass by sat%dConfig;", id, id)
-	g.decl(2, "requirement sat%dPower : PowerBudget { subject :>> sc = sat%dConfig; }", id, id)
+	g.decl(1, "satisfy sat%dMass by sat%dConfig;", id, id)
+	g.decl(1, "requirement sat%dPower : PowerBudget { subject :>> sc = sat%dConfig; }", id, id)
 	g.stats.Elements++
-	g.decl(2, "satisfy sat%dPower by sat%dConfig;", id, id)
-	g.decl(2, "requirement sat%dCrosslink : CrosslinkCapacity { subject :>> sc = sat%dConfig; attribute :>> minimumRate = %d.0; }", id, id, 50+id%50)
+	g.decl(1, "satisfy sat%dPower by sat%dConfig;", id, id)
+	g.decl(1, "requirement sat%dCrosslink : CrosslinkCapacity { subject :>> sc = sat%dConfig; attribute :>> minimumRate = %d.0; }", id, id, 50+id%50)
 	g.stats.Elements += 2
-	g.decl(2, "satisfy sat%dCrosslink by sat%dConfig;", id, id)
+	g.decl(1, "satisfy sat%dCrosslink by sat%dConfig;", id, id)
 	g.line(0, "")
 }
 
@@ -470,71 +541,71 @@ func (g *generator) satellite(id, plane, slot int) {
 func (g *generator) componentDetail(def string, id, j int) {
 	switch def {
 	case "SolarArray":
-		g.decl(5, "attribute :>> area = %d.%d ['m²'];", 4+id%6, id%10)
-		g.decl(5, "attribute :>> generated = %d.0 [W];", 1200+(id*13)%700)
+		g.decl(4, "attribute :>> area = %d.%d ['m²'];", 4+id%6, id%10)
+		g.decl(4, "attribute :>> generated = %d.0 [W];", 1200+(id*13)%700)
 	case "Battery":
-		g.decl(5, "attribute :>> capacity = %d.0 [J];", 3600000+(id*17)%7200000)
-		g.decl(5, "attribute :>> depthOfDischarge = 0.%d;", 2+id%5)
+		g.decl(4, "attribute :>> capacity = %d.0 [J];", 3600000+(id*17)%7200000)
+		g.decl(4, "attribute :>> depthOfDischarge = 0.%d;", 2+id%5)
 	case "PowerConditioner":
-		g.decl(5, "attribute :>> efficiency = 0.9%d;", id%10)
+		g.decl(4, "attribute :>> efficiency = 0.9%d;", id%10)
 	case "StarTracker":
-		g.decl(5, "attribute :>> accuracy = %d.0 [arcsec];", 1+id%5)
-		g.decl(5, "attribute :>> updateRate = %d.0 [Hz];", 2+id%8)
+		g.decl(4, "attribute :>> accuracy = %d.0 [arcsec];", 1+id%5)
+		g.decl(4, "attribute :>> updateRate = %d.0 [Hz];", 2+id%8)
 	case "InertialMeasurementUnit":
-		g.decl(5, "attribute :>> driftRate = 0.0%d;", 1+id%9)
+		g.decl(4, "attribute :>> driftRate = 0.0%d;", 1+id%9)
 	case "ReactionWheel":
-		g.decl(5, "attribute :>> maxTorque = 0.%d ['N⋅m'];", 1+(id+j)%9)
-		g.decl(5, "attribute :>> momentumCapacity = %d.0;", 10+(id+j)%40)
+		g.decl(4, "attribute :>> maxTorque = 0.%d ['N⋅m'];", 1+(id+j)%9)
+		g.decl(4, "attribute :>> momentumCapacity = %d.0;", 10+(id+j)%40)
 	case "OnboardComputer":
-		g.decl(5, "attribute :>> clockRate = %d.0 [Hz];", 200000000+(id*11)%600000000)
-		g.decl(5, "attribute :>> memoryBytes = %d;", (1+id%8)*1073741824)
+		g.decl(4, "attribute :>> clockRate = %d.0 [Hz];", 200000000+(id*11)%600000000)
+		g.decl(4, "attribute :>> memoryBytes = %d;", (1+id%8)*1073741824)
 	case "MassMemory":
-		g.decl(5, "attribute :>> capacityBytes = %d;", (16+id%48)*1073741824)
+		g.decl(4, "attribute :>> capacityBytes = %d;", (16+id%48)*1073741824)
 	case "Transponder":
-		g.decl(5, "attribute :>> frequency = %d.0 [Hz];", 8000000000+(id*7)%400000000)
-		g.decl(5, "attribute :>> transmitPower = %d.0 [W];", 10+id%40)
+		g.decl(4, "attribute :>> frequency = %d.0 [Hz];", 8000000000+(id*7)%400000000)
+		g.decl(4, "attribute :>> transmitPower = %d.0 [W];", 10+id%40)
 	case "CrosslinkTerminal":
-		g.decl(5, "attribute :>> wavelength = 1550 [nm];")
-		g.decl(5, "attribute :>> dataRate = %d.0;", 100+(id*3)%400)
+		g.decl(4, "attribute :>> wavelength = 1550 [nm];")
+		g.decl(4, "attribute :>> dataRate = %d.0;", 100+(id*3)%400)
 	case "Antenna":
-		g.decl(5, "attribute :>> gain = %d.%d;", 20+id%20, id%10)
-		g.decl(5, "attribute :>> diameter = 0.%d [m];", 3+id%6)
+		g.decl(4, "attribute :>> gain = %d.%d;", 20+id%20, id%10)
+		g.decl(4, "attribute :>> diameter = 0.%d [m];", 3+id%6)
 	case "PropellantTank":
-		g.decl(5, "attribute :>> propellantMass = %d.0 [kg];", 30+(id*5)%100)
-		g.decl(5, "attribute :>> volume = 0.%d ['m³'];", 1+id%5)
+		g.decl(4, "attribute :>> propellantMass = %d.0 [kg];", 30+(id*5)%100)
+		g.decl(4, "attribute :>> volume = 0.%d ['m³'];", 1+id%5)
 	case "Thruster":
-		g.decl(5, "attribute :>> thrust = %d.0 [mN];", 20+id%200)
-		g.decl(5, "attribute :>> specificImpulse = %d.0 [s];", 1200+(id*19)%800)
+		g.decl(4, "attribute :>> thrust = %d.0 [mN];", 20+id%200)
+		g.decl(4, "attribute :>> specificImpulse = %d.0 [s];", 1200+(id*19)%800)
 	case "Radiator":
-		g.decl(5, "attribute :>> area = 1.%d ['m²'];", id%10)
-		g.decl(5, "attribute :>> emissivity = 0.8%d;", id%10)
+		g.decl(4, "attribute :>> area = 1.%d ['m²'];", id%10)
+		g.decl(4, "attribute :>> emissivity = 0.8%d;", id%10)
 	case "Heater":
-		g.decl(5, "attribute :>> setpoint = %d.0 [K];", 283+id%20)
+		g.decl(4, "attribute :>> setpoint = %d.0 [K];", 283+id%20)
 	case "ImagingSensor":
-		g.decl(5, "attribute :>> groundSampleDistance = 0.%d [m];", 3+id%7)
-		g.decl(5, "attribute :>> swath = %d.0 [km];", 10+id%30)
+		g.decl(4, "attribute :>> groundSampleDistance = 0.%d [m];", 3+id%7)
+		g.decl(4, "attribute :>> swath = %d.0 [km];", 10+id%30)
 	case "PayloadProcessor":
-		g.decl(5, "attribute :>> throughput = %d.0;", 100+(id*23)%900)
+		g.decl(4, "attribute :>> throughput = %d.0;", 100+(id*23)%900)
 	}
 }
 
 // groundStation writes one ground station definition with its as-built values.
 func (g *generator) groundStation(k int) {
 	g.stats.GroundStations++
-	g.decl(2, "part def Station%d :> GroundStation {", k)
-	g.decl(3, "attribute :>> stationId = %d;", k)
-	g.decl(3, "attribute :>> latitude = %d.%d;", -60+(k*37)%120, k%10)
-	g.decl(3, "attribute :>> longitude = %d.%d;", -180+(k*53)%360, k%10)
+	g.decl(1, "part def Station%d :> GroundStation {", k)
+	g.decl(2, "attribute :>> stationId = %d;", k)
+	g.decl(2, "attribute :>> latitude = %d.%d;", -60+(k*37)%120, k%10)
+	g.decl(2, "attribute :>> longitude = %d.%d;", -180+(k*53)%360, k%10)
 	for j, c := range stationComponents {
 		g.stats.Components++
-		g.decl(3, "part :>> %s {", c.name)
-		g.decl(4, "attribute :>> mass = %d.0 [kg];", 50+(k*7+j*11)%900)
-		g.decl(4, "attribute :>> powerDraw = %d.0 [W];", 100+(k*13+j*17)%2000)
-		g.decl(4, "attribute :>> serialNumber = \"GS-%s-%03d\";", strings.ToUpper(c.name), k)
+		g.decl(2, "part :>> %s {", c.name)
+		g.decl(3, "attribute :>> mass = %d.0 [kg];", 50+(k*7+j*11)%900)
+		g.decl(3, "attribute :>> powerDraw = %d.0 [W];", 100+(k*13+j*17)%2000)
+		g.decl(3, "attribute :>> serialNumber = \"GS-%s-%03d\";", strings.ToUpper(c.name), k)
 		g.componentDetail(c.def, k, j)
-		g.line(3, "}")
+		g.line(2, "}")
 	}
-	g.line(2, "}")
+	g.line(1, "}")
 	g.line(0, "")
 }
 

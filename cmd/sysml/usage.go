@@ -309,7 +309,7 @@ func doc() usage.Doc {
 		}, {
 			Title:      "Environment",
 			ManOnly:    true,
-			Items:      append(append(append(usage.BudgetEnvironment(), usage.JobsEnvironment()...), usage.ToolEnvironment()...), solverEnvironment()...),
+			Items:      append(append(append(append(usage.BudgetEnvironment(), usage.JobsEnvironment()...), usage.WorkersEnvironment()...), usage.ToolEnvironment()...), solverEnvironment()...),
 			Paragraphs: []string{usage.LegacyPrefixNote, usage.BudgetScopeNote},
 		}, {
 			Title:   "Files",
@@ -359,6 +359,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&probeEngines, "probe", false, "With -engines, also start each external engine once, check its describe against its manifest entry field by field and report the outcome as its status")
 	fs.Var(&engine, "engine", "Analysis engine every check is put to: auto (default) picks the strongest engine covering the question, all puts it to every covering engine in name order and composes their answers, or an engine by name (run, explore, check, smt, sweep, solve, tool:<name> from OPENSYSML_TOOLS, or an external engine from OPENSYSML_ENGINES), whose refusal is then the answer; -engine explore is -schedule explore, -engine check searches every schedule of each -action for a violation, deadlock, failure or divergence, and -engine smt decides each -check-property over every schedule and every value of the action's free inputs through an SMT solver")
 	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently — the linearizations of an exploration, the engines -engine all consults — each on a worker of its own over the shared model; the result is the same at any count. Default OPENSYSML_JOBS, else the number of CPUs")
+	fs.Var(&workersFlag, "workers", "Files of one load that are parsed and analyzed at once, each on a worker of its own over the shared index; the diagnostics are the same at any count. Default OPENSYSML_WORKERS, else the number of CPUs")
 	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
 	fs.StringVar(&queryText, "query", "", "Evaluate OSLC Query text against the model instead of running the REPL")
 	fs.StringVar(&outputPath, "output", "", "Write conversion output to this file (default: stdout)")

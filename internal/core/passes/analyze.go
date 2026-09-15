@@ -112,7 +112,32 @@ func dropEscalatedWarnings(diags []Diagnostic) []Diagnostic {
 // AnalyzeWithOptions validates a document under explicit analysis options.
 func AnalyzeWithOptions(name string, kind source.Kind, root *ast.RootNamespace,
 	parseDiags []Diagnostic, idx *symbols.Index, opts Options) []Diagnostic {
+	return AnalyzeInBatch(name, kind, root, parseDiags, idx, opts, nil)
+}
+
+// PrepareBatch readies the index for the documents of batch to be analyzed at
+// once: what resolving each would otherwise link into its scope tree on first use
+// is linked now, so the contexts of the batch only read it. Call it before the
+// first AnalyzeInBatch of the batch, with nothing else using the index.
+func PrepareBatch(idx *symbols.Index, batch *Batch) {
+	if idx == nil || batch == nil {
+		return
+	}
+	linker := NewContext("", idx, nil)
+	_ = linker.Model()
+	for _, name := range batch.Documents {
+		linker.Resolver().LinkMetadataBodies(name)
+	}
+}
+
+// AnalyzeInBatch validates one document of a batch, with a context of its own
+// over an index nothing writes while the batch runs (see PrepareBatch); the
+// result does not depend on which documents share the batch or on how many are
+// analyzed at once.
+func AnalyzeInBatch(name string, kind source.Kind, root *ast.RootNamespace,
+	parseDiags []Diagnostic, idx *symbols.Index, opts Options, batch *Batch) []Diagnostic {
 	ctx := NewContextWithOptions(name, kind, idx, parseDiags, opts)
+	ctx.Batch = batch
 	diags := dropEscalatedWarnings(DefaultRegistry().Run(ctx, name, root))
 	sort.SliceStable(diags, func(i, j int) bool {
 		a, b := diags[i], diags[j]

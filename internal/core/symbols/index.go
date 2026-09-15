@@ -344,19 +344,27 @@ func (idx *Index) mustBeWritable(op string) {
 // indexed are in: adding a document cannot know whether the target of an import
 // it states is still to come.
 func (idx *Index) AddDocument(name string, root *ast.RootNamespace) {
-	idx.addDocument(name, root, source.KindOf(name), false)
+	idx.addDocument(name, root, nil, source.KindOf(name), false)
+}
+
+// AddBuiltDocument is AddDocument over a scope tree the caller already built
+// from root with Build, so a batch can build its trees off the writer's path.
+func (idx *Index) AddBuiltDocument(name string, root *ast.RootNamespace, rs *Scope) {
+	idx.addDocument(name, root, rs, source.KindOf(name), false)
 }
 
 // AddDocumentWithKind builds the scope tree for root and records its explicit
 // language, which is needed when the document name does not carry an extension.
 func (idx *Index) AddDocumentWithKind(name string, root *ast.RootNamespace, kind source.Kind) {
-	idx.addDocument(name, root, kind, true)
+	idx.addDocument(name, root, nil, kind, true)
 }
 
-func (idx *Index) addDocument(name string, root *ast.RootNamespace, kind source.Kind, explicitKind bool) {
+func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, kind source.Kind, explicitKind bool) {
 	idx.mustBeWritable("AddDocument")
 	idx.RemoveDocument(name)
-	rs := Build(root)
+	if rs == nil {
+		rs = Build(root)
+	}
 	SetDocName(rs, name)
 	idx.docRoots.set(name, rs)
 	if explicitKind {
