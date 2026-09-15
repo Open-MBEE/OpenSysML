@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/stressmodel"
@@ -63,10 +64,11 @@ func digest(content []byte) string {
 
 // writeSplit writes the network one file per plane into dir, creating it, and
 // removes what an earlier generation wrote there that this one did not. The
-// files are staged beside their places and each is recorded in the manifest
-// before it is moved in, so a generation that fails leaves nothing unrecorded;
-// a record whose move never happened names a file that does not read as recorded.
-// The manifest of just this generation's files then replaces it in one rename.
+// files are staged beside their places and all are recorded in the manifest,
+// beside the last generation's records, before any is moved in: a generation
+// that fails leaves nothing unrecorded, and every name it touched reads as one
+// record or the other, so the next run replaces it. The manifest of just this
+// generation's files then takes the place of both.
 func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, error) {
 	files, stats := n.Split()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -89,25 +91,15 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 			return stats, err
 		}
 	}
-	manifest, err := os.OpenFile(filepath.Join(dir, manifestName), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600) // #nosec G304 -- the output directory is named on the command line.
-	if err != nil {
+	if err := replaceManifest(dir, staging, intended(previous, files)); err != nil {
 		return stats, err
 	}
 	written := make(map[string]bool, len(files))
-	var current strings.Builder
 	for _, f := range files {
-		line := digest([]byte(f.Source)) + " " + f.Name + "\n"
-		current.WriteString(line)
-		if _, err := manifest.WriteString(line); err != nil {
-			return stats, errors.Join(err, manifest.Close())
-		}
 		if err := os.Rename(filepath.Join(staging, f.Name), filepath.Join(dir, f.Name)); err != nil {
-			return stats, errors.Join(err, manifest.Close())
+			return stats, err
 		}
 		written[f.Name] = true
-	}
-	if err := manifest.Close(); err != nil {
-		return stats, err
 	}
 	for _, rec := range previous {
 		if written[rec.Name] {
@@ -117,11 +109,37 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 			return stats, err
 		}
 	}
-	return stats, replaceManifest(dir, staging, current.String())
+	return stats, replaceManifest(dir, staging, manifestOf(files))
 }
 
-// replaceManifest puts content in place as the manifest in one rename, so the
-// appended record of the generation stands until the whole replacement does.
+// intended is the manifest that stands while a generation moves its files in:
+// the last generation's records, then a record of each file not already among them.
+func intended(previous []record, files []stressmodel.File) string {
+	var b strings.Builder
+	standing := make(map[record]bool, len(previous))
+	for _, rec := range previous {
+		standing[rec] = true
+		b.WriteString(rec.Digest + " " + rec.Name + "\n")
+	}
+	for _, f := range files {
+		if rec := (record{Name: f.Name, Digest: digest([]byte(f.Source))}); !standing[rec] {
+			b.WriteString(rec.Digest + " " + rec.Name + "\n")
+		}
+	}
+	return b.String()
+}
+
+// manifestOf records each of files with the digest of its content.
+func manifestOf(files []stressmodel.File) string {
+	var b strings.Builder
+	for _, f := range files {
+		b.WriteString(digest([]byte(f.Source)) + " " + f.Name + "\n")
+	}
+	return b.String()
+}
+
+// replaceManifest puts content in place as the manifest in one rename, so a
+// manifest that stands is never cut short or half written.
 func replaceManifest(dir, staging, content string) error {
 	next := filepath.Join(staging, manifestName)
 	if err := os.WriteFile(next, []byte(content), 0o600); err != nil {
@@ -133,10 +151,11 @@ func replaceManifest(dir, staging, content string) error {
 // replaceable reports an error naming every file the generation would write
 // over that the last generation did not write, or that has changed since: the
 // generator replaces only its own unedited output, and writes nothing otherwise.
+// A name an interrupted generation recorded reads as either of its records.
 func replaceable(dir string, files []stressmodel.File, previous []record) error {
-	recorded := make(map[string]string, len(previous))
+	recorded := make(map[string][]string, len(previous))
 	for _, rec := range previous {
-		recorded[rec.Name] = rec.Digest
+		recorded[rec.Name] = append(recorded[rec.Name], rec.Digest)
 	}
 	var errs []error
 	for _, f := range files {
@@ -159,7 +178,7 @@ func replaceable(dir string, files []stressmodel.File, previous []record) error 
 			if err != nil {
 				return err
 			}
-			if digest(content) != want {
+			if !slices.Contains(want, digest(content)) {
 				errs = append(errs, fmt.Errorf("%s: changed since the last generation wrote it", path))
 			}
 		}

@@ -179,10 +179,81 @@ func TestWriteSplitRemovesOnlyFilesThatReadAsRecorded(t *testing.T) {
 	}
 }
 
+// A generation interrupted between recording its files and moving them all in
+// leaves some names with the new content and some with the old; the next run
+// replaces both, and records each name once again.
+func TestWriteSplitRetriesAnInterruptedGeneration(t *testing.T) {
+	dir := t.TempDir()
+	first := stressmodel.SatelliteNetwork{Planes: 2, Satellites: 1}
+	second := stressmodel.SatelliteNetwork{Planes: 2, Satellites: 2}
+	if _, err := writeSplit(first, dir); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := second.Split()
+	if files[1].Name != "plane000.sysml" || files[2].Name != "plane001.sysml" {
+		t.Fatalf("the split writes %s, %s second and third; the test wants the two planes", files[1].Name, files[2].Name)
+	}
+	// The second generation recorded both planes and moved only the first in.
+	if err := os.WriteFile(filepath.Join(dir, files[1].Name), []byte(files[1].Source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := interruptManifest(dir, files[1:3]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writeSplit(second, dir); err != nil {
+		t.Fatalf("the interrupted generation cannot be retried: %v", err)
+	}
+	for _, f := range files {
+		if got, err := os.ReadFile(filepath.Join(dir, f.Name)); err != nil || string(got) != f.Source {
+			t.Errorf("%s does not read as the retried generation writes it (%v)", f.Name, err)
+		}
+	}
+	if recorded := recordedNames(t, dir); !slices.Equal(recorded, []string{"library.sysml", "plane000.sysml", "plane001.sysml", "constellation.sysml"}) {
+		t.Errorf("the manifest reads %v; want each of the retried generation's files once", recorded)
+	}
+}
+
+// A file an interrupted generation recorded and moved in is still the
+// generator's: a smaller generation afterwards removes it like any other.
+func TestWriteSplitRemovesWhatAnInterruptedGenerationMovedIn(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 2, Satellites: 1}, dir); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := stressmodel.SatelliteNetwork{Planes: 2, Satellites: 2}.Split()
+	if err := os.WriteFile(filepath.Join(dir, files[2].Name), []byte(files[2].Source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := interruptManifest(dir, files[1:3]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 1, Satellites: 1}, dir); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{manifestName, "constellation.sysml", "library.sysml", "plane000.sysml"}
+	if got := listing(t, dir); !slices.Equal(got, want) {
+		t.Errorf("regenerating with one plane left %v, want %v", got, want)
+	}
+}
+
+// interruptManifest records files in dir's manifest the way a generation does
+// before moving them in, and stops there.
+func interruptManifest(dir string, files []stressmodel.File) error {
+	previous, err := readManifest(dir)
+	if err != nil {
+		return err
+	}
+	staging, err := os.MkdirTemp(dir, ".stress-model-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(staging)
+	return replaceManifest(dir, staging, intended(previous, files))
+}
+
 // The manifest that stood while a generation ran is never cut short: the run
-// appends its records to it and then replaces it whole, so a reader holding the
-// old file sees the earlier records followed by every new one, and the name
-// holds the complete new manifest.
+// replaces it whole, before moving its files in and again after, so a reader
+// holding the old file sees it unchanged and the name holds a complete manifest.
 func TestWriteSplitReplacesTheManifestWholeInsteadOfTruncatingIt(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("a renamed-over file cannot be held open on Windows")
@@ -211,8 +282,11 @@ func TestWriteSplitReplacesTheManifestWholeInsteadOfTruncatingIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(held) != string(first)+string(second) {
-		t.Errorf("the manifest held open through the second generation reads:\n%s\nwant the first manifest followed by the second's records:\n%s%s", held, first, second)
+	if string(held) != string(first) {
+		t.Errorf("the manifest held open through the second generation reads:\n%s\nwant the first manifest unchanged:\n%s", held, first)
+	}
+	if string(second) == string(first) {
+		t.Error("the second generation did not replace the manifest")
 	}
 	if recorded := recordedNames(t, dir); !slices.Equal(recorded, []string{"library.sysml", "plane000.sysml", "constellation.sysml"}) {
 		t.Errorf("the manifest reads %v; want only the second generation's files", recorded)
