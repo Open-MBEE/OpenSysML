@@ -91,7 +91,8 @@ func LibraryVersion(model *semantics.Model, res *resolve.Resolver, name string) 
 // VersionOf is the catalogued library document the named indexed document is a
 // version of (see DocumentRootedAt); a root's id is the one an annotation
 // declares, since an unannotated package states none. The document must be
-// indexed unmarked, so its roots read as the user's declarations.
+// indexed unmarked, so its roots read as the user's declarations, and in the
+// library document's language, which is what its text was parsed as.
 func (c *Catalog) VersionOf(model *semantics.Model, res *resolve.Resolver, name string) string {
 	idx := res.Index()
 	rs := idx.DocumentRoot(name)
@@ -112,5 +113,9 @@ func (c *Catalog) VersionOf(model *semantics.Model, res *resolve.Resolver, name 
 		}
 		roots = append(roots, read)
 	}
-	return c.DocumentRootedAt(roots)
+	doc := c.DocumentRootedAt(roots)
+	if doc != "" && idx.DocumentKind(name) != c.DocumentKind(doc) {
+		return ""
+	}
+	return doc
 }

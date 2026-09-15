@@ -155,17 +155,24 @@ func (w *Workspace) libraryAlone() (*symbols.Index, *identity.Catalog) {
 	return w.libAlone, w.libCatalog
 }
 
-// baseHoldsLibrary reports whether the frozen base holds every library file.
+// baseHoldsLibrary reports whether the frozen base holds the library files and
+// no others: an overlay may shadow a base file under its name, or remove one.
 func (w *Workspace) baseHoldsLibrary() bool {
 	if w.libBase == nil {
 		return false
 	}
-	for name := range w.library {
-		if w.libBase.DocumentRoot(name) == nil {
+	held := 0
+	for _, name := range w.libBase.Documents() {
+		if !w.libBase.IsLibraryDocument(name) {
+			continue
+		}
+		file, ok := w.library[name]
+		if !ok || w.libBase.DocumentRoot(name).Node() != file.root || w.libBase.LibraryDocumentOf(name) != file.record {
 			return false
 		}
+		held++
 	}
-	return true
+	return held == len(w.library)
 }
 
 // ConformanceMode reports the strictness this workspace judges notation at.
