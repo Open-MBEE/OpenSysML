@@ -409,3 +409,26 @@ func TestApplyEditsValidatesAgainstTheOtherDocuments(t *testing.T) {
 		t.Errorf("a refusal returned notation: content=%q documents=%v", refused.Content, documentNames(refused))
 	}
 }
+
+// Renaming a package every other document reaches through wildcard imports
+// rewrites the imports and leaves the names they surface resolving: the edited
+// documents are judged with their rewritten imports, chained re-exports included.
+func TestApplyEditsRenamesAWildcardImportedPackage(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedSources(t, srv,
+		"p.sysml", "package P {\n    package Inner {\n        part def Old;\n    }\n}\n",
+		"m.sysml", "package M {\n    public import P::**;\n}\n",
+		"q.sysml", "package Q {\n    private import M::*;\n    part a : Old;\n    part b : P::Inner::Old;\n}\n",
+	)
+
+	resp := mustApplied(t, srv, hash, renameOp("P", "Fresh"))
+	if got := strings.Join(documentNames(resp), ","); got != "p.sysml,m.sysml,q.sysml" {
+		t.Fatalf("documents = %v, want p.sysml first, then m.sysml and q.sysml", documentNames(resp))
+	}
+	if got, want := documentContent(t, resp, "m.sysml"), "package M {\n    public import Fresh::**;\n}\n"; got != want {
+		t.Errorf("m.sysml =\n%s\nwant\n%s", got, want)
+	}
+	if got, want := documentContent(t, resp, "q.sysml"), "package Q {\n    private import M::*;\n    part a : Old;\n    part b : Fresh::Inner::Old;\n}\n"; got != want {
+		t.Errorf("q.sysml =\n%s\nwant\n%s", got, want)
+	}
+}
