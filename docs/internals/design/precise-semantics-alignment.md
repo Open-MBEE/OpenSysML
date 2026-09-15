@@ -713,7 +713,10 @@ is nested below a region's state exits its wrappers up to the region and the own
 (`state_join_from_nested_states`, `join_from_nested_states_wrapper_exit_that_fails`), a segment
 whose source is a composite state with an active substate is enabled through that substate and
 exits it first (`state_join_from_composite_sources`, `TestJoinFromActiveCompositeSourcesFires`,
-`join_from_composite_source_substate_exit_that_fails`), and a
+`join_from_composite_source_substate_exit_that_fails`), the region recorded being the owner's own
+— the machine's top-level one, for a join of the machine's regions — however deep the source lies,
+so an orthogonal state between them is exited once, with the segment (`state_join_of_machine_regions_from_nested_source`,
+`join_of_machine_regions_nested_source_owner_exit_that_fails`, `lower/join_check_test.go`), and a
 sibling segment's guard the firing occurrence has read fail is the step's error
 (`join_time_segment_sibling_guard_that_fails`); a replay refused at a later draw undoes the segments already
 fired with the rest of the move (`TestReplayRefusedJoinDrawChangesNothing`); a join with a single incoming

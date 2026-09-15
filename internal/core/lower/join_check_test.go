@@ -3,6 +3,8 @@ package lower
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
 // joinMachine wraps a parallel state `work` with regions left and right, whose
@@ -108,5 +110,105 @@ func TestToStateGraph_JoinSegmentsOnePerRegion(t *testing.T) {
 		if regions[source] != region {
 			t.Errorf("segment out of %s leaves region %q, want %q", source, regions[source], region)
 		}
+	}
+}
+
+// parallelMachine is a machine whose own regions are left and right, with a
+// nested orthogonal state inner in left; segments names the transitions into sync.
+func parallelMachine(segments string) string {
+	return `
+		package test {
+			attribute def Go;
+			state def Machine parallel {
+				state left {
+					entry; then inner;
+					state inner parallel {
+						state l1 { entry; then a; state a; }
+						state l2 { entry; then c; state c; }
+					}
+				}
+				state right {
+					entry; then b;
+					state b;
+				}
+				join sync;
+				` + segments + `
+				transition first sync then done;
+			}
+		}
+	`
+}
+
+// A join of the machine's own regions records the top-level region each segment
+// leaves, however deep its source lies, so the region is left once and whole.
+func TestToStateGraph_JoinOfMachineRegionsRecordsTopLevelRegions(t *testing.T) {
+	graph, err := ToStateGraph(stateDefinitionIn(t, parallelMachine(
+		`transition first a accept Go then sync;
+		 transition first b accept Go then sync;`,
+	)), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	var plan *JoinPlan
+	for join, p := range graph.JoinPlans {
+		if join.Name == "sync" {
+			plan = p
+		}
+	}
+	if plan == nil {
+		t.Fatal("no plan recorded for join sync")
+	}
+	if plan.Owner != nil {
+		t.Fatalf("plan owner = %s, want none: the machine's own regions are joined", plan.Owner.Name)
+	}
+	regions := make(map[string]*ast.StateRegion, len(plan.Regions))
+	for trans, region := range plan.Regions {
+		regions[vertexName(trans.Source)] = region
+	}
+	for source, want := range map[string]int{"a": 0, "b": 1} {
+		if regions[source] != graph.TopRegions[want] {
+			t.Errorf("segment out of %s leaves region %q, want the machine's region %q", source, regions[source].Name, graph.TopRegions[want].Name)
+		}
+	}
+}
+
+// Two segments out of one of the machine's regions are refused however the
+// sources are nested, and so are sources in regions of different orthogonal states.
+func TestToStateGraph_JoinOfMachineRegionsShareRegionFail(t *testing.T) {
+	for name, tc := range map[string]struct{ src, want string }{
+		"nested sources in one top-level region": {
+			parallelMachine(`transition first a accept Go then sync;
+			 transition first c accept Go then sync;
+			 transition first b accept Go then sync;`),
+			"leave a and c, in the same region",
+		},
+		"sources in regions of two composite states": {
+			`package test {
+				attribute def Go;
+				state def Machine {
+					entry; then w1;
+					state w1 parallel {
+						state l { entry; then a; state a; }
+						state r { entry; then b; state b; }
+					}
+					state w2 parallel {
+						state l { entry; then c; state c; }
+						state r { entry; then d; state d; }
+					}
+					join sync;
+					transition first a accept Go then sync;
+					transition first c accept Go then sync;
+					transition first sync then done;
+				}
+			}`,
+			"leave regions of more than one orthogonal state",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := ToStateGraph(stateDefinitionIn(t, tc.src), nil)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
 	}
 }

@@ -43,15 +43,19 @@ func (g *StateGraph) checkJoin(join *ast.PseudostateNode) error {
 	if len(sources) < 2 {
 		return nil
 	}
+	for _, source := range sources {
+		if g.enclosingRegion(source) == nil {
+			return fmt.Errorf("join %s: incoming transition leaves %s, which is not in an orthogonal region", join.Name, source.Name)
+		}
+	}
 	plan := &JoinPlan{Owner: g.forkOwner(sources), Regions: make(map[*Transition]*ast.StateRegion, len(segments))}
 	seen := make(map[*ast.StateRegion]*ast.StateNode, len(sources))
 	for i, source := range sources {
-		region := g.enclosingRegion(source)
-		if plan.Owner != nil {
-			region = g.regionUnder(plan.Owner, source)
-		}
+		// The region is one of the owner's own — the machine's, for a nil owner —
+		// not a region nested below it, which the owner's exit leaves as a whole.
+		region := g.regionUnder(plan.Owner, source)
 		if region == nil {
-			return fmt.Errorf("join %s: incoming transition leaves %s, which is not in an orthogonal region", join.Name, source.Name)
+			return fmt.Errorf("join %s: incoming transitions leave regions of more than one orthogonal state", join.Name)
 		}
 		if other, dup := seen[region]; dup {
 			if other == source {

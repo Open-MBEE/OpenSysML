@@ -11,4 +11,7 @@
   the states of the owner's regions exits those wrappers and the owner, where before it found
   no owner and left them active. A segment leaving a composite state whose substate is active
   now holds and fires the join as the occurrence reaches that state from within, exiting the
-  substate first, where before the join never fired.
+  substate first, where before the join never fired. A join of the machine's own regions whose
+  segment leaves a state nested in an orthogonal state of a region now records that region, so
+  the segment exits the nested state and its wrappers once, where before the innermost region
+  was recorded and the orthogonal state was exited a second time when the regions were left.
