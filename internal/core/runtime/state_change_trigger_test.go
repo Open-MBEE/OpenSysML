@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -580,6 +581,162 @@ func TestChangeTriggerRecallsDeferredEvents(t *testing.T) {
 	assertCurrentState(t, exec, "done")
 	if len(exec.deferred) != 0 {
 		t.Errorf("deferred = %d, want the recalled Ping delivered", len(exec.deferred))
+	}
+}
+
+// A rise enabling one segment into a join whose other segment's condition is
+// still false is an occurrence the join does not take: the poll fires nothing yet
+// consumes the rise, as a dispatched event nothing takes is consumed, so a run
+// stepped move by move sees the dispatch it was offered rather than a refusal.
+func TestChangeTriggerConsumesARiseIntoAnUnsynchronizedJoin(t *testing.T) {
+	source := `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute log : String = "";
+			attribute level : Integer = 0;
+			entry; then start;
+			state start;
+			state Work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					transition first a1 accept when level > 1 do assign log := log + "a " then sync;
+				}
+				state b {
+					entry; then b1;
+					state b1;
+					transition first b1 accept when level > 2 do assign log := log + "b " then sync;
+				}
+			}
+			join sync;
+			transition first start do assign level := 2 then Work;
+			transition first sync do assign log := log + "sync" then done;
+		}
+	}`
+	exec := stateExecutorForSource(t, "Machine", source)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got := activeStateNames(exec); got != "a1|b1" {
+		t.Fatalf("configuration = %s, want a1|b1: the join waits for b's condition", got)
+	}
+	if !exec.changeFired[exec.graph.Transitions[stateNamed(t, exec, "a1")][0]] {
+		t.Error("a's rise is not latched: the next poll would offer the same occurrence again")
+	}
+	if reason := exec.SuspendReason(); !strings.Contains(reason, "a1: accept when (condition has not changed since it fired)") {
+		t.Errorf("reason = %q, want a's rise reported spent", reason)
+	}
+
+	// b's condition rising later is a new occurrence, which a's segment does not
+	// take: the join never fires.
+	exec.stateData["level"] = integerValue(3)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("raise b's condition: %v", err)
+	}
+	if got := activeStateNames(exec); got != "a1|b1" {
+		t.Errorf("configuration = %s, want a1|b1: b's later rise fired the join", got)
+	}
+	if got := exec.stateData["log"]; got.Str() != "" {
+		t.Errorf("log = %q, want no segment's effect run", got.Str())
+	}
+
+	// Under the check policy the run is stepped move by move: the rise a poll
+	// consumes is a dispatch the machine makes, not one it refuses.
+	m := parseExploreModel(t, source)
+	report, err := Check(context.Background(), m.fresh, stateStarterOf(m.state(t, "Machine"), Horizon{}), CheckBudget{}, unreduced(), nil)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if report.Verdict != CheckExhaustive {
+		t.Fatalf("check: %s, want exhaustive", report.Status())
+	}
+	if len(report.Finals) != 1 || report.Finals[0].Values["finalState"] != "a1+b1" || report.Finals[0].Values["log"] != `""` {
+		t.Fatalf("finals %+v, want one at a1+b1 with nothing logged", report.Finals)
+	}
+}
+
+// A change-triggered segment into a join drawn after another region's firing
+// disarmed the join fires nothing, and neither reports a move nor draws a choice
+// the run made; its rise is consumed all the same, one rise being one occurrence.
+func TestChangeTriggerJoinDisarmedBeforeItsTurnFiresNothing(t *testing.T) {
+	ctx, machine := loadState(t, `package test {
+    private import ScalarValues::*;
+    state Machine {
+        attribute armed : Boolean = true;
+        attribute level : Integer = 0;
+        entry; then start;
+        state start;
+        state running parallel {
+            state c {
+                entry; then c1;
+                state c1;
+                state c2;
+                transition first c1 accept when level > 1 do assign armed := false then c2;
+            }
+            state a {
+                entry; then a1;
+                state a1;
+                state a2;
+                transition first a1 accept when level > 1 then sync;
+                transition first a1 accept when level > 1 then a2;
+            }
+            state b {
+                entry; then b1;
+                state b1;
+                transition first b1 accept when level > 1 if armed then sync;
+            }
+        }
+        join sync;
+        transition first start do assign level := 2 then running;
+        transition first sync then done;
+    }
+}`, "Machine")
+	// `declared` fires the regions in declaration order, c before a, and takes
+	// a1's first transition, the segment into the join.
+	policy, err := ParseSchedulePolicy("declared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.SetSchedule(policy); err != nil {
+		t.Fatal(err)
+	}
+	exec, err := ctx.CreateStateExecutor(machine)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got := activeStateNames(exec); got != "c2|a1|b1" {
+		t.Fatalf("configuration = %s, want c2|a1|b1: c's effect disarmed b's segment, so a's fires nothing", got)
+	}
+	for _, c := range ctx.Choices() {
+		if c.Kind == ChoiceTransition {
+			t.Errorf("choices include %s: a's segment fired nothing, so its draw is no choice the run made", c)
+		}
+	}
+
+	// The rise a's segment was drawn on is spent; b's, blocked by its guard, is
+	// not, so re-arming the guard offers b a join whose other segment's rise is gone.
+	exec.stateData["armed"] = boolValue(true)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("re-arm: %v", err)
+	}
+	if got := activeStateNames(exec); got != "c2|a1|b1" {
+		t.Errorf("configuration = %s, want c2|a1|b1: a spent rise fired the join", got)
+	}
+
+	// The condition falling and rising again is one occurrence for both segments.
+	exec.stateData["level"] = integerValue(0)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("lower: %v", err)
+	}
+	exec.stateData["level"] = integerValue(2)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("raise again: %v", err)
+	}
+	if exec.State() != StateCompleted {
+		t.Errorf("machine %v at %s after the new rise, want completed through the join", exec.State(), activeStateNames(exec))
 	}
 }
 

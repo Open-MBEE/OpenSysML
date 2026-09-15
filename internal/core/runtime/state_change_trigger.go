@@ -36,9 +36,10 @@ type changePoll struct {
 }
 
 // pollChangeEvents re-tests the ChangeEvent conditions the active configuration
-// watches and takes the transitions they enable, reporting whether any fired. It
-// walks outward from each active leaf, and selects and resolves conflicts exactly
-// as an event dispatch does.
+// watches and takes the transitions they enable, reporting whether the rise was
+// dispatched: taken, or consumed by transitions it enabled without firing any, as
+// a signal nothing takes is. It walks outward from each active leaf, and selects
+// and resolves conflicts exactly as an event dispatch does.
 //
 // A trigger fires on the condition rising: one that stays true does not take the
 // same edge again, and only a condition observed false re-arms it.
@@ -84,19 +85,20 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		}
 		// The edge is latched before it is taken: an effect that leaves the
 		// condition true must not enable the same edge again, and the exit this
-		// firing causes must not re-arm the edge that caused it.
+		// firing causes must not re-arm the edge that caused it. A join an earlier
+		// candidate disarmed fires nothing, which is no move.
 		e.changeFired[trans] = true
 		e.firingChange = trans
-		e.moved = true
-		_, err = e.firingOn(occurrence, func() (bool, error) {
+		fired, err := e.firingOn(occurrence, func() (bool, error) {
 			return e.fireFrom(candidate.source, trans, notes, candidate.route)
 		})
 		e.firingChange = nil
 		if err != nil {
 			return true, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
 		}
-		return true, nil
+		return fired, nil
 	})
+	e.moved = e.moved || fired
 	if err != nil {
 		return fired, err
 	}
@@ -105,9 +107,11 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		// back the events it deferred.
 		e.recallDeferredEvents()
 	}
-	e.consumeRise(poll)
+	consumed := e.consumeRise(poll)
 	e.changeWaits = poll.waits
-	return fired, nil
+	dispatched := fired || consumed
+	e.moved = e.moved || dispatched
+	return dispatched, nil
 }
 
 func newChangePoll() *changePoll {
@@ -121,8 +125,9 @@ func newChangePoll() *changePoll {
 }
 
 // changeRisen observes the change conditions as a poll does, under a probe so the
-// machine keeps its latches, and reports whether one enables a transition or
-// cannot be evaluated: a poll now would fire, or fail.
+// machine keeps its latches, and reports whether a poll now would dispatch a rise
+// or fail: what pollChangeEvents would report, with the same rule for what a rise
+// enables, whether or not the join a segment leads into is ready to fire.
 func (e *StateExecutor) changeRisen() bool {
 	defer e.ctx.beginProbe()()
 	fired := maps.Clone(e.changeFired)
@@ -133,26 +138,35 @@ func (e *StateExecutor) changeRisen() bool {
 	if err := e.observeChangeConditions(poll); err != nil {
 		return true
 	}
-	for trans, holds := range poll.condition {
-		if holds && !e.changeFired[trans] && poll.guard[trans] {
+	for trans := range poll.condition {
+		if e.riseEnables(poll, trans) {
 			return true
 		}
 	}
 	return false
 }
 
-// consumeRise latches every enabled transition whose condition was observed
-// risen, not only the ones taken: one rise is one occurrence, so a transition
-// that lost conflict resolution waits for the next rise instead of firing on the
-// next poll. A transition its guard blocked consumes nothing and stays armed, and
-// so does one a state entry re-armed during this poll: that watch belongs to an
-// activation later than the observation.
-func (e *StateExecutor) consumeRise(poll *changePoll) {
-	for trans, holds := range poll.condition {
-		if holds && poll.guard[trans] && !poll.blocked[trans] && !e.changeRearmed[trans] {
+// riseEnables reports whether the poll's rise is an occurrence for trans, one a
+// poll consumes: its condition observed risen with its guard passing and not
+// blocked since, and its watch not re-armed by a state entry during the poll,
+// which belongs to an activation later than the observation.
+func (e *StateExecutor) riseEnables(poll *changePoll, trans *lower.Transition) bool {
+	return poll.condition[trans] && poll.guard[trans] && !poll.blocked[trans] && !e.changeRearmed[trans]
+}
+
+// consumeRise latches every transition the rise enabled, not only the ones taken,
+// reporting whether any was: one rise is one occurrence, so a transition that lost
+// conflict resolution, or into a join the rise did not fire whole, waits for the
+// next rise instead of firing on the next poll.
+func (e *StateExecutor) consumeRise(poll *changePoll) bool {
+	consumed := false
+	for trans := range poll.condition {
+		if e.riseEnables(poll, trans) {
 			e.changeFired[trans] = true
+			consumed = true
 		}
 	}
+	return consumed
 }
 
 // observeChangeConditions evaluates, once each, the change conditions of the
@@ -275,9 +289,9 @@ func (p *changePoll) wait(trans *lower.Transition, state, reason string) {
 }
 
 // PollChangeEvents re-tests the change conditions the active configuration
-// watches and takes the transitions they enable, reporting whether any fired:
-// the step RunToCompletion takes, for a driver that steps the machine itself.
-func (e *StateExecutor) PollChangeEvents() (fired bool, err error) {
+// watches and takes the transitions they enable, reporting whether a rise was
+// dispatched: the step RunToCompletion takes, for a driver that steps the machine.
+func (e *StateExecutor) PollChangeEvents() (dispatched bool, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 
