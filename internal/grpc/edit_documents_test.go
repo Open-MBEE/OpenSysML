@@ -310,6 +310,34 @@ func TestApplyEditsRefusesARenameAnotherDocumentWouldCapture(t *testing.T) {
 	}
 }
 
+// A move refused for a reference it cannot respell names the referring
+// declaration of the unedited document in both the legacy and structured fields.
+func TestApplyEditsNamesTheReferrerAMoveCannotRespell(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedSources(t, srv, "move.sysml",
+		"package P {\n    part def Base;\n    part def H {\n        part b : Base;\n    }\n"+
+			"    part def Other;\n    part h : H;\n    part c : Base = h.b;\n}\n")
+
+	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: []*pb.EditOperation{moveOp("P::H::b", "P::Other")},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits failed: %v", err)
+	}
+	if resp.Failure != pb.EditFailure_EDIT_FAILURE_MOVE_REFERENCED {
+		t.Fatalf("failure = %s (%s), want MOVE_REFERENCED", resp.Failure, resp.Error)
+	}
+	if got := strings.Join(resp.ReferringElements, ","); got != "P::c" {
+		t.Errorf("referring_elements = %v, want P::c", resp.ReferringElements)
+	}
+	if len(resp.Referrers) != 1 || resp.Referrers[0].Name != "P::c" || resp.Referrers[0].Document != "move.sysml" {
+		t.Errorf("referrers = %v, want P::c in move.sysml", resp.Referrers)
+	}
+	if resp.Content != "" || len(resp.Documents) != 0 || len(resp.Applied) != 0 {
+		t.Errorf("a refusal returned notation: content=%q documents=%v", resp.Content, documentNames(resp))
+	}
+}
+
 // A request naming a document the model does not have is a call failure, not
 // a refused edit, and it lists the documents the model has.
 func TestApplyEditsRejectsAnUnknownDocument(t *testing.T) {
