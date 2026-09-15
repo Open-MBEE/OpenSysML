@@ -907,9 +907,11 @@ function html(
       #menu li.separator { height: 0; padding: 0; margin: 0.25rem 0; border-top: 1px solid var(--vscode-menu-separatorBackground, var(--vscode-widget-border)); cursor: default; }
       #menu li.title { opacity: 0.7; cursor: default; font-size: 0.9em; }
       #diagram.stale { opacity: 0.45; }
+      #diagram:focus { outline: none; }
       #diagram svg { display: block; font-family: var(--vscode-font-family); user-select: none; touch-action: none; }
       #diagram svg.dragging { cursor: grabbing; }
       #diagram svg.dragging.refused { cursor: not-allowed; }
+      #diagram svg.dragging g.opensysml-node { cursor: inherit; }
       #diagram g.lifted { opacity: 0.75; }
       #diagram .opensysml-drop-target > .shape, #diagram .opensysml-drop-target > g.shape > circle {
         stroke: var(--vscode-focusBorder); stroke-width: 3px; stroke-dasharray: 6 3;
@@ -950,7 +952,7 @@ function html(
       <select id="add" hidden aria-label="Add to the model"></select>
     </div>
     <div id="status"></div>
-    <div id="diagram"></div>
+    <div id="diagram" tabindex="-1"></div>
     <ul id="menu" hidden role="menu"></ul>
     <details id="notices" hidden>
       <summary></summary>

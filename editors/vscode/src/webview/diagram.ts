@@ -259,8 +259,10 @@ function beginGesture(event: PointerEvent): void {
     gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
   }
   event.preventDefault();
-  // Captured so the release is seen wherever the pointer goes, a fixed node's too.
+  // Captured so the release is seen wherever the pointer goes, a fixed node's too;
+  // focused so Shift and Escape reach the panel while the pointer is held.
   diagram.setPointerCapture(event.pointerId);
+  diagram.focus({ preventScroll: true });
 }
 
 // moveGesture follows the pointer, showing where the drag would leave things.
