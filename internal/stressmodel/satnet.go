@@ -13,6 +13,7 @@ package stressmodel
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -89,6 +90,23 @@ type File struct {
 	Name, Source string
 }
 
+// planeFile names the document of plane p.
+func planeFile(p int) string { return fmt.Sprintf("plane%03d.sysml", p) }
+
+// IsPlaneFile reports whether name is one Split gives a plane's document, so a
+// writer can tell the planes of an earlier generation from anything else.
+func IsPlaneFile(name string) bool {
+	digits, ok := strings.CutPrefix(name, "plane")
+	if !ok {
+		return false
+	}
+	if digits, ok = strings.CutSuffix(digits, ".sysml"); !ok {
+		return false
+	}
+	p, err := strconv.Atoi(digits)
+	return err == nil && p >= 0 && name == planeFile(p)
+}
+
 // Split generates the network Generate writes as one document per orbital plane
 // beside the shared library and the constellation joining the planes.
 func (n SatelliteNetwork) Split() ([]File, Stats) {
@@ -106,7 +124,7 @@ func (n SatelliteNetwork) Split() ([]File, Stats) {
 		g.line(0, "}")
 	})
 	for p := 0; p < n.Planes; p++ {
-		file(fmt.Sprintf("plane%03d.sysml", p), func() {
+		file(planeFile(p), func() {
 			g.decl(0, "package Plane%d {", p)
 			g.imports("SatelliteNetwork::")
 			g.line(0, "")

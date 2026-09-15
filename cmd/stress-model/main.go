@@ -46,16 +46,37 @@ func main() {
 	}
 }
 
-// writeSplit writes the network one file per plane into dir, creating it.
+// writeSplit writes the network one file per plane into dir, creating it, and
+// removes the plane files an earlier, larger generation left there.
 func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, error) {
 	files, stats := n.Split()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return stats, err
 	}
+	written := make(map[string]bool, len(files))
 	for _, f := range files {
 		if err := os.WriteFile(filepath.Join(dir, f.Name), []byte(f.Source), 0o600); err != nil {
 			return stats, err
 		}
+		written[f.Name] = true
 	}
-	return stats, nil
+	return stats, removeStalePlanes(dir, written)
+}
+
+// removeStalePlanes deletes the plane files in dir the generator did not just
+// write; only names of the generator's own shape are touched.
+func removeStalePlanes(dir string, written map[string]bool) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.IsDir() || written[e.Name()] || !stressmodel.IsPlaneFile(e.Name()) {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dir, e.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }
