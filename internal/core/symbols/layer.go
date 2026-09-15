@@ -170,6 +170,28 @@ func appendSlice[K comparable, S ~[]E, E any](l *layer[K, S], k K, e E) {
 	l.set(k, append(out, e))
 }
 
+// insertSymbol adds sym to the symbols under fqn in declaration order (document
+// name, then offset) after any the layer below holds, so what a name resolves
+// to does not depend on the order the documents were indexed in.
+func insertSymbol(l *layer[string, []*Symbol], fqn string, sym *Symbol) {
+	shared, _ := l.below(fqn)
+	syms := writableSlice(l, fqn)
+	i := len(syms)
+	for i > 0 && !(i-1 < len(shared) && shared[i-1] == syms[i-1]) && declaredAfter(syms[i-1], sym) {
+		i--
+	}
+	l.set(fqn, slices.Insert(syms, i, sym))
+}
+
+// declaredAfter reports whether a is declared after b: in a later document, or
+// later in the same one.
+func declaredAfter(a, b *Symbol) bool {
+	if a.DocName != b.DocName {
+		return a.DocName > b.DocName
+	}
+	return a.DeclSpan.Offset > b.DeclSpan.Offset
+}
+
 // insertSorted adds s to the sorted, duplicate-free slice under k, copying a
 // slice the layer below owns first (see writableSlice).
 func insertSorted(l *layer[string, []string], k, s string) {

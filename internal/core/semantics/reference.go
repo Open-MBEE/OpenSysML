@@ -23,6 +23,7 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.referenced[sym]; ok {
 		return cached
 	}
@@ -48,6 +49,7 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 	// truncated member view (that symbol's own reference was hidden), so it is
 	// provisional and must not be cached.
 	if len(m.resolvingRef) == 1 {
+		journal(m, m.referenced, sym, sym.Decl)
 		m.referenced[sym] = out
 	}
 	return out
@@ -105,6 +107,7 @@ func (m *Model) MemberSources(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.memberSources[sym]; ok {
 		return cached
 	}
@@ -128,6 +131,7 @@ func (m *Model) MemberSources(sym *symbols.Symbol) []*symbols.Symbol {
 	// supertype query it depends on is itself unresolved, is provisional: those
 	// guards report fewer sources than the finished model has, so it is not cached.
 	if len(m.resolvingRef) == 0 && !provisional {
+		journal(m, m.memberSources, sym, sym.Decl)
 		m.memberSources[sym] = order
 	}
 	return order
@@ -149,6 +153,7 @@ func (m *Model) lookupSources(sym *symbols.Symbol) []lookupSource {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.lookupOrder[sym]; ok {
 		return cached
 	}
@@ -170,6 +175,7 @@ func (m *Model) lookupSources(sym *symbols.Symbol) []lookupSource {
 	}
 	walk(sym, nil)
 	if len(m.resolvingRef) == 0 && !provisional {
+		journal(m, m.lookupOrder, sym, sym.Decl)
 		m.lookupOrder[sym] = order
 	}
 	return order
@@ -226,6 +232,7 @@ func (m *Model) DirectMemberSources(sym *symbols.Symbol) []*symbols.Symbol {
 // KerML feature keyword implies, then the feature it reference-subsets. The two
 // bases contribute members only, not conformance.
 func (m *Model) contributors(sym *symbols.Symbol) []*symbols.Symbol {
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.contributed[sym]; ok {
 		return cached
 	}
@@ -233,6 +240,7 @@ func (m *Model) contributors(sym *symbols.Symbol) []*symbols.Symbol {
 	// Memoized under the condition MemberSources memoizes its closure: no reference
 	// mid-resolution and sym's own supertypes settled.
 	if len(m.resolvingRef) == 0 && !m.supersUnstable(sym) {
+		journal(m, m.contributed, sym, sym.Decl)
 		m.contributed[sym] = out
 	}
 	return out

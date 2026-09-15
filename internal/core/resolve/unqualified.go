@@ -124,6 +124,8 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 	if r == nil || sym == nil || sym.Naming == symbols.NamedByDeclaration {
 		return true
 	}
+	r.EnterDoc(sym.DocName)
+	defer r.LeaveDoc()
 	if named, done := r.effNames[sym]; done {
 		return named
 	}
@@ -143,6 +145,7 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 	})
 	// A lookup cut short by a guard answered for an enclosing one, not for good.
 	if r.Leave() {
+		journalNew(r, r.effNames, sym, sym.Decl)
 		r.effNames[sym] = named
 	}
 	return named
@@ -253,6 +256,8 @@ func (r *Resolver) implicitlyNamedMember(scope *symbols.Scope, name string, hide
 // and a scope holding many anonymous connections or assertions would otherwise
 // be rescanned by every name resolved through it.
 func (r *Resolver) implicitParameters(scope *symbols.Scope) []*symbols.Symbol {
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	params, done := r.implicitParams[scope]
 	if done {
 		return params

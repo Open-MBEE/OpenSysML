@@ -114,3 +114,89 @@ func BenchmarkEditBeside(b *testing.B) {
 		})
 	}
 }
+
+// openFiles opens every file of a network in a workspace and analyzes each,
+// failing on any diagnostic.
+func openFiles(tb testing.TB, ws *model.Workspace, files []File) {
+	tb.Helper()
+	for _, f := range files {
+		ws.Open(f.Name, []byte(f.Source), 1)
+	}
+	for _, f := range files {
+		for _, d := range ws.Diagnostics(f.Name) {
+			tb.Fatalf("%s: %s", f.Name, d.Message)
+		}
+	}
+}
+
+// BenchmarkLoadFiles measures analyzing the network split into one document per
+// plane, every document through one workspace: what a multi-file model costs
+// over the same model in one file.
+func BenchmarkLoadFiles(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := network(n).Split()
+		b.Run(fmt.Sprintf("satellites=%d/files=%d", stats.Satellites, len(files)), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				openFiles(b, model.NewWorkspace(), files)
+			}
+		})
+	}
+}
+
+// BenchmarkEditImported measures the worst edit in a multi-file network: a
+// keystroke in the library every plane imports, followed by the diagnostics of
+// every open file, as the editor's sweep asks for them.
+func BenchmarkEditImported(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := network(n).Split()
+		lib := files[0]
+		b.Run(fmt.Sprintf("satellites=%d/files=%d", stats.Satellites, len(files)), func(b *testing.B) {
+			ws := model.NewWorkspace()
+			openFiles(b, ws, files)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				ws.Update(lib.Name, []byte(lib.Source+fmt.Sprintf("\n// %d\n", i)), i+2)
+				for _, f := range files {
+					_ = ws.Diagnostics(f.Name)
+				}
+			}
+		})
+	}
+}
+
+// TestEditsHoldNoStaleState checks that a workspace edited many times keeps no
+// more of the replaced documents than one edited once: the heap a long editing
+// session holds is that of the current model, not of every version it saw.
+func TestEditsHoldNoStaleState(t *testing.T) {
+	if testing.Short() {
+		t.Skip("edits a 32-satellite network a thousand times")
+	}
+	const small = "package Ops { private import SatelliteNetwork::Constellation::*; part spare : Sat0; }"
+	src, _ := network(networkSizes[0]).Source()
+	ws := model.NewWorkspace()
+	ws.Open("satnet.sysml", []byte(src), 1)
+	ws.Open("ops.sysml", []byte(small), 1)
+	edit := func(i int) {
+		ws.Update("ops.sysml", []byte(small+fmt.Sprintf("\n// %d\n", i)), i+2)
+		_ = ws.Diagnostics("ops.sysml")
+		if i%50 == 0 {
+			ws.Update("satnet.sysml", []byte(src+fmt.Sprintf("\n// %d\n", i)), i+2)
+		}
+		_ = ws.Diagnostics("satnet.sysml")
+	}
+	edit(0)
+	warm := liveHeap()
+	for i := 1; i <= 1000; i++ {
+		edit(i)
+	}
+	after := liveHeap()
+	runtime.KeepAlive(ws)
+	// Memo tables grow a bounded amount under delete-and-reinsert churn; a
+	// quarter more is state that outlived the document it was computed for.
+	if after > warm+warm/4 {
+		t.Fatalf("live heap grew from %d to %d bytes over 1000 edits", warm, after)
+	}
+	t.Logf("live heap after 1 edit %d bytes, after 1000 edits %d bytes", warm, after)
+}

@@ -2,6 +2,8 @@ package model
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -12,8 +14,8 @@ func (w *Workspace) IdentityOf(name string, sym *symbols.Symbol) (*identity.Info
 	if sym == nil || sym.Decl == nil {
 		return nil, false
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	// The annotation model is keyed by the index's symbol for the same AST node.
 	// A library document is parsed afresh from the bytes the index read, so its
 	// symbols share the index's spans rather than its nodes.
@@ -36,6 +38,14 @@ func (w *Workspace) IdentityOf(name string, sym *symbols.Symbol) (*identity.Info
 	if indexed == nil {
 		return nil, false
 	}
-	resolver, sem := w.resolverOver(idx)
-	return identity.Of(sem, resolver, indexed)
+	if idx != w.index {
+		resolver, sem := w.resolverOver(idx)
+		return identity.Of(sem, resolver, indexed)
+	}
+	var info *identity.Info
+	var ok bool
+	w.queryLocked(name, func(resolver *resolve.Resolver, sem *semantics.Model) {
+		info, ok = identity.Of(sem, resolver, indexed)
+	})
+	return info, ok
 }
