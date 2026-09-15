@@ -11,9 +11,9 @@
   },
   "buckets": {
     "differs-by-design": 2,
-    "fail": 19,
+    "fail": 18,
     "not-expressible": 37,
-    "pass": 42,
+    "pass": 43,
     "terminate-gap": 3
   },
   "tests": [
@@ -369,18 +369,16 @@
       "name": "Event 015",
       "area": "Event",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: T1.3(effect)"
-      ],
+      "bucket": "pass",
       "expected": [
         "T1.2(effect)",
         "T1.3(effect)"
       ],
       "reached": [
-        "T1.2(effect)"
+        "T1.2(effect)",
+        "T1.3(effect)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "Event 016 A",
