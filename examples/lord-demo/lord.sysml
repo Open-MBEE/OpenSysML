@@ -384,9 +384,8 @@ package LordPlay {
             then done;
         }
 
-        // A bout at the hall, against Halder unless told otherwise; a win is the
-        // next level and its stats, a loss costs only the bruises. A warrior of
-        // the twelfth level has no master left to beat.
+        // A bout at the hall, against Halder unless told otherwise: a win is the next level,
+        // a loss only bruises. Level twelve has no master left; a bout needs a real one.
         action train {
             in masterHitPoints : Integer = 15;
             in masterStrength : Integer = 10;
@@ -401,7 +400,9 @@ package LordPlay {
 
             first start;
             then decide ready;
-            if alive and experience >= experienceRequired and level < 12 then bout;
+            if alive and experience >= experienceRequired and level < 12
+                and masterHitPoints > 0 and masterStrength >= 0 and masterDefense >= 0
+                and hitPointsTaught >= 0 and strengthTaught >= 0 and defenseTaught >= 0 then bout;
             else turnedAway;
 
             action bout {
