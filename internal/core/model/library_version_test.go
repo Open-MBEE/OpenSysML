@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -286,6 +287,44 @@ func TestWorkspaceLibraryVersionBesideTheBundledName(t *testing.T) {
 			t.Errorf("%s: ScalarValues::Real declared in %q once both closed, want the bundled file", tc.name, doc)
 		}
 	}
+}
+
+// The bundled file a version displaced comes back with the names it surfaces
+// through wildcard imports: a package importing it re-exports them again.
+func TestWorkspaceLibraryVersionRestoresImports(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open("mine.sysml", []byte("package Mine {\n    public import ScalarValues::*;\n}\n"), 1)
+	ws.Open("car.sysml", []byte("part def Car {\n    attribute mass : Mine::Real;\n}\n"), 1)
+	imported := func(when string, want string) {
+		t.Helper()
+		syms := ws.LookupQualified("Mine::Real")
+		if len(syms) != 1 || syms[0].DocName != want {
+			var docs []string
+			for _, s := range syms {
+				docs = append(docs, s.DocName)
+			}
+			t.Errorf("%s: Mine::Real declared in %q, want %q", when, docs, want)
+		}
+		for _, d := range ws.Diagnostics("car.sysml") {
+			if d.Severity == passes.SeverityError {
+				t.Errorf("%s: car.sysml: %s: %s", when, d.Code, d.Message)
+			}
+		}
+	}
+	imported("before any version", scalarValues)
+	ws.Open("copy.kerml", lib.Content, 1)
+	imported("with the version open", "copy.kerml")
+	ws.Remove("copy.kerml")
+	imported("after the version left", scalarValues)
+
+	ws.Open("copy.kerml", lib.Content, 2)
+	ws.Update("copy.kerml", []byte(strings.Replace(string(lib.Content),
+		"standard library package ScalarValues", "standard library package MyValues", 1)), 3)
+	imported("after the version moved off the library's root", scalarValues)
 }
 
 // An edit inside a version is judged with the workspace document holding the
