@@ -54,31 +54,30 @@ func (m *Model) CoherentUnitFor(dim Dimension, declared *symbols.Symbol) (Unit, 
 // systemBaseUnits maps each base quantity to the base unit SI::si measures it in,
 // read once from the library's `baseUnits` list.
 func (m *Model) systemBaseUnits() map[*symbols.Symbol]*symbols.Symbol {
-	if m.baseUnits != nil {
-		return m.baseUnits
-	}
-	m.baseUnits = make(map[*symbols.Symbol]*symbols.Symbol)
-	system := m.libSymbol(fqnSystemOfUnitsSI)
-	listed, ok := m.LookupMember(system, memberBaseUnits)
-	if !ok || m.resolver == nil {
-		return m.baseUnits
-	}
-	value := usageValue(listed)
-	if value == nil {
-		return m.baseUnits
-	}
-	scope := scopeOf(listed)
-	for _, ref := range sequenceElements(value) {
-		unit, ok := m.resolver.ResolveTarget(scope, ref)
-		if !ok || unit == nil {
-			continue
+	m.shared(sharedBaseUnits, func() bool { return m.baseUnits != nil }, func() {
+		m.baseUnits = make(map[*symbols.Symbol]*symbols.Symbol)
+		system := m.libSymbol(fqnSystemOfUnitsSI)
+		listed, ok := m.LookupMember(system, memberBaseUnits)
+		if !ok || m.resolver == nil {
+			return
 		}
-		term, ok := m.dimensionOf(unit)
-		if !ok || len(term.Factors) != 1 || term.Factors[0].Exponent != 1 {
-			continue
+		value := usageValue(listed)
+		if value == nil {
+			return
 		}
-		m.baseUnits[term.Factors[0].Unit] = unit
-	}
+		scope := scopeOf(listed)
+		for _, ref := range sequenceElements(value) {
+			unit, ok := m.resolver.ResolveTarget(scope, ref)
+			if !ok || unit == nil {
+				continue
+			}
+			term, ok := m.dimensionOf(unit)
+			if !ok || len(term.Factors) != 1 || term.Factors[0].Exponent != 1 {
+				continue
+			}
+			m.baseUnits[term.Factors[0].Unit] = unit
+		}
+	}, func() { m.baseUnits = nil })
 	return m.baseUnits
 }
 

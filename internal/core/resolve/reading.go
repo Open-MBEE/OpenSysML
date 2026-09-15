@@ -59,6 +59,8 @@ func (r *Resolver) ReadQualified(scope *symbols.Scope, qn *ast.QualifiedName) Re
 	if qn == nil {
 		return Reading{}
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	key := readingKey{scope: scope, qn: qn}
 	if rd, done := r.readings[key]; done {
 		return rd

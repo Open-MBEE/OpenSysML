@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"testing"
 
@@ -87,8 +88,9 @@ func TestReferenceIndexOrdersAcrossDocuments(t *testing.T) {
 	}
 }
 
-// The index is built on the first query after a change and dropped by every
-// mutation, so a query never reads a document set it was not built over.
+// The index is built on the first query, one table per document; a mutation
+// drops the tables of the documents it moved and keeps the rest, so a query
+// never reads a document set it was not built over.
 func TestReferenceIndexRebuiltLazilyAfterChanges(t *testing.T) {
 	ws := NewWorkspace()
 	ws.SetOnDisk("a.sysml", []byte("package A { part def X; }"))
@@ -104,24 +106,35 @@ func TestReferenceIndexRebuiltLazilyAfterChanges(t *testing.T) {
 	if ws.refs == nil {
 		t.Fatal("an unchanged mode dropped the index")
 	}
+	tables := func() []string {
+		var out []string
+		if ws.refs != nil {
+			for doc := range ws.refs.docs {
+				out = append(out, doc)
+			}
+		}
+		sort.Strings(out)
+		return out
+	}
 	for _, step := range []struct {
 		name   string
 		mutate func()
+		kept   []string
 		want   int
 	}{
-		{"Update", func() { ws.Update("b.sysml", []byte("package B { part y : A::X; part z : A::X; }"), 2) }, 2},
-		{"SetOnDisk", func() { ws.SetOnDisk("c.sysml", []byte("package C { part w : A::X; }")) }, 3},
-		{"Close", func() { ws.Close("b.sysml") }, 1},
-		{"SetConformanceMode", func() { ws.SetConformanceMode(conformance.ModeStrict) }, 1},
-		{"DeleteOnDisk", func() { ws.DeleteOnDisk("c.sysml") }, 0},
-		{"Remove", func() { ws.Remove("a.sysml") }, 0},
+		{"Update", func() { ws.Update("b.sysml", []byte("package B { part y : A::X; part z : A::X; }"), 2) }, []string{"a.sysml"}, 2},
+		{"SetOnDisk", func() { ws.SetOnDisk("c.sysml", []byte("package C { part w : A::X; }")) }, []string{"a.sysml", "b.sysml"}, 3},
+		{"Close", func() { ws.Close("b.sysml") }, []string{"a.sysml", "c.sysml"}, 1},
+		{"SetConformanceMode", func() { ws.SetConformanceMode(conformance.ModeStrict) }, nil, 1},
+		{"DeleteOnDisk", func() { ws.DeleteOnDisk("c.sysml") }, []string{"a.sysml"}, 0},
+		{"Remove", func() { ws.Remove("a.sysml") }, nil, 0},
 	} {
 		if ws.refs == nil {
 			t.Fatalf("%s: index not built by the query before it", step.name)
 		}
 		step.mutate()
-		if ws.refs != nil {
-			t.Fatalf("%s: index kept across the change", step.name)
+		if got := tables(); fmt.Sprint(got) != fmt.Sprint(step.kept) {
+			t.Fatalf("%s: tables kept across the change = %v, want %v", step.name, got, step.kept)
 		}
 		if n := len(ws.ReferencesTo(x)); n != step.want {
 			t.Fatalf("%s: references = %d, want %d", step.name, n, step.want)

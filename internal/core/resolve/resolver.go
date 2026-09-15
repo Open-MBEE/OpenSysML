@@ -186,43 +186,15 @@ type Resolver struct {
 	// invocationNames are the names invocations call, whose last segment may
 	// denote several declarations: see ResolveInvocationName.
 	invocationNames map[*ast.QualifiedName]bool
-	// scratch are the Scratch calls in progress, innermost last.
-	scratch []*scratchFrame
-}
-
-// scratchFrame is one Scratch call: the nodes it disowns and the entries
-// first memoized under it.
-type scratchFrame struct {
-	transient map[ast.Node]bool
-	journal   []journaled
-}
-
-type journaled struct {
-	node ast.Node
-	drop func()
-}
-
-// Scratch runs f, then forgets what f memoized about the transient nodes, so
-// syntax the model does not own (a request expression) is not retained.
-func (r *Resolver) Scratch(transient map[ast.Node]bool, f func()) {
-	frame := &scratchFrame{transient: transient}
-	r.scratch = append(r.scratch, frame)
-	defer func() {
-		r.scratch = r.scratch[:len(r.scratch)-1]
-		var parent *scratchFrame
-		if n := len(r.scratch); n > 0 {
-			parent = r.scratch[n-1]
-		}
-		for _, j := range frame.journal {
-			switch {
-			case frame.transient[j.node]:
-				j.drop()
-			case parent != nil:
-				parent.journal = append(parent.journal, j)
-			}
-		}
-	}()
-	f()
+	// stack are the frames in progress, innermost last; cur is the innermost
+	// document frame, which reads and dependencies are recorded on (frames.go).
+	stack      []*frame
+	cur        *frame
+	scratching int
+	// owners are the documents' frames once Track was called, nil before;
+	// dependents[d] are the documents whose frames depend on d's.
+	owners     map[string]*frame
+	dependents map[string]map[string]bool
 }
 
 // MemoSize is the number of resolutions this resolver retains.
@@ -231,30 +203,6 @@ func (r *Resolver) MemoSize() int {
 		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
 		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
 		len(r.initials) + len(r.imports) + len(r.suggestions)
-}
-
-// journalNew lets the enclosing Scratch drop m[k], about to be written for
-// node the first time.
-func journalNew[K comparable, V any](r *Resolver, m map[K]V, k K, node ast.Node) {
-	if len(r.scratch) == 0 {
-		return
-	}
-	if _, had := m[k]; had {
-		return
-	}
-	r.Journal(node, func() { delete(m, k) })
-}
-
-// Journal registers drop to run when the enclosing Scratch, if any, ends with
-// node transient: how a side table keyed by node joins the resolver's lifecycle.
-func (r *Resolver) Journal(node ast.Node, drop func()) {
-	if r == nil {
-		return
-	}
-	if n := len(r.scratch); n > 0 {
-		frame := r.scratch[n-1]
-		frame.journal = append(frame.journal, journaled{node: node, drop: drop})
-	}
 }
 
 // New creates a resolver over the given index.
@@ -525,6 +473,8 @@ func (r *Resolver) resolveQualified(scope *symbols.Scope, qn *ast.QualifiedName,
 	if qn == nil {
 		return nil, false
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if r.foreignScope(scope) {
 		var sym *symbols.Symbol
 		var ok bool
@@ -534,18 +484,18 @@ func (r *Resolver) resolveQualified(scope *symbols.Scope, qn *ast.QualifiedName,
 	cacheMain := hide == nil || hide.skipNamingTarget || hide.skipBorrowedName
 	if cacheMain {
 		if res, done := r.memo[qn]; done {
-			return res.sym, res.ok
+			return r.found(res)
 		}
 	} else if res, done := r.filtered[filteredMemoKey{
 		qn: qn, decl: hide.decl, prefix: hide.skipNamingTarget,
 		skipBorrowedName: hide.skipBorrowedName,
 	}]; done {
-		return res.sym, res.ok
+		return r.found(res)
 	}
 	mode, keyed := r.modeKey(qn, hide)
 	if keyed {
 		if res, done := r.modeMemo[mode]; done {
-			return res.sym, res.ok
+			return r.found(res)
 		}
 	}
 	if depth := r.resolving[qn]; depth != 0 {
@@ -557,7 +507,7 @@ func (r *Resolver) resolveQualified(scope *symbols.Scope, qn *ast.QualifiedName,
 	res := r.walkQualified(scope, qn, hide.hiding(qn))
 	delete(r.resolving, qn)
 	if !r.Leave() {
-		return res.sym, res.ok
+		return r.found(res)
 	}
 	// A failure met during a semantic query is not memoized: the reference it
 	// belongs to must still report when its own document is resolved.
@@ -581,12 +531,14 @@ func (r *Resolver) resolveQualified(scope *symbols.Scope, qn *ast.QualifiedName,
 			r.filtered[key] = res
 		}
 	}
-	return res.sym, res.ok
+	return r.found(res)
 }
 
 // ResolveName resolves a single-segment (unqualified) reference from the given
 // scope. The at node keys the memo table.
 func (r *Resolver) ResolveName(scope *symbols.Scope, name string, at ast.Node) (*symbols.Symbol, bool) {
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if r.foreignScope(scope) {
 		var sym *symbols.Symbol
 		var ok bool
@@ -595,13 +547,13 @@ func (r *Resolver) ResolveName(scope *symbols.Scope, name string, at ast.Node) (
 	}
 	if at != nil {
 		if res, done := r.memo[at]; done {
-			return res.sym, res.ok
+			return r.found(res)
 		}
 	}
 	mode, keyed := r.modeKey(at, nil)
 	if keyed {
 		if res, done := r.modeMemo[mode]; done {
-			return res.sym, res.ok
+			return r.found(res)
 		}
 	}
 	r.Enter()
@@ -627,7 +579,7 @@ func (r *Resolver) ResolveName(scope *symbols.Scope, name string, at ast.Node) (
 			Fixes:   r.unresolvedFixes(scope, name, at),
 		})
 	}
-	return res.sym, res.ok
+	return r.found(res)
 }
 
 // report records a diagnostic, unless the lookup that produced it was made for
@@ -642,11 +594,27 @@ func (r *Resolver) report(d Diagnostic) {
 // foreignScope reports whether scope belongs to a document other than the one
 // being resolved, so a reference read there is that document's to report.
 func (r *Resolver) foreignScope(scope *symbols.Scope) bool {
-	if r.document == "" || r.quiet > 0 || scope == nil {
+	if r.quiet > 0 || scope == nil {
+		return false
+	}
+	analyzing := r.analyzing()
+	if analyzing == "" {
 		return false
 	}
 	doc := r.documentOf(scope)
-	return doc != "" && doc != r.document
+	return doc != "" && doc != analyzing
+}
+
+// analyzing is the document whose references are being resolved for report:
+// the one ResolveDocument is walking, else the one InDocument is running for.
+func (r *Resolver) analyzing() string {
+	if r.document != "" {
+		return r.document
+	}
+	if len(r.stack) > 0 && !r.stack[0].scratch() {
+		return r.stack[0].doc
+	}
+	return ""
 }
 
 // aside runs a lookup made for a semantic query, whose diagnostics belong to

@@ -128,7 +128,7 @@ func (w *Workspace) libraryVersionLocked(name string, doc *Document) string {
 	if !w.namesLibraryRoots(doc.AST) {
 		return ""
 	}
-	resolver, sem := w.newResolver()
+	resolver, sem := w.resolverOver(w.index)
 	_, catalog := w.libraryAlone()
 	return catalog.VersionOf(sem, resolver, name)
 }
