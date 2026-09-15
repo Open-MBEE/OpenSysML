@@ -1,6 +1,11 @@
 package model
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+)
 
 func TestWorkspaceOpenIndexesDocument(t *testing.T) {
 	ws := NewWorkspace()
@@ -113,4 +118,78 @@ func TestWorkspaceRemoveDropsFromIndex(t *testing.T) {
 	if ws.Document("a.sysml") != nil {
 		t.Fatal("document should be gone after remove")
 	}
+}
+
+func TestWorkspaceEditDropsTheDependentsOnly(t *testing.T) {
+	ws := NewWorkspace()
+	ws.Open("a.sysml", []byte("package A { part def X; }"), 1)
+	ws.Open("b.sysml", []byte("package B { part def Y :> A::X; }"), 1)
+	ws.Open("c.sysml", []byte("package C { part def Z; part z : Z; }"), 1)
+	for _, name := range []string{"a.sysml", "b.sysml", "c.sysml"} {
+		if diags := ws.Diagnostics(name); len(diags) != 0 {
+			t.Fatalf("%s: %v", name, diags)
+		}
+	}
+	ws.Update("a.sysml", []byte("package A { part def X2; }"), 2)
+	if _, cached := ws.diagCache["c.sysml"]; !cached {
+		t.Fatal("c.sysml, which reads nothing of a.sysml, lost its diagnostics")
+	}
+	if _, cached := ws.diagCache["b.sysml"]; cached {
+		t.Fatal("b.sysml, which specializes A::X, kept its diagnostics")
+	}
+	if diags := ws.Diagnostics("b.sysml"); len(diags) == 0 {
+		t.Fatal("b.sysml still resolves A::X, which is gone")
+	}
+}
+
+func TestWorkspaceEditsReleaseWhatTheyReplaced(t *testing.T) {
+	ws := NewWorkspace()
+	ws.Open("a.sysml", []byte("package A { part def X; part x : X; }"), 1)
+	ws.Open("b.sysml", []byte("package B { part def Y :> A::X; part y : Y; }"), 1)
+	ws.Diagnostics("a.sysml")
+	ws.Diagnostics("b.sysml")
+	ownedA, ownedB := ws.resolver.Owned("a.sysml"), ws.resolver.Owned("b.sysml")
+	if ownedA == 0 || ownedB == 0 {
+		t.Fatalf("owned after the first analysis: a %d, b %d; want both > 0", ownedA, ownedB)
+	}
+	for i := 2; i < 200; i++ {
+		ws.Update("a.sysml", []byte("package A { part def X; part x : X; }"), i)
+		ws.Diagnostics("a.sysml")
+		ws.Diagnostics("b.sysml")
+		if a, b := ws.resolver.Owned("a.sysml"), ws.resolver.Owned("b.sysml"); a != ownedA || b != ownedB {
+			t.Fatalf("edit %d: owned a %d, b %d; want %d, %d as after the first analysis", i, a, b, ownedA, ownedB)
+		}
+	}
+}
+
+// TestWorkspaceUnionJudgmentFollowsAnotherDocument: a workspace-wide audit judges
+// each document over what every document declares, so a change to one document
+// moves another's verdict though the other reads nothing of it.
+func TestWorkspaceUnionJudgmentFollowsAnotherDocument(t *testing.T) {
+	const notDerived = "oosem-requirement-not-derived"
+	sat := []byte("package S { private import OOSEM::*; #systemRequirement requirement sys; }")
+	ws := NewWorkspace()
+	ws.Open("hub.sysml", []byte("package M { private import OOSEM::*; #missionRequirement requirement mission; }"), 1)
+	ws.Open("sat.sysml", sat, 1)
+	if got := codesOf(ws.Diagnostics("sat.sysml")); got[notDerived] != 1 {
+		t.Fatalf("sat.sysml under a mission requirement: %v, want one %s", got, notDerived)
+	}
+	ws.Update("hub.sysml", []byte("package M { private import OOSEM::*; #stakeholderNeed requirement need; }"), 2)
+	if got := codesOf(ws.Diagnostics("sat.sysml")); got[notDerived] != 0 {
+		t.Fatalf("sat.sysml with no mission requirement anywhere: %v, want no %s", got, notDerived)
+	}
+	fresh := NewWorkspace()
+	fresh.Open("hub.sysml", ws.Document("hub.sysml").Content, 1)
+	fresh.Open("sat.sysml", sat, 1)
+	if got, want := codesOf(ws.Diagnostics("sat.sysml")), codesOf(fresh.Diagnostics("sat.sysml")); !reflect.DeepEqual(got, want) {
+		t.Fatalf("incremental %v, fresh %v", got, want)
+	}
+}
+
+func codesOf(diags []passes.Diagnostic) map[string]int {
+	out := map[string]int{}
+	for _, d := range diags {
+		out[d.Code]++
+	}
+	return out
 }

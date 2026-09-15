@@ -2,6 +2,8 @@ package model
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -17,14 +19,14 @@ func (w *Workspace) MetadataBodyRedefines(sym *symbols.Symbol) (*symbols.Symbol,
 	if !ok {
 		return nil, "", false
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, sem := w.newResolver()
-	owner := resolver.MetadataBodyOwner(sym.OwnerScope)
-	if owner == nil {
-		return nil, "", false
-	}
-	target := symbols.MetadataBodyTarget(sem, owner, usage.Ident)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var target *symbols.Symbol
+	w.queryLocked(sym.DocName, func(resolver *resolve.Resolver, sem *semantics.Model) {
+		if owner := resolver.MetadataBodyOwner(sym.OwnerScope); owner != nil {
+			target = symbols.MetadataBodyTarget(sem, owner, usage.Ident)
+		}
+	})
 	if target == nil {
 		return nil, "", false
 	}
@@ -34,15 +36,18 @@ func (w *Workspace) MetadataBodyRedefines(sym *symbols.Symbol) (*symbols.Symbol,
 // EnclosingMetadataBody returns the nearest scope, from scope outward, whose
 // declarations redefine the features of a metadata type; nil outside one.
 func (w *Workspace) EnclosingMetadataBody(scope *symbols.Scope) *symbols.Scope {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, _ := w.newResolver()
-	for ; scope != nil; scope = scope.Parent() {
-		if resolver.MetadataBodyOwner(scope) != nil {
-			return scope
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var body *symbols.Scope
+	w.queryLocked(symbols.DocNameOf(scope), func(resolver *resolve.Resolver, _ *semantics.Model) {
+		for ; scope != nil; scope = scope.Parent() {
+			if resolver.MetadataBodyOwner(scope) != nil {
+				body = scope
+				return
+			}
 		}
-	}
-	return nil
+	})
+	return body
 }
 
 // MetadataBodyMembers returns the members of the metadata definition an
@@ -50,12 +55,13 @@ func (w *Workspace) EnclosingMetadataBody(scope *symbols.Scope) *symbols.Scope {
 // when scope is not a metadata annotation body or its metaclass does not
 // resolve.
 func (w *Workspace) MetadataBodyMembers(scope *symbols.Scope) []*symbols.Symbol {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, sem := w.newResolver()
-	owner := resolver.MetadataBodyOwner(scope)
-	if owner == nil {
-		return nil
-	}
-	return w.memberSymbolsLocked(resolver, sem, scope, owner)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out []*symbols.Symbol
+	w.queryLocked(symbols.DocNameOf(scope), func(resolver *resolve.Resolver, sem *semantics.Model) {
+		if owner := resolver.MetadataBodyOwner(scope); owner != nil {
+			out = w.memberSymbolsLocked(resolver, sem, scope, owner)
+		}
+	})
+	return out
 }

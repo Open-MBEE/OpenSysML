@@ -61,6 +61,7 @@ func (m *Model) membersOf(sym *symbols.Symbol, view memberView, declaring *symbo
 			sym = target
 		}
 	}
+	defer m.own(sym).LeaveDoc()
 	key := memberKey{sym: sym, view: view}
 	if view != memberViewDeclaring {
 		if cached, ok := m.members[key]; ok {
@@ -71,6 +72,7 @@ func (m *Model) membersOf(sym *symbols.Symbol, view memberView, declaring *symbo
 	// Memoized once the sources are complete and no redefinition is mid-resolution,
 	// the same condition MemberSources and the constructor slots memoize under.
 	if view != memberViewDeclaring && m.MemberSourcesStable(sym) && m.computingRedefinedFeatures == 0 {
+		journal(m, m.members, key, sym.Decl)
 		m.members[key] = out
 	}
 	return out

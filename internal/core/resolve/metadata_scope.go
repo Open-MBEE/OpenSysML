@@ -26,9 +26,12 @@ func (r *Resolver) MetadataBodyOwner(scope *symbols.Scope) *symbols.Symbol {
 	if !ok {
 		return nil
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if def, done := r.bodyOwners[scope]; done {
 		return def
 	}
+	journalNew(r, r.bodyOwners, scope, scope.Node())
 	r.bodyOwners[scope] = nil
 	var resolved *symbols.Symbol
 	if owner.Kind == symbols.SymbolMetadataUsage {
@@ -78,10 +81,13 @@ func (r *Resolver) scopeOwner(scope *symbols.Scope) *symbols.Symbol {
 	if !ok || !scope.BodyLocal() {
 		return nil
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if owner, done := r.bodyOwners[scope]; done {
 		return owner
 	}
 	// Break cycles while the metaclass itself resolves.
+	journalNew(r, r.bodyOwners, scope, scope.Node())
 	r.bodyOwners[scope] = nil
 	var resolved *symbols.Symbol
 	r.aside(func() {

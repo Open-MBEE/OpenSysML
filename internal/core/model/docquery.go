@@ -10,6 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -23,15 +25,16 @@ type DocumentDefinition struct {
 // DocumentDefinitions lists the document definitions declared across the
 // workspace's own documents, in qualified-name order.
 func (w *Workspace) DocumentDefinitions() []DocumentDefinition {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	_, sem := w.newResolver()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	out := []DocumentDefinition{}
 	for name := range w.docs {
-		walkScope(w.index.DocumentRoot(name), func(sym *symbols.Symbol) {
-			if docplan.IsDocumentDefinition(w.index, sem, sym) {
-				out = append(out, DocumentDefinition{FQN: notationFQN(w.index, sym), Doc: name})
-			}
+		w.queryLocked(name, func(_ *resolve.Resolver, sem *semantics.Model) {
+			walkScope(w.index.DocumentRoot(name), func(sym *symbols.Symbol) {
+				if docplan.IsDocumentDefinition(w.index, sem, sym) {
+					out = append(out, DocumentDefinition{FQN: notationFQN(w.index, sym), Doc: name})
+				}
+			})
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].FQN < out[j].FQN })
@@ -41,9 +44,8 @@ func (w *Workspace) DocumentDefinitions() []DocumentDefinition {
 // RenderDocumentMarkdown compiles the named document definition, evaluates its
 // queries against the workspace model, and renders the result as Markdown.
 func (w *Workspace) RenderDocumentMarkdown(fqn string, opts docrender.MarkdownOptions) (string, error) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, sem := w.newResolver()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	matches := symbols.PreferDeclared(w.index.LookupQualified(fqn))
 	if len(matches) == 0 {
 		return "", fmt.Errorf("no element named %s", fqn)
@@ -52,21 +54,28 @@ func (w *Workspace) RenderDocumentMarkdown(fqn string, opts docrender.MarkdownOp
 		return "", fmt.Errorf("%s names %d elements; rename one so the name is unambiguous", fqn, len(matches))
 	}
 	sym := matches[0]
-	if !docplan.IsDocumentDefinition(w.index, sem, sym) {
-		return "", fmt.Errorf("%s is not a document: one is a part def specializing DocumentQueries::Document", fqn)
-	}
-	plan, err := docplan.Compile(w.index, sem, resolver, sym)
-	if err != nil {
-		return "", err
-	}
-	document, err := docir.EvaluateLinked(plan,
-		SiblingDocumentPlans(w.index, sem, resolver, sym),
-		queryexec.Context{Index: w.index, Resolver: resolver, Model: sem},
-		queryexec.Options{}, w.sourceTextLocked())
-	if err != nil {
-		return "", err
-	}
-	return docrender.Markdown(document, opts)
+	var out string
+	var err error
+	w.queryLocked(sym.DocName, func(resolver *resolve.Resolver, sem *semantics.Model) {
+		if !docplan.IsDocumentDefinition(w.index, sem, sym) {
+			err = fmt.Errorf("%s is not a document: one is a part def specializing DocumentQueries::Document", fqn)
+			return
+		}
+		var plan *docplan.Plan
+		if plan, err = docplan.Compile(w.index, sem, resolver, sym); err != nil {
+			return
+		}
+		var document *docir.Document
+		document, err = docir.EvaluateLinked(plan,
+			SiblingDocumentPlans(w.index, sem, resolver, sym),
+			queryexec.Context{Index: w.index, Resolver: resolver, Model: sem},
+			queryexec.Options{}, w.sourceText())
+		if err != nil {
+			return
+		}
+		out, err = docrender.Markdown(document, opts)
+	})
+	return out, err
 }
 
 // QueryBindingParameter resolves the parameter a document query binding names:
@@ -80,57 +89,72 @@ func (w *Workspace) QueryBindingParameter(sym *symbols.Symbol) (*symbols.Symbol,
 	if !ok || decl.Direction != ast.DirIn {
 		return nil, false
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, sem := w.newResolver()
-	target := docplan.QueryTarget(w.index, sem, resolver, sym.OwnerScope.Owner())
-	if target == nil {
-		return nil, false
-	}
-	for _, member := range w.memberSymbolsLocked(resolver, sem, sym.OwnerScope, target) {
-		if member == nil || member.Name != sym.Name {
-			continue
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out *symbols.Symbol
+	w.queryLocked(sym.DocName, func(resolver *resolve.Resolver, sem *semantics.Model) {
+		target := docplan.QueryTarget(w.index, sem, resolver, sym.OwnerScope.Owner())
+		if target == nil {
+			return
 		}
-		if md, ok := member.Decl.(*ast.Usage); ok && md.Direction == ast.DirIn {
-			return member, true
+		for _, member := range w.memberSymbolsLocked(resolver, sem, sym.OwnerScope, target) {
+			if member == nil || member.Name != sym.Name {
+				continue
+			}
+			if md, ok := member.Decl.(*ast.Usage); ok && md.Direction == ast.DirIn {
+				out = member
+				return
+			}
 		}
-	}
-	return nil, false
+	})
+	return out, out != nil
 }
 
 // QueryUsageParameters lists the `in` parameters of the query definition a calc
 // usage is typed by; false when the usage is not typed by one.
 func (w *Workspace) QueryUsageParameters(usage *symbols.Symbol) ([]*symbols.Symbol, bool) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, sem := w.newResolver()
-	target := docplan.QueryTarget(w.index, sem, resolver, usage)
-	if target == nil {
+	if usage == nil {
 		return nil, false
 	}
-	scope := usage.OwnerScope
-	if usage.Scope != nil {
-		scope = usage.Scope
-	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	var out []*symbols.Symbol
-	for _, member := range w.memberSymbolsLocked(resolver, sem, scope, target) {
-		if member == nil {
-			continue
+	typed := false
+	w.queryLocked(usage.DocName, func(resolver *resolve.Resolver, sem *semantics.Model) {
+		target := docplan.QueryTarget(w.index, sem, resolver, usage)
+		if target == nil {
+			return
 		}
-		if md, ok := member.Decl.(*ast.Usage); ok && md.Direction == ast.DirIn {
-			out = append(out, member)
+		typed = true
+		scope := usage.OwnerScope
+		if usage.Scope != nil {
+			scope = usage.Scope
 		}
-	}
-	return out, true
+		for _, member := range w.memberSymbolsLocked(resolver, sem, scope, target) {
+			if member == nil {
+				continue
+			}
+			if md, ok := member.Decl.(*ast.Usage); ok && md.Direction == ast.DirIn {
+				out = append(out, member)
+			}
+		}
+	})
+	return out, typed
 }
 
 // IsDocumentDefinition reports whether sym is a native document definition: a
 // part def specializing DocumentQueries::Document.
 func (w *Workspace) IsDocumentDefinition(sym *symbols.Symbol) bool {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	_, sem := w.newResolver()
-	return docplan.IsDocumentDefinition(w.index, sem, sym)
+	if sym == nil {
+		return false
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out bool
+	w.queryLocked(sym.DocName, func(_ *resolve.Resolver, sem *semantics.Model) {
+		out = docplan.IsDocumentDefinition(w.index, sem, sym)
+	})
+	return out
 }
 
 // QueryTypeCandidate pairs a visible spelling with the element it reaches, so
@@ -168,14 +192,18 @@ func (w *Workspace) QueryTypeCandidates(scope *symbols.Scope) []QueryTypeCandida
 // QueryDefinitions filters syms to the query definitions among them: the calc
 // defs specializing DocumentQueries::Query.
 func (w *Workspace) QueryDefinitions(syms []*symbols.Symbol) []*symbols.Symbol {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	_, sem := w.newResolver()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	var out []*symbols.Symbol
 	for _, sym := range syms {
-		if queryplan.IsQueryDefinition(w.index, sem, sym) {
-			out = append(out, sym)
+		if sym == nil {
+			continue
 		}
+		w.queryLocked(sym.DocName, func(_ *resolve.Resolver, sem *semantics.Model) {
+			if queryplan.IsQueryDefinition(w.index, sem, sym) {
+				out = append(out, sym)
+			}
+		})
 	}
 	return out
 }

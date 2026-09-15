@@ -39,6 +39,8 @@ func (r *Resolver) ResolveAliasTarget(sym *symbols.Symbol) (*symbols.Symbol, boo
 	if sym == nil {
 		return nil, false
 	}
+	r.EnterDoc(sym.DocName)
+	defer r.LeaveDoc()
 	if cached, ok := r.aliasTargets[sym]; ok {
 		return cached.sym, cached.ok
 	}
@@ -49,6 +51,7 @@ func (r *Resolver) ResolveAliasTarget(sym *symbols.Symbol) (*symbols.Symbol, boo
 	defer delete(r.resolvingAlias, sym)
 
 	target, ok := r.resolveAliasTarget(sym)
+	journalNew(r, r.aliasTargets, sym, sym.Decl)
 	r.aliasTargets[sym] = resolution{sym: target, ok: ok}
 	return target, ok
 }
