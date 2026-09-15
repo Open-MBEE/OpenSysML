@@ -710,7 +710,10 @@ each with the arguments its own trigger takes from the occurrence bound (`fireJo
 followed. The owner and the region of it each segment leaves are the lowerer's `JoinPlan`, found
 by the same ancestor walk that places the segments one per region, so a segment whose source
 is nested below a region's state exits its wrappers up to the region and the owner is left
-(`state_join_from_nested_states`, `join_from_nested_states_wrapper_exit_that_fails`), and a
+(`state_join_from_nested_states`, `join_from_nested_states_wrapper_exit_that_fails`), a segment
+whose source is a composite state with an active substate is enabled through that substate and
+exits it first (`state_join_from_composite_sources`, `TestJoinFromActiveCompositeSourcesFires`,
+`join_from_composite_source_substate_exit_that_fails`), and a
 sibling segment's guard the firing occurrence has read fail is the step's error
 (`join_time_segment_sibling_guard_that_fails`); a replay refused at a later draw undoes the segments already
 fired with the rest of the move (`TestReplayRefusedJoinDrawChangesNothing`); a join with a single incoming

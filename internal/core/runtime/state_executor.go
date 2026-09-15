@@ -2414,7 +2414,7 @@ func (e *StateExecutor) leaveJoinOwner(owner *ast.StateNode, trans *lower.Transi
 func (e *StateExecutor) joinExits(plan *lower.JoinPlan, trans *lower.Transition, r route) ([]*ast.StateNode, bool) {
 	var exited []*ast.StateNode
 	for _, segment := range e.joinIncoming(trans.Target.(*ast.PseudostateNode)) {
-		exited = append(exited, e.exitPath(segment.Source.(*ast.StateNode), plan.Owner, nil)...)
+		exited = append(exited, e.exitPath(e.joinSegmentLeaves(segment, plan), plan.Owner, nil)...)
 	}
 	if plan.Owner == nil {
 		for _, region := range e.graph.TopRegions {
@@ -2471,6 +2471,7 @@ func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.Joi
 		}
 		defer unbind()
 	}
+	leaving := e.joinSegmentLeaves(trans, plan)
 	// The region is left whole: its configuration is what a history of the owner
 	// restores, and the entry goes before the exits or the owner's exit walks it again.
 	if region := plan.Regions[trans]; region != nil {
@@ -2479,10 +2480,20 @@ func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.Joi
 			delete(e.activeConfig.regionStates, region)
 		}
 	}
-	if err := e.exitStates(e.exitPath(source, plan.Owner, nil)); err != nil {
+	if err := e.exitStates(e.exitPath(leaving, plan.Owner, nil)); err != nil {
 		return err
 	}
 	return e.runBehaviors(trans.Effect)
+}
+
+// joinSegmentLeaves is the state a join segment's exit starts from: its region's
+// active state when that lies below the segment's composite source, else the source.
+func (e *StateExecutor) joinSegmentLeaves(segment *lower.Transition, plan *lower.JoinPlan) *ast.StateNode {
+	source := segment.Source.(*ast.StateNode)
+	if active, ok := e.activeConfig.regionStates[plan.Regions[segment]]; ok && e.isBelowOrEqual(active, source) {
+		return active
+	}
+	return source
 }
 
 // joinIncoming lists the transitions into join, in source declaration order;
@@ -2516,7 +2527,7 @@ func (e *StateExecutor) joinSynchronized(trans *lower.Transition, event *Event) 
 		if segment == trans {
 			continue
 		}
-		if !e.isActive(segment.Source.(*ast.StateNode)) {
+		if !e.inActiveConfiguration(segment.Source.(*ast.StateNode)) {
 			return false, nil
 		}
 		if segment.Trigger != nil {
@@ -2550,10 +2561,11 @@ func (e *StateExecutor) segmentGuardHolds(segment *lower.Transition, event *Even
 	return e.passesGuard(segment)
 }
 
-// allActive reports whether every state is part of the active configuration.
+// allActive reports whether every state is part of the active configuration,
+// itself active or enclosing an active state.
 func (e *StateExecutor) allActive(states []*ast.StateNode) bool {
 	for _, state := range states {
-		if !e.isActive(state) {
+		if !e.inActiveConfiguration(state) {
 			return false
 		}
 	}

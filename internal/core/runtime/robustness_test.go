@@ -299,6 +299,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("join_incoming_effect_that_fails", testJoinIncomingEffectThatFails)
 	t.Run("join_with_two_segments_from_one_source", testJoinWithTwoSegmentsFromOneSource)
 	t.Run("join_from_nested_states_wrapper_exit_that_fails", testJoinFromNestedStatesWrapperExitThatFails)
+	t.Run("join_from_composite_source_substate_exit_that_fails", testJoinFromCompositeSourceSubstateExitThatFails)
 	t.Run("join_time_segment_sibling_guard_that_fails", testJoinTimeSegmentSiblingGuardThatFails)
 	t.Run("region_pseudostate_without_satisfied_guard", testRegionPseudostateWithoutSatisfiedGuard)
 	t.Run("region_pseudostate_cycle", testRegionPseudostateCycle)
@@ -6317,6 +6318,49 @@ func testJoinFromNestedStatesWrapperExitThatFails(t *testing.T) {
 	}`)
 	if !errors.Is(err, ErrDivisionByZero) {
 		t.Fatalf("error = %v, want the nested wrapper's failing exit action's division by zero", err)
+	}
+}
+
+// testJoinFromCompositeSourceSubstateExitThatFails: a join segment leaving a
+// composite state whose substate is active exits that substate first, so its
+// failing exit action is the step's error rather than the join never firing.
+func testJoinFromCompositeSourceSubstateExitThatFails(t *testing.T) {
+	src := `package test {
+		attribute def Go;
+		state Machine {
+			attribute x : Integer = 0;
+			attribute zero : Integer = 0;
+
+			entry; then work;
+			state work parallel {
+				state left {
+					entry; then il;
+					state il {
+						entry; then l1;
+						state l1 {
+							exit action { assign x := 1 / zero; }
+						}
+					}
+					transition first il accept Go then sync;
+				}
+				state right {
+					entry; then r1;
+					state r1;
+					transition first r1 accept Go then sync;
+				}
+			}
+			join sync;
+			transition first sync then done;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine Machine not found")
+	}
+	_, _, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
+	if !errors.Is(err, ErrDivisionByZero) {
+		t.Fatalf("error = %v, want the active substate's failing exit action's division by zero", err)
 	}
 }
 

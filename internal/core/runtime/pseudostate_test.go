@@ -241,6 +241,56 @@ func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
 	}
 }
 
+// A segment into a join may leave a composite state whose substate is active:
+// the occurrence reaches that state from within, so Decide reports the join
+// enabled and dispatching the occurrence fires it, the substate exited too.
+func TestJoinFromActiveCompositeSourcesFires(t *testing.T) {
+	ctx, machine := loadState(t, `package test {
+    attribute def Go;
+    state Machine {
+        entry; then running;
+        state running parallel {
+            state left {
+                entry; then ia;
+                state ia {
+                    entry; then a1;
+                    state a1;
+                }
+                transition first ia accept Go then sync;
+            }
+            state right {
+                entry; then b;
+                state b;
+                transition first b accept Go then sync;
+            }
+        }
+        join sync;
+        transition first sync then done;
+    }
+}`, "Machine")
+	exec, err := ctx.CreateStateExecutor(machine)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	if got := activeStateNames(exec); got != "a1|b" {
+		t.Fatalf("initial configuration = %s, want a1|b", got)
+	}
+	goMsg := Message{SignalType: "Go"}
+	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
+		t.Errorf("Decide(Go) = %+v, %v; want the join enabled with ia active through a1", d, err)
+	}
+	exec.SendSignal("Go", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent(Go): %v", err)
+	}
+	if d, ok := exec.LastDispatch(); !ok || !d.Fired {
+		t.Errorf("LastDispatch after Go = %+v, %v; want the join fired", d, ok)
+	}
+	if exec.State() != StateCompleted {
+		t.Errorf("machine %v after the join, want completed; configuration %s", exec.State(), activeStateNames(exec))
+	}
+}
+
 // entryStart designates the state a machine or region starts in, as the
 // `entry; then <name>;` succession out of the body's entry action does.
 func entryStart(name string) *ast.SuccessionEdge {

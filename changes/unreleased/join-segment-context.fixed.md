@@ -9,4 +9,6 @@
   or a change condition's rise now holds the join, as one fired by a signal does, until the same
   occurrence enables every other segment into it; and a join whose sources all lie nested below
   the states of the owner's regions exits those wrappers and the owner, where before it found
-  no owner and left them active.
+  no owner and left them active. A segment leaving a composite state whose substate is active
+  now holds and fires the join as the occurrence reaches that state from within, exiting the
+  substate first, where before the join never fired.
