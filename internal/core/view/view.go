@@ -187,6 +187,9 @@ type Node struct {
 	// Origin is where the element was declared, the zero Origin for one with no
 	// locatable declaration.
 	Origin Origin
+	// Inherited is where the declarations a drawn behavior took content from besides
+	// its own were written (what it specializes or is typed by); only a root has them.
+	Inherited []Origin
 	// Geometry is where the element is drawn, from the Layout annotation that
 	// positions it in this view; nil leaves the placement to the writer.
 	Geometry *Geometry

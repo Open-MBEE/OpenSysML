@@ -16,6 +16,7 @@ import (
 	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
 // debugMachine is a parallel state machine: one region moves on a guarded
@@ -690,6 +691,31 @@ func TestDebugStartAttachesToThePerformersMachine(t *testing.T) {
 	}
 }
 
+// A machine's queue shows every message pending in its context, a message no
+// state of the machine accepts now included: it is in flight all the same.
+func TestDebugMachineQueueShowsEveryPendingMessage(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine)
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Robot",
+	})
+	session := snap.Session
+	if _, err := debugCall(t, s, MethodDebugSend, &debugSendParams{Session: session, Signal: "Halt"}); !errors.Is(err, ErrDebugSignal) {
+		t.Fatalf("send Halt to a machine in idle: err = %v, want it refused as not accepted now", err)
+	}
+	s.debug.mu.Lock()
+	s.debug.sessions[session].rt.PostMessage(runtime.NamedSignalMessage("Halt", nil))
+	s.debug.mu.Unlock()
+	snap = mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session})
+	var pending []string
+	for _, event := range snap.Queue {
+		if event.Pending {
+			pending = append(pending, event.Event)
+		}
+	}
+	wantStrings(t, "pending messages", pending, []string{"Halt"})
+}
+
 // An action session reports every token (forked, nested, parked on the clock or
 // a signal, held at a join) with the edges it took, in the rendering's IDs.
 func TestDebugActionSession(t *testing.T) {
@@ -960,6 +986,29 @@ func TestDebugSessionEnds(t *testing.T) {
 			t.Errorf("reason = %q", reason)
 		}
 	})
+	t.Run("view rewritten but still drawing the target", func(t *testing.T) {
+		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		session := start(t, s, docURI)
+		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "{ expose Machines::Ops; }", "{ expose Machines::Ops; expose Machines::Robot; }", 1)}}, 2)
+		if reason := lastEnd(t, rec, session).Reason; !strings.Contains(reason, "MachineViews::opsView was edited") {
+			t.Errorf("reason = %q", reason)
+		}
+	})
+	t.Run("pseudo-view outlives edits around the target", func(t *testing.T) {
+		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "#state:Machines::Ops", Target: "Machines::Ops",
+		})
+		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "attribute def Halt;", "attribute def Halt;\n\tattribute def Resume;", 1)}}, 2)
+		changed := rec.debugChanged()
+		if len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State == debugEnded || changed[0].Version != 2 {
+			t.Fatalf("debugChanged after an edit around a pseudo-view's target = %v", changed)
+		}
+		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "state elapsed;", "state elapsed;\n\t\t\tstate late;", 1)}}, 3)
+		if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, "Machines::Ops was edited") {
+			t.Errorf("reason = %q", reason)
+		}
+	})
 	t.Run("document closed", func(t *testing.T) {
 		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
 		session := start(t, s, docURI)
@@ -1008,6 +1057,102 @@ func TestDebugSessionEnds(t *testing.T) {
 			t.Errorf("step after shutdown: err = %v", err)
 		}
 	})
+}
+
+// debugDerived draws behaviors whose content comes from the definitions they
+// specialize, declared apart from them.
+const debugDerived = `package Inherited {
+	private import ScalarValues::*;
+	attribute def Go;
+	state def Base {
+		entry; then idle;
+		state idle;
+		accept Go then done;
+		state done;
+	}
+	action def BaseFlow {
+		action a;
+		action b;
+	}
+	package Sub {
+		state def Derived :> Base;
+		state def Typing {
+			entry; then run;
+			state run : Base;
+		}
+		action def DerivedFlow :> BaseFlow {
+			first start;
+			then a;
+			succession first a then b;
+			then done;
+		}
+	}
+}
+package InheritedViews {
+	private import StandardViewDefinitions::*;
+	view derivedView : StateTransitionView { expose Inherited::Sub::Derived; }
+	view typingView : StateTransitionView { expose Inherited::Sub::Typing; }
+	view flowView : ActionFlowView { expose Inherited::Sub::DerivedFlow; }
+}
+`
+
+// An edit to a declaration the target takes its content from — not the target's
+// own text — ends the session: the runtime no longer stands for what is drawn.
+func TestDebugSessionEndsWhenInheritedContentChanges(t *testing.T) {
+	ctx := context.Background()
+	lastEnd := func(t *testing.T, rec *debugRecorder, session string) *debugSnapshot {
+		t.Helper()
+		changed := rec.debugChanged()
+		if len(changed) == 0 {
+			t.Fatal("no debugChanged was sent")
+		}
+		last := changed[len(changed)-1]
+		if last.Session != session || last.State != debugEnded {
+			t.Fatalf("last debugChanged = %s, want %s ended", describe(last), session)
+		}
+		return last
+	}
+	cases := []struct {
+		name, view, target, old, new, reason string
+	}{
+		{"state definition specialized", "InheritedViews::derivedView", "Inherited::Sub::Derived",
+			"state done;", "state done;\n\t\tstate cooling;", "Inherited::Base was edited"},
+		{"state definition specialized is removed", "InheritedViews::derivedView", "Inherited::Sub::Derived",
+			"state def Base {", "state def Root {", "Inherited::Base is no longer declared"},
+		{"state definition specialized is shadowed", "InheritedViews::derivedView", "Inherited::Sub::Derived",
+			"state def Derived :> Base;", "state def Base { entry; then off; state off; }\n\t\tstate def Derived :> Base;",
+			"Inherited::Sub::Derived now takes content from state def Base in /w/i.sysml"},
+		{"state definition typing a nested state", "InheritedViews::typingView", "Inherited::Sub::Typing",
+			"state done;", "state done;\n\t\tstate cooling;", "Inherited::Base was edited"},
+		{"action definition specialized", "InheritedViews::flowView", "Inherited::Sub::DerivedFlow",
+			"action b;", "action b { attribute n : Integer; }", "Inherited::BaseFlow was edited"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s, docURI, rec := debugServer(t, "/w/i.sysml", debugDerived)
+			snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: tc.view, Target: tc.target,
+			})
+			if strings.Count(debugDerived, tc.old) != 1 {
+				t.Fatalf("fixture writes %q %d times", tc.old, strings.Count(debugDerived, tc.old))
+			}
+			s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugDerived, tc.old, tc.new, 1)}}, 2)
+			if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, tc.reason) {
+				t.Errorf("reason = %q, want it to name %q", reason, tc.reason)
+			}
+		})
+	}
+
+	// An edit elsewhere in the definition's package leaves the session running.
+	s, docURI, rec := debugServer(t, "/w/i.sysml", debugDerived)
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "InheritedViews::derivedView", Target: "Inherited::Sub::Derived",
+	})
+	s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugDerived, "attribute def Go;", "attribute def Go;\n\tattribute def Stop;", 1)}}, 2)
+	changed := rec.debugChanged()
+	if len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State == debugEnded {
+		t.Fatalf("debugChanged after an unrelated edit = %v", changed)
+	}
 }
 
 // Sessions run in runtimes of their own: two over one machine do not share

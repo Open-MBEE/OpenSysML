@@ -192,19 +192,44 @@ func (w *Workspace) Declared(doc, fqn string) *symbols.Symbol {
 	return declaredIn(w.index, doc, fqn)
 }
 
-// DeclarationText is the source text of sym's declaration in the workspace's
-// current document, "" when the document is gone.
+// DeclarationText is the source text of sym's declaration as the workspace
+// holds it now, "" when its document is gone.
 func (w *Workspace) DeclarationText(sym *symbols.Symbol) string {
 	if sym == nil || sym.Decl == nil {
 		return ""
 	}
+	return w.TextAt(sym.DocName, sym.Decl.Span())
+}
+
+// TextAt is the source text at span in doc as the workspace holds it now, from
+// the document or the library file behind the documents; "" when neither holds doc.
+func (w *Workspace) TextAt(doc string, span source.Span) string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	d := w.docs[sym.DocName]
-	if d == nil {
-		return ""
+	if d := w.docs[doc]; d != nil {
+		return source.New(doc, d.Content).Text(span)
 	}
-	return source.New(sym.DocName, d.Content).Text(sym.Decl.Span())
+	if text := libs.Text(w.libSource); text != nil {
+		return text(doc, span)
+	}
+	return ""
+}
+
+// DeclaredView is the view RenderView renders for fqn in doc: the view named, the
+// document's one view for "", nil for a pseudo-view or a name declaring none.
+func (w *Workspace) DeclaredView(doc, fqn string) *symbols.Symbol {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if strings.HasPrefix(fqn, view.PseudoViewPrefix) {
+		return nil
+	}
+	if fqn == "" {
+		if views := w.documentViewsLocked(doc); len(views) == 1 {
+			return views[0]
+		}
+		return nil
+	}
+	return w.viewNamedLocked(doc, fqn)
 }
 
 // declaredIn is declaredInLocked over any index.

@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -159,6 +160,10 @@ type StateGraph struct {
 	// which is what makes a definition reaching itself a reportable error rather
 	// than an unbounded expansion.
 	materializing map[ast.Node]bool
+
+	// inherited are the declarations content was materialized from, each once,
+	// in the order they were first reached.
+	inherited []Inherited
 
 	// scopeOf: state → the scope its declaration was written in, recorded where
 	// the content came from a definition's body rather than the usage's.
@@ -541,6 +546,19 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		designatedInitials: make(map[*ast.StateNode]bool),
 		EntryTransitions:   make(map[ast.Node][]*EntryTransition),
 	}
+}
+
+// Inherited is a declaration a graph took content from besides the one lowered
+// (a definition typing or specializing it or a state of it); Body is its body's scope.
+type Inherited struct {
+	Decl ast.Node
+	Body *symbols.Scope
+}
+
+// Inherited lists the declarations the machine's content was materialized from
+// besides its own, each once, in the order lowering first reached them.
+func (g *StateGraph) Inherited() []Inherited {
+	return slices.Clone(g.inherited)
 }
 
 // DeclOf is the declaration state was lowered from: the node the scope tree

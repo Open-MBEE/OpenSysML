@@ -81,9 +81,9 @@ func renderedEdges(rendering *Rendering, root *Node) map[edgeKey][]int {
 	return edges
 }
 
-// rootDrawing is the root of rendering that draws the exposed element sym, and an
+// RootDrawing is the root of rendering that draws the exposed element sym, and an
 // error when the rendering draws no such element.
-func rootDrawing(rendering *Rendering, sym *symbols.Symbol) (*Node, error) {
+func RootDrawing(rendering *Rendering, sym *symbols.Symbol) (*Node, error) {
 	if rendering == nil || sym == nil {
 		return nil, fmt.Errorf("%w: nothing to locate in", ErrNotDrawn)
 	}
@@ -121,7 +121,7 @@ type StateLocator struct {
 // LocateStates matches graph, lowered from machine's declaration, to the root of
 // rendering drawing drawn: the same declaration as the rendering's documents have it.
 func LocateStates(rendering *Rendering, drawn, machine *symbols.Symbol, graph *lower.StateGraph) (*StateLocator, error) {
-	root, err := rootDrawing(rendering, drawn)
+	root, err := RootDrawing(rendering, drawn)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +295,7 @@ type ActionLocator struct {
 // LocateActions matches the nodes of action's lowered graph, nested flows
 // included, to the root of rendering drawing drawn: the same declaration, as is.
 func LocateActions(rendering *Rendering, drawn, action *symbols.Symbol) (*ActionLocator, error) {
-	root, err := rootDrawing(rendering, drawn)
+	root, err := RootDrawing(rendering, drawn)
 	if err != nil {
 		return nil, err
 	}

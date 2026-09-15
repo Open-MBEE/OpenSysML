@@ -10,12 +10,16 @@
   action's results, and whether the run is `running`, `waiting`, `suspended`, `completed`,
   `failed` or `ended`. Breakpoints are set by render node ID and pause a run as a token reaches the
   node or the state becomes active; a signal the behavior accepts nowhere is refused rather than
-  queued to be lost. A session follows the document: an edit that leaves the target's declaration
-  as it was keeps it running and reports the snapshot in the fresh IDs through the new
-  `opensysml/debugChanged` notification, while one that rewrites or removes the target, its
-  performer or the view ends it and says why. To place runtime state on a rendering, the runtime
+  queued to be lost. A session follows the document: an edit that leaves as they were the
+  declarations the run was built from — the target's, its performer's, and those of the definitions
+  the target takes content from — keeps it running and reports the snapshot in the fresh IDs
+  through the new `opensysml/debugChanged` notification, while one that rewrites or removes any of
+  them, or the declared view, ends it and says why. To place runtime state on a rendering, the runtime
   now records the transitions a state machine fires (`StateExecutor.FiredTransitions`) and the
   successions each token travels (`ActionExecutor.Traversals`, `Token.Within` for the nested flows
   it runs in), a `view.StateLocator`/`view.ActionLocator` map lowered vertices, action nodes and
   edges to render IDs by declaration-relative position, and `model.Workspace.NewRuntime` builds a
-  runtime model over a workspace's documents. See [the LSP reference](docs/reference/lsp.md).
+  runtime model over a workspace's documents; a lowered `StateGraph` or `ActionGraph` lists the
+  declarations it took content from besides its own (`Inherited`), which the root node of a
+  `state` or `action` rendering carries as `view.Node.Inherited`. See
+  [the LSP reference](docs/reference/lsp.md).

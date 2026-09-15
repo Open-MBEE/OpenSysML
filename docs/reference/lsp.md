@@ -590,14 +590,20 @@ absence.
 ### `opensysml/debugChanged` (notification, server → client)
 
 Carries a snapshot, sent when a document change moved a session. An edit that
-leaves the target's declaration (and the performer's, when there is one) as it
-was keeps the session running; a redraw of the view gives the nodes new IDs, so
-the notification carries the snapshot in the fresh IDs at the new `version`. An
-edit that rewrites or removes the target, the performer or the view, that makes
+leaves as they were the declarations the run was built from — the target's, the
+performer's when there is one, and every definition the target takes content
+from (the definitions typing or specializing a machine or its states, the
+actions an action specializes) — keeps the session running; a redraw of the view
+gives the nodes new IDs, so the notification carries the snapshot in the fresh
+IDs at the new `version`. An edit that rewrites or removes any of those
+declarations, that makes the target take content from a declaration it did not
+(a definition declared nearer now shadows the one it specialized), that rewrites
+or removes the declared view — even one that still draws the target — that makes
 the view render another kind or stop drawing the target, or closing the
 document, ends the session: the snapshot reports `ended` with the `reason`, and
-the session's runtime is released. Shutting the server down ends every session
-the same way.
+the session's runtime is released. A pseudo-view has no declaration to rewrite,
+so a session on one ends only for the other reasons. Shutting the server down
+ends every session the same way.
 
 The notification is sent after the workspace has taken the change, and is not
 debounced: a client keeps the last snapshot it received for each session. Like

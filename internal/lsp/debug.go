@@ -200,6 +200,9 @@ type debugSession struct {
 	kind   view.Kind
 	target string
 	object string
+	// viewText is the declared view's text when the session started, "" for a
+	// pseudo-view, which no declaration spells.
+	viewText string
 
 	rt        *runtime.Context
 	runtime   *model.Runtime
@@ -207,6 +210,9 @@ type debugSession struct {
 	objectSym *symbols.Symbol
 	action    *runtime.ActionExecutor
 	machine   *runtime.StateExecutor
+	// inherited are the declarations the executor's graph took content from
+	// besides the target's own, as the runtime holds them.
+	inherited []debugInherited
 
 	// version is the document version the render IDs below belong to.
 	version   int
@@ -232,6 +238,14 @@ type debugSession struct {
 	// pausedName what the model calls it.
 	paused     string
 	pausedName string
+}
+
+// debugInherited is a declaration a session's behavior took content from besides
+// the target's own, as the runtime holds it.
+type debugInherited struct {
+	fqn  string
+	doc  string
+	text string
 }
 
 // debugNode is a runtime node a render node draws: a vertex of a state graph,
@@ -354,7 +368,14 @@ func (s *Server) DebugStart(params *debugStartParams) (*debugSnapshot, error) {
 	if objectSym != nil {
 		sess.object = rt.FQN(objectSym)
 	}
+	if viewSym := s.ws.DeclaredView(name, params.View); viewSym != nil {
+		sess.viewText = s.ws.DeclarationText(viewSym)
+	}
 	if err := sess.attach(ctx, target, performer); err != nil {
+		return nil, err
+	}
+	if sess.inherited, err = sess.inheritedDecls(); err != nil {
+		sess.release()
 		return nil, err
 	}
 	if err := sess.locate(rendering, target, doc.Version); err != nil {
@@ -405,6 +426,27 @@ func (sess *debugSession) attach(ctx *runtime.Context, target *symbols.Symbol, p
 		return fmt.Errorf("%w: %s: %w", ErrDebugTarget, sess.target, err)
 	}
 	return nil
+}
+
+// inheritedDecls lists the declarations the executor's graph took content from
+// besides the target's own, each by the name and text the runtime holds.
+func (sess *debugSession) inheritedDecls() ([]debugInherited, error) {
+	var from []lower.Inherited
+	if sess.action != nil {
+		from = sess.action.Graph().Inherited()
+	} else {
+		from = sess.machine.Graph().Inherited()
+	}
+	out := make([]debugInherited, 0, len(from))
+	for _, in := range from {
+		sym := in.Body.Owner()
+		if sym == nil {
+			return nil, fmt.Errorf("%w: %s takes content from %s, which its index does not name",
+				ErrDebugTarget, sess.target, lower.DescribeMember(in.Decl))
+		}
+		out = append(out, debugInherited{fqn: sess.runtime.FQN(sym), doc: sym.DocName, text: sess.runtime.Text(sym)})
+	}
+	return out, nil
 }
 
 // debugTargetKind checks target declares what a rendering of kind draws.
@@ -1140,10 +1182,6 @@ func (sess *debugSession) machineSnapshot(snap *debugSnapshot) {
 		snap.Queue = append(snap.Queue, debugEvent{Event: debugEventText(event), At: event.Timestamp})
 	}
 	for _, msg := range sess.rt.PendingMessages() {
-		accepted, err := exec.AcceptsMessage(msg)
-		if err != nil || !accepted {
-			continue
-		}
 		snap.Queue = append(snap.Queue, debugEvent{Event: debugSignalText(msg), At: snap.Time, Pending: true})
 	}
 }
@@ -1226,12 +1264,31 @@ func (s *Server) reconcile(sess *debugSession) (*debugSnapshot, bool) {
 			return end(fmt.Sprintf("%s was edited", sess.object))
 		}
 	}
+	for _, in := range sess.inherited {
+		decl := s.ws.Declared(in.doc, in.fqn)
+		if decl == nil {
+			return end(fmt.Sprintf("%s is no longer declared", in.fqn))
+		}
+		if s.ws.DeclarationText(decl) != in.text {
+			return end(fmt.Sprintf("%s was edited", in.fqn))
+		}
+	}
 	rendering, doc, err := s.ws.RenderView(sess.doc, sess.view)
 	if err != nil {
 		return end(fmt.Sprintf("%s no longer renders: %v", sess.view, err))
 	}
 	if rendering.Kind != sess.kind {
 		return end(fmt.Sprintf("%s now renders a %s", sess.view, rendering.Kind))
+	}
+	if sess.viewText != "" && s.ws.DeclarationText(s.ws.DeclaredView(sess.doc, sess.view)) != sess.viewText {
+		return end(fmt.Sprintf("%s was edited", sess.view))
+	}
+	root, err := view.RootDrawing(rendering, target)
+	if err != nil {
+		return end(fmt.Sprintf("%s no longer draws %s: %v", sess.view, sess.target, err))
+	}
+	if from := sess.unknownInherited(root, s.ws.TextAt); from != "" {
+		return end(fmt.Sprintf("%s now takes content from %s", sess.target, from))
 	}
 	if doc.Version == sess.version && sameRendering(rendering, sess.rendering) {
 		return nil, false
@@ -1240,6 +1297,31 @@ func (s *Server) reconcile(sess *debugSession) (*debugSnapshot, bool) {
 		return end(fmt.Sprintf("%s no longer draws %s: %v", sess.view, sess.target, err))
 	}
 	return sess.snapshot(), true
+}
+
+// unknownInherited describes the first declaration the drawn root now takes
+// content from that the runtime did not, "" when the drawing takes from no other.
+func (sess *debugSession) unknownInherited(root *view.Node, textAt func(doc string, span source.Span) string) string {
+	known := make(map[debugInherited]bool, len(sess.inherited))
+	for _, in := range sess.inherited {
+		known[debugInherited{doc: in.doc, text: in.text}] = true
+	}
+	for _, origin := range root.Inherited {
+		text := textAt(origin.Doc, origin.Span)
+		if !known[debugInherited{doc: origin.Doc, text: text}] {
+			return fmt.Sprintf("%s in %s", debugHeadline(text), origin.Doc)
+		}
+	}
+	return ""
+}
+
+// debugHeadline is the first line of a declaration, as far as its body opens.
+func debugHeadline(text string) string {
+	line, _, _ := strings.Cut(text, "\n")
+	if head, _, ok := strings.Cut(line, "{"); ok {
+		line = head
+	}
+	return strings.TrimSpace(line)
 }
 
 // sameRendering reports whether two renderings draw the same nodes and edges

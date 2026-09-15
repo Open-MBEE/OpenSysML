@@ -80,6 +80,32 @@ type ActionGraph struct {
 	// BlockNodes lists, per node, the action nodes its body's blocks (an `if` branch,
 	// a loop body) declare, in declaration order: subperformances reached by name from it.
 	BlockNodes map[ast.Node][]ast.Node
+
+	// inherited are the actions the action specializes, nearest general first.
+	inherited []Inherited
+}
+
+// Inherited lists the declarations the action's content came from besides its
+// own — the actions it specializes, then those its subflows specialize — each once.
+func (g *ActionGraph) Inherited() []Inherited {
+	var out []Inherited
+	seen := make(map[ast.Node]bool)
+	var collect func(g *ActionGraph)
+	collect = func(g *ActionGraph) {
+		for _, in := range g.inherited {
+			if !seen[in.Decl] {
+				seen[in.Decl] = true
+				out = append(out, in)
+			}
+		}
+		for _, node := range g.Nodes {
+			if sub := g.Subflows[node]; sub != nil && sub.Graph != nil {
+				collect(sub.Graph)
+			}
+		}
+	}
+	collect(g)
+	return out
 }
 
 // ActionEdge is one succession out of a node: the node it leaves, the target it reaches, the
@@ -615,6 +641,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 // the action inherits keeps the connections its declaring action stated at it.
 func lowerInheritedPinConnections(graph *ActionGraph, scope *symbols.Scope) error {
 	for _, body := range resolve.ActionGeneralBodies(scope) {
+		graph.inherited = append(graph.inherited, Inherited{Decl: body.Node(), Body: body})
 		nodes := inheritedNodeLookup(graph, body)
 		for _, member := range declMembers(body.Node()) {
 			u, ok := unwrapMembership(member).(*ast.Usage)

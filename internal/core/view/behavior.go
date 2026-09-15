@@ -42,7 +42,7 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 // its transitions as edges.
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Type: declType(machine),
-		Origin: symbolOrigin(machine), Geometry: r.geometryOf(view, machine, out)}
+		Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
 	doc := machine.DocName
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
@@ -393,7 +393,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		return nil, false
 	}
 	root := &Node{ID: ids.take(), Kind: kind, Name: name, Type: subject.typ, Origin: nodeOrigin(doc, decl),
-		Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
+		Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
