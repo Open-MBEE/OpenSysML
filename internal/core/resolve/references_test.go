@@ -488,11 +488,14 @@ func TestUnnamedTransitionBodyDeclaresItsOwnScope(t *testing.T) {
 		t.Fatal("the state's own `attribute retries` was not indexed")
 	}
 	trigger := symbols.TriggerScope(serverScope, trans)
-	if trigger == nil || trigger.Parent() != body {
-		t.Fatalf("TriggerScope is %v, want the parameter scope nested in the transition's", trigger)
+	if trigger != body {
+		t.Fatalf("TriggerScope is %v, want the transition's own scope", trigger)
 	}
-	if _, ok := trigger.LookupLocal("origin"); !ok {
-		t.Error("the accept's parameter is not declared in the trigger scope")
+	if origin, ok := body.LookupLocal("origin"); !ok || origin.OwnerScope != body {
+		t.Error("the accept's parameter is not a member of the transition")
+	}
+	if _, ok := serverScope.LookupLocal("origin"); ok {
+		t.Error("the accept's parameter escaped into the state")
 	}
 	cold := resolve.New(walk.Index())
 	cold.SetModel(semantics.NewModel(cold))

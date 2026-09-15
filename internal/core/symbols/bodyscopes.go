@@ -225,24 +225,17 @@ func (w ExprWalker) Decl(scope *Scope, decl ast.Node) {
 	}
 }
 
-// TriggerScope returns the innermost scope trans's guard and effect resolve
-// against: the one holding the parameters its trigger declares when it declares
-// any, the transition's own scope when it has one, and parent otherwise
-// (builder.buildDecl builds both, with the effect in the innermost).
+// TriggerScope returns the scope trans's guard, effect and body resolve
+// against: the transition's own scope, which holds the parameters its trigger
+// declares (builder.buildDecl), and parent when the transition has none.
 func TriggerScope(parent *Scope, trans *ast.TransitionMember) *Scope {
 	if parent == nil {
 		return nil
 	}
-	scope := parent
 	if child := bodyScopeChild(parent, trans); child != nil {
-		scope = child
-		if trans.Trigger != nil {
-			if params := bodyScopeChild(child, trans.Trigger); params != nil {
-				scope = params
-			}
-		}
+		return child
 	}
-	return scope
+	return parent
 }
 
 // triggerParameterDefiner returns a function defining the parameters trigger
@@ -283,7 +276,8 @@ func triggerParameterDefiner(trigger ast.Node) func(*Scope) {
 
 // payloadParameterDefiner returns a function defining the payload parameter an
 // accept names, or nil when it names none. The parameter holds the received
-// occurrence and is visible to the transition's guard and effect only.
+// occurrence; as a member of the transition it is visible to the guard, effect
+// and body, and reached from outside only through the transition (`t.payload`).
 func payloadParameterDefiner(payload *ast.Usage) func(*Scope) {
 	if payload == nil {
 		return nil
