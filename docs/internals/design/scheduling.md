@@ -30,7 +30,7 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the seven:
 | `ChoiceTokenOrder` | `ActionExecutor.noteTokenOrder` | the tokens that could act in the step, by ID; the one stepped first is taken |
 | `ChoiceDecisionBranch` | `ActionExecutor.noteDecisionBranches` | the successions whose guards hold, by declaration position |
 | `ChoiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
-| `ChoiceTransition` | `StateExecutor.chooseTransition`; `choiceBranchPoint` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` pseudostate enabled on arrival, read after the incoming segment's effect, labelled `choice <name>` |
+| `ChoiceTransition` | `StateExecutor.chooseTransition`; `pickBranch` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` or `junction` pseudostate enabled when its guards are read, labelled `choice <name>` or `junction <name>` |
 | `ChoiceRegionOrder` | `StateExecutor.chooseRegion`, drawn by `dispatchInOrder`; `chooseDoAction` (`do round at t=…`); `fireJoinIncoming` (`join <name>`) | the states whose transitions one occurrence selected, by name in declaration order; the one fired first is taken — likewise the states whose do behaviors are due in one round, and the sources of the transitions into a join that fires |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`); the checker's run, one executor holding the turn until it has no move at the instant | the executors due at one instant, in creation order; the one run first is taken |
 | `ChoiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
@@ -64,7 +64,9 @@ A `choice` pseudostate's branch is drawn on arrival: `resolveChoice` reads its g
 incoming segments' effects have run, so which branches are enabled can depend on those effects,
 and with two or more enabled the draw is a `ChoiceTransition` at `choice <name>` that `explore`
 enumerates and a seed replays (`TestExploreDynamicChoiceBranches`). A junction's branch is settled
-statically before the transition fires and is not a choice point.
+statically before the transition fires — its guards read the data as it stands before the incoming
+effect — and with two or more enabled the draw is likewise a `ChoiceTransition` at
+`junction <name>`, recorded once the transition fires (`TestExploreStaticJunctionBranches`).
 
 Two things that look like openings are determined and are never recorded. Deferral: a state in the
 active configuration that defers the occurrence dispatched holds it back from every enabled
