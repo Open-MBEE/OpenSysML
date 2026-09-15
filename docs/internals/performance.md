@@ -9,7 +9,10 @@ in a record under `docs/project/`; the latest is
 How far one realistic model scales — a satellite constellation with every
 spacecraft modeled to its components, from 2 to 12 800 satellites — and where
 validation, satisfaction checking and editing each stop being practical is in
-the [satellite-network stress test](../project/satellite-network-stress-test.md).
+the [satellite-network stress test](../project/satellite-network-stress-test.md);
+the design for holding and editing models an order of magnitude larger than
+that test reaches is
+[scaling to very large models](../project/large-model-scaling-design.md).
 
 ## Profiling a run
 
