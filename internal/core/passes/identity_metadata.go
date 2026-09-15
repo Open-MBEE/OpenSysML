@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -32,24 +33,22 @@ func (IdentityMetadataPass) Run(ctx *Context, name string, root *ast.RootNamespa
 		return nil
 	}
 	// A project scope may span workspace documents, so uniqueness is judged
-	// over all of them; each document only reports its own elements.
-	roots := []*symbols.Scope{rootScope}
-	for _, doc := range ctx.Index.WorkspaceDocuments() {
-		if doc == name {
-			continue
-		}
-		if r := ctx.Index.DocumentRoot(doc); r != nil {
-			roots = append(roots, r)
-		}
+	// over the union of their gathers; each document only reports its own elements.
+	union := ctx.Gathers().identitiesOf(ctx)
+	c := &identityChecker{res: ctx.Resolver(), space: union.identityIndex, docRoot: rootScope}
+	if c.table = union.tableOf(name); c.table == nil {
+		c.table = identity.Build(ctx.Model(), ctx.Resolver(), rootScope)
+		c.space = union.including(c.table)
 	}
-	table := identity.Build(ctx.Model(), ctx.Resolver(), roots...)
-	c := &identityChecker{table: table, docRoot: rootScope}
 	c.check()
 	return c.diags
 }
 
 type identityChecker struct {
+	res *resolve.Resolver
+	// table is the document's own identities; space the id space they are judged in.
 	table   *identity.Table
+	space   *identityIndex
 	docRoot *symbols.Scope
 	diags   []Diagnostic
 }
@@ -77,8 +76,6 @@ func (c *identityChecker) inDoc(scope *symbols.Scope) bool {
 }
 
 func (c *identityChecker) check() {
-	scopes := make(map[string][]*identity.Info)
-	var keys []string
 	for _, sym := range c.table.Symbols() {
 		info, ok := c.table.Info(sym)
 		if !ok {
@@ -97,14 +94,7 @@ func (c *identityChecker) check() {
 		if info.Scope != nil && info.Scope.Symbol == sym {
 			c.checkScopeConflicts(info)
 		}
-		key := scopeKey(info)
-		if _, seen := scopes[key]; !seen {
-			keys = append(keys, key)
-		}
-		scopes[key] = append(scopes[key], info)
-	}
-	for _, key := range keys {
-		c.checkScope(scopes[key])
+		c.checkIDSpace(info)
 	}
 }
 
@@ -202,51 +192,49 @@ func projectName(d identity.ScopeDeclaration) string {
 	return fmt.Sprintf("project %q of org %q", d.ProjectID, d.Org)
 }
 
-// checkScope validates the generated id space of one project scope: duplicate
-// effective ids, and declared ids that land on another element's membership
-// (`…_om`) or expression-node (`…_p…`) id.
-func (c *identityChecker) checkScope(infos []*identity.Info) {
-	byID := make(map[string][]*identity.Info)
-	for _, info := range infos {
-		byID[info.EffectiveID] = append(byID[info.EffectiveID], info)
-	}
-	for _, group := range byID {
-		// Distinct qualified names never derive one id, so a group of derived
-		// ids is one name seen twice, not an identity conflict.
-		if len(group) < 2 || !anyAnnotated(group) {
-			continue
-		}
+// checkIDSpace validates an element's place in the generated id space of its
+// project scope: an effective id another element shares, a declared id that
+// lands on another element's membership (`…_om`) or expression-node (`…_p…`)
+// id, and another element's declared id landing on this one's.
+func (c *identityChecker) checkIDSpace(info *identity.Info) {
+	key := keyOf(info)
+	// Distinct qualified names never derive one id, so a group of derived
+	// ids is one name seen twice, not an identity conflict.
+	if group := c.space.group(c.res, key); len(group) >= 2 && anyAnnotated(group) {
 		names := make([]string, 0, len(group))
-		for _, info := range group {
-			names = append(names, info.FQN)
+		for _, o := range group {
+			names = append(names, o.FQN)
 		}
 		sort.Strings(names)
-		for _, info := range group {
-			if span, ok := c.reportSite(info); ok {
-				c.errorf(span, duplicateIDCode,
-					"duplicate element id %q in one project scope: %s",
-					info.EffectiveID, strings.Join(names, " and "))
+		if span, ok := c.reportSite(info); ok {
+			c.errorf(span, duplicateIDCode,
+				"duplicate element id %q in one project scope: %s",
+				info.EffectiveID, strings.Join(names, " and "))
+		}
+	}
+	for _, d := range info.Declarations {
+		if !d.Declared || d.ID == "" || !c.declInDocument(d) {
+			continue
+		}
+		for _, t := range derivedTargets(d.ID) {
+			for _, owner := range c.space.group(c.res, identityKey{key.scope, t.base}) {
+				if owner.Symbol == info.Symbol {
+					continue
+				}
+				c.errorf(d.Span, duplicateIDCode,
+					"element id %q of %s collides with %s of %s",
+					d.ID, info.FQN, t.space, owner.FQN)
 			}
 		}
 	}
-	for _, info := range infos {
-		for _, d := range info.Declarations {
-			if !d.Declared || d.ID == "" {
-				continue
-			}
-			if base, ok := strings.CutSuffix(d.ID, "_om"); ok {
-				c.reportDerivedCollision(info, d, byID[base], "the owning-membership id")
-			}
-			for i := strings.Index(d.ID, "_p"); i >= 0; {
-				if expressionPositions(d.ID[i+2:]) {
-					c.reportDerivedCollision(info, d, byID[d.ID[:i]], "an expression-node id")
-				}
-				next := strings.Index(d.ID[i+1:], "_p")
-				if next < 0 {
-					break
-				}
-				i += 1 + next
-			}
+	for _, hit := range c.space.hitsOn(c.res, key) {
+		if hit.info.Symbol == info.Symbol {
+			continue
+		}
+		if span, ok := c.reportSite(info); ok {
+			c.errorf(span, duplicateIDCode,
+				"%s of %s collides with element id %q of %s",
+				hit.space, info.FQN, hit.decl.ID, hit.info.FQN)
 		}
 	}
 }
@@ -274,26 +262,6 @@ func anyAnnotated(group []*identity.Info) bool {
 		}
 	}
 	return false
-}
-
-// reportDerivedCollision errors on both elements when a declared id lands in
-// the derived id space another element generates.
-func (c *identityChecker) reportDerivedCollision(info *identity.Info, d identity.Declaration, owners []*identity.Info, space string) {
-	for _, owner := range owners {
-		if owner == info {
-			continue
-		}
-		if c.declInDocument(d) {
-			c.errorf(d.Span, duplicateIDCode,
-				"element id %q of %s collides with %s of %s",
-				d.ID, info.FQN, space, owner.FQN)
-		}
-		if span, ok := c.reportSite(owner); ok {
-			c.errorf(span, duplicateIDCode,
-				"%s of %s collides with element id %q of %s",
-				space, owner.FQN, d.ID, info.FQN)
-		}
-	}
 }
 
 // firstInDocument is the element's first ElementId annotation declared in the

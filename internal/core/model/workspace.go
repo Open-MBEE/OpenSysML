@@ -38,6 +38,7 @@ type Workspace struct {
 	// read changes. Made on first use (see semanticsLocked).
 	resolver *resolve.Resolver
 	model    *semantics.Model
+	gathers  *passes.Gathers
 	// analysis is the options every document of this workspace is analyzed under,
 	// so one session asks one question of all its files.
 	analysis passes.Options
@@ -233,12 +234,43 @@ func (w *Workspace) invalidateLocked(name string) {
 		ch.Docs = map[string]bool{}
 	}
 	ch.Docs[name] = true
-	for _, doc := range w.resolver.Invalidate(ch) {
-		delete(w.diagCache, doc)
-		w.refs.drop(doc)
-	}
+	dropped := w.resolver.Invalidate(ch)
 	delete(w.diagCache, name)
 	w.refs.drop(name)
+	// The gathers the drop took go again, and what they now say differently
+	// drops the judgments that read it, until nothing more moves.
+	regather := ch.Docs
+	for {
+		for _, doc := range dropped {
+			delete(w.diagCache, doc)
+			w.refs.drop(doc)
+			if gathered, ok := resolve.GatheredDoc(doc); ok {
+				regather[gathered] = true
+			}
+		}
+		if len(regather) == 0 {
+			return
+		}
+		changed := w.gathers.Regather(w.contextLocked(), regather)
+		if len(changed) == 0 {
+			return
+		}
+		names := make(map[string]bool, len(changed))
+		for _, n := range changed {
+			names[n] = true
+		}
+		dropped = w.resolver.Invalidate(symbols.Changes{Names: names})
+		regather = map[string]bool{}
+	}
+}
+
+// contextLocked is a pass context over the workspace's shared semantic state,
+// for work done between analyses. Caller holds the write lock.
+func (w *Workspace) contextLocked() *passes.Context {
+	resolver, sem := w.semanticsLocked()
+	ctx := passes.NewContextWithOptions("", source.KindSysML, w.index, nil, w.analysis)
+	ctx.Share(resolver, sem, w.gathers)
+	return ctx
 }
 
 // invalidateAllLocked drops every cached answer, for a change that moves them
@@ -248,6 +280,7 @@ func (w *Workspace) invalidateAllLocked() {
 	w.refs = nil
 	if w.resolver != nil {
 		w.resolver.InvalidateAll()
+		w.gathers.Reset()
 	}
 	w.index.TakeChanges()
 }
@@ -304,7 +337,7 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []passes.Diagn
 		})
 	}
 	resolver, sem := w.semanticsLocked()
-	diags := passes.AnalyzeShared(name, source.KindOf(name), doc.AST, parseDiags, w.analysis, resolver, sem)
+	diags := passes.AnalyzeShared(name, source.KindOf(name), doc.AST, parseDiags, w.analysis, resolver, sem, w.gathers)
 	w.diagCache[name] = diags
 	return diags
 }
@@ -402,7 +435,7 @@ func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
 		sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
 		sem.SetSourceText(w.sourceText())
 		resolver.Track()
-		w.resolver, w.model = resolver, sem
+		w.resolver, w.model, w.gathers = resolver, sem, passes.NewGathers()
 	}
 	return w.resolver, w.model
 }

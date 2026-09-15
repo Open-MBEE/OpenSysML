@@ -875,6 +875,7 @@ func (idx *Index) MarkLibraryTier(name string, tier LibraryTier) {
 // for when to call it.
 func (idx *Index) MarkLibraryDocument(name string, doc LibraryDocument) {
 	idx.mustBeWritable("MarkLibraryDocument")
+	idx.changedDoc(name)
 	if doc.Tier == TierNone {
 		idx.libraryDocs.del(name)
 	} else {

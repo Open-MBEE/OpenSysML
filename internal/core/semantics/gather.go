@@ -90,7 +90,9 @@ func (m *Model) gathers() map[string]*docGather {
 				m.docGathers[doc] = &docGather{about: usages, library: true}
 				continue
 			}
-			m.docGathers[doc] = m.gatherOf(doc)
+			if g := m.gatherOf(doc); g != nil {
+				m.docGathers[doc] = g
+			}
 		}
 	})
 	return m.docGathers

@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -35,9 +36,17 @@ func (f *frame) stale(ch symbols.Changes) bool {
 	if ch.Docs[f.doc] || f.all {
 		return true
 	}
-	for n := range ch.Names {
-		if f.names[n] {
-			return true
+	if len(f.names) < len(ch.Names) {
+		for n := range f.names {
+			if ch.Names[n] {
+				return true
+			}
+		}
+	} else {
+		for n := range ch.Names {
+			if f.names[n] {
+				return true
+			}
 		}
 	}
 	for n := range ch.Namespaces {
@@ -102,6 +111,35 @@ func (r *Resolver) Query(doc string, f func()) {
 	r.EnterDoc(doc)
 	defer r.LeaveDoc()
 	r.aside(f)
+}
+
+// gatherSuffix marks the frame a document's gather runs in (see Gather).
+const gatherSuffix = "\x00gather"
+
+// GatherFrame names the frame doc's gather runs in: apart from the frame of
+// doc's analysis, so a judgment dropped for an answer it read does not take
+// the gather it had no part in with it.
+func GatherFrame(doc string) string { return doc + gatherSuffix }
+
+// GatheredDoc is the document whose gather frame the name is, if it is one.
+func GatheredDoc(frame string) (string, bool) {
+	return strings.CutSuffix(frame, gatherSuffix)
+}
+
+// Gather runs f, the gathering of doc's facts for a workspace-wide judgment:
+// in doc's gather frame, quiet like a Query, and no dependency of the
+// enclosing document, whose judgment reads the union of gathers by name instead.
+// Invalidate names the gather frames it drops, for the gathers to be redone.
+func (r *Resolver) Gather(doc string, f func()) {
+	if !r.Tracking() {
+		f()
+		return
+	}
+	r.Untracked(func() {
+		r.EnterDoc(GatherFrame(doc))
+		defer r.LeaveDoc()
+		r.aside(f)
+	})
 }
 
 // docFrame is the frame owning doc, made on first use.

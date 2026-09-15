@@ -121,9 +121,10 @@ func AnalyzeWithOptions(name string, kind source.Kind, root *ast.RootNamespace,
 // analyses: what the run memoizes is owned by the document (see
 // Resolver.InDocument), to be dropped when it or what it read changes.
 func AnalyzeShared(name string, kind source.Kind, root *ast.RootNamespace,
-	parseDiags []Diagnostic, opts Options, resolver *resolve.Resolver, model *semantics.Model) []Diagnostic {
+	parseDiags []Diagnostic, opts Options, resolver *resolve.Resolver, model *semantics.Model,
+	gathers *Gathers) []Diagnostic {
 	ctx := NewContextWithOptions(name, kind, resolver.Index(), parseDiags, opts)
-	ctx.Share(resolver, model)
+	ctx.Share(resolver, model, gathers)
 	var diags []Diagnostic
 	resolver.InDocument(name, func() { diags = analyze(ctx, root) })
 	return diags

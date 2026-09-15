@@ -41,15 +41,12 @@ func (OOSEMMethodPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 	if a == nil {
 		return nil
 	}
-	gathered := map[*symbols.Scope]bool{}
-	for _, doc := range ctx.Index.WorkspaceDocuments() {
-		if r := ctx.Index.DocumentRoot(doc); r != nil && !gathered[r] {
-			gathered[r] = true
-			a.gather(r)
-		}
-	}
-	if !gathered[rootScope] {
+	a.union = ctx.Gathers().oosemOf(ctx, a)
+	if !ctx.Gathers().has(name) {
+		a.local = newOOSEMFacts()
+		a.facts = a.local
 		a.gather(rootScope)
+		a.facts = nil
 	}
 	a.check(rootScope)
 	return a.diags
@@ -125,17 +122,12 @@ type oosemAudit struct {
 	model *semantics.Model
 	// definitions holds the library definition of each OOSEM kind.
 	definitions map[oosemKind][]*symbols.Symbol
-	// present records the kinds the workspace declares at all.
-	present map[oosemKind]bool
-	// derivedFrom holds, per requirement at a `#derive` end, the kinds of the
-	// `#original` ends of the same `#derivation`; satisfied holds the requirements
-	// a `satisfy` names; allocated the sources allocated to a node or physical component.
-	derivedFrom map[symbols.ElementKey]map[oosemKind]bool
-	satisfied   map[symbols.ElementKey]bool
-	allocated   map[symbols.ElementKey]bool
-	// statesSatisfaction reports whether the workspace states any satisfy.
-	statesSatisfaction bool
-	kinds              map[*symbols.Symbol]oosemKind
+	// facts is what a gather under way records; a check judges over union and
+	// local, the facts of a root outside the gathered documents.
+	facts *oosemFacts
+	union *oosemUnion
+	local *oosemFacts
+	kinds map[*symbols.Symbol]oosemKind
 	// typeKinds memoizes kindOfType: one type classifies every feature it types.
 	typeKinds map[*symbols.Symbol]oosemKind
 	diags     []Diagnostic
@@ -149,10 +141,6 @@ func newOOSEMAudit(ctx *Context) *oosemAudit {
 		ctx:         ctx,
 		model:       ctx.Model(),
 		definitions: map[oosemKind][]*symbols.Symbol{},
-		present:     map[oosemKind]bool{},
-		derivedFrom: map[symbols.ElementKey]map[oosemKind]bool{},
-		satisfied:   map[symbols.ElementKey]bool{},
-		allocated:   map[symbols.ElementKey]bool{},
 		kinds:       map[*symbols.Symbol]oosemKind{},
 		typeKinds:   map[*symbols.Symbol]oosemKind{},
 	}
@@ -222,7 +210,7 @@ func (a *oosemAudit) gather(root *symbols.Scope) {
 	w8dWalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
 		usage, isUsage := sym.Decl.(*ast.Usage)
 		if kind := a.kindOf(sym); kind != oosemNone {
-			a.present[kind] = true
+			a.facts.present[kind] = true
 		}
 		if !isUsage {
 			return
@@ -259,11 +247,8 @@ func (a *oosemAudit) gatherDerivation(sym *symbols.Symbol) {
 	}
 	for _, d := range derived {
 		key := symbols.KeyOf(d)
-		if a.derivedFrom[key] == nil {
-			a.derivedFrom[key] = map[oosemKind]bool{}
-		}
 		for _, o := range originals {
-			a.derivedFrom[key][a.kindOf(o)] = true
+			a.facts.derived[oosemDerivation{key, a.kindOf(o)}] = true
 		}
 	}
 }
@@ -300,7 +285,7 @@ func (a *oosemAudit) gatherAllocation(sym *symbols.Symbol, usage *ast.Usage) {
 		return
 	}
 	for _, s := range source {
-		a.allocated[symbols.KeyOf(s)] = true
+		a.facts.allocated[symbols.KeyOf(s)] = true
 	}
 }
 
@@ -337,8 +322,8 @@ func (a *oosemAudit) gatherSatisfaction(sym *symbols.Symbol, usage *ast.Usage) {
 		return
 	}
 	if usage.DeclaresRequirement {
-		a.statesSatisfaction = true
-		a.satisfied[symbols.KeyOf(sym)] = true
+		a.facts.satisfies[true] = true
+		a.facts.satisfied[symbols.KeyOf(sym)] = true
 		return
 	}
 	for _, rel := range usage.Relationships {
@@ -349,8 +334,8 @@ func (a *oosemAudit) gatherSatisfaction(sym *symbols.Symbol, usage *ast.Usage) {
 		if !ok || target == nil || isViewpoint(target) {
 			continue
 		}
-		a.statesSatisfaction = true
-		a.satisfied[symbols.KeyOf(target)] = true
+		a.facts.satisfies[true] = true
+		a.facts.satisfied[symbols.KeyOf(target)] = true
 	}
 }
 
@@ -424,12 +409,12 @@ func (a *oosemAudit) checkRequirement(sym *symbols.Symbol) {
 		return
 	}
 	key := symbols.KeyOf(sym)
-	if a.present[from] && !a.derivedFrom[key][from] {
+	if a.hasKind(from) && !a.derivedFrom(key, from) {
 		a.report(sym, CodeOOSEMRequirementNotDerived, fmt.Sprintf(
 			"This %s derives from no %s: the model declares %ss, so OOSEM expects a #derivation connection naming it at a #derive end and a %s at an #original end.",
 			oosemKindNames[kind], oosemKindNames[from], oosemKindNames[from], oosemKindNames[from]))
 	}
-	if kind != oosemMissionRequirement && a.statesSatisfaction && !a.satisfied[key] {
+	if kind != oosemMissionRequirement && a.statesSatisfaction() && !a.isSatisfied(key) {
 		a.report(sym, CodeOOSEMRequirementNotSatisfied, fmt.Sprintf(
 			"This %s is satisfied by nothing: the model states satisfactions, so OOSEM expects a `satisfy` naming it.",
 			oosemKindNames[kind]))
@@ -443,19 +428,19 @@ func (a *oosemAudit) checkLogicalComponent(sym *symbols.Symbol) {
 	if a.kindOf(sym) != oosemLogicalComponent {
 		return
 	}
-	if !a.present[oosemNode] && !a.present[oosemPhysicalComponent] {
+	if !a.hasKind(oosemNode) && !a.hasKind(oosemPhysicalComponent) {
 		return
 	}
-	if a.allocated[symbols.KeyOf(sym)] {
+	if a.isAllocated(symbols.KeyOf(sym)) {
 		return
 	}
 	for _, t := range a.model.FeatureTypeSet(sym) {
-		if a.allocated[symbols.KeyOf(t)] {
+		if a.isAllocated(symbols.KeyOf(t)) {
 			return
 		}
 	}
 	for scope := sym.OwnerScope; scope != nil; scope = scope.Parent() {
-		if owner := scope.Owner(); owner != nil && a.allocated[symbols.KeyOf(owner)] {
+		if owner := scope.Owner(); owner != nil && a.isAllocated(symbols.KeyOf(owner)) {
 			return
 		}
 	}

@@ -58,6 +58,7 @@ type Context struct {
 
 	resolver *resolve.Resolver
 	model    *semantics.Model
+	gathers  *Gathers
 	w8dCache map[*symbols.Scope][]*symbols.Symbol
 	w8cCache map[*symbols.Scope][]*symbols.Symbol
 	// failures is where the tiers below the pass now running found blocking
@@ -89,10 +90,19 @@ func NewContextWithOptions(name string, kind source.Kind, idx *symbols.Index,
 	return &Context{Name: name, Kind: kind, Index: idx, ParseDiagnostics: parseDiags, Options: opts}
 }
 
-// Share hands the context a resolver and model that outlive it — a workspace's,
-// kept across analyses — instead of the fresh pair it would otherwise make.
-func (c *Context) Share(resolver *resolve.Resolver, model *semantics.Model) {
-	c.resolver, c.model = resolver, model
+// Share hands the context a resolver, model and gathers that outlive it — a
+// workspace's, kept across analyses — instead of the fresh ones it would make.
+func (c *Context) Share(resolver *resolve.Resolver, model *semantics.Model, gathers *Gathers) {
+	c.resolver, c.model, c.gathers = resolver, model, gathers
+}
+
+// Gathers is what the workspace-wide audits gathered per document, shared
+// across analyses by a workspace and made afresh for a context outside one.
+func (c *Context) Gathers() *Gathers {
+	if c.gathers == nil {
+		c.gathers = NewGathers()
+	}
+	return c.gathers
 }
 
 // setFailures records the blocking spans of the tiers below the pass about to
