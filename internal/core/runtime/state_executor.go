@@ -2538,7 +2538,7 @@ func (e *StateExecutor) joinIncoming(join *ast.PseudostateNode) []*lower.Transit
 // joinSynchronized reports whether a transition is enabled as far as its target
 // goes: one into a join only while every other segment into the join is enabled
 // too — its source active, its guard holding, and its trigger, if it has one,
-// matching the occurrence (nil for a completion). Every path firing a join,
+// taking the occurrence (nil for a completion). Every path firing a join,
 // dispatched on a signal, call, timer, completion or change, goes through this.
 func (e *StateExecutor) joinSynchronized(trans *lower.Transition, event *Event) (bool, error) {
 	join, ok := trans.Target.(*ast.PseudostateNode)
@@ -2556,11 +2556,8 @@ func (e *StateExecutor) joinSynchronized(trans *lower.Transition, event *Event) 
 			return false, nil
 		}
 		if segment.Trigger != nil {
-			if event == nil {
-				return false, nil
-			}
-			matches, err := e.matchesEvent(segment, event)
-			if err != nil || !matches {
+			takes, err := e.segmentTakes(segment, event)
+			if err != nil || !takes {
 				return false, err
 			}
 		}
@@ -2570,6 +2567,21 @@ func (e *StateExecutor) joinSynchronized(trans *lower.Transition, event *Event) 
 		}
 	}
 	return true, nil
+}
+
+// segmentTakes reports whether a join segment's trigger takes the dispatched
+// occurrence. Each timer is its own occurrence, so a time-triggered segment takes
+// the instant instead: it is enabled while its own timer is due, the segments'
+// expiries at one instant being one occurrence for the join.
+func (e *StateExecutor) segmentTakes(segment *lower.Transition, event *Event) (bool, error) {
+	if event == nil {
+		return false, nil
+	}
+	if _, isTime := segment.Trigger.(*ast.TimeEvent); isTime {
+		timer, running := e.eventQueue.TimerOf(segment)
+		return running && timer.Timestamp <= e.ctx.clock.now, nil
+	}
+	return e.matchesEvent(segment, event)
 }
 
 // segmentGuardHolds reads a join segment's guard with its trigger's arguments bound

@@ -21,4 +21,7 @@
   segment it fires as a signal dispatch does — its guard holding and the join it leads into
   ready — before the route out of the join is resolved, so an expiry that does not fire the join
   reads no guard beyond it, where before a junction beyond the join with no guard holding aborted
-  the run.
+  the run. Two time-triggered segments into a join whose timers are due at one instant fire the
+  join, whichever expiry is dispatched first, where before each expiry found the other segment's
+  timer to be a different occurrence and the join never fired; timers due at different instants
+  still never fire it.
