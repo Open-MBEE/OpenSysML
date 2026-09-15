@@ -1922,6 +1922,15 @@ func (e *StateExecutor) stateComplete(state *ast.StateNode) bool {
 	return true
 }
 
+// stateCompleted reports whether an active state's completion transitions are
+// enabled: its do behavior has finished and its body, where it runs one, is at `done`.
+func (e *StateExecutor) stateCompleted(state *ast.StateNode) bool {
+	if e.hasRunningDoAction(state) {
+		return false
+	}
+	return !e.bodyRunning(state) || e.stateComplete(state)
+}
+
 // bodyRunning reports whether a state nested in state is active.
 func (e *StateExecutor) bodyRunning(state *ast.StateNode) bool {
 	for _, active := range e.activeStates() {
@@ -2539,8 +2548,9 @@ func (e *StateExecutor) joinIncoming(join *ast.PseudostateNode) []*lower.Transit
 // joinSynchronized reports whether a transition is enabled as far as its target
 // goes: one into a join only while every other segment into the join is enabled
 // too — its source active, its guard holding, and its trigger, if it has one,
-// taking the occurrence (nil for a completion). Every path firing a join,
-// dispatched on a signal, call, timer, completion or change, goes through this.
+// taking the occurrence, or its source completed if it has none. Every path
+// firing a join, dispatched on a signal, call, timer, completion or change,
+// goes through this.
 func (e *StateExecutor) joinSynchronized(trans *lower.Transition, event *Event) (bool, error) {
 	join, ok := trans.Target.(*ast.PseudostateNode)
 	if !ok || join.Kind != ast.PseudostateJoin {
@@ -2556,7 +2566,11 @@ func (e *StateExecutor) joinSynchronized(trans *lower.Transition, event *Event) 
 		if !e.inActiveConfiguration(segment.Source.(*ast.StateNode)) {
 			return false, nil
 		}
-		if segment.Trigger != nil {
+		if segment.Trigger == nil {
+			if !e.stateCompleted(segment.Source.(*ast.StateNode)) {
+				return false, nil
+			}
+		} else {
 			takes, err := e.segmentTakes(segment, event)
 			if err != nil || !takes {
 				return false, err

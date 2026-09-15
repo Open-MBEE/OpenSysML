@@ -37,4 +37,12 @@
   as one occurrence — so a run stepped under the check policy takes the dispatch it was offered,
   where before the checker offered a dispatch the poll then refused as nothing to do; and a
   segment drawn among several that fires nothing is reported as firing nothing rather than as
-  a transition taken.
+  a transition taken. A segment into a join that has no trigger
+  is enabled by another segment's occurrence only once its source has completed — no do behavior
+  of it running and, where one runs, its body done — so the join no longer fires and abandons
+  that behavior; it waits for the next occurrence after the source completes. The footprint of a
+  transition into a join now covers what firing the join reads and writes: every other segment's
+  source, trigger and guard, the exits of every source up to the owner and of every region the
+  owner (or the machine, joining its own regions) has, and the effects of every segment — so the
+  checker's reduction no longer treats a step writing what a sibling segment's guard or exit
+  touches as independent of the join.

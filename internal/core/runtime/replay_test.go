@@ -1290,6 +1290,7 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		private import ScalarValues::*;
+		attribute def Go;
 		attribute def Tick;
 		state def Machine {
 			attribute log : String = "";
@@ -1306,7 +1307,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 							then done;
 						}
 					}
-					transition first a do assign log := log + "a;" then sync;
+					transition first a accept Go do assign log := log + "a;" then sync;
 				}
 				state middle {
 					entry; then b;
@@ -1340,6 +1341,8 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	}
 	trace := NewTraceRecorder()
 	exec.SetTrace(trace)
+	// The Go a's segment takes arrives with b and c completed and a's do behavior waiting.
+	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 2 {
