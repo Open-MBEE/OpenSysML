@@ -866,11 +866,12 @@ What landed:
    per library index. `TestPilotLibraryXMI` asserts the catalog against the pilot's own
    `sysml.library.xmi` at the pinned release commit (`scripts/download-pilot-library-xmi.sh`,
    through the same `scripts/pilot-pin.sh` the corpora use): every id it derives is an element
-   the XMI carries under the same owning membership, and every named XMI element is derived, bar
-   the one payload an `accept` trigger declares inside a transition (`Actions::AcceptAction::
-   aState::aTransition::apayload`), which OpenSysML does not hold as a member of the transition;
-   the test lists it, so deriving it one day fails the gate until the list shrinks. CI downloads
-   the XMI and
+   the XMI carries under the same owning membership, and every named XMI element is derived. The
+   last to fall in line was the payload an `accept` trigger declares inside a transition
+   (`Actions::AcceptAction::aState::aTransition::apayload`): the symbol index now holds it as a
+   member of the transition, as the XMI does, so its qualified name — and the id derived from
+   it — agree with the pilot's. The test keeps an exact list of pilot-only elements, empty now,
+   so a divergence either way fails the gate. CI downloads the XMI and
    sets `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`, so the test fails rather than skips there.
    Unnamed and implied library elements are out of scope by design — the norm gives them
    positional ids that depend on each implementation's implied-relationship closure, so they do
