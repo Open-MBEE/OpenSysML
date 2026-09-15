@@ -21,6 +21,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
 )
 
 // ExpectedValue represents a typed value in expected.json
@@ -294,7 +295,7 @@ func TestExecutionConformance(t *testing.T) {
 }
 
 // sweepPolicies are the non-default policies the whole suite always runs under.
-var sweepPolicies = []string{"declared", "seed:1"}
+var sweepPolicies = fixtures.SweepPolicies
 
 // seedSweepEnv names the seeds the suite runs under besides seed:1, as a
 // comma-separated list of non-negative integers; unset, the sweep is seed:1 alone.
@@ -360,30 +361,17 @@ func TestExecutionConformanceUnderPolicies(t *testing.T) {
 
 // isConformanceCase tells a case's `.expected.json` from the `.check.expected.json`
 // beside it, which states what a check of every schedule finds (check_corpus_test.go).
+// The definition is shared with the generated documentation figures.
 func isConformanceCase(fileName string) bool {
-	return strings.HasSuffix(fileName, ".expected.json") && !strings.HasSuffix(fileName, ".check.expected.json")
+	return fixtures.IsCase(fileName)
 }
 
 // loadKnownFailures reads known_failures.txt and returns set of case names to skip
 func loadKnownFailures(t *testing.T, conformanceDir string) map[string]bool {
-	knownPath := filepath.Join(conformanceDir, "known_failures.txt")
-	data, err := os.ReadFile(knownPath)
+	failures, err := fixtures.KnownFailures(conformanceDir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // no known failures file
-		}
 		t.Logf("warning: failed to read known_failures.txt: %v", err)
 		return nil
-	}
-
-	failures := make(map[string]bool)
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		failures[line] = true
 	}
 	return failures
 }
