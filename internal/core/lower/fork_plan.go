@@ -49,7 +49,7 @@ func (g *StateGraph) planFork(fork *ast.PseudostateNode) (*ForkPlan, error) {
 	if len(branches) < 2 {
 		return nil, fmt.Errorf("fork %s needs at least two outgoing transitions, found %d", fork.Name, len(branches))
 	}
-	plan := &ForkPlan{Branches: make(map[*ast.StateRegion]*Transition, len(branches))}
+	targets := make([]*ast.StateNode, 0, len(branches))
 	for _, branch := range branches {
 		if branch.Trigger != nil {
 			return nil, fmt.Errorf("fork %s: outgoing transitions cannot have triggers", fork.Name)
@@ -61,24 +61,57 @@ func (g *StateGraph) planFork(fork *ast.PseudostateNode) (*ForkPlan, error) {
 		if !ok {
 			return nil, fmt.Errorf("fork %s: branch target must be a state, got %s", fork.Name, DescribeMember(branch.Target))
 		}
-		region, ok := g.RegionOf[target]
-		if !ok {
+		if g.HiddenRegionOf[target] != nil {
+			return nil, fmt.Errorf("fork %s: branch target %s is an orthogonal region, not a state in one", fork.Name, target.Name)
+		}
+		if g.enclosingRegion(target) == nil {
 			return nil, fmt.Errorf("fork %s: branch target %s is not in an orthogonal region", fork.Name, target.Name)
 		}
+		targets = append(targets, target)
+	}
+	plan := &ForkPlan{Owner: g.forkOwner(targets), Branches: make(map[*ast.StateRegion]*Transition, len(branches))}
+	if plan.Owner == nil {
+		if g.RegionOwner[g.enclosingRegion(targets[0])] == nil {
+			return nil, fmt.Errorf("fork %s: branch target %s is in a top-level region and has no owning composite state", fork.Name, targets[0].Name)
+		}
+		return nil, fmt.Errorf("fork %s: branches span more than one composite state", fork.Name)
+	}
+	for i, branch := range branches {
+		region := g.regionUnder(plan.Owner, targets[i])
+		if region == nil {
+			return nil, fmt.Errorf("fork %s: branch target %s is not in a region of %s", fork.Name, targets[i].Name, plan.Owner.Name)
+		}
 		if existing, dup := plan.Branches[region]; dup {
-			return nil, fmt.Errorf("fork %s: branches %s and %s are in the same region", fork.Name, existing.Target.(*ast.StateNode).Name, target.Name)
+			return nil, fmt.Errorf("fork %s: branches %s and %s are in the same region", fork.Name, existing.Target.(*ast.StateNode).Name, targets[i].Name)
 		}
 		plan.Branches[region] = branch
-		owner := g.RegionOwner[region]
-		if owner == nil {
-			return nil, fmt.Errorf("fork %s: branch target %s is in a top-level region and has no owning composite state", fork.Name, target.Name)
-		}
-		if plan.Owner != nil && plan.Owner != owner {
-			return nil, fmt.Errorf("fork %s: branches span more than one composite state", fork.Name)
-		}
-		plan.Owner = owner
 	}
 	return plan, nil
+}
+
+// forkOwner is the innermost orthogonal state every target lies below, nil when
+// only the machine encloses them all.
+func (g *StateGraph) forkOwner(targets []*ast.StateNode) *ast.StateNode {
+	owner := g.ParentState[targets[0]]
+	for _, target := range targets[1:] {
+		for owner != nil && !g.within(owner, target) {
+			owner = g.ParentState[owner]
+		}
+	}
+	for owner != nil && len(g.CompositeStates[owner]) == 0 {
+		owner = g.ParentState[owner]
+	}
+	return owner
+}
+
+// enclosingRegion is the innermost orthogonal region state lies in, nil if none.
+func (g *StateGraph) enclosingRegion(state *ast.StateNode) *ast.StateRegion {
+	for s := state; s != nil; s = g.ParentState[s] {
+		if region := g.RegionOf[s]; region != nil {
+			return region
+		}
+	}
+	return nil
 }
 
 // ForkStarted reports whether a fork enters region, so it may start there

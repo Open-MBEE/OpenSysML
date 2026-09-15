@@ -86,6 +86,43 @@ func TestToStateGraph_ForkEntersRegionsWithoutInitial(t *testing.T) {
 	if len(plan.Branches[graph.RegionOf[a]].Effect) != 1 {
 		t.Errorf("branch into a lost its effect")
 	}
+	if got := plan.Branches[graph.RegionOf[a]].Effect[0].Owner; got != nil {
+		t.Errorf("machine-level fork's branch effect owned by %v, want nil", got)
+	}
+}
+
+// A fork a state declares hands its branch effects that state, as it does the
+// effects of transitions leaving its substates.
+func TestToStateGraph_ForkBranchEffectsOwnedByDeclaringState(t *testing.T) {
+	graph, err := ToStateGraph(stateDefinitionIn(t, `
+		package test {
+			state def Machine {
+				entry; then outer;
+				state outer {
+					attribute count : Integer = 0;
+					entry; then init;
+					state init;
+					state work parallel {
+						state left { state a; }
+						state right { state b; }
+					}
+					fork split;
+					transition first init then split;
+					transition first split do { assign count := count + 1; } then a;
+					transition first split do { assign count := count + 10; } then b;
+				}
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	outer := stateNamed(graph, "outer")
+	for _, branch := range graph.ForkPlans[forkNamed(graph, "split")].Branches {
+		if got := branch.Effect[0].Owner; got != outer {
+			t.Errorf("branch into %s: effect owned by %v, want outer", getNodeName(branch.Target), got)
+		}
+	}
 }
 
 // A region with an entry transition of its own keeps it even when a fork also
@@ -107,6 +144,50 @@ func TestToStateGraph_ForkKeepsRegionInitialApart(t *testing.T) {
 	}
 	if got := graph.ForkPlans[forkNamed(graph, "split")].Targets()[left]; got != stateNamed(graph, "a") {
 		t.Errorf("fork enters left at %v, want a", got)
+	}
+}
+
+// A branch may target a state nested below a region's own substates, even one in
+// a region of a nested orthogonal state: the branch is the outermost region's.
+func TestToStateGraph_ForkBranchTargetsNestedState(t *testing.T) {
+	graph, err := ToStateGraph(stateDefinitionIn(t, forkMachine(
+		`entry; then l0; state l0;
+		 state wrapper { entry; then w0; state w0; state a; }`,
+		`entry; then r0; state r0;
+		 state inner parallel {
+		 	state p { entry; then p0; state p0; state b; }
+		 	state q { entry; then q0; state q0; }
+		 }`,
+		`transition first split then a;
+		 transition first split then b;`,
+	)), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	plan := graph.ForkPlans[forkNamed(graph, "split")]
+	if plan.Owner != stateNamed(graph, "work") {
+		t.Fatalf("plan owner = %v, want work", plan.Owner)
+	}
+	left, right := graph.RegionOf[stateNamed(graph, "l0")], graph.RegionOf[stateNamed(graph, "r0")]
+	targets := plan.Targets()
+	if targets[left] != stateNamed(graph, "a") || targets[right] != stateNamed(graph, "b") {
+		t.Errorf("targets = %v, want a in left and b in right", targets)
+	}
+}
+
+// Two branches into states nested in one region are still two into one region,
+// however deep either lies.
+func TestToStateGraph_ForkBranchesNestedInOneRegionFail(t *testing.T) {
+	_, err := ToStateGraph(stateDefinitionIn(t, forkMachine(
+		`entry; then l0; state l0;
+		 state wrapper { entry; then w0; state w0; state a; state a2; }`,
+		`state b;`,
+		`transition first split then a;
+		 transition first split then a2;
+		 transition first split then b;`,
+	)), nil)
+	if err == nil || !strings.Contains(err.Error(), "in the same region") {
+		t.Fatalf("error = %v, want in the same region", err)
 	}
 }
 
