@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -222,7 +223,7 @@ public final class FumlExpected {
 		provenance.put("models", modelProvenance);
 
 		int packaged = 0;
-		int timedOut = 0;
+		int failed = 0;
 		List<Object> records = new ArrayList<>();
 		ExecutorService runner = Executors.newSingleThreadExecutor(r -> {
 			Thread t = new Thread(r, "fuml-activity");
@@ -263,10 +264,10 @@ public final class FumlExpected {
 					rec.put("parameters", parameters(behavior));
 					rec.put("outputs", outputs(outputs, aliases));
 				} catch (TimeoutException e) {
-					timedOut++;
+					failed++;
 					rec.put("error", "timed out after " + ACTIVITY_TIMEOUT_SECONDS + "s");
 					events.owner = null;
-					System.err.println("error: " + decl.name + " timed out; the record is incomplete");
+					System.err.println("error: " + decl.name + " timed out");
 					runner.shutdownNow();
 					runner = Executors.newSingleThreadExecutor(r -> {
 						Thread t = new Thread(r, "fuml-activity");
@@ -274,8 +275,10 @@ public final class FumlExpected {
 						return t;
 					});
 				} catch (java.util.concurrent.ExecutionException e) {
+					failed++;
 					Throwable cause = e.getCause() == null ? e : e.getCause();
 					rec.put("error", cause.getClass().getName() + ": " + cause.getMessage());
+					System.err.println("error: " + decl.name + " failed: " + cause);
 				}
 				rec.put("events", eventRecords(events.drain(), aliases));
 			}
@@ -291,15 +294,19 @@ public final class FumlExpected {
 		StringBuilder sb = new StringBuilder();
 		Json.write(sb, record, 0);
 		sb.append('\n');
-		Path outPath = Paths.get(out);
-		if (outPath.getParent() != null) {
-			Files.createDirectories(outPath.getParent());
+		Path outPath = Paths.get(out).toAbsolutePath();
+		Files.createDirectories(outPath.getParent());
+		if (failed > 0) {
+			// An incomplete record is not truth: keep the committed one and leave the
+			// partial output beside it for diagnosis.
+			Path partial = outPath.resolveSibling(outPath.getFileName() + ".failed");
+			Files.write(partial, sb.toString().getBytes(StandardCharsets.UTF_8));
+			fail(failed + " of " + packaged + " activities failed; " + out + " left unchanged, partial record at " + partial);
 		}
-		Files.write(outPath, sb.toString().getBytes(StandardCharsets.UTF_8));
+		Path staged = Files.createTempFile(outPath.getParent(), outPath.getFileName() + ".", ".tmp");
+		Files.write(staged, sb.toString().getBytes(StandardCharsets.UTF_8));
+		Files.move(staged, outPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 		System.err.println("Wrote " + out + ": " + activities.size() + " activities, " + packaged + " executed");
-		if (timedOut > 0) {
-			fail(timedOut + " activities timed out");
-		}
 	}
 
 	/** Routes the implementation's event lines to the appender and its noise to stderr. */

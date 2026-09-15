@@ -31,7 +31,7 @@ statement about SysML v2, and it is not a fUML conformance statement about this 
 | Executable | `fuml-1.5.0a.jar`, the implementation, and its fifteen runtime dependencies from Maven Central |
 | SHA-256 | `c7d54bf2…e0f0` (test model), `4e831580…2d74b` (exception model), `7e8bae51…e2da8b7` (library), `4e78a194…de1f06e` (jar); in full in `scripts/fuml-pin.sh` |
 | Pin | `scripts/fuml-pin.sh` (`FUML_RI_TAG`, `FUML_RI_COMMIT`, the four `*_SHA256` variables, `FUML_DEPS`) |
-| Download | `./scripts/download-fuml-suite.sh`, into the git-ignored `build/fuml/`, idempotently; a file whose digest is not the pinned one is discarded, and the referee refuses to read a suite whose digest is not the pinned one |
+| Download | `./scripts/download-fuml-suite.sh`, into the git-ignored `build/fuml/`, idempotently; a file already there with its pinned digest is kept (so a suite placed by hand, without a stamp, is verified and stamped rather than fetched), one whose digest is not the pinned one is discarded, and the referee refuses to read a suite whose digest is not the pinned one |
 
 The tag names the release; the commit is what every fetch reads from, because a tag is a
 mutable ref; the checksums are what the fetch verifies, because the file behind a URL can
@@ -44,8 +44,8 @@ commons-lang, Xerces, Xalan and its serializer, xml-apis, the StAX API with SJSX
 stax-utils, and JAXB 3 with its API, core and activation — pinned by Maven Central path and
 SHA-256 in `FUML_DEPS`, so a fetch needs neither Maven nor the pom and always builds the same
 classpath. `FUML_MAVEN_REPO` names the repository (Maven Central by default; a mirror serves
-the same bytes, and the checksums say so). A dependency already installed with its pinned
-digest is kept rather than fetched again.
+the same bytes, and the checksums say so). Any file already installed with its pinned digest,
+dependency or model or jar, is kept rather than fetched again; `--force` fetches everything.
 
 **Licence and attribution.** The reference implementation, its test models and its library are
 copyright Lockheed Martin Corporation and Model Driven Solutions (formerly Data Access
@@ -71,7 +71,11 @@ make fuml-expected          # needs a JDK (javac and java on PATH, or JAVA_HOME)
 ```
 
 which fetches the suite if it is absent, compiles the driver in `scripts/fuml-driver/`
-against the pinned jar and dependencies, and runs it over both models. The record is
+against the pinned jar and dependencies, and runs it over both models. The committed record
+is replaced only when every executed activity completes: if one throws or exceeds the
+per-activity timeout, the target exits nonzero, leaves the record as it was, and writes the
+partial output beside it as `fuml-referee-expected.json.failed` (git-ignored) for diagnosis,
+with the failing activities' `error` fields filled in. The record is
 byte-stable across runs on one pin: the only nondeterministic content the implementation
 emits — object identifiers, which are Java hash codes — is aliased per activity in order of
 first appearance (`obj1`, `obj2`, …).

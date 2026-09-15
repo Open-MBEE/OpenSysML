@@ -44,12 +44,13 @@ present() {
 }
 
 # A present suite is trusted only with the current stamp and the pinned digests:
-# a restored cache can carry an intact stamp over a truncated file.
+# a restored cache can carry an intact stamp over a truncated file. Files that do
+# verify are kept whatever the stamp says, so a hand-placed suite just gets stamped.
 if [[ "$force" -eq 0 ]] && [[ -f "$stamp" ]]; then
 	if [[ "$(cat "$stamp")" != "$pin" ]]; then
-		echo "Stale pin at $target: fetched as $(cat "$stamp"), pin is now $pin; re-downloading."
+		echo "Stale pin at $target: fetched as $(cat "$stamp"), pin is now $pin; refreshing what changed."
 	elif ! present; then
-		echo "Corrupt or incomplete suite at $target; re-downloading."
+		echo "Corrupt or incomplete suite at $target; refreshing the missing or altered files."
 	else
 		echo "Already present at $target ($FUML_RI_TAG, commit $FUML_RI_COMMIT)"
 		echo "Remove that directory, or pass --force, to re-download."
@@ -68,9 +69,15 @@ work="$(mktemp -d "$target/.fuml-fetch.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/lib"
 
-# fetch URL DEST SHA256 LABEL downloads into the staging area and verifies the digest.
+# fetch URL DEST SHA256 LABEL stages the artefact: unless --force, a copy already
+# installed at $target/LABEL with the pinned digest is kept (a hand-placed file, or a
+# dependency Maven Central would rate-limit re-fetching); otherwise it is downloaded and verified.
 fetch() {
 	local url="$1" dest="$2" sum="$3" label="$4"
+	if [[ "$force" -eq 0 ]] && verify "$target/$label" "$sum"; then
+		cp "$target/$label" "$dest"
+		return 0
+	fi
 	echo "Fetching $url ..."
 	if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
 		-o "$dest" "$url" 2>"$work/curl.log"; then
@@ -92,23 +99,12 @@ fetch() {
 	fi
 }
 
-# A dependency already installed with the right digest is kept; Maven Central
-# rate-limits repeat downloads, so only the missing ones are fetched.
-fetch_dep() {
-	local path="$1" sum="$2" name="${1##*/}"
-	if verify "$libdir/$name" "$sum"; then
-		cp "$libdir/$name" "$work/lib/$name"
-		return 0
-	fi
-	fetch "$FUML_MAVEN_REPO/$path" "$work/lib/$name" "$sum" "lib/$name"
-}
-
 fetch "$FUML_TESTS_URL" "$work/$FUML_TESTS_FILE" "$FUML_TESTS_SHA256" "$FUML_TESTS_FILE"
 fetch "$FUML_EXCEPTION_TESTS_URL" "$work/$FUML_EXCEPTION_TESTS_FILE" "$FUML_EXCEPTION_TESTS_SHA256" "$FUML_EXCEPTION_TESTS_FILE"
 fetch "$FUML_LIBRARY_URL" "$work/$FUML_LIBRARY_FILE" "$FUML_LIBRARY_SHA256" "$FUML_LIBRARY_FILE"
 fetch "$FUML_JAR_URL" "$work/$FUML_JAR_FILE" "$FUML_JAR_SHA256" "$FUML_JAR_FILE"
 while read -r path sum; do
-	fetch_dep "$path" "$sum"
+	fetch "$FUML_MAVEN_REPO/$path" "$work/lib/${path##*/}" "$sum" "lib/${path##*/}"
 done <<<"$FUML_DEPS"
 
 # Only the pinned files are installed, by rename, stamp last: anything else in the
@@ -124,7 +120,7 @@ while read -r path _; do
 done <<<"$FUML_DEPS"
 mv -f "$work/.fuml-pin" "$stamp"
 
-echo "Downloaded $FUML_TESTS_FILE, $FUML_EXCEPTION_TESTS_FILE, $FUML_LIBRARY_FILE, $FUML_JAR_FILE"
+echo "Installed $FUML_TESTS_FILE, $FUML_EXCEPTION_TESTS_FILE, $FUML_LIBRARY_FILE, $FUML_JAR_FILE"
 echo "and $(fuml_dep_files | wc -l | tr -d ' ') dependency jars to $target"
 echo "Regenerate the oracle record with:"
 echo "  make fuml-expected"
