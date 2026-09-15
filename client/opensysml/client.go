@@ -184,13 +184,15 @@ type Client interface {
 	// them all with an EditError. The edits target the model's first document —
 	// its only one when parsed from a file or source — and a rename or cascade
 	// delete follows references into every other document of the model, whose
-	// rewritten notation the result lists. Requires the apply_edits capability.
+	// rewritten notation the result lists. Requires the apply_edits capability;
+	// a model of several documents, and a result listing Documents, the
+	// edit_documents capability too.
 	ApplyEdits(ctx context.Context, model *Model, edits ...Edit) (*EditResult, error)
 
 	// ApplyDocumentEdits is ApplyEdits with the edits targeting the document
 	// named as the parse named it; empty names the first. A name the model has
-	// no document under is CodeInvalidArgument. Requires the apply_edits
-	// capability.
+	// no document under is CodeInvalidArgument. Requires the apply_edits and
+	// edit_documents capabilities.
 	ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error)
 
 	// Close releases what the implementation holds. The Client answers no

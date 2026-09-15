@@ -22,7 +22,9 @@ import (
 // when they were refused. A request not accepting documents is refused on such
 // a model, since it reads only content. Argument faults fail the call; an edit
 // the engine refuses is reported in the response's error, failure kind and
-// diagnostics.
+// diagnostics. Without the edit_documents capability the service answers as one
+// predating documents: a model of several is refused, a named document is
+// refused with UNIMPLEMENTED, and the response carries content alone.
 func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error) {
 	if err := s.requireCapability(CapabilityApplyEdits); err != nil {
 		return nil, err
@@ -31,6 +33,10 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 		if err := s.requireCapability(CapabilityAuthoring); err != nil {
 			return nil, err
 		}
+	}
+	documents := s.capabilities.has(CapabilityEditDocuments)
+	if req.Document != "" && !documents {
+		return nil, s.requireCapability(CapabilityEditDocuments)
 	}
 	if req.ModelHash == "" {
 		return nil, statusError(connect.CodeInvalidArgument, "model_hash is required")
@@ -45,6 +51,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 	if err != nil {
 		return nil, err
 	}
+	if !documents && len(cached.Documents) != 1 {
+		return nil, statusErrorf(connect.CodeFailedPrecondition,
+			"the model has %d documents, and this service edits one alone: it lacks the %s capability",
+			len(cached.Documents), CapabilityEditDocuments)
+	}
 	if err := acceptsDocuments(cached, req.AcceptDocuments); err != nil {
 		return nil, err
 	}
@@ -55,9 +66,25 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 
 	result, err := edit.Apply(s.editModel(cached, edited), ops)
 	if err != nil {
-		return s.editRefusal(err, edited.Source)
+		resp, err := s.editRefusal(err, edited.Source)
+		return withoutDocuments(resp, documents), err
 	}
-	return editResultToProto(result, edited.Source.Name(), len(cached.Documents) == 1), nil
+	resp := editResultToProto(result, edited.Source.Name(), len(cached.Documents) == 1)
+	return withoutDocuments(resp, documents), nil
+}
+
+// withoutDocuments strips the fields the edit_documents capability advertises
+// from a response of a service withholding it.
+func withoutDocuments(resp *pb.ApplyEditsResponse, documents bool) *pb.ApplyEditsResponse {
+	if documents || resp == nil {
+		return resp
+	}
+	resp.Documents = nil
+	resp.Referrers = nil
+	for _, applied := range resp.Applied {
+		applied.Document = ""
+	}
+	return resp
 }
 
 // acceptsDocuments refuses a model of several documents for a request that did not say it

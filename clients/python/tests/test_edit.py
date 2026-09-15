@@ -18,6 +18,7 @@ import pytest
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
+    CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
 )
@@ -84,8 +85,9 @@ class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
     def __init__(self, capabilities=(CAPABILITY_APPLY_EDITS,), error="",
                  failure=sysml_pb2.EDIT_FAILURE_UNSPECIFIED, diagnostics=0,
                  referring_elements=(), referrers=(), not_found=False,
-                 documents=(), content="edited"):
+                 documents=(), content="edited", legacy=False):
         self._capabilities = list(capabilities)
+        self._legacy = legacy
         self._error = error
         self._failure = failure
         self._diagnostics = diagnostics
@@ -134,23 +136,24 @@ class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
                     for i in range(self._diagnostics)
                 ],
             )
+        applied = sysml_pb2.AppliedEdit(
+            operation_index=0,
+            target="Demo::SC::unitMass",
+            offset=7,
+            length=3,
+            old_text="old",
+            new_text="new",
+        )
+        if self._legacy:
+            return sysml_pb2.ApplyEditsResponse(content=self._content, applied=[applied])
+        applied.document = self._documents[0][0]
         return sysml_pb2.ApplyEditsResponse(
             content=self._content,
             documents=[
                 sysml_pb2.EditedDocument(name=name, content=text)
                 for name, text in self._documents
             ],
-            applied=[
-                sysml_pb2.AppliedEdit(
-                    operation_index=0,
-                    target="Demo::SC::unitMass",
-                    offset=7,
-                    length=3,
-                    old_text="old",
-                    new_text="new",
-                    document=self._documents[0][0],
-                )
-            ],
+            applied=[applied],
         )
 
 
@@ -533,6 +536,21 @@ def test_a_model_of_several_documents_answers_documents_not_content(fake_service
     assert [d.name for d in result.documents] == ["lib.sysml", "car.sysml"]
     assert result.documents[1].content == "package Car;"
     assert result.applied[0].document == "lib.sysml"
+
+
+def test_a_service_without_edit_documents_answers_content_alone(fake_service):
+    """A service lacking the capability edits a model of one document and answers
+    content alone: documents stays empty and no applied edit names a document."""
+    assert CAPABILITY_EDIT_DOCUMENTS == "edit_documents"
+    port, _ = fake_service(legacy=True)
+    with Connection(port=port, auto_start=False) as conn:
+        assert not conn.server_info().has(CAPABILITY_EDIT_DOCUMENTS)
+        edit = conn.load_from_content(MODEL).edit()
+        edit.set_value("Demo::SC::unitMass", "1050.0[SI::kg]")
+        result = edit.apply()
+    assert str(result) == "edited"
+    assert result.documents == []
+    assert [a.document for a in result.applied] == [""]
 
 
 def test_every_request_accepts_documents(fake_service):

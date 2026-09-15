@@ -77,6 +77,11 @@ const CapabilityApplyEdits = "apply_edits"
 // CapabilityAuthoring names add-member and delete source authoring operations.
 const CapabilityAuthoring = "authoring"
 
+// CapabilityEditDocuments names the capability of editing a model of several
+// documents as one batch, for a request accepting documents, and of answering
+// each edited document by name in ApplyEditsResponse.documents.
+const CapabilityEditDocuments = "edit_documents"
+
 // CapabilityInlineLanguage names explicit language selection for inline content.
 const CapabilityInlineLanguage = "inline_language"
 
@@ -178,6 +183,7 @@ var capabilities = []string{
 	CapabilityMetaobjectValues,
 	CapabilityUndeterminedValue,
 	CapabilityEnginesExternal,
+	CapabilityEditDocuments,
 }
 
 type capabilityAvailability struct {

@@ -2076,6 +2076,16 @@ appended after the last, so a generated client of the previous schema decodes ev
 above and ignores what it does not know — and, never setting `acceptDocuments`, is answered
 exactly as before.
 
+The other direction is a capability: a service advertises `edit_documents` in `GetServerInfo`
+when it fills `documents`, `referrers` and each applied edit's `document`, edits a model of
+several documents for a request setting `acceptDocuments`, and targets the document a request
+names. A service without it — one built before those fields existed — edits a model of one
+document and answers `content` alone, with those three fields omitted; it refuses a model of
+several with `FAILED_PRECONDITION` whatever the request sets, and a request naming a `document`
+with `UNIMPLEMENTED` naming the capability. So a client written against `documents` checks the
+capability before reading them, and reads `content` from a service that lacks it, rather than
+taking an empty `documents` for a batch that rewrote nothing.
+
 ## Minimal clients: four illustrations
 
 The four snippets below are **illustrations, not shipped code**. They are not in `clients/`, not

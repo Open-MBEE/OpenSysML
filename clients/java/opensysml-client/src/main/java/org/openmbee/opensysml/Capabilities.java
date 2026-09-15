@@ -80,6 +80,9 @@ public final class Capabilities {
   /** {@code ApplyEdits} can add members and delete declarations. */
   public static final String AUTHORING = "authoring";
 
+  /** {@code ApplyEdits} edits a model of several documents as one batch, answering each edited document by name. */
+  public static final String EDIT_DOCUMENTS = "edit_documents";
+
   /** Inline content may name the notation it is written in. */
   public static final String INLINE_LANGUAGE = "inline_language";
 

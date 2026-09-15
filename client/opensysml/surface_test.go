@@ -3,11 +3,15 @@ package opensysml_test
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
 )
 
 const behaviorSource = `package Test {
@@ -815,6 +819,53 @@ func TestApplyEditsRefusalNamesReferrersByDocument(t *testing.T) {
 	}
 	if !reflect.DeepEqual(refused.Referring, []string{"Car::engine (car.sysml)"}) {
 		t.Errorf("referring = %q, want the referrer qualified by its document", refused.Referring)
+	}
+}
+
+// A service without edit_documents edits one document alone and answers Content
+// alone, so a client checks the capability before reading Documents, before
+// editing a model of several documents, and before naming a document.
+func TestApplyEditsWithoutEditDocumentsAnswersContentAlone(t *testing.T) {
+	svc, err := sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(16, "test", []string{opensysml.CapabilityEditDocuments})
+	if err != nil {
+		t.Fatalf("NewServiceWithUnavailableCapabilitiesForTesting: %v", err)
+	}
+	t.Cleanup(svc.Close)
+	mux := http.NewServeMux()
+	mux.Handle(protoconnect.NewSysMLServiceHandler(sysmlgrpc.NewConnectAdapter(svc)))
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := dialClient(t, server.URL)
+	ctx := context.Background()
+
+	info, err := client.ServerInfo(ctx)
+	if err != nil {
+		t.Fatalf("ServerInfo: %v", err)
+	}
+	if info.Has(opensysml.CapabilityEditDocuments) || !info.Has(opensysml.CapabilityApplyEdits) {
+		t.Fatalf("capabilities = %v, want apply_edits without edit_documents", info.Capabilities)
+	}
+
+	one := parse(t, client, editableSource)
+	result, err := client.ApplyEdits(ctx, one, opensysml.SetValue{Target: "Demo::SC::unitMass", Value: "1050.0"})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if !strings.Contains(result.Content, "1050.0") || len(result.Documents) != 0 {
+		t.Errorf("content=%q documents=%+v, want the notation in Content alone", result.Content, result.Documents)
+	}
+	if len(result.Applied) != 1 || result.Applied[0].Document != "" {
+		t.Errorf("applied = %+v, want one edit naming no document", result.Applied)
+	}
+
+	two := parseTwo(t, client)
+	_, err = client.ApplyEdits(ctx, two, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
+	if !errors.Is(err, opensysml.CodeFailedPrecondition) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
+		t.Errorf("a model of two: err = %v, want CodeFailedPrecondition naming edit_documents", err)
+	}
+	_, err = client.ApplyDocumentEdits(ctx, two, "car.sysml", opensysml.Rename{Target: "Car::wheel", NewName: "tyre"})
+	if !errors.Is(err, opensysml.CodeUnimplemented) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
+		t.Errorf("naming a document: err = %v, want CodeUnimplemented naming edit_documents", err)
 	}
 }
 

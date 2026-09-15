@@ -13,7 +13,10 @@ package org.openmbee.opensysml.proto;
  * is edited as one when the request sets `accept_documents`: the operations
  * target declarations of the document named by `document`, and a rename or
  * cascade delete follows references into every other document of the model,
- * rewriting those too.
+ * rewriting those too. `document` and `accept_documents` are advertised as the
+ * "edit_documents" capability: a service without it edits a model of one
+ * document alone and answers `content` alone, so a client checks it before
+ * naming a document or reading `documents`.
  * </pre>
  *
  * Protobuf type {@code sysml.ApplyEditsRequest}
@@ -439,7 +442,10 @@ private static final long serialVersionUID = 0L;
    * is edited as one when the request sets `accept_documents`: the operations
    * target declarations of the document named by `document`, and a rename or
    * cascade delete follows references into every other document of the model,
-   * rewriting those too.
+   * rewriting those too. `document` and `accept_documents` are advertised as the
+   * "edit_documents" capability: a service without it edits a model of one
+   * document alone and answers `content` alone, so a client checks it before
+   * naming a document or reading `documents`.
    * </pre>
    *
    * Protobuf type {@code sysml.ApplyEditsRequest}

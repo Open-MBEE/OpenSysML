@@ -15,7 +15,11 @@
   says the client reads `documents`: a model of several is edited only for a request setting it,
   and one leaving it unset — every request a client of the previous schema sends — is refused on
   such a model with `FAILED_PRECONDITION` as before, so a client reading `content` alone is never
-  answered an empty one; a model of one document ignores it. `EDIT_FAILURE_REFERENCED_ELSEWHERE` is appended
+  answered an empty one; a model of one document ignores it. The `edit_documents` capability
+  advertises all of this: a service without it answers `content` alone — no `documents`,
+  `referrers` or applied-edit `document` — refuses a model of several documents with
+  `FAILED_PRECONDITION` and a request naming a document with `UNIMPLEMENTED`, so a client reading
+  `documents` checks it first. `EDIT_FAILURE_REFERENCED_ELSEWHERE` is appended
   for a rename, delete or move referred to from a document the edit cannot rewrite — a move
   respells references in its own document only, so one referred to from another document of the
   model is refused this way. No existing field changed number, type or meaning, so a generated

@@ -243,12 +243,14 @@ type EditResult struct {
 	// documents, whose notation is in Documents alone.
 	//
 	// Deprecated: read Documents, which carries the same notation for a model of
-	// one document and every rewritten document of a model of several.
+	// one document and every rewritten document of a model of several, from a
+	// service advertising the edit_documents capability.
 	Content string
 	// Documents is the edited notation of every document the edits rewrote: the
 	// edited document first when it is among them, then the others in name order.
 	// A single-document model's one document is always listed; a document of
-	// several the edits left as parsed is not.
+	// several the edits left as parsed is not. Empty, with Content filled, from a
+	// service without the edit_documents capability, which edits one document alone.
 	Documents []EditedDocument
 	// Applied says what each edit changed, grouped by document in the order
 	// Documents lists them and in request order within a document.

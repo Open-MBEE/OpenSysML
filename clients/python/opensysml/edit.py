@@ -170,6 +170,8 @@ class EditResult(Conversion):
             ``documents`` lists them and in source order within a document.
         documents: The edited notation of every document the edits rewrote,
             the edited document first: one entry for a model of one document.
+            Empty from a service without the ``edit_documents`` capability,
+            which answers ``content`` alone.
     """
 
     applied: List[AppliedEdit] = field(default_factory=list)

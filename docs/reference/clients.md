@@ -56,8 +56,10 @@ together by `ParseSources`, as one atomic batch — every document the edits rea
 `ApplyEditsResponse.documents` under the name the parse gave it, and the sole-document `content`
 stays filled for a model of one document ([the wire contract](wire-contract.md#applyedits-one-document-or-several)).
 A request must set `accept_documents` for that; one that does not is refused on a model of several
-documents as before, so a client of the previous schema is answered as it always was. The Go and
-Python clients set it and expose the documents; the Node, Java and Rust clients carry the new
+documents as before, so a client of the previous schema is answered as it always was. The service
+advertises the `edit_documents` capability for it; one without the capability answers `content`
+alone and refuses a model of several documents, so a client reads `documents` only from a service
+that advertises it. The Go and Python clients set it and expose the documents; the Node, Java and Rust clients carry the new
 fields in their generated messages only, since v1 of each parses one document at a time, and their
 conformance runners skip the multi-document scenarios naming that reason.
 

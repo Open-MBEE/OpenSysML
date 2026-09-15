@@ -165,6 +165,54 @@ func TestApplyEditsSingleDocumentIgnoresAcceptDocuments(t *testing.T) {
 	}
 }
 
+// A service withholding edit_documents answers as one predating the fields: a
+// model of one document is edited into content alone, with no documents, no
+// referrers and no applied document names; a model of several is refused even
+// for a request accepting documents.
+func TestApplyEditsWithoutEditDocumentsAnswersContentAlone(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilityEditDocuments)
+	ctx := context.Background()
+
+	hash := mustParsedSources(t, srv, "demo.sysml", editModelSource)
+	resp, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash, AcceptDocuments: true,
+		Operations: []*pb.EditOperation{setValueOp("Demo::SC::unitMass", "1050.0[SI::kg]")},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits failed: %v", err)
+	}
+	if resp.Error != "" || !strings.Contains(resp.Content, "1050.0[SI::kg]") {
+		t.Fatalf("error=%q content=%q, want the edited notation in content", resp.Error, resp.Content)
+	}
+	if len(resp.Documents) != 0 {
+		t.Errorf("documents = %v, want none without the capability", documentNames(resp))
+	}
+	if len(resp.Applied) != 1 || resp.Applied[0].Document != "" {
+		t.Errorf("applied = %v, want one edit naming no document", resp.Applied)
+	}
+
+	refused, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: []*pb.EditOperation{deleteOp("Demo::SC", false)},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits failed: %v", err)
+	}
+	if refused.Failure != pb.EditFailure_EDIT_FAILURE_DELETE_REFERENCED {
+		t.Fatalf("failure = %s (%s), want DELETE_REFERENCED", refused.Failure, refused.Error)
+	}
+	if len(refused.ReferringElements) == 0 || len(refused.Referrers) != 0 {
+		t.Errorf("referring_elements=%v referrers=%v, want the legacy list alone", refused.ReferringElements, refused.Referrers)
+	}
+
+	several := mustParsedSources(t, srv, "p.sysml", editDocP, "q.sysml", editDocQ)
+	_, err = srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: several, AcceptDocuments: true, Operations: []*pb.EditOperation{renameOp("P::Keep", "Kept")},
+	})
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), CapabilityEditDocuments) {
+		t.Errorf("model of several: err = %v, want FAILED_PRECONDITION naming %s", err, CapabilityEditDocuments)
+	}
+}
+
 // A rename in a model of several documents rewrites the declaration and every
 // reference, and the response lists each rewritten document by its parse name,
 // the model's first document first and the others in name order. content stays

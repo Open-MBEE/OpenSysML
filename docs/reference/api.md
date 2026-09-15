@@ -68,6 +68,9 @@ whose `Referrers` name each referrer with its document — carries none. The cli
 request's `accept_documents`, which is what lets a model of several documents be edited: a
 request without it, as every earlier client sends, is refused on such a model with
 `FAILED_PRECONDITION` as before, so a caller reading `content` alone is never handed an empty one.
+A service advertising `apply_edits` without `edit_documents` (`CapabilityEditDocuments`) predates
+`Documents`: it edits a model of one document and answers `Content` alone, so a caller checks the
+capability before reading `Documents`, `Referrers` or an applied edit's `Document`.
 
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})

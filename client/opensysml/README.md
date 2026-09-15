@@ -221,7 +221,11 @@ every request as accepting documents; the service refuses a request that does no
 model of several, as it did before, so a program reading `Content` alone through an
 earlier client is never handed an empty one. A reference from
 a document the edit cannot rewrite, such as a bundled library file, refuses the
-edit as `EditFailureReferencedElsewhere`, naming it in `Referrers`.
+edit as `EditFailureReferencedElsewhere`, naming it in `Referrers`. All of this is the
+`CapabilityEditDocuments` capability: a service without it edits a model of one
+document alone, answering `Content` with `Documents` empty, refuses a model of several
+with `CodeFailedPrecondition`, and refuses `ApplyDocumentEdits` with `CodeUnimplemented`
+— so a program reading `Documents` checks `ServerInfo` for the capability first.
 
 ## Concurrency, contexts and lifetime
 

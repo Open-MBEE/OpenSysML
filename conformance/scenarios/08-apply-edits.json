@@ -2,10 +2,11 @@
   "scenarios": [
     {
       "id": "apply_edits/a_set_value_rewrites_only_that_span",
-      "description": "The answer carries the whole edited source twice: in content, for callers of the sole-document contract, and as the one entry of documents, named as the parse named it.",
+      "description": "The answer carries the whole edited source twice: in content, for callers of the sole-document contract, and as the one entry of documents, named as the parse named it. Both shapes need edit_documents: a service without it fills content alone.",
       "rpc": "ApplyEdits",
       "requires_capabilities": [
-        "apply_edits"
+        "apply_edits",
+        "edit_documents"
       ],
       "model": {
         "fixture": "editable.sysml"
@@ -159,7 +160,8 @@
       "description": "A model of several documents is edited as one: the rename respells the declaration and every reference, and documents carries each rewritten document under the name the parse gave it. content is empty, since the model is not a single document.",
       "rpc": "ApplyEdits",
       "requires_capabilities": [
-        "apply_edits"
+        "apply_edits",
+        "edit_documents"
       ],
       "model": {
         "fixtures": [
@@ -221,7 +223,8 @@
       "description": "A request that leaves accept_documents unset reads only content, which a model of several documents leaves empty; it is refused as a failed precondition, as every request against such a model was before documents existed, so a client written against content alone never writes an empty one.",
       "rpc": "ApplyEdits",
       "requires_capabilities": [
-        "apply_edits"
+        "apply_edits",
+        "edit_documents"
       ],
       "model": {
         "fixtures": [
@@ -251,6 +254,7 @@
       "rpc": "ApplyEdits",
       "requires_capabilities": [
         "apply_edits",
+        "edit_documents",
         "authoring"
       ],
       "model": {
@@ -306,10 +310,11 @@
     },
     {
       "id": "apply_edits/an_edit_touching_one_document_lists_only_that_document",
-      "description": "documents lists the documents the batch rewrote, not every document of the model; content stays empty, so an empty content with a non-empty documents means a multi-document model, not an unchanged one. document selects the document declaring the target.",
+      "description": "documents lists the documents the batch rewrote, not every document of the model; content stays empty, so an empty content with a non-empty documents means a multi-document model, not an unchanged one. document selects the document declaring the target. A service not advertising edit_documents refuses a request naming a document as UNIMPLEMENTED.",
       "rpc": "ApplyEdits",
       "requires_capabilities": [
-        "apply_edits"
+        "apply_edits",
+        "edit_documents"
       ],
       "model": {
         "fixtures": [
@@ -353,6 +358,10 @@
             }
           ]
         }
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "edit_documents"
       }
     },
     {
@@ -361,6 +370,7 @@
       "rpc": "ApplyEdits",
       "requires_capabilities": [
         "apply_edits",
+        "edit_documents",
         "authoring"
       ],
       "model": {
