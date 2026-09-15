@@ -284,3 +284,64 @@ func TestLifetimeVerdictsAreNotShared(t *testing.T) {
 		t.Errorf("shared %d values or verdicts deciding on a lifetime", shared)
 	}
 }
+
+// libraryVerdicts validates the fleet of a library-backed model, sharing or not,
+// and answers its verdict lines with what the sharing saved.
+func libraryVerdicts(t *testing.T, src string, on bool) ([]string, int) {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	ctx.SetSharedDefaults(on)
+	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	done := ctx.ShareVerdicts()
+	defer done()
+	report, err := ctx.ValidateObject(fleet, []*symbols.Scope{idx.DocumentRoot("<test>")})
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	var lines []string
+	for _, v := range report.Verdicts {
+		lines = append(lines, fmt.Sprintf("%s on %q: %s", v.Kind, strings.Join(v.Path, "."), v.Status))
+	}
+	return lines, int(ctx.SharedDefaultsTaken()) + ctx.SharedVerdictsTaken()
+}
+
+// An extent reads through every object it may reach, so one enumerated after a
+// verdict was taken counts the parts the taken check never materialized.
+func TestExtentAfterSharedVerdictsCountsEveryOccurrence(t *testing.T) {
+	const src = `package test {
+		private import SequenceFunctions::size;
+		part def Comp { attribute mass : ScalarValues::Integer = 3; }
+		part def Sat {
+			part comp : Comp;
+			requirement light { require constraint { comp.mass < 10 } }
+		}
+		part def Tail {
+			requirement complete { require constraint { size(all Comp) == 3 } }
+		}
+		part def Fleet {
+			part sats : Sat[3];
+			part tail : Tail;
+		}
+		part fleet : Fleet;
+	}`
+	sharing, shared := libraryVerdicts(t, src, true)
+	materializing, _ := libraryVerdicts(t, src, false)
+	want := []string{
+		`requirement on "sats[1]": holds`,
+		`requirement on "sats[2]": holds`,
+		`requirement on "sats[3]": holds`,
+		`requirement on "tail": holds`,
+	}
+	if strings.Join(sharing, "\n") != strings.Join(want, "\n") {
+		t.Errorf("verdicts:\n%s\nwant:\n%s", strings.Join(sharing, "\n"), strings.Join(want, "\n"))
+	}
+	if strings.Join(sharing, "\n") != strings.Join(materializing, "\n") {
+		t.Errorf("sharing decides differently from materializing:\n%s\nvs\n%s", strings.Join(sharing, "\n"), strings.Join(materializing, "\n"))
+	}
+	if shared != 2 {
+		t.Errorf("shared %d verdicts over three occurrences, want 2", shared)
+	}
+}
