@@ -55,6 +55,7 @@ type runCapture struct {
 	ids               *idSequence
 	nextID            int64
 	activations, runs int64
+	sharedTaken       int64
 	run               *runState
 	trace             *TraceRecorder
 	traced            traceCapture
@@ -317,6 +318,7 @@ func (ctx *Context) captureRun() runCapture {
 	c := runCapture{
 		ids: ctx.ids, nextID: ctx.ids.next,
 		activations: ctx.activations, runs: ctx.runs,
+		sharedTaken:      ctx.sharedTaken,
 		run:              ctx.run,
 		trace:            ctx.trace,
 		traced:           captureTrace(ctx.trace),
@@ -337,6 +339,7 @@ func (c runCapture) restore(ctx *Context) {
 		c.ids.release(ctx, c.nextID)
 	}
 	ctx.activations, ctx.runs = c.activations, c.runs
+	ctx.sharedTaken = c.sharedTaken
 	ctx.run = c.run
 	ctx.trace = c.trace
 	c.traced.restore(c.trace)

@@ -513,3 +513,26 @@ func TestSharedDefaultRecordsUndoneWithFailedImage(t *testing.T) {
 	expect(t, dst, restored, "sats[2]", "twice", "8")
 	expectTaken(t, dst, 1)
 }
+
+// Restoring a snapshot rewinds what occurrences took from the shared table along
+// with the values they took: the count reads as it did at the snapshot, and the
+// takes since are made again on the way back.
+func TestSharedDefaultsTakenRestoredWithSnapshot(t *testing.T) {
+	ctx, fleet, _ := sharedFixture(t, fleetSrc, "test::fleet")
+	expect(t, ctx, fleet, "sats[1]", "b", "6")
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	defer snapshot.Release()
+	expect(t, ctx, fleet, "sats[2]", "b", "6")
+	expect(t, ctx, fleet, "sats[3]", "b", "6")
+	expectTaken(t, ctx, 2)
+	snapshot.Restore()
+	expectTaken(t, ctx, 0)
+	if at(t, ctx, fleet, "sats[2]").FeatureValues["b"].Materialized {
+		t.Fatal("sats[2].b still materialized after the restore")
+	}
+	expect(t, ctx, fleet, "sats[2]", "b", "6")
+	expectTaken(t, ctx, 1)
+}
