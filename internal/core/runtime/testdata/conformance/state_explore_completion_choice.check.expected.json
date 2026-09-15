@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"side": ["1", "2"]},
+	"agreed": {"finalState": "settled"}
+}

@@ -4222,7 +4222,7 @@ func testHistoryOutsideCompositeState(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"))
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil)
 	if err == nil {
 		t.Fatal("expected an error for a history outside any composite state")
 	}
@@ -4258,7 +4258,7 @@ func testHistoryWithoutRecordDefaultOrEntry(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"))
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil)
 	if !errors.Is(err, ErrHistoryWithoutEntry) {
 		t.Fatalf("expected ErrHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
 	}
