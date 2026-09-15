@@ -131,10 +131,7 @@ func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *l
 	if err != nil || !pass {
 		return false, err
 	}
-	if r, err = e.settleDraws(r); err != nil {
-		return false, err
-	}
-	e.transitionDecided(r)
+	r = e.transitionDecided(r)
 
 	if !r.settled() {
 		return false, fmt.Errorf("transition out of region %s has no target state", region.Name)

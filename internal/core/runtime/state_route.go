@@ -413,15 +413,16 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 	return err
 }
 
-// travel takes a compound transition along r: at each choice it leaves the
-// states every branch leaves, runs the effects of the segments into it and
-// reads its guards; move then finishes the settled rest with the effects left.
+// travel takes a compound transition along r: a draw it is open at is made first,
+// then at each choice it leaves the states every branch leaves, runs the effects
+// of the segments into it and reads its guards; move then finishes the settled
+// rest with the effects left.
 func (e *StateExecutor) travel(r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
-	return e.travelChoosing(r.choice != nil, r, exits, move)
+	return e.travelChoosing(r.choice != nil || r.draw != nil, r, exits, move)
 }
 
-// travelChoosing is travel where choosing says whether a choice lies on the way,
-// on the route or inside move, at which a replay may refuse the move.
+// travelChoosing is travel where choosing says whether a draw lies on the way, on
+// the route or inside move, at which a replay may refuse the move.
 func (e *StateExecutor) travelChoosing(choosing bool, r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
 	saved := e.leftAhead
 	e.leftAhead = nil
@@ -429,8 +430,8 @@ func (e *StateExecutor) travelChoosing(choosing bool, r route, exits exitPlan, m
 	if !choosing || !e.ctx.scheduling().replaying() {
 		return e.travelResolving(r, exits, move)
 	}
-	// Only a replay refuses a move, at a choice the exits and effects ahead of it
-	// have been made for; a refused move is undone whole.
+	// Only a replay refuses a move, at a draw the draws, exits and effects ahead
+	// of it have been made for; a refused move is undone whole.
 	mark := e.markMove()
 	err := e.travelResolving(r, exits, move)
 	if e.ctx.scheduling().refusal() != nil {
@@ -441,9 +442,18 @@ func (e *StateExecutor) travelChoosing(choosing bool, r route, exits exitPlan, m
 	return err
 }
 
-// travelResolving is travel's course: each choice on the way resolved once the
-// exits every branch makes and the effects into it are done.
+// travelResolving is travel's course: the draw the route is open at made, then
+// each choice on the way resolved once the exits every branch makes and the
+// effects into it are done.
 func (e *StateExecutor) travelResolving(r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
+	if r.draw != nil {
+		var err error
+		if r, err = e.settleDraws(r); err != nil {
+			return err
+		}
+		e.ctx.noteAll(r.notes)
+		r.notes = nil
+	}
 	for r.choice != nil {
 		targets, err := e.reachable(r)
 		if err != nil {

@@ -1276,11 +1276,14 @@ func (e *StateExecutor) completionEnabled(trans *lower.Transition) (bool, error)
 }
 
 // transitionDecided records what selecting the transition now firing noted, its
-// guard having passed its final reading, then what settling its route r noted.
-func (e *StateExecutor) transitionDecided(r route) {
+// guard having passed its final reading, then what settling its route r noted;
+// the route is returned with its notes taken.
+func (e *StateExecutor) transitionDecided(r route) route {
 	e.ctx.noteAll(e.firingNotes)
 	e.firingNotes = nil
 	e.ctx.noteAll(r.notes)
+	r.notes = nil
+	return r
 }
 
 // activeRegionOf returns the innermost active orthogonal region the state is
@@ -1615,19 +1618,16 @@ func (e *StateExecutor) triggerMatches(trigger ast.Node, scope *symbols.Scope, e
 
 // fireTransition takes a state transition, reporting whether it was taken: one
 // whose guard is false leaves the machine where it is; one whose route is open
-// at a junction draw has the draw made first.
+// at a junction draw has the draw made as the move begins.
 func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (bool, error) {
 	pass, err := e.passesGuard(trans)
 	if err != nil || !pass {
 		return false, err
 	}
-	if r, err = e.settleDraws(r); err != nil {
-		return false, err
-	}
 	// Fork, join and history reshape the active configuration rather than moving
 	// to a single state, so they are fired whole.
 	if ps, ok := trans.Target.(*ast.PseudostateNode); ok && isSynchronizationTarget(ps) {
-		e.transitionDecided(r)
+		r = e.transitionDecided(r)
 		switch ps.Kind {
 		case ast.PseudostateFork:
 			return true, e.fireForkTransition(trans, ps)
@@ -1640,8 +1640,7 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (bool, 
 	if !r.settled() {
 		return false, fmt.Errorf("transition target state not found")
 	}
-	e.transitionDecided(r)
-	return true, e.transitionTo(trans, r)
+	return true, e.transitionTo(trans, e.transitionDecided(r))
 }
 
 // moveOrigin is the state a move of the single active hierarchy starts from: the
