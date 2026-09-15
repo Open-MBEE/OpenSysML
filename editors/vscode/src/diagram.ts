@@ -32,6 +32,7 @@ import {
   FromWebview,
   ModelEditOperation,
   NodePlacement,
+  normalizeRender,
   PickerEntry,
   RENDER_CAPABILITY,
   RENDER_CHANGED_METHOD,
@@ -408,17 +409,19 @@ class DiagramPanel {
     try {
       // No form is asked for: the server writes the machine form of the kind it
       // rendered, which is Mermaid for a diagram and Markdown for a table.
-      const result = await client.sendRequest<RenderResult>(RENDER_METHOD, {
-        textDocument,
-        view: this.selected === "" ? undefined : this.selected,
-      });
+      const result = normalizeRender(
+        await client.sendRequest<RenderResult>(RENDER_METHOD, {
+          textDocument,
+          view: this.selected === "" ? undefined : this.selected,
+        }),
+      );
       // No palette unless the server also computes the edits it would lead to.
       if (!supportsEdit(client)) {
         delete result.palette;
       }
       this.rendering = {
-        nodes: result.nodes ?? [],
-        edges: result.edges ?? [],
+        nodes: result.nodes,
+        edges: result.edges,
         view: result.view,
         version: result.version,
         palette: result.palette,
