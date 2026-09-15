@@ -37,13 +37,16 @@ type route struct {
 }
 
 // junctionDraw is a junction the route reached with several branches enabled, as
-// their guards read when the transition was selected; the policy draws among them
-// only once the transition is committed to fire, so a transition another region's
-// reaction leaves behind draws nothing.
+// their guards read when the transition was selected, and the route on from each
+// as settled then; the policy draws among them only once the transition is
+// committed to fire, so a transition another region's reaction leaves behind
+// draws nothing.
 type junctionDraw struct {
 	at       *ast.PseudostateNode
 	outgoing []*lower.Transition
 	enabled  []int
+	// beyond is the route on from each enabled branch, in enabled's order.
+	beyond []route
 }
 
 // settled reports whether the route has somewhere to move to.
@@ -118,7 +121,15 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 		return route{}, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
 	}
 	if len(enabled) > 1 {
-		r.draw = &junctionDraw{at: ps, outgoing: outgoing, enabled: enabled}
+		draw := &junctionDraw{at: ps, outgoing: outgoing, enabled: enabled, beyond: make([]route, len(enabled))}
+		for i, pos := range enabled {
+			beyond, err := e.follow(ps, outgoing[pos], route{crossed: slices.Clone(r.crossed)})
+			if err != nil {
+				return route{}, err
+			}
+			draw.beyond[i] = beyond
+		}
+		r.draw = draw
 		return r, nil
 	}
 	return e.follow(ps, outgoing[enabled[0]], r)
@@ -127,8 +138,9 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 // settleDraws makes the draws the route is open at, in turn, once the transition
 // is committed to fire and nothing has moved yet: the policy draws among the
 // enabled branches, as a choice point among the route's notes, and the route goes
-// on from the branch drawn, through whatever lies beyond; a draw the witness
-// refuses is the refusal, and the route is left where it was.
+// on along the one drawn as it was settled when the transition was selected, no
+// guard beyond read again; a draw the witness refuses is the refusal, and the
+// route is left where it was.
 func (e *StateExecutor) settleDraws(r route) (route, error) {
 	for r.draw != nil {
 		draw := r.draw
@@ -137,11 +149,19 @@ func (e *StateExecutor) settleDraws(r route) (route, error) {
 		if err != nil {
 			return route{}, err
 		}
-		if r, err = e.follow(draw.at, draw.outgoing[draw.enabled[pick]], r); err != nil {
-			return route{}, fmt.Errorf("evaluate pseudostate: %w", err)
-		}
+		r = r.onward(draw.beyond[pick])
 	}
 	return r, nil
+}
+
+// onward is the route continued along beyond, settled from the pseudostate this
+// route is open at: its segments follow, and it ends where beyond does.
+func (r route) onward(beyond route) route {
+	r.segments = append(r.segments, beyond.segments...)
+	r.target, r.choice, r.draw = beyond.target, beyond.choice, beyond.draw
+	r.crossed = beyond.crossed
+	r.notes = append(r.notes, beyond.notes...)
+	return r
 }
 
 // follow takes a segment out of the pseudostate from and goes on from its target.
@@ -292,22 +312,25 @@ func pseudostateWhere(ps *ast.PseudostateNode) string {
 }
 
 // reachable lists the states the route open at a choice or a draw can end in:
-// through every branch of the choice, or the branches of the junction enabled,
-// and whatever pseudostates lie beyond, each once.
+// along the route settled beyond each branch of the junction enabled, or through
+// every branch of the choice and whatever pseudostates lie beyond, each once.
 func (e *StateExecutor) reachable(r route) ([]*ast.StateNode, error) {
 	var states []*ast.StateNode
 	seen := make(map[*ast.PseudostateNode]bool)
 	for _, ps := range r.crossed {
 		seen[ps] = true
 	}
+	add := func(target *ast.StateNode) {
+		if !slices.Contains(states, target) {
+			states = append(states, target)
+		}
+	}
 	var visit func(ps *ast.PseudostateNode, branches []*lower.Transition) error
 	visit = func(ps *ast.PseudostateNode, branches []*lower.Transition) error {
 		for _, branch := range branches {
 			switch target := branch.Target.(type) {
 			case *ast.StateNode:
-				if !slices.Contains(states, target) {
-					states = append(states, target)
-				}
+				add(target)
 			case *ast.PseudostateNode:
 				if !transientPseudostate(target.Kind) {
 					return fmt.Errorf("%s %s: a transition into %s %s is not supported", ps.Kind, ps.Name, target.Kind, target.Name)
@@ -325,14 +348,23 @@ func (e *StateExecutor) reachable(r route) ([]*ast.StateNode, error) {
 		}
 		return nil
 	}
-	if r.draw != nil {
-		branches := make([]*lower.Transition, len(r.draw.enabled))
-		for i, pos := range r.draw.enabled {
-			branches[i] = r.draw.outgoing[pos]
+	var settled func(r route) error
+	settled = func(r route) error {
+		if r.target != nil {
+			add(r.target)
+			return nil
 		}
-		return states, visit(r.draw.at, branches)
+		if r.draw != nil {
+			for _, beyond := range r.draw.beyond {
+				if err := settled(beyond); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		return visit(r.choice, e.graph.Transitions[r.choice])
 	}
-	return states, visit(r.choice, e.graph.Transitions[r.choice])
+	return states, settled(r)
 }
 
 // exitPlan lists the states a move to target exits, against the configuration

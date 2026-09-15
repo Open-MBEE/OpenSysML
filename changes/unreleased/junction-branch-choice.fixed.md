@@ -6,8 +6,10 @@
   the trace and the `choice` note name the junction. The draw is made only as the transition fires
   — after the order among several regions' transitions is drawn and the transition's own guard is
   read again — so a witness lists the region order before the junction's draw and a transition
-  another region's effect disarms draws nothing, and a replay refused at a choice beyond the
-  junction undoes the draw with the rest of the move; a history's default transition through such
+  another region's effect disarms draws nothing, no guard beyond the junction is read again (the
+  route on from each enabled branch, through any further junction, is settled with the
+  transition), and a replay refused at a choice beyond the junction undoes the draw with the rest
+  of the move; a history's default transition through such
   a junction records its draw the same way. The unguarded branches remain the default
   when no guard holds, and a junction with no enabled branch still leaves the compound transition
   unenabled. The PSSM referee's baseline moves from 44 to 45 `pass` and 16 to 15 `fail`

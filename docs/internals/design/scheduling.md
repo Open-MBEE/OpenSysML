@@ -68,10 +68,12 @@ statically, when the transition is selected — against the data as it stands be
 effect — and with two or more enabled the draw is likewise a `ChoiceTransition` at
 `junction <name>`, made and recorded only as the transition fires (`settleDraws`), after the
 region order among several candidates and after the transition's own guard is read again: a
-candidate another region's reaction disarms draws nothing, and the branch guards are not read
-again, so the branch drawn is taken though another region's effect since made its guard
-unevaluable (`TestExploreStaticJunctionBranches`, `TestExploreJunctionDrawnAsTransitionFires`,
-`state_junction_guards_read_once`). A history's default transition through such a
+candidate another region's reaction disarms draws nothing, and no branch guard is read again:
+the route beyond each enabled branch — through any further junction — is settled with the
+transition, so the branch drawn is taken along it though another region's effect since changed
+what those guards read (`TestExploreStaticJunctionBranches`,
+`TestExploreJunctionDrawnAsTransitionFires`, `state_junction_guards_read_once`,
+`state_junction_beyond_a_draw_read_once`). A history's default transition through such a
 junction draws and records the same way (`TestExploreHistoryDefaultThroughJunction`).
 
 Two things that look like openings are determined and are never recorded. Deferral: a state in the

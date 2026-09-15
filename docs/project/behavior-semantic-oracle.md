@@ -718,6 +718,35 @@ Pinned outcome: the admissible set `{a2+left with route = 1, a2+right with route
 outcomes, complete), the a-first run through the second branch among them. The golden pins the
 a-first linearization through the first branch, `seed:1` the b-first one.
 
+### Every junction guard on a route is read once, as its transition is selected: a junction beyond a draw takes the branch enabled then though another region's effect since changed what its guards read
+
+Fixture: `state_junction_beyond_a_draw_read_once` (golden, explored).
+
+```
+work ─┬─ a: a1 ─ accept Go { d := 0 } → a2
+      └─ b: b1 ─ accept Go → split ─ { route := 1 } → again ─ [4 / d > 1] { route += 10 } → left
+                                    ─ { route := 2 } → again ─ [d == 0]    { route += 20 } → right
+```
+
+Derived constraints:
+
+- A compound transition's junction guards are static, on every junction of the route: they are
+  read when the transition is selected, before any effect of the step runs (UML 2.5.1 §14.2.3.7,
+  `junction`; §14.2.3.8.1, "compound transition"). With `d = 2`, `split` has both branches enabled
+  and `again`, beyond either, has its first branch enabled and its second not; b's transition is
+  enabled through `split`'s two branches, each on to `left`.
+- Region a's effect zeroes `d`. Fired first, it would make `4 / d` unevaluable and `d == 0` hold,
+  but `again`'s guards are not read again once `split` is drawn: the route beyond each of `split`'s
+  branches was settled with its transition, so `again` takes the branch enabled then, to `left`,
+  and `route` is 11 or 12 — never 21 or 22, and the run never fails.
+
+Open: the region order, and which of `split`'s enabled branches b takes.
+
+Pinned outcome: the admissible set `{a2+left with route = 11, a2+left with route = 12}`, stated as
+`outcomes` citing this section; exploration reaches each once per region order (4 runs, 2
+outcomes, complete), the a-first runs among them. The golden pins the a-first linearization
+through the first branch, `seed:1` the b-first one.
+
 ### A history without a record takes its default transition through a junction with two branches enabled: exactly one is taken, which one is open
 
 Fixture: `state_history_default_through_junction` (golden, explored).
