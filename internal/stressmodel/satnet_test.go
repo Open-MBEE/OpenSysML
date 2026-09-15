@@ -79,6 +79,16 @@ func TestFleetValidates(t *testing.T) {
 	if stats.Bytes != len(src) {
 		t.Errorf("Bytes = %d, want %d", stats.Bytes, len(src))
 	}
+	for _, want := range []string{
+		"attribute :>> dataRate default = ",
+		"attribute :>> area default = ",
+		"connect [1] sats.comms.crosslinkTx to [1] sats.comms.crosslinkRx",
+		"connect [1] plane0.sats.comms.crosslinkTx to [1] plane1.sats.comms.crosslinkRx",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("source lacks %q", want)
+		}
+	}
 
 	s := repl.NewSession()
 	s.SetConformanceMode(conformance.ModeOf(true))
@@ -102,6 +112,9 @@ func TestFleetValidates(t *testing.T) {
 		network + ".plane1.sats#(3).catalogId":                          "= 50000",
 		network + ".plane1.unit0.catalogId":                             "= 40032",
 		network + ".plane1.unit16.comms.crosslinkTerminal.serialNumber": `= "CROSSLINKTERMINAL-00048-1"`,
+		network + ".plane1.unit16.comms.crosslinkTerminal.dataRate":     "= 244.0",
+		network + ".plane1.sats#(3).comms.crosslinkTerminal.dataRate":   "= 103.0",
+		network + ".plane1.sats#(3).eps.solarArray.area":                "= 5.1 ['m²']",
 		network + ".plane0.sats#(3).plane":                              "= 0",
 		network + ".satelliteCount":                                     "= 64",
 	} {

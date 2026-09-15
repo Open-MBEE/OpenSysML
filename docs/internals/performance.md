@@ -186,11 +186,11 @@ costs:
 | form | elements | source | wall | allocated | peak RSS |
 | ---- | -------- | ------ | ---- | --------- | -------- |
 | one `part def` per satellite, 32 planes of 400 | 2 354 827 | 145 MB | 301 s | 43.5 GiB | 20.1 GB |
-| four blocks, `part sats : Block[400]` in 32 planes | 11 667 | 716 KB | 0.57 s | 249 MiB | 185 MB |
+| four blocks, `part sats : Block[400]` in 32 planes | 12 467 | 766 KB | 0.57 s | 254 MiB | 175 MB |
 
 The runtime then pays for the occurrences when something asks for them: the
-same network instantiates in 2.55 s and 650 MB, its 2 412 `satisfy`
-assertions check in 22.6 s and 14.4 GiB allocated, and reading one summed
+same network instantiates in 2.34 s and 692 MB, its 2 412 `satisfy`
+assertions check in 23.4 s and 14.4 GiB allocated, and reading one summed
 attribute over every occurrence costs 252 s and 73.8 GiB, because each
 occurrence is still an object with a value slot per feature whose component
 tree is materialized to evaluate it. Both forms, their element counts and

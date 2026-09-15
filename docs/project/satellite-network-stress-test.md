@@ -181,7 +181,9 @@ Everything above declares a `part def` per satellite. The generator's
 orbital plane as `part sats : Block[N] ordered`, as-built values only on the
 units that diverge from their block (every sixteenth), the ring link as one
 connector over the collection, one inter-plane link per adjacent pair of
-planes and one downlink per plane and station, and the three requirements
+planes and one downlink per plane and station — the collection connectors
+with `[1]` ends, so each link joins one satellite to one satellite or
+station, though not which to which — and the three requirements
 declared once per block and asserted on the block's configuration and on
 every diverging unit. `-stats` reports both forms alike; the two new fields
 are the spacecraft definitions and the units that state values of their own.
@@ -192,23 +194,23 @@ source of both forms.
 go run ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -stats > legacy.sysml
 # satellites=12800 definitions=12800 units=12800 ground-stations=20 components=256080 connections=204400 requirements=38400 elements=2354827 bytes=145364954
 go run ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -fleet -stats > fleet.sysml
-# satellites=12800 definitions=4 units=800 ground-stations=20 components=960 connections=724 requirements=12 elements=11667 bytes=716125
+# satellites=12800 definitions=4 units=800 ground-stations=20 components=960 connections=724 requirements=12 elements=12467 bytes=765501
 ```
 
 | satellites | planes × per plane | form | definitions | units | elements | source | `-validate` wall | allocated | peak RSS |
 | ---------- | ------------------ | ---- | ----------- | ----- | -------- | ------ | ---------------- | --------- | -------- |
 | 1 600 | 8 × 200 | one definition per satellite | 1 600 | 1 600 | 294 627 | 18.1 MB | 17.5 s | 5.5 GiB | 2.6 GB |
-| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 099 | 184 KB | 0.16 s | 92 MiB | 106 MB |
+| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 203 | 191 KB | 0.17 s | 93 MiB | 106 MB |
 | 12 800 | 32 × 400 | one definition per satellite | 12 800 | 12 800 | 2 354 827 | 145 MB | 301 s | 43.5 GiB | 20.1 GB |
-| 12 800 | 32 × 400 | fleet | 4 | 800 | 11 667 | 716 KB | 0.57 s | 249 MiB | 185 MB |
+| 12 800 | 32 × 400 | fleet | 4 | 800 | 12 467 | 766 KB | 0.57 s | 254 MiB | 175 MB |
 
 The single-definition rows here are the plane and station layout the fleet
-uses, so the two forms declare the same links; the validation table above
+uses, so the two forms describe the same planes and stations; the validation table above
 (299 137 and 2 392 417 elements, 19.0 s and 318 s) was taken over a layout
 with a different split into planes and stations, and so slightly more links
 and station components. The fleet form
-declares **200 times fewer elements** at 12 800 satellites and validates in
-0.57 s and 185 MB rather than 301 s and 20.1 GB: validation is a function of
+declares **190 times fewer elements** at 12 800 satellites and validates in
+0.57 s and 175 MB rather than 301 s and 20.1 GB: validation is a function of
 what the source declares, and the fleet source is the size of four
 spacecraft, twenty stations and the links between thirty-two planes.
 
@@ -217,10 +219,10 @@ machine:
 
 | satellites | operation | wall | allocated | peak RSS |
 | ---------- | --------- | ---- | --------- | -------- |
-| 1 600 | `-instantiate` the network | 0.42 s | 219 MiB | 169 MB |
-| 1 600 | `-satisfy`, 324 assertions | 0.91 s | 508 MiB | 269 MB |
-| 12 800 | `-instantiate` the network | 2.55 s | 1.0 GiB | 650 MB |
-| 12 800 | `-satisfy`, 2 412 assertions | 22.6 s | 14.4 GiB | 1.34 GB |
+| 1 600 | `-instantiate` the network | 0.47 s | 220 MiB | 168 MB |
+| 1 600 | `-satisfy`, 324 assertions | 0.95 s | 513 MiB | 269 MB |
+| 12 800 | `-instantiate` the network | 2.34 s | 1.0 GiB | 692 MB |
+| 12 800 | `-satisfy`, 2 412 assertions | 23.4 s | 14.4 GiB | 1.36 GB |
 | 12 800 | `%eval` of `plane<i>.sats.dryMass`, all 32 planes | 252 s | 73.8 GiB | 4.9 GB |
 
 The runtime shares one shape — the effective feature list `FeaturesOf`
@@ -242,7 +244,18 @@ polling the running mode machines. Reading one summed attribute over every
 occurrence evaluates it over the full tree of each — the cost the
 single-definition form paid at validation, paid here at the first read.
 
-Two limits of the current runtime shape the fleet form:
+Three limits of the current language and runtime shape the fleet form:
+
+- A connector end is a feature chain, so the fleet form cannot write the
+  single-definition form's pairing — `ring<i>To<i+1>` closing each plane,
+  `plane<i>To<j>` between the same slots of adjacent planes, `downlink<i>To<k>`
+  to station `i mod G` — without naming every occurrence. It declares one
+  connector over each collection instead, and the runtime realizes that as
+  one link whose ends hold the collections (`%eval network.plane0.ring.a`
+  is every transmitter of the plane), whatever the `[1]` ends declare. The
+  topology the two forms state is therefore not the same: the fleet says
+  each satellite is linked within its plane, to the next plane and to the
+  stations, not to which neighbour or station.
 
 - A `satisfy` whose subject is a collection (`satisfy blockAMass by
   plane0.sats`) is rejected — the subject must denote one object — so the
@@ -264,9 +277,9 @@ go test ./internal/stressmodel -run '^$' -bench Fleet -benchmem -benchtime 3x
 
 | satellites | elements | instantiate + read four planes | per satellite | allocated | assertions | warm re-check | allocated |
 | ---------- | -------- | ------------------------------ | ------------- | --------- | ---------- | ------------- | --------- |
-| 32 | 1 175 | 64 ms | 2.0 ms | 19.2 MiB | 24 | 0.9 ms | 0.5 MiB |
-| 128 | 1 707 | 234 ms | 1.8 ms | 78.9 MiB | 36 | 1.3 ms | 1.1 MiB |
-| 512 | 3 915 | 1.33 s | 2.6 ms | 563 MiB | 108 | 7.1 ms | 7.4 MiB |
+| 32 | 1 179 | 74 ms | 2.3 ms | 20.3 MiB | 24 | 0.8 ms | 0.5 MiB |
+| 128 | 1 715 | 268 ms | 2.1 ms | 83.0 MiB | 36 | 1.4 ms | 1.1 MiB |
+| 512 | 3 947 | 1.43 s | 2.8 ms | 579 MiB | 108 | 6.4 ms | 7.4 MiB |
 
 Warm, instantiating a fleet and reading a summed attribute over its
 occurrences costs **about 2 ms and 1 MiB per satellite** — the per-satellite
