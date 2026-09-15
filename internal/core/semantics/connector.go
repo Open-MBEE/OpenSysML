@@ -110,13 +110,18 @@ func endFeatures(ends []connectorEnd) []*symbols.Symbol {
 // effectiveEnds returns sym's owned ends in declaration order, then the unredefined
 // ends of its generals, each once however many paths inherit it. Memoized.
 func (m *Model) effectiveEnds(sym *symbols.Symbol) []connectorEnd {
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.ends[sym]; ok {
 		return cached
 	}
+	if sym == nil {
+		return nil
+	}
 	// Guard against re-entrancy on cyclic specialization graphs.
+	journal(m, m.ends, sym, sym.Decl)
 	m.ends[sym] = nil
 
-	if sym != nil && sym.Decl == nil && m.IsBinaryConnector(sym) {
+	if sym.Decl == nil && m.IsBinaryConnector(sym) {
 		var out []connectorEnd
 		for i, name := range binaryConnectorEndNames {
 			end, ok := m.LookupMember(sym, name)
