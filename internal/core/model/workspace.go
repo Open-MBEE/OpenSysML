@@ -628,11 +628,11 @@ func (w *Workspace) LibraryDocument(name string) *Document {
 	name, isLibrary := w.libraryNameLocked(name)
 	doc, cached := w.libDocs[name]
 	w.mu.RUnlock()
-	if cached {
-		return doc
-	}
 	if !isLibrary {
 		return nil
+	}
+	if cached {
+		return doc
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()

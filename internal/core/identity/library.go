@@ -127,13 +127,14 @@ func (c *Catalog) Elements() []*LibraryElement { return c.order }
 // catalogs memoizes the catalog of each frozen library index.
 var catalogs sync.Map // *symbols.Index → *Catalog
 
-// LibraryCatalog is the catalog of the library idx holds, shared by every overlay over one base.
+// LibraryCatalog is the catalog of the library idx holds, shared by every
+// overlay that shows its base's library documents as the base does.
 func LibraryCatalog(idx *symbols.Index) *Catalog {
 	if idx == nil {
 		return newCatalog()
 	}
 	key := idx
-	if base := idx.Base(); base != nil {
+	if base := idx.Base(); base != nil && showsLibraryOf(idx, base) {
 		key = base
 	}
 	if !key.Frozen() {
@@ -144,6 +145,29 @@ func LibraryCatalog(idx *symbols.Index) *Catalog {
 	}
 	c, _ := catalogs.LoadOrStore(key, buildCatalog(key))
 	return c.(*Catalog)
+}
+
+// showsLibraryOf reports whether idx holds exactly base's library documents, each
+// as base does: an overlay may shadow one under its name, remove it, or add its own.
+func showsLibraryOf(idx, base *symbols.Index) bool {
+	held := 0
+	for _, name := range idx.Documents() {
+		if !idx.IsLibraryDocument(name) {
+			continue
+		}
+		if !base.IsLibraryDocument(name) || idx.DocumentRoot(name) != base.DocumentRoot(name) ||
+			idx.LibraryDocumentOf(name) != base.LibraryDocumentOf(name) ||
+			idx.DocumentKind(name) != base.DocumentKind(name) {
+			return false
+		}
+		held++
+	}
+	for _, name := range base.Documents() {
+		if base.IsLibraryDocument(name) {
+			held--
+		}
+	}
+	return held == 0
 }
 
 func newCatalog() *Catalog {
