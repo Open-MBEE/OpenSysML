@@ -356,13 +356,21 @@ func (e *StateExecutor) travelChoosing(choosing bool, r route, exits exitPlan, m
 	saved := e.leftAhead
 	e.leftAhead = nil
 	defer func() { e.leftAhead = saved }()
-	if !choosing || !e.ctx.scheduling().replaying() {
+	if !choosing {
 		return e.travelResolving(r, exits, move)
 	}
-	// Only a replay refuses a move, at a choice the exits and effects ahead of it
-	// have been made for; a refused move is undone whole.
+	return e.moveWhole(func() error { return e.travelResolving(r, exits, move) })
+}
+
+// moveWhole makes move as one compound transition. Only a replay refuses a move,
+// at a choice the exits and effects ahead of it have been made for; a refused
+// move is undone whole.
+func (e *StateExecutor) moveWhole(move func() error) error {
+	if !e.ctx.scheduling().replaying() {
+		return move()
+	}
 	mark := e.markMove()
-	err := e.travelResolving(r, exits, move)
+	err := move()
 	if e.ctx.scheduling().refusal() != nil {
 		mark.undo()
 	} else {

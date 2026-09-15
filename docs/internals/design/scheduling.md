@@ -113,10 +113,11 @@ the end, is recorded as the run goes and reported by `Context.Unfollowed` as a `
 naming the move, its choice and what the run faced; the run is never quietly turned into another
 linearization. A refused move changes nothing: a transition draw is refused before the dispatch
 fires (`broadcastEvent`), and a `choice` pseudostate's, drawn only once the compound transition's
-exits and incoming effects are made, undoes that move whole — exits, effects, the do behaviors the
-exits abandoned, what was traced and noted (`travel` marks the move with a `moveMark`, kept or
-undone by the refusal). The model checkers replay every `sat` witness under it before claiming a
-violation.
+exits and incoming effects are made, or a join's, drawn one incoming segment at a time, undoes
+that move whole — exits, effects, the do behaviors the exits abandoned, what was traced and noted
+(`moveWhole` marks the move with a `moveMark`, kept or undone by the refusal; marks nest, a
+`choice` on the way out of a join handing the do behaviors it ended to the join's). The model
+checkers replay every `sat` witness under it before claiming a violation.
 
 ## Exploration (`explore.go`)
 

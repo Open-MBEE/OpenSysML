@@ -698,8 +698,14 @@ the owner's exit
 *Runtime:* `fireJoinTransition` fires only when every state in `joinSources` is active;
 `fireJoinIncoming` then fires the incoming segments one at a time, drawing the next from the
 scheduling policy as a `ChoiceRegionOrder` labelled `join <name>` (declaration order by default),
-before the owner is exited and the outgoing segment followed; a join with a single incoming branch
-is refused (`join_with_one_incoming_branch`). `state_fork_join_pseudostate`,
+each with the arguments its own trigger takes from the occurrence bound (`fireJoinSegment`,
+`state_join_segment_reads_its_payload`), before the owner is exited and the outgoing segment
+followed, and a replay refused at a later draw undoes the segments already fired with the rest
+of the move (`TestReplayRefusedJoinDrawChangesNothing`); a join with a single incoming
+branch is refused (`join_with_one_incoming_branch`), as is one two of whose incoming transitions
+leave the same region — UML 2.5.1 §14.2.3.5 Pseudostates has a join target "two or more
+Transitions originating from Vertices in different orthogonal Regions", so every segment fires
+when the join does and none is an alternative to another (`lower/join_check.go`). `state_fork_join_pseudostate`,
 `state_join_runs_every_incoming_effect` (both orders as `outcomes`, explored). **agrees**: every
 order PSSM admits is a run the policies produce, as SM21 has it for region firing order.
 

@@ -307,6 +307,9 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	if err := graph.planForks(); err != nil {
 		return nil, err
 	}
+	if err := graph.checkJoins(); err != nil {
+		return nil, err
+	}
 	for _, region := range graph.TopRegions {
 		graph.RegionInitials[region] = graph.UnconditionalStart(region)
 		if len(graph.EntryTransitions[region]) == 0 {

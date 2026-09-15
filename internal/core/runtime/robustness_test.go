@@ -297,6 +297,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("nested_fork_starts_an_outer_region_by_default", testNestedForkStartsAnOuterRegionByDefault)
 	t.Run("join_with_one_incoming_branch", testJoinWithOneIncomingBranch)
 	t.Run("join_incoming_effect_that_fails", testJoinIncomingEffectThatFails)
+	t.Run("join_with_two_segments_from_one_source", testJoinWithTwoSegmentsFromOneSource)
 	t.Run("region_pseudostate_without_satisfied_guard", testRegionPseudostateWithoutSatisfiedGuard)
 	t.Run("region_pseudostate_cycle", testRegionPseudostateCycle)
 	t.Run("non_numeric_time_trigger", testNonNumericTimeTrigger)
@@ -6222,6 +6223,38 @@ func testJoinWithOneIncomingBranch(t *testing.T) {
 // testJoinIncomingEffectThatFails: firing a join runs the effect of every
 // transition into it, so an effect on a segment other than the firing one that
 // fails surfaces as the step's error rather than being skipped.
+// A source with two transitions into one join is refused when lowered: the
+// alternative a trigger does not enable would otherwise fire with the join.
+func testJoinWithTwoSegmentsFromOneSource(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		attribute def Go;
+		attribute def Stop;
+		state Machine parallel {
+			attribute log : String = "";
+
+			state left {
+				entry; then l1;
+				state l1;
+				transition first l1 accept Go do assign log := log + "go;" then sync;
+				transition first l1 accept Stop do assign log := log + "stop;" then sync;
+			}
+			state right {
+				entry; then r1;
+				state r1;
+				transition first r1 then sync;
+			}
+			join sync;
+			transition first sync then done;
+		}
+	}`)
+	if err == nil {
+		t.Fatal("expected an error for a join two transitions of one source enter")
+	}
+	if !strings.Contains(err.Error(), "two incoming transitions leave l1") {
+		t.Errorf("expected a shared-source error, got: %v", err)
+	}
+}
+
 func testJoinIncomingEffectThatFails(t *testing.T) {
 	_, _, err := executeStateSource(t, "Machine", `package test {
 		state Machine parallel {
