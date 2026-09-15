@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -422,4 +424,92 @@ func TestSharedDefaultOwesEveryLazyElement(t *testing.T) {
 	}
 	expect(t, ctx, fleet, "sats[2]", "total", "12")
 	expect(t, ctx, fleet, "sats[1]", "total", "6")
+}
+
+const extentFleetSrc = `package test {
+	private import SequenceFunctions::*;
+	part def Wheel;
+	part def Sat {
+		attribute wheelCount : ScalarValues::Natural = size(all Wheel);
+		assert constraint enough { size(all Wheel) >= 2 }
+	}
+}`
+
+// A value or verdict decided over the run's extent is the occurrence's own: another
+// occurrence of the shape sees the objects made since, not what the first one counted.
+func TestExtentIsNotSharedBetweenOccurrences(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, extentFleetSrc)
+	ctx.SetSharedDefaults(true)
+	defer ctx.ShareVerdicts()()
+	root := idx.DocumentRoot("<test>")
+	make := func(name string) *Instance {
+		inst, err := ctx.Instantiate(lookupOne(t, idx, name))
+		if err != nil {
+			t.Fatalf("instantiate %s: %v", name, err)
+		}
+		return inst
+	}
+	verdict := func(sat *Instance) string {
+		report, err := ctx.ValidateObject(sat, []*symbols.Scope{root})
+		if err != nil {
+			t.Fatalf("validate #%d: %v", sat.ID, err)
+		}
+		if len(report.Verdicts) != 1 {
+			t.Fatalf("#%d has %d verdicts, want its one constraint", sat.ID, len(report.Verdicts))
+		}
+		return report.Verdicts[0].Status.String()
+	}
+	make("test::Wheel")
+	first := make("test::Sat")
+	expect(t, ctx, first, "", "wheelCount", "1")
+	if got := verdict(first); got != "violated" {
+		t.Errorf("enough on the first sat = %s, want violated", got)
+	}
+	make("test::Wheel")
+	second := make("test::Sat")
+	expect(t, ctx, second, "", "wheelCount", "2")
+	if got := verdict(second); got != "holds" {
+		t.Errorf("enough on the second sat = %s, want holds", got)
+	}
+	expectTaken(t, ctx, 0)
+	if taken := ctx.SharedVerdictsTaken(); taken != 0 {
+		t.Errorf("shared verdicts taken = %d, want none over the extent", taken)
+	}
+}
+
+// A materialization that fails after installing the image's shared records takes them
+// off again: the destination's shared table is as the failed image found it.
+func TestSharedDefaultRecordsUndoneWithFailedImage(t *testing.T) {
+	ctx, fleet, _ := sharedFixture(t, imagedFleetSrc, "test::fleet")
+	expect(t, ctx, fleet, "sats[1]", "total", "4")
+	expect(t, ctx, fleet, "sats[2]", "total", "4")
+	img, err := ctx.Image(fleet)
+	if err != nil {
+		t.Fatalf("Image: %v", err)
+	}
+	sound := img.messages
+	inBody := Value{Kind: ValFunction, ref: &functionValue{
+		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
+	}}
+	img.messages = append(slices.Clone(sound), Message{Object: fleet.ID, SignalType: "go", Payload: map[string]Value{"k": inBody}})
+	dst := NewContext(ctx.Model(), 10000)
+	var notPortable *NotPortableError
+	if err := img.Materialize(dst); !errors.As(err, &notPortable) {
+		t.Fatalf("Materialize with a message it cannot carry = %v, want a NotPortableError", err)
+	}
+	if n := len(dst.sharedDefaults); n != 0 {
+		t.Errorf("the failed materialization left %d shared records on the destination", n)
+	}
+	img.messages = sound
+	if err := img.Materialize(dst); err != nil {
+		t.Fatalf("Materialize after the failure: %v", err)
+	}
+	restored, ok := dst.Instance(fleet.ID)
+	if !ok {
+		t.Fatalf("object #%d not materialized from the image", fleet.ID)
+	}
+	expect(t, dst, restored, "sats[1]", "twice", "8")
+	expect(t, dst, restored, "sats[2]", "twice", "8")
+	expectTaken(t, dst, 1)
 }
