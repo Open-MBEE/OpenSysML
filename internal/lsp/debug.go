@@ -69,7 +69,7 @@ const (
 )
 
 // debugStartParams asks to run target, a state machine or action the view draws,
-// performed by object when one is named (a part or object definition or usage).
+// performed by object when one is named (a part, item or occurrence definition or usage).
 type debugStartParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view"`
