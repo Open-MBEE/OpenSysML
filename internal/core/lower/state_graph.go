@@ -1440,8 +1440,8 @@ func classifyTrigger(trigger ast.Node) ast.Node {
 			return classifyTrigger(payload.Value)
 		}
 		return &ast.AcceptEvent{
-			SignalType: relationshipTarget(payload, ast.RelTyping),
-			Subsets:    relationshipTarget(payload, ast.RelSubsets, ast.RelRedefines, ast.RelSpecializes, ast.RelReferences),
+			SignalType: typingTarget(payload),
+			Subsets:    subsettingTarget(payload),
 			Payload:    payload,
 		}
 	}
@@ -1464,25 +1464,6 @@ func classifyTrigger(trigger ast.Node) ast.Node {
 	return &ast.ChangeEvent{
 		Condition: trigger,
 	}
-}
-
-// relationshipTarget returns the qualified name a usage's first relationship of
-// one of the given kinds names, or nil when it declares none.
-func relationshipTarget(usage *ast.Usage, kinds ...ast.RelationshipKind) *ast.QualifiedName {
-	for _, rel := range usage.Relationships {
-		if rel == nil {
-			continue
-		}
-		for _, kind := range kinds {
-			if rel.Kind != kind {
-				continue
-			}
-			if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-				return qn
-			}
-		}
-	}
-	return nil
 }
 
 // collectStateTransitions collects the transitions a state usage carries: those

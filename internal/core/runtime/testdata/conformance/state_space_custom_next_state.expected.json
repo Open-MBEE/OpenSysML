@@ -1,0 +1,14 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::doubling",
+  "outputs": {
+    "stateSpace": {"type": "VectorQuantity", "elements": [
+      {"type": "Quantity", "value": 8.0, "unit": "m"}
+    ]},
+    "output": {"type": "VectorQuantity", "elements": [
+      {"type": "Quantity", "value": 8.0, "unit": "m"}
+    ]},
+    "time": {"type": "Quantity", "value": 3.0, "unit": "s"}
+  }
+}

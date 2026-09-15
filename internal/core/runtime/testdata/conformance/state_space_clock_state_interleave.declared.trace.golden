@@ -1,0 +1,187 @@
+step 1: token 1@arm
+stmt assign early
+materialize: tank #1
+start: performed action cool of #1
+materialize: cool #2
+      eval literal 0.0 -> 0.0
+      enter calc VectorFunctions::VectorOf
+        bind components = 0.0 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨0.0⟩
+    eval invoke VectorOf -> ⟨0.0⟩
+      eval literal 1.0 -> 1.0
+      enter calc VectorFunctions::VectorOf
+        bind components = 1.0 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+    eval invoke VectorOf -> ⟨1.0⟩
+      eval literal 0.25 -> 0.25
+    eval index -> 0.25 [s]
+      eval literal 1 -> 1
+    eval index -> 1 [s]
+start: exhibited state machine monitor of #1
+materialize: monitor #3
+enter: waiting
+      eval literal 0.375 -> 0.375
+    eval index -> 0.375 [s]
+run: performed action cool of #1
+    enter calc test::Tank::cool::getOutput
+      bind input = ⟨0.0⟩ [argument]
+      bind stateSpace = ⟨1.0⟩ [argument]
+      stmt return
+              eval feature stateSpace -> ⟨1.0⟩
+            eval chain elements -> (1.0)
+            eval literal 1 -> 1
+          eval index -> 1.0
+          enter calc VectorFunctions::VectorOf
+            bind components = 1.0 [argument]
+          exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+        eval invoke VectorOf -> ⟨1.0⟩
+    exit calc test::Tank::cool::getOutput -> ⟨1.0⟩
+state: cool t=0.0 x=⟨1.0⟩ y=⟨1.0⟩
+step 1: token 1@cool
+run: exhibited state machine monitor of #1
+  eval chain early -> 0.0
+step 2: token 1@wait
+  eval literal 1.1 -> 1.1
+eval index -> 1.1 [s]
+run: performed action cool of #1
+enter calc test::Tank::cool::getDerivative
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨1.0⟩ [argument]
+  stmt return
+        eval operator - -> -2.0
+        eval feature stateSpace -> ⟨1.0⟩
+      eval operator * -> ⟨-2.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨-2.0⟩ [1/s]
+exit calc test::Tank::cool::getDerivative -> ⟨-2.0⟩ [1/s]
+enter calc test::Tank::cool::getOutput
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.5⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨0.5⟩
+        eval chain elements -> (0.5)
+        eval literal 1 -> 1
+      eval index -> 0.5
+      enter calc VectorFunctions::VectorOf
+        bind components = 0.5 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨0.5⟩
+    eval invoke VectorOf -> ⟨0.5⟩
+exit calc test::Tank::cool::getOutput -> ⟨0.5⟩
+state: cool t=0.25 x=⟨0.5⟩ y=⟨0.5⟩
+step 2: token 1@cool
+run: exhibited state machine monitor of #1
+exit: waiting
+enter: sampledEarly (entry action)
+stmt assign early
+        eval feature cool -> instance#2
+      eval chain output -> ⟨0.5⟩
+    eval chain elements -> (0.5)
+    eval literal 1 -> 1
+  eval index -> 0.5
+  eval literal 0.375 -> 0.375
+eval index -> 0.375 [s]
+transition: waiting -> sampledEarly (event: time)
+run: performed action cool of #1
+enter calc test::Tank::cool::getDerivative
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.5⟩ [argument]
+  stmt return
+        eval operator - -> -2.0
+        eval feature stateSpace -> ⟨0.5⟩
+      eval operator * -> ⟨-1.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨-1.0⟩ [1/s]
+exit calc test::Tank::cool::getDerivative -> ⟨-1.0⟩ [1/s]
+enter calc test::Tank::cool::getOutput
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.25⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨0.25⟩
+        eval chain elements -> (0.25)
+        eval literal 1 -> 1
+      eval index -> 0.25
+      enter calc VectorFunctions::VectorOf
+        bind components = 0.25 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨0.25⟩
+    eval invoke VectorOf -> ⟨0.25⟩
+exit calc test::Tank::cool::getOutput -> ⟨0.25⟩
+state: cool t=0.5 x=⟨0.25⟩ y=⟨0.25⟩
+step 3: token 1@cool
+choice at t=0.75: due action cool of object #1, state machine monitor of object #1 (unordered; ran action cool of object #1 first)
+run: performed action cool of #1
+enter calc test::Tank::cool::getDerivative
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.25⟩ [argument]
+  stmt return
+        eval operator - -> -2.0
+        eval feature stateSpace -> ⟨0.25⟩
+      eval operator * -> ⟨-0.5⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨-0.5⟩ [1/s]
+exit calc test::Tank::cool::getDerivative -> ⟨-0.5⟩ [1/s]
+enter calc test::Tank::cool::getOutput
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.125⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨0.125⟩
+        eval chain elements -> (0.125)
+        eval literal 1 -> 1
+      eval index -> 0.125
+      enter calc VectorFunctions::VectorOf
+        bind components = 0.125 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨0.125⟩
+    eval invoke VectorOf -> ⟨0.125⟩
+exit calc test::Tank::cool::getOutput -> ⟨0.125⟩
+state: cool t=0.75 x=⟨0.125⟩ y=⟨0.125⟩
+step 4: token 1@cool
+run: exhibited state machine monitor of #1
+exit: sampledEarly
+enter: sampledLate (entry action)
+stmt assign late
+        eval feature cool -> instance#2
+      eval chain output -> ⟨0.125⟩
+    eval chain elements -> (0.125)
+    eval literal 1 -> 1
+  eval index -> 0.125
+transition: sampledEarly -> sampledLate (event: time)
+run: performed action cool of #1
+enter calc test::Tank::cool::getDerivative
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.125⟩ [argument]
+  stmt return
+        eval operator - -> -2.0
+        eval feature stateSpace -> ⟨0.125⟩
+      eval operator * -> ⟨-0.25⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨-0.25⟩ [1/s]
+exit calc test::Tank::cool::getDerivative -> ⟨-0.25⟩ [1/s]
+enter calc test::Tank::cool::getOutput
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.0625⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨0.0625⟩
+        eval chain elements -> (0.0625)
+        eval literal 1 -> 1
+      eval index -> 0.0625
+      enter calc VectorFunctions::VectorOf
+        bind components = 0.0625 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨0.0625⟩
+    eval invoke VectorOf -> ⟨0.0625⟩
+exit calc test::Tank::cool::getOutput -> ⟨0.0625⟩
+state: cool t=1.0 x=⟨0.0625⟩ y=⟨0.0625⟩
+step 5: no active tokens
+step 3: token 1@read
+stmt assign early
+  eval chain early -> 0.5
+stmt assign late
+  eval chain late -> 0.125
+stmt assign final
+    eval chain elements -> (0.0625)
+    eval literal 1 -> 1
+  eval index -> 0.0625
+step 4: token 1@done
+step 5: no active tokens

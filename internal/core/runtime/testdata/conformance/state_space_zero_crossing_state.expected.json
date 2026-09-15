@@ -1,0 +1,17 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "evaluate": "test::Lander::flight",
+  "performers": [
+    {
+      "object": "test::lander",
+      "finalState": "landed",
+      "stateVisits": ["falling", "landed"],
+      "outputs": {
+        "landings": {"type": "Integer", "value": 1},
+        "height": {"type": "Real", "value": -1.0}
+      }
+    }
+  ]
+}
