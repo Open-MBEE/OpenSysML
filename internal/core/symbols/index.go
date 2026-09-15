@@ -361,7 +361,8 @@ func (idx *Index) AddDocumentWithKind(name string, root *ast.RootNamespace, kind
 
 func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, kind source.Kind, explicitKind bool) {
 	idx.mustBeWritable("AddDocument")
-	idx.RemoveDocument(name)
+	// The caller expands once the documents are in; nothing is read in between.
+	idx.removeDocument(name, false)
 	if rs == nil {
 		rs = Build(root)
 	}
@@ -801,6 +802,12 @@ func (idx *Index) hasFQN(fqn string, sym *Symbol) bool {
 // the removal is recorded in the overlay, which stops answering for what the
 // document contributed while the base keeps it for every other index over it.
 func (idx *Index) RemoveDocument(name string) {
+	idx.removeDocument(name, true)
+}
+
+// removeDocument is RemoveDocument, re-expanding only when asked: a replacement
+// takes the old document out and expands once the new one is in.
+func (idx *Index) removeDocument(name string, expand bool) {
 	idx.mustBeWritable("RemoveDocument")
 	if !idx.knows(name) {
 		return
@@ -842,7 +849,9 @@ func (idx *Index) RemoveDocument(name string) {
 	idx.docReexports.del(name)
 	idx.dropNamespaceFilters(name)
 
-	idx.ExpandWildcardImports()
+	if expand {
+		idx.ExpandWildcardImports()
+	}
 }
 
 // MarkLibrary records that the named document holds bundled library content,
