@@ -114,6 +114,58 @@ func TestSharedDefaultTakenByOccurrencesOfShape(t *testing.T) {
 	expectTaken(t, ctx, 2)
 }
 
+// Every scalar kind held by value — number, string, quantity, complex, enum
+// literal — is shared; a value naming an object or a sequence is derived on each.
+func TestSharedDefaultKinds(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+	private import SI::*;
+	enum def Band { L; S; }
+	part def Radio { attribute gain : ScalarValues::Real = 3.0; }
+	part def Sat {
+		attribute n : ScalarValues::Integer = 2;
+		attribute s : ScalarValues::String = "sat-" + "x";
+		attribute q = n * 5 [kg];
+		attribute z = ComplexFunctions::rect(1.0, n);
+		attribute band : Band = Band::S;
+		attribute chosen : Band = band;
+		part radio : Radio;
+		attribute r = radio;
+		attribute seq : ScalarValues::Integer[2] = (n, n + 1);
+	}
+	part def Fleet { part sats : Sat[3]; }
+	part fleet : Fleet;
+}`))
+	ctx.SetSharedDefaults(true)
+	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	shared := map[string]string{"s": `"sat-x"`, "q": "10 [kg]", "z": "1.0 + 2.0i", "chosen": "Band::S"}
+	own := map[string]string{"r": "", "seq": "[2, 3]"}
+	for name, want := range shared {
+		for i := 1; i <= 3; i++ {
+			expect(t, ctx, fleet, "sats["+string(rune('0'+i))+"]", name, want)
+		}
+	}
+	expectTaken(t, ctx, int64(2*len(shared)))
+	for name, want := range own {
+		for i := 1; i <= 3; i++ {
+			got := read(t, ctx, fleet, "sats["+string(rune('0'+i))+"]", name)
+			if want != "" && got != want {
+				t.Errorf("sats[%d].%s = %s, want %s", i, name, got, want)
+			}
+		}
+	}
+	expectTaken(t, ctx, int64(2*len(shared)))
+	radios := map[string]bool{}
+	for i := 1; i <= 3; i++ {
+		radios[read(t, ctx, fleet, "sats["+string(rune('0'+i))+"]", "r")] = true
+	}
+	if len(radios) != 3 {
+		t.Errorf("r names %d distinct objects over three occurrences, want 3", len(radios))
+	}
+}
+
 // An occurrence whose input diverged before the read derives its own value; one
 // diverging after taking a shared value is invalidated like a value derived in place.
 func TestSharedDefaultFollowsDivergence(t *testing.T) {

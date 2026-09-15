@@ -357,8 +357,13 @@ func (ctx *Context) sharedPaths(root *Instance, reads []sharedRead) (paths [][]s
 func (ctx *Context) bindingDeclaredFor(inst *Instance, name string) bool {
 	path := name
 	for current := inst; current != nil; {
-		if len(ctx.bindingsOf(current, path)) != 0 {
+		if len(ctx.bindingsForFeature(current.Type, path)) != 0 {
 			return true
+		}
+		for _, classifier := range current.classifiers {
+			if len(ctx.bindingsForFeature(classifier, path)) != 0 {
+				return true
+			}
 		}
 		owner, ownerFeature := current.Owner()
 		if owner == nil || ownerFeature == "" {
