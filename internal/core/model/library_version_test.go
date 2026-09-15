@@ -727,6 +727,41 @@ func TestWorkspaceLibraryVersionOfGenericTierFile(t *testing.T) {
 	}
 }
 
+// Two library files may declare the same top-level package. The name then
+// identifies neither file, so a copy rooted at it is the user's document and
+// both files stay: no arbitrary one is displaced.
+func TestWorkspaceLibraryVersionOfAmbiguousRootIsNoVersion(t *testing.T) {
+	const a, b = "lib/a.sysml", "lib/b.sysml"
+	aText := []byte("standard library package P {\n    part def A;\n}\n")
+	bText := []byte("standard library package P {\n    part def B;\n}\n")
+	idx := symbols.NewIndex()
+	idx.AddDocumentWithKind(a, parser.New(source.New(a, aText)).ParseFile(), source.KindSysML)
+	idx.AddDocumentWithKind(b, parser.New(source.New(b, bText)).ParseFile(), source.KindSysML)
+	idx.MarkLibraryDocument(a, symbols.LibraryDocument{Tier: symbols.TierSystems, Digest: symbols.TextDigest(aText)})
+	idx.MarkLibraryDocument(b, symbols.LibraryDocument{Tier: symbols.TierSystems, Digest: symbols.TextDigest(bText)})
+	idx.ExpandWildcardImports()
+	ws := NewWorkspaceWithIndex(idx)
+	if _, ok := identity.LibraryCatalog(ws.index).RootNamed("P"); ok {
+		t.Fatal("RootNamed(P) found one document where two declare P")
+	}
+
+	ws.Open("copy.sysml", aText, 1)
+	if got := ws.StandsInFor("copy.sysml"); got != "" {
+		t.Fatalf("StandsInFor = %q of a copy rooted at an ambiguous package, want nothing", got)
+	}
+	for _, lib := range []string{a, b} {
+		if !ws.IsLibraryDocument(lib) {
+			t.Errorf("%s was displaced", lib)
+		}
+	}
+	if syms := ws.LookupQualified("P::A"); len(syms) != 2 {
+		t.Errorf("P::A = %v, want %s's and the copy's", syms, a)
+	}
+	if syms := ws.LookupQualified("P::B"); len(syms) != 1 || syms[0].DocName != b {
+		t.Errorf("P::B = %v, want the one %s declares", syms, b)
+	}
+}
+
 // A caller's overlay may hold documents the frozen base does not, unmarked or
 // marked as a library; an edit's temporary index keeps both, so the edited
 // document still resolves what it did.

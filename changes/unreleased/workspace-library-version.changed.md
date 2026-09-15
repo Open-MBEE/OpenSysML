@@ -3,7 +3,8 @@
   ids, a minting action on every declaration — where `sysml -convert` recognised the same bytes
   as the bundled file. The workspace now applies the one recognition
   (`identity.Catalog.DocumentRootedAt`, moved out of `internal/core/export`): a document whose
-  every root is a top-level package of one bundled library file, stating that package's
+  every root is a top-level package of one bundled library file (a package two library files
+  declare at their top names neither), stating that package's
   normative id or declared as the library declares it, and in the file's language (the text of a
   `.kerml` file under a `.sysml` name was parsed as SysML), stands in for the bundled file. Its
   declarations are what the library's names resolve to, its elements keep their normative ids
