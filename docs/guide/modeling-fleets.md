@@ -174,9 +174,11 @@ orbital plane is `part sats : Block[N] ordered` with one ring connector over
 the collection, one connector between adjacent planes and one downlink
 connector per plane and station, their ends declared `[1]` so that each link
 joins one satellite to one satellite or station; every sixteenth unit states
-a catalog number, a slot and a crosslink terminal of its own; the
-requirements are declared once per block and asserted on the block's
-configuration and on every diverging unit:
+a catalog number, a slot and a crosslink terminal of its own — the fifteen
+units between read the block's values, so the fleet carries fewer distinct
+per-unit values than the per-satellite form, the trade-off a bound value
+table would remove; the requirements are declared once per block and
+asserted on the block's configuration and on every diverging unit:
 
 ```sysml
 part def OrbitalPlane {
