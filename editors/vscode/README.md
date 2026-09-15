@@ -42,8 +42,19 @@ the Output channel says so.
 
 ## The diagram panel
 
-`SysML: Open Diagram` opens a diagram of the active model beside it, drawn as
-SVG from the server's rendering and redrawn as the model is typed.
+`SysML: Open Diagram` opens a diagram of a model beside it, drawn as SVG from
+the server's rendering and redrawn as the model is typed. It is a keystroke or a
+click away from any `.sysml` or `.kerml` file:
+
+| From | How |
+| --- | --- |
+| **The keyboard** | <kbd>Alt</kbd>+<kbd>D</kbd> (<kbd>Option</kbd>+<kbd>D</kbd> on macOS), the shortcut diagram-preview extensions such as PlantUML use; or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> on macOS), VS Code's own shortcut for a Markdown preview. Both work while a model file is the active editor and nowhere else, so they shadow no other shortcut; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> additionally wants the cursor in the text, since it pastes elsewhere. Pressed with the diagram panel focused, either key returns to the source. Rebind them under *Preferences: Open Keyboard Shortcuts* by searching for `opensysml.openDiagram`; `opensysml.exportDiagram` has no default key and takes one the same way. |
+| **The editor** | The preview button at the right of the title bar, or *Open Diagram* in the right-click menu; the title bar's `…` menu and the right-click menu also offer *Export Diagram*. |
+| **The Explorer** | *Open Diagram* in a `.sysml` or `.kerml` file's right-click menu, which opens the file and its diagram side by side. |
+| **The Command Palette** | `SysML: Open Diagram`. With no model file focused, the one model file in view is drawn; with several in view, the command asks which to focus. |
+
+Without a running server, or with a `sysml-lsp` too old to draw, every one of
+these says so instead of doing nothing.
 
 | | |
 | --- | --- |
