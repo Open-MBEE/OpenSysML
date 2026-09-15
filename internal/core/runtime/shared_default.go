@@ -36,6 +36,10 @@ func (ctx *Context) SetSharedDefaults(on bool) { ctx.shareDefaults = on }
 // SharedDefaults reports whether this context shares derived defaults between occurrences.
 func (ctx *Context) SharedDefaults() bool { return ctx.shareDefaults }
 
+// sharing reports whether evaluations are shared now: a traced context shares none,
+// since a trace records every evaluation and a value taken from the shape has none.
+func (ctx *Context) sharing() bool { return ctx.shareDefaults && ctx.trace == nil }
+
 // SharedDefaultsTaken counts the derived values occurrences took from the shared
 // table rather than deriving; a measure of what the sharing saved.
 func (ctx *Context) SharedDefaultsTaken() int64 { return ctx.sharedTaken }
@@ -165,7 +169,7 @@ func shareable(val Value) bool {
 // hold: sharing is on, the feature holds one value its subsetters do not populate,
 // no binding or write determines it, and no behavior run makes the reads its own.
 func (ctx *Context) sharesDefault(inst *Instance, fv *FeatureValue) bool {
-	return ctx.shareDefaults && fv.Feature.Scalar() && !fv.Written && !fv.BindingDerived &&
+	return ctx.sharing() && fv.Feature.Scalar() && !fv.Written && !fv.BindingDerived &&
 		ctx.behaviorRunDepth == 0 && !ctx.defaultYieldsToSubsetters(inst, fv.Feature) &&
 		ctx.shapeOf(inst) != nil
 }

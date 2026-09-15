@@ -159,3 +159,36 @@ func TestSharedVerdictsOncePerDistinctInput(t *testing.T) {
 	done()
 	expectTaken(0)
 }
+
+// A traced context shares nothing: the trace records every check and derivation as
+// the materializing path makes them, and sharing resumes once the trace is detached.
+func TestTracedContextSharesNothing(t *testing.T) {
+	traced := func(share bool) (*TraceRecorder, string, int) {
+		ctx, idx := contextForSource(t, mixedVerdictSrc)
+		ctx.SetSharedDefaults(share)
+		tr := NewTraceRecorder()
+		ctx.SetTrace(tr)
+		reading, shared := sparseReading(ctx, lookupOne(t, idx, "test::fleet"), idx.DocumentRoot("<test>"))
+		return tr, reading, shared
+	}
+	sharingTrace, sharingReading, shared := traced(true)
+	materializingTrace, materializingReading, _ := traced(false)
+	if shared != 0 {
+		t.Errorf("a traced context shared %d evaluations", shared)
+	}
+	if len(sharingTrace.Entries()) == 0 {
+		t.Fatal("validating recorded no trace")
+	}
+	if sharingTrace.String() != materializingTrace.String() || sharingReading != materializingReading {
+		t.Errorf("traced sharing context differs from the materializing one\n--- sharing\n%s%s\n--- materializing\n%s%s",
+			sharingTrace, sharingReading, materializingTrace, materializingReading)
+	}
+
+	ctx, idx := contextForSource(t, mixedVerdictSrc)
+	ctx.SetSharedDefaults(true)
+	ctx.SetTrace(NewTraceRecorder())
+	ctx.SetTrace(nil)
+	if _, shared := sparseReading(ctx, lookupOne(t, idx, "test::fleet"), idx.DocumentRoot("<test>")); shared == 0 {
+		t.Error("nothing shared once the trace was detached")
+	}
+}

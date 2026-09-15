@@ -320,6 +320,7 @@ const imagedFleetSrc = `package test {
 	part def Sat {
 		part c1 : Comp;
 		attribute total : ScalarValues::Integer = c1.m + 1;
+		attribute twice : ScalarValues::Integer = total * 2;
 	}
 	part def Heavy :> Sat {
 		part :>> c1 { attribute :>> m = 9; }
@@ -331,8 +332,9 @@ const imagedFleetSrc = `package test {
 }`
 
 // An image of an occurrence that took a value shared over its unmaterialized
-// subtree materializes as one that derived it in place: classifying and writing
-// under the restored object reach the value.
+// subtree materializes as one that derived it in place, still owing that subtree
+// and still sharing what its restored values derive: classifying and writing under
+// the restored object reach the value.
 func TestSharedDefaultSurvivesHeldImage(t *testing.T) {
 	ctx, fleet, idx := sharedFixture(t, imagedFleetSrc, "test::fleet")
 	expect(t, ctx, fleet, "sats[1]", "total", "4")
@@ -346,6 +348,12 @@ func TestSharedDefaultSurvivesHeldImage(t *testing.T) {
 	if !ok {
 		t.Fatalf("object #%d not materialized from the image", fleet.ID)
 	}
+	if owed := at(t, dst, restored, "sats[2]").owed; len(owed) != 1 || owed[0].fv != at(t, dst, restored, "sats[2]").FeatureValues["total"] {
+		t.Errorf("restored sats[2] owes %d values, want its total", len(owed))
+	}
+	expect(t, dst, restored, "sats[1]", "twice", "8")
+	expect(t, dst, restored, "sats[2]", "twice", "8")
+	expectTaken(t, dst, 1)
 	if err := dst.classify(at(t, dst, restored, "sats[2]"), lookupOne(t, idx, "test::Heavy")); err != nil {
 		t.Fatalf("classify sats[2]: %v", err)
 	}

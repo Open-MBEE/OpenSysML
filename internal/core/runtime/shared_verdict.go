@@ -77,7 +77,7 @@ func (ctx *Context) checkOn(element *symbols.Symbol, kind, name string, carrying
 // it may stand for the shape. name is how the checked element is named in self's messages.
 func (ctx *Context) checkShared(element *symbols.Symbol, name string, self *Instance, check func() (CheckResult, error)) (CheckResult, error) {
 	memo := ctx.verdicts
-	if memo == nil || !ctx.shareDefaults || element == nil || self == nil {
+	if memo == nil || !ctx.sharing() || element == nil || self == nil {
 		return check()
 	}
 	shape := ctx.shapeOf(self)
