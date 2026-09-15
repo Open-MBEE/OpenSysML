@@ -2384,7 +2384,6 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 	if ready, err := e.joinSynchronized(trans, e.firingEvent); err != nil || !ready {
 		return false, err
 	}
-	r = e.transitionDecided(r)
 	plan, err := e.joinPlan(join)
 	if err != nil {
 		return false, err
@@ -2394,6 +2393,8 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 	// regions they left so the usual hierarchy walk exits it as well.
 	r.segments = r.segments[1:]
 	return true, e.moveWhole(func() error {
+		// Decided inside the move: a refused draw undoes the selection's records too.
+		r = e.transitionDecided(r)
 		if err := e.fireJoinIncoming(join, plan); err != nil {
 			return err
 		}
