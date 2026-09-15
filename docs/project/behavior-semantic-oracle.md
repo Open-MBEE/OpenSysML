@@ -571,7 +571,10 @@ guard cannot be evaluated is not an alternative and does not fail the dispatch: 
 an informational `guard-unevaluable` note naming the state, the event and the transition
 (`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `state_choice_unevaluable_transition`,
 golden). The first transition read is the run's own, and its failure fails the dispatch as it
-always has (`TestFirstTransitionFailureStillFailsTheRun`).
+always has (`TestFirstTransitionFailureStillFailsTheRun`). A state's completion is one occurrence
+too: several unguarded completion transitions out of one state are the same choice, drawn when
+the completion is dispatched, and the completion fires exactly one of them
+(`state_explore_completion_choice`, 2 runs, 2 outcomes, complete).
 
 The choice is recorded when the transition fires, not when it is selected: a transition selected
 on the event reads its guard once more as it fires, and one another region's reaction has

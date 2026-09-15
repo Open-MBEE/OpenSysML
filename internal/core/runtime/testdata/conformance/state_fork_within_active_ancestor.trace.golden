@@ -1,0 +1,56 @@
+exit: idle (exit action)
+stmt assign log
+    eval feature log -> "outer(entry) "
+    eval literal "idle(exit) " -> "idle(exit) "
+  eval operator + -> "outer(entry) idle(exit) "
+stmt assign log
+    eval feature log -> "outer(entry) idle(exit) "
+    eval literal "T1(effect) " -> "T1(effect) "
+  eval operator + -> "outer(entry) idle(exit) T1(effect) "
+stmt assign log
+    eval feature log -> "outer(entry) idle(exit) T1(effect) "
+    eval literal "T1.1(effect) " -> "T1.1(effect) "
+  eval operator + -> "outer(entry) idle(exit) T1(effect) T1.1(effect) "
+enter: work (entry action)
+stmt assign log
+    eval feature log -> "outer(entry) idle(exit) T1(effect) T1.1(effect) "
+    eval literal "work(entry) " -> "work(entry) "
+  eval operator + -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) "
+enter: a (entry action)
+stmt assign log
+    eval feature log -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) "
+    eval literal "a(entry) " -> "a(entry) "
+  eval operator + -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) "
+stmt assign log
+    eval feature log -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) "
+    eval literal "T1.2(effect) " -> "T1.2(effect) "
+  eval operator + -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) "
+enter: b (entry action)
+stmt assign log
+    eval feature log -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) "
+    eval literal "b(entry) " -> "b(entry) "
+  eval operator + -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) "
+transition: idle -> split
+exit: a
+enter: done
+transition: a -> done
+exit: b
+enter: done
+transition: b -> done
+exit: done
+exit: done
+exit: work
+enter: done
+transition: work -> done
+exit: done
+exit: outer (exit action)
+stmt assign log
+    eval feature log -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) "
+    eval literal "outer(exit) " -> "outer(exit) "
+  eval operator + -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) outer(exit) "
+stmt assign log
+    eval feature log -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) outer(exit) "
+    eval literal "T2(effect) " -> "T2(effect) "
+  eval operator + -> "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) outer(exit) T2(effect) "
+enter: done
+transition: done -> done

@@ -1,0 +1,13 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go", "args": null},
+    {"signal": "Up", "args": null}
+  ],
+  "finalState": "done",
+  "stateVisits": ["wait", "outer", "inner", "done"],
+  "outputs": {
+    "log": {"type": "String", "value": "outer(entry);inner(entry);inner(exit);up(effect);outer(exit);completion(effect);"}
+  }
+}

@@ -458,25 +458,18 @@ func (e *StateExecutor) scheduleFromLeaf(leaf *ast.StateNode) error {
 	return nil
 }
 
-// scheduleCompletionTransitions queues the completion transitions of a state
-// whose guard holds. A state completes only once its do behavior has finished,
-// so a state still running one is skipped here and scheduled by settleDoActions
-// when the behavior ends; a composite state's body reaching `done` schedules
-// them through completeIfDone.
+// scheduleCompletionTransitions queues a state's completion as one event, carrying
+// its first completion transition; the guards are read when the occurrence is
+// dispatched (chooseCompletion), not now. A state completes only once its do
+// behavior has finished, so a state still running one is skipped here and
+// scheduled by settleDoActions when the behavior ends; a composite state's body
+// reaching `done` schedules it through completeIfDone.
 func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) error {
 	if e.hasRunningDoAction(state) {
 		return nil
 	}
-
 	for _, trans := range e.graph.Transitions[state] {
 		if trans.Trigger != nil {
-			continue
-		}
-		satisfied, err := e.passesGuard(trans)
-		if err != nil {
-			return fmt.Errorf("eval completion guard: %w", err)
-		}
-		if !satisfied {
 			continue
 		}
 		e.eventQueue.Push(Event{
@@ -486,6 +479,7 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 			Payload:   trans,
 		})
 		e.nextEventID++
+		return nil
 	}
 	return nil
 }
@@ -661,12 +655,19 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				// no longer there.
 				return dispatch, nil
 			}
+			var notes []RunNote
+			if lowerTrans.Trigger == nil && sourceState != nil {
+				var err error
+				if lowerTrans, notes, err = e.chooseCompletion(sourceState, lowerTrans); err != nil || lowerTrans == nil {
+					return dispatch, err
+				}
+			}
 			// A transition out of a state inside an orthogonal region is region-local:
 			// it must not tear down the sibling regions unless its target lies outside
 			// the region set. The source may be a composite state enclosing the
 			// region's active state, so the region is resolved by containment.
 			var err error
-			dispatch.Fired, err = e.resolveAndFire(sourceState, lowerTrans)
+			dispatch.Fired, err = e.resolveAndFire(sourceState, lowerTrans, notes)
 			return dispatch, err
 		}
 
@@ -1099,12 +1100,15 @@ func (e *StateExecutor) exitedByAncestorRegion(state *ast.StateNode, leaving []*
 
 // activeLeaves returns the innermost active states, ordered by the declaration of
 // the regions they lie in rather than by their depth. A state owning an active
-// orthogonal region is not a leaf: the event reaches it walking outward.
+// orthogonal region is not a leaf: the event reaches it walking outward. Once
+// every one of its regions rests at the state itself, it is the leaf, once.
 func (e *StateExecutor) activeLeaves() []*ast.StateNode {
 	states := e.activeStates()
 	leaves := make([]*ast.StateNode, 0, len(states))
+	seen := make(map[*ast.StateNode]bool, len(states))
 	for _, state := range states {
-		if !e.enclosesActiveRegion(state) {
+		if !e.enclosesActiveRegion(state) && !seen[state] {
+			seen[state] = true
 			leaves = append(leaves, state)
 		}
 	}
@@ -1173,15 +1177,101 @@ func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition,
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
 // its route as it fires; source is as for fireFrom, nil for the single hierarchy.
-func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Transition) (bool, error) {
+func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Transition, notes []RunNote) (bool, error) {
 	r, err := e.resolveRoute(trans)
 	if err != nil {
 		return false, err
 	}
 	if source != nil {
-		return e.fireFrom(source, trans, nil, r)
+		return e.fireFrom(source, trans, notes, r)
 	}
+	saved := e.firingNotes
+	e.firingNotes = notes
+	defer func() { e.firingNotes = saved }()
 	return e.fireTransition(trans, r)
+}
+
+// chooseCompletion resolves which completion transition out of source fires on
+// the completion event dispatched carries: every completion transition of the
+// state has its guard read now, the policy draws one of those enabled as a
+// transition choice and the state's other completion events leave the queue,
+// one completion occurrence firing one transition. None enabled fires nothing.
+func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lower.Transition) (*lower.Transition, []RunNote, error) {
+	queued := e.eventQueue.CompletionsOf(source)
+	// The others leave the queue only once the draw stands: a refused replay changes nothing.
+	drain := func() {
+		for _, ev := range queued {
+			e.eventQueue.Take(ev.ID)
+		}
+	}
+	transitions := e.graph.Transitions[source]
+	if completionCount(transitions) < 2 {
+		// Nothing to choose among: firing reads the one guard.
+		drain()
+		return dispatched, nil, nil
+	}
+	var enabled []int
+	var notes []RunNote
+	for pos, trans := range transitions {
+		if trans.Trigger != nil {
+			continue
+		}
+		var ok bool
+		var err error
+		if len(enabled) > 0 {
+			// As for a triggered event: once one is enabled, a later one whose guard
+			// cannot be read is noted as an alternative not taken, not an error.
+			e.preview(func() { ok, err = e.completionEnabled(trans) })
+			if err != nil {
+				notes = append(notes, e.unevaluableTransition(source, transitions, pos, err))
+				ok = false
+			}
+		} else if ok, err = e.completionEnabled(trans); err != nil {
+			return nil, nil, fmt.Errorf("eval completion guard: %w", err)
+		}
+		if ok {
+			enabled = append(enabled, pos)
+		}
+	}
+	if len(enabled) == 0 {
+		drain()
+		return nil, nil, nil
+	}
+	choice, ok := e.transitionChoice(source, transitions, enabled)
+	if !ok {
+		drain()
+		return transitions[enabled[0]], notes, nil
+	}
+	whereOf := func(i int) string { return transitionWhere(source, transitions[enabled[i]]) }
+	pick := e.ctx.scheduling().choose(choice, whereOf)
+	choice.Taken, choice.Where = pick, whereOf(pick)
+	choice.File, choice.Span = e.transitionLocation(source, transitions[enabled[pick]])
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return nil, nil, err
+	}
+	drain()
+	return transitions[enabled[pick]], append(notes, choice), nil
+}
+
+// completionCount is how many of the transitions are completion transitions.
+func completionCount(transitions []*lower.Transition) int {
+	n := 0
+	for _, trans := range transitions {
+		if trans.Trigger == nil {
+			n++
+		}
+	}
+	return n
+}
+
+// completionEnabled reports whether a completion transition can fire now: its
+// guard holds and the join it may lead into has every other branch in place.
+func (e *StateExecutor) completionEnabled(trans *lower.Transition) (bool, error) {
+	pass, err := e.passesGuard(trans)
+	if err != nil || !pass {
+		return false, err
+	}
+	return e.joinSynchronized(trans)
 }
 
 // transitionDecided records what selecting the transition now firing noted, its
@@ -1206,11 +1296,11 @@ func (e *StateExecutor) activeRegionOf(state *ast.StateNode) *ast.StateRegion {
 	return nil
 }
 
-// enclosesActiveRegion reports whether the state owns an orthogonal region that
-// is currently active.
+// enclosesActiveRegion reports whether the state owns an orthogonal region with
+// an active state below it; a region resting at the state itself has none.
 func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 	for _, region := range e.graph.CompositeStates[state] {
-		if _, active := e.activeConfig.regionStates[region]; active {
+		if active, ok := e.activeConfig.regionStates[region]; ok && active != state {
 			return true
 		}
 	}
@@ -1618,6 +1708,9 @@ func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateN
 	if err := e.runBehaviors(effects); err != nil {
 		return err
 	}
+	if lca == targetState {
+		return e.completeInto(trans, fromName, targetState)
+	}
 	return e.enterBelow(trans, fromName, lca, targetState, branches)
 }
 
@@ -1732,10 +1825,43 @@ func (e *StateExecutor) machineComplete() bool {
 	return true
 }
 
-// regionComplete reports whether region rests at its completion vertex.
+// completeInto finishes a transition into a still active ancestor: the target is
+// not re-entered and the region the source left completes (PSSM 8.5.8).
+func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, target *ast.StateNode) error {
+	e.stateStack = e.rootToLeaf(target)
+	if _, orthogonal := e.graph.CompositeStates[target]; orthogonal {
+		if e.stateComplete(target) {
+			if err := e.scheduleCompletionTransitions(target); err != nil {
+				return fmt.Errorf("schedule completion of state %s: %w", target.Name, err)
+			}
+		}
+	} else {
+		// The body completed: its history keeps no substate to restore.
+		if record := e.history[target]; record != nil {
+			record.child = nil
+		}
+		onPath := e.branchesTo(nil, target)
+		for region, state := range onPath {
+			e.activeConfig.regionStates[region] = state
+		}
+		if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
+			e.activeConfig.simpleState = target
+		}
+		if err := e.scheduleCompletionTransitions(target); err != nil {
+			return fmt.Errorf("schedule completion of state %s: %w", target.Name, err)
+		}
+	}
+	if e.trace() != nil {
+		e.trace().RecordStateTransition(fromName, target.Name, triggerName(trans.Trigger))
+	}
+	return nil
+}
+
+// regionComplete reports whether region rests at its completion vertex, or at
+// its owner once a transition into the owner left it without an active state.
 func (e *StateExecutor) regionComplete(region *ast.StateRegion) bool {
 	active, ok := e.activeConfig.regionStates[region]
-	return ok && e.graph.Completes(active)
+	return ok && (e.graph.Completes(active) || active == e.graph.RegionOwner[region])
 }
 
 // stateComplete reports whether state's body has completed: it is a completion
@@ -2092,14 +2218,16 @@ func (e *StateExecutor) deepestRecorded(state *ast.StateNode, branches map[*ast.
 // taken at once, making one state active per orthogonal region of the composite
 // state that owns them.
 func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.PseudostateNode) error {
-	targets, owner, err := e.forkPlan(fork)
+	plan, err := e.forkPlan(fork)
 	if err != nil {
 		return err
 	}
+	owner := plan.Owner
 
-	// Leave the source configuration, up to but excluding the composite state
-	// the branches live in.
-	if err := e.exitToward(owner); err != nil {
+	// Leave the source configuration down to the move's boundary, which stays
+	// active: states above it are neither exited nor entered again.
+	boundary, err := e.leaveForFork(trans, owner)
+	if err != nil {
 		return err
 	}
 	for _, behavior := range trans.Effect {
@@ -2108,19 +2236,31 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 		}
 	}
 
-	// Enter the composite state's own hierarchy, activating each targeted region
-	// at its branch target rather than at the region's initial state: an explicit
-	// fork bypasses the initial pseudostate, so that state's entry and do
-	// behaviors must not run. Regions the fork does not target start normally.
-	if owner == nil {
-		return fmt.Errorf("fork %s: branch targets have no owning composite state", fork.Name)
+	// The fork's own parent is entered before its branches fire; the branches
+	// enter the rest of the way down to the owner and their targets, bypassing
+	// the initial states of the regions they enter (PSSM §8.5.7).
+	above := e.forkEntry(boundary, owner)
+	if i := slices.Index(above.chain, e.graph.PseudostateOwner[fork]); i >= 0 {
+		if err := e.enterLazily(above, i+1); err != nil {
+			return err
+		}
 	}
-	if err := e.enterHierarchyInto(owner, targets); err != nil {
+	if err := e.enterForkBranches(plan, above); err != nil {
 		return err
+	}
+	// A region the move re-entered on its way down keeps the state of that path.
+	for region, state := range e.branchesTo(boundary, owner) {
+		if _, active := e.activeConfig.regionStates[region]; !active {
+			e.activeConfig.regionStates[region] = state
+		}
 	}
 
 	if err := e.scheduleTransitionEvents(); err != nil {
 		return fmt.Errorf("schedule events: %w", err)
+	}
+	// Branches ending in `done` complete the owner, or the machine, at once.
+	if err := e.completeIfDone(owner); err != nil {
+		return fmt.Errorf("complete state machine: %w", err)
 	}
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(getNodeName(trans.Source), fork.Name, "")
@@ -2128,40 +2268,65 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	return nil
 }
 
-// forkPlan is the state each outgoing branch of a fork enters, by region, and the
-// composite state owning those regions.
-func (e *StateExecutor) forkPlan(fork *ast.PseudostateNode) (map[*ast.StateRegion]*ast.StateNode, *ast.StateNode, error) {
-	branches := e.graph.Transitions[fork]
-	if len(branches) < 2 {
-		return nil, nil, fmt.Errorf("fork %s needs at least two outgoing transitions, found %d", fork.Name, len(branches))
+// leaveForFork exits the source configuration of a transition into a fork whose
+// branches enter owner's regions, and returns the state the exits stopped at: the
+// least common ancestor of source and owner, as for a move to a single state.
+func (e *StateExecutor) leaveForFork(trans *lower.Transition, owner *ast.StateNode) (*ast.StateNode, error) {
+	source, _ := trans.Source.(*ast.StateNode)
+	region := e.activeRegionOf(source)
+	if region == nil {
+		origin := e.moveOrigin()
+		lca := e.moveBoundary(origin, trans, owner)
+		return lca, e.exitStates(e.exitPath(origin, lca, nil))
 	}
+	sourceRegion, targetRegion := e.regionMove(region, owner)
+	if targetRegion == nil {
+		regionOwner := e.graph.RegionOwner[region]
+		if regionOwner == nil {
+			return nil, fmt.Errorf("fork into %s from region %s: the target lies outside the machine's regions", owner.Name, region.Name)
+		}
+		lca := e.getLCA(regionOwner, owner)
+		if lca == owner {
+			return owner, e.exitRegionsOf(owner)
+		}
+		return lca, e.exitRegionOwnerTo(regionOwner, lca)
+	}
+	keep := e.regionKeep(targetRegion, trans, owner)
+	if sourceRegion != targetRegion {
+		if err := e.exitRegionTo(sourceRegion, nil); err != nil {
+			return nil, err
+		}
+	}
+	return keep, e.exitRegionTo(targetRegion, keep)
+}
 
-	targets := make(map[*ast.StateRegion]*ast.StateNode, len(branches))
-	var owner *ast.StateNode
-	for _, branch := range branches {
-		if branch.Guard != nil {
-			return nil, nil, fmt.Errorf("fork %s: outgoing transitions cannot be guarded", fork.Name)
-		}
-		target, ok := branch.Target.(*ast.StateNode)
-		if !ok {
-			return nil, nil, fmt.Errorf("fork %s: branch target must be a state, got %T", fork.Name, branch.Target)
-		}
-		region, ok := e.graph.RegionOf[target]
-		if !ok {
-			return nil, nil, fmt.Errorf("fork %s: branch target %s is not in an orthogonal region", fork.Name, target.Name)
-		}
-		if existing, dup := targets[region]; dup {
-			return nil, nil, fmt.Errorf("fork %s: branches %s and %s are in the same region", fork.Name, existing.Name, target.Name)
-		}
-		targets[region] = target
-		if regionOwner := e.graph.RegionOwner[region]; regionOwner != nil {
-			if owner != nil && owner != regionOwner {
-				return nil, nil, fmt.Errorf("fork %s: branches span more than one composite state", fork.Name)
-			}
-			owner = regionOwner
+// exitRegionsOf leaves every region of owner, which stays active, in declaration
+// order: a fork reached from inside them restarts them all from its branches.
+func (e *StateExecutor) exitRegionsOf(owner *ast.StateNode) error {
+	for _, region := range e.graph.CompositeStates[owner] {
+		if err := e.exitRegionTo(region, owner); err != nil {
+			return err
 		}
 	}
-	return targets, owner, nil
+	return nil
+}
+
+// regionsExitPath lists the states exitRegionsOf exits.
+func (e *StateExecutor) regionsExitPath(owner *ast.StateNode) []*ast.StateNode {
+	var exited []*ast.StateNode
+	for _, region := range e.graph.CompositeStates[owner] {
+		exited = append(exited, e.regionExitPath(region, owner)...)
+	}
+	return exited
+}
+
+// forkPlan is where a fork's branches lead, as lowering checked and recorded it.
+func (e *StateExecutor) forkPlan(fork *ast.PseudostateNode) (*lower.ForkPlan, error) {
+	plan := e.graph.ForkPlans[fork]
+	if plan == nil {
+		return nil, fmt.Errorf("fork %s has no lowered plan", fork.Name)
+	}
+	return plan, nil
 }
 
 // fireJoinTransition takes a transition into a join, reporting whether the join
@@ -2308,27 +2473,6 @@ func (e *StateExecutor) isActive(state *ast.StateNode) bool {
 	return false
 }
 
-// exitToward exits the active configuration up to, but not including, stop.
-func (e *StateExecutor) exitToward(stop *ast.StateNode) error {
-	for _, active := range e.orderedRegionStates() {
-		if !e.isActive(active) {
-			continue // Already left as part of an enclosing composite state's teardown.
-		}
-		if err := e.exitState(active); err != nil {
-			return fmt.Errorf("exit state: %w", err)
-		}
-	}
-	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
-
-	for _, current := range e.exitPath(e.getCurrentState(), stop, nil) {
-		if err := e.exitState(current); err != nil {
-			return fmt.Errorf("exit state: %w", err)
-		}
-	}
-	e.activeConfig.simpleState = nil
-	return nil
-}
-
 // activeCompositeOwner returns the deepest composite state whose orthogonal
 // regions hold the active configuration, or nil when no region is active.
 func (e *StateExecutor) activeCompositeOwner() *ast.StateNode {
@@ -2370,28 +2514,6 @@ func (e *StateExecutor) inActiveConfiguration(state *ast.StateNode) bool {
 		}
 	}
 	return false
-}
-
-// enterHierarchyInto enters state's ancestors, outermost first, then state
-// itself, skipping any that are already active. State's own orthogonal regions
-// start at the given branch targets wherever branches names one.
-func (e *StateExecutor) enterHierarchyInto(state *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
-	chain := e.getParentChain(state)
-	for i := len(chain) - 1; i >= 0; i-- {
-		if e.isActive(chain[i]) {
-			continue
-		}
-		var err error
-		if chain[i] == state {
-			err = e.enterStateInto(state, branches)
-		} else {
-			err = e.enterState(chain[i])
-		}
-		if err != nil {
-			return fmt.Errorf("enter state %s: %w", chain[i].Name, err)
-		}
-	}
-	return nil
 }
 
 // RunToCompletion processes queued events until the machine completes or has no
@@ -2889,7 +3011,11 @@ func (e *StateExecutor) exitedInRegion(region *ast.StateRegion, trans *lower.Tra
 			}
 			return exited
 		}
-		return e.exitPath(owner, e.getLCA(owner, route), nil)
+		lca := e.getLCA(owner, route)
+		if lca == route {
+			return e.regionsExitPath(route)
+		}
+		return e.exitPath(owner, lca, nil)
 	}
 	keep := e.regionKeep(targetRegion, trans, route)
 	if sourceRegion == targetRegion {
@@ -2903,12 +3029,11 @@ func (e *StateExecutor) exitedInRegion(region *ast.StateRegion, trans *lower.Tra
 func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast.PseudostateNode, r route) ([]*ast.StateNode, bool) {
 	switch ps.Kind {
 	case ast.PseudostateFork:
-		_, owner, err := e.forkPlan(ps)
+		plan, err := e.forkPlan(ps)
 		if err != nil {
 			return nil, false
 		}
-		exited := slices.Clone(e.orderedRegionStates())
-		return append(exited, e.exitPath(e.getCurrentState(), owner, nil)...), true
+		return e.exitedForFork(trans, plan.Owner)
 	case ast.PseudostateJoin:
 		if !r.settled() {
 			return nil, true
@@ -2927,6 +3052,20 @@ func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast
 		}
 		return e.exitedByMove(e.moveOrigin(), trans, owner), true
 	}
+}
+
+// exitedForFork lists the states a transition into a fork whose branches enter
+// owner's regions exits, as leaveForFork exits them; false where it would fail.
+func (e *StateExecutor) exitedForFork(trans *lower.Transition, owner *ast.StateNode) ([]*ast.StateNode, bool) {
+	source, _ := trans.Source.(*ast.StateNode)
+	region := e.activeRegionOf(source)
+	if region == nil {
+		return e.exitedByMove(e.moveOrigin(), trans, owner), true
+	}
+	if _, targetRegion := e.regionMove(region, owner); targetRegion == nil && e.graph.RegionOwner[region] == nil {
+		return nil, false
+	}
+	return e.exitedInRegion(region, trans, owner), true
 }
 
 // exitedByMove lists the states a move from current to target exits, as
@@ -3566,12 +3705,33 @@ func (e *StateExecutor) enterState(state *ast.StateNode) error {
 
 // enterStateInto enters state, starting each of its orthogonal regions at
 // branches[region] where branches names one and at the region's initial state
-// otherwise. A fork supplies branches: it enters its targets directly instead of
-// the regions' initial states, whose entry and do behaviors it bypasses.
+// otherwise, bypassing that initial state's entry and do behaviors.
 func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
 	if state == nil {
 		return nil
 	}
+	if err := e.activateState(state); err != nil {
+		return err
+	}
+	if regions, isComposite := e.graph.CompositeStates[state]; isComposite {
+		if err := e.enterRegionsInto(state, regions, branches); err != nil {
+			return err
+		}
+	}
+
+	// The do behavior runs while the state is active, interleaved with the do
+	// behaviors of the states active alongside it, rather than at entry.
+	e.startDoAction(state)
+
+	// Don't schedule transitions here - let the caller decide when to schedule
+	// This prevents double-scheduling in region transitions
+
+	return nil
+}
+
+// activateState makes state active and runs its entry behaviors, leaving its
+// orthogonal regions, if any, to be entered and its do behavior to be started.
+func (e *StateExecutor) activateState(state *ast.StateNode) error {
 
 	// Change watches are created fresh per activation, so a condition that stayed
 	// true rises again; the firing transition keeps its latch so the entry it
@@ -3602,77 +3762,13 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 		}
 	}
 
-	// Check if this is a composite state with regions
-	if regions, isComposite := e.graph.CompositeStates[state]; isComposite {
-		// Entering composite state with orthogonal regions: activate one state per
-		// region. Entries for other composite states' regions are left alone, so
-		// entering a nested composite does not drop its parent's configuration.
-		e.activeConfig.simpleState = nil // Clear simple state
-
-		if err := e.enterRegionsInto(state, regions, branches); err != nil {
-			return err
-		}
-	} else {
-		// Simple state (no regions)
-		// Only set simpleState if we're not in a multi-region machine
-		// In multi-region machines, states belong to specific regions and simpleState should stay nil
-		if len(e.activeConfig.regionStates) == 0 {
-			e.activeConfig.simpleState = state
-		}
-		// Otherwise, the region state was already set by fireTransitionInRegion
-	}
-
-	// The do behavior runs while the state is active, interleaved with the do
-	// behaviors of the states active alongside it, rather than at entry.
-	e.startDoAction(state)
-
-	// Don't schedule transitions here - let the caller decide when to schedule
-	// This prevents double-scheduling in region transitions
-
-	return nil
-}
-
-// enterRegionsInto activates one state per orthogonal region of container: the
-// state branches names for that region, or the region's initial state. container
-// is nil for the machine's own regions, which no state owns.
-func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*ast.StateRegion, branches map[*ast.StateRegion]*ast.StateNode) error {
-	for _, region := range regions {
-		entry, targeted := branches[region]
-		if !targeted {
-			// A region standing for a substate of a parallel state is entered through
-			// that substate, whose entry behavior runs before its entry transitions
-			// choose where its body starts.
-			if owner := e.graph.RegionState[region]; owner != nil {
-				entry = owner
-			} else {
-				var err error
-				if entry, err = e.startIn(region); err != nil {
-					return err
-				}
-			}
-		}
-		if entry == nil {
-			return fmt.Errorf("region %s has no initial state", region.Name)
-		}
-		e.activeConfig.regionStates[region] = entry
-		// Enter the states between the region and its entry, outermost first: a
-		// branch may name a state nested below the region, and its ancestors' entry
-		// behaviors still have to run. Only descendants of container are entered
-		// here — its own ancestors are already active.
-		for _, descendant := range e.descendantChain(container, entry) {
-			if err := e.enterStateInto(descendant, branches); err != nil {
-				return fmt.Errorf("enter starting state in region %s: %w", region.Name, err)
-			}
-		}
-		// A composite entry starts in the state its own entry transitions choose,
-		// which is then the deepest state the region keeps active.
-		deepest, err := e.enterStartOf(entry)
-		if err != nil {
-			return err
-		}
-		if branch, ok := e.branchesTo(nil, deepest)[region]; ok {
-			e.activeConfig.regionStates[region] = branch
-		}
+	// A composite of orthogonal regions is represented by their active states;
+	// entries of other composites' regions are left alone. A simple state is the
+	// single active state only outside any region.
+	if _, isComposite := e.graph.CompositeStates[state]; isComposite {
+		e.activeConfig.simpleState = nil
+	} else if len(e.activeConfig.regionStates) == 0 {
+		e.activeConfig.simpleState = state
 	}
 	return nil
 }
@@ -3715,7 +3811,9 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	// Remember the configuration being left, so a history pseudostate owned by
 	// this state or by its parent can restore it.
 	for region, regionState := range active {
-		e.recordRegionHistory(region, regionState)
+		if regionState != state {
+			e.recordRegionHistory(region, regionState)
+		}
 	}
 	if parent := e.graph.ParentState[state]; parent != nil {
 		e.recordChildHistory(parent, state)

@@ -1,0 +1,55 @@
+do: b
+stmt action body
+enter action node: state behavior poll
+exit: a (exit action)
+stmt assign log
+    eval feature log -> "work(entry) a(entry) b(entry) "
+    eval literal "a(exit) " -> "a(exit) "
+  eval operator + -> "work(entry) a(entry) b(entry) a(exit) "
+exit: b (exit action)
+stmt assign log
+    eval feature log -> "work(entry) a(entry) b(entry) a(exit) "
+    eval literal "b(exit) " -> "b(exit) "
+  eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) "
+stmt assign log
+    eval feature log -> "work(entry) a(entry) b(entry) a(exit) b(exit) "
+    eval literal "T1(effect) " -> "T1(effect) "
+  eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) "
+stmt assign log
+    eval feature log -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) "
+    eval literal "T1.1(effect) " -> "T1.1(effect) "
+  eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) "
+enter: c (entry action)
+stmt assign log
+    eval feature log -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) "
+    eval literal "c(entry) " -> "c(entry) "
+  eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) c(entry) "
+stmt assign log
+    eval feature log -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) c(entry) "
+    eval literal "T1.2(effect) " -> "T1.2(effect) "
+  eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) c(entry) T1.2(effect) "
+enter: d (entry action)
+stmt assign log
+    eval feature log -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) c(entry) T1.2(effect) "
+    eval literal "d(entry) " -> "d(entry) "
+  eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) c(entry) T1.2(effect) d(entry) "
+transition: a -> split
+exit: c
+enter: done
+transition: c -> done
+exit: d
+enter: done
+transition: d -> done
+exit: done
+exit: done
+exit: work (exit action)
+stmt assign log
+    eval feature log -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) c(entry) T1.2(effect) d(entry) "
+    eval literal "work(exit) " -> "work(exit) "
+  eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) c(entry) T1.2(effect) d(entry) work(exit) "
+stmt assign log
+    eval feature log -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) c(entry) T1.2(effect) d(entry) work(exit) "
+    eval literal "T2(effect) " -> "T2(effect) "
+  eval operator + -> "work(entry) a(entry) b(entry) a(exit) b(exit) T1(effect) T1.1(effect) c(entry) T1.2(effect) d(entry) work(exit) T2(effect) "
+enter: done
+transition: work -> done
