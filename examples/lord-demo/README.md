@@ -376,7 +376,7 @@ overnight; a shop refuses a sale the gold on hand does not cover.
 ✓ Constraint LordPlay::hero::noDebt passed (on LordPlay::hero ID: 1)
 ```
 
-The golem's two blows of eight took the warrior to two hit points; the eight
+The golem's blow of eight took the warrior to two hit points; the eight
 points mended cost sixteen gold; the Dagger was not bought.
 
 ### What the solver says
