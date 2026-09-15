@@ -248,6 +248,43 @@ func TestToStateGraph_ForkOnlyRegionEnteredByAnEnclosingEntryFails(t *testing.T)
 	}
 }
 
+// A fork that omits a region starts it by default, so a region another fork
+// alone enters is refused; with an entry transition the omission is fine.
+func TestToStateGraph_ForkOnlyRegionOmittedByAnotherForkFails(t *testing.T) {
+	machine := func(third string) string {
+		return `
+			package test {
+				attribute def Go;
+				state def Machine {
+					entry; then idle;
+					state idle;
+					state work parallel {
+						state left { state a; }
+						state right { state b; }
+						state third { ` + third + ` state c; }
+					}
+					fork f1;
+					fork f2;
+					transition first idle accept Go then f1;
+					transition first idle then f2;
+					transition first f1 then a;
+					transition first f1 then b;
+					transition first f2 then b;
+					transition first f2 then c;
+				}
+			}
+		`
+	}
+	_, err := ToStateGraph(stateDefinitionIn(t, machine(``)), nil)
+	if err == nil || !strings.Contains(err.Error(), "region left in state work has no initial state") || !strings.Contains(err.Error(), "fork f2 enters work") {
+		t.Fatalf("f2 omitting left: error = %v, want fork f2 enters work", err)
+	}
+	_, err = ToStateGraph(stateDefinitionIn(t, machine(`entry; then c;`)), nil)
+	if err == nil || !strings.Contains(err.Error(), "region left in state work has no initial state") {
+		t.Fatalf("third with its own entry: error = %v, want left still refused", err)
+	}
+}
+
 // A transition that names a state inside the fork-only region, or one that stays
 // inside the composite state — directly or through a junction declared there —
 // starts no region by default and is accepted.

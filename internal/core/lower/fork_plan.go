@@ -98,6 +98,11 @@ func (g *StateGraph) checkForkOnlyRegion(owner *ast.StateNode, region *ast.State
 // defaultEntryInto describes a way into owner that starts region by default,
 // naming no state inside it, or is empty when only forks' branches enter owner.
 func (g *StateGraph) defaultEntryInto(owner *ast.StateNode, region *ast.StateRegion) string {
+	for _, ps := range g.Pseudostates {
+		if plan := g.ForkPlans[ps]; plan != nil && plan.Owner == owner && plan.Branches[region] == nil {
+			return "fork " + ps.Name
+		}
+	}
 	for _, body := range g.entryBodies() {
 		if from := g.bodyState(body); from != nil && g.within(owner, from) {
 			continue
