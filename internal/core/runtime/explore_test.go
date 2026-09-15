@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -426,6 +428,439 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 	}
 	if len(reached) != 2 {
 		t.Fatalf("seeds reached only %v, want both branches of pick", reached)
+	}
+}
+
+// A junction with several branches enabled when the incoming transition is
+// selected is a choice point read statically, before the incoming effect: the
+// branch guards see the data as it stood before the effect, exploration
+// enumerates both branches with a witness at the junction, and a seed replays
+// its draw. A guard the effect would enable is not a branch.
+func TestExploreStaticJunctionBranches(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute level : Integer = 0;
+			attribute route : Integer = 0;
+			entry; then idle;
+			state idle;
+			junction split;
+			state left;
+			state right;
+			state late;
+			transition first idle accept go do assign level := 8 then split;
+			transition first split if level == 0 do assign route := 1 then left;
+			transition first split if level < 5 do assign route := 2 then right;
+			transition first split if level > 7 do assign route := 3 then late;
+		}
+	}`)
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sym := m.state(t, "Machine")
+	run := func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	x, err := Explore(context.Background(), policy, m.fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	}
+	want := []string{
+		"finalState left; visits idle, left; level = 8; route = 1",
+		"finalState right; visits idle, right; level = 8; route = 2",
+	}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	w := x.Outcomes[1].Witness
+	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "junction split" || !strings.HasSuffix(w[0].Took, "->right") {
+		t.Fatalf("witness of right %v, want the branch of junction split into right", w)
+	}
+	if alts := w[0].Alternatives; alts != 2 {
+		t.Fatalf("alternatives %v, want the two branches enabled before the effect", alts)
+	}
+
+	for _, spelling := range []string{"seed:1", "seed:2", "seed:3"} {
+		fixed, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ctx.SetSchedule(fixed); err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		notes := ctx.Notes()
+		if len(notes) != 1 {
+			t.Fatalf("%s: notes %v, want the one choice at split", spelling, notes)
+		}
+		choice, ok := notes[0].(ChoicePoint)
+		if !ok || choice.Kind != ChoiceTransition || choice.Where != "junction split" {
+			t.Fatalf("%s: note %v, want the branch choice at split", spelling, notes[0])
+		}
+		if got := outcome.String(); got != want[choice.Taken] {
+			t.Fatalf("%s: outcome %q after taking %s, want %q", spelling, got, choice.Alternatives[choice.Taken], want[choice.Taken])
+		}
+	}
+}
+
+// A junction with two branches enabled, one of them on to a junction none of
+// whose guards holds: the draw is still made, and the dead end is the outcome of
+// the run that draws it alone, not a failure of the transition into the first.
+func TestExploreJunctionBranchBeyondWhichNoGuardHolds(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			junction split;
+			junction stuck;
+			state ready;
+			state never;
+			transition first idle accept go then split;
+			transition first split then ready;
+			transition first split then stuck;
+			transition first stuck if level > 0 then never;
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	run := func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	declared, err := ParseSchedulePolicy("declared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.SetSchedule(declared); err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := run(ctx)
+	if err != nil {
+		t.Fatalf("declared: %v, want the branch into ready taken", err)
+	}
+	if got := outcome.String(); got != "finalState ready; visits idle, ready; level = 0" {
+		t.Fatalf("declared: outcome %q, want ready reached", got)
+	}
+
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := Explore(context.Background(), policy, m.fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	}
+	got := outcomeTexts(x)
+	if len(got) != 2 || got[1] != "finalState ready; visits idle, ready; level = 0" {
+		t.Fatalf("outcomes %v, want the dead end at stuck and ready", got)
+	}
+	if !strings.HasPrefix(got[0], "error: ") || !strings.HasSuffix(got[0], "fire transition out of idle: evaluate pseudostate: junction stuck: no guard evaluated to true") {
+		t.Fatalf("outcomes %v, want the first the dead end at stuck, met as the transition fires", got)
+	}
+	w := x.Outcomes[0].Witness
+	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "junction split" || !strings.HasSuffix(w[0].Took, "->stuck") {
+		t.Fatalf("witness of the dead end %v, want the branch of junction split into stuck", w)
+	}
+}
+
+// The branch drawn noted a guard it could not read at a junction on its way
+// before it dead-ended: the run fails with the dead end and keeps the note.
+func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute d : Integer = 0;
+			entry; then idle;
+			state idle;
+			junction split;
+			junction nested;
+			junction stuck;
+			state ready;
+			state other;
+			state never;
+			transition first idle accept go then split;
+			transition first split then nested;
+			transition first split then ready;
+			transition first nested if d == 0 then stuck;
+			transition first nested if 1 / d > 0 then other;
+			transition first stuck if d > 0 then never;
+		}
+	}`)
+	declared, err := ParseSchedulePolicy("declared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.SetSchedule(declared); err != nil {
+		t.Fatal(err)
+	}
+	exec, err := newStateExecutor(ctx, m.state(t, "Machine"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	exec.SendSignal("go", nil)
+	err = exec.RunToCompletion()
+	if err == nil || !strings.Contains(err.Error(), "junction stuck: no guard evaluated to true") {
+		t.Fatalf("RunToCompletion: %v, want the dead end at stuck", err)
+	}
+	var drew, noted bool
+	for _, n := range ctx.Notes() {
+		switch n := n.(type) {
+		case ChoicePoint:
+			drew = drew || n.Where == "junction split"
+		case UnevaluableGuard:
+			noted = noted || n.Where == "junction nested" && strings.Contains(n.Reason, "division by zero")
+		}
+	}
+	if !drew || !noted {
+		t.Fatalf("notes %v, want the draw at split and the guard at nested that could not be read", ctx.Notes())
+	}
+}
+
+// A junction with two branches enabled in one region, whose incoming guard the
+// other region's effect disarms: the branch is drawn only as the transition
+// fires, after the region order, so a witness lists the order first and the run
+// in which the disarming region fires first draws nothing at the junction.
+// Every witness, and the choices every seed takes, replay to the same run.
+func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute armed : Boolean = true;
+			attribute route : Integer = 0;
+			entry; then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 accept go do assign armed := false then a2;
+				}
+				state b {
+					entry; then b1;
+					state b1;
+					junction split;
+					state left;
+					state right;
+					transition first b1 accept go if armed then split;
+					transition first split do assign route := 1 then left;
+					transition first split do assign route := 2 then right;
+				}
+			}
+		}
+	}`)
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sym := m.state(t, "Machine")
+	run := func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	x, err := Explore(context.Background(), policy, m.fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 3 {
+		t.Fatalf("status %q, want complete (3 runs)", x.Status())
+	}
+	want := map[string]string{
+		"finalState a2+b1; visits work, a1, b1, a2; armed = false; route = 0":           "on accept go: a1 first of a1, b1",
+		"finalState a2+left; visits work, a1, b1, left, a2; armed = false; route = 1":   "on accept go: b1 first of a1, b1; junction split -> 1->left",
+		"finalState a2+right; visits work, a1, b1, right, a2; armed = false; route = 2": "on accept go: b1 first of a1, b1; junction split -> 2->right",
+	}
+	for _, o := range x.Outcomes {
+		witness, ok := want[o.Outcome.String()]
+		if !ok {
+			t.Fatalf("outcome %s, want one of %v", o.Outcome, slices.Sorted(maps.Keys(want)))
+		}
+		if got := FormatChoices(o.Witness); got != witness {
+			t.Errorf("%s: witness %q, want %q", o.Outcome, got, witness)
+		}
+	}
+	if len(x.Outcomes) != len(want) {
+		t.Fatalf("%d outcomes, want %d", len(x.Outcomes), len(want))
+	}
+	assertWitnessesReplay(t, x, m.fresh, run)
+
+	for _, spelling := range []string{"declared", "reverse", "seed:1", "seed:2", "seed:3", "seed:4"} {
+		fixed, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, fixed)
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		var taken []ChoiceTaken
+		for _, c := range ctx.Choices() {
+			taken = append(taken, c.Choice())
+		}
+		if got := FormatChoices(taken); got != want[outcome.String()] {
+			t.Errorf("%s: %s made the choices %q, want %q", spelling, outcome, got, want[outcome.String()])
+		}
+		if again, _, err := replayed(t, m.fresh, run, taken); err != nil {
+			t.Errorf("%s: replaying its choices %q: %v", spelling, FormatChoices(taken), err)
+		} else if again.String() != outcome.String() {
+			t.Errorf("%s: replaying its choices reached %s, want %s", spelling, again, outcome)
+		}
+	}
+}
+
+// A history with no record whose default transition ends at a junction with two
+// branches enabled: the draw is recorded as a choice point at the junction, as a
+// junction reached from a transition is, so exploration enumerates both entries
+// and a seed's run replays from its choices.
+func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute route : Integer = 0;
+			entry; then idle;
+			state idle;
+			state work {
+				entry; then w1;
+				state w1;
+				state w2;
+				history resume;
+				junction split;
+				transition first resume then split;
+				transition first split do assign route := 1 then w1;
+				transition first split do assign route := 2 then w2;
+			}
+			transition first idle accept go then resume;
+		}
+	}`)
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sym := m.state(t, "Machine")
+	run := func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	x, err := Explore(context.Background(), policy, m.fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	}
+	want := []string{
+		"finalState w1; visits idle, work, w1; route = 1",
+		"finalState w2; visits idle, work, w2; route = 2",
+	}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	for i, o := range x.Outcomes {
+		if got, wantW := FormatChoices(o.Witness), fmt.Sprintf("junction split -> %d->w%d", i+1, i+1); got != wantW {
+			t.Errorf("%s: witness %q, want %q", o.Outcome, got, wantW)
+		}
+	}
+	assertWitnessesReplay(t, x, m.fresh, run)
+
+	for _, spelling := range []string{"declared", "seed:1", "seed:2", "seed:3"} {
+		fixed, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, fixed)
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		notes := ctx.Notes()
+		if len(notes) != 1 {
+			t.Fatalf("%s: notes %v, want the one choice at split", spelling, notes)
+		}
+		choice, ok := notes[0].(ChoicePoint)
+		if !ok || choice.Kind != ChoiceTransition || choice.Where != "junction split" {
+			t.Fatalf("%s: note %v, want the branch choice at split", spelling, notes[0])
+		}
+		if got := outcome.String(); got != want[choice.Taken] {
+			t.Fatalf("%s: outcome %q after taking %s, want %q", spelling, got, choice.Alternatives[choice.Taken], want[choice.Taken])
+		}
+		if len(ctx.Choices()) != 1 {
+			t.Fatalf("%s: choices %v, want the one at split", spelling, ctx.Choices())
+		}
+		if again, _, err := replayed(t, m.fresh, run, []ChoiceTaken{choice.Choice()}); err != nil {
+			t.Errorf("%s: replaying its choice: %v", spelling, err)
+		} else if again.String() != outcome.String() {
+			t.Errorf("%s: replaying its choice reached %s, want %s", spelling, again, outcome)
+		}
 	}
 }
 
