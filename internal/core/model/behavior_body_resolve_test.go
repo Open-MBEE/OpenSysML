@@ -246,8 +246,9 @@ func TestBehaviorDeclarationsAreVisible(t *testing.T) {
 }
 
 // TestTriggerParametersDoNotEscapeTheirTransition covers where a trigger's
-// parameters are visible: to the transition's own guard and effect, and nowhere
-// else, so a recursive import of the state does not bring them into scope.
+// parameters are usable: they are features of the transition, so a recursive
+// import of the state names them, but only the transition's own guard, effect
+// and body reach them — elsewhere they are inaccessible, as the pilot reports.
 func TestTriggerParametersDoNotEscapeTheirTransition(t *testing.T) {
 	src := `package P {
 		private import ScalarValues::*;
@@ -263,9 +264,26 @@ func TestTriggerParametersDoNotEscapeTheirTransition(t *testing.T) {
 		private import P::S::**;
 		attribute payload = w;
 		attribute speed = value;
+		attribute viaTransition = P::S::alert::w;
 	}`
-	if got := diagnose(t, "trigparams", src); len(got) != 2 {
-		t.Errorf("references to imported trigger parameters reported %v, want three findings", got)
+	ws := NewWorkspace()
+	uri := "file:///trigparams.sysml"
+	ws.Open(uri, []byte(src), 1)
+	defer ws.Close(uri)
+	var unresolved, inaccessible []string
+	for _, d := range ws.Diagnostics(uri) {
+		switch d.Code {
+		case "unresolved", "ambiguous":
+			unresolved = append(unresolved, d.Message)
+		case "feature-reference-featuring-types":
+			inaccessible = append(inaccessible, d.Message)
+		}
+	}
+	if len(unresolved) != 0 {
+		t.Errorf("imported trigger parameters reported %v, want them resolved", unresolved)
+	}
+	if len(inaccessible) != 3 {
+		t.Errorf("references to trigger parameters outside their transition reported %v, want three inaccessible features", inaccessible)
 	}
 }
 

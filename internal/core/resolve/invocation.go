@@ -206,7 +206,7 @@ func (r *Resolver) visibleMemberCandidates(sym *symbols.Symbol, name string) ([]
 		}
 		return r.inheritedAs(sym, found)
 	}
-	if found, ok := r.lookupMemberOf(sym, name); ok {
+	if found, ok := r.model.LookupMember(sym, name); ok {
 		if found, ok = admits(found); !ok {
 			return nil, false
 		}

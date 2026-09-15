@@ -238,34 +238,18 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		}
 		return true
 	case *ast.TransitionMember:
-		// A transition is a feature of the state that declares it (SysML v2
-		// §7.19.2: TransitionUsage specializes ActionUsage), and its effect
-		// behaviors are features of the transition, so `t.effectAction` resolves.
-		// An unnamed one is an anonymous member, found by its declaration.
-		defineParams := triggerParameterDefiner(d.Trigger)
+		// A transition is a feature of its state (SysML v2 §7.19.2); its trigger's
+		// payload parameter, effect and body members are features of the transition.
 		child := NewScope(scope, d)
 		id := ast.Identification{Name: d.Name, NameSpan: d.NameSpan}
 		defineIdent(scope, id, newSymbol(id, SymbolActionUsage, d, vis, child, scope, trivia))
 		scope.AddChild(child)
-		body := child
-		if defineParams != nil {
-			// The trigger's parameters are visible to the guard, effect and body,
-			// however deeply they nest, but are not features of the transition: they
-			// live in a body-local scope of their own that both are built in.
-			body = NewScope(child, d.Trigger)
-			body.markBodyLocal()
-			child.AddChild(body)
-			defineParams(body)
+		if defineParams := triggerParameterDefiner(d.Trigger); defineParams != nil {
+			defineParams(child)
 		}
-		// The body's members read the trigger's parameters as the effect does,
-		// and are the transition's features like it.
-		params := len(body.AllMembers())
-		buildEffect(body, d.Effect)
-		buildMembers(body, d.Members)
-		if body != child {
-			ownEffectMembers(child, body.AllMembers()[params:])
-		}
-		defineTransitionEffect(child, body, d)
+		buildEffect(child, d.Effect)
+		buildMembers(child, d.Members)
+		defineTransitionEffect(child, d)
 		return true
 	case *ast.StateRegion:
 		// A region is a namespace of its own: sibling regions routinely reuse
@@ -505,9 +489,8 @@ const transitionEffectName = "effect"
 // defineTransitionEffect names a transition's effect action `effect`, the
 // TransitionAction feature it redefines (SysML v2 §7.19.2), so `t.effect.x`
 // reads through the effect action rather than the abstract library feature.
-// The effect was built in body, the transition's scope or the one holding
-// its trigger's parameters.
-func defineTransitionEffect(scope, body *Scope, trans *ast.TransitionMember) {
+// The effect was built in scope, the transition's own.
+func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 	if len(trans.Effect) != 1 {
 		return
 	}
@@ -520,46 +503,32 @@ func defineTransitionEffect(scope, body *Scope, trans *ast.TransitionMember) {
 	}
 	// A declared effect action is already a member of the transition's scope:
 	// name that symbol rather than building a second one for it.
-	if sym, ok := memberDeclaring(body, effect); ok {
+	if sym, ok := memberDeclaring(scope, effect); ok {
 		scope.Define(transitionEffectName, sym)
 		return
 	}
 	// A statement (`do send x to y`) declares no member of its own, so the
 	// action it performs is named here, its members staying the transition's.
-	statement := NewScope(body, effect)
+	statement := NewScope(scope, effect)
 	sym := newSymbol(
 		ast.Identification{Name: transitionEffectName, NameSpan: effect.Span()},
 		SymbolActionUsage, effect, ast.VisibilityDefault, statement, scope, nil,
 	)
 	scope.Define(transitionEffectName, sym)
-	body.AddChild(statement)
+	scope.AddChild(statement)
 }
 
 // buildEffect builds a transition's effect. A `do send` statement's parameters
-// are the transition's own members, not a nested node's (ownEffectMembers).
-func buildEffect(body *Scope, effect []ast.Node) {
+// are the transition's own members, not a nested node's.
+func buildEffect(scope *Scope, effect []ast.Node) {
 	for _, m := range effect {
 		if decl, _ := unwrapMember(m); decl != nil {
 			if send, ok := decl.(*ast.SendStatement); ok {
-				buildMembers(body, send.Members)
+				buildMembers(scope, send.Members)
 				continue
 			}
 		}
-		buildMembers(body, []ast.Node{m})
-	}
-}
-
-// ownEffectMembers makes the members an effect or body built after the trigger's
-// parameters (an action's symbol, a `do send`'s own parameters) the transition's.
-func ownEffectMembers(scope *Scope, members []*Symbol) {
-	seen := map[*Symbol]bool{}
-	for _, sym := range members {
-		if seen[sym] {
-			continue
-		}
-		seen[sym] = true
-		sym.OwnerScope = scope
-		defineIdent(scope, ast.Identification{Name: sym.Name, ShortName: sym.ShortName}, sym)
+		buildMembers(scope, []ast.Node{m})
 	}
 }
 
