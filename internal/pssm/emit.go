@@ -749,6 +749,9 @@ func (e *emitter) guard(g *Guard, param, where string) (string, error) {
 		}
 		return " if false", nil
 	case g.Kind == GuardOpaque:
+		if g.Behavior != nil && guardSideEffect(g.Behavior.Body) {
+			return "", e.fail(where, "the guard's behavior acts on the model; a guard expression has no side effect")
+		}
 		body := strings.TrimSpace(g.Opaque.Body)
 		if !alfGuard.MatchString(body) {
 			return "", e.fail(where, fmt.Sprintf("guard %q is not a comparison the translation spells", body))

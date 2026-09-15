@@ -215,6 +215,7 @@ func TestEmitRejects(t *testing.T) {
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" kind="internal" source="xS1" target="xS1">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
           </transition>`, "no spelling"},
+		{"guard with a side effect", guardWithSideEffect, "acts on the model"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

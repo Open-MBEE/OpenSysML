@@ -69,6 +69,7 @@ const (
 	ConstructBehaviorParameter Construct = "behavior parameter"
 	ConstructOperationResult   Construct = "operation result"
 	ConstructTesterTrace       Construct = "tester trace"
+	ConstructGuardSideEffect   Construct = "guard side effect"
 	// This project's lowerer refusing a shape UML allows and v2 can spell:
 	// a candidate gap of ours, recorded apart from v2's missing spellings.
 	ConstructForkedRegionNoEntry Construct = "lowerer refuses fork into a region without an entry transition"
@@ -105,6 +106,7 @@ var constructClass = map[Construct]Expressibility{
 	ConstructBehaviorParameter:    NotExpressible,
 	ConstructOperationResult:      NotExpressible,
 	ConstructTesterTrace:          NotExpressible,
+	ConstructGuardSideEffect:      NotExpressible,
 	ConstructForkedRegionNoEntry:  NotExpressible,
 	ConstructTerminate:            TerminateGap,
 	ConstructDefer:                Extension,
@@ -238,6 +240,7 @@ func (w *walker) regions(regions []*Region) {
 			w.vertex(v)
 		}
 		for _, tr := range r.Transitions {
+			w.guard(tr.Guard, tr.Name)
 			for _, trig := range tr.Triggers {
 				if trig.Event != nil && trig.Event.Kind == EventCall && trig.Event.Operation != nil {
 					w.operation(trig.Event.Operation, tr.Name)
@@ -268,6 +271,28 @@ func (w *walker) initial(r *Region) {
 		}
 	}
 	w.add(ConstructForkedRegionNoEntry, r.owner.Path()+"/"+r.Name)
+}
+
+// guard records a guard whose behavior does more than compute its value: a v2
+// guard is an expression, and the evaluator admits no side effect in one.
+func (w *walker) guard(g *Guard, where string) {
+	if g != nil && g.Behavior != nil && guardSideEffect(g.Behavior.Body) {
+		w.add(ConstructGuardSideEffect, where)
+	}
+}
+
+// guardSideEffect reports whether a guard behavior's body has a statement
+// other than a return: a call, send, assignment or the like acts on the model.
+func guardSideEffect(body *Body) bool {
+	if body == nil {
+		return false
+	}
+	for _, st := range body.Statements {
+		if st.Kind != StmtReturn {
+			return true
+		}
+	}
+	return false
 }
 
 // behavior records a state behavior with parameters: the notation binds event

@@ -62,15 +62,16 @@ note's [construct-to-notation table](../internals/design/precise-semantics-align
 | Class | Meaning | Count |
 |---|---|---:|
 | **standard** | every construct has a spelling in standard SysML v2 notation | 31 |
-| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 30 |
+| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 29 |
 | **terminate-gap** | spellable, but reaches `terminate`, which the runtime parses and lowers and does not yet execute (alignment finding 1) | 3 |
-| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the notation cannot bind, or a shape this project's lowerer refuses | 39 |
+| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the notation cannot bind, or a shape this project's lowerer refuses | 40 |
 
 A test using any construct with no spelling or no translation is not expressible whatever else
 it uses; otherwise `terminate` wins over the extensions, and the extensions over standard. The
 alignment note was first written with a hand count of 37 / 33 / 3 / 30; the classifier is the
 record from now on, and the note's test-suite section carries its figures. Nine tests moved
-from the hand count when the emitter was written; each is listed with its reason in the note
+from the hand count when the emitter was written and a tenth when its failure was adjudicated;
+each is listed with its reason in the note
 under [Moves from the hand count](../internals/design/precise-semantics-alignment.md#moves-from-the-hand-count):
 
 - **Entry, exit or do behaviors with parameters** that read the triggering event's data:
@@ -80,6 +81,13 @@ under [Moves from the hand count](../internals/design/precise-semantics-alignmen
   *Deferred 007*. The runtime's call events carry nothing back to the caller, and only the
   target's behaviors write the model's `log`.
 - **A `trace(...)` in the tester's own behavior**: *Event 019-A* (and *019-D*, *019-E*).
+- **A guard whose behavior acts on the model**: *Choice 005*, whose four guards each
+  `trace("T1.n(guard)")` before returning, and whose admitted trace records the calls. A v2
+  guard is a Boolean expression (`bool guard[*]` in `TransitionPerformances.kerml`, the effect a
+  separate `step`), and UML 2.5.1 §14.5.11 itself calls a guard with a side effect ill formed;
+  the translation keeps the guard's value and cannot reach the trace, so the emitter refuses
+  it rather than run the test short (`classify.go:guardSideEffect`, `TestClassifyGuardSideEffect`,
+  `TestEmitRejects`).
 - **A fork into orthogonal regions that have no initial pseudostate**: *Fork 002*, *Join 001*
   — kept apart from the rest, see [Findings about our own conformance](#findings-about-our-own-conformance).
 
@@ -152,8 +160,9 @@ test in the suite reaches them.
 
 ## Baseline
 
-Recorded **2026-09-14** on develop commit **`f4b844329ace2f8feaf2560b4e21d0a5d834683d`** with
-the history-record fix (finding 7) and the emitter's initial-effect fix described below, as
+Recorded **2026-09-15** on develop commit **`bcc6b13e0ab9fa3814f183c2e8f2cf33b68adb03`** with the history-record fix
+(finding 7), the emitter's initial-effect fix and the guard-side-effect classification
+described below, as
 `docs/project/pssm-referee-baseline.json`; regenerate with `go run ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
 The figures below are as measured when this record was last updated and are not the current
@@ -162,23 +171,25 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 | Bucket | Tests |
 |---|---:|
 | `pass` | 41 |
-| `fail` | 18 |
-| `not-expressible` | 39 |
+| `fail` | 17 |
+| `not-expressible` | 40 |
 | `terminate-gap` | 3 |
 | `differs-by-design` | 2 |
 | **Total** | **103** |
 
 ### Movements since the previous baseline
 
-The previous baseline (develop `bb95cf226`, 2026-09-12) counted 36 `pass` and 23 `fail`. Two
-changes move it: the runtime fix of [finding 7](#findings-about-our-own-conformance) (a
-transition into a history reads the record after its exits have run, and a history declared in
-the machine's own body restores the machine's configuration) and a translation fix in the
-emitter (an initial transition's effect used to be folded into the entry action of the state or
-region it starts, so it ran before the state's own `entry` and ran again on every entry, a
-history restore included; it is now the completion transition of an empty helper state the
-initial transition enters, `emit_test.go:TestEmitInitialWithEffect`). Five tests moved `fail` →
-`pass` and none the other way.
+The previous baseline (develop `bb95cf226`, 2026-09-12) counted 36 `pass`, 23 `fail` and 39
+`not-expressible`. Three changes move it: the runtime fix of
+[finding 7](#findings-about-our-own-conformance) (a transition into a history reads the record
+after its exits have run, and a history declared in the machine's own body restores the
+machine's configuration), a translation fix in the emitter (an initial transition's effect used
+to be folded into the entry action of the state or region it starts, so it ran before the
+state's own `entry` and ran again on every entry, a history restore included; it is now the
+completion transition of an empty helper state the initial transition enters,
+`emit_test.go:TestEmitInitialWithEffect`), and a classifier rule (a guard whose behavior does
+more than return its value has no translation). Five tests moved `fail` → `pass`, one `fail` →
+`not-expressible`, and none the other way.
 
 | Test | Row | Movement | Adjudication |
 |---|---|---|---|
@@ -186,6 +197,7 @@ initial transition enters, `emit_test.go:TestEmitInitialWithEffect`). Five tests
 | History 001-D | finding 7 | `fail` → `pass` | Expected: the test declares `DeepHistory1` in the machine's own region, restoring the machine's top-level configuration, which the runtime refused as a history outside any composite state; the machine's body is now a valid owner |
 | History 002-A | finding 7 | `fail` → `pass` | Expected: `S1`'s self-transition `T3` into its shallow history read the record before `S1` was left, found none (`S1` had never been left) and performed a default entry through `S1.1`, re-running `S1.1(exit)::S1.2(entry)`; it now restores `S1.2`, the substate being left |
 | History 001-B | finding 7 and the emitter | `fail` → `pass` | Expected: the default transition `T1.4` now runs after `S1(entry)` (finding 7's default entry from inside the owner) and the initial transition `T1.4`'s effect no longer repeats on the revisit (the emitter fix) |
+| Choice 005 | the classifier | `fail` → `not-expressible` | A missing translation, not a defect of the runtime: the test's four guards each `trace("T1.n(guard)")` before returning their value, to show when a junction's and a choice's guards are read, and the admitted trace lists the four calls. The emitter carried each guard as its Boolean body alone and silently dropped the behavior, so the run reached `T2(effect)::S1(entry)::S1.1(entry)` — the admitted trace less the guard segments, the route itself right. A v2 guard is an expression with no spelling for an action, so the classifier now names the construct (*guard side effect*) and the emitter refuses it; see [Moves from the hand count](../internals/design/precise-semantics-alignment.md#moves-from-the-hand-count) |
 
 The emitter fix also altered the recorded reason, without moving the bucket, of *Entering 010*,
 *Entering 011*, *Junction 004* and *Junction 005* (the repeated `T1.1(effect)` / `T2.1(effect)`
@@ -253,9 +265,9 @@ History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Ju
 Terminate 001, Terminate 002, Terminate 003 — each reaches `S1.Terminate1`; they move to
 `pass` or `fail` when the runtime executes `terminate` (alignment finding 1).
 
-### `fail` (18)
+### `fail` (17)
 
-One failure cites a note row through the committed table. The other seventeen are
+One failure cites a note row through the committed table. The other sixteen are
 **unadjudicated**: fails, not yet attributed to a translation defect, a runtime defect, or a
 missing alignment row. The referee records them; it does not diagnose them, and none of them is
 a finding against the runtime until someone adjudicates it.
@@ -266,7 +278,7 @@ a finding against the runtime until someone adjudicates it.
 |---|---|---|
 | Junction 002 | SM32 | run error: no outgoing guard of the junction holds; PSSM disables the compound transition and admits `T3(effect)` |
 
-#### Unadjudicated (17)
+#### Unadjudicated (16)
 
 One line per test, from the baseline's `reasons`: what the run reached that the suite does not
 admit (`—` when every reached trace is admitted and the failure is only a missing one), and
@@ -285,7 +297,6 @@ suite; the full sets are in the baseline file.
 | Entering 011 | — | `S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)` and 4 more orders of the two regions' initial effects and entries (the sixth admitted order is reached) |
 | Exiting 001 | — | `S1.1.1(exit)::S2.1(exit)::S1.1(exit)::S1(exit)` and `S2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the third admitted order is reached) |
 | Exiting 003 | — | `S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the other admitted order is reached) |
-| Choice 005 | `T2(effect)::S1(entry)::S1.1(entry)` | `T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)` |
 | Join002 | `S1(exit)::T2.2(effect)::T3(effect)::S2(entry)` | `T1.2(effect)::T2.2(effect)::S1(exit)::T3(effect)::S2(entry)` and the order with the first two swapped (`T1.2(effect)` never runs, and `S1(exit)` precedes the effects of the join's incoming segments) |
 | Join003 | run error: `join Join1: eval guard of transition Join1 -> S2: no value for feature value` | `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)` |
 | History 001-C | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached) |
@@ -297,7 +308,7 @@ suite; the full sets are in the baseline file.
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
 
-### `not-expressible` (39)
+### `not-expressible` (40)
 
 By reason, as the classifier names them:
 
@@ -315,6 +326,7 @@ By reason, as the classifier names them:
 - **behavior parameter, operation result, tester trace** (no translation): Event 017 B, Event
   019 A, Event 019 B, Event 019 C, Event 019 D, Event 019 E, Deferred 007, and among the above
   Entry 002 F, Standalone 002, Standalone 003.
+- **guard side effect** (no translation): Choice 005.
 - **lowerer refuses fork into a region without an entry transition** (ours): Fork 002 and
   Join 001 as the only construct; also present in Entry 002 E, Transition 023 and Standalone
   002, which are not expressible on other grounds too.

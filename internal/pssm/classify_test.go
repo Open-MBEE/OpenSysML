@@ -130,6 +130,7 @@ func TestClassifyNoSpellingOutranksAll(t *testing.T) {
 		{"extended region", "", `<subvertex xmi:type="uml:State" xmi:id="xE" name="E"><region xmi:type="uml:Region" xmi:id="xEr" name="R" extendedRegion="regX"/></subvertex>`, "extended region R"},
 		{"forked region without an entry transition", "", `<subvertex xmi:type="uml:State" xmi:id="xO" name="O"><region xmi:type="uml:Region" xmi:id="xOr1" name="R1"><subvertex xmi:type="uml:Pseudostate" xmi:id="xOi" name="I"/><subvertex xmi:type="uml:State" xmi:id="xO1" name="O.1"/><transition xmi:type="uml:Transition" xmi:id="xOt" source="xOi" target="xO1"/></region><region xmi:type="uml:Region" xmi:id="xOr2" name="R2"><subvertex xmi:type="uml:State" xmi:id="xO2" name="O.2"/></region></subvertex>`, "lowerer refuses fork into a region without an entry transition O/R2"},
 		{"redefined state", "", `<subvertex xmi:type="uml:State" xmi:id="xR" name="R" redefinedState="xS1"/>`, "redefined state R"},
+		{"guard side effect", "", guardWithSideEffect, "guard side effect T3"},
 		{"redefined transition", "", `<transition xmi:type="uml:Transition" xmi:id="xTr" name="TR" source="xS1" target="xFin" redefinedTransition="xT2"/>`, "redefined transition TR"},
 	}
 	for _, tc := range cases {
@@ -186,5 +187,77 @@ func TestClassifyStrayConnectionPoint(t *testing.T) {
 	c = classifyFixture(t, stray, `<transition xmi:type="uml:Transition" xmi:id="xT3" source="xJ" target="xFin"/>`)
 	if c.Class != Extension || c.Reason() != "join Join1" {
 		t.Errorf("reached connection point classified %s (%s)", c.Class, c.Reason())
+	}
+}
+
+// guardBehavior writes a transition T3 from S1 to FinalState1 on evContinue whose
+// guard `true` is an activity returning true, preceded by the given statements.
+func guardBehavior(statements string) string {
+	return `
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xFin" guard="xT3guard">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
+            <ownedRule xmi:type="uml:Constraint" xmi:id="xT3guard">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="xT3spec" behavior="xT3act">
+                <body>true</body>
+                <language>Alf</language>
+              </specification>
+            </ownedRule>
+          </transition>
+        </region>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="xT3act" name="T3_guard">
+          <ownedParameter xmi:type="uml:Parameter" xmi:id="xT3ret" direction="return"/>
+          <node xmi:type="uml:ActivityParameterNode" xmi:id="xT3retNode" name="Return" parameter="xT3ret"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="xT3body" name="Body">
+            ` + statements + `
+            <node xmi:type="uml:StructuredActivityNode" xmi:id="xT3ret1" name="2:ReturnStatement">
+              <node xmi:type="uml:ValueSpecificationAction" xmi:id="xT3true">
+                <result xmi:type="uml:OutputPin" xmi:id="xT3trueOut"/>
+                <value xmi:type="uml:LiteralBoolean" xmi:id="xT3trueLit" value="true"/>
+              </node>
+              <structuredNodeOutput xmi:type="uml:OutputPin" xmi:id="xT3ret1Out"/>
+              <edge xmi:type="uml:ObjectFlow" xmi:id="xT3e1" source="xT3trueOut" target="xT3ret1Out"/>
+            </node>
+          </node>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="xT3e2" source="xT3ret1Out" target="xT3retNode"/>
+        </ownedBehavior>
+        <region xmi:type="uml:Region" xmi:id="regX2" name="Region2">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="xInit2" name="Initial2"/>
+          <subvertex xmi:type="uml:State" xmi:id="xS9" name="S9"/>
+          <transition xmi:type="uml:Transition" xmi:id="xT9" name="T9" source="xInit2" target="xS9"/>`
+}
+
+// guardWithSideEffect is a guard whose behavior traces before it returns.
+var guardWithSideEffect = guardBehavior(`
+            <node xmi:type="uml:StructuredActivityNode" xmi:id="xT3stmt1" name="1:ExpressionStatement">
+              <node xmi:type="uml:ReadSelfAction" xmi:id="xT3self"><result xmi:type="uml:OutputPin" xmi:id="xT3selfOut"/></node>
+              <node xmi:type="uml:ValueSpecificationAction" xmi:id="xT3val">
+                <result xmi:type="uml:OutputPin" xmi:id="xT3valOut"/>
+                <value xmi:type="uml:LiteralString" xmi:id="xT3lit" value="T3(guard)"/>
+              </node>
+              <node xmi:type="uml:CallOperationAction" xmi:id="xT3call" operation="opTrace">
+                <target xmi:type="uml:InputPin" xmi:id="xT3callTarget"/>
+                <argument xmi:type="uml:InputPin" xmi:id="xT3callArg"/>
+              </node>
+              <edge xmi:type="uml:ObjectFlow" xmi:id="xT3e3" source="xT3selfOut" target="xT3callTarget"/>
+              <edge xmi:type="uml:ObjectFlow" xmi:id="xT3e4" source="xT3valOut" target="xT3callArg"/>
+            </node>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3stmt1" target="xT3ret1"/>`)
+
+func TestClassifyGuardSideEffect(t *testing.T) {
+	c := classifyFixture(t, "", guardWithSideEffect)
+	if c.Class != NotExpressible || c.Reason() != "guard side effect T3" {
+		t.Errorf("classified %s (%s), want not-expressible (guard side effect T3)", c.Class, c.Reason())
+	}
+	// A guard behavior that only computes its value is the expression it spells.
+	c = classifyFixture(t, "", guardBehavior(""))
+	if c.Class != Standard {
+		t.Errorf("pure guard behavior classified %s (%s), want standard", c.Class, c.Reason())
+	}
+	// Control flow the reader does not evaluate is not a side effect either.
+	c = classifyFixture(t, "", guardBehavior(`
+            <node xmi:type="uml:ConditionalNode" xmi:id="xT3if" name="1:IfStatement"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="xT3e5" source="xT3if" target="xT3ret1"/>`))
+	if c.Class != Standard {
+		t.Errorf("branching guard behavior classified %s (%s), want standard", c.Class, c.Reason())
 	}
 }

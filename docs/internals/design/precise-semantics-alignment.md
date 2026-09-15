@@ -1252,7 +1252,7 @@ which supersede the hand count this section was first written with — the moves
 
 | Aspect of the suite | Verdict | Why |
 |---|---|---|
-| **Expressing the test model in SysML v2 textual notation** | **Can, for 64 of 103** (31 with standard notation, 30 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 39** (30 use a construct v2 has no spelling for, 7 more use a behavior shape the notation cannot bind, 2 more a shape this project's lowerer refuses) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
+| **Expressing the test model in SysML v2 textual notation** | **Can, for 63 of 103** (31 with standard notation, 29 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 40** (30 use a construct v2 has no spelling for, 8 more use a behavior shape the notation cannot bind, 2 more a shape this project's lowerer refuses) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
 | **Driving the test** | **Can, with one normalization** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling; the conformance harness queues a case's `events` before the first step (`conformance_test.go:injectEvents`). The two coincide when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
 | **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("<state>(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "<state>(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
 | **Alternative expected traces** | **Can, and exactly** | 36 tests declare more than one admissible trace. The conformance schema's `outcomes` with the `explore` policy replays a case once per linearization of its choice points (`ChoiceRegionOrder`, `ChoiceTransition`, `ChoiceDueOrder`) and fails when a listed outcome is unreachable or an unlisted one is reached — the same set-equality PSSM's alternatives ask for, and stricter than the single-run comparison the PSSM harness performs |
@@ -1278,6 +1278,7 @@ which supersede the hand count this section was first written with — the moves
 | Entry, exit or do behavior with parameters (reading the triggering event's data) | none: the notation binds event data on the transition (`accept d : Data`), never on an `entry`/`exit`/`do` action | no translation |
 | Call event whose operation returns a value the tester traces | none: the runtime's call events carry no result back to the caller | no translation |
 | A `trace(...)` call in the tester's own behavior | none: only the target's behaviors append to the model's `log` | no translation |
+| A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed | no translation |
 | Fork into states of orthogonal regions that have no initial pseudostate | `parallel` regions spell it, but the lowerer refuses a region with no `entry; then` (finding 7 below) | no translation, ours |
 
 The classification is by construct, in the order of the table: a test whose model uses any
@@ -1295,7 +1296,7 @@ uses any of them, and as standard otherwise. `internal/pssm/classify.go` is the 
 | Exiting | 5 | 4 | 0 | 0 | 1 |
 | Entry (entry points) | 6 | 0 | 0 | 0 | 6 |
 | Exit (exit points) | 3 | 0 | 0 | 0 | 3 |
-| Choice | 5 | 0 | 5 | 0 | 0 |
+| Choice | 5 | 0 | 4 | 0 | 1 |
 | Junction | 6 | 0 | 5 | 0 | 1 |
 | Fork | 2 | 0 | 0 | 0 | 2 |
 | Join | 3 | 0 | 2 | 0 | 1 |
@@ -1306,19 +1307,20 @@ uses any of them, and as standard otherwise. `internal/pssm/classify.go` is the 
 | Redefinition | 6 | 0 | 0 | 0 | 6 |
 | Standalone | 3 | 0 | 0 | 0 | 3 |
 | Other | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **103** | **31** | **30** | **3** | **39** |
+| **Total** | **103** | **31** | **29** | **3** | **40** |
 
 Of the 30 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
-an internal transition and 6 the redefinition machinery (several use more than one). Of the 61
+an internal transition and 6 the redefinition machinery (several use more than one). Of the 60
 expressible and runnable tests, 18 use orthogonal regions, 8 a do activity, 9 deferral, 8
-history, 6 a junction, 5 a choice and 3 a fork or join; no expressible test has a call event,
+history, 6 a junction, 4 a choice and 3 a fork or join; no expressible test has a call event,
 since every test with one also traces its result from the tester.
 
 #### Moves from the hand count
 
 This section was first written with a hand count of 37 / 33 / 3 / 30, which classified by the
 state-machine constructs alone. Writing the emitter showed nine of those 73 tests to have no
-exact translation, for reasons the construct table did not list. Each is recorded here with the
+exact translation, for reasons the construct table did not list, and adjudicating the failures
+a tenth. Each is recorded here with the
 classifier's reason; the count ratchet in `docs/project/pssm-referee.md` is where a later
 translation moves them back.
 
@@ -1333,6 +1335,7 @@ translation moves them back.
 | *Deferred 007* | extension | the deferred call trigger's operation `T4` returns a value the tester traces |
 | *Fork 002* | extension | the fork enters the two regions of a nested composite state, which have no initial pseudostate; the lowerer refuses a `parallel` region with no `entry; then` — this project's gap (finding 7), not v2's |
 | *Join 001* | extension | the fork enters the two regions of the top-level composite state, which have no initial pseudostate; the same lowerer refusal |
+| *Choice 005* | extension | the guards of the junction's and the choice's four outgoing transitions each call `trace("T1.n(guard)")` and the admitted trace records the calls, to show when each guard is read; a v2 guard is an expression with no room for an action, so the translation keeps only the guard's value and cannot reach the trace, and is refused rather than run short |
 
 The last two are kept apart from the other seven and from the 30 with no spelling: UML allows a
 fork to target states inside orthogonal regions that have no initial pseudostate, SysML v2
