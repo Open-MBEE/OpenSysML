@@ -414,9 +414,9 @@ func (*ChangeEvent) triggerEvent() { /* marker: closed TriggerEvent set */ }
 type AcceptEvent struct {
 	NodeBase
 	SignalType *QualifiedName // signal type to accept
-	// Subsets is the event feature the payload parameter subsets
-	// (`accept :> shutDown`), nil when it subsets none.
-	Subsets *QualifiedName
+	// Subsets is the event feature the payload parameter subsets, a name or a
+	// feature chain (`accept :> shutDown`, `accept :> fall.touchdown`), nil when none.
+	Subsets Node
 	// Payload is the payload parameter as it was declared, when the accept named
 	// one (`accept msg : Warning`), so the name the received value binds to
 	// survives lowering.

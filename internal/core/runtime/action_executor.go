@@ -999,7 +999,7 @@ func (e *ActionExecutor) NodeNames() []string {
 func (e *ActionExecutor) initializeAttributes() error {
 	if e.occurrence != nil {
 		for _, attr := range e.features {
-			if _, held := e.root.data[e.root.key(attr.Name)]; held {
+			if _, held := e.root.data[e.root.key(attr.Name)]; held || e.dynamics.ownsFeature(attr.Name) {
 				continue
 			}
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
@@ -1017,7 +1017,7 @@ func (e *ActionExecutor) initializeAttributes() error {
 	ec := e.evalContextFor(e.root, e.graph.Scope)
 	defer ec.beginStep()()
 	for _, attr := range e.features {
-		if attr.Value == nil {
+		if attr.Value == nil || e.dynamics.ownsFeature(attr.Name) {
 			continue
 		}
 		if _, held := e.root.data[e.root.key(attr.Name)]; held {

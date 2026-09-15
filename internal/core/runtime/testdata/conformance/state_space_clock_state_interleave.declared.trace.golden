@@ -13,22 +13,6 @@ materialize: cool #2
         bind components = 1.0 [argument]
       exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
     eval invoke VectorOf -> ⟨1.0⟩
-      eval feature input -> ⟨0.0⟩
-      eval feature stateSpace -> ⟨1.0⟩
-      enter calc test::Tank::cool::getOutput
-        bind input = ⟨0.0⟩ [argument]
-        bind stateSpace = ⟨1.0⟩ [argument]
-        stmt return
-                eval feature stateSpace -> ⟨1.0⟩
-              eval chain elements -> (1.0)
-              eval literal 1 -> 1
-            eval index -> 1.0
-            enter calc VectorFunctions::VectorOf
-              bind components = 1.0 [argument]
-            exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
-          eval invoke VectorOf -> ⟨1.0⟩
-      exit calc test::Tank::cool::getOutput -> ⟨1.0⟩
-    eval invoke getOutput -> ⟨1.0⟩
       eval literal 0.25 -> 0.25
     eval index -> 0.25 [s]
       eval literal 1 -> 1

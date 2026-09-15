@@ -255,16 +255,25 @@ func (dyn *StateSpaceDynamics) lowerNextState(members map[string]*symbols.Symbol
 	if !ok || next == nil || model.LibraryDeclared(next) {
 		return nil
 	}
-	if dyn.Kind == DiscreteDynamics {
+	if computesResult(next) {
 		dyn.NextState = next
 		return nil
 	}
 	integrate := memberIndex(model.MembersOf(next))[IntegrateCalc]
 	if integrate == nil || model.LibraryDeclared(integrate) {
-		dyn.NextState = next
 		return nil
 	}
 	return dyn.lowerIntegrator(integrate, model)
+}
+
+// computesResult reports a calc whose own body returns a value, as opposed to
+// one redeclared only to bind or retype its members.
+func computesResult(calc *symbols.Symbol) bool {
+	scope := calc.Scope
+	if scope == nil {
+		scope = calc.OwnerScope
+	}
+	return Returns(CalcBody(calc.Decl, declMembers(calc.Decl), scope))
 }
 
 // lowerIntegrator reads the scheme the model binds integrate to: one of those the

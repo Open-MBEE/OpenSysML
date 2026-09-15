@@ -78,6 +78,12 @@ type stateSpaceRun struct {
 // settled reports whether the run has sampled its start, which its first step does.
 func (run *stateSpaceRun) settled() bool { return run.guards != nil }
 
+// ownsFeature reports a feature the run writes itself, whose declared default the
+// action leaves unevaluated: the output, sampled by getOutput as each step settles.
+func (run *stateSpaceRun) ownsFeature(name string) bool {
+	return run != nil && run.dyn.Output != nil && name == run.dyn.Output.Name
+}
+
 // clone is the run's progress by value, nil for an action running no dynamics;
 // a snapshot keeps one and hands a fresh one back at each restore.
 func (run *stateSpaceRun) clone() *stateSpaceRun {
@@ -232,8 +238,7 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 		if ended || (run.stops && run.due() > run.stop+run.step*1e-9) {
 			return e.retireToken(tokenIdx)
 		}
-		e.parkDynamics(run, &e.tokens[tokenIdx])
-		return nil
+		return e.parkDynamics(run, &e.tokens[tokenIdx])
 	}
 	next, err := e.nextState(run, state, input)
 	if err != nil {
@@ -253,8 +258,7 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	if ended || (run.stops && run.due() > run.stop+run.step*1e-9) {
 		return e.retireToken(tokenIdx)
 	}
-	e.parkDynamics(run, &e.tokens[tokenIdx])
-	return nil
+	return e.parkDynamics(run, &e.tokens[tokenIdx])
 }
 
 // due is the instant the run's next step is due at.
@@ -262,14 +266,26 @@ func (run *stateSpaceRun) due() float64 {
 	return run.start + float64(run.steps+1)*run.step
 }
 
-// parkDynamics parks the run's token on the clock until its next step is due.
-func (e *ActionExecutor) parkDynamics(run *stateSpaceRun, token *Token) {
+// stepStart is the instant the run's next step advances from: where its latest settled.
+func (run *stateSpaceRun) stepStart() float64 {
+	return run.start + float64(run.steps)*run.step
+}
+
+// parkDynamics parks the run's token on the clock until its next step is due; a
+// step due past the last instant a float64 holds is refused, so the clock stays finite.
+func (e *ActionExecutor) parkDynamics(run *stateSpaceRun, token *Token) error {
+	due := run.due()
+	if math.IsInf(due, 0) {
+		return fmt.Errorf("%w: step %d of action %s from t=%s leads past the last instant the clock can hold",
+			ErrStateSpaceStep, run.steps+1, symbolText(e.action), semantics.FormatReal(run.stepStart()))
+	}
 	token.Wait = &AcceptWait{
 		Trigger: fmt.Sprintf("step %d of %s", run.steps+1, symbolText(e.action)),
 		Since:   e.stepCount + 1,
 		Timed:   true,
-		Due:     run.due(),
+		Due:     due,
 	}
+	return nil
 }
 
 // settleStep records the state reached at the clock's instant: the time feature,
@@ -356,25 +372,28 @@ func (e *ActionExecutor) eulerStep(run *stateSpaceRun, state Value, input *Value
 }
 
 // rk4Step advances the state by the classical Runge-Kutta scheme: the derivative
-// at the start, twice at the midpoint and at the end, weighted 1:2:2:1.
+// at the start, twice at the midpoint and at the end, each stage at its own
+// instant of the step, weighted 1:2:2:1.
 func (e *ActionExecutor) rk4Step(run *stateSpaceRun, state Value, input *Value) (Value, error) {
 	half, err := e.vectorOp(ast.OpMul, run.stepValue, realConst(0.5))
 	if err != nil {
 		return Value{}, err
 	}
+	start := run.stepStart()
+	mid, end := start+run.step/2, start+run.step
 	k1, err := e.derivative(run, input, state)
 	if err != nil {
 		return Value{}, err
 	}
-	k2, err := e.derivativeAt(run, input, state, k1, half)
+	k2, err := e.derivativeAt(run, input, state, k1, half, mid)
 	if err != nil {
 		return Value{}, err
 	}
-	k3, err := e.derivativeAt(run, input, state, k2, half)
+	k3, err := e.derivativeAt(run, input, state, k2, half, mid)
 	if err != nil {
 		return Value{}, err
 	}
-	k4, err := e.derivativeAt(run, input, state, k3, run.stepValue)
+	k4, err := e.derivativeAt(run, input, state, k3, run.stepValue, end)
 	if err != nil {
 		return Value{}, err
 	}
@@ -402,9 +421,9 @@ func (e *ActionExecutor) rk4Step(run *stateSpaceRun, state Value, input *Value) 
 	return e.vectorOp(ast.OpAdd, state, rate)
 }
 
-// derivativeAt is the derivative at the state reached from state by advancing
-// along slope for a span of the step.
-func (e *ActionExecutor) derivativeAt(run *stateSpaceRun, input *Value, state, slope, span Value) (Value, error) {
+// derivativeAt is the derivative at the instant t and the state reached from
+// state by advancing along slope for a span of the step.
+func (e *ActionExecutor) derivativeAt(run *stateSpaceRun, input *Value, state, slope, span Value, t float64) (Value, error) {
 	advance, err := e.vectorOp(ast.OpMul, slope, span)
 	if err != nil {
 		return Value{}, err
@@ -413,7 +432,27 @@ func (e *ActionExecutor) derivativeAt(run *stateSpaceRun, input *Value, state, s
 	if err != nil {
 		return Value{}, err
 	}
-	return e.derivative(run, input, at)
+	return e.atInstant(run, t, func() (Value, error) { return e.derivative(run, input, at) })
+}
+
+// atInstant evaluates a stage with the time feature holding instant t, then
+// restores the instant the step started from; without a time feature it just evaluates.
+func (e *ActionExecutor) atInstant(run *stateSpaceRun, t float64, stage func() (Value, error)) (Value, error) {
+	if run.dyn.Time == nil {
+		return stage()
+	}
+	saved, held := e.root.data[e.root.key(lower.TimeFeature)]
+	if !held {
+		saved = e.instantValue(run.stepStart())
+	}
+	if err := e.setFeature(lower.TimeFeature, e.instantValue(t)); err != nil {
+		return Value{}, err
+	}
+	val, err := stage()
+	if restoreErr := e.setFeature(lower.TimeFeature, saved); restoreErr != nil && err == nil {
+		err = restoreErr
+	}
+	return val, err
 }
 
 // derivative is the model's getDerivative at a state, checked to be a vector.
@@ -497,8 +536,17 @@ func (e *ActionExecutor) invokeProtocolCalc(calc *symbols.Symbol, what string, i
 	return result, nil
 }
 
+// crosses reports a guard that changed sign or arrived at zero over a step; one
+// resting at zero, or leaving it, crossed at its arrival and does not again.
+func crosses(was, guard float64) bool {
+	if guard == 0 {
+		return was != 0
+	}
+	return was != 0 && math.Signbit(guard) != math.Signbit(was)
+}
+
 // watchCrossings evaluates every guard after a step and raises the event of each
-// whose sign changed or that is exactly zero; true when a terminal one fired.
+// that crosses zero; true when a terminal one fired.
 func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, error) {
 	first := run.guards == nil
 	if first {
@@ -512,7 +560,7 @@ func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, 
 		}
 		was := run.guards[i]
 		run.guards[i] = guard
-		if first || (guard != 0 && math.Signbit(guard) == math.Signbit(was)) {
+		if first || !crosses(was, guard) {
 			continue
 		}
 		terminal, err := e.crossingTerminal(crossing)
@@ -520,11 +568,12 @@ func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, 
 			return false, err
 		}
 		e.ctx.PostMessage(Message{
-			SignalType: crossing.EventType.Name,
-			Signal:     crossing.EventType,
-			Event:      crossing.Event,
-			EventName:  crossing.Name,
-			Payload:    map[string]Value{},
+			SignalType:  crossing.EventType.Name,
+			Signal:      crossing.EventType,
+			Event:       crossing.Event,
+			EventName:   crossing.Name,
+			EventObject: objectID(e.occurrence),
+			Payload:     map[string]Value{},
 		})
 		if tr := e.trace(); tr != nil {
 			tr.RecordEvent("zero crossing "+crossing.Name+" of "+symbolText(e.action), now)

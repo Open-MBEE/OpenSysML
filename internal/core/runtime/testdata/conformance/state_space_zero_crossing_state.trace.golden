@@ -13,22 +13,6 @@ eval invoke VectorOf -> ⟨10.0⟩
     bind components = (19.0, 0.0) [argument]
   exit calc VectorFunctions::VectorOf -> ⟨19.0, 0.0⟩
 eval invoke VectorOf -> ⟨19.0, 0.0⟩
-  eval feature input -> ⟨10.0⟩
-  eval feature stateSpace -> ⟨19.0, 0.0⟩
-  enter calc test::Lander::fall::getOutput
-    bind input = ⟨10.0⟩ [argument]
-    bind stateSpace = ⟨19.0, 0.0⟩ [argument]
-    stmt return
-            eval feature stateSpace -> ⟨19.0, 0.0⟩
-          eval chain elements -> (19.0, 0.0)
-          eval literal 1 -> 1
-        eval index -> 19.0
-        enter calc VectorFunctions::VectorOf
-          bind components = 19.0 [argument]
-        exit calc VectorFunctions::VectorOf -> ⟨19.0⟩
-      eval invoke VectorOf -> ⟨19.0⟩
-  exit calc test::Lander::fall::getOutput -> ⟨19.0⟩
-eval invoke getOutput -> ⟨19.0⟩
   eval literal 0.5 -> 0.5
 eval index -> 0.5 [s]
 run: performed action fall of #1

@@ -23,6 +23,7 @@ func TestStateSpaceRobustness(t *testing.T) {
 	t.Run("step_that_is_negative", testStateSpaceStepNegative)
 	t.Run("integrator_the_runtime_does_not_provide", testStateSpaceUnknownIntegrator)
 	t.Run("divergent_state", testStateSpaceDivergentState)
+	t.Run("step_past_the_last_instant", testStateSpaceStepPastLastInstant)
 	t.Run("guard_that_is_not_a_number", testStateSpaceGuardNotANumber)
 }
 
@@ -235,6 +236,27 @@ func testStateSpaceDivergentState(t *testing.T) {
 		}
 	`))
 	expectStateSpaceError(t, err, ErrStateSpaceDiverged, "of action dyn at t=", "not a finite Real")
+}
+
+// A step so long that the next instant is not a finite number is refused before
+// the token is parked, so the clock never advances to infinity; the state itself
+// stays finite here, the derivative being zero.
+func testStateSpaceStepPastLastInstant(t *testing.T) {
+	err := runStateSpace(t, stateSpaceSource("ContinuousStateSpaceDynamics, FixedStepDynamics", `
+		:>> stateSpace = VectorOf((1.0));
+		:>> timeStep = 1.0e308 [s];
+		calc :>> getDerivative {
+			in input : Input;
+			in stateSpace : StateSpace;
+			return : StateDerivative = 0.0 * stateSpace / 1 [s];
+		}
+		calc :>> getOutput {
+			in input : Input;
+			in stateSpace : StateSpace;
+			return : Output = stateSpace;
+		}
+	`))
+	expectStateSpaceError(t, err, ErrStateSpaceStep, "step 2 of action dyn", "last instant the clock can hold")
 }
 
 func testStateSpaceGuardNotANumber(t *testing.T) {

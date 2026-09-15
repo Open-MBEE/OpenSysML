@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::fleet",
+  "objects": [
+    {
+      "path": "high",
+      "finalState": "lost",
+      "stateVisits": ["falling", "lost"],
+      "slots": {"landings": {"type": "Integer", "value": 0}}
+    },
+    {
+      "path": "low",
+      "finalState": "landed",
+      "stateVisits": ["falling", "landed"],
+      "slots": {"landings": {"type": "Integer", "value": 1}}
+    }
+  ]
+}

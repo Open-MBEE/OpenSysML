@@ -38,7 +38,8 @@ library package StateSpaceIntegration {
 		 * A dynamics run by fixed time steps: from the clock's time when it starts, each
 		 * step advances the state and the clock by timeStep, until the clock reaches
 		 * stopTime. Without a stopTime the run continues while the clock is advanced.
-		 * time is the clock's instant at the latest step, for a guard to read.
+		 * time is the clock's instant at the latest step, for a guard to read; while an
+		 * integrator evaluates getDerivative it is the instant of that stage of the step.
 		 */
 		attribute timeStep : DurationValue;
 		attribute stopTime : DurationValue[0..1];

@@ -200,7 +200,8 @@ func TestStateSpaceDynamicsLowering(t *testing.T) {
 }
 
 // A dynamics leaving the run's integrator unstated lowers as such, and one whose
-// getNextState the model bodies itself is carried to be called as written.
+// getNextState the model bodies itself is carried to be called as written, even
+// where that body also binds integrate.
 func TestStateSpaceDynamicsIntegratorChoice(t *testing.T) {
 	src := `package test {` + stateSpacePrelude + `
 		calc def Heun :> Integrate;
@@ -240,9 +241,26 @@ func TestStateSpaceDynamicsIntegratorChoice(t *testing.T) {
 				return : StateSpace = stateSpace;
 			}
 		}
+
+		action bodiedEuler :> unstated {
+			calc :>> getNextState {
+				in input : Input;
+				in stateSpace : StateSpace;
+				in timeStep : DurationValue;
+				calc :>> integrate : Euler;
+				return : StateSpace = stateSpace * 2.0;
+			}
+		}
+
+		action redeclared :> unstated {
+			calc :>> getNextState {
+				in input : Input;
+				in stateSpace : StateSpace;
+			}
+		}
 	}`
 
-	for name, want := range map[string]Integrator{"unstated": IntegratorUnstated, "rk4": IntegratorRK4} {
+	for name, want := range map[string]Integrator{"unstated": IntegratorUnstated, "rk4": IntegratorRK4, "redeclared": IntegratorUnstated} {
 		action, scope, model := stateSpaceAction(t, src, name)
 		dyn, err := ToStateSpaceDynamics(action, scope, model)
 		if err != nil {
@@ -262,13 +280,18 @@ func TestStateSpaceDynamicsIntegratorChoice(t *testing.T) {
 		t.Errorf("ToStateSpaceDynamics(heun) = %v, want ErrUnsupportedStateSpace naming Heun", err)
 	}
 
-	bodied, scope, model := stateSpaceAction(t, src, "bodied")
-	dyn, err := ToStateSpaceDynamics(bodied, scope, model)
-	if err != nil {
-		t.Fatalf("ToStateSpaceDynamics(bodied): %v", err)
-	}
-	if dyn.NextState == nil || dyn.NextState.Name != "getNextState" || model.LibraryDeclared(dyn.NextState) {
-		t.Errorf("next state = %v, want the model's bodied getNextState", dyn.NextState)
+	for _, name := range []string{"bodied", "bodiedEuler"} {
+		bodied, scope, model := stateSpaceAction(t, src, name)
+		dyn, err := ToStateSpaceDynamics(bodied, scope, model)
+		if err != nil {
+			t.Fatalf("ToStateSpaceDynamics(%s): %v", name, err)
+		}
+		if dyn.NextState == nil || dyn.NextState.Name != "getNextState" || model.LibraryDeclared(dyn.NextState) {
+			t.Errorf("next state of %s = %v, want the model's bodied getNextState", name, dyn.NextState)
+		}
+		if dyn.Integrator != IntegratorUnstated {
+			t.Errorf("integrator of %s = %v; a bodied getNextState runs as written", name, dyn.Integrator)
+		}
 	}
 }
 

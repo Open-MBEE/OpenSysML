@@ -57,3 +57,39 @@ func stateSpaceFinalState(t *testing.T, fixture string) float64 {
 	}
 	return vq.Num[0].Real
 }
+
+// TestZeroCrossingPredicate pins when a guard's sample after a step raises the
+// event: a change of sign or the first arrival at zero, once — not while the guard
+// rests at zero, nor as it leaves zero.
+func TestZeroCrossingPredicate(t *testing.T) {
+	cases := []struct {
+		was, guard float64
+		want       bool
+	}{
+		{1, -1, true},
+		{-1, 1, true},
+		{1, 0, true},
+		{-1, 0, true},
+		{0, 0, false},
+		{0, 1, false},
+		{0, -1, false},
+		{1, 2, false},
+		{-2, -1, false},
+	}
+	for _, c := range cases {
+		if got := crosses(c.was, c.guard); got != c.want {
+			t.Errorf("crosses(%v, %v) = %v, want %v", c.was, c.guard, got, c.want)
+		}
+	}
+	for i, guards := range [][]float64{{1, 0, 0, 0, -1}, {1, 0, 0, 1, 2}} {
+		var raised int
+		for j := 1; j < len(guards); j++ {
+			if crosses(guards[j-1], guards[j]) {
+				raised++
+			}
+		}
+		if raised != 1 {
+			t.Errorf("guards %v (case %d) raised %d crossings, want 1", guards, i, raised)
+		}
+	}
+}

@@ -1514,9 +1514,11 @@ part def Lander {
 }
 ```
 
-After each step every guard is evaluated; one that changed sign since the previous step, or is
-exactly zero, posts an event of its type, which the machine's `accept Touchdown` takes as it takes
-any signal, and the trace records `event: zero crossing touchdown of fall (t=2.0)`. The crossing
+After each step every guard is evaluated; one that changed sign since the previous step, or has
+just reached exactly zero, posts an event of its type — once: a guard resting at zero raises no
+more — which the machine's `accept Touchdown` takes as it takes any signal, and the trace records
+`event: zero crossing touchdown of fall (t=2.0)`. Two performances of the same dynamics each post
+their own event, so a machine accepting `fall.touchdown` takes its performer's crossing. The crossing
 is located to the end of the step that detected it: the event carries that step's instant and the
 state the machine reads is the post-step state, so a crossing is reported up to one `timeStep`
 late and a guard that crosses and crosses back inside one step is not seen — choose the step for
