@@ -1276,8 +1276,42 @@ func TestFiredTransitionsLogsCompoundAndForkSegments(t *testing.T) {
 	}
 }
 
+// A compound transition through a choice logs the segments into the choice as
+// well as the branch it takes; one through two choices logs every segment.
+func TestFiredTransitionsLogsSegmentsIntoAChoice(t *testing.T) {
+	src := `package test {
+		state Machine {
+			attribute priority : Integer = 2;
+			entry; then init;
+			state init;
+			choice route;
+			choice again;
+			state low;
+			state high;
+			transition first init do assign priority := priority + 1 then route;
+			transition first route if priority > 5 then high;
+			transition first route then again;
+			transition first again if priority > 5 then high;
+			transition first again then low;
+		}
+	}`
+	ctx, sym := loadState(t, src, "Machine")
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	want := []string{"->init", "init->route", "route->again", "again->low"}
+	if got := firedNames(exec); !slices.Equal(got, want) {
+		t.Fatalf("fired = %v, want %v", got, want)
+	}
+}
+
 // A firing that fails midway logs nothing: not the fork and its branches, nor
-// the segments of a compound transition whose last effect fails.
+// the segments of a compound transition whose last effect fails, nor those
+// into a choice when the branch out of it fails.
 func TestFiredTransitionsOmitsAFailedFiring(t *testing.T) {
 	for _, tc := range []struct {
 		name, src string
@@ -1303,6 +1337,17 @@ func TestFiredTransitionsOmitsAFailedFiring(t *testing.T) {
 				entry; then init;
 				state init;
 				junction route;
+				state low;
+				transition first init accept go then route;
+				transition first route do assign counter := missingName + 1 then low;
+			}
+		}`},
+		{"choice", `package test {
+			state Machine {
+				attribute counter : Integer = 0;
+				entry; then init;
+				state init;
+				choice route;
 				state low;
 				transition first init accept go then route;
 				transition first route do assign counter := missingName + 1 then low;
