@@ -178,11 +178,12 @@ func (ar *activityReader) readNode(n *Element) {
 			return
 		}
 		ar.emit(Statement{
-			Kind:     StmtAssign,
-			Receiver: ar.pinValue(n.First("object")),
-			Feature:  feature.Name(),
-			Value:    ar.pinValue(n.First("value")),
-			Replace:  n.Attr("isReplaceAll") == "true",
+			Kind:      StmtAssign,
+			Receiver:  ar.pinValue(n.First("object")),
+			Feature:   feature.Name(),
+			FeatureID: feature.ID,
+			Value:     ar.pinValue(n.First("value")),
+			Replace:   n.Attr("isReplaceAll") == "true",
 		})
 	case "uml:ActivityParameterNode":
 		// A fed return parameter node is the body's return statement.
@@ -336,7 +337,7 @@ func (ar *activityReader) actionValue(n, pin *Element) Expr {
 		if classifier == nil {
 			return Expr{Kind: ExprUnknown, Text: n.Describe() + " creates an object of a classifier the document does not define"}
 		}
-		return Expr{Kind: ExprNew, Name: classifier.Name()}
+		return Expr{Kind: ExprNew, Name: classifier.Name(), ID: n.ID}
 	case "uml:ReadStructuralFeatureAction":
 		feature := ar.r.doc.ByID(n.Attr("structuralFeature"))
 		if feature == nil {

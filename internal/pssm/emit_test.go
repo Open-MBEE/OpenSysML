@@ -292,6 +292,55 @@ func TestEmitFactoryInitializesAttributes(t *testing.T) {
 	if !errors.As(err, &te) || !strings.Contains(err.Error(), "is not a literal initialization of the new instance") {
 		t.Errorf("writing something other than the instance: err = %v", err)
 	}
+
+	// A nested class's own `value` shares the name, not the identity.
+	foreign := `<nestedClassifier xmi:type="uml:Class" xmi:id="tgtXOther" name="Other">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="otherValue" name="value">
+          <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+      </nestedClassifier>
+      ` + factoryWrite("otherValue", "uml:LiteralInteger", "15")
+	_, err = emitWithTarget(t, factoryTarget(foreign))
+	if !errors.As(err, &te) || !strings.Contains(err.Error(), "writes value, which is not an attribute") {
+		t.Errorf("writing a same-named feature of another class: err = %v", err)
+	}
+
+	// The factory creates a second instance, writes the first, then starts and returns the second.
+	second := factoryWrite("tgtXValue", "uml:LiteralInteger", "15") + `
+        <node xmi:type="uml:CreateObjectAction" xmi:id="fCreate2" name="Create2" classifier="tgtX">
+          <result xmi:type="uml:OutputPin" xmi:id="fCreate2Out"/>
+        </node>
+        <node xmi:type="uml:ForkNode" xmi:id="fFork2" name="Fork(u)"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="fE6" source="fCreate2Out" target="fFork2"/>`
+	second = strings.NewReplacer(
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE2" source="fFork" target="fStartObj"/>`,
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE2" source="fFork2" target="fStartObj"/>`,
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE3" source="fFork" target="tgtXFactoryOut"/>`,
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE3" source="fFork2" target="tgtXFactoryOut"/>`,
+	).Replace(factoryTarget(second))
+	_, err = emitWithTarget(t, second)
+	if !errors.As(err, &te) || !strings.Contains(err.Error(), "returns something other than the new instance") {
+		t.Errorf("returning a second instance after writing the first: err = %v", err)
+	}
+
+	// The factory returns an instance of another class.
+	other := strings.Replace(factoryTarget(factoryWrite("tgtXValue", "uml:LiteralInteger", "15")),
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE3" source="fFork" target="tgtXFactoryOut"/>`,
+		`<node xmi:type="uml:CreateObjectAction" xmi:id="fCreate2" name="Create2" classifier="semX">
+          <result xmi:type="uml:OutputPin" xmi:id="fCreate2Out"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="fE3" source="fCreate2Out" target="tgtXFactoryOut"/>`, 1)
+	_, err = emitWithTarget(t, other)
+	if !errors.As(err, &te) || !strings.Contains(err.Error(), "returns something other than the new instance") {
+		t.Errorf("returning another instance: err = %v", err)
+	}
+
+	unreturned := strings.Replace(factoryTarget(factoryWrite("tgtXValue", "uml:LiteralInteger", "15")),
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE3" source="fFork" target="tgtXFactoryOut"/>`, "", 1)
+	_, err = emitWithTarget(t, unreturned)
+	if !errors.As(err, &te) || !strings.Contains(err.Error(), "does not return the new instance") {
+		t.Errorf("returning nothing: err = %v", err)
+	}
 }
 
 // TestEmitRejects pins the typed error for constructs with no translation.

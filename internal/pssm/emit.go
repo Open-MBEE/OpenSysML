@@ -227,9 +227,8 @@ func (e *emitter) machine(b *strings.Builder) error {
 			}
 			decl := fmt.Sprintf("attribute %s : %s", spell(a.Name), typ)
 			value := a.Default
-			if written, ok := initial[a.Name]; ok {
+			if written, ok := initial[a.ID]; ok {
 				value = written
-				delete(initial, a.Name)
 			}
 			if value != nil {
 				lit, err := e.literal(value)
@@ -240,17 +239,14 @@ func (e *emitter) machine(b *strings.Builder) error {
 			}
 			attrs = append(attrs, decl+";")
 		}
-		if len(initial) > 0 {
-			name := sortedLiteralKeys(initial)[0]
-			return e.fail("factory of "+e.test.Target.Name, fmt.Sprintf("writes %s, which is not an attribute of the class", name))
-		}
 	}
 	return e.stateBody(b, 1, machineName, "", nil, m.Regions, attrs)
 }
 
 // factoryDefaults reads the target's constructor, the owned activity
-// `<Class>$factory`: the literals it writes on the new instance are the
-// attributes' initial values. Nil when the class has no factory.
+// `<Class>$factory`: the literals it writes on the one instance it creates and
+// returns are the attributes' initial values, keyed by the attribute's id.
+// Nil when the class has no factory.
 func (e *emitter) factoryDefaults() (map[string]*Literal, error) {
 	target := e.test.Target
 	var factory *Behavior
@@ -266,39 +262,59 @@ func (e *emitter) factoryDefaults() (map[string]*Literal, error) {
 	if len(factory.Body.Unsupported) > 0 {
 		return nil, e.fail(where, "uses "+strings.Join(factory.Body.Unsupported, "; "))
 	}
+	owned := map[string]bool{}
+	for _, a := range target.Attributes {
+		owned[a.ID] = true
+	}
+	// created is the create action of the instance every statement must address.
+	var created *Expr
+	same := func(x *Expr) bool {
+		x = newInstance(x, target.Name)
+		if x == nil || created != nil && created.ID != x.ID {
+			return false
+		}
+		created = x
+		return true
+	}
 	initial := map[string]*Literal{}
+	returned := false
 	for _, st := range factory.Body.Statements {
-		instance := isNewInstance(st.Receiver, target.Name)
 		switch {
-		case st.Kind == StmtReturn, st.Kind == StmtStart && instance:
-		case st.Kind == StmtAssign && instance && st.Replace && st.Value != nil && st.Value.Kind == ExprLiteral:
-			initial[st.Feature] = st.Value.Literal
+		case st.Kind == StmtStart && same(st.Receiver):
+		case st.Kind == StmtReturn:
+			if !same(st.Value) {
+				return nil, e.fail(where, fmt.Sprintf("%s returns something other than the new instance", st))
+			}
+			returned = true
+		case st.Kind == StmtAssign && same(st.Receiver) && st.Replace && st.Value != nil && st.Value.Kind == ExprLiteral:
+			if !owned[st.FeatureID] {
+				return nil, e.fail(where, fmt.Sprintf("writes %s, which is not an attribute of the class", st.Feature))
+			}
+			initial[st.FeatureID] = st.Value.Literal
 		default:
 			return nil, e.fail(where, fmt.Sprintf("%s is not a literal initialization of the new instance", st))
 		}
 	}
+	if !returned {
+		return nil, e.fail(where, "does not return the new instance")
+	}
 	return initial, nil
 }
 
-// isNewInstance reports whether x is a new instance of the class: `new C()`
-// itself, or the result of calling its default constructor `new C().C()`.
-func isNewInstance(x *Expr, class string) bool {
+// newInstance is the creation x is a new instance of the class from: `new C()`
+// itself, or the result of calling its default constructor `new C().C()`; nil
+// when x is anything else.
+func newInstance(x *Expr, class string) *Expr {
 	if x == nil {
-		return false
+		return nil
 	}
 	if x.Kind == ExprCall && x.Name == class && len(x.Args) == 0 {
 		x = x.Object
 	}
-	return x != nil && x.Kind == ExprNew && x.Name == class
-}
-
-func sortedLiteralKeys(m map[string]*Literal) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
+	if x == nil || x.Kind != ExprNew || x.Name != class {
+		return nil
 	}
-	sort.Strings(out)
-	return out
+	return x
 }
 
 // payloadRead matches a guard's read of a scalar payload, `data.value`.
