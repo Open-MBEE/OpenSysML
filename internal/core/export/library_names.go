@@ -43,14 +43,15 @@ func libraryDocument(roots []*element) string {
 	return identity.LibraryCatalog(libs.NewModelIndex()).DocumentRootedAt(read)
 }
 
-// documentLibrary is the bundled library document a parsed document is a version
-// of, read over the library alone (see identity.LibraryVersion).
-func documentLibrary(name string, root *ast.RootNamespace) string {
+// documentLibrary is the bundled library document a parsed file is a version of,
+// read over the library alone in the language it was parsed as (see identity.LibraryVersion).
+func documentLibrary(file *source.SourceFile, root *ast.RootNamespace) string {
 	idx := libs.NewModelIndex()
 	if !identity.LibraryCatalog(idx).NamesEveryRoot(root) {
 		return ""
 	}
-	idx.AddDocument(name, root)
+	name := file.Name()
+	idx.AddDocumentWithKind(name, root, file.Kind())
 	res := resolve.New(idx)
 	model := semantics.NewModel(res)
 	res.SetModel(model)

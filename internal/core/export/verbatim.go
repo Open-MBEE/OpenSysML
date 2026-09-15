@@ -54,9 +54,10 @@ func (d *decoder) libraryNotation(notation string, roots []*element) bool {
 	if !ok || d.library == "" {
 		return false
 	}
-	p := parser.New(source.New(name, []byte(notation)))
+	file := source.New(name, []byte(notation))
+	p := parser.New(file)
 	root := p.ParseFile()
-	return len(p.Diagnostics) == 0 && documentLibrary(name, root) == d.library
+	return len(p.Diagnostics) == 0 && documentLibrary(file, root) == d.library
 }
 
 // verbatim returns the source text an element is printed as, if it carries

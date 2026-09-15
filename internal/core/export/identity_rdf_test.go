@@ -618,6 +618,16 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 		strings.Contains(text, "14c0aa22-5489-59b5-b438-ded26e83ba31") {
 		t.Errorf("a user package reusing the library's name is not the library, so its ids are encoded names:\n%s", text)
 	}
+	// The library's exact bytes parsed as the other language are a user file: the
+	// digest matches, but the text was not read in the library document's grammar.
+	other, err := export.Convert("copy.sysml", src, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("copy in the other language to turtle: %v", err)
+	}
+	if text := string(other); !strings.Contains(text, "elmt:ScalarValues__Real") ||
+		strings.Contains(text, "14c0aa22-5489-59b5-b438-ded26e83ba31") {
+		t.Errorf("the library's bytes in the other language are not the library, so its ids are encoded names:\n%s", text)
+	}
 }
 
 // A transition is written whole by the behavioral mapping, so its identity

@@ -41,23 +41,25 @@ type identityFacts struct {
 }
 
 // analyzeDocument indexes one parsed document over the standard library and resolves
-// every name it writes; a library file (named, or a copy rooted at the bundled
-// document's top-level packages) takes the bundled one's place.
+// every name it writes; a library file (named, or a copy in the bundled document's
+// language that is its text or is rooted at its top-level packages) takes the bundled one's place.
 func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*resolve.Resolver, *semantics.Model) {
 	name := file.Name()
 	idx := libs.NewModelIndex()
 	digest := symbols.TextDigest(file.Bytes())
 	if library == "" {
-		library, _, _ = idx.LibraryDocumentByDigest(digest)
+		if doc, _, ok := idx.LibraryDocumentByDigest(digest); ok && idx.DocumentKind(doc) == file.Kind() {
+			library = doc
+		}
 	}
 	if library == "" {
-		library = documentLibrary(name, root)
+		library = documentLibrary(file, root)
 	}
 	tier := idx.DocumentLibraryTier(library)
 	if tier.Library() {
 		idx.RemoveDocument(library)
 	}
-	idx.AddDocument(name, root)
+	idx.AddDocumentWithKind(name, root, file.Kind())
 	if tier.Library() {
 		idx.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: tier, Digest: digest})
 	}
