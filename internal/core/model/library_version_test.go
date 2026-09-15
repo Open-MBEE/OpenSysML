@@ -87,6 +87,52 @@ func TestWorkspaceLibraryVersionStandsInForBundledFile(t *testing.T) {
 	}
 }
 
+// The library's identity follows its text, not the names its files are held under: a
+// byte-identical version standing in leaves it as it was, an edited one moves it.
+func TestWorkspaceLibraryVersionKeepsLibraryIdentity(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	identityOf := func(when string) string {
+		t.Helper()
+		ws.mu.RLock()
+		defer ws.mu.RUnlock()
+		id, known := ws.index.LibraryIdentity()
+		if !known {
+			t.Fatalf("%s: the library's identity is unknown", when)
+		}
+		return id
+	}
+	bundled := identityOf("before any version is open")
+
+	ws.Open("copy.kerml", lib.Content, 1)
+	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+		t.Fatalf("StandsInFor = %q, want %q", got, scalarValues)
+	}
+	if got := identityOf("with an unchanged version open"); got != bundled {
+		t.Errorf("an unchanged version of %s changed the library's identity", scalarValues)
+	}
+
+	edited := strings.Replace(string(lib.Content), "datatype Real", "datatype Real // edited", 1)
+	if edited == string(lib.Content) {
+		t.Fatal("Real is not declared where expected")
+	}
+	ws.Open("copy.kerml", []byte(edited), 2)
+	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+		t.Fatalf("StandsInFor = %q after the edit, want %q", got, scalarValues)
+	}
+	if got := identityOf("with an edited version open"); got == bundled {
+		t.Errorf("an edited version of %s left the library's identity as it was", scalarValues)
+	}
+
+	ws.Remove("copy.kerml")
+	if got := identityOf("after the version closed"); got != bundled {
+		t.Errorf("the library's identity did not return with the bundled file")
+	}
+}
+
 // An edit moving the roots off the library's package makes the document the
 // workspace's own, with derived ids, and restores the bundled file; moving them
 // back makes it the library again.

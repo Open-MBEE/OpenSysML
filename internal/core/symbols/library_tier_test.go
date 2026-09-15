@@ -85,6 +85,40 @@ func TestLibraryTierProvenance(t *testing.T) {
 	}
 }
 
+// The library's identity is a function of the tier and text of its documents:
+// the same text under another name is the same library, another text or tier is not.
+func TestLibraryIdentityFollowsTextNotName(t *testing.T) {
+	const items = "package Items { item def Item; }"
+	identity := func(name, text string, tier LibraryTier) string {
+		t.Helper()
+		idx := NewIndex()
+		addDoc(t, idx, name, text)
+		idx.MarkLibraryDocument(name, LibraryDocument{Tier: tier, Digest: TextDigest([]byte(text))})
+		got, known := idx.LibraryIdentity()
+		if !known || got == "" {
+			t.Fatalf("LibraryIdentity() of %s = %q, %t; want a known identity", name, got, known)
+		}
+		return got
+	}
+	bundled := identity("Systems Library/Items.sysml", items, TierSystems)
+	if got := identity("copy.sysml", items, TierSystems); got != bundled {
+		t.Errorf("the same text under another name has another identity")
+	}
+	if got := identity("Systems Library/Items.sysml", items+" // edited", TierSystems); got == bundled {
+		t.Errorf("another text under the same name has the same identity")
+	}
+	if got := identity("Systems Library/Items.sysml", items, TierDomain); got == bundled {
+		t.Errorf("the same text of another tier has the same identity")
+	}
+
+	idx := NewIndex()
+	addDoc(t, idx, "Systems Library/Items.sysml", items)
+	idx.MarkLibraryTier("Systems Library/Items.sysml", TierSystems)
+	if got, known := idx.LibraryIdentity(); known {
+		t.Errorf("LibraryIdentity() = %q, known, for a document of no text digest", got)
+	}
+}
+
 // A snapshot restores each symbol's tier, and an overlay over the decoded base
 // reads the same tiers as one over the original.
 func TestSnapshotKeepsLibraryTiers(t *testing.T) {
