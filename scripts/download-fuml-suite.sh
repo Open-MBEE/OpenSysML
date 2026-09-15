@@ -58,11 +58,6 @@ if [[ "$force" -eq 0 ]] && [[ -f "$stamp" ]]; then
 	fi
 fi
 
-if ! command -v curl >/dev/null 2>&1; then
-	echo "error: curl is required to download the fUML suite" >&2
-	exit 1
-fi
-
 # Staged under the target so a failed fetch leaves no artifact and the renames stay on one filesystem.
 mkdir -p "$target"
 work="$(mktemp -d "$target/.fuml-fetch.XXXXXX")"
@@ -77,6 +72,11 @@ fetch() {
 	if [[ "$force" -eq 0 ]] && verify "$target/$label" "$sum"; then
 		cp "$target/$label" "$dest"
 		return 0
+	fi
+	if ! command -v curl >/dev/null 2>&1; then
+		echo "error: curl is required to download $url" >&2
+		echo "       or place a verified copy at $target/$label; see docs/project/fuml-referee.md" >&2
+		exit 1
 	fi
 	echo "Fetching $url ..."
 	if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \

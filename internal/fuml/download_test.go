@@ -71,14 +71,62 @@ func runDownloader(t *testing.T, root, dir string, args ...string) (string, erro
 	if err := os.WriteFile(filepath.Join(bin, "curl"), []byte(curl), 0o755); err != nil { // #nosec G306 -- an executable stub
 		t.Fatal(err)
 	}
+	return runDownloaderWithPath(t, dir, bin+string(os.PathListSeparator)+os.Getenv("PATH"), args...)
+}
+
+// runDownloaderWithPath runs the script over dir with PATH set to path.
+func runDownloaderWithPath(t *testing.T, dir, path string, args ...string) (string, error) {
+	t.Helper()
 	script, err := filepath.Abs(filepath.Join(repoRoot, "scripts", "download-fuml-suite.sh"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	cmd := exec.Command("bash", append([]string{script}, args...)...) // #nosec G204 -- the repository's own script
-	cmd.Env = append(os.Environ(), "FUML_SUITE_ROOT="+dir, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	cmd.Env = append(os.Environ(), "FUML_SUITE_ROOT="+dir, "PATH="+path)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
+}
+
+// toolsWithoutCurl links every tool the script needs, curl excepted, into a
+// directory to serve as the whole PATH: an offline machine that never had curl.
+func toolsWithoutCurl(t *testing.T, root string) string {
+	t.Helper()
+	bin := filepath.Join(root, "nocurl")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range []string{"bash", "cat", "cp", "cut", "dirname", "mkdir", "mktemp", "mv", "rm", "sed", "sha256sum", "tr", "wc", "env"} {
+		path, err := exec.LookPath(tool)
+		if err != nil {
+			t.Skipf("%s not installed", tool)
+		}
+		if err := os.Symlink(path, filepath.Join(bin, tool)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return bin
+}
+
+// Provisioning by hand needs no network: a verified suite is stamped where
+// curl was never installed, and curl is wanted only for a file that is missing.
+func TestDownloaderStampsAVerifiedSuiteWithoutCurl(t *testing.T) {
+	clearPinEnv(t)
+	root, dir := suiteCopy(t)
+	bin := toolsWithoutCurl(t, root)
+	out, err := runDownloaderWithPath(t, dir, bin)
+	if err != nil {
+		t.Fatalf("downloader over verified files without curl: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".fuml-pin")); err != nil {
+		t.Fatalf("stamp after the run: %v\n%s", err, out)
+	}
+	if err := os.Remove(filepath.Join(dir, TestsFile)); err != nil {
+		t.Fatal(err)
+	}
+	out, err = runDownloaderWithPath(t, dir, bin)
+	if err == nil || !strings.Contains(out, "curl is required to download") {
+		t.Fatalf("downloader missing a file without curl = %v, want the curl error:\n%s", err, out)
+	}
 }
 
 func TestDownloaderStampsAVerifiedSuiteWithoutFetching(t *testing.T) {
