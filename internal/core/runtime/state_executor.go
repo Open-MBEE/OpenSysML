@@ -2571,15 +2571,18 @@ func (e *StateExecutor) joinSynchronized(trans *lower.Transition, event *Event) 
 
 // segmentTakes reports whether a join segment's trigger takes the dispatched
 // occurrence. Each timer is its own occurrence, so a time-triggered segment takes
-// the instant instead: it is enabled while its own timer is due, the segments'
-// expiries at one instant being one occurrence for the join.
+// another timer's expiry while its own timer is due: the expiries at one instant
+// are one occurrence for the join, which a signal or call dispatched then is not.
 func (e *StateExecutor) segmentTakes(segment *lower.Transition, event *Event) (bool, error) {
 	if event == nil {
 		return false, nil
 	}
 	if _, isTime := segment.Trigger.(*ast.TimeEvent); isTime {
+		if event.Type != EventTime {
+			return false, nil
+		}
 		timer, running := e.eventQueue.TimerOf(segment)
-		return running && timer.Timestamp <= e.ctx.clock.now, nil
+		return running && timer.Timestamp <= event.Timestamp, nil
 	}
 	return e.matchesEvent(segment, event)
 }

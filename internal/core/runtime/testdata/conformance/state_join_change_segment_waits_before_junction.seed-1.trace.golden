@@ -1,0 +1,66 @@
+exit: start
+stmt assign level
+  eval literal 2 -> 2
+enter: Work
+enter: a1
+enter: b1
+enter: c1
+transition: start -> Work
+  eval feature level -> 2
+  eval literal 1 -> 1
+eval operator > -> true
+  eval feature level -> 2
+  eval literal 2 -> 2
+eval operator > -> false
+exit: c1
+stmt assign level
+  eval literal 0 -> 0
+enter: c2
+transition: c1 -> c2 (event: accept Bump)
+  eval feature level -> 0
+  eval literal 1 -> 1
+eval operator > -> false
+  eval feature level -> 0
+  eval literal 2 -> 2
+eval operator > -> false
+exit: c2
+stmt assign level
+  eval literal 3 -> 3
+enter: c2
+transition: c2 -> c2 (event: accept Bump)
+  eval feature level -> 3
+  eval literal 1 -> 1
+eval operator > -> true
+  eval feature level -> 3
+  eval literal 2 -> 2
+eval operator > -> true
+  eval feature level -> 3
+  eval literal 2 -> 2
+eval operator > -> true
+  eval feature level -> 3
+  eval literal 2 -> 2
+eval operator > -> true
+choice on change: states a1, b1 react (unordered; took b1 first)
+choice join sync: states a1, b1 react (unordered; took a1 first)
+exit: a1
+stmt assign log
+    eval feature log -> ""
+    eval literal "a " -> "a "
+  eval operator + -> "a "
+exit: b1
+stmt assign log
+    eval feature log -> "a "
+    eval literal "b " -> "b "
+  eval operator + -> "a b "
+exit: c2
+exit: Work
+stmt assign log
+    eval feature log -> "a b "
+    eval literal "sync " -> "sync "
+  eval operator + -> "a b sync "
+stmt assign log
+    eval feature log -> "a b sync "
+    eval literal "onward" -> "onward"
+  eval operator + -> "a b sync onward"
+enter: done
+transition: Work -> done (event: change)
