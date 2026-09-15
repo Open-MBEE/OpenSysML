@@ -94,7 +94,7 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 // readManifest returns the file names the last generation into dir recorded;
 // none when there was no generation. Only plain names in dir are honored.
 func readManifest(dir string) ([]string, error) {
-	data, err := os.ReadFile(filepath.Join(dir, manifestName))
+	data, err := os.ReadFile(filepath.Join(dir, manifestName)) // #nosec G304 -- the output directory is named on the command line.
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
