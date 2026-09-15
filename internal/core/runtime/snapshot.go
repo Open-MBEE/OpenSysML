@@ -21,7 +21,9 @@ var ErrSnapshotPausedBody = errors.New("snapshot of a body paused mid-statement"
 
 // Snapshot is the run-derived state of a Context at one point between steps: a
 // mark in its journal, which Restore brings the run back to as often as asked
-// until Release. The Model the context runs over is not part of it. Every object
+// until Release. The Model the context runs over is not part of it, nor are the
+// breakpoints set on its executors: those are the debugger's, not the run's, and
+// stay as set across a restore (a HeldImage, a copy, carries them). Every object
 // the run had made keeps its identity across a restore; what it made after the
 // mark is abandoned, and the identities it took are handed out again.
 type Snapshot struct {
