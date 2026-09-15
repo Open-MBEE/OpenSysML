@@ -776,8 +776,8 @@ actually produces and for what:
 
 | `code` | HTTP | This service answers it for | Client class (Python name) |
 |---|---|---|---|
-| `invalid_argument` | 400 | Body is not valid JSON for the request type; `documents` empty or with duplicate names; `query` and `oslcQuery` both present; unknown query property; a document query given no binding for a required parameter, or a `queryId` that is not a document query | `InvalidRequestError` — fix the request |
-| `failed_precondition` | 400 | The request is well-formed but the model is not in the state the operation needs: an edit on a multi-document model that must name its document; a document query whose own definition is faulty when planned or run; a document whose own definition is faulty when planned | `InvalidRequestError` |
+| `invalid_argument` | 400 | Body is not valid JSON for the request type; `documents` empty or with duplicate names; an `ApplyEdits` `document` that is not one of the model's; `query` and `oslcQuery` both present; unknown query property; a document query given no binding for a required parameter, or a `queryId` that is not a document query | `InvalidRequestError` — fix the request |
+| `failed_precondition` | 400 | The request is well-formed but the model is not in the state the operation needs: a `Convert` of a multi-document model, which writes one document back out; a document query whose own definition is faulty when planned or run; a document whose own definition is faulty when planned | `InvalidRequestError` |
 | `out_of_range` | 400 | Not currently produced; reserved by the protocol for a value outside its valid range | `InvalidRequestError` |
 | `not_found` | 404 | `model not found: <hash>` (or `model <hash> is no longer cached: …` on `ApplyEdits`/`Convert`) — stale or unknown model hash, on every method that takes one; `symbol not found: <id>` on `RunDocumentQuery` and `RenderDocument`; `file not found: …` for a `filePath` the service could not read | `ModelNotFoundError` / `SymbolNotFoundError` / `ModelFileNotFoundError`, by message prefix — re-parse, fix the name, fix the path |
 | `unimplemented` | 501 | A capability the running service was started without (`capability "query" is unavailable`) or a method it does not have | `UnsupportedOperationError` — do not retry |
@@ -804,7 +804,11 @@ $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"prop
 HTTP/1.1 400 Bad Request
 {"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, shortName, type"}
 
-$ … /ApplyEdits -d '{"modelHash":"b4e0…ded9","operations":[{"setValue":{"target":"Demo::sedan::mass","value":"1300.0"}}]}'
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"document \"nope.sysml\" is not one of the model's: it has engine_library.sysml, engine_user.sysml"}
+
+$ … /Convert -d '{"modelHash":"997e…6134","format":"CONVERT_FORMAT_TURTLE"}'
 HTTP/1.1 400 Bad Request
 {"code":"failed_precondition","message":"this operation is defined on one document, and the model has 2: name the document to operate on by parsing it on its own"}
 
@@ -1948,6 +1952,92 @@ $ … /RunDocumentQuery -d '{"modelHash":"7e6a…a687","queryId":"Observatory::t
 HTTP/1.1 400 Bad Request
 {"code":"invalid_argument","message":"Observatory::telescope is not a document query: one is a calc def specializing DocumentQueries::Query"}
 ```
+
+## `ApplyEdits`: one document or several
+
+`ApplyEdits` rewrites the source a cached model was parsed from. Its answer names the edited
+notation twice, and a client reads one or the other by what it knows:
+
+- **`documents`** is the answer for every model. Each entry is one document the batch rewrote,
+  `name` the name the parse request gave it (`documents[].name` of `ParseSources`, the
+  `filePath` of a `ParseFile`, or `<content>` for inline content), `content` its whole edited
+  notation. The document the operations targeted comes first when it changed, then the others
+  in name order. A document the batch did not touch is **not** listed, so a client
+  writes back exactly the entries it receives.
+- **`content`** is the edited notation of a model of **exactly one** document, and is empty
+  for a model of several — including when the batch rewrote only one of them. It is the
+  field the sole-document contract answered before `documents` existed, and it keeps that
+  meaning: a client written against it sees the same answers it always did, and never a
+  multi-document model's, since such a model could not be edited before.
+
+So an empty `content` beside a non-empty `documents` means "a model of several documents", not
+"nothing changed": every operation splices the document its target is declared in, so a
+successful edit always lists at least that one, and a document is listed when an operation
+reached it, whether or not the bytes it wrote differ from the ones it replaced. A new client
+reads `documents` only, and has one code path for both shapes; `content` is for the client
+that predates it.
+
+A model of one document, edited (fixture `engine_library.sysml`, parsed by `ParseSources`
+under that name; the two fields carry the same bytes):
+
+```console
+$ … /ApplyEdits -d '{"modelHash":"234e…95d4","operations":[{"setValue":{"target":"EngineLibrary::Engine::power","value":"200"}}]}'
+{"content":"package EngineLibrary {\n\tprivate import ScalarValues::*;\n\tpart def Engine {\n\t\tattribute power : Integer = 200;\n\t}\n}\n",
+ "applied":[{"target":"EngineLibrary::Engine::power","offset":106,"length":3,"oldText":"150","newText":"200","document":"engine_library.sysml"}],
+ "documents":[{"name":"engine_library.sysml","content":"package EngineLibrary {\n\tprivate import ScalarValues::*;\n\tpart def Engine {\n\t\tattribute power : Integer = 200;\n\t}\n}\n"}]}
+```
+
+A model of two (`engine_library.sysml` and `engine_user.sysml`, parsed together), where a
+rename in the first is followed into the reference the second makes. The batch is applied as
+one: every document is spliced, re-parsed and re-analysed together, and either all of them are
+answered or none is. Each `applied` entry names the `document` its bytes belong to, and
+`content` is absent:
+
+```console
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","operations":[{"rename":{"target":"EngineLibrary::Engine","newName":"Motor"}}]}'
+{"applied":[{"target":"EngineLibrary::Engine","offset":67,"length":6,"oldText":"Engine","newText":"Motor","document":"engine_library.sysml"},
+            {"target":"EngineLibrary::Engine","offset":86,"length":6,"oldText":"Engine","newText":"Motor","document":"engine_user.sysml"}],
+ "documents":[{"name":"engine_library.sysml","content":"package EngineLibrary {\n\tprivate import ScalarValues::*;\n\tpart def Motor {\n\t\tattribute power : Integer = 150;\n\t}\n}\n"},
+              {"name":"engine_user.sysml","content":"package EngineUser {\n\tprivate import EngineLibrary::*;\n\tpart def Car {\n\t\tpart motor : Motor;\n\t}\n}\n"}]}
+```
+
+An operation's target must be declared in one document of the model, which by default is the
+model's first. The request's `document` names another, by its parse name; a name that is not
+one of the model's is `invalid_argument` (the code table below). An edit that touches only
+that document answers only that document:
+
+```console
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","document":"engine_user.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
+{"applied":[{"target":"EngineUser::Car","offset":65,"length":3,"oldText":"Car","newText":"Automobile","document":"engine_user.sysml"}],
+ "documents":[{"name":"engine_user.sysml","content":"package EngineUser {\n\tprivate import EngineLibrary::*;\n\tpart def Automobile {\n\t\tpart motor : Engine;\n\t}\n}\n"}]}
+```
+
+A refusal is an in-body failure, HTTP 200, and carries **no** edited notation: neither
+`content` nor `documents` nor `applied` is present, only `error`, the `failure` kind, any
+`diagnostics`, and for a refused non-cascade delete or a refused rename, what still refers to
+the target. `referringElements` spells each referrer as text, `<name> (<document>)`, as it
+always has; `referrers` is the same list with `name` and `document` as separate fields, for a
+client that opens the file:
+
+```console
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","operations":[{"delete":{"target":"EngineLibrary::Engine"}}]}'
+{"error":"EngineLibrary::Engine is referenced by EngineUser::Car::motor (engine_user.sysml); delete it with cascade to remove those declarations",
+ "failure":"EDIT_FAILURE_DELETE_REFERENCED",
+ "referringElements":["EngineUser::Car::motor (engine_user.sysml)"],
+ "referrers":[{"name":"EngineUser::Car::motor","document":"engine_user.sysml"}]}
+```
+
+`EDIT_FAILURE_REFERENCED_ELSEWHERE` is the kind for a rename, delete or move whose target is
+referred to from a document the edit cannot rewrite; a move respells references in its own
+document only, so a move of a declaration another document refers to is refused this way, and
+`referrers` names each. An empty batch is
+`EDIT_FAILURE_NO_OPERATIONS`, with nothing else in the body, as it was before `documents`
+existed.
+
+Every field named here keeps its number and type in `api/proto/sysml.proto`; `documents`
+(7), `referrers` (8), `AppliedEdit.document` (7) and `ApplyEditsRequest.document` (3) were
+appended, and the new `EditFailure` value appended after the last, so a generated client of
+the previous schema decodes every answer above and ignores what it does not know.
 
 ## Minimal clients: four illustrations
 

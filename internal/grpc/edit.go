@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -13,8 +14,12 @@ import (
 
 // ApplyEdits edits the source a model was parsed from and returns the edited
 // notation, so a client can change a model and write it back with its comments
-// and layout intact. Argument faults fail the call; an edit the engine refuses
-// is reported in the response's error, failure kind and diagnostics.
+// and layout intact. A model of several documents is edited as one: the
+// operations target the document the request names, a rename or cascade delete
+// follows references into every other, and the response carries each document
+// the edits rewrote, or none when they were refused. Argument faults fail the
+// call; an edit the engine refuses is reported in the response's error, failure
+// kind and diagnostics.
 func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error) {
 	if err := s.requireCapability(CapabilityApplyEdits); err != nil {
 		return nil, err
@@ -37,36 +42,92 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 	if err != nil {
 		return nil, err
 	}
-
-	// Edits rewrite one document's own notation, so a model of several is refused
-	// rather than edited in one of them.
-	doc, err := cached.SoleDocument()
+	edited, err := editedDocument(cached, req.Document)
 	if err != nil {
 		return nil, err
 	}
 
-	model := edit.Model{
-		Source:     doc.Source,
-		Root:       doc.Root,
+	result, err := edit.Apply(s.editModel(cached, edited), ops)
+	if err != nil {
+		return s.editRefusal(err, edited.Source)
+	}
+	return editResultToProto(result, edited.Source.Name(), len(cached.Documents) == 1), nil
+}
+
+// editedDocument is the document a request's operations target: the one it
+// names, or the model's first when it names none.
+func editedDocument(cached *CachedModel, name string) (*CachedDocument, error) {
+	if name == "" {
+		return cached.Primary(), nil
+	}
+	for _, doc := range cached.Documents {
+		if doc.Source.Name() == name {
+			return doc, nil
+		}
+	}
+	names := make([]string, 0, len(cached.Documents))
+	for _, doc := range cached.Documents {
+		names = append(names, doc.Source.Name())
+	}
+	return nil, statusErrorf(connect.CodeInvalidArgument,
+		"document %q is not one of the model's: it has %s", name, strings.Join(names, ", "))
+}
+
+// editModel is the cached model as the edit engine reads it: edited is the
+// document the operations target, and every other is one a rename or delete
+// may rewrite.
+func (s *Service) editModel(cached *CachedModel, edited *CachedDocument) edit.Model {
+	others := make([]*CachedDocument, 0, len(cached.Documents)-1)
+	for _, doc := range cached.Documents {
+		if doc != edited {
+			others = append(others, doc)
+		}
+	}
+	return edit.Model{
+		Source:     edited.Source,
+		Root:       edited.Root,
 		Index:      cached.Index,
-		ParseDiags: doc.ParseDiags,
-		SemDiags:   doc.PassesDiags,
-		// The edited notation is analyzed in an index of its own: the model's own
-		// index already holds the document under this name, and the libraries are
-		// what the new source has to resolve against.
+		ParseDiags: edited.ParseDiags,
+		SemDiags:   edited.PassesDiags,
+		// The edited notation is analyzed in an index of its own, over the
+		// libraries and every document of the model the edit did not rewrite.
 		NewIndex: func() *symbols.Index {
 			idx, _ := s.libIndexes.get()
+			for _, doc := range others {
+				idx.AddDocumentWithKind(doc.Source.Name(), doc.Root, doc.Source.Kind())
+			}
+			idx.ExpandWildcardImports()
 			return idx
 		},
+		Other: func(name string) (edit.Document, bool) {
+			for _, doc := range others {
+				if doc.Source.Name() == name {
+					return edit.Document{Source: doc.Source, ParseDiags: doc.ParseDiags, SemDiags: doc.PassesDiags}, true
+				}
+			}
+			return edit.Document{}, false
+		},
 	}
-	result, err := edit.Apply(model, ops)
-	if err != nil {
-		return s.editRefusal(err, doc.Source)
+}
+
+// editResultToProto reports the documents the edits rewrote, the edited one
+// first when it is among them, then the others in name order. content repeats
+// the notation for a single-document model alone, so a client reading it alone
+// never writes one document's notation over another's.
+func editResultToProto(result *edit.Result, edited string, sole bool) *pb.ApplyEditsResponse {
+	resp := &pb.ApplyEditsResponse{}
+	if sole || len(result.Applied) > 0 {
+		resp.Documents = append(resp.Documents, &pb.EditedDocument{Name: edited, Content: string(result.Content)})
+		resp.Applied = append(resp.Applied, appliedToProto(result.Applied, edited)...)
 	}
-	return &pb.ApplyEditsResponse{
-		Content: string(result.Content),
-		Applied: appliedToProto(result.Applied),
-	}, nil
+	for _, other := range result.Others {
+		resp.Documents = append(resp.Documents, &pb.EditedDocument{Name: other.Name, Content: string(other.Content)})
+		resp.Applied = append(resp.Applied, appliedToProto(other.Applied, other.Name)...)
+	}
+	if sole {
+		resp.Content = string(result.Content)
+	}
+	return resp
 }
 
 func requestsAuthoring(operations []*pb.EditOperation) bool {
@@ -122,6 +183,7 @@ func (s *Service) editRefusal(err error, sf *source.SourceFile) (*pb.ApplyEditsR
 		Error:             refusal.Message,
 		Failure:           editFailureToProto(refusal.Failure),
 		ReferringElements: refusal.Referring,
+		Referrers:         referrersToProto(refusal.Referrers),
 	}
 	// Diagnostic spans are offsets into what was diagnosed: the new value's text
 	// or the edited notation, not the model as the client has it.
@@ -136,8 +198,17 @@ func (s *Service) editRefusal(err error, sf *source.SourceFile) (*pb.ApplyEditsR
 	return resp, nil
 }
 
-// appliedToProto reports what each operation changed.
-func appliedToProto(applied []edit.Applied) []*pb.AppliedEdit {
+// referrersToProto reports each referrer with the document declaring it.
+func referrersToProto(referrers []edit.Referrer) []*pb.Referrer {
+	out := make([]*pb.Referrer, 0, len(referrers))
+	for _, r := range referrers {
+		out = append(out, &pb.Referrer{Name: r.Name, Document: r.Document})
+	}
+	return out
+}
+
+// appliedToProto reports what each operation changed in the document named document.
+func appliedToProto(applied []edit.Applied, document string) []*pb.AppliedEdit {
 	out := make([]*pb.AppliedEdit, 0, len(applied))
 	for _, a := range applied {
 		out = append(out, &pb.AppliedEdit{
@@ -147,33 +218,34 @@ func appliedToProto(applied []edit.Applied) []*pb.AppliedEdit {
 			Length:         int32Clamp(a.Span.Len),
 			OldText:        a.OldText,
 			NewText:        a.NewText,
+			Document:       document,
 		})
 	}
 	return out
 }
 
 // editFailures maps every refusal kind to its wire value, so a client acts on
-// the kind rather than on the message text. FailureReferencedElsewhere has none:
-// the service edits a sole document, which no other can refer to.
+// the kind rather than on the message text.
 var editFailures = map[edit.Failure]pb.EditFailure{
-	edit.FailureNone:              pb.EditFailure_EDIT_FAILURE_UNSPECIFIED,
-	edit.FailureNoOperations:      pb.EditFailure_EDIT_FAILURE_NO_OPERATIONS,
-	edit.FailureUnknownTarget:     pb.EditFailure_EDIT_FAILURE_UNKNOWN_TARGET,
-	edit.FailureAmbiguousTarget:   pb.EditFailure_EDIT_FAILURE_AMBIGUOUS_TARGET,
-	edit.FailureNotValued:         pb.EditFailure_EDIT_FAILURE_NOT_VALUED,
-	edit.FailureInvalidValue:      pb.EditFailure_EDIT_FAILURE_INVALID_VALUE,
-	edit.FailureInvalidName:       pb.EditFailure_EDIT_FAILURE_INVALID_NAME,
-	edit.FailureNotNamed:          pb.EditFailure_EDIT_FAILURE_NOT_NAMED,
-	edit.FailureRenameReferenced:  pb.EditFailure_EDIT_FAILURE_RENAME_REFERENCED,
-	edit.FailureOverlappingEdits:  pb.EditFailure_EDIT_FAILURE_OVERLAPPING_EDITS,
-	edit.FailureResultInvalid:     pb.EditFailure_EDIT_FAILURE_RESULT_INVALID,
-	edit.FailureOwnerUnknown:      pb.EditFailure_EDIT_FAILURE_OWNER_UNKNOWN,
-	edit.FailureOwnerNotNamespace: pb.EditFailure_EDIT_FAILURE_OWNER_NOT_NAMESPACE,
-	edit.FailureIllegalKind:       pb.EditFailure_EDIT_FAILURE_ILLEGAL_KIND,
-	edit.FailureMemberNameTaken:   pb.EditFailure_EDIT_FAILURE_MEMBER_NAME_TAKEN,
-	edit.FailureDeleteReferenced:  pb.EditFailure_EDIT_FAILURE_DELETE_REFERENCED,
-	edit.FailureOwnerInsideTarget: pb.EditFailure_EDIT_FAILURE_OWNER_INSIDE_TARGET,
-	edit.FailureMoveReferenced:    pb.EditFailure_EDIT_FAILURE_MOVE_REFERENCED,
+	edit.FailureNone:                pb.EditFailure_EDIT_FAILURE_UNSPECIFIED,
+	edit.FailureNoOperations:        pb.EditFailure_EDIT_FAILURE_NO_OPERATIONS,
+	edit.FailureUnknownTarget:       pb.EditFailure_EDIT_FAILURE_UNKNOWN_TARGET,
+	edit.FailureAmbiguousTarget:     pb.EditFailure_EDIT_FAILURE_AMBIGUOUS_TARGET,
+	edit.FailureNotValued:           pb.EditFailure_EDIT_FAILURE_NOT_VALUED,
+	edit.FailureInvalidValue:        pb.EditFailure_EDIT_FAILURE_INVALID_VALUE,
+	edit.FailureInvalidName:         pb.EditFailure_EDIT_FAILURE_INVALID_NAME,
+	edit.FailureNotNamed:            pb.EditFailure_EDIT_FAILURE_NOT_NAMED,
+	edit.FailureRenameReferenced:    pb.EditFailure_EDIT_FAILURE_RENAME_REFERENCED,
+	edit.FailureOverlappingEdits:    pb.EditFailure_EDIT_FAILURE_OVERLAPPING_EDITS,
+	edit.FailureResultInvalid:       pb.EditFailure_EDIT_FAILURE_RESULT_INVALID,
+	edit.FailureOwnerUnknown:        pb.EditFailure_EDIT_FAILURE_OWNER_UNKNOWN,
+	edit.FailureOwnerNotNamespace:   pb.EditFailure_EDIT_FAILURE_OWNER_NOT_NAMESPACE,
+	edit.FailureIllegalKind:         pb.EditFailure_EDIT_FAILURE_ILLEGAL_KIND,
+	edit.FailureMemberNameTaken:     pb.EditFailure_EDIT_FAILURE_MEMBER_NAME_TAKEN,
+	edit.FailureDeleteReferenced:    pb.EditFailure_EDIT_FAILURE_DELETE_REFERENCED,
+	edit.FailureOwnerInsideTarget:   pb.EditFailure_EDIT_FAILURE_OWNER_INSIDE_TARGET,
+	edit.FailureMoveReferenced:      pb.EditFailure_EDIT_FAILURE_MOVE_REFERENCED,
+	edit.FailureReferencedElsewhere: pb.EditFailure_EDIT_FAILURE_REFERENCED_ELSEWHERE,
 }
 
 func editFailureToProto(f edit.Failure) pb.EditFailure {

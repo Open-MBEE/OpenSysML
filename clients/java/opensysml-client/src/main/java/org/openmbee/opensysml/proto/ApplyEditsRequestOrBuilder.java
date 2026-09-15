@@ -12,7 +12,7 @@ public interface ApplyEditsRequestOrBuilder extends
 
   /**
    * <pre>
-   * from ParseFile response
+   * from a ParseFile or ParseSources response
    * </pre>
    *
    * <code>string model_hash = 1 [json_name = "modelHash"];</code>
@@ -21,7 +21,7 @@ public interface ApplyEditsRequestOrBuilder extends
   java.lang.String getModelHash();
   /**
    * <pre>
-   * from ParseFile response
+   * from a ParseFile or ParseSources response
    * </pre>
    *
    * <code>string model_hash = 1 [json_name = "modelHash"];</code>
@@ -78,4 +78,32 @@ public interface ApplyEditsRequestOrBuilder extends
    */
   org.openmbee.opensysml.proto.EditOperationOrBuilder getOperationsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * The document whose declarations the operations target, named as the parse
+   * request named it; empty names the model's first document, which is the
+   * only one of a ParseFile model. An operation targeting a declaration of
+   * another document is refused as an unknown target, naming that document. A
+   * name no document of the model has fails the call as an invalid argument.
+   * </pre>
+   *
+   * <code>string document = 3 [json_name = "document"];</code>
+   * @return The document.
+   */
+  java.lang.String getDocument();
+  /**
+   * <pre>
+   * The document whose declarations the operations target, named as the parse
+   * request named it; empty names the model's first document, which is the
+   * only one of a ParseFile model. An operation targeting a declaration of
+   * another document is refused as an unknown target, naming that document. A
+   * name no document of the model has fails the call as an invalid argument.
+   * </pre>
+   *
+   * <code>string document = 3 [json_name = "document"];</code>
+   * @return The bytes for document.
+   */
+  com.google.protobuf.ByteString
+      getDocumentBytes();
 }

@@ -118,6 +118,9 @@ func TestParseSourcesIsCapabilityGated(t *testing.T) {
 	}
 }
 
+// Convert writes one document back out, so a model of several is refused;
+// ApplyEdits edits the model as a whole, so the same model is answered, and an
+// empty request is refused as it is for one document: it names no edit.
 func TestOneDocumentOperationsRefuseAModelOfSeveral(t *testing.T) {
 	srv := mustNewService(t, 10)
 	defer srv.Close()
@@ -138,10 +141,15 @@ func TestOneDocumentOperationsRefuseAModelOfSeveral(t *testing.T) {
 		t.Errorf("Convert err = %v, want a FAILED_PRECONDITION naming the one-document limit", convertErr)
 	}
 
-	_, editErr := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{ModelHash: resp.ModelHash})
-	if connect.CodeOf(editErr) != connect.CodeFailedPrecondition ||
-		!strings.Contains(editErr.Error(), "one document") {
-		t.Errorf("ApplyEdits err = %v, want a FAILED_PRECONDITION naming the one-document limit", editErr)
+	edited, editErr := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{ModelHash: resp.ModelHash})
+	if editErr != nil {
+		t.Fatalf("ApplyEdits err = %v, want the empty request refused in the response", editErr)
+	}
+	if edited.Failure != pb.EditFailure_EDIT_FAILURE_NO_OPERATIONS {
+		t.Errorf("ApplyEdits failure = %s (%s), want NO_OPERATIONS", edited.Failure, edited.Error)
+	}
+	if edited.Content != "" || len(edited.Documents) != 0 {
+		t.Errorf("a refusal returned notation: content=%q documents=%v", edited.Content, edited.Documents)
 	}
 }
 

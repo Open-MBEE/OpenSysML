@@ -48,7 +48,7 @@ from opensysml.conversion import (
 )
 from opensysml.diagnostic import Diagnostic
 from opensysml.document import build_bindings, result_of as document_result
-from opensysml.edit import error_for_failure, failure_name, result_of
+from opensysml.edit import error_for_failure, failure_name, referrers_of, result_of
 from opensysml.enumeration import EnumLiteral
 from opensysml.exploration import Exploration, Outcome
 from opensysml.errors import (
@@ -1020,6 +1020,7 @@ class Connection:
                 response.error,
                 diagnostics=[Diagnostic(d) for d in response.diagnostics],
                 referring_elements=list(response.referring_elements),
+                referrers=referrers_of(response),
             )
         return result_of(response)
 

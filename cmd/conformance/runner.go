@@ -58,7 +58,7 @@ type runner struct {
 	client       client
 	fixtures     string
 	capabilities []string
-	models       map[Model]string // fixture → the hash the service gave its parse
+	models       map[string]string // Model.key() → the hash the service gave its parse
 	verbose      bool
 	// Withheld runs validate GetServerInfo against the default capability set directly.
 	omitHandshakeScenarios bool
@@ -313,52 +313,91 @@ func (r *runner) fixture(name string) (string, error) {
 // modelHash parses a scenario's model once per run and returns the hash the
 // service gave it. A model that fails to parse is an error in the suite.
 func (r *runner) modelHash(ctx context.Context, model Model) (string, error) {
-	if hash, ok := r.models[model]; ok {
+	if hash, ok := r.models[model.key()]; ok {
 		return hash, nil
 	}
-	source, err := r.fixture(model.Fixture)
+	rpc, request, err := r.parseRequest(model)
 	if err != nil {
 		return "", err
 	}
-	method, err := methodByName("ParseFile")
-	if err != nil {
-		return "", err
-	}
-	request := dynamicpb.NewMessage(method.Input())
-	fields := method.Input().Fields()
-	request.Set(fields.ByName("content"), protoreflect.ValueOfString(source))
-	if model.Language != "" {
-		request.Set(fields.ByName("language"), protoreflect.ValueOfString(model.Language))
-	}
-	if model.StrictConformance {
-		request.Set(fields.ByName("strict_conformance"), protoreflect.ValueOfBool(true))
-	}
+	named := strings.Join(model.fixtureNames(), ", ")
 
 	call, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	response, err := r.client.call(call, "ParseFile", request)
+	response, err := r.client.call(call, rpc, request)
 	if err != nil {
-		return "", fmt.Errorf("parsing fixture %q: %w", model.Fixture, err)
+		return "", fmt.Errorf("parsing fixture %q: %w", named, err)
 	}
 	out := response.Descriptor().Fields()
 	if reported := response.Get(out.ByName("error")).String(); reported != "" {
-		return "", fmt.Errorf("parsing fixture %q: %s", model.Fixture, reported)
+		return "", fmt.Errorf("parsing fixture %q: %s", named, reported)
 	}
 	diagnostics := response.Get(out.ByName("diagnostics")).List()
 	for i := 0; i < diagnostics.Len(); i++ {
 		diagnostic := diagnostics.Get(i).Message()
 		diagFields := diagnostic.Descriptor().Fields()
 		if strings.EqualFold(diagnostic.Get(diagFields.ByName("severity")).String(), "error") {
-			return "", fmt.Errorf("fixture %q does not parse clean: %s", model.Fixture,
+			return "", fmt.Errorf("fixture %q does not parse clean: %s", named,
 				diagnostic.Get(diagFields.ByName("message")).String())
 		}
 	}
 	hash := response.Get(out.ByName("model_hash")).String()
 	if hash == "" {
-		return "", fmt.Errorf("parsing fixture %q returned no model hash", model.Fixture)
+		return "", fmt.Errorf("parsing fixture %q returned no model hash", named)
 	}
-	r.models[model] = hash
+	r.models[model.key()] = hash
 	return hash, nil
+}
+
+// parseRequest builds the parse a model needs: ParseFile for one fixture,
+// ParseSources for several, each document named by its fixture.
+func (r *runner) parseRequest(model Model) (string, protoreflect.Message, error) {
+	if len(model.Fixtures) == 0 {
+		source, err := r.fixture(model.Fixture)
+		if err != nil {
+			return "", nil, err
+		}
+		method, err := methodByName("ParseFile")
+		if err != nil {
+			return "", nil, err
+		}
+		request := dynamicpb.NewMessage(method.Input())
+		fields := method.Input().Fields()
+		request.Set(fields.ByName("content"), protoreflect.ValueOfString(source))
+		if model.Language != "" {
+			request.Set(fields.ByName("language"), protoreflect.ValueOfString(model.Language))
+		}
+		if model.StrictConformance {
+			request.Set(fields.ByName("strict_conformance"), protoreflect.ValueOfBool(true))
+		}
+		return "ParseFile", request, nil
+	}
+
+	method, err := methodByName("ParseSources")
+	if err != nil {
+		return "", nil, err
+	}
+	request := dynamicpb.NewMessage(method.Input())
+	fields := method.Input().Fields()
+	documents := request.Mutable(fields.ByName("documents")).List()
+	for _, name := range model.Fixtures {
+		source, err := r.fixture(name)
+		if err != nil {
+			return "", nil, err
+		}
+		document := documents.NewElement().Message()
+		docFields := document.Descriptor().Fields()
+		document.Set(docFields.ByName("name"), protoreflect.ValueOfString(name))
+		document.Set(docFields.ByName("content"), protoreflect.ValueOfString(source))
+		if model.Language != "" {
+			document.Set(docFields.ByName("language"), protoreflect.ValueOfString(model.Language))
+		}
+		documents.Append(protoreflect.ValueOfMessage(document))
+	}
+	if model.StrictConformance {
+		request.Set(fields.ByName("strict_conformance"), protoreflect.ValueOfBool(true))
+	}
+	return "ParseSources", request, nil
 }
 
 // errored marks a scenario as broken rather than as a service disagreement.

@@ -212,7 +212,12 @@ model-ergonomics types, the edit API (`ApplyEdits`), RDF conversion (`Convert`),
 the verification helpers, `Query`, `GetDiagnostics`, `EvaluateCalc`, `RunAnalysis`,
 `ExecuteAction` and `ExecuteState`. The service serves all of them;
 `connection.rpc` is the escape hatch, being the generated Connect client, and
-`SysMLService` is exported for a caller building its own.
+`SysMLService` is exported for a caller building its own. Through that hatch,
+`ApplyEditsResponse.documents` lists every document an edit rewrote by its parse
+name, `applied[].document` names the document each change belongs to, and
+`referrers` names each referrer of a refused delete or rename with its document;
+`content` is filled only for a model of one document. `ParseSources`, which makes
+a model of several, is likewise reached through `connection.rpc` only.
 
 ## Conformance
 

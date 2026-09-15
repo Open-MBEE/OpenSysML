@@ -776,12 +776,21 @@ message ConvertResponse {
 
 // ApplyEditsRequest asks for a model's source with edits applied to it. The
 // source edited is the one parse read, named by its hash, so an edit is applied
-// to the model that was inspected.
+// to the model that was inspected. A model of several documents (ParseSources)
+// is edited as one: the operations target declarations of the document named
+// by `document`, and a rename or cascade delete follows references into every
+// other document of the model, rewriting those too.
 message ApplyEditsRequest {
-  string model_hash = 1;  // from ParseFile response
+  string model_hash = 1;  // from a ParseFile or ParseSources response
   // Edits to apply, all of them or none. Empty is rejected: it names no edit,
   // and answering with the unedited source would look like one was made.
   repeated EditOperation operations = 2;
+  // The document whose declarations the operations target, named as the parse
+  // request named it; empty names the model's first document, which is the
+  // only one of a ParseFile model. An operation targeting a declaration of
+  // another document is refused as an unknown target, naming that document. A
+  // name no document of the model has fails the call as an invalid argument.
+  string document = 3;
 }
 
 // EditOperation is one source-preserving change to make.
@@ -842,31 +851,72 @@ message SetValueEdit {
   string value = 2;
 }
 
-// RenameEdit rewrites the name token of a declaration. References to the
-// element are not updated: a rename of an element referenced anywhere is
-// refused, naming the referring elements, rather than leaving a broken model.
+// RenameEdit rewrites the name token of a declaration and every reference to
+// it in the model's documents. A rename that reaches a reference in a document
+// the edit cannot rewrite is refused, naming the referring elements, rather
+// than leaving a broken model.
 message RenameEdit {
   string target = 1;    // element to rename, as SymbolInfo.id names it
   string new_name = 2;  // new declared name; must lex as an identifier
 }
 
 // ApplyEditsResponse carries the edited source, or says why nothing was edited.
+// The edited notation is in `documents`, one entry per document the edits
+// rewrote; `content` repeats it for a single-document model only.
 message ApplyEditsResponse {
-  // The edited notation, byte-identical to the source outside the edited spans.
-  // Empty when the edits were refused, so a refusal never writes a file.
+  // The edited notation of a single-document model, byte-identical to the
+  // source outside the edited spans. Empty when the edits were refused, so a
+  // refusal never writes a file, and empty for a model of several documents,
+  // whose edited notation is in `documents` alone: a client that reads
+  // `content` alone was written for one document and must not write one
+  // document's notation over another's. `documents` carries the same notation
+  // for a single-document model, so a client needs one code path.
   string content = 1;
-  // What each operation changed, in request order.
+  // What each operation changed, grouped by document in the order `documents`
+  // lists them and in request order within a document.
   repeated AppliedEdit applied = 2;
-  string error = 3;  // non-empty if the edits were refused; content is unset
+  string error = 3;  // non-empty if the edits were refused; content and documents are unset
   // Which kind of refusal `error` reports, so a client acts on the kind rather
   // than on the message text.
   EditFailure failure = 4;
   // Diagnostics behind a refusal: the parse errors of an unreadable new value,
-  // or the errors the edited source was found to have.
+  // or the errors the edited source was found to have. A diagnostic's span
+  // names the document it is in.
   repeated Diagnostic diagnostics = 5;
-  // Where the references to a declaration whose rename was refused are made:
-  // the FQN of each referring namespace.
+  // Where the references to a declaration whose rename, delete or move was
+  // refused are made: the FQN of each referring namespace, suffixed with its
+  // document in parentheses when that is not the document being edited.
+  // `referrers` carries the same list with the document as a field of its own.
   repeated string referring_elements = 6;
+  // The edited notation of every document the edits rewrote, named as the
+  // parse request named it: the document being edited first, then the others
+  // in name order. A document of several the edits left as parsed is not
+  // listed; the one document of a single-document model always is. Empty when
+  // the edits were refused.
+  repeated EditedDocument documents = 7;
+  // The declarations referring to the target of a refused rename, delete or
+  // move, each with the document declaring it, in document then name order.
+  // Empty when `referring_elements` is.
+  repeated Referrer referrers = 8;
+}
+
+// EditedDocument is the edited notation of one document of the model.
+message EditedDocument {
+  // The document's name as the parse request gave it: the file path of a
+  // file_path document, the name of an inline one, or the position it was
+  // given when it was named neither.
+  string name = 1;
+  // The edited notation, byte-identical to the source outside the edited spans.
+  string content = 2;
+}
+
+// Referrer is one declaration referring to the target of a refused edit.
+message Referrer {
+  // The declaration as the notation names it: the FQN of a named one, or the
+  // heading of an anonymous one within its namespace.
+  string name = 1;
+  // The document declaring it, named as the parse request named it.
+  string document = 2;
 }
 
 // AppliedEdit is one byte range of the original source that an operation
@@ -881,6 +931,9 @@ message AppliedEdit {
   int32 length = 4;     // bytes replaced; zero for text inserted
   string old_text = 5;  // what was there, empty for an insertion
   string new_text = 6;  // what was written
+  // The document the bytes are in, named as the parse request named it and as
+  // ApplyEditsResponse.documents lists it. Set for a single-document model too.
+  string document = 7;
 }
 
 // EditFailure says why edits were refused. Every refusal is one of these: an
@@ -904,6 +957,10 @@ enum EditFailure {
   EDIT_FAILURE_DELETE_REFERENCED = 15; // delete would leave references
   EDIT_FAILURE_OWNER_INSIDE_TARGET = 16; // move owner is the target or inside it
   EDIT_FAILURE_MOVE_REFERENCED = 17;  // move would leave a reference no spelling restores
+  // the target is referred to from a document the edit cannot rewrite: a
+  // library document, or any other document for a move, which respells
+  // references in the target's own document only
+  EDIT_FAILURE_REFERENCED_ELSEWHERE = 18;
 }
 
 // SymbolInfo represents any SysML element

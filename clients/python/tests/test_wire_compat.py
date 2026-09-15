@@ -347,7 +347,7 @@ def test_apply_edits_is_an_added_rpc():
 def test_edit_messages_pin_their_field_numbers():
     """The edit messages' own numbering, pinned from the release that added it."""
     expected = {
-        "ApplyEditsRequest": {"model_hash": 1, "operations": 2},
+        "ApplyEditsRequest": {"model_hash": 1, "operations": 2, "document": 3},
         "EditOperation": {
             "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5
         },
@@ -366,7 +366,11 @@ def test_edit_messages_pin_their_field_numbers():
             "failure": 4,
             "diagnostics": 5,
             "referring_elements": 6,
+            "documents": 7,
+            "referrers": 8,
         },
+        "EditedDocument": {"name": 1, "content": 2},
+        "Referrer": {"name": 1, "document": 2},
         "AppliedEdit": {
             "operation_index": 1,
             "target": 2,
@@ -374,6 +378,7 @@ def test_edit_messages_pin_their_field_numbers():
             "length": 4,
             "old_text": 5,
             "new_text": 6,
+            "document": 7,
         },
     }
     for message_name, fields in expected.items():
@@ -409,6 +414,7 @@ def test_edit_failure_kinds_keep_their_values():
         "EDIT_FAILURE_DELETE_REFERENCED": 15,
         "EDIT_FAILURE_OWNER_INSIDE_TARGET": 16,
         "EDIT_FAILURE_MOVE_REFERENCED": 17,
+        "EDIT_FAILURE_REFERENCED_ELSEWHERE": 18,
     }
 
 
@@ -426,6 +432,27 @@ def test_an_edit_response_survives_an_older_reader():
     again = sysml_pb2.ApplyEditsResponse()
     again.ParseFromString(payload)
     assert again == response
+
+    older = sysml_pb2.ServerInfoRequest()
+    older.ParseFromString(payload)
+    assert older.SerializeToString() == payload
+
+
+def test_a_multi_document_edit_response_keeps_content_for_an_older_reader():
+    """documents rides beside content, so a reader without it still gets content."""
+    response = sysml_pb2.ApplyEditsResponse(
+        content="package Demo { part def SC; }\n",
+        documents=[sysml_pb2.EditedDocument(
+            name="demo.sysml", content="package Demo { part def SC; }\n",
+        )],
+        applied=[sysml_pb2.AppliedEdit(operation_index=0, document="demo.sysml")],
+    )
+    payload = response.SerializeToString()
+
+    again = sysml_pb2.ApplyEditsResponse()
+    again.ParseFromString(payload)
+    assert again == response
+    assert again.content == again.documents[0].content
 
     older = sysml_pb2.ServerInfoRequest()
     older.ParseFromString(payload)

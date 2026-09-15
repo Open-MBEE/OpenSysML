@@ -134,7 +134,7 @@ func (m *CachedModel) PrimaryRoot() *symbols.Scope {
 }
 
 // SoleDocument is the model's one document, for an operation defined on a single
-// document's own source — editing it, or writing it back out. A model of several
+// document's own source, such as writing it back out. A model of several
 // documents is refused rather than answered about one of them.
 func (m *CachedModel) SoleDocument() (*CachedDocument, error) {
 	if len(m.Documents) > 1 {

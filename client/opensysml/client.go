@@ -181,9 +181,17 @@ type Client interface {
 	ConvertSource(ctx context.Context, content string, to Format, opts ...ConvertOption) (*Conversion, error)
 
 	// ApplyEdits answers the model's source with every edit applied, or refuses
-	// them all with an EditError. Requires the apply_edits capability, and a
-	// model of one document.
+	// them all with an EditError. The edits target the model's first document —
+	// its only one when parsed from a file or source — and a rename or cascade
+	// delete follows references into every other document of the model, whose
+	// rewritten notation the result lists. Requires the apply_edits capability.
 	ApplyEdits(ctx context.Context, model *Model, edits ...Edit) (*EditResult, error)
+
+	// ApplyDocumentEdits is ApplyEdits with the edits targeting the document
+	// named as the parse named it; empty names the first. A name the model has
+	// no document under is CodeInvalidArgument. Requires the apply_edits
+	// capability.
+	ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error)
 
 	// Close releases what the implementation holds. The Client answers no
 	// further calls: each is refused with CodeUnavailable. Closing twice is

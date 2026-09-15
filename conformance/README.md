@@ -48,7 +48,7 @@ to `/sysml.SysMLService/<Method>` with `application/proto` or `application/json`
 | `rpc` | Method name, bare (`Evaluate`) or qualified (`sysml.SysMLService/Evaluate`). |
 | `requires_capabilities` | Names `GetServerInfo` must report for `expect` to apply. |
 | `expect_without_capability` | What a service **not** reporting them must answer instead. |
-| `model` | A fixture parsed once per run before the call; its hash fills `${model_hash}`. |
+| `model` | The model parsed once per run before the call; its hash fills `${model_hash}`. `{ "fixture": "x.sysml" }` parses one fixture with `ParseFile`; `{ "fixtures": ["a.sysml", "b.sysml"] }` parses several as one model with `ParseSources`, each document named by its fixture. |
 | `request` | The request as protobuf-JSON. |
 | `expect` | What the answer must be, by the rules below. |
 
