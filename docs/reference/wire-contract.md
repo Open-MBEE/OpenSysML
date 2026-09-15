@@ -2041,7 +2041,13 @@ The edited notation is judged at the conformance mode the model was parsed under
 model hash already encodes: an edit that writes extension notation into a model parsed with
 `strictConformance:true` is refused as `EDIT_FAILURE_RESULT_INVALID` with the extension
 reported as an error, where the same edit of the default-mode model is applied and the
-extension is a warning.
+extension is a warning. What is judged is the set of documents the batch rewrote, re-analysed
+together against the model's other documents as they stand; a document the batch leaves
+byte-for-byte unchanged is not re-analysed, so an edit whose only effect on it is through name
+resolution — a `part def X` added to a package it imports, taking over a name its `attribute`
+was typed by from another import — is applied, and the next parse of the edited documents
+reports what the untouched document now says. This is the scope the LSP's
+`opensysml/applyModelEdit` validates as well.
 
 Every field named here keeps its number and type in `api/proto/sysml.proto`; `documents`
 (7), `referrers` (8), `AppliedEdit.document` (7) and `ApplyEditsRequest.document` (3) were
