@@ -18,12 +18,6 @@ stmt action body
       eval literal "/inner;" -> "/inner;"
     eval operator + -> "/leaf;/inner;"
 enter: done
-  eval feature rounds -> 1
-  eval literal 1 -> 1
-eval operator == -> true
-  eval feature rounds -> 1
-  eval literal 0 -> 0
-eval operator == -> false
 transition: done -> done
   eval feature rounds -> 1
   eval literal 1 -> 1
