@@ -1,8 +1,10 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -174,6 +176,46 @@ func TestWriteSplitRemovesOnlyFilesThatReadAsRecorded(t *testing.T) {
 	}
 	if recorded := recordedNames(t, dir); !slices.Equal(recorded, []string{"library.sysml", "plane000.sysml", "constellation.sysml"}) {
 		t.Errorf("the manifest reads %v; want only the last generation's files", recorded)
+	}
+}
+
+// The manifest that stood while a generation ran is never cut short: the run
+// appends its records to it and then replaces it whole, so a reader holding the
+// old file sees the earlier records followed by every new one, and the name
+// holds the complete new manifest.
+func TestWriteSplitReplacesTheManifestWholeInsteadOfTruncatingIt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("a renamed-over file cannot be held open on Windows")
+	}
+	dir := t.TempDir()
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 2, Satellites: 1}, dir); err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.ReadFile(filepath.Join(dir, manifestName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	old, err := os.Open(filepath.Join(dir, manifestName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Close()
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 1, Satellites: 1}, dir); err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.ReadFile(filepath.Join(dir, manifestName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	held, err := io.ReadAll(old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(held) != string(first)+string(second) {
+		t.Errorf("the manifest held open through the second generation reads:\n%s\nwant the first manifest followed by the second's records:\n%s%s", held, first, second)
+	}
+	if recorded := recordedNames(t, dir); !slices.Equal(recorded, []string{"library.sysml", "plane000.sysml", "constellation.sysml"}) {
+		t.Errorf("the manifest reads %v; want only the second generation's files", recorded)
 	}
 }
 

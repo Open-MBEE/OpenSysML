@@ -66,6 +66,7 @@ func digest(content []byte) string {
 // files are staged beside their places and each is recorded in the manifest
 // before it is moved in, so a generation that fails leaves nothing unrecorded;
 // a record whose move never happened names a file that does not read as recorded.
+// The manifest of just this generation's files then replaces it in one rename.
 func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, error) {
 	files, stats := n.Split()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -116,7 +117,17 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 			return stats, err
 		}
 	}
-	return stats, os.WriteFile(filepath.Join(dir, manifestName), []byte(current.String()), 0o600)
+	return stats, replaceManifest(dir, staging, current.String())
+}
+
+// replaceManifest puts content in place as the manifest in one rename, so the
+// appended record of the generation stands until the whole replacement does.
+func replaceManifest(dir, staging, content string) error {
+	next := filepath.Join(staging, manifestName)
+	if err := os.WriteFile(next, []byte(content), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(next, filepath.Join(dir, manifestName))
 }
 
 // replaceable reports an error naming every file the generation would write
