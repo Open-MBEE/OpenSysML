@@ -84,10 +84,7 @@ func TestWriteSplitThatFailsRecordsWhatItWrote(t *testing.T) {
 	if got := listing(t, dir); !slices.Equal(got, want) {
 		t.Errorf("the failed generation left %v, want %v: nothing staged, nothing unrecorded", got, want)
 	}
-	recorded, err := readManifest(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	recorded := recordedNames(t, dir)
 	for _, name := range []string{"constellation.sysml", "library.sysml", "plane000.sysml", "plane001.sysml"} {
 		if !slices.Contains(recorded, name) {
 			t.Errorf("the manifest %v should still record %s", recorded, name)
@@ -108,9 +105,68 @@ func TestWriteSplitThatFailsRecordsWhatItWrote(t *testing.T) {
 	if got := listing(t, dir); !slices.Equal(got, want) {
 		t.Errorf("regenerating with one plane left %v, want %v", got, want)
 	}
-	if recorded, err := readManifest(dir); err != nil || !slices.Equal(recorded, []string{"library.sysml", "plane000.sysml", "constellation.sysml"}) {
-		t.Errorf("the manifest reads %v, %v; want only the last generation's files", recorded, err)
+	if recorded := recordedNames(t, dir); !slices.Equal(recorded, []string{"library.sysml", "plane000.sysml", "constellation.sysml"}) {
+		t.Errorf("the manifest reads %v; want only the last generation's files", recorded)
 	}
+}
+
+// A generation interrupted between recording a file and moving it in leaves
+// the manifest naming whatever stood at that name; a later generation must
+// not take that for its own. Neither may it take a recorded file the user
+// has since edited.
+func TestWriteSplitRemovesOnlyFilesThatReadAsRecorded(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 3, Satellites: 1}, dir); err != nil {
+		t.Fatal(err)
+	}
+	// The user's plane007.sysml, recorded by an interrupted larger generation
+	// that never moved its own plane007 over it.
+	if err := os.WriteFile(filepath.Join(dir, "plane007.sysml"), []byte("package Mine;\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	interrupted := digest([]byte("package Plane7;\n")) + " plane007.sysml\n"
+	manifest, err := os.OpenFile(filepath.Join(dir, manifestName), os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manifest.WriteString(interrupted); err != nil {
+		t.Fatal(err)
+	}
+	if err := manifest.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// The user's edit of a plane the generator did write.
+	if err := os.WriteFile(filepath.Join(dir, "plane002.sysml"), []byte("package Edited;\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 1, Satellites: 1}, dir); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{manifestName, "constellation.sysml", "library.sysml", "plane000.sysml", "plane002.sysml", "plane007.sysml"}
+	if got := listing(t, dir); !slices.Equal(got, want) {
+		t.Errorf("regenerating with one plane left %v, want %v: plane001 removed, the user's files kept", got, want)
+	}
+	for name, content := range map[string]string{"plane002.sysml": "package Edited;\n", "plane007.sysml": "package Mine;\n"} {
+		if got, err := os.ReadFile(filepath.Join(dir, name)); err != nil || string(got) != content {
+			t.Errorf("%s reads %q, %v; want it untouched", name, got, err)
+		}
+	}
+	if recorded := recordedNames(t, dir); !slices.Equal(recorded, []string{"library.sysml", "plane000.sysml", "constellation.sysml"}) {
+		t.Errorf("the manifest reads %v; want only the last generation's files", recorded)
+	}
+}
+
+func recordedNames(t *testing.T, dir string) []string {
+	t.Helper()
+	records, err := readManifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, r := range records {
+		names = append(names, r.Name)
+	}
+	return names
 }
 
 func listing(t *testing.T, dir string) []string {

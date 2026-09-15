@@ -3,6 +3,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -49,13 +51,21 @@ func main() {
 }
 
 // manifestName is the file in a -split-planes directory listing what the last
-// generation wrote there, so the next one removes only its own files.
+// generation wrote there, each file with the digest of its content, so the
+// next one removes only its own files and only while they read as written.
 const manifestName = ".stress-model-files"
+
+// digest is the manifest's identity of a file's content.
+func digest(content []byte) string {
+	sum := sha256.Sum256(content)
+	return hex.EncodeToString(sum[:])
+}
 
 // writeSplit writes the network one file per plane into dir, creating it, and
 // removes what an earlier generation wrote there that this one did not. The
 // files are staged beside their places and each is recorded in the manifest
-// before it is moved in, so a generation that fails leaves nothing unrecorded.
+// before it is moved in, so a generation that fails leaves nothing unrecorded;
+// a record whose move never happened names a file that does not read as recorded.
 func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, error) {
 	files, stats := n.Split()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -82,8 +92,9 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 	written := make(map[string]bool, len(files))
 	var current strings.Builder
 	for _, f := range files {
-		current.WriteString(f.Name + "\n")
-		if _, err := manifest.WriteString(f.Name + "\n"); err != nil {
+		line := digest([]byte(f.Source)) + " " + f.Name + "\n"
+		current.WriteString(line)
+		if _, err := manifest.WriteString(line); err != nil {
 			return stats, errors.Join(err, manifest.Close())
 		}
 		if err := os.Rename(filepath.Join(staging, f.Name), filepath.Join(dir, f.Name)); err != nil {
@@ -94,28 +105,56 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 	if err := manifest.Close(); err != nil {
 		return stats, err
 	}
-	for _, name := range previous {
-		if written[name] {
+	for _, rec := range previous {
+		if written[rec.Name] {
 			continue
 		}
-		path := filepath.Join(dir, name)
-		info, err := os.Lstat(path)
-		if errors.Is(err, os.ErrNotExist) || (err == nil && !info.Mode().IsRegular()) {
-			continue
-		}
-		if err != nil {
-			return stats, err
-		}
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := removeIfRecorded(filepath.Join(dir, rec.Name), rec.Digest); err != nil {
 			return stats, err
 		}
 	}
 	return stats, os.WriteFile(filepath.Join(dir, manifestName), []byte(current.String()), 0o600)
 }
 
-// readManifest returns the file names the last generation into dir recorded;
-// none when there was no generation. Only plain names in dir are honored.
-func readManifest(dir string) ([]string, error) {
+// removeIfRecorded removes the regular file at path when its content still
+// has the recorded digest; anything else standing there is not the generator's.
+func removeIfRecorded(path, recorded string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return nil
+	}
+	content, err := os.ReadFile(path) // #nosec G304 -- path is a recorded name under the output directory.
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if digest(content) != recorded {
+		return nil
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+// record is one manifest line: a file the last generation wrote, and the
+// digest of what it wrote there.
+type record struct {
+	Name   string
+	Digest string
+}
+
+// readManifest returns what the last generation into dir recorded; nothing
+// when there was no generation. Only plain names in dir with a digest are honored.
+func readManifest(dir string) ([]record, error) {
 	data, err := os.ReadFile(filepath.Join(dir, manifestName)) // #nosec G304 -- the output directory is named on the command line.
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -123,11 +162,13 @@ func readManifest(dir string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var names []string
-	for _, name := range strings.Split(string(data), "\n") {
-		if name != "" && name != manifestName && filepath.Base(name) == name {
-			names = append(names, name)
+	var records []record
+	for _, line := range strings.Split(string(data), "\n") {
+		sum, name, ok := strings.Cut(line, " ")
+		if !ok || sum == "" || name == "" || name == manifestName || filepath.Base(name) != name {
+			continue
 		}
+		records = append(records, record{Name: name, Digest: sum})
 	}
-	return names, nil
+	return records, nil
 }
