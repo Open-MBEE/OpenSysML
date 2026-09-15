@@ -158,11 +158,7 @@ export class DiagramPanels implements vscode.Disposable {
     }
   }
 
-  /**
-   * open shows the diagram of the document a command names — a menu's resource,
-   * the active editor's, or the one model file in view — beside its source.
-   * Invoked from inside a diagram panel it goes the other way, to the source.
-   */
+  /** open shows the diagram of the document a command names beside its source; from the panel, the source. */
   private async open(target?: unknown): Promise<void> {
     const resolved = this.resolve(target, "draw a diagram of it");
     if (!resolved) {
@@ -192,12 +188,7 @@ export class DiagramPanels implements vscode.Disposable {
     this.adopt(uri, panel, "");
   }
 
-  /**
-   * export writes the machine form of the named document's diagram — Mermaid
-   * for a diagram, Markdown for a table — to a file the user picks: the view
-   * its panel has chosen when one is open, else the one the document implies,
-   * else the one the user picks.
-   */
+  /** export writes the machine form (Mermaid or Markdown) of the named document's diagram to a file. */
   private async export(target?: unknown): Promise<void> {
     const resolved = this.resolve(target, "export a diagram of it");
     const client = this.client;
