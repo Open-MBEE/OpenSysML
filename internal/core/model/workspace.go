@@ -636,7 +636,8 @@ func (w *Workspace) LibraryDocument(name string) *Document {
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	// The workspace may have taken the name between the locks.
+	// The workspace may have taken the name between the locks; libraryDocumentLocked
+	// reads the cache again for a document another reader loaded meanwhile.
 	if name, isLibrary = w.libraryNameLocked(name); !isLibrary {
 		return nil
 	}
