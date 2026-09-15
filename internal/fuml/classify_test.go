@@ -1,6 +1,7 @@
 package fuml
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -247,6 +248,29 @@ const refiringModel = `<?xml version="1.0" encoding="UTF-8"?>
   <packagedElement xmi:type="uml:Activity" xmi:id="d" name="Starter">
     <node xmi:type="uml:CallBehaviorAction" xmi:id="callDestroyer" name="Call(Destroyer)" behavior="c"/>
   </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="worker" name="Worker" isActive="true" classifierBehavior="workerRun">
+    <ownedBehavior xmi:type="uml:Activity" xmi:id="workerRun" name="Run">
+      <node xmi:type="uml:DestroyObjectAction" xmi:id="destroySelf" name="Destroy">
+        <target xmi:type="uml:InputPin" xmi:id="dst" name="target"/>
+      </node>
+    </ownedBehavior>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="e" name="Creator">
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createWorker" name="Create(Worker)" classifier="worker">
+      <result xmi:type="uml:OutputPin" xmi:id="cwr" name="result" type="worker"/>
+    </node>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="f" name="Launcher">
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createWorker2" name="Create(Worker)" classifier="worker">
+      <result xmi:type="uml:OutputPin" xmi:id="cwr2" name="result"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="workerFork" name="Fork"/>
+    <node xmi:type="uml:StartObjectBehaviorAction" xmi:id="startWorker" name="Start(Worker)">
+      <object xmi:type="uml:InputPin" xmi:id="swo" name="object"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f3" source="cwr2" target="workerFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f4" source="workerFork" target="swo"/>
+  </packagedElement>
 </uml:Model>
 `
 
@@ -317,5 +341,24 @@ func TestClassifyFilesReFiringByItsCause(t *testing.T) {
 	}
 	if _, ok := Expressible.Bucket(); ok {
 		t.Error("an expressible class has a bucket before a run")
+	}
+
+	// Creating an object runs nothing of its class; starting it runs the
+	// classifier behavior, whose class then propagates.
+	if c := Classify(activity(t, m, "Creator"), nil); c.Class != Expressible {
+		t.Errorf("Creator = %s: %s", c.Class, c.Reason())
+	}
+	launcher := Classify(activity(t, m, "Launcher"), nil)
+	want = "dependency on a not-expressible behavior (a behavior it calls or starts is itself not expressible): Run (DestroyObjectAction)"
+	if launcher.Class != NotExpressible || launcher.Reason() != want {
+		t.Errorf("Launcher = %s: %s", launcher.Class, launcher.Reason())
+	}
+}
+
+func TestExpressibilityStringOutsideTheClasses(t *testing.T) {
+	for _, c := range []Expressibility{-1, Expressibility(len(expressibilityNames))} {
+		if got, want := c.String(), fmt.Sprintf("Expressibility(%d)", int(c)); got != want {
+			t.Errorf("%d.String() = %q, want %q", int(c), got, want)
+		}
 	}
 }

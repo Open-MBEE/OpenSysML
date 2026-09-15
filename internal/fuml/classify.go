@@ -46,7 +46,7 @@ var expressibilityNames = [...]string{
 }
 
 func (c Expressibility) String() string {
-	if int(c) < len(expressibilityNames) {
+	if c >= 0 && int(c) < len(expressibilityNames) {
 		return expressibilityNames[c]
 	}
 	return fmt.Sprintf("Expressibility(%d)", int(c))
@@ -349,8 +349,9 @@ func pinLabel(n *Node) string {
 }
 
 // dependencies lists the model's activities the activity runs: the activities
-// it calls and the classifier behaviors of the objects it creates or starts,
-// each once, in document order. The activity itself is never listed.
+// it calls and the classifier behaviors of the objects it starts, each once,
+// in document order. Creating an object runs nothing; the activity itself is
+// never listed.
 func dependencies(a *Activity) []*Activity {
 	var deps []*Activity
 	seen := map[*Activity]bool{a: true}
@@ -366,17 +367,40 @@ func dependencies(a *Activity) []*Activity {
 			if n.Behavior != nil {
 				take(n.Behavior.Activity)
 			}
-		case CreateObjectAction:
-			take(classifierBehavior(a.Model, n.Classifier))
 		case StartObjectBehaviorAction:
 			for _, p := range n.Inputs() {
 				if p.Role == "object" {
-					take(classifierBehavior(a.Model, p.Type))
+					for _, t := range objectTypes(p, map[*Node]bool{}) {
+						take(classifierBehavior(a.Model, t))
+					}
 				}
 			}
 		}
 	}
 	return deps
+}
+
+// objectTypes lists the types the objects reaching a pin may have: the pin's
+// own type, or else the types of the sources its object flows lead back to,
+// through untyped control and object nodes; a created object has its classifier.
+func objectTypes(n *Node, visited map[*Node]bool) []TypeRef {
+	if visited[n] {
+		return nil
+	}
+	visited[n] = true
+	if n.Kind == OutputPin && n.Owner != nil && n.Owner.Kind == CreateObjectAction && !n.Owner.Classifier.Zero() {
+		return []TypeRef{n.Owner.Classifier}
+	}
+	if !n.Type.Zero() {
+		return []TypeRef{n.Type}
+	}
+	var types []TypeRef
+	for _, e := range n.Incoming {
+		if e.Kind == ObjectFlow && e.Source != nil {
+			types = append(types, objectTypes(e.Source, visited)...)
+		}
+	}
+	return types
 }
 
 // classifierBehavior is the behavior an object of the type runs when started:
