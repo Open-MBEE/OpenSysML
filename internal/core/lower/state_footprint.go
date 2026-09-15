@@ -120,8 +120,9 @@ func (b *stateFootprintBuilder) segment(source *ast.StateNode, seg *Transition) 
 }
 
 // pseudostate adds what a route through the pseudostate may do: every branch of
-// a choice or junction, every target of a fork, the target of a join with the
-// regions it leaves, the whole composite a history re-enters.
+// a choice or junction, every target of a fork with the regions it leaves to
+// start by default, the target of a join with the regions it leaves, the whole
+// composite a history re-enters.
 func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transition, ps *ast.PseudostateNode) {
 	if b.crossed[ps] {
 		return
@@ -142,6 +143,13 @@ func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transiti
 				b.move(source, target)
 			} else {
 				b.footprint.Dynamic = true
+			}
+		}
+		if plan := b.graph.ForkPlans[ps]; plan != nil {
+			for _, region := range b.graph.CompositeStates[plan.Owner] {
+				if plan.Branches[region] == nil {
+					b.entersRegion(plan.Owner, region)
+				}
 			}
 		}
 	case ast.PseudostateJoin:
@@ -222,6 +230,23 @@ func (b *stateFootprintBuilder) entersBelow(state *ast.StateNode) {
 	for _, child := range b.graph.children(state) {
 		b.enters(child)
 		b.entersBelow(child)
+	}
+}
+
+// entersRegion adds every state a region of owner may start in by default: the
+// graph-only state standing for the region, or the states it declares, and all
+// below them.
+func (b *stateFootprintBuilder) entersRegion(owner *ast.StateNode, region *ast.StateRegion) {
+	if wrapper := b.graph.RegionState[region]; wrapper != nil {
+		b.enters(wrapper)
+		b.entersBelow(wrapper)
+		return
+	}
+	for _, child := range b.graph.children(owner) {
+		if b.graph.RegionOf[child] == region {
+			b.enters(child)
+			b.entersBelow(child)
+		}
 	}
 }
 

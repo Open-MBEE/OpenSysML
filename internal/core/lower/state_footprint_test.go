@@ -173,6 +173,56 @@ func TestTransitionFootprintsFollowChoiceBranchesAndCompletion(t *testing.T) {
 	}
 }
 
+// A transition into a fork covers the regions the fork omits as well as its
+// branches' targets: the omitted region starts by default, so its states'
+// activity, entry behavior and completion are the fork's too.
+func TestTransitionFootprintsCoverForkOmittedRegions(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			attribute def Go;
+			attribute def Tick;
+			state Machine {
+				attribute k : Integer = 0;
+				attribute n : Integer = 0;
+				entry; then idle;
+				state idle;
+				state other;
+				state work parallel {
+					state left { state a; }
+					state right { state b; }
+					state third {
+						entry; then c;
+						state c { entry action { assign n := n + 1; } }
+						transition first c then c2;
+						state c2;
+					}
+				}
+				fork split;
+				transition first idle accept Go do assign k := 1 then split;
+				transition first idle accept Tick do assign n := 0 then other;
+				transition first split then a;
+				transition first split then b;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	fork := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
+	for _, name := range []string{"k", "n", "work", "a", "b", "c", "c2"} {
+		if !hasPlace(fork.Writes, name) {
+			t.Fatalf("writes %v, want %s", placeNames(fork.Writes), name)
+		}
+	}
+	if !fork.Completion {
+		t.Fatal("entering c, whose completion transition fires, queues a completion")
+	}
+	tick := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 1)]
+	if hasPlace(tick.Writes, "c") || hasPlace(tick.Writes, "a") {
+		t.Fatalf("Tick writes %v, want none of work's states", placeNames(tick.Writes))
+	}
+}
+
 // Every entry, do and exit behavior has a footprint: what its statements touch
 // and the activity of the state it belongs to.
 func TestBehaviorFootprintsCoverEveryBehavior(t *testing.T) {
