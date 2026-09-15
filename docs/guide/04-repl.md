@@ -153,6 +153,20 @@ not the order the files were loaded in — so `P::A` resolves while `P::B` does 
 from one opening to the other does not resolve either. Entering a package at the prompt is
 unaffected: it still merges into the package already in the session.
 
+### Known behaviour
+
+Two evaluation rules of the prompt predate per-file loading and are kept as they are; both are
+open to change. A prompt expression (`%eval`, the arguments of `%calc` and `%sweep`) evaluates in
+the last namespace declared, and when a loaded file declares it, the expression sees that file's
+root imports even though a typed declaration does not — after `%load a.sysml` with
+`private import ScalarValues::*; package A { … }`, `%eval 1.5 as Real` resolves while a typed
+`attribute y : Real;` reports `Real` unresolved; the alternative is a fallback to the transcript's
+own root. A qualified command argument (`%eval A::y`, `%print A::y`) is looked up in the symbol
+index, which holds every document's declarations, so with two loaded `package A` it reaches the
+member of the second `A` that a reference in a model or in a compound expression cannot (`%eval A`
+alone reports `A` ambiguous); the alternatives are a resolver-based lookup for the evaluating
+commands, or rejecting a root that resolves ambiguously.
+
 ## Finding what a build offers
 
 `%search` looks for a substring across the declared and library symbols and reports the kind of
