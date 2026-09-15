@@ -734,6 +734,10 @@ the segment: a signal or call dispatch, a timer, a completion or a change poll
 `state_join_time_segment_needs_same_occurrence`,
 `state_join_time_segment_unsynchronized_reads_no_route` — the route out of the join is
 resolved only once the join is ready, so an expiry that holds it reads no guard beyond it —
+`state_join_time_segments_expire_together`, `state_join_time_segments_expire_apart` — each timer
+is its own occurrence, so a time-triggered segment is enabled while its own timer is due: two
+expiries at one instant fire the join, whichever is dispatched first, and expiries at different
+instants never do —
 `state_join_change_segments_rise_together`,
 `state_join_change_segment_rises_alone` — one condition rising is one occurrence, so a later
 rise of the other segment's condition does not fire the join);

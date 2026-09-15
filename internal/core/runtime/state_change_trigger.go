@@ -55,9 +55,9 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, nil
 	}
 
+	occurrence := &Event{Type: EventChange, Payload: poll}
 	selected, err := e.selectCandidates(func(state *ast.StateNode) ([]int, []RunNote, error) {
-		enabled, notes := e.risenChangeTransitions(state, poll)
-		return enabled, notes, nil
+		return e.risenChangeTransitions(state, poll, occurrence)
 	})
 	if err != nil {
 		e.changeWaits = poll.waits
@@ -88,7 +88,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		e.changeFired[trans] = true
 		e.firingChange = trans
 		e.moved = true
-		_, err = e.firingOn(&Event{Type: EventChange, Payload: poll}, func() (bool, error) {
+		_, err = e.firingOn(occurrence, func() (bool, error) {
 			return e.fireFrom(candidate.source, trans, notes, candidate.route)
 		})
 		e.firingChange = nil
@@ -235,8 +235,9 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 // risenChangeTransitions returns the positions of the state's change-triggered
 // transitions whose condition has risen and whose guard does not block them,
 // several enabled at once being a choice point. A blocked one stays armed for the
-// next poll.
-func (e *StateExecutor) risenChangeTransitions(state *ast.StateNode, poll *changePoll) ([]int, []RunNote) {
+// next poll. One into a join the occurrence does not fire whole is not enabled,
+// as a signal-triggered one is not, so nothing past the join is resolved.
+func (e *StateExecutor) risenChangeTransitions(state *ast.StateNode, poll *changePoll, occurrence *Event) ([]int, []RunNote, error) {
 	var enabled []int
 	var notes []RunNote
 	transitions := e.graph.Transitions[state]
@@ -245,16 +246,22 @@ func (e *StateExecutor) risenChangeTransitions(state *ast.StateNode, poll *chang
 			continue
 		}
 		if poll.condition[trans] && !e.changeFired[trans] && poll.guard[trans] {
-			enabled = append(enabled, i)
+			ready, err := e.joinSynchronized(trans, occurrence)
+			if err != nil {
+				return nil, nil, err
+			}
+			if ready {
+				enabled = append(enabled, i)
+			}
 		}
 		if unevaluable, ok := poll.unevaluable[trans]; ok {
 			notes = append(notes, unevaluable)
 		}
 	}
 	if len(enabled) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
-	return enabled, notes
+	return enabled, notes, nil
 }
 
 // wait records, once per transition, a change condition the configuration is
