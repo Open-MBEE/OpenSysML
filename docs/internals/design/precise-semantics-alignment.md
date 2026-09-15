@@ -480,8 +480,11 @@ T3 are in conflict, but it is not possible to anticipate which one will be chose
 transitions establishes it is unspecified (the project's semantic-oracle record says the same).
 *Runtime:* `chooseTransition` draws one by the scheduling policy — declaration order under the
 default — and records a `ChoiceTransition` when more than one was enabled;
-`explore` enumerates the set. `state_choice_transition_conflict`,
-`state_explore_transition_conflict`. **agrees**: the runtime's choice is one PSSM admits and is
+`explore` enumerates the set; a state's completion is one occurrence too, so several completion
+transitions out of one state are one `ChoiceTransition` drawn by `chooseCompletion` when the
+completion is dispatched (*Event 015*, §9.3.4.11: "T1.2 and T1.3 are in conflict", either
+fires). `state_choice_transition_conflict`, `state_explore_transition_conflict`,
+`state_explore_completion_choice`. **agrees**: the runtime's choice is one PSSM admits and is
 recorded as a choice.
 
 **SM20. Selection is against the configuration the occurrence was dequeued for.** PSSM §8.5.10:
