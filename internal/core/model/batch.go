@@ -116,7 +116,7 @@ func (w *Workspace) reserveBatch(inputs []Input) map[string]*Document {
 func (w *Workspace) commitBatch(was map[string]*Document, docs []*Document) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	installed := false
+	var installed []string
 	for _, doc := range docs {
 		if w.docs[doc.Name] != was[doc.Name] {
 			continue
@@ -125,16 +125,17 @@ func (w *Workspace) commitBatch(was map[string]*Document, docs []*Document) {
 		w.docs[doc.Name] = doc
 		w.index.AddBuiltDocument(doc.Name, doc.AST, doc.Scope)
 		was[doc.Name] = doc
-		installed = true
+		installed = append(installed, doc.Name)
 	}
-	if installed {
+	if len(installed) > 0 {
 		w.index.ExpandWildcardImports()
-		w.invalidateLocked()
+		w.invalidateLocked(installed...)
 	}
 }
 
 // DiagnosticsAll returns the named documents' diagnostics in the order named (nil
 // for an unknown name), analyzing the uncached ones on the workers, then caching.
+// The workers share one gather of the workspace-wide audits, made on first use.
 func (w *Workspace) DiagnosticsAll(names []string) [][]passes.Diagnostic {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -152,7 +153,7 @@ func (w *Workspace) DiagnosticsAll(names []string) [][]passes.Diagnostic {
 			pending = append(pending, name)
 		}
 	}
-	batch := &passes.Batch{Documents: pending}
+	batch := &passes.Batch{Documents: pending, Gathers: passes.NewGathers()}
 	passes.PrepareBatch(w.index, batch)
 	analyzed := make([][]passes.Diagnostic, len(pending))
 	ParallelFor(w.workers, len(pending), func(i int) {
@@ -160,6 +161,7 @@ func (w *Workspace) DiagnosticsAll(names []string) [][]passes.Diagnostic {
 	})
 	for i, name := range pending {
 		w.diagCache[name] = analyzed[i]
+		w.batched[name] = true
 	}
 	for i, name := range names {
 		if out[i] == nil && w.docs[name] != nil {

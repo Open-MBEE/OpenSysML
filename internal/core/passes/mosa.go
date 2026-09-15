@@ -43,15 +43,12 @@ func (MOSAPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagno
 	if a == nil {
 		return nil
 	}
-	gathered := map[*symbols.Scope]bool{}
-	for _, doc := range ctx.Index.WorkspaceDocuments() {
-		if r := ctx.Index.DocumentRoot(doc); r != nil && !gathered[r] {
-			gathered[r] = true
-			a.gather(r)
-		}
-	}
-	if !gathered[rootScope] {
+	a.union = ctx.Gathers().mosaOf(ctx, a)
+	if !ctx.Gathers().has(name) {
+		a.local = newMOSAFacts()
+		a.facts = a.local
 		a.gather(rootScope)
+		a.facts = nil
 	}
 	a.check(rootScope)
 	return a.diags
@@ -132,15 +129,14 @@ type mosaAudit struct {
 	metadata    map[mosaMetadataKind]*symbols.Symbol
 	// metadataKinds memoizes metadataKindOf by the annotation type's qualified name.
 	metadataKinds map[string]mosaMetadataKind
-	// present records the kinds the workspace declares at all.
-	present map[mosaKind]bool
-	// marks caches each element's annotations; anyMarks records those stated anywhere.
-	marks    map[*symbols.Symbol]mosaMarks
-	anyMarks mosaMarks
-	// conformant: elements at a #conformant end; satisfiers: elements a satisfy traces.
-	conformant map[symbols.ElementKey]bool
-	satisfiers map[symbols.ElementKey]bool
-	kinds      map[*symbols.Symbol]mosaKind
+	// facts is what a gather under way records; a check judges over union and
+	// local, the facts of a root outside the gathered documents.
+	facts *mosaFacts
+	union *mosaUnion
+	local *mosaFacts
+	// marks caches each element's annotations.
+	marks map[*symbols.Symbol]mosaMarks
+	kinds map[*symbols.Symbol]mosaKind
 	// typeKinds memoizes kindOfType: one type classifies every feature it types.
 	typeKinds map[*symbols.Symbol]mosaKind
 	diags     []Diagnostic
@@ -155,10 +151,7 @@ func newMOSAAudit(ctx *Context) *mosaAudit {
 		definitions:   map[mosaKind]*symbols.Symbol{},
 		metadata:      map[mosaMetadataKind]*symbols.Symbol{},
 		metadataKinds: map[string]mosaMetadataKind{},
-		present:       map[mosaKind]bool{},
 		marks:         map[*symbols.Symbol]mosaMarks{},
-		conformant:    map[symbols.ElementKey]bool{},
-		satisfiers:    map[symbols.ElementKey]bool{},
 		kinds:         map[*symbols.Symbol]mosaKind{},
 		typeKinds:     map[*symbols.Symbol]mosaKind{},
 	}
@@ -291,12 +284,9 @@ func (a *mosaAudit) effectiveMarks(sym *symbols.Symbol) mosaMarks {
 func (a *mosaAudit) gather(root *symbols.Scope) {
 	w8dWalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
 		if kind := a.kindOf(sym); kind != mosaNone {
-			a.present[kind] = true
+			a.facts.present[kind] = true
 		}
-		m := a.marksOf(sym)
-		a.anyMarks.dataRights = a.anyMarks.dataRights || m.dataRights
-		a.anyMarks.proprietary = a.anyMarks.proprietary || m.proprietary
-		a.anyMarks.interfaceControl = a.anyMarks.interfaceControl || m.interfaceControl
+		a.facts.note(a.marksOf(sym))
 		usage, ok := sym.Decl.(*ast.Usage)
 		if !ok {
 			return
@@ -336,7 +326,7 @@ func (a *mosaAudit) gatherConformance(sym *symbols.Symbol) {
 		return
 	}
 	for _, target := range conformant {
-		a.conformant[symbols.KeyOf(target)] = true
+		a.facts.conformant[symbols.KeyOf(target)] = true
 	}
 }
 
@@ -353,14 +343,14 @@ func (a *mosaAudit) gatherSatisfaction(sym *symbols.Symbol, usage *ast.Usage) {
 		}
 		named = true
 		if target, ok := a.ctx.Resolver().ResolveTarget(sym.OwnerScope, rel.Target); ok && target != nil {
-			a.satisfiers[symbols.KeyOf(target)] = true
+			a.facts.satisfiers[symbols.KeyOf(target)] = true
 		}
 	}
 	if named || sym.OwnerScope == nil {
 		return
 	}
 	if owner := sym.OwnerScope.Owner(); owner != nil && owner.IsFeature() {
-		a.satisfiers[symbols.KeyOf(owner)] = true
+		a.facts.satisfiers[symbols.KeyOf(owner)] = true
 	}
 }
 
@@ -464,7 +454,7 @@ func (a *mosaAudit) checkComponent(sym *symbols.Symbol) {
 	if kind != mosaMajorSystemComponent && kind != mosaModularSystem {
 		return
 	}
-	if !a.anyMarks.dataRights || a.effectiveMarks(sym).dataRights {
+	if !a.anyMarked(mosaMarkDataRights) || a.effectiveMarks(sym).dataRights {
 		return
 	}
 	a.report(sym, CodeMOSAComponentNoDataRights, fmt.Sprintf(
@@ -476,27 +466,27 @@ func (a *mosaAudit) checkComponent(sym *symbols.Symbol) {
 // interface control authority and satisfy a requirement, each once the model states such facts.
 func (a *mosaAudit) checkInterface(sym *symbols.Symbol) {
 	marks := a.effectiveMarks(sym)
-	if a.present[mosaStandard] && !marks.proprietary && !a.anyOf(sym, a.conformant) {
+	if a.hasKind(mosaStandard) && !marks.proprietary && !a.anyOf(sym, a.isConformant) {
 		a.report(sym, CodeMOSAInterfaceNoStandard,
 			"This modular system interface conforms to no standard: the model declares standards, so MOSA expects a #conformance connection naming it at a #conformant end and a standard at a #conformsTo end, or a @Proprietary annotation with the rationale for it.")
 	}
-	if a.anyMarks.interfaceControl && !marks.interfaceControl {
+	if a.anyMarked(mosaMarkInterfaceControl) && !marks.interfaceControl {
 		a.report(sym, CodeMOSAInterfaceNoControl,
 			"This modular system interface names no interface control authority: the model names one for other interfaces, so MOSA expects an @InterfaceControl annotation on it or its definition.")
 	}
-	if a.present[mosaInterfaceRequirement] && !a.anyOf(sym, a.satisfiers) {
+	if a.hasKind(mosaInterfaceRequirement) && !a.anyOf(sym, a.isSatisfier) {
 		a.report(sym, CodeMOSAInterfaceNotTraced,
 			"This modular system interface satisfies no requirement: the model declares interface requirements, so MOSA expects a `satisfy` naming it (or its definition) after `by`.")
 	}
 }
 
-// anyOf reports whether sym or anything it specializes is in set.
-func (a *mosaAudit) anyOf(sym *symbols.Symbol, set map[symbols.ElementKey]bool) bool {
-	if set[symbols.KeyOf(sym)] {
+// anyOf reports whether sym or anything it specializes is in the set in reads.
+func (a *mosaAudit) anyOf(sym *symbols.Symbol, in func(symbols.ElementKey) bool) bool {
+	if in(symbols.KeyOf(sym)) {
 		return true
 	}
 	for _, t := range a.model.AllSupertypes(sym) {
-		if set[symbols.KeyOf(t)] {
+		if in(symbols.KeyOf(t)) {
 			return true
 		}
 	}
@@ -512,7 +502,7 @@ type mosaAttachment struct {
 // checkBoundary expects a connector joining two distinct components to be a modular
 // system interface once the model designates any; a party nested in another is part of it.
 func (a *mosaAudit) checkBoundary(sym *symbols.Symbol, usage *ast.Usage) {
-	if !a.present[mosaModularSystemInterface] {
+	if !a.hasKind(mosaModularSystemInterface) {
 		return
 	}
 	parties := map[*symbols.Symbol]bool{}

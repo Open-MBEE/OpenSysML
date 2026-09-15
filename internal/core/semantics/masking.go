@@ -21,6 +21,7 @@ func (m *Model) RedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.redefined[sym]; ok {
 		// The seed answers a re-entrant query with nothing, cutting that query short.
 		if depth := m.computingRedefined[sym]; depth != 0 {
@@ -28,6 +29,7 @@ func (m *Model) RedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 		return cached
 	}
+	journal(m, m.redefined, sym, sym.Decl)
 	m.redefined[sym] = nil // re-entrancy guard for cyclic declarations
 	m.computingRedefined[sym] = m.resolver.Enter()
 	defer delete(m.computingRedefined, sym)
@@ -285,9 +287,11 @@ func (m *Model) memoizedMask(
 	if m == nil || sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := cache[sym]; ok {
 		return cached
 	}
+	journal(m, cache, sym, sym.Decl)
 	cache[sym] = nil // re-entrancy guard: a nested query sees no mask
 	m.resolver.Enter()
 	mask := m.buildMaskFromCandidates(sym, iterate)
@@ -406,6 +410,7 @@ func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Sym
 	if candidate == nil {
 		return nil, false
 	}
+	defer m.own(candidate).LeaveDoc()
 	if cached, ok := m.redefClosure[candidate]; ok {
 		return cached, false
 	}
@@ -434,6 +439,7 @@ func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Sym
 		return out, true
 	}
 	if settled && m.computingRedefinedFeatures == 0 {
+		journal(m, m.redefClosure, candidate, candidate.Decl)
 		m.redefClosure[candidate] = out
 	}
 	return out, false

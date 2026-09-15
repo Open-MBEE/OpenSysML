@@ -128,6 +128,11 @@ type Index struct {
 	// usages with an `about` clause the document declares, so a model over a
 	// shared frozen index reads them instead of walking its scope trees.
 	aboutUsages map[string][]*Symbol
+
+	// changes accumulates what writes changed since TakeChanges, once tracked,
+	// and reads is told what each read is about (see changes.go).
+	changes *Changes
+	reads   ReadRecorder
 }
 
 // reexportClaim is one document's claim on a re-export: whether its imports
@@ -363,6 +368,7 @@ func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, k
 	idx.mustBeWritable("AddDocument")
 	// The caller expands once the documents are in; nothing is read in between.
 	idx.removeDocument(name, false)
+	idx.changedDoc(name)
 	if rs == nil {
 		rs = Build(root)
 	}
@@ -387,6 +393,7 @@ func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, k
 func (idx *Index) setWildcardImports(pkgFQN, doc string, imports []WildcardImport) {
 	writableMap(idx.wildcardMeta, pkgFQN)[doc] = imports
 	idx.lastTargets.del(pkgFQN) // its import set changed: expand it again
+	idx.changedNamespace(pkgFQN)
 }
 
 // ExpandWildcardImports adds re-exported symbols for every package with a
@@ -681,9 +688,16 @@ func (idx *Index) register(fqn string, sym *Symbol) {
 }
 
 // link is register without noting the change to the parent namespace, for a
-// caller that records it itself.
+// caller that records it itself. Over a frozen library the symbols under a name
+// are kept in declaration order; the library itself keeps the order its
+// snapshot pins.
 func (idx *Index) link(fqn string, sym *Symbol) {
-	appendSlice(idx.fqn, fqn, sym)
+	if idx.base != nil {
+		insertSymbol(idx.fqn, fqn, sym)
+	} else {
+		appendSlice(idx.fqn, fqn, sym)
+	}
+	idx.changedName(fqn)
 	parent, last := splitFQN(fqn)
 	insertSorted(idx.children, parent, fqn)
 	if parent != "" {
@@ -721,6 +735,7 @@ func (idx *Index) unregisterSegment(fqn string) {
 // entirely once it names nothing. It leaves declaredAt alone: only the symbol's
 // own declaration owns that entry.
 func (idx *Index) deregister(fqn string, sym *Symbol) {
+	idx.changedName(fqn)
 	syms := writableSlice(idx.fqn, fqn)
 	for i, s := range syms {
 		if s == sym {
@@ -812,6 +827,7 @@ func (idx *Index) removeDocument(name string, expand bool) {
 	if !idx.knows(name) {
 		return
 	}
+	idx.changedDoc(name)
 
 	library := idx.libraryDocs.at(name).Tier.Library()
 	for _, e := range idx.contributions.at(name) {
@@ -841,6 +857,7 @@ func (idx *Index) removeDocument(name string, expand bool) {
 			idx.wildcardMeta.del(pkgFQN)
 		}
 		idx.lastTargets.del(pkgFQN) // its import set changed: expand it again
+		idx.changedNamespace(pkgFQN)
 	}
 
 	for key := range idx.docReexports.at(name) {
@@ -875,6 +892,7 @@ func (idx *Index) MarkLibraryTier(name string, tier LibraryTier) {
 // for when to call it.
 func (idx *Index) MarkLibraryDocument(name string, doc LibraryDocument) {
 	idx.mustBeWritable("MarkLibraryDocument")
+	idx.changedDoc(name)
 	if doc.Tier == TierNone {
 		idx.libraryDocs.del(name)
 	} else {
@@ -1110,6 +1128,9 @@ func (idx *Index) reexportGated(fqn string, sym *Symbol, doc string, private boo
 	for _, gate := range gates {
 		widened = claim.record(gateRoute{private: private, filters: gate}) || widened
 	}
+	if widened {
+		idx.changedName(fqn)
+	}
 	// A namespace importing this one onward copied the narrower routes, so a
 	// widened claim has to reach it too (see routesOnward).
 	if parent, _ := splitFQN(fqn); widened && parent != "" {
@@ -1152,6 +1173,7 @@ func (c *reexportClaim) record(route gateRoute) bool {
 // A private import's route only answers a lookup made from within the importing
 // namespace, which from names ("" for one made from anywhere else).
 func (idx *Index) ReexportGates(doc, fqn string, sym *Symbol, from string) [][]ElementFilter {
+	idx.readName(fqn)
 	claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})
 	parent, _ := splitFQN(fqn)
 	if parent == "" {
@@ -1176,6 +1198,7 @@ func (idx *Index) ReexportVisible(doc, fqn string, sym *Symbol) bool {
 	if parent, _ := splitFQN(fqn); parent != "" {
 		return true
 	}
+	idx.readName(fqn)
 	if !idx.reexported.at(fqn).has(sym) {
 		return true // declared under this name rather than borrowed
 	}
@@ -1237,6 +1260,7 @@ func (idx *Index) claimReexport(key reexportKey, doc string, public bool) *reexp
 		docs[doc] = claim
 	}
 	claim.public = claim.public || public
+	idx.changedName(key.fqn)
 	writableMap(idx.docReexports, doc)[key] = true
 	idx.applyReexportMarks(key, docs)
 	parent, _ := splitFQN(key.fqn)
@@ -1253,6 +1277,7 @@ func (idx *Index) dropClaim(key reexportKey, doc string) {
 	}
 	docs := idx.writableClaims(key)
 	delete(docs, doc) // the routes this document recorded go with its claim
+	idx.changedName(key.fqn)
 	if len(docs) == 0 {
 		idx.reexportDocs.del(key)
 		idx.deregister(key.fqn, key.sym)
@@ -1476,6 +1501,7 @@ func (idx *Index) LookupQualified(fqn string) []*Symbol {
 // fromFQN is the FQN of the referring namespace; "" means "from outside", which
 // is what an ordinary qualified reference elsewhere in the workspace gets.
 func (idx *Index) LookupQualifiedFrom(fqn, fromFQN string) []*Symbol {
+	idx.readName(fqn)
 	syms := idx.fqn.at(fqn)
 	imported := idx.reexported.at(fqn)
 	if len(imported) == 0 {
@@ -1524,6 +1550,7 @@ func (idx *Index) Declaring(fqn string) *Symbol {
 // which reaches cached symbols through LookupDirectChildren — asks here first
 // and stops, rather than resurfacing a name KerML 8.2.3.3 hides.
 func (idx *Index) HiddenFrom(fqn, fromFQN string) bool {
+	idx.readName(fqn)
 	hidden := idx.hidden.at(fqn)
 	if len(hidden) == 0 || withinNamespace(fromFQN, namespaceOf(fqn)) {
 		return false
@@ -1566,6 +1593,7 @@ func withinNamespace(fromFQN, ns string) bool {
 
 // FQNs returns every fully-qualified name registered in the index, sorted.
 func (idx *Index) FQNs() []string {
+	idx.readAllNames()
 	out := idx.fqn.keys()
 	sort.Strings(out)
 	return out
@@ -1583,6 +1611,7 @@ func (idx *Index) Registered(fn func(fqn string, syms []*Symbol)) {
 // segment is name, in name order. Used to suggest a candidate for a reference
 // whose qualifying namespace is not loaded.
 func (idx *Index) FQNsEndingIn(name string, limit int) []string {
+	idx.readAllNames()
 	if name == "" || limit <= 0 {
 		return nil
 	}
@@ -1597,6 +1626,7 @@ func (idx *Index) FQNsEndingIn(name string, limit int) []string {
 // namespace registered under fqn ("" for a document root), over the documents
 // declaring it in name order.
 func (idx *Index) WildcardImportsOf(fqn string) []WildcardImport {
+	idx.readNamespace(fqn)
 	byDoc := idx.wildcardMeta.at(fqn)
 	if len(byDoc) == 0 {
 		return nil
@@ -1644,6 +1674,7 @@ func (idx *Index) LookupDirectChildren(prefix string) []*Symbol {
 }
 
 func (idx *Index) lookupDirectChildren(key directChildrenKey) []*Symbol {
+	idx.readNamespace(key.prefix)
 	generation := idx.generation.get()
 	idx.directChildrenMu.Lock()
 	idx.resetDirectChildrenCachesLocked(generation)
@@ -1709,6 +1740,7 @@ func (idx *Index) LookupDirectChildrenNamedFrom(prefix, fromFQN, name string) []
 }
 
 func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) []*Symbol {
+	idx.readNamespace(key.prefix)
 	generation := idx.generation.get()
 	idx.directChildrenMu.Lock()
 	idx.resetDirectChildrenCachesLocked(generation)
@@ -1756,6 +1788,7 @@ type RootBinding struct {
 // 8.2.3.3). A caller gating those names by their element filters needs the name,
 // since a borrowed symbol's own name is not the root name it appears under.
 func (idx *Index) TopLevelBindings(doc string) []RootBinding {
+	idx.readNamespace("")
 	claimed := idx.docReexports.at(doc)
 	var out []RootBinding
 	seen := make(map[*Symbol]bool)
@@ -1888,17 +1921,20 @@ func namedOwner(scope *Scope) *Symbol {
 // DocumentOfRoot returns the name of the document whose root scope this is, or
 // "" for any other scope.
 func (idx *Index) DocumentOfRoot(scope *Scope) string {
+	idx.readDocument(idx.docOfRoot.at(scope))
 	return idx.docOfRoot.at(scope)
 }
 
 // DocumentRoot returns the root scope for the named document, or nil.
 func (idx *Index) DocumentRoot(name string) *Scope {
+	idx.readDocument(name)
 	return idx.docRoots.at(name)
 }
 
 // Documents returns the names of every document with a root scope, bundled
 // library content included, sorted for deterministic iteration.
 func (idx *Index) Documents() []string {
+	idx.readAllNames()
 	out := append([]string(nil), idx.docRoots.keys()...)
 	sort.Strings(out)
 	return out
@@ -1908,6 +1944,7 @@ func (idx *Index) Documents() []string {
 // content — every document with a root scope that is not marked as bundled
 // library content — sorted for deterministic iteration.
 func (idx *Index) WorkspaceDocuments() []string {
+	idx.readAllNames()
 	var out []string
 	for _, name := range idx.docRoots.keys() {
 		if !idx.libraryDocs.at(name).Tier.Library() {
@@ -1921,6 +1958,7 @@ func (idx *Index) WorkspaceDocuments() []string {
 // DocumentKind returns a document's recorded language, or infers it from its
 // name when the document was added without an explicit language.
 func (idx *Index) DocumentKind(name string) source.Kind {
+	idx.readDocument(name)
 	if kind, ok := idx.docKinds.get(name); ok {
 		return kind
 	}

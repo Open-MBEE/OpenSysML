@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -113,7 +114,7 @@ func dropEscalatedWarnings(diags []Diagnostic) []Diagnostic {
 // AnalyzeWithOptions validates a document under explicit analysis options.
 func AnalyzeWithOptions(name string, kind source.Kind, root *ast.RootNamespace,
 	parseDiags []Diagnostic, idx *symbols.Index, opts Options) []Diagnostic {
-	return AnalyzeInBatch(name, kind, root, parseDiags, idx, opts, nil)
+	return analyze(NewContextWithOptions(name, kind, idx, parseDiags, opts), root)
 }
 
 // PrepareBatch links what resolving each document of batch would write into its
@@ -136,7 +137,27 @@ func AnalyzeInBatch(name string, kind source.Kind, root *ast.RootNamespace,
 	parseDiags []Diagnostic, idx *symbols.Index, opts Options, batch *Batch) []Diagnostic {
 	ctx := NewContextWithOptions(name, kind, idx, parseDiags, opts)
 	ctx.Batch = batch
-	diags := dropEscalatedWarnings(DefaultRegistry().Run(ctx, name, root))
+	if batch != nil {
+		ctx.gathers = batch.Gathers
+	}
+	return analyze(ctx, root)
+}
+
+// AnalyzeShared validates a document over a resolver and model kept across
+// analyses: what the run memoizes is owned by the document (see
+// Resolver.InDocument), to be dropped when it or what it read changes.
+func AnalyzeShared(name string, kind source.Kind, root *ast.RootNamespace,
+	parseDiags []Diagnostic, opts Options, resolver *resolve.Resolver, model *semantics.Model,
+	gathers *Gathers) []Diagnostic {
+	ctx := NewContextWithOptions(name, kind, resolver.Index(), parseDiags, opts)
+	ctx.Share(resolver, model, gathers)
+	var diags []Diagnostic
+	resolver.InDocument(name, func() { diags = analyze(ctx, root) })
+	return diags
+}
+
+func analyze(ctx *Context, root *ast.RootNamespace) []Diagnostic {
+	diags := dropEscalatedWarnings(DefaultRegistry().Run(ctx, ctx.Name, root))
 	sort.SliceStable(diags, func(i, j int) bool {
 		a, b := diags[i], diags[j]
 		if a.Span.Offset != b.Span.Offset {

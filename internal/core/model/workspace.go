@@ -29,9 +29,16 @@ type Workspace struct {
 	// for a caller-built index.
 	libBase   *symbols.Index
 	diagCache map[string][]passes.Diagnostic
-	// refs is the reverse reference index, nil until a query after a change
-	// rebuilds it (see refindex.go).
+	// refs is the reverse reference index, built per document on demand and
+	// dropped per document on a change (see refindex.go).
 	refs *refIndex
+	// resolver and model are the one resolver and semantic model every analysis
+	// and query of this workspace shares; what they memoize is owned by the
+	// document it was computed for and dropped when that document or one it
+	// read changes. Made on first use (see semanticsLocked).
+	resolver *resolve.Resolver
+	model    *semantics.Model
+	gathers  *passes.Gathers
 	// analysis is the options every document of this workspace is analyzed under,
 	// so one session asks one question of all its files.
 	analysis passes.Options
@@ -42,6 +49,9 @@ type Workspace struct {
 
 	// workers is how many documents OpenAll and DiagnosticsAll work on at once.
 	workers int
+	// batched names the diagCache entries a batch computed: in contexts of their
+	// own, recording no dependencies, so any change drops them all.
+	batched map[string]bool
 }
 
 // Option configures a workspace at construction.
@@ -82,6 +92,7 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 		diagCache: map[string][]passes.Diagnostic{},
 		libDocs:   map[string]*Document{},
 		workers:   DefaultWorkers(),
+		batched:   map[string]bool{},
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -106,7 +117,7 @@ func (w *Workspace) SetConformanceMode(mode conformance.Mode) {
 		return
 	}
 	w.analysis.Conformance = mode
-	w.invalidateLocked()
+	w.invalidateAllLocked()
 }
 
 // NewIndexWithStdlib returns an index carrying the standard library for a
@@ -208,25 +219,91 @@ func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 	w.docs[name] = doc
 	w.index.AddBuiltDocument(name, doc.AST, doc.Scope) // removes stale entries first
 	w.index.ExpandWildcardImports()
-	w.invalidateLocked()
+	w.invalidateLocked(name)
 }
 
 // removeLocked drops name from the document set and index. Caller holds the lock.
 func (w *Workspace) removeLocked(name string) {
 	delete(w.docs, name)
 	w.index.RemoveDocument(name)
-	w.invalidateLocked()
+	w.invalidateLocked(name)
 }
 
-// invalidateLocked clears all cached diagnostics and the reverse reference index.
+// invalidateLocked drops what the replacement of names made stale: the resolver
+// and model entries they and their dependents own, transitively, with their
+// diagnostics and reverse references, and every batch-computed diagnostic.
 // Caller holds the write lock.
-func (w *Workspace) invalidateLocked() {
-	// Conservative: any change clears all cached diagnostics. Correctness first;
-	// fine-grained cross-document dependency tracking is a later optimization.
+func (w *Workspace) invalidateLocked(names ...string) {
+	if w.resolver == nil {
+		w.invalidateAllLocked()
+		return
+	}
+	w.dropBatchedLocked()
+	ch := w.index.TakeChanges()
+	if ch.Docs == nil {
+		ch.Docs = map[string]bool{}
+	}
+	for _, name := range names {
+		ch.Docs[name] = true
+		delete(w.diagCache, name)
+		w.refs.drop(name)
+	}
+	dropped := w.resolver.Invalidate(ch)
+	// The gathers the drop took go again, and what they now say differently
+	// drops the judgments that read it, until nothing more moves.
+	regather := ch.Docs
+	for {
+		for _, doc := range dropped {
+			delete(w.diagCache, doc)
+			w.refs.drop(doc)
+			if gathered, ok := resolve.GatheredDoc(doc); ok {
+				regather[gathered] = true
+			}
+		}
+		if len(regather) == 0 {
+			return
+		}
+		changed := w.gathers.Regather(w.contextLocked(), regather)
+		if len(changed) == 0 {
+			return
+		}
+		names := make(map[string]bool, len(changed))
+		for _, n := range changed {
+			names[n] = true
+		}
+		dropped = w.resolver.Invalidate(symbols.Changes{Names: names})
+		regather = map[string]bool{}
+	}
+}
+
+// dropBatchedLocked forgets the diagnostics batches computed. Caller holds the write lock.
+func (w *Workspace) dropBatchedLocked() {
+	for name := range w.batched {
+		delete(w.diagCache, name)
+	}
+	w.batched = map[string]bool{}
+}
+
+// contextLocked is a pass context over the workspace's shared semantic state,
+// for work done between analyses. Caller holds the write lock.
+func (w *Workspace) contextLocked() *passes.Context {
+	resolver, sem := w.semanticsLocked()
+	ctx := passes.NewContextWithOptions("", source.KindSysML, w.index, nil, w.analysis)
+	ctx.Share(resolver, sem, w.gathers)
+	return ctx
+}
+
+// invalidateAllLocked drops every cached answer, for a change that moves them
+// all: the conformance mode. Caller holds the write lock.
+func (w *Workspace) invalidateAllLocked() {
 	w.diagCache = map[string][]passes.Diagnostic{}
-	// A change anywhere can alter what a name elsewhere resolves to (a shadowing
-	// declaration, an import target, an alias, an overload), so the index goes too.
+	w.batched = map[string]bool{}
 	w.refs = nil
+	if w.resolver != nil {
+		w.resolver.InvalidateAll()
+		w.gathers.Reset()
+	}
+	w.index.TakeChanges()
 }
 
 // Diagnostics returns the analysis diagnostics for name, computing them lazily
@@ -288,7 +365,11 @@ func (w *Workspace) analyze(name string, doc *Document, batch *passes.Batch) []p
 			Fixes:    pw.Fixes,
 		})
 	}
-	return passes.AnalyzeInBatch(name, source.KindOf(name), doc.AST, parseDiags, w.index, w.analysis, batch)
+	if batch != nil {
+		return passes.AnalyzeInBatch(name, source.KindOf(name), doc.AST, parseDiags, w.index, w.analysis, batch)
+	}
+	resolver, sem := w.semanticsLocked()
+	return passes.AnalyzeShared(name, source.KindOf(name), doc.AST, parseDiags, w.analysis, resolver, sem, w.gathers)
 }
 
 // LookupQualified resolves a fully-qualified name against the global index under
@@ -312,10 +393,13 @@ func (w *Workspace) LookupQualified(fqn string) []*symbols.Symbol {
 // every document's top-level declarations. This is the read path for completion,
 // which offers library names that no open document declares.
 func (w *Workspace) TopLevelSymbols(doc string) []*symbols.Symbol {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, _ := w.newResolver()
-	return resolver.AdmittedTopLevel(doc, w.index.TopLevelBindings(doc))
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out []*symbols.Symbol
+	w.queryLocked(doc, func(resolver *resolve.Resolver, _ *semantics.Model) {
+		out = resolver.AdmittedTopLevel(doc, w.index.TopLevelBindings(doc))
+	})
+	return out
 }
 
 // MembersOnPath returns the members visible on the element that path names from
@@ -327,24 +411,25 @@ func (w *Workspace) MembersOnPath(scope *symbols.Scope, path []string) []*symbol
 	if scope == nil || len(path) == 0 {
 		return nil
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-
-	resolver, sem := w.newResolver()
-
-	sym, ok := resolver.ResolveName(scope, path[0], nil)
-	if !ok || sym == nil {
-		return nil
-	}
-	for _, seg := range path[1:] {
-		if sym, ok = sem.LookupMember(sym, seg); !ok || sym == nil {
-			return nil
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out []*symbols.Symbol
+	w.queryLocked(symbols.DocNameOf(scope), func(resolver *resolve.Resolver, sem *semantics.Model) {
+		sym, ok := resolver.ResolveName(scope, path[0], nil)
+		if !ok || sym == nil {
+			return
 		}
-	}
-	if target, ok := resolver.ResolveAliasTarget(sym); ok {
-		sym = target
-	}
-	return w.memberSymbolsLocked(resolver, sem, scope, sym)
+		for _, seg := range path[1:] {
+			if sym, ok = sem.LookupMember(sym, seg); !ok || sym == nil {
+				return
+			}
+		}
+		if target, ok := resolver.ResolveAliasTarget(sym); ok {
+			sym = target
+		}
+		out = w.memberSymbolsLocked(resolver, sem, scope, sym)
+	})
+	return out
 }
 
 // memberSymbolsLocked returns the members visible on sym as seen from scope.
@@ -365,17 +450,28 @@ func (w *Workspace) memberSymbolsLocked(resolver *resolve.Resolver, sem *semanti
 	return members
 }
 
-// newResolver is a resolver over the index with a semantic model attached: an
-// inherited member and the element filters gating an import are both answered by
-// the model, so a read path without one resolves differently to a checked one.
-// Calls are selected under the checker's argument typing, as a checked document's are.
-func (w *Workspace) newResolver() (*resolve.Resolver, *semantics.Model) {
-	resolver := resolve.New(w.index)
-	sem := semantics.NewModel(resolver)
-	resolver.SetModel(sem)
-	sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
-	sem.SetSourceText(w.sourceTextLocked())
-	return resolver, sem
+// semanticsLocked is the workspace's resolver with its model and argument typer, made
+// on first use and kept for its life; it tracks per document what each entry read.
+func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
+	if w.resolver == nil {
+		resolver := resolve.New(w.index)
+		sem := semantics.NewModel(resolver)
+		resolver.SetModel(sem)
+		sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
+		sem.SetSourceText(w.sourceText())
+		resolver.Track()
+		w.resolver, w.model, w.gathers = resolver, sem, passes.NewGathers()
+	}
+	return w.resolver, w.model
+}
+
+// queryLocked runs f, a query made from doc ("" for none), over the workspace's
+// resolver and model: quietly, so a failure it meets is still reported when doc
+// is analyzed, and owned by doc, so doc's change drops what it memoized. Caller
+// holds the write lock.
+func (w *Workspace) queryLocked(doc string, f func(*resolve.Resolver, *semantics.Model)) {
+	resolver, sem := w.semanticsLocked()
+	resolver.Query(doc, func() { f(resolver, sem) })
 }
 
 // Document returns the current parsed document for name, or nil. The document is
@@ -461,14 +557,17 @@ func (w *Workspace) ResolveQualifiedInDoc(name string, scope *symbols.Scope, qn 
 // a reference subsetting or a feature chain's member segment (see
 // resolve.Reference).
 func (w *Workspace) ResolveReferenceInDoc(name string, ref resolve.Reference) (*symbols.Symbol, bool) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, sem := w.newResolver()
-	sym, ok := resolver.ResolveReference(ref)
-	if sel := invocationSelection(resolver, sem, ref); sel != nil {
-		sym = calledDeclaration(sel, sym)
-		ok = sym != nil
-	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var sym *symbols.Symbol
+	var ok bool
+	w.queryLocked(name, func(resolver *resolve.Resolver, sem *semantics.Model) {
+		sym, ok = resolver.ResolveReference(ref)
+		if sel := invocationSelection(resolver, sem, ref); sel != nil {
+			sym = calledDeclaration(sel, sym)
+			ok = sym != nil
+		}
+	})
 	return sym, ok
 }
 
@@ -476,13 +575,15 @@ func (w *Workspace) ResolveReferenceInDoc(name string, ref resolve.Reference) (*
 // arguments leave tied, when ref is the name it calls; nil for any other reference
 // and for a call that selects one declaration.
 func (w *Workspace) AmbiguousInvocationInDoc(name string, ref resolve.Reference) []*symbols.Symbol {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	resolver, sem := w.newResolver()
-	if sel := invocationSelection(resolver, sem, ref); sel != nil && sel.Ambiguous {
-		return sel.Tied
-	}
-	return nil
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var tied []*symbols.Symbol
+	w.queryLocked(name, func(resolver *resolve.Resolver, sem *semantics.Model) {
+		if sel := invocationSelection(resolver, sem, ref); sel != nil && sel.Ambiguous {
+			tied = sel.Tied
+		}
+	})
+	return tied
 }
 
 // invocationSelection is the overload selection for the call whose name ref is,
@@ -522,11 +623,14 @@ func (w *Workspace) ResolveReferenceSegmentsInDoc(name string, ref resolve.Refer
 	if ref.QN == nil || len(ref.QN.Parts) == 0 {
 		return nil
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	r, sem := w.newResolver()
-	r.ResolveReference(ref)
-	return segmentElements(r, ref, invocationSelection(r, sem, ref))
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out []*symbols.Symbol
+	w.queryLocked(name, func(r *resolve.Resolver, sem *semantics.Model) {
+		r.ResolveReference(ref)
+		out = segmentElements(r, ref, invocationSelection(r, sem, ref))
+	})
+	return out
 }
 
 // ResolveReferenceNameSegmentsInDoc is ResolveReferenceSegmentsInDoc reporting
@@ -536,11 +640,14 @@ func (w *Workspace) ResolveReferenceNameSegmentsInDoc(name string, ref resolve.R
 	if ref.QN == nil || len(ref.QN.Parts) == 0 {
 		return nil
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	r, sem := w.newResolver()
-	r.ResolveReference(ref)
-	return segmentNames(r, ref, invocationSelection(r, sem, ref))
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out []*symbols.Symbol
+	w.queryLocked(name, func(r *resolve.Resolver, sem *semantics.Model) {
+		r.ResolveReference(ref)
+		out = segmentNames(r, ref, invocationSelection(r, sem, ref))
+	})
+	return out
 }
 
 // selectedName is the name a call's written last segment is once selected names

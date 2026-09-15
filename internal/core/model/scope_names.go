@@ -60,29 +60,33 @@ func (w *Workspace) VisibleNames(scope *symbols.Scope, opts VisibleNamesOptions)
 	if scope == nil {
 		return nil
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	r, sem := w.newResolver()
-	nw := &nameWalk{
-		idx:      w.index,
-		r:        r,
-		sem:      sem,
-		doc:      symbols.DocNameOf(scope),
-		maxDepth: opts.MaxDepth,
-		library:  map[string]bool{},
-		seen:     map[string]bool{},
-		at:       map[string]*symbols.Symbol{},
-	}
-	for _, root := range opts.LibraryRoots {
-		nw.library[root] = true
-	}
-	if nw.maxDepth <= 0 {
-		nw.maxDepth = defaultVisibleNameDepth
-	}
-	nw.walk(scope, opts.Redefinition)
-	sort.Slice(nw.out, func(i, j int) bool { return nw.out[i].Name < nw.out[j].Name })
-	return nw.out
+	doc := symbols.DocNameOf(scope)
+	var out []VisibleName
+	w.queryLocked(doc, func(r *resolve.Resolver, sem *semantics.Model) {
+		nw := &nameWalk{
+			idx:      w.index,
+			r:        r,
+			sem:      sem,
+			doc:      doc,
+			maxDepth: opts.MaxDepth,
+			library:  map[string]bool{},
+			seen:     map[string]bool{},
+			at:       map[string]*symbols.Symbol{},
+		}
+		for _, root := range opts.LibraryRoots {
+			nw.library[root] = true
+		}
+		if nw.maxDepth <= 0 {
+			nw.maxDepth = defaultVisibleNameDepth
+		}
+		nw.walk(scope, opts.Redefinition)
+		out = nw.out
+	})
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
 }
 
 // VisibleNamesAt is VisibleNames for the deepest scope of a document that
@@ -735,23 +739,26 @@ func (w *Workspace) ElementOnPath(scope *symbols.Scope, path []string) (*symbols
 	if scope == nil || len(path) == 0 {
 		return nil, false
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	r, sem := w.newResolver()
-	sym, ok := r.ResolveName(scope, path[0], nil)
-	if !ok || sym == nil {
-		return nil, false
-	}
-	for _, seg := range path[1:] {
-		if sym, ok = sem.LookupMember(sym, seg); !ok || sym == nil {
-			return nil, false
+	var out *symbols.Symbol
+	w.queryLocked(symbols.DocNameOf(scope), func(r *resolve.Resolver, sem *semantics.Model) {
+		sym, ok := r.ResolveName(scope, path[0], nil)
+		if !ok || sym == nil {
+			return
 		}
-	}
-	if target, ok := r.ResolveAliasTarget(sym); ok && target != nil {
-		sym = target
-	}
-	return sym, true
+		for _, seg := range path[1:] {
+			if sym, ok = sem.LookupMember(sym, seg); !ok || sym == nil {
+				return
+			}
+		}
+		if target, ok := r.ResolveAliasTarget(sym); ok && target != nil {
+			sym = target
+		}
+		out = sym
+	})
+	return out, out != nil
 }
 
 // FQNOf is the qualified name the index registers an element under, which is

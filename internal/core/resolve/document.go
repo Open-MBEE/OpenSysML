@@ -1075,6 +1075,8 @@ func (r *Resolver) resolveRedefinition(scope *symbols.Scope, qn *ast.QualifiedNa
 	if qn == nil || len(qn.Parts) == 0 {
 		return
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if _, done := r.memo[qn]; done {
 		return
 	}
@@ -1224,6 +1226,8 @@ func (r *Resolver) resolveRedefinedChain(scope *symbols.Scope, fc *ast.FeatureCh
 	if fc == nil {
 		return nil, false
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if res, done := r.featureChains[featureChainKey{scope: scope, node: fc}]; done {
 		return res.sym, res.ok
 	}
@@ -1573,6 +1577,8 @@ func (r *Resolver) resolveFeatureChain(scope *symbols.Scope, fc *ast.FeatureChai
 	if fc == nil {
 		return nil
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	key := featureChainKey{scope: scope, node: fc}
 	if res, done := r.featureChains[key]; done {
 		return res.sym
