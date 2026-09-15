@@ -138,6 +138,7 @@ func (m *Model) excludes(
 // subtracts reports whether target, or a supertype, intersection or union operand excludes
 // reads through, is a difference subtracting a type; memoized once the closure is settled.
 func (m *Model) subtracts(target *symbols.Symbol) bool {
+	defer m.own(target).LeaveDoc()
 	if cached, ok := m.subtracting[target]; ok {
 		return cached
 	}
@@ -161,6 +162,7 @@ func (m *Model) subtracts(target *symbols.Symbol) bool {
 		}
 	}
 	if m.resolver.Leave() && !provisional {
+		journal(m, m.subtracting, target, target.Decl)
 		m.subtracting[target] = found
 	}
 	return found
