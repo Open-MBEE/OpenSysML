@@ -621,10 +621,13 @@ enabled branch is taken, and several enabled leave the route open at the junctio
 for the transition choice point drawn there only as the transition fires (`settleDraws` →
 `pickBranch`: after the region order among several candidates and the transition's own guard
 read again, `ChoiceTaken` drawn by the schedule policy and enumerated by `explore`; a candidate
-another region's reaction disarms draws nothing), the unguarded branches being the default when
-no guard holds. `state_junction_pseudostate`, `state_completion_through_pseudostate`,
+another region's reaction disarms draws nothing; the branch guards themselves are not read
+again, so a branch enabled at selection is taken though another region's effect since made its
+guard unevaluable), the unguarded branches being the default when no guard holds.
+`state_junction_pseudostate`, `state_completion_through_pseudostate`,
 `state_junction_several_enabled_branches`, `state_junction_drawn_as_its_transition_fires`,
-`state_history_default_through_junction` (+ trace goldens, every branch under `explore`),
+`state_junction_guards_read_once`, `state_history_default_through_junction` (+ trace goldens,
+every branch under `explore`),
 `explore_test.go:TestExploreStaticJunctionBranches`, `TestExploreJunctionDrawnAsTransitionFires`,
 `TestExploreHistoryDefaultThroughJunction`. **agrees.** SM30's decision moved the
 static resolution to `state_route.go` and left junctions static; *Finding 8* made several

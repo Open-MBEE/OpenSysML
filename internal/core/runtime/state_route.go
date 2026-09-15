@@ -179,6 +179,12 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	if err != nil {
 		return route{}, err
 	}
+	// A branch past the first was only probed; its guard's final reading is made now.
+	if pick > 0 {
+		if _, err := e.passesGuard(outgoing[enabled[pick]]); err != nil {
+			return route{}, fmt.Errorf("choice %s: %w", choice.Name, err)
+		}
+	}
 	// The route past a choice is followed while firing, its draws made at once, so
 	// what it notes is noted now.
 	r, err = e.follow(choice, outgoing[enabled[pick]], route{crossed: r.crossed})
@@ -226,7 +232,8 @@ func (e *StateExecutor) enabledBranches(ps *ast.PseudostateNode, outgoing []*low
 
 // pickBranch is the index into enabled of the branch out of ps taken: the only
 // one, or the one the policy draws among several, handed to note as the choice
-// point taken; a draw the witness refuses is the refusal.
+// point taken; a draw the witness refuses is the refusal. The guards are not
+// read again: a junction's were read once, when its transition was selected.
 func (e *StateExecutor) pickBranch(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int, note func(RunNote)) (int, error) {
 	point, ok := e.branchPoint(ps, outgoing, enabled)
 	if !ok {
@@ -239,12 +246,6 @@ func (e *StateExecutor) pickBranch(ps *ast.PseudostateNode, outgoing []*lower.Tr
 	point.Taken = pick
 	point.File, point.Span = e.transitionLocation(ps, outgoing[enabled[pick]])
 	note(point)
-	// A branch past the first was only probed; its guard's final reading is made now.
-	if pick > 0 {
-		if _, err := e.passesGuard(outgoing[enabled[pick]]); err != nil {
-			return 0, fmt.Errorf("%s %s: %w", ps.Kind, ps.Name, err)
-		}
-	}
 	return pick, nil
 }
 
