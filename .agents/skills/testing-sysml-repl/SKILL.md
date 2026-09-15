@@ -4409,6 +4409,13 @@ states no rendering), **interconnection**, **state**, **action**, **table**
 
 Forms and defaults (`internal/core/view/form.go`):
 
+When verifying walkthrough output, test the literal command in a real terminal:
+`-render` is destination-dependent (text at a TTY, machine form through a pipe).
+A piped discovery run can therefore match a Mermaid transcript while the user's
+terminal command does not. Use explicit `-render-form mermaid` when the walkthrough
+promises Mermaid independent of destination; compare the shown diagram block and
+its effect labels, not only whether a renderer exits cleanly.
+
 | kind | text | machine form (`Kind.MachineForm()`) |
 | --- | --- | --- |
 | tree, action | indented text | `mermaid` → `flowchart TD` |
