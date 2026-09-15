@@ -164,7 +164,8 @@ var tradeStudyProbes = []libraryProbe{
 }
 
 // stateSpaceModel specializes the state-space library as a model does: a calc for
-// each abstract calc definition and a dynamics of each kind over a two-axis position.
+// each abstract calc definition and a dynamics of each kind over a two-axis position,
+// the continuous and discrete ones stepping once over one second.
 const stateSpaceModel = `	private import Quantities::*;
 	private import SI::*;
 	private import VectorFunctions::*;
@@ -205,20 +206,27 @@ const stateSpaceModel = `	private import Quantities::*;
 		calc :>> getNextState : Hold;
 		calc :>> getOutput : Echo;
 		attribute :>> stateSpace = position;
+		in :>> input = force;
 	}
-	action plant : Plant { in :>> input = force; }
-	action def Damper :> ContinuousStateSpaceDynamics {
+	action plant : Plant;
+	action def Damper :> ContinuousStateSpaceDynamics, StateSpaceIntegration::FixedStepDynamics {
 		calc :>> getDerivative : Rate;
 		calc :>> getOutput : Echo;
 		attribute :>> stateSpace = position;
+		attribute :>> timeStep = 1 [s];
+		attribute :>> stopTime = 1 [s];
+		in :>> input = force;
 	}
-	action damper : Damper { in :>> input = force; }
-	action def Spring :> DiscreteStateSpaceDynamics {
+	action damper : Damper;
+	action def Spring :> DiscreteStateSpaceDynamics, StateSpaceIntegration::FixedStepDynamics {
 		calc :>> getDifference : Shift;
 		calc :>> getOutput : Echo;
 		attribute :>> stateSpace = position;
+		attribute :>> timeStep = 1 [s];
+		attribute :>> stopTime = 1 [s];
+		in :>> input = force;
 	}
-	action spring : Spring { in :>> input = force; }
+	action spring : Spring;
 `
 
 // metres is a two-axis vector quantity in metres.
@@ -230,20 +238,21 @@ func metres(vs ...float64) ExpectedValue {
 	return ExpectedValue{Type: "VectorQuantity", Elements: elements}
 }
 
-// stateSpaceProbes invoke each declaration as the library declares it, with no
-// state-space runner supplying the abstract dynamics.
+// stateSpaceProbes invoke each declaration as the library declares it; the continuous
+// and discrete dynamics run one step of the state-space runner, the base dynamics has none.
 var stateSpaceProbes = []libraryProbe{
 	stateSpaceRead("GetNextState", "Hold(force, position, 1 [s])", metres(1.0, 1.0)),
 	stateSpaceRead("GetOutput", "Echo(force, position)", metres(1.0, 1.0)),
 	stateSpaceAction("StateSpaceEventDef"),
 	stateSpaceAction("ZeroCrossingEventDef"),
-	stateSpacePerform("StateSpaceDynamics", "plant"),
+	stateSpacePerform("StateSpaceDynamics", "plant", metres(1.0, 1.0)),
 	stateSpaceRead("StateSpaceDynamics::getNextState", "plant.getNextState(force, position, 1 [s])", metres(1.0, 1.0)),
 	stateSpaceRead("StateSpaceDynamics::getOutput", "plant.getOutput(force, position)", metres(1.0, 1.0)),
 	stateSpaceRead("GetDerivative", "Rate(force, position)", ExpectedValue{Type: "VectorQuantity", Elements: []ExpectedValue{
 		{Type: "Quantity", Value: 1.0, Unit: "SI::'m/s'"}, {Type: "Quantity", Value: 1.0, Unit: "SI::'m/s'"}}}),
 	stateSpaceRead("Integrate", "Euler(Rate, force, position, 2 [s])", metres(3.0, 3.0)),
-	stateSpacePerform("ContinuousStateSpaceDynamics", "damper"),
+	// One RK4 step of dx/dt = x over a second: 1 + 1 + 1/2 + 1/6 + 1/24.
+	stateSpacePerform("ContinuousStateSpaceDynamics", "damper", metres(2.7083333333333335, 2.7083333333333335)),
 	stateSpaceRead("ContinuousStateSpaceDynamics::getDerivative", "damper.getDerivative(force, position)", ExpectedValue{
 		Type: "VectorQuantity", Elements: []ExpectedValue{
 			{Type: "Quantity", Value: 1.0, Unit: "SI::'m/s'"}, {Type: "Quantity", Value: 1.0, Unit: "SI::'m/s'"}}}),
@@ -251,7 +260,7 @@ var stateSpaceProbes = []libraryProbe{
 	stateSpaceRead("ContinuousStateSpaceDynamics::getNextState", "damper.getNextState(force, position, 1 [s])", metres(2.0, 2.0)),
 	stateSpaceRead("ContinuousStateSpaceDynamics::getNextState::integrate", "damper.getNextState.integrate.result", metres(2.0, 2.0)),
 	stateSpaceRead("GetDifference", "Shift(force, position)", metres(1.0, 1.0)),
-	stateSpacePerform("DiscreteStateSpaceDynamics", "spring"),
+	stateSpacePerform("DiscreteStateSpaceDynamics", "spring", metres(2.0, 2.0)),
 	stateSpaceRead("DiscreteStateSpaceDynamics::getDifference", "spring.getDifference(force, position)", metres(1.0, 1.0)),
 	stateSpaceRead("DiscreteStateSpaceDynamics::getNextState", "spring.getNextState(force, position, 1 [s])", metres(2.0, 2.0)),
 }
@@ -267,13 +276,13 @@ func stateSpaceRead(name, expr string, want ExpectedValue) libraryProbe {
 }
 
 // stateSpacePerform performs one of stateSpaceModel's dynamics and reads its output.
-func stateSpacePerform(name, usage string) libraryProbe {
+func stateSpacePerform(name, usage string, want ExpectedValue) libraryProbe {
 	return libraryProbe{
 		decl:   "StateSpaceRepresentation::" + name,
 		model:  probeModel("StateSpaceRepresentation", stateSpaceModel),
 		action: "test::" + usage,
 		output: "output",
-		want:   metres(1.0, 1.0),
+		want:   want,
 	}
 }
 

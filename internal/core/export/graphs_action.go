@@ -704,7 +704,11 @@ func (x *graphsExporter) trigger(scope *symbols.Scope, node ast.Node) *TriggerFo
 	case *ast.AcceptEvent:
 		form.Kind = "accept"
 		form.SignalType = qualifiedName(t.SignalType)
-		form.Subsets = qualifiedName(t.Subsets)
+		if qn := ast.AsQualifiedName(t.Subsets); qn != nil {
+			form.Subsets = qualifiedName(qn)
+		} else {
+			form.Subsets = lower.FeaturePath(t.Subsets)
+		}
 		if t.Payload != nil {
 			form.Payload, _ = ast.EffectiveName(t.Payload)
 		}

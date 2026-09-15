@@ -863,6 +863,27 @@ func isBehaviorSymbol(sym *symbols.Symbol) bool {
 	return false
 }
 
+// isPerformanceEvent reports an `event occurrence` a behavior declares: it occurs
+// in each performance of the behavior rather than being an object of its own.
+func isPerformanceEvent(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Kind != symbols.SymbolOccurrenceUsage || sym.OwnerScope == nil {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || !usage.IsEvent {
+		return false
+	}
+	owner := sym.OwnerScope.Owner()
+	if owner == nil {
+		return false
+	}
+	switch owner.Kind {
+	case symbols.SymbolActionDef, symbols.SymbolStateDef:
+		return true
+	}
+	return isBehaviorSymbol(owner)
+}
+
 // send builds and posts the message a send statement describes; a message the
 // send cannot build or deliver leaves nothing building it created behind.
 func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Connection, s lower.Send, self *Instance) error {
@@ -917,9 +938,10 @@ func (ec *EvalContext) carriesEvent(m Message, subsets ast.Node) bool {
 }
 
 // eventOccurrence is the occurrence an accept's event path names in ec: what the
-// feature holds, or the object performing a behavioral feature (`left.alert`, `alert`).
+// feature holds, the object performing a behavioral feature (`left.alert`, `alert`),
+// or the performance an event of a behavior occurs in (`fall.touchdown`).
 func (ec *EvalContext) eventOccurrence(subsets ast.Node, event *symbols.Symbol) (int64, bool) {
-	if isBehaviorSymbol(event) {
+	if isBehaviorSymbol(event) || isPerformanceEvent(event) {
 		chain, ok := subsets.(*ast.FeatureChainExpr)
 		if !ok {
 			return objectID(ec.self), ec.self != nil

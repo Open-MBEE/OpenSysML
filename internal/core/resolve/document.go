@@ -469,8 +469,10 @@ func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 		if t.SignalType != nil {
 			r.resolveQualified(scope, t.SignalType, nil)
 		}
-		if t.Subsets != nil {
-			r.resolveQualified(scope, t.Subsets, nil)
+		if qn := ast.AsQualifiedName(t.Subsets); qn != nil {
+			r.resolveQualified(scope, qn, nil)
+		} else if t.Subsets != nil {
+			r.resolveExpr(scope, t.Subsets)
 		}
 		if t.Payload != nil {
 			r.resolveDecl(scope, t.Payload)
