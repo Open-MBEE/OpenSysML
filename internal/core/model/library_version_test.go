@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"maps"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -252,9 +253,18 @@ func TestWorkspaceLibraryVersionUnderTheBundledName(t *testing.T) {
 	if ws.IsLibraryDocument(scalarValues) {
 		t.Error("a workspace document under the bundled name is the workspace's own")
 	}
+	if got := ws.LibraryDocument(scalarValues); got != nil {
+		t.Error("LibraryDocument still answers the cached bundled file under a name the workspace holds")
+	}
+	if got := ws.LibraryDocument(filepath.ToSlash(scalarValues)); got != nil {
+		t.Error("LibraryDocument answers the bundled file under the slash form of a name the workspace holds")
+	}
 	ws.Close(scalarValues)
 	if !ws.IsLibraryDocument(scalarValues) || !ws.index.IsLibraryDocument(scalarValues) {
 		t.Error("the bundled file did not come back under its library mark")
+	}
+	if got := ws.LibraryDocument(scalarValues); got != lib {
+		t.Error("LibraryDocument does not answer the cached bundled file once the workspace lets its name go")
 	}
 	if _, doc := realOf(t, ws); doc != scalarValues {
 		t.Errorf("ScalarValues::Real declared in %q after closing, want the bundled file", doc)

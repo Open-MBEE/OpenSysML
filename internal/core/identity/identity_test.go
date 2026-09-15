@@ -394,3 +394,56 @@ func TestLibraryCatalogNamesEveryNormativeIDAndIsSharedByOverlays(t *testing.T) 
 		t.Fatalf("catalogued %d elements, want the whole named library", len(seen))
 	}
 }
+
+// An overlay that shadows, removes or adds a library document is judged by the
+// library it shows, not by its frozen base's; one that shows the base's library
+// as the base does shares the base's catalog.
+func TestLibraryVersionOverAnOverlayThatChangesTheLibrary(t *testing.T) {
+	const lib = "lib/tanks.sysml"
+	oldText := []byte("standard library package OldTanks {\n    part def Tank;\n}\n")
+	newText := []byte("standard library package Tanks {\n    part def Tank;\n}\n")
+	library := func(idx *symbols.Index, name string, text []byte) {
+		idx.AddDocumentWithKind(name, parser.New(source.New(name, text)).ParseFile(), source.KindSysML)
+		idx.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: symbols.TierSystems, Digest: symbols.TextDigest(text)})
+	}
+	versionOf := func(t *testing.T, idx *symbols.Index, text []byte) string {
+		t.Helper()
+		name := "copy.sysml"
+		idx.AddDocumentWithKind(name, parser.New(source.New(name, text)).ParseFile(), source.KindSysML)
+		idx.ExpandWildcardImports()
+		res := resolve.New(idx)
+		model := semantics.NewModel(res)
+		res.SetModel(model)
+		return identity.LibraryVersion(model, res, name)
+	}
+	base := symbols.NewIndex()
+	library(base, lib, oldText)
+	base.Freeze()
+
+	shown := symbols.NewOverlay(base)
+	if identity.LibraryCatalog(shown) != identity.LibraryCatalog(base) {
+		t.Error("an overlay showing the base's library as the base does should share its catalog")
+	}
+	library(shown, lib, newText)
+	if got := versionOf(t, shown, newText); got != lib {
+		t.Errorf("a copy of the package the overlay shows: version %q, want %q", got, lib)
+	}
+	if got := versionOf(t, shown, oldText); got != "" {
+		t.Errorf("a copy of the package the overlay shadows: version %q, want none", got)
+	}
+
+	removed := symbols.NewOverlay(base)
+	removed.RemoveDocument(lib)
+	if got := versionOf(t, removed, oldText); got != "" {
+		t.Errorf("a copy of the package the overlay removed: version %q, want none", got)
+	}
+
+	added := symbols.NewOverlay(base)
+	library(added, "lib/hulls.sysml", []byte("standard library package Hulls {\n    part def Hull;\n}\n"))
+	if got := versionOf(t, added, []byte("standard library package Hulls {\n    part def Hull;\n}\n")); got != "lib/hulls.sysml" {
+		t.Errorf("a copy of the package the overlay adds: version %q, want lib/hulls.sysml", got)
+	}
+	if got := versionOf(t, added, oldText); got != lib {
+		t.Errorf("a copy of the base's package under an overlay that adds one: version %q, want %q", got, lib)
+	}
+}
