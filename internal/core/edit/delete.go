@@ -1,6 +1,7 @@
 package edit
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -228,11 +229,18 @@ func (m Model) referrersIn(r *resolve.Resolver, doc string, targets, frontier []
 }
 
 // workspaceDocuments names the documents a reference may be written in: the
-// edited one first, then the other workspace documents in name order.
+// edited one first, then the others in name order — those the model names, or
+// else the index's unmarked documents.
 func (m Model) workspaceDocuments() []string {
 	own := m.Source.Name()
 	out := []string{own}
-	for _, doc := range m.Index.WorkspaceDocuments() {
+	others := m.Documents
+	if others == nil {
+		others = m.Index.WorkspaceDocuments()
+	} else {
+		others = slices.Sorted(slices.Values(others))
+	}
+	for _, doc := range others {
 		if doc != own {
 			out = append(out, doc)
 		}
