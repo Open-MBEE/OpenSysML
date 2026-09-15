@@ -209,7 +209,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 377 files)
+## Results (pilot `2026-08`, 378 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -218,9 +218,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 42 | 29 | 13 | 1171 | 4 | 2 | 7 | 1165 |
+| `examples` | 43 | 29 | 13 | 1233 | 4 | 2 | 7 | 1227 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **377** | **346** | **79** | **1226** | **38** | **3** | **38** | **1185** |
+| **Total** | **378** | **346** | **79** | **1288** | **38** | **3** | **38** | **1247** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -249,6 +249,42 @@ reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Legend of the Red Dragon example round
+
+`examples/lord-demo/lord.sysml` is one file added to the `examples` root: files 42 → **43** on
+the root, 377 → **378** overall. It is the door game as a system — the town and its shops as
+parts, a warrior whose day is a state machine, a fight whose dice are a decision the schedule
+resolves, requirements on who may face the dragon, and a generated document of the warrior's
+standing and both price lists — and its model half (the `Lord`, `LordPlay` and `LordOdds`
+packages: the part definitions, the calculations, the actions with their guarded successions,
+the state machine with its `do action` effects, the constraints, requirements, satisfactions and
+analysis) draws no row on either side. Its document half draws **62** pilot-only rows, every one
+the `DocumentQueries` cascade already adjudicated for `self-model/document.sysml`: 44
+`unresolved-reference` from the import of that library and the `Query`, `WhereType`,
+`OwnedElements`, `RelatedElements`, `Project`, `Column`, `Verdicts`, `Document`, `Paragraph` and
+`Table` names it fails to resolve, and 18 `kind-mismatch`: 11 `Must invoke a behavior or a
+behavioral feature` on the query invocations whose calc def did not resolve, 4 `An occurrence, item
+or part must be typed by occurrence definitions` on the document parts typed by the unresolved
+`Paragraph` and `Table`, and 3 `Bound features should have conforming types` warnings on the
+bindings to them. The file is therefore not fully agreeing, and fully agreeing stays at **346**
+(29 on the root). Pilot diagnostics rise 1226 → **1288** and only-pilot 1185 → **1247**;
+only-ours, our diagnostics, agreed and severity-only do not move, and no per-file ratchet count
+moves.
+
+The example was written to the pilot's grammar where the two differ. A guarded succession inside
+an action is `first swing if foeLeft > 0 then strike;` — the `succession first … if … then` form
+we also accept is not a production the pilot has, and it parses the rest of the file as a cascade
+of syntax errors. A transition's effect that performs an owned action is `do action fighting {
+perform fight; }` — the `do perform fight` form we also accept is not one the pilot has either,
+and a bare `do fight` is a production the pilot has that we do not yet parse in a transition.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 377 | **378** |
+| only pilot | 1185 | **1247** |
+| pilot diagnostics | 1226 | **1288** |
+| `examples`: only pilot | 1165 | **1227** |
 
 ### Verdict-table example round
 
@@ -678,8 +714,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1185** |
-| pilot diagnostics | 123 | **1226** |
+| only pilot | 82 | **1247** |
+| pilot diagnostics | 123 | **1288** |
 | severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -812,7 +848,7 @@ Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 547 `kind-mismatch`, 589 `unresolved-reference` — of which
+`examples` 10 syntax, 19 `unmapped`, 565 `kind-mismatch`, 633 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -904,13 +940,13 @@ page's history.
 | Count | Now |
 |---|---:|
 | overall: fully agreeing / only ours / our diagnostics | **346 / 38 / 79** |
-| only pilot | **1185** |
-| pilot diagnostics | **1226** |
+| only pilot | **1247** |
+| pilot diagnostics | **1288** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **1165** |
+| examples: only pilot | **1227** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
 only-pilot, with 49 of 58 files fully
