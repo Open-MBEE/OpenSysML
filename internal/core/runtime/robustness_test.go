@@ -14214,8 +14214,8 @@ func testStateDoBodyAcceptWaitsForTheMessage(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("a do body waiting for a message did not suspend")
 	}
-	if exec.State() != StateSuspended || getNodeName(exec.CurrentState()) != "active" {
-		t.Fatalf("state = %v in %s, want suspended in active", exec.State(), getNodeName(exec.CurrentState()))
+	if exec.State() != StateSuspended || StateVertexName(exec.CurrentState()) != "active" {
+		t.Fatalf("state = %v in %s, want suspended in active", exec.State(), StateVertexName(exec.CurrentState()))
 	}
 	if exec.HasPendingDoWork() || exec.HasPendingSignal() {
 		t.Error("a do body parked at its accept must not be due with no message in flight")
@@ -14229,7 +14229,7 @@ func testStateDoBodyAcceptWaitsForTheMessage(t *testing.T) {
 		t.Fatalf("run after the message: %v", err)
 	}
 	if exec.State() != StateCompleted {
-		t.Errorf("state = %v in %s, want completed", exec.State(), getNodeName(exec.CurrentState()))
+		t.Errorf("state = %v in %s, want completed", exec.State(), StateVertexName(exec.CurrentState()))
 	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(9)) {
 		t.Errorf("total = %v, want 9: the accepted value", total)

@@ -659,7 +659,7 @@ func dueOrderChoices(t *testing.T, policy SchedulePolicy, machines int) []Choice
 		t.Errorf("%s: %d events dispatched, want one per machine (%d)", policy, report.Events, machines)
 	}
 	for i, exec := range execs {
-		if got := exec.CurrentState(); got == nil || getNodeName(got) != "ticked" {
+		if got := exec.CurrentState(); got == nil || StateVertexName(got) != "ticked" {
 			t.Errorf("%s: machine %d in %v after the advance, want ticked", policy, i, got)
 		}
 		if got := exec.StateData()["beat"]; got.Kind != ValConst || got.Const.Int != 1 {
@@ -755,7 +755,7 @@ func changeWatchOrder(t *testing.T, policy SchedulePolicy) ([]int64, []ChoicePoi
 	}
 	seen := make([]int64, len(takers))
 	for i, exec := range takers {
-		if got := exec.CurrentState(); got == nil || getNodeName(got) != "took" {
+		if got := exec.CurrentState(); got == nil || StateVertexName(got) != "took" {
 			t.Errorf("%s: taker %d in %v after the advance, want took", policy, i, got)
 		}
 		v := exec.StateData()["seen"]

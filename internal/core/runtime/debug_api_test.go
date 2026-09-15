@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
 const debugActionSrc = `package test {
@@ -975,9 +977,9 @@ func firedNames(exec *StateExecutor) []string {
 	for _, fired := range exec.FiredTransitions() {
 		source := ""
 		if fired.Source != nil {
-			source = getNodeName(fired.Source)
+			source = StateVertexName(fired.Source)
 		}
-		out = append(out, source+"->"+getNodeName(fired.Target))
+		out = append(out, source+"->"+StateVertexName(fired.Target))
 	}
 	return out
 }
@@ -1068,6 +1070,59 @@ func TestFiredTransitionsLogsCompoundAndForkSegments(t *testing.T) {
 	}
 }
 
+// A firing that fails midway logs nothing: not the fork and its branches, nor
+// the segments of a compound transition whose last effect fails.
+func TestFiredTransitionsOmitsAFailedFiring(t *testing.T) {
+	for _, tc := range []struct {
+		name, src string
+	}{
+		{"fork", `package test {
+			state Machine {
+				attribute counter : Integer = 0;
+				entry; then init;
+				state init;
+				state working parallel {
+					state left { entry; then leftStart; state leftStart; state building; }
+					state right { entry; then rightStart; state rightStart; state checking; }
+				}
+				fork split;
+				transition first init accept go do assign counter := missingName + 1 then split;
+				transition first split then building;
+				transition first split then checking;
+			}
+		}`},
+		{"compound", `package test {
+			state Machine {
+				attribute counter : Integer = 0;
+				entry; then init;
+				state init;
+				junction route;
+				state low;
+				transition first init accept go then route;
+				transition first route do assign counter := missingName + 1 then low;
+			}
+		}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, sym := loadState(t, tc.src, "Machine")
+			exec, err := ctx.CreateStateExecutor(sym)
+			if err != nil {
+				t.Fatalf("CreateStateExecutor: %v", err)
+			}
+			if got := firedNames(exec); !slices.Equal(got, []string{"->init"}) {
+				t.Fatalf("after start fired = %v, want the entry transition only", got)
+			}
+			exec.SendSignal("go", nil)
+			if err := exec.ProcessNextEvent(); !errors.Is(err, ErrUnresolvedReference) {
+				t.Fatalf("ProcessNextEvent: %v, want ErrUnresolvedReference from the effect", err)
+			}
+			if got := firedNames(exec); !slices.Equal(got, []string{"->init"}) {
+				t.Errorf("fired = %v after the failed firing, want the entry transition only", got)
+			}
+		})
+	}
+}
+
 // A breakpoint pauses the machine as the dispatch entering the state completes,
 // even one leaving it again; the clock skips the paused machine until resumed.
 func TestStateBreakpointPausesOnATransientState(t *testing.T) {
@@ -1092,8 +1147,8 @@ func TestStateBreakpointPausesOnATransientState(t *testing.T) {
 	if _, err := ctx.Advance(20); err != nil {
 		t.Fatalf("Advance: %v", err)
 	}
-	if got := exec.PausedState(); got == nil || got.Name != "braking" {
-		t.Fatalf("PausedState() = %v, want braking", got)
+	if got := exec.PausedAt(); got == nil || StateVertexName(got) != "braking" {
+		t.Fatalf("PausedAt() = %v, want braking", got)
 	}
 	if got := exec.State(); got != StateSuspended {
 		t.Errorf("State() = %v, want %v", got, StateSuspended)
@@ -1111,8 +1166,8 @@ func TestStateBreakpointPausesOnATransientState(t *testing.T) {
 	if err := exec.RunToQuiescence(); err != nil {
 		t.Fatalf("RunToQuiescence: %v", err)
 	}
-	if exec.PausedState() != nil {
-		t.Errorf("PausedState() = %v after resuming, want nil", exec.PausedState())
+	if exec.PausedAt() != nil {
+		t.Errorf("PausedAt() = %v after resuming, want nil", exec.PausedAt())
 	}
 	if got := activeStateNames(exec); got != "stopped" {
 		t.Errorf("ActiveStates() = %s, want stopped", got)
@@ -1134,8 +1189,67 @@ func TestClearStateBreakpointsRunsThrough(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	if exec.PausedState() != nil || exec.State() != StateCompleted {
-		t.Fatalf("paused at %v in state %v, want a completed run", exec.PausedState(), exec.State())
+	if exec.PausedAt() != nil || exec.State() != StateCompleted {
+		t.Fatalf("paused at %v in state %v, want a completed run", exec.PausedAt(), exec.State())
+	}
+}
+
+// A breakpoint on a pseudostate pauses the machine as the dispatch passing
+// through it completes, in the state the route reached; a dispatch that fails on
+// the way through pauses on nothing.
+func TestPseudostateBreakpointPausesAfterTheRouteThroughIt(t *testing.T) {
+	src := `package test {
+		state Machine {
+			attribute counter : Integer = 0;
+			entry; then init;
+			state init;
+			junction route;
+			state low;
+			state high;
+			transition first init accept go then route;
+			transition first route if counter > 5 then high;
+			transition first route then low;
+			transition first low accept go then route;
+			transition first low accept bad do assign counter := missingName then route;
+		}
+	}`
+	ctx, sym := loadState(t, src, "Machine")
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	var route *ast.PseudostateNode
+	for _, ps := range exec.graph.Pseudostates {
+		if ps.Name == "route" {
+			route = ps
+		}
+	}
+	if route == nil {
+		t.Fatal("the graph lowers no pseudostate route")
+	}
+	exec.SetBreakpointAt(route)
+
+	exec.SendSignal("go", nil)
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence: %v", err)
+	}
+	if got := exec.PausedAt(); got != ast.Node(route) {
+		t.Fatalf("PausedAt() = %v, want the junction route", got)
+	}
+	if got := exec.State(); got != StateSuspended {
+		t.Errorf("State() = %v, want %v", got, StateSuspended)
+	}
+	if got := activeStateNames(exec); got != "low" {
+		t.Errorf("ActiveStates() = %s, want low, where the route through the junction ended", got)
+	}
+
+	exec.Resume()
+	exec.SendSignal("bad", nil)
+	if err := exec.ProcessNextEvent(); !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("ProcessNextEvent: %v, want ErrUnresolvedReference from the effect", err)
+	}
+	if got := exec.PausedAt(); got != nil {
+		t.Errorf("PausedAt() = %v after a failed dispatch, want nil", got)
 	}
 }
 

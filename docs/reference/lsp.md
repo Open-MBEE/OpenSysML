@@ -536,10 +536,11 @@ Replaces the session's breakpoints with the nodes named, by the `id` of the
 render result the snapshot's `version` refers to. A node the rendering does not
 draw, or that draws nothing that runs — the root, a title — is refused with
 `InvalidParams`, and the breakpoints stand as they were. A run (`step`,
-`continue`, `advance`) stops when a token arrives at a breakpoint node or a
-breakpoint state becomes active — as the transition entering it completes, so a
-state left again at the same instant is paused on too; the snapshot then reports
-`suspended` with `pausedAt` naming the node, and the next run resumes past it. Breakpoints are
+`continue`, `advance`) stops when a token arrives at a breakpoint node, a
+breakpoint state becomes active, or a transition routes through a breakpoint
+pseudostate — as the dispatch completes, so a state left again at the same
+instant is paused on too; the snapshot then reports `suspended` with `pausedAt`
+naming the node, and the next run resumes past it. Breakpoints are
 kept on the runtime node, so they follow a node whose `id` changes when the
 rendering is redrawn.
 
@@ -595,20 +596,26 @@ absence.
 ### `opensysml/debugChanged` (notification, server → client)
 
 Carries a snapshot, sent when a document change moved a session. An edit that
-leaves as they were the declarations the run was built from — the target's, the
-performer's when there is one, and every definition the target takes content
-from (the definitions typing or specializing a machine or its states, the
-actions an action specializes) — keeps the session running; a redraw of the view
-gives the nodes new IDs, so the notification carries the snapshot in the fresh
-IDs at the new `version`. An edit that rewrites or removes any of those
-declarations, that makes the target take content from a declaration it did not
-(a definition declared nearer now shadows the one it specialized), that rewrites
-or removes the declared view — even one that still draws the target — that makes
-the view render another kind or stop drawing the target, or closing the
-document, ends the session: the snapshot reports `ended` with the `reason`, and
-the session's runtime is released. A pseudo-view has no declaration to rewrite,
-so a session on one ends only for the other reasons. Shutting the server down
-ends every session the same way.
+leaves as they were the declarations the run reads — the target's, the
+performer's when there is one, and every declaration those name and the named
+name in turn: the definitions a machine, its states or its performer specialize
+or are typed by, the actions an action invokes, the signal definitions its
+triggers accept, the types of the performer's features, the attributes a guard
+or an effect names in other packages, and the definition and values a `send`
+named — keeps the session running; a redraw of the view gives the nodes new IDs,
+so the notification carries the snapshot in the fresh IDs at the new `version`.
+An edit that rewrites or removes any of those declarations, that makes the run
+read a declaration it did not (a definition declared nearer now shadows the one
+a specialization resolved to), that rewrites or removes the declared view — even
+one that still draws the target — that makes the view render another kind or
+stop drawing the target, or closing the document, ends the session: the snapshot
+reports `ended` with the `reason`, and the session's runtime is released. A
+library's declarations are not watched, as no edit reaches them. A `send` whose
+signal or arguments name a declaration the run had not read checks it the same
+way, and answers the `ended` snapshot instead of posting when it was edited
+since the session began. A pseudo-view has no declaration to rewrite, so a
+session on one ends only for the other reasons. Shutting the server down ends
+every session the same way.
 
 The notification is sent after the workspace has taken the change, and is not
 debounced: a client keeps the last snapshot it received for each session. Like

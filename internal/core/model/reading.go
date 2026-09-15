@@ -49,7 +49,13 @@ func (r *Reading) DeclarationText(sym *symbols.Symbol) string {
 	if sym == nil || sym.Decl == nil {
 		return ""
 	}
-	return r.TextAt(sym.DocName, sym.Decl.Span())
+	return declarationText(r.TextAt, sym.DocName, sym.Decl.Span())
+}
+
+// declarationText is the text at span less the trivia after its last token,
+// which a declaration's span runs through: an edit after it is not an edit of it.
+func declarationText(text func(doc string, span source.Span) string, doc string, span source.Span) string {
+	return strings.TrimRight(text(doc, span), " \t\r\n")
 }
 
 // TextAt is the source text at span in doc, from the document or the library

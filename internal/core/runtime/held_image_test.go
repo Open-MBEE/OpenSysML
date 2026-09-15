@@ -769,7 +769,7 @@ func heldDigest(ctx *Context, held func(id int64) bool) string {
 			if exec := behavior.State; exec != nil {
 				var active []string
 				for _, state := range exec.ActiveStates() {
-					active = append(active, getNodeName(state))
+					active = append(active, StateVertexName(state))
 				}
 				fmt.Fprintf(&b, "    state=%v active=%v queue=%d deferred=%d data=%s\n",
 					exec.State(), active, exec.eventQueue.Len(), len(exec.deferred), formatValues(exec.StateData()))

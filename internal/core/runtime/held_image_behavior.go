@@ -273,7 +273,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	}
 	for node, attrs := range e.stateAttrs {
 		if err := t.values(attrs); err != nil {
-			return nil, fmt.Errorf("state %s: %w", getNodeName(node), err)
+			return nil, fmt.Errorf("state %s: %w", StateVertexName(node), err)
 		}
 		img.stateAttrs[node] = maps.Clone(attrs)
 	}
@@ -301,7 +301,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	for _, act := range e.doActions {
 		if act.run != nil {
 			return nil, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
-				getNodeName(act.state), symbolText(e.stateMachine))
+				StateVertexName(act.state), symbolText(e.stateMachine))
 		}
 		img.doActions = append(img.doActions, doActionCapture{act: &doAction{state: act.state}, pending: slices.Clone(act.pending)})
 	}
@@ -519,7 +519,7 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	}
 	for node, attrs := range img.stateAttrs {
 		if e.stateAttrs[node], err = m.values(attrs); err != nil {
-			return fmt.Errorf("state %s: %w", getNodeName(node), err)
+			return fmt.Errorf("state %s: %w", StateVertexName(node), err)
 		}
 	}
 	e.stateVisits, e.stateStack = slices.Clone(img.stateVisits), slices.Clone(img.stateStack)

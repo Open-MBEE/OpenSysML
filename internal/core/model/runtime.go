@@ -15,8 +15,9 @@ import (
 // Runtime is a runtime model over the workspace's documents as they stood when
 // it was built, on an index of its own that later edits do not touch.
 type Runtime struct {
-	model *runtime.Model
-	index *symbols.Index
+	model    *runtime.Model
+	index    *symbols.Index
+	resolver *resolve.Resolver
 	// versions are the document versions the run was built from, by name.
 	versions map[string]int
 	// generation is the workspace's when the run was built.
@@ -43,7 +44,7 @@ func (w *Workspace) newRuntimeLocked() (*Runtime, error) {
 	sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
 	sem.SetSourceText(w.sourceTextLocked())
 	model := runtime.NewModel(sem, resolver)
-	rt := &Runtime{model: model, index: idx, versions: make(map[string]int, len(w.docs)), generation: w.generation}
+	rt := &Runtime{model: model, index: idx, resolver: resolver, versions: make(map[string]int, len(w.docs)), generation: w.generation}
 	for _, name := range w.sortedDocNamesLocked() {
 		d := w.docs[name]
 		model.RegisterSource(source.New(name, d.Content))
@@ -54,17 +55,9 @@ func (w *Workspace) newRuntimeLocked() (*Runtime, error) {
 }
 
 // privateIndexLocked indexes the workspace's documents on an index the workspace
-// does not write to, over the same library base when there is one.
+// does not write to, holding everything else the workspace's index holds.
 func (w *Workspace) privateIndexLocked() (*symbols.Index, error) {
-	var idx *symbols.Index
-	switch {
-	case w.libBase != nil:
-		idx = symbols.NewOverlay(w.libBase)
-	case w.index.Base() != nil:
-		idx = symbols.NewOverlay(w.index.Base())
-	default:
-		idx = symbols.NewIndex()
-	}
+	idx := w.detachedIndexLocked()
 	for _, name := range w.sortedDocNamesLocked() {
 		d := w.docs[name]
 		if d.AST == nil {
@@ -115,13 +108,4 @@ func (r *Runtime) Lookup(fqn string) []*symbols.Symbol {
 // FQN spells sym's fully qualified name as the runtime's index holds it.
 func (r *Runtime) FQN(sym *symbols.Symbol) string {
 	return r.index.GetFQN(sym)
-}
-
-// Text is the source text of sym's declaration as the runtime holds it, "" for
-// a symbol declared nowhere the runtime reads.
-func (r *Runtime) Text(sym *symbols.Symbol) string {
-	if sym == nil || sym.Decl == nil {
-		return ""
-	}
-	return r.model.Text()(sym.DocName, sym.Decl.Span())
 }

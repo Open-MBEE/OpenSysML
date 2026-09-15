@@ -1,6 +1,7 @@
 package model
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -47,8 +48,11 @@ func TestReadingIsOfOneGeneration(t *testing.T) {
 		if target == nil {
 			t.Fatal("Machines::Ops not declared")
 		}
-		if got := r.DeclarationText(target); got != rt.Text(rt.Declared("m.sysml", "Machines::Ops")) {
-			t.Errorf("reading and runtime disagree on the text of Machines::Ops:\n%s", got)
+		if got, want := r.Dependencies(target), rt.Dependencies(rt.Declared("m.sysml", "Machines::Ops")); !reflect.DeepEqual(got, want) {
+			t.Errorf("reading and runtime disagree on what Machines::Ops reads:\n%v\n%v", got, want)
+		}
+		if deps := r.Dependencies(target); len(deps) == 0 || deps[0].Text != strings.TrimRight(r.DeclarationText(target), " \t\r\n") || strings.HasSuffix(deps[0].Text, "\n") {
+			t.Errorf("the target's dependency text = %q, want its declaration less the trivia after it", deps)
 		}
 		if r.DeclaredView("m.sysml", "MachineViews::opsView") == nil {
 			t.Error("MachineViews::opsView not declared as a view")

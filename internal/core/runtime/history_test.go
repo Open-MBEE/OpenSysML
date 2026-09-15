@@ -14,11 +14,11 @@ import (
 func transitionBetween(t *testing.T, exec *StateExecutor, source, target string) *lower.Transition {
 	t.Helper()
 	for node, transitions := range exec.graph.Transitions {
-		if getNodeName(node) != source {
+		if StateVertexName(node) != source {
 			continue
 		}
 		for _, trans := range transitions {
-			if getNodeName(trans.Target) == target {
+			if StateVertexName(trans.Target) == target {
 				return trans
 			}
 		}

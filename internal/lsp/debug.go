@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -210,9 +211,12 @@ type debugSession struct {
 	objectSym *symbols.Symbol
 	action    *runtime.ActionExecutor
 	machine   *runtime.StateExecutor
-	// inherited are the declarations the executor's graph took content from
-	// besides the target's own, as the runtime holds them.
-	inherited []debugInherited
+	// reads are the declarations the run reads — the target's, the performer's,
+	// what their text names and so on — as the runtime holds them.
+	reads []model.Dependency
+	// named are the declarations sends named besides those, by document and
+	// name: what the run reads from too.
+	named []dependencyKey
 
 	// version is the document version the render IDs below belong to.
 	version   int
@@ -238,14 +242,6 @@ type debugSession struct {
 	// pausedName what the model calls it.
 	paused     string
 	pausedName string
-}
-
-// debugInherited is a declaration a session's behavior took content from besides
-// the target's own, as the runtime holds it.
-type debugInherited struct {
-	fqn  string
-	doc  string
-	text string
 }
 
 // debugNode is a runtime node a render node draws: a vertex of a state graph,
@@ -395,11 +391,7 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 	if err := sess.attach(ctx, target, performer); err != nil {
 		return nil, err
 	}
-	var err error
-	if sess.inherited, err = sess.inheritedDecls(); err != nil {
-		sess.release()
-		return nil, err
-	}
+	sess.reads = rt.Dependencies(target, objectSym)
 	if err := sess.locate(rendering, target, doc.Version); err != nil {
 		sess.release()
 		return nil, err
@@ -460,27 +452,6 @@ func (sess *debugSession) attach(ctx *runtime.Context, target *symbols.Symbol, p
 		return fmt.Errorf("%w: %s: %w", ErrDebugTarget, sess.target, err)
 	}
 	return nil
-}
-
-// inheritedDecls lists the declarations the executor's graph took content from
-// besides the target's own, each by the name and text the runtime holds.
-func (sess *debugSession) inheritedDecls() ([]debugInherited, error) {
-	var from []lower.Inherited
-	if sess.action != nil {
-		from = sess.action.Graph().Inherited()
-	} else {
-		from = sess.machine.Graph().Inherited()
-	}
-	out := make([]debugInherited, 0, len(from))
-	for _, in := range from {
-		sym := in.Body.Owner()
-		if sym == nil {
-			return nil, fmt.Errorf("%w: %s takes content from %s, which its index does not name",
-				ErrDebugTarget, sess.target, lower.DescribeMember(in.Decl))
-		}
-		out = append(out, debugInherited{fqn: sess.runtime.FQN(sym), doc: sym.DocName, text: sess.runtime.Text(sym)})
-	}
-	return out, nil
 }
 
 // debugTargetKind checks target declares what a rendering of kind draws.
@@ -577,9 +548,7 @@ func (sess *debugSession) applyBreakpoints() {
 	}
 	sess.machine.ClearBreakpoints()
 	for _, bp := range sess.breakpoints {
-		if state, ok := bp.node.(*ast.StateNode); ok {
-			sess.machine.SetBreakpointAt(state)
-		}
+		sess.machine.SetBreakpointAt(bp.node)
 	}
 }
 
@@ -588,7 +557,7 @@ func (sess *debugSession) halted() bool {
 	if sess.action != nil {
 		return sess.action.PausedAt() != ""
 	}
-	return sess.machine.PausedState() != nil
+	return sess.machine.PausedAt() != nil
 }
 
 // release lets the session's executor go.
@@ -656,7 +625,7 @@ func (s *Server) DebugStep(params *debugSessionParams) (*debugSnapshot, error) {
 func (sess *debugSession) resume() {
 	sess.waiting, sess.failure = "", ""
 	sess.paused, sess.pausedName = "", ""
-	if sess.machine != nil && sess.machine.PausedState() != nil {
+	if sess.machine != nil && sess.machine.PausedAt() != nil {
 		sess.machine.Resume()
 	}
 }
@@ -664,9 +633,9 @@ func (sess *debugSession) resume() {
 // pause records the breakpoint node the run just done stopped at, if any.
 func (sess *debugSession) pause() {
 	if sess.machine != nil {
-		if state := sess.machine.PausedState(); state != nil {
-			sess.paused, _ = sess.states.Node(state)
-			sess.pausedName = state.Name
+		if vertex := sess.machine.PausedAt(); vertex != nil {
+			sess.paused, _ = sess.states.Node(vertex)
+			sess.pausedName = runtime.StateVertexName(vertex)
 		}
 		return
 	}
@@ -783,7 +752,17 @@ func (s *Server) DebugSend(params *debugSendParams) (*debugSnapshot, error) {
 	if strings.TrimSpace(params.Signal) == "" {
 		return nil, debugInvalid(fmt.Errorf("%w: no signal named", ErrDebugSignal))
 	}
-	msg, err := sess.signalMessage(params.Signal, params.Args)
+	send, err := sess.parseSend(params.Signal, params.Args)
+	if err != nil {
+		return nil, debugInvalid(fmt.Errorf("%w: %w", ErrDebugSignal, err))
+	}
+	if change := s.debugReadsToo(sess, send.named(sess)); change != "" {
+		delete(s.debug.sessions, sess.id)
+		sess.ended = change
+		sess.release()
+		return sess.snapshot(), nil
+	}
+	msg, err := sess.signalMessage(send)
 	if err != nil {
 		return nil, debugInvalid(fmt.Errorf("%w: %w", ErrDebugSignal, err))
 	}
@@ -804,20 +783,28 @@ func (s *Server) DebugSend(params *debugSendParams) (*debugSnapshot, error) {
 	return sess.snapshot(), nil
 }
 
-// signalMessage builds the message a send posts: typed by the signal definition
-// named, or by name alone when none is declared and no arguments are given.
-func (sess *debugSession) signalMessage(signal string, args map[string]string) (runtime.Message, error) {
-	sym := sess.signalDefinition(signal)
-	if sym == nil {
-		if len(args) > 0 {
-			return runtime.Message{}, fmt.Errorf("no signal definition %s is declared, so it cannot carry arguments", signal)
-		}
-		return runtime.NamedSignalMessage(signal, sess.performer()), nil
+// debugSend is a send as parsed: the signal named, its definition when one is
+// declared, and its arguments' expressions by name, sorted.
+type debugSend struct {
+	signal string
+	def    *symbols.Symbol
+	args   []debugArgument
+}
+
+type debugArgument struct {
+	name string
+	expr ast.Node
+}
+
+// parseSend reads the signal and arguments of a send, evaluating nothing yet.
+func (sess *debugSession) parseSend(signal string, args map[string]string) (*debugSend, error) {
+	send := &debugSend{signal: signal, def: sess.signalDefinition(signal)}
+	if send.def == nil && len(args) > 0 {
+		return nil, fmt.Errorf("no signal definition %s is declared, so it cannot carry arguments", signal)
 	}
-	if !runtime.IsSignalDefinition(sym) {
-		return runtime.Message{}, fmt.Errorf("%s is a %s, not a signal definition", signal, sym.Notation())
+	if send.def != nil && !runtime.IsSignalDefinition(send.def) {
+		return nil, fmt.Errorf("%s is a %s, not a signal definition", signal, send.def.Notation())
 	}
-	bound := make(map[string]runtime.Value, len(args))
 	names := make([]string, 0, len(args))
 	for name := range args {
 		names = append(names, name)
@@ -826,15 +813,100 @@ func (sess *debugSession) signalMessage(signal string, args map[string]string) (
 	for _, name := range names {
 		expr, err := parseDebugExpression(args[name])
 		if err != nil {
-			return runtime.Message{}, fmt.Errorf("argument %s: %w", name, err)
+			return nil, fmt.Errorf("argument %s: %w", name, err)
 		}
-		value, err := sess.rt.EvalWithScope(expr, sess.targetSym.OwnerScope)
-		if err != nil {
-			return runtime.Message{}, fmt.Errorf("argument %s: %w", name, err)
-		}
-		bound[name] = value
+		send.args = append(send.args, debugArgument{name: name, expr: expr})
 	}
-	return sess.rt.SignalMessage(sym, bound, sess.performer())
+	return send, nil
+}
+
+// named is the declarations the send reads: the signal's definition and what
+// its arguments name, as the session's runtime resolves them.
+func (send *debugSend) named(sess *debugSession) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	if send.def != nil {
+		out = append(out, send.def)
+	}
+	for _, arg := range send.args {
+		out = append(out, sess.runtime.Referenced(sess.targetSym.OwnerScope, arg.expr)...)
+	}
+	return out
+}
+
+// signalMessage builds the message a send posts: typed by the signal definition
+// named, or by name alone when none is declared.
+func (sess *debugSession) signalMessage(send *debugSend) (runtime.Message, error) {
+	if send.def == nil {
+		return runtime.NamedSignalMessage(send.signal, sess.performer()), nil
+	}
+	bound := make(map[string]runtime.Value, len(send.args))
+	for _, arg := range send.args {
+		value, err := sess.rt.EvalWithScope(arg.expr, sess.targetSym.OwnerScope)
+		if err != nil {
+			return runtime.Message{}, fmt.Errorf("argument %s: %w", arg.name, err)
+		}
+		bound[arg.name] = value
+	}
+	return sess.rt.SignalMessage(send.def, bound, sess.performer())
+}
+
+// debugReadsToo adds to what the session reads the declarations reachable from
+// named, checking the workspace still holds them as the runtime read them; the
+// change that says it does not ends the session, "" when it does.
+func (s *Server) debugReadsToo(sess *debugSession, named []*symbols.Symbol) string {
+	var roots []*symbols.Symbol
+	var keys []dependencyKey
+	for _, sym := range named {
+		if dep, ok := sess.runtime.DeclarationOf(sym); ok && !slices.Contains(sess.named, keyOf(dep)) && !slices.Contains(keys, keyOf(dep)) {
+			roots = append(roots, sym)
+			keys = append(keys, keyOf(dep))
+		}
+	}
+	if len(roots) == 0 {
+		return ""
+	}
+	fresh := sess.runtime.Dependencies(roots...)
+	known := make(map[dependencyKey]bool, len(sess.reads))
+	for _, dep := range sess.reads {
+		known[keyOf(dep)] = true
+	}
+	if slices.IndexFunc(fresh, func(dep model.Dependency) bool { return !known[keyOf(dep)] }) < 0 {
+		sess.named = append(sess.named, keys...)
+		return ""
+	}
+	var change string
+	_ = s.ws.Read(func(r *model.Reading) error {
+		roots, gone := sess.namedIn(r, keys)
+		if gone != "" {
+			change = gone
+			return nil
+		}
+		change = dependencyChange(r, sess.target, fresh, r.Dependencies(roots...))
+		return nil
+	})
+	if change != "" {
+		return change
+	}
+	for _, dep := range fresh {
+		if !known[keyOf(dep)] {
+			sess.reads = append(sess.reads, dep)
+		}
+	}
+	sess.named = append(sess.named, keys...)
+	return ""
+}
+
+// namedIn is the declarations keys name as r reads them, or why one is gone.
+func (sess *debugSession) namedIn(r *model.Reading, keys []dependencyKey) ([]*symbols.Symbol, string) {
+	roots := make([]*symbols.Symbol, 0, len(keys))
+	for _, key := range keys {
+		sym := r.Declared(key.doc, key.fqn)
+		if sym == nil {
+			return nil, fmt.Sprintf("%s is no longer declared", key.fqn)
+		}
+		roots = append(roots, sym)
+	}
+	return roots, ""
 }
 
 // signalDefinition is the definition signal names, by qualified name anywhere
@@ -1308,26 +1380,19 @@ func (sess *debugSession) rebind(r *model.Reading) bool {
 	if target == nil {
 		return end(fmt.Sprintf("%s is no longer declared", sess.target))
 	}
-	if r.DeclarationText(target) != sess.runtime.Text(sess.targetSym) {
-		return end(fmt.Sprintf("%s was edited", sess.target))
-	}
+	var object *symbols.Symbol
 	if sess.objectSym != nil {
-		object := r.Declared(sess.doc, sess.object)
-		if object == nil {
+		if object = r.Declared(sess.doc, sess.object); object == nil {
 			return end(fmt.Sprintf("%s is no longer declared", sess.object))
 		}
-		if r.DeclarationText(object) != sess.runtime.Text(sess.objectSym) {
-			return end(fmt.Sprintf("%s was edited", sess.object))
-		}
 	}
-	for _, in := range sess.inherited {
-		decl := r.Declared(in.doc, in.fqn)
-		if decl == nil {
-			return end(fmt.Sprintf("%s is no longer declared", in.fqn))
-		}
-		if r.DeclarationText(decl) != in.text {
-			return end(fmt.Sprintf("%s was edited", in.fqn))
-		}
+	roots, gone := sess.namedIn(r, sess.named)
+	if gone != "" {
+		return end(gone)
+	}
+	roots = append(roots, target, object)
+	if change := dependencyChange(r, sess.target, sess.reads, r.Dependencies(roots...)); change != "" {
+		return end(change)
 	}
 	rendering, doc, err := r.RenderView(sess.doc, sess.view)
 	if err != nil {
@@ -1339,13 +1404,6 @@ func (sess *debugSession) rebind(r *model.Reading) bool {
 	if sess.viewText != "" && r.DeclarationText(r.DeclaredView(sess.doc, sess.view)) != sess.viewText {
 		return end(fmt.Sprintf("%s was edited", sess.view))
 	}
-	root, err := view.RootDrawing(rendering, target)
-	if err != nil {
-		return end(fmt.Sprintf("%s no longer draws %s: %v", sess.view, sess.target, err))
-	}
-	if from := sess.unknownInherited(root, r.TextAt); from != "" {
-		return end(fmt.Sprintf("%s now takes content from %s", sess.target, from))
-	}
 	if doc.Version == sess.version && sameRendering(rendering, sess.rendering) {
 		return false
 	}
@@ -1355,30 +1413,44 @@ func (sess *debugSession) rebind(r *model.Reading) bool {
 	return true
 }
 
-// unknownInherited describes the first declaration the drawn root now takes
-// content from that the runtime did not, "" when the drawing takes from no other.
-func (sess *debugSession) unknownInherited(root *view.Node, textAt func(doc string, span source.Span) string) string {
-	known := make(map[debugInherited]bool, len(sess.inherited))
-	for _, in := range sess.inherited {
-		known[debugInherited{doc: in.doc, text: in.text}] = true
+// dependencyChange describes the first way the declarations target's run would
+// read now differ from those it read: one edited, one it did not read, or one
+// gone; "" for none.
+func dependencyChange(r *model.Reading, target string, was, now []model.Dependency) string {
+	before := make(map[dependencyKey]bool, len(was))
+	for _, dep := range was {
+		before[keyOf(dep)] = true
 	}
-	for _, origin := range root.Inherited {
-		text := textAt(origin.Doc, origin.Span)
-		if !known[debugInherited{doc: origin.Doc, text: text}] {
-			return fmt.Sprintf("%s in %s", debugHeadline(text), origin.Doc)
+	after := make(map[dependencyKey]string, len(now))
+	for _, dep := range now {
+		after[keyOf(dep)] = dep.Text
+	}
+	for _, dep := range was {
+		if text, ok := after[keyOf(dep)]; ok && text != dep.Text {
+			return fmt.Sprintf("%s was edited", dep.Name())
 		}
+	}
+	for _, dep := range now {
+		if !before[keyOf(dep)] {
+			return fmt.Sprintf("%s now reads %s", target, dep.Name())
+		}
+	}
+	for _, dep := range was {
+		if _, ok := after[keyOf(dep)]; ok {
+			continue
+		}
+		if r.Declared(dep.Doc, dep.FQN) == nil {
+			return fmt.Sprintf("%s is no longer declared", dep.Name())
+		}
+		return fmt.Sprintf("%s no longer reads %s", target, dep.Name())
 	}
 	return ""
 }
 
-// debugHeadline is the first line of a declaration, as far as its body opens.
-func debugHeadline(text string) string {
-	line, _, _ := strings.Cut(text, "\n")
-	if head, _, ok := strings.Cut(line, "{"); ok {
-		line = head
-	}
-	return strings.TrimSpace(line)
-}
+// dependencyKey names a dependency apart from its text.
+type dependencyKey struct{ doc, fqn string }
+
+func keyOf(dep model.Dependency) dependencyKey { return dependencyKey{dep.Doc, dep.FQN} }
 
 // sameRendering reports whether two renderings draw the same nodes and edges
 // under the same IDs.

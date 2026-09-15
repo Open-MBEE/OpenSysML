@@ -20,14 +20,11 @@ import (
 // document set plus the global symbol index. Mutations are serialized under a
 // write lock; reads take a read lock.
 type Workspace struct {
-	mu     sync.RWMutex
-	docs   map[string]*Document
-	onDisk map[string][]byte // last-known on-disk bytes, used when a doc is not open
-	open   map[string]bool   // names with an authoritative open buffer
-	index  *symbols.Index
-	// libBase is the frozen library index this workspace's index overlays, nil
-	// for a caller-built index.
-	libBase   *symbols.Index
+	mu        sync.RWMutex
+	docs      map[string]*Document
+	onDisk    map[string][]byte // last-known on-disk bytes, used when a doc is not open
+	open      map[string]bool   // names with an authoritative open buffer
+	index     *symbols.Index
 	diagCache map[string][]passes.Diagnostic
 	// refs is the reverse reference index, nil until a query after a change
 	// rebuilds it (see refindex.go).
@@ -64,9 +61,7 @@ func WithLibrarySource(src libs.Source) Option {
 func NewWorkspace(opts ...Option) *Workspace {
 	base, src := libs.SharedLibrary()
 	opts = append([]Option{WithLibrarySource(src)}, opts...)
-	w := NewWorkspaceWithIndex(symbols.NewOverlay(base), opts...)
-	w.libBase = base
-	return w
+	return NewWorkspaceWithIndex(symbols.NewOverlay(base), opts...)
 }
 
 // NewWorkspaceWithIndex returns a workspace over a caller-built index, for a

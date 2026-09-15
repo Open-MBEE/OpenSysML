@@ -677,6 +677,57 @@ func TestDebugAdvancePausesOnATransientState(t *testing.T) {
 	}
 }
 
+// debugJunction is a machine whose signal routes through a junction deciding on
+// a counter.
+const debugJunction = `package Routing {
+	private import ScalarValues::*;
+	state def Ops {
+		attribute count : Integer = 0;
+		entry; then idle;
+		state idle;
+		junction route;
+		state low;
+		state high;
+		transition first idle accept Go do assign count := count + 1 then route;
+		transition first route if count > 5 then high;
+		transition first route then low;
+	}
+	attribute def Go;
+}
+package RoutingViews {
+	private import StandardViewDefinitions::*;
+	view opsView : StateTransitionView { expose Routing::Ops; }
+}
+`
+
+// A breakpoint on a pseudostate pauses the run once the dispatch routed through
+// it completes, the pseudostate reported as where it paused.
+func TestDebugBreakpointOnAPseudostatePauses(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/j.sysml", debugJunction)
+	id := ids(t, render(t, s, docURI, "RoutingViews::opsView"))
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "RoutingViews::opsView", Target: "Routing::Ops",
+	})
+	session := snap.Session
+	snap = mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["route"]}})
+	wantStrings(t, "breakpoints", snap.Breakpoints, []string{id["route"]})
+
+	mustDebug(t, s, MethodDebugSend, &debugSendParams{Session: session, Signal: "Routing::Go"})
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	wantState(t, snap, debugSuspended)
+	if snap.PausedAt != id["route"] || !strings.Contains(snap.Reason, "breakpoint route") {
+		t.Errorf("pausedAt = %q reason = %q, want the breakpoint on route", snap.PausedAt, snap.Reason)
+	}
+	wantStrings(t, "active at the breakpoint", snap.ActiveStates, []string{id["low"]})
+	wantStrings(t, "taken to the breakpoint", edges(snap.Taken), []string{id["idle"] + "->" + id["route"], id["route"] + "->" + id["low"]})
+
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: session})
+	if snap.PausedAt != "" {
+		t.Errorf("pausedAt = %q after resuming, want none", snap.PausedAt)
+	}
+}
+
 // debugCounter is a robot whose machine counts the timer firing; guards then
 // tell one firing from two.
 const debugCounter = `package Counting {
@@ -1219,7 +1270,7 @@ func TestDebugSessionEndsWhenInheritedContentChanges(t *testing.T) {
 			"state def Base {", "state def Root {", "Inherited::Base is no longer declared"},
 		{"state definition specialized is shadowed", "InheritedViews::derivedView", "Inherited::Sub::Derived",
 			"state def Derived :> Base;", "state def Base { entry; then off; state off; }\n\t\tstate def Derived :> Base;",
-			"Inherited::Sub::Derived now takes content from state def Base in /w/i.sysml"},
+			"Inherited::Sub::Derived now reads Inherited::Sub::Base"},
 		{"state definition typing a nested state", "InheritedViews::typingView", "Inherited::Sub::Typing",
 			"state done;", "state done;\n\t\tstate cooling;", "Inherited::Base was edited"},
 		{"action definition specialized", "InheritedViews::flowView", "Inherited::Sub::DerivedFlow",
@@ -1247,6 +1298,158 @@ func TestDebugSessionEndsWhenInheritedContentChanges(t *testing.T) {
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "InheritedViews::derivedView", Target: "Inherited::Sub::Derived",
 	})
 	s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugDerived, "attribute def Go;", "attribute def Go;\n\tattribute def Stop;", 1)}}, 2)
+	changed := rec.debugChanged()
+	if len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State == debugEnded {
+		t.Fatalf("debugChanged after an unrelated edit = %v", changed)
+	}
+}
+
+// debugReads is a machine and an action whose run reads beyond what they
+// inherit: a performer's supertype and feature types, an invoked action, a
+// signal's schema and a value named from another package.
+const debugReads = `package Consts {
+	private import ScalarValues::*;
+	attribute threshold : Integer = 2;
+	attribute boost : Integer = 7;
+}
+package Deps {
+	private import ScalarValues::*;
+	attribute def Speed { attribute level : Integer; }
+	item def Cargo { attribute mass : Real = 1.0; }
+	part def Base { attribute limit : Integer = 3; }
+	action def Brake { action grip; }
+	action def Drive {
+		action brake : Brake;
+		first start;
+		then brake;
+		then done;
+	}
+	state def Ops {
+		entry; then idle;
+		state idle;
+		transition first idle accept s : Speed if s.level > Consts::threshold then run;
+		state run;
+	}
+	package Bots {
+		part def Robot :> Base {
+			attribute load : Cargo;
+			perform action drive : Drive;
+			exhibit state ops : Ops;
+		}
+	}
+}
+package DepViews {
+	private import StandardViewDefinitions::*;
+	view opsView : StateTransitionView { expose Deps::Ops; }
+	view driveView : ActionFlowView { expose Deps::Drive; }
+}
+`
+
+// A session ends when any declaration its run reads is edited: the performer's
+// supertype or a feature's type, an invoked action, a signal's schema, a value a
+// guard names, or one a send's argument named; and only when one is.
+func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
+	ctx := context.Background()
+	lastEnd := func(t *testing.T, rec *debugRecorder, session string) *debugSnapshot {
+		t.Helper()
+		changed := rec.debugChanged()
+		if len(changed) == 0 {
+			t.Fatal("no debugChanged was sent")
+		}
+		last := changed[len(changed)-1]
+		if last.Session != session || last.State != debugEnded {
+			t.Fatalf("last debugChanged = %s, want %s ended", describe(last), session)
+		}
+		return last
+	}
+	cases := []struct {
+		name, view, target, object, old, new, reason string
+	}{
+		{"performer supertype", "DepViews::opsView", "Deps::Ops", "Deps::Bots::Robot",
+			"limit : Integer = 3", "limit : Integer = 4", "Deps::Base was edited"},
+		{"performer feature type", "DepViews::opsView", "Deps::Ops", "Deps::Bots::Robot",
+			"mass : Real = 1.0", "mass : Real = 2.0", "Deps::Cargo was edited"},
+		{"invoked action", "DepViews::driveView", "Deps::Drive", "",
+			"action grip;", "action grip; action release;", "Deps::Brake was edited"},
+		{"signal schema", "DepViews::opsView", "Deps::Ops", "",
+			"attribute level : Integer;", "attribute level : Real;", "Deps::Speed was edited"},
+		{"value a guard names", "DepViews::opsView", "Deps::Ops", "",
+			"threshold : Integer = 2", "threshold : Integer = 5", "Consts::threshold was edited"},
+		{"value a guard names is removed", "DepViews::opsView", "Deps::Ops", "",
+			"threshold : Integer = 2", "limit : Integer = 2", "Consts::threshold is no longer declared"},
+		{"performer supertype resolves elsewhere", "DepViews::opsView", "Deps::Ops", "Deps::Bots::Robot",
+			"package Bots {", "package Bots {\n\t\tpart def Base;", "Deps::Ops now reads Deps::Bots::Base"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s, docURI, rec := debugServer(t, "/w/d.sysml", debugReads)
+			snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: tc.view, Target: tc.target, Object: tc.object,
+			})
+			if strings.Count(debugReads, tc.old) != 1 {
+				t.Fatalf("fixture writes %q %d times", tc.old, strings.Count(debugReads, tc.old))
+			}
+			s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugReads, tc.old, tc.new, 1)}}, 2)
+			if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, tc.reason) {
+				t.Errorf("reason = %q, want it to name %q", reason, tc.reason)
+			}
+		})
+	}
+
+	t.Run("signal a bare trigger names", func(t *testing.T) {
+		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "MachineViews::opsView", Target: "Machines::Ops",
+		})
+		edited := strings.Replace(debugMachine, "attribute def Halt;", "attribute def Halt { attribute why : Integer; }", 1)
+		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: edited}}, 2)
+		if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, "Machines::Halt was edited") {
+			t.Errorf("reason = %q, want it to name Machines::Halt", reason)
+		}
+	})
+
+	t.Run("value a send named", func(t *testing.T) {
+		s, docURI, rec := debugServer(t, "/w/d.sysml", debugReads)
+		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops",
+		})
+		edited := strings.Replace(debugReads, "boost : Integer = 7", "boost : Integer = 8", 1)
+		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: edited}}, 2)
+		if changed := rec.debugChanged(); len(changed) != 1 || changed[0].State == debugEnded {
+			t.Fatalf("debugChanged after editing a value the run has not read = %v", changed)
+		}
+		sent := mustDebug(t, s, MethodDebugSend, &debugSendParams{
+			Session: snap.Session, Signal: "Speed", Args: map[string]string{"level": "Consts::boost"},
+		})
+		if sent.State != debugEnded || !strings.Contains(sent.Reason, "Consts::boost was edited") {
+			t.Fatalf("send naming an edited value = %s, want ended for Consts::boost", describe(sent))
+		}
+		if _, err := s.DebugStep(&debugSessionParams{Session: snap.Session}); !errors.Is(err, ErrDebugSession) {
+			t.Errorf("step after the end: %v, want %v", err, ErrDebugSession)
+		}
+
+		s, docURI, rec = debugServer(t, "/w/d.sysml", debugReads)
+		snap = mustDebug(t, s, MethodDebugStart, &debugStartParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops",
+		})
+		sent = mustDebug(t, s, MethodDebugSend, &debugSendParams{
+			Session: snap.Session, Signal: "Speed", Args: map[string]string{"level": "Consts::boost"},
+		})
+		if sent.State == debugEnded {
+			t.Fatalf("send naming an unchanged value = %s", describe(sent))
+		}
+		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: edited}}, 2)
+		if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, "Consts::boost was edited") {
+			t.Errorf("reason = %q, want it to name Consts::boost", reason)
+		}
+	})
+
+	// An edit to a declaration the run never reads leaves the session running.
+	s, docURI, rec := debugServer(t, "/w/d.sysml", debugReads)
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops", Object: "Deps::Bots::Robot",
+	})
+	s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugReads, "boost : Integer = 7", "boost : Integer = 8", 1)}}, 2)
 	changed := rec.debugChanged()
 	if len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State == debugEnded {
 		t.Fatalf("debugChanged after an unrelated edit = %v", changed)

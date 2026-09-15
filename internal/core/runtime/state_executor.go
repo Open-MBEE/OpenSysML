@@ -69,11 +69,12 @@ type StateExecutor struct {
 	// included; a debugger reads what a step took from a mark.
 	fired []FiredTransition
 
-	// breakpointNodes are the states a run pauses on entering; breakpointHit the
-	// first the dispatch under way entered, pausedState the one the run paused at.
-	breakpointNodes map[*ast.StateNode]bool
+	// breakpointNodes are the vertices a run pauses on entering or passing through;
+	// breakpointHit the first state the dispatch under way entered, pausedAt the
+	// vertex the run paused at.
+	breakpointNodes map[ast.Node]bool
 	breakpointHit   *ast.StateNode
-	pausedState     *ast.StateNode
+	pausedAt        ast.Node
 
 	// doActions are the running do behaviors, in the order their states were
 	// entered. Concurrently active states interleave one action per round, so this
@@ -233,7 +234,7 @@ func newStateExecutorOn(
 		timerScheduled:     make(map[*lower.Transition]bool),
 		timeTriggerVerdict: make(map[*lower.Transition]error),
 		changeFired:        make(map[*lower.Transition]bool),
-		breakpointNodes:    make(map[*ast.StateNode]bool),
+		breakpointNodes:    make(map[ast.Node]bool),
 		activeConfig: &StateConfiguration{
 			regionStates: make(map[*ast.StateRegion]*ast.StateNode),
 		},
@@ -391,8 +392,9 @@ func (e *StateExecutor) evalStepOf(owner ast.Node, node ast.Node, scope *symbols
 	return ec.Eval(node)
 }
 
-// getNodeName returns the name of a StateNode or PseudostateNode.
-func getNodeName(node ast.Node) string {
+// StateVertexName returns the name of a StateNode or PseudostateNode, "" for
+// any other node.
+func StateVertexName(node ast.Node) string {
 	switch n := node.(type) {
 	case *ast.StateNode:
 		return n.Name
@@ -576,25 +578,37 @@ func (e *StateExecutor) processNextEvent() error {
 	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
 	e.lastEventAt = e.ctx.clock.now
 
+	mark := len(e.fired)
 	dispatch, err := e.dispatchEvent(event)
 	if err != nil {
 		return err
 	}
 	e.lastDispatch = &dispatch
 	e.recallDeferredEvents()
-	e.pauseAtBreakpoint()
+	e.pauseAtBreakpoint(mark)
 	return nil
 }
 
-// pauseAtBreakpoint suspends the machine at the breakpoint state the dispatch
-// just done entered, leaving whatever is still due to the next run.
-func (e *StateExecutor) pauseAtBreakpoint() {
-	hit := e.breakpointHit
+// pauseAtBreakpoint suspends the machine at the breakpoint vertex the dispatch
+// just done passed or entered, leaving whatever is still due to the next run. A
+// pseudostate passed is read from the transitions the dispatch fired, so a
+// failed firing pauses on none.
+func (e *StateExecutor) pauseAtBreakpoint(mark int) {
+	var hit ast.Node
+	for _, fired := range e.fired[mark:] {
+		if _, ok := fired.Target.(*ast.PseudostateNode); ok && e.breakpointNodes[fired.Target] {
+			hit = fired.Target
+			break
+		}
+	}
+	if hit == nil && e.breakpointHit != nil {
+		hit = e.breakpointHit
+	}
 	e.breakpointHit = nil
 	if hit == nil || e.state != StateRunning {
 		return
 	}
-	e.pausedState = hit
+	e.pausedAt = hit
 	e.state = StateSuspended
 }
 
@@ -641,7 +655,7 @@ func (e *StateExecutor) eventLabel(event Event) string {
 	if trans, ok := event.Payload.(*lower.Transition); ok && event.Type == EventTime {
 		transitions := e.graph.Transitions[trans.Source]
 		if pos := slices.Index(transitions, trans); pos >= 0 {
-			return fmt.Sprintf("time %s %s", getNodeName(trans.Source), transitionName(transitions, pos))
+			return fmt.Sprintf("time %s %s", StateVertexName(trans.Source), transitionName(transitions, pos))
 		}
 		return transitionDescription(trans)
 	}
@@ -692,6 +706,14 @@ func (e *StateExecutor) noteFired(transitions ...*lower.Transition) {
 		if trans != nil && trans.Decl != nil {
 			e.fired = append(e.fired, FiredTransition{Decl: trans.Decl, Source: trans.Source, Target: trans.Target})
 		}
+	}
+}
+
+// unfireOnError drops the transitions logged since mark when *err is set: a
+// firing that failed midway took none of them.
+func (e *StateExecutor) unfireOnError(mark int, err *error) {
+	if *err != nil {
+		e.fired = e.fired[:mark]
 	}
 }
 
@@ -1374,7 +1396,7 @@ func (e *StateExecutor) unevaluableTransition(state *ast.StateNode, transitions 
 
 // transitionName names a transition out of a state by declared position and target.
 func transitionName(transitions []*lower.Transition, pos int) string {
-	return fmt.Sprintf("%d->%s", pos+1, getNodeName(transitions[pos].Target))
+	return fmt.Sprintf("%d->%s", pos+1, StateVertexName(transitions[pos].Target))
 }
 
 // transitionWhere names the state and the event trans reacts to, for a note.
@@ -1575,7 +1597,8 @@ func (e *StateExecutor) triggerMatches(trigger ast.Node, scope *symbols.Scope, e
 
 // fireTransition takes a state transition, reporting whether it was taken: one
 // whose guard is false leaves the machine where it is.
-func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (bool, error) {
+func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (fired bool, err error) {
+	defer e.unfireOnError(len(e.fired), &err)
 	pass, err := e.passesGuard(trans)
 	if err != nil || !pass {
 		return false, err
@@ -1876,7 +1899,7 @@ func transitionDescription(trans *lower.Transition) string {
 		return fmt.Sprintf("transition %s", trans.Name)
 	}
 	return fmt.Sprintf("transition %s -> %s",
-		orAny(getNodeName(trans.Source)), orAny(getNodeName(trans.Target)))
+		orAny(StateVertexName(trans.Source)), orAny(StateVertexName(trans.Target)))
 }
 
 // recordHistory returns state's history record, creating it on first use.
@@ -2085,7 +2108,7 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 		return fmt.Errorf("schedule events: %w", err)
 	}
 	if e.trace() != nil {
-		e.trace().RecordStateTransition(getNodeName(trans.Source), fork.Name, "")
+		e.trace().RecordStateTransition(StateVertexName(trans.Source), fork.Name, "")
 	}
 	return nil
 }
@@ -2365,7 +2388,7 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 	// Suspension is derived at quiescence, so re-running is allowed: a run that
 	// finds nothing to do suspends again.
 	if e.state == StateSuspended {
-		e.state, e.pausedState = StateRunning, nil
+		e.state, e.pausedAt = StateRunning, nil
 	}
 
 	for e.state == StateRunning {
@@ -2453,7 +2476,7 @@ type transitionWait struct {
 }
 
 func (w transitionWait) String() string {
-	return fmt.Sprintf("%s -> %s", triggerName(w.trans.Trigger), getNodeName(w.trans.Target))
+	return fmt.Sprintf("%s -> %s", triggerName(w.trans.Trigger), StateVertexName(w.trans.Target))
 }
 
 // dueWork reports an event due, a signal in flight this machine takes, or a do
@@ -2473,7 +2496,7 @@ func (e *StateExecutor) watchesChange() bool {
 // drivable is a machine the clock may run: initialized, not completed, and not
 // paused at a breakpoint, which holds its work until its driver resumes it.
 func (e *StateExecutor) drivable() bool {
-	return (e.state == StateRunning || e.state == StateSuspended) && e.pausedState == nil
+	return (e.state == StateRunning || e.state == StateSuspended) && e.pausedAt == nil
 }
 
 // runDue runs the machine to quiescence at the current instant.
@@ -2493,7 +2516,7 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 	e.inRun = true
 	defer func() { e.inRun = wasRunning }()
 	if e.state == StateSuspended {
-		e.state, e.pausedState = StateRunning, nil
+		e.state, e.pausedAt = StateRunning, nil
 	}
 	if e.state != StateRunning {
 		return false, nil
@@ -2894,7 +2917,7 @@ func (e *StateExecutor) resumeDoBehaviors(taking []*doAction, m Message) ([]stri
 
 // doBehaviorDescription names a state's do behavior as decisions and dispatches report it.
 func doBehaviorDescription(state *ast.StateNode) string {
-	return "do behavior of state " + getNodeName(state)
+	return "do behavior of state " + StateVertexName(state)
 }
 
 // settleDoActions drops the do behaviors that have finished and schedules the
@@ -3281,6 +3304,7 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 func (e *StateExecutor) initialize() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
+	defer e.unfireOnError(len(e.fired), &err)
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 
 	// A machine without orthogonal regions of its own starts in the state its
@@ -3916,26 +3940,35 @@ func (e *StateExecutor) Resume() bool {
 	if e.state != StateSuspended {
 		return false
 	}
-	e.state, e.pausedState = StateRunning, nil
+	e.state, e.pausedAt = StateRunning, nil
 	return true
 }
 
-// SetBreakpointAt pauses a run once the dispatch entering state completes, even
-// one leaving it again; what is still due then waits until the machine resumes.
-func (e *StateExecutor) SetBreakpointAt(state *ast.StateNode) {
-	if state != nil {
-		e.breakpointNodes[state] = true
+// SetBreakpointAt pauses a run once the dispatch entering the state, or passing
+// through the pseudostate, completes, even one leaving the state again; what is
+// still due then waits until the machine resumes. Other nodes are ignored.
+func (e *StateExecutor) SetBreakpointAt(vertex ast.Node) {
+	switch v := vertex.(type) {
+	case *ast.StateNode:
+		if v != nil {
+			e.breakpointNodes[v] = true
+		}
+	case *ast.PseudostateNode:
+		if v != nil {
+			e.breakpointNodes[v] = true
+		}
 	}
 }
 
 // ClearBreakpoints removes every breakpoint; a pause already reached stands.
 func (e *StateExecutor) ClearBreakpoints() {
-	e.breakpointNodes = make(map[*ast.StateNode]bool)
+	e.breakpointNodes = make(map[ast.Node]bool)
 }
 
-// PausedState is the breakpoint state the last run paused at, nil when none did.
-func (e *StateExecutor) PausedState() *ast.StateNode {
-	return e.pausedState
+// PausedAt is the breakpoint state or pseudostate the last run paused at, nil
+// when none did.
+func (e *StateExecutor) PausedAt() ast.Node {
+	return e.pausedAt
 }
 
 // Suspend parks a running machine back at quiescence, for a driver that resumed
