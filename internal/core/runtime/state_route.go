@@ -46,7 +46,14 @@ type junctionDraw struct {
 	outgoing []*lower.Transition
 	enabled  []int
 	// beyond is the route on from each enabled branch, in enabled's order.
-	beyond []route
+	beyond []branchBeyond
+}
+
+// branchBeyond is the route on from one enabled branch, or why it could not be
+// settled — a dead end only the run that draws the branch runs into.
+type branchBeyond struct {
+	route route
+	err   error
 }
 
 // settled reports whether the route has somewhere to move to.
@@ -121,13 +128,10 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 		return route{}, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
 	}
 	if len(enabled) > 1 {
-		draw := &junctionDraw{at: ps, outgoing: outgoing, enabled: enabled, beyond: make([]route, len(enabled))}
+		draw := &junctionDraw{at: ps, outgoing: outgoing, enabled: enabled, beyond: make([]branchBeyond, len(enabled))}
 		for i, pos := range enabled {
 			beyond, err := e.follow(ps, outgoing[pos], route{crossed: slices.Clone(r.crossed)})
-			if err != nil {
-				return route{}, err
-			}
-			draw.beyond[i] = beyond
+			draw.beyond[i] = branchBeyond{route: beyond, err: err}
 		}
 		r.draw = draw
 		return r, nil
@@ -139,8 +143,9 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 // is committed to fire and nothing has moved yet: the policy draws among the
 // enabled branches, as a choice point among the route's notes, and the route goes
 // on along the one drawn as it was settled when the transition was selected, no
-// guard beyond read again; a draw the witness refuses is the refusal, and the
-// route is left where it was.
+// guard beyond read again; a branch that could not be settled fails the run
+// that draws it, the draw among its notes. A draw the witness refuses is the
+// refusal, and the route is left where it was.
 func (e *StateExecutor) settleDraws(r route) (route, error) {
 	for r.draw != nil {
 		draw := r.draw
@@ -149,7 +154,11 @@ func (e *StateExecutor) settleDraws(r route) (route, error) {
 		if err != nil {
 			return route{}, err
 		}
-		r = r.onward(draw.beyond[pick])
+		beyond := draw.beyond[pick]
+		if beyond.err != nil {
+			return r, fmt.Errorf("evaluate pseudostate: %w", beyond.err)
+		}
+		r = r.onward(beyond.route)
 	}
 	return r, nil
 }
@@ -312,8 +321,9 @@ func pseudostateWhere(ps *ast.PseudostateNode) string {
 }
 
 // reachable lists the states the route open at a choice or a draw can end in:
-// along the route settled beyond each branch of the junction enabled, or through
-// every branch of the choice and whatever pseudostates lie beyond, each once.
+// along the route settled beyond each branch of the junction enabled (one that
+// could not be settled ends nowhere), or through every branch of the choice and
+// whatever pseudostates lie beyond, each once.
 func (e *StateExecutor) reachable(r route) ([]*ast.StateNode, error) {
 	var states []*ast.StateNode
 	seen := make(map[*ast.PseudostateNode]bool)
@@ -356,7 +366,10 @@ func (e *StateExecutor) reachable(r route) ([]*ast.StateNode, error) {
 		}
 		if r.draw != nil {
 			for _, beyond := range r.draw.beyond {
-				if err := settled(beyond); err != nil {
+				if beyond.err != nil {
+					continue
+				}
+				if err := settled(beyond.route); err != nil {
 					return err
 				}
 			}
@@ -480,11 +493,12 @@ func (e *StateExecutor) travelChoosing(choosing bool, r route, exits exitPlan, m
 func (e *StateExecutor) travelResolving(r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
 	if r.draw != nil {
 		var err error
-		if r, err = e.settleDraws(r); err != nil {
-			return err
-		}
+		r, err = e.settleDraws(r)
 		e.ctx.noteAll(r.notes)
 		r.notes = nil
+		if err != nil {
+			return err
+		}
 	}
 	for r.choice != nil {
 		targets, err := e.reachable(r)

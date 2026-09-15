@@ -524,6 +524,83 @@ func TestExploreStaticJunctionBranches(t *testing.T) {
 	}
 }
 
+// A junction with two branches enabled, one of them on to a junction none of
+// whose guards holds: the draw is still made, and the dead end is the outcome of
+// the run that draws it alone, not a failure of the transition into the first.
+func TestExploreJunctionBranchBeyondWhichNoGuardHolds(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			junction split;
+			junction stuck;
+			state ready;
+			state never;
+			transition first idle accept go then split;
+			transition first split then ready;
+			transition first split then stuck;
+			transition first stuck if level > 0 then never;
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	run := func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	declared, err := ParseSchedulePolicy("declared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.SetSchedule(declared); err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := run(ctx)
+	if err != nil {
+		t.Fatalf("declared: %v, want the branch into ready taken", err)
+	}
+	if got := outcome.String(); got != "finalState ready; visits idle, ready; level = 0" {
+		t.Fatalf("declared: outcome %q, want ready reached", got)
+	}
+
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := Explore(context.Background(), policy, m.fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	}
+	got := outcomeTexts(x)
+	if len(got) != 2 || got[1] != "finalState ready; visits idle, ready; level = 0" {
+		t.Fatalf("outcomes %v, want the dead end at stuck and ready", got)
+	}
+	if !strings.HasPrefix(got[0], "error: ") || !strings.HasSuffix(got[0], "fire transition out of idle: evaluate pseudostate: junction stuck: no guard evaluated to true") {
+		t.Fatalf("outcomes %v, want the first the dead end at stuck, met as the transition fires", got)
+	}
+	w := x.Outcomes[0].Witness
+	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "junction split" || !strings.HasSuffix(w[0].Took, "->stuck") {
+		t.Fatalf("witness of the dead end %v, want the branch of junction split into stuck", w)
+	}
+}
+
 // A junction with two branches enabled in one region, whose incoming guard the
 // other region's effect disarms: the branch is drawn only as the transition
 // fires, after the region order, so a witness lists the order first and the run
