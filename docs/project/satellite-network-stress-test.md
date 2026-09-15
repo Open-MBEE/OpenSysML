@@ -194,15 +194,15 @@ source of both forms.
 go run ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -stats > legacy.sysml
 # satellites=12800 definitions=12800 units=12800 ground-stations=20 components=256080 connections=204400 requirements=38400 elements=2354827 bytes=145364954
 go run ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -fleet -stats > fleet.sysml
-# satellites=12800 definitions=4 units=800 ground-stations=20 components=960 connections=724 requirements=12 elements=12467 bytes=765501
+# satellites=12800 definitions=4 units=800 ground-stations=20 components=960 connections=724 requirements=12 elements=12467 bytes=770621
 ```
 
 | satellites | planes × per plane | form | definitions | units | elements | source | `-validate` wall | allocated | peak RSS |
 | ---------- | ------------------ | ---- | ----------- | ----- | -------- | ------ | ---------------- | --------- | -------- |
 | 1 600 | 8 × 200 | one definition per satellite | 1 600 | 1 600 | 294 627 | 18.1 MB | 17.5 s | 5.5 GiB | 2.6 GB |
-| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 203 | 191 KB | 0.17 s | 93 MiB | 106 MB |
+| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 203 | 193 KB | 0.17 s | 93 MiB | 106 MB |
 | 12 800 | 32 × 400 | one definition per satellite | 12 800 | 12 800 | 2 354 827 | 145 MB | 301 s | 43.5 GiB | 20.1 GB |
-| 12 800 | 32 × 400 | fleet | 4 | 800 | 12 467 | 766 KB | 0.57 s | 254 MiB | 175 MB |
+| 12 800 | 32 × 400 | fleet | 4 | 800 | 12 467 | 771 KB | 0.57 s | 254 MiB | 175 MB |
 
 The single-definition rows here are the plane and station layout the fleet
 uses, so the two forms describe the same planes and stations; the validation table above
