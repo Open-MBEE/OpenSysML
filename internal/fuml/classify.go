@@ -370,7 +370,8 @@ func dependencies(a *Activity) []*Activity {
 		case StartObjectBehaviorAction:
 			for _, p := range n.Inputs() {
 				if p.Role == "object" {
-					for _, t := range objectTypes(p, map[*Node]bool{}) {
+					types, _ := objectTypes(p, map[*Node]bool{})
+					for _, t := range types {
 						take(classifierBehavior(a.Model, t))
 					}
 				}
@@ -382,26 +383,33 @@ func dependencies(a *Activity) []*Activity {
 
 // objectTypes lists the types the objects reaching a pin may have: the
 // classifiers of the sources its object flows lead back to (a created object
-// has its classifier), through typed or untyped nodes; a pin's own type is only
-// a fallback, since a pin typed by a superclass may receive a subclass's object.
-func objectTypes(n *Node, visited map[*Node]bool) []TypeRef {
+// has its classifier), through typed or untyped nodes. The node's own type
+// stands in for every path that reaches no typed source, since a pin typed by
+// a superclass may receive a subclass's object; resolved is false when some
+// path found no type and the node has none to stand in.
+func objectTypes(n *Node, visited map[*Node]bool) (types []TypeRef, resolved bool) {
 	if visited[n] {
-		return nil
+		return nil, true
 	}
 	visited[n] = true
 	if n.Kind == OutputPin && n.Owner != nil && n.Owner.Kind == CreateObjectAction && !n.Owner.Classifier.Zero() {
-		return []TypeRef{n.Owner.Classifier}
+		return []TypeRef{n.Owner.Classifier}, true
 	}
-	var types []TypeRef
+	fed, resolved := false, true
 	for _, e := range n.Incoming {
 		if e.Kind == ObjectFlow && e.Source != nil {
-			types = append(types, objectTypes(e.Source, visited)...)
+			found, ok := objectTypes(e.Source, visited)
+			fed, resolved = fed || len(found) > 0, resolved && ok
+			types = append(types, found...)
 		}
 	}
-	if len(types) == 0 && !n.Type.Zero() {
-		return []TypeRef{n.Type}
+	if fed && resolved {
+		return types, true
 	}
-	return types
+	if !n.Type.Zero() {
+		return append(types, n.Type), true
+	}
+	return types, false
 }
 
 // classifierBehavior is the behavior an object of the type runs when started:

@@ -271,7 +271,14 @@ const refiringModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f3" source="cwr2" target="workerFork"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f4" source="workerFork" target="swo"/>
   </packagedElement>
-  <packagedElement xmi:type="uml:Class" xmi:id="entity" name="Entity" isActive="true"/>
+  <packagedElement xmi:type="uml:Class" xmi:id="entity" name="Entity" isActive="true" classifierBehavior="entityPatrol">
+    <ownedBehavior xmi:type="uml:Activity" xmi:id="entityPatrol" name="Patrol">
+      <node xmi:type="uml:ReadExtentAction" xmi:id="readEntities" name="ReadExtent(Entity)" classifier="entity">
+        <result xmi:type="uml:OutputPin" xmi:id="rer" name="result"/>
+      </node>
+    </ownedBehavior>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="drone" name="Drone"/>
   <packagedElement xmi:type="uml:Activity" xmi:id="g" name="GeneralLauncher">
     <node xmi:type="uml:CreateObjectAction" xmi:id="createWorker3" name="Create(Worker)" classifier="worker">
       <result xmi:type="uml:OutputPin" xmi:id="cwr3" name="result" type="worker"/>
@@ -280,6 +287,20 @@ const refiringModel = `<?xml version="1.0" encoding="UTF-8"?>
       <object xmi:type="uml:InputPin" xmi:id="seo" name="object" type="entity"/>
     </node>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f5" source="cwr3" target="seo"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="h" name="MixedLauncher">
+    <ownedParameter xmi:id="mlp" name="given" direction="in"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="givenNode" name="given" parameter="mlp"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createDrone" name="Create(Drone)" classifier="drone">
+      <result xmi:type="uml:OutputPin" xmi:id="cdr" name="result"/>
+    </node>
+    <node xmi:type="uml:MergeNode" xmi:id="mixedMerge" name="Merge"/>
+    <node xmi:type="uml:StartObjectBehaviorAction" xmi:id="startMixed" name="Start(Entity)">
+      <object xmi:type="uml:InputPin" xmi:id="smo" name="object" type="entity"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f6" source="givenNode" target="mixedMerge"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f7" source="cdr" target="mixedMerge"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f8" source="mixedMerge" target="smo"/>
   </packagedElement>
 </uml:Model>
 `
@@ -364,6 +385,11 @@ func TestClassifyFilesReFiringByItsCause(t *testing.T) {
 		if c := Classify(activity(t, m, name), nil); c.Class != NotExpressible || c.Reason() != want {
 			t.Errorf("%s = %s: %s", name, c.Class, c.Reason())
 		}
+	}
+	// A pin's own type stands in for the objects whose source has none.
+	want = "dependency on a not-expressible behavior (a behavior it calls or starts is itself not expressible): Patrol (ReadExtentAction)"
+	if c := Classify(activity(t, m, "MixedLauncher"), nil); c.Class != NotExpressible || c.Reason() != want {
+		t.Errorf("MixedLauncher = %s: %s", c.Class, c.Reason())
 	}
 }
 
